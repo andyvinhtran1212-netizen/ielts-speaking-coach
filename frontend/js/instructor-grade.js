@@ -11,7 +11,18 @@
  * Every fetch is /instructor/* (owner-scoped). Zero /admin/* (grep-gated).
  */
 
-const api = window.api;
+// Impersonation propagation (carried via ?as_instructor from the queue link).
+const _api = window.api;
+const _AS = new URLSearchParams(location.search).get('as_instructor');
+function IMP(p) {
+  if (!_AS || !p.startsWith('/instructor')) return p;
+  return p + (p.includes('?') ? '&' : '?') + 'as_instructor=' + encodeURIComponent(_AS);
+}
+const api = {
+  get:   (p)    => _api.get(IMP(p)),
+  post:  (p, b) => _api.post(IMP(p), b),
+  patch: (p, b) => _api.patch(IMP(p), b),
+};
 const $ = (id) => document.getElementById(id);
 const esc = (window.WC && window.WC.escapeHtml)
   ? window.WC.escapeHtml
@@ -36,6 +47,7 @@ async function boot() {
     return;
   }
   if (!ESSAY_ID) { banner('Thiếu essay_id.', 'err'); $('ig-loading').hidden = true; return; }
+  if (_AS && $('ig-imp')) $('ig-imp').hidden = false;
 
   await loadEssay();
   $('ig-save').addEventListener('click', onSaveComment);

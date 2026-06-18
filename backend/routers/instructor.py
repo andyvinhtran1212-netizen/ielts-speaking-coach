@@ -50,7 +50,9 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query, status
+import logging
+
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -70,8 +72,51 @@ from services.writing_word_exporter import render_essay_to_docx
 router = APIRouter(prefix="/instructor", tags=["instructor"])
 
 
-async def _me(authorization: str | None) -> str:
-    return (await require_instructor(authorization))["id"]
+logger = logging.getLogger(__name__)
+
+
+def _role_of(user_id: str) -> str | None:
+    try:
+        r = supabase_admin.table("users").select("role").eq("id", str(user_id)).limit(1).execute()
+        return (r.data or [{}])[0].get("role")
+    except Exception:
+        return None
+
+
+def _audit_impersonate(admin_id: str, target: str, detail: str) -> None:
+    """⭐ Seam-3 — record EVERY admin impersonation, FAIL-CLOSED: if the audit row
+    can't be written, the impersonation is DENIED (no un-audited impersonation).
+    This is the single control that keeps ?as_instructor from being an escalation."""
+    try:
+        supabase_admin.table("governance_audit").insert({
+            "action":            "impersonate",
+            "admin_id":          str(admin_id),
+            "target_instructor": str(target),
+            "detail":            detail,
+        }).execute()
+    except Exception as exc:
+        raise HTTPException(500, f"Không ghi được governance_audit — từ chối impersonation: {exc}")
+
+
+async def _me(authorization: str | None, request: Request | None = None) -> str:
+    """THE single owner-resolution point for /instructor/*. `me` = the caller,
+    EXCEPT the one sanctioned override: an ADMIN with ?as_instructor=X acts as X
+    (seam-3). Validated + audited here and ONLY here — routes never resolve `me`
+    themselves, so impersonation can't leak in through a forgotten route."""
+    caller = (await require_instructor(authorization))["id"]
+    as_x = request.query_params.get("as_instructor") if request is not None else None
+    if not as_x:
+        return caller
+    # Impersonation requested. Admin-only; a non-admin's param is IGNORED (act as
+    # self) — never 500.
+    if _role_of(caller) != "admin":
+        return caller
+    # The target must be a real instructor (else 403 — no impersonating non-GVs).
+    if _role_of(as_x) != "instructor":
+        raise HTTPException(403, "Không thể xem như: tài khoản không phải giảng viên.")
+    # Audit EVERY impersonated request (fail-closed) before granting the override.
+    _audit_impersonate(caller, str(as_x), request.url.path if request else "")
+    return str(as_x)
 
 
 def _whitelist(body: dict, allowed: tuple[str, ...]) -> dict:
@@ -84,15 +129,15 @@ _PROMPT_FIELDS = ("title", "task_type", "prompt_text", "difficulty", "tags")
 
 
 @router.get("/prompts")
-async def list_prompts(authorization: str | None = Header(None)):
-    me = await _me(authorization)
+async def list_prompts(request: Request, authorization: str | None = Header(None)):
+    me = await _me(authorization, request)
     r = instructor_db(me).table("writing_prompts").select("*").order("created_at", desc=True).execute()
     return r.data or []
 
 
 @router.post("/prompts", status_code=status.HTTP_201_CREATED)
-async def create_prompt(body: dict, authorization: str | None = Header(None)):
-    me = await _me(authorization)
+async def create_prompt(request: Request, body: dict, authorization: str | None = Header(None)):
+    me = await _me(authorization, request)
     payload = _whitelist(body, _PROMPT_FIELDS)
     if not payload.get("title") or not payload.get("task_type") or not payload.get("prompt_text"):
         raise HTTPException(422, "title, task_type, prompt_text là bắt buộc.")
@@ -101,8 +146,8 @@ async def create_prompt(body: dict, authorization: str | None = Header(None)):
 
 
 @router.get("/prompts/{prompt_id}")
-async def get_prompt(prompt_id: UUID, authorization: str | None = Header(None)):
-    me = await _me(authorization)
+async def get_prompt(request: Request, prompt_id: UUID, authorization: str | None = Header(None)):
+    me = await _me(authorization, request)
     r = instructor_db(me).table("writing_prompts").select("*").eq("id", str(prompt_id)).limit(1).execute()
     if not r.data:
         raise HTTPException(404, "Không tìm thấy.")
@@ -110,8 +155,8 @@ async def get_prompt(prompt_id: UUID, authorization: str | None = Header(None)):
 
 
 @router.patch("/prompts/{prompt_id}")
-async def patch_prompt(prompt_id: UUID, body: dict, authorization: str | None = Header(None)):
-    me = await _me(authorization)
+async def patch_prompt(request: Request, prompt_id: UUID, body: dict, authorization: str | None = Header(None)):
+    me = await _me(authorization, request)
     payload = _whitelist(body, _PROMPT_FIELDS + ("is_active",))
     if not payload:
         raise HTTPException(422, "Không có trường hợp lệ để cập nhật.")
@@ -122,8 +167,8 @@ async def patch_prompt(prompt_id: UUID, body: dict, authorization: str | None = 
 
 
 @router.delete("/prompts/{prompt_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_prompt(prompt_id: UUID, authorization: str | None = Header(None)):
-    me = await _me(authorization)
+async def delete_prompt(request: Request, prompt_id: UUID, authorization: str | None = Header(None)):
+    me = await _me(authorization, request)
     r = instructor_db(me).table("writing_prompts").delete().eq("id", str(prompt_id)).execute()
     if not r.data:
         raise HTTPException(404, "Không tìm thấy.")
@@ -152,15 +197,15 @@ class AssignBody(BaseModel):
 
 
 @router.get("/assignments")
-async def list_assignments(authorization: str | None = Header(None)):
-    me = await _me(authorization)
+async def list_assignments(request: Request, authorization: str | None = Header(None)):
+    me = await _me(authorization, request)
     r = instructor_db(me).table("writing_assignments").select("*").order("created_at", desc=True).execute()
     return r.data or []
 
 
 @router.get("/assignments/{assignment_id}")
-async def get_assignment(assignment_id: UUID, authorization: str | None = Header(None)):
-    me = await _me(authorization)
+async def get_assignment(request: Request, assignment_id: UUID, authorization: str | None = Header(None)):
+    me = await _me(authorization, request)
     r = instructor_db(me).table("writing_assignments").select("*").eq("id", str(assignment_id)).limit(1).execute()
     if not r.data:
         raise HTTPException(404, "Không tìm thấy.")
@@ -168,8 +213,8 @@ async def get_assignment(assignment_id: UUID, authorization: str | None = Header
 
 
 @router.patch("/assignments/{assignment_id}")
-async def patch_assignment(assignment_id: UUID, body: dict, authorization: str | None = Header(None)):
-    me = await _me(authorization)
+async def patch_assignment(request: Request, assignment_id: UUID, body: dict, authorization: str | None = Header(None)):
+    me = await _me(authorization, request)
     payload = _whitelist(body, ("deadline", "instructions"))
     if not payload:
         raise HTTPException(422, "Không có trường hợp lệ để cập nhật.")
@@ -180,8 +225,8 @@ async def patch_assignment(assignment_id: UUID, body: dict, authorization: str |
 
 
 @router.delete("/assignments/{assignment_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_assignment(assignment_id: UUID, authorization: str | None = Header(None)):
-    me = await _me(authorization)
+async def delete_assignment(request: Request, assignment_id: UUID, authorization: str | None = Header(None)):
+    me = await _me(authorization, request)
     r = instructor_db(me).table("writing_assignments").delete().eq("id", str(assignment_id)).execute()
     if not r.data:
         raise HTTPException(404, "Không tìm thấy.")
@@ -189,11 +234,11 @@ async def delete_assignment(assignment_id: UUID, authorization: str | None = Hea
 
 
 @router.post("/assignments", status_code=status.HTTP_201_CREATED)
-async def create_assignment(body: AssignBody, authorization: str | None = Header(None)):
+async def create_assignment(request: Request, body: AssignBody, authorization: str | None = Header(None)):
     """Assign ONE prompt to ONE of my students, with an optional deadline.
     Owner-guarded: both the prompt and the student must be mine (else 403).
     The accessor stamps assigned_by=me."""
-    me = await _me(authorization)
+    me = await _me(authorization, request)
     p = (instructor_db(me).table("writing_prompts").select("id")
          .eq("id", str(body.prompt_id)).limit(1).execute())
     if not p.data:
@@ -214,8 +259,8 @@ async def create_assignment(body: AssignBody, authorization: str | None = Header
 
 
 @router.post("/assignments/fan-out", status_code=status.HTTP_201_CREATED)
-async def fan_out(body: FanOutBody, authorization: str | None = Header(None)):
-    me = await _me(authorization)
+async def fan_out(request: Request, body: FanOutBody, authorization: str | None = Header(None)):
+    me = await _me(authorization, request)
     # instructor_fan_out enforces prompt/cohort/student ownership → PermissionError → 403.
     result = instructor_fan_out(
         me, supabase_admin,
@@ -232,7 +277,7 @@ async def fan_out(body: FanOutBody, authorization: str | None = Header(None)):
 # ── Essays (DERIVED owner — assert_essay_owned per single-essay op) ───────────
 
 @router.get("/essays")
-async def list_essays(
+async def list_essays(request: Request, 
     status_: Optional[str] = Query(default=None, alias="status", max_length=32),
     student_id: Optional[UUID] = Query(default=None),
     cohort_id: Optional[UUID] = Query(default=None),
@@ -240,7 +285,7 @@ async def list_essays(
     offset: int = Query(default=0, ge=0),
     authorization: str | None = Header(None),
 ):
-    me = await _me(authorization)
+    me = await _me(authorization, request)
     # instructor_list_essays scopes to owned essays (2-branch) + checks any
     # student_id/cohort_id filter belongs to me (PermissionError → 403).
     return instructor_list_essays(
@@ -252,8 +297,8 @@ async def list_essays(
 
 
 @router.get("/essays/{essay_id}")
-async def get_essay(essay_id: UUID, authorization: str | None = Header(None)):
-    me = await _me(authorization)
+async def get_essay(request: Request, essay_id: UUID, authorization: str | None = Header(None)):
+    me = await _me(authorization, request)
     assert_essay_owned(me, essay_id)               # → 403 if not owned
     return essay_service.get_essay_with_feedback(str(essay_id))
 
@@ -271,12 +316,12 @@ def _now_iso() -> str:
 
 
 @router.patch("/essays/{essay_id}/feedback")
-async def update_feedback(essay_id: UUID, edits: dict, authorization: str | None = Header(None)):
+async def update_feedback(request: Request, essay_id: UUID, edits: dict, authorization: str | None = Header(None)):
     """AI-IMMUTABILITY enforce (W-6a): an instructor can NEVER mutate the AI
     feedback (admin_edits_json), even API-direct. The instructor's grading
     contribution is the SEPARATE teacher-comment via /instructor-note (which
     leaves the AI grade exactly as graded). Reject unconditionally → 403."""
-    await _me(authorization)
+    await _me(authorization, request)
     raise HTTPException(
         403, "Giảng viên không được sửa AI feedback (bất biến). Dùng teacher-comment "
              "qua PATCH /instructor/essays/{id}/instructor-note.",
@@ -284,13 +329,13 @@ async def update_feedback(essay_id: UUID, edits: dict, authorization: str | None
 
 
 @router.patch("/essays/{essay_id}/instructor-note")
-async def update_instructor_note(essay_id: UUID, body: InstructorNoteBody,
+async def update_instructor_note(request: Request, essay_id: UUID, body: InstructorNoteBody,
                                  authorization: str | None = Header(None)):
     """Teacher-comment (W-6a): set writing_essays.instructor_note — a STUDENT-
     VISIBLE sibling column, SEPARATE from AI feedback (survives regrade). This is
     the instructor's review action; it transitions graded→reviewed WITHOUT
     touching admin_edits_json (AI immutable)."""
-    me = await _me(authorization)
+    me = await _me(authorization, request)
     assert_essay_owned(me, essay_id)               # → 403 if not owned
     cur = (supabase_admin.table("writing_essays").select("status")
            .eq("id", str(essay_id)).limit(1).execute().data or [None])[0]
@@ -310,18 +355,18 @@ async def update_instructor_note(essay_id: UUID, body: InstructorNoteBody,
 
 
 @router.get("/essays/{essay_id}/status")
-async def essay_status(essay_id: UUID, authorization: str | None = Header(None)):
-    me = await _me(authorization)
+async def essay_status(request: Request, essay_id: UUID, authorization: str | None = Header(None)):
+    me = await _me(authorization, request)
     assert_essay_owned(me, essay_id)
     return essay_service.get_essay_status(str(essay_id))
 
 
 @router.get("/essays/{essay_id}/render")
-async def render_essay(essay_id: UUID, authorization: str | None = Header(None)):
+async def render_essay(request: Request, essay_id: UUID, authorization: str | None = Header(None)):
     """Render feedback as self-contained HTML. The teacher-comment
     (instructor_note) is carried in the render context SEPARATELY from the AI
     feedback (writing_render shows it in its own block — never merged into AI)."""
-    me = await _me(authorization)
+    me = await _me(authorization, request)
     assert_essay_owned(me, essay_id)
     ctx = essay_service.get_essay_render_context(str(essay_id))
     html_doc = render_feedback_html(
@@ -333,8 +378,8 @@ async def render_essay(essay_id: UUID, authorization: str | None = Header(None))
 
 
 @router.get("/essays/{essay_id}/export.docx")
-async def export_docx(essay_id: UUID, authorization: str | None = Header(None)):
-    me = await _me(authorization)
+async def export_docx(request: Request, essay_id: UUID, authorization: str | None = Header(None)):
+    me = await _me(authorization, request)
     assert_essay_owned(me, essay_id)
     ctx = essay_service.get_essay_render_context(str(essay_id))
     docx_bytes, filename = render_essay_to_docx(
@@ -350,13 +395,13 @@ async def export_docx(essay_id: UUID, authorization: str | None = Header(None)):
 
 
 @router.post("/essays/{essay_id}/regrade", status_code=status.HTTP_202_ACCEPTED)
-async def regrade_essay(essay_id: UUID, background_tasks: BackgroundTasks,
+async def regrade_essay(request: Request, essay_id: UUID, background_tasks: BackgroundTasks,
                         body: RegradeBody = RegradeBody(),
                         authorization: str | None = Header(None)):
     """Re-run AI grading on an OWNED essay (Bucket C). Clears AI feedback +
     admin_edits_json (new AI grade supersedes); instructor_note (teacher-comment)
     is PRESERVED (survives regrade by design). analysis_level lever kept."""
-    me = await _me(authorization)
+    me = await _me(authorization, request)
     assert_essay_owned(me, essay_id)
     essay = (supabase_admin.table("writing_essays")
              .select("id, status, is_flagged, task_type, analysis_level, "
@@ -388,11 +433,11 @@ async def regrade_essay(essay_id: UUID, background_tasks: BackgroundTasks,
 
 
 @router.post("/essays/{essay_id}/revoke-delivery")
-async def revoke_delivery(essay_id: UUID, authorization: str | None = Header(None)):
+async def revoke_delivery(request: Request, essay_id: UUID, authorization: str | None = Header(None)):
     """Pull an OWNED delivered essay back to 'reviewed' (Bucket C). No AI re-run,
     feedback + teacher-comment preserved; student stops seeing it. delivered→reviewed
     only (mirrors admin _revoke_essay)."""
-    me = await _me(authorization)
+    me = await _me(authorization, request)
     assert_essay_owned(me, essay_id)
     cur = (supabase_admin.table("writing_essays").select("status")
            .eq("id", str(essay_id)).is_("deleted_at", "null").limit(1).execute().data or [None])[0]
@@ -410,15 +455,15 @@ async def revoke_delivery(essay_id: UUID, authorization: str | None = Header(Non
 # ── Cohorts (owner = created_by) ─────────────────────────────────────────────
 
 @router.get("/cohorts")
-async def list_cohorts(authorization: str | None = Header(None)):
-    me = await _me(authorization)
+async def list_cohorts(request: Request, authorization: str | None = Header(None)):
+    me = await _me(authorization, request)
     r = instructor_db(me).table("cohorts").select("*").order("created_at", desc=True).execute()
     return r.data or []
 
 
 @router.post("/cohorts", status_code=status.HTTP_201_CREATED)
-async def create_cohort(body: dict, authorization: str | None = Header(None)):
-    me = await _me(authorization)
+async def create_cohort(request: Request, body: dict, authorization: str | None = Header(None)):
+    me = await _me(authorization, request)
     payload = _whitelist(body, ("name", "code_prefix", "description"))
     if not payload.get("name"):
         raise HTTPException(422, "name là bắt buộc.")
@@ -427,8 +472,8 @@ async def create_cohort(body: dict, authorization: str | None = Header(None)):
 
 
 @router.get("/cohorts/{cohort_id}")
-async def get_cohort(cohort_id: UUID, authorization: str | None = Header(None)):
-    me = await _me(authorization)
+async def get_cohort(request: Request, cohort_id: UUID, authorization: str | None = Header(None)):
+    me = await _me(authorization, request)
     r = instructor_db(me).table("cohorts").select("*").eq("id", str(cohort_id)).limit(1).execute()
     if not r.data:
         raise HTTPException(404, "Không tìm thấy.")
@@ -438,15 +483,15 @@ async def get_cohort(cohort_id: UUID, authorization: str | None = Header(None)):
 # ── Students roster (owner = instructor_id) — READ ONLY (enroll = W-5) ────────
 
 @router.get("/students")
-async def list_students(authorization: str | None = Header(None)):
-    me = await _me(authorization)
+async def list_students(request: Request, authorization: str | None = Header(None)):
+    me = await _me(authorization, request)
     r = instructor_db(me).table("students").select("*").order("created_at", desc=True).execute()
     return r.data or []
 
 
 @router.get("/students/{student_id}")
-async def get_student(student_id: UUID, authorization: str | None = Header(None)):
-    me = await _me(authorization)
+async def get_student(request: Request, student_id: UUID, authorization: str | None = Header(None)):
+    me = await _me(authorization, request)
     r = instructor_db(me).table("students").select("*").eq("id", str(student_id)).limit(1).execute()
     if not r.data:
         raise HTTPException(404, "Không tìm thấy.")
@@ -454,10 +499,10 @@ async def get_student(student_id: UUID, authorization: str | None = Header(None)
 
 
 @router.get("/students/{student_id}/summary")
-async def student_summary(student_id: UUID, authorization: str | None = Header(None)):
+async def student_summary(request: Request, student_id: UUID, authorization: str | None = Header(None)):
     """Roster-detail aggregate. Owner-gated: the student must be mine (accessor
     scope) BEFORE the shared aggregation runs → non-owned student → 404 (empty)."""
-    me = await _me(authorization)
+    me = await _me(authorization, request)
     owned = (instructor_db(me).table("students").select("id")
              .eq("id", str(student_id)).limit(1).execute())
     if not owned.data:
@@ -494,8 +539,8 @@ def _audit_code(actor: str, code_id, action: str, *, cohort_id=None) -> None:
 
 
 @router.get("/codes")
-async def list_codes(authorization: str | None = Header(None)):
-    me = await _me(authorization)
+async def list_codes(request: Request, authorization: str | None = Header(None)):
+    me = await _me(authorization, request)
     r = (instructor_db(me).table("access_codes")
          .select("id, code, is_used, used_by, used_at, is_active, cohort_id, "
                  "notes, grants_role, permissions, created_at")
@@ -504,8 +549,8 @@ async def list_codes(authorization: str | None = Header(None)):
 
 
 @router.post("/codes", status_code=status.HTTP_201_CREATED)
-async def mint_codes(body: CodeMintBody, authorization: str | None = Header(None)):
-    me = await _me(authorization)
+async def mint_codes(request: Request, body: CodeMintBody, authorization: str | None = Header(None)):
+    me = await _me(authorization, request)
     # ANTI-ESCALATION: an instructor mints STUDENT-ENROLL codes only. grants_role
     # is hard-NULL server-side; ANY caller attempt to set it → 403 + audit.
     if body.grants_role is not None:
@@ -544,15 +589,15 @@ async def mint_codes(body: CodeMintBody, authorization: str | None = Header(None
 # ── Reviews (queue scoped by essay-ownership; claim = essay-owner check) ──────
 
 @router.get("/reviews/queue")
-async def reviews_queue(authorization: str | None = Header(None)):
-    me = await _me(authorization)
+async def reviews_queue(request: Request, authorization: str | None = Header(None)):
+    me = await _me(authorization, request)
     # essay-ownership scoped — NOT claimed_by (claimable rows have claimed_by NULL).
     return instructor_workflow.get_instructor_queue(me)
 
 
 @router.post("/reviews/{review_id}/claim")
-async def claim_review(review_id: UUID, authorization: str | None = Header(None)):
-    me = await _me(authorization)
+async def claim_review(request: Request, review_id: UUID, authorization: str | None = Header(None)):
+    me = await _me(authorization, request)
     try:
         # owner_id=me → claim-time essay-owner check BEFORE the lock (→ 403 if not owned).
         return instructor_workflow.claim(review_id, me, owner_id=me)
@@ -563,8 +608,8 @@ async def claim_review(review_id: UUID, authorization: str | None = Header(None)
 
 
 @router.post("/reviews/{review_id}/release")
-async def release_review(review_id: UUID, authorization: str | None = Header(None)):
-    me = await _me(authorization)
+async def release_review(request: Request, review_id: UUID, authorization: str | None = Header(None)):
+    me = await _me(authorization, request)
     # release() only matches claimed_by=me → a non-owner release raises PermissionError → 403.
     try:
         return instructor_workflow.release(review_id, me)
@@ -575,8 +620,8 @@ async def release_review(review_id: UUID, authorization: str | None = Header(Non
 
 
 @router.post("/reviews/{review_id}/deliver")
-async def deliver_review(review_id: UUID, authorization: str | None = Header(None)):
-    me = await _me(authorization)
+async def deliver_review(request: Request, review_id: UUID, authorization: str | None = Header(None)):
+    me = await _me(authorization, request)
     try:
         return instructor_workflow.deliver(review_id, me)
     except NotFoundError:

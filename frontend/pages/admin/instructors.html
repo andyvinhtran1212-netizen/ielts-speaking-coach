@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Giảng viên · Admin · Aver Learning</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+  <script>
+    (function () {
+      try { document.documentElement.setAttribute('data-theme',
+        localStorage.getItem('aver-theme') || 'light'); } catch (e) {}
+    })();
+  </script>
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/admin-components.css" />
+
+  <style>
+    .ai-wrap { padding: var(--av-space-6); max-width: 1180px; margin: 0 auto; }
+    .ai-h1 { font-size: 1.3rem; font-weight: var(--av-fw-bold); margin: 0 0 var(--av-space-2); color: var(--av-text-primary); }
+    .ai-sub { color: var(--av-text-muted); font-size: .85rem; margin: 0 0 var(--av-space-6); }
+    .ai-card { background: var(--av-surface-card); border: 1px solid var(--av-border-subtle);
+      border-radius: var(--av-radius-lg); padding: var(--av-space-4); box-shadow: var(--av-shadow-sm); }
+    table.ai-table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+    .ai-table th { text-align: left; color: var(--av-text-muted); font-weight: var(--av-fw-semibold);
+      padding: var(--av-space-2) var(--av-space-3); border-bottom: 1px solid var(--av-border-subtle); }
+    .ai-table td { padding: var(--av-space-2) var(--av-space-3); border-bottom: 1px solid var(--av-border-subtle);
+      color: var(--av-text-primary); }
+    .ai-num { font-family: var(--av-font-mono); text-align: right; }
+    .ai-link { color: var(--av-primary); text-decoration: none; font-weight: var(--av-fw-medium); }
+    .ai-link:hover { text-decoration: underline; }
+    .ai-muted { color: var(--av-text-muted); }
+    .ai-banner { padding: var(--av-space-3); border-radius: var(--av-radius-md); margin-bottom: var(--av-space-4); font-size: .85rem; }
+    .ai-banner--err { background: var(--av-error-soft); color: var(--av-error); }
+  </style>
+</head>
+
+<body class="av-page font-sans antialiased">
+  <aver-admin-chrome active="instructors">
+    <main class="ai-wrap">
+      <h1 class="ai-h1">Giảng viên — Giám sát</h1>
+      <p class="ai-sub">Số liệu mỗi giảng viên (nguồn token/chi phí: writing_feedback). “Xem như GV” mở khu vực giảng viên ở chế độ admin — mỗi lần được ghi audit.</p>
+      <div id="ai-banner"></div>
+      <div class="ai-card">
+        <table class="ai-table">
+          <thead><tr>
+            <th>Giảng viên</th>
+            <th class="ai-num">Học viên</th>
+            <th class="ai-num">Đã trả</th>
+            <th class="ai-num">Chấm lại*</th>
+            <th class="ai-num">Token</th>
+            <th class="ai-num">Chi phí (USD)</th>
+            <th></th>
+          </tr></thead>
+          <tbody id="ai-body"><tr><td colspan="7" class="ai-muted">Đang tải…</td></tr></tbody>
+        </table>
+        <p class="ai-muted" style="font-size:.75rem;margin-top:var(--av-space-3);">
+          *“Chấm lại” = số bài trên roster đã được chấm lại (bởi bất kỳ ai), không phải số lần GV này chấm lại.</p>
+      </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0"></script>
+    <script src="/js/api.js"></script>
+    <script>
+      var SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
+      var SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
+      initSupabase(SUPABASE_URL, SUPABASE_ANON);
+    </script>
+    <script type="module" src="/js/admin-instructors.js"></script>
+  </aver-admin-chrome>
+  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
+</body>
+</html>
