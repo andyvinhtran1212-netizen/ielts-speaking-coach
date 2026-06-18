@@ -116,7 +116,7 @@
   <nav class="ins-tabs" aria-label="Instructor">
     <button class="ins-tab is-active" data-tab="roster">Học viên</button>
     <button class="ins-tab" data-tab="classes">Lớp &amp; Mã</button>
-    <button class="ins-tab" data-tab="assign" disabled title="Sắp ra mắt">Giao bài</button>
+    <button class="ins-tab" data-tab="assign">Giao bài</button>
     <button class="ins-tab" data-tab="grade" disabled title="Sắp ra mắt">Chấm bài</button>
   </nav>
 
@@ -170,6 +170,66 @@
             <tbody id="code-body"><tr><td colspan="3" class="ins-muted">Đang tải…</td></tr></tbody>
           </table>
         </div>
+      </div>
+    </section>
+
+    <!-- ── Giao bài + ma-trận ───────────────────────────────── -->
+    <section class="ins-section" id="section-assign" hidden>
+      <h2 class="ins-h2">Giao bài</h2>
+      <div id="assign-banner"></div>
+      <div class="ins-grid2">
+        <div class="ins-card">
+          <h3 class="ins-h2" style="font-size:1rem;">Giao một đề bài</h3>
+          <div id="assign-empty" class="ins-muted" hidden>
+            Chưa có đề bài. Tạo đề bài nhanh bên phải trước khi giao.
+          </div>
+          <form id="assign-form">
+            <div class="ins-field"><label for="assign-prompt">Đề bài</label>
+              <select class="ins-select" id="assign-prompt" required></select></div>
+            <div class="ins-field"><label>Giao cho</label>
+              <label style="font-weight:normal;font-size:.85rem;"><input type="radio" name="atarget" value="cohort" checked /> Cả lớp</label>
+              <label style="font-weight:normal;font-size:.85rem;margin-left:var(--av-space-3);"><input type="radio" name="atarget" value="student" /> Học viên lẻ</label></div>
+            <div class="ins-field" id="assign-cohort-wrap"><label for="assign-cohort">Lớp</label>
+              <select class="ins-select" id="assign-cohort"></select></div>
+            <div class="ins-field" id="assign-student-wrap" hidden><label for="assign-student">Học viên</label>
+              <select class="ins-select" id="assign-student"></select></div>
+            <div class="ins-field"><label for="assign-deadline">Hạn nộp (tuỳ chọn)</label>
+              <input class="ins-input" id="assign-deadline" type="datetime-local" /></div>
+            <button class="ins-btn" type="submit">Giao bài</button>
+          </form>
+        </div>
+
+        <div class="ins-card">
+          <h3 class="ins-h2" style="font-size:1rem;">Tạo đề bài nhanh</h3>
+          <form id="prompt-form">
+            <div class="ins-field"><label for="prompt-title">Tiêu đề</label>
+              <input class="ins-input" id="prompt-title" placeholder="VD: Task 2 — Technology" required /></div>
+            <div class="ins-field"><label for="prompt-type">Dạng</label>
+              <select class="ins-select" id="prompt-type">
+                <option value="task2">Task 2</option>
+                <option value="task1_academic">Task 1 (Academic)</option>
+                <option value="task1_general">Task 1 (General)</option>
+              </select></div>
+            <div class="ins-field"><label for="prompt-text">Đề bài</label>
+              <textarea class="ins-input" id="prompt-text" rows="4" placeholder="Nội dung đề bài…" required></textarea></div>
+            <button class="ins-btn ins-btn--ghost" type="submit">Tạo đề bài</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="ins-card">
+        <h3 class="ins-h2" style="font-size:1rem;">Ma-trận nộp bài</h3>
+        <div style="overflow-x:auto;">
+          <table class="ins-table" id="matrix-table">
+            <thead id="matrix-head"></thead>
+            <tbody id="matrix-body"><tr><td class="ins-muted">Đang tải…</td></tr></tbody>
+          </table>
+        </div>
+        <p class="ins-muted" style="font-size:.78rem;margin-top:var(--av-space-3);">
+          <span class="ins-pill">Chưa nộp</span> chưa làm ·
+          <span class="ins-pill" style="background:var(--av-success-soft);color:var(--av-success);">Đã nộp</span> đã làm ·
+          <span class="ins-pill" style="background:var(--av-error-soft);color:var(--av-error);">Trễ</span> quá hạn ·
+          “Đã trả” = đã gửi nhận xét cho học viên.</p>
       </div>
     </section>
   </main>
