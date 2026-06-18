@@ -14,9 +14,28 @@ Non-owned column-owner objects fall out of the accessor scope → empty → 404
 (uniform with non-existent: no existence leak). Essays use assert_essay_owned →
 403 (uniform: non-owned-existing and non-existent both fail membership).
 
-OUT OF SCOPE here (see W-4 checkpoint): codes, roster create/import/edit/delete,
-cohort-member management (= W-5 enroll-chain); admin aggregates (stats/bulk/
-hard-delete/extract-text); tips; regrade-request moderation queue; drafts.
+Grade loop (closed, no mark-delivered needed): reviews/queue → reviews/{id}/claim
+(→ status 'claimed', essay-owner gated) → essays/{id}/feedback (→ essay 'reviewed')
+→ reviews/{id}/deliver (instructor_workflow.deliver flips essay.status='delivered'
++ delivered_at → student-visible). mark-delivered is therefore REDUNDANT here.
+
+DEFERRAL LEDGER — tracked so nothing silently drops; the meta-gate
+(test_instructor_routes_isolation) forces an isolation test on each when added.
+
+  OUT (won't build — admin-only or redundant):
+    POST /essays (admin on-behalf = W-5 enroll) · POST /essays/{id}/mark-delivered
+    (redundant — deliver does it) · POST /essays/bulk-mark-delivered · DELETE
+    /essays/{id} (hard delete) · POST /extract-text · GET /stats · codes ·
+    roster create/import/edit/delete · cohort-member management · tips ·
+    regrade-request moderation queue · drafts.
+
+  W-6-DEFERRED (UI-triggered; add WITH isolation test when the page needs it):
+    GET /essays/{id}/status · GET /essays/{id}/render · GET /essays/{id}/export.docx
+    · PATCH /essays/{id}/instructor-note · GET /students/{id}/summary.
+
+  W-6-DEFERRED — GRADE-LOOP ACTIONS (intended IN, explicitly tracked, do NOT lose):
+    POST /essays/{id}/regrade · POST /essays/{id}/revoke-delivery.
+
 The admin_instructor.py review-queue (admin-only) and admin_writing* are untouched.
 """
 

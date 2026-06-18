@@ -30,6 +30,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pytest
+from fastapi import HTTPException
 
 from routers import auth as auth_module
 
@@ -279,29 +280,40 @@ def test_no_match_still_completes_activation(monkeypatch):
     assert student_updates == []
 
 
-def test_linking_db_failure_does_not_block_activation(monkeypatch):
-    """students lookup raises ⇒ activation still succeeds (defensive).
-
-    Critical: a DB blip in the linking branch must NOT prevent a user
-    from completing /activate — they're already past Step 3 (activated
-    + permissions copied) by the time this branch runs."""
-    _patch(
+def test_linking_lookup_failure_is_fatal_before_consume(monkeypatch):
+    """W-5 (seam-#4): enroll is now ATOMIC + FATAL, and runs BEFORE the code is
+    consumed. A students-lookup outage → HTTP 500 AND the code is NOT marked used
+    (is_used never written) so the user can retry. (Pre-W-5 this was best-effort
+    'still succeed'; the new contract refuses a half-baked activated-but-unenrolled
+    state and keeps the code retry-able.)"""
+    client = _patch(
         monkeypatch,
         students_lookup_raises=RuntimeError("simulated students-table outage"),
     )
+    with pytest.raises(HTTPException) as ei:
+        _run(auth_module.activate_account(_payload(), authorization="Bearer x"))
+    assert ei.value.status_code == 500
+    consumes = [
+        c for c in client.calls
+        if c["table"] == "access_codes" and c["action"] == "update"
+        and isinstance(c["payload"], dict) and c["payload"].get("is_used")
+    ]
+    assert consumes == [], "code must NOT be consumed when enroll fails (retry-able)"
 
-    out = _run(auth_module.activate_account(_payload(), authorization="Bearer x"))
-    assert out == {"success": True, "message": "Tài khoản đã được kích hoạt!"}
 
-
-def test_linking_update_failure_does_not_block_activation(monkeypatch):
-    """students lookup succeeds but the UPDATE itself raises. Same
-    defensive contract — the user keeps their activation."""
-    _patch(
+def test_linking_update_failure_is_fatal_before_consume(monkeypatch):
+    """students lookup succeeds but the UPDATE raises → HTTP 500, code NOT consumed."""
+    client = _patch(
         monkeypatch,
         students_lookup=[{"id": _STUDENT_ID, "user_id": None}],
         students_update_raises=RuntimeError("simulated update outage"),
     )
-
-    out = _run(auth_module.activate_account(_payload(), authorization="Bearer x"))
-    assert out["success"] is True
+    with pytest.raises(HTTPException) as ei:
+        _run(auth_module.activate_account(_payload(), authorization="Bearer x"))
+    assert ei.value.status_code == 500
+    consumes = [
+        c for c in client.calls
+        if c["table"] == "access_codes" and c["action"] == "update"
+        and isinstance(c["payload"], dict) and c["payload"].get("is_used")
+    ]
+    assert consumes == [], "code must NOT be consumed when enroll fails (retry-able)"

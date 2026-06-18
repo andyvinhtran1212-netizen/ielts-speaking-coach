@@ -61,6 +61,23 @@ def _audit_promote_attempt(
         logger.warning("[warn] promote_role audit failed: %s", e)
 
 
+def _audit_enroll_reject(user_id: str, code_id: str | None, *,
+                         current_owner, attempted_owner) -> None:
+    """W-5 — best-effort audit of a BLOCKED enroll-reassign (a different
+    instructor's enroll-code tried to take an already-owned student). Never raises."""
+    try:
+        supabase_admin.table("access_code_audit").insert({
+            "actor_user_id":  user_id,
+            "action":         "enroll_reassign_rejected",
+            "code_id":        code_id,
+            "target_user_id": user_id,
+            "before":         {"instructor_id": str(current_owner) if current_owner else None},
+            "after":          {"attempted_owner": str(attempted_owner) if attempted_owner else None},
+        }).execute()
+    except Exception as e:
+        logger.warning("[warn] enroll_reassign audit failed: %s", e)
+
+
 # ── Shared helper ─────────────────────────────────────────────────────────────
 
 async def get_supabase_user(authorization: str | None):
@@ -403,6 +420,97 @@ async def activate_account(
             ok=True, before_role=current_role,
         )
 
+    # ── Step 3b (W-5): enroll-chain — stamp students.instructor_id ATOMICALLY,
+    # BEFORE the code is consumed (seam-defect #4: no bolt-tail). Any failure here
+    # RAISES → Step 4 (mark is_used) never runs → the code stays valid → retry-able.
+    #
+    # Owner = the CODE'S issuer IF that issuer is an instructor; admin/mass codes
+    # (or no issuer) → NULL (never stamp an admin → keeps roster/metrics clean).
+    # owner is read server-side from access_codes.issued_by, NEVER the request body.
+    issued_by = access_code_row.get("issued_by")
+    owner: str | None = None
+    if issued_by:
+        try:
+            ir = (supabase_admin.table("users").select("role")
+                  .eq("id", issued_by).limit(1).execute().data or [None])[0]
+        except Exception as e:
+            raise HTTPException(500, f"Lỗi khi kiểm tra người phát mã: {e}")
+        if ir and ir.get("role") == "instructor":
+            owner = str(issued_by)
+
+    code_cohort_id = access_code_row.get("cohort_id")
+    try:
+        by_user = (supabase_admin.table("students").select("id, user_id, instructor_id")
+                   .eq("user_id", user_id).limit(1).execute().data or [])
+        by_code = (supabase_admin.table("students").select("id, user_id, instructor_id")
+                   .eq("student_code", code).limit(1).execute().data or [])
+    except Exception as e:
+        raise HTTPException(500, f"Lỗi khi tra cứu hồ sơ học viên: {e}")
+
+    target = None
+    if by_user:
+        target = by_user[0]                              # this user already has a profile
+    elif by_code and not by_code[0].get("user_id"):
+        target = by_code[0]                              # admin-precreated unlinked bridge
+    elif by_code and str(by_code[0].get("user_id")) == str(user_id):
+        target = by_code[0]                              # already linked to me (idempotent)
+
+    # 2nd-code cross-instructor block: an already-owned student can NOT be moved to
+    # a different instructor by another GV's enroll-code → REJECT 403, leave is_used
+    # FALSE (don't burn the code), audit. Same owner = idempotent; owner NULL on the
+    # new code (admin/mass) = no ownership change → proceed.
+    if target:
+        cur_owner = target.get("instructor_id")
+        if cur_owner and owner and str(cur_owner) != owner:
+            _audit_enroll_reject(user_id, access_code_row.get("id"),
+                                 current_owner=cur_owner, attempted_owner=owner)
+            raise HTTPException(
+                status_code=403,
+                detail="Học viên này đã thuộc một giảng viên khác. Mã CHƯA được sử "
+                       "dụng — liên hệ admin để chuyển giảng viên/lớp.",
+            )
+
+    try:
+        if target:
+            upd: dict = {}
+            if not target.get("user_id"):
+                upd["user_id"] = user_id
+            if code_cohort_id:
+                upd["cohort_id"] = code_cohort_id            # cohort fold (same atomic write)
+            if owner and not target.get("instructor_id"):
+                upd["instructor_id"] = owner                  # stamp ONLY when currently NULL
+            if upd:
+                supabase_admin.table("students").update(upd).eq("id", target["id"]).execute()
+        elif by_code:
+            # student_code==code exists but is linked to ANOTHER user (code/account
+            # mismatch — NOT an ownership conflict). Existing behaviour: log + skip
+            # the enroll (don't relink, don't 403). Activation still proceeds.
+            logger.warning(
+                "[auth] student_code=%s linked to user=%s; refusing relink to %s",
+                code, by_code[0].get("user_id"), user_id,
+            )
+        elif owner or code_cohort_id:
+            # ENROLL SIGNAL only (instructor code OR cohort/class code) AND no row
+            # exists → create the profile. A plain mass/speaking code (no owner, no
+            # cohort) creates NOTHING — don't pollute the writing roster with
+            # student rows for speaking-only users.
+            full_name = (metadata.get("full_name") or metadata.get("name")
+                         or (email.split("@")[0] if email else None) or "Học viên")
+            supabase_admin.table("students").insert({
+                "user_id":       user_id,
+                "student_code":  code,
+                "full_name":     full_name,
+                "created_by":    issued_by,        # provenance: who issued the code
+                "instructor_id": owner,            # GV if issuer is instructor, else NULL
+                "cohort_id":     code_cohort_id,
+            }).execute()
+        # else: no row + no enroll signal (plain mass code) → no-op (no pollution).
+    except HTTPException:
+        raise
+    except Exception as e:
+        # FATAL, BEFORE consume — fail closed so the code stays retry-able.
+        raise HTTPException(500, f"Lỗi khi ghi danh học viên: {e}")
+
     # ── Step 4: mark access code as used ─────────────────────────────────────
     # Use a real ISO timestamp string instead of the string "now()" which
     # PostgREST does NOT evaluate as a SQL function — it's just a literal string.
@@ -429,61 +537,8 @@ async def activate_account(
     except Exception as e:
         logger.warning("[warn] Could not create user_code_assignment: %s", e)
 
-    # ── Step 6 (Phase 2.1): link students.user_id when code matches a
-    # student's student_code. This is the bridge that lets a student
-    # read their own writing_essays via /api/writing/my-essays after
-    # logging in with the same access_code that admin issued them.
-    #
-    # Defensive: any failure here is logged but never blocks
-    # activation. The user is already activated (Step 3); a missing
-    # student link only affects Writing-Coach access, which can be
-    # repaired later by re-running this lookup or by an admin tool.
-    try:
-        student_match = (
-            supabase_admin.table("students")
-            .select("id, user_id")
-            .eq("student_code", code)
-            .limit(1)
-            .execute()
-        )
-        if student_match.data:
-            student_row = student_match.data[0]
-            existing_link = student_row.get("user_id")
-
-            # WF-1 — class-roster bridge: if this code is cohort-linked
-            # (access_codes.cohort_id set), enroll the matched student into
-            # that cohort by setting students.cohort_id. This is the SAME
-            # column the cohort roster / writing fan-out / grade-matrix read,
-            # so activating a class code auto-adds the student to the class.
-            # Mass codes (no cohort_id) skip this. Folded into the same UPDATE
-            # as the user_id link when possible; otherwise a standalone set.
-            code_cohort_id = access_code_row.get("cohort_id")
-
-            if not existing_link:
-                link_update = {"user_id": user_id}
-                if code_cohort_id:
-                    link_update["cohort_id"] = code_cohort_id
-                supabase_admin.table("students").update(
-                    link_update
-                ).eq("id", student_row["id"]).execute()
-                logger.info(
-                    "[auth] linked student=%s to user=%s via code=%s (cohort=%s)",
-                    student_row["id"], user_id, code, code_cohort_id,
-                )
-            elif existing_link != user_id:
-                # Don't overwrite — surfaces a real conflict (same
-                # student_code being shared across two Google
-                # accounts, e.g. a code reuse) so admin can resolve.
-                logger.warning(
-                    "[auth] student=%s already linked to user=%s, "
-                    "refusing to relink to user=%s via code=%s",
-                    student_row["id"], existing_link, user_id, code,
-                )
-    except Exception as e:
-        logger.warning(
-            "[auth] student linking failed for code=%s user=%s: %s",
-            code, user_id, e,
-        )
+    # (Phase-2.1 student-link + WF-1 cohort enroll moved to Step 3b above and
+    # folded into the atomic, pre-consume enroll write — see W-5.)
 
     return {
         "success": True,
