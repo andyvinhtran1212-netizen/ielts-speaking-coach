@@ -312,6 +312,40 @@ def deliver(
     return delivered
 
 
+def sync_revoke_review(essay_id: UUID) -> Optional[InstructorReview]:
+    """Fix-1 (D2) — keep the review row coherent when an essay is pulled
+    delivered→reviewed.
+
+    Both revoke paths (instructor `revoke_delivery`, admin `_revoke_essay`)
+    flip writing_essays delivered→reviewed but historically left the review
+    row at 'delivered'. The instructor queue's default filter is
+    {queued, claimed}, so a 'delivered' review is invisible — the revoked
+    essay could not be re-found and re-delivered (the desync this closes).
+
+    Fix: flip the review 'delivered' → 'claimed' (NOT 'edited' — 'claimed'
+    is inside the default queue filter so it re-surfaces) and clear
+    delivered_at, KEEPING claimed_by so it returns to the SAME instructor's
+    active queue, ready to re-deliver.
+
+    Conditional on status='delivered': a standard/admin essay with no review
+    row — or a review not currently delivered — is a 0-row no-op, so the
+    admin/mass-code path is untouched. Returns the updated review or None.
+    """
+    response = supabase_admin.table("instructor_reviews").update({
+        "status":       InstructorReviewStatus.CLAIMED.value,
+        "delivered_at": None,
+    }).eq("essay_id", str(essay_id)).eq(
+        "status", InstructorReviewStatus.DELIVERED.value,
+    ).execute()
+    if not response.data:
+        return None
+    logger.info(
+        "[instructor-review] revoke-sync essay=%s review→claimed (re-deliverable)",
+        essay_id,
+    )
+    return _row_to_review(response.data[0])
+
+
 def get_review(review_id: UUID) -> Optional[InstructorReview]:
     """Fetch a review by id; returns None if missing."""
     response = supabase_admin.table("instructor_reviews").select("*").eq(

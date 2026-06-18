@@ -24,7 +24,7 @@ from pydantic import BaseModel, Field
 from database import supabase_admin
 from models.writing_feedback import WritingFeedback
 from routers.admin import require_admin
-from services import essay_service
+from services import essay_service, instructor_workflow
 from services.file_extract_service import (
     MAX_EXTRACTED_CHARS,
     FileExtractError,
@@ -232,6 +232,11 @@ def _revoke_essay(essay_id: str) -> dict:
         raise HTTPException(500, f"Database update failed: {exc}")
     if not r.data:
         return {"essay_id": essay_id, "ok": False, "status": None, "reason": "not_found"}
+
+    # Fix-1 (D2) — bring the review row back into the active queue so an
+    # instructor-tier essay can be re-delivered (delivered→claimed). No-op
+    # for standard/admin essays with no review row.
+    instructor_workflow.sync_revoke_review(essay_id)
 
     return {"essay_id": essay_id, "ok": True, "status": "reviewed", "reason": None}
 

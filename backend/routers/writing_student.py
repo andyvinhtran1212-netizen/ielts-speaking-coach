@@ -831,6 +831,46 @@ def _persist_flagged_submission(
     }
 
 
+def _assignment_grading_tier(assignment: dict) -> str:
+    """Fix-1 (D-A) — decide the grading tier for a student submission from
+    WHO created the assignment.
+
+    An assignment created BY an instructor must grade at the 'instructor'
+    tier so `_bg_grade_essay` fires `create_review` and the essay lands in
+    that instructor's review queue (the grade-loop the queue page depends on).
+    Without this the essay grades 'standard', no review row is created, and
+    the instructor queue stays empty — the dead-end this fix closes.
+
+    Decision is assignment-ownership only:
+      • assigned_by is an instructor  → 'instructor'
+      • assigned_by is admin / mass-code / NULL → 'standard'  (admin path
+        untouched — a non-null assigned_by is NOT enough since admins also
+        fan-out assignments, so we must check the role).
+    Self-practice has no assignment and never reaches here.
+    """
+    assigned_by = assignment.get("assigned_by")
+    if not assigned_by:
+        return "standard"
+    try:
+        r = (
+            supabase_admin.table("users")
+            .select("role")
+            .eq("id", str(assigned_by))
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:
+        # Fail-safe to 'standard': a role-lookup blip must not misroute the
+        # essay into the instructor queue, and must never block the submit.
+        logger.warning(
+            "[writing-student] assigned_by role lookup failed assigned_by=%s: %s",
+            assigned_by, exc,
+        )
+        return "standard"
+    role = (r.data or [{}])[0].get("role")
+    return "instructor" if role == "instructor" else "standard"
+
+
 def _resolve_active_assignment(student_id: str, assignment_id: str) -> dict:
     """Fetch one assignment owned by `student_id`. 404s on any miss
     (wrong owner OR nonexistent) — same symmetry rule as the essay
@@ -841,7 +881,7 @@ def _resolve_active_assignment(student_id: str, assignment_id: str) -> dict:
         .select(
             "id, status, deadline, instructions, "
             "created_at, submitted_at, delivered_at, "
-            "essay_id, prompt_id, "
+            "essay_id, prompt_id, assigned_by, "
             "assignment_group_id, name, allow_soft_check, analysis_level, "
             "is_timed, time_limit_minutes, started_at, auto_submitted, "
             "writing_prompts(id, title, prompt_text, task_type, difficulty, prompt_image_url)"
@@ -1190,6 +1230,11 @@ async def submit_my_assignment(
     # the grader (which reads essay.analysis_level) grades at the assigned level.
     level = int(assignment.get("analysis_level") or 3)
 
+    # Fix-1 (D-A) — route instructor-assigned essays into the instructor
+    # review queue by grading them at the 'instructor' tier (see
+    # `_assignment_grading_tier`). Admin/mass-code/self-practice → 'standard'.
+    grading_tier = _assignment_grading_tier(assignment)
+
     # SAGA 1 — create the essay row with no grading job, no link.
     try:
         row_info = essay_service.create_essay_row_only(
@@ -1200,6 +1245,7 @@ async def submit_my_assignment(
                 "prompt_image_url": prompt_image_url,
                 "essay_text":       essay_text,
                 "analysis_level":   level,
+                "grading_tier":     grading_tier,
                 "form_of_address":  "em",
                 "selected_model":   "gemini-2.5-pro",
                 "status":           "pending",
@@ -1289,6 +1335,7 @@ async def submit_my_assignment(
             essay_id       = essay_id,
             analysis_level = level,
             selected_model = "gemini-2.5-pro",
+            grading_tier   = grading_tier,
         )
         job_id = job_info["job_id"]
         eta    = job_info["eta_seconds"]
