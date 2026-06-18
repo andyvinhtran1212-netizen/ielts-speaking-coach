@@ -75,15 +75,22 @@ describe('W-6b-1 — instructor shell never calls /admin/*', () => {
   const FILES = [
     ..._walk(join(__dirname, '..', 'pages', 'instructor')),
     join(__dirname, '..', 'js', 'instructor-app.js'),
+    join(__dirname, '..', 'js', 'instructor-grade.js'),
   ];
   // a quoted admin-path literal in a fetch/api call (',",` then /admin) = cross-tenant leak
   const ADMIN_CALL = /['"`]\/admin\//;
+  // W-6b-3: the instructor must NEVER mutate AI feedback → no admin_edits_json anywhere
+  const AI_EDIT = /admin_edits_json/;
 
   for (const f of FILES) {
     it(`${f.split('/frontend/')[1]} has zero quoted /admin/ call literals`, () => {
       const src = readFileSync(f, 'utf8');
       const m = src.match(ADMIN_CALL);
       assert.equal(m, null, `cross-tenant leak: ${f} references ${m && m[0]} — must use /instructor/*`);
+    });
+    it(`${f.split('/frontend/')[1]} never references admin_edits_json (AI immutable)`, () => {
+      const src = readFileSync(f, 'utf8');
+      assert.equal(src.match(AI_EDIT), null, `${f} touches admin_edits_json — instructor must NOT edit AI feedback`);
     });
   }
 });

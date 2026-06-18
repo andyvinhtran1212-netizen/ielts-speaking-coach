@@ -43,6 +43,7 @@ async function boot() {
   await loadClasses();                   // builds cohort-name map first
   await loadRoster();
   await loadAssign();
+  await loadQueue();
 }
 
 function wireChrome() {
@@ -89,6 +90,7 @@ function selectTab(tab) {
   $('section-roster').hidden = tab !== 'roster';
   $('section-classes').hidden = tab !== 'classes';
   $('section-assign').hidden = tab !== 'assign';
+  $('section-grade').hidden = tab !== 'grade';
 }
 
 // ── Roster ───────────────────────────────────────────────────────────
@@ -354,6 +356,56 @@ async function onAssign(ev) {
     await renderMatrix();
   } catch (e) {
     assignBanner('Lỗi giao bài: ' + e.message, 'err');
+  }
+}
+
+// ── Chấm bài (queue) ─────────────────────────────────────────────────
+
+const _GRADE_URL = (essayId, reviewId) =>
+  '/pages/instructor/grade.html?essay_id=' + encodeURIComponent(essayId) +
+  '&review_id=' + encodeURIComponent(reviewId);
+
+async function loadQueue() {
+  const body = $('queue-body');
+  let items;
+  try {
+    items = (await api.get('/instructor/reviews/queue')) || [];
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="4" class="ins-banner--err">Lỗi tải: ${esc(e.message)}</td></tr>`;
+    return;
+  }
+  if (!items.length) {
+    body.innerHTML = '<tr><td colspan="4" class="ins-muted">Không có bài chờ chấm.</td></tr>';
+    return;
+  }
+  body.innerHTML = items.map((it) => {
+    const rev = it.review || {};
+    const claimed = rev.status === 'claimed';
+    const label = claimed ? 'Chấm tiếp' : 'Nhận chấm';
+    return `<tr>
+      <td>${esc(it.student_email || it.essay_id || '')}</td>
+      <td>${esc(it.task_type || '')}</td>
+      <td><span class="ins-pill">${esc(rev.status || '')}</span></td>
+      <td><button class="ins-btn" data-review="${esc(rev.id)}" data-essay="${esc(it.essay_id)}"
+                  data-claimed="${claimed ? '1' : '0'}">${label}</button></td>
+    </tr>`;
+  }).join('');
+  body.querySelectorAll('button[data-review]').forEach((b) =>
+    b.addEventListener('click', () => onClaimAndGrade(b.dataset.review, b.dataset.essay, b.dataset.claimed === '1')));
+}
+
+async function onClaimAndGrade(reviewId, essayId, alreadyClaimed) {
+  $('queue-banner').innerHTML = '';
+  try {
+    if (!alreadyClaimed) {
+      // claim is owner-guarded (essay-owner check) — 403 if not mine.
+      await api.post('/instructor/reviews/' + encodeURIComponent(reviewId) + '/claim', {});
+    }
+    window.location.href = _GRADE_URL(essayId, reviewId);
+  } catch (e) {
+    const msg = e.status === 403 ? 'Bài này không thuộc bạn.'
+              : e.status === 409 ? 'Bài đã được nhận chấm.' : ('Lỗi: ' + e.message);
+    $('queue-banner').innerHTML = `<div class="ins-banner ins-banner--err">${esc(msg)}</div>`;
   }
 }
 
