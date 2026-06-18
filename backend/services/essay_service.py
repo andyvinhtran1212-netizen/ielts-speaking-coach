@@ -734,3 +734,96 @@ def get_essay_status(essay_id: str) -> dict:
         "grading_tier":  grading_tier,
         "created_at":    essay["created_at"],
     }
+
+
+def get_student_summary(student_id: str) -> dict:
+    """Aggregated student stats (profile + essay counters + last-5-band avg +
+    recent essays/assignments) for the instructor/admin "Tổng quan" view.
+
+    Extracted from admin_writing.get_student_summary so the /admin and
+    /instructor routes share ONE implementation (the instructor route adds an
+    owner gate before calling this). Behaviour is byte-identical to the prior
+    admin inline version. Raises 404 when the student doesn't exist.
+    """
+    sr = (
+        supabase_admin.table("students")
+        .select(
+            "id, student_code, full_name, target_band, "
+            "current_band_estimate, target_date, persona_notes, "
+            "flag_count, is_under_review, last_flagged_at"
+        )
+        .eq("id", str(student_id))
+        .limit(1)
+        .execute()
+    )
+    if not sr.data:
+        raise HTTPException(404, "Student not found")
+    student = sr.data[0]
+
+    essays_resp = (
+        supabase_admin.table("writing_essays")
+        .select(
+            "id, status, is_flagged, task_type, created_at, delivered_at, "
+            "regrade_count, last_regraded_at, "
+            "writing_feedback(overall_band_score)"
+        )
+        .eq("student_id", str(student_id))
+        .is_("deleted_at", "null")
+        .order("created_at", desc=True)
+        .limit(20)
+        .execute()
+    )
+    essays = essays_resp.data or []
+
+    assignments_resp = (
+        supabase_admin.table("writing_assignments")
+        .select(
+            "id, status, deadline, created_at, submitted_at, delivered_at, "
+            "writing_prompts(title, task_type)"
+        )
+        .eq("student_id", str(student_id))
+        .order("created_at", desc=True)
+        .limit(10)
+        .execute()
+    )
+
+    flagged_count = sum(1 for e in essays if e.get("is_flagged"))
+    graded_count  = sum(
+        1 for e in essays
+        if not e.get("is_flagged") and e.get("status") in ("graded", "reviewed", "delivered")
+    )
+
+    valid_bands: list[float] = []
+    for e in essays:
+        if e.get("is_flagged"):
+            continue
+        fb = e.get("writing_feedback") or []
+        if isinstance(fb, list):
+            band = fb[0].get("overall_band_score") if fb else None
+        elif isinstance(fb, dict):
+            band = fb.get("overall_band_score")
+        else:
+            band = None
+        if band is None:
+            continue
+        try:
+            valid_bands.append(float(band))
+        except (TypeError, ValueError):
+            continue
+        if len(valid_bands) >= 5:
+            break
+
+    avg_band = round(sum(valid_bands) / len(valid_bands), 1) if valid_bands else None
+
+    return {
+        "student": student,
+        "stats": {
+            "total_essays":        len(essays),
+            "graded_count":        graded_count,
+            "flagged_count":       flagged_count,
+            "average_band_last5":  avg_band,
+            "valid_band_sample":   len(valid_bands),
+        },
+        "recent_essays":      essays[:10],
+        "recent_assignments": (assignments_resp.data or [])[:5],
+    }
