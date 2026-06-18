@@ -987,7 +987,7 @@
 
       const chrome = document.querySelector('aver-chrome');
       if (chrome && typeof chrome.setUser === 'function') {
-        chrome.setUser({ name: displayName });
+        chrome.setUser({ name: displayName, role: user.role });   // W-2: role-gates "Trang Instructor"
       }
 
       document.getElementById('greeting-name').textContent = displayName.split(' ').at(-1);
