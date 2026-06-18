@@ -29,12 +29,34 @@ from uuid import UUID, uuid4
 logger = logging.getLogger(__name__)
 
 
+def _verify_fanout_ownership(db, owner: str, prompt_strs: list[str], cohort_str: str) -> None:
+    """W-3 — fail-closed ownership gate for instructor fan-out. Raises
+    PermissionError unless the cohort AND every prompt are owned by `owner`.
+    (Student-branch ownership is checked in fan_out_assignment, after the cohort
+    membership query.) Admin path does NOT call this (owner_id stays None)."""
+    crow = (db.table("cohorts").select("id, created_by")
+            .eq("id", cohort_str).limit(1).execute().data or [None])[0]
+    if not crow or crow.get("created_by") != owner:
+        raise PermissionError(f"fan_out: cohort {cohort_str} không thuộc instructor {owner}")
+
+    prows = (db.table("writing_prompts").select("id, created_by")
+             .in_("id", prompt_strs).execute().data or [])
+    found = {r["id"] for r in prows}
+    missing = set(prompt_strs) - found
+    if missing:
+        raise PermissionError(f"fan_out: prompt(s) không tồn tại: {sorted(missing)}")
+    bad = [r["id"] for r in prows if r.get("created_by") != owner]
+    if bad:
+        raise PermissionError(f"fan_out: prompt(s) không thuộc instructor {owner}: {sorted(bad)}")
+
+
 def fan_out_assignment(
     db,
     *,
     prompt_ids: list[UUID],
     cohort_id: UUID,
     assigned_by: str,
+    owner_id: Optional[str] = None,
     name: Optional[str] = None,
     allow_soft_check: bool = False,
     deadline: Optional[datetime] = None,
@@ -57,10 +79,32 @@ def fan_out_assignment(
     prompt_strs = [str(p) for p in prompt_ids]
     cohort_str = str(cohort_id)
 
+    # W-3 — instructor mode (owner_id set): fail-closed ownership enforcement.
+    # owner_id None = admin/legacy path → unchanged (admin fans any prompt/cohort).
+    if owner_id is not None:
+        _verify_fanout_ownership(db, str(owner_id), prompt_strs, cohort_str)
+
     students = (
-        db.table("students").select("id").eq("cohort_id", cohort_str).execute()
+        db.table("students").select("id, instructor_id").eq("cohort_id", cohort_str).execute()
     )
-    student_ids = [s["id"] for s in (students.data or [])]
+    student_rows = students.data or []
+    student_ids = [s["id"] for s in student_rows]
+
+    # W-3 — student-branch gate. Cohort ownership (above) is the primary gate; here
+    # we reject ONLY if a cohort member is owned by ANOTHER instructor
+    # (instructor_id SET ≠ owner). NULL (unowned in my own cohort) is allowed —
+    # claiming it (instructor_id = me) is an enroll/assign flow (W-5/W-6), not a
+    # W-3 gate. Cross-tenant student in my cohort = anomaly → reject loud.
+    if owner_id is not None:
+        foreign = sorted(
+            s["id"] for s in student_rows
+            if s.get("instructor_id") not in (None, str(owner_id))
+        )
+        if foreign:
+            raise PermissionError(
+                f"fan_out: cohort {cohort_str} chứa học viên thuộc instructor khác: {foreign}"
+            )
+
     if not student_ids:
         return {"student_count": 0, "created_count": 0,
                 "group_id": None, "duplicates_warning": [], "assignment_ids": []}
