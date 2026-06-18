@@ -343,6 +343,11 @@ const TEMPLATE = /* html */ `
         </button>
         <div class="user-menu-dropdown" role="menu" hidden>
           <a href="/pages/profile.html" class="user-menu-item" role="menuitem">Hồ sơ</a>
+          <!-- W-2: role-gated (instructor/admin). Disabled PLACEHOLDER — the
+               destination page lands in W-6, so NO href → never 404. setRole()
+               un-hides it. -->
+          <span class="user-menu-item" id="instructor-link" role="menuitem"
+                aria-disabled="true" title="Sắp ra mắt" hidden>Trang Instructor (sắp ra mắt)</span>
           <button type="button" class="user-menu-item user-menu-item--danger"
                   id="user-menu-logout" role="menuitem">Đăng xuất</button>
         </div>
@@ -368,6 +373,7 @@ export class AverChrome extends HTMLElement {
     this._abortController = null;
     this._docClickHandler = null;
     this._docKeydownHandler = null;
+    this._role = null;
   }
 
   connectedCallback() {
@@ -392,6 +398,7 @@ export class AverChrome extends HTMLElement {
     shadow.innerHTML = `<style>${STYLE}</style>${TEMPLATE}`;
 
     this._applyActive(this.getAttribute('active'));
+    this._applyRole();   // re-apply any role set before the element upgraded
     this._bindToggle();
     this._bindDropdown();
     this._bindLogout();
@@ -433,8 +440,9 @@ export class AverChrome extends HTMLElement {
    * speaking.html /auth/me with permissions). Marks the pill as
    * page-authoritative so the auto-fetch skips.
    */
-  setUser({ name, initials, email } = {}) {
+  setUser({ name, initials, email, role } = {}) {
     this._userOverride = true;
+    if (role !== undefined) this.setRole(role);   // page-authoritative role gate
     if (!this.shadowRoot) return; // mark only; render on connect
 
     const resolvedName = name || (email && email.split('@')[0]) || 'bạn';
@@ -445,6 +453,28 @@ export class AverChrome extends HTMLElement {
     if (pillEl) pillEl.textContent = resolvedName.length > 14
       ? resolvedName.slice(0, 13) + '…' : resolvedName;
     if (avatarEl) avatarEl.textContent = resolvedInitials;
+  }
+
+  /**
+   * W-2 — role-gate the "Trang Instructor" nav item. Shows ONLY for
+   * role 'instructor' or 'admin' (admin ⊃ instructor); hidden otherwise.
+   * The item is a disabled placeholder (no href) so it never 404s — the
+   * destination page lands in W-6. Stores the role so a pre-connect call
+   * (page bootstrap before the element upgrades) applies on connect.
+   */
+  setRole(role) {
+    this._role = role || null;
+    this._applyRole();
+  }
+
+  _applyRole() {
+    const root = this.shadowRoot;
+    if (!root) return; // pre-connect; connectedCallback re-applies
+    const link = root.getElementById('instructor-link');
+    if (!link) return;
+    const show = this._role === 'instructor' || this._role === 'admin';
+    if (show) link.removeAttribute('hidden');
+    else link.setAttribute('hidden', '');
   }
 
 

@@ -74,6 +74,35 @@ async def require_admin(authorization: str | None) -> dict:
     return auth_user
 
 
+async def require_instructor(authorization: str | None) -> dict:
+    """Verify Bearer token and assert role ∈ {instructor, admin} (admin ⊃
+    instructor). Mirrors require_admin — the instructor USER-ROLE guard for the
+    W-2 multi-tenancy surface.
+
+    NOTE: distinct from routers/admin_instructor.py's 'instructor review queue'
+    (an admin-only GRADING tier that just shares the word). Do NOT retrofit this
+    guard onto those endpoints — different meaning of 'instructor'.
+    """
+    auth_user = await get_supabase_user(authorization)
+    user_id   = auth_user["id"]
+
+    try:
+        r = (
+            supabase_admin.table("users")
+            .select("role")
+            .eq("id", user_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi kiểm tra quyền: {exc}")
+
+    if not r.data or r.data[0].get("role") not in ("instructor", "admin"):
+        raise HTTPException(403, "Bạn không có quyền truy cập trang giảng viên")
+
+    return auth_user
+
+
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 def _actor_id(admin) -> str | None:
@@ -371,6 +400,11 @@ class GenerateCodesRequest(BaseModel):
     code_type:     str              = Field(default="mass", description='"mass" | "direct" | "staff"')
     cohort_id:     str | None       = Field(default=None, description="UUID của lớp (bắt buộc khi code_type='direct')")
     notes:         str | None       = None
+    # W-2 (Option B) — mint an email-bound instructor-promote code. grants_role
+    # 'instructor' + intended_email auto-promotes the matching user at activation
+    # (email verified against the token, not the body). NULL = ordinary code.
+    grants_role:    str | None      = Field(default=None, description="null | 'instructor' (mã promote vai trò)")
+    intended_email: str | None      = Field(default=None, description="email ràng buộc (BẮT BUỘC khi grants_role='instructor')")
 
 
 class PatchCodeRequest(BaseModel):
@@ -863,12 +897,22 @@ async def generate_access_codes(
     # Sprint 12.2 — validate code_type ↔ cohort_id combo before insert.
     _validate_code_type_combo(body.code_type, body.cohort_id)
 
+    # W-2 (Option B) — instructor-promote codes MUST be email-bound (fail-closed
+    # at mint time so an unbound instructor code can never auto-promote anyone).
+    grants_role = (body.grants_role or "").strip().lower() or None
+    if grants_role is not None and grants_role != "instructor":
+        raise HTTPException(400, "grants_role chỉ nhận null hoặc 'instructor'.")
+    intended_email = (body.intended_email or "").strip() or None
+    if grants_role == "instructor" and not intended_email:
+        raise HTTPException(400, "Mã instructor bắt buộc có intended_email (ràng buộc theo email).")
+
     codes = [_gen_code() for _ in range(body.count)]
     row_base: dict = {
         "is_used": False,
         "is_active": True,
         "permissions": body.permissions,
         "code_type": body.code_type,
+        "issued_by": _actor_id(admin),          # provenance (mig 106)
     }
     if body.session_limit is not None:
         row_base["session_limit"] = body.session_limit
@@ -878,6 +922,10 @@ async def generate_access_codes(
         row_base["cohort_id"] = body.cohort_id
     if body.notes is not None:
         row_base["notes"] = body.notes
+    if grants_role is not None:
+        row_base["grants_role"] = grants_role
+    if intended_email is not None:
+        row_base["intended_email"] = intended_email
     rows = [{**row_base, "code": c} for c in codes]
 
     try:
@@ -894,6 +942,7 @@ async def generate_access_codes(
             "expires_at":    row.get("expires_at"),
             "code_type":     row.get("code_type"),
             "cohort_id":     row.get("cohort_id"),
+            "grants_role":   row.get("grants_role"),
         })
 
     return {"created": len(result.data or rows), "codes": codes}

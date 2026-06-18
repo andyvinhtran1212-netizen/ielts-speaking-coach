@@ -32,6 +32,35 @@ class ProfileUpdate(BaseModel):
     notification_email: bool | None = None
 
 
+# ── W-2 instructor-promote helpers (Option B, email-bound) ────────────────────
+
+def _norm_email(value: str | None) -> str | None:
+    """Normalise an email for comparison: trim + Unicode casefold. None/empty → None."""
+    return ((value or "").strip().casefold()) or None
+
+
+def _audit_promote_attempt(
+    user_id: str, code_id: str | None, *,
+    ok: bool, before_role: str | None = None, intended_email: str | None = None,
+) -> None:
+    """Append one row to access_code_audit for a role-promote attempt. BEST-EFFORT:
+    never raises (a logging failure must not break/block activation). Records
+    both successful promotes (action='promote_role') and rejected ones
+    (action='promote_role_rejected') so an email-mismatch attempt is visible."""
+    try:
+        supabase_admin.table("access_code_audit").insert({
+            "actor_user_id":  user_id,          # self-service via code (verified token)
+            "action":         "promote_role" if ok else "promote_role_rejected",
+            "code_id":        code_id,
+            "target_user_id": user_id,
+            "before":         {"role": before_role} if ok else None,
+            "after":          ({"role": "instructor"} if ok
+                               else {"reason": "email_mismatch", "intended_email": intended_email}),
+        }).execute()
+    except Exception as e:
+        logger.warning("[warn] promote_role audit failed: %s", e)
+
+
 # ── Shared helper ─────────────────────────────────────────────────────────────
 
 async def get_supabase_user(authorization: str | None):
@@ -296,11 +325,34 @@ async def activate_account(
     if _is_expired(access_code_row.get("expires_at"), datetime.now(timezone.utc)):
         raise HTTPException(status_code=400, detail="Access code này đã hết hạn")
 
+    # ── Step 1b (W-2): instructor-promote gate (Option B, email-bound) ───────
+    # Evaluate BEFORE activating/consuming so a mismatch fails CLOSED (HARD-403)
+    # WITHOUT marking the code used — the code stays valid for the intended GV.
+    # Email check applies ONLY to grants_role='instructor' codes; ordinary codes
+    # (grants_role NULL) are untouched (students activate normally). The email is
+    # the VERIFIED token email (auth_user), never request body.
+    promote_role: str | None = None
+    if (access_code_row.get("grants_role") or "").strip().lower() == "instructor":
+        intended = _norm_email(access_code_row.get("intended_email"))
+        if not intended or intended != _norm_email(email):
+            _audit_promote_attempt(
+                user_id, access_code_row.get("id"),
+                ok=False, intended_email=access_code_row.get("intended_email"),
+            )
+            raise HTTPException(
+                status_code=403,
+                detail="Email không khớp với instructor-code này. Mã CHƯA được sử "
+                       "dụng — đăng nhập bằng đúng email được cấp, hoặc liên hệ admin.",
+            )
+        promote_role = "instructor"
+
     # ── Step 2: upsert user row (in case /me was never called) ───────────────
+    # Select `role` too so the promote below is upgrade-only / idempotent.
+    current_role = "user"
     try:
         existing = (
             supabase_admin.table("users")
-            .select("id")
+            .select("id, role")
             .eq("id", user_id)
             .limit(1)
             .execute()
@@ -314,6 +366,8 @@ async def activate_account(
                 "role": "user",
                 "is_active": False,
             }).execute()
+        else:
+            current_role = existing.data[0].get("role") or "user"
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -323,16 +377,30 @@ async def activate_account(
     # ── Step 3: activate the user ─────────────────────────────────────────────
     # Copy permissions from access_code so they survive code revocation later.
     code_permissions = access_code_row.get("permissions") or ["practice_single", "practice_part", "practice_full"]
+    update_fields = {
+        "is_active": True,
+        "access_code_used": code,
+        "permissions": code_permissions,
+    }
+    # W-2 — fold the role promote into the SAME update (ATOMIC with activation,
+    # no bolt-tail). Upgrade-only: never downgrade admin; no-op if already
+    # ≥ instructor. Only set when the email-bound gate above passed.
+    will_promote = promote_role == "instructor" and current_role not in ("admin", "instructor")
+    if will_promote:
+        update_fields["role"] = "instructor"
     try:
-        supabase_admin.table("users").update({
-            "is_active": True,
-            "access_code_used": code,
-            "permissions": code_permissions,
-        }).eq("id", user_id).execute()
+        supabase_admin.table("users").update(update_fields).eq("id", user_id).execute()
     except Exception as e:
         raise HTTPException(
             status_code=500,
             detail=f"Lỗi khi kích hoạt tài khoản: {e}",
+        )
+
+    # Audit the successful promote (best-effort; the role write already committed).
+    if will_promote:
+        _audit_promote_attempt(
+            user_id, access_code_row.get("id"),
+            ok=True, before_role=current_role,
         )
 
     # ── Step 4: mark access code as used ─────────────────────────────────────

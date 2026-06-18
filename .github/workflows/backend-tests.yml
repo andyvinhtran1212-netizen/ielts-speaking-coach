@@ -232,4 +232,5 @@ jobs:
             frontend/tests/hide-subbands-toggle.test.mjs \
             frontend/tests/writing-highlight.test.mjs \
             frontend/tests/admin-writing-grade-redesign.test.mjs \
-            frontend/tests/admin-writing-dashboard.test.mjs
+            frontend/tests/admin-writing-dashboard.test.mjs \
+            frontend/tests/instructor-nav.test.mjs
