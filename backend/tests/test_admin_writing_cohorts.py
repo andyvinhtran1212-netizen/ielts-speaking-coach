@@ -48,7 +48,10 @@ class _Chain:
 
 def _db(table_map: dict) -> MagicMock:
     db = MagicMock()
-    db.table.side_effect = lambda name: _Chain(table_map.get(name, []))
+    # GV-1a: the band-map read goes through the writing_feedback_current view;
+    # for single-version test data it == the base table.
+    db.table.side_effect = lambda name: _Chain(
+        table_map.get("writing_feedback" if name == "writing_feedback_current" else name, []))
     return db
 
 

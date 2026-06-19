@@ -34,7 +34,9 @@ class _Q:
 
 class _DB:
     def __init__(self, tables): self._t = tables
-    def table(self, n): return _Q(self._t.get(n, []))
+    def table(self, n):
+        if n == "writing_feedback_current": n = "writing_feedback"   # GV-1a view alias
+        return _Q(self._t.get(n, []))
 
 
 def _patch(monkeypatch, tables):

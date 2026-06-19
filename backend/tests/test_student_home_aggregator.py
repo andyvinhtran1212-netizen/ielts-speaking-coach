@@ -134,6 +134,8 @@ class FakeSupabase:
         }
 
     def table(self, name: str) -> _TableQuery:
+        if name == "writing_feedback_current":   # GV-1a: view == base for single-version test data
+            name = "writing_feedback"
         return _TableQuery(self, name)
 
 

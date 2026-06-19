@@ -65,6 +65,9 @@ async def list_instructor_metrics(authorization: str | None = Header(None)):
             n_regraded = sum(1 for e in essays if (e.get("regrade_count") or 0) > 0)
             regrade_events = sum((e.get("regrade_count") or 0) for e in essays)
 
+            # GV-1a SPEND-analytics exception: read the BASE table (ALL versions),
+            # NOT writing_feedback_current — token/cost here is total spend across
+            # every grade/regrade version, so a current-only view would undercount.
             fb = (supabase_admin.table("writing_feedback")
                   .select("tokens_input, tokens_output, cost_usd")
                   .in_("essay_id", owned).execute()).data or []

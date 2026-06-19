@@ -161,6 +161,8 @@ class FakeSupabase:
         self.lock = threading.Lock()
 
     def table(self, name: str) -> _Query:
+        if name == "writing_feedback_current":   # GV-1a: view == base for single-version test data
+            name = "writing_feedback"
         return _Query(self, name)
 
 

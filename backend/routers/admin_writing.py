@@ -654,6 +654,8 @@ async def get_writing_stats(authorization: str | None = Header(None)):
     fb_rows: list[dict] = []
     if live_ids:
         fb_rows = (
+            # GV-1a SPEND-analytics exception: BASE table = ALL versions (total
+            # spend across every grade/regrade); a current-only view undercounts.
             supabase_admin.table("writing_feedback")
             .select("essay_id, grading_duration_ms, created_at, cost_usd, tokens_input, tokens_output")
             .in_("essay_id", live_ids)

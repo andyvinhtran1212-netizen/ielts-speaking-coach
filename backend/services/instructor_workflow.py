@@ -286,11 +286,14 @@ def deliver(
 
     # Step 3: stamp the feedback row. Idempotent — fetch current
     # version, append '-instructor' if missing.
-    fb_resp = supabase_admin.table("writing_feedback").select(
-        "prompt_version",
+    # GV-1a: read the CURRENT version's stamp via the view (was an arbitrary
+    # version with limit(1)-no-order).
+    fb_resp = supabase_admin.table("writing_feedback_current").select(
+        "prompt_version, version",
     ).eq("essay_id", str(delivered.essay_id)).limit(1).execute()
     if fb_resp.data:
         current = fb_resp.data[0].get("prompt_version") or ""
+        cur_version = fb_resp.data[0].get("version")
         # Strip any pending suffix from Pass 1 ('-instructor-pending') so
         # the final stamp is just '<base>-instructor', not '<base>-
         # instructor-pending-instructor'.
@@ -299,9 +302,15 @@ def deliver(
         )
         new_stamp = f"{base}-instructor"
         if new_stamp != current:
-            supabase_admin.table("writing_feedback").update({
+            # GV-1a: stamp ONLY the current version row. The UPDATE is on the
+            # base table (a view isn't writable); without the version filter it
+            # would stamp EVERY version row once multi-version exists.
+            upd = supabase_admin.table("writing_feedback").update({
                 "prompt_version": new_stamp,
-            }).eq("essay_id", str(delivered.essay_id)).execute()
+            }).eq("essay_id", str(delivered.essay_id))
+            if cur_version is not None:
+                upd = upd.eq("version", cur_version)
+            upd.execute()
 
     logger.info(
         "[instructor-review] delivered review=%s by instructor=%s "
