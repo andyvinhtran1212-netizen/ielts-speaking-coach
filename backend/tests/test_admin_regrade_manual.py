@@ -155,13 +155,15 @@ def test_patch_feedback_stamps_manual_edit_audit_fields():
     fake = _Dispatcher(essays=[{"id": _ESSAY_ID, "status": "graded"}])
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
-         patch("routers.admin_writing.supabase_admin", fake):
+         patch("routers.admin_writing.supabase_admin", fake), \
+         patch("services.essay_service.upsert_composed_version", return_value=2) as mock_upsert:
         r = _client().patch(
             f"/admin/writing/essays/{_ESSAY_ID}/feedback",
             json=_valid_feedback_edits(),
             headers=_ADMIN_AUTH,
         )
     assert r.status_code == 200, r.text
+    mock_upsert.assert_called_once()                    # GV-1c: edit → composed version
 
     update = next(c for c in fake.calls
                   if c["table"] == "writing_essays" and c["action"] == "update")
@@ -169,9 +171,8 @@ def test_patch_feedback_stamps_manual_edit_audit_fields():
     assert payload["is_manually_edited"] is True
     assert payload["last_edited_by"] == _ADMIN_USER["id"]
     assert payload["last_edited_at"]                    # truthy ISO timestamp
-    # Pre-2.5 contract still holds:
     assert payload["status"] == "reviewed"
-    assert payload["admin_edits_json"]["overallBandScore"] == 7.0
+    assert "admin_edits_json" not in payload           # GV-1c: overlay retired
 
 
 # ── PATCH /instructor-note ───────────────────────────────────────────
@@ -313,8 +314,10 @@ def test_regrade_increments_count_and_resets_admin_edits():
     assert payload["last_regraded_by"]   == _ADMIN_USER["id"]
     assert payload["last_regraded_at"]
     assert payload["status"]             == "grading"
-    # Resets — manual edits are gone, the new AI grade replaces them.
-    assert payload["admin_edits_json"]   is None
+    # GV-1c: regrade no longer writes admin_edits_json (DEAD column) — it only
+    # clears the manual-edit badge. The prior composed edit-version stays in the
+    # lineage (just not current).
+    assert "admin_edits_json" not in payload
     assert payload["is_manually_edited"] is False
     # NOT touched — instructor_note survives regrades by design.
     assert "instructor_note" not in payload

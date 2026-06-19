@@ -252,8 +252,9 @@ def test_regrade_endpoints_no_delete_and_keep_d1():
     assert "live_version_count" in aw and "live_version_count" in ins
 
 
-def test_overlay_675_untouched_gv1c():
+def test_overlay_removed_gv1c():
+    # GV-1c retired the overlay: render reads the current version directly.
     import pathlib
     es = (pathlib.Path(__file__).parent.parent / "services" / "essay_service.py").read_text()
-    assert 'essay.get("admin_edits_json") or fr.data[0]["feedback_json"]' in es, \
-        "the admin_edits_json render overlay must remain (GV-1c), so admin edits still show"
+    assert 'essay.get("admin_edits_json") or fr.data[0]["feedback_json"]' not in es, \
+        "the admin_edits_json render overlay must be GONE (GV-1c single-source = current_version)"

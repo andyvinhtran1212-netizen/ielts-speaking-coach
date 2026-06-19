@@ -430,7 +430,7 @@ async def regrade_essay(request: Request, essay_id: UUID, background_tasks: Back
     supabase_admin.table("writing_essays").update({
         "status": "grading", "analysis_level": effective_level,
         "regrade_count": new_count, "last_regraded_at": _now_iso(), "last_regraded_by": me,
-        "admin_edits_json": None, "is_manually_edited": False,
+        "is_manually_edited": False,   # admin_edits_json DEAD post-GV-1c (not written)
     }).eq("id", str(essay_id)).execute()   # instructor_note NOT cleared (preserved)
     job_info = essay_service.schedule_grading_job(
         essay_id=str(essay_id), analysis_level=effective_level,
