@@ -239,11 +239,12 @@ def test_cohort_essay_selects_never_reference_overall_band_score():
         assert "overall_band_score" not in cols, (
             f"writing_essays select must NOT project overall_band_score: {cols!r}"
         )
-    # Band is sourced from writing_feedback.
+    # Band is sourced from the feedback table/view (GV-1a: the current-version
+    # view writing_feedback_current; still NOT from writing_essays).
     assert re.search(
-        r'table\(\s*["\']writing_feedback["\']\s*\)\s*\.select\(\s*["\'][^"\']*overall_band_score',
+        r'table\(\s*["\']writing_feedback(?:_current)?["\']\s*\)\s*\.select\(\s*["\'][^"\']*overall_band_score',
         src,
-    ), "band must be fetched from writing_feedback"
+    ), "band must be fetched from writing_feedback(_current)"
 
 
 def test_cohort_detail_missing_cohort_404():

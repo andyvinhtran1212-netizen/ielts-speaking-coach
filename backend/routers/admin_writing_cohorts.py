@@ -60,7 +60,8 @@ def _fetch_bands_by_essay_ids(essay_ids: list[str]) -> dict[str, float | None]:
     if not essay_ids:
         return {}
     rows = (
-        supabase_admin.table("writing_feedback_current")   # GV-1a: current version per essay
+        # GV-1a: current version per essay (via the writing_feedback_current view)
+        supabase_admin.table("writing_feedback_current")
         .select("essay_id, overall_band_score")
         .in_("essay_id", essay_ids)
         .execute()

@@ -126,6 +126,8 @@ class _Client:
         self.calls: list[dict] = []
 
     def table(self, name):
+        if name == "writing_feedback_current":   # GV-1a: view == base for single-version test data
+            name = "writing_feedback"
         return _Builder(self, name)
 
     def _respond(self, rec):
