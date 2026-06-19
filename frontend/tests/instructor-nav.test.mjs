@@ -57,6 +57,55 @@ describe('W-6b — instructor nav item (aver-chrome)', () => {
 });
 
 
+// ── Fix-2 (D-B) — chrome auto-resolves role on EVERY page (not just speaking) ──
+//
+// Convention note: the repo's chrome tests are static-source contracts (the
+// frontend stays zero-dependency — no jsdom). These pin the auto-role-resolution
+// behaviour by source shape; the live visible/hidden behaviour is exercised by
+// Andy's dogfood (instructor sees the link on home; a normal user does not).
+
+describe('Fix-2 (D-B) — aver-chrome auto-resolves role from /auth/me', () => {
+  it('has a _resolveRole method that fetches /auth/me', () => {
+    assert.match(CHROME, /_resolveRole\s*\(\s*token\s*\)/, '_resolveRole(token) method exists');
+    assert.match(CHROME, /fetch\(base \+ '\/auth\/me'/, 'fetches the authoritative /auth/me');
+    assert.match(CHROME, /Authorization: 'Bearer ' \+ token/, 'sends the session bearer token');
+  });
+
+  it('uses a raw fetch, NOT window.api.get (which would redirect to /login on 401)', () => {
+    // The role probe must never bounce the page to login — a raw fetch lets a
+    // 401/stale-token fall through to the fail-closed path below.
+    assert.doesNotMatch(CHROME, /api\.get\(\s*['"`]\/auth\/me/, 'must not use api.get for the role probe');
+  });
+
+  it('resolves role then calls setRole (non-instructor / null → stays hidden)', () => {
+    assert.match(CHROME, /role = \(me && me\.role\) \|\| null/, 'reads role off the /auth/me payload');
+    assert.match(CHROME, /this\.setRole\(role\)/, 'feeds the resolved role into the existing gate');
+  });
+
+  it('no double-fetch — skips when a page already set the role', () => {
+    // _userOverride short-circuits the whole auto path (speaking.html), and the
+    // _role!==null guard covers a bare setRole() — so /auth/me is fetched at most
+    // once, and never on the page-authoritative path.
+    assert.match(CHROME, /if \(this\._role !== null\) return;/, 'guards against double-fetch / race');
+  });
+
+  it('fail-closed — non-OK response or error leaves the link hidden, never throws', () => {
+    assert.match(CHROME, /if \(resp && resp\.ok\)/, 'only trusts an OK response');
+    assert.match(CHROME, /catch\s*\{[\s\S]*?return;[\s\S]*?\}/, 'swallows network/parse errors (fail-closed)');
+    // logged-out path: no token → return before any fetch (link stays hidden).
+    assert.match(CHROME, /if \(!token\) return;/, 'unauthenticated → no fetch, link hidden');
+  });
+
+  it('the auto-populate path drives role resolution with the session token', () => {
+    assert.match(
+      CHROME,
+      /await this\._resolveRole\(session\.access_token\)/,
+      'tick() resolves role only after a real session is in hand',
+    );
+  });
+});
+
+
 // ── W-6b-1: FE cross-tenant grep-gate — instructor pages must NEVER call /admin/* ──
 
 import { readdirSync, statSync } from 'node:fs';
