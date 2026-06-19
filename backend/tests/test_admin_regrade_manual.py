@@ -290,6 +290,7 @@ def test_regrade_increments_count_and_resets_admin_edits():
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_writing.supabase_admin", fake), \
+         patch("services.essay_service.supabase_admin", fake), \
          patch("services.essay_service.schedule_grading_job",
                return_value={"job_id": _JOB_ID, "eta_seconds": 45}), \
          patch("services.essay_service._bg_grade_essay",
@@ -327,6 +328,7 @@ def test_regrade_increments_existing_count():
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_writing.supabase_admin", fake), \
+         patch("services.essay_service.supabase_admin", fake), \
          patch("services.essay_service.schedule_grading_job",
                return_value={"job_id": _JOB_ID, "eta_seconds": 45}), \
          patch("services.essay_service._bg_grade_essay",
@@ -353,6 +355,7 @@ def test_regrade_blocks_flagged_essay():
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_writing.supabase_admin", fake), \
+         patch("services.essay_service.supabase_admin", fake), \
          patch("services.essay_service.schedule_grading_job", schedule_mock):
         r = _client().post(
             f"/admin/writing/essays/{_ESSAY_ID}/regrade",
@@ -374,6 +377,7 @@ def test_regrade_blocks_in_flight_essay():
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_writing.supabase_admin", fake), \
+         patch("services.essay_service.supabase_admin", fake), \
          patch("services.essay_service.schedule_grading_job", schedule_mock):
         r = _client().post(
             f"/admin/writing/essays/{_ESSAY_ID}/regrade",
@@ -384,26 +388,29 @@ def test_regrade_blocks_in_flight_essay():
     schedule_mock.assert_not_called()
 
 
-def test_regrade_deletes_existing_feedback_row():
-    """writing_feedback.essay_id is UNIQUE — without the DELETE the
-    BG grader's INSERT would raise.  Pin that we drop the row before
-    queueing the new job."""
+def test_regrade_does_not_delete_existing_feedback_row():
+    """GV-1b: regrade is now versioned (DELETE→INSERT-version). The prior
+    feedback row MUST be kept (it stays compare-able), so the regrade endpoint
+    must NOT DELETE writing_feedback — the BG grader INSERTs the next version
+    under UNIQUE(essay_id, version)."""
     fake = _Dispatcher(essays=[_graded_essay()])
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_writing.supabase_admin", fake), \
+         patch("services.essay_service.supabase_admin", fake), \
          patch("services.essay_service.schedule_grading_job",
                return_value={"job_id": _JOB_ID, "eta_seconds": 45}), \
          patch("services.essay_service._bg_grade_essay",
                new=AsyncMock(return_value=None)):
-        _client().post(
+        r = _client().post(
             f"/admin/writing/essays/{_ESSAY_ID}/regrade",
             json={},
             headers=_ADMIN_AUTH,
         )
+    assert r.status_code == 202, r.text
     deletes = [c for c in fake.calls
                if c["table"] == "writing_feedback" and c["action"] == "delete"]
-    assert len(deletes) == 1, "must clear existing feedback row before regrade"
+    assert deletes == [], "GV-1b must NOT delete prior feedback (versions are kept)"
 
 
 def test_regrade_404_when_essay_missing():
@@ -438,6 +445,7 @@ def test_regrade_with_level_override_persists_and_grades_at_it():
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_writing.supabase_admin", fake), \
+         patch("services.essay_service.supabase_admin", fake), \
          patch("services.essay_service.schedule_grading_job", schedule_mock), \
          patch("services.essay_service._bg_grade_essay",
                new=AsyncMock(return_value=None)):
@@ -470,6 +478,7 @@ def test_regrade_without_level_keeps_current():
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_writing.supabase_admin", fake), \
+         patch("services.essay_service.supabase_admin", fake), \
          patch("services.essay_service.schedule_grading_job", schedule_mock), \
          patch("services.essay_service._bg_grade_essay",
                new=AsyncMock(return_value=None)):
@@ -495,6 +504,7 @@ def test_regrade_rejects_out_of_range_level():
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_writing.supabase_admin", fake), \
+         patch("services.essay_service.supabase_admin", fake), \
          patch("services.essay_service.schedule_grading_job", schedule_mock):
         r = _client().post(
             f"/admin/writing/essays/{_ESSAY_ID}/regrade",
@@ -571,6 +581,7 @@ def test_student_summary_aggregates_essays_and_assignments():
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_writing.supabase_admin", fake), \
+         patch("services.essay_service.supabase_admin", fake), \
               patch("services.essay_service.supabase_admin", fake):
         r = _client().get(
             f"/admin/writing/students/{_STUDENT_ID}/summary",
@@ -606,6 +617,7 @@ def test_student_summary_handles_no_essays():
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_writing.supabase_admin", fake), \
+         patch("services.essay_service.supabase_admin", fake), \
               patch("services.essay_service.supabase_admin", fake):
         r = _client().get(
             f"/admin/writing/students/{_STUDENT_ID}/summary",
@@ -626,6 +638,7 @@ def test_student_summary_404_when_student_missing():
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_writing.supabase_admin", fake), \
+         patch("services.essay_service.supabase_admin", fake), \
               patch("services.essay_service.supabase_admin", fake):
         r = _client().get(
             f"/admin/writing/students/{_STUDENT_ID}/summary",

@@ -262,9 +262,15 @@ async def test_bg_grade_essay_happy_path_writes_feedback_and_marks_graded():
     assert ("writing_jobs",     "update") in ops    # → running
     assert ("writing_essays",   "update") in ops    # → grading
     assert ("writing_feedback", "insert") in ops
-    # Final updates set status=graded / completed
-    final_essay = [c for c in fake.calls if c["table"] == "writing_essays" and c["op"] == "update"][-1]
-    assert final_essay["payload"]["status"] == "graded"
+    # Final updates set status=graded / completed. GV-1b appends a separate
+    # writing_essays update {current_version: …} AFTER the status flip (advance
+    # LAST), so target the graded update specifically rather than [-1].
+    graded_essay = [c for c in fake.calls if c["table"] == "writing_essays"
+                    and c["op"] == "update" and c["payload"].get("status") == "graded"][-1]
+    assert graded_essay["payload"]["status"] == "graded"
+    cv_update = [c for c in fake.calls if c["table"] == "writing_essays"
+                 and c["op"] == "update" and "current_version" in c["payload"]]
+    assert cv_update, "GV-1b must advance current_version after grading"
     final_job = [c for c in fake.calls if c["table"] == "writing_jobs" and c["op"] == "update"][-1]
     assert final_job["payload"]["status"] == "completed"
 
@@ -584,11 +590,13 @@ async def test_bg_grade_essay_instructor_review_creation_failure_does_not_fail_g
         # logged-and-swallowed.
         await essay_service._bg_grade_essay(_ESSAY_ID, _JOB_ID)
 
-    # Feedback row still inserted, essay still marked graded.
+    # Feedback row still inserted, essay still marked graded. (GV-1b appends a
+    # current_version advance after the status flip → target the graded update.)
     ops = [(c["table"], c["op"]) for c in fake.calls]
     assert ("writing_feedback", "insert") in ops
-    final_essay = [c for c in fake.calls if c["table"] == "writing_essays" and c["op"] == "update"][-1]
-    assert final_essay["payload"]["status"] == "graded"
+    graded_essay = [c for c in fake.calls if c["table"] == "writing_essays"
+                    and c["op"] == "update" and c["payload"].get("status") == "graded"][-1]
+    assert graded_essay["payload"]["status"] == "graded"
 
 
 # ── Read paths ───────────────────────────────────────────────────────

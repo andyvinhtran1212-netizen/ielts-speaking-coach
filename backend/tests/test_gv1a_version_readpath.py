@@ -38,7 +38,9 @@ def test_writing_feedback_read_path_gate():
                 if base_re.search(line):
                     window = " ".join(lines[i:i + 4])         # writer kw may be on a following line
                     ctx = " ".join(lines[max(0, i - 3):i + 1])
-                    if not (writer_re.search(window) or "SPEND-analytics exception" in ctx):
+                    if not (writer_re.search(window)
+                            or "SPEND-analytics exception" in ctx
+                            or "version-management" in ctx):   # GV-1b budget/orphan reads need ALL versions
                         violations.append(f"{p.name}:{i+1} base writing_feedback read not via view / not allowlisted")
                 if embed_bare_re.search(line) and "writing_feedback_current(" not in line:
                     violations.append(f"{p.name}:{i+1} bare writing_feedback(...) embed — must embed the view")

@@ -273,6 +273,8 @@ MAX_VERSIONS = 3   # mirrors the DB CHECK(version BETWEEN 1 AND 3)
 def _ancestor_versions(essay_id: str) -> set[int]:
     """The LIVE version numbers for an essay (current_version + parent chain).
     Empty set when the essay has no feedback yet (first grade)."""
+    # version-management: must read ALL versions from the base table (incl
+    # orphans), NOT the current-only writing_feedback_current view.
     rows = (
         supabase_admin.table("writing_feedback")
         .select("version, parent_version")
@@ -280,7 +282,8 @@ def _ancestor_versions(essay_id: str) -> set[int]:
     ).data or []
     if not rows:
         return set()
-    parent_of = {r["version"]: r.get("parent_version") for r in rows}
+    # `version` is NOT NULL in the DB; guard anyway so a malformed row can't crash budgeting.
+    parent_of = {r["version"]: r.get("parent_version") for r in rows if r.get("version") is not None}
     cvr = (
         supabase_admin.table("writing_essays")
         .select("current_version").eq("id", essay_id).limit(1).execute()
@@ -304,6 +307,7 @@ def _gc_orphan_versions(essay_id: str, live: set[int]) -> None:
     Frees version-number slots so max(LIVE)+1 stays ≤ MAX_VERSIONS. The linear
     chain guarantees every kept version is in `live`, so this never removes a
     compare-able version."""
+    # version-management: read ALL versions from base (incl orphans) to GC.
     rows = (
         supabase_admin.table("writing_feedback")
         .select("version").eq("essay_id", essay_id).execute()
@@ -460,6 +464,7 @@ async def _bg_grade_essay(essay_id: str, job_id: str) -> None:
         # version (kept, NOT overwriting prior versions, so they stay
         # compare-able). Idempotent on job_id: a re-invoked BG task for the same
         # job reuses its row instead of burning a new version slot.
+        # version-management: base table (the view filters to current only).
         existing = (
             supabase_admin.table("writing_feedback")
             .select("version")
