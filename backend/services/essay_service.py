@@ -257,6 +257,73 @@ def create_essay_with_job(*, data: dict, admin_id: str) -> dict:
     return {"essay_id": essay_id, **job_info}
 
 
+# ── GV-1b: grading-version budget + orphan helpers ───────────────────
+#
+# A writing_feedback row carries `version` + `parent_version`. Versions form a
+# LINEAR chain: each regrade/compose sets parent_version = the then-current
+# version, and `writing_essays.current_version` points at the delivered one.
+# LIVE versions = current_version + its parent ancestor chain — every
+# kept/compare-able version. Anything else is an ORPHAN: a row that was inserted
+# but whose pointer-advance never landed (a crashed regrade) — never an ancestor,
+# so it can be GC'd without ever touching a kept version.
+
+MAX_VERSIONS = 3   # mirrors the DB CHECK(version BETWEEN 1 AND 3)
+
+
+def _ancestor_versions(essay_id: str) -> set[int]:
+    """The LIVE version numbers for an essay (current_version + parent chain).
+    Empty set when the essay has no feedback yet (first grade)."""
+    # version-management: must read ALL versions from the base table (incl
+    # orphans), NOT the current-only writing_feedback_current view.
+    rows = (
+        supabase_admin.table("writing_feedback")
+        .select("version, parent_version")
+        .eq("essay_id", essay_id).execute()
+    ).data or []
+    if not rows:
+        return set()
+    # `version` is NOT NULL in the DB; guard anyway so a malformed row can't crash budgeting.
+    parent_of = {r["version"]: r.get("parent_version") for r in rows if r.get("version") is not None}
+    cvr = (
+        supabase_admin.table("writing_essays")
+        .select("current_version").eq("id", essay_id).limit(1).execute()
+    ).data or [{}]
+    v = cvr[0].get("current_version") or 1
+    live: set[int] = set()
+    while v is not None and v in parent_of and v not in live:
+        live.add(v)
+        v = parent_of[v]
+    return live
+
+
+def live_version_count(essay_id: str) -> int:
+    """Budget = number of LIVE versions. Orphan-safe (orphans aren't ancestors →
+    never counted), so a crashed regrade can't silently lock the essay."""
+    return len(_ancestor_versions(essay_id))
+
+
+def _gc_orphan_versions(essay_id: str, live: set[int]) -> None:
+    """Delete writing_feedback rows NOT in the LIVE ancestor chain (orphans).
+    Frees version-number slots so max(LIVE)+1 stays ≤ MAX_VERSIONS. The linear
+    chain guarantees every kept version is in `live`, so this never removes a
+    compare-able version."""
+    # version-management: read ALL versions from base (incl orphans) to GC.
+    rows = (
+        supabase_admin.table("writing_feedback")
+        .select("version").eq("essay_id", essay_id).execute()
+    ).data or []
+    for v in [r["version"] for r in rows if r["version"] not in live]:
+        supabase_admin.table("writing_feedback").delete().eq(
+            "essay_id", essay_id).eq("version", v).execute()
+
+
+def _source_for_tier(grading_tier) -> str:
+    """GV-1b: every band-producing grade today is a Pro run (standard / deep /
+    instructor are all Pro; Flash never grades bands). `partial`/`composed` land
+    in later GV phases."""
+    return "ai_pro"
+
+
 # ── Async BG grader task ─────────────────────────────────────────────
 
 async def _bg_grade_essay(essay_id: str, job_id: str) -> None:
@@ -393,7 +460,35 @@ async def _bg_grade_essay(essay_id: str, job_id: str) -> None:
             "cost_usd":                 result.cost_usd,
             "grading_duration_ms":      result.grading_duration_ms,
         }
-        supabase_admin.table("writing_feedback").insert(feedback_row).execute()
+        # GV-1b — versioned write. First grade → version 1; regrade → next
+        # version (kept, NOT overwriting prior versions, so they stay
+        # compare-able). Idempotent on job_id: a re-invoked BG task for the same
+        # job reuses its row instead of burning a new version slot.
+        # version-management: base table (the view filters to current only).
+        existing = (
+            supabase_admin.table("writing_feedback")
+            .select("version")
+            .eq("essay_id", essay_id)
+            .eq("provenance->>job_id", job_id)
+            .limit(1).execute()
+        ).data
+        if existing:
+            version = existing[0]["version"]
+            supabase_admin.table("writing_feedback").update(feedback_row).eq(
+                "essay_id", essay_id).eq("version", version).execute()
+        else:
+            live = _ancestor_versions(essay_id)
+            if live:
+                _gc_orphan_versions(essay_id, live)   # reclaim slots so version ≤ 3
+                cur = max(live)
+                version, parent = cur + 1, cur
+            else:
+                version, parent = 1, None
+            feedback_row["version"]        = version
+            feedback_row["source"]         = _source_for_tier(result.grading_tier)
+            feedback_row["parent_version"] = parent
+            feedback_row["provenance"]     = {"job_id": job_id}
+            supabase_admin.table("writing_feedback").insert(feedback_row).execute()
 
         # Sprint 2.7b — persist Deep tier per-pass metadata to the
         # writing_essays.grading_tier_metadata JSONB column so the
@@ -407,6 +502,15 @@ async def _bg_grade_essay(essay_id: str, job_id: str) -> None:
             essay_update["grading_tier_metadata"] = result.tier_metadata
         supabase_admin.table("writing_essays").update(
             essay_update,
+        ).eq("id", essay_id).execute()
+
+        # GV-1b — advance the current-version pointer LAST (ordered best-effort,
+        # Supabase has no real transaction). If THIS write fails, current_version
+        # stays on the last-good version (delivery stays correct, never a
+        # half-written one) and the row just inserted becomes an orphan that the
+        # next regrade GCs — the 3-version budget is never silently consumed.
+        supabase_admin.table("writing_essays").update(
+            {"current_version": version},
         ).eq("id", essay_id).execute()
         supabase_admin.table("writing_jobs").update({
             "status":       "completed",

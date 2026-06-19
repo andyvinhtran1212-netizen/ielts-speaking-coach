@@ -519,9 +519,11 @@
       return d.toLocaleDateString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit' });
     }
     function _bandFromEssay(e) {
-      // PostgREST embed returns writing_feedback as an array (empty when no
-      // feedback row exists). Defensive about both shapes because the embed
-      // cardinality flips between supabase-py versions.
+      // GV-1a: the embed is the writing_feedback_current view (aliased to the
+      // `writing_feedback` key), a to-one → a DICT (the current version), or
+      // absent when no feedback exists. Kept array-tolerant too: legacy base
+      // embeds returned an array, and the cardinality can flip across
+      // supabase-py versions.
       var fb = e.writing_feedback;
       if (Array.isArray(fb) && fb.length) return fb[0].overall_band_score;
       if (fb && typeof fb === 'object')   return fb.overall_band_score;
