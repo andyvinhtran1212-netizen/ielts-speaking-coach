@@ -383,17 +383,21 @@ async def update_feedback(
             ),
         )
 
-    # Phase 2.5: stamp manual-edit audit fields alongside the existing
-    # admin_edits_json / admin_reviewed_at writes. is_manually_edited
-    # drives the "✏ Đã sửa thủ công" badge in the admin grading UI;
-    # last_edited_by + last_edited_at give Andy a per-essay audit trail
-    # without joining writing_feedback.
+    # GV-1c: the human edit becomes a COMPOSED version (single source of truth =
+    # current_version), NOT the legacy admin_edits_json overlay. First edit on an
+    # AI-current → new composed version (AI version stays immutable); editing an
+    # already-composed current → in-place update (no new slot). A full budget
+    # raises 409 from here.
+    essay_service.upsert_composed_version(str(essay_id), validated, edited_by=admin["id"])
+
+    # Audit/badge fields stay on writing_essays (orthogonal to the version):
+    # is_manually_edited drives the "✏ Đã sửa thủ công" badge; last_edited_*
+    # give a per-essay trail without joining writing_feedback.
     now_iso = _now_iso()
     try:
         r = (
             supabase_admin.table("writing_essays")
             .update({
-                "admin_edits_json":     validated.model_dump(mode="json"),
                 "admin_reviewed_at":    now_iso,
                 "status":               "reviewed",
                 "is_manually_edited":   True,
@@ -895,9 +899,10 @@ async def trigger_regrade(
                 "last_regraded_at":   now_iso,
                 "last_regraded_by":   admin["id"],
                 "analysis_level":     effective_level,
-                # The new AI grade supersedes any prior manual edit, so
-                # both fields reset to a clean slate.
-                "admin_edits_json":   None,
+                # The new AI grade supersedes any prior manual edit → clear the
+                # badge. (admin_edits_json is DEAD post-GV-1c — not written; the
+                # prior composed edit-version stays in the lineage, just not
+                # current.)
                 "is_manually_edited": False,
             })
             .eq("id", str(essay_id))

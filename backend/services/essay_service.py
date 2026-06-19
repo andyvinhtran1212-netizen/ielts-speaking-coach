@@ -324,6 +324,83 @@ def _source_for_tier(grading_tier) -> str:
     return "ai_pro"
 
 
+def _bands_from_feedback(feedback) -> dict:
+    """Extract the 4 criterion band columns + overall from a validated
+    WritingFeedback (the admin edit is authoritative on its values, mirroring
+    the legacy admin_edits_json overlay — no recompute)."""
+    c = feedback.criteriaFeedback
+    return {
+        "overall_band_score":      float(feedback.overallBandScore),
+        "band_main_criterion":     float(c.mainCriterion.bandScore),
+        "band_coherence_cohesion": float(c.coherenceCohesion.bandScore),
+        "band_lexical_resource":   float(c.lexicalResource.bandScore),
+        "band_grammatical_range":  float(c.grammaticalRange.bandScore),
+    }
+
+
+def upsert_composed_version(essay_id: str, feedback, *, edited_by: str) -> int:
+    """GV-1c — apply a human edit as a COMPOSED version so `current_version` is
+    the single source of truth (retires the admin_edits_json overlay).
+
+    `feedback` = a validated WritingFeedback. Returns the version now current.
+      • current is an AI version (source LIKE 'ai_%') → INSERT a NEW composed
+        version (parent = current_version) and advance the pointer. The AI
+        version is NEVER mutated (immutable).
+      • current is already composed → UPDATE it in-place (human-owned, mutable)
+        so repeated edits don't burn a version slot.
+
+    Raises HTTPException(409) when a NEW composed version is needed but the
+    3-version budget is full (an edit IS a version; the admin compares/regrades
+    instead).
+    """
+    row = {
+        "essay_id":      essay_id,
+        "feedback_json": feedback.model_dump(mode="json"),
+        "source":        "composed",
+        "provenance":    {"edited_by": edited_by, "edited_at": _now()},
+        **_bands_from_feedback(feedback),
+    }
+    cvr = (
+        supabase_admin.table("writing_essays")
+        .select("current_version").eq("id", essay_id).limit(1).execute()
+    ).data or [{}]
+    cur = cvr[0].get("current_version") or 1
+    # version-management: read the CURRENT version row from base (its source
+    # decides create-vs-update); the view would hide a non-current one.
+    cur_rows = (
+        supabase_admin.table("writing_feedback")
+        .select("version, source").eq("essay_id", essay_id).eq("version", cur)
+        .limit(1).execute()
+    ).data
+    cur_source = (cur_rows[0].get("source") if cur_rows else None)
+
+    if cur_source == "composed":
+        # in-place update of the human-owned composed version — no new slot.
+        supabase_admin.table("writing_feedback").update(row).eq(
+            "essay_id", essay_id).eq("version", cur).execute()
+        return cur
+
+    # current is AI (or no feedback yet) → mint a new composed version.
+    live = _ancestor_versions(essay_id)
+    if live:
+        _gc_orphan_versions(essay_id, live)          # reclaim slots first
+        live = _ancestor_versions(essay_id)
+        if len(live) >= MAX_VERSIONS:
+            raise HTTPException(
+                409,
+                f"Đã đạt tối đa {MAX_VERSIONS} version cho bài này — không thể thêm "
+                f"bản chỉnh sửa. Hãy so sánh/ghép hoặc chấm lại các bản hiện có.",
+            )
+        row["version"], row["parent_version"] = max(live) + 1, cur
+    else:
+        row["version"], row["parent_version"] = 1, None
+    supabase_admin.table("writing_feedback").insert(row).execute()
+    # advance the pointer LAST (ordered best-effort, mirrors the grade path).
+    supabase_admin.table("writing_essays").update(
+        {"current_version": row["version"]}).eq("id", essay_id).execute()
+    return row["version"]
+
+
 # ── Async BG grader task ─────────────────────────────────────────────
 
 async def _bg_grade_essay(essay_id: str, job_id: str) -> None:
@@ -755,8 +832,7 @@ def get_essay_render_context(essay_id: str) -> dict:
     er = (
         supabase_admin.table("writing_essays")
         .select(
-            "id, student_id, task_type, prompt_text, essay_text, "
-            "admin_edits_json, status"
+            "id, student_id, task_type, prompt_text, essay_text, status"
         )
         .eq("id", essay_id)
         .is_("deleted_at", "null")          # soft-deleted → 404 (no render/export)
@@ -777,10 +853,11 @@ def get_essay_render_context(essay_id: str) -> dict:
     if not fr.data:
         raise HTTPException(404, "Feedback not yet available")
 
-    # GV-1a: the admin_edits_json overlay is intentionally LEFT untouched here —
-    # the legacy human-edit overlay is reconciled into a 'composed' version in
-    # GV-1b. Repointing the read to the view does not change this overlay.
-    feedback_json = essay.get("admin_edits_json") or fr.data[0]["feedback_json"]
+    # GV-1c: single source of truth = current_version (the view returns it). The
+    # legacy admin_edits_json overlay is retired — a human edit is now a
+    # 'composed' version, so the current version already carries it. (The
+    # admin_edits_json column is DEAD: no reader remains after GV-1c.)
+    feedback_json = fr.data[0]["feedback_json"]
     try:
         feedback = WritingFeedback(**feedback_json)
     except Exception as exc:

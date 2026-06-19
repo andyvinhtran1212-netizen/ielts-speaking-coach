@@ -248,13 +248,15 @@ describe('admin-writing-grade.html / header action buttons preserved', () => {
 });
 
 
-describe('admin-writing-grade.html / feedback merge logic preserved (Sprint 2.5.1 fix)', () => {
-  test('_mergeFeedback layers admin edits OVER AI feedback', () => {
+describe('admin-writing-grade.html / single-source feedback (GV-1c)', () => {
+  test('_mergeFeedback helper still present (now a shallow working copy)', () => {
     assert.match(html, /function\s+_mergeFeedback\(/);
   });
 
-  test('comment confirms the round-trip merge semantic', () => {
-    assert.match(html, /layer admin edits OVER AI feedback/i);
+  test('GV-1c: reads the current version as single source (no admin_edits_json overlay)', () => {
+    assert.match(html, /single source of truth/i);
+    assert.doesNotMatch(html, /detail\.admin_edits_json/);
+    assert.doesNotMatch(html, /_adminEdits/);
   });
 });
 

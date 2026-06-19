@@ -652,9 +652,12 @@ def _valid_feedback_json() -> dict:
     }
 
 
-def test_render_context_uses_admin_edits_when_present():
-    edits = _valid_feedback_json()
-    edits["overallBandScore"] = 7.5  # different from grader output
+def test_render_context_reads_current_version_feedback():
+    """GV-1c: single source of truth = the CURRENT version (writing_feedback_current
+    view). A human edit is a composed version, so the edited band lives in the
+    current version's feedback_json — no admin_edits_json overlay."""
+    edited = _valid_feedback_json()
+    edited["overallBandScore"] = 7.5  # the composed (edited) current version
     fake = _FakeSupabase(responses={
         ("writing_essays", "select"): [{
             "id":               _ESSAY_ID,
@@ -662,16 +665,15 @@ def test_render_context_uses_admin_edits_when_present():
             "task_type":        "task2",
             "prompt_text":      "P",
             "essay_text":       "E",
-            "admin_edits_json": edits,
             "status":           "reviewed",
         }],
-        ("writing_feedback", "select"): [{"feedback_json": _valid_feedback_json()}],
+        ("writing_feedback", "select"): [{"feedback_json": edited}],
         ("students", "select"): [{"student_code": "S001", "full_name": "Tran A"}],
     })
     with patch.object(essay_service, "supabase_admin", fake):
         ctx = essay_service.get_essay_render_context(_ESSAY_ID)
 
-    assert ctx["feedback"].overallBandScore == 7.5  # edits supersede AI
+    assert ctx["feedback"].overallBandScore == 7.5  # current version's feedback
     assert ctx["student_name"] == "Tran A"
     assert ctx["student_code"] == "S001"
 

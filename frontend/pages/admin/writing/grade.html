@@ -432,8 +432,7 @@
     var _essay  = null;          // writing_essays row from /admin/writing/essays/{id}
     var _student = null;
     var _aiFeedback = {};        // detail.feedback.feedback_json — never mutated
-    var _adminEdits = null;      // detail.admin_edits_json — base for currentFeedback
-    var _currentFeedback = {};   // working copy: AI overlaid by admin edits, mutated by section saves
+    var _currentFeedback = {};   // working copy of the CURRENT version (composed if edited), mutated by section saves
     var _currentNote = '';       // working copy of writing_essays.instructor_note
     var _serverNote  = '';       // last-known server value, for dirty comparison
     var _isDirty = false;        // any section saved to draft → true; PATCH /feedback clears it
@@ -497,20 +496,12 @@
     function markDirty()  { _isDirty = true;  _refreshSaveBtn(); }
     function clearDirty() { _isDirty = false; _refreshSaveBtn(); }
 
-    // ── Feedback merge — Sprint 2.5.1 fix #1 ─────────────────────
-    // Pre-2.5.1 the renderer chose ONE OR THE OTHER:
-    //   detail.admin_edits_json ?? detail.feedback.feedback_json
-    // This silently lost mistakeAnalysis (and any other AI-only
-    // section) whenever admin saved a partial edit — the truthy
-    // admin_edits_json shadowed the AI feedback completely.
-    // Bug surfaced on essay 0caf5e59-... where the "Phân tích lỗi"
-    // tab read empty despite mistakeAnalysis being present in
-    // feedback_json.
-    //
-    // Fix: layer admin edits OVER AI feedback so partial admin saves
-    // still expose the AI sections that weren't edited. The Save
-    // path PATCHes the merged dict back, which is the correct
-    // round-trip semantic anyway.
+    // ── Feedback copy ────────────────────────────────────────────
+    // GV-1c: the current version (composed when edited, else AI) is the single
+    // source of truth — there is no separate overlay to merge any more. This
+    // just produces a shallow working copy of the current feedback so section
+    // edits don't mutate the loaded object; the Save path PATCHes it back, which
+    // the backend persists as the composed current version.
     function _mergeFeedback(ai, edits) {
       var out = {};
       var k;
@@ -1213,8 +1204,8 @@
       btn.textContent = 'Đang lưu…';
       try {
         await window.api.patch('/admin/writing/essays/' + _essayId + '/feedback', _currentFeedback);
-        // Local state matches server-truth now.
-        _adminEdits = JSON.parse(JSON.stringify(_currentFeedback));
+        // Local state matches server-truth now (the PATCH persisted _currentFeedback
+        // as the composed current version).
         clearDirty();
         setStatusPill('reviewed');
         document.getElementById('last-saved').textContent = 'Lưu lúc ' + new Date().toLocaleTimeString();
@@ -1566,11 +1557,11 @@
     function populate(detail) {
       _essay     = detail;
       _student   = detail.student || {};
+      // GV-1c: detail.feedback is the CURRENT version via writing_feedback_current
+      // — already the composed (edited) object when edited, else the AI grade.
+      // Single source of truth: no admin_edits_json overlay/merge any more.
       _aiFeedback = (detail.feedback && detail.feedback.feedback_json) || {};
-      _adminEdits = detail.admin_edits_json || null;
-
-      // Sprint 2.5.1 fix #1: layered merge instead of XOR pick.
-      _currentFeedback = _mergeFeedback(_aiFeedback, _adminEdits || {});
+      _currentFeedback = _mergeFeedback(_aiFeedback, {});   // shallow copy to edit without mutating _aiFeedback
 
       // instructor_note is NOT in feedback_json — it's a sibling column.
       _serverNote  = detail.instructor_note || '';

@@ -612,11 +612,14 @@ def _fake_supabase(*, status: str | None, update_data: list | None = None) -> Ma
 
 
 def test_patch_feedback_validates_and_persists():
-    """Edits validated against schema, then written with status='reviewed'."""
+    """GV-1c: edits validated, persisted as a COMPOSED version (via
+    upsert_composed_version), and the essay flips to reviewed + manual-edit badge.
+    No admin_edits_json overlay write any more."""
     fake = _fake_supabase(status="graded")
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
-         patch("routers.admin_writing.supabase_admin", fake):
+         patch("routers.admin_writing.supabase_admin", fake), \
+         patch("services.essay_service.upsert_composed_version", return_value=2) as mock_upsert:
         r = _client().patch(
             f"/admin/writing/essays/{_ESSAY_ID}/feedback",
             json=_valid_feedback_edits(),
@@ -624,10 +627,12 @@ def test_patch_feedback_validates_and_persists():
         )
     assert r.status_code == 200, r.text
     assert r.json() == {"essay_id": _ESSAY_ID, "status": "reviewed"}
+    mock_upsert.assert_called_once()                       # edit → composed version
     payload = fake.table.return_value.update.call_args.args[0]
     assert payload["status"] == "reviewed"
-    assert payload["admin_edits_json"]["overallBandScore"] == 7.0
+    assert payload["is_manually_edited"] is True
     assert payload["admin_reviewed_at"]
+    assert "admin_edits_json" not in payload              # GV-1c: overlay retired
 
 
 def test_patch_feedback_422_when_edits_fail_schema():
@@ -876,7 +881,8 @@ def test_patch_feedback_allows_reviewed_status_for_re_edit():
     fake = _fake_supabase(status="reviewed")
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
-         patch("routers.admin_writing.supabase_admin", fake):
+         patch("routers.admin_writing.supabase_admin", fake), \
+         patch("services.essay_service.upsert_composed_version", return_value=2):
         r = _client().patch(
             f"/admin/writing/essays/{_ESSAY_ID}/feedback",
             json=_valid_feedback_edits(),
