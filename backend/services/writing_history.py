@@ -126,7 +126,7 @@ def get_recurring_patterns(student_id: str) -> dict | None:
     """
     try:
         result = (
-            supabase_admin.table("writing_feedback")
+            supabase_admin.table("writing_feedback_current")   # GV-1a: current version only
             .select(
                 "feedback_json, essay_id, "
                 "writing_essays!inner(student_id)"
@@ -230,7 +230,7 @@ def get_band_trajectory(student_id: str) -> dict | None:
     """
     try:
         result = (
-            supabase_admin.table("writing_feedback")
+            supabase_admin.table("writing_feedback_current")   # GV-1a: current version only
             .select(
                 "overall_band_score, "
                 "band_main_criterion, band_coherence_cohesion, "
@@ -451,7 +451,7 @@ def get_sentence_structure_history(student_id: str) -> dict | None:
     """
     try:
         result = (
-            supabase_admin.table("writing_feedback")
+            supabase_admin.table("writing_feedback_current")   # GV-1a: current version only
             .select(
                 "feedback_json, "
                 "writing_essays!inner(student_id, essay_text)"

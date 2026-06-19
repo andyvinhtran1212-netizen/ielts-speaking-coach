@@ -91,7 +91,7 @@ def _decorate(requests: list[dict]) -> list[dict]:
         ).data or []
         essays = {e["id"]: e for e in erows}
         frows = (
-            supabase_admin.table("writing_feedback")
+            supabase_admin.table("writing_feedback_current")   # GV-1a: current version per essay
             .select("essay_id, overall_band_score")
             .in_("essay_id", essay_ids)
             .execute()

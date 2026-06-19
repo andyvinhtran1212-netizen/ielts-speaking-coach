@@ -247,7 +247,7 @@ def _build_writing(sb, user_id: str) -> Dict[str, Any]:
         if delivered_rows:
             essay_id = delivered_rows[0]["id"]
             fb_res = (
-                sb.table("writing_feedback")
+                sb.table("writing_feedback_current")   # GV-1a: current version
                 .select("overall_band_score")
                 .eq("essay_id", essay_id)
                 .limit(1)

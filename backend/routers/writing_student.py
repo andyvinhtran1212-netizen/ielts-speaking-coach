@@ -241,7 +241,7 @@ async def list_my_essays(student: dict = Depends(get_current_student)):
     if delivered_ids:
         try:
             fb_result = (
-                supabase_admin.table("writing_feedback")
+                supabase_admin.table("writing_feedback_current")   # GV-1a: current version
                 .select("essay_id, overall_band_score")
                 .in_("essay_id", delivered_ids)
                 .execute()
@@ -349,7 +349,7 @@ async def get_my_essay(
     if essay.get("status") == "delivered":
         try:
             fb_result = (
-                supabase_admin.table("writing_feedback")
+                supabase_admin.table("writing_feedback_current")   # GV-1a: current version
                 .select(
                     "feedback_json, overall_band_score, "
                     "band_main_criterion, band_coherence_cohesion, "

@@ -558,10 +558,11 @@ def list_essays(
         )
         students_map = {s["id"]: s for s in (sr.data or [])}
 
-    # Batch 2 — overall band (writing_feedback.essay_id → writing_essays.id).
+    # Batch 2 — overall band. GV-1a: read the CURRENT version via the view so a
+    # multi-version essay yields its delivered band, not an arbitrary version.
     band_map: dict = {}
     fr = (
-        supabase_admin.table("writing_feedback")
+        supabase_admin.table("writing_feedback_current")
         .select("essay_id, overall_band_score")
         .in_("essay_id", essay_ids).execute()
     )
@@ -609,7 +610,7 @@ def get_essay_with_feedback(essay_id: str) -> dict:
     essay = dict(er.data[0])
 
     fr = (
-        supabase_admin.table("writing_feedback")
+        supabase_admin.table("writing_feedback_current")   # GV-1a: current version
         .select("*")
         .eq("essay_id", essay_id)
         .limit(1)
@@ -663,7 +664,7 @@ def get_essay_render_context(essay_id: str) -> dict:
     essay = er.data[0]
 
     fr = (
-        supabase_admin.table("writing_feedback")
+        supabase_admin.table("writing_feedback_current")   # GV-1a: current version
         .select("feedback_json")
         .eq("essay_id", essay_id)
         .limit(1)
@@ -672,6 +673,9 @@ def get_essay_render_context(essay_id: str) -> dict:
     if not fr.data:
         raise HTTPException(404, "Feedback not yet available")
 
+    # GV-1a: the admin_edits_json overlay is intentionally LEFT untouched here —
+    # the legacy human-edit overlay is reconciled into a 'composed' version in
+    # GV-1b. Repointing the read to the view does not change this overlay.
     feedback_json = essay.get("admin_edits_json") or fr.data[0]["feedback_json"]
     try:
         feedback = WritingFeedback(**feedback_json)
@@ -765,7 +769,11 @@ def get_student_summary(student_id: str) -> dict:
         .select(
             "id, status, is_flagged, task_type, created_at, delivered_at, "
             "regrade_count, last_regraded_at, "
-            "writing_feedback(overall_band_score)"
+            # GV-1a: embed the CURRENT version via the view; aliased back to the
+            # `writing_feedback` key so the to-one result (a dict, not an array)
+            # flows to existing consumers (this fn's avg-band calc + the admin
+            # students FE _bandFromEssay) unchanged — both already handle a dict.
+            "writing_feedback:writing_feedback_current(overall_band_score)"
         )
         .eq("student_id", str(student_id))
         .is_("deleted_at", "null")
