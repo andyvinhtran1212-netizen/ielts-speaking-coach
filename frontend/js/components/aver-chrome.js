@@ -477,6 +477,44 @@ export class AverChrome extends HTMLElement {
     else link.setAttribute('hidden', '');
   }
 
+  /**
+   * Fix-2 (D-B) — resolve the AUTHORITATIVE role from /auth/me so the
+   * instructor-area link surfaces on EVERY chrome page, not only the ones that
+   * call setUser({role}). user_metadata does NOT reliably carry role, so the
+   * Supabase session alone can't gate the link — we ask the backend.
+   *
+   * Called from the auto-populate path, which already runs only when:
+   *   • a real Supabase session exists (logged-out → never reaches here →
+   *     link stays hidden, mirroring the backend require_instructor guard), and
+   *   • the page hasn't taken over the pill (setUser → _userOverride short-
+   *     circuits the whole auto path) — so speaking.html, which passes its own
+   *     /auth/me role into setUser, does NOT trigger a second fetch here.
+   *
+   * Fail-closed: any non-OK response or network/parse error leaves the link
+   * hidden and never breaks the chrome. Uses a raw fetch (NOT window.api.get,
+   * which redirects to /login on 401) so a stale token can't bounce the page.
+   */
+  async _resolveRole(token) {
+    if (this._role !== null) return; // a page already set the role → no double-fetch
+    if (!token) return;              // unauthenticated → link stays hidden
+    const base = (typeof window !== 'undefined' && window.api && window.api.base) || '';
+    if (!base) return;
+    let role = null;
+    try {
+      const resp = await fetch(base + '/auth/me', {
+        headers: { Authorization: 'Bearer ' + token },
+      });
+      if (resp && resp.ok) {
+        const me = await resp.json();
+        role = (me && me.role) || null;
+      }
+    } catch {
+      return; // network/parse error — fail closed, never break chrome
+    }
+    if (this._role !== null) return; // raced with a page setRole() during the await
+    this.setRole(role);              // non-instructor / null → link stays hidden
+  }
+
 
   // ── Internal ───────────────────────────────────────────────────
 
@@ -619,6 +657,10 @@ export class AverChrome extends HTMLElement {
       if (avatarEl && avatarEl.textContent === '·') {
         avatarEl.textContent = canonicalInitials(name);
       }
+
+      // Fix-2 (D-B) — surface the instructor-area link via the authoritative
+      // backend role. Logged-in only (we have a session here); fail-closed.
+      await this._resolveRole(session.access_token);
     };
     // Start immediately — if getSupabase is already there we resolve
     // in the same tick. Otherwise the recursive tick polls.
