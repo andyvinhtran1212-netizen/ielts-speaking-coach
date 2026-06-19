@@ -405,7 +405,7 @@ async def regrade_essay(request: Request, essay_id: UUID, background_tasks: Back
     assert_essay_owned(me, essay_id)
     essay = (supabase_admin.table("writing_essays")
              .select("id, status, is_flagged, task_type, analysis_level, "
-                     "form_of_address, selected_model, grading_tier")
+                     "form_of_address, selected_model, grading_tier, regrade_count")
              .eq("id", str(essay_id)).is_("deleted_at", "null").limit(1).execute().data or [None])[0]
     if not essay:
         raise HTTPException(404, "Không tìm thấy.")
@@ -418,8 +418,13 @@ async def regrade_essay(request: Request, essay_id: UUID, background_tasks: Back
     except Exception as exc:
         raise HTTPException(500, f"Failed to clear prior feedback: {exc}")
     effective_level = body.analysis_level if body.analysis_level is not None else (essay.get("analysis_level") or 3)
+    # Fix-3 (D1) — bump the regrade audit fields (mirrors admin_writing.py regrade)
+    # so an instructor regrade is counted in the #regraded oversight metric and
+    # attributed to the GV. AI feedback + instructor_note are NOT touched here.
+    new_count = (essay.get("regrade_count") or 0) + 1
     supabase_admin.table("writing_essays").update({
         "status": "grading", "analysis_level": effective_level,
+        "regrade_count": new_count, "last_regraded_at": _now_iso(), "last_regraded_by": me,
         "admin_edits_json": None, "is_manually_edited": False,
     }).eq("id", str(essay_id)).execute()   # instructor_note NOT cleared (preserved)
     job_info = essay_service.schedule_grading_job(

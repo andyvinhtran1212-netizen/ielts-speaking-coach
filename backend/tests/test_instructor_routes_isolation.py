@@ -395,6 +395,11 @@ def test_regrade_owner_preserves_teacher_comment():
     assert row["analysis_level"] == 5
     assert row.get("instructor_note") == "keep me"     # teacher-comment survives regrade
     assert row.get("admin_edits_json") is None         # AI edits cleared
+    # Fix-3 (D1) — regrade audit fields bumped so the #regraded metric counts
+    # instructor regrades, attributed to the GV. (AI/comment untouched above.)
+    assert row.get("regrade_count") == 1               # 0/absent → 1
+    assert row.get("last_regraded_by") == A            # attributed to this instructor
+    assert row.get("last_regraded_at")                 # stamped
 
 
 # ── W-6b-1: /instructor/codes (student-enroll only) ──────────────────────────
