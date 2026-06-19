@@ -171,14 +171,56 @@ def instructor_essays(me: Any) -> _EssayScoped:
     return _EssayScoped(instructor_owned_essay_ids(_require_me(me)))
 
 
+def _essay_owned_by(me: str, essay_id: Any) -> bool:
+    """Fix-3 (D3) — EXISTS-style membership check: is `essay_id` owned by `me`
+    via EITHER branch, WITHOUT materialising the full owned-set.
+
+    `instructor_owned_essay_ids` builds a whole set (two unbounded scans + a
+    set union) just to test ONE essay — wasteful on every single-essay route,
+    and at scale the materialised set feeds a `.in_()` URL that can truncate.
+    This does at most three narrow, indexed lookups instead.
+
+    Semantics are IDENTICAL to instructor_owned_essay_ids (2-branch union,
+    NEITHER branch filters soft-deleted — membership must mirror the accessor):
+      1. assignment branch — a writing_assignment assigned_by=me linked to it;
+      2. student   branch — its student_id ∈ my students (instructor_id=me).
+    """
+    eid = str(essay_id)
+    # branch 1 — narrow the (assigned_by) scan to this essay; 0/1 row back.
+    a = (
+        supabase_admin.table("writing_assignments")
+        .select("essay_id").eq("assigned_by", me).eq("essay_id", eid)
+        .limit(1).execute()
+    )
+    if a.data:
+        return True
+    # branch 2 — the essay's student must be one of mine.
+    e = (
+        supabase_admin.table("writing_essays")
+        .select("student_id").eq("id", eid).limit(1).execute()
+    )
+    sid = (e.data or [{}])[0].get("student_id")
+    if not sid:
+        return False
+    s = (
+        supabase_admin.table("students")
+        .select("id").eq("id", sid).eq("instructor_id", me)
+        .limit(1).execute()
+    )
+    return bool(s.data)
+
+
 def assert_essay_owned(me: Any, essay_id: Any) -> None:
     """Raise PermissionError unless `essay_id` is in the instructor's owned set
     (2-branch). Used by every single-essay /instructor endpoint BEFORE acting.
 
     Membership-based on purpose: a non-owned-existing essay AND a non-existent
-    essay both fail the same way → no existence leak (403 is uniform)."""
+    essay both fail the same way → no existence leak (403 is uniform).
+
+    Fix-3 (D3): backed by `_essay_owned_by` (EXISTS) — same 2-branch semantics
+    as instructor_owned_essay_ids, without building the full owned-set."""
     me = _require_me(me)
-    if str(essay_id) not in set(instructor_owned_essay_ids(me)):
+    if not _essay_owned_by(me, essay_id):
         raise PermissionError("essay not owned by this instructor")
 
 

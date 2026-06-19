@@ -45,6 +45,12 @@ async def list_instructor_metrics(authorization: str | None = Header(None)):
         srows = (supabase_admin.table("students").select("id")
                  .eq("instructor_id", x).execute()).data or []
 
+        # Fix-3 (D-C) — #prompts authored by this instructor (created_by=X,
+        # the writing_prompts owner column the accessor stamps). NOT a count of
+        # admin/other-authored prompts.
+        prows = (supabase_admin.table("writing_prompts").select("id")
+                 .eq("created_by", x).execute()).data or []
+
         # owned essays — SAME 2-branch derivation as the accessor (no drift).
         owned = instructor_owned_essay_ids(x)
 
@@ -70,6 +76,7 @@ async def list_instructor_metrics(authorization: str | None = Header(None)):
             "email":          ins.get("email"),
             "display_name":   ins.get("display_name"),
             "students":       len(srows),
+            "prompts":        len(prows),          # writing_prompts created_by X (D-C)
             "graded":         n_graded,            # delivered, owned by X
             # HEADLINE: essays ON X's roster that were regraded (by anyone) — NOT
             # "X regraded N" (per-regrade attribution needs a regrade audit → defer).

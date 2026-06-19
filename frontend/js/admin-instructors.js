@@ -25,7 +25,7 @@ async function boot() {
     return;
   }
   if (!rows.length) {
-    body.innerHTML = '<tr><td colspan="7" class="ai-muted">Chưa có giảng viên.</td></tr>';
+    body.innerHTML = '<tr><td colspan="8" class="ai-muted">Chưa có giảng viên.</td></tr>';
     return;
   }
   body.innerHTML = rows.map((r) => {
@@ -34,6 +34,7 @@ async function boot() {
     return `<tr>
       <td>${esc(name)}</td>
       <td class="ai-num">${esc(r.students)}</td>
+      <td class="ai-num">${esc(r.prompts)}</td>
       <td class="ai-num">${esc(r.graded)}</td>
       <td class="ai-num">${esc(r.regraded)}</td>
       <td class="ai-num">${esc(r.tokens)}</td>
