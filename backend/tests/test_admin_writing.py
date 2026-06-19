@@ -881,7 +881,8 @@ def test_patch_feedback_allows_reviewed_status_for_re_edit():
     fake = _fake_supabase(status="reviewed")
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
-         patch("routers.admin_writing.supabase_admin", fake):
+         patch("routers.admin_writing.supabase_admin", fake), \
+         patch("services.essay_service.upsert_composed_version", return_value=2):
         r = _client().patch(
             f"/admin/writing/essays/{_ESSAY_ID}/feedback",
             json=_valid_feedback_edits(),
