@@ -859,18 +859,20 @@ async def trigger_regrade(
             ),
         )
 
-    # Drop the existing feedback row so the BG grader's INSERT doesn't
-    # collide on the essay_id UNIQUE constraint. Best-effort: a missing
-    # row (essay never reached `graded`) just produces an empty result.
-    try:
-        (
-            supabase_admin.table("writing_feedback")
-            .delete()
-            .eq("essay_id", str(essay_id))
-            .execute()
+    # GV-1b — cap at 3 live versions (current + ancestor chain). Reject the 4th
+    # rather than evict (evicting v1 would break compare/compose). No DELETE: the
+    # prior versions are KEPT; the BG grader INSERTs the next version and advances
+    # current_version on success. (status flips to 'grading' below, which also
+    # serializes a concurrent regrade → the 2nd sees 'grading' → 409, not 500.)
+    n_live = essay_service.live_version_count(str(essay_id))
+    if n_live >= essay_service.MAX_VERSIONS:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Đã đạt tối đa {essay_service.MAX_VERSIONS} version chấm cho bài "
+                f"này (còn 0). Không thể chấm lại — hãy so sánh/ghép các bản hiện có."
+            ),
         )
-    except Exception as exc:
-        raise HTTPException(500, f"Failed to clear prior feedback: {exc}")
 
     now_iso = _now_iso()
     new_count = (essay.get("regrade_count") or 0) + 1

@@ -413,10 +413,15 @@ async def regrade_essay(request: Request, essay_id: UUID, background_tasks: Back
         raise HTTPException(409, "Không thể chấm lại bài bị gắn cờ.")
     if essay.get("status") not in ("graded", "reviewed", "delivered", "failed"):
         raise HTTPException(409, f"Không thể chấm lại khi status={essay.get('status')!r}.")
-    try:
-        supabase_admin.table("writing_feedback").delete().eq("essay_id", str(essay_id)).execute()
-    except Exception as exc:
-        raise HTTPException(500, f"Failed to clear prior feedback: {exc}")
+    # GV-1b — cap at 3 live versions; reject the 4th (no evict, no DELETE — prior
+    # versions are kept for compare/compose). status→'grading' below serializes a
+    # concurrent regrade (2nd sees 'grading' → 409). BG grader INSERTs next version.
+    if essay_service.live_version_count(str(essay_id)) >= essay_service.MAX_VERSIONS:
+        raise HTTPException(
+            409,
+            f"Đã đạt tối đa {essay_service.MAX_VERSIONS} version chấm cho bài này "
+            f"(còn 0). Không thể chấm lại — hãy so sánh/ghép các bản hiện có.",
+        )
     effective_level = body.analysis_level if body.analysis_level is not None else (essay.get("analysis_level") or 3)
     # Fix-3 (D1) — bump the regrade audit fields (mirrors admin_writing.py regrade)
     # so an instructor regrade is counted in the #regraded oversight metric and
