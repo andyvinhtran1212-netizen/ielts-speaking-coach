@@ -498,12 +498,20 @@ def compose_version(essay_id: str, *, base_version: int, picks: dict, mixed_by: 
 
 # ── Async BG grader task ─────────────────────────────────────────────
 
-async def _bg_grade_essay(essay_id: str, job_id: str) -> None:
+async def _bg_grade_essay(
+    essay_id: str, job_id: str, *, restore_status_on_fail: str | None = None,
+) -> None:
     """FastAPI BackgroundTask: load essay, call Gemini grader, persist feedback.
 
     Terminal states only — in-task retry is the grader's 3 attempts. Failures
     mark essay.status='failed' + job.status='failed' and store an
     error_message so the admin UI can surface it.
+
+    `restore_status_on_fail` (regrade-resilience): on a REGRADE, the essay already
+    had a good prior state + version (GV-1b keeps the prior version; the pointer
+    only advances on success). Passing the pre-regrade status restores it on
+    failure instead of stranding the essay in 'failed' (which matches no queue).
+    First-grade passes None → 'failed' (no prior good state).
     """
     logger.info("[grade %s] starting (job=%s)", essay_id, job_id)
 
@@ -716,18 +724,37 @@ async def _bg_grade_essay(essay_id: str, job_id: str) -> None:
         )
 
     except (AISafetyBlockError, APIRetryFailedError, InvalidJSONError) as exc:
-        _mark_failed(essay_id, job_id, exc, kind=type(exc).__name__)
+        _mark_failed(essay_id, job_id, exc, kind=type(exc).__name__,
+                     restore_status=restore_status_on_fail)
     except Exception as exc:  # noqa: BLE001 — last-resort failure capture
         logger.exception("[grade %s] unexpected failure", essay_id)
-        _mark_failed(essay_id, job_id, exc, kind="UnexpectedError")
+        _mark_failed(essay_id, job_id, exc, kind="UnexpectedError",
+                     restore_status=restore_status_on_fail)
 
 
-def _mark_failed(essay_id: str, job_id: str, exc: Exception, *, kind: str) -> None:
-    """Idempotent failure-state writer. Best-effort — never re-raises."""
+# Statuses an essay may be RESTORED to after a failed regrade (a prior good
+# state). Excludes in-flight/terminal-fail values so a malformed capture can
+# never park the essay back in 'grading'/'failed'/'pending'.
+_RESTORABLE_STATUSES = {"graded", "reviewed", "delivered"}
+
+
+def _mark_failed(
+    essay_id: str, job_id: str, exc: Exception, *, kind: str,
+    restore_status: str | None = None,
+) -> None:
+    """Idempotent failure-state writer. Best-effort — never re-raises.
+
+    regrade-resilience: when `restore_status` is a valid prior good state, the
+    essay is restored to it (a failed REGRADE keeps its delivered/reviewed/graded
+    prior version instead of stranding in 'failed'); otherwise → 'failed'
+    (first-grade, or an unexpected capture). error_message is always set for
+    diagnosis; regrade_count is NOT touched (already bumped — D1 attempts incl.
+    failures). The writing_jobs row is always marked 'failed'."""
     msg = f"{kind}: {exc}"[:1000]  # truncate to keep error_message bounded
+    essay_status = restore_status if restore_status in _RESTORABLE_STATUSES else "failed"
     try:
         supabase_admin.table("writing_essays").update({
-            "status":        "failed",
+            "status":        essay_status,
             "error_message": msg,
         }).eq("id", essay_id).execute()
         supabase_admin.table("writing_jobs").update({
