@@ -1,4 +1,5 @@
 import logging
+import re
 import sys
 from time import perf_counter
 
@@ -125,6 +126,29 @@ origins = [
 # the request. The explicit list still wins for fast-path matching;
 # the regex is the safety net.
 _AVERLEARNING_ORIGIN_REGEX = r"^https://(?:[a-z0-9-]+\.)?averlearning\.com$"
+
+
+def _cors_headers_for_origin(origin: str | None) -> dict:
+    """CORS headers to attach to a response when the request Origin is allowed —
+    reuses the SAME allowlist + regex as the CORSMiddleware below (no duplication).
+
+    Used by the unhandled-exception handler: an unhandled 500 unwinds OUTSIDE the
+    CORSMiddleware (ServerErrorMiddleware is outermost), so its response would have
+    NO Access-Control-Allow-Origin and the browser masks the real status as a
+    generic CORS error (the failure mode that hid the compose-500). Attaching ACAO
+    here lets the true 500 surface in the console.
+
+    SECURITY: only echo an ALLOWED origin — never reflect an arbitrary one. Returns
+    {} for a missing / non-allowed origin.
+    """
+    if origin and (origin in origins or re.match(_AVERLEARNING_ORIGIN_REGEX, origin)):
+        return {
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Credentials": "true",
+            "Vary": "Origin",
+        }
+    return {}
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -306,6 +330,12 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     # P0-5: do NOT leak the raw exception to the client — return a safe dict
     # ({error_code, message, ref}); the full exc is logged above + persisted to
     # error_logs. `ref` == request_id so support can correlate.
+    # PR-B: attach CORS headers when the Origin is allowed — this handler runs
+    # OUTSIDE the CORSMiddleware (the exception unwound past it), so without this
+    # the 500 carries no ACAO and the browser reports a generic CORS error,
+    # masking the real status (the trap that cost 4 hypotheses on the compose-500).
+    headers = {"X-Request-ID": request_id}
+    headers.update(_cors_headers_for_origin(request.headers.get("origin")))
     return JSONResponse(
         status_code=500,
         content={
@@ -313,7 +343,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
                            "message": GENERIC_MESSAGE, "ref": request_id},
             "request_id": request_id,
         },
-        headers={"X-Request-ID": request_id},
+        headers=headers,
     )
 
 
