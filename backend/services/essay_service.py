@@ -373,22 +373,32 @@ def upsert_composed_version(
         .select("current_version").eq("id", essay_id).limit(1).execute()
     ).data or [{}]
     cur = cvr[0].get("current_version") or 1
-    # version-management: read the CURRENT version row from base (its source
-    # decides create-vs-update); the view would hide a non-current one.
+    # Read the CURRENT version row from base — its source decides create-vs-update
+    # (the view hides non-current). Also pull prompt_version/model_used so a NEW
+    # composed row inherits them (both NOT NULL, no default). version-management.
     cur_rows = (
         supabase_admin.table("writing_feedback")
-        .select("version, source").eq("essay_id", essay_id).eq("version", cur)
+        .select("version, source, prompt_version, model_used")
+        .eq("essay_id", essay_id).eq("version", cur)
         .limit(1).execute()
     ).data
-    cur_source = (cur_rows[0].get("source") if cur_rows else None)
+    cur_row = cur_rows[0] if cur_rows else {}
+    cur_source = cur_row.get("source")
 
     if cur_source == "composed":
         # in-place update of the human-owned composed version — no new slot.
+        # `row` omits prompt_version/model_used, so the existing values are kept.
         supabase_admin.table("writing_feedback").update(row).eq(
             "essay_id", essay_id).eq("version", cur).execute()
         return cur
 
-    # current is AI (or no feedback yet) → mint a new composed version.
+    # current is AI (or no feedback yet) → mint a new composed version. Inherit the
+    # NOT-NULL stamp columns from the current version (stamp prompt_version
+    # '-composed', mirroring the deliver '-instructor' suffix); model_used reflects
+    # that no AI was called.
+    base_pv = cur_row.get("prompt_version")
+    row["prompt_version"] = f"{base_pv}-composed" if base_pv else "composed"
+    row["model_used"] = "composed"
     live = _ancestor_versions(essay_id)
     if live:
         _gc_orphan_versions(essay_id, live)          # reclaim slots first
