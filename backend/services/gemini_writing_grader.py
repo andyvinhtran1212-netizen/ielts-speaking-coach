@@ -205,6 +205,7 @@ class GeminiWritingGrader:
             model_name=model_name,
             system_prompt=system_prompt,
             user_prompt=user_prompt,
+            parse_schema=WritingFeedback,   # retry on truncated/malformed body
             **extra,
         )
 
@@ -421,6 +422,7 @@ class GeminiWritingGrader:
             model_name=settings.GEMINI_PRO_MODEL,
             system_prompt=system_prompt,
             user_prompt=user_prompt,
+            parse_schema=Pass2Refinement,   # retry on truncated/malformed body
         )
         return self._parse_response(response_text, schema=Pass2Refinement), usage
 
@@ -443,6 +445,7 @@ class GeminiWritingGrader:
             model_name=settings.GEMINI_PRO_MODEL,
             system_prompt=system_prompt,
             user_prompt=user_prompt,
+            parse_schema=Pass3Rewrites,   # retry on truncated/malformed body
         )
         return self._parse_response(response_text, schema=Pass3Rewrites), usage
 
@@ -647,13 +650,25 @@ class GeminiWritingGrader:
         system_prompt: str,
         user_prompt: str,
         image: Optional[tuple[bytes, str]] = None,
+        *,
+        parse_schema=None,
     ) -> tuple[str, dict]:
         """Call Gemini with exponential backoff retry.
 
         Sprint 19.3.5 — `image` (bytes, mime_type) is sent as a multimodal
         inline Part alongside the text when present (Task 1 Academic chart).
         The legacy google.generativeai SDK accepts a `[text, {mime_type,
-        data}]` contents list (verified on 0.8.3)."""
+        data}]` contents list (verified on 0.8.3).
+
+        Robustness: when `parse_schema` is set, the response is VALIDATED against
+        it inside the retry loop (parse → discard). A parse failure (truncated /
+        malformed JSON) therefore counts as a retryable failure and triggers a
+        fresh attempt with backoff — previously parsing happened only at the call
+        site, OUTSIDE this loop, so a single bad/truncated body failed hard with
+        no re-roll. The caller still calls `_parse_response` on the returned text
+        (kept so the existing test seam that mocks this method is unaffected; the
+        re-parse is cheap and guaranteed to succeed). AISafetyBlockError stays
+        non-retryable."""
 
         model = genai.GenerativeModel(
             model_name=model_name,
@@ -662,6 +677,11 @@ class GeminiWritingGrader:
         generation_config = GenerationConfig(
             response_mime_type="application/json",
             temperature=0.3,
+            # Robustness: long L4/L5 feedback (~16KB+) was truncated at the
+            # model's default output cap → unterminated JSON → InvalidJSONError
+            # (prod char-16107 cut). Gemini 2.5 supports 64K+ output; a high cap
+            # only ALLOWS longer responses — cost still tracks the real length.
+            max_output_tokens=32768,
         )
 
         # Single string for text-only; [text, image-part] for multimodal.
@@ -690,6 +710,11 @@ class GeminiWritingGrader:
                 if len(response_text.strip()) < 10:
                     raise InvalidJSONError("Empty/near-empty response from Gemini")
 
+                # Validate inside the loop so a truncated/malformed body is a
+                # RETRYABLE failure (re-roll with backoff), not a hard fail.
+                if parse_schema is not None:
+                    self._parse_response(response_text, schema=parse_schema)
+
                 usage: dict = {}
                 if hasattr(response, "usage_metadata") and response.usage_metadata is not None:
                     usage["input_tokens"] = response.usage_metadata.prompt_token_count
@@ -710,6 +735,12 @@ class GeminiWritingGrader:
                     delay = INITIAL_RETRY_DELAY_S * (2 ** attempt)
                     await asyncio.sleep(delay)
 
+        # All retries exhausted. If the persistent failure was a bad/truncated
+        # body, surface InvalidJSONError (vs APIRetryFailedError for API errors)
+        # for accurate telemetry — both are handled by _bg_grade_essay's except
+        # (→ PR-1 status-reset, so the essay isn't stranded).
+        if isinstance(last_error, InvalidJSONError):
+            raise last_error
         raise APIRetryFailedError(f"All {MAX_RETRIES} retries failed: {last_error}")
 
     def _parse_response(self, response_text: str, schema=WritingFeedback):

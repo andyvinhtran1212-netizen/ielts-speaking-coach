@@ -124,7 +124,7 @@ async def test_standard_tier_uses_pro_and_full_schema(
 
     captured: dict = {}
 
-    async def fake_call(model_name, system_prompt, user_prompt):
+    async def fake_call(model_name, system_prompt, user_prompt, **_kw):
         captured["model_name"] = model_name
         return json.dumps(VALID_FEEDBACK_STANDARD), {"input_tokens": 1, "output_tokens": 1}
 
@@ -168,7 +168,7 @@ async def test_instructor_tier_runs_standard_pass1_with_pending_stamp(
     monkeypatch.setattr(settings, "WRITING_PROMPT_VERSION", "v2")
 
     captured_calls: list[str] = []
-    async def fake_call(model_name, system_prompt, user_prompt):
+    async def fake_call(model_name, system_prompt, user_prompt, **_kw):
         captured_calls.append(model_name)
         return json.dumps(VALID_FEEDBACK_STANDARD), {"input_tokens": 100, "output_tokens": 100}
 
@@ -284,7 +284,7 @@ async def test_deep_tier_runs_3_passes_on_full_success(
     # _call_with_retry is invoked once per pass — Pass 1 (via
     # _grade_standard), Pass 2, Pass 3, in order.
     call_log: list[str] = []
-    async def fake_call(model_name, system_prompt, user_prompt):
+    async def fake_call(model_name, system_prompt, user_prompt, **_kw):
         call_log.append(model_name)
         if len(call_log) == 1:
             return pass1_json, {"input_tokens": 3000, "output_tokens": 2000}
@@ -319,7 +319,7 @@ async def test_deep_tier_includes_sentence_rewrites_on_success(
         (pass2_json, {"input_tokens": 50,  "output_tokens": 50}),
         (pass3_json, {"input_tokens": 80,  "output_tokens": 80}),
     ])
-    async def fake_call(model_name, system_prompt, user_prompt):
+    async def fake_call(model_name, system_prompt, user_prompt, **_kw):
         return next(responses)
 
     cfg = _deep_config()
@@ -342,7 +342,7 @@ async def test_deep_tier_pass2_failure_falls_back_to_pass1(
 
     pass1_json = json.dumps(VALID_FEEDBACK_STANDARD)
     call_log: list[int] = []
-    async def fake_call(model_name, system_prompt, user_prompt):
+    async def fake_call(model_name, system_prompt, user_prompt, **_kw):
         call_log.append(1)
         if len(call_log) == 1:
             return pass1_json, {"input_tokens": 100, "output_tokens": 100}
@@ -376,7 +376,7 @@ async def test_deep_tier_pass3_failure_falls_back_to_merged_pass1_pass2(
     pass1_json = json.dumps(VALID_FEEDBACK_STANDARD)
     pass2_json = json.dumps(VALID_PASS2_EMPTY)
     call_log: list[int] = []
-    async def fake_call(model_name, system_prompt, user_prompt):
+    async def fake_call(model_name, system_prompt, user_prompt, **_kw):
         call_log.append(1)
         if len(call_log) == 1:
             return pass1_json, {"input_tokens": 100, "output_tokens": 100}
@@ -416,7 +416,7 @@ async def test_deep_tier_metadata_tracks_per_pass_timing(
         (pass2_json, {"input_tokens": 1500, "output_tokens": 500}),
         (pass3_json, {"input_tokens": 1800, "output_tokens": 1200}),
     ])
-    async def fake_call(model_name, system_prompt, user_prompt):
+    async def fake_call(model_name, system_prompt, user_prompt, **_kw):
         return next(responses)
 
     cfg = _deep_config()
@@ -455,7 +455,7 @@ async def test_deep_tier_band_adjustments_apply_to_merged_feedback(
         (pass2_json, {"input_tokens": 50,  "output_tokens": 50}),
         (pass3_json, {"input_tokens": 80,  "output_tokens": 80}),
     ])
-    async def fake_call(model_name, system_prompt, user_prompt):
+    async def fake_call(model_name, system_prompt, user_prompt, **_kw):
         return next(responses)
 
     cfg = _deep_config()
@@ -491,7 +491,7 @@ async def test_deep_tier_added_mistakes_appended_to_merged_feedback(
         (pass2_json, {"input_tokens": 50,  "output_tokens": 50}),
         (pass3_json, {"input_tokens": 80,  "output_tokens": 80}),
     ])
-    async def fake_call(model_name, system_prompt, user_prompt):
+    async def fake_call(model_name, system_prompt, user_prompt, **_kw):
         return next(responses)
 
     cfg = _deep_config()
@@ -529,7 +529,7 @@ async def test_deep_tier_removed_mistakes_filtered_from_merged_feedback(
         (pass2_json, {"input_tokens": 50,  "output_tokens": 50}),
         (pass3_json, {"input_tokens": 80,  "output_tokens": 80}),
     ])
-    async def fake_call(model_name, system_prompt, user_prompt):
+    async def fake_call(model_name, system_prompt, user_prompt, **_kw):
         return next(responses)
 
     cfg = _deep_config()
@@ -550,7 +550,7 @@ async def test_deep_tier_pass1_failure_re_raises(
     job as failed (same behaviour as a pre-2.7b Standard failure)."""
     _patch_v2_loader(monkeypatch)
 
-    async def fake_call(model_name, system_prompt, user_prompt):
+    async def fake_call(model_name, system_prompt, user_prompt, **_kw):
         raise RuntimeError("Pass 1 API outage")
 
     cfg = _deep_config()
