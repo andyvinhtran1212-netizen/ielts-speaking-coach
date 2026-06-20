@@ -338,9 +338,13 @@ def _bands_from_feedback(feedback) -> dict:
     }
 
 
-def upsert_composed_version(essay_id: str, feedback, *, edited_by: str) -> int:
+def upsert_composed_version(
+    essay_id: str, feedback, *, edited_by: str | None = None,
+    provenance: dict | None = None,
+) -> int:
     """GV-1c — apply a human edit as a COMPOSED version so `current_version` is
-    the single source of truth (retires the admin_edits_json overlay).
+    the single source of truth (retires the admin_edits_json overlay). F2 reuses
+    this for mix-commit by passing a custom `provenance`.
 
     `feedback` = a validated WritingFeedback. Returns the version now current.
       • current is an AI version (source LIKE 'ai_%') → INSERT a NEW composed
@@ -348,6 +352,9 @@ def upsert_composed_version(essay_id: str, feedback, *, edited_by: str) -> int:
         version is NEVER mutated (immutable).
       • current is already composed → UPDATE it in-place (human-owned, mutable)
         so repeated edits don't burn a version slot.
+
+    `provenance` defaults to the GV-1c human-edit shape ({edited_by, edited_at});
+    F2 mix passes {block_sources, base_version, mixed_by, mixed_at}.
 
     Raises HTTPException(409) when a NEW composed version is needed but the
     3-version budget is full (an edit IS a version; the admin compares/regrades
@@ -357,7 +364,8 @@ def upsert_composed_version(essay_id: str, feedback, *, edited_by: str) -> int:
         "essay_id":      essay_id,
         "feedback_json": feedback.model_dump(mode="json"),
         "source":        "composed",
-        "provenance":    {"edited_by": edited_by, "edited_at": _now()},
+        "provenance":    provenance if provenance is not None
+                         else {"edited_by": edited_by, "edited_at": _now()},
         **_bands_from_feedback(feedback),
     }
     cvr = (
@@ -399,6 +407,83 @@ def upsert_composed_version(essay_id: str, feedback, *, edited_by: str) -> int:
     supabase_admin.table("writing_essays").update(
         {"current_version": row["version"]}).eq("id", essay_id).execute()
     return row["version"]
+
+
+_MIX_CRITERIA = ("mainCriterion", "coherenceCohesion", "lexicalResource", "grammaticalRange")
+
+
+def get_live_versions(essay_id: str) -> list[dict]:
+    """F2 compare-data: the LIVE versions (current + ancestor chain) as
+    compare-shaped rows for side-by-side per-criterion display, newest first.
+    Each = {version, source, overall_band_score, created_at, criteriaFeedback}."""
+    live = _ancestor_versions(essay_id)
+    if not live:
+        return []
+    # version-management: read ALL live versions from BASE (the current-only view
+    # would hide the ancestors needed for compare). Documented gate exception.
+    rows = (
+        supabase_admin.table("writing_feedback")
+        .select("version, source, overall_band_score, feedback_json, created_at")
+        .eq("essay_id", essay_id).in_("version", sorted(live)).execute()
+    ).data or []
+    out = []
+    for r in sorted(rows, key=lambda x: x["version"], reverse=True):
+        fj = r.get("feedback_json") or {}
+        out.append({
+            "version":            r["version"],
+            "source":             r.get("source"),
+            "overall_band_score": r.get("overall_band_score"),
+            "created_at":         r.get("created_at"),
+            "criteriaFeedback":   fj.get("criteriaFeedback"),
+        })
+    return out
+
+
+def compose_version(essay_id: str, *, base_version: int, picks: dict, mixed_by: str) -> int:
+    """F2 mix ($0, NO AI call): assemble a composed version from per-criterion
+    picks. `picks` maps each of the 4 criteria → the version to take it from;
+    each pick copies that version's WHOLE criteriaFeedback.<crit> sub-object
+    (band + feedback together — never split). Non-criteria content is base-derived
+    (taken verbatim from `base_version`). Overall is recomputed (IELTS) from the 4
+    picked bands. Reuses upsert_composed_version → AI versions stay immutable,
+    budget (Option A) + advance inherited.
+    """
+    live = _ancestor_versions(essay_id)
+    needed = {base_version, *picks.values()}
+    if not live or not needed.issubset(live):
+        raise HTTPException(409, "Phiên bản được chọn không hợp lệ (ngoài các bản hiện hành).")
+    # version-management: BASE read of the picked versions' full feedback_json.
+    rows = (
+        supabase_admin.table("writing_feedback")
+        .select("version, feedback_json")
+        .eq("essay_id", essay_id).in_("version", sorted(needed)).execute()
+    ).data or []
+    by_ver = {r["version"]: (r.get("feedback_json") or {}) for r in rows}
+    if base_version not in by_ver:
+        raise HTTPException(404, "Bản nền (base_version) không tìm thấy.")
+
+    assembled = dict(by_ver[base_version])                 # base-derived non-criteria content
+    cf = dict(assembled.get("criteriaFeedback") or {})
+    picked_bands = []
+    for crit in _MIX_CRITERIA:
+        src_v = picks[crit]
+        src_cf = (by_ver.get(src_v) or {}).get("criteriaFeedback") or {}
+        if crit not in src_cf:
+            raise HTTPException(422, f"Tiêu chí {crit} thiếu ở version {src_v}.")
+        cf[crit] = src_cf[crit]                            # whole sub-object from ONE version
+        picked_bands.append(src_cf[crit]["bandScore"])
+    assembled["criteriaFeedback"] = cf
+    # mix overall ≠ any source's → recompute deterministically (IELTS round).
+    assembled["overallBandScore"] = overall_from_criteria(*picked_bands)
+
+    feedback = WritingFeedback(**assembled)                # validate the assembled object
+    provenance = {
+        "block_sources": {crit: picks[crit] for crit in _MIX_CRITERIA},
+        "base_version":  base_version,
+        "mixed_by":      mixed_by,
+        "mixed_at":      _now(),
+    }
+    return upsert_composed_version(essay_id, feedback, provenance=provenance)
 
 
 # ── Async BG grader task ─────────────────────────────────────────────

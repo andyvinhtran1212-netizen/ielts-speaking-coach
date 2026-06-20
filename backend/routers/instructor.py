@@ -303,6 +303,56 @@ async def get_essay(request: Request, essay_id: UUID, authorization: str | None 
     return essay_service.get_essay_with_feedback(str(essay_id))
 
 
+@router.get("/essays/{essay_id}/versions")
+async def list_essay_versions(request: Request, essay_id: UUID, authorization: str | None = Header(None)):
+    """F2 compare-data: all LIVE versions (current + ancestors) side-by-side, plus
+    the budget so the picker can pre-disable mix when no slot is free."""
+    me = await _me(authorization, request)
+    assert_essay_owned(me, essay_id)               # → 403 if not owned
+    versions = essay_service.get_live_versions(str(essay_id))
+    current = versions[0] if versions else None    # newest = current (linear chain)
+    current_is_composed = bool(current and current.get("source") == "composed")
+    # A new mix needs a slot UNLESS the current is already composed (re-mix = in-place).
+    can_compose = current_is_composed or len(versions) < essay_service.MAX_VERSIONS
+    return {
+        "versions": versions,
+        "budget": {
+            "live_count":  len(versions),
+            "max":         essay_service.MAX_VERSIONS,
+            "can_compose": can_compose,
+        },
+    }
+
+
+class ComposeBody(BaseModel):
+    """F2 per-criterion mix picks — each criterion + the base version to take all
+    non-criteria content from."""
+    base_version:      int
+    mainCriterion:     int
+    coherenceCohesion: int
+    lexicalResource:   int
+    grammaticalRange:  int
+
+
+@router.post("/essays/{essay_id}/compose", status_code=status.HTTP_201_CREATED)
+async def compose_essay_version(request: Request, essay_id: UUID, body: ComposeBody,
+                                authorization: str | None = Header(None)):
+    """F2 mix ($0, NO AI): assemble a composed version from per-criterion picks.
+    Selection only — instructors still cannot free-edit AI feedback (PATCH
+    /feedback stays 403). Budget (Option A) inherited from upsert → 409 if full."""
+    me = await _me(authorization, request)
+    assert_essay_owned(me, essay_id)               # → 403 if not owned
+    picks = {
+        "mainCriterion":     body.mainCriterion,
+        "coherenceCohesion": body.coherenceCohesion,
+        "lexicalResource":   body.lexicalResource,
+        "grammaticalRange":  body.grammaticalRange,
+    }
+    version = essay_service.compose_version(
+        str(essay_id), base_version=body.base_version, picks=picks, mixed_by=str(me))
+    return {"essay_id": str(essay_id), "version": version, "source": "composed"}
+
+
 class InstructorNoteBody(BaseModel):
     instructor_note: str = Field(default="", description="teacher-comment (student-visible)")
 
