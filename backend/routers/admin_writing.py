@@ -920,10 +920,14 @@ async def trigger_regrade(
         analysis_level = effective_level,
         selected_model = essay.get("selected_model") or "gemini-2.5-pro",
     )
+    # regrade-resilience: on grader failure, restore the pre-regrade status
+    # (essay["status"], captured above before the 'grading' write) instead of
+    # stranding the essay in 'failed' — the prior version is still current.
     background_tasks.add_task(
         essay_service._bg_grade_essay,
         str(essay_id),
         job_info["job_id"],
+        restore_status_on_fail=essay.get("status"),
     )
 
     return {

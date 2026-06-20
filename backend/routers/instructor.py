@@ -487,7 +487,10 @@ async def regrade_essay(request: Request, essay_id: UUID, background_tasks: Back
         selected_model=essay.get("selected_model") or "gemini-2.5-pro",
         grading_tier=essay.get("grading_tier") or "standard",
     )
-    background_tasks.add_task(essay_service._bg_grade_essay, str(essay_id), job_info["job_id"])
+    # regrade-resilience: restore pre-regrade status on grader failure (essay's
+    # status was read before the 'grading' write) — don't strand the prior version.
+    background_tasks.add_task(essay_service._bg_grade_essay, str(essay_id), job_info["job_id"],
+                              restore_status_on_fail=essay.get("status"))
     return {"essay_id": str(essay_id), "status": "grading",
             "analysis_level": effective_level, "eta_seconds": job_info.get("eta_seconds")}
 
