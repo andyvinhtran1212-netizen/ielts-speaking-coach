@@ -373,10 +373,9 @@ def upsert_composed_version(
         .select("current_version").eq("id", essay_id).limit(1).execute()
     ).data or [{}]
     cur = cvr[0].get("current_version") or 1
-    # version-management: read the CURRENT version row from base (its source
-    # decides create-vs-update); the view would hide a non-current one. Also pull
-    # prompt_version/model_used so a NEW composed row can inherit them — both are
-    # NOT NULL on writing_feedback (migrations/033) with no default.
+    # Read the CURRENT version row from base — its source decides create-vs-update
+    # (the view hides non-current). Also pull prompt_version/model_used so a NEW
+    # composed row inherits them (both NOT NULL, no default). version-management.
     cur_rows = (
         supabase_admin.table("writing_feedback")
         .select("version, source, prompt_version, model_used")
