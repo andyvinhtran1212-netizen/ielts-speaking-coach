@@ -233,4 +233,5 @@ jobs:
             frontend/tests/writing-highlight.test.mjs \
             frontend/tests/admin-writing-grade-redesign.test.mjs \
             frontend/tests/admin-writing-dashboard.test.mjs \
-            frontend/tests/instructor-nav.test.mjs
+            frontend/tests/instructor-nav.test.mjs \
+            frontend/tests/f2-compare-mix.test.mjs

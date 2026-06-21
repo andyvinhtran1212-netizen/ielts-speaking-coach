@@ -50,6 +50,7 @@ async function boot() {
   if (_AS && $('ig-imp')) $('ig-imp').hidden = false;
 
   await loadEssay();
+  await wireCompare();
   $('ig-save').addEventListener('click', onSaveComment);
   $('ig-deliver').addEventListener('click', onDeliver);
   $('ig-regrade').addEventListener('click', onRegrade);
@@ -116,6 +117,22 @@ function renderEssay(data) {
 
   // revoke only when delivered
   $('ig-revoke').hidden = data.status !== 'delivered';
+}
+
+// F2 — surface "So sánh / Trộn phiên bản" only when ≥2 live versions exist.
+async function wireCompare() {
+  const btn = $('ig-compare');
+  if (!btn) return;
+  try {
+    const data = await api.get('/instructor/essays/' + encodeURIComponent(ESSAY_ID) + '/versions');
+    const liveCount = (data && data.budget && data.budget.live_count) || 0;
+    if (liveCount >= 2) {
+      let href = '/pages/instructor/compare.html?essay_id=' + encodeURIComponent(ESSAY_ID);
+      if (_AS) href += '&as_instructor=' + encodeURIComponent(_AS);   // propagate impersonation
+      btn.href = href;
+      btn.hidden = false;
+    }
+  } catch (e) { /* non-fatal — compare entry just stays hidden */ }
 }
 
 async function onSaveComment() {
