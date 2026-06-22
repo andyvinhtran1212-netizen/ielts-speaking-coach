@@ -3199,8 +3199,14 @@ async def admin_import_fulltest_commit(
     if not test_id_external:
         raise HTTPException(422, "Thiếu test_id (heading H1 của Question Paper).")
 
-    # Validate the audio (size/duration) the same way the full-audio upload does.
-    av = listening_audio.validate_full_audio(audio_bytes)
+    # Validate the audio (size/duration). A mini test is a SINGLE section, so its
+    # audio is minutes (not ~30 min) — use the section-level floor (60s/20KB) for
+    # mini, the full-test floor (300s/50KB) for a real full test. Both validators
+    # return {duration_seconds, size_bytes, errors, warnings}, so downstream use
+    # of `av` is unchanged. (Without this, mini commit 422'd on the 300s floor
+    # even though validate/preview — which never sees the audio — passed.)
+    av = (listening_audio.validate_section_audio(audio_bytes) if mini
+          else listening_audio.validate_full_audio(audio_bytes))
     if av["errors"]:
         raise HTTPException(422, "; ".join(av["errors"]))
 
