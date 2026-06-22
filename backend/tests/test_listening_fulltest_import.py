@@ -333,6 +333,7 @@ def test_commit_endpoint_persists_fulltest(monkeypatch):
         solution=UploadFile(filename="sol.md", file=io.BytesIO(sol.encode())),
         timings=UploadFile(filename="t.json", file=io.BytesIO(json.dumps(tim).encode())),
         audio=UploadFile(filename="full_test.mp3", file=io.BytesIO(b"x" * 5000)),
+        mini=False,   # direct call: Query(default) is a truthy sentinel — pass the real bool
         authorization="x"))
 
     assert out["test_id"] == "ILR-LIS-001"
@@ -401,6 +402,7 @@ def test_commit_rolls_back_fully_on_insert_failure(monkeypatch):
             solution=UploadFile(filename="sol.md", file=io.BytesIO(sol.encode())),
             timings=UploadFile(filename="t.json", file=io.BytesIO(json.dumps(tim).encode())),
             audio=UploadFile(filename="a.mp3", file=io.BytesIO(b"x" * 5000)),
+            mini=False,   # direct call: Query(default) is a truthy sentinel — pass the real bool
             authorization="x"))
     assert e.value.status_code == 500
     deleted_tables = {d[0] for d in stub.deletes}
@@ -461,3 +463,60 @@ def test_clean_pack_has_no_orphan_drop_errors():
     r = imp.parse_fulltest(qp, sol, tim)
     assert r.ok, r.errors
     assert not any("không tạo được câu hỏi" in e or "Answer Key" in e for e in r.errors)
+
+
+# ── mini audio floor: commit uses section-floor (60s) for mini, full (300s)
+#    for full test. Real validators + real route branch; only the duration
+#    probe is mocked (243s = a mini-length clip > 60s but < 300s). ────────────
+
+def _commit_with_mini(monkeypatch, mini, duration_s=243):
+    """Drive the REAL commit route at the audio gate. supabase + upload stubbed
+    so a passing-audio mini proceeds to a normal return; the mp3 probe is mocked
+    to `duration_s` so the REAL validators apply their real floors."""
+    import io
+    from fastapi import UploadFile
+    from services import listening_audio
+
+    async def _ok(_a): return {"id": "admin", "role": "admin"}
+    monkeypatch.setattr(listening_module, "require_admin", _ok)
+    monkeypatch.setattr(listening_module, "supabase_admin", _CommitStub())
+    monkeypatch.setattr(listening_module, "_upload_audio_to_bucket", lambda path, b: None)
+    # Mock ONLY the duration probe — both real validators run their real floors.
+    monkeypatch.setattr(listening_audio, "probe_mp3_duration_seconds", lambda b: duration_s)
+
+    qp, sol, tim = _load()
+    audio = b"\xff\xfb" + b"x" * 60000   # 60KB, MP3 magic → clears both byte floors
+    return _run(listening_module.admin_import_fulltest_commit(
+        question_paper=UploadFile(filename="qp.md", file=io.BytesIO(qp.encode())),
+        solution=UploadFile(filename="sol.md", file=io.BytesIO(sol.encode())),
+        timings=UploadFile(filename="t.json", file=io.BytesIO(json.dumps(tim).encode())),
+        audio=UploadFile(filename="mini.mp3", file=io.BytesIO(audio)),
+        mini=mini,
+        authorization="x"))
+
+
+def test_mini_commit_passes_section_floor_for_short_audio(monkeypatch):
+    """mini=True + 243s audio (> 60s section floor, < 300s full floor) → the
+    audio gate PASSES (commit proceeds, no 422). This is the bug fix."""
+    out = _commit_with_mini(monkeypatch, mini=True, duration_s=243)
+    assert out["test_id"] == "ILR-LIS-001"
+    assert out["audio"]["duration_seconds"] == 243
+    # metadata.test_type label carried through
+    # (sections_created reflects the real pack; the point is: NO 422 on audio)
+    assert out["sections_created"] >= 1
+
+
+def test_full_commit_still_rejects_short_audio(monkeypatch):
+    """mini=False + same 243s audio → STILL 422 on the full-test 300s floor
+    (the full-test floor is untouched)."""
+    with pytest.raises(HTTPException) as e:
+        _commit_with_mini(monkeypatch, mini=False, duration_s=243)
+    assert e.value.status_code == 422
+    assert "300" in str(e.value.detail)   # full-test 300s floor message
+
+
+def test_full_commit_accepts_long_audio(monkeypatch):
+    """mini=False + 1657s audio → passes the full floor (no regression)."""
+    out = _commit_with_mini(monkeypatch, mini=False, duration_s=1657)
+    assert out["test_id"] == "ILR-LIS-001"
+    assert out["audio"]["duration_seconds"] == 1657
