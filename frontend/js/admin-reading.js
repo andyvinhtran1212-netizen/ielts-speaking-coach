@@ -485,7 +485,7 @@
   // also resolved against the deep admin page, not the site root. Fix:
   //   • strip any trailing dot(s) from the host (the FQDN form is cert-mismatched),
   //   • upgrade the averlearning.com apex to the canonical www host (where the
-  //     cert + the GitHub Pages site actually live),
+  //     cert + the deployed site actually live),
   //   • use the ROOT-absolute '/pages/reading-exam.html' (the exam page sits at
   //     the site root regardless of how deep the admin page is).
   function _canonicalOrigin() {

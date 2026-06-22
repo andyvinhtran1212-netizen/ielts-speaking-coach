@@ -19,7 +19,7 @@
       ? 'http://localhost:8000'
       : 'https://ielts-speaking-coach-production.up.railway.app';
 
-  // Relative path prefix to the app root — works on both localhost and GitHub Pages.
+  // Relative path prefix to the app root — works on both localhost and the deployed site.
   // pages/*.html are one level deep; index.html and admin.html are at root level.
   var _appRoot = /\/pages\/[^/]+$/.test(window.location.pathname) ? '../' : './';
 
@@ -94,7 +94,7 @@
   var api = {
     base: _API_BASE,
     // url(path) — resolve a same-site page path relative to the app root,
-    // safe on both localhost and GitHub Pages project sites.
+    // safe on both localhost and the deployed site.
     // Usage: window.api.url('pages/home.html')
     url:    function (path)        { return _appRoot + path; },
     get:    function (path)        { return _apiRequest('GET',    path); },

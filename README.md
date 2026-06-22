@@ -6,7 +6,7 @@ SRS flashcards and fill-blank exercises.
 
 - **Production:** [averlearning.com](https://averlearning.com)
 - **Stack:** Vanilla JS + Tailwind CDN · FastAPI · Supabase (Postgres +
-  Auth + Storage) · Railway (backend) · Vercel/GitHub Pages (frontend) ·
+  Auth + Storage) · Railway (backend) · Vercel (frontend) ·
   Anthropic Claude · OpenAI Whisper · Google Gemini · Azure Speech (PA)
 
 > Day-to-day collaboration rules live in `CLAUDE.md` (project guide for
@@ -90,7 +90,7 @@ uvicorn main:app --reload --port 8000
 
 Frontend runs as plain static files — open `frontend/index.html` directly,
 serve with `python3 -m http.server` from the `frontend/` directory, or
-just point Vercel/GitHub Pages at the directory.  `frontend/js/api.js`
+just point Vercel at the directory.  `frontend/js/api.js`
 auto-detects localhost vs production and points fetches accordingly; do
 not hardcode an API base URL anywhere else.
 
