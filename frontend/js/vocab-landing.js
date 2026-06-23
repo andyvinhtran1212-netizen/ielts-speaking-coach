@@ -29,6 +29,7 @@
   // The container's `data-mounted` attribute is the idempotency guard
   // (see vocab-modules/_loader.js guardMount()).
   const TAB_LOADERS = {
+    'word-library': () => import('/js/vocab-modules/word-library.js'),
     'my-vocab':     () => import('/js/vocab-modules/my-vocab.js'),
     'flashcards':   () => import('/js/vocab-modules/flashcards.js'),
     'exercises':    () => import('/js/vocab-modules/exercises.js'),
@@ -46,7 +47,7 @@
   // pollute the main vocab bank (Sprint 6.0 archival reversed).
   const DEFAULT_TAB = 'my-vocab';
   const VALID_TABS = new Set([
-    'my-vocab', 'flashcards', 'exercises', 'needs-review', 'topic-bank',
+    'word-library', 'my-vocab', 'flashcards', 'exercises', 'needs-review', 'topic-bank',
   ]);
 
   function $(sel) { return document.querySelector(sel); }

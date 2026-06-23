@@ -60,9 +60,12 @@ describe('vocabulary.html / foundation links', () => {
     assert.match(html, /JetBrains\+Mono/);
   });
 
-  test('drops legacy Fraunces / Manrope', () => {
-    assert.ok(!/family=Fraunces/.test(html), 'Fraunces must be removed');
+  test('drops legacy Manrope (Fraunces re-added for the VE4 word-card design)', () => {
     assert.ok(!/family=Manrope/.test(html), 'Manrope must be removed');
+    // VE4: Fraunces is intentionally re-added (scoped to the .vc-* word-library
+    // grid via a second, additive Google-fonts link) per the approved word-card
+    // design — so it is EXPECTED here now (the old "must be removed" no longer holds).
+    assert.match(html, /family=Fraunces/);
   });
 
   test('links Lucide icons CDN (for chrome glyphs)', () => {
@@ -75,9 +78,12 @@ describe('vocabulary.html / foundation links', () => {
     assert.match(html, /js\/vocab-landing\.js/);
   });
 
-  test('has no inline <style> block (all styling lives in vocabulary.css)', () => {
-    const blocks = (html.match(/<style[\s\S]*?<\/style>/g) || []).length;
-    assert.equal(blocks, 0, `Found ${blocks} inline <style> block(s)`);
+  test('inline <style> is ONLY the scoped VE4 word-library block', () => {
+    // Page styling still lives in vocabulary.css; VE4 adds ONE scoped `<style>`
+    // (all rules under #panel-word-library .vc-*) for the re-surfaced word grid.
+    const blocks = html.match(/<style[\s\S]*?<\/style>/g) || [];
+    assert.equal(blocks.length, 1, `expected exactly 1 inline <style> (VE4), found ${blocks.length}`);
+    assert.match(blocks[0], /#panel-word-library \.vc-/);
   });
 });
 
@@ -286,9 +292,9 @@ describe('vocabulary.html / Sprint 8.2 mode-card IA + module-mount contract', ()
     const panelsWithRole  = (html.match(/role=["']tabpanel["']/g) || []).length;
     const ariaSelected    = (html.match(/aria-selected=/g) || []).length;
     assert.equal(tabsWithRole,   0, 'role="tab" must be absent (Sprint 8.2 retired the tablist row)');
-    // Sprint 10.1.5 — 5 panels (my-vocab, flashcards, exercises,
-    // needs-review, topic-bank); was 4 pre-10.1.5.
-    assert.equal(panelsWithRole, 5, 'role="tabpanel" stays on all 5 panels (Sprint 10.1.5: needs-review added)');
+    // VE4 — 6 panels (word-library, my-vocab, flashcards, exercises,
+    // needs-review, topic-bank); was 5 pre-VE4.
+    assert.equal(panelsWithRole, 6, 'role="tabpanel" stays on all 6 panels (VE4: word-library added)');
     assert.equal(ariaSelected,   0, 'aria-selected must be absent (no tab buttons left)');
   });
 
