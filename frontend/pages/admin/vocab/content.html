@@ -70,7 +70,7 @@
     <!-- M3 Slice-1 — vocab content import (one word = one .md file).
          Drag-drop a .md → dry-run preview → commit (upsert-by-slug). -->
     <details id="import-panel" class="aw-import-panel mb-6" open>
-      <summary class="aw-import-panel__summary">📥 Import từ file (.md) — một từ vựng / file</summary>
+      <summary class="aw-import-panel__summary">📥 Import từ file (.md) — một hoặc nhiều từ / file (gom theo bài học)</summary>
       <div class="aw-import-panel__body">
         <div id="import-dropzone" class="aw-import-dropzone" role="button" tabindex="0"
              aria-label="Kéo thả hoặc chọn file Markdown">
@@ -86,11 +86,9 @@
         <div id="import-status" class="aw-import-status hidden text-sm"></div>
 
         <div id="import-preview" class="aw-import-preview hidden">
+          <div id="import-summary" class="aw-tips-preview__label" style="font-weight:600;"></div>
           <div id="import-errors" class="aw-import-errors hidden"></div>
-          <p class="aw-tips-preview__label">Frontmatter</p>
-          <table class="aw-kv-table"><tbody id="import-kv"></tbody></table>
-          <p class="aw-tips-preview__label" style="margin-top: var(--av-space-4);">Nội dung</p>
-          <div id="import-body" class="aw-tips-preview md-body"></div>
+          <div id="import-blocks"></div>
           <div class="flex justify-end gap-2 mt-4">
             <button id="import-reset" type="button" class="aw-btn-secondary">Xóa</button>
             <button id="import-commit" type="button" class="aw-btn-primary" disabled>Lưu vào thư viện</button>
@@ -142,33 +140,17 @@
       return Array.isArray(v) ? v.join(', ') : (v == null ? '' : String(v));
     }
 
-    function renderImportPreview(data) {
-      var preview = document.getElementById('import-preview');
-      var errorsEl = document.getElementById('import-errors');
-      var kv = document.getElementById('import-kv');
-      var body = document.getElementById('import-body');
-      var commit = document.getElementById('import-commit');
-      preview.classList.remove('hidden');
-
-      var errs = (data && data.validation_errors) || [];
-      if (errs.length) {
-        errorsEl.classList.remove('hidden');
-        errorsEl.innerHTML = '<strong>Lỗi:</strong><ul>' + errs.map(function (e) {
-          return '<li>' + escapeHtml(e.field) + ': ' + escapeHtml(e.message) + '</li>';
-        }).join('') + '</ul>';
-        commit.disabled = true;
-      } else {
-        errorsEl.classList.add('hidden');
-        errorsEl.innerHTML = '';
-        commit.disabled = false;
-      }
-
-      var p = (data && data.parsed_data) || null;
-      if (!p) { kv.innerHTML = ''; body.innerHTML = ''; return; }
-
+    function _blockHtml(b) {
+      var p = b.parsed_data || {};
+      var errs = b.validation_errors || [];
+      var title = '#' + (b.index + 1) + ' · ' + escapeHtml(b.headword || p.headword || '(chưa có headword)')
+                + (b.slug ? ' <span style="opacity:.6">(' + escapeHtml(b.slug) + ')</span>' : '');
+      var errBox = errs.length
+        ? '<div class="aw-import-errors" style="margin:.4rem 0;"><strong>Lỗi:</strong><ul>'
+          + errs.map(function (e) { return '<li>' + escapeHtml(e.field) + ': ' + escapeHtml(e.message) + '</li>'; }).join('')
+          + '</ul></div>'
+        : '';
       var rows = [
-        ['Headword', p.headword || '—'],
-        ['Slug', p.slug || '—'],
         ['Danh mục', p.category || '—'],
         ['Nghĩa (VN)', p.gloss_vi || '—'],
         ['Cấp độ', p.level || '—'],
@@ -179,11 +161,50 @@
         ['Antonyms', _fmtList(p.antonyms)],
         ['Từ liên quan', _fmtList(p.related_words)],
       ];
-      kv.innerHTML = rows.map(function (r) {
-        return '<tr><th>' + escapeHtml(r[0]) + '</th><td>' + escapeHtml(String(r[1])) + '</td></tr>';
-      }).join('');
-      // body_html is server-rendered (markdown lib) → trusted admin content.
-      body.innerHTML = p.body_html || '';
+      var kv = (b.parsed_data)
+        ? '<table class="aw-kv-table"><tbody>' + rows.map(function (r) {
+            return '<tr><th>' + escapeHtml(r[0]) + '</th><td>' + escapeHtml(String(r[1])) + '</td></tr>';
+          }).join('') + '</tbody></table>'
+        : '';
+      var statusCls = errs.length ? 'is-draft' : 'is-published';
+      var statusLbl = errs.length ? '✗ ' + errs.length + ' lỗi' : '✓ hợp lệ';
+      return '<div class="aw-prompt-row" style="margin-bottom:.6rem;">'
+        + '<div class="flex items-center justify-between gap-2 mb-1">'
+        + '<span style="font-weight:600;">' + title + '</span>'
+        + '<span class="adm-status-pill ' + statusCls + '">' + statusLbl + '</span>'
+        + '</div>' + errBox + kv + '</div>';
+    }
+
+    function renderImportPreview(data) {
+      var preview = document.getElementById('import-preview');
+      var summaryEl = document.getElementById('import-summary');
+      var errorsEl = document.getElementById('import-errors');
+      var blocksEl = document.getElementById('import-blocks');
+      var commit = document.getElementById('import-commit');
+      preview.classList.remove('hidden');
+
+      var blocks = (data && data.blocks) || [];
+      var s = (data && data.summary) || { total: blocks.length, errors: 0, created: 0, updated: 0 };
+      var hasErr = ((data && data.validation_errors) || []).length > 0;
+
+      // Tổng hợp: "N từ · thêm X / cập nhật Y · lỗi Z (block + dòng)".
+      var parts = [s.total + ' từ'];
+      if (s.created || s.updated) parts.push('thêm ' + (s.created || 0) + ' / cập nhật ' + (s.updated || 0));
+      parts.push((s.errors || 0) + ' lỗi');
+      summaryEl.textContent = parts.join(' · ');
+
+      // Duplicate-in-batch banner (a file-level error, not tied to one block).
+      var dups = (data && data.duplicate_slugs) || [];
+      if (dups.length) {
+        errorsEl.classList.remove('hidden');
+        errorsEl.innerHTML = '<strong>Trùng slug trong cùng file:</strong> ' + escapeHtml(dups.join(', '));
+      } else {
+        errorsEl.classList.add('hidden');
+        errorsEl.innerHTML = '';
+      }
+
+      blocksEl.innerHTML = blocks.map(_blockHtml).join('');
+      commit.disabled = hasErr || blocks.length === 0;
     }
 
     async function dryRunImport(file) {
@@ -210,11 +231,12 @@
         var data = await window.api.upload('/admin/vocabulary/import?dry_run=false', fd);
         if (data.validation_errors && data.validation_errors.length) {
           renderImportPreview(data);
-          _importStatus('Còn lỗi — chưa lưu được.', 'error');
+          _importStatus('Còn lỗi — chưa lưu được (không lưu phần nào).', 'error');
           return;
         }
-        var verb = data.action === 'updated' ? 'Đã cập nhật' : 'Đã thêm';
-        _importStatus('✓ ' + verb + ' từ "' + (data.committed_ids[0] || '') + '" vào thư viện.', 'ok');
+        var s = data.summary || { created: 0, updated: 0 };
+        _importStatus('✓ Đã lưu: thêm ' + (s.created || 0) + ' / cập nhật ' + (s.updated || 0)
+                      + ' từ vào thư viện.', 'ok');
         resetImport();
         document.getElementById('import-panel').open = true;
       } catch (err) {

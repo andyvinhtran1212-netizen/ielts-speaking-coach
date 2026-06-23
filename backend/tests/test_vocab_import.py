@@ -16,8 +16,10 @@ from fastapi.testclient import TestClient
 
 from services.vocab_import import (
     build_vocab_payload,
+    import_vocab_file,
     import_vocab_markdown,
     parse_vocab_markdown,
+    split_word_blocks,
     validate_vocab,
 )
 
@@ -342,3 +344,142 @@ def test_articles_list_endpoint_from_table_does_not_500_on_datetime():
         r = TestClient(app).get("/api/vocabulary/articles")
     assert r.status_code == 200, r.text
     assert r.headers.get("Last-Modified", "").endswith("GMT")
+
+
+# ── Multi-word (one-lesson-per-file) import ────────────────────────────
+
+
+def _word(headword, slug, category="health", *, body="**Nghĩa VN** — giải thích.", drop=None):
+    """Build one word block. `drop` omits a frontmatter line (to force an error)."""
+    fm = {"headword": headword, "slug": slug, "category": category,
+          "part_of_speech": "noun"}
+    if drop:
+        fm.pop(drop, None)
+    lines = "\n".join(f'{k}: "{v}"' for k, v in fm.items())
+    return f"---\n{lines}\n---\n\n{body}\n\n## Ví dụ\n\n> Example for {headword}.\n"
+
+
+def _file(*blocks):
+    return "\n".join(blocks)
+
+
+# split_word_blocks
+
+def test_split_single_block_is_backward_compatible():
+    blocks = split_word_blocks(_WORD_MD)
+    assert len(blocks) == 1
+    # the single chunk still parses to the same word
+    assert parse_vocab_markdown(blocks[0]).slug == "cutting-edge"
+
+
+def test_split_three_blocks():
+    text = _file(_word("Holistic", "holistic"), _word("Sedentary", "sedentary"),
+                 _word("Epidemic", "epidemic"))
+    blocks = split_word_blocks(text)
+    assert len(blocks) == 3
+    assert [parse_vocab_markdown(b).slug for b in blocks] == ["holistic", "sedentary", "epidemic"]
+
+
+def test_split_ignores_body_horizontal_rule():
+    """Blind-spot guard: a markdown HR `---` inside a body (between-fences text is
+    NOT a YAML dict) must not be treated as a new block boundary."""
+    body = "**Nghĩa** — giải thích.\n\n---\nMột ghi chú có gạch ngang.\n---\n\nĐoạn cuối."
+    text = _file(_word("Holistic", "holistic", body=body), _word("Sedentary", "sedentary"))
+    blocks = split_word_blocks(text)
+    assert len(blocks) == 2                       # NOT 3 — the body HR isn't a block
+    assert parse_vocab_markdown(blocks[0]).slug == "holistic"
+    assert parse_vocab_markdown(blocks[1]).slug == "sedentary"
+
+
+# import_vocab_file
+
+def test_import_file_three_valid_blocks_commits_all():
+    text = _file(_word("Holistic", "holistic"), _word("Sedentary", "sedentary"),
+                 _word("Epidemic", "epidemic"))
+    db = _mock_db_no_existing()
+    with patch("services.vocab_import.supabase_admin", db):
+        res = import_vocab_file(text, dry_run=False, valid_categories=_CATS)
+    assert res["summary"] == {"total": 3, "created": 3, "updated": 0, "errors": 0}
+    assert res["committed_ids"] == ["holistic", "sedentary", "epidemic"]
+    assert res["validation_errors"] == []
+    assert db.table.return_value.insert.call_count == 3
+
+
+def test_import_file_one_bad_block_reports_that_block_others_ok():
+    """A single bad block reports its error WITHOUT aborting the others; nothing
+    commits (all-or-nothing) so the lesson is never half-imported."""
+    text = _file(
+        _word("Holistic", "holistic"),
+        _word("Bad", "bad", drop="category"),     # missing category → block 1 error
+        _word("Epidemic", "epidemic"),
+    )
+    db = MagicMock()
+    with patch("services.vocab_import.supabase_admin", db):
+        res = import_vocab_file(text, dry_run=False, valid_categories=_CATS)
+    # the error is tagged to the RIGHT block (index 1, headword "Bad")
+    errs = res["validation_errors"]
+    assert any(e["block"] == 1 and e["headword"] == "Bad" and e["field"] == "category" for e in errs)
+    # the other two blocks parsed cleanly (preview shows them, no errors)
+    assert res["blocks"][0]["validation_errors"] == []
+    assert res["blocks"][2]["validation_errors"] == []
+    assert res["blocks"][0]["parsed_data"]["slug"] == "holistic"
+    # all-or-nothing: nothing written
+    assert res["committed_ids"] == []
+    db.table.return_value.insert.assert_not_called()
+
+
+def test_import_file_duplicate_slug_in_batch_is_an_error():
+    text = _file(_word("Holistic", "dup"), _word("Sedentary", "dup"))
+    db = MagicMock()
+    with patch("services.vocab_import.supabase_admin", db):
+        res = import_vocab_file(text, dry_run=False, valid_categories=_CATS)
+    assert res["duplicate_slugs"] == ["dup"]
+    # both colliding blocks carry the duplicate error
+    assert all(any(e["field"] == "slug" for e in b["validation_errors"]) for b in res["blocks"])
+    assert res["committed_ids"] == []
+    db.table.return_value.insert.assert_not_called()
+
+
+def test_import_file_single_block_backward_compat():
+    """A 1-word file (the original content_vocab shape) still imports + still
+    exposes the single-block mirrors parsed_data/action."""
+    db = _mock_db_no_existing()
+    with patch("services.vocab_import.supabase_admin", db):
+        res = import_vocab_file(_WORD_MD, dry_run=False, valid_categories=_CATS)
+    assert res["summary"]["total"] == 1
+    assert res["committed_ids"] == ["cutting-edge"]
+    assert res["action"] == "created"
+    assert res["parsed_data"]["slug"] == "cutting-edge"
+
+
+def test_import_file_dry_run_validates_without_writing():
+    text = _file(_word("Holistic", "holistic"), _word("Sedentary", "sedentary"))
+    db = MagicMock()
+    with patch("services.vocab_import.supabase_admin", db):
+        res = import_vocab_file(text, dry_run=True, valid_categories=_CATS)
+    assert res["dry_run"] is True
+    assert res["committed_ids"] == []
+    assert res["summary"]["total"] == 2
+    assert res["validation_errors"] == []
+    db.table.return_value.insert.assert_not_called()
+
+
+# endpoint — multi-word upload commits all + reloads once (G1)
+
+def test_endpoint_multiblock_commits_all_and_reloads():
+    from main import app
+    text = _file(_word("Holistic", "holistic"), _word("Sedentary", "sedentary"),
+                 _word("Epidemic", "epidemic"))
+    db = _mock_db_no_existing()
+    reload = MagicMock()
+    files = {"file": ("lesson.md", text.encode("utf-8"), "text/markdown")}
+    with patch("routers.admin_vocab.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_vocab.vocab_service._valid_categories", _CATS), \
+         patch("services.vocab_import.supabase_admin", db), \
+         patch("routers.admin_vocab.vocab_service.reload", reload):
+        r = TestClient(app).post("/admin/vocabulary/import?dry_run=false", files=files, headers=_ADMIN_AUTH)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["committed_ids"] == ["holistic", "sedentary", "epidemic"]
+    assert body["summary"]["created"] == 3
+    reload.assert_called_once()
