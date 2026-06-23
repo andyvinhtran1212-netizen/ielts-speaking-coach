@@ -158,6 +158,7 @@ jobs:
             frontend/tests/vocabulary-redesign.test.mjs \
             frontend/tests/vocab-word-library.test.mjs \
             frontend/tests/vocab-article-reskin.test.mjs \
+            frontend/tests/vocab-admin-console.test.mjs \
             frontend/tests/sprint-14-6-5-light-theme-panels.test.mjs \
             frontend/tests/sprint-14-5-1-result-completeness.test.mjs \
             frontend/tests/sprint-14-8-1-signal-persistence.test.mjs \

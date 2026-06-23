@@ -97,7 +97,71 @@
       </div>
     </details>
 
-    <p class="aw-subtitle text-sm">Xem thư viện trực tiếp ở <a class="aw-back-link" href="/pages/vocabulary.html" target="_blank" rel="noopener">trang Từ vựng</a> (tab "Thư viện từ").</p>
+    <p class="aw-subtitle text-sm mb-6">Xem thư viện trực tiếp ở <a class="aw-back-link" href="/vocabulary.html" target="_blank" rel="noopener">Vocabulary Wiki</a>.</p>
+
+    <!-- V-admin — manage existing words: search/filter + edit + delete + ▶ preview. -->
+    <h2 class="aw-h1 text-lg font-semibold mb-3">Quản lý từ vựng</h2>
+    <div class="flex flex-wrap items-center gap-2 mb-3">
+      <input id="vw-search" class="aw-input" style="max-width:240px;" type="search"
+             placeholder="Tìm headword…" aria-label="Tìm từ vựng theo headword" autocomplete="off" />
+      <select id="vw-cat" class="aw-input" style="max-width:200px;" aria-label="Lọc theo chủ đề">
+        <option value="">Tất cả chủ đề</option>
+      </select>
+      <span id="vw-count" class="aw-subtitle text-sm" style="margin-left:auto;"></span>
+    </div>
+    <div id="vw-status" class="aw-import-status hidden text-sm mb-2"></div>
+    <div id="vw-list"></div>
+    <div class="flex items-center justify-between gap-2 mt-3">
+      <button id="vw-prev" type="button" class="aw-btn-secondary" disabled>← Trước</button>
+      <span id="vw-page" class="aw-subtitle text-sm"></span>
+      <button id="vw-next" type="button" class="aw-btn-secondary" disabled>Sau →</button>
+    </div>
+  </div>
+
+  <!-- Edit modal -->
+  <div id="vw-modal" class="aw-modal-bg hidden fixed inset-0 z-50 flex items-center justify-center px-4">
+    <div class="aw-modal-panel max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="aw-modal-title text-lg font-semibold">Sửa từ vựng</h2>
+        <button id="vw-close" type="button" class="aw-modal-close text-2xl leading-none" aria-label="Đóng">&times;</button>
+      </div>
+      <div class="space-y-3">
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="aw-form-label">Headword</label><input id="f-headword" class="aw-input" /></div>
+          <div><label class="aw-form-label">Slug</label><input id="f-slug" class="aw-input" disabled /></div>
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+          <div><label class="aw-form-label">Chủ đề</label><input id="f-category" class="aw-input" /></div>
+          <div><label class="aw-form-label">Cấp độ</label><input id="f-level" class="aw-input" /></div>
+          <div><label class="aw-form-label">Loại từ</label><input id="f-pos" class="aw-input" /></div>
+        </div>
+        <div><label class="aw-form-label">Phát âm (IPA)</label><input id="f-pron" class="aw-input" /></div>
+        <div><label class="aw-form-label">Nghĩa (VN)</label><textarea id="f-glossvi" class="aw-input" rows="2"></textarea></div>
+        <div><label class="aw-form-label">Định nghĩa (EN)</label><textarea id="f-defen" class="aw-input" rows="2"></textarea></div>
+        <div><label class="aw-form-label">Ví dụ</label><textarea id="f-example" class="aw-input" rows="2"></textarea></div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="aw-form-label">Collocations (phẩy)</label><input id="f-colloc" class="aw-input" /></div>
+          <div><label class="aw-form-label">Từ liên quan (phẩy)</label><input id="f-related" class="aw-input" /></div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="aw-form-label">Đồng nghĩa (phẩy)</label><input id="f-syn" class="aw-input" /></div>
+          <div><label class="aw-form-label">Trái nghĩa (phẩy)</label><input id="f-ant" class="aw-input" /></div>
+        </div>
+        <div><label class="aw-form-label">Hay nhầm</label><textarea id="f-error" class="aw-input" rows="2"></textarea></div>
+        <div><label class="aw-form-label">Mẹo nhớ</label><textarea id="f-hook" class="aw-input" rows="2"></textarea></div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="aw-form-label">Register</label><input id="f-register" class="aw-input" /></div>
+          <div><label class="aw-form-label">Nguồn</label><input id="f-source" class="aw-input" /></div>
+        </div>
+        <details><summary class="aw-form-label" style="cursor:pointer;">Nội dung (HTML) — nâng cao</summary>
+          <textarea id="f-body" class="aw-input aw-md-textarea" rows="6"></textarea></details>
+      </div>
+      <div id="vw-modal-error" class="aw-upload-error hidden mt-3 text-sm"></div>
+      <div class="flex justify-end gap-2 mt-6">
+        <button id="vw-cancel" type="button" class="aw-btn-secondary">Hủy</button>
+        <button id="vw-save" type="button" class="aw-btn-primary">Lưu</button>
+      </div>
+    </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0"></script>
@@ -282,6 +346,181 @@
       });
       document.getElementById('import-reset').addEventListener('click', resetImport);
       document.getElementById('import-commit').addEventListener('click', commitImport);
+    })();
+
+    // ── V-admin — manage existing words (list / edit / delete / ▶ preview) ──
+    var _vw = { offset: 0, limit: 50, total: 0, cat: '', q: '', editingId: null };
+    var _vwAudio = null;
+
+    function _vwStatus(msg, kind) {
+      var el = document.getElementById('vw-status');
+      el.textContent = msg || ''; el.classList.toggle('hidden', !msg);
+      el.classList.remove('is-error', 'is-ok');
+      if (kind) el.classList.add(kind === 'error' ? 'is-error' : 'is-ok');
+    }
+    function _vwListRow(w) {
+      var pill = (w.audio_status === 'final')
+        ? '<span class="adm-status-pill is-published">● audio</span>'
+        : '<span class="adm-status-pill is-draft">○ ' + escapeHtml(w.audio_status || 'pending') + '</span>';
+      var exBtn = w.audio_example
+        ? '<button type="button" class="aw-btn-secondary" data-act="play" data-audio="' + escapeHtml(w.audio_example) + '" data-say="' + escapeHtml(w.headword) + '">▶ ví dụ</button>'
+        : '';
+      return ''
+        + '<div class="aw-prompt-row" style="margin-bottom:.5rem;">'
+        +   '<div class="flex items-center justify-between gap-3 flex-wrap">'
+        +     '<div>'
+        +       '<span style="font-weight:600;">' + escapeHtml(w.headword) + '</span> '
+        +       '<span class="aw-subtitle text-xs">· ' + escapeHtml(w.category || '') + (w.level ? ' · ' + escapeHtml(w.level) : '') + '</span>'
+        +       '<div class="aw-meta-line">slug: ' + escapeHtml(w.slug) + (w.gloss_vi ? ' — ' + escapeHtml(w.gloss_vi) : '') + '</div>'
+        +     '</div>'
+        +     '<div class="flex items-center gap-2 flex-wrap">'
+        +       pill
+        +       '<button type="button" class="aw-btn-secondary" data-act="play" data-audio="' + escapeHtml(w.audio_headword || '') + '" data-say="' + escapeHtml(w.headword) + '">▶</button>'
+        +       exBtn
+        +       '<button type="button" class="aw-btn-secondary" data-act="edit" data-id="' + w.id + '">Sửa</button>'
+        +       '<button type="button" class="aw-btn-danger" data-act="del" data-id="' + w.id + '" data-hw="' + escapeHtml(w.headword) + '">Xóa</button>'
+        +     '</div>'
+        +   '</div>'
+        + '</div>';
+    }
+    async function loadVocabList() {
+      var params = new URLSearchParams();
+      params.set('limit', _vw.limit); params.set('offset', _vw.offset);
+      if (_vw.cat) params.set('category', _vw.cat);
+      if (_vw.q) params.set('q', _vw.q);
+      _vwStatus('Đang tải…', null);
+      try {
+        var data = await window.api.get('/admin/vocabulary?' + params.toString());
+        _vwStatus('', null);
+        _vw.total = data.total != null ? data.total : (data.words || []).length;
+        var list = document.getElementById('vw-list');
+        list.innerHTML = (data.words && data.words.length)
+          ? data.words.map(_vwListRow).join('')
+          : '<p class="aw-subtitle text-sm" style="padding:1rem 0;">Không có từ nào.</p>';
+        document.getElementById('vw-count').textContent = _vw.total + ' từ';
+        var from = _vw.total ? _vw.offset + 1 : 0;
+        var to = Math.min(_vw.offset + _vw.limit, _vw.total);
+        document.getElementById('vw-page').textContent = from + '–' + to + ' / ' + _vw.total;
+        document.getElementById('vw-prev').disabled = _vw.offset <= 0;
+        document.getElementById('vw-next').disabled = _vw.offset + _vw.limit >= _vw.total;
+      } catch (err) {
+        _vwStatus('Lỗi tải danh sách: ' + ((err && err.message) || 'không xác định'), 'error');
+      }
+    }
+    async function loadCatOptions() {
+      try {
+        var cats = await window.api.get('/api/vocabulary/categories');
+        var sel = document.getElementById('vw-cat');
+        (cats || []).forEach(function (c) {
+          var o = document.createElement('option');
+          o.value = c.slug; o.textContent = (c.title || c.slug) + ' (' + (c.article_count || 0) + ')';
+          sel.appendChild(o);
+        });
+      } catch (_) { /* filter still works without options */ }
+    }
+
+    // ▶ preview — prefer the pregenerated mp3, else speechSynthesis (silent on error).
+    function vwPlay(url, say) {
+      try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (_) {}
+      if (_vwAudio) { try { _vwAudio.pause(); } catch (_) {} _vwAudio = null; }
+      if (url) {
+        try { _vwAudio = new Audio(url); _vwAudio.play().catch(function () { vwSpeak(say); }); return; } catch (_) {}
+      }
+      vwSpeak(say);
+    }
+    function vwSpeak(text) {
+      try {
+        if (!text || !window.speechSynthesis) return;
+        var u = new SpeechSynthesisUtterance(text); u.lang = 'en-GB'; u.rate = 0.92;
+        window.speechSynthesis.speak(u);
+      } catch (_) {}
+    }
+
+    var _CSV = function (s) { return String(s || '').split(',').map(function (x) { return x.trim(); }).filter(Boolean); };
+    function _setVal(id, v) { document.getElementById(id).value = v == null ? '' : v; }
+    function _getVal(id) { return document.getElementById(id).value.trim(); }
+
+    async function openEdit(id) {
+      try {
+        var w = await window.api.get('/admin/vocabulary/' + id);
+        _vw.editingId = id;
+        _setVal('f-headword', w.headword); _setVal('f-slug', w.slug);
+        _setVal('f-category', w.category); _setVal('f-level', w.level); _setVal('f-pos', w.part_of_speech);
+        _setVal('f-pron', w.pronunciation); _setVal('f-glossvi', w.gloss_vi); _setVal('f-defen', w.definition_en);
+        _setVal('f-example', w.example);
+        _setVal('f-colloc', (w.collocations || []).join(', ')); _setVal('f-related', (w.related_words || []).join(', '));
+        _setVal('f-syn', (w.synonyms || []).join(', ')); _setVal('f-ant', (w.antonyms || []).join(', '));
+        _setVal('f-error', w.common_error); _setVal('f-hook', w.memory_hook);
+        _setVal('f-register', w.register); _setVal('f-source', w.source); _setVal('f-body', w.body_html);
+        document.getElementById('vw-modal-error').classList.add('hidden');
+        document.getElementById('vw-modal').classList.remove('hidden');
+      } catch (err) {
+        _vwStatus('Lỗi mở từ: ' + ((err && err.message) || 'không xác định'), 'error');
+      }
+    }
+    function closeEdit() { document.getElementById('vw-modal').classList.add('hidden'); _vw.editingId = null; }
+
+    async function saveEdit() {
+      if (!_vw.editingId) return;
+      var payload = {
+        headword: _getVal('f-headword'), category: _getVal('f-category'), level: _getVal('f-level'),
+        part_of_speech: _getVal('f-pos'), pronunciation: _getVal('f-pron'), gloss_vi: _getVal('f-glossvi'),
+        definition_en: _getVal('f-defen'), example: _getVal('f-example'),
+        collocations: _CSV(_getVal('f-colloc')), related_words: _CSV(_getVal('f-related')),
+        synonyms: _CSV(_getVal('f-syn')), antonyms: _CSV(_getVal('f-ant')),
+        common_error: _getVal('f-error'), memory_hook: _getVal('f-hook'),
+        register: _getVal('f-register'), source: _getVal('f-source'), body_html: _getVal('f-body'),
+      };
+      try {
+        await window.api.patch('/admin/vocabulary/' + _vw.editingId, payload);
+        closeEdit();
+        _vwStatus('✓ Đã lưu. Thay đổi hiển thị ngay trên Vocabulary Wiki.', 'ok');
+        loadVocabList();
+      } catch (err) {
+        var box = document.getElementById('vw-modal-error');
+        box.textContent = 'Lỗi lưu: ' + ((err && err.message) || 'không xác định'); box.classList.remove('hidden');
+      }
+    }
+
+    async function deleteWord(id, headword) {
+      if (!confirm('Xóa từ "' + headword + '"? Không thể hoàn tác.')) return;
+      try {
+        await window.api.delete('/admin/vocabulary/' + id);
+        _vwStatus('✓ Đã xóa "' + headword + '".', 'ok');
+        loadVocabList();
+      } catch (err) {
+        _vwStatus('Lỗi xóa: ' + ((err && err.message) || 'không xác định'), 'error');
+      }
+    }
+
+    (function wireConsole() {
+      var list = document.getElementById('vw-list');
+      list.addEventListener('click', function (e) {
+        var btn = e.target.closest('button[data-act]'); if (!btn) return;
+        var act = btn.getAttribute('data-act');
+        if (act === 'play') vwPlay(btn.getAttribute('data-audio') || '', btn.getAttribute('data-say') || '');
+        else if (act === 'edit') openEdit(btn.getAttribute('data-id'));
+        else if (act === 'del') deleteWord(btn.getAttribute('data-id'), btn.getAttribute('data-hw') || '');
+      });
+      var dz;
+      var srch = document.getElementById('vw-search');
+      srch.addEventListener('input', function () {
+        clearTimeout(dz); dz = setTimeout(function () { _vw.q = srch.value.trim(); _vw.offset = 0; loadVocabList(); }, 200);
+      });
+      document.getElementById('vw-cat').addEventListener('change', function (e) {
+        _vw.cat = e.target.value; _vw.offset = 0; loadVocabList();
+      });
+      document.getElementById('vw-prev').addEventListener('click', function () {
+        _vw.offset = Math.max(0, _vw.offset - _vw.limit); loadVocabList();
+      });
+      document.getElementById('vw-next').addEventListener('click', function () {
+        _vw.offset += _vw.limit; loadVocabList();
+      });
+      document.getElementById('vw-close').addEventListener('click', closeEdit);
+      document.getElementById('vw-cancel').addEventListener('click', closeEdit);
+      document.getElementById('vw-save').addEventListener('click', saveEdit);
+      loadCatOptions();
+      loadVocabList();
     })();
   </script>
 
