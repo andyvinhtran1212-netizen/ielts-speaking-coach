@@ -11,7 +11,7 @@
 
 | Layer | Stack |
 |---|---|
-| Frontend | Vanilla HTML + CSS + JS (no build step); `aver-design` token system (`--av-*`); served on GitHub Pages at **www.averlearning.com** |
+| Frontend | Vanilla HTML + CSS + JS (no build step); `aver-design` token system (`--av-*`); served on Vercel at **www.averlearning.com** |
 | Backend | Python 3.11 · FastAPI · Pydantic Settings; one router file per domain; hosted on **Railway** |
 | Database | Single Supabase Postgres (**dev = prod**); backend uses the service role (bypasses RLS), enforcing ownership in-app |
 | AI | OpenAI Whisper (speaking STT) · Anthropic Claude (speaking grading) · Google Gemini (writing grading + question gen) · Azure Speech (pronunciation) · ElevenLabs / Gemini image (listening audio + maps) |

@@ -237,7 +237,7 @@ Any PR that touches:
 - `vercel.json`, `.github/workflows/**`, deploy-affecting infra config — needs **deploy**
 
 Frontend-only PRs (anything strictly under `frontend/**`, plus docs) ship
-via GitHub Pages on push to `main` — they are still "deploy" but the
+via Vercel on push to `main` — they are still "deploy" but the
 deploy mechanism is automatic-on-merge and confirmed by a browser load.
 The 3-step checklist below applies to backend + migration changes.
 
@@ -295,7 +295,7 @@ Once steps 1–3 pass, post a single-line status to the closing PR
 description (or to the coordination memory if the PR is already merged
 and locked). One of:
 
-- `Deploy: not-applicable` — frontend-only PR; the GitHub-Pages
+- `Deploy: not-applicable` — frontend-only PR; the Vercel
   automatic deploy is enough.
 - `Deploy: deployed-only` — backend change, no migration; Railway is
   on the merge commit; prod smoke passed.

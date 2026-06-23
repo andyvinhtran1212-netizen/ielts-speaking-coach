@@ -22,7 +22,7 @@ code is safe; the rollout step gates real exposure to users.
 >   No env / migration steps; just a Railway redeploy.
 > - **Wave 2 flashcard UX fixes** (PR #12) — code-only frontend patch
 >   (transcript hidden, optimistic rating, no flip-gate).  No backend
->   change; just a Vercel/GitHub Pages redeploy.
+>   change; just a Vercel redeploy.
 
 ---
 
@@ -148,7 +148,11 @@ remediation pass landed before this section was finalised.
 - [ ] Smoke `/auth/me` exposes `vocab_bank_enabled: false` for a user
       without the per-user flag (proves the field is plumbed).
 
-### B.4 Frontend (Vercel/GitHub Pages)
+### B.4 Frontend (Vercel)
+
+> Production frontend = **Vercel** (clean URLs + 301 redirects served by Vercel
+> via `vercel.json`). The old GitHub Pages deploy workflow was vestigial and has
+> been removed — do NOT rely on a Pages build.
 
 - [ ] Wait auto-deploy.
 - [ ] Logged-out / non-flagged user sees zero vocab UI (link absent
@@ -382,7 +386,7 @@ step gates real exposure.
   ```
   Expect `false` (per-user flag still off) — confirms the field exists.
 
-## W2.4 Frontend (Vercel/GitHub Pages)
+## W2.4 Frontend (Vercel)
 
 - [ ] Wait for auto-deploy
 - [ ] Smoke test in Incognito (logged out): Flashcards link absent from dashboard nav
@@ -480,7 +484,7 @@ gate — this rolls out alongside the existing FLASHCARD_ENABLED flag.
   ```
   Expect 200 with `{job_id, status: "queued", estimated_cost_usd, …}`.
 
-## RC.4 Frontend (Vercel/GitHub Pages)
+## RC.4 Frontend (Vercel)
 
 - [ ] Wait auto-deploy
 - [ ] In study session, verify back card shows headword + IPA banner +
