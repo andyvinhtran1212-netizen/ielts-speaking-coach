@@ -1,5 +1,12 @@
+// @ts-check
 // api.js — loaded before the inline script, after supabase-js CDN
 // Uses a private variable name (_sb) so it never collides with window.supabase
+//
+// Step-A typecheck pilot: the data methods carry `@template T` so a caller can
+// flow a response type, e.g.
+//   const codes = /** @type {AccessCodeOut[]} */ (await api.get('/admin/access-codes'));
+// JSDoc only — 0 runtime change; the IIFE + window.api shape are untouched, and
+// `tsc --noEmit` never emits. Delete tsconfig.json and this becomes inert.
 
 (function () {
   var _sb = null;
@@ -31,7 +38,7 @@
 
   async function _apiRequest(method, path, body, isFormData, extraHeaders, opts) {
     var token = await _getAuthToken();
-    var headers = {};
+    var headers = /** @type {Record<string, string>} */ ({});
 
     if (token) headers['Authorization'] = 'Bearer ' + token;
     if (!isFormData) headers['Content-Type'] = 'application/json';
@@ -75,7 +82,7 @@
       var message  = isObj
         ? (detail.message || 'HTTP ' + response.status)
         : (detail || 'HTTP ' + response.status);
-      var thrown   = new Error(message);
+      var thrown   = /** @type {any} */ (new Error(message));
       thrown.status = response.status;
       thrown.detail = detail || null;
       throw thrown;
@@ -97,16 +104,24 @@
     // safe on both localhost and the deployed site.
     // Usage: window.api.url('pages/home.html')
     url:    function (path)        { return _appRoot + path; },
+    /** @template T @param {string} path @returns {Promise<T>} */
     get:    function (path)        { return _apiRequest('GET',    path); },
+    /** @template T @param {string} path @param {*} [body] @returns {Promise<T>} */
     post:   function (path, body)  { return _apiRequest('POST',   path, body); },
+    /** @template T @param {string} path @param {*} [body] @returns {Promise<T>} */
     patch:  function (path, body)  { return _apiRequest('PATCH',  path, body); },
+    /** @template T @param {string} path @returns {Promise<T>} */
     delete: function (path)        { return _apiRequest('DELETE', path); },
+    /** @template T @param {string} path @param {FormData} fd @returns {Promise<T>} */
     upload: function (path, fd)    { return _apiRequest('POST',   path, fd, true); },
     // reading-access-tracking — GET/POST/PATCH with extra request headers
     // (X-Reading-Password / X-Reading-Anon) + optional opts ({noRedirect:true}
     // suppresses the 401→login bounce for the anonymous share-link path).
+    /** @template T @param {string} path @param {Record<string,string>} [hdrs] @param {*} [opts] @returns {Promise<T>} */
     getWith:   function (path, hdrs, opts)       { return _apiRequest('GET',   path, null, false, hdrs, opts); },
+    /** @template T @param {string} path @param {*} [body] @param {Record<string,string>} [hdrs] @param {*} [opts] @returns {Promise<T>} */
     postWith:  function (path, body, hdrs, opts) { return _apiRequest('POST',  path, body, false, hdrs, opts); },
+    /** @template T @param {string} path @param {*} [body] @param {Record<string,string>} [hdrs] @param {*} [opts] @returns {Promise<T>} */
     patchWith: function (path, body, hdrs, opts) { return _apiRequest('PATCH', path, body, false, hdrs, opts); },
   };
 
