@@ -1,0 +1,62 @@
+name: Typecheck (pilot, non-blocking)
+
+# Step-A typecheck pilot. NON-BLOCKING: every job is continue-on-error so it
+# NEVER fails a PR — it reports JSDoc type errors + OpenAPI↔type drift as signal
+# only. Promote to a required check after it's been green & stable (separate step).
+#
+# Two checks:
+#   1. tsc --noEmit over frontend/ (opt-in `// @ts-check` files only) — catches a
+#      FE call-site using a field the generated api.d.ts no longer has.
+#   2. Regenerate frontend/types/api.d.ts from the LIVE app's /openapi.json and
+#      git-diff it — catches a BE response_model change that wasn't re-committed
+#      (spec↔type drift). Generated from the in-process app (not a deployment) so
+#      it reflects THIS PR's models, not what's currently shipped.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  typecheck:
+    name: tsc --noEmit (non-blocking)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: tsc --noEmit
+        run: npx --yes --package=typescript@5.6.3 tsc --noEmit -p tsconfig.json
+
+  apitype-drift:
+    name: api.d.ts ↔ openapi drift (non-blocking)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install backend deps
+        working-directory: backend
+        run: pip install -r requirements.txt
+      - name: Dump in-process OpenAPI spec
+        working-directory: backend
+        run: python -c "from main import app, json; open('/tmp/openapi.json','w').write(json.dumps(app.openapi()))"
+        env:
+          SUPABASE_URL: https://example.supabase.co
+          SUPABASE_SERVICE_KEY: test-key
+      - name: Regenerate api.d.ts + diff
+        working-directory: frontend
+        run: |
+          npx --yes openapi-typescript@7 /tmp/openapi.json -o types/api.d.ts
+          git diff --exit-code types/api.d.ts \
+            || echo "::warning::frontend/types/api.d.ts is stale — run openapi-typescript and commit the regenerated file."

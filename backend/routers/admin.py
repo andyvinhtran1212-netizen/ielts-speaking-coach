@@ -18,6 +18,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query
 from fastapi.responses import JSONResponse
 import uuid as _uuid
+from typing import Any
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
@@ -950,7 +951,58 @@ async def generate_access_codes(
 
 # ── GET /admin/access-codes ────────────────────────────────────────────────────
 
-@router.get("/access-codes")
+# ── Typecheck pilot (Step A) — response_model for GET /admin/access-codes ──────
+# A concrete output schema so the FE can generate a TypeScript type (via
+# openapi-typescript) and tsc catches a BE field rename at the call site. The
+# field set MUST be a SUPERSET of every key list_access_codes assembles, or
+# response_model SILENTLY STRIPS the missing field from the response (breaking the
+# admin page). test_access_codes_response_model.py enforces that superset rule —
+# the strip-footgun guard (mirrors the writing_feedback NOT-NULL schema test).
+# Appended fields are conditional per branch (assigned_users on the happy/empty
+# path, association_lookup_failed only on the lookup-failure early return), so
+# EVERY appended field is Optional+default — else FastAPI 500s on the branch that
+# omits it.
+
+class AccessCodeQuota(BaseModel):
+    used: int
+    limit: int | None = None
+    remaining: int | None = None
+    limit_type: str
+
+
+class AccessCodeAssignedUser(BaseModel):
+    user_id: str
+    name: str
+    email: str
+    is_fallback_used_by: bool
+    removable: bool
+    quota: AccessCodeQuota
+
+
+class AccessCodeOut(BaseModel):
+    # Base columns (the .select() list).
+    id: str
+    code: str
+    is_used: bool | None = None
+    is_revoked: bool | None = None
+    is_active: bool | None = None
+    used_by: str | None = None
+    used_at: str | None = None
+    created_at: str | None = None
+    permissions: Any = None          # JSONB — dict/list/null; intentionally loose
+    session_limit: int | None = None
+    expires_at: str | None = None
+    code_type: str | None = None
+    cohort_id: str | None = None
+    notes: str | None = None
+    # Appended in the route (conditional per branch → all Optional+default).
+    assigned_user_count: int | None = None
+    assigned_users: list[AccessCodeAssignedUser] = Field(default_factory=list)
+    cohort_name: str | None = None
+    association_lookup_failed: bool | None = None
+
+
+@router.get("/access-codes", response_model=list[AccessCodeOut])
 async def list_access_codes(authorization: str | None = Header(default=None)):
     """List all access codes, enriched with assigned user count."""
     await require_admin(authorization)

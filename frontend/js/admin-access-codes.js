@@ -1,3 +1,5 @@
+// @ts-check
+/** @typedef {import('../types/api').components['schemas']['AccessCodeOut']} AccessCodeOut */
 /**
  * frontend/js/admin-access-codes.js — Sprint 12.2.
  *
@@ -32,11 +34,18 @@ const SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
 
 const api = window.api;
 
-const $  = (id) => document.getElementById(id);
+// Pilot: `$` returns `any` so DOM element-property access (.value/.checked/etc.)
+// isn't type-checked — the pilot's goal is API-SHAPE drift-catch, not DOM typing
+// (typing every getElementById to its concrete element subtype is the bulk of
+// per-module cost; out of scope here — see tsconfig.json//strict note).
+const $  = /** @type {(id: string) => any} */ ((id) => document.getElementById(id));
+/** @param {*} v */
 const fmt = (v) => v == null || v === '' ? '—' : String(v);
+/** @param {*} s */
 const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
+/** @type {AccessCodeOut[]} */
 let _allCodes = [];
 let _cohorts = [];
 let _search = '';
@@ -103,7 +112,7 @@ function rowMatchesFilters(row, f) {
 // so it never touches the user-tab headers that share this page. Reflective
 // only: reads _sort, changes no sort logic.
 function reflectSort() {
-  document.querySelectorAll('th.ac-sortable[data-sort]').forEach((th) => {
+  document.querySelectorAll('th.ac-sortable[data-sort]').forEach((/** @type {any} */ th) => {
     const f = th.dataset.sort;
     th.setAttribute('aria-sort',
       _sort.field === f ? (_sort.order === 'asc' ? 'ascending' : 'descending') : 'none');
@@ -172,7 +181,7 @@ function renderTable() {
 
 async function loadCohorts() {
   try {
-    const r = await api.get('/admin/cohorts?is_active=true');
+    const r = /** @type {any} */ (await api.get('/admin/cohorts?is_active=true'));
     _cohorts = (r && r.cohorts) || [];
   } catch (err) {
     _cohorts = [];
@@ -197,7 +206,10 @@ async function loadCodes(silent) {
     $('codes-empty').hidden = true;
   }
   try {
-    const r = await api.get('/admin/access-codes');
+    // Typed call-site: tsc checks every c.assigned_users / c.cohort_name access
+    // below against AccessCodeOut → a BE field rename (regenerated api.d.ts)
+    // becomes a typecheck error HERE, not a silent prod break.
+    const r = /** @type {AccessCodeOut[]} */ (await api.get('/admin/access-codes'));
     _allCodes = Array.isArray(r) ? r : [];
   } catch (err) {
     if (!silent) _allCodes = [];
@@ -215,13 +227,13 @@ function openModal() {
   $('m-expires').value = '';
   $('m-notes').value = '';
   // Default radio = mass; cohort row hidden.
-  document.querySelectorAll('input[name="m-type"]').forEach((r) => {
+  document.querySelectorAll('input[name="m-type"]').forEach((/** @type {any} */ r) => {
     r.checked = r.value === 'mass';
   });
   $('m-cohort-row').hidden = true;
   $('m-cohort').value = '';
   // Default permissions: all checked, others unchecked.
-  $('m-perms').querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+  $('m-perms').querySelectorAll('input[type="checkbox"]').forEach((/** @type {any} */ cb) => {
     cb.checked = cb.value === 'all';
   });
   $('modal-backdrop').hidden = false;
@@ -232,13 +244,13 @@ function closeModal() {
 }
 
 function selectedType() {
-  const checked = document.querySelector('input[name="m-type"]:checked');
+  const checked = /** @type {any} */ (document.querySelector('input[name="m-type"]:checked'));
   return checked ? checked.value : 'mass';
 }
 
 function selectedPerms() {
   return Array.from($('m-perms').querySelectorAll('input[type="checkbox"]:checked'))
-    .map((cb) => cb.value);
+    .map((/** @type {any} */ cb) => cb.value);
 }
 
 async function submitCreate() {
@@ -285,7 +297,7 @@ async function submitCreate() {
 
   $('btn-submit').disabled = true;
   try {
-    const r = await api.post('/admin/access-codes/generate', body);
+    const r = /** @type {any} */ (await api.post('/admin/access-codes/generate', body));
     closeModal();
     showBanner(`Đã tạo ${r.created || count} mã.`, 'success');
     await loadCodes();
@@ -357,7 +369,7 @@ function openEditPerms(codeId) {
   $('ep-error').hidden = true;
   // Pre-check the boxes to the code's current permissions.
   const current = Array.isArray(code.permissions) ? code.permissions : [];
-  document.querySelectorAll('#ep-perms input[type="checkbox"]').forEach((cb) => {
+  document.querySelectorAll('#ep-perms input[type="checkbox"]').forEach((/** @type {any} */ cb) => {
     cb.checked = current.includes(cb.value);
   });
   // session_limit (empty input = unlimited / NULL).
@@ -366,7 +378,7 @@ function openEditPerms(codeId) {
   const users = (code.assigned_users || []).filter((u) => u.quota);
   if (users.length) {
     $('ep-usage').innerHTML = users.map((u) => {
-      const q = u.quota || {};
+      const q = /** @type {any} */ (u.quota || {});
       const email = u.email ? esc(u.email) : '(không rõ)';
       const lim = (q.limit == null) ? '∞' : String(q.limit);
       const rem = (q.remaining == null) ? '∞' : String(q.remaining);
@@ -383,7 +395,7 @@ function closeEditPerms() { $('editperms-backdrop').hidden = true; }
 
 function _selectedEditPerms() {
   return Array.from(document.querySelectorAll('#ep-perms input[type="checkbox"]:checked'))
-    .map((cb) => cb.value);
+    .map((/** @type {any} */ cb) => cb.value);
 }
 
 async function submitEditPerms() {
@@ -420,7 +432,7 @@ async function submitEditPerms() {
 async function refillCode(codeId) {
   if (!confirm('Cấp một mã mới (sao chép quyền/lớp/giới hạn) cho người dùng hiện tại của mã này?')) return;
   try {
-    const r = await api.post('/admin/access-codes/' + codeId + '/refill', {});
+    const r = /** @type {any} */ (await api.post('/admin/access-codes/' + codeId + '/refill', {}));
     showBanner('Đã cấp mã mới: ' + (r.new_code || ''), 'success');
     await loadCodes();
   } catch (err) {
@@ -452,7 +464,7 @@ function bind() {
   const searchEl = $('search-input');
   if (searchEl) searchEl.addEventListener('input', () => { _search = searchEl.value; renderTable(); });
   // Sprint 17.1 — sortable column headers (created_at | expires_at | status).
-  document.querySelectorAll('th[data-sort]').forEach((th) => {
+  document.querySelectorAll('th[data-sort]').forEach((/** @type {any} */ th) => {
     th.addEventListener('click', () => {
       const field = th.dataset.sort;
       _sort = { field, order: (_sort.field === field && _sort.order === 'desc') ? 'asc' : 'desc' };
@@ -461,8 +473,8 @@ function bind() {
   });
   // a11y — keyboard activation for the code-tab sortable headers (scoped to
   // .ac-sortable; reuses the click path above). Enter / Space to sort.
-  document.querySelectorAll('th.ac-sortable[data-sort]').forEach((th) => {
-    th.addEventListener('keydown', (e) => {
+  document.querySelectorAll('th.ac-sortable[data-sort]').forEach((/** @type {any} */ th) => {
+    th.addEventListener('keydown', (/** @type {any} */ e) => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); th.click(); }
     });
   });
