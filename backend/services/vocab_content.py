@@ -152,6 +152,15 @@ class VocabContentService:
             "antonyms":       [str(x) for x in (fm.get("antonyms") or []) if x is not None],
             "collocations":   [str(x) for x in (fm.get("collocations") or []) if x is not None],
             "related_words":  [str(x) for x in (fm.get("related_words") or []) if x is not None],
+            # VE1 (word-library grid): a short VN gloss for the mini-card. The 20
+            # words have NO structured VN field — the gloss is the body's first
+            # paragraph (e.g. "**Tiên tiến nhất…** — …"), so extract it. A word
+            # whose body has none just gets "" (never breaks).
+            "gloss_vi":       _first_paragraph_text(body),
+            # VE1 forward-compat for VC1 (Andy fills these later). ADDITIVE — a
+            # word without the frontmatter key gets "" and no existing field changes.
+            "definition_en":  str(fm.get("definition_en") or ""),
+            "example":        str(fm.get("example") or ""),
             "html":           html,
         }
 
@@ -165,6 +174,8 @@ class VocabContentService:
             "level":          a.get("level", ""),
             "part_of_speech": a.get("part_of_speech", ""),
             "pronunciation":  a.get("pronunciation", ""),
+            # VE1 — grid mini-card VN gloss (additive; existing summary fields unchanged).
+            "gloss_vi":       a.get("gloss_vi", ""),
         }
 
     def _resolve_related(self, slugs: list[str]) -> list[dict]:
@@ -205,6 +216,22 @@ class VocabContentService:
 
 def _prettify(slug: str) -> str:
     return slug.replace("-", " ").title()
+
+
+def _first_paragraph_text(body: str) -> str:
+    """VE1 — the body's first real paragraph as PLAINTEXT, for the grid mini-card
+    VN gloss. Skips headings (`#`) and blockquotes (`>`); strips markdown bold /
+    italic / inline-code / links. Returns "" when the body has no paragraph."""
+    for para in (body or "").split("\n\n"):
+        p = para.strip()
+        if not p or p.startswith("#") or p.startswith(">"):
+            continue
+        p = re.sub(r"\*\*([^*]+)\*\*", r"\1", p)      # **bold**
+        p = re.sub(r"\*([^*]+)\*", r"\1", p)          # *italic*
+        p = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", p)  # [text](link)
+        p = p.replace("`", "")
+        return re.sub(r"\s+", " ", p).strip()
+    return ""
 
 
 # ── Singleton ────────────────────────────────────────────────────────────────

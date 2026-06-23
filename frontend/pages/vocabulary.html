@@ -31,6 +31,10 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
     rel="stylesheet">
+  <!-- VE4 word-library design fonts (scoped to the .vc-* grid; additive). -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=DM+Mono:wght@400;500&family=Hanken+Grotesk:wght@400;500;600&display=swap"
+    rel="stylesheet">
 
   <!-- Aver Design System foundation. tokens.css MUST load before
        components.css and vocabulary.css. -->
@@ -54,6 +58,60 @@
   <!-- P0-3 C-3.4: static Tailwind loaded LAST (after page CSS) to match the
        Play-CDN cascade — utilities/.hidden win over same-specificity page rules. -->
   <link rel="stylesheet" href="/css/tailwind.build.css" />
+
+  <!-- VE4 — word-library grid styling. SCOPED under `.vc-*` so it can't restyle
+       the existing vocab landing/modules. Loaded AFTER tailwind.build.css so the
+       static utilities can't override it (cascade-order lesson). Theme-aware via
+       the --av-* tokens for surfaces/text; jade accent + design fonts per the
+       approved word-card design. -->
+  <style>
+    #panel-word-library .vc-root { padding: var(--av-space-4) 0 var(--av-space-12); }
+    #panel-word-library .vc-empty { text-align: center; padding: 3rem;
+      color: var(--av-text-muted); font-family: 'Hanken Grotesk', system-ui, sans-serif; }
+    #panel-word-library .vc-cat { margin-bottom: var(--av-space-8); }
+    #panel-word-library .vc-cat-title { font-family: 'Fraunces', Georgia, serif;
+      font-weight: 600; font-size: 1.25rem; color: var(--av-text-primary);
+      margin: 0 0 var(--av-space-4); }
+    #panel-word-library .vc-grid {
+      display: grid; gap: var(--av-space-4);
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+    #panel-word-library .vc-card {
+      display: flex; flex-direction: column; gap: 6px;
+      padding: var(--av-space-4); border-radius: 14px;
+      background: var(--av-surface-card); border: 1px solid var(--av-border-subtle);
+      box-shadow: var(--av-shadow-sm); text-decoration: none;
+      border-left: 3px solid #0B6E59;   /* jade accent rail */
+      transition: box-shadow .15s, transform .15s; }
+    #panel-word-library .vc-card:hover {
+      box-shadow: var(--av-shadow-md); transform: translateY(-2px); }
+    #panel-word-library .vc-card-head {
+      display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+    #panel-word-library .vc-headword {
+      font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 1.15rem;
+      color: var(--av-text-primary); line-height: 1.2; }
+    #panel-word-library .vc-pos {
+      font-family: 'DM Mono', ui-monospace, monospace; font-size: .7rem;
+      text-transform: lowercase; color: #0B6E59; flex-shrink: 0; }
+    #panel-word-library .vc-ipa {
+      font-family: 'DM Mono', ui-monospace, monospace; font-size: .82rem;
+      color: var(--av-text-secondary); }
+    #panel-word-library .vc-gloss {
+      font-family: 'Hanken Grotesk', system-ui, sans-serif; font-size: .9rem;
+      color: var(--av-text-secondary); line-height: 1.5;
+      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    #panel-word-library .vc-card-foot {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-top: auto; padding-top: 6px; }
+    #panel-word-library .vc-level {
+      font-family: 'DM Mono', ui-monospace, monospace; font-size: .72rem;
+      font-weight: 500; color: var(--av-text-on-primary); background: #0B6E59;
+      padding: 1px 8px; border-radius: 999px; }
+    #panel-word-library .vc-play {
+      font-size: .7rem; line-height: 1; cursor: pointer;
+      width: 28px; height: 28px; border-radius: 50%;
+      border: 1px solid #0B6E59; color: #0B6E59; background: transparent; }
+    #panel-word-library .vc-play:hover { background: #0B6E59; color: #fff; }
+  </style>
 
   <!-- Lucide icons (line glyphs for chrome only — tab icon emoji remain
        as Sprint 6.7+ functional microcopy). -->
@@ -115,6 +173,14 @@
     <section class="vocab-modes" aria-labelledby="modes-heading">
       <h2 id="modes-heading">Bắt đầu học từ vựng</h2>
       <div class="modes-grid">
+        <a href="#" class="mode-card" data-mode="word-library" aria-label="Mở Từ vựng">
+          <div class="head">
+            <div class="icon"><i data-lucide="library"></i></div>
+            <span class="arrow" aria-hidden="true">→</span>
+          </div>
+          <h3>Từ vựng</h3>
+          <p class="lede">Thư viện từ vựng IELTS theo chủ đề.</p>
+        </a>
         <a href="#" class="mode-card" data-mode="my-vocab" aria-label="Mở My Vocabulary">
           <div class="head">
             <div class="icon"><i data-lucide="book-open"></i></div>
@@ -171,6 +237,15 @@
     <!-- Sprint 8.2 — all 4 panels start hidden; dashboard view above is
          the default landing state. aria-labelledby points at the mode-card
          heading so screen readers still anchor each panel to its trigger. -->
+
+    <section class="tab-panel" data-panel="word-library" id="panel-word-library"
+             role="tabpanel" aria-labelledby="modes-heading" hidden>
+      <!-- VE4 — re-surfaced content_vocab library. vocab-landing.js
+           dynamic-imports /js/vocab-modules/word-library.js and calls
+           mount(container, { embedded: true }); the module fetches
+           /api/vocabulary/categories via window.api and renders the .vc-* grid. -->
+      <div class="tab-mount" id="mount-word-library"></div>
+    </section>
 
     <section class="tab-panel" data-panel="my-vocab" id="panel-my-vocab"
              role="tabpanel" aria-labelledby="modes-heading" hidden>
