@@ -9,7 +9,9 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { renderCard, renderGrid } from '../js/vocab-modules/word-library.js';
+import {
+  renderCard, renderGrid, flattenWords, filterWords, renderChips, renderEmpty,
+} from '../js/vocab-modules/word-library.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const front = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
@@ -56,6 +58,69 @@ describe('renderGrid', () => {
 });
 
 
+// ── Slice-B: client-side filter + search (pure fns) ───────────────────
+
+const WORDS = [
+  WORD,
+  { slug: 'holistic', category: 'health', headword: 'Holistic', gloss_vi: 'Toàn diện' },
+  { slug: 'equity', category: 'business-finance', headword: 'Equity', gloss_vi: 'Vốn chủ sở hữu' },
+];
+
+describe('flattenWords', () => {
+  test('flattens category sections into one word list', () => {
+    const flat = flattenWords([
+      { slug: 'health', articles: [WORDS[1]] },
+      { slug: 'business-finance', articles: [WORDS[2]] },
+    ]);
+    assert.equal(flat.length, 2);
+    assert.deepEqual(flat.map((w) => w.slug), ['holistic', 'equity']);
+  });
+});
+
+describe('filterWords', () => {
+  test('no query + no category → all words (identity)', () => {
+    assert.equal(filterWords(WORDS, '', '').length, 3);
+  });
+  test('category scopes the list', () => {
+    const out = filterWords(WORDS, '', 'health');
+    assert.deepEqual(out.map((w) => w.slug), ['holistic']);
+  });
+  test('query matches headword OR gloss (case-insensitive)', () => {
+    assert.deepEqual(filterWords(WORDS, 'equ', '').map((w) => w.slug), ['equity']);   // headword
+    assert.deepEqual(filterWords(WORDS, 'toàn diện', '').map((w) => w.slug), ['holistic']); // gloss
+  });
+  test('query + category compose (search within scope)', () => {
+    assert.equal(filterWords(WORDS, 'equity', 'health').length, 0);  // equity not in health
+    assert.equal(filterWords(WORDS, 'holistic', 'health').length, 1);
+  });
+  test('no match → empty array', () => {
+    assert.equal(filterWords(WORDS, 'zzzzz', '').length, 0);
+  });
+});
+
+describe('renderChips', () => {
+  test('"Tất cả" first with total count, one chip per non-empty category, active flagged', () => {
+    const html = renderChips([
+      { slug: 'health', title: 'Health', article_count: 2, articles: [WORDS[1]] },
+      { slug: 'business-finance', title: 'Business Finance', article_count: 5, articles: [WORDS[2]] },
+    ], 'health');
+    assert.match(html, /Tất cả/);
+    assert.match(html, /vc-chip is-active"[^>]*data-cat="health"/);   // selected chip jade-filled
+    assert.match(html, /Business Finance/);
+    assert.match(html, /vc-chip-n">7</);   // "Tất cả" total = 2 + 5
+  });
+});
+
+describe('renderEmpty', () => {
+  test('invites another action (not a blank void) + escapes the query', () => {
+    const h = renderEmpty('a & b');
+    assert.match(h, /Không tìm thấy/);
+    assert.match(h, /a &amp; b/);
+    assert.match(h, /bỏ lọc chủ đề|từ khóa khác/);
+  });
+});
+
+
 // ── static wiring sentinels ───────────────────────────────────────────
 
 describe('word-library.js wiring', () => {
@@ -69,6 +134,15 @@ describe('word-library.js wiring', () => {
     assert.match(MOD, /export async function mount\(/);
     assert.match(MOD, /speechSynthesis/);
     assert.doesNotMatch(MOD, /\/tts\b/);
+  });
+  test('Slice-B: search input + chip row + debounce + empty-state branch wired', () => {
+    assert.match(MOD, /class="vc-search"/);            // search box rendered
+    assert.match(MOD, /class="vc-search-clear"/);      // clear (x) button
+    assert.match(MOD, /renderChips\(/);                // chip row
+    assert.match(MOD, /function debounce\(/);          // debounced input
+    assert.match(MOD, /addEventListener\('input'/);    // search listens on input
+    assert.match(MOD, /renderEmpty\(/);                // empty-state branch
+    assert.match(MOD, /cancelSpeech\(\)/);             // utterance cancelled on scope change
   });
 });
 

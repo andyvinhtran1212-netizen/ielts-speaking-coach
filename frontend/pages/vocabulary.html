@@ -111,6 +111,55 @@
       width: 28px; height: 28px; border-radius: 50%;
       border: 1px solid #0B6E59; color: #0B6E59; background: transparent; }
     #panel-word-library .vc-play:hover { background: #0B6E59; color: #fff; }
+
+    /* Slice-B — search + chip-filter toolbar (jade design, Hanken/DM Mono). */
+    #panel-word-library .vc-toolbar {
+      display: flex; flex-direction: column; gap: var(--av-space-3);
+      padding: var(--av-space-4) 0 var(--av-space-2); }
+    #panel-word-library .vc-search-wrap { position: relative; max-width: 420px; }
+    #panel-word-library .vc-search {
+      width: 100%; box-sizing: border-box;
+      font-family: 'Hanken Grotesk', system-ui, sans-serif; font-size: .95rem;
+      padding: 10px 36px 10px 14px; border-radius: 999px;
+      border: 1px solid var(--av-border-default); background: var(--av-surface-card);
+      color: var(--av-text-primary); }
+    #panel-word-library .vc-search::placeholder { color: var(--av-text-muted); }
+    #panel-word-library .vc-search:focus {
+      outline: none; border-color: #0B6E59;
+      box-shadow: 0 0 0 3px color-mix(in srgb, #0B6E59 22%, transparent); }
+    #panel-word-library .vc-search-clear {
+      position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+      width: 26px; height: 26px; border-radius: 50%; border: none; cursor: pointer;
+      background: transparent; color: var(--av-text-muted); font-size: 1.1rem; line-height: 1; }
+    #panel-word-library .vc-search-clear:hover { color: var(--av-text-primary); }
+    #panel-word-library .vc-chips {
+      display: flex; gap: var(--av-space-2); overflow-x: auto; padding-bottom: 4px;
+      scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
+    #panel-word-library .vc-chips::-webkit-scrollbar { height: 6px; }
+    #panel-word-library .vc-chips::-webkit-scrollbar-thumb {
+      background: var(--av-border-default); border-radius: 999px; }
+    #panel-word-library .vc-chip {
+      flex: 0 0 auto; white-space: nowrap; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 6px;
+      font-family: 'Hanken Grotesk', system-ui, sans-serif; font-size: .85rem;
+      padding: 6px 12px; border-radius: 999px;
+      border: 1px solid var(--av-border-default); background: var(--av-surface-card);
+      color: var(--av-text-secondary); transition: background .12s, color .12s, border-color .12s; }
+    #panel-word-library .vc-chip:hover { border-color: #0B6E59; color: var(--av-text-primary); }
+    #panel-word-library .vc-chip.is-active {
+      background: #0B6E59; border-color: #0B6E59; color: #fff; }
+    #panel-word-library .vc-chip-n {
+      font-family: 'DM Mono', ui-monospace, monospace; font-size: .72rem; opacity: .8; }
+    #panel-word-library .vc-chip.is-active .vc-chip-n { opacity: .9; }
+    #panel-word-library .vc-count {
+      font-family: 'DM Mono', ui-monospace, monospace; font-size: .8rem;
+      color: var(--av-text-muted); margin: 0 0 var(--av-space-3); }
+    #panel-word-library .vc-empty-title {
+      font-family: 'Fraunces', Georgia, serif; font-size: 1.1rem;
+      color: var(--av-text-primary); margin: 0 0 var(--av-space-2); }
+    #panel-word-library .vc-empty-hint {
+      font-family: 'Hanken Grotesk', system-ui, sans-serif; font-size: .9rem;
+      color: var(--av-text-muted); margin: 0; }
   </style>
 
   <!-- Lucide icons (line glyphs for chrome only — tab icon emoji remain
