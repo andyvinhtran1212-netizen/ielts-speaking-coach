@@ -159,19 +159,20 @@ describe('word-library.js wiring', () => {
   });
 });
 
-describe('vocab-article audio wiring (vocabulary.js + page)', () => {
+describe('vocab-article audio wiring (vocabulary.js — v2 delegated ▶)', () => {
   const VJS = front('js', 'vocabulary.js');
-  const ART = front('pages', 'vocab-article.html');
 
-  test('speakHeadword/speakExample prefer audio URL with speechSynthesis fallback', () => {
-    assert.match(VJS, /_currentAudioHeadword/);
-    assert.match(VJS, /window\.speakExample\s*=/);
-    assert.match(VJS, /new Audio\(/);
-    assert.match(VJS, /_speakText\(/);                 // fallback path
+  test('▶ buttons prefer pregenerated audio (data-audio) then speechSynthesis', () => {
+    // V-article: per-button onclick + speakExample retired for a single delegated
+    // .va-play handler that prefers data-audio (mp3) and falls back to data-say.
+    assert.match(VJS, /data-audio="\$\{esc\(audioUrl/);   // playBtn carries the URL
+    assert.match(VJS, /new Audio\(/);                       // plays the mp3
+    assert.match(VJS, /\.catch\(\(\) => \{[^}]*fallbackSpeak/); // playback error → fallback
+    assert.match(VJS, /closest\('\.va-play'\)/);            // delegated handler
   });
-  test('article page has an example-audio button revealed only when audio exists', () => {
-    assert.match(ART, /id="tts-example-btn"[^>]*class="tts-btn hidden"/);
-    assert.match(ART, /onclick="speakExample\(\)"/);
+  test('headword + example each get a ▶ with its audio URL', () => {
+    assert.match(VJS, /playBtn\(a\.audio_headword, a\.headword/);          // headword ▶
+    assert.match(VJS, /playBtn\(a\.audio_example, a\.example, 'va-small va-ghost'\)/); // example ▶
   });
 });
 

@@ -202,6 +202,12 @@
   --av-info:            #1D4ED8;
   --av-info-soft:       rgba(29, 78, 216, 0.08);
 
+  /* Vocab wiki jade accent (word-card design v2) — distinct from the brand teal */
+  --av-vocab-jade:      #0B6E59;
+  --av-vocab-jade-tint: #E4F0EB;
+  --av-vocab-jade-line: #BCDDD1;
+  --av-vocab-jade-ink:  #04130E;   /* text on a solid jade fill */
+
   /* Shadows — navy-tinted, low opacity (light theme reads softer) */
   --av-shadow-sm:    0 1px 2px rgba(15, 23, 42, 0.05);
   --av-shadow-md:    0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.05);
@@ -261,6 +267,12 @@
   --av-info:            #60A5FA;
   --av-info-soft:       rgba(96, 165, 250, 0.10);
 
+  /* Vocab wiki jade accent (word-card design v2) — brighter on the navy ground */
+  --av-vocab-jade:      #19BE92;
+  --av-vocab-jade-tint: rgba(25, 190, 146, 0.12);
+  --av-vocab-jade-line: rgba(25, 190, 146, 0.32);
+  --av-vocab-jade-ink:  #04130E;
+
   /* Shadows — black-tinted, deeper for navy ground */
   --av-shadow-sm:    0 1px 2px rgba(0, 0, 0, 0.30);
   --av-shadow-md:    0 1px 2px rgba(0, 0, 0, 0.30), 0 4px 12px rgba(0, 0, 0, 0.40);
@@ -318,6 +330,12 @@
     --av-error-soft:      rgba(248, 113, 113, 0.10);
     --av-info:            #60A5FA;
     --av-info-soft:       rgba(96, 165, 250, 0.10);
+
+    /* Vocab wiki jade accent (word-card design v2) */
+    --av-vocab-jade:      #19BE92;
+    --av-vocab-jade-tint: rgba(25, 190, 146, 0.12);
+    --av-vocab-jade-line: rgba(25, 190, 146, 0.32);
+    --av-vocab-jade-ink:  #04130E;
 
     --av-shadow-sm:    0 1px 2px rgba(0, 0, 0, 0.30);
     --av-shadow-md:    0 1px 2px rgba(0, 0, 0, 0.30), 0 4px 12px rgba(0, 0, 0, 0.40);

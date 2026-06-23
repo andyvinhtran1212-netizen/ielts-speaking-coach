@@ -1,0 +1,209 @@
+/* css/vocab-wiki.css — Vocabulary Wiki re-skin (word-card design v2).
+ *
+ * Shared by the wiki landing (root vocabulary.html) + the per-word article
+ * (pages/vocab-article.html). Both now sit under <aver-chrome>, so this file is
+ * THEME-AWARE: every colour resolves from --av-* tokens (light + dark), NOT the
+ * mockup's raw vars. Jade accent = --av-vocab-jade* (tokens.css); examiner teal =
+ * --av-primary; warn callout = --av-warning*. All rules are `.va-*`-scoped so they
+ * can't restyle the chrome or the #550 word-library grid (which is `.vc-*`).
+ *
+ * Design ref: backend/docs/design/vocab-wordcard-design-v2.html.
+ * Fonts (Fraunces / Hanken Grotesk / DM Mono) are linked per-page (additive).
+ */
+
+.va-wrap { max-width: 1060px; margin: 0 auto; padding: var(--av-space-8) var(--av-space-4) var(--av-space-24); }
+.va-serif { font-family: 'Fraunces', Georgia, serif; }
+.va-mono  { font-family: 'DM Mono', ui-monospace, monospace; }
+
+/* ── Masthead / section labels ─────────────────────────────────────── */
+.va-eyebrow {
+  font-family: 'DM Mono', ui-monospace, monospace; font-size: 11px;
+  letter-spacing: .18em; text-transform: uppercase; color: var(--av-primary); font-weight: 500;
+}
+.va-masthead { margin-bottom: var(--av-space-6); }
+.va-masthead h1 {
+  font-family: 'Fraunces', Georgia, serif; font-weight: 500;
+  font-size: clamp(26px, 4vw, 34px); margin: var(--av-space-2) 0 0; letter-spacing: -.01em;
+  color: var(--av-text-primary);
+}
+.va-masthead p { color: var(--av-text-muted); font-size: 14px; margin: var(--av-space-2) 0 0; max-width: 62ch; }
+
+.va-section-label {
+  font-family: 'DM Mono', ui-monospace, monospace; font-size: 11px;
+  letter-spacing: .18em; text-transform: uppercase; color: var(--av-text-muted);
+  margin: var(--av-space-12) 0 var(--av-space-4); display: flex; align-items: center; gap: var(--av-space-3);
+}
+.va-section-label::after { content: ""; flex: 1; height: 1px; background: var(--av-border-subtle); }
+
+/* ── Search (landing) ──────────────────────────────────────────────── */
+.va-search-wrap { position: relative; max-width: 460px; }
+.va-search-wrap svg { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--av-text-muted); }
+.va-search {
+  width: 100%; box-sizing: border-box;
+  font-family: 'Hanken Grotesk', system-ui, sans-serif; font-size: 15px;
+  padding: 13px 18px 13px 46px; border-radius: var(--av-radius-pill);
+  border: 1px solid var(--av-border-default); background: var(--av-surface-card);
+  color: var(--av-text-primary); outline: none;
+  transition: border-color .18s, box-shadow .18s;
+}
+.va-search::placeholder { color: var(--av-text-muted); }
+.va-search:focus { border-color: var(--av-vocab-jade); box-shadow: 0 0 0 3px var(--av-vocab-jade-tint); }
+
+/* ── Card shell ────────────────────────────────────────────────────── */
+.va-card {
+  background: var(--av-surface-card); border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-xl); box-shadow: var(--av-shadow-md); overflow: hidden;
+}
+.va-detail { max-width: 580px; }
+.va-pad { padding: var(--av-space-8); }
+.va-rule { height: 1px; background: var(--av-border-subtle); margin: 0 var(--av-space-8); }
+
+.va-eyebrow-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--av-space-6); }
+.va-pill {
+  font-family: 'DM Mono', ui-monospace, monospace; font-size: 12px; font-weight: 500;
+  color: var(--av-text-secondary); border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-pill); padding: 3px 11px; background: var(--av-surface-sunken);
+}
+
+.va-head { display: flex; align-items: center; gap: var(--av-space-4); }
+.va-headword {
+  font-family: 'Fraunces', Georgia, serif; font-weight: 500;
+  font-size: clamp(40px, 7vw, 56px); line-height: 1; letter-spacing: -.02em; margin: 0;
+  color: var(--av-text-primary);
+}
+.va-pos { font-family: 'DM Mono', ui-monospace, monospace; font-size: 13px; color: var(--av-text-muted); }
+
+/* ▶ play — solid jade circle */
+.va-play {
+  appearance: none; border: none; cursor: pointer; flex: none;
+  width: 46px; height: 46px; border-radius: 50%;
+  background: var(--av-vocab-jade); color: var(--av-vocab-jade-ink);
+  display: grid; place-items: center;
+  box-shadow: 0 8px 22px -8px var(--av-vocab-jade); transition: transform .18s, background .18s;
+}
+.va-play:hover { background: var(--av-primary); transform: translateY(-1px); }
+.va-play svg { width: 18px; height: 18px; margin-left: 2px; }
+.va-play.is-playing { animation: va-pulse 1s ease-in-out infinite; }
+.va-play.va-small { width: 30px; height: 30px; box-shadow: none; }
+.va-play.va-small svg { width: 12px; height: 12px; }
+.va-play.va-ghost { background: var(--av-vocab-jade-tint); color: var(--av-vocab-jade); }
+.va-play.va-ghost:hover { background: var(--av-vocab-jade-line); color: var(--av-text-primary); }
+@keyframes va-pulse { 0%,100% { box-shadow: 0 0 0 0 var(--av-vocab-jade-line); } 50% { box-shadow: 0 0 0 8px transparent; } }
+
+.va-ipa { font-family: 'DM Mono', ui-monospace, monospace; font-size: 16px; color: var(--av-text-secondary); margin: var(--av-space-4) 0 0; }
+
+/* signature: stress specimen (IPA syllables; stressed one enlarged + teal) */
+.va-stress { display: flex; align-items: baseline; gap: 2px; margin-top: var(--av-space-3); flex-wrap: wrap; }
+.va-syl { font-family: 'Fraunces', Georgia, serif; font-size: 20px; color: var(--av-text-muted); }
+.va-syl + .va-syl::before { content: "·"; color: var(--av-border-strong); margin: 0 7px; }
+.va-syl.on { font-size: 28px; color: var(--av-primary); font-weight: 600; }
+.va-stress-tag {
+  font-family: 'DM Mono', ui-monospace, monospace; font-size: 10.5px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--av-text-muted); margin-left: var(--av-space-3); align-self: center;
+}
+
+.va-def-en { font-size: 18px; color: var(--av-text-primary); margin: 0; line-height: 1.5; }
+.va-def-vi { font-size: 15px; color: var(--av-text-secondary); margin: var(--av-space-2) 0 0; }
+
+.va-use-head { display: flex; align-items: center; gap: var(--av-space-3); margin-bottom: var(--av-space-3); }
+.va-use-head .va-eyebrow { color: var(--av-text-muted); }
+.va-example {
+  font-family: 'Fraunces', Georgia, serif; font-style: italic; font-size: 19px; line-height: 1.55;
+  color: var(--av-text-primary); margin: 0;
+}
+.va-example .va-w { font-style: normal; font-weight: 600; color: var(--av-primary); }
+.va-colloc { display: flex; flex-wrap: wrap; gap: var(--av-space-2); margin-top: var(--av-space-4); }
+.va-chip {
+  font-size: 13.5px; color: var(--av-vocab-jade); background: var(--av-vocab-jade-tint);
+  border: 1px solid var(--av-vocab-jade-line); border-radius: var(--av-radius-pill);
+  padding: 5px 12px; white-space: nowrap;
+}
+
+/* word network */
+.va-net { display: grid; grid-template-columns: auto 1fr; gap: 7px var(--av-space-4); align-items: baseline; margin: 0; }
+.va-net dt { font-family: 'DM Mono', ui-monospace, monospace; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--av-text-muted); }
+.va-net dd { margin: 0; font-size: 15px; color: var(--av-text-secondary); }
+.va-net dd b { color: var(--av-text-primary); font-weight: 600; }
+.va-sep { color: var(--av-border-strong); margin: 0 7px; }
+
+/* callouts */
+.va-callout { display: flex; gap: var(--av-space-3); padding: 14px 16px; border-radius: var(--av-radius-lg); font-size: 14px; line-height: 1.5; }
+.va-callout .va-ico { flex: none; width: 20px; height: 20px; margin-top: 1px; }
+.va-callout .va-t { font-family: 'DM Mono', ui-monospace, monospace; font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; display: block; margin-bottom: 3px; }
+.va-callout b { color: var(--av-text-primary); }
+.va-callout em { font-style: italic; }
+.va-callout.va-warn { background: var(--av-warning-soft); border: 1px solid var(--av-warning); color: var(--av-text-secondary); }
+.va-callout.va-warn .va-t, .va-callout.va-warn .va-ico { color: var(--av-warning); }
+.va-callout.va-hook { background: var(--av-vocab-jade-tint); border: 1px solid var(--av-vocab-jade-line); color: var(--av-text-secondary); margin-top: var(--av-space-3); }
+.va-callout.va-hook .va-t, .va-callout.va-hook .va-ico { color: var(--av-vocab-jade); }
+
+/* foot */
+.va-foot { display: flex; justify-content: space-between; align-items: center; gap: var(--av-space-4); flex-wrap: wrap; background: var(--av-surface-sunken); }
+.va-trace { font-family: 'DM Mono', ui-monospace, monospace; font-size: 11.5px; color: var(--av-text-muted); }
+.va-trace b { color: var(--av-text-secondary); font-weight: 500; }
+.va-add {
+  appearance: none; cursor: pointer; font-family: 'Hanken Grotesk', system-ui, sans-serif;
+  font-weight: 600; font-size: 13.5px; color: var(--av-vocab-jade-ink); background: var(--av-vocab-jade);
+  border: none; border-radius: var(--av-radius-pill); padding: 9px 16px;
+  display: inline-flex; align-items: center; gap: 7px; transition: background .18s;
+}
+.va-add:hover { background: var(--av-primary); }
+.va-add svg { width: 14px; height: 14px; }
+
+/* ── Mini cards (category browse + search results) ─────────────────── */
+.va-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: var(--av-space-4); }
+.va-mini {
+  background: var(--av-surface-card); border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-lg); padding: var(--av-space-4); box-shadow: var(--av-shadow-sm);
+  transition: transform .2s, box-shadow .2s, border-color .2s; cursor: pointer;
+  display: flex; flex-direction: column; gap: var(--av-space-2); text-decoration: none;
+}
+.va-mini:hover { transform: translateY(-3px); box-shadow: var(--av-shadow-lg); border-color: var(--av-vocab-jade-line); }
+.va-mini-top { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--av-space-2); }
+.va-mini-word { font-family: 'Fraunces', Georgia, serif; font-weight: 500; font-size: 24px; line-height: 1.05; letter-spacing: -.01em; margin: 0; color: var(--av-text-primary); }
+.va-mini-pos { font-family: 'DM Mono', ui-monospace, monospace; font-size: 11px; color: var(--av-text-muted); margin-top: 3px; }
+.va-mini-ipa { font-family: 'DM Mono', ui-monospace, monospace; font-size: 13px; color: var(--av-text-secondary); }
+.va-mini-vi { font-size: 14px; color: var(--av-text-secondary); margin: 0; }
+.va-mini-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 2px; padding-top: var(--av-space-3); border-top: 1px solid var(--av-border-subtle); }
+.va-mini-lvl { font-family: 'DM Mono', ui-monospace, monospace; font-size: 11px; color: var(--av-text-muted); letter-spacing: .05em; }
+.va-mini-lvl.j { color: var(--av-vocab-jade); }
+
+/* ── Category cards (landing 6-topic grid) ─────────────────────────── */
+.va-cat-card {
+  display: flex; flex-direction: column; gap: var(--av-space-2);
+  background: var(--av-surface-card); border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-lg); padding: var(--av-space-6); box-shadow: var(--av-shadow-sm);
+  cursor: pointer; text-decoration: none; transition: transform .2s, box-shadow .2s, border-color .2s;
+}
+.va-cat-card:hover { transform: translateY(-2px); box-shadow: var(--av-shadow-lg); border-color: var(--av-vocab-jade-line); }
+.va-cat-top { display: flex; align-items: flex-start; justify-content: space-between; }
+.va-cat-icon { font-size: 26px; line-height: 1; }
+.va-cat-count {
+  font-family: 'DM Mono', ui-monospace, monospace; font-size: 11px; color: var(--av-vocab-jade);
+  background: var(--av-vocab-jade-tint); border: 1px solid var(--av-vocab-jade-line);
+  border-radius: var(--av-radius-pill); padding: 2px 9px;
+}
+.va-cat-title { font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 19px; color: var(--av-text-primary); margin: var(--av-space-2) 0 0; }
+.va-cat-desc { font-size: 13px; color: var(--av-text-muted); margin: 0; }
+.va-cat-words { font-size: 12px; color: var(--av-text-faint); margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── States ────────────────────────────────────────────────────────── */
+.va-empty { text-align: center; padding: var(--av-space-12); color: var(--av-text-muted); font-family: 'Hanken Grotesk', system-ui, sans-serif; }
+.va-count { font-family: 'DM Mono', ui-monospace, monospace; font-size: 13px; color: var(--av-text-muted); margin: 0 0 var(--av-space-4); }
+.va-cluster-note { font-size: 13px; color: var(--av-text-muted); margin: calc(-1 * var(--av-space-2)) 0 var(--av-space-6); max-width: 64ch; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .va-reveal { opacity: 0; transform: translateY(12px); animation: va-rise .6s cubic-bezier(.2,.7,.2,1) forwards; }
+  .va-mini, .va-cat-card { opacity: 0; transform: translateY(12px); animation: va-rise .5s cubic-bezier(.2,.7,.2,1) forwards; }
+  @keyframes va-rise { to { opacity: 1; transform: none; } }
+}
+.va-play:focus-visible, .va-add:focus-visible, .va-mini:focus-visible, .va-cat-card:focus-visible {
+  outline: 2.5px solid var(--av-vocab-jade); outline-offset: 3px; border-radius: var(--av-radius-md);
+}
+
+@media (max-width: 560px) {
+  .va-pad { padding: var(--av-space-6); }
+  .va-rule { margin: 0 var(--av-space-6); }
+  .va-foot { flex-direction: column; align-items: stretch; }
+  .va-add { justify-content: center; }
+}

@@ -135,6 +135,13 @@ class VocabContentService:
             # FE ▶ prefers these and falls back to speechSynthesis when absent).
             "audio_headword": r.get("audio_headword") or "",
             "audio_example":  r.get("audio_example") or "",
+            # V-article re-skin — structured fields surfaced for the v2 detail card
+            # (callouts + foot). Empty for the seed words (their content lives in
+            # the markdown body), so the card hides those sections gracefully.
+            "register":       r.get("register") or "",
+            "common_error":   r.get("common_error") or "",
+            "memory_hook":    r.get("memory_hook") or "",
+            "source":         r.get("source") or "",
         }
 
     def _load_from_markdown(self) -> list[dict]:
@@ -251,6 +258,14 @@ class VocabContentService:
             # word without the frontmatter key gets "" and no existing field changes.
             "definition_en":  str(fm.get("definition_en") or ""),
             "example":        str(fm.get("example") or ""),
+            # V-article re-skin — structured card fields (forward-compat; empty for
+            # the seed words). Audio is markdown-absent → "" (DB path stamps it).
+            "register":       str(fm.get("register") or ""),
+            "common_error":   str(fm.get("common_error") or ""),
+            "memory_hook":    str(fm.get("memory_hook") or ""),
+            "source":         str(fm.get("source") or ""),
+            "audio_headword": "",
+            "audio_example":  "",
             "html":           html,
         }
 
@@ -269,6 +284,9 @@ class VocabContentService:
             # Slice-2 — pregenerated headword audio for the grid ▶ (empty until
             # pregen stamps it; markdown-fallback articles have no audio).
             "audio_headword": a.get("audio_headword", ""),
+            # V-article re-skin — mini-card "N collocations" footer (count only,
+            # keeps the categories payload small).
+            "n_collocations": len(a.get("collocations") or []),
         }
 
     def _resolve_related(self, slugs: list[str]) -> list[dict]:
