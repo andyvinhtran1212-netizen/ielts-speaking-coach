@@ -44,7 +44,9 @@ export function renderCard(w) {
     ${ipa}${gloss}
     <div class="vc-card-foot">
       ${level}
-      <button type="button" class="vc-play" data-hw="${esc(w.headword)}" aria-label="Phát âm ${esc(w.headword)}">▶</button>
+      <button type="button" class="vc-play" data-hw="${esc(w.headword)}"
+              data-audio="${esc(w.audio_headword || '')}"
+              aria-label="Phát âm ${esc(w.headword)}">▶</button>
     </div>
   </a>`;
 }
@@ -117,6 +119,18 @@ function debounce(fn, ms) {
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
 }
 
+let _audioEl = null;
+
+function stopAudio() {
+  if (_audioEl) { try { _audioEl.pause(); } catch (_) {} _audioEl = null; }
+}
+
+function cancelSpeech() {
+  try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (_) {}
+  stopAudio();
+}
+
+// speechSynthesis fallback when there's no pregenerated audio (or it fails).
 function speak(headword) {
   try {
     if (!window.speechSynthesis) return;
@@ -128,8 +142,18 @@ function speak(headword) {
   } catch (_) { /* audio is best-effort */ }
 }
 
-function cancelSpeech() {
-  try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (_) {}
+// Slice-2 — PREFER the pregenerated mp3 (Audio URL); fall back to speechSynthesis
+// when there's no audio_url or playback fails. Never throws (best-effort).
+function playWord(audioUrl, headword) {
+  cancelSpeech();
+  if (audioUrl) {
+    try {
+      _audioEl = new Audio(audioUrl);
+      _audioEl.play().catch(() => speak(headword));
+      return;
+    } catch (_) { /* fall through to speechSynthesis */ }
+  }
+  speak(headword);
 }
 
 export async function mount(container, opts = {}) {
@@ -204,7 +228,11 @@ export async function mount(container, opts = {}) {
   // Delegated clicks: ▶ pronunciation, chip filter, and clear button.
   const onClick = (e) => {
     const play = e.target.closest('.vc-play');
-    if (play) { e.preventDefault(); e.stopPropagation(); speak(play.dataset.hw || ''); return; }
+    if (play) {
+      e.preventDefault(); e.stopPropagation();
+      playWord(play.dataset.audio || '', play.dataset.hw || '');
+      return;
+    }
 
     const chip = e.target.closest('.vc-chip');
     if (chip) {

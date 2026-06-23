@@ -37,6 +37,13 @@ describe('renderCard', () => {
     assert.match(h, /class="vc-play"[^>]*data-hw="Cutting-edge"/);
   });
 
+  test('Slice-2: carries data-audio when a pregenerated audio_headword exists', () => {
+    const h = renderCard({ ...WORD, audio_headword: 'https://cdn/x.mp3' });
+    assert.match(h, /data-audio="https:\/\/cdn\/x\.mp3"/);
+    // no audio → empty data-audio (▶ falls back to speechSynthesis)
+    assert.match(renderCard(WORD), /data-audio=""/);
+  });
+
   test('escapes + tolerates missing optional fields (no crash, no undefined)', () => {
     const h = renderCard({ slug: 's', category: 'c', headword: 'A & B', pronunciation: '', gloss_vi: '', level: '', part_of_speech: '' });
     assert.match(h, /A &amp; B/);
@@ -143,6 +150,28 @@ describe('word-library.js wiring', () => {
     assert.match(MOD, /addEventListener\('input'/);    // search listens on input
     assert.match(MOD, /renderEmpty\(/);                // empty-state branch
     assert.match(MOD, /cancelSpeech\(\)/);             // utterance cancelled on scope change
+  });
+  test('Slice-2: ▶ prefers pregenerated audio (new Audio) then falls back to speechSynthesis', () => {
+    assert.match(MOD, /function playWord\(/);          // prefer-audio entry point
+    assert.match(MOD, /new Audio\(/);                  // plays the mp3 URL
+    assert.match(MOD, /\.catch\(\(\) => speak\(/);     // playback error → speechSynthesis fallback
+    assert.match(MOD, /playWord\(play\.dataset\.audio/); // wired to the ▶ button
+  });
+});
+
+describe('vocab-article audio wiring (vocabulary.js + page)', () => {
+  const VJS = front('js', 'vocabulary.js');
+  const ART = front('pages', 'vocab-article.html');
+
+  test('speakHeadword/speakExample prefer audio URL with speechSynthesis fallback', () => {
+    assert.match(VJS, /_currentAudioHeadword/);
+    assert.match(VJS, /window\.speakExample\s*=/);
+    assert.match(VJS, /new Audio\(/);
+    assert.match(VJS, /_speakText\(/);                 // fallback path
+  });
+  test('article page has an example-audio button revealed only when audio exists', () => {
+    assert.match(ART, /id="tts-example-btn"[^>]*class="tts-btn hidden"/);
+    assert.match(ART, /onclick="speakExample\(\)"/);
   });
 });
 
