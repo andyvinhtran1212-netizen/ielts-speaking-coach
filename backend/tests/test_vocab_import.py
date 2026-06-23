@@ -275,11 +275,19 @@ def test_db_unavailable_falls_back_to_markdown_G3():
 # ── G2 — router cache key derives from the service ─────────────────────
 
 
-def test_router_last_modified_prefers_service_stamp():
+def test_router_last_modified_is_http_date_string_from_stamp():
+    """G2 stays (cache key tracks MAX(updated_at)) but _last_modified MUST return
+    a str — cacheable_json puts it straight into the Last-Modified header, which
+    Starlette .encode()s. Passing the raw datetime is what 500'd /api/vocabulary/*
+    after the DB cutover."""
+    from email.utils import format_datetime
     import routers.vocabulary as vr
     svc = _fresh_service_with_db([_DB_ROW])
     with patch("routers.vocabulary.vocab_service", svc):
-        assert vr._last_modified() == svc.last_modified
+        lm = vr._last_modified()
+    assert isinstance(lm, str)
+    assert lm == format_datetime(svc.last_modified, usegmt=True)
+    assert lm.endswith("GMT")        # RFC-1123 HTTP-date
 
 
 def test_router_last_modified_falls_back_when_no_stamp():
@@ -287,4 +295,50 @@ def test_router_last_modified_falls_back_when_no_stamp():
     svc = MagicMock()
     svc.last_modified = None
     with patch("routers.vocabulary.vocab_service", svc):
-        assert vr._last_modified() == vr._PUBLIC_LAST_MODIFIED
+        lm = vr._last_modified()
+    assert lm == vr._PUBLIC_LAST_MODIFIED
+    assert isinstance(lm, str)
+
+
+# ── Regression: endpoints serving FROM THE TABLE must not 500 on datetime ──
+# Pre-fix, a vocab_cards row's datetime updated_at flowed into the Last-Modified
+# header unconverted → "'datetime.datetime' object has no attribute 'encode'".
+# Cover all endpoints that go through the cache-key/header path, not just /search.
+
+
+def test_search_endpoint_from_table_does_not_500_on_datetime():
+    from main import app
+    svc = _fresh_service_with_db([_DB_ROW])
+    with patch("routers.vocabulary.vocab_service", svc):
+        r = TestClient(app).get("/api/vocabulary/search?q=cut")
+    assert r.status_code == 200, r.text
+    assert r.headers.get("Last-Modified", "").endswith("GMT")
+    assert any(item["slug"] == "cutting-edge" for item in r.json())
+
+
+def test_categories_endpoint_from_table_does_not_500_on_datetime():
+    from main import app
+    svc = _fresh_service_with_db([_DB_ROW])
+    with patch("routers.vocabulary.vocab_service", svc):
+        r = TestClient(app).get("/api/vocabulary/categories")
+    assert r.status_code == 200, r.text
+    assert r.headers.get("Last-Modified", "").endswith("GMT")
+
+
+def test_article_endpoint_from_table_does_not_500_on_datetime():
+    from main import app
+    svc = _fresh_service_with_db([_DB_ROW])
+    with patch("routers.vocabulary.vocab_service", svc):
+        r = TestClient(app).get("/api/vocabulary/articles/technology/cutting-edge")
+    assert r.status_code == 200, r.text
+    assert r.headers.get("Last-Modified", "").endswith("GMT")
+    assert r.json()["html"] == "<p>body</p>"
+
+
+def test_articles_list_endpoint_from_table_does_not_500_on_datetime():
+    from main import app
+    svc = _fresh_service_with_db([_DB_ROW])
+    with patch("routers.vocabulary.vocab_service", svc):
+        r = TestClient(app).get("/api/vocabulary/articles")
+    assert r.status_code == 200, r.text
+    assert r.headers.get("Last-Modified", "").endswith("GMT")
