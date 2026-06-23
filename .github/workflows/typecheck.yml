@@ -50,13 +50,15 @@ jobs:
         run: pip install -r requirements.txt
       - name: Dump in-process OpenAPI spec
         working-directory: backend
-        run: python -c "from main import app, json; open('/tmp/openapi.json','w').write(json.dumps(app.openapi()))"
+        run: python -c "import json; from main import app; open('/tmp/openapi.json','w').write(json.dumps(app.openapi()))"
         env:
           SUPABASE_URL: https://example.supabase.co
           SUPABASE_SERVICE_KEY: test-key
       - name: Regenerate api.d.ts + diff
         working-directory: frontend
         run: |
-          npx --yes openapi-typescript@7 /tmp/openapi.json -o types/api.d.ts
+          # Pin the EXACT version the committed file was generated with, so the
+          # diff reflects spec/model drift — not an openapi-typescript format bump.
+          npx --yes openapi-typescript@7.13.0 /tmp/openapi.json -o types/api.d.ts
           git diff --exit-code types/api.d.ts \
             || echo "::warning::frontend/types/api.d.ts is stale — run openapi-typescript and commit the regenerated file."
