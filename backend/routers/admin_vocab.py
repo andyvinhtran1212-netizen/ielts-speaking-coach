@@ -1,34 +1,33 @@
-"""routers/admin_vocab.py — Admin content import for the Vocabulary module
-(M3 vocab content pipeline).
+"""routers/admin_vocab.py — Admin console for the Vocabulary module (M3 pipeline).
 
-Ships ONE endpoint:
+Endpoints (all require_admin; writes via supabase_admin → bypass the SELECT-public
+RLS from mig 110):
 
-  POST /admin/vocabulary/import   — Markdown + YAML frontmatter import into the
-                                    vocab_cards table. ONE word, or MANY words
-                                    in one file (one lesson per upload).
+  POST   /admin/vocabulary/import      — Markdown import, 1-or-many words/file.
+  GET    /admin/vocabulary             — list (category filter + headword search + page).
+  GET    /admin/vocabulary/{id}        — full row for the edit form.
+  PATCH  /admin/vocabulary/{id}        — partial update by stable id.
+  DELETE /admin/vocabulary/{id}        — hard delete one word.
 
-Mirrors the reading content import (admin_reading.py `/import-bundle`) — same
-multipart UploadFile + dry-run-then-commit + upsert-by-slug contract, gated by
-require_admin. The importer (services/vocab_import.py) reuses the proven
-content_import_service validate→upsert pattern with the vocab field set, and
-splits a multi-word file into per-word blocks (each validated independently;
-commit is all-or-nothing so a lesson is never half-imported).
+Every WRITE (import commit / patch / delete) calls vocab_service.reload() (G1) so
+the public /vocabulary grid + article reflect it without a restart; the mig-110
+BEFORE-UPDATE trigger bumps updated_at so the public cache key (G2 = MAX(updated_at))
+invalidates. The importer (services/vocab_import.py) does the parse→validate→upsert.
 
-On a real commit (dry_run=false, no validation errors) it calls
-vocab_service.reload() so the new/updated words appear in the live grid WITHOUT
-a server restart (acceptance gate G1). Railway's filesystem is ephemeral, so the
-words live in the table — vocab_content.py serves from vocab_cards (G3 markdown
-fallback for one release).
-
-Out of scope (Slice-2): audio pregen / bucket / TTS — audio stays speechSynthesis.
+Out of scope (V-eleven): ElevenLabs render trigger — this console only PREVIEWS
+existing audio_url + shows audio_status; it never synthesizes.
 """
 
 from __future__ import annotations
 
 import logging
+from typing import Optional
+from uuid import UUID
 
-from fastapi import APIRouter, File, Header, Query, UploadFile
+from fastapi import APIRouter, File, Header, HTTPException, Query, UploadFile
+from pydantic import BaseModel
 
+from database import supabase_admin
 from routers.admin import require_admin
 from services.vocab_content import vocab_service
 from services.vocab_import import import_vocab_file
@@ -36,6 +35,41 @@ from services.vocab_import import import_vocab_file
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin/vocabulary", tags=["admin-vocabulary-content"])
+
+
+def _reload_safe() -> None:
+    """G1 — rebuild the in-memory grid after a write so the public /vocabulary
+    grid + article reflect it without a restart. Never fail the write on a hiccup."""
+    try:
+        vocab_service.reload()
+    except Exception as exc:  # noqa: BLE001
+        logger.error("[vocab] reload after write failed: %s", exc)
+
+
+class VocabUpdate(BaseModel):
+    """Partial-update payload. EVERY field is a real vocab_cards column (mig 110) —
+    the schema-aware col-match test pins this (#538 lesson). id/slug/created_at/
+    updated_at/import_batch_id and the audio_* columns are intentionally absent
+    (slug is the stable URL key; audio is owned by the pregen, V-eleven). updated_at
+    auto-bumps via the BEFORE-UPDATE trigger, so the public cache key (G2) advances."""
+    headword:       Optional[str]  = None
+    category:       Optional[str]  = None
+    level:          Optional[str]  = None
+    part_of_speech: Optional[str]  = None
+    pronunciation:  Optional[str]  = None
+    definition_en:  Optional[str]  = None
+    gloss_vi:       Optional[str]  = None
+    example:        Optional[str]  = None
+    register:       Optional[str]  = None
+    common_error:   Optional[str]  = None
+    memory_hook:    Optional[str]  = None
+    source:         Optional[str]  = None
+    group:          Optional[str]  = None
+    synonyms:       Optional[list] = None
+    antonyms:       Optional[list] = None
+    collocations:   Optional[list] = None
+    related_words:  Optional[list] = None
+    body_html:      Optional[str]  = None
 
 
 @router.post("/import")
@@ -63,9 +97,90 @@ async def import_vocab_word(
     # G1 — after a real commit, rebuild the in-memory index so the words are live
     # immediately (no restart). reload() re-reads vocab_cards (the source of truth).
     if result["committed_ids"] and not result["dry_run"]:
-        try:
-            vocab_service.reload()
-        except Exception as exc:  # noqa: BLE001 — never fail the commit on a reload hiccup
-            logger.error("[vocab] reload after import failed: %s", exc)
+        _reload_safe()
 
     return result
+
+
+# ── CRUD console (V-admin) — mirrors admin_writing_tips ───────────────────────
+# Writes use supabase_admin (bypasses RLS; mig110 RLS is SELECT-public only).
+# After every write we reload() so the public grid/article reflect it (G1), and
+# the BEFORE-UPDATE trigger bumps updated_at so the public cache invalidates (G2).
+
+_LIST_COLS = (
+    "id,slug,headword,category,level,part_of_speech,pronunciation,gloss_vi,"
+    "audio_headword,audio_example,audio_status,updated_at"
+)
+
+
+@router.get("")
+async def list_vocab(
+    category:      Optional[str] = Query(default=None),
+    q:             Optional[str] = Query(default=None, description="headword search"),
+    limit:         int           = Query(default=50, ge=1, le=200),
+    offset:        int           = Query(default=0, ge=0),
+    authorization: str | None    = Header(None),
+):
+    """List words for the admin console — newest-updated first, with optional
+    category filter + headword search + pagination (the table can hold >30
+    topics, so we never load everything at once)."""
+    await require_admin(authorization)
+
+    query = supabase_admin.table("vocab_cards").select(_LIST_COLS, count="exact")
+    if category:
+        query = query.eq("category", category)
+    if q:
+        query = query.ilike("headword", f"%{q}%")
+    res = query.order("updated_at", desc=True).range(offset, offset + limit - 1).execute()
+    return {
+        "words":  res.data or [],
+        "total":  getattr(res, "count", None),
+        "limit":  limit,
+        "offset": offset,
+    }
+
+
+@router.get("/{vocab_id}")
+async def get_vocab(vocab_id: UUID, authorization: str | None = Header(None)):
+    """Full row for the edit form."""
+    await require_admin(authorization)
+    res = supabase_admin.table("vocab_cards").select("*").eq("id", str(vocab_id)).limit(1).execute()
+    if not res.data:
+        raise HTTPException(404, "Không tìm thấy từ vựng.")
+    return res.data[0]
+
+
+@router.patch("/{vocab_id}")
+async def update_vocab(
+    vocab_id: UUID,
+    body:     VocabUpdate,
+    authorization: str | None = Header(None),
+):
+    """Partial update by stable id (editing the headword does NOT move the slug —
+    the article URL stays valid). Only fields present in the body are written."""
+    await require_admin(authorization)
+
+    patch = body.model_dump(exclude_unset=True)
+    if not patch:
+        raise HTTPException(400, "Không có trường nào để cập nhật.")
+    try:
+        res = supabase_admin.table("vocab_cards").update(patch).eq("id", str(vocab_id)).execute()
+    except Exception as exc:  # noqa: BLE001
+        logger.error("update_vocab failed id=%s: %s", vocab_id, exc)
+        raise HTTPException(500, "Không cập nhật được từ vựng.")
+    if not res.data:
+        raise HTTPException(404, "Không tìm thấy từ vựng.")
+    _reload_safe()   # G1 — public grid/article reflect the edit without a restart
+    return res.data[0]
+
+
+@router.delete("/{vocab_id}")
+async def delete_vocab(vocab_id: UUID, authorization: str | None = Header(None)):
+    """Hard delete one word. NOTE: a seed word that still exists in content_vocab/**
+    will reappear if the migrate-in script is re-run — flagged for the operator."""
+    await require_admin(authorization)
+    res = supabase_admin.table("vocab_cards").delete().eq("id", str(vocab_id)).execute()
+    if not res.data:
+        raise HTTPException(404, "Không tìm thấy từ vựng.")
+    _reload_safe()
+    return {"message": "Đã xóa từ vựng", "id": str(vocab_id)}
