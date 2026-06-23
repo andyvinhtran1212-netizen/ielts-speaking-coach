@@ -26,7 +26,6 @@ from services.vocab_import import (
 
 _ADMIN_AUTH = {"Authorization": "Bearer fake.admin.jwt"}
 _ADMIN_USER = {"id": "00000000-0000-0000-0000-00000000aaaa", "email": "admin@x"}
-_CATS = {"technology", "health", "education"}
 
 _WORD_MD = """---
 headword: "Cutting-edge"
@@ -71,18 +70,27 @@ def test_slug_auto_generated_from_headword_when_omitted():
 
 
 def test_validate_clean_word_has_no_errors():
-    assert validate_vocab(parse_vocab_markdown(_WORD_MD), valid_categories=_CATS) == []
+    assert validate_vocab(parse_vocab_markdown(_WORD_MD)) == []
 
 
 def test_validate_flags_missing_headword():
     md = _WORD_MD.replace('headword: "Cutting-edge"\n', "")
-    fields = {e["field"] for e in validate_vocab(parse_vocab_markdown(md), valid_categories=_CATS)}
+    fields = {e["field"] for e in validate_vocab(parse_vocab_markdown(md))}
     assert "headword" in fields
 
 
-def test_validate_flags_unknown_category():
-    md = _WORD_MD.replace('category: "technology"', 'category: "made-up"')
-    fields = {e["field"] for e in validate_vocab(parse_vocab_markdown(md), valid_categories=_CATS)}
+def test_validate_accepts_any_nonempty_category_no_whitelist():
+    """Category-runtime: a category NOT in the old yaml whitelist is now accepted
+    (normalized to a slug at parse). Only an empty category is still flagged."""
+    md = _WORD_MD.replace('category: "technology"', 'category: "Business Finance"')
+    p = parse_vocab_markdown(md)
+    assert p.category == "business-finance"            # normalized
+    assert validate_vocab(p) == []                       # accepted, not rejected
+
+
+def test_validate_flags_empty_category():
+    md = _WORD_MD.replace('category: "technology"', 'category: ""')
+    fields = {e["field"] for e in validate_vocab(parse_vocab_markdown(md))}
     assert "category" in fields
 
 
@@ -114,7 +122,7 @@ def _mock_db_existing():
 def test_import_commit_inserts_new_slug():
     db = _mock_db_no_existing()
     with patch("services.vocab_import.supabase_admin", db):
-        res = import_vocab_markdown(_WORD_MD, dry_run=False, valid_categories=_CATS)
+        res = import_vocab_markdown(_WORD_MD, dry_run=False)
     assert res["action"] == "created"
     assert res["committed"] == "cutting-edge"
     db.table.return_value.insert.assert_called_once()
@@ -124,7 +132,7 @@ def test_import_commit_inserts_new_slug():
 def test_reimport_same_slug_updates_not_duplicates():
     db = _mock_db_existing()
     with patch("services.vocab_import.supabase_admin", db):
-        res = import_vocab_markdown(_WORD_MD, dry_run=False, valid_categories=_CATS)
+        res = import_vocab_markdown(_WORD_MD, dry_run=False)
     assert res["action"] == "updated"
     db.table.return_value.update.assert_called_once()
     db.table.return_value.insert.assert_not_called()
@@ -133,7 +141,7 @@ def test_reimport_same_slug_updates_not_duplicates():
 def test_dry_run_does_not_write():
     db = MagicMock()
     with patch("services.vocab_import.supabase_admin", db):
-        res = import_vocab_markdown(_WORD_MD, dry_run=True, valid_categories=_CATS)
+        res = import_vocab_markdown(_WORD_MD, dry_run=True)
     assert res["dry_run"] is True
     assert res["committed"] is None
     db.table.return_value.insert.assert_not_called()
@@ -143,7 +151,7 @@ def test_validation_error_blocks_commit():
     bad = _WORD_MD.replace('headword: "Cutting-edge"\n', "")
     db = MagicMock()
     with patch("services.vocab_import.supabase_admin", db):
-        res = import_vocab_markdown(bad, dry_run=False, valid_categories=_CATS)
+        res = import_vocab_markdown(bad, dry_run=False)
     assert res["committed"] is None
     assert any(e["field"] == "headword" for e in res["validation_errors"])
     db.table.return_value.insert.assert_not_called()
@@ -196,12 +204,12 @@ def test_endpoint_commit_writes_and_reloads_G1():
 
 
 def test_endpoint_validation_error_no_reload():
-    bad = _WORD_MD.replace('category: "technology"', 'category: "nope"')
+    # Category-runtime: no whitelist → an empty (required) category is the
+    # remaining validation error that blocks a commit.
+    bad = _WORD_MD.replace('category: "technology"', 'category: ""')
     db = MagicMock()
     reload = MagicMock()
-    # category validity comes from the live service categories; force a known set.
     with patch("routers.admin_vocab.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
-         patch("routers.admin_vocab.vocab_service._valid_categories", _CATS), \
          patch("services.vocab_import.supabase_admin", db), \
          patch("routers.admin_vocab.vocab_service.reload", reload):
         r = _upload(bad, "?dry_run=false", _ADMIN_AUTH)
@@ -398,7 +406,7 @@ def test_import_file_three_valid_blocks_commits_all():
                  _word("Epidemic", "epidemic"))
     db = _mock_db_no_existing()
     with patch("services.vocab_import.supabase_admin", db):
-        res = import_vocab_file(text, dry_run=False, valid_categories=_CATS)
+        res = import_vocab_file(text, dry_run=False)
     assert res["summary"] == {"total": 3, "created": 3, "updated": 0, "errors": 0}
     assert res["committed_ids"] == ["holistic", "sedentary", "epidemic"]
     assert res["validation_errors"] == []
@@ -415,7 +423,7 @@ def test_import_file_one_bad_block_reports_that_block_others_ok():
     )
     db = MagicMock()
     with patch("services.vocab_import.supabase_admin", db):
-        res = import_vocab_file(text, dry_run=False, valid_categories=_CATS)
+        res = import_vocab_file(text, dry_run=False)
     # the error is tagged to the RIGHT block (index 1, headword "Bad")
     errs = res["validation_errors"]
     assert any(e["block"] == 1 and e["headword"] == "Bad" and e["field"] == "category" for e in errs)
@@ -432,7 +440,7 @@ def test_import_file_duplicate_slug_in_batch_is_an_error():
     text = _file(_word("Holistic", "dup"), _word("Sedentary", "dup"))
     db = MagicMock()
     with patch("services.vocab_import.supabase_admin", db):
-        res = import_vocab_file(text, dry_run=False, valid_categories=_CATS)
+        res = import_vocab_file(text, dry_run=False)
     assert res["duplicate_slugs"] == ["dup"]
     # both colliding blocks carry the duplicate error
     assert all(any(e["field"] == "slug" for e in b["validation_errors"]) for b in res["blocks"])
@@ -445,7 +453,7 @@ def test_import_file_single_block_backward_compat():
     exposes the single-block mirrors parsed_data/action."""
     db = _mock_db_no_existing()
     with patch("services.vocab_import.supabase_admin", db):
-        res = import_vocab_file(_WORD_MD, dry_run=False, valid_categories=_CATS)
+        res = import_vocab_file(_WORD_MD, dry_run=False)
     assert res["summary"]["total"] == 1
     assert res["committed_ids"] == ["cutting-edge"]
     assert res["action"] == "created"
@@ -456,7 +464,7 @@ def test_import_file_dry_run_validates_without_writing():
     text = _file(_word("Holistic", "holistic"), _word("Sedentary", "sedentary"))
     db = MagicMock()
     with patch("services.vocab_import.supabase_admin", db):
-        res = import_vocab_file(text, dry_run=True, valid_categories=_CATS)
+        res = import_vocab_file(text, dry_run=True)
     assert res["dry_run"] is True
     assert res["committed_ids"] == []
     assert res["summary"]["total"] == 2
@@ -474,7 +482,6 @@ def test_endpoint_multiblock_commits_all_and_reloads():
     reload = MagicMock()
     files = {"file": ("lesson.md", text.encode("utf-8"), "text/markdown")}
     with patch("routers.admin_vocab.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
-         patch("routers.admin_vocab.vocab_service._valid_categories", _CATS), \
          patch("services.vocab_import.supabase_admin", db), \
          patch("routers.admin_vocab.vocab_service.reload", reload):
         r = TestClient(app).post("/admin/vocabulary/import?dry_run=false", files=files, headers=_ADMIN_AUTH)
@@ -483,3 +490,89 @@ def test_endpoint_multiblock_commits_all_and_reloads():
     assert body["committed_ids"] == ["holistic", "sedentary", "epidemic"]
     assert body["summary"]["created"] == 3
     reload.assert_called_once()
+
+
+# ── Category-runtime (Slice-A): normalize + DB-driven categories + auto-title ──
+
+from services.vocab_import import _normalize_category   # noqa: E402
+
+
+def test_normalize_category_collapses_case_space_underscore():
+    # CG5 — case / trailing space / underscore / multi-space → one stable slug.
+    for raw in ("Technology", "technology ", " Technology ", "TECHNOLOGY"):
+        assert _normalize_category(raw) == "technology"
+    for raw in ("Business Finance", "business_finance", "Business  Finance",
+                "  business-finance "):
+        assert _normalize_category(raw) == "business-finance"
+
+
+def test_normalize_category_strips_vietnamese_accents_to_ascii():
+    # dấu tiếng Việt → ASCII slug (clean URL path segment)
+    assert _normalize_category("Kinh Tế") == "kinh-te"
+    assert _normalize_category("Đời sống") == "doi-song"
+
+
+def test_normalize_blank_category_stays_empty_for_required_check():
+    assert _normalize_category("   ") == ""
+    assert _normalize_category(None) == ""
+
+
+def test_parse_normalizes_new_category_and_import_accepts_it():
+    # CG1 — "Business Finance" → "business-finance", ACCEPTED (no whitelist reject).
+    md = _WORD_MD.replace('category: "technology"', 'category: "Business Finance"')
+    db = _mock_db_no_existing()
+    with patch("services.vocab_import.supabase_admin", db):
+        res = import_vocab_file(md, dry_run=False)
+    assert res["validation_errors"] == []
+    assert res["committed_ids"] == ["cutting-edge"]
+    assert res["blocks"][0]["parsed_data"]["category"] == "business-finance"
+
+
+_NEW_CAT_ROW = {
+    "slug": "stock-market", "headword": "Stock market", "category": "business-finance",
+    "gloss_vi": "Thị trường chứng khoán", "body_html": "<p>x</p>",
+    "synonyms": [], "antonyms": [], "collocations": [], "related_words": [],
+    "updated_at": "2026-06-21T10:00:00+00:00",
+}
+
+
+def test_new_category_auto_surfaces_in_get_categories_with_prettify_title():
+    # CG2 — a category present ONLY in the DB surfaces via DISTINCT-from-DB, and
+    # its title auto-derives from the slug (prettify), no yaml entry needed.
+    svc = _fresh_service_with_db([_NEW_CAT_ROW])
+    cats = {c["slug"]: c for c in svc.get_categories()}
+    assert "business-finance" in cats
+    assert cats["business-finance"]["title"] == "Business Finance"
+    assert any(a["slug"] == "stock-market" for a in cats["business-finance"]["articles"])
+
+
+def test_known_category_keeps_yaml_title_override():
+    # CG3 — a category in the yaml manifest keeps its curated title (not prettify).
+    svc = _fresh_service_with_db([_DB_ROW])      # category "technology"
+    cats = {c["slug"]: c for c in svc.get_categories()}
+    assert cats["technology"]["title"] == "Technology"   # yaml override, not prettify
+
+
+def test_build_indexes_merges_yaml_titles_and_new_distinct_categories():
+    # CG2 + CG3 together — yaml-title group AND a brand-new prettify group both
+    # appear; manifest order first, new categories appended after.
+    svc = _fresh_service_with_db([_DB_ROW, _NEW_CAT_ROW])
+    cats = svc.get_categories()
+    by_slug = {c["slug"]: c for c in cats}
+    assert by_slug["technology"]["title"] == "Technology"          # yaml
+    assert by_slug["business-finance"]["title"] == "Business Finance"  # prettify
+    slugs = [c["slug"] for c in cats]
+    # the 6 manifest categories precede the new DISTINCT-from-DB one
+    assert slugs.index("business-finance") > slugs.index("technology")
+
+
+def test_backward_compat_markdown_fallback_keeps_six_categories():
+    # CG3 — empty table → markdown fallback still renders the original 6 groups +
+    # the 20 seeded words, titles intact.
+    svc = _fresh_service_with_db([])
+    cats = svc.get_categories()
+    assert len(cats) >= 6
+    titles = {c["slug"]: c["title"] for c in cats}
+    assert titles.get("technology") == "Technology"
+    assert titles.get("work-career") == "Work & Career"   # yaml title preserved
+    assert sum(c["article_count"] for c in cats) == 20

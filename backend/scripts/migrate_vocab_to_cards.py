@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import logging
 
-from services.vocab_content import CONTENT_DIR, vocab_service
+from services.vocab_content import CONTENT_DIR
 from services.vocab_import import import_vocab_markdown
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -32,16 +32,13 @@ def main() -> None:
         logger.error("content_vocab dir not found: %s", CONTENT_DIR)
         return
 
-    valid_categories = vocab_service._valid_categories or None
     files = sorted(CONTENT_DIR.rglob("*.md"))
     logger.info("Found %d markdown vocab files under %s", len(files), CONTENT_DIR)
 
     created = updated = errors = 0
     for md in files:
         text = md.read_text(encoding="utf-8")
-        result = import_vocab_markdown(
-            text, dry_run=False, valid_categories=valid_categories,
-        )
+        result = import_vocab_markdown(text, dry_run=False)
         errs = result.get("validation_errors") or []
         if errs:
             errors += 1

@@ -55,11 +55,10 @@ async def import_vocab_word(
     await require_admin(authorization)
 
     text = (await file.read()).decode("utf-8", errors="replace")
-    result = import_vocab_file(
-        text,
-        dry_run=dry_run,
-        valid_categories=vocab_service._valid_categories or None,
-    )
+    # Category-runtime (Slice-A): no whitelist — the importer normalizes the
+    # frontmatter category to a slug and accepts any topic; a new category
+    # auto-surfaces via DISTINCT-from-DB after the reload() below.
+    result = import_vocab_file(text, dry_run=dry_run)
 
     # G1 — after a real commit, rebuild the in-memory index so the words are live
     # immediately (no restart). reload() re-reads vocab_cards (the source of truth).
