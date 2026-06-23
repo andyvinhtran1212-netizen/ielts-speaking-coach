@@ -177,6 +177,10 @@
   // ════════════════════════════════════════════════════════════════════════
 
   let _currentHeadword = '';
+  let _currentAudioHeadword = '';   // Slice-2 pregenerated audio URLs
+  let _currentAudioExample = '';
+  let _currentExample = '';
+  let _ttsAudioEl = null;
 
   async function initArticlePage() {
     const params = new URLSearchParams(location.search);
@@ -207,6 +211,12 @@
     if (breadcrumb) breadcrumb.textContent = a.headword;
 
     _currentHeadword = a.headword;
+    // Slice-2 — prefer pregenerated audio over speechSynthesis.
+    _currentAudioHeadword = a.audio_headword || '';
+    _currentAudioExample = a.audio_example || '';
+    _currentExample = a.example || '';
+    const exBtn = document.getElementById('tts-example-btn');
+    if (exBtn) exBtn.classList.toggle('hidden', !(_currentAudioExample || _currentExample));
 
     setEl('headword', a.headword);
     setEl('pronunciation', a.pronunciation || '');
@@ -288,19 +298,49 @@
   window.loadCategories = loadCategories;
 
   // ── TTS ──────────────────────────────────────────────────────────────────
-  window.speakHeadword = function () {
-    if (!_currentHeadword || !window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    const utt = new SpeechSynthesisUtterance(_currentHeadword);
-    utt.lang = 'en-US';
-    utt.rate = 0.9;
+  function _stopTtsAudio() {
+    if (_ttsAudioEl) { try { _ttsAudioEl.pause(); } catch (_) {} _ttsAudioEl = null; }
+  }
 
-    const btn = document.getElementById('tts-btn');
+  // speechSynthesis fallback (used when there's no pregenerated audio URL).
+  function _speakText(text, btnId, lang) {
+    if (!text || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.lang = lang || 'en-US';
+    utt.rate = 0.9;
+    const btn = btnId && document.getElementById(btnId);
     if (btn) btn.classList.add('speaking');
     utt.onend = () => btn && btn.classList.remove('speaking');
     utt.onerror = () => btn && btn.classList.remove('speaking');
-
     window.speechSynthesis.speak(utt);
+  }
+
+  // Slice-2 — PREFER the pregenerated mp3; fall back to speechSynthesis on
+  // missing URL or playback error.
+  function _play(audioUrl, fallbackText, btnId) {
+    try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (_) {}
+    _stopTtsAudio();
+    const btn = btnId && document.getElementById(btnId);
+    if (audioUrl) {
+      try {
+        _ttsAudioEl = new Audio(audioUrl);
+        if (btn) btn.classList.add('speaking');
+        const clear = () => btn && btn.classList.remove('speaking');
+        _ttsAudioEl.onended = clear;
+        _ttsAudioEl.play().then(() => {}).catch(() => { clear(); _speakText(fallbackText, btnId); });
+        return;
+      } catch (_) { /* fall through */ }
+    }
+    _speakText(fallbackText, btnId);
+  }
+
+  window.speakHeadword = function () {
+    _play(_currentAudioHeadword, _currentHeadword, 'tts-btn');
+  };
+
+  window.speakExample = function () {
+    _play(_currentAudioExample, _currentExample, 'tts-example-btn');
   };
 
   // ── Analytics ────────────────────────────────────────────────────────────

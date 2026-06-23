@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field
 from config import settings
 from routers.auth import get_supabase_user
 from services import ai_usage_logger
+from services.tts_audio import synthesize_mp3
 
 logger = logging.getLogger(__name__)
 
@@ -54,17 +55,8 @@ async def text_to_speech(
     voice = body.voice if body.voice in _ALLOWED_VOICES else "nova"
 
     try:
-        import openai
-        client = openai.AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-
-        response = await client.audio.speech.create(
-            model="tts-1",
-            voice=voice,         # type: ignore[arg-type]
-            input=body.text,
-            response_format="mp3",
-        )
-
-        audio_bytes = response.content
+        # Single synth path, shared with the vocab audio pregen (Slice-2).
+        audio_bytes = await synthesize_mp3(body.text, voice)
         logger.info("[tts] generated %d bytes for %d chars (voice=%s)", len(audio_bytes), len(body.text), voice)
 
         ai_usage_logger.log_tts(

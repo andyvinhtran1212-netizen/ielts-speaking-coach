@@ -131,6 +131,10 @@ class VocabContentService:
             "definition_en":  r.get("definition_en") or "",
             "example":        r.get("example") or "",
             "html":           r.get("body_html") or "",
+            # Slice-2 — pregenerated audio URLs (null until pregen stamps them; the
+            # FE ▶ prefers these and falls back to speechSynthesis when absent).
+            "audio_headword": r.get("audio_headword") or "",
+            "audio_example":  r.get("audio_example") or "",
         }
 
     def _load_from_markdown(self) -> list[dict]:
@@ -262,6 +266,9 @@ class VocabContentService:
             "pronunciation":  a.get("pronunciation", ""),
             # VE1 — grid mini-card VN gloss (additive; existing summary fields unchanged).
             "gloss_vi":       a.get("gloss_vi", ""),
+            # Slice-2 — pregenerated headword audio for the grid ▶ (empty until
+            # pregen stamps it; markdown-fallback articles have no audio).
+            "audio_headword": a.get("audio_headword", ""),
         }
 
     def _resolve_related(self, slugs: list[str]) -> list[dict]:
