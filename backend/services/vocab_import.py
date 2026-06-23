@@ -39,6 +39,23 @@ _SCALAR_FIELDS = (
 )
 
 
+def _normalize_category(raw) -> str:
+    """Normalize a frontmatter category into a clean ASCII URL slug — the form
+    stored in vocab_cards.category and used as the /articles/{cat}/… path segment.
+
+    Reuses slugify (lowercase + trim, đ→d, strip accents, space/underscore →
+    single hyphen, collapse multi-hyphen). This REPLACES the old yaml whitelist:
+    any well-formed category is accepted, so a new topic is added just by naming
+    it in the frontmatter. We only normalize the *form* (no synonym merging) — so
+    "Business Finance"/"business_finance"/"Business  Finance" → "business-finance"
+    and "Technology "/"technology" → "technology". An empty/blank category stays
+    "" so validate_vocab still flags it as required (slugify would yield a
+    placeholder otherwise)."""
+    if not str(raw or "").strip():
+        return ""
+    return slugify(str(raw))
+
+
 @dataclass
 class VocabParsed:
     headword: str
@@ -68,7 +85,7 @@ def parse_vocab_markdown(text: str) -> VocabParsed:
     slug = str(fm.get("slug") or "").strip()
     if not slug and headword:        # auto-slug from headword when omitted
         slug = slugify(headword)
-    category = str(fm.get("category") or "").strip()
+    category = _normalize_category(fm.get("category"))
 
     scalars = {k: ("" if fm.get(k) is None else str(fm.get(k))) for k in _SCALAR_FIELDS}
     lists = {k: [str(x) for x in (fm.get(k) or []) if x is not None] for k in _LIST_FIELDS}
@@ -83,8 +100,14 @@ def parse_vocab_markdown(text: str) -> VocabParsed:
     )
 
 
-def validate_vocab(p: VocabParsed, *, valid_categories: Optional[set] = None) -> list[dict]:
-    """Return [{field, message}] — empty list = valid."""
+def validate_vocab(p: VocabParsed) -> list[dict]:
+    """Return [{field, message}] — empty list = valid.
+
+    Category-runtime (Slice-A): there is NO category whitelist any more — a
+    category is accepted as long as it normalizes to a non-empty slug (done in
+    parse_vocab_markdown). We still require the field to be present; a new topic
+    is added simply by naming it in the frontmatter (it auto-surfaces via
+    DISTINCT-from-DB in vocab_content._build_indexes)."""
     errors: list[dict] = []
 
     def err(f: str, m: str) -> None:
@@ -98,8 +121,6 @@ def validate_vocab(p: VocabParsed, *, valid_categories: Optional[set] = None) ->
         err("slug", "Chỉ gồm chữ thường a–z, số 0–9 và dấu gạch ngang.")
     if not p.category:
         err("category", "Bắt buộc.")
-    elif valid_categories and p.category not in valid_categories:
-        err("category", f"Không thuộc danh mục hợp lệ: {', '.join(sorted(valid_categories))}.")
     return errors
 
 
@@ -130,7 +151,7 @@ def upsert_vocab_card(payload: dict) -> dict:
 
 
 def import_vocab_markdown(
-    text: str, *, dry_run: bool = True, valid_categories: Optional[set] = None,
+    text: str, *, dry_run: bool = True,
     import_batch_id: Optional[str] = None,
 ) -> dict:
     """Full pipeline for ONE word's markdown: parse → validate → (commit). Returns
@@ -143,7 +164,7 @@ def import_vocab_markdown(
         return {"parsed_data": None, "validation_errors": [{"field": "frontmatter", "message": str(exc)}],
                 "dry_run": dry_run, "committed": None, "action": None}
 
-    errors = validate_vocab(parsed, valid_categories=valid_categories)
+    errors = validate_vocab(parsed)
     if errors or dry_run:
         return {"parsed_data": parsed.as_preview(), "validation_errors": errors,
                 "dry_run": dry_run, "committed": None, "action": None}
@@ -216,7 +237,7 @@ def split_word_blocks(text: str) -> list[str]:
 
 
 def import_vocab_file(
-    text: str, *, dry_run: bool = True, valid_categories: Optional[set] = None,
+    text: str, *, dry_run: bool = True,
     import_batch_id: Optional[str] = None,
 ) -> dict:
     """Import a lesson file of ONE-OR-MANY word blocks.
@@ -249,7 +270,7 @@ def import_vocab_file(
         entry["headword"] = parsed.headword
         entry["slug"] = parsed.slug
         entry["parsed_data"] = parsed.as_preview()
-        entry["validation_errors"] = validate_vocab(parsed, valid_categories=valid_categories)
+        entry["validation_errors"] = validate_vocab(parsed)
         entry["_parsed"] = parsed
         blocks.append(entry)
 

@@ -157,31 +157,36 @@ class VocabContentService:
                 key=lambda x: x.get("headword", x["slug"])
             )
 
-        # Build all_categories from manifest order (fall back to filesystem order)
-        if self._valid_categories:
+        # Category-runtime (Slice-A): the category list is DISTINCT-from-DB — any
+        # category present in the data surfaces, no yaml whitelist. Order is
+        # deterministic: the yaml manifest first (so the original groups keep
+        # their curated order + nice VN titles), then any NEW category not in the
+        # manifest, alphabetically. Title = yaml override if present, else
+        # _prettify(slug) — so a brand-new topic auto-surfaces with a readable
+        # title and zero config (the word's category in frontmatter is enough).
+        manifest_order: list[str] = []
+        manifest_map: dict[str, dict] = {}
+        if CATEGORIES_FILE.exists():
             raw = yaml.safe_load(CATEGORIES_FILE.read_text(encoding="utf-8")) or {}
-            self.all_categories = []
             for cat_def in raw.get("categories", []):
-                slug = cat_def["slug"]
-                arts = self.articles_by_category.get(slug, [])
-                self.all_categories.append({
-                    "slug":          slug,
-                    "title":         cat_def.get("title", _prettify(slug)),
-                    "description":   cat_def.get("description", ""),
-                    "article_count": len(arts),
-                    "articles":      [self._summary(a) for a in arts],
-                })
-        else:
-            self.all_categories = [
-                {
-                    "slug":          cat,
-                    "title":         _prettify(cat),
-                    "description":   "",
-                    "article_count": len(arts),
-                    "articles":      [self._summary(a) for a in arts],
-                }
-                for cat, arts in sorted(self.articles_by_category.items())
-            ]
+                manifest_order.append(cat_def["slug"])
+                manifest_map[cat_def["slug"]] = cat_def
+
+        new_cats = sorted(set(self.articles_by_category) - set(manifest_order))
+        # Yaml cats are emitted even when empty (backward-compat — the 6 original
+        # groups always render); new cats appear once they have ≥1 word. The grid
+        # filters empty sections client-side.
+        self.all_categories = []
+        for slug in manifest_order + new_cats:
+            cat_def = manifest_map.get(slug, {})
+            arts = self.articles_by_category.get(slug, [])
+            self.all_categories.append({
+                "slug":          slug,
+                "title":         cat_def.get("title") or _prettify(slug),
+                "description":   cat_def.get("description", ""),
+                "article_count": len(arts),
+                "articles":      [self._summary(a) for a in arts],
+            })
 
         # headword prefix-search index
         self.headword_index = [
