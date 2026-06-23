@@ -8,10 +8,18 @@ Intentionally separate from grammar_content.py — no shared base class.
 Tech debt logged in TECH_DEBT_BACKLOG.md.
 
 Loaded once at import time (module-level singleton `vocab_service`).
+
+M3 (Slice-1) cutover: the words now live in the `vocab_cards` table (admin upload
+persists there — Railway fs is ephemeral). _load_all() reads the table and builds
+the SAME in-memory shapes; when the table is empty/unavailable it falls back to
+the markdown content_vocab/** loader (G3 safety net for one release). reload()
+rebuilds after an admin commit (G1); last_modified tracks MAX(updated_at) so the
+public cache invalidates on new uploads (G2).
 """
 
 import logging
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -33,6 +41,20 @@ class VocabContentService:
         self.all_categories:       list[dict]            = []
         self.headword_index:       list[dict]            = []  # for prefix search
         self._valid_categories:    set[str]              = set()
+        self.last_modified:        Optional[datetime]    = None  # G2: cache key (MAX updated_at)
+        self._source:             str                    = "markdown"  # "db" | "markdown"
+        self._load_categories()
+        self._load_all()
+
+    def reload(self) -> None:
+        """G1 — rebuild the in-memory index from the source of truth. Called
+        after an admin upload commits so a new word appears without a restart."""
+        self.articles_by_slug = {}
+        self.articles_by_category = {}
+        self.all_categories = []
+        self.headword_index = []
+        self._valid_categories = set()
+        self.last_modified = None
         self._load_categories()
         self._load_all()
 
@@ -49,10 +71,72 @@ class VocabContentService:
     # ── Loader ───────────────────────────────────────────────────────────────
 
     def _load_all(self) -> None:
+        # M3 cutover: prefer the vocab_cards table; fall back to markdown when the
+        # table is empty OR unavailable (no DB at import in CI/tests) — G3 safety
+        # net so a bad migrate-in (or a DB hiccup) never darks the live grid.
+        articles = self._load_from_db()
+        if articles is None:
+            articles = self._load_from_markdown()
+            self._source = "markdown"
+            # markdown has no per-row timestamp → stamp "now" so the cache key is
+            # at least stable within a process.
+            if self.last_modified is None:
+                self.last_modified = datetime.now(timezone.utc)
+        else:
+            self._source = "db"
+        self._build_indexes(articles)
+        logger.info(
+            "[vocab] loaded %d articles across %d categories (source=%s)",
+            len(articles), len(self.all_categories), self._source,
+        )
+
+    def _load_from_db(self) -> Optional[list[dict]]:
+        """Read all words from vocab_cards → article dicts (same shape as
+        _parse_file). Returns None when the table is empty OR the read fails, so
+        the caller falls back to markdown (G3)."""
+        try:
+            from database import supabase_admin  # local import — keep module import-safe
+            res = supabase_admin.table("vocab_cards").select("*").execute()
+            rows = res.data or []
+        except Exception as exc:  # noqa: BLE001 — any failure → markdown fallback
+            logger.warning("[vocab] vocab_cards read failed (%s) — markdown fallback", exc)
+            return None
+        if not rows:
+            return None
+        # G2: cache key = MAX(updated_at).
+        stamps = [r.get("updated_at") for r in rows if r.get("updated_at")]
+        if stamps:
+            try:
+                self.last_modified = max(
+                    datetime.fromisoformat(str(s).replace("Z", "+00:00")) for s in stamps)
+            except Exception:  # noqa: BLE001
+                self.last_modified = datetime.now(timezone.utc)
+        return [self._row_to_article(r) for r in rows]
+
+    @staticmethod
+    def _row_to_article(r: dict) -> dict:
+        """A vocab_cards row → the article dict shape get_article/_summary expect."""
+        return {
+            "headword":       r.get("headword", ""),
+            "slug":           r.get("slug", ""),
+            "category":       r.get("category", ""),
+            "level":          r.get("level") or "",
+            "part_of_speech": r.get("part_of_speech") or "",
+            "pronunciation":  r.get("pronunciation") or "",
+            "synonyms":       list(r.get("synonyms") or []),
+            "antonyms":       list(r.get("antonyms") or []),
+            "collocations":   list(r.get("collocations") or []),
+            "related_words":  list(r.get("related_words") or []),
+            "gloss_vi":       r.get("gloss_vi") or "",
+            "definition_en":  r.get("definition_en") or "",
+            "example":        r.get("example") or "",
+            "html":           r.get("body_html") or "",
+        }
+
+    def _load_from_markdown(self) -> list[dict]:
         if not CONTENT_DIR.exists():
             logger.warning("[vocab] content dir not found: %s", CONTENT_DIR)
-            return
-
+            return []
         articles: list[dict] = []
         for md_file in sorted(CONTENT_DIR.rglob("*.md")):
             try:
@@ -61,7 +145,9 @@ class VocabContentService:
                     articles.append(article)
             except Exception as exc:
                 logger.error("[vocab] failed to parse %s: %s", md_file, exc)
+        return articles
 
+    def _build_indexes(self, articles: list[dict]) -> None:
         for a in articles:
             self.articles_by_slug[a["slug"]] = a
             self.articles_by_category.setdefault(a["category"], []).append(a)
@@ -106,11 +192,6 @@ class VocabContentService:
             }
             for a in articles
         ]
-
-        logger.info(
-            "[vocab] loaded %d articles across %d categories",
-            len(articles), len(self.all_categories),
-        )
 
     def _parse_file(self, path: Path) -> Optional[dict]:
         raw = path.read_text(encoding="utf-8")

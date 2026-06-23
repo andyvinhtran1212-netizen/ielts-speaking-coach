@@ -17,7 +17,16 @@ from services.public_cache import cacheable_json, content_last_modified
 from services.vocab_content import CATEGORIES_FILE, CONTENT_DIR, vocab_service
 
 router = APIRouter(prefix="/api/vocabulary", tags=["vocabulary"])
+# Fallback cache key for the markdown source (files have no per-row timestamp).
 _PUBLIC_LAST_MODIFIED = content_last_modified(CONTENT_DIR, CATEGORIES_FILE)
+
+
+def _last_modified():
+    """G2 — cache key derived from the live source. When serving from
+    vocab_cards, vocab_service.last_modified = MAX(updated_at), so a commit
+    (which bumps updated_at + triggers reload()) invalidates the client cache.
+    Falls back to the static markdown stamp when no DB time has been stamped."""
+    return vocab_service.last_modified or _PUBLIC_LAST_MODIFIED
 
 
 @router.get("/categories")
@@ -26,7 +35,7 @@ async def get_categories(request: Request) -> Response:
     return cacheable_json(
         vocab_service.get_categories(),
         request,
-        last_modified=_PUBLIC_LAST_MODIFIED,
+        last_modified=_last_modified(),
     )
 
 
@@ -36,7 +45,7 @@ async def get_articles(request: Request) -> Response:
     return cacheable_json(
         vocab_service.get_all_articles(),
         request,
-        last_modified=_PUBLIC_LAST_MODIFIED,
+        last_modified=_last_modified(),
     )
 
 
@@ -49,7 +58,7 @@ async def get_article(category: str, slug: str, request: Request) -> Response:
             status_code=404,
             detail=f"Article '{category}/{slug}' not found",
         )
-    return cacheable_json(data, request, last_modified=_PUBLIC_LAST_MODIFIED)
+    return cacheable_json(data, request, last_modified=_last_modified())
 
 
 @router.get("/search")
@@ -61,5 +70,5 @@ async def search(
     return cacheable_json(
         vocab_service.search_prefix(q),
         request,
-        last_modified=_PUBLIC_LAST_MODIFIED,
+        last_modified=_last_modified(),
     )
