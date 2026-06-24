@@ -9,6 +9,8 @@ RLS from mig 110):
   PATCH  /admin/vocabulary/{id}        — partial update by stable id.
   DELETE /admin/vocabulary/{id}        — hard delete one word.
   POST   /admin/vocabulary/bulk-delete — hard-delete many by ids (one reload).
+  POST   /admin/vocabulary/generate-audio — queue a voice-render job (BackgroundTask):
+         engine openai|elevenlabs × scope headword|example|both → stamp audio_*.
 
 Every WRITE (import commit / patch / delete / bulk-delete) calls vocab_service.reload() (G1) so
 the public /vocabulary grid + article reflect it without a restart; the mig-110
@@ -25,11 +27,13 @@ import logging
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, File, Header, HTTPException, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, Header, HTTPException, Query, UploadFile
 from pydantic import BaseModel
 
+from config import settings
 from database import supabase_admin
 from routers.admin import require_admin
+from services import tts_audio
 from services.vocab_content import vocab_service
 from services.vocab_import import import_vocab_file
 
@@ -76,6 +80,16 @@ class VocabUpdate(BaseModel):
 class BulkDeleteRequest(BaseModel):
     """ids to hard-delete. Pydantic validates each is a UUID (bad id → 422)."""
     ids: list[UUID]
+
+
+class GenerateAudioRequest(BaseModel):
+    """Which words to render + how. Target = ids OR category OR all (in that
+    precedence). engine = openai|elevenlabs; scope = headword|example|both."""
+    ids:      Optional[list[UUID]] = None
+    category: Optional[str]        = None
+    all:      bool                 = False
+    engine:   str                  = "openai"
+    scope:    str                  = "both"
 
 
 @router.post("/import")
@@ -208,3 +222,76 @@ async def bulk_delete_vocab(body: BulkDeleteRequest, authorization: str | None =
     not_found = [i for i in ids if i not in deleted_ids]
     _reload_safe()                       # G1 — public grid/article reflect the removals
     return {"deleted_count": len(deleted_ids), "not_found": not_found}
+
+
+# ── V-eleven — engine-selectable audio generate (admin-triggered) ─────────────
+
+
+def _generate_audio_job(rows: list, engine: str, scope: str) -> None:
+    """BackgroundTask (sync → thread pool, so the blocking synth/upload never
+    blocks the event loop). Per word: synth headword (+ example per scope) via the
+    chosen engine → upload → stamp audio_*; one bad word logs + continues. One
+    reload() at the end so the public grid serves the new audio (G1)."""
+    do_hw = scope in ("headword", "both")
+    do_ex = scope in ("example", "both")
+    gen = skip = errors = stamped = 0
+    for r in rows:
+        slug = r.get("slug")
+        hw = (r.get("headword") or "").strip()
+        ex = (r.get("example") or "").strip()
+        stamp: dict = {}
+        try:
+            if do_hw and hw:
+                url, did = tts_audio.get_or_create_audio_sync(hw, engine)
+                stamp["audio_headword"] = url
+                gen, skip = (gen + 1, skip) if did else (gen, skip + 1)
+            if do_ex and ex:
+                url, did = tts_audio.get_or_create_audio_sync(ex, engine)
+                stamp["audio_example"] = url
+                gen, skip = (gen + 1, skip) if did else (gen, skip + 1)
+            if stamp:
+                stamp["audio_status"] = "final"
+                supabase_admin.table("vocab_cards").update(stamp).eq("id", r.get("id")).execute()
+                stamped += 1
+        except Exception as exc:  # noqa: BLE001 — one bad word shouldn't kill the batch
+            errors += 1
+            logger.error("[vocab] generate-audio failed slug=%s engine=%s: %s", slug, engine, exc)
+    logger.info("[vocab] generate-audio done engine=%s scope=%s gen=%d skip=%d stamped=%d errors=%d",
+                engine, scope, gen, skip, stamped, errors)
+    _reload_safe()
+
+
+@router.post("/generate-audio")
+async def generate_audio(
+    body: GenerateAudioRequest,
+    background_tasks: BackgroundTasks,
+    authorization: str | None = Header(None),
+):
+    """Queue a voice-render job for the selected words. Target precedence:
+    ids → category → all. engine=openai|elevenlabs; scope=headword|example|both.
+    Returns immediately ({queued_count, engine}); the render runs in the
+    background and stamps audio_* + status='final' (then reload G1)."""
+    await require_admin(authorization)
+
+    engine = body.engine if body.engine in tts_audio.VALID_ENGINES else "openai"
+    scope = body.scope if body.scope in ("headword", "example", "both") else "both"
+    # Gate on the engine's key so a misconfig fails loudly, not silently mid-job.
+    if engine == "elevenlabs" and not settings.ELEVENLABS_API_KEY:
+        raise HTTPException(503, "ELEVENLABS_API_KEY chưa cấu hình.")
+    if engine == "openai" and not settings.OPENAI_API_KEY:
+        raise HTTPException(503, "OPENAI_API_KEY chưa cấu hình.")
+
+    sel = "id,slug,headword,example"
+    q = supabase_admin.table("vocab_cards").select(sel)
+    if body.ids:
+        q = q.in_("id", [str(i) for i in body.ids])
+    elif body.category:
+        q = q.eq("category", body.category)
+    elif not body.all:
+        raise HTTPException(400, "Chọn từ (ids), chủ đề (category), hoặc all=true.")
+    rows = (q.execute().data) or []
+    if not rows:
+        raise HTTPException(404, "Không có từ nào khớp.")
+
+    background_tasks.add_task(_generate_audio_job, rows, engine, scope)
+    return {"queued_count": len(rows), "engine": engine, "scope": scope}

@@ -101,6 +101,10 @@ class Settings(BaseSettings):
     # safely).
     ELEVENLABS_API_KEY: str = ""
     LISTENING_AI_RENDER_ENABLED: bool = False
+    # V-eleven — vocab audio generate. ElevenLabs en-GB voice + model used when
+    # the admin picks engine="elevenlabs" (OpenAI stays the default engine).
+    VOCAB_TTS_ELEVENLABS_VOICE_ID: str = "aHCytOTnUOgfGPn5n89j"
+    VOCAB_TTS_ELEVENLABS_MODEL: str = "eleven_multilingual_v2"
     LISTENING_AUDIO_BUCKET: str = "listening-audio"
 
     # P0-1 (C-1.1) — async-DB migration kill switch. OFF = every path runs the

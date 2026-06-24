@@ -51,10 +51,19 @@ async def synthesize_mp3(text: str, voice: str = DEFAULT_VOICE) -> bytes:
     return response.content
 
 
-def audio_path(text: str, voice: str = DEFAULT_VOICE) -> str:
-    """Content-addressed object key: sha256(text|voice|accent).mp3. Same text +
-    voice → same path → generate-once / de-dup."""
-    key = f"{text}|{voice}|{_ACCENT_TAG}"
+def _engine_tag(engine: str) -> str:
+    """Per-engine cache-bust tag baked into the path hash so OpenAI + ElevenLabs
+    audio for the SAME text land at DIFFERENT object keys (switching engine never
+    overwrites the other; audio_url just points at whichever was generated last)."""
+    if engine == "elevenlabs":
+        return f"elevenlabs-{settings.VOCAB_TTS_ELEVENLABS_VOICE_ID}"
+    return _ACCENT_TAG          # "openai-tts-1" (unchanged → existing paths stable)
+
+
+def audio_path(text: str, voice: str = DEFAULT_VOICE, engine: str = "openai") -> str:
+    """Content-addressed object key: sha256(text|voice|engineTag).mp3. Same text +
+    voice + engine → same path → generate-once / de-dup; different engine → new path."""
+    key = f"{text}|{voice}|{_engine_tag(engine)}"
     return hashlib.sha256(key.encode("utf-8")).hexdigest() + ".mp3"
 
 
@@ -84,12 +93,76 @@ def upload_mp3(path: str, data: bytes) -> None:
 
 
 async def get_or_create_audio(text: str, voice: str = DEFAULT_VOICE) -> tuple[str, bool]:
-    """Return (public_url, did_synthesize). Hash-skip: if the object already
-    exists, return its URL WITHOUT calling TTS (did_synthesize=False) — the
-    expensive OpenAI call only runs for genuinely-new text."""
-    path = audio_path(text, voice)
+    """Async OpenAI path (used by /tts-adjacent flows + the #551 pregen script).
+    Hash-skip: existing object → URL without calling TTS (did_synthesize=False)."""
+    path = audio_path(text, voice, "openai")
     if audio_exists(path):
         return public_url(path), False
     data = await synthesize_mp3(text, voice)
+    upload_mp3(path, data)
+    return public_url(path), True
+
+
+# ── Engine-selectable SYNC path (V-eleven; used by the admin BackgroundTask) ───
+# The admin "Generate voice" job runs as a FastAPI BackgroundTask (sync → thread
+# pool), so both engines use blocking calls here — no event-loop blocking.
+
+ELEVENLABS_MODEL_DEFAULT = "eleven_multilingual_v2"
+VALID_ENGINES = ("openai", "elevenlabs")
+
+
+def _synth_openai_sync(text: str, voice: str = DEFAULT_VOICE) -> bytes:
+    if not settings.OPENAI_API_KEY:
+        raise RuntimeError("OPENAI_API_KEY not configured")
+    import openai
+    client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+    resp = client.audio.speech.create(
+        model=_MODEL,
+        voice=(voice if voice in _ALLOWED_VOICES else DEFAULT_VOICE),  # type: ignore[arg-type]
+        input=text,
+        response_format="mp3",
+    )
+    return resp.content
+
+
+def _synth_elevenlabs_sync(text: str) -> bytes:
+    """ElevenLabs TTS (en-GB voice from config). Mirrors listening_renderer's REST
+    call: POST /v1/text-to-speech/{voice_id} with xi-api-key → mp3 bytes."""
+    if not settings.ELEVENLABS_API_KEY:
+        raise RuntimeError("ELEVENLABS_API_KEY not configured")
+    import requests
+    voice_id = settings.VOCAB_TTS_ELEVENLABS_VOICE_ID
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+    headers = {
+        "xi-api-key": settings.ELEVENLABS_API_KEY,
+        "Content-Type": "application/json",
+        "Accept": "audio/mpeg",
+    }
+    payload = {
+        "text": text,
+        "model_id": settings.VOCAB_TTS_ELEVENLABS_MODEL or ELEVENLABS_MODEL_DEFAULT,
+        "voice_settings": {"stability": 0.5, "similarity_boost": 0.5},
+    }
+    resp = requests.post(url, headers=headers, json=payload, timeout=120)
+    resp.raise_for_status()
+    return resp.content
+
+
+def synth_sync(text: str, engine: str = "openai", voice: str = DEFAULT_VOICE) -> bytes:
+    """Engine-dispatch (sync). engine='openai' (default) | 'elevenlabs'."""
+    if engine == "elevenlabs":
+        return _synth_elevenlabs_sync(text)
+    return _synth_openai_sync(text, voice)
+
+
+def get_or_create_audio_sync(
+    text: str, engine: str = "openai", voice: str = DEFAULT_VOICE,
+) -> tuple[str, bool]:
+    """Sync (public_url, did_synthesize) for the chosen engine. Hash-skip per
+    (text, voice, engine): same engine re-run → skip; different engine → new path."""
+    path = audio_path(text, voice, engine)
+    if audio_exists(path):
+        return public_url(path), False
+    data = synth_sync(text, engine, voice)
     upload_mp3(path, data)
     return public_url(path), True
