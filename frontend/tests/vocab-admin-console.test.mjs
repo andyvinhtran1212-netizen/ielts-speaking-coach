@@ -58,4 +58,16 @@ describe('vocab admin console — content.html', () => {
     assert.doesNotMatch(PAGE, /elevenlabs/i);
     assert.doesNotMatch(PAGE, /data-act="render"/);
   });
+
+  test('bulk-delete: per-row checkbox + select-all + counted action bar', () => {
+    assert.match(PAGE, /class="vw-tick"/);            // per-row checkbox
+    assert.match(PAGE, /id="vw-select-all"/);          // select-all (this page)
+    assert.match(PAGE, /id="vw-bulk-del"/);            // action button
+    assert.match(PAGE, /id="vw-selected"/);            // "Đã chọn X từ" counter
+  });
+  test('bulk-delete POSTs ids to /bulk-delete behind a counted confirm()', () => {
+    assert.match(PAGE, /window\.api\.post\('\/admin\/vocabulary\/bulk-delete',\s*\{\s*ids:/);
+    assert.match(PAGE, /confirm\('Xóa ' \+ ids\.length \+ ' từ/);   // counted, named confirm
+    assert.match(PAGE, /KHÔNG thể hoàn tác/);
+  });
 });

@@ -28,7 +28,7 @@ def _client():
 def _chain(data, count=None):
     """A self-returning query mock whose .execute() yields data (+ optional count)."""
     q = MagicMock()
-    for m in ("select", "eq", "ilike", "order", "range", "limit", "update", "delete"):
+    for m in ("select", "eq", "ilike", "order", "range", "limit", "update", "delete", "in_"):
         getattr(q, m).return_value = q
     q.execute.return_value = MagicMock(data=data, count=count)
     return q
@@ -153,3 +153,56 @@ def test_vocab_update_fields_are_all_real_columns():
     fields = set(VocabUpdate.model_fields.keys())
     missing = fields - cols
     assert not missing, f"VocabUpdate writes columns vocab_cards lacks: {missing}"
+
+
+# ── bulk-delete (V-admin topic management) ────────────────────────────────
+
+_ID2 = "22222222-2222-2222-2222-222222222222"
+
+
+def test_bulk_delete_requires_auth():
+    assert _client().post("/admin/vocabulary/bulk-delete", json={"ids": [_ID]}).status_code == 401
+
+
+def test_bulk_delete_removes_many_and_reloads_once():
+    # both ids come back from the delete → deleted_count 2, nothing not_found.
+    db = MagicMock(); db.table.return_value = _chain([{"id": _ID}, {"id": _ID2}])
+    reload = MagicMock()
+    with patch("routers.admin_vocab.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_vocab.supabase_admin", db), \
+         patch("routers.admin_vocab.vocab_service.reload", reload):
+        r = _client().post("/admin/vocabulary/bulk-delete", json={"ids": [_ID, _ID2]}, headers=_ADMIN_AUTH)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["deleted_count"] == 2
+    assert body["not_found"] == []
+    db.table.return_value.delete.assert_called_once()      # one query, not a loop
+    db.table.return_value.in_.assert_called_once_with("id", [_ID, _ID2])
+    reload.assert_called_once()                              # G1 — one reload for the batch
+
+
+def test_bulk_delete_reports_not_found_without_500():
+    # DB returns only one of the two requested → the other is not_found, no error.
+    db = MagicMock(); db.table.return_value = _chain([{"id": _ID}])
+    with patch("routers.admin_vocab.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_vocab.supabase_admin", db), \
+         patch("routers.admin_vocab.vocab_service.reload", MagicMock()):
+        r = _client().post("/admin/vocabulary/bulk-delete", json={"ids": [_ID, _ID2]}, headers=_ADMIN_AUTH)
+    assert r.status_code == 200
+    assert r.json()["deleted_count"] == 1
+    assert r.json()["not_found"] == [_ID2]
+
+
+def test_bulk_delete_empty_ids_400():
+    db = MagicMock(); db.table.return_value = _chain([])
+    with patch("routers.admin_vocab.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_vocab.supabase_admin", db), \
+         patch("routers.admin_vocab.vocab_service.reload", MagicMock()):
+        r = _client().post("/admin/vocabulary/bulk-delete", json={"ids": []}, headers=_ADMIN_AUTH)
+    assert r.status_code == 400
+
+
+def test_bulk_delete_rejects_non_uuid_422():
+    with patch("routers.admin_vocab.require_admin", new=AsyncMock(return_value=_ADMIN_USER)):
+        r = _client().post("/admin/vocabulary/bulk-delete", json={"ids": ["not-a-uuid"]}, headers=_ADMIN_AUTH)
+    assert r.status_code == 422

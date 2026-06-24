@@ -8,8 +8,9 @@ RLS from mig 110):
   GET    /admin/vocabulary/{id}        — full row for the edit form.
   PATCH  /admin/vocabulary/{id}        — partial update by stable id.
   DELETE /admin/vocabulary/{id}        — hard delete one word.
+  POST   /admin/vocabulary/bulk-delete — hard-delete many by ids (one reload).
 
-Every WRITE (import commit / patch / delete) calls vocab_service.reload() (G1) so
+Every WRITE (import commit / patch / delete / bulk-delete) calls vocab_service.reload() (G1) so
 the public /vocabulary grid + article reflect it without a restart; the mig-110
 BEFORE-UPDATE trigger bumps updated_at so the public cache key (G2 = MAX(updated_at))
 invalidates. The importer (services/vocab_import.py) does the parse→validate→upsert.
@@ -70,6 +71,11 @@ class VocabUpdate(BaseModel):
     collocations:   Optional[list] = None
     related_words:  Optional[list] = None
     body_html:      Optional[str]  = None
+
+
+class BulkDeleteRequest(BaseModel):
+    """ids to hard-delete. Pydantic validates each is a UUID (bad id → 422)."""
+    ids: list[UUID]
 
 
 @router.post("/import")
@@ -184,3 +190,21 @@ async def delete_vocab(vocab_id: UUID, authorization: str | None = Header(None))
         raise HTTPException(404, "Không tìm thấy từ vựng.")
     _reload_safe()
     return {"message": "Đã xóa từ vựng", "id": str(vocab_id)}
+
+
+@router.post("/bulk-delete")
+async def bulk_delete_vocab(body: BulkDeleteRequest, authorization: str | None = Header(None)):
+    """Hard-delete many words by id in ONE query → ONE reload (G1). Returns the
+    deleted count + any ids that weren't found (idempotent-ish; never 500s on a
+    stale id). The FE shows the selected words + a counted confirm before calling,
+    so this is a by-ids delete, never a blind delete-by-category."""
+    await require_admin(authorization)
+    ids = [str(i) for i in body.ids]
+    if not ids:
+        raise HTTPException(400, "Không có từ nào để xóa.")
+    res = supabase_admin.table("vocab_cards").delete().in_("id", ids).execute()
+    deleted = res.data or []
+    deleted_ids = {str(r.get("id")) for r in deleted}
+    not_found = [i for i in ids if i not in deleted_ids]
+    _reload_safe()                       # G1 — public grid/article reflect the removals
+    return {"deleted_count": len(deleted_ids), "not_found": not_found}
