@@ -147,7 +147,10 @@
           <div><label class="aw-form-label">Cấp độ</label><input id="f-level" class="aw-input" /></div>
           <div><label class="aw-form-label">Loại từ</label><input id="f-pos" class="aw-input" /></div>
         </div>
-        <div><label class="aw-form-label">Phát âm (IPA)</label><input id="f-pron" class="aw-input" /></div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="aw-form-label">Phát âm (IPA)</label><input id="f-pron" class="aw-input" /></div>
+          <div><label class="aw-form-label">Âm tiết (vd: me-TROP-o-lis)</label><input id="f-syllables" class="aw-input" placeholder="hoa = trọng âm; để trống = dùng IPA" /></div>
+        </div>
         <div><label class="aw-form-label">Nghĩa (VN)</label><textarea id="f-glossvi" class="aw-input" rows="2"></textarea></div>
         <div><label class="aw-form-label">Định nghĩa (EN)</label><textarea id="f-defen" class="aw-input" rows="2"></textarea></div>
         <div><label class="aw-form-label">Ví dụ</label><textarea id="f-example" class="aw-input" rows="2"></textarea></div>
@@ -496,7 +499,7 @@
         _vw.editingId = id;
         _setVal('f-headword', w.headword); _setVal('f-slug', w.slug);
         _setVal('f-category', w.category); _setVal('f-level', w.level); _setVal('f-pos', w.part_of_speech);
-        _setVal('f-pron', w.pronunciation); _setVal('f-glossvi', w.gloss_vi); _setVal('f-defen', w.definition_en);
+        _setVal('f-pron', w.pronunciation); _setVal('f-syllables', w.syllables); _setVal('f-glossvi', w.gloss_vi); _setVal('f-defen', w.definition_en);
         _setVal('f-example', w.example);
         _setVal('f-colloc', (w.collocations || []).join(', ')); _setVal('f-related', (w.related_words || []).join(', '));
         _setVal('f-syn', (w.synonyms || []).join(', ')); _setVal('f-ant', (w.antonyms || []).join(', '));
@@ -514,7 +517,7 @@
       if (!_vw.editingId) return;
       var payload = {
         headword: _getVal('f-headword'), category: _getVal('f-category'), level: _getVal('f-level'),
-        part_of_speech: _getVal('f-pos'), pronunciation: _getVal('f-pron'), gloss_vi: _getVal('f-glossvi'),
+        part_of_speech: _getVal('f-pos'), pronunciation: _getVal('f-pron'), syllables: _getVal('f-syllables'), gloss_vi: _getVal('f-glossvi'),
         definition_en: _getVal('f-defen'), example: _getVal('f-example'),
         collocations: _CSV(_getVal('f-colloc')), related_words: _CSV(_getVal('f-related')),
         synonyms: _CSV(_getVal('f-syn')), antonyms: _CSV(_getVal('f-ant')),

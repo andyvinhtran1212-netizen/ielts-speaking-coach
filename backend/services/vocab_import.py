@@ -36,6 +36,9 @@ _LIST_FIELDS = ("synonyms", "antonyms", "collocations", "related_words")
 _SCALAR_FIELDS = (
     "level", "part_of_speech", "pronunciation", "definition_en", "example",
     "register", "common_error", "memory_hook", "source", "group",
+    # Slice-2 — optional orthographic syllabification (e.g. "me-TROP-o-lis").
+    # Missing → "" (graceful); the card falls back to the IPA stress parser.
+    "syllables",
 )
 
 
@@ -125,7 +128,8 @@ def validate_vocab(p: VocabParsed) -> list[dict]:
 
 
 def build_vocab_payload(p: VocabParsed, *, import_batch_id: Optional[str] = None) -> dict:
-    """The upsert payload. Keys MUST be ⊆ migration 110 columns (schema test)."""
+    """The upsert payload. Keys MUST be ⊆ vocab_cards columns (mig 110 + 111
+    syllables) — the schema-aware test pins this (#538 lesson)."""
     payload = {
         "slug": p.slug, "headword": p.headword, "category": p.category,
         "gloss_vi": p.gloss_vi, "body_html": p.body_html,

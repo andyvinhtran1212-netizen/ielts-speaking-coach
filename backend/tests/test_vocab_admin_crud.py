@@ -146,10 +146,16 @@ def test_delete_404_when_missing():
 
 def test_vocab_update_fields_are_all_real_columns():
     from routers.admin_vocab import VocabUpdate
-    mig = (Path(__file__).parent.parent / "migrations" / "110_vocab_cards.sql").read_text("utf-8")
+    migdir = Path(__file__).parent.parent / "migrations"
+    mig = (migdir / "110_vocab_cards.sql").read_text("utf-8")
     block = re.search(r"CREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+vocab_cards\s*\((.*?)\n\);",
                       mig, re.IGNORECASE | re.DOTALL).group(1)
     cols = {m.group(1) for m in re.finditer(r'^\s*"?([a-z_]+)"?\s', block, re.MULTILINE)}
+    # + additive ALTER TABLE … ADD COLUMN (e.g. 111 syllables)
+    for p in sorted(migdir.glob("*.sql")):
+        for m in re.finditer(r'ALTER\s+TABLE\s+vocab_cards\s+ADD\s+COLUMN(?:\s+IF\s+NOT\s+EXISTS)?\s+"?([a-z_]+)"?',
+                             p.read_text("utf-8"), re.IGNORECASE):
+            cols.add(m.group(1))
     fields = set(VocabUpdate.model_fields.keys())
     missing = fields - cols
     assert not missing, f"VocabUpdate writes columns vocab_cards lacks: {missing}"

@@ -14,11 +14,25 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-_MIG = Path(__file__).parent.parent / "migrations" / "110_vocab_cards.sql"
+_MIGDIR = Path(__file__).parent.parent / "migrations"
+_MIG = _MIGDIR / "110_vocab_cards.sql"
 
 
 def _sql() -> str:
     return _MIG.read_text(encoding="utf-8")
+
+
+def _all_vocab_cols() -> set[str]:
+    """Full vocab_cards column set = mig 110 CREATE TABLE ∪ later additive
+    ALTER TABLE … ADD COLUMN <name> (e.g. 111 syllables). Keeps the col-match
+    guard correct as additive migrations land."""
+    cols = _column_names(_create_table_block(_sql(), "vocab_cards"))
+    for p in sorted(_MIGDIR.glob("*.sql")):
+        for m in re.finditer(
+            r'ALTER\s+TABLE\s+vocab_cards\s+ADD\s+COLUMN(?:\s+IF\s+NOT\s+EXISTS)?\s+"?([a-z_]+)"?',
+            p.read_text(encoding="utf-8"), re.IGNORECASE):
+            cols.add(m.group(1))
+    return cols
 
 
 def _create_table_block(sql: str, table: str) -> str:
@@ -138,17 +152,18 @@ def test_build_payload_keys_are_all_real_columns():
     """Every key build_vocab_payload writes MUST be a vocab_cards column — else
     the insert/update would fail against the real DB (FakeSupabase wouldn't catch
     it). This is the #538 compose-500 guard, made schema-aware."""
-    from services.vocab_import import VocabParsed, build_vocab_payload
+    from services.vocab_import import (
+        VocabParsed, build_vocab_payload, _SCALAR_FIELDS, _LIST_FIELDS)
 
+    # Build from the REAL field tuples (drift-proof: a new scalar like `syllables`
+    # is automatically exercised here).
     p = VocabParsed(
         headword="X", slug="x", category="technology", gloss_vi="g", body_html="<p>g</p>",
-        scalars={k: "" for k in (
-            "level", "part_of_speech", "pronunciation", "definition_en", "example",
-            "register", "common_error", "memory_hook", "source", "group")},
-        lists={k: [] for k in ("synonyms", "antonyms", "collocations", "related_words")},
+        scalars={k: "" for k in _SCALAR_FIELDS},
+        lists={k: [] for k in _LIST_FIELDS},
     )
     payload = build_vocab_payload(p, import_batch_id="batch-1")
-    cols = _column_names(_create_table_block(_sql(), "vocab_cards"))
+    cols = _all_vocab_cols()                      # mig 110 + additive ALTERs (111 syllables)
     unknown = set(payload.keys()) - cols
     assert not unknown, f"build_vocab_payload writes columns vocab_cards lacks: {unknown}"
 

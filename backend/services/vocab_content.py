@@ -131,6 +131,9 @@ class VocabContentService:
             "definition_en":  r.get("definition_en") or "",
             "example":        r.get("example") or "",
             "html":           r.get("body_html") or "",
+            # Slice-2 — orthographic syllabification (e.g. "me-TROP-o-lis"); the
+            # card renders an orthographic specimen when present, else IPA fallback.
+            "syllables":      r.get("syllables") or "",
             # Slice-2 — pregenerated audio URLs (null until pregen stamps them; the
             # FE ▶ prefers these and falls back to speechSynthesis when absent).
             "audio_headword": r.get("audio_headword") or "",
@@ -258,6 +261,7 @@ class VocabContentService:
             # word without the frontmatter key gets "" and no existing field changes.
             "definition_en":  str(fm.get("definition_en") or ""),
             "example":        str(fm.get("example") or ""),
+            "syllables":      str(fm.get("syllables") or ""),   # Slice-2 orthographic
             # V-article re-skin — structured card fields (forward-compat; empty for
             # the seed words). Audio is markdown-absent → "" (DB path stamps it).
             "register":       str(fm.get("register") or ""),

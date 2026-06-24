@@ -48,12 +48,32 @@
   function ipaEmphasis(ipa) {        // idiom path: bold the syllable after the primary ˈ
     return esc(ipa).replace(/ˈ([^ˈˌ.\/\s]+)/, 'ˈ<span class="va-st">$1</span>');
   }
-  function specimenHTML(ipa) {
-    const sp = stressParts(ipa);
-    if (!sp) return '';
+  // Slice-2 — orthographic syllabification "me-TROP-o-lis": split on '-', the
+  // token with an UPPERCASE letter is the primary stress (first such, if 2). A
+  // lone token with no uppercase is itself the stress; a multi-token string with
+  // no uppercase → null (can't place → caller falls back to IPA).
+  function orthographicParts(syllables) {
+    const s = String(syllables || '').trim();
+    if (!s) return null;
+    const parts = s.split('-').map(x => x.trim()).filter(Boolean);
+    if (!parts.length) return null;
+    let pi = parts.findIndex(p => /[A-Z]/.test(p));
+    if (pi < 0 && parts.length === 1) pi = 0;
+    if (pi < 0) return null;
+    return { parts, primary: pi };
+  }
+  function renderSpecimen(sp) {
     const cells = sp.parts.map((p, i) =>
       `<span class="va-syl${i === sp.primary ? ' on' : ''}">${esc(p)}</span>`).join('');
     return `<div class="va-stress" aria-hidden="true">${cells}<span class="va-stress-tag">trọng âm ${sp.primary + 1}</span></div>`;
+  }
+  function specimenHTML(ipa) {        // (b) IPA-derived specimen (single words)
+    const sp = stressParts(ipa);
+    return sp ? renderSpecimen(sp) : '';
+  }
+  // Priority: (a) orthographic syllables → (b) IPA parser → (c) none (idiom).
+  function specimenParts(a) {
+    return orthographicParts(a.syllables) || stressParts(a.pronunciation);
   }
 
   function chips(items) { return (items || []).map(c => `<span class="va-chip">${esc(c)}</span>`).join(''); }
@@ -72,7 +92,8 @@
 
   // ── Shared card builder (article page + master-detail right pane) ──────────
   function cardHTML(a) {
-    const sp = stressParts(a.pronunciation);
+    const sp = specimenParts(a);     // (a) orthographic else (b) IPA; null = idiom
+    // Idiom (no specimen) → emphasise the post-ˈ syllable in the IPA line; else plain IPA.
     const ipaLine = a.pronunciation
       ? (sp ? esc(a.pronunciation) : ipaEmphasis(a.pronunciation))
       : '';
@@ -87,7 +108,7 @@
         ${playBtn(a.audio_headword, a.headword, '')}
       </div>
       ${ipaLine ? `<p class="va-ipa">${ipaLine}${a.part_of_speech ? ` <span class="va-pos">· ${esc(a.part_of_speech)}</span>` : ''}</p>` : ''}
-      ${specimenHTML(a.pronunciation)}
+      ${sp ? renderSpecimen(sp) : ''}
     </div>`);
 
     if (a.definition_en || a.gloss_vi) {
