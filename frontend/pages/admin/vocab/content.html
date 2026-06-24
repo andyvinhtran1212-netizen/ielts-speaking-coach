@@ -110,6 +110,18 @@
       <span id="vw-count" class="aw-subtitle text-sm" style="margin-left:auto;"></span>
     </div>
     <div id="vw-status" class="aw-import-status hidden text-sm mb-2"></div>
+
+    <!-- Bulk-select toolbar: select-all (this page) + counted destructive action. -->
+    <div class="flex items-center gap-3 mb-2 flex-wrap">
+      <label class="aw-subtitle text-sm flex items-center gap-2" style="cursor:pointer;">
+        <input id="vw-select-all" type="checkbox" /> Chọn tất cả (trang này)
+      </label>
+      <span id="vw-selected" class="aw-subtitle text-sm"></span>
+      <button id="vw-bulk-del" type="button" class="aw-btn-danger" style="margin-left:auto;" hidden>
+        Xóa <span id="vw-bulk-n">0</span> từ đã chọn
+      </button>
+    </div>
+
     <div id="vw-list"></div>
     <div class="flex items-center justify-between gap-2 mt-3">
       <button id="vw-prev" type="button" class="aw-btn-secondary" disabled>← Trước</button>
@@ -349,8 +361,41 @@
     })();
 
     // ── V-admin — manage existing words (list / edit / delete / ▶ preview) ──
-    var _vw = { offset: 0, limit: 50, total: 0, cat: '', q: '', editingId: null };
+    var _vw = { offset: 0, limit: 50, total: 0, cat: '', q: '', editingId: null, selected: {} };
     var _vwAudio = null;
+
+    // ── bulk-select state ──────────────────────────────────────────────
+    function _vwSelectedIds() { return Object.keys(_vw.selected); }
+    function _vwRefreshBulkBar() {
+      var ids = _vwSelectedIds();
+      var bar = document.getElementById('vw-bulk-del');
+      document.getElementById('vw-selected').textContent = ids.length ? ('Đã chọn ' + ids.length + ' từ') : '';
+      document.getElementById('vw-bulk-n').textContent = ids.length;
+      bar.hidden = ids.length === 0;
+      // select-all reflects whether every row on this page is ticked
+      var ticks = document.querySelectorAll('#vw-list .vw-tick');
+      var all = document.getElementById('vw-select-all');
+      var checkedCount = document.querySelectorAll('#vw-list .vw-tick:checked').length;
+      all.checked = ticks.length > 0 && checkedCount === ticks.length;
+      all.indeterminate = checkedCount > 0 && checkedCount < ticks.length;
+    }
+    async function bulkDelete() {
+      var ids = _vwSelectedIds();
+      if (!ids.length) return;
+      // counted, named confirm — stronger wording when wiping a whole (unfiltered) store.
+      var scope = _vw.cat ? ('khỏi chủ đề "' + _vw.cat + '"') : 'khỏi TẤT CẢ chủ đề';
+      if (!confirm('Xóa ' + ids.length + ' từ ' + scope + '? KHÔNG thể hoàn tác.')) return;
+      _vwStatus('Đang xóa…', null);
+      try {
+        var res = await window.api.post('/admin/vocabulary/bulk-delete', { ids: ids });
+        _vw.selected = {};
+        _vwStatus('✓ Đã xóa ' + (res.deleted_count != null ? res.deleted_count : ids.length) + ' từ.', 'ok');
+        if (_vw.offset > 0) _vw.offset = 0;   // counts shifted — back to first page
+        loadVocabList();
+      } catch (err) {
+        _vwStatus('Lỗi xóa hàng loạt: ' + ((err && err.message) || 'không xác định'), 'error');
+      }
+    }
 
     function _vwStatus(msg, kind) {
       var el = document.getElementById('vw-status');
@@ -365,13 +410,17 @@
       var exBtn = w.audio_example
         ? '<button type="button" class="aw-btn-secondary" data-act="play" data-audio="' + escapeHtml(w.audio_example) + '" data-say="' + escapeHtml(w.headword) + '">▶ ví dụ</button>'
         : '';
+      var checked = _vw.selected[w.id] ? ' checked' : '';
       return ''
         + '<div class="aw-prompt-row" style="margin-bottom:.5rem;">'
         +   '<div class="flex items-center justify-between gap-3 flex-wrap">'
+        +     '<div class="flex items-center gap-3">'
+        +       '<input type="checkbox" class="vw-tick" data-id="' + w.id + '" data-hw="' + escapeHtml(w.headword) + '"' + checked + ' aria-label="Chọn ' + escapeHtml(w.headword) + '" />'
         +     '<div>'
         +       '<span style="font-weight:600;">' + escapeHtml(w.headword) + '</span> '
         +       '<span class="aw-subtitle text-xs">· ' + escapeHtml(w.category || '') + (w.level ? ' · ' + escapeHtml(w.level) : '') + '</span>'
         +       '<div class="aw-meta-line">slug: ' + escapeHtml(w.slug) + (w.gloss_vi ? ' — ' + escapeHtml(w.gloss_vi) : '') + '</div>'
+        +     '</div>'
         +     '</div>'
         +     '<div class="flex items-center gap-2 flex-wrap">'
         +       pill
@@ -403,6 +452,7 @@
         document.getElementById('vw-page').textContent = from + '–' + to + ' / ' + _vw.total;
         document.getElementById('vw-prev').disabled = _vw.offset <= 0;
         document.getElementById('vw-next').disabled = _vw.offset + _vw.limit >= _vw.total;
+        _vwRefreshBulkBar();
       } catch (err) {
         _vwStatus('Lỗi tải danh sách: ' + ((err && err.message) || 'không xác định'), 'error');
       }
@@ -502,13 +552,30 @@
         else if (act === 'edit') openEdit(btn.getAttribute('data-id'));
         else if (act === 'del') deleteWord(btn.getAttribute('data-id'), btn.getAttribute('data-hw') || '');
       });
+      // row checkbox tick → track selection (delegated 'change')
+      list.addEventListener('change', function (e) {
+        var cb = e.target.closest('.vw-tick'); if (!cb) return;
+        var id = cb.getAttribute('data-id');
+        if (cb.checked) _vw.selected[id] = true; else delete _vw.selected[id];
+        _vwRefreshBulkBar();
+      });
+      // select-all (this page) → tick/untick every visible row
+      document.getElementById('vw-select-all').addEventListener('change', function (e) {
+        document.querySelectorAll('#vw-list .vw-tick').forEach(function (cb) {
+          cb.checked = e.target.checked;
+          var id = cb.getAttribute('data-id');
+          if (e.target.checked) _vw.selected[id] = true; else delete _vw.selected[id];
+        });
+        _vwRefreshBulkBar();
+      });
+      document.getElementById('vw-bulk-del').addEventListener('click', bulkDelete);
       var dz;
       var srch = document.getElementById('vw-search');
       srch.addEventListener('input', function () {
-        clearTimeout(dz); dz = setTimeout(function () { _vw.q = srch.value.trim(); _vw.offset = 0; loadVocabList(); }, 200);
+        clearTimeout(dz); dz = setTimeout(function () { _vw.q = srch.value.trim(); _vw.offset = 0; _vw.selected = {}; loadVocabList(); }, 200);
       });
       document.getElementById('vw-cat').addEventListener('change', function (e) {
-        _vw.cat = e.target.value; _vw.offset = 0; loadVocabList();
+        _vw.cat = e.target.value; _vw.offset = 0; _vw.selected = {}; loadVocabList();   // new scope → reset selection
       });
       document.getElementById('vw-prev').addEventListener('click', function () {
         _vw.offset = Math.max(0, _vw.offset - _vw.limit); loadVocabList();
