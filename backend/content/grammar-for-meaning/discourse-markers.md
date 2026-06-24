@@ -285,7 +285,7 @@ While [Side A is true/has advantages], [Side B ultimately outweighs it / is a mo
 
 ---
 
-## Lỗi thường gặp
+## Lỗi thường gặp — Tương phản
 
 ### Lỗi 1: Dùng "however" như liên từ (không có dấu chấm hoặc chấm phẩy)
 
@@ -310,7 +310,7 @@ While [Side A is true/has advantages], [Side B ultimately outweighs it / is a mo
 
 ---
 
-## Bài tập luyện
+## Bài tập luyện — Tương phản
 
 ### Nối hai câu bằng từ tương phản phù hợp (but / however / while / whereas / on the other hand):
 
@@ -334,7 +334,7 @@ While [Side A is true/has advantages], [Side B ultimately outweighs it / is a mo
 
 ---
 
-## Tóm tắt nhanh
+## Tóm tắt nhanh — Tương phản
 
 ```
 BUT → nối hai vế trong một câu (informal/neutral, speaking-friendly):
@@ -515,7 +515,7 @@ Những cụm này cho phép diễn đạt nguyên nhân và kết quả **trong
 
 ---
 
-## Lỗi thường gặp
+## Lỗi thường gặp — Nhân quả
 
 ### Lỗi 1: Dùng "so" quá nhiều trong Writing
 
@@ -542,7 +542,7 @@ Những cụm này cho phép diễn đạt nguyên nhân và kết quả **trong
 
 ---
 
-## Bài tập luyện
+## Bài tập luyện — Nhân quả
 
 ### Nối nguyên nhân và kết quả bằng công cụ phù hợp:
 
@@ -559,7 +559,7 @@ Những cụm này cho phép diễn đạt nguyên nhân và kết quả **trong
 6. Q: "What are the effects of social media on society?"
    "Social media has made communication much faster and easier. ___, people can now stay in touch with friends and family on the other side of the world."
 
-### Đáp án
+### Đáp án — Nhân quả
 
 1. "Many people are working longer hours, **so** they have less time for family." / "Many people are working longer hours. **As a result**, they have less time for family."
 2. "Air pollution has increased significantly. **Consequently**, respiratory diseases are more common." / "Air pollution has increased, **which has resulted in** a rise in respiratory disease rates."
@@ -570,7 +570,7 @@ Những cụm này cho phép diễn đạt nguyên nhân và kết quả **trong
 
 ---
 
-## Tóm tắt nhanh
+## Tóm tắt nhanh — Nhân quả
 
 ```
 SO → kết quả trong một câu (informal, speaking-friendly):
@@ -663,7 +663,7 @@ IELTS WRITING TIP:
 | **Of course...but** | **Of course**, everyone is entitled to their opinion, **but** this argument lacks evidence. |
 | **To some extent** | **To some extent**, poverty is a result of poor decision-making, but structural factors also play a role. |
 
-## Lỗi thường gặp
+## Lỗi thường gặp — Tổng hợp
 
 ### Lỗi 1: Lạm dụng một cụm từ
 
@@ -711,7 +711,7 @@ Trong Speaking, sử dụng discourse markers nghe tự nhiên hơn — tránh n
 
 *"I'd like to talk about a trip I took to Da Nang. **First of all**, we arrived early in the morning, so we had the whole day ahead. **Then**, we went straight to the beach, which was absolutely beautiful. **Later that afternoon**, we visited the Marble Mountains. **Overall**, it was one of the best trips I've ever taken."*
 
-## Bài tập luyện
+## Bài tập luyện — Tổng hợp
 
 ### Điền discourse marker phù hợp
 
@@ -731,7 +731,7 @@ Sắp xếp các câu dưới đây thành đoạn văn mạch lạc, thêm disc
 4. Social connection is fundamental to mental health.
 5. Apps and platforms should design features that encourage real-world meetings.
 
-### Đáp án
+### Đáp án — Tổng hợp
 
 **Điền discourse marker:**
 1. However / Nevertheless / That said
@@ -743,7 +743,7 @@ Sắp xếp các câu dưới đây thành đoạn văn mạch lạc, thêm disc
 **Đoạn văn mẫu:**
 *People are spending more time on social media. **As a result**, they have less time for face-to-face interactions. **Consequently**, loneliness and depression rates have increased. **Indeed**, social connection is fundamental to mental health. **Therefore**, apps and platforms should design features that encourage real-world meetings.*
 
-## Tóm tắt nhanh
+## Tóm tắt nhanh — Tổng hợp
 
 | Mục đích | Discourse Markers |
 |----------|------------------|

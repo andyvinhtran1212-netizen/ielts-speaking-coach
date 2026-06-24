@@ -76,7 +76,7 @@ anchors:
     location: "## PHẦN 4: ĐẶT TRẠNG NGỮ LÊN ĐẦU CÂU (Fronting)"
     type: section
   - id: grammar-for-band7plus.cross-reference.core-topics
-    location: "## Tóm tắt nhanh"
+    location: "## Tóm tắt nhanh — Cấu trúc nâng cao"
     type: section
 ---
 <!-- anchor: grammar-for-band7plus.overview -->
@@ -406,7 +406,7 @@ Cấu trúc nâng cao phải phục vụ ý nghĩa — không phải thể hiệ
 
 ---
 
-## Bài tập luyện
+## Bài tập luyện — Cấu trúc nâng cao
 
 ### Viết lại câu dùng cấu trúc nâng cao
 
@@ -429,7 +429,7 @@ Cấu trúc nâng cao phải phục vụ ý nghĩa — không phải thể hiệ
 ---
 
 <!-- anchor: grammar-for-band7plus.cross-reference.core-topics -->
-## Tóm tắt nhanh
+## Tóm tắt nhanh — Cấu trúc nâng cao
 
 | Cấu trúc | Công thức | Tác dụng |
 |----------|-----------|---------|
@@ -627,7 +627,7 @@ Dùng "I think" không phải lỗi — nhưng lặp 5 lần trong một bài tr
 
 ---
 
-## Bài tập luyện
+## Bài tập luyện — High-leverage
 
 ### Viết lại các câu sau với cách mở đầu khác:
 
@@ -650,7 +650,7 @@ Dùng "I think" không phải lỗi — nhưng lặp 5 lần trong một bài tr
 
 ---
 
-## Tóm tắt nhanh
+## Tóm tắt nhanh — High-leverage
 
 ```
 THAY "I THINK":
