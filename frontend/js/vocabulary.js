@@ -131,11 +131,15 @@
     return `<div class="va-card va-detail va-reveal">${pad.join('')}</div>`;
   }
 
-  // R4 de-dup: the body's FIRST <p> is the gloss already shown as def-vi (gloss_vi
-  // is extracted from it) — strip it. The rest (## Ví dụ / ## Ghi nhớ that the 20
-  // seed words carry) still renders. Nothing left → no body section.
+  // Body de-dup. A word with STRUCTURED example/memory renders those in the card,
+  // so its markdown body (## Ví dụ / ## Ghi nhớ) is a duplicate → skip it entirely.
+  // Seed words (no structured example/memory yet) still get the body as a fallback,
+  // de-duped by stripping the leading <p> (that paragraph is the gloss already
+  // shown as def-vi — gloss_vi is extracted from it).
   function articleBodyHTML(a) {
     if (!a.html) return '';
+    const hasStructured = !!(String(a.example || '').trim() || String(a.memory_hook || '').trim());
+    if (hasStructured) return '';
     const stripped = a.html.replace(/^\s*<p>[\s\S]*?<\/p>\s*/, '');
     return stripped.trim() ? `<div id="article-body" class="md-body">${stripped}</div>` : '';
   }

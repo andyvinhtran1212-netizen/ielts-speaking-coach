@@ -75,6 +75,18 @@
     #panel-word-library .vc-grid {
       display: grid; gap: var(--av-space-4);
       grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+    /* Each CATEGORY section = ONE horizontally-scrolling row (not a wrapping grid).
+       Scoped to .vc-cat so the flat SEARCH results (.vc-grid not in .vc-cat) keep
+       wrapping. Visible scrollbar (drag), wheel + touch scroll, fixed-width cards. */
+    #panel-word-library .vc-cat .vc-grid {
+      display: flex; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden;
+      padding-bottom: var(--av-space-2); scroll-snap-type: x proximity;
+      -webkit-overflow-scrolling: touch; }
+    #panel-word-library .vc-cat .vc-grid .vc-card { flex: 0 0 248px; scroll-snap-align: start; }
+    #panel-word-library .vc-cat .vc-grid::-webkit-scrollbar { height: 8px; }
+    #panel-word-library .vc-cat .vc-grid::-webkit-scrollbar-thumb {
+      background: var(--av-border-default); border-radius: var(--av-radius-pill); }
+    #panel-word-library .vc-cat .vc-grid::-webkit-scrollbar-track { background: transparent; }
     #panel-word-library .vc-card {
       display: flex; flex-direction: column; gap: 6px;
       padding: var(--av-space-4); border-radius: 14px;
