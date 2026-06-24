@@ -3,8 +3,8 @@
  *
  * One call to GET /api/vocabulary/categories (embeds per-word summaries incl.
  * gloss_vi) → render category sections of mini-cards. Each card: headword + POS,
- * IPA, VN gloss, level, ▶ (speechSynthesis en-GB) and links to the existing
- * vocab-article.html?cat=&slug= detail page.
+ * IPA, VN gloss, level, ▶ (speechSynthesis en-GB) and opens the master-detail
+ * browser /vocabulary.html?cat=&slug=&from=word-library (preselect + back link).
  *
  * Slice-B — with the category-runtime (>30 topics), the plain vertical scroll of
  * every section got too long, so this adds a CLIENT-SIDE toolbar:
@@ -36,7 +36,10 @@ export function renderCard(w) {
   const ipa = w.pronunciation ? `<div class="vc-ipa">${esc(w.pronunciation)}</div>` : '';
   const gloss = w.gloss_vi ? `<div class="vc-gloss">${esc(w.gloss_vi)}</div>` : '';
   const level = w.level ? `<span class="vc-level">${esc(w.level)}</span>` : '';
-  const href = `/pages/vocab-article.html?cat=${encodeURIComponent(w.category)}&slug=${encodeURIComponent(w.slug)}`;
+  // Open the master-detail browser with this word preselected (from=word-library
+  // gives the detail pane a back link to /pages/vocabulary.html#word-library). The
+  // standalone /pages/vocab-article.html stays for external deep-links/SEO.
+  const href = `/vocabulary.html?cat=${encodeURIComponent(w.category)}&slug=${encodeURIComponent(w.slug)}&from=word-library`;
   return `<a class="vc-card" href="${href}">
     <div class="vc-card-head">
       <span class="vc-headword">${esc(w.headword)}</span>${pos}

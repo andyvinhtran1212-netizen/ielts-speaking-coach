@@ -26,14 +26,16 @@ const WORD = {
 };
 
 describe('renderCard', () => {
-  test('renders headword/POS/IPA/gloss/level + links to vocab-article with cat&slug', () => {
+  test('renders headword/POS/IPA/gloss/level + opens master-detail with cat&slug&from', () => {
     const h = renderCard(WORD);
     assert.match(h, /Cutting-edge/);
     assert.match(h, /adjective/);
     assert.match(h, /ˈkʌt\.ɪŋ\.edʒ/);
     assert.match(h, /Tiên tiến nhất/);
     assert.match(h, /B2/);
-    assert.match(h, /href="\/pages\/vocab-article\.html\?cat=technology&slug=cutting-edge"/);
+    // → master-detail browser (not the standalone subpage), preselect + back hint
+    assert.match(h, /href="\/vocabulary\.html\?cat=technology&slug=cutting-edge&from=word-library"/);
+    assert.doesNotMatch(h, /\/pages\/vocab-article\.html/);
     assert.match(h, /class="vc-play"[^>]*data-hw="Cutting-edge"/);
   });
 

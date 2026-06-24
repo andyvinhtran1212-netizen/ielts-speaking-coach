@@ -264,6 +264,13 @@
       renderChips(); renderRows();
       // Deep-link or desktop default → open a word in the right pane.
       const params = new URLSearchParams(location.search);
+      // Arrived from the hub word-library tab → reveal the "← Từ vựng" back link
+      // (points at /pages/vocabulary.html#word-library; browser-back also returns
+      // there since the hub wrote that hash via pushState).
+      if (params.get('from') === 'word-library') {
+        const back = document.getElementById('vmd-hub-back');
+        if (back) back.hidden = false;
+      }
       const wantSlug = params.get('slug');
       const want = wantSlug && state.words.find(w => w.slug === wantSlug);
       if (want) selectWord(want.category, want.slug);
