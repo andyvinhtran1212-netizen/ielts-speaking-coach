@@ -58,6 +58,7 @@ class VocabUpdate(BaseModel):
     level:          Optional[str]  = None
     part_of_speech: Optional[str]  = None
     pronunciation:  Optional[str]  = None
+    syllables:      Optional[str]  = None   # Slice-2 orthographic specimen
     definition_en:  Optional[str]  = None
     gloss_vi:       Optional[str]  = None
     example:        Optional[str]  = None

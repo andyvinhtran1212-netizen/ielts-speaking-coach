@@ -27,6 +27,36 @@ function extractFn(src, name) {
 
 const stressParts = extractFn(JS, 'stressParts');
 const articleBodyHTML = extractFn(JS, 'articleBodyHTML');
+const orthographicParts = extractFn(JS, 'orthographicParts');
+
+
+// ── Slice-2: orthographic specimen (priority a) ─────────────────────────
+
+describe('orthographicParts (R5a)', () => {
+  test('me-TROP-o-lis → 4 syllables, primary #2', () => {
+    const r = orthographicParts('me-TROP-o-lis');
+    assert.deepEqual(r.parts, ['me', 'TROP', 'o', 'lis']);
+    assert.equal(r.primary, 1);            // → "trọng âm 2"
+  });
+  test('in-fra-STRUC-ture → primary #3', () => {
+    assert.equal(orthographicParts('in-fra-STRUC-ture').primary, 2);
+  });
+  test('lone token, no uppercase → it is the stress', () => {
+    assert.deepEqual(orthographicParts('slum'), { parts: ['slum'], primary: 0 });
+  });
+  test('empty / multi-token-no-uppercase → null (fall back to IPA)', () => {
+    assert.equal(orthographicParts(''), null);
+    assert.equal(orthographicParts(null), null);
+    assert.equal(orthographicParts('a-b-c'), null);
+  });
+});
+
+describe('specimen priority (a → b → c)', () => {
+  test('cardHTML uses specimenParts (orthographic first, then IPA)', () => {
+    assert.match(JS, /function specimenParts\(/);
+    assert.match(JS, /orthographicParts\(a\.syllables\)\s*\|\|\s*stressParts\(a\.pronunciation\)/);
+  });
+});
 
 
 // ── R1/R2: stress parser ───────────────────────────────────────────────

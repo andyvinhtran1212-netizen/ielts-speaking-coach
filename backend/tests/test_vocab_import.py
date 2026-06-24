@@ -102,6 +102,15 @@ def test_payload_carries_stored_gloss_and_lists():
     assert "body_html" in payload
 
 
+def test_syllables_parsed_when_present_else_empty():
+    # Slice-2: `syllables` is an optional scalar — present → stored verbatim;
+    # absent → "" (graceful, never breaks the import).
+    with_syl = _WORD_MD.replace('category: "technology"',
+                                'category: "technology"\nsyllables: "me-TROP-o-lis"')
+    assert build_vocab_payload(parse_vocab_markdown(with_syl))["syllables"] == "me-TROP-o-lis"
+    assert build_vocab_payload(parse_vocab_markdown(_WORD_MD))["syllables"] == ""
+
+
 # ── upsert idempotency ─────────────────────────────────────────────────
 
 

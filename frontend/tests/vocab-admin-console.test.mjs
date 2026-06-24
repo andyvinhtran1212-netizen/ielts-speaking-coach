@@ -43,6 +43,10 @@ describe('vocab admin console — content.html', () => {
     assert.match(PAGE, /id="f-glossvi"/);          // an edit field
     assert.match(PAGE, /window\.api\.patch\('\/admin\/vocabulary\/'/);
   });
+  test('edit form has the Slice-2 syllables field (in form + payload)', () => {
+    assert.match(PAGE, /id="f-syllables"/);
+    assert.match(PAGE, /syllables: _getVal\('f-syllables'\)/);
+  });
 
   test('delete requires a confirm() and DELETEs by id', () => {
     assert.match(PAGE, /confirm\(\s*'Xóa từ/);
