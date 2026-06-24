@@ -178,22 +178,25 @@ describe('vocab-article audio wiring (vocabulary.js — v2 delegated ▶)', () =
   });
 });
 
-describe('vocab-landing + vocabulary.html wiring', () => {
+describe('hub consolidation (B3) — word-library retired from the hub', () => {
   const LANDING = front('js', 'vocab-landing.js');
   const PAGE = front('pages', 'vocabulary.html');
 
-  test('TAB_LOADERS + VALID_TABS include word-library', () => {
-    assert.match(LANDING, /'word-library':\s*\(\)\s*=>\s*import\('\/js\/vocab-modules\/word-library\.js'\)/);
-    assert.match(LANDING, /VALID_TABS[\s\S]*'word-library'/);
+  test('word-library no longer a hub tab (gone from TAB_LOADERS + VALID_TABS)', () => {
+    assert.doesNotMatch(LANDING, /'word-library':\s*\(\)\s*=>\s*import/);
+    assert.doesNotMatch(LANDING, /VALID_TABS[\s\S]*?'word-library'/);
   });
-  test('page has the mode-card + panel + mount target', () => {
-    assert.match(PAGE, /class="mode-card"\s+data-mode="word-library"/);
-    assert.match(PAGE, /data-panel="word-library"/);
-    assert.match(PAGE, /id="mount-word-library"/);
+  test('"Từ vựng" mode-card LINKS to the public wiki (no in-hub grid panel/mount)', () => {
+    assert.match(PAGE, /href="\/vocabulary\.html" class="mode-card"/);   // real link, not data-mode
+    assert.doesNotMatch(PAGE, /data-mode="word-library"/);
+    assert.doesNotMatch(PAGE, /id="panel-word-library"/);
+    assert.doesNotMatch(PAGE, /id="mount-word-library"/);
   });
-  test('each category section is a horizontal-scroll row (not a wrapping grid)', () => {
-    // Scoped to .vc-cat .vc-grid so the flat search results keep wrapping.
-    assert.match(PAGE, /\.vc-cat \.vc-grid\s*\{[^}]*flex-wrap:\s*nowrap[^}]*overflow-x:\s*auto/);
-    assert.match(PAGE, /\.vc-cat \.vc-grid \.vc-card\s*\{[^}]*flex:\s*0 0/);   // fixed-width cards
+  test('aver-chrome Vocabulary nav is session-adaptive (public wiki default → hub on login)', () => {
+    const CHROME = front('js', 'components', 'aver-chrome.js');
+    assert.match(CHROME, /href="\/vocabulary\.html" data-tab="vocabulary"/);   // public default
+    assert.match(CHROME, /_applyVocabNav\(/);
+    assert.match(CHROME, /_applyVocabNav\(true\)/);                            // swap to hub on login
+    assert.match(CHROME, /loggedIn \? '\/pages\/vocabulary\.html' : '\/vocabulary\.html'/);
   });
 });

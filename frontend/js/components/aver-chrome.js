@@ -320,7 +320,7 @@ const TEMPLATE = /* html */ `
       <a href="/pages/speaking.html" data-tab="speaking">Speaking</a>
       <a href="/pages/listening.html" data-tab="listening">Listening</a>
       <a href="/grammar.html" data-tab="grammar">Grammar</a>
-      <a href="/pages/vocabulary.html" data-tab="vocabulary">Vocabulary</a>
+      <a href="/vocabulary.html" data-tab="vocabulary">Vocabulary</a>
       <a href="/pages/reading-vocab.html" data-tab="reading">Reading</a>
     </div>
 
@@ -445,6 +445,8 @@ export class AverChrome extends HTMLElement {
     if (role !== undefined) this.setRole(role);   // page-authoritative role gate
     if (!this.shadowRoot) return; // mark only; render on connect
 
+    this._applyVocabNav(true);   // B3 — page passed a user → logged in → nav → hub
+
     const resolvedName = name || (email && email.split('@')[0]) || 'bạn';
     const resolvedInitials = initials || canonicalInitials(resolvedName);
 
@@ -518,6 +520,16 @@ export class AverChrome extends HTMLElement {
 
   // ── Internal ───────────────────────────────────────────────────
 
+
+  // B3 — session-adaptive Vocabulary target. Default (template) is the PUBLIC
+  // wiki /vocabulary.html so a logged-out user browses without a login wall;
+  // once a session is confirmed we point it at the login-gated hub ("của bạn").
+  _applyVocabNav(loggedIn) {
+    const root = this.shadowRoot;
+    if (!root) return;
+    const link = root.querySelector('.nav-links a[data-tab="vocabulary"]');
+    if (link) link.setAttribute('href', loggedIn ? '/pages/vocabulary.html' : '/vocabulary.html');
+  }
 
   _applyActive(value) {
     const root = this.shadowRoot;
@@ -643,6 +655,8 @@ export class AverChrome extends HTMLElement {
       }
       if (this._userOverride) return; // raced
       if (!session || !session.user) return;
+
+      this._applyVocabNav(true);   // B3 — logged in → Vocabulary nav → hub
 
       const meta = session.user.user_metadata || {};
       const email = session.user.email || '';

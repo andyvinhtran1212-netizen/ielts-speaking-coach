@@ -181,8 +181,8 @@ test('all 5 vocab children are registered in TAB_LOADERS', () => {
   const loaders = win.__vocabLanding.TAB_LOADERS;
   assert.deepEqual(
     [...loaders].sort(),
-    ['exercises', 'flashcards', 'my-vocab', 'needs-review', 'word-library'],
-    'TAB_LOADERS must list all 5 vocab children (VE4: word-library added)',
+    ['exercises', 'flashcards', 'my-vocab', 'needs-review'],
+    'TAB_LOADERS lists the 4 "của bạn" children (B3 retired word-library; browse → wiki)',
   );
 });
 
@@ -232,10 +232,10 @@ test('VALID_TABS surface lists exactly the six supported modes', () => {
 
   // Cross-vm-context arrays don't share the same Array constructor,
   // so deepStrictEqual fails reference-equality. Compare values instead.
-  // VE4 — `word-library` joined as the 6th supported mode.
+  // B3 — `word-library` retired from the hub (browse → public wiki).
   assert.equal(
     JSON.stringify([...win.__vocabLanding.VALID_TABS].sort()),
-    JSON.stringify(['exercises', 'flashcards', 'my-vocab', 'needs-review', 'topic-bank', 'word-library'].sort()),
+    JSON.stringify(['exercises', 'flashcards', 'my-vocab', 'needs-review', 'topic-bank'].sort()),
   );
   assert.equal(win.__vocabLanding.DEFAULT_TAB, 'my-vocab',
     'DEFAULT_TAB stays my-vocab as the unknown-mode fallback (Sprint 8.2: no longer the page-load default)');

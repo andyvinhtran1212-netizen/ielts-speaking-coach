@@ -78,12 +78,12 @@ describe('vocabulary.html / foundation links', () => {
     assert.match(html, /js\/vocab-landing\.js/);
   });
 
-  test('inline <style> is ONLY the scoped VE4 word-library block', () => {
-    // Page styling still lives in vocabulary.css; VE4 adds ONE scoped `<style>`
-    // (all rules under #panel-word-library .vc-*) for the re-surfaced word grid.
+  test('no inline <style> — B3 retired the VE4 word-library grid block', () => {
+    // B3 removed the in-hub word-library browse (now the public wiki master-detail),
+    // so its scoped .vc-* <style> block is gone; page styling lives in vocabulary.css.
     const blocks = html.match(/<style[\s\S]*?<\/style>/g) || [];
-    assert.equal(blocks.length, 1, `expected exactly 1 inline <style> (VE4), found ${blocks.length}`);
-    assert.match(blocks[0], /#panel-word-library \.vc-/);
+    assert.equal(blocks.length, 0, `expected 0 inline <style> after B3, found ${blocks.length}`);
+    assert.doesNotMatch(html, /#panel-word-library/);
   });
 });
 
@@ -292,9 +292,9 @@ describe('vocabulary.html / Sprint 8.2 mode-card IA + module-mount contract', ()
     const panelsWithRole  = (html.match(/role=["']tabpanel["']/g) || []).length;
     const ariaSelected    = (html.match(/aria-selected=/g) || []).length;
     assert.equal(tabsWithRole,   0, 'role="tab" must be absent (Sprint 8.2 retired the tablist row)');
-    // VE4 — 6 panels (word-library, my-vocab, flashcards, exercises,
-    // needs-review, topic-bank); was 5 pre-VE4.
-    assert.equal(panelsWithRole, 6, 'role="tabpanel" stays on all 6 panels (VE4: word-library added)');
+    // B3 — 5 panels (my-vocab, flashcards, exercises, needs-review, topic-bank);
+    // the word-library panel was retired (browse moved to the public wiki).
+    assert.equal(panelsWithRole, 5, 'role="tabpanel" on the 5 remaining "của bạn" panels (B3 retired word-library)');
     assert.equal(ariaSelected,   0, 'aria-selected must be absent (no tab buttons left)');
   });
 
