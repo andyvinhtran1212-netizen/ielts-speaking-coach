@@ -127,8 +127,10 @@ class VocabContentService:
             "antonyms":       list(r.get("antonyms") or []),
             "collocations":   list(r.get("collocations") or []),
             "related_words":  list(r.get("related_words") or []),
+            "word_family":    list(r.get("word_family") or []),   # mig112 — "Họ từ" (≠ related)
             "gloss_vi":       r.get("gloss_vi") or "",
             "definition_en":  r.get("definition_en") or "",
+            "definition_vi":  r.get("definition_vi") or "",       # mig112 — curated VN (else gloss_vi)
             "example":        r.get("example") or "",
             "html":           r.get("body_html") or "",
             # Slice-2 — orthographic syllabification (e.g. "me-TROP-o-lis"); the
@@ -252,6 +254,7 @@ class VocabContentService:
             "antonyms":       [str(x) for x in (fm.get("antonyms") or []) if x is not None],
             "collocations":   [str(x) for x in (fm.get("collocations") or []) if x is not None],
             "related_words":  [str(x) for x in (fm.get("related_words") or []) if x is not None],
+            "word_family":    [str(x) for x in (fm.get("word_family") or []) if x is not None],
             # VE1 (word-library grid): a short VN gloss for the mini-card. The 20
             # words have NO structured VN field — the gloss is the body's first
             # paragraph (e.g. "**Tiên tiến nhất…** — …"), so extract it. A word
@@ -260,6 +263,7 @@ class VocabContentService:
             # VE1 forward-compat for VC1 (Andy fills these later). ADDITIVE — a
             # word without the frontmatter key gets "" and no existing field changes.
             "definition_en":  str(fm.get("definition_en") or ""),
+            "definition_vi":  str(fm.get("definition_vi") or ""),   # mig112 curated VN
             "example":        str(fm.get("example") or ""),
             "syllables":      str(fm.get("syllables") or ""),   # Slice-2 orthographic
             # V-article re-skin — structured card fields (forward-compat; empty for

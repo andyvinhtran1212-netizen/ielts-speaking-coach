@@ -59,6 +59,21 @@ describe('specimen priority (a → b → c)', () => {
 });
 
 
+// ── mig112 field-reconcile: definition_vi + word_family + relabel ───────
+
+describe('cardHTML field reconcile (mig112)', () => {
+  test('VN line prefers curated definition_vi, falls back to gloss_vi', () => {
+    assert.match(JS, /const defVi = \(a\.definition_vi && a\.definition_vi\.trim\(\)\) \? a\.definition_vi : a\.gloss_vi/);
+    assert.match(JS, /va-def-vi">\$\{esc\(defVi\)\}/);
+  });
+  test('net rows: related_words → "Từ liên quan"; word_family → "Họ từ" (LECH fixed)', () => {
+    assert.match(JS, /netRow\('Từ liên quan', a\.related_words\)/);
+    assert.match(JS, /netRow\('Họ từ', a\.word_family\)/);
+    assert.doesNotMatch(JS, /netRow\('Họ từ', a\.related_words\)/);   // old mislabel gone
+  });
+});
+
+
 // ── R1/R2: stress parser ───────────────────────────────────────────────
 
 describe('stressParts (R1/R2 fix)', () => {

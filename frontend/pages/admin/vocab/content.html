@@ -163,13 +163,15 @@
           <div><label class="aw-form-label">Phát âm (IPA)</label><input id="f-pron" class="aw-input" /></div>
           <div><label class="aw-form-label">Âm tiết (vd: me-TROP-o-lis)</label><input id="f-syllables" class="aw-input" placeholder="hoa = trọng âm; để trống = dùng IPA" /></div>
         </div>
-        <div><label class="aw-form-label">Nghĩa (VN)</label><textarea id="f-glossvi" class="aw-input" rows="2"></textarea></div>
+        <div><label class="aw-form-label">Định nghĩa (VN, curated)</label><textarea id="f-defvi" class="aw-input" rows="2" placeholder="để trống = dùng đoạn đầu body (gloss)"></textarea></div>
+        <div><label class="aw-form-label">Nghĩa VN tự động (gloss, từ body)</label><textarea id="f-glossvi" class="aw-input" rows="2"></textarea></div>
         <div><label class="aw-form-label">Định nghĩa (EN)</label><textarea id="f-defen" class="aw-input" rows="2"></textarea></div>
         <div><label class="aw-form-label">Ví dụ</label><textarea id="f-example" class="aw-input" rows="2"></textarea></div>
         <div class="grid grid-cols-2 gap-3">
           <div><label class="aw-form-label">Collocations (phẩy)</label><input id="f-colloc" class="aw-input" /></div>
           <div><label class="aw-form-label">Từ liên quan (phẩy)</label><input id="f-related" class="aw-input" /></div>
         </div>
+        <div><label class="aw-form-label">Họ từ — word family (phẩy)</label><input id="f-wordfamily" class="aw-input" placeholder="vd: metropolitan (adj), metro (n)" /></div>
         <div class="grid grid-cols-2 gap-3">
           <div><label class="aw-form-label">Đồng nghĩa (phẩy)</label><input id="f-syn" class="aw-input" /></div>
           <div><label class="aw-form-label">Trái nghĩa (phẩy)</label><input id="f-ant" class="aw-input" /></div>
@@ -529,9 +531,10 @@
         _vw.editingId = id;
         _setVal('f-headword', w.headword); _setVal('f-slug', w.slug);
         _setVal('f-category', w.category); _setVal('f-level', w.level); _setVal('f-pos', w.part_of_speech);
-        _setVal('f-pron', w.pronunciation); _setVal('f-syllables', w.syllables); _setVal('f-glossvi', w.gloss_vi); _setVal('f-defen', w.definition_en);
+        _setVal('f-pron', w.pronunciation); _setVal('f-syllables', w.syllables); _setVal('f-defvi', w.definition_vi); _setVal('f-glossvi', w.gloss_vi); _setVal('f-defen', w.definition_en);
         _setVal('f-example', w.example);
         _setVal('f-colloc', (w.collocations || []).join(', ')); _setVal('f-related', (w.related_words || []).join(', '));
+        _setVal('f-wordfamily', (w.word_family || []).join(', '));
         _setVal('f-syn', (w.synonyms || []).join(', ')); _setVal('f-ant', (w.antonyms || []).join(', '));
         _setVal('f-error', w.common_error); _setVal('f-hook', w.memory_hook);
         _setVal('f-register', w.register); _setVal('f-source', w.source); _setVal('f-body', w.body_html);
@@ -548,8 +551,9 @@
       var payload = {
         headword: _getVal('f-headword'), category: _getVal('f-category'), level: _getVal('f-level'),
         part_of_speech: _getVal('f-pos'), pronunciation: _getVal('f-pron'), syllables: _getVal('f-syllables'), gloss_vi: _getVal('f-glossvi'),
-        definition_en: _getVal('f-defen'), example: _getVal('f-example'),
+        definition_en: _getVal('f-defen'), definition_vi: _getVal('f-defvi'), example: _getVal('f-example'),
         collocations: _CSV(_getVal('f-colloc')), related_words: _CSV(_getVal('f-related')),
+        word_family: _CSV(_getVal('f-wordfamily')),
         synonyms: _CSV(_getVal('f-syn')), antonyms: _CSV(_getVal('f-ant')),
         common_error: _getVal('f-error'), memory_hook: _getVal('f-hook'),
         register: _getVal('f-register'), source: _getVal('f-source'), body_html: _getVal('f-body'),

@@ -47,6 +47,12 @@ describe('vocab admin console — content.html', () => {
     assert.match(PAGE, /id="f-syllables"/);
     assert.match(PAGE, /syllables: _getVal\('f-syllables'\)/);
   });
+  test('edit form has mig112 definition_vi + word_family (form + payload)', () => {
+    assert.match(PAGE, /id="f-defvi"/);
+    assert.match(PAGE, /id="f-wordfamily"/);
+    assert.match(PAGE, /definition_vi: _getVal\('f-defvi'\)/);
+    assert.match(PAGE, /word_family: _CSV\(_getVal\('f-wordfamily'\)\)/);
+  });
 
   test('delete requires a confirm() and DELETEs by id', () => {
     assert.match(PAGE, /confirm\(\s*'Xóa từ/);
