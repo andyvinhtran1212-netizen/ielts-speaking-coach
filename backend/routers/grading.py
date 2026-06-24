@@ -20,6 +20,7 @@ import asyncio
 import json
 import logging
 import os
+import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Form, Header, HTTPException, UploadFile, File
@@ -498,12 +499,23 @@ async def grade_response_endpoint(
 
         if grading:
             db_row["overall_band"] = grading["overall_band"]
+            # Pre-mint a stable rec_id (client UUID) on every grammar
+            # recommendation BEFORE serializing the feedback blob, so the
+            # persisted blob carries the SAME id later written to the
+            # grammar_recommendations table. Without this, the blob serialized
+            # here (db_save) precedes _save_grammar_recommendations() below, so
+            # it lacked rec_id; result.html's reload-path then bails
+            # (`if (!rec.rec_id) return ''`) and was_clicked under-counts on
+            # every page reload. Practice-only: recs are only persisted in
+            # practice mode (see STEP 8b). Forward-only — old rows unchanged.
+            if session_mode == "practice":
+                _premint_grammar_rec_ids(grading)
             # Sprint 14.8.1 (Codex F1) — persist the signals alongside the grade
             # so off-topic / length / grammar survive a page reload (result.html
             # re-reads responses.feedback). Additive: all grading keys preserved;
             # signals add off_topic_verdict / length_warning / audio_duration_seconds
             # / length_soft_threshold / grammar_check (no key collisions).
-            db_row["feedback"]     = json.dumps({**grading, **signals}, ensure_ascii=False)
+            db_row["feedback"]     = _serialize_feedback(grading, signals)
 
         # Columns guaranteed to exist in the base schema (no migrations needed).
         # duration_seconds is intentionally excluded: the column may be INTEGER on
@@ -745,6 +757,31 @@ def _guess_ext(filename: str | None, content_type: str | None) -> str:
     return ".webm"   # safe default
 
 
+def _premint_grammar_rec_ids(grading: dict) -> None:
+    """Assign a stable client-generated UUID `rec_id` to every grammar
+    recommendation, in place, BEFORE the feedback blob is serialized.
+
+    The persisted responses.feedback blob and the grammar_recommendations
+    rows must agree on `rec_id` — the blob is serialized at db_save time
+    (before the rows are inserted), so without pre-minting the blob carried
+    no rec_id and result.html's reload-path render bailed
+    (`if (!rec.rec_id) return ''`) → was_clicked telemetry under-count.
+
+    Idempotent: only fills a rec_id that is missing/empty.
+    """
+    for r in grading.get("grammar_recommendations") or []:
+        if not r.get("rec_id"):
+            r["rec_id"] = str(uuid.uuid4())
+
+
+def _serialize_feedback(grading: dict, signals: dict) -> str:
+    """Serialize the grading dict + signals into the responses.feedback JSON
+    blob. Extracted from the inline db_save so the rec_id-persistence
+    invariant (every grammar rec in the blob carries its rec_id) is
+    unit-testable without a DB."""
+    return json.dumps({**grading, **signals}, ensure_ascii=False)
+
+
 def _save_grammar_recommendations(
     recs: list[dict],
     *,
@@ -756,12 +793,21 @@ def _save_grammar_recommendations(
     Persist grammar_recommendations rows for a graded practice response.
     Best-effort — returns enriched recs with `rec_id` on success, original list on failure.
     Non-fatal if the table doesn't exist yet (pre-migration).
+
+    Each row is INSERTed with its pre-minted `id` (see _premint_grammar_rec_ids)
+    so the DB row, the serialized feedback blob, and the HTTP response all share
+    one rec_id — no read-back round-trip. Self-heals if a rec arrives without a
+    pre-minted id.
     """
     if not recs:
         return recs
     try:
-        rows = [
-            {
+        rows = []
+        for r in recs:
+            rec_id = r.get("rec_id") or str(uuid.uuid4())
+            r["rec_id"] = rec_id   # ensure the in-memory rec carries it too
+            rows.append({
+                "id":                   rec_id,
                 "user_id":              user_id,
                 "session_id":           session_id,
                 "response_id":          response_id,
@@ -774,17 +820,11 @@ def _save_grammar_recommendations(
                 # Falls back to NULL when matcher couldn't resolve a specific
                 # anchor — frontend then renders the article-level URL.
                 "recommended_anchor":   r.get("anchor"),
-            }
-            for r in recs
-        ]
-        result = supabase_admin.table("grammar_recommendations").insert(rows).execute()
+            })
+        supabase_admin.table("grammar_recommendations").insert(rows).execute()
         logger.info("[grading] saved %d grammar_recommendations for response=%s", len(rows), response_id)
-        # Merge saved IDs back into recs so they can be sent to the frontend
-        saved = result.data or []
-        enriched = []
-        for orig, saved_row in zip(recs, saved):
-            enriched.append({**orig, "rec_id": saved_row.get("id")})
-        return enriched
+        # rec_id is the pre-minted id we just inserted — no read-back needed.
+        return [{**orig, "rec_id": row["id"]} for orig, row in zip(recs, rows)]
     except Exception as e:
         logger.debug("[grading] grammar_recommendations save skipped (non-fatal): %s", e)
         return recs
