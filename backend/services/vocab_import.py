@@ -32,9 +32,9 @@ logger = logging.getLogger(__name__)
 
 # Columns the importer writes — MUST be a subset of migration 110's columns
 # (test_vocab_import asserts this; the compose-500 #538 mock-vs-DB lesson).
-_LIST_FIELDS = ("synonyms", "antonyms", "collocations", "related_words")
+_LIST_FIELDS = ("synonyms", "antonyms", "collocations", "related_words", "word_family")
 _SCALAR_FIELDS = (
-    "level", "part_of_speech", "pronunciation", "definition_en", "example",
+    "level", "part_of_speech", "pronunciation", "definition_en", "definition_vi", "example",
     "register", "common_error", "memory_hook", "source", "group",
     # Slice-2 — optional orthographic syllabification (e.g. "me-TROP-o-lis").
     # Missing → "" (graceful); the card falls back to the IPA stress parser.

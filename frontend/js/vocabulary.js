@@ -111,10 +111,13 @@
       ${sp ? renderSpecimen(sp) : ''}
     </div>`);
 
-    if (a.definition_en || a.gloss_vi) {
+    // VN line: prefer the CURATED definition_vi (mig112); fall back to gloss_vi
+    // (the body's first paragraph) for words without a curated VN yet.
+    const defVi = (a.definition_vi && a.definition_vi.trim()) ? a.definition_vi : a.gloss_vi;
+    if (a.definition_en || defVi) {
       pad.push('<div class="va-rule"></div><div class="va-pad">'
         + (a.definition_en ? `<p class="va-def-en">${esc(a.definition_en)}</p>` : '')
-        + (a.gloss_vi ? `<p class="va-def-vi">${esc(a.gloss_vi)}</p>` : '')
+        + (defVi ? `<p class="va-def-vi">${esc(defVi)}</p>` : '')
         + '</div>');
     }
 
@@ -128,7 +131,10 @@
         + '</div>');
     }
 
-    const net = netRow('Đồng nghĩa', a.synonyms) + netRow('Trái nghĩa', a.antonyms) + netRow('Họ từ', a.related_words);
+    // Word network — each row hidden when empty (netRow → ''). related_words is
+    // now "Từ liên quan" (was mislabelled "Họ từ"); word_family (mig112) is "Họ từ".
+    const net = netRow('Đồng nghĩa', a.synonyms) + netRow('Trái nghĩa', a.antonyms)
+              + netRow('Từ liên quan', a.related_words) + netRow('Họ từ', a.word_family);
     if (net) pad.push(`<div class="va-rule"></div><div class="va-pad"><dl class="va-net">${net}</dl></div>`);
 
     if (a.common_error || a.memory_hook) {

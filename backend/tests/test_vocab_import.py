@@ -111,6 +111,30 @@ def test_syllables_parsed_when_present_else_empty():
     assert build_vocab_payload(parse_vocab_markdown(_WORD_MD))["syllables"] == ""
 
 
+def test_upload_format_doc_matches_reconcile():
+    # AG5 — the committed khuôn reflects the reconcile: definition_vi + word_family
+    # documented; `stress` no longer a supported field; group marked internal.
+    from pathlib import Path
+    doc = (Path(__file__).parent.parent / "docs" / "VOCAB_UPLOAD_FORMAT.md").read_text("utf-8")
+    assert "definition_vi" in doc and "word_family" in doc
+    assert "Removed / not supported" in doc and "stress" in doc  # listed as removed
+    assert "internal metadata only" in doc                        # group documented internal
+
+
+def test_definition_vi_and_word_family_parsed():
+    # mig112 field-reconcile: definition_vi (scalar) + word_family (list).
+    md = _WORD_MD.replace('category: "technology"',
+                          'category: "technology"\n'
+                          'definition_vi: "định nghĩa VN curated"\n'
+                          'word_family: ["metropolitan (adj)", "metro (n)"]')
+    payload = build_vocab_payload(parse_vocab_markdown(md))
+    assert payload["definition_vi"] == "định nghĩa VN curated"
+    assert payload["word_family"] == ["metropolitan (adj)", "metro (n)"]
+    # absent → graceful empty (no break for existing-shape files)
+    base = build_vocab_payload(parse_vocab_markdown(_WORD_MD))
+    assert base["definition_vi"] == "" and base["word_family"] == []
+
+
 # ── upsert idempotency ─────────────────────────────────────────────────
 
 

@@ -64,6 +64,7 @@ class VocabUpdate(BaseModel):
     pronunciation:  Optional[str]  = None
     syllables:      Optional[str]  = None   # Slice-2 orthographic specimen
     definition_en:  Optional[str]  = None
+    definition_vi:  Optional[str]  = None   # mig112 curated VN definition
     gloss_vi:       Optional[str]  = None
     example:        Optional[str]  = None
     register:       Optional[str]  = None
@@ -75,6 +76,7 @@ class VocabUpdate(BaseModel):
     antonyms:       Optional[list] = None
     collocations:   Optional[list] = None
     related_words:  Optional[list] = None
+    word_family:    Optional[list] = None   # mig112 — "Họ từ" (≠ related_words)
     body_html:      Optional[str]  = None
 
 
