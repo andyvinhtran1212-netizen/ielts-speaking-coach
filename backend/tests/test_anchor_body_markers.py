@@ -132,27 +132,90 @@ def test_broken_hotlink_detection():
     assert ids == ["m1"]
 
 
-# ── WARN-now / STRICT-later exit-code contract (real repo) ────────────────
+# ── WARN vs STRICT exit-code contract (ISOLATED fixture, not real repo) ───
+#
+# These were originally written against the real repo's legacy backlog
+# (expecting issues). A3 backfilled the repo to ZERO issues, so a
+# "repo-is-dirty" assertion inverts. The mode contract is now proven on a
+# synthetic tmp tree with exactly one planted defect — deterministic
+# regardless of the real repo's state.
 
-def test_warn_mode_exits_zero_on_real_repo():
-    """Default (no env) — body-marker backlog is WARN, must not fail CI."""
+@pytest.fixture
+def main_tree(tmp_path, monkeypatch):
+    """Like content_tree but also points MAPPING_FILE at the tmp tree (with
+    an empty mapping) so vad.main() can run end-to-end. Returns a writer."""
+    content = tmp_path / "backend" / "content"
+    (content / "foundations").mkdir(parents=True)
+    monkeypatch.setattr(vad, "ROOT", tmp_path)
+    monkeypatch.setattr(vad, "CONTENT_DIR", content)
+    monkeypatch.setattr(vad, "MAPPING_FILE", content / "feedback-anchor-mapping.yaml")
+    (content / "feedback-anchor-mapping.yaml").write_text("mappings: []\n", encoding="utf-8")
+
+    def write(rel: str, text: str):
+        p = content / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(text, encoding="utf-8")
+    return write
+
+
+def _plant_missing_marker(write):
+    """One declared anchor whose body marker is absent → exactly 1 violation."""
+    write("foundations/bad.md", _article(
+        "anchors:\n"
+        "  - id: bad.section\n"
+        "    location: '## Phần'\n",
+        "## Phần\nKhông có marker.\n",
+    ))
+
+
+def test_warn_mode_exits_zero_with_planted_defect(main_tree, monkeypatch, capsys):
+    """WARN mode (STRICT off): a defect is reported but does NOT fail."""
+    _plant_missing_marker(main_tree)
+    monkeypatch.setattr(vad, "STRICT_BODY_MARKERS", False)
+    rc = vad.main()
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "WARN Body-marker audit" in out
+    assert "warning only" in out
+
+
+def test_strict_mode_exits_nonzero_with_planted_defect(main_tree, monkeypatch, capsys):
+    """STRICT mode (the flipped default): the same defect fails the gate."""
+    _plant_missing_marker(main_tree)
+    monkeypatch.setattr(vad, "STRICT_BODY_MARKERS", True)
+    rc = vad.main()
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "FAIL Body-marker audit" in out
+
+
+def test_clean_tree_exits_zero_in_strict_mode(main_tree, monkeypatch, capsys):
+    """A clean tree passes even under STRICT — so the flip is safe once the
+    repo has zero issues."""
+    main_tree("foundations/good.md", _article(
+        "anchors:\n"
+        "  - id: good.overview\n"
+        "    location: '## Tóm tắt'\n",
+        "<!-- anchor: good.overview -->\n## Tóm tắt\nNội dung.\n",
+    ))
+    monkeypatch.setattr(vad, "STRICT_BODY_MARKERS", True)
+    rc = vad.main()
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "OK Body-marker audit" in out
+
+
+# ── real-repo guard: the repo must STAY clean (drift-prevention) ──────────
+
+def test_real_repo_has_zero_body_marker_issues():
+    """After A3 backfill the real repo has ZERO body-marker issues. This
+    guard runs the script exactly as CI does (subprocess, default env) and
+    asserts a clean pass. Robust to the STRICT flip: clean → exit 0 in
+    either mode. A future PR that adds a declared anchor without its body
+    marker fails HERE (and in CI under STRICT)."""
     r = subprocess.run(
         [sys.executable, "backend/scripts/verify_anchor_drift.py"],
         capture_output=True, text=True, cwd=REPO_ROOT,
     )
     assert r.returncode == 0, r.stdout + r.stderr
-    assert "Body-marker audit" in r.stdout
-    assert "warning only" in r.stdout
-
-
-def test_strict_mode_exits_nonzero_on_real_repo():
-    """ANCHOR_BODY_MARKERS_STRICT=1 flips the body audit to a HARD gate —
-    the A3-backfill flip. With the legacy backlog present it must fail."""
-    import os
-    env = {**os.environ, "ANCHOR_BODY_MARKERS_STRICT": "1"}
-    r = subprocess.run(
-        [sys.executable, "backend/scripts/verify_anchor_drift.py"],
-        capture_output=True, text=True, cwd=REPO_ROOT, env=env,
-    )
-    assert r.returncode == 1, r.stdout + r.stderr
-    assert "FAIL Body-marker audit" in r.stdout
+    assert "OK Body-marker audit" in r.stdout
