@@ -635,7 +635,8 @@ describe('Sprint 7.11 — <aver-chrome> Web Component contract', () => {
     assert.match(component, /href="\/pages\/speaking\.html"\s+data-tab="speaking"/);
     assert.match(component, /href="\/pages\/listening\.html"\s+data-tab="listening"/);
     assert.match(component, /href="\/grammar\.html"\s+data-tab="grammar"/);
-    assert.match(component, /href="\/pages\/vocabulary\.html"\s+data-tab="vocabulary"/);
+    // Vocab nav points at the wiki landing (master-detail browse), not the hub.
+    assert.match(component, /href="\/vocabulary\.html"\s+data-tab="vocabulary"/);
     assert.match(component, /href="\/pages\/reading-vocab\.html"\s+data-tab="reading"/);
   });
 });
