@@ -222,6 +222,9 @@
   border-radius: var(--av-radius-lg); box-shadow: var(--av-shadow-sm); overflow: hidden;
 }
 .vmd-list-head { padding: var(--av-space-4); border-bottom: 1px solid var(--av-border-subtle); }
+.vmd-hub-back { display: inline-block; margin-bottom: var(--av-space-2); font-size: 13px;
+  font-family: 'Hanken Grotesk', system-ui, sans-serif; color: var(--av-vocab-jade); text-decoration: none; }
+.vmd-hub-back:hover { text-decoration: underline; }
 .vmd-title { font-family: 'Fraunces', Georgia, serif; font-weight: 500; font-size: 20px;
   letter-spacing: -.01em; color: var(--av-text-primary); margin: var(--av-space-1) 0 2px; }
 .vmd-count { font-family: 'DM Mono', ui-monospace, monospace; font-size: 12px; color: var(--av-text-muted); }

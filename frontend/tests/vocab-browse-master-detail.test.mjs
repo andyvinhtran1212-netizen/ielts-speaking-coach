@@ -142,4 +142,9 @@ describe('vocabulary.html — master-detail shell', () => {
   test('legacy category-grid markup gone', () => {
     assert.doesNotMatch(LANDING, /id="category-grid"/);
   });
+  test('from=word-library back link → hub #word-library', () => {
+    assert.match(LANDING, /id="vmd-hub-back"[^>]*href="\/pages\/vocabulary\.html#word-library"/);
+    assert.match(JS, /params\.get\('from'\) === 'word-library'/);   // reveal logic
+    assert.match(JS, /getElementById\('vmd-hub-back'\)/);
+  });
 });
