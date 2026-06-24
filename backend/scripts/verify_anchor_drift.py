@@ -16,15 +16,15 @@ Two layers of checks:
      b. location-heading-mismatch    (declared `location` heading not in body)
      c. reverse drift                 (a body marker no frontmatter declares)
 
-   These currently fail on a known legacy backlog (~119 missing markers), so
-   the audit is WARN-only (does NOT affect exit code) until that backlog is
-   backfilled (Plan-A item A3). Flip to HARD by either:
-     • setting env  ANCHOR_BODY_MARKERS_STRICT=1   (CI), or
-     • changing STRICT_BODY_MARKERS default to True (one-line code flip).
+   The legacy backlog (~119 missing markers) was backfilled in A3, so this
+   audit is now a HARD gate by DEFAULT — any new declared-but-unmarked anchor
+   (or location mismatch / reverse drift / broken hotlink) fails the build,
+   preventing drift from re-accumulating. Temporarily downgrade to WARN (for
+   a future bulk-backfill pass that wants the full list without failing) by
+   setting env ANCHOR_BODY_MARKERS_STRICT=0.
 
 Exit codes:
-  0 — all active mappings resolve (body-marker audit warnings don't fail
-      unless strict mode is on)
+  0 — all active mappings resolve AND (strict mode) no body-marker violations
   1 — mapping drift detected, OR (strict mode) body-marker violations exist
 """
 from __future__ import annotations
@@ -46,8 +46,9 @@ EXCLUDED_TOP_LEVEL_DIRS = {"reading"}
 # the SAME markers the loader converts into `<a id>`.
 _ANCHOR_MARKER_RE = re.compile(r"<!--\s*anchor:\s*([A-Za-z0-9_.\-]+)\s*-->")
 
-# WARN now → HARD after A3 backfills the legacy markers (Minh's call).
-STRICT_BODY_MARKERS = os.environ.get("ANCHOR_BODY_MARKERS_STRICT", "0") == "1"
+# HARD by default (A3 backfill complete). Set ANCHOR_BODY_MARKERS_STRICT=0
+# to temporarily downgrade to WARN for a future bulk-backfill pass.
+STRICT_BODY_MARKERS = os.environ.get("ANCHOR_BODY_MARKERS_STRICT", "1") == "1"
 
 
 def is_grammar_article(md_path: Path) -> bool:
