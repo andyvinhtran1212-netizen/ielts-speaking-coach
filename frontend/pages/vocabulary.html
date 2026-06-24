@@ -59,120 +59,6 @@
        Play-CDN cascade — utilities/.hidden win over same-specificity page rules. -->
   <link rel="stylesheet" href="/css/tailwind.build.css" />
 
-  <!-- VE4 — word-library grid styling. SCOPED under `.vc-*` so it can't restyle
-       the existing vocab landing/modules. Loaded AFTER tailwind.build.css so the
-       static utilities can't override it (cascade-order lesson). Theme-aware via
-       the --av-* tokens for surfaces/text; jade accent + design fonts per the
-       approved word-card design. -->
-  <style>
-    #panel-word-library .vc-root { padding: var(--av-space-4) 0 var(--av-space-12); }
-    #panel-word-library .vc-empty { text-align: center; padding: 3rem;
-      color: var(--av-text-muted); font-family: 'Hanken Grotesk', system-ui, sans-serif; }
-    #panel-word-library .vc-cat { margin-bottom: var(--av-space-8); }
-    #panel-word-library .vc-cat-title { font-family: 'Fraunces', Georgia, serif;
-      font-weight: 600; font-size: 1.25rem; color: var(--av-text-primary);
-      margin: 0 0 var(--av-space-4); }
-    #panel-word-library .vc-grid {
-      display: grid; gap: var(--av-space-4);
-      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
-    /* Each CATEGORY section = ONE horizontally-scrolling row (not a wrapping grid).
-       Scoped to .vc-cat so the flat SEARCH results (.vc-grid not in .vc-cat) keep
-       wrapping. Visible scrollbar (drag), wheel + touch scroll, fixed-width cards. */
-    #panel-word-library .vc-cat .vc-grid {
-      display: flex; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden;
-      padding-bottom: var(--av-space-2); scroll-snap-type: x proximity;
-      -webkit-overflow-scrolling: touch; }
-    #panel-word-library .vc-cat .vc-grid .vc-card { flex: 0 0 248px; scroll-snap-align: start; }
-    #panel-word-library .vc-cat .vc-grid::-webkit-scrollbar { height: 8px; }
-    #panel-word-library .vc-cat .vc-grid::-webkit-scrollbar-thumb {
-      background: var(--av-border-default); border-radius: var(--av-radius-pill); }
-    #panel-word-library .vc-cat .vc-grid::-webkit-scrollbar-track { background: transparent; }
-    #panel-word-library .vc-card {
-      display: flex; flex-direction: column; gap: 6px;
-      padding: var(--av-space-4); border-radius: 14px;
-      background: var(--av-surface-card); border: 1px solid var(--av-border-subtle);
-      box-shadow: var(--av-shadow-sm); text-decoration: none;
-      border-left: 3px solid #0B6E59;   /* jade accent rail */
-      transition: box-shadow .15s, transform .15s; }
-    #panel-word-library .vc-card:hover {
-      box-shadow: var(--av-shadow-md); transform: translateY(-2px); }
-    #panel-word-library .vc-card-head {
-      display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-    #panel-word-library .vc-headword {
-      font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 1.15rem;
-      color: var(--av-text-primary); line-height: 1.2; }
-    #panel-word-library .vc-pos {
-      font-family: 'DM Mono', ui-monospace, monospace; font-size: .7rem;
-      text-transform: lowercase; color: #0B6E59; flex-shrink: 0; }
-    #panel-word-library .vc-ipa {
-      font-family: 'DM Mono', ui-monospace, monospace; font-size: .82rem;
-      color: var(--av-text-secondary); }
-    #panel-word-library .vc-gloss {
-      font-family: 'Hanken Grotesk', system-ui, sans-serif; font-size: .9rem;
-      color: var(--av-text-secondary); line-height: 1.5;
-      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-    #panel-word-library .vc-card-foot {
-      display: flex; align-items: center; justify-content: space-between;
-      margin-top: auto; padding-top: 6px; }
-    #panel-word-library .vc-level {
-      font-family: 'DM Mono', ui-monospace, monospace; font-size: .72rem;
-      font-weight: 500; color: var(--av-text-on-primary); background: #0B6E59;
-      padding: 1px 8px; border-radius: 999px; }
-    #panel-word-library .vc-play {
-      font-size: .7rem; line-height: 1; cursor: pointer;
-      width: 28px; height: 28px; border-radius: 50%;
-      border: 1px solid #0B6E59; color: #0B6E59; background: transparent; }
-    #panel-word-library .vc-play:hover { background: #0B6E59; color: #fff; }
-
-    /* Slice-B — search + chip-filter toolbar (jade design, Hanken/DM Mono). */
-    #panel-word-library .vc-toolbar {
-      display: flex; flex-direction: column; gap: var(--av-space-3);
-      padding: var(--av-space-4) 0 var(--av-space-2); }
-    #panel-word-library .vc-search-wrap { position: relative; max-width: 420px; }
-    #panel-word-library .vc-search {
-      width: 100%; box-sizing: border-box;
-      font-family: 'Hanken Grotesk', system-ui, sans-serif; font-size: .95rem;
-      padding: 10px 36px 10px 14px; border-radius: 999px;
-      border: 1px solid var(--av-border-default); background: var(--av-surface-card);
-      color: var(--av-text-primary); }
-    #panel-word-library .vc-search::placeholder { color: var(--av-text-muted); }
-    #panel-word-library .vc-search:focus {
-      outline: none; border-color: #0B6E59;
-      box-shadow: 0 0 0 3px color-mix(in srgb, #0B6E59 22%, transparent); }
-    #panel-word-library .vc-search-clear {
-      position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
-      width: 26px; height: 26px; border-radius: 50%; border: none; cursor: pointer;
-      background: transparent; color: var(--av-text-muted); font-size: 1.1rem; line-height: 1; }
-    #panel-word-library .vc-search-clear:hover { color: var(--av-text-primary); }
-    #panel-word-library .vc-chips {
-      display: flex; gap: var(--av-space-2); overflow-x: auto; padding-bottom: 4px;
-      scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
-    #panel-word-library .vc-chips::-webkit-scrollbar { height: 6px; }
-    #panel-word-library .vc-chips::-webkit-scrollbar-thumb {
-      background: var(--av-border-default); border-radius: 999px; }
-    #panel-word-library .vc-chip {
-      flex: 0 0 auto; white-space: nowrap; cursor: pointer;
-      display: inline-flex; align-items: center; gap: 6px;
-      font-family: 'Hanken Grotesk', system-ui, sans-serif; font-size: .85rem;
-      padding: 6px 12px; border-radius: 999px;
-      border: 1px solid var(--av-border-default); background: var(--av-surface-card);
-      color: var(--av-text-secondary); transition: background .12s, color .12s, border-color .12s; }
-    #panel-word-library .vc-chip:hover { border-color: #0B6E59; color: var(--av-text-primary); }
-    #panel-word-library .vc-chip.is-active {
-      background: #0B6E59; border-color: #0B6E59; color: #fff; }
-    #panel-word-library .vc-chip-n {
-      font-family: 'DM Mono', ui-monospace, monospace; font-size: .72rem; opacity: .8; }
-    #panel-word-library .vc-chip.is-active .vc-chip-n { opacity: .9; }
-    #panel-word-library .vc-count {
-      font-family: 'DM Mono', ui-monospace, monospace; font-size: .8rem;
-      color: var(--av-text-muted); margin: 0 0 var(--av-space-3); }
-    #panel-word-library .vc-empty-title {
-      font-family: 'Fraunces', Georgia, serif; font-size: 1.1rem;
-      color: var(--av-text-primary); margin: 0 0 var(--av-space-2); }
-    #panel-word-library .vc-empty-hint {
-      font-family: 'Hanken Grotesk', system-ui, sans-serif; font-size: .9rem;
-      color: var(--av-text-muted); margin: 0; }
-  </style>
 
   <!-- Lucide icons (line glyphs for chrome only — tab icon emoji remain
        as Sprint 6.7+ functional microcopy). -->
@@ -234,13 +120,15 @@
     <section class="vocab-modes" aria-labelledby="modes-heading">
       <h2 id="modes-heading">Bắt đầu học từ vựng</h2>
       <div class="modes-grid">
-        <a href="#" class="mode-card" data-mode="word-library" aria-label="Mở Từ vựng">
+        <!-- B3 — single browse surface: this card LINKS to the public wiki
+             master-detail (/vocabulary.html), no longer an in-hub grid panel. -->
+        <a href="/vocabulary.html" class="mode-card" aria-label="Mở thư viện từ vựng">
           <div class="head">
             <div class="icon"><i data-lucide="library"></i></div>
             <span class="arrow" aria-hidden="true">→</span>
           </div>
           <h3>Từ vựng</h3>
-          <p class="lede">Thư viện từ vựng IELTS theo chủ đề.</p>
+          <p class="lede">Tra cứu thư viện từ vựng IELTS theo chủ đề (trang công khai).</p>
         </a>
         <a href="#" class="mode-card" data-mode="my-vocab" aria-label="Mở My Vocabulary">
           <div class="head">
@@ -299,14 +187,9 @@
          the default landing state. aria-labelledby points at the mode-card
          heading so screen readers still anchor each panel to its trigger. -->
 
-    <section class="tab-panel" data-panel="word-library" id="panel-word-library"
-             role="tabpanel" aria-labelledby="modes-heading" hidden>
-      <!-- VE4 — re-surfaced content_vocab library. vocab-landing.js
-           dynamic-imports /js/vocab-modules/word-library.js and calls
-           mount(container, { embedded: true }); the module fetches
-           /api/vocabulary/categories via window.api and renders the .vc-* grid. -->
-      <div class="tab-mount" id="mount-word-library"></div>
-    </section>
+    <!-- B3 — the word-library browse panel was retired; the "Từ vựng" mode-card
+         now links to the public wiki master-detail (/vocabulary.html), the single
+         browse surface. The hub keeps only the login-gated "của bạn" tools below. -->
 
     <section class="tab-panel" data-panel="my-vocab" id="panel-my-vocab"
              role="tabpanel" aria-labelledby="modes-heading" hidden>

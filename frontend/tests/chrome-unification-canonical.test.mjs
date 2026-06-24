@@ -635,9 +635,10 @@ describe('Sprint 7.11 — <aver-chrome> Web Component contract', () => {
     assert.match(component, /href="\/pages\/speaking\.html"\s+data-tab="speaking"/);
     assert.match(component, /href="\/pages\/listening\.html"\s+data-tab="listening"/);
     assert.match(component, /href="\/grammar\.html"\s+data-tab="grammar"/);
-    // Vocab nav points at the hub; the wiki master-detail (/vocabulary.html) stays
-    // a deep-link target, not a nav entry.
-    assert.match(component, /href="\/pages\/vocabulary\.html"\s+data-tab="vocabulary"/);
+    // B3 — Vocab nav DEFAULTS to the PUBLIC wiki (/vocabulary.html); aver-chrome
+    // swaps it to the login-gated hub (/pages/vocabulary.html) once a session is
+    // detected (session-adaptive _applyVocabNav).
+    assert.match(component, /href="\/vocabulary\.html"\s+data-tab="vocabulary"/);
     assert.match(component, /href="\/pages\/reading-vocab\.html"\s+data-tab="reading"/);
   });
 });
