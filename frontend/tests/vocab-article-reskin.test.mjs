@@ -103,15 +103,19 @@ describe('AG3 — v2 card components', () => {
     assert.match(CSS, /\.va-headword\s*\{[^}]*Fraunces/);
     assert.match(CSS, /\.va-ipa\s*\{[^}]*DM Mono/);
   });
-  test('vocabulary.js emits specimen + chips + callouts + mini-card', () => {
-    assert.match(JS, /function stressSpecimen\(/);
+  test('vocabulary.js emits specimen + chips + callouts via the shared card builder', () => {
+    // Slice-1 master-detail: stressSpecimen→stressParts/specimenHTML; the card is
+    // built by cardHTML (shared by article page + detail pane); miniCard retired.
+    assert.match(JS, /function stressParts\(/);
+    assert.match(JS, /function specimenHTML\(/);
+    assert.match(JS, /function cardHTML\(/);
     assert.match(JS, /class="va-chip"/);
     assert.match(JS, /va-callout va-warn/);
     assert.match(JS, /va-callout va-hook/);
-    assert.match(JS, /function miniCard\(/);
     assert.match(JS, /class="va-headword"/);
   });
-  test('detail card keeps the markdown body (seed words carry content there)', () => {
+  test('detail card keeps the markdown body, de-duped (strip leading <p>)', () => {
+    assert.match(JS, /function articleBodyHTML\(/);
     assert.match(JS, /id="article-body"/);
   });
 });

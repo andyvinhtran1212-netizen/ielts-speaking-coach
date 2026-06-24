@@ -1,0 +1,109 @@
+/**
+ * vocab-browse-master-detail.test.mjs — Slice-1 (browse rework + render-fix).
+ *
+ * Tests the REAL pure functions (stressParts, articleBodyHTML) by extracting them
+ * from js/vocabulary.js source (the file is a window/document IIFE, not importable),
+ * plus static sentinels for the master-detail wiring. Zero-dep node:test.
+ */
+
+import { describe, test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const front = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
+const JS = front('js', 'vocabulary.js');
+const LANDING = front('vocabulary.html');
+
+// Extract a top-level `function NAME(args){…}` (2-space-indented close) and eval it.
+function extractFn(src, name) {
+  const re = new RegExp('function ' + name + '\\([^)]*\\) \\{[\\s\\S]*?\\n  \\}');
+  const m = src.match(re);
+  assert.ok(m, `could not extract ${name} from source`);
+  return eval('(' + m[0] + ')');   // pure fns only (String/RegExp/Array)
+}
+
+const stressParts = extractFn(JS, 'stressParts');
+const articleBodyHTML = extractFn(JS, 'articleBodyHTML');
+
+
+// ── R1/R2: stress parser ───────────────────────────────────────────────
+
+describe('stressParts (R1/R2 fix)', () => {
+  test('metropolis → stressed syllable is #2 (not #1)', () => {
+    const r = stressParts('/məˈtrɒp.əl.ɪs/');
+    assert.deepEqual(r.parts, ['mə', 'trɒp', 'əl', 'ɪs']);
+    assert.equal(r.primary, 1);            // 0-based → "trọng âm 2"
+  });
+  test('cosmopolitan → stressed #3', () => {
+    const r = stressParts('/ˌkɒz.məˈpɒl.ɪ.tən/');
+    assert.equal(r.primary, 2);            // → "trọng âm 3"
+    assert.equal(r.parts.length, 5);
+  });
+  test('single-syllable /slʌm/ → primary 0 (it IS the stress)', () => {
+    assert.deepEqual(stressParts('/slʌm/'), { parts: ['slʌm'], primary: 0 });
+  });
+  test('multi-word idiom (has a space) → null (no specimen)', () => {
+    assert.equal(stressParts('/ˈhʌs.əl ənd ˈbʌs.əl/'), null);
+    assert.equal(stressParts('/ˌhɪt ðə ˈtaʊn/'), null);
+  });
+  test('empty / missing → null', () => {
+    assert.equal(stressParts(''), null);
+    assert.equal(stressParts(null), null);
+  });
+});
+
+
+// ── R4: body de-dup ─────────────────────────────────────────────────────
+
+describe('articleBodyHTML (R4 de-dup)', () => {
+  test('strips the leading <p> (the duplicate gloss), keeps the rest', () => {
+    const out = articleBodyHTML({ html: '<p>Đô thị lớn…</p>\n<h2>Ví dụ</h2>\n<p>example</p>' });
+    assert.match(out, /Ví dụ/);
+    assert.match(out, /id="article-body"/);
+    assert.doesNotMatch(out, /Đô thị lớn/);     // leading gloss paragraph removed
+  });
+  test('body that is ONLY the gloss → empty (no section)', () => {
+    assert.equal(articleBodyHTML({ html: '<p>chỉ có gloss</p>' }), '');
+  });
+  test('no html → empty', () => {
+    assert.equal(articleBodyHTML({ html: '' }), '');
+    assert.equal(articleBodyHTML({}), '');
+  });
+});
+
+
+// ── master-detail wiring (sentinels) ────────────────────────────────────
+
+describe('vocabulary.js — master-detail wiring', () => {
+  test('all data via window.api — NO raw fetch (grep-gate)', () => {
+    assert.match(JS, /window\.api\.get\(/);
+    assert.match(JS, /window\.api\.post\(/);     // analytics
+    assert.doesNotMatch(JS, /\bfetch\s*\(/);     // converted off raw fetch
+  });
+  test('detects #vmd-shell → initBrowse; shared cardHTML for both surfaces', () => {
+    assert.match(JS, /getElementById\('vmd-shell'\)/);
+    assert.match(JS, /function initBrowse\(/);
+    assert.match(JS, /cardHTML\(a\)\s*\+\s*articleBodyHTML\(a\)/);   // both panes reuse it
+  });
+  test('per-word fetch on select with a stale-guard + deep-link sync', () => {
+    assert.match(JS, /\/api\/vocabulary\/articles\//);
+    assert.match(JS, /\+\+state\.seq/);          // ignore stale responses on fast switching
+    assert.match(JS, /history\.replaceState/);   // URL reflects the open word
+  });
+});
+
+describe('vocabulary.html — master-detail shell', () => {
+  test('aver-chrome + av-page + the vmd-* shell', () => {
+    assert.match(LANDING, /<aver-chrome\s+active="vocabulary"\s*>/);
+    assert.match(LANDING, /<body[^>]*class="[^"]*\bav-page\b/);
+    for (const id of ['vmd-shell', 'vmd-rows', 'vmd-card', 'vmd-chips', 'vmd-q', 'vmd-back']) {
+      assert.match(LANDING, new RegExp(`id="${id}"`));
+    }
+  });
+  test('legacy category-grid markup gone', () => {
+    assert.doesNotMatch(LANDING, /id="category-grid"/);
+  });
+});
