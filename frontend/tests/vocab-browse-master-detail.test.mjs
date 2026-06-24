@@ -59,11 +59,17 @@ describe('stressParts (R1/R2 fix)', () => {
 // ── R4: body de-dup ─────────────────────────────────────────────────────
 
 describe('articleBodyHTML (R4 de-dup)', () => {
-  test('strips the leading <p> (the duplicate gloss), keeps the rest', () => {
+  test('seed word (no structured example) → strips leading <p>, keeps the rest', () => {
     const out = articleBodyHTML({ html: '<p>Đô thị lớn…</p>\n<h2>Ví dụ</h2>\n<p>example</p>' });
     assert.match(out, /Ví dụ/);
     assert.match(out, /id="article-body"/);
     assert.doesNotMatch(out, /Đô thị lớn/);     // leading gloss paragraph removed
+  });
+  test('word WITH structured example → body skipped entirely (no ## Ví dụ dup)', () => {
+    assert.equal(articleBodyHTML({ html: '<p>g</p><h2>Ví dụ</h2><p>x</p>', example: 'a holistic approach' }), '');
+  });
+  test('word WITH structured memory_hook → body skipped', () => {
+    assert.equal(articleBodyHTML({ html: '<p>g</p><h2>Ghi nhớ</h2><p>x</p>', memory_hook: 'mnemonic' }), '');
   });
   test('body that is ONLY the gloss → empty (no section)', () => {
     assert.equal(articleBodyHTML({ html: '<p>chỉ có gloss</p>' }), '');

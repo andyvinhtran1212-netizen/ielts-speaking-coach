@@ -189,4 +189,9 @@ describe('vocab-landing + vocabulary.html wiring', () => {
     assert.match(PAGE, /data-panel="word-library"/);
     assert.match(PAGE, /id="mount-word-library"/);
   });
+  test('each category section is a horizontal-scroll row (not a wrapping grid)', () => {
+    // Scoped to .vc-cat .vc-grid so the flat search results keep wrapping.
+    assert.match(PAGE, /\.vc-cat \.vc-grid\s*\{[^}]*flex-wrap:\s*nowrap[^}]*overflow-x:\s*auto/);
+    assert.match(PAGE, /\.vc-cat \.vc-grid \.vc-card\s*\{[^}]*flex:\s*0 0/);   // fixed-width cards
+  });
 });
