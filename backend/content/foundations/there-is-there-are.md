@@ -44,10 +44,11 @@ anchors:
     location: '## Tóm tắt'
     type: overview
   - id: there-is-there-are.vietnamese-pitfall.have-instead-of-there-is
-    location: (within VN pitfall section)
+    location: "### Lỗi 3: Bỏ \"there\", dùng \"is/are\" trực tiếp"
     type: pitfall
 ---
 
+<!-- anchor: there-is-there-are.overview -->
 ## Tóm tắt
 
 "There is / There are" là cách tiếng Anh nói về sự tồn tại của ai đó hoặc vật gì đó. Tương đương với "Có..." trong tiếng Việt.
@@ -196,6 +197,7 @@ Tự nhiên hơn: "There are many problems in this area."
 - "There is a book on **their** table." (there = cấu trúc; their = sở hữu)
 - "**They're** here. **There** is food for everyone." (they're = they are; there = cấu trúc)
 
+<!-- anchor: there-is-there-are.vietnamese-pitfall.have-instead-of-there-is -->
 ### Lỗi 3: Bỏ "there", dùng "is/are" trực tiếp
 
 - ❌ Is a book on the table.

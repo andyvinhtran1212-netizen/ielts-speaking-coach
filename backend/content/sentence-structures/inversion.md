@@ -49,6 +49,10 @@ next_articles:
 pathways:
 - grammar-for-ielts-writing
 - band-6-to-7
+anchors:
+  - id: inversion.emphasis-driven
+    location: "## Emphasis-driven inversion (chi tiết bổ sung)"
+    type: section
 ---
 ## Tóm tắt
 

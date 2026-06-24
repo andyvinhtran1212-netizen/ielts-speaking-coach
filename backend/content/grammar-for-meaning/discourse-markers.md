@@ -53,27 +53,34 @@ anchors:
     location: '## Tóm tắt'
     type: overview
   - id: discourse-markers.addition
-    location: '## Nhóm 1: Thêm ý'
+    location: "## Nhóm 1: Thêm ý (Addition)"
     type: section
   - id: discourse-markers.contrast
-    location: '## Nhóm 4: Tương phản'
+    location: "## Nhóm 2: Tương phản (Contrast)"
     type: section
   - id: discourse-markers.result
-    location: '## Nhóm 5: Kết quả'
+    location: "## Nhóm 3: Nguyên nhân và Kết quả (Cause and Effect)"
     type: section
   - id: discourse-markers.sequence
-    location: '## Nhóm sắp xếp trình tự'
+    location: "## Nhóm 4: Trình tự (Sequencing)"
     type: section
   - id: discourse-markers.exemplification
-    location: '## Nhóm đưa ví dụ'
+    location: "## Nhóm 5: Ví dụ và Minh chứng (Exemplification)"
     type: section
   - id: discourse-markers.common-mistake.overuse-and-but-so
     location: '## Lỗi phổ biến của người Việt — Lạm dụng "and / but / so"'
     type: pitfall
   - id: discourse-markers.compare-with.discourse-markers-spoken
-    location: (callout after Tóm tắt)
+    location: "## Tóm tắt"
     type: compare-with
+  - id: discourse-markers.contrast.spoken-extension
+    location: "### Spoken contrast markers (mở rộng)"
+    type: section
+  - id: discourse-markers.result.spoken-extension
+    location: "### Linkers cho Kết quả (Result)"
+    type: section
 ---
+<!-- anchor: discourse-markers.overview -->
 ## Tóm tắt
 
 > **Bài viết này tập trung vào discourse markers cho VIẾT và NÓI trang trọng** (Furthermore, Moreover, Consequently, In contrast, etc.).
@@ -98,6 +105,7 @@ Chúng khác với liên từ (conjunctions) ở chỗ:
 
 IELTS Writing được chấm **Coherence and Cohesion** — khả năng tổ chức ý mạch lạc. Dùng đúng và đa dạng discourse markers là yêu cầu cốt lõi để đạt Band 7+. Trong Speaking, chúng giúp bài nói tự nhiên, có cấu trúc và dễ theo dõi.
 
+<!-- anchor: discourse-markers.addition -->
 ## Nhóm 1: Thêm ý (Addition)
 
 Thêm thông tin, lý do, ví dụ bổ sung:
@@ -117,6 +125,7 @@ Thêm thông tin, lý do, ví dụ bổ sung:
 > 
 > Tránh lạm dụng "also" — thay bằng "furthermore" hoặc "moreover" trong IELTS Writing.
 
+<!-- anchor: discourse-markers.contrast -->
 ## Nhóm 2: Tương phản (Contrast)
 
 Giới thiệu quan điểm đối lập hoặc ngoại lệ:
@@ -348,6 +357,7 @@ MẪU SPEAKING:
   While [A], [B] is ultimately more significant.
 ```
 
+<!-- anchor: discourse-markers.result -->
 ## Nhóm 3: Nguyên nhân và Kết quả (Cause and Effect)
 
 | Discourse Marker | Ví dụ |
@@ -584,6 +594,7 @@ IELTS WRITING TIP:
   Tránh chuỗi "so...so...so" — thay bằng chuỗi động từ causal
 ```
 
+<!-- anchor: discourse-markers.sequence -->
 ## Nhóm 4: Trình tự (Sequencing)
 
 ### Liệt kê lý do, ý tưởng:
@@ -607,6 +618,7 @@ IELTS WRITING TIP:
 | Sau đó | **Subsequently / Afterwards / Later / Following this** |
 | Cuối cùng | **Eventually / In the end / Ultimately** |
 
+<!-- anchor: discourse-markers.exemplification -->
 ## Nhóm 5: Ví dụ và Minh chứng (Exemplification)
 
 | Discourse Marker | Ví dụ |

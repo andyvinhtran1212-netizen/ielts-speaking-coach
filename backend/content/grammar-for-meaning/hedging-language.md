@@ -53,30 +53,31 @@ anchors:
     location: '## Tóm tắt'
     type: overview
   - id: hedging-language.modal-hedges
-    location: '## Modal hedges'
+    location: "## Nhóm 1: Modal Verbs (Động từ khuyết thiếu)"
     type: section
   - id: hedging-language.adverbial-hedges
-    location: '## Adverbial hedges'
+    location: "## Nhóm 3: Hedging Adverbs và Phrases"
     type: section
   - id: hedging-language.epistemic-verbs
-    location: '## Epistemic verbs'
+    location: "## Nhóm 2: Hedging Verbs (Động từ thận trọng)"
     type: section
   - id: hedging-language.distancing-phrases
-    location: '## Distancing phrases'
+    location: "## Nhóm 7: Distancing phrases (Khoảng cách hóa)"
     type: section
   - id: hedging-language.common-mistake.no-hedging-overconfident
     location: '## Lỗi phổ biến của người Việt — Quá tự tin / không hedging'
     type: pitfall
   - id: hedging-language.common-mistake.over-hedging
-    location: (within hedging variety section)
+    location: "### Lỗi 4: Lạm dụng hedging — quá nhiều hedges làm mất điểm Task Achievement"
     type: pitfall
   - id: hedging-language.ielts.part3-cautious-opinions
-    location: '## IELTS Part 3 application'
+    location: "### Speaking Part 3 — thảo luận ý kiến học thuật:"
     type: ielts-application
   - id: hedging-language.ielts.expressing-uncertainty
-    location: '## Expressing uncertainty in IELTS Speaking (post-merge)'
+    location: "## PHẦN 6: KẾT HỢP — Câu trả lời Part 3 hoàn chỉnh"
     type: ielts-application
 ---
+<!-- anchor: hedging-language.overview -->
 ## Tóm tắt
 
 Hedging (diễn đạt thận trọng) là kỹ thuật dùng ngôn ngữ để:
@@ -97,6 +98,7 @@ Trong IELTS Writing và Speaking, hedging language giúp:
 3. **Văn phong học thuật:** Academic writing luôn dùng hedges; không có hedges = không đủ sophisticated
 4. **Speaking Band 7+:** Sử dụng hedging khi thảo luận ý kiến trừu tượng trong Part 3
 
+<!-- anchor: hedging-language.modal-hedges -->
 ## Nhóm 1: Modal Verbs (Động từ khuyết thiếu)
 
 Modal verbs là cách hedging phổ biến nhất:
@@ -116,6 +118,7 @@ Modal verbs là cách hedging phổ biến nhất:
 - There **may** be long-term consequences that we cannot yet foresee.
 - Such policies **might** prove counterproductive if implemented without proper planning.
 
+<!-- anchor: hedging-language.epistemic-verbs -->
 ## Nhóm 2: Hedging Verbs (Động từ thận trọng)
 
 ### Verbs thể hiện "có vẻ / dường như":
@@ -139,6 +142,7 @@ Modal verbs là cách hedging phổ biến nhất:
 | **claim** | claim(s) that | Critics **claim that** this policy will fail. |
 | **maintain** | maintain(s) that | Proponents **maintain that** benefits outweigh costs. |
 
+<!-- anchor: hedging-language.adverbial-hedges -->
 ## Nhóm 3: Hedging Adverbs và Phrases
 
 ### Adverbs chỉ mức độ chắc chắn:
@@ -254,6 +258,7 @@ Tránh số liệu tuyệt đối hoặc khẳng định vô điều kiện:
 - ✅ The government **may** need to invest more. (modal verb — formal)
 - ✅ **Perhaps** the government should consider increasing investment. (adverb — formal)
 
+<!-- anchor: hedging-language.common-mistake.over-hedging -->
 ### Lỗi 4: Lạm dụng hedging — quá nhiều hedges làm mất điểm Task Achievement
 
 - ❌ It **might possibly perhaps** be the case that technology **could** potentially have **some** effects.
@@ -287,6 +292,7 @@ Tránh số liệu tuyệt đối hoặc khẳng định vô điều kiện:
 - There **appears to be** a steady upward trend throughout the period.
 - The data **may** reflect seasonal variation rather than a long-term shift.
 
+<!-- anchor: hedging-language.ielts.part3-cautious-opinions -->
 ### Speaking Part 3 — thảo luận ý kiến học thuật:
 
 **Thay vì:** "Yes, technology is good for education."
@@ -357,6 +363,7 @@ Người học VN thường mạnh quá: "Definitely yes!", "I strongly agree!",
 
 Hedging KHÔNG phải yếu — nó là Band 7+ marker thể hiện phán đoán cẩn trọng (critical thinking). Examiner đánh giá cao.
 
+<!-- anchor: hedging-language.distancing-phrases -->
 ## Nhóm 7: Distancing phrases (Khoảng cách hóa)
 
 Distancing phrases là một dạng đặc biệt của hedging — sử dụng để tạo khoảng cách giữa người nói và tuyên bố, giảm tính trực tiếp khi cần thiết.
@@ -470,6 +477,7 @@ Khi bạn không chắc hoặc muốn báo cáo một quan điểm mà không ho
 
 ---
 
+<!-- anchor: hedging-language.ielts.expressing-uncertainty -->
 ## PHẦN 6: KẾT HỢP — Câu trả lời Part 3 hoàn chỉnh
 
 ### Mẫu: Acknowledge uncertainty + give view + reason + qualify

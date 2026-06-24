@@ -48,22 +48,22 @@ anchors:
     location: '## Tóm tắt'
     type: overview
   - id: past-simple.structure.regular-ed
-    location: '## Cấu trúc — Regular verbs'
+    location: "### Động từ có quy tắc (Regular Verbs)"
     type: structure
   - id: past-simple.structure.irregular
-    location: '## Cấu trúc — Irregular verbs'
+    location: "### Động từ bất quy tắc (Irregular Verbs)"
     type: structure
   - id: past-simple.usage.completed-past
-    location: '## Hành động hoàn thành trong quá khứ'
+    location: "### 1. Hành động hoàn thành tại thời điểm xác định"
     type: section
   - id: past-simple.common-mistake.no-past-marker-on-verb
     location: '## Lỗi phổ biến của người Việt — Verb không thay đổi hình theo thời'
     type: pitfall
   - id: past-simple.common-mistake.use-with-time-marker-misalignment
-    location: (within VN pitfall section)
+    location: "### Lỗi 5: Nhầm Past Simple và Present Perfect"
     type: pitfall
   - id: past-simple.compare-with.present-perfect
-    location: '## So sánh với Present Perfect'
+    location: "### Past Simple vs Present Perfect"
     type: compare-with
 ---
 
@@ -143,6 +143,7 @@ Did + Subject + V (nguyên thể) ...?
 - **Was** the exam difficult? — Yes, it **was**.
 - **Were** they happy with the result?
 
+<!-- anchor: past-simple.structure.regular-ed -->
 ### Động từ có quy tắc (Regular Verbs)
 
 Thêm **-ed** vào động từ nguyên thể.
@@ -160,6 +161,7 @@ Thêm **-ed** vào động từ nguyên thể.
 - /d/ sau âm hữu thanh (b, g, l, m, n, r, v, z...): play**ed** /pleɪd/, live**d** /lɪvd/
 - /ɪd/ sau âm /t/ hoặc /d/: want**ed** /ˈwɒntɪd/, need**ed** /ˈniːdɪd/
 
+<!-- anchor: past-simple.structure.irregular -->
 ### Động từ bất quy tắc (Irregular Verbs)
 
 Phải **học thuộc** — không có quy tắc chung.
@@ -209,6 +211,7 @@ Phải **học thuộc** — không có quy tắc chung.
 
 ## Cách dùng phổ biến
 
+<!-- anchor: past-simple.usage.completed-past -->
 ### 1. Hành động hoàn thành tại thời điểm xác định
 
 Phải có (hoặc ngầm hiểu) thời gian cụ thể: yesterday, last week, in 2020, three years ago...
@@ -297,6 +300,7 @@ Khi muốn nói về điều gì đó đúng trong quá khứ nhưng không còn
 - ✅ ĐÚNG: **Was** she happy? / I **wasn't** there.
 - **TẠI SAO:** "Be" trong quá khứ (was/were) dùng riêng — không kết hợp với did.
 
+<!-- anchor: past-simple.common-mistake.use-with-time-marker-misalignment -->
 ### Lỗi 5: Nhầm Past Simple và Present Perfect
 
 - ❌ SAI: I **have visited** Hanoi **last year**.
@@ -311,6 +315,7 @@ Khi muốn nói về điều gì đó đúng trong quá khứ nhưng không còn
 
 ## So sánh với
 
+<!-- anchor: past-simple.compare-with.present-perfect -->
 ### Past Simple vs Present Perfect
 
 Đây là sự phân biệt khó nhất cho người học Việt Nam vì tiếng Việt không có sự khác biệt này.

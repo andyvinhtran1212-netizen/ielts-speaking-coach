@@ -55,16 +55,16 @@ anchors:
     location: '## Tóm tắt'
     type: overview
   - id: passive-voice.structure.be-pp
-    location: '## Cấu trúc'
+    location: "## Cấu trúc cơ bản"
     type: structure
   - id: passive-voice.usage.unknown-or-irrelevant-agent
-    location: '## Khi nào dùng passive'
+    location: "## Khi nào dùng bị động"
     type: section
   - id: passive-voice.usage.formal-academic
-    location: '## Passive trong văn formal'
+    location: "### 4. Văn phong học thuật / trang trọng"
     type: section
   - id: passive-voice.when-not-to-use.speaking
-    location: '## Khi nào KHÔNG nên dùng passive'
+    location: "## Khi nào KHÔNG nên dùng passive (đặc biệt trong Speaking)"
     type: pitfall
   - id: passive-voice.vietnamese-pitfall.bi-duoc-overuse
     location: '## Lưu ý — VN bị/được không phải lúc nào cũng map sang passive'
@@ -88,6 +88,7 @@ Câu bị động:
 
 Thiếu câu bị động trong IELTS Writing giới hạn điểm Grammatical Range nghiêm trọng.
 
+<!-- anchor: passive-voice.structure.be-pp -->
 ## Cấu trúc cơ bản
 
 ```
@@ -127,6 +128,7 @@ Subject + be (chia theo thì) + past participle + (by + agent)
 | **Active** | Scientists **have discovered** a new species. | |
 | **Passive** | A new species **has been discovered** (by scientists). | agent bỏ — hiển nhiên |
 
+<!-- anchor: passive-voice.usage.unknown-or-irrelevant-agent -->
 ## Khi nào dùng bị động
 
 ### 1. Không biết ai làm
@@ -144,6 +146,7 @@ Subject + be (chia theo thì) + past participle + (by + agent)
 - **Over 500 people were injured** in the accident. (nhấn mạnh số nạn nhân)
 - **Three new policies have been introduced** this year.
 
+<!-- anchor: passive-voice.usage.formal-academic -->
 ### 4. Văn phong học thuật / trang trọng
 
 - *The experiment **was conducted** at 25°C.*

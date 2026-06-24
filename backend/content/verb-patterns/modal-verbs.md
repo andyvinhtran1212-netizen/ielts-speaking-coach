@@ -55,28 +55,29 @@ anchors:
     location: '## Tóm tắt'
     type: overview
   - id: modal-verbs.structure.bare-infinitive-required
-    location: (callout after Tóm tắt)
+    location: "## Đặc điểm ngữ pháp của Modal Verbs"
     type: pitfall
   - id: modal-verbs.ability.can-could-be-able-to
-    location: '## Ability — Can / Could / Be able to'
+    location: "## Nhóm 1: Khả năng (Ability)"
     type: section
   - id: modal-verbs.permission.can-may-could
-    location: '## Permission — Can / May / Could'
+    location: "## Nhóm 5: Sự cho phép (Permission)"
     type: section
   - id: modal-verbs.obligation.must-have-to-should
-    location: '## Obligation — Must / Have to / Should'
+    location: "## Nhóm 4: Nghĩa vụ và Sự cần thiết (Obligation/Necessity)"
     type: section
   - id: modal-verbs.epistemic.speculation-must-might-could
-    location: '## Speculation và Possibility'
+    location: "## Nhóm 2: Khả năng xảy ra (Possibility)"
     type: section
   - id: modal-verbs.compare.must-vs-have-to
-    location: '## Must vs Have to'
+    location: "### Must vs. Have to"
     type: compare-with
   - id: modal-verbs.ielts.part3-speculation-examples
-    location: '## IELTS Part 3 application'
+    location: "### Speaking — diễn đạt không chắc chắn:"
     type: ielts-application
 ---
 
+<!-- anchor: modal-verbs.overview -->
 ## Tóm tắt
 
 > **Quy tắc cơ bản:** Modal verbs LUÔN đi với **bare infinitive** (động từ nguyên mẫu KHÔNG "to"):
@@ -123,6 +124,7 @@ Modal verbs khác động từ thường ở những điểm sau:
 - **Can** you help me?
 - **Should** I apply for this job?
 
+<!-- anchor: modal-verbs.ability.can-could-be-able-to -->
 ## Nhóm 1: Khả năng (Ability)
 
 ### Can / Could
@@ -139,6 +141,7 @@ Modal verbs khác động từ thường ở những điểm sau:
 - **Could** you open the window? (lịch sự hơn "Can you...?")
 - **Could** I use your phone?
 
+<!-- anchor: modal-verbs.epistemic.speculation-must-might-could -->
 ## Nhóm 2: Khả năng xảy ra (Possibility)
 
 ### May / Might / Could
@@ -181,8 +184,10 @@ Dùng khi dự đoán điều gì đó sẽ xảy ra theo kỳ vọng:
 - The package **should** arrive tomorrow. (dự kiến sẽ đến)
 - He left two hours ago, so he **should be** home by now.
 
+<!-- anchor: modal-verbs.obligation.must-have-to-should -->
 ## Nhóm 4: Nghĩa vụ và Sự cần thiết (Obligation/Necessity)
 
+<!-- anchor: modal-verbs.compare.must-vs-have-to -->
 ### Must vs. Have to
 
 | | **Must** | **Have to** |
@@ -210,6 +215,7 @@ Dùng khi dự đoán điều gì đó sẽ xảy ra theo kỳ vọng:
 - You **needn't** bring anything — we have everything ready. (không cần phải)
 - You **don't need to** pay now.
 
+<!-- anchor: modal-verbs.permission.can-may-could -->
 ## Nhóm 5: Sự cho phép (Permission)
 
 | | Trang trọng hơn | Thường dùng |
@@ -296,6 +302,7 @@ Diễn tả suy luận hoặc đánh giá về **quá khứ**:
 - Schools **ought to** incorporate digital literacy into their curriculum.
 - More needs to be done — public awareness campaigns **could** be a good starting point.
 
+<!-- anchor: modal-verbs.ielts.part3-speculation-examples -->
 ### Speaking — diễn đạt không chắc chắn:
 
 - I'm not entirely sure, but I think it **might** be around 1990.

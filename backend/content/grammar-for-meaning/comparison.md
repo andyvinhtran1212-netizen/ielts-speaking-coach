@@ -52,28 +52,29 @@ anchors:
     location: '## Tóm tắt'
     type: overview
   - id: comparison.comparative.regular-er
-    location: '## So sánh hơn — Quy tắc -er'
+    location: "### Tính từ/Trạng từ ngắn (1 âm tiết, hoặc 2 âm tiết kết thúc -y)"
     type: structure
   - id: comparison.comparative.more-than
-    location: '## So sánh hơn — More + adjective'
+    location: "### Tính từ/Trạng từ dài (2+ âm tiết, không kết thúc -y)"
     type: structure
   - id: comparison.superlative.the-est
-    location: '## So sánh nhất — Quy tắc -est'
+    location: "### Tính từ ngắn"
     type: structure
   - id: comparison.superlative.the-most
-    location: '## So sánh nhất — The most + adjective'
+    location: "### Tính từ dài"
     type: structure
   - id: comparison.as-as.equality
-    location: '## So sánh ngang bằng — As...as'
+    location: "### 1. As...as (so sánh bằng)"
     type: structure
   - id: comparison.common-mistake.double-comparative
     location: '## Lỗi phổ biến — "more better" và bỏ "than"'
     type: pitfall
   - id: comparison.common-mistake.dropped-than
-    location: (within double comparative section)
+    location: "### Lỗi 2: Bỏ \"than\""
     type: pitfall
 ---
 
+<!-- anchor: comparison.overview -->
 ## Tóm tắt
 
 Tiếng Anh có ba mức so sánh:
@@ -93,6 +94,7 @@ So sánh xuất hiện liên tục trong IELTS:
 
 ## Cấu trúc Comparative
 
+<!-- anchor: comparison.comparative.regular-er -->
 ### Tính từ/Trạng từ ngắn (1 âm tiết, hoặc 2 âm tiết kết thúc -y)
 
 ```
@@ -111,6 +113,7 @@ Adjective + -er + than
 - She runs **faster** than him.
 - My new job is **easier** than the old one.
 
+<!-- anchor: comparison.comparative.more-than -->
 ### Tính từ/Trạng từ dài (2+ âm tiết, không kết thúc -y)
 
 ```
@@ -138,6 +141,7 @@ more + Adjective + than
 
 ## Cấu trúc Superlative
 
+<!-- anchor: comparison.superlative.the-est -->
 ### Tính từ ngắn
 
 ```
@@ -154,6 +158,7 @@ the + Adjective + -est
 - He is **the tallest** student in the class.
 - This is **the cheapest** option available.
 
+<!-- anchor: comparison.superlative.the-most -->
 ### Tính từ dài
 
 ```
@@ -170,6 +175,7 @@ the most + Adjective
 
 ## Các cấu trúc so sánh quan trọng
 
+<!-- anchor: comparison.as-as.equality -->
 ### 1. As...as (so sánh bằng)
 
 ```

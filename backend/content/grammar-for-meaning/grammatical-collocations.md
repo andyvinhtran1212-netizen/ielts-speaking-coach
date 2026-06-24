@@ -57,7 +57,7 @@ anchors:
     location: "## Phần 1: Verb + Preposition collocations"
     type: section
   - id: grammatical-collocations.no-preposition-trap
-    location: "### Verbs that take NO preposition"
+    location: "### Verbs that take NO preposition (often calque-error trap)"
     type: pitfall
   - id: grammatical-collocations.adjective-preposition
     location: "## Phần 2: Adjective + Preposition collocations"
@@ -66,7 +66,7 @@ anchors:
     location: "## Phần 3: Noun + Preposition collocations"
     type: section
   - id: grammatical-collocations.verb-adverb
-    location: "## Phần 4: Verb + Adverb collocations"
+    location: "## Phần 4: Verb + Adverb collocations (high-impact ones)"
     type: section
   - id: grammatical-collocations.common-mistake.preposition-transfer
     location: "### Lỗi 1: Bỏ \"to\" sau \"listen\""

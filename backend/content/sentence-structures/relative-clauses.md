@@ -54,22 +54,22 @@ anchors:
     location: '## Tóm tắt'
     type: overview
   - id: relative-clauses.who-which-that
-    location: '## Chọn relative pronoun'
+    location: "## Relative Pronouns và Relative Adverbs"
     type: section
   - id: relative-clauses.defining-vs-non-defining
-    location: (decision flowchart callout after Tóm tắt)
+    location: "## Tóm tắt"
     type: concept
   - id: relative-clauses.defining.no-commas
-    location: '## Defining clauses'
+    location: "## Loại 1: Defining Relative Clauses — Mệnh đề xác định"
     type: structure
   - id: relative-clauses.non-defining.comma-rule
-    location: '## Non-defining clauses'
+    location: "## Loại 2: Non-defining Relative Clauses — Mệnh đề không xác định"
     type: structure
   - id: relative-clauses.common-mistake.which-vs-that
-    location: '## Which vs That confusion'
+    location: "### That vs. Which / Who"
     type: pitfall
   - id: relative-clauses.compare-with.complex-sentence
-    location: '## So sánh với complex sentences'
+    location: "## Tóm tắt nhanh"
     type: compare-with
 ---
 
@@ -100,6 +100,7 @@ Mệnh đề quan hệ (Relative Clause) là một mệnh đề phụ đứng ng
 
 Mệnh đề quan hệ cho phép kết hợp hai câu ngắn thành một câu phức, tạo ra văn phong học thuật và tự nhiên hơn. Trong IELTS Writing và Speaking, thiếu cấu trúc này sẽ giới hạn điểm Grammatical Range.
 
+<!-- anchor: relative-clauses.who-which-that -->
 ## Relative Pronouns và Relative Adverbs
 
 | Từ | Thay thế cho | Chức năng | Ví dụ |
@@ -120,12 +121,14 @@ Mệnh đề quan hệ cho phép kết hợp hai câu ngắn thành một câu p
 - **Whom** = tân ngữ (object) — trang trọng, hay bị thay bằng "who" trong giao tiếp:
   - The doctor **whom** I consulted recommended rest. (whom = tân ngữ: "I consulted whom")
 
+<!-- anchor: relative-clauses.common-mistake.which-vs-that -->
 ### That vs. Which / Who
 
 - **That** dùng trong mệnh đề quan hệ xác định (defining relative clause)
 - **Which** dùng trong mệnh đề quan hệ không xác định (non-defining) hoặc thay thế "that"
 - **That** KHÔNG dùng trong non-defining clause
 
+<!-- anchor: relative-clauses.defining.no-commas -->
 ## Loại 1: Defining Relative Clauses — Mệnh đề xác định
 
 Cung cấp thông tin **thiết yếu** để xác định danh từ — **không có dấu phẩy**.
@@ -145,6 +148,7 @@ Nếu bỏ mệnh đề này, câu mất nghĩa hoặc không rõ đề cập đ
 **Không thể bỏ** khi relative pronoun là **chủ ngữ**:
 - The book **that** is on the table is mine. ✅ (that = chủ ngữ, không bỏ được)
 
+<!-- anchor: relative-clauses.non-defining.comma-rule -->
 ## Loại 2: Non-defining Relative Clauses — Mệnh đề không xác định
 
 Cung cấp thông tin **bổ sung** (có thể bỏ mà không ảnh hưởng đến nghĩa chính) — **có dấu phẩy cả hai đầu**.
@@ -287,6 +291,7 @@ Có thể dùng "which" để bình luận về toàn bộ ý của mệnh đề
 4. He's someone **who/whom** I really admire. (người → who/whom, không phải which)
 5. The man **who** lives next door is a doctor. (non-defining sai: nếu đây là mệnh đề xác định → không dấu phẩy; nếu non-defining → The man next door, who is a doctor, ...)
 
+<!-- anchor: relative-clauses.compare-with.complex-sentence -->
 ## Tóm tắt nhanh
 
 **Relative pronouns:**
