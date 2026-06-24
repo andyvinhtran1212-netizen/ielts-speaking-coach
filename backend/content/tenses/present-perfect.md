@@ -49,25 +49,25 @@ anchors:
     location: '## Cấu trúc'
     type: structure
   - id: present-perfect.usage.experience
-    location: '## Diễn tả kinh nghiệm sống'
+    location: "### 1. Trải nghiệm trong cuộc đời (Life Experience)"
     type: section
   - id: present-perfect.usage.unfinished-time
-    location: '## Thời gian chưa kết thúc'
+    location: "### 3. Tình trạng kéo dài (Duration with *since/for*)"
     type: section
   - id: present-perfect.usage.recent-result
-    location: '## Hành động gần đây có kết quả ở hiện tại'
+    location: "### 2. Hành động vừa xảy ra (Recent Past with Present Relevance)"
     type: section
   - id: present-perfect.with-time-markers.since-vs-for
-    location: '## Since vs For'
+    location: "### 3. Tình trạng kéo dài (Duration with *since/for*)"
     type: concept
   - id: present-perfect.with-time-markers.yet-already-just
-    location: '## Yet / Already / Just'
+    location: "## Dấu hiệu nhận biết"
     type: concept
   - id: present-perfect.common-mistake.past-simple-where-pp-needed
     location: '## Lỗi phổ biến của người Việt — Dùng past simple thay vì present perfect'
     type: pitfall
   - id: present-perfect.compare-with.past-simple
-    location: '## So sánh với Past Simple'
+    location: "### Present Perfect vs Past Simple"
     type: compare-with
 ---
 
@@ -96,6 +96,7 @@ Present Perfect diễn tả:
 3. **Tình trạng kéo dài từ quá khứ đến nay** (dùng with *since/for*)
 4. **Thành tựu hoặc sự thay đổi** tính đến hiện tại
 
+<!-- anchor: present-perfect.structure.have-pp -->
 ## Cấu trúc
 
 ### Câu khẳng định
@@ -181,6 +182,7 @@ Have/Has + Subject + Past Participle ...?
 
 ## Cách dùng phổ biến
 
+<!-- anchor: present-perfect.usage.experience -->
 ### 1. Trải nghiệm trong cuộc đời (Life Experience)
 
 Đây là cách dùng quan trọng nhất — khi bạn nói về điều **đã hoặc chưa từng xảy ra** trong cuộc đời, không đề cập thời điểm cụ thể.
@@ -193,6 +195,7 @@ Have/Has + Subject + Past Participle ...?
 **Khi nào KHÔNG hỏi "when?":** Nếu câu hỏi tiếp theo là "when?", bạn phải chuyển sang Past Simple.
 - A: "Have you been to Paris?" → B: "Yes, I have." → A: "When **did** you go?" *(Past Simple vì hỏi thời điểm)*
 
+<!-- anchor: present-perfect.usage.recent-result -->
 ### 2. Hành động vừa xảy ra (Recent Past with Present Relevance)
 
 Hành động kết thúc trong quá khứ gần, nhưng **kết quả của nó vẫn đang hiện hữu**.
@@ -205,6 +208,8 @@ So sánh với Past Simple:
 - "I **had** lunch at noon." → Đơn giản nêu sự kiện quá khứ, không nhấn mạnh hiện tại.
 - "I **have just had** lunch." → Nhấn mạnh rằng hiện tại tôi no, không muốn ăn nữa.
 
+<!-- anchor: present-perfect.usage.unfinished-time -->
+<!-- anchor: present-perfect.with-time-markers.since-vs-for -->
 ### 3. Tình trạng kéo dài (Duration with *since/for*)
 
 Khi một tình trạng **bắt đầu trong quá khứ và vẫn tiếp tục đến hiện tại**, dùng Present Perfect + **since** hoặc **for**.
@@ -226,6 +231,7 @@ Nói về điều gì đó đã thay đổi hoặc đạt được **tính đế
 - Attitudes toward education **have changed** dramatically over the past decade.
 - Technology **has transformed** the way we communicate.
 
+<!-- anchor: present-perfect.with-time-markers.yet-already-just -->
 ## Dấu hiệu nhận biết
 
 | Dấu hiệu | Vị trí | Ví dụ |
@@ -307,6 +313,7 @@ Nói về điều gì đó đã thay đổi hoặc đạt được **tính đế
 
 ## So sánh với
 
+<!-- anchor: present-perfect.compare-with.past-simple -->
 ### Present Perfect vs Past Simple
 
 Đây là sự phân biệt quan trọng nhất — và gây nhiều lỗi nhất.

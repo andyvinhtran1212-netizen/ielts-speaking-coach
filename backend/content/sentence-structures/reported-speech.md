@@ -50,10 +50,11 @@ anchors:
     location: '## Tóm tắt'
     type: overview
   - id: reported-speech.tense-backshift.vietnamese-skip
-    location: (within main backshift section)
+    location: "## Backshift — Lùi thì động từ"
     type: pitfall
 ---
 
+<!-- anchor: reported-speech.overview -->
 ## Tóm tắt
 
 Reported Speech thuật lại lời nói mà **không trích dẫn trực tiếp**, thường qua động từ tường thuật như: *say, tell, explain, claim, argue, suggest, ask, warn, advise...*
@@ -72,6 +73,7 @@ Reported Speech thuật lại lời nói mà **không trích dẫn trực tiếp
 - Là cấu trúc ngữ pháp phức tạp thể hiện Grammatical Range (Band 7+)
 - Giúp viết đa dạng hơn thay vì chỉ dùng trích dẫn trực tiếp
 
+<!-- anchor: reported-speech.tense-backshift.vietnamese-skip -->
 ## Backshift — Lùi thì động từ
 
 ### Quy tắc cơ bản: Thì lùi về quá khứ

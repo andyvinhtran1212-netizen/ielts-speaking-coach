@@ -56,39 +56,43 @@ anchors:
     location: '## Tóm tắt'
     type: overview
   - id: conditionals.type0.zero-conditional
-    location: '## Loại 0: Zero Conditional'
+    location: "## Loại 0: Zero Conditional — Sự thật hiển nhiên"
     type: section
   - id: conditionals.type1.first-conditional
-    location: '## Loại 1: First Conditional'
+    location: "## Loại 1: First Conditional — Thực tế / Khả năng cao"
     type: section
   - id: conditionals.type1.structure
-    location: (structure formula in Type 1 section)
+    location: "## Loại 1: First Conditional — Thực tế / Khả năng cao"
     type: structure
   - id: conditionals.type1.common-mistake.will-after-if
-    location: (callout after Type 1 if-clause rule)
+    location: "## Loại 1: First Conditional — Thực tế / Khả năng cao"
     type: pitfall
   - id: conditionals.type2.second-conditional
-    location: '## Loại 2: Second Conditional'
+    location: "## Loại 2: Second Conditional — Giả định hiện tại / Tương lai không thực"
     type: section
   - id: conditionals.type2.structure
-    location: (structure formula in Type 2 section)
+    location: "## Loại 2: Second Conditional — Giả định hiện tại / Tương lai không thực"
     type: structure
   - id: conditionals.type2.common-mistake.was-instead-of-were
-    location: (within Type 2 section)
+    location: "## Loại 2: Second Conditional — Giả định hiện tại / Tương lai không thực"
     type: pitfall
   - id: conditionals.type3.third-conditional
-    location: '## Loại 3: Third Conditional'
+    location: "## Loại 3: Third Conditional — Giả định quá khứ"
     type: section
   - id: conditionals.type3.structure
-    location: (structure formula in Type 3 section)
+    location: "## Loại 3: Third Conditional — Giả định quá khứ"
     type: structure
   - id: conditionals.type2-vs-type3.tense-distance
-    location: '## So sánh Type 2 vs Type 3'
+    location: "### Lỗi 4: Nhầm điều kiện loại 2 và 3"
     type: concept
   - id: conditionals.ielts.part3-hypothetical-questions
-    location: '## IELTS Part 3 application'
+    location: "### Speaking Part 3 — thảo luận giả định:"
     type: ielts-application
+  - id: conditionals.natural-speech-patterns
+    location: "## Conditionals trong nói tự nhiên"
+    type: section
 ---
+<!-- anchor: conditionals.overview -->
 ## Tóm tắt
 
 Câu điều kiện (Conditional Sentences) gồm hai phần:
@@ -102,6 +106,7 @@ Câu điều kiện (Conditional Sentences) gồm hai phần:
 
 Câu điều kiện cho phép diễn đạt nhiều ý phức tạp: dự đoán thực tế, giả định không tưởng, tiếc nuối về quá khứ. Đây là thước đo Grammatical Range quan trọng trong IELTS Writing Task 2 và Speaking Part 3.
 
+<!-- anchor: conditionals.type0.zero-conditional -->
 ## Loại 0: Zero Conditional — Sự thật hiển nhiên
 
 Diễn tả điều luôn đúng: sự thật khoa học, quy luật tự nhiên, thói quen.
@@ -117,6 +122,8 @@ If + Present Simple, Present Simple
 > Thay "if" bằng "when" khi nói về điều chắc chắn xảy ra (thay vì chỉ điều kiện):
 > - **When** it rains, the streets **flood**. (luôn xảy ra)
 
+<!-- anchor: conditionals.type1.first-conditional -->
+<!-- anchor: conditionals.type1.structure -->
 ## Loại 1: First Conditional — Thực tế / Khả năng cao
 
 Diễn tả điều kiện **có thể xảy ra** trong tương lai — thực tế và có khả năng xảy ra.
@@ -157,6 +164,8 @@ If + Present Simple, will + V-bare
 - ❌ If it **will rain** tomorrow, we'll cancel.
 - ✅ If it **rains** tomorrow, we'll cancel.
 
+<!-- anchor: conditionals.type2.second-conditional -->
+<!-- anchor: conditionals.type2.structure -->
 ## Loại 2: Second Conditional — Giả định hiện tại / Tương lai không thực
 
 Diễn tả điều kiện **không có thật** hoặc **khó xảy ra** ở hiện tại hoặc tương lai — thường là ước muốn, tưởng tượng.
@@ -169,6 +178,7 @@ If + Past Simple, would + V-bare
 - **If** she **lived** closer, we **would** meet more often. (Cô ấy ở xa)
 - **If** I **were** you, I **would** apply for that job.
 
+<!-- anchor: conditionals.type2.common-mistake.was-instead-of-were -->
 > **Lưu ý "were":** Trong điều kiện loại 2, dùng **were** cho tất cả các ngôi (không chỉ I/he/she/it):
 > - If I **were** rich... ✅ (không phải "was" — trong văn phong chính thức)
 > - If he **were** here... ✅
@@ -180,6 +190,8 @@ If + Past Simple, would + V-bare
 - would **not** = **wouldn't** + V: I wouldn't stay if I were you.
 - could / might thay cho would: She **might** understand if you explained properly.
 
+<!-- anchor: conditionals.type3.third-conditional -->
+<!-- anchor: conditionals.type3.structure -->
 ## Loại 3: Third Conditional — Giả định quá khứ
 
 Diễn tả điều kiện **không có thật trong quá khứ** — thường dùng để nói về tiếc nuối hoặc chỉ trích điều đã xảy ra.
@@ -494,6 +506,7 @@ Không dùng "unless" cùng phủ định:
 - ❌ If she **would have called**, I would have answered.
 - ✅ If she **had called**, I would have answered. (Past Perfect trong if-clause)
 
+<!-- anchor: conditionals.type2-vs-type3.tense-distance -->
 ### Lỗi 4: Nhầm điều kiện loại 2 và 3
 
 - **Loại 2** (hiện tại/tương lai): If I **had** time, I **would go**.
@@ -520,6 +533,7 @@ Không dùng "unless" cùng phủ định:
 - **If** stricter regulations **had been introduced** earlier, many of the current environmental problems **would not have developed**.
 - The economic crisis **might have been avoided** **if** banks **had been** more carefully regulated.
 
+<!-- anchor: conditionals.ielts.part3-hypothetical-questions -->
 ### Speaking Part 3 — thảo luận giả định:
 
 - **If** I could change one thing about my city, I **would** definitely improve the public transport system.

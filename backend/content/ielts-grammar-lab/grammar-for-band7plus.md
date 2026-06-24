@@ -58,27 +58,29 @@ anchors:
     location: '## Tóm tắt'
     type: overview
   - id: grammar-for-band7plus.range.complex-structures
-    location: '## Range — Complex structures'
+    location: "## Phần 1: Inversion — Đảo ngữ để nhấn mạnh"
     type: section
   - id: grammar-for-band7plus.accuracy.error-frequency
-    location: '## Accuracy — Error frequency'
+    location: "## Lỗi thường gặp khi dùng cấu trúc nâng cao"
     type: section
   - id: grammar-for-band7plus.compare.band-7-vs-8
-    location: '## Band 7 vs Band 8 grammar'
+    location: "## Tóm tắt"
     type: compare-with
   - id: grammar-for-band7plus.high-leverage.cleft-inversion-conditional
-    location: '## High-leverage — Cleft / Inversion / Conditionals'
+    location: "## High-leverage structures"
     type: section
   - id: grammar-for-band7plus.high-leverage.hedging-and-modality
-    location: '## High-leverage — Hedging and modality'
+    location: "## Phần 6: Hedging Language — Diễn đạt thận trọng"
     type: section
   - id: grammar-for-band7plus.high-leverage.varying-sentence-openings
-    location: '## Varying sentence openings (Band 7 → 8 marker) — post-merge'
+    location: "## PHẦN 4: ĐẶT TRẠNG NGỮ LÊN ĐẦU CÂU (Fronting)"
     type: section
   - id: grammar-for-band7plus.cross-reference.core-topics
-    location: '## Cross-reference to CORE topics'
+    location: "## Tóm tắt nhanh"
     type: section
 ---
+<!-- anchor: grammar-for-band7plus.overview -->
+<!-- anchor: grammar-for-band7plus.compare.band-7-vs-8 -->
 ## Tóm tắt
 
 Band 7 yêu cầu "a variety of complex structures with some flexibility and accuracy." Band 8 yêu cầu "a wide range of structures used with flexibility and accuracy." Bài viết này giới thiệu các cấu trúc nâng cao giúp nâng điểm Grammar từ 6.5 lên 7+ — những cấu trúc hiếm gặp trong bài thí sinh trung bình, nhưng tự nhiên với người dùng tiếng Anh học thuật.
@@ -89,6 +91,7 @@ Thí sinh Band 6-6.5 thường biết ngữ pháp cơ bản nhưng thiếu **gra
 
 ---
 
+<!-- anchor: grammar-for-band7plus.range.complex-structures -->
 ## Phần 1: Inversion — Đảo ngữ để nhấn mạnh
 
 Đảo ngữ là đưa phần phụ (thường là trạng từ phủ định hoặc hạn chế) lên đầu câu, kéo trợ động từ lên trước chủ ngữ. Cấu trúc này rất phổ biến trong văn học thuật tiếng Anh.
@@ -278,6 +281,7 @@ Passive gerund: being + V3
 
 ---
 
+<!-- anchor: grammar-for-band7plus.high-leverage.hedging-and-modality -->
 ## Phần 6: Hedging Language — Diễn đạt thận trọng
 
 Văn học thuật Band 7+ không nói tuyệt đối. Hedging thể hiện sự tinh tế học thuật.
@@ -375,6 +379,7 @@ Các cấu trúc trong đoạn này: Not only...but also (inversion), what-cleft
 
 ---
 
+<!-- anchor: grammar-for-band7plus.accuracy.error-frequency -->
 ## Lỗi thường gặp khi dùng cấu trúc nâng cao
 
 ### Lỗi 1: Inversion không đúng ngữ cảnh
@@ -423,6 +428,7 @@ Cấu trúc nâng cao phải phục vụ ý nghĩa — không phải thể hiệ
 
 ---
 
+<!-- anchor: grammar-for-band7plus.cross-reference.core-topics -->
 ## Tóm tắt nhanh
 
 | Cấu trúc | Công thức | Tác dụng |
@@ -444,6 +450,7 @@ Cấu trúc nâng cao phải phục vụ ý nghĩa — không phải thể hiệ
 - Inversion và cleft sentences đặc biệt hiệu quả ở **câu mở bài** và **câu chủ đề đoạn**
 - **Hedging** là bắt buộc ở Band 7+ — nói tuyệt đối là dấu hiệu của Band 5-6
 
+<!-- anchor: grammar-for-band7plus.high-leverage.cleft-inversion-conditional -->
 ## High-leverage structures
 
 Các cấu trúc ngữ pháp tạo đòn bẩy cao trong IELTS Speaking — sử dụng có chiến lược để nâng band điểm Grammar Range and Accuracy.
@@ -522,6 +529,7 @@ Dùng "I think" không phải lỗi — nhưng lặp 5 lần trong một bài tr
 
 ---
 
+<!-- anchor: grammar-for-band7plus.high-leverage.varying-sentence-openings -->
 ## PHẦN 4: ĐẶT TRẠNG NGỮ LÊN ĐẦU CÂU (Fronting)
 
 Đây là kỹ thuật đơn giản nhất để đa dạng hóa: thay vì luôn bắt đầu bằng chủ ngữ, đặt trạng ngữ thời gian, địa điểm, hoặc hoàn cảnh lên đầu:

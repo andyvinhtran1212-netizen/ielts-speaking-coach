@@ -55,28 +55,28 @@ anchors:
     location: "## Tóm tắt"
     type: overview
   - id: discourse-markers-spoken.opening.well-so-actually
-    location: "### Nhóm 1 — Mở đầu / câu giờ"
+    location: "### Nhóm 1 — Mở đầu / câu giờ: *well, so, right, OK, now*"
     type: section
   - id: discourse-markers-spoken.thinking.you-know-i-mean
-    location: "### Nhóm 2 — Câu giờ và suy nghĩ"
+    location: "### Nhóm 2 — Câu giờ và suy nghĩ: *you know, I mean, let me think, let me see*"
     type: section
   - id: discourse-markers-spoken.softening.kind-of-sort-of
-    location: "### Nhóm 3 — Làm mềm / hedging"
+    location: "### Nhóm 3 — Làm mềm / hedging: *kind of, sort of, I guess, I suppose*"
     type: section
   - id: discourse-markers-spoken.connecting.anyway-by-the-way
-    location: "### Nhóm 4 — Kết nối / chuyển chủ đề"
+    location: "### Nhóm 4 — Kết nối / chuyển chủ đề: *anyway, by the way, speaking of which, that reminds me*"
     type: section
   - id: discourse-markers-spoken.emphasis.actually-basically
-    location: "### Nhóm 5 — Nhấn mạnh / tăng cường độ"
+    location: "### Nhóm 5 — Nhấn mạnh / tăng cường độ: *actually, basically, in fact, the thing is, to be honest*"
     type: section
   - id: discourse-markers-spoken.response.exactly-absolutely
-    location: "### Nhóm 6 — Phản hồi / xác nhận"
+    location: "### Nhóm 6 — Phản hồi / xác nhận: *exactly, absolutely, definitely, sure, I see*"
     type: section
   - id: discourse-markers-spoken.common-mistake.actually-misuse
     location: "### Lỗi 1: Lạm dụng \"actually\" như topic-opener"
     type: pitfall
   - id: discourse-markers-spoken.common-mistake.overuse-and-but-so
-    location: "### Lỗi 2: Lạm dụng \"and / but / so\""
+    location: "### Lỗi 2: Lạm dụng \"and / but / so\" — không có DM khác"
     type: pitfall
   - id: discourse-markers-spoken.common-mistake.like-overuse
     location: "### Lỗi 3: Lạm dụng \"like\" theo kiểu American teen"

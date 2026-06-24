@@ -44,10 +44,11 @@ anchors:
     location: '## Tóm tắt'
     type: overview
   - id: adjectives.participial.ed-vs-ing
-    location: '## -ed vs -ing adjectives'
+    location: "### 4. Mô tả cảm xúc và trải nghiệm"
     type: pitfall
 ---
 
+<!-- anchor: adjectives.overview -->
 ## Tóm tắt
 
 Adjective là từ **mô tả tính chất của danh từ** — nó trả lời câu hỏi *What kind? Which one? How many? How much?* và giúp người nghe hình dung rõ hơn về người, vật, nơi chốn, hay cảm xúc bạn đang nhắc đến.
@@ -172,6 +173,7 @@ Subject + Linking Verb + Adjective
 - "Smartphones have become an **indispensable** part of **modern** life."
 - "It was a **simple** wooden box, but to me it was **priceless**."
 
+<!-- anchor: adjectives.participial.ed-vs-ing -->
 ### 4. Mô tả cảm xúc và trải nghiệm
 
 - *excited, thrilled, overwhelmed, nervous, anxious, relieved*

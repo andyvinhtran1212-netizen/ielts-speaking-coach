@@ -71,7 +71,7 @@ anchors:
     location: "### Lỗi 1: Cluster simplification"
     type: pitfall
   - id: pronunciation-grammar-link.common-mistake.full-form-overuse
-    location: "### Lỗi 2: Full form overuse"
+    location: "### Lỗi 2: Full form overuse (no contractions)"
     type: pitfall
   - id: pronunciation-grammar-link.common-mistake.ed-sai-loai
     location: "### Lỗi 3: -ed phát âm sai loại"

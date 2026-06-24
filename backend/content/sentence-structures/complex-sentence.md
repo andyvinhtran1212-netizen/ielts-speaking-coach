@@ -46,6 +46,13 @@ pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
 - band-6-to-7
+anchors:
+  - id: complex-sentence.combining-short-sentences
+    location: "## Combining short sentences (cách thực hành)"
+    type: section
+  - id: complex-sentence.simple-to-complex-progression
+    location: "## From simple to complex (worked examples)"
+    type: section
 ---
 ## Tóm tắt
 

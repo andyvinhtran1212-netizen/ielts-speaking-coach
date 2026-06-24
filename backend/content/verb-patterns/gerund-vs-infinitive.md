@@ -51,13 +51,13 @@ anchors:
     location: '## Tóm tắt'
     type: overview
   - id: gerund-vs-infinitive.gerund-only
-    location: '## Gerund-only verbs'
+    location: "### 1. Động từ chỉ đi với GERUND"
     type: section
   - id: gerund-vs-infinitive.infinitive-only
-    location: '## Infinitive-only verbs'
+    location: "### 2. Động từ chỉ đi với TO-INFINITIVE"
     type: section
   - id: gerund-vs-infinitive.both-same-meaning
-    location: '## Both — same meaning'
+    location: "### 4. Động từ đi với cả hai — KHÔNG đổi nghĩa (hoặc gần như vậy)"
     type: section
   - id: gerund-vs-infinitive.both-different-meaning.overview
     location: '## Verbs that take both with DIFFERENT meaning'
@@ -84,9 +84,10 @@ anchors:
     location: '## Lỗi thường gặp'
     type: pitfall
   - id: gerund-vs-infinitive.ielts.speaking-examples
-    location: '## Ứng dụng IELTS Speaking'
+    location: "### IELTS Speaking — Cụm từ hữu ích"
     type: ielts-application
 ---
+<!-- anchor: gerund-vs-infinitive.overview -->
 ## Tóm tắt
 
 Gerund (V-ing) và to-infinitive đều có thể đứng sau động từ, nhưng mỗi động từ chỉ chấp nhận **một trong hai** — hoặc cả hai nhưng với **nghĩa khác nhau** — và không có quy tắc lý giải hoàn toàn, chỉ cần học theo nhóm.
@@ -112,6 +113,7 @@ Band 7+: dùng đúng nhất quán, kể cả nhóm đổi nghĩa
 
 ## Cách dùng phổ biến
 
+<!-- anchor: gerund-vs-infinitive.gerund-only -->
 ### 1. Động từ chỉ đi với GERUND
 
 Học nhóm này trước — nếu bạn nhớ được chúng, bạn sẽ không viết sai với những động từ này nữa.
@@ -167,6 +169,7 @@ Verb + V-ing (gerund)
 
 > **Mẹo nhớ:** Những động từ này thường liên quan đến việc nhìn nhận, đánh giá, hoặc thể hiện cảm xúc đối với một hành động. Hành động đó thường đã xảy ra hoặc mang tính chung chung.
 
+<!-- anchor: gerund-vs-infinitive.infinitive-only -->
 ### 2. Động từ chỉ đi với TO-INFINITIVE
 
 ```
@@ -270,6 +273,7 @@ Verb + to + base verb (to-infinitive)
 | go on + **gerund** | Tiếp tục làm điều đang làm | She went on **talking** for an hour. *(Cô ấy cứ nói tiếp một tiếng)* |
 | go on + **to-inf** | Chuyển sang làm điều gì tiếp theo | She went on **to become** the CEO. *(Sau đó cô ấy trở thành CEO)* |
 
+<!-- anchor: gerund-vs-infinitive.both-same-meaning -->
 ### 4. Động từ đi với cả hai — KHÔNG đổi nghĩa (hoặc gần như vậy)
 
 Một số động từ chấp nhận cả gerund và to-infinitive với nghĩa gần giống nhau (thường là sau **begin, start, continue, hate, like, love, prefer** trong một số ngữ cảnh):
@@ -322,6 +326,7 @@ Một số động từ chấp nhận cả gerund và to-infinitive với nghĩa
 **(Writing Task 2):**
 "Many people **prefer working** from home, while others **choose to commute** to an office. Those who **enjoy collaborating** with colleagues tend **to prefer** office environments, whereas individuals who **struggle to focus** in busy spaces often **find working** remotely more productive. **Forcing** employees **to return** to the office without considering their preferences risks **reducing** overall productivity."
 
+<!-- anchor: gerund-vs-infinitive.common-mistake.wrong-form-after-verb -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: Dùng gerund sau want/hope/plan/decide
@@ -389,6 +394,7 @@ Tiếng Việt không phân biệt gerund và infinitive — "tôi thích đi", 
 
 ## Ứng dụng trong IELTS
 
+<!-- anchor: gerund-vs-infinitive.ielts.speaking-examples -->
 ### IELTS Speaking — Cụm từ hữu ích
 
 **Nói về sở thích (gerund):**

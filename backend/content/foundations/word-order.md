@@ -48,19 +48,22 @@ anchors:
     location: '## Tóm tắt'
     type: overview
   - id: word-order.svo.basic
-    location: '## Trật tự cơ bản (SVO)'
+    location: "## Quy tắc cốt lõi: S-V-O"
     type: structure
   - id: word-order.adjective-placement.attributive-vs-predicative
     location: '## Lỗi phổ biến của người Việt — Adjective sau noun'
     type: pitfall
   - id: word-order.adjective-order.opinion-size-colour
-    location: '## Adjective ordering'
+    location: "## Adjective ordering (khi có nhiều tính từ)"
     type: structure
   - id: word-order.adverb-placement
     location: '## Adverb placement'
     type: section
   - id: word-order.question-inversion
-    location: '## Trật tự từ trong câu hỏi'
+    location: "## Câu hỏi — đảo trợ động từ lên trước"
+    type: section
+  - id: word-order.questions.inversion-rule
+    location: "## Câu hỏi — đảo trợ động từ lên trước"
     type: section
 ---
 
@@ -77,6 +80,7 @@ Người học Việt Nam thường xếp từ theo thói quen tiếng Việt, d
 
 > **Phân biệt: sai ngữ pháp vs. không tự nhiên.** Không phải mọi lỗi trật tự từ đều giống nhau. Một số vị trí là **sai ngữ pháp** — người bản ngữ không dùng trong bất kỳ ngữ cảnh nào. Một số khác chỉ là **không tự nhiên (marked)** — đúng ngữ pháp nhưng nghe lạ trong giao tiếp thông thường, đôi khi chỉ xuất hiện trong văn viết trang trọng hoặc khi muốn nhấn mạnh đặc biệt. Biết được sự khác nhau này giúp bạn không bị hoang mang khi gặp các ngoại lệ.
 
+<!-- anchor: word-order.svo.basic -->
 ## Quy tắc cốt lõi: S-V-O
 
 Cấu trúc cơ bản của câu tiếng Anh là:
@@ -158,6 +162,7 @@ Verb + Place + Time
 - She clearly spoke. *(ngữ pháp đúng, nhưng không tự nhiên trong văn nói thông thường — chỉ gặp trong văn viết hoặc khi nhấn mạnh đặc biệt vào trạng từ)*
 
 <!-- anchor: word-order.questions.inversion-rule -->
+<!-- anchor: word-order.question-inversion -->
 ## Câu hỏi — đảo trợ động từ lên trước
 
 Khi đặt câu hỏi Yes/No, trợ động từ (do/does/did/is/are/can/will...) đứng trước chủ ngữ:

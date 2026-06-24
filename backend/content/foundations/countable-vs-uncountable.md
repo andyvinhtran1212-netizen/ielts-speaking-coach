@@ -47,26 +47,27 @@ anchors:
     location: '## Tóm tắt'
     type: overview
   - id: countable-vs-uncountable.decision-rule
-    location: (callout after Tóm tắt)
+    location: "## Tóm tắt"
     type: concept
   - id: countable-vs-uncountable.uncountable.common-list
-    location: '## Danh từ không đếm được phổ biến'
+    location: "### Nhóm Uncountable Nouns phổ biến"
     type: section
   - id: countable-vs-uncountable.partitive-structures
-    location: '## Partitive structures'
+    location: "### 3. Đo lường uncountable nouns"
     type: concept
   - id: countable-vs-uncountable.vietnamese-classifier-contrast
     location: '## Đối chiếu với tiếng Việt — Loại từ vs inflection'
     type: pitfall
   - id: countable-vs-uncountable.common-mistake.pluralising-uncountable
-    location: (within VN classifier section table)
+    location: "### Lỗi 1: Thêm -s vào uncountable nouns"
     type: pitfall
   - id: countable-vs-uncountable.both-countable-and-uncountable
-    location: '## Danh từ vừa C vừa U tùy nghĩa'
+    location: "### 4. Danh từ vừa countable vừa uncountable"
     type: concept
 ---
 
 <!-- anchor: countable-vs-uncountable.overview -->
+<!-- anchor: countable-vs-uncountable.decision-rule -->
 ## Tóm tắt
 > **4 câu hỏi để quyết định một danh từ mới có đếm được không:**
 >
@@ -128,6 +129,7 @@ Danh từ chỉ những thứ **không thể tách thành đơn vị rời rạc
 
 \*Ngoại lệ: *waters* có thể dùng trong nghĩa thơ ca hoặc địa lý (*the waters of the Pacific*).
 
+<!-- anchor: countable-vs-uncountable.uncountable.common-list -->
 ### Nhóm Uncountable Nouns phổ biến
 
 | Nhóm | Ví dụ |
@@ -170,6 +172,7 @@ Danh từ chỉ những thứ **không thể tách thành đơn vị rời rạc
 - Không cần mạo từ khi nói chung chung: *Water is essential.* / *Advice is valuable.*
 - Dùng *the* khi nói về thứ cụ thể: *The water in this bottle is cold.*
 
+<!-- anchor: countable-vs-uncountable.partitive-structures -->
 ### 3. Đo lường uncountable nouns
 
 Khi cần nói số lượng cụ thể, dùng **"a unit of + uncountable noun"**:
@@ -185,6 +188,7 @@ Khi cần nói số lượng cụ thể, dùng **"a unit of + uncountable noun"*
 | research | a piece of | *a piece of research* |
 | coffee | a cup of | *a cup of coffee* |
 
+<!-- anchor: countable-vs-uncountable.both-countable-and-uncountable -->
 ### 4. Danh từ vừa countable vừa uncountable
 
 Nhiều danh từ có thể là cả hai tùy ngữ cảnh, với **nghĩa khác nhau**:
@@ -249,6 +253,7 @@ Phân tích:
 
 ## Lỗi thường gặp
 
+<!-- anchor: countable-vs-uncountable.common-mistake.pluralising-uncountable -->
 ### Lỗi 1: Thêm -s vào uncountable nouns
 
 - ❌ SAI: *I received some helpful advices.*

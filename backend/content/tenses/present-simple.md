@@ -46,22 +46,22 @@ anchors:
     location: '## Tóm tắt'
     type: overview
   - id: present-simple.structure.affirmative
-    location: '## Cấu trúc khẳng định'
+    location: "### Câu khẳng định"
     type: structure
   - id: present-simple.structure.negative-question
-    location: '## Cấu trúc phủ định và câu hỏi'
+    location: "### Câu phủ định"
     type: structure
   - id: present-simple.usage.habitual
-    location: '## Diễn tả thói quen'
+    location: "### 1. Thói quen và hành động lặp lại"
     type: section
   - id: present-simple.usage.general-truth
-    location: '## Diễn tả sự thật / quy luật'
+    location: "### 2. Sự thật hiển nhiên"
     type: section
   - id: present-simple.common-mistake.third-person-s-drop
     location: '## Lỗi #1 của người Việt — bỏ -s ở ngôi thứ ba số ít'
     type: pitfall
   - id: present-simple.common-mistake.do-does-confusion
-    location: (within negative/question section)
+    location: "### Lỗi 3: Thiếu do/does trong câu hỏi"
     type: pitfall
 ---
 
@@ -80,6 +80,7 @@ Người học Việt Nam thường mắc 2 lỗi lớn với thì này:
 
 ## Cấu trúc
 
+<!-- anchor: present-simple.structure.affirmative -->
 ### Câu khẳng định
 ```
 I / You / We / They + V (nguyên thể)
@@ -90,6 +91,7 @@ He / She / It        + V-s / V-es
 - He **works** at a hospital.
 - They **live** in Hanoi.
 
+<!-- anchor: present-simple.structure.negative-question -->
 ### Câu phủ định
 ```
 I / You / We / They + do not (don't) + V
@@ -125,6 +127,7 @@ Does + he / she / it       + V ...?
 
 ## Cách dùng phổ biến
 
+<!-- anchor: present-simple.usage.habitual -->
 ### 1. Thói quen và hành động lặp lại
 
 Diễn tả những gì bạn làm thường xuyên, không chỉ một lần.
@@ -135,6 +138,7 @@ Diễn tả những gì bạn làm thường xuyên, không chỉ một lần.
 
 **Dấu hiệu:** always, usually, often, sometimes, rarely, never, every day/week/month
 
+<!-- anchor: present-simple.usage.general-truth -->
 ### 2. Sự thật hiển nhiên
 
 Những điều luôn đúng, không thay đổi — sự thật khách quan.
@@ -226,6 +230,7 @@ Với các động từ trạng thái (stative verbs) — những điều không
 - ✅ ĐÚNG: She **doesn't go** to school.
 - **TẠI SAO:** Khi đã có does/doesn't, động từ trở về nguyên thể (không thêm -s).
 
+<!-- anchor: present-simple.common-mistake.do-does-confusion -->
 ### Lỗi 3: Thiếu do/does trong câu hỏi
 
 - ❌ SAI: **You like** coffee?

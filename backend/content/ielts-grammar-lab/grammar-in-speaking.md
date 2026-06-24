@@ -53,25 +53,26 @@ anchors:
     location: '## Tóm tắt'
     type: overview
   - id: grammar-in-speaking.part1.tenses-and-frequency
-    location: '### Speaking Part 1'
+    location: "### Speaking Part 1 — Câu hỏi cá nhân"
     type: section
   - id: grammar-in-speaking.part2.narrative-tense-management
-    location: '### Speaking Part 2'
+    location: "### Speaking Part 2 — Long Turn (1-2 phút)"
     type: section
   - id: grammar-in-speaking.part3.complex-structures-and-hedging
-    location: '### Speaking Part 3'
+    location: "### Speaking Part 3 — Thảo luận trừu tượng"
     type: section
   - id: grammar-in-speaking.gra.band-7-criteria
-    location: '## GRA Band 7 criteria'
+    location: "## Band 6 → Band 7: Upgrade Drill"
     type: concept
   - id: grammar-in-speaking.gra.band-8-criteria
-    location: '## GRA Band 8 criteria'
+    location: "## Tóm tắt nhanh"
     type: concept
   - id: grammar-in-speaking.cross-reference.core-topics
-    location: '## Cross-reference to CORE topics'
+    location: "## Tóm tắt nhanh"
     type: section
 ---
 
+<!-- anchor: grammar-in-speaking.overview -->
 ## Tóm tắt
 
 IELTS Speaking được chấm theo 4 tiêu chí, mỗi tiêu chí 25%:
@@ -90,6 +91,7 @@ Band 6 GRA: "uses a mix of simple and complex structures, but with limited flexi
 
 ## Phần 1: Ngữ pháp theo từng Part
 
+<!-- anchor: grammar-in-speaking.part1.tenses-and-frequency -->
 ### Speaking Part 1 — Câu hỏi cá nhân
 
 Part 1 hỏi về bản thân, sở thích, thói quen hàng ngày. Thì chính:
@@ -107,6 +109,7 @@ Part 1 hỏi về bản thân, sở thích, thói quen hàng ngày. Thì chính:
 
 Chú ý: câu trả lời tốt dùng: although (contrast), didn't use to (past habit), tend to (present habit), which (relative clause), have been trying (present perfect continuous).
 
+<!-- anchor: grammar-in-speaking.part2.narrative-tense-management -->
 ### Speaking Part 2 — Long Turn (1-2 phút)
 
 Part 2 yêu cầu nói về một chủ đề trong 1-2 phút, dùng thẻ gợi ý. Cần:
@@ -120,6 +123,7 @@ Part 2 yêu cầu nói về một chủ đề trong 1-2 phút, dùng thẻ gợi
 
 Cấu trúc được dùng: Past Perfect (had never visited), Past Continuous (was lit up), relative clause (which was), inversion cảm thán (what struck me most), conditional Type 2 (if I could, would go).
 
+<!-- anchor: grammar-in-speaking.part3.complex-structures-and-hedging -->
 ### Speaking Part 3 — Thảo luận trừu tượng
 
 Part 3 yêu cầu ý kiến về các vấn đề xã hội rộng hơn. Đây là nơi thể hiện range ngữ pháp cao nhất:
@@ -284,6 +288,7 @@ Nhiều thí sinh trả lời mọi câu hỏi bằng Present Simple dù tình h
 
 ---
 
+<!-- anchor: grammar-in-speaking.gra.band-7-criteria -->
 ## Band 6 → Band 7: Upgrade Drill
 
 Band 6 thường đúng grammar nhưng thiếu variety — câu ngắn, cùng một thì, ít cấu trúc phức. Bốn thao tác sau đủ để nâng một câu trả lời Band 6 lên Band 7:
@@ -331,6 +336,8 @@ Mở rộng câu trả lời ngắn sau bằng cách thêm: một relative claus
 
 ---
 
+<!-- anchor: grammar-in-speaking.gra.band-8-criteria -->
+<!-- anchor: grammar-in-speaking.cross-reference.core-topics -->
 ## Tóm tắt nhanh
 
 | Part | Thì chính | Cấu trúc nổi bật |

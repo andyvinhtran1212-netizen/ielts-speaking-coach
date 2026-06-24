@@ -52,13 +52,14 @@ anchors:
     location: '## Tóm tắt'
     type: overview
   - id: subject-verb-agreement.common-mistake.he-she-it-no-s
-    location: (VN -s drop section)
+    location: "### Trong Present Simple:"
     type: pitfall
   - id: subject-verb-agreement.collective-nouns
-    location: '## Collective nouns'
+    location: "### Bẫy 2: Danh từ tập hợp (Collective Nouns)"
     type: section
 ---
 
+<!-- anchor: subject-verb-agreement.overview -->
 ## Tóm tắt
 
 Quy tắc cơ bản: **Chủ ngữ số ít → động từ số ít; Chủ ngữ số nhiều → động từ số nhiều**.
@@ -75,6 +76,7 @@ Sai subject-verb agreement bị đánh giá là lỗi nặng trong IELTS Writing
 
 ## Quy tắc cơ bản
 
+<!-- anchor: subject-verb-agreement.common-mistake.he-she-it-no-s -->
 ### Trong Present Simple:
 
 | Chủ ngữ | Động từ |
@@ -107,6 +109,7 @@ Khi có cụm giới từ (prepositional phrase) nằm giữa chủ ngữ và đ
 > - **The number of** + plural noun → động từ **số ít** (the number IS)
 > - **A number of** + plural noun → động từ **số nhiều** (a number of students ARE)
 
+<!-- anchor: subject-verb-agreement.collective-nouns -->
 ### Bẫy 2: Danh từ tập hợp (Collective Nouns)
 
 Danh từ chỉ một nhóm: team, family, government, committee, staff, audience, class, jury...

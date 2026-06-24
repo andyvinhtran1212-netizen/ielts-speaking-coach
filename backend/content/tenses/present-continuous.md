@@ -51,19 +51,19 @@ anchors:
     location: '## Cấu trúc'
     type: structure
   - id: present-continuous.usage.now
-    location: '## Hành động đang xảy ra (now)'
+    location: "### 1. Hành động đang xảy ra ngay lúc nói"
     type: section
   - id: present-continuous.usage.around-now
-    location: '## Hành động trong giai đoạn hiện tại'
+    location: "### 2. Tình huống tạm thời (around now)"
     type: section
   - id: present-continuous.usage.future-arrangement
-    location: '## Tương lai gần đã sắp xếp'
+    location: "### 4. Kế hoạch cố định trong tương lai gần"
     type: section
   - id: present-continuous.stative-verbs.do-not-use-ing
-    location: '## Stative verbs'
+    location: "### Lỗi 3: Dùng stative verbs với Present Continuous"
     type: pitfall
   - id: present-continuous.compare-with.present-simple
-    location: '## So sánh với Present Simple'
+    location: "### Present Continuous vs Present Simple"
     type: compare-with
 ---
 
@@ -90,6 +90,7 @@ Present Continuous dùng để diễn tả:
 4. Kế hoạch đã **sắp xếp cố định** trong tương lai gần
 5. Thói quen gây **khó chịu/bực bội** (với "always" — mang tính chỉ trích)
 
+<!-- anchor: present-continuous.structure.am-is-are-ving -->
 ## Cấu trúc
 
 ### Câu khẳng định
@@ -138,6 +139,7 @@ Am/Is/Are + Subject + V-ing ...?
 
 ## Cách dùng phổ biến
 
+<!-- anchor: present-continuous.usage.now -->
 ### 1. Hành động đang xảy ra ngay lúc nói
 
 Đây là cách dùng cơ bản nhất và dễ nhận biết nhất.
@@ -146,6 +148,7 @@ Am/Is/Are + Subject + V-ing ...?
 - Look! The children **are playing** in the park.
 - Why **are** you **laughing**? — Bạn đang cười gì vậy?
 
+<!-- anchor: present-continuous.usage.around-now -->
 ### 2. Tình huống tạm thời (around now)
 
 Hành động không nhất thiết phải xảy ra đúng lúc nói, nhưng chỉ xảy ra trong thời gian hiện tại (tuần này, tháng này, giai đoạn này).
@@ -168,6 +171,7 @@ Rất quan trọng cho IELTS Part 3 — nói về xã hội đang biến đổi.
 - Young Vietnamese **are becoming** more globally connected.
 - Traditional values **are changing** as urbanisation increases.
 
+<!-- anchor: present-continuous.usage.future-arrangement -->
 ### 4. Kế hoạch cố định trong tương lai gần
 
 Phải có sự sắp xếp cụ thể từ trước, không phải kế hoạch mơ hồ.
@@ -255,6 +259,7 @@ Khác với Present Simple (thói quen bình thường), Present Continuous + al
 
 ## So sánh với
 
+<!-- anchor: present-continuous.compare-with.present-simple -->
 ### Present Continuous vs Present Simple
 
 | | Present Simple | Present Continuous |
