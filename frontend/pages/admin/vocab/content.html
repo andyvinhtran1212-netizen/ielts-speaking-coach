@@ -117,9 +117,21 @@
         <input id="vw-select-all" type="checkbox" /> Chọn tất cả (trang này)
       </label>
       <span id="vw-selected" class="aw-subtitle text-sm"></span>
-      <button id="vw-bulk-del" type="button" class="aw-btn-danger" style="margin-left:auto;" hidden>
-        Xóa <span id="vw-bulk-n">0</span> từ đã chọn
-      </button>
+      <div id="vw-gen-bar" class="flex items-center gap-2 flex-wrap" style="margin-left:auto;" hidden>
+        <select id="vw-gen-engine" class="aw-input" style="width:auto;" aria-label="Engine giọng">
+          <option value="openai">OpenAI (rẻ)</option>
+          <option value="elevenlabs">ElevenLabs (en-GB, hay hơn)</option>
+        </select>
+        <select id="vw-gen-scope" class="aw-input" style="width:auto;" aria-label="Phạm vi">
+          <option value="both">Headword + ví dụ</option>
+          <option value="headword">Chỉ headword (rẻ)</option>
+          <option value="example">Chỉ ví dụ</option>
+        </select>
+        <button id="vw-gen" type="button" class="aw-btn-secondary">🎙 Tạo giọng (<span id="vw-gen-n">0</span>)</button>
+        <button id="vw-bulk-del" type="button" class="aw-btn-danger">
+          Xóa <span id="vw-bulk-n">0</span> từ đã chọn
+        </button>
+      </div>
     </div>
 
     <div id="vw-list"></div>
@@ -371,10 +383,10 @@
     function _vwSelectedIds() { return Object.keys(_vw.selected); }
     function _vwRefreshBulkBar() {
       var ids = _vwSelectedIds();
-      var bar = document.getElementById('vw-bulk-del');
       document.getElementById('vw-selected').textContent = ids.length ? ('Đã chọn ' + ids.length + ' từ') : '';
       document.getElementById('vw-bulk-n').textContent = ids.length;
-      bar.hidden = ids.length === 0;
+      document.getElementById('vw-gen-n').textContent = ids.length;
+      document.getElementById('vw-gen-bar').hidden = ids.length === 0;   // gen + delete share the bar
       // select-all reflects whether every row on this page is ticked
       var ticks = document.querySelectorAll('#vw-list .vw-tick');
       var all = document.getElementById('vw-select-all');
@@ -397,6 +409,24 @@
         loadVocabList();
       } catch (err) {
         _vwStatus('Lỗi xóa hàng loạt: ' + ((err && err.message) || 'không xác định'), 'error');
+      }
+    }
+    async function generateVoice() {
+      var ids = _vwSelectedIds();
+      if (!ids.length) return;
+      var engine = document.getElementById('vw-gen-engine').value;
+      var scope = document.getElementById('vw-gen-scope').value;
+      // ElevenLabs costs real credits — confirm with count + engine before queueing.
+      if (engine === 'elevenlabs' &&
+          !confirm('Tạo giọng ElevenLabs cho ' + ids.length + ' từ (tốn credit). Tiếp tục?')) return;
+      _vwStatus('Đang xếp hàng tạo giọng…', null);
+      try {
+        var res = await window.api.post('/admin/vocabulary/generate-audio',
+                                        { ids: ids, engine: engine, scope: scope });
+        _vwStatus('✓ Đã xếp hàng ' + (res.queued_count != null ? res.queued_count : ids.length)
+                  + ' từ (' + res.engine + ', chạy nền). Tải lại sau ít phút để nghe ▶.', 'ok');
+      } catch (err) {
+        _vwStatus('Lỗi tạo giọng: ' + ((err && err.message) || 'không xác định'), 'error');
       }
     }
 
@@ -572,6 +602,7 @@
         _vwRefreshBulkBar();
       });
       document.getElementById('vw-bulk-del').addEventListener('click', bulkDelete);
+      document.getElementById('vw-gen').addEventListener('click', generateVoice);
       var dz;
       var srch = document.getElementById('vw-search');
       srch.addEventListener('input', function () {

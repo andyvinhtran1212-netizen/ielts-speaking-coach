@@ -58,8 +58,7 @@ describe('vocab admin console — content.html', () => {
     assert.match(PAGE, /speechSynthesis/);
     assert.match(PAGE, /\.catch\(function \(\) \{ vwSpeak/);   // playback error → fallback
     assert.match(PAGE, /audio_status/);                       // status pill
-    // No render trigger this slice (V-eleven): preview-only.
-    assert.doesNotMatch(PAGE, /elevenlabs/i);
+    // No PER-ROW render trigger (generate is a bulk-bar action — V-eleven).
     assert.doesNotMatch(PAGE, /data-act="render"/);
   });
 
@@ -73,5 +72,15 @@ describe('vocab admin console — content.html', () => {
     assert.match(PAGE, /window\.api\.post\('\/admin\/vocabulary\/bulk-delete',\s*\{\s*ids:/);
     assert.match(PAGE, /confirm\('Xóa ' \+ ids\.length \+ ' từ/);   // counted, named confirm
     assert.match(PAGE, /KHÔNG thể hoàn tác/);
+  });
+
+  test('V-eleven: generate-voice with engine + scope select on selection', () => {
+    assert.match(PAGE, /id="vw-gen-engine"/);                 // OpenAI / ElevenLabs
+    assert.match(PAGE, /value="elevenlabs"/);
+    assert.match(PAGE, /id="vw-gen-scope"/);                  // headword/example/both
+    assert.match(PAGE, /id="vw-gen"/);                        // generate button
+    assert.match(PAGE, /window\.api\.post\('\/admin\/vocabulary\/generate-audio',/);
+    assert.match(PAGE, /ids: ids, engine: engine, scope: scope/);
+    assert.match(PAGE, /ElevenLabs.*tốn credit/);            // cost confirm for elevenlabs
   });
 });
