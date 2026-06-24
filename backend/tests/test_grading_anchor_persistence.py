@@ -70,8 +70,12 @@ def test_persists_anchor_when_present():
     assert rows[0]["recommended_anchor"] == "articles.indefinite.missing-with-singular-count-noun"
     assert rows[1]["recommended_anchor"] is None  # NULL → frontend article-level fallback
 
-    # And the function returns the recs enriched with rec_id (existing behavior)
-    assert result[0].get("rec_id") == "fake-id-1"
+    # A1: rec_id is now the PRE-MINTED id we INSERT (rows[i]["id"]), not a
+    # read-back of the DB's returned id. Row carries an explicit id; the
+    # returned rec_id equals it (single write, no read-back round-trip).
+    assert "id" in rows[0] and rows[0]["id"]
+    assert result[0]["rec_id"] == rows[0]["id"]
+    assert result[1]["rec_id"] == rows[1]["id"]
     assert result[0]["anchor"] == "articles.indefinite.missing-with-singular-count-noun"
 
 
