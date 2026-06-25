@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="vi" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>averlearning · Thẻ từ — master/detail</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=Hanken+Grotesk:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root[data-theme="light"]{
+    --bg:#EFF1EB; --panel:#FFFFFF; --panel-2:#F7F8F4; --row-active:#E8F1ED;
+    --text:#16202C; --text-soft:#47525F; --text-dim:#8A95A1;
+    --teal:#0B8E78; --jade:#0B6E59; --jade-deep:#084C3E;
+    --jade-tint:#E4F0EB; --jade-line:#BCDDD1;
+    --amber:#9A6710; --amber-tint:#FAF1DC; --amber-line:#EFD9A6;
+    --line:#E2E4DD; --line-soft:#ECEEE7;
+    --shadow:0 1px 2px rgba(22,32,44,.04), 0 18px 40px -22px rgba(22,32,44,.2);
+  }
+  :root[data-theme="dark"]{
+    --bg:#0B1018; --panel:#121A28; --panel-2:#0E1521; --row-active:#16241F;
+    --text:#E9EDF3; --text-soft:#A4AEBD; --text-dim:#697485;
+    --teal:#34D6BE; --jade:#19BE92; --jade-deep:#0E8E6D;
+    --jade-tint:rgba(25,190,146,.12); --jade-line:rgba(25,190,146,.3);
+    --amber:#E0A94B; --amber-tint:rgba(224,169,75,.1); --amber-line:rgba(224,169,75,.26);
+    --line:#212C3D; --line-soft:#1A2333;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 24px 48px -24px rgba(0,0,0,.6);
+  }
+  *{box-sizing:border-box} html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--text);font-family:"Hanken Grotesk",system-ui,sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased}
+  .mono{font-family:"DM Mono",monospace} .serif{font-family:"Fraunces",serif}
+
+  .chrome{display:flex;justify-content:space-between;align-items:center;padding:14px 22px;border-bottom:1px solid var(--line);background:var(--panel)}
+  .chrome .brand{font-family:"Fraunces",serif;font-weight:500;font-size:18px}
+  .chrome .brand b{color:var(--teal)}
+  .chrome .nav{display:flex;gap:20px;font-size:14px;color:var(--text-soft)}
+  .chrome .nav .on{color:var(--jade);font-weight:600}
+  .toggle{appearance:none;cursor:pointer;font-family:"DM Mono",monospace;font-size:12px;color:var(--text-soft);background:var(--panel-2);border:1px solid var(--line);border-radius:999px;padding:6px 12px}
+
+  .shell{display:grid;grid-template-columns:340px 1fr;height:calc(100vh - 57px)}
+
+  /* ===== LEFT: list pane ===== */
+  .list{border-right:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
+  .list-head{padding:20px 20px 14px;border-bottom:1px solid var(--line-soft)}
+  .list-head .eyebrow{font-family:"DM Mono",monospace;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--teal)}
+  .list-head h2{font-family:"Fraunces",serif;font-weight:500;font-size:21px;margin:6px 0 2px;letter-spacing:-.01em}
+  .list-head .count{font-size:12.5px;color:var(--text-dim)}
+  .search{margin-top:14px;position:relative}
+  .search input{width:100%;font-family:inherit;font-size:14px;color:var(--text);background:var(--panel-2);border:1px solid var(--line);border-radius:11px;padding:10px 12px 10px 34px;outline:none}
+  .search input:focus{border-color:var(--jade-line)}
+  .search svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--text-dim)}
+  .rows{overflow-y:auto;flex:1;padding:8px}
+  .row{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:11px;cursor:pointer;transition:background .12s}
+  .row:hover{background:var(--panel-2)}
+  .row.active{background:var(--row-active)}
+  .row.active .rw{color:var(--jade)}
+  .row-main{flex:1;min-width:0}
+  .rw{font-family:"Fraunces",serif;font-weight:500;font-size:17px;line-height:1.2;letter-spacing:-.01em}
+  .rmeta{font-family:"DM Mono",monospace;font-size:11px;color:var(--text-dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rlvl{font-family:"DM Mono",monospace;font-size:10.5px;color:var(--text-dim);border:1px solid var(--line);border-radius:6px;padding:1px 6px;flex:none}
+  .rplay{flex:none;width:26px;height:26px;border:none;border-radius:50%;background:var(--jade-tint);color:var(--jade);cursor:pointer;display:grid;place-items:center}
+  .rplay svg{width:11px;height:11px;margin-left:1px}
+
+  /* ===== RIGHT: detail pane ===== */
+  .detail{overflow-y:auto;padding:36px;display:flex;justify-content:center}
+  .card{width:100%;max-width:600px;background:var(--panel);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);overflow:hidden;align-self:flex-start}
+  .back{display:none}
+  .pad{padding:28px 30px} .rule{height:1px;background:var(--line-soft);margin:0 30px}
+  .eyebrow-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+  .eyebrow{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--teal)}
+  .pill{font-family:"DM Mono",monospace;font-size:12px;color:var(--text-soft);border:1px solid var(--line);border-radius:999px;padding:3px 11px;background:var(--panel-2)}
+  .head{display:flex;align-items:center;gap:15px}
+  .headword{font-family:"Fraunces",serif;font-weight:500;font-size:clamp(34px,5vw,50px);line-height:1.02;letter-spacing:-.02em;margin:0}
+  .pos{font-family:"DM Mono",monospace;font-size:13px;color:var(--text-dim)}
+  .play{flex:none;width:44px;height:44px;border:none;border-radius:50%;background:var(--jade);color:#04130E;cursor:pointer;display:grid;place-items:center;box-shadow:0 8px 22px -8px var(--jade);transition:.18s}
+  .play:hover{background:var(--teal);transform:translateY(-1px)} .play svg{width:17px;height:17px;margin-left:2px}
+  .play.is-playing{animation:pulse 1s infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 var(--jade-line)}50%{box-shadow:0 0 0 8px transparent}}
+  .ipa{font-family:"DM Mono",monospace;font-size:16px;color:var(--text-soft);margin:13px 0 0}
+  .ipa .st{color:var(--jade);font-weight:500}
+  .stress{display:flex;align-items:baseline;gap:2px;margin-top:11px;flex-wrap:wrap}
+  .syl{font-family:"Fraunces",serif;font-size:19px;color:var(--text-dim)}
+  .syl + .syl::before{content:"·";color:var(--line);margin:0 6px}
+  .syl.on{font-size:26px;color:var(--jade);font-weight:600}
+  .stress-tag{font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--text-dim);margin-left:10px;align-self:center}
+  .def-en{font-size:17.5px;margin:0;line-height:1.5}
+  .def-vi{font-size:15px;color:var(--text-soft);margin:8px 0 0}
+  .use-head{display:flex;align-items:center;gap:11px;margin-bottom:12px}
+  .use-head .eyebrow{color:var(--text-dim)}
+  .play.small{width:28px;height:28px;background:var(--jade-tint);color:var(--jade);box-shadow:none}.play.small svg{width:11px;height:11px}
+  .example{font-family:"Fraunces",serif;font-style:italic;font-size:18px;line-height:1.55;margin:0}
+  .example .w{font-style:normal;font-weight:600;color:var(--jade)}
+  .colloc{display:flex;flex-wrap:wrap;gap:7px;margin-top:16px}
+  .chip{font-size:13px;color:var(--jade);background:var(--jade-tint);border:1px solid var(--jade-line);border-radius:999px;padding:5px 11px}
+  .net{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;align-items:baseline}
+  .net dt{font-family:"DM Mono",monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim)}
+  .net dd{margin:0;font-size:14.5px;color:var(--text-soft)} .net dd b{color:var(--text);font-weight:600}
+  .sep{color:var(--line);margin:0 6px}
+  .callout{display:flex;gap:11px;padding:13px 15px;border-radius:12px;font-size:13.5px;line-height:1.5}
+  .callout .ico{flex:none;width:18px;height:18px;margin-top:1px}
+  .callout .t{font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.13em;text-transform:uppercase;display:block;margin-bottom:2px}
+  .callout.warn{background:var(--amber-tint);border:1px solid var(--amber-line);color:var(--text-soft)} .callout.warn .t,.callout.warn .ico{color:var(--amber)}
+  .callout.hook{background:var(--jade-tint);border:1px solid var(--jade-line);color:var(--text-soft);margin-top:10px} .callout.hook .t,.callout.hook .ico{color:var(--jade)}
+  .callout b{color:var(--text)} .callout em{font-style:italic}
+  .foot{background:var(--panel-2)} .trace{font-family:"DM Mono",monospace;font-size:11px;color:var(--text-dim)} .trace b{color:var(--text-soft);font-weight:500}
+
+  .rplay:focus-visible,.play:focus-visible,.row:focus-visible,.toggle:focus-visible{outline:2.5px solid var(--jade);outline-offset:2px}
+
+  /* ===== responsive: collapse to single column ===== */
+  @media (max-width:860px){
+    .shell{grid-template-columns:1fr}
+    .list{border-right:none}
+    .detail{position:fixed;inset:57px 0 0;background:var(--bg);transform:translateX(100%);transition:transform .26s cubic-bezier(.2,.7,.2,1);z-index:20;padding:18px}
+    .shell.show-detail .detail{transform:translateX(0)}
+    .back{display:inline-flex;align-items:center;gap:7px;background:none;border:none;color:var(--jade);font-family:inherit;font-weight:600;font-size:14px;cursor:pointer;margin-bottom:14px}
+    .back svg{width:16px;height:16px}
+    .chrome .nav{display:none}
+  }
+</style>
+</head>
+<body>
+  <div class="chrome">
+    <span class="brand">Aver<b>.</b>Learning</span>
+    <nav class="nav"><span>Trang chủ</span><span>Writing</span><span>Speaking</span><span class="on">Vocabulary</span><span>Reading</span></nav>
+    <button class="toggle" id="themeBtn">◑ Sáng</button>
+  </div>
+
+  <div class="shell" id="shell">
+    <!-- LEFT -->
+    <aside class="list">
+      <div class="list-head">
+        <span class="eyebrow">Chủ đề</span>
+        <h2>Cities &amp; Urban Life</h2>
+        <span class="count" id="count">24 từ</span>
+        <div class="search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          <input id="q" placeholder="Tìm từ trong chủ đề…" aria-label="Tìm từ">
+        </div>
+      </div>
+      <div class="rows" id="rows"></div>
+    </aside>
+
+    <!-- RIGHT -->
+    <section class="detail">
+      <article class="card" id="card"></article>
+    </section>
+  </div>
+
+<script>
+  var WORDS = [
+    {hw:"Metropolis",pos:"noun",ipa:"/məˈtrɒp.əl.ɪs/",lvl:"C1",
+     en:"a very large and important city, often a political or cultural centre",
+     vi:"đô thị lớn, trung tâm chính trị hoặc văn hoá",
+     ex:"Whenever I return to the sprawling metropolis of Saigon, its sheer scale amazes me.",
+     col:["a sprawling metropolis","a bustling metropolis","a modern metropolis"],
+     syn:["megacity","conurbation"],
+     err:"Số nhiều là 'metropolises', không phải 'metropoli'.",
+     hook:"Hy Lạp 'mētēr' (mẹ) + 'polis' (thành) → 'thành phố mẹ'.",src:"L09 Group A"},
+    {hw:"Infrastructure",pos:"noun",ipa:"/ˈɪn.frəˌstrʌk.tʃə/",lvl:"B2",
+     en:"the basic systems and structures a city needs to function, such as roads, power and water",
+     vi:"cơ sở hạ tầng (đường sá, điện, nước...)",
+     ex:"I think the government should invest more in public infrastructure to keep the city running smoothly.",
+     col:["public infrastructure","transport infrastructure","to invest in infrastructure"],
+     syn:["facilities","framework"],
+     err:"Không đếm được: 'a lot of infrastructure', không nói 'infrastructures'.",
+     hook:"'infra' (bên dưới) + 'structure' → cái nằm dưới chống đỡ cả thành phố.",src:"L09 Group A"},
+    {hw:"Congestion",pos:"noun",ipa:"/kənˈdʒes.tʃən/",lvl:"B2",
+     en:"the state of being overcrowded, especially with traffic",
+     vi:"sự tắc nghẽn giao thông",
+     ex:"Traffic congestion during rush hour can turn a short trip into an hour-long ordeal.",
+     col:["traffic congestion","to ease congestion","severe congestion"],
+     syn:["gridlock","traffic jam"],
+     err:"Đừng nhầm với 'digestion' (tiêu hoá).",
+     hook:"'con-' (cùng) + 'gest' (dồn) → mọi thứ dồn một chỗ → tắc.",src:"L09 Group A"},
+    {hw:"Cosmopolitan",pos:"adjective",ipa:"/ˌkɒz.məˈpɒl.ɪ.tən/",lvl:"C1",
+     en:"containing or made up of people from many different countries and cultures",
+     vi:"mang tính đa quốc gia, quốc tế",
+     ex:"What I love most about a cosmopolitan city is the rich mix of cultures you find on every street.",
+     col:["a cosmopolitan city","a cosmopolitan hub","a cosmopolitan atmosphere"],
+     syn:["multicultural","international"],
+     err:"Là tính từ; nói 'a cosmopolitan city', không dùng như danh từ chỉ nơi chốn.",
+     hook:"Hy Lạp 'kosmos' (thế giới) + 'polites' (công dân) → công dân toàn cầu.",src:"L09 Group B"},
+    {hw:"Gentrification",pos:"noun",ipa:"/ˌdʒen.trɪ.fɪˈkeɪ.ʃən/",lvl:"C1",
+     en:"the process of renovating a poor area so it attracts wealthier residents, often displacing the original ones",
+     vi:"sự chỉnh trang đô thị, nâng cấp khu nghèo và đẩy người nghèo đi",
+     ex:"Rapid gentrification in District 1 has pushed many long-term residents out to cheaper suburbs.",
+     col:["rapid gentrification","urban gentrification","the process of gentrification"],
+     syn:["urban renewal","regeneration"],
+     err:"Danh từ không đếm được; không thêm '-s'.",
+     hook:"'gentry' (giới thượng lưu) → biến khu nghèo thành khu của 'gentry'.",src:"L09 Group B"},
+    {hw:"Slum",pos:"noun",ipa:"/slʌm/",lvl:"B2",
+     en:"a very poor and crowded area of a city, usually with bad housing",
+     vi:"khu ổ chuột",
+     ex:"The city is trying to rehouse families who currently live in overcrowded slums.",
+     col:["a city slum","an urban slum","to clear the slums"],
+     syn:["shanty town","ghetto"],
+     err:"Đếm được: 'a slum'; đừng nhầm 'slum' với 'slim' (mảnh khảnh).",
+     hook:"Âm 'slum' nghe trầm, tối → khu nghèo, tồi tàn.",src:"L09 Group B"},
+    {hw:"Hustle and bustle",pos:"idiom",ipa:"/ˈhʌs.əl ənd ˈbʌs.əl/",lvl:"B2",
+     en:"the busy, noisy and energetic activity of a crowded place",
+     vi:"sự hối hả, nhộn nhịp",
+     ex:"I really enjoy the hustle and bustle of the old market on a Saturday morning.",
+     col:["the hustle and bustle of the city","to escape the hustle and bustle","the daily hustle and bustle"],
+     syn:["commotion","liveliness"],
+     err:"Cụm cố định, luôn dùng cả hai từ.",
+     hook:"Hai từ vần nhau 'hustle - bustle' → âm thanh rộn ràng của phố.",src:"L09 Group C"},
+    {hw:"Cost of living",pos:"noun",ipa:"/ˌkɒst əv ˈlɪv.ɪŋ/",lvl:"B2",
+     en:"the amount of money you need to pay for basic things like food, housing and bills",
+     vi:"chi phí sinh hoạt",
+     ex:"The high cost of living in the capital makes it hard for young people to save money.",
+     col:["a high cost of living","the rising cost of living","an exorbitant cost of living"],
+     syn:["living expenses","living costs"],
+     err:"Đúng giới từ là 'cost OF living', không phải 'cost for living'.",
+     hook:"'cost' + 'of living' → tiền phải trả để sống.",src:"L09 Group C"}
+  ];
+
+  // ---- CORRECT stress parser: split on '.' AND stress marks; primary = chunk after ˈ ----
+  function stressParts(ipa){
+    var s = ipa.replace(/\//g,'').trim();
+    if(/\s/.test(s)) return null;                 // multi-word/idiom -> no specimen
+    s = s.replace(/([ˈˌ])/g,'|$1').replace(/\./g,'|');
+    var parts = s.split('|').filter(Boolean);
+    var pi = parts.findIndex(function(p){return p.indexOf('ˈ')===0;});
+    return {parts:parts.map(function(p){return p.replace(/[ˈˌ]/g,'');}), primary:pi};
+  }
+  function ipaEmphasis(ipa){            // for idioms: bold the syllable after primary ˈ
+    return ipa.replace(/ˈ([^ˈˌ.\/\s]+)/, 'ˈ<span class="st">$1</span>');
+  }
+
+  var synth=window.speechSynthesis, cur=null;
+  function speak(text,btn){
+    if(!synth) return;
+    if(cur)cur.classList.remove('is-playing'); synth.cancel();
+    var u=new SpeechSynthesisUtterance(text); u.lang='en-GB'; u.rate=.92;
+    var v=synth.getVoices().find(function(x){return x.lang==='en-GB';}); if(v)u.voice=v;
+    if(btn){btn.classList.add('is-playing');cur=btn;u.onend=u.onerror=function(){btn.classList.remove('is-playing');cur=null;};}
+    synth.speak(u);
+  }
+
+  function cardHTML(w){
+    var sp=stressParts(w.ipa), specimen='';
+    if(sp){
+      specimen='<div class="stress">'+sp.parts.map(function(p,i){
+        return '<span class="syl'+(i===sp.primary?' on':'')+'">'+p+'</span>';
+      }).join('')+'<span class="stress-tag">trọng âm '+(sp.primary+1)+'</span></div>';
+    }
+    var ipaLine = sp ? w.ipa : ipaEmphasis(w.ipa);   // idiom -> emphasise in IPA instead
+    var net='<dl class="net"><dt>Đồng nghĩa</dt><dd>'+w.syn.map(function(s){return '<b>'+s+'</b>';}).join('<span class="sep">·</span>')+'</dd></dl>';
+    return ''+
+    '<button class="back" id="backBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m15 18-6-6 6-6"/></svg> Danh sách từ</button>'+
+    '<div class="card-inner">'+
+    '<div class="pad"><div class="eyebrow-row"><span class="eyebrow">Cities &amp; Urban Life</span><span class="pill">'+w.lvl+'</span></div>'+
+      '<div class="head"><h2 class="headword">'+w.hw+'</h2>'+
+        '<button class="play" data-say="'+w.hw+'" aria-label="Nghe"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button></div>'+
+      '<p class="ipa">'+ipaLine+' <span class="pos">· '+w.pos+'</span></p>'+specimen+'</div>'+
+    '<div class="rule"></div><div class="pad"><p class="def-en">'+w.en+'</p><p class="def-vi">'+w.vi+'</p></div>'+
+    '<div class="rule"></div><div class="pad"><div class="use-head"><span class="eyebrow">Dùng khi nói</span>'+
+      '<button class="play small" data-say="'+w.ex.replace(/"/g,'&quot;')+'" aria-label="Nghe câu"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button></div>'+
+      '<p class="example">“'+w.ex.replace(new RegExp('('+w.hw+')','i'),'<span class="w">$1</span>')+'”</p>'+
+      '<div class="colloc">'+w.col.map(function(c){return '<span class="chip">'+c+'</span>';}).join('')+'</div></div>'+
+    '<div class="rule"></div><div class="pad">'+net+'</div>'+
+    '<div class="rule"></div><div class="pad">'+
+      '<div class="callout warn"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg><div><span class="t">Hay nhầm</span>'+w.err+'</div></div>'+
+      '<div class="callout hook"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.5.4.8 1 .9 1.6l.1.7h6l.1-.7c.1-.6.4-1.2.9-1.6A7 7 0 0 0 12 2z"/></svg><div><span class="t">Mẹo nhớ</span>'+w.hook+'</div></div></div>'+
+    '<div class="rule"></div><div class="pad foot"><span class="trace">nguồn <b>'+w.src+'</b></span></div>'+
+    '</div>';
+  }
+
+  var rowsEl=document.getElementById('rows'), cardEl=document.getElementById('card'),
+      shell=document.getElementById('shell'), qEl=document.getElementById('q'),
+      countEl=document.getElementById('count'), sel=0;
+
+  function renderRows(filter){
+    filter=(filter||'').toLowerCase();
+    var shown=WORDS.map(function(w,i){return {w:w,i:i};}).filter(function(o){return o.w.hw.toLowerCase().indexOf(filter)>=0;});
+    countEl.textContent=shown.length+' từ'+(filter?' (lọc)':'');
+    rowsEl.innerHTML=shown.map(function(o){
+      return '<div class="row'+(o.i===sel?' active':'')+'" data-i="'+o.i+'" tabindex="0">'+
+        '<button class="rplay" data-say="'+o.w.hw+'" aria-label="Nghe '+o.w.hw+'"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>'+
+        '<div class="row-main"><div class="rw">'+o.w.hw+'</div><div class="rmeta">'+o.w.ipa+' · '+o.w.pos+'</div></div>'+
+        '<span class="rlvl">'+o.w.lvl+'</span></div>';
+    }).join('');
+  }
+  function select(i){ sel=i; cardEl.innerHTML=cardHTML(WORDS[i]); renderRows(qEl.value);
+    shell.classList.add('show-detail');
+    var b=document.getElementById('backBtn'); if(b)b.onclick=function(){shell.classList.remove('show-detail');};
+  }
+
+  rowsEl.addEventListener('click',function(e){
+    var rp=e.target.closest('.rplay'); if(rp){e.stopPropagation();speak(rp.getAttribute('data-say'),rp);return;}
+    var r=e.target.closest('.row'); if(r)select(+r.getAttribute('data-i'));
+  });
+  rowsEl.addEventListener('keydown',function(e){var r=e.target.closest('.row');if(r&&(e.key==='Enter'||e.key===' ')){e.preventDefault();select(+r.getAttribute('data-i'));}});
+  cardEl.addEventListener('click',function(e){var p=e.target.closest('.play');if(p)speak(p.getAttribute('data-say'),p);});
+  qEl.addEventListener('input',function(){renderRows(qEl.value);});
+  document.getElementById('themeBtn').addEventListener('click',function(){
+    var d=document.documentElement.getAttribute('data-theme')==='light';
+    document.documentElement.setAttribute('data-theme',d?'dark':'light');
+    this.textContent=d?'◐ Tối':'◑ Sáng';
+  });
+
+  renderRows(''); cardEl.innerHTML=cardHTML(WORDS[0]);   // desktop: card shown by default
+</script>
+</body>
+</html>

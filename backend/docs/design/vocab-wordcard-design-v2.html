@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="vi" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>averlearning · Thẻ từ v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=Hanken+Grotesk:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root[data-theme="dark"]{
+    --bg:#0B1018; --bg-2:#0E1521;
+    --card:#121A28; --card-2:#172132;
+    --text:#E9EalF; --text:#E9EDF3; --text-soft:#A4AEBD; --text-dim:#697485;
+    --teal:#34D6BE; --jade:#19BE92; --jade-deep:#0E8E6D;
+    --jade-tint:rgba(25,190,146,.12); --jade-line:rgba(25,190,146,.32);
+    --amber:#E0A94B; --amber-tint:rgba(224,169,75,.11); --amber-line:rgba(224,169,75,.28);
+    --line:#212C3D; --line-soft:#1A2333;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 24px 48px -24px rgba(0,0,0,.6);
+    --glow:0 0 0 1px var(--jade-line), 0 16px 40px -20px rgba(25,190,146,.5);
+  }
+  :root[data-theme="light"]{
+    --bg:#EFF1EB; --bg-2:#E7EAE2;
+    --card:#FFFFFF; --card-2:#F7F8F4;
+    --text:#16202C; --text-soft:#47525F; --text-dim:#8A95A1;
+    --teal:#0B8E78; --jade:#0B6E59; --jade-deep:#084C3E;
+    --jade-tint:#E4F0EB; --jade-line:#BCDDD1;
+    --amber:#9A6710; --amber-tint:#FAF1DC; --amber-line:#EFD9A6;
+    --line:#E2E4DD; --line-soft:#ECEEE7;
+    --shadow:0 1px 2px rgba(22,32,44,.04), 0 16px 36px -20px rgba(22,32,44,.22);
+    --glow:0 0 0 1px var(--jade-line), 0 18px 40px -20px rgba(11,110,89,.3);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:radial-gradient(120% 80% at 50% -10%, var(--bg-2), var(--bg) 60%);
+    background-attachment:fixed;
+    color:var(--text);
+    font-family:"Hanken Grotesk",system-ui,sans-serif;
+    line-height:1.55; -webkit-font-smoothing:antialiased;
+    padding:40px 24px 96px; min-height:100vh;
+  }
+  .wrap{max-width:1060px;margin:0 auto}
+  .serif{font-family:"Fraunces",Georgia,serif}
+  .mono{font-family:"DM Mono",monospace}
+
+  /* top bar */
+  .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:44px}
+  .top .brand{font-family:"Fraunces",serif;font-weight:500;font-size:19px;letter-spacing:-.01em}
+  .top .brand b{color:var(--teal);font-weight:600}
+  .toggle{appearance:none;cursor:pointer;font-family:"DM Mono",monospace;font-size:12px;color:var(--text-soft);background:var(--card);border:1px solid var(--line);border-radius:999px;padding:7px 14px;display:flex;gap:8px;align-items:center;transition:.18s}
+  .toggle:hover{border-color:var(--jade-line);color:var(--text)}
+
+  .masthead{margin-bottom:26px}
+  .eyebrow{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);font-weight:500}
+  .masthead h1{font-family:"Fraunces",serif;font-weight:500;font-size:clamp(26px,4vw,34px);margin:10px 0 0;letter-spacing:-.01em}
+  .masthead p{color:var(--text-dim);font-size:14px;margin:8px 0 0;max-width:62ch}
+
+  .section-label{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--text-dim);margin:48px 0 18px;display:flex;align-items:center;gap:12px}
+  .section-label::after{content:"";flex:1;height:1px;background:var(--line)}
+
+  /* ===== detail card ===== */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);overflow:hidden}
+  .detail{max-width:580px}
+  .pad{padding:30px 32px}
+  .rule{height:1px;background:var(--line-soft);margin:0 32px}
+
+  .eyebrow-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px}
+  .pill{font-family:"DM Mono",monospace;font-size:12px;font-weight:500;color:var(--text-soft);border:1px solid var(--line);border-radius:999px;padding:3px 11px;background:var(--card-2)}
+
+  .head{display:flex;align-items:center;gap:16px}
+  .headword{font-family:"Fraunces",serif;font-weight:500;font-size:clamp(40px,7vw,56px);line-height:1;letter-spacing:-.02em;margin:0}
+  .pos{font-family:"DM Mono",monospace;font-size:13px;color:var(--text-dim)}
+
+  .play{appearance:none;border:none;cursor:pointer;flex:none;width:46px;height:46px;border-radius:50%;background:var(--jade);color:#04130E;display:grid;place-items:center;box-shadow:0 8px 22px -8px var(--jade);transition:transform .18s,background .18s}
+  .play:hover{background:var(--teal);transform:translateY(-1px)}
+  .play svg{width:18px;height:18px;margin-left:2px}
+  .play.is-playing{animation:pulse 1s ease-in-out infinite}
+  .play.small{width:30px;height:30px;box-shadow:none}
+  .play.small svg{width:12px;height:12px}
+  .play.ghost{background:var(--jade-tint);color:var(--jade)}
+  .play.ghost:hover{background:var(--jade-line);color:var(--text)}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 var(--jade-line)}50%{box-shadow:0 0 0 8px transparent}}
+
+  .ipa{font-family:"DM Mono",monospace;font-size:16px;color:var(--text-soft);margin:14px 0 0}
+  /* signature: stress specimen */
+  .stress{display:flex;align-items:baseline;gap:2px;margin-top:12px;flex-wrap:wrap}
+  .syl{font-family:"Fraunces",serif;font-size:20px;color:var(--text-dim)}
+  .syl + .syl::before{content:"·";color:var(--line);margin:0 7px}
+  .syl.on{font-size:28px;color:var(--teal);font-weight:600;position:relative}
+  .syl.on::after{content:"ˈ";position:absolute;top:-.7em;left:-.2em;font-size:.55em;color:var(--teal)}
+  .stress-tag{font-family:"DM Mono",monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim);margin-left:12px;align-self:center}
+
+  .def-en{font-size:18px;color:var(--text);margin:0;line-height:1.5}
+  .def-vi{font-size:15px;color:var(--text-soft);margin:8px 0 0}
+
+  .use-head{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+  .use-head .eyebrow{color:var(--text-dim)}
+  .example{font-family:"Fraunces",serif;font-style:italic;font-size:19px;line-height:1.55;color:var(--text);margin:0}
+  .example .w{font-style:normal;font-weight:600;color:var(--teal)}
+  .colloc{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+  .chip{font-size:13.5px;color:var(--jade);background:var(--jade-tint);border:1px solid var(--jade-line);border-radius:999px;padding:5px 12px;white-space:nowrap}
+
+  .net{display:grid;grid-template-columns:auto 1fr;gap:7px 18px;align-items:baseline}
+  .net dt{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim)}
+  .net dd{margin:0;font-size:15px;color:var(--text-soft)}
+  .net dd b{color:var(--text);font-weight:600}
+  .sep{color:var(--line);margin:0 7px}
+
+  .callout{display:flex;gap:12px;padding:14px 16px;border-radius:13px;font-size:14px;line-height:1.5}
+  .callout .ico{flex:none;width:20px;height:20px;margin-top:1px}
+  .callout .t{font-family:"DM Mono",monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;display:block;margin-bottom:3px}
+  .callout.warn{background:var(--amber-tint);border:1px solid var(--amber-line);color:var(--text-soft)}
+  .callout.warn .t,.callout.warn .ico{color:var(--amber)}
+  .callout.hook{background:var(--jade-tint);border:1px solid var(--jade-line);color:var(--text-soft);margin-top:12px}
+  .callout.hook .t,.callout.hook .ico{color:var(--jade)}
+  .callout b{color:var(--text)}
+  .callout em{font-style:italic}
+
+  .foot{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;background:var(--card-2)}
+  .trace{font-family:"DM Mono",monospace;font-size:11.5px;color:var(--text-dim)}
+  .trace b{color:var(--text-soft);font-weight:500}
+  .add{appearance:none;cursor:pointer;font-family:"Hanken Grotesk",sans-serif;font-weight:600;font-size:13.5px;color:#04130E;background:var(--jade);border:none;border-radius:999px;padding:9px 16px;display:inline-flex;align-items:center;gap:7px;transition:background .18s}
+  .add:hover{background:var(--teal)}
+  .add svg{width:14px;height:14px}
+
+  /* ===== mini cards ===== */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+  .mini{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:var(--shadow);transition:transform .2s,box-shadow .2s,border-color .2s;cursor:pointer;display:flex;flex-direction:column;gap:10px}
+  .mini:hover{transform:translateY(-3px);box-shadow:var(--glow);border-color:var(--jade-line)}
+  .mini-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+  .mini-word{font-family:"Fraunces",serif;font-weight:500;font-size:24px;line-height:1.05;letter-spacing:-.01em;margin:0}
+  .mini-pos{font-family:"DM Mono",monospace;font-size:11px;color:var(--text-dim);margin-top:3px}
+  .mini-ipa{font-family:"DM Mono",monospace;font-size:13px;color:var(--text-soft)}
+  .mini-vi{font-size:14px;color:var(--text-soft);margin:0}
+  .mini-foot{display:flex;align-items:center;justify-content:space-between;margin-top:2px;padding-top:12px;border-top:1px solid var(--line-soft)}
+  .mini-lvl{font-family:"DM Mono",monospace;font-size:11px;color:var(--text-dim);letter-spacing:.05em}
+  .mini-lvl.j{color:var(--jade)}
+  .cluster-note{font-size:13px;color:var(--text-dim);margin:-6px 0 20px;max-width:64ch}
+
+  @media (prefers-reduced-motion:no-preference){
+    .reveal{opacity:0;transform:translateY(12px);animation:rise .6s cubic-bezier(.2,.7,.2,1) forwards}
+    .mini{opacity:0;transform:translateY(12px);animation:rise .5s cubic-bezier(.2,.7,.2,1) forwards}
+    @keyframes rise{to{opacity:1;transform:none}}
+  }
+  .play:focus-visible,.add:focus-visible,.mini:focus-visible,.toggle:focus-visible{outline:2.5px solid var(--jade);outline-offset:3px;border-radius:10px}
+
+  @media (max-width:560px){
+    body{padding:28px 16px 72px}
+    .pad{padding:24px 22px}.rule{margin:0 22px}
+    .foot{flex-direction:column;align-items:stretch}.add{justify-content:center}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top reveal">
+    <span class="brand">Aver<b>.</b>Learning · <span class="mono" style="font-size:12px;letter-spacing:.14em;color:var(--text-dim)">VOCABULARY</span></span>
+    <button class="toggle" id="themeBtn" aria-label="Đổi giao diện sáng/tối">
+      <span id="themeIcon">◐</span> <span id="themeText">Tối</span>
+    </button>
+  </div>
+
+  <header class="masthead reveal" style="animation-delay:.04s">
+    <span class="eyebrow">Thẻ từ · thiết kế v2</span>
+    <h1>Mỗi từ là một mục từ điển sống</h1>
+    <p>Phát âm có đánh dấu trọng âm, nghĩa Anh–Việt, câu Speaking và collocation. Bấm ▶ để nghe — bản thật sẽ phát giọng ElevenLabs đã render sẵn.</p>
+  </header>
+
+  <div class="section-label">Thẻ chi tiết</div>
+
+  <article class="card detail reveal" style="animation-delay:.08s">
+    <div class="pad">
+      <div class="eyebrow-row">
+        <span class="eyebrow">People &amp; Society</span>
+        <span class="pill">C1</span>
+      </div>
+      <div class="head">
+        <h2 class="headword">Metropolis</h2>
+        <button class="play" aria-label="Nghe phát âm metropolis" data-say="metropolis">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+      </div>
+      <p class="ipa">/məˈtrɒp.əl.ɪs/ <span class="pos">· noun</span></p>
+      <div class="stress" aria-hidden="true">
+        <span class="syl">me</span><span class="syl on">TROP</span><span class="syl">o</span><span class="syl">lis</span>
+        <span class="stress-tag">trọng âm 2</span>
+      </div>
+    </div>
+
+    <div class="rule"></div>
+    <div class="pad">
+      <p class="def-en">a very large and important city, often a political or cultural centre</p>
+      <p class="def-vi">đô thị lớn, thường là trung tâm chính trị hoặc văn hoá.</p>
+    </div>
+
+    <div class="rule"></div>
+    <div class="pad">
+      <div class="use-head">
+        <span class="eyebrow">Dùng khi nói</span>
+        <button class="play small ghost" aria-label="Nghe câu ví dụ" data-say="Whenever I return to the sprawling metropolis of Saigon, its sheer scale still amazes me.">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+      </div>
+      <p class="example">“Whenever I return to the sprawling <span class="w">metropolis</span> of Saigon, its sheer scale still amazes me.”</p>
+      <div class="colloc">
+        <span class="chip">a sprawling metropolis</span>
+        <span class="chip">a bustling metropolis</span>
+        <span class="chip">a modern metropolis</span>
+      </div>
+    </div>
+
+    <div class="rule"></div>
+    <div class="pad">
+      <dl class="net">
+        <dt>Đồng nghĩa</dt><dd><b>megacity</b><span class="sep">·</span><b>conurbation</b></dd>
+        <dt>Trái nghĩa</dt><dd>village<span class="sep">·</span>hamlet</dd>
+        <dt>Họ từ</dt><dd>metropolitan <span style="color:var(--text-dim)">(adj)</span><span class="sep">·</span>metro</dd>
+      </dl>
+    </div>
+
+    <div class="rule"></div>
+    <div class="pad">
+      <div class="callout warn">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+        <div><span class="t">Hay nhầm</span>Số nhiều là <b>“metropolises”</b> — không phải “metropoli”.</div>
+      </div>
+      <div class="callout hook">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.5.4.8 1 .9 1.6l.1.7h6l.1-.7c.1-.6.4-1.2.9-1.6A7 7 0 0 0 12 2z"/></svg>
+        <div><span class="t">Mẹo nhớ</span>Hy Lạp <em>mētēr</em> (mẹ) + <em>polis</em> (thành) → “thành phố mẹ”.</div>
+      </div>
+    </div>
+
+    <div class="rule"></div>
+    <div class="pad foot">
+      <span class="trace">register <b>neutral-formal</b> &nbsp;·&nbsp; nguồn <b>L09 · Group A</b></span>
+      <button class="add">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        Thêm vào bộ ôn
+      </button>
+    </div>
+  </article>
+
+  <div class="section-label">Thẻ rút gọn · duyệt trong chủ đề</div>
+  <p class="cluster-note"><b style="color:var(--text-soft)">People &amp; Society — cụm “city”.</b> Collocation chéo nhau nên học cùng để dùng ngay trong Speaking Part 2 về thành phố.</p>
+
+  <div class="grid">
+    <div class="mini" tabindex="0" style="animation-delay:.1s">
+      <div class="mini-top"><div><h3 class="mini-word">Metropolis</h3><div class="mini-pos">noun</div></div>
+        <button class="play small" aria-label="Nghe metropolis" data-say="metropolis"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button></div>
+      <div class="mini-ipa">/məˈtrɒp.əl.ɪs/</div>
+      <p class="mini-vi">đô thị lớn (trung tâm chính trị/văn hoá)</p>
+      <div class="mini-foot"><span class="mini-lvl">C1</span><span class="mini-lvl j">3 collocations</span></div>
+    </div>
+    <div class="mini" tabindex="0" style="animation-delay:.16s">
+      <div class="mini-top"><div><h3 class="mini-word">Sprawling</h3><div class="mini-pos">adjective</div></div>
+        <button class="play small" aria-label="Nghe sprawling" data-say="sprawling"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button></div>
+      <div class="mini-ipa">/ˈsprɔː.lɪŋ/</div>
+      <p class="mini-vi">trải rộng lộn xộn (mở rộng không quy hoạch)</p>
+      <div class="mini-foot"><span class="mini-lvl">C1</span><span class="mini-lvl j">3 collocations</span></div>
+    </div>
+    <div class="mini" tabindex="0" style="animation-delay:.22s">
+      <div class="mini-top"><div><h3 class="mini-word">Bustling</h3><div class="mini-pos">adjective</div></div>
+        <button class="play small" aria-label="Nghe bustling" data-say="bustling"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button></div>
+      <div class="mini-ipa">/ˈbʌs.lɪŋ/</div>
+      <p class="mini-vi">nhộn nhịp, tấp nập</p>
+      <div class="mini-foot"><span class="mini-lvl">B2</span><span class="mini-lvl j">3 collocations</span></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  (function(){
+    var root=document.documentElement, btn=document.getElementById('themeBtn'),
+        icon=document.getElementById('themeIcon'), txt=document.getElementById('themeText');
+    btn.addEventListener('click',function(){
+      var d=root.getAttribute('data-theme')==='dark';
+      root.setAttribute('data-theme', d?'light':'dark');
+      icon.textContent=d?'◑':'◐'; txt.textContent=d?'Sáng':'Tối';
+    });
+    var synth=window.speechSynthesis, cur=null;
+    document.addEventListener('click',function(e){
+      var b=e.target.closest('.play'); if(!b||!synth) return;
+      var t=b.getAttribute('data-say'); if(!t) return;
+      if(cur) cur.classList.remove('is-playing'); synth.cancel();
+      var u=new SpeechSynthesisUtterance(t); u.lang='en-GB'; u.rate=.92;
+      var v=synth.getVoices().find(function(x){return x.lang==='en-GB';}); if(v)u.voice=v;
+      b.classList.add('is-playing'); cur=b;
+      u.onend=u.onerror=function(){b.classList.remove('is-playing');cur=null;};
+      synth.speak(u);
+    });
+    document.querySelectorAll('.mini').forEach(function(c){
+      c.addEventListener('keydown',function(ev){if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();var b=c.querySelector('.play');if(b)b.click();}});
+    });
+  })();
+</script>
+</body>
+</html>
