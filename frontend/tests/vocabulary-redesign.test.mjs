@@ -60,12 +60,14 @@ describe('vocabulary.html / foundation links', () => {
     assert.match(html, /JetBrains\+Mono/);
   });
 
-  test('drops legacy Manrope (Fraunces re-added for the VE4 word-card design)', () => {
+  test('drops legacy Manrope + the orphan VE4 Fraunces link (hub uses neither)', () => {
     assert.ok(!/family=Manrope/.test(html), 'Manrope must be removed');
-    // VE4: Fraunces is intentionally re-added (scoped to the .vc-* word-library
-    // grid via a second, additive Google-fonts link) per the approved word-card
-    // design — so it is EXPECTED here now (the old "must be removed" no longer holds).
-    assert.match(html, /family=Fraunces/);
+    // The VE4 word-card grid was retired (B3 #560) and its orphan
+    // Fraunces/DM Mono/Hanken font link removed — the hub loads no
+    // vocab-wiki.css and uses no .va-*/.vmd-* classes, so it needs none of
+    // them. Those fonts live on the consumer pages (vocabulary.html /
+    // vocab-article.html), which carry their own links.
+    assert.doesNotMatch(html, /family=Fraunces/);
   });
 
   test('links Lucide icons CDN (for chrome glyphs)', () => {

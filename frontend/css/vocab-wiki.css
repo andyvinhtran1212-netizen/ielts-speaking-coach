@@ -5,7 +5,7 @@
  * THEME-AWARE: every colour resolves from --av-* tokens (light + dark), NOT the
  * mockup's raw vars. Jade accent = --av-vocab-jade* (tokens.css); examiner teal =
  * --av-primary; warn callout = --av-warning*. All rules are `.va-*`-scoped so they
- * can't restyle the chrome or the #550 word-library grid (which is `.vc-*`).
+ * can't restyle the chrome.
  *
  * Design ref: backend/docs/design/vocab-wordcard-design-v2.html.
  * Fonts (Fraunces / Hanken Grotesk / DM Mono) are linked per-page (additive).
