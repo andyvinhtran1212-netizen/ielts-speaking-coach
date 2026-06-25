@@ -2004,3 +2004,99 @@ def test_find_orphan_question_headings_flags_unparseable_heading():
     bad = "### Questions 5 and 6\n> Choose the correct letter.\n**5.** x\n**6.** y\n"
     orphans = lc.find_orphan_question_headings(bad)
     assert orphans == ["### Questions 5 and 6"]
+
+
+# ── L05 lesson render bug — sentence-style notes + footer leak ──────────────
+#
+# Lessons author one heading per item; a "Complete the note" block whose item
+# is a full sentence (`**N.** prefix ___ suffix`) used to fall through the notes
+# template extractor (which only matched `**N** ___`) to a raw {text} item, so
+# the player showed a literal "___" with no input. Mirrors L05 Q3/Q6 exactly.
+
+_L05_NOTE_SENTENCE_BLOCK = (
+    "### Question 3\n"
+    "> Complete the note below. Write **TWO WORDS** for the answer.\n\n"
+    "**3.**  The current scholarly term for the central wooden object "
+    "is the __________. *(TWO WORDS)*\n"
+)
+
+_L05_CLASSIC_NOTE_BLOCK = (
+    "### Questions 1-2\n"
+    "> Complete the notes below. Write **ONE WORD** for each answer.\n\n"
+    "**Lecture notes**\n\n"
+    "- The framework comes from Professor **1** __________\n"
+    "- Continuous tradition dates from **2** __________\n"
+)
+
+_L05_FOOTER_BLOCK = (
+    "### Question 6\n"
+    "> Complete the note below. Write **ONE WORD** for the answer.\n\n"
+    "**6.**  The identity was forged during the __________ years. *(ONE WORD)*\n\n"
+    "---\n"
+    "_Test ID: ILR-LIS-LSN-L05_\n\n"
+    "## End of Lesson\n"
+    "*Đáp án + giải chi tiết: xem* `Answer_Keys_Full/ILR-LIS-LSN-L05_Solution.md`\n"
+)
+
+
+def test_p1_notes_template_maps_sentence_style_item_to_gap():
+    """L05 Q3 shape: `**N.** prefix ___ suffix` in a notes_completion block →
+    template item must carry q_num/prefix/suffix (renders an input), not raw
+    {text} (which rendered a literal '___')."""
+    blk = lc.parse_question_blocks(_L05_NOTE_SENTENCE_BLOCK)[0]
+    assert blk["template_kind"] == "notes_completion"
+    items = blk["template"]["groups"][0]["items"]
+    assert len(items) == 1
+    it = items[0]
+    assert it.get("q_num") == 3, f"expected mapped gap, got raw {it!r}"
+    assert "text" not in it
+    assert it["prefix"].endswith("is the")
+    assert "TWO WORDS" in it["suffix"]
+    # The questions list already mapped it (via _extract_gap_fill) — unchanged.
+    assert any(q["q_num"] == 3 for q in blk["questions"])
+
+
+def test_p1_notes_template_classic_number_then_blank_still_maps():
+    """Regression: the original `**N** ___` notes shape must still map."""
+    blk = lc.parse_question_blocks(_L05_CLASSIC_NOTE_BLOCK)[0]
+    items = blk["template"]["groups"][0]["items"]
+    mapped = {it["q_num"] for it in items if "q_num" in it}
+    assert mapped == {1, 2}
+
+
+def test_p1_sentence_completion_still_maps_no_regression():
+    """Q5 shape (sentence_completion) keeps mapping its inline gap."""
+    block = (
+        "### Question 5\n"
+        "> Complete the sentence below. Write **ONE WORD** for the answer.\n\n"
+        "**5.**  Although important, the dance rituals are __________ the "
+        "principal reason visitors attend. *(ONE WORD)*\n"
+    )
+    blk = lc.parse_question_blocks(block)[0]
+    assert blk["template_kind"] == "sentence_completion"
+    assert blk["template"]["sentences"][0]["q_num"] == 5
+
+
+def test_p2_lesson_footer_not_slurped_into_last_block():
+    """The `## End of Lesson` + Solution.md footer must be cut before block
+    splitting, so it never leaks into the final question's template (the
+    Solution path must not reach the student)."""
+    blocks = lc.parse_question_blocks(_L05_FOOTER_BLOCK)
+    assert len(blocks) == 1
+    items = blocks[0]["template"]["groups"][0]["items"]
+    flat = " ".join(it.get("text", "") + it.get("suffix", "") for it in items)
+    assert "Solution" not in flat
+    assert "Đáp án" not in flat
+    # Q6 itself still maps to an input.
+    assert any(it.get("q_num") == 6 for it in items)
+
+
+def test_p2_footer_cut_is_noop_for_fulltest_end_of_paper():
+    """Full tests use `**END OF QUESTION PAPER**`, not `## End of Lesson` — the
+    lesson footer cut must not touch them (no regression to the full-test path)."""
+    text = (
+        "### Questions 1-1\n> Answer the question.\n\n**1.** What year? ___\n\n"
+        "**END OF QUESTION PAPER**\n"
+    )
+    out = lc._LESSON_FOOTER_RE.split(text, maxsplit=1)
+    assert len(out) == 1  # nothing cut
