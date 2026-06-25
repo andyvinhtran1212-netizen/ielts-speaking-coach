@@ -677,12 +677,25 @@ _SENTENCE_INLINE_RE = re.compile(
 )
 
 
+# Lesson footer: a "## End of Lesson" H2 trailer + the answer-key / Solution.md
+# pointer beneath it. Lessons author one heading per item, and the LAST block's
+# body runs to end-of-section, so without cutting this the footer leaks into the
+# final question — notably the `*… Solution.md*` italic line, which starts with
+# `*` and survives the notes bullet filter, exposing the solution path to the
+# student. Full tests use `**END OF QUESTION PAPER**` instead (bounded by the
+# summary extractor's `---`), so this is a no-op there.
+_LESSON_FOOTER_RE = re.compile(r"\n#{1,6}[ \t]+End of Lesson\b", re.IGNORECASE)
+
+
 def parse_question_blocks(qp_section_text: str) -> list[dict[str, Any]]:
     """Parse one Question Paper section into a list of question-block dicts.
 
     Each block carries: ``{q_range: (lo, hi), instruction, q_type,
     questions: [{q_num, prompt, q_type, options?}, ...], metadata}``.
     """
+    # Drop the lesson footer before splitting so it can't be slurped into the
+    # last question's body (which extends to end-of-section).
+    qp_section_text = _LESSON_FOOTER_RE.split(qp_section_text, maxsplit=1)[0]
     block_matches = list(_QUESTION_BLOCK_RE.finditer(qp_section_text))
     out: list[dict[str, Any]] = []
 
@@ -914,6 +927,26 @@ def _extract_notes_template(body: str, in_range) -> dict[str, Any]:
                     "q_num":  n,
                     "prefix": s_content[: gap_m.start()].strip(),
                     "suffix": gap_m.group(2).strip(),
+                })
+                continue
+        # Sentence-style note item authored as `**N.** prefix ___ suffix`
+        # (number-DOT bold, blank mid/end-sentence). The bullet regex above
+        # only matches `**N** ___` (number bold IMMEDIATELY before the gap);
+        # a "Complete the note" block whose item is a full sentence — Andy's
+        # L05 Q1/Q2/Q3/Q6 — fell through to a raw {text} item, so the renderer
+        # showed a literal "___" with no input. Mirror the _SENTENCE_INLINE_RE
+        # fallback that _extract_gap_fill already uses for the questions list,
+        # so blank↔q_num maps in the template too. Matched on the ORIGINAL
+        # stripped line (`s`) because `**N.**` must be intact (lstrip stripped
+        # the leading `**` from s_content).
+        sent_m = _SENTENCE_INLINE_RE.match(s)
+        if sent_m:
+            n = int(sent_m.group(1))
+            if in_range(n):
+                items.append({
+                    "q_num":  n,
+                    "prefix": sent_m.group(2).strip(),
+                    "suffix": sent_m.group(3).strip(),
                 })
                 continue
         items.append({"text": s_content})
