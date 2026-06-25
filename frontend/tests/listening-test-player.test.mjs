@@ -425,7 +425,7 @@ describe('Sprint 13.5.2 — visual structure markers in renderers', () => {
   it('wraps each section in <section class="ielts-section"> with PART label + range', () => {
     assert.match(JS, /class="ielts-section"/);
     assert.match(JS, /PART\s+\$\{esc\(sec\.section_num\)\}/);
-    assert.match(JS, /class="ielts-section-title">Questions/);
+    assert.match(JS, /class="ielts-section-title">\$\{questionRangeLabel\(range\[0\], range\[1\]\)\}/);
   });
 
   it('does NOT render narrator intro on the student paper (Cambridge audio-only)', () => {
@@ -436,8 +436,8 @@ describe('Sprint 13.5.2 — visual structure markers in renderers', () => {
       'narrator intro element must not render in student view');
   });
 
-  it('renders Questions X – Y block headers', () => {
-    assert.match(JS, /class="ielts-block-header">Questions/);
+  it('renders Questions X – Y block headers (via questionRangeLabel guard)', () => {
+    assert.match(JS, /class="ielts-block-header">\$\{questionRangeLabel\(range\[0\], range\[1\]\)\}/);
   });
 
   it('form renderer outputs heading + grid + example + numbered rows', () => {
@@ -807,7 +807,7 @@ describe('Sprint 13.5.7 — narrator intro suppressed from student paper', () =>
 
   it('section header still renders the PART label + question range', () => {
     assert.match(JS, /class="ielts-section-label">PART \$\{esc\(sec\.section_num\)\}/);
-    assert.match(JS, /class="ielts-section-title">Questions/);
+    assert.match(JS, /class="ielts-section-title">\$\{questionRangeLabel\(range\[0\], range\[1\]\)\}/);
   });
 
   it('narrator_intro field is still accepted on the section shape (data preserved)', () => {
@@ -1115,5 +1115,31 @@ describe('Sprint 13.5.8 — MCQ tight inline layout', () => {
 
   it('dark-mode coverage for plan-no-image notice (theme parity)', () => {
     assert.match(CSS, /\[data-theme="dark"\]\s+\.ielts-plan-no-image\b/);
+  });
+});
+
+
+// ── R1: question-range heading guard (lessons author one heading per item) ──
+
+describe('questionRangeLabel — singular vs range', () => {
+  // Extract the pure fn from source (esc stubbed) and test real behaviour.
+  const src = JS.match(/function questionRangeLabel\([\s\S]*?\n\}/)[0];
+  const questionRangeLabel = new Function(
+    'esc', src + '; return questionRangeLabel;',
+  )((x) => String(x));
+
+  it('single item (lo === hi) renders "Question N", not "Questions N – N"', () => {
+    assert.equal(questionRangeLabel(5, 5), 'Question 5');
+    assert.equal(questionRangeLabel(3, 3), 'Question 3');
+  });
+
+  it('real range renders "Questions lo – hi" (no regression)', () => {
+    assert.equal(questionRangeLabel(1, 6), 'Questions 1 – 6');
+    assert.equal(questionRangeLabel(4, 5), 'Questions 4 – 5');
+  });
+
+  it('both heading sites use the helper (section title + block header)', () => {
+    assert.match(JS, /ielts-section-title">\$\{questionRangeLabel\(range\[0\], range\[1\]\)\}/);
+    assert.match(JS, /ielts-block-header">\$\{questionRangeLabel\(range\[0\], range\[1\]\)\}/);
   });
 });

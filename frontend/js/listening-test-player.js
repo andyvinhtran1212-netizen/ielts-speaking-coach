@@ -147,6 +147,16 @@ function renderGapPrompt(prompt, qNum) {
   return html + ' ' + gapInput(qNum);
 }
 
+// "Questions 4 – 6" for a real range; "Question 5" for a single item
+// (lo === hi). Lessons author one heading per item (### Question 5), so the
+// per-block range is N–N — render the natural singular instead of "Questions
+// 5 – 5".
+function questionRangeLabel(lo, hi) {
+  return lo === hi
+    ? `Question ${esc(lo)}`
+    : `Questions ${esc(lo)} – ${esc(hi)}`;
+}
+
 function getTestIdFromUrl() {
   const sp = new URLSearchParams(window.location.search);
   return (sp.get('id') || '').trim() || null;
@@ -254,7 +264,7 @@ function renderPaper() {
     out.push(`
       <section class="ielts-section" data-section-num="${esc(sec.section_num)}">
         <div class="ielts-section-label">PART ${esc(sec.section_num)}</div>
-        <h2 class="ielts-section-title">Questions ${esc(range[0])} – ${esc(range[1])}</h2>
+        <h2 class="ielts-section-title">${questionRangeLabel(range[0], range[1])}</h2>
         ${(sec.exercises || []).map(renderExercise).join('')}
       </section>
     `);
@@ -424,7 +434,7 @@ function renderExercise(ex) {
   const header = `
     <div class="ielts-question-block" data-template-kind="${esc(kind)}">
       ${range
-        ? `<div class="ielts-block-header">Questions ${esc(range[0])} – ${esc(range[1])}</div>`
+        ? `<div class="ielts-block-header">${questionRangeLabel(range[0], range[1])}</div>`
         : ''}
       ${instruction
         ? `<div class="ielts-instruction">${formatInstruction(instruction)}</div>`
