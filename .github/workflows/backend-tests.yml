@@ -156,7 +156,6 @@ jobs:
             frontend/tests/perf-resource-hints.test.mjs \
             frontend/tests/full-test-result-redesign.test.mjs \
             frontend/tests/vocabulary-redesign.test.mjs \
-            frontend/tests/vocab-word-library.test.mjs \
             frontend/tests/vocab-article-reskin.test.mjs \
             frontend/tests/vocab-admin-console.test.mjs \
             frontend/tests/vocab-browse-master-detail.test.mjs \

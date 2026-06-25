@@ -30,8 +30,8 @@
   // (see vocab-modules/_loader.js guardMount()).
   const TAB_LOADERS = {
     // B3 — word-library retired as a hub panel; the "Từ vựng" mode-card now links
-    // to the public wiki master-detail (/vocabulary.html). word-library.js stays
-    // on disk (unused) but is no longer mounted here.
+    // to the public wiki master-detail (/vocabulary.html). The word-library.js
+    // module was deleted as dead code (no longer mounted anywhere).
     'my-vocab':     () => import('/js/vocab-modules/my-vocab.js'),
     'flashcards':   () => import('/js/vocab-modules/flashcards.js'),
     'exercises':    () => import('/js/vocab-modules/exercises.js'),
