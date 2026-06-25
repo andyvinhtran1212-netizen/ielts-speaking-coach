@@ -1,0 +1,540 @@
+===== ./content_vocab/education/curriculum.md =====
+---
+headword: "Curriculum"
+slug: "curriculum"
+category: "education"
+level: "B2"
+part_of_speech: "noun"
+pronunciation: "/kəˈrɪk.jʊ.ləm/"
+synonyms: ["syllabus", "programme of study", "course content"]
+antonyms: []
+collocations: ["national curriculum", "school curriculum", "curriculum reform", "broaden the curriculum", "curriculum design"]
+related_words: ["literacy", "pedagogy"]
+---
+
+**Chương trình học** — toàn bộ nội dung, môn học và hoạt động giảng dạy trong một trường học hoặc cơ sở giáo dục.
+
+## Ví dụ IELTS Speaking Part 3
+
+> Many educators argue that the national **curriculum** places too much emphasis on academic subjects and fails to adequately prepare students for the practical challenges of adult life.
+
+> Integrating critical thinking and digital literacy into the school **curriculum** is essential if we want young people to thrive in an increasingly complex world.
+
+## Ghi nhớ nhanh
+
+Số nhiều: *curricula* (học thuật) hoặc *curriculums* (thông thường). Collocation phổ biến: *national curriculum, curriculum reform, broaden/narrow the curriculum*. Phân biệt với *syllabus* — syllabus là nội dung cụ thể của một môn học, còn curriculum bao gồm toàn bộ chương trình.
+
+
+===== ./content_vocab/education/literacy.md =====
+---
+headword: "Literacy"
+slug: "literacy"
+category: "education"
+level: "B2"
+part_of_speech: "noun"
+pronunciation: "/ˈlɪt.ər.ə.si/"
+synonyms: ["reading ability", "competence", "proficiency"]
+antonyms: ["illiteracy"]
+collocations: ["literacy rate", "digital literacy", "financial literacy", "improve literacy", "literacy skills", "functional literacy"]
+related_words: ["curriculum", "pedagogy"]
+---
+
+**Khả năng đọc viết; năng lực** — khả năng đọc và viết; theo nghĩa rộng, là khả năng hiểu và sử dụng thông tin trong một lĩnh vực cụ thể.
+
+## Ví dụ IELTS Speaking Part 3
+
+> Despite significant progress in education, **literacy** rates remain alarmingly low in several developing nations, perpetuating cycles of poverty and inequality.
+
+> In the modern world, **digital literacy** is just as important as traditional reading and writing skills, as most jobs now require the ability to navigate technology confidently.
+
+## Ghi nhớ nhanh
+
+**Literacy** có thể dùng theo nghĩa hẹp (đọc viết) hoặc nghĩa rộng với tiền tố: *digital literacy, financial literacy, media literacy*. Trái nghĩa: *illiteracy*. Tính từ: *literate / illiterate*.
+
+
+===== ./content_vocab/education/pedagogy.md =====
+---
+headword: "Pedagogy"
+slug: "pedagogy"
+category: "education"
+level: "C1"
+part_of_speech: "noun"
+pronunciation: "/ˈped.ə.ɡɒdʒ.i/"
+synonyms: ["teaching method", "instructional approach", "educational practice"]
+antonyms: []
+collocations: ["modern pedagogy", "pedagogy and curriculum", "digital pedagogy", "student-centred pedagogy", "pedagogical approach"]
+related_words: ["curriculum", "literacy"]
+---
+
+**Phương pháp sư phạm, nghệ thuật giảng dạy** — khoa học và nghệ thuật về giảng dạy; phương pháp và thực hành của một giáo viên.
+
+## Ví dụ IELTS Speaking Part 3
+
+> Effective **pedagogy** goes beyond simply transmitting information — it involves inspiring curiosity, fostering critical thinking, and adapting teaching methods to individual student needs.
+
+> The shift towards student-centred **pedagogy** reflects a growing recognition that learners retain knowledge more effectively when they are actively engaged in the learning process.
+
+## Ghi nhớ nhanh
+
+**Pedagogy** là từ học thuật và sẽ gây ấn tượng mạnh trong IELTS Speaking Part 3. Tính từ: *pedagogical* (e.g., *pedagogical approach*). Dùng để nói về *cách dạy học* nói chung, không phải nội dung cụ thể.
+
+
+===== ./content_vocab/environment/deplete.md =====
+---
+headword: "Deplete"
+slug: "deplete"
+category: "environment"
+level: "C1"
+part_of_speech: "verb"
+pronunciation: "/dɪˈpliːt/"
+synonyms: ["exhaust", "drain", "use up", "diminish"]
+antonyms: ["replenish", "restore", "conserve"]
+collocations: ["deplete natural resources", "deplete the ozone layer", "rapidly depleting", "deplete reserves"]
+related_words: ["mitigate", "emission", "sustainable"]
+---
+
+**Làm cạn kiệt, làm suy giảm** — giảm dần đến mức không còn đủ dùng hoặc không còn nữa, thường nói về tài nguyên thiên nhiên.
+
+## Ví dụ IELTS Speaking Part 3
+
+> Intensive farming practices have severely **depleted** soil nutrients, leading to lower crop yields and greater dependence on chemical fertilisers.
+
+> If we continue at this rate, fossil fuel reserves will be completely **depleted** within a few decades, making the transition to renewable energy absolutely essential.
+
+## Ghi nhớ nhanh
+
+**Deplete** thường đi với *natural resources, reserves, ozone layer, soil*. Tính từ phái sinh: *depleted* — "depleted resources". Dùng để nói về quá trình làm cạn kiệt dần dần theo thời gian.
+
+
+===== ./content_vocab/environment/emission.md =====
+---
+headword: "Emission"
+slug: "emission"
+category: "environment"
+level: "B2"
+part_of_speech: "noun"
+pronunciation: "/ɪˈmɪʃ.ən/"
+synonyms: ["discharge", "release", "output"]
+antonyms: []
+collocations: ["carbon emission", "greenhouse gas emission", "reduce emissions", "emission targets", "zero-emission"]
+related_words: ["mitigate", "sustainable", "deplete"]
+---
+
+**Khí thải, sự phát thải** — lượng khí, chất độc hại hoặc bức xạ được thải ra môi trường, thường từ xe cộ, nhà máy hoặc hoạt động công nghiệp.
+
+## Ví dụ IELTS Speaking Part 3
+
+> Many countries have pledged to reach net-zero **emissions** by 2050, but critics argue that these targets lack concrete enforcement mechanisms.
+
+> The transportation sector is one of the largest contributors to carbon **emissions**, which is why investing in electric vehicles has become a global priority.
+
+## Ghi nhớ nhanh
+
+**Emission** thường dùng số nhiều (*emissions*) khi nói về khí thải nói chung. Collocation quan trọng nhất: *carbon emissions*, *reduce emissions*, *emission targets*. Đây là từ không thể thiếu trong chủ đề môi trường IELTS.
+
+
+===== ./content_vocab/environment/mitigate.md =====
+---
+headword: "Mitigate"
+slug: "mitigate"
+category: "environment"
+level: "C1"
+part_of_speech: "verb"
+pronunciation: "/ˈmɪt.ɪ.ɡeɪt/"
+synonyms: ["alleviate", "reduce", "lessen", "ease"]
+antonyms: ["aggravate", "worsen", "intensify"]
+collocations: ["mitigate the impact", "mitigate the risk", "mitigate climate change", "mitigate damage"]
+related_words: ["emission", "sustainable", "deplete"]
+---
+
+**Giảm nhẹ, làm dịu bớt** — thường dùng để nói về việc giảm thiểu tác hại, rủi ro hoặc hậu quả tiêu cực.
+
+## Ví dụ IELTS Speaking Part 3
+
+> Governments can introduce stricter regulations to **mitigate** the devastating effects of industrial pollution on local ecosystems.
+
+> While technology alone cannot solve global warming, it plays a crucial role in helping us **mitigate** the worst consequences of climate change.
+
+## Ghi nhớ nhanh
+
+Dùng **mitigate** khi bạn muốn nói *làm giảm bớt* một vấn đề nghiêm trọng — không phải loại bỏ hoàn toàn mà chỉ làm nhẹ đi. Thường đi kèm với danh từ chỉ hậu quả tiêu cực: *impact, risk, damage, effects*.
+
+
+===== ./content_vocab/environment/sustainable.md =====
+---
+headword: "Sustainable"
+slug: "sustainable"
+category: "environment"
+level: "B2"
+part_of_speech: "adjective"
+pronunciation: "/səˈsteɪ.nə.bəl/"
+synonyms: ["renewable", "eco-friendly", "viable", "lasting"]
+antonyms: ["unsustainable", "destructive", "wasteful"]
+collocations: ["sustainable development", "sustainable energy", "sustainable agriculture", "sustainable living", "sustainable future"]
+related_words: ["mitigate", "emission", "deplete"]
+---
+
+**Bền vững** — có thể duy trì lâu dài mà không gây tổn hại cho môi trường hoặc nguồn tài nguyên thiên nhiên.
+
+## Ví dụ IELTS Speaking Part 3
+
+> I strongly believe that **sustainable** development is the only path forward — we cannot continue exploiting natural resources without considering the impact on future generations.
+
+> Cities are increasingly adopting **sustainable** practices such as green architecture and public transport expansion to reduce their ecological footprint.
+
+## Ghi nhớ nhanh
+
+**Sustainable** là tính từ cực kỳ phổ biến trong IELTS. Collocation hay dùng nhất: *sustainable development*, *sustainable energy*. Danh từ: *sustainability* — "Sustainability is a key concern for modern businesses."
+
+
+===== ./content_vocab/health/epidemic.md =====
+---
+headword: "Epidemic"
+slug: "epidemic"
+category: "health"
+level: "B2"
+part_of_speech: "noun / adjective"
+pronunciation: "/ˌep.ɪˈdem.ɪk/"
+synonyms: ["outbreak", "surge", "widespread occurrence"]
+antonyms: []
+collocations: ["obesity epidemic", "mental health epidemic", "global epidemic", "epidemic of + noun", "tackle an epidemic"]
+related_words: ["sedentary", "holistic"]
+---
+
+**Dịch bệnh; lan rộng** — một căn bệnh hoặc vấn đề lây lan rộng rãi và ảnh hưởng đến nhiều người trong cùng một khu vực hoặc cộng đồng.
+
+## Ví dụ IELTS Speaking Part 3
+
+> The growing **epidemic** of obesity, particularly among children, is widely attributed to poor dietary habits and increasingly sedentary lifestyles fuelled by technology.
+
+> Many mental health experts are warning of a loneliness **epidemic** among the elderly, as social isolation continues to rise in ageing populations across the developed world.
+
+## Ghi nhớ nhanh
+
+Phân biệt: *epidemic* (dịch bùng phát trong một khu vực) vs *pandemic* (dịch toàn cầu). Trong IELTS, thường dùng theo nghĩa rộng: *obesity epidemic, mental health epidemic* — không chỉ về bệnh truyền nhiễm. Collocation đặc biệt hữu ích: *an epidemic of + noun*.
+
+
+===== ./content_vocab/health/holistic.md =====
+---
+headword: "Holistic"
+slug: "holistic"
+category: "health"
+level: "C1"
+part_of_speech: "adjective"
+pronunciation: "/həʊˈlɪs.tɪk/"
+synonyms: ["comprehensive", "all-encompassing", "integrated", "whole-person"]
+antonyms: ["partial", "narrow", "fragmented"]
+collocations: ["holistic approach", "holistic health", "holistic care", "holistic wellbeing", "holistic education"]
+related_words: ["sedentary", "epidemic"]
+---
+
+**Toàn diện, tổng thể** — xem xét toàn bộ con người hoặc hệ thống thay vì chỉ tập trung vào một phần; đặc biệt hay dùng trong y tế, giáo dục và sức khỏe.
+
+## Ví dụ IELTS Speaking Part 3
+
+> Modern medicine is gradually shifting towards a more **holistic** approach to healthcare, recognising that mental and physical health are deeply interconnected.
+
+> A truly **holistic** education should nurture not only academic ability but also emotional intelligence, creativity, and social responsibility.
+
+## Ghi nhớ nhanh
+
+**Holistic** thường đi với *approach, health, care, wellbeing, education, development*. Đây là từ học thuật thể hiện tư duy tổng thể — rất hiệu quả trong IELTS Part 3 khi thảo luận về giải pháp cho vấn đề phức tạp.
+
+
+===== ./content_vocab/health/sedentary.md =====
+---
+headword: "Sedentary"
+slug: "sedentary"
+category: "health"
+level: "C1"
+part_of_speech: "adjective"
+pronunciation: "/ˈsed.ən.tər.i/"
+synonyms: ["inactive", "stationary", "desk-bound"]
+antonyms: ["active", "mobile", "physically demanding"]
+collocations: ["sedentary lifestyle", "sedentary job", "sedentary behaviour", "increasingly sedentary", "sedentary work"]
+related_words: ["epidemic", "holistic"]
+---
+
+**Ít vận động, ngồi nhiều** — liên quan đến hoặc dành nhiều thời gian ngồi và không hoạt động thể chất.
+
+## Ví dụ IELTS Speaking Part 3
+
+> Modern technology has made our lives increasingly **sedentary** — we spend hours in front of screens at work, then come home to more screens for entertainment.
+
+> A **sedentary** lifestyle is now recognised as one of the leading risk factors for cardiovascular disease, obesity, and type 2 diabetes, prompting public health campaigns to encourage more physical activity.
+
+## Ghi nhớ nhanh
+
+**Sedentary** thường đi với *lifestyle, job, behaviour, work*. Đây là từ hay xuất hiện trong IELTS khi thảo luận về sức khỏe hiện đại, công nghệ, và lối sống. Trái nghĩa thực tế: *active lifestyle*.
+
+
+===== ./content_vocab/people-society/cosmopolitan.md =====
+---
+headword: "Cosmopolitan"
+slug: "cosmopolitan"
+category: "people-society"
+level: "C1"
+part_of_speech: "adjective"
+pronunciation: "/ˌkɒz.məˈpɒl.ɪ.tən/"
+synonyms: ["multicultural", "diverse", "international", "worldly"]
+antonyms: ["parochial", "provincial", "narrow-minded"]
+collocations: ["cosmopolitan city", "cosmopolitan culture", "cosmopolitan society", "cosmopolitan atmosphere", "cosmopolitan outlook"]
+related_words: ["demographic", "marginalize"]
+---
+
+**Đa văn hóa, mang tính quốc tế** — gồm nhiều người từ nhiều quốc gia và nền văn hóa khác nhau; có tư tưởng cởi mở, tiếp xúc với nhiều nền văn hóa.
+
+## Ví dụ IELTS Speaking Part 3
+
+> Cities like London and Singapore have become incredibly **cosmopolitan**, with residents from hundreds of nationalities coexisting and contributing to a vibrant, diverse cultural landscape.
+
+> Growing up in a **cosmopolitan** environment exposes children to different languages, customs, and perspectives from an early age, which can foster greater tolerance and open-mindedness.
+
+## Ghi nhớ nhanh
+
+**Cosmopolitan** thường đi với *city, society, culture, atmosphere, outlook*. Là từ tích cực, thể hiện sự đa dạng và tính quốc tế. Trái nghĩa *parochial* (hẹp hòi, tỉnh lẻ) — cặp từ này hay xuất hiện cùng nhau trong IELTS Part 3 khi so sánh thành thị và nông thôn.
+
+
+===== ./content_vocab/people-society/demographic.md =====
+---
+headword: "Demographic"
+slug: "demographic"
+category: "people-society"
+level: "C1"
+part_of_speech: "noun / adjective"
+pronunciation: "/ˌdem.əˈɡræf.ɪk/"
+synonyms: ["population group", "population segment", "age group"]
+antonyms: []
+collocations: ["demographic change", "ageing demographic", "demographic shift", "target demographic", "demographic data", "demographic trend"]
+related_words: ["marginalize", "cosmopolitan"]
+---
+
+**Nhân khẩu học; nhóm dân số** — liên quan đến cấu trúc và đặc điểm của dân số; một nhóm người trong xã hội được phân loại theo độ tuổi, giới tính, thu nhập, v.v.
+
+## Ví dụ IELTS Speaking Part 3
+
+> The rapidly ageing **demographic** in Japan presents enormous challenges for the healthcare system and pension funds, as the working-age population shrinks year by year.
+
+> Social media platforms are continuously evolving to appeal to younger **demographics**, recognising that the habits of today's teenagers will shape tomorrow's digital landscape.
+
+## Ghi nhớ nhanh
+
+Dùng **demographic** (số ít) khi nói về một nhóm cụ thể, hoặc **demographics** (số nhiều) khi nói chung về cấu trúc dân số. Collocation đặc biệt hữu ích: *demographic shift/change/trend*. Tính từ: *demographic* (e.g., *demographic data*).
+
+
+===== ./content_vocab/people-society/marginalize.md =====
+---
+headword: "Marginalize"
+slug: "marginalize"
+category: "people-society"
+level: "C1"
+part_of_speech: "verb"
+pronunciation: "/ˈmɑː.dʒɪ.nəl.aɪz/"
+synonyms: ["exclude", "sideline", "ostracise", "disenfranchise"]
+antonyms: ["include", "empower", "integrate"]
+collocations: ["marginalize vulnerable groups", "marginalized communities", "feel marginalized", "socially marginalized", "marginalize minorities"]
+related_words: ["demographic", "cosmopolitan"]
+---
+
+**Gạt ra ngoài lề, phân biệt đối xử** — coi hoặc đối xử với một người hoặc nhóm người như thể họ không quan trọng, không có ảnh hưởng hoặc không được hòa nhập vào xã hội.
+
+## Ví dụ IELTS Speaking Part 3
+
+> One of the most troubling effects of income inequality is that it tends to **marginalize** already vulnerable communities, making it even harder for them to access quality education and healthcare.
+
+> Many elderly people feel increasingly **marginalized** by a society that prioritises youth and technological proficiency, often struggling to navigate digital services that have replaced traditional ones.
+
+## Ghi nhớ nhanh
+
+Tính từ quan trọng: *marginalized* (e.g., *marginalized groups, marginalized communities*). Danh từ: *marginalization*. Trong IELTS Part 3, từ này cực kỳ hữu ích khi thảo luận về bất bình đẳng xã hội, phân biệt đối xử, hay quyền con người.
+
+
+===== ./content_vocab/technology/automate.md =====
+---
+headword: "Automate"
+slug: "automate"
+category: "technology"
+level: "B2"
+part_of_speech: "verb"
+pronunciation: "/ˈɔː.tə.meɪt/"
+synonyms: ["mechanise", "computerise", "streamline"]
+antonyms: ["manually operate", "do by hand"]
+collocations: ["automate processes", "automate tasks", "fully automated", "automated system", "automated production"]
+related_words: ["cutting-edge", "obsolete", "breakthrough"]
+---
+
+**Tự động hóa** — dùng máy móc hoặc công nghệ để thực hiện công việc thay cho con người mà không cần sự can thiệp liên tục.
+
+## Ví dụ IELTS Speaking Part 3
+
+> As more industries choose to **automate** repetitive tasks, governments must invest in retraining programmes to ensure displaced workers can find new employment.
+
+> While **automating** manufacturing processes increases efficiency and reduces costs, it also raises difficult questions about the future of work and social inequality.
+
+## Ghi nhớ nhanh
+
+**Automate** (động từ) → *automation* (danh từ) → *automated* (tính từ). Trong IELTS, hay gặp *automation of jobs*, *automated factories*, *the rise of automation*. Đây là từ trung tâm khi thảo luận về tác động của AI và công nghệ lên thị trường lao động.
+
+
+===== ./content_vocab/technology/breakthrough.md =====
+---
+headword: "Breakthrough"
+slug: "breakthrough"
+category: "technology"
+level: "B2"
+part_of_speech: "noun"
+pronunciation: "/ˈbreɪk.θruː/"
+synonyms: ["advance", "discovery", "development", "leap forward"]
+antonyms: ["setback", "regression", "failure"]
+collocations: ["scientific breakthrough", "major breakthrough", "breakthrough in research", "technological breakthrough", "achieve a breakthrough"]
+related_words: ["cutting-edge", "obsolete", "automate"]
+---
+
+**Bước đột phá** — một phát hiện hay thành tựu quan trọng, thay đổi đáng kể cách chúng ta hiểu hoặc làm điều gì đó.
+
+## Ví dụ IELTS Speaking Part 3
+
+> The development of mRNA vaccines represents one of the greatest **breakthroughs** in medical science, demonstrating how innovation can save millions of lives.
+
+> Scientists are cautiously optimistic about a potential **breakthrough** in nuclear fusion technology, which could provide virtually unlimited clean energy in the future.
+
+## Ghi nhớ nhanh
+
+**Breakthrough** thường dùng sau *major, significant, scientific, technological*. Cũng có thể dùng như tính từ: *a breakthrough moment / discovery*. Đây là từ rất hiệu quả để nói về thành tựu khoa học trong IELTS Part 3.
+
+
+===== ./content_vocab/technology/cutting-edge.md =====
+---
+headword: "Cutting-edge"
+slug: "cutting-edge"
+category: "technology"
+level: "B2"
+part_of_speech: "adjective"
+pronunciation: "/ˈkʌt.ɪŋ.edʒ/"
+synonyms: ["state-of-the-art", "advanced", "pioneering", "innovative"]
+antonyms: ["outdated", "obsolete", "primitive"]
+collocations: ["cutting-edge technology", "cutting-edge research", "cutting-edge innovation", "cutting-edge medical treatment"]
+related_words: ["obsolete", "breakthrough", "automate"]
+---
+
+**Tiên tiến nhất, hiện đại nhất** — ở vị trí tiền tiêu của sự phát triển, đặc biệt trong lĩnh vực công nghệ và khoa học.
+
+## Ví dụ IELTS Speaking Part 3
+
+> Many top universities invest heavily in **cutting-edge** research facilities to attract leading scientists and maintain their competitive edge globally.
+
+> The healthcare industry has been transformed by **cutting-edge** technologies like AI diagnostics, which can detect diseases far more accurately than traditional methods.
+
+## Ghi nhớ nhanh
+
+**Cutting-edge** thường dùng trước danh từ: *cutting-edge technology / research / equipment*. Tương đương với "state-of-the-art" nhưng nghe tự nhiên hơn trong IELTS Speaking.
+
+
+===== ./content_vocab/technology/obsolete.md =====
+---
+headword: "Obsolete"
+slug: "obsolete"
+category: "technology"
+level: "C1"
+part_of_speech: "adjective"
+pronunciation: "/ˌɒb.səˈliːt/"
+synonyms: ["outdated", "outmoded", "antiquated", "redundant"]
+antonyms: ["current", "cutting-edge", "modern", "state-of-the-art"]
+collocations: ["become obsolete", "render obsolete", "rapidly obsolete", "obsolete technology", "obsolete skills"]
+related_words: ["cutting-edge", "breakthrough", "automate"]
+---
+
+**Lỗi thời, không còn được dùng nữa** — không còn hữu ích hoặc được sử dụng vì đã bị thay thế bởi thứ mới hơn, tốt hơn.
+
+## Ví dụ IELTS Speaking Part 3
+
+> The rapid pace of technological advancement means that many skills workers learned just a decade ago have already become **obsolete**, highlighting the need for lifelong learning.
+
+> Artificial intelligence is expected to **render** many routine office jobs **obsolete** within the next twenty years, which raises serious concerns about mass unemployment.
+
+## Ghi nhớ nhanh
+
+Cấu trúc hay gặp nhất: *become obsolete* (trở nên lỗi thời) và *render something obsolete* (làm cho thứ gì trở nên lỗi thời). Thường đi với *technology, skills, jobs, equipment*.
+
+
+===== ./content_vocab/work-career/commute.md =====
+---
+headword: "Commute"
+slug: "commute"
+category: "work-career"
+level: "B2"
+part_of_speech: "verb / noun"
+pronunciation: "/kəˈmjuːt/"
+synonyms: ["travel to work", "journey to work"]
+antonyms: ["work from home", "telecommute"]
+collocations: ["daily commute", "long commute", "commute to work", "commute by train", "reduce commute time"]
+related_words: ["lucrative", "prerequisite"]
+---
+
+**Đi làm hàng ngày (từ nhà đến nơi làm việc)** — đi lại thường xuyên giữa nơi ở và nơi làm việc hoặc học tập.
+
+## Ví dụ IELTS Speaking Part 3
+
+> The pandemic demonstrated that remote working is entirely feasible for many roles, prompting many employees to question whether a lengthy daily **commute** is really necessary.
+
+> In major cities like Tokyo and London, residents often **commute** for over an hour each way, which significantly impacts their quality of life and work-life balance.
+
+## Ghi nhớ nhanh
+
+**Commute** vừa là động từ (*I commute by train*) vừa là danh từ (*my commute takes 45 minutes*). Người đi làm: *commuter*. Chủ đề hay xuất hiện trong Part 2 (describe a journey) và Part 3 (discuss urban living, work-life balance).
+
+
+===== ./content_vocab/work-career/lucrative.md =====
+---
+headword: "Lucrative"
+slug: "lucrative"
+category: "work-career"
+level: "C1"
+part_of_speech: "adjective"
+pronunciation: "/ˈluː.krə.tɪv/"
+synonyms: ["profitable", "well-paid", "financially rewarding", "high-earning"]
+antonyms: ["unprofitable", "low-paid", "unrewarding"]
+collocations: ["lucrative career", "lucrative job", "lucrative business", "lucrative opportunity", "highly lucrative"]
+related_words: ["prerequisite", "commute"]
+---
+
+**Sinh lợi, béo bở, có thu nhập cao** — mang lại nhiều tiền hoặc lợi nhuận.
+
+## Ví dụ IELTS Speaking Part 3
+
+> Many young people choose to pursue careers in finance or technology not out of passion but simply because these fields tend to be the most **lucrative**.
+
+> While medicine is undoubtedly one of the most **lucrative** professions, it requires years of gruelling study and comes with enormous responsibility.
+
+## Ghi nhớ nhanh
+
+**Lucrative** thường đi với *career, job, business, deal, opportunity*. Dùng **lucrative** thay vì *high-paying* hoặc *well-paid* để thể hiện vốn từ học thuật trong IELTS. Không nhầm với *luxurious* (xa xỉ).
+
+
+===== ./content_vocab/work-career/prerequisite.md =====
+---
+headword: "Prerequisite"
+slug: "prerequisite"
+category: "work-career"
+level: "C1"
+part_of_speech: "noun"
+pronunciation: "/ˌpriːˈrek.wɪ.zɪt/"
+synonyms: ["requirement", "precondition", "necessity", "qualification"]
+antonyms: []
+collocations: ["prerequisite for success", "essential prerequisite", "entry prerequisite", "prerequisite skills", "a prerequisite for the job"]
+related_words: ["lucrative", "commute"]
+---
+
+**Điều kiện tiên quyết** — thứ cần phải có hoặc phải làm trước khi có thể làm hoặc đạt được thứ khác.
+
+## Ví dụ IELTS Speaking Part 3
+
+> Strong communication skills are increasingly seen as a **prerequisite** for most professional roles, regardless of the industry or specific job title.
+
+> Many employers now consider digital literacy a **prerequisite** for employment, which means educational institutions must adapt their programmes accordingly.
+
+## Ghi nhớ nhanh
+
+Cấu trúc hay dùng: *a prerequisite for + noun* hoặc *a prerequisite for + -ing*. Có thể dùng như tính từ: *prerequisite knowledge / skills*. Dùng thay cho "requirement" khi muốn thể hiện nghĩa "điều kiện phải có trước".
+
+
