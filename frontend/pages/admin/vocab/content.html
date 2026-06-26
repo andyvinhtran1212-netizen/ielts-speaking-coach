@@ -484,12 +484,13 @@
       }
       var engine = document.getElementById('vw-gen-engine').value;
       var scope = document.getElementById('vw-gen-scope').value;
+      var skipExisting = document.getElementById('vw-skip-audio').checked;
       if (engine === 'elevenlabs' &&
           !confirm('Tạo giọng ElevenLabs cho ' + ids.length + ' từ (tốn credit). Tiếp tục?')) return;
       _vwStatus('Đang xếp hàng tạo giọng…', null);
       try {
         var res = await window.api.post('/admin/vocabulary/generate-audio',
-                                        { ids: ids, engine: engine, scope: scope });
+                                        { ids: ids, engine: engine, scope: scope, skip_existing_audio: skipExisting });
         _vwStatus('✓ Đã xếp hàng ' + (res.queued_count != null ? res.queued_count : ids.length)
                   + ' từ (' + res.engine + ', chạy nền). Tải lại sau ít phút để nghe ▶.', 'ok');
       } catch (err) {

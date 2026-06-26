@@ -87,12 +87,14 @@ class BulkDeleteRequest(BaseModel):
 
 class GenerateAudioRequest(BaseModel):
     """Which words to render + how. Target = ids OR category OR all (in that
-    precedence). engine = openai|elevenlabs; scope = headword|example|both."""
-    ids:      Optional[list[UUID]] = None
-    category: Optional[str]        = None
-    all:      bool                 = False
-    engine:   str                  = "openai"
-    scope:    str                  = "both"
+    precedence). engine = openai|elevenlabs; scope = headword|example|both.
+    skip_existing_audio=True skips fields that already have a stored URL."""
+    ids:                  Optional[list[UUID]] = None
+    category:             Optional[str]        = None
+    all:                  bool                 = False
+    engine:               str                  = "openai"
+    scope:                str                  = "both"
+    skip_existing_audio:  bool                 = False
 
 
 @router.post("/import")
@@ -230,11 +232,12 @@ async def bulk_delete_vocab(body: BulkDeleteRequest, authorization: str | None =
 # ── V-eleven — engine-selectable audio generate (admin-triggered) ─────────────
 
 
-def _generate_audio_job(rows: list, engine: str, scope: str) -> None:
+def _generate_audio_job(rows: list, engine: str, scope: str, skip_existing: bool = False) -> None:
     """BackgroundTask (sync → thread pool, so the blocking synth/upload never
     blocks the event loop). Per word: synth headword (+ example per scope) via the
     chosen engine → upload → stamp audio_*; one bad word logs + continues. One
-    reload() at the end so the public grid serves the new audio (G1)."""
+    reload() at the end so the public grid serves the new audio (G1).
+    skip_existing=True skips any field whose audio URL is already populated in the row."""
     do_hw = scope in ("headword", "both")
     do_ex = scope in ("example", "both")
     gen = skip = errors = stamped = 0
@@ -244,14 +247,18 @@ def _generate_audio_job(rows: list, engine: str, scope: str) -> None:
         ex = (r.get("example") or "").strip()
         stamp: dict = {}
         try:
-            if do_hw and hw:
+            if do_hw and hw and (not skip_existing or not r.get("audio_headword")):
                 url, did = tts_audio.get_or_create_audio_sync(hw, engine)
                 stamp["audio_headword"] = url
                 gen, skip = (gen + 1, skip) if did else (gen, skip + 1)
-            if do_ex and ex:
+            elif do_hw and hw:
+                skip += 1
+            if do_ex and ex and (not skip_existing or not r.get("audio_example")):
                 url, did = tts_audio.get_or_create_audio_sync(ex, engine)
                 stamp["audio_example"] = url
                 gen, skip = (gen + 1, skip) if did else (gen, skip + 1)
+            elif do_ex and ex:
+                skip += 1
             if stamp:
                 stamp["audio_status"] = "final"
                 supabase_admin.table("vocab_cards").update(stamp).eq("id", r.get("id")).execute()
@@ -284,7 +291,7 @@ async def generate_audio(
     if engine == "openai" and not settings.OPENAI_API_KEY:
         raise HTTPException(503, "OPENAI_API_KEY chưa cấu hình.")
 
-    sel = "id,slug,headword,example"
+    sel = "id,slug,headword,example,audio_headword,audio_example"
     q = supabase_admin.table("vocab_cards").select(sel)
     if body.ids:
         q = q.in_("id", [str(i) for i in body.ids])
@@ -296,5 +303,5 @@ async def generate_audio(
     if not rows:
         raise HTTPException(404, "Không có từ nào khớp.")
 
-    background_tasks.add_task(_generate_audio_job, rows, engine, scope)
+    background_tasks.add_task(_generate_audio_job, rows, engine, scope, body.skip_existing_audio)
     return {"queued_count": len(rows), "engine": engine, "scope": scope}
