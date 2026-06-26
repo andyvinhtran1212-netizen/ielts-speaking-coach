@@ -48,15 +48,24 @@
           }
           var cards = cats.map(function (c) {
             var n = c.article_count != null ? c.article_count : (c.articles || []).length;
-            return '<a href="/vocabulary.html?cat=' + encodeURIComponent(c.slug) + '" class="mode-card">'
-              + '<div class="head">'
-              + '<span style="font-size:.85em;color:var(--av-text-faint)">' + n + ' từ</span>'
-              + '<span class="arrow" aria-hidden="true">→</span>'
+            return '<a href="/vocabulary.html?cat=' + encodeURIComponent(c.slug) + '" class="vocab-topic-card">'
+              + '<div class="vtc-body">'
+              + '<h3 class="vtc-title">' + esc(c.title || c.slug) + '</h3>'
               + '</div>'
-              + '<h3>' + esc(c.title || c.slug) + '</h3>'
+              + '<div class="vtc-foot">'
+              + '<span class="vtc-count">'
+              + '<span class="vtc-num">' + n + '</span>'
+              + '<span class="vtc-unit">từ vựng</span>'
+              + '</span>'
+              + '<span class="vtc-arrow" aria-hidden="true">→</span>'
+              + '</div>'
               + '</a>';
           }).join('');
-          container.innerHTML = '<div class="modes-grid">' + cards + '</div>';
+          var header = '<div class="vtc-panel-head">'
+            + '<h2 class="vtc-panel-title">Chủ đề từ vựng</h2>'
+            + '<p class="vtc-panel-sub">Chọn chủ đề để khám phá từ vựng theo ngữ cảnh IELTS.</p>'
+            + '</div>';
+          container.innerHTML = header + '<div class="vocab-topics-grid">' + cards + '</div>';
         }).catch(function () {
           container.innerHTML = '<p style="text-align:center;padding:3rem;color:var(--av-error,#c00)">Không tải được danh sách chủ đề.</p>';
         });
