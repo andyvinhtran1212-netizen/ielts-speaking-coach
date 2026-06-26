@@ -3,10 +3,9 @@
 Sprint 5.1 introduces /pages/home.html as the post-login landing for students.
 Unlike the Speaking-only dashboard payload (services/dashboard_aggregator.py),
 this aggregator stitches across every skill the student has access to —
-Writing, Speaking, Grammar, Vocabulary — plus a couple of "coming soon"
-placeholders for future Reading/Listening features.
+Writing, Speaking, Grammar, Vocabulary, Reading, Listening.
 
-Tables touched (verified 2026-05-09 against migrations/):
+Tables touched (verified 2026-06-26 against migrations/):
     - sessions               (Speaking — started_at, overall_band, status)
     - writing_essays         (Writing — created_at, status, joined via
                               students.user_id)
@@ -16,18 +15,14 @@ Tables touched (verified 2026-05-09 against migrations/):
                               user_vocabulary.mastery_status — mastery
                               now derives from flashcard_reviews.
     - flashcard_reviews      (Vocabulary — next_review_at, due count)
+    - reading_test_attempts  (Reading — submitted_at, band_estimate, status)
+    - listening_attempts     (Listening — created_at, count)
 
 Resilience:
     Each skill's sub-builder is wrapped in try/except. A failure in one
     skill (e.g. Grammar query times out) downgrades that card to a
     `degraded: true` flag with the rest of the payload still rendering.
     Mirrors the dashboard_aggregator.py pattern.
-
-Coming-soon skills:
-    Reading and Listening are intentionally hard-coded with
-    ``status='coming_soon'`` so the frontend has nothing to render
-    dynamically yet. When those skills ship, flip the flag here and
-    add the per-skill builder — frontend stays put.
 
 Auth:
     Caller passes ``supabase_admin`` (service-role client). This mirrors
@@ -44,10 +39,6 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
-
-
-# Reading + Listening haven't shipped yet. Surface as locked cards.
-_COMING_SOON_SKILLS = ("reading", "listening")
 
 
 def get_home_summary(sb, user_id: str, *, name: str, email: str) -> Dict[str, Any]:
@@ -71,8 +62,8 @@ def get_home_summary(sb, user_id: str, *, name: str, email: str) -> Dict[str, An
             "speaking": _empty_skill(),
             "grammar": _empty_skill(),
             "vocabulary": _empty_skill(),
-            "reading": {"status": "coming_soon", "primary_cta": None, "primary_cta_url": None},
-            "listening": {"status": "coming_soon", "primary_cta": None, "primary_cta_url": None},
+            "reading": _empty_skill(),
+            "listening": _empty_skill(),
         },
     }
     errors: Dict[str, str] = {}
@@ -104,6 +95,16 @@ def get_home_summary(sb, user_id: str, *, name: str, email: str) -> Dict[str, An
         payload["totals"]["vocab_words_learned"] = vocab["words_learned"]
     except Exception as e:
         errors["vocabulary"] = _short_error(e)
+
+    try:
+        payload["skills"]["reading"] = _build_reading(sb, user_id)
+    except Exception as e:
+        errors["reading"] = _short_error(e)
+
+    try:
+        payload["skills"]["listening"] = _build_listening(sb, user_id)
+    except Exception as e:
+        errors["listening"] = _short_error(e)
 
     try:
         payload["streak"] = _build_streak(sb, user_id)
@@ -348,6 +349,53 @@ def _build_vocabulary(sb, user_id: str) -> Dict[str, Any]:
             "/pages/vocabulary.html#flashcards" if due_count
             else "/pages/vocabulary.html#my-vocab"
         ),
+    }
+
+
+def _build_reading(sb, user_id: str) -> Dict[str, Any]:
+    res = (
+        sb.table("reading_test_attempts")
+        .select("submitted_at, band_estimate", count="exact")
+        .eq("user_id", user_id)
+        .eq("status", "submitted")
+        .order("submitted_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    rows = res.data or []
+    total = res.count if res.count is not None else len(rows)
+    last_activity = rows[0].get("submitted_at") if rows else None
+    last_band = rows[0].get("band_estimate") if rows else None
+
+    return {
+        "status": "active",
+        "last_activity_at": last_activity,
+        "last_band": float(last_band) if last_band is not None else None,
+        "attempts_count": int(total),
+        "primary_cta": "Continue reading" if total else "Start reading",
+        "primary_cta_url": "/pages/reading-vocab.html",
+    }
+
+
+def _build_listening(sb, user_id: str) -> Dict[str, Any]:
+    res = (
+        sb.table("listening_attempts")
+        .select("created_at", count="exact")
+        .eq("user_id", user_id)
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    rows = res.data or []
+    total = res.count if res.count is not None else len(rows)
+    last_activity = rows[0].get("created_at") if rows else None
+
+    return {
+        "status": "active",
+        "last_activity_at": last_activity,
+        "attempts_count": int(total),
+        "primary_cta": "Continue listening" if total else "Start listening",
+        "primary_cta_url": "/pages/listening.html",
     }
 
 

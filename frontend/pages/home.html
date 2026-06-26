@@ -98,40 +98,115 @@
       </div>
     </header>
 
-    <!-- ── Active skills ───────────────────────────────────────────── -->
+    <!-- ── Skills ───────────────────────────────────────────────────── -->
     <!--
-      home.js renders each .skill-card.skeleton by replacing innerHTML
-      with: .head > .icon + .arrow|.lock-tag, h3, .metric-row > .metric,
-      .sub-metric, .footer > .last-activity + .cta. The CSS in home.css
-      styles each of those inner classes — keep them in sync if home.js
-      ever changes the rendered structure.
+      Cards are pre-rendered so tiles appear on first parse. home.js
+      patches .js-val / .js-unit / .js-sub / .js-activity / .js-cta spans
+      once the API responds — no blank skeleton delay.
     -->
     <section>
       <div class="section-head">
         <h2>Kỹ năng IELTS</h2>
         <span class="rule" aria-hidden="true"></span>
-        <span class="meta">4 kỹ năng đang mở</span>
+        <span class="meta">6 kỹ năng đang mở</span>
       </div>
 
       <div class="skill-grid">
-        <article class="skill-card skeleton" data-skill="writing"></article>
-        <article class="skill-card skeleton" data-skill="speaking"></article>
-        <article class="skill-card skeleton" data-skill="grammar"></article>
-        <article class="skill-card skeleton" data-skill="vocabulary"></article>
-      </div>
-    </section>
+        <article class="skill-card" data-skill="writing">
+          <div class="head">
+            <div class="icon">✍︎</div>
+            <span class="arrow">→</span>
+          </div>
+          <h3>Writing</h3>
+          <div class="metric-row">
+            <span class="metric"><span class="js-val">—</span><span class="unit"> <span class="js-unit">band</span></span></span>
+          </div>
+          <div class="sub-metric js-sub">Bài luận Task 1 &amp; Task 2 với feedback chi tiết.</div>
+          <div class="footer">
+            <span class="last-activity js-activity">—</span>
+            <span class="cta js-cta">Writing</span>
+          </div>
+        </article>
 
-    <!-- ── Coming soon ─────────────────────────────────────────────── -->
-    <section>
-      <div class="section-head">
-        <h2>Sắp ra mắt</h2>
-        <span class="rule" aria-hidden="true"></span>
-        <span class="meta">Đang phát triển</span>
-      </div>
+        <article class="skill-card" data-skill="speaking">
+          <div class="head">
+            <div class="icon">🎙</div>
+            <span class="arrow">→</span>
+          </div>
+          <h3>Speaking</h3>
+          <div class="metric-row">
+            <span class="metric"><span class="js-val">—</span><span class="unit"> <span class="js-unit">band</span></span></span>
+          </div>
+          <div class="sub-metric js-sub">Luyện nói 3 phần và nhận điểm band tự động.</div>
+          <div class="footer">
+            <span class="last-activity js-activity">—</span>
+            <span class="cta js-cta">Speaking</span>
+          </div>
+        </article>
 
-      <div class="skill-grid">
-        <article class="skill-card skeleton" data-skill="reading"></article>
-        <article class="skill-card skeleton" data-skill="listening"></article>
+        <article class="skill-card" data-skill="grammar">
+          <div class="head">
+            <div class="icon">✦</div>
+            <span class="arrow">→</span>
+          </div>
+          <h3>Grammar</h3>
+          <div class="metric-row">
+            <span class="metric"><span class="js-val">0</span><span class="unit"> <span class="js-unit">bài đã xem</span></span></span>
+          </div>
+          <div class="sub-metric js-sub">Khám phá 67 bài học ngữ pháp.</div>
+          <div class="footer">
+            <span class="last-activity js-activity">—</span>
+            <span class="cta js-cta">Grammar</span>
+          </div>
+        </article>
+
+        <article class="skill-card" data-skill="vocabulary">
+          <div class="head">
+            <div class="icon">⌗</div>
+            <span class="arrow">→</span>
+          </div>
+          <h3>Vocabulary</h3>
+          <div class="metric-row">
+            <span class="metric"><span class="js-val">0</span><span class="unit"> <span class="js-unit">từ</span></span></span>
+          </div>
+          <div class="sub-metric js-sub">Wallet từ vựng cá nhân + flashcard SRS.</div>
+          <div class="footer">
+            <span class="last-activity js-activity">—</span>
+            <span class="cta js-cta">Vocabulary</span>
+          </div>
+        </article>
+
+        <article class="skill-card" data-skill="reading">
+          <div class="head">
+            <div class="icon">✸</div>
+            <span class="arrow">→</span>
+          </div>
+          <h3>Reading</h3>
+          <div class="metric-row">
+            <span class="metric"><span class="js-val">—</span><span class="unit"> <span class="js-unit">band</span></span></span>
+          </div>
+          <div class="sub-metric js-sub">Bài đọc IELTS với phân tích cấu trúc đoạn và chiến lược tìm ý chính.</div>
+          <div class="footer">
+            <span class="last-activity js-activity">—</span>
+            <span class="cta js-cta">Reading</span>
+          </div>
+        </article>
+
+        <article class="skill-card" data-skill="listening">
+          <div class="head">
+            <div class="icon">◐</div>
+            <span class="arrow">→</span>
+          </div>
+          <h3>Listening</h3>
+          <div class="metric-row">
+            <span class="metric"><span class="js-val">0</span><span class="unit"> <span class="js-unit">bài</span></span></span>
+          </div>
+          <div class="sub-metric js-sub">Bài nghe với note-taking pattern và phân tích bẫy đáp án.</div>
+          <div class="footer">
+            <span class="last-activity js-activity">—</span>
+            <span class="cta js-cta">Listening</span>
+          </div>
+        </article>
       </div>
     </section>
 

@@ -183,6 +183,16 @@ section { margin-bottom: var(--av-space-12); }
 }
 
 
+/* ── Per-skill color identity ──────────────────────────────────── */
+
+[data-skill="writing"]    { --skill-accent: var(--av-primary);      --skill-soft: var(--av-primary-soft);      --skill-border: var(--av-primary-border); }
+[data-skill="speaking"]   { --skill-accent: var(--av-accent);       --skill-soft: rgba(245,158,11,0.10);       --skill-border: rgba(245,158,11,0.32); }
+[data-skill="grammar"]    { --skill-accent: #4F46E5;                --skill-soft: rgba(79,70,229,0.10);        --skill-border: rgba(79,70,229,0.32); }
+[data-skill="vocabulary"] { --skill-accent: var(--av-vocab-jade);   --skill-soft: rgba(11,110,89,0.12);        --skill-border: rgba(11,110,89,0.32); }
+[data-skill="reading"]    { --skill-accent: #0EA5E9;                --skill-soft: rgba(14,165,233,0.10);       --skill-border: rgba(14,165,233,0.32); }
+[data-skill="listening"]  { --skill-accent: #8B5CF6;               --skill-soft: rgba(139,92,246,0.10);       --skill-border: rgba(139,92,246,0.32); }
+
+
 /* ── Skill grid + cards ────────────────────────────────────────── */
 
 .skill-grid {
@@ -210,9 +220,17 @@ section { margin-bottom: var(--av-space-12); }
     box-shadow var(--av-duration-base) var(--av-easing-default);
   overflow: hidden;
 }
+.skill-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  background: var(--skill-accent, var(--av-primary));
+  border-radius: var(--av-radius-lg) 0 0 var(--av-radius-lg);
+}
 .skill-card:hover {
   transform: translateY(-2px);
-  border-color: var(--av-primary-border);
+  border-color: var(--skill-border, var(--av-primary-border));
   box-shadow: var(--av-shadow-md);
 }
 .skill-card:focus-visible {
@@ -235,11 +253,11 @@ section { margin-bottom: var(--av-space-12); }
   display: grid;
   place-items: center;
   border-radius: var(--av-radius-md);
-  background: var(--av-primary-soft);
-  color: var(--av-primary);
+  background: var(--skill-soft, var(--av-primary-soft));
+  color: var(--skill-accent, var(--av-primary));
   font-size: 1.25rem;
   font-weight: var(--av-fw-medium);
-  border: 1px solid var(--av-primary-border);
+  border: 1px solid var(--skill-border, var(--av-primary-border));
 }
 .skill-card h3 {
   font-family: var(--av-font-sans);
@@ -257,7 +275,7 @@ section { margin-bottom: var(--av-space-12); }
     transform var(--av-duration-fast) var(--av-easing-default);
 }
 .skill-card:hover .arrow {
-  color: var(--av-primary);
+  color: var(--skill-accent, var(--av-primary));
   transform: translateX(4px);
 }
 
@@ -323,7 +341,7 @@ section { margin-bottom: var(--av-space-12); }
 .skill-card .cta {
   font-size: var(--av-fs-sm);
   font-weight: var(--av-fw-semibold);
-  color: var(--av-primary);
+  color: var(--skill-accent, var(--av-primary));
   letter-spacing: var(--av-tracking-normal);
 }
 
@@ -394,6 +412,7 @@ section { margin-bottom: var(--av-space-12); }
 }
 .skill-card.skeleton::before {
   content: "";
+  position: static; /* reset from accent-bar rule */
   display: block;
   width: 40%;
   height: 1.4rem;
