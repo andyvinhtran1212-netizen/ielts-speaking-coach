@@ -3,7 +3,7 @@
 Pins behaviour:
   - Active student with mixed activity → all four skill cards populated
   - Cross-skill streak counts unique activity dates back from today
-  - Reading + Listening always surface as ``status='coming_soon'``
+  - Reading + Listening surface as ``status='active'`` (launched)
   - Brand-new student (no activity, no students row) returns zeros not 500
   - Per-skill failure isolates to ``_errors`` and the rest of the payload
     still renders
@@ -131,6 +131,9 @@ class FakeSupabase:
             "article_views": [],
             "user_vocabulary": [],
             "flashcard_reviews": [],
+            "reading_test_attempts": [],
+            "listening_attempts": [],
+            "listening_test_attempts": [],
         }
 
     def table(self, name: str) -> _TableQuery:
@@ -228,7 +231,7 @@ def _seed_review(fake, user_id, **fields):
 
 def test_active_student_returns_all_skill_cards(fake_db, aggregator):
     """Smoke: a student with activity in every skill gets every card
-    populated and Reading/Listening still surface as coming_soon."""
+    populated; Reading/Listening surface as active (launched)."""
     user_id = str(uuid4())
     student_id = str(uuid4())
     fake_db.tables["students"].append({"id": student_id, "user_id": user_id})
@@ -248,8 +251,8 @@ def test_active_student_returns_all_skill_cards(fake_db, aggregator):
     assert payload["skills"]["writing"]["status"] == "active"
     assert payload["skills"]["grammar"]["status"] == "active"
     assert payload["skills"]["vocabulary"]["status"] == "active"
-    assert payload["skills"]["reading"]["status"] == "coming_soon"
-    assert payload["skills"]["listening"]["status"] == "coming_soon"
+    assert payload["skills"]["reading"]["status"] == "active"
+    assert payload["skills"]["listening"]["status"] == "active"
     assert payload["totals"]["speaking_sessions"] == 1
     assert payload["totals"]["writing_essays"] == 1
     assert payload["totals"]["grammar_lessons_viewed"] == 1
@@ -276,18 +279,17 @@ def test_brand_new_student_returns_zeros_not_errors(fake_db, aggregator):
     )
 
 
-def test_reading_and_listening_marked_coming_soon(fake_db, aggregator):
-    """Pin: Reading + Listening never become active until the aggregator
-    learns about new tables. A drive-by code change that flips the flag
-    here has to update this test — that's the point."""
+def test_reading_and_listening_are_active(fake_db, aggregator):
+    """Reading + Listening launched. Both surface as status='active' with
+    their CTA URLs even when the student has no attempts yet."""
     user_id = str(uuid4())
     payload = aggregator.get_home_summary(
         fake_db, user_id, name="X", email="x@x.com",
     )
-    assert payload["skills"]["reading"]["status"] == "coming_soon"
-    assert payload["skills"]["reading"]["primary_cta_url"] is None
-    assert payload["skills"]["listening"]["status"] == "coming_soon"
-    assert payload["skills"]["listening"]["primary_cta_url"] is None
+    assert payload["skills"]["reading"]["status"] == "active"
+    assert payload["skills"]["reading"]["primary_cta_url"] == "/pages/reading-vocab.html"
+    assert payload["skills"]["listening"]["status"] == "active"
+    assert payload["skills"]["listening"]["primary_cta_url"] == "/pages/listening.html"
 
 
 def test_writing_card_returns_empty_when_no_students_row(fake_db, aggregator):
@@ -397,6 +399,58 @@ def test_speaking_card_falls_back_to_completed_band_when_latest_ungraded(
     )
 
     assert payload["skills"]["speaking"]["last_band"] == 6.5
+
+
+def test_listening_full_tests_included_in_attempts_count(fake_db, aggregator):
+    """listening_test_attempts (Cambridge full tests) count alongside
+    per-exercise listening_attempts in the home card, and the band from
+    the most recent submitted full test surfaces as last_band."""
+    user_id = str(uuid4())
+    fake_db.tables["listening_test_attempts"].append({
+        "id": str(uuid4()),
+        "user_id": user_id,
+        "submitted_at": _today_iso(),
+        "status": "submitted",
+        "band_estimate": 7.5,
+    })
+    fake_db.tables["listening_attempts"].append({
+        "id": str(uuid4()),
+        "user_id": user_id,
+        "created_at": _days_ago_iso(1),
+    })
+
+    payload = aggregator.get_home_summary(
+        fake_db, user_id, name="X", email="x@x.com",
+    )
+    listening = payload["skills"]["listening"]
+    assert listening["attempts_count"] == 2   # 1 full test + 1 exercise
+    assert listening["last_band"] == 7.5
+
+
+def test_reading_and_listening_count_toward_streak(fake_db, aggregator):
+    """Reading test submissions and Listening attempts count toward the
+    cross-skill streak. A student who practices only those skills still
+    sees a non-zero streak."""
+    user_id = str(uuid4())
+    fake_db.tables["reading_test_attempts"].append({
+        "id": str(uuid4()),
+        "user_id": user_id,
+        "submitted_at": _today_iso(),
+        "status": "submitted",
+        "band_estimate": 7.0,
+    })
+    fake_db.tables["listening_test_attempts"].append({
+        "id": str(uuid4()),
+        "user_id": user_id,
+        "submitted_at": _days_ago_iso(1),
+        "status": "submitted",
+        "band_estimate": 6.5,
+    })
+
+    payload = aggregator.get_home_summary(
+        fake_db, user_id, name="X", email="x@x.com",
+    )
+    assert payload["streak"]["current_days"] == 2
 
 
 def test_per_skill_failure_isolates_to_errors_map(fake_db, aggregator, monkeypatch):

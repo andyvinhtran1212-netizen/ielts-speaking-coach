@@ -201,49 +201,35 @@ describe('home.html / JS-coupled selectors (home.js contract)', () => {
 
 describe('home.html / skill-card skeletons', () => {
   test('has .skill-card.skeleton placeholders for all 4 active skills', () => {
-    // home.js iterates SKILLS_ORDER = ['writing','speaking','grammar','vocabulary']
-    // and reaches in via querySelector('[data-skill="..."]'). All four
-    // placeholders must be present and start as .skeleton (so the page
-    // reads as "loading" before the API responds).
-    for (const skill of ['writing', 'speaking', 'grammar', 'vocabulary']) {
-      const re = new RegExp(
-        `<article[^>]*class="skill-card skeleton"[^>]*data-skill="${skill}"`,
-      );
-      assert.match(html, re, `missing .skill-card.skeleton for ${skill}`);
+    // Cards are now pre-rendered (no .skeleton class). home.js patches
+    // .js-val / .js-unit / .js-sub / .js-activity / .js-cta spans in-place
+    // once the API responds — tiles appear immediately on first paint.
+    // All 6 data-skill articles must be present in HTML.
+    for (const skill of ['writing', 'speaking', 'grammar', 'vocabulary', 'reading', 'listening']) {
+      const re = new RegExp(`<article[^>]*data-skill="${skill}"`);
+      assert.match(html, re, `missing skill-card article for ${skill}`);
     }
   });
 
   test('has .skill-card.skeleton placeholders for 2 coming-soon skills', () => {
-    // home.js iterates COMING_SOON_ORDER = ['reading','listening']. The
-    // article elements must exist as skeletons; the JS later swaps them
-    // into the .coming-soon variant when it sees status='coming_soon'
-    // (or the default fallback in loadHome's COMING_SOON_ORDER call).
-    for (const skill of ['reading', 'listening']) {
-      const re = new RegExp(
-        `<article[^>]*class="skill-card skeleton"[^>]*data-skill="${skill}"`,
-      );
-      assert.match(html, re, `missing .skill-card.skeleton for ${skill}`);
-    }
+    // Reading and Listening launched (Sprint X). No coming-soon placeholders
+    // exist — all 6 skill cards are pre-rendered and active.
+    assert.doesNotMatch(
+      html,
+      /class="skill-card skeleton"[^>]*data-skill="(?:reading|listening)"/,
+      'reading/listening must not be skeleton coming-soon placeholders — they are active',
+    );
   });
 
   test('skill-card placeholders are empty (JS replaces innerHTML wholesale)', () => {
-    // If the redesign baked static content into the cards (e.g., "Vào
-    // luyện →" before the API responds), it would briefly display until
-    // home.js overwrote it. Keep them empty so the only visible state
-    // before render is the CSS skeleton ::before / ::after pulse.
-    const articles = html.match(
-      /<article\s+class="skill-card skeleton"[^>]*>[\s\S]*?<\/article>/g,
-    ) || [];
-    assert.ok(articles.length === 6, `expected 6 skeleton articles, found ${articles.length}`);
-    for (const article of articles) {
-      const innerStart = article.indexOf('>') + 1;
-      const innerEnd = article.lastIndexOf('</article>');
-      const inner = article.slice(innerStart, innerEnd).trim();
-      assert.equal(
-        inner,
-        '',
-        'skill-card.skeleton must have empty inner HTML — home.js writes the content',
+    // Cards are pre-rendered with .js-val / .js-unit patch markers —
+    // NOT empty skeletons. JS updates spans in-place (patch mode).
+    // Verify each active card carries the expected patch hook.
+    for (const skill of ['writing', 'speaking', 'grammar', 'vocabulary', 'reading', 'listening']) {
+      const cardRe = new RegExp(
+        `<article[^>]*data-skill="${skill}"[\\s\\S]*?class="js-val"[\\s\\S]*?</article>`,
       );
+      assert.match(html, cardRe, `skill-card[data-skill="${skill}"] is missing .js-val patch marker`);
     }
   });
 
@@ -268,8 +254,8 @@ describe('home.html / Vietnamese microcopy', () => {
     assert.match(html, /luyện đều mỗi ngày/);
   });
 
-  test('coming-soon section title uses "Sắp ra mắt"', () => {
-    assert.match(html, /Sắp ra mắt/);
+  test('no coming-soon section — Reading and Listening are active (all 6 skills launched)', () => {
+    assert.doesNotMatch(html, /Sắp ra mắt/);
   });
 
   test('section title for active skills uses "Kỹ năng IELTS"', () => {

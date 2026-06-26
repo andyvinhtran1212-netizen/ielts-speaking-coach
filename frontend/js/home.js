@@ -10,8 +10,7 @@
 (function () {
   'use strict';
 
-  const SKILLS_ORDER = ['writing', 'speaking', 'grammar', 'vocabulary'];
-  const COMING_SOON_ORDER = ['reading', 'listening'];
+  const SKILLS_ORDER = ['writing', 'speaking', 'grammar', 'vocabulary', 'reading', 'listening'];
 
   // Static metadata per skill — icon, name, description copy, the
   // metric the card highlights. Coming-soon skills also live here so
@@ -114,6 +113,31 @@
           : (s.words_learned ? 'Wallet từ vựng cá nhân' : 'Bắt đầu lưu từ mới'),
       };
     },
+    reading(s) {
+      const band = s.last_band != null ? s.last_band.toFixed(1) : '—';
+      return {
+        primary: { value: band, unit: 'band' },
+        sub: s.attempts_count
+          ? s.attempts_count + ' bài đã hoàn thành'
+          : 'Luyện đọc với bài kiểm tra IELTS thực tế',
+      };
+    },
+    listening(s) {
+      if (s.last_band != null) {
+        return {
+          primary: { value: s.last_band.toFixed(1), unit: 'band' },
+          sub: s.attempts_count
+            ? s.attempts_count + ' bài đã hoàn thành'
+            : 'Tiếp tục luyện nghe',
+        };
+      }
+      return {
+        primary: { value: String(s.attempts_count || 0), unit: 'bài' },
+        sub: s.attempts_count
+          ? 'Tiếp tục luyện nghe'
+          : 'Luyện nghe với dictation và comprehension',
+      };
+    },
   };
 
   // ── Render: hero stats ──────────────────────────────────────────────
@@ -192,21 +216,36 @@
     if (!formatter) return;
     const m = formatter(data || {});
 
-    card.classList.remove('skeleton');
-    card.innerHTML =
-      '<div class="head">'
-        + '<div class="icon">' + meta.icon + '</div>'
-        + '<span class="arrow">→</span>'
-      + '</div>'
-      + '<h3>' + meta.name + '</h3>'
-      + '<div class="metric-row">'
-        + '<span class="metric">' + m.primary.value + '<span class="unit">' + m.primary.unit + '</span></span>'
-      + '</div>'
-      + '<div class="sub-metric">' + m.sub + '</div>'
-      + '<div class="footer">'
-        + '<span class="last-activity">' + formatRelativeTime(data.last_activity_at) + '</span>'
-        + '<span class="cta">' + (data.primary_cta || meta.name) + '</span>'
-      + '</div>';
+    const jsVal = card.querySelector('.js-val');
+    if (jsVal) {
+      // Patch mode: pre-rendered card — update data spans in-place.
+      jsVal.textContent = m.primary.value;
+      const jsUnit = card.querySelector('.js-unit');
+      if (jsUnit) jsUnit.textContent = m.primary.unit;
+      const jsSub = card.querySelector('.js-sub');
+      if (jsSub) jsSub.innerHTML = m.sub;
+      const jsActivity = card.querySelector('.js-activity');
+      if (jsActivity) jsActivity.textContent = formatRelativeTime(data.last_activity_at);
+      const jsCta = card.querySelector('.js-cta');
+      if (jsCta) jsCta.textContent = data.primary_cta || meta.name;
+    } else {
+      // Legacy mode: JS-rendered skeleton card — replace innerHTML.
+      card.classList.remove('skeleton');
+      card.innerHTML =
+        '<div class="head">'
+          + '<div class="icon">' + meta.icon + '</div>'
+          + '<span class="arrow">→</span>'
+        + '</div>'
+        + '<h3>' + meta.name + '</h3>'
+        + '<div class="metric-row">'
+          + '<span class="metric">' + m.primary.value + '<span class="unit">' + m.primary.unit + '</span></span>'
+        + '</div>'
+        + '<div class="sub-metric">' + m.sub + '</div>'
+        + '<div class="footer">'
+          + '<span class="last-activity">' + formatRelativeTime(data.last_activity_at) + '</span>'
+          + '<span class="cta">' + (data.primary_cta || meta.name) + '</span>'
+        + '</div>';
+    }
 
     if (data.primary_cta_url) {
       card.tabIndex = 0;
@@ -258,7 +297,6 @@
 
     renderHero(data);
     SKILLS_ORDER.forEach(id => renderSkillCard(id, data.skills[id], permissions));
-    COMING_SOON_ORDER.forEach(id => renderSkillCard(id, data.skills[id] || { status: 'coming_soon' }, permissions));
 
     // Inform <aver-chrome> the user is logged in so the vocab nav link
     // updates to /pages/vocabulary.html synchronously — eliminates the race
