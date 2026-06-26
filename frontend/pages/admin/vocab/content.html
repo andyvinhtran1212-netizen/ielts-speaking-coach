@@ -277,6 +277,20 @@
         + '</div>' + errBox + kv + '</div>';
     }
 
+    function _crossFileDuplicates(results) {
+      var seen = {};
+      results.forEach(function (data, i) {
+        if (!data) return;
+        (data.blocks || []).forEach(function (b) {
+          if (b.slug && !(b.validation_errors && b.validation_errors.length)) {
+            if (!seen[b.slug]) seen[b.slug] = [];
+            seen[b.slug].push(i);
+          }
+        });
+      });
+      return Object.keys(seen).filter(function (slug) { return seen[slug].length > 1; });
+    }
+
     function renderAllPreviews() {
       var preview = document.getElementById('import-preview');
       var summaryEl = document.getElementById('import-summary');
@@ -303,6 +317,15 @@
       parts.push(totalErrors + ' lỗi');
       summaryEl.textContent = parts.join(' · ');
       errorsEl.classList.add('hidden'); errorsEl.innerHTML = '';
+
+      if (_importFiles.length > 1) {
+        var crossDups = _crossFileDuplicates(_importResults);
+        if (crossDups.length) {
+          hasAnyErr = true;
+          errorsEl.classList.remove('hidden');
+          errorsEl.innerHTML = '<strong>Trùng slug giữa các file:</strong> ' + escapeHtml(crossDups.join(', '));
+        }
+      }
 
       var html = '';
       _importResults.forEach(function (data, i) {
@@ -346,22 +369,17 @@
       commit.disabled = true;
       _importStatus('Đang lưu…', null);
       try {
-        var totalCreated = 0, totalUpdated = 0;
-        for (var i = 0; i < _importFiles.length; i++) {
-          var fd = new FormData();
-          fd.append('file', _importFiles[i]);
-          var data = await window.api.upload('/admin/vocabulary/import?dry_run=false', fd);
-          if (data.validation_errors && data.validation_errors.length) {
-            _importResults[i] = data;
-            renderAllPreviews();
-            _importStatus('Còn lỗi — chưa lưu được (không lưu phần nào).', 'error');
-            return;
-          }
-          var s = data.summary || {};
-          totalCreated += s.created || 0;
-          totalUpdated += s.updated || 0;
+        var texts = await Promise.all(_importFiles.map(function (f) { return f.text(); }));
+        var fd = new FormData();
+        fd.append('file', new File([texts.join('\n\n')], 'combined.md', { type: 'text/markdown' }));
+        var data = await window.api.upload('/admin/vocabulary/import?dry_run=false', fd);
+        if ((data.validation_errors || []).length) {
+          _importStatus('Lỗi validation khi lưu — kiểm tra lại file.', 'error');
+          commit.disabled = false;
+          return;
         }
-        _importStatus('✓ Đã lưu: thêm ' + totalCreated + ' / cập nhật ' + totalUpdated + ' từ vào thư viện.', 'ok');
+        var s = data.summary || {};
+        _importStatus('✓ Đã lưu: thêm ' + (s.created || 0) + ' / cập nhật ' + (s.updated || 0) + ' từ vào thư viện.', 'ok');
         resetImport();
         document.getElementById('import-panel').open = true;
       } catch (err) {
