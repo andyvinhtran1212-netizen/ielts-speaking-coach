@@ -146,11 +146,12 @@ describe('vocabulary.html / Sprint 8.2 mode-card IA + module-mount contract', ()
   // activateTab() in /js/vocab-landing.js still owns the panel toggle
   // and module mount.
   // Sprint 10.1.5 — `needs-review` joined as the 5th mode card / 4th
-  // lazy-loaded module (topic-bank stays a static placeholder since
-  // Sprint 8.2). The retired-tab-id roster is unchanged because the
-  // Sprint 8.2 tab-row deletion predates the needs-review surface.
-  const requiredPanelIds = ['panel-my-vocab', 'panel-flashcards', 'panel-exercises', 'panel-needs-review', 'panel-topic-bank'];
-  const requiredDataPanels = ['my-vocab', 'flashcards', 'exercises', 'needs-review', 'topic-bank'];
+  // lazy-loaded module. topic-bank retired; replaced by vocab-topics
+  // (inline topic picker → public wiki). The retired-tab-id roster is
+  // unchanged — Sprint 8.2 tab-row deletion predates the needs-review
+  // surface; vocab-topics was also never a tab button.
+  const requiredPanelIds = ['panel-my-vocab', 'panel-flashcards', 'panel-exercises', 'panel-needs-review', 'panel-vocab-topics'];
+  const requiredDataPanels = ['my-vocab', 'flashcards', 'exercises', 'needs-review', 'vocab-topics'];
   const retiredTabIds = ['tab-my-vocab', 'tab-flashcards', 'tab-exercises', 'tab-topic-bank'];
 
   for (const id of retiredTabIds) {
@@ -201,11 +202,16 @@ describe('vocabulary.html / Sprint 8.2 mode-card IA + module-mount contract', ()
     );
   });
 
-  test('Topic Bank card carries the "Soon" lock-tag badge (Phase B Q2)', () => {
+  test('vocab-topics mode-card present; topic-bank mode-card removed', () => {
     assert.match(
       html,
-      /data-mode="topic-bank"[\s\S]{0,500}<span[^>]*class="[^"]*\block-tag\b[^"]*"[^>]*>Soon<\/span>/,
-      'Topic Bank mode-card must carry <span class="lock-tag">Soon</span>',
+      /<a[^>]*class="[^"]*\bmode-card\b[^"]*"[^>]*data-mode="vocab-topics"/,
+      'vocab-topics mode-card must be a .mode-card[data-mode="vocab-topics"] anchor',
+    );
+    assert.doesNotMatch(
+      html,
+      /data-mode="topic-bank"/,
+      'topic-bank mode-card must be removed',
     );
   });
 
@@ -268,11 +274,11 @@ describe('vocabulary.html / Sprint 8.2 mode-card IA + module-mount contract', ()
     );
   });
 
-  test('topic-bank panel has the static "coming soon" placeholder (no iframe)', () => {
+  test('vocab-topics panel has a .tab-mount container for inline module mount', () => {
     assert.match(
       html,
-      /data-panel=["']topic-bank["'][\s\S]*?coming-soon/,
-      'topic-bank panel must render the static coming-soon placeholder',
+      /data-panel=["']vocab-topics["'][\s\S]*?<div[^>]*class=["'][^"']*\btab-mount\b/,
+      'vocab-topics panel must ship <div class="tab-mount"> for inline module mount',
     );
   });
 
@@ -294,8 +300,8 @@ describe('vocabulary.html / Sprint 8.2 mode-card IA + module-mount contract', ()
     const panelsWithRole  = (html.match(/role=["']tabpanel["']/g) || []).length;
     const ariaSelected    = (html.match(/aria-selected=/g) || []).length;
     assert.equal(tabsWithRole,   0, 'role="tab" must be absent (Sprint 8.2 retired the tablist row)');
-    // B3 — 5 panels (my-vocab, flashcards, exercises, needs-review, topic-bank);
-    // the word-library panel was retired (browse moved to the public wiki).
+    // 5 panels: vocab-topics, my-vocab, flashcards, exercises, needs-review.
+    // topic-bank retired; word-library retired (browse moved to public wiki).
     assert.equal(panelsWithRole, 5, 'role="tabpanel" on the 5 remaining "của bạn" panels (B3 retired word-library)');
     assert.equal(ariaSelected,   0, 'aria-selected must be absent (no tab buttons left)');
   });
@@ -352,14 +358,15 @@ describe('vocabulary.html / body class + chrome', () => {
 describe('vocabulary.html / mode-card microcopy (Sprint 8.2)', () => {
   // Sprint 8.2 — the tab-row's emoji icons (📚 🔄 ✏︎ ✸) + Vietnamese
   // labels were retired alongside the row itself. Mode-cards use
-  // Lucide icons (book-open / layers / dumbbell / landmark) and
-  // English-cased titles (My Vocabulary / Flashcards / Exercises /
-  // Topic Bank). The leaner Vietnamese subtitles live in `.lede`.
+  // Lucide icons (library / book-open / layers / dumbbell / alert-circle) and
+  // mixed-language titles (Từ vựng / My Vocabulary / Flashcards / Exercises /
+  // Needs Review). The leaner Vietnamese subtitles live in `.lede`.
+  // vocab-topics replaced topic-bank (Sprint 8.2 / B3).
 
-  test('mode-cards use Lucide icons (book-open / layers / dumbbell / landmark)', () => {
+  test('mode-cards use Lucide icons (library / book-open / layers / dumbbell / alert-circle)', () => {
     const section = html.match(/<section[^>]*class="[^"]*\bvocab-modes\b[\s\S]+?<\/section>/);
     assert.ok(section, '.vocab-modes section must exist');
-    for (const icon of ['book-open', 'layers', 'dumbbell', 'landmark']) {
+    for (const icon of ['library', 'book-open', 'layers', 'dumbbell', 'alert-circle']) {
       assert.match(
         section[0],
         new RegExp(`<i[^>]*data-lucide=["']${icon}["']`),
@@ -375,19 +382,22 @@ describe('vocabulary.html / mode-card microcopy (Sprint 8.2)', () => {
     }
   });
 
-  test('mode-card titles preserved (English-cased per Phase B Q1)', () => {
+  test('mode-card titles preserved (Phase B Q1)', () => {
+    assert.match(html, /<h3[^>]*>\s*Từ vựng\s*<\/h3>/);
     assert.match(html, /<h3[^>]*>\s*My Vocabulary\s*<\/h3>/);
     assert.match(html, /<h3[^>]*>\s*Flashcards\s*<\/h3>/);
     assert.match(html, /<h3[^>]*>\s*Exercises\s*<\/h3>/);
-    // Topic Bank h3 wraps the lock-tag badge — use a non-greedy match.
-    assert.match(html, /<h3[^>]*>\s*Topic Bank\s*<span[^>]*class="[^"]*\block-tag\b/);
+    assert.match(html, /<h3[^>]*>\s*Needs Review\s*<\/h3>/);
+    // Topic Bank was removed in B3 — must not appear.
+    assert.ok(!html.includes('Topic Bank'), 'Topic Bank card must be absent after B3 removal');
   });
 
   test('mode-card lede subtitles present (Phase B Q1 leaner copy)', () => {
+    assert.match(html, /Duyệt từ vựng IELTS theo chủ đề\./);
     assert.match(html, /Sổ tay từ vựng cá nhân của bạn\./);
     assert.match(html, /Học từ với hệ thống lặp khoảng cách\./);
     assert.match(html, /Luyện tập đa dạng dạng bài\./);
-    assert.match(html, /Khám phá từ vựng theo chủ đề\./);
+    assert.match(html, /Từ vựng và cách diễn đạt cần xem lại\./);
   });
 });
 

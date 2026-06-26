@@ -227,18 +227,19 @@ describe('Sprint 7.3 — /js/vocab-landing.js gains TAB_LOADERS module path', ()
   });
 
   test('declares TAB_LOADERS with my-vocab + flashcards + exercises entries', () => {
-    assert.match(src, /TAB_LOADERS\s*=\s*\{[\s\S]{0,500}['"]my-vocab['"]\s*:/);
+    // vocab-topics inline loader precedes these entries; use 2500-char window
+    // (1710 chars to 'my-vocab' after vocab-topics inline body was added in B3).
+    assert.match(src, /TAB_LOADERS\s*=\s*\{[\s\S]{0,2500}['"]my-vocab['"]\s*:/);
     assert.match(src, /import\(['"]\/js\/vocab-modules\/my-vocab\.js['"]\)/);
-    assert.match(src, /TAB_LOADERS\s*=\s*\{[\s\S]{0,500}['"]flashcards['"]\s*:/);
+    assert.match(src, /TAB_LOADERS\s*=\s*\{[\s\S]{0,2500}['"]flashcards['"]\s*:/);
     assert.match(src, /import\(['"]\/js\/vocab-modules\/flashcards\.js['"]\)/);
-    assert.match(src, /TAB_LOADERS\s*=\s*\{[\s\S]{0,500}['"]exercises['"]\s*:/);
+    assert.match(src, /TAB_LOADERS\s*=\s*\{[\s\S]{0,2500}['"]exercises['"]\s*:/);
     assert.match(src, /import\(['"]\/js\/vocab-modules\/exercises\.js['"]\)/);
   });
 
   test('TAB_SOURCES + _loaded + iframe branch fully removed (Sprint 7.6 closure)', () => {
     // The legacy iframe lazy-load path is gone. activateTab() has no
-    // else-branch anymore; tabs not in TAB_LOADERS (topic-bank only)
-    // are pure CSS reveals.
+    // else-branch anymore; all VALID_TABS now have a TAB_LOADERS entry.
     assert.ok(
       !/const\s+TAB_SOURCES\s*=/.test(src),
       'TAB_SOURCES const must be removed after Sprint 7.6',
@@ -1282,6 +1283,6 @@ describe('Sprint 10.1.5 — vocab-landing.js wires needs-review into VALID_TABS 
     assert.match(m[1], /['"]my-vocab['"]/);
     assert.match(m[1], /['"]flashcards['"]/);
     assert.match(m[1], /['"]exercises['"]/);
-    assert.match(m[1], /['"]topic-bank['"]/);
+    assert.match(m[1], /['"]vocab-topics['"]/);
   });
 });
