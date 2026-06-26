@@ -259,6 +259,15 @@
     renderHero(data);
     SKILLS_ORDER.forEach(id => renderSkillCard(id, data.skills[id], permissions));
     COMING_SOON_ORDER.forEach(id => renderSkillCard(id, data.skills[id] || { status: 'coming_soon' }, permissions));
+
+    // Inform <aver-chrome> the user is logged in so the vocab nav link
+    // updates to /pages/vocabulary.html synchronously — eliminates the race
+    // where async session polling hasn't completed before the user clicks nav.
+    const chrome = document.querySelector('aver-chrome');
+    if (chrome && typeof chrome.setUser === 'function') {
+      const student = (data && data.student) || {};
+      chrome.setUser({ name: student.name || 'bạn' });
+    }
   }
 
   // Wait for Supabase + auth to be ready before fetching.
