@@ -267,9 +267,12 @@
         cardEl.innerHTML = '<p class="va-empty">Không tải được từ vựng.</p>'; return;
       }
       state.words = state.cats.flatMap(c => c.articles || []);
-      renderChips(); renderRows();
       // Deep-link or desktop default → open a word in the right pane.
       const params = new URLSearchParams(location.search);
+      // ?cat=<slug> from the vocab-topics topic-picker pre-filters the list.
+      const wantCat = params.get('cat');
+      if (wantCat && state.cats.some(c => c.slug === wantCat)) state.cat = wantCat;
+      renderChips(); renderRows();
       // Arrived from the hub word-library tab → reveal the "← Từ vựng" back link
       // (points at /pages/vocabulary.html#word-library; browser-back also returns
       // there since the hub wrote that hash via pushState).
@@ -281,7 +284,10 @@
       const want = wantSlug && state.words.find(w => w.slug === wantSlug);
       if (want) selectWord(want.category, want.slug);
       else if (state.words.length && window.matchMedia('(min-width: 861px)').matches) {
-        selectWord(state.words[0].category, state.words[0].slug);
+        const firstWord = state.cat
+          ? state.words.find(w => w.category === state.cat)
+          : state.words[0];
+        if (firstWord) selectWord(firstWord.category, firstWord.slug);
       }
     })();
   }
