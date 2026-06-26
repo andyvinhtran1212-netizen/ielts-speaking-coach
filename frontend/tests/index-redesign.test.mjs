@@ -152,8 +152,8 @@ describe('index.html / conversion flow preserved byte-identical', () => {
     assert.match(html, /href=["']\/pricing\.html["']/);
   });
 
-  test('href="/frontend/pages/home.html" footer dashboard link preserved', () => {
-    assert.match(html, /href=["']\/frontend\/pages\/home\.html["']/);
+  test('href="/pages/home.html" footer dashboard link preserved', () => {
+    assert.match(html, /href=["']\/pages\/home\.html["']/);
   });
 
   test('two in-page anchors preserved (#features + #how-it-works)', () => {
@@ -227,7 +227,10 @@ describe('index.html / body class + chrome', () => {
 describe('index.html / no inline color literals in static markup', () => {
   test('no inline style="color:#…" or "background:#…" on static markup', () => {
     const stripped = html.replace(/<script[\s\S]*?<\/script>/g, '');
-    const bad = stripped.match(/style=["'][^"']*(?:color|background)\s*:\s*#[0-9a-fA-F]/g) || [];
+    // Strip CSS custom property definitions (--prop:#hex) before checking
+    // so mosaic card inline vars like --card-color:#F59E0B are allowed.
+    const strippedVars = stripped.replace(/--[a-zA-Z-]+\s*:\s*#?[0-9a-fA-F-]+/g, '');
+    const bad = strippedVars.match(/style=["'][^"']*(?:color|background)\s*:\s*#[0-9a-fA-F]/g) || [];
     assert.deepEqual(bad, []);
   });
 
@@ -353,25 +356,25 @@ describe('index.html / Vietnamese marketing microcopy preserved exactly', () => 
   // lesson "Don't paraphrase Vietnamese copy" rule is enforced here for
   // the strings most visible to a prospect.
   const phrases = [
-    'Luyện IELTS Speaking cùng AI',                   // <title>
-    'Nền tảng luyện thi IELTS',                       // hero eyebrow (NEW Sprint 6.13a-ext)
-    'Luyện thi IELTS toàn diện',                      // hero h1 (NEW)
-    'cùng AI Coach.',                                 // hero h1 accent (NEW)
-    'Speaking, Writing, Từ vựng và Grammar',          // hero lead (NEW multi-skill)
+    'Luyện IELTS toàn diện cùng AI',                  // <title>
+    'Nền tảng luyện thi IELTS',                       // hero eyebrow
+    'Luyện thi IELTS toàn diện',                      // hero h1
+    'cùng AI Coach.',                                 // hero h1 accent
+    '6 kỹ năng IELTS',                                // hero lead (6-skill redesign)
     'Bắt đầu miễn phí',                               // hero primary CTA + free-tier CTA
     'Dùng thử miễn phí',                              // nav CTA
     'Dùng thử miễn phí ngay',                         // final CTA
     'Xem cách hoạt động',                             // hero secondary CTA
     'Không cần thẻ tín dụng · Dùng thử 3 buổi miễn phí',
-    'Học viên đang luyện tập',                        // stat label
+    'Học viên đăng ký',                               // stat label (real DB count)
     'Buổi luyện đã hoàn thành',
-    'Band điểm tăng trung bình',
-    '4 kỹ năng IELTS,',                               // features h2 (NEW multi-skill)
-    'một nền tảng',                                   // features h2 (NEW)
+    'Kỹ năng IELTS trên một nền tảng',                // 3rd stat (6 skills, real)
+    '6 kỹ năng IELTS,',                               // features h2 (6-skill)
+    'một nền tảng',                                   // features h2
     '3 bước đơn giản',                                // how-it-works h2
     'Tạo tài khoản',
-    'Luyện kỹ năng mục tiêu',                         // how-it-works step 2 (NEW reframed)
-    'Theo dõi tiến độ',                               // how-it-works step 3 (NEW reframed)
+    'Chọn kỹ năng và luyện',                          // how-it-works step 2 (6-skill reframe)
+    'Theo dõi tiến độ',                               // how-it-works step 3
     'Bắt đầu miễn phí,',                              // pricing h2
     'nâng cấp khi sẵn sàng',
     'Phổ biến nhất',
@@ -380,7 +383,7 @@ describe('index.html / Vietnamese marketing microcopy preserved exactly', () => 
     'Chọn gói này',
     'Học viên nói gì',
     'Kết quả thực tế',
-    'Sẵn sàng nâng band',
+    'Sẵn sàng bắt đầu',                               // CTA section h2 (6-skill)
     'Đăng nhập',
     'Đăng ký',
   ];
@@ -396,23 +399,19 @@ describe('index.html / Vietnamese marketing microcopy preserved exactly', () => 
 // ── Multi-skill grid (Sprint 6.13a-extension) ─────────────────────
 
 
-describe('Multi-skill grid / 4-card contract (Sprint 6.13a-extension)', () => {
+describe('Multi-skill grid / 6-card contract (6-skill landing redesign)', () => {
   test('section eyebrow + multi-skill heading + multi-skill subtitle', () => {
-    // The features section now positions the platform as multi-skill,
-    // not single-skill Speaking. Pin the eyebrow + h2 + subtitle.
+    // The features section now covers all 6 IELTS skills.
     assert.match(html, /class=["'][^"']*\bix-eyebrow\b[^"']*["'][^>]*>\s*Tính năng\s*</);
-    assert.match(html, /4 kỹ năng IELTS,/);
+    assert.match(html, /6 kỹ năng IELTS,/);
     assert.match(html, /một nền tảng/);
-    assert.match(html, /Speaking với Claude/);
-    assert.match(html, /Writing với Gemini/);
     assert.match(html, /SRS thông minh/);
     assert.match(html, /Grammar Wiki tra cứu/);
   });
 
-  test('4 .ix-skill-card[data-skill] cards present in correct order', () => {
-    // Order matters for visual hierarchy: Speaking (primary daily-use)
-    // → Writing (popular badge) → Từ vựng → Grammar.
-    const skills = ['speaking', 'writing', 'vocabulary', 'grammar'];
+  test('6 .ix-skill-card[data-skill] cards present in correct order', () => {
+    // Order: Speaking → Writing → Reading → Listening → Vocabulary → Grammar.
+    const skills = ['speaking', 'writing', 'reading', 'listening', 'vocabulary', 'grammar'];
     for (const skill of skills) {
       assert.match(
         html,
@@ -440,6 +439,8 @@ describe('Multi-skill grid / 4-card contract (Sprint 6.13a-extension)', () => {
     const skillIcons = {
       speaking:   'mic',
       writing:    'pencil-line',
+      reading:    'book-marked',
+      listening:  'headphones',
       vocabulary: 'library',
       grammar:    'book-open',
     };
@@ -458,7 +459,7 @@ describe('Multi-skill grid / 4-card contract (Sprint 6.13a-extension)', () => {
   });
 
   test('each skill card has eyebrow + title + body + feats list + CTA', () => {
-    const skills = ['speaking', 'writing', 'vocabulary', 'grammar'];
+    const skills = ['speaking', 'writing', 'reading', 'listening', 'vocabulary', 'grammar'];
     for (const skill of skills) {
       const cardMatch = html.match(
         new RegExp(`data-skill=["']${skill}["'][\\s\\S]*?</article>`),

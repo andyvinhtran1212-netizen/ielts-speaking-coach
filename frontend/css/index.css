@@ -589,3 +589,126 @@
 .ix-footer__divider { border-top: 1px solid rgba(255, 255, 255, 0.10); }
 .ix-footer__copy    { color: rgba(255, 255, 255, 0.30); }
 .ix-footer__powered { color: rgba(255, 255, 255, 0.20); }
+
+
+/* ── Per-skill color identity on landing page skill cards ─────────── */
+
+.ix-skill-card[data-skill="speaking"]   { --ix-skill-color: #F59E0B; }
+.ix-skill-card[data-skill="writing"]    { --ix-skill-color: var(--av-primary); }
+.ix-skill-card[data-skill="reading"]    { --ix-skill-color: #0EA5E9; }
+.ix-skill-card[data-skill="listening"]  { --ix-skill-color: #8B5CF6; }
+.ix-skill-card[data-skill="grammar"]    { --ix-skill-color: #4F46E5; }
+.ix-skill-card[data-skill="vocabulary"] { --ix-skill-color: #0B6E59; }
+
+.ix-skill-card[data-skill]::before {
+  content: '';
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 0;
+  width: 3px;
+  background: var(--ix-skill-color, var(--av-primary));
+  border-radius: 0 2px 2px 0;
+  opacity: 0.45;
+  transition: opacity var(--av-duration-fast) var(--av-easing-default);
+}
+.ix-skill-card[data-skill]:hover::before { opacity: 1; }
+
+.ix-skill-card[data-skill] .ix-skill-card__icon {
+  background: color-mix(in srgb, var(--ix-skill-color) 10%, transparent);
+  color: var(--ix-skill-color);
+}
+.ix-skill-card[data-skill] .ix-skill-card__eyebrow { color: var(--ix-skill-color); }
+.ix-skill-card[data-skill] .ix-skill-card__feats li::before { color: var(--ix-skill-color); }
+.ix-skill-card[data-skill] .ix-skill-card__cta { color: var(--ix-skill-color); }
+.ix-skill-card[data-skill] .ix-skill-card__cta:hover {
+  color: var(--ix-skill-color);
+  opacity: 0.8;
+}
+.ix-skill-card[data-skill]:hover {
+  border-color: color-mix(in srgb, var(--ix-skill-color) 35%, var(--av-border-subtle));
+}
+
+
+/* ── Hero 6-skill mosaic (replaces browser mock in hero right col) ── */
+
+.ix-skill-mosaic {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+@keyframes ix-float {
+  0%,  100% { transform: translateY(0)    rotate(var(--card-tilt, 0deg)); }
+  50%        { transform: translateY(-5px) rotate(var(--card-tilt, 0deg)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ix-skill-mosaic__card { animation: none; transform: rotate(var(--card-tilt, 0deg)); }
+}
+
+.ix-skill-mosaic__card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-left: 3px solid var(--card-color, rgba(255, 255, 255, 0.3));
+  border-radius: 12px;
+  padding: 14px 16px;
+  transform: rotate(var(--card-tilt, 0deg));
+  animation: ix-float 5s ease-in-out infinite;
+  transition:
+    background var(--av-duration-fast) var(--av-easing-default),
+    transform var(--av-duration-fast) var(--av-easing-default);
+}
+.ix-skill-mosaic__card:hover {
+  background: rgba(255, 255, 255, 0.13);
+  transform: rotate(var(--card-tilt, 0deg)) translateY(-3px);
+}
+.ix-skill-mosaic__card:nth-child(2) { animation-delay: -1.2s; }
+.ix-skill-mosaic__card:nth-child(3) { animation-delay: -2.5s; }
+.ix-skill-mosaic__card:nth-child(4) { animation-delay: -3.7s; }
+.ix-skill-mosaic__card:nth-child(5) { animation-delay: -0.8s; }
+.ix-skill-mosaic__card:nth-child(6) { animation-delay: -2.0s; }
+
+.ix-skill-mosaic__icon-wrap {
+  font-size: 1.375rem;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--card-color, rgba(255, 255, 255, 0.2)) 18%, transparent);
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+.ix-skill-mosaic__text { flex: 1; min-width: 0; }
+.ix-skill-mosaic__name {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #FFFFFF;
+  line-height: 1.3;
+}
+.ix-skill-mosaic__sub {
+  font-size: 0.725rem;
+  color: rgba(255, 255, 255, 0.50);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ix-skill-mosaic__chip {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--card-color, rgba(255, 255, 255, 0.6));
+  background: color-mix(in srgb, var(--card-color, rgba(255, 255, 255, 0.1)) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--card-color, rgba(255, 255, 255, 0.3)) 30%, transparent);
+  padding: 3px 8px;
+  border-radius: 20px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}

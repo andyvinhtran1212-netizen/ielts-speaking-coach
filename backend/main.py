@@ -221,6 +221,31 @@ app.include_router(dashboard_router)
 app.include_router(student_home_router)
 
 
+# ── Public stats — no auth, for the marketing landing page ────────────
+@app.get("/api/public-stats")
+def public_stats():
+    try:
+        users_res = (
+            supabase_admin.table("users")
+            .select("*", count="exact")
+            .limit(0)
+            .execute()
+        )
+        sessions_res = (
+            supabase_admin.table("sessions")
+            .select("*", count="exact")
+            .eq("status", "completed")
+            .limit(0)
+            .execute()
+        )
+        return {
+            "total_users": users_res.count or 0,
+            "sessions_completed": sessions_res.count or 0,
+        }
+    except Exception:
+        return {"total_users": None, "sessions_completed": None}
+
+
 # ── PR1 single-source — per-request access-permission memo ────────────
 # Speaking + /auth/me + writing all read the LIVE access-code permissions
 # (get_user_access_code_permissions). This memo caches that lookup for the
