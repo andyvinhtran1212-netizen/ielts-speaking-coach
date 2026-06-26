@@ -1192,24 +1192,28 @@
         renderBand('band-gra', bands.gra);
         renderBand('band-p',   bands.p);
 
-        // Overall = average of non-null criterion bands, rounded to nearest 0.5
-        // Fallback to session.overall_band for practice mode (no criterion bands).
-        var vals = ['fc', 'lr', 'gra', 'p']
-          .map(function (k) { return bands[k]; })
-          .filter(function (v) { return v != null; });
-
+        // Prefer session.overall_band (canonical Python-computed value) to avoid
+        // Python banker's-rounding vs JS Math.round discrepancy when criterion-band
+        // average falls on a 0.5 boundary (e.g. avg=5.25 → Python gives 5.0, JS gives 5.5).
+        // Fall back to JS re-computation only when session.overall_band is not yet set
+        // (e.g. result.html loaded before PATCH /complete finished in test mode).
         var overallEl = document.getElementById('overall-band');
-        if (vals.length > 0) {
-          var avg = vals.reduce(function (a, b) { return a + b; }, 0) / vals.length;
-          avg = Math.round(avg * 2) / 2;
-          overallEl.textContent = avg.toFixed(1);
-          overallEl.className   = overallEl.className.replace(/band-\w+/g, '').trim() + ' ' + bandClass(avg);
-        } else if (session.overall_band != null) {
+        if (session.overall_band != null) {
           var ob = parseFloat(session.overall_band);
           overallEl.textContent = roundHalf(ob).toFixed(1);
           overallEl.className   = overallEl.className.replace(/band-\w+/g, '').trim() + ' ' + bandClass(ob);
         } else {
-          overallEl.textContent = '—';
+          var vals = ['fc', 'lr', 'gra', 'p']
+            .map(function (k) { return bands[k]; })
+            .filter(function (v) { return v != null; });
+          if (vals.length > 0) {
+            var avg = vals.reduce(function (a, b) { return a + b; }, 0) / vals.length;
+            avg = Math.round(avg * 2) / 2;
+            overallEl.textContent = avg.toFixed(1);
+            overallEl.className   = overallEl.className.replace(/band-\w+/g, '').trim() + ' ' + bandClass(avg);
+          } else {
+            overallEl.textContent = '—';
+          }
         }
 
         // ── Strengths / improvements ─────────────────────────────────────────
