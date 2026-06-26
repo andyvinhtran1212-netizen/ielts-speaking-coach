@@ -194,3 +194,11 @@ Keep fixes reviewable. A 5-line diff with a clear explanation is better than a 5
 - `sessions.tokens_used` column must exist in Supabase for token tracking to work
 - `audio-responses` bucket must be public in Supabase Storage for audio replay to work
 - The `/ 100` sessions-today display in the dashboard is hardcoded — update if `MAX_SESSIONS_PER_USER_PER_DAY` changes
+
+---
+
+## Definition of Done (trước khi báo "xong")
+- Chạy backend: `cd backend && python -m pytest tests/ -q --ignore=tests/test_d1_e2e.py`
+- Chạy frontend: `node --test` cho các test liên quan trong frontend/tests/
+- KHÔNG sửa/skip/xfail/--ignore test để ép xanh. Test đỏ → sửa CODE.
+- Trong Plan Mode: nêu thay đổi người-dùng-thấy bằng tiếng Việt TRƯỚC, rồi mới tới phần kỹ thuật.

@@ -19,6 +19,7 @@ Thumbs.db
 .claude/
 .obsidian/
 frontend/.claude/
+graphify-out/
 frontend/graphify-out/
 frontend/js/graphify-out/
 # Local-only archive of retired/personal docs (e.g. the former
