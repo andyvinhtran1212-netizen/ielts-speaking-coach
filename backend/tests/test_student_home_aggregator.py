@@ -131,6 +131,9 @@ class FakeSupabase:
             "article_views": [],
             "user_vocabulary": [],
             "flashcard_reviews": [],
+            "reading_test_attempts": [],
+            "listening_attempts": [],
+            "listening_test_attempts": [],
         }
 
     def table(self, name: str) -> _TableQuery:
@@ -396,6 +399,58 @@ def test_speaking_card_falls_back_to_completed_band_when_latest_ungraded(
     )
 
     assert payload["skills"]["speaking"]["last_band"] == 6.5
+
+
+def test_listening_full_tests_included_in_attempts_count(fake_db, aggregator):
+    """listening_test_attempts (Cambridge full tests) count alongside
+    per-exercise listening_attempts in the home card, and the band from
+    the most recent submitted full test surfaces as last_band."""
+    user_id = str(uuid4())
+    fake_db.tables["listening_test_attempts"].append({
+        "id": str(uuid4()),
+        "user_id": user_id,
+        "submitted_at": _today_iso(),
+        "status": "submitted",
+        "band_estimate": 7.5,
+    })
+    fake_db.tables["listening_attempts"].append({
+        "id": str(uuid4()),
+        "user_id": user_id,
+        "created_at": _days_ago_iso(1),
+    })
+
+    payload = aggregator.get_home_summary(
+        fake_db, user_id, name="X", email="x@x.com",
+    )
+    listening = payload["skills"]["listening"]
+    assert listening["attempts_count"] == 2   # 1 full test + 1 exercise
+    assert listening["last_band"] == 7.5
+
+
+def test_reading_and_listening_count_toward_streak(fake_db, aggregator):
+    """Reading test submissions and Listening attempts count toward the
+    cross-skill streak. A student who practices only those skills still
+    sees a non-zero streak."""
+    user_id = str(uuid4())
+    fake_db.tables["reading_test_attempts"].append({
+        "id": str(uuid4()),
+        "user_id": user_id,
+        "submitted_at": _today_iso(),
+        "status": "submitted",
+        "band_estimate": 7.0,
+    })
+    fake_db.tables["listening_test_attempts"].append({
+        "id": str(uuid4()),
+        "user_id": user_id,
+        "submitted_at": _days_ago_iso(1),
+        "status": "submitted",
+        "band_estimate": 6.5,
+    })
+
+    payload = aggregator.get_home_summary(
+        fake_db, user_id, name="X", email="x@x.com",
+    )
+    assert payload["streak"]["current_days"] == 2
 
 
 def test_per_skill_failure_isolates_to_errors_map(fake_db, aggregator, monkeypatch):

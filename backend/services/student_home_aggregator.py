@@ -16,7 +16,10 @@ Tables touched (verified 2026-06-26 against migrations/):
                               now derives from flashcard_reviews.
     - flashcard_reviews      (Vocabulary — next_review_at, due count)
     - reading_test_attempts  (Reading — submitted_at, band_estimate, status)
-    - listening_attempts     (Listening — created_at, count)
+    - listening_attempts     (Listening exercises — created_at, count;
+                              migration 056)
+    - listening_test_attempts (Listening full-tests — submitted_at,
+                              band_estimate, status; migration 068)
 
 Resilience:
     Each skill's sub-builder is wrapped in try/except. A failure in one
@@ -378,7 +381,24 @@ def _build_reading(sb, user_id: str) -> Dict[str, Any]:
 
 
 def _build_listening(sb, user_id: str) -> Dict[str, Any]:
-    res = (
+    # Cambridge IELTS full-test attempts (migration 068). These carry a
+    # band_estimate and are the promoted entry point on /pages/listening.html.
+    test_res = (
+        sb.table("listening_test_attempts")
+        .select("submitted_at, band_estimate", count="exact")
+        .eq("user_id", user_id)
+        .eq("status", "submitted")
+        .order("submitted_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    test_rows = test_res.data or []
+    tests_total = test_res.count if test_res.count is not None else len(test_rows)
+    last_test_at = test_rows[0].get("submitted_at") if test_rows else None
+    last_band = test_rows[0].get("band_estimate") if test_rows else None
+
+    # Per-exercise attempts (migration 056 — dictation, MCQ, etc.)
+    exercise_res = (
         sb.table("listening_attempts")
         .select("created_at", count="exact")
         .eq("user_id", user_id)
@@ -386,13 +406,18 @@ def _build_listening(sb, user_id: str) -> Dict[str, Any]:
         .limit(1)
         .execute()
     )
-    rows = res.data or []
-    total = res.count if res.count is not None else len(rows)
-    last_activity = rows[0].get("created_at") if rows else None
+    exercise_rows = exercise_res.data or []
+    exercises_total = exercise_res.count if exercise_res.count is not None else len(exercise_rows)
+    last_exercise_at = exercise_rows[0].get("created_at") if exercise_rows else None
+
+    total = tests_total + exercises_total
+    candidates = [t for t in (last_test_at, last_exercise_at) if t]
+    last_activity = max(candidates) if candidates else None
 
     return {
         "status": "active",
         "last_activity_at": last_activity,
+        "last_band": float(last_band) if last_band is not None else None,
         "attempts_count": int(total),
         "primary_cta": "Continue listening" if total else "Start listening",
         "primary_cta_url": "/pages/listening.html",
@@ -405,9 +430,10 @@ def _build_listening(sb, user_id: str) -> Dict[str, Any]:
 def _build_streak(sb, user_id: str) -> Dict[str, Any]:
     """Cross-skill streak. Definition: consecutive days, walking back from
     today, on which the student has at least one activity in *any* skill
-    (Speaking session OR Grammar view OR vocab capture). Writing essays
-    are admin-submitted on the student's behalf, so they're excluded —
-    counting them would credit the student for the admin's actions.
+    (Speaking session, Grammar view, vocab capture, Reading test attempt,
+    or Listening attempt/test). Writing essays are admin-submitted on the
+    student's behalf, so they're excluded — counting them would credit the
+    student for the admin's actions.
 
     Pulls 365 most-recent activity dates per skill (cheap given the
     indexes), unions, walks. Longest-streak is computed in the same pass."""
@@ -418,6 +444,9 @@ def _build_streak(sb, user_id: str) -> Dict[str, Any]:
         ("sessions", "started_at"),
         ("article_views", "last_viewed_at"),
         ("user_vocabulary", "created_at"),
+        ("reading_test_attempts", "submitted_at"),
+        ("listening_attempts", "created_at"),
+        ("listening_test_attempts", "submitted_at"),
     ]
 
     for table, ts_col in sources:

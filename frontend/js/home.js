@@ -123,6 +123,14 @@
       };
     },
     listening(s) {
+      if (s.last_band != null) {
+        return {
+          primary: { value: s.last_band.toFixed(1), unit: 'band' },
+          sub: s.attempts_count
+            ? s.attempts_count + ' bài đã hoàn thành'
+            : 'Tiếp tục luyện nghe',
+        };
+      }
       return {
         primary: { value: String(s.attempts_count || 0), unit: 'bài' },
         sub: s.attempts_count
