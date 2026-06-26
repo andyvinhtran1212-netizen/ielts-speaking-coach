@@ -5,202 +5,633 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>Đăng nhập — Aver Learning</title>
+
+  <!-- Anti-flash: set theme before stylesheets paint -->
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('av-theme');
+        if (t !== 'light' && t !== 'dark') {
+          t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        document.documentElement.setAttribute('data-theme', t);
+        document.documentElement.classList.add('theme-loading');
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            document.documentElement.classList.remove('theme-loading');
+          });
+        });
+      } catch (e) {}
+    })();
+  </script>
+
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/ds.css" />
-  <!-- P0-3 C-3.4: static Tailwind loaded LAST (after page CSS) to match the
-       Play-CDN cascade — utilities/.hidden win over same-specificity page rules. -->
-  <link rel="stylesheet" href="/css/tailwind.inter.css" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+
   <style>
+    /* ── lx-* login page styles ─────────────────────── */
+
+    :root {
+      --lx-skill-speaking:   #F59E0B;
+      --lx-skill-writing:    #0F766E;
+      --lx-skill-reading:    #0EA5E9;
+      --lx-skill-listening:  #8B5CF6;
+      --lx-skill-grammar:    #4F46E5;
+      --lx-skill-vocabulary: #0B6E59;
+
+      --lx-pitch-text:   rgba(255, 255, 255, 0.88);
+      --lx-pitch-muted:  rgba(255, 255, 255, 0.45);
+      --lx-pitch-border: rgba(255, 255, 255, 0.08);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html, body { margin: 0; padding: 0; min-height: 100%; }
+
     body {
-      background: linear-gradient(135deg, #0C2340 0%, #112d52 50%, #0d5f58 100%);
+      font-family: var(--av-font-sans);
+      background: var(--av-surface-page);
+      color: var(--av-text-primary);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Two-column shell ──────────────────────────── */
+    .lx-shell {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
       min-height: 100vh;
     }
-    .feature-card {
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.1);
-      backdrop-filter: blur(8px);
+
+    @media (max-width: 767px) {
+      .lx-shell { grid-template-columns: 1fr; }
+      .lx-pitch { display: none; }
+    }
+
+    /* ── Pitch panel (always-dark) ─────────────────── */
+    .lx-pitch {
+      background: linear-gradient(155deg, #042F2E 0%, #0C2340 55%, #081628 100%);
+      color: var(--lx-pitch-text);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 3.5rem;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .lx-logo {
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 3.5rem;
+      color: #fff;
+    }
+    .lx-logo span { color: var(--av-brand-teal-500); }
+
+    .lx-eyebrow {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--av-brand-teal-500);
+      margin-bottom: 1rem;
+    }
+
+    .lx-headline {
+      font-size: clamp(1.5rem, 2.4vw, 2.1rem);
+      font-weight: 800;
+      line-height: 1.2;
+      letter-spacing: -0.03em;
+      color: #fff;
+      margin: 0 0 2.5rem;
+    }
+
+    /* ── 6 skill rows ──────────────────────────────── */
+    .lx-skills {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .lx-skill-row {
+      display: flex;
+      align-items: center;
+      gap: 0.625rem;
+      padding: 0.5rem 0.75rem;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--lx-pitch-border);
       transition: background 0.2s, border-color 0.2s;
     }
-    .feature-card:hover {
-      background: rgba(15,118,110,0.15);
-      border-color: rgba(15,118,110,0.4);
+    .lx-skill-row:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.14);
     }
-    .btn-google {
-      background: #fff;
-      color: #1f2937;
-      transition: box-shadow 0.2s, transform 0.15s;
+
+    @keyframes lx-breathe {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.3; transform: scale(0.7); }
     }
-    .btn-google:hover {
-      box-shadow: 0 4px 24px rgba(255,255,255,0.22);
+
+    .lx-skill-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      animation: lx-breathe 2.8s ease-in-out infinite;
+    }
+
+    .lx-skill-name {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.85);
+      flex: 1;
+    }
+
+    .lx-skill-tag {
+      font-size: 0.625rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.07);
+      color: rgba(255, 255, 255, 0.4);
+    }
+
+    /* ── Social proof stat ─────────────────────────── */
+    .lx-stat {
+      display: flex;
+      align-items: baseline;
+      gap: 0.625rem;
+      border-top: 1px solid var(--lx-pitch-border);
+      padding-top: 1.5rem;
+    }
+
+    .lx-stat-number {
+      font-size: 1.75rem;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: -0.03em;
+      font-family: var(--av-font-mono);
+    }
+
+    .lx-stat-label {
+      font-size: 0.8125rem;
+      color: var(--lx-pitch-muted);
+      line-height: 1.4;
+    }
+
+    /* ── Form panel (theme-aware) ──────────────────── */
+    .lx-form-panel {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    .lx-form-nav {
+      display: flex;
+      justify-content: flex-end;
+      padding: 1.5rem 2.5rem;
+    }
+
+    /* Theme toggle */
+    .lx-theme-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.375rem 0.875rem;
+      border-radius: 999px;
+      background: var(--av-surface-elevated);
+      border: 1px solid var(--av-border-subtle);
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--av-text-secondary);
+      font-family: var(--av-font-sans);
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .lx-theme-toggle:hover {
+      background: var(--av-surface-sunken);
+      color: var(--av-text-primary);
+      border-color: var(--av-border-default);
+    }
+
+    /* Show sun in dark mode, moon in light mode */
+    [data-theme="dark"] .lx-theme-toggle .icon-moon,
+    :root:not([data-theme]) .lx-theme-toggle .icon-moon { display: none; }
+    [data-theme="dark"] .lx-theme-toggle .icon-sun,
+    :root:not([data-theme]) .lx-theme-toggle .icon-sun  { display: block; }
+    [data-theme="light"] .lx-theme-toggle .icon-sun { display: none; }
+    [data-theme="light"] .lx-theme-toggle .icon-moon { display: block; }
+    /* default: hide moon, show sun */
+    .lx-theme-toggle .icon-moon { display: none; }
+    .lx-theme-toggle .icon-sun  { display: block; }
+
+    .lx-form-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 2rem 2.5rem 4rem;
+    }
+
+    .lx-form-card {
+      width: 100%;
+      max-width: 380px;
+    }
+
+    .lx-form-heading {
+      font-size: 1.75rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--av-text-primary);
+      margin: 0 0 0.375rem;
+      line-height: var(--av-lh-tight);
+    }
+
+    .lx-form-subheading {
+      font-size: 0.9375rem;
+      color: var(--av-text-secondary);
+      margin: 0 0 2rem;
+      line-height: var(--av-lh-normal);
+    }
+
+    .lx-form-subheading strong {
+      color: var(--av-primary);
+      font-weight: 700;
+    }
+
+    /* Google button */
+    .lx-btn-google {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      padding: 0.875rem 1.5rem;
+      border-radius: var(--av-radius-lg);
+      border: 1.5px solid var(--av-border-default);
+      background: var(--av-surface-card);
+      color: var(--av-text-primary);
+      font-size: 0.9375rem;
+      font-weight: 600;
+      font-family: var(--av-font-sans);
+      cursor: pointer;
+      box-shadow: var(--av-shadow-sm);
+      transition: box-shadow 0.2s, border-color 0.2s, transform 0.15s;
+    }
+    .lx-btn-google:hover {
+      box-shadow: var(--av-shadow-md);
+      border-color: var(--av-border-strong);
       transform: translateY(-1px);
     }
-    .btn-google:active { transform: translateY(0); }
+    .lx-btn-google:active { transform: translateY(0); }
 
-    .modal-backdrop {
-      background: rgba(8,24,41,0.75);
-      backdrop-filter: blur(6px);
+    /* Loading state */
+    #loading-state {
+      margin-top: 1.25rem;
     }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: scale(0.96) translateY(10px); }
-      to   { opacity: 1; transform: scale(1)    translateY(0); }
-    }
-    .modal-card { animation: fadeIn 0.22s ease-out; }
 
-    @keyframes pulse-dot {
+    @keyframes lx-pulse-dot {
       0%, 100% { opacity: 1; }
-      50%       { opacity: 0.35; }
+      50%       { opacity: 0.2; }
     }
-    .loading-dot { animation: pulse-dot 1.2s ease-in-out infinite; }
-    .loading-dot:nth-child(2) { animation-delay: 0.2s; }
-    .loading-dot:nth-child(3) { animation-delay: 0.4s; }
+
+    .lx-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--av-primary);
+      animation: lx-pulse-dot 1.2s ease-in-out infinite;
+    }
+    .lx-dot:nth-child(2) { animation-delay: 0.2s; }
+    .lx-dot:nth-child(3) { animation-delay: 0.4s; }
+
+    /* Error message */
+    #error-msg {
+      margin-top: 0.875rem;
+      font-size: 0.8125rem;
+      color: var(--av-error);
+      text-align: center;
+      line-height: var(--av-lh-normal);
+    }
+
+    /* Free trial hint */
+    .lx-trial-hint {
+      margin-top: 1rem;
+      padding: 0.75rem 1rem;
+      border-radius: var(--av-radius-lg);
+      background: var(--av-primary-soft);
+      border: 1px solid var(--av-primary-border);
+      display: flex;
+      align-items: flex-start;
+      gap: 0.625rem;
+      font-size: 0.8125rem;
+      color: var(--av-text-secondary);
+      line-height: var(--av-lh-normal);
+    }
+
+    .lx-trial-hint strong {
+      color: var(--av-primary);
+      font-weight: 700;
+    }
+
+    .lx-trial-icon {
+      flex-shrink: 0;
+      margin-top: 1px;
+      color: var(--av-primary);
+    }
+
+    /* Fine print */
+    .lx-fine-print {
+      margin-top: 1.5rem;
+      font-size: 0.75rem;
+      color: var(--av-text-faint);
+      text-align: center;
+      line-height: var(--av-lh-relaxed);
+    }
+
+    /* ── Modal ─────────────────────────────────────── */
+    .lx-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: var(--av-z-modal);
+      background: var(--av-surface-overlay);
+      backdrop-filter: blur(6px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .lx-modal-backdrop:not(.hidden) { display: flex; }
+
+    @keyframes lx-modal-in {
+      from { opacity: 0; transform: scale(0.96) translateY(12px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    .lx-modal {
+      background: var(--av-surface-card);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-2xl);
+      padding: 2rem;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 0 0 1px var(--av-primary-border), var(--av-shadow-xl);
+      animation: lx-modal-in 0.22s ease-out;
+    }
+
+    .lx-modal-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .lx-modal-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--av-radius-md);
+      background: var(--av-primary-soft);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.125rem;
+      flex-shrink: 0;
+    }
+
+    .lx-modal-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--av-text-primary);
+      margin: 0 0 0.2rem;
+    }
+
+    .lx-modal-desc {
+      font-size: 0.75rem;
+      color: var(--av-text-secondary);
+      margin: 0;
+    }
+
+    .lx-code-label {
+      display: block;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--av-text-secondary);
+      margin-bottom: 0.5rem;
+    }
+
+    .lx-code-input {
+      display: block;
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border-radius: var(--av-radius-md);
+      border: 1.5px solid var(--av-border-default);
+      background: var(--av-surface-sunken);
+      color: var(--av-text-primary);
+      font-family: var(--av-font-mono);
+      font-size: 0.875rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      transition: border-color 0.15s;
+      margin-bottom: 0.875rem;
+    }
+    .lx-code-input::placeholder { color: var(--av-text-faint); }
+    .lx-code-input:focus {
+      outline: none;
+      border-color: var(--av-primary);
+      box-shadow: var(--av-shadow-focus);
+    }
+
+    .lx-btn-activate {
+      display: block;
+      width: 100%;
+      padding: 0.75rem;
+      border-radius: var(--av-radius-md);
+      border: none;
+      background: var(--av-primary);
+      color: var(--av-text-on-primary);
+      font-size: 0.9375rem;
+      font-weight: 600;
+      font-family: var(--av-font-sans);
+      cursor: pointer;
+      transition: background 0.15s, opacity 0.15s;
+    }
+    .lx-btn-activate:hover { background: var(--av-primary-hover); }
+    .lx-btn-activate:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .lx-modal-hint {
+      margin-top: 1.25rem;
+      font-size: 0.75rem;
+      color: var(--av-text-faint);
+      text-align: center;
+      line-height: var(--av-lh-normal);
+    }
+
+    .lx-modal-hint span { color: var(--av-text-secondary); }
   </style>
+
+  <!-- Tailwind utilities LAST (hidden, flex, etc.) -->
+  <link rel="stylesheet" href="/css/tailwind.build.css" />
 </head>
-<body class="text-white font-sans antialiased">
+<body>
 
-  <!-- NAV -->
-  <nav class="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
-    <div class="flex items-center gap-2">
-      <span class="font-bold text-lg tracking-tight">
-        Aver<span style="color:#14b8a6;">Learning</span>
-      </span>
-    </div>
-    <span class="text-sm hidden sm:block" style="color:rgba(255,255,255,0.35);">
-      AI-powered Speaking Trainer
-    </span>
-  </nav>
+  <div class="lx-shell">
 
-  <!-- HERO -->
-  <main class="max-w-4xl mx-auto px-6 pt-14 pb-24 text-center">
+    <!-- ── LEFT: pitch panel (always-dark) ──────────── -->
+    <aside class="lx-pitch">
 
-    <!-- Badge -->
-    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium mb-8"
-         style="border-color:rgba(15,118,110,0.45);background:rgba(15,118,110,0.12);color:#14b8a6;">
-      <span class="w-1.5 h-1.5 rounded-full inline-block" style="background:#14b8a6;"></span>
-      Powered by Gemini &amp; Claude AI
-    </div>
+      <div class="lx-logo">Aver<span>Learning</span></div>
 
-    <!-- Headline -->
-    <h1 class="text-4xl sm:text-5xl md:text-6xl font-extrabold leading-tight tracking-tight mb-6">
-      Luyện IELTS Speaking<br />
-      <span style="background:linear-gradient(90deg,#14b8a6,#38bdf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">
-        với AI Coach
-      </span>
-    </h1>
+      <p class="lx-eyebrow">Nền tảng luyện IELTS cùng AI</p>
+      <h1 class="lx-headline">Mở khóa cả 6 kỹ năng IELTS trong&nbsp;một nền tảng</h1>
 
-    <!-- Subtitle -->
-    <p class="text-lg sm:text-xl max-w-2xl mx-auto mb-12 leading-relaxed" style="color:rgba(255,255,255,0.58);">
-      Ghi âm &rarr; AI chấm bài &rarr; Band score
-      <span class="font-semibold" style="color:rgba(255,255,255,0.9);">ngay lập tức</span>
-    </p>
-
-    <!-- 3 Feature cards -->
-    <div class="grid sm:grid-cols-3 gap-4 mb-14 text-left">
-
-      <div class="feature-card rounded-2xl p-5">
-        <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl mb-3"
-             style="background:rgba(15,118,110,0.2);">🤖</div>
-        <h3 class="font-semibold text-sm mb-1">AI hỏi chuẩn IELTS</h3>
-        <p class="text-xs leading-relaxed" style="color:rgba(255,255,255,0.48);">
-          Câu hỏi Part 1/2/3 được tạo tự động bởi
-          <span style="color:#14b8a6;">Gemini</span> theo đúng format đề thi
-        </p>
-      </div>
-
-      <div class="feature-card rounded-2xl p-5">
-        <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl mb-3"
-             style="background:rgba(15,118,110,0.2);">📊</div>
-        <h3 class="font-semibold text-sm mb-1">Chấm điểm 4 tiêu chí</h3>
-        <p class="text-xs leading-relaxed" style="color:rgba(255,255,255,0.48);">
-          <span style="color:rgba(255,255,255,0.8);">FC · LR · GRA · P</span> —
-          phân tích chi tiết từng lỗi bởi <span style="color:#14b8a6;">Claude</span>
-        </p>
-      </div>
-
-      <div class="feature-card rounded-2xl p-5">
-        <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl mb-3"
-             style="background:rgba(15,118,110,0.2);">📥</div>
-        <h3 class="font-semibold text-sm mb-1">Báo cáo &amp; Download</h3>
-        <p class="text-xs leading-relaxed" style="color:rgba(255,255,255,0.48);">
-          Xuất báo cáo <span style="color:rgba(255,255,255,0.8);">PDF</span>
-          đầy đủ và tải về file âm thanh sau mỗi buổi luyện
-        </p>
-      </div>
-
-    </div>
-
-    <!-- Google login button -->
-    <button id="btn-google-login"
-            class="btn-google inline-flex items-center gap-3 px-7 py-3.5 rounded-full font-semibold text-sm shadow-lg cursor-pointer select-none">
-      <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-      </svg>
-      Đăng nhập bằng Google
-    </button>
-
-    <!-- Loading indicator -->
-    <div id="loading-state" class="hidden mt-6 flex-col items-center gap-2">
-      <div class="flex gap-1.5">
-        <span class="loading-dot w-2 h-2 rounded-full inline-block" style="background:#14b8a6;"></span>
-        <span class="loading-dot w-2 h-2 rounded-full inline-block" style="background:#14b8a6;"></span>
-        <span class="loading-dot w-2 h-2 rounded-full inline-block" style="background:#14b8a6;"></span>
-      </div>
-      <p class="text-sm" style="color:rgba(255,255,255,0.45);">Đang xác thực…</p>
-    </div>
-
-    <!-- Error message -->
-    <p id="error-msg" class="hidden mt-5 text-sm" style="color:#f87171;"></p>
-
-  </main>
-
-
-  <!-- ACCESS CODE MODAL -->
-  <div id="modal-overlay"
-       class="modal-backdrop hidden fixed inset-0 z-50 flex items-center justify-center px-4">
-
-    <div class="modal-card rounded-3xl border p-8 w-full max-w-md"
-         style="background:#112d52;border-color:rgba(255,255,255,0.1);
-                box-shadow:0 0 0 1px rgba(15,118,110,0.2),0 8px 40px rgba(8,24,41,0.6);">
-
-      <div class="flex items-center gap-3 mb-6">
-        <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
-             style="background:rgba(15,118,110,0.2);">🔑</div>
-        <div>
-          <h2 class="font-bold text-lg">Kích hoạt tài khoản</h2>
-          <p class="text-xs" style="color:rgba(255,255,255,0.38);">Nhập mã để bắt đầu luyện tập</p>
+      <div class="lx-skills">
+        <div class="lx-skill-row">
+          <span class="lx-skill-dot" style="background:var(--lx-skill-speaking);animation-delay:0s;"></span>
+          <span class="lx-skill-name">Speaking</span>
+          <span class="lx-skill-tag">Ghi âm &amp; chấm band</span>
+        </div>
+        <div class="lx-skill-row">
+          <span class="lx-skill-dot" style="background:var(--lx-skill-writing);animation-delay:0.5s;"></span>
+          <span class="lx-skill-name">Writing</span>
+          <span class="lx-skill-tag">Essay feedback</span>
+        </div>
+        <div class="lx-skill-row">
+          <span class="lx-skill-dot" style="background:var(--lx-skill-reading);animation-delay:1s;"></span>
+          <span class="lx-skill-name">Reading</span>
+          <span class="lx-skill-tag">Comprehension</span>
+        </div>
+        <div class="lx-skill-row">
+          <span class="lx-skill-dot" style="background:var(--lx-skill-listening);animation-delay:1.5s;"></span>
+          <span class="lx-skill-name">Listening</span>
+          <span class="lx-skill-tag">Audio drills</span>
+        </div>
+        <div class="lx-skill-row">
+          <span class="lx-skill-dot" style="background:var(--lx-skill-grammar);animation-delay:2s;"></span>
+          <span class="lx-skill-name">Grammar</span>
+          <span class="lx-skill-tag">Wiki &amp; exercises</span>
+        </div>
+        <div class="lx-skill-row">
+          <span class="lx-skill-dot" style="background:var(--lx-skill-vocabulary);animation-delay:2.5s;"></span>
+          <span class="lx-skill-name">Vocabulary</span>
+          <span class="lx-skill-tag">Topic flashcards</span>
         </div>
       </div>
 
-      <div class="space-y-4">
-        <div>
-          <label class="block text-xs font-medium uppercase tracking-wider mb-2"
-                 style="color:rgba(255,255,255,0.55);">Access Code</label>
-          <input id="access-code-input"
-                 type="text"
-                 placeholder="VD: IELTS-TEST-001"
-                 autocomplete="off"
-                 class="w-full rounded-xl px-4 py-3 text-sm font-mono tracking-widest uppercase
-                        focus:outline-none transition"
-                 style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);
-                        color:#fff;placeholder-color:rgba(255,255,255,0.3);" />
-        </div>
+      <div class="lx-stat">
+        <span class="lx-stat-number" id="pitch-stat">—</span>
+        <span class="lx-stat-label">buổi luyện đã hoàn thành<br>trên nền tảng</span>
+      </div>
 
-        <button id="btn-activate"
-                class="w-full rounded-xl py-3 font-semibold text-sm transition"
-                style="background:#0F766E;">
-          Kích hoạt
+    </aside>
+
+    <!-- ── RIGHT: form panel (theme-aware) ──────────── -->
+    <section class="lx-form-panel">
+
+      <nav class="lx-form-nav">
+        <button class="lx-theme-toggle av-theme-toggle" type="button" aria-label="Chuyển giao diện sáng/tối">
+          <svg class="icon-sun" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"/>
+            <line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/>
+            <line x1="4.22" y1="4.22" x2="7.05" y2="7.05"/><line x1="16.95" y1="16.95" x2="19.78" y2="19.78"/>
+            <line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>
+            <line x1="4.22" y1="19.78" x2="7.05" y2="16.95"/><line x1="16.95" y1="7.05" x2="19.78" y2="4.22"/>
+          </svg>
+          <svg class="icon-moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+          <span>Giao diện</span>
         </button>
+      </nav>
 
-        <p id="activate-error"  class="hidden text-xs text-center" style="color:#f87171;"></p>
-        <p id="activate-success" class="hidden text-xs text-center" style="color:#14b8a6;"></p>
+      <main class="lx-form-main">
+        <div class="lx-form-card">
+
+          <h2 class="lx-form-heading">Bắt đầu luyện tập</h2>
+          <p class="lx-form-subheading">
+            Đăng ký miễn phí — <strong>3 buổi thử ngay</strong>, không cần thẻ tín dụng.
+          </p>
+
+          <button id="btn-google-login" class="lx-btn-google">
+            <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+              <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+              <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+              <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+            </svg>
+            Đăng nhập bằng Google
+          </button>
+
+          <!-- Loading indicator — JS controls via .hidden / .flex classes -->
+          <div id="loading-state" class="hidden flex-col items-center gap-2">
+            <div class="flex gap-1.5">
+              <span class="lx-dot"></span>
+              <span class="lx-dot"></span>
+              <span class="lx-dot"></span>
+            </div>
+            <p class="text-sm" style="color:var(--av-text-secondary);">Đang xác thực…</p>
+          </div>
+
+          <!-- Error message — JS controls via .hidden class -->
+          <p id="error-msg" class="hidden"></p>
+
+          <div class="lx-trial-hint">
+            <svg class="lx-trial-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+            <span>Tài khoản mới nhận <strong>3 buổi thử miễn phí</strong> toàn bộ 6 kỹ năng</span>
+          </div>
+
+          <p class="lx-fine-print">
+            Bằng cách đăng nhập, bạn đồng ý với Điều khoản sử dụng.<br>
+            Đã có access code? Đăng nhập và nhập mã kích hoạt.
+          </p>
+
+        </div>
+      </main>
+
+    </section>
+  </div>
+
+
+  <!-- ACCESS CODE MODAL — JS controls via .hidden class -->
+  <div id="modal-overlay" class="lx-modal-backdrop hidden">
+    <div class="lx-modal">
+
+      <div class="lx-modal-header">
+        <div class="lx-modal-icon">🔑</div>
+        <div>
+          <p class="lx-modal-title">Kích hoạt tài khoản</p>
+          <p class="lx-modal-desc">Nhập mã để bắt đầu luyện tập</p>
+        </div>
       </div>
 
-      <p class="mt-6 text-center text-xs" style="color:rgba(255,255,255,0.3);">
-        Chưa có mã?
-        <span style="color:rgba(255,255,255,0.55);">Liên hệ giáo viên để nhận access code</span>
+      <label class="lx-code-label" for="access-code-input">Access Code</label>
+      <input id="access-code-input"
+             class="lx-code-input"
+             type="text"
+             placeholder="VD: IELTS-TEST-001"
+             autocomplete="off" />
+
+      <button id="btn-activate" class="lx-btn-activate">Kích hoạt</button>
+
+      <p id="activate-error"  class="hidden" style="margin-top:0.625rem;font-size:0.75rem;text-align:center;color:var(--av-error);"></p>
+      <p id="activate-success" class="hidden" style="margin-top:0.625rem;font-size:0.75rem;text-align:center;color:var(--av-primary);"></p>
+
+      <p class="lx-modal-hint">
+        Chưa có mã? <span>Liên hệ giáo viên để nhận access code</span>
       </p>
 
     </div>
@@ -214,248 +645,263 @@
     // ── Config ────────────────────────────────────────────────
     var SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
     var SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
-    var DASHBOARD_URL   = 'pages/home.html';
-  var ONBOARDING_URL  = 'onboarding.html';
-    // window.api.base is set by api.js — picks localhost:8000 locally, production URL otherwise.
+    var DASHBOARD_URL  = 'pages/home.html';
+    var ONBOARDING_URL = 'onboarding.html';
 
     initSupabase(SUPABASE_URL, SUPABASE_ANON);
     var sb = getSupabase();
 
-  // ── DOM refs ──────────────────────────────────────────────
-  const btnGoogleLogin  = document.getElementById('btn-google-login');
-  const loadingState    = document.getElementById('loading-state');
-  const errorMsg        = document.getElementById('error-msg');
-  const modalOverlay    = document.getElementById('modal-overlay');
-  const accessCodeInput = document.getElementById('access-code-input');
-  const btnActivate     = document.getElementById('btn-activate');
-  const activateError   = document.getElementById('activate-error');
-  const activateSuccess = document.getElementById('activate-success');
+    // ── DOM refs ──────────────────────────────────────────────
+    const btnGoogleLogin  = document.getElementById('btn-google-login');
+    const loadingState    = document.getElementById('loading-state');
+    const errorMsg        = document.getElementById('error-msg');
+    const modalOverlay    = document.getElementById('modal-overlay');
+    const accessCodeInput = document.getElementById('access-code-input');
+    const btnActivate     = document.getElementById('btn-activate');
+    const activateError   = document.getElementById('activate-error');
+    const activateSuccess = document.getElementById('activate-success');
 
-  // ── UI helpers ────────────────────────────────────────────
-  function showLoading(msg = 'Đang xác thực…') {
-    if (btnGoogleLogin) btnGoogleLogin.classList.add('hidden');
-    if (loadingState) {
-      loadingState.classList.remove('hidden');
-      loadingState.classList.add('flex');
-      const p = loadingState.querySelector('p');
-      if (p) p.textContent = msg;
-    }
-    if (errorMsg) errorMsg.classList.add('hidden');
-  }
-
-  function hideLoading() {
-    if (btnGoogleLogin) btnGoogleLogin.classList.remove('hidden');
-    if (loadingState) {
-      loadingState.classList.add('hidden');
-      loadingState.classList.remove('flex');
-    }
-  }
-
-  function showError(msg) {
-    hideLoading();
-    if (errorMsg) {
-      errorMsg.textContent = msg;
-      errorMsg.classList.remove('hidden');
-    } else {
-      alert(msg);
-    }
-  }
-
-  // ── Check active → redirect or show modal ─────────────────
-  async function checkActiveAndRedirect(token) {
-    try {
-      const res = await fetch(`${window.api.base}/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        throw new Error(data.detail || 'Không thể kiểm tra trạng thái tài khoản.');
+    // ── UI helpers ────────────────────────────────────────────
+    function showLoading(msg = 'Đang xác thực…') {
+      if (btnGoogleLogin) btnGoogleLogin.classList.add('hidden');
+      if (loadingState) {
+        loadingState.classList.remove('hidden');
+        loadingState.classList.add('flex');
+        const p = loadingState.querySelector('p');
+        if (p) p.textContent = msg;
       }
+      if (errorMsg) errorMsg.classList.add('hidden');
+    }
 
-      if (!data.is_active) {
-        hideLoading();
-        if (modalOverlay) modalOverlay.classList.remove('hidden');
-        if (accessCodeInput) accessCodeInput.focus();
-        return;
+    function hideLoading() {
+      if (btnGoogleLogin) btnGoogleLogin.classList.remove('hidden');
+      if (loadingState) {
+        loadingState.classList.add('hidden');
+        loadingState.classList.remove('flex');
       }
+    }
 
-      // Active user — check onboarding
-      if (!data.onboarding_completed) {
-        window.location.href = ONBOARDING_URL;
+    function showError(msg) {
+      hideLoading();
+      if (errorMsg) {
+        errorMsg.textContent = msg;
+        errorMsg.classList.remove('hidden');
       } else {
-        window.location.href = DASHBOARD_URL;
-      }
-    } catch (err) {
-      if (err instanceof TypeError && err.message === 'Failed to fetch') {
-        showError('Không kết nối được tới máy chủ. Vui lòng thử lại sau.');
-      } else {
-        showError(err.message || 'Có lỗi khi kiểm tra tài khoản.');
+        alert(msg);
       }
     }
-  }
 
-  // ── Handle OAuth redirect / existing session ──────────────
-  async function init() {
-    try {
-      const hash = window.location.hash;
-      const search = window.location.search;
-
-      if (hash.includes('access_token') || search.includes('code=')) {
-        showLoading('Đang xác thực…');
-
-        const {
-          data: { session },
-          error,
-        } = await sb.auth.getSession();
-
-        if (error || !session) {
-          showError('Đăng nhập thất bại. Vui lòng thử lại.');
-          return;
-        }
-
-        window.history.replaceState(null, '', window.location.pathname);
-        await checkActiveAndRedirect(session.access_token);
-        return;
-      }
-
-      const {
-        data: { session },
-      } = await sb.auth.getSession();
-
-      if (session) {
-        showLoading('Đang kiểm tra tài khoản…');
-        await checkActiveAndRedirect(session.access_token);
-      }
-    } catch (err) {
-      console.error(err);
-      showError('Không thể khởi tạo đăng nhập. Vui lòng thử lại.');
-    }
-  }
-
-  // ── Google login ──────────────────────────────────────────
-  if (btnGoogleLogin) {
-    btnGoogleLogin.addEventListener('click', async () => {
+    // ── Check active → redirect or show modal ─────────────────
+    async function checkActiveAndRedirect(token) {
       try {
-        showLoading('Đang chuyển đến Google…');
-
-        const { error } = await sb.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: `${window.location.origin}${window.location.pathname}`,
-          },
+        const res = await fetch(`${window.api.base}/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` },
         });
 
-        if (error) {
-          showError(error.message || 'Không thể mở Google Login. Vui lòng thử lại.');
-        }
-      } catch (err) {
-        console.error(err);
-        showError('Không thể mở Google Login. Vui lòng thử lại.');
-      }
-    });
-  }
-
-  // ── Activate ──────────────────────────────────────────────
-  if (btnActivate) {
-    btnActivate.addEventListener('click', async () => {
-      const code = accessCodeInput?.value?.trim().toUpperCase() || '';
-
-      if (activateError) activateError.classList.add('hidden');
-      if (activateSuccess) activateSuccess.classList.add('hidden');
-
-      if (!code) {
-        if (activateError) {
-          activateError.textContent = 'Vui lòng nhập access code.';
-          activateError.classList.remove('hidden');
-        }
-        return;
-      }
-
-      btnActivate.disabled = true;
-      btnActivate.textContent = 'Đang kích hoạt…';
-
-      try {
-        const {
-          data: { session },
-        } = await sb.auth.getSession();
-
-        if (!session) {
-          throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
-        }
-
-        let res;
-        try {
-          res = await fetch(`${window.api.base}/auth/activate`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${session.access_token}`,
-            },
-            body: JSON.stringify({ access_code: code }),
-          });
-        } catch (networkErr) {
-          // fetch() itself threw — backend is down or unreachable
-          throw new Error('Không kết nối được tới máy chủ. Vui lòng thử lại sau.');
-        }
-
-        // Try to read JSON body regardless of status so we can show detail
         const data = await res.json().catch(() => ({}));
 
         if (!res.ok) {
-          // Use backend's detail message when available, fall back to status
-          throw new Error(data.detail || `Kích hoạt thất bại (HTTP ${res.status}).`);
+          throw new Error(data.detail || 'Không thể kiểm tra trạng thái tài khoản.');
         }
 
-        if (activateSuccess) {
-          activateSuccess.textContent = data.message || 'Tài khoản đã được kích hoạt!';
-          activateSuccess.classList.remove('hidden');
+        if (!data.is_active) {
+          hideLoading();
+          if (modalOverlay) modalOverlay.classList.remove('hidden');
+          if (accessCodeInput) accessCodeInput.focus();
+          return;
         }
 
-        setTimeout(() => {
+        if (!data.onboarding_completed) {
           window.location.href = ONBOARDING_URL;
-        }, 1200);
-      } catch (err) {
-        if (activateError) {
-          activateError.textContent = err.message || 'Kích hoạt thất bại.';
-          activateError.classList.remove('hidden');
+        } else {
+          window.location.href = DASHBOARD_URL;
         }
-      } finally {
-        btnActivate.disabled = false;
-        btnActivate.textContent = 'Kích hoạt';
+      } catch (err) {
+        if (err instanceof TypeError && err.message === 'Failed to fetch') {
+          showError('Không kết nối được tới máy chủ. Vui lòng thử lại sau.');
+        } else {
+          showError(err.message || 'Có lỗi khi kiểm tra tài khoản.');
+        }
       }
-    });
-  }
+    }
 
-  // ── Enter key in code input ───────────────────────────────
-  if (accessCodeInput && btnActivate) {
-    accessCodeInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') btnActivate.click();
-    });
+    // ── Handle OAuth redirect / existing session ──────────────
+    async function init() {
+      try {
+        const hash   = window.location.hash;
+        const search = window.location.search;
 
-    accessCodeInput.addEventListener('input', () => {
-      const pos = accessCodeInput.selectionStart;
-      accessCodeInput.value = accessCodeInput.value.toUpperCase();
-      if (pos !== null) {
-        accessCodeInput.setSelectionRange(pos, pos);
+        if (hash.includes('access_token') || search.includes('code=')) {
+          showLoading('Đang xác thực…');
+
+          const {
+            data: { session },
+            error,
+          } = await sb.auth.getSession();
+
+          if (error || !session) {
+            showError('Đăng nhập thất bại. Vui lòng thử lại.');
+            return;
+          }
+
+          window.history.replaceState(null, '', window.location.pathname);
+          await checkActiveAndRedirect(session.access_token);
+          return;
+        }
+
+        const {
+          data: { session },
+        } = await sb.auth.getSession();
+
+        if (session) {
+          showLoading('Đang kiểm tra tài khoản…');
+          await checkActiveAndRedirect(session.access_token);
+        }
+      } catch (err) {
+        console.error(err);
+        showError('Không thể khởi tạo đăng nhập. Vui lòng thử lại.');
       }
-    });
-  }
+    }
 
-  // ── Hover activate button ─────────────────────────────────
-  if (btnActivate) {
-    btnActivate.addEventListener('mouseenter', () => {
-      btnActivate.style.background = '#0d5f58';
-    });
+    // ── Google login ──────────────────────────────────────────
+    if (btnGoogleLogin) {
+      btnGoogleLogin.addEventListener('click', async () => {
+        try {
+          showLoading('Đang chuyển đến Google…');
 
-    btnActivate.addEventListener('mouseleave', () => {
-      btnActivate.style.background = '#0F766E';
-    });
-  }
+          const { error } = await sb.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+              redirectTo: `${window.location.origin}${window.location.pathname}`,
+            },
+          });
 
-  init();
-</script>
+          if (error) {
+            showError(error.message || 'Không thể mở Google Login. Vui lòng thử lại.');
+          }
+        } catch (err) {
+          console.error(err);
+          showError('Không thể mở Google Login. Vui lòng thử lại.');
+        }
+      });
+    }
+
+    // ── Activate ──────────────────────────────────────────────
+    if (btnActivate) {
+      btnActivate.addEventListener('click', async () => {
+        const code = accessCodeInput?.value?.trim().toUpperCase() || '';
+
+        if (activateError)  activateError.classList.add('hidden');
+        if (activateSuccess) activateSuccess.classList.add('hidden');
+
+        if (!code) {
+          if (activateError) {
+            activateError.textContent = 'Vui lòng nhập access code.';
+            activateError.classList.remove('hidden');
+          }
+          return;
+        }
+
+        btnActivate.disabled = true;
+        btnActivate.textContent = 'Đang kích hoạt…';
+
+        try {
+          const {
+            data: { session },
+          } = await sb.auth.getSession();
+
+          if (!session) {
+            throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+          }
+
+          let res;
+          try {
+            res = await fetch(`${window.api.base}/auth/activate`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({ access_code: code }),
+            });
+          } catch (networkErr) {
+            throw new Error('Không kết nối được tới máy chủ. Vui lòng thử lại sau.');
+          }
+
+          const data = await res.json().catch(() => ({}));
+
+          if (!res.ok) {
+            throw new Error(data.detail || `Kích hoạt thất bại (HTTP ${res.status}).`);
+          }
+
+          if (activateSuccess) {
+            activateSuccess.textContent = data.message || 'Tài khoản đã được kích hoạt!';
+            activateSuccess.classList.remove('hidden');
+          }
+
+          setTimeout(() => {
+            window.location.href = ONBOARDING_URL;
+          }, 1200);
+        } catch (err) {
+          if (activateError) {
+            activateError.textContent = err.message || 'Kích hoạt thất bại.';
+            activateError.classList.remove('hidden');
+          }
+        } finally {
+          btnActivate.disabled = false;
+          btnActivate.textContent = 'Kích hoạt';
+        }
+      });
+    }
+
+    // ── Enter key in code input ───────────────────────────────
+    if (accessCodeInput && btnActivate) {
+      accessCodeInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') btnActivate.click();
+      });
+
+      accessCodeInput.addEventListener('input', () => {
+        const pos = accessCodeInput.selectionStart;
+        accessCodeInput.value = accessCodeInput.value.toUpperCase();
+        if (pos !== null) {
+          accessCodeInput.setSelectionRange(pos, pos);
+        }
+      });
+    }
+
+    // ── Theme toggle ──────────────────────────────────────────
+    (function () {
+      var btn = document.querySelector('.av-theme-toggle');
+      if (!btn) return;
+      btn.addEventListener('click', function () {
+        var current = document.documentElement.getAttribute('data-theme') || 'light';
+        var next = current === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        try { localStorage.setItem('av-theme', next); } catch (e) {}
+      });
+    })();
+
+    // ── Public stats — pitch panel social proof ───────────────
+    (function () {
+      function formatNum(n) {
+        if (n == null) return '—';
+        if (n >= 1000) return (n / 1000).toFixed(1).replace('.0', '') + 'K+';
+        return n + '+';
+      }
+      var el = document.getElementById('pitch-stat');
+      if (!el) return;
+      fetch('/api/public-stats')
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) {
+          if (data && data.sessions_completed != null) {
+            el.textContent = formatNum(data.sessions_completed);
+          }
+        })
+        .catch(function () {});
+    })();
+
+    init();
+  </script>
 
 </body>
 </html>
