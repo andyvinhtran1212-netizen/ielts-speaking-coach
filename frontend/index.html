@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <title>averlearning — Luyện IELTS Speaking cùng AI</title>
+  <title>averlearning — Luyện IELTS toàn diện cùng AI</title>
 
   <!-- Sprint 6.13a: canonical anti-flash bootstrap (DESIGN_SYSTEM.md § 13).
        Must run before any stylesheet so [data-theme] is set on <html>
@@ -100,7 +100,7 @@
         <div>
           <div class="ix-hero__eyebrow inline-flex items-center gap-2 rounded-full px-4 py-1.5 mb-6">
             <span class="ix-hero__eyebrow-dot w-2 h-2 rounded-full animate-pulse"></span>
-            <span class="ix-hero__eyebrow-text text-sm font-medium">Nền tảng luyện thi IELTS</span>
+            <span class="ix-hero__eyebrow-text text-sm font-medium">Nền tảng luyện thi IELTS toàn diện</span>
           </div>
 
           <h1 class="ix-hero__title text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-[1.1] tracking-tight mb-6">
@@ -109,7 +109,7 @@
           </h1>
 
           <p class="ix-hero__lead text-lg leading-relaxed mb-8 max-w-lg">
-            Speaking, Writing, Từ vựng và Grammar — một nền tảng, phản hồi chi tiết theo từng tiêu chí IELTS cho mỗi buổi luyện. Không chung chung, không chờ đợi.
+            6 kỹ năng IELTS — Speaking, Writing, Reading, Listening, Grammar và Từ vựng — trên một nền tảng. Phản hồi chi tiết theo từng tiêu chí sau mỗi buổi luyện. Không chung chung, không chờ đợi.
           </p>
 
           <div class="flex flex-col sm:flex-row gap-4">
@@ -128,77 +128,56 @@
           <p class="ix-hero__note mt-5 text-sm">Không cần thẻ tín dụng · Dùng thử 3 buổi miễn phí</p>
         </div>
 
-        <!-- Right: App screenshot placeholder -->
+        <!-- Right: 6-skill mosaic -->
         <div class="hidden lg:block">
-          <div class="relative">
-            <div class="ix-mock__frame rounded-2xl p-2">
-              <div class="ix-mock__body rounded-xl overflow-hidden">
-                <!-- Mock app UI -->
-                <div class="ix-mock__chrome px-4 pt-4 pb-2 flex items-center gap-2">
-                  <div class="ix-mock__dot ix-mock__dot--red w-3 h-3 rounded-full"></div>
-                  <div class="ix-mock__dot ix-mock__dot--yellow w-3 h-3 rounded-full"></div>
-                  <div class="ix-mock__dot ix-mock__dot--green w-3 h-3 rounded-full"></div>
-                  <span class="ix-mock__crumb ml-2 text-xs font-mono">IELTS Speaking — Part 1</span>
-                </div>
-                <div class="p-5 space-y-4">
-                  <div class="ix-mock__qcard rounded-xl p-4">
-                    <p class="ix-mock__qlabel text-xs uppercase tracking-wider mb-2 font-semibold">Câu hỏi</p>
-                    <p class="ix-mock__qtext text-sm leading-relaxed">"Do you prefer living in the city or the countryside? Why?"</p>
-                  </div>
-                  <!-- Waveform placeholder -->
-                  <div class="ix-mock__wave rounded-xl p-4 flex items-center gap-3">
-                    <div class="ix-mock__mic w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0">
-                      <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2H3v2a9 9 0 008 8.94V23h2v-2.06A9 9 0 0021 12v-2h-2z"/></svg>
-                    </div>
-                    <div class="flex-1 flex items-center gap-0.5 h-10">
-                      <div class="ix-mock__bar" style="height:30%"></div>
-                      <div class="ix-mock__bar" style="height:60%"></div>
-                      <div class="ix-mock__bar" style="height:90%"></div>
-                      <div class="ix-mock__bar" style="height:70%"></div>
-                      <div class="ix-mock__bar" style="height:50%"></div>
-                      <div class="ix-mock__bar" style="height:80%"></div>
-                      <div class="ix-mock__bar" style="height:40%"></div>
-                      <div class="ix-mock__bar" style="height:65%"></div>
-                      <div class="ix-mock__bar" style="height:85%"></div>
-                      <div class="ix-mock__bar" style="height:55%"></div>
-                      <div class="ix-mock__bar" style="height:75%"></div>
-                      <div class="ix-mock__bar" style="height:45%"></div>
-                      <div class="ix-mock__bar" style="height:95%"></div>
-                      <div class="ix-mock__bar" style="height:60%"></div>
-                    </div>
-                    <span class="ix-mock__time text-sm font-mono">0:42</span>
-                  </div>
-                  <!-- Feedback cards -->
-                  <div class="grid grid-cols-4 gap-2">
-                    <div class="ix-mock__score rounded-lg p-2 text-center">
-                      <p class="ix-mock__score-num font-bold text-lg">7.0</p>
-                      <p class="ix-mock__score-label text-xs">Từ vựng</p>
-                    </div>
-                    <div class="ix-mock__score rounded-lg p-2 text-center">
-                      <p class="ix-mock__score-num font-bold text-lg">6.5</p>
-                      <p class="ix-mock__score-label text-xs">Ngữ pháp</p>
-                    </div>
-                    <div class="ix-mock__score rounded-lg p-2 text-center">
-                      <p class="ix-mock__score-num font-bold text-lg">7.5</p>
-                      <p class="ix-mock__score-label text-xs">Mạch lạc</p>
-                    </div>
-                    <div class="ix-mock__score rounded-lg p-2 text-center">
-                      <p class="ix-mock__score-num font-bold text-lg">7.0</p>
-                      <p class="ix-mock__score-label text-xs">Phát âm</p>
-                    </div>
-                  </div>
-                </div>
+          <div class="ix-skill-mosaic">
+            <div class="ix-skill-mosaic__card" style="--card-color:#F59E0B;--card-tilt:-0.6deg">
+              <div class="ix-skill-mosaic__icon-wrap">🎙</div>
+              <div class="ix-skill-mosaic__text">
+                <p class="ix-skill-mosaic__name">Speaking</p>
+                <p class="ix-skill-mosaic__sub">Part 1, 2, 3 · Full Test</p>
               </div>
+              <span class="ix-skill-mosaic__chip">AI Coach</span>
             </div>
-            <!-- Floating badge -->
-            <div class="ix-badge absolute -bottom-4 -right-4 rounded-xl px-4 py-3 flex items-center gap-3">
-              <div class="ix-badge__icon w-10 h-10 rounded-full flex items-center justify-center">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <div class="ix-skill-mosaic__card" style="--card-color:#14B8A6;--card-tilt:0.5deg">
+              <div class="ix-skill-mosaic__icon-wrap">✍</div>
+              <div class="ix-skill-mosaic__text">
+                <p class="ix-skill-mosaic__name">Writing</p>
+                <p class="ix-skill-mosaic__sub">Task 1 &amp; 2 · Gemini AI</p>
               </div>
-              <div>
-                <p class="ix-badge__title font-bold text-sm">Phản hồi tức thì</p>
-                <p class="ix-badge__hint text-xs">Sau mỗi câu trả lời</p>
+              <span class="ix-skill-mosaic__chip">AI Grader</span>
+            </div>
+            <div class="ix-skill-mosaic__card" style="--card-color:#0EA5E9;--card-tilt:0.4deg">
+              <div class="ix-skill-mosaic__icon-wrap">✸</div>
+              <div class="ix-skill-mosaic__text">
+                <p class="ix-skill-mosaic__name">Reading</p>
+                <p class="ix-skill-mosaic__sub">Bài đọc chính hãng IELTS</p>
               </div>
+              <span class="ix-skill-mosaic__chip">Active</span>
+            </div>
+            <div class="ix-skill-mosaic__card" style="--card-color:#8B5CF6;--card-tilt:-0.4deg">
+              <div class="ix-skill-mosaic__icon-wrap">◐</div>
+              <div class="ix-skill-mosaic__text">
+                <p class="ix-skill-mosaic__name">Listening</p>
+                <p class="ix-skill-mosaic__sub">Dictation · Note-taking</p>
+              </div>
+              <span class="ix-skill-mosaic__chip">Active</span>
+            </div>
+            <div class="ix-skill-mosaic__card" style="--card-color:#4F46E5;--card-tilt:0.5deg">
+              <div class="ix-skill-mosaic__icon-wrap">✦</div>
+              <div class="ix-skill-mosaic__text">
+                <p class="ix-skill-mosaic__name">Grammar</p>
+                <p class="ix-skill-mosaic__sub">67 bài học · Roadmap</p>
+              </div>
+              <span class="ix-skill-mosaic__chip">Wiki</span>
+            </div>
+            <div class="ix-skill-mosaic__card" style="--card-color:#0B6E59;--card-tilt:-0.5deg">
+              <div class="ix-skill-mosaic__icon-wrap">⌗</div>
+              <div class="ix-skill-mosaic__text">
+                <p class="ix-skill-mosaic__name">Từ vựng</p>
+                <p class="ix-skill-mosaic__sub">SRS · Flashcard · Wallet</p>
+              </div>
+              <span class="ix-skill-mosaic__chip">SRS</span>
             </div>
           </div>
         </div>
@@ -211,16 +190,16 @@
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       <div class="grid grid-cols-3 gap-8 text-center">
         <div>
-          <p class="ix-stat__num text-4xl font-extrabold">500+</p>
-          <p class="ix-stat__label text-sm mt-1 font-medium">Học viên đang luyện tập</p>
+          <p class="ix-stat__num text-4xl font-extrabold"><span data-stat="total_users">—</span></p>
+          <p class="ix-stat__label text-sm mt-1 font-medium">Học viên đăng ký</p>
         </div>
         <div class="ix-stat--bordered">
-          <p class="ix-stat__num text-4xl font-extrabold">10.000+</p>
+          <p class="ix-stat__num text-4xl font-extrabold"><span data-stat="sessions_completed">—</span></p>
           <p class="ix-stat__label text-sm mt-1 font-medium">Buổi luyện đã hoàn thành</p>
         </div>
         <div>
-          <p class="ix-stat__num text-4xl font-extrabold">+1.2</p>
-          <p class="ix-stat__label text-sm mt-1 font-medium">Band điểm tăng trung bình</p>
+          <p class="ix-stat__num text-4xl font-extrabold">6</p>
+          <p class="ix-stat__label text-sm mt-1 font-medium">Kỹ năng IELTS trên một nền tảng</p>
         </div>
       </div>
     </div>
@@ -232,14 +211,14 @@
       <div class="text-center mb-14">
         <span class="ix-eyebrow inline-block text-sm font-bold uppercase tracking-widest mb-3">Tính năng</span>
         <h2 class="ix-heading text-3xl sm:text-4xl font-extrabold leading-tight">
-          4 kỹ năng IELTS,<br/>một nền tảng
+          6 kỹ năng IELTS,<br/>một nền tảng
         </h2>
         <p class="ix-subtitle mt-4 max-w-xl mx-auto text-lg leading-relaxed">
-          Speaking với Claude, Writing với Gemini, từ vựng SRS thông minh và Grammar Wiki tra cứu nhanh — đủ để bạn luyện trọn vẹn mỗi ngày.
+          Speaking và Writing chấm bằng AI, Reading và Listening chính hãng, từ vựng SRS thông minh và Grammar Wiki tra cứu nhanh — đủ để bạn luyện trọn vẹn mỗi ngày.
         </p>
       </div>
 
-      <div class="ix-skill-grid grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div class="ix-skill-grid grid md:grid-cols-2 lg:grid-cols-3 gap-6">
         <!-- Speaking -->
         <article class="ix-skill-card" data-skill="speaking">
           <div class="ix-skill-card__icon">
@@ -264,7 +243,7 @@
         <!-- Writing -->
         <article class="ix-skill-card ix-skill-card--popular" data-skill="writing">
           <span class="ix-skill-card__badge">Nổi bật</span>
-          <div class="ix-skill-card__icon ix-skill-card__icon--accent">
+          <div class="ix-skill-card__icon">
             <i data-lucide="pencil-line"></i>
           </div>
           <p class="ix-skill-card__eyebrow">AI Grader Gemini</p>
@@ -279,6 +258,48 @@
           </ul>
           <a href="/login.html" class="ix-skill-card__cta">
             Bắt đầu luyện Writing
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+          </a>
+        </article>
+
+        <!-- Reading -->
+        <article class="ix-skill-card" data-skill="reading">
+          <div class="ix-skill-card__icon">
+            <i data-lucide="book-marked"></i>
+          </div>
+          <p class="ix-skill-card__eyebrow">Bài đọc chính hãng IELTS</p>
+          <h3 class="ix-skill-card__title">Reading</h3>
+          <p class="ix-skill-card__body">
+            Bài đọc IELTS thực tế với phân tích cấu trúc đoạn, chiến lược tìm ý chính và phân tích bẫy câu hỏi.
+          </p>
+          <ul class="ix-skill-card__feats">
+            <li>Passage-level và question-level</li>
+            <li>True/False, Matching, Fill-in</li>
+            <li>Phân tích chiến lược đọc hiểu</li>
+          </ul>
+          <a href="/login.html" class="ix-skill-card__cta">
+            Bắt đầu luyện Reading
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+          </a>
+        </article>
+
+        <!-- Listening -->
+        <article class="ix-skill-card" data-skill="listening">
+          <div class="ix-skill-card__icon">
+            <i data-lucide="headphones"></i>
+          </div>
+          <p class="ix-skill-card__eyebrow">Audio thực tế IELTS</p>
+          <h3 class="ix-skill-card__title">Listening</h3>
+          <p class="ix-skill-card__body">
+            Dictation, note-taking và phân tích bẫy đáp án — rèn kỹ năng nghe toàn diện từ cơ bản đến nâng cao.
+          </p>
+          <ul class="ix-skill-card__feats">
+            <li>Section 1–4 theo chuẩn IELTS</li>
+            <li>Dictation và note-taking</li>
+            <li>Phân tích bẫy đáp án phổ biến</li>
+          </ul>
+          <a href="/login.html" class="ix-skill-card__cta">
+            Bắt đầu luyện Listening
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
           </a>
         </article>
@@ -364,9 +385,9 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>
             </svg>
           </div>
-          <h3 class="ix-step__title text-xl font-bold mb-3">Luyện kỹ năng mục tiêu</h3>
+          <h3 class="ix-step__title text-xl font-bold mb-3">Chọn kỹ năng và luyện</h3>
           <p class="ix-step__body leading-relaxed max-w-xs mx-auto">
-            Chọn Speaking, Writing, Từ vựng hoặc Grammar. Mỗi buổi luyện được AI chấm theo đúng tiêu chí IELTS.
+            Chọn 1 trong 6 kỹ năng IELTS. Mỗi buổi luyện được AI chấm theo đúng tiêu chí IELTS thực tế.
           </p>
         </div>
 
@@ -569,10 +590,10 @@
     <div class="ix-hero__grid absolute inset-0 pointer-events-none"></div>
     <div class="relative max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
       <h2 class="ix-hero__title text-3xl sm:text-5xl font-extrabold leading-tight mb-6">
-        Sẵn sàng nâng band<br/>Speaking của bạn?
+        Sẵn sàng bắt đầu<br/>hành trình IELTS?
       </h2>
       <p class="ix-hero__lead text-lg mb-10 max-w-xl mx-auto leading-relaxed">
-        Bắt đầu ngay hôm nay — 3 buổi luyện thử hoàn toàn miễn phí, không cần thẻ tín dụng.
+        6 kỹ năng, một nền tảng, phản hồi AI tức thì. Bắt đầu ngay với 3 buổi luyện thử hoàn toàn miễn phí.
       </p>
       <div class="flex flex-col sm:flex-row gap-4 justify-center">
         <a href="/login.html"
@@ -603,7 +624,7 @@
             <span class="ix-footer__brand font-bold text-lg tracking-tight">averlearning</span>
           </div>
           <p class="ix-footer__tagline text-sm leading-relaxed max-w-xs">
-            Nền tảng luyện IELTS Speaking với AI — phản hồi tức thì, chính xác và mang tính sư phạm.
+            Nền tảng luyện IELTS toàn diện với AI — 6 kỹ năng, phản hồi tức thì, chính xác.
           </p>
         </div>
 
@@ -613,6 +634,7 @@
           <ul class="space-y-2.5">
             <li><a href="#features" class="ix-footer__link text-sm">AI Feedback</a></li>
             <li><a href="#features" class="ix-footer__link text-sm">Chấm điểm phát âm</a></li>
+            <li><a href="#features" class="ix-footer__link text-sm">Reading &amp; Listening</a></li>
             <li><a href="/grammar.html" class="ix-footer__link text-sm">Grammar Wiki</a></li>
             <!-- Pricing link hidden (pre-launch) -->
           </ul>
@@ -623,14 +645,14 @@
           <ul class="space-y-2.5">
             <li><a href="/login.html" class="ix-footer__link text-sm">Đăng nhập</a></li>
             <li><a href="/login.html" class="ix-footer__link text-sm">Đăng ký</a></li>
-            <li><a href="/frontend/pages/home.html" class="ix-footer__link text-sm">Trang chủ</a></li>
+            <li><a href="/pages/home.html" class="ix-footer__link text-sm">Trang chủ</a></li>
           </ul>
         </div>
       </div>
 
       <div class="ix-footer__divider pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
-        <p class="ix-footer__copy text-sm">© 2025 averlearning. Mọi quyền được bảo lưu.</p>
-        <p class="ix-footer__powered text-xs">Powered by Claude AI · Whisper STT · Azure Pronunciation</p>
+        <p class="ix-footer__copy text-sm">© 2026 averlearning. Mọi quyền được bảo lưu.</p>
+        <p class="ix-footer__powered text-xs">Powered by Claude AI · Gemini AI · Whisper STT · Azure Pronunciation</p>
       </div>
     </div>
   </footer>
@@ -661,6 +683,29 @@
         hydrateIcons(); bindToggleButton();
       }
       window.addEventListener('load', hydrateIcons);
+    })();
+  </script>
+
+  <!-- Public stats loader — fills [data-stat] elements with real counts -->
+  <script>
+    (function () {
+      function formatNum(n) {
+        if (n == null) return '—';
+        if (n >= 1000) return (n / 1000).toFixed(1).replace('.0', '') + 'K+';
+        return n + '+';
+      }
+      fetch('/api/public-stats')
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) {
+          if (!data) return;
+          document.querySelectorAll('[data-stat]').forEach(function (el) {
+            var key = el.getAttribute('data-stat');
+            if (key in data && data[key] != null) {
+              el.textContent = formatNum(data[key]);
+            }
+          });
+        })
+        .catch(function () {});
     })();
   </script>
 </body>
