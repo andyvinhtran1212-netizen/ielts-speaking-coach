@@ -440,7 +440,8 @@ def test_import_file_three_valid_blocks_commits_all():
     db = _mock_db_no_existing()
     with patch("services.vocab_import.supabase_admin", db):
         res = import_vocab_file(text, dry_run=False)
-    assert res["summary"] == {"total": 3, "created": 3, "updated": 0, "errors": 0}
+    assert res["summary"] == {"total": 3, "created": 3, "updated": 0, "errors": 0,
+                               "forecast_created": 0, "forecast_updated": 0}
     assert res["committed_ids"] == ["holistic", "sedentary", "epidemic"]
     assert res["validation_errors"] == []
     assert db.table.return_value.insert.call_count == 3
