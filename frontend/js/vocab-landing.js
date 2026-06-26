@@ -66,6 +66,15 @@
             + '<p class="vtc-panel-sub">Chọn chủ đề để khám phá từ vựng theo ngữ cảnh IELTS.</p>'
             + '</div>';
           container.innerHTML = header + '<div class="vocab-topics-grid">' + cards + '</div>';
+            return '<a href="/vocabulary.html?cat=' + encodeURIComponent(c.slug) + '" class="mode-card">'
+              + '<div class="head">'
+              + '<span style="font-size:.85em;color:var(--av-text-faint)">' + n + ' từ</span>'
+              + '<span class="arrow" aria-hidden="true">→</span>'
+              + '</div>'
+              + '<h3>' + esc(c.title || c.slug) + '</h3>'
+              + '</a>';
+          }).join('');
+          container.innerHTML = '<div class="modes-grid">' + cards + '</div>';
         }).catch(function () {
           container.innerHTML = '<p style="text-align:center;padding:3rem;color:var(--av-error,#c00)">Không tải được danh sách chủ đề.</p>';
         });
