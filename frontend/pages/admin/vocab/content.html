@@ -78,7 +78,7 @@
           <p class="aw-import-dropzone__or">hoặc</p>
           <label class="aw-btn-secondary aw-import-dropzone__pick">
             Chọn file
-            <input id="import-file" type="file" accept=".md,.markdown,text/markdown" class="hidden" />
+            <input id="import-file" type="file" accept=".md,.markdown,text/markdown" class="hidden" multiple />
           </label>
           <p id="import-filename" class="aw-import-dropzone__filename hidden"></p>
         </div>
@@ -127,6 +127,9 @@
           <option value="headword">Chỉ headword (rẻ)</option>
           <option value="example">Chỉ ví dụ</option>
         </select>
+        <label class="aw-subtitle text-sm flex items-center gap-1" style="cursor:pointer;">
+          <input type="checkbox" id="vw-skip-audio" /> Bỏ qua từ đã có audio
+        </label>
         <button id="vw-gen" type="button" class="aw-btn-secondary">🎙 Tạo giọng (<span id="vw-gen-n">0</span>)</button>
         <button id="vw-bulk-del" type="button" class="aw-btn-danger">
           Xóa <span id="vw-bulk-n">0</span> từ đã chọn
@@ -210,7 +213,8 @@
       });
     }
 
-    var _importFile = null;
+    var _importFiles = [];
+    var _importResults = [];
 
     function _importStatus(msg, kind) {
       var el = document.getElementById('import-status');
@@ -221,7 +225,8 @@
     }
 
     function resetImport() {
-      _importFile = null;
+      _importFiles = [];
+      _importResults = [];
       document.getElementById('import-file').value = '';
       document.getElementById('import-filename').classList.add('hidden');
       document.getElementById('import-preview').classList.add('hidden');
@@ -261,75 +266,120 @@
         : '';
       var statusCls = errs.length ? 'is-draft' : 'is-published';
       var statusLbl = errs.length ? '✗ ' + errs.length + ' lỗi' : '✓ hợp lệ';
+      var actionBadge = (!errs.length && b.db_action)
+        ? ' <span class="adm-status-pill ' + (b.db_action === 'created' ? 'is-published' : 'is-draft') + '" style="font-size:.75rem;">'
+          + (b.db_action === 'created' ? '+ thêm mới' : '↺ cập nhật') + '</span>'
+        : '';
       return '<div class="aw-prompt-row" style="margin-bottom:.6rem;">'
         + '<div class="flex items-center justify-between gap-2 mb-1">'
-        + '<span style="font-weight:600;">' + title + '</span>'
+        + '<span style="font-weight:600;">' + title + actionBadge + '</span>'
         + '<span class="adm-status-pill ' + statusCls + '">' + statusLbl + '</span>'
         + '</div>' + errBox + kv + '</div>';
     }
 
-    function renderImportPreview(data) {
+    function _crossFileDuplicates(results) {
+      var seen = {};
+      results.forEach(function (data, i) {
+        if (!data) return;
+        (data.blocks || []).forEach(function (b) {
+          if (b.slug && !(b.validation_errors && b.validation_errors.length)) {
+            if (!seen[b.slug]) seen[b.slug] = [];
+            seen[b.slug].push(i);
+          }
+        });
+      });
+      return Object.keys(seen).filter(function (slug) { return seen[slug].length > 1; });
+    }
+
+    function renderAllPreviews() {
       var preview = document.getElementById('import-preview');
       var summaryEl = document.getElementById('import-summary');
       var errorsEl = document.getElementById('import-errors');
       var blocksEl = document.getElementById('import-blocks');
       var commit = document.getElementById('import-commit');
+
+      if (!_importResults.length) { preview.classList.add('hidden'); return; }
       preview.classList.remove('hidden');
 
-      var blocks = (data && data.blocks) || [];
-      var s = (data && data.summary) || { total: blocks.length, errors: 0, created: 0, updated: 0 };
-      var hasErr = ((data && data.validation_errors) || []).length > 0;
+      var totalBlocks = 0, totalErrors = 0, totalFC = 0, totalFU = 0, hasAnyErr = false;
+      _importResults.forEach(function (data) {
+        if (!data) return;
+        var s = data.summary || {};
+        totalBlocks += s.total || 0;
+        totalErrors += s.errors || 0;
+        totalFC += s.forecast_created || 0;
+        totalFU += s.forecast_updated || 0;
+        if ((data.validation_errors || []).length) hasAnyErr = true;
+      });
 
-      // Tổng hợp: "N từ · thêm X / cập nhật Y · lỗi Z (block + dòng)".
-      var parts = [s.total + ' từ'];
-      if (s.created || s.updated) parts.push('thêm ' + (s.created || 0) + ' / cập nhật ' + (s.updated || 0));
-      parts.push((s.errors || 0) + ' lỗi');
+      var parts = [totalBlocks + ' từ'];
+      if (totalFC || totalFU) parts.push('dự kiến: thêm ' + totalFC + ' / cập nhật ' + totalFU);
+      parts.push(totalErrors + ' lỗi');
       summaryEl.textContent = parts.join(' · ');
+      errorsEl.classList.add('hidden'); errorsEl.innerHTML = '';
 
-      // Duplicate-in-batch banner (a file-level error, not tied to one block).
-      var dups = (data && data.duplicate_slugs) || [];
-      if (dups.length) {
-        errorsEl.classList.remove('hidden');
-        errorsEl.innerHTML = '<strong>Trùng slug trong cùng file:</strong> ' + escapeHtml(dups.join(', '));
-      } else {
-        errorsEl.classList.add('hidden');
-        errorsEl.innerHTML = '';
+      if (_importFiles.length > 1) {
+        var crossDups = _crossFileDuplicates(_importResults);
+        if (crossDups.length) {
+          hasAnyErr = true;
+          errorsEl.classList.remove('hidden');
+          errorsEl.innerHTML = '<strong>Trùng slug giữa các file:</strong> ' + escapeHtml(crossDups.join(', '));
+        }
       }
 
-      blocksEl.innerHTML = blocks.map(_blockHtml).join('');
-      commit.disabled = hasErr || blocks.length === 0;
+      var html = '';
+      _importResults.forEach(function (data, i) {
+        if (!data) return;
+        if (_importFiles.length > 1) {
+          var fname = _importFiles[i] ? _importFiles[i].name : ('file ' + (i + 1));
+          html += '<div style="font-weight:600;margin:.8rem 0 .4rem;border-top:1px solid var(--av-border-default);padding-top:.6rem;">📄 ' + escapeHtml(fname) + '</div>';
+        }
+        var dups = data.duplicate_slugs || [];
+        if (dups.length) html += '<div class="aw-import-errors" style="margin:.3rem 0;"><strong>Trùng slug:</strong> ' + escapeHtml(dups.join(', ')) + '</div>';
+        html += (data.blocks || []).map(_blockHtml).join('');
+      });
+      blocksEl.innerHTML = html;
+      commit.disabled = hasAnyErr || totalBlocks === 0;
     }
 
-    async function dryRunImport(file) {
-      _importStatus('Đang phân tích ' + file.name + '…', null);
+    async function dryRunAllFiles() {
+      var files = _importFiles;
+      if (!files.length) return;
+      _importStatus('Đang phân tích ' + (files.length > 1 ? files.length + ' file' : files[0].name) + '…', null);
+      _importResults = new Array(files.length).fill(null);
       try {
-        var fd = new FormData();
-        fd.append('file', file);
-        var data = await window.api.upload('/admin/vocabulary/import?dry_run=true', fd);
+        await Promise.all(files.map(function (file, i) {
+          return (async function () {
+            var fd = new FormData();
+            fd.append('file', file);
+            var data = await window.api.upload('/admin/vocabulary/import?dry_run=true', fd);
+            _importResults[i] = data;
+          })();
+        }));
         _importStatus('', null);
-        renderImportPreview(data);
+        renderAllPreviews();
       } catch (err) {
         _importStatus('Lỗi phân tích file: ' + ((err && err.message) || 'không xác định'), 'error');
       }
     }
 
     async function commitImport() {
-      if (!_importFile) return;
+      if (!_importFiles.length) return;
       var commit = document.getElementById('import-commit');
       commit.disabled = true;
       _importStatus('Đang lưu…', null);
       try {
+        var texts = await Promise.all(_importFiles.map(function (f) { return f.text(); }));
         var fd = new FormData();
-        fd.append('file', _importFile);
+        fd.append('file', new File([texts.join('\n\n')], 'combined.md', { type: 'text/markdown' }));
         var data = await window.api.upload('/admin/vocabulary/import?dry_run=false', fd);
-        if (data.validation_errors && data.validation_errors.length) {
-          renderImportPreview(data);
-          _importStatus('Còn lỗi — chưa lưu được (không lưu phần nào).', 'error');
+        if ((data.validation_errors || []).length) {
+          _importStatus('Lỗi validation khi lưu — kiểm tra lại file.', 'error');
+          commit.disabled = false;
           return;
         }
-        var s = data.summary || { created: 0, updated: 0 };
-        _importStatus('✓ Đã lưu: thêm ' + (s.created || 0) + ' / cập nhật ' + (s.updated || 0)
-                      + ' từ vào thư viện.', 'ok');
+        var s = data.summary || {};
+        _importStatus('✓ Đã lưu: thêm ' + (s.created || 0) + ' / cập nhật ' + (s.updated || 0) + ' từ vào thư viện.', 'ok');
         resetImport();
         document.getElementById('import-panel').open = true;
       } catch (err) {
@@ -338,25 +388,26 @@
       }
     }
 
-    function handleImportFile(file) {
-      if (!file) return;
-      if (!/\.(md|markdown)$/i.test(file.name)) {
-        _importStatus('Chỉ chấp nhận file .md', 'error');
-        return;
+    function handleImportFiles(fileList) {
+      if (!fileList || !fileList.length) return;
+      var valid = [];
+      for (var i = 0; i < fileList.length; i++) {
+        if (/\.(md|markdown)$/i.test(fileList[i].name)) valid.push(fileList[i]);
       }
-      _importFile = file;
+      if (!valid.length) { _importStatus('Chỉ chấp nhận file .md', 'error'); return; }
+      _importFiles = valid;
       var fn = document.getElementById('import-filename');
-      fn.textContent = '📄 ' + file.name;
+      fn.textContent = valid.length === 1
+        ? '📄 ' + valid[0].name
+        : '📄 ' + valid.length + ' file: ' + valid.map(function (f) { return f.name; }).join(', ');
       fn.classList.remove('hidden');
-      dryRunImport(file);
+      dryRunAllFiles();
     }
 
     (function wireImport() {
       var dz = document.getElementById('import-dropzone');
       var input = document.getElementById('import-file');
-      input.addEventListener('change', function (ev) {
-        handleImportFile(ev.target.files && ev.target.files[0]);
-      });
+      input.addEventListener('change', function (ev) { handleImportFiles(ev.target.files); });
       dz.addEventListener('click', function (ev) {
         if (ev.target.closest('.aw-import-dropzone__pick')) return;
         input.click();
@@ -371,7 +422,7 @@
         dz.addEventListener(e, function (ev) { ev.preventDefault(); dz.classList.remove('aw-import-dropzone--dragover'); });
       });
       dz.addEventListener('drop', function (ev) {
-        handleImportFile(ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0]);
+        handleImportFiles(ev.dataTransfer && ev.dataTransfer.files);
       });
       document.getElementById('import-reset').addEventListener('click', resetImport);
       document.getElementById('import-commit').addEventListener('click', commitImport);
@@ -383,13 +434,20 @@
 
     // ── bulk-select state ──────────────────────────────────────────────
     function _vwSelectedIds() { return Object.keys(_vw.selected); }
+    function _vwGenIds() {
+      var skipExisting = document.getElementById('vw-skip-audio').checked;
+      if (!skipExisting) return _vwSelectedIds();
+      return _vwSelectedIds().filter(function (id) {
+        return !(_vw.selected[id] && _vw.selected[id].audio_status === 'final');
+      });
+    }
     function _vwRefreshBulkBar() {
       var ids = _vwSelectedIds();
+      var genIds = _vwGenIds();
       document.getElementById('vw-selected').textContent = ids.length ? ('Đã chọn ' + ids.length + ' từ') : '';
       document.getElementById('vw-bulk-n').textContent = ids.length;
-      document.getElementById('vw-gen-n').textContent = ids.length;
-      document.getElementById('vw-gen-bar').hidden = ids.length === 0;   // gen + delete share the bar
-      // select-all reflects whether every row on this page is ticked
+      document.getElementById('vw-gen-n').textContent = genIds.length;
+      document.getElementById('vw-gen-bar').hidden = ids.length === 0;
       var ticks = document.querySelectorAll('#vw-list .vw-tick');
       var all = document.getElementById('vw-select-all');
       var checkedCount = document.querySelectorAll('#vw-list .vw-tick:checked').length;
@@ -414,11 +472,13 @@
       }
     }
     async function generateVoice() {
-      var ids = _vwSelectedIds();
-      if (!ids.length) return;
+      var ids = _vwGenIds();
+      if (!ids.length) {
+        _vwStatus('Không có từ nào để tạo giọng (tất cả đã có audio hoặc chưa chọn từ).', 'error');
+        return;
+      }
       var engine = document.getElementById('vw-gen-engine').value;
       var scope = document.getElementById('vw-gen-scope').value;
-      // ElevenLabs costs real credits — confirm with count + engine before queueing.
       if (engine === 'elevenlabs' &&
           !confirm('Tạo giọng ElevenLabs cho ' + ids.length + ' từ (tốn credit). Tiếp tục?')) return;
       _vwStatus('Đang xếp hàng tạo giọng…', null);
@@ -450,7 +510,7 @@
         + '<div class="aw-prompt-row" style="margin-bottom:.5rem;">'
         +   '<div class="flex items-center justify-between gap-3 flex-wrap">'
         +     '<div class="flex items-center gap-3">'
-        +       '<input type="checkbox" class="vw-tick" data-id="' + w.id + '" data-hw="' + escapeHtml(w.headword) + '"' + checked + ' aria-label="Chọn ' + escapeHtml(w.headword) + '" />'
+        +       '<input type="checkbox" class="vw-tick" data-id="' + w.id + '" data-hw="' + escapeHtml(w.headword) + '" data-audio-status="' + escapeHtml(w.audio_status || '') + '"' + checked + ' aria-label="Chọn ' + escapeHtml(w.headword) + '" />'
         +     '<div>'
         +       '<span style="font-weight:600;">' + escapeHtml(w.headword) + '</span> '
         +       '<span class="aw-subtitle text-xs">· ' + escapeHtml(w.category || '') + (w.level ? ' · ' + escapeHtml(w.level) : '') + '</span>'
@@ -589,11 +649,12 @@
         else if (act === 'edit') openEdit(btn.getAttribute('data-id'));
         else if (act === 'del') deleteWord(btn.getAttribute('data-id'), btn.getAttribute('data-hw') || '');
       });
-      // row checkbox tick → track selection (delegated 'change')
+      // row checkbox tick → track selection with audio_status (delegated 'change')
       list.addEventListener('change', function (e) {
         var cb = e.target.closest('.vw-tick'); if (!cb) return;
         var id = cb.getAttribute('data-id');
-        if (cb.checked) _vw.selected[id] = true; else delete _vw.selected[id];
+        if (cb.checked) _vw.selected[id] = { audio_status: cb.getAttribute('data-audio-status') };
+        else delete _vw.selected[id];
         _vwRefreshBulkBar();
       });
       // select-all (this page) → tick/untick every visible row
@@ -601,10 +662,12 @@
         document.querySelectorAll('#vw-list .vw-tick').forEach(function (cb) {
           cb.checked = e.target.checked;
           var id = cb.getAttribute('data-id');
-          if (e.target.checked) _vw.selected[id] = true; else delete _vw.selected[id];
+          if (e.target.checked) _vw.selected[id] = { audio_status: cb.getAttribute('data-audio-status') };
+          else delete _vw.selected[id];
         });
         _vwRefreshBulkBar();
       });
+      document.getElementById('vw-skip-audio').addEventListener('change', _vwRefreshBulkBar);
       document.getElementById('vw-bulk-del').addEventListener('click', bulkDelete);
       document.getElementById('vw-gen').addEventListener('click', generateVoice);
       var dz;

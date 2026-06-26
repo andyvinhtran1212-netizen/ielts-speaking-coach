@@ -293,6 +293,16 @@ def import_vocab_file(
 
     has_errors = any(b["validation_errors"] for b in blocks)
 
+    # Dry-run: look up which slugs already exist so the preview shows "thêm mới" vs "cập nhật".
+    if dry_run:
+        checkable = [b["slug"] for b in blocks if b["slug"] and not b["validation_errors"]]
+        if checkable:
+            ex = supabase_admin.table("vocab_cards").select("slug").in_("slug", checkable).execute()
+            existing_set = {r["slug"] for r in (ex.data or [])}
+            for b in blocks:
+                if b["slug"] and not b["validation_errors"]:
+                    b["db_action"] = "updated" if b["slug"] in existing_set else "created"
+
     committed_ids: list[str] = []
     if not dry_run and not has_errors:
         for b in blocks:
@@ -307,10 +317,12 @@ def import_vocab_file(
         for b in blocks for e in b["validation_errors"]
     ]
     summary = {
-        "total":   len(blocks),
-        "created": sum(1 for b in blocks if b["action"] == "created"),
-        "updated": sum(1 for b in blocks if b["action"] == "updated"),
-        "errors":  sum(1 for b in blocks if b["validation_errors"]),
+        "total":            len(blocks),
+        "created":          sum(1 for b in blocks if b["action"] == "created"),
+        "updated":          sum(1 for b in blocks if b["action"] == "updated"),
+        "errors":           sum(1 for b in blocks if b["validation_errors"]),
+        "forecast_created": sum(1 for b in blocks if b.get("db_action") == "created"),
+        "forecast_updated": sum(1 for b in blocks if b.get("db_action") == "updated"),
     }
     pub_blocks = [{k: v for k, v in b.items() if k != "_parsed"} for b in blocks]
 
