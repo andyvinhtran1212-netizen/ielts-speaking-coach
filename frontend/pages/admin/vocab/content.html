@@ -437,8 +437,13 @@
     function _vwGenIds() {
       var skipExisting = document.getElementById('vw-skip-audio').checked;
       if (!skipExisting) return _vwSelectedIds();
+      var scope = document.getElementById('vw-gen-scope').value;
       return _vwSelectedIds().filter(function (id) {
-        return !(_vw.selected[id] && _vw.selected[id].audio_status === 'final');
+        var s = _vw.selected[id];
+        if (!s) return true;
+        if (scope === 'headword') return !s.audio_headword;
+        if (scope === 'example')  return !s.audio_example;
+        return !(s.audio_headword && s.audio_example);  // 'both': skip only if both already present
       });
     }
     function _vwRefreshBulkBar() {
@@ -510,7 +515,7 @@
         + '<div class="aw-prompt-row" style="margin-bottom:.5rem;">'
         +   '<div class="flex items-center justify-between gap-3 flex-wrap">'
         +     '<div class="flex items-center gap-3">'
-        +       '<input type="checkbox" class="vw-tick" data-id="' + w.id + '" data-hw="' + escapeHtml(w.headword) + '" data-audio-status="' + escapeHtml(w.audio_status || '') + '"' + checked + ' aria-label="Chọn ' + escapeHtml(w.headword) + '" />'
+        +       '<input type="checkbox" class="vw-tick" data-id="' + w.id + '" data-hw="' + escapeHtml(w.headword) + '" data-audio-status="' + escapeHtml(w.audio_status || '') + '" data-audio-headword="' + escapeHtml(w.audio_headword || '') + '" data-audio-example="' + escapeHtml(w.audio_example || '') + '"' + checked + ' aria-label="Chọn ' + escapeHtml(w.headword) + '" />'
         +     '<div>'
         +       '<span style="font-weight:600;">' + escapeHtml(w.headword) + '</span> '
         +       '<span class="aw-subtitle text-xs">· ' + escapeHtml(w.category || '') + (w.level ? ' · ' + escapeHtml(w.level) : '') + '</span>'
@@ -653,7 +658,11 @@
       list.addEventListener('change', function (e) {
         var cb = e.target.closest('.vw-tick'); if (!cb) return;
         var id = cb.getAttribute('data-id');
-        if (cb.checked) _vw.selected[id] = { audio_status: cb.getAttribute('data-audio-status') };
+        if (cb.checked) _vw.selected[id] = {
+          audio_status:   cb.getAttribute('data-audio-status')   || '',
+          audio_headword: cb.getAttribute('data-audio-headword') || '',
+          audio_example:  cb.getAttribute('data-audio-example')  || '',
+        };
         else delete _vw.selected[id];
         _vwRefreshBulkBar();
       });
@@ -662,12 +671,17 @@
         document.querySelectorAll('#vw-list .vw-tick').forEach(function (cb) {
           cb.checked = e.target.checked;
           var id = cb.getAttribute('data-id');
-          if (e.target.checked) _vw.selected[id] = { audio_status: cb.getAttribute('data-audio-status') };
+          if (e.target.checked) _vw.selected[id] = {
+            audio_status:   cb.getAttribute('data-audio-status')   || '',
+            audio_headword: cb.getAttribute('data-audio-headword') || '',
+            audio_example:  cb.getAttribute('data-audio-example')  || '',
+          };
           else delete _vw.selected[id];
         });
         _vwRefreshBulkBar();
       });
       document.getElementById('vw-skip-audio').addEventListener('change', _vwRefreshBulkBar);
+      document.getElementById('vw-gen-scope').addEventListener('change', _vwRefreshBulkBar);
       document.getElementById('vw-bulk-del').addEventListener('click', bulkDelete);
       document.getElementById('vw-gen').addEventListener('click', generateVoice);
       var dz;
