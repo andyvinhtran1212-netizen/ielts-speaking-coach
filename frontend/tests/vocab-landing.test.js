@@ -16,7 +16,7 @@
  *     view itself — no panel auto-activates on cold load
  *   - Initial hash deep-link (#flashcards etc.) activates that panel
  *     during bootstrap()
- *   - Topic-bank tab is valid but has no module loader — must not throw
+ *   - vocab-topics tab has an inline module loader — must not throw
  *   - Unknown tab name falls back to DEFAULT_TAB (defensive)
  */
 
@@ -71,26 +71,21 @@ function makeElement(tagName = 'div', attrs = {}) {
 
 function buildPage() {
   // Sprint 8.2 — the dashboard view (.vocab-modes) replaces the tab-
-  // row. 4 mode-cards, each carrying data-mode. The legacy tab-row
+  // row. 5 mode-cards, each carrying data-mode. The legacy tab-row
   // ARIA tablist DOM was retired alongside the vocab-tabs CSS block.
   const dashboard = makeElement('section');
   dashboard.classList.add('vocab-modes');
-  const modeCards = ['my-vocab', 'flashcards', 'exercises', 'topic-bank'].map(m =>
+  const modeCards = ['vocab-topics', 'my-vocab', 'flashcards', 'exercises', 'needs-review'].map(m =>
     makeElement('a', { 'data-mode': m }),
   );
 
-  // 4 panels — all hidden by default; activateTab() reveals the target.
-  const panels = ['my-vocab', 'flashcards', 'exercises', 'topic-bank'].map(t => {
+  // 5 panels — all hidden by default; activateTab() reveals the target.
+  const panels = ['vocab-topics', 'my-vocab', 'flashcards', 'exercises', 'needs-review'].map(t => {
     const panel = makeElement('section', { 'data-panel': t });
     panel.hidden = true;
-    // The 3 module-backed panels carry a .tab-mount container (the
-    // dynamic-import target). Topic-bank has no mount — it's a static
-    // placeholder.
-    if (t !== 'topic-bank') {
-      const mount = makeElement('div');
-      mount.classList.add('tab-mount');
-      panel.children.push(mount);
-    }
+    const mount = makeElement('div');
+    mount.classList.add('tab-mount');
+    panel.children.push(mount);
     return panel;
   });
 
@@ -171,18 +166,18 @@ test('activateTab hides the .vocab-modes dashboard and reveals the target panel'
 // Sprint 7.6 — DEBT-2026-05-09-B CLOSED. The legacy iframe path
 // (TAB_SOURCES + _loaded Set + frame.src else-branch) was retired
 // in this sprint. All vocab children go through TAB_LOADERS only.
-// Sprint 10.1.5 — `needs-review` added as the 4th lazy-loaded module
-// (5th mode card overall; topic-bank stays as a static placeholder).
+// Sprint 10.1.5 — `needs-review` added as the 4th lazy-loaded module.
+// vocab-topics inline loader replaces the old topic-bank static placeholder.
 
-test('all 5 vocab children are registered in TAB_LOADERS', () => {
+test('all vocab tabs are registered in TAB_LOADERS', () => {
   const doc = buildPage();
   const win = loadVocabLanding(doc);
 
   const loaders = win.__vocabLanding.TAB_LOADERS;
   assert.deepEqual(
     [...loaders].sort(),
-    ['exercises', 'flashcards', 'my-vocab', 'needs-review'],
-    'TAB_LOADERS lists the 4 "của bạn" children (B3 retired word-library; browse → wiki)',
+    ['exercises', 'flashcards', 'my-vocab', 'needs-review', 'vocab-topics'],
+    'TAB_LOADERS lists all 5 tabs: 4 personal tools + vocab-topics topic picker',
   );
 });
 
@@ -197,22 +192,22 @@ test('TAB_SOURCES no longer exposed on the test seam (Sprint 7.6 retirement)', (
   );
 });
 
-test('topic-bank tab activates without throwing (static placeholder)', () => {
+test('vocab-topics tab activates without throwing (inline module loader)', () => {
   const doc = buildPage();
   const win = loadVocabLanding(doc);
 
-  // Coverage for the placeholder branch — topic-bank is not in
-  // TAB_LOADERS so activateTab must no-op the module-mount path
-  // gracefully while still revealing the panel + hiding the dashboard.
+  // vocab-topics is in TAB_LOADERS (inline Promise.resolve module).
+  // The module-mount path runs but container.dataset.mounted blocks
+  // the async API call from throwing synchronously.
   assert.doesNotThrow(() => {
-    win.__vocabLanding.activateTab('topic-bank');
-  }, 'topic-bank tab activation must not throw');
+    win.__vocabLanding.activateTab('vocab-topics');
+  }, 'vocab-topics tab activation must not throw');
 
-  const topicBankPanel = doc._panels.find(p => p.dataset.panel === 'topic-bank');
-  assert.equal(topicBankPanel.hidden, false,
-    'topic-bank panel is revealed after activateTab');
+  const vocabTopicsPanel = doc._panels.find(p => p.dataset.panel === 'vocab-topics');
+  assert.equal(vocabTopicsPanel.hidden, false,
+    'vocab-topics panel is revealed after activateTab');
   assert.equal(doc._dashboard.hidden, true,
-    'dashboard is hidden even when the target mode has no module loader');
+    'dashboard is hidden after vocab-topics activates');
 });
 
 test('activateTab falls back to DEFAULT_TAB when given an unknown mode', () => {
@@ -226,16 +221,16 @@ test('activateTab falls back to DEFAULT_TAB when given an unknown mode', () => {
     'unknown mode name should fall back to DEFAULT_TAB (my-vocab) panel');
 });
 
-test('VALID_TABS surface lists exactly the six supported modes', () => {
+test('VALID_TABS surface lists exactly the five supported modes', () => {
   const doc = buildPage();
   const win = loadVocabLanding(doc);
 
   // Cross-vm-context arrays don't share the same Array constructor,
   // so deepStrictEqual fails reference-equality. Compare values instead.
-  // B3 — `word-library` retired from the hub (browse → public wiki).
+  // topic-bank retired; replaced by vocab-topics (inline topic picker).
   assert.equal(
     JSON.stringify([...win.__vocabLanding.VALID_TABS].sort()),
-    JSON.stringify(['exercises', 'flashcards', 'my-vocab', 'needs-review', 'topic-bank'].sort()),
+    JSON.stringify(['exercises', 'flashcards', 'my-vocab', 'needs-review', 'vocab-topics'].sort()),
   );
   assert.equal(win.__vocabLanding.DEFAULT_TAB, 'my-vocab',
     'DEFAULT_TAB stays my-vocab as the unknown-mode fallback (Sprint 8.2: no longer the page-load default)');

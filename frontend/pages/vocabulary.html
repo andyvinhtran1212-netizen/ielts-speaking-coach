@@ -107,24 +107,24 @@
     <!-- ── Mode-card grid (Sprint 8.2) ──────────────────────────── -->
     <!-- Sprint 8.2 — the ARIA tablist row was retired in favor of a
          mode-card grid (same pattern as Sprint 8.1 speaking.html). The
-         dashboard view is now the page's default landing state; the 4
+         dashboard view is now the page's default landing state; the 5
          `.tab-panel` sections below stay hidden until a mode-card click
          or a #hash deep-link activates one of them. activateTab() in
          /js/vocab-landing.js still owns the panel toggle + module
-         mount; hash deep-linking (#my-vocab / #flashcards / #exercises
-         / #topic-bank) is preserved per Phase B Q5. -->
+         mount; hash deep-linking (#vocab-topics / #my-vocab / #flashcards
+         / #exercises / #needs-review) is preserved per Phase B Q5. -->
     <section class="vocab-modes" aria-labelledby="modes-heading">
       <h2 id="modes-heading">Bắt đầu học từ vựng</h2>
       <div class="modes-grid">
-        <!-- B3 — single browse surface: this card LINKS to the public wiki
-             master-detail (/vocabulary.html), no longer an in-hub grid panel. -->
-        <a href="/vocabulary.html" class="mode-card" aria-label="Mở thư viện từ vựng">
+        <!-- Clicking opens an inline topic-picker panel; selecting a topic
+             navigates to /vocabulary.html?cat=<slug> (the public wiki). -->
+        <a href="#" class="mode-card" data-mode="vocab-topics" aria-label="Duyệt từ vựng theo chủ đề">
           <div class="head">
             <div class="icon"><i data-lucide="library"></i></div>
             <span class="arrow" aria-hidden="true">→</span>
           </div>
           <h3>Từ vựng</h3>
-          <p class="lede">Tra cứu thư viện từ vựng IELTS theo chủ đề (trang công khai).</p>
+          <p class="lede">Duyệt từ vựng IELTS theo chủ đề.</p>
         </a>
         <a href="#" class="mode-card" data-mode="my-vocab" aria-label="Mở My Vocabulary">
           <div class="head">
@@ -157,14 +157,6 @@
           </div>
           <h3>Needs Review</h3>
           <p class="lede">Từ vựng và cách diễn đạt cần xem lại.</p>
-        </a>
-        <a href="#" class="mode-card" data-mode="topic-bank" aria-label="Mở Topic Bank">
-          <div class="head">
-            <div class="icon"><i data-lucide="landmark"></i></div>
-            <span class="arrow" aria-hidden="true">→</span>
-          </div>
-          <h3>Topic Bank <span class="lock-tag">Soon</span></h3>
-          <p class="lede">Khám phá từ vựng theo chủ đề.</p>
         </a>
       </div>
     </section>
@@ -231,14 +223,9 @@
       <div class="tab-mount" id="mount-needs-review"></div>
     </section>
 
-    <section class="tab-panel" data-panel="topic-bank" id="panel-topic-bank"
+    <section class="tab-panel" data-panel="vocab-topics" id="panel-vocab-topics"
              role="tabpanel" aria-labelledby="modes-heading" hidden>
-      <div class="coming-soon">
-        <div class="icon" aria-hidden="true">✸</div>
-        <h2>Kho từ vựng theo chủ đề</h2>
-        <p>Sẽ ra mắt trong bản cập nhật tới — bạn sẽ duyệt từ vựng theo chủ đề (Du lịch, Công nghệ, Học tập, ...) và import trực tiếp vào danh sách cá nhân.</p>
-        <p class="hint">Sprint 6.2 sẽ mở khoá kho chủ đề + tính năng import.</p>
-      </div>
+      <div class="tab-mount" id="mount-vocab-topics"></div>
     </section>
 
   </div>

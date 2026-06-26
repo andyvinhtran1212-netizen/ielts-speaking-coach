@@ -29,9 +29,39 @@
   // The container's `data-mounted` attribute is the idempotency guard
   // (see vocab-modules/_loader.js guardMount()).
   const TAB_LOADERS = {
-    // B3 — word-library retired as a hub panel; the "Từ vựng" mode-card now links
-    // to the public wiki master-detail (/vocabulary.html). The word-library.js
-    // module was deleted as dead code (no longer mounted anywhere).
+    // Inline module — fetches /api/vocabulary/categories and renders a
+    // topic-card grid. Each card links to /vocabulary.html?cat=<slug>
+    // (the public wiki filtered to that topic). No separate file needed.
+    'vocab-topics': () => Promise.resolve({
+      mount(container) {
+        if (container.dataset.mounted === 'true') return;
+        container.dataset.mounted = 'true';
+        window.api.get('/api/vocabulary/categories').then(function (cats) {
+          cats = cats || [];
+          if (!cats.length) {
+            container.innerHTML = '<p style="text-align:center;padding:3rem;color:var(--av-text-faint)">Chưa có chủ đề nào.</p>';
+            return;
+          }
+          function esc(s) {
+            return String(s == null ? '' : s)
+              .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          }
+          var cards = cats.map(function (c) {
+            var n = c.article_count != null ? c.article_count : (c.articles || []).length;
+            return '<a href="/vocabulary.html?cat=' + encodeURIComponent(c.slug) + '" class="mode-card">'
+              + '<div class="head">'
+              + '<span style="font-size:.85em;color:var(--av-text-faint)">' + n + ' từ</span>'
+              + '<span class="arrow" aria-hidden="true">→</span>'
+              + '</div>'
+              + '<h3>' + esc(c.title || c.slug) + '</h3>'
+              + '</a>';
+          }).join('');
+          container.innerHTML = '<div class="modes-grid">' + cards + '</div>';
+        }).catch(function () {
+          container.innerHTML = '<p style="text-align:center;padding:3rem;color:var(--av-error,#c00)">Không tải được danh sách chủ đề.</p>';
+        });
+      },
+    }),
     'my-vocab':     () => import('/js/vocab-modules/my-vocab.js'),
     'flashcards':   () => import('/js/vocab-modules/flashcards.js'),
     'exercises':    () => import('/js/vocab-modules/exercises.js'),
@@ -49,7 +79,7 @@
   // pollute the main vocab bank (Sprint 6.0 archival reversed).
   const DEFAULT_TAB = 'my-vocab';
   const VALID_TABS = new Set([
-    'my-vocab', 'flashcards', 'exercises', 'needs-review', 'topic-bank',
+    'vocab-topics', 'my-vocab', 'flashcards', 'exercises', 'needs-review',
   ]);
 
   function $(sel) { return document.querySelector(sel); }
@@ -66,9 +96,9 @@
       panel.hidden = !isTarget;
     });
 
-    // Dynamic-import the module for this tab and mount it. Tabs not in
-    // TAB_LOADERS (currently only `topic-bank`, a static placeholder)
-    // are pure CSS reveals — no module load needed.
+    // Dynamic-import the module for this tab and mount it. All tabs in
+    // VALID_TABS have a TAB_LOADERS entry; a tab without one would be a
+    // pure CSS reveal (no such tab currently exists).
     const loader = TAB_LOADERS[tabName];
     if (loader) {
       const container = document.querySelector(
