@@ -20,8 +20,13 @@ prerequisites:
 - modal-verbs
 - hedging-language
 - discourse-markers
+- expressing-uncertainty
+- adding-contrast-naturally
 related_pages:
+- expressing-uncertainty
 - strong-vs-cautious-opinions
+- adding-contrast-naturally
+- balanced-arguments-grammar
 - agreeing-and-disagreeing-naturally
 compare_with:
 - agreeing-and-disagreeing-naturally
@@ -37,7 +42,9 @@ common_error_tags: []
 speaking_relevance: high
 writing_relevance: medium
 next_articles:
+- expressing-uncertainty
 - strong-vs-cautious-opinions
+- adding-contrast-naturally
 pathways:
 - grammar-for-ielts-speaking
 - band-6-to-7

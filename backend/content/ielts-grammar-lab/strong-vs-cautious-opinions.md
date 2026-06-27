@@ -42,6 +42,7 @@ next_articles:
 - academic-hedging
 - making-answers-longer-naturally
 - grammar-in-speaking
+- grammar-in-task2
 pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing

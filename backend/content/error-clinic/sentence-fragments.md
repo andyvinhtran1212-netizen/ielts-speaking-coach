@@ -22,6 +22,7 @@ prerequisites:
 - relative-clauses
 related_pages:
 - run-on-sentences
+- combining-two-short-sentences
 - complex-sentence
 compare_with:
 - run-on-sentences
@@ -39,6 +40,7 @@ speaking_relevance: high
 writing_relevance: high
 next_articles:
 - run-on-sentences
+- combining-two-short-sentences
 - complex-sentence
 pathways:
 - fix-common-mistakes
