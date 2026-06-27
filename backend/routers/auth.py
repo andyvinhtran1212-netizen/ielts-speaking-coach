@@ -366,10 +366,11 @@ async def activate_account(
     # ── Step 2: upsert user row (in case /me was never called) ───────────────
     # Select `role` too so the promote below is upgrade-only / idempotent.
     current_role = "user"
+    was_already_active = False  # B1/Mục 2: needed to roll back ONLY a fresh activation if we lose a race
     try:
         existing = (
             supabase_admin.table("users")
-            .select("id, role")
+            .select("id, role, is_active")
             .eq("id", user_id)
             .limit(1)
             .execute()
@@ -385,6 +386,7 @@ async def activate_account(
             }).execute()
         else:
             current_role = existing.data[0].get("role") or "user"
+            was_already_active = bool(existing.data[0].get("is_active"))
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -511,20 +513,61 @@ async def activate_account(
         # FATAL, BEFORE consume — fail closed so the code stays retry-able.
         raise HTTPException(500, f"Lỗi khi ghi danh học viên: {e}")
 
-    # ── Step 4: mark access code as used ─────────────────────────────────────
-    # Use a real ISO timestamp string instead of the string "now()" which
-    # PostgREST does NOT evaluate as a SQL function — it's just a literal string.
+    # ── Step 4: atomically CLAIM the access code (B1 / review Mục 2) ─────────
+    # P0 fix for double-redemption. The is_used check in Step 1 and this write
+    # used to be a TOCTOU pair: two concurrent activations of the SAME code both
+    # read is_used=false, both activated a (different) user → one code redeemed
+    # twice. The `.eq("is_used", False)` guard turns this into an atomic
+    # compare-and-swap — under the row lock only the FIRST writer matches, the
+    # loser's conditional UPDATE affects 0 rows. No migration needed: the
+    # row-level WHERE clause IS the lock. PostgREST does not evaluate "now()", so
+    # use a real ISO timestamp.
     now_iso = datetime.now(timezone.utc).isoformat()
 
+    claimed = True
     try:
-        supabase_admin.table("access_codes").update({
-            "is_used": True,
-            "used_by": user_id,
-            "used_at": now_iso,
-        }).eq("id", access_code_row["id"]).execute()
+        claim = (
+            supabase_admin.table("access_codes")
+            .update({"is_used": True, "used_by": user_id, "used_at": now_iso})
+            .eq("id", access_code_row["id"])
+            .eq("is_used", False)
+            .execute()
+        )
+        if not (claim.data or []):
+            # The conditional UPDATE matched no row. Disambiguate by re-reading:
+            # did we LOSE a race to another user, or is this our own idempotent
+            # re-claim (same user double-submit)? Only a confirmed other-owner is
+            # a real loss — this keeps the change robust to clients that don't
+            # return the updated representation.
+            fresh = (
+                supabase_admin.table("access_codes")
+                .select("is_used, used_by")
+                .eq("id", access_code_row["id"])
+                .limit(1)
+                .execute()
+            )
+            frow = (fresh.data or [{}])[0]
+            if frow.get("is_used") and str(frow.get("used_by")) != str(user_id):
+                claimed = False
     except Exception as e:
         # Non-fatal: user is already activated. Log and continue.
         logger.warning("[warn] Could not mark access_code as used: %s", e)
+
+    if not claimed:
+        # Lost the race — another user claimed this code microseconds ago. Undo
+        # the activation WE just performed (only if WE set it this request) so the
+        # loser does not stay active on a code they don't own.
+        if not was_already_active:
+            try:
+                supabase_admin.table("users").update(
+                    {"is_active": False}
+                ).eq("id", user_id).execute()
+            except Exception as e:
+                logger.error(
+                    "[auth] race rollback of is_active FAILED for user=%s (critical): %s",
+                    user_id, e,
+                )
+        raise HTTPException(status_code=400, detail="Access code này đã được sử dụng rồi")
 
     # ── Step 5: upsert assignment row so admin panel can show the redeemer ───
     try:
