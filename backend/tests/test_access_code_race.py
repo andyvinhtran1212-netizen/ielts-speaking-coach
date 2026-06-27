@@ -67,6 +67,9 @@ class _Builder:
     def upsert(self, payload, *_a, **_k):
         self._action = "upsert"; self._payload = payload; return self
 
+    def delete(self, *_a, **_k):
+        self._action = "delete"; return self
+
     def eq(self, col, val):
         self._filters.append((col, val)); return self
 
@@ -86,13 +89,17 @@ class _RaceClient:
     reports the row owned by `reread_used_by`."""
 
     def __init__(self, *, update_claims, reread_used_by=None,
-                 user_is_active=False, first_is_used=False, first_used_by=None):
+                 user_is_active=False, first_is_used=False, first_used_by=None,
+                 reread_raises=False, cohort_id=None, students_insert_id=None):
         self.calls: list[dict] = []
         self._update_claims = update_claims
         self._reread_used_by = reread_used_by
         self._user_is_active = user_is_active
         self._first_is_used = first_is_used
         self._first_used_by = first_used_by
+        self._reread_raises = reread_raises
+        self._cohort_id = cohort_id              # set → code is an enroll-signal (cohort) code
+        self._students_insert_id = students_insert_id
         self._ac_selects = 0
 
     def table(self, name):
@@ -103,7 +110,7 @@ class _RaceClient:
             "id": "code-uuid", "code": _ACCESS_CODE,
             "is_used": is_used, "used_by": used_by, "is_revoked": False,
             "expires_at": None, "grants_role": None, "intended_email": None,
-            "issued_by": None, "cohort_id": None,
+            "issued_by": None, "cohort_id": self._cohort_id,
             "permissions": ["practice_single", "practice_part", "practice_full"],
         }
 
@@ -121,12 +128,17 @@ class _RaceClient:
                                          used_by=self._first_used_by)]
             else:
                 # Step 4 re-read after a 0-row conditional UPDATE.
+                if self._reread_raises:
+                    raise RuntimeError("simulated PostgREST outage on claim re-read")
                 r.data = [self._code_row(is_used=True, used_by=self._reread_used_by)]
         elif t == "access_codes" and a == "update":
             r.data = [self._code_row(is_used=True, used_by=_USER_ID)] if self._update_claims else []
         elif t == "users" and a == "select":
             r.data = [{"id": _USER_ID, "role": "user", "is_active": self._user_is_active}]
-        # every other write returns [] (succeeds silently)
+        elif t == "students" and a == "insert":
+            r.data = [{"id": self._students_insert_id}] if self._students_insert_id else []
+        # students select → [] (no target → enroll INSERT branch); every other
+        # write (users update, students delete, assignments upsert) → [].
         return r
 
 
@@ -221,3 +233,49 @@ def test_already_used_code_rejected_up_front(monkeypatch):
     claims = [c for c in client.calls
               if c["table"] == "access_codes" and c["action"] == "update"]
     assert not claims, "must not attempt to claim an already-used code"
+
+
+def test_indeterminate_claim_fails_closed(monkeypatch):
+    """PR #589 comment 1: conditional claim matched 0 rows AND the ownership
+    re-read raises → we cannot confirm ownership → FAIL CLOSED. Must reject with
+    a retry (503), roll back is_active, and never reach the assignment write."""
+    client = _patch(monkeypatch, update_claims=False, reread_raises=True,
+                    user_is_active=False)
+
+    with pytest.raises(HTTPException) as ei:
+        _run(auth_module.activate_account(_payload(), authorization="Bearer x"))
+    assert ei.value.status_code == 503  # retry, not "already used"
+
+    assigns = [c for c in client.calls if c["table"] == "user_code_assignments"]
+    assert not assigns, "indeterminate claim must NOT create an assignment row"
+
+    rollbacks = [
+        c for c in client.calls
+        if c["table"] == "users" and c["action"] == "update"
+        and isinstance(c["payload"], dict) and c["payload"].get("is_active") is False
+    ]
+    assert rollbacks, "indeterminate claim must roll back is_active"
+
+
+def test_loser_enrollment_side_effects_are_undone(monkeypatch):
+    """PR #589 comment 2: a cohort/enroll-signal code makes Step 3b INSERT a
+    students row before the claim. If we then lose the race, that inserted row
+    must be deleted — not left pointing at the rejected user."""
+    client = _patch(monkeypatch, update_claims=False, reread_used_by=_OTHER_USER,
+                    user_is_active=False, cohort_id="cohort-uuid",
+                    students_insert_id="orphan-student-id")
+
+    with pytest.raises(HTTPException) as ei:
+        _run(auth_module.activate_account(_payload(), authorization="Bearer x"))
+    assert ei.value.status_code == 400
+
+    # The students row we inserted before losing must be deleted.
+    deletes = [
+        c for c in client.calls
+        if c["table"] == "students" and c["action"] == "delete"
+        and ("id", "orphan-student-id") in c["filters"]
+    ]
+    assert deletes, "the loser's inserted students row must be undone"
+
+    assigns = [c for c in client.calls if c["table"] == "user_code_assignments"]
+    assert not assigns, "loser must not create an assignment row"

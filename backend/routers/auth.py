@@ -442,9 +442,9 @@ async def activate_account(
 
     code_cohort_id = access_code_row.get("cohort_id")
     try:
-        by_user = (supabase_admin.table("students").select("id, user_id, instructor_id")
+        by_user = (supabase_admin.table("students").select("id, user_id, instructor_id, cohort_id")
                    .eq("user_id", user_id).limit(1).execute().data or [])
-        by_code = (supabase_admin.table("students").select("id, user_id, instructor_id")
+        by_code = (supabase_admin.table("students").select("id, user_id, instructor_id, cohort_id")
                    .eq("student_code", code).limit(1).execute().data or [])
     except Exception as e:
         raise HTTPException(500, f"Lỗi khi tra cứu hồ sơ học viên: {e}")
@@ -472,17 +472,29 @@ async def activate_account(
                        "dụng — liên hệ admin để chuyển giảng viên/lớp.",
             )
 
+    # B1 (PR #589 review, comment 2): Step 3b runs BEFORE the code is claimed
+    # (Step 4), so a request that later LOSES the claim race may already have
+    # linked or created a students row for itself. Record what we write here so
+    # the lost-race path can undo it. This keeps W-5 intact (the claim still runs
+    # LAST, so an enroll-write failure still does NOT consume the code).
+    enroll_inserted_id: str | None = None
+    enroll_revert: tuple | None = None  # (student_id, {field: prior_value_to_restore})
     try:
         if target:
             upd: dict = {}
+            revert: dict = {}
             if not target.get("user_id"):
                 upd["user_id"] = user_id
+                revert["user_id"] = None
             if code_cohort_id:
                 upd["cohort_id"] = code_cohort_id            # cohort fold (same atomic write)
+                revert["cohort_id"] = target.get("cohort_id")
             if owner and not target.get("instructor_id"):
                 upd["instructor_id"] = owner                  # stamp ONLY when currently NULL
+                revert["instructor_id"] = None
             if upd:
                 supabase_admin.table("students").update(upd).eq("id", target["id"]).execute()
+                enroll_revert = (target["id"], revert)
         elif by_code:
             # student_code==code exists but is linked to ANOTHER user (code/account
             # mismatch — NOT an ownership conflict). Existing behaviour: log + skip
@@ -498,7 +510,7 @@ async def activate_account(
             # student rows for speaking-only users.
             full_name = (metadata.get("full_name") or metadata.get("name")
                          or (email.split("@")[0] if email else None) or "Học viên")
-            supabase_admin.table("students").insert({
+            _ins = supabase_admin.table("students").insert({
                 "user_id":       user_id,
                 "student_code":  code,
                 "full_name":     full_name,
@@ -506,6 +518,8 @@ async def activate_account(
                 "instructor_id": owner,            # GV if issuer is instructor, else NULL
                 "cohort_id":     code_cohort_id,
             }).execute()
+            if _ins.data:
+                enroll_inserted_id = (_ins.data[0] or {}).get("id")
         # else: no row + no enroll signal (plain mass code) → no-op (no pollution).
     except HTTPException:
         raise
@@ -524,7 +538,8 @@ async def activate_account(
     # use a real ISO timestamp.
     now_iso = datetime.now(timezone.utc).isoformat()
 
-    claimed = True
+    claimed = False
+    indeterminate = False
     try:
         claim = (
             supabase_admin.table("access_codes")
@@ -533,12 +548,12 @@ async def activate_account(
             .eq("is_used", False)
             .execute()
         )
-        if not (claim.data or []):
-            # The conditional UPDATE matched no row. Disambiguate by re-reading:
-            # did we LOSE a race to another user, or is this our own idempotent
-            # re-claim (same user double-submit)? Only a confirmed other-owner is
-            # a real loss — this keeps the change robust to clients that don't
-            # return the updated representation.
+        if claim.data:
+            claimed = True  # our conditional UPDATE matched the row → we won
+        else:
+            # 0 rows: either we LOST the race or it's our own idempotent re-claim.
+            # Re-read to disambiguate (also robust to clients that don't return the
+            # updated representation — then claim.data is empty even on a win).
             fresh = (
                 supabase_admin.table("access_codes")
                 .select("is_used, used_by")
@@ -547,16 +562,22 @@ async def activate_account(
                 .execute()
             )
             frow = (fresh.data or [{}])[0]
-            if frow.get("is_used") and str(frow.get("used_by")) != str(user_id):
-                claimed = False
+            # Not actually used (no real contention) OR used BY US → we hold it.
+            if (not frow.get("is_used")) or str(frow.get("used_by")) == str(user_id):
+                claimed = True
+            # else: another user owns it → claimed stays False (lost the race).
     except Exception as e:
-        # Non-fatal: user is already activated. Log and continue.
-        logger.warning("[warn] Could not mark access_code as used: %s", e)
+        # PR #589 review, comment 1: an exception here makes the claim/readback
+        # INDETERMINATE — we cannot confirm we own the code. FAIL CLOSED (claimed
+        # stays False) rather than fall through to Step 5, which would risk a
+        # second active redemption in a transient DB/PostgREST failure window.
+        indeterminate = True
+        logger.error("[auth] access-code claim indeterminate — failing closed: %s", e)
 
     if not claimed:
-        # Lost the race — another user claimed this code microseconds ago. Undo
-        # the activation WE just performed (only if WE set it this request) so the
-        # loser does not stay active on a code they don't own.
+        # Lost the race (or indeterminate claim). Undo EVERY side effect this
+        # request made BEFORE the claim so the loser is neither active nor
+        # enrolled on a code another user owns (PR #589 review, comments 1 & 2).
         if not was_already_active:
             try:
                 supabase_admin.table("users").update(
@@ -567,6 +588,30 @@ async def activate_account(
                     "[auth] race rollback of is_active FAILED for user=%s (critical): %s",
                     user_id, e,
                 )
+        if enroll_inserted_id:
+            try:
+                supabase_admin.table("students").delete().eq("id", enroll_inserted_id).execute()
+            except Exception as e:
+                logger.error(
+                    "[auth] race rollback of inserted student FAILED id=%s (critical): %s",
+                    enroll_inserted_id, e,
+                )
+        elif enroll_revert:
+            _sid, _fields = enroll_revert
+            try:
+                supabase_admin.table("students").update(_fields).eq("id", _sid).execute()
+            except Exception as e:
+                logger.error(
+                    "[auth] race rollback of student link FAILED id=%s (critical): %s",
+                    _sid, e,
+                )
+        if indeterminate:
+            # Transient DB/PostgREST failure — we don't actually know the code is
+            # used. Ask the user to retry rather than wrongly claiming it's spent.
+            raise HTTPException(
+                status_code=503,
+                detail="Lỗi tạm thời khi kích hoạt mã. Vui lòng thử lại.",
+            )
         raise HTTPException(status_code=400, detail="Access code này đã được sử dụng rồi")
 
     # ── Step 5: upsert assignment row so admin panel can show the redeemer ───
