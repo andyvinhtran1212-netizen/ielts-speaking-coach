@@ -63,3 +63,30 @@ def test_both_inserts_fail_raises_500_response_persist_failed():
     # consequence (the whole point): the endpoint raises instead of returning a
     # null response_id, so a session can never reach /complete with 0 responses
     # off the back of a "successful" 200.
+
+
+def test_full_row_returning_none_id_falls_back_to_core(monkeypatch=None):
+    """Mục 4 (B2): an upsert that returns a FALSY id (e.g. an insert that
+    persisted but returned no representation) is NOT a success — it must fall
+    back to the core row instead of returning (None, False) and silently
+    dropping downstream grammar-rec/vocab persistence."""
+    calls = []
+    def upsert(row):
+        calls.append(row)
+        return None if len(calls) == 1 else "rid-core"
+    rid, partial = _persist_response_with_fallback(
+        _ROW, _CORE, upsert, session_id="s1", question_id="q1")
+    assert rid == "rid-core"
+    assert partial is True
+    assert len(calls) == 2
+
+
+def test_both_rows_returning_none_id_fail_loud():
+    """Mục 4 (B2): both full and core upserts yielding no id → fail loud (500),
+    never a null response_id masquerading as a successful save."""
+    def upsert(row): return None
+    with pytest.raises(HTTPException) as ei:
+        _persist_response_with_fallback(
+            _ROW, _CORE, upsert, session_id="s1", question_id="q1")
+    assert ei.value.status_code == 500
+    assert ei.value.detail["error_code"] == "response_persist_failed"
