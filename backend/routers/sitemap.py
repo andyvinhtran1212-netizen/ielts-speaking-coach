@@ -7,7 +7,7 @@ GET /sitemap-grammar.xml
   Media type: application/xml
 """
 
-from datetime import date
+from datetime import datetime, timezone
 from xml.sax.saxutils import escape
 
 from fastapi import APIRouter
@@ -18,7 +18,7 @@ from services.grammar_content import grammar_service
 router = APIRouter(tags=["sitemap"])
 
 _BASE = "https://averlearning.com"
-_TODAY = date.today().isoformat()
+_TODAY = datetime.now(timezone.utc).date().isoformat()  # Mục 32 (B7): UTC, not local date.today()
 
 
 @router.get("/sitemap-grammar.xml", include_in_schema=False)

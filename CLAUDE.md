@@ -56,7 +56,6 @@ Never link to `practice.html?part=1`. The practice page will show an error if `s
 | `GET /sessions/{id}/questions` | `questions.py` | Load existing questions |
 | `POST /sessions/{id}/questions/generate` | `questions.py` | Generate questions via Gemini |
 | **`POST /sessions/{id}/responses`** | **`grading.py`** | **Official grading (Whisper + Claude)** |
-| `POST /sessions/{id}/responses/{qid}/audio` | `responses.py` | Legacy audio-only upload (unused) |
 
 The frontend always uses the `grading.py` route for submitting recordings.
 
@@ -153,7 +152,7 @@ When editing Grammar Wiki content or metadata, always check:
 - `association_lookup_failed: true` is returned by the list endpoint on DB failure. Render as `⚠ lookup failed`, never as `—`.
 
 ### Practice and result flows
-- The grading pipeline (`grading.py`) is the only official route for submitting recordings. `responses.py` is unused.
+- The grading pipeline (`grading.py`) is the only official route for submitting recordings. (The unused legacy `responses.py` audio-only route was removed in cleanup.)
 - Full-test chaining uses `_ftAllSessionIds` in the frontend and `extra_session_ids` in pronunciation endpoint calls.
 - Band aggregation happens at `PATCH /sessions/{id}/complete` — not inline during grading.
 - These flows have been iteratively stabilized. Change them carefully with explicit before/after contract analysis.
