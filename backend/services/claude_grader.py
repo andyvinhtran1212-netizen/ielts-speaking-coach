@@ -1286,12 +1286,16 @@ async def _post_process_practice_result(
                 if new_overlap >= _RELEVANCE_THRESHOLD:
                     result["sample_answer"] = new_sample
                 else:
+                    # Mục 21 (B3 follow-up): don't drop the sample silently — flag
+                    # WHY, so the frontend can explain instead of just showing nothing.
                     logger.warning(
                         "regen sample_answer still low (%.2f) — removing", new_overlap
                     )
                     result.pop("sample_answer", None)
+                    result["sample_answer_status"] = "removed_low_relevance"
             else:
                 result.pop("sample_answer", None)
+                result["sample_answer_status"] = "removed_low_relevance"
 
 
 async def _post_process_test_result(
@@ -1315,12 +1319,15 @@ async def _post_process_test_result(
                 if new_overlap >= _RELEVANCE_THRESHOLD:
                     result["improved_response"] = new_improved
                 else:
+                    # Mục 21 (B3 follow-up): flag WHY the improved answer was dropped.
                     logger.warning(
                         "regen improved_response still low (%.2f) — removing", new_overlap
                     )
                     result.pop("improved_response", None)
+                    result["improved_response_status"] = "removed_low_relevance"
             else:
                 result.pop("improved_response", None)
+                result["improved_response_status"] = "removed_low_relevance"
 
 
 def _attach_grammar_recommendations(result: dict) -> None:

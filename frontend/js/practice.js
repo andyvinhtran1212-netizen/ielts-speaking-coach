@@ -792,7 +792,7 @@
           _grammarCheckBlock(data.grammar_check) +
           _listBlock('Vocabulary Issues', data.vocabulary_issues, '#fb923c') +
           _correctionsBlock(data.corrections) +
-          (data.sample_answer ? _sampleAnswerBlock(data.sample_answer) : '');
+          (data.sample_answer ? _sampleAnswerBlock(data.sample_answer) : (data.sample_answer_status ? _sampleUnavailableBlock() : ''));
       } else if (data && data.fc_feedback) {
         // ── Test mode formal IELTS feedback ──────────────────────────────────
         commentsEl.innerHTML = warningsHtml +
@@ -803,7 +803,7 @@
           _criterionBlock('Pronunciation',           data.p_feedback)   +
           _listBlock('Điểm mạnh',      data.strengths,    '#4ade80')    +
           _listBlock('Cần cải thiện',  data.improvements, '#fb923c')    +
-          (data.improved_response ? _improvedBlock(data.improved_response) : '');
+          (data.improved_response ? _improvedBlock(data.improved_response) : (data.improved_response_status ? _sampleUnavailableBlock() : ''));
       } else {
         commentsEl.innerHTML =
           '<p style="font-size:13px;font-style:italic;color:var(--ds-faint);">Không có nhận xét.</p>';
@@ -1505,6 +1505,19 @@
       + 'letter-spacing:.06em;margin:0 0 7px;">Sample Answer</p>'
       + '<p style="font-size:13px;line-height:1.7;color:var(--ds-text);margin:0;">'
       + _esc(text) + '</p></div>';
+  }
+
+  // Mục 21 — the grader drops the sample/improved answer when it can't be kept
+  // relevant to what the candidate actually said. Explain WHY instead of showing
+  // nothing (the backend sends sample_answer_status / improved_response_status).
+  function _sampleUnavailableBlock() {
+    return '<div style="margin-top:16px;background:rgba(148,163,184,0.10);'
+      + 'border-left:3px solid #94a3b8;border-radius:0 6px 6px 0;padding:12px 14px;">'
+      + '<p style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;'
+      + 'letter-spacing:.06em;margin:0 0 7px;">Sample Answer</p>'
+      + '<p style="font-size:13px;line-height:1.7;color:var(--ds-text-secondary,#94a3b8);margin:0;">'
+      + 'Chưa có mẫu câu trả lời cho lần này vì câu trả lời của bạn lệch khỏi chủ đề câu hỏi. '
+      + 'Hãy trả lời bám sát câu hỏi hơn để nhận mẫu phù hợp.</p></div>';
   }
 
   // ── Part 2 flow ───────────────────────────────────────────────────────────────
@@ -2431,7 +2444,7 @@
         _criterionBlock('Pronunciation',           data.p_feedback) +
         _listBlock('Điểm mạnh',     data.strengths,    '#4ade80') +
         _listBlock('Cần cải thiện', data.improvements, '#fb923c') +
-        (data.improved_response ? _improvedBlock(data.improved_response) : '') +
+        (data.improved_response ? _improvedBlock(data.improved_response) : (data.improved_response_status ? _sampleUnavailableBlock() : '')) +
         '</div>';
     } else if (data.grammar_issues) {
       // Practice mode coaching feedback
@@ -2441,7 +2454,7 @@
         _grammarIssuesBlock(data.grammar_issues, data.grammar_recommendations) +
         _listBlock('Vocabulary Issues',  data.vocabulary_issues,     '#fb923c') +
         _correctionsBlock(data.corrections) +
-        (data.sample_answer ? _sampleAnswerBlock(data.sample_answer) : '') +
+        (data.sample_answer ? _sampleAnswerBlock(data.sample_answer) : (data.sample_answer_status ? _sampleUnavailableBlock() : '')) +
         '</div>';
     }
 
