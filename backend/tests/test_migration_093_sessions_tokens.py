@@ -45,5 +45,7 @@ def test_column_is_actually_used_by_the_pipeline():
     # not decorative — these are the write/read paths the migration unblocks.
     grading = (_BACKEND / "routers" / "grading.py").read_text(encoding="utf-8")
     admin = (_BACKEND / "routers" / "admin.py").read_text(encoding="utf-8")
-    assert '{"tokens_used": total}' in grading, "grading.py no longer writes tokens_used"
+    # B5/Mục 15: the write moved from a read-then-write UPDATE to the atomic
+    # increment_session_tokens RPC (migration 113), but it still writes the column.
+    assert "increment_session_tokens" in grading, "grading.py no longer increments tokens_used"
     assert "tokens_used" in admin, "admin.py no longer reads tokens_used"

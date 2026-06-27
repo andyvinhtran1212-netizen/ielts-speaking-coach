@@ -182,6 +182,63 @@ def enforce_flashcard_rate_limit(user_id: str, daily_limit: int) -> None:
         )
 
 
+# ── Grading pipeline (B5 / Mục 5) ─────────────────────────────────────────────
+# The speaking-grading endpoint runs Whisper + Claude on every submission and had
+# no per-user cap. Counts rows in `grading_attempts` (migration 114) since UTC
+# midnight. Fail-OPEN everywhere — grading is core, so a counter/insert outage
+# (or an un-applied migration) must never block a legitimate submission.
+
+
+def count_gradings_today(user_id: str) -> int:
+    today_iso = _utc_today_start().isoformat()
+    try:
+        res = (
+            supabase_admin.table("grading_attempts")
+            .select("id", count="exact")
+            .eq("user_id", user_id)
+            .gte("attempted_at", today_iso)
+            .execute()
+        )
+        return int(res.count or 0)
+    except Exception as e:
+        logger.warning("[rate_limit] grading count lookup failed user=%s: %s", user_id, e)
+        return 0
+
+
+def enforce_grading_rate_limit(user_id: str, daily_limit: int) -> None:
+    """Raise HTTPException(429) when the user has met/exceeded the daily grading
+    cap. daily_limit <= 0 DISABLES the cap (unlike the exercise limiter, a
+    misconfigured 0 must not block all grading)."""
+    if daily_limit <= 0:
+        return
+    used = count_gradings_today(user_id)
+    if used >= daily_limit:
+        reset_at = _utc_tomorrow_start().isoformat()
+        logger.info(
+            "[rate_limit] BLOCK grading user=%s used=%d limit=%d reset_at=%s",
+            user_id, used, daily_limit, reset_at,
+        )
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "error": "rate_limit_exceeded",
+                "message": f"Đã đạt giới hạn {daily_limit} lượt chấm trong ngày. Vui lòng thử lại sau.",
+                "exercise_type": "GRADING",
+                "limit": daily_limit,
+                "used": used,
+                "reset_at": reset_at,
+            },
+        )
+
+
+def record_grading_attempt(user_id: str) -> None:
+    """Best-effort: log one grading attempt for the daily counter."""
+    try:
+        supabase_admin.table("grading_attempts").insert({"user_id": user_id}).execute()
+    except Exception as e:
+        logger.warning("[rate_limit] record grading attempt failed user=%s (non-fatal): %s", user_id, e)
+
+
 def rate_limit_flashcard(daily_limit: int):
     """
     Async decorator twin of rate_limit_exercise — counts flashcard_review_log
