@@ -1643,7 +1643,10 @@ async def get_access_code_detail(
             "id":                  None,
             "user_id":             code["used_by"],
             "assigned_at":         code.get("used_at"),
-            "is_active":           True,
+            # Mục 13 (B5): this branch fires precisely because there is NO active
+            # assignment row — so the synthesized entry must NOT claim is_active=True
+            # (DB truth). The redeemer is still identifiable via is_fallback_used_by.
+            "is_active":           False,
             "is_fallback_used_by": True,
             "removable":           False,
         }]

@@ -279,7 +279,7 @@
 
     // ── Pronunciation radar chart ──────────────────────────────
     function renderPronChart(samples) {
-      // samples = { part1: {accuracy_score, fluency_score, completeness_score, prosody_score, overall_pron_score}, ... }
+      // samples = { part1: {accuracy_score, fluency_score, completeness_score, prosody_score, pronunciation_score}, ... }
       var scores = { accuracy: [], fluency: [], completeness: [], prosody: [], overall: [] };
 
       ['part1','part2','part3'].forEach(function(k) {
@@ -289,7 +289,7 @@
         if (s.fluency_score      != null) scores.fluency.push(s.fluency_score);
         if (s.completeness_score != null) scores.completeness.push(s.completeness_score);
         if (s.prosody_score      != null) scores.prosody.push(s.prosody_score);
-        if (s.overall_pron_score != null) scores.overall.push(s.overall_pron_score);
+        if (s.pronunciation_score != null) scores.overall.push(s.pronunciation_score);  // Mục 27 (B5): per-part field is pronunciation_score, not overall_pron_score
       });
 
       function avg(arr) {
