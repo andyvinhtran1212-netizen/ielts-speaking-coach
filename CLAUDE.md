@@ -2,13 +2,18 @@
 
 ## What this project is
 
-IELTS Speaking Coach is a web app for IELTS Speaking exam preparation. Users record spoken answers to IELTS-style questions, get AI-scored feedback (Whisper STT + Claude grading), and can practice full 3-part tests. The system also includes a Grammar Wiki, pronunciation assessment (Azure), a topic library, and an admin dashboard.
+IELTS Speaking Coach **began** as a web app for IELTS **Speaking** preparation and is **pivoting into a comprehensive IELTS-prep platform covering all four skills (Speaking, Writing, Reading, Listening), on a path toward a full English-learning site** (pivot decided 2026-06-27). The repo name and the most mature flows remain Speaking-centric — users record spoken answers to IELTS-style questions, get AI-scored feedback (Whisper STT + Claude grading), and practice full 3-part tests — but **new content and features should serve all skills, not Speaking only.** The system also includes a Grammar Wiki (skill-agnostic), pronunciation assessment (Azure), a topic library, a Reading module (`backend/content/reading/`), and an admin dashboard.
 
 **Most important quality expectations:**
 - Feedback must be truthful and non-misleading. False-positive grammar flags harm user trust.
 - Admin must see accurate, canonical data — especially for access-code ownership.
 - Grading and session-persistence flows must not fail silently.
 - Grammar Wiki metadata must be internally consistent. Stale links must not exist.
+
+### Product direction (pivot — 2026-06-27)
+- **Scope is no longer Speaking-only.** Writing is now first-class; Reading/Listening follow. Build out **both Speaking and Writing** content (grammar articles, exercises, sample answers).
+- This **supersedes the "FREEZE non-Speaking content" gate** in `docs/GRAMMAR_HANDOFF_consolidated_2026-06-27.md` §I.3, which was written for the Speaking-only era. Grammar Wiki articles targeting Writing (e.g. Task 1 / Task 2 grammar) are valid, intended content — not scope-creep.
+- The pivot **widens scope without lowering quality bars**: truthful feedback, canonical admin data, no silent failures, and internally-consistent Grammar Wiki metadata all still hold.
 
 ---
 
@@ -135,8 +140,9 @@ When editing Grammar Wiki content or metadata, always check:
 
 ### Grammar Wiki
 - Has gone through multiple remediation batches (A–E, April 2026). Metadata is now substantially cleaned.
-- All slug references in frontmatter must point to real files. Verify before adding new cross-links.
+- All slug references in frontmatter must point to real files. Verify before adding new cross-links. (`test_grammar_wiki_ref_drift` fails CI if any `related_pages`/`next_articles`/`compare_with`/`prerequisites` slug doesn't resolve to a live article.)
 - Category values must match the actual filesystem directory the file lives in.
+- **Serves all skills, not Speaking-only.** Articles may target Writing (`grammar-for-writing` category), Reading, etc. Use `speaking_relevance` / `writing_relevance` frontmatter to flag the skill; a Writing-focused article with `writing_relevance: high` is intended content. Categories auto-derive from the directory and auto-humanise via `_prettify` (`grammar-for-writing` → "Grammar For Writing") — there is no category map to maintain.
 
 ### Feedback quality
 - `_filter_false_article_flags` in `claude_grader.py` has been carefully tuned.
