@@ -398,7 +398,7 @@ def generate_and_upload(
             "depends on a rich textual layout.",
         )
 
-    resolved_key = api_key if api_key is not None else os.getenv("GEMINI_API_KEY", "")
+    resolved_key = api_key if api_key is not None else settings.GEMINI_API_KEY  # Mục 17 (B5): via Settings, not os.getenv
     if not resolved_key:
         raise RuntimeError("GEMINI_API_KEY not configured")
 

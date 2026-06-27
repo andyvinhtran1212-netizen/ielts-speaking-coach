@@ -143,7 +143,13 @@ def update_session_bands(session_id: str) -> None:
     try:
         bands = _compute_session_bands(session_id)
     except Exception as e:
-        logger.warning("[update_session_bands] compute failed session=%s: %s", session_id, e)
+        # Mục 14 (B5): make the silent failure observable. This runs as a
+        # background task after pronunciation; if it dies quietly the session
+        # keeps stale (pre-pronunciation) bands and nobody notices.
+        logger.error(
+            "[update_session_bands][metric] band_recompute_failed=1 session=%s: %s "
+            "— pronunciation-adjusted bands NOT persisted", session_id, e,
+        )
         return
 
     payload = {k: v for k, v in bands.items() if v is not None}
@@ -153,7 +159,10 @@ def update_session_bands(session_id: str) -> None:
         supabase_admin.table("sessions").update(payload).eq("id", session_id).execute()
         logger.info("[update_session_bands] session=%s bands=%s", session_id, payload)
     except Exception as e:
-        logger.warning("[update_session_bands] write failed session=%s: %s", session_id, e)
+        logger.error(
+            "[update_session_bands][metric] band_persist_failed=1 session=%s: %s "
+            "— user will see stale bands", session_id, e,
+        )
 
 
 # Maps session mode → required permission scope

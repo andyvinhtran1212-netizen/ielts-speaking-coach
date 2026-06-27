@@ -36,6 +36,7 @@ class _B:
     def order(self, *a, **k): return self
     def in_(self, *a, **k): return self
     def eq(self, *a, **k): return self
+    def limit(self, *a, **k): return self   # detail endpoint chains .limit(1)
 
     def execute(self):
         return _Exec(list(self._t.get(self._name, [])))
@@ -174,6 +175,26 @@ def test_true_legacy_usedby_still_synthesized(monkeypatch):
     assert au[0]["is_fallback_used_by"] is True
     assert au[0]["removable"] is False
     assert au[0]["email"] == "legacy@x.com"
+
+
+def test_detail_fallback_used_by_reports_inactive(monkeypatch):
+    """Mục 13 (B5): the DETAIL endpoint synthesizes the legacy redeemer ONLY when
+    there is NO active assignment — so the synthesized entry must report
+    is_active=False (DB truth), not True. The redeemer stays identifiable via
+    is_fallback_used_by + user_id/email."""
+    _install(monkeypatch, {
+        "access_codes": [_code("c1", used_by="u9", used_at="2026-01-02T00:00:00Z", is_used=True)],
+        "user_code_assignments": [],   # no active row → fallback synthesis path
+        "users": [{"id": "u9", "email": "legacy@x.com", "display_name": "L"}],
+        "sessions": [],
+    })
+    out = _run(admin_module.get_access_code_detail("c1", authorization="Bearer x"))
+    a = out["assignments"]
+    assert len(a) == 1
+    assert a[0]["is_fallback_used_by"] is True
+    assert a[0]["is_active"] is False         # ← Mục 13: was True, contradicted the DB
+    assert a[0]["user_id"] == "u9"
+    assert a[0]["email"] == "legacy@x.com"    # redeemer still shown
 
 
 def test_admin_guard_invoked(monkeypatch):

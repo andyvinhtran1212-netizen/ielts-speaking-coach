@@ -611,7 +611,7 @@ async def grade_response_endpoint(
             grading["grammar_recommendations"] = saved_recs
 
         # ── STEP 8c: Schedule vocab extraction (background, failure-isolated) ──
-        vocab_analysis_enabled = os.environ.get("VOCAB_ANALYSIS_ENABLED", "false").lower() == "true"
+        vocab_analysis_enabled = settings.VOCAB_ANALYSIS_ENABLED  # Mục 16 (B5): via Settings, not os.environ
         if vocab_analysis_enabled and transcript and response_id:
             background_tasks.add_task(
                 _run_vocab_extraction,
