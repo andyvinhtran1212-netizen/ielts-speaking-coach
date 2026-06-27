@@ -473,7 +473,7 @@ def _try_haiku(vocab_row: dict) -> dict | None:
     model = _DEFAULT_HAIKU_MODEL
 
     def _attempt() -> dict | None:
-        client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+        client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=60.0)  # Mục 11 (B4): bound the sync Claude call
         msg = client.messages.create(
             model=model,
             max_tokens=512,
@@ -537,7 +537,7 @@ def _try_gemini(vocab_row: dict) -> dict | None:
             ),
             system_instruction=_SYSTEM_PROMPT,
         )
-        resp = model.generate_content(_build_user_prompt(vocab_row))
+        resp = model.generate_content(_build_user_prompt(vocab_row), request_options={"timeout": 60})  # Mục 11 (B4): bound the sync Gemini call
         raw = resp.text or ""
         payload = json.loads(_strip_json_fences(raw))
         if not isinstance(payload, dict):

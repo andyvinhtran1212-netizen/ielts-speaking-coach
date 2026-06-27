@@ -19,6 +19,7 @@ with my friends. Fresh air and nature help me relax after a long week of work.',
     "
 """
 
+import asyncio
 import json
 import logging
 import math
@@ -1205,6 +1206,9 @@ def _filter_style_vocab_issues(vocab_issues: list[str]) -> list[str]:
     return filtered
 
 
+_REGEN_TIMEOUT_SECONDS = 20.0   # Mục 18 (B4): bound the regen so it can't hang grading
+
+
 async def _regen_grounded_answer(
     client: "anthropic.AsyncAnthropic",
     transcript: str,
@@ -1224,11 +1228,17 @@ async def _regen_grounded_answer(
         "Output only the improved answer text, no preamble."
     )
     try:
-        msg = await client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=300,
-            temperature=0.2,
-            messages=[{"role": "user", "content": prompt}],
+        # Mục 18 (B4): bound the regen so a hung Haiku call can't block the whole
+        # grading response. asyncio.TimeoutError is caught below → returns None →
+        # the caller drops the sample gracefully.
+        msg = await asyncio.wait_for(
+            client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=300,
+                temperature=0.2,
+                messages=[{"role": "user", "content": prompt}],
+            ),
+            timeout=_REGEN_TIMEOUT_SECONDS,
         )
         text = msg.content[0].text.strip() if msg.content else ""
         return text or None

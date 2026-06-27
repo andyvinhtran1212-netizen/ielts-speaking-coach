@@ -233,7 +233,9 @@ async def grade_response_endpoint(
         except Exception as e:
             logger.error("[grading] Whisper thất bại: %s", e)
             _mark_session_error(session_id, "stt_failed", "whisper", str(e))
-            raise HTTPException(502, f"Lỗi nhận dạng giọng nói (Whisper): {e}")
+            # Mục 28 (B4): don't leak the provider name or the raw exception to the
+            # user — the full error is already logged + recorded above.
+            raise HTTPException(502, "Lỗi nhận dạng giọng nói. Vui lòng thử lại.")
 
         # ── STEP 4: Upload to Supabase Storage (archival — non-blocking) ─────
         step = "storage_upload"
