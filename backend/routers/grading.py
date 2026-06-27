@@ -41,6 +41,7 @@ from services.length_warning import (
     get_length_warning_context,
 )
 from services.off_topic_judge import OffTopicVerdict, get_judge
+from services.rate_limit import enforce_grading_rate_limit, record_grading_attempt
 from services.grammar_check import (
     GrammarCheckResult,
     get_grammar_check_service,
@@ -203,6 +204,15 @@ async def grade_response_endpoint(
             raise HTTPException(404, "Câu hỏi không tồn tại trong session này")
 
         question_text: str = q_res.data[0]["question_text"]
+
+        # ── Daily grading rate-limit (B5 / Mục 5) ─────────────────────────────
+        # The pipeline below runs Whisper + Claude on every call; cap per-user/day
+        # so one account can't spam the expensive path (re-recording one question
+        # 100×). Fail-open (services.rate_limit). Record AFTER the cap check so
+        # this request counts toward the next one's limit.
+        step = "rate_limit"
+        enforce_grading_rate_limit(user_id, settings.MAX_GRADINGS_PER_USER_PER_DAY)
+        record_grading_attempt(user_id)
 
         # ── STEP 2: File size guard ───────────────────────────────────────────
         step = "read_file"
@@ -896,9 +906,9 @@ def _increment_tokens(
         output = grading JSON
         total  ≈ input + output  (rough: 4 chars ≈ 1 token)
 
-    Uses read-then-write to accumulate across multiple responses in one session.
-    A small race window exists for concurrent submissions but is acceptable given
-    this is best-effort tracking.
+    Accumulates across responses via the atomic increment_session_tokens RPC
+    (migration 113) — concurrent submissions in the same session no longer lose
+    increments. Best-effort: skipped silently if the RPC/column isn't there.
     """
     try:
         system_tokens  = 1_300   # SYSTEM_PROMPT ≈ 1 241 tokens (measured)
@@ -906,22 +916,16 @@ def _increment_tokens(
         output_tokens  = len(json.dumps(grading, ensure_ascii=False)) // 4
         new_tokens     = input_tokens + output_tokens
 
-        # Read current accumulated value before adding
-        sess_row = (
-            supabase_admin.table("sessions")
-            .select("tokens_used")
-            .eq("id", session_id)
-            .limit(1)
-            .execute()
-        )
-        current = (sess_row.data or [{}])[0].get("tokens_used") or 0
-        total   = int(current) + new_tokens
+        # Mục 15 (B5): atomic increment via RPC. The old read-then-write lost
+        # increments when two responses in the same session were graded
+        # concurrently. Still best-effort (wrapped by the outer try/except below),
+        # so a deploy without migration 113 just skips token tracking.
+        supabase_admin.rpc(
+            "increment_session_tokens",
+            {"p_session_id": session_id, "p_delta": new_tokens},
+        ).execute()
 
-        supabase_admin.table("sessions").update(
-            {"tokens_used": total}
-        ).eq("id", session_id).execute()
-
-        logger.debug("[grading] tokens_used +%d → %d total for session %s", new_tokens, total, session_id)
+        logger.debug("[grading] tokens_used +%d for session %s (atomic)", new_tokens, session_id)
 
     except Exception as e:
         logger.debug("[grading] tokens_used update skipped (non-fatal): %s", e)

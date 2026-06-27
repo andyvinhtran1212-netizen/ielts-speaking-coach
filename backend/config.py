@@ -55,6 +55,10 @@ class Settings(BaseSettings):
     # over this default, so update/remove that var to roll the production value.
     MAX_SESSIONS_PER_USER_PER_DAY: int = 24
     MAX_AUDIO_DURATION_SECONDS: int = 300
+    # B5 / Mục 5 — daily cap on the expensive grading pipeline (Whisper + Claude)
+    # per user. Generous: a real student rarely exceeds a few dozen gradings/day;
+    # this stops abuse (spamming one question 100×). <= 0 disables the cap.
+    MAX_GRADINGS_PER_USER_PER_DAY: int = 200
 
     # Vocab Bank feature flags
     VOCAB_ANALYSIS_ENABLED: bool = False
