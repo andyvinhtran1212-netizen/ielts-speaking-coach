@@ -23,13 +23,11 @@ prerequisites:
 - conditionals
 - past-perfect
 related_pages:
-- emphasis-inversion
 - conditionals
 - cleft-sentences
 - complex-sentence
 compare_with:
 - cleft-sentences
-- emphasis-inversion
 order: 8
 status: complete
 last_updated: 2026-04-18
@@ -43,7 +41,6 @@ common_error_tags:
 speaking_relevance: high
 writing_relevance: high
 next_articles:
-- emphasis-inversion
 - conditionals
 - cleft-sentences
 pathways:

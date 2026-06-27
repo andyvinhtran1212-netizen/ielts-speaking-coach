@@ -25,7 +25,7 @@ related_pages:
 - modal-verbs
 - discourse-markers
 - conditionals
-- emphasis-inversion
+- inversion
 compare_with:
 - academic-hedging
 order: 6
@@ -42,7 +42,6 @@ speaking_relevance: high
 writing_relevance: high
 next_articles:
 - conditionals
-- grammar-in-task2
 - grammar-in-speaking
 pathways:
 - grammar-for-ielts-speaking

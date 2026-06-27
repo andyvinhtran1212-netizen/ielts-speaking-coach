@@ -24,7 +24,6 @@ prerequisites:
 related_pages:
 - making-answers-longer-naturally
 - adding-reasons-clearly
-- expressing-uncertainty
 - strong-vs-cautious-opinions
 order: 23
 status: complete
@@ -40,7 +39,6 @@ writing_relevance: medium
 next_articles:
 - making-answers-longer-naturally
 - adding-reasons-clearly
-- expressing-uncertainty
 pathways:
 - grammar-for-ielts-speaking
 - band-6-to-7

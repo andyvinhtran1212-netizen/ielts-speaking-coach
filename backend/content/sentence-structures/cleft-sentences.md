@@ -26,10 +26,8 @@ related_pages:
 - relative-clauses
 - complex-sentence
 - inversion
-- emphasis-inversion
 compare_with:
 - inversion
-- emphasis-inversion
 order: 7
 status: complete
 last_updated: 2026-04-18

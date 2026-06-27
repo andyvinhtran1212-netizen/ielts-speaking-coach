@@ -40,7 +40,6 @@ writing_relevance: high
 next_articles:
 - double-subject-errors
 - missing-subjects
-- avoiding-repetitive-sentence-openings
 pathways:
 - fix-common-mistakes
 - band-6-to-7
