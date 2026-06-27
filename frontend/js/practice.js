@@ -2830,7 +2830,7 @@
 
   function nextQuestion() {
     if (_recSubState === 'recording') {
-      alert('Hãy nhấn "Dừng ghi âm" trước khi sang câu tiếp theo.');
+      _showRecError('Hãy nhấn "Dừng ghi âm" trước khi sang câu tiếp theo.');
       return;
     }
     if (_currentIdx >= _questions.length - 1) return;
@@ -2840,7 +2840,7 @@
 
   async function finishSession() {
     if (_recSubState === 'recording') {
-      alert('Hãy nhấn "Dừng ghi âm" trước khi hoàn thành phiên.');
+      _showRecError('Hãy nhấn "Dừng ghi âm" trước khi hoàn thành phiên.');
       return;
     }
     var btn = $('btn-finish');

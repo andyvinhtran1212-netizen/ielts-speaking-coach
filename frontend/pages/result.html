@@ -218,6 +218,21 @@
       showState('error');
     }
 
+    // Mục 36 (B8) — transient, non-blocking notice for recoverable errors (PDF
+    // download / retry failed). Replaces blocking alert() and never echoes the
+    // raw err.message to the user.
+    function _toast(msg) {
+      var t = document.createElement('div');
+      t.textContent = msg;
+      t.setAttribute('role', 'alert');
+      t.className = 'result-toast';
+      t.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);' +
+        'background:var(--ds-surface-elevated,#1f2937);color:#fff;padding:12px 18px;border-radius:8px;' +
+        'font-size:13px;line-height:1.5;box-shadow:0 6px 20px rgba(0,0,0,.28);z-index:9999;max-width:90vw;';
+      document.body.appendChild(t);
+      setTimeout(function () { t.remove(); }, 5000);
+    }
+
     // ── Band helpers ───────────────────────────────────────────────────────────
     function bandClass(val) {
       if (val == null) return 'band-none';
@@ -891,7 +906,7 @@
         document.body.removeChild(a);
         setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
       } catch (err) {
-        alert('Không thể tải PDF: ' + err.message);
+        _toast('Không thể tải PDF. Vui lòng thử lại.');  // Mục 36 (B8): non-blocking, no raw err.message
       } finally {
         btn.disabled = false;
         btn.innerHTML = orig;
@@ -907,9 +922,9 @@
       try {
         var data = await window.api.post('/sessions', { mode: mode || 'practice', part: part, topic: topic }, token);
         if (!data || !data.session_id) throw new Error('Không nhận được session_id');
-        window.location.href = 'practice.html?session_id=' + data.session_id;
+        window.location.href = window.api.url('pages/practice.html') + '?session_id=' + data.session_id;  // Mục 37 (B8): root-relative, not deploy-context-relative
       } catch (err) {
-        alert('Không thể tạo phiên mới: ' + err.message);
+        _toast('Không thể tạo phiên mới. Vui lòng thử lại.');  // Mục 36 (B8): non-blocking, no raw err.message
         btn.disabled = false;
         btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg> Luyện lại chủ đề này';
       }

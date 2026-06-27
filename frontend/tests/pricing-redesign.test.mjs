@@ -456,10 +456,10 @@ describe('pricing.css / token discipline', () => {
 describe('pricing.html / Vietnamese marketing microcopy preserved exactly', () => {
   const phrases = [
     'Bảng giá — averlearning',                            // <title>
-    'Không cần thẻ tín dụng · Huỷ bất kỳ lúc nào',         // hero eyebrow
+    'Không cần thẻ tín dụng · Hoàn tiền trong 7 ngày đầu', // hero eyebrow (B8/Mục 38: was "Huỷ bất kỳ lúc nào" — no auto-renew subscription)
     'Chọn gói phù hợp',                                    // hero h1 line 1
     'với bạn',                                             // hero h1 line 2
-    'Bắt đầu miễn phí, nâng cấp khi cần.',                 // hero lead
+    'Chọn gói phù hợp với mục tiêu của bạn.',              // hero lead (B8/Mục 39: was "Bắt đầu miễn phí, nâng cấp khi cần" — not self-serve)
     'AI feedback ngay sau mỗi câu trả lời',                // hero lead tail
     'Hàng tháng',                                          // toggle
     'Hàng năm',                                            // toggle
