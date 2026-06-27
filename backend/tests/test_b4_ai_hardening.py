@@ -51,11 +51,15 @@ def test_gemini_sdk_error_is_normalised_to_valueerror(monkeypatch):
 
     class _BoomModel:
         async def generate_content_async(self, _prompt):
-            raise RuntimeError("429 quota exceeded — raw SDK error")
+            raise RuntimeError("429 quota exceeded — secret-bucket auth body")
 
     monkeypatch.setattr(gemini, "_model", _BoomModel())
 
     with pytest.raises(ValueError) as ei:
         asyncio.run(gemini._call_gemini("anything"))
-    # the raw SDK RuntimeError must NOT escape unhandled
+    # the raw SDK RuntimeError must NOT escape unhandled ...
     assert not isinstance(ei.value, RuntimeError)
+    # ... and (PR #592 review) the generic message must NOT embed the raw SDK
+    # text — admin bulk-generate surfaces str(exc) to clients.
+    assert "quota" not in str(ei.value)
+    assert "secret-bucket" not in str(ei.value)

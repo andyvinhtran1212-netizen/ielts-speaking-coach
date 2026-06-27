@@ -125,7 +125,10 @@ async def _call_gemini(prompt: str, *, _retry: bool = True,
         # callers fall back to their hardcoded questions instead of leaking an
         # unhandled SDK error up to (admin) endpoints.
         logger.error("[gemini] generate_content failed: %s", exc)
-        raise ValueError(f"Gemini request failed: {exc}") from exc
+        # PR #592 review: the raw SDK error stays in the server log ONLY. This
+        # message propagates to admin bulk-generate responses (str(exc)), so keep
+        # it generic — don't leak provider quota/auth/API error bodies.
+        raise ValueError("Gemini request failed") from exc
 
     # Log token usage and persist to ai_usage_logs
     try:
@@ -168,7 +171,9 @@ async def _call_gemini(prompt: str, *, _retry: bool = True,
             "[gemini] JSON parse failed after retry — preview: %r | error: %s",
             preview, exc,
         )
-        raise ValueError(f"Gemini response was not valid JSON: {exc}") from exc
+        # Generic message (PR #592 review) — detail is in the log + the chained
+        # cause; admin responses surface str(exc).
+        raise ValueError("Gemini response was not valid JSON") from exc
 
 
 # ── Public API ─────────────────────────────────────────────────────────────────
