@@ -735,6 +735,7 @@ def _build_response_payload(is_practice, *, response_id, partial, transcript,
             "corrections":              grading["corrections"],
             "strengths":               grading["strengths"],
             "sample_answer":            grading.get("sample_answer"),
+            "sample_answer_status":     grading.get("sample_answer_status"),  # Mục 21: why a sample is absent
             "grammar_recommendations":  grading.get("grammar_recommendations") or [],
             **signals,
         }
@@ -759,6 +760,7 @@ def _build_response_payload(is_practice, *, response_id, partial, transcript,
         "strengths":             grading["strengths"],
         "improvements":          grading["improvements"],
         "improved_response":     grading.get("improved_response"),
+        "improved_response_status": grading.get("improved_response_status"),  # Mục 21: why it's absent
         **signals,
     }
 
