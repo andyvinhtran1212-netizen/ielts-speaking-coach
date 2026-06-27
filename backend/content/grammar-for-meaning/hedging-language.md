@@ -42,6 +42,7 @@ speaking_relevance: high
 writing_relevance: high
 next_articles:
 - conditionals
+- grammar-in-task2
 - grammar-in-speaking
 pathways:
 - grammar-for-ielts-speaking
