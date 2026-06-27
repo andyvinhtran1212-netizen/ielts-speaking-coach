@@ -1507,17 +1507,19 @@
       + _esc(text) + '</p></div>';
   }
 
-  // Mục 21 — the grader drops the sample/improved answer when it can't be kept
-  // relevant to what the candidate actually said. Explain WHY instead of showing
-  // nothing (the backend sends sample_answer_status / improved_response_status).
+  // Mục 21 — the grader drops the sample/improved answer when it can't ground a
+  // version in what the candidate said (or regeneration timed out). Explain WHY
+  // instead of showing nothing. NEUTRAL wording (PR #594 review): the status is
+  // "low relevance of the GENERATED answer", which is NOT the same as the learner
+  // being off-topic — so don't blame their answer.
   function _sampleUnavailableBlock() {
     return '<div style="margin-top:16px;background:rgba(148,163,184,0.10);'
       + 'border-left:3px solid #94a3b8;border-radius:0 6px 6px 0;padding:12px 14px;">'
       + '<p style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;'
       + 'letter-spacing:.06em;margin:0 0 7px;">Sample Answer</p>'
       + '<p style="font-size:13px;line-height:1.7;color:var(--ds-text-secondary,#94a3b8);margin:0;">'
-      + 'Chưa có mẫu câu trả lời cho lần này vì câu trả lời của bạn lệch khỏi chủ đề câu hỏi. '
-      + 'Hãy trả lời bám sát câu hỏi hơn để nhận mẫu phù hợp.</p></div>';
+      + 'Chưa tạo được mẫu câu trả lời phù hợp cho phần này. '
+      + 'Bạn có thể thử lại để nhận mẫu sát với câu trả lời của mình hơn.</p></div>';
   }
 
   // ── Part 2 flow ───────────────────────────────────────────────────────────────

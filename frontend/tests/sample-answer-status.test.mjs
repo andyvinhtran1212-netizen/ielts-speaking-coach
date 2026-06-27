@@ -12,8 +12,10 @@ const src = readFileSync(join(__dirname, '..', 'js', 'practice.js'), 'utf8');
 
 test('defines the sample-unavailable explanation block', () => {
   assert.match(src, /function\s+_sampleUnavailableBlock\s*\(/);
-  // explains the reason (off-topic) in Vietnamese
-  assert.match(src, /lệch khỏi chủ đề câu hỏi/);
+  // neutral explanation (PR #594 review): describes the missing sample without
+  // blaming the learner's answer as off-topic.
+  assert.match(src, /Chưa tạo được mẫu câu trả lời/);
+  assert.doesNotMatch(src, /câu trả lời của bạn lệch khỏi chủ đề/);
 });
 
 test('renders the explanation when sample_answer is absent but status is set', () => {
