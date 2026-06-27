@@ -1075,8 +1075,30 @@ async def _bg_finalize_full_test(session_ids: list) -> None:
             )
 
     for sid in session_ids:
+        # P0 (B1/Mục 1): only complete a session — which AGGREGATES band scores —
+        # when every response is actually graded. If the grace window expired with
+        # grading still pending, completing would compute a band from incomplete
+        # data and show the user a silently-wrong score. Mark analysis_failed
+        # instead so the user/admin can recover. `all_ready` (group poll) short-
+        # circuits the per-session re-check; otherwise re-check THIS session so a
+        # fully-graded session isn't failed just because a sibling lagged.
         try:
-            await asyncio.to_thread(_complete_session_internal, sid)
+            session_ready = all_ready or await asyncio.to_thread(
+                _check_all_responses_graded, [sid]
+            )
+            if session_ready:
+                await asyncio.to_thread(_complete_session_internal, sid)
+            else:
+                await asyncio.to_thread(
+                    lambda s=sid: supabase_admin.table("sessions")
+                    .update({"status": "analysis_failed"})
+                    .eq("id", s)
+                    .execute()
+                )
+                logger.error(
+                    "[finalize_ft] session=%s incomplete after grace window — marked "
+                    "analysis_failed (band NOT aggregated from partial data)", sid,
+                )
         except Exception as e:
             logger.error("[finalize_ft] complete failed for session=%s: %s", sid, e)
             try:
@@ -1086,8 +1108,14 @@ async def _bg_finalize_full_test(session_ids: list) -> None:
                     .eq("id", s)
                     .execute()
                 )
-            except Exception:
-                pass
+            except Exception as e2:
+                # B2/Mục 3 (absorbed — same block): never swallow the recovery
+                # write. A silently-failed recovery leaves the session stuck in
+                # 'submitted' forever.
+                logger.error(
+                    "[finalize_ft] recovery update to analysis_failed FAILED for "
+                    "session=%s (critical): %s", sid, e2,
+                )
 
 
 # ── POST /sessions/finalize-full-test ─────────────────────────────────────────
