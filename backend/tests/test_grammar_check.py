@@ -340,8 +340,8 @@ def test_categorise_falls_back_to_other_for_unknown():
 
 
 def test_locked_constants():
-    """Pin L4 (24h), L10 (15s), L8 (10). Future tuning is intentional;
-    flipping the values silently would surprise dogfood expectations."""
+    """Pin L4 (4h — was 24h, B3/Mục 20), L10 (15s), L8 (10). Future tuning is
+    intentional; flipping the values silently would surprise dogfood expectations."""
     assert GRAMMAR_CHECK_TIMEOUT_SECONDS == 15.0
-    assert GRAMMAR_CACHE_TTL_HOURS       == 24
+    assert GRAMMAR_CACHE_TTL_HOURS       == 4
     assert MAX_DISPLAYED_ERRORS          == 10

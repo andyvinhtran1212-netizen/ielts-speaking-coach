@@ -62,7 +62,7 @@ logger = logging.getLogger(__name__)
 # ── Constants ─────────────────────────────────────────────────────────────────
 
 GRAMMAR_CHECK_TIMEOUT_SECONDS:   float = 15.0      # L10
-GRAMMAR_CACHE_TTL_HOURS:         int   = 24        # L4
+GRAMMAR_CACHE_TTL_HOURS:         int   = 4         # L4 — Mục 20 (B3): was 24h; a grammar-rules/asset update should not be served stale for up to a day
 MAX_DISPLAYED_ERRORS:            int   = 10        # L8
 _CACHE_TABLE:                    str   = "grammar_check_cache"
 
