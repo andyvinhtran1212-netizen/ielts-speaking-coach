@@ -1002,6 +1002,14 @@ _STOPWORDS = frozenset({
     "only", "over", "after", "before", "off", "into", "other",
 })
 
+# Cue-card instruction verbs that are NOT part of the topic — they inflate the
+# question-overlap denominator without being content a relevant sample echoes
+# (PR #591 review). The bulk of cue-card scaffolding ("You should say:" +
+# bullets) is dropped by taking the first line; these are the leftover verbs.
+_CUE_CARD_FILLERS = frozenset({
+    "describe", "explain", "talk", "tell", "say", "give", "mention",
+})
+
 _RELEVANCE_THRESHOLD = 0.15
 
 # Indicators that a correction is a genuine error (not just style preference).
@@ -1033,12 +1041,35 @@ def _content_words(text: str) -> set[str]:
     return {w for w in words if w not in _STOPWORDS and len(w) > 2}
 
 
-def _validate_sample_relevance(transcript: str, sample: str) -> float:
-    """Overlap ratio of transcript content words present in the sample answer."""
+def _question_topic_words(question: str) -> set[str]:
+    """Content words of the cue-card TOPIC only. A Part 2 question_text can carry
+    the full Cambridge-format prompt ('You should say:' + bullets, newline-
+    joined) — the topic is the first line. Instruction fillers are dropped too,
+    so a long cue card's scaffolding doesn't shrink the empty-transcript
+    relevance fallback below threshold for an on-topic sample (PR #591 review)."""
+    topic_line = question.split("\n", 1)[0]
+    return _content_words(topic_line) - _CUE_CARD_FILLERS
+
+
+def _validate_sample_relevance(transcript: str, sample: str, question: str = "") -> float:
+    """Overlap ratio of the transcript's content words present in the sample
+    answer (how grounded the sample is in what the user actually said).
+
+    Mục 19 (B3): when the transcript has NO content words (e.g. the user barely
+    spoke / Whisper returned only stopwords), transcript-overlap is undefined.
+    The old code returned 1.0 ("assume relevant"), which blindly KEEPS a sample
+    even if it drifted off-topic. Fall back to QUESTION overlap instead so an
+    off-topic sample is still caught, while an on-topic sample (relevant to the
+    question being answered) is correctly kept — strictly better than assuming
+    either fully-relevant (1.0) or fully-irrelevant (0.0)."""
+    sample_words = _content_words(sample)
     trans_words = _content_words(transcript)
-    if not trans_words:
-        return 1.0
-    return len(trans_words & _content_words(sample)) / len(trans_words)
+    if trans_words:
+        return len(trans_words & sample_words) / len(trans_words)
+    q_words = _question_topic_words(question)
+    if q_words:
+        return len(q_words & sample_words) / len(q_words)
+    return 1.0   # nothing to measure against → no evidence of drift, keep sample
 
 
 def _filter_false_article_flags(grammar_issues: list[str], transcript: str) -> list[str]:
@@ -1075,7 +1106,18 @@ def _filter_false_article_flags(grammar_issues: list[str], transcript: str) -> l
             for m in _QUOTE_RE.finditer(issue)
         ]
         if not quoted_phrases:
-            filtered.append(issue)
+            # Mục 7 (B3): an article/determiner flag with NO quoted noun phrase
+            # can't be validated against the transcript, so we can't tell a real
+            # issue from a Claude false positive — and it's also un-actionable for
+            # the user (no specific phrase to fix). Since false article flags erode
+            # trust (the project's top feedback-quality concern), drop the
+            # unvalidatable flag rather than surface it unchecked. Well-formed
+            # article corrections quote the phrase, so this targets vague flags
+            # like "Thiếu mạo từ" with no quoted noun.
+            logger.debug(
+                "article false-positive guard: dropped unquoted article issue '%s'",
+                issue[:80],
+            )
             continue
 
         phrase = quoted_phrases[-1]  # use last quoted phrase as the target
@@ -1222,7 +1264,7 @@ async def _post_process_practice_result(
 
     sample = result.get("sample_answer") or ""
     if sample and transcript:
-        overlap = _validate_sample_relevance(transcript, sample)
+        overlap = _validate_sample_relevance(transcript, sample, question)
         if overlap < _RELEVANCE_THRESHOLD:
             logger.warning(
                 "sample_answer relevance low (%.2f < %.2f) — regenerating grounded answer",
@@ -1230,7 +1272,7 @@ async def _post_process_practice_result(
             )
             new_sample = await _regen_grounded_answer(client, transcript, question)
             if new_sample:
-                new_overlap = _validate_sample_relevance(transcript, new_sample)
+                new_overlap = _validate_sample_relevance(transcript, new_sample, question)
                 if new_overlap >= _RELEVANCE_THRESHOLD:
                     result["sample_answer"] = new_sample
                 else:
@@ -1251,7 +1293,7 @@ async def _post_process_test_result(
     """Apply code-level guards to a test-mode grading result in-place."""
     improved = result.get("improved_response") or ""
     if improved and transcript:
-        overlap = _validate_sample_relevance(transcript, improved)
+        overlap = _validate_sample_relevance(transcript, improved, question)
         if overlap < _RELEVANCE_THRESHOLD:
             logger.warning(
                 "improved_response relevance low (%.2f < %.2f) — regenerating",
@@ -1259,7 +1301,7 @@ async def _post_process_test_result(
             )
             new_improved = await _regen_grounded_answer(client, transcript, question)
             if new_improved:
-                new_overlap = _validate_sample_relevance(transcript, new_improved)
+                new_overlap = _validate_sample_relevance(transcript, new_improved, question)
                 if new_overlap >= _RELEVANCE_THRESHOLD:
                     result["improved_response"] = new_improved
                 else:
