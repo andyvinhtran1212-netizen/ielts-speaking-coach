@@ -1002,6 +1002,14 @@ _STOPWORDS = frozenset({
     "only", "over", "after", "before", "off", "into", "other",
 })
 
+# Cue-card instruction verbs that are NOT part of the topic — they inflate the
+# question-overlap denominator without being content a relevant sample echoes
+# (PR #591 review). The bulk of cue-card scaffolding ("You should say:" +
+# bullets) is dropped by taking the first line; these are the leftover verbs.
+_CUE_CARD_FILLERS = frozenset({
+    "describe", "explain", "talk", "tell", "say", "give", "mention",
+})
+
 _RELEVANCE_THRESHOLD = 0.15
 
 # Indicators that a correction is a genuine error (not just style preference).
@@ -1033,6 +1041,16 @@ def _content_words(text: str) -> set[str]:
     return {w for w in words if w not in _STOPWORDS and len(w) > 2}
 
 
+def _question_topic_words(question: str) -> set[str]:
+    """Content words of the cue-card TOPIC only. A Part 2 question_text can carry
+    the full Cambridge-format prompt ('You should say:' + bullets, newline-
+    joined) — the topic is the first line. Instruction fillers are dropped too,
+    so a long cue card's scaffolding doesn't shrink the empty-transcript
+    relevance fallback below threshold for an on-topic sample (PR #591 review)."""
+    topic_line = question.split("\n", 1)[0]
+    return _content_words(topic_line) - _CUE_CARD_FILLERS
+
+
 def _validate_sample_relevance(transcript: str, sample: str, question: str = "") -> float:
     """Overlap ratio of the transcript's content words present in the sample
     answer (how grounded the sample is in what the user actually said).
@@ -1048,7 +1066,7 @@ def _validate_sample_relevance(transcript: str, sample: str, question: str = "")
     trans_words = _content_words(transcript)
     if trans_words:
         return len(trans_words & sample_words) / len(trans_words)
-    q_words = _content_words(question)
+    q_words = _question_topic_words(question)
     if q_words:
         return len(q_words & sample_words) / len(q_words)
     return 1.0   # nothing to measure against → no evidence of drift, keep sample

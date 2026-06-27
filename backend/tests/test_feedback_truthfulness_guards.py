@@ -76,3 +76,32 @@ def test_empty_transcript_keeps_on_topic_sample_via_question():
 def test_empty_transcript_and_question_assumes_relevant():
     """Nothing to measure against → 1.0 (no evidence of drift), don't remove."""
     assert _validate_sample_relevance("um a the", "anything at all", question="") == 1.0
+
+
+def test_fallback_ignores_cue_card_scaffolding():
+    """PR #591 review: a Part 2 question_text carries the full 'You should say:'
+    + bullets prompt. The empty-transcript fallback must score against the TOPIC
+    line only — otherwise the scaffolding inflates the denominator and an on-topic
+    sample repeating one topic word drops below threshold and is wrongly removed."""
+    cue_card = (
+        "Describe a memorable trip you took.\n"
+        "You should say:\n"
+        "- where you went\n"
+        "- who you went with\n"
+        "- what you did there\n"
+        "and explain why it was so memorable."
+    )
+    on_topic = _validate_sample_relevance(
+        "um, the, a", "My trip to Da Nang was wonderful.", question=cue_card,
+    )
+    assert on_topic >= _RELEVANCE_THRESHOLD     # kept (would be < 0.15 against the full prompt)
+
+
+def test_question_topic_words_strips_bullets_and_fillers():
+    from services.claude_grader import _question_topic_words
+    words = _question_topic_words(
+        "Describe a memorable trip you took.\nYou should say:\n- where you went\n- who"
+    )
+    assert "trip" in words           # topic word kept
+    assert "describe" not in words   # instruction filler dropped
+    assert "went" not in words       # bullet content (line 2+) dropped
