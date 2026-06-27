@@ -32,7 +32,6 @@ related_pages:
 - grammatical-collocations
 - pronunciation-grammar-link
 compare_with:
-- grammar-in-task2
 order: 5
 status: complete
 last_updated: 2026-04-18

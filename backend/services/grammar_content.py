@@ -160,6 +160,24 @@ class GrammarContentService:
             len(articles), len(self.all_categories),
         )
 
+        # B6 (Mục 22) — surface dangling cross-references at startup. _resolve_related
+        # silently drops refs to non-existent slugs, so without this a broken link
+        # is invisible. A CI drift test (test_grammar_wiki_ref_drift) keeps this at
+        # 0; this log is the production safety net if one ever slips through.
+        live = set(self.articles_by_slug)
+        dangling = [
+            f"{a['slug']}.{f}→{ref}"
+            for a in articles
+            for f in ("related_pages", "next_articles", "compare_with", "prerequisites")
+            for ref in (a.get(f) or [])
+            if ref not in live
+        ]
+        if dangling:
+            logger.warning(
+                "[grammar][metric] dangling_refs=%d — dead cross-links silently dropped: %s",
+                len(dangling), ", ".join(dangling[:20]),
+            )
+
     def _parse_file(self, path: Path) -> Optional[dict]:
         raw = path.read_text(encoding="utf-8")
 

@@ -23,10 +23,10 @@ prerequisites:
 related_pages:
 - comparison
 - discourse-markers
-- emphasis-inversion
+- inversion
 - hedging-language
 compare_with:
-- emphasis-inversion
+- inversion
 order: 9
 status: complete
 last_updated: 2026-04-19
@@ -42,7 +42,7 @@ writing_relevance: high
 next_articles:
 - comparison
 - discourse-markers
-- emphasis-inversion
+- inversion
 pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing

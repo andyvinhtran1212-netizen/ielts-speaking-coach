@@ -23,9 +23,6 @@ prerequisites:
 - conjunctions
 related_pages:
 - sentence-fragments
-- combining-two-short-sentences
-- adding-contrast-naturally
-- adding-results-clearly
 compare_with:
 - sentence-fragments
 order: 13
@@ -43,8 +40,6 @@ speaking_relevance: high
 writing_relevance: high
 next_articles:
 - sentence-fragments
-- combining-two-short-sentences
-- adding-contrast-naturally
 pathways:
 - fix-common-mistakes
 - band-6-to-7
