@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from services.listening_test_grader import answer_matches
+from services.listening_test_grader import answer_matches, normalize_answer
 
 
 # ── IELTS Academic Reading band table ─────────────────────────────────
@@ -219,8 +219,8 @@ def grade_attempt(
             # Build the canonical expected set (normalised single letters
             # or labels). Use the listening grader's normalize_answer so
             # the comparison is case/whitespace-insensitive and respects
-            # the existing diacritic + UK/US rules.
-            from services.listening_test_grader import normalize_answer
+            # the existing diacritic + UK/US rules. (Mục 33/B7: import hoisted
+            # to module top — no circular dep; answer_matches already imported there.)
             expected_norm = {normalize_answer(str(c)) for c in candidates}
             expected_norm.discard("")
             user_str = str(user_answer or "")
