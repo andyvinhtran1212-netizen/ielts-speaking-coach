@@ -467,7 +467,12 @@ def _build_streak(sb, user_id: str) -> Dict[str, Any]:
             logger.debug("streak source %s failed: %s", table, _short_error(e))
 
     current = 0
-    cursor = date.today()
+    # UTC, not date.today(): day_set keys are UTC date strings (ts[:10] of
+    # UTC-stored timestamps), so the walk-back cursor must be UTC too. Local
+    # date.today() broke the streak for ~7h/day in UTC+ timezones — the UTC+7
+    # user base saw streak=0 between local midnight and 07:00, when the local
+    # date is one day ahead of the UTC date that keys day_set.
+    cursor = datetime.now(timezone.utc).date()
     while cursor.isoformat() in day_set:
         current += 1
         cursor -= timedelta(days=1)

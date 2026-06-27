@@ -332,6 +332,50 @@ def test_streak_counts_consecutive_days_back_from_today(fake_db, aggregator):
     assert payload["streak"]["longest_days"] >= 3
 
 
+def test_streak_cursor_uses_utc_date_not_local_today(fake_db, aggregator, monkeypatch):
+    """Regression: the walk-back cursor must be the UTC date, not the LOCAL
+    ``date.today()``. ``day_set`` is keyed by UTC date strings (``ts[:10]`` of
+    UTC-stored timestamps); using ``date.today()`` on a UTC+ machine just past
+    local midnight made the cursor one day AHEAD of the UTC date, so the streak
+    collapsed to 0 for ~7h/day (the entire UTC+7 user base, local 00:00–07:00).
+
+    This bug was invisible to CI because GitHub runners are UTC, where
+    ``date.today() == datetime.now(timezone.utc).date()``. Pin it with a frozen
+    clock that forces ``local != UTC`` so a revert to ``date.today()`` fails
+    here regardless of the runner's timezone."""
+    user_id = str(uuid4())
+
+    # Frozen instant: UTC reads 2026-06-26 23:30; a UTC+7 wall clock reads
+    # 2026-06-27 06:30 — so date.today() (local) would be a day ahead of UTC.
+    fixed_utc = datetime(2026, 6, 26, 23, 30, tzinfo=timezone.utc)
+
+    class _FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return fixed_utc if tz is not None else fixed_utc.replace(tzinfo=None)
+
+    class _AheadDate(date):
+        @classmethod
+        def today(cls):
+            return date(2026, 6, 27)  # simulate the local (UTC+7) date
+
+    monkeypatch.setattr(aggregator, "datetime", _FrozenDateTime)
+    monkeypatch.setattr(aggregator, "date", _AheadDate)
+
+    # Activity on UTC days 26 → 25 → 24 (consecutive back from the UTC date).
+    _seed_session(fake_db, user_id, started_at="2026-06-26T20:00:00+00:00")
+    _seed_session(fake_db, user_id, started_at="2026-06-25T08:00:00+00:00")
+    _seed_article_view(fake_db, user_id, last_viewed_at="2026-06-24T08:00:00+00:00")
+
+    payload = aggregator.get_home_summary(
+        fake_db, user_id, name="X", email="x@x.com",
+    )
+
+    # UTC cursor (06-26) counts 26→25→24 = 3. The old date.today()=06-27 cursor
+    # is not in day_set → would yield 0.
+    assert payload["streak"]["current_days"] == 3
+
+
 def test_vocabulary_due_count_excludes_future_reviews(fake_db, aggregator):
     """flashcards_due reflects reviews whose next_review_at <= now.
     Future reviews don't count."""
