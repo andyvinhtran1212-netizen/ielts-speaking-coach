@@ -553,7 +553,22 @@ async def grade_response_endpoint(
                 supabase_admin.table("responses").update(row).eq("id", rid).execute()
                 return rid
             res = supabase_admin.table("responses").insert(row).execute()
-            return res.data[0]["id"] if res.data else None
+            if res.data:
+                return res.data[0]["id"]
+            # Mục 4 (B2): insert returned no representation (return=minimal / RLS
+            # readback). Re-read to recover the id — the row may well have
+            # persisted; returning None would silently drop grammar-rec + vocab
+            # downstream. If still not found, the fallback helper treats this None
+            # as a failure (→ core-row retry → fail loud).
+            recovered = (
+                supabase_admin.table("responses")
+                .select("id")
+                .eq("session_id", session_id)
+                .eq("question_id", question_id)
+                .limit(1)
+                .execute()
+            )
+            return recovered.data[0]["id"] if recovered.data else None
 
         # Persist with full-row → core-row fallback → FAIL LOUD if both fail.
         # Extracted to a module-level helper so the exact branch semantics are
@@ -628,48 +643,13 @@ async def grade_response_endpoint(
                 **signals,
             }
 
-        if is_practice:
-            return {
-                "response_id":              response_id,
-                "partial":                  partial,
-                "transcript":               transcript,
-                "duration_seconds":         round(duration_sec, 2),
-                "stt_confidence":           round(confidence, 4),
-                "assessment_confidence":    assessment_confidence,
-                "score_confidence":         score_confidence,
-                "overall_band":             grading["overall_band"],
-                "grammar_issues":           grading["grammar_issues"],
-                "vocabulary_issues":        grading["vocabulary_issues"],
-                "pronunciation_issues":     grading.get("pronunciation_issues", []),
-                "corrections":              grading["corrections"],
-                "strengths":               grading["strengths"],
-                "sample_answer":            grading["sample_answer"],
-                "grammar_recommendations":  grading.get("grammar_recommendations") or [],
-                **signals,
-            }
-
-        return {
-            "response_id":           response_id,
-            "partial":               partial,
-            "transcript":            transcript,
-            "duration_seconds":      round(duration_sec, 2),
-            "stt_confidence":        round(confidence, 4),
-            "assessment_confidence": assessment_confidence,
-            "score_confidence":      score_confidence,
-            "band_fc":               grading["band_fc"],
-            "band_lr":               grading["band_lr"],
-            "band_gra":              grading["band_gra"],
-            "band_p":                grading["band_p"],
-            "overall_band":          grading["overall_band"],
-            "fc_feedback":           grading["fc_feedback"],
-            "lr_feedback":           grading["lr_feedback"],
-            "gra_feedback":          grading["gra_feedback"],
-            "p_feedback":            grading["p_feedback"],
-            "strengths":             grading["strengths"],
-            "improvements":          grading["improvements"],
-            "improved_response":     grading["improved_response"],
-            **signals,
-        }
+        return _build_response_payload(
+            is_practice,
+            response_id=response_id, partial=partial, transcript=transcript,
+            duration_sec=duration_sec, confidence=confidence,
+            assessment_confidence=assessment_confidence,
+            score_confidence=score_confidence, grading=grading, signals=signals,
+        )
 
     except HTTPException:
         raise
@@ -694,12 +674,22 @@ def _persist_response_with_fallback(db_row, core_columns, upsert_fn, *,
     ``upsert_fn`` is injected so the exact branch semantics are unit-testable.
     """
     try:
-        return upsert_fn(db_row), False
+        rid = upsert_fn(db_row)
+        if not rid:
+            # Mục 4 (B2): a save that yields no row id is NOT a success. Returning
+            # it would drop downstream grammar-rec/vocab persistence and let
+            # PATCH /complete see a "saved" response with a null id. Treat it as a
+            # failure → core-row fallback (which re-reads and recovers the id if
+            # the row actually persisted, else fails loud).
+            raise ValueError("response upsert returned no row id (empty insert representation)")
+        return rid, False
     except Exception as e:
         logger.warning("[grading] DB save failed with full row (%s) — retrying with core columns only", e)
         core_row = {k: v for k, v in db_row.items() if k in core_columns}
         try:
             rid = upsert_fn(core_row)
+            if not rid:
+                raise ValueError("core-row response upsert returned no row id")
             # observability (Part D #2) — greppable metric; aggregate by tag.
             logger.warning("[grading][metric] response_persist_partial=1 session=%s question=%s — core row only, full metadata lost; run migrations 006/007/008",
                            session_id, question_id)
@@ -712,6 +702,63 @@ def _persist_response_with_fallback(db_row, core_columns, upsert_fn, *,
                 detail={"error_code": "response_persist_failed",
                         "message": "Lỗi lưu phản hồi, vui lòng thử lại."},
             ) from e2
+
+
+def _build_response_payload(is_practice, *, response_id, partial, transcript,
+                            duration_sec, confidence, assessment_confidence,
+                            score_confidence, grading, signals):
+    """Build the /responses success payload. Extracted from the endpoint so the
+    grading-dict access is unit-testable (mirrors the _persist_response_with_fallback
+    extraction).
+
+    Mục 6 (B2): ``sample_answer`` and ``improved_response`` are read with .get()
+    because post-processing in claude_grader can DROP those keys (e.g. when a
+    regenerated sample answer is judged irrelevant). A direct ``grading[...]``
+    access raised KeyError → the outer handler returned HTTP 500 instead of the
+    rest of the feedback the user already earned.
+    """
+    if is_practice:
+        return {
+            "response_id":              response_id,
+            "partial":                  partial,
+            "transcript":               transcript,
+            "duration_seconds":         round(duration_sec, 2),
+            "stt_confidence":           round(confidence, 4),
+            "assessment_confidence":    assessment_confidence,
+            "score_confidence":         score_confidence,
+            "overall_band":             grading["overall_band"],
+            "grammar_issues":           grading["grammar_issues"],
+            "vocabulary_issues":        grading["vocabulary_issues"],
+            "pronunciation_issues":     grading.get("pronunciation_issues", []),
+            "corrections":              grading["corrections"],
+            "strengths":               grading["strengths"],
+            "sample_answer":            grading.get("sample_answer"),
+            "grammar_recommendations":  grading.get("grammar_recommendations") or [],
+            **signals,
+        }
+
+    return {
+        "response_id":           response_id,
+        "partial":               partial,
+        "transcript":            transcript,
+        "duration_seconds":      round(duration_sec, 2),
+        "stt_confidence":        round(confidence, 4),
+        "assessment_confidence": assessment_confidence,
+        "score_confidence":      score_confidence,
+        "band_fc":               grading["band_fc"],
+        "band_lr":               grading["band_lr"],
+        "band_gra":              grading["band_gra"],
+        "band_p":                grading["band_p"],
+        "overall_band":          grading["overall_band"],
+        "fc_feedback":           grading["fc_feedback"],
+        "lr_feedback":           grading["lr_feedback"],
+        "gra_feedback":          grading["gra_feedback"],
+        "p_feedback":            grading["p_feedback"],
+        "strengths":             grading["strengths"],
+        "improvements":          grading["improvements"],
+        "improved_response":     grading.get("improved_response"),
+        **signals,
+    }
 
 
 def _compute_score_confidence(reliability: dict, duration_sec: float) -> str:
