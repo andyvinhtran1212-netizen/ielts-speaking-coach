@@ -282,8 +282,12 @@ async def create_session(
     # Daily quota check — count sessions started today (UTC)
     # SKIP entirely for admin role
     if not is_admin:
+        # UTC day-start (matches the "(UTC)" intent above). date.today() is the
+        # LOCAL date, so in UTC+ timezones it pointed today_start at a FUTURE UTC
+        # instant for ~7h/day (local midnight–07:00 in UTC+7), zeroing the daily
+        # count and letting users exceed the cap. Use the UTC date.
         today_start = (
-            datetime.combine(date.today(), datetime.min.time())
+            datetime.combine(datetime.now(timezone.utc).date(), datetime.min.time())
             .replace(tzinfo=timezone.utc)
             .isoformat()
         )
@@ -566,7 +570,11 @@ async def get_session_stats(
             for r in (streak_res.data or [])
             if r.get("started_at")
         }
-        cursor = date.today()
+        # UTC, not date.today(): day_set keys are UTC date strings, so the
+        # walk-back cursor must be UTC too — local date.today() broke the streak
+        # for ~7h/day in UTC+ timezones (same bug/fix as the home + dashboard
+        # aggregators).
+        cursor = datetime.now(timezone.utc).date()
         while cursor.isoformat() in day_set:
             current_streak += 1
             cursor -= timedelta(days=1)

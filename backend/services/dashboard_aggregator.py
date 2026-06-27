@@ -171,7 +171,12 @@ def _build_sessions_stats(sb, user_id: str, *, chart_limit: int) -> Dict[str, An
             for r in (streak_res.data or [])
             if r.get("started_at")
         }
-        cursor = date.today()
+        # UTC, not date.today(): day_set keys are UTC date strings
+        # (started_at[:10]), so the cursor must be UTC too — local date.today()
+        # broke the streak for ~7h/day in UTC+ timezones (UTC+7 users saw
+        # streak=0 between local midnight and 07:00). Mirrors the same fix in
+        # student_home_aggregator._build_streak.
+        cursor = datetime.now(timezone.utc).date()
         while cursor.isoformat() in day_set:
             current_streak += 1
             cursor -= timedelta(days=1)

@@ -365,7 +365,7 @@ describe('index.html / Vietnamese marketing microcopy preserved exactly', () => 
     'Dùng thử miễn phí',                              // nav CTA
     'Dùng thử miễn phí ngay',                         // final CTA
     'Xem cách hoạt động',                             // hero secondary CTA
-    'Không cần thẻ tín dụng · Dùng thử 3 buổi miễn phí',
+    'Đăng ký miễn phí · Kích hoạt bằng access code từ lớp/trung tâm',
     'Học viên đăng ký',                               // stat label (real DB count)
     'Buổi luyện đã hoàn thành',
     'Kỹ năng IELTS trên một nền tảng',                // 3rd stat (6 skills, real)
