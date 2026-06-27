@@ -105,7 +105,7 @@ def _assessment_header(reference_text: str = "") -> str:
         "EnableProsodyAssessment": True,           # Required for FluencyScore via REST API
     }
     encoded = base64.b64encode(json.dumps(config, separators=(",", ":")).encode()).decode()
-    print(f"[PRON] assessment_header config={json.dumps(config)}  encoded_len={len(encoded)}", flush=True)
+    logger.debug(f"[PRON] assessment_header config={json.dumps(config)}  encoded_len={len(encoded)}")
     return encoded
 
 
@@ -188,10 +188,9 @@ def _normalize(azure_response: dict) -> dict:
     completeness = best.get("CompletenessScore")
     prosody      = best.get("ProsodyScore")   # present when EnableProsodyAssessment=True
 
-    print(
+    logger.debug(
         f"[PRON] scores: PronScore={pron_score}  Fluency={fluency}  "
-        f"Accuracy={accuracy}  Completeness={completeness}  Prosody={prosody}",
-        flush=True,
+        f"Accuracy={accuracy}  Completeness={completeness}  Prosody={prosody}"
     )
 
     # Word-level: fields are flat on each word object (not nested under PronunciationAssessment)
@@ -317,12 +316,12 @@ async def assess_pronunciation(
     if wav_bytes:
         send_bytes        = wav_bytes
         send_content_type = "audio/wav"
-        print(f"[PRON] WAV conversion OK: {content_type} {len(audio_bytes)}B → WAV {len(wav_bytes)}B", flush=True)
+        logger.debug(f"[PRON] WAV conversion OK: {content_type} {len(audio_bytes)}B → WAV {len(wav_bytes)}B")
     else:
         # ffmpeg unavailable or failed — fall back to original bytes
         send_bytes        = audio_bytes
         send_content_type = content_type
-        print(f"[PRON] WAV conversion SKIPPED — sending original {content_type} {len(audio_bytes)}B", flush=True)
+        logger.debug(f"[PRON] WAV conversion SKIPPED — sending original {content_type} {len(audio_bytes)}B")
 
     headers = {
         "Ocp-Apim-Subscription-Key": key,
@@ -333,15 +332,15 @@ async def assess_pronunciation(
         # and caused Azure to misparse the audio container start.
     }
 
-    print(f"[PRON] → Azure POST {len(send_bytes)}B  content_type={send_content_type}  locale={locale}", flush=True)
+    logger.debug(f"[PRON] → Azure POST {len(send_bytes)}B  content_type={send_content_type}  locale={locale}")
 
     async with httpx.AsyncClient(timeout=_API_TIMEOUT) as client:
         resp = await client.post(url, headers=headers, content=send_bytes)
 
-    print(f"[PRON] ← Azure HTTP {resp.status_code}  response_size={len(resp.content)}B", flush=True)
+    logger.debug(f"[PRON] ← Azure HTTP {resp.status_code}  response_size={len(resp.content)}B")
 
     if resp.status_code != 200:
-        print(f"[PRON] Azure API error {resp.status_code}: {resp.text[:300]}", flush=True)
+        logger.error(f"[PRON] Azure API error {resp.status_code}: {resp.text[:300]}")
         raise RuntimeError(
             f"Azure trả về lỗi {resp.status_code}: {resp.text[:200]}"
         )
@@ -349,27 +348,25 @@ async def assess_pronunciation(
     try:
         data = resp.json()
     except Exception as exc:
-        print(f"[PRON] Non-JSON response: {resp.text[:200]}", flush=True)
+        logger.warning(f"[PRON] Non-JSON response: {resp.text[:200]}")
         raise RuntimeError(f"Azure response không phải JSON hợp lệ: {exc}") from exc
 
     recognition_status = data.get("RecognitionStatus", "MISSING")
     nbest = data.get("NBest", [])
     display_text = data.get("DisplayText", "")
 
-    print(f"[PRON] RecognitionStatus={recognition_status}  NBest={len(nbest)}  DisplayText={display_text[:60]!r}", flush=True)
+    logger.debug(f"[PRON] RecognitionStatus={recognition_status}  NBest={len(nbest)}  DisplayText={display_text[:60]!r}")
 
     if nbest:
         best = nbest[0]
         # Scores are flat on NBest[0] (confirmed from actual Azure response shape)
-        print(
+        logger.debug(
             f"[PRON] NBest[0] PronScore={best.get('PronScore')}  Fluency={best.get('FluencyScore')}  "
             f"Accuracy={best.get('AccuracyScore')}  Completeness={best.get('CompletenessScore')}  "
-            f"Prosody={best.get('ProsodyScore')}  Words={len(best.get('Words', []))}",
-            flush=True,
+            f"Prosody={best.get('ProsodyScore')}  Words={len(best.get('Words', []))}"
         )
     else:
         safe_keys = {k: (v if not isinstance(v, (dict, list)) else type(v).__name__) for k, v in data.items()}
-        print(f"[PRON] NBest EMPTY — full response shape: {safe_keys}", flush=True)
         logger.warning("[azure_pron] NBest is empty. Full response shape: %s", safe_keys)
 
     return _normalize(data)

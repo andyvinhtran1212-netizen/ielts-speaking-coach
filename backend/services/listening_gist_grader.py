@@ -95,12 +95,20 @@ def _get_client() -> anthropic.Anthropic:
 
 
 def _extract_json(text: str) -> dict:
-    """Tolerant JSON extraction — Haiku sometimes wraps the JSON in a
-    code fence or adds a leading sentence. Strip both before parsing."""
-    fenced = re.search(r"\{[\s\S]*\}", text)
-    if not fenced:
+    """Tolerant JSON extraction — Haiku sometimes wraps the JSON in a code fence
+    or adds a leading sentence. Decode the FIRST complete object starting at the
+    first '{' (Mục 30/B4): the old greedy /\\{[\\s\\S]*\\}/ spanned the first '{'
+    to the LAST '}', so two objects in the output merged into one invalid blob."""
+    start = text.find("{")
+    if start == -1:
         raise ValueError("no JSON object found in model output")
-    return json.loads(fenced.group(0))
+    try:
+        obj, _ = json.JSONDecoder().raw_decode(text, start)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"no valid JSON object found: {exc}") from exc
+    if not isinstance(obj, dict):
+        raise ValueError("extracted JSON is not a JSON object")
+    return obj
 
 
 # ── Keyword fallback ─────────────────────────────────────────────────
@@ -183,8 +191,9 @@ def grade_gist_response(
             system=_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_msg}],
         )
-        # Anthropic SDK returns a Message with .content[0].text
-        text = resp.content[0].text if resp.content else ""
+        # Anthropic SDK returns a Message with .content[0].text (Mục 31/B4: .text
+        # can be None even when content is present — coerce to "").
+        text = (resp.content[0].text or "") if resp.content else ""
         parsed = _extract_json(text)
         # Coerce types defensively.
         score = int(parsed.get("score", 0))

@@ -21,6 +21,7 @@ Test:
     "
 """
 
+import asyncio
 import json
 import logging
 import re
@@ -39,6 +40,7 @@ logger = logging.getLogger(__name__)
 genai.configure(api_key=settings.GEMINI_API_KEY)
 
 _MODEL_NAME = "gemini-2.5-flash"
+_GEMINI_TIMEOUT_SECONDS = 60.0   # Mục 9 (B4): bound a hung generate_content call
 
 _model = genai.GenerativeModel(
     model_name=_MODEL_NAME,
@@ -109,7 +111,21 @@ async def _call_gemini(prompt: str, *, _retry: bool = True,
     """
     logger.debug("[gemini] calling model=%s retry_allowed=%s", _MODEL_NAME, _retry)
 
-    response = await _model.generate_content_async(prompt)
+    try:
+        # Mục 9 (B4): a hung Gemini request must not block question generation
+        # indefinitely — bound it with an explicit timeout.
+        response = await asyncio.wait_for(
+            _model.generate_content_async(prompt), timeout=_GEMINI_TIMEOUT_SECONDS
+        )
+    except asyncio.TimeoutError as exc:
+        logger.error("[gemini] generate_content timed out after %ss", _GEMINI_TIMEOUT_SECONDS)
+        raise ValueError("Gemini request timed out") from exc
+    except Exception as exc:
+        # Mục 29 (B4): normalise raw SDK / network / quota errors to ValueError so
+        # callers fall back to their hardcoded questions instead of leaking an
+        # unhandled SDK error up to (admin) endpoints.
+        logger.error("[gemini] generate_content failed: %s", exc)
+        raise ValueError(f"Gemini request failed: {exc}") from exc
 
     # Log token usage and persist to ai_usage_logs
     try:

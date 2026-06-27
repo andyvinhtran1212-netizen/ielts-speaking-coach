@@ -41,7 +41,7 @@ async def synthesize_mp3(text: str, voice: str = DEFAULT_VOICE) -> bytes:
         raise RuntimeError("OPENAI_API_KEY not configured — TTS unavailable")
     safe_voice = voice if voice in _ALLOWED_VOICES else DEFAULT_VOICE
     import openai
-    client = openai.AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+    client = openai.AsyncOpenAI(api_key=settings.OPENAI_API_KEY, timeout=30.0)  # Mục 12 (B4): bound a hung TTS call
     response = await client.audio.speech.create(
         model=_MODEL,
         voice=safe_voice,        # type: ignore[arg-type]
@@ -115,7 +115,7 @@ def _synth_openai_sync(text: str, voice: str = DEFAULT_VOICE) -> bytes:
     if not settings.OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY not configured")
     import openai
-    client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+    client = openai.OpenAI(api_key=settings.OPENAI_API_KEY, timeout=30.0)  # Mục 12 (B4): bound a hung TTS call
     resp = client.audio.speech.create(
         model=_MODEL,
         voice=(voice if voice in _ALLOWED_VOICES else DEFAULT_VOICE),  # type: ignore[arg-type]

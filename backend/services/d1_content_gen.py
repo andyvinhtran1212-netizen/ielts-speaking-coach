@@ -156,7 +156,7 @@ def _generate_single_chunk(
             ),
             system_instruction=_SYSTEM_PROMPT,
         )
-        resp = model.generate_content(user_prompt)
+        resp = model.generate_content(user_prompt, request_options={"timeout": 60})  # Mục 10 (B4): bound the sync Gemini call
         raw = resp.text or ""
     except Exception as e:
         logger.error("[d1_content_gen] Gemini call failed (model=%s): %s", chosen_model, e)
