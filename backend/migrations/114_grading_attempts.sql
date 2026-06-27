@@ -19,3 +19,12 @@ CREATE TABLE IF NOT EXISTS grading_attempts (
 -- Supports the "count this user's attempts since UTC midnight" query.
 CREATE INDEX IF NOT EXISTS idx_grading_attempts_user_day
     ON grading_attempts (user_id, attempted_at);
+
+-- RLS: this is a BACKEND-ONLY quota log. Enable RLS with NO policy so service_role
+-- (the backend — BYPASSRLS) keeps full access while anon/authenticated fall through
+-- to RLS's default deny-all. Without this, a Supabase client could read other
+-- users' grading activity AND insert quota rows for arbitrary user_ids — tripping
+-- the daily grading cap for the wrong account. (Mirrors the audit-table hardening
+-- in migration 108.)
+ALTER TABLE public.grading_attempts ENABLE ROW LEVEL SECURITY;
+-- Rollback: ALTER TABLE public.grading_attempts DISABLE ROW LEVEL SECURITY;

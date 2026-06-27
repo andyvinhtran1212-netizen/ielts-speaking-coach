@@ -12,6 +12,9 @@
 CREATE OR REPLACE FUNCTION increment_session_tokens(p_session_id uuid, p_delta integer)
 RETURNS integer
 LANGUAGE sql
+-- Pin search_path so a malicious one can't shadow `sessions` (matches the function
+-- hardening in migration 108).
+SET search_path = public, pg_temp
 AS $$
   UPDATE sessions
      SET tokens_used = COALESCE(tokens_used, 0) + p_delta
