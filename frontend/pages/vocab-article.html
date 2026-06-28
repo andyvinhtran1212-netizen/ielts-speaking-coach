@@ -89,7 +89,18 @@
     <article id="article-content" class="hidden"></article>
   </div>
 
+  <!-- Supabase must initialise BEFORE any api.js request runs so a logged-in
+       user's flag/analytics events carry an Authorization header (and are stored
+       user-attributed, not user_id=NULL). The other vocab surfaces do this; the
+       standalone article page previously skipped it. Order: supabase CDN →
+       api.js → initSupabase → vocabulary.js. -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0"></script>
   <script src="../js/api.js"></script>
+  <script>
+    var SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
+    var SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
+    try { initSupabase(SUPABASE_URL, SUPABASE_ANON); } catch (_) {}
+  </script>
   <script src="../js/vocabulary.js"></script>
 </body>
 </html>

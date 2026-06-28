@@ -60,4 +60,16 @@ describe('vocab card — flag / report control', () => {
     assert.match(CSS, /\.va-flag-opt/);
     assert.match(CSS, /\.va-flag[\s\S]{0,400}var\(--av-/);   // token-driven, not hardcoded hex
   });
+
+  test('standalone article page inits Supabase before vocabulary.js (flags stay user-attributed)', () => {
+    const html = front('pages', 'vocab-article.html');
+    assert.match(html, /supabase-js@/);          // CDN present
+    assert.match(html, /initSupabase\(/);        // client initialised
+    // must appear before vocabulary.js, else api.post sends the flag with no auth
+    // header → reports land with user_id = NULL (the bug this guards against).
+    const idxInit = html.indexOf('initSupabase(');
+    const idxVocab = html.indexOf('vocabulary.js"');   // the <script src> tag, not a comment mention
+    assert.ok(idxInit > -1 && idxVocab > idxInit,
+      'initSupabase must appear before the vocabulary.js script tag');
+  });
 });
