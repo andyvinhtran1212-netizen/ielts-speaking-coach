@@ -187,6 +187,7 @@ Keep fixes reviewable. A 5-line diff with a clear explanation is better than a 5
 | `/db-migrate` | `.claude/skills/db-migrate/SKILL.md` | Create a new SQL migration, auto-detect sequence number |
 | `/api-route` | `.claude/skills/api-route/SKILL.md` | Scaffold FastAPI route with correct auth/Supabase pattern |
 | `/review` | `.claude/skills/review/SKILL.md` | Review code before commit/deploy: security, schema, AI calls |
+| `/ui-review` | `.claude/skills/ui-review/SKILL.md` | Review UI/UX theo design system --av-*: token compliance, layout shell, theme, typography, chrome spacing, a11y |
 
 ---
 

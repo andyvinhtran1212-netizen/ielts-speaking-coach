@@ -72,7 +72,7 @@ body.av-page {
   -webkit-backdrop-filter: blur(12px) saturate(1.4);
   border-bottom: 1px solid var(--av-border-subtle);
   box-shadow: 0 1px 0 color-mix(in srgb, var(--av-border-subtle) 60%, transparent),
-              0 6px 18px -12px color-mix(in srgb, #000 50%, transparent);
+              0 6px 18px -12px rgba(0, 0, 0, 0.50);
   /* Full-width bar; content inset to the shared 1180 column (U3). */
   padding: var(--av-space-4) var(--rg);
   display: flex;

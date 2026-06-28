@@ -203,10 +203,25 @@
   --av-info-soft:       rgba(29, 78, 216, 0.08);
 
   /* Vocab wiki jade accent (word-card design v2) — distinct from the brand teal */
-  --av-vocab-jade:      #0B6E59;
-  --av-vocab-jade-tint: #E4F0EB;
-  --av-vocab-jade-line: #BCDDD1;
-  --av-vocab-jade-ink:  #04130E;   /* text on a solid jade fill */
+  --av-vocab-jade:        #0B6E59;
+  --av-vocab-jade-tint:   #E4F0EB;
+  --av-vocab-jade-line:   #BCDDD1;
+  --av-vocab-jade-ink:    #04130E;   /* text on a solid jade fill */
+  --av-vocab-jade-soft:   rgba(11, 110, 89, 0.12);
+  --av-vocab-jade-border: rgba(11, 110, 89, 0.32);
+
+  /* Per-skill identity palette — for skills without an existing semantic token.
+     speaking = --av-accent, writing = --av-primary, vocabulary = --av-vocab-jade */
+  --av-accent-border:          rgba(245, 158, 11, 0.32);
+  --av-skill-reading:          #0EA5E9;
+  --av-skill-reading-soft:     rgba(14, 165, 233, 0.10);
+  --av-skill-reading-border:   rgba(14, 165, 233, 0.32);
+  --av-skill-listening:        #8B5CF6;
+  --av-skill-listening-soft:   rgba(139, 92, 246, 0.10);
+  --av-skill-listening-border: rgba(139, 92, 246, 0.32);
+  --av-skill-grammar:          #4F46E5;
+  --av-skill-grammar-soft:     rgba(79, 70, 229, 0.10);
+  --av-skill-grammar-border:   rgba(79, 70, 229, 0.32);
 
   /* Shadows — navy-tinted, low opacity (light theme reads softer) */
   --av-shadow-sm:    0 1px 2px rgba(15, 23, 42, 0.05);

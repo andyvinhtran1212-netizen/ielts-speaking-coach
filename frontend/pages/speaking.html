@@ -97,7 +97,7 @@
     <!-- Page title -->
     <div class="mb-8">
       <p class="eyebrow">Speaking</p>
-      <h1 class="text-2xl font-bold mb-1">Xin chào, <span id="greeting-name" class="text-transparent bg-clip-text" style="background:linear-gradient(90deg,#14b8a6,#38bdf8);-webkit-background-clip:text;">bạn</span>! 👋</h1>
+      <h1 class="text-2xl font-bold mb-1">Xin chào, <span id="greeting-name" class="text-transparent bg-clip-text" style="background:linear-gradient(90deg,var(--av-primary),var(--av-info));-webkit-background-clip:text;">bạn</span>! 👋</h1>
       <p class="text-sm" style="color:var(--av-text-muted);">Hãy luyện tập thêm hôm nay để cải thiện band score của bạn.</p>
     </div>
 
@@ -106,7 +106,7 @@
 
       <div class="stat-card rounded-2xl p-5">
         <p class="text-xs font-medium uppercase tracking-wider mb-2" style="color:var(--av-text-muted);">Band TB 30 ngày</p>
-        <p id="stat-band" class="text-3xl font-extrabold" style="color:#14b8a6;">—</p>
+        <p id="stat-band" class="text-3xl font-extrabold" style="color:var(--av-primary);">—</p>
         <p id="stat-band-sub" class="text-xs mt-1" style="color:var(--av-text-muted);">Chưa có dữ liệu</p>
       </div>
 
@@ -218,7 +218,7 @@
           <h2 class="text-lg font-bold">Ngữ pháp của bạn</h2>
           <p class="text-xs mt-0.5" style="color:var(--av-text-muted);">Dựa trên phản hồi từ các buổi luyện</p>
         </div>
-        <a href="/grammar.html" class="text-xs font-semibold" style="color:#14b8a6;">Xem tất cả →</a>
+        <a href="/grammar.html" class="text-xs font-semibold" style="color:var(--av-primary);">Xem tất cả →</a>
       </div>
 
       <!-- Loading skeleton -->
@@ -280,7 +280,7 @@
         <h2 class="text-lg font-bold">Cập nhật từ vựng gần đây</h2>
         <a href="/pages/vocabulary.html#my-vocab"
            class="text-xs font-medium px-3 py-1 rounded-lg"
-           style="color:#14b8a6; border:1px solid rgba(20,184,166,0.3); text-decoration:none;">
+           style="color:var(--av-primary); border:1px solid var(--av-primary-border); text-decoration:none;">
           Xem tất cả →
         </a>
       </div>
@@ -333,7 +333,7 @@
           </label>
           <button onclick="window._dashboard && window._dashboard.applyHistoryFilters()"
                   class="text-xs px-3 py-1.5 rounded-lg"
-                  style="background:rgba(20,184,166,0.15); border:1px solid rgba(20,184,166,0.4); color:#14b8a6;">
+                  style="background:var(--av-primary-soft); border:1px solid var(--av-primary-border); color:var(--av-primary);">
             Lọc
           </button>
           <button onclick="window._dashboard && window._dashboard.clearHistoryFilters()"
@@ -532,7 +532,7 @@
           <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
                style="background:rgba(15,118,110,0.2);">💬</div>
           <div>
-            <span class="text-xs font-semibold uppercase tracking-wider" style="color:#14b8a6;">Part 1</span>
+            <span class="text-xs font-semibold uppercase tracking-wider" style="color:var(--av-primary);">Part 1</span>
             <h3 class="font-bold text-sm leading-tight">Introduction &amp; Interview</h3>
           </div>
         </div>
@@ -547,7 +547,7 @@
           <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
                style="background:rgba(15,118,110,0.2);">🗒️</div>
           <div>
-            <span class="text-xs font-semibold uppercase tracking-wider" style="color:#14b8a6;">Part 2</span>
+            <span class="text-xs font-semibold uppercase tracking-wider" style="color:var(--av-primary);">Part 2</span>
             <h3 class="font-bold text-sm leading-tight">Individual Long Turn</h3>
           </div>
         </div>
@@ -562,7 +562,7 @@
           <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
                style="background:rgba(15,118,110,0.2);">🧠</div>
           <div>
-            <span class="text-xs font-semibold uppercase tracking-wider" style="color:#14b8a6;">Part 3</span>
+            <span class="text-xs font-semibold uppercase tracking-wider" style="color:var(--av-primary);">Part 3</span>
             <h3 class="font-bold text-sm leading-tight">Two-way Discussion</h3>
           </div>
         </div>
@@ -577,7 +577,7 @@
     <!-- Topic section (revealed after part selection) -->
     <div id="pbp-topic-section" style="display:none;">
       <div class="option-card">
-        <h3 id="pbp-part-label" class="font-bold text-sm mb-4" style="color:#14b8a6;">Chọn chủ đề</h3>
+        <h3 id="pbp-part-label" class="font-bold text-sm mb-4" style="color:var(--av-primary);">Chọn chủ đề</h3>
 
         <div class="grid md:grid-cols-2 gap-4 mb-3">
           <div>
@@ -627,7 +627,7 @@
          style="background:rgba(14,165,233,0.08);border:1px solid rgba(14,165,233,0.2);">
       <span class="text-lg flex-shrink-0">🔊</span>
       <div>
-        <p class="text-sm font-semibold mb-1" style="color:#38bdf8;">Chế độ Listening (mặc định)</p>
+        <p class="text-sm font-semibold mb-1" style="color:var(--av-info);">Chế độ Listening (mặc định)</p>
         <p class="text-xs leading-relaxed" style="color:var(--av-text-secondary);">
           Câu hỏi sẽ được đọc to bởi AI (giọng nói tự nhiên). Văn bản câu hỏi ẩn mặc định — bạn có thể bật hiển thị bất cứ lúc nào. Đánh giá theo 4 tiêu chí IELTS: FC, LR, GRA, Pronunciation.
         </p>
@@ -642,7 +642,7 @@
           <div class="w-8 h-8 rounded-lg flex items-center justify-center text-base flex-shrink-0"
                style="background:rgba(15,118,110,0.2);">💬</div>
           <div>
-            <span class="text-xs font-semibold uppercase tracking-wider" style="color:#14b8a6;">Part 1</span>
+            <span class="text-xs font-semibold uppercase tracking-wider" style="color:var(--av-primary);">Part 1</span>
             <span class="text-xs ml-2" style="color:var(--av-text-secondary);">3 chủ đề × 3 câu = 9 câu</span>
           </div>
         </div>
@@ -668,7 +668,7 @@
           <div class="w-8 h-8 rounded-lg flex items-center justify-center text-base flex-shrink-0"
                style="background:rgba(15,118,110,0.2);">🗒️</div>
           <div>
-            <span class="text-xs font-semibold uppercase tracking-wider" style="color:#14b8a6;">Part 2</span>
+            <span class="text-xs font-semibold uppercase tracking-wider" style="color:var(--av-primary);">Part 2</span>
             <span class="text-xs ml-2" style="color:var(--av-text-secondary);">1 cue card</span>
           </div>
         </div>
@@ -686,7 +686,7 @@
           <div class="w-8 h-8 rounded-lg flex items-center justify-center text-base flex-shrink-0"
                style="background:rgba(15,118,110,0.2);">🧠</div>
           <div>
-            <span class="text-xs font-semibold uppercase tracking-wider" style="color:#14b8a6;">Part 3</span>
+            <span class="text-xs font-semibold uppercase tracking-wider" style="color:var(--av-primary);">Part 3</span>
             <span class="text-xs ml-2" style="color:var(--av-text-secondary);">5 câu hỏi</span>
           </div>
         </div>
@@ -956,7 +956,7 @@
       var sub = document.getElementById('flashcards-tab-sub');
       if (!sub) return;
       sub.textContent = '🔥 ' + n + ' thẻ đến hạn';
-      sub.style.color = '#fcd34d';
+      sub.style.color = 'var(--av-accent)';
     }
 
     async function _refreshFlashcardsBadge() {
@@ -1054,8 +1054,8 @@
       document.getElementById('history-table-wrap').classList.remove('hidden');
 
       const modeLabel = { practice: 'Luyện tập', test_part: 'Part Test', test_full: 'Full Test' };
-      const modeColor = { practice: 'rgba(20,184,166,0.15)', test_part: 'rgba(56,189,248,0.15)', test_full: 'rgba(251,146,60,0.15)' };
-      const modeTxt   = { practice: '#14b8a6', test_part: '#38bdf8', test_full: '#fb923c' };
+      const modeColor = { practice: 'var(--av-primary-soft)', test_part: 'var(--av-info-soft)', test_full: 'var(--av-warning-soft)' };
+      const modeTxt   = { practice: 'var(--av-primary)', test_part: 'var(--av-info)', test_full: 'var(--av-warning)' };
 
       const tbody = document.getElementById('history-tbody');
       tbody.innerHTML = visible
@@ -1066,23 +1066,23 @@
           const isPending = s.status === 'submitted' || (s.status === 'completed' && s.overall_band == null && s.mode === 'test_full');
           const isFailed  = s.status === 'analysis_failed';
           const band = s.overall_band != null
-            ? `<span style="color:#14b8a6;font-weight:700;">${roundHalf(s.overall_band).toFixed(1)}</span>`
+            ? `<span style="color:var(--av-primary);font-weight:700;">${roundHalf(s.overall_band).toFixed(1)}</span>`
             : isPending
-              ? `<span style="font-size:10px;padding:2px 8px;border-radius:999px;background:rgba(251,146,60,0.12);color:#fb923c;font-weight:600;white-space:nowrap;">Đang phân tích</span>`
+              ? `<span style="font-size:10px;padding:2px 8px;border-radius:999px;background:var(--av-warning-soft);color:var(--av-warning);font-weight:600;white-space:nowrap;">Đang phân tích</span>`
               : isFailed
-                ? `<span style="font-size:10px;padding:2px 8px;border-radius:999px;background:rgba(239,68,68,0.1);color:#f87171;font-weight:600;white-space:nowrap;">Lỗi phân tích</span>`
+                ? `<span style="font-size:10px;padding:2px 8px;border-radius:999px;background:var(--av-error-soft);color:var(--av-error);font-weight:600;white-space:nowrap;">Lỗi phân tích</span>`
                 : '<span style="color:var(--av-text-faint);">—</span>';
           const viewBtn = s.id
             ? (isPending || isFailed)
               ? `<span class="text-xs px-3 py-1.5 rounded-lg font-medium" style="color:var(--av-text-muted);border:1px solid var(--av-border-subtle);cursor:default;">${isFailed ? 'Xem lại' : 'Chờ kết quả'}</span>`
-              : `<a href="result.html?id=${s.id}" class="text-xs px-3 py-1.5 rounded-lg transition font-medium" style="color:#14b8a6;border:1px solid rgba(20,184,166,0.3);" onmouseover="this.style.background='rgba(20,184,166,0.1)'" onmouseout="this.style.background='transparent'">Xem lại</a>`
+              : `<a href="result.html?id=${s.id}" class="text-xs px-3 py-1.5 rounded-lg transition font-medium" style="color:var(--av-primary);border:1px solid var(--av-primary-border);" onmouseover="this.style.background='var(--av-primary-soft)'" onmouseout="this.style.background='transparent'">Xem lại</a>`
             : '—';
           const mode = s.mode || 'practice';
           const modeBadge = `<span style="font-size:11px;padding:2px 8px;border-radius:999px;background:${modeColor[mode] || modeColor.practice};color:${modeTxt[mode] || modeTxt.practice};font-weight:600;">${modeLabel[mode] || mode}</span>`;
           return `
             <tr class="session-row" style="border-bottom:1px solid var(--av-border-subtle);">
               <td class="px-5 py-3.5 text-xs" style="color:var(--av-text-secondary);">${date}${retentionChip ? '<br>' + retentionChip : ''}</td>
-              <td class="px-5 py-3.5 text-xs font-semibold" style="color:#14b8a6;">Part ${s.part || '?'}</td>
+              <td class="px-5 py-3.5 text-xs font-semibold" style="color:var(--av-primary);">Part ${s.part || '?'}</td>
               <td class="px-5 py-3.5 text-xs">${modeBadge}</td>
               <td class="px-5 py-3.5 text-xs max-w-[200px] truncate" style="color:var(--av-text-secondary);">${s.topic || '—'}</td>
               <td class="px-5 py-3.5 text-center">${band}</td>
@@ -2200,7 +2200,7 @@
         ? `Vừa thêm <strong>${count} từ mới</strong> từ một buổi luyện`
         : `Vừa thêm <strong>${count} từ mới</strong> (thủ công)`;
       const previewHtml = preview.length
-        ? preview.map(w => `<code style="background:rgba(20,184,166,0.08);color:#5eead4;padding:1px 6px;border-radius:6px;font-size:11px;">${w}</code>`).join(' ') + more
+        ? preview.map(w => `<code style="background:var(--av-primary-soft);color:var(--av-primary);padding:1px 6px;border-radius:6px;font-size:11px;">${w}</code>`).join(' ') + more
         : '';
       return `
         <div style="display:flex;gap:12px;padding:12px 12px;border-bottom:1px solid var(--av-border-subtle);">
