@@ -7,14 +7,8 @@
   <title>Fill the blank — IELTS Speaking Coach</title>
 
   <script>
-    (function () {
-      try {
-        var stored = localStorage.getItem('av-theme');
-        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
-        document.documentElement.setAttribute('data-theme', theme);
-      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
-    })();
+    /* Immersive drill — always dark; layout and accents are dark-only. */
+    document.documentElement.setAttribute('data-theme', 'dark');
   </script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
