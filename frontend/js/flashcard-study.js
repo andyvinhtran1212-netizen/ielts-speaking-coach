@@ -24,10 +24,14 @@
   let _token = null;
   const _state = {
     stackId: null,
-    cards:   [],          // [{id, headword, definition_vi, ...}]
+    mode:    'personal',  // 'personal' (user_vocabulary + server SRS) | 'wiki' (public vocab_cards topic stack)
+    category: null,       // wiki mode: the vocab_cards category being studied
+    categoryTitle: '',
+    cards:   [],          // [{id/slug, headword, definition_vi, ...}]
     index:   0,
     flipped: false,
     breakdown:    { again: 0, hard: 0, good: 0, easy: 0 },
+    wikiBreakdown: { known: 0, review: 0 },  // wiki mode: localStorage self-marks
     // Failed POST /review attempts collected during the session so the
     // summary screen can warn the user and (later) offer a retry.
     // Each entry: { vocab_id, rating, error }.
@@ -64,11 +68,6 @@
 
   async function init() {
     showLoading();
-    _token = await getToken();
-    if (!_token) {
-      window.location.href = window.api.url('index.html');
-      return;
-    }
 
     const params = new URLSearchParams(window.location.search);
     _state.stackId = (params.get('stack') || '').trim();
@@ -77,6 +76,23 @@
       return;
     }
 
+    // ── Wiki topic stack (public vocab_cards) — no auth/flag needed; progress
+    // is a lightweight localStorage self-mark (those cards have no per-user SRS).
+    if (_state.stackId.indexOf('wiki:') === 0) {
+      _state.mode = 'wiki';
+      _state.category = _state.stackId.slice(5);
+      await loadWikiCards();
+      document.addEventListener('keydown', onHotkey);
+      return;
+    }
+
+    // ── Personal stack (user_vocabulary) — requires auth + flag, server SRS.
+    _state.mode = 'personal';
+    _token = await getToken();
+    if (!_token) {
+      window.location.href = window.api.url('index.html');
+      return;
+    }
     try {
       const meRes = await fetch(BASE + '/auth/me', { headers: authHeaders() });
       if (!meRes.ok) { showState('Tính năng chưa được bật.'); return; }
@@ -87,12 +103,6 @@
       }
     } catch (_) { showState('Tính năng chưa được bật.'); return; }
 
-    // PR-B: every stack — including auto:needs_review — now renders study
-    // mode here.  The verdict-triage flow that used to live behind
-    // auto:needs_review moved to my-vocabulary.html (the canonical vocab
-    // management hub); this page is study-only again.  auto:needs_review
-    // continues to populate from the backend with vocab the user has
-    // lapsed on (lapse_count > 0), so the SRS use case still has a queue.
     await loadCards();
     document.addEventListener('keydown', onHotkey);
   }
@@ -131,9 +141,214 @@
     renderCard();
   }
 
+  // ════════════════ Wiki topic stacks (public vocab_cards) ════════════════════
+  // A topic on vocabulary.html#vocab-topics launches study of that category's
+  // RICH vocab_cards: full definitions, example + audio, collocations, synonyms,
+  // antonyms, a memory hook and a common-error note. No server SRS (these rows
+  // aren't per-user) — progress is a lightweight localStorage self-mark.
+
+  async function loadWikiCards() {
+    showLoading();
+    try {
+      const url = BASE + '/api/vocabulary/categories/' + encodeURIComponent(_state.category) + '/cards';
+      const res = await fetch(url);   // public endpoint — no auth header
+      if (!res.ok) {
+        showState(res.status === 404 ? 'Chủ đề không tồn tại.' : 'Không tải được từ vựng.', true);
+        return;
+      }
+      const body = await res.json();
+      _state.cards = Array.isArray(body.cards) ? body.cards : [];
+      _state.categoryTitle = body.category || _state.category;
+    } catch (err) {
+      console.error('[flashcard-study] wiki load', err);
+      showState('Không tải được từ vựng. Thử lại sau.', true);
+      return;
+    }
+    if (!_state.cards.length) { showState('Chủ đề này chưa có từ vựng nào.'); return; }
+
+    _state.index = 0;
+    _state.flipped = false;
+    _state.wikiBreakdown = { known: 0, review: 0 };
+    const titleEl = $('study-title');
+    if (titleEl) titleEl.textContent = 'Flashcards · ' + _state.categoryTitle;
+    renderCard();
+  }
+
+  // localStorage progress per category: { slug: 'known' | 'review' }
+  function _wikiKey(cat) { return 'vocabflash:wiki:' + cat; }
+  function _wikiProgress(cat) {
+    try { return JSON.parse(localStorage.getItem(_wikiKey(cat)) || '{}') || {}; }
+    catch (_) { return {}; }
+  }
+  function _wikiMark(cat, slug, status) {
+    try {
+      const m = _wikiProgress(cat); m[slug] = status;
+      localStorage.setItem(_wikiKey(cat), JSON.stringify(m));
+    } catch (_) { /* private mode / quota — progress just won't persist */ }
+  }
+
+  // Audio: prefer the pregenerated mp3, fall back to speechSynthesis.
+  let _audioEl = null;
+  function playAudio(url, fallback) {
+    try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (_) {}
+    if (_audioEl) { try { _audioEl.pause(); } catch (_) {} _audioEl = null; }
+    if (url) {
+      try { _audioEl = new Audio(url); _audioEl.play().catch(() => _speak(fallback)); return; }
+      catch (_) { /* fall through to TTS */ }
+    }
+    _speak(fallback);
+  }
+  function _speak(text) {
+    if (!text || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-GB'; u.rate = 0.92;
+    window.speechSynthesis.speak(u);
+  }
+
+  function _chips(items) {
+    const arr = (items || []).filter(Boolean);
+    if (!arr.length) return '';
+    return '<div class="wiki-chips">' +
+      arr.map(s => `<span class="wiki-chip">${escape(s)}</span>`).join('') + '</div>';
+  }
+  function _relRow(tag, items) {
+    return (items || []).length
+      ? `<div class="wiki-rel"><span class="wiki-rel-tag">${escape(tag)}</span>${_chips(items)}</div>`
+      : '';
+  }
+
+  function renderWikiCard() {
+    const card = _state.cards[_state.index];
+    if (!card) { renderWikiSummary(); return; }
+    _state.flipped = false;
+
+    const total   = _state.cards.length;
+    const current = _state.index + 1;
+    const pct     = Math.round((_state.index / total) * 100);
+    const prevMark = _wikiProgress(_state.category)[card.slug];
+
+    const audioBtn = (url, fallback, label) =>
+      `<button type="button" class="wiki-audio" data-audio="${escape(url || '')}" ` +
+      `data-say="${escape(fallback || '')}" aria-label="${escape(label)}">🔊</button>`;
+
+    const ipa = card.pronunciation ? `<span class="back-ipa">${escape(card.pronunciation)}</span>` : '';
+    const posLevel = [card.part_of_speech, card.level].filter(Boolean).join(' · ');
+
+    const example = card.example
+      ? `<div class="example-block">
+           <div class="example-head">
+             <span class="example-label">Ví dụ</span>
+             ${audioBtn(card.audio_example, card.example, 'Nghe câu ví dụ')}
+           </div>
+           <p class="example-text">${escape(card.example)}</p>
+         </div>`
+      : '';
+    const hook = card.memory_hook
+      ? `<div class="wiki-callout wiki-hook"><span class="wiki-cic">💡</span><span>${escape(card.memory_hook)}</span></div>` : '';
+    const err = card.common_error
+      ? `<div class="wiki-callout wiki-error"><span class="wiki-cic">⚠</span><span>${escape(card.common_error)}</span></div>` : '';
+
+    const back = `
+      <div class="face back wiki-back">
+        <div class="back-headword-row">
+          <span class="back-headword">${escape(card.headword || '')}</span>
+          ${ipa}
+          ${audioBtn(card.audio_headword, card.headword, 'Nghe từ')}
+          ${posLevel ? `<span class="wiki-pos">${escape(posLevel)}</span>` : ''}
+        </div>
+        ${card.definition_vi ? `<p class="def-vi">${escape(card.definition_vi)}</p>` : ''}
+        ${card.definition_en ? `<p class="def-en">${escape(card.definition_en)}</p>` : ''}
+        ${example}
+        ${_relRow('Kết hợp thường gặp', card.collocations)}
+        ${_relRow('≈ đồng nghĩa', card.synonyms)}
+        ${_relRow('≠ trái nghĩa', card.antonyms)}
+        ${hook}${err}
+      </div>`;
+
+    setHtml('study-container', `
+      <div class="progress-header">
+        <span class="progress-text">${current} / ${total}</span>
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+      </div>
+      <div class="card-stage">
+        <div id="study-card" class="flashcard">
+          <div class="face front wiki-front">
+            <span class="topic-tag">${escape(_state.categoryTitle)}</span>
+            <p class="headword">${escape(card.headword || '')}</p>
+            <div class="wiki-pron">${ipa}${audioBtn(card.audio_headword, card.headword, 'Nghe từ')}</div>
+            ${prevMark ? `<span class="wiki-prev wiki-prev--${prevMark}">${prevMark === 'known' ? '✓ Đã thuộc' : '↻ Cần ôn'}</span>` : ''}
+            <p class="flip-hint">Tap / Space để xem nghĩa</p>
+          </div>
+          ${back}
+        </div>
+      </div>
+      <div class="ratings wiki-marks">
+        <button type="button" class="rate-btn rate-again" data-mark="review">
+          <span class="label">Cần ôn</span><span class="hotkey">1</span></button>
+        <button type="button" class="rate-btn rate-good" data-mark="known">
+          <span class="label">Đã thuộc</span><span class="hotkey">2</span></button>
+      </div>
+      <p class="ratings-hint">Bấm thẻ để lật • 1 Cần ôn • 2 Đã thuộc • 🔊 Nghe phát âm</p>
+    `);
+
+    $('study-card').addEventListener('click', flipCard);
+    document.querySelectorAll('.wiki-audio').forEach(b => {
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();   // don't flip the card
+        playAudio(b.getAttribute('data-audio'), b.getAttribute('data-say'));
+      });
+    });
+    document.querySelectorAll('.rate-btn[data-mark]').forEach(b => {
+      b.addEventListener('click', () => markWiki(b.getAttribute('data-mark')));
+    });
+  }
+
+  function markWiki(status) {
+    if (status !== 'known' && status !== 'review') return;
+    const card = _state.cards[_state.index];
+    if (!card) return;
+    _wikiMark(_state.category, card.slug, status);
+    _state.wikiBreakdown[status]++;
+    _state.index++;
+    if (_state.index >= _state.cards.length) renderWikiSummary();
+    else renderCard();
+  }
+
+  function renderWikiSummary() {
+    document.removeEventListener('keydown', onHotkey);
+    const total = _state.cards.length;
+    const k = _state.wikiBreakdown.known;
+    const r = _state.wikiBreakdown.review;
+    const backHref = window.api.url('pages/vocabulary.html') + '#vocab-topics';
+    setHtml('study-container', `
+      <div class="summary">
+        <h2>Xong chủ đề ${escape(_state.categoryTitle)}!</h2>
+        <p>Bạn đã xem ${total} từ. Tiến độ được lưu trên thiết bị này.</p>
+        <p class="big-num">${total}</p>
+        <div class="breakdown breakdown-2">
+          <div class="cell"><div class="num" style="color:#5eead4">${k}</div><div class="label">Đã thuộc</div></div>
+          <div class="cell"><div class="num" style="color:#fcd34d">${r}</div><div class="label">Cần ôn</div></div>
+        </div>
+        <div class="summary-actions">
+          <button type="button" id="wiki-restart" class="btn-primary">Học lại</button>
+          <a href="${backHref}" class="btn-secondary">Chọn chủ đề khác</a>
+        </div>
+      </div>
+    `);
+    const restart = $('wiki-restart');
+    if (restart) restart.addEventListener('click', () => {
+      _state.index = 0; _state.flipped = false;
+      _state.wikiBreakdown = { known: 0, review: 0 };
+      document.addEventListener('keydown', onHotkey);
+      renderCard();
+    });
+  }
+
   // ── Card rendering ─────────────────────────────────────────────────────────
 
   function renderCard() {
+    if (_state.mode === 'wiki') { renderWikiCard(); return; }
     const card = _state.cards[_state.index];
     if (!card) { renderSummary(); return; }
     _state.flipped = false;
@@ -503,6 +718,12 @@
     // guard is cheap).
     const target = e.target;
     if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
+    if (_state.mode === 'wiki') {
+      if (e.key === ' ')      { e.preventDefault(); flipCard(); }
+      else if (e.key === '1') { e.preventDefault(); markWiki('review'); }
+      else if (e.key === '2') { e.preventDefault(); markWiki('known'); }
+      return;
+    }
     const key = e.key.toLowerCase();
     const action = HOTKEYS[key] || HOTKEYS[e.key];
     if (!action) return;

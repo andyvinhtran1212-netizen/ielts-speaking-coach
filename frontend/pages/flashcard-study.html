@@ -185,6 +185,73 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
     .hidden { display: none !important; }
+
+    /* ══ Wiki topic flashcards (rich vocab_cards) ══════════════════════════════
+       Same immersive dark study aesthetic, but the back face is the signature:
+       a layered "dictionary entry" surfacing every field — audio, IPA, meaning,
+       example, collocations, synonym/antonym chips, a memory hook + a common
+       error. */
+    .wiki-audio {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 30px; height: 30px; flex: 0 0 auto; padding: 0;
+      border-radius: 999px; cursor: pointer; font-size: 14px; line-height: 1;
+      background: rgba(20,184,166,0.12); border: 1px solid rgba(20,184,166,0.35);
+      color: #5eead4; transition: transform 0.15s ease, background 0.15s ease;
+    }
+    .wiki-audio:hover { background: rgba(20,184,166,0.22); transform: scale(1.08); }
+    .wiki-audio:active { transform: scale(0.96); }
+    .wiki-audio:focus-visible { outline: 2px solid #5eead4; outline-offset: 2px; }
+
+    .wiki-pron { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 16px; }
+    .wiki-back .back-headword-row { align-items: center; }
+    .wiki-pos {
+      margin-left: auto; font-size: 11px; color: rgba(255,255,255,0.5);
+      text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;
+    }
+    .wiki-prev {
+      margin-top: 16px; font-size: 11px; font-weight: 600;
+      padding: 3px 10px; border-radius: 999px;
+    }
+    .wiki-prev--known  { background: rgba(20,184,166,0.14); color: #5eead4; border: 1px solid rgba(20,184,166,0.3); }
+    .wiki-prev--review { background: rgba(251,191,36,0.12); color: #fcd34d; border: 1px solid rgba(251,191,36,0.3); }
+
+    .example-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .example-head .example-label { margin-bottom: 0; }
+    .example-head .wiki-audio { width: 24px; height: 24px; font-size: 12px; }
+
+    .wiki-rel { margin-bottom: 12px; }
+    .wiki-rel-tag {
+      display: block; font-size: 10px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.06em; color: rgba(255,255,255,0.4); margin-bottom: 6px;
+    }
+    .wiki-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .wiki-chip {
+      font-size: 12px; padding: 4px 10px; border-radius: 999px;
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.82);
+    }
+
+    .wiki-callout {
+      display: flex; gap: 8px; align-items: flex-start;
+      font-size: 13px; line-height: 1.5; padding: 10px 12px;
+      border-radius: 10px; margin-bottom: 10px;
+    }
+    .wiki-cic { flex: 0 0 auto; font-size: 14px; }
+    .wiki-hook  { background: rgba(168,139,250,0.08); border: 1px solid rgba(168,139,250,0.25); color: rgba(221,214,254,0.95); }
+    .wiki-error { background: rgba(251,146,60,0.07);  border: 1px solid rgba(251,146,60,0.25);  color: rgba(253,186,116,0.95); }
+
+    /* 2-up controls for wiki (override the 4-col personal ratings + breakdown) */
+    .ratings.wiki-marks { grid-template-columns: repeat(2, 1fr); }
+    .breakdown.breakdown-2 {
+      grid-template-columns: repeat(2, 1fr);
+      max-width: 280px; margin-left: auto; margin-right: auto;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .flashcard { transition: none; }
+      .wiki-audio, .rate-btn, .source-context-btn { transition: none; }
+      .wiki-audio:hover, .rate-btn:hover { transform: none; }
+    }
   </style>
 </head>
 <body class="text-slate-100 font-sans min-h-screen">

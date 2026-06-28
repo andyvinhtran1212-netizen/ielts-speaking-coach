@@ -320,6 +320,20 @@ class VocabContentService:
         related = self._resolve_related(a.get("related_words") or [])
         return {**a, "related_words": related}
 
+    def get_category_cards(self, category: str) -> Optional[list[dict]]:
+        """Full vocab cards (rich fields) for one category — the study-stack source
+        for topic-scoped flashcards/exercises. Returns None when the category is
+        unknown (router 404s); a known-but-empty category returns []. Same per-card
+        shape as get_article (related_words resolved to objects)."""
+        known = category in self._valid_categories or category in self.articles_by_category
+        if not known:
+            return None
+        cards = self.articles_by_category.get(category, [])
+        return [
+            {**a, "related_words": self._resolve_related(a.get("related_words") or [])}
+            for a in cards
+        ]
+
     def search_prefix(self, prefix: str) -> list[dict]:
         """Simple case-insensitive prefix match on headword."""
         if not prefix:
