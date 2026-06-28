@@ -227,7 +227,7 @@
       t.setAttribute('role', 'alert');
       t.className = 'result-toast';
       t.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);' +
-        'background:var(--ds-surface-elevated,#1f2937);color:#fff;padding:12px 18px;border-radius:8px;' +
+        'background:var(--av-surface-elevated);color:var(--av-text-primary);padding:12px 18px;border-radius:8px;' +
         'font-size:13px;line-height:1.5;box-shadow:0 6px 20px rgba(0,0,0,.28);z-index:9999;max-width:90vw;';
       document.body.appendChild(t);
       setTimeout(function () { t.remove(); }, 5000);
