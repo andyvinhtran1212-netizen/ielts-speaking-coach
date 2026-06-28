@@ -55,6 +55,9 @@
             // Card carries explicit actions: "Khám phá" (browse the wiki),
             // "🃏 Flashcards" (study the stack), and "✍️ Luyện tập" (exercises —
             // shown only when the topic has enough words for a real MCQ).
+            // Card is no longer a single link — it carries explicit actions:
+            // "Khám phá" (browse the wiki) + "🃏 Flashcards" (study this topic's
+            // stack). "✍️ Luyện tập" (exercises) lands in PR2.
             return '<div class="vocab-topic-card">'
               + '<div class="vtc-body">'
               + '<h3 class="vtc-title">' + esc(c.title || c.slug) + '</h3>'
