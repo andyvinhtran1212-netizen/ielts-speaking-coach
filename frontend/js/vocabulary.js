@@ -30,6 +30,22 @@
       aria-label="Nghe ${esc(say || '')}">${PLAY_SVG}</button>`;
   }
 
+  // Per-card "report an error" control. Quick: tap ⚑ → tap a reason → fire-and-
+  // forget a `vocab_card_flagged` analytics event (reuses /api/analytics/events,
+  // so no new table — admin queries analytics_events, same as vocab_fp_reported).
+  function flagControl(a) {
+    return `<span class="va-flag-wrap" data-slug="${esc(a.slug || '')}"
+        data-headword="${esc(a.headword || '')}" data-category="${esc(a.category || '')}">
+      <button type="button" class="va-flag" aria-haspopup="true" aria-expanded="false"
+        aria-label="Báo lỗi thẻ từ này"><span aria-hidden="true">⚑</span> Báo lỗi</button>
+      <span class="va-flag-menu" role="menu" hidden>
+        <span class="va-flag-q">Báo lỗi về:</span>
+        <button type="button" class="va-flag-opt" data-reason="content" role="menuitem">Nội dung</button>
+        <button type="button" class="va-flag-opt" data-reason="audio" role="menuitem">Âm thanh</button>
+      </span>
+    </span>`;
+  }
+
   // ── Stress specimen (R1/R2 fix) ───────────────────────────────────────────
   // Split on syllable dots AND the stress marks ˈ/ˌ; the PRIMARY-stressed
   // syllable is the chunk that begins with ˈ. A single-syllable word with no
@@ -101,7 +117,10 @@
     pad.push(`<div class="va-pad">
       <div class="va-eyebrow-row">
         <span class="va-eyebrow">${esc(prettyCat(a.category))}</span>
-        ${a.level ? `<span class="va-pill">${esc(a.level)}</span>` : ''}
+        <span class="va-eyebrow-actions">
+          ${a.level ? `<span class="va-pill">${esc(a.level)}</span>` : ''}
+          ${flagControl(a)}
+        </span>
       </div>
       <div class="va-head">
         <h2 class="va-headword">${esc(a.headword)}</h2>
@@ -360,6 +379,56 @@
     if (!btn) return;
     e.preventDefault(); e.stopPropagation();
     playFrom(btn);
+  });
+
+  // ── Flag / report an error (delegated) ──────────────────────────────────────
+  function closeFlagMenus(except) {
+    document.querySelectorAll('.va-flag-wrap').forEach((w) => {
+      if (w === except) return;
+      const m = w.querySelector('.va-flag-menu');
+      const b = w.querySelector('.va-flag');
+      if (m) m.hidden = true;
+      if (b) b.setAttribute('aria-expanded', 'false');
+    });
+  }
+  function sendFlag(wrap, reason) {
+    if (!wrap) return;
+    const menu = wrap.querySelector('.va-flag-menu');
+    try {
+      let sessionId = sessionStorage.getItem('vocab_session_id');
+      if (!sessionId) { sessionId = crypto.randomUUID(); sessionStorage.setItem('vocab_session_id', sessionId); }
+      window.api.post('/api/analytics/events', {
+        event_name: 'vocab_card_flagged',
+        event_data: {
+          slug:     wrap.getAttribute('data-slug') || '',
+          headword: wrap.getAttribute('data-headword') || '',
+          category: wrap.getAttribute('data-category') || '',
+          reason:   reason || 'unspecified',
+        },
+        session_id: sessionId,
+      }).catch(() => {});
+    } catch (_) { /* report best-effort — never block the UI */ }
+    if (menu) menu.innerHTML = '<span class="va-flag-done">✓ Đã gửi, cảm ơn!</span>';
+  }
+  document.addEventListener('click', (e) => {
+    const opt = e.target.closest('.va-flag-opt');
+    if (opt) {
+      e.preventDefault(); e.stopPropagation();
+      sendFlag(opt.closest('.va-flag-wrap'), opt.getAttribute('data-reason'));
+      return;
+    }
+    const fb = e.target.closest('.va-flag');
+    if (fb) {
+      e.preventDefault(); e.stopPropagation();
+      const wrap = fb.closest('.va-flag-wrap');
+      const menu = wrap && wrap.querySelector('.va-flag-menu');
+      const willOpen = menu && menu.hidden;     // currently hidden → this click opens it
+      closeFlagMenus(wrap);
+      if (menu) menu.hidden = !willOpen;
+      fb.setAttribute('aria-expanded', String(!!willOpen));
+      return;
+    }
+    closeFlagMenus(null);                        // click elsewhere closes open menus
   });
 
   // ════════════════════════════ Analytics ════════════════════════════

@@ -283,3 +283,34 @@
   }
   .vmd-back svg { width: 16px; height: 16px; }
 }
+
+/* ── Per-card flag / report control (audio + content error reporting) ───────── */
+.va-eyebrow-row { gap: var(--av-space-3); }
+.va-eyebrow-actions { display: flex; align-items: center; gap: var(--av-space-2); position: relative; }
+.va-flag {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; line-height: 1; letter-spacing: .04em;
+  color: var(--av-text-muted); background: transparent;
+  border: 1px solid var(--av-border-subtle); border-radius: var(--av-radius-pill);
+  padding: 4px 10px; cursor: pointer;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.va-flag:hover { color: var(--av-warning, #c2410c); border-color: var(--av-warning, #c2410c); }
+.va-flag:focus-visible { outline: 2px solid var(--av-vocab-jade); outline-offset: 2px; }
+.va-flag-menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 30;
+  display: flex; flex-direction: column; gap: 2px; min-width: 156px;
+  padding: 8px; background: var(--av-surface-card);
+  border: 1px solid var(--av-border-default); border-radius: var(--av-radius-lg, 12px);
+  box-shadow: var(--av-shadow-md);
+}
+.va-flag-menu[hidden] { display: none; }
+.va-flag-q { font-size: 11px; color: var(--av-text-muted); padding: 2px 6px 4px; }
+.va-flag-opt {
+  text-align: left; font-size: 13px; color: var(--av-text-primary);
+  background: transparent; border: 0; border-radius: var(--av-radius-md, 8px);
+  padding: 7px 8px; cursor: pointer;
+}
+.va-flag-opt:hover { background: var(--av-surface-sunken); }
+.va-flag-opt:focus-visible { outline: 2px solid var(--av-vocab-jade); outline-offset: -2px; }
+.va-flag-done { font-size: 13px; color: var(--av-vocab-jade); padding: 4px 6px; white-space: nowrap; }
