@@ -44,9 +44,16 @@
       --lx-skill-grammar:    #4F46E5;
       --lx-skill-vocabulary: #0B6E59;
 
-      --lx-pitch-text:   rgba(255, 255, 255, 0.88);
-      --lx-pitch-muted:  rgba(255, 255, 255, 0.45);
-      --lx-pitch-border: rgba(255, 255, 255, 0.08);
+      --lx-pitch-bg:         linear-gradient(155deg, #042F2E 0%, #0C2340 55%, #081628 100%);
+      --lx-pitch-text-full:  #fff;
+      --lx-pitch-text:       rgba(255, 255, 255, 0.88);
+      --lx-pitch-muted:      rgba(255, 255, 255, 0.45);
+      --lx-pitch-border:     rgba(255, 255, 255, 0.08);
+      --lx-row-bg:           rgba(255, 255, 255, 0.04);
+      --lx-row-bg-hover:     rgba(255, 255, 255, 0.08);
+      --lx-row-border-hover: rgba(255, 255, 255, 0.14);
+      --lx-skill-name-text:  rgba(255, 255, 255, 0.85);
+      --lx-tag-bg:           rgba(255, 255, 255, 0.07);
     }
 
     *, *::before, *::after { box-sizing: border-box; }
@@ -74,7 +81,7 @@
 
     /* ── Pitch panel (always-dark) ─────────────────── */
     .lx-pitch {
-      background: linear-gradient(155deg, #042F2E 0%, #0C2340 55%, #081628 100%);
+      background: var(--lx-pitch-bg);
       color: var(--lx-pitch-text);
       display: flex;
       flex-direction: column;
@@ -91,7 +98,7 @@
       font-weight: 800;
       letter-spacing: -0.02em;
       margin-bottom: 3.5rem;
-      color: #fff;
+      color: var(--lx-pitch-text-full);
     }
     .lx-logo span { color: var(--av-brand-teal-500); }
 
@@ -109,7 +116,7 @@
       font-weight: 800;
       line-height: 1.2;
       letter-spacing: -0.03em;
-      color: #fff;
+      color: var(--lx-pitch-text-full);
       margin: 0 0 2.5rem;
     }
 
@@ -127,13 +134,13 @@
       gap: 0.625rem;
       padding: 0.5rem 0.75rem;
       border-radius: 10px;
-      background: rgba(255, 255, 255, 0.04);
+      background: var(--lx-row-bg);
       border: 1px solid var(--lx-pitch-border);
       transition: background 0.2s, border-color 0.2s;
     }
     .lx-skill-row:hover {
-      background: rgba(255, 255, 255, 0.08);
-      border-color: rgba(255, 255, 255, 0.14);
+      background: var(--lx-row-bg-hover);
+      border-color: var(--lx-row-border-hover);
     }
 
     @keyframes lx-breathe {
@@ -152,7 +159,7 @@
     .lx-skill-name {
       font-size: 0.8125rem;
       font-weight: 600;
-      color: rgba(255, 255, 255, 0.85);
+      color: var(--lx-skill-name-text);
       flex: 1;
     }
 
@@ -163,8 +170,8 @@
       text-transform: uppercase;
       padding: 0.15rem 0.5rem;
       border-radius: 999px;
-      background: rgba(255, 255, 255, 0.07);
-      color: rgba(255, 255, 255, 0.4);
+      background: var(--lx-tag-bg);
+      color: var(--lx-pitch-muted);
     }
 
     /* ── Social proof stat ─────────────────────────── */
@@ -179,7 +186,7 @@
     .lx-stat-number {
       font-size: 1.75rem;
       font-weight: 800;
-      color: #fff;
+      color: var(--lx-pitch-text-full);
       letter-spacing: -0.03em;
       font-family: var(--av-font-mono);
     }
