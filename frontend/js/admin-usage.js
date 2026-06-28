@@ -84,6 +84,7 @@ async function loadCodeUsage(codeId) {
   const users = data.assigned_users || [];
   if (!users.length) {
     $('code-usage-empty').hidden = false;
+    $('code-usage-table-wrap').hidden = true;
     return;
   }
   $('code-usage-table-wrap').hidden = false;

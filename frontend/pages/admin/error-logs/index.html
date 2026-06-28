@@ -238,12 +238,12 @@
         </div>
       </div>
 
-      <div class="el-loading" id="logs-loading">Đang tải…</div>
+      <div class="el-loading" id="logs-loading" hidden>Đang tải…</div>
       <div class="el-empty"   id="logs-empty" hidden>
         Chưa có lỗi nào — đây là tin tốt 🎉
       </div>
 
-      <div class="el-table-wrap" id="logs-table-wrap" hidden>
+      <div class="el-table-wrap" id="logs-table-wrap">
         <table class="el-table">
           <thead>
             <tr>
@@ -257,7 +257,7 @@
               <th></th>
             </tr>
           </thead>
-          <tbody id="logs-tbody"></tbody>
+          <tbody id="logs-tbody"><tr><td colspan="8" class="text-center py-6 text-sm" style="color:var(--av-text-muted,#9ca3af)">Đang tải…</td></tr></tbody>
         </table>
       </div>
     </main>

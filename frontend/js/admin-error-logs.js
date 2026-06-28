@@ -102,11 +102,9 @@ function renderTable() {
   $('logs-loading').hidden = true;
   if (!_rows.length) {
     $('logs-empty').hidden = false;
-    $('logs-table-wrap').hidden = true;
     return;
   }
   $('logs-empty').hidden = true;
-  $('logs-table-wrap').hidden = false;
 
   const tbody = $('logs-tbody');
   tbody.innerHTML = _rows.map((r) => {
@@ -161,9 +159,6 @@ function buildQuery() {
 }
 
 async function loadLogs() {
-  $('logs-loading').hidden = false;
-  $('logs-table-wrap').hidden = true;
-  $('logs-empty').hidden = true;
   try {
     const r = await api.get('/admin/error-logs?' + buildQuery());
     _rows = (r && r.items) || [];

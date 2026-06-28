@@ -129,12 +129,8 @@ async function fetchTest() {
 
 
 function render() {
-  document.getElementById('td-header').hidden    = false;
-  document.getElementById('td-meta').hidden      = false;
-  document.getElementById('td-audio').hidden     = false;
-  document.getElementById('td-sections').hidden  = false;
-  document.getElementById('td-publish').hidden   = false;
-  document.getElementById('td-delete').hidden    = false;
+  // Structure is always visible; loader is hidden by setLoading(false).
+  // Data containers render() calls below automatically replace placeholders.
 
   const t = STATE.test || {};
   document.getElementById('td-title').textContent =

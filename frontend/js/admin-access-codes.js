@@ -139,7 +139,6 @@ function renderTable() {
     return;
   }
   $('codes-empty').hidden = true;
-  $('codes-table-wrap').hidden = false;
 
   tbody.innerHTML = rows.map((c) => {
     const expires = c.expires_at ? new Date(c.expires_at).toLocaleDateString('vi-VN') : '—';
@@ -201,8 +200,6 @@ async function loadCohorts() {
 // silent=false to show the loading state.
 async function loadCodes(silent) {
   if (!silent) {
-    $('codes-loading').hidden = false;
-    $('codes-table-wrap').hidden = true;
     $('codes-empty').hidden = true;
   }
   try {

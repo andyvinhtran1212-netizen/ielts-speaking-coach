@@ -186,12 +186,7 @@ function renderPagination() {
 
 
 function setLoading(busy) {
-  document.getElementById('tl-loading').hidden = !busy;
-  if (busy) {
-    document.getElementById('tl-table-wrap').hidden = true;
-    document.getElementById('tl-empty').hidden = true;
-    document.getElementById('tl-pagination').hidden = true;
-  }
+  document.getElementById('tl-pagination').hidden = busy;
 }
 
 

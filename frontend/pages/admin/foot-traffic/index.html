@@ -70,10 +70,10 @@
         <button class="adm-btn-primary" id="btn-ft-apply" type="button">Áp dụng</button>
       </div>
 
-      <div class="adm-loading" id="ft-loading">Đang tải…</div>
+      <div class="adm-loading" id="ft-loading" hidden>Đang tải…</div>
       <div class="adm-empty" id="ft-empty" hidden>Không tải được dữ liệu lưu lượng.</div>
 
-      <div id="ft-body" hidden>
+      <div id="ft-body">
         <div class="ft-cards">
           <div class="adm-card"><span class="adm-card-num" id="ft-total">0</span><span class="adm-card-label">Tổng lượt xem</span></div>
           <div class="adm-card"><span class="adm-card-num" id="ft-unique">0</span><span class="adm-card-label">Khách đăng nhập (duy nhất)</span></div>
@@ -87,7 +87,7 @@
         <div class="adm-table-wrap">
           <table class="adm-table">
             <thead><tr><th>Đường dẫn</th><th>Lượt xem</th></tr></thead>
-            <tbody id="ft-pages-tbody"></tbody>
+            <tbody id="ft-pages-tbody"><tr><td colspan="2" class="ft-muted">Đang tải…</td></tr></tbody>
           </table>
         </div>
       </div>

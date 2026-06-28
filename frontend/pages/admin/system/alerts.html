@@ -122,7 +122,7 @@
       <!-- ── Session-level errors ─────────────────────────────────── -->
       <h2 class="alr-section-title">Lỗi cấp Session</h2>
       <div class="alr-empty" id="alr-sessions-empty" hidden>Không có lỗi session nào.</div>
-      <div class="alr-table-wrap" id="alr-sessions-wrap" hidden>
+      <div class="alr-table-wrap" id="alr-sessions-wrap">
         <table class="alr-table">
           <thead>
             <tr>
@@ -134,14 +134,16 @@
               <th>Thời gian</th>
             </tr>
           </thead>
-          <tbody id="alr-sessions-tbody"></tbody>
+          <tbody id="alr-sessions-tbody">
+            <tr><td colspan="6" class="text-center py-6 text-sm" style="color:var(--av-text-muted,#9ca3af)">Đang tải…</td></tr>
+          </tbody>
         </table>
       </div>
 
       <!-- ── Response-level grading failures ──────────────────────── -->
       <h2 class="alr-section-title">Lỗi Grading (cấp Response)</h2>
       <div class="alr-empty" id="alr-grading-empty" hidden>Không có grading failure nào.</div>
-      <div class="alr-table-wrap" id="alr-grading-wrap" hidden>
+      <div class="alr-table-wrap" id="alr-grading-wrap">
         <table class="alr-table">
           <thead>
             <tr>
@@ -152,7 +154,9 @@
               <th>STT</th>
             </tr>
           </thead>
-          <tbody id="alr-grading-tbody"></tbody>
+          <tbody id="alr-grading-tbody">
+            <tr><td colspan="5" class="text-center py-6 text-sm" style="color:var(--av-text-muted,#9ca3af)">Đang tải…</td></tr>
+          </tbody>
         </table>
       </div>
     </main>

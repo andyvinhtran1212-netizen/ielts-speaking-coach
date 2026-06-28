@@ -65,10 +65,10 @@
         </div>
       </div>
 
-      <div class="adm-loading" id="usage-loading">Đang tải…</div>
+      <div class="adm-loading" id="usage-loading" hidden>Đang tải…</div>
       <div class="adm-empty" id="usage-empty" hidden>Chưa có hoạt động nào.</div>
 
-      <div class="adm-table-wrap" id="usage-table-wrap" hidden>
+      <div class="adm-table-wrap" id="usage-table-wrap">
         <table class="adm-table">
           <thead>
             <tr>
@@ -78,7 +78,9 @@
               <th class="us-sortable" data-sort="ai_cost_usd">Chi phí AI ↕</th>
             </tr>
           </thead>
-          <tbody id="usage-tbody"></tbody>
+          <tbody id="usage-tbody">
+            <tr><td colspan="4" class="text-center py-6 text-sm" style="color:var(--av-text-muted,#9ca3af)">Đang tải…</td></tr>
+          </tbody>
         </table>
       </div>
     </main>
@@ -92,10 +94,10 @@
 
       <div class="cu-summary" id="code-usage-summary"></div>
 
-      <div class="adm-loading" id="code-usage-loading">Đang tải…</div>
+      <div class="adm-loading" id="code-usage-loading" hidden>Đang tải…</div>
       <div class="adm-empty" id="code-usage-empty" hidden>Mã này chưa có người dùng nào đang hoạt động.</div>
 
-      <div class="adm-table-wrap" id="code-usage-table-wrap" hidden>
+      <div class="adm-table-wrap" id="code-usage-table-wrap">
         <table class="adm-table">
           <thead>
             <tr>
@@ -105,7 +107,9 @@
               <th>Chi phí AI</th>
             </tr>
           </thead>
-          <tbody id="code-usage-tbody"></tbody>
+          <tbody id="code-usage-tbody">
+            <tr><td colspan="4" class="text-center py-6 text-sm" style="color:var(--av-text-muted,#9ca3af)">Đang tải…</td></tr>
+          </tbody>
         </table>
       </div>
     </main>

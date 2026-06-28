@@ -316,20 +316,17 @@
     if (STATE.libraryFilter) qs.set('library', STATE.libraryFilter);
     qs.set('limit', '200');
 
-    $('ar-list-state').hidden = false;
-    $('ar-list-state').textContent = 'Đang tải…';
+    $('ar-list-state').hidden = true;
     $('ar-list-empty').hidden = true;
-    $('ar-list-table').hidden = true;
 
     window.api.get('/admin/reading/content?' + qs.toString())
       .then(function (res) {
         var items = (res && res.items) || [];
-        $('ar-list-state').hidden = true;
         if (!items.length) { $('ar-list-empty').hidden = false; return; }
         renderList(items);
-        $('ar-list-table').hidden = false;
       })
       .catch(function (e) {
+        $('ar-list-state').hidden = false;
         $('ar-list-state').textContent = 'Không tải được danh sách: ' + (e && e.message || '');
       });
   }

@@ -83,7 +83,6 @@ function renderSessionErrors(rows) {
     return;
   }
   $('alr-sessions-empty').hidden = true;
-  $('alr-sessions-wrap').hidden = false;
   tbody.innerHTML = rows.map((s) => {
     const shortId = (s.id || '').slice(0, 8) + '…';
     return `
@@ -107,7 +106,6 @@ function renderGradingFailures(rows) {
     return;
   }
   $('alr-grading-empty').hidden = true;
-  $('alr-grading-wrap').hidden = false;
   tbody.innerHTML = rows.map((r) => `
     <tr>
       <td><span class="alr-mono">${escapeHtml((r.id || '').slice(0, 8) + '…')}</span></td>

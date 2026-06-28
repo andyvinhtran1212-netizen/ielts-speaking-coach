@@ -47,7 +47,6 @@ function render(data) {
     return;
   }
   $('ft-empty').hidden = true;
-  $('ft-body').hidden = false;
 
   $('ft-total').textContent = String(data.total_views || 0);
   $('ft-unique').textContent = String(data.unique_visitors || 0);

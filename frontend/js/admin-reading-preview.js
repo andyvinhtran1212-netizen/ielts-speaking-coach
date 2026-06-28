@@ -327,7 +327,6 @@
       '</section>';
     }).join('');
 
-    $('ar-preview-content').hidden = false;
     setState('');
   }
 

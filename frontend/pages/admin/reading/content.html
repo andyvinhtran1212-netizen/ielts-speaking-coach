@@ -135,17 +135,17 @@
         </div>
       </div>
 
-      <div id="ar-list-state" class="ar-list-state">Đang tải…</div>
+      <div id="ar-list-state" class="ar-list-state" hidden>Đang tải…</div>
       <div id="ar-list-empty" class="ar-list-state" hidden>Chưa có nội dung nào.</div>
 
-      <table id="ar-list-table" class="ar-table" hidden>
+      <table id="ar-list-table" class="ar-table">
         <thead>
           <tr>
             <th>Title</th><th>Slug</th><th>Library</th><th>Skill / Difficulty</th>
             <th>Status</th><th>Cập nhật</th><th>Actions</th>
           </tr>
         </thead>
-        <tbody id="ar-list-rows"></tbody>
+        <tbody id="ar-list-rows"><tr><td colspan="7" class="text-center py-6 text-sm" style="color:var(--av-text-muted,#9ca3af)">Đang tải…</td></tr></tbody>
       </table>
     </section>
 

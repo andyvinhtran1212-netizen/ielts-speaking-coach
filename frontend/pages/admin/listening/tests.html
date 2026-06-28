@@ -184,12 +184,12 @@
 
       <div class="tl-banner is-error" id="tl-error" hidden></div>
 
-      <div class="tl-loading" id="tl-loading">Đang tải…</div>
+      <div class="tl-loading" id="tl-loading" hidden>Đang tải…</div>
       <div class="tl-empty"   id="tl-empty"   hidden>
         Chưa có test. <a href="/pages/admin/listening/convert.html">Convert đề đầu tiên từ DOCX</a>.
       </div>
 
-      <div class="tl-table-wrap" id="tl-table-wrap" hidden>
+      <div class="tl-table-wrap" id="tl-table-wrap">
         <table class="tl-table">
           <thead>
             <tr>
@@ -204,7 +204,9 @@
               <th>Hành động</th>
             </tr>
           </thead>
-          <tbody id="tl-tbody"></tbody>
+          <tbody id="tl-tbody">
+            <tr><td colspan="9" class="text-center py-6 text-sm" style="color:var(--av-text-muted,#9ca3af)">Đang tải…</td></tr>
+          </tbody>
         </table>
       </div>
 
