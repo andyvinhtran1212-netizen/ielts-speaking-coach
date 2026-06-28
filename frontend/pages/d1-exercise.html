@@ -20,54 +20,57 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/aver-design/tokens.css" />
   <link rel="stylesheet" href="../css/ds.css" />
   <link rel="stylesheet" href="/css/tailwind.build.css" />
   <style>
-    body { background: #0a1628; }
+    body { background: var(--av-surface-page); }
+
+    .page-header { background: var(--av-surface-card); border-bottom: 1px solid var(--av-border-subtle); }
 
     /* Layout shells */
     .start-screen, .exercise-active, .summary {
-      background: rgba(255,255,255,0.03);
-      border: 1px solid rgba(255,255,255,0.07);
-      border-radius: 16px;
+      background: var(--av-surface-card);
+      border: 1px solid var(--av-border-subtle);
+      border-radius: var(--av-radius-xl);
       padding: 26px;
     }
 
     /* Progress header inside exercise-active */
     .progress-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
-    .progress-text { font-size: 13px; color: rgba(255,255,255,0.6); }
+    .progress-text { font-size: 13px; color: var(--av-text-secondary); }
     .progress-bar {
       flex: 1; max-width: 220px; margin-left: 12px;
-      height: 6px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden;
+      height: 6px; background: var(--av-border-subtle); border-radius: var(--av-radius-pill); overflow: hidden;
     }
     .progress-fill {
-      height: 100%; background: linear-gradient(90deg, #14b8a6, #0ea5e9);
+      height: 100%; background: linear-gradient(90deg, var(--av-primary), #0ea5e9);
       transition: width 0.3s ease;
     }
 
     /* Sprint 10.5 Phase 2 — source label inside progress-header. */
     .d1-source-label {
       font-size: 11px; font-weight: 600;
-      padding: 3px 10px; border-radius: 999px;
+      padding: 3px 10px; border-radius: var(--av-radius-pill);
       letter-spacing: 0.02em;
     }
     .d1-source-label--personalized {
-      background: rgba(20, 184, 166, 0.14);
+      background: var(--av-primary-soft);
       color: #5eead4;
-      border: 1px solid rgba(20, 184, 166, 0.34);
+      border: 1px solid var(--av-primary-border);
     }
     .d1-source-label--admin {
-      background: rgba(255, 255, 255, 0.05);
-      color: rgba(255, 255, 255, 0.55);
-      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: var(--av-surface-card);
+      color: var(--av-text-muted);
+      border: 1px solid var(--av-border-default);
     }
 
     .sentence {
-      font-size: 17px; color: #fff; line-height: 1.7; margin-bottom: 22px;
+      font-size: 17px; color: var(--av-text-primary); line-height: 1.7; margin-bottom: 22px;
     }
     .blank-token {
       display: inline-block; min-width: 90px; padding: 0 10px;
-      border-bottom: 2px dashed rgba(20,184,166,0.5);
+      border-bottom: 2px dashed var(--av-primary-border);
       color: #5eead4; font-weight: 600;
     }
 
@@ -75,25 +78,25 @@
     .options { display: flex; flex-direction: column; gap: 10px; }
     .option-btn {
       width: 100%; text-align: left; padding: 14px 16px;
-      border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
-      background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.9);
+      border-radius: var(--av-radius-lg); border: 1px solid var(--av-border-default);
+      background: var(--av-surface-card); color: var(--av-text-primary);
       font-size: 15px; cursor: pointer; transition: all 0.15s;
     }
     .option-btn:hover:not(:disabled) {
-      border-color: rgba(20,184,166,0.4); background: rgba(20,184,166,0.08);
+      border-color: var(--av-primary-border); background: var(--av-primary-soft);
     }
     .option-btn.correct { border-color: rgba(20,184,166,0.6); background: rgba(20,184,166,0.18); color: #5eead4; }
-    .option-btn.wrong   { border-color: rgba(239,68,68,0.6);  background: rgba(239,68,68,0.15);  color: #fca5a5; }
+    .option-btn.wrong   { border-color: rgba(239,68,68,0.6);  background: rgba(239,68,68,0.15);  color: var(--av-error); }
     .option-btn.dimmed  { opacity: 0.45; }
     .option-btn:disabled { cursor: default; }
 
     /* Feedback banner */
     .feedback {
-      margin-top: 18px; border-radius: 10px; padding: 10px 14px;
+      margin-top: 18px; border-radius: var(--av-radius-lg); padding: 10px 14px;
       font-size: 13px; font-weight: 500;
     }
-    .feedback.correct { background: rgba(20,184,166,0.12); border: 1px solid rgba(20,184,166,0.3); color: #5eead4; }
-    .feedback.wrong   { background: rgba(239,68,68,0.10);  border: 1px solid rgba(239,68,68,0.3);  color: #fca5a5; }
+    .feedback.correct { background: var(--av-primary-soft); border: 1px solid var(--av-primary-border); color: #5eead4; }
+    .feedback.wrong   { background: var(--av-error-soft);   border: 1px solid rgba(239,68,68,0.3);  color: var(--av-error); }
     /* Sprint 10.3 — D1 → SRS indicator. Inline ack that the answer
        fed the spaced-repetition schedule. Muted styling so it
        doesn't compete with the main correct/wrong feedback. */
@@ -108,46 +111,46 @@
       font-size: 14px; font-weight: 500; padding: 10px 18px; border-radius: 10px;
       cursor: pointer; transition: all 0.15s; border: 1px solid transparent;
     }
-    .btn-primary { background: rgba(20,184,166,0.18); border-color: rgba(20,184,166,0.4); color: #14b8a6; }
+    .btn-primary { background: var(--av-primary-soft); border-color: var(--av-primary-border); color: var(--av-primary); }
     .btn-primary:hover { background: rgba(20,184,166,0.28); }
     .btn-primary.btn-large { padding: 14px 28px; font-size: 16px; font-weight: 600; }
-    .btn-secondary { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.15); color: rgba(255,255,255,0.85); }
-    .btn-secondary:hover { background: rgba(255,255,255,0.08); }
-    .btn-ghost { background: transparent; color: rgba(255,255,255,0.5); }
-    .btn-ghost:hover { color: rgba(255,255,255,0.85); }
+    .btn-secondary { background: var(--av-surface-card); border-color: var(--av-border-default); color: var(--av-text-primary); }
+    .btn-secondary:hover { background: var(--av-border-subtle); }
+    .btn-ghost { background: transparent; color: var(--av-text-muted); }
+    .btn-ghost:hover { color: var(--av-text-primary); }
 
     /* Start screen */
     .start-screen { text-align: center; padding: 48px 24px; }
-    .start-screen h2 { font-size: 22px; font-weight: 600; color: #fff; margin-bottom: 10px; }
-    .start-screen p  { font-size: 14px; color: rgba(255,255,255,0.55); margin-bottom: 28px; }
+    .start-screen h2 { font-size: 22px; font-weight: 600; color: var(--av-text-primary); margin-bottom: 10px; }
+    .start-screen p  { font-size: 14px; color: var(--av-text-muted); margin-bottom: 28px; }
 
     /* Summary screen */
-    .summary h2 { font-size: 22px; font-weight: 600; color: #fff; margin-bottom: 20px; text-align: center; }
+    .summary h2 { font-size: 22px; font-weight: 600; color: var(--av-text-primary); margin-bottom: 20px; text-align: center; }
     .score-display { text-align: center; margin-bottom: 28px; }
-    .score-number  { font-size: 48px; font-weight: 700; color: #14b8a6; line-height: 1; }
-    .score-percent { font-size: 14px; color: rgba(255,255,255,0.5); margin-top: 4px; }
+    .score-number  { font-size: 48px; font-weight: 700; color: var(--av-primary); line-height: 1; }
+    .score-percent { font-size: 14px; color: var(--av-text-muted); margin-top: 4px; }
     .results-section { margin-bottom: 24px; }
     .results-section h3 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; }
     .correct-section h3 { color: #5eead4; }
-    .wrong-section   h3 { color: #fca5a5; }
+    .wrong-section   h3 { color: var(--av-error); }
     .result-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
     .result-list li {
-      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
-      border-radius: 10px; padding: 12px 14px;
+      background: var(--av-surface-card); border: 1px solid var(--av-border-subtle);
+      border-radius: var(--av-radius-lg); padding: 12px 14px;
     }
     .result-list .word { font-size: 13px; color: #5eead4; margin-bottom: 4px; }
-    .result-list .sentence-preview { font-size: 13px; color: rgba(255,255,255,0.65); font-style: italic; }
+    .result-list .sentence-preview { font-size: 13px; color: var(--av-text-secondary); font-style: italic; }
     .answers-row { margin-top: 8px; font-size: 12px; display: flex; flex-wrap: wrap; gap: 12px; }
-    .answers-row .user-ans    strong.wrong   { color: #fca5a5; }
+    .answers-row .user-ans    strong.wrong   { color: var(--av-error); }
     .answers-row .correct-ans strong.correct { color: #5eead4; }
     .summary-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 8px; }
 
     /* Generic state messages (loading / error / disabled / empty) */
-    .state-msg { color: rgba(255,255,255,0.4); text-align: center; padding: 56px 16px; font-size: 14px; }
-    .state-msg.error { color: #fca5a5; }
+    .state-msg { color: var(--av-text-faint); text-align: center; padding: 56px 16px; font-size: 14px; }
+    .state-msg.error { color: var(--av-error); }
     .spinner {
       width: 32px; height: 32px; margin: 0 auto;
-      border: 3px solid rgba(20,184,166,0.2); border-top-color: #14b8a6;
+      border: 3px solid var(--av-primary-soft); border-top-color: var(--av-primary);
       border-radius: 50%; animation: spin 0.8s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
@@ -155,10 +158,10 @@
 </head>
 <body class="text-slate-100 font-sans min-h-screen">
 
-  <header style="background:#0C2340; border-bottom:1px solid rgba(255,255,255,0.06);" class="px-6 py-4">
+  <header class="page-header px-6 py-4">
     <div class="max-w-2xl mx-auto flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <a href="exercises.html" class="text-sm font-medium flex items-center gap-1 hover:opacity-80" style="color:#14b8a6; text-decoration:none;">
+        <a href="exercises.html" class="text-sm font-medium flex items-center gap-1 hover:opacity-80" style="color:var(--av-primary); text-decoration:none;">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
