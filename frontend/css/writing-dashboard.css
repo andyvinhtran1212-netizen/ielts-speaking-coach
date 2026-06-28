@@ -75,6 +75,8 @@ main { position: relative; z-index: 1; }
 .wd-preview-banner {
   background: var(--av-warning-soft);
   border: 1px solid var(--av-warning);
+  border-radius: var(--av-radius-lg);
+  padding: var(--av-space-4);
 }
 .wd-preview-banner__icon {
   font-size: 22px;
@@ -84,6 +86,28 @@ main { position: relative; z-index: 1; }
 .wd-preview-banner__body {
   color: var(--av-text-secondary);
   margin: 0;
+}
+
+/* Error states — DS danger tokens, matching the rest of the app (these boxes
+   previously used raw Tailwind red: bg-red-500/5, border-red-500/20, text-red-300
+   + Tailwind rounded-lg p-N shape). */
+.wd-error-box {
+  background: var(--av-error-soft);
+  border: 1px solid var(--av-error);
+  border-radius: var(--av-radius-lg);
+  padding: var(--av-space-6);
+}
+.wd-error-box__msg {
+  color: var(--av-error);
+  margin: 0 0 var(--av-space-4);
+}
+.wd-inline-error {
+  background: var(--av-error-soft);
+  border: 1px solid var(--av-error);
+  border-radius: var(--av-radius-lg);
+  padding: var(--av-space-4);
+  color: var(--av-error);
+  font-size: 13px;
 }
 
 
@@ -133,9 +157,23 @@ main { position: relative; z-index: 1; }
 
 /* ── Essay cards (renderEssays() output, line ~445) ──────────────── */
 
+/* Page width: the canonical .shell (1180px, padding 24/32/96) lives in
+   aver-design/components.css, shared with home + vocabulary. writing-dashboard's
+   <main> now uses it too (was Tailwind max-w-3xl = 768px + pt-20). This mobile
+   override mirrors home.css / vocabulary.css so gutters match on small screens. */
+@media (max-width: 720px) {
+  .shell { padding: var(--av-space-4) var(--av-space-4) var(--av-space-16); }
+}
+
+/* Tile design language — match .skill-card / vocab cards: DS radius, padding and
+   a resting shadow from tokens (shape was previously Tailwind `rounded-lg p-4`,
+   which diverged from the rest of the app). */
 .essay-card {
   background: var(--av-surface-card);
   border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-lg);
+  padding: var(--av-space-4);
+  box-shadow: var(--av-shadow-sm);
   transition:
     transform var(--av-duration-base) var(--av-easing-default),
     border-color var(--av-duration-base) var(--av-easing-default),
@@ -160,6 +198,9 @@ main { position: relative; z-index: 1; }
 .assignment-card {
   background: var(--av-surface-card);
   border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-lg);
+  padding: var(--av-space-4);
+  box-shadow: var(--av-shadow-sm);
   transition:
     background var(--av-duration-base) var(--av-easing-default),
     border-color var(--av-duration-base) var(--av-easing-default);

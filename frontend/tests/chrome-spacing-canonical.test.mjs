@@ -15,9 +15,9 @@
  *   - components.css `.topnav` preserves
  *     margin-bottom: var(--av-space-16) (64px)
  *
- *   - Cat A pages (profile, writing-dashboard, my-vocabulary, flashcards,
- *     exercises) ship a Tailwind wrapper with pt-16/pt-20 to compensate
- *     for the absent .shell top padding.
+ *   - Cat A pages (profile) ship a Tailwind wrapper with pt-16/pt-20 to
+ *     compensate for the absent .shell top padding. (writing-dashboard
+ *     migrated onto the canonical .shell — pinned separately below.)
  *
  *   - Cat E secondary nav rules (.gw-subnav, .practice-header,
  *     .result-header, .ftr-header) ship margin-bottom referencing
@@ -126,9 +126,11 @@ describe('Sprint 6.18 Cat A — wrapper top compensation present', () => {
   // /js/vocab-modules/flashcards.js + exercises.js template literals.
   // Sentinels for the in-module wrappers live below in the Sprint 7.3/7.4
   // section of this file.
+  // writing-dashboard.html migrated OFF this Tailwind wrapper onto the canonical
+  // .shell (1180px) to match home / vocabulary / speaking — its .shell usage is
+  // pinned in the describe block below, so it's no longer a Cat A page.
   const CAT_A = [
     { rel: 'frontend/pages/profile.html',           pattern: /<main[^>]*\bpt-16\b[^>]*\bpb-10\b/ },
-    { rel: 'frontend/pages/writing-dashboard.html', pattern: /<main[^>]*\bpt-20\b[^>]*\bpb-6\b/ },
   ];
 
   CAT_A.forEach(({ rel, pattern }) => {
@@ -153,6 +155,21 @@ describe('Sprint 6.18 Cat A — wrapper top compensation present', () => {
         `${rel}: primary <main> regressed to py-N shorthand — Sprint 6.18 mandates explicit pt-N + pb-N`,
       );
     });
+  });
+});
+
+
+// ── writing-dashboard migrated to the canonical .shell (width parity) ──────
+
+describe('writing-dashboard uses the canonical .shell wrapper (matches home/vocabulary)', () => {
+  test('<main> is .shell, not the narrow Tailwind max-w-3xl wrapper', () => {
+    const html = readFileSync(path.join(REPO_ROOT, 'frontend/pages/writing-dashboard.html'), 'utf8');
+    const firstMain = html.match(/<main\b[^>]*>/);
+    assert.ok(firstMain, 'no <main> tag found');
+    assert.match(firstMain[0], /class="[^"]*\bshell\b[^"]*"/,
+      'writing-dashboard <main> must use .shell (1180px) to align width with home/vocabulary');
+    assert.ok(!/\bmax-w-3xl\b/.test(firstMain[0]),
+      'writing-dashboard <main> must NOT use the 768px max-w-3xl wrapper anymore');
   });
 });
 

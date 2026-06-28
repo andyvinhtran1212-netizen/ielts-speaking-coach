@@ -71,7 +71,7 @@
        user pill + logout via Shadow DOM. -->
   <aver-chrome active="writing"></aver-chrome>
 
-  <main class="max-w-3xl mx-auto px-4 pt-20 pb-6">
+  <main class="shell">
 
     <!-- Greeting — P0-3 LCP fix. Rendered OUTSIDE #content (always visible)
          so the LCP h1 paints at the CSS/font floor (~1s) instead of waiting
@@ -101,8 +101,8 @@
 
     <!-- Error state -->
     <div id="error" class="hidden max-w-md mx-auto text-center py-16">
-      <div class="rounded-lg p-6 border border-red-500/20 bg-red-500/5">
-        <p class="text-red-300 mb-4" id="error-message"></p>
+      <div class="wd-error-box">
+        <p class="wd-error-box__msg" id="error-message"></p>
         <a id="error-cta"
            href="../index.html"
            class="inline-block text-teal-light underline hover:text-white transition">
@@ -115,7 +115,7 @@
     <div id="content" class="hidden">
       <!-- Sprint 5.2 — Writing permission preview banner (hidden by default,
            revealed when GET /api/student/permissions returns writing=false). -->
-      <div id="writing-preview-banner" class="wd-preview-banner hidden mb-6 rounded-lg p-4 flex items-start gap-3">
+      <div id="writing-preview-banner" class="wd-preview-banner hidden mb-6 flex items-start gap-3">
         <span class="wd-preview-banner__icon" aria-hidden="true">🔒</span>
         <div class="text-sm">
           <strong class="wd-preview-banner__title block mb-1">Chế độ xem trước</strong>
@@ -443,7 +443,7 @@
         var date   = formatDate(e.created_at);
 
         var clickable = status.clickable;
-        var cardClass = 'essay-card rounded-lg p-4' + (clickable ? ' clickable' : '');
+        var cardClass = 'essay-card' + (clickable ? ' clickable' : '');
 
         // Phase 2.2.1: emit ONLY data-essay-id + a11y attrs. The previous
         // approach inlined onclick="window.location.href=" + JSON.stringify(href)
@@ -804,7 +804,7 @@
           ? '<span class="tip-card__cat">' + escapeHtml(t.category) + '</span>'
           : '';
         return (
-          '<div class="essay-card tip-card clickable rounded-lg p-4" role="link" tabindex="0"' +
+          '<div class="essay-card tip-card clickable" role="link" tabindex="0"' +
               ' data-tip-id="' + escapeHtml(t.id) + '">' +
             '<div class="flex items-center justify-between gap-3 mb-2">' +
               '<h3 class="tip-card__title font-semibold">' + escapeHtml(t.title || '(Mẹo viết)') + '</h3>' +
@@ -933,7 +933,7 @@
           ? '<span class="tip-card__cat">' + escapeHtml(p.difficulty) + '</span>' : '';
         var imgFlag = p.prompt_image_url ? ' 🖼️' : '';
         return (
-          '<div class="essay-card tip-card clickable rounded-lg p-4" role="link" tabindex="0"' +
+          '<div class="essay-card tip-card clickable" role="link" tabindex="0"' +
               ' data-pb-id="' + escapeHtml(p.id) + '">' +
             '<div class="flex items-center justify-between gap-3 mb-2">' +
               '<h3 class="tip-card__title font-semibold">' + escapeHtml(p.title || '(Đề bài)') + imgFlag + '</h3>' +
@@ -1079,7 +1079,7 @@
       var startLabel = a.has_draft ? 'Tiếp tục làm bài' : 'Làm bài';
 
       return (
-        '<div class="assignment-card rounded-lg p-4" data-assignment-id="' + escapeHtml(a.id) + '">' +
+        '<div class="assignment-card" data-assignment-id="' + escapeHtml(a.id) + '">' +
           '<div class="flex items-start justify-between gap-3 mb-2">' +
             '<div class="min-w-0">' +
               '<h3 class="font-semibold text-gray-100 truncate">' + escapeHtml(prompt.title || '(Đề bài đã xóa)') + '</h3>' +
@@ -1586,7 +1586,7 @@
         // state pane rather than the full error screen.
         var list = document.getElementById('assignments-list');
         list.innerHTML =
-          '<div class="card rounded-lg p-4 text-sm text-red-300">' +
+          '<div class="wd-inline-error">' +
             'Không tải được bài giao: ' + escapeHtml((err && err.message) || 'lỗi không xác định') +
           '</div>';
       }
@@ -1604,7 +1604,7 @@
       } catch (err) {
         var list = document.getElementById('essays-list');
         list.innerHTML =
-          '<div class="card rounded-lg p-4 text-sm text-red-300">' +
+          '<div class="wd-inline-error">' +
             'Không tải được bài viết: ' + escapeHtml((err && err.message) || 'lỗi không xác định') +
           '</div>';
       }
