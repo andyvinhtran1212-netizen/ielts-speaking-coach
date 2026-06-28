@@ -230,9 +230,10 @@
     rose:    { hex: '#fb7185', bg: 'rgba(251,113,133,0.07)',  border: 'rgba(251,113,133,0.22)', dim: 'rgba(251,113,133,0.45)' },
     sky:     { hex: '#38bdf8', bg: 'rgba(56,189,248,0.07)',   border: 'rgba(56,189,248,0.22)',  dim: 'rgba(56,189,248,0.45)'  },
     orange:  { hex: '#fb923c', bg: 'rgba(251,146,60,0.07)',   border: 'rgba(251,146,60,0.22)',  dim: 'rgba(251,146,60,0.45)'  },
+    indigo:  { hex: '#818cf8', bg: 'rgba(129,140,248,0.07)',  border: 'rgba(129,140,248,0.22)', dim: 'rgba(129,140,248,0.45)' },
   };
 
-  // ── 8-Group overview cards ─────────────────────────────────────────────────
+  // ── Group overview cards ─────────────────────────────────────────────────
   function renderGroups(groups, containerId) {
     var el = document.getElementById(containerId);
     if (!el) return;
