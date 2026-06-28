@@ -140,6 +140,23 @@
     },
   };
 
+  // ── Stat loading state ──────────────────────────────────────────────
+  // The page paints `…` (class is-loading, blinking via home.css) instead of a
+  // literal 0 so a not-yet-loaded number isn't misread as real data. setStat()
+  // writes the value + stops the blink; clearStatLoading() is the safety sweep
+  // for any stat the render path didn't touch — success → '0' (genuinely zero),
+  // error → '—' (unavailable, never a misleading 0, and never blinking forever).
+  function setStat(el, value) {
+    if (!el) return;
+    el.textContent = String(value);
+    el.classList.remove('is-loading');
+  }
+  function clearStatLoading(fallback) {
+    if (!document.querySelectorAll) return;   // defensive (also no-ops under the test DOM mock)
+    document.querySelectorAll('.value-num.is-loading, .js-val.is-loading')
+      .forEach((el) => { el.classList.remove('is-loading'); el.textContent = fallback; });
+  }
+
   // ── Render: hero stats ──────────────────────────────────────────────
   function renderHero(data) {
     const greetName = $('greeting-name');
@@ -147,7 +164,7 @@
 
     const streakEl = $('hero-streak');
     const streak = data.streak.current_days || 0;
-    streakEl.querySelector('.value-num').textContent = String(streak);
+    setStat(streakEl.querySelector('.value-num'), streak);
     streakEl.querySelector('.unit').textContent = streak === 1 ? 'ngày' : 'ngày';
     if (streak > 0) {
       streakEl.classList.add('alive');
@@ -155,11 +172,11 @@
 
     const sessions = data.totals.speaking_sessions || 0;
     const sessionsEl = $('hero-sessions');
-    sessionsEl.querySelector('.value-num').textContent = String(sessions);
+    setStat(sessionsEl.querySelector('.value-num'), sessions);
 
     const essays = data.totals.writing_essays || 0;
     const essaysEl = $('hero-essays');
-    essaysEl.querySelector('.value-num').textContent = String(essays);
+    setStat(essaysEl.querySelector('.value-num'), essays);
   }
 
   // ── Render: one skill card ──────────────────────────────────────────
@@ -219,7 +236,7 @@
     const jsVal = card.querySelector('.js-val');
     if (jsVal) {
       // Patch mode: pre-rendered card — update data spans in-place.
-      jsVal.textContent = m.primary.value;
+      setStat(jsVal, m.primary.value);
       const jsUnit = card.querySelector('.js-unit');
       if (jsUnit) jsUnit.textContent = m.primary.unit;
       const jsSub = card.querySelector('.js-sub');
@@ -291,12 +308,16 @@
     } catch (err) {
       console.error('home-summary fetch failed:', err);
       renderError('Không tải được trang chủ. Vui lòng thử lại sau.');
+      clearStatLoading('—');   // stop the blink; '—' = unavailable (not a misleading 0)
       return;
     }
     if (!data) return; // 401 → api.js redirects to login
 
     renderHero(data);
     SKILLS_ORDER.forEach(id => renderSkillCard(id, data.skills[id], permissions));
+    // Any stat the render path didn't set (e.g. a skill with no formatter) is no
+    // longer loading — show a genuine 0 rather than leaving it blinking forever.
+    clearStatLoading('0');
 
     // Inform <aver-chrome> the user is logged in so the vocab nav link
     // updates to /pages/vocabulary.html synchronously — eliminates the race

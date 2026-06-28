@@ -167,7 +167,7 @@ describe('home.html / JS-coupled selectors (home.js contract)', () => {
     // renderHero querySelector('.value-num') and ('.unit') reach in
     // for these. Without them, the streak / sessions / essays numbers
     // never render.
-    const valueNumCount = (html.match(/class="value-num"/g) || []).length;
+    const valueNumCount = (html.match(/class="value-num\b/g) || []).length;
     const unitCount = (html.match(/class="unit"/g) || []).length;
     assert.ok(
       valueNumCount >= 3,
@@ -227,7 +227,7 @@ describe('home.html / skill-card skeletons', () => {
     // Verify each active card carries the expected patch hook.
     for (const skill of ['writing', 'speaking', 'grammar', 'vocabulary', 'reading', 'listening']) {
       const cardRe = new RegExp(
-        `<article[^>]*data-skill="${skill}"[\\s\\S]*?class="js-val"[\\s\\S]*?</article>`,
+        `<article[^>]*data-skill="${skill}"[\\s\\S]*?class="js-val\\b[\\s\\S]*?</article>`,
       );
       assert.match(html, cardRe, `skill-card[data-skill="${skill}"] is missing .js-val patch marker`);
     }
