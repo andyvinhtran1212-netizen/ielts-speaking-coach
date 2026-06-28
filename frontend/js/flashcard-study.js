@@ -248,6 +248,9 @@
       ? `<div class="wiki-callout wiki-hook"><span class="wiki-cic">💡</span><span>${escape(card.memory_hook)}</span></div>` : '';
     const err = card.common_error
       ? `<div class="wiki-callout wiki-error"><span class="wiki-cic">⚠</span><span>${escape(card.common_error)}</span></div>` : '';
+    // VN meaning: curated definition_vi, else the extracted gloss_vi (the same
+    // fallback vocabulary.js uses) so sparse / imported cards keep their primary line.
+    const viDef = (card.definition_vi && card.definition_vi.trim()) ? card.definition_vi : (card.gloss_vi || '');
 
     const back = `
       <div class="face back wiki-back">
@@ -257,7 +260,7 @@
           ${audioBtn(card.audio_headword, card.headword, 'Nghe từ')}
           ${posLevel ? `<span class="wiki-pos">${escape(posLevel)}</span>` : ''}
         </div>
-        ${card.definition_vi ? `<p class="def-vi">${escape(card.definition_vi)}</p>` : ''}
+        ${viDef ? `<p class="def-vi">${escape(viDef)}</p>` : ''}
         ${card.definition_en ? `<p class="def-en">${escape(card.definition_en)}</p>` : ''}
         ${example}
         ${_relRow('Kết hợp thường gặp', card.collocations)}
