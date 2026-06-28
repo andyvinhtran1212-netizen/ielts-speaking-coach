@@ -24,6 +24,7 @@ prerequisites:
 related_pages:
 - hedging-language
 - strong-vs-cautious-opinions
+- grammar-in-task2
 - discourse-markers
 compare_with:
 - strong-vs-cautious-opinions
@@ -41,6 +42,7 @@ writing_relevance: high
 next_articles:
 - hedging-language
 - strong-vs-cautious-opinions
+- grammar-in-task2
 pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing

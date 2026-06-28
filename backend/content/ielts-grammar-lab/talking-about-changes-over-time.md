@@ -22,11 +22,15 @@ tags:
 prerequisites:
 - present-perfect
 - past-simple
+- task1-trend-grammar
 - talking-about-past-experiences
 related_pages:
 - speculating-about-the-future
+- task1-trend-grammar
 - talking-about-past-experiences
 - talking-about-future-plans
+- grammar-in-task1
+- grammar-in-task2
 order: 34
 status: complete
 last_updated: 2026-04-19
@@ -42,6 +46,7 @@ speaking_relevance: high
 writing_relevance: medium
 next_articles:
 - speculating-about-the-future
+- task1-trend-grammar
 - talking-about-past-experiences
 pathways:
 - grammar-for-ielts-speaking

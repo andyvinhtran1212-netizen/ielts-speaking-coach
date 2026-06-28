@@ -50,6 +50,7 @@ groups:
       - { slug: simple-sentence,   category: sentence-structures, title: "Simple Sentence — Câu đơn" }
       - { slug: compound-sentence, category: sentence-structures, title: "Compound Sentence — Câu ghép" }
       - { slug: complex-sentence,  category: sentence-structures, title: "Complex Sentence — Câu phức" }
+      - { slug: combining-two-short-sentences, category: sentence-structures, title: "Combining Two Short Sentences — Gộp câu ngắn thành câu phức" }
       - { slug: relative-clauses,  category: sentence-structures, title: "Relative Clauses — Mệnh đề quan hệ" }
       - { slug: passive-voice,     category: sentence-structures, title: "Passive Voice — Câu bị động" }
       - { slug: reported-speech,   category: sentence-structures, title: "Reported Speech — Câu tường thuật" }
@@ -112,13 +113,18 @@ groups:
       - { slug: common-ielts-grammar-mistakes, category: ielts-grammar-lab, title: "10 lỗi ngữ pháp hay gặp nhất" }
       - { slug: grammar-for-band7plus,        category: ielts-grammar-lab, title: "Grammar cho Band 7+" }
       - { slug: making-answers-longer-naturally, category: ielts-grammar-lab, title: "Making Answers Longer Naturally — Kéo dài câu trả lời Speaking tự nhiên" }
+      - { slug: avoiding-repetitive-sentence-openings, category: ielts-grammar-lab, title: "Avoiding Repetitive Sentence Openings — Tránh mở câu lặp lại trong IELTS" }
       - { slug: adding-reasons-clearly,       category: ielts-grammar-lab, title: "Adding Reasons Clearly — Đưa ra lý do rõ ràng trong IELTS" }
+      - { slug: adding-results-clearly,       category: ielts-grammar-lab, title: "Adding Results Clearly — Diễn đạt kết quả mạch lạc trong IELTS" }
+      - { slug: adding-contrast-naturally,    category: ielts-grammar-lab, title: "Adding Contrast Naturally — Diễn đạt tương phản tự nhiên trong IELTS" }
       - { slug: giving-examples-naturally,    category: ielts-grammar-lab, title: "Giving Examples Naturally — Đưa ví dụ tự nhiên trong IELTS" }
       - { slug: strong-vs-cautious-opinions,  category: ielts-grammar-lab, title: "Strong vs. Cautious Opinions — Thể hiện quan điểm đúng mức độ" }
+      - { slug: expressing-uncertainty,       category: ielts-grammar-lab, title: "Expressing Uncertainty — Diễn đạt sự không chắc chắn trong IELTS" }
       - { slug: comparing-ideas-in-speaking,  category: ielts-grammar-lab, title: "Comparing Ideas in Speaking — So sánh ý tưởng tự nhiên trong IELTS" }
       - { slug: talking-about-past-experiences, category: ielts-grammar-lab, title: "Talking About Past Experiences — Kể về trải nghiệm trong IELTS Speaking" }
       - { slug: talking-about-future-plans,   category: ielts-grammar-lab, title: "Talking About Future Plans — Diễn đạt kế hoạch tương lai trong IELTS" }
       - { slug: agreeing-and-disagreeing-naturally, category: ielts-grammar-lab, title: "Agreeing and Disagreeing Naturally — Đồng ý và Phản đối tự nhiên trong IELTS" }
+      - { slug: balanced-arguments-grammar,   category: ielts-grammar-lab, title: "Balanced Arguments Grammar — Ngữ pháp trình bày lập luận cân bằng trong IELTS" }
       - { slug: conditionals-in-speaking,    category: ielts-grammar-lab, title: "Conditionals in Speaking — Dùng câu điều kiện tự nhiên trong IELTS Speaking" }
       - { slug: expressing-preferences-naturally, category: ielts-grammar-lab, title: "Expressing Preferences Naturally — Thể hiện sở thích tự nhiên trong IELTS Speaking" }
       - { slug: talking-about-habits-and-routines, category: ielts-grammar-lab, title: "Talking About Habits and Routines — Kể về thói quen trong IELTS Speaking" }
@@ -149,3 +155,12 @@ groups:
       - { slug: missing-main-verbs,         category: error-clinic, title: "Missing Main Verbs — Lỗi thiếu động từ chính" }
       - { slug: wrong-pronoun-reference,    category: error-clinic, title: "Wrong Pronoun Reference — Lỗi đại từ tham chiếu sai hoặc mơ hồ" }
       - { slug: double-subject-errors,      category: error-clinic, title: "Double Subject Errors — Lỗi lặp chủ ngữ" }
+
+  - slug: grammar-for-writing
+    title: "IELTS Writing Lab"
+    description: "Ngữ pháp thực chiến cho IELTS Writing — mô tả số liệu Task 1, ngôn ngữ xu hướng, và câu phức/cohesion cho essay Task 2."
+    color: indigo
+    articles:
+      - { slug: grammar-in-task1,      category: grammar-for-writing, title: "Grammar in Task 1 — Ngữ pháp cho IELTS Writing Task 1 (Academic)" }
+      - { slug: task1-trend-grammar,   category: grammar-for-writing, title: "Task 1 Trend Grammar — Ngữ pháp mô tả xu hướng trong Writing Task 1" }
+      - { slug: grammar-in-task2,      category: grammar-for-writing, title: "Grammar in Task 2 — Ngữ pháp cho IELTS Writing Task 2 (Essay)" }
