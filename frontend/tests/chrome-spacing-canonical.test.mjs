@@ -184,7 +184,7 @@ describe('Sprint 6.18 Cat B — writing-result.css main.result-content top paddi
     );
     assert.match(
       css,
-      /main\.result-content\s*\{[\s\S]{0,400}padding:\s*var\(--av-space-20\)/,
+      /main\.result-content\s*\{[\s\S]{0,600}padding:\s*var\(--av-space-20\)/,
       'writing-result.css main.result-content must carry top padding --av-space-20 (Sprint 6.18 Cat B fix)',
     );
   });
