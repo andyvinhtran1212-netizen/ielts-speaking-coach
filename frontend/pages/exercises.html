@@ -54,7 +54,9 @@
   <!-- Sprint 7.5 — module mount container. The page body (context bar +
        4 render states + 3 drill cards) lives inside the
        /js/vocab-modules/exercises.js template and is injected here. -->
-  <main id="mount" class="vocab-module-mount"></main>
+  <main id="mount" class="vocab-module-mount">
+    <div class="state-msg"><div class="spinner"></div></div>
+  </main>
 
   <!-- Order matters: supabase CDN → api.js → bootstrap → vocab module. -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0"></script>

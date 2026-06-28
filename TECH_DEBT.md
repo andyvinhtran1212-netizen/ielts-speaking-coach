@@ -1,6 +1,6 @@
 # Tech Debt — IELTS Speaking Coach
 
-**Last updated:** 2026-05-08 (Sprint 2.7d.1.1 — Instructor-queue column hotfix + anti-pattern #37 logged)
+**Last updated:** 2026-06-28 (Tech debt audit — removed confirmed-completed items)
 **Last reviewed:** 2026-05-07 (PM)
 
 Comprehensive snapshot of tech debt + improvement opportunities, restructured
@@ -41,20 +41,6 @@ material, not active backlog.
   avg ease, mastered count, top words — point at these during dogfood.
 - **Healthy benchmark:** Again 10–20%, Hard 20–30%, Good 40–50%, Easy 10–20%.
 - **Effort:** ~30 min/day × 3 days.
-- **Blocking:** Phase 3 direction decision.
-
-#### HIGH-4: Phase 3 strategic decision
-- **What:** With Phase 2.5 dogfood instrumentation complete, the next big
-  build needs a direction.  Five candidates on the table:
-  1. Quick chatbot MVP (Speaking-style conversation practice).
-  2. Mock test feature (full IELTS Speaking simulation).
-  3. Reading / Listening module.
-  4. Audio + image flashcards.
-  5. SRS algorithm tuning based on dogfood data.
-- **Decision criteria:** Dogfood findings (HIGH-3 Days 2-4 + HIGH-5
-  baseline metrics) + any user signal collected.
-- **Effort:** 1–2 days planning once data is in.
-- **Blocked by:** HIGH-3 Days 2-4 + HIGH-5.
 
 #### HIGH-5: Baseline metrics not yet documented
 - **What:** Coverage baseline shipped in PR #31 (50% overall) but
@@ -70,19 +56,7 @@ material, not active backlog.
 
 ### High priority — Sprint 6 follow-up + Writing Coach Phase 1
 
-#### HIGH-6: Sprint 6 24h soak verification — PENDING
-- **What:** Sprint 6 mapping coverage expansion shipped 2026-05-03 with
-  projected ~78% production anchor coverage on NEW practice rows. 24h soak
-  window in progress at time of this update.
-- **Action:** Run 3 SQL queries on production Supabase 24h post-deploy:
-  total new rows + coverage rate, coverage by slug, mapping firing frequency.
-  Pass thresholds: ≥60% strong success, 40-60% moderate, <40% Sprint 6.5
-  patch trigger (suspect M033 keyword scoring miss on number-agreement
-  errors mislabeled "sai thì").
-- **Effort:** 30 min execute + analyze.
-- **Blocking:** HIGH-7 Sprint 7 design (Branch A/B/C decision tree).
-
-#### HIGH-7: Sprint 7 mapping coverage expansion — DEPENDS on HIGH-6
+#### HIGH-7: Sprint 7 mapping coverage expansion
 - **What:** Continue mapping coverage to remaining 11% production traffic
   (smaller slugs: this-that-these-those-in-use, missing-subjects,
   missing-main-verbs, articles-with-places-and-names, agreeing-and-
@@ -90,7 +64,6 @@ material, not active backlog.
 - **Action:** Same Phase 2a/2b pattern as Sprint 6 (anchor declarations
   in target md files + new mappings M038+).
 - **Effort:** 2-4 hours work + 24h soak.
-- **Blocked by:** HIGH-6 results.
 
 #### ~~HIGH-8: Writing Coach Phase 1 — Sprint W0 (schema + scaffolding)~~ ✅ DONE 2026-05-04
 - **What:** New IELTS Writing analysis tool integrated into Aver Learning,
@@ -187,14 +160,6 @@ material, not active backlog.
 - **Defer until:** Quantify impact — count vocab with topic NULL.
 
 ### Low priority
-
-#### LOW-2: Tailwind CDN in production
-- **What:** `cdn.tailwindcss.com` logs a console warning in production.
-  Acceptable for the current project size; a real PostCSS pipeline isn't
-  worth the maintenance cost yet.
-- **Action:** Defer — revisit when frontend grows past ~10 pages OR when
-  Lighthouse perf scores demand it.
-- **Effort:** 4–6 hours when chosen.
 
 #### LOW-5: Local-only backup script
 - **What:** `backend/scripts/backup_production.sh` runs nightly at 03:00
@@ -333,26 +298,6 @@ add WITH CHECK to RLS UPDATE policies.
   4. Consider Pydantic strict mode opt-in for production grading
 - **Effort:** 2-3 days.
 - **Trigger:** Phase 1.5a or 1.5b — bundle với schema work.
-
-#### W-PHASE-1.5: History-aware AI grading
-- **What:** AI sees previous student essays when grading new essay; pattern
-  detection ("Lỗi article xuất hiện 4/5 bài gần nhất"); band trajectory
-  analysis ("Improvement in lexical resource since essay #3").
-- **Effort:** 1-2 weeks (Sprint W4-W5).
-- **Trigger:** Phase 1 stable in production + 5+ essays/student exist (need
-  data before patterns meaningful).
-- **Cost impact:** ~2× per grading (acceptable: $20-50/month at 250
-  essays/week target).
-
-#### W-PHASE-2: Student submission portal
-- **What:** Direct student access — submit essay via web, queue management,
-  notifications, optionally Google Docs API integration for direct delivery
-  (eliminate remaining copy/paste).
-- **Scope:** Student-facing UI (submit form, dashboard, history, results
-  viewer), daily limits enforcement, admin queue view, auto-AI grade trigger
-  with Andy review, email notifications, Google Docs API write-back (Phase 2b).
-- **Effort:** 3-4 weeks (Sprint W6-W9).
-- **Trigger:** Phase 1 + 1.5 stable, Andy ready to expand to direct student access.
 
 #### W-PHASE-3: Pre-submission preview
 - **What:** Manual "Check before submit" button with severity-rated issue list
@@ -590,27 +535,6 @@ add WITH CHECK to RLS UPDATE policies.
   nav + tight ft-part-row Andy reported. Re-pinned to --av-space-4 /
   --av-space-6 with a regression test that fails on any skipped step.
 
-#### DEBT-2026-05-09-C: Sprint 6.2 + 6.2.1 typography migration becomes redesign-replaceable (ACTIVE)
-- **Type:** Active tech debt — known throwaway.
-- **What:** Sprint 6.2 migrated 7 Tier 1 pages to Manrope + Fraunces +
-  `--ds-*` token namespace + `body.ds-canvas` atmosphere overlay. Sprint
-  6.2.1 added `font-family: 'Manrope'` to the body.ds-canvas rule to fix
-  a Tailwind CDN compile race. The unified design system foundation
-  (Sprint design-foundation, this PR) introduces `--av-*` tokens + Plus
-  Jakarta Sans + JetBrains Mono.
-- **What replaces it:** Per-page redesign sprints will move pages from
-  the `--ds-*` namespace + Manrope/Fraunces fonts to the `--av-*`
-  namespace + Plus Jakarta Sans/JetBrains Mono.
-- **Risk of carrying:** Two parallel token namespaces during the
-  migration window; visual inconsistency between migrated and
-  not-yet-migrated pages.
-- **Mitigation in place:** New tokens added alongside existing
-  (`--ds-*` not removed); migration is page-by-page to limit blast
-  radius; existing JS-coupled class names preserved.
-- **Trigger:** Per-page redesign rollout — Phase 1 priority order is
-  home → speaking → practice → result.
-- **Effort:** Per-page replacement during redesign, not a separate task.
-
 ### Design system migration (Pack v2 received 2026-05-04, integration deferred)
 
 #### DES-1: Roadmap re-generation (14 → 22 topics)
@@ -756,16 +680,6 @@ add WITH CHECK to RLS UPDATE policies.
 (~58% improvement; manual Incognito verification still pending).
 Acceptable for solo dogfood scale; not yet at the <5s aspiration.  Each
 item below is a follow-up, not a blocker.
-
-#### PERF-3: Tailwind CDN → bundled CSS
-- **Current:** `cdn.tailwindcss.com` is loaded on every page (~127KB plus
-  ~200ms compile-on-load) and emits the production-warning console line.
-- **Fix:** Build Tailwind locally, ship a static CSS bundle.
-- **Effort:** ~1 hour once a build-tooling pick is made.
-- **Impact:** −200ms per page + clears the production warning.
-- **Defer until:** Frontend build pipeline decision (which bundler).
-  Already tracked as **LOW-2 (Tailwind CDN in production)** above —
-  this entry is the implementation-shaped sibling.
 
 #### PERF-4: localStorage cache for `/auth/me`
 - **Current:** Every page reload re-fetches `/auth/me` (provisioning +
@@ -2118,12 +2032,6 @@ statuses preserved as-of the prior file.
 - `grammar_user_data` rows can accept arbitrary slugs without verifying
   article existence.  Orphan rows accumulate when slugs change.
 - Suggested fix: validate at write time, or add a periodic cleanup.
-
-### LEG-5: Legacy `responses.py` router *(Medium)*
-- Audio-only response flow believed obsolete; final removal / quarantine
-  decision pending.
-- Suggested fix: confirm no production path depends on it, then remove or
-  quarantine.
 
 ### LEG-6: Admin regrade / rebuild semantics *(Low–Medium)*
 - Admin flows are honest, but naming and UX could be clearer about the
