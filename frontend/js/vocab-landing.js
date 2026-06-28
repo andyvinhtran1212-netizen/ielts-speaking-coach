@@ -51,7 +51,11 @@
           }
           var cards = cats.map(function (c) {
             var n = c.article_count != null ? c.article_count : (c.articles || []).length;
-            return '<a href="/vocabulary.html?cat=' + encodeURIComponent(c.slug) + '" class="vocab-topic-card">'
+            var slug = encodeURIComponent(c.slug);
+            // Card is no longer a single link — it carries explicit actions:
+            // "Khám phá" (browse the wiki) + "🃏 Flashcards" (study this topic's
+            // stack). "✍️ Luyện tập" (exercises) lands in PR2.
+            return '<div class="vocab-topic-card">'
               + '<div class="vtc-body">'
               + '<h3 class="vtc-title">' + esc(c.title || c.slug) + '</h3>'
               + '</div>'
@@ -60,9 +64,12 @@
               + '<span class="vtc-num">' + n + '</span>'
               + '<span class="vtc-unit">từ vựng</span>'
               + '</span>'
-              + '<span class="vtc-arrow" aria-hidden="true">→</span>'
               + '</div>'
-              + '</a>';
+              + '<div class="vtc-actions">'
+              + '<a class="vtc-act vtc-act--browse" href="/vocabulary.html?cat=' + slug + '">Khám phá</a>'
+              + '<a class="vtc-act vtc-act--study" href="/pages/flashcard-study.html?stack=wiki:' + slug + '">🃏 Flashcards</a>'
+              + '</div>'
+              + '</div>';
           }).join('');
           var header = '<div class="vtc-panel-head">'
             + '<h2 class="vtc-panel-title">Chủ đề từ vựng</h2>'

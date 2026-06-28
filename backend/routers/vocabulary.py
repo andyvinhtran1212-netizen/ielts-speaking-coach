@@ -54,6 +54,20 @@ async def get_categories(request: Request) -> Response:
     )
 
 
+@router.get("/categories/{category}/cards")
+async def get_category_cards(category: str, request: Request) -> Response:
+    """All full vocab cards (rich fields) for a category — the topic-scoped study
+    stack consumed by flashcards + exercises. 404 when the category is unknown."""
+    cards = vocab_service.get_category_cards(category)
+    if cards is None:
+        raise HTTPException(status_code=404, detail=f"Category '{category}' not found")
+    return cacheable_json(
+        {"category": category, "count": len(cards), "cards": cards},
+        request,
+        last_modified=_last_modified(),
+    )
+
+
 @router.get("/articles")
 async def get_articles(request: Request) -> Response:
     """Return flat list of all article summaries (for client-side search/listing)."""
