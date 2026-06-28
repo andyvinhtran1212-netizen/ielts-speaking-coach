@@ -499,3 +499,22 @@ section { margin-bottom: var(--av-space-12); }
     transition: none !important;
   }
 }
+
+/* ── Stat loading placeholder — blinking "…" until real data arrives ─────────
+   Hero + skill-card numbers paint `…` (class is-loading) so a not-yet-loaded
+   value reads as "loading", not a real 0. home.js (setStat / clearStatLoading)
+   swaps in the value and drops the class. */
+@keyframes av-stat-loading-blink {
+  0%, 100% { opacity: 0.28; }
+  50%      { opacity: 0.72; }
+}
+.value-num.is-loading,
+.js-val.is-loading {
+  animation: av-stat-loading-blink 1.1s ease-in-out infinite;
+  color: var(--av-text-muted, currentColor);
+  letter-spacing: 0.08em;
+}
+@media (prefers-reduced-motion: reduce) {
+  .value-num.is-loading,
+  .js-val.is-loading { animation: none; opacity: 0.5; }
+}
