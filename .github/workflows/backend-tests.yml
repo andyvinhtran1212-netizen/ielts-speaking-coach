@@ -238,4 +238,10 @@ jobs:
             frontend/tests/admin-writing-grade-redesign.test.mjs \
             frontend/tests/admin-writing-dashboard.test.mjs \
             frontend/tests/instructor-nav.test.mjs \
-            frontend/tests/f2-compare-mix.test.mjs
+            frontend/tests/f2-compare-mix.test.mjs \
+            frontend/tests/chrome-spacing-canonical.test.mjs \
+            frontend/tests/home-stats-loading.test.mjs \
+            frontend/tests/vocab-card-flag.test.mjs \
+            frontend/tests/vocab-topic-study.test.mjs \
+            frontend/tests/topic-exercise.test.mjs \
+            frontend/tests/vocab-css-integrity.test.mjs
