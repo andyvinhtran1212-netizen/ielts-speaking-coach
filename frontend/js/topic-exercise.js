@@ -316,8 +316,11 @@
       showState('Không tải được từ vựng. Thử lại sau.', true);
       return;
     }
-    if (_state.cards.length < 4) {
-      showState('Chủ đề này chưa đủ từ để luyện tập (cần ít nhất 4 từ).');
+    // Need >=3 cards for a real MCQ (correct + 2 distractors = 3 options). The
+    // generator + buildQuestions tolerate smaller option sets (>=2), but 3 keeps
+    // the drill meaningful; the topic CTA is hidden below this in vocab-landing.js.
+    if (_state.cards.length < 3) {
+      showState('Chủ đề này chưa đủ từ để luyện tập (cần ít nhất 3 từ).');
       return;
     }
     const titleEl = $('ex-title');

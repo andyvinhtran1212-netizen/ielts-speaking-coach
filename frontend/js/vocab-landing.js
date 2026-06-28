@@ -52,9 +52,9 @@
           var cards = cats.map(function (c) {
             var n = c.article_count != null ? c.article_count : (c.articles || []).length;
             var slug = encodeURIComponent(c.slug);
-            // Card is no longer a single link — it carries explicit actions:
-            // "Khám phá" (browse the wiki) + "🃏 Flashcards" (study this topic's
-            // stack). "✍️ Luyện tập" (exercises) lands in PR2.
+            // Card carries explicit actions: "Khám phá" (browse the wiki),
+            // "🃏 Flashcards" (study the stack), and "✍️ Luyện tập" (exercises —
+            // shown only when the topic has enough words for a real MCQ).
             return '<div class="vocab-topic-card">'
               + '<div class="vtc-body">'
               + '<h3 class="vtc-title">' + esc(c.title || c.slug) + '</h3>'
@@ -68,7 +68,10 @@
               + '<div class="vtc-actions">'
               + '<a class="vtc-act vtc-act--browse" href="/vocabulary.html?cat=' + slug + '">Khám phá</a>'
               + '<a class="vtc-act vtc-act--study" href="/pages/flashcard-study.html?stack=wiki:' + slug + '">🃏 Flashcards</a>'
-              + '<a class="vtc-act vtc-act--ex" href="/pages/topic-exercise.html?cat=' + slug + '">✍️ Luyện tập</a>'
+              // Luyện tập needs >=3 words to build a real MCQ — hide the CTA on
+              // tiny topics so it never advertises a dead-end drill (flashcards
+              // work with any count, so that CTA always shows).
+              + (n >= 3 ? '<a class="vtc-act vtc-act--ex" href="/pages/topic-exercise.html?cat=' + slug + '">✍️ Luyện tập</a>' : '')
               + '</div>'
               + '</div>';
           }).join('');
