@@ -335,12 +335,12 @@ a { color: inherit; text-decoration: none; }
 
 /* Per-topic action row — Khám phá (browse wiki) + Flashcards (study stack). */
 .vtc-actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;   /* browse spans both; study + luyện tập share row 2 */
   gap: var(--av-space-2);
   margin-top: var(--av-space-4);
 }
 .vtc-act {
-  flex: 1;
   text-align: center;
   text-decoration: none;
   font-size: var(--av-fs-sm);
@@ -354,14 +354,20 @@ a { color: inherit; text-decoration: none; }
     border-color var(--av-duration-fast) var(--av-easing-default),
     color var(--av-duration-fast) var(--av-easing-default);
 }
-.vtc-act--browse { color: var(--av-text-secondary); background: var(--av-surface-sunken); }
+.vtc-act--browse {
+  grid-column: 1 / -1;
+  color: var(--av-text-secondary);
+  background: var(--av-surface-sunken);
+}
 .vtc-act--browse:hover { color: var(--av-text-primary); border-color: var(--av-border-strong, var(--av-vocab-jade-line)); }
-.vtc-act--study {
+.vtc-act--study,
+.vtc-act--ex {
   color: var(--av-vocab-jade);
   background: var(--av-vocab-jade-tint);
   border-color: var(--av-vocab-jade-line);
 }
-.vtc-act--study:hover {
+.vtc-act--study:hover,
+.vtc-act--ex:hover {
   color: var(--av-text-on-primary, #fff);
   background: var(--av-vocab-jade);
   border-color: var(--av-vocab-jade);

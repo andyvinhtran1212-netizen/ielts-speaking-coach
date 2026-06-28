@@ -68,6 +68,7 @@
               + '<div class="vtc-actions">'
               + '<a class="vtc-act vtc-act--browse" href="/vocabulary.html?cat=' + slug + '">Khám phá</a>'
               + '<a class="vtc-act vtc-act--study" href="/pages/flashcard-study.html?stack=wiki:' + slug + '">🃏 Flashcards</a>'
+              + '<a class="vtc-act vtc-act--ex" href="/pages/topic-exercise.html?cat=' + slug + '">✍️ Luyện tập</a>'
               + '</div>'
               + '</div>';
           }).join('');
