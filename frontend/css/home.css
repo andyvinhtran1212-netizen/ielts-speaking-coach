@@ -185,12 +185,12 @@ section { margin-bottom: var(--av-space-12); }
 
 /* ── Per-skill color identity ──────────────────────────────────── */
 
-[data-skill="writing"]    { --skill-accent: var(--av-primary);      --skill-soft: var(--av-primary-soft);      --skill-border: var(--av-primary-border); }
-[data-skill="speaking"]   { --skill-accent: var(--av-accent);       --skill-soft: rgba(245,158,11,0.10);       --skill-border: rgba(245,158,11,0.32); }
-[data-skill="grammar"]    { --skill-accent: #4F46E5;                --skill-soft: rgba(79,70,229,0.10);        --skill-border: rgba(79,70,229,0.32); }
-[data-skill="vocabulary"] { --skill-accent: var(--av-vocab-jade);   --skill-soft: rgba(11,110,89,0.12);        --skill-border: rgba(11,110,89,0.32); }
-[data-skill="reading"]    { --skill-accent: #0EA5E9;                --skill-soft: rgba(14,165,233,0.10);       --skill-border: rgba(14,165,233,0.32); }
-[data-skill="listening"]  { --skill-accent: #8B5CF6;               --skill-soft: rgba(139,92,246,0.10);       --skill-border: rgba(139,92,246,0.32); }
+[data-skill="writing"]    { --skill-accent: var(--av-primary);         --skill-soft: var(--av-primary-soft);        --skill-border: var(--av-primary-border); }
+[data-skill="speaking"]   { --skill-accent: var(--av-accent);        --skill-soft: var(--av-accent-soft);        --skill-border: var(--av-accent-border); }
+[data-skill="grammar"]    { --skill-accent: var(--av-skill-grammar);  --skill-soft: var(--av-skill-grammar-soft); --skill-border: var(--av-skill-grammar-border); }
+[data-skill="vocabulary"] { --skill-accent: var(--av-vocab-jade);     --skill-soft: var(--av-vocab-jade-soft);    --skill-border: var(--av-vocab-jade-border); }
+[data-skill="reading"]    { --skill-accent: var(--av-skill-reading);  --skill-soft: var(--av-skill-reading-soft); --skill-border: var(--av-skill-reading-border); }
+[data-skill="listening"]  { --skill-accent: var(--av-skill-listening); --skill-soft: var(--av-skill-listening-soft); --skill-border: var(--av-skill-listening-border); }
 
 
 /* ── Skill grid + cards ────────────────────────────────────────── */
@@ -315,7 +315,7 @@ section { margin-bottom: var(--av-space-12); }
   border-radius: 50%;
   background: var(--av-accent);
   margin-right: var(--av-space-1);
-  box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--av-accent) 40%, transparent);
   animation: skill-pulse 1.6s ease-in-out infinite;
 }
 @keyframes skill-pulse {

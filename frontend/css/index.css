@@ -593,12 +593,12 @@
 
 /* ── Per-skill color identity on landing page skill cards ─────────── */
 
-.ix-skill-card[data-skill="speaking"]   { --ix-skill-color: #F59E0B; }
+.ix-skill-card[data-skill="speaking"]   { --ix-skill-color: var(--av-accent); }
 .ix-skill-card[data-skill="writing"]    { --ix-skill-color: var(--av-primary); }
-.ix-skill-card[data-skill="reading"]    { --ix-skill-color: #0EA5E9; }
-.ix-skill-card[data-skill="listening"]  { --ix-skill-color: #8B5CF6; }
-.ix-skill-card[data-skill="grammar"]    { --ix-skill-color: #4F46E5; }
-.ix-skill-card[data-skill="vocabulary"] { --ix-skill-color: #0B6E59; }
+.ix-skill-card[data-skill="reading"]    { --ix-skill-color: var(--av-skill-reading); }
+.ix-skill-card[data-skill="listening"]  { --ix-skill-color: var(--av-skill-listening); }
+.ix-skill-card[data-skill="grammar"]    { --ix-skill-color: var(--av-skill-grammar); }
+.ix-skill-card[data-skill="vocabulary"] { --ix-skill-color: var(--av-vocab-jade); }
 
 .ix-skill-card[data-skill]::before {
   content: '';

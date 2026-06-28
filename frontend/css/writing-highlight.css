@@ -52,7 +52,7 @@
   border: 1px solid var(--av-border-default);
   border-left: 3px solid var(--wh-accent, var(--av-text-muted));
   border-radius: var(--av-radius-md, 8px);
-  box-shadow: 0 10px 30px color-mix(in srgb, #000 22%, transparent);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
   padding: 0.7rem 0.85rem;
   font-size: var(--av-fs-sm, 0.875rem);
   line-height: var(--av-lh-normal, 1.5);
