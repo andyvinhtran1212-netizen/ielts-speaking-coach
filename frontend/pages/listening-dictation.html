@@ -162,9 +162,9 @@
     .diff-token { display: inline-block; margin-right: 4px; }
     .diff-token--match { color: var(--av-text-primary); }
     .diff-token--miss {
-      color: #B91C1C; text-decoration: underline; text-decoration-style: dotted;
+      color: var(--av-error); text-decoration: underline; text-decoration-style: dotted;
     }
-    .diff-token--wrong { color: #B91C1C; font-weight: var(--av-fw-semibold); }
+    .diff-token--wrong { color: var(--av-error); font-weight: var(--av-fw-semibold); }
     .diff-token--wrong .strike {
       text-decoration: line-through;
       color: var(--av-text-faint);
@@ -186,9 +186,9 @@
     .error-banner {
       padding: var(--av-space-3) var(--av-space-4);
       border-radius: var(--av-radius-md);
-      background: #FEF2F2;
-      color: #991B1B;
-      border: 1px solid #FECACA;
+      background: var(--av-error-soft);
+      color: var(--av-error);
+      border: 1px solid var(--av-error);
       font-size: var(--av-fs-sm);
     }
     [hidden] { display: none !important; }
@@ -235,11 +235,11 @@
       border-color: var(--av-brand-amber-500);
     }
     .segment-dot.is-incorrect {
-      background: #DC2626;
-      border-color: #B91C1C;
+      background: var(--av-error);
+      border-color: var(--av-error);
     }
     .segment-dot.is-current {
-      box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.25);
+      box-shadow: var(--av-shadow-focus);
     }
 
     /* Completion surface */
@@ -316,7 +316,7 @@
       color: var(--av-brand-teal-700);
     }
     .segment-summary .seg-score.is-partial { color: var(--av-brand-amber-600); }
-    .segment-summary .seg-score.is-low { color: #B91C1C; }
+    .segment-summary .seg-score.is-low { color: var(--av-error); }
     .segment-summary .seg-transcript {
       margin-top: var(--av-space-2);
       color: var(--av-text-primary);
