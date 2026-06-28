@@ -44,6 +44,11 @@
     return arr;
   }
   function sample(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+  // VN meaning: curated definition_vi, else the extracted gloss_vi (same fallback
+  // vocabulary.js uses) so imported / sparse cards still have a meaning to drill.
+  function viOf(card) {
+    return (card.definition_vi && card.definition_vi.trim()) ? card.definition_vi : (card.gloss_vi || '');
+  }
 
   function pickWords(correct, pool, n) {
     const seen = new Set([String(correct).toLowerCase()]);
@@ -61,7 +66,7 @@
     const out = [];
     for (const c of shuffle(cards.slice())) {
       if (c.slug === exceptSlug) continue;
-      const d = c.definition_vi || c.definition_en;
+      const d = viOf(c) || c.definition_en;
       if (!d || seen.has(d)) continue;
       seen.add(d); out.push(d);
       if (out.length >= n) break;
@@ -93,7 +98,7 @@
     const hw = card.headword || '';
     if (!hw) return null;
     const eligible = [];
-    if (card.definition_vi || card.definition_en) { eligible.push('def_to_word', 'word_to_def'); }
+    if (viOf(card) || card.definition_en) { eligible.push('def_to_word', 'word_to_def'); }
     if (clozeable(card.example, hw)) eligible.push('example_cloze');
     const colloc = (card.collocations || []).find(c => clozeable(c, hw));
     if (colloc) eligible.push('colloc_cloze');
@@ -110,14 +115,15 @@
 
     if (type === 'def_to_word') {
       const { options, answer } = wordOptions();
-      const en = (card.definition_vi && card.definition_en)
+      const vi = viOf(card);
+      const en = (vi && card.definition_en)
         ? `<span class="q-def-en">${esc(card.definition_en)}</span>` : '';
       return { type, label: 'Định nghĩa → Từ', card, options, answer,
         promptHtml: `<p class="q-lead">Từ nào khớp định nghĩa sau?</p>
-          <div class="q-def">${esc(card.definition_vi || card.definition_en)}${en}</div>` };
+          <div class="q-def">${esc(vi || card.definition_en)}${en}</div>` };
     }
     if (type === 'word_to_def') {
-      const def = card.definition_vi || card.definition_en;
+      const def = viOf(card) || card.definition_en;
       const opts = shuffle([def, ...pickDefs(def, allCards, card.slug, 3)]);
       if (opts.length < 2) return wordFallback();   // not enough distinct defs → fall back to def→word
       return { type, label: 'Từ → Định nghĩa', card, options: opts, answer: opts.indexOf(def),
@@ -157,7 +163,7 @@
       const { options, answer } = wordOptions();
       return { type: 'def_to_word', label: 'Định nghĩa → Từ', card, options, answer,
         promptHtml: `<p class="q-lead">Từ nào khớp định nghĩa sau?</p>
-          <div class="q-def">${esc(card.definition_vi || card.definition_en || hw)}</div>` };
+          <div class="q-def">${esc(viOf(card) || card.definition_en || hw)}</div>` };
     }
     return null;
   }
@@ -236,12 +242,13 @@
     });
 
     const c = q.card;
+    const cdef = viOf(c) || c.definition_en;
     const last = _state.index >= _state.questions.length - 1;
     $('ex-feedback').innerHTML = `
       <div class="feedback ${correct ? 'correct' : 'wrong'}">
         <div class="feedback-head">${correct ? '✓ Chính xác!' : '✗ Chưa đúng'}</div>
         <div><span class="feedback-word">${esc(c.headword)}</span>${c.pronunciation ? `<span class="feedback-ipa">${esc(c.pronunciation)}</span>` : ''}</div>
-        ${(c.definition_vi || c.definition_en) ? `<p class="feedback-def">${esc(c.definition_vi || c.definition_en)}</p>` : ''}
+        ${cdef ? `<p class="feedback-def">${esc(cdef)}</p>` : ''}
         ${c.example ? `<p class="feedback-def" style="font-style:italic;opacity:0.85">“${esc(c.example)}”</p>` : ''}
         ${c.memory_hook ? `<p class="feedback-hook">💡 ${esc(c.memory_hook)}</p>` : ''}
         <div class="feedback-actions">
