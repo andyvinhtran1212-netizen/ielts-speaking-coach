@@ -18,6 +18,7 @@ a later swap (the accent tag in the hash keeps that swap clean).
 from __future__ import annotations
 
 import hashlib
+import io
 import logging
 
 from config import settings
@@ -31,7 +32,21 @@ _MODEL = "tts-1"
 # Cache-bust tag baked into the path hash. Bump (or make voice-derived) when the
 # engine/accent changes so old + new audio don't collide at the same object key.
 _ACCENT_TAG = "openai-tts-1"
+# Post-processing version, ALSO baked into the path hash. Bump when the bytes we
+# upload for the SAME synth input change (e.g. silence padding) so old + new audio
+# land at different keys → existing clips are regenerated, never reused. "pad1" =
+# leading/trailing silence wrapped around each clip (fixes short-word edge clipping).
+_POST_TAG = "pad1"
 _ALLOWED_VOICES = {"alloy", "echo", "fable", "onyx", "nova", "shimmer"}
+
+# Leading/trailing silence (ms) wrapped around every PREGENERATED clip. OpenAI
+# tts-1 renders short single-word headwords with almost no edge silence, so audio
+# players trim the onset/coda — users hear the first/last sound cut off. Padding
+# keeps the spoken content off the very edge of the file. Applied to the pregen/
+# cached path only; the live /tts read-aloud (synthesize_mp3) stays byte-for-byte
+# unchanged.
+_PAD_LEAD_MS = 180
+_PAD_TRAIL_MS = 320
 
 
 async def synthesize_mp3(text: str, voice: str = DEFAULT_VOICE) -> bytes:
@@ -56,8 +71,8 @@ def _engine_tag(engine: str) -> str:
     audio for the SAME text land at DIFFERENT object keys (switching engine never
     overwrites the other; audio_url just points at whichever was generated last)."""
     if engine == "elevenlabs":
-        return f"elevenlabs-{settings.VOCAB_TTS_ELEVENLABS_VOICE_ID}"
-    return _ACCENT_TAG          # "openai-tts-1" (unchanged → existing paths stable)
+        return f"elevenlabs-{settings.VOCAB_TTS_ELEVENLABS_VOICE_ID}-{_POST_TAG}"
+    return f"{_ACCENT_TAG}-{_POST_TAG}"   # pad version in the key → padded audio at new paths
 
 
 def audio_path(text: str, voice: str = DEFAULT_VOICE, engine: str = "openai") -> str:
@@ -92,6 +107,31 @@ def upload_mp3(path: str, data: bytes) -> None:
     )
 
 
+def pad_silence_mp3(data: bytes, lead_ms: int = _PAD_LEAD_MS, trail_ms: int = _PAD_TRAIL_MS) -> bytes:
+    """Wrap mp3 bytes in leading + trailing digital silence and re-encode to mp3.
+
+    Fixes the user-reported "âm thanh bị trim mất phần đầu/cuối": OpenAI tts-1
+    renders a short single-word headword starting at t≈0 and ending at EOF, so the
+    player clips the first/last sound. Padding moves the spoken content off both
+    edges. Best-effort: if pydub/ffmpeg is unavailable or the bytes don't decode,
+    log and return the ORIGINAL bytes — generation must never hard-fail on a
+    cosmetic post-process step."""
+    if not data:
+        return data
+    try:
+        from pydub import AudioSegment
+        seg = AudioSegment.from_file(io.BytesIO(data), format="mp3")
+        lead = AudioSegment.silent(duration=lead_ms, frame_rate=seg.frame_rate)
+        trail = AudioSegment.silent(duration=trail_ms, frame_rate=seg.frame_rate)
+        out = lead + seg + trail
+        buf = io.BytesIO()
+        out.export(buf, format="mp3")
+        return buf.getvalue()
+    except Exception as exc:  # noqa: BLE001 — never fail generation on padding
+        logger.warning("[tts_audio] silence-pad failed (%s) — using unpadded audio", exc)
+        return data
+
+
 async def get_or_create_audio(text: str, voice: str = DEFAULT_VOICE) -> tuple[str, bool]:
     """Async OpenAI path (used by /tts-adjacent flows + the #551 pregen script).
     Hash-skip: existing object → URL without calling TTS (did_synthesize=False)."""
@@ -99,6 +139,7 @@ async def get_or_create_audio(text: str, voice: str = DEFAULT_VOICE) -> tuple[st
     if audio_exists(path):
         return public_url(path), False
     data = await synthesize_mp3(text, voice)
+    data = pad_silence_mp3(data)
     upload_mp3(path, data)
     return public_url(path), True
 
@@ -164,5 +205,6 @@ def get_or_create_audio_sync(
     if audio_exists(path):
         return public_url(path), False
     data = synth_sync(text, engine, voice)
+    data = pad_silence_mp3(data)
     upload_mp3(path, data)
     return public_url(path), True

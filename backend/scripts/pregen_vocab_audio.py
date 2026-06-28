@@ -8,6 +8,7 @@ so the grid serves the new audio_url without a restart (G1).
     cd backend && python -m scripts.pregen_vocab_audio              # DRY-RUN (default)
     cd backend && python -m scripts.pregen_vocab_audio --commit     # actually synth + write
     cd backend && python -m scripts.pregen_vocab_audio --commit --headword-only
+    cd backend && python -m scripts.pregen_vocab_audio --commit --regen   # re-synth ALL (after the padding fix)
 
 DRY-RUN (default) calls NO TTS and writes NOTHING — it prints how many audios
 would be generated + an estimated char count / cost so the operator can sanity-
@@ -35,19 +36,23 @@ logger = logging.getLogger("pregen_vocab_audio")
 _TTS_PER_1K_USD = 0.015   # tts-1 pricing
 
 
-def _rows_needing_audio() -> list[dict]:
+def _rows_needing_audio(regen: bool = False) -> list[dict]:
     res = (
         supabase_admin.table("vocab_cards")
         .select("slug,headword,example,audio_headword,audio_example,audio_status")
         .execute()
     )
     rows = res.data or []
+    if regen:
+        # --regen: reprocess EVERY row with a headword so existing (possibly
+        # edge-clipped) audio is re-synthesised at the new padded path + re-stamped.
+        return [r for r in rows if (r.get("headword") or "").strip()]
     # A word needs work unless it's already 'final' with a headword audio URL.
     return [r for r in rows
             if r.get("audio_status") != "final" or not r.get("audio_headword")]
 
 
-def _dry_run(rows: list[dict], *, headword_only: bool) -> None:
+def _dry_run(rows: list[dict], *, headword_only: bool, regen: bool = False) -> None:
     n_words = 0
     total_chars = 0
     n_audios = 0
@@ -55,9 +60,9 @@ def _dry_run(rows: list[dict], *, headword_only: bool) -> None:
         hw = (r.get("headword") or "").strip()
         ex = (r.get("example") or "").strip()
         will = 0
-        if hw and not r.get("audio_headword"):
+        if hw and (regen or not r.get("audio_headword")):
             total_chars += len(hw); will += 1
-        if not headword_only and ex and not r.get("audio_example"):
+        if not headword_only and ex and (regen or not r.get("audio_example")):
             total_chars += len(ex); will += 1
         if will:
             n_words += 1
@@ -72,7 +77,7 @@ def _dry_run(rows: list[dict], *, headword_only: bool) -> None:
     logger.info("Re-run with --commit to generate.")
 
 
-async def _commit(rows: list[dict], *, headword_only: bool) -> None:
+async def _commit(rows: list[dict], *, headword_only: bool, regen: bool = False) -> None:
     gen = skip = errors = stamped = 0
     for r in rows:
         slug = r["slug"]
@@ -80,7 +85,7 @@ async def _commit(rows: list[dict], *, headword_only: bool) -> None:
         ex = (r.get("example") or "").strip()
         stamp: dict = {}
         try:
-            if hw and not r.get("audio_headword"):
+            if hw and (regen or not r.get("audio_headword")):
                 url, did = await tts_audio.get_or_create_audio(hw)
                 stamp["audio_headword"] = url
                 if did:
@@ -90,7 +95,7 @@ async def _commit(rows: list[dict], *, headword_only: bool) -> None:
                 else:
                     skip += 1
 
-            if not headword_only and ex and not r.get("audio_example"):
+            if not headword_only and ex and (regen or not r.get("audio_example")):
                 url, did = await tts_audio.get_or_create_audio(ex)
                 stamp["audio_example"] = url
                 if did:
@@ -132,14 +137,19 @@ def main() -> None:
                     help="actually call OpenAI TTS + write (default: dry-run).")
     ap.add_argument("--headword-only", action="store_true",
                     help="generate only headword audio (defer examples).")
+    ap.add_argument("--regen", action="store_true",
+                    help="re-synthesise audio for ALL rows (even already-final) and "
+                         "re-stamp the URLs — use after a synth/post-process change "
+                         "(e.g. the silence-padding fix) to replace existing clipped clips.")
     args = ap.parse_args()
 
-    rows = _rows_needing_audio()
-    logger.info("Found %d vocab_cards row(s) needing audio.", len(rows))
+    rows = _rows_needing_audio(regen=args.regen)
+    logger.info("Found %d vocab_cards row(s) %s.", len(rows),
+                "to regenerate" if args.regen else "needing audio")
     if not args.commit:
-        _dry_run(rows, headword_only=args.headword_only)
+        _dry_run(rows, headword_only=args.headword_only, regen=args.regen)
         return
-    asyncio.run(_commit(rows, headword_only=args.headword_only))
+    asyncio.run(_commit(rows, headword_only=args.headword_only, regen=args.regen))
 
 
 if __name__ == "__main__":
