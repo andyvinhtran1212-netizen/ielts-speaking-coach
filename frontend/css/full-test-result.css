@@ -138,6 +138,7 @@
 .band-hero {
   font-size: 88px;
   font-weight: 900;
+  font-family: var(--av-font-mono);
   line-height: 1;
   letter-spacing: -3px;
   background: linear-gradient(135deg, var(--av-primary), var(--av-info));
@@ -183,6 +184,7 @@
   text-align: right;
   font-size: var(--av-fs-sm);
   font-weight: var(--av-fw-bold);
+  font-family: var(--av-font-mono);
   color: var(--av-text-primary);
 }
 

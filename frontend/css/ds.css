@@ -256,6 +256,7 @@ body.ds-canvas::after {
 .ds-band-hero .ds-band-value {
   font-size: 5rem;
   font-weight: 800;
+  font-family: var(--av-font-mono);
   line-height: 1;
   color: var(--ds-teal-lt);
   letter-spacing: -0.03em;
@@ -292,6 +293,7 @@ body.ds-canvas::after {
 .ds-crit .ds-crit-score {
   font-size: 2rem;
   font-weight: 800;
+  font-family: var(--av-font-mono);
   line-height: 1;
   margin-bottom: 4px;
 }
