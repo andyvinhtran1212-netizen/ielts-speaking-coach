@@ -129,6 +129,34 @@
       </div>
     </header>
 
+    <!-- W-MM: admin grade-QUALITY rating. Shows which model graded this essay +
+         a 1–5 score + note, saved to writing_grade_ratings (migration 116) so
+         grading quality can be factored by model and used to upgrade grading. -->
+    <section id="grade-rating-panel" class="grade-section hidden" data-section="grade-rating">
+      <header class="section-header"><h2>⭐ Đánh giá chất lượng chấm</h2></header>
+      <div class="section-content">
+        <p class="meta-line" style="margin:0 0 .5rem;">
+          Model phụ trách bài chấm này:
+          <span id="gr-model" class="tier-badge" title="Model AI đã chấm bài này">—</span>
+        </p>
+        <div id="gr-stars" aria-label="Chất lượng chấm (1–5 sao)"
+             style="display:flex;gap:.25rem;font-size:1.6rem;line-height:1;cursor:pointer;color:var(--av-warning);">
+          <span class="gr-star" data-v="1" role="button" tabindex="0">☆</span>
+          <span class="gr-star" data-v="2" role="button" tabindex="0">☆</span>
+          <span class="gr-star" data-v="3" role="button" tabindex="0">☆</span>
+          <span class="gr-star" data-v="4" role="button" tabindex="0">☆</span>
+          <span class="gr-star" data-v="5" role="button" tabindex="0">☆</span>
+        </div>
+        <textarea id="gr-note" rows="2" maxlength="2000"
+          placeholder="Ghi chú ngắn (tuỳ chọn): band lệch, lỗi bỏ sót, nhận xét hay…"
+          style="width:100%;margin-top:.5rem;padding:.5rem;border:1px solid var(--av-border-default);border-radius:var(--av-radius-md);background:var(--av-surface-card);color:var(--av-text-primary);font:inherit;"></textarea>
+        <div style="margin-top:.5rem;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
+          <button id="gr-save" class="btn btn-primary" type="button">💾 Lưu đánh giá</button>
+          <span id="gr-status" class="meta-line"></span>
+        </div>
+      </div>
+    </section>
+
     <!-- Sprint 2.7d.2 — Instructor review panel. Hidden by default;
          loadInstructorContext() unhides + populates with one of three
          variants (claimed by me / locked by other / delivered). -->
@@ -1554,9 +1582,46 @@
       try { return new Date(iso).toLocaleString('vi-VN'); } catch (_) { return iso; }
     }
 
+    // ── W-MM: admin grade-quality rating ─────────────────────────
+    var _grRating = 0;
+    function _grSetStars(n) {
+      _grRating = n || 0;
+      Array.prototype.forEach.call(document.querySelectorAll('#gr-stars .gr-star'), function (s) {
+        s.textContent = (parseInt(s.getAttribute('data-v'), 10) <= _grRating) ? '★' : '☆';
+      });
+    }
+    function renderGradeRating(detail) {
+      var panel = document.getElementById('grade-rating-panel');
+      if (!panel) return;
+      var graded = !!(detail && detail.feedback);   // only meaningful once AI-graded
+      panel.classList.toggle('hidden', !graded);
+      if (!graded) return;
+      document.getElementById('gr-model').textContent = detail.selected_model || '—';
+      var gr = detail.grade_rating || {};
+      _grSetStars(gr.rating || 0);
+      document.getElementById('gr-note').value = gr.note || '';
+      document.getElementById('gr-status').textContent =
+        gr.rated_at ? ('Đã đánh giá ' + _formatDate(gr.rated_at)) : '';
+    }
+    async function handleSaveRating() {
+      var st = document.getElementById('gr-status');
+      if (!_grRating) { st.textContent = 'Chọn 1–5 sao trước khi lưu.'; return; }
+      try {
+        var res = await window.api.post(
+          '/admin/writing/essays/' + _essayId + '/grade-rating',
+          { rating: _grRating, note: document.getElementById('gr-note').value || '' },
+        );
+        st.textContent = '✓ Đã lưu đánh giá (' + (res.grading_model || '') + ')';
+        if (_essay) _essay.grade_rating = res;
+      } catch (e) {
+        st.textContent = 'Lỗi lưu: ' + (e && e.message ? e.message : e);
+      }
+    }
+
     function populate(detail) {
       _essay     = detail;
       _student   = detail.student || {};
+      renderGradeRating(detail);   // W-MM: model + quality-rating panel
       // GV-1c: detail.feedback is the CURRENT version via writing_feedback_current
       // — already the composed (edited) object when edited, else the AI grade.
       // Single source of truth: no admin_edits_json overlay/merge any more.
@@ -1909,6 +1974,13 @@
         document.getElementById('btn-deliver').addEventListener('click',  handleDeliver);
         document.getElementById('btn-revoke').addEventListener('click',   handleRevoke);
         document.getElementById('btn-regrade').addEventListener('click',  handleRegrade);
+
+        // W-MM: grade-quality rating — stars (delegated) + save.
+        document.getElementById('gr-save').addEventListener('click', handleSaveRating);
+        document.getElementById('gr-stars').addEventListener('click', function (e) {
+          var s = e.target.closest('.gr-star');
+          if (s) _grSetStars(parseInt(s.getAttribute('data-v'), 10));
+        });
 
         // Sprint 2.7d.2 — instructor panel buttons. Wired even when
         // panel is hidden; renderInstructorPanel toggles visibility.

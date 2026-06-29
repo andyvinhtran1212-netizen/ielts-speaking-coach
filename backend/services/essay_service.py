@@ -957,7 +957,125 @@ def get_essay_with_feedback(essay_id: str) -> dict:
     )
     essay["student"] = sr.data[0] if sr.data else None
 
+    # Admin grade-quality rating (migration 116) — surfaced with the detail so
+    # the grade page can show the current rating/note without an extra hop.
+    # Keyed to the CURRENT feedback version: a regrade → new version → no
+    # rating preloaded (the prior run's stars don't leak onto the new grade).
+    cur_version = (essay.get("feedback") or {}).get("version")
+    essay["grade_rating"] = get_grade_rating(essay_id, cur_version)
+
     return essay
+
+
+# ── Admin grade-quality rating (migration 116) ───────────────────────
+
+
+def _current_feedback_run(essay_id: str) -> Optional[dict]:
+    """The current graded run's {version, model_used} via writing_feedback_current
+    (GV-1a view), or None when the essay hasn't been graded."""
+    try:
+        r = (
+            supabase_admin.table("writing_feedback_current")
+            .select("version, model_used")
+            .eq("essay_id", essay_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[grade-rating] feedback lookup failed essay=%s: %s", essay_id, exc)
+        return None
+    return r.data[0] if r.data else None
+
+
+def get_grade_rating(essay_id: str, feedback_version: Optional[int] = None) -> Optional[dict]:
+    """Admin quality rating for the essay's CURRENT graded run, or None. Scoped
+    by feedback_version so a rating only shows for the run it was given on —
+    after a regrade (new version) the grade page shows unrated until re-rated."""
+    if feedback_version is None:
+        run = _current_feedback_run(essay_id)
+        feedback_version = run.get("version") if run else None
+    if feedback_version is None:
+        return None
+    try:
+        r = (
+            supabase_admin.table("writing_grade_ratings")
+            .select("rating, note, grading_model, analysis_level, grading_tier, "
+                    "feedback_version, rated_by, rated_at")
+            .eq("essay_id", essay_id)
+            .eq("feedback_version", feedback_version)
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:  # noqa: BLE001 — never block the detail read on this
+        logger.warning("[grade-rating] read failed essay=%s: %s", essay_id, exc)
+        return None
+    return r.data[0] if r.data else None
+
+
+def upsert_grade_rating(*, essay_id: str, rating: int, note: str, rated_by: str) -> dict:
+    """Save (or overwrite) the admin quality rating for an essay's CURRENT graded
+    run. Snapshots the run's version + the model that ACTUALLY produced it
+    (writing_feedback.model_used — Deep/Instructor can differ from the requested
+    selected_model) so /grade-ratings/summary attributes quality to the real
+    grader. One rating per (essay, run)."""
+    run = _current_feedback_run(essay_id)
+    if not run or run.get("version") is None:
+        raise HTTPException(409, "Bài chưa được chấm — không thể đánh giá chất lượng.")
+
+    er = (
+        supabase_admin.table("writing_essays")
+        .select("analysis_level, grading_tier")
+        .eq("id", essay_id)
+        .limit(1)
+        .execute()
+    )
+    if not er.data:
+        raise HTTPException(404, f"Essay not found: {essay_id}")
+    essay = er.data[0]
+
+    payload = {
+        "essay_id":         essay_id,
+        "feedback_version": run["version"],
+        "grading_model":    run.get("model_used") or "gemini-2.5-pro",
+        "analysis_level":   essay.get("analysis_level"),
+        "grading_tier":     essay.get("grading_tier"),
+        "rating":           rating,
+        "note":             note or "",
+        "rated_by":         rated_by,
+        "rated_at":         _now(),
+    }
+    try:
+        r = (
+            supabase_admin.table("writing_grade_ratings")
+            .upsert(payload, on_conflict="essay_id,feedback_version")
+            .execute()
+        )
+    except Exception as exc:
+        logger.error("[grade-rating] upsert failed essay=%s: %s", essay_id, exc)
+        raise HTTPException(500, f"Database upsert failed: {exc}")
+    return (r.data or [payload])[0]
+
+
+def grade_rating_summary() -> list[dict]:
+    """Aggregate ratings by grading model — the upgrade-factoring view:
+    [{grading_model, n, avg_rating}], best-effort, computed in Python so it
+    works without a Postgres view/RPC."""
+    try:
+        r = (
+            supabase_admin.table("writing_grade_ratings")
+            .select("grading_model, rating")
+            .execute()
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[grade-rating] summary read failed: %s", exc)
+        return []
+    by_model: dict[str, list[int]] = {}
+    for row in (r.data or []):
+        by_model.setdefault(row["grading_model"], []).append(row["rating"])
+    return [
+        {"grading_model": m, "n": len(rs), "avg_rating": round(sum(rs) / len(rs), 2)}
+        for m, rs in sorted(by_model.items())
+    ]
 
 
 def get_essay_render_context(essay_id: str) -> dict:
