@@ -50,6 +50,10 @@ logger = logging.getLogger(__name__)
 MODEL_PRICING: dict[str, dict[str, float]] = {
     "gemini-2.5-pro":   {"input": 1.25, "output": 10.00},
     "gemini-2.5-flash": {"input": 0.30, "output":  2.50},
+    # Sprint W-MM step 0 — Gemini 3.5 Flash (GA) added as a SELECTABLE model
+    # for observation before any default switch. Newer generation, output
+    # cheaper than 2.5 Pro ($9 vs $10). ≤200k-context rates, June 2026.
+    "gemini-3.5-flash": {"input": 1.50, "output":  9.00},
 }
 
 MAX_RETRIES = 3

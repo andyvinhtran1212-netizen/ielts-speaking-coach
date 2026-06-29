@@ -336,7 +336,7 @@ class GraderConfig(BaseModel):
 
     analysis_level: conint(ge=1, le=5)
     form_of_address: Literal['bạn', 'em', 'anh', 'chị'] = 'em'
-    selected_model: Literal['gemini-2.5-pro', 'gemini-2.5-flash'] = 'gemini-2.5-pro'
+    selected_model: Literal['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-3.5-flash'] = 'gemini-2.5-pro'
 
     # Sprint 2.7a — grading depth tier. Default 'standard' so historical
     # callers and existing tests keep their pre-2.7a behaviour. Quick

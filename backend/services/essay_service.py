@@ -54,6 +54,11 @@ _ETA_TABLE: dict[tuple[int, str], int] = {
     (1, "gemini-2.5-flash"): 15,
     (3, "gemini-2.5-pro"):   45,
     (5, "gemini-2.5-pro"):   90,
+    # Sprint W-MM step 0 — Gemini 3.5 Flash (observation). Flash-class speed;
+    # estimate between Flash and Pro across levels.
+    (1, "gemini-3.5-flash"): 15,
+    (3, "gemini-3.5-flash"): 30,
+    (5, "gemini-3.5-flash"): 55,
 }
 _ETA_DEFAULT_SECONDS = 60
 
