@@ -84,7 +84,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       # P0-3 C-3.4 — the static Tailwind CSS (css/tailwind.build.css) is committed.
       # Rebuild it from the SAME pinned toolchain + config and fail if it differs:
