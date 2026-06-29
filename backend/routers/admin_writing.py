@@ -107,6 +107,12 @@ class RegradeRequest(BaseModel):
     analysis_level: Optional[int] = Field(default=None, ge=1, le=5)
 
 
+class GradeRatingBody(BaseModel):
+    # Admin quality-rating of an AI grade (migration 116): 1–5 + optional note.
+    rating: int = Field(..., ge=1, le=5)
+    note: str = Field(default="", max_length=2000)
+
+
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -344,6 +350,30 @@ async def get_essay_status(
     """Lightweight status payload for polling. Cheaper than full detail."""
     await require_admin(authorization)
     return essay_service.get_essay_status(str(essay_id))
+
+
+@router.post("/essays/{essay_id}/grade-rating")
+async def rate_grade(
+    essay_id: UUID,
+    body: GradeRatingBody,
+    authorization: str | None = Header(None),
+):
+    """Admin rates the QUALITY of this essay's AI grade (1–5 + optional note).
+    Snapshots which model graded it (migration 116) for later upgrade analysis.
+    Upserts: one current rating per essay."""
+    admin = await require_admin(authorization)
+    return essay_service.upsert_grade_rating(
+        essay_id=str(essay_id), rating=body.rating, note=body.note,
+        rated_by=admin["id"],
+    )
+
+
+@router.get("/grade-ratings/summary")
+async def grade_ratings_summary(authorization: str | None = Header(None)):
+    """Aggregate admin grade-quality ratings by model — the upgrade-factoring
+    view: [{grading_model, n, avg_rating}]."""
+    await require_admin(authorization)
+    return essay_service.grade_rating_summary()
 
 
 # ── Endpoints (W3 — still placeholders) ───────────────────────────────
