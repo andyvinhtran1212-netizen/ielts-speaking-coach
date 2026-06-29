@@ -1081,3 +1081,99 @@ async def test_reap_skips_deep_tier_within_grace():
 
     assert summary["skipped"] == 1 and summary["requeued"] == 0 and summary["failed"] == 0
     requeue.assert_not_called()
+
+
+# ── Sprint W-MM review fixes: max_attempts persist, restore via job_payload,
+#    started_at-based reaper staleness ─────────────────────────────────
+
+def test_schedule_grading_job_persists_max_attempts_and_restore(monkeypatch):
+    """P2: the env knob must reach the row (DB default no longer silently wins),
+    and a regrade's prior good status is persisted for the reaper."""
+    from config import settings
+    monkeypatch.setattr(settings, "WRITING_GRADING_MAX_ATTEMPTS", 5)
+    fake = _FakeSupabase(responses={("writing_jobs", "insert"): [{"id": _JOB_ID}]})
+    with patch.object(essay_service, "supabase_admin", fake):
+        essay_service.schedule_grading_job(
+            essay_id=_ESSAY_ID, analysis_level=3, restore_status="delivered")
+    ins = next(c for c in fake.calls if c["table"] == "writing_jobs" and c["op"] == "insert")
+    assert ins["payload"]["max_attempts"] == 5
+    assert ins["payload"]["job_payload"] == {"restore_status": "delivered"}
+
+
+def test_schedule_grading_job_omits_job_payload_without_restore():
+    """First-grade path passes no restore_status → no job_payload written (the
+    DB default/None holds), but max_attempts is still set."""
+    fake = _FakeSupabase(responses={("writing_jobs", "insert"): [{"id": _JOB_ID}]})
+    with patch.object(essay_service, "supabase_admin", fake):
+        essay_service.schedule_grading_job(essay_id=_ESSAY_ID, analysis_level=3)
+    ins = next(c for c in fake.calls if c["table"] == "writing_jobs" and c["op"] == "insert")
+    assert "job_payload" not in ins["payload"]
+    assert "max_attempts" in ins["payload"]
+
+
+@pytest.mark.asyncio
+async def test_bg_grade_essay_restores_prior_status_from_job_payload(monkeypatch):
+    """P2: a reaper-requeued run passes restore_status_on_fail=None, but the
+    pre-regrade status persisted on the job must still restore the essay on a
+    terminal (attempts-exhausted) failure — not strand it in 'failed'."""
+    from config import settings
+    monkeypatch.setattr(settings, "WRITING_GRADING_MAX_ATTEMPTS", 3)
+    responses = _bg_essay_responses()
+    responses[("writing_jobs", "select")] = [{
+        "attempt_count": 2, "max_attempts": 3,
+        "job_payload": {"restore_status": "delivered"},
+    }]
+    fake = _FakeSupabase(responses=responses)
+    fake_grader = MagicMock()
+
+    async def fake_grade(_config):
+        raise APIRetryFailedError("3 retries failed")
+    fake_grader.grade_essay = fake_grade
+
+    with patch.object(essay_service, "supabase_admin", fake), \
+         patch.object(essay_service, "get_grader", return_value=fake_grader), \
+         patch.object(essay_service, "get_recurring_patterns", return_value=None), \
+         patch.object(essay_service, "get_band_trajectory",  return_value=None):
+        # restore_status_on_fail omitted (None) → must fall back to job_payload
+        await essay_service._bg_grade_essay(_ESSAY_ID, _JOB_ID)
+
+    final_essay = [c for c in fake.calls if c["table"] == "writing_essays" and c["op"] == "update"][-1]
+    assert final_essay["payload"]["status"] == "delivered"   # restored, not 'failed'
+
+
+@pytest.mark.asyncio
+async def test_reap_skips_requeued_job_with_fresh_started_at():
+    """P1: a job requeued moments ago (created_at old but started_at fresh) must
+    NOT be re-reaped — otherwise the sweep spawns a duplicate grading task while
+    the live retry is still running."""
+    fake = _FakeSupabase(responses=_reaper_responses(job_overrides={
+        "created_at": (_FIXED_NOW - timedelta(seconds=500)).isoformat(),   # old
+        "started_at": (_FIXED_NOW - timedelta(seconds=10)).isoformat(),    # just claimed
+        "attempt_count": 1,
+    }))
+    requeue = MagicMock()
+    with patch.object(essay_service, "supabase_admin", fake), \
+         patch.object(essay_service, "_schedule_requeue", requeue):
+        summary = await essay_service.reap_stuck_grading_jobs(now=_FIXED_NOW)
+
+    assert summary["skipped"] == 1 and summary["requeued"] == 0 and summary["failed"] == 0
+    requeue.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_reap_terminal_restores_prior_status_from_job_payload():
+    """P2: exhausted reaper attempts on a regrade restore the persisted
+    pre-regrade status instead of forcing 'failed'."""
+    fake = _FakeSupabase(responses=_reaper_responses(job_overrides={
+        "attempt_count": 3, "max_attempts": 3,
+        "job_payload": {"restore_status": "delivered"},
+    }))
+    requeue = MagicMock()
+    with patch.object(essay_service, "supabase_admin", fake), \
+         patch.object(essay_service, "_schedule_requeue", requeue):
+        summary = await essay_service.reap_stuck_grading_jobs(now=_FIXED_NOW)
+
+    assert summary["failed"] == 1
+    restored = [c for c in fake.calls if c["table"] == "writing_essays"
+                and c["op"] == "update" and c["payload"].get("status") == "delivered"]
+    assert restored, "essay must be restored to its prior good status, not 'failed'"

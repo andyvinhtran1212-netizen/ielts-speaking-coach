@@ -962,6 +962,11 @@ async def trigger_regrade(
         essay_id       = str(essay_id),
         analysis_level = effective_level,
         selected_model = regrade_model,
+        # regrade-resilience (Sprint W-MM): persist the pre-regrade status on the
+        # job so the reaper can restore it if the process dies and reaper
+        # attempts are exhausted (the in-memory restore_status_on_fail below
+        # only covers the live BG task, not an out-of-process reaper takeover).
+        restore_status = essay.get("status"),
     )
     # regrade-resilience: on grader failure, restore the pre-regrade status
     # (essay["status"], captured above before the 'grading' write) instead of

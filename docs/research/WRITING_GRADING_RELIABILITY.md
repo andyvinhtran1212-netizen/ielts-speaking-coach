@@ -62,11 +62,26 @@ selection. (Success metrics — `model_used`, tokens, cost, `grading_duration_ms
 **Reaper** (`reap_stuck_grading_jobs`, a startup async loop, interval
 `WRITING_REAPER_INTERVAL_SECONDS=120`s): sweeps `writing_jobs` in
 `queued`/`running` older than the tier timeout (standard `360`s, deep `600`s —
-deep runs 3 sequential passes). Staleness is measured on `created_at` (always
-present; `started_at` is null for never-started `queued` jobs). For each stuck
-job it records a `StuckTimeout` attempt, then:
+deep runs 3 sequential passes). Staleness is measured on the latest **claim
+time** — `started_at` (refreshed on every requeue), falling back to `created_at`
+for never-started `queued` jobs. This is what stops a freshly-requeued retry
+(immutable old `created_at`, fresh `started_at`) from being re-reaped before its
+own window elapses, which would spawn a duplicate grading task. The DB prefilter
+still uses `created_at` (≤ `started_at`, so nothing truly stale is missed); the
+precise per-tier check runs in code. For each stuck job it records a
+`StuckTimeout` attempt, then:
 - **attempts remain** → requeue (`job→queued`, schedule a re-run);
-- **attempts exhausted** → `_mark_failed` so the admin UI surfaces it.
+- **attempts exhausted** → `_mark_failed`, restoring the pre-regrade good status
+  if one was persisted (see below) so a previously graded/reviewed/delivered
+  essay isn't stranded in `failed`.
+
+**Config persistence.** `schedule_grading_job` writes
+`max_attempts = settings.WRITING_GRADING_MAX_ATTEMPTS` onto each new job (so the
+env knob governs retries, not just the DB column default) and, for a **regrade**,
+persists the pre-regrade status into `job_payload.restore_status`. `_bg_grade_essay`
+and the reaper both read this so an out-of-process reaper takeover restores the
+prior good grade on terminal failure — matching the in-process
+`restore_status_on_fail` behaviour.
 
 **Fallback threshold — "bao nhiêu lần thì đổi model"** (`WRITING_GRADING_MAX_ATTEMPTS=3`):
 
