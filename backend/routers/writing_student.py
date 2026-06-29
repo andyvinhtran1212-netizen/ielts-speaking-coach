@@ -1253,7 +1253,8 @@ async def submit_my_assignment(
                 "grading_tier":     grading_tier,
                 "instructor_ai_tier": instructor_ai_tier,
                 "form_of_address":  "em",
-                "selected_model":   "gemini-2.5-pro",
+                # P1-A level-aware default: L1–L3 → 3.5 Flash, L4–L5 → Pro.
+                "selected_model":   essay_service.default_grading_model(level),
                 "status":           "pending",
                 "paste_events":     paste_events,
                 "suspicious_paste": suspicious_paste,
@@ -1340,7 +1341,7 @@ async def submit_my_assignment(
         job_info = essay_service.schedule_grading_job(
             essay_id       = essay_id,
             analysis_level = level,
-            selected_model = "gemini-2.5-pro",
+            selected_model = essay_service.default_grading_model(level),
             grading_tier   = grading_tier,
         )
         job_id = job_info["job_id"]

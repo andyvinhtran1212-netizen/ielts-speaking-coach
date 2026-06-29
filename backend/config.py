@@ -97,6 +97,16 @@ class Settings(BaseSettings):
     GEMINI_PRO_MODEL: str = "gemini-2.5-pro"
     GEMINI_FLASH_MODEL: str = "gemini-2.5-flash"
 
+    # Multi-model plan P1-A — level-aware default grading model. When ON,
+    # student-submitted essays at L1–L3 grade with the cheaper/faster
+    # gemini-3.5-flash and L4–L5 stay on gemini-2.5-pro. Backed by the
+    # calibration harness: 3.5 Flash hit 100% band agreement (±0.5) vs Pro at
+    # ≤L3 but only ~90% at L4. Read per call so it flips via env on Railway
+    # without a redeploy; set False to revert all levels to Pro. Admin-picked
+    # models are NOT overridden — this only changes the student-path default.
+    WRITING_LEVEL_AWARE_MODEL: bool = True
+    WRITING_FLASH_MAX_LEVEL: int = 3   # highest level that uses 3.5 Flash
+
     # Sprint 11.1 — Listening module (DEBT-LISTENING-MODULE foundation 1/5).
     # ELEVENLABS_API_KEY: empty by default; render endpoint stays 503 until
     # Andy provisions the Creator plan. LISTENING_AI_RENDER_ENABLED is the
