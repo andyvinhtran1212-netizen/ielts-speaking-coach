@@ -8,7 +8,7 @@ outside the JSON** — no preamble, no postamble, no markdown code fences.
 ```json
 {
   "overallBandScore": <number 0.0-9.0, half-band increments>,
-  "overallBandScoreSummary": "<Vietnamese, 2-3 sentences explaining the band>",
+  "overallBandScoreSummary": "<Vietnamese, 2-3 sentences: general qualitative overview + advice ONLY. Do NOT cite or break down the four component band scores>",
   "keyTakeaways": {
     "strengths": ["<Vietnamese strength 1>", "<Vietnamese strength 2>"],
     "areasForImprovement": ["<Vietnamese area 1>", "<Vietnamese area 2>"]
@@ -64,6 +64,7 @@ outside the JSON** — no preamble, no postamble, no markdown code fences.
 6. **Half-band scores:** `overallBandScore` can be X.0 or X.5 only. Criterion `bandScore` is integer.
 7. **Be specific:** No placeholder text like "good vocabulary" — explain WHICH words and WHY.
 8. **Address as "{{FORM_OF_ADDRESS}}":** All Vietnamese text uses this pronoun consistently.
+9. **Overview = general only (NO component scores):** `overallBandScoreSummary` is a qualitative overall impression PLUS actionable advice for {{FORM_OF_ADDRESS}}. Do NOT mention, list, cite, or break down the four component/criterion band scores (Task Response/Achievement, Coherence & Cohesion, Lexical Resource, Grammatical Range) — those belong in `criteriaFeedback`. The overview is general assessment + advice, nothing about per-criterion numbers.
 
 ## Conditional Field Rules (per analysis level)
 
