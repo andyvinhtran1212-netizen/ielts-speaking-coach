@@ -499,6 +499,61 @@ def test_regrade_without_level_keeps_current():
     assert schedule_mock.call_args.kwargs["analysis_level"] == 3
 
 
+def test_regrade_to_higher_level_recomputes_model_to_pro():
+    """P1-A invariant: an L1–L3 essay stored with gemini-3.5-flash must be
+    regraded with gemini-2.5-pro when bumped to L4/L5 (calibration kept Pro
+    there). The level-changing regrade recomputes selected_model from the
+    level-aware policy — both in the persisted row and the scheduled job."""
+    from services import essay_service
+    flash_essay = {**_graded_essay(), "selected_model": "gemini-3.5-flash"}  # L3 + Flash
+    fake = _Dispatcher(essays=[flash_essay])
+    schedule_mock = MagicMock(return_value={"job_id": _JOB_ID, "eta_seconds": 90})
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.supabase_admin", fake), \
+         patch("services.essay_service.supabase_admin", fake), \
+         patch.object(essay_service.settings, "WRITING_LEVEL_AWARE_MODEL", True), \
+         patch.object(essay_service.settings, "WRITING_FLASH_MAX_LEVEL", 3), \
+         patch("services.essay_service.schedule_grading_job", schedule_mock), \
+         patch("services.essay_service._bg_grade_essay", new=AsyncMock(return_value=None)):
+        r = _client().post(
+            f"/admin/writing/essays/{_ESSAY_ID}/regrade",
+            json={"analysis_level": 4},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 202, r.text
+    update = next(c for c in fake.calls
+                  if c["table"] == "writing_essays" and c["action"] == "update")
+    assert update["payload"]["analysis_level"] == 4
+    assert update["payload"]["selected_model"] == "gemini-2.5-pro"   # recomputed, not Flash
+    assert schedule_mock.call_args.kwargs["selected_model"] == "gemini-2.5-pro"
+
+
+def test_regrade_same_level_keeps_stored_model():
+    """A same-level regrade keeps the stored model (respects an admin's
+    explicit pick) — only a level CHANGE recomputes."""
+    from services import essay_service
+    flash_essay = {**_graded_essay(), "selected_model": "gemini-3.5-flash"}  # L3 + Flash
+    fake = _Dispatcher(essays=[flash_essay])
+    schedule_mock = MagicMock(return_value={"job_id": _JOB_ID, "eta_seconds": 30})
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.supabase_admin", fake), \
+         patch("services.essay_service.supabase_admin", fake), \
+         patch("services.essay_service.schedule_grading_job", schedule_mock), \
+         patch("services.essay_service._bg_grade_essay", new=AsyncMock(return_value=None)):
+        r = _client().post(
+            f"/admin/writing/essays/{_ESSAY_ID}/regrade",
+            json={},                       # no level change
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 202, r.text
+    update = next(c for c in fake.calls
+                  if c["table"] == "writing_essays" and c["action"] == "update")
+    assert update["payload"]["selected_model"] == "gemini-3.5-flash"   # unchanged
+    assert schedule_mock.call_args.kwargs["selected_model"] == "gemini-3.5-flash"
+
+
 def test_regrade_rejects_out_of_range_level():
     """analysis_level is bounded 1–5 (mirrors CreateEssayRequest); a 9
     is a 422 at the Pydantic boundary and never queues a job."""

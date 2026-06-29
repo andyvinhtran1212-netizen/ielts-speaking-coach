@@ -83,7 +83,9 @@ def test_grader_config_invalid_form():
 
 
 def test_grader_config_invalid_model():
-    """selected_model must be in [gemini-2.5-pro, gemini-2.5-flash]."""
+    """selected_model must be one of the allowed Gemini ids
+    (gemini-2.5-pro / gemini-2.5-flash / gemini-3.5-flash); a non-Gemini
+    id like gpt-4 is rejected at the schema boundary."""
     with pytest.raises(ValidationError):
         GraderConfig(
             task_type="task2",

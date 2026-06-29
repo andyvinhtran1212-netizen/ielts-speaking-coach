@@ -44,6 +44,27 @@ def test_estimate_eta_seconds(level, model, expected):
     ) == expected
 
 
+# ── Level-aware default model (P1-A) ─────────────────────────────────
+
+def test_default_grading_model_level_aware(monkeypatch):
+    """L1–L3 → 3.5 Flash, L4–L5 → Pro when the flag is on."""
+    from config import settings
+    monkeypatch.setattr(settings, "WRITING_LEVEL_AWARE_MODEL", True)
+    monkeypatch.setattr(settings, "WRITING_FLASH_MAX_LEVEL", 3)
+    assert essay_service.default_grading_model(1) == "gemini-3.5-flash"
+    assert essay_service.default_grading_model(3) == "gemini-3.5-flash"
+    assert essay_service.default_grading_model(4) == "gemini-2.5-pro"
+    assert essay_service.default_grading_model(5) == "gemini-2.5-pro"
+
+
+def test_default_grading_model_flag_off_always_pro(monkeypatch):
+    """Flag off → every level reverts to Pro (instant kill-switch)."""
+    from config import settings
+    monkeypatch.setattr(settings, "WRITING_LEVEL_AWARE_MODEL", False)
+    for lvl in (1, 2, 3, 4, 5):
+        assert essay_service.default_grading_model(lvl) == "gemini-2.5-pro"
+
+
 # ── Word count helper ────────────────────────────────────────────────
 
 def test_word_count_simple():

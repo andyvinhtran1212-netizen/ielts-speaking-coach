@@ -60,7 +60,7 @@ class CreateEssayRequest(BaseModel):
     form_of_address: str  = Field(default="em", pattern=r"^(bạn|em|anh|chị)$")
     selected_model:  str  = Field(
         default="gemini-2.5-pro",
-        pattern=r"^(gemini-2\.5-pro|gemini-2\.5-flash)$",
+        pattern=r"^(gemini-2\.5-pro|gemini-2\.5-flash|gemini-3\.5-flash)$",
     )
 
     # Sprint 2.7a — grading depth tier. Default 'standard' so clients
@@ -885,10 +885,22 @@ async def trigger_regrade(
     # analysis_level we keep the essay's current level (pre-T2·1 behaviour);
     # when it supplies 1–5 we persist it into the same column the BG grader
     # re-reads in _bg_grade_essay, so the re-run grades at the chosen level.
+    current_level = essay.get("analysis_level") or 3
     effective_level = (
         body.analysis_level
         if body.analysis_level is not None
-        else (essay.get("analysis_level") or 3)
+        else current_level
+    )
+    # P1-A — when a regrade CHANGES the level, recompute the model from the
+    # level-aware policy so the stored model can't leak across the L3/L4
+    # boundary (e.g. an L1–L3 essay stored gemini-3.5-flash must NOT grade with
+    # Flash when regraded at L4/L5, where calibration kept Pro). Same-level
+    # regrades keep the stored model (respects an admin's explicit pick).
+    level_changed = body.analysis_level is not None and body.analysis_level != current_level
+    regrade_model = (
+        essay_service.default_grading_model(effective_level)
+        if level_changed
+        else (essay.get("selected_model") or "gemini-2.5-pro")
     )
     try:
         (
@@ -899,6 +911,7 @@ async def trigger_regrade(
                 "last_regraded_at":   now_iso,
                 "last_regraded_by":   admin["id"],
                 "analysis_level":     effective_level,
+                "selected_model":     regrade_model,
                 # The new AI grade supersedes any prior manual edit → clear the
                 # badge. (admin_edits_json is DEAD post-GV-1c — not written; the
                 # prior composed edit-version stays in the lineage, just not
@@ -918,7 +931,7 @@ async def trigger_regrade(
     job_info = essay_service.schedule_grading_job(
         essay_id       = str(essay_id),
         analysis_level = effective_level,
-        selected_model = essay.get("selected_model") or "gemini-2.5-pro",
+        selected_model = regrade_model,
     )
     # regrade-resilience: on grader failure, restore the pre-regrade status
     # (essay["status"], captured above before the 'grading' write) instead of

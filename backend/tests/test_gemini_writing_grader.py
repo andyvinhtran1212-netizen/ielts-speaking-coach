@@ -192,13 +192,55 @@ def test_calculate_cost_missing_tokens_returns_none(grader):
     assert grader._calculate_cost("gemini-2.5-pro", tokens_in=3000, tokens_out=None) is None
 
 
-def test_pricing_table_has_both_models(grader):
-    """Pricing table must cover both allowed models."""
+def test_pricing_table_has_all_selectable_models(grader):
+    """Pricing table must cover every selectable model — pricing is required
+    for cost telemetry; a missing entry silently returns None cost."""
     assert "gemini-2.5-pro" in MODEL_PRICING
     assert "gemini-2.5-flash" in MODEL_PRICING
+    assert "gemini-3.5-flash" in MODEL_PRICING  # W-MM step 0 — observation option
     for model, prices in MODEL_PRICING.items():
         assert "input" in prices and "output" in prices
         assert prices["input"] > 0 and prices["output"] > 0
+
+
+def test_calculate_cost_gemini_3_5_flash(grader):
+    """gemini-3.5-flash: 3000 input @ $1.50/M + 2000 output @ $9.00/M."""
+    cost = grader._calculate_cost("gemini-3.5-flash", tokens_in=3000, tokens_out=2000)
+    expected = (3000 / 1_000_000) * 1.50 + (2000 / 1_000_000) * 9.00
+    assert abs(cost - expected) < 1e-6
+
+
+def test_usage_metadata_folds_thinking_into_output(grader):
+    """Gemini thinking tokens are billed as output but reported separately —
+    _usage_from_metadata folds thoughts_token_count into output_tokens so cost
+    isn't understated for thinking-by-default models (e.g. 3.5 Flash)."""
+    from types import SimpleNamespace
+    um = SimpleNamespace(prompt_token_count=3000, candidates_token_count=2000,
+                         thoughts_token_count=500)
+    usage = grader._usage_from_metadata(um)
+    assert usage["input_tokens"] == 3000
+    assert usage["output_tokens"] == 2500      # 2000 candidates + 500 thinking
+    assert usage["thinking_tokens"] == 500
+
+
+def test_usage_metadata_no_thinking_field(grader):
+    """No thinking (field absent or None) → output = candidates; None → {}."""
+    from types import SimpleNamespace
+    um = SimpleNamespace(prompt_token_count=1000, candidates_token_count=800)
+    usage = grader._usage_from_metadata(um)
+    assert usage["output_tokens"] == 800
+    assert usage["thinking_tokens"] == 0
+    assert grader._usage_from_metadata(None) == {}
+
+
+def test_grader_config_accepts_gemini_3_5_flash():
+    """GraderConfig must accept gemini-3.5-flash as a selectable model
+    (W-MM step 0). Pin so a Literal narrowing can't silently drop it."""
+    cfg = GraderConfig(
+        task_type="task2", prompt_text="p", essay_text="e", analysis_level=3,
+        selected_model="gemini-3.5-flash",
+    )
+    assert cfg.selected_model == "gemini-3.5-flash"
 
 
 # ── Phase 1.5a: history injection in user prompt ─────────────────────

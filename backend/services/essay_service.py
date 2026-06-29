@@ -23,6 +23,7 @@ from typing import Optional
 
 from fastapi import HTTPException
 
+from config import settings
 from database import supabase_admin
 from models.writing_feedback import (
     GraderConfig,
@@ -54,6 +55,11 @@ _ETA_TABLE: dict[tuple[int, str], int] = {
     (1, "gemini-2.5-flash"): 15,
     (3, "gemini-2.5-pro"):   45,
     (5, "gemini-2.5-pro"):   90,
+    # Sprint W-MM step 0 — Gemini 3.5 Flash (observation). Flash-class speed;
+    # estimate between Flash and Pro across levels.
+    (1, "gemini-3.5-flash"): 15,
+    (3, "gemini-3.5-flash"): 30,
+    (5, "gemini-3.5-flash"): 55,
 }
 _ETA_DEFAULT_SECONDS = 60
 
@@ -75,6 +81,19 @@ def estimate_eta_seconds(
     if grading_tier == "deep":
         return 240  # ~4 min — covers all three passes plus margin
     return _ETA_TABLE.get((analysis_level, selected_model), _ETA_DEFAULT_SECONDS)
+
+
+def default_grading_model(level: int) -> str:
+    """Multi-model P1-A — the default grading model for a student-submitted
+    essay at `level`. With WRITING_LEVEL_AWARE_MODEL on, L1..WRITING_FLASH_MAX_LEVEL
+    grade with the cheaper/faster gemini-3.5-flash (harness-proven equivalent to
+    Pro at ≤L3); deeper levels keep gemini-2.5-pro. Flag off ⇒ always Pro.
+    Kill-switch via env WRITING_LEVEL_AWARE_MODEL=false (settings load at
+    process start, so the Railway var change restarts the service to apply it).
+    Admin-picked models bypass this (admins pass selected_model explicitly)."""
+    if settings.WRITING_LEVEL_AWARE_MODEL and level <= settings.WRITING_FLASH_MAX_LEVEL:
+        return "gemini-3.5-flash"
+    return "gemini-2.5-pro"
 
 
 # ── Helpers ──────────────────────────────────────────────────────────

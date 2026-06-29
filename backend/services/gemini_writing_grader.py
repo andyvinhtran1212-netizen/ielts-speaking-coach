@@ -50,6 +50,10 @@ logger = logging.getLogger(__name__)
 MODEL_PRICING: dict[str, dict[str, float]] = {
     "gemini-2.5-pro":   {"input": 1.25, "output": 10.00},
     "gemini-2.5-flash": {"input": 0.30, "output":  2.50},
+    # Sprint W-MM step 0 — Gemini 3.5 Flash (GA) added as a SELECTABLE model
+    # for observation before any default switch. Newer generation, output
+    # cheaper than 2.5 Pro ($9 vs $10). ≤200k-context rates, June 2026.
+    "gemini-3.5-flash": {"input": 1.50, "output":  9.00},
 }
 
 MAX_RETRIES = 3
@@ -725,10 +729,8 @@ class GeminiWritingGrader:
                 if parse_schema is not None:
                     self._parse_response(response_text, schema=parse_schema)
 
-                usage: dict = {}
-                if hasattr(response, "usage_metadata") and response.usage_metadata is not None:
-                    usage["input_tokens"] = response.usage_metadata.prompt_token_count
-                    usage["output_tokens"] = response.usage_metadata.candidates_token_count
+                usage = self._usage_from_metadata(
+                    getattr(response, "usage_metadata", None))
 
                 return response_text, usage
 
@@ -782,6 +784,27 @@ class GeminiWritingGrader:
             return schema(**data)
         except Exception as e:
             raise InvalidJSONError(f"Schema validation failed: {e}") from e
+
+    @staticmethod
+    def _usage_from_metadata(um) -> dict:
+        """Build the token-usage dict from a Gemini usage_metadata object.
+
+        Gemini 2.5/3.x "thinking": the output is BILLED including thinking
+        tokens, but they arrive in a separate `thoughts_token_count` field
+        (absent/None on models or SDK versions without thinking). Fold them
+        into `output_tokens` so `_calculate_cost` reflects the real bill —
+        otherwise a thinking-by-default model (e.g. 3.5 Flash) looks cheaper
+        than it is. The split is kept in `thinking_tokens` for telemetry.
+        Returns {} when metadata is absent (cost then degrades to None)."""
+        if um is None:
+            return {}
+        candidates = um.candidates_token_count if um.candidates_token_count is not None else 0
+        thoughts = getattr(um, "thoughts_token_count", None) or 0
+        return {
+            "input_tokens": um.prompt_token_count,
+            "output_tokens": candidates + thoughts,
+            "thinking_tokens": thoughts,
+        }
 
     @staticmethod
     def _coerce_wrapped_list_shapes(data: dict) -> None:
