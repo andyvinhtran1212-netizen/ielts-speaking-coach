@@ -1,0 +1,14 @@
+[
+  {
+    "id": "t2-band6-tech-education",
+    "task_type": "task2",
+    "prompt_text": "Some people believe that technology has made students lazy and dependent. To what extent do you agree or disagree?",
+    "essay_text": "In today's modern world, technology is very important for students. Many people argue that technology make students lazy, but I disagree with this opinion. Technology helps students learn faster and find information easily. For example, students can use the internet to search for anything they want. Also, online learning is very effective and it saves time. Studies show that students who use technology get better results. However, some students use technology too much and they don't think by themselves. In conclusion, technology is good for students if they use it correctly. Students should balance between technology and traditional learning to be successful in their study."
+  },
+  {
+    "id": "t1-academic-bar-chart",
+    "task_type": "task1_academic",
+    "prompt_text": "The chart below shows the percentage of households in three countries that owned a car between 2000 and 2020. Summarise the information by selecting and reporting the main features.",
+    "essay_text": "The bar chart illustrates car ownership in three countries from 2000 to 2020. Overall, car ownership increased in all countries during this period. In 2000, country A had the highest percentage at 40 percent, while country C had only 20 percent. By 2020, country A reached 65 percent, which was the highest. Country B also increased steadily from 30 percent to 55 percent. Country C had the lowest ownership but it grew the most, from 20 percent to 50 percent. In conclusion, all three countries saw a rise in car ownership, with country C showing the biggest change over the twenty year period."
+  }
+]
