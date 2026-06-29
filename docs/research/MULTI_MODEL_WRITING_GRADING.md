@@ -282,3 +282,70 @@ Mitigations:
 **Recommendation:** approve **P0 (harness)** now; treat P1+ as gated on the
 harness numbers. The single biggest, safest win is **Group C → cheaper model**;
 everything else is incremental.
+
+---
+
+## 10. Findings — measured (P0 → P1-B)
+
+> **Where the code lives:** this file is a findings *record*. The harness and
+> the P1-A implementation it describes are **introduced in PR #617**
+> (`backend/scripts/calibration_harness.py`, `backend/scripts/multimodel_router.py`,
+> and the level-aware default in `config.py` / `services/essay_service.py`) — they
+> are NOT part of this docs-only commit. To reproduce the numbers below, check
+> out PR #617 (or main once it has merged) and run the harness as shown.
+
+Built and ran the harness (`backend/scripts/calibration_harness.py`, PR #617) on
+real essays (`--from-db`, balanced Task 1/Task 2, chart images preserved). Gate =
+band agreement within ±0.5 on ≥95%. Reproduce:
+`cd backend && GEMINI_API_KEY=… python -m scripts.calibration_harness --from-db 10 --balance-task-type --levels 3,4`.
+
+### P0 — straight model swap (single call, candidate replaces Pro)
+gemini-3.5-flash vs gemini-2.5-pro, n=10 balanced, per level:
+
+| | Level 3 | Level 4 |
+|---|---|---|
+| Band agreement ±0.5 | **100% (10/10)** ✅ | **90% (9/10)** ❌ |
+| Cost savings | ~14% | ~21% |
+| Latency | 60s→41s | 64s→39s |
+| Coverage gaps | 0 | 1 |
+
+- **≤L3 passes the gate** — 3.5 Flash matches Pro's band, cheaper + ~2× faster.
+- **L4 sits at ~90%** — one **reproducible** Δ=1.0 essay (`5bda0d71`, failed in
+  two independent runs) + an occasional dropped counterargument. Not gate-safe.
+- (An earlier L4 run showed 2 coverage gaps; that was a harness bug — it dropped
+  the Task 1 chart image, grading those essays text-only. Fixed; numbers above
+  are post-fix.)
+
+### P1-A — decided; implemented in PR #617 (not in this commit)
+**Decision:** student-submitted essays default to **gemini-3.5-flash at L1–L3**
+and **gemini-2.5-pro at L4–L5**. Implemented in **PR #617** via
+`WRITING_LEVEL_AWARE_MODEL` (default on; env kill-switch → all Pro) +
+`essay_service.default_grading_model(level)`; admin-picked models untouched.
+Captures the proven ≤L3 win; keeps Pro where the swap isn't safe. **Status:
+merges with PR #617 — not present on `main` (or in this docs-only commit) until
+that PR lands.**
+
+### P1-B — NEGATIVE: naive 2-pass routing does not rescue L4
+Tested route = **Pro on judgment** (band/criteria/reasoning) + **2.5-flash on
+mechanical** (mistakes/lexical/sentence/rewrite), band-anchored, vs single-Pro.
+n=6 balanced, L4 (offline only — no production wiring):
+
+| Metric | Single Pro | Routed | |
+|---|---|---|---|
+| Band agreement ±0.5 | (baseline) | **83% (5/6)** ❌ | **worse than the 90% straight swap** |
+| Cost savings | — | 28% | best savings |
+| Latency | 64s | **83s** | **slower** (passes are sequential — mechanical needs the anchor) |
+| Coverage gaps | — | 1 | judgment pass dropped coherence + idea |
+
+**Why it failed:** trimming the judgment pass's prompt (telling Pro to skip the
+mechanical sections to save tokens) **shifts Pro's own band calibration** and
+makes it drop reasoning sections — exactly where L4 needs precision. The token
+saving on the strong model is bought with a quality regression at the band.
+
+**Conclusion:** stop pursuing naive prompt-split routing for L4. The practical
+multi-model win is **P1-A (cheaper model ≤L3); L4–L5 stays on Pro.** A future
+L4 routing attempt would have to keep the judgment pass on the *full, unchanged*
+prompt (preserving calibration) and only fan out a separate mechanical pass —
+but then the strong model saves no tokens, so the cost case is weak. Park it
+unless a cheaper *frontier-grade* judgment model (e.g. a future GA Gemini 3.x
+Pro/Flash) clears the L4 gate on a straight swap.
