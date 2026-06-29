@@ -104,6 +104,25 @@ def test_aggregate_pct_and_savings():
     assert s["mean_cost_candidate"] == 0.05
     assert s["cost_savings_pct"] == 50.0
     assert s["max_abs_band_delta"] == 1.0
+    assert s["n_cost_pairs"] == 2
+
+
+def test_aggregate_savings_only_over_matched_cost_pairs():
+    """If a candidate cost is missing for some essays, savings must be computed
+    over MATCHED pairs only — not by summing each side independently (which
+    would compare different essay sets and fake the number)."""
+    comps = [
+        # matched pair: baseline 0.10, candidate 0.05 → 50% on this pair
+        compare_gradings("a", _result(6.5, cost=0.10), _result(6.5, cost=0.05), level=1),
+        # candidate cost unknown — must be EXCLUDED from cost stats entirely
+        compare_gradings("b", _result(6.5, cost=0.10), _result(6.5, cost=None), level=1),
+    ]
+    s = aggregate(comps)
+    assert s["n"] == 2
+    assert s["n_cost_pairs"] == 1                 # only essay "a" has both costs
+    assert s["mean_cost_baseline"] == 0.10        # over the matched pair, not both
+    assert s["mean_cost_candidate"] == 0.05
+    assert s["cost_savings_pct"] == 50.0          # not skewed by the unmatched essay
 
 
 # ── format_report ─────────────────────────────────────────────────────
@@ -130,7 +149,8 @@ def test_fetch_essays_from_db_maps_and_filters():
     rows = [
         {"id": "u1", "task_type": "task2", "prompt_text": "P", "essay_text": "E"},
         {"id": "u2", "task_type": "task2", "prompt_text": "P", "essay_text": ""},   # empty → dropped
-        {"id": "u3", "task_type": "task1_academic", "prompt_text": "P2", "essay_text": "E2"},
+        {"id": "u3", "task_type": "task1_academic", "prompt_text": "P2", "essay_text": "E2",
+         "prompt_image_url": "https://x/chart.png"},
     ]
     chain = MagicMock()
     chain.select.return_value = chain
@@ -145,4 +165,7 @@ def test_fetch_essays_from_db_maps_and_filters():
         essays = fetch_essays_from_db(10)
 
     assert [e["id"] for e in essays] == ["u1", "u3"]   # u2 dropped (no text)
-    assert essays[0] == {"id": "u1", "task_type": "task2", "prompt_text": "P", "essay_text": "E"}
+    # prompt_image_url preserved (None when absent, the URL when present) so
+    # Task 1 chart essays grade multimodally like production.
+    assert essays[0]["prompt_image_url"] is None
+    assert essays[1]["prompt_image_url"] == "https://x/chart.png"

@@ -127,13 +127,18 @@ def aggregate(comparisons: list[EssayComparison]) -> dict:
 
     within = sum(c.within_threshold for c in comparisons)
     deltas = [c.band_delta for c in comparisons]
-    costs_b = [c.cost_baseline for c in comparisons if c.cost_baseline is not None]
-    costs_c = [c.cost_candidate for c in comparisons if c.cost_candidate is not None]
     lat_b = [c.latency_ms_baseline for c in comparisons]
     lat_c = [c.latency_ms_candidate for c in comparisons]
 
-    sum_b = sum(costs_b) if costs_b else None
-    sum_c = sum(costs_c) if costs_c else None
+    # Cost stats over MATCHED pairs only — essays where BOTH models reported a
+    # cost. Summing each side's present-costs independently would compare
+    # totals from different essay sets, so one missing candidate cost could
+    # fake large "savings". Means + savings all use the same matched set.
+    matched = [c for c in comparisons
+               if c.cost_baseline is not None and c.cost_candidate is not None]
+    n_pairs = len(matched)
+    sum_b = sum(c.cost_baseline for c in matched) if matched else None
+    sum_c = sum(c.cost_candidate for c in matched) if matched else None
     cost_savings_pct = None
     if sum_b and sum_c is not None and sum_b > 0:
         cost_savings_pct = round((1 - sum_c / sum_b) * 100, 1)
@@ -144,8 +149,9 @@ def aggregate(comparisons: list[EssayComparison]) -> dict:
         "n_within_half_band": within,
         "mean_abs_band_delta": round(sum(deltas) / n, 3),
         "max_abs_band_delta": max(deltas),
-        "mean_cost_baseline": round(sum_b / len(costs_b), 5) if costs_b else None,
-        "mean_cost_candidate": round(sum_c / len(costs_c), 5) if costs_c else None,
+        "n_cost_pairs": n_pairs,
+        "mean_cost_baseline": round(sum_b / n_pairs, 5) if n_pairs else None,
+        "mean_cost_candidate": round(sum_c / n_pairs, 5) if n_pairs else None,
         "cost_savings_pct": cost_savings_pct,
         "mean_latency_ms_baseline": round(sum(lat_b) / n) if lat_b else None,
         "mean_latency_ms_candidate": round(sum(lat_c) / n) if lat_c else None,
@@ -170,7 +176,7 @@ def format_report(comparisons: list[EssayComparison], summary: dict,
         f"- Mean |band Δ|: {summary['mean_abs_band_delta']} · max: {summary['max_abs_band_delta']}",
         f"- Mean cost: baseline ${summary['mean_cost_baseline']} → "
         f"candidate ${summary['mean_cost_candidate']} "
-        f"(**savings {summary['cost_savings_pct']}%**)",
+        f"(**savings {summary['cost_savings_pct']}%**, over {summary['n_cost_pairs']}/{summary['n']} matched pairs)",
         f"- Mean latency: baseline {summary['mean_latency_ms_baseline']}ms → "
         f"candidate {summary['mean_latency_ms_candidate']}ms",
         f"- Candidate coverage gaps: {summary['n_coverage_gaps_candidate']}",
@@ -196,7 +202,7 @@ def _query_essays(task_types: Optional[list[str]], limit: int) -> list[dict]:
     from database import supabase_admin
     q = (
         supabase_admin.table("writing_essays")
-        .select("id, task_type, prompt_text, essay_text")
+        .select("id, task_type, prompt_text, essay_text, prompt_image_url")
         .not_.is_("essay_text", "null")
         .not_.is_("prompt_text", "null")
     )
@@ -209,6 +215,10 @@ def _query_essays(task_types: Optional[list[str]], limit: int) -> list[dict]:
             "task_type": e["task_type"],
             "prompt_text": e["prompt_text"],
             "essay_text": e["essay_text"],
+            # Preserve the Task 1 Academic chart image so the harness grades
+            # multimodally like production — dropping it would grade chart
+            # essays as text-only (+ missing-image caveat) and skew the A/B.
+            "prompt_image_url": e.get("prompt_image_url"),
         }
         for e in rows
         if e.get("essay_text") and e.get("prompt_text")
@@ -250,6 +260,8 @@ async def _grade_one(essay: dict, model: str, level: int):
         essay_text=essay["essay_text"],
         analysis_level=level,
         selected_model=model,
+        # Forward the Task 1 chart image (if any) so grading matches production.
+        prompt_image_url=essay.get("prompt_image_url"),
     )
     return await get_grader().grade_essay(config)
 
