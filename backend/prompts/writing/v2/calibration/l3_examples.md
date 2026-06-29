@@ -1,8 +1,9 @@
 # Level 3 Calibration Examples
 
 These examples anchor your expected output for Band 6.5–7.5 essays at L3.
-At this level, `ideaDevelopmentAnalysis` and `counterargumentAnalysis` (T2)
-become the main value-add.
+At this level, `ideaDevelopmentAnalysis` and `sentenceStructureAnalysis`
+become the main value-add. (`counterargumentAnalysis` and `lexicalAnalysis`
+stay `null` here — they turn on at L4.)
 
 ## Example 1: Band 7.0 essay (Task 2 discussion essay, ~290 words)
 
@@ -39,17 +40,22 @@ the next idea. No counterargument.
 ]
 ```
 
-### Expected counterargumentAnalysis (T2)
+### Expected sentenceStructureAnalysis (4-8 upgrades)
 
 ```json
 {
-  "isPresent": false,
-  "feedback": "{{FORM_OF_ADDRESS}} chỉ trình bày một phía của discussion essay — chưa đề cập đến lập luận đối lập. Band 7+ trong discussion essay yêu cầu phải acknowledge cả 2 góc nhìn trước khi nêu opinion.",
-  "suggestion": "Thêm 1 đoạn ngắn (~50 từ) trình bày quan điểm đối lập trước khi conclude.",
-  "context": {
-    "insertionPoint": "Between paragraph 3 (your argument) and paragraph 4 (conclusion)",
-    "reasoning": "Discussion essay structure ở Band 7+: arg → counter → rebut → conclude. Bài hiện tại thiếu bước counter."
-  }
+  "sentenceUpgrades": [
+    {
+      "original": "Technology is useful. Many students use it every day.",
+      "rewritten": "Technology has become indispensable to modern study, with many students relying on it daily to organise their workload.",
+      "explanation": "Gộp 2 câu SVO đơn thành 1 câu phức với mệnh đề 'with + -ing' — đa dạng cấu trúc đặc trưng Band 7+."
+    },
+    {
+      "original": "Online learning is effective. It saves time.",
+      "rewritten": "Because online learning eliminates commuting, it is not only effective but also markedly time-efficient.",
+      "explanation": "Thêm mệnh đề nguyên nhân ('Because...') và cặp 'not only... but also' — thể hiện structural range."
+    }
+  ]
 }
 ```
 
@@ -84,8 +90,12 @@ underdeveloped paragraph drags TR to 6, pulling overall to 6.5.
 
 - **Don't populate `lexicalAnalysis`** — that's L4+. Even if you notice weak
   vocabulary, flag generic-word issues in `mistakeAnalysis` instead.
-- **Don't grade Task 1 with `counterargumentAnalysis` as a non-null object** —
-  Task 1 has no counterargument concept; the field MUST be `null`.
+- **Don't populate `counterargumentAnalysis`** — that's L4+ now. Set it to
+  `null` at L3. If the essay misses an opposing view, fold that observation
+  into `ideaDevelopmentAnalysis` instead.
+- **Don't skip `sentenceStructureAnalysis`** — it's NEW at L3. Even clean
+  Band-7 essays usually have 4+ simple SVO sentences worth combining into
+  more varied structures.
 - **Don't be too lenient on `ideaDevelopmentAnalysis` for Band 7 essays** —
   even essays at Band 7 typically have 2+ ideas worth pushing further. Zero
   items in this section for a Band 7 essay = you missed the bottleneck.

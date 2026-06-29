@@ -65,21 +65,32 @@ class WritingPromptLoader:
     # entries (`mistakeType: "Vietlish"`) and structural-coherence
     # lives in `coherenceAnalysis`. Reusing existing fields, not
     # fragmenting (anti-pattern #23).
+    # Sprint W-L3: the old bundled `counterargument_idea.md` (counterargument
+    # + idea-development) and `lexical_sentence.md` (lexical + sentence-
+    # structure) were split into 4 single-concern modules so L3 can take
+    # idea-development + sentence-structure WITHOUT counterargument/lexical.
+    # New L3 coverage: idea-development + sentence-structure (counterargument
+    # moves to L4+). The cumulative invariant still holds (L_N ⊆ L_{N+1}).
     LEVEL_SECTIONS: dict[int, list[str]] = {
         1: ["shared/sections/base_5_sections.md"],
         2: ["shared/sections/base_5_sections.md",
             "shared/sections/coherence_deep.md"],
         3: ["shared/sections/base_5_sections.md",
             "shared/sections/coherence_deep.md",
-            "shared/sections/counterargument_idea.md"],
+            "shared/sections/idea_development.md",
+            "shared/sections/sentence_structure.md"],
         4: ["shared/sections/base_5_sections.md",
             "shared/sections/coherence_deep.md",
-            "shared/sections/counterargument_idea.md",
-            "shared/sections/lexical_sentence.md"],
+            "shared/sections/idea_development.md",
+            "shared/sections/sentence_structure.md",
+            "shared/sections/counterargument.md",
+            "shared/sections/lexical.md"],
         5: ["shared/sections/base_5_sections.md",
             "shared/sections/coherence_deep.md",
-            "shared/sections/counterargument_idea.md",
-            "shared/sections/lexical_sentence.md",
+            "shared/sections/idea_development.md",
+            "shared/sections/sentence_structure.md",
+            "shared/sections/counterargument.md",
+            "shared/sections/lexical.md",
             "shared/sections/pedantic_full.md"],
     }
 

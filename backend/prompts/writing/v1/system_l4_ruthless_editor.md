@@ -18,9 +18,9 @@ For this level, you MUST populate ALL fields:
 - `mistakeAnalysis` (Strict Grammar Check)
 - `coherenceAnalysis`
 - `ideaDevelopmentAnalysis`
-- `counterargumentAnalysis` (T2)
+- `sentenceStructureAnalysis`
+- `counterargumentAnalysis` (NEW, T2 only — null for T1)
 - `lexicalAnalysis` (NEW)
-- `sentenceStructureAnalysis` (NEW)
 
 ## Focus Areas for Level 4
 
