@@ -135,13 +135,43 @@ multi-model failure where the rewrite implies Band 8 but the score says 6).
 ### Model candidates (validate before committing)
 | Role | Primary | Cheaper alt | Notes |
 |---|---|---|---|
-| Pass A (judgment) | Gemini 2.5 Pro **or** Claude Sonnet 4.6 | — | keep the most-calibrated; A/B the two |
-| Pass B (reasoning) | Claude Sonnet 4.6 / Gemini 2.5 Pro | Gemini 2.5 Flash | needs argument reasoning |
-| Pass C (mechanical) | Gemini 2.5 Flash | Claude Haiku 4.5 | Haiku adapter already wired for Speaking |
+| Pass A (judgment) | **Gemini 3.5 Flash** *or* Gemini 2.5 Pro / Claude Sonnet 4.6 | — | A/B for IELTS band calibration; see "newer Gemini options" below |
+| Pass B (reasoning) | Gemini 2.5 Pro / Claude Sonnet 4.6 | Gemini 2.5 Flash | needs argument reasoning |
+| Pass C (mechanical) | Gemini 2.5 Flash | Claude Haiku 4.5 / Gemini 2.5 Flash-Lite | Haiku adapter already wired for Speaking |
+
+**Newer Gemini options (live prices, ≤200k context, June 2026).** The grader
+defaults to `gemini-2.5-pro` today, but the repo already runs Gemini 3.x
+(`gemini-3.1-flash-image-preview` for listening map images), so the SDK +
+credentials support 3.x — switching `GEMINI_PRO_MODEL` is enough.
+
+| Model | Status | $ in /1M | $ out /1M | vs 2.5 Pro (output) |
+|---|---|---|---|---|
+| **Gemini 3.5 Flash** | GA | 1.50 | **9.00** | newer gen, **−10%** — best "better *and* cheaper" bet for Pass A; must pass band-calibration A/B |
+| Gemini 3.1 Pro | preview | 2.00 | 12.00 | strongest, **+20%**; preview ⇒ stability/deprecation risk for production grading |
+| Gemini 2.5 Pro *(current)* | GA | 1.25 | 10.00 | baseline |
+| Gemini 3 Flash | preview | 0.50 | 3.00 | Pass C candidate (preview) |
+| Gemini 2.5 Flash | GA | 0.30 | 2.50 | Pass C default |
+| Gemini 2.5 Flash-Lite | GA | 0.10 | 0.40 | cheapest; only for the most mechanical slices |
+
+Output dominates cost here, so judge candidates on the **output** column.
+`gemini-3.5-flash` is the headline: a later-generation model, **GA**, with
+output *cheaper* than 2.5 Pro — if it holds band-agreement ±0.5 vs 2.5 Pro on
+the calibration set, it is a strict win for Pass A. `gemini-3.1-pro` is the
+max-quality option but preview-only. Quality for *our* IELTS-grading task must
+be measured (§6/§7), not assumed from generation number.
+
+**Batch / Flex (≈ −50% cost).** Grading is asynchronous (background job, ETA
+shown to the student) — it does **not** need realtime latency. Google's Batch
+(and Flex) deployment tiers cut per-token cost by ~50% on these models in
+exchange for higher/looser latency. That fits the grading queue well and
+**stacks on top of** the multi-model routing savings — a ~50% cut on whichever
+models we pick, largely for free. Caveat: Batch latency (minutes) must stay
+within the student-facing ETA budget; the instructor-review tier (human in the
+loop anyway) is the safest place to adopt it first.
 
 Exact model IDs + live prices must be re-confirmed against the Anthropic/Google
 pricing pages and the `claude-api` reference at implementation time — **do not
-hardcode from this doc.**
+hardcode from this doc.** Prices above: Gemini API pricing page, June 2026.
 
 ---
 
