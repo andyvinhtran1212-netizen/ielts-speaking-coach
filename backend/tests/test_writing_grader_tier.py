@@ -304,6 +304,67 @@ async def test_deep_tier_runs_3_passes_on_full_success(
 
 
 @pytest.mark.asyncio
+async def test_instructor_tier_with_deep_depth_runs_3_passes(
+    grader, monkeypatch, reset_loader_cache,
+):
+    """Sprint W-L3: a teacher can pick Deep depth on an instructor
+    assignment. `_grade_instructor` then runs the full 3-pass Deep flow
+    underneath (not the single Standard pass) while STILL routing to the
+    instructor review queue — the result tier is INSTRUCTOR and the stamp
+    is `-deep-instructor-pending` (deliver later strips → `-deep-instructor`)."""
+    _patch_v2_loader(monkeypatch)
+
+    pass1_json = json.dumps(VALID_FEEDBACK_STANDARD)
+    pass2_json = json.dumps(VALID_PASS2_EMPTY)
+    pass3_json = json.dumps({"sentence_rewrites": [VALID_PASS3_RESPONSE["sentence_rewrites"][0]]})
+
+    call_log: list[str] = []
+    async def fake_call(model_name, system_prompt, user_prompt, **_kw):
+        call_log.append(model_name)
+        if len(call_log) == 1:
+            return pass1_json, {"input_tokens": 3000, "output_tokens": 2000}
+        if len(call_log) == 2:
+            return pass2_json, {"input_tokens": 1500, "output_tokens": 500}
+        return pass3_json, {"input_tokens": 1800, "output_tokens": 1200}
+
+    cfg = _standard_config(
+        grading_tier=GradingTier.INSTRUCTOR,
+        instructor_ai_tier=GradingTier.DEEP,
+    )
+    with patch.object(grader, "_call_with_retry", side_effect=fake_call):
+        result = await grader.grade_essay(cfg)
+
+    # Deep depth → 3 passes, but routed as instructor (review queue) tier.
+    assert len(call_log) == 3, "Instructor+Deep must run the 3-pass Deep flow"
+    assert result.grading_tier == GradingTier.INSTRUCTOR
+    assert result.prompt_version == "v2.1-deep-instructor-pending", (
+        f"Expected -deep-instructor-pending stamp, got {result.prompt_version!r}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_instructor_tier_defaults_to_standard_single_pass(
+    grader, monkeypatch, reset_loader_cache,
+):
+    """Without an explicit Deep choice, instructor tier keeps the legacy
+    single Standard pass (instructor_ai_tier defaults to STANDARD)."""
+    _patch_v2_loader(monkeypatch)
+
+    call_log: list[str] = []
+    async def fake_call(model_name, system_prompt, user_prompt, **_kw):
+        call_log.append(model_name)
+        return json.dumps(VALID_FEEDBACK_STANDARD), {"input_tokens": 100, "output_tokens": 100}
+
+    cfg = _standard_config(grading_tier=GradingTier.INSTRUCTOR)  # no instructor_ai_tier
+    with patch.object(grader, "_call_with_retry", side_effect=fake_call):
+        result = await grader.grade_essay(cfg)
+
+    assert len(call_log) == 1, "Instructor+Standard stays a single pass"
+    assert result.grading_tier == GradingTier.INSTRUCTOR
+    assert result.prompt_version == "v2.1-instructor-pending"
+
+
+@pytest.mark.asyncio
 async def test_deep_tier_includes_sentence_rewrites_on_success(
     grader, monkeypatch, reset_loader_cache,
 ):

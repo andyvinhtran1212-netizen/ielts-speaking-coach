@@ -200,6 +200,20 @@
               <select class="ins-select" id="assign-student"></select></div>
             <div class="ins-field"><label for="assign-deadline">Hạn nộp (tuỳ chọn)</label>
               <input class="ins-input" id="assign-deadline" type="datetime-local" /></div>
+            <div class="ins-field"><label for="assign-level">Cấp độ chấm (độ sâu phản hồi)</label>
+              <select class="ins-select" id="assign-level">
+                <option value="1">L1 — Ngữ pháp cơ bản (Band 4.0–5.5)</option>
+                <option value="2">L2 — Logic &amp; mạch lạc (Band 5.5–6.5)</option>
+                <option value="3" selected>L3 — Phát triển ý &amp; cấu trúc câu (Band 6.5–7.5)</option>
+                <option value="4">L4 — Phản biện &amp; từ vựng (Band 7.5–8.5)</option>
+                <option value="5">L5 — Tinh chỉnh ngôn ngữ (Band 9.0)</option>
+              </select></div>
+            <div class="ins-field"><label for="assign-tier">Tier chấm AI</label>
+              <select class="ins-select" id="assign-tier">
+                <option value="standard" selected>Standard — 1 lượt AI</option>
+                <option value="deep">Deep — 3 lượt AI (chấm + tinh chỉnh + viết lại câu)</option>
+              </select>
+              <p style="font-size:.78rem;color:var(--av-text-muted);margin:var(--av-space-1) 0 0;">Bài vẫn vào hàng đợi để bạn duyệt trước khi trả học viên.</p></div>
             <button class="ins-btn" type="submit">Giao bài</button>
           </form>
         </div>

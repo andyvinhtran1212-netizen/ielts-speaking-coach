@@ -355,18 +355,23 @@ async function onAssign(ev) {
   const target = document.querySelector('input[name="atarget"]:checked').value;
   const dl = $('assign-deadline').value;            // local datetime or ''
   const deadline = dl ? dl : null;
+  // W-L3 — teacher-chosen AI feedback DEPTH (level L1–L5) + AI pass TIER
+  // (standard 1-pass / deep 3-pass). Both default to the backend defaults
+  // if the selectors are absent.
+  const analysis_level = parseInt($('assign-level')?.value || '3', 10);
+  const grading_tier = $('assign-tier')?.value || 'standard';
   try {
     if (target === 'cohort') {
       const cohort_id = $('assign-cohort').value;
       if (!cohort_id) { assignBanner('Chưa chọn lớp.', 'err'); return; }
-      const body = { prompt_ids: [prompt_id], cohort_id };
+      const body = { prompt_ids: [prompt_id], cohort_id, analysis_level, grading_tier };
       if (deadline) body.deadline = deadline;
       const res = await api.post('/instructor/assignments/fan-out', body);
       assignBanner(`Đã giao cho ${res.created_count} bài (${res.student_count} học viên).`, 'ok');
     } else {
       const student_id = $('assign-student').value;
       if (!student_id) { assignBanner('Chưa chọn học viên.', 'err'); return; }
-      const body = { prompt_id, student_id };
+      const body = { prompt_id, student_id, analysis_level, grading_tier };
       if (deadline) body.deadline = deadline;
       await api.post('/instructor/assignments', body);
       assignBanner('Đã giao bài.', 'ok');

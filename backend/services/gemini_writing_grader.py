@@ -162,8 +162,18 @@ class GeminiWritingGrader:
         After delivery, `instructor_workflow.deliver` rewrites
         prompt_version to `<base>-instructor` (no -pending suffix) so
         a SQL filter can split the two cohorts cleanly.
+
+        Sprint W-L3: the AI pass underneath is now the teacher's choice
+        (`config.instructor_ai_tier`) — STANDARD (1-pass) or DEEP (3-pass).
+        The review-queue routing is unchanged either way; only the depth of
+        the AI Pass 1 differs. For DEEP, the deep stamp (`-deep`) is preserved
+        in front of `-instructor-pending`, and `instructor_workflow.deliver`'s
+        base-stripping keeps it through to `<base>-deep-instructor`.
         """
-        result = await self._grade_standard(config, loader)
+        if config.instructor_ai_tier == GradingTier.DEEP:
+            result = await self._grade_deep(config, loader)
+        else:
+            result = await self._grade_standard(config, loader)
         # Mutate the stamp + tier in place. GradingResult is a Pydantic
         # model — `model_copy` would also work, but the result object
         # is freshly constructed here so direct assignment is safe.
@@ -766,10 +776,33 @@ class GeminiWritingGrader:
         except json.JSONDecodeError as e:
             raise InvalidJSONError(f"JSON parse failed: {e}") from e
 
+        self._coerce_wrapped_list_shapes(data)
+
         try:
             return schema(**data)
         except Exception as e:
             raise InvalidJSONError(f"Schema validation failed: {e}") from e
+
+    @staticmethod
+    def _coerce_wrapped_list_shapes(data: dict) -> None:
+        """Tolerate the common LLM mistake of emitting a wrapped-list dict field
+        as a bare list. `sentenceStructureAnalysis` ({sentenceUpgrades: [...]})
+        and `lexicalAnalysis` ({wordsToUpgrade: [...]}) are dict-typed in
+        WritingFeedback; Gemini sometimes drops the wrapper and returns the
+        inner list directly, which fails validation and sinks the whole grading.
+        Wrap a bare list back into its canonical key in-place. No-op for the
+        correct dict shape, for None, or for the Phase-1.5c structured shape.
+
+        Surfaced when sentenceStructureAnalysis turned on at L3 (Sprint W-L3),
+        but the fragility was always present at L4/L5 — this hardens both.
+        """
+        for field, inner_key in (
+            ("sentenceStructureAnalysis", "sentenceUpgrades"),
+            ("lexicalAnalysis", "wordsToUpgrade"),
+        ):
+            val = data.get(field)
+            if isinstance(val, list):
+                data[field] = {inner_key: val}
 
     def _calculate_cost(
         self,

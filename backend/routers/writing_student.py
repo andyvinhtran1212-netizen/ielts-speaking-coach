@@ -882,7 +882,7 @@ def _resolve_active_assignment(student_id: str, assignment_id: str) -> dict:
             "id, status, deadline, instructions, "
             "created_at, submitted_at, delivered_at, "
             "essay_id, prompt_id, assigned_by, "
-            "assignment_group_id, name, allow_soft_check, analysis_level, "
+            "assignment_group_id, name, allow_soft_check, analysis_level, grading_tier, "
             "is_timed, time_limit_minutes, started_at, auto_submitted, "
             "writing_prompts(id, title, prompt_text, task_type, difficulty, prompt_image_url)"
         )
@@ -1235,6 +1235,11 @@ async def submit_my_assignment(
     # `_assignment_grading_tier`). Admin/mass-code/self-practice → 'standard'.
     grading_tier = _assignment_grading_tier(assignment)
 
+    # Sprint W-L3 — the AI pass DEPTH the teacher chose at assign time
+    # (standard|deep). Used by `_grade_instructor` to pick _grade_standard vs
+    # _grade_deep underneath; ignored when grading_tier != 'instructor'.
+    instructor_ai_tier = (assignment.get("grading_tier") or "standard")
+
     # SAGA 1 — create the essay row with no grading job, no link.
     try:
         row_info = essay_service.create_essay_row_only(
@@ -1246,6 +1251,7 @@ async def submit_my_assignment(
                 "essay_text":       essay_text,
                 "analysis_level":   level,
                 "grading_tier":     grading_tier,
+                "instructor_ai_tier": instructor_ai_tier,
                 "form_of_address":  "em",
                 "selected_model":   "gemini-2.5-pro",
                 "status":           "pending",

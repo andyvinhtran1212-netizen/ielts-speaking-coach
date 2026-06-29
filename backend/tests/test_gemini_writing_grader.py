@@ -145,6 +145,28 @@ def test_parse_response_invalid_schema_raises(grader):
         grader._parse_response(text)
 
 
+def test_parse_response_coerces_bare_list_wrapped_fields(grader):
+    """Gemini sometimes drops the wrapper and emits sentenceStructureAnalysis /
+    lexicalAnalysis as a bare list. The parser wraps it back into the canonical
+    dict so a shape slip doesn't sink the whole grading (W-L3 hardening; the
+    field turned on at L3, but L4/L5 had the same latent risk)."""
+    payload = dict(VALID_FEEDBACK)
+    payload["sentenceStructureAnalysis"] = [
+        {"original": "A. B.", "rewritten": "A, which B.", "explanation": "combine"}
+    ]
+    payload["lexicalAnalysis"] = [
+        {"original": "good", "context": "good idea", "suggestions": ["sound", "valid", "cogent"],
+         "category": "Generic adjective"}
+    ]
+    # Both fields would raise a dict_type / model ValidationError pre-coercion;
+    # success here means the bare list was wrapped before validation.
+    feedback = grader._parse_response(json.dumps(payload))
+    # sentenceStructureAnalysis is Optional[dict] — stays a wrapped dict.
+    assert feedback.sentenceStructureAnalysis["sentenceUpgrades"][0]["original"] == "A. B."
+    # lexicalAnalysis is a typed LexicalAnalysis model after validation.
+    assert feedback.lexicalAnalysis.wordsToUpgrade[0].original == "good"
+
+
 # ── _calculate_cost (planner-verified pricing) ───────────────────────
 
 def test_calculate_cost_pro_model(grader):

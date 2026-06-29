@@ -47,7 +47,7 @@ from __future__ import annotations
 
 import io
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Literal, Optional
 from uuid import UUID
 
 import logging
@@ -185,6 +185,7 @@ class FanOutBody(BaseModel):
     deadline: Optional[datetime] = None      # ISO string auto-parsed → datetime
     instructions: Optional[str] = None
     analysis_level: int = 3
+    grading_tier: Literal["standard", "deep"] = "standard"  # AI pass depth (W-L3)
 
 
 class AssignBody(BaseModel):
@@ -194,6 +195,7 @@ class AssignBody(BaseModel):
     deadline: Optional[datetime] = None
     instructions: Optional[str] = None
     analysis_level: int = 3
+    grading_tier: Literal["standard", "deep"] = "standard"  # AI pass depth (W-L3)
 
 
 @router.get("/assignments")
@@ -253,6 +255,7 @@ async def create_assignment(request: Request, body: AssignBody, authorization: s
         "deadline":       body.deadline.isoformat() if body.deadline else None,
         "instructions":   body.instructions,
         "analysis_level": body.analysis_level,
+        "grading_tier":   body.grading_tier,
     }
     r = instructor_db(me).table("writing_assignments").insert(payload).execute()  # stamps assigned_by=me
     return (r.data or [{}])[0]
@@ -268,6 +271,7 @@ async def fan_out(request: Request, body: FanOutBody, authorization: str | None 
         name=body.name, allow_soft_check=body.allow_soft_check,
         deadline=body.deadline, instructions=body.instructions,   # W-6b-2: deadline now wired
         analysis_level=body.analysis_level,
+        grading_tier=body.grading_tier,
     )
     if result["student_count"] == 0:
         raise HTTPException(400, "Lớp này chưa có học viên nào.")

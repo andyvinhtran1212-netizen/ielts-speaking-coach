@@ -344,6 +344,13 @@ class GraderConfig(BaseModel):
     # always uses GEMINI_FLASH_MODEL regardless of this field's value).
     grading_tier: GradingTier = GradingTier.STANDARD
 
+    # Sprint W-L3 — when grading_tier == INSTRUCTOR, the AI pass depth to run
+    # underneath: STANDARD (1-pass) or DEEP (3-pass). Lets a teacher pick the
+    # AI depth while the essay still routes to the instructor review queue.
+    # Ignored unless grading_tier is INSTRUCTOR. Default STANDARD = the
+    # pre-feature behaviour (instructor tier always ran a single Standard pass).
+    instructor_ai_tier: GradingTier = GradingTier.STANDARD
+
     # Phase 1.5a (recurring-patterns aggregator): pre-aggregated dict
     # produced by services.writing_history.get_recurring_patterns(),
     # consumed by services.writing_history.format_history_for_prompt()
