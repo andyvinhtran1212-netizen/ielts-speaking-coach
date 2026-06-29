@@ -93,8 +93,8 @@
       </p>
     </section>
 
-    <!-- Loading state -->
-    <div id="loading" class="text-center py-16" role="status" aria-live="polite">
+    <!-- Loading state (kept for JS compat; hidden by default — content is always visible) -->
+    <div id="loading" class="hidden text-center py-16" role="status" aria-live="polite">
       <div class="inline-block animate-spin rounded-full h-8 w-8 border-2 border-teal-light border-t-transparent"></div>
       <p class="mt-3 text-gray-300">Đang tải...</p>
     </div>
@@ -112,7 +112,7 @@
     </div>
 
     <!-- Main content -->
-    <div id="content" class="hidden">
+    <div id="content">
       <!-- Sprint 5.2 — Writing permission preview banner (hidden by default,
            revealed when GET /api/student/permissions returns writing=false). -->
       <div id="writing-preview-banner" class="wd-preview-banner hidden mb-6 flex items-start gap-3">
@@ -157,7 +157,7 @@
           <div id="deadlines-list" class="wd-deadlines__list"></div>
         </div>
 
-        <div id="assignments-list" class="space-y-3"></div>
+        <div id="assignments-list" class="space-y-3"><p class="text-sm py-8 text-center" style="color:var(--av-text-muted)">Đang tải…</p></div>
         <div id="assignments-empty" class="wd-empty hidden">
           <div class="wd-empty__icon" aria-hidden="true">📋</div>
           <p class="wd-empty__title">Em chưa có bài giao nào</p>
@@ -187,7 +187,7 @@
             <span class="filter-count" id="filter-count-flagged">—</span>
           </button>
         </nav>
-        <div id="essays-list" class="space-y-3"></div>
+        <div id="essays-list" class="space-y-3"><p class="text-sm py-8 text-center" style="color:var(--av-text-muted)">Đang tải…</p></div>
         <div id="empty-state" class="wd-empty hidden">
           <div class="wd-empty__icon" aria-hidden="true">📝</div>
           <p class="wd-empty__title">Em chưa có bài viết nào</p>
@@ -1668,8 +1668,7 @@
         // dashboard from rendering.
         await applyWritingPermissionGating();
 
-        hide('loading');
-        show('content');
+        // content is always visible; loading starts hidden — nothing to toggle
       } catch (err) {
         var msg = (err && err.message) || 'Không tải được dữ liệu. Vui lòng thử lại.';
         var cta = document.getElementById('error-cta');
@@ -1683,7 +1682,7 @@
         }
 
         document.getElementById('error-message').textContent = msg;
-        hide('loading');
+        hide('content');
         show('error');
       }
     }

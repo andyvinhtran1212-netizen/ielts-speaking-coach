@@ -182,7 +182,7 @@
 
       <h2 class="aiu-section-title">Chi phí theo người dùng</h2>
       <div class="aiu-empty" id="users-empty" hidden>Chưa có dữ liệu sử dụng AI.</div>
-      <div class="aiu-table-wrap" id="users-wrap" hidden>
+      <div class="aiu-table-wrap" id="users-wrap">
         <table class="aiu-table">
           <thead>
             <tr>
@@ -194,7 +194,9 @@
               <th class="aiu-num">Tổng</th>
             </tr>
           </thead>
-          <tbody id="users-tbody"></tbody>
+          <tbody id="users-tbody">
+            <tr><td colspan="6" class="text-center py-6 text-sm" style="color:var(--av-text-muted,#9ca3af)">Đang tải…</td></tr>
+          </tbody>
         </table>
       </div>
 

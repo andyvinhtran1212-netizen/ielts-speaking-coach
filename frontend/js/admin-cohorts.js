@@ -48,7 +48,6 @@ function renderList() {
     if (f === 'archived') return c.is_active === false;
     return true;
   });
-  $('cohorts-loading').hidden = true;
   if (!rows.length) {
     $('cohorts-empty').hidden = false;
     $('cohorts-table-wrap').hidden = true;
@@ -141,7 +140,6 @@ async function loadDetail(cohortId) {
   $('cohort-detail-meta').innerHTML =
     `${statusChip(c)} <span class="co-meta">${esc(c.description || '')}</span>`
     + `<span class="co-meta">· ${countLabel(data.member_count)} thành viên</span>`;
-  $('members-loading').hidden = true;
   $('members-empty').hidden = (data.members || []).length > 0;
   const members = data.members || [];
   $('members-table-wrap').hidden = members.length === 0;

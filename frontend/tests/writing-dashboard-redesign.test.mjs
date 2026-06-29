@@ -157,18 +157,26 @@ describe('writing-dashboard.html / state container IDs', () => {
     }
   });
 
-  // P0-3 LCP fix: the greeting h1 is the LCP element. It must render OUTSIDE
-  // the data-gated #content (which is display:none until 3 API calls resolve)
-  // so it paints at the CSS/font floor (~1s) instead of waiting ~7.6s for the
-  // data chain. Guard: #greeting-name must appear BEFORE the #content opener.
-  test('LCP greeting renders outside (before) the hidden #content container', () => {
+  // P0-3 LCP fix + PR #611 progressive loading: the greeting h1 is the LCP
+  // element. It must render OUTSIDE #content so it paints at the CSS/font floor
+  // (~1s) instead of waiting for the data chain. Progressive loading goes
+  // further — #content is no longer hidden behind the 3 API calls; it renders
+  // immediately with "Đang tải…" placeholders in the data slots. Guards:
+  // (1) #greeting-name appears BEFORE the #content opener; (2) #content is NOT
+  // gated by a hidden class.
+  test('LCP greeting renders before #content, which is not data-gated (progressive)', () => {
     const greetingIdx = html.indexOf('id="greeting-name"');
-    const contentIdx = html.search(/id="content"\s+class="[^"]*\bhidden\b/);
+    const contentIdx = html.indexOf('id="content"');
     assert.ok(greetingIdx > -1, '#greeting-name must exist');
-    assert.ok(contentIdx > -1, '#content (hidden) must exist');
+    assert.ok(contentIdx > -1, '#content must exist');
     assert.ok(
       greetingIdx < contentIdx,
       'greeting h1 must come before #content so the LCP element is not gated by the data-load reveal',
+    );
+    assert.doesNotMatch(
+      html,
+      /id="content"\s+class="[^"]*\bhidden\b/,
+      '#content must not be hidden — progressive loading shows it immediately with placeholders',
     );
   });
 

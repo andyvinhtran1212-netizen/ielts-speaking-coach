@@ -88,15 +88,15 @@
         <button class="adm-btn-primary" id="btn-create-cohort" type="button">+ Tạo lớp mới</button>
       </div>
 
-      <div class="adm-loading" id="cohorts-loading">Đang tải…</div>
+      <div class="adm-loading" id="cohorts-loading" hidden>Đang tải…</div>
       <div class="adm-empty" id="cohorts-empty" hidden>Chưa có lớp nào.</div>
 
-      <div class="adm-table-wrap" id="cohorts-table-wrap" hidden>
+      <div class="adm-table-wrap" id="cohorts-table-wrap">
         <table class="adm-table">
           <thead>
             <tr><th>Tên lớp</th><th>Tiền tố mã</th><th>Trạng thái</th><th>Ngày tạo</th><th></th></tr>
           </thead>
-          <tbody id="cohorts-tbody"></tbody>
+          <tbody id="cohorts-tbody"><tr><td colspan="5" class="text-center py-6 text-sm" style="color:var(--av-text-muted,#9ca3af)">Đang tải…</td></tr></tbody>
         </table>
       </div>
     </main>
@@ -112,15 +112,15 @@
         <button class="adm-btn-primary" id="btn-add-member" type="button">+ Thêm học viên</button>
       </header>
 
-      <div class="adm-loading" id="members-loading">Đang tải…</div>
+      <div class="adm-loading" id="members-loading" hidden>Đang tải…</div>
       <div class="adm-empty" id="members-empty" hidden>Lớp này chưa có thành viên (chưa ai được cấp mã của lớp).</div>
 
-      <div class="adm-table-wrap" id="members-table-wrap" hidden>
+      <div class="adm-table-wrap" id="members-table-wrap">
         <table class="adm-table">
           <thead>
             <tr><th>Thành viên</th><th>Tổng phiên</th><th>Hoạt động gần nhất</th><th>Chi phí AI</th><th>Mã HV</th><th></th></tr>
           </thead>
-          <tbody id="members-tbody"></tbody>
+          <tbody id="members-tbody"><tr><td colspan="6" class="text-center py-6 text-sm" style="color:var(--av-text-muted,#9ca3af)">Đang tải…</td></tr></tbody>
         </table>
       </div>
     </main>

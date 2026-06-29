@@ -201,8 +201,6 @@ async function loadCohorts() {
 // silent=false to show the loading state.
 async function loadCodes(silent) {
   if (!silent) {
-    $('codes-loading').hidden = false;
-    $('codes-table-wrap').hidden = true;
     $('codes-empty').hidden = true;
   }
   try {

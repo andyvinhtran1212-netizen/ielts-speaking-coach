@@ -292,10 +292,10 @@
         <button class="btn-secondary" id="btn-reset" type="button">Reset</button>
       </section>
 
-      <div class="usr-loading" id="usr-loading">Đang tải…</div>
+      <div class="usr-loading" id="usr-loading" hidden>Đang tải…</div>
       <div class="usr-empty"   id="usr-empty"   hidden>Không có user nào khớp bộ lọc.</div>
 
-      <div class="usr-table-wrap" id="usr-table-wrap" hidden>
+      <div class="usr-table-wrap" id="usr-table-wrap">
         <table class="usr-table">
           <thead>
             <tr>
@@ -313,7 +313,7 @@
               <th></th>
             </tr>
           </thead>
-          <tbody id="usr-tbody"></tbody>
+          <tbody id="usr-tbody"><tr><td colspan="12" class="text-center py-6 text-sm" style="color:var(--av-text-muted,#9ca3af)">Đang tải…</td></tr></tbody>
         </table>
       </div>
       </section><!-- /tab-users -->
@@ -357,12 +357,12 @@
           </div>
         </div>
 
-        <div class="adm-loading" id="codes-loading">Đang tải…</div>
+        <div class="adm-loading" id="codes-loading" hidden>Đang tải…</div>
         <div class="adm-empty" id="codes-empty" hidden>
           Chưa có mã. Bấm "Tạo mã mới" ở trên để bắt đầu.
         </div>
 
-        <div class="adm-table-wrap" id="codes-table-wrap" hidden>
+        <div class="adm-table-wrap" id="codes-table-wrap">
           <table class="adm-table">
             <thead>
               <tr>
@@ -378,7 +378,7 @@
                 <th></th>
               </tr>
             </thead>
-            <tbody id="codes-tbody"></tbody>
+            <tbody id="codes-tbody"><tr><td colspan="10" class="text-center py-6 text-sm" style="color:var(--av-text-muted,#9ca3af)">Đang tải…</td></tr></tbody>
           </table>
         </div>
       </section><!-- /tab-codes -->

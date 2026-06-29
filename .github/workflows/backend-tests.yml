@@ -39,10 +39,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -79,12 +79,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '24'
 
       # P0-3 C-3.4 — the static Tailwind CSS (css/tailwind.build.css) is committed.
       # Rebuild it from the SAME pinned toolchain + config and fail if it differs:
@@ -230,6 +230,7 @@ jobs:
             frontend/tests/admin-confirm-danger.test.mjs \
             frontend/tests/admin-a11y-labels.test.mjs \
             frontend/tests/admin-access-codes.test.mjs \
+            frontend/tests/admin-progressive-loading-toggle.test.mjs \
             frontend/tests/content-template-download.test.mjs \
             frontend/tests/assignment-analysis-level.test.mjs \
             frontend/tests/regrade-level-picker.test.mjs \

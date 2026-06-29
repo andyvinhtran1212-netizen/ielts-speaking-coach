@@ -175,7 +175,7 @@
         <a href="/pages/admin/listening/tests.html">← Quay lại danh sách tests</a>
       </div>
 
-      <div class="td-loading" id="td-loading">Đang tải…</div>
+      <div class="td-loading" id="td-loading" hidden>Đang tải…</div>
       <div class="td-banner is-error" id="td-error" hidden></div>
 
       <!-- Header (populated post-fetch) -->
@@ -227,7 +227,7 @@
 
         <!-- Mode: parts_* -->
         <div id="td-audio-parts" hidden>
-          <div class="td-parts-grid" id="td-parts-grid"></div>
+          <div class="td-parts-grid" id="td-parts-grid"><p class="text-sm py-6 text-center" style="color:var(--av-text-muted,#9ca3af)">Đang tải…</p></div>
           <div class="td-actions" id="td-assemble-row" hidden>
             <button class="td-btn td-btn-primary" id="td-assemble" type="button" disabled>
               Render &amp; assemble (4 parts → 1 audio)
@@ -248,7 +248,7 @@
           <h3 style="font-size:var(--av-fs-base); margin: var(--av-space-3) 0 4px;">Cue points</h3>
           <table class="td-cue-table">
             <thead><tr><th>Type</th><th>Section</th><th>Time (s)</th></tr></thead>
-            <tbody id="td-cue-tbody"></tbody>
+            <tbody id="td-cue-tbody"><tr><td colspan="3" class="text-center py-6 text-sm" style="color:var(--av-text-muted,#9ca3af)">Đang tải…</td></tr></tbody>
           </table>
         </div>
       </section>
@@ -256,11 +256,11 @@
       <!-- Sections + exercises -->
       <section class="td-card" id="td-sections" hidden>
         <h2>Sections + exercises</h2>
-        <div class="td-parts-grid" id="td-sections-list"></div>
+        <div class="td-parts-grid" id="td-sections-list"><p class="text-sm py-6 text-center" style="color:var(--av-text-muted,#9ca3af)">Đang tải…</p></div>
       </section>
 
       <!-- Sprint 13.5.6 — Map image panel (per plan-label exercise) -->
-      <section class="td-card" id="td-map-images" hidden>
+      <section class="td-card" id="td-map-images">
         <h2>Hình map (Plan-label exercises)</h2>
         <p class="td-section-meta" style="font-size:var(--av-fs-sm);">
           Generate Cambridge-style floor plan từ map description bằng
@@ -268,7 +268,7 @@
           gọi API. Image lưu Supabase Storage và student player render
           inline trong S2 plan-label section.
         </p>
-        <div id="td-map-list" class="td-actions" style="display:flex; flex-direction:column; gap:var(--av-space-4);"></div>
+        <div id="td-map-list" class="td-actions" style="display:flex; flex-direction:column; gap:var(--av-space-4);"><p class="text-sm py-6 text-center" style="color:var(--av-text-muted,#9ca3af)">Đang tải…</p></div>
       </section>
 
       <!-- Publish controls -->

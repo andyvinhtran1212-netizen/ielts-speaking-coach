@@ -38,9 +38,7 @@ function escapeHtml(s) {
 }
 
 async function loadList() {
-  $('gra-loading').hidden = false;
   $('gra-empty').hidden = true;
-  $('gra-table-wrap').hidden = true;
   try {
     const params = new URLSearchParams();
     const cat = $('gra-category').value;
@@ -56,8 +54,7 @@ async function loadList() {
   } catch (e) {
     $('gra-empty').textContent = 'Không tải được danh sách: ' + (e && e.message || 'lỗi');
     $('gra-empty').hidden = false;
-  } finally {
-    $('gra-loading').hidden = true;
+    $('gra-table-wrap').hidden = true;
   }
 }
 

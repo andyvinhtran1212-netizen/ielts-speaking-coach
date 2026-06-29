@@ -79,17 +79,12 @@ function roleChip(role) {
 }
 
 async function loadList() {
-  $('usr-loading').hidden = false;
-  $('usr-empty').hidden = true;
-  $('usr-table-wrap').hidden = true;
   try {
     _all = (await api.get('/admin/users')) || [];
     if (!Array.isArray(_all)) _all = [];
     applyFilters();
   } catch (e) {
     showBanner('Không tải được users: ' + (e && e.message || 'lỗi'), 'error');
-  } finally {
-    $('usr-loading').hidden = true;
   }
 }
 

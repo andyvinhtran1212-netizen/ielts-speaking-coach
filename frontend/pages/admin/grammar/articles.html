@@ -186,10 +186,10 @@
         <button class="btn-secondary" id="btn-reset"  type="button">Reset</button>
       </section>
 
-      <div class="gra-loading" id="gra-loading">Đang tải…</div>
+      <div class="gra-loading" id="gra-loading" hidden>Đang tải…</div>
       <div class="gra-empty"   id="gra-empty"   hidden>Không có article nào khớp bộ lọc.</div>
 
-      <div class="gra-table-wrap" id="gra-table-wrap" hidden>
+      <div class="gra-table-wrap" id="gra-table-wrap">
         <table class="gra-table">
           <thead>
             <tr>
@@ -202,7 +202,7 @@
               <th>Source path</th>
             </tr>
           </thead>
-          <tbody id="gra-tbody"></tbody>
+          <tbody id="gra-tbody"><tr><td colspan="7" class="text-center py-6 text-sm" style="color:var(--av-text-muted,#9ca3af)">Đang tải…</td></tr></tbody>
         </table>
       </div>
     </main>

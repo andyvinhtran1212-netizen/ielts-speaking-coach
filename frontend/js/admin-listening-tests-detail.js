@@ -129,6 +129,10 @@ async function fetchTest() {
 
 
 function render() {
+  // Gate content + destructive controls on a successful fetch: render() runs
+  // only after the test loads, so a failed/unauthorized/404 fetch leaves these
+  // sections hidden (the error banner shows instead) rather than exposing the
+  // archive / hard-delete buttons over un-loaded data for the URL's id.
   document.getElementById('td-header').hidden    = false;
   document.getElementById('td-meta').hidden      = false;
   document.getElementById('td-audio').hidden     = false;

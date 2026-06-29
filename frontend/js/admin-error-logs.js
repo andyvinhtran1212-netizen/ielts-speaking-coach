@@ -161,9 +161,6 @@ function buildQuery() {
 }
 
 async function loadLogs() {
-  $('logs-loading').hidden = false;
-  $('logs-table-wrap').hidden = true;
-  $('logs-empty').hidden = true;
   try {
     const r = await api.get('/admin/error-logs?' + buildQuery());
     _rows = (r && r.items) || [];

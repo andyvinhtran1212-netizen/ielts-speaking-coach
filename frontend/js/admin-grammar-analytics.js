@@ -42,6 +42,8 @@ function setStat(key, val) {
 async function load() {
   const days = parseInt($('gan-days').value, 10) || 7;
   $('top-loading').hidden = false;
+  $('saved-loading').hidden = false;
+  $('zero-loading').hidden = false;
   $('gan-error').hidden = true;
   try {
     const data = await api.get('/admin/grammar/analytics?days=' + days);
@@ -66,18 +68,18 @@ async function load() {
   } catch (e) {
     $('gan-error').textContent = 'Không tải được analytics: ' + (e && e.message || 'lỗi');
     $('gan-error').hidden = false;
-  } finally {
-    $('top-loading').hidden = true;
   }
 }
 
 function renderTopViewed(rows) {
   const tbody = $('top-tbody');
+  $('top-loading').hidden = true;
   if (!rows.length) {
     $('top-empty').hidden = false;
     $('top-wrap').hidden = true;
     return;
   }
+  $('top-wrap').hidden = false;
   tbody.innerHTML = rows.map((r, i) => `
     <tr>
       <td class="gan-num">${i + 1}</td>
@@ -87,16 +89,17 @@ function renderTopViewed(rows) {
     </tr>
   `).join('');
   $('top-empty').hidden = true;
-  $('top-wrap').hidden = false;
 }
 
 function renderTopSaved(rows) {
   const tbody = $('saved-tbody');
+  $('saved-loading').hidden = true;
   if (!rows.length) {
     $('saved-empty').hidden = false;
     $('saved-wrap').hidden = true;
     return;
   }
+  $('saved-wrap').hidden = false;
   tbody.innerHTML = rows.map((r, i) => `
     <tr>
       <td class="gan-num">${i + 1}</td>
@@ -106,16 +109,17 @@ function renderTopSaved(rows) {
     </tr>
   `).join('');
   $('saved-empty').hidden = true;
-  $('saved-wrap').hidden = false;
 }
 
 function renderZeroView(rows) {
   const tbody = $('zero-tbody');
+  $('zero-loading').hidden = true;
   if (!rows.length) {
     $('zero-empty').hidden = false;
     $('zero-wrap').hidden = true;
     return;
   }
+  $('zero-wrap').hidden = false;
   tbody.innerHTML = rows.map((r) => `
     <tr>
       <td><code style="font-family: var(--av-font-mono); font-size: var(--av-fs-xs);">${escapeHtml(r.slug)}</code></td>
@@ -124,7 +128,6 @@ function renderZeroView(rows) {
     </tr>
   `).join('');
   $('zero-empty').hidden = true;
-  $('zero-wrap').hidden = false;
 }
 
 function wire() {

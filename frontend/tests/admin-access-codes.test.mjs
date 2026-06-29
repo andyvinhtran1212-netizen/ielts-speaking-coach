@@ -166,9 +166,15 @@ describe('Mã kích hoạt PR2 — per-user revoke button + toast', () => {
 
 
 describe('Mã kích hoạt — in-place feedback (silent refetch, no full reload)', () => {
-  it('loadCodes accepts a silent flag that skips the loading-state flash', () => {
+  it('loadCodes accepts a silent flag; loading shows as a progressive placeholder, not a spinner flash', () => {
     assert.match(JS, /async function loadCodes\(silent\)/);
-    assert.match(JS, /if \(!silent\) \{[\s\S]*?codes-loading'\)\.hidden = false/);
+    // Progressive loading (PR #611): the centered #codes-loading spinner is
+    // hidden by default and the loading indicator is a "Đang tải…" row inside
+    // the table body, so the table chrome paints at the CSS floor. The silent
+    // flag still gates the initial-load reset vs. the in-place refetch.
+    assert.match(JS, /if \(!silent\)/);
+    assert.match(HTML, /id="codes-loading"[^>]*\shidden/);
+    assert.match(HTML, /<tbody id="codes-tbody">[\s\S]{0,200}Đang tải…/);
   });
   it('Gỡ / Thu hồi / Sửa quyền refetch silently (loadCodes(true)), not full reload', () => {
     // All three mutation handlers use the silent refetch.

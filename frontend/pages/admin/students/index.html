@@ -151,7 +151,7 @@
     <a class="adm-subtab is-active" href="/pages/admin/students/index.html" aria-current="page">Học viên</a>
   </nav>
 
-  <div id="state-loading" class="st-loading">
+  <div id="state-loading" class="st-loading hidden">
     <p>Đang kiểm tra quyền truy cập…</p>
   </div>
 
@@ -160,7 +160,7 @@
     <a href="/pages/home.html">← Quay lại trang chủ</a>
   </div>
 
-  <main id="state-ready" class="st-shell hidden">
+  <main id="state-ready" class="st-shell">
     <div class="st-head">
       <div>
         <h1>Học viên</h1>
@@ -758,7 +758,7 @@
       try {
         var me = await window.api.get('/auth/me');
         if (!me || me.role !== 'admin') {
-          _hide('state-loading');
+          _hide('state-ready');
           _show('state-denied');
           return;
         }

@@ -182,36 +182,38 @@
       </div>
 
       <h2 class="gan-section-title">Top 20 articles theo views</h2>
-      <div class="gan-loading" id="top-loading">Đang tải…</div>
+      <div class="gan-loading" id="top-loading" hidden>Đang tải…</div>
       <div class="gan-empty"   id="top-empty"   hidden>Chưa có view nào.</div>
-      <div class="gan-table-wrap" id="top-wrap" hidden>
+      <div class="gan-table-wrap" id="top-wrap">
         <table class="gan-table">
           <thead>
             <tr><th>#</th><th>Title</th><th>Category</th><th class="gan-num">Views</th></tr>
           </thead>
-          <tbody id="top-tbody"></tbody>
+          <tbody id="top-tbody"><tr><td colspan="4" class="text-center py-6 text-sm" style="color:var(--av-text-muted,#9ca3af)">Đang tải…</td></tr></tbody>
         </table>
       </div>
 
       <h2 class="gan-section-title">Top 5 articles được save</h2>
+      <div class="gan-loading" id="saved-loading" hidden>Đang tải…</div>
       <div class="gan-empty" id="saved-empty" hidden>Chưa có save nào.</div>
-      <div class="gan-table-wrap" id="saved-wrap" hidden>
+      <div class="gan-table-wrap" id="saved-wrap">
         <table class="gan-table">
           <thead>
             <tr><th>#</th><th>Title</th><th>Category</th><th class="gan-num">Saves</th></tr>
           </thead>
-          <tbody id="saved-tbody"></tbody>
+          <tbody id="saved-tbody"><tr><td colspan="4" class="text-center py-6 text-sm" style="color:var(--av-text-muted,#9ca3af)">Đang tải…</td></tr></tbody>
         </table>
       </div>
 
       <h2 class="gan-section-title">Articles chưa có view (top 30 — content gap signal)</h2>
+      <div class="gan-loading" id="zero-loading" hidden>Đang tải…</div>
       <div class="gan-empty" id="zero-empty" hidden>Mọi article đều đã có view 🎉</div>
-      <div class="gan-table-wrap" id="zero-wrap" hidden>
+      <div class="gan-table-wrap" id="zero-wrap">
         <table class="gan-table">
           <thead>
             <tr><th>Slug</th><th>Title</th><th>Category</th></tr>
           </thead>
-          <tbody id="zero-tbody"></tbody>
+          <tbody id="zero-tbody"><tr><td colspan="3" class="text-center py-6 text-sm" style="color:var(--av-text-muted,#9ca3af)">Đang tải…</td></tr></tbody>
         </table>
       </div>
 
