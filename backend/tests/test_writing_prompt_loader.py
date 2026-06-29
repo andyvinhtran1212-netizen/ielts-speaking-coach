@@ -38,6 +38,23 @@ def test_loader_invalid_level_raises():
         loader.load(level=6)
 
 
+@pytest.mark.parametrize("version", ["v1", "v2"])
+def test_overview_is_general_only_no_component_scores(version):
+    """The 'Tổng quan' overview (overallBandScoreSummary) must be instructed to
+    stay general — qualitative assessment + advice — and NOT cite/break down the
+    four component band scores (those live in criteriaFeedback). Guards the
+    writing-overview-general-only requirement against prompt drift."""
+    loader = WritingPromptLoader(version=version)
+    for level in (1, 2, 3, 4, 5):
+        prompt = loader.load(level=level)
+        assert "Do NOT cite or break down the four component band scores" in prompt, (
+            f"{version} L{level}: overview schema hint dropped its no-component-scores guard"
+        )
+        assert "Overview = general only" in prompt, (
+            f"{version} L{level}: overview Critical Rule (general-only) missing"
+        )
+
+
 def test_singleton_returns_same_instance():
     """get_prompt_loader() returns the same instance across calls."""
     a = get_prompt_loader()
