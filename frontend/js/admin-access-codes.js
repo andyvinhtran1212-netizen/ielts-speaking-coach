@@ -139,6 +139,7 @@ function renderTable() {
     return;
   }
   $('codes-empty').hidden = true;
+  $('codes-table-wrap').hidden = false;
 
   tbody.innerHTML = rows.map((c) => {
     const expires = c.expires_at ? new Date(c.expires_at).toLocaleDateString('vi-VN') : '—';

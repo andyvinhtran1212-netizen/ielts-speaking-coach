@@ -121,6 +121,7 @@ function render(rows) {
     return;
   }
   $('usr-empty').hidden = true;
+  $('usr-table-wrap').hidden = false;
   const tbody = $('usr-tbody');
   tbody.innerHTML = rows.map((u) => {
     const cs = u.code_summary || {};

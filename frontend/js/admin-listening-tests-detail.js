@@ -129,8 +129,16 @@ async function fetchTest() {
 
 
 function render() {
-  // Structure is always visible; loader is hidden by setLoading(false).
-  // Data containers render() calls below automatically replace placeholders.
+  // Gate content + destructive controls on a successful fetch: render() runs
+  // only after the test loads, so a failed/unauthorized/404 fetch leaves these
+  // sections hidden (the error banner shows instead) rather than exposing the
+  // archive / hard-delete buttons over un-loaded data for the URL's id.
+  document.getElementById('td-header').hidden    = false;
+  document.getElementById('td-meta').hidden      = false;
+  document.getElementById('td-audio').hidden     = false;
+  document.getElementById('td-sections').hidden  = false;
+  document.getElementById('td-publish').hidden   = false;
+  document.getElementById('td-delete').hidden    = false;
 
   const t = STATE.test || {};
   document.getElementById('td-title').textContent =

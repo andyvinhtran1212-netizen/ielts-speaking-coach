@@ -76,8 +76,10 @@ function renderTopViewed(rows) {
   $('top-loading').hidden = true;
   if (!rows.length) {
     $('top-empty').hidden = false;
+    $('top-wrap').hidden = true;
     return;
   }
+  $('top-wrap').hidden = false;
   tbody.innerHTML = rows.map((r, i) => `
     <tr>
       <td class="gan-num">${i + 1}</td>
@@ -94,8 +96,10 @@ function renderTopSaved(rows) {
   $('saved-loading').hidden = true;
   if (!rows.length) {
     $('saved-empty').hidden = false;
+    $('saved-wrap').hidden = true;
     return;
   }
+  $('saved-wrap').hidden = false;
   tbody.innerHTML = rows.map((r, i) => `
     <tr>
       <td class="gan-num">${i + 1}</td>
@@ -112,8 +116,10 @@ function renderZeroView(rows) {
   $('zero-loading').hidden = true;
   if (!rows.length) {
     $('zero-empty').hidden = false;
+    $('zero-wrap').hidden = true;
     return;
   }
+  $('zero-wrap').hidden = false;
   tbody.innerHTML = rows.map((r) => `
     <tr>
       <td><code style="font-family: var(--av-font-mono); font-size: var(--av-fs-xs);">${escapeHtml(r.slug)}</code></td>

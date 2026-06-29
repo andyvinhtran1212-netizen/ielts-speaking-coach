@@ -92,6 +92,7 @@ function renderUsers(rows) {
     return;
   }
   $('users-empty').hidden = true;
+  $('users-wrap').hidden = false;
   tbody.innerHTML = rows.map((u) => {
     const svc = u.by_service || {};
     const cost = (k) => svc[k] && svc[k].cost_usd != null ? fmtUsd(svc[k].cost_usd) : '—';

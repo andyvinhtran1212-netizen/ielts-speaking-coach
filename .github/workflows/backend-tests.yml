@@ -230,6 +230,7 @@ jobs:
             frontend/tests/admin-confirm-danger.test.mjs \
             frontend/tests/admin-a11y-labels.test.mjs \
             frontend/tests/admin-access-codes.test.mjs \
+            frontend/tests/admin-progressive-loading-toggle.test.mjs \
             frontend/tests/content-template-download.test.mjs \
             frontend/tests/assignment-analysis-level.test.mjs \
             frontend/tests/regrade-level-picker.test.mjs \

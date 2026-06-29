@@ -322,12 +322,18 @@
     window.api.get('/admin/reading/content?' + qs.toString())
       .then(function (res) {
         var items = (res && res.items) || [];
-        if (!items.length) { $('ar-list-empty').hidden = false; return; }
+        if (!items.length) {
+          $('ar-list-empty').hidden = false;
+          $('ar-list-table').hidden = true;
+          return;
+        }
+        $('ar-list-table').hidden = false;
         renderList(items);
       })
       .catch(function (e) {
         $('ar-list-state').hidden = false;
         $('ar-list-state').textContent = 'Không tải được danh sách: ' + (e && e.message || '');
+        $('ar-list-table').hidden = true;
       });
   }
 

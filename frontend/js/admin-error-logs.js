@@ -102,9 +102,11 @@ function renderTable() {
   $('logs-loading').hidden = true;
   if (!_rows.length) {
     $('logs-empty').hidden = false;
+    $('logs-table-wrap').hidden = true;
     return;
   }
   $('logs-empty').hidden = true;
+  $('logs-table-wrap').hidden = false;
 
   const tbody = $('logs-tbody');
   tbody.innerHTML = _rows.map((r) => {

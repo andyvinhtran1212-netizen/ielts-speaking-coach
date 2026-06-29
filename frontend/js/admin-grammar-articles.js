@@ -50,6 +50,7 @@ async function loadList() {
     populateCategoryDropdown(res.categories || []);
     renderTable();
     $('gra-empty').hidden = _rows.length !== 0;
+    $('gra-table-wrap').hidden = _rows.length === 0;
   } catch (e) {
     $('gra-empty').textContent = 'Không tải được danh sách: ' + (e && e.message || 'lỗi');
     $('gra-empty').hidden = false;
