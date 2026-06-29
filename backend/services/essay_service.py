@@ -88,8 +88,9 @@ def default_grading_model(level: int) -> str:
     essay at `level`. With WRITING_LEVEL_AWARE_MODEL on, L1..WRITING_FLASH_MAX_LEVEL
     grade with the cheaper/faster gemini-3.5-flash (harness-proven equivalent to
     Pro at ≤L3); deeper levels keep gemini-2.5-pro. Flag off ⇒ always Pro.
-    Read per call so the env flag flips without redeploy. Admin-picked models
-    bypass this (admins pass selected_model explicitly)."""
+    Kill-switch via env WRITING_LEVEL_AWARE_MODEL=false (settings load at
+    process start, so the Railway var change restarts the service to apply it).
+    Admin-picked models bypass this (admins pass selected_model explicitly)."""
     if settings.WRITING_LEVEL_AWARE_MODEL and level <= settings.WRITING_FLASH_MAX_LEVEL:
         return "gemini-3.5-flash"
     return "gemini-2.5-pro"

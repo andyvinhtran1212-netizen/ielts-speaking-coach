@@ -101,9 +101,12 @@ class Settings(BaseSettings):
     # student-submitted essays at L1–L3 grade with the cheaper/faster
     # gemini-3.5-flash and L4–L5 stay on gemini-2.5-pro. Backed by the
     # calibration harness: 3.5 Flash hit 100% band agreement (±0.5) vs Pro at
-    # ≤L3 but only ~90% at L4. Read per call so it flips via env on Railway
-    # without a redeploy; set False to revert all levels to Pro. Admin-picked
-    # models are NOT overridden — this only changes the student-path default.
+    # ≤L3 but only ~90% at L4. KILL-SWITCH: set env WRITING_LEVEL_AWARE_MODEL=false
+    # to revert all levels to Pro — no code change; settings load at process
+    # start, so the Railway variable change restarts the service to pick it up.
+    # Admin-picked models are NOT overridden — student-path default only.
+    # NOTE: default True ⇒ ON the moment this deploys; set the env var false
+    # at/before deploy if you want to roll out dark first.
     WRITING_LEVEL_AWARE_MODEL: bool = True
     WRITING_FLASH_MAX_LEVEL: int = 3   # highest level that uses 3.5 Flash
 
