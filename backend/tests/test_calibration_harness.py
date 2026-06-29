@@ -15,9 +15,12 @@ from models.writing_feedback import (
     KeyTakeaways,
     WritingFeedback,
 )
+from unittest.mock import MagicMock, patch
+
 from scripts.calibration_harness import (
     aggregate,
     compare_gradings,
+    fetch_essays_from_db,
     format_report,
 )
 
@@ -116,3 +119,30 @@ def test_format_report_contains_gate_and_rows():
     assert "gemini-3.5-flash vs gemini-2.5-pro" in out
     assert "≥95%" in out          # gate target shown
     assert "| e1 |" in out        # per-essay row
+
+
+# ── fetch_essays_from_db (mocked DB — no real IO) ─────────────────────
+
+
+def test_fetch_essays_from_db_maps_and_filters():
+    """Maps writing_essays rows to the harness essay shape and drops rows
+    missing prompt/essay text (a partial row must not crash the run)."""
+    rows = [
+        {"id": "u1", "task_type": "task2", "prompt_text": "P", "essay_text": "E"},
+        {"id": "u2", "task_type": "task2", "prompt_text": "P", "essay_text": ""},   # empty → dropped
+        {"id": "u3", "task_type": "task1_academic", "prompt_text": "P2", "essay_text": "E2"},
+    ]
+    chain = MagicMock()
+    chain.select.return_value = chain
+    chain.not_.is_.return_value = chain
+    chain.order.return_value = chain
+    chain.limit.return_value = chain
+    chain.execute.return_value = MagicMock(data=rows)
+    fake_admin = MagicMock()
+    fake_admin.table.return_value = chain
+
+    with patch("database.supabase_admin", fake_admin):
+        essays = fetch_essays_from_db(10)
+
+    assert [e["id"] for e in essays] == ["u1", "u3"]   # u2 dropped (no text)
+    assert essays[0] == {"id": "u1", "task_type": "task2", "prompt_text": "P", "essay_text": "E"}

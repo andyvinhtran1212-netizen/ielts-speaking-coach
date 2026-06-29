@@ -28,6 +28,10 @@ Usage:
         --level 3 \
         --out /tmp/calibration_report.json
 
+Or measure on REAL production essays instead of the fixtures file:
+    GEMINI_API_KEY=... python -m scripts.calibration_harness \
+        --from-db 30 --candidate gemini-3.5-flash --level 3 --out /tmp/report.json
+
 The essays file is a JSON list of objects:
     [{"id": "e1", "task_type": "task2", "prompt_text": "...", "essay_text": "..."}]
 """
@@ -184,7 +188,35 @@ def format_report(comparisons: list[EssayComparison], summary: dict,
     return "\n".join(lines)
 
 
-# ── Runner (real API — not unit-tested) ───────────────────────────────
+# ── Essay sources + runner (real IO — not unit-tested) ────────────────
+
+
+def fetch_essays_from_db(n: int) -> list[dict]:
+    """Pull the N most recent real essays (with text) from writing_essays so
+    the harness measures on production data, not synthetic fixtures. Returns
+    the same shape as the fixtures file. Real grading happens fresh at the
+    harness's --level (the stored grade is ignored — this is a model A/B)."""
+    from database import supabase_admin
+    r = (
+        supabase_admin.table("writing_essays")
+        .select("id, task_type, prompt_text, essay_text")
+        .not_.is_("essay_text", "null")
+        .not_.is_("prompt_text", "null")
+        .order("created_at", desc=True)
+        .limit(n)
+        .execute()
+    )
+    rows = r.data or []
+    return [
+        {
+            "id": str(e["id"]),
+            "task_type": e["task_type"],
+            "prompt_text": e["prompt_text"],
+            "essay_text": e["essay_text"],
+        }
+        for e in rows
+        if e.get("essay_text") and e.get("prompt_text")
+    ]
 
 
 async def _grade_one(essay: dict, model: str, level: int):
@@ -223,14 +255,22 @@ async def run_harness(essays: list[dict], *, baseline_model: str,
 
 def main(argv: Optional[list[str]] = None) -> int:
     ap = argparse.ArgumentParser(description="Dual-grade essays and compare models.")
-    ap.add_argument("--essays", required=True, help="JSON file: list of {id,task_type,prompt_text,essay_text}")
+    ap.add_argument("--essays", help="JSON file: list of {id,task_type,prompt_text,essay_text}")
+    ap.add_argument("--from-db", type=int, metavar="N", dest="from_db",
+                    help="instead of --essays, grade the N most recent real essays (with text) from writing_essays")
     ap.add_argument("--baseline", default="gemini-2.5-pro")
     ap.add_argument("--candidate", default="gemini-3.5-flash")
     ap.add_argument("--level", type=int, default=3)
     ap.add_argument("--out", default=None, help="optional path to write the JSON report")
     args = ap.parse_args(argv)
 
-    essays = json.loads(Path(args.essays).read_text(encoding="utf-8"))
+    if args.from_db:
+        essays = fetch_essays_from_db(args.from_db)
+        print(f"[harness] loaded {len(essays)} essay(s) from writing_essays", file=sys.stderr)
+    elif args.essays:
+        essays = json.loads(Path(args.essays).read_text(encoding="utf-8"))
+    else:
+        ap.error("provide --essays <file> or --from-db <N>")
     comparisons = asyncio.run(run_harness(
         essays, baseline_model=args.baseline,
         candidate_model=args.candidate, level=args.level,
