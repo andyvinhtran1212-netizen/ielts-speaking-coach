@@ -17,8 +17,9 @@ with require_admin. Uses service-role `supabase_admin`.
 
 from __future__ import annotations
 
+import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import HTTPException
@@ -94,6 +95,120 @@ def default_grading_model(level: int) -> str:
     if settings.WRITING_LEVEL_AWARE_MODEL and level <= settings.WRITING_FLASH_MAX_LEVEL:
         return "gemini-3.5-flash"
     return "gemini-2.5-pro"
+
+
+# ── Grading reliability: attempts, fallback, requeue (Sprint W-MM) ────
+
+# Backoff between job-level requeues (the grader already does sub-second
+# exponential backoff for its in-call MAX_RETRIES; this is the coarser
+# gap before a whole new attempt). Kept short — << the reaper interval so
+# a requeued job claims 'running' long before the next sweep.
+_JOB_REQUEUE_BACKOFF_S = 3.0
+
+
+def _model_for_attempt(primary_model: str, attempt_no: int, max_attempts: int) -> str:
+    """Which model grades job-level attempt `attempt_no` (1-based).
+
+    Attempts 1..max-1 use the primary (configured/level-aware) model — most
+    grading failures are transient infra, not model-specific, so re-rolling the
+    same model is the cheapest correct retry. The FINAL attempt switches to
+    WRITING_FALLBACK_MODEL (a different, reliable model) so a model/region-
+    specific failure can still deliver *a* result — continuity over marginal
+    quality (the fallback may drop higher-level sections; validate_level_coverage
+    only warns, a partial grade beats an essay stuck in 'grading' forever).
+    Disabled / fallback == primary ⇒ always the primary model."""
+    if (
+        settings.WRITING_GRADING_FALLBACK_ENABLED
+        and attempt_no >= max_attempts
+        and settings.WRITING_FALLBACK_MODEL
+        and settings.WRITING_FALLBACK_MODEL != primary_model
+    ):
+        return settings.WRITING_FALLBACK_MODEL
+    return primary_model
+
+
+def _record_attempt_failure(
+    job_id: str, *, attempt_no: int, model: str, kind: str, exc: Exception,
+) -> None:
+    """APPEND (never overwrite) a per-attempt failure record to
+    writing_jobs.error_log, so the full per-essay grading-failure history is
+    queryable for later tuning (per-model failure rates → fallback policy).
+    Best-effort; never raises."""
+    entry = {
+        "attempt": attempt_no, "model": model, "kind": kind,
+        "message": str(exc)[:500], "at": _now(),
+    }
+    try:
+        cur = (
+            supabase_admin.table("writing_jobs")
+            .select("error_log").eq("id", job_id).limit(1).execute()
+        ).data
+        log = (cur[0].get("error_log") if cur else None) or []
+        if not isinstance(log, list):
+            log = []
+        log.append(entry)
+        supabase_admin.table("writing_jobs").update(
+            {"error_log": log}
+        ).eq("id", job_id).execute()
+    except Exception as inner:  # noqa: BLE001 — telemetry must not break grading
+        logger.error("[grade job=%s] error_log append failed: %s", job_id, inner)
+
+
+def _schedule_requeue(
+    essay_id: str, job_id: str, *, delay: float, restore_status: str | None,
+) -> None:
+    """Fire-and-forget a backed-off re-run of the BG grader (same job row, so the
+    attempt counter keeps climbing toward the fallback threshold). Split out as a
+    seam so tests can assert requeue intent without scheduling a real task."""
+    async def _run() -> None:
+        try:
+            await asyncio.sleep(delay)
+            await _bg_grade_essay(
+                essay_id, job_id, restore_status_on_fail=restore_status,
+            )
+        except Exception:  # noqa: BLE001 — a requeue crash must not kill the loop
+            logger.exception("[grade %s] requeue run failed", essay_id)
+    asyncio.create_task(_run())
+
+
+async def _handle_grade_failure(
+    essay_id: str, job_id: str, exc: Exception, *,
+    kind: str, attempt_no: int, max_attempts: int, model: str,
+    restore_status: str | None,
+) -> None:
+    """Job-level failure policy for a TRANSIENT/HARD grading failure (not a
+    safety block). Records the attempt, then either requeues (attempts remain —
+    the next attempt may switch to the fallback model) or marks terminal-failed
+    (exhausted) so the admin UI stops showing a perpetual 'đang chấm'."""
+    _record_attempt_failure(job_id, attempt_no=attempt_no, model=model, kind=kind, exc=exc)
+    if attempt_no < max_attempts:
+        logger.warning(
+            "[grade %s] attempt %d/%d failed (%s) — requeueing",
+            essay_id, attempt_no, max_attempts, kind,
+        )
+        # Keep the essay in-flight ('grading') from the user's view; reset the
+        # job to 'queued' and bump started_at so the reaper's staleness window
+        # restarts (no double-requeue during the backoff). Best-effort: if this
+        # write itself fails, the reaper will still recover the job later — a
+        # failure here must never escape the BG task.
+        try:
+            supabase_admin.table("writing_jobs").update(
+                {"status": "queued", "started_at": _now()}
+            ).eq("id", job_id).execute()
+            _schedule_requeue(
+                essay_id, job_id,
+                delay=_JOB_REQUEUE_BACKOFF_S * (2 ** (attempt_no - 1)),
+                restore_status=restore_status,
+            )
+        except Exception as inner:  # noqa: BLE001
+            logger.error("[grade %s] requeue write failed (reaper will retry): %s",
+                         essay_id, inner)
+    else:
+        logger.error(
+            "[grade %s] attempt %d/%d failed (%s) — attempts exhausted, terminal",
+            essay_id, attempt_no, max_attempts, kind,
+        )
+        _mark_failed(essay_id, job_id, exc, kind=kind, restore_status=restore_status)
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
@@ -538,11 +653,29 @@ async def _bg_grade_essay(
     """
     logger.info("[grade %s] starting (job=%s)", essay_id, job_id)
 
+    # Job-level attempt bookkeeping (defaults hold if the job read fails, so the
+    # except handlers below always have these in scope). A single essay is graded
+    # by at most one BG task at a time (submit-path atomic claim / one-job-per
+    # admin request), so the read-modify-write on attempt_count is race-free.
+    attempt_no = 1
+    max_attempts = settings.WRITING_GRADING_MAX_ATTEMPTS
+    model = ""  # resolved once the essay row loads (may be the fallback model)
+
     try:
-        # Mark in-flight
+        jrow = (
+            supabase_admin.table("writing_jobs")
+            .select("attempt_count, max_attempts")
+            .eq("id", job_id).limit(1).execute()
+        ).data
+        if jrow:
+            attempt_no = int(jrow[0].get("attempt_count") or 0) + 1
+            max_attempts = int(jrow[0].get("max_attempts") or max_attempts)
+
+        # Mark in-flight (and persist the incremented attempt counter).
         supabase_admin.table("writing_jobs").update({
-            "status":     "running",
-            "started_at": _now(),
+            "status":        "running",
+            "started_at":    _now(),
+            "attempt_count": attempt_no,
         }).eq("id", job_id).execute()
         supabase_admin.table("writing_essays").update({
             "status": "grading",
@@ -579,6 +712,18 @@ async def _bg_grade_essay(
         band_trajectory     = get_band_trajectory(essay["student_id"])
         sentence_structure  = get_sentence_structure_history(essay["student_id"])
 
+        # Sprint W-MM — on the FINAL attempt switch to the fallback model
+        # (the primary has failed at job level on every prior attempt). The
+        # actual model used is persisted via result.model_used, so the grade
+        # rating / cost analysis sees the model that really graded it.
+        primary_model = essay["selected_model"]
+        model = _model_for_attempt(primary_model, attempt_no, max_attempts)
+        if model != primary_model:
+            logger.warning(
+                "[grade %s] attempt %d/%d — FALLBACK model %s (primary %s failed)",
+                essay_id, attempt_no, max_attempts, model, primary_model,
+            )
+
         config = GraderConfig(
             task_type=essay["task_type"],
             prompt_text=essay["prompt_text"],
@@ -589,7 +734,7 @@ async def _bg_grade_essay(
             word_count=_word_count(essay["essay_text"]),
             analysis_level=essay["analysis_level"],
             form_of_address=essay["form_of_address"],
-            selected_model=essay["selected_model"],
+            selected_model=model,
             # Sprint 2.7a — fall back to "standard" if the row predates
             # migration 044 in some replicated/test environment.
             grading_tier=essay.get("grading_tier") or "standard",
@@ -750,13 +895,29 @@ async def _bg_grade_essay(
             result.tokens_input, result.tokens_output, result.cost_usd,
         )
 
-    except (AISafetyBlockError, APIRetryFailedError, InvalidJSONError) as exc:
-        _mark_failed(essay_id, job_id, exc, kind=type(exc).__name__,
+    except AISafetyBlockError as exc:
+        # Safety blocks are content-driven, not transient — re-running (even on a
+        # different model) almost certainly re-blocks. Fail terminally, no
+        # requeue: don't burn attempts on un-gradeable content.
+        _record_attempt_failure(job_id, attempt_no=attempt_no, model=model,
+                                kind="AISafetyBlockError", exc=exc)
+        _mark_failed(essay_id, job_id, exc, kind="AISafetyBlockError",
                      restore_status=restore_status_on_fail)
+    except (APIRetryFailedError, InvalidJSONError) as exc:
+        # Transient/hard API failure — requeue if attempts remain (final attempt
+        # switches to the fallback model), else terminal.
+        await _handle_grade_failure(
+            essay_id, job_id, exc, kind=type(exc).__name__,
+            attempt_no=attempt_no, max_attempts=max_attempts, model=model,
+            restore_status=restore_status_on_fail,
+        )
     except Exception as exc:  # noqa: BLE001 — last-resort failure capture
         logger.exception("[grade %s] unexpected failure", essay_id)
-        _mark_failed(essay_id, job_id, exc, kind="UnexpectedError",
-                     restore_status=restore_status_on_fail)
+        await _handle_grade_failure(
+            essay_id, job_id, exc, kind="UnexpectedError",
+            attempt_no=attempt_no, max_attempts=max_attempts, model=model,
+            restore_status=restore_status_on_fail,
+        )
 
 
 # Statuses an essay may be RESTORED to after a failed regrade (a prior good
@@ -776,7 +937,12 @@ def _mark_failed(
     prior version instead of stranding in 'failed'); otherwise → 'failed'
     (first-grade, or an unexpected capture). error_message is always set for
     diagnosis; regrade_count is NOT touched (already bumped — D1 attempts incl.
-    failures). The writing_jobs row is always marked 'failed'."""
+    failures). The writing_jobs row is always marked 'failed'.
+
+    Sprint W-MM: error_log is NOT written here — the per-attempt failure history
+    is appended by `_record_attempt_failure` (called before every _mark_failed),
+    so the full attempt ledger survives the terminal write instead of being
+    overwritten by a single entry."""
     msg = f"{kind}: {exc}"[:1000]  # truncate to keep error_message bounded
     essay_status = restore_status if restore_status in _RESTORABLE_STATUSES else "failed"
     try:
@@ -787,10 +953,125 @@ def _mark_failed(
         supabase_admin.table("writing_jobs").update({
             "status":       "failed",
             "completed_at": _now(),
-            "error_log":    [{"kind": kind, "message": str(exc), "at": _now()}],
         }).eq("id", job_id).execute()
     except Exception as inner:
         logger.error("[grade %s] failure-state write also failed: %s", essay_id, inner)
+
+
+# ── Stuck-job reaper (Sprint W-MM) ───────────────────────────────────
+
+# Job statuses the reaper treats as "in-flight" and eligible for staleness
+# recovery. 'queued' is included because a process death right after
+# schedule_grading_job (before the BG task claims 'running') strands the job there.
+_REAPER_INFLIGHT_STATUSES = ("queued", "running")
+# Essay statuses that mean the grade is still in flight (so a stuck job is worth
+# recovering). Anything else (graded/delivered/failed/…) means it already
+# resolved between the candidate query and this check — skip.
+_REAPER_RECOVERABLE_ESSAY_STATUSES = (None, "pending", "grading")
+
+
+def _parse_ts(value) -> datetime | None:
+    """Parse a Supabase ISO timestamp to an aware datetime (UTC). None on any
+    parse failure — callers treat None as 'unknown age' and act conservatively."""
+    if not value:
+        return None
+    try:
+        if isinstance(value, datetime):
+            dt = value
+        else:
+            dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+async def reap_stuck_grading_jobs(*, now: datetime | None = None) -> dict:
+    """Recover grading jobs orphaned by a process death (Railway restart / OOM /
+    hard timeout). A BG task killed mid-grade leaves the job 'running'/'queued'
+    and the essay 'grading' with NO error_message (no exception ran). This sweep
+    finds such jobs past their tier timeout and either requeues them (attempts
+    remain — the requeued attempt may switch to the fallback model once the
+    threshold is reached) or marks them terminal-failed (attempts exhausted) so
+    the admin UI surfaces the failure instead of a perpetual 'đang chấm'.
+
+    Staleness is measured on writing_jobs.created_at (always present; started_at
+    is null for never-started 'queued' jobs). Returns a small summary for the
+    loop logger / tests. Best-effort: per-job errors are logged and skipped."""
+    now = now or datetime.now(timezone.utc)
+    std_cutoff = now - timedelta(seconds=settings.WRITING_STUCK_JOB_TIMEOUT_SECONDS)
+    deep_cutoff = now - timedelta(seconds=settings.WRITING_STUCK_JOB_TIMEOUT_DEEP_SECONDS)
+    summary = {"candidates": 0, "requeued": 0, "failed": 0, "skipped": 0}
+
+    try:
+        candidates = (
+            supabase_admin.table("writing_jobs")
+            .select("id, essay_id, created_at, attempt_count, max_attempts")
+            .in_("status", list(_REAPER_INFLIGHT_STATUSES))
+            .lt("created_at", std_cutoff.isoformat())
+            .execute()
+        ).data or []
+    except Exception as exc:  # noqa: BLE001
+        logger.error("[writing-reaper] candidate query failed: %s", exc)
+        return summary
+
+    summary["candidates"] = len(candidates)
+    for job in candidates:
+        job_id = job.get("id")
+        essay_id = job.get("essay_id")
+        if not job_id or not essay_id:
+            summary["skipped"] += 1
+            continue
+        try:
+            er = (
+                supabase_admin.table("writing_essays")
+                .select("status, grading_tier, selected_model")
+                .eq("id", essay_id).limit(1).execute()
+            ).data
+            essay = er[0] if er else {}
+            if essay.get("status") not in _REAPER_RECOVERABLE_ESSAY_STATUSES:
+                summary["skipped"] += 1          # resolved between query and now
+                continue
+            # Deep tier runs 3 sequential passes — only stuck once past the
+            # longer deep grace window.
+            if essay.get("grading_tier") == "deep":
+                created = _parse_ts(job.get("created_at"))
+                if created and created > deep_cutoff:
+                    summary["skipped"] += 1
+                    continue
+
+            attempt_no = int(job.get("attempt_count") or 0)
+            max_attempts = int(job.get("max_attempts") or settings.WRITING_GRADING_MAX_ATTEMPTS)
+            model = essay.get("selected_model") or ""
+            stuck_exc = RuntimeError(
+                "grading job stuck past timeout (process likely died mid-grade)"
+            )
+            _record_attempt_failure(
+                job_id, attempt_no=max(attempt_no, 1), model=model,
+                kind="StuckTimeout", exc=stuck_exc,
+            )
+
+            if attempt_no < max_attempts:
+                logger.warning(
+                    "[writing-reaper] requeue stuck job essay=%s (attempt %d/%d)",
+                    essay_id, attempt_no, max_attempts,
+                )
+                supabase_admin.table("writing_jobs").update(
+                    {"status": "queued", "started_at": _now()}
+                ).eq("id", job_id).execute()
+                _schedule_requeue(essay_id, job_id, delay=0.0, restore_status=None)
+                summary["requeued"] += 1
+            else:
+                logger.error(
+                    "[writing-reaper] terminal-fail stuck job essay=%s (attempts exhausted)",
+                    essay_id,
+                )
+                _mark_failed(essay_id, job_id, stuck_exc, kind="StuckTimeout")
+                summary["failed"] += 1
+        except Exception as exc:  # noqa: BLE001 — one bad job must not stop the sweep
+            logger.exception("[writing-reaper] recovery failed essay=%s: %s", essay_id, exc)
+            summary["skipped"] += 1
+
+    return summary
 
 
 # ── Read paths ───────────────────────────────────────────────────────

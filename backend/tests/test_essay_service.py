@@ -137,6 +137,14 @@ class _FakeQuery:
         self._filters.append(("is_", col, val))
         return self
 
+    def in_(self, col, vals):
+        self._filters.append(("in_", col, list(vals)))
+        return self
+
+    def lt(self, col, val):
+        self._filters.append(("lt", col, val))
+        return self
+
     def order(self, *a, **kw):
         return self
 
@@ -325,12 +333,95 @@ async def test_bg_grade_essay_safety_block_marks_failed():
 
 
 @pytest.mark.asyncio
-async def test_bg_grade_essay_retry_failure_marks_failed():
-    fake = _FakeSupabase(responses=_bg_essay_responses())
+async def test_bg_grade_essay_retry_failure_requeues_when_attempts_remain(monkeypatch):
+    """Sprint W-MM: a transient API failure on a non-final attempt REQUEUES
+    (job→queued, schedule a re-run) instead of stranding the essay in 'failed'.
+    The essay stays in-flight; no terminal failure is written."""
+    from config import settings
+    monkeypatch.setattr(settings, "WRITING_GRADING_MAX_ATTEMPTS", 3)
+    # Job read returns attempt_count 0 → this is attempt 1 of 3 → requeue.
+    responses = _bg_essay_responses()
+    responses[("writing_jobs", "select")] = [{"attempt_count": 0, "max_attempts": 3}]
+    fake = _FakeSupabase(responses=responses)
     fake_grader = MagicMock()
 
     async def fake_grade(_config):
         raise APIRetryFailedError("3 retries failed")
+    fake_grader.grade_essay = fake_grade
+
+    requeue = MagicMock()
+    with patch.object(essay_service, "supabase_admin", fake), \
+         patch.object(essay_service, "get_grader", return_value=fake_grader), \
+         patch.object(essay_service, "_schedule_requeue", requeue), \
+         patch.object(essay_service, "get_recurring_patterns", return_value=None), \
+         patch.object(essay_service, "get_band_trajectory",  return_value=None):
+        await essay_service._bg_grade_essay(_ESSAY_ID, _JOB_ID)
+
+    # Requeue was scheduled; essay was NOT marked failed.
+    requeue.assert_called_once()
+    essay_updates = [c for c in fake.calls if c["table"] == "writing_essays" and c["op"] == "update"]
+    assert all(c["payload"].get("status") != "failed" for c in essay_updates)
+    # Job was reset to 'queued' for the re-run.
+    job_queued = [c for c in fake.calls if c["table"] == "writing_jobs"
+                  and c["op"] == "update" and c["payload"].get("status") == "queued"]
+    assert job_queued, "requeue must reset the job to 'queued'"
+    # The failed attempt was recorded to error_log (per-attempt ledger).
+    log_writes = [c for c in fake.calls if c["table"] == "writing_jobs"
+                  and c["op"] == "update" and "error_log" in c["payload"]]
+    assert log_writes, "the failed attempt must be appended to error_log"
+
+
+@pytest.mark.asyncio
+async def test_bg_grade_essay_marks_failed_when_attempts_exhausted(monkeypatch):
+    """Sprint W-MM: on the FINAL attempt a hard failure is terminal — essay
+    'failed' with an error_message so the admin UI stops showing 'đang chấm'."""
+    from config import settings
+    monkeypatch.setattr(settings, "WRITING_GRADING_MAX_ATTEMPTS", 3)
+    responses = _bg_essay_responses()
+    responses[("writing_jobs", "select")] = [{"attempt_count": 2, "max_attempts": 3}]
+    fake = _FakeSupabase(responses=responses)
+    fake_grader = MagicMock()
+
+    async def fake_grade(_config):
+        raise APIRetryFailedError("3 retries failed")
+    fake_grader.grade_essay = fake_grade
+
+    requeue = MagicMock()
+    with patch.object(essay_service, "supabase_admin", fake), \
+         patch.object(essay_service, "get_grader", return_value=fake_grader), \
+         patch.object(essay_service, "_schedule_requeue", requeue), \
+         patch.object(essay_service, "get_recurring_patterns", return_value=None), \
+         patch.object(essay_service, "get_band_trajectory",  return_value=None):
+        await essay_service._bg_grade_essay(_ESSAY_ID, _JOB_ID)
+
+    requeue.assert_not_called()
+    final_essay = [c for c in fake.calls if c["table"] == "writing_essays" and c["op"] == "update"][-1]
+    assert final_essay["payload"]["status"] == "failed"
+    assert "APIRetryFailedError" in final_essay["payload"]["error_message"]
+
+
+@pytest.mark.asyncio
+async def test_bg_grade_essay_final_attempt_uses_fallback_model(monkeypatch):
+    """Sprint W-MM: the final attempt switches to WRITING_FALLBACK_MODEL so a
+    model/region-specific failure can still deliver a result. The grader is
+    handed the fallback model, not the primary."""
+    from config import settings
+    monkeypatch.setattr(settings, "WRITING_GRADING_MAX_ATTEMPTS", 3)
+    monkeypatch.setattr(settings, "WRITING_GRADING_FALLBACK_ENABLED", True)
+    monkeypatch.setattr(settings, "WRITING_FALLBACK_MODEL", "gemini-2.5-flash")
+    responses = _bg_essay_responses()                                 # primary = gemini-2.5-pro
+    responses[("writing_jobs", "select")] = [{"attempt_count": 2, "max_attempts": 3}]  # → attempt 3
+    fake = _FakeSupabase(responses=responses)
+    fake_grader = MagicMock()
+    captured: dict = {}
+
+    async def fake_grade(config):
+        captured["config"] = config
+        return MagicMock(
+            feedback=_valid_feedback_obj(), model_used="gemini-2.5-flash",
+            tokens_input=1, tokens_output=1, cost_usd=0.001,
+            grading_duration_ms=10, prompt_version="v1.0",
+        )
     fake_grader.grade_essay = fake_grade
 
     with patch.object(essay_service, "supabase_admin", fake), \
@@ -339,9 +430,35 @@ async def test_bg_grade_essay_retry_failure_marks_failed():
          patch.object(essay_service, "get_band_trajectory",  return_value=None):
         await essay_service._bg_grade_essay(_ESSAY_ID, _JOB_ID)
 
-    final_essay = [c for c in fake.calls if c["table"] == "writing_essays" and c["op"] == "update"][-1]
-    assert final_essay["payload"]["status"] == "failed"
-    assert "APIRetryFailedError" in final_essay["payload"]["error_message"]
+    assert captured["config"].selected_model == "gemini-2.5-flash"   # fallback, not pro
+
+
+@pytest.mark.asyncio
+async def test_bg_grade_essay_increments_attempt_counter(monkeypatch):
+    """Sprint W-MM: each BG run bumps writing_jobs.attempt_count (per-essay retry
+    ledger). A job previously at attempt 1 runs as attempt 2."""
+    responses = _bg_essay_responses()
+    responses[("writing_jobs", "select")] = [{"attempt_count": 1, "max_attempts": 3}]
+    fake = _FakeSupabase(responses=responses)
+    fake_grader = MagicMock()
+
+    async def fake_grade(_config):
+        return MagicMock(
+            feedback=_valid_feedback_obj(), model_used="gemini-2.5-pro",
+            tokens_input=1, tokens_output=1, cost_usd=0.001,
+            grading_duration_ms=10, prompt_version="v1.0",
+        )
+    fake_grader.grade_essay = fake_grade
+
+    with patch.object(essay_service, "supabase_admin", fake), \
+         patch.object(essay_service, "get_grader", return_value=fake_grader), \
+         patch.object(essay_service, "get_recurring_patterns", return_value=None), \
+         patch.object(essay_service, "get_band_trajectory",  return_value=None):
+        await essay_service._bg_grade_essay(_ESSAY_ID, _JOB_ID)
+
+    running = [c for c in fake.calls if c["table"] == "writing_jobs"
+               and c["op"] == "update" and "attempt_count" in c["payload"]][0]
+    assert running["payload"]["attempt_count"] == 2     # was 1 → now 2
 
 
 # ── Phase 1.5a: history wiring ───────────────────────────────────────
@@ -817,3 +934,118 @@ async def test_bg_grade_essay_drops_noncorrection_mistakes():
                      if c["table"] == "writing_feedback" and c["op"] == "insert")
     mistakes = fb_insert["payload"]["feedback_json"]["mistakeAnalysis"]
     assert [m["original"] for m in mistakes] == ["teh"]   # junk dropped, real kept
+
+
+# ── Sprint W-MM: model-fallback policy ───────────────────────────────
+
+def test_model_for_attempt_keeps_primary_before_final(monkeypatch):
+    from config import settings
+    monkeypatch.setattr(settings, "WRITING_GRADING_FALLBACK_ENABLED", True)
+    monkeypatch.setattr(settings, "WRITING_FALLBACK_MODEL", "gemini-2.5-flash")
+    # attempts 1 & 2 of 3 keep the primary model
+    assert essay_service._model_for_attempt("gemini-2.5-pro", 1, 3) == "gemini-2.5-pro"
+    assert essay_service._model_for_attempt("gemini-2.5-pro", 2, 3) == "gemini-2.5-pro"
+
+
+def test_model_for_attempt_switches_on_final(monkeypatch):
+    from config import settings
+    monkeypatch.setattr(settings, "WRITING_GRADING_FALLBACK_ENABLED", True)
+    monkeypatch.setattr(settings, "WRITING_FALLBACK_MODEL", "gemini-2.5-flash")
+    # final attempt (3 of 3) switches to the fallback
+    assert essay_service._model_for_attempt("gemini-2.5-pro", 3, 3) == "gemini-2.5-flash"
+
+
+def test_model_for_attempt_disabled_always_primary(monkeypatch):
+    from config import settings
+    monkeypatch.setattr(settings, "WRITING_GRADING_FALLBACK_ENABLED", False)
+    monkeypatch.setattr(settings, "WRITING_FALLBACK_MODEL", "gemini-2.5-flash")
+    assert essay_service._model_for_attempt("gemini-2.5-pro", 3, 3) == "gemini-2.5-pro"
+
+
+def test_model_for_attempt_noop_when_fallback_equals_primary(monkeypatch):
+    from config import settings
+    monkeypatch.setattr(settings, "WRITING_GRADING_FALLBACK_ENABLED", True)
+    monkeypatch.setattr(settings, "WRITING_FALLBACK_MODEL", "gemini-2.5-pro")
+    assert essay_service._model_for_attempt("gemini-2.5-pro", 3, 3) == "gemini-2.5-pro"
+
+
+# ── Sprint W-MM: stuck-job reaper ────────────────────────────────────
+
+from datetime import datetime, timedelta, timezone  # noqa: E402
+
+_FIXED_NOW = datetime(2026, 6, 29, 12, 0, 0, tzinfo=timezone.utc)
+
+
+def _reaper_responses(job_overrides=None, essay_overrides=None):
+    job = {
+        "id": _JOB_ID, "essay_id": _ESSAY_ID,
+        "created_at": (_FIXED_NOW - timedelta(seconds=500)).isoformat(),  # > std 360s
+        "attempt_count": 0, "max_attempts": 3,
+    }
+    job.update(job_overrides or {})
+    essay = {"status": "grading", "grading_tier": "standard", "selected_model": "gemini-2.5-pro"}
+    essay.update(essay_overrides or {})
+    return {
+        ("writing_jobs", "select"):   [job],
+        ("writing_essays", "select"): [essay],
+    }
+
+
+@pytest.mark.asyncio
+async def test_reap_requeues_stuck_job_with_attempts_remaining():
+    fake = _FakeSupabase(responses=_reaper_responses())
+    requeue = MagicMock()
+    with patch.object(essay_service, "supabase_admin", fake), \
+         patch.object(essay_service, "_schedule_requeue", requeue):
+        summary = await essay_service.reap_stuck_grading_jobs(now=_FIXED_NOW)
+
+    assert summary["requeued"] == 1 and summary["failed"] == 0
+    requeue.assert_called_once()
+    job_queued = [c for c in fake.calls if c["table"] == "writing_jobs"
+                  and c["op"] == "update" and c["payload"].get("status") == "queued"]
+    assert job_queued
+
+
+@pytest.mark.asyncio
+async def test_reap_terminal_fails_when_attempts_exhausted():
+    fake = _FakeSupabase(responses=_reaper_responses(
+        job_overrides={"attempt_count": 3, "max_attempts": 3}))
+    requeue = MagicMock()
+    with patch.object(essay_service, "supabase_admin", fake), \
+         patch.object(essay_service, "_schedule_requeue", requeue):
+        summary = await essay_service.reap_stuck_grading_jobs(now=_FIXED_NOW)
+
+    assert summary["failed"] == 1 and summary["requeued"] == 0
+    requeue.assert_not_called()
+    failed_essay = [c for c in fake.calls if c["table"] == "writing_essays"
+                    and c["op"] == "update" and c["payload"].get("status") == "failed"]
+    assert failed_essay
+
+
+@pytest.mark.asyncio
+async def test_reap_skips_essay_already_resolved():
+    fake = _FakeSupabase(responses=_reaper_responses(
+        essay_overrides={"status": "graded"}))   # finished between query and check
+    requeue = MagicMock()
+    with patch.object(essay_service, "supabase_admin", fake), \
+         patch.object(essay_service, "_schedule_requeue", requeue):
+        summary = await essay_service.reap_stuck_grading_jobs(now=_FIXED_NOW)
+
+    assert summary == {"candidates": 1, "requeued": 0, "failed": 0, "skipped": 1}
+    requeue.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_reap_skips_deep_tier_within_grace():
+    # created 400s ago: past the standard 360s cutoff but inside the deep 600s
+    # grace window → a deep grade is not yet stuck.
+    fake = _FakeSupabase(responses=_reaper_responses(
+        job_overrides={"created_at": (_FIXED_NOW - timedelta(seconds=400)).isoformat()},
+        essay_overrides={"grading_tier": "deep"}))
+    requeue = MagicMock()
+    with patch.object(essay_service, "supabase_admin", fake), \
+         patch.object(essay_service, "_schedule_requeue", requeue):
+        summary = await essay_service.reap_stuck_grading_jobs(now=_FIXED_NOW)
+
+    assert summary["skipped"] == 1 and summary["requeued"] == 0 and summary["failed"] == 0
+    requeue.assert_not_called()
