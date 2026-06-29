@@ -287,9 +287,17 @@ everything else is incremental.
 
 ## 10. Findings — measured (P0 → P1-B)
 
-Built and ran the harness (`backend/scripts/calibration_harness.py`) on real
-essays (`--from-db`, balanced Task 1/Task 2, chart images preserved). Gate =
-band agreement within ±0.5 on ≥95%.
+> **Where the code lives:** this file is a findings *record*. The harness and
+> the P1-A implementation it describes are **introduced in PR #617**
+> (`backend/scripts/calibration_harness.py`, `backend/scripts/multimodel_router.py`,
+> and the level-aware default in `config.py` / `services/essay_service.py`) — they
+> are NOT part of this docs-only commit. To reproduce the numbers below, check
+> out PR #617 (or main once it has merged) and run the harness as shown.
+
+Built and ran the harness (`backend/scripts/calibration_harness.py`, PR #617) on
+real essays (`--from-db`, balanced Task 1/Task 2, chart images preserved). Gate =
+band agreement within ±0.5 on ≥95%. Reproduce:
+`cd backend && GEMINI_API_KEY=… python -m scripts.calibration_harness --from-db 10 --balance-task-type --levels 3,4`.
 
 ### P0 — straight model swap (single call, candidate replaces Pro)
 gemini-3.5-flash vs gemini-2.5-pro, n=10 balanced, per level:
@@ -308,11 +316,14 @@ gemini-3.5-flash vs gemini-2.5-pro, n=10 balanced, per level:
   the Task 1 chart image, grading those essays text-only. Fixed; numbers above
   are post-fix.)
 
-### P1-A — shipped: level-aware default model
+### P1-A — decided; implemented in PR #617 (not in this commit)
 **Decision:** student-submitted essays default to **gemini-3.5-flash at L1–L3**
-and **gemini-2.5-pro at L4–L5** (`WRITING_LEVEL_AWARE_MODEL`, env kill-switch;
-admin-picked models untouched). Captures the proven ≤L3 win; keeps Pro where
-the swap isn't safe. (PR #617.)
+and **gemini-2.5-pro at L4–L5**. Implemented in **PR #617** via
+`WRITING_LEVEL_AWARE_MODEL` (default on; env kill-switch → all Pro) +
+`essay_service.default_grading_model(level)`; admin-picked models untouched.
+Captures the proven ≤L3 win; keeps Pro where the swap isn't safe. **Status:
+merges with PR #617 — not present on `main` (or in this docs-only commit) until
+that PR lands.**
 
 ### P1-B — NEGATIVE: naive 2-pass routing does not rescue L4
 Tested route = **Pro on judgment** (band/criteria/reasoning) + **2.5-flash on
