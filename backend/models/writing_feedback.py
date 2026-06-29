@@ -344,6 +344,13 @@ class GraderConfig(BaseModel):
     # always uses GEMINI_FLASH_MODEL regardless of this field's value).
     grading_tier: GradingTier = GradingTier.STANDARD
 
+    # Sprint W-L3 — when grading_tier == INSTRUCTOR, the AI pass depth to run
+    # underneath: STANDARD (1-pass) or DEEP (3-pass). Lets a teacher pick the
+    # AI depth while the essay still routes to the instructor review queue.
+    # Ignored unless grading_tier is INSTRUCTOR. Default STANDARD = the
+    # pre-feature behaviour (instructor tier always ran a single Standard pass).
+    instructor_ai_tier: GradingTier = GradingTier.STANDARD
+
     # Phase 1.5a (recurring-patterns aggregator): pre-aggregated dict
     # produced by services.writing_history.get_recurring_patterns(),
     # consumed by services.writing_history.format_history_for_prompt()
@@ -441,7 +448,9 @@ class GradingResult(BaseModel):
 LEVEL_REQUIRED_FIELDS: dict[int, list[str]] = {
     1: [],
     2: ["coherenceAnalysis"],
-    3: ["coherenceAnalysis", "ideaDevelopmentAnalysis", "counterargumentAnalysis"],
+    # Sprint W-L3 — L3 swapped counterargument → sentence-structure; mirrors
+    # writing_prompt_loader.LEVEL_SECTIONS. counterargumentAnalysis moves to L4.
+    3: ["coherenceAnalysis", "ideaDevelopmentAnalysis", "sentenceStructureAnalysis"],
     4: ["coherenceAnalysis", "ideaDevelopmentAnalysis", "counterargumentAnalysis",
         "lexicalAnalysis", "sentenceStructureAnalysis"],
     5: ["coherenceAnalysis", "ideaDevelopmentAnalysis", "counterargumentAnalysis",
@@ -466,7 +475,7 @@ def validate_level_coverage(
     rate exceeds threshold). An empty list means full coverage.
 
     `task_type`: when provided and starts with "task1", the
-    `counterargumentAnalysis` field is excluded from the L3+ required
+    `counterargumentAnalysis` field is excluded from the L4+ required
     set (T1 has no counterargument concept).
     """
     if level not in LEVEL_REQUIRED_FIELDS:

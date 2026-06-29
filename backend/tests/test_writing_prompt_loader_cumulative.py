@@ -33,8 +33,10 @@ from services.writing_prompt_loader import WritingPromptLoader
 SECTION_MARKERS = {
     "base":           "# SECTION: BASE 5 SECTIONS",
     "coherence":      "# SECTION: COHERENCE DEEP",
-    "counterargument":"# SECTION: COUNTERARGUMENT IDEA",
-    "lexical":        "# SECTION: LEXICAL SENTENCE",
+    "idea":           "# SECTION: IDEA DEVELOPMENT",
+    "sentence":       "# SECTION: SENTENCE STRUCTURE",
+    "counterargument":"# SECTION: COUNTERARGUMENT (",
+    "lexical":        "# SECTION: LEXICAL (",
     "pedantic":       "# SECTION: PEDANTIC FULL",
 }
 
@@ -51,9 +53,9 @@ def _level_markers(prompt: str) -> set[str]:
 @pytest.mark.parametrize("level,expected", [
     (1, {"base"}),
     (2, {"base", "coherence"}),
-    (3, {"base", "coherence", "counterargument"}),
-    (4, {"base", "coherence", "counterargument", "lexical"}),
-    (5, {"base", "coherence", "counterargument", "lexical", "pedantic"}),
+    (3, {"base", "coherence", "idea", "sentence"}),
+    (4, {"base", "coherence", "idea", "sentence", "counterargument", "lexical"}),
+    (5, {"base", "coherence", "idea", "sentence", "counterargument", "lexical", "pedantic"}),
 ])
 def test_v2_loads_cumulative_section_set_per_level(level, expected):
     """Each level loads exactly its cumulative section set — no
@@ -73,7 +75,7 @@ def test_v2_l1_does_not_include_higher_level_section_modules():
     LEVEL_SECTIONS[1] by accident."""
     loader = WritingPromptLoader(version="v2")
     prompt = loader.load(level=1)
-    for name in ("coherence", "counterargument", "lexical", "pedantic"):
+    for name in ("coherence", "idea", "sentence", "counterargument", "lexical", "pedantic"):
         assert SECTION_MARKERS[name] not in prompt, (
             f"L1 leaked the {name} section header — LEVEL_SECTIONS regression"
         )

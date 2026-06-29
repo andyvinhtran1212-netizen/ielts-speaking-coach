@@ -158,6 +158,10 @@ def create_essay_row_only(*, data: dict, admin_id: str) -> dict:
         "form_of_address":    form_of_address,
         "selected_model":     selected_model,
         "grading_tier":       grading_tier,
+        # Sprint W-L3 — AI pass depth under the instructor tier (standard|deep).
+        # Column default is 'standard'; pass-through keeps non-instructor and
+        # legacy callers unchanged.
+        "instructor_ai_tier": data.get("instructor_ai_tier", "standard"),
         "status":             status,
     }
     # Pull the optional fields through verbatim — None values would
@@ -533,7 +537,7 @@ async def _bg_grade_essay(
         er = (
             supabase_admin.table("writing_essays")
             .select("task_type, prompt_text, prompt_image_url, essay_text, analysis_level, "
-                    "form_of_address, selected_model, grading_tier, student_id")
+                    "form_of_address, selected_model, grading_tier, instructor_ai_tier, student_id")
             .eq("id", essay_id)
             .limit(1)
             .execute()
@@ -570,6 +574,10 @@ async def _bg_grade_essay(
             # Sprint 2.7a — fall back to "standard" if the row predates
             # migration 044 in some replicated/test environment.
             grading_tier=essay.get("grading_tier") or "standard",
+            # Sprint W-L3 — AI pass depth under the instructor tier (teacher's
+            # standard|deep choice). Falls back to "standard" for rows that
+            # predate migration 115.
+            instructor_ai_tier=essay.get("instructor_ai_tier") or "standard",
             history=recurring_patterns,
             trajectory=band_trajectory,
             sentence_structure=sentence_structure,

@@ -73,9 +73,9 @@ outside the JSON** — no preamble, no postamble, no markdown code fences.
 | `mistakeAnalysis` | Required | Required | Required | Required | Required |
 | `coherenceAnalysis` | null | Required | Required | Required | Required |
 | `ideaDevelopmentAnalysis` | null | null | Required | Required | Required |
-| `counterargumentAnalysis` (T2 only) | null | null | Required | Required | Required |
+| `counterargumentAnalysis` (T2 only) | null | null | null | Required | Required |
 | `lexicalAnalysis` | null | null | null | Required | Required |
-| `sentenceStructureAnalysis` | null | null | null | Required | Required |
+| `sentenceStructureAnalysis` | null | null | Required | Required | Required |
 | `recurringPatterns` (Phase 1.5a) | null unless "Lịch sử của học viên này" section present | (same) | (same) | (same) | (same) |
 | `bandTrajectoryAnalysis` (Phase 1.5b) | null unless "Lịch sử của học viên này" section present | (same) | (same) | (same) | (same) |
 

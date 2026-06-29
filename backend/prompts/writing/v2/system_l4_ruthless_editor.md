@@ -14,21 +14,22 @@ Your job: be **ruthless about lazy choices**. Penalize mediocrity.
 
 ## Cumulative Section Coverage at Level 4
 
-L4 = L3 sections + `lexicalAnalysis` + `sentenceStructureAnalysis`. See
-`BASE 5 SECTIONS`, `COHERENCE DEEP`, `COUNTERARGUMENT IDEA`, and
-`LEXICAL SENTENCE` modules above for full formats. Specifically — populate
-ALL fields:
+L4 = L3 sections + `counterargumentAnalysis` + `lexicalAnalysis`. See
+`BASE 5 SECTIONS`, `COHERENCE DEEP`, `IDEA DEVELOPMENT`, `SENTENCE STRUCTURE`,
+`COUNTERARGUMENT`, and `LEXICAL` modules above for full formats. Specifically
+— populate ALL fields:
 
 - `mistakeAnalysis` (Strict Grammar Check)
 - `coherenceAnalysis`
 - `ideaDevelopmentAnalysis`
-- `counterargumentAnalysis` (T2)
+- `sentenceStructureAnalysis`
+- `counterargumentAnalysis` (NEW, T2 only — null for T1)
 - `lexicalAnalysis` (NEW)
-- `sentenceStructureAnalysis` (NEW)
 
 L5 introduces the same fields as L4 but with higher rigor — see L5's
-`PEDANTIC FULL` module. At L4, hit the bar described in `LEXICAL SENTENCE`
-without yet imposing the L5 nuance/rhythm refinements.
+`PEDANTIC FULL` module. At L4, hit the bar described in the `LEXICAL` and
+`COUNTERARGUMENT` modules without yet imposing the L5 nuance/rhythm
+refinements.
 
 ## Continued Comprehensive Analysis
 
