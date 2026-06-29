@@ -940,7 +940,10 @@ def get_essay_with_feedback(essay_id: str) -> dict:
 
     # Admin grade-quality rating (migration 116) — surfaced with the detail so
     # the grade page can show the current rating/note without an extra hop.
-    essay["grade_rating"] = get_grade_rating(essay_id)
+    # Keyed to the CURRENT feedback version: a regrade → new version → no
+    # rating preloaded (the prior run's stars don't leak onto the new grade).
+    cur_version = (essay.get("feedback") or {}).get("version")
+    essay["grade_rating"] = get_grade_rating(essay_id, cur_version)
 
     return essay
 
@@ -948,13 +951,39 @@ def get_essay_with_feedback(essay_id: str) -> dict:
 # ── Admin grade-quality rating (migration 116) ───────────────────────
 
 
-def get_grade_rating(essay_id: str) -> Optional[dict]:
-    """Current admin quality rating for an essay's AI grade, or None."""
+def _current_feedback_run(essay_id: str) -> Optional[dict]:
+    """The current graded run's {version, model_used} via writing_feedback_current
+    (GV-1a view), or None when the essay hasn't been graded."""
+    try:
+        r = (
+            supabase_admin.table("writing_feedback_current")
+            .select("version, model_used")
+            .eq("essay_id", essay_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[grade-rating] feedback lookup failed essay=%s: %s", essay_id, exc)
+        return None
+    return r.data[0] if r.data else None
+
+
+def get_grade_rating(essay_id: str, feedback_version: Optional[int] = None) -> Optional[dict]:
+    """Admin quality rating for the essay's CURRENT graded run, or None. Scoped
+    by feedback_version so a rating only shows for the run it was given on —
+    after a regrade (new version) the grade page shows unrated until re-rated."""
+    if feedback_version is None:
+        run = _current_feedback_run(essay_id)
+        feedback_version = run.get("version") if run else None
+    if feedback_version is None:
+        return None
     try:
         r = (
             supabase_admin.table("writing_grade_ratings")
-            .select("rating, note, grading_model, analysis_level, grading_tier, rated_by, rated_at")
+            .select("rating, note, grading_model, analysis_level, grading_tier, "
+                    "feedback_version, rated_by, rated_at")
             .eq("essay_id", essay_id)
+            .eq("feedback_version", feedback_version)
             .limit(1)
             .execute()
         )
@@ -965,12 +994,18 @@ def get_grade_rating(essay_id: str) -> Optional[dict]:
 
 
 def upsert_grade_rating(*, essay_id: str, rating: int, note: str, rated_by: str) -> dict:
-    """Save (or overwrite) the admin quality rating for an essay's AI grade.
-    Snapshots the model/level/tier that produced the grade so later analytics
-    can attribute quality to a model even after a regrade. One row per essay."""
+    """Save (or overwrite) the admin quality rating for an essay's CURRENT graded
+    run. Snapshots the run's version + the model that ACTUALLY produced it
+    (writing_feedback.model_used — Deep/Instructor can differ from the requested
+    selected_model) so /grade-ratings/summary attributes quality to the real
+    grader. One rating per (essay, run)."""
+    run = _current_feedback_run(essay_id)
+    if not run or run.get("version") is None:
+        raise HTTPException(409, "Bài chưa được chấm — không thể đánh giá chất lượng.")
+
     er = (
         supabase_admin.table("writing_essays")
-        .select("selected_model, analysis_level, grading_tier")
+        .select("analysis_level, grading_tier")
         .eq("id", essay_id)
         .limit(1)
         .execute()
@@ -980,19 +1015,20 @@ def upsert_grade_rating(*, essay_id: str, rating: int, note: str, rated_by: str)
     essay = er.data[0]
 
     payload = {
-        "essay_id":       essay_id,
-        "grading_model":  essay.get("selected_model") or "gemini-2.5-pro",
-        "analysis_level": essay.get("analysis_level"),
-        "grading_tier":   essay.get("grading_tier"),
-        "rating":         rating,
-        "note":           note or "",
-        "rated_by":       rated_by,
-        "rated_at":       _now(),
+        "essay_id":         essay_id,
+        "feedback_version": run["version"],
+        "grading_model":    run.get("model_used") or "gemini-2.5-pro",
+        "analysis_level":   essay.get("analysis_level"),
+        "grading_tier":     essay.get("grading_tier"),
+        "rating":           rating,
+        "note":             note or "",
+        "rated_by":         rated_by,
+        "rated_at":         _now(),
     }
     try:
         r = (
             supabase_admin.table("writing_grade_ratings")
-            .upsert(payload, on_conflict="essay_id")
+            .upsert(payload, on_conflict="essay_id,feedback_version")
             .execute()
         )
     except Exception as exc:

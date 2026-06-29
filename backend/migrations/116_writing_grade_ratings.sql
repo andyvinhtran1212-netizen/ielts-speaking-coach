@@ -6,22 +6,30 @@
 -- "avg rating by model / by level" and feed model/prompt upgrades — the whole
 -- point of the multi-model rollout (see docs/research/MULTI_MODEL_WRITING_GRADING.md).
 --
--- One CURRENT rating per essay (UNIQUE essay_id) → the endpoint upserts; a
--- re-rating overwrites. The snapshot columns are filled from writing_essays at
--- rate time so a later regrade with a different model doesn't rewrite history's
--- attribution (the rating is about the grade the admin actually saw).
+-- Keyed to the GRADED RUN, not just the essay: `feedback_version` is the
+-- writing_feedback.version the rating is about. A regrade advances
+-- current_version to a NEW row → the old rating no longer matches the current
+-- run, so the grade page shows an unrated state for the new grade (instead of
+-- mis-preloading the prior run's stars). UNIQUE(essay_id, feedback_version) →
+-- the endpoint upserts one rating per (essay, run).
+--
+-- `grading_model` snapshots writing_feedback.model_used — the model that
+-- ACTUALLY produced the run (Deep/Instructor can differ from the requested
+-- writing_essays.selected_model) — so /grade-ratings/summary attributes quality
+-- to the real grader.
 
 CREATE TABLE IF NOT EXISTS writing_grade_ratings (
-    id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    essay_id       uuid NOT NULL REFERENCES writing_essays(id) ON DELETE CASCADE,
-    grading_model  text NOT NULL,                    -- snapshot of writing_essays.selected_model
-    analysis_level int,                              -- snapshot
-    grading_tier   text,                             -- snapshot
-    rating         int  NOT NULL CHECK (rating BETWEEN 1 AND 5),
-    note           text NOT NULL DEFAULT '',
-    rated_by       uuid,                             -- admin user id (nullable: backfill/scripts)
-    rated_at       timestamptz NOT NULL DEFAULT now(),
-    UNIQUE (essay_id)
+    id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    essay_id         uuid NOT NULL REFERENCES writing_essays(id) ON DELETE CASCADE,
+    feedback_version int  NOT NULL,                  -- writing_feedback.version being rated
+    grading_model    text NOT NULL,                  -- snapshot of writing_feedback.model_used (actual grader)
+    analysis_level   int,                            -- snapshot
+    grading_tier     text,                           -- snapshot
+    rating           int  NOT NULL CHECK (rating BETWEEN 1 AND 5),
+    note             text NOT NULL DEFAULT '',
+    rated_by         uuid,                            -- admin user id (nullable: backfill/scripts)
+    rated_at         timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (essay_id, feedback_version)
 );
 
 -- Analytics: "avg rating + count grouped by model" (the upgrade-factoring query).
