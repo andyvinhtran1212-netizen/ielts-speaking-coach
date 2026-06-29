@@ -11,10 +11,9 @@ These tests pin:
     Pydantic-required, so nothing to validate at L1)
   - L2 requires `coherenceAnalysis`
   - L3 requires `coherenceAnalysis` + `ideaDevelopmentAnalysis` +
-    `counterargumentAnalysis`, but T1 essays exclude
-    `counterargumentAnalysis`
-  - L4 + L5 require all of the L3 set + `lexicalAnalysis` +
-    `sentenceStructureAnalysis`
+    `sentenceStructureAnalysis` (Sprint W-L3: counterargument moved to L4)
+  - L4 + L5 require all of the L3 set + `counterargumentAnalysis` +
+    `lexicalAnalysis` (counterargument is T2-only — T1 excludes it)
   - Empty list / empty dict count as missing (Gemini emitted the key
     but didn't fill it)
   - The function NEVER raises — it returns the missing-list and logs
@@ -124,7 +123,7 @@ def test_level_required_fields_constant_shape():
     assert LEVEL_REQUIRED_FIELDS[1] == []
     assert LEVEL_REQUIRED_FIELDS[2] == ["coherenceAnalysis"]
     assert set(LEVEL_REQUIRED_FIELDS[3]) == {
-        "coherenceAnalysis", "ideaDevelopmentAnalysis", "counterargumentAnalysis",
+        "coherenceAnalysis", "ideaDevelopmentAnalysis", "sentenceStructureAnalysis",
     }
     assert set(LEVEL_REQUIRED_FIELDS[4]) == {
         "coherenceAnalysis", "ideaDevelopmentAnalysis", "counterargumentAnalysis",
@@ -183,37 +182,42 @@ def test_l2_empty_list_counts_as_missing(caplog):
 # ── L3 — counterargument is T2-only ───────────────────────────────────
 
 
-def test_l3_t2_essay_full_coverage_no_warning():
-    fb = _build_feedback(
-        coherenceAnalysis=[_coherence_item()],
-        ideaDevelopmentAnalysis=[_idea_item()],
-        counterargumentAnalysis=_counter(),
-    )
-    missing = validate_level_coverage(fb, level=3, task_type="task2")
-    assert missing == []
+_SENTENCE = {"sentenceUpgrades": [{"original": "x", "rewritten": "y", "explanation": "..."}]}
 
 
-def test_l3_t1_excludes_counterargument():
-    """Task 1 essays at L3+ rightfully have counterargumentAnalysis
-    None — there's no counterargument concept in data description.
-    Validator must NOT flag this as missing."""
-    fb = _build_feedback(
-        coherenceAnalysis=[_coherence_item()],
-        ideaDevelopmentAnalysis=[_idea_item()],
-        # counterargumentAnalysis stays None (default)
-    )
-    missing = validate_level_coverage(fb, level=3, task_type="task1_academic")
-    assert missing == []
+def test_l3_full_coverage_no_warning():
+    """Sprint W-L3: L3 requires coherence + idea + SENTENCE-structure
+    (counterargument moved to L4). Applies to both T1 and T2."""
+    for task in ("task2", "task1_academic"):
+        fb = _build_feedback(
+            coherenceAnalysis=[_coherence_item()],
+            ideaDevelopmentAnalysis=[_idea_item()],
+            sentenceStructureAnalysis=_SENTENCE,
+        )
+        missing = validate_level_coverage(fb, level=3, task_type=task)
+        assert missing == [], f"{task}: unexpected missing {missing}"
 
 
-def test_l3_t2_missing_counterargument_warns():
-    """Same essay at L3 T2 — without counterargumentAnalysis, must warn."""
+def test_l3_missing_sentence_structure_warns():
+    """L3 without sentenceStructureAnalysis must warn — it's the new L3 section."""
     fb = _build_feedback(
         coherenceAnalysis=[_coherence_item()],
         ideaDevelopmentAnalysis=[_idea_item()],
     )
     missing = validate_level_coverage(fb, level=3, task_type="task2")
-    assert "counterargumentAnalysis" in missing
+    assert "sentenceStructureAnalysis" in missing
+
+
+def test_l3_does_not_require_counterargument():
+    """counterargument is L4+ now — its absence at L3 must NOT warn (T2 either)."""
+    fb = _build_feedback(
+        coherenceAnalysis=[_coherence_item()],
+        ideaDevelopmentAnalysis=[_idea_item()],
+        sentenceStructureAnalysis=_SENTENCE,
+        # counterargumentAnalysis stays None
+    )
+    missing = validate_level_coverage(fb, level=3, task_type="task2")
+    assert "counterargumentAnalysis" not in missing
 
 
 # ── L4 — full cumulative ──────────────────────────────────────────────
@@ -230,6 +234,32 @@ def test_l4_t2_full_coverage_no_warning():
     )
     missing = validate_level_coverage(fb, level=4, task_type="task2")
     assert missing == []
+
+
+def test_l4_t1_excludes_counterargument():
+    """Sprint W-L3: counterargument is now an L4 field, T2-only. A Task 1
+    essay at L4 with counterargumentAnalysis=None must NOT warn for it."""
+    fb = _build_feedback(
+        coherenceAnalysis=[_coherence_item()],
+        ideaDevelopmentAnalysis=[_idea_item()],
+        lexicalAnalysis=_lex(),
+        sentenceStructureAnalysis=_SENTENCE,
+        # counterargumentAnalysis stays None
+    )
+    missing = validate_level_coverage(fb, level=4, task_type="task1_academic")
+    assert missing == []
+
+
+def test_l4_t2_missing_counterargument_warns():
+    """L4 T2 without counterargumentAnalysis must warn (it's an L4 field)."""
+    fb = _build_feedback(
+        coherenceAnalysis=[_coherence_item()],
+        ideaDevelopmentAnalysis=[_idea_item()],
+        lexicalAnalysis=_lex(),
+        sentenceStructureAnalysis=_SENTENCE,
+    )
+    missing = validate_level_coverage(fb, level=4, task_type="task2")
+    assert "counterargumentAnalysis" in missing
 
 
 def test_l4_missing_lexical_and_sentence_warns():

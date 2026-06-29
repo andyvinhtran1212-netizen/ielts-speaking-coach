@@ -448,7 +448,9 @@ class GradingResult(BaseModel):
 LEVEL_REQUIRED_FIELDS: dict[int, list[str]] = {
     1: [],
     2: ["coherenceAnalysis"],
-    3: ["coherenceAnalysis", "ideaDevelopmentAnalysis", "counterargumentAnalysis"],
+    # Sprint W-L3 — L3 swapped counterargument → sentence-structure; mirrors
+    # writing_prompt_loader.LEVEL_SECTIONS. counterargumentAnalysis moves to L4.
+    3: ["coherenceAnalysis", "ideaDevelopmentAnalysis", "sentenceStructureAnalysis"],
     4: ["coherenceAnalysis", "ideaDevelopmentAnalysis", "counterargumentAnalysis",
         "lexicalAnalysis", "sentenceStructureAnalysis"],
     5: ["coherenceAnalysis", "ideaDevelopmentAnalysis", "counterargumentAnalysis",
@@ -473,7 +475,7 @@ def validate_level_coverage(
     rate exceeds threshold). An empty list means full coverage.
 
     `task_type`: when provided and starts with "task1", the
-    `counterargumentAnalysis` field is excluded from the L3+ required
+    `counterargumentAnalysis` field is excluded from the L4+ required
     set (T1 has no counterargument concept).
     """
     if level not in LEVEL_REQUIRED_FIELDS:
