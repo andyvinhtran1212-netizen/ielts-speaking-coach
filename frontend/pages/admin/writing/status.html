@@ -71,6 +71,10 @@
 
       <p id="eta-text" class="aw-status__eta mt-3 text-xs">ETA: tính toán…</p>
 
+      <!-- Sprint W-MM — grading retry ledger: visible when the job has been
+           retried or has recorded failures (reaper requeue / model fallback). -->
+      <p id="retry-info" class="aw-status__retry mt-2 text-xs hidden" style="opacity:0.8;"></p>
+
       <div id="error-box" class="aw-alert aw-alert--error hidden mt-5">
         <p class="text-sm font-medium">Có lỗi khi chấm bài</p>
         <p id="error-msg" class="mt-1 text-xs" style="opacity:0.85;"></p>
@@ -158,6 +162,28 @@
       if (s === 'failed' && payload.error_message) {
         document.getElementById('error-box').classList.remove('hidden');
         document.getElementById('error-msg').textContent = payload.error_message;
+      }
+
+      // Sprint W-MM — retry ledger. Show when the grade has been retried at the
+      // job level or has recorded failures (reaper requeue / model fallback), so
+      // the admin sees it self-recovered instead of guessing why it's slow.
+      var attempts = payload.attempt_count || 0;
+      var maxA = payload.max_attempts || 3;
+      var fails = payload.attempt_failures || 0;
+      var retryEl = document.getElementById('retry-info');
+      if (retryEl) {
+        if (fails > 0 || attempts > 1) {
+          var msg = '🔄 Lần chấm ' + Math.max(attempts, 1) + '/' + maxA;
+          if (fails > 0) msg += ' · ' + fails + ' lần lỗi đã ghi nhận';
+          var lf = payload.last_failure;
+          if (lf && lf.model) {
+            msg += ' (gần nhất: ' + (lf.kind || 'lỗi') + ' trên ' + lf.model + ')';
+          }
+          retryEl.textContent = msg;
+          retryEl.classList.remove('hidden');
+        } else {
+          retryEl.classList.add('hidden');
+        }
       }
 
       // Show "view result" CTA when graded — Sprint W3 will provide /grade page

@@ -769,6 +769,38 @@ def test_get_essay_status_returns_eta_for_pending():
     assert out["status"] == "pending"
     assert out["eta_seconds"] == 90  # L5+pro → 90s
     assert out["error_message"] is None
+    # No job row → retry ledger defaults (Sprint W-MM).
+    assert out["attempt_count"] == 0
+    assert out["attempt_failures"] == 0
+    assert out["last_failure"] is None
+
+
+def test_get_essay_status_includes_retry_ledger():
+    """Sprint W-MM: the status payload surfaces the grading-job retry ledger
+    (attempt_count / failures / last failure) so the admin status page can show
+    'đã thử lại N lần' and which model failed."""
+    failure = {"attempt": 1, "model": "gemini-2.5-pro", "kind": "StuckTimeout",
+               "message": "...", "at": "2026-06-29T15:29:00Z"}
+    fake = _FakeSupabase(responses={
+        ("writing_essays", "select"): [{
+            "id":             _ESSAY_ID,
+            "status":         "grading",
+            "error_message":  None,
+            "analysis_level": 4,
+            "selected_model": "gemini-2.5-pro",
+            "grading_tier":   "standard",
+            "created_at":     "2026-06-29T00:00:00Z",
+        }],
+        ("writing_jobs", "select"): [{
+            "attempt_count": 2, "max_attempts": 3, "error_log": [failure],
+        }],
+    })
+    with patch.object(essay_service, "supabase_admin", fake):
+        out = essay_service.get_essay_status(_ESSAY_ID)
+    assert out["attempt_count"] == 2
+    assert out["max_attempts"] == 3
+    assert out["attempt_failures"] == 1
+    assert out["last_failure"] == failure
 
 
 # ── get_essay_render_context (W3 Phase 1) ────────────────────────────

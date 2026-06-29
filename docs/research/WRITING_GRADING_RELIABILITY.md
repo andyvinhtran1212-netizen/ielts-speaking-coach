@@ -106,10 +106,17 @@ actually graded.
 - `backend/tests/test_essay_service.py` — fallback-policy, attempt-counting,
   requeue/terminal, and reaper tests.
 
-## 5. Follow-ups (not in this patch)
+## 5. Surfacing in the admin UI
 
-- Surface `attempt_count` + `error_log` on the admin essay-status page
-  (`frontend/pages/admin/writing/status.html`) so failures are visible in-UI.
+`get_essay_status` returns the retry ledger (`attempt_count`, `max_attempts`,
+`attempt_failures`, `last_failure`) and the status page
+(`frontend/pages/admin/writing/status.html`) shows
+"🔄 Lần chấm N/M · K lần lỗi đã ghi nhận (gần nhất: <kind> trên <model>)" once a
+grade has been retried at the job level — so an admin sees the grade
+self-recovered instead of guessing why it's slow.
+
+## 6. Follow-ups (not in this patch)
+
 - Once enough `error_log` data accrues, compute per-model failure rates and
   revisit `WRITING_FALLBACK_MODEL` / the level-aware default (ties into the
   grade-rating quality work, PR #619).

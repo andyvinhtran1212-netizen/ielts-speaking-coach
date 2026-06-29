@@ -1437,6 +1437,11 @@ def get_essay_status(essay_id: str) -> dict:
     Sprint 2.7b: also returns `grading_tier` so the polling page can
     show tier-aware messaging (e.g. Deep tier rotates Pass 1/2/3
     progress hints over the longer 3-5 minute wait).
+
+    Sprint W-MM: also returns the grading-job retry ledger
+    (`attempt_count`, `max_attempts`, `attempt_failures`, `last_failure`) so the
+    status page can show "đã thử lại N lần" and which model failed — the
+    per-essay reliability data persisted by the reaper / requeue path.
     """
     er = (
         supabase_admin.table("writing_essays")
@@ -1459,13 +1464,43 @@ def get_essay_status(essay_id: str) -> dict:
         selected_model=essay["selected_model"],
         grading_tier=grading_tier,
     )
+
+    # Retry ledger from the most-recent grading job (Sprint W-MM). Best-effort —
+    # the status payload must still return if the job read fails.
+    attempt_count = 0
+    max_attempts = settings.WRITING_GRADING_MAX_ATTEMPTS
+    error_log: list = []
+    try:
+        jr = (
+            supabase_admin.table("writing_jobs")
+            .select("attempt_count, max_attempts, error_log")
+            .eq("essay_id", essay_id)
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute()
+        ).data
+        if jr:
+            attempt_count = int(jr[0].get("attempt_count") or 0)
+            max_attempts = int(jr[0].get("max_attempts") or max_attempts)
+            log = jr[0].get("error_log")
+            error_log = log if isinstance(log, list) else []
+    except Exception as exc:  # noqa: BLE001
+        logger.error("[status %s] job ledger read failed: %s", essay_id, exc)
+
+    last_failure = error_log[-1] if error_log else None
+
     return {
-        "essay_id":      essay["id"],
-        "status":        essay["status"],
-        "error_message": essay.get("error_message"),
-        "eta_seconds":   eta,
-        "grading_tier":  grading_tier,
-        "created_at":    essay["created_at"],
+        "essay_id":         essay["id"],
+        "status":           essay["status"],
+        "error_message":    essay.get("error_message"),
+        "eta_seconds":      eta,
+        "grading_tier":     grading_tier,
+        "created_at":       essay["created_at"],
+        # Retry ledger
+        "attempt_count":    attempt_count,
+        "max_attempts":     max_attempts,
+        "attempt_failures": len(error_log),
+        "last_failure":     last_failure,
     }
 
 
