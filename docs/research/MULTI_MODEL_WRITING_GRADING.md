@@ -115,9 +115,18 @@ multi-model failure where the rewrite implies Band 8 but the score says 6).
   sum).
 
 **Level/tier interplay (already in the codebase):**
-- The L1–L5 **level** decides *which* C/B sections exist (e.g. L1 = mistakes
-  only → only Pass C runs; L5 = everything). Low levels get *cheaper* simply
-  because fewer passes fire.
+- **Pass A always runs, at every level.** The band score, `criteriaFeedback`,
+  `keyTakeaways` and `overallBandScoreSummary` are *always-on* required fields
+  in `WritingFeedback` — `LEVEL_REQUIRED_FIELDS[1]` is empty only because L1
+  adds no *optional* sections, not because L1 skips the score. Skipping Pass A
+  for any level would produce a `WritingFeedback` that fails validation /
+  omits the band students need. The **level gates only which optional B/C
+  subsections are requested**, never the judgment pass.
+- So the level dial works like this: **L1** = Pass A + the *mistakes* slice of
+  Pass C only; **L3** adds idea-development + sentence-structure; **L5** = all
+  optional B/C sections. Low levels are *cheaper* because Pass C/B carry fewer
+  optional sections (and some skip Pass B entirely) — **not** because the
+  frontier judgment pass is skipped.
 - The **Deep tier** maps naturally: Deep = "use the mid/frontier model for
   Pass C too, and add the refine+rewrite passes." Standard = "cheap Pass C."
   So tier becomes a **model-strength dial**, which is more meaningful than
