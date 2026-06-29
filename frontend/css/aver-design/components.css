@@ -682,7 +682,7 @@
 .shell {
   position: relative;
   z-index: 1;
-  max-width: 1180px;
+  max-width: 1180px;  /* == var(--av-width-page); literal pinned by chrome-unification-canonical.test.mjs */
   margin: 0 auto;
   padding: var(--av-space-6) var(--av-space-8) var(--av-space-24);
 }

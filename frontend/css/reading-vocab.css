@@ -7,9 +7,12 @@
  * the popover arrow which inherits the surface token. */
 
 /* ── Shared shell + states ─────────────────────────────────────────── */
+/* Width audit 2026-06-29: rv-shell no longer caps to its own 1040px column.
+   Every reading page wraps it in <div class="shell"> (canonical 1180px page
+   width + side gutter), so rv-shell now only provides the vertical flex
+   stack — content fills the same 1180px column as Listening/Home, removing
+   the nested 1040-inside-1180 double-container and its doubled side padding. */
 .rv-shell {
-  max-width: 1040px; margin: 0 auto;
-  padding: 0 var(--av-space-6);
   display: flex; flex-direction: column; gap: var(--av-space-6);
 }
 .rv-header h1 { font-size: var(--av-fs-3xl); margin-bottom: var(--av-space-2); }

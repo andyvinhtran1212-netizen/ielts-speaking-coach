@@ -100,6 +100,16 @@
   --av-chrome-to-content-single:   88px;
   --av-secondary-nav-height:       48px;
 
+  /* Canonical page-content widths — width audit 2026-06-29.
+   * Two official horizontal widths for student-facing pages, replacing the
+   * ad-hoc spread (672/768/896/1024/1040/1152/1180/1280 from scattered
+   * Tailwind max-w-* literals). Consume via the .av-w-page / .av-w-read
+   * container utilities at the end of this file, not raw max-width.
+   *   - page: dashboards, lists, grids, exam/test runners. == legacy .shell.
+   *   - read: single-column long-form (articles, result/profile/practice). */
+  --av-width-page: 1180px;
+  --av-width-read:  760px;
+
   /* Border radius — discrete steps */
   --av-radius-sm:   4px;
   --av-radius-md:   8px;
@@ -379,4 +389,26 @@ html.theme-loading * {
   transition: none !important;
   animation-duration: 0s !important;
   animation-delay: 0s !important;
+}
+
+/* ── Canonical page-content containers — width audit 2026-06-29 ─────────
+   Two official horizontal widths. Defined HERE (not components.css) because
+   tokens.css is the only design-system file every student page links — some
+   Tailwind pages load ds.css but not components.css, and vice-versa.
+   These set ONLY the horizontal box (max-width + centering + side gutter)
+   so callers keep their own vertical padding (py-*, h-*). They replace
+   scattered Tailwind `max-w-* mx-auto px-*` literals so every student page
+   snaps to one of two widths.
+     .av-w-page — 1180px: dashboards, lists, grids, exam/test runners
+                  (functionally == .shell, for pages that never used it).
+     .av-w-read —  760px: single-column long-form (grammar articles,
+                  result, profile, practice, flashcard study). */
+.av-w-page,
+.av-w-read { margin-inline: auto; width: 100%; }
+.av-w-page { max-width: var(--av-width-page); padding-inline: var(--av-space-8); }
+.av-w-read { max-width: var(--av-width-read); padding-inline: var(--av-space-6); }
+
+@media (max-width: 720px) {
+  .av-w-page,
+  .av-w-read { padding-inline: var(--av-space-4); }
 }

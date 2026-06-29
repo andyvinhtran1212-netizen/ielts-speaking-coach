@@ -11,7 +11,8 @@
  * Fonts (Fraunces / Hanken Grotesk / DM Mono) are linked per-page (additive).
  */
 
-.va-wrap { max-width: 1060px; margin: 0 auto; padding: var(--av-space-8) var(--av-space-4) var(--av-space-24); }
+/* Width audit 2026-06-29: single-column vocab article → canonical read width. */
+.va-wrap { max-width: var(--av-width-read); margin: 0 auto; padding: var(--av-space-8) var(--av-space-6) var(--av-space-24); }
 .va-serif { font-family: 'Fraunces', Georgia, serif; }
 .va-mono  { font-family: 'DM Mono', ui-monospace, monospace; }
 
