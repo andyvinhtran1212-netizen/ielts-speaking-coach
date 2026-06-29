@@ -191,22 +191,18 @@ def format_report(comparisons: list[EssayComparison], summary: dict,
 # ── Essay sources + runner (real IO — not unit-tested) ────────────────
 
 
-def fetch_essays_from_db(n: int) -> list[dict]:
-    """Pull the N most recent real essays (with text) from writing_essays so
-    the harness measures on production data, not synthetic fixtures. Returns
-    the same shape as the fixtures file. Real grading happens fresh at the
-    harness's --level (the stored grade is ignored — this is a model A/B)."""
+def _query_essays(task_types: Optional[list[str]], limit: int) -> list[dict]:
+    """Most-recent essays (with text), optionally restricted to task_types."""
     from database import supabase_admin
-    r = (
+    q = (
         supabase_admin.table("writing_essays")
         .select("id, task_type, prompt_text, essay_text")
         .not_.is_("essay_text", "null")
         .not_.is_("prompt_text", "null")
-        .order("created_at", desc=True)
-        .limit(n)
-        .execute()
     )
-    rows = r.data or []
+    if task_types:
+        q = q.in_("task_type", task_types)
+    rows = q.order("created_at", desc=True).limit(limit).execute().data or []
     return [
         {
             "id": str(e["id"]),
@@ -217,6 +213,33 @@ def fetch_essays_from_db(n: int) -> list[dict]:
         for e in rows
         if e.get("essay_text") and e.get("prompt_text")
     ]
+
+
+def fetch_essays_from_db(n: int, *, balance_task_type: bool = False) -> list[dict]:
+    """Pull the N most recent real essays (with text) from writing_essays so
+    the harness measures on production data, not synthetic fixtures. Returns
+    the same shape as the fixtures file. Real grading happens fresh at the
+    harness's level (the stored grade is ignored — this is a model A/B).
+
+    `balance_task_type=True` splits the quota ~half Task 2 / half Task 1
+    (academic + general) so the run covers both task families even when recent
+    submissions skew to one — falls back to topping up from the other family
+    if one side is short."""
+    if not balance_task_type:
+        return _query_essays(None, n)
+
+    half = n // 2
+    t2 = _query_essays(["task2"], n - half)
+    t1 = _query_essays(["task1_academic", "task1_general"], half)
+    combined = t2 + t1
+    if len(combined) < n:  # one family short — top up from anything recent
+        seen = {e["id"] for e in combined}
+        for e in _query_essays(None, n * 2):
+            if e["id"] not in seen:
+                combined.append(e)
+                if len(combined) >= n:
+                    break
+    return combined[:n]
 
 
 async def _grade_one(essay: dict, model: str, level: int):
@@ -260,29 +283,43 @@ def main(argv: Optional[list[str]] = None) -> int:
                     help="instead of --essays, grade the N most recent real essays (with text) from writing_essays")
     ap.add_argument("--baseline", default="gemini-2.5-pro")
     ap.add_argument("--candidate", default="gemini-3.5-flash")
-    ap.add_argument("--level", type=int, default=3)
+    ap.add_argument("--level", type=int, default=3, help="single level (used if --levels absent)")
+    ap.add_argument("--levels", default=None,
+                    help="comma list, e.g. 3,4 — run + report at each level on the same essays")
+    ap.add_argument("--balance-task-type", action="store_true", dest="balance",
+                    help="with --from-db: split the quota ~half Task 2 / half Task 1")
     ap.add_argument("--out", default=None, help="optional path to write the JSON report")
     args = ap.parse_args(argv)
 
     if args.from_db:
-        essays = fetch_essays_from_db(args.from_db)
-        print(f"[harness] loaded {len(essays)} essay(s) from writing_essays", file=sys.stderr)
+        essays = fetch_essays_from_db(args.from_db, balance_task_type=args.balance)
+        mix = {}
+        for e in essays:
+            mix[e["task_type"]] = mix.get(e["task_type"], 0) + 1
+        print(f"[harness] loaded {len(essays)} essay(s) from writing_essays — task mix: {mix}",
+              file=sys.stderr)
     elif args.essays:
         essays = json.loads(Path(args.essays).read_text(encoding="utf-8"))
     else:
         ap.error("provide --essays <file> or --from-db <N>")
-    comparisons = asyncio.run(run_harness(
-        essays, baseline_model=args.baseline,
-        candidate_model=args.candidate, level=args.level,
-    ))
-    summary = aggregate(comparisons)
-    print(format_report(comparisons, summary, args.baseline, args.candidate))
+
+    levels = [int(x) for x in args.levels.split(",")] if args.levels else [args.level]
+
+    per_level: dict = {}
+    for lvl in levels:
+        comparisons = asyncio.run(run_harness(
+            essays, baseline_model=args.baseline,
+            candidate_model=args.candidate, level=lvl,
+        ))
+        summary = aggregate(comparisons)
+        print(f"\n## Level {lvl}\n")
+        print(format_report(comparisons, summary, args.baseline, args.candidate))
+        per_level[lvl] = {"summary": summary, "comparisons": [asdict(c) for c in comparisons]}
 
     if args.out:
         Path(args.out).write_text(json.dumps({
-            "baseline": args.baseline, "candidate": args.candidate, "level": args.level,
-            "summary": summary,
-            "comparisons": [asdict(c) for c in comparisons],
+            "baseline": args.baseline, "candidate": args.candidate,
+            "levels": levels, "by_level": per_level,
         }, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"\n[harness] wrote {args.out}", file=sys.stderr)
     return 0
