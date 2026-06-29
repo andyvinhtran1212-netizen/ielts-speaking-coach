@@ -25,16 +25,29 @@ from scripts.calibration_harness import (
 )
 
 
-def _feedback(band: float, crit: int = 6) -> WritingFeedback:
+def _crit_for(band: float) -> tuple[int, int, int, int]:
+    """Four integer criterion bands whose IELTS-rounded mean == band, so the
+    harness's overall_from_criteria-derived band matches the intended value
+    (compare_gradings now derives the band from criteria, like production)."""
+    base = int(band)
+    if abs(band - base - 0.5) < 1e-9:
+        return (base + 1, base + 1, base, base)   # mean = base + 0.5
+    return (base, base, base, base)
+
+
+def _feedback(band: float, crit: Optional[int] = None) -> WritingFeedback:
+    # crit=None → derive criteria from band; crit=int → all four = crit
+    # (used to drive a specific per-criterion delta).
+    b = (crit, crit, crit, crit) if crit is not None else _crit_for(band)
     return WritingFeedback(
         overallBandScore=band,
         overallBandScoreSummary="...",
         keyTakeaways=KeyTakeaways(strengths=["s"], areasForImprovement=["a"]),
         criteriaFeedback=CriteriaFeedbackBundle(
-            mainCriterion=CriteriaFeedback(title="TR", explanation="x", feedback="y", bandScore=crit),
-            coherenceCohesion=CriteriaFeedback(title="CC", explanation="x", feedback="y", bandScore=crit),
-            lexicalResource=CriteriaFeedback(title="LR", explanation="x", feedback="y", bandScore=crit),
-            grammaticalRange=CriteriaFeedback(title="GRA", explanation="x", feedback="y", bandScore=crit),
+            mainCriterion=CriteriaFeedback(title="TR", explanation="x", feedback="y", bandScore=b[0]),
+            coherenceCohesion=CriteriaFeedback(title="CC", explanation="x", feedback="y", bandScore=b[1]),
+            lexicalResource=CriteriaFeedback(title="LR", explanation="x", feedback="y", bandScore=b[2]),
+            grammaticalRange=CriteriaFeedback(title="GRA", explanation="x", feedback="y", bandScore=b[3]),
         ),
         mistakeAnalysis=[],
         aiContentAnalysis=AIContentAnalysis(likelihood=5, explanation="x"),
@@ -42,7 +55,7 @@ def _feedback(band: float, crit: int = 6) -> WritingFeedback:
     )
 
 
-def _result(band: float, *, crit: int = 6, cost: float | None = 0.05,
+def _result(band: float, *, crit: Optional[int] = None, cost: float | None = 0.05,
             latency: int = 1000, model: str = "m") -> GradingResult:
     return GradingResult(
         feedback=_feedback(band, crit),
@@ -83,6 +96,20 @@ def test_compare_criteria_delta():
 def test_compare_cost_ratio_none_when_baseline_missing():
     c = compare_gradings("e5", _result(6.5, cost=None), _result(6.5, cost=0.02), level=1)
     assert c.cost_ratio is None
+
+
+def test_compare_uses_criteria_derived_band_not_raw():
+    """Production overwrites the model's raw overallBandScore with
+    overall_from_criteria(4 criteria) before persisting. The harness must
+    compare THAT. Here both essays have raw bands 7.0 vs 6.0 but identical
+    criteria (all 6) → delivered band 6.0 vs 6.0 → delta 0, NOT 1.0."""
+    base = _result(7.0, crit=6)   # raw 7.0, criteria all 6 → delivered 6.0
+    cand = _result(6.0, crit=6)   # raw 6.0, criteria all 6 → delivered 6.0
+    c = compare_gradings("e6", base, cand, level=1)
+    assert c.band_baseline == 6.0
+    assert c.band_candidate == 6.0
+    assert c.band_delta == 0.0       # would be 1.0 if it compared raw scores
+    assert c.within_threshold is True
 
 
 # ── aggregate ─────────────────────────────────────────────────────────

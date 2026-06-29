@@ -78,6 +78,21 @@ def _criterion_band(feedback, name: str) -> Optional[int]:
     return getattr(crit, "bandScore", None) if crit else None
 
 
+def _delivered_band(feedback) -> float:
+    """The band the student would actually SEE. Production
+    (essay_service._bg_grade_essay) overwrites the model's self-reported
+    overallBandScore with overall_from_criteria(4 criteria) before persisting,
+    so the harness must compare that same derived value — not Gemini's raw
+    overallBandScore — or it would flag (dis)agreement at .25/.75 boundaries
+    that wouldn't exist in the delivered result. Falls back to the raw score
+    only if a criterion band is somehow missing."""
+    from services.band_rounding import overall_from_criteria
+    bands = [_criterion_band(feedback, n) for n in _CRITERIA]
+    if any(b is None for b in bands):
+        return float(feedback.overallBandScore)
+    return overall_from_criteria(*bands)
+
+
 def compare_gradings(
     essay_id: str,
     baseline: GradingResult,
@@ -87,8 +102,8 @@ def compare_gradings(
     task_type: Optional[str] = None,
 ) -> EssayComparison:
     """Compare one essay's baseline vs candidate grading. Pure — no IO."""
-    b_band = float(baseline.feedback.overallBandScore)
-    c_band = float(candidate.feedback.overallBandScore)
+    b_band = _delivered_band(baseline.feedback)
+    c_band = _delivered_band(candidate.feedback)
     delta = round(abs(b_band - c_band), 2)
 
     criteria_delta: dict = {}

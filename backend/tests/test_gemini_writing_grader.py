@@ -210,6 +210,29 @@ def test_calculate_cost_gemini_3_5_flash(grader):
     assert abs(cost - expected) < 1e-6
 
 
+def test_usage_metadata_folds_thinking_into_output(grader):
+    """Gemini thinking tokens are billed as output but reported separately —
+    _usage_from_metadata folds thoughts_token_count into output_tokens so cost
+    isn't understated for thinking-by-default models (e.g. 3.5 Flash)."""
+    from types import SimpleNamespace
+    um = SimpleNamespace(prompt_token_count=3000, candidates_token_count=2000,
+                         thoughts_token_count=500)
+    usage = grader._usage_from_metadata(um)
+    assert usage["input_tokens"] == 3000
+    assert usage["output_tokens"] == 2500      # 2000 candidates + 500 thinking
+    assert usage["thinking_tokens"] == 500
+
+
+def test_usage_metadata_no_thinking_field(grader):
+    """No thinking (field absent or None) → output = candidates; None → {}."""
+    from types import SimpleNamespace
+    um = SimpleNamespace(prompt_token_count=1000, candidates_token_count=800)
+    usage = grader._usage_from_metadata(um)
+    assert usage["output_tokens"] == 800
+    assert usage["thinking_tokens"] == 0
+    assert grader._usage_from_metadata(None) == {}
+
+
 def test_grader_config_accepts_gemini_3_5_flash():
     """GraderConfig must accept gemini-3.5-flash as a selectable model
     (W-MM step 0). Pin so a Literal narrowing can't silently drop it."""
