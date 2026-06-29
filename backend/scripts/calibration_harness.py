@@ -266,8 +266,21 @@ async def _grade_one(essay: dict, model: str, level: int):
     return await get_grader().grade_essay(config)
 
 
+async def _grade_candidate(essay: dict, baseline_model: str, candidate_model: str,
+                           level: int, routed: bool):
+    """Candidate grading: single candidate model, OR (P1-B) a 2-pass route with
+    the BASELINE model on judgment and the CANDIDATE model on the mechanical
+    sections — measuring routing vs the single-baseline run."""
+    if routed:
+        from scripts.multimodel_router import routed_grade_essay
+        return await routed_grade_essay(
+            essay, strong_model=baseline_model, cheap_model=candidate_model, level=level)
+    return await _grade_one(essay, candidate_model, level)
+
+
 async def run_harness(essays: list[dict], *, baseline_model: str,
-                      candidate_model: str, level: int) -> list[EssayComparison]:
+                      candidate_model: str, level: int,
+                      routed: bool = False) -> list[EssayComparison]:
     """Grade each essay with both models and compare. Skips an essay (logs to
     stderr) if either grading raises — a single bad essay must not sink the run."""
     comparisons: list[EssayComparison] = []
@@ -276,7 +289,7 @@ async def run_harness(essays: list[dict], *, baseline_model: str,
         try:
             base, cand = await asyncio.gather(
                 _grade_one(essay, baseline_model, level),
-                _grade_one(essay, candidate_model, level),
+                _grade_candidate(essay, baseline_model, candidate_model, level, routed),
             )
         except Exception as exc:  # noqa: BLE001 — measurement tool, keep going
             print(f"[harness] essay {eid} skipped — grading failed: {exc}", file=sys.stderr)
@@ -300,6 +313,9 @@ def main(argv: Optional[list[str]] = None) -> int:
                     help="comma list, e.g. 3,4 — run + report at each level on the same essays")
     ap.add_argument("--balance-task-type", action="store_true", dest="balance",
                     help="with --from-db: split the quota ~half Task 2 / half Task 1")
+    ap.add_argument("--routed", action="store_true",
+                    help="P1-B: candidate = 2-pass route (baseline model on judgment, "
+                         "candidate model on mechanical sections) vs single-baseline")
     ap.add_argument("--out", default=None, help="optional path to write the JSON report")
     args = ap.parse_args(argv)
 
@@ -317,15 +333,18 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     levels = [int(x) for x in args.levels.split(",")] if args.levels else [args.level]
 
+    candidate_label = (f"routed({args.baseline}+{args.candidate})"
+                       if args.routed else args.candidate)
+
     per_level: dict = {}
     for lvl in levels:
         comparisons = asyncio.run(run_harness(
             essays, baseline_model=args.baseline,
-            candidate_model=args.candidate, level=lvl,
+            candidate_model=args.candidate, level=lvl, routed=args.routed,
         ))
         summary = aggregate(comparisons)
         print(f"\n## Level {lvl}\n")
-        print(format_report(comparisons, summary, args.baseline, args.candidate))
+        print(format_report(comparisons, summary, args.baseline, candidate_label))
         per_level[lvl] = {"summary": summary, "comparisons": [asdict(c) for c in comparisons]}
 
     if args.out:
