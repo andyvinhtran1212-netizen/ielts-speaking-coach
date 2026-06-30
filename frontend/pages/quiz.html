@@ -105,10 +105,14 @@
       (batch.word_stats || []).forEach((w) => { outbox.word_stats[w.item_key] = w; });
     }
 
+    const MAX_BATCH = 100;   // < backend's 200/array cap; a long offline backlog is chunked
+
     async function _sendOnce(force) {
       _mergeIntoOutbox(engine.drainBatch());
-      const sentAttempts = outbox.attempts.slice();
-      const keys = Object.keys(outbox.word_stats);
+      // Chunk so a large buffered backlog never exceeds the backend batch limit
+      // (which would 413 forever). The forced flush loop keeps calling until empty.
+      const sentAttempts = outbox.attempts.slice(0, MAX_BATCH);
+      const keys = Object.keys(outbox.word_stats).slice(0, MAX_BATCH);
       if (!sentAttempts.length && !keys.length) return true;     // nothing to send
       if (!force && sentAttempts.length < 5) return true;         // not enough yet (no-op)
       const sentWs = {};
@@ -147,15 +151,17 @@
     function flushBeacon() {
       try {
         _mergeIntoOutbox(engine.drainBatch());
-        const a = outbox.attempts.slice();
-        const ws = Object.values(outbox.word_stats);
+        // Cap to the backend batch limit so the beacon isn't 413'd (best-effort:
+        // the most recent chunk is what matters most for resume; periodic flushes
+        // have usually drained the rest already).
+        const a = outbox.attempts.slice(0, MAX_BATCH);
+        const ws = Object.values(outbox.word_stats).slice(0, MAX_BATCH);
         if ((!a.length && !ws.length) || !authToken || !sessionId) return;
         fetch(window.api.base + '/api/quiz/sessions/' + sessionId + '/progress', {
           method: 'POST', keepalive: true,
           headers: { 'Authorization': 'Bearer ' + authToken, 'Content-Type': 'application/json' },
           body: JSON.stringify({ attempts: a, word_stats: ws }),
         });
-        outbox = { attempts: [], word_stats: {} };   // optimistic
       } catch (e) { /* best-effort */ }
     }
 

@@ -91,9 +91,15 @@ def _owned_session(session_id: str, user_id: str) -> dict:
 
 
 def start_session(*, user_id: str, bank_id: str) -> dict:
-    """Create a session and return {session_id, resume} — resume = the not-yet-
-    mastered word_stats from prior sessions so the engine continues carry-over."""
+    """Create a session and return {session_id, resume} — resume = prior word_stats
+    so the engine continues carry-over.
+
+    Resume is read BEFORE the session is created and FAILS CLOSED: if the read
+    errors we must NOT start a fresh-looking session, because the first /progress
+    upsert would then overwrite a previously mastered/provisional word with lower
+    counts. A read failure → 500, no session row, no destructive write."""
     bank = get_bank_for_play(bank_id)["bank"]   # 404/published guard + code
+    resume = get_resume(user_id=user_id, bank_id=bank_id)   # raises on read failure
     try:
         res = supabase_admin.table("quiz_sessions").insert({
             "user_id": user_id, "bank_id": bank_id, "code": bank.get("code"),
@@ -102,13 +108,16 @@ def start_session(*, user_id: str, bank_id: str) -> dict:
         raise HTTPException(500, f"Lỗi tạo session: {exc}")
     if not res.data:
         raise HTTPException(500, "Insert session không trả về dòng nào")
-    return {"session_id": res.data[0]["id"], "resume": get_resume(user_id=user_id, bank_id=bank_id)}
+    return {"session_id": res.data[0]["id"], "resume": resume}
 
 
 def get_resume(*, user_id: str, bank_id: str) -> list[dict]:
     """ALL prior word_stats for this user+bank (incl. mastered), so a new session
     resumes progress truthfully — mastered words stay mastered (not re-asked) and
-    in-progress words keep their partial credit, instead of restarting from zero."""
+    in-progress words keep their partial credit, instead of restarting from zero.
+
+    FAILS CLOSED: a read error raises (not []), so the caller never proceeds with
+    empty resume and clobbers existing progress on the next snapshot upsert."""
     try:
         rows = (
             supabase_admin.table("quiz_word_stats").select(
@@ -120,8 +129,7 @@ def get_resume(*, user_id: str, bank_id: str) -> list[dict]:
             .execute()
         ).data or []
     except Exception as exc:  # noqa: BLE001
-        logger.warning("[quiz] resume read failed: %s", exc)
-        return []
+        raise HTTPException(500, f"Lỗi đọc tiến độ (resume): {exc}")
     return rows
 
 

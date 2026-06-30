@@ -76,6 +76,21 @@ def test_get_bank_for_play_unpublished_404():
 
 # ── start session + resume ───────────────────────────────────────────
 
+def test_start_session_fails_closed_when_resume_read_errors():
+    """P1: if the resume read errors, start_session must raise (no session row) —
+    otherwise a fresh-looking session would overwrite prior mastery on first POST."""
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{"id": _BANK, "is_published": True, "code": "L14"}],
+        ("quiz_questions", "select"): [{"qid": "a1"}],
+        ("quiz_word_stats", "select"): Exception("transient RLS/network error"),
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        with pytest.raises(HTTPException) as e:
+            quiz_service.start_session(user_id=_USER, bank_id=_BANK)
+    assert e.value.status_code == 500
+    assert not any(c["table"] == "quiz_sessions" and c["op"] == "insert" for c in fake.calls)
+
+
 def test_start_session_creates_and_returns_resume():
     fake = _FakeSupabase(responses={
         ("quiz_banks", "select"): [{"id": _BANK, "is_published": True, "code": "L14"}],
