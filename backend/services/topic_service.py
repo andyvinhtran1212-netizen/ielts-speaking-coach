@@ -105,6 +105,47 @@ def create_topic(
     return res.data[0]
 
 
+def resolve_topic_id_for_category(category, skill_area: str = "vocab") -> str | None:
+    """Find (or create) the vocab topic for a category slug and return its id.
+
+    Vocab write paths (import / category edit) call this so vocab_cards.topic_id
+    stays in sync — migration 117 backfills existing rows once, but new/edited
+    cards would otherwise keep topic_id NULL and drop out of the topic bundle /
+    delete-guard. topic.slug mirrors the (already normalized) category, matching
+    the mig-117 backfill. Best-effort: returns None on a blank category or a
+    read/write failure (the write still succeeds; the next re-import re-links)."""
+    cat = str(category or "").strip()
+    if not cat:                       # guard before slugify (slugify("") → placeholder)
+        return None
+    slug = slugify(cat)
+    if not slug:
+        return None
+    try:
+        rows = (
+            supabase_admin.table("content_topics").select("id")
+            .eq("skill_area", skill_area).eq("slug", slug).limit(1).execute()
+        ).data
+        if rows:
+            return rows[0]["id"]
+        res = (
+            supabase_admin.table("content_topics")
+            .insert({"slug": slug, "skill_area": skill_area, "title": str(category)})
+            .execute()
+        )
+        return res.data[0]["id"] if res.data else None
+    except Exception as exc:  # noqa: BLE001 — race (concurrent insert) or hiccup
+        # On a unique-collision race, re-select the row the other writer created.
+        try:
+            rows = (
+                supabase_admin.table("content_topics").select("id")
+                .eq("skill_area", skill_area).eq("slug", slug).limit(1).execute()
+            ).data
+            return rows[0]["id"] if rows else None
+        except Exception:  # noqa: BLE001
+            logger.warning("[topic] resolve_topic_id_for_category failed: %s", exc)
+            return None
+
+
 def update_topic(topic_id: str, data: dict) -> dict:
     """Partial update — only the editable fields present in `data` are written."""
     get_topic(topic_id)  # 404 guard

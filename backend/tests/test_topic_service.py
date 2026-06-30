@@ -175,3 +175,33 @@ def test_get_topic_bundle_shape():
     assert out["topic"]["slug"] == "work-careers"
     assert out["counts"] == {"vocab_cards": 1, "quiz_banks": 0}
     assert out["quiz_banks"] == []
+
+
+# ── resolve_topic_id_for_category (P2: keep topic_id in sync on vocab writes) ──
+
+def test_resolve_returns_existing_topic_id():
+    fake = _FakeSupabase(responses={("content_topics", "select"): [{"id": "t-1"}]})
+    with patch.object(topic_service, "supabase_admin", fake):
+        tid = topic_service.resolve_topic_id_for_category("Work & Careers")
+    assert tid == "t-1"
+    assert not any(c["op"] == "insert" for c in fake.calls)   # found → no create
+
+
+def test_resolve_creates_topic_when_missing():
+    fake = _FakeSupabase(responses={
+        ("content_topics", "select"): [],
+        ("content_topics", "insert"): [{"id": "t-new"}],
+    })
+    with patch.object(topic_service, "supabase_admin", fake):
+        tid = topic_service.resolve_topic_id_for_category("Brand New Topic")
+    assert tid == "t-new"
+    ins = next(c for c in fake.calls if c["op"] == "insert")
+    assert ins["payload"]["slug"] == "brand-new-topic"
+    assert ins["payload"]["skill_area"] == "vocab"
+
+
+def test_resolve_blank_category_returns_none():
+    fake = _FakeSupabase()
+    with patch.object(topic_service, "supabase_admin", fake):
+        assert topic_service.resolve_topic_id_for_category("   ") is None
+    assert fake.calls == []   # no DB touched

@@ -188,6 +188,11 @@ async def update_vocab(
     patch = body.model_dump(exclude_unset=True)
     if not patch:
         raise HTTPException(400, "Không có trường nào để cập nhật.")
+    # Keep topic_id in sync when the category changes (the topic spine relies on
+    # topic_id; a category edit must re-point the card to the matching topic).
+    if "category" in patch:
+        from services.topic_service import resolve_topic_id_for_category
+        patch["topic_id"] = resolve_topic_id_for_category(patch["category"])
     try:
         res = supabase_admin.table("vocab_cards").update(patch).eq("id", str(vocab_id)).execute()
     except Exception as exc:  # noqa: BLE001

@@ -142,7 +142,16 @@ def build_vocab_payload(p: VocabParsed, *, import_batch_id: Optional[str] = None
 
 def upsert_vocab_card(payload: dict) -> dict:
     """Idempotent upsert-by-slug (read-then-write — robust vs on_conflict + the
-    partial-index gotcha). Returns {slug, action: 'created'|'updated'}."""
+    partial-index gotcha). Returns {slug, action: 'created'|'updated'}.
+
+    Stamps topic_id from the card's category (resolve/create the matching vocab
+    topic) so the topic spine stays in sync on every write — not just the mig-117
+    one-time backfill."""
+    if "topic_id" not in payload and payload.get("category"):
+        from services.topic_service import resolve_topic_id_for_category  # avoid import cycle
+        tid = resolve_topic_id_for_category(payload["category"])
+        if tid:
+            payload["topic_id"] = tid
     slug = payload["slug"]
     existing = (
         supabase_admin.table("vocab_cards").select("id").eq("slug", slug).limit(1).execute()
