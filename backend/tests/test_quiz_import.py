@@ -133,6 +133,21 @@ def test_duplicate_qid_flagged():
     assert any("Trùng id" in e["message"] for e in r["validation_errors"])
 
 
+def test_meta_only_file_flagged_no_questions():
+    """A file with only the META block must NOT be importable (it would wipe an
+    existing bank's questions)."""
+    meta_only = "\n".join(_BANK.splitlines()[:11]) + "\n"   # META block only
+    r = quiz_import.import_quiz_file(meta_only, dry_run=True)
+    assert any(e["field"] == "questions" for e in r["validation_errors"])
+
+
+def test_boolean_answer_on_choice_question_flagged():
+    """answer: true on a choice question must fail (not silently become index 1)."""
+    bad = _BANK.replace('answer: 0\nexplain: "x"', 'answer: true\nexplain: "x"')
+    r = quiz_import.import_quiz_file(bad, dry_run=True)
+    assert any(e["field"] == "answer" for e in r["validation_errors"])
+
+
 # ── Commit (mocked supabase) ─────────────────────────────────────────
 
 class _FakeSupabase:

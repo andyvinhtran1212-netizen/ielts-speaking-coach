@@ -80,7 +80,10 @@ def parse_quiz_question(fm: dict) -> dict:
     q["item_key"] = str(fm.get("item_key") or fm.get("headword") or "").strip()
     q["counts_toward_mastery"] = bool(fm.get("counts_toward_mastery", True))
     q["points"] = _coerce_int(fm.get("points"), default=1)
-    q["answer"] = _coerce_int(fm.get("answer"), default=None)
+    # Indexed answer (choice/syllable) — a YAML bool (answer: true/false) must NOT
+    # silently become 1/0 (that would save a wrong index for a boolean typo); the
+    # real boolean answer is captured separately as _bool_answer in import_quiz_file.
+    q["answer"] = _index_answer(fm.get("answer"))
     for list_field in ("options", "accept", "segments", "pairs"):
         val = fm.get(list_field)
         q[list_field] = val if isinstance(val, list) else None
@@ -88,10 +91,20 @@ def parse_quiz_question(fm: dict) -> dict:
 
 
 def _coerce_int(v, *, default):
+    if isinstance(v, bool):          # bool is an int subclass — reject explicitly
+        return default
     try:
         return int(v)
     except (TypeError, ValueError):
         return default
+
+
+def _index_answer(v):
+    """Parse a 0-based index answer. Rejects YAML booleans (→ None) so a boolean
+    typo on a choice/syllable question fails validation instead of saving 1/0."""
+    if isinstance(v, bool):
+        return None
+    return _coerce_int(v, default=None)
 
 
 def validate_question(q: dict) -> list[dict]:
@@ -222,6 +235,11 @@ def import_quiz_file(
 
     if meta_info is None:
         meta_errors.append({"field": "meta", "message": "Thiếu block META (kind: quiz)."})
+
+    # An empty bank (only META / truncated file) must NOT commit — for an existing
+    # bank that would wipe every question and leave it published-but-empty.
+    if not q_entries:
+        meta_errors.append({"field": "questions", "message": "Bank không có câu hỏi nào."})
 
     # Duplicate qid within the file.
     seen: dict[str, list[int]] = {}
