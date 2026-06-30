@@ -70,8 +70,11 @@ CREATE TABLE IF NOT EXISTS quiz_attempts (
 );
 CREATE INDEX IF NOT EXISTS idx_quiz_attempts_session ON quiz_attempts (session_id);
 CREATE INDEX IF NOT EXISTS idx_quiz_attempts_bank_item ON quiz_attempts (bank_id, item_key);
+-- Plain (non-partial) unique index so it can serve as the ON CONFLICT (client_id)
+-- target for the idempotent upsert. Postgres treats NULLs as distinct, so rows
+-- without a client_id are still allowed (no false collisions).
 CREATE UNIQUE INDEX IF NOT EXISTS uq_quiz_attempts_client_id
-    ON quiz_attempts (client_id) WHERE client_id IS NOT NULL;
+    ON quiz_attempts (client_id);
 
 ALTER TABLE quiz_attempts ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS quiz_attempts_select ON quiz_attempts;

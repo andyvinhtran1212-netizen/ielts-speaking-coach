@@ -326,7 +326,23 @@ function uuid() {
   try {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
   } catch (e) { /* fall through */ }
-  return 'cid-' + nowMs().toString(36) + '-' + Math.floor(Math.random() * 1e9).toString(36);
+  // RFC4122 v4 fallback — must stay UUID-shaped (client_id is a UUID column).
+  var b = new Array(16);
+  try {
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+      var arr = new Uint8Array(16); crypto.getRandomValues(arr);
+      for (var i = 0; i < 16; i++) b[i] = arr[i];
+    } else {
+      for (var j = 0; j < 16; j++) b[j] = Math.floor(Math.random() * 256);
+    }
+  } catch (e2) {
+    for (var k = 0; k < 16; k++) b[k] = Math.floor(Math.random() * 256);
+  }
+  b[6] = (b[6] & 0x0f) | 0x40;   // version 4
+  b[8] = (b[8] & 0x3f) | 0x80;   // variant 10xx
+  var h = b.map(function (x) { return (x + 0x100).toString(16).slice(1); });
+  return h.slice(0, 4).join('') + '-' + h.slice(4, 6).join('') + '-' + h.slice(6, 8).join('') +
+         '-' + h.slice(8, 10).join('') + '-' + h.slice(10, 16).join('');
 }
 function nowMs() { return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now(); }
 function serializeAnswer(a) {

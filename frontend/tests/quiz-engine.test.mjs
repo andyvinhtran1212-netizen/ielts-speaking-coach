@@ -140,11 +140,22 @@ test('unsupported input (match) is filtered out, never served/counted', () => {
   assert.equal(q.item_key, 'K');
 });
 
-test('each attempt carries a client_id (idempotency key)', () => {
-  const eng = createEngine(oneWordBank());
-  eng.next(); eng.submit(0);
-  const batch = eng.drainBatch();
-  assert.ok(batch.attempts[0].client_id, 'attempt has a client_id');
+test('each attempt carries a UUID-shaped client_id (incl. fallback path)', () => {
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  // normal path (crypto.randomUUID)
+  let eng = createEngine(oneWordBank()); eng.next(); eng.submit(0);
+  assert.match(eng.drainBatch().attempts[0].client_id, UUID_RE);
+  // fallback path: stub randomUUID to throw → must still be UUID-shaped (the
+  // client_id column is UUID; a non-UUID id would fail to persist).
+  const orig = globalThis.crypto && globalThis.crypto.randomUUID;
+  let stubbed = false;
+  try { globalThis.crypto.randomUUID = () => { throw new Error('unavailable'); }; stubbed = true; } catch (e) { /* read-only */ }
+  if (stubbed) {
+    try {
+      eng = createEngine(oneWordBank()); eng.next(); eng.submit(0);
+      assert.match(eng.drainBatch().attempts[0].client_id, UUID_RE);
+    } finally { try { globalThis.crypto.randomUUID = orig; } catch (e) {} }
+  }
 });
 
 test('require_distinct_skill:false masters via repeated same-skill corrects', () => {
