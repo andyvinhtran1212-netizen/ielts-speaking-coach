@@ -151,6 +151,9 @@ class _FakeQuery:
     def insert(self, payload):
         self._op = "insert"; self._payload = payload; return self
 
+    def upsert(self, payload, **k):
+        self._op = "upsert"; self._payload = payload; return self
+
     def update(self, payload):
         self._op = "update"; self._payload = payload; return self
 
@@ -162,6 +165,13 @@ class _FakeQuery:
 
     def eq(self, c, v):
         self._filters.append((c, v)); return self
+
+    @property
+    def not_(self):
+        return self
+
+    def in_(self, c, vals):
+        self._filters.append(("not_in", c, list(vals))); return self
 
     def limit(self, *a, **k):
         return self
@@ -182,8 +192,10 @@ def test_commit_inserts_bank_and_questions_with_audio():
         r = quiz_import.import_quiz_file(_BANK, topic_id="topic-1", dry_run=False)
 
     assert r["committed_bank_id"] == "bank-1"
-    qins = next(c for c in fake.calls if c["table"] == "quiz_questions" and c["op"] == "insert")
-    rows = qins["payload"]
+    # Questions written via upsert (insert new qids / overwrite changed) — never
+    # delete-then-insert.
+    qups = next(c for c in fake.calls if c["table"] == "quiz_questions" and c["op"] == "upsert")
+    rows = qups["payload"]
     assert len(rows) == 4
     assert all(row["bank_id"] == "bank-1" for row in rows)
     # boolean answer mapped to 1
@@ -196,7 +208,7 @@ def test_commit_inserts_bank_and_questions_with_audio():
     assert [row["order"] for row in rows] == [0, 1, 2, 3]
 
 
-def test_commit_replaces_existing_bank():
+def test_commit_replaces_existing_bank_upsert_then_prune():
     fake = _FakeSupabase(responses={
         ("quiz_banks", "select"): [{"id": "bank-existing"}],   # already exists
         ("vocab_cards", "select"): [],
@@ -206,9 +218,21 @@ def test_commit_replaces_existing_bank():
 
     assert r["committed_bank_id"] == "bank-existing"
     ops = [(c["table"], c["op"]) for c in fake.calls]
-    assert ("quiz_banks", "update") in ops          # updated, not inserted
-    assert ("quiz_questions", "delete") in ops       # old questions wiped
-    assert ("quiz_questions", "insert") in ops       # new questions written
+    assert ("quiz_banks", "update") in ops            # updated, not inserted
+    assert ("quiz_questions", "upsert") in ops        # new set upserted first
+    assert ("quiz_questions", "delete") in ops        # stale qids pruned after
+    # upsert must come BEFORE the prune-delete (never delete-then-insert).
+    qq_ops = [o for (t, o) in ops if t == "quiz_questions"]
+    assert qq_ops.index("upsert") < qq_ops.index("delete")
+
+
+def test_commit_requires_topic_id():
+    fake = _FakeSupabase()
+    with patch.object(quiz_import, "supabase_admin", fake):
+        r = quiz_import.import_quiz_file(_BANK, topic_id=None, dry_run=False)
+    assert r["committed_bank_id"] is None
+    assert any(e["field"] == "topic_id" for e in r["validation_errors"])
+    assert fake.calls == []      # nothing written without a topic
 
 
 def test_commit_blocked_when_validation_errors():
@@ -217,4 +241,4 @@ def test_commit_blocked_when_validation_errors():
     with patch.object(quiz_import, "supabase_admin", fake):
         r = quiz_import.import_quiz_file(bad, topic_id="topic-1", dry_run=False)
     assert r["committed_bank_id"] is None
-    assert not any(c["op"] == "insert" for c in fake.calls)   # all-or-nothing
+    assert not any(c["op"] in ("insert", "upsert", "delete", "update") for c in fake.calls)  # all-or-nothing

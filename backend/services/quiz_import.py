@@ -233,6 +233,11 @@ def import_quiz_file(
             e["validation_errors"].append({"field": "id", "message": f"Trùng id '{e['qid']}'."})
 
     pools = sorted({e["item_key"] for e in q_entries if e.get("item_key")})
+
+    # A commit MUST target a topic (FK + per-topic uniqueness). dry-run may omit it.
+    if not dry_run and not topic_id:
+        meta_errors.append({"field": "topic_id", "message": "Chọn topic trước khi lưu."})
+
     has_errors = bool(meta_errors) or any(e["validation_errors"] for e in q_entries)
 
     committed_bank_id: Optional[str] = None
@@ -268,8 +273,13 @@ def import_quiz_file(
 
 
 def _commit_bank(meta_info, q_entries, *, topic_id, pools, import_batch_id) -> str:
-    """Upsert the bank by (skill_area, code) and REPLACE its questions wholesale.
-    Resolves {{audio}} from the topic's vocab cards. Service-role writes."""
+    """Upsert the bank by (skill_area, topic_id, code) and replace its questions.
+
+    Questions are replaced UPSERT-then-PRUNE (never delete-then-insert): the new
+    rows are upserted on (bank_id, qid) first, then only the stale qids are
+    deleted. So a failed write can never leave a published bank with zero
+    questions (the all-or-nothing contract) — the old set survives until the new
+    set is in place. Resolves {{audio}} from the topic's vocab cards. Service-role."""
     skill_area = meta_info["skill_area"]
     code = meta_info["code"]
     audio_map = _resolve_audio_map(topic_id)
@@ -285,14 +295,16 @@ def _commit_bank(meta_info, q_entries, *, topic_id, pools, import_batch_id) -> s
         "import_batch_id": import_batch_id,
     }
 
+    # Lookup scoped by topic too — same code under a different topic is a DIFFERENT
+    # bank (matches the UNIQUE(skill_area, topic_id, code) constraint).
     existing = (
         supabase_admin.table("quiz_banks").select("id")
-        .eq("skill_area", skill_area).eq("code", code).limit(1).execute()
+        .eq("skill_area", skill_area).eq("topic_id", topic_id).eq("code", code)
+        .limit(1).execute()
     ).data
     if existing:
         bank_id = existing[0]["id"]
         supabase_admin.table("quiz_banks").update(bank_payload).eq("id", bank_id).execute()
-        supabase_admin.table("quiz_questions").delete().eq("bank_id", bank_id).execute()
     else:
         res = supabase_admin.table("quiz_banks").insert(bank_payload).execute()
         bank_id = res.data[0]["id"]
@@ -318,6 +330,20 @@ def _commit_bank(meta_info, q_entries, *, topic_id, pools, import_batch_id) -> s
             "audio_url": audio_url, "grammar_article_slug": p.get("grammar_article_slug"),
             "order": order,
         })
+
     if rows:
-        supabase_admin.table("quiz_questions").insert(rows).execute()
+        # 1) upsert the new set (insert new qids, overwrite changed ones) — old
+        #    rows still present, so the bank is never momentarily empty.
+        supabase_admin.table("quiz_questions").upsert(
+            rows, on_conflict="bank_id,qid"
+        ).execute()
+        # 2) prune qids that are no longer in the new set.
+        new_qids = [r["qid"] for r in rows]
+        (
+            supabase_admin.table("quiz_questions").delete()
+            .eq("bank_id", bank_id).not_.in_("qid", new_qids).execute()
+        )
+    else:
+        # Bank with no questions → clear any leftovers.
+        supabase_admin.table("quiz_questions").delete().eq("bank_id", bank_id).execute()
     return bank_id

@@ -34,7 +34,10 @@ CREATE TABLE IF NOT EXISTS quiz_banks (
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
-    UNIQUE (skill_area, code)
+    -- One bank per (skill_area, topic, code): re-importing the same code UNDER A
+    -- DIFFERENT topic creates a separate bank rather than silently moving/
+    -- overwriting the first topic's bank. topic_id is required at import time.
+    UNIQUE (skill_area, topic_id, code)
 );
 
 CREATE INDEX IF NOT EXISTS idx_quiz_banks_topic ON quiz_banks (topic_id);
