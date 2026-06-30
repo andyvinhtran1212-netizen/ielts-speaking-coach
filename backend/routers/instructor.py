@@ -490,6 +490,10 @@ async def regrade_essay(request: Request, essay_id: UUID, background_tasks: Back
         essay_id=str(essay_id), analysis_level=effective_level,
         selected_model=essay.get("selected_model") or "gemini-2.5-pro",
         grading_tier=essay.get("grading_tier") or "standard",
+        # regrade-resilience (Sprint W-MM): persist the pre-regrade status on the
+        # job so an out-of-process reaper takeover can restore it (the in-memory
+        # restore_status_on_fail below only covers the live BG task).
+        restore_status=essay.get("status"),
     )
     # regrade-resilience: restore pre-regrade status on grader failure (essay's
     # status was read before the 'grading' write) — don't strand the prior version.

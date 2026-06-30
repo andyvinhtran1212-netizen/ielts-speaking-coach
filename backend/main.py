@@ -426,6 +426,32 @@ async def startup_event():
     else:
         logger.info("[async-db] USE_ASYNC_DB=off — sync path only (scaffold no-op)")
 
+    # Sprint W-MM — writing grading reaper. A grading BG task runs in-process; a
+    # Railway restart/OOM/timeout mid-grade orphans the essay in 'grading' with
+    # no error (no exception ⇒ no _mark_failed). This loop periodically sweeps
+    # stuck writing_jobs and requeues / terminal-fails them. Disable via env
+    # WRITING_REAPER_ENABLED=false.
+    if settings.WRITING_REAPER_ENABLED:
+        import asyncio as _asyncio_reaper
+        from services import essay_service
+
+        async def _writing_reaper_loop():
+            while True:
+                await _asyncio_reaper.sleep(settings.WRITING_REAPER_INTERVAL_SECONDS)
+                try:
+                    res = await essay_service.reap_stuck_grading_jobs()
+                    if res.get("requeued") or res.get("failed"):
+                        logger.info("[writing-reaper] sweep %s", res)
+                except Exception:
+                    logger.exception("[writing-reaper] sweep failed")
+
+        _asyncio_reaper.create_task(_writing_reaper_loop())
+        logger.info(
+            "[writing-reaper] started (interval=%ss, std-timeout=%ss)",
+            settings.WRITING_REAPER_INTERVAL_SECONDS,
+            settings.WRITING_STUCK_JOB_TIMEOUT_SECONDS,
+        )
+
 
 @app.get("/topics")
 async def get_topics(

@@ -110,6 +110,34 @@ class Settings(BaseSettings):
     WRITING_LEVEL_AWARE_MODEL: bool = True
     WRITING_FLASH_MAX_LEVEL: int = 3   # highest level that uses 3.5 Flash
 
+    # Sprint W-MM reaper — grading reliability (stuck-job recovery + model
+    # fallback). A grading BG task runs IN-PROCESS (FastAPI BackgroundTask); a
+    # Railway restart / OOM / hard timeout mid-grade kills the process with NO
+    # exception, so `_mark_failed` never runs and the essay is orphaned in
+    # 'grading' forever (observed: essay ac21294e, 2026-06-27). The reaper is a
+    # startup async loop that sweeps writing_jobs stuck past a timeout and either
+    # requeues (attempts remain) or marks terminal-failed (exhausted) so the
+    # admin UI surfaces it instead of a perpetual "đang chấm".
+    #
+    # RETRY/FALLBACK policy (the grader's in-call MAX_RETRIES=3 are transient API
+    # re-rolls INSIDE one attempt; these are JOB-LEVEL attempts that survive a
+    # process death). attempt 1..N-1 keep the primary model (most failures are
+    # infra, not model-specific); the FINAL attempt switches to
+    # WRITING_FALLBACK_MODEL so a model/region-specific failure can still deliver
+    # *a* result — continuity over marginal quality. With MAX_ATTEMPTS=3 the
+    # fallback fires on the 3rd attempt (primary failed twice at job level).
+    # All knobs env-overridable; settings load at process start, so a Railway
+    # change restarts the service to apply. Set WRITING_REAPER_ENABLED=false to
+    # disable the sweep; WRITING_GRADING_FALLBACK_ENABLED=false to always keep
+    # the primary model.
+    WRITING_REAPER_ENABLED: bool = True
+    WRITING_REAPER_INTERVAL_SECONDS: int = 120
+    WRITING_STUCK_JOB_TIMEOUT_SECONDS: int = 360        # standard tier
+    WRITING_STUCK_JOB_TIMEOUT_DEEP_SECONDS: int = 600   # deep tier (3 passes)
+    WRITING_GRADING_MAX_ATTEMPTS: int = 3
+    WRITING_GRADING_FALLBACK_ENABLED: bool = True
+    WRITING_FALLBACK_MODEL: str = "gemini-2.5-flash"
+
     # Sprint 11.1 — Listening module (DEBT-LISTENING-MODULE foundation 1/5).
     # ELEVENLABS_API_KEY: empty by default; render endpoint stays 503 until
     # Andy provisions the Creator plan. LISTENING_AI_RENDER_ENABLED is the
