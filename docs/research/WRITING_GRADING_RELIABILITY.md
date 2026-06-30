@@ -80,10 +80,16 @@ timeout, so a worker can still be running when the reaper declares its job stuck
 and launches a retry. Every terminal write — the success persist (feedback
 version + `graded`) and the failure paths (`_handle_grade_failure`, the
 safety-block branch) — is gated on `_owns_job(job_id, attempt_no)`, which is true
-only while no newer attempt has advanced `attempt_count` past this worker's. A
-superseded worker silently abandons its result, so the LATEST attempt is always
-authoritative and a hung worker can never clobber the retry's grade (or overwrite
-a good essay with a late failure). All regrade callers (admin **and** instructor)
+only while no newer attempt has advanced `attempt_count` past this worker's. `_owns_job` checks
+BOTH that the job is still `running` AND that `attempt_count` has not advanced
+past this worker's `attempt_no` — the reaper signals takeover either by a retry
+bumping the lease OR by flipping the job to `queued`/`failed` without touching
+`attempt_count`, and both windows must fence the stale worker out. A superseded
+worker silently abandons its result, so the recovery path is always authoritative
+and a hung worker can never clobber the retry's grade (or overwrite a good essay
+with a late failure). The reaper also attributes its `StuckTimeout` ledger entry
+to the model the stuck attempt actually ran (`_model_for_attempt`), not the
+primary, so per-model failure metrics aren't skewed for fallback attempts. All regrade callers (admin **and** instructor)
 pass `restore_status` so a reaper takeover restores the prior good grade.
 
 **Config persistence.** `schedule_grading_job` writes

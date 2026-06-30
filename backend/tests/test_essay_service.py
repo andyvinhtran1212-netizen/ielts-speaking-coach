@@ -341,7 +341,7 @@ async def test_bg_grade_essay_retry_failure_requeues_when_attempts_remain(monkey
     monkeypatch.setattr(settings, "WRITING_GRADING_MAX_ATTEMPTS", 3)
     # Job read returns attempt_count 0 → this is attempt 1 of 3 → requeue.
     responses = _bg_essay_responses()
-    responses[("writing_jobs", "select")] = [{"attempt_count": 0, "max_attempts": 3}]
+    responses[("writing_jobs", "select")] = [{"attempt_count": 0, "max_attempts": 3, "status": "running"}]
     fake = _FakeSupabase(responses=responses)
     fake_grader = MagicMock()
 
@@ -378,7 +378,7 @@ async def test_bg_grade_essay_marks_failed_when_attempts_exhausted(monkeypatch):
     from config import settings
     monkeypatch.setattr(settings, "WRITING_GRADING_MAX_ATTEMPTS", 3)
     responses = _bg_essay_responses()
-    responses[("writing_jobs", "select")] = [{"attempt_count": 2, "max_attempts": 3}]
+    responses[("writing_jobs", "select")] = [{"attempt_count": 2, "max_attempts": 3, "status": "running"}]
     fake = _FakeSupabase(responses=responses)
     fake_grader = MagicMock()
 
@@ -410,7 +410,7 @@ async def test_bg_grade_essay_final_attempt_uses_fallback_model(monkeypatch):
     monkeypatch.setattr(settings, "WRITING_GRADING_FALLBACK_ENABLED", True)
     monkeypatch.setattr(settings, "WRITING_FALLBACK_MODEL", "gemini-2.5-flash")
     responses = _bg_essay_responses()                                 # primary = gemini-2.5-pro
-    responses[("writing_jobs", "select")] = [{"attempt_count": 2, "max_attempts": 3}]  # → attempt 3
+    responses[("writing_jobs", "select")] = [{"attempt_count": 2, "max_attempts": 3, "status": "running"}]  # → attempt 3
     fake = _FakeSupabase(responses=responses)
     fake_grader = MagicMock()
     captured: dict = {}
@@ -438,7 +438,7 @@ async def test_bg_grade_essay_increments_attempt_counter(monkeypatch):
     """Sprint W-MM: each BG run bumps writing_jobs.attempt_count (per-essay retry
     ledger). A job previously at attempt 1 runs as attempt 2."""
     responses = _bg_essay_responses()
-    responses[("writing_jobs", "select")] = [{"attempt_count": 1, "max_attempts": 3}]
+    responses[("writing_jobs", "select")] = [{"attempt_count": 1, "max_attempts": 3, "status": "running"}]
     fake = _FakeSupabase(responses=responses)
     fake_grader = MagicMock()
 
@@ -1120,7 +1120,7 @@ async def test_bg_grade_essay_restores_prior_status_from_job_payload(monkeypatch
     monkeypatch.setattr(settings, "WRITING_GRADING_MAX_ATTEMPTS", 3)
     responses = _bg_essay_responses()
     responses[("writing_jobs", "select")] = [{
-        "attempt_count": 2, "max_attempts": 3,
+        "attempt_count": 2, "max_attempts": 3, "status": "running",
         "job_payload": {"restore_status": "delivered"},
     }]
     fake = _FakeSupabase(responses=responses)
@@ -1181,18 +1181,38 @@ async def test_reap_terminal_restores_prior_status_from_job_payload():
 
 # ── Sprint W-MM review fix P1: lease guard (stale-worker fencing) ─────
 
-def test_owns_job_true_when_not_superseded():
-    fake = _FakeSupabase(responses={("writing_jobs", "select"): [{"attempt_count": 2}]})
+def test_owns_job_true_when_running_and_not_superseded():
+    fake = _FakeSupabase(responses={
+        ("writing_jobs", "select"): [{"attempt_count": 2, "status": "running"}]})
     with patch.object(essay_service, "supabase_admin", fake):
         assert essay_service._owns_job(_JOB_ID, 2) is True   # equal → current
         assert essay_service._owns_job(_JOB_ID, 3) is True   # stored older → current
 
 
-def test_owns_job_false_when_superseded():
+def test_owns_job_false_when_attempt_superseded():
     """A newer attempt advanced attempt_count past ours → not the lease holder."""
-    fake = _FakeSupabase(responses={("writing_jobs", "select"): [{"attempt_count": 3}]})
+    fake = _FakeSupabase(responses={
+        ("writing_jobs", "select"): [{"attempt_count": 3, "status": "running"}]})
     with patch.object(essay_service, "supabase_admin", fake):
         assert essay_service._owns_job(_JOB_ID, 2) is False
+
+
+def test_owns_job_false_when_reaper_requeued_status():
+    """Reaper flipped the job to 'queued' WITHOUT bumping attempt_count — a merely
+    timed-out (not dead) worker must still be fenced out in this window."""
+    fake = _FakeSupabase(responses={
+        ("writing_jobs", "select"): [{"attempt_count": 1, "status": "queued"}]})
+    with patch.object(essay_service, "supabase_admin", fake):
+        assert essay_service._owns_job(_JOB_ID, 1) is False
+
+
+def test_owns_job_false_when_reaper_terminal_failed_status():
+    """Reaper marked the job 'failed' (attempts exhausted) — a still-running stale
+    worker must not resurrect it to graded."""
+    fake = _FakeSupabase(responses={
+        ("writing_jobs", "select"): [{"attempt_count": 3, "status": "failed"}]})
+    with patch.object(essay_service, "supabase_admin", fake):
+        assert essay_service._owns_job(_JOB_ID, 3) is False
 
 
 def test_owns_job_true_when_job_missing():

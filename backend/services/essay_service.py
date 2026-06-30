@@ -155,29 +155,41 @@ def _record_attempt_failure(
 
 
 def _owns_job(job_id: str, attempt_no: int) -> bool:
-    """Lease check — True iff NO newer attempt has claimed this job, i.e. the
-    persisted writing_jobs.attempt_count has not advanced beyond `attempt_no`.
+    """Lease check — True iff this worker still legitimately owns the job, i.e.
+    the job is still 'running' AND no newer attempt has advanced attempt_count
+    beyond `attempt_no`.
 
     A grader call has no wall-clock timeout, so a worker can still be running when
-    the reaper declares its job stuck and launches a retry (which increments
-    attempt_count past this worker's). The stale worker must NOT persist: its
-    terminal write (a feedback version on success, or 'failed' on failure) would
-    clobber the authoritative retry's outcome. Gating every terminal write on
-    ownership makes the LATEST attempt authoritative and silently abandons
-    superseded workers.
+    the reaper intervenes. The reaper signals takeover in TWO ways that this guard
+    must both catch:
+      • it advances the lease — a requeued retry claims 'running' and bumps
+        attempt_count past this worker's (caught by the attempt_count test); and
+      • it flips the job OUT of 'running' — to 'queued' (requeue, before the retry
+        starts) or 'failed' (attempts exhausted) — WITHOUT touching attempt_count
+        (caught by the status test). Without the status test, a merely-timed-out
+        (not dead) worker would still read attempt_count <= attempt_no in the
+        window before a retry claims, and could persist over the authoritative
+        recovery path.
 
-    Compares with <= (not ==): this worker set attempt_count to its own
-    attempt_no at claim time, so a value greater than attempt_no can only be a
-    newer attempt. Best-effort: on read failure returns True — don't drop a fresh
-    grade because of a transient read blip (the requeue/reaper path backstops)."""
+    A superseded worker must NOT persist (a feedback version on success, or
+    'failed' on failure) — that would clobber the recovery outcome. Gating every
+    terminal write here makes the recovery path authoritative.
+
+    attempt_count uses <= (not ==): this worker set attempt_count to its own
+    attempt_no at claim time, so a greater value can only be a newer attempt.
+    Best-effort: on read failure returns True — don't drop a fresh grade over a
+    transient read blip (the requeue/reaper path backstops)."""
     try:
         r = (
             supabase_admin.table("writing_jobs")
-            .select("attempt_count").eq("id", job_id).limit(1).execute()
+            .select("attempt_count, status").eq("id", job_id).limit(1).execute()
         ).data
         if not r:
             return True
-        return int(r[0].get("attempt_count") or 0) <= attempt_no
+        row = r[0]
+        if row.get("status") != "running":
+            return False                      # reaper flipped it to queued/failed
+        return int(row.get("attempt_count") or 0) <= attempt_no
     except Exception:  # noqa: BLE001
         return True
 
@@ -1127,7 +1139,11 @@ async def reap_stuck_grading_jobs(*, now: datetime | None = None) -> dict:
 
             attempt_no = int(job.get("attempt_count") or 0)
             max_attempts = int(job.get("max_attempts") or settings.WRITING_GRADING_MAX_ATTEMPTS)
-            model = essay.get("selected_model") or ""
+            # Attribute the StuckTimeout to the model the stuck attempt ACTUALLY
+            # ran — a final attempt would have switched to the fallback model, so
+            # logging the primary here would skew the per-model failure metrics.
+            primary_model = essay.get("selected_model") or ""
+            model = _model_for_attempt(primary_model, max(attempt_no, 1), max_attempts)
             jp = job.get("job_payload") or {}
             job_restore = jp.get("restore_status") if isinstance(jp, dict) else None
             stuck_exc = RuntimeError(
