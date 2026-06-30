@@ -171,28 +171,30 @@ def update_topic(topic_id: str, data: dict) -> dict:
     return res.data[0] if res.data else get_topic(topic_id)
 
 
-def _vocab_card_count(topic_id: str) -> int:
+def _row_count(table: str, topic_id: str) -> int:
     try:
         res = (
-            supabase_admin.table("vocab_cards")
+            supabase_admin.table(table)
             .select("id", count="exact").eq("topic_id", topic_id).execute()
         )
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi đếm vocab_cards: {exc}")
+        raise HTTPException(500, f"Lỗi đếm {table}: {exc}")
     return res.count if res.count is not None else len(res.data or [])
 
 
 def delete_topic(topic_id: str) -> dict:
-    """Delete a topic. Blocked (409) while vocab cards still reference it — the
-    admin must reassign/clear those cards first, so a topic is never deleted out
-    from under live content."""
+    """Delete a topic. Blocked (409) while ANY content references it — vocab cards
+    OR quiz banks. quiz_banks FK is ON DELETE CASCADE, so without this guard
+    deleting an apparently-empty topic (no cards) would silently destroy authored
+    banks + their questions. The admin must reassign/remove that content first."""
     get_topic(topic_id)  # 404 guard
-    n = _vocab_card_count(topic_id)
-    if n > 0:
+    n_cards = _row_count("vocab_cards", topic_id)
+    n_banks = _row_count("quiz_banks", topic_id)
+    if n_cards > 0 or n_banks > 0:
         raise HTTPException(
             409,
-            f"Không thể xoá: còn {n} từ vựng thuộc topic này. "
-            f"Hãy chuyển/bỏ gán các từ đó trước.",
+            f"Không thể xoá: còn {n_cards} từ vựng và {n_banks} quiz bank thuộc "
+            f"topic này. Hãy chuyển/xoá nội dung đó trước.",
         )
     try:
         supabase_admin.table("content_topics").delete().eq("id", topic_id).execute()
@@ -202,10 +204,8 @@ def delete_topic(topic_id: str) -> dict:
 
 
 def get_topic_bundle(topic_id: str) -> dict:
-    """Topic + the content hanging off it, for the topic-centric admin console.
-
-    Pha 0: vocab cards only. Forward-compatible — `quiz_banks` is returned as an
-    empty list until Pha 1 adds the table, so the frontend shape is stable."""
+    """Topic + the content hanging off it, for the topic-centric admin console:
+    vocab cards + quiz banks (Pha 1)."""
     topic = get_topic(topic_id)
     try:
         cards = (
@@ -217,10 +217,20 @@ def get_topic_bundle(topic_id: str) -> dict:
         ).data or []
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi truy vấn vocab_cards: {exc}")
+    try:
+        banks = (
+            supabase_admin.table("quiz_banks")
+            .select("id, code, title, skill_area, words_count, is_published, updated_at")
+            .eq("topic_id", topic_id)
+            .order("code")
+            .execute()
+        ).data or []
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Lỗi truy vấn quiz_banks: {exc}")
 
     return {
         "topic": topic,
         "vocab_cards": cards,
-        "quiz_banks": [],  # Pha 1
-        "counts": {"vocab_cards": len(cards), "quiz_banks": 0},
+        "quiz_banks": banks,
+        "counts": {"vocab_cards": len(cards), "quiz_banks": len(banks)},
     }

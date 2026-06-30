@@ -152,6 +152,21 @@ def test_delete_topic_blocked_when_cards_reference_it():
     assert not any(c["op"] == "delete" for c in fake.calls)        # never deleted
 
 
+def test_delete_topic_blocked_when_quiz_banks_reference_it():
+    """P1: a topic with quiz banks but NO vocab cards must still be blocked — the
+    quiz_banks FK is ON DELETE CASCADE, so deleting would silently destroy banks."""
+    fake = _FakeSupabase(responses={
+        ("content_topics", "select"): [{"id": _TOPIC_ID}],
+        ("vocab_cards", "select"): [],            # no cards
+        ("quiz_banks", "select"): [{"id": "b1"}], # but a bank exists → block
+    })
+    with patch.object(topic_service, "supabase_admin", fake):
+        with pytest.raises(HTTPException) as e:
+            topic_service.delete_topic(_TOPIC_ID)
+    assert e.value.status_code == 409
+    assert not any(c["op"] == "delete" for c in fake.calls)
+
+
 def test_delete_topic_succeeds_when_unreferenced():
     fake = _FakeSupabase(responses={
         ("content_topics", "select"): [{"id": _TOPIC_ID}],
@@ -165,16 +180,19 @@ def test_delete_topic_succeeds_when_unreferenced():
 
 # ── bundle ───────────────────────────────────────────────────────────
 
-def test_get_topic_bundle_shape():
+def test_get_topic_bundle_includes_quiz_banks():
+    """Bundle returns the queried quiz_banks (regression: a merge artifact left a
+    duplicate 'quiz_banks':[] key that overwrote the real rows)."""
     fake = _FakeSupabase(responses={
         ("content_topics", "select"): [{"id": _TOPIC_ID, "slug": "work-careers"}],
         ("vocab_cards", "select"): [{"id": "c1", "headword": "Vocation"}],
+        ("quiz_banks", "select"): [{"id": "b1", "code": "L14"}],
     })
     with patch.object(topic_service, "supabase_admin", fake):
         out = topic_service.get_topic_bundle(_TOPIC_ID)
     assert out["topic"]["slug"] == "work-careers"
-    assert out["counts"] == {"vocab_cards": 1, "quiz_banks": 0}
-    assert out["quiz_banks"] == []
+    assert out["quiz_banks"] == [{"id": "b1", "code": "L14"}]
+    assert out["counts"] == {"vocab_cards": 1, "quiz_banks": 1}
 
 
 # ── resolve_topic_id_for_category (P2: keep topic_id in sync on vocab writes) ──
