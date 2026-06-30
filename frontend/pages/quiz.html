@@ -347,10 +347,23 @@
       return '<div class="qz-note ' + cls + '"><span class="qz-note__label">' + label + '</span>'
         + '<div>' + fmt(String(value)) + '</div></div>';
     }
-    function _audioBtn(url, label) {
-      if (!url) return '';
+    // Speak a word/sentence via the browser TTS when no pre-generated audio exists
+    // (mirrors the canonical vocab card fallback). No-op if TTS is unavailable.
+    function _speak(text) {
+      if (!text || !window.speechSynthesis) return;
+      try {
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(String(text));
+        u.lang = 'en-GB'; u.rate = 0.9;
+        window.speechSynthesis.speak(u);
+      } catch (e) { /* best-effort */ }
+    }
+    // Render a play button when EITHER a pre-generated url OR speakable text exists,
+    // so pronunciation still works while TTS pre-generation is pending.
+    function _audioBtn(url, label, speak) {
+      if (!url && !speak) return '';
       return '<button type="button" class="av-button av-button-secondary av-button-sm qz-card-audio" data-audio="'
-        + esc(url) + '">🔊 ' + label + '</button>';
+        + esc(url || '') + '" data-speak="' + esc(speak || '') + '">🔊 ' + label + '</button>';
     }
     function openCard(key, returnFocusEl) {
       const c = wordCards[key];
@@ -368,9 +381,9 @@
         (meta ? '<div class="qz-modal__eyebrow">' + esc(meta) + '</div>' : '')
         + (defVi ? '<div class="qz-modal__defvi">' + fmt(String(defVi)) + '</div>' : '')
         + (c.definition_en ? '<div class="qz-modal__defen">' + fmt(String(c.definition_en)) + '</div>' : '')
-        + (c.audio_headword ? '<div class="qz-sec">' + _audioBtn(c.audio_headword, 'Nghe phát âm') + '</div>' : '')
+        + '<div class="qz-sec">' + _audioBtn(c.audio_headword, 'Nghe phát âm', c.headword || key) + '</div>'
         + (c.example
-            ? '<div class="qz-modal__example"><div class="qz-modal__example-label">Ví dụ ' + _audioBtn(c.audio_example, 'Nghe') + '</div>'
+            ? '<div class="qz-modal__example"><div class="qz-modal__example-label">Ví dụ ' + _audioBtn(c.audio_example, 'Nghe', c.example) + '</div>'
               + '<div class="qz-modal__example-text">' + fmt(String(c.example)) + '</div></div>'
             : '')
         + _chips('Cụm từ thường gặp', c.collocations)
@@ -383,7 +396,10 @@
       $('qz-card-body').innerHTML = html;
       // wire any audio buttons
       $('qz-card-body').querySelectorAll('.qz-card-audio').forEach((b) => {
-        b.onclick = () => { try { new Audio(b.dataset.audio).play(); } catch (e) {} };
+        b.onclick = () => {
+          if (b.dataset.audio) { try { new Audio(b.dataset.audio).play(); return; } catch (e) {} }
+          _speak(b.dataset.speak);   // fallback while pre-generated audio is pending
+        };
       });
       $('qz-modal').classList.remove('hidden');
       $('qz-modal-x').focus();
