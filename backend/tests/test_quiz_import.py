@@ -169,6 +169,21 @@ class _FakeSupabase:
     def table(self, name):
         return _FakeQuery(self, name)
 
+    def rpc(self, name, params):
+        return _FakeRpc(self, name, params)
+
+
+class _FakeRpc:
+    def __init__(self, p, name, params):
+        self._p = p; self._name = name; self._params = params
+
+    def execute(self):
+        data = self._p.responses.get(("rpc", self._name), [])
+        self._p.calls.append({"table": "rpc:" + self._name, "op": "rpc", "payload": self._params})
+        if isinstance(data, Exception):
+            raise data
+        return MagicMock(data=data)
+
 
 class _FakeQuery:
     def __init__(self, p, t):
@@ -210,48 +225,62 @@ class _FakeQuery:
         return MagicMock(data=data)
 
 
-def test_commit_inserts_bank_and_questions_with_audio():
+# content_topics.skill_area read for the META↔topic cross-check (must match META).
+_TOPIC_VOCAB = {("content_topics", "select"): [{"skill_area": "vocab"}]}
+
+
+def test_commit_inserts_bank_and_questions_via_rpc_with_audio():
     fake = _FakeSupabase(responses={
         ("quiz_banks", "select"): [],                       # new bank
         ("quiz_banks", "insert"): [{"id": "bank-1"}],
         ("vocab_cards", "select"): [{"headword": "Alpha", "audio_headword": "https://a.mp3"}],
+        **_TOPIC_VOCAB,
     })
     with patch.object(quiz_import, "supabase_admin", fake):
         r = quiz_import.import_quiz_file(_BANK, topic_id="topic-1", dry_run=False)
 
     assert r["committed_bank_id"] == "bank-1"
-    # Questions written via upsert (insert new qids / overwrite changed) — never
-    # delete-then-insert.
-    qups = next(c for c in fake.calls if c["table"] == "quiz_questions" and c["op"] == "upsert")
-    rows = qups["payload"]
+    # Questions written atomically via the RPC (delete-all + insert-all in one txn).
+    rpc = next(c for c in fake.calls if c["op"] == "rpc")
+    assert rpc["payload"]["p_bank_id"] == "bank-1"
+    rows = rpc["payload"]["p_rows"]
     assert len(rows) == 4
-    assert all(row["bank_id"] == "bank-1" for row in rows)
-    # boolean answer mapped to 1
-    assert next(row for row in rows if row["qid"] == "alpha_v3")["answer"] == 1
-    # {{audio}} resolved from the topic's vocab card
+    assert "bank_id" not in rows[0]                      # rpc supplies p_bank_id
+    assert next(row for row in rows if row["qid"] == "alpha_v3")["answer"] == 1   # boolean → 1
     assert next(row for row in rows if row["qid"] == "alpha_v2")["audio_url"] == "https://a.mp3"
-    # non-audio prompt → null
     assert next(row for row in rows if row["qid"] == "alpha_v1")["audio_url"] is None
-    # order preserved
     assert [row["order"] for row in rows] == [0, 1, 2, 3]
 
 
-def test_commit_replaces_existing_bank_upsert_then_prune():
+def test_commit_replaces_existing_bank_via_rpc_then_updates_meta():
     fake = _FakeSupabase(responses={
         ("quiz_banks", "select"): [{"id": "bank-existing"}],   # already exists
         ("vocab_cards", "select"): [],
+        **_TOPIC_VOCAB,
     })
     with patch.object(quiz_import, "supabase_admin", fake):
         r = quiz_import.import_quiz_file(_BANK, topic_id="topic-1", dry_run=False)
 
     assert r["committed_bank_id"] == "bank-existing"
     ops = [(c["table"], c["op"]) for c in fake.calls]
-    assert ("quiz_banks", "update") in ops            # updated, not inserted
-    assert ("quiz_questions", "upsert") in ops        # new set upserted first
-    assert ("quiz_questions", "delete") in ops        # stale qids pruned after
-    # upsert must come BEFORE the prune-delete (never delete-then-insert).
-    qq_ops = [o for (t, o) in ops if t == "quiz_questions"]
-    assert qq_ops.index("upsert") < qq_ops.index("delete")
+    assert ("rpc:quiz_replace_questions", "rpc") in ops    # atomic replace
+    assert ("quiz_banks", "update") in ops                 # metadata updated AFTER
+    # the rpc replace runs BEFORE the metadata update.
+    seq = [t for (t, o) in ops if t in ("rpc:quiz_replace_questions", "quiz_banks") and o in ("rpc", "update")]
+    assert seq.index("rpc:quiz_replace_questions") < seq.index("quiz_banks")
+
+
+def test_commit_rejects_skill_area_mismatch_with_topic():
+    """META skill_area must match the selected topic's (else the bank would vanish
+    from that area's list)."""
+    fake = _FakeSupabase(responses={
+        ("content_topics", "select"): [{"skill_area": "grammar"}],   # topic is grammar
+    })
+    with patch.object(quiz_import, "supabase_admin", fake):
+        r = quiz_import.import_quiz_file(_BANK, topic_id="topic-g", dry_run=False)  # META says vocab
+    assert r["committed_bank_id"] is None
+    assert any(e["field"] == "skill_area" for e in r["validation_errors"])
+    assert not any(c["op"] in ("insert", "rpc", "update") for c in fake.calls)
 
 
 def test_commit_rolls_back_new_bank_when_question_write_fails():
@@ -261,7 +290,8 @@ def test_commit_rolls_back_new_bank_when_question_write_fails():
         ("quiz_banks", "select"): [],                       # new bank
         ("quiz_banks", "insert"): [{"id": "bank-x"}],
         ("vocab_cards", "select"): [],
-        ("quiz_questions", "upsert"): Exception("boom: question write failed"),
+        ("rpc", "quiz_replace_questions"): Exception("boom: replace failed"),
+        **_TOPIC_VOCAB,
     })
     with patch.object(quiz_import, "supabase_admin", fake):
         with pytest.raises(Exception):
@@ -271,12 +301,13 @@ def test_commit_rolls_back_new_bank_when_question_write_fails():
 
 
 def test_commit_preserves_existing_bank_metadata_on_question_failure():
-    """P2: a failed question write on an EXISTING bank must not change its metadata
-    (the bank update happens only after questions succeed) and must not delete it."""
+    """P2: a failed replace on an EXISTING bank must not change its metadata
+    (the bank update happens only after the replace succeeds) and must not delete it."""
     fake = _FakeSupabase(responses={
         ("quiz_banks", "select"): [{"id": "bank-ex"}],          # existing bank
         ("vocab_cards", "select"): [],
-        ("quiz_questions", "upsert"): Exception("boom"),
+        ("rpc", "quiz_replace_questions"): Exception("boom"),
+        **_TOPIC_VOCAB,
     })
     with patch.object(quiz_import, "supabase_admin", fake):
         with pytest.raises(Exception):
