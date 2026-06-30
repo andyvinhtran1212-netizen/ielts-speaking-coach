@@ -225,11 +225,8 @@ def test_bank_analytics_returns_items_skills_and_session_count():
 
 def test_student_progress_groups_by_bank_and_lists_sessions():
     fake = _FakeSupabase(responses={
-        ("quiz_word_stats", "select"): [
-            {"bank_id": _BANK, "status": "mastered"},
-            {"bank_id": _BANK, "status": "testing"},
-            {"bank_id": _BANK, "status": "mastered"},
-        ],
+        # aggregated server-side (RPC) — no row-cap undercount
+        ("rpc", "quiz_user_bank_progress"): [{"bank_id": _BANK, "mastered": 2, "in_progress": 1}],
         ("quiz_banks", "select"): [{"id": _BANK, "code": "L14", "title": "Work", "skill_area": "vocab", "words_count": 29}],
         ("quiz_sessions", "select"): [{"code": "L14", "accuracy": 0.8, "words_mastered": 2}],
     })
@@ -244,7 +241,7 @@ def test_student_progress_groups_by_bank_and_lists_sessions():
 
 def test_student_progress_empty_when_no_word_stats():
     fake = _FakeSupabase(responses={
-        ("quiz_word_stats", "select"): [],
+        ("rpc", "quiz_user_bank_progress"): [],
         ("quiz_sessions", "select"): [],
     })
     with patch.object(quiz_service, "supabase_admin", fake):

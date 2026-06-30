@@ -39,6 +39,21 @@ LANGUAGE sql STABLE AS $$
     ORDER BY error_rate DESC NULLS LAST, wrong DESC;
 $$;
 
+-- Per-learner, per-bank mastery counts — aggregated in SQL so a learner with
+-- more word_stats rows than the PostgREST page cap is counted fully (a plain
+-- unpaginated select would only see the first page).
+CREATE OR REPLACE FUNCTION quiz_user_bank_progress(p_user_id UUID)
+RETURNS TABLE (bank_id UUID, mastered BIGINT, in_progress BIGINT)
+LANGUAGE sql STABLE AS $$
+    SELECT bank_id,
+           COUNT(*) FILTER (WHERE status =  'mastered') AS mastered,
+           COUNT(*) FILTER (WHERE status <> 'mastered') AS in_progress
+    FROM quiz_word_stats
+    WHERE user_id = p_user_id
+    GROUP BY bank_id;
+$$;
+
 -- ── Reverse (run manually if needed) ────────────────────────────────────────
 -- DROP FUNCTION IF EXISTS quiz_item_error_rates(UUID);
 -- DROP FUNCTION IF EXISTS quiz_skill_error_rates(UUID);
+-- DROP FUNCTION IF EXISTS quiz_user_bank_progress(UUID);

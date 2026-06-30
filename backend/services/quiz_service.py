@@ -267,21 +267,24 @@ def bank_analytics(bank_id: str) -> dict:
 def student_progress(user_id: str) -> dict:
     """A learner's own progress: per-bank mastered/in-progress (from word_stats)
     enriched with bank meta, plus recent sessions for an accuracy trend."""
+    # Aggregate per-bank in SQL (RPC) so a learner with more word_stats rows than
+    # the PostgREST page cap is counted fully — a plain select would silently see
+    # only the first page and undercount.
     try:
-        ws = (
-            supabase_admin.table("quiz_word_stats")
-            .select("bank_id, status").eq("user_id", user_id).execute()
+        rows = (
+            supabase_admin.rpc("quiz_user_bank_progress", {"p_user_id": user_id})
+            .execute()
         ).data or []
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi truy vấn tiến độ: {exc}")
 
-    by_bank: dict[str, dict] = {}
-    for r in ws:
-        b = by_bank.setdefault(r["bank_id"], {"mastered": 0, "in_progress": 0})
-        if r.get("status") == "mastered":
-            b["mastered"] += 1
-        else:
-            b["in_progress"] += 1
+    by_bank: dict[str, dict] = {
+        r["bank_id"]: {
+            "mastered": int(r.get("mastered") or 0),
+            "in_progress": int(r.get("in_progress") or 0),
+        }
+        for r in rows if r.get("bank_id")
+    }
 
     meta: dict[str, dict] = {}
     if by_bank:
