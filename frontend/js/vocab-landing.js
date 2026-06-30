@@ -68,10 +68,12 @@
               + '<div class="vtc-actions">'
               + '<a class="vtc-act vtc-act--browse" href="/vocabulary.html?cat=' + slug + '">Khám phá</a>'
               + '<a class="vtc-act vtc-act--study" href="/pages/flashcard-study.html?stack=wiki:' + slug + '">🃏 Flashcards</a>'
-              // Luyện tập needs >=3 words to build a real MCQ — hide the CTA on
-              // tiny topics so it never advertises a dead-end drill (flashcards
-              // work with any count, so that CTA always shows).
-              + (n >= 3 ? '<a class="vtc-act vtc-act--ex" href="/pages/topic-exercise.html?cat=' + slug + '">✍️ Luyện tập</a>' : '')
+              // "✍️ Luyện tập" → the adaptive Quick-Check hub (vocab-practice).
+              // Replaces the old 12-question random MCQ drill (now retired):
+              // the hub lists lesson banks that test until the WHOLE word list
+              // is mastered. Lessons are their own taxonomy (not the wiki
+              // categories), so the link is global — always shown.
+              + '<a class="vtc-act vtc-act--ex" href="/pages/vocab-practice.html">✍️ Luyện tập</a>'
               + '</div>'
               + '</div>';
           }).join('');

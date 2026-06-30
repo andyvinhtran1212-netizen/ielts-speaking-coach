@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Luyện tập từ vựng</title>
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.setAttribute('data-theme',
+          (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light'));
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/tailwind.build.css" />
+  <style>
+    .vp-wrap { max-width: 720px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+    .vp-back { display: inline-flex; align-items: center; gap: .35rem; font-size: .9rem; opacity: .75; text-decoration: none; }
+    .vp-back:hover { opacity: 1; }
+    .vp-intro { font-size: .92rem; opacity: .8; margin-top: .4rem; }
+    .vp-card { border: 1px solid var(--av-border-subtle); border-radius: .75rem; padding: 1rem 1.1rem; background: var(--av-surface-card); margin-top: .7rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+    .vp-meta { min-width: 0; }
+    .vp-code { font-size: .72rem; font-weight: 700; letter-spacing: .04em; color: var(--av-primary); }
+    .vp-title { font-weight: 600; }
+    .vp-count { font-size: .82rem; opacity: .7; }
+    .vp-go {
+      flex: none; display: inline-block; text-decoration: none;
+      padding: .5rem .9rem; border-radius: .55rem; font-weight: 600; font-size: .9rem;
+      background: var(--av-primary); color: var(--av-text-on-primary, #fff);
+    }
+    .vp-go:hover { filter: brightness(1.05); }
+    .vp-go:focus-visible { outline: none; box-shadow: var(--av-shadow-focus); }
+    .vp-muted { opacity: .7; font-size: .9rem; }
+    .vp-err { color: var(--av-error); }
+    .vp-progress-link { display: inline-block; margin-top: 1.2rem; font-size: .9rem; }
+  </style>
+</head>
+<body class="av-page font-sans antialiased">
+  <div class="vp-wrap">
+    <a class="vp-back" href="/vocabulary.html">← Về Từ vựng</a>
+    <h1 class="text-2xl font-bold mt-3">Luyện tập từ vựng</h1>
+    <p class="vp-intro">
+      Mỗi bài luyện <strong>kiểm tra tới khi bạn thuộc trọn vẹn cả list từ</strong> —
+      có câu gõ tự luận, chống đoán mò và ôn lại từ hay sai. Chọn một bài để bắt đầu.
+    </p>
+
+    <p id="vp-loading" class="vp-muted" style="padding:1.5rem 0;">Đang tải…</p>
+    <div id="vp-list" class="hidden" style="margin-top:1rem;"></div>
+    <p id="vp-empty" class="hidden vp-muted" style="padding:1.5rem 0;">
+      Chưa có bài luyện nào được mở. Vui lòng quay lại sau.
+    </p>
+    <p id="vp-error" class="hidden vp-err" style="padding:1.5rem 0;"></p>
+
+    <a id="vp-progress" class="vp-progress-link hidden" href="/pages/quiz-progress.html">📊 Xem tiến độ của tôi →</a>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0"></script>
+  <script src="/js/api.js"></script>
+  <script>
+    'use strict';
+    initSupabase('https://nqhrtqspznepmveyurzm.supabase.co',
+                 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4');
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) =>
+      ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+
+    async function boot() {
+      let banks;
+      try { banks = await window.api.get('/api/quiz/banks?skill_area=vocab'); }
+      catch (e) {
+        $('vp-loading').classList.add('hidden');
+        $('vp-error').textContent = 'Không tải được danh sách bài luyện: ' + e.message;
+        $('vp-error').classList.remove('hidden');
+        return;
+      }
+      $('vp-loading').classList.add('hidden');
+      $('vp-progress').classList.remove('hidden');
+
+      banks = Array.isArray(banks) ? banks : [];
+      if (!banks.length) { $('vp-empty').classList.remove('hidden'); return; }
+
+      $('vp-list').innerHTML = banks.map((b) => {
+        const n = b.words_count || 0;
+        return '<div class="vp-card"><div class="vp-meta">'
+          + '<div class="vp-code">' + esc(b.code || '') + '</div>'
+          + '<div class="vp-title">' + esc(b.title || b.code || 'Bài luyện') + '</div>'
+          + '<div class="vp-count">' + n + ' từ</div></div>'
+          + '<a class="vp-go" href="/pages/quiz.html?bank='
+          + encodeURIComponent(b.id) + '">Luyện tập</a></div>';
+      }).join('');
+      $('vp-list').classList.remove('hidden');
+    }
+    boot();
+  </script>
+</body>
+</html>
