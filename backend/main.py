@@ -75,6 +75,7 @@ from routers.admin_reading import router as admin_reading_content_router
 from routers.admin_reading import questions_router as admin_reading_questions_router
 from routers.admin_vocab import router as admin_vocab_content_router
 from routers.admin_topics import router as admin_topics_router
+from routers.admin_quiz import router as admin_quiz_router
 from routers.reading_student import router as reading_student_router
 from routers.feedback import router as feedback_router
 
@@ -216,6 +217,7 @@ app.include_router(admin_reading_content_router)
 app.include_router(admin_reading_questions_router)
 app.include_router(admin_vocab_content_router)
 app.include_router(admin_topics_router)
+app.include_router(admin_quiz_router)
 app.include_router(reading_student_router)
 app.include_router(feedback_router)
 app.include_router(health_router)

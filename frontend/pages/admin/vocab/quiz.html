@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Quick-Check Quiz — Vocab Admin</title>
+
+  <!-- Sprint 6.14a canonical anti-flash bootstrap (DESIGN_SYSTEM.md § 13). -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/admin-writing.css" />
+  <link rel="stylesheet" href="/css/tailwind.build.css" />
+
+  <script src="https://unpkg.com/lucide@1.17.0" defer></script>
+</head>
+<body class="av-page font-sans antialiased">
+  <aver-admin-chrome active="vocab" subsection="quiz">
+
+  <main class="max-w-3xl mx-auto px-6 py-10">
+    <h1 class="aw-h1 text-2xl font-bold">Quick-Check Quiz — Import bank</h1>
+    <p class="aw-subtitle mt-1 text-sm">
+      Tải file <code>.md</code> (1 file = 1 bank) gồm block META (<code>kind: quiz</code>) + các câu hỏi.
+      Hệ thống parse → kiểm tra → xem trước (dry-run); chỉ lưu khi không còn lỗi.
+    </p>
+
+    <!-- Import card -->
+    <div class="aw-card mt-8 p-6">
+      <label class="text-sm font-semibold">Chủ đề (topic)</label>
+      <select id="q-topic" class="block w-full mt-1 mb-4 text-sm" style="padding:.45rem;border:1px solid var(--av-border,#d4d4d8);border-radius:.5rem;background:transparent;">
+        <option value="">— Đang tải topic… —</option>
+      </select>
+
+      <input type="file" id="q-file" accept=".md,text/markdown,text/plain" class="text-sm" />
+      <p id="q-status" class="hidden mt-3 text-xs"></p>
+
+      <!-- Preview -->
+      <div id="q-preview" class="hidden mt-5">
+        <div id="q-meta" class="text-sm" style="padding:.6rem .8rem;border:1px solid var(--av-border,#e4e4e7);border-radius:.5rem;"></div>
+        <div id="q-summary" class="mt-3 text-sm font-medium"></div>
+        <div id="q-errors" class="mt-3"></div>
+      </div>
+
+      <div class="mt-5 flex gap-2">
+        <button id="q-reset" class="aw-btn-secondary text-sm">Xóa</button>
+        <button id="q-commit" class="aw-btn-primary text-sm" disabled>Lưu vào hệ thống</button>
+      </div>
+    </div>
+
+    <!-- Bank list -->
+    <div class="aw-card mt-6 p-6">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-bold">Banks đã có</h2>
+        <span id="q-bank-count" class="text-xs" style="opacity:.7;"></span>
+      </div>
+      <div id="q-banks" class="mt-3 text-sm"></div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0"></script>
+  <script src="/js/api.js"></script>
+  <script>
+    'use strict';
+
+    var SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
+    var SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
+    initSupabase(SUPABASE_URL, SUPABASE_ANON);
+
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+        return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c];
+      });
+    }
+    function $(id) { return document.getElementById(id); }
+    function status(msg, kind) {
+      var el = $('q-status');
+      el.textContent = msg || '';
+      el.classList.toggle('hidden', !msg);
+      el.style.color = kind === 'error' ? 'var(--av-danger,#dc2626)' : (kind === 'ok' ? 'var(--av-success,#16a34a)' : '');
+    }
+
+    var _lastResult = null;
+
+    function resetImport() {
+      _lastResult = null;
+      $('q-file').value = '';
+      $('q-preview').classList.add('hidden');
+      $('q-commit').disabled = true;
+      status('', null);
+    }
+
+    function renderPreview(r) {
+      _lastResult = r;
+      var m = r.meta || {};
+      $('q-meta').innerHTML =
+        '<strong>' + esc(m.code || '(thiếu code)') + '</strong> · ' + esc(m.title || '') +
+        ' <span style="opacity:.6">[' + esc(m.skill_area || 'vocab') + ']</span>';
+      var s = r.summary || {};
+      $('q-summary').innerHTML =
+        'Câu hỏi: <strong>' + (s.questions || 0) + '</strong> · Từ (pool): <strong>' + (s.pools || 0) +
+        '</strong> · Lỗi: <strong style="color:' + (s.errors ? 'var(--av-danger,#dc2626)' : 'var(--av-success,#16a34a)') +
+        '">' + (s.errors || 0) + '</strong>';
+
+      var errs = r.validation_errors || [];
+      $('q-errors').innerHTML = errs.length
+        ? '<div style="max-height:240px;overflow:auto;border:1px solid var(--av-danger,#fca5a5);border-radius:.5rem;padding:.5rem .7rem;">'
+          + '<strong>Lỗi cần sửa:</strong><ul style="margin:.3rem 0 0 1rem;list-style:disc;">'
+          + errs.map(function (e) {
+              return '<li>Block #' + (e.block + 1) + (e.qid ? ' (' + esc(e.qid) + ')' : '')
+                   + ' — <code>' + esc(e.field) + '</code>: ' + esc(e.message) + '</li>';
+            }).join('')
+          + '</ul></div>'
+        : '';
+
+      $('q-preview').classList.remove('hidden');
+      var topicOk = !!$('q-topic').value;
+      $('q-commit').disabled = (s.errors > 0) || !topicOk;
+      if (s.errors > 0) status('Còn lỗi — sửa file rồi tải lại.', 'error');
+      else if (!topicOk) status('Chọn topic trước khi lưu.', 'error');
+      else status('Sẵn sàng lưu.', 'ok');
+    }
+
+    async function doDryRun(file) {
+      var topic = $('q-topic').value;
+      var fd = new FormData(); fd.append('file', file);
+      var qs = '?dry_run=true' + (topic ? '&topic_id=' + encodeURIComponent(topic) : '');
+      status('Đang kiểm tra…', null);
+      try {
+        var r = await window.api.upload('/admin/quiz/import' + qs, fd);
+        renderPreview(r);
+      } catch (e) { status('Lỗi import: ' + e.message, 'error'); }
+    }
+
+    async function doCommit() {
+      if (!_lastResult) return;
+      var topic = $('q-topic').value;
+      if (!topic) { status('Chọn topic.', 'error'); return; }
+      var file = $('q-file').files[0];
+      if (!file) { status('Chọn lại file.', 'error'); return; }
+      var fd = new FormData(); fd.append('file', file);
+      status('Đang lưu…', null);
+      try {
+        var r = await window.api.upload(
+          '/admin/quiz/import?dry_run=false&topic_id=' + encodeURIComponent(topic), fd);
+        if (r.committed_bank_id) {
+          status('Đã lưu bank ' + (r.meta && r.meta.code ? r.meta.code : ''), 'ok');
+          $('q-commit').disabled = true;
+          loadBanks();
+        } else {
+          status('Không lưu được (còn lỗi).', 'error');
+          renderPreview(r);
+        }
+      } catch (e) { status('Lỗi lưu: ' + e.message, 'error'); }
+    }
+
+    async function loadTopics() {
+      try {
+        var topics = await window.api.get('/admin/topics?skill_area=vocab') || [];
+        var sel = $('q-topic');
+        sel.innerHTML = '<option value="">— Chọn topic —</option>' + topics.map(function (t) {
+          return '<option value="' + esc(t.id) + '">' + esc(t.title) + ' (' + esc(t.slug) + ')</option>';
+        }).join('');
+      } catch (e) { $('q-topic').innerHTML = '<option value="">Lỗi tải topic</option>'; }
+    }
+
+    async function loadBanks() {
+      try {
+        var banks = await window.api.get('/admin/quiz/banks?skill_area=vocab') || [];
+        $('q-bank-count').textContent = banks.length + ' bank';
+        $('q-banks').innerHTML = banks.length
+          ? banks.map(function (b) {
+              return '<div style="display:flex;justify-content:space-between;align-items:center;padding:.45rem 0;border-bottom:1px solid var(--av-border,#eee);">'
+                + '<span><strong>' + esc(b.code) + '</strong> — ' + esc(b.title || '') + ' · ' + (b.words_count || 0) + ' từ'
+                + (b.is_published ? '' : ' <span style="opacity:.6">(ẩn)</span>') + '</span>'
+                + '<button data-del="' + esc(b.id) + '" class="aw-btn-secondary" style="font-size:.75rem;">Xóa</button>'
+                + '</div>';
+            }).join('')
+          : '<p style="opacity:.6;">Chưa có bank nào.</p>';
+        Array.prototype.forEach.call(document.querySelectorAll('[data-del]'), function (btn) {
+          btn.addEventListener('click', function () { delBank(btn.getAttribute('data-del')); });
+        });
+      } catch (e) { $('q-banks').innerHTML = '<p style="color:var(--av-danger,#dc2626);">Lỗi tải banks: ' + esc(e.message) + '</p>'; }
+    }
+
+    async function delBank(id) {
+      if (!confirm('Xóa bank này? (xóa cả câu hỏi)')) return;
+      try { await window.api.delete('/admin/quiz/banks/' + id); loadBanks(); }
+      catch (e) { alert('Lỗi xóa: ' + e.message); }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      $('q-file').addEventListener('change', function () {
+        if (this.files[0]) doDryRun(this.files[0]);
+      });
+      $('q-topic').addEventListener('change', function () {
+        if (_lastResult) renderPreview(_lastResult);   // re-eval commit-enabled
+      });
+      $('q-reset').addEventListener('click', resetImport);
+      $('q-commit').addEventListener('click', doCommit);
+      loadTopics();
+      loadBanks();
+    });
+  </script>
+
+  </aver-admin-chrome>
+  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
+</body>
+</html>

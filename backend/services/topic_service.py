@@ -161,10 +161,8 @@ def delete_topic(topic_id: str) -> dict:
 
 
 def get_topic_bundle(topic_id: str) -> dict:
-    """Topic + the content hanging off it, for the topic-centric admin console.
-
-    Pha 0: vocab cards only. Forward-compatible — `quiz_banks` is returned as an
-    empty list until Pha 1 adds the table, so the frontend shape is stable."""
+    """Topic + the content hanging off it, for the topic-centric admin console:
+    vocab cards + quiz banks (Pha 1)."""
     topic = get_topic(topic_id)
     try:
         cards = (
@@ -176,10 +174,20 @@ def get_topic_bundle(topic_id: str) -> dict:
         ).data or []
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi truy vấn vocab_cards: {exc}")
+    try:
+        banks = (
+            supabase_admin.table("quiz_banks")
+            .select("id, code, title, skill_area, words_count, is_published, updated_at")
+            .eq("topic_id", topic_id)
+            .order("code")
+            .execute()
+        ).data or []
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Lỗi truy vấn quiz_banks: {exc}")
 
     return {
         "topic": topic,
         "vocab_cards": cards,
-        "quiz_banks": [],  # Pha 1
-        "counts": {"vocab_cards": len(cards), "quiz_banks": 0},
+        "quiz_banks": banks,
+        "counts": {"vocab_cards": len(cards), "quiz_banks": len(banks)},
     }

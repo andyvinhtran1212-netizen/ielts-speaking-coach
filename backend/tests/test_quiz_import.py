@@ -1,0 +1,220 @@
+"""Tests for services.quiz_import (Pha 1 — Quick-Check quiz bank importer).
+
+Parser tests run offline (dry_run, no DB). Commit tests mock supabase_admin.
+"""
+
+from __future__ import annotations
+
+from typing import Optional
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from services import quiz_import
+
+# A small but representative bank: 2 pools (Alpha, Beta), mixed input types,
+# one prompt with {{audio}}, one boolean.
+_BANK = """\
+---
+kind: quiz
+code: "T1"
+title: "Test One"
+skill_area: "vocab"
+correct_to_master: 2
+require_production_to_master: true
+cooldown: 2
+words_count: 2
+---
+
+# ===== TỪ 1/2 · Alpha =====
+
+---
+id: "alpha_v1"
+type: "mcq"
+subtype: "meaning_en_vi"
+input: "choice"
+headword: "Alpha"
+skill: "meaning"
+pair: "meaning"
+prompt: "Alpha nghĩa là gì?"
+options: ["a", "b", "c", "d"]
+answer: 0
+explain: "x"
+---
+
+---
+id: "alpha_v2"
+type: "gap_text"
+input: "text"
+headword: "Alpha"
+skill: "usage"
+prompt: "The ____ thing.  {{audio}}"
+accept: ["alpha"]
+---
+
+---
+id: "alpha_v3"
+type: "boolean"
+input: "boolean"
+headword: "Alpha"
+skill: "judgement"
+pair: "colloc"
+prompt: "Đúng hay Sai: ..."
+answer: true
+explain: "y"
+---
+
+# ===== TỪ 2/2 · Beta =====
+
+---
+id: "beta_v1"
+type: "mcq"
+input: "choice"
+headword: "Beta"
+skill: "meaning"
+prompt: "Beta?"
+options: ["a", "b"]
+answer: 1
+---
+"""
+
+
+# ── Parse / validate (offline) ───────────────────────────────────────
+
+def test_parses_meta_and_questions_clean():
+    r = quiz_import.import_quiz_file(_BANK, dry_run=True)
+    assert r["meta"]["code"] == "T1"
+    assert r["meta"]["skill_area"] == "vocab"
+    assert r["meta"]["meta"]["correct_to_master"] == 2
+    assert r["summary"] == {"words": 2, "questions": 4, "errors": 0, "pools": 2}
+    assert r["validation_errors"] == []
+
+
+def test_missing_meta_block_flagged():
+    body = _BANK.split("# ===== TỪ 1/2", 1)[1]
+    body = "---\n" + body.split("---", 1)[1]  # drop the META block, keep questions
+    r = quiz_import.import_quiz_file(body, dry_run=True)
+    assert any(e["field"] == "meta" for e in r["validation_errors"])
+
+
+def test_mcq_without_options_flagged():
+    bad = """\
+---
+kind: quiz
+code: "T2"
+words_count: 1
+---
+
+---
+id: "x_v1"
+type: "mcq"
+input: "choice"
+headword: "X"
+skill: "meaning"
+prompt: "?"
+answer: 0
+---
+"""
+    r = quiz_import.import_quiz_file(bad, dry_run=True)
+    fields = {e["field"] for e in r["validation_errors"]}
+    assert "options" in fields
+
+
+def test_boolean_answer_accepted():
+    r = quiz_import.import_quiz_file(_BANK, dry_run=True)
+    # alpha_v3 is boolean with answer:true → no error on it
+    errs = [e for e in r["validation_errors"] if e["qid"] == "alpha_v3"]
+    assert errs == []
+
+
+def test_duplicate_qid_flagged():
+    dup = _BANK.replace('id: "beta_v1"', 'id: "alpha_v1"')
+    r = quiz_import.import_quiz_file(dup, dry_run=True)
+    assert any("Trùng id" in e["message"] for e in r["validation_errors"])
+
+
+# ── Commit (mocked supabase) ─────────────────────────────────────────
+
+class _FakeSupabase:
+    def __init__(self, responses: dict | None = None) -> None:
+        self.responses = responses or {}
+        self.calls: list[dict] = []
+
+    def table(self, name):
+        return _FakeQuery(self, name)
+
+
+class _FakeQuery:
+    def __init__(self, p, t):
+        self._p = p; self._t = t; self._op = None; self._payload = None; self._filters = []
+
+    def insert(self, payload):
+        self._op = "insert"; self._payload = payload; return self
+
+    def update(self, payload):
+        self._op = "update"; self._payload = payload; return self
+
+    def delete(self):
+        self._op = "delete"; return self
+
+    def select(self, *a, **k):
+        self._op = "select"; return self
+
+    def eq(self, c, v):
+        self._filters.append((c, v)); return self
+
+    def limit(self, *a, **k):
+        return self
+
+    def execute(self):
+        data = self._p.responses.get((self._t, self._op), [])
+        self._p.calls.append({"table": self._t, "op": self._op, "payload": self._payload})
+        return MagicMock(data=data)
+
+
+def test_commit_inserts_bank_and_questions_with_audio():
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [],                       # new bank
+        ("quiz_banks", "insert"): [{"id": "bank-1"}],
+        ("vocab_cards", "select"): [{"headword": "Alpha", "audio_headword": "https://a.mp3"}],
+    })
+    with patch.object(quiz_import, "supabase_admin", fake):
+        r = quiz_import.import_quiz_file(_BANK, topic_id="topic-1", dry_run=False)
+
+    assert r["committed_bank_id"] == "bank-1"
+    qins = next(c for c in fake.calls if c["table"] == "quiz_questions" and c["op"] == "insert")
+    rows = qins["payload"]
+    assert len(rows) == 4
+    assert all(row["bank_id"] == "bank-1" for row in rows)
+    # boolean answer mapped to 1
+    assert next(row for row in rows if row["qid"] == "alpha_v3")["answer"] == 1
+    # {{audio}} resolved from the topic's vocab card
+    assert next(row for row in rows if row["qid"] == "alpha_v2")["audio_url"] == "https://a.mp3"
+    # non-audio prompt → null
+    assert next(row for row in rows if row["qid"] == "alpha_v1")["audio_url"] is None
+    # order preserved
+    assert [row["order"] for row in rows] == [0, 1, 2, 3]
+
+
+def test_commit_replaces_existing_bank():
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{"id": "bank-existing"}],   # already exists
+        ("vocab_cards", "select"): [],
+    })
+    with patch.object(quiz_import, "supabase_admin", fake):
+        r = quiz_import.import_quiz_file(_BANK, topic_id="topic-1", dry_run=False)
+
+    assert r["committed_bank_id"] == "bank-existing"
+    ops = [(c["table"], c["op"]) for c in fake.calls]
+    assert ("quiz_banks", "update") in ops          # updated, not inserted
+    assert ("quiz_questions", "delete") in ops       # old questions wiped
+    assert ("quiz_questions", "insert") in ops       # new questions written
+
+
+def test_commit_blocked_when_validation_errors():
+    bad = _BANK.replace('options: ["a", "b"]', "")   # beta_v1 loses options
+    fake = _FakeSupabase()
+    with patch.object(quiz_import, "supabase_admin", fake):
+        r = quiz_import.import_quiz_file(bad, topic_id="topic-1", dry_run=False)
+    assert r["committed_bank_id"] is None
+    assert not any(c["op"] == "insert" for c in fake.calls)   # all-or-nothing
