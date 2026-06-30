@@ -68,18 +68,24 @@
               + '<div class="vtc-actions">'
               + '<a class="vtc-act vtc-act--browse" href="/vocabulary.html?cat=' + slug + '">Khám phá</a>'
               + '<a class="vtc-act vtc-act--study" href="/pages/flashcard-study.html?stack=wiki:' + slug + '">🃏 Flashcards</a>'
-              // "✍️ Luyện tập" → the adaptive Quick-Check hub (vocab-practice).
-              // Replaces the old 12-question random MCQ drill (now retired):
-              // the hub lists lesson banks that test until the WHOLE word list
-              // is mastered. Lessons are their own taxonomy (not the wiki
-              // categories), so the link is global — always shown.
-              + '<a class="vtc-act vtc-act--ex" href="/pages/vocab-practice.html">✍️ Luyện tập</a>'
+              // "✍️ Luyện tập" → straight into the adaptive Quick-Check player.
+              // quiz.html?skill_area=vocab resolves the bank itself: one published
+              // bank → starts immediately (no intermediate picker); 2+ → shows the
+              // lesson picker so the student chooses. Lessons are their own taxonomy
+              // (not the wiki categories), so the link is global — always shown.
+              + '<a class="vtc-act vtc-act--ex" href="/pages/quiz.html?skill_area=vocab">✍️ Luyện tập</a>'
               + '</div>'
               + '</div>';
           }).join('');
           var header = '<div class="vtc-panel-head">'
             + '<h2 class="vtc-panel-title">Chủ đề từ vựng</h2>'
             + '<p class="vtc-panel-sub">Chọn chủ đề để khám phá từ vựng theo ngữ cảnh IELTS.</p>'
+            // Progress lives here (entry on the Vocabulary page) rather than behind
+            // the practice flow.
+            + '<a class="vtc-progress-link" href="/pages/quiz-progress.html"'
+            + ' style="display:inline-block;margin-top:var(--av-space-2);font-size:var(--av-fs-sm);'
+            + 'font-weight:var(--av-fw-semibold);color:var(--av-primary);text-decoration:none;">'
+            + '📊 Tiến độ luyện tập →</a>'
             + '</div>';
           container.innerHTML = header + '<div class="vocab-topics-grid">' + cards + '</div>';
           container.dataset.mounted = 'true';

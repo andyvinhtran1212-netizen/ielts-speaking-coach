@@ -159,7 +159,9 @@
     // Render **bold** + the ____ blank placeholder.
     const fmt = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/_{4,}/g, '<u>&nbsp;&nbsp;&nbsp;</u>');
 
-    const bankId = new URLSearchParams(location.search).get('bank');
+    const _params = new URLSearchParams(location.search);
+    const bankId = _params.get('bank');
+    const skillArea = _params.get('skill_area');
     let engine = null, sessionId = null, current = null, graded = false, startMs = Date.now();
     let pending = 0;   // attempts since last flush
 
@@ -402,15 +404,32 @@
         + (ok ? '' : '<br><span style="color:var(--av-error);">⚠ Một phần tiến độ chưa lưu được — sẽ thử lại ở phiên sau.</span>');
     }
 
+    // Resolve which bank to play. With an explicit ?bank= use it. Otherwise
+    // ?skill_area= picks one for the student: 0 published → friendly notice,
+    // exactly 1 → start it directly (no picker), 2+ → hand off to the lesson
+    // picker so they choose. Returns the bank id, or null if boot already failed.
+    async function resolveBankId() {
+      if (bankId) return bankId;
+      if (!skillArea) { fail('Thiếu tham số bank.'); return null; }
+      let banks;
+      try { banks = await window.api.get('/api/quiz/banks?skill_area=' + encodeURIComponent(skillArea)); }
+      catch (e) { fail('Không tải được danh sách bài: ' + e.message); return null; }
+      banks = Array.isArray(banks) ? banks : [];
+      if (!banks.length) { fail('Chưa có bài luyện nào được mở. Vui lòng quay lại sau.'); return null; }
+      if (banks.length > 1) { location.replace('/pages/vocab-practice.html'); return null; }
+      return banks[0].id;
+    }
+
     async function boot() {
-      if (!bankId) return fail('Thiếu tham số bank.');
+      const resolvedBankId = await resolveBankId();
+      if (!resolvedBankId) return;   // resolveBankId already showed the message / redirected
       let bank;
-      try { bank = await window.api.get('/api/quiz/banks/' + encodeURIComponent(bankId)); }
+      try { bank = await window.api.get('/api/quiz/banks/' + encodeURIComponent(resolvedBankId)); }
       catch (e) { return fail('Không tải được bài: ' + e.message); }
       if (!bank || !bank.questions || !bank.questions.length) return fail('Bài chưa có câu hỏi.');
 
       let start;
-      try { start = await window.api.post('/api/quiz/sessions', { bank_id: bankId }); }
+      try { start = await window.api.post('/api/quiz/sessions', { bank_id: resolvedBankId }); }
       catch (e) { return fail('Không tạo được phiên: ' + e.message); }
       sessionId = start.session_id;
 

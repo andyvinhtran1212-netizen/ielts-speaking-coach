@@ -60,11 +60,26 @@ describe('vocab-practice hub — lists published vocab banks', () => {
   });
 });
 
-describe('vocab-landing — student entry repointed to the adaptive hub', () => {
-  test('"Luyện tập" CTA links to the new hub, not the retired drill', () => {
-    assert.match(LANDING, /vtc-act--ex.*href="\/pages\/vocab-practice\.html"/);
+describe('vocab-landing — "Luyện tập" goes straight into the player', () => {
+  test('CTA opens the player directly (no intermediate picker), resolving by skill_area', () => {
+    assert.match(LANDING, /vtc-act--ex.*href="\/pages\/quiz\.html\?skill_area=vocab"/);
     assert.ok(!/topic-exercise/.test(LANDING),
       'vocab-landing must not reference the retired topic-exercise drill');
+  });
+  test('progress is reachable from the Vocabulary page', () => {
+    assert.match(LANDING, /\/pages\/quiz-progress\.html/);
+  });
+});
+
+describe('quiz.html resolves a bank from ?skill_area when ?bank is absent', () => {
+  const PLAYER = front('pages', 'quiz.html');
+  test('reads skill_area and lists published banks for it', () => {
+    assert.match(PLAYER, /get\('skill_area'\)/);
+    assert.match(PLAYER, /\/api\/quiz\/banks\?skill_area=/);
+  });
+  test('one bank starts directly; multiple hands off to the lesson picker', () => {
+    assert.match(PLAYER, /banks\.length > 1/);
+    assert.match(PLAYER, /location\.replace\('\/pages\/vocab-practice\.html'\)/);
   });
 });
 
