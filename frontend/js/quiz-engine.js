@@ -87,10 +87,15 @@ export function createEngine(bank, options) {
   var words = {};
   order.forEach(function (key) {
     var r = resumeByKey[key] || {};
+    var passed = new Set(Array.isArray(r.skills_passed) ? r.skills_passed : []);
     words[key] = {
       key: key,
       status: 'testing',
-      passedSkills: new Set(Array.isArray(r.skills_passed) ? r.skills_passed : []),
+      passedSkills: passed,
+      // credits = count of confirmed counting-corrects (for require_distinct_skill:false
+      // banks, where repeats at the same skill should still count). Falls back to the
+      // distinct-skill count when not persisted.
+      credits: num(r.credit_count, passed.size),
       productionDone: Boolean(r.production_done),
       // Rehydrate the unconfirmed-MCQ credit so a resumed provisional word can
       // still be confirmed+mastered by a later production answer (carry-over truth).
@@ -103,10 +108,11 @@ export function createEngine(bank, options) {
       is_difficult: Boolean(r.is_difficult),
       dirty: false,
     };
-    // resumed production credit is unknown → conservative: keep productionDone false
+    // A resumed already-mastered word stays mastered (don't re-ask it).
+    if (isMasteredWord(words[key])) words[key].status = 'mastered';
   });
 
-  var queue = order.filter(function (k) { return !isMasteredWord(words[k]); });
+  var queue = order.filter(function (k) { return words[k].status !== 'mastered'; });
   var recent = [];                 // recently-asked keys (cooldown)
   var current = null;              // {word, q, startedAt}
   var attemptsBatch = [];
@@ -114,7 +120,10 @@ export function createEngine(bank, options) {
   var totalWords = order.length;
 
   function isMasteredWord(w) {
-    if (w.passedSkills.size < CORRECT_TO_MASTER) return false;     // distinct skills (set)
+    // require_distinct_skill: true → need correct_to_master DISTINCT skills;
+    // false → need correct_to_master confirmed corrects (credits), repeats OK.
+    var have = REQUIRE_DISTINCT ? w.passedSkills.size : w.credits;
+    if (have < CORRECT_TO_MASTER) return false;
     if (REQUIRE_PRODUCTION && !w.productionDone) return false;
     return true;
   }
@@ -225,17 +234,19 @@ export function createEngine(bank, options) {
   // credit model (§6.A): production confirms immediately + counts; a lone MCQ
   // correct is provisional; a different-skill recognition (or a production)
   // confirms it. Distinct skills tracked in passedSkills (a Set).
+  function credit(w, skill) { w.passedSkills.add(skill); w.credits += 1; }
+
   function applyCorrectCredit(w, q) {
     if (isProduction(q)) {
       w.productionDone = true;
-      w.passedSkills.add(q.skill);
-      if (w.provisional) { w.passedSkills.add(w.provisional.skill); w.provisional = null; }
+      credit(w, q.skill);
+      if (w.provisional) { credit(w, w.provisional.skill); w.provisional = null; }
       return;
     }
-    if (!PROVISIONAL_MCQ) { w.passedSkills.add(q.skill); return; }
+    if (!PROVISIONAL_MCQ) { credit(w, q.skill); return; }
     if (w.provisional && (!CONFIRM_REVERSAL || w.provisional.skill !== q.skill)) {
-      w.passedSkills.add(w.provisional.skill);
-      w.passedSkills.add(q.skill);
+      credit(w, w.provisional.skill);
+      credit(w, q.skill);
       w.provisional = null;
     } else if (!w.provisional) {
       w.provisional = { skill: q.skill };
@@ -268,10 +279,12 @@ export function createEngine(bank, options) {
         first_try_correct: w.first_try_correct, attempts_to_master: w.attempts_to_master || null,
         status: w.status, is_difficult: w.is_difficult,
         skills_passed: Array.from(w.passedSkills),
-        // carry-over truth: persist the unconfirmed-MCQ skill + production flag so
-        // a resumed session rehydrates provisional credit (not just passedSkills).
+        // carry-over truth: persist the unconfirmed-MCQ skill, production flag, and
+        // credit count so a resumed session rehydrates full mastery state (incl.
+        // require_distinct_skill:false banks + already-mastered words).
         provisional_skill: w.provisional ? w.provisional.skill : null,
         production_done: w.productionDone,
+        credit_count: w.credits,
       };
     });
     return { attempts: attempts, word_stats: wordStats };

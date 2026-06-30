@@ -126,6 +126,31 @@ test('drainBatch carries provisional_skill + production_done for resume', () => 
   assert.equal(alpha.production_done, false);
 });
 
+test('require_distinct_skill:false masters via repeated same-skill corrects', () => {
+  const bank = {
+    meta: { correct_to_master: 2, require_distinct_skill: false,
+            require_production_to_master: false, provisional_on_single_mcq: false },
+    questions: [
+      { qid: 'n1', item_key: 'N', input: 'choice', skill: 'meaning', answer: 0, type: 'mcq' },
+      { qid: 'n2', item_key: 'N', input: 'choice', skill: 'meaning', answer: 0, type: 'mcq' },
+    ],
+  };
+  const eng = createEngine(bank);
+  eng.next(); let r = eng.submit(0);          // credit 1 of 2
+  assert.equal(r.mastered, false);
+  eng.next(); r = eng.submit(0);              // credit 2 → mastered (same skill OK)
+  assert.equal(r.mastered, true);
+});
+
+test('resume keeps an already-mastered word mastered (not re-asked)', () => {
+  const eng = createEngine(oneWordBank(), {
+    resume: [{ item_key: 'Alpha', status: 'mastered', skills_passed: ['meaning', 'usage'],
+               production_done: true, credit_count: 2 }],
+  });
+  assert.equal(eng.progress().mastered, 1);
+  assert.equal(eng.next(), null);             // nothing left to ask
+});
+
 test('honors imported META from the raw API shape {bank:{meta},questions}', () => {
   const apiShape = {
     bank: { meta: { correct_to_master: 1, require_production_to_master: false, provisional_on_single_mcq: false } },

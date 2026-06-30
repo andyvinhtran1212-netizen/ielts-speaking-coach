@@ -88,10 +88,12 @@ CREATE TABLE IF NOT EXISTS quiz_word_stats (
     status          TEXT NOT NULL DEFAULT 'testing',  -- testing|provisional|mastered|carried_over
     is_difficult    BOOLEAN NOT NULL DEFAULT FALSE,
     skills_passed   JSONB NOT NULL DEFAULT '[]'::jsonb,
-    -- carry-over truth: the unconfirmed-MCQ skill + production flag so a resumed
-    -- session rehydrates provisional credit, not just confirmed skills_passed.
+    -- carry-over truth: the unconfirmed-MCQ skill + production flag + confirmed-
+    -- credit count so a resumed session rehydrates full mastery state (incl.
+    -- require_distinct_skill:false banks), not just confirmed skills_passed.
     provisional_skill TEXT,
     production_done   BOOLEAN NOT NULL DEFAULT FALSE,
+    credit_count      INT NOT NULL DEFAULT 0,
 
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),

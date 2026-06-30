@@ -90,10 +90,13 @@
       const el = $('qz-error'); el.textContent = msg; el.classList.remove('hidden');
     }
 
-    // Outbox: always drain the engine into it (so nothing is lost), POST when
-    // forced or enough has accumulated, and KEEP the outbox on failure so a
-    // transient error is retried on the next flush (incl. the final force flush).
+    // Outbox: always drain the engine into it (nothing is lost), POST when forced
+    // or enough has accumulated. Only ONE POST is in flight at a time, and on
+    // success we remove EXACTLY what was sent — never a blanket reset — so
+    // attempts/word_stats merged WHILE the POST was running survive for the next
+    // flush. On failure the outbox is kept entirely for retry.
     let outbox = { attempts: [], word_stats: {} };   // word_stats keyed by item_key (latest wins)
+    let inFlight = false;
 
     function _mergeIntoOutbox(batch) {
       if (batch.attempts.length) outbox.attempts = outbox.attempts.concat(batch.attempts);
@@ -104,14 +107,25 @@
       if (!engine || !sessionId) return;
       _mergeIntoOutbox(engine.drainBatch());
       pending = 0;
-      const ws = Object.keys(outbox.word_stats).map((k) => outbox.word_stats[k]);
-      if (!outbox.attempts.length && !ws.length) return;
+      if (inFlight) return;                               // a POST is already running; stays buffered
+      if (!outbox.attempts.length && !Object.keys(outbox.word_stats).length) return;
       if (!force && outbox.attempts.length < 5) return;   // keep buffering
-      const payload = { attempts: outbox.attempts, word_stats: ws };
+
+      const sentAttempts = outbox.attempts.slice();       // snapshot the prefix we send
+      const sentWs = {};
+      Object.keys(outbox.word_stats).forEach((k) => { sentWs[k] = outbox.word_stats[k]; });
+      const payload = { attempts: sentAttempts, word_stats: Object.values(sentWs) };
+
+      inFlight = true;
       try {
         await window.api.post('/api/quiz/sessions/' + sessionId + '/progress', payload);
-        outbox = { attempts: [], word_stats: {} };        // clear ONLY on success
+        // Remove only what was sent; keep anything merged during the POST.
+        outbox.attempts = outbox.attempts.slice(sentAttempts.length);
+        Object.keys(sentWs).forEach((k) => {
+          if (outbox.word_stats[k] === sentWs[k]) delete outbox.word_stats[k];  // unchanged → drop
+        });
       } catch (e) { /* keep outbox for retry on the next flush */ }
+      finally { inFlight = false; }
     }
 
     function setAnswer(v, render) { answer = v; $('qz-submit').disabled = (v == null || v === ''); if (render) render(); }

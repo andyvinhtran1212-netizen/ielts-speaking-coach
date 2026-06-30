@@ -24,7 +24,7 @@ _ATTEMPT_FIELDS = ("item_key", "qid", "skill", "type", "subtype",
                    "is_correct", "answer_given", "response_time_ms", "attempt_no")
 _WORD_STAT_FIELDS = ("item_key", "correct_count", "wrong_count", "first_try_correct",
                      "attempts_to_master", "status", "is_difficult", "skills_passed",
-                     "provisional_skill", "production_done")
+                     "provisional_skill", "production_done", "credit_count")
 _VALID_WORD_STATUS = ("testing", "provisional", "mastered", "carried_over")
 _ENDED_BY = ("completed", "time_cap", "paused")
 _MAX_ATTEMPTS_PER_CALL = 200   # batch guard
@@ -106,17 +106,17 @@ def start_session(*, user_id: str, bank_id: str) -> dict:
 
 
 def get_resume(*, user_id: str, bank_id: str) -> list[dict]:
-    """Carry-over word_stats (not mastered) for this user+bank, so a new session
-    resumes prior progress instead of restarting from zero."""
+    """ALL prior word_stats for this user+bank (incl. mastered), so a new session
+    resumes progress truthfully — mastered words stay mastered (not re-asked) and
+    in-progress words keep their partial credit, instead of restarting from zero."""
     try:
         rows = (
             supabase_admin.table("quiz_word_stats").select(
                 "item_key, correct_count, wrong_count, first_try_correct, "
                 "attempts_to_master, status, is_difficult, skills_passed, "
-                "provisional_skill, production_done"
+                "provisional_skill, production_done, credit_count"
             )
             .eq("user_id", user_id).eq("bank_id", bank_id)
-            .neq("status", "mastered")
             .execute()
         ).data or []
     except Exception as exc:  # noqa: BLE001
@@ -170,6 +170,7 @@ def log_progress(*, user_id: str, session_id: str, attempts: list[dict], word_st
             "skills_passed": sp if isinstance(sp, list) else [],
             "provisional_skill": w.get("provisional_skill"),
             "production_done": bool(w.get("production_done")),
+            "credit_count": int(w.get("credit_count") or 0),
             "updated_at": _now(),
         })
     if stat_rows:
