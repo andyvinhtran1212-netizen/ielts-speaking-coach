@@ -42,7 +42,7 @@
     <!-- Import card -->
     <div class="aw-card mt-8 p-6">
       <label class="text-sm font-semibold">Chủ đề (topic)</label>
-      <select id="q-topic" class="block w-full mt-1 mb-4 text-sm" style="padding:.45rem;border:1px solid var(--av-border,#d4d4d8);border-radius:.5rem;background:transparent;">
+      <select id="q-topic" class="block w-full mt-1 mb-4 text-sm" style="padding:.45rem;border:1px solid var(--av-border-default,#d4d4d8);border-radius:.5rem;background:transparent;">
         <option value="">— Đang tải topic… —</option>
       </select>
 
@@ -51,7 +51,7 @@
 
       <!-- Preview -->
       <div id="q-preview" class="hidden mt-5">
-        <div id="q-meta" class="text-sm" style="padding:.6rem .8rem;border:1px solid var(--av-border,#e4e4e7);border-radius:.5rem;"></div>
+        <div id="q-meta" class="text-sm" style="padding:.6rem .8rem;border:1px solid var(--av-border-default,#e4e4e7);border-radius:.5rem;"></div>
         <div id="q-summary" class="mt-3 text-sm font-medium"></div>
         <div id="q-errors" class="mt-3"></div>
       </div>
@@ -91,7 +91,7 @@
       var el = $('q-status');
       el.textContent = msg || '';
       el.classList.toggle('hidden', !msg);
-      el.style.color = kind === 'error' ? 'var(--av-danger,#dc2626)' : (kind === 'ok' ? 'var(--av-success,#16a34a)' : '');
+      el.style.color = kind === 'error' ? 'var(--av-error,#dc2626)' : (kind === 'ok' ? 'var(--av-success,#16a34a)' : '');
     }
 
     var _lastResult = null;
@@ -113,12 +113,12 @@
       var s = r.summary || {};
       $('q-summary').innerHTML =
         'Câu hỏi: <strong>' + (s.questions || 0) + '</strong> · Từ (pool): <strong>' + (s.pools || 0) +
-        '</strong> · Lỗi: <strong style="color:' + (s.errors ? 'var(--av-danger,#dc2626)' : 'var(--av-success,#16a34a)') +
+        '</strong> · Lỗi: <strong style="color:' + (s.errors ? 'var(--av-error,#dc2626)' : 'var(--av-success,#16a34a)') +
         '">' + (s.errors || 0) + '</strong>';
 
       var errs = r.validation_errors || [];
       $('q-errors').innerHTML = errs.length
-        ? '<div style="max-height:240px;overflow:auto;border:1px solid var(--av-danger,#fca5a5);border-radius:.5rem;padding:.5rem .7rem;">'
+        ? '<div style="max-height:240px;overflow:auto;border:1px solid var(--av-error,#fca5a5);border-radius:.5rem;padding:.5rem .7rem;">'
           + '<strong>Lỗi cần sửa:</strong><ul style="margin:.3rem 0 0 1rem;list-style:disc;">'
           + errs.map(function (e) {
               return '<li>Block #' + (e.block + 1) + (e.qid ? ' (' + esc(e.qid) + ')' : '')
@@ -184,7 +184,7 @@
         $('q-bank-count').textContent = banks.length + ' bank';
         $('q-banks').innerHTML = banks.length
           ? banks.map(function (b) {
-              return '<div style="display:flex;justify-content:space-between;align-items:center;padding:.45rem 0;border-bottom:1px solid var(--av-border,#eee);">'
+              return '<div style="display:flex;justify-content:space-between;align-items:center;padding:.45rem 0;border-bottom:1px solid var(--av-border-default,#eee);">'
                 + '<span><strong>' + esc(b.code) + '</strong> — ' + esc(b.title || '') + ' · ' + (b.words_count || 0) + ' từ'
                 + (b.is_published ? '' : ' <span style="opacity:.6">(ẩn)</span>') + '</span>'
                 + '<button data-del="' + esc(b.id) + '" class="aw-btn-secondary" style="font-size:.75rem;">Xóa</button>'
@@ -194,7 +194,7 @@
         Array.prototype.forEach.call(document.querySelectorAll('[data-del]'), function (btn) {
           btn.addEventListener('click', function () { delBank(btn.getAttribute('data-del')); });
         });
-      } catch (e) { $('q-banks').innerHTML = '<p style="color:var(--av-danger,#dc2626);">Lỗi tải banks: ' + esc(e.message) + '</p>'; }
+      } catch (e) { $('q-banks').innerHTML = '<p style="color:var(--av-error,#dc2626);">Lỗi tải banks: ' + esc(e.message) + '</p>'; }
     }
 
     async function delBank(id) {
