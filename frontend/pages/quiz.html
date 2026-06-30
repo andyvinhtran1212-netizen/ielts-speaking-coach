@@ -90,42 +90,69 @@
       const el = $('qz-error'); el.textContent = msg; el.classList.remove('hidden');
     }
 
-    // Outbox: always drain the engine into it (nothing is lost), POST when forced
-    // or enough has accumulated. Only ONE POST is in flight at a time, and on
-    // success we remove EXACTLY what was sent — never a blanket reset — so
-    // attempts/word_stats merged WHILE the POST was running survive for the next
-    // flush. On failure the outbox is kept entirely for retry.
+    // Outbox: always drain the engine into it (nothing is lost). All POSTs are
+    // SERIALIZED through `chain` so there's never a concurrent send; on success
+    // only EXACTLY what was sent is removed (entries merged during the POST
+    // survive); on failure the outbox is kept for retry. A forced flush awaits the
+    // in-flight POST AND loops until the outbox is empty, so finish() never marks
+    // the session complete with unsent tail progress.
     let outbox = { attempts: [], word_stats: {} };   // word_stats keyed by item_key (latest wins)
-    let inFlight = false;
+    let chain = Promise.resolve();
+    let authToken = null;                            // for the keepalive unload beacon
 
     function _mergeIntoOutbox(batch) {
       if (batch.attempts.length) outbox.attempts = outbox.attempts.concat(batch.attempts);
       (batch.word_stats || []).forEach((w) => { outbox.word_stats[w.item_key] = w; });
     }
 
-    async function flush(force) {
-      if (!engine || !sessionId) return;
+    async function _sendOnce(force) {
+      _mergeIntoOutbox(engine.drainBatch());
+      const sentAttempts = outbox.attempts.slice();
+      const keys = Object.keys(outbox.word_stats);
+      if (!sentAttempts.length && !keys.length) return true;     // nothing to send
+      if (!force && sentAttempts.length < 5) return true;         // not enough yet (no-op)
+      const sentWs = {};
+      keys.forEach((k) => { sentWs[k] = outbox.word_stats[k]; });
+      try {
+        await window.api.post('/api/quiz/sessions/' + sessionId + '/progress',
+                              { attempts: sentAttempts, word_stats: Object.values(sentWs) });
+      } catch (e) { return false; }                              // keep outbox, retry later
+      outbox.attempts = outbox.attempts.slice(sentAttempts.length);
+      keys.forEach((k) => { if (outbox.word_stats[k] === sentWs[k]) delete outbox.word_stats[k]; });
+      return true;
+    }
+
+    function flush(force) {
+      if (!engine || !sessionId) return Promise.resolve();
       _mergeIntoOutbox(engine.drainBatch());
       pending = 0;
-      if (inFlight) return;                               // a POST is already running; stays buffered
-      if (!outbox.attempts.length && !Object.keys(outbox.word_stats).length) return;
-      if (!force && outbox.attempts.length < 5) return;   // keep buffering
+      // serialize: append to the chain. Forced flushes loop until the outbox is
+      // drained (or a send fails), so the final flush sends everything.
+      chain = chain.then(async () => {
+        let ok = await _sendOnce(force);
+        while (force && ok && (outbox.attempts.length || Object.keys(outbox.word_stats).length)) {
+          ok = await _sendOnce(true);
+        }
+      }).catch(() => {});
+      return chain;
+    }
 
-      const sentAttempts = outbox.attempts.slice();       // snapshot the prefix we send
-      const sentWs = {};
-      Object.keys(outbox.word_stats).forEach((k) => { sentWs[k] = outbox.word_stats[k]; });
-      const payload = { attempts: sentAttempts, word_stats: Object.values(sentWs) };
-
-      inFlight = true;
+    // Unload-safe save: a normal async POST is cancelled when the page goes away.
+    // fetch(keepalive) lets the request outlive the page and CAN carry the auth
+    // header (sendBeacon can't). Best-effort — fires on pagehide.
+    function flushBeacon() {
       try {
-        await window.api.post('/api/quiz/sessions/' + sessionId + '/progress', payload);
-        // Remove only what was sent; keep anything merged during the POST.
-        outbox.attempts = outbox.attempts.slice(sentAttempts.length);
-        Object.keys(sentWs).forEach((k) => {
-          if (outbox.word_stats[k] === sentWs[k]) delete outbox.word_stats[k];  // unchanged → drop
+        _mergeIntoOutbox(engine.drainBatch());
+        const a = outbox.attempts.slice();
+        const ws = Object.values(outbox.word_stats);
+        if ((!a.length && !ws.length) || !authToken || !sessionId) return;
+        fetch(window.api.base + '/api/quiz/sessions/' + sessionId + '/progress', {
+          method: 'POST', keepalive: true,
+          headers: { 'Authorization': 'Bearer ' + authToken, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ attempts: a, word_stats: ws }),
         });
-      } catch (e) { /* keep outbox for retry on the next flush */ }
-      finally { inFlight = false; }
+        outbox = { attempts: [], word_stats: {} };   // optimistic
+      } catch (e) { /* best-effort */ }
     }
 
     function setAnswer(v, render) { answer = v; $('qz-submit').disabled = (v == null || v === ''); if (render) render(); }
@@ -245,6 +272,13 @@
       catch (e) { return fail('Không tạo được phiên: ' + e.message); }
       sessionId = start.session_id;
 
+      // Cache the access token for the keepalive unload beacon (which needs the
+      // Authorization header synchronously, before the page tears down).
+      try {
+        const sess = await getSupabase().auth.getSession();
+        authToken = sess && sess.data && sess.data.session ? sess.data.session.access_token : null;
+      } catch (e) { authToken = null; }
+
       engine = createEngine(bank, { resume: start.resume || [] });
       $('qz-loading').classList.add('hidden');
       $('qz-main').classList.remove('hidden');
@@ -253,7 +287,9 @@
       $('qz-next').onclick = advance;
       updateProgress();
       advance();
-      window.addEventListener('beforeunload', () => { try { engine && flush(true); } catch (e) {} });
+      // pagehide is the reliable "leaving" signal (mobile-safe); use a keepalive
+      // beacon so buffered progress survives the unload.
+      window.addEventListener('pagehide', flushBeacon);
     }
 
     boot();
