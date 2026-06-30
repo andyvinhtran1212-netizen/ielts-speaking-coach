@@ -179,6 +179,8 @@ class _FakeQuery:
     def execute(self):
         data = self._p.responses.get((self._t, self._op), [])
         self._p.calls.append({"table": self._t, "op": self._op, "payload": self._payload})
+        if isinstance(data, Exception):
+            raise data
         return MagicMock(data=data)
 
 
@@ -224,6 +226,22 @@ def test_commit_replaces_existing_bank_upsert_then_prune():
     # upsert must come BEFORE the prune-delete (never delete-then-insert).
     qq_ops = [o for (t, o) in ops if t == "quiz_questions"]
     assert qq_ops.index("upsert") < qq_ops.index("delete")
+
+
+def test_commit_rolls_back_new_bank_when_question_write_fails():
+    """P2: a new bank whose question write fails must NOT be left orphaned (a
+    published bank with no questions) — the bank row is rolled back."""
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [],                       # new bank
+        ("quiz_banks", "insert"): [{"id": "bank-x"}],
+        ("vocab_cards", "select"): [],
+        ("quiz_questions", "upsert"): Exception("boom: question write failed"),
+    })
+    with patch.object(quiz_import, "supabase_admin", fake):
+        with pytest.raises(Exception):
+            quiz_import.import_quiz_file(_BANK, topic_id="topic-1", dry_run=False)
+    # The orphan bank row was deleted (rolled back).
+    assert any(c["table"] == "quiz_banks" and c["op"] == "delete" for c in fake.calls)
 
 
 def test_commit_requires_topic_id():

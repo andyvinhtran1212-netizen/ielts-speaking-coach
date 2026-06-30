@@ -304,10 +304,12 @@ def _commit_bank(meta_info, q_entries, *, topic_id, pools, import_batch_id) -> s
     ).data
     if existing:
         bank_id = existing[0]["id"]
+        created_new = False
         supabase_admin.table("quiz_banks").update(bank_payload).eq("id", bank_id).execute()
     else:
         res = supabase_admin.table("quiz_banks").insert(bank_payload).execute()
         bank_id = res.data[0]["id"]
+        created_new = True
 
     rows = []
     for order, e in enumerate(q_entries):
@@ -331,19 +333,31 @@ def _commit_bank(meta_info, q_entries, *, topic_id, pools, import_batch_id) -> s
             "order": order,
         })
 
-    if rows:
-        # 1) upsert the new set (insert new qids, overwrite changed ones) — old
-        #    rows still present, so the bank is never momentarily empty.
-        supabase_admin.table("quiz_questions").upsert(
-            rows, on_conflict="bank_id,qid"
-        ).execute()
-        # 2) prune qids that are no longer in the new set.
-        new_qids = [r["qid"] for r in rows]
-        (
-            supabase_admin.table("quiz_questions").delete()
-            .eq("bank_id", bank_id).not_.in_("qid", new_qids).execute()
-        )
-    else:
-        # Bank with no questions → clear any leftovers.
-        supabase_admin.table("quiz_questions").delete().eq("bank_id", bank_id).execute()
+    # Question writes. No DB transaction across PostgREST calls, so on failure we
+    # roll back a NEWLY-CREATED bank (don't leave a published bank with no
+    # questions — the all-or-nothing contract). An EXISTING bank keeps its prior
+    # questions: upsert-then-prune never deletes before the new set is in place.
+    try:
+        if rows:
+            # 1) upsert the new set (insert new qids, overwrite changed ones) — old
+            #    rows still present, so the bank is never momentarily empty.
+            supabase_admin.table("quiz_questions").upsert(
+                rows, on_conflict="bank_id,qid"
+            ).execute()
+            # 2) prune qids that are no longer in the new set.
+            new_qids = [r["qid"] for r in rows]
+            (
+                supabase_admin.table("quiz_questions").delete()
+                .eq("bank_id", bank_id).not_.in_("qid", new_qids).execute()
+            )
+        else:
+            # Bank with no questions → clear any leftovers.
+            supabase_admin.table("quiz_questions").delete().eq("bank_id", bank_id).execute()
+    except Exception:
+        if created_new:
+            try:
+                supabase_admin.table("quiz_banks").delete().eq("id", bank_id).execute()
+            except Exception as cleanup_exc:  # noqa: BLE001
+                logger.error("[quiz] rollback of orphan bank %s failed: %s", bank_id, cleanup_exc)
+        raise
     return bank_id
