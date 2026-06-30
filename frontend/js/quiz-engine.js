@@ -58,7 +58,9 @@ function isProduction(q) {
 
 export function createEngine(bank, options) {
   var opts = options || {};
-  var meta = (bank && bank.meta) || {};
+  // Accept either {meta, questions} or the raw API shape {bank:{...,meta}, questions}
+  // so imported META controls (correct_to_master, cooldown, …) are always honored.
+  var meta = (bank && (bank.meta || (bank.bank && bank.bank.meta))) || {};
   var questions = (bank && bank.questions) || [];
 
   var CORRECT_TO_MASTER = num(meta.correct_to_master, 2);
@@ -87,10 +89,12 @@ export function createEngine(bank, options) {
     var r = resumeByKey[key] || {};
     words[key] = {
       key: key,
-      status: r.status && r.status !== 'mastered' ? 'testing' : 'testing',
+      status: 'testing',
       passedSkills: new Set(Array.isArray(r.skills_passed) ? r.skills_passed : []),
-      productionDone: false,
-      provisional: null,            // {skill} — unconfirmed MCQ credit
+      productionDone: Boolean(r.production_done),
+      // Rehydrate the unconfirmed-MCQ credit so a resumed provisional word can
+      // still be confirmed+mastered by a later production answer (carry-over truth).
+      provisional: r.provisional_skill ? { skill: String(r.provisional_skill) } : null,
       usedQids: new Set(),
       attempts: 0,
       correct_count: num(r.correct_count, 0),
@@ -264,6 +268,10 @@ export function createEngine(bank, options) {
         first_try_correct: w.first_try_correct, attempts_to_master: w.attempts_to_master || null,
         status: w.status, is_difficult: w.is_difficult,
         skills_passed: Array.from(w.passedSkills),
+        // carry-over truth: persist the unconfirmed-MCQ skill + production flag so
+        // a resumed session rehydrates provisional credit (not just passedSkills).
+        provisional_skill: w.provisional ? w.provisional.skill : null,
+        production_done: w.productionDone,
       };
     });
     return { attempts: attempts, word_stats: wordStats };

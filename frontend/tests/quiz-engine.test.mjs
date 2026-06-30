@@ -106,6 +106,37 @@ test('cooldown spaces a word: next pick avoids the just-asked word', () => {
   assert.notEqual(second.item_key, first.item_key);   // cooldown skipped the repeat
 });
 
+test('resume rehydrates a provisional skill so a production confirmer masters', () => {
+  const eng = createEngine(oneWordBank(), {
+    resume: [{ item_key: 'Alpha', status: 'provisional', provisional_skill: 'meaning', skills_passed: [] }],
+  });
+  const q = eng.next();                       // provisional ⇒ prefers a production confirmer
+  assert.equal(q.question.input, 'text');
+  const r = eng.submit('alpha');              // production confirms 'meaning' + adds 'usage' ⇒ master
+  assert.equal(r.mastered, true);
+});
+
+test('drainBatch carries provisional_skill + production_done for resume', () => {
+  const eng = createEngine(oneWordBank());
+  eng.next();
+  eng.submit(0);                              // one MCQ correct ⇒ provisional {meaning}
+  const batch = eng.drainBatch();
+  const alpha = batch.word_stats.find((w) => w.item_key === 'Alpha');
+  assert.equal(alpha.provisional_skill, 'meaning');
+  assert.equal(alpha.production_done, false);
+});
+
+test('honors imported META from the raw API shape {bank:{meta},questions}', () => {
+  const apiShape = {
+    bank: { meta: { correct_to_master: 1, require_production_to_master: false, provisional_on_single_mcq: false } },
+    questions: [{ qid: 'z1', item_key: 'Z', input: 'choice', skill: 'meaning', answer: 0, type: 'mcq' }],
+  };
+  const eng = createEngine(apiShape);
+  eng.next();
+  const r = eng.submit(0);
+  assert.equal(r.mastered, true);             // META honored (would stay provisional under defaults)
+});
+
 test('resume seeds passed skills from prior word_stats', () => {
   const eng = createEngine(oneWordBank(), {
     resume: [{ item_key: 'Alpha', status: 'testing', skills_passed: ['meaning'], correct_count: 1 }],

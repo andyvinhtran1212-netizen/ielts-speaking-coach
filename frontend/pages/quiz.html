@@ -90,14 +90,28 @@
       const el = $('qz-error'); el.textContent = msg; el.classList.remove('hidden');
     }
 
+    // Outbox: always drain the engine into it (so nothing is lost), POST when
+    // forced or enough has accumulated, and KEEP the outbox on failure so a
+    // transient error is retried on the next flush (incl. the final force flush).
+    let outbox = { attempts: [], word_stats: {} };   // word_stats keyed by item_key (latest wins)
+
+    function _mergeIntoOutbox(batch) {
+      if (batch.attempts.length) outbox.attempts = outbox.attempts.concat(batch.attempts);
+      (batch.word_stats || []).forEach((w) => { outbox.word_stats[w.item_key] = w; });
+    }
+
     async function flush(force) {
       if (!engine || !sessionId) return;
-      if (!force && pending < 5) return;
-      const batch = engine.drainBatch();
+      _mergeIntoOutbox(engine.drainBatch());
       pending = 0;
-      if (!batch.attempts.length && !batch.word_stats.length) return;
-      try { await window.api.post('/api/quiz/sessions/' + sessionId + '/progress', batch); }
-      catch (e) { /* best-effort; keep playing */ }
+      const ws = Object.keys(outbox.word_stats).map((k) => outbox.word_stats[k]);
+      if (!outbox.attempts.length && !ws.length) return;
+      if (!force && outbox.attempts.length < 5) return;   // keep buffering
+      const payload = { attempts: outbox.attempts, word_stats: ws };
+      try {
+        await window.api.post('/api/quiz/sessions/' + sessionId + '/progress', payload);
+        outbox = { attempts: [], word_stats: {} };        // clear ONLY on success
+      } catch (e) { /* keep outbox for retry on the next flush */ }
     }
 
     function setAnswer(v, render) { answer = v; $('qz-submit').disabled = (v == null || v === ''); if (render) render(); }

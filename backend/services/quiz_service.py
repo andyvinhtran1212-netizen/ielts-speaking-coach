@@ -23,7 +23,8 @@ logger = logging.getLogger(__name__)
 _ATTEMPT_FIELDS = ("item_key", "qid", "skill", "type", "subtype",
                    "is_correct", "answer_given", "response_time_ms", "attempt_no")
 _WORD_STAT_FIELDS = ("item_key", "correct_count", "wrong_count", "first_try_correct",
-                     "attempts_to_master", "status", "is_difficult", "skills_passed")
+                     "attempts_to_master", "status", "is_difficult", "skills_passed",
+                     "provisional_skill", "production_done")
 _VALID_WORD_STATUS = ("testing", "provisional", "mastered", "carried_over")
 _ENDED_BY = ("completed", "time_cap", "paused")
 _MAX_ATTEMPTS_PER_CALL = 200   # batch guard
@@ -111,7 +112,8 @@ def get_resume(*, user_id: str, bank_id: str) -> list[dict]:
         rows = (
             supabase_admin.table("quiz_word_stats").select(
                 "item_key, correct_count, wrong_count, first_try_correct, "
-                "attempts_to_master, status, is_difficult, skills_passed"
+                "attempts_to_master, status, is_difficult, skills_passed, "
+                "provisional_skill, production_done"
             )
             .eq("user_id", user_id).eq("bank_id", bank_id)
             .neq("status", "mastered")
@@ -166,6 +168,8 @@ def log_progress(*, user_id: str, session_id: str, attempts: list[dict], word_st
             "status": status,
             "is_difficult": bool(w.get("is_difficult")),
             "skills_passed": sp if isinstance(sp, list) else [],
+            "provisional_skill": w.get("provisional_skill"),
+            "production_done": bool(w.get("production_done")),
             "updated_at": _now(),
         })
     if stat_rows:
