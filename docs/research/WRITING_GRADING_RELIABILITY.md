@@ -75,6 +75,17 @@ precise per-tier check runs in code. For each stuck job it records a
   if one was persisted (see below) so a previously graded/reviewed/delivered
   essay isn't stranded in `failed`.
 
+**Stale-worker fencing (lease guard).** The grader call has no wall-clock
+timeout, so a worker can still be running when the reaper declares its job stuck
+and launches a retry. Every terminal write — the success persist (feedback
+version + `graded`) and the failure paths (`_handle_grade_failure`, the
+safety-block branch) — is gated on `_owns_job(job_id, attempt_no)`, which is true
+only while no newer attempt has advanced `attempt_count` past this worker's. A
+superseded worker silently abandons its result, so the LATEST attempt is always
+authoritative and a hung worker can never clobber the retry's grade (or overwrite
+a good essay with a late failure). All regrade callers (admin **and** instructor)
+pass `restore_status` so a reaper takeover restores the prior good grade.
+
 **Config persistence.** `schedule_grading_job` writes
 `max_attempts = settings.WRITING_GRADING_MAX_ATTEMPTS` onto each new job (so the
 env knob governs retries, not just the DB column default) and, for a **regrade**,

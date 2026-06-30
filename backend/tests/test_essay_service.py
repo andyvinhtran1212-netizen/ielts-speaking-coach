@@ -1177,3 +1177,78 @@ async def test_reap_terminal_restores_prior_status_from_job_payload():
     restored = [c for c in fake.calls if c["table"] == "writing_essays"
                 and c["op"] == "update" and c["payload"].get("status") == "delivered"]
     assert restored, "essay must be restored to its prior good status, not 'failed'"
+
+
+# ── Sprint W-MM review fix P1: lease guard (stale-worker fencing) ─────
+
+def test_owns_job_true_when_not_superseded():
+    fake = _FakeSupabase(responses={("writing_jobs", "select"): [{"attempt_count": 2}]})
+    with patch.object(essay_service, "supabase_admin", fake):
+        assert essay_service._owns_job(_JOB_ID, 2) is True   # equal → current
+        assert essay_service._owns_job(_JOB_ID, 3) is True   # stored older → current
+
+
+def test_owns_job_false_when_superseded():
+    """A newer attempt advanced attempt_count past ours → not the lease holder."""
+    fake = _FakeSupabase(responses={("writing_jobs", "select"): [{"attempt_count": 3}]})
+    with patch.object(essay_service, "supabase_admin", fake):
+        assert essay_service._owns_job(_JOB_ID, 2) is False
+
+
+def test_owns_job_true_when_job_missing():
+    """No row / read blip → True (don't drop a fresh grade over a transient read)."""
+    with patch.object(essay_service, "supabase_admin", _FakeSupabase(responses={})):
+        assert essay_service._owns_job(_JOB_ID, 1) is True
+
+
+@pytest.mark.asyncio
+async def test_bg_grade_essay_superseded_does_not_persist_success():
+    """P1: a stale worker (reaper requeued its job mid-grade) must NOT persist its
+    feedback or flip the essay to graded — the authoritative retry owns the job."""
+    fake = _FakeSupabase(responses=_bg_essay_responses())
+    fake_grader = MagicMock()
+
+    async def fake_grade(_config):
+        return MagicMock(
+            feedback=_valid_feedback_obj(), model_used="gemini-2.5-pro",
+            tokens_input=1, tokens_output=1, cost_usd=0.001,
+            grading_duration_ms=10, prompt_version="v1.0",
+        )
+    fake_grader.grade_essay = fake_grade
+
+    with patch.object(essay_service, "supabase_admin", fake), \
+         patch.object(essay_service, "get_grader", return_value=fake_grader), \
+         patch.object(essay_service, "_owns_job", return_value=False), \
+         patch.object(essay_service, "get_recurring_patterns", return_value=None), \
+         patch.object(essay_service, "get_band_trajectory",  return_value=None):
+        await essay_service._bg_grade_essay(_ESSAY_ID, _JOB_ID)
+
+    assert not any(c for c in fake.calls
+                   if c["table"] == "writing_feedback" and c["op"] == "insert")
+    assert not any(c for c in fake.calls if c["table"] == "writing_essays"
+                   and c["op"] == "update" and c["payload"].get("status") == "graded")
+
+
+@pytest.mark.asyncio
+async def test_bg_grade_essay_superseded_does_not_mark_failed():
+    """P1: a superseded stale worker that errors must NOT write 'failed' or
+    requeue — that would clobber the authoritative retry's outcome."""
+    fake = _FakeSupabase(responses=_bg_essay_responses())
+    fake_grader = MagicMock()
+
+    async def fake_grade(_config):
+        raise APIRetryFailedError("boom")
+    fake_grader.grade_essay = fake_grade
+
+    requeue = MagicMock()
+    with patch.object(essay_service, "supabase_admin", fake), \
+         patch.object(essay_service, "get_grader", return_value=fake_grader), \
+         patch.object(essay_service, "_owns_job", return_value=False), \
+         patch.object(essay_service, "_schedule_requeue", requeue), \
+         patch.object(essay_service, "get_recurring_patterns", return_value=None), \
+         patch.object(essay_service, "get_band_trajectory",  return_value=None):
+        await essay_service._bg_grade_essay(_ESSAY_ID, _JOB_ID)
+
+    requeue.assert_not_called()
+    assert not any(c for c in fake.calls if c["table"] == "writing_essays"
+                   and c["op"] == "update" and c["payload"].get("status") == "failed")

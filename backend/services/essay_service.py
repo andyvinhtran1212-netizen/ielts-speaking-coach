@@ -154,6 +154,34 @@ def _record_attempt_failure(
         logger.error("[grade job=%s] error_log append failed: %s", job_id, inner)
 
 
+def _owns_job(job_id: str, attempt_no: int) -> bool:
+    """Lease check — True iff NO newer attempt has claimed this job, i.e. the
+    persisted writing_jobs.attempt_count has not advanced beyond `attempt_no`.
+
+    A grader call has no wall-clock timeout, so a worker can still be running when
+    the reaper declares its job stuck and launches a retry (which increments
+    attempt_count past this worker's). The stale worker must NOT persist: its
+    terminal write (a feedback version on success, or 'failed' on failure) would
+    clobber the authoritative retry's outcome. Gating every terminal write on
+    ownership makes the LATEST attempt authoritative and silently abandons
+    superseded workers.
+
+    Compares with <= (not ==): this worker set attempt_count to its own
+    attempt_no at claim time, so a value greater than attempt_no can only be a
+    newer attempt. Best-effort: on read failure returns True — don't drop a fresh
+    grade because of a transient read blip (the requeue/reaper path backstops)."""
+    try:
+        r = (
+            supabase_admin.table("writing_jobs")
+            .select("attempt_count").eq("id", job_id).limit(1).execute()
+        ).data
+        if not r:
+            return True
+        return int(r[0].get("attempt_count") or 0) <= attempt_no
+    except Exception:  # noqa: BLE001
+        return True
+
+
 def _schedule_requeue(
     essay_id: str, job_id: str, *, delay: float, restore_status: str | None,
 ) -> None:
@@ -180,6 +208,14 @@ async def _handle_grade_failure(
     safety block). Records the attempt, then either requeues (attempts remain —
     the next attempt may switch to the fallback model) or marks terminal-failed
     (exhausted) so the admin UI stops showing a perpetual 'đang chấm'."""
+    # Lease guard — a superseded (reaper-requeued) worker must not record/requeue/
+    # terminal-fail: that would clobber the authoritative retry's outcome.
+    if not _owns_job(job_id, attempt_no):
+        logger.warning(
+            "[grade %s] attempt %d superseded by a newer attempt — abandoning failure",
+            essay_id, attempt_no,
+        )
+        return
     _record_attempt_failure(job_id, attempt_no=attempt_no, model=model, kind=kind, exc=exc)
     if attempt_no < max_attempts:
         logger.warning(
@@ -790,6 +826,17 @@ async def _bg_grade_essay(
             task_type=config.task_type,
         )
 
+        # Lease guard — if the reaper requeued this job mid-grade (a newer attempt
+        # now holds the lease), this stale worker must NOT persist: its feedback
+        # version + 'graded' write would clobber the authoritative retry. Abandon
+        # the result silently; the current attempt is the source of truth.
+        if not _owns_job(job_id, attempt_no):
+            logger.warning(
+                "[grade %s] attempt %d superseded before persist — abandoning result",
+                essay_id, attempt_no,
+            )
+            return
+
         # Persist feedback (1:1 with essay)
         fb = result.feedback
 
@@ -922,11 +969,18 @@ async def _bg_grade_essay(
     except AISafetyBlockError as exc:
         # Safety blocks are content-driven, not transient — re-running (even on a
         # different model) almost certainly re-blocks. Fail terminally, no
-        # requeue: don't burn attempts on un-gradeable content.
-        _record_attempt_failure(job_id, attempt_no=attempt_no, model=model,
-                                kind="AISafetyBlockError", exc=exc)
-        _mark_failed(essay_id, job_id, exc, kind="AISafetyBlockError",
-                     restore_status=restore_status)
+        # requeue: don't burn attempts on un-gradeable content. Lease-guarded so a
+        # superseded worker can't clobber the authoritative retry.
+        if not _owns_job(job_id, attempt_no):
+            logger.warning(
+                "[grade %s] attempt %d superseded — abandoning safety-block failure",
+                essay_id, attempt_no,
+            )
+        else:
+            _record_attempt_failure(job_id, attempt_no=attempt_no, model=model,
+                                    kind="AISafetyBlockError", exc=exc)
+            _mark_failed(essay_id, job_id, exc, kind="AISafetyBlockError",
+                         restore_status=restore_status)
     except (APIRetryFailedError, InvalidJSONError) as exc:
         # Transient/hard API failure — requeue if attempts remain (final attempt
         # switches to the fallback model), else terminal.
