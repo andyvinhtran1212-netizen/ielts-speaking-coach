@@ -204,6 +204,10 @@ def delete_topic(topic_id: str) -> dict:
 def get_topic_bundle(topic_id: str) -> dict:
     """Topic + the content hanging off it, for the topic-centric admin console:
     vocab cards + quiz banks (Pha 1)."""
+    """Topic + the content hanging off it, for the topic-centric admin console.
+
+    Pha 0: vocab cards only. Forward-compatible — `quiz_banks` is returned as an
+    empty list until Pha 1 adds the table, so the frontend shape is stable."""
     topic = get_topic(topic_id)
     try:
         cards = (
@@ -231,4 +235,6 @@ def get_topic_bundle(topic_id: str) -> dict:
         "vocab_cards": cards,
         "quiz_banks": banks,
         "counts": {"vocab_cards": len(cards), "quiz_banks": len(banks)},
+        "quiz_banks": [],  # Pha 1
+        "counts": {"vocab_cards": len(cards), "quiz_banks": 0},
     }
