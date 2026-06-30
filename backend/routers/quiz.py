@@ -57,6 +57,13 @@ async def list_banks(
     return quiz_service.list_published_banks(skill_area=skill_area, topic_id=topic_id)
 
 
+@router.get("/progress")
+async def my_progress(authorization: str | None = Header(None)):
+    """The caller's own quiz progress — per-bank mastery + recent sessions."""
+    user = await get_supabase_user(authorization)
+    return quiz_service.student_progress(user_id=user["id"])
+
+
 @router.get("/banks/{bank_id}")
 async def get_bank(bank_id: UUID, authorization: str | None = Header(None)):
     await get_supabase_user(authorization)

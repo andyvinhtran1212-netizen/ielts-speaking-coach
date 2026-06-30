@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Tiến độ Quick-Check</title>
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.setAttribute('data-theme',
+          (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light'));
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/tailwind.build.css" />
+  <style>
+    .pg-wrap { max-width: 720px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+    .pg-card { border: 1px solid var(--av-border-subtle); border-radius: .75rem; padding: 1rem; background: var(--av-surface-card); margin-top: .7rem; }
+    .pg-track { height: 8px; border-radius: 999px; background: var(--av-surface-sunken); overflow: hidden; margin-top: .35rem; }
+    .pg-bar { height: 100%; background: var(--av-primary); width: 0; }
+    .pg-muted { opacity: .7; font-size: .85rem; }
+    .pg-err { color: var(--av-error); }
+    table.pg-sess { width: 100%; font-size: .85rem; border-collapse: collapse; margin-top: .4rem; }
+    table.pg-sess th { text-align: left; opacity: .7; }
+    table.pg-sess td, table.pg-sess th { padding: .3rem .2rem; border-bottom: 1px solid var(--av-border-subtle); }
+  </style>
+</head>
+<body class="av-page font-sans antialiased">
+  <div class="pg-wrap">
+    <h1 class="text-2xl font-bold">Tiến độ Quick-Check</h1>
+    <p id="pg-loading" class="pg-muted" style="padding:1.5rem 0;">Đang tải…</p>
+    <div id="pg-main" class="hidden">
+      <h2 class="text-lg font-bold mt-4">Theo bộ (bank)</h2>
+      <div id="pg-banks"></div>
+      <h2 class="text-lg font-bold mt-6">Phiên gần đây</h2>
+      <div id="pg-sessions"></div>
+    </div>
+    <p id="pg-error" class="hidden pg-err" style="padding:1.5rem 0;"></p>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0"></script>
+  <script src="/js/api.js"></script>
+  <script>
+    'use strict';
+    initSupabase('https://nqhrtqspznepmveyurzm.supabase.co',
+                 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4');
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) =>
+      ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    const pct = (x) => (x == null ? '—' : Math.round(x * 100) + '%');
+
+    async function boot() {
+      let p;
+      try { p = await window.api.get('/api/quiz/progress'); }
+      catch (e) {
+        $('pg-loading').classList.add('hidden');
+        $('pg-error').textContent = 'Không tải được tiến độ: ' + e.message;
+        $('pg-error').classList.remove('hidden');
+        return;
+      }
+      $('pg-loading').classList.add('hidden');
+      $('pg-main').classList.remove('hidden');
+
+      const banks = p.banks || [];
+      $('pg-banks').innerHTML = banks.length
+        ? banks.map((b) => {
+            const total = b.words_count || (b.mastered + b.in_progress) || 0;
+            const w = total ? Math.round(b.mastered / total * 100) : 0;
+            return '<div class="pg-card"><div style="display:flex;justify-content:space-between;">'
+              + '<strong>' + esc(b.code || '') + '</strong> ' + esc(b.title || '')
+              + ' <span class="pg-muted">[' + esc(b.skill_area || 'vocab') + ']</span>'
+              + '<span class="pg-muted">Đã thuộc ' + b.mastered + '/' + total + '</span></div>'
+              + '<div class="pg-track"><div class="pg-bar" style="width:' + w + '%;"></div></div></div>';
+          }).join('')
+        : '<p class="pg-muted">Chưa có dữ liệu. Hãy làm một bài Quick-Check để bắt đầu.</p>';
+
+      const sessions = p.recent_sessions || [];
+      $('pg-sessions').innerHTML = sessions.length
+        ? '<table class="pg-sess"><tr><th>Bộ</th><th>Độ chính xác</th><th>Đã thuộc</th><th>Kết thúc</th></tr>'
+          + sessions.map((s) => '<tr><td>' + esc(s.code || '') + '</td><td>' + pct(s.accuracy) + '</td><td>'
+              + (s.words_mastered || 0) + '</td><td class="pg-muted">'
+              + esc((s.ended_at || '').slice(0, 10)) + (s.ended_by === 'paused' ? ' (tạm dừng)' : '') + '</td></tr>').join('')
+          + '</table>'
+        : '<p class="pg-muted">Chưa có phiên nào.</p>';
+    }
+    boot();
+  </script>
+</body>
+</html>
