@@ -28,18 +28,33 @@ class _FakeSupabase:
     def table(self, name):
         return _FakeQuery(self, name)
 
+    def rpc(self, name, params):
+        return _FakeRpc(self, name)
+
+
+class _FakeRpc:
+    def __init__(self, p, name):
+        self._p = p; self._name = name
+
+    def execute(self):
+        data = self._p.responses.get(("rpc", self._name), [])
+        if isinstance(data, Exception):
+            raise data
+        return MagicMock(data=data)
+
 
 class _FakeQuery:
     def __init__(self, p, t):
-        self._p = p; self._t = t; self._op = None; self._payload = None; self._filters = []
+        self._p = p; self._t = t; self._op = None; self._payload = None; self._filters = []; self._count = False
 
     def insert(self, payload): self._op = "insert"; self._payload = payload; return self
     def upsert(self, payload, **k): self._op = "upsert"; self._payload = payload; return self
     def update(self, payload): self._op = "update"; self._payload = payload; return self
     def delete(self): self._op = "delete"; return self
-    def select(self, *a, **k): self._op = "select"; return self
+    def select(self, *a, **k): self._op = "select"; self._count = k.get("count") is not None; return self
     def eq(self, c, v): self._filters.append((c, v)); return self
     def neq(self, c, v): self._filters.append(("neq", c, v)); return self
+    def in_(self, c, vals): self._filters.append(("in", c, list(vals))); return self
     def order(self, *a, **k): return self
     def limit(self, *a, **k): return self
 
@@ -48,7 +63,7 @@ class _FakeQuery:
         self._p.calls.append({"table": self._t, "op": self._op, "payload": self._payload, "filters": list(self._filters)})
         if isinstance(data, Exception):
             raise data
-        return MagicMock(data=data)
+        return MagicMock(data=data, count=(len(data) if self._count else None))
 
 
 # ── serve bank ───────────────────────────────────────────────────────
@@ -191,3 +206,44 @@ def test_end_session_defaults_bad_ended_by():
     upd = next(c for c in fake.calls if c["table"] == "quiz_sessions" and c["op"] == "update")
     assert upd["payload"]["ended_by"] == "completed"
     assert upd["payload"]["accuracy"] is None             # 0 questions → None
+
+
+# ── Analytics (Pha 5a) ───────────────────────────────────────────────
+
+def test_bank_analytics_returns_items_skills_and_session_count():
+    fake = _FakeSupabase(responses={
+        ("rpc", "quiz_item_error_rates"): [{"item_key": "Vocation", "total": 10, "wrong": 6, "error_rate": 0.6}],
+        ("rpc", "quiz_skill_error_rates"): [{"skill": "spelling", "total": 8, "wrong": 5, "error_rate": 0.625}],
+        ("quiz_sessions", "select"): [{"id": "s1"}, {"id": "s2"}, {"id": "s3"}],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.bank_analytics(_BANK)
+    assert out["items"][0]["item_key"] == "Vocation" and out["items"][0]["error_rate"] == 0.6
+    assert out["skills"][0]["skill"] == "spelling"
+    assert out["session_count"] == 3
+
+
+def test_student_progress_groups_by_bank_and_lists_sessions():
+    fake = _FakeSupabase(responses={
+        # aggregated server-side (RPC) — no row-cap undercount
+        ("rpc", "quiz_user_bank_progress"): [{"bank_id": _BANK, "mastered": 2, "in_progress": 1}],
+        ("quiz_banks", "select"): [{"id": _BANK, "code": "L14", "title": "Work", "skill_area": "vocab", "words_count": 29}],
+        ("quiz_sessions", "select"): [{"code": "L14", "accuracy": 0.8, "words_mastered": 2}],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.student_progress(_USER)
+    assert len(out["banks"]) == 1
+    b = out["banks"][0]
+    assert b["code"] == "L14" and b["mastered"] == 2 and b["in_progress"] == 1
+    assert b["words_count"] == 29
+    assert out["recent_sessions"][0]["accuracy"] == 0.8
+
+
+def test_student_progress_empty_when_no_word_stats():
+    fake = _FakeSupabase(responses={
+        ("rpc", "quiz_user_bank_progress"): [],
+        ("quiz_sessions", "select"): [],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.student_progress(_USER)
+    assert out["banks"] == [] and out["recent_sessions"] == []

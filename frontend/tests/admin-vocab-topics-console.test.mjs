@@ -79,3 +79,20 @@ describe('Pha 4 — grammar exercises wiring', () => {
     assert.ok(!/← Về Từ vựng<\/a>/.test(player), 'back CTA label must not be hard-coded vocab in markup');
   });
 });
+
+describe('Pha 5a — analytics + progress', () => {
+  const progress = readFileSync(path.join(ROOT, 'frontend/pages/quiz-progress.html'), 'utf8');
+  const player = readFileSync(path.join(ROOT, 'frontend/pages/quiz.html'), 'utf8');
+  test('topic console loads per-bank analytics ("từ dễ sai")', () => {
+    assert.match(html, /data-stats=/);
+    assert.match(html, /\/admin\/quiz\/banks\/' \+ bankId \+ '\/analytics/);
+    assert.match(html, /Từ dễ sai/);
+  });
+  test('student progress page reads /api/quiz/progress', () => {
+    assert.match(progress, /api\.get\('\/api\/quiz\/progress'\)/);
+    assert.match(progress, /Đã thuộc/);
+  });
+  test('player summary links to the progress page', () => {
+    assert.match(player, /\/pages\/quiz-progress\.html/);
+  });
+});

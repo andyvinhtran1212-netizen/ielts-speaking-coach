@@ -67,6 +67,14 @@ async def list_banks(
         raise HTTPException(500, f"Lỗi truy vấn banks: {exc}")
 
 
+@router.get("/banks/{bank_id}/analytics")
+async def bank_analytics(bank_id: UUID, authorization: str | None = Header(None)):
+    """Class-wide 'từ dễ sai' for a bank — per-item + per-skill error rates."""
+    await require_admin(authorization)
+    from services import quiz_service
+    return quiz_service.bank_analytics(str(bank_id))
+
+
 @router.get("/banks/{bank_id}")
 async def get_bank(bank_id: UUID, authorization: str | None = Header(None)):
     await require_admin(authorization)

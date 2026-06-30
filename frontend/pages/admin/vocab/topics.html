@@ -143,9 +143,11 @@
             ? banks.map((bk) =>
                 '<div class="tp-bankrow"><span><strong>' + esc(bk.code) + '</strong> — ' + esc(bk.title || '') + ' · ' + (bk.words_count || 0) + ' từ'
                 + (bk.is_published ? '' : ' <span class="tp-muted">(ẩn)</span>') + '</span>'
-                + '<span><button class="aw-btn-secondary" data-pub="' + esc(bk.id) + '" data-cur="' + (bk.is_published ? '1' : '0') + '" style="font-size:.72rem;">' + (bk.is_published ? 'Ẩn' : 'Hiện') + '</button> '
+                + '<span><button class="aw-btn-secondary" data-stats="' + esc(bk.id) + '" style="font-size:.72rem;">📊</button> '
+                + '<button class="aw-btn-secondary" data-pub="' + esc(bk.id) + '" data-cur="' + (bk.is_published ? '1' : '0') + '" style="font-size:.72rem;">' + (bk.is_published ? 'Ẩn' : 'Hiện') + '</button> '
                 + '<button class="aw-btn-secondary" data-delbank="' + esc(bk.id) + '" style="font-size:.72rem;">Xóa</button></span></div>').join('')
             : '<p class="tp-muted">Chưa có bank. Dùng "Import bank" để thêm.</p>') + '</div>'
+        + '<div id="tp-stats" class="mt-2"></div>'
         // Vocab-card management only applies to vocab topics; grammar topics have no cards.
         + (SKILL === 'vocab'
             ? '<hr style="margin:1rem 0;border:none;border-top:1px solid var(--av-border-subtle);">'
@@ -158,6 +160,33 @@
         btn.addEventListener('click', () => toggleBank(btn.getAttribute('data-pub'), btn.getAttribute('data-cur') !== '1')));
       Array.prototype.forEach.call(document.querySelectorAll('[data-delbank]'), (btn) =>
         btn.addEventListener('click', () => deleteBank(btn.getAttribute('data-delbank'))));
+      Array.prototype.forEach.call(document.querySelectorAll('[data-stats]'), (btn) =>
+        btn.addEventListener('click', () => showAnalytics(btn.getAttribute('data-stats'))));
+    }
+
+    async function showAnalytics(bankId) {
+      const box = $('tp-stats');
+      box.innerHTML = '<p class="tp-muted">Đang tải phân tích…</p>';
+      let a;
+      try { a = await window.api.get('/admin/quiz/banks/' + bankId + '/analytics'); }
+      catch (e) { box.innerHTML = '<p class="tp-err">Lỗi phân tích: ' + esc(e.message) + '</p>'; return; }
+      const pct = (x) => (x == null ? '—' : Math.round(x * 100) + '%');
+      const items = (a.items || []).slice(0, 10);
+      const skills = a.skills || [];
+      box.innerHTML =
+        '<div class="tp-card"><div class="flex items-center justify-between">'
+        + '<strong>📊 Từ dễ sai</strong><span class="tp-muted">' + (a.session_count || 0) + ' phiên</span></div>'
+        + (items.length
+            ? '<table style="width:100%;font-size:.82rem;margin-top:.4rem;border-collapse:collapse;">'
+              + '<tr style="text-align:left;opacity:.7;"><th>Từ/điểm</th><th>Sai</th><th>Lần</th><th>Tỉ lệ sai</th></tr>'
+              + items.map((r) => '<tr><td>' + esc(r.item_key) + '</td><td>' + (r.wrong || 0) + '</td><td>'
+                  + (r.total || 0) + '</td><td>' + pct(r.error_rate) + '</td></tr>').join('')
+              + '</table>'
+            : '<p class="tp-muted" style="margin-top:.4rem;">Chưa có lượt làm nào.</p>')
+        + (skills.length
+            ? '<div class="mt-2 tp-muted">Theo kỹ năng: ' + skills.map((s) =>
+                esc(s.skill) + ' ' + pct(s.error_rate)).join(' · ') + '</div>'
+            : '') + '</div>';
     }
 
     async function createTopic() {

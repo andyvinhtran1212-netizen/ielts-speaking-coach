@@ -242,3 +242,80 @@ def end_session(*, user_id: str, session_id: str, data: dict) -> dict:
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi kết thúc session: {exc}")
     return res.data[0] if res.data else {"id": session_id, **patch}
+
+
+# ── Analytics (Pha 5a) ───────────────────────────────────────────────
+
+def bank_analytics(bank_id: str) -> dict:
+    """Class-wide "từ dễ sai" for a bank: per-item + per-skill error rates (via
+    the mig-121 RPCs) + a session count. Admin-only."""
+    try:
+        items = supabase_admin.rpc(
+            "quiz_item_error_rates", {"p_bank_id": bank_id}).execute().data or []
+        skills = supabase_admin.rpc(
+            "quiz_skill_error_rates", {"p_bank_id": bank_id}).execute().data or []
+        sc = (
+            supabase_admin.table("quiz_sessions")
+            .select("id", count="exact").eq("bank_id", bank_id).execute()
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Lỗi truy vấn analytics: {exc}")
+    session_count = sc.count if sc.count is not None else len(sc.data or [])
+    return {"items": items, "skills": skills, "session_count": session_count}
+
+
+def student_progress(user_id: str) -> dict:
+    """A learner's own progress: per-bank mastered/in-progress (from word_stats)
+    enriched with bank meta, plus recent sessions for an accuracy trend."""
+    # Aggregate per-bank in SQL (RPC) so a learner with more word_stats rows than
+    # the PostgREST page cap is counted fully — a plain select would silently see
+    # only the first page and undercount.
+    try:
+        rows = (
+            supabase_admin.rpc("quiz_user_bank_progress", {"p_user_id": user_id})
+            .execute()
+        ).data or []
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Lỗi truy vấn tiến độ: {exc}")
+
+    by_bank: dict[str, dict] = {
+        r["bank_id"]: {
+            "mastered": int(r.get("mastered") or 0),
+            "in_progress": int(r.get("in_progress") or 0),
+        }
+        for r in rows if r.get("bank_id")
+    }
+
+    meta: dict[str, dict] = {}
+    if by_bank:
+        try:
+            rows = (
+                supabase_admin.table("quiz_banks")
+                .select("id, code, title, skill_area, words_count")
+                .in_("id", list(by_bank.keys())).execute()
+            ).data or []
+            meta = {r["id"]: r for r in rows}
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(500, f"Lỗi truy vấn bank: {exc}")
+
+    banks = []
+    for bid, cnt in by_bank.items():
+        m = meta.get(bid, {})
+        banks.append({
+            "bank_id": bid, "code": m.get("code"), "title": m.get("title"),
+            "skill_area": m.get("skill_area"), "words_count": m.get("words_count"),
+            "mastered": cnt["mastered"], "in_progress": cnt["in_progress"],
+        })
+    banks.sort(key=lambda x: (x.get("skill_area") or "", x.get("code") or ""))
+
+    try:
+        sessions = (
+            supabase_admin.table("quiz_sessions")
+            .select("code, accuracy, words_mastered, total_questions, total_correct, "
+                    "ended_at, ended_by")
+            .eq("user_id", user_id).order("started_at", desc=True).limit(20).execute()
+        ).data or []
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Lỗi truy vấn phiên: {exc}")
+
+    return {"banks": banks, "recent_sessions": sessions}
