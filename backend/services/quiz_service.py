@@ -71,7 +71,33 @@ def get_bank_for_play(bank_id: str) -> dict:
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi truy vấn câu hỏi: {exc}")
     _attach_article_urls(questions)
-    return {"bank": bank, "questions": questions}
+    return {"bank": bank, "questions": questions, "word_cards": _word_cards_for(bank)}
+
+
+def _word_cards_for(bank: dict) -> dict:
+    """Per-word glance cards for the bank's topic, keyed by LOWERCASED headword
+    (== quiz_questions.item_key), so the player can show a quick-glance vocab
+    popup (meaning + IPA + audio + example) without leaving the quiz.
+
+    Best-effort and graceful: vocab-only, scoped to the bank's topic_id; any
+    error or missing card → the key is simply absent and the popup link hides."""
+    if bank.get("skill_area") == "grammar" or not bank.get("topic_id"):
+        return {}
+    try:
+        rows = (
+            supabase_admin.table("vocab_cards").select(
+                "headword, definition_vi, definition_en, gloss_vi, pronunciation, "
+                "example, audio_headword, part_of_speech, level"
+            ).eq("topic_id", bank["topic_id"]).execute()
+        ).data or []
+    except Exception:  # noqa: BLE001
+        return {}
+    cards = {}
+    for c in rows:
+        hw = (c.get("headword") or "").strip().lower()
+        if hw:
+            cards[hw] = c
+    return cards
 
 
 def _attach_article_urls(questions: list[dict]) -> None:

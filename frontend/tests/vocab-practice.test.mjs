@@ -83,6 +83,31 @@ describe('quiz.html resolves a bank from ?skill_area when ?bank is absent', () =
   });
 });
 
+describe('quiz.html — quick-glance vocab card popup', () => {
+  const PLAYER = front('pages', 'quiz.html');
+  test('reuses the design-system modal primitive (overlay, not a new page)', () => {
+    assert.match(PLAYER, /id="qz-modal"[^>]*class="av-modal-backdrop/);
+    assert.match(PLAYER, /class="av-modal"/);
+  });
+  test('consumes the bank word_cards map from the API', () => {
+    assert.match(PLAYER, /bank\.word_cards/);
+  });
+  test('shows the "Xem nhanh thẻ từ" trigger only when a card exists', () => {
+    assert.match(PLAYER, /hasCard/);
+    assert.match(PLAYER, /Xem nhanh thẻ từ/);
+  });
+  test('renders meaning + IPA + audio + example in the popup', () => {
+    assert.match(PLAYER, /qz-modal-ipa/);
+    assert.match(PLAYER, /qz-modal-defvi/);
+    assert.match(PLAYER, /qz-modal-example/);
+    assert.match(PLAYER, /audio_headword/);
+  });
+  test('closes via ×, footer button, backdrop, and Escape (stays in the quiz)', () => {
+    assert.match(PLAYER, /function closeCard/);
+    assert.match(PLAYER, /e\.key === 'Escape'/);
+  });
+});
+
 describe('the old 12-question drill is retired', () => {
   test('topic-exercise page + script are removed', () => {
     assert.ok(!existsSync(frontPath('pages', 'topic-exercise.html')),

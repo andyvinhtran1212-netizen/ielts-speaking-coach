@@ -99,6 +99,49 @@ def test_get_bank_for_play_attaches_grammar_article_url(monkeypatch):
     assert "article_url" not in g2
 
 
+def test_get_bank_for_play_attaches_word_cards_by_headword():
+    """Vocab banks get a word_cards map (lowercased headword → card) so the player
+    can show a quick-glance popup. Keyed to match quiz_questions.item_key."""
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [
+            {"id": _BANK, "is_published": True, "skill_area": "vocab", "topic_id": "t1"}],
+        ("quiz_questions", "select"): [{"qid": "v1", "item_key": "Vocation"}],
+        ("vocab_cards", "select"): [
+            {"headword": "Vocation", "definition_vi": "nghề", "pronunciation": "/voʊ/",
+             "audio_headword": "u.mp3", "example": "She found her vocation."}],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.get_bank_for_play(_BANK)
+    assert "vocation" in out["word_cards"]                 # lowercased key
+    assert out["word_cards"]["vocation"]["definition_vi"] == "nghề"
+
+
+def test_get_bank_for_play_skips_word_cards_for_grammar():
+    """Grammar banks have no vocab cards — no vocab_cards query, empty map."""
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [
+            {"id": _BANK, "is_published": True, "skill_area": "grammar", "topic_id": "t1"}],
+        ("quiz_questions", "select"): [{"qid": "g1"}],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.get_bank_for_play(_BANK)
+    assert out["word_cards"] == {}
+    assert not any(c["table"] == "vocab_cards" for c in fake.calls)
+
+
+def test_get_bank_for_play_word_cards_resilient_to_db_error():
+    """A vocab_cards read failure degrades to an empty map, not a 500."""
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [
+            {"id": _BANK, "is_published": True, "skill_area": "vocab", "topic_id": "t1"}],
+        ("quiz_questions", "select"): [{"qid": "v1", "item_key": "Vocation"}],
+        ("vocab_cards", "select"): Exception("transient"),
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.get_bank_for_play(_BANK)
+    assert out["word_cards"] == {}
+
+
 def test_get_bank_for_play_unpublished_404():
     fake = _FakeSupabase(responses={
         ("quiz_banks", "select"): [{"id": _BANK, "is_published": False}],
