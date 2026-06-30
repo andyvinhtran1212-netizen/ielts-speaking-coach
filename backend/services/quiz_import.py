@@ -166,6 +166,22 @@ def _is_meta_block(fm: dict) -> bool:
     return str(fm.get("kind") or "").strip().lower() == "quiz"
 
 
+def _topic_skill_area(topic_id: Optional[str]) -> Optional[str]:
+    """The selected topic's skill_area (authoritative). None on missing/blank or
+    read failure (the caller then skips the cross-check rather than 500)."""
+    if not topic_id:
+        return None
+    try:
+        rows = (
+            supabase_admin.table("content_topics").select("skill_area")
+            .eq("id", topic_id).limit(1).execute()
+        ).data
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[quiz] topic skill_area read failed: %s", exc)
+        return None
+    return rows[0]["skill_area"] if rows else None
+
+
 def _resolve_audio_map(topic_id: Optional[str]) -> dict:
     """headword.lower() → audio_headword for the topic's vocab cards, so {{audio}}
     in a prompt can reuse the existing vocab-audio pipeline. Empty on no topic /
@@ -258,6 +274,18 @@ def import_quiz_file(
     if not dry_run and not topic_id:
         meta_errors.append({"field": "topic_id", "message": "Chọn topic trước khi lưu."})
 
+    # The bank's skill_area must match the SELECTED topic's — otherwise a file
+    # with skill_area: grammar (or a typo) would commit under a vocab topic and
+    # then vanish from the vocab bank list. The topic is authoritative.
+    if not dry_run and topic_id and meta_info is not None:
+        topic_skill = _topic_skill_area(topic_id)
+        if topic_skill and meta_info["skill_area"] != topic_skill:
+            meta_errors.append({
+                "field": "skill_area",
+                "message": f"skill_area '{meta_info['skill_area']}' không khớp topic "
+                           f"('{topic_skill}'). Sửa META hoặc chọn đúng topic.",
+            })
+
     has_errors = bool(meta_errors) or any(e["validation_errors"] for e in q_entries)
 
     committed_bank_id: Optional[str] = None
@@ -293,13 +321,12 @@ def import_quiz_file(
 
 
 def _commit_bank(meta_info, q_entries, *, topic_id, pools, import_batch_id) -> str:
-    """Upsert the bank by (skill_area, topic_id, code) and replace its questions.
-
-    Questions are replaced UPSERT-then-PRUNE (never delete-then-insert): the new
-    rows are upserted on (bank_id, qid) first, then only the stale qids are
-    deleted. So a failed write can never leave a published bank with zero
-    questions (the all-or-nothing contract) — the old set survives until the new
-    set is in place. Resolves {{audio}} from the topic's vocab cards. Service-role."""
+    """Upsert the bank by (skill_area, topic_id, code) and replace its questions
+    ATOMICALLY via the quiz_replace_questions RPC (delete-all + insert-all run in
+    ONE transaction — no empty-bank window, no new/stale mix on a partial failure).
+    For a NEW bank a failed replace rolls the bank row back; for an EXISTING bank
+    the metadata UPDATE runs only AFTER the replace succeeds, so a failure leaves
+    the old bank fully intact. Resolves {{audio}} from the topic's vocab cards."""
     skill_area = meta_info["skill_area"]
     code = meta_info["code"]
     audio_map = _resolve_audio_map(topic_id)
@@ -323,29 +350,24 @@ def _commit_bank(meta_info, q_entries, *, topic_id, pools, import_batch_id) -> s
         .limit(1).execute()
     ).data
     if existing:
-        # Existing bank: DON'T touch its metadata yet — update it only AFTER the
-        # question replacement succeeds, so a failed question write leaves the old
-        # bank (metadata + questions) fully intact (all-or-nothing).
         bank_id = existing[0]["id"]
         created_new = False
     else:
         res = supabase_admin.table("quiz_banks").insert(bank_payload).execute()
         bank_id = res.data[0]["id"]
-        created_new = True  # noqa: F841 — used below in the rollback path
         created_new = True
 
+    # rows for the RPC — NO bank_id (the function supplies p_bank_id).
     rows = []
-    for order, e in enumerate(q_entries):
+    for o, e in enumerate(q_entries):
         p = e["payload"]
         audio_url = None
         if "{{audio}}" in (p.get("prompt") or ""):
             audio_url = audio_map.get((p.get("item_key") or "").strip().lower())
         rows.append({
-            "bank_id": bank_id,
             "qid": p["qid"], "item_key": p["item_key"], "type": p["type"],
             "subtype": p.get("subtype"), "input": p["input"], "skill": p["skill"],
-            "pair": p.get("pair"),
-            "counts_toward_mastery": p["counts_toward_mastery"],
+            "pair": p.get("pair"), "counts_toward_mastery": p["counts_toward_mastery"],
             "prompt": p["prompt"], "options": p.get("options"),
             # boolean answer persists in the int `answer` col as 1/0; choice/syllable as the index.
             "answer": (1 if e["_bool_answer"] else 0) if e["_bool_answer"] is not None else p.get("answer"),
@@ -353,40 +375,23 @@ def _commit_bank(meta_info, q_entries, *, topic_id, pools, import_batch_id) -> s
             "mask": p.get("mask"), "pairs": p.get("pairs"),
             "explain": p.get("explain"), "points": p["points"],
             "audio_url": audio_url, "grammar_article_slug": p.get("grammar_article_slug"),
-            "order": order,
+            "order": o,
         })
 
-    # Question writes. No DB transaction across PostgREST calls, so on failure we
-    # roll back a NEWLY-CREATED bank (don't leave a published bank with no
-    # questions — the all-or-nothing contract). An EXISTING bank keeps its prior
-    # questions: upsert-then-prune never deletes before the new set is in place.
     try:
-        if rows:
-            # 1) upsert the new set (insert new qids, overwrite changed ones) — old
-            #    rows still present, so the bank is never momentarily empty.
-            supabase_admin.table("quiz_questions").upsert(
-                rows, on_conflict="bank_id,qid"
-            ).execute()
-            # 2) prune qids that are no longer in the new set.
-            new_qids = [r["qid"] for r in rows]
-            (
-                supabase_admin.table("quiz_questions").delete()
-                .eq("bank_id", bank_id).not_.in_("qid", new_qids).execute()
-            )
-        else:
-            # Bank with no questions → clear any leftovers.
-            supabase_admin.table("quiz_questions").delete().eq("bank_id", bank_id).execute()
+        supabase_admin.rpc(
+            "quiz_replace_questions", {"p_bank_id": bank_id, "p_rows": rows}
+        ).execute()
     except Exception:
-        if created_new:
+        if created_new:                     # roll back the orphan bank row
             try:
                 supabase_admin.table("quiz_banks").delete().eq("id", bank_id).execute()
             except Exception as cleanup_exc:  # noqa: BLE001
                 logger.error("[quiz] rollback of orphan bank %s failed: %s", bank_id, cleanup_exc)
         raise
 
-    # Existing bank: apply the new metadata only NOW (questions are in place), so a
-    # failed question write above never leaves stale-questions + new-metadata.
-    # A new bank was inserted with full metadata already.
+    # Existing bank: apply new metadata only NOW (questions already replaced), so a
+    # failed replace above never leaves stale-questions + new-metadata.
     if not created_new:
         supabase_admin.table("quiz_banks").update(bank_payload).eq("id", bank_id).execute()
     return bank_id

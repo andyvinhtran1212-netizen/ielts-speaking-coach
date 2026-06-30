@@ -94,6 +94,37 @@ CREATE INDEX IF NOT EXISTS idx_quiz_questions_bank_item ON quiz_questions (bank_
 -- backend reads via supabase_admin and serves to authenticated students.
 ALTER TABLE quiz_questions ENABLE ROW LEVEL SECURITY;
 
+-- ── Atomic question replacement (re-import) ─────────────────────────────────
+-- The importer replaces a bank's whole question set on re-import. PostgREST
+-- can't span calls in a transaction, so do delete-all + insert-all inside ONE
+-- plpgsql function body (implicit transaction): no empty-bank window and no
+-- new/stale mix on a partial failure (all-or-nothing). CREATE OR REPLACE →
+-- safe to re-run this migration. Called via supabase_admin.rpc (service-role).
+CREATE OR REPLACE FUNCTION quiz_replace_questions(p_bank_id UUID, p_rows JSONB)
+RETURNS INTEGER
+LANGUAGE plpgsql
+AS $$
+DECLARE n INTEGER;
+BEGIN
+    DELETE FROM quiz_questions WHERE bank_id = p_bank_id;
+    INSERT INTO quiz_questions (
+        bank_id, qid, item_key, type, subtype, input, skill, pair,
+        counts_toward_mastery, prompt, options, answer, accept, segments,
+        mask, pairs, explain, points, audio_url, grammar_article_slug, "order")
+    SELECT p_bank_id, x.qid, x.item_key, x.type, x.subtype, x.input, x.skill, x.pair,
+        COALESCE(x.counts_toward_mastery, TRUE), x.prompt, x.options, x.answer, x.accept,
+        x.segments, x.mask, x.pairs, x.explain, COALESCE(x.points, 1), x.audio_url,
+        x.grammar_article_slug, COALESCE(x."order", 0)
+    FROM jsonb_to_recordset(p_rows) AS x(
+        qid TEXT, item_key TEXT, type TEXT, subtype TEXT, input TEXT, skill TEXT, pair TEXT,
+        counts_toward_mastery BOOLEAN, prompt TEXT, options JSONB, answer INT, accept JSONB,
+        segments JSONB, mask TEXT, pairs JSONB, explain TEXT, points INT, audio_url TEXT,
+        grammar_article_slug TEXT, "order" INT);
+    GET DIAGNOSTICS n = ROW_COUNT;
+    RETURN n;
+END; $$;
+
 -- ── Reverse (run manually if needed) ────────────────────────────────────────
+-- DROP FUNCTION IF EXISTS quiz_replace_questions(UUID, JSONB);
 -- DROP TABLE IF EXISTS quiz_questions;
 -- DROP TABLE IF EXISTS quiz_banks;
