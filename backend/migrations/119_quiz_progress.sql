@@ -68,6 +68,11 @@ CREATE TABLE IF NOT EXISTS quiz_attempts (
 
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+-- Re-run safety: CREATE TABLE IF NOT EXISTS is a no-op if the table was created by
+-- an earlier version of this migration, so columns added later won't appear.
+-- ADD COLUMN IF NOT EXISTS backfills them (no-op on a fresh table).
+ALTER TABLE quiz_attempts ADD COLUMN IF NOT EXISTS client_id UUID;
+
 CREATE INDEX IF NOT EXISTS idx_quiz_attempts_session ON quiz_attempts (session_id);
 CREATE INDEX IF NOT EXISTS idx_quiz_attempts_bank_item ON quiz_attempts (bank_id, item_key);
 -- Plain (non-partial) unique index so it can serve as the ON CONFLICT (client_id)
@@ -109,6 +114,12 @@ CREATE TABLE IF NOT EXISTS quiz_word_stats (
 
     UNIQUE (user_id, bank_id, item_key)   -- resume key
 );
+-- Re-run safety (see note above): backfill columns added after the table's first
+-- creation so re-applying this migration on a partially-applied DB succeeds.
+ALTER TABLE quiz_word_stats ADD COLUMN IF NOT EXISTS provisional_skill TEXT;
+ALTER TABLE quiz_word_stats ADD COLUMN IF NOT EXISTS production_done BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE quiz_word_stats ADD COLUMN IF NOT EXISTS credit_count INT NOT NULL DEFAULT 0;
+
 CREATE INDEX IF NOT EXISTS idx_quiz_word_stats_user_bank ON quiz_word_stats (user_id, bank_id);
 
 DROP TRIGGER IF EXISTS trg_quiz_word_stats_updated_at ON quiz_word_stats;
