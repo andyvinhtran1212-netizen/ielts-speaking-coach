@@ -70,7 +70,27 @@ def get_bank_for_play(bank_id: str) -> dict:
         ).data or []
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi truy vấn câu hỏi: {exc}")
+    _attach_article_urls(questions)
     return {"bank": bank, "questions": questions}
+
+
+def _attach_article_urls(questions: list[dict]) -> None:
+    """For questions that reference a Wiki article (grammar), resolve the public
+    URL (/grammar/<category>/<slug>) so the player can show a 'review' link on a
+    wrong answer. Best-effort — leaves article_url unset if grammar_service or the
+    slug isn't available."""
+    slugged = [q for q in questions if q.get("grammar_article_slug")]
+    if not slugged:
+        return
+    try:
+        from services.grammar_content import grammar_service
+        by_slug = grammar_service.articles_by_slug
+    except Exception:  # noqa: BLE001
+        return
+    for q in slugged:
+        art = by_slug.get(q["grammar_article_slug"])
+        if art and art.get("category"):
+            q["article_url"] = f"/grammar/{art['category']}/{q['grammar_article_slug']}"
 
 
 # ── Sessions / progress ──────────────────────────────────────────────

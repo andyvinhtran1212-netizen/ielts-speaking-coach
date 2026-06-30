@@ -148,6 +148,42 @@ def test_boolean_answer_on_choice_question_flagged():
     assert any(e["field"] == "answer" for e in r["validation_errors"])
 
 
+_GBANK = """\
+---
+kind: quiz
+code: "G1"
+skill_area: "grammar"
+words_count: 1
+---
+
+---
+id: "g_v1"
+type: "mcq"
+input: "choice"
+headword: "present-perfect"
+skill: "form"
+prompt: "She ____ here since 2010."
+options: ["has lived", "lived"]
+answer: 0
+grammar_article_slug: "present-perfect"
+explain: "since + present perfect."
+---
+"""
+
+
+def test_grammar_unknown_article_slug_flagged(monkeypatch):
+    monkeypatch.setattr(quiz_import, "_grammar_slug_exists", lambda s: False)
+    r = quiz_import.import_quiz_file(_GBANK, dry_run=True)
+    assert any(e["field"] == "grammar_article_slug" for e in r["validation_errors"])
+
+
+def test_grammar_known_article_slug_ok(monkeypatch):
+    monkeypatch.setattr(quiz_import, "_grammar_slug_exists", lambda s: True)
+    r = quiz_import.import_quiz_file(_GBANK, dry_run=True)
+    assert not any(e["field"] == "grammar_article_slug" for e in r["validation_errors"])
+    assert r["meta"]["skill_area"] == "grammar"
+
+
 def test_syllable_answer_out_of_bounds_flagged():
     """A stress index beyond the segments list must be rejected at import."""
     sy = (

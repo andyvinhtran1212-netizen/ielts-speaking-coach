@@ -64,6 +64,26 @@ def test_get_bank_for_play_published():
     assert out["questions"] == [{"qid": "a1"}]
 
 
+def test_get_bank_for_play_attaches_grammar_article_url(monkeypatch):
+    """Grammar questions get a resolved article_url so the player can link 'review'."""
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{"id": _BANK, "is_published": True, "skill_area": "grammar"}],
+        ("quiz_questions", "select"): [
+            {"qid": "g1", "grammar_article_slug": "present-perfect"},
+            {"qid": "g2"},   # no slug → no url
+        ],
+    })
+    import services.grammar_content as gc
+    monkeypatch.setattr(gc.grammar_service, "articles_by_slug",
+                        {"present-perfect": {"category": "tenses"}})
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.get_bank_for_play(_BANK)
+    g1 = next(q for q in out["questions"] if q["qid"] == "g1")
+    g2 = next(q for q in out["questions"] if q["qid"] == "g2")
+    assert g1["article_url"] == "/grammar/tenses/present-perfect"
+    assert "article_url" not in g2
+
+
 def test_get_bank_for_play_unpublished_404():
     fake = _FakeSupabase(responses={
         ("quiz_banks", "select"): [{"id": _BANK, "is_published": False}],

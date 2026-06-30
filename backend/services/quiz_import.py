@@ -166,6 +166,18 @@ def _is_meta_block(fm: dict) -> bool:
     return str(fm.get("kind") or "").strip().lower() == "quiz"
 
 
+def _grammar_slug_exists(slug: str) -> bool:
+    """True if `slug` resolves to a live Grammar Wiki article (grammar_service is
+    file-backed, loaded in-process). Fail-OPEN on a loader error so a transient
+    issue doesn't block imports; a genuinely missing slug returns False → the
+    import surfaces it as a validation error (no stale exercise→article links)."""
+    try:
+        from services.grammar_content import grammar_service
+        return slug in grammar_service.articles_by_slug
+    except Exception:  # noqa: BLE001
+        return True
+
+
 def _topic_skill_area(topic_id: Optional[str]) -> Optional[str]:
     """The selected topic's skill_area (authoritative). None on missing/blank or
     read failure (the caller then skips the cross-check rather than 500)."""
@@ -253,6 +265,17 @@ def import_quiz_file(
 
     if meta_info is None:
         meta_errors.append({"field": "meta", "message": "Thiếu block META (kind: quiz)."})
+
+    # Grammar exercises link to a Wiki article — reject a slug that doesn't resolve
+    # (no stale exercise→article links). Applies to any question that sets one.
+    for e in q_entries:
+        p = e.get("payload")
+        slug = p.get("grammar_article_slug") if p else None
+        if slug and not _grammar_slug_exists(slug):
+            e["validation_errors"].append({
+                "field": "grammar_article_slug",
+                "message": f"Bài Wiki không tồn tại: '{slug}'.",
+            })
 
     # An empty bank (only META / truncated file) must NOT commit — for an existing
     # bank that would wipe every question and leave it published-but-empty.

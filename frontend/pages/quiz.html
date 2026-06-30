@@ -231,8 +231,13 @@
       pending += 1;
       const fb = $('qz-feedback');
       fb.classList.remove('hidden');
+      const artUrl = current && current.question && current.question.article_url;
       fb.innerHTML = (res.correct ? '<span class="qz-fb-ok">✓ Chính xác</span>' : '<span class="qz-fb-no">✗ Chưa đúng</span>')
-        + (res.explain ? '<div class="qz-muted mt-1">' + fmt(res.explain) + '</div>' : '');
+        + (res.explain ? '<div class="qz-muted mt-1">' + fmt(res.explain) + '</div>' : '')
+        // Grammar: on a wrong answer, link back to the Wiki article to review.
+        + ((!res.correct && artUrl)
+            ? '<div class="mt-1"><a href="' + esc(artUrl) + '" target="_blank" rel="noopener" style="text-decoration:underline;">📖 Ôn lại bài</a></div>'
+            : '');
       $('qz-submit').classList.add('hidden');
       $('qz-next').classList.remove('hidden');
       $('qz-next').focus();

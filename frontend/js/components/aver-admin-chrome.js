@@ -419,6 +419,7 @@ const NAV_GROUPS = [
       { section: 'grammar',   label: 'Grammar',   href: '/pages/admin/grammar/index.html',   icon: 'edit',
         subsections: [
           { slug: 'articles',         label: 'Articles',          href: '/pages/admin/grammar/articles.html' },
+          { slug: 'exercises',        label: 'Bài tập (Exercises)', href: '/pages/admin/vocab/topics.html?skill_area=grammar' },
           { slug: 'analytics',        label: 'Analytics',         href: '/pages/admin/grammar/analytics.html' },
           { slug: 'recommend-test',   label: 'Recommendation tester', href: '/pages/admin/grammar/recommend-test.html' },
         ],

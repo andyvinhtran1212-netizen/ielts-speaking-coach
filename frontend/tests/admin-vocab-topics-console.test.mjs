@@ -24,7 +24,7 @@ describe('topic console page', () => {
     assert.match(html, /setAttribute\('data-theme'/);
   });
   test('uses the content-topics CRUD + bundle endpoints (not the speaking /admin/topics)', () => {
-    assert.match(html, /\/admin\/content-topics\?skill_area=vocab/);
+    assert.match(html, /\/admin\/content-topics\?skill_area=' \+ SKILL/);
     assert.match(html, /\/admin\/content-topics\/' \+ id \+ '\/bundle/);
     assert.match(html, /api\.post\('\/admin\/content-topics'/);
     assert.match(html, /api\.delete\('\/admin\/content-topics\/'/);
@@ -49,5 +49,27 @@ describe('cross-page wiring', () => {
   });
   test('content page prefilters from ?category=', () => {
     assert.match(content, /URLSearchParams\(location\.search\)\.get\('category'\)/);
+  });
+});
+
+describe('Pha 4 — grammar exercises wiring', () => {
+  const player = readFileSync(path.join(ROOT, 'frontend/pages/quiz.html'), 'utf8');
+  test('topic console supports a vocab/grammar skill_area toggle', () => {
+    assert.match(html, /get\('skill_area'\) === 'grammar'/);
+    assert.match(html, /\/admin\/content-topics\?skill_area=' \+ SKILL/);
+    assert.match(html, /id="tp-sk-vocab"/);
+    assert.match(html, /id="tp-sk-grammar"/);
+  });
+  test('quiz import page is skill_area-aware', () => {
+    assert.match(quiz, /get\('skill_area'\) === 'grammar'/);
+    assert.match(quiz, /\/admin\/content-topics\?skill_area=' \+ SKILL/);
+    assert.match(quiz, /\/admin\/quiz\/banks\?skill_area=' \+ SKILL/);
+  });
+  test('chrome nav exposes Grammar → exercises (shared console, grammar mode)', () => {
+    assert.match(chrome, /slug: 'exercises',\s*label: 'Bài tập \(Exercises\)',\s*href: '\/pages\/admin\/vocab\/topics\.html\?skill_area=grammar'/);
+  });
+  test('player shows a "review article" link on a wrong grammar answer', () => {
+    assert.match(player, /article_url/);
+    assert.match(player, /Ôn lại bài/);
   });
 });
