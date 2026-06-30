@@ -170,7 +170,7 @@
 
     async function loadTopics() {
       try {
-        var topics = await window.api.get('/admin/topics?skill_area=vocab') || [];
+        var topics = await window.api.get('/admin/content-topics?skill_area=vocab') || [];
         var sel = $('q-topic');
         sel.innerHTML = '<option value="">— Chọn topic —</option>' + topics.map(function (t) {
           return '<option value="' + esc(t.id) + '">' + esc(t.title) + ' (' + esc(t.slug) + ')</option>';
