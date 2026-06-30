@@ -148,6 +148,17 @@ def test_boolean_answer_on_choice_question_flagged():
     assert any(e["field"] == "answer" for e in r["validation_errors"])
 
 
+def test_syllable_answer_out_of_bounds_flagged():
+    """A stress index beyond the segments list must be rejected at import."""
+    sy = (
+        '---\nkind: quiz\ncode: "T3"\nwords_count: 1\n---\n\n'
+        '---\nid: "x_v1"\ntype: "stress"\ninput: "syllable"\nheadword: "X"\n'
+        'skill: "stress"\nprompt: "?"\nsegments: ["a", "b", "c"]\nanswer: 5\n---\n'
+    )
+    r = quiz_import.import_quiz_file(sy, dry_run=True)
+    assert any(e["field"] == "answer" for e in r["validation_errors"])
+
+
 # ── Commit (mocked supabase) ─────────────────────────────────────────
 
 class _FakeSupabase:
@@ -257,6 +268,22 @@ def test_commit_rolls_back_new_bank_when_question_write_fails():
             quiz_import.import_quiz_file(_BANK, topic_id="topic-1", dry_run=False)
     # The orphan bank row was deleted (rolled back).
     assert any(c["table"] == "quiz_banks" and c["op"] == "delete" for c in fake.calls)
+
+
+def test_commit_preserves_existing_bank_metadata_on_question_failure():
+    """P2: a failed question write on an EXISTING bank must not change its metadata
+    (the bank update happens only after questions succeed) and must not delete it."""
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{"id": "bank-ex"}],          # existing bank
+        ("vocab_cards", "select"): [],
+        ("quiz_questions", "upsert"): Exception("boom"),
+    })
+    with patch.object(quiz_import, "supabase_admin", fake):
+        with pytest.raises(Exception):
+            quiz_import.import_quiz_file(_BANK, topic_id="topic-1", dry_run=False)
+    ops = [(c["table"], c["op"]) for c in fake.calls]
+    assert ("quiz_banks", "update") not in ops    # metadata untouched
+    assert ("quiz_banks", "delete") not in ops    # existing bank not rolled back
 
 
 def test_commit_requires_topic_id():

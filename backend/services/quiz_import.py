@@ -154,6 +154,8 @@ def validate_question(q: dict) -> list[dict]:
             err("segments", "Cần segments (các âm tiết).")
         if not isinstance(q.get("answer"), int):
             err("answer", "Cần chỉ số âm nhấn (0-based).")
+        elif isinstance(seg, list) and not (0 <= q["answer"] < len(seg)):
+            err("answer", "Chỉ số âm nhấn ngoài phạm vi segments.")
     elif qinput == "match":
         if not isinstance(q.get("pairs"), list) or not q.get("pairs"):
             err("pairs", "Cần danh sách cặp nối.")
@@ -321,12 +323,15 @@ def _commit_bank(meta_info, q_entries, *, topic_id, pools, import_batch_id) -> s
         .limit(1).execute()
     ).data
     if existing:
+        # Existing bank: DON'T touch its metadata yet — update it only AFTER the
+        # question replacement succeeds, so a failed question write leaves the old
+        # bank (metadata + questions) fully intact (all-or-nothing).
         bank_id = existing[0]["id"]
         created_new = False
-        supabase_admin.table("quiz_banks").update(bank_payload).eq("id", bank_id).execute()
     else:
         res = supabase_admin.table("quiz_banks").insert(bank_payload).execute()
         bank_id = res.data[0]["id"]
+        created_new = True  # noqa: F841 — used below in the rollback path
         created_new = True
 
     rows = []
@@ -378,4 +383,10 @@ def _commit_bank(meta_info, q_entries, *, topic_id, pools, import_batch_id) -> s
             except Exception as cleanup_exc:  # noqa: BLE001
                 logger.error("[quiz] rollback of orphan bank %s failed: %s", bank_id, cleanup_exc)
         raise
+
+    # Existing bank: apply the new metadata only NOW (questions are in place), so a
+    # failed question write above never leaves stale-questions + new-metadata.
+    # A new bank was inserted with full metadata already.
+    if not created_new:
+        supabase_admin.table("quiz_banks").update(bank_payload).eq("id", bank_id).execute()
     return bank_id
