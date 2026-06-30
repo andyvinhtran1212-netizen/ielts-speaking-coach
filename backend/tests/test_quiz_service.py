@@ -108,16 +108,18 @@ def test_log_progress_rejects_foreign_session():
 def test_log_progress_inserts_attempts_and_upserts_stats():
     fake = _FakeSupabase(responses=_session_resp())
     attempts = [
-        {"item_key": "Vocation", "qid": "v1", "skill": "meaning", "is_correct": True, "attempt_no": 1},
+        {"client_id": "c-1", "item_key": "Vocation", "qid": "v1", "skill": "meaning", "is_correct": True, "attempt_no": 1},
         {"qid": "bad"},   # malformed (no item_key/is_correct) → skipped
     ]
     stats = [{"item_key": "Vocation", "correct_count": 1, "status": "provisional", "skills_passed": ["meaning"]}]
     with patch.object(quiz_service, "supabase_admin", fake):
         out = quiz_service.log_progress(user_id=_USER, session_id=_SESS, attempts=attempts, word_stats=stats)
     assert out["attempts"] == 1 and out["word_stats"] == 1
-    a_ins = next(c for c in fake.calls if c["table"] == "quiz_attempts" and c["op"] == "insert")
-    assert len(a_ins["payload"]) == 1                      # malformed dropped
-    assert a_ins["payload"][0]["user_id"] == _USER and a_ins["payload"][0]["bank_id"] == _BANK
+    # attempts are UPSERTED (idempotent on client_id) — a retried/keepalive re-send dedupes.
+    a_up = next(c for c in fake.calls if c["table"] == "quiz_attempts" and c["op"] == "upsert")
+    assert len(a_up["payload"]) == 1                      # malformed dropped
+    assert a_up["payload"][0]["user_id"] == _USER and a_up["payload"][0]["bank_id"] == _BANK
+    assert a_up["payload"][0]["client_id"] == "c-1"
     w_up = next(c for c in fake.calls if c["table"] == "quiz_word_stats" and c["op"] == "upsert")
     assert w_up["payload"][0]["item_key"] == "Vocation"
 

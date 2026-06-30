@@ -61,11 +61,17 @@ CREATE TABLE IF NOT EXISTS quiz_attempts (
     answer_given    TEXT,
     response_time_ms INT,
     attempt_no      INT,
+    -- client-generated idempotency key: a retried or keepalive-on-unload re-send
+    -- of the same attempt is deduped (the backend upserts ON CONFLICT DO NOTHING)
+    -- so per-question analytics aren't skewed by duplicate inserts.
+    client_id       UUID,
 
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_quiz_attempts_session ON quiz_attempts (session_id);
 CREATE INDEX IF NOT EXISTS idx_quiz_attempts_bank_item ON quiz_attempts (bank_id, item_key);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_quiz_attempts_client_id
+    ON quiz_attempts (client_id) WHERE client_id IS NOT NULL;
 
 ALTER TABLE quiz_attempts ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS quiz_attempts_select ON quiz_attempts;

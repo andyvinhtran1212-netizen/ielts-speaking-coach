@@ -126,6 +126,27 @@ test('drainBatch carries provisional_skill + production_done for resume', () => 
   assert.equal(alpha.production_done, false);
 });
 
+test('unsupported input (match) is filtered out, never served/counted', () => {
+  const bank = {
+    meta: { correct_to_master: 1 },
+    questions: [
+      { qid: 'm1', item_key: 'M', input: 'match', skill: 'meaning', pairs: [['a', 'b']], type: 'match' },
+      { qid: 'k1', item_key: 'K', input: 'choice', skill: 'meaning', answer: 0, type: 'mcq' },
+    ],
+  };
+  const eng = createEngine(bank);
+  assert.equal(eng.progress().total, 1);      // only 'K' (match-only 'M' excluded)
+  const q = eng.next();
+  assert.equal(q.item_key, 'K');
+});
+
+test('each attempt carries a client_id (idempotency key)', () => {
+  const eng = createEngine(oneWordBank());
+  eng.next(); eng.submit(0);
+  const batch = eng.drainBatch();
+  assert.ok(batch.attempts[0].client_id, 'attempt has a client_id');
+});
+
 test('require_distinct_skill:false masters via repeated same-skill corrects', () => {
   const bank = {
     meta: { correct_to_master: 2, require_distinct_skill: false,

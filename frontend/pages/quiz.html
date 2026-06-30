@@ -122,19 +122,23 @@
       return true;
     }
 
+    // Returns a promise resolving to TRUE iff everything was persisted. Serialized
+    // through `chain`; a forced flush awaits the in-flight POST then loops until
+    // the outbox is empty (or a send fails). finish() uses the boolean to avoid
+    // marking the session completed while tail progress is still unsent.
     function flush(force) {
-      if (!engine || !sessionId) return Promise.resolve();
+      if (!engine || !sessionId) return Promise.resolve(true);
       _mergeIntoOutbox(engine.drainBatch());
       pending = 0;
-      // serialize: append to the chain. Forced flushes loop until the outbox is
-      // drained (or a send fails), so the final flush sends everything.
-      chain = chain.then(async () => {
+      const run = chain.then(async () => {
         let ok = await _sendOnce(force);
         while (force && ok && (outbox.attempts.length || Object.keys(outbox.word_stats).length)) {
           ok = await _sendOnce(true);
         }
-      }).catch(() => {});
-      return chain;
+        return ok;                       // _sendOnce never throws → resolves to ok
+      });
+      chain = run.catch(() => {});       // keep the chain alive for ordering
+      return run;
     }
 
     // Unload-safe save: a normal async POST is cancelled when the page goes away.
@@ -243,13 +247,18 @@
     }
 
     async function finish() {
-      await flush(true);
+      // Persist all progress BEFORE finalizing. If the final flush fails, retry
+      // once; if still failing, mark the session 'paused' (not 'completed') so a
+      // resume re-sends/re-tests the unsent tail instead of treating it as done.
+      let ok = await flush(true);
+      if (!ok) ok = await flush(true);
       const s = engine.summary();
       try {
         await window.api.patch('/api/quiz/sessions/' + sessionId, {
           duration_sec: Math.round((Date.now() - startMs) / 1000),
           total_questions: s.total_questions, total_correct: s.total_correct, total_wrong: s.total_wrong,
-          words_mastered: s.mastered, words_carried_over: s.carried_over, ended_by: 'completed',
+          words_mastered: s.mastered, words_carried_over: s.carried_over,
+          ended_by: ok ? 'completed' : 'paused',
         });
       } catch (e) {}
       $('qz-main').classList.add('hidden');
@@ -257,7 +266,8 @@
       $('qz-summary-body').innerHTML =
         'Đã thuộc <strong>' + s.mastered + '/' + s.total + '</strong> từ · '
         + s.total_questions + ' câu · đúng ' + s.total_correct + ', sai ' + s.total_wrong
-        + (s.carried_over ? '<br>Cần ôn lại: ' + esc(s.carried_keys.join(', ')) : '');
+        + (s.carried_over ? '<br>Cần ôn lại: ' + esc(s.carried_keys.join(', ')) : '')
+        + (ok ? '' : '<br><span class="qz-fb-no">⚠ Một phần tiến độ chưa lưu được — sẽ thử lại ở phiên sau.</span>');
     }
 
     async function boot() {

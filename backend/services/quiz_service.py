@@ -20,7 +20,7 @@ from database import supabase_admin
 
 logger = logging.getLogger(__name__)
 
-_ATTEMPT_FIELDS = ("item_key", "qid", "skill", "type", "subtype",
+_ATTEMPT_FIELDS = ("client_id", "item_key", "qid", "skill", "type", "subtype",
                    "is_correct", "answer_given", "response_time_ms", "attempt_no")
 _WORD_STAT_FIELDS = ("item_key", "correct_count", "wrong_count", "first_try_correct",
                      "attempts_to_master", "status", "is_difficult", "skills_passed",
@@ -146,7 +146,12 @@ def log_progress(*, user_id: str, session_id: str, attempts: list[dict], word_st
         attempt_rows.append(row)
     if attempt_rows:
         try:
-            supabase_admin.table("quiz_attempts").insert(attempt_rows).execute()
+            # Idempotent on client_id (mig 119 unique index) — a retried or
+            # keepalive-on-unload re-send of the same attempts is ignored, so a
+            # pagehide-during-flush double-send never duplicates rows.
+            supabase_admin.table("quiz_attempts").upsert(
+                attempt_rows, on_conflict="client_id", ignore_duplicates=True
+            ).execute()
         except Exception as exc:  # noqa: BLE001
             raise HTTPException(500, f"Lỗi ghi attempts: {exc}")
 

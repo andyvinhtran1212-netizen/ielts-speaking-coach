@@ -72,10 +72,16 @@ export function createEngine(bank, options) {
   var COOLDOWN = num(meta.cooldown, 2);
   var MAX_ATTEMPTS = num(meta.max_attempts_per_word, 8);
 
-  // pools: item_key → [questions]
+  // pools: item_key → [questions]. Only inputs the player can RENDER + GRADE are
+  // pooled — a bank may include input:match (schema-supported, generator-deferred)
+  // which would otherwise always grade wrong and trap the word in carry-over.
+  // Skipping them means such questions are simply never served; a word whose only
+  // questions are unsupported drops out of `order` (not counted, not asked).
+  var SUPPORTED_INPUTS = { choice: 1, text: 1, boolean: 1, syllable: 1 };
   var pools = {};
   var order = [];
   questions.forEach(function (q) {
+    if (!SUPPORTED_INPUTS[q.input]) return;
     if (!pools[q.item_key]) { pools[q.item_key] = []; order.push(q.item_key); }
     pools[q.item_key].push(q);
   });
@@ -194,6 +200,7 @@ export function createEngine(bank, options) {
     if (w.first_try_correct === null) w.first_try_correct = correct;
 
     attemptsBatch.push({
+      client_id: uuid(),   // idempotency key — dedupes a retried/keepalive re-send
       item_key: w.key, qid: q.qid, skill: q.skill, type: q.type, subtype: q.subtype || null,
       is_correct: correct, answer_given: serializeAnswer(answer),
       response_time_ms: Math.max(0, nowMs() - current.startedAt), attempt_no: w.attempts,
@@ -315,6 +322,12 @@ export function createEngine(bank, options) {
 // ── small utils ──────────────────────────────────────────────────────
 
 function num(v, d) { var n = parseInt(v, 10); return isNaN(n) ? d : n; }
+function uuid() {
+  try {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  } catch (e) { /* fall through */ }
+  return 'cid-' + nowMs().toString(36) + '-' + Math.floor(Math.random() * 1e9).toString(36);
+}
 function nowMs() { return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now(); }
 function serializeAnswer(a) {
   if (a == null) return '';
