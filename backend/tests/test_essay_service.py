@@ -1272,3 +1272,18 @@ async def test_bg_grade_essay_superseded_does_not_mark_failed():
     requeue.assert_not_called()
     assert not any(c for c in fake.calls if c["table"] == "writing_essays"
                    and c["op"] == "update" and c["payload"].get("status") == "failed")
+
+
+@pytest.mark.asyncio
+async def test_reap_skips_soft_deleted_essay():
+    """P2: a job whose essay was soft-deleted (deleted_at set) while in flight
+    must NOT be requeued/graded — soft-deleted essays are hidden everywhere."""
+    fake = _FakeSupabase(responses=_reaper_responses(
+        essay_overrides={"deleted_at": (_FIXED_NOW - timedelta(seconds=30)).isoformat()}))
+    requeue = MagicMock()
+    with patch.object(essay_service, "supabase_admin", fake), \
+         patch.object(essay_service, "_schedule_requeue", requeue):
+        summary = await essay_service.reap_stuck_grading_jobs(now=_FIXED_NOW)
+
+    assert summary["skipped"] == 1 and summary["requeued"] == 0 and summary["failed"] == 0
+    requeue.assert_not_called()

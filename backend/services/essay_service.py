@@ -1120,10 +1120,16 @@ async def reap_stuck_grading_jobs(*, now: datetime | None = None) -> dict:
         try:
             er = (
                 supabase_admin.table("writing_essays")
-                .select("status, grading_tier, selected_model")
+                .select("status, grading_tier, selected_model, deleted_at")
                 .eq("id", essay_id).limit(1).execute()
             ).data
             essay = er[0] if er else {}
+            # Soft-deleted essays (deleted_at set) are hidden from every normal
+            # read path — the reaper must not resurrect one by grading/mutating a
+            # job whose essay was deleted mid-flight.
+            if essay.get("deleted_at"):
+                summary["skipped"] += 1
+                continue
             if essay.get("status") not in _REAPER_RECOVERABLE_ESSAY_STATUSES:
                 summary["skipped"] += 1          # resolved between query and now
                 continue
