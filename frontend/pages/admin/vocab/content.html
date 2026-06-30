@@ -429,7 +429,14 @@
     })();
 
     // ── V-admin — manage existing words (list / edit / delete / ▶ preview) ──
-    var _vw = { offset: 0, limit: 50, total: 0, cat: '', q: '', editingId: null, selected: {} };
+    // cat is seeded from ?category=<slug> (topic-console deep-link) BEFORE the
+    // first loadVocabList, so the initial fetch is already filtered — no race with
+    // an unfiltered load overwriting it.
+    var _vw = {
+      offset: 0, limit: 50, total: 0,
+      cat: (new URLSearchParams(location.search).get('category') || ''),
+      q: '', editingId: null, selected: {},
+    };
     var _vwAudio = null;
 
     // ── bulk-select state ──────────────────────────────────────────────
@@ -567,6 +574,10 @@
           o.value = c.slug; o.textContent = (c.title || c.slug) + ' (' + (c.article_count || 0) + ')';
           sel.appendChild(o);
         });
+        // Sync the dropdown to the already-seeded filter (_vw.cat from ?category).
+        // The initial load is ALREADY filtered, so don't trigger a second load here
+        // (that would race the first).
+        if (_vw.cat) sel.value = _vw.cat;
       } catch (_) { /* filter still works without options */ }
     }
 
