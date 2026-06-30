@@ -21,43 +21,49 @@
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
   <link rel="stylesheet" href="/css/aver-design/components.css" />
   <link rel="stylesheet" href="/css/tailwind.build.css" />
+  <!-- Canonical site chrome (brand + skill tabs + theme + user pill). -->
+  <script type="module" src="/js/components/aver-chrome.js"></script>
   <style>
-    .vp-wrap { max-width: 720px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
-    .vp-back { display: inline-flex; align-items: center; gap: .35rem; font-size: .9rem; opacity: .75; text-decoration: none; }
-    .vp-back:hover { opacity: 1; }
-    .vp-intro { font-size: .92rem; opacity: .8; margin-top: .4rem; }
-    .vp-card { border: 1px solid var(--av-border-subtle); border-radius: .75rem; padding: 1rem 1.1rem; background: var(--av-surface-card); margin-top: .7rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-    .vp-meta { min-width: 0; }
-    .vp-code { font-size: .72rem; font-weight: 700; letter-spacing: .04em; color: var(--av-primary); }
-    .vp-title { font-weight: 600; }
-    .vp-count { font-size: .82rem; opacity: .7; }
-    .vp-go {
-      flex: none; display: inline-block; text-decoration: none;
-      padding: .5rem .9rem; border-radius: .55rem; font-weight: 600; font-size: .9rem;
-      background: var(--av-primary); color: var(--av-text-on-primary, #fff);
-    }
-    .vp-go:hover { filter: brightness(1.05); }
-    .vp-go:focus-visible { outline: none; box-shadow: var(--av-shadow-focus); }
-    .vp-muted { opacity: .7; font-size: .9rem; }
-    .vp-err { color: var(--av-error); }
-    .vp-progress-link { display: inline-block; margin-top: 1.2rem; font-size: .9rem; }
+    /* Hub intro — mirrors the exercises drill-hub (.ex-hub-*). */
+    .vp-hub-title { font-size: var(--av-fs-lg); font-weight: var(--av-fw-semibold);
+      letter-spacing: var(--av-tracking-tight); color: var(--av-text-primary);
+      margin: var(--av-space-2) 0 var(--av-space-1); }
+    .vp-hub-sub { font-size: var(--av-fs-sm); color: var(--av-text-muted);
+      line-height: var(--av-lh-relaxed); margin: 0 0 var(--av-space-6); max-width: 56ch; }
+    .vp-status { color: var(--av-text-muted); font-size: var(--av-fs-sm); padding: var(--av-space-8) 0; }
+    .vp-status.is-error { color: var(--av-error); }
+    /* mode-card lede meta row */
+    .vp-meta { display: flex; align-items: center; gap: var(--av-space-2); }
+    .vp-code { font-weight: var(--av-fw-semibold); color: var(--av-primary); letter-spacing: .03em; }
+    .vp-progress-link { display: inline-block; margin-top: var(--av-space-8);
+      color: var(--av-primary); font-size: var(--av-fs-sm); text-decoration: none; font-weight: var(--av-fw-semibold); }
+    .vp-progress-link:hover { color: var(--av-primary-hover); }
   </style>
 </head>
 <body class="av-page font-sans antialiased">
-  <div class="vp-wrap">
-    <a class="vp-back" href="/vocabulary.html">← Về Từ vựng</a>
-    <h1 class="text-2xl font-bold mt-3">Luyện tập từ vựng</h1>
-    <p class="vp-intro">
-      Mỗi bài luyện <strong>kiểm tra tới khi bạn thuộc trọn vẹn cả list từ</strong> —
-      có câu gõ tự luận, chống đoán mò và ôn lại từ hay sai. Chọn một bài để bắt đầu.
+  <aver-chrome active="vocabulary"></aver-chrome>
+
+  <div class="shell">
+    <header class="subpage-header">
+      <div class="subpage-header__lhs">
+        <a class="subpage-header__back" href="/vocabulary.html">
+          <span aria-hidden="true">←</span><span>Vocabulary</span>
+        </a>
+        <span class="subpage-header__sep">|</span>
+        <h1 class="subpage-header__title">Luyện tập từ vựng</h1>
+      </div>
+    </header>
+
+    <h2 class="vp-hub-title">Chọn một bài để bắt đầu</h2>
+    <p class="vp-hub-sub">
+      Mỗi bài <strong>kiểm tra tới khi bạn thuộc trọn vẹn cả list từ</strong> —
+      có câu gõ tự luận, chống đoán mò và ôn lại từ hay sai. Tiến độ được lưu để bạn học tiếp ở lần sau.
     </p>
 
-    <p id="vp-loading" class="vp-muted" style="padding:1.5rem 0;">Đang tải…</p>
-    <div id="vp-list" class="hidden" style="margin-top:1rem;"></div>
-    <p id="vp-empty" class="hidden vp-muted" style="padding:1.5rem 0;">
-      Chưa có bài luyện nào được mở. Vui lòng quay lại sau.
-    </p>
-    <p id="vp-error" class="hidden vp-err" style="padding:1.5rem 0;"></p>
+    <p id="vp-loading" class="vp-status">Đang tải…</p>
+    <div id="vp-list" class="modes-grid hidden"></div>
+    <p id="vp-empty" class="vp-status hidden">Chưa có bài luyện nào được mở. Vui lòng quay lại sau.</p>
+    <p id="vp-error" class="vp-status is-error hidden"></p>
 
     <a id="vp-progress" class="vp-progress-link hidden" href="/pages/quiz-progress.html">📊 Xem tiến độ của tôi →</a>
   </div>
@@ -89,12 +95,13 @@
 
       $('vp-list').innerHTML = banks.map((b) => {
         const n = b.words_count || 0;
-        return '<div class="vp-card"><div class="vp-meta">'
-          + '<div class="vp-code">' + esc(b.code || '') + '</div>'
-          + '<div class="vp-title">' + esc(b.title || b.code || 'Bài luyện') + '</div>'
-          + '<div class="vp-count">' + n + ' từ</div></div>'
-          + '<a class="vp-go" href="/pages/quiz.html?bank='
-          + encodeURIComponent(b.id) + '">Luyện tập</a></div>';
+        return '<a class="mode-card" href="/pages/quiz.html?bank=' + encodeURIComponent(b.id) + '">'
+          + '<div class="head"><div class="icon">📚</div><span class="arrow">→</span></div>'
+          + '<h3>' + esc(b.title || b.code || 'Bài luyện') + '</h3>'
+          + '<p class="lede vp-meta">'
+          + (b.code ? '<span class="vp-code">' + esc(b.code) + '</span> · ' : '')
+          + n + ' từ · học tới khi thuộc</p>'
+          + '</a>';
       }).join('');
       $('vp-list').classList.remove('hidden');
     }
