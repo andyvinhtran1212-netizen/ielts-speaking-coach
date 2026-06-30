@@ -246,4 +246,5 @@ jobs:
             frontend/tests/vocab-topic-study.test.mjs \
             frontend/tests/topic-exercise.test.mjs \
             frontend/tests/quiz-engine.test.mjs \
+            frontend/tests/admin-vocab-topics-console.test.mjs \
             frontend/tests/vocab-css-integrity.test.mjs

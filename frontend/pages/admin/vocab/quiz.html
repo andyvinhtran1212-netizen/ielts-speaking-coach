@@ -175,6 +175,9 @@
         sel.innerHTML = '<option value="">— Chọn topic —</option>' + topics.map(function (t) {
           return '<option value="' + esc(t.id) + '">' + esc(t.title) + ' (' + esc(t.slug) + ')</option>';
         }).join('');
+        // Preselect when arriving from the topic console (?topic=<id>).
+        var pre = new URLSearchParams(location.search).get('topic');
+        if (pre) sel.value = pre;
       } catch (e) { $('q-topic').innerHTML = '<option value="">Lỗi tải topic</option>'; }
     }
 

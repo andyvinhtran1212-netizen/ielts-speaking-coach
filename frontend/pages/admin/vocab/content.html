@@ -567,6 +567,9 @@
           o.value = c.slug; o.textContent = (c.title || c.slug) + ' (' + (c.article_count || 0) + ')';
           sel.appendChild(o);
         });
+        // Prefilter when arriving from the topic console (?category=<slug>).
+        var pre = new URLSearchParams(location.search).get('category');
+        if (pre) { sel.value = pre; _vw.cat = pre; loadVocabList(); }
       } catch (_) { /* filter still works without options */ }
     }
 

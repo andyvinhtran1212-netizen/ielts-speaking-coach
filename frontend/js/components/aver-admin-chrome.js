@@ -407,6 +407,7 @@ const NAV_GROUPS = [
       },
       { section: 'vocab',     label: 'Vocab',     href: '/pages/admin/vocab/index.html',     icon: 'book',
         subsections: [
+          { slug: 'topics',        label: 'Chủ đề (Topics)',  href: '/pages/admin/vocab/topics.html' },
           { slug: 'content',       label: 'Nội dung từ vựng', href: '/pages/admin/vocab/content.html' },
           { slug: 'quiz',          label: 'Quick-Check Quiz', href: '/pages/admin/vocab/quiz.html' },
           { slug: 'stats',         label: 'Stats',           href: '/pages/admin/vocab/stats.html' },
