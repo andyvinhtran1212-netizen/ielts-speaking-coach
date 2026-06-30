@@ -72,4 +72,10 @@ describe('Pha 4 — grammar exercises wiring', () => {
     assert.match(player, /article_url/);
     assert.match(player, /Ôn lại bài/);
   });
+  test('player return CTA is skill-area aware (grammar → Grammar, else Vocabulary)', () => {
+    assert.match(player, /skill_area === 'grammar'/);
+    assert.match(player, /\/grammar\.html/);
+    assert.match(player, /\/vocabulary\.html/);
+    assert.ok(!/← Về Từ vựng<\/a>/.test(player), 'back CTA label must not be hard-coded vocab in markup');
+  });
 });
