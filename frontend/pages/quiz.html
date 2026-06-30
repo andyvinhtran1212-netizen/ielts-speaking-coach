@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Quick-Check — Kiểm tra từ vựng</title>
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.setAttribute('data-theme',
+          (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light'));
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/tailwind.build.css" />
+  <style>
+    .qz-wrap { max-width: 640px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+    .qz-track { height: 8px; border-radius: 999px; background: var(--av-surface-sunken); overflow: hidden; }
+    .qz-bar { height: 100%; background: var(--av-primary); width: 0; transition: width .25s; }
+    .qz-card { border: 1px solid var(--av-border-subtle); border-radius: 1rem; padding: 1.25rem; margin-top: 1rem; background: var(--av-surface-card); }
+    .qz-opt { display: block; width: 100%; text-align: left; padding: .7rem .9rem; margin: .4rem 0; border: 1px solid var(--av-border-default); border-radius: .6rem; background: transparent; cursor: pointer; font: inherit; color: inherit; }
+    .qz-opt[aria-pressed="true"] { border-color: var(--av-primary); background: var(--av-primary-soft, rgba(0,128,128,.08)); }
+    .qz-input { width: 100%; padding: .7rem .9rem; border: 1px solid var(--av-border-default); border-radius: .6rem; background: transparent; color: inherit; font: inherit; }
+    .qz-chip { display: inline-block; padding: .5rem .8rem; margin: .25rem; border: 1px solid var(--av-border-default); border-radius: .5rem; background: transparent; cursor: pointer; font: inherit; color: inherit; }
+    .qz-chip[aria-pressed="true"] { border-color: var(--av-primary); background: var(--av-primary-soft, rgba(0,128,128,.08)); }
+    .qz-fb-ok { color: var(--av-success); } .qz-fb-no { color: var(--av-error); }
+    .qz-muted { opacity: .7; font-size: .85rem; }
+  </style>
+</head>
+<body class="av-page font-sans antialiased">
+  <div class="qz-wrap">
+    <div id="qz-loading" class="qz-muted" style="padding:2rem 0;">Đang tải bài kiểm tra…</div>
+
+    <div id="qz-main" class="hidden">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;">
+        <h1 id="qz-title" class="text-lg font-bold"></h1>
+        <span id="qz-count" class="qz-muted"></span>
+      </div>
+      <div class="qz-track mt-2"><div id="qz-bar" class="qz-bar"></div></div>
+
+      <div id="qz-card" class="qz-card">
+        <div id="qz-audio" class="hidden" style="margin-bottom:.5rem;"></div>
+        <p id="qz-prompt" class="text-base" style="font-weight:600;"></p>
+        <div id="qz-widget" class="mt-3"></div>
+        <div id="qz-feedback" class="hidden mt-3"></div>
+        <div class="mt-4" style="display:flex;gap:.5rem;">
+          <button id="qz-submit" class="aw-btn-primary" disabled>Trả lời</button>
+          <button id="qz-next" class="aw-btn-primary hidden">Tiếp →</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="qz-summary" class="hidden qz-card">
+      <h2 class="text-lg font-bold">🎉 Hoàn tất phiên</h2>
+      <p id="qz-summary-body" class="mt-2 text-sm"></p>
+      <a href="/vocabulary.html" class="aw-btn-primary mt-4 inline-block" style="text-decoration:none;">← Về Từ vựng</a>
+    </div>
+
+    <p id="qz-error" class="hidden qz-fb-no" style="padding:2rem 0;"></p>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0"></script>
+  <script src="/js/api.js"></script>
+  <script type="module">
+    import { createEngine } from '/js/quiz-engine.js';
+
+    initSupabase('https://nqhrtqspznepmveyurzm.supabase.co',
+                 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4');
+
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) =>
+      ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    // Render **bold** + the ____ blank placeholder.
+    const fmt = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/_{4,}/g, '<u>&nbsp;&nbsp;&nbsp;</u>');
+
+    const bankId = new URLSearchParams(location.search).get('bank');
+    let engine = null, sessionId = null, current = null, answer = null, startMs = Date.now();
+    let pending = 0;   // attempts since last flush
+
+    function fail(msg) {
+      $('qz-loading').classList.add('hidden');
+      const el = $('qz-error'); el.textContent = msg; el.classList.remove('hidden');
+    }
+
+    async function flush(force) {
+      if (!engine || !sessionId) return;
+      if (!force && pending < 5) return;
+      const batch = engine.drainBatch();
+      pending = 0;
+      if (!batch.attempts.length && !batch.word_stats.length) return;
+      try { await window.api.post('/api/quiz/sessions/' + sessionId + '/progress', batch); }
+      catch (e) { /* best-effort; keep playing */ }
+    }
+
+    function setAnswer(v, render) { answer = v; $('qz-submit').disabled = (v == null || v === ''); if (render) render(); }
+
+    function renderQuestion(item) {
+      current = item;
+      const q = item.question;
+      answer = null;
+      $('qz-feedback').classList.add('hidden');
+      $('qz-next').classList.add('hidden');
+      $('qz-submit').classList.remove('hidden');
+      $('qz-submit').disabled = true;
+      $('qz-prompt').innerHTML = fmt(q.prompt);
+
+      // audio
+      const au = $('qz-audio');
+      if (q.audio_url) {
+        au.innerHTML = '<button id="qz-play" class="qz-chip">🔊 Nghe</button>';
+        au.classList.remove('hidden');
+        $('qz-play').onclick = () => { try { new Audio(q.audio_url).play(); } catch (e) {} };
+      } else { au.classList.add('hidden'); au.innerHTML = ''; }
+
+      const w = $('qz-widget'); w.innerHTML = '';
+      if (q.input === 'choice') {
+        (q.options || []).forEach((opt, i) => {
+          const b = document.createElement('button');
+          b.className = 'qz-opt'; b.type = 'button'; b.innerHTML = fmt(opt);
+          b.onclick = () => {
+            answer = i; $('qz-submit').disabled = false;
+            Array.from(w.children).forEach((c, j) => c.setAttribute('aria-pressed', j === i ? 'true' : 'false'));
+          };
+          w.appendChild(b);
+        });
+      } else if (q.input === 'boolean') {
+        [['Đúng', true], ['Sai', false]].forEach(([label, val]) => {
+          const b = document.createElement('button');
+          b.className = 'qz-opt'; b.type = 'button'; b.textContent = label;
+          b.onclick = () => {
+            answer = val; $('qz-submit').disabled = false;
+            Array.from(w.children).forEach((c) => c.setAttribute('aria-pressed', c === b ? 'true' : 'false'));
+          };
+          w.appendChild(b);
+        });
+      } else if (q.input === 'syllable') {
+        (q.segments || []).forEach((seg, i) => {
+          const b = document.createElement('button');
+          b.className = 'qz-chip'; b.type = 'button'; b.textContent = seg;
+          b.onclick = () => {
+            answer = i; $('qz-submit').disabled = false;
+            Array.from(w.children).forEach((c, j) => c.setAttribute('aria-pressed', j === i ? 'true' : 'false'));
+          };
+          w.appendChild(b);
+        });
+      } else { // text
+        const inp = document.createElement('input');
+        inp.className = 'qz-input'; inp.type = 'text'; inp.autocomplete = 'off'; inp.placeholder = 'Gõ đáp án…';
+        inp.oninput = () => { answer = inp.value; $('qz-submit').disabled = !inp.value.trim(); };
+        inp.onkeydown = (e) => { if (e.key === 'Enter' && inp.value.trim()) onSubmit(); };
+        w.appendChild(inp); setTimeout(() => inp.focus(), 30);
+      }
+    }
+
+    function onSubmit() {
+      if (answer == null || answer === '') return;
+      const res = engine.submit(answer);
+      pending += 1;
+      const fb = $('qz-feedback');
+      fb.classList.remove('hidden');
+      fb.innerHTML = (res.correct ? '<span class="qz-fb-ok">✓ Chính xác</span>' : '<span class="qz-fb-no">✗ Chưa đúng</span>')
+        + (res.explain ? '<div class="qz-muted mt-1">' + fmt(res.explain) + '</div>' : '');
+      $('qz-submit').classList.add('hidden');
+      $('qz-next').classList.remove('hidden');
+      $('qz-next').focus();
+      updateProgress();
+      flush(false);
+    }
+
+    function updateProgress() {
+      const p = engine.progress();
+      $('qz-count').textContent = 'Đã thuộc ' + p.mastered + '/' + p.total;
+      $('qz-bar').style.width = (p.total ? Math.round(p.mastered / p.total * 100) : 0) + '%';
+    }
+
+    async function advance() {
+      const item = engine.next();
+      if (!item) return finish();
+      renderQuestion(item);
+    }
+
+    async function finish() {
+      await flush(true);
+      const s = engine.summary();
+      try {
+        await window.api.patch('/api/quiz/sessions/' + sessionId, {
+          duration_sec: Math.round((Date.now() - startMs) / 1000),
+          total_questions: s.total_questions, total_correct: s.total_correct, total_wrong: s.total_wrong,
+          words_mastered: s.mastered, words_carried_over: s.carried_over, ended_by: 'completed',
+        });
+      } catch (e) {}
+      $('qz-main').classList.add('hidden');
+      $('qz-summary').classList.remove('hidden');
+      $('qz-summary-body').innerHTML =
+        'Đã thuộc <strong>' + s.mastered + '/' + s.total + '</strong> từ · '
+        + s.total_questions + ' câu · đúng ' + s.total_correct + ', sai ' + s.total_wrong
+        + (s.carried_over ? '<br>Cần ôn lại: ' + esc(s.carried_keys.join(', ')) : '');
+    }
+
+    async function boot() {
+      if (!bankId) return fail('Thiếu tham số bank.');
+      let bank;
+      try { bank = await window.api.get('/api/quiz/banks/' + encodeURIComponent(bankId)); }
+      catch (e) { return fail('Không tải được bài: ' + e.message); }
+      if (!bank || !bank.questions || !bank.questions.length) return fail('Bài chưa có câu hỏi.');
+
+      let start;
+      try { start = await window.api.post('/api/quiz/sessions', { bank_id: bankId }); }
+      catch (e) { return fail('Không tạo được phiên: ' + e.message); }
+      sessionId = start.session_id;
+
+      engine = createEngine(bank, { resume: start.resume || [] });
+      $('qz-loading').classList.add('hidden');
+      $('qz-main').classList.remove('hidden');
+      $('qz-title').textContent = (bank.bank && (bank.bank.title || bank.bank.code)) || 'Quick-Check';
+      $('qz-submit').onclick = onSubmit;
+      $('qz-next').onclick = advance;
+      updateProgress();
+      advance();
+      window.addEventListener('beforeunload', () => { try { engine && flush(true); } catch (e) {} });
+    }
+
+    boot();
+  </script>
+</body>
+</html>
