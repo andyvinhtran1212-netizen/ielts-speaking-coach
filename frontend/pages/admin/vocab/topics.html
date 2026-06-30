@@ -41,7 +41,12 @@
 
   <main class="max-w-5xl mx-auto px-6 py-8">
     <h1 class="aw-h1 text-2xl font-bold">Chủ đề nội dung (Topics)</h1>
-    <p class="aw-subtitle mt-1 text-sm">Tổ chức từ vựng + Quick-Check quiz theo chủ đề. Chọn một chủ đề để xem/sửa nội dung.</p>
+    <p class="aw-subtitle mt-1 text-sm">Tổ chức nội dung theo chủ đề. Chọn một chủ đề để xem/sửa.</p>
+    <div class="mt-2" style="display:flex;gap:.4rem;align-items:center;">
+      <span class="tp-muted">Khu vực:</span>
+      <button id="tp-sk-vocab" class="aw-btn-secondary text-xs">Từ vựng</button>
+      <button id="tp-sk-grammar" class="aw-btn-secondary text-xs">Grammar</button>
+    </div>
     <p id="tp-status" class="hidden mt-2 text-sm"></p>
 
     <div class="tp-grid mt-5">
@@ -84,12 +89,13 @@
       el.className = 'mt-2 text-sm' + (msg ? '' : ' hidden') + (kind === 'error' ? ' tp-err' : (kind === 'ok' ? ' tp-ok' : ''));
     }
 
+    const SKILL = new URLSearchParams(location.search).get('skill_area') === 'grammar' ? 'grammar' : 'vocab';
     let topics = [];
     let selectedId = null;
 
     async function loadTopics() {
       try {
-        topics = await window.api.get('/admin/content-topics?skill_area=vocab') || [];
+        topics = await window.api.get('/admin/content-topics?skill_area=' + SKILL) || [];
       } catch (e) { $('tp-list').innerHTML = '<p class="tp-err">Lỗi tải: ' + esc(e.message) + '</p>'; return; }
       $('tp-count').textContent = topics.length + ' chủ đề';
       $('tp-list').innerHTML = topics.length
@@ -132,7 +138,7 @@
         + '</div>'
         + '<hr style="margin:1rem 0;border:none;border-top:1px solid var(--av-border-subtle);">'
         + '<div class="flex items-center justify-between"><h3 class="text-sm font-bold">Quick-Check banks</h3>'
-        + '<a class="aw-btn-secondary text-xs" style="text-decoration:none;" href="/pages/admin/vocab/quiz.html?topic=' + esc(t.id) + '">+ Import bank</a></div>'
+        + '<a class="aw-btn-secondary text-xs" style="text-decoration:none;" href="/pages/admin/vocab/quiz.html?topic=' + esc(t.id) + '&skill_area=' + SKILL + '">+ Import bank</a></div>'
         + '<div id="tp-banks" class="mt-1">' + (banks.length
             ? banks.map((bk) =>
                 '<div class="tp-bankrow"><span><strong>' + esc(bk.code) + '</strong> — ' + esc(bk.title || '') + ' · ' + (bk.words_count || 0) + ' từ'
@@ -140,8 +146,11 @@
                 + '<span><button class="aw-btn-secondary" data-pub="' + esc(bk.id) + '" data-cur="' + (bk.is_published ? '1' : '0') + '" style="font-size:.72rem;">' + (bk.is_published ? 'Ẩn' : 'Hiện') + '</button> '
                 + '<button class="aw-btn-secondary" data-delbank="' + esc(bk.id) + '" style="font-size:.72rem;">Xóa</button></span></div>').join('')
             : '<p class="tp-muted">Chưa có bank. Dùng "Import bank" để thêm.</p>') + '</div>'
-        + '<hr style="margin:1rem 0;border:none;border-top:1px solid var(--av-border-subtle);">'
-        + '<a class="aw-btn-secondary text-xs" style="text-decoration:none;" href="/pages/admin/vocab/content.html?category=' + esc(t.slug) + '">→ Quản lý ' + (c.vocab_cards || 0) + ' từ vựng của chủ đề</a>';
+        // Vocab-card management only applies to vocab topics; grammar topics have no cards.
+        + (SKILL === 'vocab'
+            ? '<hr style="margin:1rem 0;border:none;border-top:1px solid var(--av-border-subtle);">'
+              + '<a class="aw-btn-secondary text-xs" style="text-decoration:none;" href="/pages/admin/vocab/content.html?category=' + esc(t.slug) + '">→ Quản lý ' + (c.vocab_cards || 0) + ' từ vựng của chủ đề</a>'
+            : '');
 
       $('tp-save').onclick = saveTopic;
       $('tp-del').onclick = deleteTopic;
@@ -156,7 +165,7 @@
       if (!title) { status('Nhập tên chủ đề.', 'error'); return; }
       try {
         const t = await window.api.post('/admin/content-topics',
-          { title, slug: $('tp-new-slug').value.trim() || undefined, skill_area: 'vocab' });
+          { title, slug: $('tp-new-slug').value.trim() || undefined, skill_area: SKILL });
         $('tp-new-title').value = ''; $('tp-new-slug').value = '';
         status('Đã tạo chủ đề.', 'ok');
         await loadTopics();
@@ -197,7 +206,17 @@
       catch (e) { status('Lỗi xóa bank: ' + e.message, 'error'); }
     }
 
+    function gotoSkill(sk) {
+      if (sk === SKILL) return;
+      location.href = '/pages/admin/vocab/topics.html' + (sk === 'grammar' ? '?skill_area=grammar' : '');
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
+      // highlight the active skill-area toggle
+      $('tp-sk-' + SKILL).classList.add('aw-btn-primary');
+      $('tp-sk-' + SKILL).classList.remove('aw-btn-secondary');
+      $('tp-sk-vocab').addEventListener('click', () => gotoSkill('vocab'));
+      $('tp-sk-grammar').addEventListener('click', () => gotoSkill('grammar'));
       $('tp-create').addEventListener('click', createTopic);
       loadTopics();
     });

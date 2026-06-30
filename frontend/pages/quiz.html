@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <title>Quick-Check — Kiểm tra từ vựng</title>
+  <title>Quick-Check</title>
   <script>
     (function () {
       try {
@@ -61,7 +61,7 @@
     <div id="qz-summary" class="hidden qz-card">
       <h2 class="text-lg font-bold">🎉 Hoàn tất phiên</h2>
       <p id="qz-summary-body" class="mt-2 text-sm"></p>
-      <a href="/vocabulary.html" class="aw-btn-primary mt-4 inline-block" style="text-decoration:none;">← Về Từ vựng</a>
+      <a id="qz-back" href="/vocabulary.html" class="aw-btn-primary mt-4 inline-block" style="text-decoration:none;">← Quay lại</a>
     </div>
 
     <p id="qz-error" class="hidden qz-fb-no" style="padding:2rem 0;"></p>
@@ -231,8 +231,13 @@
       pending += 1;
       const fb = $('qz-feedback');
       fb.classList.remove('hidden');
+      const artUrl = current && current.question && current.question.article_url;
       fb.innerHTML = (res.correct ? '<span class="qz-fb-ok">✓ Chính xác</span>' : '<span class="qz-fb-no">✗ Chưa đúng</span>')
-        + (res.explain ? '<div class="qz-muted mt-1">' + fmt(res.explain) + '</div>' : '');
+        + (res.explain ? '<div class="qz-muted mt-1">' + fmt(res.explain) + '</div>' : '')
+        // Grammar: on a wrong answer, link back to the Wiki article to review.
+        + ((!res.correct && artUrl)
+            ? '<div class="mt-1"><a href="' + esc(artUrl) + '" target="_blank" rel="noopener" style="text-decoration:underline;">📖 Ôn lại bài</a></div>'
+            : '');
       $('qz-submit').classList.add('hidden');
       $('qz-next').classList.remove('hidden');
       $('qz-next').focus();
@@ -299,6 +304,13 @@
       $('qz-loading').classList.add('hidden');
       $('qz-main').classList.remove('hidden');
       $('qz-title').textContent = (bank.bank && (bank.bank.title || bank.bank.code)) || 'Quick-Check';
+      // Return CTA matches the bank's area (grammar → Grammar Wiki, else Vocabulary).
+      var back = $('qz-back');
+      if (bank.bank && bank.bank.skill_area === 'grammar') {
+        back.href = '/grammar.html'; back.textContent = '← Về Grammar';
+      } else {
+        back.href = '/vocabulary.html'; back.textContent = '← Về Từ vựng';
+      }
       $('qz-submit').onclick = onSubmit;
       $('qz-next').onclick = advance;
       updateProgress();
