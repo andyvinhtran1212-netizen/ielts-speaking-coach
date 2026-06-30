@@ -100,6 +100,55 @@
       margin-top: var(--av-space-6); }
     .qz-audio { margin-bottom: var(--av-space-3); }
     .qz-muted { color: var(--av-text-muted); font-size: var(--av-fs-sm); }
+
+    /* "Xem nhanh thẻ từ" trigger inside the feedback panel */
+    .qz-cardlink { display: inline-flex; align-items: center; gap: var(--av-space-1);
+      margin-top: var(--av-space-2); padding: 0; background: none; border: none;
+      font: inherit; font-size: var(--av-fs-sm); color: var(--av-primary);
+      text-decoration: underline; cursor: pointer; }
+    .qz-cardlink:hover { color: var(--av-primary-hover); }
+    .qz-cardlink:focus-visible { outline: none; box-shadow: var(--av-shadow-focus); border-radius: var(--av-radius-sm); }
+
+    /* Glance-card popup (reuses .av-modal-* primitives) */
+    .qz-modal__hwrow { display: flex; align-items: baseline; gap: var(--av-space-3); flex-wrap: wrap; }
+    .qz-modal__ipa { font-family: var(--av-font-mono); font-size: var(--av-fs-sm);
+      color: var(--av-primary); background: var(--av-primary-soft);
+      border: 1px solid var(--av-primary-border); padding: 0 var(--av-space-2);
+      border-radius: var(--av-radius-sm); }
+    .qz-modal__close { background: none; border: none; cursor: pointer; line-height: 1;
+      font-size: var(--av-fs-2xl); color: var(--av-text-muted); padding: 0; }
+    .qz-modal__close:hover { color: var(--av-text-primary); }
+    .qz-modal__close:focus-visible { outline: none; box-shadow: var(--av-shadow-focus); border-radius: var(--av-radius-sm); }
+    .qz-modal__eyebrow { font-size: var(--av-fs-xs); text-transform: uppercase;
+      letter-spacing: var(--av-tracking-wide); color: var(--av-text-faint); font-weight: var(--av-fw-semibold); }
+    .qz-modal__defvi { font-size: var(--av-fs-lg); color: var(--av-text-primary);
+      font-weight: var(--av-fw-medium); margin-top: var(--av-space-2); }
+    .qz-modal__defen { font-size: var(--av-fs-sm); color: var(--av-text-secondary);
+      font-style: italic; margin-top: var(--av-space-1); }
+    .qz-modal__example { margin-top: var(--av-space-4); padding: var(--av-space-3) var(--av-space-4);
+      border-left: 3px solid var(--av-primary); background: var(--av-primary-soft);
+      border-radius: 0 var(--av-radius-md) var(--av-radius-md) 0; }
+    .qz-modal__example-label { font-size: var(--av-fs-xs); text-transform: uppercase;
+      letter-spacing: var(--av-tracking-wide); color: var(--av-text-faint); font-weight: var(--av-fw-semibold); }
+    .qz-modal__example-text { margin-top: var(--av-space-1); color: var(--av-text-primary); line-height: var(--av-lh-relaxed); }
+    .qz-modal__example-label { display: flex; align-items: center; gap: var(--av-space-2); }
+
+    .qz-sec { margin-top: var(--av-space-4); }
+    .qz-sec__label { font-size: var(--av-fs-xs); text-transform: uppercase;
+      letter-spacing: var(--av-tracking-wide); color: var(--av-text-faint);
+      font-weight: var(--av-fw-semibold); margin-bottom: var(--av-space-2); }
+    .qz-chips { display: flex; flex-wrap: wrap; gap: var(--av-space-2); }
+    .qz-chip { font-size: var(--av-fs-sm); color: var(--av-text-secondary);
+      background: var(--av-surface-sunken); border: 1px solid var(--av-border-subtle);
+      border-radius: var(--av-radius-pill); padding: 2px var(--av-space-3); }
+    .qz-card-audio { margin-left: auto; }
+
+    .qz-note { margin-top: var(--av-space-4); padding: var(--av-space-3) var(--av-space-4);
+      border-radius: var(--av-radius-md); font-size: var(--av-fs-sm);
+      color: var(--av-text-primary); line-height: var(--av-lh-relaxed); }
+    .qz-note__label { display: block; font-weight: var(--av-fw-semibold); margin-bottom: var(--av-space-1); }
+    .qz-note--warn { background: var(--av-warning-soft); border-left: 3px solid var(--av-warning); border-radius: 0 var(--av-radius-md) var(--av-radius-md) 0; }
+    .qz-note--tip { background: var(--av-success-soft); border-left: 3px solid var(--av-success); border-radius: 0 var(--av-radius-md) var(--av-radius-md) 0; }
   </style>
 </head>
 <body class="av-page font-sans antialiased">
@@ -145,6 +194,23 @@
     <p id="qz-error" class="hidden qz-fb__verdict" style="color:var(--av-error);padding:2rem 0;"></p>
   </main>
 
+  <!-- Quick-glance vocab card popup — overlays the quiz (never navigates away). -->
+  <div id="qz-modal" class="av-modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="qz-modal-hw">
+    <div class="av-modal">
+      <div class="av-modal-header">
+        <div class="qz-modal__hwrow">
+          <h2 id="qz-modal-hw" class="av-modal-title"></h2>
+          <code id="qz-modal-ipa" class="qz-modal__ipa hidden"></code>
+        </div>
+        <button id="qz-modal-x" type="button" class="qz-modal__close" aria-label="Đóng">×</button>
+      </div>
+      <div class="av-modal-body" id="qz-card-body"></div>
+      <div class="av-modal-footer">
+        <button id="qz-modal-close" type="button" class="av-button av-button-secondary">Đóng</button>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0"></script>
   <script src="/js/api.js"></script>
   <script type="module">
@@ -164,6 +230,7 @@
     const skillArea = _params.get('skill_area');
     let engine = null, sessionId = null, current = null, graded = false, startMs = Date.now();
     let pending = 0;   // attempts since last flush
+    let wordCards = {};   // lowercased headword → glance card (meaning/IPA/audio/example)
 
     function fail(msg) {
       $('qz-loading').classList.add('hidden');
@@ -260,6 +327,95 @@
     }
     function clearActions() { $('qz-actions').innerHTML = ''; $('qz-actions').classList.add('hidden'); }
 
+    // ── Vocab card popup — renders the WHOLE card (every field present) ──
+    let _cardReturnFocus = null;
+    // Coerce a JSONB array (strings or {text|phrase|word|en} objects) to strings.
+    function _toStrings(arr) {
+      if (!Array.isArray(arr)) return [];
+      return arr.map((it) => typeof it === 'string'
+        ? it : (it && (it.text || it.phrase || it.word || it.en || it.value)) || '')
+        .map((s) => String(s).trim()).filter(Boolean);
+    }
+    function _chips(label, arr) {
+      const xs = _toStrings(arr);
+      if (!xs.length) return '';
+      return '<div class="qz-sec"><div class="qz-sec__label">' + label + '</div>'
+        + '<div class="qz-chips">' + xs.map((s) => '<span class="qz-chip">' + esc(s) + '</span>').join('') + '</div></div>';
+    }
+    function _note(cls, label, value) {
+      if (!value || !String(value).trim()) return '';
+      return '<div class="qz-note ' + cls + '"><span class="qz-note__label">' + label + '</span>'
+        + '<div>' + fmt(String(value)) + '</div></div>';
+    }
+    // Speak a word/sentence via the browser TTS when no pre-generated audio exists
+    // (mirrors the canonical vocab card fallback). No-op if TTS is unavailable.
+    function _speak(text) {
+      if (!text || !window.speechSynthesis) return;
+      try {
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(String(text));
+        u.lang = 'en-GB'; u.rate = 0.9;
+        window.speechSynthesis.speak(u);
+      } catch (e) { /* best-effort */ }
+    }
+    // Render a play button when EITHER a pre-generated url OR speakable text exists,
+    // so pronunciation still works while TTS pre-generation is pending.
+    function _audioBtn(url, label, speak) {
+      if (!url && !speak) return '';
+      return '<button type="button" class="av-button av-button-secondary av-button-sm qz-card-audio" data-audio="'
+        + esc(url || '') + '" data-speak="' + esc(speak || '') + '">🔊 ' + label + '</button>';
+    }
+    function openCard(key, returnFocusEl) {
+      const c = wordCards[key];
+      if (!c) return;
+      _cardReturnFocus = returnFocusEl || null;
+      $('qz-modal-hw').textContent = c.headword || key;
+      const ipaEl = $('qz-modal-ipa');
+      const ipa = c.pronunciation || c.syllables;
+      ipaEl.classList.toggle('hidden', !ipa);
+      if (ipa) ipaEl.textContent = ipa;
+
+      const meta = [c.part_of_speech, c.level, c.register].filter(Boolean).join(' · ');
+      const defVi = c.definition_vi || c.gloss_vi;
+      const html =
+        (meta ? '<div class="qz-modal__eyebrow">' + esc(meta) + '</div>' : '')
+        + (defVi ? '<div class="qz-modal__defvi">' + fmt(String(defVi)) + '</div>' : '')
+        + (c.definition_en ? '<div class="qz-modal__defen">' + fmt(String(c.definition_en)) + '</div>' : '')
+        + '<div class="qz-sec">' + _audioBtn(c.audio_headword, 'Nghe phát âm', c.headword || key) + '</div>'
+        + (c.example
+            ? '<div class="qz-modal__example"><div class="qz-modal__example-label">Ví dụ ' + _audioBtn(c.audio_example, 'Nghe', c.example) + '</div>'
+              + '<div class="qz-modal__example-text">' + fmt(String(c.example)) + '</div></div>'
+            : '')
+        + _chips('Cụm từ thường gặp', c.collocations)
+        + _chips('Đồng nghĩa', c.synonyms)
+        + _chips('Trái nghĩa', c.antonyms)
+        + _chips('Họ từ', c.word_family)
+        + _chips('Từ liên quan', c.related_words)
+        + _note('qz-note--warn', '⚠️ Lỗi thường gặp', c.common_error)
+        + _note('qz-note--tip', '💡 Mẹo ghi nhớ', c.memory_hook);
+      $('qz-card-body').innerHTML = html;
+      // wire any audio buttons
+      $('qz-card-body').querySelectorAll('.qz-card-audio').forEach((b) => {
+        b.onclick = () => {
+          if (b.dataset.audio) { try { new Audio(b.dataset.audio).play(); return; } catch (e) {} }
+          _speak(b.dataset.speak);   // fallback while pre-generated audio is pending
+        };
+      });
+      $('qz-modal').classList.remove('hidden');
+      $('qz-modal-x').focus();
+    }
+    function closeCard() {
+      $('qz-modal').classList.add('hidden');
+      if (_cardReturnFocus && _cardReturnFocus.focus) _cardReturnFocus.focus();
+      _cardReturnFocus = null;
+    }
+    $('qz-modal-x').onclick = closeCard;
+    $('qz-modal-close').onclick = closeCard;
+    $('qz-modal').addEventListener('click', (e) => { if (e.target === $('qz-modal')) closeCard(); });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !$('qz-modal').classList.contains('hidden')) closeCard();
+    });
+
     function renderQuestion(item) {
       current = item; graded = false;
       const q = item.question;
@@ -343,9 +499,12 @@
         if (inp) { inp.disabled = true; inp.classList.add(res.correct ? 'is-correct' : 'is-wrong'); }
       }
 
-      // Feedback panel: verdict + correct answer (if wrong) + explanation + grammar review.
+      // Feedback panel: verdict + correct answer (if wrong) + explanation + grammar review
+      // + a quick-glance vocab card link (when a card exists for this word).
       const artUrl = q && q.article_url;
       const corr = correctAnswerText(q);
+      const cardKey = (current.item_key || '').toLowerCase();
+      const hasCard = !!wordCards[cardKey];
       const fb = $('qz-feedback');
       fb.className = 'qz-fb ' + (res.correct ? 'ok' : 'no');
       fb.innerHTML =
@@ -357,8 +516,11 @@
         // Grammar: on a wrong answer, link back to the Wiki article to review.
         + ((!res.correct && artUrl)
             ? '<div><a class="qz-fb__review" href="' + esc(artUrl) + '" target="_blank" rel="noopener">📖 Ôn lại bài</a></div>'
-            : '');
+            : '')
+        // Vocab: open the word card in a popup (quick glance — stays in the quiz).
+        + (hasCard ? '<div><button id="qz-cardlink" type="button" class="qz-cardlink">📇 Xem nhanh thẻ từ</button></div>' : '');
       fb.classList.remove('hidden');
+      if (hasCard) { const cl = $('qz-cardlink'); cl.onclick = () => openCard(cardKey, cl); }
 
       setActions('<button id="qz-next" type="button" class="av-button av-button-primary">Tiếp →</button>');
       $('qz-next').onclick = advance;
@@ -441,6 +603,7 @@
       } catch (e) { authToken = null; }
 
       engine = createEngine(bank, { resume: start.resume || [] });
+      wordCards = (bank && bank.word_cards) || {};
       $('qz-loading').classList.add('hidden');
       $('qz-main').classList.remove('hidden');
       $('qz-title').textContent = (bank.bank && (bank.bank.title || bank.bank.code)) || 'Quick-Check';
