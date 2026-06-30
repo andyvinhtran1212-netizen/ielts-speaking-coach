@@ -131,6 +131,24 @@
     .qz-modal__example-label { font-size: var(--av-fs-xs); text-transform: uppercase;
       letter-spacing: var(--av-tracking-wide); color: var(--av-text-faint); font-weight: var(--av-fw-semibold); }
     .qz-modal__example-text { margin-top: var(--av-space-1); color: var(--av-text-primary); line-height: var(--av-lh-relaxed); }
+    .qz-modal__example-label { display: flex; align-items: center; gap: var(--av-space-2); }
+
+    .qz-sec { margin-top: var(--av-space-4); }
+    .qz-sec__label { font-size: var(--av-fs-xs); text-transform: uppercase;
+      letter-spacing: var(--av-tracking-wide); color: var(--av-text-faint);
+      font-weight: var(--av-fw-semibold); margin-bottom: var(--av-space-2); }
+    .qz-chips { display: flex; flex-wrap: wrap; gap: var(--av-space-2); }
+    .qz-chip { font-size: var(--av-fs-sm); color: var(--av-text-secondary);
+      background: var(--av-surface-sunken); border: 1px solid var(--av-border-subtle);
+      border-radius: var(--av-radius-pill); padding: 2px var(--av-space-3); }
+    .qz-card-audio { margin-left: auto; }
+
+    .qz-note { margin-top: var(--av-space-4); padding: var(--av-space-3) var(--av-space-4);
+      border-radius: var(--av-radius-md); font-size: var(--av-fs-sm);
+      color: var(--av-text-primary); line-height: var(--av-lh-relaxed); }
+    .qz-note__label { display: block; font-weight: var(--av-fw-semibold); margin-bottom: var(--av-space-1); }
+    .qz-note--warn { background: var(--av-warning-soft); border-left: 3px solid var(--av-warning); border-radius: 0 var(--av-radius-md) var(--av-radius-md) 0; }
+    .qz-note--tip { background: var(--av-success-soft); border-left: 3px solid var(--av-success); border-radius: 0 var(--av-radius-md) var(--av-radius-md) 0; }
   </style>
 </head>
 <body class="av-page font-sans antialiased">
@@ -186,16 +204,7 @@
         </div>
         <button id="qz-modal-x" type="button" class="qz-modal__close" aria-label="Đóng">×</button>
       </div>
-      <div class="av-modal-body">
-        <div id="qz-modal-eyebrow" class="qz-modal__eyebrow hidden"></div>
-        <div id="qz-modal-defvi" class="qz-modal__defvi hidden"></div>
-        <div id="qz-modal-defen" class="qz-modal__defen hidden"></div>
-        <div id="qz-modal-audio" style="margin-top:var(--av-space-4);"></div>
-        <div id="qz-modal-example" class="qz-modal__example hidden">
-          <div class="qz-modal__example-label">Ví dụ</div>
-          <div id="qz-modal-example-text" class="qz-modal__example-text"></div>
-        </div>
-      </div>
+      <div class="av-modal-body" id="qz-card-body"></div>
       <div class="av-modal-footer">
         <button id="qz-modal-close" type="button" class="av-button av-button-secondary">Đóng</button>
       </div>
@@ -318,33 +327,64 @@
     }
     function clearActions() { $('qz-actions').innerHTML = ''; $('qz-actions').classList.add('hidden'); }
 
-    // ── Quick-glance vocab card popup ────────────────────────────────
+    // ── Vocab card popup — renders the WHOLE card (every field present) ──
     let _cardReturnFocus = null;
-    function _setField(id, value, formatted) {
-      const el = $(id); const has = value != null && String(value).trim() !== '';
-      el.classList.toggle('hidden', !has);
-      if (has) { if (formatted) el.innerHTML = fmt(String(value)); else el.textContent = String(value); }
-      return has;
+    // Coerce a JSONB array (strings or {text|phrase|word|en} objects) to strings.
+    function _toStrings(arr) {
+      if (!Array.isArray(arr)) return [];
+      return arr.map((it) => typeof it === 'string'
+        ? it : (it && (it.text || it.phrase || it.word || it.en || it.value)) || '')
+        .map((s) => String(s).trim()).filter(Boolean);
+    }
+    function _chips(label, arr) {
+      const xs = _toStrings(arr);
+      if (!xs.length) return '';
+      return '<div class="qz-sec"><div class="qz-sec__label">' + label + '</div>'
+        + '<div class="qz-chips">' + xs.map((s) => '<span class="qz-chip">' + esc(s) + '</span>').join('') + '</div></div>';
+    }
+    function _note(cls, label, value) {
+      if (!value || !String(value).trim()) return '';
+      return '<div class="qz-note ' + cls + '"><span class="qz-note__label">' + label + '</span>'
+        + '<div>' + fmt(String(value)) + '</div></div>';
+    }
+    function _audioBtn(url, label) {
+      if (!url) return '';
+      return '<button type="button" class="av-button av-button-secondary av-button-sm qz-card-audio" data-audio="'
+        + esc(url) + '">🔊 ' + label + '</button>';
     }
     function openCard(key, returnFocusEl) {
       const c = wordCards[key];
       if (!c) return;
       _cardReturnFocus = returnFocusEl || null;
       $('qz-modal-hw').textContent = c.headword || key;
-      _setField('qz-modal-ipa', c.pronunciation, false);
-      _setField('qz-modal-eyebrow',
-        [c.part_of_speech, c.level].filter(Boolean).join(' · '), false);
-      _setField('qz-modal-defvi', c.definition_vi || c.gloss_vi, true);
-      _setField('qz-modal-defen', c.definition_en, true);
-      // audio
-      const au = $('qz-modal-audio');
-      if (c.audio_headword) {
-        au.innerHTML = '<button type="button" class="av-button av-button-secondary av-button-sm">🔊 Nghe phát âm</button>';
-        au.querySelector('button').onclick = () => { try { new Audio(c.audio_headword).play(); } catch (e) {} };
-        au.classList.remove('hidden');
-      } else { au.innerHTML = ''; au.classList.add('hidden'); }
-      _setField('qz-modal-example-text', c.example, true);
-      $('qz-modal-example').classList.toggle('hidden', !(c.example && String(c.example).trim()));
+      const ipaEl = $('qz-modal-ipa');
+      const ipa = c.pronunciation || c.syllables;
+      ipaEl.classList.toggle('hidden', !ipa);
+      if (ipa) ipaEl.textContent = ipa;
+
+      const meta = [c.part_of_speech, c.level, c.register].filter(Boolean).join(' · ');
+      const defVi = c.definition_vi || c.gloss_vi;
+      const html =
+        (meta ? '<div class="qz-modal__eyebrow">' + esc(meta) + '</div>' : '')
+        + (defVi ? '<div class="qz-modal__defvi">' + fmt(String(defVi)) + '</div>' : '')
+        + (c.definition_en ? '<div class="qz-modal__defen">' + fmt(String(c.definition_en)) + '</div>' : '')
+        + (c.audio_headword ? '<div class="qz-sec">' + _audioBtn(c.audio_headword, 'Nghe phát âm') + '</div>' : '')
+        + (c.example
+            ? '<div class="qz-modal__example"><div class="qz-modal__example-label">Ví dụ ' + _audioBtn(c.audio_example, 'Nghe') + '</div>'
+              + '<div class="qz-modal__example-text">' + fmt(String(c.example)) + '</div></div>'
+            : '')
+        + _chips('Cụm từ thường gặp', c.collocations)
+        + _chips('Đồng nghĩa', c.synonyms)
+        + _chips('Trái nghĩa', c.antonyms)
+        + _chips('Họ từ', c.word_family)
+        + _chips('Từ liên quan', c.related_words)
+        + _note('qz-note--warn', '⚠️ Lỗi thường gặp', c.common_error)
+        + _note('qz-note--tip', '💡 Mẹo ghi nhớ', c.memory_hook);
+      $('qz-card-body').innerHTML = html;
+      // wire any audio buttons
+      $('qz-card-body').querySelectorAll('.qz-card-audio').forEach((b) => {
+        b.onclick = () => { try { new Audio(b.dataset.audio).play(); } catch (e) {} };
+      });
       $('qz-modal').classList.remove('hidden');
       $('qz-modal-x').focus();
     }

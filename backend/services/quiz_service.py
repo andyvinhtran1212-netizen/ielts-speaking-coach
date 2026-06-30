@@ -87,7 +87,9 @@ def _word_cards_for(bank: dict) -> dict:
         rows = (
             supabase_admin.table("vocab_cards").select(
                 "headword, definition_vi, definition_en, gloss_vi, pronunciation, "
-                "example, audio_headword, part_of_speech, level"
+                "syllables, part_of_speech, level, register, example, "
+                "audio_headword, audio_example, collocations, synonyms, antonyms, "
+                "related_words, word_family, common_error, memory_hook"
             ).eq("topic_id", bank["topic_id"]).execute()
         ).data or []
     except Exception:  # noqa: BLE001
