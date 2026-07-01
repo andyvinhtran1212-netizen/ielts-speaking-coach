@@ -74,6 +74,24 @@ def get_bank_for_play(bank_id: str) -> dict:
     return {"bank": bank, "questions": questions, "word_cards": _word_cards_for(bank)}
 
 
+def _bank_meta_or_404(bank_id: str) -> dict:
+    """Lightweight published-bank guard: fetch ONLY the bank's own row (id, code,
+    is_published) — no questions, no word_cards. Used by start_session, which just
+    needs `code` + the published check; pulling the full get_bank_for_play there
+    would re-run the questions + whole-topic word_cards queries on every session
+    start (they were already fetched by the player's GET /banks/{id})."""
+    try:
+        b = (
+            supabase_admin.table("quiz_banks").select("id, code, is_published")
+            .eq("id", bank_id).limit(1).execute()
+        ).data
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Lỗi truy vấn bank: {exc}")
+    if not b or not b[0].get("is_published"):
+        raise HTTPException(404, "Không tìm thấy bank")
+    return b[0]
+
+
 def _word_cards_for(bank: dict) -> dict:
     """Per-word glance cards for the bank's topic, keyed by LOWERCASED headword
     (== quiz_questions.item_key), so the player can show a quick-glance vocab
@@ -146,7 +164,7 @@ def start_session(*, user_id: str, bank_id: str) -> dict:
     errors we must NOT start a fresh-looking session, because the first /progress
     upsert would then overwrite a previously mastered/provisional word with lower
     counts. A read failure → 500, no session row, no destructive write."""
-    bank = get_bank_for_play(bank_id)["bank"]   # 404/published guard + code
+    bank = _bank_meta_or_404(bank_id)   # 404/published guard + code (no heavy fetch)
     resume = get_resume(user_id=user_id, bank_id=bank_id)   # raises on read failure
     try:
         res = supabase_admin.table("quiz_sessions").insert({
