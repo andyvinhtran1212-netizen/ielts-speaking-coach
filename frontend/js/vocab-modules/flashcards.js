@@ -254,7 +254,8 @@ export async function mount(container, opts = {}) {
       setFcContainerHtml(`
         <div class="state-msg">
           <p class="text-base mb-2 text-white">Bạn chưa có thẻ flashcard nào.</p>
-          <p class="text-sm">Tạo một stack mới để bắt đầu học theo lịch lặp khoảng cách.</p>
+          <p class="text-sm">Chọn một chủ đề để học flashcards từ vựng theo lịch lặp khoảng cách.</p>
+          <a class="empty-cta" href="/pages/vocabulary.html#vocab-topics">Học theo chủ đề →</a>
         </div>
       `);
       return;
