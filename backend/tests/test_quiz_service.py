@@ -303,3 +303,72 @@ def test_student_progress_empty_when_no_word_stats():
         out = quiz_service.student_progress(_USER)
     assert out["banks"] == [] and out["recent_sessions"] == []
     assert out["totals"] == {"sessions": 0, "time_sec": 0, "words_mastered": 0, "avg_accuracy": None}
+
+
+# ── Admin: observe learners' practice (Pha 5b) ───────────────────────
+
+def test_admin_student_rollup_joins_identity_and_weights_overview():
+    # _USER has 3 finalized sessions but only 2 GRADED (one had no answers →
+    # NULL accuracy). Weighting by graded (not total) sessions is what we assert.
+    fake = _FakeSupabase(responses={
+        ("rpc", "quiz_admin_student_rollup"): [
+            {"user_id": _USER, "sessions": 3, "graded_sessions": 2, "total_time_sec": 600,
+             "avg_accuracy": 0.9, "words_mastered": 12, "last_active": "2026-07-01T00:00:00Z"},
+            {"user_id": _OTHER, "sessions": 1, "graded_sessions": 1, "total_time_sec": 120,
+             "avg_accuracy": 0.5, "words_mastered": 2, "last_active": "2026-06-30T00:00:00Z"},
+        ],
+        ("users", "select"): [
+            {"id": _USER, "email": "a@x", "display_name": "Anh A"},
+            {"id": _OTHER, "email": "b@x", "display_name": "Bao B"},
+        ],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.admin_student_rollup(skill_area="vocab")
+    ov = out["overview"]
+    assert ov["active_learners"] == 2
+    assert ov["total_sessions"] == 4
+    assert ov["total_time_sec"] == 720
+    assert ov["total_words_mastered"] == 14
+    # weighted by GRADED sessions: (0.9*2 + 0.5*1) / (2+1) = 2.3/3 ≈ 0.7667
+    # (weighting by total sessions would wrongly give (0.9*3+0.5*1)/4 = 0.8)
+    assert abs(ov["avg_accuracy"] - (2.3 / 3)) < 1e-9
+    s0 = out["students"][0]                     # RPC orders last_active desc → _USER first
+    assert s0["user_id"] == _USER and s0["name"] == "Anh A" and s0["email"] == "a@x"
+    assert s0["sessions"] == 3 and s0["words_mastered"] == 12 and s0["time_sec"] == 600
+
+
+def test_admin_student_rollup_empty_when_no_activity():
+    fake = _FakeSupabase(responses={("rpc", "quiz_admin_student_rollup"): []})
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.admin_student_rollup(skill_area="vocab")
+    assert out["students"] == []
+    assert out["overview"]["active_learners"] == 0
+    assert out["overview"]["avg_accuracy"] is None
+
+
+def test_admin_student_detail_scoped_to_skill_and_wraps_identity():
+    """The vocab drill-down must NOT leak the learner's grammar bank progress."""
+    _BANK2 = "cccccccc-cccc-cccc-cccc-cccccccccccc"
+    fake = _FakeSupabase(responses={
+        ("rpc", "quiz_user_bank_progress"): [
+            {"bank_id": _BANK, "mastered": 2, "in_progress": 1},
+            {"bank_id": _BANK2, "mastered": 1, "in_progress": 0},   # grammar — must be filtered
+        ],
+        ("quiz_banks", "select"): [
+            {"id": _BANK, "code": "L14", "title": "Work", "skill_area": "vocab", "words_count": 29},
+            {"id": _BANK2, "code": "GR1", "title": "Tenses", "skill_area": "grammar", "words_count": 10},
+        ],
+        ("quiz_sessions", "select"): [{"code": "L14", "accuracy": 0.8, "words_mastered": 2}],
+        ("users", "select"): [{"id": _USER, "email": "a@x", "display_name": "Anh A"}],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.admin_student_detail(_USER, skill_area="vocab")
+    assert out["user"]["name"] == "Anh A" and out["user"]["email"] == "a@x"
+    codes = [b["code"] for b in out["banks"]]
+    assert codes == ["L14"]                      # grammar bank GR1 excluded
+    assert out["recent_sessions"][0]["accuracy"] == 0.8
+    # Recent sessions are re-queried scoped by bank_id BEFORE the 20-row cap
+    # (not filtered from the cross-skill capped list).
+    assert any(c["table"] == "quiz_sessions"
+               and any(f[0] == "in" and f[1] == "bank_id" for f in c["filters"])
+               for c in fake.calls)

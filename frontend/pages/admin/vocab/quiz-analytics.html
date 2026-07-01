@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Kết quả luyện tập từ vựng · Admin</title>
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.setAttribute('data-theme',
+          (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light'));
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-buttons.css" />
+  <style>
+    /* This page loads tokens + components + admin-buttons only (no tailwind), and
+       none define .hidden — while .av-modal-backdrop is display:flex. Without a
+       real rule the modal + hidden tab section would show on load and never
+       dismiss. Define it locally. */
+    .hidden { display: none !important; }
+    .qa-shell { max-width: var(--av-width-page); margin: 0 auto;
+      padding: var(--av-space-6); display: flex; flex-direction: column; gap: var(--av-space-6); }
+    .qa-header { display: flex; justify-content: space-between; align-items: flex-end;
+      flex-wrap: wrap; gap: var(--av-space-3); }
+    .qa-header h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-semibold);
+      margin: 0 0 var(--av-space-1); color: var(--av-text-primary); }
+    .qa-header .subtitle { color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
+    .qa-error { color: var(--av-error); background: var(--av-error-soft);
+      border: 1px solid var(--av-error); border-radius: var(--av-radius-md); padding: var(--av-space-3); }
+
+    .qa-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: var(--av-space-3); }
+    .qa-stat { padding: var(--av-space-4); }
+    .qa-stat__label { font-size: var(--av-fs-xs); text-transform: uppercase;
+      letter-spacing: var(--av-tracking-wide); color: var(--av-text-faint); font-weight: var(--av-fw-semibold); }
+    .qa-stat__val { font-family: var(--av-font-mono); font-size: var(--av-fs-3xl);
+      font-weight: var(--av-fw-medium); color: var(--av-text-primary);
+      letter-spacing: var(--av-tracking-tight); line-height: var(--av-lh-tight); margin-top: var(--av-space-1); }
+    .qa-stat__val small { font-family: var(--av-font-sans); font-size: var(--av-fs-sm);
+      font-weight: var(--av-fw-regular); color: var(--av-text-muted); margin-left: 2px; }
+
+    table.qa-table { width: 100%; border-collapse: collapse; font-size: var(--av-fs-sm); }
+    table.qa-table th { text-align: left; color: var(--av-text-faint); font-weight: var(--av-fw-semibold);
+      font-size: var(--av-fs-xs); text-transform: uppercase; letter-spacing: var(--av-tracking-wide);
+      padding: var(--av-space-3) var(--av-space-2); border-bottom: 1px solid var(--av-border-default); }
+    table.qa-table td { padding: var(--av-space-3) var(--av-space-2);
+      border-bottom: 1px solid var(--av-border-subtle); color: var(--av-text-secondary);
+      font-variant-numeric: tabular-nums; }
+    tr.qa-row { cursor: pointer; }
+    tr.qa-row:hover td { background: var(--av-surface-sunken); }
+    .qa-name { font-weight: var(--av-fw-semibold); color: var(--av-text-primary); }
+    .qa-email { color: var(--av-text-muted); font-size: var(--av-fs-xs); }
+    .qa-num { text-align: right; }
+
+    .qa-label { font-size: var(--av-fs-xs); font-weight: var(--av-fw-semibold);
+      color: var(--av-text-secondary); display: block; margin-bottom: var(--av-space-2); }
+    .qa-select { padding: 8px 12px; border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md); background: var(--av-surface-card);
+      color: var(--av-text-primary); font: inherit; min-width: 240px; }
+    .qa-empty { color: var(--av-text-muted); font-size: var(--av-fs-sm); padding: var(--av-space-4) 0; }
+    .qa-sub { color: var(--av-text-faint); font-size: var(--av-fs-xs);
+      text-transform: uppercase; letter-spacing: var(--av-tracking-wide);
+      font-weight: var(--av-fw-semibold); margin: var(--av-space-4) 0 var(--av-space-2); }
+    .qa-x { background: none; border: none; cursor: pointer; line-height: 1;
+      font-size: var(--av-fs-2xl); color: var(--av-text-muted); padding: 0; }
+    .qa-track { height: 6px; border-radius: var(--av-radius-pill); background: var(--av-surface-sunken);
+      overflow: hidden; margin-top: 4px; min-width: 80px; }
+    .qa-bar { height: 100%; background: var(--av-primary); border-radius: inherit; }
+  </style>
+</head>
+<body class="av-page">
+  <aver-admin-chrome active="vocab">
+    <main class="qa-shell">
+      <header class="qa-header">
+        <div>
+          <h1>Kết quả luyện tập từ vựng</h1>
+          <p class="subtitle">Quan sát tiến độ Quick-Check của học viên: thời gian, số phiên, độ chính xác, từ đã thuộc.</p>
+        </div>
+        <button class="btn-secondary" type="button" id="qa-refresh">↺ Tải lại</button>
+      </header>
+
+      <div id="qa-error" class="qa-error hidden"></div>
+
+      <div class="qa-stats" id="qa-overview"></div>
+
+      <div class="av-tabs" role="tablist">
+        <button class="av-tab is-active" type="button" data-tab="students" role="tab">Theo học viên</button>
+        <button class="av-tab" type="button" data-tab="hard" role="tab">Từ khó (toàn lớp)</button>
+      </div>
+
+      <section id="tab-students">
+        <div id="qa-students"><p class="qa-empty">Đang tải…</p></div>
+      </section>
+
+      <section id="tab-hard" class="hidden">
+        <label class="qa-label" for="qa-bank">Chọn bộ để xem từ/skill dễ sai</label>
+        <select id="qa-bank" class="qa-select"></select>
+        <div id="qa-hard"></div>
+      </section>
+    </main>
+  </aver-admin-chrome>
+
+  <!-- Per-student drill-down -->
+  <div id="qa-modal" class="av-modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="qa-modal-title">
+    <div class="av-modal">
+      <div class="av-modal-header">
+        <h2 class="av-modal-title" id="qa-modal-title">Học viên</h2>
+        <button id="qa-modal-x" type="button" class="qa-x" aria-label="Đóng">×</button>
+      </div>
+      <div class="av-modal-body" id="qa-modal-body"></div>
+      <div class="av-modal-footer">
+        <button id="qa-modal-close" type="button" class="btn-secondary">Đóng</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0"></script>
+  <script src="/js/api.js"></script>
+  <script>
+    'use strict';
+    initSupabase('https://nqhrtqspznepmveyurzm.supabase.co',
+                 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4');
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) =>
+      ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    const pct = (x) => (x == null ? '—' : Math.round(x * 100) + '%');
+    function fmtHm(sec) {
+      sec = Math.max(0, Math.round(sec || 0));
+      const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60);
+      if (h) return h + 'h ' + (m ? m + 'm' : '');
+      if (m) return m + 'm';
+      return sec + 's';
+    }
+    function showError(msg) { $('qa-error').textContent = msg; $('qa-error').classList.remove('hidden'); }
+
+    function statCard(label, valHtml) {
+      return '<div class="av-card qa-stat"><div class="qa-stat__label">' + esc(label) + '</div>'
+        + '<div class="qa-stat__val">' + valHtml + '</div></div>';
+    }
+
+    // ── Students tab ─────────────────────────────────────────────────
+    async function loadStudents() {
+      let d;
+      try { d = await window.api.get('/admin/quiz/students?skill_area=vocab'); }
+      catch (e) { showError('Không tải được dữ liệu: ' + e.message); $('qa-students').innerHTML = ''; return; }
+      const o = d.overview || {};
+      $('qa-overview').innerHTML =
+        statCard('Học viên hoạt động', String(o.active_learners || 0))
+        + statCard('Tổng phiên', String(o.total_sessions || 0))
+        + statCard('Tổng thời gian', fmtHm(o.total_time_sec))
+        + statCard('Từ đã thuộc', (o.total_words_mastered || 0) + '<small>từ</small>')
+        + statCard('Độ chính xác TB', pct(o.avg_accuracy));
+
+      const rows = d.students || [];
+      $('qa-students').innerHTML = rows.length
+        ? '<div class="av-card" style="padding:0;overflow-x:auto;"><table class="qa-table"><thead><tr>'
+          + '<th>Học viên</th><th class="qa-num">Phiên</th><th class="qa-num">Đã thuộc</th>'
+          + '<th class="qa-num">Chính xác</th><th class="qa-num">Thời gian</th><th>Hoạt động</th></tr></thead><tbody>'
+          + rows.map((s) => '<tr class="qa-row" data-uid="' + esc(s.user_id) + '">'
+              + '<td><div class="qa-name">' + esc(s.name || '(không tên)') + '</div>'
+              + '<div class="qa-email">' + esc(s.email || '') + '</div></td>'
+              + '<td class="qa-num">' + s.sessions + '</td>'
+              + '<td class="qa-num">' + s.words_mastered + '</td>'
+              + '<td class="qa-num">' + pct(s.avg_accuracy) + '</td>'
+              + '<td class="qa-num">' + fmtHm(s.time_sec) + '</td>'
+              + '<td>' + esc((s.last_active || '').slice(0, 10)) + '</td></tr>').join('')
+          + '</tbody></table></div>'
+        : '<p class="qa-empty">Chưa có học viên nào luyện tập từ vựng.</p>';
+
+      $('qa-students').querySelectorAll('tr.qa-row').forEach((tr) => {
+        tr.onclick = () => openStudent(tr.dataset.uid, tr.querySelector('.qa-name').textContent);
+      });
+    }
+
+    // ── Per-student drill-down ───────────────────────────────────────
+    async function openStudent(uid, name) {
+      $('qa-modal-title').textContent = name || 'Học viên';
+      $('qa-modal-body').innerHTML = '<p class="qa-empty">Đang tải…</p>';
+      $('qa-modal').classList.remove('hidden');
+      $('qa-modal-x').focus();
+      let d;
+      try { d = await window.api.get('/admin/quiz/students/' + encodeURIComponent(uid) + '?skill_area=vocab'); }
+      catch (e) { $('qa-modal-body').innerHTML = '<p class="qa-error">Không tải được: ' + esc(e.message) + '</p>'; return; }
+      if (d.user && d.user.email) $('qa-modal-title').textContent = (d.user.name || name) + ' · ' + d.user.email;
+
+      const banks = d.banks || [];
+      const banksHtml = banks.length
+        ? banks.map((b) => {
+            const total = b.words_count || (b.mastered + b.in_progress) || 0;
+            const w = total ? Math.round(b.mastered / total * 100) : 0;
+            return '<div style="margin-top:var(--av-space-3);"><div style="display:flex;justify-content:space-between;font-size:var(--av-fs-sm);">'
+              + '<span class="qa-name">' + esc(b.code || '') + ' <span class="qa-email">' + esc(b.title || '') + '</span></span>'
+              + '<span class="qa-email">' + b.mastered + '/' + total + '</span></div>'
+              + '<div class="qa-track"><div class="qa-bar" style="width:' + w + '%;"></div></div></div>';
+          }).join('')
+        : '<p class="qa-empty">Chưa có tiến độ.</p>';
+
+      const sessions = d.recent_sessions || [];
+      const sessHtml = sessions.length
+        ? '<table class="qa-table"><thead><tr><th>Bộ</th><th class="qa-num">Chính xác</th>'
+          + '<th class="qa-num">Đã thuộc</th><th>Kết thúc</th></tr></thead><tbody>'
+          + sessions.map((s) => '<tr><td>' + esc(s.code || '') + '</td>'
+              + '<td class="qa-num">' + pct(s.accuracy) + '</td>'
+              + '<td class="qa-num">' + (s.words_mastered || 0) + '</td>'
+              + '<td>' + esc((s.ended_at || '').slice(0, 10))
+              + (s.ended_by === 'paused' ? ' <span class="av-badge av-badge-warning">tạm dừng</span>' : '')
+              + '</td></tr>').join('') + '</tbody></table>'
+        : '<p class="qa-empty">Chưa có phiên nào.</p>';
+
+      $('qa-modal-body').innerHTML =
+        '<div class="qa-sub">Tiến độ theo bộ</div>' + banksHtml
+        + '<div class="qa-sub">Phiên gần đây</div>' + sessHtml;
+    }
+    function closeModal() { $('qa-modal').classList.add('hidden'); }
+    $('qa-modal-x').onclick = closeModal;
+    $('qa-modal-close').onclick = closeModal;
+    $('qa-modal').addEventListener('click', (e) => { if (e.target === $('qa-modal')) closeModal(); });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !$('qa-modal').classList.contains('hidden')) closeModal();
+    });
+
+    // ── Hard-words tab ───────────────────────────────────────────────
+    let _banksLoaded = false;
+    async function loadBankList() {
+      if (_banksLoaded) return;
+      _banksLoaded = true;
+      let banks;
+      try { banks = await window.api.get('/admin/quiz/banks?skill_area=vocab'); }
+      catch (e) { showError('Không tải được danh sách bộ: ' + e.message); return; }
+      banks = Array.isArray(banks) ? banks : [];
+      $('qa-bank').innerHTML = '<option value="">— chọn bộ —</option>'
+        + banks.map((b) => '<option value="' + esc(b.id) + '">' + esc(b.code || '') + ' · ' + esc(b.title || '') + '</option>').join('');
+      $('qa-bank').onchange = () => { if ($('qa-bank').value) loadHard($('qa-bank').value); };
+    }
+    function errTable(title, rows) {
+      if (!rows.length) return '<div class="qa-sub">' + title + '</div><p class="qa-empty">Chưa có dữ liệu.</p>';
+      return '<div class="qa-sub">' + title + '</div>'
+        + '<div class="av-card" style="padding:0;overflow-x:auto;"><table class="qa-table"><thead><tr>'
+        + '<th>' + (title.indexOf('skill') > -1 ? 'Kỹ năng' : 'Từ') + '</th>'
+        + '<th class="qa-num">Lượt</th><th class="qa-num">Sai</th><th class="qa-num">Tỉ lệ sai</th></tr></thead><tbody>'
+        + rows.map((r) => '<tr><td>' + esc(r.item_key || r.skill || '') + '</td>'
+            + '<td class="qa-num">' + r.total + '</td><td class="qa-num">' + r.wrong + '</td>'
+            + '<td class="qa-num">' + pct(r.error_rate) + '</td></tr>').join('')
+        + '</tbody></table></div>';
+    }
+    async function loadHard(bankId) {
+      $('qa-hard').innerHTML = '<p class="qa-empty">Đang tải…</p>';
+      let d;
+      try { d = await window.api.get('/admin/quiz/banks/' + encodeURIComponent(bankId) + '/analytics'); }
+      catch (e) { $('qa-hard').innerHTML = '<p class="qa-error">Không tải được: ' + esc(e.message) + '</p>'; return; }
+      $('qa-hard').innerHTML =
+        '<p class="qa-email" style="margin-top:var(--av-space-3);">Tổng số phiên của bộ: ' + (d.session_count || 0) + '</p>'
+        + errTable('Từ dễ sai', d.items || [])
+        + errTable('Kỹ năng (skill) dễ sai', d.skills || []);
+    }
+
+    // ── Tabs ─────────────────────────────────────────────────────────
+    document.querySelectorAll('.av-tab').forEach((btn) => {
+      btn.onclick = () => {
+        document.querySelectorAll('.av-tab').forEach((b) => b.classList.toggle('is-active', b === btn));
+        const tab = btn.dataset.tab;
+        $('tab-students').classList.toggle('hidden', tab !== 'students');
+        $('tab-hard').classList.toggle('hidden', tab !== 'hard');
+        if (tab === 'hard') loadBankList();
+      };
+    });
+
+    $('qa-refresh').onclick = loadStudents;
+    loadStudents();
+  </script>
+
+  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
+</body>
+</html>

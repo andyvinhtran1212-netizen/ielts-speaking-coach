@@ -310,6 +310,115 @@ def bank_analytics(bank_id: str) -> dict:
     return {"items": items, "skills": skills, "session_count": session_count}
 
 
+def admin_student_rollup(skill_area: str = "vocab") -> dict:
+    """Admin observation of learners' practice for one skill_area: an {overview,
+    students} payload. Per-learner rows come from the mig-123 RPC (page-safe SQL
+    aggregate); identities (name/email) are resolved in one batched users read.
+    The overview totals are derived from the same rows — accuracy is weighted by
+    session count so a one-session learner doesn't skew the class average."""
+    try:
+        rows = supabase_admin.rpc(
+            "quiz_admin_student_rollup", {"p_skill_area": skill_area}).execute().data or []
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Lỗi truy vấn rollup: {exc}")
+
+    uids = [r["user_id"] for r in rows if r.get("user_id")]
+    users: dict[str, dict] = {}
+    if uids:
+        try:
+            ur = (
+                supabase_admin.table("users")
+                .select("id, email, display_name").in_("id", uids).execute()
+            ).data or []
+            users = {u["id"]: u for u in ur}
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(500, f"Lỗi truy vấn user: {exc}")
+
+    students = []
+    for r in rows:
+        uid = r.get("user_id")
+        u = users.get(uid, {})
+        acc = r.get("avg_accuracy")
+        students.append({
+            "user_id": uid,
+            "name": u.get("display_name") or "",
+            "email": u.get("email") or "",
+            "sessions": int(r.get("sessions") or 0),
+            "graded_sessions": int(r.get("graded_sessions") or 0),
+            "time_sec": int(r.get("total_time_sec") or 0),
+            "avg_accuracy": float(acc) if acc is not None else None,
+            "words_mastered": int(r.get("words_mastered") or 0),
+            "last_active": r.get("last_active"),
+        })
+
+    # Weight the class average by GRADED sessions, not started ones: a learner's
+    # avg_accuracy excludes their NULL-accuracy (unanswered) sessions, so weighting
+    # by total sessions would overweight someone with many abandoned/empty sessions.
+    acc_num = sum((s["avg_accuracy"] or 0) * s["graded_sessions"]
+                  for s in students if s["avg_accuracy"] is not None)
+    acc_den = sum(s["graded_sessions"] for s in students if s["avg_accuracy"] is not None)
+    overview = {
+        "active_learners": len(students),
+        "total_sessions": sum(s["sessions"] for s in students),
+        "total_time_sec": sum(s["time_sec"] for s in students),
+        "total_words_mastered": sum(s["words_mastered"] for s in students),
+        "avg_accuracy": (acc_num / acc_den) if acc_den else None,
+    }
+    return {"overview": overview, "students": students}
+
+
+def admin_student_detail(user_id: str, skill_area: str = "vocab") -> dict:
+    """One learner's practice detail for the admin drill-down: their per-bank
+    progress + recent sessions (reuses the student's own progress view) plus the
+    resolved identity so the panel can title itself.
+
+    SCOPED to skill_area: the vocab report must not leak a learner's grammar bank
+    progress / grammar sessions into the vocabulary modal. Per-bank progress carries
+    skill_area, so it's filtered directly; recent sessions are re-queried scoped by
+    the skill's bank_ids BEFORE the 20-row cap (reusing student_progress()'s already
+    capped-across-all-skills list would hide vocab practice behind newer grammar
+    sessions, and code-matching would leak when two skills' banks share a code)."""
+    prog = student_progress(user_id)
+    banks = [b for b in prog.get("banks", []) if (b.get("skill_area") or "") == skill_area]
+
+    # FAIL CLOSED: a scoping-lookup error raises 500 rather than falling through
+    # with unscoped sessions — the endpoint promises skill-scoped detail, so it must
+    # never show another skill's sessions on a transient DB/permission error.
+    try:
+        bank_ids = [r["id"] for r in (
+            supabase_admin.table("quiz_banks").select("id")
+            .eq("skill_area", skill_area).execute()
+        ).data or [] if r.get("id")]
+        sessions: list[dict] = []
+        if bank_ids:
+            sessions = (
+                supabase_admin.table("quiz_sessions")
+                .select("code, accuracy, words_mastered, total_questions, "
+                        "total_correct, duration_sec, ended_at, ended_by")
+                .eq("user_id", user_id).in_("bank_id", bank_ids)
+                .order("started_at", desc=True).limit(20).execute()
+            ).data or []
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Lỗi truy vấn phiên (scoped): {exc}")
+
+    info: dict = {}
+    try:
+        u = (
+            supabase_admin.table("users")
+            .select("id, email, display_name").eq("id", user_id).limit(1).execute()
+        ).data
+        if u:
+            info = u[0]
+    except Exception:  # noqa: BLE001 — identity is best-effort; progress already loaded
+        info = {}
+    return {
+        "user": {"user_id": user_id, "name": info.get("display_name") or "",
+                 "email": info.get("email") or ""},
+        "banks": banks,
+        "recent_sessions": sessions,
+    }
+
+
 def student_progress(user_id: str) -> dict:
     """A learner's own progress: per-bank mastered/in-progress (from word_stats)
     enriched with bank meta, plus recent sessions for an accuracy trend."""
