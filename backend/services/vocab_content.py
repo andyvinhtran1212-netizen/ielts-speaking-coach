@@ -36,7 +36,14 @@ _MD_EXTENSIONS  = ["tables", "fenced_code", "attr_list"]
 
 class VocabContentService:
     def __init__(self):
+        # Keyed by slug (best-effort related-word resolution). NOT a full census:
+        # a slug shared across categories collides here — use _all_articles /
+        # articles_by_cat_slug for counting and detail lookup (mig 122).
         self.articles_by_slug:     dict[str, dict]       = {}
+        # Canonical identity is (category, slug) — a word may live in several
+        # topics, so detail lookup and the full census key on the pair.
+        self.articles_by_cat_slug: dict[tuple, dict]     = {}
+        self._all_articles:        list[dict]            = []
         self.articles_by_category: dict[str, list[dict]] = {}
         self.all_categories:       list[dict]            = []
         self.headword_index:       list[dict]            = []  # for prefix search
@@ -50,6 +57,8 @@ class VocabContentService:
         """G1 — rebuild the in-memory index from the source of truth. Called
         after an admin upload commits so a new word appears without a restart."""
         self.articles_by_slug = {}
+        self.articles_by_cat_slug = {}
+        self._all_articles = []
         self.articles_by_category = {}
         self.all_categories = []
         self.headword_index = []
@@ -164,8 +173,10 @@ class VocabContentService:
         return articles
 
     def _build_indexes(self, articles: list[dict]) -> None:
+        self._all_articles = list(articles)   # full census — no dedup by slug
         for a in articles:
             self.articles_by_slug[a["slug"]] = a
+            self.articles_by_cat_slug[(a["category"], a["slug"])] = a
             self.articles_by_category.setdefault(a["category"], []).append(a)
 
         for cat in self.articles_by_category:
@@ -311,11 +322,16 @@ class VocabContentService:
         return self.all_categories
 
     def get_all_articles(self) -> list[dict]:
-        return [self._summary(a) for a in self.articles_by_slug.values()]
+        # Full census (mig 122) — iterate every card, NOT the slug-keyed dict,
+        # so a word present in several topics is counted once per topic.
+        return [self._summary(a) for a in self._all_articles]
 
     def get_article(self, category: str, slug: str) -> Optional[dict]:
-        a = self.articles_by_slug.get(slug)
-        if not a or a["category"] != category:
+        # Disambiguate by (category, slug): the same slug can exist in multiple
+        # categories, so a slug-only lookup could return the wrong card (or miss
+        # this one entirely when another category's card overwrote the slug key).
+        a = self.articles_by_cat_slug.get((category, slug))
+        if not a:
             return None
         related = self._resolve_related(a.get("related_words") or [])
         return {**a, "related_words": related}
