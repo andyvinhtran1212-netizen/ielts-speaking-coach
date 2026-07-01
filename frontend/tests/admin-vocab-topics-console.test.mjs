@@ -72,10 +72,12 @@ describe('Pha 4 — grammar exercises wiring', () => {
     assert.match(player, /article_url/);
     assert.match(player, /Ôn lại bài/);
   });
-  test('player return CTA is skill-area aware (grammar → Grammar, else Vocabulary)', () => {
+  test('player return CTA is skill-area aware (grammar → Grammar, else the practice picker)', () => {
     assert.match(player, /skill_area === 'grammar'/);
     assert.match(player, /\/grammar\.html/);
-    assert.match(player, /\/vocabulary\.html/);
+    // Vocab back returns to the lesson picker (vocab-practice), NOT /vocabulary.html
+    // (the public word wiki) — both back controls share one unambiguous target.
+    assert.match(player, /\/pages\/vocab-practice\.html/);
     assert.ok(!/← Về Từ vựng<\/a>/.test(player), 'back CTA label must not be hard-coded vocab in markup');
   });
 });

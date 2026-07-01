@@ -44,6 +44,11 @@ describe('vocab-practice hub — lists published vocab banks', () => {
     assert.match(PAGE, /b\.words_count/);
   });
 
+  test('back link goes UP to the Vocabulary hub, not the public word wiki', () => {
+    assert.match(PAGE, /subpage-header__back" href="\/pages\/vocabulary\.html"/);
+    assert.doesNotMatch(PAGE, /subpage-header__back" href="\/vocabulary\.html"/);
+  });
+
   test('has empty + error states and a progress link', () => {
     assert.match(PAGE, /id="vp-empty"/);
     assert.match(PAGE, /id="vp-error"/);

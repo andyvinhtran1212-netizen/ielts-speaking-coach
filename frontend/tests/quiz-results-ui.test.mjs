@@ -17,6 +17,21 @@ const read = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
 const QUIZ = read('pages', 'quiz.html');
 const PROG = read('pages', 'quiz-progress.html');
 
+describe('vocabulary back-nav consistency (Hub → Picker → Quiz/Stats)', () => {
+  test('quiz.html: BOTH back controls target the picker, never the public word wiki', () => {
+    // vocab branch of boot() sets top + end back to the same practice picker.
+    assert.match(QUIZ, /back\.href = '\/pages\/vocab-practice\.html'/);
+    assert.match(QUIZ, /topBack\.href = '\/pages\/vocab-practice\.html'/);
+    // The old ambiguous "back to /vocabulary.html (public wiki)" is gone.
+    assert.doesNotMatch(QUIZ, /href="\/vocabulary\.html"/);
+    assert.doesNotMatch(QUIZ, /\.href = '\/vocabulary\.html'/);
+  });
+  test('quiz-progress.html back → the picker (not the public wiki)', () => {
+    assert.match(PROG, /subpage-header__back" href="\/pages\/vocab-practice\.html"/);
+    assert.doesNotMatch(PROG, /subpage-header__back" href="\/vocabulary\.html"/);
+  });
+});
+
 describe('quiz.html — end-of-session result screen', () => {
   test('hero stat tiles: time · questions · mastered', () => {
     for (const id of ['qz-res-time', 'qz-res-q', 'qz-res-mastered']) {
