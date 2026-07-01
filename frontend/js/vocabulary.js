@@ -297,13 +297,6 @@
       const wantCat = params.get('cat');
       if (wantCat && state.cats.some(c => c.slug === wantCat)) state.cat = wantCat;
       renderChips(); renderRows();
-      // Arrived from the hub word-library tab → reveal the "← Từ vựng" back link
-      // (points at /pages/vocabulary.html#word-library; browser-back also returns
-      // there since the hub wrote that hash via pushState).
-      if (params.get('from') === 'word-library') {
-        const back = document.getElementById('vmd-hub-back');
-        if (back) back.hidden = false;
-      }
       const wantSlug = params.get('slug');
       // Resolve the deeplink by (cat, slug) first — a slug-only match could open
       // the wrong category's card now that a slug may exist in several topics.

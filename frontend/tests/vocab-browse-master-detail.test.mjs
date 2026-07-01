@@ -171,9 +171,13 @@ describe('vocabulary.html — master-detail shell', () => {
   test('legacy category-grid markup gone', () => {
     assert.doesNotMatch(LANDING, /id="category-grid"/);
   });
-  test('from=word-library back link → hub #word-library', () => {
-    assert.match(LANDING, /id="vmd-hub-back"[^>]*href="\/pages\/vocabulary\.html#word-library"/);
-    assert.match(JS, /params\.get\('from'\) === 'word-library'/);   // reveal logic
-    assert.match(JS, /getElementById\('vmd-hub-back'\)/);
+  test('retired word-library back-link is fully removed (no dead #word-library link)', () => {
+    // The hub "word-library" tab was retired (Sprint 8.2) and nothing sets
+    // ?from=word-library any more, so the reveal element (#vmd-hub-back) + its
+    // JS were dead code pointing at a non-existent #word-library hash. Gone now.
+    assert.doesNotMatch(LANDING, /vmd-hub-back/);
+    assert.doesNotMatch(LANDING, /#word-library/);
+    assert.doesNotMatch(JS, /word-library/);
+    assert.doesNotMatch(JS, /vmd-hub-back/);
   });
 });
