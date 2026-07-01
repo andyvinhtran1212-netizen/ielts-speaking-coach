@@ -310,6 +310,81 @@ def bank_analytics(bank_id: str) -> dict:
     return {"items": items, "skills": skills, "session_count": session_count}
 
 
+def admin_student_rollup(skill_area: str = "vocab") -> dict:
+    """Admin observation of learners' practice for one skill_area: an {overview,
+    students} payload. Per-learner rows come from the mig-123 RPC (page-safe SQL
+    aggregate); identities (name/email) are resolved in one batched users read.
+    The overview totals are derived from the same rows — accuracy is weighted by
+    session count so a one-session learner doesn't skew the class average."""
+    try:
+        rows = supabase_admin.rpc(
+            "quiz_admin_student_rollup", {"p_skill_area": skill_area}).execute().data or []
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Lỗi truy vấn rollup: {exc}")
+
+    uids = [r["user_id"] for r in rows if r.get("user_id")]
+    users: dict[str, dict] = {}
+    if uids:
+        try:
+            ur = (
+                supabase_admin.table("users")
+                .select("id, email, display_name").in_("id", uids).execute()
+            ).data or []
+            users = {u["id"]: u for u in ur}
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(500, f"Lỗi truy vấn user: {exc}")
+
+    students = []
+    for r in rows:
+        uid = r.get("user_id")
+        u = users.get(uid, {})
+        acc = r.get("avg_accuracy")
+        students.append({
+            "user_id": uid,
+            "name": u.get("display_name") or "",
+            "email": u.get("email") or "",
+            "sessions": int(r.get("sessions") or 0),
+            "time_sec": int(r.get("total_time_sec") or 0),
+            "avg_accuracy": float(acc) if acc is not None else None,
+            "words_mastered": int(r.get("words_mastered") or 0),
+            "last_active": r.get("last_active"),
+        })
+
+    acc_num = sum((s["avg_accuracy"] or 0) * s["sessions"]
+                  for s in students if s["avg_accuracy"] is not None)
+    acc_den = sum(s["sessions"] for s in students if s["avg_accuracy"] is not None)
+    overview = {
+        "active_learners": len(students),
+        "total_sessions": sum(s["sessions"] for s in students),
+        "total_time_sec": sum(s["time_sec"] for s in students),
+        "total_words_mastered": sum(s["words_mastered"] for s in students),
+        "avg_accuracy": (acc_num / acc_den) if acc_den else None,
+    }
+    return {"overview": overview, "students": students}
+
+
+def admin_student_detail(user_id: str) -> dict:
+    """One learner's practice detail for the admin drill-down: their per-bank
+    progress + recent sessions (reuses the student's own progress view) plus the
+    resolved identity so the panel can title itself."""
+    prog = student_progress(user_id)
+    info: dict = {}
+    try:
+        u = (
+            supabase_admin.table("users")
+            .select("id, email, display_name").eq("id", user_id).limit(1).execute()
+        ).data
+        if u:
+            info = u[0]
+    except Exception:  # noqa: BLE001 — identity is best-effort; progress already loaded
+        info = {}
+    return {
+        "user": {"user_id": user_id, "name": info.get("display_name") or "",
+                 "email": info.get("email") or ""},
+        **prog,
+    }
+
+
 def student_progress(user_id: str) -> dict:
     """A learner's own progress: per-bank mastered/in-progress (from word_stats)
     enriched with bank meta, plus recent sessions for an accuracy trend."""

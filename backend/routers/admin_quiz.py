@@ -75,6 +75,25 @@ async def bank_analytics(bank_id: UUID, authorization: str | None = Header(None)
     return quiz_service.bank_analytics(str(bank_id))
 
 
+@router.get("/students")
+async def quiz_students(
+    skill_area: str = Query(default="vocab"),
+    authorization: str | None = Header(None),
+):
+    """Observe learners' practice for a skill_area — {overview, students}."""
+    await require_admin(authorization)
+    from services import quiz_service
+    return quiz_service.admin_student_rollup(skill_area=skill_area)
+
+
+@router.get("/students/{user_id}")
+async def quiz_student_detail(user_id: UUID, authorization: str | None = Header(None)):
+    """One learner's practice detail — per-bank progress + recent sessions."""
+    await require_admin(authorization)
+    from services import quiz_service
+    return quiz_service.admin_student_detail(str(user_id))
+
+
 @router.get("/banks/{bank_id}")
 async def get_bank(bank_id: UUID, authorization: str | None = Header(None)):
     await require_admin(authorization)
