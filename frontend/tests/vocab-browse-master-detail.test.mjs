@@ -144,6 +144,20 @@ describe('vocabulary.js — master-detail wiring', () => {
     assert.match(JS, /\+\+state\.seq/);          // ignore stale responses on fast switching
     assert.match(JS, /history\.replaceState/);   // URL reflects the open word
   });
+  // mig 122 — a slug can now live in several categories, so selection + deeplink
+  // MUST key on (category, slug), else duplicate-slug rows highlight together and
+  // a slug-only deeplink can open the wrong category's card.
+  test('selection keys on (category, slug), not slug alone', () => {
+    assert.match(JS, /const selKey = \(c, s\) =>/);            // composite key helper
+    assert.match(JS, /state\.selected = selKey\(cat, slug\)/); // selectWord stores the pair
+    // both the row template and markActive compare against selKey(...)
+    assert.match(JS, /state\.selected === selKey\(w\.category, w\.slug\)/);
+    assert.match(JS, /selKey\(r\.getAttribute\('data-cat'\), r\.getAttribute\('data-slug'\)\) === state\.selected/);
+    assert.doesNotMatch(JS, /state\.selected === w\.slug\b/);  // old slug-only compare gone
+  });
+  test('deeplink resolves by (cat, slug) before falling back to slug-only', () => {
+    assert.match(JS, /w\.slug === wantSlug && \(!wantCat \|\| w\.category === wantCat\)/);
+  });
 });
 
 describe('vocabulary.html — master-detail shell', () => {
