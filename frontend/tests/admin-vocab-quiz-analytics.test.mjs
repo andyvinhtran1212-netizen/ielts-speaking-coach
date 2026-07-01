@@ -23,6 +23,9 @@ describe('admin quiz-analytics.html — chrome + endpoints', () => {
     assert.match(PAGE, /aver-admin-chrome\.js/);
     assert.match(PAGE, /max-width: var\(--av-width-page\)/);
   });
+  test('defines a real .hidden rule (page loads no tailwind → modal/tab toggles need it)', () => {
+    assert.match(PAGE, /\.hidden\s*\{\s*display:\s*none\s*!important;?\s*\}/);
+  });
   test('per-student rollup + overview cards', () => {
     assert.match(PAGE, /\/admin\/quiz\/students\?skill_area=vocab/);
     assert.match(PAGE, /Học viên hoạt động/);

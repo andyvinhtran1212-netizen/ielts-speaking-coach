@@ -344,15 +344,19 @@ def admin_student_rollup(skill_area: str = "vocab") -> dict:
             "name": u.get("display_name") or "",
             "email": u.get("email") or "",
             "sessions": int(r.get("sessions") or 0),
+            "graded_sessions": int(r.get("graded_sessions") or 0),
             "time_sec": int(r.get("total_time_sec") or 0),
             "avg_accuracy": float(acc) if acc is not None else None,
             "words_mastered": int(r.get("words_mastered") or 0),
             "last_active": r.get("last_active"),
         })
 
-    acc_num = sum((s["avg_accuracy"] or 0) * s["sessions"]
+    # Weight the class average by GRADED sessions, not started ones: a learner's
+    # avg_accuracy excludes their NULL-accuracy (unanswered) sessions, so weighting
+    # by total sessions would overweight someone with many abandoned/empty sessions.
+    acc_num = sum((s["avg_accuracy"] or 0) * s["graded_sessions"]
                   for s in students if s["avg_accuracy"] is not None)
-    acc_den = sum(s["sessions"] for s in students if s["avg_accuracy"] is not None)
+    acc_den = sum(s["graded_sessions"] for s in students if s["avg_accuracy"] is not None)
     overview = {
         "active_learners": len(students),
         "total_sessions": sum(s["sessions"] for s in students),
@@ -363,11 +367,26 @@ def admin_student_rollup(skill_area: str = "vocab") -> dict:
     return {"overview": overview, "students": students}
 
 
-def admin_student_detail(user_id: str) -> dict:
+def admin_student_detail(user_id: str, skill_area: str = "vocab") -> dict:
     """One learner's practice detail for the admin drill-down: their per-bank
     progress + recent sessions (reuses the student's own progress view) plus the
-    resolved identity so the panel can title itself."""
+    resolved identity so the panel can title itself.
+
+    SCOPED to skill_area: the vocab report must not leak a learner's grammar bank
+    progress / grammar sessions into the vocabulary modal. Banks carry skill_area
+    directly; sessions are filtered to the set of that skill's bank codes."""
     prog = student_progress(user_id)
+    banks = [b for b in prog.get("banks", []) if (b.get("skill_area") or "") == skill_area]
+    sessions = prog.get("recent_sessions", [])
+    try:
+        crows = (
+            supabase_admin.table("quiz_banks").select("code")
+            .eq("skill_area", skill_area).execute()
+        ).data or []
+        codes = {r["code"] for r in crows if r.get("code")}
+        sessions = [s for s in sessions if s.get("code") in codes]
+    except Exception:  # noqa: BLE001 — best-effort scoping; on failure show unfiltered
+        pass
     info: dict = {}
     try:
         u = (
@@ -381,7 +400,8 @@ def admin_student_detail(user_id: str) -> dict:
     return {
         "user": {"user_id": user_id, "name": info.get("display_name") or "",
                  "email": info.get("email") or ""},
-        **prog,
+        "banks": banks,
+        "recent_sessions": sessions,
     }
 
 

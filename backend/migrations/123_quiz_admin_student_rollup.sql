@@ -16,6 +16,7 @@ CREATE OR REPLACE FUNCTION quiz_admin_student_rollup(p_skill_area TEXT)
 RETURNS TABLE (
     user_id         UUID,
     sessions        BIGINT,
+    graded_sessions BIGINT,
     total_time_sec  BIGINT,
     avg_accuracy    NUMERIC,
     words_mastered  BIGINT,
@@ -23,14 +24,19 @@ RETURNS TABLE (
 )
 LANGUAGE sql STABLE AS $$
     WITH sess AS (
+        -- Only FINALIZED sessions: start_session inserts a row on quiz open, so an
+        -- ended_at-less row is a "opened and left" abandonment (0 time), not real
+        -- practice. graded_sessions = those with a non-NULL accuracy, so the caller
+        -- can weight the class average by graded (not started) sessions.
         SELECT s.user_id,
-               COUNT(*)                             AS sessions,
-               COALESCE(SUM(s.duration_sec), 0)     AS total_time_sec,
-               AVG(s.accuracy)                      AS avg_accuracy,
-               MAX(s.started_at)                    AS last_active
+               COUNT(*)                                          AS sessions,
+               COUNT(*) FILTER (WHERE s.accuracy IS NOT NULL)    AS graded_sessions,
+               COALESCE(SUM(s.duration_sec), 0)                  AS total_time_sec,
+               AVG(s.accuracy)                                   AS avg_accuracy,
+               MAX(s.started_at)                                 AS last_active
         FROM quiz_sessions s
         JOIN quiz_banks b ON b.id = s.bank_id
-        WHERE b.skill_area = p_skill_area
+        WHERE b.skill_area = p_skill_area AND s.ended_at IS NOT NULL
         GROUP BY s.user_id
     ),
     mastered AS (
@@ -42,6 +48,7 @@ LANGUAGE sql STABLE AS $$
     )
     SELECT sess.user_id,
            sess.sessions,
+           sess.graded_sessions,
            sess.total_time_sec,
            ROUND(sess.avg_accuracy, 3)              AS avg_accuracy,
            COALESCE(mastered.words_mastered, 0)     AS words_mastered,

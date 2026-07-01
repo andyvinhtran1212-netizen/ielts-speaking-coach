@@ -87,11 +87,16 @@ async def quiz_students(
 
 
 @router.get("/students/{user_id}")
-async def quiz_student_detail(user_id: UUID, authorization: str | None = Header(None)):
-    """One learner's practice detail — per-bank progress + recent sessions."""
+async def quiz_student_detail(
+    user_id: UUID,
+    skill_area: str = Query(default="vocab"),
+    authorization: str | None = Header(None),
+):
+    """One learner's practice detail — per-bank progress + recent sessions, scoped
+    to skill_area so the vocab report doesn't leak grammar practice."""
     await require_admin(authorization)
     from services import quiz_service
-    return quiz_service.admin_student_detail(str(user_id))
+    return quiz_service.admin_student_detail(str(user_id), skill_area=skill_area)
 
 
 @router.get("/banks/{bank_id}")

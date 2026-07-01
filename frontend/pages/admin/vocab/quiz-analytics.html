@@ -22,6 +22,11 @@
   <link rel="stylesheet" href="/css/aver-design/components.css" />
   <link rel="stylesheet" href="/css/aver-design/admin-buttons.css" />
   <style>
+    /* This page loads tokens + components + admin-buttons only (no tailwind), and
+       none define .hidden — while .av-modal-backdrop is display:flex. Without a
+       real rule the modal + hidden tab section would show on load and never
+       dismiss. Define it locally. */
+    .hidden { display: none !important; }
     .qa-shell { max-width: var(--av-width-page); margin: 0 auto;
       padding: var(--av-space-6); display: flex; flex-direction: column; gap: var(--av-space-5); }
     .qa-header { display: flex; justify-content: space-between; align-items: flex-end;
@@ -183,7 +188,7 @@
       $('qa-modal').classList.remove('hidden');
       $('qa-modal-x').focus();
       let d;
-      try { d = await window.api.get('/admin/quiz/students/' + encodeURIComponent(uid)); }
+      try { d = await window.api.get('/admin/quiz/students/' + encodeURIComponent(uid) + '?skill_area=vocab'); }
       catch (e) { $('qa-modal-body').innerHTML = '<p class="qa-error">Không tải được: ' + esc(e.message) + '</p>'; return; }
       if (d.user && d.user.email) $('qa-modal-title').textContent = (d.user.name || name) + ' · ' + d.user.email;
 
