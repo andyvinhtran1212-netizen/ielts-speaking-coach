@@ -263,7 +263,8 @@
 
       <div class="qz-actions">
         <!-- Neutral label — boot() sets "← Về Grammar" / "← Về Từ vựng" per skill_area. -->
-        <a id="qz-back" href="/vocabulary.html" class="av-button av-button-primary">← Quay lại</a>
+        <!-- Neutral default; boot() sets the real target (Luyện tập / Grammar) per skill_area. -->
+        <a id="qz-back" href="/pages/vocab-practice.html" class="av-button av-button-primary">← Quay lại</a>
         <a href="/pages/quiz-progress.html" class="av-button av-button-secondary">📊 Thống kê của tôi</a>
       </div>
     </div>
@@ -727,6 +728,10 @@
       // Chrome highlight + back links match the bank's area (grammar → Grammar
       // Wiki, else Vocabulary). Back labels are set here (never hard-coded in
       // markup) so the area is authoritative.
+      // Both back controls (top header + end-screen) point at the SAME place —
+      // the practice picker the user came from — so "back" is never ambiguous.
+      // grammar → Grammar Wiki; vocab → the lesson picker (vocab-practice), NOT
+      // the public word wiki (which is a different "Vocabulary" page).
       const topBack = $('qz-top-back'), topLabel = $('qz-top-back-label'), back = $('qz-back');
       const chrome = document.querySelector('aver-chrome');
       if (bank.bank && bank.bank.skill_area === 'grammar') {
@@ -736,7 +741,7 @@
       } else {
         if (chrome) chrome.setAttribute('active', 'vocabulary');
         topBack.href = '/pages/vocab-practice.html'; topLabel.textContent = 'Luyện tập';
-        back.href = '/vocabulary.html'; back.textContent = '← Về Từ vựng';
+        back.href = '/pages/vocab-practice.html'; back.textContent = '← Về Luyện tập';
       }
 
       updateProgress();
