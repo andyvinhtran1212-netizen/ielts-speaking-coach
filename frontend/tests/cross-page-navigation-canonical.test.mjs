@@ -42,7 +42,6 @@ const REDESIGNED_PAGES = [
   'frontend/pages/writing-dashboard.html',
   'frontend/pages/writing-result.html',
   'frontend/pages/vocabulary.html',
-  'frontend/pages/my-vocabulary.html',
   'frontend/pages/flashcards.html',
   'frontend/pages/exercises.html',
   'frontend/pages/profile.html',

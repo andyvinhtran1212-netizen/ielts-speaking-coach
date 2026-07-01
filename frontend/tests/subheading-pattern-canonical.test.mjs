@@ -277,7 +277,6 @@ describe('Sprint 9.2 — vocab module templates ship the Vocabulary back-link (e
   // dashboard without reloading the page. The "Vocabulary" tier
   // semantic is preserved inside the button's <span> label.
   const MODULE_PINS = [
-    { rel: 'frontend/js/vocab-modules/my-vocab.js',   label: 'my-vocab'   },
     { rel: 'frontend/js/vocab-modules/flashcards.js', label: 'flashcards' },
     { rel: 'frontend/js/vocab-modules/exercises.js',  label: 'exercises'  },
   ];

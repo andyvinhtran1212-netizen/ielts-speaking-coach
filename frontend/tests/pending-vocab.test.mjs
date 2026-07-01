@@ -240,53 +240,6 @@ describe('Sprint 10.4.1-hotfix — pending vocab light-mode contrast pins', () =
 });
 
 
-describe('Sprint 10.4.1-hotfix — needs-review canonical .vocab-card adoption', () => {
-  // Bug 2 regression pin. Module formerly shipped bespoke .nr-card*
-  // primitives that diverged visually from my-vocab's needs_review
-  // rows. Now reuses .vocab-card / .source-badge / .vocab-action
-  // declared in my-vocabulary.css. The needs-review.css bespoke
-  // .nr-card* rules are deleted; .needs-review-intro + .nr-toast stay
-  // (banner + toast unique to this surface).
-
-  const __dirname2 = dirname(fileURLToPath(import.meta.url));
-  const NR_CSS = readFileSync(
-    join(__dirname2, '..', 'css', 'needs-review.css'), 'utf8'
-  );
-  const NR_JS = readFileSync(
-    join(__dirname2, '..', 'js', 'vocab-modules', 'needs-review.js'), 'utf8'
-  );
-
-  it('needs-review.css declares zero .nr-card* card primitive rules', () => {
-    // .nr-toast and .needs-review-intro stay — only the .nr-card family
-    // is gone. Match `.nr-card` as a class selector start (immediate
-    // followup must be `{`, ` `, `,`, `:`, or `__`, not `.nr-toast` etc).
-    assert.ok(
-      !/\.nr-card\b/.test(NR_CSS),
-      'needs-review.css must NOT redeclare .nr-card* primitives — the ' +
-      'module reuses .vocab-card from my-vocabulary.css. Stale rules ' +
-      'would re-introduce visual drift.',
-    );
-  });
-
-  it('needs-review.js emits canonical .vocab-card + .vocab-action classes', () => {
-    assert.ok(NR_JS.includes('class="vocab-card"'),
-      'needs-review card must use the canonical .vocab-card primitive.');
-    assert.ok(NR_JS.includes('class="source-badge badge-needs_review"'),
-      'needs-review card must use the canonical .source-badge.badge-needs_review pill.');
-    assert.ok(NR_JS.includes('class="vocab-action vocab-action--fixed"'),
-      'mark-fixed button must use .vocab-action--fixed (green family).');
-    assert.ok(NR_JS.includes('class="vocab-action vocab-action--skip"'),
-      'dismiss button must use .vocab-action--skip (red family).');
-  });
-
-  it('needs-review.js drops the bespoke .nr-card__* classes', () => {
-    assert.ok(
-      !/\bnr-card__/.test(NR_JS),
-      'needs-review.js must not emit any bespoke .nr-card__* class — ' +
-      'all card sub-elements move to the canonical .vocab-card family.',
-    );
-  });
-});
 
 
 // ── Helpers ──────────────────────────────────────────────────────────

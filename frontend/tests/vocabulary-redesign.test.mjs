@@ -150,8 +150,8 @@ describe('vocabulary.html / Sprint 8.2 mode-card IA + module-mount contract', ()
   // (inline topic picker → public wiki). The retired-tab-id roster is
   // unchanged — Sprint 8.2 tab-row deletion predates the needs-review
   // surface; vocab-topics was also never a tab button.
-  const requiredPanelIds = ['panel-my-vocab', 'panel-flashcards', 'panel-exercises', 'panel-needs-review', 'panel-vocab-topics'];
-  const requiredDataPanels = ['my-vocab', 'flashcards', 'exercises', 'needs-review', 'vocab-topics'];
+  const requiredPanelIds = ['panel-flashcards', 'panel-exercises', 'panel-vocab-topics'];
+  const requiredDataPanels = ['flashcards', 'exercises', 'vocab-topics'];
   const retiredTabIds = ['tab-my-vocab', 'tab-flashcards', 'tab-exercises', 'tab-topic-bank'];
 
   for (const id of retiredTabIds) {
@@ -226,20 +226,17 @@ describe('vocabulary.html / Sprint 8.2 mode-card IA + module-mount contract', ()
     assert.equal(frameCount, 0, `Expected 0 .tab-frame iframes after Sprint 7.5, got ${frameCount}`);
   });
 
-  test('my-vocab tab uses module-mount container (Sprint 7.3)', () => {
-    const myVocabSection = html.match(
-      /<section[^>]*data-panel=["']my-vocab["'][^>]*>[\s\S]+?<\/section>/,
+  test('flashcards tab uses module-mount container (Sprint 7.4)', () => {
+    const section = html.match(
+      /<section[^>]*data-panel=["']flashcards["'][^>]*>[\s\S]+?<\/section>/,
     );
-    assert.ok(myVocabSection, 'my-vocab tab-panel section missing');
+    assert.ok(section, 'flashcards tab-panel section missing');
     assert.match(
-      myVocabSection[0],
+      section[0],
       /<div[^>]*class=["'][^"']*\btab-mount\b/,
-      'my-vocab panel must ship <div class="tab-mount"> for module mount',
+      'flashcards panel must ship <div class="tab-mount"> for module mount',
     );
-    assert.ok(
-      !/<iframe\b/.test(myVocabSection[0]),
-      'my-vocab panel must NOT contain <iframe> after Sprint 7.3 module migration',
-    );
+    assert.ok(!/<iframe\b/.test(section[0]), 'flashcards panel must NOT contain <iframe>');
   });
 
   test('flashcards tab uses module-mount container (Sprint 7.4)', () => {
@@ -295,18 +292,17 @@ describe('vocabulary.html / Sprint 8.2 mode-card IA + module-mount contract', ()
     assert.match(html, /id=["']stat-stacks-count["']/);
   });
 
-  test('role="tabpanel" preserved on 5 panels; role="tab" + aria-selected retired (Sprint 8.2 + 10.1.5)', () => {
+  test('role="tabpanel" preserved on 3 panels; role="tab" + aria-selected retired', () => {
     const tabsWithRole    = (html.match(/role=["']tab["']/g) || []).length;
     const panelsWithRole  = (html.match(/role=["']tabpanel["']/g) || []).length;
     const ariaSelected    = (html.match(/aria-selected=/g) || []).length;
     assert.equal(tabsWithRole,   0, 'role="tab" must be absent (Sprint 8.2 retired the tablist row)');
-    // 5 panels: vocab-topics, my-vocab, flashcards, exercises, needs-review.
-    // topic-bank retired; word-library retired (browse moved to public wiki).
-    assert.equal(panelsWithRole, 5, 'role="tabpanel" on the 5 remaining "của bạn" panels (B3 retired word-library)');
+    // 3 panels: vocab-topics, flashcards, exercises (My Vocab + Needs Review removed).
+    assert.equal(panelsWithRole, 3, 'role="tabpanel" on the 3 remaining panels');
     assert.equal(ariaSelected,   0, 'aria-selected must be absent (no tab buttons left)');
   });
 
-  test('all 5 panels start hidden — dashboard view is the default landing state (Sprint 8.2 + 10.1.5)', () => {
+  test('all 3 panels start hidden — dashboard view is the default landing state', () => {
     // Every <section.tab-panel> ships the `hidden` attribute on page
     // load; activateTab() reveals the target via panel.hidden = false.
     for (const dataPanel of requiredDataPanels) {
@@ -363,10 +359,11 @@ describe('vocabulary.html / mode-card microcopy (Sprint 8.2)', () => {
   // Needs Review). The leaner Vietnamese subtitles live in `.lede`.
   // vocab-topics replaced topic-bank (Sprint 8.2 / B3).
 
-  test('mode-cards use Lucide icons (library / book-open / layers / dumbbell / alert-circle)', () => {
+  test('mode-cards use Lucide icons (library / layers / dumbbell)', () => {
     const section = html.match(/<section[^>]*class="[^"]*\bvocab-modes\b[\s\S]+?<\/section>/);
     assert.ok(section, '.vocab-modes section must exist');
-    for (const icon of ['library', 'book-open', 'layers', 'dumbbell', 'alert-circle']) {
+    // book-open (My Vocabulary) + alert-circle (Needs Review) removed.
+    for (const icon of ['library', 'layers', 'dumbbell']) {
       assert.match(
         section[0],
         new RegExp(`<i[^>]*data-lucide=["']${icon}["']`),
@@ -384,20 +381,21 @@ describe('vocabulary.html / mode-card microcopy (Sprint 8.2)', () => {
 
   test('mode-card titles preserved (Phase B Q1)', () => {
     assert.match(html, /<h3[^>]*>\s*Từ vựng\s*<\/h3>/);
-    assert.match(html, /<h3[^>]*>\s*My Vocabulary\s*<\/h3>/);
     assert.match(html, /<h3[^>]*>\s*Flashcards\s*<\/h3>/);
     assert.match(html, /<h3[^>]*>\s*Exercises\s*<\/h3>/);
-    assert.match(html, /<h3[^>]*>\s*Needs Review\s*<\/h3>/);
-    // Topic Bank was removed in B3 — must not appear.
+    // Removed cards must not appear.
     assert.ok(!html.includes('Topic Bank'), 'Topic Bank card must be absent after B3 removal');
+    assert.ok(!/<h3[^>]*>\s*My Vocabulary\s*<\/h3>/.test(html), 'My Vocabulary card removed');
+    assert.ok(!/<h3[^>]*>\s*Needs Review\s*<\/h3>/.test(html), 'Needs Review card removed');
   });
 
   test('mode-card lede subtitles present (Phase B Q1 leaner copy)', () => {
     assert.match(html, /Duyệt từ vựng IELTS theo chủ đề\./);
-    assert.match(html, /Sổ tay từ vựng cá nhân của bạn\./);
     assert.match(html, /Học từ với hệ thống lặp khoảng cách\./);
     assert.match(html, /Luyện tập đa dạng dạng bài\./);
-    assert.match(html, /Từ vựng và cách diễn đạt cần xem lại\./);
+    // My Vocabulary + Needs Review ledes removed.
+    assert.ok(!/Sổ tay từ vựng cá nhân của bạn\./.test(html));
+    assert.ok(!/Từ vựng và cách diễn đạt cần xem lại\./.test(html));
   });
 });
 

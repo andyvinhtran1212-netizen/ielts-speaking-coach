@@ -620,16 +620,11 @@ async def grade_response_endpoint(
             )
             grading["grammar_recommendations"] = saved_recs
 
-        # ── STEP 8c: Schedule vocab extraction (background, failure-isolated) ──
-        vocab_analysis_enabled = settings.VOCAB_ANALYSIS_ENABLED  # Mục 16 (B5): via Settings, not os.environ
-        if vocab_analysis_enabled and transcript and response_id:
-            background_tasks.add_task(
-                _run_vocab_extraction,
-                transcript=transcript,
-                response_id=response_id,
-                user_id=user_id,
-                session_id=session_id,
-            )
+        # ── STEP 8c: (removed) automatic vocab discovery ─────────────────────
+        # The post-Speaking vocab auto-extraction fed the My Vocabulary + Needs
+        # Review surfaces, which have been removed. Discovery is turned off — no
+        # vocab is extracted/classified from answers any more. (_run_vocab_extraction
+        # is retained for the migrate/backfill path but is no longer scheduled here.)
 
         # ── STEP 9: Return result ─────────────────────────────────────────────
         logger.info("[grading] pipeline hoàn thành — session=%s question=%s", session_id, question_id)

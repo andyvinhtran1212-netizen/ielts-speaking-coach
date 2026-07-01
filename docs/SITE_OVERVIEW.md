@@ -114,8 +114,7 @@ Operation column = audience-facing purpose + the main data in/out (key endpoint 
 
 | Page | Audience | Purpose · operation |
 |---|---|---|
-| `pages/vocabulary.html` | student | 4-tab landing (My vocab / Flashcards / Exercises / Topic Bank); mounts the tabs (some iframe-embedded). |
-| `pages/my-vocabulary.html` | student | Personal vocab list (`/api/vocabulary/*`); standalone + embedded. |
+| `pages/vocabulary.html` | student | Vocab hub landing (Từ vựng theo chủ đề / Flashcards / Exercises); mounts the tab modules. |
 | `pages/flashcards.html` · `pages/flashcard-study.html` | student | Flashcard stacks + SRS study (`/api/flashcards/*`, SM-2). |
 | `pages/exercises.html` · `pages/d1-exercise.html` | student | Fill-blank vocab exercises (`/api/exercises/*`). |
 | `vocabulary.html` (root) | student | Legacy root vocab entry (kept; `pages/vocabulary.html` is canonical). |

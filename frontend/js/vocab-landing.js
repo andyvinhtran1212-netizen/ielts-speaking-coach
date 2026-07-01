@@ -96,24 +96,21 @@
         });
       },
     }),
-    'my-vocab':     () => import('/js/vocab-modules/my-vocab.js'),
     'flashcards':   () => import('/js/vocab-modules/flashcards.js'),
     'exercises':    () => import('/js/vocab-modules/exercises.js'),
-    'needs-review': () => import('/js/vocab-modules/needs-review.js'),
   };
 
   // DEFAULT_TAB is the fall-back when activateTab() receives an unknown
   // mode name (e.g., a malformed deep-link hash). Sprint 8.2 — the
   // page-load default is the dashboard view itself, not any individual
-  // panel; bootstrap() no longer auto-activates DEFAULT_TAB on cold
-  // load. DEFAULT_TAB is kept solely for the unknown-mode fallback path.
+  // panel; bootstrap() no longer auto-activates DEFAULT_TAB on cold load.
   //
-  // Sprint 10.1.5 — `needs-review` added (5th mode card). Surfaces
-  // source_type='needs_review' items on a dedicated tab so they don't
-  // pollute the main vocab bank (Sprint 6.0 archival reversed).
-  const DEFAULT_TAB = 'my-vocab';
+  // My Vocabulary + Needs Review were removed (the auto-discovery bank that
+  // fed them was retired), so the surviving modes are vocab-topics /
+  // flashcards / exercises.
+  const DEFAULT_TAB = 'vocab-topics';
   const VALID_TABS = new Set([
-    'vocab-topics', 'my-vocab', 'flashcards', 'exercises', 'needs-review',
+    'vocab-topics', 'flashcards', 'exercises',
   ]);
 
   function $(sel) { return document.querySelector(sel); }

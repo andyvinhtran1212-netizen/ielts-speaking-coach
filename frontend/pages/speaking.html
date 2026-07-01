@@ -893,17 +893,10 @@
 
     // ── Vocab Bank flag ───────────────────────────────────────
     function applyVocabBankFlag(enabled) {
+      // My Vocabulary (the personal vocab bank) was removed, so this entry point
+      // never renders any more — keep the function so existing callers are no-ops.
       var container = document.getElementById('vocab-bank-link-container');
-      if (!container) return;
-      if (enabled === true) {
-        container.innerHTML =
-          '<a href="my-vocabulary.html" class="main-tab-btn" style="text-decoration:none;">'
-          + '<span class="main-tab-label">📚 My Vocabulary</span>'
-          + '<span class="main-tab-sub">Kho từ vựng cá nhân</span>'
-          + '</a>';
-      } else {
-        container.innerHTML = '';
-      }
+      if (container) container.innerHTML = '';
     }
 
     // ── Exercises flag (Phase D) ──────────────────────────────
