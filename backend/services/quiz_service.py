@@ -372,14 +372,20 @@ def student_progress(user_id: str) -> dict:
     try:
         all_sess = (
             supabase_admin.table("quiz_sessions")
-            .select("duration_sec, accuracy").eq("user_id", user_id).execute()
+            .select("duration_sec, accuracy, ended_at").eq("user_id", user_id).execute()
         ).data or []
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi truy vấn tổng hợp phiên: {exc}")
-    accs = [r["accuracy"] for r in all_sess if r.get("accuracy") is not None]
+    # Count only FINALIZED sessions: start_session inserts a row when the quiz page
+    # opens, so a learner who opens quiz.html and leaves before finish() PATCHes
+    # leaves an ended_at-less row. Including it would inflate the session count with
+    # zero time/accuracy. end_session always stamps ended_at (completed AND paused),
+    # so ended_at present == real, finished practice.
+    fin = [r for r in all_sess if r.get("ended_at")]
+    accs = [r["accuracy"] for r in fin if r.get("accuracy") is not None]
     totals = {
-        "sessions": len(all_sess),
-        "time_sec": sum(int(r.get("duration_sec") or 0) for r in all_sess),
+        "sessions": len(fin),
+        "time_sec": sum(int(r.get("duration_sec") or 0) for r in fin),
         "words_mastered": sum(b["mastered"] for b in banks),
         "avg_accuracy": (sum(accs) / len(accs)) if accs else None,
     }

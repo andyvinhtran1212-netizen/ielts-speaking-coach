@@ -271,8 +271,12 @@ def test_student_progress_groups_by_bank_and_lists_sessions():
         # aggregated server-side (RPC) — no row-cap undercount
         ("rpc", "quiz_user_bank_progress"): [{"bank_id": _BANK, "mastered": 2, "in_progress": 1}],
         ("quiz_banks", "select"): [{"id": _BANK, "code": "L14", "title": "Work", "skill_area": "vocab", "words_count": 29}],
-        ("quiz_sessions", "select"): [{"code": "L14", "accuracy": 0.8, "words_mastered": 2,
-                                       "duration_sec": 120}],
+        ("quiz_sessions", "select"): [
+            {"code": "L14", "accuracy": 0.8, "words_mastered": 2, "duration_sec": 120,
+             "ended_at": "2026-07-01T00:00:00Z"},                       # finalized
+            {"code": "L99", "accuracy": None, "words_mastered": 0, "duration_sec": None,
+             "ended_at": None},                                          # abandoned on load
+        ],
     })
     with patch.object(quiz_service, "supabase_admin", fake):
         out = quiz_service.student_progress(_USER)
@@ -281,7 +285,8 @@ def test_student_progress_groups_by_bank_and_lists_sessions():
     assert b["code"] == "L14" and b["mastered"] == 2 and b["in_progress"] == 1
     assert b["words_count"] == 29
     assert out["recent_sessions"][0]["accuracy"] == 0.8
-    # Lifetime totals for the "Thống kê của tôi" header.
+    # Lifetime totals — the abandoned (ended_at-less) session is EXCLUDED so the
+    # count isn't inflated by opening the quiz and leaving.
     t = out["totals"]
     assert t["sessions"] == 1
     assert t["time_sec"] == 120
