@@ -39,7 +39,7 @@ _TTS_PER_1K_USD = 0.015   # tts-1 pricing
 def _rows_needing_audio(regen: bool = False) -> list[dict]:
     res = (
         supabase_admin.table("vocab_cards")
-        .select("slug,headword,example,audio_headword,audio_example,audio_status")
+        .select("id,slug,headword,example,audio_headword,audio_example,audio_status")
         .execute()
     )
     rows = res.data or []
@@ -114,7 +114,10 @@ async def _commit(rows: list[dict], *, headword_only: bool, regen: bool = False)
                 stamp["audio_status"] = "final"
 
             if stamp:
-                supabase_admin.table("vocab_cards").update(stamp).eq("slug", slug).execute()
+                # Stamp by stable id, not slug: a slug may now be shared across
+                # categories (mig 122), and example audio differs per card — an
+                # eq("slug") update would clobber the wrong row's example audio.
+                supabase_admin.table("vocab_cards").update(stamp).eq("id", r["id"]).execute()
                 stamped += 1
                 logger.info("  ✓ %s — %s", slug, ", ".join(sorted(stamp)))
         except Exception as exc:  # noqa: BLE001 — one bad word shouldn't stop the batch

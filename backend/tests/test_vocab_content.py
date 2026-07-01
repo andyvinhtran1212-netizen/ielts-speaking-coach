@@ -62,6 +62,42 @@ def test_vocab_category_count():
     )
 
 
+def _article(headword: str, slug: str, category: str) -> dict:
+    return {
+        "headword": headword, "slug": slug, "category": category,
+        "level": "B2", "part_of_speech": "adjective", "pronunciation": "/x/",
+        "synonyms": [], "antonyms": [], "collocations": [], "related_words": [],
+        "word_family": [], "gloss_vi": "", "definition_en": "", "definition_vi": "",
+        "example": "", "html": "", "syllables": "", "audio_headword": "",
+        "audio_example": "", "register": "", "common_error": "", "memory_hook": "",
+        "source": "",
+    }
+
+
+def test_same_slug_two_categories_both_counted_and_addressable():
+    """mig 122: a word (slug) present in TWO categories is counted once per topic
+    and each card is reachable by its own (category, slug) — no silent dedup that
+    would drop a word from the census or 404 its detail page."""
+    svc = _service()
+    # Rebuild the index from a hand-made census sharing a slug across categories.
+    svc.articles_by_slug = {}
+    svc.articles_by_cat_slug = {}
+    svc._all_articles = []
+    svc.articles_by_category = {}
+    svc.all_categories = []
+    svc._build_indexes([
+        _article("Abundant", "abundant", "environment"),
+        _article("Abundant", "abundant", "business"),
+    ])
+    # Full census counts BOTH — not deduped by slug.
+    assert len(svc.get_all_articles()) == 2
+    # Each is individually addressable by its own category.
+    assert svc.get_article("environment", "abundant") is not None
+    assert svc.get_article("business", "abundant") is not None
+    # A category with no such card → not found.
+    assert svc.get_article("health", "abundant") is None
+
+
 def test_vocab_search_prefix():
     svc = _service()
     results = svc.search_prefix("mit")

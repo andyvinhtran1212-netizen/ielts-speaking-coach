@@ -278,17 +278,24 @@
     }
 
     function _crossFileDuplicates(results) {
+      // Identity is (category, slug) — the same word under DIFFERENT categories
+      // across files is valid (lands in different topics) and the combined backend
+      // commit accepts it, so only flag a repeat of the SAME (category, slug).
       var seen = {};
       results.forEach(function (data, i) {
         if (!data) return;
         (data.blocks || []).forEach(function (b) {
           if (b.slug && !(b.validation_errors && b.validation_errors.length)) {
-            if (!seen[b.slug]) seen[b.slug] = [];
-            seen[b.slug].push(i);
+            var cat = (b.parsed_data && b.parsed_data.category) || '';
+            var key = cat + ' ' + b.slug;
+            if (!seen[key]) seen[key] = { files: [], label: cat ? cat + '/' + b.slug : b.slug };
+            seen[key].files.push(i);
           }
         });
       });
-      return Object.keys(seen).filter(function (slug) { return seen[slug].length > 1; });
+      return Object.keys(seen)
+        .filter(function (k) { return seen[k].files.length > 1; })
+        .map(function (k) { return seen[k].label; });
     }
 
     function renderAllPreviews() {
@@ -323,7 +330,7 @@
         if (crossDups.length) {
           hasAnyErr = true;
           errorsEl.classList.remove('hidden');
-          errorsEl.innerHTML = '<strong>Trùng slug giữa các file:</strong> ' + escapeHtml(crossDups.join(', '));
+          errorsEl.innerHTML = '<strong>Trùng từ (cùng chủ đề) giữa các file:</strong> ' + escapeHtml(crossDups.join(', '));
         }
       }
 

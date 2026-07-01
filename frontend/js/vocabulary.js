@@ -204,6 +204,10 @@
     const countEl = document.getElementById('vmd-count');
     const qEl = document.getElementById('vmd-q');
     const state = { words: [], cats: [], cat: '', q: '', selected: null, seq: 0 };
+    // Card identity is (category, slug) — the same slug can now live in several
+    // categories (mig 122), so selection/deeplink key on the pair, not slug alone,
+    // else duplicate-slug rows highlight together and the wrong card opens.
+    const selKey = (c, s) => (c || '') + ' ' + (s || '');
 
     function visible() {
       const q = state.q.trim().toLowerCase();
@@ -213,7 +217,7 @@
                String(w.gloss_vi || '').toLowerCase().includes(q)));
     }
     function rowHTML(w) {
-      return `<div class="vmd-row${state.selected === w.slug ? ' active' : ''}" role="button" tabindex="0"
+      return `<div class="vmd-row${state.selected === selKey(w.category, w.slug) ? ' active' : ''}" role="button" tabindex="0"
         data-slug="${esc(w.slug)}" data-cat="${esc(w.category)}">
         ${playBtn(w.audio_headword, w.headword, 'va-small va-ghost')}
         <div class="vmd-row-main">
@@ -240,11 +244,12 @@
     }
     function markActive() {
       rowsEl.querySelectorAll('.vmd-row').forEach(r =>
-        r.classList.toggle('active', r.getAttribute('data-slug') === state.selected));
+        r.classList.toggle('active',
+          selKey(r.getAttribute('data-cat'), r.getAttribute('data-slug')) === state.selected));
     }
 
     async function selectWord(cat, slug) {
-      state.selected = slug;
+      state.selected = selKey(cat, slug);
       markActive();
       shell.classList.add('show-detail');
       cardEl.innerHTML = '<p class="va-empty">Đang tải…</p>';
@@ -300,7 +305,11 @@
         if (back) back.hidden = false;
       }
       const wantSlug = params.get('slug');
-      const want = wantSlug && state.words.find(w => w.slug === wantSlug);
+      // Resolve the deeplink by (cat, slug) first — a slug-only match could open
+      // the wrong category's card now that a slug may exist in several topics.
+      const want = wantSlug && (
+        state.words.find(w => w.slug === wantSlug && (!wantCat || w.category === wantCat))
+        || state.words.find(w => w.slug === wantSlug));
       if (want) selectWord(want.category, want.slug);
       else if (state.words.length && window.matchMedia('(min-width: 861px)').matches) {
         const firstWord = state.cat
