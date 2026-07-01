@@ -358,10 +358,30 @@ def student_progress(user_id: str) -> dict:
         sessions = (
             supabase_admin.table("quiz_sessions")
             .select("code, accuracy, words_mastered, total_questions, total_correct, "
-                    "ended_at, ended_by")
+                    "duration_sec, ended_at, ended_by")
             .eq("user_id", user_id).order("started_at", desc=True).limit(20).execute()
         ).data or []
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi truy vấn phiên: {exc}")
 
-    return {"banks": banks, "recent_sessions": sessions}
+    # Lifetime totals for the "Thống kê của tôi" header (total practice time,
+    # session count, words mastered, avg accuracy). Words-mastered is the truthful
+    # cumulative count summed across banks (from the page-safe RPC above), not a
+    # per-session sum. Session time/accuracy come from a lean all-sessions read;
+    # a learner's session count is far below the PostgREST page cap in practice.
+    try:
+        all_sess = (
+            supabase_admin.table("quiz_sessions")
+            .select("duration_sec, accuracy").eq("user_id", user_id).execute()
+        ).data or []
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Lỗi truy vấn tổng hợp phiên: {exc}")
+    accs = [r["accuracy"] for r in all_sess if r.get("accuracy") is not None]
+    totals = {
+        "sessions": len(all_sess),
+        "time_sec": sum(int(r.get("duration_sec") or 0) for r in all_sess),
+        "words_mastered": sum(b["mastered"] for b in banks),
+        "avg_accuracy": (sum(accs) / len(accs)) if accs else None,
+    }
+
+    return {"banks": banks, "recent_sessions": sessions, "totals": totals}
