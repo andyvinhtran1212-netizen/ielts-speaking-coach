@@ -367,3 +367,8 @@ def test_admin_student_detail_scoped_to_skill_and_wraps_identity():
     codes = [b["code"] for b in out["banks"]]
     assert codes == ["L14"]                      # grammar bank GR1 excluded
     assert out["recent_sessions"][0]["accuracy"] == 0.8
+    # Recent sessions are re-queried scoped by bank_id BEFORE the 20-row cap
+    # (not filtered from the cross-skill capped list).
+    assert any(c["table"] == "quiz_sessions"
+               and any(f[0] == "in" and f[1] == "bank_id" for f in c["filters"])
+               for c in fake.calls)

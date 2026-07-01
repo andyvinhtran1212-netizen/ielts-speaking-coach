@@ -373,20 +373,34 @@ def admin_student_detail(user_id: str, skill_area: str = "vocab") -> dict:
     resolved identity so the panel can title itself.
 
     SCOPED to skill_area: the vocab report must not leak a learner's grammar bank
-    progress / grammar sessions into the vocabulary modal. Banks carry skill_area
-    directly; sessions are filtered to the set of that skill's bank codes."""
+    progress / grammar sessions into the vocabulary modal. Per-bank progress carries
+    skill_area, so it's filtered directly; recent sessions are re-queried scoped by
+    the skill's bank_ids BEFORE the 20-row cap (reusing student_progress()'s already
+    capped-across-all-skills list would hide vocab practice behind newer grammar
+    sessions, and code-matching would leak when two skills' banks share a code)."""
     prog = student_progress(user_id)
     banks = [b for b in prog.get("banks", []) if (b.get("skill_area") or "") == skill_area]
-    sessions = prog.get("recent_sessions", [])
+
+    # FAIL CLOSED: a scoping-lookup error raises 500 rather than falling through
+    # with unscoped sessions — the endpoint promises skill-scoped detail, so it must
+    # never show another skill's sessions on a transient DB/permission error.
     try:
-        crows = (
-            supabase_admin.table("quiz_banks").select("code")
+        bank_ids = [r["id"] for r in (
+            supabase_admin.table("quiz_banks").select("id")
             .eq("skill_area", skill_area).execute()
-        ).data or []
-        codes = {r["code"] for r in crows if r.get("code")}
-        sessions = [s for s in sessions if s.get("code") in codes]
-    except Exception:  # noqa: BLE001 — best-effort scoping; on failure show unfiltered
-        pass
+        ).data or [] if r.get("id")]
+        sessions: list[dict] = []
+        if bank_ids:
+            sessions = (
+                supabase_admin.table("quiz_sessions")
+                .select("code, accuracy, words_mastered, total_questions, "
+                        "total_correct, duration_sec, ended_at, ended_by")
+                .eq("user_id", user_id).in_("bank_id", bank_ids)
+                .order("started_at", desc=True).limit(20).execute()
+            ).data or []
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Lỗi truy vấn phiên (scoped): {exc}")
+
     info: dict = {}
     try:
         u = (
