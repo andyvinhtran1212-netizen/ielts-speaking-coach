@@ -141,8 +141,14 @@ def build_vocab_payload(p: VocabParsed, *, import_batch_id: Optional[str] = None
 
 
 def upsert_vocab_card(payload: dict) -> dict:
-    """Idempotent upsert-by-slug (read-then-write — robust vs on_conflict + the
-    partial-index gotcha). Returns {slug, action: 'created'|'updated'}.
+    """Idempotent upsert-by-(category, slug) (read-then-write — robust vs
+    on_conflict + the partial-index gotcha). Returns {slug, action}.
+
+    Identity is (category, slug), NOT slug alone (mig 122): the SAME headword may
+    live in several topics, so uploading a word already present under a DIFFERENT
+    category INSERTS a new card for the new topic instead of moving the existing
+    one — the word is never silently dropped from its original topic. Re-uploading
+    the same word under the SAME category still updates in place (idempotent).
 
     Stamps topic_id from the card's category (resolve/create the matching vocab
     topic) so the topic spine stays in sync on every write — not just the mig-117
@@ -153,11 +159,14 @@ def upsert_vocab_card(payload: dict) -> dict:
         if tid:
             payload["topic_id"] = tid
     slug = payload["slug"]
+    category = payload.get("category")
     existing = (
-        supabase_admin.table("vocab_cards").select("id").eq("slug", slug).limit(1).execute()
+        supabase_admin.table("vocab_cards").select("id")
+        .eq("slug", slug).eq("category", category).limit(1).execute()
     ).data
     if existing:
-        supabase_admin.table("vocab_cards").update(payload).eq("slug", slug).execute()
+        supabase_admin.table("vocab_cards").update(payload).eq(
+            "slug", slug).eq("category", category).execute()
         return {"slug": slug, "action": "updated"}
     supabase_admin.table("vocab_cards").insert(payload).execute()
     return {"slug": slug, "action": "created"}
@@ -271,7 +280,7 @@ def import_vocab_file(
 
     blocks: list[dict] = []
     for idx, chunk in enumerate(chunks):
-        entry: dict = {"index": idx, "headword": "", "slug": "",
+        entry: dict = {"index": idx, "headword": "", "slug": "", "_cat": "",
                        "parsed_data": None, "action": None, "validation_errors": []}
         try:
             parsed = parse_vocab_markdown(chunk)
@@ -282,35 +291,43 @@ def import_vocab_file(
             continue
         entry["headword"] = parsed.headword
         entry["slug"] = parsed.slug
+        entry["_cat"] = parsed.category   # for per-(category, slug) dedup below
         entry["parsed_data"] = parsed.as_preview()
         entry["validation_errors"] = validate_vocab(parsed)
         entry["_parsed"] = parsed
         blocks.append(entry)
 
-    # Duplicate slug within the SAME file → batch error on every colliding block.
-    seen: dict[str, list[int]] = {}
+    # Duplicate (category, slug) within the SAME file → batch error on every
+    # colliding block. Identity is per-category (mig 122): the same word under two
+    # DIFFERENT categories in one file is allowed (it lands in two topics); only a
+    # true same-category repeat is a duplicate.
+    seen: dict[tuple[str, str], list[int]] = {}
     for b in blocks:
         if b["slug"]:
-            seen.setdefault(b["slug"], []).append(b["index"])
-    duplicate_slugs = sorted(s for s, idxs in seen.items() if len(idxs) > 1)
+            seen.setdefault((b["_cat"], b["slug"]), []).append(b["index"])
+    dup_pairs = {pair for pair, idxs in seen.items() if len(idxs) > 1}
+    duplicate_slugs = sorted({slug for (_cat, slug) in dup_pairs})
     for b in blocks:
-        if b["slug"] and b["slug"] in duplicate_slugs:
+        if b["slug"] and (b["_cat"], b["slug"]) in dup_pairs:
             b["validation_errors"].append({
                 "field": "slug",
-                "message": f"Trùng slug '{b['slug']}' với block khác trong cùng file.",
+                "message": f"Trùng '{b['slug']}' (cùng chủ đề '{b['_cat']}') với block khác trong file.",
             })
 
     has_errors = any(b["validation_errors"] for b in blocks)
 
-    # Dry-run: look up which slugs already exist so the preview shows "thêm mới" vs "cập nhật".
+    # Dry-run: look up which (category, slug) pairs already exist so the preview
+    # shows "thêm mới" vs "cập nhật". Matched per-pair (mig 122) — the same slug
+    # under a NEW category forecasts "created", not "updated".
     if dry_run:
         checkable = [b["slug"] for b in blocks if b["slug"] and not b["validation_errors"]]
         if checkable:
-            ex = supabase_admin.table("vocab_cards").select("slug").in_("slug", checkable).execute()
-            existing_set = {r["slug"] for r in (ex.data or [])}
+            ex = (supabase_admin.table("vocab_cards")
+                  .select("slug, category").in_("slug", checkable).execute())
+            existing_pairs = {(r.get("category"), r.get("slug")) for r in (ex.data or [])}
             for b in blocks:
                 if b["slug"] and not b["validation_errors"]:
-                    b["db_action"] = "updated" if b["slug"] in existing_set else "created"
+                    b["db_action"] = "updated" if (b["_cat"], b["slug"]) in existing_pairs else "created"
 
     committed_ids: list[str] = []
     if not dry_run and not has_errors:
@@ -333,7 +350,7 @@ def import_vocab_file(
         "forecast_created": sum(1 for b in blocks if b.get("db_action") == "created"),
         "forecast_updated": sum(1 for b in blocks if b.get("db_action") == "updated"),
     }
-    pub_blocks = [{k: v for k, v in b.items() if k != "_parsed"} for b in blocks]
+    pub_blocks = [{k: v for k, v in b.items() if k not in ("_parsed", "_cat")} for b in blocks]
 
     result = {
         "dry_run": dry_run,

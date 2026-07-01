@@ -138,16 +138,17 @@ def test_definition_vi_and_word_family_parsed():
 # ── upsert idempotency ─────────────────────────────────────────────────
 
 
+# Existence check is upsert-by-(category, slug): select("id").eq(slug).eq(category).limit(1).
 def _mock_db_no_existing():
     db = MagicMock()
-    sel = db.table.return_value.select.return_value.eq.return_value.limit.return_value
-    sel.execute.return_value = MagicMock(data=[])     # no existing slug → insert
+    sel = db.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value
+    sel.execute.return_value = MagicMock(data=[])     # no existing (cat, slug) → insert
     return db
 
 
 def _mock_db_existing():
     db = MagicMock()
-    sel = db.table.return_value.select.return_value.eq.return_value.limit.return_value
+    sel = db.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value
     sel.execute.return_value = MagicMock(data=[{"id": "row-1"}])  # exists → update
     return db
 
@@ -169,6 +170,46 @@ def test_reimport_same_slug_updates_not_duplicates():
     assert res["action"] == "updated"
     db.table.return_value.update.assert_called_once()
     db.table.return_value.insert.assert_not_called()
+
+
+def test_same_slug_new_category_inserts_not_moves():
+    """mig 122: the existence check filters by BOTH slug AND category, so a word
+    already present under another category is INSERTed for the new topic (not
+    moved). The mock returns no (category, slug) match → insert path."""
+    db = _mock_db_no_existing()
+    with patch("services.vocab_import.supabase_admin", db), \
+         patch("services.topic_service.resolve_topic_id_for_category", return_value=None):
+        res = import_vocab_markdown(_WORD_MD, dry_run=False)
+    assert res["action"] == "created"
+    db.table.return_value.insert.assert_called_once()
+    db.table.return_value.update.assert_not_called()
+    # the existence probe scoped by slug AND category (two eq() calls)
+    sel_eq = db.table.return_value.select.return_value.eq
+    sel_eq.assert_called_with("slug", "cutting-edge")
+    sel_eq.return_value.eq.assert_called_with("category", "technology")
+
+
+def test_same_slug_different_category_allowed_in_one_file():
+    """Same headword under two DIFFERENT categories in one file lands in two
+    topics — allowed, not a duplicate-slug batch error; both commit as created."""
+    two = _WORD_MD + "\n" + _WORD_MD.replace('category: "technology"', 'category: "business"')
+    db = _mock_db_no_existing()
+    with patch("services.vocab_import.supabase_admin", db), \
+         patch("services.topic_service.resolve_topic_id_for_category", return_value=None):
+        res = import_vocab_file(two, dry_run=False)
+    assert res["duplicate_slugs"] == []
+    assert res["summary"]["errors"] == 0
+    assert res["summary"]["created"] == 2
+    assert res["summary"]["total"] == 2
+
+
+def test_same_slug_same_category_still_duplicate_in_file():
+    """Same (category, slug) twice in one file is still a duplicate batch error."""
+    two = _WORD_MD + "\n" + _WORD_MD
+    with patch("services.vocab_import.supabase_admin", MagicMock()):
+        res = import_vocab_file(two, dry_run=True)
+    assert "cutting-edge" in res["duplicate_slugs"]
+    assert res["summary"]["errors"] == 2   # both colliding blocks flagged
 
 
 def test_dry_run_does_not_write():
