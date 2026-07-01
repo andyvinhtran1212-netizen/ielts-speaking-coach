@@ -302,6 +302,7 @@ def test_student_progress_empty_when_no_word_stats():
     with patch.object(quiz_service, "supabase_admin", fake):
         out = quiz_service.student_progress(_USER)
     assert out["banks"] == [] and out["recent_sessions"] == []
+    assert out["totals"] == {"sessions": 0, "time_sec": 0, "words_mastered": 0, "avg_accuracy": None}
 
 
 # ── Admin: observe learners' practice (Pha 5b) ───────────────────────
@@ -366,4 +367,3 @@ def test_admin_student_detail_scoped_to_skill_and_wraps_identity():
     codes = [b["code"] for b in out["banks"]]
     assert codes == ["L14"]                      # grammar bank GR1 excluded
     assert out["recent_sessions"][0]["accuracy"] == 0.8
-    assert out["totals"] == {"sessions": 0, "time_sec": 0, "words_mastered": 0, "avg_accuracy": None}
