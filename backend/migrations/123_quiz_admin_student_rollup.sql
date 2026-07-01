@@ -50,7 +50,9 @@ LANGUAGE sql STABLE AS $$
            sess.sessions,
            sess.graded_sessions,
            sess.total_time_sec,
-           ROUND(sess.avg_accuracy, 3)              AS avg_accuracy,
+           -- accuracy is REAL, so AVG() is double precision; ROUND(double, int)
+           -- doesn't exist in Postgres — cast to numeric for the 2-arg ROUND.
+           ROUND(sess.avg_accuracy::numeric, 3)     AS avg_accuracy,
            COALESCE(mastered.words_mastered, 0)     AS words_mastered,
            sess.last_active
     FROM sess
