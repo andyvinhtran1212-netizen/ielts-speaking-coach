@@ -227,14 +227,15 @@ describe('Sprint 7.3 — /js/vocab-landing.js gains TAB_LOADERS module path', ()
   });
 
   test('declares TAB_LOADERS with my-vocab + flashcards + exercises entries', () => {
-    // vocab-topics inline loader precedes these entries; use 2500-char window
-    // (1710 chars to 'my-vocab' after vocab-topics inline body was added in B3).
-    assert.match(src, /TAB_LOADERS\s*=\s*\{[\s\S]{0,2500}['"]my-vocab['"]\s*:/);
-    assert.match(src, /import\(['"]\/js\/vocab-modules\/my-vocab\.js['"]\)/);
-    assert.match(src, /TAB_LOADERS\s*=\s*\{[\s\S]{0,2500}['"]flashcards['"]\s*:/);
-    assert.match(src, /import\(['"]\/js\/vocab-modules\/flashcards\.js['"]\)/);
-    assert.match(src, /TAB_LOADERS\s*=\s*\{[\s\S]{0,2500}['"]exercises['"]\s*:/);
-    assert.match(src, /import\(['"]\/js\/vocab-modules\/exercises\.js['"]\)/);
+    // Bind each key DIRECTLY to its dynamic import — order- and distance-
+    // independent. The old assertion used a `[\s\S]{0,2500}` window from
+    // `TAB_LOADERS = {` to each key, which snapped once the inline vocab-topics
+    // loader body grew past 2500 chars (it now sits ~3873 chars before
+    // 'my-vocab'). The real invariant is the key→import mapping, not proximity.
+    assert.match(src, /TAB_LOADERS\s*=\s*\{/);
+    assert.match(src, /['"]my-vocab['"]\s*:\s*\(\s*\)\s*=>\s*import\(['"]\/js\/vocab-modules\/my-vocab\.js['"]\)/);
+    assert.match(src, /['"]flashcards['"]\s*:\s*\(\s*\)\s*=>\s*import\(['"]\/js\/vocab-modules\/flashcards\.js['"]\)/);
+    assert.match(src, /['"]exercises['"]\s*:\s*\(\s*\)\s*=>\s*import\(['"]\/js\/vocab-modules\/exercises\.js['"]\)/);
   });
 
   test('TAB_SOURCES + _loaded + iframe branch fully removed (Sprint 7.6 closure)', () => {
