@@ -105,3 +105,41 @@ def test_question_topic_words_strips_bullets_and_fillers():
     assert "trip" in words           # topic word kept
     assert "describe" not in words   # instruction filler dropped
     assert "went" not in words       # bullet content (line 2+) dropped
+
+
+# ── Finding #6 — max(transcript, question-topic) overlap ────────────────────
+
+def test_paraphrased_sample_kept_via_question_overlap():
+    """A good sample that paraphrases the candidate's ideas with DIFFERENT words
+    (low transcript overlap) but is clearly on-topic for the question must be
+    KEPT. Old transcript-only logic false-dropped it; max-of-two rescues it."""
+    transcript = "I like reading books because it relaxes me after work"
+    question   = "What hobbies do you enjoy in your free time?"
+    # Sample talks about hobbies/free time (question topic) with little verbatim
+    # transcript overlap.
+    sample = "Enjoying hobbies during free time is a great way to unwind."
+    score = _validate_sample_relevance(transcript, sample, question=question)
+    assert score >= _RELEVANCE_THRESHOLD
+
+
+def test_sample_off_topic_to_both_still_caught():
+    """Drifts from BOTH the transcript and the question topic → below threshold."""
+    transcript = "I like reading books in the evening"
+    question   = "What hobbies do you enjoy?"
+    sample     = "Photosynthesis converts sunlight into chemical energy in plants."
+    score = _validate_sample_relevance(transcript, sample, question=question)
+    assert score < _RELEVANCE_THRESHOLD
+
+
+def test_takes_max_not_transcript_only():
+    """Explicitly pin max-of-two: transcript overlap low, question overlap high
+    → result tracks the higher (question) score, not the lower transcript one."""
+    from services.claude_grader import _content_words, _question_topic_words
+    transcript = "I really love my old bicycle"
+    question   = "Describe a piece of technology you find useful."
+    sample     = "This technology is genuinely useful and I find it valuable."
+    score = _validate_sample_relevance(transcript, sample, question=question)
+    q_words = _question_topic_words(question)
+    s_words = _content_words(sample)
+    q_overlap = len(q_words & s_words) / len(q_words)
+    assert abs(score - q_overlap) < 1e-9   # returned the (higher) question overlap

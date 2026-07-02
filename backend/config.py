@@ -43,6 +43,16 @@ class Settings(BaseSettings):
     # Empty string → fall back to the legacy Haiku-first chain.
     SPEAKING_GRADING_MODEL: str = "gemini-3-flash-preview"
 
+    # Speech-to-text model (audit 2026-07-02, finding #5). Default whisper-1 —
+    # the only OpenAI STT that returns verbose_json (per-segment avg_logprob +
+    # duration), which the transcript-reliability classifier and duration guards
+    # depend on. Configurable so ops can trial a newer model (e.g.
+    # gpt-4o-transcribe) for accented-English accuracy; whisper.py detects a
+    # non-"whisper*" model, requests plain json, and probes duration with ffprobe
+    # so the pipeline degrades gracefully (reliability → neutral when no
+    # segments). Keep whisper-1 unless a newer model is verified end-to-end.
+    WHISPER_STT_MODEL: str = "whisper-1"
+
     # Google Cloud TTS
     GOOGLE_APPLICATION_CREDENTIALS: str = ""
 

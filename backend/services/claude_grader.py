@@ -1041,24 +1041,34 @@ def _question_topic_words(question: str) -> set[str]:
 
 
 def _validate_sample_relevance(transcript: str, sample: str, question: str = "") -> float:
-    """Overlap ratio of the transcript's content words present in the sample
-    answer (how grounded the sample is in what the user actually said).
+    """How grounded the sample answer is in the candidate's response AND/OR the
+    question topic — the MAX of the two content-word overlap ratios.
 
     Mục 19 (B3): when the transcript has NO content words (e.g. the user barely
-    spoke / Whisper returned only stopwords), transcript-overlap is undefined.
-    The old code returned 1.0 ("assume relevant"), which blindly KEEPS a sample
-    even if it drifted off-topic. Fall back to QUESTION overlap instead so an
-    off-topic sample is still caught, while an on-topic sample (relevant to the
-    question being answered) is correctly kept — strictly better than assuming
-    either fully-relevant (1.0) or fully-irrelevant (0.0)."""
+    spoke / Whisper returned only stopwords), transcript-overlap is undefined;
+    QUESTION overlap catches an off-topic sample while keeping an on-topic one.
+
+    Finding #6 (audit 2026-07-02): the old code used transcript overlap ALONE
+    whenever the transcript had content words, ignoring the question. That
+    false-dropped good samples that legitimately paraphrase the candidate's
+    ideas with different words (low transcript overlap) but are clearly on-topic
+    for the question. Taking the MAX of transcript- and question-topic overlap
+    keeps a sample that is grounded in EITHER — strictly reducing false drops
+    while still catching a sample that drifts from BOTH (low on both → below
+    threshold → regenerated). Bag-of-words is still crude, but max-of-two is
+    materially more robust than transcript-only at the same threshold."""
     sample_words = _content_words(sample)
-    trans_words = _content_words(transcript)
+    trans_words  = _content_words(transcript)
+    q_words      = _question_topic_words(question)
+
+    scores: list[float] = []
     if trans_words:
-        return len(trans_words & sample_words) / len(trans_words)
-    q_words = _question_topic_words(question)
+        scores.append(len(trans_words & sample_words) / len(trans_words))
     if q_words:
-        return len(q_words & sample_words) / len(q_words)
-    return 1.0   # nothing to measure against → no evidence of drift, keep sample
+        scores.append(len(q_words & sample_words) / len(q_words))
+    if not scores:
+        return 1.0   # nothing to measure against → no evidence of drift, keep sample
+    return max(scores)
 
 
 def _filter_false_article_flags(grammar_issues: list[str], transcript: str) -> list[str]:

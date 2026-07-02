@@ -150,6 +150,53 @@ def _apply_heuristic_caps(grading: dict, word_count: int, part: int) -> dict:
     return grading
 
 
+# ── Low-reliability caps (audit 2026-07-02, finding #8) ──────────────────────
+# When the STT transcript is unreliable (noisy audio, cut off, too quiet), the
+# prompt already ASKS the grader to lower LR/GRA — but that relies on the model
+# obeying. This code-level safety net enforces it: on a low-reliability
+# transcript we cannot confidently award Band 7+ for lexical resource or
+# grammatical accuracy (the "errors" may be STT artifacts, and the sample may be
+# unrepresentative), so we cap both and note the limitation. Mirrors the
+# _apply_heuristic_caps "safety net over prompt calibration" pattern.
+_RELIABILITY_LR_GRA_CAP = 6.0
+_RELIABILITY_NOTE = (
+    "⚠ Chất lượng ghi âm/nhận dạng hạn chế nên điểm từ vựng và ngữ pháp được "
+    "đánh giá thận trọng — hãy ghi âm ở nơi yên tĩnh, nói to và rõ để được chấm "
+    "chính xác hơn. "
+)
+
+
+def _apply_reliability_caps(grading: dict, reliability_label: str | None) -> bool:
+    """Cap LR/GRA at Band 6 when transcript reliability is low. In-place.
+    Returns True when a cap was applied. No-op for medium/high (the prompt's
+    softer hedging handles those). Practice mode has no LR/GRA criterion bands,
+    so this only affects test mode; the recompute is guarded on their presence.
+    """
+    if reliability_label != "low":
+        return False
+    capped = False
+    for k, fb_key in (("band_lr", "lr_feedback"), ("band_gra", "gra_feedback")):
+        if grading.get(k) is not None and float(grading[k]) > _RELIABILITY_LR_GRA_CAP:
+            grading[k] = _RELIABILITY_LR_GRA_CAP
+            capped = True
+        fb = grading.get(fb_key)
+        if isinstance(fb, str) and fb and not fb.lstrip().startswith("⚠"):
+            grading[fb_key] = _RELIABILITY_NOTE + fb
+    if capped:
+        crit_vals = [
+            float(grading[k])
+            for k in ("band_fc", "band_lr", "band_gra", "band_p")
+            if grading.get(k) is not None
+        ]
+        if crit_vals:
+            grading["overall_band"] = _round_band(sum(crit_vals) / len(crit_vals))
+        logger.info(
+            "[grading] low-reliability cap applied — LR=%s GRA=%s overall=%s",
+            grading.get("band_lr"), grading.get("band_gra"), grading.get("overall_band"),
+        )
+    return capped
+
+
 # ── Pronunciation (Azure) — server-side authoritative P (audit 2026-07-02) ────
 # The grader (Claude/Gemini) works from a TEXT transcript and cannot hear audio,
 # so its band_p was previously a fabricated text-inference — a truthfulness
@@ -605,6 +652,10 @@ async def grade_response_endpoint(
             grading = await grading_task
             logger.info("[grading] Claude OK — overall_band=%.1f (pre-cap)", grading["overall_band"])
             grading = _apply_heuristic_caps(grading, word_count, part)
+            # Finding #8 — enforce the low-reliability ceiling in CODE, not just
+            # via the prompt. A noisy/garbled STT transcript can't justify a
+            # confident high LR/GRA, so cap them as a safety net.
+            _apply_reliability_caps(grading, reliability.get("reliability_label"))
             logger.info("[grading] post-cap overall_band=%.1f", grading["overall_band"])
         except Exception as e:
             grading_error = str(e)
