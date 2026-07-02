@@ -187,6 +187,23 @@
   // Pure helper exported for tests — wraps the extraction logic used by
   // the window.error listener so we can verify defensive fallbacks at
   // the unit layer (in addition to the vm-based dispatch integration).
+  // Noise filter (2026-07-02) — the admin error log was drowning in errors that
+  // are NOT app bugs: third-party widgets/trackers (Zalo, analytics) and opaque
+  // cross-origin "Script error." reports that carry no actionable info. Drop
+  // them at capture so real errors stand out. Manual window.aver.reportError()
+  // is intentionally NOT filtered.
+  function _isIgnoredError(msg, filename) {
+    var m = String(msg || '').trim();
+    // Opaque cross-origin error — no message, file, or stack we can act on.
+    if (m === 'Script error.' || m === 'Script error') return true;
+    // Known third-party scripts / trackers by message text.
+    if (/zalojsv2|zalosdk|\bgmo\b|\bfbq\b|gtag\(|adsbygoogle|google[- ]analytics/i.test(m)) return true;
+    // Errors thrown from third-party CDNs (not our origin).
+    var f = String(filename || '');
+    if (f && /(zalo|zdn\.vn|facebook|fbcdn|googletagmanager|google-analytics|doubleclick|gstatic|hotjar)/i.test(f)) return true;
+    return false;
+  }
+
   function extractErrorPayload(event) {
     if (!event) return null;
     var msg =
@@ -195,6 +212,7 @@
       || (event && event.error && String(event.error))
       || 'Unknown error';
     if (!msg || !String(msg).trim()) msg = 'Unknown error';
+    if (_isIgnoredError(msg, event && event.filename)) return null;   // third-party / opaque noise
     return {
       level:   'error',
       message: String(msg),
@@ -232,6 +250,7 @@
       var msg = (reason && reason.message)
         || (typeof reason === 'string' ? reason : null)
         || (reason != null ? String(reason) : null);
+      if (_isIgnoredError(msg, null)) return;   // third-party / opaque noise
       reportError({
         level:   'error',
         message: msg || 'Unhandled promise rejection',
