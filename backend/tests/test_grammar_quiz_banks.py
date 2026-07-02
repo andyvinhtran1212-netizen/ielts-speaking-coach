@@ -24,15 +24,16 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from scripts.validate_grammar_quiz_bank import check_file  # noqa: E402
-from scripts.qa_grammar_banks import is_bank_file  # noqa: E402
-
 _BANK_DIR = Path(__file__).resolve().parents[2] / "docs" / "grammar-quiz-banks"
 
 
 def _bank_files() -> list[Path]:
-    return sorted(
-        p for p in _BANK_DIR.glob("G-*.md") if is_bank_file(p)
-    )
+    # Every `G-*.md` is meant to be a bank. Do NOT pre-filter by "has valid META"
+    # — a malformed/missing-META bank must be SURFACED by check_file (structural
+    # error), not silently dropped from the gate (or collapse the list into the
+    # no-banks-yet skip). Naming convention `G-` already excludes _TEMPLATE.md /
+    # AGENT_PROMPT.md.
+    return sorted(_BANK_DIR.glob("G-*.md"))
 
 
 def test_bank_dir_exists():

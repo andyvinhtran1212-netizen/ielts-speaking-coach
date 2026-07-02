@@ -32,7 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from database import supabase_admin  # noqa: E402
 from services.quiz_import import import_quiz_file  # noqa: E402
 from scripts.validate_grammar_quiz_bank import check_file  # noqa: E402
-from scripts.qa_grammar_banks import CATEGORIES, is_bank_file  # noqa: E402
+from scripts.qa_grammar_banks import CATEGORIES  # noqa: E402
 
 DEFAULT_BANK_DIR = Path(__file__).resolve().parents[2] / "docs" / "grammar-quiz-banks"
 
@@ -65,9 +65,12 @@ def main() -> int:
     args = ap.parse_args()
 
     bank_dir = Path(args.dir)
+    # Mọi `G-*.md` = bank. KHÔNG lọc bằng is_bank_file (một bank META hỏng sẽ biến
+    # mất khỏi list → âm thầm bỏ qua). Để cổng QA (check_file) bắt và tính vào SKIP
+    # → exit ≠ 0. Convention `G-` đã loại _TEMPLATE.md / AGENT_PROMPT.md.
     files = sorted(
         Path(p) for p in glob.glob(str(bank_dir / "G-*.md"))
-        if is_bank_file(Path(p)) and (not args.only or args.only in Path(p).name)
+        if (not args.only or args.only in Path(p).name)
     )
     if not files:
         print("Không tìm thấy bank nào khớp.")
@@ -127,9 +130,14 @@ def main() -> int:
 
     print("\n" + "=" * 60)
     print(f"OK={n_ok}  SKIP(QA)={n_skip}  FAIL={n_fail}   [{mode}]")
+    if n_skip:
+        print(f"⚠ {n_skip} bank bị QA loại (không xử lý). Dùng validate_grammar_quiz_bank.py "
+              "để xem chi tiết, hoặc --allow-warnings nếu cố ý bỏ qua.")
     if not args.commit and n_ok:
         print("→ Chạy lại với --commit để ghi vào DB.")
-    return 0 if n_fail == 0 else 1
+    # Non-zero khi có bank FAIL hoặc bị QA SKIP: một batch nạp thiếu bank KHÔNG
+    # được coi là thành công (automation phải thấy tín hiệu lỗi).
+    return 0 if (n_fail == 0 and n_skip == 0) else 1
 
 
 if __name__ == "__main__":
