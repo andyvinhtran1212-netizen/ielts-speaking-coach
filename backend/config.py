@@ -38,10 +38,11 @@ class Settings(BaseSettings):
     # (Haiku → Sonnet) and the off-topic judge + grammar-check stay on Haiku.
     #   * "gemini-*"                  → routed to the Gemini provider
     #   * "claude-*" / "anthropic-*"  → routed to the Claude provider
-    # Default: Gemini 3 Flash — cheaper than Haiku ($0.50/$3.00 per 1M) with
-    # markedly stronger reasoning, so grading quality rises AND cost drops.
-    # Empty string → fall back to the legacy Haiku-first chain.
-    SPEAKING_GRADING_MODEL: str = "gemini-3-flash-preview"
+    # Default: Gemini 3.5 Flash (GA) — stronger reasoning than Haiku for IELTS
+    # calibration, ~$1.50/$9.00 per 1M. Chosen over the cheaper gemini-3-flash-
+    # preview for stability (GA, not a preview that Google may change/deprecate).
+    # Empty string → fall back to the legacy Haiku-first chain. Needs GEMINI_API_KEY.
+    SPEAKING_GRADING_MODEL: str = "gemini-3.5-flash"
 
     # Speech-to-text model (audit 2026-07-02, finding #5). Default whisper-1 —
     # the only OpenAI STT that returns verbose_json (per-segment avg_logprob +
