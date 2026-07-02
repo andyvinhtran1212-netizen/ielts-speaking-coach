@@ -1059,27 +1059,29 @@ def _validate_sample_relevance(transcript: str, sample: str, question: str = "")
     spoke / Whisper returned only stopwords), transcript-overlap is undefined;
     QUESTION overlap catches an off-topic sample while keeping an on-topic one.
 
-    Finding #6 (audit 2026-07-02): the old code used transcript overlap ALONE
-    whenever the transcript had content words, ignoring the question. That
-    false-dropped good samples that legitimately paraphrase the candidate's
-    ideas with different words (low transcript overlap) but are clearly on-topic
-    for the question. Taking the MAX of transcript- and question-topic overlap
-    keeps a sample that is grounded in EITHER — strictly reducing false drops
-    while still catching a sample that drifts from BOTH (low on both → below
-    threshold → regenerated). Bag-of-words is still crude, but max-of-two is
-    materially more robust than transcript-only at the same threshold."""
+    Finding #6 (audit 2026-07-02): transcript overlap ALONE false-dropped good
+    samples that paraphrase the candidate's ideas with different words. Question
+    overlap now BOOSTS such a sample — but only when it ALREADY touches the
+    transcript. When the transcript has content words, we REQUIRE some grounding
+    in what the learner actually said: a sample with ZERO transcript overlap must
+    not pass on question-topic words alone (that would let a generic on-topic
+    answer ignore the learner's ideas — the grounding guard's whole purpose).
+    So: transcript present → 0 grounding ⇒ 0 (regenerate); otherwise max(t, q)."""
     sample_words = _content_words(sample)
     trans_words  = _content_words(transcript)
     q_words      = _question_topic_words(question)
 
-    scores: list[float] = []
-    if trans_words:
-        scores.append(len(trans_words & sample_words) / len(trans_words))
-    if q_words:
-        scores.append(len(q_words & sample_words) / len(q_words))
-    if not scores:
-        return 1.0   # nothing to measure against → no evidence of drift, keep sample
-    return max(scores)
+    t_overlap = len(trans_words & sample_words) / len(trans_words) if trans_words else None
+    q_overlap = len(q_words & sample_words) / len(q_words) if q_words else None
+
+    if t_overlap is not None:
+        if t_overlap == 0.0:
+            return 0.0   # no grounding in the learner's own words → regenerate
+        return max(t_overlap, q_overlap) if q_overlap is not None else t_overlap
+    if q_overlap is not None:
+        # Transcript was only stopwords → question overlap is all we can measure.
+        return q_overlap
+    return 1.0           # nothing to measure against → no evidence of drift, keep
 
 
 def _filter_false_article_flags(grammar_issues: list[str], transcript: str) -> list[str]:

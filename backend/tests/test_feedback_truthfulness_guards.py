@@ -107,19 +107,29 @@ def test_question_topic_words_strips_bullets_and_fillers():
     assert "went" not in words       # bullet content (line 2+) dropped
 
 
-# ── Finding #6 — max(transcript, question-topic) overlap ────────────────────
+# ── Finding #6 — question overlap BOOSTS a grounded sample, never rescues ───
 
-def test_paraphrased_sample_kept_via_question_overlap():
-    """A good sample that paraphrases the candidate's ideas with DIFFERENT words
-    (low transcript overlap) but is clearly on-topic for the question must be
-    KEPT. Old transcript-only logic false-dropped it; max-of-two rescues it."""
+def test_grounded_paraphrase_boosted_by_question_overlap():
+    """A sample that DOES echo the learner's ideas (touches the transcript) and
+    is on-topic for the question is kept — question overlap boosts it so a
+    legitimate paraphrase isn't false-dropped by low verbatim transcript overlap."""
     transcript = "I like reading books because it relaxes me after work"
     question   = "What hobbies do you enjoy in your free time?"
-    # Sample talks about hobbies/free time (question topic) with little verbatim
-    # transcript overlap.
-    sample = "Enjoying hobbies during free time is a great way to unwind."
+    sample = "Reading books is a great hobby that helps me relax."  # touches "reading"/"books"
     score = _validate_sample_relevance(transcript, sample, question=question)
     assert score >= _RELEVANCE_THRESHOLD
+
+
+def test_zero_transcript_grounding_not_rescued_by_question():
+    """P2 fix: when the transcript has content words, a sample that repeats only
+    question-topic words (ZERO overlap with what the learner said) must NOT pass
+    on question overlap alone — it ignores the learner's ideas, so it's below
+    threshold → regenerated."""
+    transcript = "I like reading books because it relaxes me after work"
+    question   = "What hobbies do you enjoy in your free time?"
+    sample = "Enjoying hobbies during free time is a great way to unwind."  # no reading/books
+    score = _validate_sample_relevance(transcript, sample, question=question)
+    assert score < _RELEVANCE_THRESHOLD   # caught despite matching the question topic
 
 
 def test_sample_off_topic_to_both_still_caught():
@@ -131,15 +141,12 @@ def test_sample_off_topic_to_both_still_caught():
     assert score < _RELEVANCE_THRESHOLD
 
 
-def test_takes_max_not_transcript_only():
-    """Explicitly pin max-of-two: transcript overlap low, question overlap high
-    → result tracks the higher (question) score, not the lower transcript one."""
-    from services.claude_grader import _content_words, _question_topic_words
-    transcript = "I really love my old bicycle"
-    question   = "Describe a piece of technology you find useful."
-    sample     = "This technology is genuinely useful and I find it valuable."
-    score = _validate_sample_relevance(transcript, sample, question=question)
-    q_words = _question_topic_words(question)
-    s_words = _content_words(sample)
-    q_overlap = len(q_words & s_words) / len(q_words)
-    assert abs(score - q_overlap) < 1e-9   # returned the (higher) question overlap
+def test_stopword_transcript_still_uses_question_overlap():
+    """When the transcript is ONLY stopwords (no content words to ground on),
+    question overlap is the only signal — unchanged fallback behavior."""
+    on_topic  = _validate_sample_relevance("um, the, a", "I enjoy many hobbies daily.",
+                                           question="What hobbies do you enjoy?")
+    off_topic = _validate_sample_relevance("um, the, a", "Photosynthesis feeds plants.",
+                                           question="What hobbies do you enjoy?")
+    assert on_topic >= _RELEVANCE_THRESHOLD
+    assert off_topic < _RELEVANCE_THRESHOLD
