@@ -12,6 +12,8 @@ writes via service-role supabase_admin, so it must enforce user scoping in code)
 from __future__ import annotations
 
 import logging
+import traceback
+import uuid
 from datetime import datetime, timezone
 
 from fastapi import HTTPException
@@ -32,6 +34,84 @@ _MAX_ATTEMPTS_PER_CALL = 200   # batch guard
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _log_backend_error(*, message: str, user_id: str | None = None,
+                       url: str | None = None, extra: dict | None = None) -> None:
+    """Best-effort persist a backend error to `error_logs` (source=backend) so a
+    server-side 500 is DIAGNOSABLE later (uvicorn access logs show only the
+    status, not the exception). Call from inside an `except` block — it captures
+    the live traceback. NEVER raises: a logging failure must not mask the real
+    error or turn a handled 500 into a crash."""
+    try:
+        supabase_admin.table("error_logs").insert({
+            "level": "error",
+            "source": "backend",
+            "message": str(message)[:2000],
+            "stack": traceback.format_exc()[:10000],
+            "user_id": user_id,
+            "url": url,
+            "extra": extra or {},
+            "occurred_at": _now(),
+        }).execute()
+    except Exception:  # noqa: BLE001
+        logger.warning("[quiz] could not persist backend error to error_logs", exc_info=True)
+
+
+def quiz_write_health() -> dict:
+    """Probe that the ON CONFLICT upserts used by log_progress are actually usable
+    — i.e. PostgREST recognizes the unique constraints from migration 119. This
+    guards against the failure that silently broke progress-saving: after a manual
+    migration adds a unique index/constraint, PostgREST must reload its schema
+    cache (`NOTIFY pgrst, 'reload schema';`) or every `on_conflict` upsert 500s
+    with "no unique or exclusion constraint matching the ON CONFLICT specification"
+    while plain inserts keep working.
+
+    Non-destructive: probes with BOGUS foreign keys. Postgres validates the ON
+    CONFLICT target at PLAN time (before row execution):
+      - constraint MISSING  → error mentions ON CONFLICT / no unique  → unhealthy
+      - constraint PRESENT   → plan OK, then FK violation on the bogus row → healthy
+    The bogus row is never written (FK rejects it), so nothing to clean up."""
+    bogus = str(uuid.uuid4())
+
+    def _probe(table: str, on_conflict: str, row: dict) -> dict:
+        try:
+            supabase_admin.table(table).upsert(
+                [row], on_conflict=on_conflict, ignore_duplicates=True
+            ).execute()
+            # Unexpected: the bogus row was ACCEPTED (FK not enforced?). on_conflict
+            # resolved, but this is anomalous — flag unhealthy + clean up the sentinel.
+            try:
+                supabase_admin.table(table).delete().eq("item_key", "__healthcheck__").execute()
+            except Exception:  # noqa: BLE001
+                pass
+            return {"ok": False, "note": "unexpected: bogus row was written (FK not enforced?) — investigate"}
+        except Exception as exc:  # noqa: BLE001
+            msg = str(exc).lower()
+            # HEALTHY *only* on the EXPECTED foreign-key violation: it proves PostgREST
+            # reached the DB, recognized the ON CONFLICT constraint (planned OK), and
+            # only the bogus FK stopped the write. ANY other error — missing constraint
+            # (42P10), expired/invalid service key, missing table/column, PostgREST 5xx,
+            # network — means the real progress upsert cannot persist → UNHEALTHY.
+            if "foreign key" in msg or "23503" in msg:
+                return {"ok": True, "note": "on_conflict resolved (bogus row rejected by FK, as expected)"}
+            missing = ("on conflict" in msg or "no unique" in msg
+                       or "exclusion constraint" in msg or "42p10" in msg)
+            note = ("ON CONFLICT constraint MISSING — run NOTIFY pgrst, 'reload schema'"
+                    if missing else "write path unhealthy (auth / missing table-column / PostgREST / network?)")
+            return {"ok": False, "note": note, "err": str(exc)[:200]}
+
+    checks = {
+        "quiz_attempts.client_id": _probe(
+            "quiz_attempts", "client_id",
+            {"client_id": str(uuid.uuid4()), "item_key": "__healthcheck__",
+             "is_correct": True, "user_id": bogus, "session_id": bogus, "bank_id": bogus}),
+        "quiz_word_stats.user_bank_item": _probe(
+            "quiz_word_stats", "user_id,bank_id,item_key",
+            {"user_id": bogus, "bank_id": bogus, "item_key": "__healthcheck__",
+             "status": "testing"}),
+    }
+    return {"ok": all(c["ok"] for c in checks.values()), "checks": checks}
 
 
 # ── Read: list + serve banks ─────────────────────────────────────────
@@ -227,6 +307,10 @@ def log_progress(*, user_id: str, session_id: str, attempts: list[dict], word_st
                 attempt_rows, on_conflict="client_id", ignore_duplicates=True
             ).execute()
         except Exception as exc:  # noqa: BLE001
+            _log_backend_error(
+                message=f"quiz progress: attempts upsert failed: {exc}",
+                user_id=user_id, url=f"/api/quiz/sessions/{session_id}/progress",
+                extra={"stage": "attempts", "n_attempts": len(attempt_rows)})
             raise HTTPException(500, f"Lỗi ghi attempts: {exc}")
 
     stat_rows = []
@@ -258,6 +342,10 @@ def log_progress(*, user_id: str, session_id: str, attempts: list[dict], word_st
                 stat_rows, on_conflict="user_id,bank_id,item_key"
             ).execute()
         except Exception as exc:  # noqa: BLE001
+            _log_backend_error(
+                message=f"quiz progress: word_stats upsert failed: {exc}",
+                user_id=user_id, url=f"/api/quiz/sessions/{session_id}/progress",
+                extra={"stage": "word_stats", "n_word_stats": len(stat_rows)})
             raise HTTPException(500, f"Lỗi ghi word_stats: {exc}")
 
     return {"ok": True, "attempts": len(attempt_rows), "word_stats": len(stat_rows)}

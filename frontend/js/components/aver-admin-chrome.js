@@ -410,6 +410,7 @@ const NAV_GROUPS = [
           { slug: 'topics',        label: 'Chủ đề (Topics)',  href: '/pages/admin/vocab/topics.html' },
           { slug: 'content',       label: 'Nội dung từ vựng', href: '/pages/admin/vocab/content.html' },
           { slug: 'quiz',          label: 'Quick-Check Quiz', href: '/pages/admin/vocab/quiz.html' },
+          { slug: 'quiz-analytics', label: 'Quiz — Học viên',  href: '/pages/admin/vocab/quiz-analytics.html' },
           { slug: 'stats',         label: 'Stats',           href: '/pages/admin/vocab/stats.html' },
           { slug: 'd1-curation',   label: 'D1 Curation',     href: '/pages/admin/vocab/d1-curation.html' },
           { slug: 'lemmas',        label: 'Lemma Overrides', href: '/pages/admin/vocab/lemmas.html' },
