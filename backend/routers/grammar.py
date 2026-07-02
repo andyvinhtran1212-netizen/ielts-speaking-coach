@@ -405,3 +405,44 @@ async def get_dashboard_data(
         "recently_viewed":         recently_viewed,
         "saved_articles":          saved_articles_list,
     }
+
+
+# ── Grammar exercises (public availability lookup) ───────────────────────────
+# The Grammar Wiki is public; playing a quiz requires auth (routers/quiz.py).
+# These endpoints only expose EXISTENCE + id/title of a published grammar bank so
+# the public article page can show a "Kiểm tra nhanh" button. No answers here.
+
+def _published_grammar_banks() -> list[dict]:
+    try:
+        return (
+            supabase_admin.table("quiz_banks")
+            .select("id, code, title, words_count, topic_id")
+            .eq("skill_area", "grammar").eq("is_published", True)
+            .order("code").execute()
+        ).data or []
+    except Exception:  # noqa: BLE001 — availability is best-effort, never 500 the page
+        return []
+
+
+@router.get("/exercises")
+async def list_exercises() -> dict:
+    """All published grammar quiz banks (id/code/title/count). Public, uncached
+    (bank state is dynamic). Category is derivable from the code G-<category>-<slug>."""
+    return {"banks": _published_grammar_banks()}
+
+
+@router.get("/article/{category}/{slug}/exercise")
+async def get_article_exercise(category: str, slug: str) -> dict:
+    """Is there a published check-up bank for this article? Returns the bank id so
+    the article page can link to /pages/quiz.html?bank=<id>. Public, uncached."""
+    code = f"G-{category}-{slug}"
+    match = next((b for b in _published_grammar_banks() if b.get("code") == code), None)
+    if not match:
+        return {"available": False, "code": code}
+    return {
+        "available": True,
+        "bank_id": match["id"],
+        "code": code,
+        "title": match.get("title"),
+        "questions": match.get("words_count"),
+    }

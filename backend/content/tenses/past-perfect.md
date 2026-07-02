@@ -49,8 +49,31 @@ pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
 - band-6-to-7
+anchors:
+  - id: past-perfect.overview
+    location: '## Tóm tắt'
+    type: overview
+  - id: past-perfect.structure.had-pp
+    location: '### Cấu trúc'
+    type: structure
+  - id: past-perfect.usage.main
+    location: '### 4 cách dùng chính'
+    type: section
+  - id: past-perfect.with-time-markers
+    location: '### Dấu hiệu nhận biết'
+    type: concept
+  - id: past-perfect.compare-with.past-simple
+    location: '## So sánh Past Perfect vs Past Simple'
+    type: compare-with
+  - id: past-perfect.compare-with.present-perfect
+    location: '## So sánh Past Perfect vs Present Perfect'
+    type: compare-with
+  - id: past-perfect.common-mistake.past-simple-where-pp-needed
+    location: '### Lỗi 1: Dùng Past Simple thay Past Perfect khi cần làm rõ trình tự'
+    type: pitfall
 ---
 
+<!-- anchor: past-perfect.overview -->
 ## Tóm tắt
 
 Past Perfect diễn tả hành động **đã hoàn thành trước** một thời điểm hoặc hành động khác trong quá khứ.
@@ -73,6 +96,7 @@ Past Perfect là dấu hiệu văn phong tinh tế trong IELTS:
 
 ## Cấu trúc và cách dùng
 
+<!-- anchor: past-perfect.structure.had-pp -->
 ### Cấu trúc
 
 ```
@@ -81,6 +105,7 @@ Subject + had + past participle (V3)
 
 **Chú ý:** Tất cả các ngôi đều dùng **had** (không đổi).
 
+<!-- anchor: past-perfect.usage.main -->
 ### 4 cách dùng chính
 
 **1. Hành động xảy ra trước một thời điểm/hành động trong quá khứ**
@@ -120,6 +145,7 @@ If + Past Perfect, would have + V3
 - **If** I **had studied** harder, I **would have passed**.
 - **If** she **hadn't missed** the bus, she **would have been** on time.
 
+<!-- anchor: past-perfect.with-time-markers -->
 ### Dấu hiệu nhận biết
 
 | Từ/Cụm từ | Ví dụ |
@@ -132,6 +158,7 @@ If + Past Perfect, would have + V3
 | when (kết hợp với PS) | When I arrived, she had... |
 | just | He had just left when... |
 
+<!-- anchor: past-perfect.compare-with.past-simple -->
 ## So sánh Past Perfect vs Past Simple
 
 | | Past Perfect | Past Simple |
@@ -147,6 +174,7 @@ If + Past Perfect, would have + V3
 - I **ate** dinner and watched a film. (Hai việc nối tiếp, kể theo thứ tự)
 - After I **had eaten** dinner, I watched a film. (Nhấn mạnh bữa tối xong trước)
 
+<!-- anchor: past-perfect.compare-with.present-perfect -->
 ## So sánh Past Perfect vs Present Perfect
 
 | | Past Perfect | Present Perfect |
@@ -156,6 +184,7 @@ If + Past Perfect, would have + V3
 
 ## Lỗi thường gặp
 
+<!-- anchor: past-perfect.common-mistake.past-simple-where-pp-needed -->
 ### Lỗi 1: Dùng Past Simple thay Past Perfect khi cần làm rõ trình tự
 
 - ❌ When I arrived, she already left.

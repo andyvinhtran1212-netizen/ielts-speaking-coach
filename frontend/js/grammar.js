@@ -751,11 +751,31 @@
       // ── Guest CTA ────────────────────────────────────────────
       _initGuestCTA(article.title);
 
+      // ── Check-up CTA (only if a published bank exists) ───────
+      _initExerciseCTA(category, slug);
+
     } catch (err) {
       _hide('article-skeleton');
       _showError('article-container', 'Không tải được bài: ' + err.message);
       _show('article-container');
     }
+  }
+
+  // Show "Kiểm tra nhanh" when a published grammar quiz bank exists for this
+  // article. Fire-and-forget: any failure just leaves the CTA hidden.
+  async function _initExerciseCTA(category, slug) {
+    try {
+      var info = await fetchGrammarAPI('/article/' + category + '/' + slug + '/exercise');
+      if (!info || !info.available || !info.bank_id) return;
+      var link = document.getElementById('exercise-cta-link');
+      var sub  = document.getElementById('exercise-cta-sub');
+      if (!link) return;
+      link.setAttribute('href', '/pages/quiz.html?bank=' + encodeURIComponent(info.bank_id));
+      if (sub && info.questions) {
+        sub.textContent = 'Làm ' + info.questions + ' điểm ngữ pháp để kiểm tra kiến thức bài này.';
+      }
+      _show('exercise-cta');
+    } catch (_) { /* no bank / offline → keep hidden */ }
   }
 
   // ── Next articles (pathway suggestions) ──────────────────────────────────
