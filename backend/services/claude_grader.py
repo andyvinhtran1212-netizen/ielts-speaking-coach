@@ -31,6 +31,7 @@ from config import settings
 from services import ai_usage_logger
 from services.grammar_content import grammar_service
 from services.grading_orchestrator import (
+    GRADING_PROVIDER_ORDER,
     GradingOrchestrator,
     build_default as _build_default_orchestrator,
 )
@@ -104,39 +105,20 @@ IELTS SPEAKING — 4 ASSESSMENT CRITERIA
    - Band 2: cannot produce basic sentence forms
    - Band 1: no rateable language
 
-4. PRONUNCIATION (P)
-   Assess pronunciation holistically as a speaking examiner would. Focus on
-   intelligibility, rhythm, stress, and fluency markers visible in how the candidate
-   expresses themselves. Consider length and complexity of speech attempted.
-   IMPORTANT: Write p_feedback as a warm, encouraging teacher — NOT as a technical
-   report. NEVER mention words/sec, transcript analysis, or text-based inference.
-   NEVER say you cannot hear the audio. Write as if you listened to the speaker.
-   Default band: 5 for a typical response; raise or lower based on evidence.
-   - Band 9: intelligible throughout; uses features of connected speech naturally
-   - Band 8: easy to understand; uses range of phonological features effectively
-   - Band 7: generally easy to understand; some strain; L1 accent evident
-   - Band 6: generally intelligible; L1 accent requires some effort from listener
-   - Band 5: pronunciation generally intelligible; frequent L1 features
-   - Band 4: limited control; difficult to understand at times
-   - Band 3: shows some features of Bands 2 and 4; often hard to follow
-   - Band 2: speech is often unintelligible
-   - Band 1: no rateable language
+PRONUNCIATION (P) — NOT SCORED HERE.
+   You are working from a TEXT TRANSCRIPT and cannot hear the audio, so you do
+   NOT assess pronunciation. The P band is measured separately from the real
+   audio by a dedicated speech-analysis service (Azure) and merged in after
+   grading. Do NOT output band_p or p_feedback, and do NOT claim to have heard
+   the speaker. Score only FLUENCY & COHERENCE, LEXICAL RESOURCE, and
+   GRAMMATICAL RANGE & ACCURACY below.
 
 ═══════════════════════════════════════════════════
-VIETNAMESE-LEARNER PRONUNCIATION + GRAMMAR PATTERNS
+VIETNAMESE-LEARNER GRAMMAR PATTERNS
 ═══════════════════════════════════════════════════
 When transcript evidence allows, surface these high-frequency L1-Vietnamese
-issues in the relevant criterion's feedback (don't invent — only flag when
-visible in the transcript or strongly implied by spelling/word choice):
-
-PRONUNCIATION (text-only inference — these often surface as transcription
-artifacts such as Whisper mis-spellings of final consonants):
-- Dropped final consonants ("wha" for "what", "lai" for "like", "lis" for "list")
-- /θ/ → /t/ or /s/ ("tink" for "think", "sree" for "three")
-- /ð/ → /d/ or /z/ ("dis" for "this")
-- /ʃ/, /ʒ/, /tʃ/, /dʒ/ confusion ("sip" for "ship", "wash" for "watch")
-- Tone neutralisation (less visible from transcript; flag only when stress
-  pattern is implied by punctuation/repetition)
+grammar issues in gra_feedback (don't invent — only flag when visible in the
+transcript or strongly implied by spelling/word choice):
 
 GRAMMAR (visible directly in the transcript):
 - Missing third-person -s ("she go", "he have")
@@ -154,11 +136,12 @@ damage learner trust.
 ═══════════════════════════════════════════════════
 BAND SCALE
 ═══════════════════════════════════════════════════
-Individual criterion bands (FC, LR, GRA, P) are WHOLE INTEGERS ONLY: 1 2 3 4 5 6 7 8 9
+Individual criterion bands (FC, LR, GRA) are WHOLE INTEGERS ONLY: 1 2 3 4 5 6 7 8 9
 Do NOT use half-bands for individual criteria (no 5.5, no 6.5, etc.).
 
-Overall band = mean of FC + LR + GRA + P, rounded to nearest 0.5.
-Overall band MAY be a half-band (e.g. 5.5, 6.5).
+Overall band = mean of FC + LR + GRA, rounded to nearest 0.5. (Pronunciation is
+measured separately from the audio and folded into the final band afterwards —
+you do not include it.) Overall band MAY be a half-band (e.g. 5.5, 6.5).
 
 ═══════════════════════════════════════════════════
 STRICT CALIBRATION RULES
@@ -202,7 +185,7 @@ FEEDBACK SPECIFICITY (Sprint 14.5):
 - Every weakness MUST cite a specific phrase or pattern from the transcript
   (e.g. "trong cụm 'he go to school' thiếu -s ở 'goes'"). Generic
   observations ("vocabulary could be wider") are not allowed.
-- fc_feedback, lr_feedback, gra_feedback, p_feedback each ≤ 80 words
+- fc_feedback, lr_feedback, gra_feedback each ≤ 80 words
   Vietnamese — say one specific thing well, not three things vaguely.
 
 ═══════════════════════════════════════════════════
@@ -211,8 +194,8 @@ GRADING APPROACH
 1. Read the question and the candidate's transcript carefully.
 2. Check STRICT CALIBRATION RULES first — apply any mandatory caps before scoring.
 3. Identify positive features and weaknesses for EACH criterion.
-4. Assign a whole integer band for each criterion independently (integers only: 1–9).
-5. Compute overall_band = round((FC + LR + GRA + P) / 4, nearest 0.5). This may be a half-band.
+4. Assign a whole integer band for FC, LR, and GRA independently (integers only: 1–9). Do NOT score pronunciation.
+5. Compute overall_band = round((FC + LR + GRA) / 3, nearest 0.5). This may be a half-band.
 6. Write specific, actionable feedback (2-4 sentences each criterion).
 7. List 2-3 genuine strengths and 2-3 concrete improvements.
 8. Write an improved_response that preserves the candidate's key ideas and stance,
@@ -234,24 +217,24 @@ STRICT OUTPUT RULES — violations cause grading failure:
 - Use double quotes only. Never use single quotes.
 
 IMPORTANT LANGUAGE RULES:
-- fc_feedback, lr_feedback, gra_feedback, p_feedback: write in VIETNAMESE (tiếng Việt)
+- fc_feedback, lr_feedback, gra_feedback: write in VIETNAMESE (tiếng Việt)
 - strengths, improvements: write each item in VIETNAMESE (tiếng Việt)
 - improved_response: write in ENGLISH only (this is a model answer for the learner to read)
+
+Do NOT include band_p or p_feedback — pronunciation is scored separately from the audio.
 
 {
   "band_fc":   6,
   "band_lr":   6,
   "band_gra":  7,
-  "band_p":    6,
   "overall_band": 6.5,
   "fc_feedback":  "Bài nói của bạn khá trôi chảy với sự sử dụng tốt các từ nối...",
   "lr_feedback":  "Vốn từ vựng khá đa dạng. Hãy cân nhắc sử dụng thêm...",
   "gra_feedback": "Ngữ pháp phần lớn chính xác với một số lỗi nhỏ trong...",
-  "p_feedback":   "Nhìn chung bạn nói khá rõ ràng và dễ nghe. Hãy chú ý luyện thêm trọng âm từ và nối âm tự nhiên giữa các từ để câu nói nghe mượt mà hơn.",
   "strengths":    ["Sử dụng tốt các từ liên kết", "Phát triển chủ đề tự nhiên"],
   "improvements": ["Sử dụng từ vựng phức tạp hơn", "Đa dạng hóa cấu trúc câu"],
   "improved_response": "Here is an example of a Band 7+ response.\\nSecond sentence here.",
-  "rubric_version": "v2"
+  "rubric_version": "v3"
 }
 """
 
@@ -364,7 +347,7 @@ STRICT OUTPUT RULES — violations cause grading failure:
   "strengths":   ["Điểm mạnh 1", "Điểm mạnh 2"],
   "sample_answer": "A complete Band 7 spoken answer here.\\nSecond sentence here.",
   "overall_band": 5.5,
-  "rubric_version": "v2"
+  "rubric_version": "v3"
 }
 """
 
@@ -379,24 +362,25 @@ _REQUIRED_FIELDS_PRACTICE: dict[str, type] = {
     "overall_band":         (int, float),
 }
 
-# Required keys and their expected Python types for validation
+# Required keys and their expected Python types for validation.
+# Audit 2026-07-02 — band_p / p_feedback are NO LONGER produced by the grader:
+# pronunciation is measured from the real audio by Azure and merged in by
+# routers/grading.py. The grader scores FC / LR / GRA only.
 _REQUIRED_FIELDS: dict[str, type] = {
     "band_fc":           (int, float),
     "band_lr":           (int, float),
     "band_gra":          (int, float),
-    "band_p":            (int, float),
     "overall_band":      (int, float),
     "fc_feedback":       str,
     "lr_feedback":       str,
     "gra_feedback":      str,
-    "p_feedback":        str,
     "strengths":         list,
     "improvements":      list,
     "improved_response": str,
 }
 
-_CRITERION_FIELDS = ("band_fc", "band_lr", "band_gra", "band_p")   # must be integers
-_OVERALL_FIELDS   = ("overall_band",)                               # 0.5 increments OK
+_CRITERION_FIELDS = ("band_fc", "band_lr", "band_gra")   # must be integers (P is audio-measured)
+_OVERALL_FIELDS   = ("overall_band",)                     # 0.5 increments OK
 
 # ── Lazy client ────────────────────────────────────────────────────────────────
 
@@ -464,9 +448,10 @@ async def grade_response(
     Returns:
         Practice mode dict:
             grammar_issues, vocabulary_issues, corrections, strengths, sample_answer, overall_band
-        Test mode dict:
-            band_fc, band_lr, band_gra, band_p, overall_band,
-            fc_feedback, lr_feedback, gra_feedback, p_feedback,
+        Test mode dict (band_p / p_feedback are NOT produced here — pronunciation
+        is measured from the audio by Azure and merged in by routers/grading.py):
+            band_fc, band_lr, band_gra, overall_band,
+            fc_feedback, lr_feedback, gra_feedback,
             strengths, improvements, improved_response
 
     Raises:
@@ -484,10 +469,21 @@ async def grade_response(
         word_count=word_count,
         length_context=length_context,
     )
-    # Sprint 14.3 — `client` kept for legacy post-processing helpers
-    # (_post_process_test_result still uses it directly). The grading
-    # LLM call itself now goes through the orchestrator.
-    client       = _get_client()
+    # Sprint 14.3 — `client` kept for the OPTIONAL sample/improved-answer
+    # regeneration in post-processing (Claude Haiku). The grading LLM call
+    # itself goes through the orchestrator (SPEAKING_GRADING_MODEL). Audit
+    # 2026-07-02: make this lazy/optional so a Gemini-only deployment (no
+    # ANTHROPIC_API_KEY) can still grade — _get_client() would otherwise raise
+    # here before the orchestrator is ever reached. When None, regeneration is
+    # skipped and a drifting sample is dropped with a status (graceful).
+    try:
+        client = _get_client()
+    except RuntimeError as exc:
+        logger.info(
+            "Anthropic client unavailable (%s) — sample regeneration disabled; "
+            "grading routes to SPEAKING_GRADING_MODEL via the orchestrator", exc,
+        )
+        client = None
     orchestrator = _get_orchestrator()
 
     # ── Attempt 1 ─────────────────────────────────────────────────────────────
@@ -782,6 +778,7 @@ async def _invoke_orchestrator(
             user_message,
             user_id=user_id,
             session_id=session_id,
+            order=GRADING_PROVIDER_ORDER,
         )
     except AllProvidersFailedError as exc:
         if sink is not None:
@@ -895,8 +892,10 @@ def _parse_and_validate(raw: str) -> tuple[dict | None, str | None]:
         data[key] = snapped
 
     # ── Cross-check overall_band against criterion mean ────────────────────────
+    # FC/LR/GRA only — pronunciation is measured from audio (Azure) and folded
+    # into the final band later by routers/grading.py.
     computed = _round_band(
-        (data["band_fc"] + data["band_lr"] + data["band_gra"] + data["band_p"]) / 4
+        (data["band_fc"] + data["band_lr"] + data["band_gra"]) / 3
     )
     if abs(computed - data["overall_band"]) > 0.26:
         logger.debug(
@@ -1053,24 +1052,36 @@ def _question_topic_words(question: str) -> set[str]:
 
 
 def _validate_sample_relevance(transcript: str, sample: str, question: str = "") -> float:
-    """Overlap ratio of the transcript's content words present in the sample
-    answer (how grounded the sample is in what the user actually said).
+    """How grounded the sample answer is in the candidate's response AND/OR the
+    question topic — the MAX of the two content-word overlap ratios.
 
     Mục 19 (B3): when the transcript has NO content words (e.g. the user barely
-    spoke / Whisper returned only stopwords), transcript-overlap is undefined.
-    The old code returned 1.0 ("assume relevant"), which blindly KEEPS a sample
-    even if it drifted off-topic. Fall back to QUESTION overlap instead so an
-    off-topic sample is still caught, while an on-topic sample (relevant to the
-    question being answered) is correctly kept — strictly better than assuming
-    either fully-relevant (1.0) or fully-irrelevant (0.0)."""
+    spoke / Whisper returned only stopwords), transcript-overlap is undefined;
+    QUESTION overlap catches an off-topic sample while keeping an on-topic one.
+
+    Finding #6 (audit 2026-07-02): transcript overlap ALONE false-dropped good
+    samples that paraphrase the candidate's ideas with different words. Question
+    overlap now BOOSTS such a sample — but only when it ALREADY touches the
+    transcript. When the transcript has content words, we REQUIRE some grounding
+    in what the learner actually said: a sample with ZERO transcript overlap must
+    not pass on question-topic words alone (that would let a generic on-topic
+    answer ignore the learner's ideas — the grounding guard's whole purpose).
+    So: transcript present → 0 grounding ⇒ 0 (regenerate); otherwise max(t, q)."""
     sample_words = _content_words(sample)
-    trans_words = _content_words(transcript)
-    if trans_words:
-        return len(trans_words & sample_words) / len(trans_words)
-    q_words = _question_topic_words(question)
-    if q_words:
-        return len(q_words & sample_words) / len(q_words)
-    return 1.0   # nothing to measure against → no evidence of drift, keep sample
+    trans_words  = _content_words(transcript)
+    q_words      = _question_topic_words(question)
+
+    t_overlap = len(trans_words & sample_words) / len(trans_words) if trans_words else None
+    q_overlap = len(q_words & sample_words) / len(q_words) if q_words else None
+
+    if t_overlap is not None:
+        if t_overlap == 0.0:
+            return 0.0   # no grounding in the learner's own words → regenerate
+        return max(t_overlap, q_overlap) if q_overlap is not None else t_overlap
+    if q_overlap is not None:
+        # Transcript was only stopwords → question overlap is all we can measure.
+        return q_overlap
+    return 1.0           # nothing to measure against → no evidence of drift, keep
 
 
 def _filter_false_article_flags(grammar_issues: list[str], transcript: str) -> list[str]:
@@ -1218,7 +1229,13 @@ async def _regen_grounded_answer(
     Regenerate a sample answer that stays grounded in the candidate's own response.
     Called when the initial sample_answer or improved_response drifts too far from
     the transcript (overlap ratio below _RELEVANCE_THRESHOLD).
+
+    ``client`` is None on a Gemini-only deployment (no ANTHROPIC_API_KEY) — in
+    that case regeneration is skipped and the caller drops the drifting sample
+    with a status, exactly as it does on any regen failure.
     """
+    if client is None:
+        return None
     prompt = (
         f"Question: {question}\n\n"
         f"Candidate's response: {transcript}\n\n"

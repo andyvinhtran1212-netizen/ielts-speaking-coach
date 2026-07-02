@@ -31,6 +31,29 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
 
+    # Speaking grader primary model (audit 2026-07-02).
+    # The Speaking grader used to be hardcoded to Claude Haiku 4.5 — the weakest
+    # tier — while the Writing grader already uses Gemini Pro. This knob lets ops
+    # point the *grader* at any model without a code change; the fallback chain
+    # (Haiku → Sonnet) and the off-topic judge + grammar-check stay on Haiku.
+    #   * "gemini-*"                  → routed to the Gemini provider
+    #   * "claude-*" / "anthropic-*"  → routed to the Claude provider
+    # Default: Gemini 3.5 Flash (GA) — stronger reasoning than Haiku for IELTS
+    # calibration, ~$1.50/$9.00 per 1M. Chosen over the cheaper gemini-3-flash-
+    # preview for stability (GA, not a preview that Google may change/deprecate).
+    # Empty string → fall back to the legacy Haiku-first chain. Needs GEMINI_API_KEY.
+    SPEAKING_GRADING_MODEL: str = "gemini-3.5-flash"
+
+    # Speech-to-text model (audit 2026-07-02, finding #5). Default whisper-1 —
+    # the only OpenAI STT that returns verbose_json (per-segment avg_logprob +
+    # duration), which the transcript-reliability classifier and duration guards
+    # depend on. Configurable so ops can trial a newer model (e.g.
+    # gpt-4o-transcribe) for accented-English accuracy; whisper.py detects a
+    # non-"whisper*" model, requests plain json, and probes duration with ffprobe
+    # so the pipeline degrades gracefully (reliability → neutral when no
+    # segments). Keep whisper-1 unless a newer model is verified end-to-end.
+    WHISPER_STT_MODEL: str = "whisper-1"
+
     # Google Cloud TTS
     GOOGLE_APPLICATION_CREDENTIALS: str = ""
 

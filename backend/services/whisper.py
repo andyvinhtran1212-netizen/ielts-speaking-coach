@@ -32,6 +32,7 @@ import io
 import logging
 import math
 import os
+import subprocess
 import tempfile
 import uuid
 
@@ -41,6 +42,48 @@ from openai import AsyncOpenAI
 from config import settings
 
 logger = logging.getLogger(__name__)
+
+
+def _stt_model() -> str:
+    """The configured STT model (audit 2026-07-02, finding #5). Default whisper-1."""
+    return (getattr(settings, "WHISPER_STT_MODEL", "") or "whisper-1").strip()
+
+
+def _response_format_for(model: str) -> str:
+    """whisper-* returns verbose_json (segments + duration + avg_logprob), which
+    the reliability classifier + duration guards need. Newer models
+    (gpt-4o-transcribe, gpt-4o-mini-transcribe) don't support verbose_json — use
+    plain json and recover duration via ffprobe (see _probe_duration_seconds)."""
+    return "verbose_json" if model.lower().startswith("whisper") else "json"
+
+
+def _probe_duration_seconds(*, audio_bytes: bytes | None = None, path: str | None = None) -> float:
+    """Best-effort audio duration via ffprobe (bytes over stdin, or a file path).
+
+    Used as a fallback when the STT response carries no `duration` (i.e. a
+    non-verbose_json model). Returns 0.0 if ffprobe is unavailable or fails —
+    the caller then treats duration as unknown, exactly as before.
+    """
+    cmd = [
+        "ffprobe", "-v", "error",
+        "-show_entries", "format=duration",
+        "-of", "default=noprint_wrappers=1:nokey=1",
+    ]
+    try:
+        if path is not None:
+            proc = subprocess.run(cmd + [path], capture_output=True, timeout=20)
+        else:
+            proc = subprocess.run(cmd + ["pipe:0"], input=audio_bytes, capture_output=True, timeout=20)
+        if proc.returncode == 0:
+            out = proc.stdout.decode(errors="replace").strip()
+            return round(float(out), 2) if out else 0.0
+        logger.warning("[whisper] ffprobe returned %d: %s", proc.returncode,
+                       proc.stderr.decode(errors="replace")[:200])
+    except FileNotFoundError:
+        logger.warning("[whisper] ffprobe not found — duration unavailable for non-verbose STT")
+    except Exception as exc:
+        logger.warning("[whisper] ffprobe duration probe failed: %s", exc)
+    return 0.0
 
 # Lazy client — instantiated on first call so import never raises even if key is missing.
 _client: AsyncOpenAI | None = None
@@ -102,11 +145,12 @@ async def transcribe_audio(audio_file_path: str) -> dict:
 
     logger.info("Whisper: bắt đầu transcribe %s", audio_file_path)
 
+    model = _stt_model()
     with open(audio_file_path, "rb") as f:
         response = await client.audio.transcriptions.create(
-            model="whisper-1",
+            model=model,
             file=f,
-            response_format="verbose_json",   # trả thêm metadata: segments, duration, language
+            response_format=_response_format_for(model),  # verbose_json (whisper) → segments+duration
             language="en",                    # chỉ định tiếng Anh để tăng độ chính xác IELTS
             prompt=_VERBATIM_PROMPT,          # bias toward preserving fillers/disfluencies
         )
@@ -114,8 +158,10 @@ async def transcribe_audio(audio_file_path: str) -> dict:
     # ── Extract transcript ─────────────────────────────────────────────────────
     transcript = response.text.strip() if response.text else ""
 
-    # ── Extract duration ───────────────────────────────────────────────────────
+    # ── Extract duration (ffprobe fallback for non-verbose_json models) ─────────
     duration_seconds: float = getattr(response, "duration", 0.0) or 0.0
+    if duration_seconds <= 0:
+        duration_seconds = _probe_duration_seconds(path=audio_file_path)
 
     # ── Extract language ───────────────────────────────────────────────────────
     language: str = getattr(response, "language", "en") or "en"
@@ -133,7 +179,7 @@ async def transcribe_audio(audio_file_path: str) -> dict:
         "duration_seconds":  round(duration_seconds, 2),
         "language":          language,
         "confidence":        round(confidence, 4),
-        "transcript_model":  "whisper-1",
+        "transcript_model":  model,
         "segments":          segments,
     }
 
@@ -175,16 +221,21 @@ async def transcribe_from_bytes(audio_bytes: bytes, filename: str = "audio.webm"
 
     buffer = io.BytesIO(audio_bytes)
 
+    model = _stt_model()
     response = await client.audio.transcriptions.create(
-        model="whisper-1",
+        model=model,
         file=(filename, buffer),        # tuple form: (name, file-like) — SDK uses name for Content-Disposition
-        response_format="verbose_json",
+        response_format=_response_format_for(model),
         language="en",
         prompt=_VERBATIM_PROMPT,        # bias toward preserving fillers/disfluencies
     )
 
     transcript = response.text.strip() if response.text else ""
     duration_seconds: float = getattr(response, "duration", 0.0) or 0.0
+    if duration_seconds <= 0:
+        # Non-verbose_json models don't return duration — recover it from the
+        # audio bytes so the FC signal + duration guards still work.
+        duration_seconds = _probe_duration_seconds(audio_bytes=audio_bytes)
     language: str = getattr(response, "language", "en") or "en"
     raw_segments = getattr(response, "segments", None)
     confidence: float = _estimate_confidence(raw_segments)
@@ -195,7 +246,7 @@ async def transcribe_from_bytes(audio_bytes: bytes, filename: str = "audio.webm"
         "duration_seconds":  round(duration_seconds, 2),
         "language":          language,
         "confidence":        round(confidence, 4),
-        "transcript_model":  "whisper-1",
+        "transcript_model":  model,
         "segments":          segments,
     }
 
