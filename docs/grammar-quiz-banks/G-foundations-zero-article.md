@@ -221,7 +221,7 @@ headword: "za-languages-subjects"
 skill: "contrast"
 subtype: "advanced"
 prompt: "In an IELTS Speaking Part 1 answer about studies, which version is grammatically correct?"
-options: ["I'm currently studying the environmental science at a technical college.", "I'm currently studying environmental science at a technical college.", "I'm currently studying an environmental science at a technical college.", "I'm currently studying environmental science at the technical college near my house is correct too without the."]
+options: ["I'm currently studying the environmental science at a technical college.", "I'm currently studying environmental science at a technical college.", "I'm currently studying an environmental science at a technical college.", "I'm currently studying environmental sciences at a technical college."]
 answer: 1
 grammar_article_slug: "zero-article"
 explain: "Môn học (environmental science) nói chung không dùng mạo từ → zero article: 'studying environmental science'."

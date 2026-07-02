@@ -24,11 +24,11 @@ input: "choice"
 headword: "ttt-singular-plural-basic"
 skill: "form"
 subtype: "basic"
-prompt: "____ shoes on the floor are mine — can you pass me one?"
+prompt: "____ shoes on the floor right next to me are mine."
 options: ["This", "That", "These", "Those"]
 answer: 2
 grammar_article_slug: "this-that-these-those-in-use"
-explain: "'shoes' là danh từ số nhiều và đang ở gần người nói (on the floor, ngay đây) → dùng 'these'."
+explain: "'shoes' là danh từ số nhiều và đang ở gần người nói (right next to me) → dùng 'these'."
 ---
 
 ---
@@ -96,7 +96,7 @@ headword: "ttt-discourse-reference"
 skill: "form"
 subtype: "basic"
 prompt: "House prices in the city have doubled in five years. ____ increase has made buying a home almost impossible for young families."
-options: ["This", "These", "That one", "Those"]
+options: ["This", "These", "That", "Those"]
 answer: 0
 grammar_article_slug: "this-that-these-those-in-use"
 explain: "'This + danh từ tóm tắt (increase)' chỉ lại ý vừa nêu ở câu trước một cách rõ ràng — kỹ thuật cohesion cơ bản."

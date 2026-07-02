@@ -192,11 +192,11 @@ input: "choice"
 headword: "apn-single-mountains-lakes"
 skill: "usage"
 subtype: "intermediate"
-prompt: "Every winter, thousands of climbers attempt to reach the summit of ____ Fuji."
+prompt: "Every winter, thousands of climbers attempt to reach the summit of ____ Mount Fuji."
 options: ["a", "an", "the", "ø (no article)"]
 answer: 3
 grammar_article_slug: "articles-with-places-and-names"
-explain: "Núi đơn (Fuji) dù có 'Mount' hay không đều không dùng mạo từ → zero article."
+explain: "Núi đơn (Mount Fuji) không dùng mạo từ → zero article, dù có 'Mount' đứng trước."
 ---
 
 ---
