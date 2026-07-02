@@ -866,22 +866,33 @@
     // ── Grammar Resources ────────────────────────────────────────────────────
     _showGrammarResources(data);
 
-    // ── Pronunciation: auto-trigger (practice mode only) ─────────────────────
+    // ── Pronunciation: render from the grade response (server-side Azure) ────
+    // Audit 2026-07-02 — pronunciation is now measured server-side DURING
+    // grading and returned in data.pronunciation, so we render it directly
+    // instead of firing a redundant second Azure call. When the server couldn't
+    // assess it (status !== 'completed'), show an honest note — never a
+    // fabricated score.
     var pronSection = $('pronunciation-section');
     var pronLoading = $('pron-loading-block');
     var pronResult  = $('pron-result-block');
     if (pronSection) {
-      if (_currentResponseId && _recordedBlob) {
-        // Show loading, hide result — states are mutually exclusive
-        if (pronLoading) { pronLoading.style.display = 'flex'; }
-        if (pronResult)  { pronResult.style.display = 'none'; pronResult.innerHTML = ''; }
+      var pron = data && data.pronunciation;
+      if (pronLoading) { pronLoading.style.display = 'none'; }
+      if (pron && pron.status === 'completed' && pron.pronunciation_score != null) {
+        _renderPronBlock(pronResult, pron);
+        if (pronResult) { pronResult.style.display = ''; }
         pronSection.style.display = '';
-        // Fire and forget — does not block feedback rendering
-        assessSinglePronunciation(null);
+      } else if (_currentResponseId) {
+        if (pronResult) {
+          pronResult.innerHTML =
+            '<p style="font-size:12px;color:rgba(255,255,255,0.28);line-height:1.6;font-style:italic;">'
+            + 'Chưa phân tích được phát âm lần này — thử nói to và rõ hơn một chút ở câu tiếp theo nhé.</p>';
+          pronResult.style.display = '';
+        }
+        pronSection.style.display = '';
       } else {
         pronSection.style.display = 'none';
-        if (pronLoading) { pronLoading.style.display = 'none'; }
-        if (pronResult)  { pronResult.style.display = 'none'; }
+        if (pronResult) { pronResult.style.display = 'none'; }
       }
     }
 
