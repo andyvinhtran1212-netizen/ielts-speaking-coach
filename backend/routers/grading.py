@@ -33,6 +33,7 @@ from services.whisper import transcribe_from_bytes
 from services import claude_grader
 from services import azure_pronunciation
 from services import ai_usage_logger
+from services.pronunciation_sampling import _part2_segment, extract_audio_segment
 from services.transcript_reliability import classify_reliability
 from services.audio_validation import AudioTooShortError, validate_audio_duration
 from services.grading_telemetry import log_fallback_events
@@ -218,20 +219,42 @@ _PRON_UNAVAILABLE_FEEDBACK = (
 async def _assess_pronunciation_safe(
     audio_bytes: bytes,
     content_type: str | None,
+    *,
+    part: int,
+    duration_sec: float,
 ) -> dict | None:
     """Run Azure pronunciation assessment with a hard timeout, never raising.
 
     Returns the normalized Azure dict on success, or ``None`` on any failure
     (missing config, API error, timeout, empty audio). Mirrors the judge /
     grammar "best-effort signal, never block grading" contract.
+
+    F1 (audit 2026-07-02): Azure now runs INLINE with grading, so a full 2-min
+    Part 2 monologue would slow the whole grade and risk the timeout. For Part 2
+    we bound Azure to a representative window (same logic as /pronunciation/full)
+    so it stays fast; Parts 1/3 (short answers) send the full clip. Segment
+    extraction is ffmpeg (blocking) → run in a worker thread; on any failure we
+    fall back to the full audio rather than dropping pronunciation.
     """
     if not audio_bytes:
         return None
+
+    send_bytes = audio_bytes
+    send_ct = content_type or "audio/webm; codecs=opus"
+    if part == 2 and duration_sec and duration_sec >= 25:
+        try:
+            start_s, end_s, _ = _part2_segment(duration_sec)
+            seg = await asyncio.to_thread(extract_audio_segment, audio_bytes, start_s, end_s)
+            if seg:
+                send_bytes, send_ct = seg, "audio/wav"
+        except Exception as seg_exc:  # noqa: BLE001 — fall back to full audio
+            logger.info("[grading] Part 2 segment extract failed, sending full clip: %s", seg_exc)
+
     try:
         return await asyncio.wait_for(
             azure_pronunciation.assess_pronunciation(
-                audio_bytes=audio_bytes,
-                content_type=content_type or "audio/webm; codecs=opus",
+                audio_bytes=send_bytes,
+                content_type=send_ct,
                 locale="en-US",
                 reference_text="",
             ),
@@ -541,14 +564,25 @@ async def grade_response_endpoint(
                 f"Audio quá dài ({duration_sec:.0f}s). Giới hạn là {max_dur}s."
             )
 
-        try:
-            validate_audio_duration(duration_sec, part)
-        except AudioTooShortError as too_short:
-            logger.info(
-                "[grading] audio rejected — too short: part=%d duration=%.2fs min=%ds",
-                too_short.part, too_short.duration_seconds, too_short.min_seconds,
+        # F2 (audit 2026-07-02): only enforce the too-SHORT gate when duration is
+        # KNOWN (> 0). A non-verbose STT model (WHISPER_STT_MODEL != whisper-1)
+        # with ffprobe unavailable yields duration_sec == 0 — treating that as
+        # "too short" would 422-reject every valid recording. Genuinely empty
+        # audio is still caught below by the empty-transcript check.
+        if duration_sec > 0:
+            try:
+                validate_audio_duration(duration_sec, part)
+            except AudioTooShortError as too_short:
+                logger.info(
+                    "[grading] audio rejected — too short: part=%d duration=%.2fs min=%ds",
+                    too_short.part, too_short.duration_seconds, too_short.min_seconds,
+                )
+                raise HTTPException(status_code=422, detail=too_short.to_detail())
+        else:
+            logger.warning(
+                "[grading] duration unknown (0s) — skipping too-short gate "
+                "(non-verbose STT without ffprobe?); relying on empty-transcript check",
             )
-            raise HTTPException(status_code=422, detail=too_short.to_detail())
 
         if not transcript:
             raise HTTPException(
@@ -645,7 +679,9 @@ async def grade_response_endpoint(
         # _assess_pronunciation_safe bounds it at _PRON_TIMEOUT_SECONDS and never
         # raises, so a slow/absent Azure just yields None → honest "chưa đánh giá".
         pron_task = asyncio.create_task(
-            _assess_pronunciation_safe(audio_bytes, audio_file.content_type)
+            _assess_pronunciation_safe(
+                audio_bytes, audio_file.content_type, part=part, duration_sec=duration_sec,
+            )
         )
 
         try:
@@ -701,9 +737,29 @@ async def grade_response_endpoint(
         # the pronunciation-detail dict to persist + surface (None if Azure absent).
         pron_detail: dict | None = None
         if grading:
-            pron_detail = _merge_pronunciation_into_grading(
-                grading, pron_result, is_practice=(session_mode == "practice"),
-            )
+            # F4 (audit 2026-07-02) — the test-mode payload accesses grading["band_p"]
+            # / grading["p_feedback"] directly, and the merge is what sets them. Wrap
+            # it so a merge failure can't KeyError the payload: on error, fall back
+            # to the honest "chưa đánh giá" shape (test mode) exactly like an
+            # unavailable Azure result.
+            try:
+                pron_detail = _merge_pronunciation_into_grading(
+                    grading, pron_result, is_practice=(session_mode == "practice"),
+                )
+            except Exception as merge_exc:  # noqa: BLE001 — never block grading
+                logger.warning("[grading] pronunciation merge failed (non-fatal): %s", merge_exc)
+                pron_detail = None
+                if session_mode != "practice":
+                    grading["band_p"] = None
+                    grading["p_feedback"] = _PRON_UNAVAILABLE_FEEDBACK
+                    grading["pronunciation_source"] = "error"
+                    crit_vals = [
+                        float(grading[k])
+                        for k in ("band_fc", "band_lr", "band_gra")
+                        if grading.get(k) is not None
+                    ]
+                    if crit_vals:
+                        grading["overall_band"] = _round_band(sum(crit_vals) / len(crit_vals))
             logger.info(
                 "[grading] pronunciation merged — source=%s band_p=%s overall=%s",
                 grading.get("pronunciation_source"),
