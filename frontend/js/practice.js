@@ -866,22 +866,33 @@
     // ── Grammar Resources ────────────────────────────────────────────────────
     _showGrammarResources(data);
 
-    // ── Pronunciation: auto-trigger (practice mode only) ─────────────────────
+    // ── Pronunciation: render from the grade response (server-side Azure) ────
+    // Audit 2026-07-02 — pronunciation is now measured server-side DURING
+    // grading and returned in data.pronunciation, so we render it directly
+    // instead of firing a redundant second Azure call. When the server couldn't
+    // assess it (status !== 'completed'), show an honest note — never a
+    // fabricated score.
     var pronSection = $('pronunciation-section');
     var pronLoading = $('pron-loading-block');
     var pronResult  = $('pron-result-block');
     if (pronSection) {
-      if (_currentResponseId && _recordedBlob) {
-        // Show loading, hide result — states are mutually exclusive
-        if (pronLoading) { pronLoading.style.display = 'flex'; }
-        if (pronResult)  { pronResult.style.display = 'none'; pronResult.innerHTML = ''; }
+      var pron = data && data.pronunciation;
+      if (pronLoading) { pronLoading.style.display = 'none'; }
+      if (pron && pron.status === 'completed' && pron.pronunciation_score != null) {
+        _renderPronBlock(pronResult, pron);
+        if (pronResult) { pronResult.style.display = ''; }
         pronSection.style.display = '';
-        // Fire and forget — does not block feedback rendering
-        assessSinglePronunciation(null);
+      } else if (_currentResponseId) {
+        if (pronResult) {
+          pronResult.innerHTML =
+            '<p style="font-size:12px;color:rgba(255,255,255,0.28);line-height:1.6;font-style:italic;">'
+            + 'Chưa phân tích được phát âm lần này — thử nói to và rõ hơn một chút ở câu tiếp theo nhé.</p>';
+          pronResult.style.display = '';
+        }
+        pronSection.style.display = '';
       } else {
         pronSection.style.display = 'none';
-        if (pronLoading) { pronLoading.style.display = 'none'; }
-        if (pronResult)  { pronResult.style.display = 'none'; }
+        if (pronResult) { pronResult.style.display = 'none'; }
       }
     }
 
@@ -1168,12 +1179,20 @@
   var _pillColorMap = { FC: 'fc', LR: 'lr', GRA: 'gra', P: 'p' };
   function _bandPill(label, value) {
     var cls = _pillColorMap[label] || 'fc';
-    return '<div data-criterion="' + label + '" style="display:inline-flex;flex-direction:column;align-items:center;'
+    // Audit 2026-07-02 — a null/NaN band (e.g. P when Azure pronunciation
+    // hasn't been assessed) must render an HONEST placeholder ("—", tooltip
+    // "chưa đánh giá"), never "NaN" and never a fabricated number.
+    var num = parseFloat(value);
+    var display = isFinite(num)
+      ? (Math.round(num * 2) / 2).toFixed(1)
+      : '—';
+    var titleAttr = isFinite(num) ? '' : ' title="Chưa đánh giá phát âm"';
+    return '<div data-criterion="' + label + '"' + titleAttr + ' style="display:inline-flex;flex-direction:column;align-items:center;'
       + 'border-radius:10px;padding:6px 14px;margin:0 3px;" class="ds-band-pill ds-band-pill-' + cls + '">'
       + '<span style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;'
       + 'margin-bottom:2px;opacity:0.6;">' + label + '</span>'
       + '<span style="font-size:20px;font-weight:700;">'
-      + (Math.round(parseFloat(value) * 2) / 2).toFixed(1) + '</span></div>';
+      + display + '</span></div>';
   }
 
   function _reliabilityNote(data) {

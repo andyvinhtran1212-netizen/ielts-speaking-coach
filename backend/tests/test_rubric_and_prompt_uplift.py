@@ -120,15 +120,18 @@ def test_test_prompt_lists_bands_1_through_3_for_fc():
     assert "Band 1:" in prompt
 
 
-def test_test_prompt_includes_vn_learner_pronunciation_patterns():
-    """L8 — common Vietnamese-learner pronunciation patterns must be
-    surfaced so feedback can cite specific evidence rather than generic
-    advice. Pinning two anchor patterns is enough."""
+def test_test_prompt_does_not_score_pronunciation():
+    """Audit 2026-07-02 — the grader works from a text transcript and can't
+    hear audio, so it must NOT score pronunciation. Pronunciation is measured
+    from the real audio by Azure and merged in by routers/grading.py. Pin that
+    the test prompt tells the model NOT to output band_p / p_feedback, so a
+    future tidy-up can't silently re-introduce the fabricated text-based band."""
     prompt = _load_test_prompt()
-    assert "Vietnamese-Learner" in prompt or "VIETNAMESE-LEARNER" in prompt
-    # Specific patterns the prompt explicitly names
-    assert "/θ/" in prompt or "θ" in prompt
-    assert "final consonant" in prompt.lower()
+    assert "NOT SCORED HERE" in prompt
+    assert "Do NOT output band_p" in prompt or "Do NOT include band_p" in prompt
+    # It must NOT ask for a p_feedback field in the JSON template.
+    assert '"p_feedback"' not in prompt
+    assert '"band_p"' not in prompt
 
 
 def test_test_prompt_includes_vn_learner_grammar_patterns():
@@ -160,9 +163,10 @@ def test_test_prompt_demands_transcript_phrase_citations_in_feedback():
 def test_test_prompt_output_template_includes_rubric_version():
     """The JSON template in the prompt must include the rubric_version
     field — otherwise providers won't emit it and the field will always
-    default to v1 even when the new prompt was used."""
+    default to v1 even when the new prompt was used. Bumped to v3 when the
+    grader stopped scoring pronunciation (audit 2026-07-02, 3-criterion schema)."""
     prompt = _load_test_prompt()
-    assert '"rubric_version": "v2"' in prompt
+    assert '"rubric_version": "v3"' in prompt
 
 
 def test_practice_prompt_has_low_band_calibration_section():
@@ -176,23 +180,24 @@ def test_practice_prompt_has_low_band_calibration_section():
 
 def test_practice_prompt_output_template_includes_rubric_version():
     prompt = _load_practice_prompt()
-    assert '"rubric_version": "v2"' in prompt
+    assert '"rubric_version": "v3"' in prompt
 
 
 # ── Validator backward-compat (the additive guarantee) ─────────────────────
 
 
 def _minimum_valid_test_payload(*, with_rubric_version: bool = False) -> dict:
+    # Audit 2026-07-02 — the grader no longer emits band_p / p_feedback
+    # (pronunciation is audio-measured by Azure). overall_band is the mean of
+    # FC / LR / GRA only.
     p = {
         "band_fc":   6,
         "band_lr":   6,
         "band_gra":  6,
-        "band_p":    6,
         "overall_band": 6.0,
         "fc_feedback":  "Fluency feedback in VN.",
         "lr_feedback":  "Lexical resource feedback in VN.",
         "gra_feedback": "Grammar feedback in VN.",
-        "p_feedback":   "Pronunciation feedback in VN.",
         "strengths":    ["S1", "S2"],
         "improvements": ["I1", "I2"],
         "improved_response": "Sample band 7+ EN reply.",
