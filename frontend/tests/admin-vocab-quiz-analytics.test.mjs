@@ -19,7 +19,9 @@ const HUB = read('pages', 'admin', 'vocab', 'index.html');
 
 describe('admin quiz-analytics.html — chrome + endpoints', () => {
   test('canonical admin chrome (active=vocab) + design-system width', () => {
-    assert.match(PAGE, /<aver-admin-chrome active="vocab">/);
+    // subsection="quiz-analytics" added so the nav highlights this page (it is
+    // now a real entry in the vocab nav, no longer orphaned).
+    assert.match(PAGE, /<aver-admin-chrome active="vocab" subsection="quiz-analytics">/);
     assert.match(PAGE, /aver-admin-chrome\.js/);
     assert.match(PAGE, /max-width: var\(--av-width-page\)/);
   });
