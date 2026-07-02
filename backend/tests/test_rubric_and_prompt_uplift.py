@@ -163,9 +163,10 @@ def test_test_prompt_demands_transcript_phrase_citations_in_feedback():
 def test_test_prompt_output_template_includes_rubric_version():
     """The JSON template in the prompt must include the rubric_version
     field — otherwise providers won't emit it and the field will always
-    default to v1 even when the new prompt was used."""
+    default to v1 even when the new prompt was used. Bumped to v3 when the
+    grader stopped scoring pronunciation (audit 2026-07-02, 3-criterion schema)."""
     prompt = _load_test_prompt()
-    assert '"rubric_version": "v2"' in prompt
+    assert '"rubric_version": "v3"' in prompt
 
 
 def test_practice_prompt_has_low_band_calibration_section():
@@ -179,7 +180,7 @@ def test_practice_prompt_has_low_band_calibration_section():
 
 def test_practice_prompt_output_template_includes_rubric_version():
     prompt = _load_practice_prompt()
-    assert '"rubric_version": "v2"' in prompt
+    assert '"rubric_version": "v3"' in prompt
 
 
 # ── Validator backward-compat (the additive guarantee) ─────────────────────

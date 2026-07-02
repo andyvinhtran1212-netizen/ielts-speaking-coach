@@ -105,16 +105,17 @@ def _apply_heuristic_caps(grading: dict, word_count: int, part: int) -> dict:
     """
     grading = dict(grading)  # don't mutate the original
 
-    # Thresholds: (very_short_cap, min_words_cap, min_words)
+    # Per-part caps: (very_short_cap, short_cap). The word-count thresholds that
+    # select which cap applies live in very_short_limits / short_limits below.
     thresholds = {
-        1: (3, 5, 40),   # Part 1: <15w→cap3, 15-39w→cap5
-        2: (3, 5, 100),  # Part 2: <40w→cap3, 40-99w→cap5
-        3: (4, 5, 50),   # Part 3: <20w→cap4, 20-49w→cap5
+        1: (3, 5),   # Part 1: <15w→cap FC 3, 15-39w→cap FC 5
+        2: (3, 5),   # Part 2: <40w→cap FC 3, 40-99w→cap FC 5
+        3: (4, 5),   # Part 3: <20w→cap FC 4, 20-49w→cap FC 5
     }
     very_short_limits = {1: 15, 2: 40, 3: 20}
     short_limits      = {1: 40, 2: 100, 3: 50}
 
-    very_short_cap, short_cap, _ = thresholds.get(part, (3, 5, 40))
+    very_short_cap, short_cap = thresholds.get(part, (3, 5))
     very_short_threshold = very_short_limits.get(part, 15)
     short_threshold      = short_limits.get(part, 40)
 
@@ -264,6 +265,59 @@ def _merge_pronunciation_into_grading(
         "provider":             "azure",
         "locale":               "en-US",
     }
+
+
+# ── Off-topic penalty (audit 2026-07-02, finding #3) ─────────────────────────
+# The off-topic judge runs in parallel with the grader and, until now, only
+# produced a warning banner — it did NOT affect the band, so a fluent but
+# clearly off-topic answer still scored high. The judge is deliberately
+# GENEROUS (off_topic_judge L10: only fires when the response is CLEARLY
+# unrelated), so when it fires we trust it enough to apply a moderate penalty:
+#   - test mode: cap FC (topic development is part of Fluency & Coherence) and
+#     recompute the criterion mean;
+#   - both modes: apply a ceiling on overall_band (a non-responsive answer can't
+#     be a strong overall performance), applied LAST so nothing recomputes over it.
+_OFF_TOPIC_FC_CAP      = 4.0
+_OFF_TOPIC_OVERALL_CAP = 5.0
+_OFF_TOPIC_NOTE = (
+    "⚠ Câu trả lời chưa bám sát đề bài — điểm bị giới hạn vì phần lớn nội dung "
+    "không trả lời đúng câu hỏi. Hãy đọc kỹ đề và trả lời trực tiếp vào trọng tâm. "
+)
+
+
+def _apply_off_topic_penalty(grading: dict, verdict, is_practice: bool) -> bool:
+    """Cap the band when the off-topic judge is confident the answer is off-topic.
+
+    Mutates ``grading`` in place. Returns True when a penalty was applied.
+    Must run AFTER the pronunciation merge so the overall ceiling isn't
+    recomputed away.
+    """
+    if verdict is None or getattr(verdict, "is_on_topic", True):
+        return False
+
+    if not is_practice and grading.get("band_fc") is not None:
+        if float(grading["band_fc"]) > _OFF_TOPIC_FC_CAP:
+            grading["band_fc"] = _OFF_TOPIC_FC_CAP
+        fc_fb = grading.get("fc_feedback") or ""
+        if not fc_fb.lstrip().startswith("⚠"):
+            grading["fc_feedback"] = _OFF_TOPIC_NOTE + fc_fb
+        crit_vals = [
+            float(grading[k])
+            for k in ("band_fc", "band_lr", "band_gra", "band_p")
+            if grading.get(k) is not None
+        ]
+        if crit_vals:
+            grading["overall_band"] = _round_band(sum(crit_vals) / len(crit_vals))
+
+    if grading.get("overall_band") is not None and float(grading["overall_band"]) > _OFF_TOPIC_OVERALL_CAP:
+        grading["overall_band"] = _OFF_TOPIC_OVERALL_CAP
+
+    grading["off_topic_penalty_applied"] = True
+    logger.info(
+        "[grading] off-topic penalty applied — band_fc=%s overall=%s",
+        grading.get("band_fc"), grading.get("overall_band"),
+    )
+    return True
 
 
 # ── POST /sessions/{session_id}/responses ─────────────────────────────────────
@@ -474,6 +528,21 @@ async def grade_response_endpoint(
 
         word_count = len(transcript.split()) if transcript else 0
 
+        # Finding #7 (audit 2026-07-02) — personalize the grader with the
+        # learner's own target band (users.target_band) instead of the hardcoded
+        # 6.5. Best-effort: default 6.5 on any miss so grading never blocks on
+        # the profile read.
+        target_band = 6.5
+        try:
+            tb_res = await aexecute(
+                lambda db: db.table("users").select("target_band").eq("id", user_id).limit(1)
+            )
+            tb_val = (tb_res.data or [{}])[0].get("target_band")
+            if tb_val is not None:
+                target_band = float(tb_val)
+        except Exception as tb_exc:
+            logger.debug("[grading] target_band lookup skipped (non-fatal): %s", tb_exc)
+
         # Sprint 14.3 — collect orchestrator telemetry for the
         # `grading_events` audit table. The list is populated by
         # claude_grader regardless of whether grading ultimately
@@ -492,6 +561,7 @@ async def grade_response_endpoint(
                 question=question_text,
                 transcript=transcript,
                 part=part,
+                band_target=target_band,
                 mode=session_mode,
                 user_id=user_id,
                 session_id=session_id,
@@ -589,6 +659,14 @@ async def grade_response_endpoint(
                 grading.get("band_p"),
                 grading.get("overall_band"),
             )
+            # Finding #3 — apply the off-topic penalty LAST (after the pron merge)
+            # so the overall ceiling isn't recomputed away. Non-fatal on any error.
+            try:
+                _apply_off_topic_penalty(
+                    grading, off_topic_verdict, is_practice=(session_mode == "practice"),
+                )
+            except Exception as ot_exc:  # noqa: BLE001 — never block grading
+                logger.warning("[grading] off-topic penalty skipped (non-fatal): %s", ot_exc)
 
         # ── Score confidence (multi-signal) ───────────────────────────────────
         score_confidence = _compute_score_confidence(reliability, duration_sec)

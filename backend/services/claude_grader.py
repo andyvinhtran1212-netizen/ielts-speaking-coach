@@ -234,7 +234,7 @@ Do NOT include band_p or p_feedback — pronunciation is scored separately from 
   "strengths":    ["Sử dụng tốt các từ liên kết", "Phát triển chủ đề tự nhiên"],
   "improvements": ["Sử dụng từ vựng phức tạp hơn", "Đa dạng hóa cấu trúc câu"],
   "improved_response": "Here is an example of a Band 7+ response.\\nSecond sentence here.",
-  "rubric_version": "v2"
+  "rubric_version": "v3"
 }
 """
 
@@ -347,7 +347,7 @@ STRICT OUTPUT RULES — violations cause grading failure:
   "strengths":   ["Điểm mạnh 1", "Điểm mạnh 2"],
   "sample_answer": "A complete Band 7 spoken answer here.\\nSecond sentence here.",
   "overall_band": 5.5,
-  "rubric_version": "v2"
+  "rubric_version": "v3"
 }
 """
 
