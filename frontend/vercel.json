@@ -32,6 +32,7 @@
   ],
   "redirects": [
     { "source": "/pages/dashboard.html",                    "destination": "/pages/speaking.html",                   "permanent": true },
+    { "source": "/pages/my-vocabulary.html",                "destination": "/pages/vocabulary.html",                 "permanent": true },
     { "source": "/pages/admin-writing.html",                "destination": "/pages/admin/writing/index.html",            "permanent": true },
     { "source": "/pages/admin-writing-new.html",            "destination": "/pages/admin/writing/new.html",              "permanent": true },
     { "source": "/pages/admin-writing-grade.html",          "destination": "/pages/admin/writing/grade.html",            "permanent": true },

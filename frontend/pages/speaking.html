@@ -268,28 +268,14 @@
       </div>
     </section>
 
-    <!-- ── PART 2c: Vocab updates (Cập nhật từ vựng gần đây) ── -->
-    <!--
-      Replaces the disposable post-session toast on result.html with a
-      durable widget so users can recall what was added across sessions.
-      Hidden until the API returns events; default-deny behind
-      vocab_bank_enabled (mirrors my-vocabulary.js init).
-    -->
-    <section id="vocab-updates-section" class="hidden mb-8">
-      <div class="flex items-center justify-between mb-5">
-        <h2 class="text-lg font-bold">Cập nhật từ vựng gần đây</h2>
-        <a href="/pages/vocabulary.html#vocab-topics"
-           class="text-xs font-medium px-3 py-1 rounded-lg"
-           style="color:var(--av-primary); border:1px solid var(--av-primary-border); text-decoration:none;">
-          Xem tất cả →
-        </a>
-      </div>
-      <div id="vocab-updates-list"
-           class="rounded-2xl"
-           style="background:var(--av-surface-card); border:1px solid var(--av-border-subtle); padding:6px 8px;">
-        <!-- populated by loadVocabUpdates() -->
-      </div>
-    </section>
+    <!-- ── PART 2c: Vocab updates — RETIRED (Phase 1, My Vocabulary removal) ──
+      The "Cập nhật từ vựng gần đây" widget was removed together with the
+      personal vocab bank / My Vocabulary surface. It promised a durable
+      personal-vocab history whose "Xem tất cả" destination no longer exists
+      (the only browse surface left, #vocab-topics, is the public topic
+      browser and cannot show a user's saved/recent words). With discovery
+      turned off there are also no new session-driven vocab events to show.
+      renderVocabUpdates()/loadVocabUpdates() below are now dormant no-ops. -->
 
     <!-- ── PART 3: Session history ──────────────────────────── -->
     <section>
@@ -2125,14 +2111,12 @@
 
       loadGrammarDashboard();
 
-      // Vocab updates: prefer aggregate's recent_updates if present.  Flag
-      // gating stays in the renderer (default-deny on vocab_bank_enabled)
-      // because the aggregate intentionally doesn't know about UX flags.
-      if (aggregate && Array.isArray(aggregate.recent_updates)) {
-        renderVocabUpdates(user, aggregate.recent_updates);
-      } else {
-        loadVocabUpdates(session.access_token, user);
-      }
+      // Vocab updates widget RETIRED (Phase 1, My Vocabulary removal): the
+      // "Cập nhật từ vựng gần đây" section no longer exists in the DOM and
+      // discovery is off, so there is nothing to render. We deliberately skip
+      // both the aggregate.recent_updates render and the legacy
+      // /api/vocabulary/bank/recent-updates fetch to avoid a wasted round-trip
+      // to a surface with no visible destination.
 
       // Flashcard daily-due badge: aggregate wins when present.  Otherwise
       // the legacy _refreshFlashcardsBadge call (already fired from
