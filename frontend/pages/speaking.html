@@ -173,7 +173,8 @@
             <canvas id="chart-radar"></canvas>
           </div>
           <p id="radar-chart-empty" class="hidden text-center text-sm py-16" style="color:var(--av-text-muted);">
-            Chưa có dữ liệu tiêu chí chi tiết
+            Biểu đồ 4 tiêu chí chỉ có ở bài <strong>Test đầy đủ</strong> (chấm FC · LR · GRA · Pronunciation).<br>
+            Bài Luyện tập chỉ có band tổng — hãy làm một bài Test để xem điểm mạnh/yếu từng tiêu chí.
           </p>
         </div>
 
@@ -1288,18 +1289,39 @@
           };
         }
 
+        // Overall band is the headline "band score theo thời gian" line — and the
+        // only series practice-mode sessions have (practice grading is holistic:
+        // no per-criterion band_fc/lr/gra/p). Lead with it (thicker) so the chart
+        // is never blank for practice users; the 4 criteria lines fill in for
+        // Test-mode sessions (spanGaps bridges the practice gaps).
+        var overallDS = lineDS('Tổng (Overall)', 'overall_band', COLOR_PRIMARY, false);
+        overallDS.borderWidth = 3.5;
+        overallDS.pointRadius = 5;
+        overallDS.pointHoverRadius = 7;
+
+        // Only add the 4-criteria lines when at least one session actually has
+        // them (Test mode) — otherwise a practice-only user gets 4 empty legend
+        // entries with no data.
+        var hasCriteria = completed.some(function (s) {
+          return s.band_fc != null || s.band_lr != null || s.band_gra != null || s.band_p != null;
+        });
+        var lineDatasets = [overallDS];
+        if (hasCriteria) {
+          lineDatasets.push(
+            lineDS('FC',  'band_fc',  '#38bdf8', true),
+            lineDS('LR',  'band_lr',  '#fb923c', true),
+            lineDS('GRA', 'band_gra', '#a78bfa', true),
+            lineDS('P',   'band_p',   '#ef4444', true)
+          );
+        }
+
         var lineCtx = document.getElementById('chart-line').getContext('2d');
         if (_chartLine) _chartLine.destroy();
         _chartLine = new Chart(lineCtx, {
           type: 'line',
           data: {
             labels: labels,
-            datasets: [
-              lineDS('FC',  'band_fc',  '#38bdf8', false),
-              lineDS('LR',  'band_lr',  '#fb923c', false),
-              lineDS('GRA', 'band_gra', '#a78bfa', false),
-              lineDS('P',   'band_p',   '#ef4444', false),
-            ],
+            datasets: lineDatasets,
           },
           options: {
             responsive: true,
