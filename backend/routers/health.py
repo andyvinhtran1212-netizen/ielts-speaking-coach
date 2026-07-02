@@ -207,3 +207,23 @@ async def health_grammar_check() -> dict:
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "grammar_check": result,
     }
+
+
+@router.get("/health/quiz-write")
+async def health_quiz_write() -> dict:
+    """Probe that quiz progress-saving works — i.e. PostgREST recognizes the ON
+    CONFLICT unique constraints (migration 119) that log_progress upserts depend
+    on. This catches the exact failure that silently broke vocab/grammar quiz
+    progress (every POST .../progress → 500 "no unique constraint matching ON
+    CONFLICT") after a manual migration without a PostgREST schema reload, while
+    quiz_sessions inserts kept working. Always HTTP 200; the ``status`` field
+    (healthy | error) carries the verdict.
+    """
+    from services.quiz_service import quiz_write_health
+
+    result = quiz_write_health()
+    return {
+        "status": "healthy" if result["ok"] else "error",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "quiz_write": result,
+    }
