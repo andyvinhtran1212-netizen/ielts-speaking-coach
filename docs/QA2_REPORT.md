@@ -20,7 +20,19 @@ python3 scripts/qa2_extract_questions.py --only <category> --outdir /tmp/qa2
 #   thu mảng JSON flags, tổng hợp vào file này.
 ```
 
+## Lần chạy 2 — TOÀN BỘ 107 bank (2026-07-02)
+
+- **Phạm vi:** 107 bank / **2387 câu** (9 cụm còn lại + tenses lần 1). 23 reviewer agent (~5 bank/agent) + 4 agent tenses.
+- **Kết quả: 3 câu bị cờ (0.13%)** — **0 câu sai đáp án**. Cả 3 là prompt/explain gây nhầm, đã sửa:
+  1. `G-modifiers-adverbs / freqpos_i2` (incomplete_accept) — prompt trộn "viết lại" + template `I ____ skip` khiến học viên có thể gõ "sometimes" và bị chấm sai. → làm rõ prompt (yêu cầu viết 3 từ).
+  2. `G-foundations-parts-of-speech / pos_id_i2` (explain_error) — câu explain cuối ('His English speaking') gây mơ hồ. → viết lại explain cho chính xác (spoken = phân từ quá khứ làm tính từ).
+  3. `G-error-clinic-wrong-pronoun-reference / pr_hesh_i2` (prompt↔accept lệch) — prompt bảo viết lại 'she was worried' nhưng accept chỉ `["sarah"]`; nếu gõ "Sarah was worried" sẽ trượt. → prompt thành điền tên vào chỗ trống + accept `["Sarah","sarah"]`. (Vấn đề hoa/thường mà agent nêu là VÔ HẠI: engine `normalizeText` lowercase khi `case_sensitive:false`.)
+- **Nhận định:** chất lượng nội dung rất cao (khớp audit bài Wiki 0 lỗi factual). Không bank nào có đáp án sai. 3 sửa đều là clarity, không đổi đáp án.
+
+**Kết luận: toàn bộ 107 bank PASS QA-2** (sau 3 sửa clarity) → đủ điều kiện import/publish.
+
 ## Lịch sử
 | Lần | Ngày | Cụm | Bank | Câu | Bị cờ | Kết quả |
 |-----|------|-----|------|-----|-------|---------|
 | 1 | 2026-07-02 | tenses | 8 | 203 | 0 | PASS |
+| 2 | 2026-07-02 | TẤT CẢ (107) | 107 | 2387 | 3 (clarity, đã sửa) | PASS |

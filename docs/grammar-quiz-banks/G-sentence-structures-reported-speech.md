@@ -249,7 +249,7 @@ input: "choice"
 headword: "rs-say-tell-commands"
 skill: "form"
 subtype: "basic"
-prompt: "Chọn câu đúng:"
+prompt: "Chọn câu đúng (say vs tell):"
 options: ["She told me she was tired.", "She said me that she was tired.", "She told that she was tired.", "She said to me she was tired without that."]
 answer: 0
 grammar_article_slug: "reported-speech"

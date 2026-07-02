@@ -66,7 +66,7 @@ input: "text"
 headword: "frequency-adverb-position"
 skill: "production"
 subtype: "intermediate"
-prompt: "Sửa lại câu cho đúng vị trí trạng từ tần suất: 'I skip breakfast sometimes when I'm running late.' — chỉ viết lại phần đầu câu đúng thứ tự: 'I ____ skip breakfast when I'm running late.'"
+prompt: "Trạng từ tần suất đặt sai vị trí: 'I skip breakfast sometimes when I'm running late.' Viết lại đúng thứ tự 3 từ đầu câu (chủ ngữ + trạng từ + động từ):"
 accept: ["I sometimes skip breakfast"]
 case_sensitive: false
 grammar_article_slug: "adverbs"

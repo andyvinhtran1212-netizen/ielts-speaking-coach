@@ -269,7 +269,7 @@ prompt: "Complete with the correct part of speech: 'His ____ (speak) English is 
 accept: ["spoken"]
 case_sensitive: false
 grammar_article_slug: "parts-of-speech"
-explain: "Trước danh từ 'English' cần dùng phân từ 'spoken' (spoken English = tiếng Anh nói) như tính từ. Không dùng 'speaking English' — cách diễn đạt đúng khác là 'His English speaking'."
+explain: "Trước danh từ 'English' cần phân từ quá khứ 'spoken' làm tính từ (spoken English = tiếng Anh ở dạng nói). Dùng 'speaking' ở đây sai — 'speaking' là phân từ hiện tại (chủ động), không mô tả 'English' theo nghĩa này."
 ---
 
 ---
