@@ -68,34 +68,10 @@ def _auth_ok(monkeypatch, uid="u1"):
     monkeypatch.setattr(pron, "get_supabase_user", _user)
 
 
-def test_response_pron_404_when_session_owned_by_another_user(monkeypatch):
-    _auth_ok(monkeypatch, uid="u1")
-    # the session exists but belongs to OTHER — the user_id predicate must filter it out
-    db = _DB({"sessions": [{"id": "s1", "user_id": "OTHER"}]})
-    monkeypatch.setattr(pron, "supabase_admin", db)
-
-    with pytest.raises(HTTPException) as ei:
-        _run(pron.assess_response_pronunciation("s1", "r1", authorization="Bearer x"))
-    assert ei.value.status_code == 404
-    # the ownership predicate was actually applied
-    assert ("id", "s1") in db.eq_calls["sessions"]
-    assert ("user_id", "u1") in db.eq_calls["sessions"]
-
-
-def test_response_pron_404_when_response_belongs_to_another_session(monkeypatch):
-    _auth_ok(monkeypatch, uid="u1")
-    db = _DB({
-        "sessions":  [{"id": "s1", "user_id": "u1"}],          # session passes
-        "responses": [{"id": "r1", "session_id": "OTHER-SESSION"}],  # but response isn't in s1
-    })
-    monkeypatch.setattr(pron, "supabase_admin", db)
-
-    with pytest.raises(HTTPException) as ei:
-        _run(pron.assess_response_pronunciation("s1", "r1", authorization="Bearer x"))
-    assert ei.value.status_code == 404
-    # the response query is scoped to BOTH the response id and its session
-    assert ("id", "r1") in db.eq_calls["responses"]
-    assert ("session_id", "s1") in db.eq_calls["responses"]
+# Audit 2026-07-02 — the single-response on-demand endpoint
+# (assess_response_pronunciation) was removed: per-response pronunciation is now
+# measured server-side during grading. Its ownership-guard tests went with it.
+# Only the full-test endpoint remains.
 
 
 def test_full_pron_requires_auth(monkeypatch):

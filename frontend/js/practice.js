@@ -2768,82 +2768,6 @@
       });
   }
 
-  /**
-   * Auto-triggered pronunciation assessment for practice mode (single response).
-   * Called automatically from _showFeedback when response_id + audio are available.
-   * btn param is unused (kept for API compatibility) — pass null.
-   */
-  function assessSinglePronunciation(btn) {
-    if (!_currentResponseId || !_sessionId) return;
-
-    var pronLoading = $('pron-loading-block');
-    var pronResult  = $('pron-result-block');
-
-    // Guard: ensure loading is visible, result is hidden (in case called externally)
-    if (pronLoading) { pronLoading.style.display = 'flex'; }
-    if (pronResult)  { pronResult.style.display = 'none'; }
-
-    var base = (window.api && window.api.base) ? window.api.base : '';
-    var sb = window.getSupabase ? window.getSupabase() : null;
-    var sessionPromise = sb ? sb.auth.getSession() : Promise.resolve({ data: {} });
-
-    sessionPromise.then(function (result) {
-      var token = result.data.session ? result.data.session.access_token : null;
-      return fetch(base + '/sessions/' + _sessionId + '/responses/' + _currentResponseId + '/pronunciation', {
-        method:  'POST',
-        headers: token ? { 'Authorization': 'Bearer ' + token } : {},
-      });
-    })
-      .then(function (r) {
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        return r.json();
-      })
-      .then(function (data) {
-        // Hide loading, render result
-        if (pronLoading) { pronLoading.style.display = 'none'; }
-        _renderPronBlock(pronResult, data);
-        if (pronResult)  { pronResult.style.display = ''; }
-
-        // If pronunciation signals updated score_confidence, refresh the note in-place
-        if (data && data.score_confidence) {
-          var confNote = document.getElementById('score-confidence-note');
-          if (confNote) {
-            confNote.innerHTML = _reliabilityNote({ score_confidence: data.score_confidence });
-          }
-        }
-        // Post-hoc band adjustment: update overall band circle if pronunciation improved it
-        if (data && data.final_overall_band != null) {
-          var bandEl = $('feedback-band');
-          if (bandEl) {
-            bandEl.textContent = parseFloat(data.final_overall_band).toFixed(1);
-          }
-        }
-        // Post-hoc band adjustment: update P criterion pill if in test mode
-        if (data && data.final_band_p != null) {
-          var bandsRow = $('feedback-bands-row');
-          if (bandsRow && bandsRow.style.display !== 'none') {
-            // Replace only the P pill — re-render the whole row preserving FC/LR/GRA
-            var pills = bandsRow.querySelectorAll('[data-criterion]');
-            pills.forEach(function (pill) {
-              if (pill.getAttribute('data-criterion') === 'P') {
-                pill.outerHTML = _bandPill('P', data.final_band_p);
-              }
-            });
-          }
-        }
-      })
-      .catch(function (err) {
-        console.warn('[practice] single pron failed:', err);
-        // Hide loading, show gentle fallback in result block
-        if (pronLoading) { pronLoading.style.display = 'none'; }
-        if (pronResult) {
-          pronResult.innerHTML =
-            '<p style="font-size:12px;color:rgba(255,255,255,0.28);line-height:1.6;font-style:italic;">'
-            + 'Chưa phân tích được phát âm lần này — thử nói to và rõ hơn một chút ở câu tiếp theo nhé.</p>';
-          pronResult.style.display = '';
-        }
-      });
-  }
 
   // ── Navigation ────────────────────────────────────────────────────────────────
 
@@ -3135,8 +3059,6 @@
     // Audio replay / download on feedback screen
     replayAudio:          _replayAudio,
     downloadAudio:        _downloadAudio,
-    // On-demand pronunciation assessment (practice mode)
-    assessSinglePronunciation: assessSinglePronunciation,
     // PDF export
     downloadPDFs:         _downloadPDFs,
     // exposed for state-break skip button (optional future use)

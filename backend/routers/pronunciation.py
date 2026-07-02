@@ -1,19 +1,8 @@
 """
-routers/pronunciation.py — On-demand Azure Pronunciation Assessment
-
-Single-response endpoint:
-  POST /sessions/{session_id}/responses/{response_id}/pronunciation
+routers/pronunciation.py — Full-test Azure Pronunciation Assessment
 
 Full-test endpoint (selects 3 representative samples across all 3 parts):
   POST /sessions/{session_id}/pronunciation/full
-
-Pipeline (single-response):
-  1. Auth + session ownership validation
-  2. Load response → audio_storage_path (preferred) or audio_url (fallback)
-  3. Download audio bytes (signed URL → public URL → error)
-  4. Call azure_pronunciation.assess_pronunciation()
-  5. Upsert pronunciation columns on responses row
-  6. Return normalized result
 
 Pipeline (full-test):
   1. Auth + session ownership validation
@@ -22,6 +11,13 @@ Pipeline (full-test):
   4. For each sample: download audio, extract Part 2 segment if needed, assess
   5. Upsert pronunciation columns on each sampled response row
   6. Return combined result with per-sample metadata
+
+Audit 2026-07-02 — the single-response on-demand endpoint was REMOVED: per-
+response pronunciation is now measured server-side during grading
+(routers/grading.py runs Azure in parallel and persists band_p + pron columns),
+so there is no on-demand path to trigger for a single response. The full-test
+endpoint stays because full-test aggregates a session-level pronunciation score
+across representative samples from all three parts.
 """
 
 import json as _json
@@ -135,37 +131,6 @@ async def _download_audio_bytes(
     raise HTTPException(502, f"Không thể tải file audio cho response {response_id}.")
 
 
-# ── Multi-signal score_confidence helper ──────────────────────────────────────
-
-def _compute_multi_signal_confidence(
-    reliability_label: str,
-    duration_sec: float,
-    pronunciation_score: Optional[float],
-) -> str:
-    """
-    Compute score_confidence using all available signals post-grading:
-      transcript reliability, speaking duration, and Azure pronunciation score.
-
-    Called after pronunciation assessment completes; overwrites the
-    reliability+duration-only value stored at initial grading time.
-
-      "low"    — unreliable transcript OR too short OR pronunciation_score < 35
-      "high"   — reliability=high AND normal duration AND pronunciation_score >= 65
-      "medium" — everything else
-    """
-    if reliability_label == "low" or duration_sec < 10.0:
-        return "low"
-    if pronunciation_score is not None and pronunciation_score < 35:
-        return "low"
-    if (
-        reliability_label == "high"
-        and 20.0 <= duration_sec <= 180.0
-        and (pronunciation_score is None or pronunciation_score >= 65)
-    ):
-        return "high"
-    return "medium"
-
-
 # ── Band adjustment helpers ───────────────────────────────────────────────────
 
 def _round_band(value: float) -> float:
@@ -238,216 +203,6 @@ def _upsert_pronunciation(response_id: str, result: dict, extra: Optional[dict] 
         logger.info("[pronunciation] DB updated for response=%s", response_id)
     except Exception as e:
         logger.warning("[pronunciation] DB update failed (non-fatal): %s", e)
-
-
-# ── POST /sessions/{session_id}/responses/{response_id}/pronunciation ──────────
-
-@router.post("/sessions/{session_id}/responses/{response_id}/pronunciation")
-async def assess_response_pronunciation(
-    session_id:  str,
-    response_id: str,
-    authorization: str | None = Header(default=None),
-):
-    """
-    Trigger Azure Pronunciation Assessment for a previously recorded response.
-    Safe to call multiple times — result is upserted, not duplicated.
-
-    Returns:
-        pronunciation_score, fluency_score, accuracy_score, completeness_score,
-        short_summary, words (word-level), provider, locale
-    """
-    # ── 1. Auth + session ownership ──────────────────────────────────────────
-    auth_user = await get_supabase_user(authorization)
-    user_id   = auth_user["id"]
-
-    try:
-        s_res = (
-            supabase_admin.table("sessions")
-            .select("id")
-            .eq("id", session_id)
-            .eq("user_id", user_id)
-            .limit(1)
-            .execute()
-        )
-    except Exception as e:
-        raise HTTPException(500, f"Lỗi khi tải session: {e}")
-
-    if not s_res.data:
-        raise HTTPException(404, "Session không tồn tại hoặc không có quyền truy cập")
-
-    # ── 2. Load response ─────────────────────────────────────────────────────
-    try:
-        r_res = (
-            supabase_admin.table("responses")
-            .select("id, audio_storage_path, audio_url, pronunciation_status")
-            .eq("id", response_id)
-            .eq("session_id", session_id)
-            .limit(1)
-            .execute()
-        )
-    except Exception as e:
-        raise HTTPException(500, f"Lỗi khi tải response: {e}")
-
-    if not r_res.data:
-        raise HTTPException(404, "Response không tồn tại trong session này")
-
-    response = r_res.data[0]
-    storage_path: str | None = response.get("audio_storage_path")
-    public_url:   str | None = response.get("audio_url")
-
-    print(
-        f"[PRON] response={response_id}  storage_path={storage_path!r}  "
-        f"public_url={bool(public_url)}  existing_status={response.get('pronunciation_status')!r}",
-        flush=True,
-    )
-
-    if not storage_path and not public_url:
-        raise HTTPException(422, "Response này chưa có file audio. Hãy ghi âm trước.")
-
-    # ── 3. Download audio bytes ───────────────────────────────────────────────
-    audio_bytes, content_type = await _download_audio_bytes(storage_path, public_url, response_id)
-
-    # ── 4. Azure Pronunciation Assessment ────────────────────────────────────
-    print(f"[PRON] audio downloaded: {len(audio_bytes)}B  inferred_type={content_type}", flush=True)
-    try:
-        result = await azure_pronunciation.assess_pronunciation(
-            audio_bytes=audio_bytes,
-            content_type=content_type,
-            locale="en-US",
-            reference_text="",
-        )
-    except ValueError as e:
-        logger.error("[pronunciation] Azure config error: %s", e)
-        raise HTTPException(503, f"Dịch vụ đánh giá phát âm chưa được cấu hình: {e}")
-    except RuntimeError as e:
-        logger.error("[pronunciation] Azure API error: %s", e)
-        raise HTTPException(502, f"Lỗi Azure Speech API: {e}")
-
-    # ── 5. Persist to DB ─────────────────────────────────────────────────────
-    _upsert_pronunciation(response_id, result)
-
-    # ── 6. Load response metadata + feedback for post-hoc adjustment ─────────
-    updated_confidence: Optional[str] = None
-    final_band_p:       Optional[float] = None
-    final_overall_band: Optional[float] = None
-
-    try:
-        meta_res = (
-            supabase_admin.table("responses")
-            .select("transcript_reliability, duration_seconds, feedback, overall_band")
-            .eq("id", response_id)
-            .limit(1)
-            .execute()
-        )
-        meta = (meta_res.data or [{}])[0]
-        reliability_label = meta.get("transcript_reliability") or "high"
-        duration_sec_meta = float(meta.get("duration_seconds") or 0.0)
-        pron_score        = result.get("pronunciation_score")
-        fluency_score_raw = result.get("fluency_score")
-
-        # Update multi-signal score_confidence
-        updated_confidence = _compute_multi_signal_confidence(
-            reliability_label, duration_sec_meta, pron_score
-        )
-
-        # Attempt to compute final_band_p and final_overall_band
-        # Requires: pronunciation_score available + feedback JSON with band_p (test mode only)
-        confidence_update: dict = {"score_confidence": updated_confidence}
-
-        if pron_score is not None:
-            raw_feedback = meta.get("feedback")
-            if raw_feedback:
-                try:
-                    feedback_obj = _json.loads(raw_feedback) if isinstance(raw_feedback, str) else raw_feedback
-                    band_p_orig = feedback_obj.get("band_p")
-                    if band_p_orig is not None:
-                        # Test mode: adjust P criterion band
-                        final_band_p = _compute_adjusted_band_p(
-                            float(band_p_orig),
-                            pron_score,
-                            fluency_score_raw,
-                            reliability_label,
-                        )
-                        band_fc  = feedback_obj.get("band_fc")
-                        band_lr  = feedback_obj.get("band_lr")
-                        band_gra = feedback_obj.get("band_gra")
-                        if band_fc is not None and band_lr is not None and band_gra is not None:
-                            final_overall_band = _compute_final_overall_band(
-                                float(band_fc), float(band_lr), float(band_gra), final_band_p
-                            )
-                        confidence_update["final_band_p"] = final_band_p
-                        if final_overall_band is not None:
-                            confidence_update["final_overall_band"] = final_overall_band
-                        logger.info(
-                            "[pronunciation] band_p %s → %s  overall %s → %s  response=%s",
-                            band_p_orig, final_band_p,
-                            feedback_obj.get("overall_band"), final_overall_band,
-                            response_id,
-                        )
-                    else:
-                        # Practice mode: no band_p; apply a proportional tweak to overall_band
-                        overall_orig = meta.get("overall_band")
-                        if overall_orig is not None:
-                            pron_band_equiv = 1.0 + (pron_score / 100.0) * 8.0
-                            if fluency_score_raw is not None:
-                                pron_band_equiv = 0.5 * pron_band_equiv + 0.5 * (1.0 + (fluency_score_raw / 100.0) * 8.0)
-                            # P criterion ≈ 25% weight; apply 40% of that delta → 10% net effect
-                            delta = (pron_band_equiv - float(overall_orig)) * 0.25 * 0.4
-                            max_delta = {"low": 0.25, "medium": 0.375}.get(reliability_label, 0.5)
-                            adjustment = max(-max_delta, min(max_delta, delta))
-                            final_overall_band = _round_band(float(overall_orig) + adjustment)
-                            confidence_update["final_overall_band"] = final_overall_band
-                            logger.info(
-                                "[pronunciation] practice overall %s → %s  response=%s",
-                                overall_orig, final_overall_band, response_id,
-                            )
-                except Exception as fe:
-                    logger.warning("[pronunciation] feedback parse for band adjustment failed (non-fatal): %s", fe)
-
-        supabase_admin.table("responses").update(confidence_update).eq("id", response_id).execute()
-        logger.info(
-            "[pronunciation] score_confidence → %r  response=%s",
-            updated_confidence, response_id,
-        )
-
-        # Propagate adjusted scores into the session aggregate immediately so
-        # dashboard / history read pronunciation-adjusted bands, not the stale raw AI grade.
-        # Use OR: practice mode sets final_overall_band only (no band_p criterion in practice feedback);
-        # test mode sets final_band_p.  Either signal means a re-aggregate is needed.
-        if final_band_p is not None or final_overall_band is not None:
-            try:
-                s_check = (
-                    supabase_admin.table("sessions")
-                    .select("status")
-                    .eq("id", session_id)
-                    .limit(1)
-                    .execute()
-                )
-                if (s_check.data or [{}])[0].get("status") == "completed":
-                    update_session_bands(session_id)
-            except Exception as _se:
-                logger.warning("[pronunciation] session re-aggregate failed (non-fatal): %s", _se)
-
-    except Exception as e:
-        logger.warning("[pronunciation] post-hoc update failed (non-fatal): %s", e)
-
-    # ── 7. Return normalized result ──────────────────────────────────────────
-    return {
-        "response_id":           response_id,
-        "pronunciation_score":   result.get("pronunciation_score"),
-        "fluency_score":         result.get("fluency_score"),
-        "accuracy_score":        result.get("accuracy_score"),
-        "completeness_score":    result.get("completeness_score"),
-        "prosody_score":         result.get("prosody_score"),
-        "short_summary":         result.get("short_summary", []),
-        "words":                 result.get("words", []),
-        "weak_phonemes":         result.get("weak_phonemes", []),
-        "provider":              "azure",
-        "locale":                "en-US",
-        "score_confidence":      updated_confidence,
-        "final_band_p":          final_band_p,
-        "final_overall_band":    final_overall_band,
-    }
 
 
 # ── POST /sessions/{session_id}/pronunciation/full ────────────────────────────
