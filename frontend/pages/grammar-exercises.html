@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Bài tập Grammar — Aver Learning</title>
+
+  <!-- Anti-flash theme bootstrap (must run before stylesheets). -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var theme = (stored === 'light' || stored === 'dark') ? stored
+          : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Lora:wght@400;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/ds.css" />
+  <link rel="stylesheet" href="/css/grammar-wiki.css" />
+  <link rel="stylesheet" href="/css/tailwind.build.css" />
+
+  <script type="module" src="/js/components/aver-chrome.js"></script>
+</head>
+<body class="av-page min-h-screen font-sans antialiased">
+
+  <aver-chrome active="grammar"></aver-chrome>
+
+  <main class="av-w-page py-8">
+    <header class="mb-8">
+      <nav class="text-sm text-white/40 mb-3">
+        <a href="/grammar.html" class="hover:text-white/70">Grammar Wiki</a>
+        <span class="mx-1">/</span>
+        <span class="text-white/60">Bài tập</span>
+      </nav>
+      <h1 class="text-3xl font-extrabold text-white mb-2">Bài tập Grammar</h1>
+      <p class="text-white/45">Kiểm tra kiến thức ngữ pháp theo từng bài — làm tới khi thành thạo.</p>
+    </header>
+
+    <div id="ex-skeleton" class="text-white/40 py-12 text-center">Đang tải bài tập…</div>
+    <div id="ex-empty" class="hidden text-white/40 py-12 text-center">
+      Chưa có bài tập nào được mở. Vui lòng quay lại sau.
+    </div>
+    <div id="ex-groups" class="hidden flex flex-col gap-8"></div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script>
+    (function () {
+      var CATEGORIES = [
+        'foundations', 'parts-of-speech', 'modifiers', 'sentence-structures',
+        'tenses', 'verb-patterns', 'grammar-for-meaning', 'ielts-grammar-lab',
+        'grammar-for-writing', 'error-clinic'
+      ];
+      function prettify(s) {
+        return (s || '').replace(/-/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+      }
+      function categoryOf(code) {
+        // code = G-<category>-<slug>; category may contain hyphens → longest match wins.
+        var sorted = CATEGORIES.slice().sort(function (a, b) { return b.length - a.length; });
+        for (var i = 0; i < sorted.length; i++) {
+          if (code && code.indexOf('G-' + sorted[i] + '-') === 0) return sorted[i];
+        }
+        return 'other';
+      }
+      function esc(s) {
+        return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+        });
+      }
+
+      function render(banks) {
+        var skel = document.getElementById('ex-skeleton');
+        var empty = document.getElementById('ex-empty');
+        var wrap = document.getElementById('ex-groups');
+        skel.classList.add('hidden');
+        if (!banks || !banks.length) { empty.classList.remove('hidden'); return; }
+
+        var byCat = {};
+        banks.forEach(function (b) {
+          var c = categoryOf(b.code);
+          (byCat[c] = byCat[c] || []).push(b);
+        });
+
+        var order = CATEGORIES.concat(['other']);
+        var html = order.filter(function (c) { return byCat[c]; }).map(function (c) {
+          var items = byCat[c].map(function (b) {
+            var count = b.words_count ? (b.words_count + ' điểm') : 'bài tập';
+            return '<a href="/pages/quiz.html?bank=' + encodeURIComponent(b.id) + '" ' +
+              'class="group flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/[0.02] px-4 py-3 transition hover:border-teal/40 hover:bg-teal/[0.06]">' +
+              '<span class="text-white/85 font-medium truncate">' + esc(b.title || b.code) + '</span>' +
+              '<span class="text-xs text-white/40 whitespace-nowrap group-hover:text-teal-light">' + count + ' →</span>' +
+              '</a>';
+          }).join('');
+          return '<section>' +
+            '<h2 class="text-lg font-bold text-white mb-3">' + esc(prettify(c)) + '</h2>' +
+            '<div class="grid gap-2 sm:grid-cols-2">' + items + '</div>' +
+            '</section>';
+        }).join('');
+
+        wrap.innerHTML = html;
+        wrap.classList.remove('hidden');
+      }
+
+      (async function () {
+        try {
+          var data = await window.api.get('/api/grammar/exercises');
+          render((data && data.banks) || []);
+        } catch (e) {
+          document.getElementById('ex-skeleton').textContent = 'Không tải được bài tập: ' + (e.message || e);
+        }
+      })();
+    })();
+  </script>
+</body>
+</html>
