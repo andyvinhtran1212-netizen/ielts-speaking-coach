@@ -47,10 +47,8 @@
        embedded, the parent must supply them — Sprint 7.3 → 7.6 migrations
        moved the page body into JS modules but didn't migrate the
        resource imports, causing an unstyled render regression. -->
-  <link rel="stylesheet" href="/css/my-vocabulary.css" />
   <link rel="stylesheet" href="/css/flashcards.css" />
   <link rel="stylesheet" href="/css/exercises.css" />
-  <link rel="stylesheet" href="/css/needs-review.css" />
   <!-- P0-3 C-3.4: static Tailwind loaded LAST (after page CSS) to match the
        Play-CDN cascade — utilities/.hidden win over same-specificity page rules. -->
   <link rel="stylesheet" href="/css/tailwind.build.css" />
@@ -107,12 +105,12 @@
     <!-- ── Mode-card grid (Sprint 8.2) ──────────────────────────── -->
     <!-- Sprint 8.2 — the ARIA tablist row was retired in favor of a
          mode-card grid (same pattern as Sprint 8.1 speaking.html). The
-         dashboard view is now the page's default landing state; the 5
+         dashboard view is now the page's default landing state; the
          `.tab-panel` sections below stay hidden until a mode-card click
          or a #hash deep-link activates one of them. activateTab() in
          /js/vocab-landing.js still owns the panel toggle + module
-         mount; hash deep-linking (#vocab-topics / #my-vocab / #flashcards
-         / #exercises / #needs-review) is preserved per Phase B Q5. -->
+         mount; hash deep-linking (#vocab-topics / #flashcards /
+         #exercises) is preserved per Phase B Q5. -->
     <section class="vocab-modes" aria-labelledby="modes-heading">
       <h2 id="modes-heading">Bắt đầu học từ vựng</h2>
       <div class="modes-grid">
@@ -125,14 +123,6 @@
           </div>
           <h3>Từ vựng</h3>
           <p class="lede">Duyệt từ vựng IELTS theo chủ đề.</p>
-        </a>
-        <a href="#" class="mode-card" data-mode="my-vocab" aria-label="Mở My Vocabulary">
-          <div class="head">
-            <div class="icon"><i data-lucide="book-open"></i></div>
-            <span class="arrow" aria-hidden="true">→</span>
-          </div>
-          <h3>My Vocabulary</h3>
-          <p class="lede">Sổ tay từ vựng cá nhân của bạn.</p>
         </a>
         <a href="#" class="mode-card" data-mode="flashcards" aria-label="Mở Flashcards">
           <div class="head">
@@ -149,14 +139,6 @@
           </div>
           <h3>Exercises</h3>
           <p class="lede">Luyện tập đa dạng dạng bài.</p>
-        </a>
-        <a href="#" class="mode-card" data-mode="needs-review" aria-label="Mở Needs Review">
-          <div class="head">
-            <div class="icon"><i data-lucide="alert-circle"></i></div>
-            <span class="arrow" aria-hidden="true">→</span>
-          </div>
-          <h3>Needs Review</h3>
-          <p class="lede">Từ vựng và cách diễn đạt cần xem lại.</p>
         </a>
       </div>
     </section>
@@ -179,16 +161,6 @@
          now links to the public wiki master-detail (/vocabulary.html), the single
          browse surface. The hub keeps only the login-gated "của bạn" tools below. -->
 
-    <section class="tab-panel" data-panel="my-vocab" id="panel-my-vocab"
-             role="tabpanel" aria-labelledby="modes-heading" hidden>
-      <!-- Sprint 7.3 — my-vocab tab uses ES-module mount instead of
-           iframe. vocab-landing.js dynamic-imports /js/vocab-modules/my-vocab.js
-           and calls mount(container, { embedded: true }) on first
-           activation. Container's data-mounted attribute is the
-           idempotency guard. -->
-      <div class="tab-mount" id="mount-my-vocab"></div>
-    </section>
-
     <section class="tab-panel" data-panel="flashcards" id="panel-flashcards"
              role="tabpanel" aria-labelledby="modes-heading" hidden>
       <!-- Sprint 7.4 — flashcards tab migrated to ES-module mount,
@@ -209,18 +181,6 @@
            Sprint 7.6 retires embedded-mode.css + the legacy iframe
            branch in activateTab(). -->
       <div class="tab-mount" id="mount-exercises"></div>
-    </section>
-
-    <section class="tab-panel" data-panel="needs-review" id="panel-needs-review"
-             role="tabpanel" aria-labelledby="modes-heading" hidden>
-      <!-- Sprint 10.1.5 — Needs Review tab. vocab-landing.js dynamic-imports
-           /js/vocab-modules/needs-review.js and mounts it here. Same module
-           contract as my-vocab / flashcards / exercises (Phase B Q2 — same
-           lazy-loader + idempotency guard). Surface shows items where Claude
-           flagged a misuse or non-standard collocation, with the AI's
-           suggestion attached, so the learner can fix-then-promote or
-           dismiss. Re-enabled in Sprint 10.1.5 after Sprint 6.0 archival. -->
-      <div class="tab-mount" id="mount-needs-review"></div>
     </section>
 
     <section class="tab-panel" data-panel="vocab-topics" id="panel-vocab-topics"

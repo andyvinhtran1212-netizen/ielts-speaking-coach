@@ -75,12 +75,12 @@ function buildPage() {
   // ARIA tablist DOM was retired alongside the vocab-tabs CSS block.
   const dashboard = makeElement('section');
   dashboard.classList.add('vocab-modes');
-  const modeCards = ['vocab-topics', 'my-vocab', 'flashcards', 'exercises', 'needs-review'].map(m =>
+  const modeCards = ['vocab-topics', 'flashcards', 'exercises'].map(m =>
     makeElement('a', { 'data-mode': m }),
   );
 
   // 5 panels — all hidden by default; activateTab() reveals the target.
-  const panels = ['vocab-topics', 'my-vocab', 'flashcards', 'exercises', 'needs-review'].map(t => {
+  const panels = ['vocab-topics', 'flashcards', 'exercises'].map(t => {
     const panel = makeElement('section', { 'data-panel': t });
     panel.hidden = true;
     const mount = makeElement('div');
@@ -158,9 +158,9 @@ test('activateTab hides the .vocab-modes dashboard and reveals the target panel'
   assert.equal(doc._dashboard.hidden, true,
     '.vocab-modes dashboard is hidden once a panel activates');
   const flashcardsPanel = doc._panels.find(p => p.dataset.panel === 'flashcards');
-  const myVocabPanel    = doc._panels.find(p => p.dataset.panel === 'my-vocab');
+  const topicsPanel     = doc._panels.find(p => p.dataset.panel === 'vocab-topics');
   assert.equal(flashcardsPanel.hidden, false, 'target panel is revealed');
-  assert.equal(myVocabPanel.hidden, true,    'non-target panels stay hidden');
+  assert.equal(topicsPanel.hidden, true,     'non-target panels stay hidden');
 });
 
 // Sprint 7.6 — DEBT-2026-05-09-B CLOSED. The legacy iframe path
@@ -176,8 +176,8 @@ test('all vocab tabs are registered in TAB_LOADERS', () => {
   const loaders = win.__vocabLanding.TAB_LOADERS;
   assert.deepEqual(
     [...loaders].sort(),
-    ['exercises', 'flashcards', 'my-vocab', 'needs-review', 'vocab-topics'],
-    'TAB_LOADERS lists all 5 tabs: 4 personal tools + vocab-topics topic picker',
+    ['exercises', 'flashcards', 'vocab-topics'],
+    'TAB_LOADERS lists the 3 surviving modes (My Vocab + Needs Review removed)',
   );
 });
 
@@ -216,22 +216,22 @@ test('activateTab falls back to DEFAULT_TAB when given an unknown mode', () => {
 
   win.__vocabLanding.activateTab('not-a-real-tab');
 
-  const myVocabPanel = doc._panels.find(p => p.dataset.panel === 'my-vocab');
-  assert.equal(myVocabPanel.hidden, false,
-    'unknown mode name should fall back to DEFAULT_TAB (my-vocab) panel');
+  const defaultPanel = doc._panels.find(p => p.dataset.panel === 'vocab-topics');
+  assert.equal(defaultPanel.hidden, false,
+    'unknown mode name should fall back to DEFAULT_TAB (vocab-topics) panel');
 });
 
-test('VALID_TABS surface lists exactly the five supported modes', () => {
+test('VALID_TABS surface lists exactly the three supported modes', () => {
   const doc = buildPage();
   const win = loadVocabLanding(doc);
 
   // Cross-vm-context arrays don't share the same Array constructor,
   // so deepStrictEqual fails reference-equality. Compare values instead.
-  // topic-bank retired; replaced by vocab-topics (inline topic picker).
+  // My Vocab + Needs Review removed → vocab-topics / flashcards / exercises.
   assert.equal(
     JSON.stringify([...win.__vocabLanding.VALID_TABS].sort()),
-    JSON.stringify(['exercises', 'flashcards', 'my-vocab', 'needs-review', 'vocab-topics'].sort()),
+    JSON.stringify(['exercises', 'flashcards', 'vocab-topics'].sort()),
   );
-  assert.equal(win.__vocabLanding.DEFAULT_TAB, 'my-vocab',
-    'DEFAULT_TAB stays my-vocab as the unknown-mode fallback (Sprint 8.2: no longer the page-load default)');
+  assert.equal(win.__vocabLanding.DEFAULT_TAB, 'vocab-topics',
+    'DEFAULT_TAB is vocab-topics (the unknown-mode fallback after My Vocab was removed)');
 });

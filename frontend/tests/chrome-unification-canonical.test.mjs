@@ -42,12 +42,11 @@ const MIGRATED_PAGES = [
   { path: 'frontend/pages/speaking.html',          active: 'speaking' },
   { path: 'frontend/grammar.html',                 active: 'grammar' },
   { path: 'frontend/pages/vocabulary.html',        active: 'vocabulary' },
-  // Sprint 7.13 batch 2 — sub-pages (13)
+  // Sprint 7.13 batch 2 — sub-pages (12)
   { path: 'frontend/pages/practice.html',          active: 'speaking' },
   { path: 'frontend/pages/result.html',            active: 'speaking' },
   { path: 'frontend/pages/full-test-result.html',  active: 'speaking' },
   { path: 'frontend/pages/writing-result.html',    active: 'writing' },
-  { path: 'frontend/pages/my-vocabulary.html',     active: 'vocabulary' },
   { path: 'frontend/pages/flashcards.html',        active: 'vocabulary' },
   { path: 'frontend/pages/exercises.html',         active: 'vocabulary' },
   { path: 'frontend/pages/profile.html',           active: 'home' },
@@ -348,17 +347,6 @@ describe('Sprint 7.6 — embedded-mode pattern fully retired (DEBT-2026-05-09-B 
   // prevent a future contributor from re-adding the IIFE via copy-paste
   // from an older revision.
 
-  test('my-vocabulary.html no longer ships embedded-mode IIFE (Sprint 7.3 module migration)', () => {
-    const html = readFileSync(
-      path.join(REPO_ROOT, 'frontend/pages/my-vocabulary.html'),
-      'utf8',
-    );
-    assert.ok(
-      !/classList\.add\(\s*['"]embedded-mode['"]\s*\)/.test(html),
-      'my-vocabulary.html must NOT set the embedded-mode class after Sprint 7.3 module migration',
-    );
-  });
-
   test('flashcards.html no longer ships embedded-mode IIFE (Sprint 7.4 module migration)', () => {
     const html = readFileSync(
       path.join(REPO_ROOT, 'frontend/pages/flashcards.html'),
@@ -381,10 +369,10 @@ describe('Sprint 7.6 — embedded-mode pattern fully retired (DEBT-2026-05-09-B 
     );
   });
 
-  test('no embedded-mode.css link remains on the 3 vocab shells (Sprint 7.6 retirement)', () => {
+  test('no embedded-mode.css link remains on the 2 remaining vocab shells (Sprint 7.6 retirement)', () => {
     // After Sprint 7.6 the file is deleted; any surviving <link rel="stylesheet">
-    // would 404 on production. Pin all 3 shells against the link reference.
-    const pages = ['my-vocabulary.html', 'flashcards.html', 'exercises.html'];
+    // would 404 on production. Pin the 2 remaining shells against the link reference.
+    const pages = ['flashcards.html', 'exercises.html'];
     for (const name of pages) {
       const html = readFileSync(
         path.join(REPO_ROOT, 'frontend/pages', name),

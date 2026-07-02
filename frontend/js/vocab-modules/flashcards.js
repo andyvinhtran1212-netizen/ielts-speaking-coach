@@ -93,7 +93,6 @@ const HTML = /* html */ `
         <label class="modal-label">Phân loại</label>
         <div class="chip-group">
           <span class="chip" data-action="toggle-category" data-cat="used_well">Dùng tốt</span>
-          <span class="chip" data-action="toggle-category" data-cat="needs_review">Cần ôn lại</span>
           <span class="chip" data-action="toggle-category" data-cat="upgrade_suggested">Có thể nâng cấp</span>
           <span class="chip" data-action="toggle-category" data-cat="manual">Thêm thủ công</span>
         </div>
@@ -254,10 +253,9 @@ export async function mount(container, opts = {}) {
     if (totalCards === 0) {
       setFcContainerHtml(`
         <div class="state-msg">
-          <p class="text-base mb-2 text-white">Vocab Bank của bạn chưa có thẻ nào.</p>
-          <p class="text-sm">Hãy luyện tập Speaking để hệ thống tự động trích xuất từ vựng,
-            hoặc thêm thẻ thủ công từ trang Vocab Bank.</p>
-          <a class="empty-cta" href="/pages/my-vocabulary.html">Mở Vocab Bank</a>
+          <p class="text-base mb-2 text-white">Bạn chưa có thẻ flashcard nào.</p>
+          <p class="text-sm">Chọn một chủ đề để học flashcards từ vựng theo lịch lặp khoảng cách.</p>
+          <a class="empty-cta" href="/pages/vocabulary.html#vocab-topics">Học theo chủ đề →</a>
         </div>
       `);
       return;

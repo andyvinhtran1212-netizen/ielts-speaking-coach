@@ -350,7 +350,7 @@ def _build_vocabulary(sb, user_id: str) -> Dict[str, Any]:
         "primary_cta": "Practice flashcards" if due_count else "Browse vocabulary",
         "primary_cta_url": (
             "/pages/vocabulary.html#flashcards" if due_count
-            else "/pages/vocabulary.html#my-vocab"
+            else "/pages/vocabulary.html#vocab-topics"   # #my-vocab surface removed
         ),
     }
 

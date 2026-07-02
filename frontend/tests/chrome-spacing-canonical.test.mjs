@@ -244,9 +244,9 @@ describe('Sprint 6.18 Cat F — flex-layout pages canonical', () => {
 
 // ── Roster coverage ─────────────────────────────────────────────
 
-describe('Sprint 6.18 — 18 canonical-chrome-page roster intact', () => {
-  // The 18 pages on the canonical chrome contract. Mirrors the roster
-  // pinned in chrome-unification-canonical.test.mjs.
+describe('Sprint 6.18 — canonical-chrome-page roster intact', () => {
+  // The 17 pages on the canonical chrome contract (my-vocabulary.html deleted).
+  // Mirrors the roster pinned in chrome-unification-canonical.test.mjs.
   const ROSTER = [
     'frontend/pages/home.html',
     'frontend/pages/vocabulary.html',
@@ -258,7 +258,6 @@ describe('Sprint 6.18 — 18 canonical-chrome-page roster intact', () => {
     'frontend/pages/writing-dashboard.html',
     'frontend/pages/writing-result.html',
     'frontend/onboarding.html',
-    'frontend/pages/my-vocabulary.html',
     'frontend/pages/flashcards.html',
     'frontend/pages/exercises.html',
     'frontend/grammar.html',
@@ -268,12 +267,12 @@ describe('Sprint 6.18 — 18 canonical-chrome-page roster intact', () => {
     'frontend/pages/grammar-article.html',
   ];
 
-  test('roster contains exactly 18 canonical-chrome pages', () => {
-    assert.equal(ROSTER.length, 18,
-      'Sprint 6.18 roster should mirror Sprint 6.17.2 cumulative 18-page chrome unification');
+  test('roster contains exactly 17 canonical-chrome pages', () => {
+    assert.equal(ROSTER.length, 17,
+      'Sprint 6.18 roster should mirror the canonical chrome pages (my-vocabulary.html deleted)');
   });
 
-  // Sprint 7.13 milestone: ALL 18 chrome pages migrated to <aver-chrome>.
+  // Sprint 7.13 milestone: canonical chrome pages migrated to <aver-chrome>.
   // Every page asserts the custom element; no inline <nav class="topnav">
   // remains. Sprint 7.14 retires components.css chrome rules next.
   ROSTER.forEach((rel) => {
@@ -285,34 +284,6 @@ describe('Sprint 6.18 — 18 canonical-chrome-page roster intact', () => {
         `${rel}: must declare <aver-chrome> (chrome lives in shadow root post Sprint 7.13)`,
       );
     });
-  });
-});
-
-
-// ── Sprint 7.3 — my-vocab module owns its own page-body spacing ───
-
-describe('Sprint 7.3 — my-vocab module template preserves Sprint 6.18 Cat A wrapper padding', () => {
-  // Sprint 9.1 — `pt-20 pb-6` tightened to `pt-4 pb-8` for the vocab
-  // sub-pages. The pre-9.1 pt-20 compensated for the absence of
-  // `.shell` top padding, but it stacked on top of the (now retired)
-  // .{prefix}-header context bar to produce ~200px chrome→content.
-  // Post-9.1 the shared .subpage-header primitive flows inside main;
-  // chrome-to-content is ~108px, in line with sibling pages.
-  // The my-vocab.js module template ships the canonical pt-4 pb-8 wrapper
-  // that lived in the standalone HTML pre-7.3. The Cat A sentinel
-  // above dropped my-vocabulary.html from its roster because the
-  // shell only carries <main id="mount">; this pin protects the
-  // in-module wrapper instead.
-  test('my-vocab.js template ships <main class="...pt-4 pb-8"> wrapper (Sprint 9.1 tightened)', () => {
-    const src = readFileSync(
-      path.join(REPO_ROOT, 'frontend/js/vocab-modules/my-vocab.js'),
-      'utf8',
-    );
-    assert.match(
-      src,
-      /<main[^>]*\bpt-4\b[^>]*\bpb-8\b/,
-      'my-vocab module template must ship the Sprint 9.1 pt-4 pb-8 wrapper (chrome→content ~108px)',
-    );
   });
 });
 

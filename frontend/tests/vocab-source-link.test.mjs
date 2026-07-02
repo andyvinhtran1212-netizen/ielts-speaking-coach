@@ -40,8 +40,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 
 const HELPER_SRC      = readFileSync(join(ROOT, 'js/vocab-modules/_source-link.js'), 'utf8');
-const MY_VOCAB_SRC    = readFileSync(join(ROOT, 'js/vocab-modules/my-vocab.js'),     'utf8');
-const NEEDS_REVIEW_SRC = readFileSync(join(ROOT, 'js/vocab-modules/needs-review.js'), 'utf8');
 const PENDING_SRC     = readFileSync(join(ROOT, 'js/pending-vocab.js'),              'utf8');
 
 
@@ -103,37 +101,7 @@ describe('Sprint 10.8 — _source-link.js helper contract', () => {
 });
 
 
-describe('Sprint 10.8 — three surfaces consume the helper', () => {
-
-  it('my-vocab.js imports renderSourceLink from the helper', () => {
-    assert.ok(
-      /import\s*\{\s*renderSourceLink\s*\}\s+from\s+['"]\.\/_source-link\.js['"]/.test(MY_VOCAB_SRC),
-      'my-vocab.js must `import { renderSourceLink } from "./_source-link.js"`.',
-    );
-  });
-
-  it('my-vocab.js no longer ships an inline source-link anchor', () => {
-    // Catch a future PR that forks the helper back into an inline
-    // string. Pin the inline-anchor pattern that the helper replaced.
-    assert.ok(
-      !/`<a href="\/pages\/result\.html\?id=\$\{esc\(item\.session_id\)\}"/.test(MY_VOCAB_SRC),
-      'my-vocab.js must use the renderSourceLink helper, not the inline anchor.',
-    );
-  });
-
-  it('needs-review.js imports renderSourceLink from the helper', () => {
-    assert.ok(
-      /import\s*\{\s*renderSourceLink\s*\}\s+from\s+['"]\.\/_source-link\.js['"]/.test(NEEDS_REVIEW_SRC),
-      'needs-review.js must `import { renderSourceLink } from "./_source-link.js"`.',
-    );
-  });
-
-  it('needs-review.js no longer ships an inline source-link anchor', () => {
-    assert.ok(
-      !/`<a href="\/pages\/result\.html\?id=\$\{esc\(item\.session_id\)\}"/.test(NEEDS_REVIEW_SRC),
-      'needs-review.js must use the renderSourceLink helper, not the inline anchor.',
-    );
-  });
+describe('Sprint 10.8 — remaining surfaces consume the helper', () => {
 
   it('pending-vocab.js imports renderSourceLink from the helper', () => {
     // pending-vocab lives at /js/pending-vocab.js (not in vocab-modules/)

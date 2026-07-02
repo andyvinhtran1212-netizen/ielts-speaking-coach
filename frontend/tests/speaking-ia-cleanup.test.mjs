@@ -123,11 +123,11 @@ describe('Personalized analytics sections preserved (intentional KEEP)', () => {
     );
   });
 
-  test('Vocab updates section preserved in dashboard panel', () => {
-    assert.match(
+  test('Vocab updates section RETIRED (Phase 1, My Vocabulary removal)', () => {
+    assert.doesNotMatch(
       html,
       /id=["']vocab-updates-section["']/,
-      'Personalized Vocab updates section must stay — Speaking-session-driven analytics',
+      'The "Cập nhật từ vựng gần đây" widget was removed with the personal vocab bank: its "Xem tất cả" link had no valid destination and discovery is off, so there are no session-driven vocab events to surface',
     );
   });
 });

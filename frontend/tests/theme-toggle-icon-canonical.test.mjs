@@ -190,7 +190,6 @@ describe('Per-page CSS does not duplicate the components.css canonical rule', ()
     'frontend/css/writing-result.css',
     'frontend/css/full-test-result.css',
     'frontend/css/vocabulary.css',
-    'frontend/css/my-vocabulary.css',
     'frontend/css/flashcards.css',
     'frontend/css/exercises.css',
     'frontend/css/profile.css',

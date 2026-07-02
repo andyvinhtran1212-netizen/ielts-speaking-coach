@@ -74,7 +74,7 @@ describe('AMBER #1 closure: UNIFIED_DESIGN_BRIEF.md § 2 phase map matches shipp
   test('Phase 3 marked COMPLETE with the vocabulary cluster + profile + onboarding', () => {
     const phase3 = brief.match(/\*\*Phase 3\*\*[\s\S]{0,800}COMPLETE/i);
     assert.ok(phase3, 'Phase 3 row should be marked COMPLETE');
-    for (const page of ['vocabulary.html', 'my-vocabulary.html', 'flashcards.html',
+    for (const page of ['vocabulary.html', 'flashcards.html',
                         'exercises.html', 'profile.html', 'onboarding.html']) {
       assert.ok(phase3[0].includes(page), `Phase 3 row missing ${page}`);
     }

@@ -25,13 +25,12 @@ const read = (rel) => readFileSync(path.join(REPO, rel), 'utf8');
 // strip CSS/HTML comments so explanatory notes don't trip raw-hex / token checks
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/<!--[\s\S]*?-->/g, '');
 
-let mcq, tf, browse, analytics, myVocab, adminReading, tokens;
+let mcq, tf, browse, analytics, adminReading, tokens;
 before(() => {
   mcq          = read('frontend/pages/listening-mcq.html');
   tf           = read('frontend/pages/listening-tf.html');
   browse       = read('frontend/pages/listening-browse.html');
   analytics    = read('frontend/pages/listening-analytics.html');
-  myVocab      = read('frontend/css/my-vocabulary.css');
   adminReading = read('frontend/css/admin-reading.css');
   tokens       = read('frontend/css/aver-design/tokens.css');
 });
@@ -68,13 +67,6 @@ describe('Listening error banners use --av-error tokens (audit rows 19,20)', () 
 });
 
 
-describe('My Vocabulary mono uses --av-font-mono (audit row 28)', () => {
-  test('no literal JetBrains stack; token used', () => {
-    assert.ok(!/'JetBrains Mono'/.test(strip(myVocab)), 'literal JetBrains Mono stack must be gone');
-    assert.match(myVocab, /\.mv-stat__val[^}]*font-family:\s*var\(--av-font-mono\)/);
-    assert.match(myVocab, /\.mv-preview-ipa[\s\S]*?font-family:\s*var\(--av-font-mono\)/);
-  });
-});
 
 
 describe('Reading admin error text — --av-critical bug fixed', () => {
