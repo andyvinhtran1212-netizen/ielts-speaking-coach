@@ -292,9 +292,15 @@ async function generateTestError() {
   } catch {
     // Expected — the test endpoint raises by design.
   }
+  // The generated row is a "Test exception" — humanizeError() marks it as noise,
+  // so with the default-on "Ẩn nhiễu" filter it would be hidden and this
+  // dogfood check would appear to do nothing. The admin explicitly asked for it,
+  // so un-hide noise before refreshing to keep the verification path working.
+  const hideNoise = $('filter-hide-noise');
+  if (hideNoise) hideNoise.checked = false;
   // Give the BackgroundTask a beat to land before refreshing.
   setTimeout(() => { loadLogs(); loadStats(); }, 800);
-  showBanner('Đang tạo lỗi test… kiểm tra danh sách trong giây lát.', 'success');
+  showBanner('Đang tạo lỗi test… một dòng "Thử nghiệm" sẽ xuất hiện trong giây lát.', 'success');
 }
 
 function bind() {

@@ -114,3 +114,27 @@ describe('Sprint 12.3 — admin-error-logs.js controller', () => {
     assert.match(JS, /toLocaleString\(['"]vi-VN['"]/);
   });
 });
+
+describe('2026-07-02 — noise filter + humanize', () => {
+  it('HTML has the default-on "Ẩn nhiễu" checkbox', () => {
+    assert.match(HTML, /id="filter-hide-noise"[^>]*checked/);
+  });
+  it('renderTable filters noise rows when the checkbox is checked', () => {
+    assert.match(JS, /filter-hide-noise'\)\s*&&\s*\$\('filter-hide-noise'\)\.checked/);
+    assert.match(JS, /_rows\.filter\(\(r\)\s*=>\s*!humanizeError\(r\)\.noise\)/);
+  });
+  it('generateTestError un-hides noise so the dogfood row stays visible', () => {
+    // Pin the P2 fix: the "Tạo lỗi test" row is noise; the helper must clear the
+    // hide-noise filter or the generated row is hidden by the default-on filter.
+    const fn = JS.slice(JS.indexOf('async function generateTestError'),
+                        JS.indexOf('function bind()'));
+    assert.match(fn, /filter-hide-noise/);
+    assert.match(fn, /\.checked\s*=\s*false/);
+  });
+  it('humanizeError categorises DB, third-party, and test entries', () => {
+    assert.match(JS, /function humanizeError/);
+    assert.match(JS, /Bên thứ 3/);
+    assert.match(JS, /category:\s*'CSDL'/);
+    assert.match(JS, /Thử nghiệm/);
+  });
+});
