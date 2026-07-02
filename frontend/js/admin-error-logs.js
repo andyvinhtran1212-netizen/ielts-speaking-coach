@@ -75,8 +75,84 @@ function escapeHtml(s) {
     .replace(/'/g, '&#39;');
 }
 
+// ── Human-friendly summary + category (2026-07-02) ────────────────────────
+// The stored `message` is often a raw Postgres/PostgREST dict repr
+// ({'message': ..., 'code': '23502'}) or a third-party JS error — unreadable for
+// a non-engineer admin. Turn each row into a plain-language summary + a category
+// so the table is triageable at a glance. Pure display logic; the raw message +
+// stack are still shown in the detail panel.
+function humanizeError(row) {
+  const msg = String(row.message || '');
+
+  // Test / dogfood entries (from the "Tạo lỗi thử" button)
+  if (/test exception|manual fire test|manual warning|dogfood|unhandled rejection test|manual report/i.test(msg)) {
+    return { category: 'Thử nghiệm', tone: 'muted', noise: true,
+             summary: 'Mục thử nghiệm — không phải lỗi thật' };
+  }
+  // Third-party scripts / opaque cross-origin
+  if (/zalojsv2|zalosdk|\bgmo\b|\bfbq\b|gtag|adsbygoogle|google[- ]analytics/i.test(msg)
+      || msg.trim() === 'Script error.' || msg.trim() === 'Script error') {
+    return { category: 'Bên thứ 3', tone: 'muted', noise: true,
+             summary: 'Lỗi từ tiện ích/quảng cáo bên ngoài — không phải lỗi của ứng dụng' };
+  }
+  // Database (Postgres / PostgREST) — message is a dict repr carrying a code
+  const code = (msg.match(/'code':\s*'([^']+)'/) || [])[1];
+  if (code || /schema cache|violates .*constraint|does not exist|null value in column/i.test(msg)) {
+    // The inner Postgres message is single-quoted but often contains double
+    // quotes ("prompt_version"), or double-quoted and contains single quotes
+    // ('public.writing_tips') — match by the opening delimiter so we capture the
+    // whole thing instead of stopping at the first inner quote.
+    const inner = (msg.match(/'message':\s*'([^']*)'/)
+                || msg.match(/'message':\s*"([^"]*)"/)
+                || [null, msg])[1] || msg;
+    const col = (inner.match(/column\s+"?([\w.]+)"?/i) || [])[1];
+    const tblM = inner.match(/relation\s+"([\w.]+)"/i) || inner.match(/table '([\w.]+)'/i) || [];
+    const table = tblM[1];
+    let s;
+    if (code === '23502') s = `Thiếu dữ liệu bắt buộc ở cột "${col || '?'}"`;
+    else if (code === '23505') s = `Bị trùng giá trị (không cho phép trùng)${col ? ` ở "${col}"` : ''}`;
+    else if (code === '42703') s = `Cột "${col || '?'}" không tồn tại (lệch schema)`;
+    else if (code === 'PGRST205' || code === '42P01') s = `Bảng "${table || '?'}" không tồn tại (lệch schema)`;
+    else if (code === '23503') s = 'Vi phạm khoá ngoại (dữ liệu tham chiếu không tồn tại)';
+    else s = (inner || 'Lỗi truy vấn CSDL').slice(0, 100);
+    return { category: 'CSDL', tone: 'error', noise: false,
+             summary: s + (table ? ` — bảng ${table}` : '') };
+  }
+  // Network / SSL / transient
+  if (/certificate_verify_failed|\bssl\b|server disconnected|timed? ?out|connection|econnrefused/i.test(msg)) {
+    return { category: 'Mạng', tone: 'warning', noise: false,
+             summary: 'Lỗi kết nối tới dịch vụ bên ngoài (thường tạm thời)' };
+  }
+  // Frontend JS runtime
+  if (row.source === 'frontend') {
+    const m = msg.match(/Cannot read properties of (\w+) \(reading '([^']+)'\)/)
+           || msg.match(/([\w$]+) is not defined/);
+    if (m && m[2]) return { category: 'Giao diện', tone: 'error', noise: false,
+                            summary: `Truy cập "${m[2]}" trên giá trị ${m[1]} (thiếu kiểm tra null)` };
+    if (m && m[1]) return { category: 'Giao diện', tone: 'error', noise: false,
+                            summary: `Biến "${m[1]}" chưa được định nghĩa` };
+    return { category: 'Giao diện', tone: 'error', noise: false, summary: truncate(msg, 90) };
+  }
+  // Backend Python KeyError etc. — a bare quoted key
+  if (/^'[\w ]+'$/.test(msg.trim())) {
+    return { category: 'Máy chủ', tone: 'error', noise: false,
+             summary: `Thiếu khoá/giá trị: ${msg.trim()}` };
+  }
+  return { category: 'Khác', tone: '', noise: false, summary: truncate(msg, 90) };
+}
+
+function categoryChip(h) {
+  const cls = h.tone === 'error' ? 'el-chip is-error'
+            : h.tone === 'warning' ? 'el-chip is-warning'
+            : h.tone === 'muted' ? 'el-chip' : 'el-chip';
+  const style = h.tone === 'muted' ? ' style="opacity:.6;"' : '';
+  return `<span class="${cls}"${style}>${escapeHtml(h.category)}</span>`;
+}
+
 function renderDetail(row) {
+  const h = humanizeError(row);
   const stack = escapeHtml(row.stack || '(no stack)');
+  const rawMsg = escapeHtml(row.message || '(none)');
   const extra = row.extra ? escapeHtml(JSON.stringify(row.extra, null, 2)) : '(none)';
   const reqId = escapeHtml(row.request_id || '(none)');
   const ua = escapeHtml(row.user_agent || '(none)');
@@ -87,6 +163,8 @@ function renderDetail(row) {
   return `
     <td colspan="8">
       <div class="el-detail">
+        <div><strong>Tóm tắt:</strong> ${categoryChip(h)} ${escapeHtml(h.summary)}</div>
+        <div><strong>Message gốc:</strong> <code>${rawMsg}</code></div>
         <div><strong>Request ID:</strong> <code>${reqId}</code></div>
         <div><strong>User:</strong> <code>${userId}</code></div>
         <div><strong>User-Agent:</strong> <code>${ua}</code></div>
@@ -109,17 +187,31 @@ function renderTable() {
   $('logs-table-wrap').hidden = false;
 
   const tbody = $('logs-tbody');
-  tbody.innerHTML = _rows.map((r) => {
-    const cls = r.dismissed_at ? 'is-dismissed' : '';
+  const hideNoise = $('filter-hide-noise') && $('filter-hide-noise').checked;
+  const rows = hideNoise ? _rows.filter((r) => !humanizeError(r).noise) : _rows;
+
+  if (!rows.length) {
+    $('logs-empty').hidden = false;
+    $('logs-table-wrap').hidden = true;
+    return;
+  }
+  $('logs-empty').hidden = true;
+  $('logs-table-wrap').hidden = false;
+
+  tbody.innerHTML = rows.map((r) => {
+    const h = humanizeError(r);
+    const cls = [r.dismissed_at ? 'is-dismissed' : '', h.noise ? 'is-noise' : ''].filter(Boolean).join(' ');
     const expanded = _expanded.has(r.id);
     const url = truncate(r.url, 40);
     const userCell = r.user_id ? '<code>' + escapeHtml(r.user_id.slice(0, 8)) + '…</code>' : '<span style="color:var(--av-text-muted);">anon</span>';
+    // Message cell: category badge + plain-language summary (raw message is in the detail panel).
+    const msgCell = `${categoryChip(h)} <span title="${escapeHtml(truncate(r.message, 200))}">${escapeHtml(h.summary)}</span>`;
     return `
-      <tr class="${cls}" data-id="${r.id}" data-row="main">
+      <tr class="${cls}"${h.noise ? ' style="opacity:.55;"' : ''} data-id="${r.id}" data-row="main">
         <td><code>${fmtTime(r.occurred_at)}</code></td>
         <td>${levelChip(r.level)}</td>
         <td><span class="el-chip">${escapeHtml(r.source)}</span></td>
-        <td>${escapeHtml(truncate(r.message, 80))}</td>
+        <td>${msgCell}</td>
         <td>${escapeHtml(url)}</td>
         <td>${userCell}</td>
         <td>${dismissedChip(r)}</td>
@@ -211,6 +303,9 @@ function bind() {
   ['filter-dismissed', 'filter-level', 'filter-source'].forEach((id) => {
     $(id).addEventListener('change', loadLogs);
   });
+  // Hide-noise is a pure client-side re-filter of the already-loaded rows.
+  const hideNoise = $('filter-hide-noise');
+  if (hideNoise) hideNoise.addEventListener('change', renderTable);
   $('logs-tbody').addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-action]');
     if (!btn) return;

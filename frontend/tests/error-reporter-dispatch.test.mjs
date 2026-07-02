@@ -275,3 +275,44 @@ describe('Sprint 12.3.1 — Falsification #82 dispatch sentinel', () => {
     assert.equal(body.message, 'plain string reason');
   });
 });
+
+// ── Noise filter (2026-07-02) — third-party / opaque errors are NOT logged ──
+describe('error-reporter noise filter', () => {
+  test('opaque cross-origin "Script error." is NOT reported', async () => {
+    const { listeners, fetchCalls } = setupSandbox();
+    listeners.error({ message: 'Script error.', filename: '', lineno: 0, colno: 0 });
+    await flush();
+    assert.equal(fetchCalls.length, 0, 'Script error. must be dropped at capture');
+  });
+
+  test('third-party Zalo widget error is NOT reported', async () => {
+    const { listeners, fetchCalls } = setupSandbox();
+    listeners.error({ message: 'Uncaught ReferenceError: zaloJSV2 is not defined',
+                      filename: 'https://sp.zalo.me/plugins/sdk.js' });
+    await flush();
+    assert.equal(fetchCalls.length, 0, 'Zalo third-party error must be dropped');
+  });
+
+  test('error from a third-party CDN filename is NOT reported', async () => {
+    const { listeners, fetchCalls } = setupSandbox();
+    listeners.error({ message: 'TypeError: x is undefined',
+                      filename: 'https://www.googletagmanager.com/gtag/js' });
+    await flush();
+    assert.equal(fetchCalls.length, 0, 'third-party CDN error must be dropped');
+  });
+
+  test('a real app error is STILL reported (filter is not over-broad)', async () => {
+    const { listeners, fetchCalls } = setupSandbox();
+    listeners.error({ message: "Cannot read properties of null (reading 'essay')",
+                      filename: 'https://www.averlearning.com/writing/result' });
+    await flush();
+    assert.equal(fetchCalls.length, 1, 'genuine app error must still be captured');
+  });
+
+  test('unhandledrejection from a third-party is NOT reported', async () => {
+    const { listeners, fetchCalls } = setupSandbox();
+    listeners.unhandledrejection({ reason: { message: 'zaloJSV2 is not defined' } });
+    await flush();
+    assert.equal(fetchCalls.length, 0);
+  });
+});
