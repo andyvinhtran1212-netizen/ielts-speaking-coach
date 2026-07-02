@@ -71,6 +71,17 @@ def check_file(path: Path) -> list[str]:
     if not qblocks:
         problems.append("Không có câu hỏi nào.")
 
+    # Stray block: a non-META YAML doc WITHOUT `type`. The real importer rejects
+    # it ("Block không có 'type' và không phải META"), so a typo'd/missing `type`
+    # must FAIL the gate — never be silently excluded from validation.
+    for d in docs:
+        if not _is_meta_block(d) and not d.get("type"):
+            qid = d.get("id") or "(thiếu id)"
+            problems.append(
+                f"Block lạc [{qid}]: không phải META và thiếu 'type' "
+                "(importer sẽ reject)."
+            )
+
     ids: dict[str, int] = defaultdict(int)
     pools: dict[str, dict] = defaultdict(lambda: {"skills": set(), "prod": False, "n": 0})
 
