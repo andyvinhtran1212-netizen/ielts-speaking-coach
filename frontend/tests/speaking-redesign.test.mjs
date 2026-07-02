@@ -986,3 +986,23 @@ describe('Sprint 9.2 — speaking mode panels ship .subpage-header with Speaking
     );
   });
 });
+
+// ── 2026-07-02 — progress charts work for practice-only users ───────────────
+describe('2026-07-02 — Band-over-time chart uses overall_band', () => {
+  const html = readFileSync(path.join(__dirname, '..', 'pages', 'speaking.html'), 'utf8');
+
+  test('line chart leads with an overall_band dataset (practice sessions have only overall)', () => {
+    // Practice grading is holistic — no band_fc/lr/gra/p — so the "band score
+    // theo thời gian" line MUST plot overall_band or it is blank for practice users.
+    assert.match(html, /lineDS\(\s*'Tổng \(Overall\)'\s*,\s*'overall_band'/);
+  });
+
+  test('the 4-criteria lines are conditional on having criteria data', () => {
+    assert.match(html, /var hasCriteria = completed\.some/);
+    assert.match(html, /if \(hasCriteria\)/);
+  });
+
+  test('radar empty state explains a full Test is needed', () => {
+    assert.match(html, /Test đầy đủ/);
+  });
+});
