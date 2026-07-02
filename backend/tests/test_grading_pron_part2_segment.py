@@ -98,6 +98,26 @@ def test_part2_extract_failure_falls_back_to_full(monkeypatch):
     assert res == {"pronunciation_score": 70.0}
 
 
+def test_part2_extract_identity_fallback_keeps_original_mime(monkeypatch):
+    """extract_audio_segment returns the SAME bytes object on ffmpeg failure (no
+    raise). Relabeling that as audio/wav would feed Azure mislabeled audio, so we
+    must keep the original content_type when the return is the input unchanged."""
+    calls = {}
+
+    def fake_extract(audio, start, end):
+        return audio   # ffmpeg-failure behavior: original bytes, unchanged
+
+    monkeypatch.setattr(grading, "extract_audio_segment", fake_extract)
+    monkeypatch.setattr(grading.azure_pronunciation, "assess_pronunciation",
+                        _fake_assess_recorder(calls))
+
+    asyncio.run(grading._assess_pronunciation_safe(
+        b"AUDIO", "audio/webm; codecs=opus", part=2, duration_sec=60.0))
+
+    assert calls["assess"][0] == b"AUDIO"                       # full original bytes
+    assert calls["assess"][1] == "audio/webm; codecs=opus"     # NOT mislabeled audio/wav
+
+
 def test_empty_audio_returns_none():
     assert asyncio.run(grading._assess_pronunciation_safe(
         b"", "audio/webm", part=1, duration_sec=30.0)) is None

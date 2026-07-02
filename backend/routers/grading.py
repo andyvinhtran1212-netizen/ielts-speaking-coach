@@ -245,7 +245,11 @@ async def _assess_pronunciation_safe(
         try:
             start_s, end_s, _ = _part2_segment(duration_sec)
             seg = await asyncio.to_thread(extract_audio_segment, audio_bytes, start_s, end_s)
-            if seg:
+            # extract_audio_segment returns the SAME object on ffmpeg failure (no
+            # raise). Only relabel as WAV when it actually converted (identity
+            # check) — otherwise the original WebM/MP3 bytes would be mislabeled
+            # audio/wav and Azure's own fallback would misparse them.
+            if seg is not None and seg is not audio_bytes:
                 send_bytes, send_ct = seg, "audio/wav"
         except Exception as seg_exc:  # noqa: BLE001 — fall back to full audio
             logger.info("[grading] Part 2 segment extract failed, sending full clip: %s", seg_exc)
@@ -590,14 +594,26 @@ async def grade_response_endpoint(
                 "Không nhận dạng được giọng nói. Hãy kiểm tra microphone và thử lại."
             )
 
+        # P2 (audit 2026-07-02) — distinguish UNKNOWN duration (0, from a
+        # non-verbose STT without ffprobe) from a real 0-second recording.
+        # Downstream signals that key off duration (length warning, score
+        # confidence, the grader's SPEAKING METRICS) must treat unknown as "no
+        # signal" (None), NOT as a too-short answer — otherwise every valid
+        # recording in that config is graded with false short-answer penalties.
+        duration_known: bool = duration_sec > 0
+        duration_signal: float | None = duration_sec if duration_known else None
+
         # ── Sprint 14.7 — length soft-warning context (L7, L8) ───────────────
         # Computed before grading so the context can be injected into
         # the grader prompt. The hard reject (Sprint 14.2) already ran
         # above; this only fires for durations above the floor but
         # below the soft cap (2× hard reject per L7).
-        length_warning_fires, length_context = get_length_warning_context(
-            part, duration_sec,
-        )
+        if duration_known:
+            length_warning_fires, length_context = get_length_warning_context(
+                part, duration_sec,
+            )
+        else:
+            length_warning_fires, length_context = False, None
 
         # ── STEP 6: Claude grading + off-topic judge (parallel — L2) ─────────
         step = "claude_grade"
@@ -647,7 +663,7 @@ async def grade_response_endpoint(
                 user_id=user_id,
                 session_id=session_id,
                 reliability=reliability,
-                duration_seconds=duration_sec,
+                duration_seconds=duration_signal,   # None when unknown (P2)
                 word_count=word_count,
                 fallback_events=fallback_events,
                 length_context=length_context,
@@ -777,7 +793,7 @@ async def grade_response_endpoint(
 
         # ── Score confidence (multi-signal) ───────────────────────────────────
         score_confidence = _compute_score_confidence(
-            reliability, duration_sec, (pron_result or {}).get("pronunciation_score"),
+            reliability, duration_signal, (pron_result or {}).get("pronunciation_score"),
         )
         logger.info("[grading] score_confidence: %s", score_confidence)
 
@@ -798,7 +814,7 @@ async def grade_response_endpoint(
                 else None
             ),
             "length_warning":         length_warning_fires,
-            "audio_duration_seconds": round(duration_sec, 2),
+            "audio_duration_seconds": round(duration_sec, 2) if duration_known else None,
             "length_soft_threshold":  LENGTH_SOFT_WARNING_THRESHOLDS_SECONDS.get(part),
             # Structured grammar errors from services.grammar_check (Sprint 14.8;
             # named `grammar_check` to avoid collision with Sprint 14.5's
@@ -1138,29 +1154,34 @@ def _build_response_payload(is_practice, *, response_id, partial, transcript,
 
 def _compute_score_confidence(
     reliability: dict,
-    duration_sec: float,
+    duration_sec: float | None,
     pronunciation_score: float | None = None,
 ) -> str:
     """
     Compute overall score_confidence from transcript reliability + duration +
     (audit 2026-07-02) the Azure pronunciation score.
 
+    ``duration_sec`` is None when the duration is UNKNOWN (P2) — that is neither
+    "too short" nor evidence of a normal-length answer, so it neither forces low
+    nor allows high.
+
     Rules (most restrictive wins):
       low  → reliability_label == "low"
-           OR duration < 10s (too short to assess meaningfully)
+           OR duration known AND < 10s (too short to assess meaningfully)
            OR pronunciation_score < 35 (very poor pronunciation → grade is shaky
              even on clear audio; restores the signal the removed on-demand path had)
-      high → reliability_label == "high" AND 20 <= duration <= 180
+      high → reliability_label == "high" AND duration known AND 20 <= duration <= 180
              AND (pronunciation_score is None OR >= 65)
       medium → everything else
     """
     label = reliability.get("reliability_label", "high")
-    if label == "low" or duration_sec < 10.0:
+    if label == "low" or (duration_sec is not None and duration_sec < 10.0):
         return "low"
     if pronunciation_score is not None and pronunciation_score < 35:
         return "low"
     if (
         label == "high"
+        and duration_sec is not None
         and 20.0 <= duration_sec <= 180.0
         and (pronunciation_score is None or pronunciation_score >= 65)
     ):

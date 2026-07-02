@@ -50,6 +50,16 @@ def test_score_confidence_none_pron_preserves_old_behavior():
     assert _compute_score_confidence(_rel("medium"), 40.0, None) == "medium"
 
 
+def test_score_confidence_unknown_duration_not_forced_low_or_high():
+    # P2: duration None (unknown, non-verbose STT w/o ffprobe) is neither too
+    # short (→ low) nor evidence of a normal-length answer (→ high) — medium.
+    assert _compute_score_confidence(_rel("high"), None, 80.0) == "medium"
+    assert _compute_score_confidence(_rel("high"), None, None) == "medium"
+    # reliability / pron signals still dominate when duration is unknown
+    assert _compute_score_confidence(_rel("low"), None, None) == "low"
+    assert _compute_score_confidence(_rel("high"), None, 20.0) == "low"  # pron < 35
+
+
 # ── _pron_band_from_scores: Azure 0–100 → IELTS 1–9 integer ─────────────────
 
 def test_band_none_when_no_score():
