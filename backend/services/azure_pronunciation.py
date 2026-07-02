@@ -25,6 +25,7 @@ Azure docs:
   https://learn.microsoft.com/azure/ai-services/speech-service/pronunciation-assessment-tool
 """
 
+import asyncio
 import base64
 import json
 import logging
@@ -312,7 +313,12 @@ async def assess_pronunciation(
 
     # Convert to WAV PCM before sending — WAV is universally decoded by Azure
     # without container-parsing issues that cause InitialSilenceTimeout on WebM.
-    wav_bytes = _convert_to_wav(audio_bytes)
+    # Audit 2026-07-02: _convert_to_wav shells out to ffmpeg via a BLOCKING
+    # subprocess.run (up to 30s). Offload it to a worker thread so it never
+    # stalls the event loop — this coroutine runs inline on the loop until its
+    # first await, and the grader/judge/other requests must keep progressing in
+    # parallel (this is called as a concurrent task from the grading pipeline).
+    wav_bytes = await asyncio.to_thread(_convert_to_wav, audio_bytes)
     if wav_bytes:
         send_bytes        = wav_bytes
         send_content_type = "audio/wav"

@@ -469,10 +469,21 @@ async def grade_response(
         word_count=word_count,
         length_context=length_context,
     )
-    # Sprint 14.3 — `client` kept for legacy post-processing helpers
-    # (_post_process_test_result still uses it directly). The grading
-    # LLM call itself now goes through the orchestrator.
-    client       = _get_client()
+    # Sprint 14.3 — `client` kept for the OPTIONAL sample/improved-answer
+    # regeneration in post-processing (Claude Haiku). The grading LLM call
+    # itself goes through the orchestrator (SPEAKING_GRADING_MODEL). Audit
+    # 2026-07-02: make this lazy/optional so a Gemini-only deployment (no
+    # ANTHROPIC_API_KEY) can still grade — _get_client() would otherwise raise
+    # here before the orchestrator is ever reached. When None, regeneration is
+    # skipped and a drifting sample is dropped with a status (graceful).
+    try:
+        client = _get_client()
+    except RuntimeError as exc:
+        logger.info(
+            "Anthropic client unavailable (%s) — sample regeneration disabled; "
+            "grading routes to SPEAKING_GRADING_MODEL via the orchestrator", exc,
+        )
+        client = None
     orchestrator = _get_orchestrator()
 
     # ── Attempt 1 ─────────────────────────────────────────────────────────────
@@ -1216,7 +1227,13 @@ async def _regen_grounded_answer(
     Regenerate a sample answer that stays grounded in the candidate's own response.
     Called when the initial sample_answer or improved_response drifts too far from
     the transcript (overlap ratio below _RELEVANCE_THRESHOLD).
+
+    ``client`` is None on a Gemini-only deployment (no ANTHROPIC_API_KEY) — in
+    that case regeneration is skipped and the caller drops the drifting sample
+    with a status, exactly as it does on any regen failure.
     """
+    if client is None:
+        return None
     prompt = (
         f"Question: {question}\n\n"
         f"Candidate's response: {transcript}\n\n"
