@@ -31,6 +31,18 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
 
+    # Speaking grader primary model (audit 2026-07-02).
+    # The Speaking grader used to be hardcoded to Claude Haiku 4.5 — the weakest
+    # tier — while the Writing grader already uses Gemini Pro. This knob lets ops
+    # point the *grader* at any model without a code change; the fallback chain
+    # (Haiku → Sonnet) and the off-topic judge + grammar-check stay on Haiku.
+    #   * "gemini-*"                  → routed to the Gemini provider
+    #   * "claude-*" / "anthropic-*"  → routed to the Claude provider
+    # Default: Gemini 3 Flash — cheaper than Haiku ($0.50/$3.00 per 1M) with
+    # markedly stronger reasoning, so grading quality rises AND cost drops.
+    # Empty string → fall back to the legacy Haiku-first chain.
+    SPEAKING_GRADING_MODEL: str = "gemini-3-flash-preview"
+
     # Google Cloud TTS
     GOOGLE_APPLICATION_CREDENTIALS: str = ""
 

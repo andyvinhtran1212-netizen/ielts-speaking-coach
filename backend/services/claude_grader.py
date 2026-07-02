@@ -31,6 +31,7 @@ from config import settings
 from services import ai_usage_logger
 from services.grammar_content import grammar_service
 from services.grading_orchestrator import (
+    GRADING_PROVIDER_ORDER,
     GradingOrchestrator,
     build_default as _build_default_orchestrator,
 )
@@ -105,13 +106,14 @@ IELTS SPEAKING — 4 ASSESSMENT CRITERIA
    - Band 1: no rateable language
 
 4. PRONUNCIATION (P)
-   Assess pronunciation holistically as a speaking examiner would. Focus on
-   intelligibility, rhythm, stress, and fluency markers visible in how the candidate
-   expresses themselves. Consider length and complexity of speech attempted.
-   IMPORTANT: Write p_feedback as a warm, encouraging teacher — NOT as a technical
-   report. NEVER mention words/sec, transcript analysis, or text-based inference.
-   NEVER say you cannot hear the audio. Write as if you listened to the speaker.
-   Default band: 5 for a typical response; raise or lower based on evidence.
+   NOTE: You are working from a TEXT TRANSCRIPT and cannot hear the audio. The
+   authoritative pronunciation band comes from a dedicated audio-analysis service
+   (Azure Speech), computed separately and merged in after grading — your band_p
+   here is only a provisional placeholder and is normally OVERWRITTEN by the
+   audio-measured score. Do NOT claim to have heard the speaker. Give a neutral
+   provisional estimate (default band 5) and write p_feedback as brief, honest,
+   encouraging coaching about pronunciation practice in general — never assert
+   specific sounds you "heard".
    - Band 9: intelligible throughout; uses features of connected speech naturally
    - Band 8: easy to understand; uses range of phonological features effectively
    - Band 7: generally easy to understand; some strain; L1 accent evident
@@ -782,6 +784,7 @@ async def _invoke_orchestrator(
             user_message,
             user_id=user_id,
             session_id=session_id,
+            order=GRADING_PROVIDER_ORDER,
         )
     except AllProvidersFailedError as exc:
         if sink is not None:

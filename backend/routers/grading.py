@@ -31,6 +31,7 @@ from services.db_async import aexecute
 from routers.auth import get_supabase_user
 from services.whisper import transcribe_from_bytes
 from services import claude_grader
+from services import azure_pronunciation
 from services import ai_usage_logger
 from services.transcript_reliability import classify_reliability
 from services.audio_validation import AudioTooShortError, validate_audio_duration
@@ -146,6 +147,123 @@ def _apply_heuristic_caps(grading: dict, word_count: int, part: int) -> dict:
         grading["overall_band"] = _round_band(sum(crit_vals) / len(crit_vals))
 
     return grading
+
+
+# ── Pronunciation (Azure) — server-side authoritative P (audit 2026-07-02) ────
+# The grader (Claude/Gemini) works from a TEXT transcript and cannot hear audio,
+# so its band_p was previously a fabricated text-inference — a truthfulness
+# violation. Pronunciation is now measured server-side from the real audio by
+# Azure Speech, in parallel with grading, and is the SOLE source of the P band
+# shown to users. When Azure is unavailable the P band is null and the feedback
+# says so honestly ("chưa đánh giá") — never a fabricated number.
+
+_PRON_TIMEOUT_SECONDS = 45.0   # Azure runs in parallel with the grader; short
+                               # answers return in a few seconds, so a hung call
+                               # is bounded rather than blocking the whole grade.
+_PRON_UNAVAILABLE_FEEDBACK = (
+    "Chưa đánh giá được phát âm cho câu trả lời này (dịch vụ phân tích âm thanh "
+    "tạm thời không khả dụng). Điểm phát âm sẽ được cập nhật khi hệ thống phân "
+    "tích lại được bản ghi âm của bạn."
+)
+
+
+async def _assess_pronunciation_safe(
+    audio_bytes: bytes,
+    content_type: str | None,
+) -> dict | None:
+    """Run Azure pronunciation assessment with a hard timeout, never raising.
+
+    Returns the normalized Azure dict on success, or ``None`` on any failure
+    (missing config, API error, timeout, empty audio). Mirrors the judge /
+    grammar "best-effort signal, never block grading" contract.
+    """
+    if not audio_bytes:
+        return None
+    try:
+        return await asyncio.wait_for(
+            azure_pronunciation.assess_pronunciation(
+                audio_bytes=audio_bytes,
+                content_type=content_type or "audio/webm; codecs=opus",
+                locale="en-US",
+                reference_text="",
+            ),
+            timeout=_PRON_TIMEOUT_SECONDS,
+        )
+    except Exception as exc:   # noqa: BLE001 — best-effort, log + skip
+        logger.info("[grading] pronunciation assessment skipped (non-fatal): %s", exc)
+        return None
+
+
+def _pron_band_from_scores(
+    pron_score: float | None,
+    fluency_score: float | None,
+) -> float | None:
+    """Map Azure 0–100 pronunciation (blended with fluency) to an IELTS 1–9
+    WHOLE-integer criterion band. Returns None when there is no usable score."""
+    if pron_score is None:
+        return None
+    band = 1.0 + (float(pron_score) / 100.0) * 8.0
+    if fluency_score is not None:
+        band = 0.5 * band + 0.5 * (1.0 + (float(fluency_score) / 100.0) * 8.0)
+    return float(max(1, min(9, round(band))))
+
+
+def _merge_pronunciation_into_grading(
+    grading: dict,
+    pron_result: dict | None,
+    is_practice: bool,
+) -> dict | None:
+    """Make Azure the authoritative source of the P band, in-place.
+
+    Test mode: overwrite ``band_p`` + ``p_feedback`` with audio-measured values
+    (or null + honest "chưa đánh giá" when Azure is unavailable), then recompute
+    ``overall_band`` from the criteria that actually have a value.
+
+    Practice mode: there is no P criterion in the coaching payload, so band_p is
+    left absent; the pronunciation card is surfaced via the signals block only.
+
+    Returns the pronunciation-detail dict to persist/surface (or None).
+    """
+    pron_score = (pron_result or {}).get("pronunciation_score")
+    fluency    = (pron_result or {}).get("fluency_score")
+    band_p = _pron_band_from_scores(pron_score, fluency)
+
+    if not is_practice:
+        if band_p is not None:
+            grading["band_p"] = band_p
+            summary = (pron_result or {}).get("short_summary") or []
+            grading["p_feedback"] = " ".join(summary) if summary else grading.get("p_feedback", "")
+            grading["pronunciation_source"] = "azure"
+        else:
+            # No audio-measured score → do NOT show a fabricated band. Null it
+            # out and say so honestly (the project's top quality bar).
+            grading["band_p"] = None
+            grading["p_feedback"] = _PRON_UNAVAILABLE_FEEDBACK
+            grading["pronunciation_source"] = "unavailable"
+
+        crit_vals = [
+            float(grading[k])
+            for k in ("band_fc", "band_lr", "band_gra", "band_p")
+            if grading.get(k) is not None
+        ]
+        if crit_vals:
+            grading["overall_band"] = _round_band(sum(crit_vals) / len(crit_vals))
+
+    if pron_result is None:
+        return None
+    return {
+        "status":               "completed",
+        "pronunciation_score":  pron_result.get("pronunciation_score"),
+        "fluency_score":        pron_result.get("fluency_score"),
+        "accuracy_score":       pron_result.get("accuracy_score"),
+        "completeness_score":   pron_result.get("completeness_score"),
+        "prosody_score":        pron_result.get("prosody_score"),
+        "short_summary":        pron_result.get("short_summary", []),
+        "weak_phonemes":        pron_result.get("weak_phonemes", []),
+        "words":                pron_result.get("words", []),
+        "provider":             "azure",
+        "locale":               "en-US",
+    }
 
 
 # ── POST /sessions/{session_id}/responses ─────────────────────────────────────
@@ -404,6 +522,14 @@ async def grade_response_endpoint(
                 session_id=session_id,
             )
         )
+        # Audit 2026-07-02 — fourth parallel task: Azure pronunciation. This is
+        # the SOLE, audio-measured source of the P band (the grader can't hear
+        # audio). Runs on the in-memory bytes so it needs no storage round-trip;
+        # _assess_pronunciation_safe bounds it at _PRON_TIMEOUT_SECONDS and never
+        # raises, so a slow/absent Azure just yields None → honest "chưa đánh giá".
+        pron_task = asyncio.create_task(
+            _assess_pronunciation_safe(audio_bytes, audio_file.content_type)
+        )
 
         try:
             grading = await grading_task
@@ -441,6 +567,29 @@ async def grade_response_endpoint(
             )
             grammar_result = None
 
+        # Audit 2026-07-02 — await the Azure pronunciation task (never raises).
+        pron_result: dict | None = None
+        try:
+            pron_result = await pron_task
+        except Exception as pron_exc:  # defensive — _assess_pronunciation_safe swallows
+            logger.warning("[grading] pronunciation task unexpected error (silent skip): %s", pron_exc)
+            pron_result = None
+
+        # Make Azure the authoritative P band (test mode) BEFORE the feedback blob
+        # is serialized, so the persisted grade + the reload path agree. Returns
+        # the pronunciation-detail dict to persist + surface (None if Azure absent).
+        pron_detail: dict | None = None
+        if grading:
+            pron_detail = _merge_pronunciation_into_grading(
+                grading, pron_result, is_practice=(session_mode == "practice"),
+            )
+            logger.info(
+                "[grading] pronunciation merged — source=%s band_p=%s overall=%s",
+                grading.get("pronunciation_source"),
+                grading.get("band_p"),
+                grading.get("overall_band"),
+            )
+
         # ── Score confidence (multi-signal) ───────────────────────────────────
         score_confidence = _compute_score_confidence(reliability, duration_sec)
         logger.info("[grading] score_confidence: %s", score_confidence)
@@ -477,6 +626,14 @@ async def grade_response_endpoint(
                 if grammar_result is not None
                 else None
             ),
+            # Audit 2026-07-02 — audio-measured pronunciation (Azure). Surfaced
+            # here so the frontend renders the real pronunciation card from the
+            # single grade call (no fragile second round-trip). `status` is
+            # "unavailable" (with band_p null upstream) when Azure didn't run.
+            "pronunciation": pron_detail if pron_detail is not None else {
+                "status": "unavailable",
+                "provider": "azure",
+            },
         }
 
         # ── STEP 7: Upsert response row ───────────────────────────────────────
@@ -508,6 +665,28 @@ async def grade_response_endpoint(
             "stt_status":                  "completed",
             "grading_status":              "completed" if grading else "failed",
         }
+
+        # Audit 2026-07-02 — persist audio-measured pronunciation columns so the
+        # result page, phoneme drill-down, and session aggregation read the real
+        # Azure scores from the single grade call (no separate on-demand round-
+        # trip). Guarded: absent when Azure didn't run. Not in _CORE_COLUMNS, so
+        # the core-row fallback drops them safely on a schema mismatch.
+        if pron_result is not None:
+            db_row["pronunciation_score"]        = pron_result.get("pronunciation_score")
+            db_row["pronunciation_fluency"]      = pron_result.get("fluency_score")
+            db_row["pronunciation_accuracy"]     = pron_result.get("accuracy_score")
+            db_row["pronunciation_completeness"] = pron_result.get("completeness_score")
+            db_row["pronunciation_status"]       = "completed"
+            db_row["pronunciation_provider"]     = "azure"
+            db_row["pronunciation_locale"]       = "en-US"
+            db_row["pronunciation_payload"]      = json.dumps(
+                pron_result.get("raw_payload") or {}, ensure_ascii=False
+            )
+            # Test mode: feed sessions.py's canonical aggregation the Azure-
+            # derived P (it prefers final_band_p over feedback.band_p).
+            if grading and session_mode != "practice" and grading.get("band_p") is not None:
+                db_row["final_band_p"]       = grading["band_p"]
+                db_row["final_overall_band"] = grading["overall_band"]
 
         if grading:
             db_row["overall_band"] = grading["overall_band"]

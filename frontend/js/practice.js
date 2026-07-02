@@ -1168,12 +1168,20 @@
   var _pillColorMap = { FC: 'fc', LR: 'lr', GRA: 'gra', P: 'p' };
   function _bandPill(label, value) {
     var cls = _pillColorMap[label] || 'fc';
-    return '<div data-criterion="' + label + '" style="display:inline-flex;flex-direction:column;align-items:center;'
+    // Audit 2026-07-02 — a null/NaN band (e.g. P when Azure pronunciation
+    // hasn't been assessed) must render an HONEST placeholder ("—", tooltip
+    // "chưa đánh giá"), never "NaN" and never a fabricated number.
+    var num = parseFloat(value);
+    var display = isFinite(num)
+      ? (Math.round(num * 2) / 2).toFixed(1)
+      : '—';
+    var titleAttr = isFinite(num) ? '' : ' title="Chưa đánh giá phát âm"';
+    return '<div data-criterion="' + label + '"' + titleAttr + ' style="display:inline-flex;flex-direction:column;align-items:center;'
       + 'border-radius:10px;padding:6px 14px;margin:0 3px;" class="ds-band-pill ds-band-pill-' + cls + '">'
       + '<span style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;'
       + 'margin-bottom:2px;opacity:0.6;">' + label + '</span>'
       + '<span style="font-size:20px;font-weight:700;">'
-      + (Math.round(parseFloat(value) * 2) / 2).toFixed(1) + '</span></div>';
+      + display + '</span></div>';
   }
 
   function _reliabilityNote(data) {

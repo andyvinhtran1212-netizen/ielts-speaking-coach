@@ -39,10 +39,24 @@ from .grading_providers.errors import FallbackEvent
 logger = logging.getLogger(__name__)
 
 
-# L1 — locked provider order.
+# L1 — locked provider order. This stays Haiku-first and is used by the
+# *off-topic judge* (a cheap binary task that must not incur grader-tier cost).
 DEFAULT_PROVIDER_ORDER: tuple[str, ...] = (
     "claude_haiku",
     "gemini",
+    "claude_sonnet",
+)
+
+# Audit 2026-07-02 — the *grader* uses a configurable primary model
+# (settings.SPEAKING_GRADING_MODEL, registered under "grading_primary" by
+# build_default) and falls back to the Anthropic chain. The judge keeps the
+# DEFAULT order above, so upgrading the grader never touches judge cost.
+# "grading_primary" is skipped gracefully (a FallbackEvent, then next provider)
+# when it isn't configured — e.g. SPEAKING_GRADING_MODEL="" or the matching key
+# is missing — so the chain degrades to Haiku → Sonnet.
+GRADING_PROVIDER_ORDER: tuple[str, ...] = (
+    "grading_primary",
+    "claude_haiku",
     "claude_sonnet",
 )
 
@@ -173,6 +187,7 @@ def build_default(settings_obj) -> GradingOrchestrator:
     """
     from .grading_providers.claude import (
         ClaudeHaikuProvider,
+        ClaudeProvider,
         ClaudeSonnetProvider,
     )
     from .grading_providers.gemini import GeminiProvider
@@ -187,4 +202,62 @@ def build_default(settings_obj) -> GradingOrchestrator:
     if gemini_key:
         providers["gemini"] = GeminiProvider(api_key=gemini_key)
 
+    # Audit 2026-07-02 — register the configurable grader primary. Routed by
+    # model-id prefix so a single env knob (SPEAKING_GRADING_MODEL) can select a
+    # Gemini or Claude model for the grader without touching provider wiring.
+    grading_model = (getattr(settings_obj, "SPEAKING_GRADING_MODEL", "") or "").strip()
+    primary = _build_grading_primary(grading_model, anthropic_key, gemini_key)
+    if primary is not None:
+        providers["grading_primary"] = primary
+
     return GradingOrchestrator(providers)
+
+
+def _build_grading_primary(
+    model_id: str,
+    anthropic_key: str,
+    gemini_key: str,
+) -> AbstractGradingProvider | None:
+    """Construct the grader's primary provider from a model id.
+
+    Returns ``None`` when the model id is empty or its provider key is missing —
+    the orchestrator then skips "grading_primary" (logging a FallbackEvent) and
+    the grader degrades to the Haiku → Sonnet fallback chain. Kept module-level
+    so the prefix routing is unit-testable without settings.
+    """
+    if not model_id:
+        return None
+
+    from .grading_providers.claude import ClaudeProvider
+    from .grading_providers.gemini import GeminiProvider
+
+    lowered = model_id.lower()
+    if lowered.startswith(("claude", "anthropic")):
+        if not anthropic_key:
+            logger.warning(
+                "[orchestrator] SPEAKING_GRADING_MODEL=%s needs ANTHROPIC_API_KEY "
+                "— falling back to Haiku chain", model_id,
+            )
+            return None
+        provider = ClaudeProvider(api_key=anthropic_key)
+        provider.model = model_id
+        provider.provider_name = "grading_primary"
+        return provider
+
+    if lowered.startswith("gemini"):
+        if not gemini_key:
+            logger.warning(
+                "[orchestrator] SPEAKING_GRADING_MODEL=%s needs GEMINI_API_KEY "
+                "— falling back to Haiku chain", model_id,
+            )
+            return None
+        provider = GeminiProvider(api_key=gemini_key, model_name=model_id)
+        provider.provider_name = "grading_primary"
+        return provider
+
+    logger.warning(
+        "[orchestrator] SPEAKING_GRADING_MODEL=%s has an unrecognized prefix "
+        "(expected claude-*/anthropic-*/gemini-*) — falling back to Haiku chain",
+        model_id,
+    )
+    return None
