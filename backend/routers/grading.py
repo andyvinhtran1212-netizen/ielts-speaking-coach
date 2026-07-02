@@ -720,7 +720,9 @@ async def grade_response_endpoint(
                 logger.warning("[grading] off-topic penalty skipped (non-fatal): %s", ot_exc)
 
         # ── Score confidence (multi-signal) ───────────────────────────────────
-        score_confidence = _compute_score_confidence(reliability, duration_sec)
+        score_confidence = _compute_score_confidence(
+            reliability, duration_sec, (pron_result or {}).get("pronunciation_score"),
+        )
         logger.info("[grading] score_confidence: %s", score_confidence)
 
         # ── Signal block (Sprint 14.7 / 14.8) ─────────────────────────────────
@@ -1078,20 +1080,34 @@ def _build_response_payload(is_practice, *, response_id, partial, transcript,
     }
 
 
-def _compute_score_confidence(reliability: dict, duration_sec: float) -> str:
+def _compute_score_confidence(
+    reliability: dict,
+    duration_sec: float,
+    pronunciation_score: float | None = None,
+) -> str:
     """
-    Compute overall score_confidence from transcript reliability + duration signal.
+    Compute overall score_confidence from transcript reliability + duration +
+    (audit 2026-07-02) the Azure pronunciation score.
 
     Rules (most restrictive wins):
       low  → reliability_label == "low"
            OR duration < 10s (too short to assess meaningfully)
+           OR pronunciation_score < 35 (very poor pronunciation → grade is shaky
+             even on clear audio; restores the signal the removed on-demand path had)
       high → reliability_label == "high" AND 20 <= duration <= 180
+             AND (pronunciation_score is None OR >= 65)
       medium → everything else
     """
     label = reliability.get("reliability_label", "high")
     if label == "low" or duration_sec < 10.0:
         return "low"
-    if label == "high" and 20.0 <= duration_sec <= 180.0:
+    if pronunciation_score is not None and pronunciation_score < 35:
+        return "low"
+    if (
+        label == "high"
+        and 20.0 <= duration_sec <= 180.0
+        and (pronunciation_score is None or pronunciation_score >= 65)
+    ):
         return "high"
     return "medium"
 

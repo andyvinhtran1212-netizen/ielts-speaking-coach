@@ -20,9 +20,34 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from routers.grading import (   # noqa: E402
     _PRON_UNAVAILABLE_FEEDBACK,
+    _compute_score_confidence,
     _merge_pronunciation_into_grading,
     _pron_band_from_scores,
 )
+
+
+# ── score_confidence folds in the Azure pronunciation score (P2) ────────────
+
+def _rel(label):
+    return {"reliability_label": label}
+
+
+def test_score_confidence_low_when_pron_very_poor():
+    # Clear audio (high reliability, normal duration) but very poor pronunciation
+    # → confidence must drop to low (restores the removed on-demand signal).
+    assert _compute_score_confidence(_rel("high"), 40.0, 20.0) == "low"
+
+
+def test_score_confidence_high_needs_decent_pron():
+    assert _compute_score_confidence(_rel("high"), 40.0, 80.0) == "high"
+    # good transcript but mediocre pronunciation → not high
+    assert _compute_score_confidence(_rel("high"), 40.0, 50.0) == "medium"
+
+
+def test_score_confidence_none_pron_preserves_old_behavior():
+    assert _compute_score_confidence(_rel("high"), 40.0, None) == "high"
+    assert _compute_score_confidence(_rel("low"), 40.0, None) == "low"
+    assert _compute_score_confidence(_rel("medium"), 40.0, None) == "medium"
 
 
 # ── _pron_band_from_scores: Azure 0–100 → IELTS 1–9 integer ─────────────────

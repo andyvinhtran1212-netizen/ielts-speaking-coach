@@ -2880,6 +2880,43 @@ def _regrade_round_band(v: float) -> float:
     return max(1.0, min(9.0, rounded))
 
 
+def _reattach_pronunciation_for_regrade(grading: dict, response_id: str, mode: str) -> None:
+    """Audit 2026-07-02 (P1) — re-attach the audio-measured pronunciation band to
+    a regraded response, in place. The grader no longer scores pronunciation
+    (Azure does, during the original grade); a regrade only re-scores FC/LR/GRA,
+    but the audio is unchanged so the persisted Azure score is still valid. Best-
+    effort; test mode only (practice has no P criterion). No-op when the response
+    was never assessed (old rows) → band_p stays absent → honest "chưa đánh giá"."""
+    if mode == "practice":
+        return
+    try:
+        from routers.grading import _pron_band_from_scores
+        row = (
+            supabase_admin.table("responses")
+            .select("pronunciation_score, pronunciation_fluency, feedback")
+            .eq("id", response_id)
+            .limit(1)
+            .execute()
+        )
+        r = (row.data or [{}])[0]
+        band_p = _pron_band_from_scores(r.get("pronunciation_score"), r.get("pronunciation_fluency"))
+        if band_p is None:
+            return
+        grading["band_p"] = band_p
+        grading["pronunciation_source"] = "azure"
+        # Carry over the original Azure pronunciation feedback text if stored.
+        old_fb = r.get("feedback")
+        if old_fb:
+            try:
+                fb = json.loads(old_fb) if isinstance(old_fb, str) else old_fb
+                if isinstance(fb, dict) and fb.get("p_feedback"):
+                    grading["p_feedback"] = fb["p_feedback"]
+            except (json.JSONDecodeError, TypeError):
+                pass
+    except Exception as ex:  # noqa: BLE001 — never block a regrade
+        logger.warning("[regrade] pronunciation reattach failed (non-fatal): %s", ex)
+
+
 def _regrade_apply_heuristic_caps(grading: dict, word_count: int, part: int) -> dict:
     """Mirror of grading.py _apply_heuristic_caps — keeps regrade calibration consistent."""
     grading = dict(grading)
@@ -3016,19 +3053,27 @@ async def _run_regrade_response(
         reliability=reliability,
         word_count=word_count,
     )
-    grading = _regrade_apply_heuristic_caps(grading, word_count, part)
+    # Audit 2026-07-02 (P1) — the grader no longer scores pronunciation (Azure
+    # measures it server-side during the original grade). A regrade re-grades
+    # FC/LR/GRA only; the audio is UNCHANGED, so re-attach the previously
+    # audio-measured P band instead of dropping it — otherwise result/history
+    # pages and _regrade_compute_session_bands lose pronunciation after a regrade.
+    _reattach_pronunciation_for_regrade(grading, response_id, mode)
+    grading = _regrade_apply_heuristic_caps(grading, word_count, part)  # recomputes overall incl. P
 
     now = datetime.now(timezone.utc).isoformat()
     old_count = resp.get("regrade_count") or 0
 
+    # Persist the preserved P as the canonical final_band_p so the session
+    # aggregator (final_band_p precedence) keeps pronunciation. None (test mode
+    # with no stored Azure score, or practice mode) → cleared, honest "chưa đánh giá".
+    _preserved_p = grading.get("band_p") if mode != "practice" else None
     update: dict = {
         "feedback":           json.dumps(grading, ensure_ascii=False),
         "overall_band":       grading["overall_band"],
         "grading_status":     "completed",
-        # Clear stale pronunciation-adjusted fields — the new AI grade supersedes them.
-        # User must re-run pronunciation assessment to get updated adjusted scores.
-        "final_band_p":       None,
-        "final_overall_band": None,
+        "final_band_p":       _preserved_p,
+        "final_overall_band": grading["overall_band"] if _preserved_p is not None else None,
     }
     if re_transcribed:
         update["transcript"] = transcript
