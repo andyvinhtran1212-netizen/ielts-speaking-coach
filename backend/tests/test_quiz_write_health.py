@@ -17,8 +17,27 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pytest
 
+from config import settings
 from services.quiz_service import quiz_write_health
 from database import supabase_admin
+
+# conftest defaults SUPABASE_* to dummy values (https://example.supabase.co,
+# test-service-key). This probe does a REAL PostgREST write, so gate it on the
+# creds the client ACTUALLY uses (config.settings — not os.environ, which conftest
+# stubs). Skip otherwise (matches the integration-test pattern in
+# test_exercise_rls.py) so the standard offline backend suite isn't environment
+# -dependent.
+_SB_URL = settings.SUPABASE_URL or ""
+_SB_KEY = settings.SUPABASE_SERVICE_KEY or ""
+_HAS_LIVE_DB = (
+    bool(_SB_URL) and "example.supabase.co" not in _SB_URL
+    and _SB_KEY not in ("", "test-service-key")
+)
+
+pytestmark = pytest.mark.skipif(
+    not _HAS_LIVE_DB,
+    reason="quiz-write probe needs a live Supabase — set real SUPABASE_URL/SUPABASE_SERVICE_KEY",
+)
 
 
 def _db_or_skip(fn):

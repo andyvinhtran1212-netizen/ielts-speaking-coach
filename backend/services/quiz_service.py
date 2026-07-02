@@ -79,22 +79,27 @@ def quiz_write_health() -> dict:
             supabase_admin.table(table).upsert(
                 [row], on_conflict=on_conflict, ignore_duplicates=True
             ).execute()
-            # Unexpected success (no FK enforcement?) — clean up the sentinel.
+            # Unexpected: the bogus row was ACCEPTED (FK not enforced?). on_conflict
+            # resolved, but this is anomalous — flag unhealthy + clean up the sentinel.
             try:
                 supabase_admin.table(table).delete().eq("item_key", "__healthcheck__").execute()
             except Exception:  # noqa: BLE001
                 pass
-            return {"ok": True, "note": "written+cleaned (FK not enforced?)"}
+            return {"ok": False, "note": "unexpected: bogus row was written (FK not enforced?) — investigate"}
         except Exception as exc:  # noqa: BLE001
             msg = str(exc).lower()
+            # HEALTHY *only* on the EXPECTED foreign-key violation: it proves PostgREST
+            # reached the DB, recognized the ON CONFLICT constraint (planned OK), and
+            # only the bogus FK stopped the write. ANY other error — missing constraint
+            # (42P10), expired/invalid service key, missing table/column, PostgREST 5xx,
+            # network — means the real progress upsert cannot persist → UNHEALTHY.
+            if "foreign key" in msg or "23503" in msg:
+                return {"ok": True, "note": "on_conflict resolved (bogus row rejected by FK, as expected)"}
             missing = ("on conflict" in msg or "no unique" in msg
                        or "exclusion constraint" in msg or "42p10" in msg)
-            return {
-                "ok": not missing,
-                "note": ("ON CONFLICT constraint MISSING — run NOTIFY pgrst, 'reload schema'"
-                         if missing else "on_conflict resolved (bogus row rejected by FK, as expected)"),
-                "err": str(exc)[:200],
-            }
+            note = ("ON CONFLICT constraint MISSING — run NOTIFY pgrst, 'reload schema'"
+                    if missing else "write path unhealthy (auth / missing table-column / PostgREST / network?)")
+            return {"ok": False, "note": note, "err": str(exc)[:200]}
 
     checks = {
         "quiz_attempts.client_id": _probe(
