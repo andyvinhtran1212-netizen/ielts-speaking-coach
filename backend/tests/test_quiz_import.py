@@ -236,7 +236,20 @@ def test_pool_without_production_flagged():
     pool_errs = [e for e in r["validation_errors"] if e["field"] == "pool:Xi"]
     assert pool_errs, "expected a pool-contract error for the un-masterable word"
     assert any("production" in e["message"] for e in pool_errs)
-    assert any("skill khác nhau" in e["message"] for e in pool_errs)   # <2 distinct skills too
+
+
+def test_distinct_single_mcq_uncreditable_flagged():
+    """P2 (codex): even under require_distinct_skill:true, a single-MCQ pool with
+    require_production_to_master:false + correct_to_master:1 is un-creditable — the
+    default provisional/reversal flow only ever sets a provisional (no confirmer) so
+    it never credits. The creditability guard must catch this in distinct mode too."""
+    bank = _LONE_MCQ.replace(
+        "require_production_to_master: true",
+        "require_production_to_master: false\ncorrect_to_master: 1",   # require_distinct stays default true
+    )
+    r = quiz_import.import_quiz_file(bank, dry_run=True)
+    pool_errs = [e for e in r["validation_errors"] if e["field"] == "pool:Xi"]
+    assert any("không bao giờ ghi điểm" in e["message"] for e in pool_errs)
 
 
 def test_pool_missing_second_distinct_skill_flagged():

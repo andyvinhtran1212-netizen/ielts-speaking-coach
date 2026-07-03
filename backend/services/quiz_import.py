@@ -175,18 +175,23 @@ def validate_pool_mastery_contract(meta: dict, q_entries: list[dict]) -> list[di
     require_production_to_master) commits silently and then burns max_attempts every
     session, carried-over forever. Fail-loud instead. Returns [{field,message}].
 
-    A pool must, given META:
+    A pool must, given META (one precise reason is reported per un-masterable pool):
       • have ≥1 ENGINE-servable question (else it's never asked at all);
       • if require_production_to_master (default True): have ≥1 input:text question
-        that counts toward mastery (production confirms + is the only thing that
-        flips production_done);
+        that counts toward mastery (production confirms + flips production_done);
+      • be CREDITABLE at all — with provisional_on_single_mcq + confirm_by_reversal
+        (both default True), a lone recognition credit needs a DIFFERENT skill or a
+        production to confirm, so a no-production single-skill pool never earns a
+        credit in EITHER mastery mode (distinct OR count) → carry-over forever;
       • if require_distinct_skill (default True): have ≥ correct_to_master DISTINCT
-        mastery-counting skills; else (repeats allowed): have ≥1 counting question.
+        mastery-counting skills.
     Only VALID questions (no per-question errors) are considered — an errored bank
     already fails to commit; this adds the precise reason a word can't be mastered."""
     meta = meta or {}
     require_prod = meta.get("require_production_to_master", True) is not False
     require_distinct = meta.get("require_distinct_skill", True) is not False
+    provisional_mcq = meta.get("provisional_on_single_mcq", True) is not False
+    confirm_reversal = meta.get("confirm_by_reversal", True) is not False
     ctm = _coerce_int(meta.get("correct_to_master"), default=2) or 2
 
     by_pool: dict[str, list[dict]] = {}
@@ -199,45 +204,38 @@ def validate_pool_mastery_contract(meta: dict, q_entries: list[dict]) -> list[di
             by_pool.setdefault(key, []).append(p)
 
     errors: list[dict] = []
+
+    def flag(key, message):
+        errors.append({"field": f"pool:{key}", "message": f"Từ '{key}': {message}"})
+
     for key in sorted(by_pool):
         supported = [q for q in by_pool[key] if q.get("input") in _ENGINE_SUPPORTED_INPUTS]
         if not supported:
-            errors.append({"field": f"pool:{key}",
-                           "message": f"Từ '{key}': không có câu hỏi khả dụng (chỉ input không "
-                                      f"được hỗ trợ) — sẽ không bao giờ được hỏi."})
+            flag(key, "không có câu hỏi khả dụng (chỉ input không được hỗ trợ) — sẽ không bao giờ được hỏi.")
             continue
         counting = [q for q in supported if q.get("counts_toward_mastery") is not False]
         if not counting:
-            errors.append({"field": f"pool:{key}",
-                           "message": f"Từ '{key}': không có câu nào tính mastery "
-                                      f"(counts_toward_mastery) → không thể 'thuộc'."})
+            flag(key, "không có câu nào tính mastery (counts_toward_mastery) → không thể 'thuộc'.")
             continue
-        if require_prod and not any(q.get("input") == "text" for q in counting):
-            errors.append({"field": f"pool:{key}",
-                           "message": f"Từ '{key}': thiếu ≥1 câu production (input:text tính "
-                                      f"mastery) → không thể 'thuộc' (require_production_to_master)."})
-        if require_distinct:
-            distinct = sorted({q.get("skill") for q in counting if q.get("skill")})
-            if len(distinct) < ctm:
-                errors.append({"field": f"pool:{key}",
-                               "message": f"Từ '{key}': cần ≥{ctm} skill khác nhau tính mastery, "
-                                          f"mới có {len(distinct)} ({distinct})."})
-        else:
-            # require_distinct_skill: false → mastery is by credit COUNT. A lone-MCQ
-            # pool can still be un-creditable: with provisional_on_single_mcq (default
-            # on) + confirm_by_reversal (default on), a single MCQ only SETS a
-            # provisional, and confirming it needs a DIFFERENT skill or a production —
-            # a single same-skill MCQ re-served never credits → carry-over forever.
-            provisional_mcq = meta.get("provisional_on_single_mcq", True) is not False
-            confirm_reversal = meta.get("confirm_by_reversal", True) is not False
-            has_prod = any(q.get("input") == "text" for q in counting)
-            distinct = {q.get("skill") for q in counting if q.get("skill")}
-            if provisional_mcq and confirm_reversal and not has_prod and len(distinct) < 2:
-                errors.append({"field": f"pool:{key}",
-                               "message": f"Từ '{key}': provisional_on_single_mcq + confirm_by_reversal "
-                                          f"đang bật nhưng không có câu production và chỉ 1 skill → MCQ "
-                                          f"lẻ không bao giờ ghi điểm. Thêm câu production/skill thứ 2, "
-                                          f"hoặc đặt provisional_on_single_mcq: false."})
+
+        has_prod = any(q.get("input") == "text" for q in counting)
+        distinct = sorted({q.get("skill") for q in counting if q.get("skill")})
+
+        if require_prod and not has_prod:
+            flag(key, "thiếu ≥1 câu production (input:text tính mastery) → không thể 'thuộc' "
+                      "(require_production_to_master).")
+            continue
+
+        # Creditability applies in BOTH mastery modes: an MCQ-only, single-skill pool
+        # under the default provisional/reversal flow never confirms → 0 credits ever.
+        if provisional_mcq and confirm_reversal and not has_prod and len(distinct) < 2:
+            flag(key, "provisional_on_single_mcq + confirm_by_reversal đang bật nhưng không có câu "
+                      "production và chỉ 1 skill → MCQ lẻ không bao giờ ghi điểm. Thêm câu "
+                      "production/skill thứ 2, hoặc đặt provisional_on_single_mcq: false.")
+            continue
+
+        if require_distinct and len(distinct) < ctm:
+            flag(key, f"cần ≥{ctm} skill khác nhau tính mastery, mới có {len(distinct)} ({distinct}).")
     return errors
 
 

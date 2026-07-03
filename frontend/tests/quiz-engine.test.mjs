@@ -65,10 +65,13 @@ describe('gradeQuestion', () => {
     assert.equal(gradeQuestion({ input: 'text', type: 'missing_letters', accept: ['beautiful'] }, 'beauteful'), false);
     assert.equal(gradeQuestion({ input: 'text', type: 'spelling', accept: ['necessary'] }, 'necessary'), true);
   });
-  test('text: case_sensitive and explicit exact/fuzzy:false opt out of tolerance', () => {
+  test('text: case_sensitive opts out of tolerance (precise)', () => {
     assert.equal(gradeQuestion({ input: 'text', type: 'gap_text', accept: ['Alpha'], case_sensitive: true }, 'Alpna'), false);
-    assert.equal(gradeQuestion({ input: 'text', type: 'gap_text', accept: ['environment'], exact: true }, 'enviroment'), false);
-    assert.equal(gradeQuestion({ input: 'text', type: 'gap_text', accept: ['environment'], fuzzy: false }, 'enviroment'), false);
+  });
+  test('text: literal grading on a text answer is done via type (spelling/missing_letters), the persisted signal', () => {
+    // exact/fuzzy frontmatter flags are NOT persisted, so they must NOT be the opt-out.
+    assert.equal(gradeQuestion({ input: 'text', type: 'spelling', accept: ['environment'] }, 'enviroment'), false);
+    assert.equal(gradeQuestion({ input: 'text', type: 'missing_letters', accept: ['environment'] }, 'enviroment'), false);
   });
 });
 

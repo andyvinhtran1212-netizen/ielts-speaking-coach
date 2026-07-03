@@ -77,12 +77,14 @@ export function gradeText(q, answer) {
 // too ambiguous (e.g. cat→cut→cot), so short answers stay exact-match only.
 var FUZZY_MIN_LEN = 5;
 
-// Fuzzy text matching is OFF when the question tests exact orthography (spelling /
-// missing_letters), when it is case-sensitive (implies precise), or when the author
-// opts out (exact:true / fuzzy:false). Recall types (e.g. gap_text) keep it ON.
+// Fuzzy text matching is OFF for orthography-graded types (spelling / missing_letters)
+// and for case-sensitive answers (implies precise). Control is by the question's
+// persisted `type` — deliberately NOT by ad-hoc exact/fuzzy flags: the importer + RPC
+// + quiz_questions schema only persist the fixed columns, so such flags never reach a
+// served question and advertising them as an opt-out would be a lie. An author who
+// needs a text answer graded literally uses type spelling/missing_letters.
 function textFuzzyAllowed(q) {
   if (q.case_sensitive) return false;
-  if (q.exact === true || q.fuzzy === false) return false;
   var t = String(q.type || '');
   return t !== 'spelling' && t !== 'missing_letters';
 }
