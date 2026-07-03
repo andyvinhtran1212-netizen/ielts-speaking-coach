@@ -34,6 +34,25 @@ describe('quiz.html — option order is shuffled per (session, qid), grading by 
   });
 });
 
+describe('quiz.html — audio is preloaded + cached + prefetched (seamless playback)', () => {
+  test('caches Audio by URL instead of building a fresh one per click', () => {
+    assert.match(QUIZ, /const _audioCache = new Map\(\)/);
+    assert.match(QUIZ, /function _getAudio\(url\)/);
+    // the old "new Audio(...).play()" on every click is gone from the play paths
+    assert.doesNotMatch(QUIZ, /new Audio\(q\.audio_url\)\.play\(\)/);
+    assert.doesNotMatch(QUIZ, /new Audio\(b\.dataset\.audio\)\.play\(\)/);
+  });
+  test('warms the current question audio on render + prefetches upcoming words', () => {
+    assert.match(QUIZ, /_getAudio\(q\.audio_url\);\s*\/\/ start buffering NOW/);
+    assert.match(QUIZ, /function _prefetchUpcoming\(\)/);
+    assert.match(QUIZ, /engine\._state\(\)/);
+    assert.match(QUIZ, /_prefetchUpcoming\(\);\s*\/\/ warm the next words/);
+  });
+  test('builds item_key → audio_url map from the bank for prefetch', () => {
+    assert.match(QUIZ, /_audioByKey\[k\] = q\.audio_url/);
+  });
+});
+
 describe('vocabulary back-nav consistency (Hub → Picker → Quiz/Stats)', () => {
   test('quiz.html: BOTH back controls target the picker, never the public word wiki', () => {
     // vocab branch of boot() sets top + end back to the same practice picker.

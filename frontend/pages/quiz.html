@@ -339,6 +339,38 @@
     let pending = 0;   // attempts since last flush
     let wordCards = {};   // lowercased headword → glance card (meaning/IPA/audio/example)
 
+    // ── Audio: preload + cache so playback is instant and seamless ──────
+    // Without this every 🔊 built a fresh Audio() and fetched on click (first play
+    // stutters; replays re-download). Cache by URL, mark preload='auto', and warm
+    // the current question + the next couple of upcoming words on each render.
+    const _audioCache = new Map();
+    let _audioByKey = {};   // item_key(lower) → first audio_url in the bank (for prefetch)
+    function _getAudio(url) {
+      if (!url) return null;
+      let a = _audioCache.get(url);
+      if (!a) { a = new Audio(url); a.preload = 'auto'; _audioCache.set(url, a); }
+      return a;
+    }
+    function _playAudio(url) {
+      const a = _getAudio(url);
+      if (!a) return;
+      try { a.currentTime = 0; } catch (e) { /* not yet seekable */ }
+      try { a.play(); } catch (e) { /* autoplay/user-gesture guard */ }
+    }
+    // Warm the audio for the next few queued words so moving on is gap-free.
+    function _prefetchUpcoming() {
+      if (!engine || !engine._state) return;
+      const st = engine._state();
+      const q = (st && st.queue) || [];
+      const curKey = current && current.item_key;
+      let warmed = 0;
+      for (let i = 0; i < q.length && warmed < 2; i++) {
+        if (q[i] === curKey) continue;
+        const url = _audioByKey[String(q[i]).toLowerCase()];
+        if (url) { const a = _getAudio(url); try { a.load(); } catch (e) {} warmed++; }
+      }
+    }
+
     function fail(msg) {
       $('qz-loading').classList.add('hidden');
       const el = $('qz-error'); el.textContent = msg; el.classList.remove('hidden');
@@ -504,7 +536,7 @@
       // wire any audio buttons
       $('qz-card-body').querySelectorAll('.qz-card-audio').forEach((b) => {
         b.onclick = () => {
-          if (b.dataset.audio) { try { new Audio(b.dataset.audio).play(); return; } catch (e) {} }
+          if (b.dataset.audio) { _playAudio(b.dataset.audio); return; }
           _speak(b.dataset.speak);   // fallback while pre-generated audio is pending
         };
       });
@@ -533,9 +565,10 @@
       // audio
       const au = $('qz-audio');
       if (q.audio_url) {
+        _getAudio(q.audio_url);   // start buffering NOW so the first play is instant
         au.innerHTML = '<button id="qz-play" type="button" class="av-button av-button-secondary av-button-sm">🔊 Nghe</button>';
         au.classList.remove('hidden');
-        $('qz-play').onclick = () => { try { new Audio(q.audio_url).play(); } catch (e) {} };
+        $('qz-play').onclick = () => _playAudio(q.audio_url);
       } else { au.classList.add('hidden'); au.innerHTML = ''; }
 
       const w = $('qz-widget'); w.innerHTML = '';
@@ -578,6 +611,8 @@
         $('qz-check').onclick = () => { if (inp.value.trim()) grade(inp.value); };
         setTimeout(() => inp.focus(), 30);
       }
+
+      _prefetchUpcoming();   // warm the next words' audio so advancing is seamless
     }
 
     // Grade immediately, reveal the correct answer + explanation, then offer "Tiếp →".
@@ -759,6 +794,13 @@
       // randomized per session (no two students get an identical question sequence).
       engine = createEngine(bank, { resume: start.resume || [], seed: sessionId });
       wordCards = (bank && bank.word_cards) || {};
+      // Map item_key(lower) → its first question audio_url, so _prefetchUpcoming can
+      // warm the audio of words still down the queue before they're shown.
+      _audioByKey = {};
+      (bank.questions || []).forEach((q) => {
+        const k = String(q.item_key || '').toLowerCase();
+        if (k && q.audio_url && !_audioByKey[k]) _audioByKey[k] = q.audio_url;
+      });
       $('qz-loading').classList.add('hidden');
       $('qz-main').classList.remove('hidden');
       $('qz-title').textContent = (bank.bank && (bank.bank.title || bank.bank.code)) || 'Quick-Check';
