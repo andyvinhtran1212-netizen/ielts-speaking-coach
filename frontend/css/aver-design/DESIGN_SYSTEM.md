@@ -110,6 +110,17 @@ Every page that opts into the system MUST:
 
 Avoid: Inter, Roboto, Arial, Helvetica, system-ui as the primary face. The `frontend-design` skill flags these as generic "AI slop" choices.
 
+#### Sanctioned editorial sub-systems (exceptions to the single-family rule)
+Long-form *reading* surfaces may run a distinct editorial typeface, matching academic/dictionary sites. These are the ONLY sanctioned exceptions — a new surface may not add a fourth without a design decision here (audit 2026-07-03 D2):
+
+| Surface | Fonts | Status |
+|---|---|---|
+| Grammar Wiki | DM Sans (body) + Lora (display) | Documented §14.2 |
+| Vocab Wiki (`vocab-wiki.css`) | Fraunces (serif display) + Hanken Grotesk (body) + DM Mono (labels) | **Sanctioned here** — was previously undocumented (audit A4.5). Editorial word-card identity, per-page `<link>`ed. |
+| Reading/Listening **exam** skins | system-ui / serif | Intentional exam-paper fidelity (Cambridge look) |
+
+Everything else uses the Plus Jakarta Sans stack above.
+
 ### 3.2 Vietnamese typography
 
 Vietnamese text carries diacritics above and below the baseline. Default leading must accommodate them without collision.
