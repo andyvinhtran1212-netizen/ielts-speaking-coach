@@ -13,8 +13,10 @@
  *   • Migrating hex → tokens LOWERS a file's real count; when it drops, tighten
  *     the budget entry (or delete it at 0) so the ratchet can't slip back.
  *
- * Exempt (hex is legitimate): the token DEFINITIONS in css/aver-design/** (they
- * map --av-* → #hex) and the generated tailwind build files.
+ * Exempt (hex is legitimate): ONLY the token-definition file css/aver-design/
+ * tokens.css (it maps --av-* → #hex) and the generated tailwind build files.
+ * The rest of css/aver-design/ (components.css, admin-*.css) is shared primitive
+ * CSS and IS budgeted — raw hex there is drift.
  *
  * This guards every later consolidation phase: no phase may add new hex, and the
  * budget only moves down.
@@ -30,8 +32,16 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FRONTEND = path.join(__dirname, '..');
 const CSS_DIR = path.join(FRONTEND, 'css');
 
-const EXEMPT_DIR_PREFIXES = ['aver-design/'];               // token definitions
-const EXEMPT_NAMES = new Set(['tailwind.build.css', 'tailwind.inter.css', 'tailwind.src.css']);
+// Only the actual token-DEFINITION file (maps --av-* → #hex) and generated
+// Tailwind outputs are exempt. NOT the whole aver-design/ dir — that also holds
+// shared primitive CSS (components.css, admin-*.css) where raw hex IS drift and
+// must be caught. Compared by FULL relative path (from css/), not basename, so a
+// future css/<area>/tokens.css does NOT inherit the token exemption
+// (Codex review: exempt the single canonical token file, not every `tokens.css`).
+const EXEMPT_PATHS = new Set([
+  'aver-design/tokens.css',   // the sole --av-* token definitions (hex legitimate here)
+  'tailwind.build.css', 'tailwind.inter.css', 'tailwind.src.css',  // generated outputs (css/ root)
+]);
 
 const HEX = /#[0-9a-fA-F]{3,8}\b/g;
 
@@ -50,8 +60,7 @@ function walkCss(dir, rel, out) {
 }
 
 function isExempt(rel) {
-  if (EXEMPT_NAMES.has(path.basename(rel))) return true;
-  return EXEMPT_DIR_PREFIXES.some((p) => rel.startsWith(p));
+  return EXEMPT_PATHS.has(rel);
 }
 
 describe('hex-budget ratchet (A4 governance)', () => {
@@ -80,12 +89,24 @@ describe('hex-budget ratchet (A4 governance)', () => {
     );
   });
 
-  test('budget entries are not stale (a file must still hold ≥ its recorded excess is allowed, but 0-budget files stay clean)', () => {
-    // Soft ratchet health: flag budget entries whose file no longer exists or is
-    // already under budget by a lot, so we remember to tighten them. Non-fatal:
-    // only fails if a budget key points at a missing file (keeps the fixture honest).
-    const present = new Set(files.map((f) => `css/${f.rel}`));
-    const missing = Object.keys(budget).filter((k) => !present.has(k));
-    assert.deepEqual(missing, [], `Stale hex-budget entries (file gone) — remove them: ${missing.join(', ')}`);
+  test('budget entries stay exact — reductions are sticky (no stale headroom)', () => {
+    // Codex review: a budget entry left ABOVE the file's real count leaves
+    // headroom for raw hex to be re-added later, so the ratchet does not make
+    // reductions sticky. Require budget === current count: a migration that
+    // lowers a file's hex MUST tighten (or delete) its entry, and a removed file
+    // must drop out of the fixture.
+    const counts = new Map(
+      files.map((f) => [`css/${f.rel}`, (stripComments(readFileSync(f.full, 'utf8')).match(HEX) || []).length]),
+    );
+    const stale = [];
+    for (const [key, allowed] of Object.entries(budget)) {
+      const cur = counts.get(key);
+      if (cur === undefined) stale.push(`${key}: file gone → remove the entry`);
+      else if (allowed > cur) stale.push(`${key}: budget ${allowed} > actual ${cur} → tighten to ${cur} (or delete if 0)`);
+    }
+    assert.deepEqual(
+      stale, [],
+      `\nHex budget has stale headroom (design-system A4 ratchet must only move DOWN):\n  ${stale.join('\n  ')}\n`,
+    );
   });
 });

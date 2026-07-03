@@ -560,7 +560,7 @@
 .av-recorder.is-recording {
   background: var(--av-error);
   border-color: var(--av-error);
-  color: #fff;
+  color: var(--av-text-on-primary);
   animation: av-pulse-record 1.6s ease-in-out infinite;
 }
 
