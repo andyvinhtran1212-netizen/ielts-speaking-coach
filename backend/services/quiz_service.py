@@ -59,18 +59,25 @@ def _log_backend_error(*, message: str, user_id: str | None = None,
 
 
 def quiz_write_health() -> dict:
-    """Probe that the ON CONFLICT upserts used by log_progress are actually usable
-    — i.e. PostgREST recognizes the unique constraints from migration 119. This
-    guards against the failure that silently broke progress-saving: after a manual
-    migration adds a unique index/constraint, PostgREST must reload its schema
-    cache (`NOTIFY pgrst, 'reload schema';`) or every `on_conflict` upsert 500s
-    with "no unique or exclusion constraint matching the ON CONFLICT specification"
-    while plain inserts keep working.
+    """Probe that the exact upserts log_progress performs are usable — both that
+    PostgREST recognizes the ON CONFLICT unique constraints (migration 119) AND that
+    every column log_progress writes EXISTS in the table.
 
-    Non-destructive: probes with BOGUS foreign keys. Postgres validates the ON
-    CONFLICT target at PLAN time (before row execution):
-      - constraint MISSING  → error mentions ON CONFLICT / no unique  → unhealthy
-      - constraint PRESENT   → plan OK, then FK violation on the bogus row → healthy
+    Two failure modes this guards against, both of which 500 /progress while plain
+    reads keep working (so a naive liveness check misses them):
+      1. Constraint not in PostgREST's schema cache → "no unique or exclusion
+         constraint matching the ON CONFLICT specification" (needs NOTIFY pgrst).
+      2. A column log_progress writes is MISSING (a manual migration's ADD COLUMN
+         wasn't applied to this env) → "column ... does not exist". The probe rows
+         below deliberately carry the FULL column set log_progress sends — an earlier
+         minimal probe wrote only {user_id,bank_id,item_key,status}, so a missing
+         provisional_skill/production_done/credit_count column reported HEALTHY while
+         real progress-saving 500'd.
+
+    Non-destructive: probes with BOGUS foreign keys. Postgres validates ON CONFLICT
+    + column existence at PLAN time (before row execution):
+      - constraint/column problem → planning error (not a FK error)  → unhealthy
+      - all good                   → plan OK, then FK violation on the bogus row → healthy
     The bogus row is never written (FK rejects it), so nothing to clean up."""
     bogus = str(uuid.uuid4())
 
@@ -101,15 +108,25 @@ def quiz_write_health() -> dict:
                     if missing else "write path unhealthy (auth / missing table-column / PostgREST / network?)")
             return {"ok": False, "note": note, "err": str(exc)[:200]}
 
+    # Rows carry the SAME columns log_progress writes (representative values), so a
+    # missing column surfaces here instead of only in production.
+    attempt_row = {
+        "client_id": str(uuid.uuid4()), "item_key": "__healthcheck__", "qid": "__hc__",
+        "skill": "meaning", "type": "mcq", "subtype": None, "is_correct": True,
+        "answer_given": "x", "response_time_ms": 0, "attempt_no": 1,
+        "user_id": bogus, "session_id": bogus, "bank_id": bogus,
+    }
+    word_stat_row = {
+        "user_id": bogus, "bank_id": bogus, "last_session_id": bogus,
+        "item_key": "__healthcheck__", "correct_count": 0, "wrong_count": 0,
+        "first_try_correct": None, "attempts_to_master": None, "status": "testing",
+        "is_difficult": False, "skills_passed": [], "provisional_skill": None,
+        "production_done": False, "credit_count": 0, "updated_at": _now(),
+    }
     checks = {
-        "quiz_attempts.client_id": _probe(
-            "quiz_attempts", "client_id",
-            {"client_id": str(uuid.uuid4()), "item_key": "__healthcheck__",
-             "is_correct": True, "user_id": bogus, "session_id": bogus, "bank_id": bogus}),
+        "quiz_attempts.client_id": _probe("quiz_attempts", "client_id", attempt_row),
         "quiz_word_stats.user_bank_item": _probe(
-            "quiz_word_stats", "user_id,bank_id,item_key",
-            {"user_id": bogus, "bank_id": bogus, "item_key": "__healthcheck__",
-             "status": "testing"}),
+            "quiz_word_stats", "user_id,bank_id,item_key", word_stat_row),
     }
     return {"ok": all(c["ok"] for c in checks.values()), "checks": checks}
 
