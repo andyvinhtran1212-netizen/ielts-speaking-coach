@@ -35,11 +35,12 @@ const CSS_DIR = path.join(FRONTEND, 'css');
 // Only the actual token-DEFINITION file (maps --av-* → #hex) and generated
 // Tailwind outputs are exempt. NOT the whole aver-design/ dir — that also holds
 // shared primitive CSS (components.css, admin-*.css) where raw hex IS drift and
-// must be caught (Codex review: narrow the exemption to token files).
-const EXEMPT_DIR_PREFIXES = [];
-const EXEMPT_NAMES = new Set([
-  'tokens.css',            // the --av-* token definitions (hex is legitimate here)
-  'tailwind.build.css', 'tailwind.inter.css', 'tailwind.src.css',
+// must be caught. Compared by FULL relative path (from css/), not basename, so a
+// future css/<area>/tokens.css does NOT inherit the token exemption
+// (Codex review: exempt the single canonical token file, not every `tokens.css`).
+const EXEMPT_PATHS = new Set([
+  'aver-design/tokens.css',   // the sole --av-* token definitions (hex legitimate here)
+  'tailwind.build.css', 'tailwind.inter.css', 'tailwind.src.css',  // generated outputs (css/ root)
 ]);
 
 const HEX = /#[0-9a-fA-F]{3,8}\b/g;
@@ -59,8 +60,7 @@ function walkCss(dir, rel, out) {
 }
 
 function isExempt(rel) {
-  if (EXEMPT_NAMES.has(path.basename(rel))) return true;
-  return EXEMPT_DIR_PREFIXES.some((p) => rel.startsWith(p));
+  return EXEMPT_PATHS.has(rel);
 }
 
 describe('hex-budget ratchet (A4 governance)', () => {
