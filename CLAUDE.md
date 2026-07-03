@@ -30,7 +30,7 @@ IELTS Speaking Coach **began** as a web app for IELTS **Speaking** preparation a
 | Grammar article | `frontend/pages/grammar-article.html` |
 | Grammar compare | `frontend/pages/grammar-compare.html` |
 | Grammar roadmap | `frontend/pages/grammar-roadmap.html` |
-| Admin dashboard | `frontend/admin.html` |
+| Admin dashboard | `frontend/pages/admin/index.html` (real hub; `frontend/admin.html` is a redirect stub) |
 | Practice JS logic | `frontend/js/practice.js` |
 | API client + Supabase | `frontend/js/api.js` |
 | FastAPI entry point | `backend/main.py` |
@@ -75,7 +75,7 @@ The frontend always uses the `grading.py` route for submitting recordings.
 - Supabase is initialised once via `initSupabase(SUPABASE_URL, SUPABASE_ANON)` from `api.js`. Use `getSupabase()` to get the client. Never call `window.supabase.createClient()` directly.
 
 **Key `.env` values (backend):**
-- `MAX_SESSIONS_PER_USER_PER_DAY` — default is `10`; override in `.env` for local development
+- `MAX_SESSIONS_PER_USER_PER_DAY` — default is `24` (`config.py`); override in `.env` for local development
 - `MAX_AUDIO_DURATION_SECONDS=300`
 - `OPENAI_API_KEY` — required for Whisper STT
 - `ANTHROPIC_API_KEY` — required for Claude grading
@@ -199,12 +199,11 @@ Keep fixes reviewable. A 5-line diff with a clear explanation is better than a 5
 - Progress tracking: none — no band trend charts, no weakness tracking across sessions
 - `sessions.tokens_used` column must exist in Supabase for token tracking to work
 - `audio-responses` bucket must be public in Supabase Storage for audio replay to work
-- The `/ 100` sessions-today display in the dashboard is hardcoded — update if `MAX_SESSIONS_PER_USER_PER_DAY` changes
 
 ---
 
 ## Definition of Done (trước khi báo "xong")
-- Chạy backend: `cd backend && python -m pytest tests/ -q --ignore=tests/test_d1_e2e.py`
+- Chạy backend: `cd backend && python -m pytest tests/ -q`
 - Chạy frontend: `node --test` cho các test liên quan trong frontend/tests/
 - KHÔNG sửa/skip/xfail/--ignore test để ép xanh. Test đỏ → sửa CODE.
 - Trong Plan Mode: nêu thay đổi người-dùng-thấy bằng tiếng Việt TRƯỚC, rồi mới tới phần kỹ thuật.

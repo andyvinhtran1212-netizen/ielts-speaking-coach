@@ -192,6 +192,15 @@ class GrammarContentService:
 
         fm: dict = yaml.safe_load(fm_str) or {}
 
+        # D1 (audit 2026-07-03): _load_all rglobs ALL of content/, so Reading
+        # passages/tests and Listening files (which live under content/reading,
+        # content/listening) would otherwise be indexed as Grammar Wiki articles.
+        # Skip anything whose content_type marks it as non-grammar — the runtime
+        # loader must match test_grammar_audit_scope.py's exclusion.
+        content_type = str(fm.get("content_type") or "")
+        if content_type.startswith(("reading", "listening")):
+            return None
+
         slug     = fm.get("slug") or path.stem
         category = fm.get("category") or path.parent.name
         title    = fm.get("title") or _prettify(slug)

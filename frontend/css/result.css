@@ -133,8 +133,13 @@
    the bottom of this file lift them to tokens. The bare `.band-*`
    selectors below cover any element JS assigns the class to that is NOT
    inside a .ds-band-hero or .ds-crit (defensive). */
+/* A3 (audit 2026-07-03): canonical 4-tier band scale, unified with
+   full-test-result.css: ≥7 high(success) · 6–6.5 mid(primary) · 5–5.5
+   warn(warning) · <5 low(error). Previously .band-mid was warning here but
+   primary on the full-test page — same score, two colours in one flow. */
 .band-high  { color: var(--av-success); }
-.band-mid   { color: var(--av-warning); }
+.band-mid   { color: var(--av-primary); }
+.band-warn  { color: var(--av-warning); }
 .band-low   { color: var(--av-error);   }
 .band-none  { color: var(--av-text-muted); }
 
@@ -362,7 +367,8 @@ body.av-page .ds-band-hero {
    light teal; route to the brand primary so light + dark resolve. */
 body.av-page .ds-band-hero .ds-band-value { color: var(--av-primary); }
 body.av-page .ds-band-hero .ds-band-value.band-high { color: var(--av-success); }
-body.av-page .ds-band-hero .ds-band-value.band-mid  { color: var(--av-warning); }
+body.av-page .ds-band-hero .ds-band-value.band-mid  { color: var(--av-primary); }
+body.av-page .ds-band-hero .ds-band-value.band-warn { color: var(--av-warning); }
 body.av-page .ds-band-hero .ds-band-value.band-low  { color: var(--av-error); }
 body.av-page .ds-band-hero .ds-band-value.band-none { color: var(--av-text-muted); }
 body.av-page .ds-band-hero .ds-band-label { color: var(--av-text-muted); }
@@ -384,7 +390,8 @@ body.av-page .ds-crit {
 body.av-page .ds-crit:hover { background: var(--av-surface-elevated); }
 body.av-page .ds-crit .ds-crit-label { color: var(--av-text-muted); }
 body.av-page .ds-crit-score.band-high { color: var(--av-success); }
-body.av-page .ds-crit-score.band-mid  { color: var(--av-warning); }
+body.av-page .ds-crit-score.band-mid  { color: var(--av-primary); }
+body.av-page .ds-crit-score.band-warn { color: var(--av-warning); }
 body.av-page .ds-crit-score.band-low  { color: var(--av-error); }
 
 /* btn-secondary in ds.css uses color:rgba(255,255,255,0.8) which is

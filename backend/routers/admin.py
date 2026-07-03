@@ -1572,8 +1572,12 @@ async def delete_access_code(
             .execute()
         )
         active_count = active_res.count or 0
-    except Exception:
-        active_count = 0
+    except Exception as exc:
+        # C1 (audit 2026-07-03): FAIL-CLOSED. A DB blip here previously set
+        # active_count=0, disabling the "can't revoke a code with active users"
+        # guard → destructive action on canonical data. Refuse instead.
+        logger.warning("delete_access_code: active-assignment count failed code=%s: %s", code_id, exc)
+        raise HTTPException(500, "Không kiểm tra được user đang dùng mã — thử lại sau.")
 
     if active_count > 0:
         raise HTTPException(
@@ -1989,8 +1993,12 @@ async def hard_delete_access_code(
             .execute()
         )
         active_count = active_res.count or 0
-    except Exception:
-        active_count = 0
+    except Exception as exc:
+        # C1 (audit 2026-07-03): FAIL-CLOSED on a hard-delete. A DB blip must
+        # NOT collapse the "code still has active users" guard and let a code in
+        # use be destroyed. Refuse the delete.
+        logger.warning("hard_delete_access_code: active-assignment count failed code=%s: %s", code_id, exc)
+        raise HTTPException(500, "Không kiểm tra được user đang dùng mã — thử lại sau.")
 
     if active_count > 0:
         raise HTTPException(
@@ -1999,11 +2007,13 @@ async def hard_delete_access_code(
             "Hãy gỡ tất cả user khỏi mã trước (trong Chi tiết → Gỡ khỏi code)."
         )
 
-    # Delete all (inactive) assignments first
+    # Delete all (inactive) assignments first. Do NOT swallow silently: if this
+    # fails we must not proceed to delete the code and leave orphaned rows.
     try:
         supabase_admin.table("user_code_assignments").delete().eq("code_id", code_id).execute()
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("hard_delete_access_code: assignment cleanup failed code=%s: %s", code_id, exc)
+        raise HTTPException(500, "Không xóa được assignment của mã — hủy thao tác xóa để tránh dữ liệu mồ côi.")
 
     # Hard-delete the code
     try:

@@ -287,7 +287,11 @@ def _pron_band_from_scores(
     band = 1.0 + (float(pron_score) / 100.0) * 8.0
     if fluency_score is not None:
         band = 0.5 * band + 0.5 * (1.0 + (float(fluency_score) / 100.0) * 8.0)
-    return float(max(1, min(9, round(band))))
+    # C2 (audit 2026-07-03): half-up to a WHOLE integer band. Plain round() was
+    # banker's — asymmetric at .5 (6.5→6 but 7.5→8). band is always ≥1, so
+    # int(band+0.5) is a clean half-up. (This maps to an integer, not 0.5, so it
+    # deliberately does NOT use ielts_round.)
+    return float(max(1, min(9, int(band + 0.5))))
 
 
 def _merge_pronunciation_into_grading(
@@ -1339,7 +1343,15 @@ def _increment_tokens(
         logger.debug("[grading] tokens_used +%d for session %s (atomic)", new_tokens, session_id)
 
     except Exception as e:
-        logger.debug("[grading] tokens_used update skipped (non-fatal): %s", e)
+        # C3: a missing migration-113 RPC is an expected skip, but any other
+        # failure means token cost-tracking is silently dying (the exact risk
+        # CLAUDE.md flags for the sessions.tokens_used column). Surface it at
+        # WARNING so it's grep-able at prod INFO, not invisible at DEBUG.
+        msg = str(e)
+        if "increment_session_tokens" in msg or "does not exist" in msg:
+            logger.debug("[grading] tokens_used update skipped (no RPC / migration 113): %s", e)
+        else:
+            logger.warning("[grading] tokens_used update FAILED session=%s (non-fatal): %s", session_id, e)
 
 
 async def _run_vocab_extraction(

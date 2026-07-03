@@ -235,9 +235,12 @@
 
     // ── Band helpers ───────────────────────────────────────────────────────────
     function bandClass(val) {
+      // A3: canonical 4-tier scale (shared with full-test-result.html):
+      // ≥7 high · 6–6.5 mid · 5–5.5 warn · <5 low.
       if (val == null) return 'band-none';
       if (val >= 7) return 'band-high';
       if (val >= 6) return 'band-mid';
+      if (val >= 5) return 'band-warn';
       return 'band-low';
     }
 

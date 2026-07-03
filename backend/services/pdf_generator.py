@@ -32,6 +32,7 @@ from reportlab.platypus import (
 )
 
 from database import supabase_admin
+from services.band_rounding import ielts_round
 from services.phoneme_ref import (
     PHONEME_REF,
     extract_weak_words_from_payload,
@@ -41,8 +42,14 @@ logger = logging.getLogger(__name__)
 
 
 def _round_half(val: float) -> float:
-    """Round to the nearest 0.5 — IELTS display convention (mirrors frontend roundHalf)."""
-    return round(val * 2) / 2
+    """Round to the nearest 0.5, ties UP (IELTS rule) — the value the student sees.
+
+    C2 (audit 2026-07-03): delegates to the canonical ``ielts_round`` so the PDF
+    export matches the web (``result.html`` / grading). Plain ``round(val*2)/2``
+    was banker's rounding (6.25 → 6.0), which could print 6.0 in the PDF while the
+    web showed 6.5 — breaking the Sprint 16.1 PDF-parity guarantee.
+    """
+    return ielts_round(val)
 
 # ── Unicode font registration (required for Vietnamese text) ───────────────────
 # Helvetica (built-in PDF) has no Vietnamese glyphs.  We try to register a

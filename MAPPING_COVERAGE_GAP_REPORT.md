@@ -9,7 +9,7 @@ _Generated: 2026-05-05 — Sprint 7 Phase 1 scaffolding_
 - **Missing slugs:** 70
   - **Ready** (anchors declared, mapping content can be written): 3
   - **Blocked** (0 anchors, needs Sprint-1-style anchor declaration first): 67
-- **Active mappings (sanity check vs drift gate):** 42
+- **Active mappings (sanity check vs drift gate):** 47
 
 > **Slug coverage** = does *any* mapping's `target_anchor` begin
 > with this slug? An article counts as covered with as little as

@@ -1,5 +1,0 @@
-failures:
-- file: backend/content/foundations/word-order.md
-  edit_id: anchor-wo-question
-  target_text: '## Trật tự từ trong câu hỏi'
-  reason: target_text not found as exact line
