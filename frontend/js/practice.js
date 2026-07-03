@@ -2188,7 +2188,15 @@
         // answer never reaches the server aggregate. Record it so the
         // completion screen can tell the user, instead of it vanishing silently.
         console.warn('[practice] eager grading failed for q', questionId, err);
-        if (_testMode === 'test_full') _ftSubmitFailures.push(questionId);
+        if (_testMode === 'test_full') {
+          _ftSubmitFailures.push(questionId);
+          // This upload can reject AFTER the completion screen is already shown
+          // (the final Part 3 answer starts uploading, then _fireAndForget…
+          // renders immediately). Re-render the notice so the warning actually
+          // appears — otherwise the dropped answer stays silent. Idempotent, and
+          // a no-op while #state-completion is still hidden mid-test.
+          _renderSubmitFailureNotice();
+        }
       });
   }
 
