@@ -2,7 +2,8 @@
  * frontend/js/admin-vocab-stats.js — Sprint 12.6.
  *
  * Carved from `admin.html` panel-vocab_monitor + panel-flashcards
- * (loadVocabMonitor + admin-flashcard-stats.js).
+ * (loadVocabMonitor + the former admin-flashcard-stats.js, since removed as
+ * dead code — this module owns the flashcards stats panel now).
  *
  * Wired endpoints (unchanged from monolith):
  *   GET  /admin/vocab/stats                — bank total, FP rate, enabled-count
@@ -96,13 +97,13 @@ function tile(label, value) {
 }
 
 function escapeHtml(s) {
-  if (s == null) return '';
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+  // C4: delegate to the shared escaper (window.WC.escapeHtml, api.js);
+  // local fallback kept so this module is safe if window.WC hasn't loaded.
+  return (typeof window !== 'undefined' && window.WC && window.WC.escapeHtml)
+    ? window.WC.escapeHtml(s)
+    : String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 async function loadFlashcardStats() {
