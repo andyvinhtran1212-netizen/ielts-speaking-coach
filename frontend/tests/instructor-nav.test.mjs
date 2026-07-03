@@ -103,6 +103,29 @@ describe('Fix-2 (D-B) — aver-chrome auto-resolves role from /auth/me', () => {
       'tick() resolves role only after a real session is in hand',
     );
   });
+
+  // ── Perf P1.1 — no DUPLICATE /auth/me on a page-authoritative shell ──
+  //
+  // On speaking.html the page fetches /auth/me itself (for permissions) and feeds
+  // the role via setUser({role}). That /auth/me is the slowest call on the page
+  // (cross-region), so the _userOverride short-circuit lands too late to stop the
+  // component's own _resolveRole from firing a SECOND /auth/me. A declarative
+  // `role-source="page"` attribute wins that race synchronously.
+  it('_resolveRole skips entirely when the page owns the role (role-source="page")', () => {
+    assert.match(
+      CHROME,
+      /if \(this\.getAttribute\('role-source'\) === 'page'\) return;/,
+      'declarative opt-out so a page-authoritative shell never double-fetches /auth/me',
+    );
+  });
+
+  it('speaking.html marks its chrome role-source="page" so the duplicate never fires', () => {
+    assert.match(
+      SPEAKING,
+      /<aver-chrome[^>]*\brole-source="page"/,
+      'speaking.html <aver-chrome> declares role-source="page"',
+    );
+  });
 });
 
 

@@ -78,3 +78,35 @@ describe('P0-3 CLS — aver-chrome reserves height in light DOM', () => {
     );
   });
 });
+
+
+// ── Perf P2.3 — Speculation Rules prerender for main nav dashboards ──────────
+describe('Perf P2.3 — aver-chrome injects prerender speculation rules', () => {
+  it('injects a speculationrules script, feature-detected + deduped', () => {
+    assert.match(CHROME, /_injectSpeculationRules\(\)/, 'method is called from connectedCallback');
+    assert.match(CHROME, /HTMLScriptElement\.supports\('speculationrules'\)/, 'feature-detected');
+    assert.match(CHROME, /script\[type="speculationrules"\]\[data-aver-speculation\]/, 'deduped by marker attr');
+    assert.match(CHROME, /type = 'speculationrules'/);
+  });
+
+  it('uses moderate eagerness (hover intent, not on-load fan-out)', () => {
+    assert.match(CHROME, /eagerness:\s*'moderate'/);
+  });
+
+  it('allowlists ONLY read-only dashboards — never stateful/admin pages', () => {
+    for (const href of [
+      '/pages/home.html', '/pages/speaking.html', '/pages/writing-dashboard.html',
+      '/pages/listening.html', '/pages/reading-vocab.html', '/grammar.html', '/vocabulary.html',
+    ]) {
+      assert.match(CHROME, new RegExp(`href_matches: '${href.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}'`),
+        `${href} must be in the prerender allowlist`);
+    }
+    // stateful / privileged pages must NOT be prerender targets
+    assert.doesNotMatch(CHROME, /href_matches: '\/pages\/practice\.html'/);
+    assert.doesNotMatch(CHROME, /href_matches: '\/pages\/admin/);
+  });
+
+  it('fails safe — the whole injection is try/caught so it never breaks chrome', () => {
+    assert.match(CHROME, /_injectSpeculationRules\(\)\s*\{\s*try\s*\{/);
+  });
+});

@@ -53,6 +53,22 @@ def test_server_timing_header_present_and_parseable_on_api_response():
     assert all(value >= 0 for value in stages.values())
 
 
+def test_timing_allow_origin_reflects_caller_so_browser_can_read_it():
+    # Perf P3.3 — cross-origin (Vercel ↔ Railway) callers can't read
+    # Server-Timing unless Timing-Allow-Origin opts them in. Reflect Origin.
+    with _server_timing_enabled():
+        r = _client().get("/api/reading/test", headers={"Origin": "https://averlearning.com"})
+    assert r.status_code == 401
+    assert r.headers.get("server-timing"), "Server-Timing must be present"
+    assert r.headers.get("timing-allow-origin") == "https://averlearning.com"
+
+
+def test_timing_allow_origin_falls_back_to_wildcard_without_origin():
+    with _server_timing_enabled():
+        r = _client().get("/api/reading/test")
+    assert r.headers.get("timing-allow-origin") == "*"
+
+
 def test_server_timing_absent_when_disabled_by_default():
     # C-* audit — gated OFF by default: no header on a normal API response.
     assert settings.ENABLE_SERVER_TIMING is False

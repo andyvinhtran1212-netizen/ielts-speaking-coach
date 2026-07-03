@@ -296,6 +296,14 @@ async def server_timing_middleware(request: Request, call_next):
         response = await call_next(request)
         total_ms = (perf_counter() - start) * 1000
         response.headers["Server-Timing"] = format_server_timing_header(total_ms)
+        # Perf P3.3 — the frontend (Vercel) and API (Railway) are cross-origin,
+        # so the browser's PerformanceResourceTiming.serverTiming stays EMPTY
+        # unless we opt the caller in with Timing-Allow-Origin. Reflect the
+        # request Origin (browsers only send it on cross-origin calls) so the
+        # header is scoped to the actual caller; fall back to * for same-origin
+        # / tooling. Timing data is low-sensitivity, but scoping keeps parity
+        # with the CORS allowlist posture. Only emitted alongside Server-Timing.
+        response.headers["Timing-Allow-Origin"] = request.headers.get("origin", "*")
         return response
     finally:
         reset_server_timing_request(token)

@@ -644,7 +644,9 @@ describe('Sprint 7.12 — migrated pages consume <aver-chrome>', () => {
       });
 
       test(`carries <aver-chrome active="${active}"> element`, () => {
-        const re = new RegExp(`<aver-chrome\\s+active="${active}"\\s*>`);
+        // active="…" may be followed by other attributes (e.g. speaking.html's
+        // role-source="page" perf opt-out), so allow any non-'>' chars before close.
+        const re = new RegExp(`<aver-chrome\\s+active="${active}"[^>]*>`);
         assert.match(html, re,
           `${rel}: must declare <aver-chrome active="${active}"> (Sprint 7.12 migration).`);
       });
