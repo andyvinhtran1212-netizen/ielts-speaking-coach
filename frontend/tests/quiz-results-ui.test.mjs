@@ -17,6 +17,51 @@ const read = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
 const QUIZ = read('pages', 'quiz.html');
 const PROG = read('pages', 'quiz-progress.html');
 
+describe('quiz.html — option order is shuffled per (session, qid), grading by original index', () => {
+  test('shuffles MCQ options (choice) but keeps syllable segments in authored order', () => {
+    // A per-(session,qid) permutation is computed for choice; syllable stays ordered
+    // (segments are the word's ordered syllables, e.g. ba-na-na — not interchangeable).
+    assert.match(QUIZ, /function _shuffledIndices\(/);
+    assert.match(QUIZ, /q\.input === 'choice'\s*\?\s*_shuffledIndices\(list\.length, \(sessionId \|\| ''\) \+ ':' \+ \(q\.qid \|\| ''\)\)/);
+    assert.match(QUIZ, /:\s*list\.map\(\(_, i\) => i\)/);
+  });
+  test('each option button keeps its ORIGINAL index (data-oi) and grades with it', () => {
+    assert.match(QUIZ, /b\.dataset\.oi = String\(oi\)/);
+    assert.match(QUIZ, /b\.onclick = \(\) => grade\(oi\)/);
+  });
+  test('reveal marks ✓/✗ by original index, not DOM position', () => {
+    assert.match(QUIZ, /const oi = Number\(b\.dataset\.oi\)/);
+    assert.match(QUIZ, /if \(oi === q\.answer\)/);
+    assert.match(QUIZ, /if \(oi === value && !res\.correct\)/);
+  });
+});
+
+describe('quiz.html — audio is preloaded + cached + prefetched (seamless playback)', () => {
+  test('caches Audio by URL instead of building a fresh one per click', () => {
+    assert.match(QUIZ, /const _audioCache = new Map\(\)/);
+    assert.match(QUIZ, /function _getAudio\(url\)/);
+    // the old "new Audio(...).play()" on every click is gone from the play paths
+    assert.doesNotMatch(QUIZ, /new Audio\(q\.audio_url\)\.play\(\)/);
+    assert.doesNotMatch(QUIZ, /new Audio\(b\.dataset\.audio\)\.play\(\)/);
+  });
+  test('warms the current question audio on render + prefetches upcoming words', () => {
+    assert.match(QUIZ, /_getAudio\(q\.audio_url\);\s*\/\/ start buffering NOW/);
+    assert.match(QUIZ, /function _prefetchUpcoming\(\)/);
+    assert.match(QUIZ, /engine\._state\(\)/);
+    assert.match(QUIZ, /_prefetchUpcoming\(\);\s*\/\/ warm the next words/);
+  });
+  test('builds item_key → audio_url map from the bank for prefetch', () => {
+    assert.match(QUIZ, /_audioByKey\[k\] = q\.audio_url/);
+  });
+});
+
+describe('quiz.html — typo-tolerant accept shows the canonical spelling', () => {
+  test('renders "Đáp án chuẩn" from res.corrected when a fuzzy match was accepted', () => {
+    assert.match(QUIZ, /res\.correct && res\.corrected/);
+    assert.match(QUIZ, /Đáp án chuẩn:/);
+  });
+});
+
 describe('vocabulary back-nav consistency (Hub → Picker → Quiz/Stats)', () => {
   test('quiz.html: BOTH back controls target the picker, never the public word wiki', () => {
     // vocab branch of boot() sets top + end back to the same practice picker.

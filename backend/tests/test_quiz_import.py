@@ -76,6 +76,16 @@ prompt: "Beta?"
 options: ["a", "b"]
 answer: 1
 ---
+
+---
+id: "beta_v2"
+type: "gap_text"
+input: "text"
+headword: "Beta"
+skill: "usage"
+prompt: "Fill: The ____ version."
+accept: ["beta"]
+---
 """
 
 
@@ -86,7 +96,7 @@ def test_parses_meta_and_questions_clean():
     assert r["meta"]["code"] == "T1"
     assert r["meta"]["skill_area"] == "vocab"
     assert r["meta"]["meta"]["correct_to_master"] == 2
-    assert r["summary"] == {"words": 2, "questions": 4, "errors": 0, "pools": 2}
+    assert r["summary"] == {"words": 2, "questions": 5, "errors": 0, "pools": 2}
     assert r["validation_errors"] == []
 
 
@@ -195,6 +205,139 @@ def test_syllable_answer_out_of_bounds_flagged():
     assert any(e["field"] == "answer" for e in r["validation_errors"])
 
 
+# ── Pool mastery-contract gate (Fix C) ───────────────────────────────
+
+_LONE_MCQ = """\
+---
+kind: quiz
+code: "P1"
+skill_area: "vocab"
+require_production_to_master: true
+words_count: 1
+---
+
+---
+id: "x_v1"
+type: "mcq"
+input: "choice"
+headword: "Xi"
+skill: "meaning"
+prompt: "Xi?"
+options: ["a", "b"]
+answer: 0
+---
+"""
+
+
+def test_pool_without_production_flagged():
+    """A lone-MCQ pool under require_production_to_master can never be mastered → it
+    must fail import (would otherwise burn max_attempts every session forever)."""
+    r = quiz_import.import_quiz_file(_LONE_MCQ, dry_run=True)
+    pool_errs = [e for e in r["validation_errors"] if e["field"] == "pool:Xi"]
+    assert pool_errs, "expected a pool-contract error for the un-masterable word"
+    assert any("production" in e["message"] for e in pool_errs)
+
+
+def test_distinct_single_mcq_uncreditable_flagged():
+    """P2 (codex): even under require_distinct_skill:true, a single-MCQ pool with
+    require_production_to_master:false + correct_to_master:1 is un-creditable — the
+    default provisional/reversal flow only ever sets a provisional (no confirmer) so
+    it never credits. The creditability guard must catch this in distinct mode too."""
+    bank = _LONE_MCQ.replace(
+        "require_production_to_master: true",
+        "require_production_to_master: false\ncorrect_to_master: 1",   # require_distinct stays default true
+    )
+    r = quiz_import.import_quiz_file(bank, dry_run=True)
+    pool_errs = [e for e in r["validation_errors"] if e["field"] == "pool:Xi"]
+    assert any("không bao giờ ghi điểm" in e["message"] for e in pool_errs)
+
+
+def test_pool_missing_second_distinct_skill_flagged():
+    """Has a production text but only ONE mastery-counting skill (< correct_to_master
+    distinct) under require_distinct_skill → flagged."""
+    one_skill = """\
+---
+kind: quiz
+code: "P2"
+skill_area: "vocab"
+correct_to_master: 2
+---
+
+---
+id: "y_v1"
+type: "gap_text"
+input: "text"
+headword: "Yo"
+skill: "usage"
+prompt: "____"
+accept: ["yo"]
+---
+"""
+    r = quiz_import.import_quiz_file(one_skill, dry_run=True)
+    pool_errs = [e for e in r["validation_errors"] if e["field"] == "pool:Yo"]
+    assert any("skill khác nhau" in e["message"] for e in pool_errs)
+    assert not any("production" in e["message"] for e in pool_errs)   # production IS present
+
+
+def test_relaxed_meta_allows_single_mcq():
+    """With single-credit mastery AND provisional disabled, a lone MCQ credits on each
+    correct answer → legitimate bank the gate must NOT flag."""
+    relaxed = _LONE_MCQ.replace(
+        "require_production_to_master: true",
+        "require_production_to_master: false\nrequire_distinct_skill: false\n"
+        "provisional_on_single_mcq: false\ncorrect_to_master: 1",
+    )
+    r = quiz_import.import_quiz_file(relaxed, dry_run=True)
+    assert not any(e["field"].startswith("pool:") for e in r["validation_errors"])
+
+
+def test_relaxed_single_mcq_with_provisional_still_flagged():
+    """P2: require_distinct_skill:false but provisional_on_single_mcq LEFT ON (default)
+    — a single same-skill MCQ only sets a provisional and never credits, so the word
+    is carried over forever. The gate must reject it."""
+    relaxed = _LONE_MCQ.replace(
+        "require_production_to_master: true",
+        "require_production_to_master: false\nrequire_distinct_skill: false\ncorrect_to_master: 1",
+    )
+    r = quiz_import.import_quiz_file(relaxed, dry_run=True)
+    pool_errs = [e for e in r["validation_errors"] if e["field"] == "pool:Xi"]
+    assert any("không bao giờ ghi điểm" in e["message"] for e in pool_errs)
+
+
+def test_pool_only_unsupported_input_flagged():
+    """A word whose only question is input:match (never served by the engine) is
+    flagged — it would silently vanish from the quiz, not just fail to master."""
+    match_only = """\
+---
+kind: quiz
+code: "P3"
+skill_area: "vocab"
+---
+
+---
+id: "z_v1"
+type: "match"
+input: "match"
+headword: "Ze"
+skill: "meaning"
+prompt: "Match:"
+pairs: [["a", "b"], ["c", "d"]]
+---
+"""
+    r = quiz_import.import_quiz_file(match_only, dry_run=True)
+    assert any(e["field"] == "pool:Ze" and "không bao giờ được hỏi" in e["message"]
+               for e in r["validation_errors"])
+
+
+def test_pool_contract_blocks_commit():
+    """The gate blocks a real commit (all-or-nothing), not just dry-run reporting."""
+    fake = _FakeSupabase(responses={**_TOPIC_VOCAB})
+    with patch.object(quiz_import, "supabase_admin", fake):
+        r = quiz_import.import_quiz_file(_LONE_MCQ, topic_id="topic-1", dry_run=False)
+    assert r["committed_bank_id"] is None
+    assert not any(c["op"] in ("insert", "upsert", "rpc", "update") for c in fake.calls)
+
+
 # ── Commit (mocked supabase) ─────────────────────────────────────────
 
 class _FakeSupabase:
@@ -280,12 +423,12 @@ def test_commit_inserts_bank_and_questions_via_rpc_with_audio():
     rpc = next(c for c in fake.calls if c["op"] == "rpc")
     assert rpc["payload"]["p_bank_id"] == "bank-1"
     rows = rpc["payload"]["p_rows"]
-    assert len(rows) == 4
+    assert len(rows) == 5
     assert "bank_id" not in rows[0]                      # rpc supplies p_bank_id
     assert next(row for row in rows if row["qid"] == "alpha_v3")["answer"] == 1   # boolean → 1
     assert next(row for row in rows if row["qid"] == "alpha_v2")["audio_url"] == "https://a.mp3"
     assert next(row for row in rows if row["qid"] == "alpha_v1")["audio_url"] is None
-    assert [row["order"] for row in rows] == [0, 1, 2, 3]
+    assert [row["order"] for row in rows] == [0, 1, 2, 3, 4]
 
 
 def test_commit_replaces_existing_bank_via_rpc_then_updates_meta():

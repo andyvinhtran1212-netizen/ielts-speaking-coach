@@ -162,6 +162,83 @@ def validate_question(q: dict) -> list[dict]:
     return errors
 
 
+# Inputs the player can actually RENDER + GRADE (mirrors SUPPORTED_INPUTS in
+# quiz-engine.js). A question the engine never serves (e.g. input:match) can't
+# contribute to mastery, so it doesn't count toward a pool being masterable.
+_ENGINE_SUPPORTED_INPUTS = ("choice", "text", "boolean", "syllable")
+
+
+def validate_pool_mastery_contract(meta: dict, q_entries: list[dict]) -> list[dict]:
+    """Per-pool (item_key) check that every word CAN reach 'mastered' under THIS
+    bank's META — using the exact flags quiz-engine.js reads. Without this a
+    well-formed-but-un-masterable word (e.g. a lone MCQ pool under the default
+    require_production_to_master) commits silently and then burns max_attempts every
+    session, carried-over forever. Fail-loud instead. Returns [{field,message}].
+
+    A pool must, given META (one precise reason is reported per un-masterable pool):
+      • have ≥1 ENGINE-servable question (else it's never asked at all);
+      • if require_production_to_master (default True): have ≥1 input:text question
+        that counts toward mastery (production confirms + flips production_done);
+      • be CREDITABLE at all — with provisional_on_single_mcq + confirm_by_reversal
+        (both default True), a lone recognition credit needs a DIFFERENT skill or a
+        production to confirm, so a no-production single-skill pool never earns a
+        credit in EITHER mastery mode (distinct OR count) → carry-over forever;
+      • if require_distinct_skill (default True): have ≥ correct_to_master DISTINCT
+        mastery-counting skills.
+    Only VALID questions (no per-question errors) are considered — an errored bank
+    already fails to commit; this adds the precise reason a word can't be mastered."""
+    meta = meta or {}
+    require_prod = meta.get("require_production_to_master", True) is not False
+    require_distinct = meta.get("require_distinct_skill", True) is not False
+    provisional_mcq = meta.get("provisional_on_single_mcq", True) is not False
+    confirm_reversal = meta.get("confirm_by_reversal", True) is not False
+    ctm = _coerce_int(meta.get("correct_to_master"), default=2) or 2
+
+    by_pool: dict[str, list[dict]] = {}
+    for e in q_entries:
+        p = e.get("payload")
+        if not p or e.get("validation_errors"):
+            continue
+        key = p.get("item_key")
+        if key:
+            by_pool.setdefault(key, []).append(p)
+
+    errors: list[dict] = []
+
+    def flag(key, message):
+        errors.append({"field": f"pool:{key}", "message": f"Từ '{key}': {message}"})
+
+    for key in sorted(by_pool):
+        supported = [q for q in by_pool[key] if q.get("input") in _ENGINE_SUPPORTED_INPUTS]
+        if not supported:
+            flag(key, "không có câu hỏi khả dụng (chỉ input không được hỗ trợ) — sẽ không bao giờ được hỏi.")
+            continue
+        counting = [q for q in supported if q.get("counts_toward_mastery") is not False]
+        if not counting:
+            flag(key, "không có câu nào tính mastery (counts_toward_mastery) → không thể 'thuộc'.")
+            continue
+
+        has_prod = any(q.get("input") == "text" for q in counting)
+        distinct = sorted({q.get("skill") for q in counting if q.get("skill")})
+
+        if require_prod and not has_prod:
+            flag(key, "thiếu ≥1 câu production (input:text tính mastery) → không thể 'thuộc' "
+                      "(require_production_to_master).")
+            continue
+
+        # Creditability applies in BOTH mastery modes: an MCQ-only, single-skill pool
+        # under the default provisional/reversal flow never confirms → 0 credits ever.
+        if provisional_mcq and confirm_reversal and not has_prod and len(distinct) < 2:
+            flag(key, "provisional_on_single_mcq + confirm_by_reversal đang bật nhưng không có câu "
+                      "production và chỉ 1 skill → MCQ lẻ không bao giờ ghi điểm. Thêm câu "
+                      "production/skill thứ 2, hoặc đặt provisional_on_single_mcq: false.")
+            continue
+
+        if require_distinct and len(distinct) < ctm:
+            flag(key, f"cần ≥{ctm} skill khác nhau tính mastery, mới có {len(distinct)} ({distinct}).")
+    return errors
+
+
 def _is_meta_block(fm: dict) -> bool:
     return str(fm.get("kind") or "").strip().lower() == "quiz"
 
@@ -292,6 +369,12 @@ def import_quiz_file(
             e["validation_errors"].append({"field": "id", "message": f"Trùng id '{e['qid']}'."})
 
     pools = sorted({e["item_key"] for e in q_entries if e.get("item_key")})
+
+    # Mastery-contract gate: every pool must be able to reach 'mastered' under this
+    # bank's META (same flags the engine reads) — else a word is asked forever and
+    # carried-over every session. Skip when META is missing (already flagged above).
+    if meta_info is not None:
+        meta_errors.extend(validate_pool_mastery_contract(meta_info["meta"], q_entries))
 
     # A commit MUST target a topic (FK + per-topic uniqueness). dry-run may omit it.
     if not dry_run and not topic_id:

@@ -35,6 +35,44 @@ describe('gradeQuestion', () => {
     assert.equal(gradeQuestion(q, 'alpha'), false);
     assert.equal(gradeQuestion(q, 'Alpha'), true);
   });
+
+  // ── Fix E: bounded (Levenshtein-1) typo tolerance for recall text ──
+  test('text: accepts a single-typo answer on a long recall word', () => {
+    const q = { input: 'text', type: 'gap_text', accept: ['environment'] };
+    assert.equal(gradeQuestion(q, 'enviroment'), true);   // 1 deletion
+    assert.equal(gradeQuestion(q, 'environmemt'), true);  // 1 substitution
+    assert.equal(gradeQuestion(q, 'environmentt'), true); // 1 insertion
+  });
+  test('text: rejects two or more edits', () => {
+    const q = { input: 'text', type: 'gap_text', accept: ['environment'] };
+    assert.equal(gradeQuestion(q, 'enviromnt'), false);   // 2 deletions
+    assert.equal(gradeQuestion(q, 'something'), false);
+  });
+  test('text: first-char guard rejects a leading-char edit (e.g. affect/effect)', () => {
+    assert.equal(gradeQuestion({ input: 'text', type: 'gap_text', accept: ['affect'] }, 'effect'), false);
+    // a middle/end typo (first char intact) is still accepted
+    assert.equal(gradeQuestion({ input: 'text', type: 'gap_text', accept: ['affect'] }, 'afect'), true);
+    // leading insertion/deletion also rejected (ambiguous)
+    assert.equal(gradeQuestion({ input: 'text', type: 'gap_text', accept: ['environment'] }, 'invironment'), false);
+  });
+  test('text: short answers (<5) stay exact-match only', () => {
+    const q = { input: 'text', type: 'gap_text', accept: ['cat'] };
+    assert.equal(gradeQuestion(q, 'cat'), true);
+    assert.equal(gradeQuestion(q, 'cut'), false);         // 1 edit but too short/ambiguous
+  });
+  test('text: spelling/missing_letters enforce exact orthography', () => {
+    assert.equal(gradeQuestion({ input: 'text', type: 'spelling', accept: ['necessary'] }, 'neccessary'), false);
+    assert.equal(gradeQuestion({ input: 'text', type: 'missing_letters', accept: ['beautiful'] }, 'beauteful'), false);
+    assert.equal(gradeQuestion({ input: 'text', type: 'spelling', accept: ['necessary'] }, 'necessary'), true);
+  });
+  test('text: case_sensitive opts out of tolerance (precise)', () => {
+    assert.equal(gradeQuestion({ input: 'text', type: 'gap_text', accept: ['Alpha'], case_sensitive: true }, 'Alpna'), false);
+  });
+  test('text: literal grading on a text answer is done via type (spelling/missing_letters), the persisted signal', () => {
+    // exact/fuzzy frontmatter flags are NOT persisted, so they must NOT be the opt-out.
+    assert.equal(gradeQuestion({ input: 'text', type: 'spelling', accept: ['environment'] }, 'enviroment'), false);
+    assert.equal(gradeQuestion({ input: 'text', type: 'missing_letters', accept: ['environment'] }, 'enviroment'), false);
+  });
 });
 
 test('normalizeText trims, collapses, lowercases, strips edge punctuation', () => {
@@ -70,6 +108,49 @@ test('masters a word via 2 distinct skills + a production answer', () => {
   assert.equal(eng.progress().mastered, 1);
 });
 
+// Answer the current question correctly, whatever its input type.
+function answerCorrect(eng) {
+  const it = eng.next();
+  if (!it) return false;
+  const q = it.question;
+  let ans;
+  if (q.input === 'choice' || q.input === 'syllable') ans = q.answer;
+  else if (q.input === 'boolean') ans = (q.answer === 1 || q.answer === true);
+  else ans = (q.accept && q.accept[0]) || '';
+  return eng.submit(ans);
+}
+
+function driveAllCorrect(eng, maxSteps) {
+  for (let i = 0; i < (maxSteps || 40); i++) {
+    if (eng.progress().remaining === 0) break;
+    if (answerCorrect(eng) === false) break;
+  }
+  return eng.summary();
+}
+
+test('all-correct student masters a 2-variant word regardless of which variant is served first (P1)', () => {
+  // File order is MCQ-then-TEXT (so the all-used fallback's pool[0] is the MCQ). For
+  // seeds where the seeded pickOne serves the TEXT (production) FIRST, the MCQ then
+  // becomes an unconfirmed provisional AFTER production is done; without the fallback
+  // fix the fallback keeps returning the same-skill MCQ and the word never confirms →
+  // carried over despite all-correct answers. Sweeping seeds exercises both orderings.
+  const mk = () => ({
+    meta: { correct_to_master: 2 },   // defaults: distinct + production + provisional + reversal
+    questions: [
+      { qid: 'w_m', item_key: 'W', input: 'choice', skill: 'meaning', answer: 0, type: 'mcq' },
+      { qid: 'w_t', item_key: 'W', input: 'text', type: 'gap_text', skill: 'usage', accept: ['word'] },
+    ],
+  });
+  // unseeded (deterministic MCQ-first) still masters
+  assert.equal(driveAllCorrect(createEngine(mk())).mastered, 1);
+  // and every seed masters — no ordering trap survives
+  for (let n = 1; n <= 24; n++) {
+    const s = driveAllCorrect(createEngine(mk(), { seed: 'seed-' + n }));
+    assert.equal(s.mastered, 1, `seed-${n}: all-correct student must master (not carry over)`);
+    assert.equal(s.carried_over, 0, `seed-${n}: nothing should be carried over`);
+  }
+});
+
 test('a single correct MCQ alone does not master (provisional)', () => {
   const eng = createEngine(oneWordBank());
   eng.next();
@@ -89,6 +170,26 @@ test('wrong answer increments wrong_count and is logged', () => {
   const alpha = batch.word_stats.find((w) => w.item_key === 'Alpha');
   assert.equal(alpha.wrong_count, 1);
   assert.equal(alpha.first_try_correct, false);
+});
+
+test('submit() surfaces the canonical spelling when a typo-tolerant match is accepted', () => {
+  const bank = {
+    meta: { correct_to_master: 1, require_production_to_master: false,
+            require_distinct_skill: false, provisional_on_single_mcq: false },
+    questions: [{ qid: 'e1', item_key: 'Env', input: 'text', type: 'gap_text',
+                  skill: 'usage', accept: ['environment'] }],
+  };
+  let eng = createEngine(bank);
+  eng.next();
+  let r = eng.submit('enviroment');            // 1 deletion → accepted
+  assert.equal(r.correct, true);
+  assert.equal(r.corrected, 'environment');    // learner sees the correct form
+  // an EXACT answer carries no correction
+  eng = createEngine(bank);
+  eng.next();
+  r = eng.submit('environment');
+  assert.equal(r.correct, true);
+  assert.equal(r.corrected, null);
 });
 
 test('cooldown spaces a word: next pick avoids the just-asked word', () => {
@@ -192,6 +293,43 @@ test('honors imported META from the raw API shape {bank:{meta},questions}', () =
   eng.next();
   const r = eng.submit(0);
   assert.equal(r.mastered, true);             // META honored (would stay provisional under defaults)
+});
+
+function fiveWordBank() {
+  const qs = [];
+  ['A', 'B', 'C', 'D', 'E'].forEach((k) => {
+    qs.push({ qid: k + '1', item_key: k, input: 'choice', skill: 'meaning', answer: 0, type: 'mcq' });
+    qs.push({ qid: k + '2', item_key: k, input: 'text', skill: 'usage', accept: [k.toLowerCase()], type: 'gap_text' });
+  });
+  return { meta: { correct_to_master: 2, cooldown: 0 }, questions: qs };
+}
+
+test('unseeded engine keeps deterministic file order (first word == first in file)', () => {
+  const a = createEngine(fiveWordBank());
+  const b = createEngine(fiveWordBank());
+  assert.equal(a.next().item_key, 'A');       // file order preserved
+  assert.equal(b.next().item_key, 'A');       // reproducible without a seed
+});
+
+test('seeded engine randomizes word order, deterministically per seed', () => {
+  const s1a = createEngine(fiveWordBank(), { seed: 'sess-1' });
+  const s1b = createEngine(fiveWordBank(), { seed: 'sess-1' });
+  // same seed → identical order (resume-stable)
+  const orderA = [], orderB = [];
+  for (let i = 0; i < 5; i++) { orderA.push(s1a.next().item_key); s1a.submit(0); }
+  for (let i = 0; i < 5; i++) { orderB.push(s1b.next().item_key); s1b.submit(0); }
+  assert.deepEqual(orderA, orderB);
+  // every word still appears exactly once (nothing dropped by the shuffle)
+  assert.deepEqual([...orderA].sort(), ['A', 'B', 'C', 'D', 'E']);
+  // at least one seed reorders away from strict file order (defeats fixed sequence).
+  const seeds = ['sess-1', 'sess-2', 'sess-3', 'sess-4', 'sess-5'];
+  const anyReordered = seeds.some((seed) => {
+    const e = createEngine(fiveWordBank(), { seed });
+    const ord = [];
+    for (let i = 0; i < 5; i++) { ord.push(e.next().item_key); e.submit(0); }
+    return ord.join('') !== 'ABCDE';
+  });
+  assert.equal(anyReordered, true);
 });
 
 test('resume seeds passed skills from prior word_stats', () => {
