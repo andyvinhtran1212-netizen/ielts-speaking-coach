@@ -80,7 +80,7 @@ async def require_instructor(authorization: str | None) -> dict:
     instructor). Mirrors require_admin — the instructor USER-ROLE guard for the
     W-2 multi-tenancy surface.
 
-    NOTE: distinct from routers/admin_instructor.py's 'instructor review queue'
+    NOTE: distinct from routers/admin_instructor_queue.py's 'instructor review queue'
     (an admin-only GRADING tier that just shares the word). Do NOT retrofit this
     guard onto those endpoints — different meaning of 'instructor'.
     """
@@ -1622,6 +1622,7 @@ async def get_access_code_detail(
     code = code_res.data[0]
 
     # Fetch assignments
+    association_lookup_failed = False
     try:
         asgn_res = (
             supabase_admin.table("user_code_assignments")
@@ -1631,14 +1632,24 @@ async def get_access_code_detail(
             .execute()
         )
         assignments = asgn_res.data or []
-    except Exception:
+    except Exception as exc:
+        # Do NOT swallow silently: a DB blip here is indistinguishable from
+        # "no assignment rows", and the legacy fallback below would then show
+        # non-canonical ownership for a code that actually HAS an active user.
+        # Log it and flag it (mirrors the list endpoint's association_lookup_failed).
+        logger.warning(
+            "get_access_code_detail: assignment lookup failed code=%s: %s", code_id, exc
+        )
         assignments = []
+        association_lookup_failed = True
 
     # Fallback: if no ACTIVE assignment rows exist but access_codes.used_by is set,
     # synthesize a read-only entry — covers both legacy codes (no rows ever) and codes
     # where the only assignment was deactivated by remove-user.
+    # Guard on `not association_lookup_failed`: only synthesize when the lookup
+    # SUCCEEDED and genuinely returned no active rows — never when it errored.
     has_active = any(a.get("is_active") for a in assignments)
-    if not has_active and code.get("used_by"):
+    if not association_lookup_failed and not has_active and code.get("used_by"):
         assignments = [{
             "id":                  None,
             "user_id":             code["used_by"],
@@ -1681,6 +1692,7 @@ async def get_access_code_detail(
         a["display_name"] = info.get("display_name", "")
 
     code["assignments"] = assignments
+    code["association_lookup_failed"] = association_lookup_failed
     return code
 
 

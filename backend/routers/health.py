@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 import logging
 import os
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Header
 
 from config import settings
 from database import supabase_admin
@@ -26,6 +26,27 @@ from services.grammar_content import grammar_service
 
 router = APIRouter(tags=["health"])
 logger = logging.getLogger(__name__)
+
+_REDACTED = "redacted (admin only)"
+
+
+async def _is_admin(authorization: str | None) -> bool:
+    """Soft admin check for health endpoints — returns bool, never raises.
+
+    Health probes must stay reachable by anonymous external monitors, so we
+    can't hard-gate the whole endpoint. Instead we redact fingerprinting detail
+    (DB error strings, git SHA, deployment id) for non-admin callers while an
+    authenticated admin still gets the full diagnostic.
+    """
+    if not authorization:
+        return False
+    # Imported lazily to avoid a health→admin import cycle at module load.
+    from routers.admin import require_admin
+    try:
+        await require_admin(authorization)
+        return True
+    except Exception:
+        return False
 
 # Sprint 6.5 diagnostic constants — keep colocated so they update together
 # when a new sprint adds mappings. EXPECTED_MAPPING_COUNT must equal the
@@ -63,12 +84,16 @@ async def health_basic() -> dict:
 
 
 @router.get("/health/ready")
-async def health_ready() -> dict:
+async def health_ready(authorization: str | None = Header(default=None)) -> dict:
     """
     Comprehensive readiness probe.  Always returns HTTP 200; the per-check
     statuses + the overall `status` field carry the verdict so monitors can
     differentiate "down" from "degraded" without juggling 5xx codes.
+
+    Anonymous callers see only pass/fail statuses; the raw DB error string
+    (which can leak hostname/schema hints) is included only for admins.
     """
+    is_admin = await _is_admin(authorization)
     checks: dict = {}
     overall_status = "ok"
 
@@ -78,7 +103,9 @@ async def health_ready() -> dict:
         supabase_admin.table("users").select("id").limit(1).execute()
         checks["database"] = {"status": "ok"}
     except Exception as e:
-        checks["database"] = {"status": "fail", "error": str(e)[:200]}
+        checks["database"] = {"status": "fail"}
+        if is_admin:
+            checks["database"]["error"] = str(e)[:200]
         overall_status = "degraded"
 
     # 2) Migrations applied — proxy by probing each critical table for
@@ -88,7 +115,9 @@ async def health_ready() -> dict:
         try:
             supabase_admin.table(table).select("id", count="exact").limit(0).execute()
         except Exception as e:
-            missing.append(f"{table}: {str(e)[:80]}")
+            # Table name is enough for a monitor to act; the error string (schema
+            # hints) is admin-only.
+            missing.append(f"{table}: {str(e)[:80]}" if is_admin else table)
     if missing:
         checks["migrations"] = {"status": "fail", "missing": missing}
         overall_status = "degraded"
@@ -126,14 +155,19 @@ async def health_ready() -> dict:
 
 
 @router.get("/health/runtime")
-async def health_runtime() -> dict:
+async def health_runtime(authorization: str | None = Header(default=None)) -> dict:
     """
     Sprint 6.5 runtime diagnostic.  Surfaces the deployed git SHA + the
     grammar-mapping inventory the running process actually loaded so we
     can prove whether prod Railway is on stale code (Scenario A) vs the
-    matcher itself dropping anchors (B/C/D).  Unauthenticated by design
-    (no PII; mapping ids are open-source) so curl-from-anywhere works.
+    matcher itself dropping anchors (B/C/D).
+
+    Mapping inventory stays public (open-source ids, no PII). The Railway
+    deployment identifiers (git SHA, deployment/service/env names) aid
+    fingerprinting, so they're redacted for anonymous callers and returned
+    only to admins (an admin curl with a Bearer token still gets them).
     """
+    is_admin = await _is_admin(authorization)
     mappings_by_slug = grammar_service._load_mappings()  # cached on service
     all_mapping_ids: list[str] = []
     for slug_mappings in mappings_by_slug.values():
@@ -151,10 +185,10 @@ async def health_runtime() -> dict:
     return {
         "status": "ok",
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "git_sha":          os.environ.get("RAILWAY_GIT_COMMIT_SHA", "unknown"),
-        "deployment_id":    os.environ.get("RAILWAY_DEPLOYMENT_ID",  "unknown"),
-        "service_name":     os.environ.get("RAILWAY_SERVICE_NAME",   "unknown"),
-        "environment_name": os.environ.get("RAILWAY_ENVIRONMENT_NAME", "unknown"),
+        "git_sha":          os.environ.get("RAILWAY_GIT_COMMIT_SHA", "unknown") if is_admin else _REDACTED,
+        "deployment_id":    os.environ.get("RAILWAY_DEPLOYMENT_ID",  "unknown") if is_admin else _REDACTED,
+        "service_name":     os.environ.get("RAILWAY_SERVICE_NAME",   "unknown") if is_admin else _REDACTED,
+        "environment_name": os.environ.get("RAILWAY_ENVIRONMENT_NAME", "unknown") if is_admin else _REDACTED,
         "mappings": {
             "active_count":       active_count,
             "expected_count":     _EXPECTED_MAPPING_COUNT,

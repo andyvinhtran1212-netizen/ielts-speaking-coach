@@ -10,6 +10,21 @@
 
   var _BASE = window.api.base;
 
+  // ── HTML escape ───────────────────────────────────────────────────────────
+  // Delegates to the shared window.WC.escapeHtml (defined in api.js), with a
+  // self-contained fallback so grammar.js is safe even if the shared helper
+  // hasn't loaded. Grammar frontmatter (title/summary/category) is developer-
+  // authored today, but the `?q=`/`?slug=` URL params are attacker-controlled —
+  // those MUST be escaped before hitting innerHTML.
+  var escHtml = (typeof window !== 'undefined' && window.WC && window.WC.escapeHtml) || function (s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  };
+
   // ── Raw fetch helper (no auth needed) ─────────────────────────────────────
   async function fetchGrammarAPI(path) {
     var res = await fetch(_BASE + '/api/grammar' + path);
@@ -61,7 +76,7 @@
   function categoryBadge(cat) {
     if (!cat) return '';
     return '<span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium ' +
-           'bg-white/8 text-white/50">' + _prettifySlug(cat) + '</span>';
+           'bg-white/8 text-white/50">' + escHtml(_prettifySlug(cat)) + '</span>';
   }
 
   // ── Updating status badge ─────────────────────────────────────────────────
@@ -99,7 +114,7 @@
              '<svg class="w-5 h-5 text-teal-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">' +
              '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>' +
              '</div>' +
-             '<div><h3 class="font-semibold text-white group-hover:text-teal-light transition-colors">' + cat.title + '</h3>' +
+             '<div><h3 class="font-semibold text-white group-hover:text-teal-light transition-colors">' + escHtml(cat.title) + '</h3>' +
              '<p class="text-xs text-white/40">' + cat.article_count + ' bài</p></div>' +
              '</div>' +
              (cat.articles && cat.articles.length
@@ -112,7 +127,7 @@
                    return '<li class="flex items-center text-sm text-white/55 hover:text-white/90 truncate" onclick="event.stopPropagation()">' +
                           dot +
                           '<a href="' + _articleUrl(a.category, a.slug) + '">' +
-                          a.title + '</a></li>';
+                          escHtml(a.title) + '</a></li>';
                  }).join('') + '</ul>'
                : '') +
              '</div>';
@@ -135,12 +150,12 @@
              'class="block p-4 rounded-xl border border-white/8 bg-white/[0.03] ' +
              'hover:border-teal/40 hover:bg-teal/[0.07] transition-all duration-200">' +
              '<div class="flex items-start justify-between gap-2 mb-1">' +
-             '<h4 class="font-semibold text-white text-sm leading-snug">' + a.title + '</h4>' +
+             '<h4 class="font-semibold text-white text-sm leading-snug">' + escHtml(a.title) + '</h4>' +
              (isUpdating ? updatingBadge() : levelBadge(a.level)) +
              '</div>' +
-             '<p class="text-xs text-white/50 line-clamp-2 mb-2">' + (a.summary || '') + '</p>' +
+             '<p class="text-xs text-white/50 line-clamp-2 mb-2">' + escHtml(a.summary || '') + '</p>' +
              '<div class="flex items-center gap-3 text-xs text-white/30">' +
-             '<span>' + a.category + '</span>' +
+             '<span>' + escHtml(a.category) + '</span>' +
              '<span>' + (a.reading_time || 1) + ' phút</span>' +
              '</div></a>';
     }).join('');
@@ -151,7 +166,7 @@
     var el = document.getElementById(containerId);
     if (!el) return;
     if (!articles || articles.length === 0) {
-      var q = query ? '"<strong class="text-white/80">' + query + '</strong>"' : 'này';
+      var q = query ? '"<strong class="text-white/80">' + escHtml(query) + '</strong>"' : 'này';
       el.innerHTML =
         '<div class="col-span-3 py-12 text-center">' +
         '<p class="text-white/40 mb-2">Không tìm thấy kết quả cho ' + q + '</p>' +
@@ -168,10 +183,10 @@
              'class="block p-4 rounded-xl border border-white/8 bg-white/[0.03] ' +
              'hover:border-teal/40 hover:bg-teal/[0.07] transition-all duration-200">' +
              '<div class="flex items-start justify-between gap-2 mb-1">' +
-             '<h4 class="font-semibold text-white text-sm leading-snug">' + a.title + '</h4>' +
+             '<h4 class="font-semibold text-white text-sm leading-snug">' + escHtml(a.title) + '</h4>' +
              (isUpdating ? updatingBadge() : levelBadge(a.level)) +
              '</div>' +
-             '<p class="text-xs text-white/50 line-clamp-2 mb-3">' + (a.summary || '') + '</p>' +
+             '<p class="text-xs text-white/50 line-clamp-2 mb-3">' + escHtml(a.summary || '') + '</p>' +
              '<div class="flex items-center gap-2">' +
              categoryBadge(a.category) +
              '<span class="text-xs text-white/25">' + (a.reading_time || 1) + ' phút</span>' +
@@ -202,10 +217,10 @@
           // Content
           '<div class="flex-1 pt-1 pb-6">' +
           '<div class="flex items-start gap-2 mb-1">' +
-          '<h3 class="font-semibold ' + (isUpdating ? 'text-white/50' : 'text-white') + ' leading-snug">' + a.title + '</h3>' +
+          '<h3 class="font-semibold ' + (isUpdating ? 'text-white/50' : 'text-white') + ' leading-snug">' + escHtml(a.title) + '</h3>' +
           (isUpdating ? updatingBadge() : levelBadge(a.level)) +
           '</div>' +
-          '<p class="text-sm text-white/50 mb-3 leading-relaxed">' + (a.summary || '') + '</p>' +
+          '<p class="text-sm text-white/50 mb-3 leading-relaxed">' + escHtml(a.summary || '') + '</p>' +
           '<div class="flex items-center gap-3">' +
           '<a href="' + _articleUrl(a.category, a.slug) + '" ' +
           'class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg ' +
@@ -253,14 +268,14 @@
           // grammar-wiki.css. Inline styles bypass cascade overrides.
           return '<div class="group-article-row flex items-center gap-2 px-2 py-1">' +
                  '<span class="gw-status-dot gw-status-dot--planned w-1.5 h-1.5 rounded-full flex-shrink-0"></span>' +
-                 '<span class="text-sm text-white/28 flex-1 truncate">' + a.title + '</span>' +
+                 '<span class="text-sm text-white/28 flex-1 truncate">' + escHtml(a.title) + '</span>' +
                  '<span class="gw-status-badge gw-status-badge--planned text-xs px-1.5 py-0.5 rounded-full flex-shrink-0">Sắp ra mắt</span>' +
                  '</div>';
         } else if (a.status === 'updating') {
           return '<div class="group-article-row flex items-center gap-2 px-2 py-1">' +
                  '<span class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:#fbbf24"></span>' +
                  '<a href="' + _articleUrl(a.category, a.slug) + '" ' +
-                 'class="text-sm text-white/55 hover:text-white/85 transition-colors flex-1 truncate">' + a.title + '</a>' +
+                 'class="text-sm text-white/55 hover:text-white/85 transition-colors flex-1 truncate">' + escHtml(a.title) + '</a>' +
                  '<span class="text-xs px-1.5 py-0.5 rounded-full flex-shrink-0" ' +
                  'style="background:rgba(251,191,36,0.15);color:#fbbf24">Đang cập nhật</span>' +
                  '</div>';
@@ -268,7 +283,7 @@
           return '<div class="group-article-row flex items-center gap-2 px-2 py-1">' +
                  '<span class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:' + pal.hex + '"></span>' +
                  '<a href="' + _articleUrl(a.category, a.slug) + '" ' +
-                 'class="text-sm text-white/65 hover:text-white/90 transition-colors flex-1 truncate">' + a.title + '</a>' +
+                 'class="text-sm text-white/65 hover:text-white/90 transition-colors flex-1 truncate">' + escHtml(a.title) + '</a>' +
                  '</div>';
         }
       }).join('');
@@ -292,12 +307,12 @@
              '</svg></div>' +
              '<div class="flex-1 min-w-0">' +
              '<div class="flex items-center justify-between gap-2 mb-0.5">' +
-             '<h3 class="font-semibold text-white text-base leading-tight">' + g.title + '</h3>' +
+             '<h3 class="font-semibold text-white text-base leading-tight">' + escHtml(g.title) + '</h3>' +
              '<span class="text-xs flex-shrink-0 px-2 py-0.5 rounded-full font-medium" ' +
              'style="background:' + pal.bg + ';color:' + pal.hex + ';border:1px solid ' + pal.border + '">' +
              g.complete_count + '/' + g.article_count + '</span>' +
              '</div>' +
-             '<p class="text-xs text-white/40 leading-relaxed">' + (g.description || '') + '</p>' +
+             '<p class="text-xs text-white/40 leading-relaxed">' + escHtml(g.description || '') + '</p>' +
              '</div></div>' +
 
              // ── Progress bar ──
@@ -339,8 +354,8 @@
       categoryBadge(article.category) +
       '<span class="text-xs text-white/30">' + (article.reading_time || 1) + ' phút</span>' +
       '</div>' +
-      '<h2 class="text-xl font-bold text-white mb-2">' + article.title + '</h2>' +
-      (article.summary ? '<p class="text-sm text-white/55 mb-4 leading-relaxed">' + article.summary + '</p>' : '') +
+      '<h2 class="text-xl font-bold text-white mb-2">' + escHtml(article.title) + '</h2>' +
+      (article.summary ? '<p class="text-sm text-white/55 mb-4 leading-relaxed">' + escHtml(article.summary) + '</p>' : '') +
       '<a href="' + _articleUrl(article.category, article.slug) + '" ' +
       'class="inline-flex items-center gap-1.5 text-sm text-teal-light hover:underline mb-6">Đọc bài đầy đủ →</a>' +
       '<div class="article-body">' + (article.html || '') + '</div>';
@@ -361,7 +376,7 @@
         var indent = item.depth ? 'pl-' + (item.depth * 3) : '';
         return '<li class="' + indent + '">' +
                '<a href="#' + item.id + '" class="toc-link block text-sm text-white/50 hover:text-teal-light ' +
-               'py-0.5 transition-colors leading-snug">' + item.name + '</a></li>';
+               'py-0.5 transition-colors leading-snug">' + escHtml(item.name) + '</a></li>';
       }).join('') +
       '</ul></nav>';
 
@@ -389,10 +404,10 @@
     el.innerHTML =
       '<a href="' + _url('grammar.html') + '" class="hover:text-teal-light transition-colors">Grammar Wiki</a>' +
       '<span class="mx-2 text-white/20">›</span>' +
-      '<a href="' + _url('grammar.html') + '?category=' + category + '" class="hover:text-teal-light transition-colors capitalize">' +
-      category.replace(/-/g, ' ') + '</a>' +
+      '<a href="' + _url('grammar.html') + '?category=' + encodeURIComponent(category) + '" class="hover:text-teal-light transition-colors capitalize">' +
+      escHtml(category.replace(/-/g, ' ')) + '</a>' +
       '<span class="mx-2 text-white/20">›</span>' +
-      '<span class="text-white/80">' + articleTitle + '</span>';
+      '<span class="text-white/80">' + escHtml(articleTitle) + '</span>';
   }
 
   // ── Related pages ─────────────────────────────────────────────────────────
@@ -407,7 +422,7 @@
       return '<a href="' + _articleUrl(p.category, p.slug) + '" ' +
              'class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 ' +
              'bg-white/[0.04] text-sm text-white/70 hover:border-teal/40 hover:text-teal-light transition-all">' +
-             p.title + '</a>';
+             escHtml(p.title) + '</a>';
     }).join('');
   }
 
@@ -421,14 +436,14 @@
               'class="flex-1 p-4 rounded-xl border border-white/10 bg-white/[0.03] hover:border-teal/40 ' +
               'hover:bg-teal/[0.07] transition-all group">' +
               '<p class="text-xs text-white/30 mb-1">← Bài trước</p>' +
-              '<p class="text-sm font-medium text-white/80 group-hover:text-white">' + prev.title + '</p></a>';
+              '<p class="text-sm font-medium text-white/80 group-hover:text-white">' + escHtml(prev.title) + '</p></a>';
     }
     if (next) {
       html += '<a href="' + _articleUrl(next.category, next.slug) + '" ' +
               'class="flex-1 p-4 rounded-xl border border-white/10 bg-white/[0.03] hover:border-teal/40 ' +
               'hover:bg-teal/[0.07] transition-all group text-right">' +
               '<p class="text-xs text-white/30 mb-1">Bài tiếp →</p>' +
-              '<p class="text-sm font-medium text-white/80 group-hover:text-white">' + next.title + '</p></a>';
+              '<p class="text-sm font-medium text-white/80 group-hover:text-white">' + escHtml(next.title) + '</p></a>';
     }
     html += '</div>';
     el.innerHTML = html;
@@ -794,8 +809,8 @@
              '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>' +
              '</svg></div>' +
              '<div class="flex-1 min-w-0">' +
-             '<p class="text-sm font-semibold text-white/85 group-hover:text-white truncate">' + a.title + '</p>' +
-             '<p class="text-xs text-white/35 capitalize">' + (a.category || '').replace(/-/g, ' ') + '</p>' +
+             '<p class="text-sm font-semibold text-white/85 group-hover:text-white truncate">' + escHtml(a.title) + '</p>' +
+             '<p class="text-xs text-white/35 capitalize">' + escHtml((a.category || '').replace(/-/g, ' ')) + '</p>' +
              '</div>' +
              '<span class="text-xs text-teal-light opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">Học ngay →</span>' +
              '</a>';
@@ -975,8 +990,8 @@
         bcEl.innerHTML =
           '<a href="' + _url('grammar.html') + '" class="hover:text-teal-light transition-colors">Grammar Wiki</a>' +
           '<span class="mx-2 text-white/20">›</span>' +
-          '<a href="' + _url('grammar.html') + '?category=' + slug + '" class="hover:text-teal-light transition-colors capitalize">' +
-          (data.title || _prettifySlug(slug)) + '</a>' +
+          '<a href="' + _url('grammar.html') + '?category=' + encodeURIComponent(slug) + '" class="hover:text-teal-light transition-colors capitalize">' +
+          escHtml(data.title || _prettifySlug(slug)) + '</a>' +
           '<span class="mx-2 text-white/20">›</span>' +
           '<span class="text-white/80">Lộ trình</span>';
       }
@@ -1001,7 +1016,7 @@
     } catch (err) {
       _showError('roadmap-steps',
         err.message.includes('404') || err.message.includes('not found')
-          ? 'Không tìm thấy lộ trình "' + slug + '". <a href="' + _url('grammar.html') + '" class="text-teal-light underline">Về Grammar Wiki</a>'
+          ? 'Không tìm thấy lộ trình "' + escHtml(slug) + '". <a href="' + _url('grammar.html') + '" class="text-teal-light underline">Về Grammar Wiki</a>'
           : err.message);
     }
 
@@ -1041,9 +1056,9 @@
       var titleEl = document.getElementById('compare-title');
       if (titleEl) {
         titleEl.innerHTML =
-          '<span class="text-white">' + data.left.title + '</span>' +
+          '<span class="text-white">' + escHtml(data.left.title) + '</span>' +
           '<span class="text-white/30 mx-3 font-normal">vs</span>' +
-          '<span class="text-teal-light">' + data.right.title + '</span>';
+          '<span class="text-teal-light">' + escHtml(data.right.title) + '</span>';
       }
 
       _renderCompareColumn(data.left,  'compare-left');

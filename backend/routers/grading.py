@@ -27,6 +27,7 @@ from fastapi import APIRouter, BackgroundTasks, Form, Header, HTTPException, Upl
 
 from config import settings
 from database import supabase_admin
+from services.band_rounding import ielts_round
 from services.db_async import aexecute
 from routers.auth import get_supabase_user
 from services.whisper import transcribe_from_bytes
@@ -94,8 +95,14 @@ def _mark_session_error(
 
 
 def _round_band(v: float) -> float:
-    """Round to nearest 0.5."""
-    return round(v * 2) / 2
+    """Round to nearest 0.5, ties going UP (IELTS rule).
+
+    Delegates to the canonical ``ielts_round`` so response-level bands match
+    ``_compute_session_bands`` / ``PATCH /complete``. Plain ``round()`` here was
+    banker's rounding (6.25 → 6.0), disagreeing with the IELTS convention and
+    the session average the student sees.
+    """
+    return ielts_round(v)
 
 
 def _apply_heuristic_caps(grading: dict, word_count: int, part: int) -> dict:
@@ -1283,7 +1290,15 @@ def _save_grammar_recommendations(
         # rec_id is the pre-minted id we just inserted — no read-back needed.
         return [{**orig, "rec_id": row["id"]} for orig, row in zip(recs, rows)]
     except Exception as e:
-        logger.debug("[grading] grammar_recommendations save skipped (non-fatal): %s", e)
+        # Primary source for frontend recs (CLAUDE.md layer #4). A full-insert
+        # failure leaves the feedback blob referencing pre-minted rec_ids with no
+        # backing rows (dangling). WARNING (not DEBUG) so it surfaces at prod INFO
+        # and is grep-able alongside the other response-persist telemetry.
+        logger.warning(
+            "[grading] grammar_recommendations save FAILED response=%s "
+            "(recs will be dangling, non-fatal): %s",
+            response_id, e,
+        )
         return recs
 
 
