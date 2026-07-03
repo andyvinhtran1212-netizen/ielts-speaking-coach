@@ -72,6 +72,12 @@
   var _ftP2Topic        = null;   // stored Part 2 topic for Full Test chaining
   var _ftCurrentPart    = null;   // current part being tested in Full Test (1 | 2 | 3)
   var _ftAllSessionIds  = [];     // all session IDs created during a Full Test (completed at the end)
+  // B1 (audit 2026-07-03): track eager-upload / session-complete failures during
+  // a Full Test so a swallowed error (previously console.warn only) surfaces to
+  // the user instead of the answer silently vanishing from the aggregate.
+  var _ftSubmitTotal    = 0;      // eager uploads attempted in this full test
+  var _ftSubmitFailures = [];     // questionIds whose eager upload failed
+  var _ftCompleteFailures = 0;    // sessions whose /complete call failed
 
   // Deferred grading: answers collected during test flow, processed in batch at end of part
   var _pendingTestAnswers = [];  // [{questionId, blob, questionText, part}]
@@ -2175,9 +2181,14 @@
     var fd = new FormData();
     fd.append('question_id', questionId);
     fd.append('audio_file', blob, 'response.webm');
+    if (_testMode === 'test_full') _ftSubmitTotal++;
     return window.api.upload('/sessions/' + sessionId + '/responses', fd)
       .catch(function (err) {
+        // B1: don't just warn — in a Full Test a failed upload means this
+        // answer never reaches the server aggregate. Record it so the
+        // completion screen can tell the user, instead of it vanishing silently.
         console.warn('[practice] eager grading failed for q', questionId, err);
+        if (_testMode === 'test_full') _ftSubmitFailures.push(questionId);
       });
   }
 
@@ -2216,6 +2227,7 @@
   function _fireAndForgetFullTestGrading() {
     // Show completion screen immediately — no waiting
     showState('completion');
+    _renderSubmitFailureNotice();
 
     // Tell backend to finalize: it marks sessions 'submitted', then polls DB until
     // all eager-upload grading requests complete, then aggregates band scores.
@@ -2233,6 +2245,43 @@
         // Completion screen still shown. Sessions remain in_progress but
         // graded responses are saved — admin can manually complete them.
       });
+  }
+
+  // B1: surface eager-upload / complete failures on the completion screen so a
+  // dropped answer isn't silently absent from the aggregate. Idempotent — safe
+  // to call whether or not there were failures (removes a stale notice).
+  function _renderSubmitFailureNotice() {
+    var host = $('state-completion');
+    if (!host) return;
+    var existing = host.querySelector('.practice-submit-warning');
+    if (existing) existing.remove();
+
+    var failed = _ftSubmitFailures.length;
+    if (failed === 0 && _ftCompleteFailures === 0) return;
+
+    var ok = Math.max(0, _ftSubmitTotal - failed);
+    var lines = [];
+    if (failed > 0) {
+      lines.push('Đã gửi thành công <strong>' + ok + '/' + _ftSubmitTotal +
+        '</strong> câu. <strong>' + failed + '</strong> câu gặp lỗi mạng — ' +
+        'điểm tổng có thể thiếu phần này.');
+    }
+    if (_ftCompleteFailures > 0) {
+      lines.push('<strong>' + _ftCompleteFailures + '</strong> phần chưa chốt được điểm ' +
+        '(lỗi kết nối). Kết quả có thể hiển thị thiếu — thử tải lại sau ít phút.');
+    }
+    lines.push('Nếu kết quả thiếu, liên hệ hỗ trợ để được chấm lại — không mất bài đã ghi.');
+
+    var el = document.createElement('div');
+    el.className = 'practice-submit-warning';
+    el.setAttribute('role', 'alert');
+    el.style.cssText =
+      'margin:16px auto 0;max-width:520px;padding:12px 16px;border-radius:12px;' +
+      'border:1px solid var(--av-warning);background:var(--av-warning-soft,rgba(251,146,60,0.12));' +
+      'color:var(--av-text-primary);font-size:13px;line-height:1.6;text-align:left;';
+    el.innerHTML = '<strong style="color:var(--av-warning);">⚠ Một số câu chưa gửi được</strong><br>' +
+      lines.join('<br>');
+    host.appendChild(el);
   }
 
   function _showBreak(nextPart) {
@@ -2380,7 +2429,12 @@
     // Complete ALL part sessions best-effort (fire and forget).
     var toComplete = _ftAllSessionIds.length > 0 ? _ftAllSessionIds : [_sessionId];
     toComplete.forEach(function (sid) {
-      window.api.patch('/sessions/' + sid + '/complete', {}).catch(function () {});
+      window.api.patch('/sessions/' + sid + '/complete', {}).catch(function (err) {
+        // B1: a failed /complete means that part's band never aggregates. Log
+        // it (was a no-op catch) and count it so it isn't invisible.
+        console.warn('[practice] session complete failed', sid, err);
+        _ftCompleteFailures++;
+      });
     });
 
     if (_testMode === 'test_full' && _ftAllSessionIds.length > 0) {
@@ -2438,7 +2492,15 @@
   function _testResultCard(r, idx) {
     var data = r.response || {};
     var band = data.overall_band != null ? parseFloat(data.overall_band).toFixed(1) : '—';
-    var bandColor = data.overall_band >= 7 ? '#4ade80' : data.overall_band >= 5.5 ? '#14b8a6' : '#fb923c';
+    // A3: canonical 4-tier token scale (≥7 success · 6–6.5 primary · 5–5.5
+    // warning · <5 error), replacing the old hardcoded hex (fail-contrast on
+    // light theme + a 4th, divergent band-colour system).
+    var _b = data.overall_band;
+    var bandColor = _b == null ? 'var(--av-text-muted)'
+      : _b >= 7 ? 'var(--av-success)'
+      : _b >= 6 ? 'var(--av-primary)'
+      : _b >= 5 ? 'var(--av-warning)'
+      : 'var(--av-error)';
 
     var criteriaHtml = '';
     if (data.band_fc != null) {
@@ -2907,6 +2969,10 @@
       if (_testMode === 'test_full' && _ftAllSessionIds.length === 0) {
         _ftCurrentPart   = _sessionData.part;
         _ftAllSessionIds = [_sessionId];
+        // B1: reset submit-failure trackers for a fresh full test.
+        _ftSubmitTotal      = 0;
+        _ftSubmitFailures   = [];
+        _ftCompleteFailures = 0;
       }
 
       if (_testMode) {

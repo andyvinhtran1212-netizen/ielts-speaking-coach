@@ -608,8 +608,10 @@ def _audit_code(actor: str, code_id, action: str, *, cohort_id=None) -> None:
             "target_user_id": None,
             "after": {"grants_role": None, "cohort_id": cohort_id} if action == "code_mint" else None,
         }).execute()
-    except Exception:
-        pass
+    except Exception as e:
+        # C3: best-effort, but a lost governance audit-trail row must not be
+        # invisible — log it so a persistent failure is detectable.
+        logger.warning("[instructor] _audit_code insert failed action=%s code=%s: %s", action, code_id, e)
 
 
 @router.get("/codes")
