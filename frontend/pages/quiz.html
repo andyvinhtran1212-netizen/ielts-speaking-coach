@@ -577,10 +577,15 @@
         const list = q.input === 'choice' ? (q.options || []) : (q.segments || []);
         const box = document.createElement('div');
         box.className = q.input === 'choice' ? 'qz-options' : 'qz-chips';
-        // Render in a per-(session,qid) shuffled order so the correct-answer POSITION
-        // isn't fixed/memorizable. Each button keeps its ORIGINAL index in data-oi and
-        // grades with it, so the engine's index-based grading is unaffected.
-        const dispOrder = _shuffledIndices(list.length, (sessionId || '') + ':' + (q.qid || ''));
+        // Shuffle ONLY interchangeable MCQ options (per session,qid) so the correct
+        // answer's POSITION isn't fixed/memorizable; each button keeps its ORIGINAL
+        // index in data-oi and grades with it, so index-based grading is unaffected.
+        // Syllable segments are the ORDERED syllables of the word (ba-na-na) — render
+        // them in authored order: shuffling would show the word out of order and make
+        // repeated syllables ("na"/"na") ambiguous while grading uses a hidden index.
+        const dispOrder = q.input === 'choice'
+          ? _shuffledIndices(list.length, (sessionId || '') + ':' + (q.qid || ''))
+          : list.map((_, i) => i);
         dispOrder.forEach((oi) => {
           const b = document.createElement('button');
           b.className = q.input === 'choice' ? 'qz-opt' : 'qz-opt qz-chip';

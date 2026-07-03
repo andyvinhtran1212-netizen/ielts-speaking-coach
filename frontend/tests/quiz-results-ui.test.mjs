@@ -18,10 +18,12 @@ const QUIZ = read('pages', 'quiz.html');
 const PROG = read('pages', 'quiz-progress.html');
 
 describe('quiz.html — option order is shuffled per (session, qid), grading by original index', () => {
-  test('renders options in a seeded shuffled order (defeats fixed answer position)', () => {
-    // A per-(session,qid) permutation is computed and used to render the options.
+  test('shuffles MCQ options (choice) but keeps syllable segments in authored order', () => {
+    // A per-(session,qid) permutation is computed for choice; syllable stays ordered
+    // (segments are the word's ordered syllables, e.g. ba-na-na — not interchangeable).
     assert.match(QUIZ, /function _shuffledIndices\(/);
-    assert.match(QUIZ, /_shuffledIndices\(list\.length, \(sessionId \|\| ''\) \+ ':' \+ \(q\.qid \|\| ''\)\)/);
+    assert.match(QUIZ, /q\.input === 'choice'\s*\?\s*_shuffledIndices\(list\.length, \(sessionId \|\| ''\) \+ ':' \+ \(q\.qid \|\| ''\)\)/);
+    assert.match(QUIZ, /:\s*list\.map\(\(_, i\) => i\)/);
   });
   test('each option button keeps its ORIGINAL index (data-oi) and grades with it', () => {
     assert.match(QUIZ, /b\.dataset\.oi = String\(oi\)/);
