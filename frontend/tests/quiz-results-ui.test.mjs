@@ -53,6 +53,13 @@ describe('quiz.html — audio is preloaded + cached + prefetched (seamless playb
   });
 });
 
+describe('quiz.html — typo-tolerant accept shows the canonical spelling', () => {
+  test('renders "Đáp án chuẩn" from res.corrected when a fuzzy match was accepted', () => {
+    assert.match(QUIZ, /res\.correct && res\.corrected/);
+    assert.match(QUIZ, /Đáp án chuẩn:/);
+  });
+});
+
 describe('vocabulary back-nav consistency (Hub → Picker → Quiz/Stats)', () => {
   test('quiz.html: BOTH back controls target the picker, never the public word wiki', () => {
     // vocab branch of boot() sets top + end back to the same practice picker.

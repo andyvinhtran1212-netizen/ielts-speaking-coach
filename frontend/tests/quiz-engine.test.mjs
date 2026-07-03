@@ -48,6 +48,13 @@ describe('gradeQuestion', () => {
     assert.equal(gradeQuestion(q, 'enviromnt'), false);   // 2 deletions
     assert.equal(gradeQuestion(q, 'something'), false);
   });
+  test('text: first-char guard rejects a leading-char edit (e.g. affect/effect)', () => {
+    assert.equal(gradeQuestion({ input: 'text', type: 'gap_text', accept: ['affect'] }, 'effect'), false);
+    // a middle/end typo (first char intact) is still accepted
+    assert.equal(gradeQuestion({ input: 'text', type: 'gap_text', accept: ['affect'] }, 'afect'), true);
+    // leading insertion/deletion also rejected (ambiguous)
+    assert.equal(gradeQuestion({ input: 'text', type: 'gap_text', accept: ['environment'] }, 'invironment'), false);
+  });
   test('text: short answers (<5) stay exact-match only', () => {
     const q = { input: 'text', type: 'gap_text', accept: ['cat'] };
     assert.equal(gradeQuestion(q, 'cat'), true);
@@ -117,6 +124,26 @@ test('wrong answer increments wrong_count and is logged', () => {
   const alpha = batch.word_stats.find((w) => w.item_key === 'Alpha');
   assert.equal(alpha.wrong_count, 1);
   assert.equal(alpha.first_try_correct, false);
+});
+
+test('submit() surfaces the canonical spelling when a typo-tolerant match is accepted', () => {
+  const bank = {
+    meta: { correct_to_master: 1, require_production_to_master: false,
+            require_distinct_skill: false, provisional_on_single_mcq: false },
+    questions: [{ qid: 'e1', item_key: 'Env', input: 'text', type: 'gap_text',
+                  skill: 'usage', accept: ['environment'] }],
+  };
+  let eng = createEngine(bank);
+  eng.next();
+  let r = eng.submit('enviroment');            // 1 deletion → accepted
+  assert.equal(r.correct, true);
+  assert.equal(r.corrected, 'environment');    // learner sees the correct form
+  // an EXACT answer carries no correction
+  eng = createEngine(bank);
+  eng.next();
+  r = eng.submit('environment');
+  assert.equal(r.correct, true);
+  assert.equal(r.corrected, null);
 });
 
 test('cooldown spaces a word: next pick avoids the just-asked word', () => {

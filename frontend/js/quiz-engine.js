@@ -35,25 +35,42 @@ export function gradeQuestion(q, answer) {
       return typeof answer === 'number' && answer === q.answer;
     case 'boolean':
       return Boolean(answer) === (q.answer === 1 || q.answer === true);
-    case 'text': {
-      var accept = Array.isArray(q.accept) ? q.accept : [];
-      var norm = normalizeText(answer, { caseSensitive: q.case_sensitive });
-      var exact = accept.some(function (a) {
-        return normalizeText(a, { caseSensitive: q.case_sensitive }) === norm;
-      });
-      if (exact) return true;
-      // Bounded typo tolerance for RECALL production (§Fix E): accept an answer one
-      // edit away from a canonical form, but ONLY when the target is long enough
-      // that a single edit is unambiguous, and never for orthography-graded types.
-      if (!textFuzzyAllowed(q)) return false;
-      return accept.some(function (a) {
-        var na = normalizeText(a, { caseSensitive: q.case_sensitive });
-        return na.length >= FUZZY_MIN_LEN && withinEditDistance1(na, norm);
-      });
-    }
+    case 'text':
+      return gradeText(q, answer).correct;
     default:
       return false;
   }
+}
+
+/**
+ * Grade a text answer with detail: {correct, exact, canonical}.
+ *  - exact:     true when the answer matched an accepted form verbatim (normalized)
+ *  - canonical: the accepted form that matched (original casing, for display) — so a
+ *               fuzzy accept can show the learner the correct spelling
+ * Exact is tried first, so anything that passed before still passes.
+ */
+export function gradeText(q, answer) {
+  var accept = Array.isArray(q.accept) ? q.accept : [];
+  var norm = normalizeText(answer, { caseSensitive: q.case_sensitive });
+  for (var i = 0; i < accept.length; i++) {
+    if (normalizeText(accept[i], { caseSensitive: q.case_sensitive }) === norm) {
+      return { correct: true, exact: true, canonical: accept[i] };
+    }
+  }
+  // Bounded typo tolerance for RECALL production (§Fix E): accept an answer one edit
+  // away from a canonical form, but ONLY when the target is long enough that a single
+  // edit is unambiguous, the FIRST character matches (a leading-char edit is what
+  // creates dangerous minimal pairs like affect/effect), and never for
+  // orthography-graded types.
+  if (!textFuzzyAllowed(q)) return { correct: false, exact: false, canonical: null };
+  for (var j = 0; j < accept.length; j++) {
+    var na = normalizeText(accept[j], { caseSensitive: q.case_sensitive });
+    if (na.length >= FUZZY_MIN_LEN && norm.charAt(0) === na.charAt(0)
+        && withinEditDistance1(na, norm)) {
+      return { correct: true, exact: false, canonical: accept[j] };
+    }
+  }
+  return { correct: false, exact: false, canonical: null };
 }
 
 // Minimum canonical-answer length for typo tolerance: below this a single edit is
@@ -243,7 +260,16 @@ export function createEngine(bank, options) {
   function submit(answer) {
     if (!current) return null;
     var w = current.word, q = current.q;
-    var correct = gradeQuestion(q, answer);
+    // For text, grade with detail so a fuzzy (typo-tolerant) accept can surface the
+    // canonical spelling to the learner. Other inputs stay boolean-graded.
+    var corrected = null, correct;
+    if (q.input === 'text') {
+      var gt = gradeText(q, answer);
+      correct = gt.correct;
+      if (correct && !gt.exact) corrected = gt.canonical;
+    } else {
+      correct = gradeQuestion(q, answer);
+    }
     w.attempts += 1;
     w.usedQids.add(q.qid);
     w.dirty = true;
@@ -281,6 +307,7 @@ export function createEngine(bank, options) {
     current = null;
     return {
       correct: correct,
+      corrected: corrected,   // canonical spelling when a typo-tolerant match was accepted
       explain: q.explain || '',
       mastered: mastered,
       exhausted: exhausted,

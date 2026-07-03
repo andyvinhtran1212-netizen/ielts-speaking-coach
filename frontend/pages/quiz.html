@@ -661,6 +661,11 @@
         + ((!res.correct && corr)
             ? '<div class="qz-fb__detail">Đáp án đúng: <span class="qz-fb__answer">' + fmt(String(corr)) + '</span></div>'
             : '')
+        // Accepted despite a small typo — show the canonical spelling so the learner
+        // still learns the correct form (only set when the match was typo-tolerant).
+        + ((res.correct && res.corrected)
+            ? '<div class="qz-fb__detail">Đáp án chuẩn: <span class="qz-fb__answer">' + fmt(String(res.corrected)) + '</span></div>'
+            : '')
         + (res.explain ? '<div class="qz-fb__detail">' + fmt(res.explain) + '</div>' : '')
         // Grammar: on a wrong answer, link back to the Wiki article to review.
         + ((!res.correct && artUrl)
