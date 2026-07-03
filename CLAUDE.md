@@ -22,7 +22,7 @@ IELTS Speaking Coach **began** as a web app for IELTS **Speaking** preparation a
 | What | File |
 |------|------|
 | Landing / Login / Activation | `frontend/index.html` |
-| Student home (multi-skill) | `frontend/pages/home.html` (replaced legacy `dashboard.html` in Sprint 5.1; `vercel.json` 301-redirects the old path → `/pages/speaking.html`) |
+| Student home (multi-skill) | `frontend/pages/home.html` (replaced legacy `dashboard.html` in Sprint 5.1; `frontend/vercel.json` 301-redirects the old path → `/pages/speaking.html`) |
 | **Practice page** (main) | `frontend/pages/practice.html` ← real one |
 | Result page | `frontend/pages/result.html` |
 | Full Test result | `frontend/pages/full-test-result.html` |
@@ -153,9 +153,9 @@ When editing Grammar Wiki content or metadata, always check:
 ### Admin access-code ownership
 - Modern codes: canonical ownership is in `user_code_assignments` (active rows).
 - Legacy codes: fallback is `access_codes.used_by` — synthesized by both list and detail endpoints when no active assignment row exists.
-- The fallback synthesis condition in the **detail endpoint** is: **no active assignment rows** (not: no rows at all). This matters after a remove-user operation leaves only inactive rows.
-- The `detailToTableShape()` function in `admin.html` converts detail-endpoint shape to list-endpoint shape for re-rendering after mutations. Both shapes must go through this transform before updating `_codesData`.
-- `association_lookup_failed: true` is returned by the list endpoint on DB failure. Render as `⚠ lookup failed`, never as `—`.
+- The fallback synthesis condition in the **detail endpoint** is: **no active assignment rows** (not: no rows at all). This matters after a remove-user operation leaves only inactive rows. It also must NOT fire when the assignment lookup itself errored — the detail endpoint now sets `association_lookup_failed: true` in that case (audit 2026-07-03 L5) rather than synthesizing stale ownership.
+- Admin is split out of the old `admin.html` monolith (now a redirect stub) into `frontend/pages/admin/*`; access-code ownership rendering lives in `frontend/js/admin-access-codes.js` (the old `detailToTableShape()` re-render path no longer exists). The frontend refetches the canonical list (`loadCodes()`) after mutations rather than transforming the detail shape in place.
+- `association_lookup_failed: true` is returned by **both** the list and detail endpoints on DB failure. Render as `⚠ lookup failed`, never as `—`.
 
 ### Practice and result flows
 - The grading pipeline (`grading.py`) is the only official route for submitting recordings. (The unused legacy `responses.py` audio-only route was removed in cleanup.)

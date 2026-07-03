@@ -393,8 +393,9 @@ from datetime import datetime, timedelta, timezone
 
 
 def test_activate_rejects_expired_code():
-    """A code whose expires_at is in the past must 400 from /activate
-    with a Vietnamese 'đã hết hạn' message."""
+    """A code whose expires_at is in the past must 400 from /activate.
+    S5 anti-enumeration: the reason collapses to the generic message so an
+    expired code isn't distinguishable from a non-existent one."""
     yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
     code_row = {
         "id": str(uuid4()),
@@ -422,7 +423,7 @@ def test_activate_rejects_expired_code():
         )
 
     assert r.status_code == 400
-    assert "hết hạn" in r.json()["detail"]
+    assert "không hợp lệ hoặc không thể sử dụng" in r.json()["detail"]
 
 
 def test_activate_accepts_unexpired_code():

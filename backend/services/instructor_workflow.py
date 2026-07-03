@@ -141,7 +141,7 @@ def claim(review_id: UUID, instructor_id: UUID, *, owner_id=None) -> InstructorR
     W-4 — when `owner_id` is set (instructor-role path), assert the review's
     essay is owned by that instructor BEFORE the lock (seam-defect #2). Raises
     PermissionError on a non-owned essay → 403. `owner_id=None` = admin path
-    (admin_instructor.py), unchanged.
+    (admin_instructor_queue.py), unchanged.
     """
     if owner_id is not None:
         rev = supabase_admin.table("instructor_reviews").select(

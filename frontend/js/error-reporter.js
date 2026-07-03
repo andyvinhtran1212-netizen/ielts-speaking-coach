@@ -49,9 +49,13 @@
   var REQUEST_ID = _uuid();
   var MAX_DEDUP_ENTRIES = 100;  // hard cap so a flood doesn't grow forever
 
-  // ── Resolve API base (mirrors api.js convention) ──────────────────
+  // ── Resolve API base ──────────────────────────────────────────────
+  // Prefer the canonical window.api.base (api.js) so the host never drifts,
+  // but keep a self-contained fallback: error-reporter must still work when
+  // api.js itself failed to load (it reports that very failure).
   function _apiBase() {
     try {
+      if (window.api && window.api.base) return window.api.base;
       var host = window.location.hostname;
       if (host === 'localhost' || host === '127.0.0.1') {
         return 'http://localhost:8000';
