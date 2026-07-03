@@ -1,3 +1,14 @@
+/*
+ * listening.css — Listening surface stylesheet (audit 2026-07-03 A6 decouple).
+ *
+ * Forked from vocabulary.css so restyling the Vocab surface no longer silently
+ * restyles the 10 Listening pages (they previously *borrowed* vocabulary.css).
+ * Content is intentionally identical at fork time — a guaranteed no-visual-change
+ * split. The `.vocab-*` class names are retained (Listening HTML still uses them)
+ * and can be renamed to `.listening-*` / trimmed of Vocab-only rules in a later
+ * cleanup; the decoupling (independent stylesheets) is what this change delivers.
+ */
+
 /* css/vocabulary.css — Sprint 6.10 Phase 3 page 1 redesign.
  *
  * Migrates the Sprint 6.0 vocabulary landing from --ds-* (legacy dark

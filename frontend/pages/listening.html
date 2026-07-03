@@ -31,12 +31,12 @@
     rel="stylesheet">
 
   <!-- Aver Design System foundation. tokens.css MUST load before
-       components.css. Sprint 11.1 reuses vocabulary.css mode-card +
-       stats-strip primitives (same structural family per Sprint 11.0
-       §1C — no new CSS bucket for the shell). -->
+       components.css. listening.css is the Listening surface's OWN stylesheet
+       (audit 2026-07-03 A6) — forked from vocabulary.css so Vocab restyles no
+       longer leak into Listening. Same structural family, independent file. -->
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
   <link rel="stylesheet" href="/css/aver-design/components.css" />
-  <link rel="stylesheet" href="/css/vocabulary.css" />
+  <link rel="stylesheet" href="/css/listening.css" />
 
   <!-- Tailwind CDN — used by .hidden / utility classes mirrored from
        vocabulary.html. Sprint 11.2+ may extract a Listening-specific
