@@ -238,8 +238,18 @@ export function createEngine(bank, options) {
     if (counts.length) return pickOne(counts);
     if (unused.length) return pickOne(unused);   // an enrich question (stress/ipa…)
 
-    // all used → reuse, prefer production (forces recall), else first.
+    // all used → reuse. A pending provisional needs a CONFIRMER or the word can never
+    // be credited (it just re-sets the same provisional and burns attempts). Prefer a
+    // production (confirms + credits via the reversal path), else any DIFFERENT-skill
+    // question (reversal-confirms). This preserves the all-correct mastery path even
+    // when a seeded pickOne served production before the recognition item (P1).
     var prod = pool.filter(isProduction);
+    if (w.provisional) {
+      if (prod.length) return pickOne(prod);
+      var confirmers = pool.filter(function (q) { return q.skill !== w.provisional.skill; });
+      if (confirmers.length) return pickOne(confirmers);
+    }
+    // else prefer production while it's still required + unmet (forces recall).
     if (REQUIRE_PRODUCTION && !w.productionDone && prod.length) return pickOne(prod);
     return pool[0] || null;
   }

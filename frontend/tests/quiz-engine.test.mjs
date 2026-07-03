@@ -105,6 +105,49 @@ test('masters a word via 2 distinct skills + a production answer', () => {
   assert.equal(eng.progress().mastered, 1);
 });
 
+// Answer the current question correctly, whatever its input type.
+function answerCorrect(eng) {
+  const it = eng.next();
+  if (!it) return false;
+  const q = it.question;
+  let ans;
+  if (q.input === 'choice' || q.input === 'syllable') ans = q.answer;
+  else if (q.input === 'boolean') ans = (q.answer === 1 || q.answer === true);
+  else ans = (q.accept && q.accept[0]) || '';
+  return eng.submit(ans);
+}
+
+function driveAllCorrect(eng, maxSteps) {
+  for (let i = 0; i < (maxSteps || 40); i++) {
+    if (eng.progress().remaining === 0) break;
+    if (answerCorrect(eng) === false) break;
+  }
+  return eng.summary();
+}
+
+test('all-correct student masters a 2-variant word regardless of which variant is served first (P1)', () => {
+  // File order is MCQ-then-TEXT (so the all-used fallback's pool[0] is the MCQ). For
+  // seeds where the seeded pickOne serves the TEXT (production) FIRST, the MCQ then
+  // becomes an unconfirmed provisional AFTER production is done; without the fallback
+  // fix the fallback keeps returning the same-skill MCQ and the word never confirms →
+  // carried over despite all-correct answers. Sweeping seeds exercises both orderings.
+  const mk = () => ({
+    meta: { correct_to_master: 2 },   // defaults: distinct + production + provisional + reversal
+    questions: [
+      { qid: 'w_m', item_key: 'W', input: 'choice', skill: 'meaning', answer: 0, type: 'mcq' },
+      { qid: 'w_t', item_key: 'W', input: 'text', type: 'gap_text', skill: 'usage', accept: ['word'] },
+    ],
+  });
+  // unseeded (deterministic MCQ-first) still masters
+  assert.equal(driveAllCorrect(createEngine(mk())).mastered, 1);
+  // and every seed masters — no ordering trap survives
+  for (let n = 1; n <= 24; n++) {
+    const s = driveAllCorrect(createEngine(mk(), { seed: 'seed-' + n }));
+    assert.equal(s.mastered, 1, `seed-${n}: all-correct student must master (not carry over)`);
+    assert.equal(s.carried_over, 0, `seed-${n}: nothing should be carried over`);
+  }
+});
+
 test('a single correct MCQ alone does not master (provisional)', () => {
   const eng = createEngine(oneWordBank());
   eng.next();

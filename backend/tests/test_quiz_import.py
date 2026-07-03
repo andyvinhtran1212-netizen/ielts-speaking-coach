@@ -267,14 +267,28 @@ accept: ["yo"]
 
 
 def test_relaxed_meta_allows_single_mcq():
-    """With the strictness flags OFF (single-credit mastery), a lone MCQ pool is a
-    legitimate bank — the gate must NOT flag it."""
+    """With single-credit mastery AND provisional disabled, a lone MCQ credits on each
+    correct answer → legitimate bank the gate must NOT flag."""
+    relaxed = _LONE_MCQ.replace(
+        "require_production_to_master: true",
+        "require_production_to_master: false\nrequire_distinct_skill: false\n"
+        "provisional_on_single_mcq: false\ncorrect_to_master: 1",
+    )
+    r = quiz_import.import_quiz_file(relaxed, dry_run=True)
+    assert not any(e["field"].startswith("pool:") for e in r["validation_errors"])
+
+
+def test_relaxed_single_mcq_with_provisional_still_flagged():
+    """P2: require_distinct_skill:false but provisional_on_single_mcq LEFT ON (default)
+    — a single same-skill MCQ only sets a provisional and never credits, so the word
+    is carried over forever. The gate must reject it."""
     relaxed = _LONE_MCQ.replace(
         "require_production_to_master: true",
         "require_production_to_master: false\nrequire_distinct_skill: false\ncorrect_to_master: 1",
     )
     r = quiz_import.import_quiz_file(relaxed, dry_run=True)
-    assert not any(e["field"].startswith("pool:") for e in r["validation_errors"])
+    pool_errs = [e for e in r["validation_errors"] if e["field"] == "pool:Xi"]
+    assert any("không bao giờ ghi điểm" in e["message"] for e in pool_errs)
 
 
 def test_pool_only_unsupported_input_flagged():

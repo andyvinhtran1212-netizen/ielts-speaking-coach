@@ -222,6 +222,22 @@ def validate_pool_mastery_contract(meta: dict, q_entries: list[dict]) -> list[di
                 errors.append({"field": f"pool:{key}",
                                "message": f"Từ '{key}': cần ≥{ctm} skill khác nhau tính mastery, "
                                           f"mới có {len(distinct)} ({distinct})."})
+        else:
+            # require_distinct_skill: false → mastery is by credit COUNT. A lone-MCQ
+            # pool can still be un-creditable: with provisional_on_single_mcq (default
+            # on) + confirm_by_reversal (default on), a single MCQ only SETS a
+            # provisional, and confirming it needs a DIFFERENT skill or a production —
+            # a single same-skill MCQ re-served never credits → carry-over forever.
+            provisional_mcq = meta.get("provisional_on_single_mcq", True) is not False
+            confirm_reversal = meta.get("confirm_by_reversal", True) is not False
+            has_prod = any(q.get("input") == "text" for q in counting)
+            distinct = {q.get("skill") for q in counting if q.get("skill")}
+            if provisional_mcq and confirm_reversal and not has_prod and len(distinct) < 2:
+                errors.append({"field": f"pool:{key}",
+                               "message": f"Từ '{key}': provisional_on_single_mcq + confirm_by_reversal "
+                                          f"đang bật nhưng không có câu production và chỉ 1 skill → MCQ "
+                                          f"lẻ không bao giờ ghi điểm. Thêm câu production/skill thứ 2, "
+                                          f"hoặc đặt provisional_on_single_mcq: false."})
     return errors
 
 
