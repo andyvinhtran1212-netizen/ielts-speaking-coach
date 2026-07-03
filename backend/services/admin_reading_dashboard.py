@@ -36,6 +36,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from database import supabase_admin
+from services.band_rounding import ielts_round
 
 logger = logging.getLogger(__name__)
 
@@ -148,7 +149,7 @@ def compute_reading_attempts_dashboard(days: int = DEFAULT_WINDOW) -> dict:
         b = r.get("band_estimate")
         if b is None:
             continue
-        b = round(float(b) * 2) / 2.0      # snap to nearest 0.5 (defensive)
+        b = ielts_round(float(b))          # C2: half-up snap to 0.5 (was banker's)
         band_counts[b] = band_counts.get(b, 0) + 1
     band_distribution = [
         {"band": b, "count": band_counts[b]} for b in sorted(band_counts)

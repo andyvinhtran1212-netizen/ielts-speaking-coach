@@ -268,7 +268,10 @@ async def get_profile(authorization: str | None = Header(default=None)):
         stats["total_sessions"] = len(sessions)
         bands = [s["overall_band"] for s in sessions if s.get("overall_band") is not None]
         if bands:
-            stats["avg_band"] = round(sum(bands) / len(bands) * 2) / 2  # round to 0.5
+            # C2 (audit 2026-07-03): half-up via the canonical ielts_round, not
+            # banker's round(x*2)/2, so the profile average matches the web.
+            from services.band_rounding import ielts_round  # local — avoid cycle
+            stats["avg_band"] = ielts_round(sum(bands) / len(bands))
     except Exception:
         pass  # non-fatal — stats are display-only
 

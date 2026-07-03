@@ -57,7 +57,7 @@ jobs:
       - name: Run pytest
         working-directory: backend
         run: |
-          python -m pytest tests/ -v --tb=short --ignore=tests/test_d1_e2e.py
+          python -m pytest tests/ -v --tb=short
 
       - name: Run anchor drift gate (explicit re-check)
         working-directory: .
