@@ -4,6 +4,20 @@
 
 ---
 
+## 0. Consolidation governance (2026-07-03)
+
+Canonical decisions from the design audit (`docs/DESIGN_SYSTEM_CONSOLIDATION_PLAN.md`). These are **enforced**, not aspirational:
+
+- **One token namespace: `--av-*`.** Defined solely in `css/aver-design/tokens.css`. `--ds-*` is **frozen** (no new usage — it already aliases to `--av-*` under light theme). The dead `design-system/` `--color-*` fork is archived — do **not** reference it. Surface skins (`--exam-*`, `--ielts-*`) are allowed only as thin layers **built from `--av-*` values**, never raw hex.
+- **No new hex in page/skin CSS.** Colour must be `var(--av-*)`. Enforced by `frontend/tests/hex-budget.test.mjs` — a ratchet that fails any PR raising a file's hex count (files not in `tests/fixtures/hex-budget.json` are capped at 0). Migrating hex → tokens lowers the budget; the budget only moves down.
+- **Primitive promotion rule:** a visual pattern used by ≥2 surfaces becomes an `--av-`/`.av-*` primitive; one-surface UI (e.g. the Cambridge exam skin) stays product-local.
+- **Undefined-token guard:** `frontend/tests/undefined-token-sentinel.test.mjs` fails on any `var(--av-x)` with no matching definition.
+- **Ownership:** token/primitive changes go through `aver-design/` + a test update. Page CSS may only *consume* tokens.
+
+> §14's historical migration table predates the pivot and points at some moved/removed pages; treat §0 here as the current contract.
+
+---
+
 ## 1. Brand identity
 
 | Aspect | Direction |
