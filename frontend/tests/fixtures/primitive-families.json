@@ -1,0 +1,30 @@
+{
+  "_doc": "Audit 2026-07-03 A5 — FROZEN button/modal class-family allowlist. New UI must use the canonical .av-button / .av-modal primitives; introducing a NEW *-btn/*-button/*-modal namespace fails primitive-families.test.mjs. This freezes the current fragmentation so it can only shrink. When a legacy family is fully migrated to .av-* and removed, delete its entry here.",
+  "button": [
+    "adm-btn",
+    "ar-btn",
+    "av-button",
+    "aw-btn",
+    "band-btn",
+    "delete-btn",
+    "exam-btn",
+    "fb-btn",
+    "tab-btn",
+    "td-btn"
+  ],
+  "modal": [
+    "adm-modal",
+    "ar-modal",
+    "av-modal",
+    "aw-modal",
+    "exam-modal",
+    "fb-modal",
+    "fc-modal",
+    "is-modal",
+    "pb-modal",
+    "regrade-modal",
+    "tip-modal",
+    "wd-modal",
+    "wr-modal"
+  ]
+}
