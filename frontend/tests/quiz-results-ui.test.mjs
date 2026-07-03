@@ -17,6 +17,23 @@ const read = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
 const QUIZ = read('pages', 'quiz.html');
 const PROG = read('pages', 'quiz-progress.html');
 
+describe('quiz.html — option order is shuffled per (session, qid), grading by original index', () => {
+  test('renders options in a seeded shuffled order (defeats fixed answer position)', () => {
+    // A per-(session,qid) permutation is computed and used to render the options.
+    assert.match(QUIZ, /function _shuffledIndices\(/);
+    assert.match(QUIZ, /_shuffledIndices\(list\.length, \(sessionId \|\| ''\) \+ ':' \+ \(q\.qid \|\| ''\)\)/);
+  });
+  test('each option button keeps its ORIGINAL index (data-oi) and grades with it', () => {
+    assert.match(QUIZ, /b\.dataset\.oi = String\(oi\)/);
+    assert.match(QUIZ, /b\.onclick = \(\) => grade\(oi\)/);
+  });
+  test('reveal marks ✓/✗ by original index, not DOM position', () => {
+    assert.match(QUIZ, /const oi = Number\(b\.dataset\.oi\)/);
+    assert.match(QUIZ, /if \(oi === q\.answer\)/);
+    assert.match(QUIZ, /if \(oi === value && !res\.correct\)/);
+  });
+});
+
 describe('vocabulary back-nav consistency (Hub → Picker → Quiz/Stats)', () => {
   test('quiz.html: BOTH back controls target the picker, never the public word wiki', () => {
     // vocab branch of boot() sets top + end back to the same practice picker.

@@ -303,6 +303,35 @@
     // Render **bold** + the ____ blank placeholder.
     const fmt = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/_{4,}/g, '<u>&nbsp;&nbsp;&nbsp;</u>');
 
+    // Seeded PRNG (xmur3 hash → mulberry32) so the DISPLAYED option order is stable
+    // per (session, qid) yet differs across students/sessions — defeating "the
+    // answer is always the 2nd option" memorization. Grading is untouched: the
+    // engine still receives the ORIGINAL 0-based index (buttons carry data-oi), so
+    // this is a pure view-layer permutation.
+    function _seedFn(str) {
+      let h = 1779033703 ^ String(str).length;
+      for (let i = 0; i < String(str).length; i++) {
+        h = Math.imul(h ^ String(str).charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19);
+      }
+      let a = h >>> 0;
+      return function () {
+        a |= 0; a = (a + 0x6D2B79F5) | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    // A shuffled [0..n) index permutation, deterministic for a given seed string.
+    function _shuffledIndices(n, seedStr) {
+      const rng = _seedFn(seedStr);
+      const idx = Array.from({ length: n }, (_, i) => i);
+      for (let i = n - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        const t = idx[i]; idx[i] = idx[j]; idx[j] = t;
+      }
+      return idx;
+    }
+
     const _params = new URLSearchParams(location.search);
     const bankId = _params.get('bank');
     const skillArea = _params.get('skill_area');
@@ -515,12 +544,16 @@
         const list = q.input === 'choice' ? (q.options || []) : (q.segments || []);
         const box = document.createElement('div');
         box.className = q.input === 'choice' ? 'qz-options' : 'qz-chips';
-        list.forEach((opt, i) => {
+        // Render in a per-(session,qid) shuffled order so the correct-answer POSITION
+        // isn't fixed/memorizable. Each button keeps its ORIGINAL index in data-oi and
+        // grades with it, so the engine's index-based grading is unaffected.
+        const dispOrder = _shuffledIndices(list.length, (sessionId || '') + ':' + (q.qid || ''));
+        dispOrder.forEach((oi) => {
           const b = document.createElement('button');
           b.className = q.input === 'choice' ? 'qz-opt' : 'qz-opt qz-chip';
-          b.type = 'button';
-          b.innerHTML = '<span>' + fmt(String(opt)) + '</span><span class="qz-opt__mark"></span>';
-          b.onclick = () => grade(i);     // instant: click = answer
+          b.type = 'button'; b.dataset.oi = String(oi);
+          b.innerHTML = '<span>' + fmt(String(list[oi])) + '</span><span class="qz-opt__mark"></span>';
+          b.onclick = () => grade(oi);     // instant: click = answer (original index)
           box.appendChild(b);
         });
         w.appendChild(box);
@@ -559,10 +592,13 @@
       const w = $('qz-widget');
       if (q.input === 'choice' || q.input === 'syllable') {
         const btns = w.querySelectorAll('.qz-opt');
-        btns.forEach((b, j) => {
+        btns.forEach((b) => {
           b.disabled = true;
-          if (j === q.answer) { b.classList.add('is-correct'); b.querySelector('.qz-opt__mark').textContent = '✓'; }
-          if (j === value && !res.correct) { b.classList.add('is-wrong'); b.querySelector('.qz-opt__mark').textContent = '✗'; }
+          // Options are displayed shuffled — reveal by each button's ORIGINAL index
+          // (data-oi), not its DOM position, so the ✓/✗ land on the right options.
+          const oi = Number(b.dataset.oi);
+          if (oi === q.answer) { b.classList.add('is-correct'); b.querySelector('.qz-opt__mark').textContent = '✓'; }
+          if (oi === value && !res.correct) { b.classList.add('is-wrong'); b.querySelector('.qz-opt__mark').textContent = '✗'; }
         });
       } else if (q.input === 'boolean') {
         const correctVal = (q.answer === 1 || q.answer === true);
