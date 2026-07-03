@@ -194,6 +194,43 @@ test('honors imported META from the raw API shape {bank:{meta},questions}', () =
   assert.equal(r.mastered, true);             // META honored (would stay provisional under defaults)
 });
 
+function fiveWordBank() {
+  const qs = [];
+  ['A', 'B', 'C', 'D', 'E'].forEach((k) => {
+    qs.push({ qid: k + '1', item_key: k, input: 'choice', skill: 'meaning', answer: 0, type: 'mcq' });
+    qs.push({ qid: k + '2', item_key: k, input: 'text', skill: 'usage', accept: [k.toLowerCase()], type: 'gap_text' });
+  });
+  return { meta: { correct_to_master: 2, cooldown: 0 }, questions: qs };
+}
+
+test('unseeded engine keeps deterministic file order (first word == first in file)', () => {
+  const a = createEngine(fiveWordBank());
+  const b = createEngine(fiveWordBank());
+  assert.equal(a.next().item_key, 'A');       // file order preserved
+  assert.equal(b.next().item_key, 'A');       // reproducible without a seed
+});
+
+test('seeded engine randomizes word order, deterministically per seed', () => {
+  const s1a = createEngine(fiveWordBank(), { seed: 'sess-1' });
+  const s1b = createEngine(fiveWordBank(), { seed: 'sess-1' });
+  // same seed → identical order (resume-stable)
+  const orderA = [], orderB = [];
+  for (let i = 0; i < 5; i++) { orderA.push(s1a.next().item_key); s1a.submit(0); }
+  for (let i = 0; i < 5; i++) { orderB.push(s1b.next().item_key); s1b.submit(0); }
+  assert.deepEqual(orderA, orderB);
+  // every word still appears exactly once (nothing dropped by the shuffle)
+  assert.deepEqual([...orderA].sort(), ['A', 'B', 'C', 'D', 'E']);
+  // at least one seed reorders away from strict file order (defeats fixed sequence).
+  const seeds = ['sess-1', 'sess-2', 'sess-3', 'sess-4', 'sess-5'];
+  const anyReordered = seeds.some((seed) => {
+    const e = createEngine(fiveWordBank(), { seed });
+    const ord = [];
+    for (let i = 0; i < 5; i++) { ord.push(e.next().item_key); e.submit(0); }
+    return ord.join('') !== 'ABCDE';
+  });
+  assert.equal(anyReordered, true);
+});
+
 test('resume seeds passed skills from prior word_stats', () => {
   const eng = createEngine(oneWordBank(), {
     resume: [{ item_key: 'Alpha', status: 'testing', skills_passed: ['meaning'], correct_count: 1 }],

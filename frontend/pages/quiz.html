@@ -755,7 +755,9 @@
         authToken = sess && sess.data && sess.data.session ? sess.data.session.access_token : null;
       } catch (e) { authToken = null; }
 
-      engine = createEngine(bank, { resume: start.resume || [] });
+      // Seed the engine with the session id so word order + variant tie-breaks are
+      // randomized per session (no two students get an identical question sequence).
+      engine = createEngine(bank, { resume: start.resume || [], seed: sessionId });
       wordCards = (bank && bank.word_cards) || {};
       $('qz-loading').classList.add('hidden');
       $('qz-main').classList.remove('hidden');

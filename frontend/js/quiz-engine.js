@@ -58,6 +58,12 @@ function isProduction(q) {
 
 export function createEngine(bank, options) {
   var opts = options || {};
+  // Optional seeded RNG (opts.seed, e.g. the session id). When present, the word
+  // ENTRY order and variant tie-breaks are randomized deterministically per seed so
+  // two students — or the same student retrying — don't get an identical question
+  // sequence. When absent (unit tests), behavior stays deterministic file-order.
+  var rng = makeRng(opts.seed);
+  function pickOne(arr) { return rng ? arr[Math.floor(rng() * arr.length)] : arr[0]; }
   // Accept either {meta, questions} or the raw API shape {bank:{...,meta}, questions}
   // so imported META controls (correct_to_master, cooldown, …) are always honored.
   var meta = (bank && (bank.meta || (bank.bank && bank.bank.meta))) || {};
@@ -85,6 +91,9 @@ export function createEngine(bank, options) {
     if (!pools[q.item_key]) { pools[q.item_key] = []; order.push(q.item_key); }
     pools[q.item_key].push(q);
   });
+  // Randomize word entry order when seeded (the cooldown/rotate loop still governs
+  // mid-session spacing; this only decides where each word STARTS in the queue).
+  if (rng) shuffleInPlace(order, rng);
 
   var resumeByKey = {};
   (opts.resume || []).forEach(function (w) { resumeByKey[w.item_key] = w; });
@@ -155,23 +164,25 @@ export function createEngine(bank, options) {
     var counts = unused.filter(countsToward);
 
     // when confirming a provisional, prefer a DIFFERENT skill (reversal) or a text.
+    // pickOne randomizes WITHIN a priority tier when seeded (else takes the first),
+    // so the ranking is preserved but ties don't always resolve to the same variant.
     if (w.provisional && CONFIRM_REVERSAL) {
       var confirmers = counts.filter(function (q) {
         return isProduction(q) || q.skill !== w.provisional.skill;
       });
       var prodFirst = confirmers.filter(isProduction);
-      if (prodFirst.length) return prodFirst[0];
-      if (confirmers.length) return confirmers[0];
+      if (prodFirst.length) return pickOne(prodFirst);
+      if (confirmers.length) return pickOne(confirmers);
     }
     // prefer a skill not yet passed
     var freshSkill = counts.filter(function (q) { return !w.passedSkills.has(q.skill); });
-    if (freshSkill.length) return freshSkill[0];
-    if (counts.length) return counts[0];
-    if (unused.length) return unused[0];   // an enrich question (stress/ipa…)
+    if (freshSkill.length) return pickOne(freshSkill);
+    if (counts.length) return pickOne(counts);
+    if (unused.length) return pickOne(unused);   // an enrich question (stress/ipa…)
 
     // all used → reuse, prefer production (forces recall), else first.
     var prod = pool.filter(isProduction);
-    if (REQUIRE_PRODUCTION && !w.productionDone && prod.length) return prod[0];
+    if (REQUIRE_PRODUCTION && !w.productionDone && prod.length) return pickOne(prod);
     return pool[0] || null;
   }
 
@@ -322,6 +333,30 @@ export function createEngine(bank, options) {
 // ── small utils ──────────────────────────────────────────────────────
 
 function num(v, d) { var n = parseInt(v, 10); return isNaN(n) ? d : n; }
+// Seeded PRNG (xmur3 hash → mulberry32). Returns null for a null/undefined seed so
+// callers stay deterministic (file order, first-match variants) when unseeded — the
+// unit tests rely on this. Deterministic per seed so a resumed session is stable.
+function makeRng(seed) {
+  if (seed == null) return null;
+  var s = String(seed), h = 1779033703 ^ s.length;
+  for (var i = 0; i < s.length; i++) {
+    h = Math.imul(h ^ s.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19);
+  }
+  var a = h >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    var t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function shuffleInPlace(arr, rng) {
+  for (var i = arr.length - 1; i > 0; i--) {
+    var j = Math.floor(rng() * (i + 1));
+    var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+  }
+  return arr;
+}
 function uuid() {
   try {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
