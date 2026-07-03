@@ -120,15 +120,16 @@ describe('Sprint 11.1 — listening.html landing shell contract', () => {
     );
   });
 
-  it('reuses the canonical design tokens (no new CSS bucket for the shell)', () => {
-    // Sprint 11.0 §1C decision — Listening shell rides the
-    // vocabulary.css + components.css primitives. A future PR that
-    // forks a Listening-specific stylesheet for the SHELL (not
-    // legitimate per-mode pages) trips here. (Sprint 11.2+ may add
-    // listening-dictation.css etc. for per-mode chrome.)
+  it('loads the canonical tokens + its own decoupled stylesheet (A6)', () => {
+    // Audit 2026-07-03 A6 — the Listening shell now rides its OWN listening.css
+    // (forked from vocabulary.css, identical at fork time) instead of borrowing
+    // vocabulary.css, so a Vocab restyle no longer silently restyles Listening.
+    // The canonical foundation (tokens + components) is still shared.
     assert.match(HTML, /href=["']\/css\/aver-design\/tokens\.css["']/);
     assert.match(HTML, /href=["']\/css\/aver-design\/components\.css["']/);
-    assert.match(HTML, /href=["']\/css\/vocabulary\.css["']/,
-      'Sprint 11.1 shell reuses vocabulary.css mode-card + stats-strip primitives');
+    assert.match(HTML, /href=["']\/css\/listening\.css["']/,
+      'Listening shell must load its own decoupled listening.css (A6), not vocabulary.css');
+    assert.doesNotMatch(HTML, /href=["']\/css\/vocabulary\.css["']/,
+      'Listening must no longer borrow vocabulary.css (A6 decouple)');
   });
 });

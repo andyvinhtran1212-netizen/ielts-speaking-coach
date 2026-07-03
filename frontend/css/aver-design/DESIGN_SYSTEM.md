@@ -4,6 +4,21 @@
 
 ---
 
+## 0. Consolidation governance (2026-07-03)
+
+Canonical decisions from the design audit (`docs/DESIGN_SYSTEM_CONSOLIDATION_PLAN.md`). These are **enforced**, not aspirational:
+
+- **One token namespace: `--av-*`.** Defined solely in `css/aver-design/tokens.css`. `--ds-*` is **frozen** (no new usage — it already aliases to `--av-*` under light theme). The dead `design-system/` `--color-*` fork is archived — do **not** reference it. Surface skins (`--exam-*`, `--ielts-*`) are allowed only as thin layers **built from `--av-*` values**, never raw hex.
+- **No new hex in page/skin CSS.** Colour must be `var(--av-*)`. Enforced by `frontend/tests/hex-budget.test.mjs` — a ratchet that fails any PR raising a file's hex count (files not in `tests/fixtures/hex-budget.json` are capped at 0). Migrating hex → tokens lowers the budget; the budget only moves down.
+- **Primitive promotion rule:** a visual pattern used by ≥2 surfaces becomes an `--av-`/`.av-*` primitive; one-surface UI (e.g. the Cambridge exam skin) stays product-local.
+- **Undefined-token guard:** `frontend/tests/undefined-token-sentinel.test.mjs` fails on any `var(--av-x)` with no matching definition.
+- **Canonical primitives + family freeze (A5):** the canonical button/modal primitives are **`.av-button`** and **`.av-modal`** (`components.css`). The audit found 10 button + 13 modal *families* (`.aw-btn`, `.adm-btn`, `.exam-btn`, `.wr-modal`, …) plus the 11-file `.btn-primary` sprawl — the same widget re-implemented. `frontend/tests/primitive-families.test.mjs` **freezes** that set (`fixtures/primitive-families.json`): a **new** `*-btn`/`*-button`/`*-modal` family fails CI. New UI must use `.av-button`/`.av-modal`. Legacy families are migrated **per cluster with visual verification** (they render differently, so a blind merge would regress); when a family is fully migrated and removed, delete its allowlist entry so the set only shrinks.
+- **Ownership:** token/primitive changes go through `aver-design/` + a test update. Page CSS may only *consume* tokens.
+
+> §14's historical migration table predates the pivot and points at some moved/removed pages; treat §0 here as the current contract.
+
+---
+
 ## 1. Brand identity
 
 | Aspect | Direction |
@@ -95,6 +110,17 @@ Every page that opts into the system MUST:
 | Display | Plus Jakarta Sans (700/600) | Single family for headings; emphasis comes from weight + size, not a separate display face |
 
 Avoid: Inter, Roboto, Arial, Helvetica, system-ui as the primary face. The `frontend-design` skill flags these as generic "AI slop" choices.
+
+#### Sanctioned editorial sub-systems (exceptions to the single-family rule)
+Long-form *reading* surfaces may run a distinct editorial typeface, matching academic/dictionary sites. These are the ONLY sanctioned exceptions — a new surface may not add a fourth without a design decision here (audit 2026-07-03 D2):
+
+| Surface | Fonts | Status |
+|---|---|---|
+| Grammar Wiki | DM Sans (body) + Lora (display) | Documented §14.2 |
+| Vocab Wiki (`vocab-wiki.css`) | Fraunces (serif display) + Hanken Grotesk (body) + DM Mono (labels) | **Sanctioned here** — was previously undocumented (audit A4.5). Editorial word-card identity, per-page `<link>`ed. |
+| Reading/Listening **exam** skins | system-ui / serif | Intentional exam-paper fidelity (Cambridge look) |
+
+Everything else uses the Plus Jakarta Sans stack above.
 
 ### 3.2 Vietnamese typography
 

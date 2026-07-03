@@ -47,6 +47,10 @@
   --av-fs-3xl:  1.875rem;    /* 30px */
   --av-fs-4xl:  2.25rem;     /* 36px */
   --av-fs-5xl:  3rem;        /* 48px */
+  /* Skill-hub page title — canonical scale for the parallel library hubs
+     (Reading / Listening / Vocab). Unifies the divergent per-hub sizes the
+     2026-07-03 audit (A2) flagged. Fluid 32→48px. */
+  --av-fs-hub-title: clamp(2rem, 4vw, 3rem);
 
   /* Line-height — 1.55 default for Vietnamese diacritic safety; descenders
      + accent marks need ~10% extra vs Latin-only design. */

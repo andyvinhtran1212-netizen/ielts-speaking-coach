@@ -296,7 +296,7 @@
   padding: 4px 10px; cursor: pointer;
   transition: color .15s, border-color .15s, background .15s;
 }
-.va-flag:hover { color: var(--av-warning, #c2410c); border-color: var(--av-warning, #c2410c); }
+.va-flag:hover { color: var(--av-warning); border-color: var(--av-warning); }
 .va-flag:focus-visible { outline: 2px solid var(--av-vocab-jade); outline-offset: 2px; }
 .va-flag-menu {
   position: absolute; right: 0; top: calc(100% + 6px); z-index: 30;
