@@ -24,6 +24,34 @@ from services.gemini import (
 
 router = APIRouter(tags=["questions"])
 
+
+def _is_unique_violation(exc: Exception) -> bool:
+    """True when a Supabase/PostgREST insert failed on the unique index.
+
+    Backs the L6 race fix: (session_id, part, order_num) is UNIQUE (migration
+    124), so a concurrent generate that loses the race raises 23505 here.
+    """
+    s = str(getattr(exc, "message", "") or exc)
+    return "23505" in s or "duplicate key" in s.lower() or "uq_questions_session_part_order" in s
+
+
+def _load_existing_questions(session_id: str) -> list[dict]:
+    """Return the questions already persisted for a session, order_num-sorted.
+
+    Used as the fast-path check AND as the conflict resolver: when an insert
+    hits the unique index because a concurrent caller already generated the
+    set, we return that winning set instead of surfacing a 500.
+    """
+    existing = (
+        supabase_admin.table("questions")
+        .select("*")
+        .eq("session_id", session_id)
+        .order("order_num")
+        .execute()
+    )
+    return existing.data or []
+
+
 # Question counts per part (practice / test_part modes)
 _PART1_COUNT = 3
 _PART3_COUNT = 3
@@ -240,7 +268,14 @@ async def generate_questions(
                 result = supabase_admin.table("questions").insert(library_rows).execute()
                 return sorted(result.data, key=lambda q: q["order_num"])
             except Exception as e:
-                # Library insert failed — fall through to Gemini
+                # L6: a concurrent generate already inserted this session's set —
+                # return the winner's rows instead of double-inserting via Gemini.
+                if _is_unique_violation(e):
+                    winner = _load_existing_questions(session_id)
+                    if winner:
+                        logger.info("[questions] library insert lost race session=%s — returning existing set", session_id)
+                        return sorted(winner, key=lambda q: q["order_num"])
+                # Library insert failed for another reason — fall through to Gemini
                 logger.warning("[warn] Library insert failed: %s — falling back to Gemini", e)
 
     # ── Call Gemini ────────────────────────────────────────────────────────────
@@ -336,6 +371,13 @@ async def generate_questions(
     try:
         result = supabase_admin.table("questions").insert(rows).execute()
     except Exception as e:
+        # L6: lost a concurrent generate race — return the winner's set rather
+        # than a 500 (the unique index on session_id,part,order_num rejected us).
+        if _is_unique_violation(e):
+            winner = _load_existing_questions(session_id)
+            if winner:
+                logger.info("[questions] generate insert lost race session=%s — returning existing set", session_id)
+                return sorted(winner, key=lambda q: q["order_num"])
         raise HTTPException(status_code=500, detail=f"Không thể lưu câu hỏi: {e}")
 
     saved = sorted(result.data, key=lambda q: q["order_num"])
@@ -462,6 +504,12 @@ async def save_custom_questions(
     try:
         result = supabase_admin.table("questions").insert(rows).execute()
     except Exception as e:
+        # L6: concurrent insert already populated this session — return that set.
+        if _is_unique_violation(e):
+            winner = _load_existing_questions(session_id)
+            if winner:
+                logger.info("[questions] custom insert lost race session=%s — returning existing set", session_id)
+                return sorted(winner, key=lambda q: q["order_num"])
         raise HTTPException(status_code=500, detail=f"Không thể lưu câu hỏi: {e}")
 
     return sorted(result.data, key=lambda q: q["order_num"])

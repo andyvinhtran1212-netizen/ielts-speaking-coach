@@ -288,44 +288,25 @@ async def create_session(
         # Defensive: nếu role lookup fail, treat as non-admin (apply quota)
         is_admin = False
 
-    # Daily quota check — count sessions started today (UTC)
-    # SKIP entirely for admin role
+    # UTC day-start (matches the "(UTC)" intent). date.today() is the LOCAL date,
+    # so in UTC+ timezones it pointed today_start at a FUTURE UTC instant for
+    # ~7h/day (local midnight–07:00 in UTC+7), zeroing the daily count and letting
+    # users exceed the cap. Use the UTC date. Computed here (not in SQL) so the
+    # day-boundary logic stays in one place; passed to the atomic-create RPC.
+    today_start = (
+        datetime.combine(datetime.now(timezone.utc).date(), datetime.min.time())
+        .replace(tzinfo=timezone.utc)
+        .isoformat()
+    )
+
+    # Per-code lifetime quota (Sprint 5.2 wish #1), via the canonical quota so
+    # admin display and enforcement agree. session_limit = total lượt a code
+    # grants (NULL = unlimited); multi-code = SUM of live codes' limits.
+    # "used" counts ONLY COMPLETED sessions — abandoned in_progress sessions
+    # do NOT consume a lượt (counting them locked students out unfairly).
+    # SEPARATE from the daily cap below — both must pass. Kept in Python because
+    # it counts completed sessions, so it is NOT raceable at creation time.
     if not is_admin:
-        # UTC day-start (matches the "(UTC)" intent above). date.today() is the
-        # LOCAL date, so in UTC+ timezones it pointed today_start at a FUTURE UTC
-        # instant for ~7h/day (local midnight–07:00 in UTC+7), zeroing the daily
-        # count and letting users exceed the cap. Use the UTC date.
-        today_start = (
-            datetime.combine(datetime.now(timezone.utc).date(), datetime.min.time())
-            .replace(tzinfo=timezone.utc)
-            .isoformat()
-        )
-        try:
-            daily = (
-                supabase_admin.table("sessions")
-                .select("id")
-                .eq("user_id", user_id)
-                .gte("started_at", today_start)
-                .execute()
-            )
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Lỗi khi kiểm tra quota: {e}")
-
-        if len(daily.data) >= settings.MAX_SESSIONS_PER_USER_PER_DAY:
-            raise HTTPException(
-                status_code=429,
-                detail=(
-                    f"Bạn đã đạt giới hạn {settings.MAX_SESSIONS_PER_USER_PER_DAY} "
-                    f"sessions hôm nay. Hãy thử lại vào ngày mai."
-                ),
-            )
-
-        # Per-code lifetime quota (Sprint 5.2 wish #1), via the canonical quota so
-        # admin display and enforcement agree. session_limit = total lượt a code
-        # grants (NULL = unlimited); multi-code = SUM of live codes' limits.
-        # "used" counts ONLY COMPLETED sessions — abandoned in_progress sessions
-        # do NOT consume a lượt (counting them locked students out unfairly).
-        # SEPARATE from the daily cap above — both must pass.
         try:
             quota = get_user_session_quota(user_id)
         except Exception as e:
@@ -340,23 +321,38 @@ async def create_session(
                 ),
             )
 
-    # Create session
+    # Create session — L7: the daily-cap count-then-insert is done atomically in
+    # fn_create_session_daily_capped (migration 126) under a per-user advisory
+    # lock, so concurrent POST /sessions can't both slip under the daily cap.
+    # Admins bypass the cap via an effectively-unlimited ceiling.
+    max_daily = 2_000_000_000 if is_admin else settings.MAX_SESSIONS_PER_USER_PER_DAY
     try:
-        result = (
-            supabase_admin.table("sessions")
-            .insert({
-                "user_id": user_id,
-                "mode": body.mode,
-                "part": body.part,
-                "topic": body.topic,
-                "status": "in_progress",
-            })
-            .execute()
-        )
+        result = supabase_admin.rpc(
+            "fn_create_session_daily_capped",
+            {
+                "p_user_id":   user_id,
+                "p_mode":      body.mode,
+                "p_part":      body.part,
+                "p_topic":     body.topic,
+                "p_day_start": today_start,
+                "p_max_daily": max_daily,
+            },
+        ).execute()
     except Exception as e:
+        if "daily_quota_exceeded" in str(e):
+            raise HTTPException(
+                status_code=429,
+                detail=(
+                    f"Bạn đã đạt giới hạn {settings.MAX_SESSIONS_PER_USER_PER_DAY} "
+                    f"sessions hôm nay. Hãy thử lại vào ngày mai."
+                ),
+            )
         raise HTTPException(status_code=500, detail=f"Không thể tạo session: {e}")
 
-    s = result.data[0]
+    rows = result.data or []
+    if not rows:
+        raise HTTPException(status_code=500, detail="Không thể tạo session")
+    s = rows[0]
     return {
         "session_id": s["id"],
         "mode":       s["mode"],
