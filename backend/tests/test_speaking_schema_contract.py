@@ -149,15 +149,6 @@ def _table_columns(table_name: str, baseline: set[str]) -> set[str]:
 # a typo'd column to a service SELECT, this test catches it before
 # production does (anti-pattern #37 prevention).
 
-SESSION_AGGREGATOR_SESSIONS_SELECT: set[str] = {
-    "overall_band", "band_fc", "band_lr", "band_gra", "band_p",
-}
-
-SESSION_AGGREGATOR_RESPONSES_SELECT: set[str] = {
-    "overall_band", "pronunciation_score", "grading_status",
-}
-
-
 # ── Tests ─────────────────────────────────────────────────────────────
 
 
@@ -190,36 +181,6 @@ def test_alter_table_parser_picks_up_known_session_error_columns():
     expected_error = {"error_code", "error_message"}
     missing = expected_error - cols
     assert not missing, f"Parser missed migration 003's error columns: {missing}"
-
-
-def test_session_aggregator_sessions_select_columns_in_schema():
-    """Pin the columns `compute_session_band_aggregate` SELECTs from
-    the sessions table. Any future SELECT that names a non-existent
-    column (e.g., the 2.7d.1.1-style `level` vs `analysis_level`
-    typo) fails here — surface the bug locally, not in production."""
-    sessions_columns = _table_columns("sessions", BASELINE_SESSIONS_COLUMNS)
-    missing = SESSION_AGGREGATOR_SESSIONS_SELECT - sessions_columns
-    assert not missing, (
-        f"speaking_session_aggregator.compute_session_band_aggregate "
-        f"SELECTs columns from `sessions` that aren't in the schema "
-        f"baseline + parsed ALTERs: {missing}. Either:\n"
-        f"  - the column was renamed → update both the SELECT and "
-        f"    SESSION_AGGREGATOR_SESSIONS_SELECT in lockstep;\n"
-        f"  - the column is genuinely new → add it to the right "
-        f"    migration file, then this test will pass.\n"
-        f"Anti-pattern #37 prevention; see TECH_DEBT.md."
-    )
-
-
-def test_session_aggregator_responses_select_columns_in_schema():
-    """Same pin for the responses SELECT inside compute_session_band_aggregate."""
-    responses_columns = _table_columns("responses", BASELINE_RESPONSES_COLUMNS)
-    missing = SESSION_AGGREGATOR_RESPONSES_SELECT - responses_columns
-    assert not missing, (
-        f"speaking_session_aggregator.compute_session_band_aggregate "
-        f"SELECTs columns from `responses` that aren't in the schema: "
-        f"{missing}"
-    )
 
 
 def test_baseline_does_not_overlap_alter_columns():

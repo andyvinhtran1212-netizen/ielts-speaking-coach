@@ -12,8 +12,9 @@ Pins behaviour:
     aggregator does); a user without a students row gets an empty card,
     not a 403 (the homepage is more permissive than /api/writing/*)
 
-Pattern: an in-memory FakeSupabase (mirrors test_speaking_session_aggregator
-but extended for `.count`, `.order`, `.gte`, `.lte`, `.not_.is_`). The fake
+Pattern: an in-memory FakeSupabase (the common table-fake approach used across
+the aggregator tests, extended for `.count`, `.order`, `.gte`, `.lte`,
+`.not_.is_`). The fake
 intentionally doesn't simulate JOINs or RLS — the aggregator never relies
 on either, so the gap is acceptable.
 """
