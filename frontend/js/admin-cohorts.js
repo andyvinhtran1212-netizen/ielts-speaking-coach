@@ -23,8 +23,12 @@ const SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
 
 const api = window.api;
 const $ = (id) => document.getElementById(id);
-const esc = (s) => String(s == null ? '' : s)
-  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+// C4: delegate to the shared escaper (window.WC.escapeHtml, api.js).
+const esc = (s) => (typeof window !== 'undefined' && window.WC && window.WC.escapeHtml)
+  ? window.WC.escapeHtml(s)
+  : String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
 let _cohorts = [];
 let _cohortId = null;

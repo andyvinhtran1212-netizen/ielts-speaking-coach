@@ -6,11 +6,28 @@
  * connections.
  */
 
-const PERF_ORIGINS = [
-  'https://ielts-speaking-coach-production.up.railway.app',
+// The API origin is derived from the canonical window.api.base (api.js) so the
+// host never drifts from the real API base. The literal is kept only as a
+// fallback for the brief window before api.js has run. supabase/cloudinary are
+// third-party origins (not the API base) and stay static.
+const API_ORIGIN_FALLBACK = 'https://ielts-speaking-coach-production.up.railway.app';
+const STATIC_ORIGINS = [
   'https://nqhrtqspznepmveyurzm.supabase.co',
   'https://res.cloudinary.com',
 ];
+
+function apiOrigin() {
+  try {
+    if (window.api && window.api.base && /^https?:\/\//.test(window.api.base)) {
+      return new URL(window.api.base).origin;
+    }
+  } catch { /* fall through to the literal */ }
+  return API_ORIGIN_FALLBACK;
+}
+
+function perfOrigins() {
+  return [apiOrigin(), ...STATIC_ORIGINS];
+}
 
 
 function hasResourceHint(rel, href) {
@@ -30,11 +47,11 @@ function appendHint(rel, href) {
 
 export function installPerfResourceHints() {
   if (navigator.connection && navigator.connection.saveData) return;
-  PERF_ORIGINS.forEach((origin) => {
+  perfOrigins().forEach((origin) => {
     appendHint('preconnect', origin);
     appendHint('dns-prefetch', origin);
   });
 }
 
 
-export { PERF_ORIGINS };
+export { perfOrigins };

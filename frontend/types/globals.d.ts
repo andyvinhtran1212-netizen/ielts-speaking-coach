@@ -17,8 +17,18 @@ interface AverApi {
   patchWith<T = unknown>(path: string, body?: unknown, hdrs?: Record<string, string>, opts?: unknown): Promise<T>;
 }
 
+// Shared HTML escaper namespace (audit 2026-07-03 C4) — window.WC.escapeHtml is
+// defined in api.js and delegated to by page-scripts. Optional because a page may
+// run before api.js has attached it (the delegates all carry a local fallback).
+interface AverWC {
+  // Optional: api.js seeds `window.WC = window.WC || {}` before assigning
+  // escapeHtml, so an empty {} must be assignable to AverWC.
+  escapeHtml?(s?: unknown): string;
+}
+
 interface Window {
   api: AverApi;
+  WC?: AverWC;
   supabase: any;
   initSupabase(url: string, anonKey: string): void;
   getSupabase(): unknown;

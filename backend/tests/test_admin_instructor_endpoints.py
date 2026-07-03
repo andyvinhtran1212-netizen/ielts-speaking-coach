@@ -7,7 +7,7 @@ extraction without re-testing the workflow's atomicity (that's
 covered in test_instructor_workflow.py).
 
 The auth pattern mirrors test_admin_writing.py: patch
-`routers.admin_instructor.require_admin` to short-circuit the
+`routers.admin_instructor_queue.require_admin` to short-circuit the
 JWT check while keeping the router's downstream logic real.
 """
 
@@ -94,9 +94,9 @@ def test_queue_default_returns_active_items():
         age_hours=1.5,
         is_overdue=False,
     )
-    with patch("routers.admin_instructor.require_admin",
+    with patch("routers.admin_instructor_queue.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
-         patch("routers.admin_instructor.instructor_workflow.get_queue",
+         patch("routers.admin_instructor_queue.instructor_workflow.get_queue",
                return_value=[sample]) as mock_q:
         r = _client().get("/admin/instructor/queue", headers=_ADMIN_AUTH)
 
@@ -112,7 +112,7 @@ def test_queue_default_returns_active_items():
 def test_queue_invalid_status_value_returns_400():
     """An unknown status string must 400 at the boundary, not silently
     match nothing."""
-    with patch("routers.admin_instructor.require_admin",
+    with patch("routers.admin_instructor_queue.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)):
         r = _client().get(
             "/admin/instructor/queue?status=not-a-status",
@@ -131,9 +131,9 @@ def test_claim_success_returns_review():
         status="claimed", claimed_by=_ADMIN_ID,
         claimed_at=datetime.now(timezone.utc).isoformat(),
     ))
-    with patch("routers.admin_instructor.require_admin",
+    with patch("routers.admin_instructor_queue.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
-         patch("routers.admin_instructor.instructor_workflow.claim",
+         patch("routers.admin_instructor_queue.instructor_workflow.claim",
                return_value=claimed) as mock_claim:
         r = _client().post(
             f"/admin/instructor/reviews/{_REVIEW_ID}/claim",
@@ -153,9 +153,9 @@ def test_claim_success_returns_review():
 def test_claim_conflict_maps_to_409():
     from services.instructor_workflow import ConflictError
 
-    with patch("routers.admin_instructor.require_admin",
+    with patch("routers.admin_instructor_queue.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
-         patch("routers.admin_instructor.instructor_workflow.claim",
+         patch("routers.admin_instructor_queue.instructor_workflow.claim",
                side_effect=ConflictError("Already claimed")):
         r = _client().post(
             f"/admin/instructor/reviews/{_REVIEW_ID}/claim",
@@ -169,9 +169,9 @@ def test_claim_conflict_maps_to_409():
 def test_claim_not_found_maps_to_404():
     from services.instructor_workflow import NotFoundError
 
-    with patch("routers.admin_instructor.require_admin",
+    with patch("routers.admin_instructor_queue.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
-         patch("routers.admin_instructor.instructor_workflow.claim",
+         patch("routers.admin_instructor_queue.instructor_workflow.claim",
                side_effect=NotFoundError("Review not found")):
         r = _client().post(
             f"/admin/instructor/reviews/{_REVIEW_ID}/claim",
@@ -184,9 +184,9 @@ def test_claim_not_found_maps_to_404():
 
 
 def test_release_permission_error_maps_to_403():
-    with patch("routers.admin_instructor.require_admin",
+    with patch("routers.admin_instructor_queue.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
-         patch("routers.admin_instructor.instructor_workflow.release",
+         patch("routers.admin_instructor_queue.instructor_workflow.release",
                side_effect=PermissionError("Not the owner")):
         r = _client().post(
             f"/admin/instructor/reviews/{_REVIEW_ID}/release",
@@ -206,9 +206,9 @@ def test_deliver_with_note_calls_workflow_with_note():
         instructor_note="Great work, em!",
         delivered_at=datetime.now(timezone.utc).isoformat(),
     ))
-    with patch("routers.admin_instructor.require_admin",
+    with patch("routers.admin_instructor_queue.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
-         patch("routers.admin_instructor.instructor_workflow.deliver",
+         patch("routers.admin_instructor_queue.instructor_workflow.deliver",
                return_value=delivered) as mock_deliver:
         r = _client().post(
             f"/admin/instructor/reviews/{_REVIEW_ID}/deliver",
@@ -234,9 +234,9 @@ def test_deliver_without_note_passes_none():
         status="delivered", claimed_by=_ADMIN_ID,
         delivered_at=datetime.now(timezone.utc).isoformat(),
     ))
-    with patch("routers.admin_instructor.require_admin",
+    with patch("routers.admin_instructor_queue.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
-         patch("routers.admin_instructor.instructor_workflow.deliver",
+         patch("routers.admin_instructor_queue.instructor_workflow.deliver",
                return_value=delivered) as mock_deliver:
         r = _client().post(
             f"/admin/instructor/reviews/{_REVIEW_ID}/deliver",
@@ -248,9 +248,9 @@ def test_deliver_without_note_passes_none():
 
 
 def test_deliver_permission_error_maps_to_403():
-    with patch("routers.admin_instructor.require_admin",
+    with patch("routers.admin_instructor_queue.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
-         patch("routers.admin_instructor.instructor_workflow.deliver",
+         patch("routers.admin_instructor_queue.instructor_workflow.deliver",
                side_effect=PermissionError("Not the claimant")):
         r = _client().post(
             f"/admin/instructor/reviews/{_REVIEW_ID}/deliver",

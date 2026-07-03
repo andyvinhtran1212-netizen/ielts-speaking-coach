@@ -22,6 +22,8 @@ frontend/.claude/
 graphify-out/
 frontend/graphify-out/
 frontend/js/graphify-out/
+# Local vocab seed dump — data artifact, not source (audit 2026-07-03 C3).
+backend/seed_vocab_dump.txt
 # Local-only archive of retired/personal docs (e.g. the former
 # CURRENT_ARCHITECTURE_AND_PRODUCT_DIRECTION.md, superseded by docs/SITE_OVERVIEW.md).
 /_archive/

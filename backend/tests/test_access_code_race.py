@@ -228,7 +228,10 @@ def test_already_used_code_rejected_up_front(monkeypatch):
     with pytest.raises(HTTPException) as ei:
         _run(auth_module.activate_account(_payload(), authorization="Bearer x"))
     assert ei.value.status_code == 400
-    assert "đã được sử dụng" in ei.value.detail
+    # S5 anti-enumeration: a code used by ANOTHER user collapses to the generic
+    # message (existence must not be revealed); only the caller's OWN used code
+    # gets a specific "already activated" message.
+    assert "không hợp lệ hoặc không thể sử dụng" in ei.value.detail
 
     claims = [c for c in client.calls
               if c["table"] == "access_codes" and c["action"] == "update"]

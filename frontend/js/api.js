@@ -11,6 +11,27 @@
 (function () {
   var _sb = null;
 
+  // ── Shared HTML escaper (audit 2026-07-03 C4) ─────────────────────────────
+  // Canonical window.WC.escapeHtml — the single source every page-script uses
+  // to escape untrusted text before innerHTML. Several modules (writing-*.js,
+  // grammar.js, admin-*.js) already delegate to it with a local fallback; it was
+  // documented as "defined in api.js" but never actually added, so a page that
+  // forgot to define its own escaper had no safety net (the grammar.js `?q=` XSS,
+  // audit S1). Defining it here — api.js loads on every authenticated page —
+  // gives that net globally without touching 100+ HTML files. Escapes the five
+  // HTML-significant characters; & first so later entities aren't double-escaped.
+  window.WC = window.WC || {};
+  if (typeof window.WC.escapeHtml !== 'function') {
+    window.WC.escapeHtml = function (s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    };
+  }
+
   function initSupabase(url, anonKey) {
     _sb = window.supabase.createClient(url, anonKey);
     return _sb;

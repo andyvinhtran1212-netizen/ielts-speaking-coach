@@ -10,11 +10,13 @@ the existing quota check in `if not is_admin:` so:
                        non-admin so we don't accidentally open the gate
                        on a transient DB error)
 
-Test mock strategy: same `supabase_admin` instance is hit ~5x per
-create_session (is_active, permissions, role, quota count, insert).
-The recorder dispatches by the column list passed to `.select()` plus
-the table name so each builder returns the right shape. `.insert()`
-gets its own branch.
+Test mock strategy: same `supabase_admin` instance is hit per create_session
+(is_active, permissions, role, then the atomic create RPC). The daily cap +
+insert now run inside fn_create_session_daily_capped (migration 126, audit L7),
+so the recorder simulates that RPC: it compares the configured `sessions_today`
+count against the `p_max_daily` the caller passed and either raises the
+`daily_quota_exceeded` sentinel (→ 429) or returns the inserted row. Admins pass
+an effectively-unlimited ceiling, so the same RPC still creates for them.
 """
 from __future__ import annotations
 
@@ -101,6 +103,34 @@ class _DispatchClient:
 
     def table(self, name):
         return _TableProxy(self, name)
+
+    def rpc(self, name, params=None):
+        """Simulate fn_create_session_daily_capped (L7 atomic create).
+
+        Mirrors the SQL: if the existing daily count is already at/over the
+        caller-supplied p_max_daily, raise the daily_quota_exceeded sentinel
+        (PostgREST surfaces the RAISE as an error string). Otherwise return the
+        inserted session row.
+        """
+        self.calls.append(("rpc", name, params))
+        params = params or {}
+        if name == "fn_create_session_daily_capped":
+            if self._sessions_today >= params.get("p_max_daily", 0):
+                return _Builder(
+                    [],
+                    raise_on_execute=RuntimeError(
+                        "postgrest error: daily_quota_exceeded (P0001)"
+                    ),
+                )
+            return _Builder([{
+                "id": "new-session-uuid",
+                "mode": params.get("p_mode"),
+                "part": params.get("p_part"),
+                "topic": params.get("p_topic"),
+                "started_at": "2026-05-05T00:00:00+00:00",
+                "status": "in_progress",
+            }])
+        return _Builder([])
 
 
 class _TableProxy:
@@ -192,13 +222,12 @@ def test_admin_bypasses_quota_when_at_limit(monkeypatch):
     )
     out = _run(sessions_module.create_session(_body(), authorization="Bearer x"))
     assert out["session_id"] == "new-session-uuid"
-    # Quota select on sessions table must be absent — admin path skips it.
-    quota_selects = [
-        c for c in client.calls
-        if c[0] == "sessions" and c[1] == "select"
-    ]
-    assert quota_selects == [], (
-        f"Admin bypass regressed — quota query still ran: {quota_selects}"
+    # Admin bypass: the create RPC must be called with an effectively-unlimited
+    # daily ceiling, so being at MAX doesn't block.
+    rpc_calls = [c for c in client.calls if c[0] == "rpc"]
+    assert len(rpc_calls) == 1
+    assert rpc_calls[0][2]["p_max_daily"] > settings.MAX_SESSIONS_PER_USER_PER_DAY, (
+        "Admin bypass regressed — RPC got the enforced daily cap, not the bypass ceiling"
     )
 
 
@@ -239,9 +268,7 @@ def test_non_admin_under_quota_creates_normally(monkeypatch):
     client = _patch(monkeypatch, role="student", sessions_today=2)
     out = _run(sessions_module.create_session(_body(), authorization="Bearer x"))
     assert out["session_id"] == "new-session-uuid"
-    # Quota query DID run for non-admin path.
-    quota_selects = [
-        c for c in client.calls
-        if c[0] == "sessions" and c[1] == "select"
-    ]
-    assert len(quota_selects) == 1
+    # Non-admin path: the create RPC ran with the ENFORCED daily cap.
+    rpc_calls = [c for c in client.calls if c[0] == "rpc"]
+    assert len(rpc_calls) == 1
+    assert rpc_calls[0][2]["p_max_daily"] == settings.MAX_SESSIONS_PER_USER_PER_DAY

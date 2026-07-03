@@ -2718,27 +2718,12 @@
       + '<p style="font-size:12px;color:var(--ds-muted);margin:0;">Đang tổng hợp phân tích phát âm cho toàn bài...</p>'
       + '</div>';
 
-    var base = (window.api && window.api.base) ? window.api.base : '';
-
-    var sb = window.getSupabase ? window.getSupabase() : null;
-    var sessionPromise = sb ? sb.auth.getSession() : Promise.resolve({ data: {} });
-
-    sessionPromise.then(function (result) {
-      var token = result.data.session ? result.data.session.access_token : null;
-      return fetch(base + '/sessions/' + primarySid + '/pronunciation/full', {
-        method:  'POST',
-        headers: Object.assign(
-          { 'Content-Type': 'application/json' },
-          token ? { 'Authorization': 'Bearer ' + token } : {}
-        ),
-        body: JSON.stringify({ extra_session_ids: extraSids }),
-      });
-    })
-      .then(function (r) {
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        return r.json();
-      })
+    // F2: route through the canonical window.api.post — it attaches the Bearer
+    // token, bounces to /login on 401, and parses 422 detail bodies, instead of
+    // this module re-implementing the getSession→fetch→r.json() dance.
+    window.api.post('/sessions/' + primarySid + '/pronunciation/full', { extra_session_ids: extraSids })
       .then(function (data) {
+        if (!data) return;  // 401 → api.post redirected to /login and resolved null
         _renderFullPronBlock(el, data);
         // Surface aggregate confidence as a contextual note below the full pron block
         if (data && data.overall_confidence && data.overall_confidence !== 'high') {
@@ -2857,11 +2842,13 @@
   // ── Escape HTML ───────────────────────────────────────────────────────────────
 
   function _esc(s) {
-    return String(s)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+    // C4: delegate to the shared escaper (window.WC.escapeHtml, api.js);
+    // local fallback kept so this module is safe if window.WC hasn't loaded.
+    return (typeof window !== 'undefined' && window.WC && window.WC.escapeHtml)
+      ? window.WC.escapeHtml(s)
+      : String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
   // ── Init ──────────────────────────────────────────────────────────────────────
@@ -2991,6 +2978,9 @@
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang tạo PDF...'; }
 
     var sessionIds = _ftAllSessionIds.length > 0 ? _ftAllSessionIds : [_sessionId];
+    // F2 note: this path deliberately uses a raw authed fetch (not window.api.*)
+    // because the response is a binary PDF blob — api.js's helpers JSON-parse the
+    // body, which would corrupt the download. Only the Bearer token is reused.
     var sb = window.getSupabase && window.getSupabase();
     var token = '';
     try {

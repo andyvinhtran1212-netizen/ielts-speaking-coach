@@ -467,8 +467,12 @@ async def assess_full_test_pronunciation(
                                     lr_vals.append(float(fb_obj["band_lr"]))
                                 if fb_obj.get("band_gra") is not None:
                                     gra_vals.append(float(fb_obj["band_gra"]))
-                        except Exception:
-                            pass
+                        except Exception as _pe:
+                            logger.warning(
+                                "[pronunciation/full] agg P sample skipped response=%s "
+                                "(bad feedback JSON / non-numeric band): %s",
+                                rid, _pe,
+                            )
 
                 if adjusted_p_values:
                     agg_final_band_p = _round_band(sum(adjusted_p_values) / len(adjusted_p_values))
@@ -487,8 +491,10 @@ async def assess_full_test_pronunciation(
 
                     # Re-aggregate each session in the full-test group so session-level bands
                     # reflect pronunciation-adjusted scores on the dashboard and history.
-                    all_session_ids = [session_id] + body.extra_session_ids
-                    for _sid in all_session_ids:
+                    # Loop over the OWNERSHIP-VERIFIED found_ids — never the raw
+                    # extra_session_ids — so a caller cannot trigger update_session_bands()
+                    # on another tenant's session, and duplicate ids don't double-write.
+                    for _sid in found_ids:
                         try:
                             _s_check = (
                                 supabase_admin.table("sessions")

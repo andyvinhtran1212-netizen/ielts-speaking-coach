@@ -132,15 +132,39 @@ def test_revoked_assignment_excluded(monkeypatch):
 
 
 class _SessionsStub:
-    """Daily-cap count uses .gte('started_at') → returns `daily` rows. role →
-    student. insert → a row. The lifetime/used quota is no longer read from
-    sessions here — create_session reads get_user_session_quota (monkeypatched)."""
+    """role → student/admin lookup. The daily cap + insert now run atomically in
+    fn_create_session_daily_capped (migration 126, audit L7), simulated by .rpc()
+    below: `daily` is the existing count the RPC "sees" vs the caller's
+    p_max_daily. The lifetime/used quota is read from get_user_session_quota
+    (monkeypatched) in Python before the RPC."""
 
     def __init__(self, *, daily, role="student"):
         self._daily, self._role = daily, role
 
     def table(self, name):
         return _SBuilder(self, name)
+
+    def rpc(self, name, params=None):
+        return _SRpc(self, name, params or {})
+
+
+class _SRpc:
+    def __init__(self, stub, name, params):
+        self._s, self._name, self._params = stub, name, params
+
+    def execute(self):
+        class _R: pass
+        r = _R()
+        if self._name == "fn_create_session_daily_capped":
+            if self._s._daily >= self._params.get("p_max_daily", 0):
+                raise RuntimeError("postgrest: daily_quota_exceeded (P0001)")
+            p = self._params
+            r.data = [{"id": "new-sess", "mode": p.get("p_mode"), "part": p.get("p_part"),
+                       "topic": p.get("p_topic"), "started_at": "2026-06-11T00:00:00+00:00",
+                       "status": "in_progress"}]
+        else:
+            r.data = []
+        return r
 
 
 class _SBuilder:

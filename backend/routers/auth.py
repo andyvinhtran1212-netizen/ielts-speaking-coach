@@ -322,25 +322,37 @@ async def activate_account(
             detail=f"Lỗi khi kiểm tra access code trong database: {e}",
         )
 
+    # Audit 2026-07-03 S5 — anti-enumeration. Distinct messages for
+    # not-found / used / revoked / expired let a caller distinguish a code that
+    # EXISTS-but-is-unusable from one that never existed (36^8 keyspace probe).
+    # Collapse all of those to ONE generic message so existence isn't revealed.
+    # The one exception is the caller's OWN already-activated code: telling them
+    # "you already activated this" leaks nothing (they clearly possess the code)
+    # and is the common, legitimate confusion — so keep that message specific.
+    _GENERIC = "Access code không hợp lệ hoặc không thể sử dụng. Kiểm tra lại mã hoặc liên hệ admin."
+
     if not code_result.data:
-        raise HTTPException(status_code=400, detail="Access code không hợp lệ")
+        raise HTTPException(status_code=400, detail=_GENERIC)
 
     access_code_row = code_result.data[0]
 
+    if access_code_row.get("is_used") and access_code_row.get("used_by") == user_id:
+        raise HTTPException(status_code=400, detail="Bạn đã kích hoạt mã này rồi.")
+
     if access_code_row.get("is_used"):
-        raise HTTPException(status_code=400, detail="Access code này đã được sử dụng rồi")
+        raise HTTPException(status_code=400, detail=_GENERIC)
 
     if access_code_row.get("is_revoked"):
-        raise HTTPException(status_code=400, detail="Access code này đã bị thu hồi")
+        raise HTTPException(status_code=400, detail=_GENERIC)
 
     # Sprint 5.2.1 RED hotfix — refuse activation of a code past its
     # expiry. Activating an expired code would create a "ghost" link in
     # user_code_assignments that the live permission lookup correctly
     # ignores (post-Sprint 5.2.1) but that admins can't easily explain.
-    # Better to fail loudly here so the user contacts support.
+    # (Message collapsed into the generic anti-enumeration string above.)
     from services.access_code_permissions import _is_expired  # local — avoid cycle
     if _is_expired(access_code_row.get("expires_at"), datetime.now(timezone.utc)):
-        raise HTTPException(status_code=400, detail="Access code này đã hết hạn")
+        raise HTTPException(status_code=400, detail=_GENERIC)
 
     # ── Step 1b (W-2): instructor-promote gate (Option B, email-bound) ───────
     # Evaluate BEFORE activating/consuming so a mismatch fails CLOSED (HARD-403)

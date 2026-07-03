@@ -92,16 +92,38 @@ def test_health_ready_all_ok(monkeypatch):
 def test_health_ready_degrades_on_db_failure(monkeypatch):
     """When supabase_admin raises, both DB and migrations checks fail and
     overall status drops to degraded — but the endpoint still returns 200
-    so external probes can distinguish "down" from "degraded"."""
+    so external probes can distinguish "down" from "degraded".
+
+    S4: the raw DB error string is fingerprinting detail — redacted for
+    anonymous callers, so `error` must NOT be present without admin auth.
+    """
     monkeypatch.setattr(health_module, "supabase_admin", _FailingClient())
     monkeypatch.setattr(health_module.settings, "GEMINI_API_KEY", "fake-key")
 
-    out = _run(health_module.health_ready())
+    out = _run(health_module.health_ready())  # anonymous
     assert out["status"] == "degraded"
     assert out["checks"]["database"]["status"] == "fail"
-    assert "error" in out["checks"]["database"]
+    assert "error" not in out["checks"]["database"], "DB error string must be admin-only"
     assert out["checks"]["migrations"]["status"] == "fail"
     assert out["checks"]["migrations"]["missing"], "missing list should be populated"
+    # Anonymous migration entries are bare table names, no schema-hint error text.
+    assert all(":" not in m for m in out["checks"]["migrations"]["missing"])
+
+
+def test_health_ready_exposes_db_error_to_admin(monkeypatch):
+    """S4: an authenticated admin still gets the full DB error string + the
+    per-table error detail — redaction only applies to anonymous callers."""
+    monkeypatch.setattr(health_module, "supabase_admin", _FailingClient())
+    monkeypatch.setattr(health_module.settings, "GEMINI_API_KEY", "fake-key")
+
+    async def _fake_is_admin(_auth):
+        return True
+    monkeypatch.setattr(health_module, "_is_admin", _fake_is_admin)
+
+    out = _run(health_module.health_ready(authorization="Bearer admin-token"))
+    assert out["checks"]["database"]["status"] == "fail"
+    assert "error" in out["checks"]["database"], "admin should see the DB error string"
+    assert any(":" in m for m in out["checks"]["migrations"]["missing"])
 
 
 def test_health_ready_flags_missing_gemini_key(monkeypatch):

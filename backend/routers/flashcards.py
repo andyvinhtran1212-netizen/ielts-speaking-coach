@@ -25,6 +25,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from supabase import create_client
 
 from config import settings
+from database import supabase_admin
 from routers.auth import get_supabase_user
 from services.feature_flags import is_flashcard_enabled
 from services.pg_search import ilike_or_filter
@@ -1185,16 +1186,31 @@ async def submit_review(
         # bypassing the model still gets a 422 here rather than 500.
         raise HTTPException(422, str(ve))
 
-    # UPSERT — UNIQUE(user_id, vocabulary_id) lets on_conflict='user_id,vocabulary_id'
-    # do the right thing whether this is the first review or the 50th.
+    # L8: atomic write via fn_apply_srs_review (migration 125). The Python
+    # update_srs above stays the single source of truth for the derived fields
+    # (interval/ease/next_review); the RPC increments review_count/lapse_count
+    # SERVER-SIDE so two concurrent reviews of the same card don't lose an
+    # increment (which would under-count the mastery threshold). lapse_delta is
+    # the rating-determined increment (0 or 1), independent of the stale read.
+    lapse_delta = int(new_state["lapse_count"]) - int(cur["lapse_count"])
     try:
-        sb.table("flashcard_reviews").upsert(
-            _review_upsert_payload(user_id, vocab_id, new_state),
-            on_conflict="user_id,vocabulary_id",
-        ).execute()
+        rpc_res = supabase_admin.rpc("fn_apply_srs_review", {
+            "p_user_id":          user_id,
+            "p_vocab_id":         vocab_id,
+            "p_interval":         new_state["interval_days"],
+            "p_ease":             new_state["ease_factor"],
+            "p_lapse_delta":      lapse_delta,
+            "p_last_reviewed_at": new_state["last_reviewed_at"],
+            "p_next_review_at":   new_state["next_review_at"],
+        }).execute()
     except Exception as e:
-        logger.error("[flashcards] review upsert failed: %s", e)
+        logger.error("[flashcards] review RPC failed: %s", e)
         raise HTTPException(500, "Could not save review.")
+
+    # Prefer the authoritative persisted row (server-incremented review_count)
+    # for the response; fall back to the Python state if the RPC returned nothing.
+    persisted = (rpc_res.data or [None])[0] if isinstance(rpc_res.data, list) else rpc_res.data
+    eff = persisted if isinstance(persisted, dict) else new_state
 
     # Rate-limit audit row.  Failure here under-reports today's count by 1
     # but doesn't block the user's progress — SRS already saved above.
@@ -1210,10 +1226,10 @@ async def submit_review(
     return {
         "vocab_id":       vocab_id,
         "status":         "success",
-        "next_review_at": new_state["next_review_at"],
-        "interval_days":  new_state["interval_days"],
-        "ease_factor":    new_state["ease_factor"],
-        "review_count":   new_state["review_count"],
+        "next_review_at": eff.get("next_review_at", new_state["next_review_at"]),
+        "interval_days":  eff.get("interval_days", new_state["interval_days"]),
+        "ease_factor":    eff.get("ease_factor", new_state["ease_factor"]),
+        "review_count":   eff.get("review_count", new_state["review_count"]),
     }
 
 

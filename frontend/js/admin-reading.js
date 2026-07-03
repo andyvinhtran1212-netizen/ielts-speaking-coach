@@ -21,9 +21,13 @@
   var STATE = { file: null, testFile: null, solutionFile: null, mode: 'single', libraryFilter: '' };
 
   function escapeHtml(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
-      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
-    });
+    // C4: delegate to the shared escaper (window.WC.escapeHtml, api.js);
+    // local fallback kept so this module is safe if window.WC hasn't loaded.
+    return (typeof window !== 'undefined' && window.WC && window.WC.escapeHtml)
+      ? window.WC.escapeHtml(s)
+      : String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
   function setStatus(msg, kind) {
     var el = $('ar-status');

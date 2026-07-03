@@ -40,7 +40,7 @@ DEFERRAL LEDGER — tracked so nothing silently drops; the meta-gate
     instructors (403) — the instructor's input is the SEPARATE teacher-comment
     (instructor_note); the AI grade is never mutated.
 
-The admin_instructor.py review-queue (admin-only) and admin_writing* are untouched.
+The admin_instructor_queue.py review-queue (admin-only) and admin_writing* are untouched.
 """
 
 from __future__ import annotations

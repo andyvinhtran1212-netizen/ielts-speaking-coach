@@ -27,7 +27,7 @@ const api = {
 };
 
 const $ = (id) => document.getElementById(id);
-const esc = (window.WC && window.WC.escapeHtml)
+const esc = (typeof window !== 'undefined' && window.WC && window.WC.escapeHtml)
   ? window.WC.escapeHtml
   : (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
       (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
