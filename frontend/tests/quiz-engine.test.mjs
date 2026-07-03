@@ -35,6 +35,34 @@ describe('gradeQuestion', () => {
     assert.equal(gradeQuestion(q, 'alpha'), false);
     assert.equal(gradeQuestion(q, 'Alpha'), true);
   });
+
+  // ── Fix E: bounded (Levenshtein-1) typo tolerance for recall text ──
+  test('text: accepts a single-typo answer on a long recall word', () => {
+    const q = { input: 'text', type: 'gap_text', accept: ['environment'] };
+    assert.equal(gradeQuestion(q, 'enviroment'), true);   // 1 deletion
+    assert.equal(gradeQuestion(q, 'environmemt'), true);  // 1 substitution
+    assert.equal(gradeQuestion(q, 'environmentt'), true); // 1 insertion
+  });
+  test('text: rejects two or more edits', () => {
+    const q = { input: 'text', type: 'gap_text', accept: ['environment'] };
+    assert.equal(gradeQuestion(q, 'enviromnt'), false);   // 2 deletions
+    assert.equal(gradeQuestion(q, 'something'), false);
+  });
+  test('text: short answers (<5) stay exact-match only', () => {
+    const q = { input: 'text', type: 'gap_text', accept: ['cat'] };
+    assert.equal(gradeQuestion(q, 'cat'), true);
+    assert.equal(gradeQuestion(q, 'cut'), false);         // 1 edit but too short/ambiguous
+  });
+  test('text: spelling/missing_letters enforce exact orthography', () => {
+    assert.equal(gradeQuestion({ input: 'text', type: 'spelling', accept: ['necessary'] }, 'neccessary'), false);
+    assert.equal(gradeQuestion({ input: 'text', type: 'missing_letters', accept: ['beautiful'] }, 'beauteful'), false);
+    assert.equal(gradeQuestion({ input: 'text', type: 'spelling', accept: ['necessary'] }, 'necessary'), true);
+  });
+  test('text: case_sensitive and explicit exact/fuzzy:false opt out of tolerance', () => {
+    assert.equal(gradeQuestion({ input: 'text', type: 'gap_text', accept: ['Alpha'], case_sensitive: true }, 'Alpna'), false);
+    assert.equal(gradeQuestion({ input: 'text', type: 'gap_text', accept: ['environment'], exact: true }, 'enviroment'), false);
+    assert.equal(gradeQuestion({ input: 'text', type: 'gap_text', accept: ['environment'], fuzzy: false }, 'enviroment'), false);
+  });
 });
 
 test('normalizeText trims, collapses, lowercases, strips edge punctuation', () => {

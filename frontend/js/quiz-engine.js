@@ -38,13 +38,54 @@ export function gradeQuestion(q, answer) {
     case 'text': {
       var accept = Array.isArray(q.accept) ? q.accept : [];
       var norm = normalizeText(answer, { caseSensitive: q.case_sensitive });
-      return accept.some(function (a) {
+      var exact = accept.some(function (a) {
         return normalizeText(a, { caseSensitive: q.case_sensitive }) === norm;
+      });
+      if (exact) return true;
+      // Bounded typo tolerance for RECALL production (§Fix E): accept an answer one
+      // edit away from a canonical form, but ONLY when the target is long enough
+      // that a single edit is unambiguous, and never for orthography-graded types.
+      if (!textFuzzyAllowed(q)) return false;
+      return accept.some(function (a) {
+        var na = normalizeText(a, { caseSensitive: q.case_sensitive });
+        return na.length >= FUZZY_MIN_LEN && withinEditDistance1(na, norm);
       });
     }
     default:
       return false;
   }
+}
+
+// Minimum canonical-answer length for typo tolerance: below this a single edit is
+// too ambiguous (e.g. cat→cut→cot), so short answers stay exact-match only.
+var FUZZY_MIN_LEN = 5;
+
+// Fuzzy text matching is OFF when the question tests exact orthography (spelling /
+// missing_letters), when it is case-sensitive (implies precise), or when the author
+// opts out (exact:true / fuzzy:false). Recall types (e.g. gap_text) keep it ON.
+function textFuzzyAllowed(q) {
+  if (q.case_sensitive) return false;
+  if (q.exact === true || q.fuzzy === false) return false;
+  var t = String(q.type || '');
+  return t !== 'spelling' && t !== 'missing_letters';
+}
+
+// True iff the Levenshtein distance between a and b is ≤ 1 (one insertion,
+// deletion, or substitution). Single bounded pass — no full DP matrix.
+function withinEditDistance1(a, b) {
+  var la = a.length, lb = b.length;
+  if (Math.abs(la - lb) > 1) return false;
+  if (la > lb) { var t = a; a = b; b = t; var tl = la; la = lb; lb = tl; }
+  // now la <= lb and lb - la ∈ {0, 1}
+  var i = 0, j = 0, seenDiff = false;
+  while (i < la && j < lb) {
+    if (a.charAt(i) === b.charAt(j)) { i++; j++; continue; }
+    if (seenDiff) return false;   // a second difference → distance ≥ 2
+    seenDiff = true;
+    if (la === lb) { i++; j++; }  // substitution
+    else { j++; }                 // insertion in the longer string
+  }
+  return true;                    // ≤1 diff found (trailing char, if any, is the 1)
 }
 
 function countsToward(q) {
