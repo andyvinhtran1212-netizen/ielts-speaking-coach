@@ -29,6 +29,23 @@
  */
 
 
+/* ── Skill-hub landing headline ────────────────────────────────── */
+
+/* A2 — Speaking hub landing title on the canonical skill-hub scale,
+   matching Vocab/Reading/Listening (.vocab-header h1 → --av-fs-hub-title).
+   Replaces the ad-hoc Tailwind `text-2xl` on the dashboard-tab greeting so
+   all four skill hubs share ONE h1 scale. Uses a semantic class (not a
+   utility override) because tailwind.build.css loads after speaking.css, so
+   an equal-specificity `.text-2xl` would otherwise win on source order. */
+.speaking-hub-title {
+  font-family: var(--av-font-sans);
+  font-size: var(--av-fs-hub-title);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  font-weight: var(--av-fw-bold);
+  margin: 0 0 var(--av-space-1);
+}
+
 /* ── Page chrome ───────────────────────────────────────────────── */
 
 /* Sticky header strip — navy panel that anchors the avatar dropdown.

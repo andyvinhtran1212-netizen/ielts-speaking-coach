@@ -149,7 +149,7 @@ function renderTable() {
     const expires = c.expires_at ? new Date(c.expires_at).toLocaleDateString('vi-VN') : '—';
     const created = c.created_at ? new Date(c.created_at).toLocaleDateString('vi-VN') : '—';
     const limit = c.session_limit == null ? '∞' : String(c.session_limit);
-    const cohort = c.cohort_name ? `<span class="adm-chip is-direct">${c.cohort_name}</span>` : '—';
+    const cohort = c.cohort_name ? `<span class="adm-chip is-direct">${esc(c.cohort_name)}</span>` : '—';
     const revokeBtn = (c.is_revoked || c.is_active === false)
       ? ''
       : `<button class="adm-btn-danger adm-btn-sm" data-action="revoke" data-id="${c.id}">Thu hồi</button>`;
@@ -176,7 +176,7 @@ function renderTable() {
         <td>${limit}</td>
         <td>${expires}</td>
         <td>${created}</td>
-        <td>${fmt(c.notes)}</td>
+        <td>${esc(fmt(c.notes))}</td>
         <td><div class="adm-action-group">${usageLink}${editPermsBtn}${refillBtn}${revokeBtn}</div></td>
       </tr>
     `;
