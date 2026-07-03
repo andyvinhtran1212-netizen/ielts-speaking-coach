@@ -20,8 +20,6 @@
   var P2_PREP_SEC  = 60;   // Part 2 prep countdown (seconds)
   var P2_SPEAK_SEC = 120;  // Part 2 speaking countdown (seconds)
 
-  var BREAK_SEC = 30;      // Inter-part break in Full Test mode
-
   // Exam question counts per part
   var TEST_Q_COUNT      = { 1: 5, 2: 1, 3: 4 };   // test_part mode
   var FULL_TEST_Q_COUNT = { 1: 9, 2: 1, 3: 5 };   // test_full mode
@@ -67,8 +65,6 @@
   // Test mode
   var _testMode         = null;   // null | 'test_part' | 'test_full'
   var _testResults      = [];     // [{part, questionText, response}]
-  var _breakTimerId     = null;
-  var _breakSecsLeft    = 0;
   var _ftP2Topic        = null;   // stored Part 2 topic for Full Test chaining
   var _ftCurrentPart    = null;   // current part being tested in Full Test (1 | 2 | 3)
   var _ftAllSessionIds  = [];     // all session IDs created during a Full Test (completed at the end)
@@ -101,7 +97,7 @@
 
   // ── Top-level state management ────────────────────────────────────────────────
 
-  var _ALL_STATES = ['loading', 'error', 'mode-choice', 'prep', 'p2a', 'p2b', 'p2c', 'processing', 'feedback', 'break', 'test-results', 'completion'];
+  var _ALL_STATES = ['loading', 'error', 'mode-choice', 'prep', 'p2a', 'p2b', 'p2c', 'processing', 'feedback', 'test-results', 'completion'];
 
   function showState(name) {
     _ALL_STATES.forEach(function (s) {
@@ -2292,29 +2288,6 @@
     host.appendChild(el);
   }
 
-  function _showBreak(nextPart) {
-    var label = $('break-part-label');
-    if (label) label.textContent = 'Chuẩn bị cho Part ' + nextPart;
-    _breakSecsLeft = BREAK_SEC;
-    _renderBreakTimer();
-    showState('break');
-
-    _breakTimerId = setInterval(function () {
-      _breakSecsLeft--;
-      _renderBreakTimer();
-      if (_breakSecsLeft <= 0) {
-        clearInterval(_breakTimerId);
-        _breakTimerId = null;
-        _startNextPartInFullTest(nextPart);
-      }
-    }, 1000);
-  }
-
-  function _renderBreakTimer() {
-    var el = $('break-timer');
-    if (el) el.textContent = _breakSecsLeft;
-  }
-
   async function _startNextPartInFullTest(part) {
     showState('loading');
     var loadMsg = $('loading-msg');
@@ -2847,7 +2820,6 @@
     // Clean up timers and TTS
     if (_p2PrepTimerId)  { clearInterval(_p2PrepTimerId);  _p2PrepTimerId  = null; }
     if (_p2SpeakTimerId) { clearInterval(_p2SpeakTimerId); _p2SpeakTimerId = null; }
-    if (_breakTimerId)   { clearInterval(_breakTimerId);   _breakTimerId   = null; }
     _stopAITts();
     if (window.speechSynthesis) window.speechSynthesis.cancel();
 
@@ -3125,8 +3097,6 @@
     downloadAudio:        _downloadAudio,
     // PDF export
     downloadPDFs:         _downloadPDFs,
-    // exposed for state-break skip button (optional future use)
-    showState:            showState,
     // Sprint 14.8 — exposed for the cue-card / part-router tests +
     // future re-use. Pure functions, no DOM access.
     _grammarCheckBlock:                _grammarCheckBlock,

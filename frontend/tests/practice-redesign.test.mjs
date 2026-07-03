@@ -138,9 +138,11 @@ describe('practice.html / theme support', () => {
 
 
 describe('practice.html / state container IDs', () => {
-  test('all 12 state container IDs preserved', () => {
+  test('all 11 state container IDs preserved', () => {
     // practice.js drives the .state.active toggle on each of these. A
-    // rename on any one breaks the state machine.
+    // rename on any one breaks the state machine. (The Full-Test inter-part
+    // 'break' state was removed — full test now transitions directly to the
+    // next part with no break screen; see _startNextPartInFullTest.)
     const states = [
       'state-loading',
       'state-error',
@@ -152,7 +154,6 @@ describe('practice.html / state container IDs', () => {
       'state-processing',
       'state-feedback',
       'state-completion',
-      'state-break',
       'state-test-results',
     ];
     for (const id of states) {
@@ -291,10 +292,8 @@ describe('practice.html / feedback state IDs', () => {
     }
   });
 
-  test('break + test-results IDs preserved', () => {
+  test('test-results IDs preserved', () => {
     for (const id of [
-      'break-part-label',
-      'break-timer',
       'test-overall-wrap',
       'test-overall-band',
       'test-results-list',

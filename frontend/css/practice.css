@@ -708,18 +708,6 @@
 }
 
 
-/* ── Break state ──────────────────────────────────────────────── */
-
-.practice-break-label  { color: var(--av-primary); }
-.practice-break-timer {
-  color: var(--av-warning);
-  font-size: 5rem;
-  line-height: 1;
-  font-family: var(--av-font-mono);
-  font-feature-settings: 'tnum';
-}
-.practice-break-hint   { color: var(--av-text-muted); }
-
 
 /* ── Test results ─────────────────────────────────────────────── */
 
