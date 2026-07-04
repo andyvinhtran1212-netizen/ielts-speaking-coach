@@ -3,6 +3,22 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- OAuth-redirect recovery. A Supabase OAuth login can land on the site root
+       when the requested redirectTo isn't allowlisted and Supabase falls back to
+       the Site URL. This landing page has no Supabase session handler, so the
+       implicit-flow token (`#access_token=…`) or PKCE code (`?code=…`) would be
+       stranded here. Forward it to /login.html, which detects the session and
+       routes to the dashboard. Runs FIRST so we redirect before any paint. -->
+  <script>
+    (function () {
+      var h = window.location.hash, s = window.location.search;
+      if (h.indexOf('access_token=') !== -1 || s.indexOf('code=') !== -1) {
+        window.location.replace('/login.html' + s + h);
+      }
+    })();
+  </script>
+
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>averlearning — Luyện IELTS toàn diện cùng AI</title>
 
