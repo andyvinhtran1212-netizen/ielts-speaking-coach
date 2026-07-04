@@ -1075,13 +1075,13 @@ describe('Perf P2.1 — dashboard SWR cache (display-only)', () => {
 describe('Perf P1.3 follow-up — history count uses response total', () => {
   const html = readFileSync(path.join(__dirname, '..', 'pages', 'speaking.html'), 'utf8');
 
-  it('renderHistory accepts a total and shows it (not just the current page length)', () => {
+  test('renderHistory accepts a total and shows it (not just the current page length)', () => {
     assert.match(html, /function renderHistory\(sessions, total\)/);
     assert.match(html, /const count = \(typeof total === 'number'\) \? total : visible\.length;/);
     assert.match(html, /history-count'\)\.textContent = `\$\{count\} sessions`/);
   });
 
-  it('loadHistory passes the paginated total into renderHistory', () => {
+  test('loadHistory passes the paginated total into renderHistory', () => {
     assert.match(html, /renderHistory\(sessions, total\);/);
   });
 });
