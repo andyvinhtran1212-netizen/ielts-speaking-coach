@@ -1100,7 +1100,7 @@
               <td class="px-5 py-3.5 text-xs" style="color:var(--av-text-secondary);">${date}${retentionChip ? '<br>' + retentionChip : ''}</td>
               <td class="px-5 py-3.5 text-xs font-semibold" style="color:var(--av-primary);">Part ${s.part || '?'}</td>
               <td class="px-5 py-3.5 text-xs">${modeBadge}</td>
-              <td class="px-5 py-3.5 text-xs max-w-[200px] truncate" style="color:var(--av-text-secondary);">${s.topic || '—'}</td>
+              <td class="px-5 py-3.5 text-xs max-w-[200px] truncate" style="color:var(--av-text-secondary);">${escHtml(s.topic || '—')}</td>
               <td class="px-5 py-3.5 text-center">${band}</td>
               <td class="px-5 py-3.5 text-center">${viewBtn}</td>
             </tr>`;

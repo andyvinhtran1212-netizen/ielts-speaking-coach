@@ -439,6 +439,14 @@ async def list_sessions(
         )
         if status is not None:
             q = q.eq("status", status)
+        else:
+            # A1 (audit) — exclude bare in_progress from the DEFAULT history list
+            # so the `total` count and the rendered rows agree. The frontend
+            # already drops in_progress client-side; counting them server-side
+            # made the paginated header over-report (e.g. "25 sessions" with only
+            # 20 completed rows shown). An explicit ?status=in_progress still
+            # returns them.
+            q = q.neq("status", "in_progress")
         if part is not None:
             q = q.eq("part", part)
         if search and search.strip():

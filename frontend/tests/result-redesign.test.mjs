@@ -539,3 +539,28 @@ describe('result.css / Sprint 6.5.1 ds.css override pattern', () => {
     );
   });
 });
+
+
+// ── B3 (audit, Codex #657) — audio URL never interpolated into inline onclick ─
+// HTML-escaping the URL does NOT make an inline onclick JS string safe (the HTML
+// parser decodes entities before the handler compiles). The URL must live in a
+// data-* attribute and be read via dataset in an addEventListener handler.
+describe('B3 (audit) — audio buttons bind via data attributes, not inline onclick', () => {
+  const html = readFileSync(path.join(__dirname, '..', 'pages', 'result.html'), 'utf8');
+
+  test('audio URL goes into a data-* attribute, not an interpolated onclick string', () => {
+    assert.ok(html.includes('data-audio-url="'), 'URL must be carried on data-audio-url');
+    assert.ok(html.includes('data-audio-play'), 'play button uses a data hook');
+    assert.ok(html.includes('data-audio-dl'), 'download button uses a data hook');
+    // the old, unsafe inline-onclick interpolation must be gone
+    assert.ok(!html.includes("onclick=\"toggleAudio(this, '"),
+      'must NOT interpolate the URL into an inline onclick JS string');
+    assert.ok(!html.includes("onclick=\"downloadAudio('"),
+      'must NOT interpolate the URL into an inline onclick JS string');
+  });
+
+  test('handlers are bound via addEventListener reading dataset', () => {
+    assert.ok(html.includes('window.toggleAudio(b, b.dataset.audioUrl)'));
+    assert.ok(html.includes('window.downloadAudio(b.dataset.audioUrl, b.dataset.dlName)'));
+  });
+});
