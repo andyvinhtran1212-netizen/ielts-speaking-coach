@@ -99,7 +99,7 @@ describe('Sprint 13.5 — player page shell', () => {
 describe('Sprint 13.5 — player JS contract', () => {
 
   it('boots Supabase via window.initSupabase (canonical ref)', () => {
-    assert.match(JS, /nqhrtqspznepmveyurzm\.supabase\.co/);
+    assert.match(JS, /huwsmtubwulikhlmcirx\.supabase\.co/);
     assert.match(JS, /window\.initSupabase\(/);
   });
 

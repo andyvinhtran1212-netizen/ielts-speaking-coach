@@ -122,7 +122,7 @@ describe('Sprint 11.2 — dictation JS contract', () => {
   it('uses the canonical Supabase project ref', () => {
     // If this ref drifts from vocabulary.html / speaking.html the user
     // gets logged out across pages.
-    assert.match(JS, /nqhrtqspznepmveyurzm\.supabase\.co/);
+    assert.match(JS, /huwsmtubwulikhlmcirx\.supabase\.co/);
   });
 
   it('Sprint Perf-2 — no longer performs the content → exercises waterfall', () => {

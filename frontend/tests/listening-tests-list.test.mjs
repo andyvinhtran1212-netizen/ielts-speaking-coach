@@ -65,8 +65,8 @@ describe('Sprint 13.5 — tests-list page contract', () => {
 describe('Sprint 13.5 — tests-list JS contract', () => {
 
   it('boots Supabase via window.initSupabase (matches canonical ref)', () => {
-    assert.match(JS, /nqhrtqspznepmveyurzm\.supabase\.co/);
-    assert.match(JS, /sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4/);
+    assert.match(JS, /huwsmtubwulikhlmcirx\.supabase\.co/);
+    assert.match(JS, /sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao/);
     assert.match(JS, /window\.initSupabase\(/);
   });
 

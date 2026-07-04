@@ -111,7 +111,7 @@ describe('Sprint 11.3 — admin segment editor JS contract', () => {
   });
 
   it('uses the canonical Supabase project ref', () => {
-    assert.match(JS, /nqhrtqspznepmveyurzm\.supabase\.co/);
+    assert.match(JS, /huwsmtubwulikhlmcirx\.supabase\.co/);
   });
 
   it('escapes admin-controlled strings before innerHTML', () => {
