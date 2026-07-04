@@ -366,3 +366,75 @@ def test_router_does_not_use_supabase_admin():
         "routers/dashboard.py must not import or call supabase_admin "
         "(HIGH-1 decoupling rule)"
     )
+
+
+# ── Perf (C) — concurrent variant (parallel sections, own client each) ──────
+
+
+def _make_factory(configure):
+    """A make_sb() factory that hands each section its OWN configured client
+    (mirrors _user_sb per-section) and counts how many were built."""
+    calls = {"n": 0}
+
+    def factory():
+        calls["n"] += 1
+        c = _Client()
+        configure(c)
+        return c
+
+    return factory, calls
+
+
+def test_concurrent_matches_sync_and_builds_own_client_per_section():
+    def configure(c):
+        c.rows["sessions"] = [
+            _session("s1", started_at=_days_ago_iso(0)),
+            _session("s2", started_at=_days_ago_iso(1)),
+        ]
+        c.rows["user_vocabulary"] = [
+            _vocab("v1", session_id="s1"),
+            _vocab("v2", session_id="s1"),
+        ]
+        c.rows["flashcard_reviews"] = [
+            _review(next_review_at=_days_ago_iso(0)),
+            _review(next_review_at=_days_ago_iso(1)),
+        ]
+
+    factory, calls = _make_factory(configure)
+    payload = _run(
+        dashboard_aggregator.get_dashboard_payload_concurrent(factory, "u-1")
+    )
+
+    assert set(payload.keys()) >= {
+        "summary", "sessions", "recent_updates", "flashcard_due_count",
+    }
+    assert "_errors" not in payload
+    assert payload["summary"]["total_sessions"] == 2
+    assert len(payload["sessions"]) == 2
+    assert payload["sessions"][0]["id"] == "s1"
+    assert payload["recent_updates"][0]["vocab_count"] == 2
+    assert payload["flashcard_due_count"] == 2
+    # Thread-safety contract: the 3 independent sections must NOT share a client.
+    assert calls["n"] == 3
+
+
+def test_concurrent_partial_error_isolation(monkeypatch):
+    def configure(c):
+        c.rows["sessions"] = [_session("s1")]
+        c.rows["flashcard_reviews"] = [_review(next_review_at=_today_iso())]
+
+    factory, _ = _make_factory(configure)
+
+    def _boom(*_a, **_k):
+        raise RuntimeError("simulated outage")
+
+    monkeypatch.setattr(dashboard_aggregator, "_build_recent_vocab_updates", _boom)
+    payload = _run(
+        dashboard_aggregator.get_dashboard_payload_concurrent(factory, "u-1")
+    )
+
+    assert payload["summary"] is not None          # stats still built
+    assert payload["flashcard_due_count"] is not None
+    assert payload["recent_updates"] is None        # the failing one
+    assert "recent_updates" in payload["_errors"]
+    assert "simulated outage" in payload["_errors"]["recent_updates"]

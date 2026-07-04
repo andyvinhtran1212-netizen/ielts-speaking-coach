@@ -21,7 +21,10 @@ from supabase import create_client
 
 from config import settings
 from routers.auth import get_supabase_user
-from services.dashboard_aggregator import get_dashboard_payload
+from services.dashboard_aggregator import (
+    get_dashboard_payload,
+    get_dashboard_payload_concurrent,
+)
 
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
@@ -63,5 +66,9 @@ async def get_dashboard_init(authorization: str | None = Header(default=None)):
     """
     auth_user = await get_supabase_user(authorization)
     user_id = auth_user["id"]
-    sb = _user_sb(_bearer_token(authorization))
-    return get_dashboard_payload(sb, user_id)
+    # Perf (C) — run the 3 independent sections concurrently, each on its own
+    # JWT client (sync client not thread-safe to share). Turns ~731ms of
+    # sequential cross-region queries into ~max(section). _user_sb is the
+    # per-section client factory.
+    token = _bearer_token(authorization)
+    return await get_dashboard_payload_concurrent(lambda: _user_sb(token), user_id)

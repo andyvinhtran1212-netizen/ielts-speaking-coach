@@ -459,6 +459,13 @@ async def startup_event():
         )
 
 
+@app.on_event("shutdown")
+async def shutdown_event():
+    # Perf (B) — release the shared token-verification keep-alive pool cleanly.
+    from routers.auth import close_auth_http_client
+    await close_auth_http_client()
+
+
 @app.get("/topics")
 async def get_topics(
     part: int | None = None,

@@ -16,6 +16,35 @@ from services.feature_flags import is_flashcard_enabled
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+# ── Perf (B) — shared keep-alive httpx client for token verification ──────────
+# get_supabase_user() runs on EVERY authenticated request. It used to open a
+# fresh `httpx.AsyncClient` per call, so every verify paid a full TLS handshake
+# to Supabase Auth. Backend (Railway, Singapore) ↔ Supabase (ap-south-1, Mumbai)
+# is ~56ms RTT, so a fresh handshake costs ~2-3 RTT (~110-170ms) on top of the
+# request — on the hottest path in the app. A module-level client reuses ONE
+# keep-alive connection pool, collapsing that to ~1 RTT after the first call.
+# Built lazily (must live on the running loop) and closed on app shutdown.
+_auth_http_client: httpx.AsyncClient | None = None
+
+
+def _get_auth_http_client() -> httpx.AsyncClient:
+    global _auth_http_client
+    if _auth_http_client is None or _auth_http_client.is_closed:
+        _auth_http_client = httpx.AsyncClient(
+            timeout=20.0,
+            limits=httpx.Limits(max_keepalive_connections=20, keepalive_expiry=60.0),
+        )
+    return _auth_http_client
+
+
+async def close_auth_http_client() -> None:
+    """Close the shared client on app shutdown (idempotent)."""
+    global _auth_http_client
+    if _auth_http_client is not None and not _auth_http_client.is_closed:
+        await _auth_http_client.aclose()
+    _auth_http_client = None
+
+
 class ActivateRequest(BaseModel):
     access_code: str
 
@@ -102,14 +131,14 @@ async def get_supabase_user(authorization: str | None):
 
     auth_start = perf_counter()
     try:
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            response = await client.get(
-                f"{settings.SUPABASE_URL}/auth/v1/user",
-                headers={
-                    "Authorization": f"Bearer {token}",
-                    "apikey": settings.SUPABASE_ANON_KEY,
-                },
-            )
+        client = _get_auth_http_client()
+        response = await client.get(
+            f"{settings.SUPABASE_URL}/auth/v1/user",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "apikey": settings.SUPABASE_ANON_KEY,
+            },
+        )
     except httpx.RequestError as e:
         raise HTTPException(
             status_code=502,

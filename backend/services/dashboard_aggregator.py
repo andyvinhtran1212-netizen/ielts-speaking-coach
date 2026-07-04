@@ -37,8 +37,9 @@ Design rules:
 
 from __future__ import annotations
 
+import asyncio
 from datetime import date, datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 
 # ── Public ───────────────────────────────────────────────────────────────────
@@ -88,6 +89,75 @@ def get_dashboard_payload(sb, user_id: str, *, chart_limit: int = 20,
         payload["flashcard_due_count"] = _build_flashcard_due_count(sb, user_id)
     except Exception as e:
         errors["flashcard_due_count"] = _short_error(e)
+
+    if errors:
+        payload["_errors"] = errors
+
+    return payload
+
+
+async def get_dashboard_payload_concurrent(
+    make_sb: Callable[[], Any],
+    user_id: str,
+    *,
+    chart_limit: int = 20,
+    recent_updates_limit: int = 5,
+) -> Dict[str, Any]:
+    """Concurrent variant of :func:`get_dashboard_payload` for the hot
+    ``/api/dashboard/init`` path.
+
+    The three sections are independent, so running them in parallel turns the
+    wall-time from *sum*-of-sections into *max*-of-sections — the win that
+    matters while every query is a ~56ms cross-region hop (Railway SG ↔ Supabase
+    ap-south-1). Measured ~731ms sequential → ~max(section) concurrently.
+
+    Thread-safety: each section runs in its OWN thread with its OWN client built
+    by ``make_sb()``. The sync supabase/httpx client + query builder are NOT
+    thread-safe to share across threads, so two concurrent sections must never
+    touch the same client (mirrors the db_async.py note on why the shared sync
+    singleton is never handed to ``to_thread``). Error isolation matches the
+    sequential builder: a section that raises lands its key in ``_errors`` and
+    the rest of the dashboard still renders.
+    """
+    def _stats():
+        return _build_sessions_stats(make_sb(), user_id, chart_limit=chart_limit)
+
+    def _recent():
+        return _build_recent_vocab_updates(make_sb(), user_id, limit=recent_updates_limit)
+
+    def _flash():
+        return _build_flashcard_due_count(make_sb(), user_id)
+
+    stats_r, recent_r, flash_r = await asyncio.gather(
+        asyncio.to_thread(_stats),
+        asyncio.to_thread(_recent),
+        asyncio.to_thread(_flash),
+        return_exceptions=True,
+    )
+
+    payload: Dict[str, Any] = {
+        "summary": None,
+        "sessions": None,
+        "recent_updates": None,
+        "flashcard_due_count": None,
+    }
+    errors: Dict[str, str] = {}
+
+    if isinstance(stats_r, Exception):
+        errors["stats"] = _short_error(stats_r)
+    else:
+        payload["summary"] = stats_r["summary"]
+        payload["sessions"] = stats_r["sessions"]
+
+    if isinstance(recent_r, Exception):
+        errors["recent_updates"] = _short_error(recent_r)
+    else:
+        payload["recent_updates"] = recent_r
+
+    if isinstance(flash_r, Exception):
+        errors["flashcard_due_count"] = _short_error(flash_r)
+    else:
+        payload["flashcard_due_count"] = flash_r
 
     if errors:
         payload["_errors"] = errors
