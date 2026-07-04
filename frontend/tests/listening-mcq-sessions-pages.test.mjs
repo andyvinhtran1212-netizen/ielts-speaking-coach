@@ -76,7 +76,7 @@ describe('Sprint 11.5 — user MCQ page contract', () => {
   });
 
   it('uses the canonical Supabase project ref', () => {
-    assert.match(USER_MCQ_JS, /nqhrtqspznepmveyurzm\.supabase\.co/);
+    assert.match(USER_MCQ_JS, /huwsmtubwulikhlmcirx\.supabase\.co/);
   });
 });
 

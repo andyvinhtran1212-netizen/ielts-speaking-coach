@@ -770,7 +770,7 @@ describe('Sprint 7.13.1-hotfix — every <aver-chrome> page must call initSupaba
   test('canonical Supabase URL pinned across migrated pages', () => {
     // All migrated pages reference the same project URL. If a page is
     // pointed at a different project, that's a configuration drift.
-    const SUPABASE_URL = 'https://nqhrtqspznepmveyurzm.supabase.co';
+    const SUPABASE_URL = 'https://huwsmtubwulikhlmcirx.supabase.co';
     MIGRATED_PAGES.forEach(({ path: rel }) => {
       const html = readFileSync(path.join(REPO_ROOT, rel), 'utf8');
       assert.ok(

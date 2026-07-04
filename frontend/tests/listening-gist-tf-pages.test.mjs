@@ -78,7 +78,7 @@ describe('Sprint 11.4 — user Gist page contract', () => {
   });
 
   it('uses the canonical Supabase project ref', () => {
-    assert.match(USER_GIST_JS, /nqhrtqspznepmveyurzm\.supabase\.co/);
+    assert.match(USER_GIST_JS, /huwsmtubwulikhlmcirx\.supabase\.co/);
   });
 });
 

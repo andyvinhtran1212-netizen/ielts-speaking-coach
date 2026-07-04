@@ -21,7 +21,7 @@ describe('Sprint Perf-3 — shared chrome resource hints', () => {
   it('declares the 3 warmed production origins', () => {
     for (const origin of [
       'https://ielts-speaking-coach-production.up.railway.app',
-      'https://nqhrtqspznepmveyurzm.supabase.co',
+      'https://huwsmtubwulikhlmcirx.supabase.co',
       'https://res.cloudinary.com',
     ]) {
       assert.match(PERF_HINTS, new RegExp(origin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
