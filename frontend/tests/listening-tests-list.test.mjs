@@ -71,7 +71,9 @@ describe('Sprint 13.5 — tests-list JS contract', () => {
   });
 
   it('calls GET /api/listening/tests with a limit query', () => {
-    assert.match(JS, /window\.api\.get\(['"`]\/api\/listening\/tests\?limit=/);
+    // Query params may precede `limit` (source now sends
+    // ?test_type=full&limit=50), so match limit anywhere in the query string.
+    assert.match(JS, /window\.api\.get\(['"`]\/api\/listening\/tests\?[^'"`]*\blimit=/);
   });
 
   it('links each card to /pages/listening-test.html?id=<uuid>', () => {
