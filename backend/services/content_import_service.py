@@ -24,6 +24,8 @@ from typing import Any, Optional
 
 import yaml
 
+from services import reading_solution
+
 CONTENT_TYPES = ("tip", "knowledge", "sample", "outline")
 TASK_TYPES    = ("task_1", "task_2", "both")
 
@@ -514,6 +516,14 @@ def validate_reading_questions(questions: Any) -> list[dict]:
         if q.get("skill_tag") not in SKILL_TAGS:
             err(f"{label}: 'skill_tag' phải là một trong "
                 f"{', '.join(SKILL_TAGS)}.")
+
+        # Phase 0.3 — the optional stepper solution (solution_steps / action
+        # enum / distractor_analysis / kp_refs shape). Structural only; the
+        # kp_ref → asset resolution is a separate gate (test_kp_ref_drift +
+        # verify_kp_asset_drift). Prose-only solutions stay valid.
+        if q.get("solution") is not None:
+            for msg in reading_solution.validate_solution_structure(q["solution"], label):
+                err(msg)
 
     return errors
 
