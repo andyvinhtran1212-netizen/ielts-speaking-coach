@@ -12,7 +12,7 @@
 // third-party origins (not the API base) and stay static.
 const API_ORIGIN_FALLBACK = 'https://ielts-speaking-coach-production.up.railway.app';
 const STATIC_ORIGINS = [
-  'https://nqhrtqspznepmveyurzm.supabase.co',
+  'https://huwsmtubwulikhlmcirx.supabase.co',
   'https://res.cloudinary.com',
 ];
 

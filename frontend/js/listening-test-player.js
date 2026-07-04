@@ -18,8 +18,8 @@
  *      score + band + section breakdown + trap analytics + per-Q list.
  */
 
-const SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
-const SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
+const SUPABASE_URL  = 'https://huwsmtubwulikhlmcirx.supabase.co';
+const SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
 
 (function bootstrapSupabase() {
   if (typeof window !== 'undefined' && window.initSupabase) {

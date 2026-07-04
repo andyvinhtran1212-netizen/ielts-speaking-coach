@@ -18,8 +18,8 @@
 
 (function bootstrapSupabase() {
   // Same bootstrap pattern as tests-detail.html (Sprint 13.4.1 hotfix).
-  var SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
-  var SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
+  var SUPABASE_URL  = 'https://huwsmtubwulikhlmcirx.supabase.co';
+  var SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
   if (typeof window !== 'undefined' && window.initSupabase) {
     try { window.initSupabase(SUPABASE_URL, SUPABASE_ANON); } catch (_e) { /* swallow */ }
   }
