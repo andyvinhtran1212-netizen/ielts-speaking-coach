@@ -539,3 +539,13 @@ describe('result.css / Sprint 6.5.1 ds.css override pattern', () => {
     );
   });
 });
+
+
+// ── B3 (audit) — escHtml escapes single quotes (onclick-safe) ────────────────
+describe('B3 (audit) — escHtml escapes single quotes', () => {
+  const html = readFileSync(path.join(__dirname, '..', 'pages', 'result.html'), 'utf8');
+  test("escHtml replaces ' with &#39; (audio onclick handlers interpolate it)", () => {
+    assert.ok(html.includes("replace(/'/g, '&#39;')"),
+      "escHtml must escape single quotes or an audioUrl with ' breaks out of the onclick JS string");
+  });
+});

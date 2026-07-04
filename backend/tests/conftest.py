@@ -39,3 +39,16 @@ def _writing_permission_lookup_grants_all(monkeypatch):
         lambda _user_id: ["all"],
         raising=False,
     )
+
+
+@pytest.fixture(autouse=True)
+def _reset_activate_rate_limit():
+    """B4 — /auth/activate uses a module-global per-user attempt window. Reset it
+    before each test so accumulated attempts don't leak across tests (many tests
+    activate with the same fake user id and would otherwise trip the 429 cap)."""
+    try:
+        from routers import auth
+        auth._activate_attempts.clear()
+    except Exception:
+        pass
+    yield

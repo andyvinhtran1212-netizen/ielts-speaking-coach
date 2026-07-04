@@ -1085,3 +1085,13 @@ describe('Perf P1.3 follow-up — history count uses response total', () => {
     assert.match(html, /renderHistory\(sessions, total\);/);
   });
 });
+
+
+// ── B1 (audit) — history topic is HTML-escaped ───────────────────────────────
+describe('B1 (audit) — history row escapes user topic', () => {
+  const html = readFileSync(path.join(__dirname, '..', 'pages', 'speaking.html'), 'utf8');
+  test('renderHistory escapes s.topic via escHtml (topic is free-text)', () => {
+    assert.ok(html.includes("${escHtml(s.topic || '—')}"),
+      'history topic cell must be escaped (validate_topic only .strip()s server-side)');
+  });
+});

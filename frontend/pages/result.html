@@ -362,7 +362,11 @@
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
+        .replace(/"/g, '&quot;')
+        // B3 (audit) — also escape single quotes: escHtml output is interpolated
+        // into single-quoted inline onclick handlers (toggleAudio/downloadAudio),
+        // so an unescaped ' would break out of the JS string literal.
+        .replace(/'/g, '&#39;');
     }
 
     // ── Persisted signal helpers (Sprint 14.8.1, Codex F1) ─────────────────────

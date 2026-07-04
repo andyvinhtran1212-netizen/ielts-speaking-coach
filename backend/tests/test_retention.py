@@ -142,7 +142,7 @@ class _Builder:
     def _noop(self, *a, **k):
         return self
 
-    select = eq = order = limit = range = gte = lte = ilike = _noop
+    select = eq = neq = order = limit = range = gte = lte = ilike = _noop
 
     def is_(self, col, val):
         self._rec.setdefault("is_", []).append((col, val))
