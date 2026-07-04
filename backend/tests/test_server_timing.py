@@ -53,6 +53,35 @@ def test_server_timing_header_present_and_parseable_on_api_response():
     assert all(value >= 0 for value in stages.values())
 
 
+def test_timing_allow_origin_reflects_ALLOWED_caller_so_browser_can_read_it():
+    # Perf P3.3 — cross-origin (Vercel ↔ Railway) callers can't read
+    # Server-Timing unless Timing-Allow-Origin opts them in. Reflect the Origin
+    # ONLY when it's in the CORS allowlist.
+    with _server_timing_enabled():
+        r = _client().get("/api/reading/test", headers={"Origin": "https://averlearning.com"})
+    assert r.status_code == 401
+    assert r.headers.get("server-timing"), "Server-Timing must be present"
+    assert r.headers.get("timing-allow-origin") == "https://averlearning.com"
+
+
+def test_timing_allow_origin_NOT_set_for_disallowed_origin():
+    # Security (Codex review on #653) — must NOT echo an arbitrary origin, or a
+    # site CORS rejects could opt itself into reading our timings. Same posture
+    # as the CORS allowlist: a disallowed origin gets NO Timing-Allow-Origin.
+    with _server_timing_enabled():
+        r = _client().get("/api/reading/test", headers={"Origin": "https://evil.example.com"})
+    assert r.headers.get("server-timing"), "Server-Timing still present"
+    assert "timing-allow-origin" not in r.headers
+
+
+def test_timing_allow_origin_absent_without_origin():
+    # No Origin (same-origin / tooling): TAO not needed and not emitted — never
+    # fall back to `*` (that would opt everyone in).
+    with _server_timing_enabled():
+        r = _client().get("/api/reading/test")
+    assert "timing-allow-origin" not in r.headers
+
+
 def test_server_timing_absent_when_disabled_by_default():
     # C-* audit — gated OFF by default: no header on a normal API response.
     assert settings.ENABLE_SERVER_TIMING is False

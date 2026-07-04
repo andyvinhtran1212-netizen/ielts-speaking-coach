@@ -77,7 +77,7 @@
        renderUser() → setUser() preserves the Sprint 7.8-hotfix permissions
        context contract through the typed API instead of DOM-poking
        across the shadow boundary. -->
-  <aver-chrome active="speaking"></aver-chrome>
+  <aver-chrome active="speaking" role-source="page"></aver-chrome>
 
   <!-- Sprint 8.1 — main-tab-nav retired. Dashboard view is the page's
        default landing state; mode entry is now via the `.mode-card`
@@ -106,26 +106,26 @@
 
       <div class="stat-card rounded-2xl p-5">
         <p class="text-xs font-medium uppercase tracking-wider mb-2" style="color:var(--av-text-muted);">Band TB 30 ngày</p>
-        <p id="stat-band" class="text-3xl font-extrabold" style="color:var(--av-primary);">—</p>
+        <p id="stat-band" class="text-3xl font-extrabold" style="color:var(--av-primary);"><span class="skeleton" style="display:inline-block;width:3rem;height:1.75rem;vertical-align:middle;">&nbsp;</span></p>
         <p id="stat-band-sub" class="text-xs mt-1" style="color:var(--av-text-muted);">Chưa có dữ liệu</p>
       </div>
 
       <div class="stat-card rounded-2xl p-5">
         <p class="text-xs font-medium uppercase tracking-wider mb-2" style="color:var(--av-text-muted);">Tổng sessions</p>
-        <p id="stat-total" class="text-3xl font-extrabold text-white">0</p>
+        <p id="stat-total" class="text-3xl font-extrabold text-white"><span class="skeleton" style="display:inline-block;width:3rem;height:1.75rem;vertical-align:middle;">&nbsp;</span></p>
         <p class="text-xs mt-1" style="color:var(--av-text-muted);">Kể từ khi tham gia</p>
       </div>
 
       <div class="stat-card rounded-2xl p-5">
         <p class="text-xs font-medium uppercase tracking-wider mb-2" style="color:var(--av-text-muted);">Buổi học gần nhất</p>
-        <p id="stat-last-date" class="text-xl font-extrabold text-white">—</p>
+        <p id="stat-last-date" class="text-xl font-extrabold text-white"><span class="skeleton" style="display:inline-block;width:5rem;height:1.25rem;vertical-align:middle;">&nbsp;</span></p>
         <p id="stat-last-topic" class="text-xs mt-1 truncate" style="color:var(--av-text-muted);">Chưa có buổi học nào</p>
       </div>
 
       <div class="stat-card rounded-2xl p-5">
         <p class="text-xs font-medium uppercase tracking-wider mb-2" style="color:var(--av-text-muted);">Streak hiện tại</p>
         <div class="flex items-end gap-1.5">
-          <p id="stat-streak" class="text-3xl font-extrabold text-white">0</p>
+          <p id="stat-streak" class="text-3xl font-extrabold text-white"><span class="skeleton" style="display:inline-block;width:2.25rem;height:1.75rem;vertical-align:middle;">&nbsp;</span></p>
           <p class="text-lg font-semibold mb-0.5" style="color:var(--av-text-muted);">ngày</p>
         </div>
         <p class="text-xs mt-1" style="color:var(--av-text-muted);">🔥 Duy trì chuỗi!</p>
@@ -336,8 +336,18 @@
       <!-- Table wrapper -->
       <div class="rounded-2xl overflow-hidden border" style="border-color:var(--av-border-subtle);">
 
-        <!-- Empty state (default) -->
-        <div id="history-empty" class="ds-empty">
+        <!-- P2.2 skeleton — first-paint placeholder. Shown until loadHistory
+             resolves, then renderHistory() hides it and reveals empty|table.
+             Prevents the old flash where the "no sessions" empty state below
+             showed for ~1.8s even for users who DO have history. -->
+        <div id="history-skeleton" class="p-5 space-y-3">
+          <div class="skeleton" style="height:2.25rem;border-radius:var(--av-radius-md);"></div>
+          <div class="skeleton" style="height:2.25rem;border-radius:var(--av-radius-md);"></div>
+          <div class="skeleton" style="height:2.25rem;border-radius:var(--av-radius-md);"></div>
+        </div>
+
+        <!-- Empty state (hidden until loadHistory confirms zero sessions) -->
+        <div id="history-empty" class="ds-empty hidden">
           <div class="ds-empty-icon">📭</div>
           <p class="ds-empty-title">Bạn chưa có session nào.</p>
           <p class="ds-empty-sub">Hoàn thành buổi luyện đầu tiên để theo dõi tiến độ.</p>
@@ -987,18 +997,23 @@
       // Total sessions
       document.getElementById('stat-total').textContent = summary.total_sessions ?? 0;
 
-      // Band TB 30 ngày
+      // Band TB 30 ngày — always resolve the P2.2 skeleton (else it shimmers
+      // forever when the user has no 30-day data).
       if (summary.avg_band_30d != null) {
         document.getElementById('stat-band').textContent = roundHalf(summary.avg_band_30d).toFixed(1);
         document.getElementById('stat-band-sub').textContent = '30 ngày gần nhất';
+      } else {
+        document.getElementById('stat-band').textContent = '—';
       }
 
-      // Buổi học gần nhất
+      // Buổi học gần nhất — same: clear the skeleton on the no-session path.
       if (summary.last_session_at) {
         const d = new Date(summary.last_session_at);
         document.getElementById('stat-last-date').textContent =
           d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
         document.getElementById('stat-last-topic').textContent = summary.last_topic || '—';
+      } else {
+        document.getElementById('stat-last-date').textContent = '—';
       }
 
       // Streak
@@ -1018,20 +1033,41 @@
     }
 
     // ── Render session history ────────────────────────────────
-    function renderHistory(sessions) {
+    function renderHistory(sessions, total) {
       // sessions includes completed, submitted, analysis_failed — filter out bare in_progress
       const visible = sessions.filter(s => s.status !== 'in_progress');
-      document.getElementById('history-count').textContent = `${visible.length} sessions`;
+      // P1.3 follow-up (Codex P3) — the unfiltered load is now paginated, so
+      // `visible` is only the current page (≤ page_size). Show the response
+      // `total` (across all pages) in the header, not just this page's length,
+      // or a user with >20 sessions sees a stale "20 sessions".
+      const count = (typeof total === 'number') ? total : visible.length;
+      document.getElementById('history-count').textContent = `${count} sessions`;
+
+      // P2.2 — the load resolved (data OR error, every call site): drop the
+      // first-paint skeleton so exactly one of empty|table shows from here on.
+      const skel = document.getElementById('history-skeleton');
+      if (skel) skel.classList.add('hidden');
 
       // Sprint 16.3 — aggregate soft-hide banner (graceful if module/retention absent).
       const RW = window.RetentionWarning;
       const banner = document.getElementById('history-retention-banner');
       if (banner) banner.innerHTML = RW ? RW.bannerHtml(RW.countSoonHidden(visible)) : '';
 
-      if (visible.length === 0) return;
+      const emptyEl = document.getElementById('history-empty');
+      const tableEl = document.getElementById('history-table-wrap');
 
-      document.getElementById('history-empty').classList.add('hidden');
-      document.getElementById('history-table-wrap').classList.remove('hidden');
+      if (visible.length === 0) {
+        tableEl.classList.add('hidden');
+        // The "Bạn chưa có session nào" copy only fits the UNFILTERED dashboard.
+        // A filtered 0-result is explained by the #history-filter-info line
+        // ("Tìm thấy 0 session"), so don't claim the user has no sessions.
+        if (_historyHasActiveFilters()) emptyEl.classList.add('hidden');
+        else emptyEl.classList.remove('hidden');
+        return;
+      }
+
+      emptyEl.classList.add('hidden');
+      tableEl.classList.remove('hidden');
 
       const modeLabel = { practice: 'Luyện tập', test_part: 'Part Test', test_full: 'Full Test' };
       const modeColor = { practice: 'var(--av-primary-soft)', test_part: 'var(--av-info-soft)', test_full: 'var(--av-warning-soft)' };
@@ -1107,12 +1143,14 @@
         if (_historyState.sort)      params.set('sort',      _historyState.sort);
         if (_historyState.date_from) params.set('date_from', _historyState.date_from);
         if (_historyState.date_to)   params.set('date_to',   _historyState.date_to);
-        params.set('page',      String(_historyState.page));
-        params.set('page_size', String(_historyState.page_size));
-      } else {
-        // Backwards-compat with the pre-Phase-2.5 dashboard: unfiltered list.
-        params.set('limit', '200');
       }
+      // Perf P1.3 — the unfiltered dashboard load used ?limit=200, pulling AND
+      // rendering up to 200 session rows on every first paint. Route the
+      // unfiltered load through the SAME paginated path (page + page_size): one
+      // page of 20 rows keeps the payload light, and pagination controls now
+      // surface so older sessions stay reachable instead of being dumped inline.
+      params.set('page',      String(_historyState.page));
+      params.set('page_size', String(_historyState.page_size));
 
       var data;
       try {
@@ -1131,7 +1169,7 @@
       var totalPages  = Array.isArray(data) ? 0               : (data.total_pages || 0);
       var currentPage = Array.isArray(data) ? 1               : (data.page        || 1);
 
-      renderHistory(sessions);
+      renderHistory(sessions, total);
       renderHistoryPagination(currentPage, totalPages, total);
       renderHistoryFilterInfo(total, filtered);
     }
@@ -2057,26 +2095,75 @@
       }
     }
 
+    // ── Perf P2.1 — SWR for the DISPLAY-ONLY dashboard aggregate ──────────
+    //
+    // /api/dashboard/init returns { summary, sessions, flashcard_due_count } —
+    // pure display data, NO permissions/role/is_active. So we may cache it and
+    // paint the last-seen copy INSTANTLY on revisit, then revalidate in the
+    // background. This is deliberately scoped to display data only:
+    // /auth/me permissions are NEVER cached (CLAUDE.md canonical-truth rule) —
+    // a revoked user must never be gated on stale local state.
+    //
+    // Store: sessionStorage (per-tab, cleared on close) keyed by user id, with
+    // a max-age so we never paint very old numbers.
+    const _DASH_SWR_TTL_MS = 30 * 60 * 1000;   // 30 min
+    function _dashCacheKey(uid) { return 'swr:dash:' + uid; }
+    function _readDashCache(uid) {
+      if (!uid) return null;
+      try {
+        const raw = sessionStorage.getItem(_dashCacheKey(uid));
+        if (!raw) return null;
+        const o = JSON.parse(raw);
+        if (!o || !o.t || (Date.now() - o.t) > _DASH_SWR_TTL_MS) return null;
+        return o.data || null;
+      } catch (_) { return null; }
+    }
+    function _writeDashCache(uid, data) {
+      if (!uid || !data) return;
+      try {
+        sessionStorage.setItem(_dashCacheKey(uid), JSON.stringify({ t: Date.now(), data }));
+      } catch (_) { /* quota / disabled storage — non-fatal, skip caching */ }
+    }
+
     // ── Init ──────────────────────────────────────────────────
     async function init() {
       const session = await requireAuth();
       if (!session) return;
+
+      // Perf P1.2 — start every INDEPENDENT call in flight before awaiting any.
+      // /auth/me (pill + permissions), /api/dashboard/init (stats) and the
+      // grammar dashboard share nothing but the bearer token; the old code
+      // awaited them back-to-back-to-back (auth/me → init → grammar), so their
+      // cross-region latencies summed. Kicked together they overlap, and the
+      // page settles at the SLOWEST single call instead of their sum.
+      //   The `.catch` sentinel is attached synchronously at creation so a
+      // sibling rejecting while we await another can't raise unhandledrejection
+      // (which the global error-reporter would surface as a spurious error).
+      const _mePromise = fetch(`${window.api.base}/auth/me`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      }).catch((e) => ({ _netError: e }));
+      const _aggPromise = fetch(`${window.api.base}/api/dashboard/init`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      }).catch((e) => ({ _netError: e }));
+      loadGrammarDashboard();   // independent — start now, don't wait for stats
+
+      // SWR paint: if we have a fresh-enough cached aggregate, render stats +
+      // charts NOW (0ms perceived on revisit) — the live _aggPromise below
+      // revalidates and re-renders. History still loads live (not cached).
+      const _uid = session.user && session.user.id;
+      const _cachedDash = _readDashCache(_uid);
+      if (_cachedDash && _cachedDash.summary) {
+        renderStats(_cachedDash.summary, _cachedDash.sessions || []);
+        renderCharts(_cachedDash.sessions || []);
+      }
 
       // Hoisted so loadVocabUpdates() below can reuse the /auth/me payload
       // (vocab_bank_enabled flag) without a second round-trip — see
       // anti-pattern lesson "duplicate /auth/me on first paint" added with
       // this commit.
       let user = null;
-      try {
-        const res = await fetch(`${window.api.base}/auth/me`, {
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        });
-        if (res.status === 401) { window.location.href = INDEX_URL; return; }
-        if (res.ok) {
-          user = await res.json();
-          renderUser(user);
-        }
-      } catch (_) {
+      const meRes = await _mePromise;
+      if (meRes && meRes._netError) {
         // Backend unreachable — fall back to Supabase metadata.  user stays
         // null so loadVocabUpdates() returns early (default-deny).
         const meta = session.user?.user_metadata || {};
@@ -2085,6 +2172,21 @@
           email: session.user?.email,
           avatar_url: meta.avatar_url,
         });
+      } else {
+        try {
+          if (meRes.status === 401) { window.location.href = INDEX_URL; return; }
+          if (meRes.ok) {
+            user = await meRes.json();
+            renderUser(user);
+          }
+        } catch (_) {
+          const meta = session.user?.user_metadata || {};
+          renderUser({
+            display_name: meta.full_name || meta.name,
+            email: session.user?.email,
+            avatar_url: meta.avatar_url,
+          });
+        }
       }
 
       // PR-B: aggregate endpoint that folds /sessions/stats + /recent-updates
@@ -2093,22 +2195,28 @@
       // error, network blip) the legacy fetches below kick in unchanged so
       // the dashboard still renders.
       let aggregate = null;
-      try {
-        const aggRes = await fetch(`${window.api.base}/api/dashboard/init`, {
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        });
-        if (aggRes.ok) {
-          aggregate = await aggRes.json();
-          if (aggregate && aggregate._errors) {
-            console.warn('Dashboard partial load:', aggregate._errors);
+      const aggRes = await _aggPromise;
+      if (aggRes && !aggRes._netError) {
+        try {
+          if (aggRes.ok) {
+            aggregate = await aggRes.json();
+            if (aggregate && aggregate._errors) {
+              console.warn('Dashboard partial load:', aggregate._errors);
+            }
           }
-        }
-      } catch (_) { /* fall through to legacy paths */ }
+        } catch (_) { /* fall through to legacy paths */ }
+      }
 
       if (aggregate && aggregate.summary) {
-        // Aggregate path: stats + chart from a single roundtrip.
+        // Aggregate path: stats + chart from a single roundtrip. Re-render with
+        // the FRESH payload (overwrites any SWR cache paint) and update the
+        // cache for next time. Only display data is stored — see P2.1 above.
         renderStats(aggregate.summary, aggregate.sessions || []);
         renderCharts(aggregate.sessions || []);
+        _writeDashCache(_uid, {
+          summary: aggregate.summary,
+          sessions: aggregate.sessions || [],
+        });
         try { await loadHistory(); } catch (_) { renderHistory([]); }
       } else {
         // Legacy fallback: the original /sessions/stats path.
@@ -2131,7 +2239,8 @@
       // Wire filter controls now that the dashboard panel is in the DOM.
       _wireHistoryFilterEvents();
 
-      loadGrammarDashboard();
+      // (loadGrammarDashboard() started earlier, in parallel with /auth/me and
+      //  /api/dashboard/init — see Perf P1.2 above.)
 
       // Vocab updates widget RETIRED (Phase 1, My Vocabulary removal): the
       // "Cập nhật từ vựng gần đây" section no longer exists in the DOM and

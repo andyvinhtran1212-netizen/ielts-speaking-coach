@@ -403,6 +403,68 @@ export class AverChrome extends HTMLElement {
     this._bindDropdown();
     this._bindLogout();
     this._schedulePopulate();
+    this._injectSpeculationRules();
+  }
+
+  /**
+   * Perf P2.3 — Speculation Rules PREFETCH for the main skill dashboards.
+   * On a supporting browser, hovering a nav link to one of these dashboards
+   * fetches its HTML ahead of the click so navigation starts warm.
+   *
+   * PREFETCH, not prerender (Codex review on #653): prerender executes the
+   * target page's scripts before the user navigates, so a hover / abandoned
+   * intent would fire real page-load side effects — the analytics `page_view`
+   * beacon (js/analytics-beacon.js POSTs /api/analytics/events), the /auth/me
+   * last_seen_at bump, dashboard queries — polluting analytics and doing writes
+   * on speculation. Prefetch is a NON-EXECUTING hint: it only warms the HTML
+   * document, no scripts run, no side effects. (Smaller win than prerender, but
+   * correct; the shadow-DOM caveat below already made the prerender win
+   * uncertain, so the trade-off is favourable.)
+   *
+   * Scoped deliberately:
+   *   • allowlist of the 7 top-level dashboards ONLY — never stateful pages
+   *     (practice/result need a session_id) or admin/instructor areas;
+   *   • eagerness "moderate" → prefetch on hover/pointerdown INTENT, not on load;
+   *   • feature-detected + fully try/caught → fails safe (does nothing) on
+   *     browsers without speculation rules or if the nav lives out of reach.
+   *
+   * Verify in Chrome DevTools → Application → Speculative loads. NOTE: the nav
+   * links render in this component's shadow root; document-rule matching of
+   * shadow-DOM links varies by Chrome version — if a build doesn't match,
+   * this simply no-ops (no correctness or cost impact).
+   */
+  _injectSpeculationRules() {
+    try {
+      if (typeof document === 'undefined') return;
+      if (typeof HTMLScriptElement === 'undefined'
+          || typeof HTMLScriptElement.supports !== 'function'
+          || !HTMLScriptElement.supports('speculationrules')) return;
+      if (document.querySelector('script[type="speculationrules"][data-aver-speculation]')) return;
+
+      const rules = {
+        prefetch: [{
+          source: 'document',
+          where: {
+            or: [
+              { href_matches: '/pages/home.html' },
+              { href_matches: '/pages/speaking.html' },
+              { href_matches: '/pages/writing-dashboard.html' },
+              { href_matches: '/pages/listening.html' },
+              { href_matches: '/pages/reading-vocab.html' },
+              { href_matches: '/grammar.html' },
+              { href_matches: '/vocabulary.html' },
+            ],
+          },
+          eagerness: 'moderate',
+        }],
+      };
+
+      const s = document.createElement('script');
+      s.type = 'speculationrules';
+      s.setAttribute('data-aver-speculation', '1');
+      s.textContent = JSON.stringify(rules);
+      document.head.appendChild(s);
+    } catch { /* never break chrome on speculation-rules injection */ }
   }
 
   disconnectedCallback() {
@@ -498,6 +560,13 @@ export class AverChrome extends HTMLElement {
    */
   async _resolveRole(token) {
     if (this._role !== null) return; // a page already set the role → no double-fetch
+    // Perf P1.1 — a page marked `role-source="page"` fetches /auth/me itself and
+    // feeds the role via setUser({role}). Its /auth/me is slow (cross-region), so
+    // the _userOverride short-circuit above lands AFTER this tick would fire —
+    // meaning without this declarative opt-out the component races ahead and pays
+    // for a SECOND /auth/me (the most expensive call on the page). The attribute
+    // is synchronous at parse time, so it wins the race the _role guard cannot.
+    if (this.getAttribute('role-source') === 'page') return;
     if (!token) return;              // unauthenticated → link stays hidden
     const base = (typeof window !== 'undefined' && window.api && window.api.base) || '';
     if (!base) return;

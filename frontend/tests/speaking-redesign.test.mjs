@@ -129,7 +129,8 @@ describe('speaking.html / theme support (Sprint 6.4.1)', () => {
   });
 
   test('Sprint 7.12 — chrome migrated to <aver-chrome active="speaking">', () => {
-    assert.match(html, /<aver-chrome\s+active="speaking"\s*>/);
+    // trailing attrs allowed (role-source="page" perf opt-out) — see P1.1/P1.2
+    assert.match(html, /<aver-chrome\s+active="speaking"[^>]*>/);
     assert.match(
       html,
       /<script\s+type="module"\s+src="\/js\/components\/aver-chrome\.js">\s*<\/script>/,
@@ -1004,5 +1005,83 @@ describe('2026-07-02 — Band-over-time chart uses overall_band', () => {
 
   test('radar empty state explains a full Test is needed', () => {
     assert.match(html, /Test đầy đủ/);
+  });
+});
+
+
+// ── Perf P2.2 — skeletons replace misleading first-paint placeholders ────────
+describe('Perf P2.2 — dashboard skeleton on first paint', () => {
+  const html = readFileSync(path.join(__dirname, '..', 'pages', 'speaking.html'), 'utf8');
+
+  test('each hero-stat value paints a .skeleton span (no static 0/— flash)', () => {
+    for (const id of ['stat-band', 'stat-total', 'stat-last-date', 'stat-streak']) {
+      const m = html.match(new RegExp(`id="${id}"[^>]*>([\\s\\S]*?)</p>`));
+      assert.ok(m, `#${id} <p> must exist`);
+      assert.match(m[1], /class="skeleton"/, `#${id} must render a skeleton placeholder, not a static 0/—`);
+    }
+  });
+
+  test('renderStats clears the band + last-date skeletons on the no-data path', () => {
+    // Without an else-branch the shimmer would run forever for users with no
+    // 30-day band / no sessions.
+    assert.match(html, /getElementById\('stat-band'\)\.textContent = '—';/);
+    assert.match(html, /getElementById\('stat-last-date'\)\.textContent = '—';/);
+  });
+
+  test('history shows a skeleton, and the empty state is hidden until confirmed', () => {
+    assert.match(html, /id="history-skeleton"/, 'history skeleton placeholder must exist');
+    // history-empty must NOT show on first paint (old flash) — hidden by default.
+    assert.match(html, /id="history-empty"[^>]*class="[^"]*\bhidden\b/,
+      '#history-empty must be hidden by default (revealed only when 0 sessions confirmed)');
+  });
+
+  test('renderHistory resolves the skeleton and picks empty|table from the result', () => {
+    assert.match(html, /getElementById\('history-skeleton'\)[\s\S]*?classList\.add\('hidden'\)/);
+    // filtered 0-result must NOT claim "no sessions" — gated on active filters.
+    assert.match(html, /_historyHasActiveFilters\(\)\) emptyEl\.classList\.add\('hidden'\)/);
+  });
+});
+
+
+// ── Perf P2.1 — SWR for DISPLAY-ONLY dashboard aggregate ─────────────────────
+describe('Perf P2.1 — dashboard SWR cache (display-only)', () => {
+  const html = readFileSync(path.join(__dirname, '..', 'pages', 'speaking.html'), 'utf8');
+
+  test('caches into sessionStorage keyed by user id, TTL-bounded', () => {
+    assert.match(html, /function _dashCacheKey\(uid\)\s*{\s*return 'swr:dash:' \+ uid/);
+    assert.match(html, /_DASH_SWR_TTL_MS/);
+    assert.match(html, /sessionStorage\.getItem\(_dashCacheKey/);
+    assert.match(html, /sessionStorage\.setItem\(_dashCacheKey/);
+    // max-age guard so we never paint very old numbers
+    assert.match(html, /Date\.now\(\) - o\.t\) > _DASH_SWR_TTL_MS/);
+  });
+
+  test('paints cached stats + charts before the live fetch resolves', () => {
+    assert.match(html, /_readDashCache\(_uid\)/);
+    assert.match(html, /if \(_cachedDash && _cachedDash\.summary\)/);
+  });
+
+  test('ONLY display data is cached — never /auth/me permissions', () => {
+    // the write payload is exactly {summary, sessions} — no permissions/role.
+    assert.match(html, /_writeDashCache\(_uid, \{\s*summary: aggregate\.summary,\s*sessions: aggregate\.sessions \|\| \[\],\s*\}\)/);
+    // canonical-truth guardrail: the /auth/me payload must never be persisted.
+    assert.doesNotMatch(html, /setItem\([^)]*auth\/me/);
+    assert.doesNotMatch(html, /_writeDashCache\([^)]*permissions/);
+  });
+});
+
+
+// ── Perf P1.3 follow-up (Codex P3) — history count shows the paginated total ──
+describe('Perf P1.3 follow-up — history count uses response total', () => {
+  const html = readFileSync(path.join(__dirname, '..', 'pages', 'speaking.html'), 'utf8');
+
+  test('renderHistory accepts a total and shows it (not just the current page length)', () => {
+    assert.match(html, /function renderHistory\(sessions, total\)/);
+    assert.match(html, /const count = \(typeof total === 'number'\) \? total : visible\.length;/);
+    assert.match(html, /history-count'\)\.textContent = `\$\{count\} sessions`/);
+  });
+
+  test('loadHistory passes the paginated total into renderHistory', () => {
+    assert.match(html, /renderHistory\(sessions, total\);/);
   });
 });
