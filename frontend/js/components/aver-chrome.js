@@ -407,21 +407,30 @@ export class AverChrome extends HTMLElement {
   }
 
   /**
-   * Perf P2.3 — Speculation Rules prerender for the main skill dashboards.
-   * On a supporting browser, hovering a nav link to one of these read-only
-   * dashboards prerenders it, so the click feels instant (MPA nav ≈ SPA).
+   * Perf P2.3 — Speculation Rules PREFETCH for the main skill dashboards.
+   * On a supporting browser, hovering a nav link to one of these dashboards
+   * fetches its HTML ahead of the click so navigation starts warm.
+   *
+   * PREFETCH, not prerender (Codex review on #653): prerender executes the
+   * target page's scripts before the user navigates, so a hover / abandoned
+   * intent would fire real page-load side effects — the analytics `page_view`
+   * beacon (js/analytics-beacon.js POSTs /api/analytics/events), the /auth/me
+   * last_seen_at bump, dashboard queries — polluting analytics and doing writes
+   * on speculation. Prefetch is a NON-EXECUTING hint: it only warms the HTML
+   * document, no scripts run, no side effects. (Smaller win than prerender, but
+   * correct; the shadow-DOM caveat below already made the prerender win
+   * uncertain, so the trade-off is favourable.)
    *
    * Scoped deliberately:
    *   • allowlist of the 7 top-level dashboards ONLY — never stateful pages
    *     (practice/result need a session_id) or admin/instructor areas;
-   *   • eagerness "moderate" → prerender on hover/pointerdown INTENT, not on
-   *     load, so we don't speculatively fan out API calls for every link;
+   *   • eagerness "moderate" → prefetch on hover/pointerdown INTENT, not on load;
    *   • feature-detected + fully try/caught → fails safe (does nothing) on
-   *     browsers without prerender or if the nav lives out of reach.
+   *     browsers without speculation rules or if the nav lives out of reach.
    *
    * Verify in Chrome DevTools → Application → Speculative loads. NOTE: the nav
    * links render in this component's shadow root; document-rule matching of
-   * shadow-DOM links varies by Chrome version — if a build doesn't prerender,
+   * shadow-DOM links varies by Chrome version — if a build doesn't match,
    * this simply no-ops (no correctness or cost impact).
    */
   _injectSpeculationRules() {
@@ -433,7 +442,7 @@ export class AverChrome extends HTMLElement {
       if (document.querySelector('script[type="speculationrules"][data-aver-speculation]')) return;
 
       const rules = {
-        prerender: [{
+        prefetch: [{
           source: 'document',
           where: {
             or: [

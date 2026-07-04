@@ -1033,10 +1033,15 @@
     }
 
     // ── Render session history ────────────────────────────────
-    function renderHistory(sessions) {
+    function renderHistory(sessions, total) {
       // sessions includes completed, submitted, analysis_failed — filter out bare in_progress
       const visible = sessions.filter(s => s.status !== 'in_progress');
-      document.getElementById('history-count').textContent = `${visible.length} sessions`;
+      // P1.3 follow-up (Codex P3) — the unfiltered load is now paginated, so
+      // `visible` is only the current page (≤ page_size). Show the response
+      // `total` (across all pages) in the header, not just this page's length,
+      // or a user with >20 sessions sees a stale "20 sessions".
+      const count = (typeof total === 'number') ? total : visible.length;
+      document.getElementById('history-count').textContent = `${count} sessions`;
 
       // P2.2 — the load resolved (data OR error, every call site): drop the
       // first-paint skeleton so exactly one of empty|table shows from here on.
@@ -1164,7 +1169,7 @@
       var totalPages  = Array.isArray(data) ? 0               : (data.total_pages || 0);
       var currentPage = Array.isArray(data) ? 1               : (data.page        || 1);
 
-      renderHistory(sessions);
+      renderHistory(sessions, total);
       renderHistoryPagination(currentPage, totalPages, total);
       renderHistoryFilterInfo(total, filtered);
     }

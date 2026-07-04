@@ -80,13 +80,18 @@ describe('P0-3 CLS — aver-chrome reserves height in light DOM', () => {
 });
 
 
-// ── Perf P2.3 — Speculation Rules prerender for main nav dashboards ──────────
-describe('Perf P2.3 — aver-chrome injects prerender speculation rules', () => {
+// ── Perf P2.3 — Speculation Rules PREFETCH for main nav dashboards ───────────
+describe('Perf P2.3 — aver-chrome injects prefetch speculation rules', () => {
   it('injects a speculationrules script, feature-detected + deduped', () => {
     assert.match(CHROME, /_injectSpeculationRules\(\)/, 'method is called from connectedCallback');
     assert.match(CHROME, /HTMLScriptElement\.supports\('speculationrules'\)/, 'feature-detected');
     assert.match(CHROME, /script\[type="speculationrules"\]\[data-aver-speculation\]/, 'deduped by marker attr');
     assert.match(CHROME, /type = 'speculationrules'/);
+  });
+
+  it('uses PREFETCH, not prerender (Codex #653: prerender executes page scripts → analytics beacons + /auth/me side effects on hover)', () => {
+    assert.match(CHROME, /prefetch:\s*\[\{/, 'must use the non-executing prefetch hint');
+    assert.doesNotMatch(CHROME, /prerender:\s*\[\{/, 'must NOT prerender (would run beacons/auth on speculation)');
   });
 
   it('uses moderate eagerness (hover intent, not on-load fan-out)', () => {
