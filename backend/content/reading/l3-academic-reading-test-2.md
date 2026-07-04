@@ -66,6 +66,18 @@ passages:
       - q_num: 1
         question_type: matching_information
         prompt: "a comparison between two sources of metals"
+        solution:
+          solution_steps:
+            - action: locate
+              instruction_vi: "Đề yêu cầu tìm đoạn có SỰ SO SÁNH giữa hai nguồn kim loại — quét từng đoạn tìm tín hiệu đối chiếu (than/quặng trên cạn vs đáy biển)."
+              kp_refs:
+                - {type: skill, slug: scanning}
+            - action: parse_syntax
+              instruction_vi: "Nhận diện cấu trúc so sánh (than… so với… / nhiều hơn / thay vì) để chắc đoạn đang ĐỐI CHIẾU hai nguồn, không chỉ nhắc tới một nguồn."
+              kp_refs:
+                - {type: grammar, slug: comparison, anchor: comparison.overview}
+            - action: confirm
+              instruction_vi: "Đoạn B là nơi so sánh hai nguồn kim loại → đáp án B."
         template: { paragraph_labels: [A, B, C, D] }
         answer: "B"
         skill_tag: scanning

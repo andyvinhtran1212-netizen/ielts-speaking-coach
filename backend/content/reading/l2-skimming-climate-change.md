@@ -45,6 +45,16 @@ questions:
     alternatives: ["F", "false"]
     skill_tag: writer_view_TFNG
     explanation: The passage says recovery is "unlikely within decades" — far longer than ten years.
+    solution:
+      solution_steps:
+        - action: locate
+          instruction_vi: "Tìm câu về phục hồi: bài nói phục hồi 'unlikely within decades'."
+        - action: parse_syntax
+          instruction_vi: "'unlikely' là từ hạ mức chắc chắn (hedging) và 'within decades' = hàng chục năm — dài hơn hẳn 'ten years' mà câu hỏi nêu."
+        - action: confirm
+          instruction_vi: "Quan điểm tác giả (không phục hồi trong hàng chục năm) MÂU THUẪN với 'recover within ten years' → FALSE."
+          kp_refs:
+            - {type: skill, slug: writer_view_TFNG}
   - q_num: 4
     question_type: mcq_single
     prompt: What does the passage suggest is the FASTEST-acting threat to reefs?

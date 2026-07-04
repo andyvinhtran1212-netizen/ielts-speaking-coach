@@ -23,6 +23,18 @@ questions:
     skill_tag: detail
     sub_skill: check-claim
     explanation: The passage says tea is the most popular drink AFTER water — so it is not the most consumed overall.
+    solution:
+      solution_steps:
+        - action: locate
+          instruction_vi: "Định vị ở đoạn 1: 'the most popular beverage on Earth after plain water'."
+        - action: parse_syntax
+          instruction_vi: "'the most popular … after plain water' là so sánh nhất NHƯNG có mệnh đề loại trừ 'after plain water' — trà chỉ nhất SAU nước, không phải nhất tuyệt đối."
+          kp_refs:
+            - {type: grammar, slug: comparison, anchor: comparison.superlative.the-most}
+        - action: confirm
+          instruction_vi: "Câu hỏi khẳng định trà là đồ uống được tiêu thụ NHIỀU NHẤT thế giới (tuyệt đối) → mâu thuẫn với 'after water' → FALSE."
+          kp_refs:
+            - {type: skill, slug: detail}
   - q_num: 2
     question_type: sentence_completion
     prompt: "In Japan, preparing tea can become a careful ____."
@@ -30,6 +42,17 @@ questions:
     alternatives: ["a ritual"]
     skill_tag: vocabulary_in_context
     explanation: The passage uses the word "ritual" to describe the Japanese tea ceremony.
+    solution:
+      solution_steps:
+        - action: locate
+          instruction_vi: "Tìm câu về Nhật Bản ở đoạn 2: 'preparing and serving tea grew into a careful ritual, with precise steps'."
+        - action: decode_vocab
+          instruction_vi: "'ritual' = nghi thức — một chuỗi hành động thực hiện theo trình tự cố định; khớp với 'precise steps' trong câu."
+          kp_refs:
+            - {type: vocab, slug: ritual}
+            - {type: skill, slug: vocabulary_in_context}
+        - action: confirm
+          instruction_vi: "Điền 'ritual'."
 ---
 Tea is one of the oldest drinks in the world. According to legend, it was
 discovered in China thousands of years ago when a few leaves blew into a pot of
