@@ -31,6 +31,7 @@ from services.feature_flags import is_flashcard_enabled
 from services.pg_search import ilike_or_filter
 from services.rate_limit import rate_limit_flashcard
 from services.srs import update_srs
+from services import kp_evidence
 
 logger = logging.getLogger(__name__)
 
@@ -1140,7 +1141,7 @@ async def submit_review(
     try:
         v_check = (
             sb.table("user_vocabulary")
-            .select("id")
+            .select("id, headword")  # headword feeds the KP evidence signal (Phase 1)
             .eq("id", vocab_id)
             .eq("is_pending", False)  # Sprint 10.4: pending vocab isn't reviewable
             .limit(1)
@@ -1206,6 +1207,14 @@ async def submit_review(
     except Exception as e:
         logger.error("[flashcards] review RPC failed: %s", e)
         raise HTTPException(500, "Could not save review.")
+
+    # ── Phase 1: a self-rating is a direct recall signal on the word's vocab KP
+    # (source=srs_review, +1 good/easy, -1 again/hard). Best-effort — the helper
+    # swallows all errors (no-op until migrations 128/129 land, and skips words
+    # with no matching vocab_card KP), so it never affects the review response.
+    kp_evidence.record_srs_review(
+        user_id, (v_check.data[0] or {}).get("headword"), body.rating,
+        context={"vocabulary_id": vocab_id})
 
     # Prefer the authoritative persisted row (server-incremented review_count)
     # for the response; fall back to the Python state if the RPC returned nothing.

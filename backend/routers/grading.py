@@ -34,6 +34,7 @@ from services.whisper import transcribe_from_bytes
 from services import claude_grader
 from services import azure_pronunciation
 from services import ai_usage_logger
+from services import kp_evidence
 from services.pronunciation_sampling import _part2_segment, extract_audio_segment
 from services.transcript_reliability import classify_reliability
 from services.audio_validation import AudioTooShortError, validate_audio_duration
@@ -1012,6 +1013,18 @@ async def grade_response_endpoint(
                 response_id=response_id,
             )
             grading["grammar_recommendations"] = saved_recs
+
+            # ── Phase 1: feed the same grammar signals into the unified KP
+            # evidence store (source=speaking_feedback). Best-effort — the helper
+            # swallows every error, so this NEVER blocks or breaks grading (and is
+            # a no-op until migrations 128/129 are applied).
+            for _rec in saved_recs or []:
+                if _rec.get("slug"):
+                    kp_evidence.record_speaking_feedback(
+                        user_id, _rec["slug"], _rec.get("anchor"),
+                        context={"session_id": session_id,
+                                 "response_id": response_id,
+                                 "rec_id": _rec.get("rec_id")})
 
         # ── STEP 8c: (removed) automatic vocab discovery ─────────────────────
         # The post-Speaking vocab auto-extraction fed the My Vocabulary + Needs
