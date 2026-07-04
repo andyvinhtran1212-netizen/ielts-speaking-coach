@@ -362,11 +362,7 @@
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        // B3 (audit) — also escape single quotes: escHtml output is interpolated
-        // into single-quoted inline onclick handlers (toggleAudio/downloadAudio),
-        // so an unescaped ' would break out of the JS string literal.
-        .replace(/'/g, '&#39;');
+        .replace(/"/g, '&quot;');
     }
 
     // ── Persisted signal helpers (Sprint 14.8.1, Codex F1) ─────────────────────
@@ -605,14 +601,20 @@
         // ── Audio controls (always visible, outside accordion body) ─────────────
         var audioHtml = '';
         if (audioUrl) {
+          // B3 (audit, Codex #657) — do NOT interpolate the URL into an inline
+          // onclick JS string: HTML-escaping doesn't protect that context (the
+          // parser decodes entities before the handler compiles, so an ' still
+          // breaks out). Put the URL in a data-* attribute (escHtml is correct
+          // for the double-quoted attribute value) and bind via addEventListener
+          // after render, so the URL is never parsed as JavaScript source.
           var safeUrl = escHtml(audioUrl);
           var dlName  = 'recording-q' + (idx + 1) + '.webm';
           audioHtml = '<div style="padding:8px 20px;border-top:1px solid var(--av-border-subtle);display:flex;gap:8px;flex-wrap:wrap;align-items:center;">'
-            + '<button onclick="toggleAudio(this, \'' + safeUrl + '\')" data-playing="false" class="btn-secondary" style="font-size:12px;padding:6px 12px;display:inline-flex;align-items:center;gap:6px;">'
+            + '<button type="button" data-audio-play data-audio-url="' + safeUrl + '" data-playing="false" class="btn-secondary" style="font-size:12px;padding:6px 12px;display:inline-flex;align-items:center;gap:6px;">'
             +   '<svg xmlns=\'http://www.w3.org/2000/svg\' class=\'w-3.5 h-3.5\' fill=\'currentColor\' viewBox=\'0 0 24 24\'><path d=\'M8 5v14l11-7z\'/></svg>'
             +   'Nghe lại'
             + '</button>'
-            + '<button onclick="downloadAudio(\'' + safeUrl + '\', \'' + dlName + '\')" class="btn-secondary" style="font-size:12px;padding:6px 12px;display:inline-flex;align-items:center;gap:6px;">'
+            + '<button type="button" data-audio-dl data-audio-url="' + safeUrl + '" data-dl-name="' + escHtml(dlName) + '" class="btn-secondary" style="font-size:12px;padding:6px 12px;display:inline-flex;align-items:center;gap:6px;">'
             +   '<svg xmlns=\'http://www.w3.org/2000/svg\' class=\'w-3.5 h-3.5\' fill=\'none\' viewBox=\'0 0 24 24\' stroke=\'currentColor\' stroke-width=\'2\'><path stroke-linecap=\'round\' stroke-linejoin=\'round\' d=\'M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4\'/></svg>'
             +   'Tải audio'
             + '</button>'
@@ -697,6 +699,16 @@
           + '</div>'
           + '</div>';
       }).join('');
+
+      // B3 (audit) — bind audio buttons via listeners reading data-* attributes,
+      // so the (signed) URL is never interpolated into JavaScript source. dataset
+      // returns the browser-decoded attribute value (the real URL).
+      container.querySelectorAll('[data-audio-play]').forEach(function (b) {
+        b.addEventListener('click', function () { window.toggleAudio(b, b.dataset.audioUrl); });
+      });
+      container.querySelectorAll('[data-audio-dl]').forEach(function (b) {
+        b.addEventListener('click', function () { window.downloadAudio(b.dataset.audioUrl, b.dataset.dlName); });
+      });
     }
 
     // ── Accordion toggle ───────────────────────────────────────────────────────
