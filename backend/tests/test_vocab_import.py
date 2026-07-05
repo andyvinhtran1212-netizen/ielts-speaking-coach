@@ -650,7 +650,7 @@ def test_backward_compat_markdown_fallback_keeps_six_categories():
     titles = {c["slug"]: c["title"] for c in cats}
     assert titles.get("technology") == "Technology"
     assert titles.get("work-career") == "Work & Career"   # yaml title preserved
-    assert sum(c["article_count"] for c in cats) == 68
+    assert sum(c["article_count"] for c in cats) == 80
 
 
 # ── Phase B2: KP-enrichment fields (confusable_with / related_grammar / tested_in / lists) ──
