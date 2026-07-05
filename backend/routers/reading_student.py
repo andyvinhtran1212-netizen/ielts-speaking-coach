@@ -44,6 +44,7 @@ from database import supabase_admin
 from routers.auth import get_supabase_user
 from services.listening_test_grader import answer_matches
 from services.reading_diagnostic_engine import build_reading_diagnostic
+from services import reading_solution
 
 logger = logging.getLogger(__name__)
 
@@ -291,6 +292,9 @@ async def get_vocab_passage(
         .execute()
     )
     passage["questions"] = q.data or []
+    # The optional stepper solution reveals the answer (its steps end in the
+    # answer); L1 has no post-check reveal path, so it must never ship pre-check.
+    _strip_solution_from_payload(passage["questions"])
     return passage
 
 
@@ -419,6 +423,8 @@ async def get_skill_exercise(
         .execute()
     )
     passage["questions"] = q.data or []
+    # Same as L1: strip the answer-revealing stepper solution from the pre-check fetch.
+    _strip_solution_from_payload(passage["questions"])
     return passage
 
 
@@ -1218,7 +1224,7 @@ async def review_reading_test_attempt(
     if passage_ids:
         q_res = (
             supabase_admin.table("reading_questions")
-            .select("q_num,question_type,prompt,payload,passage_id")
+            .select("q_num,question_type,prompt,payload,explanation,passage_id")
             .in_("passage_id", passage_ids)
             .execute()
         )
@@ -1229,6 +1235,7 @@ async def review_reading_test_attempt(
                 sol_by_qnum[qn] = sol
             ctx_by_qnum[qn] = {
                 "prompt": q.get("prompt"), "question_type": q.get("question_type"),
+                "explanation": q.get("explanation"),
             }
 
     grading = attempt.get("grading_details") or []
@@ -1241,6 +1248,11 @@ async def review_reading_test_attempt(
         item["prompt"] = ctx.get("prompt")
         item["question_type"] = ctx.get("question_type")
         item["solution"] = sol_by_qnum.get(qn)
+        # Phase 0.3 — normalized stepper view-model (reconciles rich prose
+        # solutions AND plain `explanation` into one stepper shape + surfaces
+        # kp_refs). Backward-compatible: `solution` above is kept untouched.
+        item["stepper"] = reading_solution.build_stepper(
+            sol_by_qnum.get(qn), ctx.get("explanation"))
         review.append(item)
         po = g.get("passage_order")
         bucket = by_part.setdefault("p%s" % po if po else "p?", {"correct": 0, "total": 0})

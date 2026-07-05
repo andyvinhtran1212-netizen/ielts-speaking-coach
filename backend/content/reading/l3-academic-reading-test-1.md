@@ -156,6 +156,18 @@ passages:
         answer: coal
         alternatives: []
         skill_tag: scanning
+        solution:
+          solution_steps:
+            - action: locate
+              instruction_vi: "Quét (scan) tìm con số '150,000' trong bài — số liệu là 'mỏ neo' dễ định vị nhanh."
+              kp_refs:
+                - {type: skill, slug: scanning}
+            - action: parse_syntax
+              instruction_vi: "Câu dùng cấu trúc so sánh 'compared with …' — ngành đứng sau 'compared with' chính là đáp án."
+              kp_refs:
+                - {type: grammar, slug: comparison, anchor: comparison.overview}
+            - action: confirm
+              instruction_vi: "Ngành được đem so sánh là 'coal' → đáp án: coal."
       - q_num: 11
         question_type: short_answer
         prompt: "How many times more expensive can a hand-thrown mug be? (ONE word)"

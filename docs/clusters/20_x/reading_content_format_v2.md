@@ -243,7 +243,8 @@ The builder `build_reading_question_payloads()` takes the flat author input and 
 | `alternatives` | optional | string[] | Accepted alternative spellings / variants. Default `[]`. Must be a list — a bare string is silently dropped. |
 | `skill_tag` | ✅ | enum | One of `SKILL_TAGS` (§1). The diagnostic engine aggregates by this column. |
 | `sub_skill` | optional | string | Free-form finer label (e.g. `find-purpose`, `locate-claim`). Captured, not aggregated. |
-| `explanation` | optional | string | Shown after grading on result pages. Plain text. |
+| `explanation` | optional | string | Shown after grading on result pages. Plain text. Also the fallback the stepper renders when there is no `solution` (§4.5). |
+| `solution` | optional | dict | The step-by-step "chữa bài" (§4.5). Rides into `payload.solution`; reconciled into the stepper view-model at review time. Prose-only (legacy) shape still valid. |
 | `order_num` | derived | int | The importer assigns `order_num = i + 1` based on list order; authors should not set it. |
 
 ### 4.2 `question_type` — Phase 1 catalogue
@@ -383,6 +384,40 @@ Cloned from listening's `answer_matches`:
 | `Câu hỏi #N: thiếu 'prompt'.` | Empty / missing `prompt`. |
 | `Câu hỏi #N: thiếu 'answer'.` | `answer` is `null`, empty string, or empty list. *(Dicts pass this guard — see §10.)* |
 | `Câu hỏi #N: 'skill_tag' phải là một trong …` | Not in `SKILL_TAGS`. |
+| `Câu hỏi #N.solution_steps[i]: 'action' phải là một trong …` | A step's `action` is not a valid `ACTION_TYPES` verb (§4.5). |
+| `Câu hỏi #N.solution_steps[i]: thiếu 'instruction_vi'.` | A structured step has no instruction text. |
+| `Câu hỏi #N…kp_refs: …` | A `kp_ref` is malformed (bad `type`, empty `slug`, or a non-grammar ref carrying an `anchor`). |
+
+### 4.5 `solution` — the step-by-step stepper (Phase 0.3)
+
+Optional per-question. Turns the flat `explanation` into a KP-aware, step-by-step
+"chữa bài". **Fully backward-compatible**: omit it and the stepper renders a
+single step from `explanation`; the legacy prose shape from the L3 prose importer
+(`steps`, `source_excerpt`, `vocab`, `trap_analysis`, `tips`) still works as a
+fallback. Structured fields are validated for *shape* at import; whether each
+`kp_ref` resolves to a real knowledge-point is a separate gate
+(`test_kp_ref_drift`, `verify_kp_asset_drift`).
+
+```yaml
+solution:
+  solution_steps:                    # ordered micro-steps
+    - action: locate                 # one of: locate | decode_vocab | parse_syntax | eliminate | infer | confirm
+      instruction_vi: "Tìm 'reintroduced' ở đoạn 1."
+    - action: decode_vocab
+      instruction_vi: "re- (lại) + introduce → được đưa trở lại."
+      kp_refs: [{type: vocab, slug: reintroduce}]
+    - action: parse_syntax
+      instruction_vi: "'once eaten to stubs' là mệnh đề rút gọn."
+      kp_refs: [{type: grammar, slug: participle-clauses, anchor: participle-clauses.overview}]
+  distractor_analysis:               # why each wrong option is wrong
+    - option: "A"
+      why_wrong_vi: "Bẫy paraphrase: 'bred quickly' không xuất hiện."
+      kp_refs: [{type: skill, slug: scanning}]
+  kp_tags: [{type: grammar, slug: participle-clauses}]   # optional; if omitted, derived from the union of kp_refs above
+```
+
+`kp_ref` shape: `{type: grammar|vocab|skill, slug: <asset-slug>, anchor?: <grammar-only>}`.
+Only `grammar` refs may carry an `anchor` (a declared Grammar-Wiki anchor id).
 
 ---
 
