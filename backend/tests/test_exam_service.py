@@ -187,3 +187,14 @@ def test_get_review_uses_snapshot_not_current_questions(monkeypatch):
     r = out["review"][0]
     assert r["prompt"] == "ORIGINAL PROMPT"          # from snapshot, not "EDITED PROMPT"
     assert r["stepper"]["steps"][0]["instruction_vi"] == "snap"
+
+
+def test_build_payloads_strips_author_only_option_metadata():
+    # An option carrying answer-key metadata must NOT survive into storage/serving.
+    fm = {"exam_source": "toeic_rc", "code": "C", "title": "T", "questions": [
+        {"q_num": 1, "question_type": "mcq_single", "prompt": "p", "answer": "A",
+         "options": [{"label": "A", "text": "a", "is_correct": True, "explanation": "leak"},
+                     {"label": "B", "text": "b"}]}]}
+    opts = ex.build_exam_payloads(fm)["question_rows"][0]["options"]
+    assert opts == [{"label": "A", "text": "a"}, {"label": "B", "text": "b"}]
+    assert all(set(o.keys()) == {"label", "text"} for o in opts)

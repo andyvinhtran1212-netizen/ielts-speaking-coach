@@ -85,6 +85,19 @@ def validate_exam(fm: dict) -> list[str]:
     return errs
 
 
+def _norm_options(options) -> list:
+    """Keep ONLY {label, text} per option — strip any author-only metadata (e.g. an
+    is_correct flag or per-option explanation) before storing/serving. get_for_play
+    returns options pre-submission, so unstripped extras would leak the answer key."""
+    if not isinstance(options, list):
+        return []
+    out = []
+    for o in options:
+        if isinstance(o, dict):
+            out.append({"label": _as_str(o.get("label")), "text": _as_str(o.get("text"))})
+    return out
+
+
 def build_exam_payloads(fm: dict) -> dict:
     """Parsed exam → {test_row, question_rows}. Assumes validate_exam passed."""
     qs = fm.get("questions") or []
@@ -105,7 +118,7 @@ def build_exam_payloads(fm: dict) -> dict:
             "q_num":         q.get("q_num"),
             "question_type": q.get("question_type") or "mcq_single",
             "prompt":        _as_str(q.get("prompt")),
-            "options":       q.get("options") if isinstance(q.get("options"), list) else [],
+            "options":       _norm_options(q.get("options")),
             "answer":        {"answer": q.get("answer"),
                               "alternatives": alts if isinstance(alts, list) else []},
             "solution":      q.get("solution") if isinstance(q.get("solution"), dict) else None,
