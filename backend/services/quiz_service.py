@@ -296,6 +296,36 @@ def get_resume(*, user_id: str, bank_id: str) -> list[dict]:
     return rows
 
 
+def _record_quiz_kp_evidence(user_id: str, bank_id: str, attempt_rows: list[dict]) -> None:
+    """Phase 2.4 — a graded quiz attempt on a grammar-linked question is a
+    source=quiz signal on that article's KP (+1 correct / -1 wrong). Best-effort:
+    generalizes quiz_questions.grammar_article_slug → grammar KP. Never raises
+    into log_progress; a no-op until the KP tables/migrations exist. Questions with
+    no grammar_article_slug (pure vocab) contribute nothing here."""
+    try:
+        from services import kp_evidence  # local import — keep this path optional
+        keys = list({r["item_key"] for r in attempt_rows if r.get("item_key")})
+        if not keys:
+            return
+        qrows = (supabase_admin.table("quiz_questions")
+                 .select("item_key,grammar_article_slug")
+                 .eq("bank_id", bank_id).in_("item_key", keys).execute().data or [])
+        slug_by_key = {q["item_key"]: q["grammar_article_slug"]
+                       for q in qrows if q.get("grammar_article_slug")}
+        if not slug_by_key:
+            return
+        for r in attempt_rows:
+            slug = slug_by_key.get(r.get("item_key"))
+            if not slug:
+                continue
+            kp_evidence.record_evidence_safe(
+                user_id, kp_type="grammar", ref_slug=slug, anchor="",
+                source="quiz", signal=1 if r["is_correct"] else -1,
+                context={"bank_id": bank_id, "item_key": r["item_key"]})
+    except Exception as e:  # noqa: BLE001 — telemetry only, never fatal
+        logger.warning("[quiz] KP evidence recording skipped (non-fatal): %s", e)
+
+
 def log_progress(*, user_id: str, session_id: str, attempts: list[dict], word_stats: list[dict]) -> dict:
     """Batch-persist attempts (append) + word_stats (upsert by user+bank+item).
     The client owns the mastery decision; we store its snapshots."""
@@ -329,6 +359,8 @@ def log_progress(*, user_id: str, session_id: str, attempts: list[dict], word_st
                 user_id=user_id, url=f"/api/quiz/sessions/{session_id}/progress",
                 extra={"stage": "attempts", "n_attempts": len(attempt_rows)})
             raise HTTPException(500, f"Lỗi ghi attempts: {exc}")
+        # Attempts persisted → feed grammar-linked ones into the KP evidence store.
+        _record_quiz_kp_evidence(user_id, bank_id, attempt_rows)
 
     stat_rows = []
     for w in word_stats:
