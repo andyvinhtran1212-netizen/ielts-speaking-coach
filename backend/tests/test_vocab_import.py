@@ -707,3 +707,33 @@ def test_all_seed_vocab_cards_parse_and_validate():
             wf = vp.lists.get("word_family") or []
             assert all(isinstance(x, dict) for x in wf), f"{p.name} word_family not object"
     assert awl >= 20, f"expected >=20 AWL-tagged cards, got {awl}"
+
+
+def test_vocab_kp_fields_structurally_valid():
+    """Guards uploads: lists ∈ _lists.yaml, tested_in ∈ allowed sources, and
+    related_grammar/confusable_with are well-formed objects. (Anchor resolution
+    is checked once the grammar articles land on main.)"""
+    import glob
+    import yaml
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1] / "content_vocab"
+    list_slugs = {l["slug"] for l in
+                  (yaml.safe_load((root / "_lists.yaml").read_text("utf-8")) or {}).get("lists", [])}
+    ALLOWED_SRC = {"ielts_reading", "ielts_listening", "toeic_rc", "toeic_lc", "thpt_qg"}
+    bad = []
+    for p in glob.glob(str(root / "*/*.md")):
+        vp = parse_vocab_markdown(Path(p).read_text("utf-8"))
+        name = Path(p).name
+        for v in vp.lists.get("lists") or []:
+            if v not in list_slugs:
+                bad.append(f"{name}: lists '{v}' not in _lists.yaml")
+        for v in vp.lists.get("tested_in") or []:
+            if v not in ALLOWED_SRC:
+                bad.append(f"{name}: tested_in '{v}' invalid")
+        for r in vp.lists.get("related_grammar") or []:
+            if not (isinstance(r, dict) and r.get("slug") and r.get("anchor")):
+                bad.append(f"{name}: related_grammar item needs slug+anchor")
+        for c in vp.lists.get("confusable_with") or []:
+            if not (isinstance(c, dict) and c.get("slug")):
+                bad.append(f"{name}: confusable_with item needs slug")
+    assert not bad, "KP-field problems:\n" + "\n".join(bad)
