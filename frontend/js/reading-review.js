@@ -413,8 +413,8 @@
         : '', 'rr-sol__sec--quote'),
       _section('Từ vựng', (sol.vocab && sol.vocab.length) ? _vocabList(sol.vocab) : '', 'rr-sol__sec--vocab'),
       _section('Paraphrase', sol.paraphrase ? _bulletList(sol.paraphrase) : ''),
-      _section('Phân tích bẫy & kỹ năng',
-        _renderDistractors(stp) || (sol.trap_analysis ? _bulletList(sol.trap_analysis) : ''), 'rr-sol__sec--trap'),
+      _section('Phân tích đáp án nhiễu', _renderDistractors(stp), 'rr-sol__sec--trap'),
+      _section('Phân tích bẫy & kỹ năng', sol.trap_analysis ? _bulletList(sol.trap_analysis) : '', 'rr-sol__sec--trap'),
       _section('💡 Mẹo làm bài', sol.tips ? _bulletList(sol.tips) : '', 'rr-sol__sec--tip'),
       (!_hasStructuredStepper(stp) && !sol.steps && item.explanation)
         ? _section('Lời giải', '<p>' + formatProse(item.explanation) + '</p>') : '',
