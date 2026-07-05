@@ -114,6 +114,31 @@ def test_importer_rejects_bad_solution_loudly():
     assert any("action" in e["message"] for e in errs)
 
 
+def test_enrich_kp_refs_adds_injected_metadata():
+    stepper = {
+        "steps": [{"action": "parse_syntax", "instruction_vi": "x",
+                   "kp_refs": [{"type": "grammar", "slug": "articles"}]}],
+        "distractors": [{"option": "A", "why_wrong_vi": "y",
+                         "kp_refs": [{"type": "skill", "slug": "scanning"}]}],
+        "kp_tags": [{"type": "vocab", "slug": "ritual"}],
+    }
+    labels = {"grammar": {"category": "foundations", "title": "Articles"},
+              "skill": {"title": "Scanning"}, "vocab": {"title": "Ritual"}}
+    rs.enrich_kp_refs(stepper, lambda t, s: labels[t])
+    assert stepper["steps"][0]["kp_refs"][0]["category"] == "foundations"
+    assert stepper["steps"][0]["kp_refs"][0]["title"] == "Articles"
+    assert stepper["distractors"][0]["kp_refs"][0]["title"] == "Scanning"
+    assert stepper["kp_tags"][0]["title"] == "Ritual"
+
+
+def test_enrich_kp_refs_is_none_safe_and_does_not_override():
+    assert rs.enrich_kp_refs(None, lambda t, s: {}) is None
+    # setdefault: an existing title is not overwritten.
+    stp = {"steps": [{"kp_refs": [{"type": "grammar", "slug": "x", "title": "keep"}]}]}
+    rs.enrich_kp_refs(stp, lambda t, s: {"title": "new"})
+    assert stp["steps"][0]["kp_refs"][0]["title"] == "keep"
+
+
 def test_importer_accepts_good_solution():
     q = {
         "q_num": 1, "question_type": "true_false_not_given",

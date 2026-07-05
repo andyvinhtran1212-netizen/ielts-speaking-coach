@@ -28,6 +28,12 @@ describe('result-page weak-KP widget', () => {
     assert.match(WIDGET_JS, /grammar-roadmap\.html/);
   });
 
+  test('chips show enriched title + deep-link via category', () => {
+    assert.match(WIDGET_JS, /it\.title \|\| pretty\(it\.ref_slug\)/);
+    assert.match(WIDGET_JS, /if \(it\.category\)/);
+    assert.match(WIDGET_JS, /'\/grammar\/' \+ encodeURIComponent\(it\.category\)/);
+  });
+
   test('widget is token-compliant + escapes text', () => {
     const body = WIDGET_JS.replace(/\/\*[\s\S]*?\*\//g, '');
     assert.doesNotMatch(body, /#[0-9a-fA-F]{3,8}\b/);
@@ -53,6 +59,11 @@ describe('reading-review KP stepper', () => {
     assert.match(REVIEW_JS, /STEP_ACTION/);
     assert.match(REVIEW_JS, /_kpChips/);
     assert.match(REVIEW_JS, /_renderDistractors/);
+  });
+
+  test('grammar kp-ref chips deep-link to the article via enriched category', () => {
+    assert.match(REVIEW_JS, /ref\.type === 'grammar' && ref\.category/);
+    assert.match(REVIEW_JS, /ref\.title \|\| _prettySlug\(ref\.slug\)/);
   });
 
   test('micro-checks post KP evidence to the authed endpoint (skipped for anon)', () => {

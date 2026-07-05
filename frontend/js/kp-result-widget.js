@@ -32,10 +32,17 @@
     if (!items.length) return;
 
     var chips = items.slice(0, 3).map(function (it) {
-      return '<span style="display:inline-block;font-size:var(--av-fs-xs);font-weight:600;' +
+      var chip = '<span style="display:inline-block;font-size:var(--av-fs-xs);font-weight:600;' +
         'padding:2px 10px;border-radius:999px;margin:0 6px 6px 0;' +
         'color:var(--av-error);background:var(--av-error-soft);">' +
-        esc(pretty(it.ref_slug)) + '</span>';
+        esc(it.title || pretty(it.ref_slug)) + '</span>';
+      // Deep-link to the article when the backend enriched the KP with a category.
+      if (it.category) {
+        var href = '/grammar/' + encodeURIComponent(it.category) + '/' + encodeURIComponent(it.ref_slug) +
+          (it.anchor ? ('#' + encodeURIComponent(it.anchor)) : '');
+        return '<a href="' + esc(href) + '" style="text-decoration:none;">' + chip + '</a>';
+      }
+      return chip;
     }).join('');
 
     el.innerHTML =

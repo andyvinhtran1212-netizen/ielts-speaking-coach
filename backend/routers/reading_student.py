@@ -45,6 +45,7 @@ from routers.auth import get_supabase_user
 from services.listening_test_grader import answer_matches
 from services.reading_diagnostic_engine import build_reading_diagnostic
 from services import reading_solution
+from services import kp_registry
 
 logger = logging.getLogger(__name__)
 
@@ -1253,6 +1254,10 @@ async def review_reading_test_attempt(
         # kp_refs). Backward-compatible: `solution` above is kept untouched.
         item["stepper"] = reading_solution.build_stepper(
             sol_by_qnum.get(qn), ctx.get("explanation"))
+        # Phase 2 FE: attach {title, category} to each kp_ref so the stepper can
+        # show article titles and deep-link grammar refs.
+        if item["stepper"]:
+            reading_solution.enrich_kp_refs(item["stepper"], kp_registry.label_for)
         review.append(item)
         po = g.get("passage_order")
         bucket = by_part.setdefault("p%s" % po if po else "p?", {"correct": 0, "total": 0})

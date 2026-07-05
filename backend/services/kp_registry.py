@@ -67,6 +67,23 @@ def resolve_vocab(slug: str, known: Optional[set[str]] = None) -> Optional[str]:
     return f"vocab card '{slug}' not found"
 
 
+def label_for(kp_type: str, ref_slug: str) -> dict:
+    """Human-facing metadata for a KP ref so the frontend can show a real title
+    and (for grammar) deep-link to /grammar/{category}/{slug}. Returns {} when the
+    asset is unknown; never raises."""
+    if kp_type == "grammar":
+        a = grammar_service.articles_by_slug.get(ref_slug)
+        if not a:
+            return {}
+        return {"category": a.get("category"), "title": a.get("title") or ref_slug}
+    if kp_type == "vocab":
+        a = vocab_service.articles_by_slug.get(ref_slug)
+        return {"title": (a.get("headword") if a else None) or ref_slug}
+    if kp_type == "skill":
+        return {"title": SKILL_LABELS.get(ref_slug, ref_slug)}
+    return {}
+
+
 def resolve_ref(kp_type: str, ref_slug: str, anchor: str = "",
                 *, vocab_known: Optional[set[str]] = None) -> Optional[str]:
     """Resolve any KP ref. Returns None if valid, else a reason string.

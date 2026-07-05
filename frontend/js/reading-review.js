@@ -287,10 +287,17 @@
   }
   function _kpChip(ref) {
     if (!ref || !ref.slug) return '';
-    return '<span style="display:inline-flex;align-items:center;gap:4px;font-size:var(--av-fs-xs);' +
+    var chip = '<span style="display:inline-flex;align-items:center;gap:4px;font-size:var(--av-fs-xs);' +
       'padding:2px 8px;border-radius:999px;background:var(--av-primary-soft);' +
       'color:var(--av-primary);margin:2px 4px 0 0;">' +
-      (KP_ICON[ref.type] || '•') + ' ' + escapeHtml(_prettySlug(ref.slug)) + '</span>';
+      (KP_ICON[ref.type] || '•') + ' ' + escapeHtml(ref.title || _prettySlug(ref.slug)) + '</span>';
+    // Grammar refs enriched with a category deep-link to the article (+ anchor).
+    if (ref.type === 'grammar' && ref.category) {
+      var href = '/grammar/' + encodeURIComponent(ref.category) + '/' + encodeURIComponent(ref.slug) +
+        (ref.anchor ? ('#' + encodeURIComponent(ref.anchor)) : '');
+      return '<a href="' + escapeHtml(href) + '" style="text-decoration:none;">' + chip + '</a>';
+    }
+    return chip;
   }
   function _kpChips(refs) {
     refs = refs || [];
