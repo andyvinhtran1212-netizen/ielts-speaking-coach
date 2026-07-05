@@ -230,3 +230,49 @@ def record_srs_review(user_id: str, headword: str, rating: str,
     return record_evidence_safe(
         user_id, kp_type="vocab", ref_slug=slugify(headword), anchor="",
         source="srs_review", signal=signal, context=context)
+
+
+def record_microcheck(user_id: str, *, kp_type: str, ref_slug: str, anchor: str = "",
+                      correct: bool, context: Optional[dict] = None) -> Optional[str]:
+    """A stepper micro-check answer → the HIGHEST-weight, explicit ±1 signal
+    (source=microcheck, plan §2.3 Tier-2). Direct 1-1 evidence about one KP."""
+    return record_evidence_safe(
+        user_id, kp_type=kp_type, ref_slug=ref_slug, anchor=anchor,
+        source="microcheck", signal=1 if correct else -1, context=context)
+
+
+# ── mastery read (canonical, backend-owned) ──────────────────────────────────
+
+def get_user_mastery(user_id: str, *, status: Optional[str] = None,
+                     kp_type: Optional[str] = None, limit: int = 1000) -> list[dict]:
+    """The learner's KP mastery profile — user_kp_mastery joined to its KP. Each
+    item flattens the KP pointer (kp_type/ref_slug/anchor/level) next to the
+    score/status. Read-only; returns [] on any DB error."""
+    try:
+        q = (supabase_admin.table("user_kp_mastery")
+             .select("kp_id,score,status,evidence_count,last_evidence_at,updated_at,"
+                     "knowledge_points(kp_type,ref_slug,anchor,level)")
+             .eq("user_id", user_id))
+        if status:
+            q = q.eq("status", status)
+        rows = q.limit(limit).execute().data or []
+    except Exception as e:  # noqa: BLE001
+        logger.warning("[kp] get_user_mastery failed user=%s: %s", user_id, e)
+        return []
+    out: list[dict] = []
+    for r in rows:
+        kp = r.get("knowledge_points") or {}
+        if kp_type and kp.get("kp_type") != kp_type:
+            continue
+        out.append({
+            "kp_id":            r.get("kp_id"),
+            "kp_type":          kp.get("kp_type"),
+            "ref_slug":         kp.get("ref_slug"),
+            "anchor":           kp.get("anchor") or "",
+            "level":            kp.get("level") or "",
+            "score":            r.get("score"),
+            "status":           r.get("status"),
+            "evidence_count":   r.get("evidence_count"),
+            "last_evidence_at": r.get("last_evidence_at"),
+        })
+    return out
