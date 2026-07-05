@@ -198,7 +198,7 @@ class GrammarContentService:
         # Skip anything whose content_type marks it as non-grammar — the runtime
         # loader must match test_grammar_audit_scope.py's exclusion.
         content_type = str(fm.get("content_type") or "")
-        if content_type.startswith(("reading", "listening")):
+        if content_type.startswith(("reading", "listening", "exam")):
             return None
 
         slug     = fm.get("slug") or path.stem

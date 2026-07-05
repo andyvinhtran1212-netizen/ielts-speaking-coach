@@ -39,7 +39,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 CONTENT_DIR = ROOT / "backend" / "content"
 MAPPING_FILE = CONTENT_DIR / "feedback-anchor-mapping.yaml"
-EXCLUDED_TOP_LEVEL_DIRS = {"reading"}
+EXCLUDED_TOP_LEVEL_DIRS = {"reading", "exams"}
 
 # A2: a body marker `<!-- anchor: ID -->` — ID is kebab-dot (contains '.').
 # Mirrors services/grammar_content.py:_ANCHOR_MARKER_RE so the audit checks
