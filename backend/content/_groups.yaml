@@ -168,6 +168,12 @@ groups:
       - { slug: grammar-in-task1,      category: grammar-for-writing, title: "Grammar in Task 1 — Ngữ pháp cho IELTS Writing Task 1 (Academic)" }
       - { slug: task1-trend-grammar,   category: grammar-for-writing, title: "Task 1 Trend Grammar — Ngữ pháp mô tả xu hướng trong Writing Task 1" }
       - { slug: grammar-in-task2,      category: grammar-for-writing, title: "Grammar in Task 2 — Ngữ pháp cho IELTS Writing Task 2 (Essay)" }
+      - { slug: parallel-structure,           category: grammar-for-writing, title: "Parallel Structure — Cấu trúc song song" }
+      - { slug: relative-clauses-in-writing,  category: grammar-for-writing, title: "Relative Clauses in Writing — Mệnh đề quan hệ trong bài viết" }
+      - { slug: cohesion-devices-in-writing,  category: grammar-for-writing, title: "Cohesion Devices — Liên kết câu và đoạn trong bài viết" }
+      - { slug: punctuation-for-writing,      category: grammar-for-writing, title: "Punctuation for Writing — Dấu câu trong bài viết học thuật" }
+      - { slug: complex-sentences-for-task2,  category: grammar-for-writing, title: "Complex Sentences for Task 2 — Câu phức cho essay" }
+      - { slug: avoiding-informal-grammar,    category: grammar-for-writing, title: "Avoiding Informal Grammar — Tránh văn nói trong bài viết" }
 
   - slug: grammar-for-reading
     title: "Grammar for Reading — Giải mã câu trong bài đọc"
