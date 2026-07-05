@@ -651,3 +651,40 @@ def test_backward_compat_markdown_fallback_keeps_six_categories():
     assert titles.get("technology") == "Technology"
     assert titles.get("work-career") == "Work & Career"   # yaml title preserved
     assert sum(c["article_count"] for c in cats) == 20
+
+
+# ── Phase B2: KP-enrichment fields (confusable_with / related_grammar / tested_in / lists) ──
+
+_ENRICHED_MD = """---
+headword: "Innovation"
+slug: "innovation"
+category: "technology"
+part_of_speech: "noun"
+word_family:
+  - {form: "innovate", pos: "verb", note_vi: "đổi mới"}
+  - {form: "innovative", pos: "adjective"}
+confusable_with:
+  - {slug: "invention", note_vi: "invention = phát minh; innovation = cải tiến"}
+related_grammar:
+  - {slug: "word-formation-noun-suffixes", anchor: "word-formation-noun-suffixes.suffix.tion-sion"}
+tested_in: ["toeic_rc", "ielts_reading"]
+lists: ["awl-sublist-1", "toeic-core"]
+---
+
+**Sự đổi mới** — a new idea, method, or device.
+"""
+
+
+def test_kp_enrichment_fields_parsed_and_in_payload():
+    p = parse_vocab_markdown(_ENRICHED_MD)
+    # string lists coerced as before
+    assert p.lists["tested_in"] == ["toeic_rc", "ielts_reading"]
+    assert p.lists["lists"] == ["awl-sublist-1", "toeic-core"]
+    # object lists preserved verbatim (dicts, not stringified)
+    assert p.lists["word_family"][0] == {"form": "innovate", "pos": "verb", "note_vi": "đổi mới"}
+    assert p.lists["confusable_with"][0]["slug"] == "invention"
+    assert p.lists["related_grammar"][0]["anchor"] == "word-formation-noun-suffixes.suffix.tion-sion"
+    # everything rides into the upsert payload under its column name
+    payload = build_vocab_payload(p)
+    for col in ("confusable_with", "related_grammar", "tested_in", "lists", "word_family"):
+        assert col in payload

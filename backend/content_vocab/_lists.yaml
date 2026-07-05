@@ -1,0 +1,40 @@
+# Vocab exam-list manifest (Phase B3).
+# The `lists` field on a vocab card references these slugs (many-to-many: a word
+# can belong to several lists). Unlike categories (browse-by-topic, one per card),
+# lists are the exam-target axis. Cards filter by list for goal-oriented study.
+#
+# Copyright: word LISTS (which headwords) are curated/compiled from public sources
+# (Academic Word List by Averil Coxhead; public THPT exam word frequency); the card
+# CONTENT (definitions, examples, gloss) is self-authored.
+
+lists:
+  # ── Academic Word List (IELTS Reading/Writing) — 570 headwords, 10 sublists ──
+  - slug: awl-sublist-1
+    title: AWL Sublist 1
+    description: Academic Word List — sublist 1 (từ học thuật tần suất cao nhất).
+    exam_source: ielts_reading
+    order: 1
+  - slug: awl-sublist-2
+    title: AWL Sublist 2
+    description: Academic Word List — sublist 2.
+    exam_source: ielts_reading
+    order: 2
+  - slug: awl-sublist-3
+    title: AWL Sublist 3
+    description: Academic Word List — sublist 3.
+    exam_source: ielts_reading
+    order: 3
+
+  # ── TOEIC Service List (business/office) ──
+  - slug: toeic-core
+    title: TOEIC Core
+    description: Từ vựng thương mại/văn phòng tần suất cao trong TOEIC (RC + LC).
+    exam_source: toeic_rc
+    order: 20
+
+  # ── THPT Quốc gia (tổng hợp từ đề công khai) ──
+  - slug: thpt-core
+    title: THPT Core
+    description: Từ vựng xuất hiện lặp lại trong đề THPT Quốc gia các năm gần đây.
+    exam_source: thpt_qg
+    order: 30
