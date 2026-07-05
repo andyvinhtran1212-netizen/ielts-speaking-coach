@@ -37,6 +37,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+import yaml
+
 from database import supabase_admin
 from scripts.seed_knowledge_points import (
     _collect_grammar, _collect_skill, _collect_vocab, _dedup,
@@ -44,6 +46,68 @@ from scripts.seed_knowledge_points import (
 from services import kp_registry
 
 _PAGE = 1000
+
+CONTENT_DIR = Path(__file__).resolve().parents[1] / "content"
+# Frontmatter fields carrying refs, and the kp_type each implies. Explicit
+# kp_refs/kp_tags lists carry their own `type`. Mirrors tests/test_kp_ref_drift.
+_TYPED_FIELDS = {"related_vocab": "vocab", "related_grammar": "grammar",
+                 "confusable_with": "vocab"}
+
+
+def _split_fm(raw: str) -> dict | None:
+    if not raw.startswith("---"):
+        return None
+    parts = raw.split("---", 2)
+    if len(parts) < 3:
+        return None
+    try:
+        return yaml.safe_load(parts[1]) or {}
+    except yaml.YAMLError:
+        return None
+
+
+def _as_ref(item, default_type: str) -> tuple[str, str, str]:
+    if isinstance(item, str):
+        return default_type, item, ""
+    if isinstance(item, dict):
+        return (item.get("type") or default_type,
+                item.get("slug") or "", item.get("anchor") or "")
+    return default_type, "", ""
+
+
+def _collect_content_refs() -> list[tuple[str, str, str, str, str]]:
+    """Every (file, field, kp_type, slug, anchor) kp_ref authored in content
+    frontmatter — recursively, so refs nested in reading question solutions are
+    found. The DB gate validates these (esp. vocab, whose truth is the DB and so
+    can't be checked by the offline test)."""
+    refs: list[tuple[str, str, str, str, str]] = []
+    for md in CONTENT_DIR.rglob("*.md"):
+        if "_archive" in md.parts:
+            continue
+        fm = _split_fm(md.read_text(encoding="utf-8"))
+        if not fm:
+            continue
+        rel = str(md.relative_to(CONTENT_DIR))
+
+        def walk(node):
+            if isinstance(node, dict):
+                for k, v in node.items():
+                    if k in _TYPED_FIELDS and isinstance(v, list):
+                        for it in v:
+                            t, s, a = _as_ref(it, _TYPED_FIELDS[k])
+                            refs.append((rel, k, t, s, a))
+                    elif k in ("kp_refs", "kp_tags") and isinstance(v, list):
+                        for it in v:
+                            t, s, a = _as_ref(it, "")
+                            refs.append((rel, k, t, s, a))
+                    else:
+                        walk(v)
+            elif isinstance(node, list):
+                for it in node:
+                    walk(it)
+
+        walk(fm)
+    return refs
 
 
 def _load_all_kp() -> list[dict]:
@@ -111,7 +175,26 @@ def main() -> int:
     else:
         print(f"OK Reverse: every live asset ({len(expected)}) has a KP row.")
 
-    return 1 if drift else 0
+    # 3. CONTENT — every kp_ref authored in content resolves to a live asset.
+    #    Grammar/skill are also gated offline (test_kp_ref_drift); vocab existence
+    #    is checkable ONLY here (its source of truth is the DB), closing the gap
+    #    where a typo'd vocab slug passed both gates.
+    content_drift: list[str] = []
+    for rel, field, kp_type, slug, anchor in _collect_content_refs():
+        if not slug:
+            content_drift.append(f"  {rel}.{field} → ref with empty slug")
+            continue
+        reason = kp_registry.resolve_ref(kp_type, slug, anchor, vocab_known=vocab_known)
+        if reason:
+            content_drift.append(f"  {rel}.{field} → {reason}")
+    if content_drift:
+        print(f"\nFAIL content kp_ref drift: {len(content_drift)} authored ref(s) "
+              f"point at a dead asset (fix the slug/anchor or create the asset):")
+        print("\n".join(sorted(content_drift)))
+    else:
+        print("OK Content: every authored kp_ref resolves to a live asset.")
+
+    return 1 if (drift or content_drift) else 0
 
 
 if __name__ == "__main__":

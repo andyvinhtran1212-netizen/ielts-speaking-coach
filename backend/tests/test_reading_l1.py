@@ -218,6 +218,30 @@ def test_detail_does_not_select_answer_or_explanation():
     assert all("answer" not in q for q in r.json()["questions"])
 
 
+def test_detail_strips_stepper_solution_from_payload():
+    """P1 review fix: the L1 fetch has no post-check reveal path, so an authored
+    payload.solution (its steps end in the answer) must be stripped pre-check."""
+    mock_db = MagicMock()
+    chain = mock_db.table.return_value.select.return_value
+    chain.eq.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = \
+        MagicMock(data=[{"id": "pid", "slug": "s", "title": "T", "body_markdown": "b", "glossary": []}])
+    chain.eq.return_value.order.return_value.execute.return_value = \
+        MagicMock(data=[{"q_num": 1, "question_type": "short_answer", "prompt": "p",
+                          "payload": {"options": [], "solution": {
+                              "solution_steps": [{"action": "confirm",
+                                                  "instruction_vi": "Điền 'ritual'."}]}},
+                          "skill_tag": "detail", "sub_skill": None, "order_num": 1}])
+
+    with patch("routers.reading_student.get_supabase_user", new=AsyncMock(return_value=_USER)), \
+         patch("routers.reading_student.supabase_admin", mock_db):
+        r = _client().get("/api/reading/vocab/s", headers=_AUTH)
+
+    assert r.status_code == 200
+    q0 = r.json()["questions"][0]
+    assert "solution" not in q0["payload"]      # the answer-revealing steps are gone
+    assert "options" in q0["payload"]           # other payload keys survive
+
+
 # ── Check endpoint: end-to-end grading ────────────────────────────────
 
 

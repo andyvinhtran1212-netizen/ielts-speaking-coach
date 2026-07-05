@@ -292,6 +292,9 @@ async def get_vocab_passage(
         .execute()
     )
     passage["questions"] = q.data or []
+    # The optional stepper solution reveals the answer (its steps end in the
+    # answer); L1 has no post-check reveal path, so it must never ship pre-check.
+    _strip_solution_from_payload(passage["questions"])
     return passage
 
 
@@ -420,6 +423,8 @@ async def get_skill_exercise(
         .execute()
     )
     passage["questions"] = q.data or []
+    # Same as L1: strip the answer-revealing stepper solution from the pre-check fetch.
+    _strip_solution_from_payload(passage["questions"])
     return passage
 
 
