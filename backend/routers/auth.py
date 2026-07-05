@@ -132,6 +132,12 @@ async def get_supabase_user(authorization: str | None):
     auth_start = perf_counter()
     try:
         client = _get_auth_http_client()
+        # B2 (audit) — the client is shared across all users' requests for
+        # keep-alive. Token verification is a stateless Bearer call (Supabase
+        # sets no cookie), but clear the jar before each request so a stray
+        # Set-Cookie could never be replayed onto another user's request. The
+        # clear is synchronous and runs before the send, so it's race-safe.
+        client.cookies.clear()
         response = await client.get(
             f"{settings.SUPABASE_URL}/auth/v1/user",
             headers={
@@ -328,6 +334,30 @@ async def get_profile(authorization: str | None = Header(default=None)):
 
 # ── POST /auth/activate ───────────────────────────────────────────────────────
 
+# B4 (audit) — per-user rate limit on activation. /auth/activate is
+# authenticated, so probing the 36^8 code keyspace already costs a real account;
+# capping attempts per user makes brute-forcing infeasible. In-memory sliding
+# window (per worker), no new deps — proportionate for this low-QPS endpoint.
+_ACTIVATE_MAX_ATTEMPTS = 10
+_ACTIVATE_WINDOW_SECONDS = 600  # 10 minutes
+_activate_attempts: dict[str, list[float]] = {}
+
+
+def _rate_limit_activate(user_id: str) -> None:
+    """Raise 429 when a user exceeds the activation-attempt budget in the window."""
+    now = perf_counter()  # monotonic clock — only relative deltas matter here
+    cutoff = now - _ACTIVATE_WINDOW_SECONDS
+    window = [t for t in _activate_attempts.get(user_id, ()) if t > cutoff]
+    if len(window) >= _ACTIVATE_MAX_ATTEMPTS:
+        _activate_attempts[user_id] = window  # persist the pruned list
+        raise HTTPException(
+            status_code=429,
+            detail="Quá nhiều lần thử kích hoạt. Vui lòng đợi vài phút rồi thử lại.",
+        )
+    window.append(now)
+    _activate_attempts[user_id] = window
+
+
 @router.post("/activate")
 async def activate_account(
     payload: ActivateRequest,
@@ -335,6 +365,7 @@ async def activate_account(
 ):
     auth_user = await get_supabase_user(authorization)
     user_id = auth_user["id"]
+    _rate_limit_activate(user_id)
     email = auth_user.get("email")
     metadata = auth_user.get("user_metadata", {}) or {}
     code = payload.access_code.strip().upper()

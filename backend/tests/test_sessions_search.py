@@ -52,6 +52,10 @@ class _RecordingBuilder:
         self._rec.setdefault("eq", []).append((col, val))
         return self
 
+    def neq(self, col, val):
+        self._rec.setdefault("neq", []).append((col, val))
+        return self
+
     def ilike(self, col, val):
         self._rec.setdefault("ilike", []).append((col, val))
         return self
@@ -264,3 +268,19 @@ def test_invalid_sort_value_via_testclient():
         "sort" in (err.get("loc") or [])
         for err in r.json().get("detail", [])
     )
+
+
+# ── A1 (audit) — default list excludes bare in_progress ──────────────────────
+
+def test_default_list_excludes_in_progress(monkeypatch):
+    rec = _patch(monkeypatch, data=[], count=0)
+    _call()  # status defaults to None → unfiltered history
+    assert ("status", "in_progress") in rec.get("neq", []), \
+        "default (unfiltered) list must .neq('status','in_progress')"
+
+
+def test_explicit_status_filter_honored_not_negated(monkeypatch):
+    rec = _patch(monkeypatch, data=[], count=0)
+    _call(status="in_progress")
+    assert ("status", "in_progress") in rec.get("eq", [])
+    assert ("status", "in_progress") not in rec.get("neq", [])
