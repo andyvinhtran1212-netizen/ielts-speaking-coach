@@ -7,8 +7,8 @@ remaining vocabulary is here.
 
 ## Status
 - **Done:** AWL Sublist 1 (60) — already in `content_vocab/`.
-- **Remaining (this manifest):** AWL Sublists 2–10 (510), `toeic-core` (~140,
-  curated), `thpt-core` (~120, curated).
+- **Remaining (this manifest):** AWL Sublists 2–10 (510), `toeic-core` (~300,
+  curated), `thpt-core` (~250, curated).
 
 ## Source & honesty
 - **AWL** (Academic Word List, Averil Coxhead — 570 headwords, 10 sublists) is a
@@ -16,8 +16,8 @@ remaining vocabulary is here.
   published sublists. This is the authoritative backbone.
 - **`toeic-core` / `thpt-core`** are **curated** thematic lists, NOT official
   published word lists (ETS does not publish a TOEIC word list; THPT has no single
-  canonical list). Treat them as a strong starter core you can extend — do not
-  label cards as coming from an "official" list.
+  canonical list). Treat them as a strong core you can extend — do not label cards
+  as coming from an "official" list.
 
 ## One card per unique headword (dedup rule — read before generating)
 Generate **exactly one card per unique headword**, even if a word could sit on
@@ -32,6 +32,9 @@ several lists.
 - A word that genuinely belongs to multiple lists → one card, multiple `lists`
   slugs + multiple `tested_in` flags. Never two cards with the same `slug` in the
   same `category`.
+- The curated lists below are long enough that a few words may repeat across
+  themes — **de-duplicate to a unique set before generating** (target counts are
+  approximate).
 
 ## Per-batch flow (repeat for each block)
 1. Paste `VOCAB_UPLOAD_FORMAT.md` (format + agent brief) + one batch block below.
@@ -46,6 +49,10 @@ several lists.
 > `thpt-core` are already registered in `content_vocab/_lists.yaml`, so cards
 > stamped with them pass the gate. New `category` topics still need a
 > `_categories.yaml` entry.
+>
+> **Tip:** `toeic-core` (~300) and `thpt-core` (~250) are large — split each into
+> ~60-word sub-batches (by theme groups below) so one dry-run import surfaces all
+> validation errors at once and a reviewer can spot-check before committing.
 
 ---
 
@@ -177,41 +184,63 @@ TARGET LIST:   toeic-core            → lists: ["toeic-core"]
 EXAM SOURCES:  toeic_rc, toeic_lc    → tested_in: ["toeic_rc", "toeic_lc"]
 DEFAULT LEVEL: B1                     (workplace English; agent adjusts A2–B2)
 CATEGORIES:    mostly work-career + economy; use others where a word fits better
-COUNT:         ~140 (one card per headword; DROP any AWL-family overlap per dedup rule)
+COUNT:         ~300 (one card per unique headword; DROP AWL-family overlaps per dedup rule)
 ```
+Split into ~5 sub-batches by the theme groups below (each ≈ 55–65 words).
 
-**Employment & HR:** applicant, résumé, recruit, hire, candidate, interview,
-salary, wage, payroll, pension, dismiss, resign, workforce, personnel, supervisor,
-intern, apprentice, overtime, vacancy, workload, employee, employer, orientation,
-appraisal, probation
+**B1 — Employment & HR:** applicant, résumé, recruit, hire, candidate, interview,
+salary, wage, payroll, pension, dismiss, resign, resignation, workforce, personnel,
+supervisor, supervise, intern, apprentice, overtime, vacancy, workload, employee,
+employer, orientation, appraisal, probation, staffing, headhunter, shortlist,
+onboarding, reassign, relocate, severance, timesheet, attendance, absence, bonus,
+perk, morale, understaffed, headcount
 
-**Office & admin:** memo, agenda, deadline, appointment, stationery, photocopier,
-spreadsheet, folder, invoice, receipt, voucher, supplies, clerk, workspace,
-letterhead, envelope
+**B1 — Office & admin:** memo, agenda, deadline, appointment, stationery,
+photocopier, spreadsheet, folder, invoice, receipt, voucher, supplies, clerk,
+workspace, letterhead, envelope, cubicle, filing, printout, shredder, calendar,
+reminder, checklist, template, paperwork, correspondence, forward, attachment
 
-**Meetings & presentations:** presentation, handout, projector, attendee,
-chairperson, adjourn, postpone, reschedule, keynote, minutes
+**B2 — Meetings & events:** presentation, handout, projector, attendee,
+chairperson, adjourn, postpone, reschedule, keynote, minutes, briefing, delegate,
+quorum, venue, seminar, webinar, workshop, breakout, follow-up, brainstorm,
+teleconference, videoconference, refreshments, badge, catering
 
-**Finance & accounting:** expense, profit, refund, discount, deposit, mortgage,
+**B2 — Finance & accounting:** expense, profit, refund, discount, deposit, mortgage,
 loan, audit, taxation, fiscal, accountant, bookkeeping, turnover, reimburse,
-overdue
+overdue, ledger, balance, statement, earnings, dividend, asset, overhead,
+expenditure, installment, arrears, remittance, payable, receivable, budget,
+quarterly, profitable, solvent
 
-**Sales & marketing:** advertisement, brochure, catalogue, campaign, retail,
+**B3 — Banking & insurance:** account, branch, teller, overdraft, interest, premium,
+policyholder, claim, coverage, deductible, underwrite, beneficiary, collateral,
+savings, currency, withdrawal, transaction, creditor, debtor, insurer, payout
+
+**B3 — Sales & marketing:** advertisement, brochure, catalogue, campaign, retail,
 wholesale, merchandise, warranty, customer, client, vendor, supplier, competitor,
-brand, coupon, storefront, showroom, testimonial
+brand, coupon, storefront, showroom, testimonial, endorsement, billboard, flyer,
+slogan, markup, clearance, loyalty, subscription, upsell, publicity, sponsorship,
+spokesperson
 
-**Contracts & real estate:** agreement, obligation, liability, breach, negotiate,
-renew, tenant, landlord, lease, premises, deed
+**B4 — Customer service:** complaint, inquiry, feedback, satisfaction, exchange,
+replacement, helpline, hotline, representative, courteous, apologize, goodwill, escalate, refundable, dissatisfied
 
-**Travel & logistics:** itinerary, reservation, boarding, luggage, customs,
+**B4 — Contracts & real estate:** agreement, obligation, liability, breach,
+negotiate, renew, tenant, landlord, lease, premises, deed, signatory, binding,
+expire, addendum, terms, sublet, occupancy, leaseholder, rental
+
+**B4 — Travel & logistics:** itinerary, reservation, boarding, luggage, customs,
 shipment, freight, cargo, delivery, courier, dispatch, warehouse, packaging,
-carrier, checkout, layover
+carrier, checkout, layover, terminal, departure, arrival, concierge, round-trip,
+tracking, expedite, logistics, baggage, check-in, forwarding, boarding-pass
 
-**Manufacturing & quality:** assembly, factory, machinery, equipment, maintenance,
-defect, faulty, inspection, recall, blueprint, malfunction, warehouse
+**B5 — Manufacturing & quality:** assembly, factory, machinery, equipment,
+maintenance, defect, faulty, inspection, recall, blueprint, malfunction, production,
+conveyor, prototype, durable, flaw, inventory, stockroom, surplus, shortage,
+procurement, wholesaler, overhaul, defective
 
-**Facilities:** renovation, refurbish, utilities, janitor, elevator, headquarters,
-parking
+**B5 — Facilities & IT:** renovation, refurbish, utilities, janitor, elevator,
+headquarters, parking, lobby, reception, workstation, server, password, software,
+hardware, upgrade, backup, helpdesk, outage, downtime, keycard, floor-plan
 
 ---
 
@@ -223,36 +252,48 @@ EXAM SOURCES:  thpt_qg               → tested_in: ["thpt_qg"]
 DEFAULT LEVEL: B1                     (school-exam English; agent adjusts A2–B2)
 CATEGORIES:    spread across education, environment, health, people-society,
                technology as topic fits
-COUNT:         ~120 (one card per headword; DROP any AWL-family overlap per dedup rule)
+COUNT:         ~250 (one card per unique headword; DROP AWL-family overlaps per dedup rule)
 ```
+Split into ~4 sub-batches by the theme groups below (each ≈ 55–65 words).
 
-**Family & relationships:** household, chore, relative, sibling, upbringing,
+**C1 — Family & relationships:** household, chore, relative, sibling, upbringing,
 breadwinner, nurture, obey, spoil, housework, marriage, engagement, divorce,
-in-laws
+in-laws, offspring, toddler, adolescent, elderly, caregiver, affection, quarrel,
+reconcile, kinship, guardian, foster, stepmother, nickname, gathering
 
-**Education & school:** curriculum, tuition, scholarship, graduate, undergraduate,
-dormitory, semester, discipline, extracurricular, literacy, vocational,
-examination, certificate, kindergarten, headmaster, timetable
+**C1 — Education & school:** curriculum, tuition, scholarship, graduate,
+undergraduate, dormitory, semester, extracurricular, literacy, vocational,
+examination, certificate, kindergarten, headmaster, timetable, pupil, tutor,
+memorize, enrol, expel, truant, homework, textbook, blackboard, diploma,
+distinction, coursework, revision, boarding-school, term
 
-**Environment:** pollution, deforestation, greenhouse, emission, renewable, recycle,
-endangered, habitat, conservation, wildlife, drought, flood, litter, ecosystem,
-ozone, extinction
+**C2 — Environment:** pollution, deforestation, greenhouse, emission, renewable,
+recycle, endangered, habitat, conservation, wildlife, drought, flood, litter,
+ecosystem, ozone, extinction, biodiversity, contamination, sewage, pesticide,
+landfill, reforestation, carbon, glacier, smog, poaching, overfishing, wetland
 
-**Technology (everyday):** gadget, download, upload, browse, robot, digital, cyber,
-smartphone, wireless, software, hardware, offline, password
+**C2 — Weather & nature:** climate, thunderstorm, humidity, hurricane, breeze,
+frost, foggy, tropical, temperate, avalanche, earthquake, tsunami, volcano,
+drizzle, blizzard, downpour
 
-**Health & lifestyle:** diet, nutrition, obesity, epidemic, vaccine, hygiene,
-immune, symptom, remedy, wellbeing, fitness, disease, checkup, therapy, calorie
+**C3 — Technology (everyday):** gadget, download, upload, browse, robot, digital,
+cyber, smartphone, wireless, software, hardware, offline, password, touchscreen,
+keyboard, headset, streaming, video-game, drone, sensor, app, selfie, emoji,
+charger, notification
 
-**Society & culture:** custom, heritage, festival, ritual, ancestor, superstition,
-minority, urbanization, poverty, charity, volunteer, citizenship, prejudice,
-equality
+**C3 — Health & lifestyle:** diet, nutrition, obesity, epidemic, vaccine, hygiene,
+immune, symptom, remedy, wellbeing, fitness, disease, checkup, therapy, calorie,
+allergy, infection, contagious, dehydration, insomnia, posture, workout, vitamin,
+sedentary, addiction, overweight, painkiller, bandage, outbreak
 
-**Careers & ambition:** unemployment, ambition, qualification, skilled, freelance,
-apprenticeship, breadwinner
+**C4 — Society & culture:** custom, heritage, festival, ritual, ancestor,
+superstition, minority, urbanization, poverty, charity, volunteer, citizenship,
+prejudice, equality, tolerance, generosity, hospitality, etiquette, folklore,
+costume, ceremony, worship, lunar, offering, ancestral
 
-**Entertainment & media:** broadcast, headline, celebrity, audience, blockbuster,
-streaming, documentary, cartoon, sitcom
-
-**Travel & tourism:** destination, sightseeing, souvenir, accommodation, backpack,
-ecotourism, landmark, tourist, scenery
+**C4 — Careers, media & travel:** unemployment, ambition, qualification, skilled,
+freelance, apprenticeship, vocation, workaholic, aspiration, livelihood, broadcast,
+headline, celebrity, audience, blockbuster, documentary, cartoon, sitcom, sequel,
+soundtrack, rehearsal, applause, spectator, destination, sightseeing, souvenir,
+accommodation, backpack, ecotourism, landmark, tourist, scenery, excursion,
+homestay, guidebook, breathtaking
