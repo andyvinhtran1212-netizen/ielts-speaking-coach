@@ -181,3 +181,54 @@ paragraph is a clean one-line VN gloss. Multiple words concatenate in one file.
 3. After a new `_categories.yaml` topic or bulk add, the vocab count tripwires in
    `tests/test_vocab_content*.py` need bumping (they pin the seed card / category
    counts on purpose).
+
+---
+
+## Per-batch generation assignment (WHAT to create)
+
+The **format** above tells the agent the SHAPE of a card. This section is the
+**assignment**: which words, for which exam/level/list. Give the agent BOTH — the
+format brief + one filled assignment per batch.
+
+### The agent does NOT choose which words
+It produces a card **for each headword you give it**. The headword list is the
+input:
+- **AWL** (Academic Word List, 570 words in 10 sublists) — public; the sublist
+  headwords are the list. Sublist 2 is provided below as a ready example.
+- **TOEIC-core / THPT-core** — you supply the headword list (compiled from the
+  TOEIC service list / public THPT exams). The agent turns each word into a card.
+
+### How targeting metadata is decided
+| Metadata | How to set it |
+|---|---|
+| `lists` | the batch's target list slug: `awl-sublist-N`, `toeic-core`, or `thpt-core` (a word may carry several). |
+| `tested_in` | by list: **AWL** → `ielts_reading` (+ `toeic_rc`/`thpt_qg` if it's also common there); **TOEIC-core** → `toeic_rc`; **THPT-core** → `thpt_qg`. |
+| `level` | the word's CEFR band (A2–C2). Most academic words are B1–C1; the agent estimates per word. Set a batch DEFAULT and let it adjust. |
+| `category` | best-fit topic from `environment, technology, education, work-career, health, people-society, economy`. A new topic is allowed **but must be added to `_categories.yaml`**. |
+| `related_grammar` | attach only when the word's family shows a suffix/prefix pattern, using the real anchors listed in the agent brief. |
+
+### Assignment template (fill in, then paste with the format brief)
+```
+TARGET LIST:   awl-sublist-2          # → lists: ["awl-sublist-2"]
+EXAM SOURCES:  ielts_reading, toeic_rc # → tested_in
+DEFAULT LEVEL: B2                       # agent adjusts per word (A2–C2)
+CATEGORIES:    reuse existing topics; add a new one only if none fits (and note it for _categories.yaml)
+COUNT:         ~60 (one card per headword below)
+OUTPUT:        one .md file, one frontmatter block per word, per the FORMAT brief
+HEADWORDS:
+  <paste the list — e.g. the AWL Sublist 2 words below>
+```
+
+### Ready example — AWL Sublist 2 headwords (60)
+```
+achieve, acquire, administration, affect, appropriate, aspect, assist, category,
+chapter, commission, community, complex, compute, conclude, conduct, consequent,
+construct, consume, credit, culture, design, distinct, element, equate, evaluate,
+feature, final, focus, impact, injure, institute, invest, item, journal, maintain,
+normal, obtain, participate, perceive, positive, potential, previous, primary,
+purchase, range, region, regulate, relevant, reside, resource, restrict, secure,
+seek, select, site, strategy, survey, text, tradition, transfer
+```
+
+> Tip: keep batches ≤ ~60 words so one dry-run import surfaces all validation
+> errors at once, and so a reviewer can spot-check accuracy before committing.
