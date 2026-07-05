@@ -44,7 +44,7 @@ REPORT_OUT    = ROOT / "MAPPING_COVERAGE_GAP_REPORT.md"
 SKELETON_OUT  = ROOT / "MAPPING_SKELETONS_SPRINT_7.yaml"
 
 GENERATED_DATE = "2026-05-05"
-EXCLUDED_TOP_LEVEL_DIRS = {"reading"}
+EXCLUDED_TOP_LEVEL_DIRS = {"reading", "exams"}
 
 
 # ── Data collection ──────────────────────────────────────────────────────
