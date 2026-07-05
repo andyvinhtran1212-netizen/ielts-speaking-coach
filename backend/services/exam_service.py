@@ -215,15 +215,28 @@ def submit_attempt(user_id: str, test_id: str, answers: list[dict]) -> dict:
     """Grade a submission, persist the attempt, feed KP evidence, return results."""
     test = _published_test_or_404(test_id)
     qs = (supabase_admin.table("exam_questions")
-          .select("q_num, answer, grammar_slug").eq("test_id", test_id).execute().data or [])
+          .select("q_num, prompt, options, answer, solution, explanation, grammar_slug")
+          .eq("test_id", test_id).execute().data or [])
     answer_key = [{"q_num": q["q_num"], "answer": q.get("answer")} for q in qs]
     result = grade_exam(answers, answer_key)
+
+    # SNAPSHOT the question content onto the attempt at submit time so a later
+    # edit / re-seed of the published exam can never make an old attempt's review
+    # show new prompts/options/solutions against the original answers. get_review
+    # rebuilds entirely from this snapshot, never from the current questions.
+    q_by_num = {q["q_num"]: q for q in qs}
+    details = []
+    for pq in result["per_question"]:
+        q = q_by_num.get(pq["q_num"]) or {}
+        details.append({**pq,
+                        "prompt": q.get("prompt"), "options": q.get("options"),
+                        "solution": q.get("solution"), "explanation": q.get("explanation")})
 
     now = _now()
     ins = (supabase_admin.table("exam_attempts").insert({
         "user_id": user_id, "test_id": test_id, "exam_source": test["exam_source"],
         "answers": answers or [], "score": result["score"], "max_score": result["max_score"],
-        "correct_count": result["correct_count"], "grading_details": result["per_question"],
+        "correct_count": result["correct_count"], "grading_details": details,
         "status": "submitted", "submitted_at": now,
     }).execute())
     attempt_id = (ins.data or [{}])[0].get("id")
@@ -255,24 +268,24 @@ def get_review(user_id: str, attempt_id: str) -> dict:
     if attempt.get("status") != "submitted":
         raise HTTPException(409, "Bài làm chưa nộp — chưa có chữa bài.")
 
-    qs = (supabase_admin.table("exam_questions")
-          .select("q_num, prompt, options, answer, solution, explanation")
-          .eq("test_id", attempt["test_id"]).order("order_num").execute().data or [])
-    by_qnum = {q["q_num"]: q for q in qs}
-
+    # Rebuild the review from the immutable per-attempt SNAPSHOT (grading_details),
+    # NOT from the current exam_questions — so editing/re-seeding the exam later
+    # cannot alter a past attempt's chữa-bài.
+    _enrich = getattr(reading_solution, "enrich_kp_refs", None)
+    _label = getattr(kp_registry, "label_for", None)
     review: list[dict] = []
     for g in (attempt.get("grading_details") or []):
-        q = by_qnum.get(g.get("q_num")) or {}
-        stepper = reading_solution.build_stepper(q.get("solution"), q.get("explanation"))
+        stepper = reading_solution.build_stepper(g.get("solution"), g.get("explanation"))
         # Enrich kp_refs with {title, category} for deep-linking WHEN the helpers
         # are available (they land on main via the FE PR). Defensive so this module
         # works standalone and auto-activates post-merge — no cross-PR coupling.
-        _enrich = getattr(reading_solution, "enrich_kp_refs", None)
-        _label = getattr(kp_registry, "label_for", None)
         if stepper and _enrich and _label:
             _enrich(stepper, _label)
-        review.append({**g, "prompt": q.get("prompt"), "options": q.get("options"),
-                       "stepper": stepper})
+        review.append({
+            "q_num": g.get("q_num"), "correct": g.get("correct"),
+            "user_answer": g.get("user_answer"), "expected": g.get("expected"),
+            "prompt": g.get("prompt"), "options": g.get("options"), "stepper": stepper,
+        })
 
     return {"attempt_id": attempt_id, "test_id": attempt["test_id"],
             "exam_source": attempt.get("exam_source"), "score": attempt.get("score"),

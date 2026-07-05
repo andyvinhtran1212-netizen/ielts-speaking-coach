@@ -114,3 +114,76 @@ def test_admin_import_route_decodes_and_passes_through(monkeypatch):
         AE.admin_import_exam(file=_F(), dry_run=True, authorization="x"))
     assert out["ok"] is True
     assert captured == {"text": "xin chào", "dry_run": True}
+
+
+# ── attempt review is an immutable snapshot (review P2) ──────────────────────
+
+class _Resp:
+    def __init__(self, data): self.data = data
+
+
+class _Q:
+    def __init__(self, db, table):
+        self._db, self._t, self._op, self._payload = db, table, "select", None
+    def select(self, *a, **k): self._op = "select"; return self
+    def insert(self, row, *a, **k): self._op = "insert"; self._payload = row; return self
+    def delete(self, *a, **k): self._op = "delete"; return self
+    def upsert(self, row, *a, **k): self._op = "upsert"; self._payload = row; return self
+    def eq(self, *a): return self
+    def order(self, *a, **k): return self
+    def limit(self, *a): return self
+    def execute(self): return self._db.handle(self._t, self._op, self._payload)
+
+
+class _DB:
+    def __init__(self, questions=None, attempt=None):
+        self.questions = questions or []
+        self.attempt = attempt
+        self.inserted = []
+    def table(self, n): return _Q(self, n)
+    def handle(self, table, op, payload):
+        if table == "exam_tests":
+            return _Resp([{"id": "t1", "exam_source": "toeic_rc", "status": "published"}])
+        if table == "exam_questions":
+            return _Resp(self.questions)
+        if table == "exam_attempts":
+            if op == "insert":
+                self.inserted.append(payload); return _Resp([{"id": "att1"}])
+            return _Resp([self.attempt] if self.attempt else [])
+        return _Resp([])
+
+
+def test_submit_attempt_snapshots_question_content(monkeypatch):
+    qs = [{"q_num": 1, "prompt": "P1", "options": [{"label": "A", "text": "a"}],
+           "answer": {"answer": "A", "alternatives": []},
+           "solution": {"solution_steps": [{"action": "confirm", "instruction_vi": "x"}]},
+           "explanation": None, "grammar_slug": None}]
+    db = _DB(questions=qs)
+    monkeypatch.setattr(ex, "supabase_admin", db)
+    monkeypatch.setattr(ex.kp_evidence, "record_evidence_safe", lambda *a, **k: None)
+
+    ex.submit_attempt("U1", "t1", [{"q_num": 1, "user_answer": "A"}])
+    gd = db.inserted[0]["grading_details"][0]
+    assert gd["correct"] is True
+    assert gd["prompt"] == "P1" and gd["solution"] and "options" in gd  # snapshot present
+
+
+def test_get_review_uses_snapshot_not_current_questions(monkeypatch):
+    attempt = {
+        "id": "att1", "user_id": "U1", "test_id": "t1", "status": "submitted",
+        "exam_source": "toeic_rc", "score": 1, "max_score": 1, "correct_count": 1,
+        "grading_details": [{
+            "q_num": 1, "correct": True, "user_answer": "A", "expected": "A",
+            "prompt": "ORIGINAL PROMPT", "options": [{"label": "A", "text": "a"}],
+            "solution": {"solution_steps": [{"action": "confirm", "instruction_vi": "snap"}]},
+            "explanation": None,
+        }],
+    }
+    # The current exam_questions have been EDITED — must be ignored by the review.
+    db = _DB(questions=[{"q_num": 1, "prompt": "EDITED PROMPT", "solution": None}], attempt=attempt)
+    monkeypatch.setattr(ex, "supabase_admin", db)
+
+    out = ex.get_review("U1", "att1")
+    r = out["review"][0]
+    assert r["prompt"] == "ORIGINAL PROMPT"          # from snapshot, not "EDITED PROMPT"
+    assert r["stepper"]["steps"][0]["instruction_vi"] == "snap"
