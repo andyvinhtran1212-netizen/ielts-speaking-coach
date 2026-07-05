@@ -14,11 +14,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from services.vocab_content import VocabContentService
 
-EXPECTED_ARTICLE_COUNT = 42
+EXPECTED_ARTICLE_COUNT = 55
 REQUIRED_FIELDS = {"headword", "slug", "category", "level", "part_of_speech", "pronunciation"}
 VALID_CATEGORIES = {
     "environment", "technology", "education",
-    "work-career", "health", "people-society",
+    "work-career", "health", "people-society", "economy",
 }
 
 
