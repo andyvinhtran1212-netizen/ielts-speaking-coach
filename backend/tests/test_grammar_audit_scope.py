@@ -24,10 +24,11 @@ def test_audit_mapping_coverage_excludes_reading_content():
     assert "return-of-the-wolves" not in slugs
     assert "a-short-history-of-tea" not in slugs
     assert "skim-climate-change-coral-reefs" not in slugs
-    # 98 grammar articles + 9 authored in the 2026-06-27 pivot (#598 never-built slugs:
-    # 6 speaking + 3 in the new grammar-for-writing category). Reading content stays
-    # excluded — guarded by the negative asserts above; this count is the tripwire.
-    assert len(articles) == 107, f"Expected grammar-only denominator of 107, got {len(articles)}"
+    # 107 prior + 4 word-formation articles (parts-of-speech, 2026-07-05:
+    # noun/adjective suffixes, verbs-and-adverbs, determiners-overview). Reading
+    # content stays excluded — guarded by the negative asserts above; this count
+    # is the tripwire, bump it when grammar articles land.
+    assert len(articles) == 137, f"Expected grammar-only denominator of 137, got {len(articles)}"
 
 
 def test_verify_anchor_drift_declared_anchor_inventory_excludes_reading():

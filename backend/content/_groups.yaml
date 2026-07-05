@@ -36,11 +36,19 @@ groups:
       - { slug: adjectives,         category: modifiers,       title: "Adjectives — Tính từ" }
       - { slug: adverbs,            category: modifiers,       title: "Adverbs — Trạng từ" }
       - { slug: adjective-vs-adverb, category: modifiers,      title: "Adjective vs. Adverb — Tính từ hay Trạng từ?" }
+      - { slug: participial-adjectives,       category: modifiers, title: "Participial Adjectives — interested vs interesting" }
+      - { slug: order-of-adjectives,          category: modifiers, title: "Order of Adjectives — Trật tự nhiều tính từ" }
+      - { slug: compound-adjectives,          category: modifiers, title: "Compound Adjectives — Tính từ ghép (a five-year-old child)" }
+      - { slug: intensifiers-and-mitigators,  category: modifiers, title: "Intensifiers & Mitigators — quite / fairly / rather / very" }
       - { slug: nouns,              category: parts-of-speech, title: "Nouns — Danh từ" }
       - { slug: verbs,              category: parts-of-speech, title: "Verbs — Động từ" }
       - { slug: prepositions,       category: parts-of-speech, title: "Prepositions — Giới từ" }
       - { slug: pronouns,           category: parts-of-speech, title: "Pronouns — Đại từ" }
       - { slug: conjunctions,       category: parts-of-speech, title: "Conjunctions — Liên từ" }
+      - { slug: word-formation-noun-suffixes,      category: parts-of-speech, title: "Word Formation — Noun Suffixes (Hậu tố tạo danh từ)" }
+      - { slug: word-formation-adjective-suffixes, category: parts-of-speech, title: "Word Formation — Adjective Suffixes (Hậu tố tạo tính từ)" }
+      - { slug: word-formation-verbs-and-adverbs,  category: parts-of-speech, title: "Word Formation — Verbs & Adverbs (Hậu tố động từ, trạng từ & tiền tố)" }
+      - { slug: determiners-overview,              category: parts-of-speech, title: "Determiners — Tổng quan từ hạn định" }
 
   - slug: sentence-structures
     title: "Cấu trúc câu"
@@ -155,6 +163,8 @@ groups:
       - { slug: missing-main-verbs,         category: error-clinic, title: "Missing Main Verbs — Lỗi thiếu động từ chính" }
       - { slug: wrong-pronoun-reference,    category: error-clinic, title: "Wrong Pronoun Reference — Lỗi đại từ tham chiếu sai hoặc mơ hồ" }
       - { slug: double-subject-errors,      category: error-clinic, title: "Double Subject Errors — Lỗi lặp chủ ngữ" }
+      - { slug: tag-questions-errors,       category: error-clinic, title: "Tag Questions — Lỗi câu hỏi đuôi (isn't it?)" }
+      - { slug: dangling-modifiers,         category: error-clinic, title: "Dangling Modifiers — Lỗi mệnh đề phân từ treo" }
 
   - slug: grammar-for-writing
     title: "IELTS Writing Lab"
@@ -164,3 +174,29 @@ groups:
       - { slug: grammar-in-task1,      category: grammar-for-writing, title: "Grammar in Task 1 — Ngữ pháp cho IELTS Writing Task 1 (Academic)" }
       - { slug: task1-trend-grammar,   category: grammar-for-writing, title: "Task 1 Trend Grammar — Ngữ pháp mô tả xu hướng trong Writing Task 1" }
       - { slug: grammar-in-task2,      category: grammar-for-writing, title: "Grammar in Task 2 — Ngữ pháp cho IELTS Writing Task 2 (Essay)" }
+      - { slug: parallel-structure,           category: grammar-for-writing, title: "Parallel Structure — Cấu trúc song song" }
+      - { slug: relative-clauses-in-writing,  category: grammar-for-writing, title: "Relative Clauses in Writing — Mệnh đề quan hệ trong bài viết" }
+      - { slug: cohesion-devices-in-writing,  category: grammar-for-writing, title: "Cohesion Devices — Liên kết câu và đoạn trong bài viết" }
+      - { slug: punctuation-for-writing,      category: grammar-for-writing, title: "Punctuation for Writing — Dấu câu trong bài viết học thuật" }
+      - { slug: complex-sentences-for-task2,  category: grammar-for-writing, title: "Complex Sentences for Task 2 — Câu phức cho essay" }
+      - { slug: avoiding-informal-grammar,    category: grammar-for-writing, title: "Avoiding Informal Grammar — Tránh văn nói trong bài viết" }
+
+  - slug: grammar-for-reading
+    title: "Grammar for Reading — Giải mã câu trong bài đọc"
+    description: "Các cấu trúc cản trở việc giải mã câu trong bài đọc học thuật: mệnh đề rút gọn, cụm danh từ dài, danh hoá, bị động học thuật, từ nối, tham chiếu và so sánh."
+    color: amber
+    articles:
+      - { slug: reduced-relative-clauses,        category: grammar-for-reading, title: "Reduced Relative Clauses — Mệnh đề quan hệ rút gọn" }
+      - { slug: participle-clauses,              category: grammar-for-reading, title: "Participle Clauses — Mệnh đề phân từ" }
+      - { slug: complex-noun-phrases,            category: grammar-for-reading, title: "Untangling Complex Noun Phrases — Giải mã cụm danh từ dài" }
+      - { slug: nominalization,                  category: grammar-for-reading, title: "Nominalization — Danh hoá trong văn học thuật" }
+      - { slug: passive-in-academic-texts,       category: grammar-for-reading, title: "Passive in Academic Texts — Bị động trong văn học thuật" }
+      - { slug: long-sentence-untangling,        category: grammar-for-reading, title: "Long Sentence Untangling — Tách câu dài, tìm mệnh đề chính" }
+      - { slug: reference-and-cohesion,          category: grammar-for-reading, title: "Reference Words — it / this / such / the former…" }
+      - { slug: paraphrase-patterns,             category: grammar-for-reading, title: "Paraphrase Patterns — Nhận diện diễn đạt lại" }
+      - { slug: logical-connectors-in-reading,   category: grammar-for-reading, title: "Logical Connectors — Đọc cấu trúc lập luận qua từ nối" }
+      - { slug: hedging-and-certainty-in-reading, category: grammar-for-reading, title: "Hedging & Certainty — Mức chắc chắn của tác giả" }
+      - { slug: ellipsis-and-substitution,       category: grammar-for-reading, title: "Ellipsis & Substitution — do so / one / so, neither" }
+      - { slug: appositives-and-parentheticals,  category: grammar-for-reading, title: "Appositives — Thông tin chêm giữa câu" }
+      - { slug: punctuation-as-meaning-signals,  category: grammar-for-reading, title: "Punctuation Signals — Dấu câu báo hiệu nghĩa (— : ; ngoặc)" }
+      - { slug: comparison-structures-in-reading, category: grammar-for-reading, title: "Comparison in Data & Argument — So sánh trong văn đọc" }
