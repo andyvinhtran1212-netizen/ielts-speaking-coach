@@ -36,6 +36,17 @@ several lists.
   themes — **de-duplicate to a unique set before generating** (target counts are
   approximate).
 
+## Dependency — merge/seed order (`related_grammar` targets)
+Cards may carry `related_grammar` refs to the **word-formation** articles
+(`word-formation-noun-suffixes`, `-adjective-suffixes`, `-verbs-and-adverbs`) and
+their anchors. Those articles ship in a **separate** PR (#663, grammar content),
+not in the vocab PR. The refs are validated for *shape* only, so import never
+fails on them, and `kp_registry.resolve_grammar` degrades gracefully (returns a
+"not found" note, never raises) — but a deep-link would land nowhere until the
+targets exist. **Order of operations: merge #663 (grammar) and run the grammar KP
+seed BEFORE importing enriched vocab / seeding vocab KPs**, so every stored
+`related_grammar` ref resolves to a live article + anchor.
+
 ## Per-batch flow (repeat for each block)
 1. Paste `VOCAB_UPLOAD_FORMAT.md` (format + agent brief) + one batch block below.
 2. Agent returns one `.md` file (one frontmatter block per headword).
