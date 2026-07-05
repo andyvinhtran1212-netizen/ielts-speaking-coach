@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Luyện đề — Aver Learning</title>
+
+  <!-- Canonical anti-flash theme bootstrap -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var theme = (stored === 'light' || stored === 'dark') ? stored
+          : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/ds.css" />
+  <link rel="stylesheet" href="/css/tailwind.build.css" />
+
+  <script type="module" src="/js/components/aver-chrome.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0" defer></script>
+  <script src="../js/api.js" defer></script>
+  <script src="../js/kp-stepper.js" defer></script>
+  <script src="../js/exam-player.js" defer></script>
+  <script>
+    var SUPABASE_URL  = 'https://huwsmtubwulikhlmcirx.supabase.co';
+    var SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
+    document.addEventListener('DOMContentLoaded', function () {
+      initSupabase(SUPABASE_URL, SUPABASE_ANON);
+      examPlayer.init();
+    });
+  </script>
+</head>
+
+<body class="av-page min-h-screen font-sans antialiased">
+  <aver-chrome active="home"></aver-chrome>
+
+  <main class="av-w-read pt-16 pb-12 space-y-6">
+    <div id="state-loading" class="py-24 text-center" style="color:var(--av-text-muted);">Đang tải…</div>
+
+    <div id="state-error" class="hidden py-16 text-center">
+      <p id="error-msg" class="mb-4" style="color:var(--av-error);"></p>
+      <a href="/pages/home.html" class="btn-primary">Về trang chủ</a>
+    </div>
+
+    <!-- List of exams -->
+    <div id="state-list" class="hidden space-y-4">
+      <div>
+        <p class="eyebrow">Luyện đề</p>
+        <h1 class="text-xl font-bold" style="color:var(--av-text-primary);">Đề luyện tập</h1>
+        <p class="text-sm mt-1" style="color:var(--av-text-secondary);">Chọn một đề để bắt đầu.</p>
+      </div>
+      <div id="exam-list"></div>
+    </div>
+
+    <!-- Exam in progress -->
+    <div id="state-exam" class="hidden space-y-6">
+      <div>
+        <p class="eyebrow" id="exam-source-label"></p>
+        <h1 id="exam-title" class="text-xl font-bold" style="color:var(--av-text-primary);"></h1>
+        <p id="exam-meta" class="text-sm mt-1" style="color:var(--av-text-secondary);"></p>
+      </div>
+      <div id="exam-questions" class="space-y-5"></div>
+      <div class="flex justify-end">
+        <button id="exam-submit" type="button" class="btn-primary">Nộp bài</button>
+      </div>
+    </div>
+
+    <!-- Result + review -->
+    <div id="state-result" class="hidden space-y-6">
+      <div class="card p-6 text-center">
+        <p class="eyebrow">Kết quả</p>
+        <p id="result-score" class="text-3xl font-extrabold" style="color:var(--av-primary);"></p>
+        <p id="result-sub" class="text-sm mt-1" style="color:var(--av-text-secondary);"></p>
+      </div>
+      <div id="result-review" class="space-y-3"></div>
+      <div class="flex flex-wrap gap-3 justify-center">
+        <a href="/pages/grammar-roadmap.html" class="btn-primary">Xem lộ trình của bạn</a>
+        <a id="result-retry" href="#" class="btn-secondary">Làm lại</a>
+      </div>
+    </div>
+  </main>
+</body>
+</html>
