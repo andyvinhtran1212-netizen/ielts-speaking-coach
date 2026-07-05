@@ -115,6 +115,12 @@ describe('quiz.html — quick-glance vocab card popup', () => {
     assert.match(PLAYER, /Đồng nghĩa/);
     assert.match(PLAYER, /Mẹo ghi nhớ/);
   });
+  test('word_family object rows {form,pos,note_vi} coerce via form, not just legacy keys', () => {
+    // Enriched cards store word_family as [{form,pos,note_vi}] (see vocab_import
+    // _OBJECT_LIST_FIELDS). The chip coercer must read `form`, else the "Họ từ"
+    // section renders empty for every imported AWL/TOEIC/THPT card.
+    assert.match(PLAYER, /it\.form/, '_toStrings must read the `form` key');
+  });
   test('closes via ×, footer button, backdrop, and Escape (stays in the quiz)', () => {
     assert.match(PLAYER, /function closeCard/);
     assert.match(PLAYER, /e\.key === 'Escape'/);

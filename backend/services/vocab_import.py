@@ -32,7 +32,15 @@ logger = logging.getLogger(__name__)
 
 # Columns the importer writes — MUST be a subset of migration 110's columns
 # (test_vocab_import asserts this; the compose-500 #538 mock-vs-DB lesson).
-_LIST_FIELDS = ("synonyms", "antonyms", "collocations", "related_words", "word_family")
+# String-valued arrays (each item coerced to str).
+_STRING_LIST_FIELDS = ("synonyms", "antonyms", "collocations", "related_words",
+                       "tested_in", "lists")
+# Object-valued arrays stored as JSONB verbatim — items are dicts, e.g.
+# word_family [{form,pos,note_vi}], confusable_with [{slug,note_vi}],
+# related_grammar [{slug,anchor}]. Coercing these to str would corrupt them.
+_OBJECT_LIST_FIELDS = ("word_family", "confusable_with", "related_grammar")
+# Full set (the schema-contract test asserts each ⊆ vocab_cards columns).
+_LIST_FIELDS = _STRING_LIST_FIELDS + _OBJECT_LIST_FIELDS
 _SCALAR_FIELDS = (
     "level", "part_of_speech", "pronunciation", "definition_en", "definition_vi", "example",
     "register", "common_error", "memory_hook", "source", "group",
@@ -91,7 +99,13 @@ def parse_vocab_markdown(text: str) -> VocabParsed:
     category = _normalize_category(fm.get("category"))
 
     scalars = {k: ("" if fm.get(k) is None else str(fm.get(k))) for k in _SCALAR_FIELDS}
-    lists = {k: [str(x) for x in (fm.get(k) or []) if x is not None] for k in _LIST_FIELDS}
+    string_lists = {k: [str(x) for x in (fm.get(k) or []) if x is not None]
+                    for k in _STRING_LIST_FIELDS}
+    # Preserve items VERBATIM (dict for the rich shape, or legacy string like
+    # "metro (n)") — coercing would corrupt the object form.
+    object_lists = {k: [x for x in (fm.get(k) or []) if x is not None]
+                    for k in _OBJECT_LIST_FIELDS}
+    lists = {**string_lists, **object_lists}
 
     md_proc = markdown.Markdown(extensions=_MD_EXTENSIONS)
     body_html = md_proc.convert(body)

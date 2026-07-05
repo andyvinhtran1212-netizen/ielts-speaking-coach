@@ -650,4 +650,90 @@ def test_backward_compat_markdown_fallback_keeps_six_categories():
     titles = {c["slug"]: c["title"] for c in cats}
     assert titles.get("technology") == "Technology"
     assert titles.get("work-career") == "Work & Career"   # yaml title preserved
-    assert sum(c["article_count"] for c in cats) == 20
+    assert sum(c["article_count"] for c in cats) == 80
+
+
+# ── Phase B2: KP-enrichment fields (confusable_with / related_grammar / tested_in / lists) ──
+
+_ENRICHED_MD = """---
+headword: "Innovation"
+slug: "innovation"
+category: "technology"
+part_of_speech: "noun"
+word_family:
+  - {form: "innovate", pos: "verb", note_vi: "đổi mới"}
+  - {form: "innovative", pos: "adjective"}
+confusable_with:
+  - {slug: "invention", note_vi: "invention = phát minh; innovation = cải tiến"}
+related_grammar:
+  - {slug: "word-formation-noun-suffixes", anchor: "word-formation-noun-suffixes.suffix.tion-sion"}
+tested_in: ["toeic_rc", "ielts_reading"]
+lists: ["awl-sublist-1", "toeic-core"]
+---
+
+**Sự đổi mới** — a new idea, method, or device.
+"""
+
+
+def test_kp_enrichment_fields_parsed_and_in_payload():
+    p = parse_vocab_markdown(_ENRICHED_MD)
+    # string lists coerced as before
+    assert p.lists["tested_in"] == ["toeic_rc", "ielts_reading"]
+    assert p.lists["lists"] == ["awl-sublist-1", "toeic-core"]
+    # object lists preserved verbatim (dicts, not stringified)
+    assert p.lists["word_family"][0] == {"form": "innovate", "pos": "verb", "note_vi": "đổi mới"}
+    assert p.lists["confusable_with"][0]["slug"] == "invention"
+    assert p.lists["related_grammar"][0]["anchor"] == "word-formation-noun-suffixes.suffix.tion-sion"
+    # everything rides into the upsert payload under its column name
+    payload = build_vocab_payload(p)
+    for col in ("confusable_with", "related_grammar", "tested_in", "lists", "word_family"):
+        assert col in payload
+
+
+def test_all_seed_vocab_cards_parse_and_validate():
+    import glob
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1] / "content_vocab"
+    cards = [p for p in root.glob("*/*.md")]
+    assert cards, "no seed vocab cards found"
+    awl = 0
+    for p in cards:
+        vp = parse_vocab_markdown(p.read_text(encoding="utf-8"))
+        assert validate_vocab(vp) == [], f"{p.name} failed validation"
+        if "awl-sublist-1" in (vp.lists.get("lists") or []):
+            awl += 1
+            # word_family, WHEN present, must be the object shape (not stringified);
+            # a few words (data, area) legitimately have no family.
+            wf = vp.lists.get("word_family") or []
+            assert all(isinstance(x, dict) for x in wf), f"{p.name} word_family not object"
+    assert awl >= 20, f"expected >=20 AWL-tagged cards, got {awl}"
+
+
+def test_vocab_kp_fields_structurally_valid():
+    """Guards uploads: lists ∈ _lists.yaml, tested_in ∈ allowed sources, and
+    related_grammar/confusable_with are well-formed objects. (Anchor resolution
+    is checked once the grammar articles land on main.)"""
+    import glob
+    import yaml
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1] / "content_vocab"
+    list_slugs = {l["slug"] for l in
+                  (yaml.safe_load((root / "_lists.yaml").read_text("utf-8")) or {}).get("lists", [])}
+    ALLOWED_SRC = {"ielts_reading", "ielts_listening", "toeic_rc", "toeic_lc", "thpt_qg"}
+    bad = []
+    for p in glob.glob(str(root / "*/*.md")):
+        vp = parse_vocab_markdown(Path(p).read_text("utf-8"))
+        name = Path(p).name
+        for v in vp.lists.get("lists") or []:
+            if v not in list_slugs:
+                bad.append(f"{name}: lists '{v}' not in _lists.yaml")
+        for v in vp.lists.get("tested_in") or []:
+            if v not in ALLOWED_SRC:
+                bad.append(f"{name}: tested_in '{v}' invalid")
+        for r in vp.lists.get("related_grammar") or []:
+            if not (isinstance(r, dict) and r.get("slug") and r.get("anchor")):
+                bad.append(f"{name}: related_grammar item needs slug+anchor")
+        for c in vp.lists.get("confusable_with") or []:
+            if not (isinstance(c, dict) and c.get("slug")):
+                bad.append(f"{name}: confusable_with item needs slug")
+    assert not bad, "KP-field problems:\n" + "\n".join(bad)

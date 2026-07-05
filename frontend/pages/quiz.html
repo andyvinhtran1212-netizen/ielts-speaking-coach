@@ -468,12 +468,17 @@
 
     // ── Vocab card popup — renders the WHOLE card (every field present) ──
     let _cardReturnFocus = null;
-    // Coerce a JSONB array (strings or {text|phrase|word|en} objects) to strings.
+    // Coerce a JSONB array (strings or object rows) to strings. `form` covers the
+    // enriched word_family shape [{form,pos,note_vi}]; the rest cover legacy/other
+    // object arrays. When an object row carries a part of speech, append it.
     function _toStrings(arr) {
       if (!Array.isArray(arr)) return [];
-      return arr.map((it) => typeof it === 'string'
-        ? it : (it && (it.text || it.phrase || it.word || it.en || it.value)) || '')
-        .map((s) => String(s).trim()).filter(Boolean);
+      return arr.map((it) => {
+        if (typeof it === 'string') return it;
+        if (!it) return '';
+        const w = it.form || it.text || it.phrase || it.word || it.headword || it.en || it.value || '';
+        return w && it.pos ? w + ' (' + it.pos + ')' : w;
+      }).map((s) => String(s).trim()).filter(Boolean);
     }
     function _chips(label, arr) {
       const xs = _toStrings(arr);
