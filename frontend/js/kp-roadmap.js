@@ -88,14 +88,35 @@
     if (cta) { cta.textContent = 'Xem toàn bộ Grammar Wiki →'; cta.setAttribute('href', '/grammar.html'); }
   }
 
+  function renderError() {
+    var titleEl = _el('roadmap-title');
+    var subEl = _el('roadmap-subtitle');
+    if (titleEl) titleEl.textContent = 'Lộ trình của bạn';
+    if (subEl) subEl.textContent = '';
+    var steps = _el('roadmap-steps');
+    if (steps) {
+      steps.innerHTML = '' +
+        '<div style="padding:var(--av-space-8);text-align:center;border:1px solid var(--av-border-default);' +
+          'border-radius:var(--av-radius-lg);background:var(--av-surface-card);">' +
+          '<p style="color:var(--av-error);font-weight:600;margin-bottom:var(--av-space-2);">Không tải được lộ trình</p>' +
+          '<p style="color:var(--av-text-muted);font-size:var(--av-fs-sm);margin-bottom:var(--av-space-6);">' +
+            'Đã có lỗi khi tải lộ trình của bạn. Vui lòng thử lại sau ít phút.</p>' +
+          '<button type="button" onclick="location.reload()" class="btn-primary">Thử lại</button>' +
+        '</div>';
+    }
+  }
+
   async function loadPersonalRoadmap() {
     try {
       var data = await window.api.get('/api/me/roadmap');
       if (data == null) return;   // 401 → api.js already redirected to /login
       if (data.mode === 'personal' && (data.nodes || []).length) renderPersonal(data);
-      else renderEmpty();
+      else if (data.mode === 'static' || data.mode === 'personal') renderEmpty();
+      else renderError();   // unexpected shape → treat as failure, not "no data"
     } catch (err) {
-      renderEmpty();
+      // A real API/schema failure must NOT masquerade as an empty roadmap — a
+      // learner with real weak KPs would otherwise be told there's nothing.
+      renderError();
     } finally {
       _hide('roadmap-skeleton');
       _show('roadmap-container');

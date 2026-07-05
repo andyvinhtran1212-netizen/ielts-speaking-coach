@@ -35,6 +35,12 @@ describe('personal KP roadmap wiring', () => {
     assert.match(KP_JS, /mode === 'personal'/);
     assert.match(KP_JS, /renderEmpty/);
   });
+
+  test('API/schema failures render an error state, not the empty CTA', () => {
+    assert.match(KP_JS, /function renderError/);
+    // the catch (and the unexpected-shape branch) route to renderError
+    assert.match(KP_JS, /catch \(err\) \{\s*(?:\/\/[^\n]*\n\s*)*renderError\(\)/);
+  });
 });
 
 describe('design-token compliance (no hardcoded colours)', () => {
