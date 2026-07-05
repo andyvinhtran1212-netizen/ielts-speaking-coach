@@ -99,15 +99,17 @@ Lưu ý các trường hợp đặc biệt:
 <!-- anchor: word-formation-verbs-and-adverbs.prefix -->
 ### Tiền tố đổi nghĩa: un- / dis- / re- / en-
 
-Tiền tố (prefix) **không đổi từ loại** — chỉ đổi **nghĩa**:
+**Phần lớn** tiền tố chỉ đổi **nghĩa**, KHÔNG đổi từ loại (khác hẳn hậu tố): *happy → unhappy* vẫn là tính từ, *agree → disagree* vẫn là động từ.
 
-| Tiền tố | Nghĩa | Ví dụ |
-|---|---|---|
-| **un- / in- / im- / il- / ir-** | phủ định | happy → unhappy, possible → impossible, legal → illegal, regular → irregular |
-| **dis-** | ngược lại | agree → disagree, appear → disappear, honest → dishonest |
-| **re-** | lại | do → redo, write → rewrite, consider → reconsider |
-| **en- / em-** | làm cho | large → enlarge, able → enable, power → empower |
-| **mis-** | sai | understand → misunderstand, use → misuse |
+| Tiền tố | Nghĩa | Đổi từ loại? | Ví dụ |
+|---|---|---|---|
+| **un- / in- / im- / il- / ir-** | phủ định | không | happy → unhappy, possible → impossible, legal → illegal, regular → irregular |
+| **dis-** | ngược lại | không | agree → disagree, appear → disappear, honest → dishonest |
+| **re-** | lại | không | do → redo, write → rewrite, consider → reconsider |
+| **mis-** | sai | không | understand → misunderstand, use → misuse |
+| **en- / em-** | làm cho | **CÓ** — tạo động từ | large (adj) → enlarge (v), able (adj) → enable (v), power (n) → empower (v) |
+
+> **Ngoại lệ quan trọng:** **en-/em-** là tiền tố **tạo động từ** — nó biến tính từ/danh từ thành động từ, tức có đổi từ loại. Đây chính là mẫu "prefix tạo động từ" hay bị hỏi ở câu word-form.
 
 <!-- anchor: word-formation-verbs-and-adverbs.pitfall -->
 ## Lỗi thường gặp
