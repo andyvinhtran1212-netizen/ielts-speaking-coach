@@ -8,7 +8,7 @@ from __future__ import annotations
 import asyncio
 
 from routers import kp as KP
-from services import kp_evidence, kp_roadmap, quiz_service
+from services import kp_evidence, kp_roadmap, quiz_service, kp_registry
 
 
 def _run(coro):
@@ -67,6 +67,13 @@ def test_kp_mastery_returns_counts_and_items(monkeypatch):
 
 
 # ── roadmap graph logic (pure) ───────────────────────────────────────────────
+
+def test_label_for_grammar_carries_category_and_title():
+    meta = kp_registry.label_for("grammar", "articles")
+    assert meta.get("category") and meta.get("title")  # enables deep-link + title
+    assert kp_registry.label_for("skill", "inference")["title"] == "Inference"
+    assert kp_registry.label_for("grammar", "definitely-not-a-slug") == {}
+
 
 def test_topo_order_puts_prerequisites_first():
     # c requires b requires a → a, b, c.

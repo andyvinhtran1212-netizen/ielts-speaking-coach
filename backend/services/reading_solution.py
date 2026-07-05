@@ -164,6 +164,31 @@ def validate_solution_structure(solution, label: str) -> list[str]:
 
 # ── reconcile → stepper view-model (pure; called by the review endpoint) ─────
 
+def enrich_kp_refs(stepper: Optional[dict], label_fn) -> Optional[dict]:
+    """Add human-facing {title, category?} to every kp_ref in a built stepper,
+    IN PLACE, using the injected label_fn(kp_type, slug) -> dict. Injected so this
+    module stays DB-free; the review endpoint passes kp_registry.label_for. Lets
+    the frontend show titles and deep-link grammar refs to the article."""
+    if not isinstance(stepper, dict):
+        return stepper
+
+    def _enrich(refs):
+        for r in refs or []:
+            if isinstance(r, dict) and r.get("slug"):
+                for k, v in (label_fn(r.get("type"), r.get("slug")) or {}).items():
+                    if v is not None:
+                        r.setdefault(k, v)
+
+    for s in stepper.get("steps") or []:
+        if isinstance(s, dict):
+            _enrich(s.get("kp_refs"))
+    for d in stepper.get("distractors") or []:
+        if isinstance(d, dict):
+            _enrich(d.get("kp_refs"))
+    _enrich(stepper.get("kp_tags"))
+    return stepper
+
+
 def build_stepper(solution: Optional[dict], explanation: Optional[str] = None) -> Optional[dict]:
     """Normalize any question's solution (+ its top-level explanation fallback)
     into the stepper view-model the frontend renders. Returns None only when

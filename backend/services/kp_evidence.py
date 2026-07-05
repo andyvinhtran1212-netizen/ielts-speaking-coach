@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from database import supabase_admin
+from services import kp_registry
 from services.content_import_service import slugify
 
 logger = logging.getLogger(__name__)
@@ -264,12 +265,17 @@ def get_user_mastery(user_id: str, *, status: Optional[str] = None,
         kp = r.get("knowledge_points") or {}
         if kp_type and kp.get("kp_type") != kp_type:
             continue
+        # {title, category?} so the frontend shows a real title and can deep-link
+        # grammar KPs to /grammar/{category}/{slug}.
+        meta = kp_registry.label_for(kp.get("kp_type"), kp.get("ref_slug"))
         out.append({
             "kp_id":            r.get("kp_id"),
             "kp_type":          kp.get("kp_type"),
             "ref_slug":         kp.get("ref_slug"),
             "anchor":           kp.get("anchor") or "",
             "level":            kp.get("level") or "",
+            "title":            meta.get("title"),
+            "category":         meta.get("category"),
             "score":            r.get("score"),
             "status":           r.get("status"),
             "evidence_count":   r.get("evidence_count"),

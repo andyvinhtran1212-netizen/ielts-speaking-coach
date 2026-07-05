@@ -269,9 +269,130 @@
       '<div class="rr-sol__text">' + innerHtml + '</div></div>';
   }
 
+  // ── KP-aware stepper (Phase 2 FE piece 3) ─────────────────────────────
+  // The review response carries item.stepper (sibling of item.solution):
+  //   { steps:[{action,instruction_vi,kp_refs,microcheck}], distractors, kp_tags }
+  // We ONLY render the structured stepper for AUTHORED steps; a prose-fallback
+  // stepper (one 'confirm' step = the whole prose) keeps the legacy _stepsList
+  // rendering so existing L3 solutions are unchanged.
+  var STEP_ACTION = {
+    locate: 'Định vị thông tin', decode_vocab: 'Giải mã từ vựng',
+    parse_syntax: 'Phân tích cấu trúc câu', eliminate: 'Loại đáp án nhiễu',
+    infer: 'Suy luận', confirm: 'Chốt đáp án',
+  };
+  var KP_ICON = { grammar: '📘', vocab: '📗', skill: '🎯' };
+
+  function _prettySlug(s) {
+    return String(s || '').replace(/-/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+  }
+  function _kpChip(ref) {
+    if (!ref || !ref.slug) return '';
+    var chip = '<span style="display:inline-flex;align-items:center;gap:4px;font-size:var(--av-fs-xs);' +
+      'padding:2px 8px;border-radius:999px;background:var(--av-primary-soft);' +
+      'color:var(--av-primary);margin:2px 4px 0 0;">' +
+      (KP_ICON[ref.type] || '•') + ' ' + escapeHtml(ref.title || _prettySlug(ref.slug)) + '</span>';
+    // Grammar refs enriched with a category deep-link to the article (+ anchor).
+    if (ref.type === 'grammar' && ref.category) {
+      var href = '/grammar/' + encodeURIComponent(ref.category) + '/' + encodeURIComponent(ref.slug) +
+        (ref.anchor ? ('#' + encodeURIComponent(ref.anchor)) : '');
+      return '<a href="' + escapeHtml(href) + '" style="text-decoration:none;">' + chip + '</a>';
+    }
+    return chip;
+  }
+  function _kpChips(refs) {
+    refs = refs || [];
+    if (!refs.length) return '';
+    return '<div style="margin-top:6px;">' + refs.map(_kpChip).join('') + '</div>';
+  }
+  function _hasStructuredStepper(stp) {
+    if (!stp || !Array.isArray(stp.steps) || !stp.steps.length) return false;
+    if (stp.steps.length > 1) return true;
+    var s = stp.steps[0];
+    return (s.action && s.action !== 'confirm') ||
+      (Array.isArray(s.kp_refs) && s.kp_refs.length > 0) || (s.microcheck != null);
+  }
+  function _renderMicrocheck(mc, kpRefs, qNum, idx) {
+    var opts = (mc.options || []).map(function (o, i) {
+      var letter = String.fromCharCode(65 + i);
+      return '<button type="button" data-letter="' + letter + '" ' +
+        'style="display:block;width:100%;text-align:left;margin-top:6px;padding:8px 12px;' +
+        'border:1px solid var(--av-border-default);border-radius:var(--av-radius-md);' +
+        'background:var(--av-surface-card);color:var(--av-text-primary);cursor:pointer;">' +
+        '<b>' + letter + '.</b> ' + escapeHtml(typeof o === 'string' ? o : (o.text || '')) + '</button>';
+    }).join('');
+    return '<div data-mc data-answer="' + escapeHtml(String(mc.answer || '')) + '" ' +
+      'data-kprefs="' + escapeHtml(JSON.stringify(kpRefs || [])) + '" ' +
+      'style="margin-top:10px;padding:12px;border:1px dashed var(--av-primary-border);' +
+      'border-radius:var(--av-radius-md);background:var(--av-primary-soft);">' +
+      '<div style="font-weight:600;color:var(--av-text-primary);font-size:var(--av-fs-sm);">🧩 ' +
+        escapeHtml(mc.prompt || '') + '</div>' + opts +
+      '<div data-mc-fb hidden style="margin-top:8px;font-size:var(--av-fs-sm);font-weight:600;"></div></div>';
+  }
+  function _renderStepper(stp, qNum) {
+    if (!_hasStructuredStepper(stp)) return '';
+    var mcIdx = 0;
+    return '<ol style="list-style:none;margin:0;padding:0;">' + stp.steps.map(function (s, i) {
+      var mc = (s.microcheck && s.microcheck.prompt && Array.isArray(s.microcheck.options))
+        ? _renderMicrocheck(s.microcheck, s.kp_refs, qNum, mcIdx++) : '';
+      return '<li style="display:flex;gap:12px;padding:8px 0;' +
+        (i ? 'border-top:1px solid var(--av-border-subtle);' : '') + '">' +
+        '<span style="flex:none;width:24px;height:24px;border-radius:999px;background:var(--av-primary-soft);' +
+          'color:var(--av-primary);font-weight:700;font-size:var(--av-fs-xs);' +
+          'display:flex;align-items:center;justify-content:center;">' + (i + 1) + '</span>' +
+        '<div style="flex:1;min-width:0;">' +
+          '<div style="font-size:var(--av-fs-xs);font-weight:700;color:var(--av-primary);' +
+            'text-transform:uppercase;letter-spacing:.03em;">' + escapeHtml(STEP_ACTION[s.action] || 'Bước') + '</div>' +
+          '<div style="color:var(--av-text-primary);margin-top:2px;">' + formatProse(s.instruction_vi || '') + '</div>' +
+          _kpChips(s.kp_refs) + mc +
+        '</div></li>';
+    }).join('') + '</ol>';
+  }
+  function _renderDistractors(stp) {
+    if (!stp || !Array.isArray(stp.distractors)) return '';
+    // Only the AUTHORED per-option analysis (option present); the prose-fallback
+    // distractor (empty option == trap_analysis) is left to the legacy section.
+    var real = stp.distractors.filter(function (d) { return d.option && d.why_wrong_vi; });
+    if (!real.length) return '';
+    return '<ul style="list-style:none;margin:0;padding:0;">' + real.map(function (d) {
+      return '<li style="padding:6px 0;">' +
+        '<b style="color:var(--av-error);">' + escapeHtml(d.option) + '.</b> ' +
+        formatProse(d.why_wrong_vi) + _kpChips(d.kp_refs) + '</li>';
+    }).join('') + '</ul>';
+  }
+  function _wireMicrochecks(card) {
+    // Micro-check evidence needs an authed user; skip for anonymous share links.
+    if (anonIdFromUrl()) return;
+    card.querySelectorAll('[data-mc]').forEach(function (mc) {
+      var answer = mc.getAttribute('data-answer');
+      var refs = [];
+      try { refs = JSON.parse(mc.getAttribute('data-kprefs') || '[]'); } catch (_) { refs = []; }
+      var fb = mc.querySelector('[data-mc-fb]');
+      mc.querySelectorAll('[data-letter]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          if (mc.dataset.done) return;
+          mc.dataset.done = '1';
+          var correct = btn.getAttribute('data-letter') === answer;
+          btn.style.borderColor = correct ? 'var(--av-success)' : 'var(--av-error)';
+          btn.style.background = correct ? 'var(--av-success-soft)' : 'var(--av-error-soft)';
+          if (fb) {
+            fb.hidden = false;
+            fb.style.color = correct ? 'var(--av-success)' : 'var(--av-error)';
+            fb.textContent = correct ? '✓ Chính xác' : ('✗ Chưa đúng — đáp án: ' + answer);
+          }
+          if (refs.length && window.api && window.api.post) {
+            window.api.post('/api/kp/microcheck-answers', {
+              answers: refs.map(function (r) { return { kp: r, correct: correct }; }),
+            }).catch(function () {});
+          }
+        });
+      });
+    });
+  }
+
   function renderCard(item) {
     var correct = !!item.correct;
     var sol = item.solution || {};
+    var stp = item.stepper || null;   // Phase 2 FE: KP-aware stepper view-model
     var card = document.createElement('article');
     card.className = 'rr-card ' + (correct ? 'is-correct' : 'is-incorrect');
     card.dataset.q = String(item.q_num);
@@ -281,7 +402,9 @@
       : (item.skill_tag ? (' · ' + (SKILL_LABEL[item.skill_tag] || item.skill_tag)) : '');
 
     var sections = [
-      _section('Các bước ra đáp án', sol.steps ? _stepsList(sol.steps) : '', 'rr-sol__sec--steps'),
+      _section('Các bước ra đáp án',
+        _hasStructuredStepper(stp) ? _renderStepper(stp, item.q_num)
+          : (sol.steps ? _stepsList(sol.steps) : ''), 'rr-sol__sec--steps'),
       _section('Trích đoạn nguồn', sol.source_excerpt
         ? ('<blockquote>' + formatProse(sol.source_excerpt) + '</blockquote>' +
            // reading-review-locate-exam-format A2 — explicit locate trigger
@@ -290,9 +413,11 @@
         : '', 'rr-sol__sec--quote'),
       _section('Từ vựng', (sol.vocab && sol.vocab.length) ? _vocabList(sol.vocab) : '', 'rr-sol__sec--vocab'),
       _section('Paraphrase', sol.paraphrase ? _bulletList(sol.paraphrase) : ''),
+      _section('Phân tích đáp án nhiễu', _renderDistractors(stp), 'rr-sol__sec--trap'),
       _section('Phân tích bẫy & kỹ năng', sol.trap_analysis ? _bulletList(sol.trap_analysis) : '', 'rr-sol__sec--trap'),
       _section('💡 Mẹo làm bài', sol.tips ? _bulletList(sol.tips) : '', 'rr-sol__sec--tip'),
-      (!sol.steps && item.explanation) ? _section('Lời giải', '<p>' + formatProse(item.explanation) + '</p>') : '',
+      (!_hasStructuredStepper(stp) && !sol.steps && item.explanation)
+        ? _section('Lời giải', '<p>' + formatProse(item.explanation) + '</p>') : '',
     ].join('');
     var hasRich = sections.replace(/\s/g, '') !== '';
 
@@ -337,6 +462,7 @@
       if (locateBtn) {
         locateBtn.addEventListener('click', function () { highlightSource(sol.source_excerpt); });
       }
+      _wireMicrochecks(card);   // interactive micro-checks post KP evidence
     }
     return card;
   }
