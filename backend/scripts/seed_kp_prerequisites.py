@@ -42,6 +42,22 @@ def _grammar_kp_index() -> dict[str, str]:
     return idx
 
 
+def _existing_edges() -> set[tuple[str, str]]:
+    """Every (kp_id, prereq_kp_id) currently stored, paginated."""
+    out: set[tuple[str, str]] = set()
+    start = 0
+    while True:
+        rows = (supabase_admin.table("kp_prerequisites")
+                .select("kp_id,prereq_kp_id")
+                .range(start, start + 999).execute().data or [])
+        for r in rows:
+            out.add((r["kp_id"], r["prereq_kp_id"]))
+        if len(rows) < 1000:
+            break
+        start += 1000
+    return out
+
+
 def main() -> None:
     kp_by_slug = _grammar_kp_index()
     logger.info("Loaded %d article-level grammar KPs.", len(kp_by_slug))
@@ -77,7 +93,18 @@ def main() -> None:
         written += len(chunk)
         logger.info("  upserted %d/%d", written, len(rows))
 
-    logger.info("Done. upserted=%d prerequisite edges", written)
+    # Sync: drop edges that no longer exist in the frontmatter (a renamed or
+    # removed prerequisite). Upsert alone would leave them behind, and the roadmap
+    # reads ALL rows, so stale edges would keep pulling obsolete prereqs into
+    # users' roadmaps even after the source metadata is fixed.
+    desired = {(r["kp_id"], r["prereq_kp_id"]) for r in rows}
+    stale = _existing_edges() - desired
+    for kp_id, prereq_id in stale:
+        (supabase_admin.table("kp_prerequisites").delete()
+         .eq("kp_id", kp_id).eq("prereq_kp_id", prereq_id).execute())
+    logger.info("Removed %d stale edge(s) no longer in frontmatter.", len(stale))
+
+    logger.info("Done. upserted=%d, deleted=%d prerequisite edges", written, len(stale))
 
 
 if __name__ == "__main__":

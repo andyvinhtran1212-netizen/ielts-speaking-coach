@@ -350,7 +350,7 @@ def log_progress(*, user_id: str, session_id: str, attempts: list[dict], word_st
             # Idempotent on client_id (mig 119 unique index) — a retried or
             # keepalive-on-unload re-send of the same attempts is ignored, so a
             # pagehide-during-flush double-send never duplicates rows.
-            supabase_admin.table("quiz_attempts").upsert(
+            attempts_resp = supabase_admin.table("quiz_attempts").upsert(
                 attempt_rows, on_conflict="client_id", ignore_duplicates=True
             ).execute()
         except Exception as exc:  # noqa: BLE001
@@ -359,8 +359,11 @@ def log_progress(*, user_id: str, session_id: str, attempts: list[dict], word_st
                 user_id=user_id, url=f"/api/quiz/sessions/{session_id}/progress",
                 extra={"stage": "attempts", "n_attempts": len(attempt_rows)})
             raise HTTPException(500, f"Lỗi ghi attempts: {exc}")
-        # Attempts persisted → feed grammar-linked ones into the KP evidence store.
-        _record_quiz_kp_evidence(user_id, bank_id, attempt_rows)
+        # Feed only the NEWLY-inserted attempts into the KP evidence store. With
+        # ignore_duplicates the upsert RETURNs just the rows it inserted, so a
+        # retried/keepalive re-send (same client_id) records no duplicate evidence
+        # and can't double-count a quiz answer toward mastery.
+        _record_quiz_kp_evidence(user_id, bank_id, getattr(attempts_resp, "data", None) or [])
 
     stat_rows = []
     for w in word_stats:
