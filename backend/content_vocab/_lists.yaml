@@ -24,6 +24,41 @@ lists:
     description: Academic Word List — sublist 3.
     exam_source: ielts_reading
     order: 3
+  - slug: awl-sublist-4
+    title: AWL Sublist 4
+    description: Academic Word List — sublist 4.
+    exam_source: ielts_reading
+    order: 4
+  - slug: awl-sublist-5
+    title: AWL Sublist 5
+    description: Academic Word List — sublist 5.
+    exam_source: ielts_reading
+    order: 5
+  - slug: awl-sublist-6
+    title: AWL Sublist 6
+    description: Academic Word List — sublist 6.
+    exam_source: ielts_reading
+    order: 6
+  - slug: awl-sublist-7
+    title: AWL Sublist 7
+    description: Academic Word List — sublist 7.
+    exam_source: ielts_reading
+    order: 7
+  - slug: awl-sublist-8
+    title: AWL Sublist 8
+    description: Academic Word List — sublist 8.
+    exam_source: ielts_reading
+    order: 8
+  - slug: awl-sublist-9
+    title: AWL Sublist 9
+    description: Academic Word List — sublist 9.
+    exam_source: ielts_reading
+    order: 9
+  - slug: awl-sublist-10
+    title: AWL Sublist 10
+    description: Academic Word List — sublist 10 (30 headwords).
+    exam_source: ielts_reading
+    order: 10
 
   # ── TOEIC Service List (business/office) ──
   - slug: toeic-core
