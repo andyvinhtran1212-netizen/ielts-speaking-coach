@@ -3,13 +3,14 @@ valid and its KP links all resolve to live assets.
 """
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 from services import exam_service as ex
 from services import kp_registry, reading_solution
 from services.content_import_service import _split_frontmatter
 
-CONTENT = Path(__file__).resolve().parents[1] / "content" / "exams" / "toeic-p5-001.md"
+CONTENT_DIR = Path(__file__).resolve().parents[1] / "content" / "exams"
 
 _GOOD_Q = {
     "q_num": 1, "question_type": "mcq_single",
@@ -72,14 +73,44 @@ def test_grade_counts_correct_and_wrong():
 
 # ── seed content is valid + every KP link is live ────────────────────────────
 
-def test_seed_toeic_content_valid_and_kp_links_resolve():
-    fm, _ = _split_frontmatter(CONTENT.read_text(encoding="utf-8"))
-    assert ex.validate_exam(fm) == []
-    for q in fm["questions"]:
-        # grammar_slug points at a real grammar article
-        if q.get("grammar_slug"):
-            assert kp_registry.resolve_grammar(q["grammar_slug"]) is None, q["grammar_slug"]
-        # every kp_ref in the solution resolves (grammar/skill offline)
-        for ref in reading_solution.iter_kp_refs(q.get("solution")):
-            if ref["type"] in ("grammar", "skill"):
-                assert kp_registry.resolve_ref(ref["type"], ref["slug"], ref["anchor"]) is None, ref
+def test_seed_exam_content_valid_and_kp_links_resolve():
+    files = sorted(CONTENT_DIR.glob("*.md"))
+    assert files, "no exam content files found"
+    for path in files:
+        fm, _ = _split_frontmatter(path.read_text(encoding="utf-8"))
+        assert ex.validate_exam(fm) == [], f"{path.name} failed validation"
+        for q in fm["questions"]:
+            # grammar_slug points at a real grammar article
+            if q.get("grammar_slug"):
+                assert kp_registry.resolve_grammar(q["grammar_slug"]) is None, (path.name, q["grammar_slug"])
+            # every kp_ref in the solution resolves (grammar/skill offline)
+            for ref in reading_solution.iter_kp_refs(q.get("solution")):
+                if ref["type"] in ("grammar", "skill"):
+                    assert kp_registry.resolve_ref(ref["type"], ref["slug"], ref["anchor"]) is None, (path.name, ref)
+
+
+# ── admin import route ───────────────────────────────────────────────────────
+
+def test_admin_import_route_decodes_and_passes_through(monkeypatch):
+    from routers import admin_exams as AE
+
+    async def _admin(_a):
+        return {"id": "A1"}
+    captured = {}
+
+    def _imp(text, dry_run=True):
+        captured["text"] = text
+        captured["dry_run"] = dry_run
+        return {"ok": True, "committed": not dry_run}
+
+    monkeypatch.setattr(AE, "require_admin", _admin)
+    monkeypatch.setattr(AE.exam_service, "import_exam", _imp)
+
+    class _F:
+        async def read(self):
+            return "xin chào".encode("utf-8")
+
+    out = asyncio.new_event_loop().run_until_complete(
+        AE.admin_import_exam(file=_F(), dry_run=True, authorization="x"))
+    assert out["ok"] is True
+    assert captured == {"text": "xin chào", "dry_run": True}

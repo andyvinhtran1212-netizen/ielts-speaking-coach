@@ -182,6 +182,13 @@ def list_published(exam_source: Optional[str] = None) -> list[dict]:
     return q.order("code").execute().data or []
 
 
+def admin_list_all() -> list[dict]:
+    """All exams (incl. drafts) for the admin dashboard."""
+    return (supabase_admin.table("exam_tests")
+            .select("id, exam_source, code, title, part, status, total_questions, updated_at")
+            .order("updated_at", desc=True).execute().data or [])
+
+
 def _published_test_or_404(test_id: str) -> dict:
     res = (supabase_admin.table("exam_tests").select("*")
            .eq("id", test_id).eq("status", "published").limit(1).execute())
