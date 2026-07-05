@@ -28,7 +28,7 @@ def test_audit_mapping_coverage_excludes_reading_content():
     # noun/adjective suffixes, verbs-and-adverbs, determiners-overview). Reading
     # content stays excluded — guarded by the negative asserts above; this count
     # is the tripwire, bump it when grammar articles land.
-    assert len(articles) == 131, f"Expected grammar-only denominator of 131, got {len(articles)}"
+    assert len(articles) == 137, f"Expected grammar-only denominator of 137, got {len(articles)}"
 
 
 def test_verify_anchor_drift_declared_anchor_inventory_excludes_reading():

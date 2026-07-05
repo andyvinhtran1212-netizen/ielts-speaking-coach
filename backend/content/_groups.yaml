@@ -36,6 +36,10 @@ groups:
       - { slug: adjectives,         category: modifiers,       title: "Adjectives — Tính từ" }
       - { slug: adverbs,            category: modifiers,       title: "Adverbs — Trạng từ" }
       - { slug: adjective-vs-adverb, category: modifiers,      title: "Adjective vs. Adverb — Tính từ hay Trạng từ?" }
+      - { slug: participial-adjectives,       category: modifiers, title: "Participial Adjectives — interested vs interesting" }
+      - { slug: order-of-adjectives,          category: modifiers, title: "Order of Adjectives — Trật tự nhiều tính từ" }
+      - { slug: compound-adjectives,          category: modifiers, title: "Compound Adjectives — Tính từ ghép (a five-year-old child)" }
+      - { slug: intensifiers-and-mitigators,  category: modifiers, title: "Intensifiers & Mitigators — quite / fairly / rather / very" }
       - { slug: nouns,              category: parts-of-speech, title: "Nouns — Danh từ" }
       - { slug: verbs,              category: parts-of-speech, title: "Verbs — Động từ" }
       - { slug: prepositions,       category: parts-of-speech, title: "Prepositions — Giới từ" }
@@ -159,6 +163,8 @@ groups:
       - { slug: missing-main-verbs,         category: error-clinic, title: "Missing Main Verbs — Lỗi thiếu động từ chính" }
       - { slug: wrong-pronoun-reference,    category: error-clinic, title: "Wrong Pronoun Reference — Lỗi đại từ tham chiếu sai hoặc mơ hồ" }
       - { slug: double-subject-errors,      category: error-clinic, title: "Double Subject Errors — Lỗi lặp chủ ngữ" }
+      - { slug: tag-questions-errors,       category: error-clinic, title: "Tag Questions — Lỗi câu hỏi đuôi (isn't it?)" }
+      - { slug: dangling-modifiers,         category: error-clinic, title: "Dangling Modifiers — Lỗi mệnh đề phân từ treo" }
 
   - slug: grammar-for-writing
     title: "IELTS Writing Lab"
