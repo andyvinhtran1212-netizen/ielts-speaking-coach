@@ -257,8 +257,13 @@ def get_review(user_id: str, attempt_id: str) -> dict:
     for g in (attempt.get("grading_details") or []):
         q = by_qnum.get(g.get("q_num")) or {}
         stepper = reading_solution.build_stepper(q.get("solution"), q.get("explanation"))
-        if stepper:
-            reading_solution.enrich_kp_refs(stepper, kp_registry.label_for)
+        # Enrich kp_refs with {title, category} for deep-linking WHEN the helpers
+        # are available (they land on main via the FE PR). Defensive so this module
+        # works standalone and auto-activates post-merge — no cross-PR coupling.
+        _enrich = getattr(reading_solution, "enrich_kp_refs", None)
+        _label = getattr(kp_registry, "label_for", None)
+        if stepper and _enrich and _label:
+            _enrich(stepper, _label)
         review.append({**g, "prompt": q.get("prompt"), "options": q.get("options"),
                        "stepper": stepper})
 
