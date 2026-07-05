@@ -158,15 +158,18 @@ def recompute_mastery(user_id: str, kp_id: str, now: Optional[datetime] = None) 
                 .eq("user_id", user_id).eq("kp_id", kp_id)
                 .execute().data or [])
         agg = compute_mastery(rows, now)
-        supabase_admin.table("user_kp_mastery").upsert({
-            "user_id":          user_id,
-            "kp_id":            kp_id,
-            "score":            agg["score"],
-            "status":           agg["status"],
-            "evidence_count":   agg["evidence_count"],
-            "last_evidence_at": agg["last_evidence_at"],
-            "updated_at":       now.isoformat(),
-        }, on_conflict="user_id,kp_id").execute()
+        # Atomic, non-regressing upsert (fn_upsert_kp_mastery, mig 132): a stale
+        # compute over fewer rows can't clobber a fresher aggregate under
+        # concurrent evidence writes for the same (user, kp).
+        supabase_admin.rpc("fn_upsert_kp_mastery", {
+            "p_user":   user_id,
+            "p_kp":     kp_id,
+            "p_score":  agg["score"],
+            "p_status": agg["status"],
+            "p_count":  agg["evidence_count"],
+            "p_last":   agg["last_evidence_at"],
+            "p_now":    now.isoformat(),
+        }).execute()
         return agg
     except Exception as e:  # noqa: BLE001 — best-effort, never fatal
         logger.warning("[kp] recompute_mastery failed user=%s kp=%s: %s", user_id, kp_id, e)
