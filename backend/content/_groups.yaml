@@ -41,6 +41,10 @@ groups:
       - { slug: prepositions,       category: parts-of-speech, title: "Prepositions — Giới từ" }
       - { slug: pronouns,           category: parts-of-speech, title: "Pronouns — Đại từ" }
       - { slug: conjunctions,       category: parts-of-speech, title: "Conjunctions — Liên từ" }
+      - { slug: word-formation-noun-suffixes,      category: parts-of-speech, title: "Word Formation — Noun Suffixes (Hậu tố tạo danh từ)" }
+      - { slug: word-formation-adjective-suffixes, category: parts-of-speech, title: "Word Formation — Adjective Suffixes (Hậu tố tạo tính từ)" }
+      - { slug: word-formation-verbs-and-adverbs,  category: parts-of-speech, title: "Word Formation — Verbs & Adverbs (Hậu tố động từ, trạng từ & tiền tố)" }
+      - { slug: determiners-overview,              category: parts-of-speech, title: "Determiners — Tổng quan từ hạn định" }
 
   - slug: sentence-structures
     title: "Cấu trúc câu"
