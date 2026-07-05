@@ -650,7 +650,7 @@ def test_backward_compat_markdown_fallback_keeps_six_categories():
     titles = {c["slug"]: c["title"] for c in cats}
     assert titles.get("technology") == "Technology"
     assert titles.get("work-career") == "Work & Career"   # yaml title preserved
-    assert sum(c["article_count"] for c in cats) == 20
+    assert sum(c["article_count"] for c in cats) == 30
 
 
 # ── Phase B2: KP-enrichment fields (confusable_with / related_grammar / tested_in / lists) ──
@@ -688,3 +688,22 @@ def test_kp_enrichment_fields_parsed_and_in_payload():
     payload = build_vocab_payload(p)
     for col in ("confusable_with", "related_grammar", "tested_in", "lists", "word_family"):
         assert col in payload
+
+
+def test_all_seed_vocab_cards_parse_and_validate():
+    import glob
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1] / "content_vocab"
+    cards = [p for p in root.glob("*/*.md")]
+    assert cards, "no seed vocab cards found"
+    awl = 0
+    for p in cards:
+        vp = parse_vocab_markdown(p.read_text(encoding="utf-8"))
+        assert validate_vocab(vp) == [], f"{p.name} failed validation"
+        if "awl-sublist-1" in (vp.lists.get("lists") or []):
+            awl += 1
+            # AWL enriched cards carry an object word_family + a grammar cross-link
+            wf = vp.lists.get("word_family") or []
+            assert wf and isinstance(wf[0], dict), f"{p.name} word_family not object"
+            assert vp.lists.get("related_grammar"), f"{p.name} missing related_grammar"
+    assert awl >= 10, f"expected >=10 AWL-tagged cards, got {awl}"
