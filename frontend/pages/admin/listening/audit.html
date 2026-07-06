@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Audit nội dung · Listening · Admin · Aver Learning</title>
+
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-status.css" />
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2.107.0" defer></script>
+  <script src="/js/api.js"></script>
+
+  <style>
+    body.av-page { font-family: var(--av-font-sans); margin: 0; }
+    .au-shell { max-width: 1200px; margin: 0 auto; padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-4); }
+    .au-back a { color: var(--av-text-secondary); font-size: var(--av-fs-sm); text-decoration: none; }
+    .au-header h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-semibold); margin: 0 0 var(--av-space-1); }
+    .au-header .subtitle { color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
+    .au-table-wrap { border: 1px solid var(--av-border-default); border-radius: var(--av-radius-md);
+      background: var(--av-surface-card); overflow-x: auto; }
+    table.au-table { width: 100%; border-collapse: collapse; font-size: var(--av-fs-sm); }
+    .au-table th, .au-table td { padding: var(--av-space-3) var(--av-space-4); text-align: left;
+      border-bottom: 1px solid var(--av-border-default); vertical-align: middle; }
+    .au-table th { font-size: var(--av-fs-xs); text-transform: uppercase;
+      letter-spacing: var(--av-tracking-wide); color: var(--av-text-muted);
+      background: var(--av-surface-sunken); }
+    .au-mono { font-family: var(--av-font-mono); font-size: var(--av-fs-xs); color: var(--av-text-secondary); }
+    .au-pill { font-size: var(--av-fs-xs); font-weight: var(--av-fw-semibold); padding: 1px 9px; border-radius: 999px; white-space: nowrap; }
+    .au-pill.ok    { background: var(--av-success-soft); color: var(--av-success); }
+    .au-pill.err   { background: var(--av-error-soft); color: var(--av-error); }
+    .au-pill.warn  { background: var(--av-warning-soft); color: var(--av-warning); }
+    .au-pill.muted { background: var(--av-surface-sunken); color: var(--av-text-muted); }
+    .au-open { padding: 5px 12px; border-radius: var(--av-radius-sm); background: var(--av-brand-teal-700);
+      color: var(--av-text-on-primary); text-decoration: none; font-size: var(--av-fs-xs); font-weight: var(--av-fw-semibold); }
+    .au-note { color: var(--av-text-muted); font-size: var(--av-fs-sm); padding: var(--av-space-4); }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body class="av-page">
+  <aver-admin-chrome active="listening" subsection="audit">
+    <main class="au-shell">
+      <div class="au-back"><a href="/pages/admin/listening/tests.html">← Quản lý Listening tests</a></div>
+      <header class="au-header">
+        <h1>Audit nội dung Listening</h1>
+        <p class="subtitle">
+          Kiểm tra audio / đề / script / bài giải / timeline của từng test đang có —
+          sửa tại chỗ, không cần import lại. Health = kết quả kiểm tra cấu trúc + audio (nhanh, chưa gồm LLM).
+        </p>
+      </header>
+      <div class="au-note" id="au-loading">Đang tải danh sách test + chạy kiểm tra nhanh…</div>
+      <div class="au-table-wrap" id="au-wrap" hidden>
+        <table class="au-table">
+          <thead>
+            <tr><th>Test ID</th><th>Loại</th><th>Câu</th><th>Health</th><th>Trạng thái audit</th><th></th></tr>
+          </thead>
+          <tbody id="au-rows"></tbody>
+        </table>
+      </div>
+      <div class="au-note" id="au-error" hidden></div>
+    </main>
+  </aver-admin-chrome>
+  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
+  <script src="/js/admin-listening-audit.js" defer></script>
+</body>
+</html>
