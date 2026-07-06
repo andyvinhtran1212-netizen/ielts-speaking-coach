@@ -1287,3 +1287,87 @@ async def test_reap_skips_soft_deleted_essay():
 
     assert summary["skipped"] == 1 and summary["requeued"] == 0 and summary["failed"] == 0
     requeue.assert_not_called()
+
+
+# ── current_prompt_image_for_essay (stale-snapshot fallback resolver) ──
+
+_PROMPT_ID = "00000000-0000-0000-0000-0000000000aa"
+_LIVE_IMG = "https://prompt/live-chart.png"
+
+
+def test_prompt_image_fallback_resolves_via_assignment():
+    fake = _FakeSupabase(responses={
+        ("writing_assignments", "select"): [{"prompt_id": _PROMPT_ID}],
+        ("writing_prompts", "select"):     [{"prompt_image_url": _LIVE_IMG}],
+    })
+    with patch.object(essay_service, "supabase_admin", fake):
+        assert essay_service.current_prompt_image_for_essay(_ESSAY_ID) == _LIVE_IMG
+
+
+def test_prompt_image_fallback_none_when_no_assignment():
+    fake = _FakeSupabase(responses={("writing_assignments", "select"): []})
+    with patch.object(essay_service, "supabase_admin", fake):
+        assert essay_service.current_prompt_image_for_essay(_ESSAY_ID) is None
+
+
+def test_prompt_image_fallback_none_when_assignment_has_no_prompt_id():
+    fake = _FakeSupabase(responses={("writing_assignments", "select"): [{"prompt_id": None}]})
+    with patch.object(essay_service, "supabase_admin", fake):
+        assert essay_service.current_prompt_image_for_essay(_ESSAY_ID) is None
+
+
+def test_prompt_image_fallback_none_when_prompt_has_no_image():
+    fake = _FakeSupabase(responses={
+        ("writing_assignments", "select"): [{"prompt_id": _PROMPT_ID}],
+        ("writing_prompts", "select"):     [{"prompt_image_url": None}],
+    })
+    with patch.object(essay_service, "supabase_admin", fake):
+        assert essay_service.current_prompt_image_for_essay(_ESSAY_ID) is None
+
+
+def test_prompt_image_fallback_never_raises():
+    boom = MagicMock()
+    boom.table.side_effect = RuntimeError("db down")
+    with patch.object(essay_service, "supabase_admin", boom):
+        assert essay_service.current_prompt_image_for_essay(_ESSAY_ID) is None
+
+
+# ── get_essay_with_feedback — fallback field exposure ─────────────────
+
+def _detail_responses(task_type, snapshot, live_img):
+    return {
+        ("writing_essays", "select"): [{
+            "id": _ESSAY_ID, "student_id": _STUDENT_ID,
+            "task_type": task_type, "prompt_image_url": snapshot,
+        }],
+        ("writing_feedback_current", "select"): [],   # ungraded → no feedback
+        ("students", "select"): [{"id": _STUDENT_ID, "full_name": "X", "student_code": "S1"}],
+        ("writing_assignments", "select"): [{"prompt_id": _PROMPT_ID}],
+        ("writing_prompts", "select"): [{"prompt_image_url": live_img}],
+    }
+
+
+def test_detail_exposes_fallback_when_snapshot_differs():
+    fake = _FakeSupabase(responses=_detail_responses(
+        "task1_academic", snapshot="https://old/dead.png", live_img=_LIVE_IMG))
+    with patch.object(essay_service, "supabase_admin", fake):
+        out = essay_service.get_essay_with_feedback(_ESSAY_ID)
+    assert out["prompt_image_url_fallback"] == _LIVE_IMG
+
+
+def test_detail_omits_fallback_when_snapshot_matches_live():
+    fake = _FakeSupabase(responses=_detail_responses(
+        "task1_academic", snapshot=_LIVE_IMG, live_img=_LIVE_IMG))
+    with patch.object(essay_service, "supabase_admin", fake):
+        out = essay_service.get_essay_with_feedback(_ESSAY_ID)
+    assert "prompt_image_url_fallback" not in out
+
+
+def test_detail_skips_fallback_for_non_task1_academic():
+    fake = _FakeSupabase(responses=_detail_responses(
+        "task2", snapshot=None, live_img=_LIVE_IMG))
+    with patch.object(essay_service, "supabase_admin", fake):
+        out = essay_service.get_essay_with_feedback(_ESSAY_ID)
+    assert "prompt_image_url_fallback" not in out
+    # No assignment/prompt lookup for non-Task1Academic essays.
+    assert not any(c["table"] == "writing_assignments" for c in fake.calls)
