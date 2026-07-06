@@ -123,12 +123,37 @@ def format_prompt_facts_block(facts: Optional[dict]) -> Optional[str]:
         lines.append(f"Trục/danh mục: {axes}")
     if note:
         lines.append(f"Lưu ý: {note}")
-    lines.append(
-        "Hướng dẫn: coi các dữ kiện trên là mô tả ĐÚNG của biểu đồ. Đánh giá độ "
-        "chính xác và độ đầy đủ của bài viết SO VỚI các dữ kiện này. Nếu là "
-        "map/process, kết hợp thêm với HÌNH."
-    )
+    lines.append(_facts_grading_instruction(chart_type))
     return "\n".join(lines)
+
+
+def _facts_grading_instruction(chart_type: str) -> str:
+    """Type-specific closing instruction for the grader. Maps and processes are
+    graded on different things than data charts — spatial completeness/relations
+    for maps, correct SEQUENCE for processes — so the anchor block tells the
+    grader exactly what to check for the visual it's looking at."""
+    base = ("Hướng dẫn: coi các dữ kiện trên là mô tả ĐÚNG của hình. Đánh giá độ "
+            "chính xác và độ đầy đủ của bài viết SO VỚI các dữ kiện này. ")
+    if chart_type == "process":
+        return base + (
+            "Đây là SƠ ĐỒ QUY TRÌNH: kiểm tra học viên có mô tả ĐỦ các bước THEO "
+            "ĐÚNG THỨ TỰ không, có dùng thể BỊ ĐỘNG và từ nối trình tự (then, "
+            "after that, subsequently, finally) không, và có nêu đúng tính chất "
+            "tuyến tính/tuần hoàn không."
+        )
+    if chart_type == "map":
+        return base + (
+            "Đây là BẢN ĐỒ: kiểm tra học viên có mô tả ĐỦ các thay đổi không, có "
+            "đúng QUAN HỆ KHÔNG GIAN / hướng (bắc/nam, cạnh, thay cho) không, và "
+            "có dùng đúng THÌ (quá khứ khi mô tả thay đổi lịch sử) không. Không "
+            "phạt việc thiếu số liệu — bản đồ không có số."
+        )
+    if chart_type in ("line", "bar", "pie", "table"):
+        return base + (
+            "Kiểm tra độ chính xác của các SỐ LIỆU học viên nêu theo 'Số liệu "
+            "mốc', và việc có nêu overview + các xu hướng/so sánh chính không."
+        )
+    return base + "Nếu hình là map/process, kết hợp thêm với HÌNH."
 
 
 # ── Errors ────────────────────────────────────────────────────────────

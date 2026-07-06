@@ -322,6 +322,18 @@ def test_format_prompt_facts_block_renders_key_parts():
     assert "CHUẨN chấm Task Achievement" in block
 
 
+def test_facts_block_guidance_is_type_aware():
+    from services.gemini_writing_grader import format_prompt_facts_block
+    proc = format_prompt_facts_block({**_FACTS, "chart_type": "process"})
+    assert "THEO ĐÚNG THỨ TỰ" in proc and "BỊ ĐỘNG" in proc
+    mp = format_prompt_facts_block({**_FACTS, "chart_type": "map"})
+    assert "QUAN HỆ KHÔNG GIAN" in mp and "không có số" in mp
+    data = format_prompt_facts_block({**_FACTS, "chart_type": "bar"})
+    assert "Số liệu" in data
+    # Distinct instructions per type.
+    assert proc != mp != data
+
+
 def test_format_prompt_facts_block_none_for_empty():
     from services.gemini_writing_grader import format_prompt_facts_block
     assert format_prompt_facts_block(None) is None
