@@ -105,8 +105,20 @@ class VocabContentService:
         the caller falls back to markdown (G3)."""
         try:
             from database import supabase_admin  # local import — keep module import-safe
-            res = supabase_admin.table("vocab_cards").select("*").execute()
-            rows = res.data or []
+            # PostgREST caps a single response at ~1000 rows, so a bare select("*")
+            # silently drops everything past the first page once the table grows
+            # beyond it — the browse index and KP seed would just not see those
+            # words. Page through with range() until a short page signals the end.
+            rows: list[dict] = []
+            _PAGE = 1000
+            start = 0
+            while True:
+                res = supabase_admin.table("vocab_cards").select("*").range(start, start + _PAGE - 1).execute()
+                batch = res.data or []
+                rows.extend(batch)
+                if len(batch) < _PAGE:
+                    break
+                start += _PAGE
         except Exception as exc:  # noqa: BLE001 — any failure → markdown fallback
             logger.warning("[vocab] vocab_cards read failed (%s) — markdown fallback", exc)
             return None

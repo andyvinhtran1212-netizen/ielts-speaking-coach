@@ -98,6 +98,34 @@ def test_same_slug_two_categories_both_counted_and_addressable():
     assert svc.get_article("health", "abundant") is None
 
 
+def test_load_from_db_paginates_past_1000_row_cap():
+    """PostgREST caps one response at ~1000 rows; a bare select('*') silently drops
+    everything past the first page. With vocab_cards > 1000 rows the loader must
+    page with range() so the browse index + KP seed see EVERY word (regression:
+    1835 rows loaded as only ~1000 → ~800 cards invisible)."""
+    from unittest.mock import patch, MagicMock
+    import services.vocab_content as vc
+
+    N = 1835
+
+    class _PagedFake:
+        def __init__(self, rows):
+            self._rows = rows; self._a = 0; self._b = 0
+        def table(self, _name): return self
+        def select(self, *a, **k): return self
+        def range(self, a, b): self._a = a; self._b = b; return self
+        def execute(self):
+            return MagicMock(data=self._rows[self._a:self._b + 1])
+
+    rows = [{"headword": f"w{i}", "slug": f"w{i}", "category": "education", "updated_at": None}
+            for i in range(N)]
+    svc = vc.VocabContentService.__new__(vc.VocabContentService)  # skip __init__ (no live DB load)
+    with patch("database.supabase_admin", _PagedFake(rows)):
+        loaded = svc._load_from_db()
+    assert loaded is not None
+    assert len(loaded) == N, f"loader dropped rows past the 1000 cap: got {len(loaded)} of {N}"
+
+
 def test_vocab_search_prefix():
     svc = _service()
     results = svc.search_prefix("mit")

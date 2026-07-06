@@ -309,7 +309,9 @@ def _fresh_service_with_db(rows):
     """Build a VocabContentService whose DB read returns `rows`."""
     from services import vocab_content as vc
     db = MagicMock()
-    db.table.return_value.select.return_value.execute.return_value = MagicMock(data=rows)
+    # _load_from_db pages with .range(); model that call path (a single page of
+    # `rows` — len < the page size, so the loader stops after one fetch).
+    db.table.return_value.select.return_value.range.return_value.execute.return_value = MagicMock(data=rows)
     # Patch the database module symbol the local import resolves to.
     with patch("database.supabase_admin", db):
         svc = vc.VocabContentService()
@@ -350,7 +352,7 @@ def test_empty_table_falls_back_to_markdown_G3():
 def test_db_unavailable_falls_back_to_markdown_G3():
     from services import vocab_content as vc
     db = MagicMock()
-    db.table.return_value.select.return_value.execute.side_effect = RuntimeError("no db")
+    db.table.return_value.select.return_value.range.return_value.execute.side_effect = RuntimeError("no db")
     with patch("database.supabase_admin", db):
         svc = vc.VocabContentService()
     assert svc._source == "markdown"
