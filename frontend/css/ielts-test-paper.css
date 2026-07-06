@@ -271,6 +271,11 @@ select.ielts-gap-input {
   background: #ffffff;
   border-radius: var(--av-radius-sm);
 }
+/* Skill drills ship the plan as an inline <svg> string; the player renders it
+   as an inert data-URL <img class="ielts-map-rendered ielts-map-svg"> (secure
+   static mode — no scripts). It reuses .ielts-map-rendered sizing; this rule is
+   only a hook for any drill-specific tweaks. */
+.ielts-map-svg { background: transparent; }
 /* Sprint 13.5.6 admin reference — still rendered in the admin
    content-detail panel; intentionally NOT used by the student player
    anymore (Sprint 13.5.8). */

@@ -1,0 +1,246 @@
+{
+  "test_id": "ILR-LIS-DRL-MATCH-L2-T1",
+  "title": "Listening Skill-Drill — Matching (S2) — Orientation at a community arts & leisure centre",
+  "version": "1.0",
+  "target_band": 6.0,
+  "created": "2026-06-19",
+  "drill_id": "MATCH-L2-T1",
+  "drill_type": "matching",
+  "level": "L2",
+  "cluster": "C2 Community & Public Services / Facility brief",
+  "topic_tags": {
+    "S2": "Orientation talk by the coordinator of a community arts & leisure centre: matching five activities to the rooms/areas where they happen, then matching five services to the day they run on or the staff member responsible"
+  },
+  "accent_profile": [
+    "BrE"
+  ],
+  "total_words": 768,
+  "loader_note": "DRILL CONTAINS TWO matching blocks (Q1-5 activities->rooms; Q6-10 services->days/staff), each 5 left items matched to a 7-letter bank A-G with 2 distractor letters. The web loader may NOT yet classify render=matching natively (see Skill_Drill_Plan #9 / MASTER_GUIDE A4.7) — a classifier may be needed at import. Content is built correctly regardless. Flagged for reviewer.",
+  "sections": [
+    {
+      "section_id": "S2",
+      "section_number": 2,
+      "context": "Annick Trescothick, the coordinator of Calderwell Community Arts & Leisure Centre, gives a short orientation talk to a group of new members. In the first half she matches five regular activities to the room or area where each one takes place; in the second half she matches five services to the day each one runs on, or to the member of staff who looks after it.",
+      "register": "public-facing monologue",
+      "word_count": 768,
+      "audio_intro": "You will hear the coordinator of a community arts and leisure centre giving an orientation talk to new members. First, you have some time to look at questions 1 to 5. [pause:30s] Now listen carefully and answer questions 1 to 5.",
+      "speakers": [
+        {
+          "speaker_id": "S2_F1",
+          "name": "Annick Trescothick",
+          "role": "Coordinator, Calderwell Community Arts & Leisure Centre",
+          "voice_profile": "[F-BrE-40s-professional]"
+        }
+      ],
+      "audio_script": [
+        {
+          "speaker_tag": "[F-BrE-40s-professional]",
+          "text": "[emotion:warm] Hello everyone, and a very warm welcome to Calderwell Community Arts and Leisure Centre. My name's Annick, I'm the coordinator, and I'll give you a quick run-through of where things happen before you head off. There's a floor plan and a list on your handout, so you can follow along — no need to scribble everything down.",
+          "voice_settings": {
+            "stability": 0.5,
+            "style": 0.4,
+            "_note": "Warm BrE coordinator intro"
+          }
+        },
+        {
+          "speaker_tag": "[F-BrE-40s-professional]",
+          "text": "[emotion:professional] So, first the regular activities, and which room each one runs in. We've got seven spaces on your plan — the Garden Studio, the Brook Room, the Main Hall, the Glasshouse Café, the Lower Gallery, the Top-Floor Loft, and the Courtyard outside. Two of those won't come up as I go through the activities, so don't try to use every letter.",
+          "voice_settings": {
+            "stability": 0.5,
+            "style": 0.4,
+            "_note": "Lists the full bank A-G aloud so all seven letters are voiced"
+          }
+        },
+        {
+          "speaker_tag": "[F-BrE-40s-professional]",
+          "text": "[emotion:friendly] Let's start with the choir. Now, the choir's a big group — forty-odd singers — so it can't go in one of the little rooms. People often assume the choir uses the Top-Floor Loft, but it doesn't; the Loft's far too small. The weekly choir actually rehearses in the [stress:Main Hall] (Q1), the only space big enough for all of them. So choir, Main Hall."
+        },
+        {
+          "speaker_tag": "[F-BrE-40s-professional]",
+          "text": "[emotion:professional] Next, the pottery class. Pottery needs a kiln and good ventilation, and the only room set up for that is right at the top of the building. The pottery class is held up in the [stress:Top-Floor Loft] (Q2) — mind the stairs. Not the Garden Studio, which some of you may remember it used to be in; it's the Loft now."
+        },
+        {
+          "speaker_tag": "[F-BrE-40s-professional]",
+          "text": "[emotion:friendly] Then the morning yoga. Yoga likes light and a bit of calm, and we run it in the [stress:Garden Studio] (Q3), the bright room that looks out over the beds at the back. So the yoga's moved into the Garden Studio — that's where the pottery used to be, as I said, so do check the door."
+        },
+        {
+          "speaker_tag": "[F-BrE-40s-professional]",
+          "text": "[emotion:professional] Now, the photography exhibition that's on this month. The prints are hung downstairs in the [stress:Lower Gallery] (Q4) — that's the long white-walled room on the ground floor. Do pop in; it's free. People sometimes wander into the Courtyard looking for it, but the Courtyard's just the outdoor space; the photos are in the Lower Gallery."
+        },
+        {
+          "speaker_tag": "[F-BrE-40s-professional]",
+          "text": "[emotion:friendly] And the last activity, the children's story time on Saturday mornings. The little ones gather in the [stress:Brook Room] (Q5), our cosy carpeted room near the entrance — easy for prams. So that's story time in the Brook Room. And that leaves two spaces I haven't used for an activity — the Glasshouse Café, which is just for refreshments, and the Courtyard, which is open seating in good weather. Neither of those is an activity room, so you won't need them here."
+        },
+        {
+          "speaker_tag": "[F-BrE-40s-professional]",
+          "text": "[emotion:professional] Right — now to the services. For these, I'll tell you either the day each one runs on, or who to go to for it. The choices on your handout are: Monday, Wednesday, Friday or Saturday for the days, and three of us by name — Ferdy, who's the duty manager; Roshni, our volunteer coordinator; and Bartek, our maintenance officer. Again, a couple of those won't be the answer, so listen carefully.",
+          "voice_settings": {
+            "stability": 0.5,
+            "style": 0.4,
+            "_note": "Lists the full bank A-G aloud (four days + three named staff) so all seven letters are voiced"
+          }
+        },
+        {
+          "speaker_tag": "[F-BrE-40s-professional]",
+          "text": "[emotion:friendly] First service, the free family swim. This one's a weekend treat. It's not on Wednesday, by the way — that's the lane-swimming-only day, no families. The free family swim runs on [stress:Saturday] (Q6) mornings, when the big pool's given over to families. So family swim, Saturday."
+        },
+        {
+          "speaker_tag": "[F-BrE-40s-professional]",
+          "text": "[emotion:professional] Then the instrument-hire scheme — borrowing a guitar or a keyboard for a term. The desk for that only opens once a week, at the start of the week. Instrument hire is on [stress:Monday] (Q7), so come in on Monday if you want to take something out. Not Friday — Friday's a different service, as you'll hear."
+        },
+        {
+          "speaker_tag": "[F-BrE-40s-professional]",
+          "text": "[emotion:friendly] Now, booking one of the rehearsal rooms. You might think that's a job for the duty manager, but it isn't — Ferdy doesn't handle the diary. To book a rehearsal room you go to [stress:Roshni] (Q8), our volunteer coordinator; she keeps the booking calendar. So rehearsal rooms, see Roshni."
+        },
+        {
+          "speaker_tag": "[F-BrE-40s-professional]",
+          "text": "[emotion:professional] Next, the repair café, where volunteers mend small electricals and clothing for free. That's a Friday thing — every [stress:Friday] (Q9) afternoon, in the café corner. So if your toaster's broken, bring it along on a Friday. It isn't on Monday; Monday, as I said, is the instrument desk."
+        },
+        {
+          "speaker_tag": "[F-BrE-40s-professional]",
+          "text": "[emotion:friendly] And finally, lost property — anything left behind. For that, don't go hunting for Bartek in the workshop; he only deals with broken equipment, not lost belongings. Lost property is held at the duty manager's office, so it's [stress:Ferdy] (Q10) you want for anything you've mislaid. So that's lost property with Ferdy — and that wraps it up. The two we didn't need there were Wednesday and Bartek. Do grab a coffee, and enjoy the centre!"
+        }
+      ],
+      "question_blocks": [
+        {
+          "block_id": "S2_B1",
+          "question_range": "1-5",
+          "render": "matching",
+          "rubric": "Which room or area is each activity held in?\nMatch each activity (Questions 1-5) with the correct room or area, A-G.\nWrite the correct letter, A-G, next to questions 1-5.\nNB You will NOT need all the letters.",
+          "options": [
+            { "letter": "A", "text": "the Garden Studio" },
+            { "letter": "B", "text": "the Brook Room" },
+            { "letter": "C", "text": "the Main Hall" },
+            { "letter": "D", "text": "the Glasshouse Café" },
+            { "letter": "E", "text": "the Lower Gallery" },
+            { "letter": "F", "text": "the Top-Floor Loft" },
+            { "letter": "G", "text": "the Courtyard" }
+          ],
+          "questions": [
+            { "qnum": "1", "text": "the weekly choir" },
+            { "qnum": "2", "text": "the pottery class" },
+            { "qnum": "3", "text": "the morning yoga" },
+            { "qnum": "4", "text": "the photography exhibition" },
+            { "qnum": "5", "text": "the children's story time" }
+          ],
+          "answers": [
+            {
+              "qnum": "1",
+              "answer": "C",
+              "notes": "Choir -> Main Hall (C). Mentioned-then-rejected lure: 'People often assume the choir uses the Top-Floor Loft, but it doesn't' (F voiced and rejected). Reason given: only space big enough for forty-odd singers. Source: \"The weekly choir actually rehearses in the Main Hall.\"",
+              "trap_mechanisms": [
+                "distractor_drop",
+                "paraphrase_t1"
+              ]
+            },
+            {
+              "qnum": "2",
+              "answer": "F",
+              "notes": "Pottery class -> Top-Floor Loft (F). Reason: needs a kiln/ventilation, 'right at the top of the building'. Mentioned-then-rejected lure: 'Not the Garden Studio, which it used to be in' (A voiced and rejected; sets up the Q3 swap). Source: \"The pottery class is held up in the Top-Floor Loft.\"",
+              "trap_mechanisms": [
+                "distractor_drop",
+                "paraphrase_t1"
+              ]
+            },
+            {
+              "qnum": "3",
+              "answer": "A",
+              "notes": "Morning yoga -> Garden Studio (A). Backward-reference swap: 'the Garden Studio — that's where the pottery used to be' ties back to Q2; candidate who locked A to pottery is caught. Source: \"we run it in the Garden Studio, the bright room that looks out over the beds at the back.\"",
+              "trap_mechanisms": [
+                "backward_reference",
+                "paraphrase_t1"
+              ]
+            },
+            {
+              "qnum": "4",
+              "answer": "E",
+              "notes": "Photography exhibition -> Lower Gallery (E). Mentioned-then-rejected lure: 'People sometimes wander into the Courtyard looking for it, but the Courtyard's just the outdoor space' (G voiced and rejected). Source: \"The prints are hung downstairs in the Lower Gallery.\"",
+              "trap_mechanisms": [
+                "distractor_drop",
+                "place_confusion"
+              ]
+            },
+            {
+              "qnum": "5",
+              "answer": "B",
+              "notes": "Children's story time -> Brook Room (B). Reason: cosy carpeted room near the entrance, 'easy for prams'. After this, both distractor letters are explicitly named as non-activity rooms: 'the Glasshouse Café (D) ... and the Courtyard (G) ... Neither of those is an activity room'. Source: \"The little ones gather in the Brook Room.\"",
+              "trap_mechanisms": [
+                "paraphrase_t1",
+                "distractor_drop"
+              ]
+            }
+          ]
+        },
+        {
+          "block_id": "S2_B2",
+          "question_range": "6-10",
+          "render": "matching",
+          "rubric": "When does each service run, or who is responsible for it?\nMatch each service (Questions 6-10) with the correct day or person, A-G.\nWrite the correct letter, A-G, next to questions 6-10.\nNB You will NOT need all the letters.",
+          "options": [
+            { "letter": "A", "text": "Monday" },
+            { "letter": "B", "text": "Wednesday" },
+            { "letter": "C", "text": "Friday" },
+            { "letter": "D", "text": "Saturday" },
+            { "letter": "E", "text": "Ferdy (the duty manager)" },
+            { "letter": "F", "text": "Roshni (the volunteer coordinator)" },
+            { "letter": "G", "text": "Bartek (the maintenance officer)" }
+          ],
+          "questions": [
+            { "qnum": "6", "text": "the free family swim" },
+            { "qnum": "7", "text": "the instrument-hire scheme" },
+            { "qnum": "8", "text": "booking a rehearsal room" },
+            { "qnum": "9", "text": "the repair café" },
+            { "qnum": "10", "text": "reporting lost property" }
+          ],
+          "answers": [
+            {
+              "qnum": "6",
+              "answer": "D",
+              "notes": "Free family swim -> Saturday (D). Mentioned-then-rejected lure: 'It's not on Wednesday ... that's the lane-swimming-only day, no families' (B voiced and rejected). Source: \"The free family swim runs on Saturday mornings.\"",
+              "trap_mechanisms": [
+                "distractor_drop",
+                "polarity_flip"
+              ]
+            },
+            {
+              "qnum": "7",
+              "answer": "A",
+              "notes": "Instrument-hire scheme -> Monday (A). Forward-reject of a later answer: 'Not Friday — Friday's a different service'. Source: \"Instrument hire is on Monday, so come in on Monday if you want to take something out.\"",
+              "trap_mechanisms": [
+                "distractor_drop",
+                "paraphrase_t1"
+              ]
+            },
+            {
+              "qnum": "8",
+              "answer": "F",
+              "notes": "Booking a rehearsal room -> Roshni, volunteer coordinator (F). Mentioned-then-rejected lure: 'You might think that's a job for the duty manager, but it isn't — Ferdy doesn't handle the diary' (E voiced and rejected). Source: \"To book a rehearsal room you go to Roshni, our volunteer coordinator.\"",
+              "trap_mechanisms": [
+                "distractor_drop",
+                "polarity_flip"
+              ]
+            },
+            {
+              "qnum": "9",
+              "answer": "C",
+              "notes": "Repair café -> Friday (C). Backward-reference contrast: 'It isn't on Monday; Monday ... is the instrument desk' ties back to Q7. Source: \"That's a Friday thing — every Friday afternoon, in the café corner.\"",
+              "trap_mechanisms": [
+                "backward_reference",
+                "distractor_drop"
+              ]
+            },
+            {
+              "qnum": "10",
+              "answer": "E",
+              "notes": "Reporting lost property -> Ferdy, duty manager (E). Mentioned-then-rejected lure: 'don't go hunting for Bartek ... he only deals with broken equipment, not lost belongings' (G voiced and rejected). Closing line names both unused letters: 'The two we didn't need there were Wednesday and Bartek.' Source: \"Lost property is held at the duty manager's office, so it's Ferdy you want.\"",
+              "trap_mechanisms": [
+                "distractor_drop",
+                "place_confusion"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

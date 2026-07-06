@@ -1,0 +1,273 @@
+{
+  "test_id": "ILR-LIS-DRL-MCQ-L2-T1",
+  "generated_at": "2026-06-19T21:51:52",
+  "timebase": "seconds",
+  "method": "render-exact",
+  "full_test": {
+    "file": "full_test.mp3",
+    "section_offsets": {
+      "S3": 0.0
+    }
+  },
+  "sections": [
+    {
+      "id": "S3",
+      "file": "S3.mp3",
+      "duration": 281.24,
+      "method": "render-exact",
+      "events": [
+        {
+          "kind": "announce",
+          "start": 0.0,
+          "end": 4.92
+        },
+        {
+          "kind": "intro",
+          "start": 4.92,
+          "end": 15.44
+        },
+        {
+          "kind": "preread",
+          "start": 15.44,
+          "end": 20.44
+        },
+        {
+          "kind": "intro",
+          "start": 20.44,
+          "end": 23.33
+        }
+      ],
+      "turns": [
+        {
+          "idx": 0,
+          "speaker": "[F-IrlE-20s]",
+          "start": 23.33,
+          "end": 32.57,
+          "questions": []
+        },
+        {
+          "idx": 1,
+          "speaker": "[M-BrE-20s]",
+          "start": 32.74,
+          "end": 45.48,
+          "questions": []
+        },
+        {
+          "idx": 2,
+          "speaker": "[F-IrlE-20s]",
+          "start": 45.68,
+          "end": 62.78,
+          "questions": [
+            1
+          ]
+        },
+        {
+          "idx": 3,
+          "speaker": "[M-BrE-20s]",
+          "start": 62.95,
+          "end": 77.5,
+          "questions": []
+        },
+        {
+          "idx": 4,
+          "speaker": "[F-IrlE-20s]",
+          "start": 77.65,
+          "end": 94.2,
+          "questions": [
+            2
+          ]
+        },
+        {
+          "idx": 5,
+          "speaker": "[M-BrE-20s]",
+          "start": 94.4,
+          "end": 107.45,
+          "questions": []
+        },
+        {
+          "idx": 6,
+          "speaker": "[F-IrlE-20s]",
+          "start": 107.54,
+          "end": 120.94,
+          "questions": [
+            3
+          ]
+        },
+        {
+          "idx": 7,
+          "speaker": "[M-BrE-20s]",
+          "start": 121.06,
+          "end": 132.91,
+          "questions": []
+        },
+        {
+          "idx": 8,
+          "speaker": "[F-IrlE-20s]",
+          "start": 133.06,
+          "end": 148.15,
+          "questions": [
+            4
+          ]
+        },
+        {
+          "idx": 9,
+          "speaker": "[M-BrE-20s]",
+          "start": 148.26,
+          "end": 160.88,
+          "questions": []
+        },
+        {
+          "idx": 10,
+          "speaker": "[F-IrlE-20s]",
+          "start": 161.0,
+          "end": 175.16,
+          "questions": [
+            5
+          ]
+        },
+        {
+          "idx": 11,
+          "speaker": "[M-BrE-20s]",
+          "start": 175.29,
+          "end": 183.49,
+          "questions": []
+        },
+        {
+          "idx": 12,
+          "speaker": "[F-IrlE-20s]",
+          "start": 183.59,
+          "end": 199.89,
+          "questions": [
+            6
+          ]
+        },
+        {
+          "idx": 13,
+          "speaker": "[M-BrE-20s]",
+          "start": 200.08,
+          "end": 211.65,
+          "questions": []
+        },
+        {
+          "idx": 14,
+          "speaker": "[F-IrlE-20s]",
+          "start": 211.77,
+          "end": 223.77,
+          "questions": [
+            7
+          ]
+        },
+        {
+          "idx": 15,
+          "speaker": "[M-BrE-20s]",
+          "start": 223.9,
+          "end": 231.63,
+          "questions": []
+        },
+        {
+          "idx": 16,
+          "speaker": "[F-IrlE-20s]",
+          "start": 231.8,
+          "end": 240.43,
+          "questions": [
+            8
+          ]
+        },
+        {
+          "idx": 17,
+          "speaker": "[M-BrE-20s]",
+          "start": 240.57,
+          "end": 247.58,
+          "questions": []
+        },
+        {
+          "idx": 18,
+          "speaker": "[F-IrlE-20s]",
+          "start": 247.65,
+          "end": 259.34,
+          "questions": [
+            9
+          ]
+        },
+        {
+          "idx": 19,
+          "speaker": "[M-BrE-20s]",
+          "start": 259.5,
+          "end": 272.29,
+          "questions": [
+            10
+          ]
+        },
+        {
+          "idx": 20,
+          "speaker": "[F-IrlE-20s]",
+          "start": 272.44,
+          "end": 281.24,
+          "questions": []
+        }
+      ],
+      "questions": {
+        "1": {
+          "start": 44.18,
+          "end": 63.78,
+          "turn": 2,
+          "confidence": "exact"
+        },
+        "2": {
+          "start": 76.15,
+          "end": 95.2,
+          "turn": 4,
+          "confidence": "exact"
+        },
+        "3": {
+          "start": 106.04,
+          "end": 121.94,
+          "turn": 6,
+          "confidence": "exact"
+        },
+        "4": {
+          "start": 131.56,
+          "end": 149.15,
+          "turn": 8,
+          "confidence": "exact"
+        },
+        "5": {
+          "start": 159.5,
+          "end": 176.16,
+          "turn": 10,
+          "confidence": "exact"
+        },
+        "6": {
+          "start": 182.09,
+          "end": 200.89,
+          "turn": 12,
+          "confidence": "exact"
+        },
+        "7": {
+          "start": 210.27,
+          "end": 224.77,
+          "turn": 14,
+          "confidence": "exact"
+        },
+        "8": {
+          "start": 230.3,
+          "end": 241.43,
+          "turn": 16,
+          "confidence": "exact"
+        },
+        "9": {
+          "start": 246.15,
+          "end": 260.34,
+          "turn": 18,
+          "confidence": "exact"
+        },
+        "10": {
+          "start": 258.0,
+          "end": 273.29,
+          "turn": 19,
+          "confidence": "exact"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,237 @@
+{
+  "test_id": "ILR-LIS-DRL-FLOW-L2-T1",
+  "title": "Listening Skill-Drill — Flow-chart Completion (S2) — Borrowing & returning at a tool library",
+  "version": "1.0",
+  "target_band": 6.0,
+  "created": "2026-06-19",
+  "drill_id": "FLOW-L2-T1",
+  "drill_type": "flowchart_completion",
+  "level": "L2",
+  "cluster": "C2 Community & Public Services",
+  "topic_tags": {
+    "S2": "A volunteer coordinator at a 'library of things' / tool library explaining, step by step, the process of borrowing an item and returning it"
+  },
+  "accent_profile": [
+    "BrE"
+  ],
+  "total_words": 652,
+  "sections": [
+    {
+      "section_id": "S2",
+      "section_number": 2,
+      "context": "Carrick Lendrum, a volunteer coordinator at Brindlecombe Tool Library in the village of Kettleby, gives a short welcome talk to new members, walking them through the ordered process of borrowing an item and then returning it",
+      "register": "public-facing monologue",
+      "word_count": 652,
+      "audio_intro": "You will hear a volunteer coordinator at a community tool library explaining the steps for borrowing and returning an item. First, you have some time to look at questions 1 to 10. [pause:30s] Now listen carefully and answer questions 1 to 10.",
+      "speakers": [
+        {
+          "speaker_id": "S2_M1",
+          "name": "Carrick Lendrum",
+          "role": "Volunteer coordinator, Brindlecombe Tool Library",
+          "voice_profile": "[M-BrE-40s-professional]"
+        }
+      ],
+      "audio_script": [
+        {
+          "speaker_tag": "[M-BrE-40s-professional]",
+          "text": "[emotion:warm] Hello everyone, and a warm welcome to Brindlecombe Tool Library, here in Kettleby. My name's Carrick, and I'm the volunteer coordinator. Now, a tool library is a bit like a book library, except you borrow things — drills, ladders, sewing machines, you name it — instead of books. There's a flow-chart in your welcome pack showing how it all works, and a few of the boxes are blank on purpose, so do fill them in as I take you through it.",
+          "voice_settings": {
+            "stability": 0.5,
+            "style": 0.4,
+            "_note": "Warm BrE coordinator intro"
+          }
+        },
+        {
+          "speaker_tag": "[M-BrE-40s-professional]",
+          "text": "[emotion:professional] Right, so the very first step is to join. To sign up as a member, you'll need to bring along — and people often get this wrong — not photo ID, but a [stress:utility bill] (Q1). A recent gas or electricity bill is perfect, because it proves where you actually live. Photo ID isn't what we ask for at sign-up — it's a utility bill."
+        },
+        {
+          "speaker_tag": "[M-BrE-40s-professional]",
+          "text": "Once you're a member, step two is to find the item you want. You browse our catalogue, um, online and place a reservation. Now, here's the thing people forget: a reservation is only held for [stress:48 hours] (Q2). So not a week — just two days. After that, if you've not come in, it goes back on the shelf for someone else."
+        },
+        {
+          "speaker_tag": "[M-BrE-40s-professional]",
+          "text": "Then, step three, you come in and collect your item. You don't go rummaging in the storeroom yourself — everything is handed over to you at the [stress:front desk] (Q3), where one of our volunteers will be waiting. The storeroom's staff-only, so please always come to the front desk first."
+        },
+        {
+          "speaker_tag": "[M-BrE-40s-professional]",
+          "text": "Next — and this is step four, and it's an important one — before you take anything away, the volunteer goes through the item with you against a printed [stress:checklist] (Q4), just ticking off that all the parts and accessories are there. That way, nobody's blamed later for a missing bit."
+        },
+        {
+          "speaker_tag": "[M-BrE-40s-professional]",
+          "text": "After the check, step five: you record the loan. We're a bit old-fashioned here — instead of an app, you simply sign the [stress:borrowing journal] (Q5), a big paper logbook on the counter, and that's your loan officially started. Pop your name and the date in, and you're away."
+        },
+        {
+          "speaker_tag": "[M-BrE-40s-professional]",
+          "text": "So that's the borrowing side. Now let's talk about how long you've got and how you bring things back. The standard loan — step six on your chart — lasts [stress:one week] (Q6). Seven days, in other words. You can extend it once if nobody else is waiting, but the basic period is one week."
+        },
+        {
+          "speaker_tag": "[M-BrE-40s-professional]",
+          "text": "When the week's up, step seven is the bit people skip, so listen out. Before you bring an item back, you must [stress:clean] (Q7) it — give it a proper wipe-down at home. We don't expect repairs, just a clean item, please. A dusty, muddy drill coming back is the one thing that really slows us down."
+        },
+        {
+          "speaker_tag": "[M-BrE-40s-professional]",
+          "text": "Step eight only applies if something's gone wrong. If the item is damaged, or not working properly, don't try to hide it — you fill in a [stress:fault card] (Q8), one of the little yellow slips by the door, describing the problem. It's never a fine; it just helps us fix things. Honesty's all we ask."
+        },
+        {
+          "speaker_tag": "[M-BrE-40s-professional]",
+          "text": "Step nine is the actual hand-back. This is different from where you picked it up — you don't return it to the front desk. Instead, you drop the item off at the [stress:returns shelf] (Q9), the green-labelled shelf just inside the entrance, where we sort everything for cleaning and checking. Front desk to collect, returns shelf to bring back — easy to mix up, so do remember it."
+        },
+        {
+          "speaker_tag": "[M-BrE-40s-professional]",
+          "text": "And the very last step, step ten, is a nice one. Every time you return an item on time, we add some [stress:loyalty points] (Q10) to your account. Build them up and you get little perks — early access to new tools, that sort of thing. So: join, reserve, collect, check, sign, keep for a week, clean, report any faults, return to the shelf, and earn your points. That's the whole journey. Thanks, everyone — and happy borrowing!"
+        }
+      ],
+      "question_blocks": [
+        {
+          "block_id": "S2_B1",
+          "question_range": "1-10",
+          "render": "flowchart",
+          "rubric": "Complete the flow-chart below.\nWrite NO MORE THAN TWO WORDS AND/OR A NUMBER for each answer.",
+          "title": "BRINDLECOMBE TOOL LIBRARY — BORROWING & RETURNING AN ITEM",
+          "flow_description": "An ordered ten-step process flow-chart (boxes joined by downward arrows). Steps 1-5 cover borrowing an item; steps 6-10 cover keeping and returning it. Each box is one step; the gap in each box is a single answer.",
+          "steps": [
+            { "qnum": "1", "label": "Step 1 — Join: bring a __________ to sign up as a member" },
+            { "qnum": "2", "label": "Step 2 — Reserve item online (reservation held for __________)" },
+            { "qnum": "3", "label": "Step 3 — Collect the item at the __________" },
+            { "qnum": "4", "label": "Step 4 — Volunteer checks the item with you against a __________" },
+            { "qnum": "5", "label": "Step 5 — Record the loan: sign the __________" },
+            { "qnum": "6", "label": "Step 6 — Standard loan period lasts __________" },
+            { "qnum": "7", "label": "Step 7 — Before returning, __________ the item at home" },
+            { "qnum": "8", "label": "Step 8 — If damaged, fill in a __________" },
+            { "qnum": "9", "label": "Step 9 — Bring the item back to the __________" },
+            { "qnum": "10", "label": "Step 10 — Earn __________ for an on-time return" }
+          ],
+          "answers": [
+            {
+              "qnum": "1",
+              "answer": "utility bill",
+              "accept": [
+                "gas bill",
+                "electricity bill"
+              ],
+              "notes": "Mentioned-rejected distractor: 'people often get this wrong — not photo ID, but a utility bill'. Photo ID is the voiced-then-rejected lure (repeated for emphasis). Two words, within the NMT TWO WORDS limit. Source: \"not photo ID, but a utility bill. A recent gas or electricity bill is perfect … Photo ID isn't what we ask for — it's a utility bill.\"",
+              "trap_mechanisms": [
+                "distractor_drop",
+                "paraphrase_t1"
+              ]
+            },
+            {
+              "qnum": "2",
+              "answer": "48 hours",
+              "accept": [
+                "two days",
+                "2 days",
+                "forty-eight hours"
+              ],
+              "notes": "Number paraphrase '48 hours … just two days' (same value restated, Tier-1). The distractor 'a week' is voiced-and-rejected ('not a week') — a distractor drop, NOT a spoken correction onto the key (the answer '48 hours' is stated first and never changed). Self-consistent: shorter than the 1-week loan in Q6. Source: \"a reservation is only held for 48 hours. So not a week — just two days.\"",
+              "trap_mechanisms": [
+                "paraphrase_t1",
+                "distractor_drop"
+              ]
+            },
+            {
+              "qnum": "3",
+              "answer": "front desk",
+              "notes": "Place confusion: collect at the 'front desk', NOT the storeroom ('staff-only'). The storeroom is the mentioned-rejected lure and is the cross-step contrast with Q9 (returns shelf). Two words, within limit. Source: \"everything is handed over to you at the front desk … The storeroom's staff-only.\"",
+              "trap_mechanisms": [
+                "place_confusion",
+                "distractor_drop"
+              ]
+            },
+            {
+              "qnum": "4",
+              "answer": "checklist",
+              "accept": [
+                "a checklist",
+                "printed checklist"
+              ],
+              "notes": "Paraphrase 'goes through the item with you against a printed checklist … ticking off that all the parts are there'. One word, within limit. Compound noun = one word. Source: \"the volunteer goes through the item with you against a printed checklist.\"",
+              "trap_mechanisms": [
+                "paraphrase_t2"
+              ]
+            },
+            {
+              "qnum": "5",
+              "answer": "borrowing journal",
+              "accept": [
+                "(paper) logbook",
+                "logbook"
+              ],
+              "notes": "Paraphrase 'record the loan' -> 'you simply sign the borrowing journal, a big paper logbook'. Distractor 'an app' is voiced-and-rejected ('instead of an app'). Two words, within limit. Source: \"instead of an app, you simply sign the borrowing journal, a big paper logbook on the counter.\"",
+              "trap_mechanisms": [
+                "paraphrase_t2",
+                "distractor_drop"
+              ]
+            },
+            {
+              "qnum": "6",
+              "answer": "one week",
+              "accept": [
+                "1 week",
+                "7 days",
+                "seven days",
+                "a week"
+              ],
+              "notes": "Number/duration paraphrase 'the standard loan lasts one week. Seven days, in other words' (same value restated, Tier-1) — no spoken correction onto the key. Self-consistent against Q2 (48 hours reservation < one week loan). The 'extend it once' aside is a non-answer detail, not a voiced-and-rejected competing value. Source: \"The standard loan — step six on your chart — lasts one week. Seven days, in other words.\"",
+              "trap_mechanisms": [
+                "paraphrase_t1"
+              ]
+            },
+            {
+              "qnum": "7",
+              "answer": "clean",
+              "accept": [
+                "wipe",
+                "wipe down",
+                "clean (it)"
+              ],
+              "notes": "Verb gap (process step) + paraphrase 'you must clean it — give it a proper wipe-down'. Distractor 'repairs' is voiced-and-rejected ('We don't expect repairs, just a clean item'). One word, within limit. Source: \"before you bring an item back, you must clean it — give it a proper wipe-down at home. We don't expect repairs, just a clean item.\"",
+              "trap_mechanisms": [
+                "distractor_drop",
+                "paraphrase_t1"
+              ]
+            },
+            {
+              "qnum": "8",
+              "answer": "fault card",
+              "accept": [
+                "(yellow) slip",
+                "yellow slip"
+              ],
+              "notes": "Paraphrase 'if the item is damaged … you fill in a fault card, one of the little yellow slips'. Distractor 'a fine' is voiced-and-rejected ('It's never a fine'). Two words, within limit. Source: \"you fill in a fault card, one of the little yellow slips by the door.\"",
+              "trap_mechanisms": [
+                "paraphrase_t2",
+                "distractor_drop"
+              ]
+            },
+            {
+              "qnum": "9",
+              "answer": "returns shelf",
+              "accept": [
+                "(green-labelled) shelf"
+              ],
+              "notes": "Place confusion + backward-reference: hand-back is at the 'returns shelf', explicitly NOT the front desk where it was collected (Q3). 'Front desk to collect, returns shelf to bring back' is the deliberate contrast. Two words, within limit. Source: \"you don't return it to the front desk. Instead, you drop the item off at the returns shelf, the green-labelled shelf just inside the entrance.\"",
+              "trap_mechanisms": [
+                "place_confusion",
+                "backward_reference"
+              ]
+            },
+            {
+              "qnum": "10",
+              "answer": "loyalty points",
+              "accept": [
+                "(reward) points",
+                "reward points"
+              ],
+              "notes": "Paraphrase 'every time you return an item on time, we add some loyalty points to your account … build them up and you get little perks'. Two words, within limit. Source: \"we add some loyalty points to your account. Build them up and you get little perks.\"",
+              "trap_mechanisms": [
+                "paraphrase_t2"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

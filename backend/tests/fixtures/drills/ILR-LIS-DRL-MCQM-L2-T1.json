@@ -1,0 +1,453 @@
+{
+  "test_id": "ILR-LIS-DRL-MCQM-L2-T1",
+  "title": "Listening Skill-Drill — Multiple-choice (Choose TWO) (S3) — Three students preparing for a Brackenmoor salt-marsh biology field trip",
+  "version": "1.0",
+  "drill_type": "mcq_multi",
+  "level": "L2",
+  "target_band": 6.0,
+  "created": "2026-06-19",
+  "mode": "mini",
+  "cluster": "Academic discussion — fieldwork planning (3 speakers)",
+  "topic_tags": {
+    "S3": "Three biology students (Marisol, Rhodri, Joren) plan a day field trip to Brackenmoor salt marsh, working through what to bring and how to split the tasks; five Choose-TWO blocks (Q1-2 personal kit, Q3-4 shared kit, Q5-6 Marisol's data jobs, Q7-8 Rhodri's sampling jobs, Q9-10 things dropped from the list)"
+  },
+  "accent_profile": [
+    "BrE",
+    "AusE",
+    "AmE"
+  ],
+  "total_words": 845,
+  "sections": [
+    {
+      "section_id": "S3",
+      "section_number": 3,
+      "context": "Three undergraduate biology students hold a planning meeting before a one-day field trip to Brackenmoor salt marsh. They go through the kit list deciding what each person must bring and what they will share, then divide the fieldwork tasks between two of them, and finally cross a couple of items off the list. The talk reveals each Choose-TWO pair in question order, and every option letter (A-E) in each block is given an explicit affirmative cue or a fair rejection cue.",
+      "register": "semi-formal academic discussion",
+      "word_count": 845,
+      "audio_intro": "You will hear three biology students, Marisol, Rhodri and Joren, planning a field trip to a salt marsh. First, you have some time to look at questions 1 to 10. [pause:30s] Now listen carefully and answer questions 1 to 10.",
+      "speakers": [
+        {
+          "speaker_id": "S3_F1",
+          "name": "Marisol",
+          "role": "Biology student",
+          "voice_profile": "[F-BrE-20s]"
+        },
+        {
+          "speaker_id": "S3_M1",
+          "name": "Rhodri",
+          "role": "Biology student",
+          "voice_profile": "[M-AusE-20s]"
+        },
+        {
+          "speaker_id": "S3_M2",
+          "name": "Joren",
+          "role": "Biology student",
+          "voice_profile": "[M-AmE-20s]"
+        }
+      ],
+      "audio_script": [
+        {
+          "speaker_tag": "[F-BrE-20s]",
+          "text": "[emotion:friendly] Right, you two — the Brackenmoor field trip is Saturday, so let's get the planning done now. We need to sort the kit first, then who does what on the day. Shall we start with what each of us has to bring ourselves?",
+          "voice_settings": {
+            "stability": 0.55,
+            "style": 0.35,
+            "_note": "Calm BrE student opening"
+          }
+        },
+        {
+          "speaker_tag": "[M-AusE-20s]",
+          "text": "[emotion:friendly] Yeah, good plan, mate. The tutor's list has, um, what, five things on it — wellies, a packed lunch, a notebook, sun cream and a hand lens. So which of those do you reckon everyone's bringing their own of?"
+        },
+        {
+          "speaker_tag": "[M-AmE-20s]",
+          "text": "[emotion:thoughtful] Well, um, two of them are kinda obviously personal, I guess. Everybody has to turn up in their own wellington boots — it's a salt marsh, your feet will be soaked otherwise, and we're not sharing footwear. So [stress:wellies] (Q1) are down to each person."
+        },
+        {
+          "speaker_tag": "[F-BrE-20s]",
+          "text": "[emotion:professional] Agreed, wellies are personal. And the other personal one is the packed lunch — there's no café for miles, so each of us brings our own [stress:packed lunch] (Q2). Those two are individual."
+        },
+        {
+          "speaker_tag": "[M-AusE-20s]",
+          "text": "[emotion:thoughtful] What about the notebook, though? Aren't we each gonna need one, er, of our own?"
+        },
+        {
+          "speaker_tag": "[M-AmE-20s]",
+          "text": "[emotion:professional] No — only one of us records the data, so we just need a single shared notebook, not three. And the sun cream's, um, the same idea, for sure: the tutor said to bring one tube between us, not one each. So the notebook and the sun cream aren't personal — they go on the shared pile. We'll come back to those."
+        },
+        {
+          "speaker_tag": "[F-BrE-20s]",
+          "text": "[emotion:friendly] Right, so the hand lens is the only one left, and we'll each want our own of that for looking at the little creatures — so the hand lens is personal too, strictly speaking, but the tutor's bringing a box of spare lenses, so nobody has to buy one. So for 'must bring yourself', it really comes down to the boots and the lunch."
+        },
+        {
+          "speaker_tag": "[M-AusE-20s]",
+          "text": "[emotion:thoughtful] No worries, good one. Now the shared kit — the things we only need one of, between the three of us. Let's say there are, um, five candidates: the notebook, the sun cream, a first-aid kit, a camera, and a flask of hot tea. Which two are we actually pooling?"
+        },
+        {
+          "speaker_tag": "[M-AmE-20s]",
+          "text": "[emotion:professional] The first-aid kit, definitely — we don't need three of those; one between us covers the whole group, and I'll put it in my rucksack. So the first-aid kit is shared, that's the clear one."
+        },
+        {
+          "speaker_tag": "[F-BrE-20s]",
+          "text": "[emotion:professional] Yes, one [stress:first-aid kit] (Q3) for all of us. And the other shared one is the flask — there's no point three of us lugging hot drinks, so we'll take a single big [stress:flask] (Q4) of tea and share it round at lunch. That's the pair to pool."
+        },
+        {
+          "speaker_tag": "[M-AusE-20s]",
+          "text": "[emotion:thoughtful] Hang on a sec, mate — what about the camera and the notebook? I thought… actually, no, didn't you say the notebook was shared?"
+        },
+        {
+          "speaker_tag": "[M-AmE-20s]",
+          "text": "[emotion:friendly] The notebook is shared, true, but it's not on this 'one between us' shortlist the way the question's framed — it's tied to whoever does the recording, so it travels with that person, not in a common kit bag. And the camera we're not bringing as a separate item at all — we'll just use a phone. So for the genuinely pooled kit, it's the first-aid kit and the flask, and the camera and the notebook don't belong in that pair."
+        },
+        {
+          "speaker_tag": "[F-BrE-20s]",
+          "text": "[emotion:friendly] Perfect. Now the jobs on the day. There are a few tasks, and they split into two clusters — the recording jobs and the hands-on sampling jobs. I'll take the recording side, since I write fast. Which two are the recording jobs that come to me?"
+        },
+        {
+          "speaker_tag": "[M-AmE-20s]",
+          "text": "[emotion:professional] Right, the recording cluster. One is writing up the species list — noting down every plant and animal we find. That's a pure recording job, so the [stress:species list] (Q5) is yours, Marisol. And the second recording job is timing the tide and logging the readings — keeping the data sheet for when the water comes in. So the [stress:tide log] (Q6) is the other one for you."
+        },
+        {
+          "speaker_tag": "[M-AusE-20s]",
+          "text": "[emotion:thoughtful] So Marisol does the species list and the tide log. What about photographing the site, and, er, reading the map — I reckon those'd be hers too, wouldn't they?"
+        },
+        {
+          "speaker_tag": "[F-BrE-20s]",
+          "text": "[emotion:professional] No, those two aren't recording jobs. Taking photos is really part of the sampling side — you photograph each sample where you dig it — so that goes with the hands-on cluster, not with me. And the map-reading isn't a job anyone's assigned; the tutor leads the route, so reading the map is off the list entirely. So my pair is just the species list and the tide log."
+        },
+        {
+          "speaker_tag": "[M-AusE-20s]",
+          "text": "[emotion:friendly] Sweet, got it. So the sampling cluster's mine — the hands-on jobs out on the mud. Which two of those am I gonna be taking?"
+        },
+        {
+          "speaker_tag": "[F-BrE-20s]",
+          "text": "[emotion:professional] The first hands-on one is laying out the quadrat — the square frame you peg onto the mud to mark off a sample area. So you set up the [stress:quadrat] (Q7), Rhodri. And the second is digging the sediment cores — pushing the tube down and pulling up the mud sample. So the [stress:sediment cores] (Q8) are the other hands-on job for you."
+        },
+        {
+          "speaker_tag": "[M-AmE-20s]",
+          "text": "[emotion:thoughtful] Wait — and the photographing? You guys said that was sampling-side."
+        },
+        {
+          "speaker_tag": "[M-AusE-20s]",
+          "text": "[emotion:professional] Yeah, it is sampling-side, mate, but I can't dig and photograph at the same time — so Joren, you'll do the photos while I dig. Photographing isn't in my pair, then. And the water testing — the little kit for salinity — the tutor's doing that herself as a demo, so it's not one of my jobs either. So mine are the quadrat and the cores."
+        },
+        {
+          "speaker_tag": "[M-AmE-20s]",
+          "text": "[emotion:friendly] Totally makes sense — I'll photograph and help where needed. Okay, last thing, you guys. Looking back at that original kit list, are there things we wrote down but have now decided to leave behind?"
+        },
+        {
+          "speaker_tag": "[F-BrE-20s]",
+          "text": "[emotion:professional] Yes, a couple. We can drop the camera, obviously — we said we'd use a phone instead, so the separate [stress:camera] (Q9) comes off the list. We don't need it."
+        },
+        {
+          "speaker_tag": "[M-AusE-20s]",
+          "text": "[emotion:thoughtful] Agreed, no camera. And the other thing we're cutting is the spare boots — somebody suggested bringing a spare pair in case, but it's dead weight, so the [stress:spare boots] (Q10) come off too. We're not carrying those."
+        },
+        {
+          "speaker_tag": "[M-AmE-20s]",
+          "text": "[emotion:doubtful] Hmm, what about the rope, though, and the buckets? I figure those should… come off as well, right?"
+        },
+        {
+          "speaker_tag": "[F-BrE-20s]",
+          "text": "[emotion:professional] No — the rope stays on, the tutor was firm that we need it for the slippery channel, so we're definitely keeping the rope. And the buckets stay too; we carry the samples back in those, so they're essential, not cut. The only two we're actually dropping are the camera and the spare boots."
+        },
+        {
+          "speaker_tag": "[M-AusE-20s]",
+          "text": "[emotion:friendly] Brilliant. So that's the kit and the jobs sorted. See you both at the minibus on Saturday — and don't forget your wellies."
+        }
+      ],
+      "question_blocks": [
+        {
+          "block_id": "S3_B1",
+          "question_range": "1-2",
+          "render": "mcq_multi",
+          "rubric": "Questions 1 and 2\nChoose TWO letters, A-E.\nWhich TWO items must each student bring for themselves?",
+          "select": 2,
+          "qnums": [
+            1,
+            2
+          ],
+          "prompt": "Questions 1 and 2 — Choose TWO letters, A-E. Which TWO items must each student bring for themselves?",
+          "options": [
+            {
+              "letter": "A",
+              "text": "a notebook"
+            },
+            {
+              "letter": "B",
+              "text": "wellington boots"
+            },
+            {
+              "letter": "C",
+              "text": "sun cream"
+            },
+            {
+              "letter": "D",
+              "text": "a packed lunch"
+            },
+            {
+              "letter": "E",
+              "text": "a hand lens"
+            }
+          ],
+          "answer": [
+            "B",
+            "D"
+          ],
+          "answers": [
+            {
+              "qnum": "1",
+              "answer": "B",
+              "notes": "Choose-TWO (Questions 1 and 2 — items each student brings for themselves): the keyed pair is wellington boots (B) and the packed lunch (D), order-independent. Affirmative cue for B: 'Everybody has to turn up in their own wellington boots ... we're not sharing footwear. So wellies are down to each person.' Accept B and D in either order across Q1/Q2; each correct letter scores one mark. The (Q1) marker sits on 'wellies'. Rejection cues: A notebook 'only one of us records the data, so we just need a single shared notebook, not three' (shared, not personal); C sun cream 'bring one tube between us, not one each' (shared); E hand lens 'the tutor's bringing a box of spare lenses, so nobody has to buy one' (provided, dropped from the personal pair).",
+              "trap_mechanisms": [
+                "distractor_drop",
+                "polarity_flip"
+              ]
+            },
+            {
+              "qnum": "2",
+              "answer": "D",
+              "notes": "Choose-TWO (Questions 1 and 2 — items each student brings for themselves): same pair as Q1 — wellies (B) and the packed lunch (D). Affirmative cue for D: 'there's no café for miles, so each of us brings our own packed lunch. Those two are individual.' The (Q2) marker sits on 'packed lunch'. Accept B and D in either order across Q1/Q2. Distinct letters from every other block. A, C and E are the shared/provided items, each voiced and rejected.",
+              "trap_mechanisms": [
+                "distractor_drop",
+                "paraphrase_t1"
+              ]
+            }
+          ]
+        },
+        {
+          "block_id": "S3_B2",
+          "question_range": "3-4",
+          "render": "mcq_multi",
+          "rubric": "Questions 3 and 4\nChoose TWO letters, A-E.\nWhich TWO items will the group share, taking only one between them?",
+          "select": 2,
+          "qnums": [
+            3,
+            4
+          ],
+          "prompt": "Questions 3 and 4 — Choose TWO letters, A-E. Which TWO items will the group share, taking only one between them?",
+          "options": [
+            {
+              "letter": "A",
+              "text": "a first-aid kit"
+            },
+            {
+              "letter": "B",
+              "text": "a notebook"
+            },
+            {
+              "letter": "C",
+              "text": "a camera"
+            },
+            {
+              "letter": "D",
+              "text": "sun cream"
+            },
+            {
+              "letter": "E",
+              "text": "a flask of tea"
+            }
+          ],
+          "answer": [
+            "A",
+            "E"
+          ],
+          "answers": [
+            {
+              "qnum": "3",
+              "answer": "A",
+              "notes": "Choose-TWO (Questions 3 and 4 — items pooled, one between the three): the keyed pair is the first-aid kit (A) and the flask of tea (E), order-independent. Affirmative cue for A: 'The first-aid kit, definitely — we don't need three of those; one between us covers the whole group ... So the first-aid kit is shared, that's the clear one.' The (Q3) marker sits on 'first-aid kit'. Accept A and E in either order across Q3/Q4. Rejection cues: B notebook 'it's not on this one-between-us shortlist ... it travels with that person, not in a common kit bag'; C camera 'we're not bringing as a separate item at all — we'll just use a phone'; D sun cream is shared earlier but the framed shortlist for this block keys the first-aid kit and flask — sun cream here is the plausible-but-unkeyed distractor explicitly excluded ('the camera and the notebook don't belong in that pair').",
+              "trap_mechanisms": [
+                "distractor_drop",
+                "backward_reference"
+              ]
+            },
+            {
+              "qnum": "4",
+              "answer": "E",
+              "notes": "Choose-TWO (Questions 3 and 4 — items pooled, one between the three): same pair as Q3 — the first-aid kit (A) and the flask (E). Affirmative cue for E: 'there's no point three of us lugging hot drinks, so we'll take a single big flask of tea and share it round at lunch. That's the pair to pool.' The (Q4) marker sits on 'flask'. Accept A and E in either order across Q3/Q4. Distinct keyed pair (A,E) from Q1/Q2 (B,D). B, C, D are each voiced and rejected for this pooled-kit question.",
+              "trap_mechanisms": [
+                "distractor_drop",
+                "polarity_flip"
+              ]
+            }
+          ]
+        },
+        {
+          "block_id": "S3_B3",
+          "question_range": "5-6",
+          "render": "mcq_multi",
+          "rubric": "Questions 5 and 6\nChoose TWO letters, A-E.\nWhich TWO recording tasks will Marisol take on?",
+          "select": 2,
+          "qnums": [
+            5,
+            6
+          ],
+          "prompt": "Questions 5 and 6 — Choose TWO letters, A-E. Which TWO recording tasks will Marisol take on?",
+          "options": [
+            {
+              "letter": "A",
+              "text": "reading the map"
+            },
+            {
+              "letter": "B",
+              "text": "photographing the site"
+            },
+            {
+              "letter": "C",
+              "text": "writing the species list"
+            },
+            {
+              "letter": "D",
+              "text": "digging the sediment cores"
+            },
+            {
+              "letter": "E",
+              "text": "keeping the tide log"
+            }
+          ],
+          "answer": [
+            "C",
+            "E"
+          ],
+          "answers": [
+            {
+              "qnum": "5",
+              "answer": "C",
+              "notes": "Choose-TWO (Questions 5 and 6 — Marisol's recording tasks): the keyed pair is writing the species list (C) and keeping the tide log (E), order-independent. Affirmative cue for C: 'writing up the species list — noting down every plant and animal we find. That's a pure recording job, so the species list is yours, Marisol.' The (Q5) marker sits on 'species list'. Accept C and E in either order across Q5/Q6. Rejection cues: A map-reading 'isn't a job anyone's assigned; the tutor leads the route, so reading the map is off the list entirely'; B photographing 'is really part of the sampling side ... so that goes with the hands-on cluster, not with me'; D sediment cores is a hands-on/sampling job assigned to Rhodri (wrong cluster for Marisol).",
+              "trap_mechanisms": [
+                "distractor_drop",
+                "paraphrase_t1"
+              ]
+            },
+            {
+              "qnum": "6",
+              "answer": "E",
+              "notes": "Choose-TWO (Questions 5 and 6 — Marisol's recording tasks): same pair as Q5 — the species list (C) and the tide log (E). Affirmative cue for E: 'timing the tide and logging the readings — keeping the data sheet for when the water comes in. So the tide log is the other one for you.' The (Q6) marker sits on 'tide log'. Accept C and E in either order across Q5/Q6. Distinct keyed pair (C,E) from earlier blocks. A, B, D are each voiced and rejected as not Marisol's recording jobs.",
+              "trap_mechanisms": [
+                "distractor_drop",
+                "backward_reference"
+              ]
+            }
+          ]
+        },
+        {
+          "block_id": "S3_B4",
+          "question_range": "7-8",
+          "render": "mcq_multi",
+          "rubric": "Questions 7 and 8\nChoose TWO letters, A-E.\nWhich TWO hands-on sampling tasks will Rhodri take on?",
+          "select": 2,
+          "qnums": [
+            7,
+            8
+          ],
+          "prompt": "Questions 7 and 8 — Choose TWO letters, A-E. Which TWO hands-on sampling tasks will Rhodri take on?",
+          "options": [
+            {
+              "letter": "A",
+              "text": "setting up the quadrat"
+            },
+            {
+              "letter": "B",
+              "text": "testing the water"
+            },
+            {
+              "letter": "C",
+              "text": "photographing the samples"
+            },
+            {
+              "letter": "D",
+              "text": "digging the sediment cores"
+            },
+            {
+              "letter": "E",
+              "text": "keeping the tide log"
+            }
+          ],
+          "answer": [
+            "A",
+            "D"
+          ],
+          "answers": [
+            {
+              "qnum": "7",
+              "answer": "A",
+              "notes": "Choose-TWO (Questions 7 and 8 — Rhodri's hands-on sampling tasks): the keyed pair is setting up the quadrat (A) and digging the sediment cores (D), order-independent. Affirmative cue for A: 'laying out the quadrat — the square frame you peg onto the mud to mark off a sample area. So you set up the quadrat, Rhodri.' The (Q7) marker sits on 'quadrat'. Accept A and D in either order across Q7/Q8. Rejection cues: B water testing 'the tutor's doing that herself as a demo, so it's not one of my jobs either'; C photographing 'I can't dig and photograph at the same time — so Joren, you'll do the photos while I dig. Photographing isn't in my pair'; E tide log is one of Marisol's recording jobs (wrong cluster for Rhodri).",
+              "trap_mechanisms": [
+                "distractor_drop",
+                "polarity_flip"
+              ]
+            },
+            {
+              "qnum": "8",
+              "answer": "D",
+              "notes": "Choose-TWO (Questions 7 and 8 — Rhodri's hands-on sampling tasks): same pair as Q7 — the quadrat (A) and the sediment cores (D). Affirmative cue for D: 'digging the sediment cores — pushing the tube down and pulling up the mud sample. So the sediment cores are the other hands-on job for you.' The (Q8) marker sits on 'sediment cores'. Accept A and D in either order across Q7/Q8. Distinct keyed pair (A,D) from every other block. B, C, E are each voiced and rejected as not Rhodri's sampling jobs.",
+              "trap_mechanisms": [
+                "distractor_drop",
+                "paraphrase_t1"
+              ]
+            }
+          ]
+        },
+        {
+          "block_id": "S3_B5",
+          "question_range": "9-10",
+          "render": "mcq_multi",
+          "rubric": "Questions 9 and 10\nChoose TWO letters, A-E.\nWhich TWO items have the students decided NOT to take after all?",
+          "select": 2,
+          "qnums": [
+            9,
+            10
+          ],
+          "prompt": "Questions 9 and 10 — Choose TWO letters, A-E. Which TWO items have the students decided NOT to take after all?",
+          "options": [
+            {
+              "letter": "A",
+              "text": "the rope"
+            },
+            {
+              "letter": "B",
+              "text": "the camera"
+            },
+            {
+              "letter": "C",
+              "text": "the spare boots"
+            },
+            {
+              "letter": "D",
+              "text": "the buckets"
+            },
+            {
+              "letter": "E",
+              "text": "the first-aid kit"
+            }
+          ],
+          "answer": [
+            "B",
+            "C"
+          ],
+          "answers": [
+            {
+              "qnum": "9",
+              "answer": "B",
+              "notes": "Choose-TWO (Questions 9 and 10 — items dropped from the list): the keyed pair is the camera (B) and the spare boots (C), order-independent. Affirmative cue for B: 'We can drop the camera, obviously — we said we'd use a phone instead, so the separate camera comes off the list. We don't need it.' The (Q9) marker sits on 'camera'. Accept B and C in either order across Q9/Q10. Rejection cues: A rope 'the rope stays on, the tutor was firm that we need it ... we're definitely keeping the rope'; D buckets 'the buckets stay too; we carry the samples back in those, so they're essential, not cut'; E first-aid kit was just confirmed as essential shared kit (kept, not dropped).",
+              "trap_mechanisms": [
+                "polarity_flip",
+                "distractor_drop"
+              ]
+            },
+            {
+              "qnum": "10",
+              "answer": "C",
+              "notes": "Choose-TWO (Questions 9 and 10 — items dropped from the list): same pair as Q9 — the camera (B) and the spare boots (C). Affirmative cue for C: 'somebody suggested bringing a spare pair in case, but it's dead weight, so the spare boots come off too. We're not carrying those.' The (Q10) marker sits on 'spare boots'. Accept B and C in either order across Q9/Q10. Distinct keyed pair (B,C) from every other block. A, D, E are each voiced and rejected (explicitly kept).",
+              "trap_mechanisms": [
+                "polarity_flip",
+                "distractor_drop"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

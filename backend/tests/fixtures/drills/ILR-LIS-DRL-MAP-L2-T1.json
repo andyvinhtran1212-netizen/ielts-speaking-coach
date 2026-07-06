@@ -1,0 +1,260 @@
+{
+  "test_id": "ILR-LIS-DRL-MAP-L2-T1",
+  "title": "Listening Skill-Drill — Map / Plan Labelling (S2) — Fennholt Botanic Garden orientation tour",
+  "version": "1.0",
+  "drill_type": "map",
+  "level": "L2",
+  "target_band": 6.0,
+  "created": "2026-06-19",
+  "mode": "mini",
+  "cluster": "Tour / site introduction — public monologue",
+  "topic_tags": {
+    "S2": "Orientation tour of a small botanical garden and glasshouse complex; a visitor-experience guide names five outdoor zones (Q1-5) and five indoor glasshouses (Q6-10) on a two-part site plan, each part a 6-letter bank with one distractor"
+  },
+  "accent_profile": [
+    "BrE"
+  ],
+  "total_words": 662,
+  "sections": [
+    {
+      "section_id": "S2",
+      "section_number": 2,
+      "context": "A visitor-experience guide gives a short orientation talk to a group at the gate of Fennholt Botanic Garden, then walks the group through a two-part site plan: first the outdoor zones (questions 1-5), then the linked glasshouse complex (questions 6-10). The talk reveals each location in question order, declares the orientation, and points out the unused (distractor) letter in each part.",
+      "register": "public-facing monologue",
+      "word_count": 662,
+      "audio_intro": "You will hear a visitor-experience guide giving an orientation tour of a small botanical garden and its glasshouse complex. First, you have some time to look at questions 1 to 10. [pause:30s] Now listen carefully and answer questions 1 to 10.",
+      "speakers": [
+        {
+          "speaker_id": "S2_F1",
+          "name": "Marisa Quigg",
+          "role": "Visitor-experience guide",
+          "voice_profile": "[F-BrE-40s-professional]"
+        }
+      ],
+      "audio_script": [
+        {
+          "speaker_tag": "[F-BrE-40s-professional]",
+          "text": "[emotion:enthusiastic] Right, good morning everyone, and welcome to Fennholt Botanic Garden. I'm Marisa, your visitor-experience guide, and I'll point out where everything is before you wander off on your own. Do follow along on the plan in your leaflet.",
+          "voice_settings": {
+            "stability": 0.5,
+            "style": 0.45,
+            "_note": "Warm BrE guide intro"
+          }
+        },
+        {
+          "speaker_tag": "[F-BrE-40s-professional]",
+          "text": "[emotion:friendly] So, the garden is in two halves. The top part of your plan, with the six lettered spots, is the outdoor garden, and the lower bit is the glasshouse complex, which we'll come to second. Let's do the open-air zones first."
+        },
+        {
+          "speaker_tag": "[F-BrE-40s-professional]",
+          "text": "[emotion:professional] Get your bearings on the outdoor plan. North is up at the top, and the main gate, where we're standing now, is at the bottom — the south side. A grass path runs from the gate up the centre. There are six letters, A to F, but one of them you won't need today, so do listen for the right ones."
+        },
+        {
+          "speaker_tag": "[F-BrE-40s-professional]",
+          "text": "First, the Sunken Lawn — that's the big dished lawn we use for picnics. It sits right in the [stress:middle of the outdoor plan], dead centre, where the grass path widens out. So the picnic lawn is the central one (Q1)."
+        },
+        {
+          "speaker_tag": "[F-BrE-40s-professional]",
+          "text": "[emotion:friendly] Next, the Rockery Slope, with all the alpine plants. From the centre, look up to the far [stress:top-left corner] — the north-west. The rockery is banked up against that corner, as far from the gate as you can get on the left (Q2)."
+        },
+        {
+          "speaker_tag": "[F-BrE-40s-professional]",
+          "text": "Now the Lily Pond. Come back down towards the gate — the pond is in the [stress:bottom-left corner], the south-west, just inside the entrance on your left as you came in. So, lily pond bottom-left, by the gate (Q3)."
+        },
+        {
+          "speaker_tag": "[F-BrE-40s-professional]",
+          "text": "[emotion:professional] The Bamboo Walk is a shady tunnel of tall bamboo. It runs along the [stress:top edge, in the middle] — due north, halfway across the top, directly above the Sunken Lawn. Head straight up the path and you walk into it (Q4)."
+        },
+        {
+          "speaker_tag": "[F-BrE-40s-professional]",
+          "text": "[emotion:friendly] And the last open-air one, the Scented Border — lavender, roses, that sort of thing. It's on the [stress:right-hand side, halfway up] — the east side, level with the centre. So, scented border on the right, opposite nothing in particular, just the middle of the east edge (Q5)."
+        },
+        {
+          "speaker_tag": "[F-BrE-40s-professional]",
+          "text": "That's the five outdoor ones. The letter left over, up in the top-right corner — the north-east — is just the compost yard, which is staff-only and not on your trail, so you can ignore that letter for the outdoor plan."
+        },
+        {
+          "speaker_tag": "[F-BrE-40s-professional]",
+          "text": "[emotion:enthusiastic] Right, on to the glasshouse complex — the lower plan, again six letters A to F, again one you won't need. Same orientation: north is up, and you come in through the foyer at the bottom, the south side, where the central corridor starts."
+        },
+        {
+          "speaker_tag": "[F-BrE-40s-professional]",
+          "text": "First glasshouse, the Cactus House — desert plants, all spines and gravel. It's the room in the [stress:bottom-left corner], south-west, immediately on your left as you step in from the foyer. So cactus house first, bottom-left by the door (Q6)."
+        },
+        {
+          "speaker_tag": "[F-BrE-40s-professional]",
+          "text": "[emotion:professional] Then the Water-Lily House, which has a big warm pool. It's on the [stress:right-hand side, halfway along], the east side, level with the middle of the corridor. So, water lilies on the right, opposite the centre (Q7)."
+        },
+        {
+          "speaker_tag": "[F-BrE-40s-professional]",
+          "text": "[emotion:friendly] The Bonsai House — all the little trained trees — is right up at the far end. Walk all the way up the corridor and it's in the [stress:top-left corner], the north-west, diagonally opposite the cactus house. So, bonsai top-left, furthest from the foyer (Q8)."
+        },
+        {
+          "speaker_tag": "[F-BrE-40s-professional]",
+          "text": "Next door to that, the Cloud-Forest House — cool and misty, full of ferns and orchids. It's in the [stress:top-right corner], the north-east, at the far end on the right, just across from the bonsai. So, cloud forest top-right, also up at the far end (Q9)."
+        },
+        {
+          "speaker_tag": "[F-BrE-40s-professional]",
+          "text": "[emotion:friendly] And the last glasshouse, the Citrus House — lemons, oranges, the lovely smell. It's the [stress:bottom-right corner], south-east, just inside the foyer on your right, opposite the cactus house as you come in. So citrus bottom-right, by the door (Q10)."
+        },
+        {
+          "speaker_tag": "[F-BrE-40s-professional]",
+          "text": "[emotion:professional] The spare letter on the glasshouse plan, the room in the very centre, is the seed store — staff-only again, walled off, so leave that letter blank. And that's everything; the café's by the gate if you need it. Off you go, and do ask if you get lost."
+        }
+      ],
+      "question_blocks": [
+        {
+          "block_id": "S2_B1",
+          "question_range": "1-5",
+          "render": "map",
+          "rubric": "Label the plan below.\nWrite the correct letter, A-F, next to questions 1-5.",
+          "map_title": "FENNHOLT BOTANIC GARDEN — OUTDOOR ZONES (PLAN 1 OF 2)",
+          "map_description": "Plan of the outdoor zones at Fennholt Botanic Garden, drawn in plan view with a North arrow at the top-left. The plan is a rectangle. The MAIN GATE is at the bottom (south), marked by an arrow pointing in, and a grass path runs straight up the centre from the gate. Six letters A-F are marked; five are answers and one (C) is an unused distractor. A is in the TOP-LEFT corner (north-west), as far from the gate as possible on the left. B is in the middle of the TOP edge (north), directly above the centre. C is an unused distractor in the TOP-RIGHT corner (north-east). D is in the exact CENTRE of the plan, where the grass path widens. E is on the RIGHT side (east), halfway up, level with the centre. F is in the BOTTOM-LEFT corner (south-west), just inside the gate on the left.",
+          "map_svg": "<svg viewBox=\"0 0 600 500\" xmlns=\"http://www.w3.org/2000/svg\"><rect x=\"60\" y=\"50\" width=\"480\" height=\"400\" fill=\"white\" stroke=\"black\" stroke-width=\"2\"/><polygon points=\"40,40 56,40 48,62\" fill=\"black\"/><text x=\"48\" y=\"34\" font-family=\"Arial\" font-size=\"16\" font-weight=\"bold\" text-anchor=\"middle\">N</text><line x1=\"300\" y1=\"450\" x2=\"300\" y2=\"90\" stroke=\"black\" stroke-width=\"1\" stroke-dasharray=\"6 5\"/><text x=\"248\" y=\"478\" font-family=\"Arial\" font-size=\"13\">MAIN GATE</text><polygon points=\"300,442 292,460 308,460\" fill=\"black\"/><rect x=\"82\" y=\"72\" width=\"34\" height=\"26\" fill=\"white\" stroke=\"black\" stroke-width=\"1\"/><text x=\"99\" y=\"91\" font-family=\"Arial\" font-size=\"18\" font-weight=\"bold\" text-anchor=\"middle\">A</text><rect x=\"283\" y=\"72\" width=\"34\" height=\"26\" fill=\"white\" stroke=\"black\" stroke-width=\"1\"/><text x=\"300\" y=\"91\" font-family=\"Arial\" font-size=\"18\" font-weight=\"bold\" text-anchor=\"middle\">B</text><rect x=\"484\" y=\"72\" width=\"34\" height=\"26\" fill=\"white\" stroke=\"black\" stroke-width=\"1\"/><text x=\"501\" y=\"91\" font-family=\"Arial\" font-size=\"18\" font-weight=\"bold\" text-anchor=\"middle\">C</text><rect x=\"283\" y=\"237\" width=\"34\" height=\"26\" fill=\"white\" stroke=\"black\" stroke-width=\"1\"/><text x=\"300\" y=\"256\" font-family=\"Arial\" font-size=\"18\" font-weight=\"bold\" text-anchor=\"middle\">D</text><rect x=\"484\" y=\"237\" width=\"34\" height=\"26\" fill=\"white\" stroke=\"black\" stroke-width=\"1\"/><text x=\"501\" y=\"256\" font-family=\"Arial\" font-size=\"18\" font-weight=\"bold\" text-anchor=\"middle\">E</text><rect x=\"82\" y=\"402\" width=\"34\" height=\"26\" fill=\"white\" stroke=\"black\" stroke-width=\"1\"/><text x=\"99\" y=\"421\" font-family=\"Arial\" font-size=\"18\" font-weight=\"bold\" text-anchor=\"middle\">F</text></svg>",
+          "questions": [
+            {
+              "qnum": "1",
+              "location": "Sunken Lawn"
+            },
+            {
+              "qnum": "2",
+              "location": "Rockery Slope"
+            },
+            {
+              "qnum": "3",
+              "location": "Lily Pond"
+            },
+            {
+              "qnum": "4",
+              "location": "Bamboo Walk"
+            },
+            {
+              "qnum": "5",
+              "location": "Scented Border"
+            }
+          ],
+          "answers": [
+            {
+              "qnum": "1",
+              "answer": "D",
+              "notes": "'right in the middle of the outdoor plan, dead centre, where the grass path widens' = D (exact centre). 'the central one' re-confirms. Spoken first, in question order.",
+              "trap_mechanisms": [
+                "map_double_constraint"
+              ]
+            },
+            {
+              "qnum": "2",
+              "answer": "A",
+              "notes": "'far top-left corner — the north-west … as far from the gate as you can get on the left' = A. Two constraints (top-left + far from gate, left).",
+              "trap_mechanisms": [
+                "map_double_constraint"
+              ]
+            },
+            {
+              "qnum": "3",
+              "answer": "F",
+              "notes": "'bottom-left corner, the south-west, just inside the entrance on your left' = F. 'lily pond bottom-left, by the gate' re-confirms.",
+              "trap_mechanisms": [
+                "map_double_constraint"
+              ]
+            },
+            {
+              "qnum": "4",
+              "answer": "B",
+              "notes": "'along the top edge, in the middle — due north, halfway across the top, directly above the Sunken Lawn' = B (top-centre, above D). The 'directly above the Sunken Lawn' cue is a back-reference to the already-located D (Q1), giving the second constraint.",
+              "trap_mechanisms": [
+                "map_double_constraint",
+                "backward_reference"
+              ]
+            },
+            {
+              "qnum": "5",
+              "answer": "E",
+              "notes": "'right-hand side, halfway up — the east side, level with the centre' = E. C (top-right, north-east) is voiced as the unused distractor (compost yard, staff-only).",
+              "trap_mechanisms": [
+                "map_double_constraint",
+                "distractor_drop"
+              ]
+            }
+          ]
+        },
+        {
+          "block_id": "S2_B2",
+          "question_range": "6-10",
+          "render": "map",
+          "rubric": "Label the plan below.\nWrite the correct letter, A-F, next to questions 6-10.",
+          "map_title": "FENNHOLT BOTANIC GARDEN — GLASSHOUSE COMPLEX (PLAN 2 OF 2)",
+          "map_description": "Plan of the glasshouse complex at Fennholt Botanic Garden, drawn in plan view with a North arrow at the top-left. The plan is a rectangle. The FOYER ENTRANCE is at the bottom (south), marked by an arrow pointing in, and a central corridor runs straight up the middle from the foyer. Six letters A-F are marked; five are answers and one (D) is an unused distractor. A is in the TOP-LEFT corner (north-west), at the far end on the left. B is in the BOTTOM-RIGHT corner (south-east), just inside the foyer on the right. C is in the BOTTOM-LEFT corner (south-west), just inside the foyer on the left. D is an unused distractor in the exact CENTRE of the plan. E is in the TOP-RIGHT corner (north-east), at the far end on the right. F is on the RIGHT side (east), halfway along, level with the centre.",
+          "map_svg": "<svg viewBox=\"0 0 600 500\" xmlns=\"http://www.w3.org/2000/svg\"><rect x=\"60\" y=\"50\" width=\"480\" height=\"400\" fill=\"white\" stroke=\"black\" stroke-width=\"2\"/><polygon points=\"40,40 56,40 48,62\" fill=\"black\"/><text x=\"48\" y=\"34\" font-family=\"Arial\" font-size=\"16\" font-weight=\"bold\" text-anchor=\"middle\">N</text><line x1=\"300\" y1=\"450\" x2=\"300\" y2=\"90\" stroke=\"black\" stroke-width=\"1\" stroke-dasharray=\"6 5\"/><text x=\"238\" y=\"478\" font-family=\"Arial\" font-size=\"13\">FOYER ENTRANCE</text><polygon points=\"300,442 292,460 308,460\" fill=\"black\"/><rect x=\"82\" y=\"72\" width=\"34\" height=\"26\" fill=\"white\" stroke=\"black\" stroke-width=\"1\"/><text x=\"99\" y=\"91\" font-family=\"Arial\" font-size=\"18\" font-weight=\"bold\" text-anchor=\"middle\">A</text><rect x=\"484\" y=\"402\" width=\"34\" height=\"26\" fill=\"white\" stroke=\"black\" stroke-width=\"1\"/><text x=\"501\" y=\"421\" font-family=\"Arial\" font-size=\"18\" font-weight=\"bold\" text-anchor=\"middle\">B</text><rect x=\"82\" y=\"402\" width=\"34\" height=\"26\" fill=\"white\" stroke=\"black\" stroke-width=\"1\"/><text x=\"99\" y=\"421\" font-family=\"Arial\" font-size=\"18\" font-weight=\"bold\" text-anchor=\"middle\">C</text><rect x=\"283\" y=\"237\" width=\"34\" height=\"26\" fill=\"white\" stroke=\"black\" stroke-width=\"1\"/><text x=\"300\" y=\"256\" font-family=\"Arial\" font-size=\"18\" font-weight=\"bold\" text-anchor=\"middle\">D</text><rect x=\"484\" y=\"72\" width=\"34\" height=\"26\" fill=\"white\" stroke=\"black\" stroke-width=\"1\"/><text x=\"501\" y=\"91\" font-family=\"Arial\" font-size=\"18\" font-weight=\"bold\" text-anchor=\"middle\">E</text><rect x=\"484\" y=\"237\" width=\"34\" height=\"26\" fill=\"white\" stroke=\"black\" stroke-width=\"1\"/><text x=\"501\" y=\"256\" font-family=\"Arial\" font-size=\"18\" font-weight=\"bold\" text-anchor=\"middle\">F</text></svg>",
+          "questions": [
+            {
+              "qnum": "6",
+              "location": "Cactus House"
+            },
+            {
+              "qnum": "7",
+              "location": "Water-Lily House"
+            },
+            {
+              "qnum": "8",
+              "location": "Bonsai House"
+            },
+            {
+              "qnum": "9",
+              "location": "Cloud-Forest House"
+            },
+            {
+              "qnum": "10",
+              "location": "Citrus House"
+            }
+          ],
+          "answers": [
+            {
+              "qnum": "6",
+              "answer": "C",
+              "notes": "'bottom-left corner, south-west, immediately on your left as you step in from the foyer' = C. 'cactus house first, bottom-left by the door' re-confirms.",
+              "trap_mechanisms": [
+                "map_double_constraint"
+              ]
+            },
+            {
+              "qnum": "7",
+              "answer": "F",
+              "notes": "'right-hand side, halfway along, the east side, level with the middle of the corridor' = F. 'water lilies on the right, opposite the centre' re-confirms.",
+              "trap_mechanisms": [
+                "map_double_constraint"
+              ]
+            },
+            {
+              "qnum": "8",
+              "answer": "A",
+              "notes": "'all the way up the corridor … top-left corner, the north-west, diagonally opposite the cactus house' = A. Two constraints (top-left + diagonally opposite C).",
+              "trap_mechanisms": [
+                "map_double_constraint",
+                "place_confusion"
+              ]
+            },
+            {
+              "qnum": "9",
+              "answer": "E",
+              "notes": "'top-right corner, the north-east, at the far end on the right, just across from the bonsai' = E. Two constraints (top-right + across from A).",
+              "trap_mechanisms": [
+                "map_double_constraint",
+                "place_confusion"
+              ]
+            },
+            {
+              "qnum": "10",
+              "answer": "B",
+              "notes": "'bottom-right corner, south-east, just inside the foyer on your right, opposite the cactus house' = B. D (exact centre) is voiced as the unused distractor (seed store, staff-only).",
+              "trap_mechanisms": [
+                "map_double_constraint",
+                "distractor_drop"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

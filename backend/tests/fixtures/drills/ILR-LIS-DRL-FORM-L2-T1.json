@@ -1,0 +1,312 @@
+{
+  "test_id": "ILR-LIS-DRL-FORM-L2-T1",
+  "title": "Listening Skill-Drill — Form Completion (S1) — Leisure-centre swimming membership",
+  "version": "1.0",
+  "drill_type": "form",
+  "level": "L2",
+  "target_band": 6.0,
+  "created": "2026-06-19",
+  "mode": "mini",
+  "cluster": "Everyday transactions / leisure & sport",
+  "topic_tags": {
+    "S1": "Phone call to register for a swimming membership at a leisure centre (surname spelling with hyphen, date of birth, address, postcode, phone, membership tier, monthly price, start date, included class, item to bring)"
+  },
+  "accent_profile": [
+    "BrE"
+  ],
+  "total_words": 560,
+  "sections": [
+    {
+      "section_id": "S1",
+      "section_number": 1,
+      "context": "A man phones Maple Vale Leisure Centre to register for a swimming membership; a membership consultant fills in a registration form (surname spelling, date of birth, address, postcode, mobile number, membership tier, monthly price, start date, an included class and an item to bring on the first visit)",
+      "register": "polite-transactional",
+      "word_count": 560,
+      "audio_intro": "You will hear a phone call between a man who wants to join a leisure centre and a membership consultant. First, you have some time to look at questions 1 to 10. [pause:30s] Now listen carefully and answer questions 1 to 10.",
+      "speakers": [
+        {
+          "speaker_id": "S1_F1",
+          "name": "Renata Frewin",
+          "role": "Membership consultant",
+          "voice_profile": "[F-BrE-30s-professional]"
+        },
+        {
+          "speaker_id": "S1_M1",
+          "name": "Tomasz Halewood-Birch",
+          "role": "New member",
+          "voice_profile": "[M-BrE-40s]"
+        }
+      ],
+      "audio_script": [
+        {
+          "speaker_tag": "[F-BrE-30s-professional]",
+          "text": "[sfx:phone-ring] [sfx:phone-pickup] [emotion:polite] Good morning, Maple Vale Leisure Centre, Renata speaking. How can I help you?"
+        },
+        {
+          "speaker_tag": "[M-BrE-40s]",
+          "text": "Oh, hello. Um, I'd like to sign up for a swimming membership, please — I've just moved to the area and I want to start using the pool."
+        },
+        {
+          "speaker_tag": "[F-BrE-30s-professional]",
+          "text": "[emotion:friendly] Lovely, I can set that up over the phone now. Let me, er, open a new form. Could I take your full name, please?"
+        },
+        {
+          "speaker_tag": "[M-BrE-40s]",
+          "text": "Yes, it's Tomasz Halewood-Birch. The first name is Tomasz, and the surname is the tricky bit — it's double-barrelled. It's Halewood-Birch, so that's H-A-L-E-W-O-O-D, then a hyphen, then B-I-R-C-H (Q1). There's a double-O in the middle, Halewood, not Halwood."
+        },
+        {
+          "speaker_tag": "[F-BrE-30s-professional]",
+          "text": "Great, Halewood-Birch with a hyphen, got it. And, um, what's your date of birth?"
+        },
+        {
+          "speaker_tag": "[M-BrE-40s]",
+          "text": "People sometimes put the twentieth, but it's the twelfth of March (Q2). The twelfth, one-two."
+        },
+        {
+          "speaker_tag": "[F-BrE-30s-professional]",
+          "text": "No problem at all — the twelfth of March. Now, your home address?"
+        },
+        {
+          "speaker_tag": "[M-BrE-40s]",
+          "text": "I'm at number forty Bewley Road (Q3). I think there's a Bewley Close nearby too, but mine is definitely the Road — number forty, Bewley Road."
+        },
+        {
+          "speaker_tag": "[F-BrE-30s-professional]",
+          "text": "Forty Bewley Road. And the postcode?"
+        },
+        {
+          "speaker_tag": "[M-BrE-40s]",
+          "text": "The postcode is M16 7QT (Q4). That's M for Manchester, one-six, then seven Q-T."
+        },
+        {
+          "speaker_tag": "[F-BrE-30s-professional]",
+          "text": "M16 7QT, thank you. Could I get a, er, contact number — a mobile is best?"
+        },
+        {
+          "speaker_tag": "[M-BrE-40s]",
+          "text": "Sure, my mobile is [digits:07700 924168] (Q5)."
+        },
+        {
+          "speaker_tag": "[F-BrE-30s-professional]",
+          "text": "[emotion:friendly] Perfect. Now let's pick your membership. We have two main swimming options. There's the Anytime tier, which lets you swim whenever the pool is open, and there's Off-Peak Plus, which covers mornings and early afternoons on weekdays. Which would suit you?"
+        },
+        {
+          "speaker_tag": "[M-BrE-40s]",
+          "text": "Well… I work from home and I usually swim mid-morning, so I don't really need the evenings. I'll take the Off-Peak Plus one, not the Anytime (Q6)."
+        },
+        {
+          "speaker_tag": "[F-BrE-30s-professional]",
+          "text": "Good choice. So, the Off-Peak Plus is normally thirty-eight pounds a month, but because you're joining online-ready today, there's a standing-order discount, so it'll be thirty-two pounds a month (Q7). Thirty-two, then."
+        },
+        {
+          "speaker_tag": "[M-BrE-40s]",
+          "text": "Thirty-two pounds a month, that's fine. Um, when can the membership actually start?"
+        },
+        {
+          "speaker_tag": "[F-BrE-30s-professional]",
+          "text": "Since the discount runs from next month, it's not the twenty-fifth of April — the first of May (Q8) is better. So the start date will be the first of May."
+        },
+        {
+          "speaker_tag": "[M-BrE-40s]",
+          "text": "The first of May suits me. Oh, does the membership include any classes? My, er, physio suggested some gentle water exercise."
+        },
+        {
+          "speaker_tag": "[F-BrE-30s-professional]",
+          "text": "It does — Off-Peak Plus includes one class a week. Most people on your tier go to the aqua aerobics (Q9) session; it's, um, low-impact and great for that. There's also a lane-swimming squad, but that's for the Anytime members."
+        },
+        {
+          "speaker_tag": "[M-BrE-40s]",
+          "text": "Aqua aerobics sounds ideal. Is there anything I need to bring on my first visit?"
+        },
+        {
+          "speaker_tag": "[F-BrE-30s-professional]",
+          "text": "Just one thing for the pool — you'll need a swimming cap (Q10). Goggles are optional and we sell those at reception, but the cap is compulsory in our pool. So, a swimming cap on day one."
+        },
+        {
+          "speaker_tag": "[M-BrE-40s]",
+          "text": "Brilliant, I'll bring one. Thanks so much for your help."
+        },
+        {
+          "speaker_tag": "[F-BrE-30s-professional]",
+          "text": "[emotion:friendly] You're very welcome. We'll see you on the first of May. Bye for now."
+        }
+      ],
+      "question_blocks": [
+        {
+          "block_id": "S1_B1",
+          "question_range": "1-5",
+          "render": "form",
+          "rubric": "Complete the form below.\nWrite NO MORE THAN TWO WORDS AND/OR A NUMBER for each answer.",
+          "title": "MAPLE VALE LEISURE CENTRE — SWIMMING MEMBERSHIP REGISTRATION",
+          "lines": [
+            {
+              "label": "First name:",
+              "qnum": null,
+              "suffix": "Tomasz (Example)"
+            },
+            {
+              "label": "Surname:",
+              "qnum": "1"
+            },
+            {
+              "label": "Date of birth:",
+              "qnum": "2",
+              "suffix": "March"
+            },
+            {
+              "label": "Home address: 40",
+              "qnum": "3"
+            },
+            {
+              "label": "Postcode:",
+              "qnum": "4"
+            },
+            {
+              "label": "Mobile number:",
+              "qnum": "5"
+            }
+          ],
+          "answers": [
+            {
+              "qnum": "1",
+              "answer": "Halewood-Birch",
+              "notes": "Name spelling dictated letter-by-letter 'H-A-L-E-W-O-O-D' [hyphen] 'B-I-R-C-H'. Double-O in 'Halewood' is the trap (candidates may write 'Halwood'); the answer must keep the HYPHEN and both halves. Source: \"Halewood-Birch, so that's H-A-L-E-W-O-O-D, then a hyphen, then B-I-R-C-H\".",
+              "trap_mechanisms": [
+                "name_spelling"
+              ]
+            },
+            {
+              "qnum": "2",
+              "answer": "12",
+              "accept": [
+                "12th",
+                "twelfth",
+                "the twelfth"
+              ],
+              "notes": "Forward distractor-drop + teen/ty-style date confusion: the wrong figure is flagged as a common mistake in a clean separate clause, then the key is stated cleanly — 'People sometimes put the twentieth, but it's the twelfth of March.' The form already prints 'March', so only the day is keyed. The twentieth is the mentioned-rejected figure; the key 'twelfth' (re-confirmed 'one-two') carries no retraction cue. Source: \"it's the twelfth of March. The twelfth, one-two.\"",
+              "trap_mechanisms": [
+                "distractor_drop"
+              ]
+            },
+            {
+              "qnum": "3",
+              "answer": "Bewley Road",
+              "accept": [
+                "Bewley Rd"
+              ],
+              "notes": "Place confusion: 'Bewley Close' is named as a nearby distractor; the customer confirms his is 'the Road'. The house number 40 is pre-printed on the form, so only the street name is keyed. Source: \"number forty Bewley Road… there's a Bewley Close nearby too, but mine is definitely the Road\".",
+              "trap_mechanisms": [
+                "place_confusion",
+                "distractor_drop"
+              ]
+            },
+            {
+              "qnum": "4",
+              "answer": "M16 7QT",
+              "notes": "Alphanumeric postcode dictated and confirmed; read as 'M, one-six, seven, Q-T'. Number/letter accuracy item. Source: \"The postcode is M16 7QT. That's M for Manchester, one-six, then seven Q-T.\"",
+              "trap_mechanisms": [
+                "name_spelling"
+              ]
+            },
+            {
+              "qnum": "5",
+              "answer": "07700 924168",
+              "notes": "Mobile number dictated as a single run (wrapped [digits:] for TTS). Number accuracy item; no competing figure. Source: \"my mobile is 07700 924168\".",
+              "trap_mechanisms": [
+                "name_spelling"
+              ]
+            }
+          ]
+        },
+        {
+          "block_id": "S1_B2",
+          "question_range": "6-10",
+          "render": "form",
+          "rubric": "Complete the form below.\nWrite NO MORE THAN TWO WORDS AND/OR A NUMBER for each answer.",
+          "title": "MEMBERSHIP DETAILS",
+          "lines": [
+            {
+              "label": "Membership tier chosen:",
+              "qnum": "6"
+            },
+            {
+              "label": "Monthly price: £",
+              "qnum": "7"
+            },
+            {
+              "label": "Start date: the",
+              "qnum": "8",
+              "suffix": "of May"
+            },
+            {
+              "label": "Class included each week:",
+              "qnum": "9"
+            },
+            {
+              "label": "Must bring on first visit:",
+              "qnum": "10"
+            }
+          ],
+          "answers": [
+            {
+              "qnum": "6",
+              "answer": "Off-Peak Plus",
+              "notes": "Distractor-drop + polarity: two tiers named — 'Anytime' (rejected) and 'Off-Peak Plus' (chosen, re-confirmed 'not the Anytime'). The customer swims mid-morning so does not need evenings. Hyphen counts as one word, so 'Off-Peak Plus' = two words. Source: \"I'll take the Off-Peak Plus one, not the Anytime\".",
+              "trap_mechanisms": [
+                "distractor_drop",
+                "polarity_flip"
+              ]
+            },
+            {
+              "qnum": "7",
+              "answer": "32",
+              "accept": [
+                "£32"
+              ],
+              "notes": "Number-correction: the headline price 'thirty-eight pounds' is the un-discounted figure; with the standing-order discount it becomes 'thirty-two pounds', re-confirmed 'Thirty-two, then'. The '£' is pre-printed on the form. Source: \"normally thirty-eight pounds a month… so it'll be thirty-two pounds a month. Thirty-two, then.\"",
+              "trap_mechanisms": [
+                "number_correction",
+                "distractor_drop"
+              ]
+            },
+            {
+              "qnum": "8",
+              "answer": "1st",
+              "accept": [
+                "first",
+                "1",
+                "the first"
+              ],
+              "notes": "Forward distractor-drop / date: the wrong date is named in a clean rejected clause, then the key is stated cleanly — 'it's not the twenty-fifth of April — the first of May is better', re-confirmed 'the start date will be the first of May'. The form prints 'of May', so only the day is keyed. 25th April is the mentioned-rejected date; the key 'first' carries no retraction cue. Source: \"the first of May is better. So the start date will be the first of May.\"",
+              "trap_mechanisms": [
+                "distractor_drop"
+              ]
+            },
+            {
+              "qnum": "9",
+              "answer": "aqua aerobics",
+              "notes": "Paraphrase + distractor-drop: 'gentle water exercise' (customer) is reframed as the 'aqua aerobics' session (consultant). The 'lane-swimming squad' is a distractor reserved for Anytime members. Two words. Source: \"Most people on your tier go to the aqua aerobics session… There's also a lane-swimming squad, but that's for the Anytime members.\"",
+              "trap_mechanisms": [
+                "paraphrase_t1",
+                "distractor_drop"
+              ]
+            },
+            {
+              "qnum": "10",
+              "answer": "swimming cap",
+              "accept": [
+                "(a) swimming cap",
+                "cap"
+              ],
+              "notes": "Distractor-drop: goggles are mentioned as optional (sold at reception) but the cap is 'compulsory', re-confirmed 'a swimming cap on day one'. Two words. Source: \"you'll need a swimming cap. Goggles are optional… but the cap is compulsory in our pool.\"",
+              "trap_mechanisms": [
+                "distractor_drop",
+                "paraphrase_t1"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

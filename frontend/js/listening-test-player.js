@@ -685,6 +685,10 @@ function renderPlanLabel(payload, questions) {
   // renderer no longer references it.
   const meta = (payload && payload.metadata) || {};
   const mapImage = (payload && payload.map_image_url) || '';
+  // Skill drills ship the plan as an inline <svg> string (admin-curated asset,
+  // not user input) instead of a generated PNG — render it directly so the
+  // Cambridge-style visual map appears with no image-generation pipeline.
+  const mapSvg = (payload && payload.map_svg) || '';
   const letters = Array.isArray(meta.letter_options) && meta.letter_options.length
     ? meta.letter_options
     : (Array.isArray(payload.letter_options) && payload.letter_options.length
@@ -695,7 +699,18 @@ function renderPlanLabel(payload, questions) {
   // exercise stays answerable (the dropdowns still work), but the
   // student is told a map is missing rather than handed the answer
   // key in prose.
-  const visualBlock = mapImage
+  const visualBlock = mapSvg
+    // Render the inline SVG as a data-URL <img>, NOT via innerHTML: an SVG
+    // loaded through <img> runs in the browser's secure static mode (no
+    // scripts, no external fetches), so a scriptable payload in an uploaded
+    // Source JSON can't execute in the student's authenticated session.
+    // encodeURIComponent also escapes '#'/'<'/'"' so the SVG can't break out
+    // of the src attribute.
+    ? `<div class="ielts-plan-image">
+         <img src="${esc('data:image/svg+xml;utf8,' + encodeURIComponent(mapSvg))}"
+              alt="Floor plan map" class="ielts-map-rendered ielts-map-svg" />
+       </div>`
+    : mapImage
     ? `<div class="ielts-plan-image">
          <img src="${esc(mapImage)}" alt="Floor plan map" class="ielts-map-rendered" />
        </div>`
