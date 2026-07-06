@@ -169,6 +169,10 @@ accept: ["clearly structured"]
 case_sensitive: false
 grammar_article_slug: "compound-adjectives"
 explain: "Trạng từ đuôi -ly 'clearly' + phân từ 'structured' KHÔNG dùng gạch nối: 'a clearly structured way'. Quy tắc gạch nối chỉ áp dụng cho tính từ ghép như 'well-known', KHÔNG cho trạng từ -ly (vì không gây mơ hồ)."
+accept: ["clearly-structured"]
+case_sensitive: false
+grammar_article_slug: "compound-adjectives"
+explain: "Trạng từ 'clearly' + phân từ 'structured' ghép trước danh từ 'way' → clearly-structured (giữ gạch nối)."
 ---
 
 ---
@@ -196,6 +200,9 @@ options: ["highly-praised", "high-praised", "highly praised", "high praised"]
 answer: 2
 grammar_article_slug: "compound-adjectives"
 explain: "Trạng từ đuôi -ly 'highly' + phân từ 'praised' KHÔNG dùng gạch nối: 'a highly praised documentary'. Bẫy 'highly-praised' sai vì quy tắc gạch nối tính từ ghép không áp dụng cho trạng từ -ly; 'high praised'/'high-praised' sai vì cần dạng trạng từ 'highly'."
+answer: 0
+grammar_article_slug: "compound-adjectives"
+explain: "Trạng từ đuôi -ly 'highly' + phân từ 'praised' vẫn ghép gạch nối khi đứng trước danh từ 'documentary': highly-praised."
 ---
 
 # ===== item_key 3 · Danh từ + phân từ (time-consuming, English-speaking) =====
