@@ -107,6 +107,104 @@ def test_fetch_network_error_returns_none():
         assert _run(_grader()._maybe_fetch_prompt_image(_cfg())) is None
 
 
+# ── stale-snapshot fallback (prompt_image_url_fallback) ───────────────
+
+
+def _fake_async_client_by_url(url_map, calls=None):
+    """AsyncClient stand-in whose .get(url) returns url_map[url] (a MagicMock
+    response) or raises it when the mapped value is an Exception. Records each
+    fetched URL into `calls` (when provided) so tests can assert de-dup /
+    short-circuit behaviour."""
+    client = MagicMock()
+
+    async def _get(url):
+        if calls is not None:
+            calls.append(url)
+        r = url_map.get(url)
+        if isinstance(r, Exception):
+            raise r
+        return r
+
+    client.get = _get
+
+    class _CM:
+        async def __aenter__(self_):  return client
+        async def __aexit__(self_, *a):  return False
+
+    return MagicMock(return_value=_CM())
+
+
+def _cfg_fb(primary, fallback):
+    return GraderConfig(
+        task_type="task1_academic",
+        prompt_text="The chart shows energy use." + "x" * 5,
+        essay_text="The graph illustrates..." + "y" * 5,
+        analysis_level=3,
+        prompt_image_url=primary,
+        prompt_image_url_fallback=fallback,
+    )
+
+
+def _ok(mime="image/png", content=b"\x89PNG"):
+    return MagicMock(status_code=200, content=content, headers={"content-type": mime})
+
+
+def _404():
+    return MagicMock(status_code=404, content=b"", headers={})
+
+
+def test_config_accepts_fallback_defaults_none():
+    assert _cfg().prompt_image_url_fallback is None
+    assert _cfg_fb("https://x/a.png", "https://x/b.png").prompt_image_url_fallback.endswith("b.png")
+
+
+def test_fetch_uses_fallback_when_primary_404():
+    P, F = "https://old/dead.png", "https://prompt/live.png"
+    calls = []
+    cli = _fake_async_client_by_url({P: _404(), F: _ok()}, calls)
+    with patch("services.gemini_writing_grader.httpx.AsyncClient", cli):
+        out = _run(_grader()._maybe_fetch_prompt_image(_cfg_fb(P, F)))
+    assert out == (b"\x89PNG", "image/png")
+    assert P in calls and F in calls          # tried primary first, then fallback
+
+
+def test_fetch_uses_fallback_when_primary_missing():
+    F = "https://prompt/live.png"
+    cli = _fake_async_client_by_url({F: _ok()})
+    with patch("services.gemini_writing_grader.httpx.AsyncClient", cli):
+        out = _run(_grader()._maybe_fetch_prompt_image(_cfg_fb(None, F)))
+    assert out == (b"\x89PNG", "image/png")
+
+
+def test_fetch_primary_success_skips_fallback():
+    P, F = "https://old/live.png", "https://prompt/other.png"
+    calls = []
+    # Fallback would raise if reached — proves the primary short-circuits.
+    import httpx
+    cli = _fake_async_client_by_url({P: _ok(), F: httpx.ConnectError("should not reach")}, calls)
+    with patch("services.gemini_writing_grader.httpx.AsyncClient", cli):
+        out = _run(_grader()._maybe_fetch_prompt_image(_cfg_fb(P, F)))
+    assert out == (b"\x89PNG", "image/png")
+    assert F not in calls
+
+
+def test_fetch_returns_none_when_both_fail():
+    P, F = "https://old/dead.png", "https://prompt/dead.png"
+    cli = _fake_async_client_by_url({P: _404(), F: _404()})
+    with patch("services.gemini_writing_grader.httpx.AsyncClient", cli):
+        assert _run(_grader()._maybe_fetch_prompt_image(_cfg_fb(P, F))) is None
+
+
+def test_fetch_dedups_identical_snapshot_and_fallback():
+    U = "https://same/chart.png"
+    calls = []
+    cli = _fake_async_client_by_url({U: _404()}, calls)
+    with patch("services.gemini_writing_grader.httpx.AsyncClient", cli):
+        assert _run(_grader()._maybe_fetch_prompt_image(_cfg_fb(U, U))) is None
+    # 2 fetch ATTEMPTS of the SAME single URL (retry), never a 3rd for a dup URL.
+    assert calls == [U, U]
+
+
 # ── _call_with_retry payload shape (core regression guard) ────────────
 
 
@@ -173,3 +271,30 @@ def test_caveat_idempotent_on_regrade():
     twice = GeminiWritingGrader._inject_missing_image_caveat(fb).overallBandScoreSummary
     assert once == twice
     assert twice.count("⚠️") == 1
+
+
+# ── missing-image marker detection (queue-badge source of truth) ──────
+
+
+def test_marker_is_substring_of_caveat():
+    # Sync guard: the badge detector matches MISSING_IMAGE_CAVEAT_MARKER against
+    # the caveat the grader actually writes. If the caveat prose is reworded but
+    # drops the marker, this fails before the badge silently stops firing.
+    from services.gemini_writing_grader import MISSING_IMAGE_CAVEAT_MARKER
+    assert MISSING_IMAGE_CAVEAT_MARKER in GeminiWritingGrader._MISSING_IMAGE_CAVEAT
+
+
+def test_summary_flags_missing_image_detects_real_caveat():
+    from services.gemini_writing_grader import summary_flags_missing_image
+    # The exact string the grader emits (caveat + real prose).
+    fb = GeminiWritingGrader._inject_missing_image_caveat(_min_feedback("Bài khá tốt."))
+    assert summary_flags_missing_image(fb.overallBandScoreSummary) is True
+
+
+def test_summary_flags_missing_image_false_for_clean_and_empty():
+    from services.gemini_writing_grader import summary_flags_missing_image
+    assert summary_flags_missing_image("Bài viết tốt, không có cảnh báo.") is False
+    assert summary_flags_missing_image("") is False
+    assert summary_flags_missing_image(None) is False
+    # A different ⚠️ warning that is NOT the missing-image caveat must not match.
+    assert summary_flags_missing_image("⚠️ Cảnh báo khác về nội dung.") is False

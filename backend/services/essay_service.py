@@ -18,6 +18,7 @@ with require_admin. Uses service-role `supabase_admin`.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -37,6 +38,7 @@ from services.gemini_writing_grader import (
     APIRetryFailedError,
     InvalidJSONError,
     get_grader,
+    summary_flags_missing_image,
 )
 from services.writing_history import (
     get_band_trajectory,
@@ -822,6 +824,16 @@ async def _bg_grade_essay(
             # persisted on the essay row at submit time (mig 033); the grader
             # ignores it for non-task1_academic and on fetch failure (D7).
             prompt_image_url=essay.get("prompt_image_url"),
+            # Stale-snapshot fallback: the source prompt's CURRENT image. The
+            # grader tries this only when the snapshot above is missing or fails
+            # to fetch — so a regrade of an essay whose chart was replaced after
+            # submission still grades WITH the image instead of text-only + D7.
+            # Resolved only for task1_academic (cheap 2-query lookup, skipped
+            # otherwise).
+            prompt_image_url_fallback=(
+                current_prompt_image_for_essay(essay_id)
+                if essay["task_type"] == "task1_academic" else None
+            ),
         )
 
         result = await get_grader().grade_essay(config)
@@ -1283,18 +1295,28 @@ def list_essays(
         )
         students_map = {s["id"]: s for s in (sr.data or [])}
 
-    # Batch 2 — overall band. GV-1a: read the CURRENT version via the view so a
-    # multi-version essay yields its delivered band, not an arbitrary version.
+    # Batch 2 — overall band + Task 1 "graded without image" flag. GV-1a: read
+    # the CURRENT version via the view so a multi-version essay yields its
+    # delivered band, not an arbitrary version. feedback_json carries the D7
+    # caveat prefix on overallBandScoreSummary when a task1_academic essay was
+    # graded text-only (stale/missing chart) — surfaced so the queue can badge
+    # it for a re-grade. Flag computed only for task1_academic rows.
+    t1a_ids = {e["id"] for e in rows if e.get("task_type") == "task1_academic"}
     band_map: dict = {}
+    image_missing_map: dict = {}
     fr = (
         supabase_admin.table("writing_feedback_current")
-        .select("essay_id, overall_band_score")
+        .select("essay_id, overall_band_score, feedback_json")
         .in_("essay_id", essay_ids).execute()
     )
     for f in (fr.data or []):
         eid = f.get("essay_id")
-        if eid and eid not in band_map:
+        if not eid:
+            continue
+        if eid not in band_map:
             band_map[eid] = f.get("overall_band_score")
+        if eid in t1a_ids and eid not in image_missing_map:
+            image_missing_map[eid] = _feedback_flags_missing_image(f.get("feedback_json"))
 
     # Batch 3 — deadline (writing_assignments.essay_id → writing_essays.id;
     # assignment points to the essay). Earliest non-null deadline wins.
@@ -1317,7 +1339,62 @@ def list_essays(
         e["student_code"]      = stu.get("student_code")
         e["band"]              = band_map.get(e["id"])
         e["deadline"]          = deadline_map.get(e["id"])
+        # True only for a task1_academic essay whose current grade carries the
+        # D7 "graded without image" caveat. Absent/False everywhere else.
+        e["task1_image_missing"] = bool(image_missing_map.get(e["id"], False))
     return rows
+
+
+def _feedback_flags_missing_image(feedback_json) -> bool:
+    """True when a writing_feedback row's summary carries the text-only Task 1
+    caveat. feedback_json arrives as a dict (Supabase JSONB) or a JSON string
+    depending on the client — handle both, and degrade to False on any parse
+    failure (a badge must never break the list)."""
+    if not feedback_json:
+        return False
+    if isinstance(feedback_json, str):
+        try:
+            feedback_json = json.loads(feedback_json)
+        except (ValueError, TypeError):
+            return False
+    if not isinstance(feedback_json, dict):
+        return False
+    return summary_flags_missing_image(feedback_json.get("overallBandScoreSummary"))
+
+
+def current_prompt_image_for_essay(essay_id: str) -> Optional[str]:
+    """The image URL CURRENTLY on the source prompt for this essay, resolved via
+    the writing_assignments(essay_id) → writing_prompts link.
+
+    Used as a fallback for a STALE essay snapshot: writing_essays.prompt_image_url
+    is captured at submit time, so if the prompt's chart is later replaced or its
+    storage object is deleted, the snapshot URL 404s while the prompt still points
+    at a live image. Returns None when the essay has no assignment/prompt link
+    (e.g. admin-created essays) or the prompt carries no image. Never raises — a
+    fallback lookup must not break the detail read or a grading run."""
+    try:
+        a = (
+            supabase_admin.table("writing_assignments")
+            .select("prompt_id")
+            .eq("essay_id", essay_id)
+            .limit(1)
+            .execute()
+        ).data
+        if not a or not a[0].get("prompt_id"):
+            return None
+        p = (
+            supabase_admin.table("writing_prompts")
+            .select("prompt_image_url")
+            .eq("id", a[0]["prompt_id"])
+            .limit(1)
+            .execute()
+        ).data
+        return p[0].get("prompt_image_url") if p else None
+    except Exception as exc:  # noqa: BLE001 — degrade to "no fallback"
+        logger.warning(
+            "[essays] prompt-image fallback lookup failed essay=%s: %s", essay_id, exc
+        )
+        return None
 
 
 def get_essay_with_feedback(essay_id: str) -> dict:
@@ -1333,6 +1410,17 @@ def get_essay_with_feedback(essay_id: str) -> dict:
     if not er.data:
         raise HTTPException(404, "Essay not found")
     essay = dict(er.data[0])
+
+    # Task 1 Academic stale-snapshot fallback: expose the source prompt's CURRENT
+    # image so the grade page can swap to it when the essay's snapshot URL 404s
+    # (chart replaced/deleted after submission). Only for task1_academic, only
+    # when a live prompt image exists AND differs from the snapshot — otherwise
+    # the field stays absent (no redundant swap). The frontend swaps only on
+    # <img> load error, so a healthy snapshot never uses this.
+    if essay.get("task_type") == "task1_academic":
+        fallback = current_prompt_image_for_essay(essay_id)
+        if fallback and fallback != essay.get("prompt_image_url"):
+            essay["prompt_image_url_fallback"] = fallback
 
     fr = (
         supabase_admin.table("writing_feedback_current")   # GV-1a: current version

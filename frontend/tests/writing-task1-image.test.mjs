@@ -48,8 +48,15 @@ describe('new.html / Task 1 Academic image upload', () => {
 describe('grade.html / chart display (admin)', () => {
   test('prompt-image element + task1_academic gating + lightbox', () => {
     assert.match(gradeHtml, /id="prompt-image"/);
-    assert.match(gradeHtml, /detail\.task_type === 'task1_academic' && detail\.prompt_image_url/);
+    // Gating is now via the _primaryImg helper (task1_academic → snapshot URL).
+    assert.match(gradeHtml, /_primaryImg\s*=\s*\(detail\.task_type === 'task1_academic'\)\s*\?\s*detail\.prompt_image_url/);
     assert.match(gradeHtml, /AvImageLightbox\.open/);
+  });
+  test('stale-snapshot fallback: swaps to prompt_image_url_fallback on <img> error', () => {
+    assert.match(gradeHtml, /detail\.prompt_image_url_fallback/);
+    assert.match(gradeHtml, /promptImg\.onerror\s*=\s*function/);
+    // One-shot: handler clears itself so a failing fallback can't loop.
+    assert.match(gradeHtml, /promptImg\.onerror\s*=\s*null/);
   });
   test('lightbox assets linked', () => {
     assert.match(gradeHtml, /css\/image-lightbox\.css/);

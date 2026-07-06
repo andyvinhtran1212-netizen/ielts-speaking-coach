@@ -1287,3 +1287,145 @@ async def test_reap_skips_soft_deleted_essay():
 
     assert summary["skipped"] == 1 and summary["requeued"] == 0 and summary["failed"] == 0
     requeue.assert_not_called()
+
+
+# ── current_prompt_image_for_essay (stale-snapshot fallback resolver) ──
+
+_PROMPT_ID = "00000000-0000-0000-0000-0000000000aa"
+_LIVE_IMG = "https://prompt/live-chart.png"
+
+
+def test_prompt_image_fallback_resolves_via_assignment():
+    fake = _FakeSupabase(responses={
+        ("writing_assignments", "select"): [{"prompt_id": _PROMPT_ID}],
+        ("writing_prompts", "select"):     [{"prompt_image_url": _LIVE_IMG}],
+    })
+    with patch.object(essay_service, "supabase_admin", fake):
+        assert essay_service.current_prompt_image_for_essay(_ESSAY_ID) == _LIVE_IMG
+
+
+def test_prompt_image_fallback_none_when_no_assignment():
+    fake = _FakeSupabase(responses={("writing_assignments", "select"): []})
+    with patch.object(essay_service, "supabase_admin", fake):
+        assert essay_service.current_prompt_image_for_essay(_ESSAY_ID) is None
+
+
+def test_prompt_image_fallback_none_when_assignment_has_no_prompt_id():
+    fake = _FakeSupabase(responses={("writing_assignments", "select"): [{"prompt_id": None}]})
+    with patch.object(essay_service, "supabase_admin", fake):
+        assert essay_service.current_prompt_image_for_essay(_ESSAY_ID) is None
+
+
+def test_prompt_image_fallback_none_when_prompt_has_no_image():
+    fake = _FakeSupabase(responses={
+        ("writing_assignments", "select"): [{"prompt_id": _PROMPT_ID}],
+        ("writing_prompts", "select"):     [{"prompt_image_url": None}],
+    })
+    with patch.object(essay_service, "supabase_admin", fake):
+        assert essay_service.current_prompt_image_for_essay(_ESSAY_ID) is None
+
+
+def test_prompt_image_fallback_never_raises():
+    boom = MagicMock()
+    boom.table.side_effect = RuntimeError("db down")
+    with patch.object(essay_service, "supabase_admin", boom):
+        assert essay_service.current_prompt_image_for_essay(_ESSAY_ID) is None
+
+
+# ── get_essay_with_feedback — fallback field exposure ─────────────────
+
+def _detail_responses(task_type, snapshot, live_img):
+    return {
+        ("writing_essays", "select"): [{
+            "id": _ESSAY_ID, "student_id": _STUDENT_ID,
+            "task_type": task_type, "prompt_image_url": snapshot,
+        }],
+        ("writing_feedback_current", "select"): [],   # ungraded → no feedback
+        ("students", "select"): [{"id": _STUDENT_ID, "full_name": "X", "student_code": "S1"}],
+        ("writing_assignments", "select"): [{"prompt_id": _PROMPT_ID}],
+        ("writing_prompts", "select"): [{"prompt_image_url": live_img}],
+    }
+
+
+def test_detail_exposes_fallback_when_snapshot_differs():
+    fake = _FakeSupabase(responses=_detail_responses(
+        "task1_academic", snapshot="https://old/dead.png", live_img=_LIVE_IMG))
+    with patch.object(essay_service, "supabase_admin", fake):
+        out = essay_service.get_essay_with_feedback(_ESSAY_ID)
+    assert out["prompt_image_url_fallback"] == _LIVE_IMG
+
+
+def test_detail_omits_fallback_when_snapshot_matches_live():
+    fake = _FakeSupabase(responses=_detail_responses(
+        "task1_academic", snapshot=_LIVE_IMG, live_img=_LIVE_IMG))
+    with patch.object(essay_service, "supabase_admin", fake):
+        out = essay_service.get_essay_with_feedback(_ESSAY_ID)
+    assert "prompt_image_url_fallback" not in out
+
+
+def test_detail_skips_fallback_for_non_task1_academic():
+    fake = _FakeSupabase(responses=_detail_responses(
+        "task2", snapshot=None, live_img=_LIVE_IMG))
+    with patch.object(essay_service, "supabase_admin", fake):
+        out = essay_service.get_essay_with_feedback(_ESSAY_ID)
+    assert "prompt_image_url_fallback" not in out
+    # No assignment/prompt lookup for non-Task1Academic essays.
+    assert not any(c["table"] == "writing_assignments" for c in fake.calls)
+
+
+# ── list_essays — Task 1 "graded without image" badge flag ────────────
+
+def _caveat_summary():
+    from services.gemini_writing_grader import GeminiWritingGrader
+    fb = GeminiWritingGrader._inject_missing_image_caveat(
+        WritingFeedback.model_construct(overallBandScoreSummary="Bài khá tốt."))
+    return fb.overallBandScoreSummary
+
+
+def test_list_essays_flags_task1_graded_without_image():
+    t1_id, t2_id, t1_ok_id = "e1", "e2", "e3"
+    fake = _FakeSupabase(responses={
+        ("writing_essays", "select"): [
+            {"id": t1_id,    "student_id": _STUDENT_ID, "task_type": "task1_academic", "status": "graded"},
+            {"id": t2_id,    "student_id": _STUDENT_ID, "task_type": "task2",          "status": "graded"},
+            {"id": t1_ok_id, "student_id": _STUDENT_ID, "task_type": "task1_academic", "status": "graded"},
+        ],
+        ("students", "select"): [{"id": _STUDENT_ID, "full_name": "X", "student_code": "S1"}],
+        ("writing_feedback", "select"): [
+            {"essay_id": t1_id,    "overall_band_score": 7.0, "feedback_json": {"overallBandScoreSummary": _caveat_summary()}},
+            {"essay_id": t2_id,    "overall_band_score": 6.5, "feedback_json": {"overallBandScoreSummary": "⚠️ Cảnh báo khác."}},
+            {"essay_id": t1_ok_id, "overall_band_score": 8.0, "feedback_json": {"overallBandScoreSummary": "Bài rất tốt."}},
+        ],
+        ("writing_assignments", "select"): [],
+    })
+    with patch.object(essay_service, "supabase_admin", fake):
+        rows = essay_service.list_essays()
+    flags = {r["id"]: r["task1_image_missing"] for r in rows}
+    assert flags[t1_id] is True        # task1_academic + caveat → flagged
+    assert flags[t2_id] is False       # task2 never flagged (even with a ⚠️ prose)
+    assert flags[t1_ok_id] is False    # task1_academic but clean grade
+
+
+def test_list_essays_flag_handles_json_string_feedback():
+    import json as _json
+    eid = "e1"
+    fake = _FakeSupabase(responses={
+        ("writing_essays", "select"): [
+            {"id": eid, "student_id": _STUDENT_ID, "task_type": "task1_academic", "status": "graded"},
+        ],
+        ("students", "select"): [{"id": _STUDENT_ID, "full_name": "X", "student_code": "S1"}],
+        ("writing_feedback", "select"): [
+            {"essay_id": eid, "overall_band_score": 7.0,
+             "feedback_json": _json.dumps({"overallBandScoreSummary": _caveat_summary()})},
+        ],
+        ("writing_assignments", "select"): [],
+    })
+    with patch.object(essay_service, "supabase_admin", fake):
+        rows = essay_service.list_essays()
+    assert rows[0]["task1_image_missing"] is True
+
+
+def test_feedback_flags_missing_image_degrades_on_bad_json():
+    assert essay_service._feedback_flags_missing_image(None) is False
+    assert essay_service._feedback_flags_missing_image("{not json") is False
+    assert essay_service._feedback_flags_missing_image(12345) is False

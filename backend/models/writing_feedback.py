@@ -385,6 +385,14 @@ class GraderConfig(BaseModel):
     # caveat (D7). Ignored for task1_general / task2.
     prompt_image_url: Optional[str] = None
 
+    # Stale-snapshot fallback: the source prompt's CURRENT image (resolved via
+    # the essay→assignment→prompt link at grade time). The grader tries this
+    # ONLY when `prompt_image_url` above is missing or fails to fetch — it covers
+    # essays whose prompt chart was replaced/deleted after submission, so the
+    # snapshot URL 404s while the prompt still points at a live image. None for
+    # non-task1_academic and for essays with no assignment/prompt link.
+    prompt_image_url_fallback: Optional[str] = None
+
 
 class GradingResult(BaseModel):
     """Wrapper around feedback + metadata.

@@ -1692,11 +1692,26 @@
       promptBox.textContent = detail.prompt_text ? '📝 ' + detail.prompt_text : '';
 
       // Sprint 19.3.5 — Task 1 Academic chart image (the grader's input).
+      // Stale-snapshot fallback: if the essay's snapshot URL 404s (chart
+      // replaced/deleted after submission), swap to the source prompt's CURRENT
+      // image (detail.prompt_image_url_fallback) instead of showing nothing.
       var promptImg = document.getElementById('prompt-image');
-      if (detail.task_type === 'task1_academic' && detail.prompt_image_url) {
-        promptImg.src = detail.prompt_image_url;
+      var _primaryImg  = (detail.task_type === 'task1_academic') ? detail.prompt_image_url : null;
+      var _fallbackImg = (detail.task_type === 'task1_academic') ? detail.prompt_image_url_fallback : null;
+      if (_primaryImg || _fallbackImg) {
+        promptImg.src = _primaryImg || _fallbackImg;
         promptImg.alt = 'Hình đề Task 1: ' + (detail.prompt_text ? detail.prompt_text.slice(0, 60) : '');
         promptImg.classList.remove('hidden');
+        // One-shot swap to the fallback on the primary's load error, then clear
+        // the handler so a failing fallback doesn't loop.
+        promptImg.onerror = function () {
+          promptImg.onerror = null;
+          if (_fallbackImg && promptImg.src !== _fallbackImg) {
+            promptImg.src = _fallbackImg;
+          } else {
+            promptImg.classList.add('hidden');
+          }
+        };
         var _openImg = function () {
           if (window.AvImageLightbox) window.AvImageLightbox.open(promptImg.src, promptImg.alt);
         };
@@ -1705,6 +1720,7 @@
           if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); _openImg(); }
         };
       } else {
+        promptImg.onerror = null;
         promptImg.classList.add('hidden');
         promptImg.removeAttribute('src');
       }

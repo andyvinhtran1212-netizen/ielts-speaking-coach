@@ -59,6 +59,23 @@ MODEL_PRICING: dict[str, dict[str, float]] = {
 MAX_RETRIES = 3
 INITIAL_RETRY_DELAY_S = 1.0
 
+# Stable marker substring for a text-only Task 1 grade. The grader prepends
+# _MISSING_IMAGE_CAVEAT (built from this) to overallBandScoreSummary when it
+# couldn't send the chart (D7); the grade-queue badge in essay_service matches
+# this same string, so both stay in sync from one source. A test pins that the
+# marker is a substring of the caveat.
+MISSING_IMAGE_CAVEAT_MARKER = "Chấm không có hình"
+
+
+def summary_flags_missing_image(summary: Optional[str]) -> bool:
+    """True when a feedback summary carries the text-only Task 1 caveat — i.e.
+    the essay was graded WITHOUT its chart. Matches the ⚠️-prefixed marker the
+    grader writes in _inject_missing_image_caveat."""
+    if not summary:
+        return False
+    s = summary.lstrip()
+    return s.startswith("⚠️") and MISSING_IMAGE_CAVEAT_MARKER in s
+
 
 # ── Errors ────────────────────────────────────────────────────────────
 
@@ -602,7 +619,8 @@ class GeminiWritingGrader:
     _IMAGE_FETCH_TIMEOUT_S = 5.0
     _IMAGE_FETCH_ATTEMPTS = 2
     _MISSING_IMAGE_CAVEAT = (
-        "⚠️ Chấm không có hình — độ chính xác nội dung Task 1 Academic hạn chế. "
+        "⚠️ " + MISSING_IMAGE_CAVEAT_MARKER +
+        " — độ chính xác nội dung Task 1 Academic hạn chế. "
     )
 
     @staticmethod
@@ -618,14 +636,35 @@ class GeminiWritingGrader:
     ) -> Optional[tuple[bytes, str]]:
         """Fetch the Task 1 Academic chart image for multimodal grading.
 
+        Tries the essay snapshot URL first, then the source-prompt's CURRENT
+        image (`prompt_image_url_fallback`) — the latter recovers a stale
+        snapshot whose object was replaced/deleted after submission, so a
+        regrade grades WITH the chart instead of text-only.
+
         Returns (bytes, mime_type), or None when there's nothing to send —
-        non-task1_academic, no URL, or a fetch failure (timeout / 404 /
+        non-task1_academic, no URL, or every candidate fails (timeout / 404 /
         network). On None the caller falls back to text-only + caveat (D7);
-        a flaky image must never fail or stall grading (cap ~10s total)."""
-        if config.task_type != "task1_academic" or not config.prompt_image_url:
+        a flaky image must never fail or stall grading (cap ~10s per URL)."""
+        if config.task_type != "task1_academic":
             return None
 
-        url = config.prompt_image_url
+        # Snapshot first, then the live-prompt fallback. Dedup so an unchanged
+        # snapshot isn't fetched twice; drop None/empty candidates.
+        candidates: list[str] = []
+        for url in (config.prompt_image_url, config.prompt_image_url_fallback):
+            if url and url not in candidates:
+                candidates.append(url)
+
+        for url in candidates:
+            got = await self._fetch_image_bytes(url)
+            if got:
+                return got
+        return None
+
+    async def _fetch_image_bytes(self, url: str) -> Optional[tuple[bytes, str]]:
+        """Fetch one image URL with retry. Returns (bytes, mime) on success, or
+        None on any failure (logged) — the caller decides whether to try the
+        next candidate or fall back to text-only."""
         try:
             async with httpx.AsyncClient(timeout=self._IMAGE_FETCH_TIMEOUT_S) as client:
                 last: Optional[Exception] = None
@@ -644,8 +683,7 @@ class GeminiWritingGrader:
                     raise last
         except Exception as exc:
             logger.warning(
-                "[grader] Task1 image fetch failed (grading text-only) url=%s: %s",
-                url, exc,
+                "[grader] Task1 image fetch failed url=%s: %s", url, exc,
             )
         return None
 
