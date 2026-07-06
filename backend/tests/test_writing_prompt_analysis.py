@@ -85,3 +85,59 @@ def test_analyze_raises_on_non_image_payload():
     with patch.object(wpa.httpx, "AsyncClient", _fake_client(resp)):
         with pytest.raises(RuntimeError, match="not a supported"):
             _run(wpa.analyze_prompt_image(image_url="https://x/x.txt"))
+
+
+# ── DB orchestration: image_needs_analysis + run_and_store_analysis ───
+
+def test_image_needs_analysis_matrix():
+    base = {"task_type": "task1_academic", "prompt_image_url": "u",
+            "prompt_image_public_id": "p1", "prompt_image_analysis_public_id": "p0"}
+    assert wpa.image_needs_analysis(base) is True                       # new/changed image
+    assert wpa.image_needs_analysis({**base, "prompt_image_analysis_public_id": "p1"}) is False  # already analysed
+    assert wpa.image_needs_analysis({**base, "task_type": "task2"}) is False                     # not task1
+    assert wpa.image_needs_analysis({**base, "prompt_image_url": None}) is False                 # no image
+
+
+def _run_store(prompt_row, analysis=None, raise_exc=None):
+    """Drive run_and_store_analysis with a mocked DB + extraction; return the
+    dict written to the FINAL update() call."""
+    db = MagicMock()
+    (db.table.return_value.select.return_value.eq.return_value
+     .limit.return_value.execute.return_value) = MagicMock(data=[prompt_row])
+
+    async def _analyze(**kw):
+        if raise_exc:
+            raise raise_exc
+        return analysis, "gemini-2.5-pro"
+
+    with patch("database.supabase_admin", db), \
+         patch.object(wpa, "analyze_prompt_image", _analyze):
+        _run(wpa.run_and_store_analysis(prompt_row["id"]))
+    # last update payload
+    return db.table.return_value.update.call_args[0][0] if db.table.return_value.update.call_args else None
+
+
+def test_run_and_store_success_writes_ready_unreviewed():
+    row = {"id": "p1", "task_type": "task1_academic", "prompt_text": "x",
+           "prompt_image_url": "https://x/c.png", "prompt_image_public_id": "prompts/c.png"}
+    analysis = PromptImageAnalysis(overview="Tổng quan", key_features=["A"], chart_type="bar")
+    payload = _run_store(row, analysis=analysis)
+    assert payload["prompt_image_analysis_status"] == "ready"
+    assert payload["prompt_image_analysis_reviewed"] is False           # must re-approve
+    assert payload["prompt_image_analysis_public_id"] == "prompts/c.png"
+    assert payload["prompt_image_analysis"]["overview"] == "Tổng quan"
+
+
+def test_run_and_store_failure_records_failed():
+    row = {"id": "p1", "task_type": "task1_academic", "prompt_text": "x",
+           "prompt_image_url": "https://x/dead.png", "prompt_image_public_id": "prompts/d.png"}
+    payload = _run_store(row, raise_exc=RuntimeError("fetch failed: HTTP 404"))
+    assert payload["prompt_image_analysis_status"] == "failed"
+    assert "404" in payload["prompt_image_analysis_error"]
+
+
+def test_run_and_store_skips_non_task1():
+    row = {"id": "p1", "task_type": "task2", "prompt_text": "x",
+           "prompt_image_url": None, "prompt_image_public_id": None}
+    payload = _run_store(row)
+    assert payload is None            # no update at all

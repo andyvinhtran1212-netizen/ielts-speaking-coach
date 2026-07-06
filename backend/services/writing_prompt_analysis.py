@@ -12,6 +12,7 @@ no second copy of that logic to keep in sync.
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 from typing import Optional
 
 import httpx
@@ -25,6 +26,10 @@ from services.writing_prompt_image import detect_format
 logger = logging.getLogger(__name__)
 
 _FETCH_TIMEOUT_S = 20.0
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 _SYSTEM_PROMPT = (
     "Bạn là examiner IELTS Writing Task 1 Academic. Nhiệm vụ: đọc HÌNH của đề "
@@ -81,3 +86,72 @@ async def analyze_prompt_image(
     )
     analysis = grader._parse_response(text, schema=PromptImageAnalysis)
     return analysis, resolved_model
+
+
+# ── DB-aware orchestration (trigger + BG task) ────────────────────────
+
+
+def image_needs_analysis(prompt: dict) -> bool:
+    """True when a task1_academic prompt has an image whose public_id differs
+    from the one the current analysis was derived from — i.e. the chart is new
+    or was replaced, so the answer key is missing or stale."""
+    if prompt.get("task_type") != "task1_academic" or not prompt.get("prompt_image_url"):
+        return False
+    return prompt.get("prompt_image_public_id") != prompt.get("prompt_image_analysis_public_id")
+
+
+def mark_analysis_pending(prompt_id: str) -> None:
+    """Flip the prompt into 'pending' (and un-review) so the UI shows work in
+    flight the instant a create/PATCH/reanalyze is accepted, before the BG task
+    runs. Un-reviewing here is intentional: a new image must be re-approved."""
+    from database import supabase_admin
+    supabase_admin.table("writing_prompts").update({
+        "prompt_image_analysis_status":   "pending",
+        "prompt_image_analysis_reviewed": False,
+        "prompt_image_analysis_error":    None,
+    }).eq("id", prompt_id).execute()
+
+
+async def run_and_store_analysis(prompt_id: str) -> None:
+    """BG task: (re)extract the answer key for one prompt and persist it.
+
+    NEVER raises — a failure records status='failed' + the error so the admin UI
+    can offer a re-analyze. Stamps `analysis_public_id` with the image it ran on
+    so `image_needs_analysis` won't re-trigger until the chart changes again. The
+    result lands `reviewed=False` — an admin must approve before it grades."""
+    from database import supabase_admin
+    try:
+        rows = (
+            supabase_admin.table("writing_prompts")
+            .select("id, task_type, prompt_text, prompt_image_url, prompt_image_public_id")
+            .eq("id", prompt_id).limit(1).execute()
+        ).data
+        if not rows:
+            return
+        p = rows[0]
+        if p.get("task_type") != "task1_academic" or not p.get("prompt_image_url"):
+            return
+
+        analysis, model = await analyze_prompt_image(
+            image_url=p["prompt_image_url"], prompt_text=p.get("prompt_text"),
+        )
+        supabase_admin.table("writing_prompts").update({
+            "prompt_image_analysis":           analysis.model_dump(),
+            "prompt_image_analysis_status":    "ready",
+            "prompt_image_analysis_reviewed":  False,
+            "prompt_image_analysis_model":     model,
+            "prompt_image_analysis_public_id": p.get("prompt_image_public_id"),
+            "prompt_image_analysis_error":     None,
+            "prompt_image_analysis_at":        _now_iso(),
+        }).eq("id", prompt_id).execute()
+        logger.info("[prompt-analysis] ready prompt=%s model=%s", prompt_id, model)
+    except Exception as exc:  # noqa: BLE001 — BG task, must not surface
+        logger.warning("[prompt-analysis] failed prompt=%s: %s", prompt_id, exc)
+        try:
+            supabase_admin.table("writing_prompts").update({
+                "prompt_image_analysis_status": "failed",
+                "prompt_image_analysis_error":  str(exc)[:500],
+                "prompt_image_analysis_at":     _now_iso(),
+            }).eq("id", prompt_id).execute()
+        except Exception:  # noqa: BLE001 — best effort
+            pass
