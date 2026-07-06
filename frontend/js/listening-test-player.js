@@ -700,7 +700,16 @@ function renderPlanLabel(payload, questions) {
   // student is told a map is missing rather than handed the answer
   // key in prose.
   const visualBlock = mapSvg
-    ? `<div class="ielts-plan-image ielts-plan-svg">${mapSvg}</div>`
+    // Render the inline SVG as a data-URL <img>, NOT via innerHTML: an SVG
+    // loaded through <img> runs in the browser's secure static mode (no
+    // scripts, no external fetches), so a scriptable payload in an uploaded
+    // Source JSON can't execute in the student's authenticated session.
+    // encodeURIComponent also escapes '#'/'<'/'"' so the SVG can't break out
+    // of the src attribute.
+    ? `<div class="ielts-plan-image">
+         <img src="${esc('data:image/svg+xml;utf8,' + encodeURIComponent(mapSvg))}"
+              alt="Floor plan map" class="ielts-map-rendered ielts-map-svg" />
+       </div>`
     : mapImage
     ? `<div class="ielts-plan-image">
          <img src="${esc(mapImage)}" alt="Floor plan map" class="ielts-map-rendered" />

@@ -58,8 +58,8 @@ describe('import-drills controller contract', () => {
     assert.match(js, /full_test\.mp3/);
     assert.match(js, /timings\.json/);
   });
-  test('audio is optional — appended only when present (no audio → draft)', () => {
-    assert.match(js, /if\s*\(b\.audioFile\)\s*fd\.append\(\s*['"]audio['"]/);
+  test('audio is sent only WITH timings (audio-without-timings → replay windows missing)', () => {
+    assert.match(js, /if\s*\(b\.audioFile\s*&&\s*b\.timingsFile\)\s*fd\.append\(\s*['"]audio['"]/);
   });
   test('a valid dry-run row is checkbox-selectable; errors block it', () => {
     assert.match(js, /p\.ok/);

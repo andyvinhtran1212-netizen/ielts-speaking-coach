@@ -305,3 +305,22 @@ def test_list_rejects_bad_test_type(monkeypatch):
         _run(listening_module.list_published_listening_tests(
             test_type="bogus", limit=50, offset=0, authorization="x"))
     assert e.value.status_code == 422
+
+
+def test_drill_commit_audio_without_timings_rejected(monkeypatch):
+    """Audio WITHOUT timings would publish an audio-ready drill with no replay
+    windows — must 422 (require timings whenever audio is sent)."""
+    from services import listening_audio
+    async def _ok(_a): return {"id": "admin", "role": "admin"}
+    monkeypatch.setattr(listening_module, "require_admin", _ok)
+    monkeypatch.setattr(listening_module, "supabase_admin", _CommitStub())
+    monkeypatch.setattr(listening_audio, "validate_section_audio",
+                        lambda b: {"duration_seconds": 281, "size_bytes": len(b), "errors": [], "warnings": []})
+    with pytest.raises(HTTPException) as e:
+        _run(listening_module.admin_import_drill_commit(
+            source_json=_upload("ILR-LIS-DRL-MCQ-L2-T1.json", _bytes("MCQ")),
+            timings=None,
+            audio=_upload("full.mp3", b"x" * 5000),
+            authorization="x"))
+    assert e.value.status_code == 422
+    assert "timings" in str(e.value.detail).lower()

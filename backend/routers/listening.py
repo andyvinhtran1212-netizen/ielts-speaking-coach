@@ -3414,6 +3414,16 @@ async def admin_import_drill_commit(
         audio_name = (audio.filename or "").lower()
         if not audio_name.endswith(".mp3"):
             raise HTTPException(422, f"Audio phải là .mp3 (nhận: {audio.filename!r})")
+        # Audio without timings would publish an "audio-ready" drill whose
+        # exercises have NO audio_windows — the review's per-question 🔊 replay
+        # (driven solely by item.audio_window) would silently vanish. Require
+        # timings whenever audio is provided so an audio-ready drill always has
+        # its replay windows.
+        if timings_dict is None:
+            raise HTTPException(
+                422, "Có audio thì phải kèm timings.json (để tạo cửa sổ nghe lại "
+                     "theo từng câu). Thêm timings.json rồi import lại, hoặc import "
+                     "không audio (drill sẽ ở trạng thái 'Sắp có').")
         audio_bytes = audio.file.read()
         if len(audio_bytes) > _DRILL_MAX_AUDIO_BYTES:
             raise HTTPException(422, f"Audio quá lớn ({len(audio_bytes)//(1024*1024)} MB > 30 MB).")

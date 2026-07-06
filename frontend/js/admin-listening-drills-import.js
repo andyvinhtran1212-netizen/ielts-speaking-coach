@@ -150,9 +150,12 @@
     } else {
       status = '<span class="di-pill bad">Lỗi</span>' + errList(p.errors);
     }
-    var audio = b.audioFile
-      ? '<span class="di-pill ok">có</span>'
-      : '<span class="di-pill warn">Sắp có</span>';
+    // Audio is only usable WITH timings (backend requires timings whenever an
+    // mp3 is sent — else the review's per-question replay windows are missing).
+    var audio;
+    if (b.audioFile && b.timingsFile) audio = '<span class="di-pill ok">có</span>';
+    else if (b.audioFile) audio = '<span class="di-pill bad">thiếu timings.json</span>';
+    else audio = '<span class="di-pill warn">Sắp có</span>';
     return '' +
       '<td><input type="checkbox" class="di-check" data-idx="' + i + '"' +
         (checkable ? '' : ' disabled') + (checkable ? ' checked' : '') + ' /></td>' +
@@ -224,7 +227,9 @@
         var fd = new FormData();
         fd.append('source_json', b.jsonFile, b.jsonFile.name);
         if (b.timingsFile) fd.append('timings', b.timingsFile, 'timings.json');
-        if (b.audioFile)   fd.append('audio', b.audioFile, 'full.mp3');
+        // Only send audio WITH timings (backend rejects audio-without-timings so
+        // an audio-ready drill always has per-question replay windows).
+        if (b.audioFile && b.timingsFile) fd.append('audio', b.audioFile, 'full.mp3');
         b.committed = await window.api.upload('/admin/listening/drills/import/commit', fd);
         done++;
       } catch (err) {

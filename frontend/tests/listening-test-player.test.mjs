@@ -1040,15 +1040,18 @@ describe('Sprint 13.5.8 — plan-label suppresses map_description from student v
     assert.match(m[0], /Hình map chưa được tạo/);
   });
 
-  it('renderPlanLabel prefers inline payload.map_svg (skill drills)', () => {
+  it('renderPlanLabel renders inline payload.map_svg as an inert data-URL img (skill drills)', () => {
     const m = /function\s+renderPlanLabel\([\s\S]+?\n\}\s*\n/.exec(JS);
     assert.ok(m);
-    // reads the inline SVG string...
+    // reads the inline SVG string, svg branch evaluated FIRST in the ternary...
     assert.match(m[0], /payload\.map_svg/);
-    assert.match(m[0], /ielts-plan-svg/);
-    // ...and the visualBlock ternary evaluates the svg branch FIRST, before the
-    // map_image_url (PNG) branch and the no-image fallback.
-    assert.match(m[0], /visualBlock\s*=\s*mapSvg\s*\n?\s*\?/);
+    assert.match(m[0], /visualBlock\s*=\s*mapSvg\s*\n?[\s\S]*?\?/);
+    // ...rendered as an INERT data-URL <img> (secure static mode — no scripts),
+    // NOT via innerHTML. Guards against stored XSS from an uploaded map_svg.
+    assert.match(m[0], /data:image\/svg\+xml;utf8,'\s*\+\s*encodeURIComponent\(mapSvg\)/);
+    assert.match(m[0], /ielts-map-svg/);
+    // never inject the raw SVG string straight into markup.
+    assert.doesNotMatch(m[0], /\$\{mapSvg\}/);
   });
 
   it('CSS defines the .ielts-plan-no-image notice block', () => {
