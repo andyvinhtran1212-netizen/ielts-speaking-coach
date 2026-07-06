@@ -31,9 +31,17 @@ import sys
 import uuid
 from pathlib import Path
 
-from config import settings
-from database import supabase_admin
-from services import listening_drill_import, listening_audio
+# Run-from-anywhere: when invoked as `python3 scripts/import_skill_drills.py`,
+# Python puts backend/scripts (not backend/) on sys.path, so `import config`
+# would fail. Put the backend root first so the app modules resolve whether
+# this is run as a file or as `python3 -m scripts.import_skill_drills`.
+_BACKEND_ROOT = Path(__file__).resolve().parent.parent
+if str(_BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(_BACKEND_ROOT))
+
+from config import settings                                    # noqa: E402
+from database import supabase_admin                            # noqa: E402
+from services import listening_drill_import, listening_audio   # noqa: E402
 
 DEFAULT_DRILLS_DIR = Path(
     "/Users/trantrongvinh/Documents/Co-work/IELTS Listening - Reading/"
@@ -155,8 +163,15 @@ def main() -> int:
     ap.add_argument("--ids", nargs="*", default=DEFAULT_IDS)
     ap.add_argument("--audio", choices=["section", "full"], default="section")
     ap.add_argument("--commit", action="store_true", help="write to prod (default: dry-run)")
+    # Explicit no-op so the documented `--dry-run` command works. Dry-run is the
+    # default (absence of --commit); --dry-run just makes intent explicit and
+    # overrides --commit if both are somehow passed.
+    ap.add_argument("--dry-run", action="store_true",
+                    help="verify only, no writes (default; overrides --commit if both given)")
     ap.add_argument("--status", choices=["draft", "published"], default="draft")
     args = ap.parse_args()
+    if args.dry_run:
+        args.commit = False
 
     mode = "COMMIT" if args.commit else "DRY-RUN"
     print(f"== Skill-drill import [{mode}] · audio={args.audio} · status={args.status} ==\n")
