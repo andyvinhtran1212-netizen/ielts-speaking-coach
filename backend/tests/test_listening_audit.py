@@ -406,3 +406,43 @@ def test_audit_triage_404_when_no_audit(monkeypatch):
         _run(listening_module.admin_triage_test_audit(
             test_id="t-uuid", body=AuditTriageRequest(status="fixed"), authorization="x"))
     assert ex.value.status_code == 404
+
+
+# ── het-block no_options + options editing ──────────────────────────────────
+
+def test_mcq_hetblock_shortanswer_not_flagged():
+    """An mcq exercise item with a WORD answer + no options is a valid
+    short-answer (het-block) — must NOT flag no_options."""
+    t, c, e = _rows("MCQ")
+    q = e[0]["payload"]["questions"][0]
+    q.pop("options", None)
+    e[0]["payload"]["answers"][0]["answer"] = "Hadley"   # word, not a letter
+    h = audit.hydrate_test(t, c, e)
+    assert "no_options" not in {i["code"] for i in audit.structural_checks(h)}
+
+
+def test_mcq_letter_answer_missing_options_still_flagged():
+    t, c, e = _rows("MCQ")
+    q = e[0]["payload"]["questions"][0]
+    q.pop("options", None)
+    e[0]["payload"]["answers"][0]["answer"] = "B"        # letter → real MCQ
+    h = audit.hydrate_test(t, c, e)
+    assert "no_options" in {i["code"] for i in audit.structural_checks(h)}
+
+
+def test_edit_clear_options(monkeypatch):
+    ex, c, t = _edit_ctx()   # MCQ drill, q1 has options
+    stub = _EditStub(ex, c, t)
+    out = _patch(monkeypatch, ex["id"], 1, {"options": []}, stub)
+    assert "options" in out["changed"]
+    q1 = next(q for q in stub.updated_payload["questions"] if int(str(q["q_num"])) == 1)
+    assert "options" not in q1   # cleared → het-block short-answer
+
+
+def test_edit_set_options(monkeypatch):
+    ex, c, t = _edit_ctx()
+    stub = _EditStub(ex, c, t)
+    opts = [{"letter": "A", "text": "aa"}, {"letter": "B", "text": "bb"}, {"letter": "C", "text": "cc"}]
+    out = _patch(monkeypatch, ex["id"], 1, {"options": opts}, stub)
+    q1 = next(q for q in stub.updated_payload["questions"] if int(str(q["q_num"])) == 1)
+    assert q1["options"] == opts

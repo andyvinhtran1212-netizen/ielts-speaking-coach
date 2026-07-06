@@ -3719,6 +3719,7 @@ class QuestionEditRequest(BaseModel):
     solution:        str | None = None            # → solutions[q].why_correct + answers.notes
     trap_mechanisms: list[str] | None = None
     audio_window:    dict[str, Any] | None = None  # {start, end, section?}
+    options:         list[dict[str, Any]] | None = None  # MCQ options [{letter,text}]; [] clears → short-answer
 
 
 def _fetch_exercise_ctx(exercise_id: str) -> tuple[dict, dict, dict]:
@@ -3775,6 +3776,14 @@ async def admin_edit_exercise_question(
     if body.prompt is not None:
         questions[q_idx] = {**questions[q_idx], "prompt": body.prompt}
         changed.append("prompt")
+    if body.options is not None:
+        q_obj = dict(questions[q_idx])
+        if body.options:
+            q_obj["options"] = body.options
+        else:
+            q_obj.pop("options", None)   # empty → het-block short-answer (text gap)
+        questions[q_idx] = q_obj
+        changed.append("options")
 
     if a_idx is not None:
         ans = dict(answers[a_idx])

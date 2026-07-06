@@ -166,9 +166,15 @@ def structural_checks(h: dict) -> list[dict]:
                                  "Thiếu đáp án.", q_num=n))
         # type-specific payload present
         meta = q.get("metadata") or {}
-        if tk == "mcq_3option" and not q.get("options"):
+        # An mcq_3option EXERCISE can hold a het-block short-answer item (no
+        # options, a WORD answer) — that's valid and renders as a text gap. Only
+        # flag a truly-MCQ item (letter answer A–H) that's missing its options.
+        ans = q.get("answer")
+        is_letter_ans = (isinstance(ans, str) and len(ans.strip()) == 1
+                         and ans.strip().upper() in "ABCDEFGH")
+        if tk == "mcq_3option" and not q.get("options") and is_letter_ans:
             issues.append(_issue("question", "error", "no_options",
-                                 "MCQ thiếu options A/B/C.", q_num=n))
+                                 "MCQ (đáp án là chữ cái) thiếu options A/B/C.", q_num=n))
         if tk in ("matching", "mcq_multi") and not meta.get("match_options"):
             issues.append(_issue("question", "error", "no_match_options",
                                  f"{tk} thiếu metadata.match_options.", q_num=n))
