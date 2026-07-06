@@ -43,6 +43,40 @@
     return by;
   }
 
+  // Codes produced by the FAST structural/audio pass (GET .../audit). Anything
+  // else in a SAVED audit came from the LLM content pass.
+  var STRUCTURAL_CODES = {
+    no_questions: 1, gap: 1, duplicate_qnum: 1, bad_qnum: 1, unknown_template: 1,
+    no_answer: 1, no_options: 1, no_match_options: 1, no_map_image: 1,
+    no_window: 1, bad_window: 1, no_transcript: 1, band_conversion: 1,
+    no_audio: 1, window_past_end: 1,
+  };
+
+  // The GET response's `live` is structural-only (fresh); `saved` is the last
+  // full run (incl. LLM). Merge so persisted LLM findings still show after a
+  // reload — deduped by q_num|code so a fresh run (live already holds the LLM
+  // issues) doesn't double them.
+  function mergeIssues(live, saved) {
+    var out = [], seen = {};
+    function add(list, llmOnly) {
+      (list || []).forEach(function (i) {
+        if (i.resolved) return;
+        if (llmOnly && STRUCTURAL_CODES[i.code]) return;
+        var k = (i.q_num == null ? '_' : i.q_num) + '|' + i.code;
+        if (seen[k]) return; seen[k] = 1; out.push(i);
+      });
+    }
+    add(live && live.issues, false);
+    add(saved && saved.issues, true);
+    return out;
+  }
+
+  function healthFrom(issues) {
+    var e = 0, w = 0;
+    (issues || []).forEach(function (i) { if (i.severity === 'error') e++; else w++; });
+    return { error_count: e, warning_count: w };
+  }
+
   function issueChips(qnum) {
     var arr = STATE.issuesByQ[String(qnum)] || [];
     if (!arr.length) return '';
@@ -107,8 +141,9 @@
     $('ad-title').textContent = d.title || d.test_id || 'Audit';
     $('ad-meta').textContent = (d.test_id || '') + ' · ' + (d.test_type || 'full') +
       ' · ' + d.question_count + ' câu · ' + d.section_count + ' section · status=' + (d.status || '');
-    STATE.issuesByQ = indexIssues(d.live && d.live.issues);
-    healthPill(d.live && d.live.health);
+    var merged = mergeIssues(d.live, d.saved);
+    STATE.issuesByQ = indexIssues(merged);
+    healthPill(healthFrom(merged));
     if (d.saved) {
       if (d.saved.status) $('ad-status').value = d.saved.status;
       if (d.saved.notes) $('ad-notes').value = d.saved.notes;
@@ -219,8 +254,11 @@
       STATE.data = await window.api.get('/admin/listening/tests/' + encodeURIComponent(STATE.testId) + '/audit');
       try {
         var urls = await window.api.get('/admin/listening/tests/' + encodeURIComponent(STATE.testId) + '/audio/signed-urls');
-        STATE.audioUrl = (urls && (urls.assembled || urls.full)) ||
-          (urls && urls.sections && urls.sections[0] && urls.sections[0].signed_url) || null;
+        // full/assembled are OBJECTS {signed_url, ...}; sections is [{signed_url}].
+        var pick = function (o) { return o && o.signed_url; };
+        var firstSection = (urls && urls.sections || []).filter(function (s) { return s && s.signed_url; })[0];
+        STATE.audioUrl = pick(urls && urls.assembled) || pick(urls && urls.full)
+          || (firstSection && firstSection.signed_url) || null;
         if (STATE.audioUrl) $('ad-player').setAttribute('src', STATE.audioUrl);
       } catch (e) { /* audio optional */ }
       render();

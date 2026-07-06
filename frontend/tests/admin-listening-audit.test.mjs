@@ -68,6 +68,18 @@ describe('audit editor', () => {
     assert.match(detJs, /\/audit\/run/);
     assert.match(detJs, /\/audit['"]\s*,\s*\n?\s*\{\s*status/);
   });
+  test('audio playback reads the signed_url STRING (not the {signed_url} object)', () => {
+    // full/assembled are objects {signed_url,...}; must extract .signed_url,
+    // never store the object (would render src="[object Object]").
+    assert.match(detJs, /\.signed_url/);
+    assert.doesNotMatch(detJs, /audioUrl\s*=\s*\(urls && \(urls\.assembled \|\| urls\.full\)\)/);
+  });
+  test('persisted LLM issues are merged in on reload (not just live structural)', () => {
+    // GET .../audit `live` is structural-only; `saved` holds the last full run
+    // incl. LLM findings — the editor merges them so they survive a reload.
+    assert.match(detJs, /mergeIssues/);
+    assert.match(detJs, /saved\s*&&\s*saved\.issues|saved\.issues/);
+  });
   test('no raw hex in editor page', () => {
     const hex = detHtml.match(/#[0-9a-fA-F]{3,6}/g) || [];
     assert.equal(hex.length, 0, `unexpected hex: ${hex}`);
