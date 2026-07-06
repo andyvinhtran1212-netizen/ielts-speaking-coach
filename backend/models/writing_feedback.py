@@ -21,7 +21,7 @@ import logging
 from enum import Enum
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel, Field, conint, confloat, model_validator
+from pydantic import BaseModel, Field, conint, confloat, field_validator, model_validator
 
 logger = logging.getLogger(__name__)
 
@@ -317,11 +317,39 @@ class WritingFeedbackDeep(WritingFeedback):
 
 # ── Input/config types ────────────────────────────────────────────────
 
+_CHART_TYPES = {'line', 'bar', 'pie', 'table', 'map', 'process', 'mixed'}
+
+
+def _coerce_to_text(v, cap: int) -> Optional[str]:
+    """Flatten a value the LLM may return as a dict/list/number into a plain
+    string, capped at `cap` chars. Gemini frequently structures fields we
+    declared as strings (e.g. axes_or_categories → {"comparison": ..., "areas":
+    [...]}); coercing here keeps a valid, human-readable answer key instead of
+    failing the whole extraction. None stays None."""
+    if v is None:
+        return None
+    if isinstance(v, str):
+        s = v
+    elif isinstance(v, (list, tuple)):
+        s = "; ".join(x for x in ((_coerce_to_text(i, cap) or "") for i in v) if x)
+    elif isinstance(v, dict):
+        s = "; ".join(f"{k}: {_coerce_to_text(val, cap)}" for k, val in v.items())
+    else:
+        s = str(v)
+    return s[:cap]
+
+
 class PromptImageDataPoint(BaseModel):
     """One salient figure from a Task 1 chart, for accuracy checking."""
     label: str = Field(..., max_length=200)
     value: str = Field(..., max_length=80)
     unit:  Optional[str] = Field(None, max_length=40)
+
+    @field_validator("label", "value", "unit", mode="before")
+    @classmethod
+    def _stringify(cls, v):
+        # A numeric value ("45") often arrives as an int/float from the model.
+        return v if v is None or isinstance(v, str) else str(v)
 
 
 class PromptImageAnalysis(BaseModel):
@@ -331,16 +359,48 @@ class PromptImageAnalysis(BaseModel):
     grader injects it to anchor Task Achievement accuracy. `key_features` is what
     a band-9 response must cover; `notable_data` are the checkable figures. For
     map/process visuals `notable_data` may be empty and `grading_note` tells the
-    grader to lean on the image (which is still sent multimodally)."""
+    grader to lean on the image (which is still sent multimodally).
+
+    The before-validators coerce the LLM's shape variance (dict/list/number where
+    we want a string, an off-list chart_type) into the declared schema so a
+    slightly-structured response still yields a usable key instead of failing."""
 
     chart_type: Literal[
         'line', 'bar', 'pie', 'table', 'map', 'process', 'mixed'
     ] = 'mixed'
-    overview: str = Field(..., max_length=1000)
+    overview: str = Field(..., max_length=2000)
     key_features: List[str] = Field(default_factory=list, max_length=12)
     notable_data: List[PromptImageDataPoint] = Field(default_factory=list, max_length=40)
-    axes_or_categories: Optional[str] = Field(None, max_length=600)
-    grading_note: Optional[str] = Field(None, max_length=600)
+    axes_or_categories: Optional[str] = Field(None, max_length=1500)
+    grading_note: Optional[str] = Field(None, max_length=1000)
+
+    @field_validator("chart_type", mode="before")
+    @classmethod
+    def _known_chart_type(cls, v):
+        return v if isinstance(v, str) and v in _CHART_TYPES else 'mixed'
+
+    @field_validator("overview", mode="before")
+    @classmethod
+    def _overview_text(cls, v):
+        return _coerce_to_text(v, 2000)
+
+    @field_validator("axes_or_categories", mode="before")
+    @classmethod
+    def _axes_text(cls, v):
+        return _coerce_to_text(v, 1500)
+
+    @field_validator("grading_note", mode="before")
+    @classmethod
+    def _note_text(cls, v):
+        return _coerce_to_text(v, 1000)
+
+    @field_validator("key_features", mode="before")
+    @classmethod
+    def _feature_texts(cls, v):
+        if not isinstance(v, (list, tuple)):
+            return v
+        out = [_coerce_to_text(item, 500) for item in v]
+        return [s for s in out if s]
 
 
 class GraderConfig(BaseModel):

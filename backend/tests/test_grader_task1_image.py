@@ -353,3 +353,34 @@ def test_build_user_prompt_injects_facts_when_present():
 def test_build_user_prompt_omits_facts_when_none():
     up = _grader()._build_user_prompt(_cfg_with_facts(None))
     assert "Dữ kiện biểu đồ" not in up
+
+
+# ── PromptImageAnalysis coercion (LLM shape variance) ─────────────────
+
+
+def test_analysis_coerces_gemini_shape_variance():
+    """Gemini returns axes as a dict, value as a number, chart_type off-list,
+    key_features as dicts — the model must coerce rather than fail (this is the
+    exact shape that broke the first backfill run)."""
+    from models.writing_feedback import PromptImageAnalysis
+    a = PromptImageAnalysis(
+        chart_type="column",                       # not in enum → mixed
+        overview={"a": "b"},                        # dict → text
+        key_features=[{"x": "tăng"}, "than giảm"],  # dicts → text
+        notable_data=[{"label": "Điện 2020", "value": 45, "unit": "%"}],  # numeric value
+        axes_or_categories={"comparison": "Before/After", "areas": ["Kitchen", "Living"]},
+    )
+    assert a.chart_type == "mixed"
+    assert isinstance(a.overview, str) and "b" in a.overview
+    assert a.key_features == ["x: tăng", "than giảm"]
+    assert a.notable_data[0].value == "45"          # coerced to str
+    assert isinstance(a.axes_or_categories, str) and "Kitchen" in a.axes_or_categories
+
+
+def test_analysis_plain_shapes_unchanged():
+    from models.writing_feedback import PromptImageAnalysis
+    a = PromptImageAnalysis(chart_type="bar", overview="Tổng quan",
+                            key_features=["A", "B"], axes_or_categories="Trục X: năm")
+    assert a.chart_type == "bar"
+    assert a.axes_or_categories == "Trục X: năm"
+    assert a.key_features == ["A", "B"]
