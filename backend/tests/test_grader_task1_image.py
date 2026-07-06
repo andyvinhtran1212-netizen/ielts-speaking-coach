@@ -298,3 +298,58 @@ def test_summary_flags_missing_image_false_for_clean_and_empty():
     assert summary_flags_missing_image(None) is False
     # A different ⚠️ warning that is NOT the missing-image caveat must not match.
     assert summary_flags_missing_image("⚠️ Cảnh báo khác về nội dung.") is False
+
+
+# ── verified answer-key injection (Task 1 facts) ──────────────────────
+
+
+_FACTS = {
+    "chart_type": "bar",
+    "overview": "Tiêu thụ năng lượng tăng đều 2000–2020.",
+    "key_features": ["Điện tăng mạnh nhất", "Than giảm dần"],
+    "notable_data": [{"label": "Điện 2020", "value": "45", "unit": "%"}],
+    "axes_or_categories": "Trục X: năm; trục Y: %.",
+    "grading_note": "",
+}
+
+
+def test_format_prompt_facts_block_renders_key_parts():
+    from services.gemini_writing_grader import format_prompt_facts_block
+    block = format_prompt_facts_block(_FACTS)
+    assert "Dữ kiện biểu đồ (đã xác minh" in block
+    assert "Điện tăng mạnh nhất" in block
+    assert "Điện 2020: 45 %" in block
+    assert "CHUẨN chấm Task Achievement" in block
+
+
+def test_format_prompt_facts_block_none_for_empty():
+    from services.gemini_writing_grader import format_prompt_facts_block
+    assert format_prompt_facts_block(None) is None
+    assert format_prompt_facts_block({}) is None
+    assert format_prompt_facts_block("not a dict") is None
+    # No substantive content (only metadata) → no block.
+    assert format_prompt_facts_block({"chart_type": "bar", "overview": "", "key_features": []}) is None
+
+
+def _cfg_with_facts(facts):
+    return GraderConfig(
+        task_type="task1_academic",
+        prompt_text="The chart shows energy use." + "x" * 5,
+        essay_text="The graph illustrates..." + "y" * 5,
+        analysis_level=3,
+        prompt_image_url="https://x/chart.png",
+        prompt_image_facts=facts,
+    )
+
+
+def test_build_user_prompt_injects_facts_when_present():
+    up = _grader()._build_user_prompt(_cfg_with_facts(_FACTS))
+    assert "Dữ kiện biểu đồ (đã xác minh" in up
+    assert "Điện tăng mạnh nhất" in up
+    # Ordered: prompt block precedes the facts block, which precedes the essay.
+    assert up.index("## Đề bài") < up.index("Dữ kiện biểu đồ") < up.index("## Bài viết")
+
+
+def test_build_user_prompt_omits_facts_when_none():
+    up = _grader()._build_user_prompt(_cfg_with_facts(None))
+    assert "Dữ kiện biểu đồ" not in up
