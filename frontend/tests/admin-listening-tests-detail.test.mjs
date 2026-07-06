@@ -603,7 +603,10 @@ describe('Sprint 13.5.6 — student plan-label renderer accepts map image', () =
     // Sprint 13.5.8 — the no-image branch used to render an empty
     // string + description text. It now emits a yellow notice block
     // that tells the admin to generate a map.
-    assert.match(playerJs, /const visualBlock = mapImage[\s\S]*?class="ielts-plan-no-image"/);
+    // Skill drills (2026-07): the visualBlock ternary now tries an inline
+    // payload.map_svg FIRST, then the map_image_url PNG, then this fallback —
+    // so the no-image notice must still trail the mapImage branch.
+    assert.match(playerJs, /const visualBlock = mapSvg[\s\S]*?mapImage[\s\S]*?class="ielts-plan-no-image"/);
   });
 
   test('renderPlanLabel suppresses map_description from the student view (Sprint 13.5.8)', () => {

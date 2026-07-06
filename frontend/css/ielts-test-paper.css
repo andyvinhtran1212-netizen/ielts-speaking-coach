@@ -271,6 +271,19 @@ select.ielts-gap-input {
   background: #ffffff;
   border-radius: var(--av-radius-sm);
 }
+/* Skill drills ship the plan as an inline <svg> (admin-curated asset) rather
+   than a generated PNG — scale it to the paper width like a rendered map. */
+.ielts-plan-svg {
+  display: inline-block;
+  max-width: 100%;
+}
+.ielts-plan-svg svg {
+  max-width: 100%;
+  height: auto;
+  max-height: 480px;
+  border: 1px solid var(--ielts-paper-border);
+  border-radius: var(--av-radius-sm);
+}
 /* Sprint 13.5.6 admin reference — still rendered in the admin
    content-detail panel; intentionally NOT used by the student player
    anymore (Sprint 13.5.8). */

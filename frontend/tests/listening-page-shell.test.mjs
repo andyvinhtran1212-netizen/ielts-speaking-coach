@@ -39,19 +39,27 @@ describe('Sprint 11.1 — listening.html landing shell contract', () => {
     );
   });
 
-  it('ships exactly 5 mode-cards (dictation, gist, true-false, mcq, mini-test)', () => {
-    // Pin the roster — a sprint adding a 6th mode without updating
-    // this list trips here.
-    const modes = ['dictation', 'gist', 'true-false', 'mcq', 'mini-test'];
+  it('ships exactly 6 mode-cards (dictation, gist, true-false, mcq, mini-test, skills-practice)', () => {
+    // Pin the roster — a sprint adding a 7th mode without updating
+    // this list trips here. Skills Practice (skill drills) is card #6.
+    const modes = ['dictation', 'gist', 'true-false', 'mcq', 'mini-test', 'skills-practice'];
     for (const mode of modes) {
       const re = new RegExp(`data-mode=["']${mode}["']`);
       assert.match(HTML, re, `mode-card with data-mode="${mode}" missing`);
     }
-    // Count: exactly 5 mode-card data-mode attrs total.
+    // Count: exactly 6 mode-card data-mode attrs total.
     const matches = HTML.match(/data-mode=["'][^"']+["']/g) || [];
     assert.equal(
-      matches.length, 5,
-      `expected exactly 5 mode-card data-mode attrs; got ${matches.length}: ${matches}`,
+      matches.length, 6,
+      `expected exactly 6 mode-card data-mode attrs; got ${matches.length}: ${matches}`,
+    );
+  });
+
+  it('Skills Practice mode-card is live and links to its page', () => {
+    assert.match(
+      HTML,
+      /<a[^>]*href="\/pages\/listening-skills\.html"[^>]*class="mode-card"[^>]*data-mode="skills-practice"/,
+      'skills-practice mode-card must link to /pages/listening-skills.html',
     );
   });
 

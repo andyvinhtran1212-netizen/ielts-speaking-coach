@@ -685,6 +685,10 @@ function renderPlanLabel(payload, questions) {
   // renderer no longer references it.
   const meta = (payload && payload.metadata) || {};
   const mapImage = (payload && payload.map_image_url) || '';
+  // Skill drills ship the plan as an inline <svg> string (admin-curated asset,
+  // not user input) instead of a generated PNG — render it directly so the
+  // Cambridge-style visual map appears with no image-generation pipeline.
+  const mapSvg = (payload && payload.map_svg) || '';
   const letters = Array.isArray(meta.letter_options) && meta.letter_options.length
     ? meta.letter_options
     : (Array.isArray(payload.letter_options) && payload.letter_options.length
@@ -695,7 +699,9 @@ function renderPlanLabel(payload, questions) {
   // exercise stays answerable (the dropdowns still work), but the
   // student is told a map is missing rather than handed the answer
   // key in prose.
-  const visualBlock = mapImage
+  const visualBlock = mapSvg
+    ? `<div class="ielts-plan-image ielts-plan-svg">${mapSvg}</div>`
+    : mapImage
     ? `<div class="ielts-plan-image">
          <img src="${esc(mapImage)}" alt="Floor plan map" class="ielts-map-rendered" />
        </div>`

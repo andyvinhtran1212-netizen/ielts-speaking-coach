@@ -1,0 +1,264 @@
+{
+  "test_id": "ILR-LIS-DRL-NOTE-L2-T1",
+  "title": "Listening Skill-Drill — Note Completion (S4) — Soap: four thousand years of clever chemistry",
+  "version": "1.0",
+  "drill_type": "note",
+  "level": "L2",
+  "target_band": 6.0,
+  "created": "2026-06-19",
+  "mode": "mini",
+  "cluster": "Academic lecture / everyday science & history",
+  "topic_tags": {
+    "S4": "Popularising lecture on the long history of soap and the chemistry that makes it work (ancient origins, what soap is chemically, how it cleans, modern ingredients, and why plain soap works)"
+  },
+  "accent_profile": [
+    "BrE"
+  ],
+  "total_words": 760,
+  "sections": [
+    {
+      "section_id": "S4",
+      "section_number": 4,
+      "context": "A single lecturer gives a popularising university lecture on the long history of soap and the chemistry that makes it work: where the first soap recipes come from, the chemistry of how soap is made, how it lifts dirt and grease, what modern soaps are made from, and why plain soap is so effective against germs",
+      "register": "academic-popularising lecture",
+      "word_count": 760,
+      "audio_intro": "You will hear a lecture about soap — its surprisingly ancient origins and the chemistry that makes it work. First, you have some time to look at questions 1 to 10. [pause:60s] Now listen carefully and answer questions 1 to 10.",
+      "speakers": [
+        {
+          "speaker_id": "S4_F1",
+          "name": "Dr Tremlett",
+          "role": "Lecturer",
+          "voice_profile": "[F-BrE-50s-professional]"
+        }
+      ],
+      "audio_script": [
+        {
+          "speaker_tag": "[F-BrE-50s-professional]",
+          "text": "[emotion:professional] Good morning, everyone. Here's a fact that surprises most people: the humble bar of soap by your sink is older than the wheel-spoked chariot and older than written grammar — and the way it cleans is far cleverer than it looks. Today I want to take that ordinary object seriously, and by the end of this lecture you'll understand both why it was invented all those centuries ago and why, even now, it remains one of the most effective things you can use to stay healthy.",
+          "voice_settings": {
+            "stability": 0.55,
+            "style": 0.25,
+            "_note": "Academic BrE popularising intro"
+          }
+        },
+        {
+          "speaker_tag": "[F-BrE-50s-professional]",
+          "text": "So, let me begin with the history. People have been making soap for an astonishingly long time. The earliest recipe we have was not written in a book — books didn't exist yet — but pressed into clay. In fact, the oldest known soap recipe survives on a set of Babylonian clay [stress:tablets] (Q1) dating back about four thousand years. So this is genuinely ancient technology."
+        },
+        {
+          "speaker_tag": "[F-BrE-50s-professional]",
+          "text": "[emotion:professional] Now, what did those early recipes actually involve? Two ingredients, really. The first was some kind of fat — usually animal fat. And the second, crucially, was wood [stress:ash] (Q2) — the grey powder left after a fire. When you boil fat together with that ash, something chemical happens, and that brings us neatly to the science."
+        },
+        {
+          "speaker_tag": "[F-BrE-50s-professional]",
+          "text": "[emotion:professional] Let me move on now to what soap actually is. The key point is that soap is not simply collected from nature; it is the product of a chemical reaction. You take a fat, and you add a strong alkali — a caustic, bitter substance — and the two react together. That strong alkali, the substance the old soap-makers leached out of their wood ash, is called [stress:lye] (Q3), spelt L-Y-E. Lye is what makes the reaction possible."
+        },
+        {
+          "speaker_tag": "[F-BrE-50s-professional]",
+          "text": "And the reaction itself has a name. When a fat and an alkali combine to form soap, chemists call that reaction [stress:saponification] (Q4) — that's spelt S-A-P-O-N-I-F-I-C-A-T-I-O-N. Don't worry about the spelling for now; the idea is simple. Saponification just means turning a fat into soap. So: fat, plus lye, undergoing saponification, gives you soap."
+        },
+        {
+          "speaker_tag": "[F-BrE-50s-professional]",
+          "text": "[emotion:professional] Right, so we have our soap. The really clever part is how a soap molecule is shaped, because that shape is the whole secret. Picture a tiny tadpole. Each soap molecule has two very different ends. One end is attracted to water — we say it loves water. But the other end actually hates water and instead clings to grease and oil. That water-hating, grease-loving end is the part we call the [stress:tail] (Q5). It's this split personality — one end for water, one end for grease — that lets soap do its job."
+        },
+        {
+          "speaker_tag": "[F-BrE-50s-professional]",
+          "text": "[emotion:professional] So how does that actually clean a greasy plate? Well, when you wash, the grease-loving tails all bury themselves into a drop of oil or dirt, while the water-loving ends point outwards. The molecules form a little ball around the grease — imagine a cage closing around it. That tiny ball is given a special name: a [stress:micelle] (Q6), spelt M-I-C-E-L-L-E. Once the dirt is trapped inside a micelle, the whole package floats free and simply rinses away with the water. That, in essence, is how soap cleans."
+        },
+        {
+          "speaker_tag": "[F-BrE-50s-professional]",
+          "text": "[emotion:thoughtful] One more scientific detail worth noting. Soap is not neutral — it's mildly alkaline. On the pH scale, where seven is neutral, ordinary soap sits at around [stress:nine] (Q7). Our skin, by contrast, is slightly acidic, at about five and a half. That gap is why very harsh soap can leave the skin feeling tight, and why gentler, lower-alkaline formulas were later developed."
+        },
+        {
+          "speaker_tag": "[F-BrE-50s-professional]",
+          "text": "[emotion:professional] Let me turn now from the chemistry to the modern bar of soap, because the ingredients have changed. For most of history, as I said, soap was made from animal fat — tallow. Today, however, the great majority of commercial soaps are made not from animal fat but from vegetable oils, and the single most common one by far is [stress:palm oil] (Q8). It's cheap and it lathers well — though, I should add, its environmental cost is now a serious concern."
+        },
+        {
+          "speaker_tag": "[F-BrE-50s-professional]",
+          "text": "[emotion:professional] There's also a useful by-product. The saponification reaction doesn't only produce soap; it produces a second substance, a sweet, syrupy liquid. Manufacturers usually extract it and sell it separately for cosmetics and medicines. That valuable by-product is [stress:glycerine] (Q9), sometimes also called glycerol. So nothing is wasted — the soap is sold, and the glycerine is sold too."
+        },
+        {
+          "speaker_tag": "[F-BrE-50s-professional]",
+          "text": "[emotion:thoughtful] So, to draw the threads together. There is a popular belief that soap works by killing germs, and that we therefore need special antibacterial soaps. But the research is clear, and this is the lesson I want you to leave with. Plain soap works mainly not by killing microbes but by [stress:removing] (Q10) them — physically lifting the germs off your hands inside those micelles and rinsing them down the drain. The genius of soap, in the end, is mechanical, not chemical. Thank you."
+        }
+      ],
+      "question_blocks": [
+        {
+          "block_id": "S4_B1",
+          "question_range": "1-5",
+          "render": "note",
+          "rubric": "Complete the notes below.\nWrite NO MORE THAN TWO WORDS for each answer.",
+          "title": "SOAP — ORIGINS AND WHAT IT IS",
+          "lines": [
+            "Origins of soap:",
+            {
+              "label": "    • Oldest known recipe pressed into Babylonian clay ",
+              "qnum": "1"
+            },
+            {
+              "label": "    • Made by boiling fat together with wood ",
+              "qnum": "2"
+            },
+            "What soap is:",
+            {
+              "label": "    • Soap forms when fat reacts with a strong alkali known as ",
+              "qnum": "3"
+            },
+            {
+              "label": "    • The fat-into-soap reaction is called ",
+              "qnum": "4"
+            },
+            {
+              "label": "    • The grease-loving end of a soap molecule is the ",
+              "qnum": "5"
+            }
+          ],
+          "answers": [
+            {
+              "qnum": "1",
+              "answer": "tablets",
+              "accept": [
+                "clay tablets"
+              ],
+              "notes": "Definition-vs-example: 'pressed into clay ... survives on a set of Babylonian clay tablets'. The note already prints 'Babylonian clay', so only 'tablets' is keyed. The number 'four thousand years' is a nearby distractor for a different gap (it is not asked). Source: \"the oldest known soap recipe survives on a set of Babylonian clay tablets dating back about four thousand years\".",
+              "trap_mechanisms": [
+                "definition_vs_example",
+                "paraphrase_t1"
+              ]
+            },
+            {
+              "qnum": "2",
+              "answer": "ash",
+              "accept": [
+                "wood ash"
+              ],
+              "notes": "Detail item: two ingredients are named — animal fat (the first, already printed in the stem as 'fat') and wood ash (the second, keyed). The note prints 'wood' before the gap, so 'ash' alone is within limit; 'wood ash' is also accepted (2 words). Source: \"The first was some kind of fat ... And the second, crucially, was wood ash\".",
+              "trap_mechanisms": [
+                "distractor_drop",
+                "paraphrase_t1"
+              ]
+            },
+            {
+              "qnum": "3",
+              "answer": "lye",
+              "notes": "Definition-vs-example: 'a strong alkali — a caustic, bitter substance' is defined, then named and spelt out L-Y-E. The stem already gives 'a strong alkali known as ___', so the keyed term is the name 'lye'. One word, within limit; spelt by the lecturer to keep it fair at band 6.0. Source: \"That strong alkali ... is called lye, spelt L-Y-E\".",
+              "trap_mechanisms": [
+                "definition_vs_example",
+                "name_spelling"
+              ]
+            },
+            {
+              "qnum": "4",
+              "answer": "saponification",
+              "notes": "Definition-vs-example: the reaction is described ('When a fat and an alkali combine to form soap') then named and spelt out S-A-P-O-N-I-F-I-C-A-T-I-O-N, and glossed ('Saponification just means turning a fat into soap'). One word, within limit; spelt slowly so it is fair at band 6.0. Source: \"chemists call that reaction saponification — that's spelt S-A-P-O-N-I-F-I-C-A-T-I-O-N\".",
+              "trap_mechanisms": [
+                "definition_vs_example",
+                "name_spelling"
+              ]
+            },
+            {
+              "qnum": "5",
+              "answer": "tail",
+              "notes": "Definition-vs-example + contrast: a soap molecule has two ends — a water-loving end (distractor, described but not keyed) and a water-hating, grease-loving end, named 'the tail'. The stem asks specifically for the 'grease-loving end', so 'tail' is keyed; 'head' (the water-loving end) is the rejected contrast. One word. Source: \"the other end actually hates water and instead clings to grease and oil. That water-hating, grease-loving end is the part we call the tail\".",
+              "trap_mechanisms": [
+                "definition_vs_example",
+                "distractor_drop"
+              ]
+            }
+          ]
+        },
+        {
+          "block_id": "S4_B2",
+          "question_range": "6-10",
+          "render": "note",
+          "rubric": "Complete the notes below.\nWrite NO MORE THAN TWO WORDS AND/OR A NUMBER for each answer.",
+          "title": "HOW SOAP CLEANS · MODERN SOAP · WHY IT WORKS",
+          "lines": [
+            "How soap cleans:",
+            {
+              "label": "    • Molecules trap the dirt inside a tiny ball called a ",
+              "qnum": "6"
+            },
+            {
+              "label": "    • On the pH scale, ordinary soap measures about ",
+              "qnum": "7",
+              "suffix": "(skin is about 5.5)"
+            },
+            "Modern soap:",
+            {
+              "label": "    • Most commercial soaps today are made from vegetable oils, especially ",
+              "qnum": "8"
+            },
+            {
+              "label": "    • A valuable by-product extracted and sold separately is ",
+              "qnum": "9"
+            },
+            "Why plain soap works:",
+            {
+              "label": "    • Plain soap works mainly by ",
+              "qnum": "10",
+              "suffix": "germs, not by killing them"
+            }
+          ],
+          "answers": [
+            {
+              "qnum": "6",
+              "answer": "micelle",
+              "notes": "Definition-vs-example: 'The molecules form a little ball around the grease' is described, then named and spelt out M-I-C-E-L-L-E. The stem prints 'a tiny ball called a ___', so the name 'micelle' is keyed. One word, within limit; spelt to keep it fair. Source: \"That tiny ball is given a special name: a micelle, spelt M-I-C-E-L-L-E\".",
+              "trap_mechanisms": [
+                "definition_vs_example",
+                "name_spelling"
+              ]
+            },
+            {
+              "qnum": "7",
+              "answer": "9",
+              "accept": [
+                "nine",
+                "pH 9"
+              ],
+              "notes": "Number item + contrast: two pH values are spoken — soap at 'around nine' (keyed) and skin at 'about five and a half' (the contrast value, already printed in the note's suffix as 5.5). The candidate must select soap's figure, not the skin figure. Plausible + self-consistent: 7 = neutral, soap mildly alkaline at 9, skin slightly acidic at 5.5. Source: \"ordinary soap sits at around nine. Our skin, by contrast, is slightly acidic, at about five and a half\".",
+              "trap_mechanisms": [
+                "distractor_drop"
+              ]
+            },
+            {
+              "qnum": "8",
+              "answer": "palm oil",
+              "notes": "Distractor-drop + historical contrast: historically soap used animal fat ('tallow', the rejected old ingredient); today most soaps use vegetable oils, and the single most common is 'palm oil', stated as the superlative. Two words. Source: \"made not from animal fat but from vegetable oils, and the single most common one by far is palm oil\".",
+              "trap_mechanisms": [
+                "distractor_drop",
+                "polarity_flip"
+              ]
+            },
+            {
+              "qnum": "9",
+              "answer": "glycerine",
+              "accept": [
+                "glycerol"
+              ],
+              "notes": "Definition-vs-example: the by-product is described ('a sweet, syrupy liquid ... extract it and sell it separately') then named 'glycerine', with the alternative name 'glycerol' also given (both within the one-word limit). The soap itself is the main product (distractor for 'by-product'). Source: \"That valuable by-product is glycerine, sometimes also called glycerol\".",
+              "trap_mechanisms": [
+                "definition_vs_example",
+                "synonym_chain"
+              ]
+            },
+            {
+              "qnum": "10",
+              "answer": "removing",
+              "accept": [
+                "lifting",
+                "(physically) removing"
+              ],
+              "notes": "Polarity contrast: a popular belief that soap works by 'killing germs' (the rejected idea, also printed in the note's suffix 'not by killing them') is set against the research finding that plain soap works mainly by 'removing' / physically lifting microbes off the hands and rinsing them away. The keyed verb is 'removing' (gerund matching the stem 'works mainly by ___'); 'lifting' accepted. One word. Source: \"Plain soap works mainly not by killing microbes but by removing them — physically lifting the germs off your hands\".",
+              "trap_mechanisms": [
+                "polarity_flip",
+                "paraphrase_t1"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,266 @@
+{
+  "test_id": "ILR-LIS-DRL-SUMM-L2-T1",
+  "title": "Skill-Drill — Summary Completion (S4) — How Honeybees Build Their Comb",
+  "version": "1.0",
+  "target_band": 6.0,
+  "created": "2026-06-19",
+  "drill_id": "SUMM-L2-T1",
+  "drill_type": "summary",
+  "level": "L2",
+  "cluster": "C7 Nature & Animals",
+  "topic_tags": {
+    "S4": "Popularising academic lecture on how honeybees build their comb — the wax material, the bee body, the hexagonal cell, the construction process, and the idea of building with no blueprint"
+  },
+  "accent_profile": [
+    "BrE"
+  ],
+  "total_words": 730,
+  "sections": [
+    {
+      "section_id": "S4",
+      "section_number": 4,
+      "context": "A single lecturer gives a popularising academic lecture on how honeybees build their comb: where the wax comes from, why the cells are hexagonal, how the bees actually construct and warm the comb, and the bigger idea that the comb is built with no central plan",
+      "register": "academic-popularising lecture",
+      "word_count": 730,
+      "audio_intro": "You will hear a lecture on how honeybees build the wax comb inside their hive. First, you have some time to look at questions 1 to 10. [pause:60s] Now listen carefully and answer questions 1 to 10.",
+      "speakers": [
+        {
+          "speaker_id": "S4_F1",
+          "name": "Lecturer",
+          "role": "Lecturer",
+          "voice_profile": "[F-BrE-50s-professional]"
+        }
+      ],
+      "audio_script": [
+        {
+          "speaker_tag": "[F-BrE-50s-professional]",
+          "text": "[emotion:professional] Good morning. Today I want to look at one of the great pieces of animal engineering — the honeycomb, the sheet of waxy cells that honeybees build inside the hive. We tend to admire the finished pattern, those neat six-sided cells, but the more interesting question is how a colony of small insects, with no architect and no drawings, manages to build it. So let's take it in stages: first the material, then the body that makes it, then the famous shape, then how the comb is actually put together.",
+          "voice_settings": {
+            "stability": 0.55,
+            "style": 0.25,
+            "_note": "Academic BrE intro"
+          }
+        },
+        {
+          "speaker_tag": "[F-BrE-50s-professional]",
+          "text": "[emotion:professional] Let's begin with what the comb is made of, because it is not collected from outside — it is produced by the bees themselves. The whole comb is built from a single material called [stress:wax] (Q1). Now, this is sometimes confused with honey or with pollen, but it is neither; it is a fatty substance the bee secretes from its own body. And bees do not eat wax — they manufacture it, which is a rather different and more demanding process."
+        },
+        {
+          "speaker_tag": "[F-BrE-50s-professional]",
+          "text": "[emotion:professional] So where on the bee does this happen? Not the head, and not the legs, as people sometimes guess. The wax is produced by a set of small glands on the underside of the worker bee's [stress:abdomen] (Q2) — the rear part of the body. To run those glands the bee has to be young, well fed, and warm; an old or hungry bee simply cannot make wax at all."
+        },
+        {
+          "speaker_tag": "[F-BrE-50s-professional]",
+          "text": "[emotion:professional] When the wax first appears, it does not come out as a soft paste, as you might expect. It emerges as tiny, clear, flat flakes — each one is called a [stress:scale] (Q3), and they are about the size of a pinhead. The bee then passes each flake forward to its jaws, chews it until it softens, and only then can it be shaped. So the raw flake has to be reworked before it becomes part of a wall."
+        },
+        {
+          "speaker_tag": "[F-BrE-50s-professional]",
+          "text": "[emotion:thoughtful] Now, here is a lovely detail. To build, the bees do not work alone, side by side; instead they hang from the top of the cavity and grip one another, hooking leg to leg until they form long living [stress:chains] (Q4). Beekeepers call these festoons. Hanging in these curtains, the bees pass wax along the line and, in effect, use their own bodies as the scaffolding for the wall they are about to build."
+        },
+        {
+          "speaker_tag": "[F-BrE-50s-professional]",
+          "text": "[emotion:professional] And wax will only soften and bend if it is warm enough, so temperature matters enormously. The colony keeps the building area at a remarkably steady [stress:35°C] (Q5) — roughly blood heat — by clustering tightly together and shivering their flight muscles to generate heat. Below that, the wax is too brittle to mould; the warmth is what makes the whole thing workable."
+        },
+        {
+          "speaker_tag": "[F-BrE-50s-professional]",
+          "text": "[emotion:professional] Now to the shape everybody knows. Each cell is a [stress:hexagon] (Q6) — a six-sided figure. Why not circles, or squares? Mathematically, the hexagon is the shape that packs together with no gaps and yet encloses a large space for very little wall. So the bees get the most storage from the least material — a genuinely economical solution, arrived at without any calculation on their part."
+        },
+        {
+          "speaker_tag": "[F-BrE-50s-professional]",
+          "text": "[emotion:thoughtful] But here is the surprise that recent close-up studies have revealed. The bees do not actually start by building six straight sides. When a cell is first made, it is round — each one begins as a simple [stress:circle] (Q7). It is only afterwards, as the warm wax is pressed by neighbouring cells and gently pulled, that the round walls flatten against each other and settle into the six-sided form. The hexagon, in other words, partly forms itself."
+        },
+        {
+          "speaker_tag": "[F-BrE-50s-professional]",
+          "text": "[emotion:professional] The packing has a practical pay-off too. Because the cells share walls and meet so neatly, the comb leaves almost no wasted [stress:space] (Q8) between one cell and the next. Compare that with a tray of round jars, where there are always little gaps; the bees' arrangement is far more efficient, and that efficiency saves precious wax."
+        },
+        {
+          "speaker_tag": "[F-BrE-50s-professional]",
+          "text": "[emotion:professional] One more clever feature concerns the angle of the cells. They are not built dead level. Each cell is tilted very slightly [stress:upwards] (Q9), with the open mouth a fraction higher than the back. That small tilt is just enough to stop the stored honey from dribbling out before the cell is sealed — a tiny adjustment with an obvious purpose."
+        },
+        {
+          "speaker_tag": "[F-BrE-50s-professional]",
+          "text": "[emotion:thoughtful] So let me draw the threads together. No single bee is in charge; there is no foreman, no drawing pinned up, no master plan. Each worker simply follows a few local rules — keep it warm, add wax here, match the neighbour — and out of thousands of these tiny decisions a perfectly regular structure appears. The deep lesson of the comb is that this order is achieved with no central [stress:blueprint] (Q10) at all. Complex, beautiful structure can emerge, as it were, from the bottom up — and that is an idea that reaches well beyond the beehive."
+        }
+      ],
+      "question_blocks": [
+        {
+          "block_id": "S4_B1",
+          "question_range": "1-10",
+          "render": "summary",
+          "rubric": "Complete the summary below.\nWrite NO MORE THAN THREE WORDS AND/OR A NUMBER for each answer.",
+          "title": "HOW HONEYBEES BUILD THEIR COMB",
+          "summary_text": "Honeybees build their comb from a single material called (1) ___ , which they do not gather but make in their own bodies. It is produced by glands on the underside of the worker bee's (2) ___ , and only a young, well-fed bee can make it. The substance first appears as small flat flakes, each known as a (3) ___ , which the bee must chew until it is soft. To build, the bees hook their legs together and hang in long (4) ___ , using their own bodies as scaffolding. Because wax bends only when warm, the colony holds the building area at a steady (5) ___ . The finished cell is a (6) ___ , the shape that gives the most storage for the least wall. Surprisingly, though, each cell begins life as a (7) ___ and only later settles into its six-sided form as the walls are pressed together. This neat packing means the comb leaves almost no wasted (8) ___ between the cells. Each cell is also tilted slightly (9) ___ so that the honey does not run out before it is sealed. Most remarkable of all, the whole comb is built with no central (10) ___ : order emerges from thousands of small, local decisions.",
+          "questions": [
+            {
+              "qnum": "1",
+              "sentence": "Honeybees build their comb from a single material called ___ , which they make in their own bodies."
+            },
+            {
+              "qnum": "2",
+              "sentence": "The material is produced by glands on the underside of the worker bee's ___ ."
+            },
+            {
+              "qnum": "3",
+              "sentence": "The substance first appears as small flat flakes, each known as a ___ ."
+            },
+            {
+              "qnum": "4",
+              "sentence": "To build, the bees hook their legs together and hang in long ___ ."
+            },
+            {
+              "qnum": "5",
+              "sentence": "The colony holds the building area at a steady ___ ."
+            },
+            {
+              "qnum": "6",
+              "sentence": "The finished cell is a ___ , the shape that gives the most storage for the least wall."
+            },
+            {
+              "qnum": "7",
+              "sentence": "Surprisingly, though, each cell begins life as a ___ and only later settles into its six-sided form as the walls are pressed together."
+            },
+            {
+              "qnum": "8",
+              "sentence": "This neat packing means the comb leaves almost no wasted ___ between the cells."
+            },
+            {
+              "qnum": "9",
+              "sentence": "Each cell is also tilted slightly ___ so that the honey does not run out before it is sealed."
+            },
+            {
+              "qnum": "10",
+              "sentence": "The whole comb is built with no central ___ ."
+            }
+          ],
+          "answers": [
+            {
+              "qnum": "1",
+              "answer": "wax",
+              "accept": [
+                "beeswax"
+              ],
+              "notes": "Definition-then-name / direct cue — 'The whole comb is built from a single material called wax'. The summary prompt ('a single material called ___') mirrors the audio. Trap: the lecturer immediately rejects two plausible-unsaid candidates ('this is sometimes confused with honey or with pollen, but it is neither'), so a candidate keying on 'honey' or 'pollen' is wrong. One word; 'beeswax' accepted (within limit).",
+              "trap_mechanisms": [
+                "definition_vs_example",
+                "distractor_drop"
+              ]
+            },
+            {
+              "qnum": "2",
+              "answer": "abdomen",
+              "notes": "Definition-then-name with location distractors — 'Not the head, and not the legs ... glands on the underside of the worker bee's abdomen — the rear part of the body'. The mentioned-rejected body parts ('head', 'legs') are the trap; the keyed answer is named once and glossed ('the rear part of the body'). One word.",
+              "trap_mechanisms": [
+                "distractor_drop",
+                "paraphrase_t1"
+              ]
+            },
+            {
+              "qnum": "3",
+              "answer": "scale",
+              "accept": [
+                "wax scale",
+                "flake",
+                "scales"
+              ],
+              "notes": "Definition-then-name — 'It emerges as tiny, clear, flat flakes — each one is called a scale'. The audio uses 'flakes' descriptively and then NAMES the unit 'scale'; the summary prompt ('small flat flakes, each known as a ___') asks for the named term, not the descriptive word. Singular keyed to match 'each known as a'; plural 'scales' and the descriptive 'flake' also accepted. One word.",
+              "trap_mechanisms": [
+                "definition_vs_example",
+                "synonym_chain"
+              ]
+            },
+            {
+              "qnum": "4",
+              "answer": "chains",
+              "accept": [
+                "festoons",
+                "living chains"
+              ],
+              "notes": "Definition-then-name + synonym chain — 'hooking leg to leg until they form long living chains. Beekeepers call these festoons'. The summary keeps 'long ___'; the keyed everyday term is 'chains', with the technical synonym 'festoons' offered immediately after and accepted. Two-word 'living chains' also within limit. Plural to match 'long ___' / 'these'.",
+              "trap_mechanisms": [
+                "definition_vs_example",
+                "synonym_chain"
+              ]
+            },
+            {
+              "qnum": "5",
+              "answer": "35°C",
+              "accept": [
+                "thirty-five degrees",
+                "35 degrees",
+                "35 degrees Celsius"
+              ],
+              "notes": "Number with paraphrase — 'keeps the building area at a remarkably steady 35°C — roughly blood heat'. The summary prompt ('a steady ___') matches 'a steady 35°C'. Number is plausible and self-consistent (real hive comb-building temperature ~35°C, glossed as 'blood heat'). All accepted variants ≤3 words ('35 degrees Celsius' = number + 2 words within NMT3W).",
+              "trap_mechanisms": [
+                "paraphrase_t1"
+              ]
+            },
+            {
+              "qnum": "6",
+              "answer": "hexagon",
+              "accept": [
+                "six-sided shape",
+                "hexagonal cell"
+              ],
+              "notes": "Definition-then-name — 'Each cell is a hexagon — a six-sided figure'. The summary prompt ('The finished cell is a ___, the shape that gives the most storage for the least wall') matches the audio's economy point. The alternatives the lecturer raises and drops ('Why not circles, or squares?') are the trap. One word; descriptive variants within limit.",
+              "trap_mechanisms": [
+                "definition_vs_example",
+                "distractor_drop"
+              ]
+            },
+            {
+              "qnum": "7",
+              "answer": "circle",
+              "accept": [
+                "circles",
+                "round cell"
+              ],
+              "notes": "Paraphrase T2 + polarity surprise — 'When a cell is first made, it is round — each one begins as a simple circle'. The summary prompt ('begins life as a ___ and only later becomes six-sided') reverses the expectation set in Q6; a candidate who assumes cells are 'built' hexagonal will mis-key. 'round' is the adjective, 'circle' the keyed noun. Singular to match 'a ___'; 'circles' / 'round cell' also accepted. One word.",
+              "trap_mechanisms": [
+                "paraphrase_t2",
+                "polarity_flip"
+              ]
+            },
+            {
+              "qnum": "8",
+              "answer": "space",
+              "accept": [
+                "wasted space"
+              ],
+              "notes": "Direct cue with proximity distractor — 'the comb leaves almost no wasted space between one cell and the next'. The summary copies 'almost no wasted ___ between the cells'. Trap is the proximity of 'wax' (mentioned as what the efficiency 'saves') in the same turn; the keyed word is 'space', not 'wax'. One word; 'wasted space' within limit.",
+              "trap_mechanisms": [
+                "paraphrase_t1",
+                "distractor_drop"
+              ]
+            },
+            {
+              "qnum": "9",
+              "answer": "upwards",
+              "accept": [
+                "up",
+                "slightly upwards",
+                "tilted upwards"
+              ],
+              "notes": "Paraphrase T1 / direct cue — 'Each cell is tilted very slightly upwards, with the open mouth a fraction higher than the back'. The summary prompt ('tilted slightly ___ so the honey does not run out') matches both the direction and the purpose. One word; 'slightly upwards' / 'tilted upwards' within limit.",
+              "trap_mechanisms": [
+                "paraphrase_t1"
+              ]
+            },
+            {
+              "qnum": "10",
+              "answer": "blueprint",
+              "accept": [
+                "plan",
+                "master plan"
+              ],
+              "notes": "Paraphrase T3 (conceptual restructuring) — the keyed word labels the WHOLE-LECTURE idea, not a nearby keyword. The closing turn says 'there is no foreman, no drawing pinned up, no master plan ... order is achieved with no central blueprint at all'. The summary prompt ('built with no central ___') asks the candidate to recover the abstract term for the absent overall design from the synonym cloud ('foreman / drawing / master plan / blueprint') and the running theme of emergent, bottom-up order. The single Tier-3 item for this band-6.0 drill. One word; 'plan' / 'master plan' accepted, all within limit.",
+              "trap_mechanisms": [
+                "paraphrase_t3",
+                "synonym_chain"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -51,6 +51,7 @@ from services.listening_validator import (
 )
 from services import listening_convert
 from services import listening_fulltest_import
+from services import listening_drill_import
 
 logger = logging.getLogger(__name__)
 
@@ -3328,6 +3329,205 @@ async def admin_import_fulltest_commit(
     }
 
 
+# ── Skill-drill import (Skills Practice) ─────────────────────────────────────
+# A drill = a 1-section mini test isolating ONE question type. Imported one
+# drill per request (JSON + optional timings.json + optional mp3); the admin
+# panel orchestrates the batch. Rows are the SAME shape the player/grader/review
+# consume — see services/listening_drill_import.parse_drill. No migration
+# (metadata.test_type='drill' rides the existing JSONB, Pattern #15).
+
+_DRILL_MAX_AUDIO_BYTES = 30 * 1024 * 1024   # a single section is minutes, not 30m
+
+
+@admin_router.post("/drills/import")
+async def admin_import_drill_dry_run(
+    source_json:   UploadFile = File(...),
+    timings:       UploadFile | None = File(default=None),
+    authorization: str | None = Header(default=None),
+):
+    """ADDITIVE dry-run parse of one skill-drill Source JSON (+ optional
+    timings.json). No DB writes — returns a preview row (drill_type, level,
+    task, question_count, has_audio, errors, warnings) for the batch table."""
+    await require_admin(authorization)
+
+    sj = _read_json_upload(source_json, "Source JSON")
+    timings_dict = _read_json_upload(timings, "timings.json") if timings is not None else None
+
+    try:
+        res = listening_drill_import.parse_drill(sj, timings_dict)
+    except Exception as exc:
+        logger.exception("Drill import dry-run failed")
+        raise HTTPException(422, f"Lỗi khi phân tích drill JSON: {exc}") from exc
+
+    test_ext = (res.test_metadata.get("test_id")
+                or sj.get("test_id") or sj.get("drill_id") or "")
+    md = res.test_metadata.get("metadata") or {}
+    preview = {
+        "test_id":        test_ext,
+        "title":          res.test_metadata.get("title") or test_ext,
+        "drill_type":     md.get("drill_type"),
+        "level":          md.get("level"),
+        "task":           md.get("task"),
+        "question_count": res.question_count,
+        "has_audio":      res.has_audio,
+        "ok":             not res.errors,
+        "errors":         res.errors,
+        "warnings":       res.warnings,
+    }
+    if test_ext:
+        dup = (
+            supabase_admin.table("listening_tests")
+            .select("id,status").eq("test_id", test_ext)
+            .neq("status", "archived").limit(1).execute()
+        )
+        if dup.data:
+            preview["duplicate_test_id"] = True
+            preview["warnings"] = list(preview["warnings"]) + [
+                f"Test ID '{test_ext}' đang ACTIVE (status={dup.data[0].get('status')}) "
+                f"— archive bản cũ trước khi import lại."]
+    return preview
+
+
+@admin_router.post("/drills/import/commit")
+async def admin_import_drill_commit(
+    source_json:   UploadFile = File(...),
+    timings:       UploadFile | None = File(default=None),
+    audio:         UploadFile | None = File(default=None),
+    authorization: str | None = Header(default=None),
+):
+    """Persist one skill-drill: 1 listening_tests (test_type='drill') +
+    1 listening_content + block-shaped listening_exercises (payload enriched
+    with audio_windows + solutions + map_svg). If an mp3 is provided the drill
+    is audio-ready (full_premixed); without audio it imports as ``draft`` and
+    stays hidden from students ("Sắp có") until audio lands. ALL-OR-NOTHING with
+    explicit rollback (no PostgREST transaction), same guard as full-test."""
+    from services import listening_audio
+
+    await require_admin(authorization)
+
+    sj = _read_json_upload(source_json, "Source JSON")
+    timings_dict = _read_json_upload(timings, "timings.json") if timings is not None else None
+
+    audio_bytes: bytes | None = None
+    av: dict | None = None
+    if audio is not None:
+        audio_name = (audio.filename or "").lower()
+        if not audio_name.endswith(".mp3"):
+            raise HTTPException(422, f"Audio phải là .mp3 (nhận: {audio.filename!r})")
+        audio_bytes = audio.file.read()
+        if len(audio_bytes) > _DRILL_MAX_AUDIO_BYTES:
+            raise HTTPException(422, f"Audio quá lớn ({len(audio_bytes)//(1024*1024)} MB > 30 MB).")
+        av = listening_audio.validate_section_audio(audio_bytes)
+        if av["errors"]:
+            raise HTTPException(422, "; ".join(av["errors"]))
+
+    try:
+        res = listening_drill_import.parse_drill(sj, timings_dict)
+    except Exception as exc:
+        logger.exception("Drill commit parse failed")
+        raise HTTPException(422, f"Lỗi khi phân tích drill JSON: {exc}") from exc
+    if res.errors:
+        raise HTTPException(422, {"message": "Drill không hợp lệ — sửa rồi import lại.",
+                                  "errors": res.errors, "warnings": res.warnings})
+
+    test_id_external = res.test_metadata.get("test_id")
+    if not test_id_external:
+        raise HTTPException(422, "Thiếu test_id / drill_id trong Source JSON.")
+
+    dup = (
+        supabase_admin.table("listening_tests")
+        .select("id,status").eq("test_id", test_id_external)
+        .neq("status", "archived").limit(1).execute()
+    )
+    if dup.data:
+        raise HTTPException(
+            422, f"Test ID '{test_id_external}' đang ACTIVE (status={dup.data[0].get('status')}) "
+                 f"— archive bản cũ rồi import lại.")
+
+    test_uuid = str(uuid.uuid4())
+    storage_path = f"drills/{test_uuid}/full.mp3" if audio_bytes else None
+    tm = res.test_metadata
+    test_payload = {
+        "id":              test_uuid,
+        "test_id":         test_id_external,
+        "title":           tm.get("title") or test_id_external,
+        "band_target":     tm.get("band_target"),
+        "accent_profile":  list(tm.get("accent_profile") or []),
+        "themes":          dict(tm.get("themes") or {}),
+        "cue_points":      res.cue_points,
+        "audio_assembly_mode": "full_premixed",
+        "metadata":        tm.get("metadata") or {},
+        "status":          "draft",
+    }
+    if audio_bytes and av:
+        test_payload["full_audio_storage_path"]     = storage_path
+        test_payload["full_audio_duration_seconds"] = av["duration_seconds"]
+        test_payload["full_audio_size_bytes"]       = av["size_bytes"]
+
+    created_content_ids: list[str] = []
+    audio_uploaded = False
+
+    def _rollback() -> None:
+        try:
+            for cid in created_content_ids:
+                supabase_admin.table("listening_exercises").delete().eq("content_id", cid).execute()
+            supabase_admin.table("listening_content").delete().eq("test_id", test_uuid).execute()
+            supabase_admin.table("listening_tests").delete().eq("id", test_uuid).execute()
+            if audio_uploaded and storage_path:
+                try:
+                    supabase_admin.storage.from_(settings.LISTENING_AUDIO_BUCKET).remove([storage_path])
+                except Exception:
+                    logger.warning("[drill] rollback: storage remove failed for %s", storage_path)
+        except Exception:
+            logger.exception("[drill] rollback cleanup itself failed for %s", test_uuid)
+
+    exercises_created = 0
+    try:
+        supabase_admin.table("listening_tests").insert(test_payload).execute()
+        if audio_bytes and storage_path:
+            _upload_audio_to_bucket(storage_path, audio_bytes)
+            audio_uploaded = True
+        content_row = dict(res.content_row)
+        content_row["id"] = str(uuid.uuid4())
+        content_row["test_id"] = test_uuid
+        supabase_admin.table("listening_content").insert(content_row).execute()
+        created_content_ids.append(content_row["id"])
+        for ex in res.exercise_rows:
+            supabase_admin.table("listening_exercises").insert({
+                "id":            str(uuid.uuid4()),
+                "content_id":    content_row["id"],
+                "exercise_type": ex.get("exercise_type", "dictation"),
+                "payload":       ex.get("payload", {}),
+                "order_num":     ex.get("order_num", 1),
+                "cefr_level":    content_row.get("cefr_level"),
+                "status":        "draft",
+            }).execute()
+            exercises_created += 1
+        if exercises_created == 0:
+            raise RuntimeError("persist incomplete (0 exercises)")
+    except HTTPException:
+        _rollback()
+        raise
+    except Exception as exc:
+        logger.exception("[drill] commit persist failed — rolling back %s", test_uuid)
+        _rollback()
+        raise HTTPException(500, f"Lỗi khi lưu drill (đã rollback sạch): {exc}") from exc
+
+    return {
+        "id":                test_uuid,
+        "test_id":           test_id_external,
+        "status":            "draft",
+        "drill_type":        (tm.get("metadata") or {}).get("drill_type"),
+        "level":             (tm.get("metadata") or {}).get("level"),
+        "has_audio":         bool(audio_bytes),
+        "exercises_created": exercises_created,
+        "warnings":          res.warnings,
+        "next_step":         ("Mở /admin/listening/tests → publish khi đã có audio."
+                              if audio_bytes else
+                              "Đã import metadata (chưa có audio) — thêm audio rồi publish."),
+    }
+
+
 @admin_router.post("/convert/commit")
 async def admin_convert_listening_commit(
     body: ConvertCommitRequest,
@@ -4737,18 +4937,20 @@ async def list_published_listening_tests(
     + attempt count so the tests list can render "Bắt đầu" vs "Làm lại"
     CTAs without a follow-up round-trip.
 
-    test_type segregates the full-test and mini-test libraries (listening mini
-    test), reading metadata->>test_type:
-      - "mini" → ONLY mini tests.
-      - "full" / omitted (default) → EXCLUDE mini, but KEEP legacy tests whose
-        test_type IS NULL (a plain != 'mini' would drop them).
+    test_type segregates the full-test, mini-test and skill-drill libraries,
+    reading metadata->>test_type:
+      - "mini"  → ONLY mini tests.
+      - "drill" → ONLY skill drills (listening Skills Practice).
+      - "full" / omitted (default) → EXCLUDE mini AND drill, but KEEP legacy
+        tests whose test_type IS NULL (a plain != 'mini' would drop them and
+        also leak drills).
     """
     user = await _require_auth(authorization)
     # Validate only a real string value. When the handler is called directly
     # (unit tests), an omitted Query() param arrives as its FieldInfo sentinel,
     # not None — `isinstance str` keeps that from tripping a false 422.
-    if isinstance(test_type, str) and test_type not in ("mini", "full"):
-        raise HTTPException(422, "test_type must be 'mini' or 'full'")
+    if isinstance(test_type, str) and test_type not in ("mini", "full", "drill"):
+        raise HTTPException(422, "test_type must be 'mini', 'full' or 'drill'")
 
     q = (
         supabase_admin.table("listening_tests")
@@ -4759,8 +4961,12 @@ async def list_published_listening_tests(
     )
     if test_type == "mini":
         q = q.eq("metadata->>test_type", "mini")
+    elif test_type == "drill":
+        q = q.eq("metadata->>test_type", "drill")
     else:
-        q = q.or_("metadata->>test_type.is.null,metadata->>test_type.neq.mini")
+        # Default/full library: legacy NULL rows stay, but mini + drill are
+        # segregated into their own libraries.
+        q = q.or_("metadata->>test_type.is.null,metadata->>test_type.not.in.(mini,drill)")
     res = q.execute()
     raw_rows = res.data or []
     # Filter to rows with audio satisfied (full OR assembled).
@@ -4796,6 +5002,7 @@ async def list_published_listening_tests(
 
     out_items: list[dict] = []
     for r in rows:
+        md = r.get("metadata") or {}
         out_items.append({
             "id":                   r["id"],
             "test_id":              r.get("test_id"),
@@ -4804,6 +5011,11 @@ async def list_published_listening_tests(
             "themes":               r.get("themes") or {},
             "accent_profile":       r.get("accent_profile") or [],
             "audio_assembly_mode":  r.get("audio_assembly_mode"),
+            # Skill-drill discriminators — let the Skills-Practice page group by
+            # type + level without a per-row round-trip. Null for full/mini.
+            "drill_type":           md.get("drill_type"),
+            "level":                md.get("level"),
+            "task":                 md.get("task"),
             "user_best_score":      user_best.get(r["id"]),
             "user_attempt_count":   user_count.get(r["id"], 0),
         })

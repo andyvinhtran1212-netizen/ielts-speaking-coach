@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Import skill drills · Listening · Admin · Aver Learning</title>
+
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-status.css" />
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2.107.0" defer></script>
+  <script src="/js/api.js"></script>
+
+  <style>
+    body.av-page { font-family: var(--av-font-sans); margin: 0; }
+    .di-shell { max-width: 1100px; margin: 0 auto; padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-6); }
+    .di-back a { color: var(--av-text-secondary); font-size: var(--av-fs-sm); text-decoration: none; }
+    .di-back a:hover { color: var(--av-brand-teal-700); }
+    .di-header h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-semibold); margin: 0 0 var(--av-space-1); }
+    .di-header .subtitle { color: var(--av-text-secondary); font-size: var(--av-fs-sm); line-height: var(--av-lh-normal); }
+
+    .di-card { border: 1px solid var(--av-border-default); border-radius: var(--av-radius-md);
+      background: var(--av-surface-card); padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-4); }
+    .di-card h2 { font-size: var(--av-fs-lg); font-weight: var(--av-fw-semibold); margin: 0; }
+    .di-step { font-size: var(--av-fs-xs); font-weight: var(--av-fw-bold); color: var(--av-brand-teal-700);
+      text-transform: uppercase; letter-spacing: var(--av-tracking-wide); }
+    .di-hint { color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
+
+    .di-btn { padding: var(--av-space-3) var(--av-space-4); border-radius: var(--av-radius-md);
+      background: var(--av-brand-teal-700); color: var(--av-text-on-primary); border: none;
+      font-size: var(--av-fs-sm); font-weight: var(--av-fw-semibold); cursor: pointer; }
+    .di-btn:hover { background: var(--av-brand-teal-800); }
+    .di-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+    .di-btn.secondary { background: transparent; color: var(--av-brand-teal-700);
+      border: 1px solid var(--av-brand-teal-200); }
+
+    .di-table { width: 100%; border-collapse: collapse; font-size: var(--av-fs-sm); }
+    .di-table th, .di-table td { text-align: left; padding: var(--av-space-2) var(--av-space-3);
+      border-bottom: 1px solid var(--av-border-default); }
+    .di-table th { font-size: var(--av-fs-xs); text-transform: uppercase;
+      letter-spacing: var(--av-tracking-wide); color: var(--av-text-muted); }
+    .di-table td.mono { font-family: var(--av-font-mono); font-size: var(--av-fs-xs); }
+    .di-scroll { overflow-x: auto; }
+
+    .di-pill { font-size: var(--av-fs-xs); font-weight: var(--av-fw-semibold);
+      padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+    .di-pill.ok    { background: var(--av-success-soft, #e6f5ec); color: var(--av-success, #1a7f45); }
+    .di-pill.bad   { background: var(--av-error-soft); color: var(--av-error); }
+    .di-pill.warn  { background: #fef9e7; color: #8a6d1a; }
+    .di-pill.done  { background: var(--av-brand-teal-50); color: var(--av-brand-teal-800); }
+
+    .di-errlist { margin: 2px 0 0; padding-left: 16px; color: var(--av-error); font-size: var(--av-fs-xs); }
+    .di-summary { font-size: var(--av-fs-sm); color: var(--av-text-secondary); }
+    .di-summary strong { color: var(--av-brand-teal-700); }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body class="av-page">
+  <div class="di-shell">
+    <div class="di-back"><a href="/pages/admin/listening/tests.html">← Quản lý Listening tests</a></div>
+
+    <header class="di-header">
+      <h1>Import Skill Drills</h1>
+      <p class="subtitle">
+        Chọn thư mục <code>11_Skill_Drills_Web</code> (chứa <code>Source_JSON/</code> và
+        <code>audio_output/&lt;TEST_ID&gt;/</code>). Trang sẽ ghép mỗi drill với timings + audio
+        theo <code>test_id</code>, chạy <strong>dry-run</strong> kiểm tra, rồi import các bài hợp lệ.
+        Drill chưa có audio vẫn import được (metadata, trạng thái <em>draft</em> — "Sắp có").
+      </p>
+    </header>
+
+    <section class="di-card">
+      <span class="di-step">Bước 1 — Chọn thư mục / file</span>
+      <div style="display:flex; gap:var(--av-space-3); flex-wrap:wrap; align-items:center;">
+        <!-- webkitdirectory: pick the whole drills folder. -->
+        <input type="file" id="di-dir" webkitdirectory directory multiple />
+        <span class="di-hint">hoặc chọn nhiều file (Source_JSON + timings.json + mp3)</span>
+      </div>
+      <div>
+        <button class="di-btn" id="di-scan" disabled>Kiểm tra tất cả (dry-run)</button>
+        <span class="di-summary" id="di-picked"></span>
+      </div>
+    </section>
+
+    <section class="di-card" id="di-results-card" hidden>
+      <span class="di-step">Bước 2 — Kết quả kiểm tra</span>
+      <p class="di-summary" id="di-scan-summary"></p>
+      <div class="di-scroll">
+        <table class="di-table">
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="di-check-all" /></th>
+              <th>Test ID</th><th>Dạng</th><th>Level</th><th>Câu</th><th>Audio</th><th>Trạng thái</th>
+            </tr>
+          </thead>
+          <tbody id="di-rows"></tbody>
+        </table>
+      </div>
+      <div>
+        <button class="di-btn" id="di-import" disabled>Import các bài đã chọn</button>
+        <span class="di-summary" id="di-import-summary"></span>
+      </div>
+    </section>
+
+    <div class="error-banner" id="di-error" hidden
+         style="padding: var(--av-space-3) var(--av-space-4); background: var(--av-error-soft);
+                color: var(--av-error); border: 1px solid var(--av-error); border-radius: var(--av-radius-md);
+                font-size: var(--av-fs-sm);"></div>
+  </div>
+
+  <script src="/js/admin-listening-drills-import.js" defer></script>
+</body>
+</html>

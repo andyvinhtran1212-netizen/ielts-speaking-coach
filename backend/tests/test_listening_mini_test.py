@@ -135,7 +135,9 @@ def _call(**kw):
     return rec
 
 
-_EXCLUDE = "metadata->>test_type.is.null,metadata->>test_type.neq.mini"
+# Default/full library segregates BOTH mini and drill into their own libraries,
+# while keeping legacy NULL rows.
+_EXCLUDE = "metadata->>test_type.is.null,metadata->>test_type.not.in.(mini,drill)"
 
 
 def test_list_mini_only():

@@ -1,0 +1,426 @@
+{
+  "test_id": "ILR-LIS-DRL-MCQ-L2-T1",
+  "title": "Listening Skill-Drill — Multiple Choice single (S3) — Choosing presentation software for a group project",
+  "version": "1.0",
+  "drill_type": "mcq",
+  "level": "L2",
+  "target_band": 6.0,
+  "created": "2026-06-19",
+  "mode": "mini",
+  "cluster": "Assignment planning / academic group work",
+  "topic_tags": {
+    "S3": "Two students discussing which presentation software to use for a group project (comparing four tools — Slidewright, Deckforge, Slidecraft, Prezzio — on cost, offline use, templates, collaboration, file size, rehearsal timer, accessibility and a backup plan)"
+  },
+  "accent_profile": [
+    "BrE",
+    "IrlE"
+  ],
+  "total_words": 760,
+  "sections": [
+    {
+      "section_id": "S3",
+      "section_number": 3,
+      "context": "Two students, Aoife and Caedmon, discuss which presentation software to use for a shared group project. Aoife steers the choice while Caedmon raises and then drops objections; they weigh four named tools (Slidewright, Deckforge, Slidecraft, Prezzio) on cost, offline access, templates, real-time collaboration, file size, a rehearsal timer, accessibility for a colour-blind group member, and a backup format",
+      "register": "semi-formal academic discussion",
+      "word_count": 760,
+      "audio_intro": "You will hear two students, Aoife and Caedmon, discussing which presentation software to use for their group project. First, you have some time to look at questions 1 to 10. [pause:30s] Now listen carefully and answer questions 1 to 10.",
+      "speakers": [
+        {
+          "speaker_id": "S3_F1",
+          "name": "Aoife",
+          "role": "Student",
+          "voice_profile": "[F-IrlE-20s]"
+        },
+        {
+          "speaker_id": "S3_M1",
+          "name": "Caedmon",
+          "role": "Student",
+          "voice_profile": "[M-BrE-20s]"
+        }
+      ],
+      "audio_script": [
+        {
+          "speaker_tag": "[F-IrlE-20s]",
+          "text": "[emotion:friendly] Right, Caedmon, before we start building anything, we've gotta agree on what we're actually making the slides in. I keep flip-flopping between a few tools.",
+          "voice_settings": {
+            "stability": 0.5,
+            "style": 0.4,
+            "_note": "Aoife — keen IrlE student, drives the decision"
+          }
+        },
+        {
+          "speaker_tag": "[M-BrE-20s]",
+          "text": "[emotion:thoughtful] Yeah, fair. So, um, my first thought was Slidewright — everyone's kinda used it before. But honestly… the price is the dealbreaker for me. It's gone subscription-only now."
+        },
+        {
+          "speaker_tag": "[F-IrlE-20s]",
+          "text": "[emotion:professional] See, that's exactly my worry too. We're a student group, we're not gonna pay a monthly fee. The thing that rules Slidewright out for me isn't the look of it — it's the [stress:cost] (Q1). Deckforge and Slidecraft both have a free student plan, so the money side basically decides it."
+        },
+        {
+          "speaker_tag": "[M-BrE-20s]",
+          "text": "[emotion:doubtful] Okay, free it is, then. But here's what bugs me — half the time the library wifi just dies on you. If the tool only works in the browser, we're stuck. Can any of these actually run, you know, offline?"
+        },
+        {
+          "speaker_tag": "[F-IrlE-20s]",
+          "text": "[emotion:friendly] Good shout. So I checked — Slidecraft is cloud-only, no offline mode at all. Deckforge, though, has a desktop app you can use with no internet. So the one that works [stress:offline] (Q2) is Deckforge — that pretty much settles it for me, given the dodgy wifi."
+        },
+        {
+          "speaker_tag": "[M-BrE-20s]",
+          "text": "[emotion:thoughtful] Deckforge, grand. Although — and don't laugh — I'm rubbish at design. Last time my slides looked like… well, like a ransom note. Does it come with, um, ready-made layouts?"
+        },
+        {
+          "speaker_tag": "[F-IrlE-20s]",
+          "text": "[emotion:enthusiastic] That's the best bit, actually. People assume the free version is stripped back, but Deckforge gives you the full set of [stress:templates] (Q3) even on the free plan. So you don't need to design from a blank page — the layouts are all there."
+        },
+        {
+          "speaker_tag": "[M-BrE-20s]",
+          "text": "[emotion:thoughtful] [hesitate] Oh, that's a relief. Right, next thing — there's four of us in this group. Can we all be in the same file at once, or do we have to, like, take turns and email it round?"
+        },
+        {
+          "speaker_tag": "[F-IrlE-20s]",
+          "text": "[emotion:professional] No, that's the whole point of it. The reason I'm pushing Deckforge over the others is the [stress:real-time collaboration] (Q4) — all four of us editing the same deck live, no emailing versions back and forth. That's the feature that actually matters for a group of four."
+        },
+        {
+          "speaker_tag": "[M-BrE-20s]",
+          "text": "[emotion:doubtful] Now you're talking. Hang on, though — I tried something similar last year and the final file was massive, I mean it wouldn't even attach to an email. Is the export gonna be a, er, huge file?"
+        },
+        {
+          "speaker_tag": "[F-IrlE-20s]",
+          "text": "[emotion:friendly] Funny you say that — I worried about the same thing. But Deckforge lets you export a compressed version, so the file stays [stress:small] (Q5). It squashes the images right down. So no, it won't be the giant file you're imagining."
+        },
+        {
+          "speaker_tag": "[M-BrE-20s]",
+          "text": "[emotion:friendly] Brilliant. Okay, I'm sold on the tool. So what do we actually need to sort out before the presentation day itself?"
+        },
+        {
+          "speaker_tag": "[F-IrlE-20s]",
+          "text": "[emotion:professional] Well, the marking rubric is strict on timing — eight minutes, no more. The thing I really want us to use is the built-in [stress:rehearsal timer] (Q6) — it records how long you spend on each slide so we can practise hitting eight minutes. Not the slide counter, the timer specifically."
+        },
+        {
+          "speaker_tag": "[M-BrE-20s]",
+          "text": "[emotion:thoughtful] Makes sense, we always overrun. Um — one more. Priya's colour-blind, isn't she? I don't wanna pick colours she can't tell apart and have it look bad on the day."
+        },
+        {
+          "speaker_tag": "[F-IrlE-20s]",
+          "text": "[emotion:enthusiastic] I'm so glad you flagged that. Deckforge has a [stress:colour-blind check] (Q7) — you run it and it warns you if two shades clash for someone who can't distinguish them. We'll run that on every slide before we submit."
+        },
+        {
+          "speaker_tag": "[M-BrE-20s]",
+          "text": "[emotion:thoughtful] Love that. Right, who's doing what? I'm happy to, er, build the actual slides if you handle the writing."
+        },
+        {
+          "speaker_tag": "[F-IrlE-20s]",
+          "text": "[emotion:friendly] Deal. So you take the [stress:slide design] (Q8) — the layout and the visuals — since you're the one fretting about how it looks, you'll care most about getting it right."
+        },
+        {
+          "speaker_tag": "[M-BrE-20s]",
+          "text": "[emotion:thoughtful] Slides are mine, then. And you'll write the, um, actual content — the script and the notes under each slide?"
+        },
+        {
+          "speaker_tag": "[F-IrlE-20s]",
+          "text": "[emotion:professional] Yeah, I'll take the [stress:written content] (Q9) — the words and the speaker notes. That leaves the practising. We should both rehearse, obviously, but someone needs to own the run-through and time us."
+        },
+        {
+          "speaker_tag": "[M-BrE-20s]",
+          "text": "[emotion:thoughtful] Hmm, and honestly that should be Priya, shouldn't it? She's the calmest of us under pressure, so she's the best one to run the [stress:timed rehearsal] (Q10) and keep us to eight minutes. We design and write; she drills us."
+        },
+        {
+          "speaker_tag": "[F-IrlE-20s]",
+          "text": "[emotion:enthusiastic] Perfect — that's the lot sorted, then. Deckforge it is. Funny how I came in not knowing which to use and now it's all decided."
+        }
+      ],
+      "question_blocks": [
+        {
+          "block_id": "S3_B1",
+          "question_range": "1-5",
+          "render": "mcq",
+          "rubric": "Choose the correct letter, A, B or C.",
+          "questions": [
+            {
+              "qnum": "1",
+              "stem": "Why do the students decide against using Slidewright?",
+              "options": [
+                {
+                  "letter": "A",
+                  "text": "Its design looks dated."
+                },
+                {
+                  "letter": "B",
+                  "text": "It now charges a fee."
+                },
+                {
+                  "letter": "C",
+                  "text": "Nobody has used it before."
+                }
+              ]
+            },
+            {
+              "qnum": "2",
+              "stem": "Which tool can be used without an internet connection?",
+              "options": [
+                {
+                  "letter": "A",
+                  "text": "Deckforge."
+                },
+                {
+                  "letter": "B",
+                  "text": "Slidecraft."
+                },
+                {
+                  "letter": "C",
+                  "text": "Prezzio."
+                }
+              ]
+            },
+            {
+              "qnum": "3",
+              "stem": "What does the free version of Deckforge surprisingly include?",
+              "options": [
+                {
+                  "letter": "A",
+                  "text": "Extra cloud storage."
+                },
+                {
+                  "letter": "B",
+                  "text": "Unlimited slides."
+                },
+                {
+                  "letter": "C",
+                  "text": "A full set of templates."
+                }
+              ]
+            },
+            {
+              "qnum": "4",
+              "stem": "Why does Aoife most prefer Deckforge for their group?",
+              "options": [
+                {
+                  "letter": "A",
+                  "text": "Everyone can edit the file together."
+                },
+                {
+                  "letter": "B",
+                  "text": "It is the cheapest of all."
+                },
+                {
+                  "letter": "C",
+                  "text": "It has the nicest animations."
+                }
+              ]
+            },
+            {
+              "qnum": "5",
+              "stem": "What does Aoife say reassures Caedmon about the exported file?",
+              "options": [
+                {
+                  "letter": "A",
+                  "text": "It opens on any device."
+                },
+                {
+                  "letter": "B",
+                  "text": "It can be kept small."
+                },
+                {
+                  "letter": "C",
+                  "text": "It saves automatically."
+                }
+              ]
+            }
+          ],
+          "answers": [
+            {
+              "qnum": "1",
+              "answer": "B",
+              "notes": "Affirmative cue: 'The thing that rules Slidewright out for me isn't the look of it — it's the cost ... It's gone subscription-only now' = it now charges a fee (B). A (design looks dated) = Opposite-Meaning / mis-direction: Aoife explicitly disowns 'the look of it', so the look is named-then-rejected as the reason. C (nobody has used it) is the polar opposite of what Caedmon says ('everyone's kinda used it before') = Opposite-Meaning. Two distractors, two archetypes.",
+              "trap_mechanisms": [
+                "distractor_drop",
+                "polarity_flip"
+              ]
+            },
+            {
+              "qnum": "2",
+              "answer": "A",
+              "notes": "Affirmative cue: 'Deckforge, though, has a desktop app you can use with no internet ... the one that works offline is Deckforge' = A. B (Slidecraft) is named-then-rejected ('Slidecraft is cloud-only, no offline mode at all') = Outdated/Rejected. C (Prezzio) is plausible-but-unsaid — Prezzio is never linked to offline use, so picking it is an over-reach = Irrelevant Detail. Two distractors, two archetypes.",
+              "trap_mechanisms": [
+                "distractor_drop",
+                "polarity_flip"
+              ]
+            },
+            {
+              "qnum": "3",
+              "answer": "C",
+              "notes": "Affirmative cue: 'Deckforge gives you the full set of templates even on the free plan ... the layouts are all there' = C. A (extra cloud storage) is plausible-but-unsaid, a generic free-plan perk never mentioned = Irrelevant Detail. B (unlimited slides) is also plausible-but-unsaid, an Overgeneralised 'free = unlimited' leap. Two distractors, two archetypes.",
+              "trap_mechanisms": [
+                "distractor_drop",
+                "paraphrase_t1"
+              ]
+            },
+            {
+              "qnum": "4",
+              "answer": "A",
+              "notes": "Affirmative cue: 'The reason I'm pushing Deckforge over the others is the real-time collaboration — all four of us editing the same deck live'; the option recasts this as 'Everyone can edit the file together' (A) — a Tier-1 paraphrase, no keyword 'collaboration' reused. B (cheapest of all) = Partial Truth: it is free, but cost was the Q1 issue, not why she most prefers it here. C (nicest animations) is plausible-but-unsaid = Irrelevant Detail. Two distractors, two archetypes.",
+              "trap_mechanisms": [
+                "paraphrase_t1",
+                "distractor_drop"
+              ]
+            },
+            {
+              "qnum": "5",
+              "answer": "B",
+              "notes": "Affirmative cue: 'Deckforge lets you export a compressed version, so the file stays small ... it won't be the giant file you're imagining' = B. A (opens on any device) is plausible-but-unsaid = Irrelevant Detail. C (saves automatically) is plausible-but-unsaid, a generic cloud feature never mentioned = Irrelevant Detail. Caedmon's worry was specifically a 'huge file', so B answers it directly. Two distractors, two archetypes.",
+              "trap_mechanisms": [
+                "distractor_drop",
+                "paraphrase_t1"
+              ]
+            }
+          ]
+        },
+        {
+          "block_id": "S3_B2",
+          "question_range": "6-10",
+          "render": "mcq",
+          "rubric": "Choose the correct letter, A, B or C.",
+          "questions": [
+            {
+              "qnum": "6",
+              "stem": "Which feature does Aoife want the group to use for timing?",
+              "options": [
+                {
+                  "letter": "A",
+                  "text": "The slide counter."
+                },
+                {
+                  "letter": "B",
+                  "text": "The auto-advance setting."
+                },
+                {
+                  "letter": "C",
+                  "text": "The rehearsal timer."
+                }
+              ]
+            },
+            {
+              "qnum": "7",
+              "stem": "How will they make the slides work for Priya?",
+              "options": [
+                {
+                  "letter": "A",
+                  "text": "By running a colour-blind check."
+                },
+                {
+                  "letter": "B",
+                  "text": "By adding larger text."
+                },
+                {
+                  "letter": "C",
+                  "text": "By recording an audio version."
+                }
+              ]
+            },
+            {
+              "qnum": "8",
+              "stem": "What job will Caedmon take on for the project?",
+              "options": [
+                {
+                  "letter": "A",
+                  "text": "Writing the speaker notes."
+                },
+                {
+                  "letter": "B",
+                  "text": "Designing the slides."
+                },
+                {
+                  "letter": "C",
+                  "text": "Running the practice session."
+                }
+              ]
+            },
+            {
+              "qnum": "9",
+              "stem": "Which part of the project will Aoife be responsible for?",
+              "options": [
+                {
+                  "letter": "A",
+                  "text": "Choosing the colour scheme."
+                },
+                {
+                  "letter": "B",
+                  "text": "Writing the words and notes."
+                },
+                {
+                  "letter": "C",
+                  "text": "Timing the run-through."
+                }
+              ]
+            },
+            {
+              "qnum": "10",
+              "stem": "Who do they agree should run the timed rehearsal?",
+              "options": [
+                {
+                  "letter": "A",
+                  "text": "Caedmon."
+                },
+                {
+                  "letter": "B",
+                  "text": "Aoife."
+                },
+                {
+                  "letter": "C",
+                  "text": "Priya."
+                }
+              ]
+            }
+          ],
+          "answers": [
+            {
+              "qnum": "6",
+              "answer": "C",
+              "notes": "Affirmative cue: 'The thing I really want us to use is the built-in rehearsal timer ... Not the slide counter, the timer specifically' = C. A (slide counter) is named-then-rejected in the same turn = Outdated/Rejected. B (auto-advance setting) is plausible-but-unsaid = Irrelevant Detail. Two distractors, two archetypes.",
+              "trap_mechanisms": [
+                "distractor_drop",
+                "polarity_flip"
+              ]
+            },
+            {
+              "qnum": "7",
+              "answer": "A",
+              "notes": "Affirmative cue: 'Deckforge has a colour-blind check ... it warns you if two shades clash ... We'll run that on every slide' = A. B (larger text) is plausible-but-unsaid: it addresses a different accessibility need (legibility), not colour, so it is Partial Truth / Irrelevant to a colour-blind member. C (audio version) is plausible-but-unsaid = Irrelevant Detail. Two distractors, two archetypes.",
+              "trap_mechanisms": [
+                "distractor_drop",
+                "paraphrase_t1"
+              ]
+            },
+            {
+              "qnum": "8",
+              "answer": "B",
+              "notes": "Affirmative cue: 'So you take the slide design — the layout and the visuals' (Aoife to Caedmon), confirmed 'Slides are mine, then' = B. A (writing the speaker notes) is the job Aoife takes (her job, attributed to wrong person) = Irrelevant Detail / mis-attribution. C (running the practice session) is Priya's job = Irrelevant Detail / mis-attribution. Two distractors, two archetypes.",
+              "trap_mechanisms": [
+                "distractor_drop",
+                "backward_reference"
+              ]
+            },
+            {
+              "qnum": "9",
+              "answer": "B",
+              "notes": "Affirmative cue: 'I'll take the written content — the words and the speaker notes' = B ('Writing the words and notes'). A (choosing the colour scheme) belongs to the design job, which is Caedmon's, not Aoife's = Irrelevant Detail / mis-attribution. C (timing the run-through) is Priya's job = Irrelevant Detail / mis-attribution. Two distractors, two archetypes.",
+              "trap_mechanisms": [
+                "distractor_drop",
+                "backward_reference"
+              ]
+            },
+            {
+              "qnum": "10",
+              "answer": "C",
+              "notes": "Affirmative cue: 'that should be Priya ... she's the best one to run the timed rehearsal ... We design and write; she drills us' = C. A (Caedmon) and B (Aoife) each take other jobs (design / written content); both 'should both rehearse' but neither owns the run-through = Partial Truth (they do rehearse, but do not run it). Two distractors, one archetype family (mis-attribution / partial truth).",
+              "trap_mechanisms": [
+                "distractor_drop",
+                "backward_reference"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1040,6 +1040,17 @@ describe('Sprint 13.5.8 — plan-label suppresses map_description from student v
     assert.match(m[0], /Hình map chưa được tạo/);
   });
 
+  it('renderPlanLabel prefers inline payload.map_svg (skill drills)', () => {
+    const m = /function\s+renderPlanLabel\([\s\S]+?\n\}\s*\n/.exec(JS);
+    assert.ok(m);
+    // reads the inline SVG string...
+    assert.match(m[0], /payload\.map_svg/);
+    assert.match(m[0], /ielts-plan-svg/);
+    // ...and the visualBlock ternary evaluates the svg branch FIRST, before the
+    // map_image_url (PNG) branch and the no-image fallback.
+    assert.match(m[0], /visualBlock\s*=\s*mapSvg\s*\n?\s*\?/);
+  });
+
   it('CSS defines the .ielts-plan-no-image notice block', () => {
     const CSS_PATH = join(__dirname, '..', 'css', 'ielts-test-paper.css');
     const CSS = readFileSync(CSS_PATH, 'utf8');

@@ -1,0 +1,304 @@
+{
+  "test_id": "ILR-LIS-DRL-SAQ-L2-T1",
+  "title": "Skill-Drill — Short-Answer Questions (S1) · Enrolling in a cookery class",
+  "version": "1.0",
+  "drill_type": "short_answer",
+  "section_origin": "S1",
+  "level": "L2",
+  "target_band": 6.0,
+  "created": "2026-06-19",
+  "cluster": "C5 Leisure & Lifestyle",
+  "topic_tags": {
+    "S1": "Phone enquiry to enrol in an evening bread-making class at a community cookery school (transactional)"
+  },
+  "accent_profile": [
+    "BrE"
+  ],
+  "total_words": 430,
+  "sections": [
+    {
+      "section_id": "S1",
+      "section_number": 1,
+      "context": "A prospective student phones Hearthwell Cookery School to enrol in an evening class. Eleanor, the receptionist, takes his details and explains the arrangements.",
+      "register": "service-encounter / transactional telephone enquiry",
+      "word_count": 430,
+      "audio_intro": "Section 1. You will hear a man phoning Hearthwell Cookery School to enrol in an evening cookery class, speaking to a receptionist called Eleanor. First, you have some time to look at questions 1 to 10. [pause:30s] Now listen carefully and answer questions 1 to 10.",
+      "speakers": [
+        {
+          "speaker_id": "S1_F1",
+          "name": "Eleanor",
+          "role": "Receptionist",
+          "voice_profile": "[F-BrE-30s]"
+        },
+        {
+          "speaker_id": "S1_M1",
+          "name": "Mr Daciuk",
+          "role": "Caller (prospective student)",
+          "voice_profile": "[M-BrE-40s]"
+        }
+      ],
+      "audio_script": [
+        {
+          "speaker_tag": "[F-BrE-30s]",
+          "text": "[emotion:friendly] Good afternoon, Hearthwell Cookery School, Eleanor speaking. How can I help you?"
+        },
+        {
+          "speaker_tag": "[M-BrE-40s]",
+          "text": "Oh, hi. Um, I saw a leaflet for your evening classes, and I'd like to sign up for one. It's not the cake-decorating class I'm after — it's the bread-making (Q1) one. I keep getting those two mixed up."
+        },
+        {
+          "speaker_tag": "[F-BrE-30s]",
+          "text": "Lovely, the bread-making course is one of our most popular. I can book you in now. Could I take your surname, please?"
+        },
+        {
+          "speaker_tag": "[M-BrE-40s]",
+          "text": "Yeah, it's Daciuk. People always struggle with it, so… I'll spell it — that's D-A-C-I-U-K (Q2). Daciuk."
+        },
+        {
+          "speaker_tag": "[F-BrE-30s]",
+          "text": "Got that — D-A-C-I-U-K. Thank you. Now, um, the bread-making class. It used to run on a Tuesday, but this term it's moved to a Thursday (Q3)."
+        },
+        {
+          "speaker_tag": "[M-BrE-40s]",
+          "text": "Thursday's perfect for me. And what time does it start?"
+        },
+        {
+          "speaker_tag": "[F-BrE-30s]",
+          "text": "It begins at half past six — so, six thirty (Q4). It usually finishes by half eight. And just so you know, the whole course is eight weeks long (Q5), one evening a week."
+        },
+        {
+          "speaker_tag": "[M-BrE-40s]",
+          "text": "Eight weeks, okay. Um, and how much is it altogether?"
+        },
+        {
+          "speaker_tag": "[F-BrE-30s]",
+          "text": "So, the standard fee is a hundred and ten pounds, but, um, because you're enrolling before the end of the month, you get the early-bird rate — that brings it down to ninety-five pounds (Q6) for the full course."
+        },
+        {
+          "speaker_tag": "[M-BrE-40s]",
+          "text": "Brilliant, ninety-five. And does that cover everything, or do I pay extra for ingredients?"
+        },
+        {
+          "speaker_tag": "[F-BrE-30s]",
+          "text": "[emotion:reassuring] All the ingredients are included, don't worry. The one thing the fee covers that people don't expect is an apron (Q7) — we give each student one to keep. You won't need to buy your own."
+        },
+        {
+          "speaker_tag": "[M-BrE-40s]",
+          "text": "Oh, that's handy. Is there anything I do need to bring along myself, then…?"
+        },
+        {
+          "speaker_tag": "[F-BrE-30s]",
+          "text": "Just one thing, really. Most people assume they should bring a knife, but our kitchen provides all of those. What we do ask is that you bring a container (Q8) — a large one — so you can take your loaves home at the end of each session."
+        },
+        {
+          "speaker_tag": "[M-BrE-40s]",
+          "text": "A container, noted. And, sorry, which building is the class actually held in? The leaflet wasn't very clear."
+        },
+        {
+          "speaker_tag": "[F-BrE-30s]",
+          "text": "Right, so the main school is on the high street, but the bread classes are over in the Annexe (Q9) — it's the smaller building round the back, the one with the green door. Don't go to the main reception by mistake."
+        },
+        {
+          "speaker_tag": "[M-BrE-40s]",
+          "text": "The Annexe, got it. One last question — who's the tutor? My neighbour did a course here and raved about someone."
+        },
+        {
+          "speaker_tag": "[F-BrE-30s]",
+          "text": "That'll be the head baker. We've got two tutors — Mr Halloran does the pastry evenings, but your bread class is taught by Ms Coombes (Q10) — that's C-O-O-M-B-E-S. She's wonderful."
+        },
+        {
+          "speaker_tag": "[M-BrE-40s]",
+          "text": "Ms Coombes, lovely. Thanks so much for your help."
+        },
+        {
+          "speaker_tag": "[F-BrE-30s]",
+          "text": "You're very welcome. We'll see you on the first Thursday. Bye now."
+        }
+      ],
+      "question_blocks": [
+        {
+          "block_id": "S1_B1",
+          "question_range": "1-5",
+          "render": "short_answer",
+          "rubric": "Answer the questions below. Write NO MORE THAN THREE WORDS AND/OR A NUMBER for each answer.",
+          "questions": [
+            {
+              "qnum": "1",
+              "stem": "Which class does the man want to enrol in?"
+            },
+            {
+              "qnum": "2",
+              "stem": "What is the man's surname?"
+            },
+            {
+              "qnum": "3",
+              "stem": "On which day does the class now run?"
+            },
+            {
+              "qnum": "4",
+              "stem": "What time does the class start?"
+            },
+            {
+              "qnum": "5",
+              "stem": "How many weeks does the course last?"
+            }
+          ],
+          "answers": [
+            {
+              "qnum": "1",
+              "answer": "bread-making",
+              "accept": [
+                "bread-making class",
+                "the bread-making class"
+              ],
+              "notes": "Forward distractor-drop: the man names the wrong class in a clean rejected clause, then states the key cleanly — 'It's not the cake-decorating class I'm after — it's the bread-making one.' 'cake-decorating' is the mentioned-rejected distractor; the key 'bread-making' is stated without any retraction cue. HYPHEN spelling required. All key variants are <=3 words. Source: \"it's the bread-making one.\"",
+              "trap_mechanisms": [
+                "distractor_drop"
+              ]
+            },
+            {
+              "qnum": "2",
+              "answer": "Daciuk",
+              "notes": "Name dictated letter-by-letter 'D-A-C-I-U-K'. Trap is the unusual vowel run C-I-U; candidates may write 'Dacuik' or 'Daciuc'. Write exactly the spelled chain. Source: \"it's Daciuk ... that's D-A-C-I-U-K.\"",
+              "trap_mechanisms": [
+                "name_spelling"
+              ]
+            },
+            {
+              "qnum": "3",
+              "answer": "Thursday",
+              "notes": "Forward distractor-drop + day confusion: Eleanor states the old day in a clean rejected clause, then the new day cleanly — 'It used to run on a Tuesday, but this term it's moved to a Thursday.' Tuesday is the mentioned-rejected old day; the key Thursday is stated without any retraction cue. The question asks for the day it NOW runs. Source: \"this term it's moved to a Thursday.\"",
+              "trap_mechanisms": [
+                "distractor_drop"
+              ]
+            },
+            {
+              "qnum": "4",
+              "answer": "6.30",
+              "accept": [
+                "6:30",
+                "half past six",
+                "6.30pm",
+                "6.30 pm"
+              ],
+              "notes": "Number/time: 'It begins at half past six — so, six thirty.' The speaker also says it 'finishes by half eight' (8.30) as a plausible-unsaid distractor for the start time. Answer is the start time. All accepted variants are <=3 words / a number. Source: \"It begins at half past six — so, six thirty.\"",
+              "trap_mechanisms": [
+                "distractor_drop"
+              ]
+            },
+            {
+              "qnum": "5",
+              "answer": "8",
+              "accept": [
+                "eight",
+                "8 weeks",
+                "eight weeks"
+              ],
+              "notes": "Number: 'the whole course is eight weeks long, one evening a week.' Trap is 'one evening a week' nearby, which could tempt a careless candidate to write a different number. Source: \"the whole course is eight weeks long.\"",
+              "trap_mechanisms": [
+                "distractor_drop"
+              ]
+            }
+          ]
+        },
+        {
+          "block_id": "S1_B2",
+          "question_range": "6-10",
+          "render": "short_answer",
+          "rubric": "Answer the questions below. Write NO MORE THAN THREE WORDS AND/OR A NUMBER for each answer.",
+          "questions": [
+            {
+              "qnum": "6",
+              "stem": "How much does the man pay for the course?"
+            },
+            {
+              "qnum": "7",
+              "stem": "What item to keep is included in the fee?"
+            },
+            {
+              "qnum": "8",
+              "stem": "What must the man bring to each session?"
+            },
+            {
+              "qnum": "9",
+              "stem": "Which building is the class held in?"
+            },
+            {
+              "qnum": "10",
+              "stem": "What is the name of the man's tutor?"
+            }
+          ],
+          "answers": [
+            {
+              "qnum": "6",
+              "answer": "£95",
+              "accept": [
+                "95 pounds",
+                "ninety-five pounds",
+                "£95.00"
+              ],
+              "notes": "Price + distractor drop: 'the standard fee is a hundred and ten pounds, but ... the early-bird rate ... brings it down to ninety-five pounds.' £110 is the mentioned-rejected full price; the man pays the discounted £95. 'ninety-five pounds' = 3 words, within limit. Source: \"that brings it down to ninety-five pounds for the full course.\"",
+              "trap_mechanisms": [
+                "distractor_drop"
+              ]
+            },
+            {
+              "qnum": "7",
+              "answer": "(an) apron",
+              "accept": [
+                "apron",
+                "an apron"
+              ],
+              "notes": "Paraphrase + red herring: question asks 'item to keep ... included in the fee'. Eleanor says ingredients are included (generic, not an 'item'), then 'The one thing the fee covers that people don't expect is an apron — we give each student one to keep.' 'ingredients' is the lexically-present near-distractor; the kept ITEM is the apron. ONE-WORD answer natural here. Source: \"is an apron — we give each student one to keep.\"",
+              "trap_mechanisms": [
+                "distractor_drop",
+                "paraphrase_t1"
+              ]
+            },
+            {
+              "qnum": "8",
+              "answer": "(a) container",
+              "accept": [
+                "container",
+                "a container",
+                "a large container"
+              ],
+              "notes": "Mentioned-rejected distractor + paraphrase: 'Most people assume they should bring a knife, but our kitchen provides all of those. What we do ask is that you bring a container.' 'knife' is the plausible item candidates expect, explicitly rejected. Answer is container (to take loaves home). 'a large container' = 3 words, within limit. Source: \"What we do ask is that you bring a container.\"",
+              "trap_mechanisms": [
+                "distractor_drop",
+                "paraphrase_t1"
+              ]
+            },
+            {
+              "qnum": "9",
+              "answer": "(the) Annexe",
+              "accept": [
+                "Annexe",
+                "the Annexe",
+                "Annex"
+              ],
+              "notes": "Place confusion: 'the main school is on the high street, but the bread classes are over in the Annexe.' The 'high street' main building is the mentioned-rejected location; the class is in the Annexe. Both spellings 'Annexe' (BrE) and 'Annex' accepted. Source: \"the bread classes are over in the Annexe.\"",
+              "trap_mechanisms": [
+                "place_confusion",
+                "distractor_drop"
+              ]
+            },
+            {
+              "qnum": "10",
+              "answer": "(Ms) Coombes",
+              "accept": [
+                "Coombes",
+                "Ms Coombes"
+              ],
+              "notes": "Name (spelled) + distractor drop: 'We've got two tutors — Mr Halloran does the pastry evenings, but your bread class is taught by Ms Coombes — that's C-O-O-M-B-E-S.' Mr Halloran is the wrong-tutor distractor (teaches pastry, not bread). Answer is Coombes, spelled out C-O-O-M-B-E-S (double-O is the spelling trap). Source: \"your bread class is taught by Ms Coombes — that's C-O-O-M-B-E-S.\"",
+              "trap_mechanisms": [
+                "name_spelling",
+                "distractor_drop"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

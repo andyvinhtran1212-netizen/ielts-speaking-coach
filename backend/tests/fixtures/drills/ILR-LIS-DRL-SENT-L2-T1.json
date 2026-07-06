@@ -1,0 +1,243 @@
+{
+  "test_id": "ILR-LIS-DRL-SENT-L2-T1",
+  "title": "Skill-Drill — Sentence Completion (S2) · Orientation brief at an outdoor-activity centre",
+  "version": "1.0",
+  "drill_type": "sentence",
+  "section_origin": "S2",
+  "level": "L2",
+  "target_band": 6.0,
+  "created": "2026-06-19",
+  "mode": "mini",
+  "cluster": "C5 Leisure & Lifestyle / outdoor & adventure",
+  "topic_tags": {
+    "S2": "Public monologue: a centre warden gives an arrival/orientation brief to new guests at Brackenfell Outdoor Pursuits Centre (residential camping & outdoor-activity centre) — facilities, meal times, safety kit, activity meeting points and house rules"
+  },
+  "accent_profile": [
+    "BrE"
+  ],
+  "total_words": 510,
+  "sections": [
+    {
+      "section_id": "S2",
+      "section_number": 2,
+      "context": "A single speaker, the centre warden Nessa Thurkettle, gives a welcome and orientation brief to a group of new guests on their first afternoon at Brackenfell Outdoor Pursuits Centre. She runs through where to leave wet kit, meal times, safety equipment, where each activity group meets, and a few house rules before everyone settles in.",
+      "register": "informative public monologue (welcome briefing)",
+      "word_count": 510,
+      "audio_intro": "Section 2. You will hear the warden of an outdoor-activity centre giving an orientation talk to a group of new guests. First, you have some time to look at questions 1 to 10. [pause:30s] Now listen carefully and answer questions 1 to 10.",
+      "speakers": [
+        {
+          "speaker_id": "S2_F1",
+          "name": "Nessa Thurkettle",
+          "role": "Centre warden",
+          "voice_profile": "[F-BrE-40s-warm]"
+        }
+      ],
+      "audio_script": [
+        {
+          "speaker_tag": "[F-BrE-40s-warm]",
+          "text": "[emotion:warm] Right, hello everyone, and a very warm welcome to Brackenfell Outdoor Pursuits Centre. My name's Nessa, I'm the warden here, and I'll just run through a few practical things before you go and unpack. Don't worry about writing it all down — there's a copy on the noticeboard by the dining hall."
+        },
+        {
+          "speaker_tag": "[F-BrE-40s-warm]",
+          "text": "Um, let's start with the weather, because, well, this is the Lake District. You're going to get wet. When you come in from outside, please don't trail mud through the bedrooms. There's a boot store just inside the front porch for your muddy boots, but anything actually soaking — coats, waterproofs, gloves — those go in the drying room (Q1), which is the heated room next to the kitchen. So: boots in the porch, wet clothes in the drying room."
+        },
+        {
+          "speaker_tag": "[F-BrE-40s-warm]",
+          "text": "Now, a quick word on the water, because people always ask. We're lucky enough to have both a river running past the site and a small lake. The river looks tempting, but it's fast and cold, so swimming there is strictly not allowed. Swimming is only permitted in the lake (Q2), and even then only when an instructor is on duty. So, the lake, yes; the river, never."
+        },
+        {
+          "speaker_tag": "[F-BrE-40s-warm]",
+          "text": "[emotion:friendly] Meal times next. Dinner this evening is at six… sorry, half past five — let me get that right — dinner tonight is at half past five. But from tomorrow your day starts earlier: breakfast is served at half past seven (Q3). I know, it's early, but the minibuses leave straight after, so please don't be late. Lunch is a packed lunch you make yourself at breakfast, so there's no midday sitting in the hall."
+        },
+        {
+          "speaker_tag": "[F-BrE-40s-warm]",
+          "text": "Right, safety kit. Two things to remember. For anyone doing the evening walk up the fell, the path is unlit, so each of you must bring a head torch (Q4) — not just a phone, a proper head torch, hands-free. And whenever you're out on the hills, do carry a whistle (Q5) in your pocket; six blasts is the signal if you're ever in trouble. We hand the whistles out at the gear desk."
+        },
+        {
+          "speaker_tag": "[F-BrE-40s-warm]",
+          "text": "Okay, where your group meets in the morning. The walking group gathers outside reception. The canoeing group, though — don't come to reception — you head straight down to the boathouse (Q6) by the lake, where the buoyancy aids are kept. And the climbers, you'll be collected from the car park, because your crag is a short drive away."
+        },
+        {
+          "speaker_tag": "[F-BrE-40s-warm]",
+          "text": "To keep the groups sorted out on the water, we use coloured wristbands. The kayakers wear red ones, but your group, the canoeists, you'll each be given a green (Q7) wristband — green for canoeing — so the safety boat can spot you easily. Please keep it on all week."
+        },
+        {
+          "speaker_tag": "[F-BrE-40s-warm]",
+          "text": "A couple of house rules and then I'll let you go. The little shop here, for chocolate and postcards and so on, is open most days. People often think it's closed on a Wednesday, but it's actually closed on a Thursday (Q8), the staff member's day off. The rest of the week it's open after dinner."
+        },
+        {
+          "speaker_tag": "[F-BrE-40s-warm]",
+          "text": "[emotion:reassuring] We try to look after this valley, so we ask everyone to separate their recycling (Q9) — there are clearly labelled bins outside the dining hall, and general rubbish goes in the black one. And finally, the most important rule of all: every time you leave the building and come back, you must sign the register (Q10) at the front desk, so we always know exactly who is on site. That's how we keep you safe. Right — go and unpack, and I'll see you at dinner."
+        }
+      ],
+      "question_blocks": [
+        {
+          "block_id": "S2_B1",
+          "question_range": "1-5",
+          "render": "sentence",
+          "rubric": "Complete the sentences below.\nWrite NO MORE THAN TWO WORDS AND/OR A NUMBER for each answer.",
+          "title": "BRACKENFELL OUTDOOR PURSUITS CENTRE — ARRIVAL BRIEF (part 1)",
+          "lines": [
+            {
+              "qnum": "1",
+              "text": "Soaking-wet coats and waterproofs should be left in the __________."
+            },
+            {
+              "qnum": "2",
+              "text": "Guests are allowed to swim only in the __________."
+            },
+            {
+              "qnum": "3",
+              "text": "From the second day, breakfast is served at __________."
+            },
+            {
+              "qnum": "4",
+              "text": "For the evening walk, each guest needs to bring a __________."
+            },
+            {
+              "qnum": "5",
+              "text": "When out on the hills, walkers should always carry a __________."
+            }
+          ],
+          "answers": [
+            {
+              "qnum": "1",
+              "answer": "drying room",
+              "notes": "Distractor-drop + place confusion: the 'boot store' in the porch is named first for muddy boots, then the answer is given for SOAKING items - 'anything actually soaking ... those go in the drying room'. The boot store is the mentioned-rejected distractor (it is for boots, not wet clothes). 'drying room' = 2 words, within limit. Source: \"anything actually soaking - coats, waterproofs, gloves - those go in the drying room\".",
+              "trap_mechanisms": [
+                "place_confusion",
+                "distractor_drop"
+              ]
+            },
+            {
+              "qnum": "2",
+              "answer": "lake",
+              "accept": [
+                "the lake"
+              ],
+              "notes": "Polarity + distractor-drop: both a 'river' and a 'lake' are introduced; the river is explicitly ruled out ('swimming there is strictly not allowed'), and swimming is 'only permitted in the lake'. Re-confirmed 'the lake, yes; the river, never'. 'river' is the mentioned-rejected lure. ONE-WORD answer natural. Source: \"Swimming is only permitted in the lake ... the lake, yes; the river, never.\"",
+              "trap_mechanisms": [
+                "polarity_flip",
+                "distractor_drop"
+              ]
+            },
+            {
+              "qnum": "3",
+              "answer": "7.30",
+              "accept": [
+                "7:30",
+                "7.30am",
+                "7.30 am"
+              ],
+              "notes": "Number/time + distractor-drop: a dinner time is mentioned first (self-corrected from 'six' to 'half past five') as a near-distractor figure, then the asked value - breakfast 'at half past seven'. The question keys on the SECOND-day breakfast, not the dinner time, so 6 / 5.30 are plausible-but-wrong figures. All accepted variants are <=2 words or a number. Source: \"breakfast is served at half past seven.\"",
+              "trap_mechanisms": [
+                "distractor_drop"
+              ]
+            },
+            {
+              "qnum": "4",
+              "answer": "head torch",
+              "accept": [
+                "(a) head torch"
+              ],
+              "notes": "Distractor-drop + emphasis: a 'phone' is raised then rejected ('not just a phone, a proper head torch, hands-free'). The answer is the head torch. 'head torch' = 2 words, within limit. Source: \"each of you must bring a head torch - not just a phone, a proper head torch, hands-free.\"",
+              "trap_mechanisms": [
+                "distractor_drop"
+              ]
+            },
+            {
+              "qnum": "5",
+              "answer": "whistle",
+              "accept": [
+                "(a) whistle"
+              ],
+              "notes": "Paraphrase + detail-pick: 'whenever you're out on the hills, do carry a whistle in your pocket'. The number 'six blasts' nearby is a distracting figure that does not answer the item. ONE-WORD answer. Source: \"do carry a whistle in your pocket; six blasts is the signal if you're ever in trouble.\"",
+              "trap_mechanisms": [
+                "paraphrase_t1"
+              ]
+            }
+          ]
+        },
+        {
+          "block_id": "S2_B2",
+          "question_range": "6-10",
+          "render": "sentence",
+          "rubric": "Complete the sentences below.\nWrite NO MORE THAN TWO WORDS for each answer.",
+          "title": "BRACKENFELL OUTDOOR PURSUITS CENTRE — ARRIVAL BRIEF (part 2)",
+          "lines": [
+            {
+              "qnum": "6",
+              "text": "In the morning, the canoeing group should go directly to the __________."
+            },
+            {
+              "qnum": "7",
+              "text": "Each member of the canoeing group is given a __________ wristband."
+            },
+            {
+              "qnum": "8",
+              "text": "The centre shop does not open on a __________."
+            },
+            {
+              "qnum": "9",
+              "text": "Guests are asked to separate their __________ into labelled bins."
+            },
+            {
+              "qnum": "10",
+              "text": "On leaving and returning to the building, everyone must sign the __________."
+            }
+          ],
+          "answers": [
+            {
+              "qnum": "6",
+              "answer": "boathouse",
+              "accept": [
+                "the boathouse"
+              ],
+              "notes": "Place confusion: three meeting points are listed - walkers at reception, climbers at the car park, and the canoeing group 'don't come to reception - you head straight down to the boathouse'. Reception is the cross-item distractor (it is the walkers' point). ONE-WORD answer. Source: \"you head straight down to the boathouse by the lake.\"",
+              "trap_mechanisms": [
+                "place_confusion",
+                "distractor_drop"
+              ]
+            },
+            {
+              "qnum": "7",
+              "answer": "green",
+              "notes": "Colour distractor-drop: kayakers 'wear red ones', but the canoeists are 'given a green wristband - green for canoeing'. Red is the mentioned-rejected colour belonging to the other group. The sentence supplies 'wristband', so the answer is the single colour word. Source: \"the kayakers wear red ones, but ... you'll each be given a green wristband - green for canoeing.\"",
+              "trap_mechanisms": [
+                "distractor_drop"
+              ]
+            },
+            {
+              "qnum": "8",
+              "answer": "Thursday",
+              "notes": "Forward distractor-drop + misconception flag: the warden flags the wrong day as a common mistaken belief in a clean separate clause, then states the key cleanly - 'People often think it's closed on a Wednesday, but it's actually closed on a Thursday'. Wednesday is the mentioned-rejected day; the key Thursday is stated without any retraction cue on it. ONE-WORD answer. Source: \"it's actually closed on a Thursday.\"",
+              "trap_mechanisms": [
+                "distractor_drop"
+              ]
+            },
+            {
+              "qnum": "9",
+              "answer": "recycling",
+              "notes": "Paraphrase + near-distractor: 'we ask everyone to separate their recycling - there are clearly labelled bins'. 'general rubbish' is named alongside (goes in the black bin) as a lexical near-distractor; the item asks what is separated into labelled bins = recycling. ONE-WORD answer. Source: \"we ask everyone to separate their recycling ... general rubbish goes in the black one.\"",
+              "trap_mechanisms": [
+                "paraphrase_t1",
+                "distractor_drop"
+              ]
+            },
+            {
+              "qnum": "10",
+              "answer": "register",
+              "accept": [
+                "the register"
+              ],
+              "notes": "Paraphrase T1: 'every time you leave the building and come back, you must sign the register at the front desk'. The 'noticeboard' mentioned early in the talk is a plausible-but-wrong place-name lure; the thing you SIGN is the register. ONE-WORD answer. Source: \"you must sign the register at the front desk.\"",
+              "trap_mechanisms": [
+                "paraphrase_t1"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,251 @@
+{
+  "test_id": "ILR-LIS-DRL-TABLE-L2-T1",
+  "title": "Listening Skill-Drill — Table Completion (S2) — Guided-tour packages",
+  "version": "1.0",
+  "target_band": 6.0,
+  "created": "2026-06-19",
+  "drill_id": "TABLE-L2-T1",
+  "drill_type": "table_completion",
+  "level": "L2",
+  "cluster": "C4 Travel & Leisure",
+  "topic_tags": {
+    "S2": "A tour guide comparing three guided-tour packages run by a coastal heritage trust (day, price, duration, what is included, meeting point)"
+  },
+  "accent_profile": [
+    "BrE"
+  ],
+  "total_words": 612,
+  "sections": [
+    {
+      "section_id": "S2",
+      "section_number": 2,
+      "context": "A guide from the Tarnmoor Heritage Trust gives a public talk to visitors in the village of Velderby, comparing three guided-tour packages so listeners can choose one",
+      "register": "public-facing monologue",
+      "word_count": 612,
+      "audio_intro": "You will hear a guide from a heritage trust describing three guided-tour packages to a group of visitors. First, you have some time to look at questions 1 to 10. [pause:30s] Now listen carefully and answer questions 1 to 10.",
+      "speakers": [
+        {
+          "speaker_id": "S2_F1",
+          "name": "Maeve Kesslyn",
+          "role": "Tour guide, Tarnmoor Heritage Trust",
+          "voice_profile": "[F-BrE-30s-professional]"
+        }
+      ],
+      "audio_script": [
+        {
+          "speaker_tag": "[F-BrE-30s-professional]",
+          "text": "[emotion:enthusiastic] Hello everyone, and welcome to Velderby. My name's Maeve, and I'm one of the guides here at the Tarnmoor Heritage Trust. Um, before you book anything at the desk, I'll talk you through our three guided-tour packages, so you can pick the one that suits you. There's a printed grid in your leaflet, but a couple of the boxes are blank on purpose — that's so you fill them in as we go.",
+          "voice_settings": {
+            "stability": 0.5,
+            "style": 0.45,
+            "_note": "Warm BrE guide intro"
+          }
+        },
+        {
+          "speaker_tag": "[F-BrE-30s-professional]",
+          "text": "[emotion:professional] So, let's start with the first one, the Coastal Explorer. It's our most popular, er, family-friendly walk along the shoreline. Now, you'd think a coastal walk would be a weekend thing, but actually the Coastal Explorer only runs midweek — it's a [stress:Wednesday] (Q1) tour, every Wednesday through the season."
+        },
+        {
+          "speaker_tag": "[F-BrE-30s-professional]",
+          "text": "The price for the Coastal Explorer is printed for you — eighteen pounds a head, and that already includes a hot lunch at the halfway point, so you won't go hungry. In terms of how long it takes, the Coastal Explorer is a [stress:three]-hour (Q2) tour — three hours, so a comfortable morning out. And you'll all meet for that one at the [stress:harbour office] (Q3), which is the little stone building right by the slipway, not at the car park."
+        },
+        {
+          "speaker_tag": "[F-BrE-30s-professional]",
+          "text": "Right, the second package is the Cliffside Ramble. This one's a bit more demanding — it climbs up onto the headland, so decent shoes, please. The day is already filled in on your grid: the Cliffside Ramble is a Saturday tour, the only one of the three that runs at the weekend."
+        },
+        {
+          "speaker_tag": "[F-BrE-30s-professional]",
+          "text": "Now for the cost. The Cliffside Ramble is a touch dearer than the Explorer because of the longer route — it's, um, twenty-five pounds (Q4) per person. So, that's twenty-five, not eighteen. As for the duration, this is our longest day walk: the Cliffside Ramble takes [stress:four] hours (Q5), a good half-day on the cliffs."
+        },
+        {
+          "speaker_tag": "[F-BrE-30s-professional]",
+          "text": "What's included on the Cliffside Ramble is printed there for you — every group goes out with a qualified guide, so you're in safe hands the whole way. And the meeting point for the Ramble is different again: you gather at [stress:Marrow Lane] (Q6), at the top of the village, where the footpath sign is. Marrow Lane, not the harbour."
+        },
+        {
+          "speaker_tag": "[F-BrE-30s-professional]",
+          "text": "And the third package is the one for keen photographers — the Twilight Photography tour. This one's a little special, so listen carefully. Most people assume it runs at the weekend like the Ramble, but no — the Twilight Photography tour goes out on a [stress:Friday] (Q7) evening, to catch the sunset light. Friday only."
+        },
+        {
+          "speaker_tag": "[F-BrE-30s-professional]",
+          "text": "Because it's a specialist tour with a smaller group, the Twilight Photography is our priciest — it's [stress:thirty] pounds (Q8) a head. Thirty, yes. The duration's already on your grid, that one's a shorter, two-hour session, timed around the sunset. What's included is the nice surprise: with the Twilight Photography tour we lend you a [stress:tripod] (Q9) each, free of charge, so you don't have to carry your own."
+        },
+        {
+          "speaker_tag": "[F-BrE-30s-professional]",
+          "text": "And finally, where you meet for the Twilight tour. It's not the harbour office and it's not Marrow Lane — for the photography evenings you head down to [stress:Kestrel Pier] (Q10), right at the water's edge, for the best view of the sky. So, that's Kestrel Pier for the Twilight Photography. Take a moment to check your grid, and then come over to the desk if you'd like to book. Thanks, everyone."
+        }
+      ],
+      "question_blocks": [
+        {
+          "block_id": "S2_B1",
+          "question_range": "1-10",
+          "render": "table",
+          "rubric": "Complete the table below.\nWrite NO MORE THAN TWO WORDS AND/OR A NUMBER for each answer.",
+          "title": "TARNMOOR HERITAGE TRUST — GUIDED-TOUR PACKAGES",
+          "columns": [
+            "Tour package",
+            "Day",
+            "Price (£)",
+            "Duration",
+            "Includes",
+            "Meets at"
+          ],
+          "column_widths": [
+            22,
+            14,
+            13,
+            14,
+            17,
+            20
+          ],
+          "rows": [
+            [
+              "Coastal Explorer",
+              "{Q1}",
+              "18",
+              "{Q2}",
+              "hot lunch",
+              "{Q3}"
+            ],
+            [
+              "Cliffside Ramble",
+              "Saturday",
+              "{Q4}",
+              "{Q5}",
+              "qualified guide",
+              "{Q6}"
+            ],
+            [
+              "Twilight Photography",
+              "{Q7}",
+              "{Q8}",
+              "2 hours",
+              "{Q9}",
+              "{Q10}"
+            ]
+          ],
+          "questions": [
+            { "qnum": "1", "question": "Coastal Explorer — Day" },
+            { "qnum": "2", "question": "Coastal Explorer — Duration" },
+            { "qnum": "3", "question": "Coastal Explorer — Meets at" },
+            { "qnum": "4", "question": "Cliffside Ramble — Price (£)" },
+            { "qnum": "5", "question": "Cliffside Ramble — Duration" },
+            { "qnum": "6", "question": "Cliffside Ramble — Meets at" },
+            { "qnum": "7", "question": "Twilight Photography — Day" },
+            { "qnum": "8", "question": "Twilight Photography — Price (£)" },
+            { "qnum": "9", "question": "Twilight Photography — Includes" },
+            { "qnum": "10", "question": "Twilight Photography — Meets at" }
+          ],
+          "answers": [
+            {
+              "qnum": "1",
+              "answer": "Wednesday",
+              "notes": "Expectation-violation distractor: the guide flags that a coastal walk 'sounds like a weekend thing' but the Coastal Explorer 'only runs midweek — it's a Wednesday tour'. Weekend/Saturday is the rejected lure. Source: \"the Coastal Explorer only runs midweek — it's a Wednesday tour, every Wednesday through the season.\"",
+              "trap_mechanisms": [
+                "distractor_drop",
+                "paraphrase_t1"
+              ]
+            },
+            {
+              "qnum": "2",
+              "answer": "3 hours",
+              "accept": [
+                "three hours",
+                "3"
+              ],
+              "notes": "Number + paraphrase: 'how long it takes' -> 'three-hour tour … three hours'. Self-consistent: shortest of the two day walks, a 'comfortable morning'. Source: \"the Coastal Explorer is a three-hour tour — three hours.\"",
+              "trap_mechanisms": [
+                "paraphrase_t1"
+              ]
+            },
+            {
+              "qnum": "3",
+              "answer": "harbour office",
+              "notes": "Place confusion: meeting point is the 'harbour office … not at the car park'; the car park is the mentioned-then-rejected distractor. Two words, within limit. Source: \"meet for that one at the harbour office … not at the car park.\"",
+              "trap_mechanisms": [
+                "place_confusion",
+                "distractor_drop"
+              ]
+            },
+            {
+              "qnum": "4",
+              "answer": "25",
+              "accept": [
+                "£25",
+                "twenty-five",
+                "25 pounds"
+              ],
+              "notes": "Number with a printed-distractor contrast: 'twenty-five pounds … twenty-five, not eighteen' — eighteen (the Explorer's printed price) is the lure. Column header carries the £, so the key is the bare figure. Self-consistent: dearer than the £18 Explorer, cheaper than the £30 specialist tour. Source: \"it's, um, twenty-five pounds per person. So, that's twenty-five, not eighteen.\"",
+              "trap_mechanisms": [
+                "distractor_drop"
+              ]
+            },
+            {
+              "qnum": "5",
+              "answer": "4 hours",
+              "accept": [
+                "four hours",
+                "4"
+              ],
+              "notes": "Number + paraphrase 'duration' -> 'takes four hours … a good half-day'. Self-consistent: explicitly 'our longest day walk', so longer than the 3-hour Explorer. Source: \"the Cliffside Ramble takes four hours, a good half-day on the cliffs.\"",
+              "trap_mechanisms": [
+                "paraphrase_t1"
+              ]
+            },
+            {
+              "qnum": "6",
+              "answer": "Marrow Lane",
+              "notes": "Place confusion across rows: 'the meeting point for the Ramble is different again … Marrow Lane, not the harbour' — the harbour office (Q3 answer) is the cross-row distractor. Source: \"you gather at Marrow Lane, at the top of the village … Marrow Lane, not the harbour.\"",
+              "trap_mechanisms": [
+                "place_confusion",
+                "backward_reference"
+              ]
+            },
+            {
+              "qnum": "7",
+              "answer": "Friday",
+              "notes": "Expectation-violation + cross-row distractor: 'Most people assume it runs at the weekend like the Ramble, but no … on a Friday evening'. Saturday (the Ramble's day) is the rejected lure. Source: \"the Twilight Photography tour goes out on a Friday evening … Friday only.\"",
+              "trap_mechanisms": [
+                "distractor_drop",
+                "backward_reference"
+              ]
+            },
+            {
+              "qnum": "8",
+              "answer": "30",
+              "accept": [
+                "£30",
+                "thirty",
+                "30 pounds"
+              ],
+              "notes": "Number; flagged as 'our priciest', self-consistent against the printed £18 and £25 in the same column (those serve as the dropped distractors). Column header carries the £, so the key is the bare figure. Source: \"it's thirty pounds a head. Thirty, yes.\"",
+              "trap_mechanisms": [
+                "distractor_drop"
+              ]
+            },
+            {
+              "qnum": "9",
+              "answer": "tripod",
+              "accept": [
+                "a tripod",
+                "free tripod"
+              ],
+              "notes": "Paraphrase 'what's included' -> 'we lend you a tripod each, free of charge'. One word, within limit. Source: \"with the Twilight Photography tour we lend you a tripod each, free of charge.\"",
+              "trap_mechanisms": [
+                "paraphrase_t2"
+              ]
+            },
+            {
+              "qnum": "10",
+              "answer": "Kestrel Pier",
+              "notes": "Place confusion, three-way: 'not the harbour office and it's not Marrow Lane … you head down to Kestrel Pier'. Both earlier meeting points (Q3, Q6) are voiced and rejected. Source: \"for the photography evenings you head down to Kestrel Pier, right at the water's edge … that's Kestrel Pier for the Twilight Photography.\"",
+              "trap_mechanisms": [
+                "place_confusion",
+                "distractor_drop"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
