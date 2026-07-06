@@ -251,7 +251,11 @@ _AUDIT_SYSTEM = (
     "(verbatim or clear paraphrase)? If not → error.\n"
     "2) solution_consistency: does the explanation/notes contradict the keyed "
     "answer? If so → error.\n"
-    "3) prompt_clarity: is the question prompt garbled/empty/ambiguous? → warning.\n"
+    "3) prompt_clarity: is the question prompt EMPTY or genuinely nonsensical? → warning.\n"
+    "IMPORTANT: completion-family questions (form/note/table/sentence/summary/"
+    "flow_chart/short_answer) render the blank as a SEPARATE input widget, so a "
+    "prompt with no visible '___'/underscore is NORMAL — do NOT flag prompt_clarity "
+    "for a missing blank indicator. Only flag truly empty or garbled prompts.\n"
     "Return ONLY a JSON array; each item "
     '{"q_num":N,"code":"answer_in_script|solution_consistency|prompt_clarity",'
     '"severity":"error|warning","message":"short vi"}. '
