@@ -29,7 +29,7 @@ from __future__ import annotations
 import logging
 import os
 import uuid
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import (
     APIRouter, BackgroundTasks, File, Form, Header, HTTPException, Query,
@@ -52,6 +52,7 @@ from services.listening_validator import (
 from services import listening_convert
 from services import listening_fulltest_import
 from services import listening_drill_import
+from services import listening_audit as listening_audit_svc
 
 logger = logging.getLogger(__name__)
 
@@ -3535,6 +3536,316 @@ async def admin_import_drill_commit(
         "next_step":         ("Mở /admin/listening/tests → publish khi đã có audio."
                               if audio_bytes else
                               "Đã import metadata (chưa có audio) — thêm audio rồi publish."),
+    }
+
+
+# ── Content audit (verify + fix in place, no re-import) ──────────────────────
+
+def _fetch_test_audit_rows(test_id: str) -> tuple[dict, list[dict], list[dict]]:
+    """Fetch a test + its content + exercises (FULL payload incl. answers — admin
+    only) for the audit engine. Raises 404 if the test is missing."""
+    tr = supabase_admin.table("listening_tests").select("*").eq("id", test_id).limit(1).execute()
+    if not tr.data:
+        raise HTTPException(404, "Test not found")
+    test = tr.data[0]
+    contents = (supabase_admin.table("listening_content")
+                .select("*").eq("test_id", test_id).execute().data or [])
+    content_ids = [c["id"] for c in contents]
+    exercises: list[dict] = []
+    if content_ids:
+        exercises = (supabase_admin.table("listening_exercises")
+                     .select("*").in_("content_id", content_ids).execute().data or [])
+    return test, contents, exercises
+
+
+def _load_audit_row(test_id: str) -> dict | None:
+    r = (supabase_admin.table("listening_audit").select("*")
+         .eq("test_id", test_id).limit(1).execute())
+    return r.data[0] if r.data else None
+
+
+@admin_router.get("/tests/{test_id}/audit")
+async def admin_get_test_audit(
+    test_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Fast structural + audio-bounds audit of a persisted test (NO LLM, no
+    writes). Returns the live issue list + the last saved audit row (status /
+    notes / previous full-run health). The admin audit dashboard + detail page
+    call this to render health without a re-import."""
+    await require_admin(authorization)
+    test, contents, exercises = _fetch_test_audit_rows(test_id)
+    h = listening_audit_svc.hydrate_test(test, contents, exercises)
+    report = listening_audit_svc.run_structural(h)
+    saved = _load_audit_row(test_id)
+    # Editor view — the fields the audit-detail page renders + edits inline.
+    editor_sections = [{
+        "section_num": s["section_num"],
+        "content_id":  s["content_id"],
+        "transcript":  s["transcript"],
+        "questions": [{
+            "q_num":         q["q_num"],
+            "exercise_id":   q["exercise_id"],
+            "template_kind": q["template_kind"],
+            "prompt":        q["prompt"],
+            "answer":        q["answer"],
+            "alternatives":  q["alternatives"],
+            "solution":      q["notes"],
+            "audio_window":  q["audio_window"],
+        } for q in s["questions"]],
+    } for s in h["sections"]]
+    return {
+        "test_id":     test.get("test_id"),
+        "uuid":        test_id,
+        "title":       test.get("title"),
+        "status":      test.get("status"),
+        "test_type":   (test.get("metadata") or {}).get("test_type"),
+        "question_count": len(h["all_questions"]),
+        "section_count":  len(h["sections"]),
+        "sections":    editor_sections,   # for the inline editor
+        "live":        report,            # {issues, health} from THIS structural run
+        "saved":       saved,             # persisted listening_audit row (may be null)
+    }
+
+
+def _audit_provider():
+    from services.grading_orchestrator import _build_grading_primary
+    anthropic_key = getattr(settings, "ANTHROPIC_API_KEY", "") or ""
+    gemini_key = getattr(settings, "GEMINI_API_KEY", "") or ""
+    try:
+        return _build_grading_primary(settings.LISTENING_AUDIT_MODEL, anthropic_key, gemini_key)
+    except Exception:
+        return None
+
+
+@admin_router.post("/tests/{test_id}/audit/run")
+async def admin_run_test_audit(
+    test_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Full audit: structural + audio-bounds + LLM content pass. PERSISTS the
+    result to listening_audit (one row per test) and sets status
+    passed/has_issues. The LLM pass degrades to an 'inconclusive' warning if no
+    model key is configured or the call fails — it never blocks the structural
+    result."""
+    user = await require_admin(authorization)
+    test, contents, exercises = _fetch_test_audit_rows(test_id)
+    h = listening_audit_svc.hydrate_test(test, contents, exercises)
+
+    issues = (listening_audit_svc.structural_checks(h)
+              + listening_audit_svc.audio_bounds_checks(h))
+
+    provider = _audit_provider()
+    if provider is None:
+        issues.append({"q_num": None, "dimension": "solution", "severity": "warning",
+                       "code": "llm_skipped", "resolved": False,
+                       "message": "Chưa cấu hình model audit (LISTENING_AUDIT_MODEL/API key) — bỏ qua LLM pass."})
+    else:
+        issues.extend(await listening_audit_svc.llm_content_audit(h, provider.invoke))
+
+    health = {**listening_audit_svc.summarize(issues),
+              "question_count": len(h["all_questions"]),
+              "llm_model": settings.LISTENING_AUDIT_MODEL if provider else None}
+    status = health["status"]
+
+    row = {
+        "test_id":  test_id,
+        "status":   status,
+        "health":   health,
+        "issues":   issues,
+        "auditor":  (user or {}).get("id") or (user or {}).get("email"),
+    }
+    # upsert on the unique test_id
+    existing = _load_audit_row(test_id)
+    if existing:
+        supabase_admin.table("listening_audit").update(row).eq("test_id", test_id).execute()
+    else:
+        supabase_admin.table("listening_audit").insert(row).execute()
+
+    return {"test_id": test.get("test_id"), "uuid": test_id,
+            "health": health, "issues": issues, "status": status}
+
+
+class AuditTriageRequest(BaseModel):
+    """Human triage of a persisted audit: update reviewer status / notes and/or
+    mark specific issues resolved (by index into the saved issues array)."""
+    model_config = ConfigDict(extra="forbid")
+    status:          str | None = None       # 'pending'|'passed'|'has_issues'|'fixed'
+    notes:           str | None = None
+    resolved_indexes: list[int] | None = None
+
+
+_AUDIT_STATUSES = {"pending", "passed", "has_issues", "fixed"}
+
+
+@admin_router.patch("/tests/{test_id}/audit")
+async def admin_triage_test_audit(
+    test_id: str,
+    body: AuditTriageRequest,
+    authorization: str | None = Header(default=None),
+):
+    """Reviewer triage — set audit status / notes and mark issues resolved. Does
+    NOT re-run checks (use POST .../audit/run for that)."""
+    await require_admin(authorization)
+    row = _load_audit_row(test_id)
+    if not row:
+        raise HTTPException(404, "Chưa có bản audit cho test này — chạy audit trước.")
+    patch: dict[str, Any] = {}
+    if body.status is not None:
+        if body.status not in _AUDIT_STATUSES:
+            raise HTTPException(422, f"status phải thuộc {sorted(_AUDIT_STATUSES)}.")
+        patch["status"] = body.status
+    if body.notes is not None:
+        patch["notes"] = body.notes
+    if body.resolved_indexes is not None:
+        issues = list(row.get("issues") or [])
+        for i in body.resolved_indexes:
+            if 0 <= i < len(issues):
+                issues[i] = {**issues[i], "resolved": True}
+        patch["issues"] = issues
+    if not patch:
+        raise HTTPException(422, "Không có gì để cập nhật.")
+    supabase_admin.table("listening_audit").update(patch).eq("test_id", test_id).execute()
+    return {"test_id": test_id, **patch}
+
+
+class QuestionEditRequest(BaseModel):
+    """In-place edit of ONE question inside a test-bundle exercise payload. All
+    fields optional (partial update). Editing here never re-imports the test."""
+    model_config = ConfigDict(extra="forbid")
+    answer:          str | None = None
+    alternatives:    list[str] | None = None
+    prompt:          str | None = None
+    solution:        str | None = None            # → solutions[q].why_correct + answers.notes
+    trap_mechanisms: list[str] | None = None
+    audio_window:    dict[str, Any] | None = None  # {start, end, section?}
+
+
+def _fetch_exercise_ctx(exercise_id: str) -> tuple[dict, dict, dict]:
+    """Return (exercise, content, test) for an exercise — for accurate audit
+    bounds after an in-place edit. Raises 404 if the exercise is missing."""
+    er = (supabase_admin.table("listening_exercises").select("*")
+          .eq("id", exercise_id).limit(1).execute())
+    if not er.data:
+        raise HTTPException(404, "Exercise not found")
+    ex = er.data[0]
+    content = {}
+    cr = (supabase_admin.table("listening_content").select("*")
+          .eq("id", ex.get("content_id")).limit(1).execute())
+    if cr.data:
+        content = cr.data[0]
+    test = {}
+    if content.get("test_id"):
+        tr = (supabase_admin.table("listening_tests").select("*")
+              .eq("id", content["test_id"]).limit(1).execute())
+        if tr.data:
+            test = tr.data[0]
+    return ex, content, test
+
+
+@admin_router.patch("/exercises/{exercise_id}/questions/{q_num}")
+async def admin_edit_exercise_question(
+    exercise_id: str,
+    q_num: int,
+    body: QuestionEditRequest,
+    authorization: str | None = Header(default=None),
+):
+    """Edit ONE question in place — answer / alternatives / prompt / solution /
+    trap_mechanisms / audio_window — writing straight into the exercise payload
+    JSONB. This is the core "fix without re-import" primitive behind the audit
+    editor. Preserves mcq_multi grouping (group_key is derived from answers[0]
+    at grade time, so per-slot edits stay valid). Returns the updated question +
+    a fresh structural/audio re-check for it."""
+    await require_admin(authorization)
+    ex, content, test = _fetch_exercise_ctx(exercise_id)
+    payload = dict(ex.get("payload") or {})
+
+    def _int(x):
+        try: return int(str(x).strip())
+        except (TypeError, ValueError): return None
+
+    questions = list(payload.get("questions") or [])
+    answers = list(payload.get("answers") or [])
+    q_idx = next((i for i, q in enumerate(questions) if _int(q.get("q_num")) == q_num), None)
+    if q_idx is None:
+        raise HTTPException(404, f"Câu {q_num} không có trong exercise này.")
+    a_idx = next((i for i, a in enumerate(answers) if _int(a.get("q_num")) == q_num), None)
+
+    changed: list[str] = []
+    if body.prompt is not None:
+        questions[q_idx] = {**questions[q_idx], "prompt": body.prompt}
+        changed.append("prompt")
+
+    if a_idx is not None:
+        ans = dict(answers[a_idx])
+        if body.answer is not None:
+            ans["answer"] = body.answer; changed.append("answer")
+        if body.alternatives is not None:
+            ans["alternatives"] = body.alternatives; changed.append("alternatives")
+        if body.trap_mechanisms is not None:
+            ans["trap_mechanisms"] = body.trap_mechanisms; changed.append("trap_mechanisms")
+        if body.solution is not None:
+            ans["notes"] = body.solution; changed.append("solution")
+        answers[a_idx] = ans
+    elif any(v is not None for v in (body.answer, body.alternatives, body.trap_mechanisms, body.solution)):
+        raise HTTPException(422, f"Câu {q_num} không có answer entry để sửa đáp án/bài giải.")
+
+    payload["questions"] = questions
+    payload["answers"] = answers
+
+    if body.solution is not None:
+        sols = dict(payload.get("solutions") or {})
+        cur = dict(sols.get(str(q_num)) or {})
+        cur["why_correct"] = body.solution
+        if body.answer is not None:
+            cur["answer"] = body.answer
+        sols[str(q_num)] = cur
+        payload["solutions"] = sols
+
+    if body.audio_window is not None:
+        w = body.audio_window
+        s, e = w.get("start"), w.get("end")
+        if s is None or e is None:
+            raise HTTPException(422, "audio_window cần cả start và end.")
+        try:
+            s, e = float(s), float(e)
+        except (TypeError, ValueError):
+            raise HTTPException(422, "audio_window start/end phải là số.")
+        if e <= s:
+            raise HTTPException(422, f"audio_window không hợp lệ (end ≤ start: {s}–{e}).")
+        wins = dict(payload.get("audio_windows") or {})
+        new_w = {"start": round(s, 2), "end": round(e, 2)}
+        if w.get("section"):
+            new_w["section"] = w["section"]
+        elif isinstance(wins.get(str(q_num)), dict) and wins[str(q_num)].get("section"):
+            new_w["section"] = wins[str(q_num)]["section"]
+        wins[str(q_num)] = new_w
+        payload["audio_windows"] = wins
+        changed.append("audio_window")
+
+    if not changed:
+        raise HTTPException(422, "Không có trường nào để sửa.")
+
+    supabase_admin.table("listening_exercises").update(
+        {"payload": payload}).eq("id", exercise_id).execute()
+
+    # Re-check just this question (structural + audio bounds) so the editor can
+    # show whether the fix cleared the issue.
+    updated_ex = {**ex, "payload": payload}
+    h = listening_audit_svc.hydrate_test(test or {"id": content.get("test_id")},
+                                         [content] if content else [], [updated_ex])
+    issues = [i for i in (listening_audit_svc.structural_checks(h)
+                          + listening_audit_svc.audio_bounds_checks(h))
+              if i.get("q_num") == q_num]
+
+    q_view = next((q for q in h["all_questions"] if q["q_num"] == q_num), None)
+    return {
+        "exercise_id": exercise_id,
+        "q_num":       q_num,
+        "changed":     changed,
+        "question":    q_view,
+        "issues":      issues,
+        "ok":          not any(i["severity"] == "error" for i in issues),
     }
 
 

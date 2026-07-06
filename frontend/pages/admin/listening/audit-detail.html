@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Audit test · Listening · Admin · Aver Learning</title>
+
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-status.css" />
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2.107.0" defer></script>
+  <script src="/js/api.js"></script>
+
+  <style>
+    body.av-page { font-family: var(--av-font-sans); margin: 0; }
+    .ad-shell { max-width: 1100px; margin: 0 auto; padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-4); }
+    .ad-back a { color: var(--av-text-secondary); font-size: var(--av-fs-sm); text-decoration: none; }
+    .ad-head h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-semibold); margin: 0 0 var(--av-space-1); }
+    .ad-head .mono { font-family: var(--av-font-mono); font-size: var(--av-fs-xs); color: var(--av-text-muted); }
+
+    .ad-card { border: 1px solid var(--av-border-default); border-radius: var(--av-radius-md);
+      background: var(--av-surface-card); padding: var(--av-space-4);
+      display: flex; flex-direction: column; gap: var(--av-space-3); }
+    .ad-toolbar { display: flex; flex-wrap: wrap; gap: var(--av-space-3); align-items: center; }
+    .ad-btn { padding: var(--av-space-2) var(--av-space-4); border-radius: var(--av-radius-md);
+      background: var(--av-brand-teal-700); color: var(--av-text-on-primary); border: none;
+      font-size: var(--av-fs-sm); font-weight: var(--av-fw-semibold); cursor: pointer; }
+    .ad-btn.secondary { background: transparent; color: var(--av-brand-teal-700); border: 1px solid var(--av-brand-teal-200); }
+    .ad-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+    .ad-btn.mini { padding: 3px 10px; font-size: var(--av-fs-xs); }
+
+    .ad-pill { font-size: var(--av-fs-xs); font-weight: var(--av-fw-semibold); padding: 1px 9px; border-radius: 999px; }
+    .ad-pill.ok   { background: var(--av-success-soft); color: var(--av-success); }
+    .ad-pill.err  { background: var(--av-error-soft); color: var(--av-error); }
+    .ad-pill.warn { background: var(--av-warning-soft); color: var(--av-warning); }
+    .ad-pill.muted{ background: var(--av-surface-sunken); color: var(--av-text-muted); }
+
+    .ad-player-wrap { position: sticky; top: 8px; z-index: 5; }
+    .ad-section-title { font-size: var(--av-fs-sm); font-weight: var(--av-fw-semibold);
+      text-transform: uppercase; letter-spacing: var(--av-tracking-wide); color: var(--av-text-secondary); }
+    .ad-transcript { width: 100%; min-height: 120px; resize: vertical; font-family: var(--av-font-sans);
+      font-size: var(--av-fs-sm); padding: var(--av-space-3); border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-sm); background: var(--av-surface-page, var(--av-surface-card)); color: var(--av-text-primary); }
+
+    .ad-q { border: 1px solid var(--av-border-default); border-radius: var(--av-radius-sm);
+      padding: var(--av-space-3); display: flex; flex-direction: column; gap: var(--av-space-2); }
+    .ad-q.has-err { border-color: var(--av-error); }
+    .ad-q-top { display: flex; align-items: center; gap: var(--av-space-2); flex-wrap: wrap; }
+    .ad-q-num { font-family: var(--av-font-mono); font-weight: var(--av-fw-bold); color: var(--av-brand-teal-700); }
+    .ad-field { display: flex; flex-direction: column; gap: 2px; }
+    .ad-field label { font-size: var(--av-fs-xs); color: var(--av-text-muted); text-transform: uppercase; letter-spacing: var(--av-tracking-wide); }
+    .ad-field input, .ad-field textarea { font-size: var(--av-fs-sm); padding: 6px 9px;
+      border: 1px solid var(--av-border-default); border-radius: var(--av-radius-sm);
+      background: var(--av-surface-page, var(--av-surface-card)); color: var(--av-text-primary); font-family: inherit; }
+    .ad-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--av-space-2); }
+    .ad-win { display: flex; gap: var(--av-space-2); align-items: end; }
+    .ad-win input { width: 90px; }
+    .ad-issues { display: flex; flex-wrap: wrap; gap: 6px; }
+    .ad-note { color: var(--av-text-muted); font-size: var(--av-fs-sm); }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body class="av-page">
+  <aver-admin-chrome active="listening" subsection="audit">
+    <main class="ad-shell">
+      <div class="ad-back"><a href="/pages/admin/listening/audit.html">← Danh sách audit</a></div>
+
+      <header class="ad-head">
+        <h1 id="ad-title">Đang tải…</h1>
+        <div class="mono" id="ad-meta"></div>
+      </header>
+
+      <section class="ad-card">
+        <div class="ad-toolbar">
+          <span id="ad-health" class="ad-pill muted">…</span>
+          <button class="ad-btn" id="ad-run">Chạy audit đầy đủ (LLM)</button>
+          <span class="ad-note" id="ad-run-status"></span>
+        </div>
+        <div class="ad-toolbar">
+          <div class="ad-field"><label for="ad-status">Trạng thái</label>
+            <select id="ad-status">
+              <option value="pending">Chưa audit</option>
+              <option value="passed">Đạt</option>
+              <option value="has_issues">Có lỗi</option>
+              <option value="fixed">Đã sửa</option>
+            </select>
+          </div>
+          <div class="ad-field" style="flex:1; min-width:240px;"><label for="ad-notes">Ghi chú</label>
+            <input id="ad-notes" type="text" placeholder="Ghi chú của người duyệt…" /></div>
+          <button class="ad-btn secondary" id="ad-triage">Lưu trạng thái</button>
+        </div>
+      </section>
+
+      <div class="ad-player-wrap">
+        <audio-player id="ad-player" compact></audio-player>
+        <span class="ad-note" id="ad-player-label">🔊 Bấm “nghe” ở mỗi câu để phát đúng đoạn đáp án.</span>
+      </div>
+
+      <div id="ad-sections"></div>
+      <div class="ad-note" id="ad-error" hidden></div>
+    </main>
+  </aver-admin-chrome>
+
+  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
+  <script type="module" src="/js/components/audio-player.js"></script>
+  <script src="/js/admin-listening-audit-detail.js" defer></script>
+</body>
+</html>

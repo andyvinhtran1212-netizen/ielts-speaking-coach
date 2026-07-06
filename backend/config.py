@@ -44,6 +44,12 @@ class Settings(BaseSettings):
     # Empty string → fall back to the legacy Haiku-first chain. Needs GEMINI_API_KEY.
     SPEAKING_GRADING_MODEL: str = "gemini-3.5-flash"
 
+    # LISTENING_AUDIT_MODEL — the LLM used by the listening content-audit pass
+    # (answer-in-script / solution-consistency / prompt-clarity). Routes by the
+    # same "gemini-*"/"claude-*" prefix convention as SPEAKING_GRADING_MODEL. A
+    # cheap flash model is plenty for a per-question sanity check.
+    LISTENING_AUDIT_MODEL: str = "gemini-3.5-flash"
+
     # Speech-to-text model (audit 2026-07-02, finding #5). Default whisper-1 —
     # the only OpenAI STT that returns verbose_json (per-segment avg_logprob +
     # duration), which the transcript-reliability classifier and duration guards
