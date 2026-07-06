@@ -317,6 +317,32 @@ class WritingFeedbackDeep(WritingFeedback):
 
 # ── Input/config types ────────────────────────────────────────────────
 
+class PromptImageDataPoint(BaseModel):
+    """One salient figure from a Task 1 chart, for accuracy checking."""
+    label: str = Field(..., max_length=200)
+    value: str = Field(..., max_length=80)
+    unit:  Optional[str] = Field(None, max_length=40)
+
+
+class PromptImageAnalysis(BaseModel):
+    """Verified Task 1 "answer key" extracted once from the prompt chart and
+    admin-reviewed (see docs/WRITING_TASK1_ANALYSIS_SPEC.md). Stored on
+    writing_prompts.prompt_image_analysis and snapshotted onto the essay; the
+    grader injects it to anchor Task Achievement accuracy. `key_features` is what
+    a band-9 response must cover; `notable_data` are the checkable figures. For
+    map/process visuals `notable_data` may be empty and `grading_note` tells the
+    grader to lean on the image (which is still sent multimodally)."""
+
+    chart_type: Literal[
+        'line', 'bar', 'pie', 'table', 'map', 'process', 'mixed'
+    ] = 'mixed'
+    overview: str = Field(..., max_length=1000)
+    key_features: List[str] = Field(default_factory=list, max_length=12)
+    notable_data: List[PromptImageDataPoint] = Field(default_factory=list, max_length=40)
+    axes_or_categories: Optional[str] = Field(None, max_length=600)
+    grading_note: Optional[str] = Field(None, max_length=600)
+
+
 class GraderConfig(BaseModel):
     """Configuration for grade_essay() call."""
 
@@ -392,6 +418,13 @@ class GraderConfig(BaseModel):
     # snapshot URL 404s while the prompt still points at a live image. None for
     # non-task1_academic and for essays with no assignment/prompt link.
     prompt_image_url_fallback: Optional[str] = None
+
+    # Verified Task 1 "answer key" (PromptImageAnalysis, serialized to dict).
+    # Present ONLY for task1_academic essays whose source prompt has a
+    # REVIEWED analysis (safety gate — un-reviewed extraction never grades).
+    # The grader injects it to anchor Task Achievement accuracy; the chart image
+    # is still sent alongside (augment, not replace). None = grade as before.
+    prompt_image_facts: Optional[dict] = None
 
 
 class GradingResult(BaseModel):
