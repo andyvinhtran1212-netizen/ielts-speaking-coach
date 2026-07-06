@@ -15,14 +15,16 @@
   var SUPABASE_URL  = 'https://huwsmtubwulikhlmcirx.supabase.co';
   var SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
 
+  // C4: api.js installs the CANONICAL window.WC.escapeHtml and loads first on
+  // every authenticated page. This local copy is installed into window.WC only
+  // as a fallback (below) for the case api.js hasn't run. It MUST be a direct
+  // implementation, NOT a delegate to window.WC.escapeHtml — this module is the
+  // one that assigns that property, so delegating would make it call itself →
+  // infinite recursion (RangeError: Maximum call stack size exceeded).
   function escapeHtml(s) {
-    // C4: delegate to the shared escaper (window.WC.escapeHtml, api.js);
-    // local fallback kept so this module is safe if window.WC hasn't loaded.
-    return (typeof window !== 'undefined' && window.WC && window.WC.escapeHtml)
-      ? window.WC.escapeHtml(s)
-      : String(s == null ? '' : s)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
   function debounce(fn, ms) {
@@ -90,11 +92,18 @@
     } catch (_) { /* some browsers block on unsecure origins */ }
   }
 
-  window.WC = {
-    bootstrap: bootstrap,
-    requestNotifyPermission: requestNotifyPermission,
-    notify: notify,
-    escapeHtml: escapeHtml,
-    debounce: debounce,
-  };
+  // Merge into window.WC — never reassign the object wholesale. api.js runs
+  // first and installs the canonical window.WC.escapeHtml; replacing window.WC
+  // here would drop that canonical escaper (audit C4) and, combined with the old
+  // delegating local escaper, made window.WC.escapeHtml point at itself →
+  // infinite recursion. Merge our helpers in; install the local escapeHtml only
+  // as a fallback when the canonical one isn't already present.
+  window.WC = window.WC || {};
+  window.WC.bootstrap = bootstrap;
+  window.WC.requestNotifyPermission = requestNotifyPermission;
+  window.WC.notify = notify;
+  window.WC.debounce = debounce;
+  if (typeof window.WC.escapeHtml !== 'function') {
+    window.WC.escapeHtml = escapeHtml;
+  }
 })();
