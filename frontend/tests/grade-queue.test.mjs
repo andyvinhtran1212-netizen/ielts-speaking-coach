@@ -82,6 +82,22 @@ describe('queue.html — table + row → grade.html + queue-context', () => {
 });
 
 
+describe('queue.html — Task 1 "graded without image" badge', () => {
+  test('renders q-badge-noimg only when e.task1_image_missing', () => {
+    assert.match(JS, /e\.task1_image_missing/);
+    assert.match(JS, /q-badge-noimg/);
+    // Badge is appended into the Task column cell.
+    assert.match(JS, /\$\{escapeHtml\(task\)\}\$\{lvl\}\$\{noImg\}/);
+  });
+  test('badge styled token-only (warning tokens, no raw hex)', () => {
+    assert.match(HTML, /\.q-badge-noimg\s*\{[\s\S]*?var\(--av-warning/);
+    const block = HTML.match(/\.q-badge-noimg\s*\{[^}]*\}/);
+    assert.ok(block, 'q-badge-noimg CSS present');
+    assert.doesNotMatch(block[0], /#[0-9a-fA-F]{3,6}\b/);
+  });
+});
+
+
 describe('queue.html — bulk-deliver (reviewed-only, partial-success, refetch)', () => {
   test('GET /admin/writing/essays?status= drives the lane', () => {
     assert.match(JS, /\/admin\/writing\/essays\?limit=200/);

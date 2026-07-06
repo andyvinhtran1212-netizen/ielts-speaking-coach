@@ -1371,3 +1371,61 @@ def test_detail_skips_fallback_for_non_task1_academic():
     assert "prompt_image_url_fallback" not in out
     # No assignment/prompt lookup for non-Task1Academic essays.
     assert not any(c["table"] == "writing_assignments" for c in fake.calls)
+
+
+# ── list_essays — Task 1 "graded without image" badge flag ────────────
+
+def _caveat_summary():
+    from services.gemini_writing_grader import GeminiWritingGrader
+    fb = GeminiWritingGrader._inject_missing_image_caveat(
+        WritingFeedback.model_construct(overallBandScoreSummary="Bài khá tốt."))
+    return fb.overallBandScoreSummary
+
+
+def test_list_essays_flags_task1_graded_without_image():
+    t1_id, t2_id, t1_ok_id = "e1", "e2", "e3"
+    fake = _FakeSupabase(responses={
+        ("writing_essays", "select"): [
+            {"id": t1_id,    "student_id": _STUDENT_ID, "task_type": "task1_academic", "status": "graded"},
+            {"id": t2_id,    "student_id": _STUDENT_ID, "task_type": "task2",          "status": "graded"},
+            {"id": t1_ok_id, "student_id": _STUDENT_ID, "task_type": "task1_academic", "status": "graded"},
+        ],
+        ("students", "select"): [{"id": _STUDENT_ID, "full_name": "X", "student_code": "S1"}],
+        ("writing_feedback", "select"): [
+            {"essay_id": t1_id,    "overall_band_score": 7.0, "feedback_json": {"overallBandScoreSummary": _caveat_summary()}},
+            {"essay_id": t2_id,    "overall_band_score": 6.5, "feedback_json": {"overallBandScoreSummary": "⚠️ Cảnh báo khác."}},
+            {"essay_id": t1_ok_id, "overall_band_score": 8.0, "feedback_json": {"overallBandScoreSummary": "Bài rất tốt."}},
+        ],
+        ("writing_assignments", "select"): [],
+    })
+    with patch.object(essay_service, "supabase_admin", fake):
+        rows = essay_service.list_essays()
+    flags = {r["id"]: r["task1_image_missing"] for r in rows}
+    assert flags[t1_id] is True        # task1_academic + caveat → flagged
+    assert flags[t2_id] is False       # task2 never flagged (even with a ⚠️ prose)
+    assert flags[t1_ok_id] is False    # task1_academic but clean grade
+
+
+def test_list_essays_flag_handles_json_string_feedback():
+    import json as _json
+    eid = "e1"
+    fake = _FakeSupabase(responses={
+        ("writing_essays", "select"): [
+            {"id": eid, "student_id": _STUDENT_ID, "task_type": "task1_academic", "status": "graded"},
+        ],
+        ("students", "select"): [{"id": _STUDENT_ID, "full_name": "X", "student_code": "S1"}],
+        ("writing_feedback", "select"): [
+            {"essay_id": eid, "overall_band_score": 7.0,
+             "feedback_json": _json.dumps({"overallBandScoreSummary": _caveat_summary()})},
+        ],
+        ("writing_assignments", "select"): [],
+    })
+    with patch.object(essay_service, "supabase_admin", fake):
+        rows = essay_service.list_essays()
+    assert rows[0]["task1_image_missing"] is True
+
+
+def test_feedback_flags_missing_image_degrades_on_bad_json():
+    assert essay_service._feedback_flags_missing_image(None) is False
+    assert essay_service._feedback_flags_missing_image("{not json") is False
+    assert essay_service._feedback_flags_missing_image(12345) is False

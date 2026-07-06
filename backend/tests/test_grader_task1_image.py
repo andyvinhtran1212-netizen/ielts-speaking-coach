@@ -271,3 +271,30 @@ def test_caveat_idempotent_on_regrade():
     twice = GeminiWritingGrader._inject_missing_image_caveat(fb).overallBandScoreSummary
     assert once == twice
     assert twice.count("⚠️") == 1
+
+
+# ── missing-image marker detection (queue-badge source of truth) ──────
+
+
+def test_marker_is_substring_of_caveat():
+    # Sync guard: the badge detector matches MISSING_IMAGE_CAVEAT_MARKER against
+    # the caveat the grader actually writes. If the caveat prose is reworded but
+    # drops the marker, this fails before the badge silently stops firing.
+    from services.gemini_writing_grader import MISSING_IMAGE_CAVEAT_MARKER
+    assert MISSING_IMAGE_CAVEAT_MARKER in GeminiWritingGrader._MISSING_IMAGE_CAVEAT
+
+
+def test_summary_flags_missing_image_detects_real_caveat():
+    from services.gemini_writing_grader import summary_flags_missing_image
+    # The exact string the grader emits (caveat + real prose).
+    fb = GeminiWritingGrader._inject_missing_image_caveat(_min_feedback("Bài khá tốt."))
+    assert summary_flags_missing_image(fb.overallBandScoreSummary) is True
+
+
+def test_summary_flags_missing_image_false_for_clean_and_empty():
+    from services.gemini_writing_grader import summary_flags_missing_image
+    assert summary_flags_missing_image("Bài viết tốt, không có cảnh báo.") is False
+    assert summary_flags_missing_image("") is False
+    assert summary_flags_missing_image(None) is False
+    # A different ⚠️ warning that is NOT the missing-image caveat must not match.
+    assert summary_flags_missing_image("⚠️ Cảnh báo khác về nội dung.") is False

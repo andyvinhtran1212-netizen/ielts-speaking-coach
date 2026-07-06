@@ -154,6 +154,11 @@ function render() {
     const task = TASK_LABELS[e.task_type] || e.task_type || '—';
     // Read-only feedback-depth level set at assign time (mig 104).
     const lvl = e.analysis_level ? ` <span class="q-lvl" title="Cấp độ phân tích AI">L${escapeHtml(e.analysis_level)}</span>` : '';
+    // Task 1 graded WITHOUT its chart (stale/missing prompt image → text-only
+    // grade). Flags essays that warrant a re-grade once the image is restored.
+    const noImg = e.task1_image_missing
+      ? ` <span class="q-badge-noimg" title="Task 1 chấm không có hình — nên chấm lại sau khi khôi phục ảnh">⚠ thiếu hình</span>`
+      : '';
     const pillCls = ['graded', 'reviewed', 'delivered', 'failed'].includes(e.status) ? ' is-' + e.status : '';
     const pill = `<span class="q-pill${pillCls}">${escapeHtml(STATUS_LABELS[e.status] || e.status)}</span>`;
     const band = e.band != null ? e.band : '<span class="q-muted">—</span>';
@@ -164,7 +169,7 @@ function render() {
     return `<tr class="q-row" data-id="${escapeHtml(e.id)}">
       ${checkCell}
       <td><span class="q-name">${escapeHtml(name)}</span> ${code}</td>
-      <td>${escapeHtml(task)}${lvl}</td>
+      <td>${escapeHtml(task)}${lvl}${noImg}</td>
       <td>${pill}</td>
       <td>${band}</td>
       <td class="q-muted">${ageLabel(e.created_at)}</td>

@@ -59,6 +59,23 @@ MODEL_PRICING: dict[str, dict[str, float]] = {
 MAX_RETRIES = 3
 INITIAL_RETRY_DELAY_S = 1.0
 
+# Stable marker substring for a text-only Task 1 grade. The grader prepends
+# _MISSING_IMAGE_CAVEAT (built from this) to overallBandScoreSummary when it
+# couldn't send the chart (D7); the grade-queue badge in essay_service matches
+# this same string, so both stay in sync from one source. A test pins that the
+# marker is a substring of the caveat.
+MISSING_IMAGE_CAVEAT_MARKER = "Chấm không có hình"
+
+
+def summary_flags_missing_image(summary: Optional[str]) -> bool:
+    """True when a feedback summary carries the text-only Task 1 caveat — i.e.
+    the essay was graded WITHOUT its chart. Matches the ⚠️-prefixed marker the
+    grader writes in _inject_missing_image_caveat."""
+    if not summary:
+        return False
+    s = summary.lstrip()
+    return s.startswith("⚠️") and MISSING_IMAGE_CAVEAT_MARKER in s
+
 
 # ── Errors ────────────────────────────────────────────────────────────
 
@@ -602,7 +619,8 @@ class GeminiWritingGrader:
     _IMAGE_FETCH_TIMEOUT_S = 5.0
     _IMAGE_FETCH_ATTEMPTS = 2
     _MISSING_IMAGE_CAVEAT = (
-        "⚠️ Chấm không có hình — độ chính xác nội dung Task 1 Academic hạn chế. "
+        "⚠️ " + MISSING_IMAGE_CAVEAT_MARKER +
+        " — độ chính xác nội dung Task 1 Academic hạn chế. "
     )
 
     @staticmethod
