@@ -290,7 +290,7 @@ input: "text"
 headword: "cs-vs-complex"
 skill: "production"
 subtype: "intermediate"
-prompt: "Viết lại thành compound sentence bằng FANBOYS (không dùng 'because'): 'The economy grew. Inequality increased.' (quan hệ: tương phản, dùng đúng 1 từ)"
+prompt: "Viết lại thành compound sentence bằng FANBOYS (không dùng 'because'): 'The economy grew. Inequality increased.' → The economy grew, ____ inequality increased. (quan hệ: tương phản, dùng đúng 1 từ)"
 accept: ["but", "yet"]
 case_sensitive: false
 grammar_article_slug: "compound-sentence"

@@ -38,11 +38,11 @@ input: "choice"
 headword: "gb7-negative-inversion"
 skill: "usage"
 subtype: "intermediate"
-prompt: "In a Part 3 answer about government responsiveness: '____ governments act quickly enough to prevent ecological damage.'"
+prompt: "This inversion structure suits Writing Task 2 (or very confident Band 8+ Speaking) when discussing government responsiveness: '____ governments act quickly enough to prevent ecological damage.'"
 options: ["Rarely do", "Rarely does", "Rarely are", "Rarely governments"]
 answer: 0
 grammar_article_slug: "grammar-for-band7plus"
-explain: "'Governments' là danh từ số nhiều → trợ động từ đảo là 'do' (không phải 'does'), và trợ động từ luôn đứng trước chủ ngữ trong câu đảo ngữ."
+explain: "'Governments' là danh từ số nhiều → trợ động từ đảo là 'do' (không phải 'does'), và trợ động từ luôn đứng trước chủ ngữ trong câu đảo ngữ. Lưu ý: bài viết chỉ rõ inversion chủ yếu dùng cho Writing — trong Speaking chỉ nên dùng ở Band 8+ khi đã tự tin."
 ---
 
 ---

@@ -221,11 +221,11 @@ input: "choice"
 headword: "pc-changing-trends"
 skill: "usage"
 subtype: "advanced"
-prompt: "Which sentence best describes a social trend for IELTS Speaking Part 3?"
+prompt: "Which sentence best describes a social trend that is still in progress right now, for IELTS Speaking Part 3?"
 options: ["Traditional values change as urbanisation increases.", "Traditional values are changing as urbanisation increases.", "Traditional values changed as urbanisation increases.", "Traditional values have changed as urbanisation increases."]
 answer: 1
 grammar_article_slug: "present-continuous"
-explain: "Xu hướng xã hội đang biến đổi ngay trong giai đoạn hiện tại → Present Continuous: are changing."
+explain: "Xu hướng xã hội đang biến đổi ngay trong giai đoạn hiện tại, CHƯA kết thúc → Present Continuous: are changing. ('have changed' ngụ ý thay đổi đã hoàn tất tính đến nay, không nhấn mạnh nó đang tiếp diễn.)"
 ---
 
 ---

@@ -353,11 +353,11 @@ input: "text"
 headword: "eit-no-repeat"
 skill: "production"
 subtype: "intermediate"
-prompt: "Sửa lỗi lặp nghĩa 'In my opinion, I think the government should invest more in education.' bằng cách viết lại toàn bộ câu, bỏ phần thừa: ____ (viết lại cả câu)"
-accept: ["In my opinion, the government should invest more in education."]
+prompt: "Sửa lỗi lặp nghĩa 'In my opinion, I think the government should invest more in education.' bằng cách bỏ đúng 1 cụm thừa (điền cụm bị thừa cần xoá, 2 từ):"
+accept: ["I think"]
 case_sensitive: false
 grammar_article_slug: "overusing-i-think"
-explain: "Câu đúng là: 'In my opinion, the government should invest more in education.' — bỏ 'I think' vì đã trùng nghĩa với 'In my opinion'."
+explain: "'In my opinion' và 'I think' cùng nghĩa nêu quan điểm — chỉ giữ một trong hai. Cách sửa gọn nhất là bỏ 'I think': 'In my opinion, the government should invest more in education.' (Cũng có thể bỏ 'In my opinion' và giữ 'I think', theo đúng bài Wiki, nhưng ở đây ta luyện cách bỏ cụm thừa 'I think')."
 ---
 
 ---

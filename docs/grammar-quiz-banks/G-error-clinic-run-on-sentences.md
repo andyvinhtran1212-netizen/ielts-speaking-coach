@@ -52,7 +52,7 @@ headword: "ro-comma-splice"
 skill: "usage"
 subtype: "intermediate"
 prompt: "The exam was difficult, ____ I failed it. (chọn cách nối đúng thay vì chỉ dùng dấu phẩy)"
-options: ["so", "", "however", "therefore,"]
+options: ["so", "and", "however", "therefore,"]
 answer: 0
 grammar_article_slug: "run-on-sentences"
 explain: "Sau dấu phẩy cần một liên từ FANBOYS (for/and/but/or/nor/yet/so) để nối 2 mệnh đề độc lập. 'so' thể hiện quan hệ kết quả: khó → trượt."

@@ -110,7 +110,7 @@ headword: "ms-subordinate-clause"
 skill: "production"
 subtype: "intermediate"
 prompt: "If ____ (invest) in renewable energy, governments will see long-term environmental benefits. (điền chủ ngữ + động từ đúng cho mệnh đề 'If')"
-accept: ["they invest", "countries invest", "we invest"]
+accept: ["they invest", "countries invest", "we invest", "governments invest"]
 case_sensitive: false
 grammar_article_slug: "missing-subjects"
 explain: "Mệnh đề điều kiện 'If' cần chủ ngữ riêng, không được bỏ trống dù mệnh đề chính đã có chủ ngữ 'governments'. Ví dụ: 'If they invest in renewable energy, governments will see long-term benefits.'"
