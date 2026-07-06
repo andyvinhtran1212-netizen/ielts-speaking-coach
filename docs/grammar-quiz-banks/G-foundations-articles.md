@@ -207,7 +207,7 @@ headword: "art-zero-general"
 skill: "production"
 subtype: "intermediate"
 prompt: "____ (viết mạo từ hoặc để trống, ghi 'ø' nếu không cần) Poverty remains one of the greatest obstacles to economic development worldwide."
-accept: ["ø", "no article", ""]
+accept: ["ø", "no article"]
 case_sensitive: false
 grammar_article_slug: "articles"
 explain: "'Poverty' là danh từ trừu tượng không đếm được, nói chung → zero article, không dùng 'the poverty'."

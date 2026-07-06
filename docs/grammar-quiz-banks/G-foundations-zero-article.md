@@ -66,7 +66,7 @@ headword: "za-general-plural-uncountable"
 skill: "production"
 subtype: "intermediate"
 prompt: "____ (viết mạo từ hoặc 'ø' nếu không cần) Happiness cannot always be measured in material terms."
-accept: ["ø", "no article", ""]
+accept: ["ø", "no article"]
 case_sensitive: false
 grammar_article_slug: "zero-article"
 explain: "'Happiness' là danh từ trừu tượng không đếm được, mang nghĩa chung → zero article."
@@ -137,7 +137,7 @@ headword: "za-meals-sports"
 skill: "production"
 subtype: "intermediate"
 prompt: "She's been doing ____ (viết mạo từ hoặc 'ø' nếu không cần) yoga every morning to reduce exam stress."
-accept: ["ø", "no article", ""]
+accept: ["ø", "no article"]
 case_sensitive: false
 grammar_article_slug: "zero-article"
 explain: "Hoạt động thể thao/giải trí (yoga) luôn dùng zero article: 'doing yoga'."
@@ -207,7 +207,7 @@ headword: "za-languages-subjects"
 skill: "production"
 subtype: "intermediate"
 prompt: "____ (viết mạo từ hoặc 'ø' nếu không cần) Portuguese is the official language of both Portugal and Brazil."
-accept: ["ø", "no article", ""]
+accept: ["ø", "no article"]
 case_sensitive: false
 grammar_article_slug: "zero-article"
 explain: "Tên ngôn ngữ đứng đầu câu với nghĩa chung không dùng mạo từ → 'Portuguese is the official language...'"
@@ -278,7 +278,7 @@ headword: "za-idiomatic-institutions"
 skill: "production"
 subtype: "intermediate"
 prompt: "She's been in ____ (viết mạo từ hoặc 'ø' nếu không cần) hospital since Tuesday after a minor surgery."
-accept: ["ø", "no article", ""]
+accept: ["ø", "no article"]
 case_sensitive: false
 grammar_article_slug: "zero-article"
 explain: "'in hospital' với nghĩa nhập viện (chức năng, không nói tới toà nhà cụ thể) dùng zero article."

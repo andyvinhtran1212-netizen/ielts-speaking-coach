@@ -192,11 +192,11 @@ input: "choice"
 headword: "ppc-vs-present-perfect"
 skill: "contrast"
 subtype: "basic"
-prompt: "I ____ three books this month. (nhấn mạnh SỐ LƯỢNG đã hoàn thành)"
+prompt: "I ____ three books this month — not bad for someone who barely reads!"
 options: ["have read", "have been reading", "am reading", "read"]
 answer: 0
 grammar_article_slug: "present-perfect-continuous"
-explain: "Câu hỏi 'How many?' / kết quả cụ thể (3 books) → Present Perfect: have read."
+explain: "Con số cụ thể 'three books' nhấn mạnh KẾT QUẢ đã hoàn thành, trả lời cho 'How many?' → Present Perfect: have read."
 ---
 
 ---

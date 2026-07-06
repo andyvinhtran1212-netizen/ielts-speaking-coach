@@ -207,7 +207,7 @@ headword: "apn-single-mountains-lakes"
 skill: "production"
 subtype: "intermediate"
 prompt: "____ (viết mạo từ hoặc 'ø' nếu không cần) Lake Superior is the largest freshwater lake in the world by surface area."
-accept: ["ø", "no article", ""]
+accept: ["ø", "no article"]
 case_sensitive: false
 grammar_article_slug: "articles-with-places-and-names"
 explain: "Hồ đơn lẻ với 'Lake + tên' không dùng mạo từ → zero article."
@@ -278,7 +278,7 @@ headword: "apn-cities-streets-landmarks"
 skill: "production"
 subtype: "intermediate"
 prompt: "____ (viết mạo từ hoặc 'ø' nếu không cần) Bangkok is known for its street food and vibrant markets."
-accept: ["ø", "no article", ""]
+accept: ["ø", "no article"]
 case_sensitive: false
 grammar_article_slug: "articles-with-places-and-names"
 explain: "Tên thành phố không dùng mạo từ → zero article: 'Bangkok'."

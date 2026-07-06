@@ -137,7 +137,7 @@ input: "text"
 headword: "pron-possessive-contraction"
 skill: "production"
 subtype: "intermediate"
-prompt: "The committee published ____ (viết đúng: it is, dạng viết tắt) planning to review the policy next month."
+prompt: "The committee announced that ____ (viết đúng: it is, dạng viết tắt) planning to review the policy next month."
 accept: ["it's"]
 case_sensitive: false
 grammar_article_slug: "pronouns"

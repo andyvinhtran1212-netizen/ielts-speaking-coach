@@ -223,11 +223,11 @@ input: "text"
 headword: "pp-yet-already-just"
 skill: "production"
 subtype: "intermediate"
-prompt: "The train ____ (already / leave) by the time we arrived — write only the present-perfect verb phrase for 'already leave'."
+prompt: "Don't worry about calling the station — the train ____ (already / leave)."
 accept: ["has already left"]
 case_sensitive: false
 grammar_article_slug: "present-perfect"
-explain: "'already' đứng giữa have và V3: has already left (V3 của leave là left)."
+explain: "'already' đứng giữa have và V3: has already left (V3 của leave là left). Không có mốc quá khứ xác định nào khác trong câu, nên đây vẫn là Present Perfect — khác với 'by the time... arrived', vốn cần Past Perfect (xem bài past-perfect)."
 ---
 
 ---

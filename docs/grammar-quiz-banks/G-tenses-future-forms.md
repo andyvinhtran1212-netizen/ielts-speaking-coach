@@ -319,11 +319,11 @@ input: "choice"
 headword: "ff-will-overuse-error"
 skill: "contrast"
 subtype: "intermediate"
-prompt: "What ____ you ____ next summer? (hỏi về kế hoạch đã có, không phải quyết định bộc phát)"
+prompt: "You mentioned you've already started thinking about next summer. So, what ____ you ____ next summer?"
 options: ["will / do", "are / going to do", "do / do", "are / doing"]
 answer: 1
 grammar_article_slug: "future-forms"
-explain: "Hỏi về kế hoạch đã có sẵn (không phải quyết định ngay lúc nói) → be going to: are you going to do."
+explain: "Câu dẫn 'đã bắt đầu nghĩ tới' cho thấy đây là hỏi về kế hoạch/dự định đã có sẵn (không phải quyết định ngay lúc nói) → be going to: are you going to do."
 ---
 
 ---
