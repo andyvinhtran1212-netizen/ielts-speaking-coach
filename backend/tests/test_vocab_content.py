@@ -113,6 +113,7 @@ def test_load_from_db_paginates_past_1000_row_cap():
             self._rows = rows; self._a = 0; self._b = 0
         def table(self, _name): return self
         def select(self, *a, **k): return self
+        def order(self, *a, **k): return self
         def range(self, a, b): self._a = a; self._b = b; return self
         def execute(self):
             return MagicMock(data=self._rows[self._a:self._b + 1])

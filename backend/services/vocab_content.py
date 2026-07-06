@@ -113,7 +113,12 @@ class VocabContentService:
             _PAGE = 1000
             start = 0
             while True:
-                res = supabase_admin.table("vocab_cards").select("*").range(start, start + _PAGE - 1).execute()
+                # order() on the PK gives a STABLE total order across page requests —
+                # without it PostgREST/Postgres don't guarantee row order, so a
+                # concurrent reload()/import could shift a row between offsets and
+                # duplicate one while skipping another.
+                res = (supabase_admin.table("vocab_cards").select("*")
+                       .order("id").range(start, start + _PAGE - 1).execute())
                 batch = res.data or []
                 rows.extend(batch)
                 if len(batch) < _PAGE:
