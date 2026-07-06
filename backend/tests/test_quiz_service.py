@@ -217,6 +217,25 @@ def test_log_progress_inserts_attempts_and_upserts_stats():
     assert w_up["payload"][0]["item_key"] == "Vocation"
 
 
+def test_log_progress_coerces_fractional_response_time_ms():
+    """Prod 22P02 repro: the client sends response_time_ms as a float ms delta
+    (performance.now(), e.g. 5491.2999…) but the column is INT — an uncoerced
+    float 500s the whole attempts batch and silently loses progress. The write
+    must round it to an int (and same for attempt_no)."""
+    fake = _FakeSupabase(responses=_session_resp())
+    attempts = [{
+        "client_id": "c-1", "item_key": "Vocation", "qid": "v1", "skill": "meaning",
+        "is_correct": True, "response_time_ms": 5491.299999952316, "attempt_no": 2.0,
+    }]
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.log_progress(user_id=_USER, session_id=_SESS, attempts=attempts, word_stats=[])
+    assert out["attempts"] == 1
+    a_up = next(c for c in fake.calls if c["table"] == "quiz_attempts" and c["op"] == "upsert")
+    row = a_up["payload"][0]
+    assert row["response_time_ms"] == 5491 and isinstance(row["response_time_ms"], int)
+    assert row["attempt_no"] == 2 and isinstance(row["attempt_no"], int)
+
+
 def test_log_progress_normalizes_bad_status():
     fake = _FakeSupabase(responses=_session_resp())
     stats = [{"item_key": "X", "status": "bogus"}]

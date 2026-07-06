@@ -36,6 +36,19 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _coerce_int(v):
+    """INT columns (mig 119 response_time_ms/attempt_no) reject a fractional value.
+    The client sends a performance.now() delta in ms (e.g. 5491.2999…), so Postgres
+    raises 22P02 and 500s the whole attempts batch — silently losing progress. Round
+    to int; None/garbage → None (nullable columns)."""
+    if v is None:
+        return None
+    try:
+        return int(round(float(v)))
+    except (TypeError, ValueError):
+        return None
+
+
 def _log_backend_error(*, message: str, user_id: str | None = None,
                        url: str | None = None, extra: dict | None = None) -> None:
     """Best-effort persist a backend error to `error_logs` (source=backend) so a
@@ -343,6 +356,10 @@ def log_progress(*, user_id: str, session_id: str, attempts: list[dict], word_st
         if not row.get("item_key") or row.get("is_correct") is None:
             continue   # skip malformed entries rather than 500 the batch
         row["is_correct"] = bool(row["is_correct"])
+        # response_time_ms / attempt_no are INT columns; the client's timing delta
+        # is a float — coerce so one fractional value can't 22P02-500 the batch.
+        row["response_time_ms"] = _coerce_int(row.get("response_time_ms"))
+        row["attempt_no"] = _coerce_int(row.get("attempt_no"))
         row.update({"user_id": user_id, "session_id": session_id, "bank_id": bank_id})
         attempt_rows.append(row)
     if attempt_rows:
