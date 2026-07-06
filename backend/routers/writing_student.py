@@ -884,7 +884,8 @@ def _resolve_active_assignment(student_id: str, assignment_id: str) -> dict:
             "essay_id, prompt_id, assigned_by, "
             "assignment_group_id, name, allow_soft_check, analysis_level, grading_tier, "
             "is_timed, time_limit_minutes, started_at, auto_submitted, "
-            "writing_prompts(id, title, prompt_text, task_type, difficulty, prompt_image_url)"
+            "writing_prompts(id, title, prompt_text, task_type, difficulty, prompt_image_url, "
+            "prompt_image_analysis, prompt_image_analysis_reviewed)"
         )
         .eq("id", assignment_id)
         .eq("student_id", student_id)
@@ -1156,6 +1157,14 @@ async def submit_my_assignment(
     # never populated for student submissions) — without this the library
     # Task 1 Academic flow would still grade text-only.
     prompt_image_url = prompt.get("prompt_image_url")
+    # Snapshot the REVIEWED Task 1 answer key onto the essay (mirrors
+    # prompt_image_url) so a later prompt edit can't change this grade and a lost
+    # image still has facts. Only reviewed facts are captured — un-reviewed AI
+    # extraction never reaches the grader. None otherwise.
+    prompt_image_analysis = (
+        prompt.get("prompt_image_analysis")
+        if prompt.get("prompt_image_analysis_reviewed") else None
+    )
     if not prompt_text or not task_type:
         # The assignment can outlive its prompt (ON DELETE RESTRICT
         # blocks hard deletes, but soft-deleted prompts could leave
@@ -1248,6 +1257,7 @@ async def submit_my_assignment(
                 "task_type":        task_type,
                 "prompt_text":      prompt_text,
                 "prompt_image_url": prompt_image_url,
+                "prompt_image_analysis": prompt_image_analysis,
                 "essay_text":       essay_text,
                 "analysis_level":   level,
                 "grading_tier":     grading_tier,

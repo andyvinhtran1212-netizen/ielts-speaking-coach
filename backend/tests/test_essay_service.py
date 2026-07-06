@@ -1429,3 +1429,83 @@ def test_feedback_flags_missing_image_degrades_on_bad_json():
     assert essay_service._feedback_flags_missing_image(None) is False
     assert essay_service._feedback_flags_missing_image("{not json") is False
     assert essay_service._feedback_flags_missing_image(12345) is False
+
+
+# ── Task 1 answer-key: snapshot + grade-time resolve ──────────────────
+
+_FACTS = {"chart_type": "bar", "overview": "Tổng quan", "key_features": ["A"]}
+
+
+def test_create_essay_snapshots_prompt_image_analysis_when_present():
+    data = _valid_create_data()
+    data["task_type"] = "task1_academic"
+    data["prompt_image_analysis"] = _FACTS
+    fake = _FakeSupabase(responses={
+        ("students", "select"): [{"id": _STUDENT_ID}],
+        ("writing_essays", "insert"): [{"id": _ESSAY_ID}],
+        ("writing_jobs", "insert"):   [{"id": _JOB_ID}],
+    })
+    with patch.object(essay_service, "supabase_admin", fake):
+        essay_service.create_essay_with_job(data=data, admin_id=_ADMIN_ID)
+    payload = next(c for c in fake.calls if c["table"] == "writing_essays" and c["op"] == "insert")["payload"]
+    assert payload["prompt_image_analysis"] == _FACTS
+
+
+def test_create_essay_omits_analysis_when_none():
+    data = _valid_create_data()   # task2, no facts key
+    fake = _FakeSupabase(responses={
+        ("students", "select"): [{"id": _STUDENT_ID}],
+        ("writing_essays", "insert"): [{"id": _ESSAY_ID}],
+        ("writing_jobs", "insert"):   [{"id": _JOB_ID}],
+    })
+    with patch.object(essay_service, "supabase_admin", fake):
+        essay_service.create_essay_with_job(data=data, admin_id=_ADMIN_ID)
+    payload = next(c for c in fake.calls if c["table"] == "writing_essays" and c["op"] == "insert")["payload"]
+    assert "prompt_image_analysis" not in payload
+
+
+def test_resolve_facts_flag_off_returns_none(monkeypatch):
+    monkeypatch.setattr(essay_service.settings, "WRITING_TASK1_FACTS_ENABLED", False)
+    essay = {"task_type": "task1_academic", "prompt_image_analysis": _FACTS}
+    assert essay_service.resolve_prompt_facts_for_grading(_ESSAY_ID, essay) is None
+
+
+def test_resolve_facts_non_task1_returns_none(monkeypatch):
+    monkeypatch.setattr(essay_service.settings, "WRITING_TASK1_FACTS_ENABLED", True)
+    essay = {"task_type": "task2", "prompt_image_analysis": _FACTS}
+    assert essay_service.resolve_prompt_facts_for_grading(_ESSAY_ID, essay) is None
+
+
+def test_resolve_facts_prefers_snapshot(monkeypatch):
+    monkeypatch.setattr(essay_service.settings, "WRITING_TASK1_FACTS_ENABLED", True)
+    essay = {"task_type": "task1_academic", "prompt_image_analysis": _FACTS}
+    # No DB access needed — snapshot wins.
+    assert essay_service.resolve_prompt_facts_for_grading(_ESSAY_ID, essay) == _FACTS
+
+
+def test_resolve_facts_falls_back_to_reviewed_prompt(monkeypatch):
+    monkeypatch.setattr(essay_service.settings, "WRITING_TASK1_FACTS_ENABLED", True)
+    fake = _FakeSupabase(responses={
+        ("writing_assignments", "select"): [{"prompt_id": _PROMPT_ID}],
+        ("writing_prompts", "select"): [
+            {"prompt_image_analysis": _FACTS, "prompt_image_analysis_reviewed": True}],
+    })
+    essay = {"task_type": "task1_academic", "prompt_image_analysis": None}
+    with patch.object(essay_service, "supabase_admin", fake):
+        assert essay_service.resolve_prompt_facts_for_grading(_ESSAY_ID, essay) == _FACTS
+
+
+def test_reviewed_prompt_facts_none_when_unreviewed():
+    fake = _FakeSupabase(responses={
+        ("writing_assignments", "select"): [{"prompt_id": _PROMPT_ID}],
+        ("writing_prompts", "select"): [
+            {"prompt_image_analysis": _FACTS, "prompt_image_analysis_reviewed": False}],
+    })
+    with patch.object(essay_service, "supabase_admin", fake):
+        assert essay_service.reviewed_prompt_facts_for_essay(_ESSAY_ID) is None
+
+
+def test_reviewed_prompt_facts_none_when_no_assignment():
+    fake = _FakeSupabase(responses={("writing_assignments", "select"): []})
+    with patch.object(essay_service, "supabase_admin", fake):
+        assert essay_service.reviewed_prompt_facts_for_essay(_ESSAY_ID) is None
