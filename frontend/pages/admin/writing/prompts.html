@@ -156,6 +156,40 @@
           <input id="form-image-public-id" type="hidden" />
         </div>
 
+        <!-- Task 1 verified answer key — edit mode only (needs a prompt id).
+             Facts anchor grading only after "Lưu & Duyệt". -->
+        <div id="form-analysis-section" class="hidden">
+          <div class="flex items-center justify-between mb-1">
+            <label class="aw-form-label" style="margin:0">Đáp án chuẩn (Task 1)
+              <span id="analysis-status-badge" class="aw-pill"></span>
+            </label>
+            <button id="btn-reanalyze" type="button" class="aw-btn-secondary" style="font-size:12px">↻ Phân tích lại</button>
+          </div>
+          <p class="aw-help-text text-xs mb-2">
+            Dữ kiện AI trích từ hình. Kiểm tra/sửa rồi bấm “Lưu &amp; Duyệt” — chỉ đáp án đã duyệt mới được dùng khi chấm.
+          </p>
+          <label class="aw-form-label text-xs">Loại biểu đồ</label>
+          <select id="af-chart-type" class="aw-input">
+            <option value="line">line</option>
+            <option value="bar">bar</option>
+            <option value="pie">pie</option>
+            <option value="table">table</option>
+            <option value="map">map</option>
+            <option value="process">process</option>
+            <option value="mixed">mixed</option>
+          </select>
+          <label class="aw-form-label text-xs mt-2">Tổng quan</label>
+          <textarea id="af-overview" class="aw-input" rows="2"></textarea>
+          <label class="aw-form-label text-xs mt-2">Điểm chính (mỗi dòng 1 ý)</label>
+          <textarea id="af-key-features" class="aw-input" rows="3"></textarea>
+          <label class="aw-form-label text-xs mt-2">Số liệu mốc (mỗi dòng: nhãn | giá trị | đơn vị)</label>
+          <textarea id="af-notable" class="aw-input" rows="3" placeholder="Điện 2020 | 45 | %"></textarea>
+          <label class="aw-form-label text-xs mt-2">Ghi chú chấm (tùy chọn)</label>
+          <input id="af-grading-note" class="aw-input" />
+          <div id="analysis-error" class="aw-upload-error hidden mt-1 text-xs"></div>
+          <button id="btn-save-analysis" type="button" class="aw-btn-primary mt-2" style="font-size:13px">Lưu &amp; Duyệt</button>
+        </div>
+
         <div>
           <label class="aw-form-label">Tags (cách nhau bởi dấu phẩy)</label>
           <input id="form-tags" class="aw-input" placeholder="environment, opinion, advanced" />
@@ -216,6 +250,10 @@
       var taskType = document.getElementById('form-task-type').value;
       if (taskType === 'task1_academic') show('form-image-section');
       else                                hide('form-image-section');
+      // Answer-key panel needs a saved prompt id (PATCH/reanalyze target), so it
+      // shows only when editing an existing task1_academic prompt.
+      if (_editingId && taskType === 'task1_academic') show('form-analysis-section');
+      else                                             hide('form-analysis-section');
     }
 
     function setImageState(url, publicId) {
@@ -385,9 +423,84 @@
       document.getElementById('form-difficulty').value   = p.difficulty  || '';
       document.getElementById('form-tags').value         = (p.tags || []).join(', ');
       setImageState(p.prompt_image_url || '', p.prompt_image_public_id || '');
+      renderAnalysisPanel(p);
       syncImageSectionVisibility();
       hide('modal-error');
       show('modal');
+    }
+
+    // ── Task 1 answer-key review panel ─────────────────────────────
+    function renderAnalysisPanel(p) {
+      var a = (p && p.prompt_image_analysis) || {};
+      document.getElementById('af-chart-type').value   = a.chart_type || 'mixed';
+      document.getElementById('af-overview').value     = a.overview || '';
+      document.getElementById('af-key-features').value = (a.key_features || []).join('\n');
+      document.getElementById('af-notable').value      = (a.notable_data || []).map(function (d) {
+        return [d.label || '', d.value || '', d.unit || ''].join(' | ');
+      }).join('\n');
+      document.getElementById('af-grading-note').value = a.grading_note || '';
+
+      // Status badge — reviewed wins over raw status.
+      var badge = document.getElementById('analysis-status-badge');
+      var status = p && p.prompt_image_analysis_status;
+      var reviewed = p && p.prompt_image_analysis_reviewed;
+      var label = '— Chưa phân tích';
+      if (reviewed) label = '✅ Đã duyệt';
+      else if (status === 'ready') label = '✓ Sẵn sàng (chờ duyệt)';
+      else if (status === 'pending') label = '⏳ Đang phân tích';
+      else if (status === 'failed') label = '⚠ Lỗi phân tích';
+      badge.textContent = label;
+      hide('analysis-error');
+    }
+
+    function collectAnalysis() {
+      var lines = function (id) {
+        return document.getElementById(id).value.split('\n')
+          .map(function (s) { return s.trim(); }).filter(Boolean);
+      };
+      var notable = lines('af-notable').map(function (row) {
+        var parts = row.split('|').map(function (s) { return s.trim(); });
+        return { label: parts[0] || '', value: parts[1] || '', unit: parts[2] || null };
+      }).filter(function (d) { return d.label || d.value; });
+      return {
+        chart_type:   document.getElementById('af-chart-type').value,
+        overview:     document.getElementById('af-overview').value.trim(),
+        key_features: lines('af-key-features'),
+        notable_data: notable,
+        grading_note: document.getElementById('af-grading-note').value.trim() || null,
+      };
+    }
+
+    async function saveAnalysis() {
+      if (!_editingId) return;
+      hide('analysis-error');
+      try {
+        await window.api.patch('/admin/writing/prompts/' + _editingId + '/analysis',
+          { analysis: collectAnalysis(), reviewed: true });
+        await loadPrompts();
+        var p = _allPrompts.find(function (x) { return x.id === _editingId; });
+        if (p) renderAnalysisPanel(p);
+      } catch (err) {
+        var box = document.getElementById('analysis-error');
+        box.textContent = 'Lỗi lưu đáp án: ' + (err.message || 'không xác định');
+        show('analysis-error');
+      }
+    }
+
+    async function reanalyzePrompt() {
+      if (!_editingId) return;
+      hide('analysis-error');
+      try {
+        await window.api.post('/admin/writing/prompts/' + _editingId + '/reanalyze', {});
+        document.getElementById('analysis-status-badge').textContent = '⏳ Đang phân tích';
+        var box = document.getElementById('analysis-error');
+        box.textContent = 'Đã gửi yêu cầu phân tích. Đóng và mở lại để xem kết quả.';
+        show('analysis-error');
+      } catch (err) {
+        var b = document.getElementById('analysis-error');
+        b.textContent = 'Lỗi: ' + (err.message || 'không xác định');
+        show('analysis-error');
+      }
     }
 
     function closeModal() { hide('modal'); }
@@ -467,6 +580,8 @@
     // ── Wire up + initial load ─────────────────────────────────────
     document.getElementById('btn-create').addEventListener('click', openCreateModal);
     document.getElementById('btn-save').addEventListener('click', savePrompt);
+    document.getElementById('btn-save-analysis').addEventListener('click', saveAnalysis);
+    document.getElementById('btn-reanalyze').addEventListener('click', reanalyzePrompt);
     document.getElementById('btn-cancel').addEventListener('click', closeModal);
     document.getElementById('btn-close-modal').addEventListener('click', closeModal);
     document.getElementById('filter-task-type').addEventListener('change', loadPrompts);

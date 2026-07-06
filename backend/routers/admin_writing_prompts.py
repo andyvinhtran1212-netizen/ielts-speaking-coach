@@ -24,11 +24,15 @@ import logging
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, File, Header, HTTPException, Query, UploadFile, status
+from fastapi import (
+    APIRouter, BackgroundTasks, File, Header, HTTPException, Query, UploadFile, status,
+)
 from pydantic import BaseModel, Field
 
 from database import supabase_admin
+from models.writing_feedback import PromptImageAnalysis
 from routers.admin import require_admin
+from services import writing_prompt_analysis
 from services.writing_prompt_image import (
     delete_prompt_image,
     upload_prompt_image,
@@ -127,13 +131,27 @@ async def list_prompts(
     return {"prompts": r.data or []}
 
 
+def _maybe_trigger_analysis(prompt_row: dict, background_tasks: BackgroundTasks) -> None:
+    """Kick off answer-key extraction when a task1_academic prompt's chart is new
+    or replaced (image public_id != the one the analysis was derived from). Sets
+    status='pending' synchronously so the UI reflects it immediately, then runs
+    the vision extraction in the background."""
+    if not writing_prompt_analysis.image_needs_analysis(prompt_row):
+        return
+    pid = prompt_row["id"]
+    writing_prompt_analysis.mark_analysis_pending(pid)
+    background_tasks.add_task(writing_prompt_analysis.run_and_store_analysis, pid)
+
+
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_prompt(
     body: PromptCreate,
+    background_tasks: BackgroundTasks,
     authorization: str | None = Header(None),
 ):
     """Create a new library prompt.  `created_by` is auto-stamped to
-    the calling admin's user_id."""
+    the calling admin's user_id. For a task1_academic prompt with an image,
+    schedules answer-key extraction (docs/WRITING_TASK1_ANALYSIS_SPEC.md)."""
     admin = await require_admin(authorization)
 
     payload = body.model_dump()
@@ -142,6 +160,7 @@ async def create_prompt(
     r = supabase_admin.table("writing_prompts").insert(payload).execute()
     if not r.data:
         raise HTTPException(500, "Failed to create prompt")
+    _maybe_trigger_analysis(r.data[0], background_tasks)
     return r.data[0]
 
 
@@ -227,10 +246,12 @@ async def get_prompt(
 async def update_prompt(
     prompt_id: UUID,
     body:      PromptUpdate,
+    background_tasks: BackgroundTasks,
     authorization: str | None = Header(None),
 ):
     """Partial update.  Only fields present in the request body are
-    written; all others stay untouched."""
+    written; all others stay untouched. If the image changed, re-schedules
+    answer-key extraction (and the prior analysis is re-reviewed)."""
     await require_admin(authorization)
 
     # Build the patch from non-None fields only — None means
@@ -243,6 +264,74 @@ async def update_prompt(
     r = (
         supabase_admin.table("writing_prompts")
         .update(patch)
+        .eq("id", str(prompt_id))
+        .execute()
+    )
+    if not r.data:
+        raise HTTPException(404, "Prompt not found")
+    # The returned row carries all columns (incl. the analysis public_id), so the
+    # image-changed check is exact — a title-only PATCH won't re-trigger.
+    _maybe_trigger_analysis(r.data[0], background_tasks)
+    return r.data[0]
+
+
+class PromptAnalysisReview(BaseModel):
+    """Admin approval of a Task 1 answer key. `analysis` is the (possibly
+    hand-edited) facts, validated against the same schema the extractor emits."""
+    analysis: PromptImageAnalysis
+    reviewed: bool = True
+
+
+@router.post("/{prompt_id}/reanalyze", status_code=status.HTTP_202_ACCEPTED)
+async def reanalyze_prompt_image(
+    prompt_id: UUID,
+    background_tasks: BackgroundTasks,
+    authorization: str | None = Header(None),
+):
+    """Manually (re)run answer-key extraction for a task1_academic prompt — the
+    recovery path for a 'failed' analysis, or to refresh after a prompt edit.
+    Un-reviews the current analysis until the new run is approved."""
+    await require_admin(authorization)
+
+    row = (
+        supabase_admin.table("writing_prompts")
+        .select("id, task_type, prompt_image_url")
+        .eq("id", str(prompt_id)).limit(1).execute()
+    ).data
+    if not row:
+        raise HTTPException(404, "Prompt not found")
+    p = row[0]
+    if p.get("task_type") != "task1_academic" or not p.get("prompt_image_url"):
+        raise HTTPException(
+            400, "Chỉ đề Task 1 Academic có hình mới phân tích được.",
+        )
+
+    writing_prompt_analysis.mark_analysis_pending(str(prompt_id))
+    background_tasks.add_task(
+        writing_prompt_analysis.run_and_store_analysis, str(prompt_id),
+    )
+    return {"status": "pending", "prompt_id": str(prompt_id)}
+
+
+@router.patch("/{prompt_id}/analysis")
+async def review_prompt_analysis(
+    prompt_id: UUID,
+    body: PromptAnalysisReview,
+    authorization: str | None = Header(None),
+):
+    """Save the admin-reviewed answer key. Approving (`reviewed=true`) is the
+    gate that lets these facts anchor grading — un-reviewed AI extraction never
+    grades. Sets status='ready' since approved content is, by definition, ready."""
+    await require_admin(authorization)
+
+    r = (
+        supabase_admin.table("writing_prompts")
+        .update({
+            "prompt_image_analysis":          body.analysis.model_dump(),
+            "prompt_image_analysis_reviewed": body.reviewed,
+            "prompt_image_analysis_status":   "ready",
+            "prompt_image_analysis_error":    None,
+        })
         .eq("id", str(prompt_id))
         .execute()
     )

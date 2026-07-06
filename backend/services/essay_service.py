@@ -298,6 +298,9 @@ _OPTIONAL_ESSAY_FIELDS = (
     "error_message",
     "paste_events",
     "suspicious_paste",
+    # Reviewed Task 1 answer-key snapshot (mirrors prompt_image_url). Copied
+    # through only when present (None → column default null).
+    "prompt_image_analysis",
 )
 
 
@@ -762,8 +765,9 @@ async def _bg_grade_essay(
         # variant + response schema.
         er = (
             supabase_admin.table("writing_essays")
-            .select("task_type, prompt_text, prompt_image_url, essay_text, analysis_level, "
-                    "form_of_address, selected_model, grading_tier, instructor_ai_tier, student_id")
+            .select("task_type, prompt_text, prompt_image_url, prompt_image_analysis, "
+                    "essay_text, analysis_level, form_of_address, selected_model, "
+                    "grading_tier, instructor_ai_tier, student_id")
             .eq("id", essay_id)
             .limit(1)
             .execute()
@@ -834,6 +838,10 @@ async def _bg_grade_essay(
                 current_prompt_image_for_essay(essay_id)
                 if essay["task_type"] == "task1_academic" else None
             ),
+            # Verified Task 1 answer key (reviewed) — anchors Task Achievement
+            # accuracy. Gated on the feature flag; snapshot-first, prompt
+            # fallback. None → grade as before (image-only).
+            prompt_image_facts=resolve_prompt_facts_for_grading(essay_id, essay),
         )
 
         result = await get_grader().grade_essay(config)
@@ -1395,6 +1403,57 @@ def current_prompt_image_for_essay(essay_id: str) -> Optional[str]:
             "[essays] prompt-image fallback lookup failed essay=%s: %s", essay_id, exc
         )
         return None
+
+
+def reviewed_prompt_facts_for_essay(essay_id: str) -> Optional[dict]:
+    """The REVIEWED Task 1 answer key currently on the source prompt for this
+    essay, via writing_assignments(essay_id) → writing_prompts. Fallback for an
+    essay with no snapshot (submitted before the feature, or admin-created via a
+    path that didn't snapshot). Returns None unless the prompt's analysis is
+    approved (`prompt_image_analysis_reviewed=true`) — un-reviewed extraction
+    never grades. Never raises."""
+    try:
+        a = (
+            supabase_admin.table("writing_assignments")
+            .select("prompt_id")
+            .eq("essay_id", essay_id)
+            .limit(1)
+            .execute()
+        ).data
+        if not a or not a[0].get("prompt_id"):
+            return None
+        p = (
+            supabase_admin.table("writing_prompts")
+            .select("prompt_image_analysis, prompt_image_analysis_reviewed")
+            .eq("id", a[0]["prompt_id"])
+            .limit(1)
+            .execute()
+        ).data
+        if not p or not p[0].get("prompt_image_analysis_reviewed"):
+            return None
+        return p[0].get("prompt_image_analysis")
+    except Exception as exc:  # noqa: BLE001 — degrade to "no facts"
+        logger.warning(
+            "[essays] prompt-facts fallback lookup failed essay=%s: %s", essay_id, exc
+        )
+        return None
+
+
+def resolve_prompt_facts_for_grading(essay_id: str, essay: dict) -> Optional[dict]:
+    """The verified answer key to feed the grader for this essay, or None.
+
+    Gated on WRITING_TASK1_FACTS_ENABLED and task1_academic. Prefers the essay's
+    submit-time snapshot (deterministic — a later prompt edit can't change this
+    grade); falls back to the prompt's current REVIEWED facts for essays with no
+    snapshot (pre-feature / no assignment-snapshot path)."""
+    if not settings.WRITING_TASK1_FACTS_ENABLED:
+        return None
+    if essay.get("task_type") != "task1_academic":
+        return None
+    snapshot = essay.get("prompt_image_analysis")
+    if snapshot:
+        return snapshot
+    return reviewed_prompt_facts_for_essay(essay_id)
 
 
 def get_essay_with_feedback(essay_id: str) -> dict:

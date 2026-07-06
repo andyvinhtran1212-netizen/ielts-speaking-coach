@@ -77,6 +77,60 @@ def summary_flags_missing_image(summary: Optional[str]) -> bool:
     return s.startswith("⚠️") and MISSING_IMAGE_CAVEAT_MARKER in s
 
 
+def format_prompt_facts_block(facts: Optional[dict]) -> Optional[str]:
+    """Render a reviewed Task 1 answer key (PromptImageAnalysis dict) into the
+    Vietnamese prompt block that anchors Task Achievement grading. Returns None
+    for an empty/malformed dict so the caller simply omits the block. Defensive
+    about missing keys — a partially-filled analysis still yields a usable block."""
+    if not isinstance(facts, dict):
+        return None
+
+    overview = (facts.get("overview") or "").strip()
+    key_features = [str(k).strip() for k in (facts.get("key_features") or []) if str(k).strip()]
+    notable = facts.get("notable_data") or []
+    axes = (facts.get("axes_or_categories") or "").strip()
+    note = (facts.get("grading_note") or "").strip()
+    chart_type = (facts.get("chart_type") or "").strip()
+
+    # Nothing substantive to anchor on → no block.
+    if not overview and not key_features and not notable:
+        return None
+
+    lines: list[str] = [
+        "## Dữ kiện biểu đồ (đã xác minh — dùng làm CHUẨN chấm Task Achievement)"
+    ]
+    if chart_type:
+        lines.append(f"Loại biểu đồ: {chart_type}")
+    if overview:
+        lines.append(f"Tổng quan: {overview}")
+    if key_features:
+        lines.append("Điểm chính bài band-9 phải nêu:")
+        lines.extend(f"- {k}" for k in key_features)
+    data_lines = []
+    for d in notable:
+        if not isinstance(d, dict):
+            continue
+        label = str(d.get("label") or "").strip()
+        value = str(d.get("value") or "").strip()
+        unit = str(d.get("unit") or "").strip()
+        if not label and not value:
+            continue
+        data_lines.append(f"- {label}: {value}{(' ' + unit) if unit else ''}".rstrip())
+    if data_lines:
+        lines.append("Số liệu mốc:")
+        lines.extend(data_lines)
+    if axes:
+        lines.append(f"Trục/danh mục: {axes}")
+    if note:
+        lines.append(f"Lưu ý: {note}")
+    lines.append(
+        "Hướng dẫn: coi các dữ kiện trên là mô tả ĐÚNG của biểu đồ. Đánh giá độ "
+        "chính xác và độ đầy đủ của bài viết SO VỚI các dữ kiện này. Nếu là "
+        "map/process, kết hợp thêm với HÌNH."
+    )
+    return "\n".join(lines)
+
+
 # ── Errors ────────────────────────────────────────────────────────────
 
 class WritingGraderError(Exception):
@@ -593,6 +647,14 @@ class GeminiWritingGrader:
 
         parts.append(f"## Loại bài (Task Type)\n{config.task_type}")
         parts.append(f"## Đề bài (Prompt)\n{config.prompt_text}")
+
+        # Task 1 verified answer key (reviewed) — anchors Task Achievement
+        # accuracy. Present only when the caller populated prompt_image_facts
+        # (feature flag ON + prompt analysis approved); the chart image is still
+        # sent multimodally alongside. None → omit → pre-feature behaviour.
+        facts_block = format_prompt_facts_block(config.prompt_image_facts)
+        if facts_block:
+            parts.append(facts_block)
 
         # Bug-2 fix — authoritative body word count. The model is told to USE
         # this number for the Rule 2 word-count caps and NOT to count words

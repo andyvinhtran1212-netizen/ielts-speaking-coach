@@ -70,6 +70,16 @@ class Settings(BaseSettings):
     # minting on the read side. (Replaced the Cloudinary integration.)
     WRITING_IMAGES_BUCKET: str = "writing-images"
 
+    # Task 1 verified "answer key" (docs/WRITING_TASK1_ANALYSIS_SPEC.md).
+    # WRITING_ANALYSIS_MODEL — the vision model that extracts the chart into
+    # static facts once at prompt create/update. Pro for accuracy; the cost is a
+    # one-off per prompt, amortized over every grade against it.
+    WRITING_ANALYSIS_MODEL: str = "gemini-2.5-pro"
+    # WRITING_TASK1_FACTS_ENABLED — master switch for FEEDING the reviewed facts
+    # to the grader. OFF → extraction/review UI still work, but grading is
+    # unchanged (image-only). Turn ON only after enough prompts are reviewed.
+    WRITING_TASK1_FACTS_ENABLED: bool = False
+
     # App config
     # speaking-daily-limit-24 — global per-account daily speaking-session cap
     # (admins bypass; counted per UTC calendar day, resets at UTC midnight;
