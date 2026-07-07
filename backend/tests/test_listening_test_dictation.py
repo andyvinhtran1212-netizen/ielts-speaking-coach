@@ -86,6 +86,17 @@ def test_build_turn_segments_rejects_invalid_windows():
     assert build_turn_segments("**A:** One.", [{"start": 2, "end": 4}], offset=-3) == []
 
 
+def test_split_turns_ignores_markdown_horizontal_rule():
+    # A "---" separator between/after turns is NOT speech — it must not count
+    # as a turn (otherwise the transcript turns misalign with timings.turns
+    # and no dictation segments generate).
+    transcript = "**A:** Good morning.\n\n**B:** Hello there.\n\n---"
+    assert split_turns(transcript) == ["Good morning.", "Hello there."]
+    assert split_sentences(transcript) == ["Good morning.", "Hello there."]
+    # Other rule styles too.
+    assert split_turns("**A:** Hi.\n\n***\n\n**B:** Bye.") == ["Hi.", "Bye."]
+
+
 def test_split_turns_one_unit_per_turn_not_sentence_split():
     # split_turns keeps a whole turn as ONE unit (audio-aligned granularity)
     # — unlike split_sentences which breaks a turn into sentences.
