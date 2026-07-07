@@ -42,7 +42,12 @@ from database import supabase_admin
 from routers.admin import require_admin
 from routers.auth import get_supabase_user
 from services.listening_gist_grader import grade_gist_response
-from services.listening_grader import grade_dictation, grade_mcq, grade_true_false
+from services.listening_grader import (
+    grade_dictation,
+    grade_mcq,
+    grade_true_false,
+    split_sentences,
+)
 from services.listening_renderer import run_elevenlabs_render_job
 from services.listening_validator import (
     has_errors as validator_has_errors,
@@ -5151,6 +5156,12 @@ async def get_published_listening_test(
         "id":                     test["id"],
         "test_id":                test.get("test_id"),
         "title":                  test.get("title"),
+        # Sprint — surface test_type so the student player can relax the
+        # single-shot audio constraint for mini + drill (practice), while
+        # full tests keep the Cambridge no-seek/no-pause behaviour. Legacy
+        # full tests may have test_type NULL → the frontend treats NULL as
+        # 'full'.
+        "test_type":              (test.get("metadata") or {}).get("test_type"),
         "themes":                 test.get("themes") or {},
         "audio_url":              audio_url,
         "audio_storage_path":     audio_path,
@@ -5158,6 +5169,139 @@ async def get_published_listening_test(
         "cue_points":             test.get("cue_points") or [],
         "sections":               sections_out,
     }
+
+
+# ── Test-linked dictation (chép chính tả) ────────────────────────────
+#
+# Reuses a listening test's audio + per-section transcripts. Unlike the
+# content-based dictation (listening_exercises.segments with per-sentence
+# audio timing), tests have no per-sentence timestamps, so we split the
+# real section transcript into sentences and let the section audio play
+# with free scrub. No timing is fabricated; grading compares the typed
+# sentence to the real transcript sentence via the shared grade_dictation.
+
+
+def _section_cue_start(cue_points: list, section_num) -> float | None:
+    """Earliest ``section_start`` cue timestamp for a section, so the
+    dictation UI can seek the audio to the start of the chosen section.
+    Returns None when no cue exists (audio starts at 0)."""
+    best = None
+    for cue in (cue_points or []):
+        if (isinstance(cue, dict)
+                and cue.get("type") == "section_start"
+                and cue.get("section_num") == section_num):
+            ts = cue.get("timestamp_seconds")
+            if isinstance(ts, (int, float)) and (best is None or ts < best):
+                best = float(ts)
+    return best
+
+
+@user_router.get("/tests/{test_id}/dictation")
+async def get_listening_test_dictation(
+    test_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Boot test-linked dictation.
+
+    Returns the test's audio + each section's transcript split into
+    sentences. This endpoint DELIBERATELY exposes the transcript (the
+    dictation reference) — it is separate from the player endpoint
+    (``GET /tests/{id}``) which strips transcripts to prevent students
+    reading the answers during a graded attempt.
+    """
+    await _require_auth(authorization)
+
+    res = (
+        supabase_admin.table("listening_tests")
+        .select("*")
+        .eq("id", test_id)
+        .eq("status", "published")
+        .limit(1)
+        .execute()
+    )
+    if not res.data:
+        raise HTTPException(404, "Test bundle not found or not published")
+    test = res.data[0]
+
+    audio_url, audio_path, audio_duration = _student_audio_url_for_test(test)
+    if not audio_url:
+        raise HTTPException(
+            422, "Test chưa có audio sẵn sàng — vui lòng quay lại sau.",
+        )
+
+    sec_res = (
+        supabase_admin.table("listening_content")
+        .select("id,section_num,title,transcript")
+        .eq("test_id", test_id)
+        .order("section_num")
+        .execute()
+    )
+    cue_points = test.get("cue_points") or []
+    sections_out: list[dict] = []
+    for s in (sec_res.data or []):
+        sentences = split_sentences(s.get("transcript") or "")
+        sections_out.append({
+            "section_num": s.get("section_num"),
+            "title":       s.get("title"),
+            "cue_start":   _section_cue_start(cue_points, s.get("section_num")),
+            "sentences":   sentences,
+        })
+
+    return {
+        "id":                     test["id"],
+        "test_id":                test.get("test_id"),
+        "title":                  test.get("title"),
+        "audio_url":              audio_url,
+        "audio_duration_seconds": audio_duration,
+        "cue_points":             cue_points,
+        "sections":               sections_out,
+    }
+
+
+class ListeningTestDictationGradeRequest(BaseModel):
+    test_id:         str
+    section_num:     int
+    sentence_idx:    int = Field(ge=0)
+    user_transcript: str = Field(default="", max_length=10_000)
+
+
+@user_router.post("/tests/dictation/grade")
+async def grade_listening_test_dictation(
+    body: ListeningTestDictationGradeRequest,
+    authorization: str | None = Header(default=None),
+):
+    """Grade one sentence of test-linked dictation.
+
+    Stateless (v1 — no persistence): re-splits the section transcript on
+    the server and grades ``sentences[sentence_idx]`` against the typed
+    text. Returns the same shape as the content-based dictation grader so
+    the frontend diff renderer is reused verbatim.
+    """
+    await _require_auth(authorization)
+
+    sec_res = (
+        supabase_admin.table("listening_content")
+        .select("transcript")
+        .eq("test_id", body.test_id)
+        .eq("section_num", body.section_num)
+        .limit(1)
+        .execute()
+    )
+    if not sec_res.data:
+        raise HTTPException(404, "Section không tồn tại cho test này.")
+
+    sentences = split_sentences(sec_res.data[0].get("transcript") or "")
+    if body.sentence_idx >= len(sentences):
+        raise HTTPException(
+            422,
+            f"sentence_idx {body.sentence_idx} ngoài phạm vi "
+            f"(section có {len(sentences)} câu).",
+        )
+
+    return grade_dictation(
+        reference_transcript=sentences[body.sentence_idx],
+        user_transcript=body.user_transcript,
+    )
 
 
 @user_router.post("/tests/{test_id}/attempts")

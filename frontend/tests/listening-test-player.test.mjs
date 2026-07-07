@@ -149,10 +149,19 @@ describe('Sprint 13.5 — player JS contract', () => {
     assert.match(JS, /qNum\s*<\s*1\s*\|\|\s*qNum\s*>\s*\(STATE\.totalQuestions\s*\|\|\s*40\)/);
   });
 
-  it('NEVER seeks the audio (no audio.currentTime = ...)', () => {
-    const seekAssign = /audio[^=]*\.currentTime\s*=\s*[^=]/;
-    assert.ok(!seekAssign.test(JS),
-      'player must never assign audio.currentTime (no-seek rule)');
+  it('only seeks under scrub mode — full test stays no-seek', () => {
+    // Full test keeps the Cambridge no-seek rule; mini/drill seek via
+    // wireSeekBar, which is only wired when STATE.scrub is true.
+    assert.match(JS, /if \(STATE\.scrub\) wireSeekBar\(audio\)/);
+    // The single-shot full-test path never assigns currentTime.
+    const sp = /function startPlayback\(\)\s*\{([\s\S]+?)\n\}/m.exec(JS);
+    assert.ok(sp, 'startPlayback body not found');
+    assert.ok(!/currentTime\s*=/.test(sp[1]),
+      'full-test startPlayback must never seek');
+    // Any currentTime assignment lives inside the scrub-only seek helper.
+    const sb = /function wireSeekBar\([\s\S]+?\n\}/m.exec(JS);
+    assert.ok(sb, 'wireSeekBar body not found');
+    assert.match(sb[0], /audio\.currentTime\s*=/);
   });
 
   it('starts playback exactly once and locks the button (Cambridge single-shot)', () => {
@@ -778,19 +787,20 @@ describe('Sprint 13.5.7 — Cambridge audio authenticity', () => {
     assert.match(JS, /playbackStarted:\s*false/);
   });
 
-  it('NO togglePlay / setSpeed handlers remain (replaced by startPlayback)', () => {
-    assert.ok(!/function togglePlay\b/.test(JS),
-      'togglePlay removed in 13.5.7');
-    assert.ok(!/function setSpeed\b/.test(JS),
-      'setSpeed removed in 13.5.7');
-    assert.ok(!/'⏸ Pause'|"⏸ Pause"/.test(JS),
-      'pause label removed in 13.5.7');
+  it('practice (mini + drill) relaxes single-shot: togglePlayback + seek added', () => {
+    // Mini + drill let the learner pause / seek / replay; full test keeps
+    // the Cambridge single-shot constraint. Guarded by STATE.scrub.
+    assert.match(JS, /STATE\.scrub\s*=\s*tt === 'mini' \|\| tt === 'drill'/);
+    assert.match(JS, /function togglePlayback\(\)/);
+    assert.match(JS, /function wireSeekBar\(/);
+    // No speed control was added to THIS player — speed lives only in the
+    // separate <audio-player> web component.
+    assert.ok(!/function setSpeed\b/.test(JS), 'setSpeed not introduced here');
   });
 
-  it('the click listener binds to startPlayback (not togglePlay)', () => {
-    assert.match(JS, /addEventListener\('click',\s*startPlayback\)/);
-    assert.ok(!/addEventListener\('click',\s*togglePlay\)/.test(JS),
-      'old togglePlay binding removed');
+  it('the click listener branches: togglePlayback for scrub, startPlayback for full', () => {
+    assert.match(JS, /addEventListener\(\s*'click',\s*STATE\.scrub/);
+    assert.match(JS, /STATE\.scrub \? togglePlayback : startPlayback/);
   });
 });
 

@@ -71,7 +71,10 @@ function renderCard(t) {
       <div class="lt-card-title">${esc(t.title || 'Untitled test')}</div>
       ${meta ? `<div class="lt-card-meta" style="text-transform:none;letter-spacing:0;">${esc(meta)}</div>` : ''}
       <div class="lt-card-stats">${statsBits.join('')}</div>
-      <a class="${ctaClass}" href="/pages/listening-test.html?id=${encodeURIComponent(t.id)}">${ctaLabel}</a>
+      <div class="lt-card-actions" style="display:flex; gap:var(--av-space-2); flex-wrap:wrap;">
+        <a class="${ctaClass}" href="/pages/listening-test.html?id=${encodeURIComponent(t.id)}">${ctaLabel}</a>
+        <a class="lt-card-cta secondary" href="/pages/listening-test-dictation.html?test_id=${encodeURIComponent(t.id)}">✍️ Chép chính tả</a>
+      </div>
     </article>
   `;
 }

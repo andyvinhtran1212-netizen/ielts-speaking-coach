@@ -187,6 +187,75 @@ def grade_dictation(
     }
 
 
+# ── Sentence splitter (test-linked dictation) ────────────────────────
+#
+# Test-linked dictation ("chép chính tả" launched from a listening test)
+# reuses the section's stored full transcript. There is NO per-sentence
+# audio timing for tests (unlike listening_exercises.segments), so we do
+# NOT fabricate timestamps — we only split the REAL transcript text into
+# sentences the learner types one at a time, while the section audio
+# plays with free scrub. This splitter is deterministic and must return
+# the same sentence list on the boot endpoint (to render dots) and on
+# the grade endpoint (to look up the reference sentence by index).
+
+# Common abbreviations whose trailing "." must NOT end a sentence.
+_ABBREVIATIONS = {
+    "mr", "mrs", "ms", "dr", "prof", "st", "mt", "vs", "etc", "eg", "ie",
+    "no", "vol", "fig", "approx", "dept", "univ", "inc", "ltd", "co",
+    "jan", "feb", "mar", "apr", "jun", "jul", "aug", "sep", "sept", "oct",
+    "nov", "dec", "am", "pm", "a.m", "p.m",
+}
+
+# A sentence terminator (. ! ? plus Unicode …) followed by whitespace.
+# The lookbehind-free approach: split on terminator+space, then re-attach
+# the terminator, and merge fragments that end in a known abbreviation.
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?…])\s+")
+
+
+def split_sentences(transcript: str) -> list[str]:
+    """Split a transcript into display-ready sentences.
+
+    Deterministic (no randomness / no external NLP) so the boot and grade
+    endpoints agree on indices. Conservative: keeps interior punctuation,
+    does not split on abbreviations like "Mr." or "e.g.", collapses
+    whitespace, and drops empties.
+
+    Empty / whitespace-only input → ``[]`` (the UI then shows a
+    "chưa có lời" empty state rather than a broken dictation loop).
+    """
+    if not transcript or not transcript.strip():
+        return []
+
+    # Collapse newlines + runs of whitespace to single spaces so a
+    # transcript stored with hard line breaks splits by sentence, not
+    # by line.
+    text = re.sub(r"\s+", " ", transcript).strip()
+
+    raw_parts = _SENTENCE_SPLIT_RE.split(text)
+
+    # Re-merge fragments that were split after an abbreviation (the
+    # previous fragment ends in "…Mr." etc.). Walk left→right, appending
+    # to the buffer until the buffer does not end in an abbreviation.
+    sentences: list[str] = []
+    buffer = ""
+    for part in raw_parts:
+        part = part.strip()
+        if not part:
+            continue
+        buffer = f"{buffer} {part}".strip() if buffer else part
+        # Does the buffer end in an abbreviation dot? If so, keep merging.
+        last = buffer.rstrip(".!?…").split()
+        tail = last[-1].casefold() if last else ""
+        ends_abbrev = buffer.endswith(".") and tail in _ABBREVIATIONS
+        if not ends_abbrev:
+            sentences.append(buffer)
+            buffer = ""
+    if buffer:
+        sentences.append(buffer)
+
+    return sentences
+
+
 # ── True / False / Not-Given grader (Sprint 11.4) ────────────────────
 
 
