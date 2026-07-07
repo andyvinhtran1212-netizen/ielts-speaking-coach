@@ -241,6 +241,26 @@ function applySentenceAudio() {
     player.removeAttribute('auto-loop');
   }
   try { player.pause(); } catch { /* swallow */ }
+  renderSentenceHint();
+}
+
+
+// Light proper-noun spelling hints for the current sentence — names are
+// the hardest thing to spell from audio, so we surface them gently.
+function renderSentenceHint() {
+  const el = $('sentence-hint');
+  if (!el) return;
+  const section = SESSION.sections[SESSION.activeIdx];
+  const names = section && Array.isArray(section.hints)
+    ? section.hints[SESSION.sentenceIdx] : null;
+  if (names && names.length) {
+    el.innerHTML = '<span class="hint-label">Tên riêng</span>'
+      + names.map((n) => `<span class="hint-name">${escapeHtml(n)}</span>`).join('');
+    el.hidden = false;
+  } else {
+    el.hidden = true;
+    el.innerHTML = '';
+  }
 }
 
 
@@ -338,12 +358,21 @@ function renderResult(result) {
   pill.hidden = false;
 
   $('diff-label').textContent = 'Đối chiếu với bản gỡ băng';
-  $('diff-render').innerHTML = (result.diff || []).map(renderDiffToken).join('');
+  const diff = result.diff || [];
+  $('diff-render').innerHTML = diff.map(renderDiffToken).join('');
   $('diff-block').hidden = false;
+  // Only explain the filler styling when a forgiven filler is actually shown.
+  $('diff-legend').hidden = !diff.some((d) => d.filler);
 }
 
 
 function renderDiffToken(op) {
+  // Forgiven hesitations (um / er / oh) render softly — they don't count
+  // against the score, so they read as optional, not as an error.
+  if (op.filler) {
+    const word = op.op === 'extra' ? op.actual : op.expected;
+    return `<span class="diff-token diff-token--filler" title="Ngập ngừng — có thể bỏ qua">${escapeHtml(word || '')}</span>`;
+  }
   switch (op.op) {
     case 'match':
       return `<span class="diff-token diff-token--match">${escapeHtml(op.actual || op.expected || '')}</span>`;

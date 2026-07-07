@@ -159,6 +159,20 @@
       font-weight: var(--av-fw-regular);
     }
     .diff-token--extra { color: var(--av-text-faint); text-decoration: line-through; }
+    /* Forgiven hesitations (um / er / oh) — optional, not an error. */
+    .diff-token--filler {
+      color: var(--av-text-muted);
+      font-style: italic;
+      opacity: 0.7;
+      border-bottom: 1px dotted var(--av-border-default);
+    }
+    .diff-legend {
+      margin: var(--av-space-3) 0 0;
+      font-size: var(--av-fs-xs);
+      color: var(--av-text-muted);
+      display: flex; align-items: center; gap: var(--av-space-2);
+      flex-wrap: wrap;
+    }
     .empty-state {
       padding: var(--av-space-8);
       text-align: center;
@@ -208,26 +222,71 @@
     .section-hint {
       font-size: var(--av-fs-sm);
       color: var(--av-text-muted);
+      margin: 0;
     }
 
-    /* Segment iteration UI (dots + progress). */
-    .segment-progress {
+    /* One calm workspace card per sentence — the single focused surface. */
+    .dict-card {
+      display: flex;
+      flex-direction: column;
+      gap: var(--av-space-6);
+      padding: var(--av-space-6);
+      background: var(--av-surface-card);
+      border: 1px solid var(--av-border-subtle);
+      border-radius: var(--av-radius-xl);
+      box-shadow: var(--av-shadow-sm);
+    }
+
+    /* Progress header: section name on the left, counter + dots trailing. */
+    .dict-progress {
       display: flex;
       align-items: center;
-      gap: var(--av-space-3);
+      justify-content: space-between;
+      gap: var(--av-space-4);
       flex-wrap: wrap;
     }
-    .progress-label {
-      font-size: var(--av-fs-xs);
-      color: var(--av-text-muted);
-      text-transform: uppercase;
-      letter-spacing: var(--av-tracking-widest);
+    .dict-progress-meta {
+      display: flex;
+      align-items: baseline;
+      gap: var(--av-space-3);
+      min-width: 0;
     }
-    .progress-counter {
-      font-family: var(--av-font-mono);
+    .dict-section {
       font-weight: var(--av-fw-semibold);
       color: var(--av-text-primary);
       font-size: var(--av-fs-base);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .dict-counter {
+      font-family: var(--av-font-mono);
+      font-size: var(--av-fs-sm);
+      color: var(--av-text-muted);
+      flex: none;
+    }
+
+    /* Proper-noun spelling hints (names) — quiet, not an answer giveaway. */
+    .sentence-hint {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: var(--av-space-2);
+      padding: var(--av-space-2) var(--av-space-3);
+      background: var(--av-surface-sunken);
+      border-radius: var(--av-radius-md);
+    }
+    .sentence-hint .hint-label {
+      font-size: var(--av-fs-xs);
+      text-transform: uppercase;
+      letter-spacing: var(--av-tracking-widest);
+      color: var(--av-text-muted);
+    }
+    .sentence-hint .hint-name {
+      font-weight: var(--av-fw-semibold);
+      color: var(--av-brand-teal-700);
+      padding: 1px 8px;
+      border-radius: var(--av-radius-pill);
+      background: var(--av-surface-card);
+      border: 1px solid var(--av-border-default);
     }
     .segment-dots {
       display: flex;
@@ -364,6 +423,10 @@
       color: var(--av-text-secondary);
       margin-bottom: var(--av-space-2);
     }
+
+    @media (prefers-reduced-motion: reduce) {
+      .btn-primary, .segment-dot, .answer-textarea { transition: none; }
+    }
   </style>
 </head>
 <body class="av-page">
@@ -396,40 +459,50 @@
         <div class="section-picker" id="section-picker"></div>
       </div>
 
-      <!-- Active dictation surface. -->
+      <!-- Active dictation surface — one calm workspace per sentence. -->
       <div id="dictation-surface" hidden>
+        <div class="dict-card">
 
-        <div class="segment-progress">
-          <span class="progress-label" id="active-section-label">Câu</span>
-          <span class="progress-counter" id="progress-counter">1 / 1</span>
-          <div class="segment-dots" id="segment-dots" role="list" aria-label="Tiến độ các câu"></div>
-        </div>
+          <div class="dict-progress">
+            <div class="dict-progress-meta">
+              <span class="dict-section" id="active-section-label">Câu</span>
+              <span class="dict-counter" id="progress-counter">1 / 1</span>
+            </div>
+            <div class="segment-dots" id="segment-dots" role="list" aria-label="Tiến độ các câu"></div>
+          </div>
 
-        <p class="section-hint" id="section-hint" hidden></p>
+          <p class="section-hint" id="section-hint" hidden></p>
 
-        <audio-player id="player"></audio-player>
+          <audio-player id="player"></audio-player>
 
-        <div class="answer-block">
-          <label class="answer-label" for="answer">Câu trả lời của bạn</label>
-          <textarea class="answer-textarea" id="answer"
-                    placeholder="Gõ lại câu bạn nghe được..."
-                    autocomplete="off" spellcheck="false"></textarea>
-        </div>
+          <!-- Proper-noun spelling hints for this sentence (names). -->
+          <div class="sentence-hint" id="sentence-hint" hidden></div>
 
-        <div class="submit-row">
-          <button class="btn-primary" id="btn-submit" type="button">Kiểm tra</button>
-          <button class="btn-secondary" id="btn-reset" type="button" hidden>Thử lại</button>
-          <button class="btn-primary" id="btn-next" type="button" hidden>Câu tiếp theo →</button>
-          <span class="score-pill" id="score-pill" hidden></span>
-        </div>
+          <div class="answer-block">
+            <label class="answer-label" for="answer">Gõ lại câu bạn nghe được</label>
+            <textarea class="answer-textarea" id="answer"
+                      placeholder="Nghe rồi gõ lại đây… (Ctrl/⌘ + Enter để kiểm tra)"
+                      autocomplete="off" spellcheck="false"></textarea>
+          </div>
 
-        <!-- Inline (per-sentence) errors — kept inside the surface so an
-             empty-answer / grade failure never hides the dictation UI. -->
-        <div class="error-banner" id="inline-error" hidden></div>
+          <div class="submit-row">
+            <button class="btn-primary" id="btn-submit" type="button">Kiểm tra</button>
+            <button class="btn-secondary" id="btn-reset" type="button" hidden>Thử lại</button>
+            <button class="btn-primary" id="btn-next" type="button" hidden>Câu tiếp theo →</button>
+            <span class="score-pill" id="score-pill" hidden></span>
+          </div>
 
-        <div class="diff-block" id="diff-block" hidden>
-          <span class="label" id="diff-label">Đối chiếu</span>
-          <div id="diff-render"></div>
+          <!-- Inline (per-sentence) errors — kept inside the surface so an
+               empty-answer / grade failure never hides the dictation UI. -->
+          <div class="error-banner" id="inline-error" hidden></div>
+
+          <div class="diff-block" id="diff-block" hidden>
+            <span class="label" id="diff-label">Đối chiếu</span>
+            <div id="diff-render"></div>
+            <p class="diff-legend" id="diff-legend" hidden>
+              <span class="diff-token diff-token--filler">um</span> ngập ngừng — có thể bỏ qua, không trừ điểm.
+            </p>
+          </div>
         </div>
       </div>
 
