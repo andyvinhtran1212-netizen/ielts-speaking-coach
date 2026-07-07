@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 CONTENT_DIR    = Path(__file__).parent.parent / "content_vocab"
 CATEGORIES_FILE = CONTENT_DIR / "_categories.yaml"
+LISTS_FILE      = CONTENT_DIR / "_lists.yaml"      # exam-list manifest (AWL/TOEIC/THPT)
 
 _MD_EXTENSIONS  = ["tables", "fenced_code", "attr_list"]
 
@@ -43,14 +44,22 @@ class VocabContentService:
         # Canonical identity is (category, slug) — a word may live in several
         # topics, so detail lookup and the full census key on the pair.
         self.articles_by_cat_slug: dict[tuple, dict]     = {}
-        self._all_articles:        list[dict]            = []
-        self.articles_by_category: dict[str, list[dict]] = {}
+        self._all_articles:        list[dict]            = []   # FULL census (KP + get_all_articles)
+        # CURATED = self-authored topic vocab (no `lists`); EXAM = AWL/TOEIC/THPT
+        # import (non-empty `lists`). The two are kept apart so the "my vocab"
+        # surfaces never mix in exam-list words (see _is_exam / _build_indexes).
+        self._curated_articles:    list[dict]            = []
+        self._exam_articles:       list[dict]            = []
+        self.articles_by_category: dict[str, list[dict]] = {}   # CURATED, keyed by category
+        self.exam_by_list:         dict[str, list[dict]] = {}   # EXAM, keyed by each list slug
+        self._exam_lists_meta:     list[dict]            = []   # from _lists.yaml (+ family)
         self.all_categories:       list[dict]            = []
-        self.headword_index:       list[dict]            = []  # for prefix search
+        self.headword_index:       list[dict]            = []  # for prefix search (CURATED)
         self._valid_categories:    set[str]              = set()
         self.last_modified:        Optional[datetime]    = None  # G2: cache key (MAX updated_at)
         self._source:             str                    = "markdown"  # "db" | "markdown"
         self._load_categories()
+        self._load_lists()
         self._load_all()
 
     def reload(self) -> None:
@@ -59,12 +68,17 @@ class VocabContentService:
         self.articles_by_slug = {}
         self.articles_by_cat_slug = {}
         self._all_articles = []
+        self._curated_articles = []
+        self._exam_articles = []
         self.articles_by_category = {}
+        self.exam_by_list = {}
+        self._exam_lists_meta = []
         self.all_categories = []
         self.headword_index = []
         self._valid_categories = set()
         self.last_modified = None
         self._load_categories()
+        self._load_lists()
         self._load_all()
 
     # ── Category manifest ────────────────────────────────────────────────────
@@ -76,6 +90,31 @@ class VocabContentService:
         raw: dict = yaml.safe_load(CATEGORIES_FILE.read_text(encoding="utf-8")) or {}
         for cat in raw.get("categories", []):
             self._valid_categories.add(cat["slug"])
+
+    # ── Exam-list manifest (AWL / TOEIC / THPT) ──────────────────────────────
+
+    def _load_lists(self) -> None:
+        """Load the exam-list manifest (_lists.yaml) that powers the exam-prep
+        area. Each entry gets a `family` (awl/toeic/thpt) derived from its slug so
+        the browse tree can group lists by exam type. Absent file → no exam lists
+        (the exam area just renders empty)."""
+        self._exam_lists_meta = []
+        if not LISTS_FILE.exists():
+            return
+        raw: dict = yaml.safe_load(LISTS_FILE.read_text(encoding="utf-8")) or {}
+        for lst in raw.get("lists", []):
+            slug = lst.get("slug")
+            if not slug:
+                continue
+            self._exam_lists_meta.append({
+                "slug":        slug,
+                "title":       lst.get("title") or _prettify(slug),
+                "description": lst.get("description", ""),
+                "exam_source": lst.get("exam_source", ""),
+                "order":       lst.get("order", 999),
+                "family":      _exam_family_of(slug),
+            })
+        self._exam_lists_meta.sort(key=lambda m: m["order"])
 
     # ── Loader ───────────────────────────────────────────────────────────────
 
@@ -154,6 +193,11 @@ class VocabContentService:
             "collocations":   list(r.get("collocations") or []),
             "related_words":  list(r.get("related_words") or []),
             "word_family":    list(r.get("word_family") or []),   # mig112 — "Họ từ" (≠ related)
+            # Exam-list axis (mig135): a non-empty `lists` marks this as AWL/TOEIC/
+            # THPT import vocab → served by the exam-prep area, kept OUT of the
+            # self-curated topic surfaces (see _is_exam).
+            "lists":          list(r.get("lists") or []),
+            "tested_in":      list(r.get("tested_in") or []),
             "gloss_vi":       r.get("gloss_vi") or "",
             "definition_en":  r.get("definition_en") or "",
             "definition_vi":  r.get("definition_vi") or "",       # mig112 — curated VN (else gloss_vi)
@@ -189,17 +233,42 @@ class VocabContentService:
                 logger.error("[vocab] failed to parse %s: %s", md_file, exc)
         return articles
 
+    @staticmethod
+    def _is_exam(a: dict) -> bool:
+        """True when a card was imported as exam-list vocab (AWL/TOEIC/THPT): it
+        carries a non-empty `lists`. Such cards are served ONLY by the exam-prep
+        area and excluded from the self-curated topic surfaces (browse / flashcards
+        / counts / quiz popups) so 'từ của tôi' never mixes with imported exam words."""
+        return bool(a.get("lists"))
+
     def _build_indexes(self, articles: list[dict]) -> None:
-        self._all_articles = list(articles)   # full census — no dedup by slug
+        self._all_articles = list(articles)   # full census — no dedup by slug (KP)
+        # Detail maps span ALL cards so any card (curated OR exam) stays reachable
+        # by its own (category, slug) / slug — the article detail page + related
+        # resolution must resolve exam cards too.
         for a in articles:
             self.articles_by_slug[a["slug"]] = a
             self.articles_by_cat_slug[(a["category"], a["slug"])] = a
-            self.articles_by_category.setdefault(a["category"], []).append(a)
 
+        # Split by provenance.
+        self._curated_articles = [a for a in articles if not self._is_exam(a)]
+        self._exam_articles    = [a for a in articles if self._is_exam(a)]
+
+        # Topic grouping — CURATED only (drives the 'my vocab' browse + study).
+        for a in self._curated_articles:
+            self.articles_by_category.setdefault(a["category"], []).append(a)
         for cat in self.articles_by_category:
             self.articles_by_category[cat].sort(
                 key=lambda x: x.get("headword", x["slug"])
             )
+
+        # Exam grouping — keyed by EACH list slug (a card may belong to several
+        # lists, e.g. awl-sublist-1 + toeic-core, so it appears under each).
+        for a in self._exam_articles:
+            for lst in (a.get("lists") or []):
+                self.exam_by_list.setdefault(str(lst), []).append(a)
+        for lst in self.exam_by_list:
+            self.exam_by_list[lst].sort(key=lambda x: x.get("headword", x["slug"]))
 
         # Category-runtime (Slice-A): the category list is DISTINCT-from-DB — any
         # category present in the data surfaces, no yaml whitelist. Order is
@@ -232,14 +301,14 @@ class VocabContentService:
                 "articles":      [self._summary(a) for a in arts],
             })
 
-        # headword prefix-search index
+        # headword prefix-search index — CURATED only (the 'my vocab' wiki search).
         self.headword_index = [
             {
                 "slug":     a["slug"],
                 "category": a["category"],
                 "headword": a["headword"],
             }
-            for a in articles
+            for a in self._curated_articles
         ]
 
     def _parse_file(self, path: Path) -> Optional[dict]:
@@ -283,6 +352,9 @@ class VocabContentService:
             "collocations":   [str(x) for x in (fm.get("collocations") or []) if x is not None],
             "related_words":  [str(x) for x in (fm.get("related_words") or []) if x is not None],
             "word_family":    [str(x) for x in (fm.get("word_family") or []) if x is not None],
+            # Exam-list axis — same role as the DB path (marks AWL/TOEIC/THPT vocab).
+            "lists":          [str(x) for x in (fm.get("lists") or []) if x is not None],
+            "tested_in":      [str(x) for x in (fm.get("tested_in") or []) if x is not None],
             # VE1 (word-library grid): a short VN gloss for the mini-card. The 20
             # words have NO structured VN field — the gloss is the body's first
             # paragraph (e.g. "**Tiên tiến nhất…** — …"), so extract it. A word
@@ -339,9 +411,16 @@ class VocabContentService:
         return self.all_categories
 
     def get_all_articles(self) -> list[dict]:
-        # Full census (mig 122) — iterate every card, NOT the slug-keyed dict,
-        # so a word present in several topics is counted once per topic.
+        # FULL census (mig 122) — curated AND exam cards. Kept full because the KP
+        # registry (vocab_slugs) + the KP seed validate/reference every card,
+        # including AWL/TOEIC/THPT imports. For the 'my vocab' wiki listing use
+        # get_curated_articles(), which drops the exam-list words.
         return [self._summary(a) for a in self._all_articles]
+
+    def get_curated_articles(self) -> list[dict]:
+        """Flat summaries of SELF-CURATED words only (exam-list vocab excluded) —
+        the 'my vocab' wiki flat listing / client-side search source."""
+        return [self._summary(a) for a in self._curated_articles]
 
     def get_article(self, category: str, slug: str) -> Optional[dict]:
         # Disambiguate by (category, slug): the same slug can exist in multiple
@@ -368,7 +447,8 @@ class VocabContentService:
         ]
 
     def search_prefix(self, prefix: str) -> list[dict]:
-        """Simple case-insensitive prefix match on headword."""
+        """Simple case-insensitive prefix match on headword (CURATED only —
+        headword_index excludes exam-list vocab)."""
         if not prefix:
             return []
         q = prefix.lower()
@@ -377,8 +457,75 @@ class VocabContentService:
             if item["headword"].lower().startswith(q)
         ][:20]
 
+    # ── Exam-prep area (AWL / TOEIC / THPT) ──────────────────────────────────
+
+    def get_exam_families(self) -> list[dict]:
+        """Browse tree for the exam-prep area: families (AWL/TOEIC/THPT) → their
+        lists, each with a live card count (from exam_by_list). Lists with 0 cards
+        are still shown so the target set is visible. Ordered awl→toeic→thpt; lists
+        in their manifest order."""
+        fam_titles = dict(_EXAM_FAMILIES)
+        fams: dict[str, dict] = {}
+        for meta in self._exam_lists_meta:
+            fam = meta["family"]
+            fams.setdefault(fam, {
+                "family": fam,
+                "title":  fam_titles.get(fam, fam.upper()),
+                "lists":  [],
+            })
+            fams[fam]["lists"].append({
+                "slug":        meta["slug"],
+                "title":       meta["title"],
+                "description": meta.get("description", ""),
+                "exam_source": meta.get("exam_source", ""),
+                "count":       len(self.exam_by_list.get(meta["slug"], [])),
+            })
+        order = {f: i for i, (f, _t) in enumerate(_EXAM_FAMILIES)}
+        return sorted(fams.values(), key=lambda f: order.get(f["family"], 99))
+
+    def get_exam_cards(self, list_slug: str) -> Optional[list[dict]]:
+        """Full rich cards for one exam list — the flashcard/study source for the
+        exam-prep area (same per-card shape as get_category_cards). Returns None
+        when the list slug is unknown (router 404s); a known-but-empty list → []."""
+        known = (any(m["slug"] == list_slug for m in self._exam_lists_meta)
+                 or list_slug in self.exam_by_list)
+        if not known:
+            return None
+        cards = self.exam_by_list.get(list_slug, [])
+        return [
+            {**a, "related_words": self._resolve_related(a.get("related_words") or [])}
+            for a in cards
+        ]
+
+    def get_exam_list_title(self, list_slug: str) -> str:
+        """Human title for an exam list slug (falls back to a prettified slug)."""
+        for m in self._exam_lists_meta:
+            if m["slug"] == list_slug:
+                return m["title"]
+        return _prettify(list_slug)
+
 
 # ── Module-level helpers ─────────────────────────────────────────────────────
+
+# Exam families (ordered) for the exam-prep browse tree. The card's `lists` slugs
+# map to a family by prefix (awl-sublist-1 → awl, toeic-core → toeic, …).
+_EXAM_FAMILIES = (
+    ("awl",   "AWL — Academic Word List"),
+    ("toeic", "TOEIC"),
+    ("thpt",  "THPT Quốc gia"),
+)
+
+
+def _exam_family_of(list_slug: str) -> str:
+    s = str(list_slug or "")
+    if s.startswith("awl"):
+        return "awl"
+    if s.startswith("toeic"):
+        return "toeic"
+    if s.startswith("thpt"):
+        return "thpt"
+    return "other"
+
 
 def _prettify(slug: str) -> str:
     return slug.replace("-", " ").title()

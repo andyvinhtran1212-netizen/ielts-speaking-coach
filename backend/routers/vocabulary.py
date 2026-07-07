@@ -70,9 +70,42 @@ async def get_category_cards(category: str, request: Request) -> Response:
 
 @router.get("/articles")
 async def get_articles(request: Request) -> Response:
-    """Return flat list of all article summaries (for client-side search/listing)."""
+    """Flat list of SELF-CURATED article summaries (for client-side search/listing).
+    Exam-list vocab (AWL/TOEIC/THPT) is served by /exam, not here, so the 'my vocab'
+    wiki listing never mixes in imported exam words."""
     return cacheable_json(
-        vocab_service.get_all_articles(),
+        vocab_service.get_curated_articles(),
+        request,
+        last_modified=_last_modified(),
+    )
+
+
+# ── Exam-prep area (AWL / TOEIC / THPT) — kept separate from 'my vocab' ────────
+
+@router.get("/exam")
+async def get_exam_families(request: Request) -> Response:
+    """Exam-prep browse tree: families (AWL/TOEIC/THPT) → lists with card counts."""
+    return cacheable_json(
+        vocab_service.get_exam_families(),
+        request,
+        last_modified=_last_modified(),
+    )
+
+
+@router.get("/exam/{list_slug}/cards")
+async def get_exam_cards(list_slug: str, request: Request) -> Response:
+    """Full rich cards for one exam list — the exam-prep study/flashcard stack.
+    404 when the list slug is unknown."""
+    cards = vocab_service.get_exam_cards(list_slug)
+    if cards is None:
+        raise HTTPException(status_code=404, detail=f"Exam list '{list_slug}' not found")
+    return cacheable_json(
+        {
+            "list": list_slug,
+            "title": vocab_service.get_exam_list_title(list_slug),
+            "count": len(cards),
+            "cards": cards,
+        },
         request,
         last_modified=_last_modified(),
     )

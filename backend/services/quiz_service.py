@@ -217,13 +217,18 @@ def _word_cards_for(bank: dict) -> dict:
                 "headword, definition_vi, definition_en, gloss_vi, pronunciation, "
                 "syllables, part_of_speech, level, register, example, "
                 "audio_headword, audio_example, collocations, synonyms, antonyms, "
-                "related_words, word_family, common_error, memory_hook"
+                "related_words, word_family, common_error, memory_hook, lists"
             ).eq("topic_id", bank["topic_id"]).execute()
         ).data or []
     except Exception:  # noqa: BLE001
         return {}
     cards = {}
     for c in rows:
+        # Skip exam-list vocab (AWL/TOEIC/THPT import): those cards share the topic
+        # but are NOT part of the self-curated bank — the glance popup must stay
+        # scoped to 'từ của tôi'. `lists` non-empty marks an exam card.
+        if c.get("lists"):
+            continue
         hw = (c.get("headword") or "").strip().lower()
         if hw:
             cards[hw] = c

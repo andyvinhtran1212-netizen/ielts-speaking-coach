@@ -645,14 +645,17 @@ def test_build_indexes_merges_yaml_titles_and_new_distinct_categories():
 
 def test_backward_compat_markdown_fallback_keeps_six_categories():
     # CG3 — empty table → markdown fallback still renders the original 6 groups +
-    # the 20 seeded words, titles intact.
+    # the seeded words, titles intact. The categories feed now carries the
+    # SELF-CURATED words only (exam-list AWL/TOEIC/THPT vocab is served by /exam),
+    # so the sum == the curated census, strictly fewer than the full census.
     svc = _fresh_service_with_db([])
     cats = svc.get_categories()
     assert len(cats) >= 6
     titles = {c["slug"]: c["title"] for c in cats}
     assert titles.get("technology") == "Technology"
     assert titles.get("work-career") == "Work & Career"   # yaml title preserved
-    assert sum(c["article_count"] for c in cats) == 80
+    assert sum(c["article_count"] for c in cats) == len(svc.get_curated_articles())
+    assert len(svc.get_curated_articles()) < len(svc.get_all_articles())
 
 
 # ── Phase B2: KP-enrichment fields (confusable_with / related_grammar / tested_in / lists) ──

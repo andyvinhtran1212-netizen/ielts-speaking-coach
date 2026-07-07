@@ -280,16 +280,19 @@ def _resolve_audio_map(topic_id: Optional[str]) -> dict:
     try:
         rows = (
             supabase_admin.table("vocab_cards")
-            .select("headword, audio_headword")
+            .select("headword, audio_headword, lists")
             .eq("topic_id", topic_id)
             .execute()
         ).data or []
     except Exception as exc:  # noqa: BLE001
         logger.warning("[quiz] audio map read failed: %s", exc)
         return {}
+    # Exclude exam-list vocab (AWL/TOEIC/THPT): the bank's own words are curated,
+    # so an exam card sharing a headword must not supply {{audio}} for it.
     return {
         str(r["headword"]).strip().lower(): r.get("audio_headword")
-        for r in rows if r.get("headword") and r.get("audio_headword")
+        for r in rows
+        if r.get("headword") and r.get("audio_headword") and not r.get("lists")
     }
 
 

@@ -38,8 +38,10 @@ def test_summary_carries_grid_fields():
 
 
 def test_categories_feed_embeds_word_summaries_with_gloss():
-    """GET /api/vocabulary/categories feed: 6 categories, each embeds its words
-    (with gloss_vi) — the one-call grid source (no N+1)."""
+    """GET /api/vocabulary/categories feed: the 7 manifest categories, each embeds
+    its words (with gloss_vi) — the one-call grid source (no N+1). The feed carries
+    the SELF-CURATED words only; exam-list vocab (AWL/TOEIC/THPT) is excluded and
+    served by /exam instead, so the embedded total == the curated census."""
     cats = vocab_service.get_categories()
     assert len(cats) == 7
     total = 0
@@ -48,7 +50,10 @@ def test_categories_feed_embeds_word_summaries_with_gloss():
         for w in c["articles"]:
             assert "gloss_vi" in w and "pronunciation" in w
             total += 1
-    assert total == 80
+    curated = len(vocab_service.get_curated_articles())
+    assert total == curated
+    # Exam-list vocab must NOT leak into the 'my vocab' grid.
+    assert curated < len(vocab_service.get_all_articles())
 
 
 # ── additive definition_en/example (VC1 forward-compat) ───────────────

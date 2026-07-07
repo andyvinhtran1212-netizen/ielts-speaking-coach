@@ -49,7 +49,20 @@
             return String(s == null ? '' : s)
               .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
           }
-          var cards = cats.map(function (c) {
+          // Drop empty topics: a manifest category is emitted even with 0 words
+          // (backward-compat), and after the exam-vocab split an old topic that
+          // held only AWL/TOEIC/THPT words (e.g. economy) now has 0 curated words.
+          // Showing a "0 từ vựng" card would be noise.
+          var withWords = cats.filter(function (c) {
+            return (c.article_count != null ? c.article_count : (c.articles || []).length) > 0;
+          });
+          if (!withWords.length) {
+            container.innerHTML = '<p style="text-align:center;padding:3rem;color:var(--av-text-faint)">Chưa có chủ đề nào.</p>';
+            container.dataset.mounted = 'true';
+            delete container.dataset.loading;
+            return;
+          }
+          var cards = withWords.map(function (c) {
             var n = c.article_count != null ? c.article_count : (c.articles || []).length;
             var slug = encodeURIComponent(c.slug);
             // Card carries explicit actions: "Khám phá" (browse the wiki),
