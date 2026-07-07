@@ -197,6 +197,19 @@ def grade_dictation(
 # plays with free scrub. This splitter is deterministic and must return
 # the same sentence list on the boot endpoint (to render dots) and on
 # the grade endpoint (to look up the reference sentence by index).
+#
+# CRITICAL: the stored transcript (listening_fulltest_import: the "bản
+# đọc" display copy) is turn-structured — blank-line-separated speaker
+# turns, each prefixed with a bold speaker label:
+#
+#     **Helen (Course coordinator):** Good afternoon. How may I help?
+#
+#     **Daniel (Customer):** I'd like to enrol in a beginner course.
+#
+# So we split by TURN first, strip the speaker label + production cues,
+# THEN sentence-split within each turn. Splitting the raw blob on "."
+# alone would (a) keep the "**Name (role):**" label in the reference —
+# the learner ends up typing the label — and (b) run turns together.
 
 # Common abbreviations whose trailing "." must NOT end a sentence.
 _ABBREVIATIONS = {
@@ -211,14 +224,56 @@ _ABBREVIATIONS = {
 # the terminator, and merge fragments that end in a known abbreviation.
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?…])\s+")
 
+# Turn boundary in the stored transcript = one or more blank lines.
+_TURN_SPLIT_RE = re.compile(r"\n[ \t]*\n+")
+# Leading bold speaker label, e.g. "**Helen (Course coordinator):**".
+_SPEAKER_LABEL_RE = re.compile(r"^\s*\*\*[^*\n]+\*\*\s*")
+# Production cues / bracket voice tags: "[pause]", "[F-BrE-30s]", …
+_BRACKET_RE = re.compile(r"\[[^\]]*\]")
+# Answer markers the fullscript/v1.1 copy carries. Mirror the permissive
+# form the converter strips (listening_convert._QUESTION_MARKER_RE) so the
+# spaced variant "( Q 33 )" is removed too, not just compact "(Q7)".
+_QMARKER_RE = re.compile(r"\(\s*Q\s*\d+\s*\)", re.IGNORECASE)
+
+
+def _clean_turn(paragraph: str) -> str:
+    """Strip the speaker label + production cues + answer markers + stray
+    markdown from one turn paragraph, and collapse whitespace to spaces."""
+    text = _SPEAKER_LABEL_RE.sub("", paragraph)
+    text = text.replace("**", "")          # any remaining bold markers
+    text = _BRACKET_RE.sub(" ", text)      # [cue] / [voice-code]
+    text = _QMARKER_RE.sub(" ", text)      # (Qn)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _sentences_in(text: str) -> list[str]:
+    """Sentence-split one already-cleaned turn on . ! ? … with an
+    abbreviation guard (keeps "Mr." / "e.g." intact)."""
+    out: list[str] = []
+    buffer = ""
+    for part in _SENTENCE_SPLIT_RE.split(text):
+        part = part.strip()
+        if not part:
+            continue
+        buffer = f"{buffer} {part}".strip() if buffer else part
+        last = buffer.rstrip(".!?…").split()
+        tail = last[-1].casefold() if last else ""
+        if not (buffer.endswith(".") and tail in _ABBREVIATIONS):
+            out.append(buffer)
+            buffer = ""
+    if buffer:
+        out.append(buffer)
+    return out
+
 
 def split_sentences(transcript: str) -> list[str]:
-    """Split a transcript into display-ready sentences.
+    """Split a stored test transcript into display-ready dictation units.
 
-    Deterministic (no randomness / no external NLP) so the boot and grade
-    endpoints agree on indices. Conservative: keeps interior punctuation,
-    does not split on abbreviations like "Mr." or "e.g.", collapses
-    whitespace, and drops empties.
+    Turn-aware: splits on blank-line turn boundaries, strips the
+    "**Name (role):**" speaker label + production cues, then sentence-
+    splits within each turn so one unit = one spoken sentence (never the
+    whole multi-turn blob, never the label). Deterministic — the boot and
+    grade endpoints must agree on indices.
 
     Empty / whitespace-only input → ``[]`` (the UI then shows a
     "chưa có lời" empty state rather than a broken dictation loop).
@@ -226,33 +281,17 @@ def split_sentences(transcript: str) -> list[str]:
     if not transcript or not transcript.strip():
         return []
 
-    # Collapse newlines + runs of whitespace to single spaces so a
-    # transcript stored with hard line breaks splits by sentence, not
-    # by line.
-    text = re.sub(r"\s+", " ", transcript).strip()
+    # Normalise line endings first: a Solution.md uploaded with Windows
+    # CRLF stores "\r\n\r\n" between turns, which the LF-only turn regex
+    # would miss — merging turns so later "**Name:**" labels leak into the
+    # reference. Fold CRLF + lone CR to LF so the turn split is reliable.
+    transcript = transcript.replace("\r\n", "\n").replace("\r", "\n")
 
-    raw_parts = _SENTENCE_SPLIT_RE.split(text)
-
-    # Re-merge fragments that were split after an abbreviation (the
-    # previous fragment ends in "…Mr." etc.). Walk left→right, appending
-    # to the buffer until the buffer does not end in an abbreviation.
     sentences: list[str] = []
-    buffer = ""
-    for part in raw_parts:
-        part = part.strip()
-        if not part:
-            continue
-        buffer = f"{buffer} {part}".strip() if buffer else part
-        # Does the buffer end in an abbreviation dot? If so, keep merging.
-        last = buffer.rstrip(".!?…").split()
-        tail = last[-1].casefold() if last else ""
-        ends_abbrev = buffer.endswith(".") and tail in _ABBREVIATIONS
-        if not ends_abbrev:
-            sentences.append(buffer)
-            buffer = ""
-    if buffer:
-        sentences.append(buffer)
-
+    for paragraph in _TURN_SPLIT_RE.split(transcript):
+        cleaned = _clean_turn(paragraph)
+        if cleaned:
+            sentences.extend(_sentences_in(cleaned))
     return sentences
 
 

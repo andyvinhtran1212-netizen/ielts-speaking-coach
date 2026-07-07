@@ -53,6 +53,56 @@ def test_split_sentences_no_terminator_is_one_sentence():
     ]
 
 
+def test_split_sentences_strips_speaker_labels_and_respects_turns():
+    # The stored transcript is blank-line-separated speaker turns prefixed
+    # with "**Name (role):**". The label must NOT leak into the dictation
+    # reference, and each turn must sentence-split independently.
+    transcript = (
+        "**Helen (Course coordinator):** Good afternoon. How may I help you?\n\n"
+        "**Daniel (Customer):** I'd like to enrol please."
+    )
+    out = split_sentences(transcript)
+    assert out == [
+        "Good afternoon.",
+        "How may I help you?",
+        "I'd like to enrol please.",
+    ]
+    # No "**", no "(role)" label fragments anywhere.
+    assert all("**" not in s and "coordinator" not in s.lower() for s in out)
+
+
+def test_split_sentences_strips_production_cues_and_answer_markers():
+    # Defensive: display copy already drops cues, but the fullscript/v1.1
+    # fallback may carry "[pause]" cues + "(Q2)" markers — never dictate them.
+    out = split_sentences("**M:** The address is [pause] Brighton (Q2). That's it.")
+    assert len(out) == 2
+    joined = " ".join(out)
+    assert "[" not in joined and "(Q" not in joined and "**" not in joined
+    assert "Brighton" in joined and "That's it." in out[-1]
+
+
+def test_split_sentences_strips_spaced_answer_markers():
+    # The converter supports the spaced marker form "( Q 33 )"; the splitter
+    # must strip it too, not just compact "(Q33)".
+    out = split_sentences("**M:** The answer is crime ( Q 33 ). Next point.")
+    joined = " ".join(out)
+    assert "Q" not in joined and "(" not in joined and ")" not in joined
+    assert "crime" in joined
+
+
+def test_split_sentences_handles_crlf_turn_separators():
+    # A Solution.md uploaded with Windows CRLF stores "\r\n\r\n" between
+    # turns. The splitter must still see two turns and strip BOTH labels —
+    # otherwise a later "**Name:**" label leaks into the reference.
+    transcript = (
+        "**Helen (Course coordinator):** Good afternoon.\r\n\r\n"
+        "**Daniel (Customer):** I'd like to enrol."
+    )
+    out = split_sentences(transcript)
+    assert out == ["Good afternoon.", "I'd like to enrol."]
+    assert all("Daniel" not in s and "Helen" not in s and "**" not in s for s in out)
+
+
 # ── Router fake supabase (compact, self-contained) ─────────────────────────
 
 
