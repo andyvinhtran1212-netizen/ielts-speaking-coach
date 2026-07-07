@@ -328,7 +328,17 @@ export class AverAudioPlayer extends HTMLElement {
   }
 
   _applySegmentBounds() {
-    if (!this._audio || !this._isSegmentMode()) return;
+    if (!this._audio) return;
+    if (!this._isSegmentMode()) {
+      // Segment mode was CLEARED (segment-start/-end removed) → restore the
+      // full-track scrub range. Without this the scrubber stays capped to
+      // the previous clip's [start, end] — e.g. a dictation test where some
+      // sections are timed and others fall back to free scrub.
+      this._$('scrub').min = 0;
+      this._$('scrub').max = this._audio.duration || 0;
+      this._updateTimeReadout();
+      return;
+    }
     const start = this._segmentStart();
     const end = this._segmentEnd();
     // Snap currentTime into the new window.

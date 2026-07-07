@@ -61,6 +61,18 @@ describe('Sprint 11.2 — <audio-player> contract', () => {
     }
   });
 
+  it('restores full-track scrub bounds when segment mode is cleared', () => {
+    // Removing segment-start/-end (e.g. a dictation test switching from a
+    // timed section to a free-scrub one) must reset scrub.min=0 /
+    // scrub.max=duration — otherwise the slider stays capped to the prior
+    // clip's window. _applySegmentBounds handles the !segmentMode branch.
+    const m = /_applySegmentBounds\(\)\s*\{([\s\S]+?)\n {2}\}/m.exec(SRC);
+    assert.ok(m, '_applySegmentBounds body not found');
+    assert.match(m[1], /!this\._isSegmentMode\(\)/);
+    assert.match(m[1], /scrub'\)\.min\s*=\s*0/);
+    assert.match(m[1], /scrub'\)\.max\s*=\s*this\._audio\.duration/);
+  });
+
   it('replay-5s rewinds exactly 5 seconds', () => {
     // Hard-coded constant to keep dictation UX behaviour pinned —
     // a sprint that changes this to 3s or 10s trips here and forces
