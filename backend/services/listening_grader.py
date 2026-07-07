@@ -148,12 +148,34 @@ def _lcs_diff(expected: list[str], actual: list[str]) -> list[_DiffOp]:
 # ── Public API ───────────────────────────────────────────────────────
 
 
+# Hesitation / filler interjections. Kept deliberately to PURE fillers
+# (never content words like "well"/"like"/"so"/"right" which can carry
+# meaning) so ignoring them can't forgive a real missed word. When
+# ignore_fillers is on, a missed filler is not penalised and an extra
+# filler the learner typed is not counted against them.
+_FILLERS = {
+    "um", "umm", "uhm", "uh", "uhh", "er", "err", "erm", "ah", "ahh",
+    "oh", "ooh", "eh", "hmm", "hm", "mm", "mmm", "huh", "mhm",
+}
+
+
+def _is_filler(token: str | None) -> bool:
+    return bool(token) and _normalise_word(token) in _FILLERS
+
+
 def grade_dictation(
     *,
     reference_transcript: str,
     user_transcript: str,
+    ignore_fillers: bool = False,
 ) -> dict[str, Any]:
     """Grade one dictation attempt.
+
+    When ``ignore_fillers`` is set, hesitation markers (um / er / oh …)
+    the learner didn't catch are neither penalised nor counted toward the
+    total, and extra fillers they typed are flagged rather than marked
+    wrong. The diff op carries ``"filler": True`` in those cases so the UI
+    can render them softly.
 
     Returns a dict-shaped payload safe to JSON-serialise into the
     listening_attempts row + return verbatim to the client:
@@ -165,8 +187,8 @@ def grade_dictation(
           "is_correct": bool — true only if score >= 1.0,
           "diff": [
             {"op": "match" | "miss" | "wrong" | "extra",
-             "expected": str | None,
-             "actual": str | None}
+             "expected": str | None, "actual": str | None,
+             "filler"?: True}
           ]
         }
     """
@@ -174,17 +196,67 @@ def grade_dictation(
     actual_tokens = _tokenise(user_transcript)
     ops = _lcs_diff(expected_tokens, actual_tokens)
 
+    diff = [{"op": o.op, "expected": o.expected, "actual": o.actual} for o in ops]
     correct = sum(1 for o in ops if o.op == "match")
-    total = max(len(expected_tokens), 1)  # avoid div-by-zero
-    score = correct / total
+    total = len(expected_tokens)
+
+    if ignore_fillers:
+        forgiven_expected = 0
+        for d in diff:
+            if d["op"] == "miss" and _is_filler(d["expected"]):
+                d["filler"] = True
+                forgiven_expected += 1
+            elif d["op"] == "extra" and _is_filler(d["actual"]):
+                d["filler"] = True
+            elif (d["op"] == "wrong"
+                    and _is_filler(d["expected"]) and _is_filler(d["actual"])):
+                # One hesitation typed as another (Um → uh): both sides are
+                # pure fillers, so forgive it too — don't count the expected
+                # filler against the score.
+                d["filler"] = True
+                forgiven_expected += 1
+        # Forgiven expected fillers drop out of the denominator so they
+        # can't lower the score; matched fillers still count normally.
+        total -= forgiven_expected
+
+    denom = max(total, 1)  # avoid div-by-zero
+    score = correct / denom
 
     return {
         "score": round(score, 4),
         "correct_words": correct,
-        "total_words": len(expected_tokens),
+        "total_words": total,
         "is_correct": score >= 1.0,
-        "diff": [{"op": o.op, "expected": o.expected, "actual": o.actual} for o in ops],
+        "diff": diff,
     }
+
+
+# Light proper-noun spelling hints. IELTS names (Pawsley, Meghan, Brighton)
+# are the hardest thing to spell from audio for a learner, so the dictation
+# UI surfaces them gently. Heuristic + deterministic: a capitalised word
+# that is NOT sentence-initial and not "I…", with at least one lowercase
+# letter (so real names, not acronyms or spelled-out letters).
+def proper_noun_hints(text: str) -> list[str]:
+    """Distinct proper-noun-ish tokens in ``text``, in order of appearance."""
+    if not text:
+        return []
+    hints: list[str] = []
+    seen: set[str] = set()
+    prev_ends_sentence = True   # the very first token is sentence-initial
+    for raw in text.split():
+        core = raw.strip("\"'“”‘’.,!?;:()…-")
+        is_initial = prev_ends_sentence
+        prev_ends_sentence = raw.endswith((".", "!", "?", "…"))
+        if not core or is_initial:
+            continue
+        if core == "I" or core.startswith("I'") or core.startswith("I’"):
+            continue
+        if core[0].isupper() and any(c.islower() for c in core[1:]):
+            key = core.casefold()
+            if key not in seen:
+                seen.add(key)
+                hints.append(core)
+    return hints
 
 
 # ── Sentence splitter (test-linked dictation) ────────────────────────

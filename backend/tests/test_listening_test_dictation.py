@@ -17,7 +17,9 @@ import pytest
 from fastapi import HTTPException
 
 from routers import listening as listening_router
-from services.listening_grader import split_sentences, split_turns
+from services.listening_grader import (
+    grade_dictation, proper_noun_hints, split_sentences, split_turns,
+)
 
 
 # ── Unit: split_sentences ──────────────────────────────────────────────────
@@ -325,6 +327,86 @@ def test_grade_sentence_section_404(monkeypatch):
     with pytest.raises(HTTPException) as excinfo:
         _grade(test["id"], 9, 0, "whatever", authz)        # no section 9
     assert excinfo.value.status_code == 404
+
+
+# ── Filler leniency + proper-noun hints ────────────────────────────────────
+
+
+def test_ignore_fillers_forgives_missed_hesitations():
+    ref = "Oh, hello. Um, I would like to book."
+    lenient = grade_dictation(reference_transcript=ref,
+                              user_transcript="hello, I would like to book.",
+                              ignore_fillers=True)
+    assert lenient["is_correct"] is True and lenient["score"] == 1.0
+    # The forgiven fillers are flagged (not counted in the denominator).
+    forgiven = [d for d in lenient["diff"] if d.get("filler")]
+    assert {d["expected"].lower().strip(",.") for d in forgiven} == {"oh", "um"}
+
+
+def test_default_still_penalises_fillers():
+    # Regression pin: content-based dictation (no ignore_fillers) unchanged.
+    ref = "Oh, hello. Um, I would like to book."
+    strict = grade_dictation(reference_transcript=ref,
+                             user_transcript="hello, I would like to book.")
+    assert strict["is_correct"] is False
+    assert not any(d.get("filler") for d in strict["diff"])
+
+
+def test_ignore_fillers_forgives_filler_to_filler_substitution():
+    # "Um" typed as "uh" collapses to a `wrong` op, but both sides are pure
+    # hesitations → forgiven, not penalised.
+    r = grade_dictation(reference_transcript="Um, hello.",
+                        user_transcript="uh hello", ignore_fillers=True)
+    assert r["is_correct"] is True and r["score"] == 1.0
+    assert any(d["op"] == "wrong" and d.get("filler") for d in r["diff"])
+
+
+def test_ignore_fillers_still_penalises_real_substitution():
+    # A real content-word substitution is NOT a filler swap — still counts.
+    r = grade_dictation(reference_transcript="the cat sat",
+                        user_transcript="the dog sat", ignore_fillers=True)
+    assert r["is_correct"] is False
+    assert not any(d.get("filler") for d in r["diff"])
+
+
+def test_ignore_fillers_does_not_forgive_real_words():
+    # A missed CONTENT word still counts; only pure hesitations are forgiven.
+    r = grade_dictation(reference_transcript="Um, the address is Brighton.",
+                        user_transcript="the address is", ignore_fillers=True)
+    assert r["is_correct"] is False   # 'Brighton' still missing
+
+
+def test_proper_noun_hints_catches_names_skips_initial_and_I():
+    hints = proper_noun_hints("Good morning, Pawsley Salon, Meghan speaking. How can I help?")
+    assert "Pawsley" in hints and "Meghan" in hints
+    assert "Good" not in hints   # sentence-initial
+    assert "How" not in hints    # sentence-initial (after '.')
+    assert "I" not in hints
+
+
+def test_proper_noun_hints_empty_when_none():
+    assert proper_noun_hints("how are you today") == []
+
+
+def test_dictation_boot_returns_proper_noun_hints(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    _seed_section(fake, test["id"], 1, "**M:** Good morning, Pawsley Salon, Meghan speaking.")
+    out = _run(listening_router.get_listening_test_dictation(
+        test_id=test["id"], authorization=authz))
+    sec = out["sections"][0]
+    assert sec["hints"] is not None
+    flat = [h for hs in sec["hints"] if hs for h in hs]
+    assert "Pawsley" in flat and "Meghan" in flat
+
+
+def test_grade_endpoint_forgives_fillers(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    _seed_section(fake, test["id"], 1, "**M:** Um, hello there.")
+    # sentence 0 = "Um, hello there." → user drops the 'Um'
+    out = _grade(test["id"], 1, 0, "hello there", authz)
+    assert out["is_correct"] is True and out["score"] == 1.0
 
 
 _SEGMENTS = [

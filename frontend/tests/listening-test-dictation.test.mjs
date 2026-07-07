@@ -129,6 +129,36 @@ describe('test-linked dictation — JS contract', () => {
 });
 
 
+describe('grading UX — filler leniency + proper-noun hints + redesign', () => {
+
+  it('renders proper-noun hints for the current sentence', () => {
+    assert.match(HTML, /id="sentence-hint"/);
+    assert.match(JS, /function renderSentenceHint\(/);
+    assert.match(JS, /section\.hints\[SESSION\.sentenceIdx\]/);
+    assert.match(JS, /hint-name/);
+  });
+
+  it('renders forgiven fillers softly + shows a legend', () => {
+    // op.filler tokens render with the --filler class, not as an error.
+    assert.match(JS, /if \(op\.filler\)/);
+    assert.match(JS, /diff-token--filler/);
+    assert.match(HTML, /\.diff-token--filler\s*\{/);
+    // The legend only appears when a filler is actually present.
+    assert.match(HTML, /id="diff-legend"/);
+    assert.match(JS, /diff-legend'\)\.hidden\s*=\s*!diff\.some\(\(d\) => d\.filler\)/);
+  });
+
+  it('uses the calm workspace card + token-only styling (no hex, no space-5)', () => {
+    assert.match(HTML, /class="dict-card"/);
+    assert.match(HTML, /\.dict-card\s*\{/);
+    assert.ok(!/#[0-9a-fA-F]{3,6}\b/.test(HTML), 'no hex literals allowed');
+    assert.ok(!/var\(--av-space-5\b/.test(HTML), 'the spacing scale skips 5');
+    // Respects reduced motion.
+    assert.match(HTML, /@media \(prefers-reduced-motion: reduce\)/);
+  });
+});
+
+
 describe('entry points — "Chép chính tả" buttons', () => {
 
   const DICT_HREF =

@@ -46,6 +46,7 @@ from services.listening_grader import (
     grade_dictation,
     grade_mcq,
     grade_true_false,
+    proper_noun_hints,
     split_sentences,
 )
 from services.listening_renderer import run_elevenlabs_render_job
@@ -5592,12 +5593,16 @@ async def get_listening_test_dictation(
             {"start": u["start"], "end": u["end"]} if u["start"] is not None else None
             for u in units
         ]
+        # Light proper-noun spelling hints per sentence (null when none) so
+        # the learner isn't stuck spelling unfamiliar names from audio.
+        hints = [proper_noun_hints(txt) or None for txt in sentences]
         sections_out.append({
             "section_num": s.get("section_num"),
             "title":       s.get("title"),
             "cue_start":   _section_cue_start(cue_points, s.get("section_num")),
             "sentences":   sentences,
             "timings":     timings if any(timings) else None,
+            "hints":       hints if any(hints) else None,
         })
 
     return {
@@ -5671,6 +5676,7 @@ async def grade_listening_test_dictation(
     return grade_dictation(
         reference_transcript=units[body.sentence_idx]["text"],
         user_transcript=body.user_transcript,
+        ignore_fillers=True,   # don't penalise missed hesitations (um / er / oh)
     )
 
 
