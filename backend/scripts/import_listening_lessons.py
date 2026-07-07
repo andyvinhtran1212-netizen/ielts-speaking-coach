@@ -69,12 +69,30 @@ def _active_dup(test_id: str) -> dict | None:
     return res.data[0] if res.data else None
 
 
-def _archive(test_row: dict) -> None:
+def _archive(test_row: dict) -> dict:
+    """Archive the active test + its content, returning a snapshot of the
+    prior statuses so it can be restored if the replacement import fails."""
     tid = test_row["id"]
+    prior = (supabase_admin.table("listening_content")
+             .select("id,status").eq("test_id", tid).execute().data or [])
     supabase_admin.table("listening_content").update(
         {"status": "archived"}).eq("test_id", tid).execute()
     supabase_admin.table("listening_tests").update(
         {"status": "archived"}).eq("id", tid).execute()
+    return {"test_id": tid, "test_status": test_row.get("status") or "published",
+            "content": prior}
+
+
+def _restore(snapshot: dict) -> None:
+    """Un-archive a test + its content back to their pre-archive statuses."""
+    supabase_admin.table("listening_tests").update(
+        {"status": snapshot["test_status"]}).eq("id", snapshot["test_id"]).execute()
+    by_status: dict[str, list[str]] = {}
+    for c in snapshot["content"]:
+        by_status.setdefault(c.get("status") or "draft", []).append(c["id"])
+    for status, ids in by_status.items():
+        supabase_admin.table("listening_content").update(
+            {"status": status}).in_("id", ids).execute()
 
 
 def _commit_one(lid: str, res, qp_text: str, audio_bytes, av, status: str) -> dict:
@@ -200,15 +218,27 @@ def main() -> int:
             ok += 1
             continue
 
+        # The partial-unique index (mig 069: one active row per test_id)
+        # forces archive-BEFORE-insert. So on a failed replacement we RESTORE
+        # the old version — otherwise students are left with 0 active (the old
+        # one archived, the new one rolled back by _commit_one).
+        snapshot = _archive(dup) if dup else None
         try:
-            if dup:
-                _archive(dup)
             out = _commit_one(lid, res, qp, audio_bytes, av, args.status)
-            print(line + f"{'REPLACED' if dup else 'IMPORTED'} id={out['id'][:8]} segs={out['segments']}")
-            ok += 1
         except Exception as exc:
-            print(line + f"COMMIT FAILED (rolled back): {exc}")
+            restored = ""
+            if snapshot:
+                try:
+                    _restore(snapshot)
+                    restored = "; old version restored"
+                except Exception as rexc:
+                    restored = (f"; !! RESTORE FAILED — un-archive "
+                                f"{snapshot['test_id'][:8]} manually: {rexc}")
+            print(line + f"COMMIT FAILED (rolled back{restored}): {exc}")
             failed += 1
+            continue
+        print(line + f"{'REPLACED' if dup else 'IMPORTED'} id={out['id'][:8]} segs={out['segments']}")
+        ok += 1
 
     print("-" * 78)
     print(f"ok={ok}  skipped={skipped}  failed={failed}")
