@@ -352,6 +352,23 @@ def test_default_still_penalises_fillers():
     assert not any(d.get("filler") for d in strict["diff"])
 
 
+def test_ignore_fillers_forgives_filler_to_filler_substitution():
+    # "Um" typed as "uh" collapses to a `wrong` op, but both sides are pure
+    # hesitations → forgiven, not penalised.
+    r = grade_dictation(reference_transcript="Um, hello.",
+                        user_transcript="uh hello", ignore_fillers=True)
+    assert r["is_correct"] is True and r["score"] == 1.0
+    assert any(d["op"] == "wrong" and d.get("filler") for d in r["diff"])
+
+
+def test_ignore_fillers_still_penalises_real_substitution():
+    # A real content-word substitution is NOT a filler swap — still counts.
+    r = grade_dictation(reference_transcript="the cat sat",
+                        user_transcript="the dog sat", ignore_fillers=True)
+    assert r["is_correct"] is False
+    assert not any(d.get("filler") for d in r["diff"])
+
+
 def test_ignore_fillers_does_not_forgive_real_words():
     # A missed CONTENT word still counts; only pure hesitations are forgiven.
     r = grade_dictation(reference_transcript="Um, the address is Brighton.",

@@ -201,16 +201,23 @@ def grade_dictation(
     total = len(expected_tokens)
 
     if ignore_fillers:
-        forgiven_misses = 0
+        forgiven_expected = 0
         for d in diff:
             if d["op"] == "miss" and _is_filler(d["expected"]):
                 d["filler"] = True
-                forgiven_misses += 1
+                forgiven_expected += 1
             elif d["op"] == "extra" and _is_filler(d["actual"]):
                 d["filler"] = True
-        # Missed fillers drop out of the denominator so they can't lower
-        # the score; matched fillers still count normally.
-        total -= forgiven_misses
+            elif (d["op"] == "wrong"
+                    and _is_filler(d["expected"]) and _is_filler(d["actual"])):
+                # One hesitation typed as another (Um → uh): both sides are
+                # pure fillers, so forgive it too — don't count the expected
+                # filler against the score.
+                d["filler"] = True
+                forgiven_expected += 1
+        # Forgiven expected fillers drop out of the denominator so they
+        # can't lower the score; matched fillers still count normally.
+        total -= forgiven_expected
 
     denom = max(total, 1)  # avoid div-by-zero
     score = correct / denom
