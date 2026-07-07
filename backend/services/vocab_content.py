@@ -235,11 +235,26 @@ class VocabContentService:
 
     @staticmethod
     def _is_exam(a: dict) -> bool:
-        """True when a card was imported as exam-list vocab (AWL/TOEIC/THPT): it
-        carries a non-empty `lists`. Such cards are served ONLY by the exam-prep
-        area and excluded from the self-curated topic surfaces (browse / flashcards
-        / counts / quiz popups) so 'từ của tôi' never mixes with imported exam words."""
+        """True when a card carries a non-empty `lists` (AWL/TOEIC/THPT exam-list
+        membership) — i.e. it belongs in the exam-prep area's lists. NOTE: this
+        alone does NOT hide the card from topics; a curated lesson word may also
+        carry an exam list (dual membership). Use _is_exam_only for the topic gate."""
         return bool(a.get("lists"))
+
+    @staticmethod
+    def _is_lesson(a: dict) -> bool:
+        """True when a card belongs to a curated lesson — its `source` is an
+        'L<NN> Group X' stamp (the upload provenance). A lesson word stays in its
+        topic even when it also carries an exam list."""
+        return bool(_LESSON_SRC_RE.match((a.get("source") or "").strip()))
+
+    @staticmethod
+    def _is_exam_only(a: dict) -> bool:
+        """True when a card must be HIDDEN from the curated topic surfaces: it has
+        an exam list AND is NOT part of a curated lesson (a pure AWL/TOEIC/THPT
+        import). A lesson word that also carries an exam list is NOT exam-only — it
+        shows in BOTH its topic and the exam list (dual membership)."""
+        return VocabContentService._is_exam(a) and not VocabContentService._is_lesson(a)
 
     def _build_indexes(self, articles: list[dict]) -> None:
         self._all_articles = list(articles)   # full census — no dedup by slug (KP)
@@ -250,8 +265,11 @@ class VocabContentService:
             self.articles_by_slug[a["slug"]] = a
             self.articles_by_cat_slug[(a["category"], a["slug"])] = a
 
-        # Split by provenance.
-        self._curated_articles = [a for a in articles if not self._is_exam(a)]
+        # Topic vs exam split (dual-membership aware):
+        #  • CURATED (shown in topics)  = everything EXCEPT exam-only imports.
+        #  • EXAM-LISTED (shown in exam) = every card with a `lists` membership.
+        # A lesson word that also carries an exam list is in BOTH sets.
+        self._curated_articles = [a for a in articles if not self._is_exam_only(a)]
         self._exam_articles    = [a for a in articles if self._is_exam(a)]
 
         # Topic grouping — CURATED only (drives the 'my vocab' browse + study).
@@ -506,6 +524,11 @@ class VocabContentService:
 
 
 # ── Module-level helpers ─────────────────────────────────────────────────────
+
+# A curated lesson word's `source` is an "L<NN> Group X" stamp (upload provenance);
+# this marks it as lesson content even when it also carries an exam `lists` tag, so
+# it stays in its topic (dual membership) instead of moving to the exam area only.
+_LESSON_SRC_RE = re.compile(r"^L\d")
 
 # Exam families (ordered) for the exam-prep browse tree. The card's `lists` slugs
 # map to a family by prefix (awl-sublist-1 → awl, toeic-core → toeic, …).

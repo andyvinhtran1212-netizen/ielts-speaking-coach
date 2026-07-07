@@ -18,7 +18,7 @@ from fastapi.testclient import TestClient
 from services.vocab_content import VocabContentService, vocab_service
 
 
-def _card(headword, slug, category, lists=None):
+def _card(headword, slug, category, lists=None, source=""):
     return {
         "headword": headword, "slug": slug, "category": category,
         "level": "B2", "part_of_speech": "noun", "pronunciation": "/x/",
@@ -26,7 +26,7 @@ def _card(headword, slug, category, lists=None):
         "word_family": [], "gloss_vi": "g", "definition_en": "", "definition_vi": "",
         "example": "", "html": "", "syllables": "", "audio_headword": "",
         "audio_example": "", "register": "", "common_error": "", "memory_hook": "",
-        "source": "", "lists": list(lists or []), "tested_in": [],
+        "source": source, "lists": list(lists or []), "tested_in": [],
     }
 
 
@@ -48,32 +48,48 @@ def _svc_with(census):
 
 
 CENSUS = [
-    _card("Alpha", "alpha", "technology"),                                   # curated
-    _card("Xray",  "xray",  "economy",   ["awl-sublist-1"]),                 # exam / awl
-    _card("Yankee", "yankee", "economy", ["toeic-core"]),                    # exam / toeic
-    _card("Zulu",  "zulu",  "education", ["awl-sublist-2", "toeic-core"]),   # exam / multi-list
+    _card("Alpha", "alpha", "technology"),                                   # curated (no lists)
+    _card("Xray",  "xray",  "economy",   ["awl-sublist-1"]),                 # exam-only / awl
+    _card("Yankee", "yankee", "economy", ["toeic-core"]),                    # exam-only / toeic
+    _card("Zulu",  "zulu",  "education", ["awl-sublist-2", "toeic-core"]),   # exam-only / multi-list
+    # Dual: a lesson word (source "L##") that ALSO carries an exam list — must show
+    # in its topic AND in the exam list.
+    _card("Biodiversity", "biodiversity", "environment", ["thpt-core"], source="L08 Group A"),
 ]
 
 
-def test_is_exam_by_lists():
+def test_is_exam_and_lesson_and_exam_only():
     assert VocabContentService._is_exam({"lists": ["awl-sublist-1"]}) is True
     assert VocabContentService._is_exam({"lists": []}) is False
-    assert VocabContentService._is_exam({}) is False
+    assert VocabContentService._is_lesson({"source": "L08 Group A"}) is True
+    assert VocabContentService._is_lesson({"source": "AWL Sublist 1"}) is False
+    assert VocabContentService._is_lesson({"source": ""}) is False
+    # exam-only = has lists AND not a lesson word.
+    assert VocabContentService._is_exam_only({"lists": ["awl-sublist-1"], "source": ""}) is True
+    assert VocabContentService._is_exam_only({"lists": ["thpt-core"], "source": "L08 Group A"}) is False
+    assert VocabContentService._is_exam_only({"lists": [], "source": ""}) is False
 
 
-def test_curated_surfaces_exclude_exam():
+def test_curated_surfaces_exclude_exam_only_but_keep_dual():
     svc = _svc_with(CENSUS)
     # Full census (KP contract) keeps everything.
-    assert len(svc.get_all_articles()) == 4
-    # Curated listing drops the 3 exam cards.
-    curated = svc.get_curated_articles()
-    assert [c["slug"] for c in curated] == ["alpha"]
-    # Topic study stack: technology has the curated word; economy (exam-only) → [].
+    assert len(svc.get_all_articles()) == 5
+    # Curated listing drops the 3 exam-ONLY cards but keeps alpha + the dual word.
+    curated = {c["slug"] for c in svc.get_curated_articles()}
+    assert curated == {"alpha", "biodiversity"}
+    # Topic study stack: environment keeps the dual lesson word.
+    assert [c["slug"] for c in svc.get_category_cards("environment")] == ["biodiversity"]
     assert [c["slug"] for c in svc.get_category_cards("technology")] == ["alpha"]
     assert svc.get_category_cards("economy") == []
-    # Prefix search is curated-only.
-    assert svc.search_prefix("alp")
+    # Prefix search is curated (includes the dual lesson word, excludes exam-only).
+    assert svc.search_prefix("bio")
     assert svc.search_prefix("xra") == []
+
+
+def test_dual_word_also_appears_in_its_exam_list():
+    svc = _svc_with(CENSUS)
+    # biodiversity is a lesson word AND thpt-core → appears in the exam list too.
+    assert [c["slug"] for c in svc.get_exam_cards("thpt-core")] == ["biodiversity"]
 
 
 def test_detail_still_resolves_exam_cards():
@@ -103,7 +119,7 @@ def test_exam_families_ordered_with_counts():
     assert by_slug["awl-sublist-1"] == 1
     assert by_slug["awl-sublist-2"] == 1
     assert by_slug["toeic-core"] == 2      # yankee + zulu
-    assert by_slug["thpt-core"] == 0       # listed even when empty
+    assert by_slug["thpt-core"] == 1       # the dual lesson word (biodiversity)
 
 
 # ── Route-level (uses the markdown-loaded singleton: AWL Sublist 1 seed) ──────

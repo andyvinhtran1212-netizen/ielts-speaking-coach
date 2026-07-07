@@ -30,6 +30,17 @@ from services.vocab_content import _first_paragraph_text, _MD_EXTENSIONS
 
 logger = logging.getLogger(__name__)
 
+# A curated lesson word's `source` is an "L<NN> Group X" stamp. It is the provenance
+# signal the dual-membership topic gate (vocab_content._is_exam_only) reads, so the
+# importer must not let an exam-list import (which omits `source`) wipe it — see
+# upsert_vocab_card. Kept in sync with vocab_content._LESSON_SRC_RE.
+_LESSON_SRC_RE = re.compile(r"^L\d")
+
+
+def _is_lesson_source(source) -> bool:
+    return bool(_LESSON_SRC_RE.match(str(source or "").strip()))
+
+
 # Columns the importer writes — MUST be a subset of migration 110's columns
 # (test_vocab_import asserts this; the compose-500 #538 mock-vs-DB lesson).
 # String-valued arrays (each item coerced to str).
@@ -175,10 +186,19 @@ def upsert_vocab_card(payload: dict) -> dict:
     slug = payload["slug"]
     category = payload.get("category")
     existing = (
-        supabase_admin.table("vocab_cards").select("id")
+        supabase_admin.table("vocab_cards").select("id, source")
         .eq("slug", slug).eq("category", category).limit(1).execute()
     ).data
     if existing:
+        # Preserve an existing LESSON provenance stamp (source "L## Group X") when the
+        # incoming card doesn't carry one. Exam-list content (AWL/TOEIC/THPT) omits
+        # `source`, so the importer sets it to "" — without this, an exam-list import
+        # that collides on (category, slug) with a lesson word would WIPE the L## stamp
+        # and the dual-membership topic gate (_is_exam_only) would drop the lesson word
+        # from its topic again (the exact regression that required a manual restore).
+        prev_src = str(existing[0].get("source") or "").strip()
+        if _is_lesson_source(prev_src) and not _is_lesson_source(payload.get("source")):
+            payload["source"] = prev_src
         supabase_admin.table("vocab_cards").update(payload).eq(
             "slug", slug).eq("category", category).execute()
         return {"slug": slug, "action": "updated"}

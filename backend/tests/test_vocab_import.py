@@ -169,6 +169,56 @@ def test_reimport_same_slug_updates_not_duplicates():
         res = import_vocab_markdown(_WORD_MD, dry_run=False)
     assert res["action"] == "updated"
     db.table.return_value.update.assert_called_once()
+
+
+def _mock_db_existing_with_source(source: str):
+    db = MagicMock()
+    sel = db.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value
+    sel.execute.return_value = MagicMock(data=[{"id": "row-1", "source": source}])
+    return db
+
+
+def test_exam_reimport_preserves_existing_lesson_source():
+    """An exam-list import (AWL/TOEIC/THPT — omits `source`, so payload source is "")
+    that collides on (category, slug) with an existing LESSON word must NOT wipe the
+    "L## Group X" stamp: it is the provenance signal the dual-membership topic gate
+    reads, and losing it would drop the lesson word from its topic again."""
+    from services.vocab_import import upsert_vocab_card
+    db = _mock_db_existing_with_source("L08 Group A")
+    payload = {"slug": "biodiversity", "category": "environment", "headword": "Biodiversity",
+               "source": "", "lists": ["thpt-core"], "topic_id": "t-1"}
+    with patch("services.vocab_import.supabase_admin", db):
+        res = upsert_vocab_card(payload)
+    assert res["action"] == "updated"
+    sent = db.table.return_value.update.call_args.args[0]
+    assert sent["source"] == "L08 Group A"   # lesson stamp preserved
+    assert sent["lists"] == ["thpt-core"]    # exam membership still applied (dual)
+
+
+def test_lesson_reimport_can_update_its_own_source():
+    """Preservation only kicks in when the INCOMING card lacks a lesson stamp — a real
+    lesson re-import (source "L##") is still authoritative over its own source."""
+    from services.vocab_import import upsert_vocab_card
+    db = _mock_db_existing_with_source("L08 Group A")
+    payload = {"slug": "biodiversity", "category": "environment", "headword": "Biodiversity",
+               "source": "L08 Group B", "topic_id": "t-1"}
+    with patch("services.vocab_import.supabase_admin", db):
+        upsert_vocab_card(payload)
+    sent = db.table.return_value.update.call_args.args[0]
+    assert sent["source"] == "L08 Group B"
+
+
+def test_nonlesson_source_not_preserved_when_existing_also_nonlesson():
+    """When the existing card is NOT a lesson word, a normal (non-L##) source update
+    proceeds as usual — preservation must not clobber ordinary edits."""
+    from services.vocab_import import upsert_vocab_card
+    db = _mock_db_existing_with_source("")     # existing has no lesson stamp
+    payload = {"slug": "achieve", "category": "economy", "headword": "Achieve",
+               "source": "AWL Sublist 2", "lists": ["awl-sublist-2"], "topic_id": "t-1"}
+    with patch("services.vocab_import.supabase_admin", db):
+        upsert_vocab_card(payload)
+    sent = db.table.return_value.update.call_args.args[0]
+    assert sent["source"] == "AWL Sublist 2"
     db.table.return_value.insert.assert_not_called()
 
 
