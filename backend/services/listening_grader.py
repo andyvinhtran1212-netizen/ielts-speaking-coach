@@ -231,6 +231,60 @@ def grade_dictation(
     }
 
 
+def aggregate_dictation_report(graded: list[dict]) -> dict:
+    """Roll up a list of per-sentence grade_dictation() results into a
+    dictation session report. ``graded`` items are the dicts grade_dictation
+    returns (score/correct_words/total_words/diff). Returns the aggregate the
+    completion report + admin analytics render (and that dictation_sessions
+    persists as its summary columns + error_trends).
+
+    Error trends count the diff ops (fillers excluded — they're forgiven) and
+    keep the FULL per-word missed/wrong counters (a map, not a truncated
+    top-N). Storing the full maps lets the admin cross-session aggregate sum
+    them without losing a word that's below any single session's top list —
+    the display (learner report / admin) derives its own top-N from the map.
+    """
+    total_sentences = len(graded)
+    correct_count = sum(1 for g in graded if (g.get("score") or 0) >= 1.0)
+    total_words = sum(int(g.get("total_words") or 0) for g in graded)
+    correct_words = sum(int(g.get("correct_words") or 0) for g in graded)
+    scores = [float(g.get("score") or 0) for g in graded]
+    accuracy = round(sum(scores) / len(scores), 4) if scores else 0.0
+
+    op_counts = {"miss": 0, "wrong": 0, "extra": 0}
+    missed: dict[str, int] = {}
+    wronged: dict[str, int] = {}
+    for g in graded:
+        for op in (g.get("diff") or []):
+            if op.get("filler"):
+                continue   # forgiven hesitation — not an error
+            kind = op.get("op")
+            if kind not in op_counts:
+                continue
+            op_counts[kind] += 1
+            if kind == "miss" and op.get("expected"):
+                key = _normalise_word(op["expected"])
+                if key:
+                    missed[key] = missed.get(key, 0) + 1
+            elif kind == "wrong" and op.get("expected"):
+                key = _normalise_word(op["expected"])
+                if key:
+                    wronged[key] = wronged.get(key, 0) + 1
+
+    return {
+        "total_sentences": total_sentences,
+        "correct_count": correct_count,
+        "accuracy": accuracy,
+        "total_words": total_words,
+        "correct_words": correct_words,
+        "error_trends": {
+            "op_counts": op_counts,
+            "missed": missed,   # FULL {word: count}
+            "wrong": wronged,   # FULL {expected: count}
+        },
+    }
+
+
 # Light proper-noun spelling hints. IELTS names (Pawsley, Meghan, Brighton)
 # are the hardest thing to spell from audio for a learner, so the dictation
 # UI surfaces them gently. Heuristic + deterministic: a capitalised word

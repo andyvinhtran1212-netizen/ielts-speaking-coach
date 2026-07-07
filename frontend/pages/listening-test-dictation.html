@@ -424,6 +424,116 @@
       margin-bottom: var(--av-space-2);
     }
 
+    /* ── Completion report ─────────────────────────────────────── */
+    .report-head { display: flex; flex-direction: column; gap: var(--av-space-1); }
+    .report-title { font-size: var(--av-fs-2xl); color: var(--av-brand-teal-700); margin: 0; }
+    .report-save-note { font-size: var(--av-fs-sm); color: var(--av-warning); margin: 0; }
+
+    .report-tiles {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--av-space-3);
+    }
+    @media (max-width: 560px) { .report-tiles { grid-template-columns: repeat(2, 1fr); } }
+    .report-tile {
+      display: flex; flex-direction: column; gap: var(--av-space-1);
+      padding: var(--av-space-4);
+      background: var(--av-surface-card);
+      border: 1px solid var(--av-border-subtle);
+      border-radius: var(--av-radius-lg);
+    }
+    .report-tile--accent { background: var(--av-surface-sunken); border-color: var(--av-brand-teal-200); }
+    .tile-label {
+      font-size: var(--av-fs-xs); text-transform: uppercase;
+      letter-spacing: var(--av-tracking-widest); color: var(--av-text-muted);
+    }
+    .tile-value {
+      font-family: var(--av-font-mono); font-size: var(--av-fs-2xl);
+      font-weight: var(--av-fw-bold); color: var(--av-text-primary);
+    }
+    .report-tile--accent .tile-value { color: var(--av-brand-teal-700); }
+
+    .report-card {
+      padding: var(--av-space-6);
+      background: var(--av-surface-card);
+      border: 1px solid var(--av-border-subtle);
+      border-radius: var(--av-radius-xl);
+      box-shadow: var(--av-shadow-sm);
+      display: flex; flex-direction: column; gap: var(--av-space-4);
+    }
+    .report-card-title { font-size: var(--av-fs-lg); color: var(--av-text-primary); margin: 0; }
+
+    .trend-ops { display: flex; gap: var(--av-space-3); flex-wrap: wrap; }
+    .trend-op {
+      font-size: var(--av-fs-sm); padding: var(--av-space-2) var(--av-space-4);
+      border-radius: var(--av-radius-pill); background: var(--av-surface-sunken);
+      color: var(--av-text-secondary);
+    }
+    .trend-op strong { font-family: var(--av-font-mono); color: var(--av-text-primary); }
+    .trend-op--miss strong, .trend-op--wrong strong { color: var(--av-error); }
+    .trend-op--extra strong { color: var(--av-text-faint); }
+    .trend-row { display: flex; align-items: baseline; gap: var(--av-space-3); flex-wrap: wrap; }
+    .trend-row-label {
+      font-size: var(--av-fs-xs); text-transform: uppercase;
+      letter-spacing: var(--av-tracking-widest); color: var(--av-text-muted);
+      flex: none; min-width: 88px;
+    }
+    .trend-words { display: flex; gap: var(--av-space-2); flex-wrap: wrap; }
+    .trend-word {
+      display: inline-flex; align-items: center; gap: 6px; font-size: var(--av-fs-sm);
+      padding: 2px 8px; border-radius: var(--av-radius-md);
+      background: var(--av-surface-sunken); border: 1px solid var(--av-border-default);
+      color: var(--av-text-primary);
+    }
+    .trend-word-n {
+      font-family: var(--av-font-mono); font-size: var(--av-fs-xs);
+      color: var(--av-text-on-primary); background: var(--av-brand-teal-700);
+      border-radius: var(--av-radius-pill); padding: 0 6px;
+    }
+    .trend-empty { color: var(--av-text-muted); }
+
+    .review-head { display: flex; align-items: center; gap: var(--av-space-3); flex-wrap: wrap; margin-bottom: var(--av-space-2); }
+    .review-score { font-family: var(--av-font-mono); font-size: var(--av-fs-sm); font-weight: var(--av-fw-semibold); }
+    .review-score.is-perfect { color: var(--av-brand-teal-700); }
+    .review-score.is-partial { color: var(--av-brand-amber-600); }
+    .review-score.is-low { color: var(--av-error); }
+    .review-flag {
+      margin-left: auto; font-size: var(--av-fs-xs); color: var(--av-text-secondary);
+      background: transparent; border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md); padding: 2px 8px; cursor: pointer;
+    }
+    .review-flag:hover:not(:disabled) { border-color: var(--av-brand-teal-700); color: var(--av-brand-teal-700); }
+    .review-flag:disabled { color: var(--av-brand-teal-700); border-color: var(--av-brand-teal-200); cursor: default; }
+    .review-diff { line-height: var(--av-lh-relaxed); }
+
+    /* ── Flag modal ────────────────────────────────────────────── */
+    .flag-modal {
+      position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5);
+      display: flex; align-items: center; justify-content: center;
+      padding: var(--av-space-4); z-index: 50;
+    }
+    .flag-dialog {
+      width: 100%; max-width: 440px;
+      background: var(--av-surface-card); border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-xl); box-shadow: var(--av-shadow-md);
+      padding: var(--av-space-6); display: flex; flex-direction: column; gap: var(--av-space-4);
+    }
+    .flag-title { margin: 0; font-size: var(--av-fs-lg); color: var(--av-text-primary); }
+    .flag-lede { margin: 0; font-size: var(--av-fs-sm); color: var(--av-text-secondary); }
+    .flag-chips { display: flex; flex-wrap: wrap; gap: var(--av-space-2); }
+    .flag-chip {
+      font-size: var(--av-fs-sm); padding: var(--av-space-2) var(--av-space-4);
+      border-radius: var(--av-radius-pill); border: 1px solid var(--av-border-default);
+      background: var(--av-surface-card); color: var(--av-text-secondary); cursor: pointer;
+    }
+    .flag-chip:hover { border-color: var(--av-brand-teal-700); }
+    .flag-chip.is-selected { background: var(--av-brand-teal-700); color: var(--av-text-on-primary); border-color: var(--av-brand-teal-700); }
+    .flag-note {
+      width: 100%; padding: var(--av-space-3);
+      border: 1px solid var(--av-border-default); border-radius: var(--av-radius-md);
+      background: var(--av-surface-card); color: var(--av-text-primary);
+      font-family: var(--av-font-sans); font-size: var(--av-fs-sm); resize: vertical;
+    }
+    .flag-actions { display: flex; justify-content: flex-end; gap: var(--av-space-3); }
+
     @media (prefers-reduced-motion: reduce) {
       .btn-primary, .segment-dot, .answer-textarea { transition: none; }
     }
@@ -506,32 +616,78 @@
         </div>
       </div>
 
-      <!-- Completion surface (after the last sentence of a section). -->
+      <!-- Completion report (after the last sentence of a section). -->
       <div id="completion-surface" hidden>
-        <h2 class="completion-title">Hoàn tất phần này</h2>
-        <div class="completion-score">
-          <span class="score-label">Tổng điểm</span>
-          <span class="score-value" id="completion-total">—</span>
+        <header class="report-head">
+          <h2 class="report-title">Báo cáo chép chính tả</h2>
+          <p class="report-save-note" id="report-save-note" hidden></p>
+        </header>
+
+        <!-- Stat tiles: time · accuracy · sentences · words. -->
+        <div class="report-tiles">
+          <div class="report-tile">
+            <span class="tile-label">Thời gian</span>
+            <span class="tile-value" id="stat-time">—</span>
+          </div>
+          <div class="report-tile report-tile--accent">
+            <span class="tile-label">Độ chính xác</span>
+            <span class="tile-value" id="stat-accuracy">—</span>
+          </div>
+          <div class="report-tile">
+            <span class="tile-label">Câu đúng</span>
+            <span class="tile-value" id="stat-sentences">—</span>
+          </div>
+          <div class="report-tile">
+            <span class="tile-label">Từ đúng</span>
+            <span class="tile-value" id="stat-words">—</span>
+          </div>
         </div>
 
-        <div class="completion-tabs" role="tablist">
-          <button class="completion-tab is-active" id="tab-results" role="tab"
-                  type="button" aria-selected="true">Kết quả</button>
-          <button class="completion-tab" id="tab-transcript" role="tab"
-                  type="button" aria-selected="false">Bản gỡ băng đầy đủ</button>
-        </div>
+        <!-- Error trends. -->
+        <section class="report-card">
+          <h3 class="report-card-title">Xu hướng lỗi</h3>
+          <div class="trend-ops" id="trend-ops"></div>
+          <div class="trend-row">
+            <span class="trend-row-label">Hay bỏ sót</span>
+            <div class="trend-words" id="trend-missed"></div>
+          </div>
+          <div class="trend-row">
+            <span class="trend-row-label">Hay viết sai</span>
+            <div class="trend-words" id="trend-wrong"></div>
+          </div>
+        </section>
 
-        <div id="panel-results" role="tabpanel">
-          <ul class="segment-summary" id="segment-summary"></ul>
-        </div>
-
-        <div id="panel-transcript" role="tabpanel" hidden>
+        <!-- Per-sentence review (reference + word diff + báo lỗi). -->
+        <section class="report-card">
+          <h3 class="report-card-title">Chi tiết từng câu</h3>
           <div class="transcript-review" id="transcript-review"></div>
-        </div>
+        </section>
 
         <div class="submit-row">
           <button class="btn-secondary" id="btn-other-section" type="button" hidden>← Chọn phần khác</button>
           <button class="btn-primary" id="btn-restart" type="button">Làm lại phần này</button>
+        </div>
+      </div>
+
+      <!-- Flag (báo lỗi nội dung) modal. -->
+      <div class="flag-modal" id="flag-modal" hidden>
+        <div class="flag-dialog" role="dialog" aria-modal="true" aria-labelledby="flag-title">
+          <h3 class="flag-title" id="flag-title">Báo lỗi</h3>
+          <p class="flag-lede">Chọn loại lỗi bạn thấy ở câu này (và mô tả nếu cần):</p>
+          <div class="flag-chips" id="flag-chips">
+            <button class="flag-chip" type="button" data-cat="transcript_wrong">Bản gỡ băng sai</button>
+            <button class="flag-chip" type="button" data-cat="audio_unclear">Audio không rõ</button>
+            <button class="flag-chip" type="button" data-cat="sentence_unfair">Câu không hợp lý</button>
+            <button class="flag-chip" type="button" data-cat="other">Khác</button>
+          </div>
+          <input type="hidden" id="flag-category" value="" />
+          <textarea class="flag-note" id="flag-note" rows="3"
+                    placeholder="Mô tả thêm (không bắt buộc)…"></textarea>
+          <div class="error-banner" id="flag-error" hidden></div>
+          <div class="flag-actions">
+            <button class="btn-secondary" id="flag-cancel" type="button">Huỷ</button>
+            <button class="btn-primary" id="flag-submit" type="button">Gửi báo lỗi</button>
+          </div>
         </div>
       </div>
 
