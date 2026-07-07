@@ -76,6 +76,19 @@ function showError(msg) {
   showState('error');
 }
 
+// Per-sentence errors (empty answer, grade failure) must NOT hide the
+// dictation surface — the learner has to stay on the sentence to fix it.
+// Render them inline inside the active surface instead of flipping state.
+function showInlineError(msg) {
+  const el = $('inline-error');
+  el.textContent = msg;
+  el.hidden = false;
+}
+
+function clearInlineError() {
+  $('inline-error').hidden = true;
+}
+
 function getParamsFromUrl() {
   const sp = new URLSearchParams(window.location.search);
   return {
@@ -230,6 +243,7 @@ function resetAnswerSurface() {
   $('diff-block').hidden = true;
   SESSION.hasSubmitted = false;
   STATE.error.hidden = true;
+  clearInlineError();
 }
 
 
@@ -241,10 +255,10 @@ async function submitAttempt() {
   if (!section) return;
   const userText = $('answer').value;
   if (!userText.trim()) {
-    showError('Hãy gõ câu trả lời trước khi kiểm tra.');
+    showInlineError('Hãy gõ câu trả lời trước khi kiểm tra.');
     return;
   }
-  STATE.error.hidden = true;
+  clearInlineError();
   $('btn-submit').disabled = true;
   $('answer').disabled = true;
 
@@ -277,7 +291,8 @@ async function submitAttempt() {
         ? 'Câu tiếp theo →'
         : 'Xem kết quả';
   } catch (e) {
-    showError('Không chấm được câu trả lời. ' + (e && e.message ? e.message : ''));
+    // Grade failure — stay on the sentence so the learner can retry.
+    showInlineError('Không chấm được câu trả lời. ' + (e && e.message ? e.message : ''));
     $('btn-submit').disabled = false;
     $('answer').disabled = false;
   }

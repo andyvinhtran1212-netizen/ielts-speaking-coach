@@ -94,6 +94,21 @@ describe('test-linked dictation — JS contract', () => {
     assert.match(JS, /chưa có bản gỡ băng/i);
   });
 
+  it('per-sentence errors stay inline (do NOT hide the dictation surface)', () => {
+    // #inline-error lives inside the surface; showInlineError must not
+    // flip global state, so an empty answer / grade failure keeps the
+    // textarea + buttons visible for the learner to fix.
+    assert.match(HTML, /id="inline-error"/);
+    assert.match(JS, /function showInlineError\(/);
+    // showInlineError must not call showState (that would hide the surface).
+    const m = /function showInlineError\([\s\S]+?\n\}/m.exec(JS);
+    assert.ok(m, 'showInlineError body not found');
+    assert.ok(!/showState\(/.test(m[0]), 'showInlineError must not switch global state');
+    // The empty-answer + grade-failure paths use the inline error, not showError.
+    assert.match(JS, /showInlineError\('Hãy gõ câu trả lời/);
+    assert.match(JS, /showInlineError\('Không chấm được câu trả lời/);
+  });
+
   it('boots Supabase via window.initSupabase (canonical ref)', () => {
     assert.match(JS, /huwsmtubwulikhlmcirx\.supabase\.co/);
     assert.match(JS, /window\.initSupabase\(/);

@@ -259,3 +259,15 @@ def test_grade_sentence_section_404(monkeypatch):
     with pytest.raises(HTTPException) as excinfo:
         _grade(test["id"], 9, 0, "whatever", authz)        # no section 9
     assert excinfo.value.status_code == 404
+
+
+def test_grade_sentence_404_for_draft_test(monkeypatch):
+    # Security: a draft test's transcript must not be extractable via the
+    # grade diff. The endpoint gates on published status BEFORE reading the
+    # section transcript (the boot endpoint already 404s on drafts).
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake, status="draft")
+    _seed_section(fake, test["id"], 1, "Secret draft transcript here.")
+    with pytest.raises(HTTPException) as excinfo:
+        _grade(test["id"], 1, 0, "", authz)                # empty submit → would leak diff
+    assert excinfo.value.status_code == 404

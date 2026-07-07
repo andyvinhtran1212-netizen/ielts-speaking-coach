@@ -5279,6 +5279,21 @@ async def grade_listening_test_dictation(
     """
     await _require_auth(authorization)
 
+    # Gate on published status BEFORE reading any transcript. grade_dictation
+    # echoes the missed reference words back in the diff, so an authenticated
+    # user with a draft test ID could otherwise extract its transcript
+    # sentence by sentence — even though the boot endpoint 404s on drafts.
+    test_res = (
+        supabase_admin.table("listening_tests")
+        .select("id")
+        .eq("id", body.test_id)
+        .eq("status", "published")
+        .limit(1)
+        .execute()
+    )
+    if not test_res.data:
+        raise HTTPException(404, "Test bundle not found or not published")
+
     sec_res = (
         supabase_admin.table("listening_content")
         .select("transcript")

@@ -423,6 +423,10 @@
           <span class="score-pill" id="score-pill" hidden></span>
         </div>
 
+        <!-- Inline (per-sentence) errors — kept inside the surface so an
+             empty-answer / grade failure never hides the dictation UI. -->
+        <div class="error-banner" id="inline-error" hidden></div>
+
         <div class="diff-block" id="diff-block" hidden>
           <span class="label" id="diff-label">Đối chiếu</span>
           <div id="diff-render"></div>
