@@ -53,6 +53,34 @@ def test_split_sentences_no_terminator_is_one_sentence():
     ]
 
 
+def test_split_sentences_strips_speaker_labels_and_respects_turns():
+    # The stored transcript is blank-line-separated speaker turns prefixed
+    # with "**Name (role):**". The label must NOT leak into the dictation
+    # reference, and each turn must sentence-split independently.
+    transcript = (
+        "**Helen (Course coordinator):** Good afternoon. How may I help you?\n\n"
+        "**Daniel (Customer):** I'd like to enrol please."
+    )
+    out = split_sentences(transcript)
+    assert out == [
+        "Good afternoon.",
+        "How may I help you?",
+        "I'd like to enrol please.",
+    ]
+    # No "**", no "(role)" label fragments anywhere.
+    assert all("**" not in s and "coordinator" not in s.lower() for s in out)
+
+
+def test_split_sentences_strips_production_cues_and_answer_markers():
+    # Defensive: display copy already drops cues, but the fullscript/v1.1
+    # fallback may carry "[pause]" cues + "(Q2)" markers — never dictate them.
+    out = split_sentences("**M:** The address is [pause] Brighton (Q2). That's it.")
+    assert len(out) == 2
+    joined = " ".join(out)
+    assert "[" not in joined and "(Q" not in joined and "**" not in joined
+    assert "Brighton" in joined and "That's it." in out[-1]
+
+
 # ── Router fake supabase (compact, self-contained) ─────────────────────────
 
 
