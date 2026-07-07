@@ -306,16 +306,26 @@ _BRACKET_RE = re.compile(r"\[[^\]]*\]")
 # form the converter strips (listening_convert._QUESTION_MARKER_RE) so the
 # spaced variant "( Q 33 )" is removed too, not just compact "(Q7)".
 _QMARKER_RE = re.compile(r"\(\s*Q\s*\d+\s*\)", re.IGNORECASE)
+# A markdown horizontal rule ("---", "***", "___") used as a separator in
+# the transcript — NOT speech. Dropped so it isn't counted as a turn (which
+# would misalign the transcript turns against timings.turns → no segments).
+_HRULE_RE = re.compile(r"^[-*_ ]{3,}$")
 
 
 def _clean_turn(paragraph: str) -> str:
     """Strip the speaker label + production cues + answer markers + stray
-    markdown from one turn paragraph, and collapse whitespace to spaces."""
+    markdown from one turn paragraph, and collapse whitespace to spaces.
+    A separator-only paragraph (markdown horizontal rule) → ``""``."""
+    # Check the raw paragraph first: "***" would otherwise become "*" once
+    # bold markers are stripped and slip past the rule test.
+    if _HRULE_RE.match(paragraph.strip()):
+        return ""
     text = _SPEAKER_LABEL_RE.sub("", paragraph)
     text = text.replace("**", "")          # any remaining bold markers
     text = _BRACKET_RE.sub(" ", text)      # [cue] / [voice-code]
     text = _QMARKER_RE.sub(" ", text)      # (Qn)
-    return re.sub(r"\s+", " ", text).strip()
+    text = re.sub(r"\s+", " ", text).strip()
+    return "" if _HRULE_RE.match(text) else text
 
 
 def _sentences_in(text: str) -> list[str]:
