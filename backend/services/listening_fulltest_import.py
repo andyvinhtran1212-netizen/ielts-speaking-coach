@@ -36,6 +36,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from services import listening_convert as lc
+from services.listening_grader import build_turn_segments
 
 # Tolerance for the audio:// ↔ timings cross-check (seconds). Generous enough
 # for float rounding, tight enough to catch a real section-offset mistake.
@@ -59,6 +60,7 @@ class FullTestParseResult:
     warnings: list = field(default_factory=list)
     display_transcript: dict = field(default_factory=dict)   # section_num -> [paragraph str]
     transcript_anchors: dict = field(default_factory=dict)    # q_num -> paragraph index
+    turns_by_section: dict = field(default_factory=dict)      # section_num -> [{start, end}]
 
     @property
     def ok(self) -> bool:
@@ -251,6 +253,23 @@ def parse_timings(timings: dict) -> dict:
                 "abs_start": round(start + off, 2), "abs_end": round(end + off, 2),
             }
     return {"section_offsets": offsets, "questions": questions}
+
+
+def parse_section_turns(timings: dict) -> dict[int, list[dict]]:
+    """timings.json → {section_num: [{start, end}, …]} (section-relative
+    speaker turns). Aligns 1:1 with the display transcript's turns, so the
+    importer can attach a per-turn audio window for dictation auto-clip."""
+    out: dict[int, list[dict]] = {}
+    for sec in (timings.get("sections") or []):
+        digits = "".join(c for c in str(sec.get("id") or "") if c.isdigit())
+        if not digits:
+            continue
+        out[int(digits)] = [
+            {"start": float(t["start"]), "end": float(t["end"])}
+            for t in (sec.get("turns") or [])
+            if t.get("start") is not None and t.get("end") is not None
+        ]
+    return out
 
 
 # ── Full transcript (pack v1.2) ────────────────────────────────────────────
@@ -447,6 +466,9 @@ def parse_fulltest(qp_text: str, solution_text: str, timings: dict) -> FullTestP
 
     res.questions.sort(key=lambda x: x["q_num"])
 
+    # Per-section speaker turns (for dictation audio-clip windows).
+    res.turns_by_section = parse_section_turns(timings)
+
     # ── Full transcript (v1.2) + per-question anchors ──
     res.display_transcript = parse_display_transcript(solution_text)
     if res.display_transcript:
@@ -517,6 +539,10 @@ def build_section_persistence(res: "FullTestParseResult", qp_text: str) -> list[
     topic = res.metadata.get("topic_distribution") or {}
     offsets = res.metadata.get("section_offsets") or {}
     test_ext = res.metadata.get("test_id") or "test"
+    # A mini = 1 section (its audio is that section's own file, starts at 0);
+    # a full test = 4 sections over one premixed track. This drives the
+    # dictation segment offset (0 for mini, section start for full).
+    is_mini = len(qp_sections) == 1
 
     out: list[dict] = []
     for section_num in sorted(qp_sections):
@@ -557,6 +583,22 @@ def build_section_persistence(res: "FullTestParseResult", qp_text: str) -> list[
         theme = topic.get(sec_id.lower()) or topic.get(f"s{section_num}") or ""
         theme_slug = re.sub(r"[^a-z0-9]+", "-", theme.lower()).strip("-")
 
+        # Per-turn dictation audio windows. A full test plays the premixed
+        # audio → segment times are absolute (turn + section_offset). A mini
+        # plays its SINGLE section's own file (starts at 0) → offset 0, so
+        # the window matches the served audio. Empty → free scrub.
+        seg_offset = 0.0 if is_mini else float(offsets.get(sec_id) or 0)
+        section_meta = {
+            "source_format":     res.metadata.get("format_version", "listening-fulltest-v1.1"),
+            "transcript_source": res.metadata.get("transcript_source", "joined-extracts"),
+            "theme":             theme,
+            "section_offset":    offsets.get(sec_id),
+        }
+        dictation_segments = build_turn_segments(
+            transcript, res.turns_by_section.get(section_num), offset=seg_offset)
+        if dictation_segments:
+            section_meta["dictation_segments"] = dictation_segments
+
         out.append({
             "section_num": section_num,
             "content_row": {
@@ -573,12 +615,7 @@ def build_section_persistence(res: "FullTestParseResult", qp_text: str) -> list[
                 "topic_tags":             [test_ext, f"section-{section_num}"] + ([theme_slug] if theme_slug else []),
                 "status":                 "draft",
                 "is_premium":             False,
-                "metadata": {
-                    "source_format":     res.metadata.get("format_version", "listening-fulltest-v1.1"),
-                    "transcript_source": res.metadata.get("transcript_source", "joined-extracts"),
-                    "theme":             theme,
-                    "section_offset":    offsets.get(sec_id),
-                },
+                "metadata":               section_meta,
             },
             "exercise_rows": exercises,
         })

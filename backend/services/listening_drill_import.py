@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from . import listening_convert as lc
+from .listening_grader import build_turn_segments
 
 
 # ── render → (q_type, template_kind) ───────────────────────────────────────
@@ -430,6 +431,19 @@ def parse_drill(source_json: dict[str, Any], timings: dict[str, Any] | None = No
             "cluster":         sj.get("cluster") or "",
         },
     }
+    # Per-turn dictation segments (audio-clip windows) from timings turns.
+    # A drill's audio IS the section file (starts at 0) → offset 0. Empty
+    # when timings has no turns or they don't align → free scrub.
+    content_metadata = {
+        "source_format": "listening-drill-v1",
+        "drill_type":    skill,
+        "level":         sj.get("level") or "",
+    }
+    dictation_segments = build_turn_segments(
+        transcript, _section_turns(timings, section_num), offset=0.0)
+    if dictation_segments:
+        content_metadata["dictation_segments"] = dictation_segments
+
     res.content_row = {
         "source_type":            "test_section",
         "section_num":            section_num,
@@ -444,16 +458,26 @@ def parse_drill(source_json: dict[str, Any], timings: dict[str, Any] | None = No
         "topic_tags":    [test_ext, skill, sj.get("level") or ""],
         "status":        "draft",
         "is_premium":    False,
-        "metadata": {
-            "source_format": "listening-drill-v1",
-            "drill_type":    skill,
-            "level":         sj.get("level") or "",
-        },
+        "metadata":      content_metadata,
     }
     return res
 
 
 # ── timings helpers ────────────────────────────────────────────────────────
+
+def _section_turns(timings: dict[str, Any] | None, section_num: int) -> list[dict]:
+    """timings.json → the matching section's ``turns[]`` as [{start, end}]
+    (section-relative). Matched by section id number (S2 → 2)."""
+    if not timings:
+        return []
+    for sec in (timings.get("sections") or []):
+        digits = "".join(c for c in str(sec.get("id") or "") if c.isdigit())
+        if digits and int(digits) == section_num:
+            return [{"start": t["start"], "end": t["end"]}
+                    for t in (sec.get("turns") or [])
+                    if t.get("start") is not None and t.get("end") is not None]
+    return []
+
 
 def _question_windows(timings: dict[str, Any] | None) -> dict[int, dict[str, Any]]:
     """Flatten timings.json question windows → {q_num: {start, end, section}}.

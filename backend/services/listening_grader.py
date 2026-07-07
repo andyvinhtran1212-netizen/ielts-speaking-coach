@@ -385,6 +385,35 @@ def split_turns(transcript: str) -> list[str]:
     return out
 
 
+def build_turn_segments(
+    transcript: str,
+    turns: list[dict] | None,
+    offset: float = 0.0,
+) -> list[dict]:
+    """Pair a section's transcript turns with its timings ``turns[]`` →
+    per-turn dictation segments ``[{idx, start, end, text}]`` for auto-clip.
+
+    ``turns`` is a list of ``{"start", "end"}`` (section-relative). ``offset``
+    is added to every window — 0 for a section-file audio (drill / mini),
+    the section start for a full-premixed test. Returns ``[]`` when the two
+    lists don't align 1:1 (the caller then falls back to free scrub) so no
+    guessed timing is ever stored. Shared by both import paths + the backfill
+    so the persisted shape is identical everywhere.
+    """
+    texts = split_turns(transcript or "")
+    if not texts or not turns or len(texts) != len(turns):
+        return []
+    segments: list[dict] = []
+    for i, (text, turn) in enumerate(zip(texts, turns)):
+        try:
+            start = round(float(turn["start"]) + float(offset), 2)
+            end = round(float(turn["end"]) + float(offset), 2)
+        except (KeyError, TypeError, ValueError):
+            return []   # malformed timing → free scrub, never a bad clip
+        segments.append({"idx": i, "start": start, "end": end, "text": text})
+    return segments
+
+
 # ── True / False / Not-Given grader (Sprint 11.4) ────────────────────
 
 
