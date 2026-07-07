@@ -539,8 +539,9 @@ def test_aggregate_dictation_report_rolls_up_ops_and_top_words():
     assert rep["total_sentences"] == 2
     assert rep["error_trends"]["op_counts"]["miss"] == 1
     assert rep["error_trends"]["op_counts"]["wrong"] == 1
-    assert rep["error_trends"]["top_missed"][0]["word"] == "brown"
-    assert rep["error_trends"]["top_wrong"][0]["expected"] == "seashells"
+    # FULL maps (not truncated) so cross-session admin aggregation isn't lossy.
+    assert rep["error_trends"]["missed"] == {"brown": 1}
+    assert rep["error_trends"]["wrong"] == {"seashells": 1}
 
 
 def _submit_session(test_id, section_num, sentences, authz, **kw):
@@ -568,6 +569,27 @@ def test_submit_dictation_session_persists_and_reports(monkeypatch):
     rows = fake.tables["dictation_sessions"]
     assert len(rows) == 1 and rows[0]["user_id"] == "user-1"
     assert rows[0]["test_id_external"] == test["test_id"]
+
+
+def test_submit_dictation_session_rejects_partial_or_duplicate_coverage(monkeypatch):
+    # A completion report must cover the whole section exactly once — a subset
+    # (or a duplicate/out-of-range index) would persist a corrupt aggregate.
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    _seed_section(fake, test["id"], 1, "The address is Brighton. It opens at ten.")  # 2 units
+    with pytest.raises(HTTPException) as e1:   # only 1 of 2
+        _submit_session(test["id"], 1, [{"sentence_idx": 0, "user_transcript": "x"}], authz)
+    assert e1.value.status_code == 422
+    with pytest.raises(HTTPException) as e2:   # duplicate index
+        _submit_session(test["id"], 1, [
+            {"sentence_idx": 0, "user_transcript": "x"},
+            {"sentence_idx": 0, "user_transcript": "y"}], authz)
+    assert e2.value.status_code == 422
+    with pytest.raises(HTTPException) as e3:   # out of range
+        _submit_session(test["id"], 1, [
+            {"sentence_idx": 0, "user_transcript": "x"},
+            {"sentence_idx": 5, "user_transcript": "y"}], authz)
+    assert e3.value.status_code == 422
 
 
 def test_submit_dictation_session_empty_422(monkeypatch):
@@ -627,10 +649,10 @@ def test_admin_list_and_aggregate_dictation_reports(monkeypatch):
     fake.tables["dictation_sessions"].extend([
         {"id": "a", "user_id": "u1", "test_id_external": "ILR-LIS-LSN-L01", "section_num": 3,
          "accuracy": 0.8, "created_at": "2026-07-07T01:00:00Z",
-         "error_trends": {"top_missed": [{"word": "brighton", "count": 2}], "top_wrong": []}},
+         "error_trends": {"missed": {"brighton": 2}, "wrong": {}}},
         {"id": "b", "user_id": "u2", "test_id_external": "ILR-LIS-LSN-L01", "section_num": 3,
          "accuracy": 0.6, "created_at": "2026-07-07T02:00:00Z",
-         "error_trends": {"top_missed": [{"word": "brighton", "count": 1}], "top_wrong": []}},
+         "error_trends": {"missed": {"brighton": 1}, "wrong": {}}},
     ])
     lst = _run(listening_router.admin_list_dictation_reports(
         test_id=None, limit=30, offset=0, authorization=authz))

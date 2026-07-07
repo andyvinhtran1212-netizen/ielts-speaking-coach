@@ -478,17 +478,23 @@ function aggregateClient() {
     if (o.op === 'miss' && o.expected) { const k = norm(o.expected); if (k) missed[k] = (missed[k] || 0) + 1; }
     else if (o.op === 'wrong' && o.expected) { const k = norm(o.expected); if (k) wronged[k] = (wronged[k] || 0) + 1; }
   }));
-  const top = (m, label) => Object.entries(m)
-    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .slice(0, 8).map(([w, c]) => ({ [label]: w, count: c }));
   return {
     total_sentences: graded.length,
     correct_count:   graded.filter((r) => (r.score || 0) >= 1.0).length,
     accuracy:        graded.reduce((a, r) => a + (r.score || 0), 0) / n,
     total_words:     graded.reduce((a, r) => a + (r.total_words || 0), 0),
     correct_words:   graded.reduce((a, r) => a + (r.correct_words || 0), 0),
-    error_trends:    { op_counts: op, top_missed: top(missed, 'word'), top_wrong: top(wronged, 'expected') },
+    // Full word→count maps (mirrors the server) — display derives its own top-N.
+    error_trends:    { op_counts: op, missed, wrong: wronged },
   };
+}
+
+// Top-N [{word, count}] from a {word: count} map, for display.
+function topWords(map, n) {
+  return Object.entries(map || {})
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, n || 8)
+    .map(([word, count]) => ({ word, count }));
 }
 
 // Fill the stat tiles + error-trend panel from a report (server or client).
@@ -509,11 +515,14 @@ function renderReportStats(data) {
     `<span class="trend-op trend-op--miss">Thiếu <strong>${oc.miss || 0}</strong></span>`
     + `<span class="trend-op trend-op--wrong">Sai <strong>${oc.wrong || 0}</strong></span>`
     + `<span class="trend-op trend-op--extra">Thừa <strong>${oc.extra || 0}</strong></span>`;
-  const chips = (arr, key) => (arr && arr.length)
-    ? arr.map((w) => `<span class="trend-word">${escapeHtml(w[key])}<span class="trend-word-n">${w.count}</span></span>`).join('')
-    : '<span class="trend-empty">—</span>';
-  $('trend-missed').innerHTML = chips(et.top_missed, 'word');
-  $('trend-wrong').innerHTML = chips(et.top_wrong, 'expected');
+  const chips = (map) => {
+    const t = topWords(map, 8);
+    return t.length
+      ? t.map((w) => `<span class="trend-word">${escapeHtml(w.word)}<span class="trend-word-n">${w.count}</span></span>`).join('')
+      : '<span class="trend-empty">—</span>';
+  };
+  $('trend-missed').innerHTML = chips(et.missed);   // {word: count} map
+  $('trend-wrong').innerHTML = chips(et.wrong);
 }
 
 function renderCompletion(report) {

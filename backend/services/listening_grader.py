@@ -239,8 +239,10 @@ def aggregate_dictation_report(graded: list[dict]) -> dict:
     persists as its summary columns + error_trends).
 
     Error trends count the diff ops (fillers excluded — they're forgiven) and
-    surface the words most often missed / typed wrong, so both the learner and
-    admin see *which words* are the problem, not just a percentage.
+    keep the FULL per-word missed/wrong counters (a map, not a truncated
+    top-N). Storing the full maps lets the admin cross-session aggregate sum
+    them without losing a word that's below any single session's top list —
+    the display (learner report / admin) derives its own top-N from the map.
     """
     total_sentences = len(graded)
     correct_count = sum(1 for g in graded if (g.get("score") or 0) >= 1.0)
@@ -269,12 +271,6 @@ def aggregate_dictation_report(graded: list[dict]) -> dict:
                 if key:
                     wronged[key] = wronged.get(key, 0) + 1
 
-    def _top(counter: dict[str, int], label: str, n: int = 8) -> list[dict]:
-        return [
-            {label: w, "count": c}
-            for w, c in sorted(counter.items(), key=lambda kv: (-kv[1], kv[0]))[:n]
-        ]
-
     return {
         "total_sentences": total_sentences,
         "correct_count": correct_count,
@@ -283,8 +279,8 @@ def aggregate_dictation_report(graded: list[dict]) -> dict:
         "correct_words": correct_words,
         "error_trends": {
             "op_counts": op_counts,
-            "top_missed": _top(missed, "word"),
-            "top_wrong": _top(wronged, "expected"),
+            "missed": missed,   # FULL {word: count}
+            "wrong": wronged,   # FULL {expected: count}
         },
     }
 

@@ -5741,13 +5741,18 @@ async def submit_listening_dictation_session(
         raise HTTPException(404, "Section không tồn tại cho test này.")
     units = _dictation_units(sec_res.data[0])
 
+    # A completion report must cover the WHOLE section exactly once. Reject a
+    # subset / duplicate / out-of-range index set so a client can't persist a
+    # partial run as "total_sentences=1, accuracy=100%" and corrupt the report
+    # + admin analytics.
+    submitted = sorted(s.sentence_idx for s in body.sentences)
+    if submitted != list(range(len(units))):
+        raise HTTPException(
+            422, f"Phải nộp đúng tất cả {len(units)} câu của phần này, mỗi câu một lần.")
+
     graded: list[dict] = []
     results: list[dict] = []
     for s in body.sentences:
-        if s.sentence_idx >= len(units):
-            raise HTTPException(
-                422, f"sentence_idx {s.sentence_idx} ngoài phạm vi "
-                     f"(section có {len(units)} câu).")
         reference = units[s.sentence_idx]["text"]
         g = grade_dictation(reference_transcript=reference,
                             user_transcript=s.user_transcript, ignore_fillers=True)
@@ -5905,18 +5910,17 @@ async def admin_dictation_reports_aggregate(
         q = q.eq("test_id_external", test_id)
     rows = q.limit(2000).execute().data or []
 
+    # Sum the FULL per-session word counters (error_trends.missed/.wrong maps),
+    # not a truncated top list — a word below any single session's top-N would
+    # otherwise vanish from the cross-session view even if it's the most common.
     missed: dict[str, int] = {}
     wronged: dict[str, int] = {}
     for r in rows:
         et = r.get("error_trends") or {}
-        for m in (et.get("top_missed") or []):
-            w = m.get("word")
-            if w:
-                missed[w] = missed.get(w, 0) + int(m.get("count") or 0)
-        for m in (et.get("top_wrong") or []):
-            w = m.get("expected")
-            if w:
-                wronged[w] = wronged.get(w, 0) + int(m.get("count") or 0)
+        for w, c in (et.get("missed") or {}).items():
+            missed[w] = missed.get(w, 0) + int(c or 0)
+        for w, c in (et.get("wrong") or {}).items():
+            wronged[w] = wronged.get(w, 0) + int(c or 0)
     accs = [float(r.get("accuracy") or 0) for r in rows]
 
     def _top(counter, label, n=15):
