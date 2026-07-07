@@ -410,6 +410,11 @@ def build_turn_segments(
             end = round(float(turn["end"]) + float(offset), 2)
         except (KeyError, TypeError, ValueError):
             return []   # malformed timing → free scrub, never a bad clip
+        # Reject a window the player can't clip (negative start, or
+        # end <= start) — one bad turn falls the whole section back to free
+        # scrub rather than persisting an unplayable segment.
+        if start < 0 or end <= start:
+            return []
         segments.append({"idx": i, "start": start, "end": end, "text": text})
     return segments
 
