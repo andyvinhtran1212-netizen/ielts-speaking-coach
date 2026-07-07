@@ -33,12 +33,20 @@ describe('test-linked dictation — page contract', () => {
     assert.match(HTML, /\/js\/components\/audio-player\.js/);
   });
 
-  it('does NOT clip audio to a segment (free scrub of the whole section)', () => {
-    // The content-based page sets auto-loop + segment-start/end; the
-    // test-linked page must NOT, so the learner scrubs the whole section.
-    assert.ok(!/segment-start/.test(HTML), 'must not pin segment-start');
-    assert.ok(!/segment-end/.test(HTML), 'must not pin segment-end');
-    assert.ok(!/setAttribute\('segment-start'/.test(JS));
+  it('auto-clips per sentence when the section carries timing, else free-scrubs', () => {
+    // Timed sections (metadata.dictation_segments backfilled from
+    // timings.json) → set segment-start/end + auto-loop so each sentence
+    // plays its exact window (skipping the intro). No timing → remove the
+    // attrs → free scrub the whole section.
+    assert.match(JS, /function applySentenceAudio\(/);
+    assert.match(JS, /setAttribute\('segment-start'/);
+    assert.match(JS, /setAttribute\('segment-end'/);
+    assert.match(JS, /setAttribute\('auto-loop'/);
+    assert.match(JS, /removeAttribute\('segment-start'/);
+    // The window comes from the per-sentence timings array.
+    assert.match(JS, /section\.timings\[SESSION\.sentenceIdx\]/);
+    // The static HTML must NOT hard-pin a segment (it's set dynamically).
+    assert.ok(!/segment-start=/.test(HTML), 'HTML must not hard-pin segment-start');
   });
 
   it('declares loading / empty / error / picker / surface / completion states', () => {

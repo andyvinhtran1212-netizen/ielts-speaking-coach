@@ -17,7 +17,7 @@ import pytest
 from fastapi import HTTPException
 
 from routers import listening as listening_router
-from services.listening_grader import split_sentences
+from services.listening_grader import split_sentences, split_turns
 
 
 # ── Unit: split_sentences ──────────────────────────────────────────────────
@@ -51,6 +51,21 @@ def test_split_sentences_no_terminator_is_one_sentence():
     assert split_sentences("just a fragment with no full stop") == [
         "just a fragment with no full stop",
     ]
+
+
+def test_split_turns_one_unit_per_turn_not_sentence_split():
+    # split_turns keeps a whole turn as ONE unit (audio-aligned granularity)
+    # — unlike split_sentences which breaks a turn into sentences.
+    transcript = (
+        "**Helen (Course coordinator):** Good afternoon. How may I help you?\n\n"
+        "**Daniel (Customer):** I'd like to enrol."
+    )
+    assert split_turns(transcript) == [
+        "Good afternoon. How may I help you?",   # one turn = one unit
+        "I'd like to enrol.",
+    ]
+    # And it aligns 1:1 with the turn count (for pairing with timings.turns).
+    assert len(split_turns(transcript)) == 2
 
 
 def test_split_sentences_strips_speaker_labels_and_respects_turns():
@@ -187,13 +202,14 @@ def _seed_test(fake, **overrides):
     return row
 
 
-def _seed_section(fake, test_id, section_num, transcript):
+def _seed_section(fake, test_id, section_num, transcript, metadata=None):
     fake.tables["listening_content"].append({
         "id":          f"content-{section_num}",
         "test_id":     test_id,
         "section_num": section_num,
         "title":       f"Section {section_num}",
         "transcript":  transcript,
+        "metadata":    metadata,
     })
 
 
@@ -309,6 +325,53 @@ def test_grade_sentence_section_404(monkeypatch):
     with pytest.raises(HTTPException) as excinfo:
         _grade(test["id"], 9, 0, "whatever", authz)        # no section 9
     assert excinfo.value.status_code == 404
+
+
+_SEGMENTS = [
+    {"idx": 0, "start": 48.24, "end": 56.22, "text": "Good afternoon."},
+    {"idx": 1, "start": 56.51, "end": 63.57, "text": "How may I help you?"},
+]
+
+
+def test_dictation_boot_returns_timings_from_segments(monkeypatch):
+    # When a section has metadata.dictation_segments (backfilled from
+    # timings.json turns), the boot endpoint serves the segment text +
+    # per-sentence audio windows so the player can auto-clip.
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    _seed_section(fake, test["id"], 1, "ignored full transcript here.",
+                  metadata={"dictation_segments": _SEGMENTS})
+    out = _run(listening_router.get_listening_test_dictation(
+        test_id=test["id"], authorization=authz))
+    sec = out["sections"][0]
+    assert sec["sentences"] == ["Good afternoon.", "How may I help you?"]
+    assert sec["timings"] == [
+        {"start": 48.24, "end": 56.22},
+        {"start": 56.51, "end": 63.57},
+    ]
+
+
+def test_dictation_boot_timings_null_without_segments(monkeypatch):
+    # No segments → free-scrub: sentences from transcript, timings = null.
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    _seed_section(fake, test["id"], 1, "Hello there. How are you today?")
+    out = _run(listening_router.get_listening_test_dictation(
+        test_id=test["id"], authorization=authz))
+    sec = out["sections"][0]
+    assert sec["sentences"] == ["Hello there.", "How are you today?"]
+    assert sec["timings"] is None
+
+
+def test_grade_uses_segment_text_when_timed(monkeypatch):
+    # The grade endpoint must resolve the reference from the SAME timed
+    # units the boot served (segment[idx].text), not re-split the raw blob.
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    _seed_section(fake, test["id"], 1, "ignored full transcript here.",
+                  metadata={"dictation_segments": _SEGMENTS})
+    out = _grade(test["id"], 1, 1, "how may i help you", authz)  # segment 1
+    assert out["is_correct"] is True and out["score"] == 1.0
 
 
 def test_grade_sentence_404_for_draft_test(monkeypatch):

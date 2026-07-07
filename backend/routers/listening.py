@@ -5501,6 +5501,30 @@ async def get_published_listening_test(
 # sentence to the real transcript sentence via the shared grade_dictation.
 
 
+def _dictation_units(section: dict) -> list[dict]:
+    """Resolve a section's dictation units → ``[{text, start, end}]``.
+
+    Prefers per-turn TIMED segments (``metadata.dictation_segments``, written
+    by scripts/backfill_dictation_segments.py from the test's timings.json
+    turns) so the player can auto-clip each unit to its exact audio window
+    (which also skips the section intro — turns start after the preread).
+    Falls back to sentence-splitting the raw transcript (start/end = None →
+    free scrub) when no timing exists. Boot + grade both call this so their
+    indices always agree.
+    """
+    segs = (section.get("metadata") or {}).get("dictation_segments")
+    if isinstance(segs, list) and segs:
+        units = [
+            {"text": (s.get("text") or "").strip(),
+             "start": s.get("start"), "end": s.get("end")}
+            for s in segs if (s.get("text") or "").strip()
+        ]
+        if units:
+            return units
+    return [{"text": t, "start": None, "end": None}
+            for t in split_sentences(section.get("transcript") or "")]
+
+
 def _section_cue_start(cue_points: list, section_num) -> float | None:
     """Earliest ``section_start`` cue timestamp for a section, so the
     dictation UI can seek the audio to the start of the chosen section.
@@ -5551,7 +5575,7 @@ async def get_listening_test_dictation(
 
     sec_res = (
         supabase_admin.table("listening_content")
-        .select("id,section_num,title,transcript")
+        .select("id,section_num,title,transcript,metadata")
         .eq("test_id", test_id)
         .order("section_num")
         .execute()
@@ -5559,12 +5583,21 @@ async def get_listening_test_dictation(
     cue_points = test.get("cue_points") or []
     sections_out: list[dict] = []
     for s in (sec_res.data or []):
-        sentences = split_sentences(s.get("transcript") or "")
+        units = _dictation_units(s)
+        sentences = [u["text"] for u in units]
+        # Per-sentence audio windows (turn timing) when available → the
+        # player auto-clips each sentence. null when the section has no
+        # timing (→ free scrub of the whole section).
+        timings = [
+            {"start": u["start"], "end": u["end"]} if u["start"] is not None else None
+            for u in units
+        ]
         sections_out.append({
             "section_num": s.get("section_num"),
             "title":       s.get("title"),
             "cue_start":   _section_cue_start(cue_points, s.get("section_num")),
             "sentences":   sentences,
+            "timings":     timings if any(timings) else None,
         })
 
     return {
@@ -5616,7 +5649,7 @@ async def grade_listening_test_dictation(
 
     sec_res = (
         supabase_admin.table("listening_content")
-        .select("transcript")
+        .select("transcript,metadata")
         .eq("test_id", body.test_id)
         .eq("section_num", body.section_num)
         .limit(1)
@@ -5625,16 +5658,18 @@ async def grade_listening_test_dictation(
     if not sec_res.data:
         raise HTTPException(404, "Section không tồn tại cho test này.")
 
-    sentences = split_sentences(sec_res.data[0].get("transcript") or "")
-    if body.sentence_idx >= len(sentences):
+    # Same unit resolution as the boot endpoint (timed segments → sentence
+    # fallback) so the index the frontend submits maps to the right reference.
+    units = _dictation_units(sec_res.data[0])
+    if body.sentence_idx >= len(units):
         raise HTTPException(
             422,
             f"sentence_idx {body.sentence_idx} ngoài phạm vi "
-            f"(section có {len(sentences)} câu).",
+            f"(section có {len(units)} câu).",
         )
 
     return grade_dictation(
-        reference_transcript=sentences[body.sentence_idx],
+        reference_transcript=units[body.sentence_idx]["text"],
         user_transcript=body.user_transcript,
     )
 

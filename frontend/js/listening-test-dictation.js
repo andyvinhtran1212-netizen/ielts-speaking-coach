@@ -185,7 +185,6 @@ function startSection(idx) {
 
   const player = $('player');
   if (!SESSION.playerSrcSet) {
-    // Whole-section free scrub — do NOT set segment-start/segment-end.
     player.setAttribute('src', SESSION.audioUrl);
     SESSION.playerSrcSet = true;
   }
@@ -196,8 +195,12 @@ function startSection(idx) {
     ? (section.title || `Section ${section.section_num}`)
     : 'Câu';
 
+  // Hint depends on whether this section has per-sentence audio windows.
   const hint = $('section-hint');
-  if (section.cue_start != null) {
+  if (sectionHasTiming(section)) {
+    hint.textContent = 'Mỗi câu tự phát đúng đoạn audio (tự lặp lại) — bấm ▶ để nghe.';
+    hint.hidden = false;
+  } else if (section.cue_start != null) {
     hint.textContent =
       `Phần này bắt đầu khoảng ${fmtTime(section.cue_start)} trong audio — tua tới đó để nghe.`;
     hint.hidden = false;
@@ -207,9 +210,37 @@ function startSection(idx) {
 
   $('btn-other-section').hidden = !many;
 
+  applySentenceAudio();
   renderDots();
   resetAnswerSurface();
   showState('ready');
+}
+
+
+function sectionHasTiming(section) {
+  return !!(section && Array.isArray(section.timings)
+    && section.timings.some((t) => t && t.start != null));
+}
+
+
+// Clip the audio to the current sentence's turn window when timing exists;
+// otherwise leave the whole section scrubbable (no segment bounds).
+function applySentenceAudio() {
+  const section = SESSION.sections[SESSION.activeIdx];
+  const player = $('player');
+  if (!player) return;
+  const t = section && Array.isArray(section.timings)
+    ? section.timings[SESSION.sentenceIdx] : null;
+  if (t && t.start != null && t.end != null) {
+    player.setAttribute('segment-start', String(t.start));
+    player.setAttribute('segment-end', String(t.end));
+    player.setAttribute('auto-loop', 'true');
+  } else {
+    player.removeAttribute('segment-start');
+    player.removeAttribute('segment-end');
+    player.removeAttribute('auto-loop');
+  }
+  try { player.pause(); } catch { /* swallow */ }
 }
 
 
@@ -338,6 +369,7 @@ function advanceSentenceOrComplete() {
   const section = SESSION.sections[SESSION.activeIdx];
   if (SESSION.sentenceIdx + 1 < section.sentences.length) {
     SESSION.sentenceIdx += 1;
+    applySentenceAudio();
     resetAnswerSurface();
     renderDots();
     $('answer').focus();
