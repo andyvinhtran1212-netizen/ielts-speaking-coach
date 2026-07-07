@@ -929,7 +929,9 @@ async function saveAnswer(qNum, value) {
 }
 
 
-// ── Audio control (NO seek/rewind) ───────────────────────────────────
+// ── Audio control ────────────────────────────────────────────────────
+// Full test: single-shot Play (Cambridge exam — no pause/seek/restart).
+// Mini + drill (practice): play/pause + drag-to-seek + replay.
 
 function mountAudio() {
   const audio = new Audio();
@@ -937,6 +939,13 @@ function mountAudio() {
   audio.preload     = 'auto';
   audio.crossOrigin = 'anonymous';
   STATE.audio = audio;
+
+  // Practice modes (mini + drill) relax the single-shot constraint so
+  // the learner can pause, drag the progress bar to seek, and replay.
+  // Full tests keep the exam-authentic no-seek behaviour. Legacy full
+  // tests may report test_type === null → treated as full.
+  const tt = STATE.test && STATE.test.test_type;
+  STATE.scrub = tt === 'mini' || tt === 'drill';
 
   // Sprint 13.5.5 — index cue points by tab so timeupdate can lazily
   // check whether to auto-advance the active tab (Cambridge-style:
@@ -967,21 +976,30 @@ function mountAudio() {
     maybeAutoAdvanceTab(audio.currentTime);
   });
   audio.addEventListener('ended', () => {
-    // Sprint 13.5.7 — audio ended; button stays disabled and reflects
-    // the terminal state. No replay button — matches real Cambridge
-    // exam where the recording plays through exactly once.
     const btn = $('btn-playpause');
-    if (btn) {
+    if (!btn) return;
+    if (STATE.scrub) {
+      // Practice (mini + drill) — allow replay from the start.
+      STATE.playbackStarted = false;
+      btn.textContent = '▶ Nghe lại';
+      btn.disabled = false;
+    } else {
+      // Sprint 13.5.7 — audio ended; button stays disabled and reflects
+      // the terminal state. No replay button — matches real Cambridge
+      // exam where the recording plays through exactly once.
       btn.textContent = 'Đã hết';
       btn.disabled = true;
     }
   });
 
-  $('btn-playpause').addEventListener('click', startPlayback);
+  $('btn-playpause').addEventListener(
+    'click', STATE.scrub ? togglePlayback : startPlayback,
+  );
   $('ft-volume').addEventListener('input', (e) => {
     // Volume adjustment stays — Cambridge real exam allows it.
     audio.volume = Number(e.target.value) / 100;
   });
+  if (STATE.scrub) wireSeekBar(audio);
   $('btn-submit').addEventListener('click', confirmSubmit);
 }
 
@@ -1013,6 +1031,54 @@ function startPlayback() {
       }
     });
   }
+}
+
+// Practice (mini + drill) — play/pause toggle. Unlike startPlayback the
+// button never locks, so the learner can pause and resume freely.
+function togglePlayback() {
+  const a = STATE.audio;
+  if (!a) return;
+  const btn = $('btn-playpause');
+  if (a.paused) {
+    a.playbackRate = 1.0;
+    STATE.playbackStarted = true;
+    const p = a.play();
+    if (btn) btn.textContent = '⏸ Tạm dừng';
+    if (p && typeof p.catch === 'function') {
+      p.catch(() => { if (btn) btn.textContent = '▶ Play'; });
+    }
+  } else {
+    a.pause();
+    if (btn) btn.textContent = '▶ Tiếp tục';
+  }
+}
+
+// Practice (mini + drill) — drag/click the progress bar to seek.
+function wireSeekBar(audio) {
+  const bar = document.querySelector('.ft-audio-bar');
+  if (!bar) return;
+  bar.classList.add('ft-audio-bar--seekable');
+  bar.setAttribute('aria-label', 'Audio progress (kéo để tua)');
+  const seekToClientX = (clientX) => {
+    const rect = bar.getBoundingClientRect();
+    if (!rect.width || !Number.isFinite(audio.duration)) return;
+    let pct = (clientX - rect.left) / rect.width;
+    pct = Math.min(1, Math.max(0, pct));
+    audio.currentTime = pct * audio.duration;
+    $('ft-audio-fill').style.width = `${pct * 100}%`;
+  };
+  let dragging = false;
+  bar.addEventListener('pointerdown', (e) => {
+    dragging = true;
+    try { bar.setPointerCapture(e.pointerId); } catch { /* noop */ }
+    seekToClientX(e.clientX);
+  });
+  bar.addEventListener('pointermove', (e) => {
+    if (dragging) seekToClientX(e.clientX);
+  });
+  const endDrag = () => { dragging = false; };
+  bar.addEventListener('pointerup', endDrag);
+  bar.addEventListener('pointercancel', endDrag);
 }
 
 
@@ -1116,6 +1182,14 @@ function renderResult(result) {
   const chuabai = $('res-chuabai');
   if (chuabai && STATE.attemptId) {
     chuabai.href = '/pages/listening-review.html?attempt_id=' + encodeURIComponent(STATE.attemptId);
+  }
+
+  // Dictation (chép chính tả) for the same test — reuses this test's
+  // audio + section transcripts.
+  const dictation = $('res-dictation');
+  if (dictation && STATE.testId) {
+    dictation.href =
+      '/pages/listening-test-dictation.html?test_id=' + encodeURIComponent(STATE.testId);
   }
 }
 

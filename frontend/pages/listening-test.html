@@ -99,6 +99,17 @@
       transition: width 0.2s linear;
       width: 0%;
     }
+    /* Practice (mini + drill) — taller, draggable seek bar. Added by the
+       player via JS (ft-audio-bar--seekable); full test keeps the thin
+       no-seek bar. */
+    .ft-audio-bar--seekable {
+      height: 12px;
+      cursor: pointer;
+      touch-action: none;
+    }
+    .ft-audio-bar--seekable .ft-audio-fill {
+      transition: none;
+    }
     .ft-audio-controls {
       display: flex; gap: var(--av-space-3); align-items: center; flex-wrap: wrap;
     }
@@ -451,6 +462,9 @@
         <div style="display:flex; gap: var(--av-space-3); flex-wrap: wrap;">
           <!-- listening-review-ui — full-screen chữa-bài for this attempt -->
           <a class="ft-control-btn" id="res-chuabai" href="#">📖 Xem chữa bài</a>
+          <!-- Dictation (chép chính tả) for this same test — reuses the
+               test's audio + section transcripts. -->
+          <a class="ft-control-btn ghost" id="res-dictation" href="#">✍️ Chép chính tả</a>
           <a class="ft-control-btn ghost" href="/pages/listening-tests.html">Quay lại danh sách</a>
           <a class="ft-control-btn ghost" href="/pages/listening.html">Về trang Listening</a>
         </div>

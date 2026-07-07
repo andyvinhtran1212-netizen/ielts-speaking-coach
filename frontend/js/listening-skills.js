@@ -85,12 +85,15 @@ function renderDrill(t) {
     : (attempted ? '<span class="ls-drill-stat">Đã làm</span>' : '');
   const cta = attempted ? 'Làm lại' : 'Luyện';
   return `
-    <a class="ls-drill" href="/pages/listening-test.html?id=${encodeURIComponent(t.id)}">
-      ${badge}
-      <span class="ls-drill-title">${esc(t.title || t.test_id || 'Skill drill')}</span>
-      ${stat}
-      <span class="ls-drill-cta">${cta} →</span>
-    </a>`;
+    <div class="ls-drill">
+      <a class="ls-drill-main" href="/pages/listening-test.html?id=${encodeURIComponent(t.id)}">
+        ${badge}
+        <span class="ls-drill-title">${esc(t.title || t.test_id || 'Skill drill')}</span>
+        ${stat}
+        <span class="ls-drill-cta">${cta} →</span>
+      </a>
+      <a class="ls-drill-dict" href="/pages/listening-test-dictation.html?test_id=${encodeURIComponent(t.id)}" title="Chép chính tả" aria-label="Chép chính tả">✍️</a>
+    </div>`;
 }
 
 function renderGroup(skill, drills) {

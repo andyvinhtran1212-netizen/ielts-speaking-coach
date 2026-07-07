@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Chép chính tả (bài test) — Aver Learning</title>
+
+  <!-- Sprint 6.10 canonical anti-flash bootstrap (DESIGN_SYSTEM.md § 13). -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia &&
+                          window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark')
+                    ? stored
+                    : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/listening.css" />
+
+  <!-- P0-3 C-3.4: static Tailwind (Plus-Jakarta cluster) — replaces 407KB Play-CDN. -->
+  <link rel="stylesheet" href="/css/tailwind.build.css" />
+
+  <!-- Supabase + api.js — required by aver-chrome.js for the user-pill
+       fetch AND by audio-player.js for the signed-URL refetch path. -->
+  <script src="https://unpkg.com/@supabase/supabase-js@2.107.0" defer></script>
+  <script src="/js/api.js"></script>
+
+  <script type="module" src="/js/components/aver-chrome.js"></script>
+  <script type="module" src="/js/components/audio-player.js"></script>
+
+  <style>
+    /* Shared dictation surface styling — mirrors listening-dictation.html
+       (kept self-contained so the stabilized content-based dictation page
+       is not touched). Test-linked additions: section picker + hint. */
+    .dictation-shell {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 0 var(--av-space-6);
+      display: flex;
+      flex-direction: column;
+      gap: var(--av-space-6);
+    }
+    .dictation-header h1 {
+      font-size: var(--av-fs-3xl);
+      margin-bottom: var(--av-space-2);
+    }
+    .dictation-header .accent { color: var(--av-brand-teal-700); }
+    .dictation-header .subtitle {
+      color: var(--av-text-secondary);
+      font-size: var(--av-fs-base);
+      line-height: var(--av-lh-normal);
+    }
+    .answer-block {
+      display: flex;
+      flex-direction: column;
+      gap: var(--av-space-3);
+    }
+    .answer-label {
+      font-weight: var(--av-fw-semibold);
+      font-size: var(--av-fs-sm);
+      color: var(--av-text-primary);
+    }
+    .answer-textarea {
+      width: 100%;
+      min-height: 120px;
+      padding: var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      color: var(--av-text-primary);
+      font-family: var(--av-font-sans);
+      font-size: var(--av-fs-base);
+      line-height: var(--av-lh-normal);
+      resize: vertical;
+    }
+    .answer-textarea:focus {
+      outline: 2px solid var(--av-brand-teal-700);
+      outline-offset: 2px;
+      border-color: var(--av-brand-teal-700);
+    }
+    .submit-row {
+      display: flex;
+      gap: var(--av-space-3);
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .btn-primary {
+      padding: var(--av-space-3) var(--av-space-6);
+      border-radius: var(--av-radius-md);
+      background: var(--av-brand-teal-700);
+      color: var(--av-text-on-primary);
+      border: none;
+      font-weight: var(--av-fw-semibold);
+      cursor: pointer;
+      transition: background var(--av-duration-fast) var(--av-easing-default);
+    }
+    .btn-primary:hover { background: var(--av-brand-teal-800); }
+    .btn-primary:disabled {
+      background: var(--av-text-muted);
+      cursor: not-allowed;
+    }
+    .btn-secondary {
+      padding: var(--av-space-3) var(--av-space-4);
+      border-radius: var(--av-radius-md);
+      background: transparent;
+      color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default);
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .score-pill {
+      font-family: var(--av-font-mono);
+      font-weight: var(--av-fw-semibold);
+      color: var(--av-text-secondary);
+    }
+    .score-pill.is-perfect { color: var(--av-brand-teal-700); }
+    .diff-block {
+      padding: var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      line-height: var(--av-lh-relaxed);
+      font-size: var(--av-fs-base);
+    }
+    .diff-block .label {
+      display: block;
+      font-size: var(--av-fs-xs);
+      color: var(--av-text-muted);
+      text-transform: uppercase;
+      letter-spacing: var(--av-tracking-widest);
+      margin-bottom: var(--av-space-3);
+    }
+    .diff-token { display: inline-block; margin-right: 4px; }
+    .diff-token--match { color: var(--av-text-primary); }
+    .diff-token--miss {
+      color: var(--av-error); text-decoration: underline; text-decoration-style: dotted;
+    }
+    .diff-token--wrong { color: var(--av-error); font-weight: var(--av-fw-semibold); }
+    .diff-token--wrong .strike {
+      text-decoration: line-through;
+      color: var(--av-text-faint);
+      margin-right: 4px;
+      font-weight: var(--av-fw-regular);
+    }
+    .diff-token--extra { color: var(--av-text-faint); text-decoration: line-through; }
+    .empty-state {
+      padding: var(--av-space-8);
+      text-align: center;
+      border: 1px dashed var(--av-border-default);
+      border-radius: var(--av-radius-lg);
+      color: var(--av-text-secondary);
+    }
+    .empty-state a {
+      color: var(--av-brand-teal-700);
+      text-decoration: underline;
+    }
+    .error-banner {
+      padding: var(--av-space-3) var(--av-space-4);
+      border-radius: var(--av-radius-md);
+      background: var(--av-error-soft);
+      color: var(--av-error);
+      border: 1px solid var(--av-error);
+      font-size: var(--av-fs-sm);
+    }
+    [hidden] { display: none !important; }
+
+    /* Section picker — a test can have multiple sections (full test = 4). */
+    .section-picker {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--av-space-3);
+    }
+    .section-chip {
+      padding: var(--av-space-3) var(--av-space-6);
+      border-radius: var(--av-radius-md);
+      border: 1px solid var(--av-border-default);
+      background: var(--av-surface-card);
+      color: var(--av-text-primary);
+      cursor: pointer;
+      font-weight: var(--av-fw-semibold);
+      text-align: left;
+    }
+    .section-chip:hover { border-color: var(--av-brand-teal-700); }
+    .section-chip .chip-sub {
+      display: block;
+      font-family: var(--av-font-mono);
+      font-size: var(--av-fs-xs);
+      color: var(--av-text-muted);
+      font-weight: var(--av-fw-regular);
+      margin-top: 2px;
+    }
+    .section-hint {
+      font-size: var(--av-fs-sm);
+      color: var(--av-text-muted);
+    }
+
+    /* Segment iteration UI (dots + progress). */
+    .segment-progress {
+      display: flex;
+      align-items: center;
+      gap: var(--av-space-3);
+      flex-wrap: wrap;
+    }
+    .progress-label {
+      font-size: var(--av-fs-xs);
+      color: var(--av-text-muted);
+      text-transform: uppercase;
+      letter-spacing: var(--av-tracking-widest);
+    }
+    .progress-counter {
+      font-family: var(--av-font-mono);
+      font-weight: var(--av-fw-semibold);
+      color: var(--av-text-primary);
+      font-size: var(--av-fs-base);
+    }
+    .segment-dots {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-left: var(--av-space-3);
+    }
+    .segment-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--av-surface-sunken);
+      border: 1px solid var(--av-border-default);
+      transition: background var(--av-duration-fast) var(--av-easing-default);
+    }
+    .segment-dot.is-correct {
+      background: var(--av-brand-teal-700);
+      border-color: var(--av-brand-teal-700);
+    }
+    .segment-dot.is-partial {
+      background: var(--av-brand-amber-400);
+      border-color: var(--av-brand-amber-500);
+    }
+    .segment-dot.is-incorrect {
+      background: var(--av-error);
+      border-color: var(--av-error);
+    }
+    .segment-dot.is-current {
+      box-shadow: var(--av-shadow-focus);
+    }
+
+    /* Completion surface */
+    .completion-title {
+      font-size: var(--av-fs-2xl);
+      color: var(--av-brand-teal-700);
+      margin-bottom: var(--av-space-3);
+    }
+    .completion-score {
+      display: flex;
+      align-items: baseline;
+      gap: var(--av-space-3);
+      margin-bottom: var(--av-space-6);
+    }
+    .score-label {
+      font-size: var(--av-fs-xs);
+      color: var(--av-text-muted);
+      text-transform: uppercase;
+      letter-spacing: var(--av-tracking-widest);
+    }
+    .score-value {
+      font-family: var(--av-font-mono);
+      font-size: var(--av-fs-4xl);
+      font-weight: var(--av-fw-bold);
+      color: var(--av-text-primary);
+    }
+    .completion-tabs {
+      display: flex;
+      gap: var(--av-space-1);
+      border-bottom: 1px solid var(--av-border-default);
+      margin-bottom: var(--av-space-4);
+    }
+    .completion-tab {
+      padding: var(--av-space-3) var(--av-space-4);
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      color: var(--av-text-secondary);
+      font-weight: var(--av-fw-medium);
+    }
+    .completion-tab.is-active {
+      color: var(--av-brand-teal-700);
+      border-bottom-color: var(--av-brand-teal-700);
+    }
+    .segment-summary {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: var(--av-space-3);
+    }
+    .segment-summary li {
+      padding: var(--av-space-3) var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+    }
+    .segment-summary .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: var(--av-space-3);
+      font-size: var(--av-fs-sm);
+    }
+    .segment-summary .seg-label {
+      font-family: var(--av-font-mono);
+      color: var(--av-text-muted);
+    }
+    .segment-summary .seg-score {
+      font-family: var(--av-font-mono);
+      font-weight: var(--av-fw-semibold);
+      color: var(--av-brand-teal-700);
+    }
+    .segment-summary .seg-score.is-partial { color: var(--av-brand-amber-600); }
+    .segment-summary .seg-score.is-low { color: var(--av-error); }
+    .segment-summary .seg-transcript {
+      margin-top: var(--av-space-2);
+      color: var(--av-text-primary);
+      line-height: var(--av-lh-relaxed);
+    }
+
+    .transcript-review {
+      display: flex;
+      flex-direction: column;
+      gap: var(--av-space-4);
+    }
+    .transcript-review .review-segment {
+      padding: var(--av-space-3) var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+    }
+    .transcript-review .review-label {
+      font-size: var(--av-fs-xs);
+      color: var(--av-text-muted);
+      text-transform: uppercase;
+      letter-spacing: var(--av-tracking-widest);
+      margin-bottom: var(--av-space-2);
+      display: block;
+    }
+    .transcript-review .review-reference {
+      font-style: italic;
+      color: var(--av-text-secondary);
+      margin-bottom: var(--av-space-2);
+    }
+  </style>
+</head>
+<body class="av-page">
+
+  <aver-chrome active="listening"></aver-chrome>
+
+  <div class="shell">
+    <main class="dictation-shell">
+
+      <header class="dictation-header">
+        <p class="eyebrow"><a href="/pages/listening.html" style="color:var(--av-text-secondary);">← Quay lại</a></p>
+        <h1>Chép chính tả <span class="accent">·</span> <span id="test-title">…</span></h1>
+        <p class="subtitle">
+          Nghe và gõ lại từng câu, đối chiếu từng từ với bản gỡ băng. Bạn được
+          <strong>tua và nghe lại tự do</strong> cả đoạn — dùng thanh audio phía dưới.
+        </p>
+      </header>
+
+      <!-- Empty / loading / error states. -->
+      <div class="empty-state" id="state-empty" hidden>
+        <p><strong>Chưa chọn bài test.</strong></p>
+        <p>Mở trang này từ nút “✍️ Chép chính tả” trên một bài Listening.</p>
+      </div>
+      <div class="empty-state" id="state-loading">Đang tải…</div>
+      <div class="error-banner" id="state-error" hidden></div>
+
+      <!-- Section picker (shown when the test has >1 section). -->
+      <div id="section-picker-surface" hidden>
+        <p class="section-hint" style="margin-bottom:var(--av-space-3);">Chọn phần để chép chính tả:</p>
+        <div class="section-picker" id="section-picker"></div>
+      </div>
+
+      <!-- Active dictation surface. -->
+      <div id="dictation-surface" hidden>
+
+        <div class="segment-progress">
+          <span class="progress-label" id="active-section-label">Câu</span>
+          <span class="progress-counter" id="progress-counter">1 / 1</span>
+          <div class="segment-dots" id="segment-dots" role="list" aria-label="Tiến độ các câu"></div>
+        </div>
+
+        <p class="section-hint" id="section-hint" hidden></p>
+
+        <audio-player id="player"></audio-player>
+
+        <div class="answer-block">
+          <label class="answer-label" for="answer">Câu trả lời của bạn</label>
+          <textarea class="answer-textarea" id="answer"
+                    placeholder="Gõ lại câu bạn nghe được..."
+                    autocomplete="off" spellcheck="false"></textarea>
+        </div>
+
+        <div class="submit-row">
+          <button class="btn-primary" id="btn-submit" type="button">Kiểm tra</button>
+          <button class="btn-secondary" id="btn-reset" type="button" hidden>Thử lại</button>
+          <button class="btn-primary" id="btn-next" type="button" hidden>Câu tiếp theo →</button>
+          <span class="score-pill" id="score-pill" hidden></span>
+        </div>
+
+        <!-- Inline (per-sentence) errors — kept inside the surface so an
+             empty-answer / grade failure never hides the dictation UI. -->
+        <div class="error-banner" id="inline-error" hidden></div>
+
+        <div class="diff-block" id="diff-block" hidden>
+          <span class="label" id="diff-label">Đối chiếu</span>
+          <div id="diff-render"></div>
+        </div>
+      </div>
+
+      <!-- Completion surface (after the last sentence of a section). -->
+      <div id="completion-surface" hidden>
+        <h2 class="completion-title">Hoàn tất phần này</h2>
+        <div class="completion-score">
+          <span class="score-label">Tổng điểm</span>
+          <span class="score-value" id="completion-total">—</span>
+        </div>
+
+        <div class="completion-tabs" role="tablist">
+          <button class="completion-tab is-active" id="tab-results" role="tab"
+                  type="button" aria-selected="true">Kết quả</button>
+          <button class="completion-tab" id="tab-transcript" role="tab"
+                  type="button" aria-selected="false">Bản gỡ băng đầy đủ</button>
+        </div>
+
+        <div id="panel-results" role="tabpanel">
+          <ul class="segment-summary" id="segment-summary"></ul>
+        </div>
+
+        <div id="panel-transcript" role="tabpanel" hidden>
+          <div class="transcript-review" id="transcript-review"></div>
+        </div>
+
+        <div class="submit-row">
+          <button class="btn-secondary" id="btn-other-section" type="button" hidden>← Chọn phần khác</button>
+          <button class="btn-primary" id="btn-restart" type="button">Làm lại phần này</button>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script type="module" src="/js/listening-test-dictation.js"></script>
+
+</body>
+</html>

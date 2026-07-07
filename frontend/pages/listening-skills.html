@@ -105,6 +105,23 @@
       min-width: 0;
     }
     .ls-drill:hover { border-color: var(--av-brand-teal-700); }
+    /* Drill now wraps a main test link + a compact dictation link
+       (can't nest anchors). Main link carries the badge/title/stat/cta. */
+    .ls-drill-main {
+      display: flex; align-items: center; gap: var(--av-space-2);
+      flex-wrap: wrap; flex: 1 1 auto; min-width: 0;
+      text-decoration: none;
+    }
+    .ls-drill-dict {
+      flex: none;
+      text-decoration: none;
+      font-size: var(--av-fs-sm);
+      padding: 2px 7px;
+      border-radius: var(--av-radius-sm);
+      border: 1px solid var(--av-border-default);
+      color: var(--av-brand-teal-700);
+    }
+    .ls-drill-dict:hover { border-color: var(--av-brand-teal-700); }
     .ls-drill-level {
       flex: none;
       font-family: var(--av-font-mono);
