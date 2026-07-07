@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Chép chính tả · Báo cáo · Listening · Admin · Aver Learning</title>
+
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-status.css" />
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2.107.0" defer></script>
+  <script src="/js/api.js"></script>
+
+  <style>
+    body.av-page { font-family: var(--av-font-sans); margin: 0; }
+    .dr-shell { max-width: 1200px; margin: 0 auto; padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-4); }
+    .dr-back a { color: var(--av-text-secondary); font-size: var(--av-fs-sm); text-decoration: none; }
+    .dr-header h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-semibold); margin: 0 0 var(--av-space-1); }
+    .dr-header .subtitle { color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
+    .dr-filter { display: flex; gap: var(--av-space-2); align-items: center; flex-wrap: wrap; }
+    .dr-filter input { padding: var(--av-space-2) var(--av-space-3); border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md); background: var(--av-surface-card); color: var(--av-text-primary);
+      font-size: var(--av-fs-sm); min-width: 240px; }
+    .dr-filter button { padding: var(--av-space-2) var(--av-space-4); border-radius: var(--av-radius-md);
+      background: var(--av-brand-teal-700); color: var(--av-text-on-primary); border: none; cursor: pointer;
+      font-size: var(--av-fs-sm); font-weight: var(--av-fw-semibold); }
+
+    .dr-agg { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: var(--av-space-3); }
+    .dr-agg-tile { padding: var(--av-space-4); background: var(--av-surface-card);
+      border: 1px solid var(--av-border-subtle); border-radius: var(--av-radius-lg);
+      display: flex; flex-direction: column; gap: var(--av-space-1); }
+    .dr-agg-label { font-size: var(--av-fs-xs); text-transform: uppercase;
+      letter-spacing: var(--av-tracking-widest); color: var(--av-text-muted); }
+    .dr-agg-value { font-family: var(--av-font-mono); font-size: var(--av-fs-xl);
+      font-weight: var(--av-fw-bold); color: var(--av-text-primary); }
+    .dr-words { display: flex; gap: var(--av-space-2); flex-wrap: wrap; }
+    .dr-word { display: inline-flex; align-items: center; gap: 6px; font-size: var(--av-fs-sm);
+      padding: 2px 8px; border-radius: var(--av-radius-md); background: var(--av-surface-sunken);
+      border: 1px solid var(--av-border-default); color: var(--av-text-primary); }
+    .dr-word b { font-family: var(--av-font-mono); font-size: var(--av-fs-xs);
+      color: var(--av-text-on-primary); background: var(--av-brand-teal-700);
+      border-radius: 999px; padding: 0 6px; font-weight: var(--av-fw-semibold); }
+
+    .dr-card { padding: var(--av-space-4); background: var(--av-surface-card);
+      border: 1px solid var(--av-border-subtle); border-radius: var(--av-radius-lg);
+      display: flex; flex-direction: column; gap: var(--av-space-3); }
+    .dr-card h2 { font-size: var(--av-fs-base); margin: 0; color: var(--av-text-primary); }
+
+    .dr-table-wrap { border: 1px solid var(--av-border-default); border-radius: var(--av-radius-md);
+      background: var(--av-surface-card); overflow-x: auto; }
+    table.dr-table { width: 100%; border-collapse: collapse; font-size: var(--av-fs-sm); }
+    .dr-table th, .dr-table td { padding: var(--av-space-3) var(--av-space-4); text-align: left;
+      border-bottom: 1px solid var(--av-border-default); vertical-align: middle; }
+    .dr-table th { font-size: var(--av-fs-xs); text-transform: uppercase;
+      letter-spacing: var(--av-tracking-wide); color: var(--av-text-muted);
+      background: var(--av-surface-sunken); }
+    .dr-mono { font-family: var(--av-font-mono); font-size: var(--av-fs-xs); color: var(--av-text-secondary); }
+    .dr-acc { font-family: var(--av-font-mono); font-weight: var(--av-fw-semibold); }
+    .dr-acc.ok { color: var(--av-success); }
+    .dr-acc.warn { color: var(--av-warning); }
+    .dr-acc.low { color: var(--av-error); }
+    .dr-note { color: var(--av-text-muted); font-size: var(--av-fs-sm); padding: var(--av-space-4); }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body class="av-page">
+  <aver-admin-chrome active="listening" subsection="dictation-reports">
+    <main class="dr-shell">
+      <div class="dr-back"><a href="/pages/admin/listening/tests.html">← Quản lý Listening tests</a></div>
+      <header class="dr-header">
+        <h1>Báo cáo chép chính tả</h1>
+        <p class="subtitle">
+          Phiên chép chính tả của học viên + phân tích theo test: độ chính xác trung bình
+          và các từ hay bị bỏ sót / viết sai — để soi chất lượng nội dung.
+          Báo lỗi nội dung xem ở <a href="/pages/admin/feedback/index.html">Feedback inbox</a>.
+        </p>
+      </header>
+
+      <div class="dr-filter">
+        <input id="dr-test-id" type="text" placeholder="Lọc theo Test ID (vd ILR-LIS-LSN-L01)…" />
+        <button id="dr-apply" type="button">Áp dụng</button>
+      </div>
+
+      <section class="dr-card">
+        <h2>Tổng hợp <span id="dr-agg-scope" class="dr-mono"></span></h2>
+        <div class="dr-agg" id="dr-agg"></div>
+        <div class="dr-word-rows" id="dr-agg-words"></div>
+      </section>
+
+      <div class="dr-note" id="dr-loading">Đang tải…</div>
+      <div class="dr-table-wrap" id="dr-wrap" hidden>
+        <table class="dr-table">
+          <thead>
+            <tr><th>Ngày</th><th>Test</th><th>Phần</th><th>Câu đúng</th><th>Độ chính xác</th><th>Thời gian</th></tr>
+          </thead>
+          <tbody id="dr-rows"></tbody>
+        </table>
+      </div>
+      <div class="dr-note" id="dr-empty" hidden>Chưa có phiên chép chính tả nào.</div>
+      <div class="dr-note" id="dr-error" hidden></div>
+    </main>
+  </aver-admin-chrome>
+  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
+  <script src="/js/admin-listening-dictation-reports.js" defer></script>
+</body>
+</html>

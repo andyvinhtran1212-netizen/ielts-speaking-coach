@@ -178,6 +178,7 @@ class _Q:
         self._mode = "select"
         self._payload = None
         self._eq: list[tuple[str, object]] = []
+        self._range: tuple[int, int] | None = None
 
     def select(self, *_a, **_kw): self._mode = "select"; return self
     def insert(self, p): self._mode = "insert"; self._payload = p; return self
@@ -185,14 +186,24 @@ class _Q:
     def eq(self, c, v): self._eq.append((c, v)); return self
     def limit(self, *_a, **_kw): return self
     def order(self, *_a, **_kw): return self
+    def range(self, s, e): self._range = (s, e); return self
 
     def _match(self, r):
         return all(r.get(c) == v for c, v in self._eq)
 
     def execute(self):
         rows = self.fake.tables.setdefault(self.name, [])
+        if self._mode == "insert":
+            payloads = self._payload if isinstance(self._payload, list) else [self._payload]
+            for p in payloads:
+                rows.append(dict(p))
+            return _Resp(payloads)
         matched = [r for r in rows if self._match(r)]
-        return _Resp(matched, count=len(matched))
+        total = len(matched)
+        if self._range:
+            s, e = self._range
+            matched = matched[s:e + 1]
+        return _Resp(matched, count=total)
 
 
 class _StorageBucket:
@@ -207,7 +218,8 @@ class _Storage:
 
 class _Fake:
     def __init__(self):
-        self.tables = {"listening_tests": [], "listening_content": []}
+        self.tables = {"listening_tests": [], "listening_content": [],
+                       "dictation_sessions": [], "user_feedback": []}
         self.storage = _Storage()
 
     def table(self, name): return _Q(self, name)
@@ -222,6 +234,10 @@ def _patch(monkeypatch, user_id="user-1"):
     async def _user_auth(_authz):
         return {"id": user_id}
     monkeypatch.setattr(listening_router, "_require_auth", _user_auth)
+
+    async def _admin(_authz):
+        return {"id": "admin-1"}
+    monkeypatch.setattr(listening_router, "require_admin", _admin)
     return fake, "Bearer fake"
 
 
@@ -508,3 +524,131 @@ def test_grade_sentence_404_for_draft_test(monkeypatch):
     with pytest.raises(HTTPException) as excinfo:
         _grade(test["id"], 1, 0, "", authz)                # empty submit → would leak diff
     assert excinfo.value.status_code == 404
+
+
+# ── Completion report (dictation_sessions) + content flags ─────────────────
+
+
+def test_aggregate_dictation_report_rolls_up_ops_and_top_words():
+    from services.listening_grader import grade_dictation, aggregate_dictation_report
+    g1 = grade_dictation(reference_transcript="the quick brown fox",
+                         user_transcript="the quick fox", ignore_fillers=True)  # miss 'brown'
+    g2 = grade_dictation(reference_transcript="she sells seashells",
+                         user_transcript="she sells shells", ignore_fillers=True)  # wrong 'seashells'
+    rep = aggregate_dictation_report([g1, g2])
+    assert rep["total_sentences"] == 2
+    assert rep["error_trends"]["op_counts"]["miss"] == 1
+    assert rep["error_trends"]["op_counts"]["wrong"] == 1
+    assert rep["error_trends"]["top_missed"][0]["word"] == "brown"
+    assert rep["error_trends"]["top_wrong"][0]["expected"] == "seashells"
+
+
+def _submit_session(test_id, section_num, sentences, authz, **kw):
+    body = listening_router.DictationSessionRequest(
+        test_id=test_id, section_num=section_num,
+        sentences=[listening_router.DictationSentenceSubmit(**s) for s in sentences], **kw)
+    return _run(listening_router.submit_listening_dictation_session(
+        body=body, authorization=authz))
+
+
+def test_submit_dictation_session_persists_and_reports(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    _seed_section(fake, test["id"], 1, "The address is Brighton. It opens at ten.")
+    out = _submit_session(test["id"], 1, [
+        {"sentence_idx": 0, "user_transcript": "the address is brighton", "listen_count": 2},
+        {"sentence_idx": 1, "user_transcript": "it opens at", "time_seconds": 9},   # miss 'ten'
+    ], authz, total_time_seconds=42)
+    assert out["total_sentences"] == 2
+    assert out["correct_count"] == 1                       # sentence 0 perfect
+    assert 0 < out["accuracy"] < 1.0
+    assert out["error_trends"]["op_counts"]["miss"] >= 1
+    assert out["total_time_seconds"] == 42
+    # Persisted exactly one session row for this user.
+    rows = fake.tables["dictation_sessions"]
+    assert len(rows) == 1 and rows[0]["user_id"] == "user-1"
+    assert rows[0]["test_id_external"] == test["test_id"]
+
+
+def test_submit_dictation_session_empty_422(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    _seed_section(fake, test["id"], 1, "Hello there.")
+    with pytest.raises(HTTPException) as e:
+        _submit_session(test["id"], 1, [], authz)
+    assert e.value.status_code == 422
+
+
+def test_submit_dictation_session_404_for_draft(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake, status="draft")
+    _seed_section(fake, test["id"], 1, "Hello there.")
+    with pytest.raises(HTTPException) as e:
+        _submit_session(test["id"], 1, [{"sentence_idx": 0, "user_transcript": "x"}], authz)
+    assert e.value.status_code == 404
+
+
+def test_get_dictation_session_owner_only(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    fake.tables["dictation_sessions"].append({"id": "s1", "user_id": "another-user"})
+    with pytest.raises(HTTPException) as e:
+        _run(listening_router.get_listening_dictation_session(session_id="s1", authorization=authz))
+    assert e.value.status_code == 403
+
+
+def test_flag_dictation_inserts_user_feedback(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    body = listening_router.DictationFlagRequest(
+        test_id=test["id"], section_num=1, sentence_idx=2,
+        category="audio_unclear", note="tiếng ồn ở giây 12")
+    out = _run(listening_router.flag_listening_dictation(body=body, authorization=authz))
+    assert out["status"] == "new"
+    fb = fake.tables["user_feedback"]
+    assert len(fb) == 1
+    row = fb[0]
+    assert row["type"] == "report" and row["skill"] == "listening"
+    assert row["attempt_id"] is None                       # dictation is attempt-free
+    assert row["test_id"] == test["test_id"] and row["q_num"] == 3
+    assert "chép chính tả" in row["note"] and row["created_by"] == "user-1"
+
+
+def test_flag_dictation_requires_category_or_note(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    body = listening_router.DictationFlagRequest(test_id=test["id"], section_num=1)
+    with pytest.raises(HTTPException) as e:
+        _run(listening_router.flag_listening_dictation(body=body, authorization=authz))
+    assert e.value.status_code == 422
+
+
+def test_admin_list_and_aggregate_dictation_reports(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    fake.tables["dictation_sessions"].extend([
+        {"id": "a", "user_id": "u1", "test_id_external": "ILR-LIS-LSN-L01", "section_num": 3,
+         "accuracy": 0.8, "created_at": "2026-07-07T01:00:00Z",
+         "error_trends": {"top_missed": [{"word": "brighton", "count": 2}], "top_wrong": []}},
+        {"id": "b", "user_id": "u2", "test_id_external": "ILR-LIS-LSN-L01", "section_num": 3,
+         "accuracy": 0.6, "created_at": "2026-07-07T02:00:00Z",
+         "error_trends": {"top_missed": [{"word": "brighton", "count": 1}], "top_wrong": []}},
+    ])
+    lst = _run(listening_router.admin_list_dictation_reports(
+        test_id=None, limit=30, offset=0, authorization=authz))
+    assert lst["total"] == 2 and len(lst["items"]) == 2
+    agg = _run(listening_router.admin_dictation_reports_aggregate(
+        test_id="ILR-LIS-LSN-L01", authorization=authz))
+    assert agg["session_count"] == 2
+    assert agg["mean_accuracy"] == 0.7
+    assert agg["top_missed"][0] == {"word": "brighton", "count": 3}
+
+
+def test_admin_dictation_reports_requires_admin(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+
+    async def _deny(_authz):
+        raise HTTPException(403, "Không có quyền truy cập")
+    monkeypatch.setattr(listening_router, "require_admin", _deny)
+    with pytest.raises(HTTPException) as e:
+        _run(listening_router.admin_list_dictation_reports(
+            test_id=None, limit=30, offset=0, authorization=authz))
+    assert e.value.status_code == 403

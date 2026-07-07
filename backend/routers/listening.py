@@ -43,6 +43,7 @@ from routers.admin import require_admin
 from routers.auth import get_supabase_user
 from services.listening_gist_grader import grade_gist_response
 from services.listening_grader import (
+    aggregate_dictation_report,
     grade_dictation,
     grade_mcq,
     grade_true_false,
@@ -5678,6 +5679,270 @@ async def grade_listening_test_dictation(
         user_transcript=body.user_transcript,
         ignore_fillers=True,   # don't penalise missed hesitations (um / er / oh)
     )
+
+
+# ── Dictation completion report (persisted) + content flags ──────────
+
+
+def _published_test_for_dictation(test_id: str) -> dict:
+    """Fetch a published test row (id, test_id, title) or 404. Shared gate for
+    the session + flag endpoints — same anti-cheat rule as the grade endpoint."""
+    res = (
+        supabase_admin.table("listening_tests")
+        .select("id,test_id,title,status")
+        .eq("id", test_id).eq("status", "published").limit(1).execute()
+    )
+    if not res.data:
+        raise HTTPException(404, "Test bundle not found or not published")
+    return res.data[0]
+
+
+class DictationSentenceSubmit(BaseModel):
+    sentence_idx:    int = Field(ge=0)
+    user_transcript: str = Field(default="", max_length=10_000)
+    listen_count:    int = Field(default=0, ge=0)
+    time_seconds:    int | None = None
+
+
+class DictationSessionRequest(BaseModel):
+    test_id:            str
+    section_num:        int
+    started_at:         str | None = None
+    total_time_seconds: int | None = Field(default=None, ge=0)
+    sentences:          list[DictationSentenceSubmit] = Field(default_factory=list, max_length=200)
+
+
+@user_router.post("/tests/dictation/session")
+async def submit_listening_dictation_session(
+    body: DictationSessionRequest,
+    authorization: str | None = Header(default=None),
+):
+    """Persist a completed dictation section + return its summary report.
+
+    The server RE-GRADES every sentence from the submitted text (canonical
+    truth — never trusts client-computed scores) via the same units + grader
+    the grade endpoint uses, rolls up accuracy + error trends, and stores one
+    dictation_sessions row. Returns the report the completion screen renders.
+    """
+    from datetime import datetime, timezone
+
+    user = await _require_auth(authorization)
+    if not body.sentences:
+        raise HTTPException(422, "Chưa có câu nào để tổng kết.")
+
+    test = _published_test_for_dictation(body.test_id)
+    sec_res = (
+        supabase_admin.table("listening_content")
+        .select("title,transcript,metadata")
+        .eq("test_id", body.test_id).eq("section_num", body.section_num)
+        .limit(1).execute()
+    )
+    if not sec_res.data:
+        raise HTTPException(404, "Section không tồn tại cho test này.")
+    units = _dictation_units(sec_res.data[0])
+
+    graded: list[dict] = []
+    results: list[dict] = []
+    for s in body.sentences:
+        if s.sentence_idx >= len(units):
+            raise HTTPException(
+                422, f"sentence_idx {s.sentence_idx} ngoài phạm vi "
+                     f"(section có {len(units)} câu).")
+        reference = units[s.sentence_idx]["text"]
+        g = grade_dictation(reference_transcript=reference,
+                            user_transcript=s.user_transcript, ignore_fillers=True)
+        graded.append(g)
+        ops = {"miss": 0, "wrong": 0, "extra": 0}
+        for op in g["diff"]:
+            if not op.get("filler") and op["op"] in ops:
+                ops[op["op"]] += 1
+        results.append({
+            "sentence_idx":  s.sentence_idx,
+            "reference":     reference,
+            "user_text":     s.user_transcript,
+            "score":         g["score"],
+            "correct_words": g["correct_words"],
+            "total_words":   g["total_words"],
+            "listen_count":  s.listen_count,
+            "time_seconds":  s.time_seconds,
+            "ops":           ops,
+        })
+
+    report = aggregate_dictation_report(graded)
+    session_id = str(uuid.uuid4())
+    row = {
+        "id":                 session_id,
+        "user_id":            user["id"],
+        "test_id":            body.test_id,
+        "test_id_external":   test.get("test_id"),
+        "section_num":        body.section_num,
+        "section_title":      sec_res.data[0].get("title"),
+        "total_sentences":    report["total_sentences"],
+        "correct_count":      report["correct_count"],
+        "accuracy":           report["accuracy"],
+        "total_words":        report["total_words"],
+        "correct_words":      report["correct_words"],
+        "total_time_seconds": body.total_time_seconds,
+        "results":            results,
+        "error_trends":       report["error_trends"],
+        "started_at":         body.started_at,
+        "completed_at":       datetime.now(timezone.utc).isoformat(),
+    }
+    try:
+        supabase_admin.table("dictation_sessions").insert(row).execute()
+    except Exception as exc:  # pragma: no cover
+        logger.error("[dictation] session insert failed: %s", exc)
+        raise HTTPException(500, "Không lưu được kết quả chép chính tả.")
+
+    return {
+        "session_id":         session_id,
+        "test_title":         test.get("title"),
+        "section_num":        body.section_num,
+        "total_time_seconds": body.total_time_seconds,
+        **report,
+    }
+
+
+@user_router.get("/tests/dictation/session/{session_id}")
+async def get_listening_dictation_session(
+    session_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Re-read a dictation session report (owner only)."""
+    user = await _require_auth(authorization)
+    res = (
+        supabase_admin.table("dictation_sessions").select("*")
+        .eq("id", session_id).limit(1).execute()
+    )
+    if not res.data:
+        raise HTTPException(404, "Không tìm thấy phiên chép chính tả.")
+    row = res.data[0]
+    if row.get("user_id") != user["id"]:
+        raise HTTPException(403, "Phiên này thuộc người dùng khác.")
+    return row
+
+
+class DictationFlagRequest(BaseModel):
+    test_id:      str
+    section_num:  int
+    sentence_idx: int | None = None
+    category:     str | None = None
+    note:         str | None = Field(default=None, max_length=2_000)
+
+
+@user_router.post("/tests/dictation/flag")
+async def flag_listening_dictation(
+    body: DictationFlagRequest,
+    authorization: str | None = Header(default=None),
+):
+    """Report a content error in a dictation sentence. Reuses the shared
+    user_feedback inbox (type='report', skill='listening') so it shows up in
+    the existing /admin/feedback admin — no dictation-specific admin needed."""
+    from datetime import datetime, timezone
+
+    user = await _require_auth(authorization)
+    category = (body.category or "").strip() or None
+    note = (body.note or "").strip() or None
+    if not category and not note:
+        raise HTTPException(422, "Cần chọn loại lỗi hoặc nhập mô tả.")
+
+    test = _published_test_for_dictation(body.test_id)
+    context = f"[chép chính tả · section {body.section_num}"
+    context += f" · câu {body.sentence_idx + 1}]" if body.sentence_idx is not None else "]"
+    flag_id = str(uuid.uuid4())
+    try:
+        supabase_admin.table("user_feedback").insert({
+            "id":         flag_id,
+            "type":       "report",
+            "skill":      "listening",
+            "attempt_id": None,             # dictation is attempt-free (nullable, no FK)
+            "test_id":    test.get("test_id"),
+            "q_num":      (body.sentence_idx + 1) if body.sentence_idx is not None else None,
+            "category":   category,
+            "note":       f"{context} {note}".strip() if note else context,
+            "status":     "new",
+            "created_by": user["id"],
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }).execute()
+    except Exception as exc:  # pragma: no cover
+        logger.error("[dictation] flag insert failed: %s", exc)
+        raise HTTPException(500, "Không gửi được báo lỗi.")
+    return {"id": flag_id, "status": "new"}
+
+
+@admin_router.get("/dictation-reports")
+async def admin_list_dictation_reports(
+    test_id: str | None = Query(default=None),
+    limit: int = Query(default=30, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    authorization: str | None = Header(default=None),
+):
+    """Admin: list dictation sessions (newest first), optionally filtered by
+    external test id. Returns {items, total, limit, offset}."""
+    await require_admin(authorization)
+    q = (supabase_admin.table("dictation_sessions")
+         .select("id,user_id,test_id_external,section_num,section_title,"
+                 "total_sentences,correct_count,accuracy,total_time_seconds,"
+                 "completed_at,created_at", count="exact"))
+    if test_id:
+        q = q.eq("test_id_external", test_id)
+    res = q.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
+    return {"items": res.data or [], "total": getattr(res, "count", None) or 0,
+            "limit": limit, "offset": offset}
+
+
+@admin_router.get("/dictation-reports/aggregate")
+async def admin_dictation_reports_aggregate(
+    test_id: str | None = Query(default=None),
+    authorization: str | None = Header(default=None),
+):
+    """Admin: per-test analytics — mean accuracy + the words most often missed
+    or typed wrong across sessions, so weak/ambiguous content surfaces."""
+    await require_admin(authorization)
+    q = supabase_admin.table("dictation_sessions").select(
+        "test_id_external,section_num,accuracy,total_sentences,error_trends")
+    if test_id:
+        q = q.eq("test_id_external", test_id)
+    rows = q.limit(2000).execute().data or []
+
+    missed: dict[str, int] = {}
+    wronged: dict[str, int] = {}
+    for r in rows:
+        et = r.get("error_trends") or {}
+        for m in (et.get("top_missed") or []):
+            w = m.get("word")
+            if w:
+                missed[w] = missed.get(w, 0) + int(m.get("count") or 0)
+        for m in (et.get("top_wrong") or []):
+            w = m.get("expected")
+            if w:
+                wronged[w] = wronged.get(w, 0) + int(m.get("count") or 0)
+    accs = [float(r.get("accuracy") or 0) for r in rows]
+
+    def _top(counter, label, n=15):
+        return [{label: w, "count": c}
+                for w, c in sorted(counter.items(), key=lambda kv: (-kv[1], kv[0]))[:n]]
+
+    return {
+        "session_count": len(rows),
+        "mean_accuracy": round(sum(accs) / len(accs), 4) if accs else 0.0,
+        "top_missed":    _top(missed, "word"),
+        "top_wrong":     _top(wronged, "expected"),
+    }
+
+
+@admin_router.get("/dictation-reports/{session_id}")
+async def admin_get_dictation_report(
+    session_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Admin: one session's full report (per-sentence detail + trends)."""
+    await require_admin(authorization)
+    res = (supabase_admin.table("dictation_sessions").select("*")
+           .eq("id", session_id).limit(1).execute())
+    if not res.data:
+        raise HTTPException(404, "Không tìm thấy phiên chép chính tả.")
+    return res.data[0]
 
 
 @user_router.post("/tests/{test_id}/attempts")

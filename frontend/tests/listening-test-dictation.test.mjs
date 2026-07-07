@@ -159,6 +159,86 @@ describe('grading UX — filler leniency + proper-noun hints + redesign', () => 
 });
 
 
+describe('completion report — persist + stats + trends', () => {
+
+  it('has stat tiles + error-trend elements', () => {
+    for (const id of ['stat-time', 'stat-accuracy', 'stat-sentences', 'stat-words',
+                      'trend-ops', 'trend-missed', 'trend-wrong', 'transcript-review']) {
+      assert.match(HTML, new RegExp(`id="${id}"`), `missing #${id}`);
+    }
+  });
+
+  it('tracks time + listen count, and submits the session on completion', () => {
+    assert.match(JS, /SESSION\.startedAt\s*=\s*Date\.now\(\)/);
+    assert.match(JS, /av-audio-play['"],\s*\(\)\s*=>\s*\{\s*SESSION\.listenCount/);
+    assert.match(JS, /listen_count:\s*SESSION\.listenCount/);
+    assert.match(JS, /window\.api\.post\('\/api\/listening\/tests\/dictation\/session'/);
+    assert.match(JS, /function submitSessionAndRenderReport/);
+  });
+
+  it('rolls up client-side stats (accuracy + op counts + top words)', () => {
+    assert.match(JS, /function aggregateClient\(/);
+    assert.match(JS, /function renderReportStats\(/);
+    // Report renders instantly from client data, then the server upgrades it.
+    assert.match(JS, /renderCompletion\(null\)/);
+    assert.match(JS, /renderReportStats\(SESSION\.report\)/);
+  });
+
+  it('report styling is token-only (no hex)', () => {
+    assert.match(HTML, /\.report-tile\s*\{/);
+    assert.ok(!/#[0-9a-fA-F]{3,6}\b/.test(HTML), 'no hex literals');
+  });
+});
+
+
+describe('user error-flagging (báo lỗi)', () => {
+
+  it('has a flag modal + per-sentence flag buttons', () => {
+    assert.match(HTML, /id="flag-modal"/);
+    assert.match(HTML, /id="flag-chips"/);
+    assert.match(HTML, /id="flag-note"/);
+    assert.match(JS, /data-flag-idx="\$\{i\}"/);
+  });
+
+  it('submits a flag to the dictation flag endpoint', () => {
+    assert.match(JS, /window\.api\.post\('\/api\/listening\/tests\/dictation\/flag'/);
+    assert.match(JS, /function submitFlag\(/);
+    assert.match(JS, /sentence_idx:\s*idx/);
+  });
+});
+
+
+describe('admin dictation-reports page', () => {
+
+  const AHTML = read('pages', 'admin', 'listening', 'dictation-reports.html');
+  const AJS = read('js', 'admin-listening-dictation-reports.js');
+
+  it('mounts admin chrome + loads its controller', () => {
+    assert.match(AHTML, /<aver-admin-chrome\s+active="listening"\s+subsection="dictation-reports"/);
+    assert.match(AHTML, /\/js\/admin-listening-dictation-reports\.js/);
+    assert.match(AHTML, /\/js\/components\/aver-admin-chrome\.js/);
+  });
+
+  it('calls the admin list + aggregate endpoints', () => {
+    assert.match(AJS, /\/admin\/listening\/dictation-reports\/aggregate/);
+    assert.match(AJS, /\/admin\/listening\/dictation-reports/);
+  });
+
+  it('links content flags to the shared feedback inbox (no duplicate admin)', () => {
+    assert.match(AHTML, /\/pages\/admin\/feedback\/index\.html/);
+  });
+
+  it('admin page is token-only (no hex)', () => {
+    assert.ok(!/#[0-9a-fA-F]{3,6}\b/.test(AHTML), 'no hex literals');
+  });
+
+  it('nav registers the dictation-reports subsection', () => {
+    assert.match(read('js', 'components', 'aver-admin-chrome.js'),
+      /slug:\s*'dictation-reports'/);
+  });
+});
+
+
 describe('entry points — "Chép chính tả" buttons', () => {
 
   const DICT_HREF =
