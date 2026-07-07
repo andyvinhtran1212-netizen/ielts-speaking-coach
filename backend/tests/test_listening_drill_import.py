@@ -124,6 +124,25 @@ def test_missing_audio_warns_not_errors():
     assert any("audio" in w.lower() for w in res.warnings)
 
 
+def test_dictation_segments_generated_at_import():
+    # A drill with timings turns → per-turn dictation segments are written
+    # into content metadata at import (no separate backfill needed). Offset 0
+    # (the drill audio is the section file). Segments are contiguous + sane.
+    res = imp.parse_drill(_load("MCQ"), _timings("MCQ"))
+    segs = res.content_row["metadata"].get("dictation_segments")
+    assert segs and len(segs) == 21
+    assert [s["idx"] for s in segs] == list(range(21))
+    assert all(s["end"] > s["start"] and s["text"] for s in segs)
+    # First segment starts after the intro (turns begin post-preread).
+    assert segs[0]["start"] > 0
+
+
+def test_no_dictation_segments_without_timings():
+    # No timings → no segments key; the dictation UI falls back to free scrub.
+    res = imp.parse_drill(_load("FORM"), None)
+    assert "dictation_segments" not in res.content_row["metadata"]
+
+
 def test_mcq_multi_grouped_grading():
     """A Choose-TWO block is graded any-order as a set."""
     res = imp.parse_drill(_load("MCQM"), None)

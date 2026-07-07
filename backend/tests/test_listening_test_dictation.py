@@ -18,7 +18,8 @@ from fastapi import HTTPException
 
 from routers import listening as listening_router
 from services.listening_grader import (
-    grade_dictation, proper_noun_hints, split_sentences, split_turns,
+    build_turn_segments, grade_dictation, proper_noun_hints,
+    split_sentences, split_turns,
 )
 
 
@@ -53,6 +54,36 @@ def test_split_sentences_no_terminator_is_one_sentence():
     assert split_sentences("just a fragment with no full stop") == [
         "just a fragment with no full stop",
     ]
+
+
+def test_build_turn_segments_pairs_text_with_timing_and_offset():
+    transcript = "**A:** Good morning.\n\n**B:** Hello there."
+    turns = [{"start": 10.0, "end": 12.5}, {"start": 12.6, "end": 15.0}]
+    segs = build_turn_segments(transcript, turns, offset=100.0)
+    assert segs == [
+        {"idx": 0, "start": 110.0, "end": 112.5, "text": "Good morning."},
+        {"idx": 1, "start": 112.6, "end": 115.0, "text": "Hello there."},
+    ]
+
+
+def test_build_turn_segments_returns_empty_on_misalignment():
+    # More turns than transcript paragraphs → no guessed timing, free scrub.
+    transcript = "**A:** Only one turn."
+    turns = [{"start": 0, "end": 1}, {"start": 1, "end": 2}]
+    assert build_turn_segments(transcript, turns) == []
+    assert build_turn_segments("", turns) == []
+    assert build_turn_segments(transcript, None) == []
+
+
+def test_build_turn_segments_rejects_invalid_windows():
+    # A malformed window (end <= start, or negative start) must fall the whole
+    # section back to free scrub, never persist an unplayable clip.
+    t2 = "**A:** One.\n\n**B:** Two."
+    assert build_turn_segments(t2, [{"start": 5, "end": 8}, {"start": 9, "end": 9}]) == []   # end == start
+    assert build_turn_segments(t2, [{"start": 5, "end": 3}, {"start": 9, "end": 12}]) == []  # end < start
+    assert build_turn_segments("**A:** One.", [{"start": -1, "end": 4}]) == []               # negative start
+    # A negative start produced by the offset is also rejected.
+    assert build_turn_segments("**A:** One.", [{"start": 2, "end": 4}], offset=-3) == []
 
 
 def test_split_turns_one_unit_per_turn_not_sentence_split():

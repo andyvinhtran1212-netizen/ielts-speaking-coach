@@ -74,6 +74,25 @@ def test_parse_audio_windows_are_full_test_absolute():
     assert by_q[31]["audio_window"]["start"] == 1357.61
 
 
+def test_dictation_segments_generated_full_test_absolute():
+    # build_section_persistence emits per-turn dictation segments in
+    # content metadata. A full test plays the premixed audio → windows are
+    # ABSOLUTE (turn + section_offset). S1 turn0 (48.24) + offset 29.34.
+    qp, sol, tim = _load()
+    rows = imp.build_section_persistence(imp.parse_fulltest(qp, sol, tim), qp)
+    seg_counts = {}
+    for row in rows:
+        segs = row["content_row"]["metadata"].get("dictation_segments")
+        assert segs, f"section {row['section_num']} has no dictation_segments"
+        seg_counts[row["section_num"]] = len(segs)
+        assert [s["idx"] for s in segs] == list(range(len(segs)))
+        assert all(s["end"] > s["start"] and s["text"] for s in segs)
+    assert seg_counts == {1: 35, 2: 15, 3: 34, 4: 13}
+    s1_seg0 = rows[0]["content_row"]["metadata"]["dictation_segments"][0]
+    assert s1_seg0["start"] == 77.58   # 48.24 + 29.34 (absolute in premixed)
+    assert "**" not in s1_seg0["text"] and "Helen" in s1_seg0["text"]
+
+
 def test_parse_map_question_keeps_img_prompt():
     qp, sol, tim = _load()
     by_q = {q["q_num"]: q for q in imp.parse_fulltest(qp, sol, tim).questions}
