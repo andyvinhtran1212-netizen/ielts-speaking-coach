@@ -81,6 +81,28 @@ def test_split_sentences_strips_production_cues_and_answer_markers():
     assert "Brighton" in joined and "That's it." in out[-1]
 
 
+def test_split_sentences_strips_spaced_answer_markers():
+    # The converter supports the spaced marker form "( Q 33 )"; the splitter
+    # must strip it too, not just compact "(Q33)".
+    out = split_sentences("**M:** The answer is crime ( Q 33 ). Next point.")
+    joined = " ".join(out)
+    assert "Q" not in joined and "(" not in joined and ")" not in joined
+    assert "crime" in joined
+
+
+def test_split_sentences_handles_crlf_turn_separators():
+    # A Solution.md uploaded with Windows CRLF stores "\r\n\r\n" between
+    # turns. The splitter must still see two turns and strip BOTH labels —
+    # otherwise a later "**Name:**" label leaks into the reference.
+    transcript = (
+        "**Helen (Course coordinator):** Good afternoon.\r\n\r\n"
+        "**Daniel (Customer):** I'd like to enrol."
+    )
+    out = split_sentences(transcript)
+    assert out == ["Good afternoon.", "I'd like to enrol."]
+    assert all("Daniel" not in s and "Helen" not in s and "**" not in s for s in out)
+
+
 # ── Router fake supabase (compact, self-contained) ─────────────────────────
 
 

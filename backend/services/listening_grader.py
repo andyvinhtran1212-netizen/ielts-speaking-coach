@@ -230,8 +230,10 @@ _TURN_SPLIT_RE = re.compile(r"\n[ \t]*\n+")
 _SPEAKER_LABEL_RE = re.compile(r"^\s*\*\*[^*\n]+\*\*\s*")
 # Production cues / bracket voice tags: "[pause]", "[F-BrE-30s]", …
 _BRACKET_RE = re.compile(r"\[[^\]]*\]")
-# Answer markers the fullscript copy carries: "(Q7)".
-_QMARKER_RE = re.compile(r"\(Q\d+\)", re.IGNORECASE)
+# Answer markers the fullscript/v1.1 copy carries. Mirror the permissive
+# form the converter strips (listening_convert._QUESTION_MARKER_RE) so the
+# spaced variant "( Q 33 )" is removed too, not just compact "(Q7)".
+_QMARKER_RE = re.compile(r"\(\s*Q\s*\d+\s*\)", re.IGNORECASE)
 
 
 def _clean_turn(paragraph: str) -> str:
@@ -278,6 +280,12 @@ def split_sentences(transcript: str) -> list[str]:
     """
     if not transcript or not transcript.strip():
         return []
+
+    # Normalise line endings first: a Solution.md uploaded with Windows
+    # CRLF stores "\r\n\r\n" between turns, which the LF-only turn regex
+    # would miss — merging turns so later "**Name:**" labels leak into the
+    # reference. Fold CRLF + lone CR to LF so the turn split is reliable.
+    transcript = transcript.replace("\r\n", "\n").replace("\r", "\n")
 
     sentences: list[str] = []
     for paragraph in _TURN_SPLIT_RE.split(transcript):
