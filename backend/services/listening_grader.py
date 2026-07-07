@@ -295,6 +295,24 @@ def split_sentences(transcript: str) -> list[str]:
     return sentences
 
 
+def split_turns(transcript: str) -> list[str]:
+    """Split into cleaned TURN units — one per speaker turn, NOT sentence-
+    split within a turn. This is the audio-aligned granularity for timed
+    dictation: each turn pairs 1:1 with a timings.json ``turns[]`` entry
+    (same dialogue, same order), so a per-turn audio window can be attached.
+    Cleaning (label + cue strip, CRLF fold) matches split_sentences.
+    """
+    if not transcript or not transcript.strip():
+        return []
+    transcript = transcript.replace("\r\n", "\n").replace("\r", "\n")
+    out: list[str] = []
+    for paragraph in _TURN_SPLIT_RE.split(transcript):
+        cleaned = _clean_turn(paragraph)
+        if cleaned:
+            out.append(cleaned)
+    return out
+
+
 # ── True / False / Not-Given grader (Sprint 11.4) ────────────────────
 
 
