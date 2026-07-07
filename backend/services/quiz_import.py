@@ -15,6 +15,7 @@ prompt is resolved at commit to the matching vocab card's audio_headword
 from __future__ import annotations
 
 import logging
+import re
 from typing import Optional
 
 from database import supabase_admin
@@ -280,19 +281,22 @@ def _resolve_audio_map(topic_id: Optional[str]) -> dict:
     try:
         rows = (
             supabase_admin.table("vocab_cards")
-            .select("headword, audio_headword, lists")
+            .select("headword, audio_headword, lists, source")
             .eq("topic_id", topic_id)
             .execute()
         ).data or []
     except Exception as exc:  # noqa: BLE001
         logger.warning("[quiz] audio map read failed: %s", exc)
         return {}
-    # Exclude exam-list vocab (AWL/TOEIC/THPT): the bank's own words are curated,
-    # so an exam card sharing a headword must not supply {{audio}} for it.
+    # Exclude exam-ONLY vocab (a pure AWL/TOEIC/THPT import): the bank's own words
+    # are curated, so a pure exam card sharing a headword must not supply {{audio}}.
+    # A lesson word that also carries an exam list (source "L##") is kept.
+    def _exam_only(r):
+        return bool(r.get("lists")) and not re.match(r"^L\d", str(r.get("source") or "").strip())
     return {
         str(r["headword"]).strip().lower(): r.get("audio_headword")
         for r in rows
-        if r.get("headword") and r.get("audio_headword") and not r.get("lists")
+        if r.get("headword") and r.get("audio_headword") and not _exam_only(r)
     }
 
 

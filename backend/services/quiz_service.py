@@ -12,6 +12,7 @@ writes via service-role supabase_admin, so it must enforce user scoping in code)
 from __future__ import annotations
 
 import logging
+import re
 import traceback
 import uuid
 from datetime import datetime, timezone
@@ -21,6 +22,15 @@ from fastapi import HTTPException
 from database import supabase_admin
 
 logger = logging.getLogger(__name__)
+
+# A curated lesson word's `source` is an "L<NN> Group X" stamp. Such a word stays
+# scoped to the bank (dual membership) even when it also carries an exam `lists`
+# tag; only pure exam imports (no lesson source) are filtered out of the popup.
+_LESSON_SRC_RE = re.compile(r"^L\d")
+
+
+def _is_lesson_source(source) -> bool:
+    return bool(_LESSON_SRC_RE.match((source or "").strip()))
 
 _ATTEMPT_FIELDS = ("client_id", "item_key", "qid", "skill", "type", "subtype",
                    "is_correct", "answer_given", "response_time_ms", "attempt_no")
@@ -217,17 +227,17 @@ def _word_cards_for(bank: dict) -> dict:
                 "headword, definition_vi, definition_en, gloss_vi, pronunciation, "
                 "syllables, part_of_speech, level, register, example, "
                 "audio_headword, audio_example, collocations, synonyms, antonyms, "
-                "related_words, word_family, common_error, memory_hook, lists"
+                "related_words, word_family, common_error, memory_hook, lists, source"
             ).eq("topic_id", bank["topic_id"]).execute()
         ).data or []
     except Exception:  # noqa: BLE001
         return {}
     cards = {}
     for c in rows:
-        # Skip exam-list vocab (AWL/TOEIC/THPT import): those cards share the topic
-        # but are NOT part of the self-curated bank — the glance popup must stay
-        # scoped to 'từ của tôi'. `lists` non-empty marks an exam card.
-        if c.get("lists"):
+        # Skip exam-ONLY vocab (a pure AWL/TOEIC/THPT import sharing this topic): the
+        # glance popup must stay scoped to the curated bank words. A lesson word that
+        # also carries an exam list (dual membership, source "L##") is kept.
+        if c.get("lists") and not _is_lesson_source(c.get("source")):
             continue
         hw = (c.get("headword") or "").strip().lower()
         if hw:
