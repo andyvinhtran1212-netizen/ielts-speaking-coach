@@ -24,8 +24,9 @@
   let _token = null;
   const _state = {
     stackId: null,
-    mode:    'personal',  // 'personal' (user_vocabulary + server SRS) | 'wiki' (public vocab_cards topic stack)
-    category: null,       // wiki mode: the vocab_cards category being studied
+    mode:    'personal',  // 'personal' (user_vocabulary + server SRS) | 'wiki' (public vocab_cards topic OR exam-list stack)
+    category: null,       // wiki mode: progress-namespace key ('<topic>' or 'exam:<list>')
+    examList: null,       // exam-list mode: the exam list slug being studied
     categoryTitle: '',
     cards:   [],          // [{id/slug, headword, definition_vi, ...}]
     index:   0,
@@ -82,6 +83,19 @@
       _state.mode = 'wiki';
       _state.category = _state.stackId.slice(5);
       await loadWikiCards();
+      document.addEventListener('keydown', onHotkey);
+      return;
+    }
+
+    // ── Exam-list stack (AWL/TOEIC/THPT vocab_cards) — same public/no-SRS model
+    // as the wiki topic stack, just a different source list. Reuses the wiki
+    // renderer (mode='wiki'); progress self-marks live under an 'exam:' key so
+    // they never collide with a topic of the same name.
+    if (_state.stackId.indexOf('examlist:') === 0) {
+      _state.mode = 'wiki';
+      _state.examList = _state.stackId.slice(9);
+      _state.category = 'exam:' + _state.examList;
+      await loadExamCards();
       document.addEventListener('keydown', onHotkey);
       return;
     }
@@ -171,6 +185,36 @@
     _state.wikiBreakdown = { known: 0, review: 0 };
     const titleEl = $('study-title');
     if (titleEl) titleEl.textContent = 'Flashcards · ' + _state.categoryTitle;
+    renderCard();
+  }
+
+  // Exam-list stack — mirrors loadWikiCards but pulls one exam list (AWL/TOEIC/
+  // THPT) from the exam-prep endpoint. Cards share the vocab_cards rich shape so
+  // the wiki renderer needs no changes.
+  async function loadExamCards() {
+    showLoading();
+    try {
+      const url = BASE + '/api/vocabulary/exam/' + encodeURIComponent(_state.examList) + '/cards';
+      const res = await fetch(url);   // public endpoint — no auth header
+      if (!res.ok) {
+        showState(res.status === 404 ? 'Danh sách luyện thi không tồn tại.' : 'Không tải được từ vựng.', true);
+        return;
+      }
+      const body = await res.json();
+      _state.cards = Array.isArray(body.cards) ? body.cards : [];
+      _state.categoryTitle = body.title || _state.examList;
+    } catch (err) {
+      console.error('[flashcard-study] exam load', err);
+      showState('Không tải được từ vựng. Thử lại sau.', true);
+      return;
+    }
+    if (!_state.cards.length) { showState('Danh sách này chưa có từ vựng nào.'); return; }
+
+    _state.index = 0;
+    _state.flipped = false;
+    _state.wikiBreakdown = { known: 0, review: 0 };
+    const titleEl = $('study-title');
+    if (titleEl) titleEl.textContent = 'Luyện thi · ' + _state.categoryTitle;
     renderCard();
   }
 
