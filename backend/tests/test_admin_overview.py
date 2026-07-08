@@ -30,8 +30,11 @@ from fastapi.testclient import TestClient
 
 
 class _Resp:
-    def __init__(self, data):
+    def __init__(self, data, count=None):
         self.data = data
+        # PostgREST exposes exact row count on .count when the query used
+        # count="exact"; None otherwise.
+        self.count = count
 
 
 class _IsNot:
@@ -55,6 +58,8 @@ class _TableQuery:
         self.filters: list[tuple[str, str, object]] = []
         self.in_filter: tuple[str, list] | None = None
         self.limit_n = None
+        self._count_mode = None
+        self._head = False
 
     @property
     def not_(self):
@@ -62,6 +67,8 @@ class _TableQuery:
 
     def select(self, *_args, **_kw):
         self._mode = "select"
+        self._count_mode = _kw.get("count")
+        self._head = bool(_kw.get("head", False))
         return self
 
     def eq(self, field, value):
@@ -93,9 +100,12 @@ class _TableQuery:
     def execute(self):
         rows = self.fake.tables.get(self.table_name, [])
         matched = [r for r in rows if self._matches(r)]
+        # Exact count reflects ALL filter-matched rows, before limit paging.
+        count = len(matched) if self._count_mode else None
         if self.limit_n is not None:
             matched = matched[: self.limit_n]
-        return _Resp(matched)
+        data = [] if self._head else matched
+        return _Resp(data, count)
 
     def _matches(self, row):
         for field, op, value in self.filters:

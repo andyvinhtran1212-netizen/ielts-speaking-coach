@@ -66,6 +66,22 @@ def _safe_select(q):
         return []
 
 
+def _safe_count(q) -> int:
+    """Return an EXACT row count, swallowing transient errors.
+
+    Counting with `len(_safe_select(...))` silently caps at PostgREST's
+    1000-row default once a table grows past it (prod dashboard showed
+    1000 for tables with far more rows). Build the query with
+    `.select(col, count="exact", head=True)` and read `res.count` — the
+    total comes back via the Content-Range header with no row payload.
+    """
+    try:
+        return q.execute().count or 0
+    except Exception as exc:
+        logger.warning("[admin_overview] partial count failed: %s", exc)
+        return 0
+
+
 def _first_attempt_only(rows: list[dict]) -> list[dict]:
     """Sprint 11.5.1 carryover — dedupe listening_attempts rows to
     canonical first attempt per (exercise_id, segment_idx). Used here
@@ -127,7 +143,9 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
         .select("id, user_id, overall_band, created_at, completed_at, status")
         .gte("created_at", iso_30d)
     )
-    sessions_total_row = _safe_select(supabase_admin.table("sessions").select("id"))
+    sessions_total = _safe_count(
+        supabase_admin.table("sessions").select("id", count="exact", head=True)
+    )
 
     # Writing essays + pending feedback signal.
     essays_recent = _safe_select(
@@ -136,12 +154,14 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
         .is_("deleted_at", "null")          # exclude soft-deleted
         .gte("created_at", iso_30d)
     )
-    essays_total_row = _safe_select(
-        supabase_admin.table("writing_essays").select("id").is_("deleted_at", "null")
-    )
-    essays_pending = _safe_select(
+    essays_total = _safe_count(
         supabase_admin.table("writing_essays")
-        .select("id")
+        .select("id", count="exact", head=True)
+        .is_("deleted_at", "null")
+    )
+    essays_pending = _safe_count(
+        supabase_admin.table("writing_essays")
+        .select("id", count="exact", head=True)
         .is_("deleted_at", "null")
         .is_("delivered_at", "null")
     )
@@ -152,39 +172,51 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
         .select("id, user_id, exercise_id, segment_idx, score, created_at")
         .gte("created_at", iso_30d)
     )
-    listening_total_row = _safe_select(supabase_admin.table("listening_attempts").select("id"))
-    listening_content_row = _safe_select(
-        supabase_admin.table("listening_content").select("id").eq("status", "published")
+    listening_total = _safe_count(
+        supabase_admin.table("listening_attempts").select("id", count="exact", head=True)
+    )
+    listening_content_count = _safe_count(
+        supabase_admin.table("listening_content")
+        .select("id", count="exact", head=True)
+        .eq("status", "published")
     )
 
     # Vocab — total entries + due-for-review approximation (all
     # `mastery_status='learning'` non-archived rows; precise SRS window
     # is computed client-side per Sprint 10.2 mastery–SRS unification).
-    vocab_total_row = _safe_select(supabase_admin.table("user_vocabulary").select("id"))
-    vocab_learning = _safe_select(
+    vocab_total = _safe_count(
+        supabase_admin.table("user_vocabulary").select("id", count="exact", head=True)
+    )
+    vocab_learning = _safe_count(
         supabase_admin.table("user_vocabulary")
-        .select("id")
+        .select("id", count="exact", head=True)
         .eq("mastery_status", "learning")
         .eq("is_archived", False)
     )
 
     # Grammar — proxy for "articles viewed 7d": grammar_recommendations
     # written in last 7d (every practice response writes one set).
-    grammar_recent = _safe_select(
+    grammar_recent_count = _safe_count(
         supabase_admin.table("grammar_recommendations")
-        .select("id, created_at")
+        .select("id", count="exact", head=True)
         .gte("created_at", iso_7d)
     )
 
     # Error logs — three counts.
-    err_undismissed = _safe_select(
-        supabase_admin.table("error_logs").select("id").is_("dismissed_at", "null")
+    err_undismissed = _safe_count(
+        supabase_admin.table("error_logs")
+        .select("id", count="exact", head=True)
+        .is_("dismissed_at", "null")
     )
-    err_24h = _safe_select(
-        supabase_admin.table("error_logs").select("id").gte("occurred_at", iso_24h)
+    err_24h = _safe_count(
+        supabase_admin.table("error_logs")
+        .select("id", count="exact", head=True)
+        .gte("occurred_at", iso_24h)
     )
-    err_7d = _safe_select(
-        supabase_admin.table("error_logs").select("id").gte("occurred_at", iso_7d)
+    err_7d = _safe_count(
+        supabase_admin.table("error_logs")
+        .select("id", count="exact", head=True)
+        .gte("occurred_at", iso_7d)
     )
 
     # Access codes — counts by type + active total.
@@ -335,33 +367,33 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
         },
         "skills": {
             "speaking": {
-                "sessions_total": len(sessions_total_row),
+                "sessions_total": sessions_total,
                 "sessions_7d":    sessions_7d,
                 "avg_band_7d":    speaking_avg_band,
             },
             "writing": {
-                "essays_total":     len(essays_total_row),
+                "essays_total":     essays_total,
                 "essays_7d":        essays_7d,
-                "feedback_pending": len(essays_pending),
+                "feedback_pending": essays_pending,
             },
             "listening": {
-                "attempts_total": len(listening_total_row),
+                "attempts_total": listening_total,
                 "attempts_7d":    listening_7d,
-                "content_count":  len(listening_content_row),
+                "content_count":  listening_content_count,
                 "avg_score_7d":   listening_avg,
             },
             "vocab": {
-                "words_total":       len(vocab_total_row),
-                "due_review_today":  len(vocab_learning),
+                "words_total":       vocab_total,
+                "due_review_today":  vocab_learning,
             },
             "grammar": {
-                "articles_viewed_7d": len(grammar_recent),
+                "articles_viewed_7d": grammar_recent_count,
             },
         },
         "errors": {
-            "undismissed": len(err_undismissed),
-            "last_24h":    len(err_24h),
-            "last_7d":     len(err_7d),
+            "undismissed": err_undismissed,
+            "last_24h":    err_24h,
+            "last_7d":     err_7d,
         },
         "access_codes": {
             "active": ac_active,
