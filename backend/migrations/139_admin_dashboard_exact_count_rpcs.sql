@@ -15,6 +15,10 @@
 -- back to the old in-app aggregation if a function is absent (pre-apply), so
 -- deploy ordering is safe (Lesson 11 — deploy & apply).
 --
+-- Each function pins `SET search_path = public, pg_temp` — these reference
+-- unqualified tables, so an unpinned/mutable search_path could resolve them to
+-- shadowed objects (Supabase hardening requirement — see 108/113 + README).
+--
 -- Day bucketing uses (ts AT TIME ZONE 'UTC')::date to match the Python
 -- `created_at[:10]` UTC-date bucketing exactly.
 
@@ -23,6 +27,7 @@ CREATE OR REPLACE FUNCTION fn_dashboard_visitors(p_since timestamptz)
 RETURNS TABLE(authenticated bigint, anonymous bigint)
 LANGUAGE sql
 STABLE
+SET search_path = public, pg_temp
 AS $$
     SELECT
         COUNT(DISTINCT user_id) FILTER (WHERE user_id IS NOT NULL) AS authenticated,
@@ -37,6 +42,7 @@ CREATE OR REPLACE FUNCTION fn_dashboard_tokens_called(p_since timestamptz)
 RETURNS bigint
 LANGUAGE sql
 STABLE
+SET search_path = public, pg_temp
 AS $$
     SELECT COALESCE(SUM(COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)), 0)::bigint
     FROM ai_usage_logs
@@ -48,6 +54,7 @@ CREATE OR REPLACE FUNCTION fn_dashboard_daily_visitors(p_since timestamptz)
 RETURNS TABLE(day date, value bigint)
 LANGUAGE sql
 STABLE
+SET search_path = public, pg_temp
 AS $$
     SELECT
         (created_at AT TIME ZONE 'UTC')::date AS day,
@@ -64,6 +71,7 @@ CREATE OR REPLACE FUNCTION fn_dashboard_daily_practices(p_since timestamptz)
 RETURNS TABLE(day date, value bigint)
 LANGUAGE sql
 STABLE
+SET search_path = public, pg_temp
 AS $$
     SELECT
         (completed_at AT TIME ZONE 'UTC')::date AS day,
@@ -79,6 +87,7 @@ CREATE OR REPLACE FUNCTION fn_dashboard_daily_tokens(p_since timestamptz)
 RETURNS TABLE(day date, value bigint)
 LANGUAGE sql
 STABLE
+SET search_path = public, pg_temp
 AS $$
     SELECT
         (created_at AT TIME ZONE 'UTC')::date AS day,
