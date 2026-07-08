@@ -1375,7 +1375,12 @@
     // for any auth decision, only for audit).
     function setupAntiPaste(textarea) {
       textarea.addEventListener('paste', async function (ev) {
-        var pasted = (ev.clipboardData || window.clipboardData).getData('text');
+        // Some browsers (esp. mobile) fire `paste` with neither ev.clipboardData
+        // nor window.clipboardData — reading `.getData` on undefined threw
+        // (captured in error_logs). Degrade gracefully: if the clipboard is
+        // unreadable we can't measure length, so let the native paste proceed.
+        var clip = ev.clipboardData || window.clipboardData;
+        var pasted = clip ? clip.getData('text') : '';
         var len = (pasted || '').length;
 
         if (len > PASTE_BLOCK_THRESHOLD) {
