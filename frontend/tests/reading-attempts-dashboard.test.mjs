@@ -30,7 +30,9 @@ const svc = read('backend/services/admin_reading_dashboard.py');
 
 describe('C — dashboard page (reading-attempts.html)', () => {
   test('mounts under the Dashboard chrome as the reading-attempts subsection', () => {
-    assert.match(html, /<aver-admin-chrome active="dashboard" subsection="reading-attempts">/);
+    // dashboard-consolidation — the ops Dashboard merged into Tổng quan, so
+    // this drill-down now mounts under the 'overview' chrome section.
+    assert.match(html, /<aver-admin-chrome active="overview" subsection="reading-attempts">/);
   });
   test('reuses the design-system stylesheets (tokens/components/admin)', () => {
     assert.match(html, /aver-design\/tokens\.css/);
@@ -98,7 +100,8 @@ describe('C — page controller (admin-reading-attempts.js)', () => {
 
 describe('C — navigation registration', () => {
   test('Dashboard nav item carries the reading-attempts subsection', () => {
-    assert.match(chromeJs, /section:\s*['"]dashboard['"][\s\S]{0,300}slug:\s*['"]reading-attempts['"]/);
+    // dashboard-consolidation — reading-attempts subsection moved under 'overview'.
+    assert.match(chromeJs, /section:\s*['"]overview['"][\s\S]{0,400}slug:\s*['"]reading-attempts['"]/);
     assert.match(chromeJs, /reading-attempts\.html/);
   });
 });

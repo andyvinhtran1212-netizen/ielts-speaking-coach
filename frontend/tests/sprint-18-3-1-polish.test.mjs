@@ -17,11 +17,14 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const front = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
 
 const CSS = front('css', 'aver-design', 'admin-components.css');
-const DASH = front('pages', 'admin', 'dashboard', 'index.html');
+// dashboard-consolidation — the ops Dashboard (its .db-card KPI tiles) merged
+// into the unified Tổng quan page.
+const DASH = front('pages', 'admin', 'index.html');
 // Pages expected to consume admin-components.css (and thus the box-sizing reset).
 // Students is excluded: Tailwind's preflight already sets border-box, and it
-// migrates fully in Sprint 18.3.2.
-const LINKED_PAGES = ['access-codes', 'cohorts', 'foot-traffic', 'usage', 'dashboard', 'system'];
+// migrates fully in Sprint 18.3.2. 'dashboard' dropped: it's now a redirect
+// stub (the ops metrics live on the unified index page, which links the CSS).
+const LINKED_PAGES = ['access-codes', 'cohorts', 'foot-traffic', 'usage', 'system'];
 
 
 describe('Sprint 18.3.1 — overflow root-cause fix', () => {

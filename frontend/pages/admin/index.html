@@ -23,12 +23,14 @@
 
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
   <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-components.css" />
   <link rel="stylesheet" href="/css/aver-design/admin-buttons.css" />
   <link rel="stylesheet" href="/css/aver-design/admin-status.css" />
   <link rel="stylesheet" href="/css/aver-design/admin-hub.css" />
 
   <script src="https://unpkg.com/@supabase/supabase-js@2.107.0" defer></script>
   <script src="/js/api.js"></script>
+  <script src="/js/toast.js"></script>
 
   <style>
     body.av-page { font-family: var(--av-font-sans); margin: 0; }
@@ -41,160 +43,227 @@
       display: flex; justify-content: space-between; align-items: flex-end;
       flex-wrap: wrap; gap: var(--av-space-3);
     }
-    .overview-header h1 {
-      font-size: var(--av-fs-2xl);
-      margin: 0;
-    }
+    .overview-header h1 { font-size: var(--av-fs-2xl); margin: 0; }
     .overview-header .accent { color: var(--av-brand-teal-700); }
-    .overview-header .refresh-row {
-      display: flex; align-items: center; gap: var(--av-space-3);
-      font-size: var(--av-fs-xs); color: var(--av-text-muted);
+    .overview-header .ov-subtitle {
+      margin: var(--av-space-1) 0 0; color: var(--av-text-secondary); font-size: var(--av-fs-sm);
     }
-    /* .btn-refresh → admin-buttons.css bridge (design-fix-2 B3) */
+    .ov-controls { display: flex; align-items: flex-end; gap: var(--av-space-3); flex-wrap: wrap; }
+    .ov-refresh-label { font-size: var(--av-fs-xs); color: var(--av-text-muted); align-self: center; }
+
+    /* ── View tabs (Vận hành / Nội dung) ──────────────────────── */
+    .ov-tabs { display: inline-flex; gap: var(--av-space-1); }
+    .ov-tab {
+      padding: 8px 18px; border-radius: var(--av-radius-pill);
+      font-size: var(--av-fs-sm); font-weight: var(--av-fw-medium); cursor: pointer;
+      background: transparent; color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default); font-family: inherit;
+    }
+    .ov-tab.is-active {
+      background: var(--av-brand-teal-50); color: var(--av-brand-teal-800);
+      border-color: var(--av-brand-teal-200); font-weight: var(--av-fw-semibold);
+    }
+    .ov-pane { display: flex; flex-direction: column; gap: var(--av-space-6); }
 
     /* ── Stat tiles (Sprint 12.4) ─────────────────────────────── */
     .stat-grid {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: var(--av-space-3);
+      display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--av-space-3);
     }
     .stat-tile {
-      display: flex; flex-direction: column;
-      gap: var(--av-space-1);
-      padding: var(--av-space-4);
-      border: 1px solid var(--av-border-default);
-      border-radius: var(--av-radius-md);
-      background: var(--av-surface-card);
-      text-decoration: none;
-      color: var(--av-text-primary);
+      display: flex; flex-direction: column; gap: var(--av-space-1); padding: var(--av-space-4);
+      border: 1px solid var(--av-border-default); border-radius: var(--av-radius-md);
+      background: var(--av-surface-card); text-decoration: none; color: var(--av-text-primary);
       transition: border-color 0.15s ease, transform 0.15s ease;
     }
-    .stat-tile.is-clickable:hover {
-      border-color: var(--av-brand-teal-700);
-      transform: translateY(-1px);
-    }
+    .stat-tile.is-clickable:hover { border-color: var(--av-brand-teal-700); transform: translateY(-1px); }
     .stat-tile .label {
-      font-size: var(--av-fs-xs);
-      color: var(--av-text-muted);
-      text-transform: uppercase;
-      letter-spacing: var(--av-tracking-wide);
+      font-size: var(--av-fs-xs); color: var(--av-text-muted);
+      text-transform: uppercase; letter-spacing: var(--av-tracking-wide);
     }
     .stat-tile .value {
-      font-family: var(--av-font-mono);
-      font-size: var(--av-fs-2xl);
-      font-weight: var(--av-fw-semibold);
-      color: var(--av-text-primary);
+      font-family: var(--av-font-mono); font-size: var(--av-fs-2xl);
+      font-weight: var(--av-fw-semibold); color: var(--av-text-primary);
     }
-    .stat-tile .delta {
-      font-size: var(--av-fs-xs);
-      color: var(--av-text-secondary);
-    }
-    .stat-tile.is-warning {
-      border-color: var(--av-warning, var(--av-brand-amber-400));
-    }
+    .stat-tile .delta { font-size: var(--av-fs-xs); color: var(--av-text-secondary); }
+    .stat-tile.is-warning { border-color: var(--av-warning, var(--av-brand-amber-400)); }
     .stat-tile.is-zero .value { color: var(--av-text-muted); }
 
     /* ── Skill cards ──────────────────────────────────────────── */
     .ov-section-title {
-      font-size: var(--av-fs-xs);
-      text-transform: uppercase;
-      letter-spacing: var(--av-tracking-widest);
-      color: var(--av-text-muted);
-      font-weight: var(--av-fw-semibold);
-      margin: var(--av-space-3) 0 var(--av-space-1);
+      font-size: var(--av-fs-xs); text-transform: uppercase; letter-spacing: var(--av-tracking-widest);
+      color: var(--av-text-muted); font-weight: var(--av-fw-semibold); margin: var(--av-space-3) 0 var(--av-space-1);
     }
     .skill-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: var(--av-space-3);
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--av-space-3);
     }
-    /* Card grid + status tags → admin-hub.css + admin-status.css (design-fix-2 B4).
-       The skill-stats block stays Overview-local but now hangs off the shared
-       .admin-hub-card (the cards were renamed from .ov-card). */
-    .admin-hub-card .skill-stats {
-      display: flex; gap: var(--av-space-4);
-      font-family: var(--av-font-mono);
-    }
-    .admin-hub-card .skill-stats > div {
-      display: flex; flex-direction: column;
-    }
+    .admin-hub-card .skill-stats { display: flex; gap: var(--av-space-4); font-family: var(--av-font-mono); }
+    .admin-hub-card .skill-stats > div { display: flex; flex-direction: column; }
     .admin-hub-card .skill-stats .stat-label {
-      font-size: var(--av-fs-xs);
-      color: var(--av-text-muted);
-      font-family: var(--av-font-sans);
-      text-transform: uppercase;
-      letter-spacing: var(--av-tracking-wide);
+      font-size: var(--av-fs-xs); color: var(--av-text-muted); font-family: var(--av-font-sans);
+      text-transform: uppercase; letter-spacing: var(--av-tracking-wide);
     }
     .admin-hub-card .skill-stats .stat-num {
-      font-size: var(--av-fs-lg);
-      font-weight: var(--av-fw-semibold);
-      color: var(--av-text-primary);
+      font-size: var(--av-fs-lg); font-weight: var(--av-fw-semibold); color: var(--av-text-primary);
     }
 
     /* ── Activity feed ────────────────────────────────────────── */
     .activity-feed {
-      border: 1px solid var(--av-border-default);
-      border-radius: var(--av-radius-md);
-      background: var(--av-surface-card);
-      overflow: hidden;
+      border: 1px solid var(--av-border-default); border-radius: var(--av-radius-md);
+      background: var(--av-surface-card); overflow: hidden;
     }
     .activity-row {
-      display: grid;
-      grid-template-columns: 140px 1fr 100px;
-      gap: var(--av-space-3);
-      padding: var(--av-space-3) var(--av-space-4);
-      border-bottom: 1px solid var(--av-border-default);
-      font-size: var(--av-fs-sm);
-      text-decoration: none;
-      color: var(--av-text-primary);
+      display: grid; grid-template-columns: 140px 1fr 100px; gap: var(--av-space-3);
+      padding: var(--av-space-3) var(--av-space-4); border-bottom: 1px solid var(--av-border-default);
+      font-size: var(--av-fs-sm); text-decoration: none; color: var(--av-text-primary);
     }
     .activity-row:last-child { border-bottom: none; }
     .activity-row:hover { background: var(--av-surface-sunken); }
     .activity-row.is-static:hover { background: transparent; cursor: default; }
-    .activity-row .ts {
-      font-family: var(--av-font-mono);
-      font-size: var(--av-fs-xs);
-      color: var(--av-text-muted);
-    }
+    .activity-row .ts { font-family: var(--av-font-mono); font-size: var(--av-fs-xs); color: var(--av-text-muted); }
     .activity-row .skill-chip {
-      display: inline-block;
-      padding: 1px 8px;
-      border-radius: var(--av-radius-pill);
-      font-size: var(--av-fs-xs);
-      background: var(--av-surface-sunken);
-      color: var(--av-text-secondary);
-      margin-right: var(--av-space-2);
+      display: inline-block; padding: 1px 8px; border-radius: var(--av-radius-pill);
+      font-size: var(--av-fs-xs); background: var(--av-surface-sunken);
+      color: var(--av-text-secondary); margin-right: var(--av-space-2);
     }
+    /* Skill accents — theme-safe tokens only (no hardcoded hex): teal / info /
+       amber keep the three feed skills visually distinct in both themes. */
     .activity-row .skill-chip.is-speaking { background: var(--av-brand-teal-50); color: var(--av-brand-teal-800); }
-    .activity-row .skill-chip.is-writing  { background: #EEF2FF; color: #3730A3; }
-    .activity-row .skill-chip.is-listening { background: #FEF3C7; color: #92400E; }
-    .activity-row .score {
-      font-family: var(--av-font-mono);
-      text-align: right;
-      color: var(--av-text-secondary);
-    }
-
+    .activity-row .skill-chip.is-writing  { background: var(--av-info-soft); color: var(--av-info); }
+    .activity-row .skill-chip.is-listening { background: color-mix(in srgb, var(--av-brand-amber-400) 22%, transparent); color: var(--av-brand-amber-600); }
+    .activity-row .score { font-family: var(--av-font-mono); text-align: right; color: var(--av-text-secondary); }
     .activity-empty, .activity-loading {
-      padding: var(--av-space-6);
-      text-align: center;
-      color: var(--av-text-muted);
-      font-size: var(--av-fs-sm);
+      padding: var(--av-space-6); text-align: center; color: var(--av-text-muted); font-size: var(--av-fs-sm);
     }
 
-    /* ── Footer placeholders (Cohort / Usage / System still Phase B) ── */
+    /* ── Footer placeholders (Cohort / Usage still Phase B) ───── */
     .placeholder-row {
       display: flex; gap: var(--av-space-3); flex-wrap: wrap;
-      padding: var(--av-space-3) 0;
-      font-size: var(--av-fs-xs); color: var(--av-text-muted);
+      padding: var(--av-space-3) 0; font-size: var(--av-fs-xs); color: var(--av-text-muted);
     }
     .placeholder-row a {
-      color: var(--av-text-secondary);
-      text-decoration: none;
-      padding: 4px 10px;
-      border-radius: var(--av-radius-pill);
-      border: 1px dashed var(--av-border-default);
+      color: var(--av-text-secondary); text-decoration: none; padding: 4px 10px;
+      border-radius: var(--av-radius-pill); border: 1px dashed var(--av-border-default);
     }
     .placeholder-row a:hover { color: var(--av-text-primary); }
+
+    /* ══ Ops metrics (merged from the former Dashboard page) ═════ */
+    .db-field { display: flex; flex-direction: column; gap: 4px; }
+    .db-field label {
+      font-size: var(--av-fs-xs); color: var(--av-text-muted);
+      text-transform: uppercase; letter-spacing: var(--av-tracking-wide);
+    }
+    .db-field select {
+      padding: 8px 12px; border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md); background: var(--av-surface-card);
+      color: var(--av-text-primary); font-size: var(--av-fs-sm); font-family: inherit;
+    }
+    .db-banner {
+      padding: var(--av-space-3) var(--av-space-4); border-radius: var(--av-radius-md);
+      font-size: var(--av-fs-sm); color: var(--av-error); background: var(--av-error-soft);
+      border: 1px solid color-mix(in srgb, var(--av-error) 30%, transparent);
+    }
+
+    /* KPI tiles */
+    .db-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--av-space-4); }
+    @media (max-width: 880px) { .db-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 560px) { .db-grid { grid-template-columns: 1fr; } }
+    .db-card {
+      border: 1px solid var(--av-border-default); border-radius: var(--av-radius-lg);
+      background: var(--av-surface-card); padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-2); min-height: 148px; min-width: 0;
+    }
+    .db-card__label {
+      font-size: var(--av-fs-xs); color: var(--av-text-muted); text-transform: uppercase;
+      letter-spacing: var(--av-tracking-wide); font-weight: var(--av-fw-semibold);
+    }
+    .db-card__scope {
+      text-transform: none; letter-spacing: 0; font-weight: var(--av-fw-regular); color: var(--av-text-faint);
+    }
+    .db-card__split { font-size: var(--av-fs-xs); color: var(--av-text-muted); }
+    .db-card__split:empty { display: none; }
+    .db-card.is-loading .db-card__value,
+    .db-card.is-loading .db-delta,
+    .db-card.is-loading .db-card__spark,
+    .db-trends__chart.is-loading {
+      position: relative; color: transparent !important; border-radius: var(--av-radius-sm);
+      background: linear-gradient(90deg,
+        var(--av-surface-sunken) 25%, var(--av-border-subtle) 37%, var(--av-surface-sunken) 63%);
+      background-size: 400% 100%; animation: db-shimmer 1.2s ease-in-out infinite;
+    }
+    .db-card.is-loading .db-delta[hidden] { display: inline-block; min-width: 3ch; }
+    .db-trends__chart.is-loading { min-height: 160px; }
+    @keyframes db-shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+    @media (prefers-reduced-motion: reduce) {
+      .db-card.is-loading .db-card__value,
+      .db-card.is-loading .db-card__spark,
+      .db-trends__chart.is-loading { animation: none; }
+    }
+    .db-refresh:disabled { opacity: 0.6; cursor: progress; }
+    .db-card__valrow { display: flex; align-items: baseline; gap: var(--av-space-2); flex-wrap: wrap; }
+    .db-card__value {
+      font-size: var(--av-fs-3xl, 2rem); font-weight: var(--av-fw-bold);
+      color: var(--av-text-primary); font-variant-numeric: tabular-nums; line-height: 1.1;
+    }
+    .db-card__unit { font-size: var(--av-fs-sm); color: var(--av-text-secondary); font-weight: var(--av-fw-medium); }
+    .db-delta { font-size: var(--av-fs-xs); font-weight: var(--av-fw-semibold); font-variant-numeric: tabular-nums; }
+    .db-delta.is-up   { color: var(--av-success); }
+    .db-delta.is-down { color: var(--av-error); }
+    .db-delta.is-flat { color: var(--av-text-muted); }
+    .db-card__spark { margin-top: auto; height: 28px; color: var(--av-primary); }
+    .db-card__spark .av-spark { width: 100%; height: 28px; display: block; }
+    .db-card__link {
+      font-size: var(--av-fs-xs); color: var(--av-brand-teal-700); text-decoration: none; margin-top: 2px;
+    }
+    .db-card__link:hover { text-decoration: underline; }
+
+    /* Trends panel */
+    .db-trends {
+      border: 1px solid var(--av-border-default); border-radius: var(--av-radius-lg);
+      background: var(--av-surface-card); padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-3);
+    }
+    .db-trends__head {
+      display: flex; align-items: center; justify-content: space-between; gap: var(--av-space-3); flex-wrap: wrap;
+    }
+    .db-trends__title { font-size: var(--av-fs-lg); font-weight: var(--av-fw-semibold); margin: 0; }
+    .db-trends__tabs { display: inline-flex; gap: var(--av-space-1); flex-wrap: wrap; }
+    .db-trend-tab {
+      padding: 4px 12px; border-radius: var(--av-radius-pill); font-size: var(--av-fs-xs);
+      font-weight: var(--av-fw-medium); cursor: pointer; background: transparent;
+      color: var(--av-text-secondary); border: 1px solid var(--av-border-default); font-family: inherit;
+    }
+    .db-trend-tab.is-active {
+      background: var(--av-brand-teal-50); color: var(--av-brand-teal-800);
+      border-color: var(--av-brand-teal-200); font-weight: var(--av-fw-semibold);
+    }
+    .db-trends__chart { color: var(--av-primary); min-height: 160px; }
+    .db-trends__chart .av-area { width: 100%; height: 160px; display: block; }
+    .db-trends__empty { color: var(--av-text-muted); font-size: var(--av-fs-sm); text-align: center; padding: var(--av-space-8); }
+
+    /* "Cần chú ý" strip */
+    .db-block { display: flex; flex-direction: column; gap: var(--av-space-3); }
+    .db-section-title {
+      font-size: var(--av-fs-xs); text-transform: uppercase; letter-spacing: var(--av-tracking-widest);
+      color: var(--av-text-muted); font-weight: var(--av-fw-semibold); margin: 0;
+    }
+    .db-attention { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--av-space-4); }
+    @media (max-width: 560px) { .db-attention { grid-template-columns: 1fr; } }
+    .db-attn-card {
+      display: flex; align-items: center; gap: var(--av-space-3);
+      border: 1px solid var(--av-border-default); border-radius: var(--av-radius-lg);
+      background: var(--av-surface-card); padding: var(--av-space-4) var(--av-space-6);
+      text-decoration: none; color: var(--av-text-primary);
+      transition: border-color var(--av-duration-fast) var(--av-easing-default);
+    }
+    .db-attn-card:hover { border-color: var(--av-brand-teal-700); }
+    .db-attn-card__count {
+      font-size: var(--av-fs-2xl); font-weight: var(--av-fw-bold);
+      font-variant-numeric: tabular-nums; min-width: 2ch; color: var(--av-text-primary);
+    }
+    .db-attn-card__body { display: flex; flex-direction: column; gap: 2px; }
+    .db-attn-card__label { font-size: var(--av-fs-sm); font-weight: var(--av-fw-medium); }
+    .db-attn-card__sub { font-size: var(--av-fs-xs); color: var(--av-text-muted); }
+    .db-foot { color: var(--av-text-muted); font-size: var(--av-fs-xs); }
 
     [hidden] { display: none !important; }
 
@@ -211,114 +280,261 @@
       <header class="overview-header">
         <div>
           <h1>Tổng quan <span class="accent">Quản trị</span></h1>
+          <p class="ov-subtitle">Sức khỏe vận hành + hoạt động nội dung của toàn hệ thống.</p>
         </div>
-        <div class="refresh-row">
-          <span id="last-refresh" data-testid="last-refresh">—</span>
-          <button class="btn-refresh" id="btn-refresh" type="button">Tải lại</button>
+        <div class="ov-controls">
+          <div class="db-field">
+            <label for="db-window">Cửa sổ</label>
+            <select id="db-window">
+              <option value="7">7 ngày</option>
+              <option value="30" selected>30 ngày</option>
+              <option value="90">90 ngày</option>
+            </select>
+          </div>
+          <button class="db-refresh" id="db-refresh" type="button">↻ Tải lại</button>
+          <span id="last-refresh" data-testid="last-refresh" class="ov-refresh-label">—</span>
+          <!-- Overview controller binds #btn-refresh; the visible control above
+               bridges to it so one button refreshes both sections. -->
+          <button id="btn-refresh" type="button" hidden aria-hidden="true">refresh</button>
         </div>
       </header>
 
-      <!-- ── Top 4 stat tiles ─────────────────────────────────── -->
-      <section class="stat-grid" aria-label="Số liệu chính">
-        <div class="stat-tile" data-tile="students-total">
-          <span class="label">Tổng học viên</span>
-          <span class="value" data-value="students-total">—</span>
-          <span class="delta" data-delta="students-30d">—</span>
-        </div>
-        <div class="stat-tile" data-tile="students-active">
-          <span class="label">Đang hoạt động (7 ngày)</span>
-          <span class="value" data-value="students-active-7d">—</span>
-          <span class="delta" data-delta="students-active-30d">—</span>
-        </div>
-        <a class="stat-tile is-clickable" data-tile="errors-undismissed"
-           href="/pages/admin/error-logs/index.html">
-          <span class="label">Lỗi chưa xử lý</span>
-          <span class="value" data-value="errors-undismissed">—</span>
-          <span class="delta" data-delta="errors-24h">—</span>
-        </a>
-        <a class="stat-tile is-clickable" data-tile="access-codes"
-           href="/pages/admin/access-codes/index.html">
-          <span class="label">Mã đang dùng</span>
-          <span class="value" data-value="access-codes-active">—</span>
-          <span class="delta" data-delta="access-codes-mix">—</span>
-        </a>
-      </section>
+      <div class="db-banner" id="db-banner" hidden></div>
 
-      <!-- ── Skill cards (5) ──────────────────────────────────── -->
-      <h2 class="ov-section-title">Hoạt động theo kỹ năng</h2>
-      <section class="skill-grid" aria-label="Tóm tắt theo kỹ năng">
-        <a href="/pages/admin/speaking/index.html" class="admin-hub-card" data-skill="speaking">
-          <h3>Speaking</h3>
-          <div class="skill-stats">
-            <div><span class="stat-label">7 ngày</span><span class="stat-num" data-skill-7d="speaking">—</span></div>
-            <div><span class="stat-label">Tổng</span><span class="stat-num" data-skill-total="speaking">—</span></div>
-            <div><span class="stat-label">Band TB</span><span class="stat-num" data-skill-extra="speaking">—</span></div>
-          </div>
-          <div class="meta"><span class="adm-status-pill is-live">LIVE</span></div>
-        </a>
-        <a href="/pages/admin/writing/index.html" class="admin-hub-card" data-skill="writing">
-          <h3>Writing</h3>
-          <div class="skill-stats">
-            <div><span class="stat-label">7 ngày</span><span class="stat-num" data-skill-7d="writing">—</span></div>
-            <div><span class="stat-label">Tổng</span><span class="stat-num" data-skill-total="writing">—</span></div>
-            <div><span class="stat-label">Chờ chấm</span><span class="stat-num" data-skill-extra="writing">—</span></div>
-          </div>
-          <div class="meta"><span class="adm-status-pill is-live">LIVE</span></div>
-        </a>
-        <a href="/pages/admin/listening/index.html" class="admin-hub-card" data-skill="listening">
-          <h3>Listening</h3>
-          <div class="skill-stats">
-            <div><span class="stat-label">7 ngày</span><span class="stat-num" data-skill-7d="listening">—</span></div>
-            <div><span class="stat-label">Tổng</span><span class="stat-num" data-skill-total="listening">—</span></div>
-            <div><span class="stat-label">Điểm TB</span><span class="stat-num" data-skill-extra="listening">—</span></div>
-          </div>
-          <div class="meta"><span class="adm-status-pill is-live">LIVE</span></div>
-        </a>
-        <a href="/pages/admin/vocab/index.html" class="admin-hub-card" data-skill="vocab">
-          <h3>Vocab</h3>
-          <div class="skill-stats">
-            <div><span class="stat-label">Đang học</span><span class="stat-num" data-skill-7d="vocab">—</span></div>
-            <div><span class="stat-label">Tổng</span><span class="stat-num" data-skill-total="vocab">—</span></div>
-          </div>
-          <div class="meta"><span class="adm-status-pill is-live">LIVE</span></div>
-        </a>
-        <a href="/pages/admin/grammar/index.html" class="admin-hub-card" data-skill="grammar">
-          <h3>Grammar</h3>
-          <div class="skill-stats">
-            <div><span class="stat-label">Đề xuất 7d</span><span class="stat-num" data-skill-7d="grammar">—</span></div>
-          </div>
-          <div class="meta"><span class="adm-status-pill is-live">LIVE</span></div>
-        </a>
-      </section>
-
-      <!-- ── Recent activity feed ─────────────────────────────── -->
-      <h2 class="ov-section-title">Hoạt động gần đây</h2>
-      <div class="activity-feed">
-        <div class="activity-loading" id="activity-loading" hidden>Đang tải…</div>
-        <div class="activity-empty" id="activity-empty" hidden>
-          Chưa có hoạt động nào trong 30 ngày qua.
-        </div>
-        <div id="activity-rows"><p class="text-sm py-6 text-center" style="color:var(--av-text-muted,#9ca3af)">Đang tải…</p></div>
+      <!-- ── Cần chú ý (always visible) ─────────────────────────── -->
+      <div class="db-block">
+        <p class="db-section-title">Cần chú ý</p>
+        <section class="db-attention" aria-label="Mục cần chú ý">
+          <a class="db-attn-card" href="/pages/admin/error-logs/index.html">
+            <span class="db-attn-card__count" id="a-errors">—</span>
+            <span class="db-attn-card__body">
+              <span class="db-attn-card__label">Lỗi chưa xử lý</span>
+              <span class="db-attn-card__sub">error_logs chưa dismiss</span>
+            </span>
+          </a>
+          <a class="db-attn-card" href="/pages/admin/writing/instructor-queue.html">
+            <span class="db-attn-card__count" id="a-writing">—</span>
+            <span class="db-attn-card__body">
+              <span class="db-attn-card__label">Bài viết chờ chấm</span>
+              <span class="db-attn-card__sub">writing_essays chưa trả kết quả</span>
+            </span>
+          </a>
+        </section>
       </div>
 
-      <!-- ── Truy cập + Hệ thống footer (Sprint 12.8.1 closure truth) ─ -->
-      <!-- Sprint 12.8 graduated `system` (AI Usage + Alerts LIVE) and  -->
-      <!-- `users` (real role management). Legacy `admin.html` is now a -->
-      <!-- pure redirect — link removed; cohorts + usage remain Phase B.-->
-      <h2 class="ov-section-title">Truy cập + Hệ thống</h2>
-      <div class="placeholder-row">
-        <a href="/pages/admin/students/index.html">Học viên · LIVE</a>
-        <a href="/pages/admin/users/index.html">Tất cả người dùng · LIVE</a>
-        <a href="/pages/admin/system/index.html">Hệ thống · LIVE</a>
-        <a href="/pages/admin/cohorts/index.html">Lớp / Cohort · Phase B</a>
-        <a href="/pages/admin/usage/index.html">Usage logs · Phase B</a>
+      <!-- ── View tabs ──────────────────────────────────────────── -->
+      <div class="ov-tabs" id="ov-tabs" role="tablist" aria-label="Chế độ xem">
+        <button type="button" class="ov-tab is-active" data-pane="ops" role="tab" aria-selected="true">Vận hành</button>
+        <button type="button" class="ov-tab" data-pane="content" role="tab" aria-selected="false">Nội dung</button>
       </div>
+
+      <!-- ═══ Pane: Vận hành (ops metrics + trends) ═══════════════ -->
+      <section class="ov-pane" id="pane-ops" role="tabpanel" aria-label="Vận hành">
+        <section class="db-grid" aria-label="Số liệu vận hành">
+          <div class="db-card">
+            <div class="db-card__label">Tổng người dùng <span class="db-card__scope">toàn thời gian</span></div>
+            <div class="db-card__valrow"><span class="db-card__value" id="m-users">—</span></div>
+            <a class="db-card__link" href="/pages/admin/users/index.html">Xem chi tiết →</a>
+          </div>
+          <div class="db-card">
+            <div class="db-card__label">Mã đã kích hoạt <span class="db-card__scope">toàn thời gian</span></div>
+            <div class="db-card__valrow"><span class="db-card__value" id="m-codes">—</span></div>
+            <a class="db-card__link" href="/pages/admin/access-codes/index.html">Xem chi tiết →</a>
+          </div>
+          <div class="db-card db-card--windowed">
+            <div class="db-card__label">Người xem (<span class="m-window">30</span> ngày)</div>
+            <div class="db-card__valrow">
+              <span class="db-card__value" id="m-visitors">—</span>
+              <span class="db-delta" id="d-visitors" hidden></span>
+            </div>
+            <div class="db-card__split" id="m-visitors-split"></div>
+            <div class="db-card__spark" id="spark-visitors"></div>
+            <a class="db-card__link" href="/pages/admin/foot-traffic/index.html">Xem chi tiết →</a>
+          </div>
+          <div class="db-card">
+            <div class="db-card__label">Bài practice đã hoàn thành <span class="db-card__scope">toàn thời gian</span></div>
+            <div class="db-card__valrow">
+              <span class="db-card__value" id="m-practices">—</span>
+              <span class="db-delta" id="d-practices" hidden></span>
+            </div>
+            <div class="db-card__spark" id="spark-practices"></div>
+            <a class="db-card__link" href="/pages/admin/usage/index.html">Xem chi tiết →</a>
+          </div>
+          <div class="db-card">
+            <div class="db-card__label">Phút chấm <span class="db-card__scope">tích lũy</span></div>
+            <div class="db-card__valrow">
+              <span class="db-card__value" id="m-grading">—</span>
+              <span class="db-card__unit">phút</span>
+            </div>
+            <a class="db-card__link" href="/pages/admin/usage/index.html">Xem chi tiết →</a>
+          </div>
+          <div class="db-card db-card--windowed">
+            <div class="db-card__label">Token đã gọi (<span class="m-window">30</span> ngày)</div>
+            <div class="db-card__valrow">
+              <span class="db-card__value" id="m-tokens">—</span>
+              <span class="db-delta" id="d-tokens" hidden></span>
+            </div>
+            <div class="db-card__spark" id="spark-tokens"></div>
+            <a class="db-card__link" href="/pages/admin/system/ai-usage.html">Xem chi tiết →</a>
+          </div>
+        </section>
+
+        <section class="db-trends" aria-label="Xu hướng theo ngày">
+          <div class="db-trends__head">
+            <h2 class="db-trends__title">Xu hướng theo ngày</h2>
+            <div class="db-trends__tabs" id="db-trend-tabs" role="tablist">
+              <button type="button" class="db-trend-tab is-active" data-series="practices" role="tab">Practice</button>
+              <button type="button" class="db-trend-tab" data-series="visitors" role="tab">Người xem</button>
+              <button type="button" class="db-trend-tab" data-series="tokens" role="tab">Token</button>
+            </div>
+          </div>
+          <div class="db-trends__chart" id="db-trend-chart">
+            <div class="db-trends__empty" id="db-trend-empty">Đang tải xu hướng…</div>
+          </div>
+        </section>
+
+        <p class="db-foot" id="db-updated"></p>
+      </section>
+
+      <!-- ═══ Pane: Nội dung (students + skills + activity) ═══════ -->
+      <section class="ov-pane" id="pane-content" role="tabpanel" aria-label="Nội dung" hidden>
+        <section class="stat-grid" aria-label="Số liệu học viên">
+          <div class="stat-tile" data-tile="students-total">
+            <span class="label">Tổng học viên</span>
+            <span class="value" data-value="students-total">—</span>
+            <span class="delta" data-delta="students-30d">—</span>
+          </div>
+          <div class="stat-tile" data-tile="students-active">
+            <span class="label">Đang hoạt động (7 ngày)</span>
+            <span class="value" data-value="students-active-7d">—</span>
+            <span class="delta" data-delta="students-active-30d">—</span>
+          </div>
+          <a class="stat-tile is-clickable" data-tile="errors-undismissed"
+             href="/pages/admin/error-logs/index.html">
+            <span class="label">Lỗi chưa xử lý</span>
+            <span class="value" data-value="errors-undismissed">—</span>
+            <span class="delta" data-delta="errors-24h">—</span>
+          </a>
+          <a class="stat-tile is-clickable" data-tile="access-codes"
+             href="/pages/admin/access-codes/index.html">
+            <span class="label">Mã đang dùng</span>
+            <span class="value" data-value="access-codes-active">—</span>
+            <span class="delta" data-delta="access-codes-mix">—</span>
+          </a>
+        </section>
+
+        <div>
+          <h2 class="ov-section-title">Hoạt động theo kỹ năng</h2>
+          <section class="skill-grid" aria-label="Tóm tắt theo kỹ năng">
+            <a href="/pages/admin/speaking/index.html" class="admin-hub-card" data-skill="speaking">
+              <h3>Speaking</h3>
+              <div class="skill-stats">
+                <div><span class="stat-label">7 ngày</span><span class="stat-num" data-skill-7d="speaking">—</span></div>
+                <div><span class="stat-label">Tổng</span><span class="stat-num" data-skill-total="speaking">—</span></div>
+                <div><span class="stat-label">Band TB</span><span class="stat-num" data-skill-extra="speaking">—</span></div>
+              </div>
+              <div class="meta"><span class="adm-status-pill is-live">LIVE</span></div>
+            </a>
+            <a href="/pages/admin/writing/index.html" class="admin-hub-card" data-skill="writing">
+              <h3>Writing</h3>
+              <div class="skill-stats">
+                <div><span class="stat-label">7 ngày</span><span class="stat-num" data-skill-7d="writing">—</span></div>
+                <div><span class="stat-label">Tổng</span><span class="stat-num" data-skill-total="writing">—</span></div>
+                <div><span class="stat-label">Chờ chấm</span><span class="stat-num" data-skill-extra="writing">—</span></div>
+              </div>
+              <div class="meta"><span class="adm-status-pill is-live">LIVE</span></div>
+            </a>
+            <a href="/pages/admin/listening/index.html" class="admin-hub-card" data-skill="listening">
+              <h3>Listening</h3>
+              <div class="skill-stats">
+                <div><span class="stat-label">7 ngày</span><span class="stat-num" data-skill-7d="listening">—</span></div>
+                <div><span class="stat-label">Tổng</span><span class="stat-num" data-skill-total="listening">—</span></div>
+                <div><span class="stat-label">Điểm TB</span><span class="stat-num" data-skill-extra="listening">—</span></div>
+              </div>
+              <div class="meta"><span class="adm-status-pill is-live">LIVE</span></div>
+            </a>
+            <a href="/pages/admin/vocab/index.html" class="admin-hub-card" data-skill="vocab">
+              <h3>Vocab</h3>
+              <div class="skill-stats">
+                <div><span class="stat-label">Đang học</span><span class="stat-num" data-skill-7d="vocab">—</span></div>
+                <div><span class="stat-label">Tổng</span><span class="stat-num" data-skill-total="vocab">—</span></div>
+              </div>
+              <div class="meta"><span class="adm-status-pill is-live">LIVE</span></div>
+            </a>
+            <a href="/pages/admin/grammar/index.html" class="admin-hub-card" data-skill="grammar">
+              <h3>Grammar</h3>
+              <div class="skill-stats">
+                <div><span class="stat-label">Đề xuất 7d</span><span class="stat-num" data-skill-7d="grammar">—</span></div>
+              </div>
+              <div class="meta"><span class="adm-status-pill is-live">LIVE</span></div>
+            </a>
+          </section>
+        </div>
+
+        <div>
+          <h2 class="ov-section-title">Hoạt động gần đây</h2>
+          <div class="activity-feed">
+            <div class="activity-loading" id="activity-loading" hidden>Đang tải…</div>
+            <div class="activity-empty" id="activity-empty" hidden>
+              Chưa có hoạt động nào trong 30 ngày qua.
+            </div>
+            <div id="activity-rows"><p class="text-sm py-6 text-center" style="color:var(--av-text-muted,#9ca3af)">Đang tải…</p></div>
+          </div>
+        </div>
+
+        <div>
+          <h2 class="ov-section-title">Truy cập + Hệ thống</h2>
+          <div class="placeholder-row">
+            <a href="/pages/admin/students/index.html">Học viên · LIVE</a>
+            <a href="/pages/admin/users/index.html">Tất cả người dùng · LIVE</a>
+            <a href="/pages/admin/system/index.html">Hệ thống · LIVE</a>
+            <a href="/pages/admin/dashboard/reading-attempts.html">Reading — Lượt làm bài · LIVE</a>
+            <a href="/pages/admin/cohorts/index.html">Lớp / Cohort · Phase B</a>
+            <a href="/pages/admin/usage/index.html">Usage logs · Phase B</a>
+          </div>
+        </div>
+      </section>
     </div>
 
   </aver-admin-chrome>
 
   <script type="module" src="/js/components/aver-admin-chrome.js"></script>
   <script src="/js/error-reporter.js"></script>
+  <script src="/js/charts/sparkline.js"></script>
+  <script type="module" src="/js/admin-dashboard.js"></script>
   <script type="module" src="/js/admin-overview.js"></script>
+  <script>
+    // Unified header + tabs. The two section controllers (admin-dashboard.js
+    // for Vận hành, admin-overview.js for Nội dung) are independent ES modules
+    // that each populate their own IDs; this only wires the shared chrome.
+    (function () {
+      // One refresh/window control drives BOTH sections. admin-dashboard.js
+      // binds #db-window + #db-refresh natively; bridge those to the hidden
+      // #btn-refresh that admin-overview.js binds.
+      var dbRefresh = document.getElementById('db-refresh');
+      var dbWindow  = document.getElementById('db-window');
+      var ovRefresh = document.getElementById('btn-refresh');
+      function refreshOverview() { if (ovRefresh) ovRefresh.click(); }
+      if (dbRefresh) dbRefresh.addEventListener('click', refreshOverview);
+      if (dbWindow)  dbWindow.addEventListener('change', refreshOverview);
+
+      // Vận hành / Nội dung tab switch (pure show/hide — no refetch).
+      var tabs = document.getElementById('ov-tabs');
+      var panes = { ops: document.getElementById('pane-ops'), content: document.getElementById('pane-content') };
+      if (tabs) {
+        tabs.addEventListener('click', function (e) {
+          var btn = e.target.closest('.ov-tab');
+          if (!btn) return;
+          var key = btn.getAttribute('data-pane');
+          Array.prototype.forEach.call(tabs.querySelectorAll('.ov-tab'), function (b) {
+            var on = b === btn;
+            b.classList.toggle('is-active', on);
+            b.setAttribute('aria-selected', on ? 'true' : 'false');
+          });
+          Object.keys(panes).forEach(function (k) { if (panes[k]) panes[k].hidden = (k !== key); });
+        });
+      }
+    })();
+  </script>
 </body>
 </html>

@@ -353,10 +353,11 @@ const NAV_GROUPS = [
   {
     title: null,  // ungrouped top of sidebar
     items: [
-      { section: 'overview',  label: 'Tổng quan', href: '/pages/admin/index.html', icon: 'home' },
-      // Sprint 18.2 — new ops Dashboard (6-metric overview); consolidates the
-      // Usage / Lưu lượng / Hệ thống surfaces as drill-downs.
-      { section: 'dashboard', label: 'Dashboard',  href: '/pages/admin/dashboard/index.html', icon: 'activity',
+      // The former ops Dashboard (6-metric overview + trends) was consolidated
+      // INTO Tổng quan (dashboard-consolidation): one page, two tabs
+      // (Vận hành / Nội dung). /pages/admin/dashboard/index.html 301-redirects
+      // here. The reading-attempts drill-down moved under this entry.
+      { section: 'overview',  label: 'Tổng quan', href: '/pages/admin/index.html', icon: 'home',
         subsections: [
           // reading-access-tracking C — reading-attempts drill-down (auth +
           // anonymous share-link takers: time/band/skills).
