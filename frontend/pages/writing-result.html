@@ -444,6 +444,12 @@
         return;
       }
 
+      // window.api.get returns null (NOT throw) when the session expired and it
+      // fired the /login.html redirect — the redirect is in-flight but this
+      // async fn keeps running, so bail before dereferencing. Also covers a
+      // 204/empty body. Without this guard `data.essay` throws on null.
+      if (!data) return;
+
       var essay = data.essay || data;
       var feedback = data.feedback || null;
       var instructorNote = data.instructor_note || '';
