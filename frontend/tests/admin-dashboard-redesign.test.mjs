@@ -19,7 +19,8 @@ const read = (rel) => readFileSync(path.join(REPO, rel), 'utf8');
 
 let html, js, sparkSrc;
 before(() => {
-  html    = read('frontend/pages/admin/dashboard/index.html');
+  // dashboard-consolidation — the ops Dashboard was merged into Tổng quan.
+  html    = read('frontend/pages/admin/index.html');
   js      = read('frontend/js/admin-dashboard.js');
   sparkSrc = read('frontend/js/charts/sparkline.js');
 });

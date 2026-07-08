@@ -21,7 +21,8 @@ const read = (rel) => readFileSync(path.join(REPO, rel), 'utf8');
 
 let dashHtml, listJs, readingRouter;
 before(() => {
-  dashHtml      = read('frontend/pages/admin/dashboard/index.html');
+  // dashboard-consolidation — the ops Dashboard merged into the unified Tổng quan.
+  dashHtml      = read('frontend/pages/admin/index.html');
   listJs        = read('frontend/js/admin-reading.js');
   readingRouter = read('backend/routers/admin_reading.py');
 });
@@ -36,7 +37,7 @@ describe('Item 1 — dashboard spacing/border polish', () => {
   });
 
   test('shell + cards + panels use real spacing tokens', () => {
-    assert.match(dashHtml, /\.db-shell[\s\S]{0,120}gap:\s*var\(--av-space-6\)/);
+    assert.match(dashHtml, /\.overview-shell[\s\S]{0,160}gap:\s*var\(--av-space-6\)/);
     assert.match(dashHtml, /\.db-card\s*\{[\s\S]{0,200}padding:\s*var\(--av-space-6\)/);
     assert.match(dashHtml, /\.db-trends\s*\{[\s\S]{0,200}padding:\s*var\(--av-space-6\)/);
   });

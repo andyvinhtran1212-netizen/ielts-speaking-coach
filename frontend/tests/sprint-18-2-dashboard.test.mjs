@@ -14,7 +14,9 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const front = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
 
-const DASH_HTML = front('pages', 'admin', 'dashboard', 'index.html');
+// dashboard-consolidation — the ops Dashboard was merged INTO Tổng quan; its
+// markup (KPI tiles, trends, "Cần chú ý") now lives on the unified index page.
+const DASH_HTML = front('pages', 'admin', 'index.html');
 const DASH_JS   = front('js', 'admin-dashboard.js');
 const CHROME    = front('js', 'components', 'aver-admin-chrome.js');
 
@@ -85,8 +87,12 @@ describe('Sprint 18.2 — Pattern #25 av-* tokens, both themes', () => {
 });
 
 describe('Sprint 18.2 — nav consolidation (3 removed, 1 added)', () => {
-  test('Dashboard nav item added', () => {
-    assert.match(CHROME, /section: 'dashboard',\s*label: 'Dashboard'/);
+  // dashboard-consolidation — the ops Dashboard was merged INTO Tổng quan, so
+  // the separate 'dashboard' nav item is gone; its reading-attempts drill-down
+  // now hangs off the 'overview' entry.
+  test('ops Dashboard consolidated into Tổng quan (no separate nav item)', () => {
+    assert.doesNotMatch(CHROME, /section: 'dashboard',\s*label: 'Dashboard'/);
+    assert.match(CHROME, /section: 'overview',\s*label: 'Tổng quan'[\s\S]*?reading-attempts/);
   });
   test('Usage logs / Lưu lượng / Hệ thống nav items removed', () => {
     assert.doesNotMatch(CHROME, /section: 'usage',\s*label: 'Usage logs'/);

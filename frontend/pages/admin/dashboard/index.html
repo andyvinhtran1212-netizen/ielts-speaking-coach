@@ -4,272 +4,49 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <title>Dashboard · Admin</title>
+  <title>Dashboard — Đang chuyển hướng</title>
+
+  <!-- dashboard-consolidation — the ops Dashboard (6-metric overview + trends
+       + "Cần chú ý") was merged INTO Tổng quan at /pages/admin/index.html as
+       the "Vận hành" tab. This page is now a pure redirect; vercel.json also
+       301s the path server-side. Anti-flash IIFE kept so the redirect never
+       flashes the wrong theme and old bookmarks land cleanly. -->
 
   <script>
     (function () {
       try {
         var stored = localStorage.getItem('av-theme');
-        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        var theme = (stored === 'light' || stored === 'dark')
+          ? stored
+          : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
         document.documentElement.setAttribute('data-theme', theme);
-      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
     })();
   </script>
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <meta http-equiv="refresh" content="0; url=/pages/admin/index.html" />
+  <link rel="canonical" href="/pages/admin/index.html" />
 
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
   <link rel="stylesheet" href="/css/aver-design/components.css" />
-  <link rel="stylesheet" href="/css/aver-design/admin-components.css" />
-
-  <script src="https://unpkg.com/@supabase/supabase-js@2.107.0" defer></script>
-  <script src="/js/api.js"></script>
-  <script src="/js/toast.js"></script>
 
   <style>
-    body.av-page { font-family: var(--av-font-sans); margin: 0; }
-    .db-shell { max-width: 1100px; margin: 0 auto; padding: var(--av-space-6);
-      display: flex; flex-direction: column; gap: var(--av-space-6); }
-    .db-header { display: flex; align-items: flex-start; justify-content: space-between;
-      gap: var(--av-space-3); flex-wrap: wrap; }
-    .db-header h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-semibold); margin: 0 0 var(--av-space-1); }
-    .db-header .subtitle { color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
-
-    .db-controls { display: flex; gap: var(--av-space-3); align-items: flex-end; flex-wrap: wrap; }
-    .db-field { display: flex; flex-direction: column; gap: 4px; }
-    .db-field label { font-size: var(--av-fs-xs); color: var(--av-text-muted);
-      text-transform: uppercase; letter-spacing: var(--av-tracking-wide); }
-    .db-field select { padding: 8px 12px; border: 1px solid var(--av-border-default);
-      border-radius: var(--av-radius-md); background: var(--av-surface-card);
-      color: var(--av-text-primary); font-size: var(--av-fs-sm); font-family: inherit; }
-    /* db-refresh → admin-buttons.css bridge via admin-components.css @import */
-
-    .db-banner { padding: var(--av-space-3) var(--av-space-4); border-radius: var(--av-radius-md);
-      font-size: var(--av-fs-sm); color: var(--av-error);   /* was non-existent --av-color-error */
-      background: var(--av-error-soft);
-      border: 1px solid color-mix(in srgb, var(--av-error) 30%, transparent); }
-
-    /* ── KPI tiles ─────────────────────────────────────────────────── */
-    .db-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--av-space-4); }
-    @media (max-width: 880px) { .db-grid { grid-template-columns: repeat(2, 1fr); } }
-    @media (max-width: 560px) { .db-grid { grid-template-columns: 1fr; } }
-
-    .db-card { border: 1px solid var(--av-border-default); border-radius: var(--av-radius-lg);
-      background: var(--av-surface-card); padding: var(--av-space-6);
-      display: flex; flex-direction: column; gap: var(--av-space-2); min-height: 148px;
-      min-width: 0; }
-    .db-card__label { font-size: var(--av-fs-xs); color: var(--av-text-muted);
-      text-transform: uppercase; letter-spacing: var(--av-tracking-wide); font-weight: var(--av-fw-semibold); }
-    /* "toàn thời gian" / window scope hint — small, lowercase, de-emphasised. */
-    .db-card__scope { text-transform: none; letter-spacing: 0; font-weight: var(--av-fw-regular);
-      color: var(--av-text-faint); }
-    /* Auth-vs-anonymous viewer split (viewers-anonymous) — small, muted subline. */
-    .db-card__split { font-size: var(--av-fs-xs); color: var(--av-text-muted); }
-    .db-card__split:empty { display: none; }
-
-    /* ── Loading state (dashboard-tweaks Item 3) ───────────────────── */
-    /* Only the windowed value-tiles + chart show loading on a window switch;
-       the all-time tiles stay put so they never look "affected by the window". */
-    .db-card.is-loading .db-card__value,
-    .db-card.is-loading .db-delta,
-    .db-card.is-loading .db-card__spark,
-    .db-trends__chart.is-loading {
-      position: relative; color: transparent !important;
-      border-radius: var(--av-radius-sm);
-      background: linear-gradient(90deg,
-        var(--av-surface-sunken) 25%, var(--av-border-subtle) 37%, var(--av-surface-sunken) 63%);
-      background-size: 400% 100%;
-      animation: db-shimmer 1.2s ease-in-out infinite;
+    body.av-page {
+      font-family: var(--av-font-sans);
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; margin: 0; color: var(--av-text-secondary);
     }
-    .db-card.is-loading .db-delta[hidden] { display: inline-block; min-width: 3ch; }
-    .db-trends__chart.is-loading { min-height: 160px; }
-    @keyframes db-shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
-    @media (prefers-reduced-motion: reduce) {
-      .db-card.is-loading .db-card__value,
-      .db-card.is-loading .db-card__spark,
-      .db-trends__chart.is-loading { animation: none; }
-    }
-    .db-refresh:disabled { opacity: 0.6; cursor: progress; }
-    .db-card__valrow { display: flex; align-items: baseline; gap: var(--av-space-2); flex-wrap: wrap; }
-    .db-card__value { font-size: var(--av-fs-3xl, 2rem); font-weight: var(--av-fw-bold);
-      color: var(--av-text-primary); font-variant-numeric: tabular-nums; line-height: 1.1; }
-    .db-card__unit { font-size: var(--av-fs-sm); color: var(--av-text-secondary); font-weight: var(--av-fw-medium); }
-    /* Period-over-period delta chip — theme-aware semantic colours. */
-    .db-delta { font-size: var(--av-fs-xs); font-weight: var(--av-fw-semibold);
-      font-variant-numeric: tabular-nums; }
-    .db-delta.is-up   { color: var(--av-success); }
-    .db-delta.is-down { color: var(--av-error); }
-    .db-delta.is-flat { color: var(--av-text-muted); }
-    /* Sparkline slot — `color` themes the SVG (currentColor). */
-    .db-card__spark { margin-top: auto; height: 28px; color: var(--av-primary); }
-    .db-card__spark .av-spark { width: 100%; height: 28px; display: block; }
-
-    /* ── Trends panel ──────────────────────────────────────────────── */
-    .db-trends { border: 1px solid var(--av-border-default); border-radius: var(--av-radius-lg);
-      background: var(--av-surface-card); padding: var(--av-space-6);
-      display: flex; flex-direction: column; gap: var(--av-space-3); }
-    .db-trends__head { display: flex; align-items: center; justify-content: space-between;
-      gap: var(--av-space-3); flex-wrap: wrap; }
-    .db-trends__title { font-size: var(--av-fs-lg); font-weight: var(--av-fw-semibold); margin: 0; }
-    .db-trends__tabs { display: inline-flex; gap: var(--av-space-1); flex-wrap: wrap; }
-    .db-trend-tab { padding: 4px 12px; border-radius: var(--av-radius-pill);
-      font-size: var(--av-fs-xs); font-weight: var(--av-fw-medium); cursor: pointer;
-      background: transparent; color: var(--av-text-secondary);
-      border: 1px solid var(--av-border-default); font-family: inherit; }
-    .db-trend-tab.is-active { background: var(--av-brand-teal-50); color: var(--av-brand-teal-800);
-      border-color: var(--av-brand-teal-200); font-weight: var(--av-fw-semibold); }
-    .db-trends__chart { color: var(--av-primary); min-height: 160px; }
-    .db-trends__chart .av-area { width: 100%; height: 160px; display: block; }
-    .db-trends__empty { color: var(--av-text-muted); font-size: var(--av-fs-sm);
-      text-align: center; padding: var(--av-space-8); }
-
-    /* ── "Cần chú ý" strip ─────────────────────────────────────────── */
-    /* Block wrapper so the section title hugs its cards (space-3), while the
-       shell's space-6 rhythm separates the block from the panels above. */
-    .db-block { display: flex; flex-direction: column; gap: var(--av-space-3); }
-    .db-attention { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--av-space-4); }
-    @media (max-width: 560px) { .db-attention { grid-template-columns: 1fr; } }
-    .db-attn-card { display: flex; align-items: center; gap: var(--av-space-3);
-      border: 1px solid var(--av-border-default); border-radius: var(--av-radius-lg);
-      background: var(--av-surface-card); padding: var(--av-space-4) var(--av-space-6);
-      text-decoration: none; color: var(--av-text-primary);
-      transition: border-color var(--av-duration-fast) var(--av-easing-default); }
-    .db-attn-card:hover { border-color: var(--av-brand-teal-700); }
-    .db-attn-card__count { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-bold);
-      font-variant-numeric: tabular-nums; min-width: 2ch; color: var(--av-text-primary); }
-    .db-attn-card__body { display: flex; flex-direction: column; gap: 2px; }
-    .db-attn-card__label { font-size: var(--av-fs-sm); font-weight: var(--av-fw-medium); }
-    .db-attn-card__sub { font-size: var(--av-fs-xs); color: var(--av-text-muted); }
-
-    .db-section-title { font-size: var(--av-fs-xs); text-transform: uppercase;
-      letter-spacing: var(--av-tracking-widest); color: var(--av-text-muted);
-      font-weight: var(--av-fw-semibold); margin: 0; }
-
-    .db-foot { color: var(--av-text-muted); font-size: var(--av-fs-xs); }
-    [hidden] { display: none !important; }
+    .redirect-note { font-size: var(--av-fs-sm); }
+    .redirect-note a { color: var(--av-brand-teal-700); }
   </style>
 </head>
 <body class="av-page">
-  <aver-admin-chrome active="dashboard">
-
-    <main class="db-shell">
-      <header class="db-header">
-        <div>
-          <h1>Dashboard</h1>
-          <p class="subtitle">Tổng quan vận hành — số liệu + xu hướng hệ thống (làm mới thủ công).</p>
-        </div>
-        <div class="db-controls">
-          <div class="db-field">
-            <label for="db-window">Cửa sổ</label>
-            <select id="db-window">
-              <option value="7">7 ngày</option>
-              <option value="30" selected>30 ngày</option>
-              <option value="90">90 ngày</option>
-            </select>
-          </div>
-          <button class="db-refresh" id="db-refresh" type="button">↻ Làm mới</button>
-        </div>
-      </header>
-
-      <div class="db-banner" id="db-banner" hidden></div>
-
-      <!-- ── KPI tiles ───────────────────────────────────────────── -->
-      <section class="db-grid" aria-label="Số liệu tổng quan">
-        <div class="db-card">
-          <div class="db-card__label">Tổng người dùng <span class="db-card__scope">toàn thời gian</span></div>
-          <div class="db-card__valrow"><span class="db-card__value" id="m-users">—</span></div>
-          <a class="db-card__link" href="/pages/admin/users/index.html">Xem chi tiết →</a>
-        </div>
-        <div class="db-card">
-          <div class="db-card__label">Mã đã kích hoạt <span class="db-card__scope">toàn thời gian</span></div>
-          <div class="db-card__valrow"><span class="db-card__value" id="m-codes">—</span></div>
-          <a class="db-card__link" href="/pages/admin/access-codes/index.html">Xem chi tiết →</a>
-        </div>
-        <div class="db-card db-card--windowed">
-          <div class="db-card__label">Người xem (<span class="m-window">30</span> ngày)</div>
-          <div class="db-card__valrow">
-            <span class="db-card__value" id="m-visitors">—</span>
-            <span class="db-delta" id="d-visitors" hidden></span>
-          </div>
-          <div class="db-card__split" id="m-visitors-split"></div>
-          <div class="db-card__spark" id="spark-visitors"></div>
-          <a class="db-card__link" href="/pages/admin/foot-traffic/index.html">Xem chi tiết →</a>
-        </div>
-        <div class="db-card">
-          <div class="db-card__label">Bài practice đã hoàn thành <span class="db-card__scope">toàn thời gian</span></div>
-          <div class="db-card__valrow">
-            <span class="db-card__value" id="m-practices">—</span>
-            <span class="db-delta" id="d-practices" hidden></span>
-          </div>
-          <div class="db-card__spark" id="spark-practices"></div>
-          <a class="db-card__link" href="/pages/admin/usage/index.html">Xem chi tiết →</a>
-        </div>
-        <div class="db-card">
-          <div class="db-card__label">Phút chấm <span class="db-card__scope">tích lũy</span></div>
-          <div class="db-card__valrow">
-            <span class="db-card__value" id="m-grading">—</span>
-            <span class="db-card__unit">phút</span>
-          </div>
-          <a class="db-card__link" href="/pages/admin/usage/index.html">Xem chi tiết →</a>
-        </div>
-        <div class="db-card db-card--windowed">
-          <div class="db-card__label">Token đã gọi (<span class="m-window">30</span> ngày)</div>
-          <div class="db-card__valrow">
-            <span class="db-card__value" id="m-tokens">—</span>
-            <span class="db-delta" id="d-tokens" hidden></span>
-          </div>
-          <div class="db-card__spark" id="spark-tokens"></div>
-          <a class="db-card__link" href="/pages/admin/system/ai-usage.html">Xem chi tiết →</a>
-        </div>
-      </section>
-
-      <!-- ── Trends panel ────────────────────────────────────────── -->
-      <section class="db-trends" aria-label="Xu hướng theo ngày">
-        <div class="db-trends__head">
-          <h2 class="db-trends__title">Xu hướng theo ngày</h2>
-          <div class="db-trends__tabs" id="db-trend-tabs" role="tablist">
-            <button type="button" class="db-trend-tab is-active" data-series="practices" role="tab">Practice</button>
-            <button type="button" class="db-trend-tab" data-series="visitors" role="tab">Người xem</button>
-            <button type="button" class="db-trend-tab" data-series="tokens" role="tab">Token</button>
-          </div>
-        </div>
-        <div class="db-trends__chart" id="db-trend-chart">
-          <div class="db-trends__empty" id="db-trend-empty">Đang tải xu hướng…</div>
-        </div>
-      </section>
-
-      <!-- ── Cần chú ý ───────────────────────────────────────────── -->
-      <div class="db-block">
-        <p class="db-section-title">Cần chú ý</p>
-        <section class="db-attention" aria-label="Mục cần chú ý">
-          <a class="db-attn-card" href="/pages/admin/error-logs/index.html">
-            <span class="db-attn-card__count" id="a-errors">—</span>
-            <span class="db-attn-card__body">
-              <span class="db-attn-card__label">Lỗi chưa xử lý</span>
-              <span class="db-attn-card__sub">error_logs chưa dismiss</span>
-            </span>
-          </a>
-          <a class="db-attn-card" href="/pages/admin/writing/instructor-queue.html">
-            <span class="db-attn-card__count" id="a-writing">—</span>
-            <span class="db-attn-card__body">
-              <span class="db-attn-card__label">Bài viết chờ chấm</span>
-              <span class="db-attn-card__sub">writing_essays chưa trả kết quả</span>
-            </span>
-          </a>
-        </section>
-      </div>
-
-      <p class="db-foot" id="db-updated"></p>
-    </main>
-
-  </aver-admin-chrome>
-
-  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
-  <script src="/js/error-reporter.js"></script>
-  <script src="/js/charts/sparkline.js"></script>
-  <script type="module" src="/js/admin-dashboard.js"></script>
+  <p class="redirect-note">
+    Dashboard đã gộp vào Tổng quan.
+    <a href="/pages/admin/index.html">Mở Tổng quan →</a>
+  </p>
+  <script>window.location.replace('/pages/admin/index.html');</script>
 </body>
 </html>
