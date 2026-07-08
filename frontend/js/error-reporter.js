@@ -200,6 +200,10 @@
     var m = String(msg || '').trim();
     // Opaque cross-origin error — no message, file, or stack we can act on.
     if (m === 'Script error.' || m === 'Script error') return true;
+    // Benign browser-emitted noise — "ResizeObserver loop limit exceeded" /
+    // "ResizeObserver loop completed with undelivered notifications." fire on
+    // legitimate layout thrash, carry no stack, and are not app bugs.
+    if (/^ResizeObserver loop/i.test(m)) return true;
     // Known third-party scripts / trackers by message text.
     if (/zalojsv2|zalosdk|\bgmo\b|\bfbq\b|gtag\(|adsbygoogle|google[- ]analytics/i.test(m)) return true;
     // Errors thrown from third-party CDNs (not our origin).
