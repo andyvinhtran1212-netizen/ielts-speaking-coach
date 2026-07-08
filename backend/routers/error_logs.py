@@ -185,22 +185,26 @@ async def error_log_stats(authorization: str | None = Header(default=None)):
     iso_24h = (now - timedelta(hours=24)).isoformat()
     iso_7d  = (now - timedelta(days=7)).isoformat()
 
+    # Use PostgREST's exact count (Content-Range), NOT len(res.data): a bare
+    # select is capped at 1000 rows by default, so len() silently maxed the
+    # cards at 1000 once error_logs grew past that (prod showed "1000" for a
+    # 1549-row table). head=True returns only the count, no row payload.
     def _count(q) -> int:
         try:
             res = q.execute()
-            return len(res.data or [])
+            return res.count or 0
         except Exception:
             return 0
 
-    total = _count(supabase_admin.table("error_logs").select("id"))
+    total = _count(supabase_admin.table("error_logs").select("id", count="exact", head=True))
     undismissed = _count(
-        supabase_admin.table("error_logs").select("id").is_("dismissed_at", "null")
+        supabase_admin.table("error_logs").select("id", count="exact", head=True).is_("dismissed_at", "null")
     )
     last_24h = _count(
-        supabase_admin.table("error_logs").select("id").gte("occurred_at", iso_24h)
+        supabase_admin.table("error_logs").select("id", count="exact", head=True).gte("occurred_at", iso_24h)
     )
     last_7d = _count(
-        supabase_admin.table("error_logs").select("id").gte("occurred_at", iso_7d)
+        supabase_admin.table("error_logs").select("id", count="exact", head=True).gte("occurred_at", iso_7d)
     )
 
     return {

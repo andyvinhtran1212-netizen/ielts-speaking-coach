@@ -49,8 +49,11 @@ from fastapi.testclient import TestClient
 
 
 class _Resp:
-    def __init__(self, data):
+    def __init__(self, data, count=None):
         self.data = data
+        # PostgREST exposes the exact row count (Content-Range) on .count when
+        # the query was built with count="exact"; None otherwise.
+        self.count = count
 
 
 class _IsNot:
@@ -80,6 +83,8 @@ class _TableQuery:
         self._range = None
         self._order_field = None
         self._order_desc = False
+        self._count_mode = None
+        self._head = False
 
     @property
     def not_(self):
@@ -87,6 +92,8 @@ class _TableQuery:
 
     def select(self, *_args, **_kw):
         self._mode = "select"
+        self._count_mode = _kw.get("count")
+        self._head = bool(_kw.get("head", False))
         return self
 
     def insert(self, payload):
@@ -156,7 +163,9 @@ class _TableQuery:
                 r.update(self._update or {})
             return _Resp(matched)
 
-        # select
+        # select — exact count reflects ALL rows matching the filters, before
+        # range/limit paging (mirrors PostgREST's Content-Range count).
+        count = len(matched) if self._count_mode else None
         if self._order_field:
             matched = sorted(
                 matched,
@@ -168,7 +177,9 @@ class _TableQuery:
             matched = matched[start:end + 1]
         elif self.limit_n is not None:
             matched = matched[: self.limit_n]
-        return _Resp(matched)
+        # head=True → count only, no row payload (as PostgREST returns).
+        data = [] if self._head else matched
+        return _Resp(data, count)
 
     def _matches(self, row):
         for field, op, value in self.filters:
