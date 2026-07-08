@@ -40,7 +40,10 @@ describe('backend — viewers total = auth distinct + anon hits', () => {
   });
 
   test('daily visitors trend is the total (auth distinct + anon hits)', () => {
-    assert.match(svc, /def _visitors_series\(\)[\s\S]{0,800}len\(auth\[d\]\) \+ anon\[d\]/);
+    // mig 139 — _visitors_series() now tries the daily-bucket RPC first and
+    // falls back to this in-app aggregation, so the auth+anon logic sits
+    // further from the def line; widen the scan window to reach the fallback.
+    assert.match(svc, /def _visitors_series\(\)[\s\S]{0,1500}len\(auth\[d\]\) \+ anon\[d\]/);
   });
 });
 

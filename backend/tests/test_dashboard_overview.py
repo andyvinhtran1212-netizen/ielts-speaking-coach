@@ -67,6 +67,21 @@ class _Stub:
         return chain
 
 
+class _RpcStub(_Stub):
+    """_Stub + a name-dispatching rpc() so tests can exercise the exact-count
+    path (mig 139) instead of the capped row-scan fallback."""
+    def __init__(self, results, rpc_map):
+        super().__init__(results)
+        self._rpc_map = rpc_map
+        self.rpc_calls = []
+
+    def rpc(self, name, params=None):
+        self.rpc_calls.append(name)
+        if name not in self._rpc_map:
+            raise AttributeError(f"no rpc {name}")
+        return _Chain(self._rpc_map[name])
+
+
 def _default_results():
     return {
         "users": _Result(count=42),
@@ -115,6 +130,30 @@ def test_dashboard_overview_returns_6_metrics(monkeypatch):
     # admin-dashboard-redesign — "Cần chú ý" counts (cheap COUNT(exact)).
     assert out["attention"] == {"errors_undismissed": 3, "writing_pending": 5}
     assert "computed_at" in out
+
+
+# ── dashboard-counter-audit: exact-count RPCs (mig 139) ─────────────
+
+def test_visitors_and_tokens_use_exact_count_rpc(monkeypatch):
+    """Visitors (distinct auth + anon) and tokens (SUM) come from server-side
+    RPCs so they aren't capped at PostgREST's 1000-row default. With the RPCs
+    present, the capped analytics_events / ai_usage_logs row scans are skipped."""
+    rpc_map = {
+        "fn_dashboard_visitors": _Result(data=[{"authenticated": 500, "anonymous": 1200}]),
+        "fn_dashboard_tokens_called": _Result(data=9_999_999),
+    }
+    stub = _RpcStub(_default_results(), rpc_map)
+    monkeypatch.setattr(admin_dashboard, "supabase_admin", stub)
+    out = admin_dashboard.compute_dashboard_overview()
+    assert out["distinct_visitors"] == {
+        "count": 1700, "authenticated": 500, "anonymous": 1200, "window_days": 30,
+    }
+    assert out["tokens_called"]["count"] == 9_999_999
+    assert "fn_dashboard_visitors" in stub.rpc_calls
+    assert "fn_dashboard_tokens_called" in stub.rpc_calls
+    # Exact-count path skips the capped row scans entirely.
+    assert "analytics_events" not in stub.table_calls
+    assert "ai_usage_logs" not in stub.table_calls
 
 
 # ── #2 / #3 visitors window ──────────────────────────────────────────

@@ -68,6 +68,19 @@ class _Stub:
         return _Chain(self._rpc_result)
 
 
+class _RpcStub(_Stub):
+    """_Stub + a name-dispatching rpc() to exercise the daily-bucket RPCs (mig 139)."""
+    def __init__(self, results, rpc_map):
+        super().__init__(results)
+        self._rpc_map = rpc_map
+
+    def rpc(self, name, params=None):
+        self.rpc_calls.append(name)
+        if name not in self._rpc_map:
+            raise AttributeError(f"no rpc {name}")
+        return _Chain(self._rpc_map[name])
+
+
 def _trend_results():
     return {
         "analytics_events": _Result(data=[
@@ -120,6 +133,28 @@ def test_trends_bucketing(monkeypatch):
     assert tok[-1]["value"] == 180        # (100+50) + (30+0) tokens
     # earlier buckets are zero-filled (contiguous)
     assert vis[0]["value"] == 0
+
+
+def test_trends_series_use_daily_rpc_when_available(monkeypatch):
+    """mig 139 — the 3 trend series come from daily-bucket RPCs (server-side
+    GROUP BY) so a >1000-row window isn't truncated. When present, the capped
+    table scans are skipped."""
+    today = _TODAY[:10]
+    rpc_map = {
+        "fn_dashboard_daily_visitors":  _Result(data=[{"day": today, "value": 4200}]),
+        "fn_dashboard_daily_practices": _Result(data=[{"day": today, "value": 1500}]),
+        "fn_dashboard_daily_tokens":    _Result(data=[{"day": today, "value": 7_000_000}]),
+    }
+    stub = _RpcStub(_trend_results(), rpc_map)
+    monkeypatch.setattr(admin_dashboard, "supabase_admin", stub)
+    out = admin_dashboard.compute_dashboard_trends(7)
+    assert out["series"]["visitors"][-1]["value"] == 4200
+    assert out["series"]["practices"][-1]["value"] == 1500
+    assert out["series"]["tokens"][-1]["value"] == 7_000_000
+    # earlier days zero-filled (contiguous)
+    assert out["series"]["visitors"][0]["value"] == 0
+    # RPC path skips the capped table scans entirely
+    assert stub.table_calls == []
 
 
 def test_trends_series_failure_is_zero_filled(monkeypatch):
