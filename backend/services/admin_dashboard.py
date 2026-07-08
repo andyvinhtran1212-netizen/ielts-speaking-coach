@@ -99,6 +99,22 @@ def compute_dashboard_overview(visitors_window_days: int = DEFAULT_VISITOR_WINDO
         # sends no session_id and there's no IP/device id — so anonymous can only
         # be counted as hits (visits), NOT distinct viewers. Authenticated stays
         # distinct (by user_id). The breakdown labels the two units honestly.
+        #
+        # Exact server-side counts (mig 139) — the in-app path below fetches
+        # page_view rows and is silently capped at PostgREST's 1000-row default
+        # once the window has >1000 hits. Falls back to it if the RPC is absent
+        # (pre-apply), so deploy ordering is safe.
+        try:
+            data = supabase_admin.rpc(
+                "fn_dashboard_visitors", {"p_since": visitors_since}
+            ).execute().data
+            row = (data[0] if isinstance(data, list) and data
+                   else (data if isinstance(data, dict) else None))
+            if row is not None:
+                return {"authenticated": int(row.get("authenticated") or 0),
+                        "anonymous":     int(row.get("anonymous") or 0)}
+        except Exception as exc:
+            logger.warning("[admin_dashboard] visitors rpc fallback: %s", exc)
         rows = (
             supabase_admin.table("analytics_events")
             .select("user_id")
@@ -139,6 +155,20 @@ def compute_dashboard_overview(visitors_window_days: int = DEFAULT_VISITOR_WINDO
         # cost sum). ai_usage_logs (mig 031) already logs tokens per call, so no
         # new logging is needed. Cache read/write tokens are a caching detail —
         # excluded from the headline "tokens called" figure.
+        # Exact server-side SUM (mig 139) — the in-app path below is capped at
+        # 1000 ai_usage_logs rows. Falls back to it if the RPC is absent.
+        try:
+            val = supabase_admin.rpc(
+                "fn_dashboard_tokens_called", {"p_since": visitors_since}
+            ).execute().data
+            if isinstance(val, list):
+                val = val[0] if val else 0
+            if isinstance(val, dict):
+                val = next(iter(val.values()), 0)
+            if val is not None:
+                return int(val)
+        except Exception as exc:
+            logger.warning("[admin_dashboard] tokens rpc fallback: %s", exc)
         rows = (
             supabase_admin.table("ai_usage_logs")
             .select("input_tokens, output_tokens")
@@ -217,9 +247,21 @@ def compute_dashboard_trends(days: int = DEFAULT_VISITOR_WINDOW) -> dict:
     def _day(ts: str | None) -> str:
         return (ts or "")[:10]
 
+    def _rpc_daily(fn_name: str) -> list[dict]:
+        """Call a daily-bucket RPC (mig 139) → axis-filled [{date, value}].
+        Raises if the RPC is absent so the caller falls back to the in-app
+        aggregation (which is capped at PostgREST's 1000-row default)."""
+        data = supabase_admin.rpc(fn_name, {"p_since": since_iso}).execute().data
+        by_day = {_day(r.get("day")): int(r.get("value") or 0) for r in (data or [])}
+        return [{"date": d, "value": by_day.get(d, 0)} for d in axis]
+
     def _visitors_series():
-        # Daily total viewers = authenticated distinct + anonymous hits, matching
-        # the tile (viewers-anonymous).
+        try:
+            return _rpc_daily("fn_dashboard_daily_visitors")
+        except Exception as exc:
+            logger.warning("[admin_dashboard] daily visitors rpc fallback: %s", exc)
+        # Fallback — daily total viewers = authenticated distinct + anonymous hits,
+        # matching the tile (viewers-anonymous). Capped at 1000 rows.
         auth: dict[str, set] = {d: set() for d in axis}
         anon: dict[str, int] = {d: 0 for d in axis}
         rows = (
@@ -241,6 +283,10 @@ def compute_dashboard_trends(days: int = DEFAULT_VISITOR_WINDOW) -> dict:
         return [{"date": d, "value": len(auth[d]) + anon[d]} for d in axis]
 
     def _practices_series():
+        try:
+            return _rpc_daily("fn_dashboard_daily_practices")
+        except Exception as exc:
+            logger.warning("[admin_dashboard] daily practices rpc fallback: %s", exc)
         buckets: dict[str, int] = {d: 0 for d in axis}
         rows = (
             supabase_admin.table("sessions")
@@ -259,6 +305,10 @@ def compute_dashboard_trends(days: int = DEFAULT_VISITOR_WINDOW) -> dict:
     def _tokens_series():
         # dashboard-tweaks — daily AI tokens called (prompt + completion),
         # replacing the cost series so the dashboard speaks tokens throughout.
+        try:
+            return _rpc_daily("fn_dashboard_daily_tokens")
+        except Exception as exc:
+            logger.warning("[admin_dashboard] daily tokens rpc fallback: %s", exc)
         buckets: dict[str, int] = {d: 0 for d in axis}
         rows = (
             supabase_admin.table("ai_usage_logs")
