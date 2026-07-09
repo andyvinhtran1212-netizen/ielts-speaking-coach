@@ -201,33 +201,33 @@ questions:
 
   - q_num: 7
     question_type: mcq_single
-    prompt: "The proposal is ____ perfect; it has a few minor flaws."
+    prompt: "The gymnast's routine was ____ perfect; the judges awarded full marks."
     options:
-      - {label: A, text: "quite"}
+      - {label: A, text: "very"}
       - {label: B, text: "absolutely"}
-      - {label: C, text: "extremely"}
-      - {label: D, text: "utterly"}
-    answer: "A"
+      - {label: C, text: "slightly"}
+      - {label: D, text: "fairly"}
+    answer: "B"
     kp_focus: grammar
     grammar_slug: intensifiers-and-mitigators
     solution:
       solution_steps:
         - action: parse_syntax
-          instruction_vi: "'Perfect' là tính từ ungradable (không có bậc so sánh) — cần mitigator yếu 'quite'. 'Quite perfect' có nghĩa gần hoàn hảo. Intensifier mạnh sẽ không phù hợp với bối cảnh 'có lỗi'."
+          instruction_vi: "'perfect' là tính từ UNGRADABLE (tuyệt đối, không có bậc: không nói 'more perfect'). Ungradable đi với MAXIMIZER 'absolutely/utterly/completely', KHÔNG dùng intensifier gradable 'very/fairly/slightly'."
           kp_refs:
             - {type: grammar, slug: intensifiers-and-mitigators, anchor: intensifiers-and-mitigators.pitfall}
           microcheck:
-            prompt: "Loại mitigator nào dùng với 'perfect' (ungradable)?"
+            prompt: "Tính từ ungradable như 'perfect' đi với loại từ tăng cường nào?"
             options:
-              - "yếu (quite, rather)"
-              - "mạnh (absolutely, utterly)"
-              - "trung bình"
+              - "maximizer: absolutely / utterly"
+              - "intensifier gradable: very / fairly"
+              - "không đi với từ nào"
             answer: "A"
         - action: confirm
-          instruction_vi: "Ungradable + mitigator yếu 'quite'. Đáp án A."
+          instruction_vi: "Ungradable 'perfect' + maximizer → 'absolutely perfect'. Đáp án B."
       distractor_analysis:
-        - option: B
-          why_wrong_vi: "'absolutely perfect' là cách diễn đạt tuyệt đối, không phù hợp khi câu nói sau nêu có lỗi."
+        - option: A
+          why_wrong_vi: "'very perfect' sai — 'perfect' đã mang nghĩa tuyệt đối, không tăng cấp bằng 'very' (dành cho tính từ gradable)."
           kp_refs:
             - {type: grammar, slug: intensifiers-and-mitigators, anchor: intensifiers-and-mitigators.scale}
 

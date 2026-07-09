@@ -237,37 +237,37 @@ questions:
 
   - q_num: 8
     question_type: mcq_single
-    prompt: "The research proposal must include ____ sources to strengthen the credibility of the projected outcomes."
+    prompt: "The researchers gathered ____ information from the survey, but not enough to publish."
     options:
       - {label: A, text: "several"}
       - {label: B, text: "many"}
       - {label: C, text: "some"}
-      - {label: D, text: "any"}
-    answer: "A"
+      - {label: D, text: "few"}
+    answer: "C"
     kp_focus: grammar
     grammar_slug: determiners-overview
     solution:
       solution_steps:
         - action: parse_syntax
-          instruction_vi: "Sau động từ 'include', cần một determiner + danh từ số nhiều 'sources'. 'Several' (nhiều, từ 3 trở lên, với sắc thái dạo) phù hợp hơn 'many' (quá chung chung), 'some' (quá mơ hồ), hay 'any' (bất kỳ cái nào)."
+          instruction_vi: "'information' là danh từ KHÔNG đếm được → chỉ đi với 'some/much/little'. 'several / many / few' đi với danh từ ĐẾM ĐƯỢC số nhiều nên đều sai ở đây. Vậy chỉ 'some information' đúng."
           kp_refs:
             - {type: grammar, slug: determiners-overview, anchor: determiners-overview.quantity}
           microcheck:
-            prompt: "'Several sources' có ý nghĩa nào?"
+            prompt: "'information' là danh từ đếm được hay không đếm được?"
             options:
-              - "một số nguồn xác định (3 trở lên)"
-              - "bất kỳ nguồn nào"
-              - "tất cả các nguồn"
-            answer: "A"
+              - "đếm được → several / many / few"
+              - "không đếm được → some / much / little"
+              - "vừa đếm được vừa không"
+            answer: "B"
         - action: confirm
-          instruction_vi: "'Several' chỉ một số lượng xác định (không quá nhiều), phù hợp trong ngữ cảnh học thuật. Đáp án A."
+          instruction_vi: "Danh từ không đếm được 'information' → 'some information'. Đáp án C."
       distractor_analysis:
         - option: B
-          why_wrong_vi: "'Many' quá chung chung; trong học thuật, 'several' thường được chọn để chỉ một số lượng đủ đắn nhưng không quá tải."
+          why_wrong_vi: "'many' đi với danh từ đếm được số nhiều (many sources); với 'information' (không đếm được) phải dùng 'much', không phải 'many'."
           kp_refs:
             - {type: grammar, slug: determiners-overview, anchor: determiners-overview.pitfall}
-        - option: C
-          why_wrong_vi: "'Some' quá mơ hồ; 'several' cụ thể hơn và phù hợp hơn với yêu cầu 'must include'."
+        - option: A
+          why_wrong_vi: "'several' cũng cần danh từ đếm được số nhiều (several studies) — sai với 'information' không đếm được."
           kp_refs:
             - {type: grammar, slug: determiners-overview, anchor: determiners-overview.pitfall}
 ---
