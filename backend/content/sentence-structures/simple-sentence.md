@@ -1,4 +1,5 @@
----title: Simple Sentence (Câu đơn)
+---
+title: Simple Sentence (Câu đơn)
 slug: simple-sentence
 category: sentence-structures
 summary: 'Câu đơn là đơn vị cơ bản nhất của tiếng Anh — một mệnh đề độc lập với đầy

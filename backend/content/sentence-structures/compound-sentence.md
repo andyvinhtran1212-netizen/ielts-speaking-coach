@@ -1,4 +1,5 @@
----title: Compound Sentence (Câu ghép)
+---
+title: Compound Sentence (Câu ghép)
 slug: compound-sentence
 category: sentence-structures
 summary: 'Compound sentence là câu gồm hai hoặc nhiều independent clauses nối với

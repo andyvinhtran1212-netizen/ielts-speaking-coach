@@ -1,4 +1,5 @@
----title: Combining Two Short Sentences — Gộp câu ngắn thành câu phức trong IELTS
+---
+title: Combining Two Short Sentences — Gộp câu ngắn thành câu phức trong IELTS
 slug: combining-two-short-sentences
 category: sentence-structures
 summary: 'Viết toàn câu ngắn rời rạc ("primer style") khiến bài bị trừ điểm Grammatical

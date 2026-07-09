@@ -1,4 +1,5 @@
----title: Phrasal Verbs — Cụm động từ
+---
+title: Phrasal Verbs — Cụm động từ
 slug: phrasal-verbs
 category: verb-patterns
 summary: 'Phrasal verbs là tổ hợp động từ + tiểu từ (preposition hoặc adverb) tạo

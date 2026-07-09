@@ -1,4 +1,5 @@
----title: To-Infinitive (Động từ nguyên thể có "to")
+---
+title: To-Infinitive (Động từ nguyên thể có "to")
 slug: infinitive
 category: verb-patterns
 summary: 'To-infinitive là cấu trúc "to + động từ nguyên thể" (to go, to learn, to

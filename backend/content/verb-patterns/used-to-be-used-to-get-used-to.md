@@ -1,4 +1,5 @@
----title: Used to / Be used to / Get used to — Ba cấu trúc khác nhau hoàn toàn
+---
+title: Used to / Be used to / Get used to — Ba cấu trúc khác nhau hoàn toàn
 slug: used-to-be-used-to-get-used-to
 category: verb-patterns
 summary: 'Ba cấu trúc chứa "used to" có hình thức giống nhau nhưng ý nghĩa và ngữ

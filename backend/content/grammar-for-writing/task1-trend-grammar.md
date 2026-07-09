@@ -1,4 +1,5 @@
----title: Task 1 Trend Grammar — Ngữ pháp mô tả xu hướng trong Writing Task 1
+---
+title: Task 1 Trend Grammar — Ngữ pháp mô tả xu hướng trong Writing Task 1
 slug: task1-trend-grammar
 category: grammar-for-writing
 summary: 'Biểu đồ đường và cột trong IELTS Writing Task 1 thay đổi theo thời gian

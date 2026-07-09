@@ -1,4 +1,5 @@
----title: Gerund (V-ing dùng như danh từ)
+---
+title: Gerund (V-ing dùng như danh từ)
 slug: gerund
 category: verb-patterns
 summary: 'Gerund là động từ thêm -ing và được dùng như một danh từ trong câu — làm

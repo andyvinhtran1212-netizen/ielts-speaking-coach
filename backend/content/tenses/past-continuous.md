@@ -1,4 +1,5 @@
----title: Past Continuous — Thì Quá khứ tiếp diễn
+---
+title: Past Continuous — Thì Quá khứ tiếp diễn
 slug: past-continuous
 category: tenses
 summary: 'Past Continuous (was/were + V-ing) diễn tả hành động đang xảy ra tại một
