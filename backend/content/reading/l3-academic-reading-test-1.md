@@ -163,9 +163,16 @@ passages:
               kp_refs:
                 - {type: skill, slug: scanning}
             - action: parse_syntax
-              instruction_vi: "Câu dùng cấu trúc so sánh 'compared with …' — ngành đứng sau 'compared with' chính là đáp án."
+              instruction_vi: "Bài dùng cấu trúc so sánh 'more than …': '150,000 people — more than the country's coal industry'. Ngành đứng sau 'more than' chính là đáp án."
               kp_refs:
                 - {type: grammar, slug: comparison, anchor: comparison.overview}
+              microcheck:
+                prompt: "Trong '150,000 people — more than the country's coal industry', ngành đứng sau 'more than' đóng vai trò gì?"
+                options:
+                  - "là ngành được đem ra so sánh (đáp án: coal)"
+                  - "là chủ ngữ của câu"
+                  - "không liên quan tới đáp án"
+                answer: "A"
             - action: confirm
               instruction_vi: "Ngành được đem so sánh là 'coal' → đáp án: coal."
       - q_num: 11

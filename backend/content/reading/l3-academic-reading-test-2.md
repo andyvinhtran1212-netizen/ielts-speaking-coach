@@ -76,6 +76,13 @@ passages:
               instruction_vi: "Nhận diện cấu trúc so sánh (than… so với… / nhiều hơn / thay vì) để chắc đoạn đang ĐỐI CHIẾU hai nguồn, không chỉ nhắc tới một nguồn."
               kp_refs:
                 - {type: grammar, slug: comparison, anchor: comparison.overview}
+              microcheck:
+                prompt: "Dấu hiệu nào cho biết một đoạn đang SO SÁNH hai nguồn kim loại?"
+                options:
+                  - "cấu trúc đối chiếu: 'compared with / more than / instead of'"
+                  - "chỉ cần nhắc tên một nguồn là đủ"
+                  - "có nhiều con số trong đoạn"
+                answer: "A"
             - action: confirm
               instruction_vi: "Đoạn B là nơi so sánh hai nguồn kim loại → đáp án B."
         template: { paragraph_labels: [A, B, C, D] }
