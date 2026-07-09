@@ -42,12 +42,27 @@ pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
 - band-6-to-7
+anchors:
+  - id: adverbs.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: adverbs.tai-sao-quan-trong
+    location: '## Tại sao quan trọng'
+    type: section
+  - id: adverbs.loi-thuong-gap
+    location: '## Lỗi thường gặp'
+    type: pitfall
+  - id: adverbs.bai-tap-luyen
+    location: '## Bài tập luyện'
+    type: section
 ---
 
+<!-- anchor: adverbs.tom-tat -->
 ## Tóm tắt
 
 **Adverb (trạng từ)** là từ bổ sung thông tin về *cách thức, mức độ, tần suất, thời gian, địa điểm* cho động từ, tính từ, hoặc cả câu — và nó có thể đứng ở nhiều vị trí trong câu tuỳ thuộc vào loại adverb.
 
+<!-- anchor: adverbs.tai-sao-quan-trong -->
 ## Tại sao quan trọng
 
 Adverbs giúp câu văn chính xác và phong phú hơn đáng kể:
@@ -258,6 +273,7 @@ Sentence adverb, + subject + verb...
 **(Writing Task 2 — sentence adverbs):**
 "Technology has transformed the way we communicate. **Consequently**, people are spending more time online than ever before. **However**, this trend comes with significant drawbacks. **Furthermore**, research **consistently** shows that excessive screen time **negatively** affects mental health."
 
+<!-- anchor: adverbs.loi-thuong-gap -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: Đặt frequency adverb SAI vị trí
@@ -353,6 +369,7 @@ Trong tiếng Anh, cần phân biệt rõ:
 - "The data **strongly** suggests a correlation between the two factors."
 - "While **generally** effective, this policy has **occasionally** produced unintended consequences."
 
+<!-- anchor: adverbs.bai-tap-luyen -->
 ## Bài tập luyện
 
 ### Chọn đúng: Tính từ hay Adverb?

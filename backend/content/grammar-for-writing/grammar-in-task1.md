@@ -2,7 +2,11 @@
 title: Grammar in Task 1 — Ngữ pháp cho IELTS Writing Task 1 (Academic)
 slug: grammar-in-task1
 category: grammar-for-writing
-summary: 'IELTS Writing Task 1 (Academic) yêu cầu mô tả biểu đồ, bảng, quá trình, hay bản đồ một cách khách quan và chính xác. Việc này dựa trên một bộ ngữ pháp cụ thể: chọn đúng thì, dùng bị động cho quá trình, so sánh hơn/nhất, và đặc biệt là giới từ số liệu (rise TO / BY / FROM...TO). Bài này tổng hợp ngữ pháp cốt lõi cho Task 1, kèm lỗi thường gặp của người Việt.
+summary: 'IELTS Writing Task 1 (Academic) yêu cầu mô tả biểu đồ, bảng, quá trình,
+  hay bản đồ một cách khách quan và chính xác. Việc này dựa trên một bộ ngữ pháp cụ
+  thể: chọn đúng thì, dùng bị động cho quá trình, so sánh hơn/nhất, và đặc biệt là
+  giới từ số liệu (rise TO / BY / FROM...TO). Bài này tổng hợp ngữ pháp cốt lõi cho
+  Task 1, kèm lỗi thường gặp của người Việt.
 
   '
 level: intermediate
@@ -46,8 +50,37 @@ next_articles:
 pathways:
 - grammar-for-ielts-writing
 - band-6-to-7
+anchors:
+- id: grammar-in-task1.overview
+  location: '## Tóm tắt'
+  type: overview
+- id: grammar-in-task1.tenses
+  location: '## NHÓM 1: CHỌN ĐÚNG THÌ'
+  type: concept
+- id: grammar-in-task1.passive
+  location: '## NHÓM 2: BỊ ĐỘNG CHO QUÁ TRÌNH (process diagrams)'
+  type: concept
+- id: grammar-in-task1.comparison
+  location: '## NHÓM 3: SO SÁNH HƠN / NHẤT'
+  type: compare-with
+- id: grammar-in-task1.prepositions
+  location: '## NHÓM 4: GIỚI TỪ SỐ LIỆU (lỗi phổ biến nhất)'
+  type: pitfall
+- id: grammar-in-task1.articles-agreement
+  location: '## NHÓM 5: MẠO TỪ, ĐỊNH LƯỢNG & SỰ HOÀ HỢP'
+  type: concept
+- id: grammar-in-task1.complex-sentences
+  location: '## NHÓM 6: CÂU PHỨC ĐỂ SO SÁNH'
+  type: compare-with
+- id: grammar-in-task1.overview-writing
+  location: '## VIẾT CÂU OVERVIEW (không số liệu chi tiết)'
+  type: overview
+- id: grammar-in-task1.common-mistakes
+  location: '## Lỗi thường gặp'
+  type: pitfall
 ---
 
+<!-- anchor: grammar-in-task1.overview -->
 ## Tóm tắt
 
 Task 1 không chấm ý tưởng — nó chấm khả năng **mô tả số liệu chính xác và khách quan**. Điều đó dựa hoàn toàn vào ngữ pháp. Bộ công cụ cốt lõi:
@@ -71,6 +104,7 @@ Task 1 được chấm trên **Grammatical Range and Accuracy** và **Lexical Re
 
 ---
 
+<!-- anchor: grammar-in-task1.tenses -->
 ## NHÓM 1: CHỌN ĐÚNG THÌ
 
 Thì phụ thuộc vào **mốc thời gian của dữ liệu**, không phải thời điểm bạn viết.
@@ -88,6 +122,7 @@ Thì phụ thuộc vào **mốc thời gian của dữ liệu**, không phải t
 
 ---
 
+<!-- anchor: grammar-in-task1.passive -->
 ## NHÓM 2: BỊ ĐỘNG CHO QUÁ TRÌNH (process diagrams)
 
 Sơ đồ quá trình mô tả việc được làm, không phải ai làm → dùng **bị động**.
@@ -104,6 +139,7 @@ S + is/are + V-ed (past participle)
 
 ---
 
+<!-- anchor: grammar-in-task1.comparison -->
 ## NHÓM 3: SO SÁNH HƠN / NHẤT
 
 | Cấu trúc | Ví dụ |
@@ -121,6 +157,7 @@ S + is/are + V-ed (past participle)
 
 ---
 
+<!-- anchor: grammar-in-task1.prepositions -->
 ## NHÓM 4: GIỚI TỪ SỐ LIỆU (lỗi phổ biến nhất)
 
 | Giới từ | Dùng khi | Ví dụ |
@@ -141,6 +178,7 @@ S + is/are + V-ed (past participle)
 
 ---
 
+<!-- anchor: grammar-in-task1.articles-agreement -->
 ## NHÓM 5: MẠO TỪ, ĐỊNH LƯỢNG & SỰ HOÀ HỢP
 
 ### "The number of" vs "A number of"
@@ -159,6 +197,7 @@ S + is/are + V-ed (past participle)
 
 ---
 
+<!-- anchor: grammar-in-task1.complex-sentences -->
 ## NHÓM 6: CÂU PHỨC ĐỂ SO SÁNH
 
 Gộp hai số liệu đối lập trong một câu (whereas / while) thay vì hai câu rời:
@@ -171,6 +210,7 @@ Gộp hai số liệu đối lập trong một câu (whereas / while) thay vì h
 
 ---
 
+<!-- anchor: grammar-in-task1.overview-writing -->
 ## VIẾT CÂU OVERVIEW (không số liệu chi tiết)
 
 Đoạn overview nêu xu hướng chung, **không** trích số cụ thể, thường dùng present hoặc câu so sánh tổng quát:
@@ -179,6 +219,7 @@ Gộp hai số liệu đối lập trong một câu (whereas / while) thay vì h
 
 ---
 
+<!-- anchor: grammar-in-task1.common-mistakes -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: Sai giới từ số liệu

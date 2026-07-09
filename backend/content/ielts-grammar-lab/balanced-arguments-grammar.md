@@ -43,8 +43,28 @@ next_articles:
 pathways:
 - grammar-for-ielts-speaking
 - band-6-to-7
+anchors:
+  - id: balanced-arguments-grammar.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: balanced-arguments-grammar.nhom-1-on-the-one-hand-on-the-other-hand
+    location: '## NHÓM 1: ON THE ONE HAND... ON THE OTHER HAND'
+    type: section
+  - id: balanced-arguments-grammar.nhom-2-while-although-it-is-true-that-nhuong-bo-roi-phan-bien
+    location: '## NHÓM 2: WHILE / ALTHOUGH IT IS TRUE THAT... — nhượng bộ rồi phản biện'
+    type: section
+  - id: balanced-arguments-grammar.nhom-4-that-said-then-again-dao-huong-lap-luan
+    location: '## NHÓM 4: THAT SAID / THEN AGAIN — đảo hướng lập luận'
+    type: section
+  - id: balanced-arguments-grammar.nhom-5-cau-truc-song-song-not-only-but-also-both-and
+    location: '## NHÓM 5: CẤU TRÚC SONG SONG — not only... but also / both... and'
+    type: structure
+  - id: balanced-arguments-grammar.loi-thuong-gap
+    location: '## Lỗi thường gặp'
+    type: pitfall
 ---
 
+<!-- anchor: balanced-arguments-grammar.tom-tat -->
 ## Tóm tắt
 
 Câu hỏi IELTS hiếm khi có đáp án một chiều. "Discuss both views", "advantages and disadvantages", hay Part 3 "some people think... others think..." đều đòi **cân nhắc hai mặt**. Ngữ pháp lập luận cân bằng:
@@ -67,6 +87,7 @@ Trong **Writing Task 2 discussion essay**, tiêu chí Task Response đòi bạn 
 
 ---
 
+<!-- anchor: balanced-arguments-grammar.nhom-1-on-the-one-hand-on-the-other-hand -->
 ## NHÓM 1: ON THE ONE HAND... ON THE OTHER HAND
 
 Khung kinh điển để trình bày hai mặt:
@@ -81,6 +102,7 @@ On the one hand, [view A]. On the other hand, [view B].
 
 ---
 
+<!-- anchor: balanced-arguments-grammar.nhom-2-while-although-it-is-true-that-nhuong-bo-roi-phan-bien -->
 ## NHÓM 2: WHILE / ALTHOUGH IT IS TRUE THAT... — nhượng bộ rồi phản biện
 
 Công nhận một điểm của phía kia trước khi đưa quan điểm của mình:
@@ -109,6 +131,7 @@ Trạng từ/cụm thừa nhận một điểm hợp lý của phía kia:
 
 ---
 
+<!-- anchor: balanced-arguments-grammar.nhom-4-that-said-then-again-dao-huong-lap-luan -->
 ## NHÓM 4: THAT SAID / THEN AGAIN — đảo hướng lập luận
 
 Dùng để chuyển từ một mặt sang mặt kia một cách mượt mà:
@@ -121,6 +144,7 @@ Dùng để chuyển từ một mặt sang mặt kia một cách mượt mà:
 
 ---
 
+<!-- anchor: balanced-arguments-grammar.nhom-5-cau-truc-song-song-not-only-but-also-both-and -->
 ## NHÓM 5: CẤU TRÚC SONG SONG — not only... but also / both... and
 
 Trình bày hai yếu tố cân bằng trong một câu (parallel structure):
@@ -169,6 +193,7 @@ While both views have merit, [quan điểm nghiêng của bạn]
 
 ---
 
+<!-- anchor: balanced-arguments-grammar.loi-thuong-gap -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: Chỉ trình bày một mặt khi đề yêu cầu cả hai

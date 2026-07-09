@@ -2,7 +2,9 @@
 title: Double Subject Errors — Lỗi lặp chủ ngữ
 slug: double-subject-errors
 category: error-clinic
-summary: 'Lỗi lặp chủ ngữ xảy ra khi người học viết cả danh từ lẫn đại từ cho cùng một chủ ngữ trong cùng một câu — chẳng hạn "My father he works hard." Đây là lỗi ảnh hưởng trực tiếp từ cấu trúc tiếng Việt và cần được loại bỏ hoàn toàn.
+summary: 'Lỗi lặp chủ ngữ xảy ra khi người học viết cả danh từ lẫn đại từ cho cùng
+  một chủ ngữ trong cùng một câu — chẳng hạn "My father he works hard." Đây là lỗi
+  ảnh hưởng trực tiếp từ cấu trúc tiếng Việt và cần được loại bỏ hoàn toàn.
 
   '
 level: beginner
@@ -45,8 +47,25 @@ next_articles:
 pathways:
 - grammar-for-beginners
 - fix-common-mistakes
+anchors:
+  - id: double-subject-errors.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: double-subject-errors.tai-sao-nguoi-viet-mac-loi-nay
+    location: '## Tại sao người Việt mắc lỗi này?'
+    type: pitfall
+  - id: double-subject-errors.cach-sua-nhanh
+    location: '## Cách sửa nhanh'
+    type: section
+  - id: double-subject-errors.loi-thuong-gap-khi-them-thong-tin
+    location: '## Lỗi thường gặp khi thêm thông tin'
+    type: pitfall
+  - id: double-subject-errors.tom-tat-nhanh
+    location: '## Tóm tắt nhanh'
+    type: overview
 ---
 
+<!-- anchor: double-subject-errors.tom-tat -->
 ## Tóm tắt
 
 | ❌ Sai — Lặp subject | ✅ Đúng — Chọn một |
@@ -58,6 +77,7 @@ pathways:
 
 ---
 
+<!-- anchor: double-subject-errors.tai-sao-nguoi-viet-mac-loi-nay -->
 ## Tại sao người Việt mắc lỗi này?
 
 Trong tiếng Việt, cách nói nhấn mạnh chủ đề thường dùng cấu trúc:
@@ -134,6 +154,7 @@ Trong IELTS Writing, lỗi này thường xuất hiện khi người viết dùn
 
 ---
 
+<!-- anchor: double-subject-errors.cach-sua-nhanh -->
 ## Cách sửa nhanh
 
 Khi gặp lỗi double subject, có **3 cách sửa**:
@@ -151,6 +172,7 @@ Khi gặp lỗi double subject, có **3 cách sửa**:
 
 ---
 
+<!-- anchor: double-subject-errors.loi-thuong-gap-khi-them-thong-tin -->
 ## Lỗi thường gặp khi thêm thông tin
 
 Lỗi double subject hay xảy ra nhất khi người học cố thêm thông tin bổ sung vào subject:
@@ -185,6 +207,7 @@ Lỗi double subject hay xảy ra nhất khi người học cố thêm thông ti
 
 ---
 
+<!-- anchor: double-subject-errors.tom-tat-nhanh -->
 ## Tóm tắt nhanh
 
 ```

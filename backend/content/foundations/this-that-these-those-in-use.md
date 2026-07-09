@@ -43,8 +43,22 @@ next_articles:
 - pronouns
 pathways:
 - grammar-for-beginners
+anchors:
+  - id: this-that-these-those-in-use.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: this-that-these-those-in-use.tai-sao-quan-trong
+    location: '## Tại sao quan trọng'
+    type: section
+  - id: this-that-these-those-in-use.loi-thuong-gap
+    location: '## Lỗi thường gặp'
+    type: pitfall
+  - id: this-that-these-those-in-use.bai-tap-luyen
+    location: '## Bài tập luyện'
+    type: section
 ---
 
+<!-- anchor: this-that-these-those-in-use.tom-tat -->
 ## Tóm tắt
 
 | Từ | Số | Khoảng cách | Dùng điển hình |
@@ -58,6 +72,7 @@ pathways:
 
 ---
 
+<!-- anchor: this-that-these-those-in-use.tai-sao-quan-trong -->
 ## Tại sao quan trọng
 
 Người Việt học tiếng Anh thường dùng "this" cho mọi trường hợp, hoặc bỏ qua hoàn toàn. Trong IELTS Speaking, thiếu khả năng dùng demonstratives để chỉ lại ý đã nói làm câu trả lời kém mạch lạc. Trong Writing, "this" và "these" là công cụ tạo coherence cực kỳ quan trọng.
@@ -211,6 +226,7 @@ So sánh:
 
 ---
 
+<!-- anchor: this-that-these-those-in-use.loi-thuong-gap -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: Dùng "this" không có danh từ rõ ràng — người đọc không hiểu "this" là gì
@@ -251,6 +267,7 @@ Dùng "this/these + noun" để nối đoạn và nối ý:
 
 ---
 
+<!-- anchor: this-that-these-those-in-use.bai-tap-luyen -->
 ## Bài tập luyện
 
 ### Điền this, that, these, hoặc those

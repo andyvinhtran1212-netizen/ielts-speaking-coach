@@ -42,8 +42,19 @@ next_articles:
 - few-a-few-little-a-little
 pathways:
 - grammar-for-beginners
+anchors:
+  - id: other-another-the-other-others.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: other-another-the-other-others.tai-sao-quan-trong
+    location: '## Tại sao quan trọng'
+    type: section
+  - id: other-another-the-other-others.bai-tap-luyen
+    location: '## Bài tập luyện'
+    type: section
 ---
 
+<!-- anchor: other-another-the-other-others.tom-tat -->
 ## Tóm tắt
 
 Năm cấu trúc, một bảng tổng hợp:
@@ -58,6 +69,7 @@ Năm cấu trúc, một bảng tổng hợp:
 
 ---
 
+<!-- anchor: other-another-the-other-others.tai-sao-quan-trong -->
 ## Tại sao quan trọng
 
 Đây là nhóm từ xuất hiện liên tục trong cả 4 kỹ năng IELTS. Lỗi thường gặp:
@@ -263,6 +275,7 @@ The others + verb (không theo sau noun)
 
 ---
 
+<!-- anchor: other-another-the-other-others.bai-tap-luyen -->
 ## Bài tập luyện
 
 ### Điền another / other / the other / others / the others

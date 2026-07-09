@@ -46,8 +46,28 @@ next_articles:
 pathways:
 - grammar-for-beginners
 - band-6-to-7
+anchors:
+  - id: articles-with-places-and-names.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: articles-with-places-and-names.tai-sao-quan-trong
+    location: '## Tại sao quan trọng'
+    type: section
+  - id: articles-with-places-and-names.nhom-1-quoc-gia
+    location: '## NHÓM 1: Quốc gia'
+    type: section
+  - id: articles-with-places-and-names.bang-tong-hop-nhanh
+    location: '## Bảng tổng hợp nhanh'
+    type: compare-with
+  - id: articles-with-places-and-names.loi-thuong-gap
+    location: '## Lỗi thường gặp'
+    type: pitfall
+  - id: articles-with-places-and-names.bai-tap-luyen
+    location: '## Bài tập luyện'
+    type: section
 ---
 
+<!-- anchor: articles-with-places-and-names.tom-tat -->
 ## Tóm tắt
 
 | Loại địa danh | THE? | Ví dụ |
@@ -68,12 +88,14 @@ pathways:
 
 ---
 
+<!-- anchor: articles-with-places-and-names.tai-sao-quan-trong -->
 ## Tại sao quan trọng
 
 Dùng sai mạo từ với địa danh là lỗi rất phổ biến trong IELTS Writing Band 5-6. Câu như "I visited **the** France last summer" hay "**The** Tokyo is one of the world's largest cities" ngay lập tức bị trừ điểm Lexical Resource. Với địa danh, không có quy tắc ngữ pháp tuyệt đối — cần học theo nhóm.
 
 ---
 
+<!-- anchor: articles-with-places-and-names.nhom-1-quoc-gia -->
 ## NHÓM 1: Quốc gia
 
 ### Không dùng THE — quốc gia tên đơn
@@ -247,6 +269,7 @@ Dãy núi số nhiều **dùng THE**:
 
 ---
 
+<!-- anchor: articles-with-places-and-names.bang-tong-hop-nhanh -->
 ## Bảng tổng hợp nhanh
 
 | Dùng THE | Không dùng THE |
@@ -262,6 +285,7 @@ Dãy núi số nhiều **dùng THE**:
 
 ---
 
+<!-- anchor: articles-with-places-and-names.loi-thuong-gap -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: Thêm "the" vào quốc gia thông thường
@@ -293,6 +317,7 @@ Dãy núi số nhiều **dùng THE**:
 
 ---
 
+<!-- anchor: articles-with-places-and-names.bai-tap-luyen -->
 ## Bài tập luyện
 
 ### Thêm THE hoặc ∅

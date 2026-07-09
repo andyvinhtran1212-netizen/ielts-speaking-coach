@@ -2,7 +2,10 @@
 title: Phrasal Verbs — Cụm động từ
 slug: phrasal-verbs
 category: verb-patterns
-summary: 'Phrasal verbs là tổ hợp động từ + tiểu từ (preposition hoặc adverb) tạo thành ý nghĩa mới, thường khác hoàn toàn với nghĩa của từng từ riêng lẻ. Đây là một trong những thách thức lớn nhất với người học tiếng Anh — nhưng cũng là yếu tố quan trọng để đạt Lexical Resource cao trong IELTS Speaking và Writing.
+summary: 'Phrasal verbs là tổ hợp động từ + tiểu từ (preposition hoặc adverb) tạo
+  thành ý nghĩa mới, thường khác hoàn toàn với nghĩa của từng từ riêng lẻ. Đây là
+  một trong những thách thức lớn nhất với người học tiếng Anh — nhưng cũng là yếu
+  tố quan trọng để đạt Lexical Resource cao trong IELTS Speaking và Writing.
 
   '
 level: intermediate
@@ -44,8 +47,28 @@ pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
 - band-6-to-7
+anchors:
+- id: phrasal-verbs.overview
+  location: '## Tóm tắt'
+  type: overview
+- id: phrasal-verbs.classification
+  location: '## Phân loại phrasal verbs'
+  type: concept
+- id: phrasal-verbs.by-topic
+  location: '## Phrasal verbs quan trọng theo chủ đề'
+  type: concept
+- id: phrasal-verbs.formal-equivalents
+  location: '## Phrasal verbs vs Formal equivalents (IELTS Writing)'
+  type: concept
+- id: phrasal-verbs.common-mistakes
+  location: '## Lỗi thường gặp'
+  type: pitfall
+- id: phrasal-verbs.ielts-applications
+  location: '## Ứng dụng trong IELTS'
+  type: concept
 ---
 
+<!-- anchor: phrasal-verbs.overview -->
 ## Tóm tắt
 
 Phrasal verbs = **động từ + tiểu từ** (particle: adverb hoặc preposition) → **nghĩa mới**.
@@ -65,6 +88,7 @@ Phrasal verbs là đặc trưng của tiếng Anh tự nhiên:
 - **IELTS Speaking:** dùng đúng phrasal verbs → tăng Lexical Resource score
 - **IELTS Writing:** informal phrasal verbs phù hợp Speaking/Task 2 informal; chính thức hơn thì dùng từ học thuật tương đương
 
+<!-- anchor: phrasal-verbs.classification -->
 ## Phân loại phrasal verbs
 
 ### Loại 1: Intransitive — Không cần tân ngữ
@@ -135,6 +159,7 @@ look the children after ❌
 | **put up with** | chịu đựng | I can't put up with this anymore. |
 | **look forward to** | mong chờ | I'm looking forward to seeing you. |
 
+<!-- anchor: phrasal-verbs.by-topic -->
 ## Phrasal verbs quan trọng theo chủ đề
 
 ### Chủ đề Education & Work
@@ -171,6 +196,7 @@ look the children after ❌
 | **wipe out** | tiêu diệt | Deforestation is wiping out species. |
 | **clean up** | dọn dẹp | Communities clean up local rivers. |
 
+<!-- anchor: phrasal-verbs.formal-equivalents -->
 ## Phrasal verbs vs Formal equivalents (IELTS Writing)
 
 Trong IELTS Writing Task 2, nên cân nhắc giữa phrasal verb thông thường và từ học thuật:
@@ -190,6 +216,7 @@ Trong IELTS Writing Task 2, nên cân nhắc giữa phrasal verb thông thườn
 
 > **Lời khuyên IELTS:** Dùng phrasal verbs trong Speaking tự nhiên hơn. Trong Writing Task 2, pha trộn cả hai — tránh hoàn toàn phrasal verb hoặc hoàn toàn từ học thuật để thể hiện range từ vựng.
 
+<!-- anchor: phrasal-verbs.common-mistakes -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: Đặt đại từ sai vị trí
@@ -217,6 +244,7 @@ Trong IELTS Writing Task 2, nên cân nhắc giữa phrasal verb thông thườn
 - ❌ She looks after to her sister. (thêm "to" sai)
 - ✅ She looks after her sister.
 
+<!-- anchor: phrasal-verbs.ielts-applications -->
 ## Ứng dụng trong IELTS
 
 ### Speaking Part 1 — Tự nhiên, gần gũi:

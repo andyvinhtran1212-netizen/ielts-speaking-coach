@@ -43,8 +43,22 @@ next_articles:
 - simple-sentence
 pathways:
 - grammar-for-beginners
+anchors:
+  - id: conjunctions.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: conjunctions.tai-sao-quan-trong
+    location: '## Tại sao quan trọng'
+    type: section
+  - id: conjunctions.loi-thuong-gap
+    location: '## Lỗi thường gặp'
+    type: pitfall
+  - id: conjunctions.bai-tap-luyen
+    location: '## Bài tập luyện'
+    type: section
 ---
 
+<!-- anchor: conjunctions.tom-tat -->
 ## Tóm tắt
 
 Liên từ (Conjunction) là từ dùng để **nối** các thành phần trong câu — từ với từ, cụm từ với cụm từ, mệnh đề với mệnh đề. Không có liên từ, ta chỉ có thể viết những câu đơn ngắn, rời rạc.
@@ -53,6 +67,7 @@ Liên từ (Conjunction) là từ dùng để **nối** các thành phần trong
 - She was tired **but** she kept studying.
 - He stayed home **because** it was raining.
 
+<!-- anchor: conjunctions.tai-sao-quan-trong -->
 ## Tại sao quan trọng
 
 Liên từ là chìa khóa để tạo câu ghép (compound) và câu phức (complex). Trong IELTS, dùng đa dạng liên từ thể hiện khả năng sử dụng Grammatical Range and Accuracy, giúp điểm Writing và Speaking tốt hơn.
@@ -160,6 +175,7 @@ Hai liên từ đi cặp với nhau:
 - **Either** the teacher **or** the students **are** responsible. (students → are)
 - **Neither** the students **nor** the teacher **is** here. (teacher → is)
 
+<!-- anchor: conjunctions.loi-thuong-gap -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: Dùng "although" và "but" cùng lúc
@@ -221,6 +237,7 @@ Hai liên từ đi cặp với nhau:
 - **Although** I was nervous at first, I gradually became more confident.
 - I chose this career **because** I've always been passionate about it.
 
+<!-- anchor: conjunctions.bai-tap-luyen -->
 ## Bài tập luyện
 
 ### Điền liên từ phù hợp

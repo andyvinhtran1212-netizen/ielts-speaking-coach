@@ -2,7 +2,12 @@
 title: Overusing "I think" — Đừng lặp "I think" mãi một cách
 slug: overusing-i-think
 category: error-clinic
-summary: '"I think" là cụm từ hữu ích nhưng nếu lặp đi lặp lại trong IELTS Speaking, câu trả lời sẽ nghe đơn điệu, thiếu tự tin, và giảm điểm Lexical Resource. Bài này chỉ ra tại sao "I think" lặp lại làm yếu câu trả lời, cung cấp hơn 10 patterns thay thế được phân loại theo mức độ tự tin và trang trọng, và hướng dẫn cách xen kẽ chúng để câu trả lời nghe tự nhiên, đa dạng, và thuyết phục hơn trong mọi phần thi IELTS Speaking.
+summary: '"I think" là cụm từ hữu ích nhưng nếu lặp đi lặp lại trong IELTS Speaking,
+  câu trả lời sẽ nghe đơn điệu, thiếu tự tin, và giảm điểm Lexical Resource. Bài này
+  chỉ ra tại sao "I think" lặp lại làm yếu câu trả lời, cung cấp hơn 10 patterns thay
+  thế được phân loại theo mức độ tự tin và trang trọng, và hướng dẫn cách xen kẽ chúng
+  để câu trả lời nghe tự nhiên, đa dạng, và thuyết phục hơn trong mọi phần thi IELTS
+  Speaking.
 
   '
 level: beginner
@@ -43,8 +48,22 @@ next_articles:
 pathways:
 - grammar-for-beginners
 - fix-common-mistakes
+anchors:
+  - id: overusing-i-think.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: overusing-i-think.loi-thuong-gap
+    location: '## Lỗi thường gặp'
+    type: pitfall
+  - id: overusing-i-think.ung-dung-trong-ielts-speaking
+    location: '## Ứng dụng trong IELTS Speaking'
+    type: section
+  - id: overusing-i-think.tom-tat-nhanh
+    location: '## Tóm tắt nhanh'
+    type: overview
 ---
 
+<!-- anchor: overusing-i-think.tom-tat -->
 ## Tóm tắt
 
 "I think" không sai — nhưng dùng nó liên tục trong cùng một câu trả lời là dấu hiệu của Lexical Resource thấp.
@@ -218,6 +237,7 @@ Không phải câu nào cũng cần intro phrase. Đặc biệt trong Part 3, sa
 
 ---
 
+<!-- anchor: overusing-i-think.loi-thuong-gap -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: Lặp "I think" ở đầu mọi câu
@@ -252,6 +272,7 @@ Lặp hai lần — "In my opinion" đã bao gồm ý "I think".
 
 ---
 
+<!-- anchor: overusing-i-think.ung-dung-trong-ielts-speaking -->
 ## Ứng dụng trong IELTS Speaking
 
 ### Part 1 — Câu trả lời thân mật:
@@ -332,6 +353,7 @@ Viết câu trả lời cho câu hỏi sau (4-5 câu) mà **không dùng "I thin
 
 ---
 
+<!-- anchor: overusing-i-think.tom-tat-nhanh -->
 ## Tóm tắt nhanh
 
 ```

@@ -43,8 +43,28 @@ next_articles:
 - some-any-no
 pathways:
 - grammar-for-beginners
+anchors:
+  - id: many-much-a-lot-of.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: many-much-a-lot-of.tai-sao-quan-trong
+    location: '## Tại sao quan trọng'
+    type: section
+  - id: many-much-a-lot-of.phan-1-many-dung-voi-danh-tu-dem-duoc-so-nhieu
+    location: '## PHẦN 1: MANY — Dùng với danh từ đếm được số nhiều'
+    type: section
+  - id: many-much-a-lot-of.bang-tong-hop-nhanh
+    location: '## Bảng tổng hợp nhanh'
+    type: compare-with
+  - id: many-much-a-lot-of.loi-thuong-gap
+    location: '## Lỗi thường gặp'
+    type: pitfall
+  - id: many-much-a-lot-of.bai-tap-luyen
+    location: '## Bài tập luyện'
+    type: section
 ---
 
+<!-- anchor: many-much-a-lot-of.tom-tat -->
 ## Tóm tắt
 
 | Từ | Dùng với | Formal/Informal | Ví dụ |
@@ -56,12 +76,14 @@ pathways:
 
 ---
 
+<!-- anchor: many-much-a-lot-of.tai-sao-quan-trong -->
 ## Tại sao quan trọng
 
 Trong IELTS Writing, dùng "a lot of" quá nhiều làm giảm điểm Lexical Resource vì nó mang tính informal. Examiner muốn thấy bạn biết phân biệt và sử dụng đa dạng: many, much, a great deal of, numerous, a significant number of. Trong Speaking, "a lot of" hoàn toàn tự nhiên.
 
 ---
 
+<!-- anchor: many-much-a-lot-of.phan-1-many-dung-voi-danh-tu-dem-duoc-so-nhieu -->
 ## PHẦN 1: MANY — Dùng với danh từ đếm được số nhiều
 
 ```
@@ -213,6 +235,7 @@ Trong IELTS Writing Task 2 và academic writing, dùng nhiều biến thể phon
 
 ---
 
+<!-- anchor: many-much-a-lot-of.bang-tong-hop-nhanh -->
 ## Bảng tổng hợp nhanh
 
 | | **Many** | **Much** | **A lot of** |
@@ -226,6 +249,7 @@ Trong IELTS Writing Task 2 và academic writing, dùng nhiều biến thể phon
 
 ---
 
+<!-- anchor: many-much-a-lot-of.loi-thuong-gap -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: Dùng "much" với danh từ đếm được
@@ -256,6 +280,7 @@ Trong IELTS Writing Task 2 và academic writing, dùng nhiều biến thể phon
 
 ---
 
+<!-- anchor: many-much-a-lot-of.bai-tap-luyen -->
 ## Bài tập luyện
 
 ### Điền many, much, a lot of, too many, hoặc too much

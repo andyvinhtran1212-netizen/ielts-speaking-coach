@@ -2,7 +2,10 @@
 title: Run-On Sentences — Câu chạy liên tục không có dấu dừng
 slug: run-on-sentences
 category: error-clinic
-summary: 'Câu chạy (run-on sentence) xảy ra khi hai hoặc nhiều mệnh đề độc lập được nối trực tiếp mà không có dấu câu hoặc liên từ phù hợp. Đây là lỗi ảnh hưởng đến cả Writing lẫn cách đặt câu trong Speaking. Bài này giải thích câu chạy là gì và dạy bốn cách sửa thực tế: dấu chấm, liên từ, từ phụ, và mệnh đề quan hệ.
+summary: 'Câu chạy (run-on sentence) xảy ra khi hai hoặc nhiều mệnh đề độc lập được
+  nối trực tiếp mà không có dấu câu hoặc liên từ phù hợp. Đây là lỗi ảnh hưởng đến
+  cả Writing lẫn cách đặt câu trong Speaking. Bài này giải thích câu chạy là gì và
+  dạy bốn cách sửa thực tế: dấu chấm, liên từ, từ phụ, và mệnh đề quan hệ.
 
   '
 level: intermediate
@@ -48,8 +51,31 @@ next_articles:
 pathways:
 - fix-common-mistakes
 - band-6-to-7
+anchors:
+  - id: run-on-sentences.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: run-on-sentences.phan-1-dung-dau-cham-don-gian-nhat
+    location: '## PHẦN 1: DÙNG DẤU CHẤM — Đơn giản nhất'
+    type: section
+  - id: run-on-sentences.phan-2-dung-lien-tu-the-hien-moi-quan-he
+    location: '## PHẦN 2: DÙNG LIÊN TỪ — Thể hiện mối quan hệ'
+    type: section
+  - id: run-on-sentences.phan-3-dung-tu-phu-the-hien-quan-he-phuc-tap-hon
+    location: '## PHẦN 3: DÙNG TỪ PHỤ — Thể hiện quan hệ phức tạp hơn'
+    type: section
+  - id: run-on-sentences.phan-4-dung-menh-de-quan-he-noi-thong-tin-ve-danh-tu
+    location: '## PHẦN 4: DÙNG MỆNH ĐỀ QUAN HỆ — Nối thông tin về danh từ'
+    type: section
+  - id: run-on-sentences.loi-thuong-gap
+    location: '## Lỗi thường gặp'
+    type: pitfall
+  - id: run-on-sentences.tom-tat-nhanh
+    location: '## Tóm tắt nhanh'
+    type: overview
 ---
 
+<!-- anchor: run-on-sentences.tom-tat -->
 ## Tóm tắt
 
 | Loại | Ví dụ lỗi | Vấn đề |
@@ -76,6 +102,7 @@ Câu chạy khiến người đọc/nghe bị mất phương hướng vì không
 
 ---
 
+<!-- anchor: run-on-sentences.phan-1-dung-dau-cham-don-gian-nhat -->
 ## PHẦN 1: DÙNG DẤU CHẤM — Đơn giản nhất
 
 Chia câu chạy thành hai câu riêng bằng dấu chấm.
@@ -95,6 +122,7 @@ Chia câu chạy thành hai câu riêng bằng dấu chấm.
 
 ---
 
+<!-- anchor: run-on-sentences.phan-2-dung-lien-tu-the-hien-moi-quan-he -->
 ## PHẦN 2: DÙNG LIÊN TỪ — Thể hiện mối quan hệ
 
 Thêm liên từ phối hợp (coordinating conjunction) giữa hai mệnh đề. Nhớ quy tắc **FANBOYS**: **F**or, **A**nd, **B**ut, **O**r, **N**or, **Y**et, **S**o.
@@ -115,6 +143,7 @@ Thêm liên từ phối hợp (coordinating conjunction) giữa hai mệnh đề
 
 ---
 
+<!-- anchor: run-on-sentences.phan-3-dung-tu-phu-the-hien-quan-he-phuc-tap-hon -->
 ## PHẦN 3: DÙNG TỪ PHỤ — Thể hiện quan hệ phức tạp hơn
 
 Biến một mệnh đề thành mệnh đề phụ (subordinate clause) bằng cách thêm **subordinating conjunction**: because, although, when, since, while, if, as, after, before...
@@ -138,6 +167,7 @@ Biến một mệnh đề thành mệnh đề phụ (subordinate clause) bằng 
 
 ---
 
+<!-- anchor: run-on-sentences.phan-4-dung-menh-de-quan-he-noi-thong-tin-ve-danh-tu -->
 ## PHẦN 4: DÙNG MỆNH ĐỀ QUAN HỆ — Nối thông tin về danh từ
 
 Nếu câu thứ hai cung cấp thêm thông tin về **một danh từ trong câu đầu**, dùng mệnh đề quan hệ với who/which/that.
@@ -172,6 +202,7 @@ Dấu chấm phẩy (`;`) nối hai câu độc lập **có liên quan chặt ch
 
 ---
 
+<!-- anchor: run-on-sentences.loi-thuong-gap -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: Comma splice — Dùng dấu phẩy thay cho dấu chấm
@@ -238,6 +269,7 @@ Dấu chấm phẩy (`;`) nối hai câu độc lập **có liên quan chặt ch
 
 ---
 
+<!-- anchor: run-on-sentences.tom-tat-nhanh -->
 ## Tóm tắt nhanh
 
 ```

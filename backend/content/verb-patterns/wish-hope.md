@@ -2,7 +2,11 @@
 title: Wish & Hope — Ước muốn và Hy vọng
 slug: wish-hope
 category: verb-patterns
-summary: '"Wish" và "hope" đều diễn tả ước muốn nhưng dùng rất khác nhau: "hope" dùng với điều CÓ THỂ xảy ra (followed by present/future tenses), còn "wish" dùng với điều KHÔNG THỰC hoặc KHÓ XẢY RA (followed by past/perfect tenses). Đây là điểm ngữ pháp tinh tế thường bị người học nhầm lẫn và quan trọng trong IELTS Speaking Part 2/3 và Writing Task 2.
+summary: '"Wish" và "hope" đều diễn tả ước muốn nhưng dùng rất khác nhau: "hope" dùng
+  với điều CÓ THỂ xảy ra (followed by present/future tenses), còn "wish" dùng với
+  điều KHÔNG THỰC hoặc KHÓ XẢY RA (followed by past/perfect tenses). Đây là điểm ngữ
+  pháp tinh tế thường bị người học nhầm lẫn và quan trọng trong IELTS Speaking Part
+  2/3 và Writing Task 2.
 
   '
 level: intermediate
@@ -48,8 +52,31 @@ pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
 - band-6-to-7
+anchors:
+- id: wish-hope.overview
+  location: '## Tóm tắt'
+  type: overview
+- id: wish-hope.hope-structure
+  location: '## HOPE — Hy vọng điều có thể xảy ra'
+  type: structure
+- id: wish-hope.wish-structure
+  location: '## WISH — Ước điều không thực hoặc tiếc nuối'
+  type: structure
+- id: wish-hope.comparison
+  location: '## So sánh tổng quan HOPE vs WISH'
+  type: compare-with
+- id: wish-hope.wish-vs-would-like-want
+  location: '## Wish vs Would like vs Want'
+  type: concept
+- id: wish-hope.common-mistakes
+  location: '## Lỗi thường gặp'
+  type: pitfall
+- id: wish-hope.ielts-applications
+  location: '## Ứng dụng trong IELTS'
+  type: concept
 ---
 
+<!-- anchor: wish-hope.overview -->
 ## Tóm tắt
 
 | | Hope | Wish |
@@ -66,6 +93,7 @@ pathways:
 - **IELTS Writing Task 2:** diễn đạt quan điểm về tình huống lý tưởng
 - Phân biệt hope/wish = dấu hiệu của người dùng tiếng Anh thành thạo
 
+<!-- anchor: wish-hope.hope-structure -->
 ## HOPE — Hy vọng điều có thể xảy ra
 
 ### Cấu trúc
@@ -95,6 +123,7 @@ hope + to-infinitive (cùng chủ ngữ)
 - "Do you think she'll pass?" — "I **hope so**." (Tôi hy vọng vậy)
 - "Is it going to rain?" — "I **hope not**." (Tôi hy vọng không)
 
+<!-- anchor: wish-hope.wish-structure -->
 ## WISH — Ước điều không thực hoặc tiếc nuối
 
 ### Cấu trúc và cách dùng
@@ -154,6 +183,7 @@ Dùng khi muốn ai đó (khác chủ ngữ) thay đổi hành vi — thường 
 - **If only** she **had listened** to me! (Giá mà cô ấy nghe tôi!)
 - **If only** it **would stop** raining!
 
+<!-- anchor: wish-hope.comparison -->
 ## So sánh tổng quan HOPE vs WISH
 
 | Tình huống | Dùng gì | Ví dụ |
@@ -171,6 +201,7 @@ Dùng khi muốn ai đó (khác chủ ngữ) thay đổi hành vi — thường 
 - "I **hope** the government acts." (Kỳ vọng thực tế)
 - "I **wish** the government **would act**." (Thất vọng vì họ chưa hành động)
 
+<!-- anchor: wish-hope.wish-vs-would-like-want -->
 ## Wish vs Would like vs Want
 
 | | Ý nghĩa | Cấu trúc |
@@ -183,6 +214,7 @@ Dùng khi muốn ai đó (khác chủ ngữ) thay đổi hành vi — thường 
 - I **would like** to go home. (muốn về, lịch sự)
 - I **wish** I could go home. (ước mình có thể về — nhưng không thể)
 
+<!-- anchor: wish-hope.common-mistakes -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: Dùng hope thay wish cho điều không thực
@@ -211,6 +243,7 @@ Dùng khi muốn ai đó (khác chủ ngữ) thay đổi hành vi — thường 
 - ❌ I hope I were born in another country.
 - ✅ I **wish** I had been born in another country. (không thể thay đổi)
 
+<!-- anchor: wish-hope.ielts-applications -->
 ## Ứng dụng trong IELTS
 
 ### Speaking Part 2 — Kể về điều ước:

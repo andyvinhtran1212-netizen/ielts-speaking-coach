@@ -35,12 +35,27 @@ next_articles:
 - present-continuous
 pathways:
 - grammar-for-beginners
+anchors:
+  - id: sentence-elements.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: sentence-elements.tai-sao-quan-trong
+    location: '## Tại sao quan trọng'
+    type: section
+  - id: sentence-elements.loi-thuong-gap
+    location: '## Lỗi thường gặp'
+    type: pitfall
+  - id: sentence-elements.bai-tap-luyen
+    location: '## Bài tập luyện'
+    type: section
 ---
 
+<!-- anchor: sentence-elements.tom-tat -->
 ## Tóm tắt
 
 Mọi câu tiếng Anh đều được tạo thành từ các **thành phần câu** (sentence elements): Subject (chủ ngữ), Verb (động từ), Object (tân ngữ), Complement (bổ ngữ), và Adverbial (trạng ngữ). Biết vai trò của từng thành phần giúp bạn không bao giờ xây câu sai cơ bản.
 
+<!-- anchor: sentence-elements.tai-sao-quan-trong -->
 ## Tại sao quan trọng
 
 Trong IELTS Speaking, người học Việt Nam thường mắc các lỗi cấu trúc câu như:
@@ -213,6 +228,7 @@ Khi gặp câu dài và phức tạp, hãy tìm theo thứ tự:
 - Liên từ: although
 - Mệnh đề 2: S=the cost of living, V=can be, C=quite high
 
+<!-- anchor: sentence-elements.loi-thuong-gap -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: Thiếu chủ ngữ (ảnh hưởng từ tiếng Việt)
@@ -281,6 +297,7 @@ Khi gặp câu dài và phức tạp, hãy tìm theo thứ tự:
   - ❌ Simple: "Education is important. Many people need education. Education helps people."
   - ✅ Complex: "Education **plays a crucial role** in personal development, **as it equips** individuals **with** the skills and knowledge **needed to succeed in** a competitive society."
 
+<!-- anchor: sentence-elements.bai-tap-luyen -->
 ## Bài tập luyện
 
 ### Xác định thành phần câu

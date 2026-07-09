@@ -41,12 +41,27 @@ next_articles:
 - past-simple
 pathways:
 - grammar-for-beginners
+anchors:
+  - id: verbs.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: verbs.tai-sao-quan-trong
+    location: '## Tại sao quan trọng'
+    type: section
+  - id: verbs.loi-thuong-gap
+    location: '## Lỗi thường gặp'
+    type: pitfall
+  - id: verbs.bai-tap-luyen
+    location: '## Bài tập luyện'
+    type: section
 ---
 
+<!-- anchor: verbs.tom-tat -->
 ## Tóm tắt
 
 Động từ (Verb) diễn tả **hành động**, **trạng thái**, hoặc **sự xảy ra** của một sự việc. Đây là thành phần bắt buộc trong mọi câu tiếng Anh — thiếu động từ là thiếu câu.
 
+<!-- anchor: verbs.tai-sao-quan-trong -->
 ## Tại sao quan trọng
 
 Động từ kiểm soát thì (tense), thể (aspect), và chia theo chủ ngữ (subject-verb agreement). Sai động từ thường gây ra nhiều lỗi ngữ pháp nhất trong IELTS: sai thì, sai ngôi, nhầm active/passive, dùng stative verb sai.
@@ -191,6 +206,7 @@ Kiểm tra: nếu sau động từ là **tính từ** mô tả chủ ngữ → l
 
 > Quy tắc thêm -s/-es: Chỉ với ngôi thứ 3 số ít (he/she/it/danh từ số ít) trong Present Simple.
 
+<!-- anchor: verbs.loi-thuong-gap -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: Quên thêm -s/-es (ngôi 3 số ít)
@@ -236,6 +252,7 @@ Kiểm tra: nếu sau động từ là **tính từ** mô tả chủ ngữ → l
 - Passive voice trong Task 1: *The graph shows that unemployment **was reduced** significantly.*
 - Avoid repeating the same verb — use synonyms: *show → indicate → demonstrate → reveal*
 
+<!-- anchor: verbs.bai-tap-luyen -->
 ## Bài tập luyện
 
 ### Chia dạng đúng

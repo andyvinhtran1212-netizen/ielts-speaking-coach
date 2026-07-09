@@ -43,8 +43,22 @@ next_articles:
 - word-order
 pathways:
 - grammar-for-beginners
+anchors:
+  - id: there-is-vs-it-is.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: there-is-vs-it-is.tai-sao-quan-trong
+    location: '## Tại sao quan trọng'
+    type: section
+  - id: there-is-vs-it-is.loi-thuong-gap
+    location: '## Lỗi thường gặp'
+    type: pitfall
+  - id: there-is-vs-it-is.bai-tap-luyen
+    location: '## Bài tập luyện'
+    type: section
 ---
 
+<!-- anchor: there-is-vs-it-is.tom-tat -->
 ## Tóm tắt
 
 | | **THERE IS / ARE** | **IT IS** |
@@ -56,6 +70,7 @@ pathways:
 
 ---
 
+<!-- anchor: there-is-vs-it-is.tai-sao-quan-trong -->
 ## Tại sao quan trọng
 
 Đây là hai cấu trúc căn bản nhưng rất hay bị nhầm, đặc biệt trong Writing Task 2 và Speaking Part 3:
@@ -182,6 +197,7 @@ Nhiều học sinh nhầm "there are" với "they are":
 
 ---
 
+<!-- anchor: there-is-vs-it-is.loi-thuong-gap -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: Dùng "it is" khi giới thiệu sự tồn tại
@@ -249,6 +265,7 @@ Khi "there" chỉ nơi chốn, nó là trạng từ, không phải chủ ngữ h
 
 ---
 
+<!-- anchor: there-is-vs-it-is.bai-tap-luyen -->
 ## Bài tập luyện
 
 ### Điền THERE IS / THERE ARE / IT IS / IT ARE (chỉ chọn đúng 3 cái)

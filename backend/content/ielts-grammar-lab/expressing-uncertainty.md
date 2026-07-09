@@ -44,8 +44,31 @@ next_articles:
 pathways:
 - grammar-for-ielts-speaking
 - band-6-to-7
+anchors:
+  - id: expressing-uncertainty.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: expressing-uncertainty.nhom-1-modal-verbs-might-may-could
+    location: '## NHÓM 1: MODAL VERBS — might, may, could'
+    type: section
+  - id: expressing-uncertainty.nhom-2-trang-tu-chi-do-chac-chan
+    location: '## NHÓM 2: TRẠNG TỪ CHỈ ĐỘ CHẮC CHẮN'
+    type: section
+  - id: expressing-uncertainty.nhom-3-dong-tu-nhan-thuc-seem-appear-tend-to
+    location: '## NHÓM 3: ĐỘNG TỪ NHẬN THỨC — seem, appear, tend to'
+    type: section
+  - id: expressing-uncertainty.nhom-4-cum-rao-don-thua-nhan-gioi-han-hieu-biet
+    location: '## NHÓM 4: CỤM RÀO ĐÓN — thừa nhận giới hạn hiểu biết'
+    type: section
+  - id: expressing-uncertainty.loi-thuong-gap
+    location: '## Lỗi thường gặp'
+    type: pitfall
+  - id: expressing-uncertainty.tom-tat-nhanh
+    location: '## Tóm tắt nhanh'
+    type: overview
 ---
 
+<!-- anchor: expressing-uncertainty.tom-tat -->
 ## Tóm tắt
 
 Khả năng diễn đạt **mức độ chắc chắn** là dấu hiệu của người dùng tiếng Anh trưởng thành. Thay vì "X is true", người Band 7+ nói "X **might** be true" / "X **tends to** be true" / "It **seems** that X". Các công cụ chính:
@@ -68,6 +91,7 @@ Trong **Speaking Part 3**, examiner hỏi câu trừu tượng ("Will robots rep
 
 ---
 
+<!-- anchor: expressing-uncertainty.nhom-1-modal-verbs-might-may-could -->
 ## NHÓM 1: MODAL VERBS — might, may, could
 
 ```
@@ -88,6 +112,7 @@ S + might/may/could + V (bare)
 
 ---
 
+<!-- anchor: expressing-uncertainty.nhom-2-trang-tu-chi-do-chac-chan -->
 ## NHÓM 2: TRẠNG TỪ CHỈ ĐỘ CHẮC CHẮN
 
 Đặt ở đầu câu hoặc trước động từ chính:
@@ -106,6 +131,7 @@ S + might/may/could + V (bare)
 
 ---
 
+<!-- anchor: expressing-uncertainty.nhom-3-dong-tu-nhan-thuc-seem-appear-tend-to -->
 ## NHÓM 3: ĐỘNG TỪ NHẬN THỨC — seem, appear, tend to
 
 ```
@@ -122,6 +148,7 @@ S + tend(s) to + V
 
 ---
 
+<!-- anchor: expressing-uncertainty.nhom-4-cum-rao-don-thua-nhan-gioi-han-hieu-biet -->
 ## NHÓM 4: CỤM RÀO ĐÓN — thừa nhận giới hạn hiểu biết
 
 - **As far as I know,** the policy hasn't changed.
@@ -173,6 +200,7 @@ S + tend(s) to + V
 
 ---
 
+<!-- anchor: expressing-uncertainty.loi-thuong-gap -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: Khái quát tuyệt đối
@@ -226,6 +254,7 @@ S + tend(s) to + V
 
 ---
 
+<!-- anchor: expressing-uncertainty.tom-tat-nhanh -->
 ## Tóm tắt nhanh
 
 | Mục đích | Pattern | Ví dụ |

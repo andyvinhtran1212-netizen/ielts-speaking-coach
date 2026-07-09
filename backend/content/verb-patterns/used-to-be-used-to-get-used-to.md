@@ -2,7 +2,11 @@
 title: Used to / Be used to / Get used to — Ba cấu trúc khác nhau hoàn toàn
 slug: used-to-be-used-to-get-used-to
 category: verb-patterns
-summary: 'Ba cấu trúc chứa "used to" có hình thức giống nhau nhưng ý nghĩa và ngữ pháp hoàn toàn khác biệt. "Used to + V" nói về thói quen hoặc trạng thái trong quá khứ (nay không còn). "Be used to + V-ing/noun" nghĩa là quen với điều gì (trạng thái hiện tại). "Get used to + V-ing/noun" nghĩa là dần quen với điều gì (quá trình thay đổi). Nhầm ba cấu trúc này là lỗi ngữ pháp nghiêm trọng thường gặp trong IELTS.
+summary: 'Ba cấu trúc chứa "used to" có hình thức giống nhau nhưng ý nghĩa và ngữ
+  pháp hoàn toàn khác biệt. "Used to + V" nói về thói quen hoặc trạng thái trong quá
+  khứ (nay không còn). "Be used to + V-ing/noun" nghĩa là quen với điều gì (trạng
+  thái hiện tại). "Get used to + V-ing/noun" nghĩa là dần quen với điều gì (quá trình
+  thay đổi). Nhầm ba cấu trúc này là lỗi ngữ pháp nghiêm trọng thường gặp trong IELTS.
 
   '
 level: intermediate
@@ -48,8 +52,31 @@ pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
 - band-6-to-7
+anchors:
+- id: used-to-be-used-to-get-used-to.overview
+  location: '## Tóm tắt'
+  type: overview
+- id: used-to-be-used-to-get-used-to.used-to-structure
+  location: '## CẤU TRÚC 1: USED TO + V-bare'
+  type: structure
+- id: used-to-be-used-to-get-used-to.be-used-to-structure
+  location: '## CẤU TRÚC 2: BE USED TO + V-ing / Noun'
+  type: structure
+- id: used-to-be-used-to-get-used-to.get-used-to-structure
+  location: '## CẤU TRÚC 3: GET USED TO + V-ing / Noun'
+  type: structure
+- id: used-to-be-used-to-get-used-to.comparison
+  location: '## Bảng so sánh ba cấu trúc'
+  type: structure
+- id: used-to-be-used-to-get-used-to.common-mistakes
+  location: '## Lỗi thường gặp'
+  type: pitfall
+- id: used-to-be-used-to-get-used-to.ielts-applications
+  location: '## Ứng dụng trong IELTS'
+  type: concept
 ---
 
+<!-- anchor: used-to-be-used-to-get-used-to.overview -->
 ## Tóm tắt
 
 | | **USED TO + V** | **BE USED TO + V-ing/noun** | **GET USED TO + V-ing/noun** |
@@ -73,6 +100,7 @@ Hiểu rõ từng cấu trúc = tránh được lỗi ngữ pháp cơ bản và 
 
 ---
 
+<!-- anchor: used-to-be-used-to-get-used-to.used-to-structure -->
 ## CẤU TRÚC 1: USED TO + V-bare
 
 ### Ý nghĩa: Thói quen hoặc trạng thái trong quá khứ — **không còn ở hiện tại**
@@ -111,6 +139,7 @@ Did + subject + use to + V-bare?
 
 ---
 
+<!-- anchor: used-to-be-used-to-get-used-to.be-used-to-structure -->
 ## CẤU TRÚC 2: BE USED TO + V-ing / Noun
 
 ### Ý nghĩa: **Quen với** điều gì đó — trạng thái đã ổn định
@@ -145,6 +174,7 @@ Subject + am/is/are/was/were + used to + V-ing / Noun
 
 ---
 
+<!-- anchor: used-to-be-used-to-get-used-to.get-used-to-structure -->
 ## CẤU TRÚC 3: GET USED TO + V-ing / Noun
 
 ### Ý nghĩa: **Dần quen với** điều gì đó — quá trình thích nghi
@@ -171,6 +201,7 @@ Subject + get/gets/got + used to + V-ing / Noun
 
 ---
 
+<!-- anchor: used-to-be-used-to-get-used-to.comparison -->
 ## Bảng so sánh ba cấu trúc
 
 | | USED TO + V | BE USED TO + V-ing | GET USED TO + V-ing |
@@ -182,6 +213,7 @@ Subject + get/gets/got + used to + V-ing / Noun
 
 ---
 
+<!-- anchor: used-to-be-used-to-get-used-to.common-mistakes -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: "Be used to" + V-bare (không dùng gerund)
@@ -218,6 +250,7 @@ Subject + get/gets/got + used to + V-ing / Noun
 
 ---
 
+<!-- anchor: used-to-be-used-to-get-used-to.ielts-applications -->
 ## Ứng dụng trong IELTS
 
 ### Speaking Part 1 — nói về thói quen:

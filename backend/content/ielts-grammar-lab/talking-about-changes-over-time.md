@@ -51,8 +51,31 @@ next_articles:
 pathways:
 - grammar-for-ielts-speaking
 - band-6-to-7
+anchors:
+  - id: talking-about-changes-over-time.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: talking-about-changes-over-time.phan-1-used-to-qua-khu-khong-con-ton-tai
+    location: '## PHẦN 1: USED TO — Quá khứ không còn tồn tại'
+    type: section
+  - id: talking-about-changes-over-time.phan-2-has-have-become-su-thay-doi-den-thoi-diem-hien-tai
+    location: '## PHẦN 2: HAS / HAVE BECOME — Sự thay đổi đến thời điểm hiện tại'
+    type: section
+  - id: talking-about-changes-over-time.phan-3-has-changed-significantly-thay-doi-tong-the
+    location: '## PHẦN 3: HAS CHANGED SIGNIFICANTLY — Thay đổi tổng thể'
+    type: section
+  - id: talking-about-changes-over-time.phan-4-over-the-last-past-period-khung-thoi-gian-ro-rang
+    location: '## PHẦN 4: OVER THE LAST / PAST [PERIOD] — Khung thời gian rõ ràng'
+    type: section
+  - id: talking-about-changes-over-time.loi-thuong-gap
+    location: '## Lỗi thường gặp'
+    type: pitfall
+  - id: talking-about-changes-over-time.tom-tat-nhanh
+    location: '## Tóm tắt nhanh'
+    type: overview
 ---
 
+<!-- anchor: talking-about-changes-over-time.tom-tat -->
 ## Tóm tắt
 
 | Cấu trúc | Diễn đạt | Kỹ năng |
@@ -78,6 +101,7 @@ Trong Writing Task 1, line chart và map đòi hỏi mô tả sự thay đổi t
 
 ---
 
+<!-- anchor: talking-about-changes-over-time.phan-1-used-to-qua-khu-khong-con-ton-tai -->
 ## PHẦN 1: USED TO — Quá khứ không còn tồn tại
 
 ```
@@ -111,6 +135,7 @@ Where [subject] once [past], [subject] now [present].
 
 ---
 
+<!-- anchor: talking-about-changes-over-time.phan-2-has-have-become-su-thay-doi-den-thoi-diem-hien-tai -->
 ## PHẦN 2: HAS / HAVE BECOME — Sự thay đổi đến thời điểm hiện tại
 
 Present perfect với "become" mô tả sự chuyển đổi từ trạng thái cũ sang trạng thái hiện tại.
@@ -135,6 +160,7 @@ Present perfect với "become" mô tả sự chuyển đổi từ trạng thái 
 
 ---
 
+<!-- anchor: talking-about-changes-over-time.phan-3-has-changed-significantly-thay-doi-tong-the -->
 ## PHẦN 3: HAS CHANGED SIGNIFICANTLY — Thay đổi tổng thể
 
 ```
@@ -157,6 +183,7 @@ The way [people do X] has changed enormously.
 
 ---
 
+<!-- anchor: talking-about-changes-over-time.phan-4-over-the-last-past-period-khung-thoi-gian-ro-rang -->
 ## PHẦN 4: OVER THE LAST / PAST [PERIOD] — Khung thời gian rõ ràng
 
 ```
@@ -220,6 +247,7 @@ Over the course of [period], [subject] has [change].
 
 ---
 
+<!-- anchor: talking-about-changes-over-time.loi-thuong-gap -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: Nhầm "used to" với "was used to" (quen với)
@@ -269,6 +297,7 @@ Trong Speaking Part 3 và Writing Task 2, mô tả thay đổi cần kèm lý do
 
 ---
 
+<!-- anchor: talking-about-changes-over-time.tom-tat-nhanh -->
 ## Tóm tắt nhanh
 
 ```

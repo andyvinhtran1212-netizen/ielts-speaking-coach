@@ -27,19 +27,20 @@ def test_loader_exposes_anchors_for_articles_with_them():
         assert "id" in entry and entry["id"], f"anchor entry missing id: {entry}"
 
 
-def test_loader_returns_empty_anchors_for_articles_without():
-    """SUPPORTING articles without frontmatter `anchors:` get an empty
-    list, not a missing key — guards downstream `.get('anchors', [])`
-    callsites."""
-    # Pick a SUPPORTING article that did not get Sprint 1 anchors.
-    candidate = None
-    for slug, a in grammar_service.articles_by_slug.items():
-        if not a.get("anchors"):
-            candidate = a
-            break
-    assert candidate is not None, "Expected at least one article without anchors"
-    anchors = candidate.get("anchors")
-    assert anchors == [], f"Expected empty list, got {anchors!r}"
+def test_loader_returns_empty_anchors_for_articles_without(tmp_path):
+    """An article whose frontmatter has NO `anchors:` key must load with
+    `anchors == []` (not a missing key), guarding downstream
+    `.get('anchors', [])` callsites. Content-independent: exercises the loader
+    default (`fm.get("anchors") or []`) directly, since the anchor backfill left
+    no live grammar article un-anchored to sample."""
+    p = tmp_path / "no-anchors.md"
+    p.write_text(
+        "---\ntitle: Sample\nslug: sample-no-anchors\ncategory: tenses\n---\nBody text.\n",
+        encoding="utf-8",
+    )
+    parsed = grammar_service._parse_file(p)
+    assert parsed is not None
+    assert parsed["anchors"] == []
 
 
 def test_loader_anchors_field_present_on_every_article():
