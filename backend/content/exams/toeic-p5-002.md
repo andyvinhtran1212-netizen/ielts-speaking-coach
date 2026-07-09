@@ -24,6 +24,13 @@ questions:
           instruction_vi: "'for over a decade' chỉ khoảng thời gian kéo dài TỚI HIỆN TẠI (vẫn đang làm) → hiện tại hoàn thành."
           kp_refs:
             - {type: grammar, slug: present-perfect, anchor: present-perfect.usage.unfinished-time}
+          microcheck:
+            prompt: "'for over a decade' cho biết Ms. Tanaka còn làm ở công ty hay không?"
+            options:
+              - "còn (kéo dài tới hiện tại)"
+              - "đã nghỉ việc"
+              - "chưa từng làm ở đó"
+            answer: "A"
         - action: confirm
           instruction_vi: "have/has + V3 → 'has worked'. Đáp án B."
       distractor_analysis:
@@ -47,6 +54,13 @@ questions:
           instruction_vi: "'last Tuesday's meeting' là mốc thời gian quá khứ xác định → quá khứ đơn."
           kp_refs:
             - {type: grammar, slug: past-simple, anchor: past-simple.usage.completed-past}
+          microcheck:
+            prompt: "'last Tuesday's meeting' là loại mốc thời gian nào?"
+            options:
+              - "quá khứ xác định"
+              - "khoảng thời gian kéo dài tới hiện tại"
+              - "tương lai"
+            answer: "A"
         - action: confirm
           instruction_vi: "Hành động hoàn tất trong quá khứ → 'approved'. Đáp án C."
       distractor_analysis:
@@ -70,6 +84,13 @@ questions:
           instruction_vi: "'Among the four branches' + 'the' → so sánh NHẤT trong một nhóm."
           kp_refs:
             - {type: grammar, slug: comparison, anchor: comparison.superlative.the-est}
+          microcheck:
+            prompt: "'Among the four branches' + 'the' báo hiệu loại so sánh nào?"
+            options:
+              - "so sánh nhất"
+              - "so sánh hơn"
+              - "so sánh bằng"
+            answer: "A"
         - action: confirm
           instruction_vi: "Tính từ ngắn 'high' → 'the highest'. Đáp án C."
       distractor_analysis:
@@ -93,6 +114,13 @@ questions:
           instruction_vi: "Chỗ trống thay cho 'the proposal' (vật) và làm TÂN NGỮ của 'submitted' → đại từ quan hệ chỉ vật."
           kp_refs:
             - {type: grammar, slug: relative-clauses, anchor: relative-clauses.who-which-that}
+          microcheck:
+            prompt: "Chỗ trống thay cho 'the proposal' (vật) và làm chức năng gì?"
+            options:
+              - "tân ngữ của 'submitted'"
+              - "chủ ngữ của 'submitted'"
+              - "chỉ nơi chốn"
+            answer: "A"
         - action: confirm
           instruction_vi: "Vật + mệnh đề xác định → 'that' (hoặc which). Đáp án A."
       distractor_analysis:
@@ -116,6 +144,13 @@ questions:
           instruction_vi: "'The findings' không tự công bố — chúng ĐƯỢC công bố → bị động; 'next year' → tương lai."
           kp_refs:
             - {type: grammar, slug: passive-voice, anchor: passive-voice.usage.formal-academic}
+          microcheck:
+            prompt: "'The research findings' tự công bố hay được công bố?"
+            options:
+              - "được công bố (bị động)"
+              - "tự công bố (chủ động)"
+              - "đang tự công bố"
+            answer: "A"
         - action: confirm
           instruction_vi: "will + be + V3 → 'will be published'. Đáp án B."
       distractor_analysis:
@@ -139,6 +174,13 @@ questions:
           instruction_vi: "Mệnh đề chính dùng 'would hire' → câu điều kiện loại 2 (giả định trái thực tại)."
           kp_refs:
             - {type: grammar, slug: conditionals, anchor: conditionals.type2.second-conditional}
+          microcheck:
+            prompt: "Mệnh đề chính 'we would hire' cho biết đây là câu điều kiện loại mấy?"
+            options:
+              - "loại 2 (giả định trái thực tại)"
+              - "loại 1 (có thật, ở tương lai)"
+              - "loại 3 (quá khứ không thật)"
+            answer: "A"
         - action: confirm
           instruction_vi: "Điều kiện loại 2 dùng 'were' cho mọi ngôi → 'were'. Đáp án C."
       distractor_analysis:
