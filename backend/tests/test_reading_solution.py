@@ -60,7 +60,50 @@ def test_kp_ref_shape_and_anchor_rules():
         {"kp_tags": [{"type": "grammar", "slug": "a", "anchor": "a.b"}]}, "Q") == []
 
 
+def test_microcheck_valid_and_invalid_shapes():
+    ok = {"solution_steps": [{
+        "action": "parse_syntax", "instruction_vi": "x",
+        "kp_refs": [{"type": "grammar", "slug": "reduced-relative-clauses",
+                     "anchor": "reduced-relative-clauses.passive-v3"}],
+        "microcheck": {"prompt": "Rút gọn từ mệnh đề nào?",
+                       "options": ["which was dismissed", "which dismisses"],
+                       "answer": "A"},
+    }]}
+    assert rs.validate_solution_structure(ok, "Q") == []
+
+    def _mc(mc, with_ref=True):
+        step = {"action": "parse_syntax", "instruction_vi": "x", "microcheck": mc}
+        if with_ref:
+            step["kp_refs"] = [{"type": "grammar", "slug": "a"}]
+        return rs.validate_solution_structure({"solution_steps": [step]}, "Q")
+
+    assert any("prompt" in e for e in _mc({"options": ["a", "b"], "answer": "A"}))
+    assert any("options" in e for e in _mc({"prompt": "p", "options": ["only"], "answer": "A"}))
+    assert any("answer" in e for e in _mc({"prompt": "p", "options": ["a", "b"], "answer": "3"}))
+    assert any("vượt" in e for e in _mc({"prompt": "p", "options": ["a", "b"], "answer": "C"}))
+    # microcheck present but the step carries no kp_ref → recorded evidence goes nowhere.
+    assert any("kp_ref" in e for e in
+               _mc({"prompt": "p", "options": ["a", "b"], "answer": "A"}, with_ref=False))
+    # non-dict microcheck rejected.
+    assert rs.validate_solution_structure(
+        {"solution_steps": [{"action": "confirm", "instruction_vi": "x",
+                             "kp_refs": [{"type": "grammar", "slug": "a"}],
+                             "microcheck": "nope"}]}, "Q") != []
+
+
 # ── reconcile / build_stepper ────────────────────────────────────────────────
+
+def test_build_stepper_passes_microcheck_through():
+    sol = {"solution_steps": [{
+        "action": "parse_syntax", "instruction_vi": "x",
+        "kp_refs": [{"type": "grammar", "slug": "a"}],
+        "microcheck": {"prompt": "p", "options": ["a", "b"], "answer": "A"},
+    }]}
+    view = rs.build_stepper(sol)
+    assert view["steps"][0]["microcheck"] == {"prompt": "p", "options": ["a", "b"], "answer": "A"}
+    # A step with no micro-check yields microcheck=None (frontend skips it).
+    assert rs.build_stepper(_STRUCTURED)["steps"][0]["microcheck"] is None
+
 
 def test_build_stepper_uses_structured_steps_and_derives_kp_tags():
     view = rs.build_stepper(_STRUCTURED)

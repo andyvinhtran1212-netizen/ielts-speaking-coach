@@ -22,7 +22,7 @@
   }
   function showError(msg) { var e = $('error-msg'); if (e) e.textContent = msg; showState('error'); }
 
-  var SOURCE_LABEL = { toeic_rc: 'TOEIC · Reading', toeic_lc: 'TOEIC · Listening', thpt_qg: 'THPT Quốc gia' };
+  var SOURCE_LABEL = { toeic_rc: 'TOEIC · Reading', toeic_lc: 'TOEIC · Listening', thpt_qg: 'THPT Quốc gia', grammar_reading: 'Ngữ pháp Đọc hiểu' };
   var current = { testId: null, questions: [] };
 
   async function init() {
