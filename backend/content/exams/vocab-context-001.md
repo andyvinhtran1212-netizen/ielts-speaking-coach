@@ -11,11 +11,11 @@ questions:
     question_type: mcq_single
     prompt: "Governments introduced subsidies to ____ the economic damage caused by the pandemic."
     options:
-      - {label: A, text: "mitigate"}
-      - {label: B, text: "aggravate"}
+      - {label: A, text: "aggravate"}
+      - {label: B, text: "mitigate"}
       - {label: C, text: "postpone"}
       - {label: D, text: "publicize"}
-    answer: "A"
+    answer: "B"
     kp_focus: vocab
     solution:
       solution_steps:
@@ -27,25 +27,25 @@ questions:
           microcheck:
             prompt: "'mitigate' nghĩa gần nhất với từ nào?"
             options:
-              - "làm giảm nhẹ"
               - "làm trầm trọng thêm"
+              - "làm giảm nhẹ"
               - "đo lường"
-            answer: "A"
+            answer: "B"
         - action: confirm
-          instruction_vi: "Trợ cấp nhằm LÀM GIẢM thiệt hại → 'mitigate'. Đáp án A."
+          instruction_vi: "Trợ cấp nhằm LÀM GIẢM thiệt hại → 'mitigate'. Đáp án B."
       distractor_analysis:
-        - option: B
+        - option: A
           why_wrong_vi: "'aggravate' = làm trầm trọng thêm — ngược nghĩa; trợ cấp không nhằm làm tệ hơn."
 
   - q_num: 2
     question_type: mcq_single
     prompt: "Overfishing has severely ____ fish stocks in many coastal regions."
     options:
-      - {label: A, text: "depleted"}
+      - {label: A, text: "preserved"}
       - {label: B, text: "replenished"}
-      - {label: C, text: "preserved"}
+      - {label: C, text: "depleted"}
       - {label: D, text: "counted"}
-    answer: "A"
+    answer: "C"
     kp_focus: vocab
     solution:
       solution_steps:
@@ -57,12 +57,12 @@ questions:
           microcheck:
             prompt: "'deplete' nghĩa là gì?"
             options:
-              - "làm cạn kiệt"
-              - "bổ sung đầy lại"
               - "bảo tồn"
-            answer: "A"
+              - "bổ sung đầy lại"
+              - "làm cạn kiệt"
+            answer: "C"
         - action: confirm
-          instruction_vi: "Đánh bắt quá mức làm CẠN KIỆT trữ lượng cá → 'depleted'. Đáp án A."
+          instruction_vi: "Đánh bắt quá mức làm CẠN KIỆT trữ lượng cá → 'depleted'. Đáp án C."
       distractor_analysis:
         - option: B
           why_wrong_vi: "'replenish' = bổ sung/làm đầy lại — ngược nghĩa với hệ quả của overfishing."
@@ -101,11 +101,11 @@ questions:
     question_type: mcq_single
     prompt: "Rather than treating symptoms alone, the clinic takes a ____ approach that considers the whole person."
     options:
-      - {label: A, text: "holistic"}
+      - {label: A, text: "random"}
       - {label: B, text: "partial"}
       - {label: C, text: "temporary"}
-      - {label: D, text: "random"}
-    answer: "A"
+      - {label: D, text: "holistic"}
+    answer: "D"
     kp_focus: vocab
     solution:
       solution_steps:
@@ -117,12 +117,12 @@ questions:
           microcheck:
             prompt: "'holistic' nghĩa là gì?"
             options:
-              - "toàn diện, xét tổng thể"
               - "phiến diện, chỉ một phần"
+              - "toàn diện, xét tổng thể"
               - "tạm thời"
-            answer: "A"
+            answer: "B"
         - action: confirm
-          instruction_vi: "'the whole person' ↔ toàn diện → 'holistic'. Đáp án A."
+          instruction_vi: "'the whole person' ↔ toàn diện → 'holistic'. Đáp án D."
       distractor_analysis:
         - option: B
           why_wrong_vi: "'partial' = phiến diện/một phần — mâu thuẫn với 'the whole person'."
@@ -131,11 +131,11 @@ questions:
     question_type: mcq_single
     prompt: "Renewable energy has become a highly ____ industry, attracting billions in investment."
     options:
-      - {label: A, text: "lucrative"}
-      - {label: B, text: "charitable"}
+      - {label: A, text: "charitable"}
+      - {label: B, text: "lucrative"}
       - {label: C, text: "obsolete"}
       - {label: D, text: "modest"}
-    answer: "A"
+    answer: "B"
     kp_focus: vocab
     solution:
       solution_steps:
@@ -147,25 +147,25 @@ questions:
           microcheck:
             prompt: "'lucrative' nghĩa là gì?"
             options:
-              - "sinh lợi cao"
-              - "mang tính từ thiện"
               - "lỗi thời"
-            answer: "A"
+              - "mang tính từ thiện"
+              - "sinh lợi cao"
+            answer: "C"
         - action: confirm
-          instruction_vi: "Thu hút hàng tỉ đô đầu tư → ngành 'lucrative'. Đáp án A."
+          instruction_vi: "Thu hút hàng tỉ đô đầu tư → ngành 'lucrative'. Đáp án B."
       distractor_analysis:
-        - option: B
+        - option: A
           why_wrong_vi: "'charitable' = từ thiện — không phù hợp với việc thu hút đầu tư sinh lời."
 
   - q_num: 6
     question_type: mcq_single
     prompt: "The laboratory is equipped with ____ technology found in only a handful of institutions worldwide."
     options:
-      - {label: A, text: "cutting-edge"}
+      - {label: A, text: "second-hand"}
       - {label: B, text: "outdated"}
-      - {label: C, text: "second-hand"}
+      - {label: C, text: "cutting-edge"}
       - {label: D, text: "affordable"}
-    answer: "A"
+    answer: "C"
     kp_focus: vocab
     solution:
       solution_steps:
@@ -182,7 +182,7 @@ questions:
               - "rẻ tiền"
             answer: "A"
         - action: confirm
-          instruction_vi: "Công nghệ hiện đại nhất, hiếm nơi có → 'cutting-edge'. Đáp án A."
+          instruction_vi: "Công nghệ hiện đại nhất, hiếm nơi có → 'cutting-edge'. Đáp án C."
       distractor_analysis:
         - option: B
           why_wrong_vi: "'outdated' = lỗi thời — trái nghĩa; công nghệ chỉ vài nơi có phải là mới nhất."
@@ -207,10 +207,10 @@ questions:
           microcheck:
             prompt: "'demographic' liên quan tới điều gì?"
             options:
-              - "cơ cấu dân số"
               - "địa lý"
+              - "cơ cấu dân số"
               - "khí hậu"
-            answer: "A"
+            answer: "B"
         - action: confirm
           instruction_vi: "Dân số già đi → thay đổi 'demographic'. Đáp án A."
       distractor_analysis:
@@ -221,11 +221,11 @@ questions:
     question_type: mcq_single
     prompt: "Policies that ____ minority groups can deepen social inequality over time."
     options:
-      - {label: A, text: "marginalize"}
+      - {label: A, text: "represent"}
       - {label: B, text: "celebrate"}
       - {label: C, text: "empower"}
-      - {label: D, text: "represent"}
-    answer: "A"
+      - {label: D, text: "marginalize"}
+    answer: "D"
     kp_focus: vocab
     solution:
       solution_steps:
@@ -237,15 +237,15 @@ questions:
           microcheck:
             prompt: "'marginalize' nghĩa là gì?"
             options:
-              - "đẩy ra bên lề, gạt ra ngoài"
-              - "tôn vinh"
               - "trao quyền"
-            answer: "A"
+              - "tôn vinh"
+              - "đẩy ra bên lề, gạt ra ngoài"
+            answer: "C"
         - action: confirm
-          instruction_vi: "Làm sâu sắc bất bình đẳng → 'marginalize' nhóm thiểu số. Đáp án A."
+          instruction_vi: "Làm sâu sắc bất bình đẳng → 'marginalize' nhóm thiểu số. Đáp án D."
       distractor_analysis:
         - option: C
           why_wrong_vi: "'empower' = trao quyền — ngược nghĩa; trao quyền sẽ GIẢM bất bình đẳng, không làm sâu sắc thêm."
 ---
 
-Bộ đề "Từ vựng theo ngữ cảnh" tự soạn — mỗi câu kiểm tra một từ học thuật (AWL) trong ngữ cảnh; phần chữa có micro-check ghi bằng chứng KP vocab (nối vào flashcard/roadmap). Từ vựng dùng đúng slug thẻ đã có trong hệ thống.
+Bộ đề "Từ vựng theo ngữ cảnh" tự soạn — mỗi câu kiểm tra một từ học thuật (AWL) trong ngữ cảnh; đáp án đúng rải đều A/B/C/D để không đoán được theo vị trí. Phần chữa có micro-check ghi bằng chứng KP vocab (nối vào flashcard/roadmap). Từ vựng dùng đúng slug thẻ đã có trong hệ thống.
