@@ -2,7 +2,10 @@
 title: Economic vs. Economical — Hai tính từ, hai nghĩa hoàn toàn khác
 slug: economic-vs-economical
 category: error-clinic
-summary: 'Economic và economical đều có gốc từ "economy" nhưng nghĩa hoàn toàn khác nhau. Economic = thuộc về kinh tế (liên quan đến nền kinh tế). Economical = tiết kiệm, không lãng phí. Nhầm hai từ này trong IELTS Writing là lỗi Lexical Resource rõ ràng và thường gặp.
+summary: 'Economic và economical đều có gốc từ "economy" nhưng nghĩa hoàn toàn khác
+  nhau. Economic = thuộc về kinh tế (liên quan đến nền kinh tế). Economical = tiết
+  kiệm, không lãng phí. Nhầm hai từ này trong IELTS Writing là lỗi Lexical Resource
+  rõ ràng và thường gặp.
 
   '
 level: intermediate
@@ -45,8 +48,31 @@ next_articles:
 pathways:
 - fix-common-mistakes
 - band-6-to-7
+anchors:
+  - id: economic-vs-economical.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: economic-vs-economical.phan-1-economic-thuoc-ve-kinh-te
+    location: '## PHẦN 1: ECONOMIC — Thuộc về kinh tế'
+    type: section
+  - id: economic-vs-economical.phan-2-economical-tiet-kiem-hieu-qua-chi-phi
+    location: '## PHẦN 2: ECONOMICAL — Tiết kiệm, hiệu quả chi phí'
+    type: section
+  - id: economic-vs-economical.phan-3-so-sanh-truc-tiep
+    location: '## PHẦN 3: SO SÁNH TRỰC TIẾP'
+    type: compare-with
+  - id: economic-vs-economical.phan-4-cac-tu-lien-quan
+    location: '## PHẦN 4: CÁC TỪ LIÊN QUAN'
+    type: section
+  - id: economic-vs-economical.loi-thuong-gap
+    location: '## Lỗi thường gặp'
+    type: pitfall
+  - id: economic-vs-economical.tom-tat-nhanh
+    location: '## Tóm tắt nhanh'
+    type: overview
 ---
 
+<!-- anchor: economic-vs-economical.tom-tat -->
 ## Tóm tắt
 
 | Từ | Nghĩa | Dùng với | Ví dụ |
@@ -64,6 +90,7 @@ Trong IELTS Writing Task 2, các chủ đề về kinh tế, phát triển, và 
 
 ---
 
+<!-- anchor: economic-vs-economical.phan-1-economic-thuoc-ve-kinh-te -->
 ## PHẦN 1: ECONOMIC — Thuộc về kinh tế
 
 ```
@@ -103,6 +130,7 @@ economic + noun
 
 ---
 
+<!-- anchor: economic-vs-economical.phan-2-economical-tiet-kiem-hieu-qua-chi-phi -->
 ## PHẦN 2: ECONOMICAL — Tiết kiệm, hiệu quả chi phí
 
 ```
@@ -139,6 +167,7 @@ an economical + noun
 
 ---
 
+<!-- anchor: economic-vs-economical.phan-3-so-sanh-truc-tiep -->
 ## PHẦN 3: SO SÁNH TRỰC TIẾP
 
 | Câu | Nghĩa |
@@ -154,6 +183,7 @@ an economical + noun
 
 ---
 
+<!-- anchor: economic-vs-economical.phan-4-cac-tu-lien-quan -->
 ## PHẦN 4: CÁC TỪ LIÊN QUAN
 
 ### Economy (danh từ):
@@ -172,6 +202,7 @@ an economical + noun
 
 ---
 
+<!-- anchor: economic-vs-economical.loi-thuong-gap -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: Dùng "economical" khi muốn nói về kinh tế
@@ -237,6 +268,7 @@ an economical + noun
 
 ---
 
+<!-- anchor: economic-vs-economical.tom-tat-nhanh -->
 ## Tóm tắt nhanh
 
 ```

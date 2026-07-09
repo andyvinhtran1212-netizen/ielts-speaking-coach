@@ -46,8 +46,28 @@ next_articles:
 - pronouns
 pathways:
 - grammar-for-beginners
+anchors:
+  - id: noun-phrase-basics.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: noun-phrase-basics.tai-sao-quan-trong
+    location: '## Tại sao quan trọng'
+    type: section
+  - id: noun-phrase-basics.phan-1-thanh-phan-cua-noun-phrase
+    location: '## PHẦN 1: THÀNH PHẦN CỦA NOUN PHRASE'
+    type: section
+  - id: noun-phrase-basics.phan-2-build-up-tu-don-gian-den-phuc-tap
+    location: '## PHẦN 2: BUILD-UP TỪ ĐƠN GIẢN ĐẾN PHỨC TẠP'
+    type: section
+  - id: noun-phrase-basics.loi-thuong-gap
+    location: '## Lỗi thường gặp'
+    type: pitfall
+  - id: noun-phrase-basics.bai-tap-luyen
+    location: '## Bài tập luyện'
+    type: section
 ---
 
+<!-- anchor: noun-phrase-basics.tom-tat -->
 ## Tóm tắt
 
 ```
@@ -62,12 +82,14 @@ the  →  two  →  most  →  important  →  economic  →  issues  →  in th
 
 ---
 
+<!-- anchor: noun-phrase-basics.tai-sao-quan-trong -->
 ## Tại sao quan trọng
 
 Người Việt thường dịch thẳng từ tiếng Việt sang tiếng Anh khi xây dựng cụm danh từ. Tiếng Việt đặt bổ ngữ **sau** danh từ ("vấn đề quan trọng nhất"), còn tiếng Anh đặt **trước** ("the most important issue"). Thiếu mạo từ, sai thứ tự tính từ, hoặc thiếu số nhiều làm câu văn nghe rất không tự nhiên — dù nội dung đúng.
 
 ---
 
+<!-- anchor: noun-phrase-basics.phan-1-thanh-phan-cua-noun-phrase -->
 ## PHẦN 1: THÀNH PHẦN CỦA NOUN PHRASE
 
 ### Vị trí trước danh từ (pre-modifiers):
@@ -136,6 +158,7 @@ Thêm ví dụ thực tế:
 
 ---
 
+<!-- anchor: noun-phrase-basics.phan-2-build-up-tu-don-gian-den-phuc-tap -->
 ## PHẦN 2: BUILD-UP TỪ ĐƠN GIẢN ĐẾN PHỨC TẠP
 
 ### Level 1 — Chỉ có danh từ:
@@ -271,6 +294,7 @@ all / most / some / many / a number / the majority + of + [determiner] + noun
 
 ---
 
+<!-- anchor: noun-phrase-basics.loi-thuong-gap -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: Sắp xếp tính từ sai thứ tự
@@ -347,6 +371,7 @@ Dùng noun phrase dài để mở rộng câu trả lời:
 
 ---
 
+<!-- anchor: noun-phrase-basics.bai-tap-luyen -->
 ## Bài tập luyện
 
 ### Sắp xếp thành noun phrase đúng thứ tự

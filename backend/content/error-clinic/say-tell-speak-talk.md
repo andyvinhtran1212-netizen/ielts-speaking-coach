@@ -2,7 +2,11 @@
 title: Say / Tell / Speak / Talk — Phân biệt bốn động từ "nói"
 slug: say-tell-speak-talk
 category: error-clinic
-summary: '"Say", "tell", "speak", và "talk" đều có nghĩa là "nói" nhưng dùng trong những ngữ cảnh rất khác nhau. Sự khác biệt chính nằm ở: có cần tân ngữ chỉ người nghe hay không, dùng câu trực tiếp hay gián tiếp, mức độ trang trọng và cấu trúc ngữ pháp đi kèm. Đây là lỗi collocation cực phổ biến trong cả Speaking và Writing IELTS.
+summary: '"Say", "tell", "speak", và "talk" đều có nghĩa là "nói" nhưng dùng trong
+  những ngữ cảnh rất khác nhau. Sự khác biệt chính nằm ở: có cần tân ngữ chỉ người
+  nghe hay không, dùng câu trực tiếp hay gián tiếp, mức độ trang trọng và cấu trúc
+  ngữ pháp đi kèm. Đây là lỗi collocation cực phổ biến trong cả Speaking và Writing
+  IELTS.
 
   '
 level: intermediate
@@ -43,8 +47,25 @@ next_articles:
 pathways:
 - fix-common-mistakes
 - band-6-to-7
+anchors:
+  - id: say-tell-speak-talk.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: say-tell-speak-talk.loi-thuong-gap
+    location: '## Lỗi thường gặp:'
+    type: pitfall
+  - id: say-tell-speak-talk.so-sanh-truc-tiep-cung-tinh-huong
+    location: '## So sánh trực tiếp — cùng tình huống'
+    type: compare-with
+  - id: say-tell-speak-talk.ung-dung-trong-ielts
+    location: '## Ứng dụng trong IELTS'
+    type: section
+  - id: say-tell-speak-talk.tom-tat-nhanh
+    location: '## Tóm tắt nhanh'
+    type: overview
 ---
 
+<!-- anchor: say-tell-speak-talk.tom-tat -->
 ## Tóm tắt
 
 Bốn động từ, bốn vị trí khác nhau trong câu:
@@ -117,7 +138,8 @@ tell + someone + something
 
 > **Quy tắc vàng:** "Tell" **luôn luôn** đi kèm tân ngữ chỉ người nghe. Nếu không có người nghe, không dùng tell.
 
-### Lỗi thường gặp:
+<!-- anchor: say-tell-speak-talk.loi-thuong-gap -->
+## Lỗi thường gặp:
 
 - ❌ She **told** that the exam was hard.
 - ✅ She **said** that the exam was hard.
@@ -208,6 +230,7 @@ talk about / on + topic
 
 ---
 
+<!-- anchor: say-tell-speak-talk.so-sanh-truc-tiep-cung-tinh-huong -->
 ## So sánh trực tiếp — cùng tình huống
 
 | Tình huống | Cách nói |
@@ -255,6 +278,7 @@ talk about / on + topic
 
 ---
 
+<!-- anchor: say-tell-speak-talk.ung-dung-trong-ielts -->
 ## Ứng dụng trong IELTS
 
 ### Speaking Part 1 (thân mật, dùng talk/say):
@@ -322,6 +346,7 @@ talk about / on + topic
 
 ---
 
+<!-- anchor: say-tell-speak-talk.tom-tat-nhanh -->
 ## Tóm tắt nhanh
 
 | Động từ | Cấu trúc chính | Đặc điểm |

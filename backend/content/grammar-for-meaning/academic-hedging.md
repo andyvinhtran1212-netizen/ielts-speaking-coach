@@ -47,8 +47,34 @@ pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
 - band-6-to-7
+anchors:
+  - id: academic-hedging.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: academic-hedging.phan-1-modal-verbs-hedging-qua-dong-tu-khuyet-thieu
+    location: '## PHẦN 1: MODAL VERBS — Hedging qua động từ khuyết thiếu'
+    type: section
+  - id: academic-hedging.phan-2-verbs-than-trong-tends-to-appears-to-seems-to
+    location: '## PHẦN 2: VERBS THẬN TRỌNG — Tends to, Appears to, Seems to'
+    type: section
+  - id: academic-hedging.phan-3-adverbs-hedging-qua-trang-tu
+    location: '## PHẦN 3: ADVERBS — Hedging qua trạng từ'
+    type: section
+  - id: academic-hedging.phan-4-cau-truc-impersonal-it-can-be-argued-it-is-widely-believed
+    location: '## PHẦN 4: CẤU TRÚC IMPERSONAL — It can be argued / It is widely believed'
+    type: structure
+  - id: academic-hedging.phan-5-gioi-han-pham-vi-qualifying-clauses
+    location: '## PHẦN 5: GIỚI HẠN PHẠM VI — Qualifying clauses'
+    type: section
+  - id: academic-hedging.phan-6-so-sanh-strong-vs-hedged
+    location: '## PHẦN 6: SO SÁNH STRONG vs. HEDGED'
+    type: compare-with
+  - id: academic-hedging.loi-thuong-gap
+    location: '## Lỗi thường gặp'
+    type: pitfall
 ---
 
+<!-- anchor: academic-hedging.tom-tat -->
 ## Tóm tắt
 
 Hedging là **kỹ thuật diễn đạt thận trọng** — không phải vì người viết thiếu tự tin, mà vì văn phong học thuật đòi hỏi sự chính xác và khiêm tốn tri thức (epistemic humility).
@@ -74,6 +100,7 @@ Câu hedged không yếu hơn — nó **chính xác hơn** và **khó bác bỏ 
 
 ---
 
+<!-- anchor: academic-hedging.phan-1-modal-verbs-hedging-qua-dong-tu-khuyet-thieu -->
 ## PHẦN 1: MODAL VERBS — Hedging qua động từ khuyết thiếu
 
 Modal verbs là công cụ hedging phổ biến và linh hoạt nhất.
@@ -114,6 +141,7 @@ Subject + would + V (thường trong câu điều kiện hoặc generalisation)
 
 ---
 
+<!-- anchor: academic-hedging.phan-2-verbs-than-trong-tends-to-appears-to-seems-to -->
 ## PHẦN 2: VERBS THẬN TRỌNG — Tends to, Appears to, Seems to
 
 Những động từ này diễn đạt xu hướng chung hoặc nhận xét có mức độ thận trọng.
@@ -154,6 +182,7 @@ Subject + appears to / seems to + V
 
 ---
 
+<!-- anchor: academic-hedging.phan-3-adverbs-hedging-qua-trang-tu -->
 ## PHẦN 3: ADVERBS — Hedging qua trạng từ
 
 Adverbs giới hạn phạm vi của nhận định mà không thay đổi cấu trúc câu.
@@ -187,6 +216,7 @@ Adverbs giới hạn phạm vi của nhận định mà không thay đổi cấu
 
 ---
 
+<!-- anchor: academic-hedging.phan-4-cau-truc-impersonal-it-can-be-argued-it-is-widely-believed -->
 ## PHẦN 4: CẤU TRÚC IMPERSONAL — It can be argued / It is widely believed
 
 Cấu trúc impersonal giúp diễn đạt ý kiến một cách khách quan, tránh dùng "I" quá nhiều.
@@ -225,6 +255,7 @@ It is worth noting/considering/emphasising that + [clause]
 
 ---
 
+<!-- anchor: academic-hedging.phan-5-gioi-han-pham-vi-qualifying-clauses -->
 ## PHẦN 5: GIỚI HẠN PHẠM VI — Qualifying clauses
 
 Giới hạn phạm vi là cách hedging bằng cách nói rõ điều kiện hoặc phạm vi áp dụng.
@@ -265,6 +296,7 @@ at least in part... / largely, though not entirely...
 
 ---
 
+<!-- anchor: academic-hedging.phan-6-so-sanh-strong-vs-hedged -->
 ## PHẦN 6: SO SÁNH STRONG vs. HEDGED
 
 | Strong Claim (overstatement) | Hedged Version (academic) |
@@ -300,6 +332,7 @@ at least in part... / largely, though not entirely...
 
 ---
 
+<!-- anchor: academic-hedging.loi-thuong-gap -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: Hedge quá nhiều — câu trở nên vô nghĩa

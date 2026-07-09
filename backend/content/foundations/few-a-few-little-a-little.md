@@ -40,8 +40,28 @@ next_articles:
 - articles
 pathways:
 - grammar-for-beginners
+anchors:
+  - id: few-a-few-little-a-little.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: few-a-few-little-a-little.tai-sao-quan-trong
+    location: '## Tại sao quan trọng'
+    type: section
+  - id: few-a-few-little-a-little.bang-tong-hop
+    location: '## Bảng tổng hợp'
+    type: compare-with
+  - id: few-a-few-little-a-little.so-sanh-doi-chieu-cung-chu-de-khac-y-nghia
+    location: '## So sánh đối chiếu — cùng chủ đề, khác ý nghĩa'
+    type: compare-with
+  - id: few-a-few-little-a-little.loi-thuong-gap
+    location: '## Lỗi thường gặp'
+    type: pitfall
+  - id: few-a-few-little-a-little.ung-dung-trong-ielts
+    location: '## Ứng dụng trong IELTS'
+    type: section
 ---
 
+<!-- anchor: few-a-few-little-a-little.tom-tat -->
 ## Tóm tắt
 
 Bốn từ, hai tiêu chí để phân biệt:
@@ -58,6 +78,7 @@ Bốn từ, hai tiêu chí để phân biệt:
 
 ---
 
+<!-- anchor: few-a-few-little-a-little.tai-sao-quan-trong -->
 ## Tại sao quan trọng
 
 Một câu thay đổi hoàn toàn ý nghĩa khi bạn thêm hoặc bỏ chữ "a":
@@ -137,6 +158,7 @@ little + uncountable noun
 
 ---
 
+<!-- anchor: few-a-few-little-a-little.bang-tong-hop -->
 ## Bảng tổng hợp
 
 | | **A FEW** | **FEW** | **A LITTLE** | **LITTLE** |
@@ -148,6 +170,7 @@ little + uncountable noun
 
 ---
 
+<!-- anchor: few-a-few-little-a-little.so-sanh-doi-chieu-cung-chu-de-khac-y-nghia -->
 ## So sánh đối chiếu — cùng chủ đề, khác ý nghĩa
 
 | A FEW / A LITTLE (tích cực) | FEW / LITTLE (tiêu cực) |
@@ -180,6 +203,7 @@ little + uncountable noun
 
 ---
 
+<!-- anchor: few-a-few-little-a-little.loi-thuong-gap -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: Dùng "few/little" thay "a few/a little" khi muốn nói tích cực
@@ -214,6 +238,7 @@ little + uncountable noun
 
 ---
 
+<!-- anchor: few-a-few-little-a-little.ung-dung-trong-ielts -->
 ## Ứng dụng trong IELTS
 
 ### Writing Task 1 — mô tả số liệu:

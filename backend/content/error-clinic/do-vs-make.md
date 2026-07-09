@@ -2,7 +2,11 @@
 title: Do vs. Make — Phân biệt "làm" trong tiếng Anh
 slug: do-vs-make
 category: error-clinic
-summary: '"Do" và "make" đều có nghĩa là "làm" trong tiếng Việt, nhưng tiếng Anh dùng chúng hoàn toàn khác nhau. "Do" gắn với hoạt động, công việc, nhiệm vụ; còn "make" gắn với tạo ra thứ gì đó, đưa ra quyết định, hoặc gây ra kết quả. Đây là một trong những lỗi collocations phổ biến nhất của người học tiếng Anh nói chung và người Việt nói riêng.
+summary: '"Do" và "make" đều có nghĩa là "làm" trong tiếng Việt, nhưng tiếng Anh dùng
+  chúng hoàn toàn khác nhau. "Do" gắn với hoạt động, công việc, nhiệm vụ; còn "make"
+  gắn với tạo ra thứ gì đó, đưa ra quyết định, hoặc gây ra kết quả. Đây là một trong
+  những lỗi collocations phổ biến nhất của người học tiếng Anh nói chung và người
+  Việt nói riêng.
 
   '
 level: beginner
@@ -40,8 +44,22 @@ next_articles:
 pathways:
 - grammar-for-beginners
 - fix-common-mistakes
+anchors:
+  - id: do-vs-make.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: do-vs-make.loi-thuong-gap
+    location: '## Lỗi thường gặp'
+    type: pitfall
+  - id: do-vs-make.ung-dung-trong-ielts
+    location: '## Ứng dụng trong IELTS'
+    type: section
+  - id: do-vs-make.tom-tat-nhanh
+    location: '## Tóm tắt nhanh'
+    type: overview
 ---
 
+<!-- anchor: do-vs-make.tom-tat -->
 ## Tóm tắt
 
 Người học thường dịch thẳng từ tiếng Việt: "làm bài tập" = "make homework". Sai. Quy tắc không phải là dịch nghĩa — mà là học thuộc **collocation** (từ thường đi kèm nhau).
@@ -165,6 +183,7 @@ Khi nói đến một **hoạt động** mà không chỉ rõ tên cụ thể:
 
 ---
 
+<!-- anchor: do-vs-make.loi-thuong-gap -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: "make homework" (lỗi kinh điển)
@@ -208,6 +227,7 @@ Khi nói đến một **hoạt động** mà không chỉ rõ tên cụ thể:
 
 ---
 
+<!-- anchor: do-vs-make.ung-dung-trong-ielts -->
 ## Ứng dụng trong IELTS
 
 ### Speaking — dùng tự nhiên trong Part 1 và 3:
@@ -268,6 +288,7 @@ Khi nói đến một **hoạt động** mà không chỉ rõ tên cụ thể:
 
 ---
 
+<!-- anchor: do-vs-make.tom-tat-nhanh -->
 ## Tóm tắt nhanh
 
 | DO | MAKE |

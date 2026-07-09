@@ -1,8 +1,11 @@
----
-title: Present Perfect Continuous — Thì Hiện tại hoàn thành tiếp diễn
+---title: Present Perfect Continuous — Thì Hiện tại hoàn thành tiếp diễn
 slug: present-perfect-continuous
 category: tenses
-summary: 'Present Perfect Continuous (have/has been + V-ing) nhấn mạnh hành động đã bắt đầu trong quá khứ, đang còn tiếp diễn hoặc vừa mới kết thúc, và có kết quả hoặc dấu vết ở hiện tại. Khác với Present Perfect ở chỗ nó tập trung vào quá trình kéo dài, không phải kết quả. Đây là thì thường gây nhầm lẫn nhất với Present Perfect đơn.
+summary: 'Present Perfect Continuous (have/has been + V-ing) nhấn mạnh hành động đã
+  bắt đầu trong quá khứ, đang còn tiếp diễn hoặc vừa mới kết thúc, và có kết quả hoặc
+  dấu vết ở hiện tại. Khác với Present Perfect ở chỗ nó tập trung vào quá trình kéo
+  dài, không phải kết quả. Đây là thì thường gây nhầm lẫn nhất với Present Perfect
+  đơn.
 
   '
 level: intermediate
@@ -48,8 +51,31 @@ pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
 - band-6-to-7
+anchors:
+- id: present-perfect-continuous.overview
+  location: '## Tóm tắt'
+  type: overview
+- id: present-perfect-continuous.structure-usage
+  location: '## Cấu trúc và cách dùng'
+  type: structure
+- id: present-perfect-continuous.recognition
+  location: '## Dấu hiệu nhận biết'
+  type: concept
+- id: present-perfect-continuous.vs-perfect
+  location: '## So sánh Present Perfect vs Present Perfect Continuous'
+  type: compare-with
+- id: present-perfect-continuous.stative-verbs
+  location: '## Stative verbs — Không dùng với PPC'
+  type: concept
+- id: present-perfect-continuous.common-mistakes
+  location: '## Lỗi thường gặp'
+  type: pitfall
+- id: present-perfect-continuous.ielts-applications
+  location: '## Ứng dụng trong IELTS'
+  type: concept
 ---
 
+<!-- anchor: present-perfect-continuous.overview -->
 ## Tóm tắt
 
 Present Perfect Continuous nhấn mạnh **quá trình đang diễn ra** hoặc **vừa kết thúc**, kết nối quá khứ với hiện tại.
@@ -72,6 +98,7 @@ Present Perfect Continuous giúp người nói:
 - Thể hiện **sự kiên trì, nỗ lực** trong một khoảng thời gian
 - Đạt điểm Grammatical Range trong IELTS khi dùng đúng ngữ cảnh
 
+<!-- anchor: present-perfect-continuous.structure-usage -->
 ## Cấu trúc và cách dùng
 
 ### Cấu trúc
@@ -104,6 +131,7 @@ Thường đi với **for** (khoảng thời gian) và **since** (thời điểm
 - She **has been calling** me every day this week.
 - They **have been experiencing** a lot of problems recently.
 
+<!-- anchor: present-perfect-continuous.recognition -->
 ### Dấu hiệu nhận biết
 
 | Từ/Cụm từ | Ví dụ |
@@ -114,6 +142,7 @@ Thường đi với **for** (khoảng thời gian) và **since** (thời điểm
 | all morning/day/week | all morning, all day |
 | How long...? | How long have you been waiting? |
 
+<!-- anchor: present-perfect-continuous.vs-perfect -->
 ## So sánh Present Perfect vs Present Perfect Continuous
 
 Đây là điểm phân biệt quan trọng nhất:
@@ -138,6 +167,7 @@ Thường đi với **for** (khoảng thời gian) và **since** (thời điểm
 
 > **Thực tế:** Với for/since và động từ hành động, cả hai thường đúng — PPC nhấn mạnh tính liên tục hơn.
 
+<!-- anchor: present-perfect-continuous.stative-verbs -->
 ## Stative verbs — Không dùng với PPC
 
 Động từ chỉ trạng thái không dùng với bất kỳ continuous tense nào:
@@ -154,6 +184,7 @@ Thường đi với **for** (khoảng thời gian) và **since** (thời điểm
 - ❌ She has been wanting to travel.
 - ✅ She **has wanted** to travel.
 
+<!-- anchor: present-perfect-continuous.common-mistakes -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: Dùng Present Continuous thay vì PPC
@@ -187,6 +218,7 @@ Thường đi với **for** (khoảng thời gian) và **since** (thời điểm
 - ❌ She have been working here since 2020.
 - ✅ She **has** been working here since 2020.
 
+<!-- anchor: present-perfect-continuous.ielts-applications -->
 ## Ứng dụng trong IELTS
 
 ### Speaking Part 1 — Giới thiệu thói quen và sở thích:

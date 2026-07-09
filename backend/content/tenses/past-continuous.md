@@ -1,8 +1,10 @@
----
-title: Past Continuous — Thì Quá khứ tiếp diễn
+---title: Past Continuous — Thì Quá khứ tiếp diễn
 slug: past-continuous
 category: tenses
-summary: 'Past Continuous (was/were + V-ing) diễn tả hành động đang xảy ra tại một thời điểm cụ thể trong quá khứ. Thường dùng để mô tả bối cảnh, hành động bị gián đoạn, hoặc hai hành động song song xảy ra cùng lúc. Kết hợp với Past Simple tạo ra cấu trúc câu phong phú và tự nhiên trong IELTS Writing và Speaking.
+summary: 'Past Continuous (was/were + V-ing) diễn tả hành động đang xảy ra tại một
+  thời điểm cụ thể trong quá khứ. Thường dùng để mô tả bối cảnh, hành động bị gián
+  đoạn, hoặc hai hành động song song xảy ra cùng lúc. Kết hợp với Past Simple tạo
+  ra cấu trúc câu phong phú và tự nhiên trong IELTS Writing và Speaking.
 
   '
 level: beginner
@@ -46,8 +48,28 @@ pathways:
 - grammar-for-beginners
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
+anchors:
+- id: past-continuous.overview
+  location: '## Tóm tắt'
+  type: overview
+- id: past-continuous.structure-usage
+  location: '## Cấu trúc và cách dùng'
+  type: structure
+- id: past-continuous.recognition
+  location: '## Dấu hiệu nhận biết'
+  type: concept
+- id: past-continuous.compare-with-simple
+  location: '## So sánh Past Continuous vs Past Simple'
+  type: compare-with
+- id: past-continuous.common-mistakes
+  location: '## Lỗi thường gặp'
+  type: pitfall
+- id: past-continuous.ielts-applications
+  location: '## Ứng dụng trong IELTS'
+  type: concept
 ---
 
+<!-- anchor: past-continuous.overview -->
 ## Tóm tắt
 
 Past Continuous diễn tả **hành động đang diễn ra** tại một thời điểm xác định trong quá khứ.
@@ -68,6 +90,7 @@ Past Continuous là công cụ kể chuyện quan trọng trong IELTS:
 - **Writing Task 1:** diễn tả xu hướng đang diễn ra tại một thời điểm
 - Tạo sự phong phú về ngữ pháp khi kết hợp với Past Simple
 
+<!-- anchor: past-continuous.structure-usage -->
 ## Cấu trúc và cách dùng
 
 ### Cấu trúc
@@ -116,6 +139,7 @@ Past Continuous + while + Past Continuous
 - When we **arrived**, everyone **was enjoying** themselves.
 - The city **was buzzing** with excitement — it **was** the night before the festival.
 
+<!-- anchor: past-continuous.recognition -->
 ### Dấu hiệu nhận biết
 
 | Từ/Cụm từ | Ví dụ |
@@ -126,6 +150,7 @@ Past Continuous + while + Past Continuous
 | while | while they were working |
 | all morning/evening/day | all morning yesterday |
 
+<!-- anchor: past-continuous.compare-with-simple -->
 ## So sánh Past Continuous vs Past Simple
 
 | | Past Continuous | Past Simple |
@@ -137,6 +162,7 @@ Past Continuous + while + Past Continuous
 - I **was walking** home when it **started** to rain. (đang đi thì trời bắt đầu mưa)
 - I **walked** home when it **stopped** raining. (đợi tạnh mưa rồi đi bộ về)
 
+<!-- anchor: past-continuous.common-mistakes -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: Dùng was/were nhầm
@@ -176,6 +202,7 @@ Các động từ chỉ trạng thái **không dùng** với continuous tenses: 
 - ✅ Yesterday, I **finished** my homework at 9 pm.
 - ✅ Yesterday, at 9 pm, I **was finishing** my homework. (đang làm tại thời điểm đó)
 
+<!-- anchor: past-continuous.ielts-applications -->
 ## Ứng dụng trong IELTS
 
 ### Speaking Part 2 — Kể chuyện sự kiện:

@@ -1,8 +1,11 @@
----
-title: Grammar in Task 2 — Ngữ pháp cho IELTS Writing Task 2 (Essay)
+---title: Grammar in Task 2 — Ngữ pháp cho IELTS Writing Task 2 (Essay)
 slug: grammar-in-task2
 category: grammar-for-writing
-summary: 'IELTS Writing Task 2 chấm rất nặng Grammatical Range and Accuracy: examiner tìm "a variety of complex structures" dùng chính xác. Bài này tổng hợp ngữ pháp đòn bẩy cho essay — câu phức và mệnh đề quan hệ, câu điều kiện, modal verbs để khuyến nghị, bị động học thuật, hedging, và cấu trúc song song — kèm cách tránh ngữ pháp quá thân mật. Tập trung vào đa dạng có kiểm soát, không phải câu dài bằng mọi giá.
+summary: 'IELTS Writing Task 2 chấm rất nặng Grammatical Range and Accuracy: examiner
+  tìm "a variety of complex structures" dùng chính xác. Bài này tổng hợp ngữ pháp
+  đòn bẩy cho essay — câu phức và mệnh đề quan hệ, câu điều kiện, modal verbs để khuyến
+  nghị, bị động học thuật, hedging, và cấu trúc song song — kèm cách tránh ngữ pháp
+  quá thân mật. Tập trung vào đa dạng có kiểm soát, không phải câu dài bằng mọi giá.
 
   '
 level: intermediate
@@ -48,8 +51,40 @@ next_articles:
 pathways:
 - grammar-for-ielts-writing
 - band-6-to-7
+anchors:
+- id: grammar-in-task2.overview
+  location: '## Tóm tắt'
+  type: overview
+- id: grammar-in-task2.complex-sentences
+  location: '## NHÓM 1: CÂU PHỨC & MỆNH ĐỀ QUAN HỆ'
+  type: concept
+- id: grammar-in-task2.conditionals
+  location: '## NHÓM 2: CÂU ĐIỀU KIỆN'
+  type: concept
+- id: grammar-in-task2.modals
+  location: '## NHÓM 3: MODAL VERBS — khuyến nghị & khả năng'
+  type: concept
+- id: grammar-in-task2.passive-academic
+  location: '## NHÓM 4: BỊ ĐỘNG HỌC THUẬT (giọng khách quan)'
+  type: concept
+- id: grammar-in-task2.hedging
+  location: '## NHÓM 5: HEDGING — lập luận có sắc thái'
+  type: concept
+- id: grammar-in-task2.parallelism
+  location: '## NHÓM 6: CẤU TRÚC SONG SONG & NHẤN MẠNH'
+  type: structure
+- id: grammar-in-task2.register
+  location: '## TRÁNH NGỮ PHÁP QUÁ THÂN MẬT (register)'
+  type: concept
+- id: grammar-in-task2.paragraph-structure
+  location: '## CẤU TRÚC MỘT ĐOẠN BODY (ngữ pháp kết hợp)'
+  type: structure
+- id: grammar-in-task2.common-mistakes
+  location: '## Lỗi thường gặp'
+  type: pitfall
 ---
 
+<!-- anchor: grammar-in-task2.overview -->
 ## Tóm tắt
 
 Tiêu chí GRA của Task 2 nói rõ: Band 7 cần "**a variety of complex structures**" với "**frequent error-free sentences**". Nghĩa là: đa dạng cấu trúc + chính xác. Sáu đòn bẩy ngữ pháp cho essay:
@@ -73,6 +108,7 @@ Hai phần tư điểm Task 2 là **Grammatical Range and Accuracy** và **Coher
 
 ---
 
+<!-- anchor: grammar-in-task2.complex-sentences -->
 ## NHÓM 1: CÂU PHỨC & MỆNH ĐỀ QUAN HỆ
 
 Đây là cấu trúc "complex" cốt lõi examiner tìm. Dùng liên từ phụ thuộc (because, although, while, if, since) và mệnh đề quan hệ (which, who, that).
@@ -85,6 +121,7 @@ Hai phần tư điểm Task 2 là **Grammatical Range and Accuracy** và **Coher
 
 ---
 
+<!-- anchor: grammar-in-task2.conditionals -->
 ## NHÓM 2: CÂU ĐIỀU KIỆN
 
 Câu điều kiện thể hiện giả định và hệ quả — rất hợp essay nêu giải pháp.
@@ -101,6 +138,7 @@ Câu điều kiện thể hiện giả định và hệ quả — rất hợp es
 
 ---
 
+<!-- anchor: grammar-in-task2.modals -->
 ## NHÓM 3: MODAL VERBS — khuyến nghị & khả năng
 
 Essay thường cần **đề xuất** (should/must) và **đánh giá khả năng** (may/might/could).
@@ -116,6 +154,7 @@ Essay thường cần **đề xuất** (should/must) và **đánh giá khả nă
 
 ---
 
+<!-- anchor: grammar-in-task2.passive-academic -->
 ## NHÓM 4: BỊ ĐỘNG HỌC THUẬT (giọng khách quan)
 
 Bị động giúp essay nghe khách quan, không "tôi tôi" quá nhiều.
@@ -133,6 +172,7 @@ S + is widely believed/argued to + V
 
 ---
 
+<!-- anchor: grammar-in-task2.hedging -->
 ## NHÓM 5: HEDGING — lập luận có sắc thái
 
 Tránh khái quát tuyệt đối; dùng tends to, may, it could be argued (xem chi tiết bài **Academic Hedging** và **Hedging Language**).
@@ -143,6 +183,7 @@ Tránh khái quát tuyệt đối; dùng tends to, may, it could be argued (xem 
 
 ---
 
+<!-- anchor: grammar-in-task2.parallelism -->
 ## NHÓM 6: CẤU TRÚC SONG SONG & NHẤN MẠNH
 
 - The policy is **not only** costly **but also** difficult to enforce.
@@ -154,6 +195,7 @@ Tránh khái quát tuyệt đối; dùng tends to, may, it could be argued (xem 
 
 ---
 
+<!-- anchor: grammar-in-task2.register -->
 ## TRÁNH NGỮ PHÁP QUÁ THÂN MẬT (register)
 
 Task 2 là văn bán trang trọng — tránh:
@@ -168,6 +210,7 @@ Task 2 là văn bán trang trọng — tránh:
 
 ---
 
+<!-- anchor: grammar-in-task2.paragraph-structure -->
 ## CẤU TRÚC MỘT ĐOẠN BODY (ngữ pháp kết hợp)
 
 *"**One major argument in favour of** remote work **is that** it improves work-life balance. **Because** employees save hours of commuting, they **can** devote more time to family and rest. **If** companies **embraced** this model more widely, overall productivity **might well** improve. **However, it could be argued that** remote work **also** weakens team cohesion — a concern **that** should not be dismissed."*
@@ -176,6 +219,7 @@ Task 2 là văn bán trang trọng — tránh:
 
 ---
 
+<!-- anchor: grammar-in-task2.common-mistakes -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: Toàn câu đơn (thiếu complex structures)

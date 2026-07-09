@@ -41,12 +41,27 @@ next_articles:
 - articles
 pathways:
 - grammar-for-beginners
+anchors:
+  - id: nouns.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: nouns.tai-sao-quan-trong
+    location: '## Tại sao quan trọng'
+    type: section
+  - id: nouns.loi-thuong-gap
+    location: '## Lỗi thường gặp'
+    type: pitfall
+  - id: nouns.bai-tap-luyen
+    location: '## Bài tập luyện'
+    type: section
 ---
 
+<!-- anchor: nouns.tom-tat -->
 ## Tóm tắt
 
 Danh từ (Noun) là từ dùng để **đặt tên** cho người, nơi chốn, vật, ý niệm hoặc cảm xúc. Mọi câu tiếng Anh đều cần ít nhất một danh từ làm chủ ngữ.
 
+<!-- anchor: nouns.tai-sao-quan-trong -->
 ## Tại sao quan trọng
 
 Danh từ quyết định xem bạn dùng mạo từ gì (a/an/the hay không), chia số ít hay số nhiều, và chia động từ thế nào. Sai danh từ → sai gần như tất cả mọi thứ khác trong câu.
@@ -185,6 +200,7 @@ Thêm **'s** để thể hiện sở hữu:
 - **the dog's** collar = vòng cổ của con chó
 - **the students'** results = kết quả của các học sinh (số nhiều kết thúc bằng -s → chỉ thêm ')
 
+<!-- anchor: nouns.loi-thuong-gap -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: Thêm -s cho danh từ không đếm được
@@ -225,6 +241,7 @@ Thêm **'s** để thể hiện sở hữu:
 - Danh từ ghép học thuật thường gặp: *climate change, economic growth, social media, health care*
 - Tránh dùng lặp đi lặp lại cùng một danh từ — thay bằng từ đồng nghĩa hoặc paraphrase
 
+<!-- anchor: nouns.bai-tap-luyen -->
 ## Bài tập luyện
 
 ### Phân loại: Countable (C) hay Uncountable (U)?

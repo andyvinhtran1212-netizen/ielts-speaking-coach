@@ -2,7 +2,10 @@
 title: Affect vs. Effect — Động từ hay Danh từ?
 slug: affect-vs-effect
 category: error-clinic
-summary: 'Affect và effect là cặp từ gây nhầm lẫn hàng đầu trong tiếng Anh — cả người bản ngữ lẫn người học đều hay sai. Quy tắc cốt lõi: affect (thường) là động từ, effect (thường) là danh từ. Bài này giải thích đầy đủ hai dạng chính, hai dạng hiếm gặp, và các cụm thường dùng trong IELTS.
+summary: 'Affect và effect là cặp từ gây nhầm lẫn hàng đầu trong tiếng Anh — cả người
+  bản ngữ lẫn người học đều hay sai. Quy tắc cốt lõi: affect (thường) là động từ,
+  effect (thường) là danh từ. Bài này giải thích đầy đủ hai dạng chính, hai dạng hiếm
+  gặp, và các cụm thường dùng trong IELTS.
 
   '
 level: intermediate
@@ -45,8 +48,31 @@ next_articles:
 pathways:
 - fix-common-mistakes
 - band-6-to-7
+anchors:
+  - id: affect-vs-effect.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: affect-vs-effect.phan-1-hai-cach-dung-chinh
+    location: '## PHẦN 1: HAI CÁCH DÙNG CHÍNH'
+    type: section
+  - id: affect-vs-effect.phan-2-hai-dang-it-gap-hon
+    location: '## PHẦN 2: HAI DẠNG ÍT GẶP HƠN'
+    type: section
+  - id: affect-vs-effect.phan-3-cach-phan-biet-nhanh-trong-cau
+    location: '## PHẦN 3: CÁCH PHÂN BIỆT NHANH TRONG CÂU'
+    type: section
+  - id: affect-vs-effect.so-sanh-cac-cum-de-nham
+    location: '## So sánh các cụm dễ nhầm'
+    type: compare-with
+  - id: affect-vs-effect.loi-thuong-gap
+    location: '## Lỗi thường gặp'
+    type: pitfall
+  - id: affect-vs-effect.tom-tat-nhanh
+    location: '## Tóm tắt nhanh'
+    type: overview
 ---
 
+<!-- anchor: affect-vs-effect.tom-tat -->
 ## Tóm tắt
 
 | Từ | Từ loại | Nghĩa | Ví dụ |
@@ -64,6 +90,7 @@ Trong IELTS Writing Task 2, hai từ này xuất hiện rất thường xuyên k
 
 ---
 
+<!-- anchor: affect-vs-effect.phan-1-hai-cach-dung-chinh -->
 ## PHẦN 1: HAI CÁCH DÙNG CHÍNH
 
 ### AFFECT — Động từ
@@ -124,6 +151,7 @@ effect + on + noun
 
 ---
 
+<!-- anchor: affect-vs-effect.phan-2-hai-dang-it-gap-hon -->
 ## PHẦN 2: HAI DẠNG ÍT GẶP HƠN
 
 ### "Effect" dùng như động từ (rất hiếm, formal)
@@ -151,6 +179,7 @@ effect + change / reform / solution
 
 ---
 
+<!-- anchor: affect-vs-effect.phan-3-cach-phan-biet-nhanh-trong-cau -->
 ## PHẦN 3: CÁCH PHÂN BIỆT NHANH TRONG CÂU
 
 ### Kiểm tra từ loại:
@@ -177,6 +206,7 @@ effect + change / reform / solution
 
 ---
 
+<!-- anchor: affect-vs-effect.so-sanh-cac-cum-de-nham -->
 ## So sánh các cụm dễ nhầm
 
 | ❌ Sai | ✅ Đúng | Giải thích |
@@ -190,6 +220,7 @@ effect + change / reform / solution
 
 ---
 
+<!-- anchor: affect-vs-effect.loi-thuong-gap -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: Dùng "effect" thay cho "affect" (động từ)
@@ -254,6 +285,7 @@ effect + change / reform / solution
 
 ---
 
+<!-- anchor: affect-vs-effect.tom-tat-nhanh -->
 ## Tóm tắt nhanh
 
 ```

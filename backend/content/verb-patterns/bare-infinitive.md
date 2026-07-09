@@ -44,8 +44,28 @@ pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
 - band-6-to-7
+anchors:
+  - id: bare-infinitive.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: bare-infinitive.cau-truc
+    location: '## Cấu trúc'
+    type: structure
+  - id: bare-infinitive.cach-dung-pho-bien
+    location: '## Cách dùng phổ biến'
+    type: section
+  - id: bare-infinitive.dau-hieu-nhan-biet
+    location: '## Dấu hiệu nhận biết'
+    type: section
+  - id: bare-infinitive.loi-thuong-gap
+    location: '## Lỗi thường gặp'
+    type: pitfall
+  - id: bare-infinitive.so-sanh-voi
+    location: '## So sánh với'
+    type: compare-with
 ---
 
+<!-- anchor: bare-infinitive.tom-tat -->
 ## Tóm tắt
 
 **Bare infinitive** là động từ nguyên thể **không có "to"** — xuất hiện sau modal verbs (can, will, should, must...), sau let/make, và trong một số cấu trúc cố định; khác với to-infinitive ở chỗ "to" bị bỏ đi hoàn toàn.
@@ -59,7 +79,8 @@ Bare infinitive là nền tảng của hầu hết câu tiếng Anh hàng ngày:
 
 Người học Việt Nam hay mắc lỗi ở đây vì hay dịch word-for-word và cảm thấy "thiếu gì đó" khi không có "to".
 
-## Định nghĩa
+<!-- anchor: bare-infinitive.cau-truc -->
+## Cấu trúc
 
 **Bare infinitive** = động từ ở dạng nguyên thể (base form), **không có "to"**.
 
@@ -92,6 +113,7 @@ Modal verb + subject + bare infinitive?
 - You **should not ignore** this problem.
 - **Can** you **help** me?
 
+<!-- anchor: bare-infinitive.cach-dung-pho-bien -->
 ## Cách dùng phổ biến
 
 ### 1. Bare infinitive sau Modal Verbs
@@ -190,6 +212,7 @@ see / hear / watch / feel / notice + object + V-ing (hành động đang xảy r
 - We **watched the sun set** over the mountains.
 - I **felt my heart beat** faster.
 
+<!-- anchor: bare-infinitive.dau-hieu-nhan-biet -->
 ## Dấu hiệu nhận biết
 
 | Dùng bare infinitive khi... | Ví dụ |
@@ -220,6 +243,7 @@ see / hear / watch / feel / notice + object + V-ing (hành động đang xảy r
 
 **(Writing Task 2)** "Governments **must take** immediate steps to address climate change. They **should invest** in renewable energy and **may need to introduce** stricter regulations. Citizens **can also contribute** by making more sustainable choices."
 
+<!-- anchor: bare-infinitive.loi-thuong-gap -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: Thêm "to" sau modal verbs
@@ -260,6 +284,7 @@ see / hear / watch / feel / notice + object + V-ing (hành động đang xảy r
 - "I **am used to playing** tennis." → be used to + gerund (quen với việc gì)
 - **TẠI SAO:** Hai cấu trúc này nhìn giống nhau nhưng nghĩa và cách dùng hoàn toàn khác.
 
+<!-- anchor: bare-infinitive.so-sanh-voi -->
 ## So sánh với
 
 ### Bare Infinitive vs. To-Infinitive

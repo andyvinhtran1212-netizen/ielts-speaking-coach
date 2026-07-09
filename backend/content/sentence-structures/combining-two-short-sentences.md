@@ -1,8 +1,11 @@
----
-title: Combining Two Short Sentences — Gộp câu ngắn thành câu phức trong IELTS
+---title: Combining Two Short Sentences — Gộp câu ngắn thành câu phức trong IELTS
 slug: combining-two-short-sentences
 category: sentence-structures
-summary: 'Viết toàn câu ngắn rời rạc ("primer style") khiến bài bị trừ điểm Grammatical Range và Coherence. Bài này dạy năm cách gộp hai câu ngắn thành một câu mạch lạc — liên từ kết hợp, liên từ phụ thuộc, mệnh đề quan hệ, cụm phân từ, và đồng vị ngữ — kèm cảnh báo lỗi câu chạy (run-on) và comma splice khi gộp sai. Áp dụng cho cả Speaking và Writing.
+summary: 'Viết toàn câu ngắn rời rạc ("primer style") khiến bài bị trừ điểm Grammatical
+  Range và Coherence. Bài này dạy năm cách gộp hai câu ngắn thành một câu mạch lạc
+  — liên từ kết hợp, liên từ phụ thuộc, mệnh đề quan hệ, cụm phân từ, và đồng vị ngữ
+  — kèm cảnh báo lỗi câu chạy (run-on) và comma splice khi gộp sai. Áp dụng cho cả
+  Speaking và Writing.
 
   '
 level: intermediate
@@ -48,8 +51,37 @@ next_articles:
 pathways:
 - fix-common-mistakes
 - band-6-to-7
+anchors:
+- id: combining-two-short-sentences.overview
+  location: '## Tóm tắt'
+  type: overview
+- id: combining-two-short-sentences.method1-coordinating
+  location: '## CÁCH 1: LIÊN TỪ KẾT HỢP (compound sentence)'
+  type: concept
+- id: combining-two-short-sentences.method2-subordinating
+  location: '## CÁCH 2: LIÊN TỪ PHỤ THUỘC (complex sentence)'
+  type: concept
+- id: combining-two-short-sentences.method3-relative
+  location: '## CÁCH 3: MỆNH ĐỀ QUAN HỆ (relative clause)'
+  type: concept
+- id: combining-two-short-sentences.method4-participle
+  location: '## CÁCH 4: CỤM PHÂN TỪ (participle phrase)'
+  type: concept
+- id: combining-two-short-sentences.method5-appositive
+  location: '## CÁCH 5: ĐỒNG VỊ NGỮ (appositive)'
+  type: concept
+- id: combining-two-short-sentences.writing-application
+  location: '## WRITING — gộp câu để nâng đoạn văn'
+  type: concept
+- id: combining-two-short-sentences.speaking-application
+  location: '## SPEAKING — gộp câu khi nói'
+  type: concept
+- id: combining-two-short-sentences.common-mistakes
+  location: '## Lỗi thường gặp'
+  type: pitfall
 ---
 
+<!-- anchor: combining-two-short-sentences.overview -->
 ## Tóm tắt
 
 Band 5 viết: *"I live in Hanoi. Hanoi is the capital. It is very busy."* — đúng ngữ pháp nhưng rời rạc. Band 7 gộp lại: *"I live in Hanoi, the busy capital of Vietnam."* Cùng nội dung, nhưng thể hiện **Grammatical Range**. Năm công cụ gộp câu:
@@ -72,6 +104,7 @@ Tiêu chí **Grammatical Range and Accuracy** yêu cầu "a variety of complex s
 
 ---
 
+<!-- anchor: combining-two-short-sentences.method1-coordinating -->
 ## CÁCH 1: LIÊN TỪ KẾT HỢP (compound sentence)
 
 Nối hai mệnh đề **ngang hàng** bằng FANBOYS (for, and, nor, but, or, yet, so) + **dấu phẩy**.
@@ -87,6 +120,7 @@ Nối hai mệnh đề **ngang hàng** bằng FANBOYS (for, and, nor, but, or, y
 
 ---
 
+<!-- anchor: combining-two-short-sentences.method2-subordinating -->
 ## CÁCH 2: LIÊN TỪ PHỤ THUỘC (complex sentence)
 
 Biến một mệnh đề thành **phụ** (kém quan trọng hơn) bằng because, although, when, while, since, if, after, before...
@@ -103,6 +137,7 @@ Because [subordinate clause], [main clause]
 
 ---
 
+<!-- anchor: combining-two-short-sentences.method3-relative -->
 ## CÁCH 3: MỆNH ĐỀ QUAN HỆ (relative clause)
 
 Khi hai câu nói về **cùng một danh từ**, gộp bằng who / which / that / where.
@@ -118,6 +153,7 @@ Khi hai câu nói về **cùng một danh từ**, gộp bằng who / which / tha
 
 ---
 
+<!-- anchor: combining-two-short-sentences.method4-participle -->
 ## CÁCH 4: CỤM PHÂN TỪ (participle phrase)
 
 Khi hai hành động cùng một chủ ngữ, rút một câu thành cụm **V-ing** (chủ động) hoặc **V-ed** (bị động) mở đầu.
@@ -135,6 +171,7 @@ V-ing/V-ed phrase, [main clause]
 
 ---
 
+<!-- anchor: combining-two-short-sentences.method5-appositive -->
 ## CÁCH 5: ĐỒNG VỊ NGỮ (appositive)
 
 Một danh từ/cụm danh từ đặt cạnh để giải thích danh từ trước, ngăn bằng dấu phẩy.
@@ -146,6 +183,7 @@ Một danh từ/cụm danh từ đặt cạnh để giải thích danh từ trư
 
 ---
 
+<!-- anchor: combining-two-short-sentences.writing-application -->
 ## WRITING — gộp câu để nâng đoạn văn
 
 **Trước (choppy — Band 5):**
@@ -158,6 +196,7 @@ Một danh từ/cụm danh từ đặt cạnh để giải thích danh từ trư
 
 ---
 
+<!-- anchor: combining-two-short-sentences.speaking-application -->
 ## SPEAKING — gộp câu khi nói
 
 Trong Speaking, gộp câu giúp câu trả lời **trôi chảy** và dài tự nhiên (Fluency). Công cụ dễ dùng khi nói: **and, but, so, because, which, who**.
@@ -170,6 +209,7 @@ Trong Speaking, gộp câu giúp câu trả lời **trôi chảy** và dài tự
 
 ---
 
+<!-- anchor: combining-two-short-sentences.common-mistakes -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: Comma splice (nối 2 mệnh đề chỉ bằng dấu phẩy)
