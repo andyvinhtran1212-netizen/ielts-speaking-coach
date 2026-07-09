@@ -166,6 +166,13 @@ passages:
               instruction_vi: "Câu dùng cấu trúc so sánh 'compared with …' — ngành đứng sau 'compared with' chính là đáp án."
               kp_refs:
                 - {type: grammar, slug: comparison, anchor: comparison.overview}
+              microcheck:
+                prompt: "Trong 'compared with …', từ/ngành đứng ngay SAU 'compared with' đóng vai trò gì?"
+                options:
+                  - "là đối tượng được đem ra so sánh (chính là đáp án)"
+                  - "là chủ ngữ của câu"
+                  - "không liên quan tới đáp án"
+                answer: "A"
             - action: confirm
               instruction_vi: "Ngành được đem so sánh là 'coal' → đáp án: coal."
       - q_num: 11
