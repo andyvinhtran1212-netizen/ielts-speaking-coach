@@ -1,6 +1,6 @@
 # Thiết kế: mở rộng micro-check sang đề có passage (TOEIC Part 6/7, THPT QG)
 
-*Đề xuất kiến trúc — CHƯA build. WP6 của đợt mở rộng micro-check. Cần bạn chốt hướng trước khi hiện thực.*
+*Đề xuất kiến trúc — **PARKED / tech debt** (quyết định 2026-07-09): giữ tài liệu này, CHƯA hiện thực, quay lại làm sau. WP6 của đợt mở rộng micro-check. Khi làm: khuyến nghị **PA C** (THPT không-passage, 0 schema) trước, **PA A** (`exam_sections` cho đề có passage) sau.*
 
 ## 1. Vì sao cần một quyết định
 
