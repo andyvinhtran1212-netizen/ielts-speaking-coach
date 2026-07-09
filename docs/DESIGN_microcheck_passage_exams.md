@@ -23,8 +23,9 @@ Hai "nhà" hiện có đều không vừa:
 Thêm khái niệm "section" (khối) mang passage tùy chọn vào exam module, giữ nguyên KP + micro-check.
 
 - **Schema** (migration mới, additive):
-  - `exam_sections(id, test_id, section_order, passage_text, passage_title, instructions)` — 1 test có nhiều section; section không passage vẫn hợp lệ (P5 = 1 section không passage).
-  - `exam_questions` += `section_id UUID NULL REFERENCES exam_sections`, và nới `question_type` CHECK thêm `text_completion`, `mcq_passage` (đọc hiểu).
+  - `exam_sections(id, test_id, section_order, passage_text, passage_title, instructions)` — 1 test có nhiều section; section không passage vẫn hợp lệ (P5 = 1 section không passage). Thêm `UNIQUE (test_id, id)` để làm đích cho FK phức hợp bên dưới.
+  - `exam_questions` += `section_id UUID NULL`, và nới `question_type` CHECK thêm `text_completion`, `mcq_passage` (đọc hiểu).
+  - **Bất biến "section thuộc đúng test"** (bắt buộc): FK đơn `section_id → exam_sections(id)` chỉ chứng minh section TỒN TẠI, không chứng minh nó cùng `test_id` với câu hỏi → một import lỗi/sửa tay có thể gắn câu của đề này vào passage của đề khác, khiến `get_for_play(test_id)` render nhầm/thiếu passage. Ép bằng **FK phức hợp** `(test_id, section_id) → exam_sections(test_id, id)` (cần UNIQUE ở trên), hoặc validate ở import-time (section_id phải thuộc cùng test). Ưu tiên FK phức hợp — DB tự bảo đảm.
 - **Contract**: `get_for_play` trả `sections[]` (passage đã strip đáp án) + questions theo section. Grader + KP evidence + stepper **tái dùng nguyên** (micro-check vẫn nằm trong `solution_steps`, không đổi).
 - **Frontend**: `exam-player.js` render passage trên nhóm câu của section; phần review/stepper/micro-check **không đổi**.
 - **Ưu**: giữ toàn bộ đầu tư KP/micro-check; không đụng reading IELTS; additive.
