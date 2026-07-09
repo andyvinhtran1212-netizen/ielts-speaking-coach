@@ -24,7 +24,7 @@ from services.listening_test_grader import answer_matches
 
 logger = logging.getLogger(__name__)
 
-EXAM_SOURCES = ("toeic_rc", "toeic_lc", "thpt_qg", "grammar_reading")
+EXAM_SOURCES = ("toeic_rc", "toeic_lc", "thpt_qg", "grammar_reading", "grammar_practice")
 QUESTION_TYPES = ("mcq_single",)
 
 
