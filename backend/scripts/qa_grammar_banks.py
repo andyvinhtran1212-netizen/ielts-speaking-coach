@@ -37,7 +37,7 @@ DEFAULT_BANK_DIR = Path(__file__).resolve().parents[2] / "docs" / "grammar-quiz-
 CATEGORIES = [
     "foundations", "parts-of-speech", "modifiers", "sentence-structures",
     "tenses", "verb-patterns", "grammar-for-meaning", "ielts-grammar-lab",
-    "grammar-for-writing", "error-clinic",
+    "grammar-for-writing", "error-clinic", "grammar-for-reading",
 ]
 
 

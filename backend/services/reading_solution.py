@@ -19,7 +19,8 @@ re-authored):
       - action: decode_vocab        #   one of ACTION_TYPES
         instruction_vi: "..."
         kp_refs: [{type, slug, anchor?}]      # points at knowledge_points
-        microcheck: {...}           #   optional, Phase 3 (not built here)
+        microcheck: {prompt, options, answer} #   optional probe; shape validated
+                                              #   below, rendered by kp-stepper.js
     distractor_analysis:            # NEW — why each wrong option is wrong
       - option: "A"
         why_wrong_vi: "..."
@@ -110,6 +111,36 @@ def collect_kp_tags(solution: Optional[dict]) -> list[dict]:
     return list(seen.values())
 
 
+# ── micro-check shape (pure) ─────────────────────────────────────────────────
+
+def validate_microcheck(mc, kp_refs, label: str) -> list[str]:
+    """Structural validation of a step's OPTIONAL micro-check {prompt, options,
+    answer}. `answer` is a LETTER ('A', 'B', …) indexing `options` — it matches
+    the button letters the frontend kp-stepper renders and posts back. A micro-
+    check on a step with no kp_ref records NO evidence (the endpoint maps the
+    step's kp_refs → kp_evidence), which defeats the probe — so require ≥1 kp_ref
+    on any step that carries one."""
+    if mc is None:
+        return []
+    if not isinstance(mc, dict):
+        return [f"{label}.microcheck: phải là dict {{prompt, options, answer}}."]
+    errs: list[str] = []
+    if not str(mc.get("prompt") or "").strip():
+        errs.append(f"{label}.microcheck: thiếu 'prompt'.")
+    opts = mc.get("options")
+    if not isinstance(opts, list) or len(opts) < 2:
+        errs.append(f"{label}.microcheck: 'options' phải là danh sách ≥2 lựa chọn.")
+    ans = str(mc.get("answer") or "").strip().upper()
+    if len(ans) != 1 or not ("A" <= ans <= "Z"):
+        errs.append(f"{label}.microcheck: 'answer' phải là 1 chữ cái (vd 'B').")
+    elif isinstance(opts, list) and (ord(ans) - 65) >= len(opts):
+        errs.append(f"{label}.microcheck: 'answer' {ans!r} vượt số lựa chọn ({len(opts)}).")
+    if not (kp_refs or []):
+        errs.append(f"{label}.microcheck: bước mang micro-check phải có ≥1 kp_ref "
+                    f"(nếu không, câu trả lời không ghi được bằng chứng nào).")
+    return errs
+
+
 # ── structural validation (pure; called by the importer) ─────────────────────
 
 def validate_solution_structure(solution, label: str) -> list[str]:
@@ -140,6 +171,7 @@ def validate_solution_structure(solution, label: str) -> list[str]:
                     errs.append(f"{slab}: thiếu 'instruction_vi'.")
                 for raw in step.get("kp_refs") or []:
                     errs += validate_kp_ref(raw, f"{slab}.kp_refs")
+                errs += validate_microcheck(step.get("microcheck"), step.get("kp_refs"), slab)
 
     distractors = solution.get("distractor_analysis")
     if distractors is not None:
