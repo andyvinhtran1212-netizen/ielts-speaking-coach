@@ -44,12 +44,27 @@ pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
 - band-6-to-7
+anchors:
+  - id: adjective-vs-adverb.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: adjective-vs-adverb.tai-sao-quan-trong
+    location: '## Tại sao quan trọng'
+    type: section
+  - id: adjective-vs-adverb.loi-thuong-gap
+    location: '## Lỗi thường gặp'
+    type: pitfall
+  - id: adjective-vs-adverb.bai-tap-luyen
+    location: '## Bài tập luyện'
+    type: section
 ---
 
+<!-- anchor: adjective-vs-adverb.tom-tat -->
 ## Tóm tắt
 
 **Adjective** mô tả **danh từ** (noun/pronoun); **adverb** mô tả **động từ, tính từ, hoặc adverb khác** — và cách phân biệt nhanh nhất là hỏi: từ này đang mô tả *vật/người* hay mô tả *hành động/tính chất/mức độ*?
 
+<!-- anchor: adjective-vs-adverb.tai-sao-quan-trong -->
 ## Tại sao quan trọng
 
 Nhầm adjective và adverb là lỗi rất dễ lộ:
@@ -238,6 +253,7 @@ adverb + adjective + noun
 **(Writing Task 2):**
 "**Highly** educated workers are **significantly** more productive than those with limited training. This has led to a **rapidly** growing gap between **skilled** and unskilled labour. **Consequently**, governments need to invest more **heavily** in vocational education."
 
+<!-- anchor: adjective-vs-adverb.loi-thuong-gap -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: Dùng adjective thay adverb sau action verb
@@ -350,6 +366,7 @@ Từ này đứng trước tính từ/adverb khác → ADVERB (+ -ly)
 - "The situation has **gradually** improved over the past decade."
 - "Many people **genuinely** believe that technology will solve this problem."
 
+<!-- anchor: adjective-vs-adverb.bai-tap-luyen -->
 ## Bài tập luyện
 
 ### Chọn đúng

@@ -47,8 +47,28 @@ pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
 - band-6-to-7
+anchors:
+  - id: strong-vs-cautious-opinions.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: strong-vs-cautious-opinions.phan-1-strong-opinions-quan-diem-manh
+    location: '## PHẦN 1: STRONG OPINIONS — Quan điểm mạnh'
+    type: section
+  - id: strong-vs-cautious-opinions.phan-2-cautious-opinions-quan-diem-than-trong
+    location: '## PHẦN 2: CAUTIOUS OPINIONS — Quan điểm thận trọng'
+    type: section
+  - id: strong-vs-cautious-opinions.ket-hop-strong-cautious-trong-mot-doan-van
+    location: '## Kết hợp strong + cautious trong một đoạn văn'
+    type: section
+  - id: strong-vs-cautious-opinions.loi-thuong-gap
+    location: '## Lỗi thường gặp'
+    type: pitfall
+  - id: strong-vs-cautious-opinions.tom-tat-nhanh
+    location: '## Tóm tắt nhanh'
+    type: overview
 ---
 
+<!-- anchor: strong-vs-cautious-opinions.tom-tat -->
 ## Tóm tắt
 
 Trong IELTS, không phải lúc nào cũng phù hợp để nói "I think" hay "I believe" rồi dừng lại. Hai loại quan điểm có vai trò khác nhau:
@@ -74,6 +94,7 @@ Nếu mọi câu đều dùng "I think", bạn không thể phân biệt những
 
 ---
 
+<!-- anchor: strong-vs-cautious-opinions.phan-1-strong-opinions-quan-diem-manh -->
 ## PHẦN 1: STRONG OPINIONS — Quan điểm mạnh
 
 Dùng khi bạn có luận điểm rõ ràng và sẵn sàng bảo vệ nó.
@@ -121,6 +142,7 @@ Above all, ...
 
 ---
 
+<!-- anchor: strong-vs-cautious-opinions.phan-2-cautious-opinions-quan-diem-than-trong -->
 ## PHẦN 2: CAUTIOUS OPINIONS — Quan điểm thận trọng
 
 Dùng khi vấn đề phức tạp, còn tranh cãi, hoặc bạn muốn tránh overgeneralization.
@@ -203,6 +225,7 @@ The reality is more nuanced than...
 
 ---
 
+<!-- anchor: strong-vs-cautious-opinions.ket-hop-strong-cautious-trong-mot-doan-van -->
 ## Kết hợp strong + cautious trong một đoạn văn
 
 Đoạn văn mạnh thường dùng **cả hai loại** — bắt đầu với một luận điểm mạnh, sau đó thừa nhận sự phức tạp:
@@ -219,6 +242,7 @@ The reality is more nuanced than...
 
 ---
 
+<!-- anchor: strong-vs-cautious-opinions.loi-thuong-gap -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: Lạm dụng "I think" cho mọi câu
@@ -293,6 +317,7 @@ The reality is more nuanced than...
 
 ---
 
+<!-- anchor: strong-vs-cautious-opinions.tom-tat-nhanh -->
 ## Tóm tắt nhanh
 
 ```

@@ -47,8 +47,28 @@ next_articles:
 pathways:
 - grammar-for-ielts-speaking
 - band-6-to-7
+anchors:
+  - id: adding-contrast-naturally.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: adding-contrast-naturally.nhom-1-but-yet-lien-tu-ket-hop-clause
+    location: '## NHÓM 1: BUT, YET — liên từ kết hợp (+ clause)'
+    type: section
+  - id: adding-contrast-naturally.nhom-3-despite-in-spite-of-gioi-tu-noun-v-ing
+    location: '## NHÓM 3: DESPITE, IN SPITE OF — giới từ (+ noun / V-ing)'
+    type: section
+  - id: adding-contrast-naturally.nhom-4-however-nevertheless-nonetheless-trang-tu-lien-ket-formal
+    location: '## NHÓM 4: HOWEVER, NEVERTHELESS, NONETHELESS — trạng từ liên kết (formal)'
+    type: section
+  - id: adding-contrast-naturally.writing-tuong-phan-trong-task-2
+    location: '## WRITING — tương phản trong Task 2'
+    type: section
+  - id: adding-contrast-naturally.loi-thuong-gap
+    location: '## Lỗi thường gặp'
+    type: pitfall
 ---
 
+<!-- anchor: adding-contrast-naturally.tom-tat -->
 ## Tóm tắt
 
 Tương phản là một trong những quan hệ ý nghĩa được examiner để ý nhất. Biết một từ ("but") thì đủ Band 5; biết chọn đúng connector theo ngữ cảnh và dùng đúng dấu câu mới lên Band 7. Phân nhóm theo **cấu trúc đi sau**:
@@ -71,6 +91,7 @@ Trong **Writing Task 2** (đặc biệt discussion / advantages-disadvantages), 
 
 ---
 
+<!-- anchor: adding-contrast-naturally.nhom-1-but-yet-lien-tu-ket-hop-clause -->
 ## NHÓM 1: BUT, YET — liên từ kết hợp (+ clause)
 
 ```
@@ -108,6 +129,7 @@ Although [S + V], [main clause]
 
 ---
 
+<!-- anchor: adding-contrast-naturally.nhom-3-despite-in-spite-of-gioi-tu-noun-v-ing -->
 ## NHÓM 3: DESPITE, IN SPITE OF — giới từ (+ noun / V-ing)
 
 ```
@@ -127,6 +149,7 @@ Despite [noun / V-ing], [main clause]
 
 ---
 
+<!-- anchor: adding-contrast-naturally.nhom-4-however-nevertheless-nonetheless-trang-tu-lien-ket-formal -->
 ## NHÓM 4: HOWEVER, NEVERTHELESS, NONETHELESS — trạng từ liên kết (formal)
 
 Giống nhóm result connectors: KHÔNG nối hai mệnh đề bằng dấu phẩy — phải dùng **dấu chấm** hoặc **chấm phẩy**, và có **dấu phẩy sau**.
@@ -153,6 +176,7 @@ Dùng khi muốn cân nhắc hai mặt (rất hợp Part 3 và discussion essay)
 
 ---
 
+<!-- anchor: adding-contrast-naturally.writing-tuong-phan-trong-task-2 -->
 ## WRITING — tương phản trong Task 2
 
 **Ví dụ đoạn văn (discussion essay):**
@@ -178,6 +202,7 @@ Dùng khi muốn cân nhắc hai mặt (rất hợp Part 3 và discussion essay)
 
 ---
 
+<!-- anchor: adding-contrast-naturally.loi-thuong-gap -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: "Although... but..." (lỗi số 1 của người Việt)

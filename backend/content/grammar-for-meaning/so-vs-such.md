@@ -47,8 +47,31 @@ pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
 - band-6-to-7
+anchors:
+  - id: so-vs-such.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: so-vs-such.so-tinh-tu-trang-tu
+    location: '## SO + Tính từ / Trạng từ'
+    type: section
+  - id: so-vs-such.such-cum-danh-tu
+    location: '## SUCH + Cụm danh từ'
+    type: section
+  - id: so-vs-such.bang-so-sanh-truc-tiep
+    location: '## Bảng so sánh trực tiếp'
+    type: compare-with
+  - id: so-vs-such.so-that-va-such-that
+    location: '## SO ... THAT và SUCH ... THAT'
+    type: section
+  - id: so-vs-such.loi-thuong-gap
+    location: '## Lỗi thường gặp'
+    type: pitfall
+  - id: so-vs-such.ung-dung-trong-ielts
+    location: '## Ứng dụng trong IELTS'
+    type: section
 ---
 
+<!-- anchor: so-vs-such.tom-tat -->
 ## Tóm tắt
 
 Hai cấu trúc nhấn mạnh, một quy tắc cốt lõi:
@@ -73,6 +96,7 @@ Lỗi này xuất hiện ở Band 5-6 và phản ánh người học chưa kiể
 
 ---
 
+<!-- anchor: so-vs-such.so-tinh-tu-trang-tu -->
 ## SO + Tính từ / Trạng từ
 
 "So" bổ nghĩa cho **tính từ** hoặc **trạng từ** — không bổ nghĩa trực tiếp cho danh từ.
@@ -104,6 +128,7 @@ so + adjective + that + [result clause]
 
 ---
 
+<!-- anchor: so-vs-such.such-cum-danh-tu -->
 ## SUCH + Cụm danh từ
 
 "Such" đứng trước **cụm danh từ** — gồm danh từ, có thể có tính từ và mạo từ đi kèm.
@@ -139,6 +164,7 @@ such + a/an + noun (không cần adj)
 
 ---
 
+<!-- anchor: so-vs-such.bang-so-sanh-truc-tiep -->
 ## Bảng so sánh trực tiếp
 
 | SO + adj/adv | SUCH + (a/an) + adj + noun |
@@ -153,6 +179,7 @@ such + a/an + noun (không cần adj)
 
 ---
 
+<!-- anchor: so-vs-such.so-that-va-such-that -->
 ## SO ... THAT và SUCH ... THAT
 
 Cả hai cấu trúc thường đi kèm với "that" để diễn đạt **kết quả**:
@@ -173,6 +200,7 @@ such + (a/an) + (adj) + noun + that + [result]
 
 ---
 
+<!-- anchor: so-vs-such.loi-thuong-gap -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: "Such" không có danh từ
@@ -207,6 +235,7 @@ such + (a/an) + (adj) + noun + that + [result]
 
 ---
 
+<!-- anchor: so-vs-such.ung-dung-trong-ielts -->
 ## Ứng dụng trong IELTS
 
 ### Speaking — nhấn mạnh cảm xúc tự nhiên:

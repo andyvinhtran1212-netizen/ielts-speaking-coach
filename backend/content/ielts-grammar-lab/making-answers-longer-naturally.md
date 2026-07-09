@@ -44,8 +44,31 @@ next_articles:
 - grammar-in-speaking
 pathways:
 - grammar-for-ielts-speaking
+anchors:
+  - id: making-answers-longer-naturally.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: making-answers-longer-naturally.pattern-1-answer-reason-ly-do
+    location: '## PATTERN 1: Answer + Reason (Lý do)'
+    type: section
+  - id: making-answers-longer-naturally.pattern-2-answer-example-vi-du
+    location: '## PATTERN 2: Answer + Example (Ví dụ)'
+    type: section
+  - id: making-answers-longer-naturally.pattern-3-answer-contrast-doi-lap-ngoai-le
+    location: '## PATTERN 3: Answer + Contrast (Đối lập / Ngoại lệ)'
+    type: section
+  - id: making-answers-longer-naturally.combining-patterns-ket-hop-nhieu-pattern-trong-mot-cau-tra-loi
+    location: '## COMBINING PATTERNS — kết hợp nhiều pattern trong một câu trả lời'
+    type: section
+  - id: making-answers-longer-naturally.loi-thuong-gap
+    location: '## Lỗi thường gặp'
+    type: pitfall
+  - id: making-answers-longer-naturally.tom-tat-nhanh
+    location: '## Tóm tắt nhanh'
+    type: overview
 ---
 
+<!-- anchor: making-answers-longer-naturally.tom-tat -->
 ## Tóm tắt
 
 Câu trả lời ngắn = câu trả lời yếu trong IELTS Speaking. Examiner muốn nghe bạn **phát triển ý** — không phải nói to hơn hay nhanh hơn.
@@ -73,6 +96,7 @@ Examiner không thể cho bạn điểm cao nếu không có gì để nghe.
 
 ---
 
+<!-- anchor: making-answers-longer-naturally.pattern-1-answer-reason-ly-do -->
 ## PATTERN 1: Answer + Reason (Lý do)
 
 Thêm **tại sao** vào sau câu trả lời. Đây là cách mở rộng cơ bản nhất và hiệu quả nhất.
@@ -99,6 +123,7 @@ Thêm **tại sao** vào sau câu trả lời. Đây là cách mở rộng cơ b
 
 ---
 
+<!-- anchor: making-answers-longer-naturally.pattern-2-answer-example-vi-du -->
 ## PATTERN 2: Answer + Example (Ví dụ)
 
 Thêm **ví dụ cụ thể** để minh họa và làm câu trả lời thuyết phục hơn.
@@ -123,6 +148,7 @@ Thêm **ví dụ cụ thể** để minh họa và làm câu trả lời thuyế
 
 ---
 
+<!-- anchor: making-answers-longer-naturally.pattern-3-answer-contrast-doi-lap-ngoai-le -->
 ## PATTERN 3: Answer + Contrast (Đối lập / Ngoại lệ)
 
 Thêm **một góc nhìn khác** hoặc **trường hợp ngoại lệ** để cho thấy tư duy cân bằng.
@@ -197,6 +223,7 @@ Thêm **góc nhìn hoặc trải nghiệm cá nhân** để làm câu trả lờ
 
 ---
 
+<!-- anchor: making-answers-longer-naturally.combining-patterns-ket-hop-nhieu-pattern-trong-mot-cau-tra-loi -->
 ## COMBINING PATTERNS — kết hợp nhiều pattern trong một câu trả lời
 
 Câu trả lời mạnh nhất kết hợp 2-3 patterns liên tiếp. Đây là ví dụ Part 3:
@@ -221,6 +248,7 @@ Câu trả lời mạnh nhất kết hợp 2-3 patterns liên tiếp. Đây là 
 
 ---
 
+<!-- anchor: making-answers-longer-naturally.loi-thuong-gap -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: Thêm từ không liên quan để kéo dài (filler strategy)
@@ -269,6 +297,7 @@ Với mỗi câu trả lời ngắn dưới đây, hãy viết phiên bản dài
 
 ---
 
+<!-- anchor: making-answers-longer-naturally.tom-tat-nhanh -->
 ## Tóm tắt nhanh
 
 ```

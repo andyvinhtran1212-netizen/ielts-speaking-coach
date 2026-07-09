@@ -31,6 +31,13 @@ questions:
           instruction_vi: "'the most popular … after plain water' là so sánh nhất NHƯNG có mệnh đề loại trừ 'after plain water' — trà chỉ nhất SAU nước, không phải nhất tuyệt đối."
           kp_refs:
             - {type: grammar, slug: comparison, anchor: comparison.superlative.the-most}
+          microcheck:
+            prompt: "'the most popular beverage on Earth after plain water' — trà đứng ở vị trí nào?"
+            options:
+              - "nhất, nhưng chỉ SAU nước (không phải nhất tuyệt đối)"
+              - "đồ uống được tiêu thụ nhiều nhất tuyệt đối"
+              - "đứng nhì sau cà phê"
+            answer: "A"
         - action: confirm
           instruction_vi: "Câu hỏi khẳng định trà là đồ uống được tiêu thụ NHIỀU NHẤT thế giới (tuyệt đối) → mâu thuẫn với 'after water' → FALSE."
           kp_refs:
@@ -51,6 +58,13 @@ questions:
           kp_refs:
             - {type: vocab, slug: ritual}
             - {type: skill, slug: vocabulary_in_context}
+          microcheck:
+            prompt: "Trong ngữ cảnh này, 'ritual' nghĩa là gì?"
+            options:
+              - "nghi thức — chuỗi hành động theo trình tự cố định"
+              - "một loại lá trà quý"
+              - "một sai lầm khi pha trà"
+            answer: "A"
         - action: confirm
           instruction_vi: "Điền 'ritual'."
 ---

@@ -51,8 +51,37 @@ pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
 - band-6-to-7
+anchors:
+  - id: quantifiers.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: quantifiers.many-vs-much
+    location: '## Many vs Much'
+    type: compare-with
+  - id: quantifiers.few-vs-little-am-tinh-it-den-muc-thieu
+    location: '## Few vs Little — Âm tính (ít đến mức thiếu)'
+    type: compare-with
+  - id: quantifiers.a-few-vs-a-little-duong-tinh-co-mot-it
+    location: '## A few vs A little — Dương tính (có một ít)'
+    type: compare-with
+  - id: quantifiers.some-vs-any
+    location: '## Some vs Any'
+    type: compare-with
+  - id: quantifiers.quantifiers-trang-trong-dung-trong-ielts-writing
+    location: '## Quantifiers trang trọng — Dùng trong IELTS Writing'
+    type: section
+  - id: quantifiers.quantifiers-quan-trong-khac
+    location: '## Quantifiers quan trọng khác'
+    type: section
+  - id: quantifiers.loi-thuong-gap
+    location: '## Lỗi thường gặp'
+    type: pitfall
+  - id: quantifiers.ung-dung-trong-ielts
+    location: '## Ứng dụng trong IELTS'
+    type: section
 ---
 
+<!-- anchor: quantifiers.tom-tat -->
 ## Tóm tắt
 
 Quantifiers = từ đứng trước danh từ để chỉ **số lượng** nhiều hay ít.
@@ -77,6 +106,7 @@ Lỗi dùng sai quantifier (much students, few information...) bị đánh giá 
 - Lập luận thuyết phục trong Task 2 (most people, a significant proportion...)
 - Nói tự nhiên và đa dạng trong Speaking
 
+<!-- anchor: quantifiers.many-vs-much -->
 ## Many vs Much
 
 ### Many — đếm được, số nhiều
@@ -104,6 +134,7 @@ much + uncountable noun
 > - ✅ **A great deal of** research supports this view. (học thuật hơn)
 > - ✅ **Much** of the research supports this view. (chấp nhận được trong academic writing)
 
+<!-- anchor: quantifiers.few-vs-little-am-tinh-it-den-muc-thieu -->
 ## Few vs Little — Âm tính (ít đến mức thiếu)
 
 ### Few — countable, mang nghĩa âm tính
@@ -126,6 +157,7 @@ little + uncountable noun = "không đủ / quá ít"
 - **Little** progress has been made in recent years.
 - He showed **little** interest in the project.
 
+<!-- anchor: quantifiers.a-few-vs-a-little-duong-tinh-co-mot-it -->
 ## A few vs A little — Dương tính (có một ít)
 
 ### A few — countable, dương tính
@@ -161,6 +193,7 @@ a little + uncountable noun = "có một ít — đủ dùng"
 - **Little** funding was available. (Gần như không có kinh phí)
 - **A little** funding was available. (Có một ít kinh phí)
 
+<!-- anchor: quantifiers.some-vs-any -->
 ## Some vs Any
 
 ### Some — khẳng định, đề nghị, mời mọc
@@ -179,6 +212,7 @@ a little + uncountable noun = "có một ít — đủ dùng"
 > - You can ask **any** question you like.
 > - **Any** country can participate.
 
+<!-- anchor: quantifiers.quantifiers-trang-trong-dung-trong-ielts-writing -->
 ## Quantifiers trang trọng — Dùng trong IELTS Writing
 
 | Informal | Formal / Academic |
@@ -198,6 +232,7 @@ a little + uncountable noun = "có một ít — đủ dùng"
 - ❌ Many countries have this problem.
 - ✅ **The majority of** countries experience this issue to varying degrees.
 
+<!-- anchor: quantifiers.quantifiers-quan-trong-khac -->
 ## Quantifiers quan trọng khác
 
 ### Several — một số (nhiều hơn a few, ít hơn many)
@@ -232,6 +267,7 @@ Dùng với countable plural, động từ số nhiều:
 - **The majority of** participants **agreed** with the proposal.
 - **A minority of** people **remain** opposed.
 
+<!-- anchor: quantifiers.loi-thuong-gap -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: Dùng "many" với uncountable
@@ -265,6 +301,7 @@ Dùng với countable plural, động từ số nhiều:
 - ❌ There is **several** evidence...
 - ✅ There is **some** evidence... / There are **several** pieces of evidence...
 
+<!-- anchor: quantifiers.ung-dung-trong-ielts -->
 ## Ứng dụng trong IELTS
 
 ### Writing Task 1 — Mô tả dữ liệu:

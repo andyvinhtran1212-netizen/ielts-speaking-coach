@@ -50,8 +50,34 @@ pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
 - band-6-to-7
+anchors:
+  - id: because-vs-because-of.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: because-vs-because-of.because-menh-de-subject-verb
+    location: '## BECAUSE + Mệnh đề (Subject + Verb)'
+    type: section
+  - id: because-vs-because-of.because-of-cum-danh-tu
+    location: '## BECAUSE OF + Cụm danh từ'
+    type: section
+  - id: because-vs-because-of.bang-so-sanh-truc-tiep
+    location: '## Bảng so sánh trực tiếp'
+    type: compare-with
+  - id: because-vs-because-of.cach-chuyen-doi-giua-hai-cau-truc
+    location: '## Cách chuyển đổi giữa hai cấu trúc'
+    type: structure
+  - id: because-vs-because-of.cac-cau-truc-nguyen-nhan-khac-can-biet
+    location: '## Các cấu trúc nguyên nhân khác cần biết'
+    type: structure
+  - id: because-vs-because-of.loi-thuong-gap
+    location: '## Lỗi thường gặp'
+    type: pitfall
+  - id: because-vs-because-of.ung-dung-trong-ielts
+    location: '## Ứng dụng trong IELTS'
+    type: section
 ---
 
+<!-- anchor: because-vs-because-of.tom-tat -->
 ## Tóm tắt
 
 Hai cấu trúc, một quy tắc đơn giản:
@@ -70,6 +96,7 @@ Hai cấu trúc, một quy tắc đơn giản:
 
 ---
 
+<!-- anchor: because-vs-because-of.because-menh-de-subject-verb -->
 ## BECAUSE + Mệnh đề (Subject + Verb)
 
 "Because" là **liên từ** — nó nối hai mệnh đề.
@@ -92,6 +119,7 @@ Hai cấu trúc, một quy tắc đơn giản:
 
 ---
 
+<!-- anchor: because-vs-because-of.because-of-cum-danh-tu -->
 ## BECAUSE OF + Cụm danh từ
 
 "Because of" là **giới từ kép** — theo sau là danh từ hoặc cụm danh từ (noun phrase).
@@ -111,6 +139,7 @@ Có thể đứng đầu câu:
 
 ---
 
+<!-- anchor: because-vs-because-of.bang-so-sanh-truc-tiep -->
 ## Bảng so sánh trực tiếp
 
 | BECAUSE (+ clause) | BECAUSE OF (+ noun phrase) |
@@ -125,6 +154,7 @@ Có thể đứng đầu câu:
 
 ---
 
+<!-- anchor: because-vs-because-of.cach-chuyen-doi-giua-hai-cau-truc -->
 ## Cách chuyển đổi giữa hai cấu trúc
 
 Khi có động từ → chuyển thành danh từ tương ứng:
@@ -147,6 +177,7 @@ Khi có động từ → chuyển thành danh từ tương ứng:
 
 ---
 
+<!-- anchor: because-vs-because-of.cac-cau-truc-nguyen-nhan-khac-can-biet -->
 ## Các cấu trúc nguyên nhân khác cần biết
 
 Khi viết IELTS, tránh lặp lại "because / because of" — thay bằng các cấu trúc sau:
@@ -176,6 +207,7 @@ Khi viết IELTS, tránh lặp lại "because / because of" — thay bằng các
 
 ---
 
+<!-- anchor: because-vs-because-of.loi-thuong-gap -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: "Because of" + mệnh đề
@@ -204,6 +236,7 @@ Khi viết IELTS, tránh lặp lại "because / because of" — thay bằng các
 
 ---
 
+<!-- anchor: because-vs-because-of.ung-dung-trong-ielts -->
 ## Ứng dụng trong IELTS
 
 ### Writing Task 1 — mô tả xu hướng:

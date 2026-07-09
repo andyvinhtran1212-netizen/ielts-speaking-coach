@@ -51,8 +51,31 @@ pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
 - band-6-to-7
+anchors:
+  - id: despite-vs-in-spite-of.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: despite-vs-in-spite-of.despite-va-in-spite-of-hoan-toan-giong-nhau-ve-nghia
+    location: '## DESPITE và IN SPITE OF — hoàn toàn giống nhau về nghĩa'
+    type: section
+  - id: despite-vs-in-spite-of.cau-truc-di-theo-sau
+    location: '## Cấu trúc đi theo sau'
+    type: structure
+  - id: despite-vs-in-spite-of.although-even-though-cau-truc-song-song
+    location: '## ALTHOUGH / EVEN THOUGH — cấu trúc song song'
+    type: structure
+  - id: despite-vs-in-spite-of.bang-chuyen-doi-giua-cac-cau-truc
+    location: '## Bảng chuyển đổi giữa các cấu trúc'
+    type: structure
+  - id: despite-vs-in-spite-of.loi-thuong-gap
+    location: '## Lỗi thường gặp'
+    type: pitfall
+  - id: despite-vs-in-spite-of.tang-cuong-cac-cau-truc-tuong-phan-khac
+    location: '## Tăng cường: các cấu trúc tương phản khác'
+    type: structure
 ---
 
+<!-- anchor: despite-vs-in-spite-of.tom-tat -->
 ## Tóm tắt
 
 | | **DESPITE** | **IN SPITE OF** | **ALTHOUGH / EVEN THOUGH** |
@@ -70,6 +93,7 @@ Trong IELTS Writing Band 7+, examiners muốn thấy bạn dùng linh hoạt cá
 
 ---
 
+<!-- anchor: despite-vs-in-spite-of.despite-va-in-spite-of-hoan-toan-giong-nhau-ve-nghia -->
 ## DESPITE và IN SPITE OF — hoàn toàn giống nhau về nghĩa
 
 Cả hai đều nghĩa là **"mặc dù"** và **cần danh từ/cụm danh từ** theo sau:
@@ -94,6 +118,7 @@ Hoặc đặt ở cuối câu:
 
 ---
 
+<!-- anchor: despite-vs-in-spite-of.cau-truc-di-theo-sau -->
 ## Cấu trúc đi theo sau
 
 ### 1. Danh từ (Noun)
@@ -133,6 +158,7 @@ in spite of the fact that + subject + verb
 
 ---
 
+<!-- anchor: despite-vs-in-spite-of.although-even-though-cau-truc-song-song -->
 ## ALTHOUGH / EVEN THOUGH — cấu trúc song song
 
 **Although** và **even though** cũng có nghĩa "mặc dù" nhưng là **liên từ** — theo sau là **mệnh đề** (subject + verb):
@@ -157,6 +183,7 @@ Even though + subject + verb, [main clause]
 
 ---
 
+<!-- anchor: despite-vs-in-spite-of.bang-chuyen-doi-giua-cac-cau-truc -->
 ## Bảng chuyển đổi giữa các cấu trúc
 
 | Câu gốc | Chuyển sang despite | Chuyển sang although |
@@ -168,6 +195,7 @@ Even though + subject + verb, [main clause]
 
 ---
 
+<!-- anchor: despite-vs-in-spite-of.loi-thuong-gap -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: "Despite" + mệnh đề (không có "the fact that")
@@ -199,6 +227,7 @@ Even though + subject + verb, [main clause]
 
 ---
 
+<!-- anchor: despite-vs-in-spite-of.tang-cuong-cac-cau-truc-tuong-phan-khac -->
 ## Tăng cường: các cấu trúc tương phản khác
 
 | Cấu trúc | Ví dụ | Ghi chú |

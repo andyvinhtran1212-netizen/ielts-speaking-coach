@@ -34,6 +34,13 @@ questions:
           instruction_vi: "'were reintroduced' là thể bị động (be + V3) — chủ thể hành động (con người) bị ẩn; điều quan trọng là trước 1995 sói KHÔNG có mặt."
           kp_refs:
             - {type: grammar, slug: passive-voice, anchor: passive-voice.structure.be-pp}
+          microcheck:
+            prompt: "'were reintroduced' đang ở thể/dạng nào?"
+            options:
+              - "bị động (be + V3)"
+              - "chủ động quá khứ đơn"
+              - "hiện tại hoàn thành"
+            answer: "A"
         - action: confirm
           instruction_vi: "'absent before 1995' khớp 'gone for decades' → TRUE."
           kp_refs:

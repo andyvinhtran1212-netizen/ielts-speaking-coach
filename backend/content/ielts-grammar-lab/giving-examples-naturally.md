@@ -43,8 +43,31 @@ next_articles:
 pathways:
 - grammar-for-ielts-speaking
 - band-6-to-7
+anchors:
+  - id: giving-examples-naturally.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: giving-examples-naturally.nhom-1-for-example-for-instance-pho-bien-nhat
+    location: '## NHÓM 1: FOR EXAMPLE / FOR INSTANCE — phổ biến nhất'
+    type: section
+  - id: giving-examples-naturally.nhom-2-such-as-tich-hop-trong-cau-khong-can-cau-moi
+    location: '## NHÓM 2: SUCH AS — tích hợp trong câu, không cần câu mới'
+    type: section
+  - id: giving-examples-naturally.nhom-3-to-illustrate-to-demonstrate-trang-trong-mo-dau-cho-vi-du-dai
+    location: '## NHÓM 3: TO ILLUSTRATE / TO DEMONSTRATE — trang trọng, mở đầu cho ví dụ dài'
+    type: section
+  - id: giving-examples-naturally.structure-vi-du-hieu-qua-cu-the-lien-quan-phat-trien
+    location: '## STRUCTURE: Ví dụ hiệu quả = Cụ thể + Liên quan + Phát triển'
+    type: structure
+  - id: giving-examples-naturally.loi-thuong-gap
+    location: '## Lỗi thường gặp'
+    type: pitfall
+  - id: giving-examples-naturally.tom-tat-nhanh
+    location: '## Tóm tắt nhanh'
+    type: overview
 ---
 
+<!-- anchor: giving-examples-naturally.tom-tat -->
 ## Tóm tắt
 
 Ví dụ tốt là ví dụ **cụ thể**, **liên quan**, và được **giới thiệu tự nhiên** — không phải chỉ dán "for example" vào đầu câu bất kỳ.
@@ -67,6 +90,7 @@ Tuy nhiên, nếu chỉ dùng "for example" mãi, bài nói/viết sẽ đơn đ
 
 ---
 
+<!-- anchor: giving-examples-naturally.nhom-1-for-example-for-instance-pho-bien-nhat -->
 ## NHÓM 1: FOR EXAMPLE / FOR INSTANCE — phổ biến nhất
 
 Hai cụm từ này hoàn toàn thay thế cho nhau — đứng đầu câu, theo sau là dấu phẩy:
@@ -85,6 +109,7 @@ Hai cụm từ này hoàn toàn thay thế cho nhau — đứng đầu câu, the
 
 ---
 
+<!-- anchor: giving-examples-naturally.nhom-2-such-as-tich-hop-trong-cau-khong-can-cau-moi -->
 ## NHÓM 2: SUCH AS — tích hợp trong câu, không cần câu mới
 
 "Such as" được đặt **bên trong câu** để liệt kê ví dụ — không bắt đầu câu mới:
@@ -103,6 +128,7 @@ Hai cụm từ này hoàn toàn thay thế cho nhau — đứng đầu câu, the
 
 ---
 
+<!-- anchor: giving-examples-naturally.nhom-3-to-illustrate-to-demonstrate-trang-trong-mo-dau-cho-vi-du-dai -->
 ## NHÓM 3: TO ILLUSTRATE / TO DEMONSTRATE — trang trọng, mở đầu cho ví dụ dài
 
 Dùng khi ví dụ sau đó là một đoạn dài, chi tiết — thường trong Writing Task 2:
@@ -204,6 +230,7 @@ Trong Speaking, những connectors này nghe **tự nhiên và conversational** 
 
 ---
 
+<!-- anchor: giving-examples-naturally.structure-vi-du-hieu-qua-cu-the-lien-quan-phat-trien -->
 ## STRUCTURE: Ví dụ hiệu quả = Cụ thể + Liên quan + Phát triển
 
 Một ví dụ yếu:
@@ -219,6 +246,7 @@ Một ví dụ mạnh:
 
 ---
 
+<!-- anchor: giving-examples-naturally.loi-thuong-gap -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: "For example" ở giữa câu thay vì đầu câu
@@ -292,6 +320,7 @@ Hãy thêm một ví dụ vào mỗi câu dưới đây, bắt đầu bằng con
 
 ---
 
+<!-- anchor: giving-examples-naturally.tom-tat-nhanh -->
 ## Tóm tắt nhanh
 
 | Connector | Vị trí | Register | Cấu trúc |

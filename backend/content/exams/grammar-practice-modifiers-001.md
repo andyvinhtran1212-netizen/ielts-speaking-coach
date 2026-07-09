@@ -79,13 +79,13 @@ questions:
       - {label: B, text: "beautiful long blue"}
       - {label: C, text: "blue long beautiful"}
       - {label: D, text: "long blue beautiful"}
-    answer: "A"
+    answer: "B"
     kp_focus: grammar
     grammar_slug: order-of-adjectives
     solution:
       solution_steps:
         - action: parse_syntax
-          instruction_vi: "Thứ tự tính từ tiếng Anh: Size → Colour → Opinion/Quality. 'Long' (Size) → 'blue' (Colour) → 'beautiful' (Opinion). Vậy 'long beautiful blue' sai. Sắp xếp đúng: Opinion → Size → Colour = 'beautiful long blue' hay Size → Colour → Opinion = 'long blue beautiful'. Nhưng 'long beautiful blue' (Size-Opinion-Colour) là sắp xếp tự nhiên hơn khi 'beautiful' là đặc tả chất lượng đặc biệt."
+          instruction_vi: "Thứ tự tính từ chuẩn: Opinion → Size → Colour. 'beautiful' (Opinion) → 'long' (Size) → 'blue' (Colour) = 'beautiful long blue'."
           kp_refs:
             - {type: grammar, slug: order-of-adjectives, anchor: order-of-adjectives.sequence}
           microcheck:
@@ -94,12 +94,12 @@ questions:
               - "Size → Opinion → Colour"
               - "Opinion → Size → Colour"
               - "Size → Colour → Opinion"
-            answer: "A"
+            answer: "B"
         - action: confirm
-          instruction_vi: "Opinion (beautiful) đứng gần danh từ hoặc trước Size. Size → Opinion → Colour là tự nhiên. Đáp án A."
+          instruction_vi: "Opinion → Size → Colour → 'beautiful long blue'. Đáp án B."
       distractor_analysis:
-        - option: C
-          why_wrong_vi: "'blue' (Colour) không bao giờ đứng trước Size; Colour luôn ở giữa hoặc gần danh từ."
+        - option: A
+          why_wrong_vi: "'long beautiful blue' đặt Size (long) trước Opinion (beautiful) — sai; Opinion luôn đứng trước Size."
           kp_refs:
             - {type: grammar, slug: order-of-adjectives, anchor: order-of-adjectives.pitfall}
 
@@ -201,33 +201,33 @@ questions:
 
   - q_num: 7
     question_type: mcq_single
-    prompt: "The proposal is ____ perfect; it has a few minor flaws."
+    prompt: "The gymnast's routine was ____ perfect; the judges awarded full marks."
     options:
-      - {label: A, text: "quite"}
+      - {label: A, text: "very"}
       - {label: B, text: "absolutely"}
-      - {label: C, text: "extremely"}
-      - {label: D, text: "utterly"}
-    answer: "A"
+      - {label: C, text: "slightly"}
+      - {label: D, text: "fairly"}
+    answer: "B"
     kp_focus: grammar
     grammar_slug: intensifiers-and-mitigators
     solution:
       solution_steps:
         - action: parse_syntax
-          instruction_vi: "'Perfect' là tính từ ungradable (không có bậc so sánh) — cần mitigator yếu 'quite'. 'Quite perfect' có nghĩa gần hoàn hảo. Intensifier mạnh sẽ không phù hợp với bối cảnh 'có lỗi'."
+          instruction_vi: "'perfect' là tính từ UNGRADABLE (tuyệt đối, không có bậc: không nói 'more perfect'). Ungradable đi với MAXIMIZER 'absolutely/utterly/completely', KHÔNG dùng intensifier gradable 'very/fairly/slightly'."
           kp_refs:
             - {type: grammar, slug: intensifiers-and-mitigators, anchor: intensifiers-and-mitigators.pitfall}
           microcheck:
-            prompt: "Loại mitigator nào dùng với 'perfect' (ungradable)?"
+            prompt: "Tính từ ungradable như 'perfect' đi với loại từ tăng cường nào?"
             options:
-              - "yếu (quite, rather)"
-              - "mạnh (absolutely, utterly)"
-              - "trung bình"
+              - "maximizer: absolutely / utterly"
+              - "intensifier gradable: very / fairly"
+              - "không đi với từ nào"
             answer: "A"
         - action: confirm
-          instruction_vi: "Ungradable + mitigator yếu 'quite'. Đáp án A."
+          instruction_vi: "Ungradable 'perfect' + maximizer → 'absolutely perfect'. Đáp án B."
       distractor_analysis:
-        - option: B
-          why_wrong_vi: "'absolutely perfect' là cách diễn đạt tuyệt đối, không phù hợp khi câu nói sau nêu có lỗi."
+        - option: A
+          why_wrong_vi: "'very perfect' sai — 'perfect' đã mang nghĩa tuyệt đối, không tăng cấp bằng 'very' (dành cho tính từ gradable)."
           kp_refs:
             - {type: grammar, slug: intensifiers-and-mitigators, anchor: intensifiers-and-mitigators.scale}
 
@@ -235,17 +235,17 @@ questions:
     question_type: mcq_single
     prompt: "The recipe is ____ useful; I recommend it to all my friends."
     options:
-      - {label: A, text: "quite"}
+      - {label: A, text: "extremely"}
       - {label: B, text: "slightly"}
       - {label: C, text: "absolutely"}
       - {label: D, text: "fairly"}
-    answer: "C"
+    answer: "A"
     kp_focus: grammar
     grammar_slug: intensifiers-and-mitigators
     solution:
       solution_steps:
         - action: parse_syntax
-          instruction_vi: "'Useful' là tính từ gradable (có thể so sánh). Bối cảnh tích cực mạnh ('recommend to all friends') cần intensifier mạnh 'absolutely'. Mitigators yếu sẽ làm yếu ý định."
+          instruction_vi: "'Useful' là tính từ GRADABLE → dùng intensifier gradable (very/extremely/really). Bối cảnh mạnh ('recommend to all friends') → 'extremely useful'. KHÔNG dùng 'absolutely' (chỉ dành cho tính từ ungradable như perfect/essential)."
           kp_refs:
             - {type: grammar, slug: intensifiers-and-mitigators, anchor: intensifiers-and-mitigators.gradable}
           microcheck:
@@ -256,10 +256,10 @@ questions:
               - "verb"
             answer: "A"
         - action: confirm
-          instruction_vi: "Gradable + intensifier mạnh 'absolutely'. Đáp án C."
+          instruction_vi: "Gradable + intensifier mạnh 'extremely'. Đáp án A."
       distractor_analysis:
-        - option: A
-          why_wrong_vi: "'quite useful' là mitigator (làm yếu ý), không phù hợp với bối cảnh mạnh 'recommend to all friends'."
+        - option: C
+          why_wrong_vi: "'absolutely' chỉ đi với tính từ UNGRADABLE (perfect, essential, freezing); 'useful' là gradable nên 'absolutely useful' sai collocation."
           kp_refs:
             - {type: grammar, slug: intensifiers-and-mitigators, anchor: intensifiers-and-mitigators.scale}
 ---

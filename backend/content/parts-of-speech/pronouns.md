@@ -40,12 +40,27 @@ next_articles:
 - wrong-pronoun-reference
 pathways:
 - grammar-for-beginners
+anchors:
+  - id: pronouns.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: pronouns.tai-sao-quan-trong
+    location: '## Tại sao quan trọng'
+    type: section
+  - id: pronouns.loi-thuong-gap
+    location: '## Lỗi thường gặp'
+    type: pitfall
+  - id: pronouns.bai-tap-luyen
+    location: '## Bài tập luyện'
+    type: section
 ---
 
+<!-- anchor: pronouns.tom-tat -->
 ## Tóm tắt
 
 Đại từ (Pronoun) là từ đứng thay thế cho danh từ đã nhắc đến trước đó. Thay vì nói "Mary went to the store. Mary bought milk. Mary came back home", ta dùng đại từ: "Mary went to the store. **She** bought milk. **She** came back home."
 
+<!-- anchor: pronouns.tai-sao-quan-trong -->
 ## Tại sao quan trọng
 
 Dùng đại từ đúng giúp câu văn mạch lạc và tự nhiên hơn. Dùng sai có thể gây hiểu lầm (nhầm "he/she") hoặc bị trừ điểm Grammar trong IELTS.
@@ -158,6 +173,7 @@ Nối mệnh đề quan hệ với danh từ đứng trước:
 
 → Xem bài [Relative Clauses](/grammar/sentence-structures/relative-clauses) để học chi tiết.
 
+<!-- anchor: pronouns.loi-thuong-gap -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: Dùng subject pronoun ở vị trí object
@@ -250,6 +266,7 @@ Sau khi nhắc một danh từ lần đầu, dùng *it* (số ít) hoặc *they/
 - **this connectivity** → summary reference, tóm tắt và nối ý vừa nói
 - **its** → possessive, kéo chủ thể về trong câu kết
 
+<!-- anchor: pronouns.bai-tap-luyen -->
 ## Bài tập luyện
 
 ### Chọn đại từ đúng

@@ -39,12 +39,27 @@ next_articles:
 - compound-sentence
 pathways:
 - grammar-for-beginners
+anchors:
+  - id: phrase-vs-clause.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: phrase-vs-clause.tai-sao-quan-trong
+    location: '## Tại sao quan trọng'
+    type: section
+  - id: phrase-vs-clause.loi-thuong-gap
+    location: '## Lỗi thường gặp'
+    type: pitfall
+  - id: phrase-vs-clause.bai-tap-luyen
+    location: '## Bài tập luyện'
+    type: section
 ---
 
+<!-- anchor: phrase-vs-clause.tom-tat -->
 ## Tóm tắt
 
 **Phrase** = nhóm từ có nghĩa nhưng **thiếu chủ ngữ hoặc vị ngữ** (hoặc cả hai), không thể đứng độc lập thành câu. **Clause** = nhóm từ **có đủ chủ ngữ và vị ngữ**, có thể đứng độc lập hoặc phụ thuộc vào mệnh đề khác.
 
+<!-- anchor: phrase-vs-clause.tai-sao-quan-trong -->
 ## Tại sao quan trọng
 
 Hiểu phrase và clause là chìa khoá để:
@@ -188,6 +203,7 @@ Phân tích:
 - "**what concerns people most**" → Noun clause (subject)
 - "**how it's being used**" → Noun clause (tân ngữ sau *but*)
 
+<!-- anchor: phrase-vs-clause.loi-thuong-gap -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: Sentence Fragment — dùng dependent clause như câu độc lập
@@ -252,6 +268,7 @@ Thay vì nhiều câu ngắn rời rạc, dùng phrases để kết nối:
 
 Câu Band 7+ chứa: 1 dependent adverb clause + 1 relative clause + 1 adjective phrase + 1 relative clause.
 
+<!-- anchor: phrase-vs-clause.bai-tap-luyen -->
 ## Bài tập luyện
 
 ### Xác định: Phrase, Independent Clause, hay Dependent Clause?

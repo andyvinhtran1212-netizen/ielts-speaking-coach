@@ -227,37 +227,37 @@ questions:
     question_type: mcq_single
     prompt: "In a Task 2 essay, a student wrote: 'People should invest in education not only because it improves individual prospects but also benefits society as a whole.' The structure is ____."
     options:
-      - {label: A, text: "not parallel — 'improves' ≠ 'benefits'"}
-      - {label: B, text: "parallel but awkward"}
-      - {label: C, text: "parallel and appropriate — both are main verbs in 'because' clauses"}
-      - {label: D, text: "incorrect because of 'also'"}
-    answer: "C"
+      - {label: A, text: "not parallel — 'not only' is followed by a 'because' clause but 'but also' by a bare verb"}
+      - {label: B, text: "fully parallel and correct"}
+      - {label: C, text: "parallel but too informal for Task 2"}
+      - {label: D, text: "wrong because 'not only' cannot introduce a reason"}
+    answer: "A"
     kp_focus: grammar
     grammar_slug: parallel-structure
     solution:
       solution_steps:
         - action: parse_syntax
-          instruction_vi: "'not only...but also' kết nối hai mệnh đề `because`: 'because it improves' và 'because [it] benefits'. Cấu trúc song song OK vì cả hai đều là động từ chính sau 'because'. Từ 'it' ở mệnh đề thứ hai bị lược (gapping) nhưng vẫn hiểu được."
+          instruction_vi: "'not only ... but also' phải nối HAI thành phần CÙNG loại. Ở đây 'not only' đi với mệnh đề 'because it improves...', còn 'but also' đi với động từ trần 'benefits...' → hai vế KHÔNG cùng dạng nên KHÔNG song song. Sửa: 'not only because it improves... but also because it benefits...' hoặc 'because it not only improves... but also benefits...'."
           kp_refs:
             - {type: grammar, slug: parallel-structure, anchor: parallel-structure.correlatives}
           microcheck:
-            prompt: "Trong 'not only because it improves...but also benefits...', cấu trúc song là gì?"
+            prompt: "Vì sao câu này KHÔNG song song?"
             options:
-              - "hai mệnh đề because có động từ chính song song"
-              - "hai danh từ chính song song"
-              - "hai danh từ riêng"
+              - "'not only' theo sau là mệnh đề 'because', còn 'but also' theo sau là động từ trần"
+              - "vì trong câu có từ 'also'"
+              - "vì 'improves' và 'benefits' khác nghĩa"
             answer: "A"
         - action: confirm
-          instruction_vi: "Cả hai vế của 'not only...but also' là mệnh đề 'because' có động từ chính; song song ✓. Đáp án C."
+          instruction_vi: "Hai vế của 'not only...but also' khác cấu trúc (mệnh đề 'because' vs động từ trần) → lỗi thiếu song song. Đáp án A."
       distractor_analysis:
-        - option: A
-          why_wrong_vi: "'improves' và 'benefits' cùng là động từ chính, không phải so sánh trực tiếp; cấu trúc song song được."
-          kp_refs:
-            - {type: grammar, slug: parallel-structure, anchor: parallel-structure.correlatives}
         - option: B
-          why_wrong_vi: "Câu không awkward; cấu trúc song song + ngữ cảnh rõ ràng."
+          why_wrong_vi: "Câu KHÔNG song song: 'not only + because-clause' không cân với 'but also + bare verb'."
           kp_refs:
             - {type: grammar, slug: parallel-structure, anchor: parallel-structure.pitfall}
+        - option: D
+          why_wrong_vi: "'not only' hoàn toàn có thể mở đầu một lý do; lỗi nằm ở sự thiếu song song giữa hai vế, không phải vị trí 'not only'."
+          kp_refs:
+            - {type: grammar, slug: parallel-structure, anchor: parallel-structure.correlatives}
 
   - q_num: 8
     question_type: mcq_single

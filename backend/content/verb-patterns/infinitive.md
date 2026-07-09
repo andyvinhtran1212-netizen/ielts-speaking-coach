@@ -2,7 +2,10 @@
 title: To-Infinitive (Động từ nguyên thể có "to")
 slug: infinitive
 category: verb-patterns
-summary: 'To-infinitive là cấu trúc "to + động từ nguyên thể" (to go, to learn, to speak). Nó được dùng sau nhiều động từ phổ biến, để diễn tả mục đích, và sau tính từ. Đây là một trong hai dạng phi định ngữ quan trọng nhất — cùng với gerund — và là nguồn gây nhầm lẫn thường xuyên cho người học Việt Nam.
+summary: 'To-infinitive là cấu trúc "to + động từ nguyên thể" (to go, to learn, to
+  speak). Nó được dùng sau nhiều động từ phổ biến, để diễn tả mục đích, và sau tính
+  từ. Đây là một trong hai dạng phi định ngữ quan trọng nhất — cùng với gerund — và
+  là nguồn gây nhầm lẫn thường xuyên cho người học Việt Nam.
 
   '
 level: intermediate
@@ -44,8 +47,25 @@ pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
 - band-6-to-7
+anchors:
+- id: infinitive.overview
+  location: '## Tóm tắt'
+  type: overview
+- id: infinitive.usage
+  location: '## Cách dùng phổ biến'
+  type: section
+- id: infinitive.recognition
+  location: '## Dấu hiệu nhận biết'
+  type: concept
+- id: infinitive.common-mistakes
+  location: '## Lỗi thường gặp'
+  type: pitfall
+- id: infinitive.compare-with-gerund
+  location: '## So sánh với'
+  type: compare-with
 ---
 
+<!-- anchor: infinitive.overview -->
 ## Tóm tắt
 
 **To-infinitive** = **to + động từ nguyên thể** — được dùng sau một số động từ nhất định, để diễn tả mục đích, và sau nhiều tính từ; khác với gerund (V-ing) ở chỗ nó hướng về *hành động sẽ xảy ra hoặc kết quả mong muốn*.
@@ -106,6 +126,7 @@ to + have + past participle
 - She claims **to have met** him before.
 - I'm lucky **to have had** such a great teacher.
 
+<!-- anchor: infinitive.usage -->
 ## Cách dùng phổ biến
 
 ### 1. To-infinitive sau động từ (Verb + to-infinitive)
@@ -210,6 +231,7 @@ wh-word + to + base verb
 - I've been wondering **whether to apply** for the job.
 - We need to decide **when to start**.
 
+<!-- anchor: infinitive.recognition -->
 ## Dấu hiệu nhận biết
 
 | Dùng to-infinitive khi... | Ví dụ |
@@ -239,6 +261,7 @@ wh-word + to + base verb
 
 **(Writing Task 2)** "Governments need **to invest** in public transport **to reduce** traffic congestion. It is also essential **to encourage** citizens **to consider** more sustainable options. Failing **to address** this issue now will have long-term consequences."
 
+<!-- anchor: infinitive.common-mistakes -->
 ## Lỗi thường gặp
 
 ### Lỗi 1: Dùng gerund thay to-infinitive sau want/hope/plan/decide
@@ -279,6 +302,7 @@ wh-word + to + base verb
 - "I want **to meet** you." → to = dấu hiệu of infinitive → sau đó dùng **base verb**
 - **TẠI SAO:** "look forward to", "be used to", "in addition to" đều có "to" là giới từ → dùng gerund sau đó.
 
+<!-- anchor: infinitive.compare-with-gerund -->
 ## So sánh với
 
 ### To-Infinitive vs. Gerund

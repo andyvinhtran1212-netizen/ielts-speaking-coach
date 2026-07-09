@@ -2,7 +2,11 @@
 title: Word Form Errors — Sai dạng từ
 slug: word-form-errors
 category: error-clinic
-summary: 'Word form errors (lỗi sai dạng từ) xảy ra khi dùng sai từ loại: viết "beauty" (danh từ) thay vì "beautiful" (tính từ), hoặc "success" thay vì "successful". Người Việt hay mắc lỗi này vì tiếng Việt không biến đổi dạng từ theo chức năng ngữ pháp. Đây là lỗi cực kỳ phổ biến, ảnh hưởng đến cả Lexical Resource lẫn Grammatical Accuracy trong IELTS Writing và Speaking.
+summary: 'Word form errors (lỗi sai dạng từ) xảy ra khi dùng sai từ loại: viết "beauty"
+  (danh từ) thay vì "beautiful" (tính từ), hoặc "success" thay vì "successful". Người
+  Việt hay mắc lỗi này vì tiếng Việt không biến đổi dạng từ theo chức năng ngữ pháp.
+  Đây là lỗi cực kỳ phổ biến, ảnh hưởng đến cả Lexical Resource lẫn Grammatical Accuracy
+  trong IELTS Writing và Speaking.
 
   '
 level: intermediate
@@ -49,8 +53,31 @@ next_articles:
 pathways:
 - fix-common-mistakes
 - band-6-to-7
+anchors:
+  - id: word-form-errors.tom-tat
+    location: '## Tóm tắt'
+    type: overview
+  - id: word-form-errors.phan-1-suffixes-thuong-gap-nhan-dien-tu-loai
+    location: '## Phần 1: Suffixes thường gặp — nhận diện từ loại'
+    type: section
+  - id: word-form-errors.phan-2-word-families-quan-trong-nhat-cho-ielts
+    location: '## Phần 2: Word Families quan trọng nhất cho IELTS'
+    type: section
+  - id: word-form-errors.phan-3-loi-thuong-gap
+    location: '## Phần 3: Lỗi thường gặp'
+    type: pitfall
+  - id: word-form-errors.phan-4-tu-loai-sau-cac-cau-truc-quan-trong
+    location: '## Phần 4: Từ loại sau các cấu trúc quan trọng'
+    type: structure
+  - id: word-form-errors.ung-dung-trong-ielts
+    location: '## Ứng dụng trong IELTS'
+    type: section
+  - id: word-form-errors.tom-tat-nhanh
+    location: '## Tóm tắt nhanh'
+    type: overview
 ---
 
+<!-- anchor: word-form-errors.tom-tat -->
 ## Tóm tắt
 
 Mỗi từ trong tiếng Anh thường có nhiều dạng tương ứng với các từ loại khác nhau:
@@ -83,6 +110,7 @@ Trước khi chọn dạng từ, hỏi: **"Vị trí này trong câu cần từ 
 | Sau động từ | Adverb (nếu bổ nghĩa V) | She sings **beautifully** |
 | Vị ngữ (hành động) | Verb | They **succeed** every time |
 
+<!-- anchor: word-form-errors.phan-1-suffixes-thuong-gap-nhan-dien-tu-loai -->
 ## Phần 1: Suffixes thường gặp — nhận diện từ loại
 
 ### Noun suffixes (đuôi tạo danh từ):
@@ -130,6 +158,7 @@ Hầu hết trạng từ = tính từ + **-ly**:
 | -en | strengthen, widen, broaden, deepen, shorten |
 | -ate | educate, create, evaluate, communicate |
 
+<!-- anchor: word-form-errors.phan-2-word-families-quan-trong-nhat-cho-ielts -->
 ## Phần 2: Word Families quan trọng nhất cho IELTS
 
 ### Nhóm 1: Education / Economics / Environment
@@ -173,6 +202,7 @@ Hầu hết trạng từ = tính từ + **-ly**:
 | equality | equalise | equal, unequal | equally |
 | innovation | innovate | innovative | innovatively |
 
+<!-- anchor: word-form-errors.phan-3-loi-thuong-gap -->
 ## Phần 3: Lỗi thường gặp
 
 ### Lỗi 1: Dùng danh từ thay tính từ
@@ -260,6 +290,7 @@ Sau "make/keep/find + object", cần **adjective** không phải adverb hoặc n
 - ❌ The government should keep prices **stability**.
 - ✅ The government should keep prices **stable**.
 
+<!-- anchor: word-form-errors.phan-4-tu-loai-sau-cac-cau-truc-quan-trong -->
 ## Phần 4: Từ loại sau các cấu trúc quan trọng
 
 | Cấu trúc | Từ loại tiếp theo | Ví dụ |
@@ -273,6 +304,7 @@ Sau "make/keep/find + object", cần **adjective** không phải adverb hoặc n
 | despite / because of + | **Noun/Gerund** | despite **failing** |
 | is/are/was/were | **Noun hoặc Adjective** | She is **a teacher** / is **intelligent** |
 
+<!-- anchor: word-form-errors.ung-dung-trong-ielts -->
 ## Ứng dụng trong IELTS
 
 ### Writing Task 2 — ví dụ sửa lỗi:
@@ -326,6 +358,7 @@ Sau "make/keep/find + object", cần **adjective** không phải adverb hoặc n
 4. The **government** should provide more support for **unemployed** people.
 5. This policy has been **extremely** beneficial for low-income families.
 
+<!-- anchor: word-form-errors.tom-tat-nhanh -->
 ## Tóm tắt nhanh
 
 **Cách xác định word form cần dùng:**
