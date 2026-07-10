@@ -22,11 +22,15 @@ from __future__ import annotations
 
 from services.reading_solution import validate_solution_structure
 
-# Question types whose wrong answers form a fixed, enumerable distractor set.
-_OPTION_TYPES: frozenset[str] = frozenset((
-    "multiple_choice", "matching_headings", "matching_information",
+# Single-answer option types (answer = one label from `options`). These are the
+# ACTUAL authored question_type names (mcq_single, not "multiple_choice").
+_SINGLE_LABEL_TYPES: frozenset[str] = frozenset((
+    "mcq_single", "matching_headings", "matching_information",
     "matching_features", "matching_paragraphs", "matching_sentence_endings",
 ))
+# Multi-answer option types (answer = a LIST of correct labels, e.g. mcq_multi
+# "choose TWO" → answer: [B, C]).
+_MULTI_LABEL_TYPES: frozenset[str] = frozenset(("mcq_multi",))
 # Fixed-verdict types: options are implicit, not listed in the YAML.
 _FIXED_OPTIONS: dict[str, tuple[str, ...]] = {
     "true_false_not_given": ("TRUE", "FALSE", "NOT GIVEN"),
@@ -38,20 +42,28 @@ def _norm(v) -> str:
     return str(v or "").strip().upper()
 
 
+def _option_labels(question: dict) -> list[str]:
+    opts = question.get("options") or []
+    return [str(o.get("label")) for o in opts if isinstance(o, dict) and o.get("label") is not None]
+
+
 def wrong_options(question: dict) -> list[str] | None:
     """The wrong-option labels for a question, or None if the type has no fixed
     distractor set (gap-fill / short-answer — nothing to write a distractor
     analysis against)."""
     qtype = (question.get("question_type") or "").strip()
-    answer = _norm(question.get("answer"))
+    answer = question.get("answer")
 
     if qtype in _FIXED_OPTIONS:
-        return [o for o in _FIXED_OPTIONS[qtype] if _norm(o) != answer]
+        return [o for o in _FIXED_OPTIONS[qtype] if _norm(o) != _norm(answer)]
 
-    if qtype in _OPTION_TYPES:
-        opts = question.get("options") or []
-        labels = [str(o.get("label")) for o in opts if isinstance(o, dict) and o.get("label") is not None]
-        return [lab for lab in labels if _norm(lab) != answer]
+    if qtype in _MULTI_LABEL_TYPES:
+        # answer is a list of correct labels → wrong = every option not in it
+        correct = {_norm(a) for a in (answer if isinstance(answer, list) else [answer])}
+        return [lab for lab in _option_labels(question) if _norm(lab) not in correct]
+
+    if qtype in _SINGLE_LABEL_TYPES:
+        return [lab for lab in _option_labels(question) if _norm(lab) != _norm(answer)]
 
     return None
 

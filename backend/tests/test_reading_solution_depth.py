@@ -14,7 +14,7 @@ def _two_steps():
 
 def test_wrong_options_mcq():
     q = {
-        "question_type": "multiple_choice",
+        "question_type": "mcq_single",
         "options": [{"label": "A", "text": "x"}, {"label": "B", "text": "y"}, {"label": "C", "text": "z"}],
         "answer": "B",
     }
@@ -24,6 +24,16 @@ def test_wrong_options_mcq():
 def test_wrong_options_tfng_implicit():
     q = {"question_type": "true_false_not_given", "answer": "FALSE"}
     assert depth.wrong_options(q) == ["TRUE", "NOT GIVEN"]
+
+
+def test_wrong_options_mcq_multi_list_answer():
+    # "choose TWO" → answer is a list; wrong = every option not in it
+    q = {
+        "question_type": "mcq_multi",
+        "options": [{"label": "A"}, {"label": "B"}, {"label": "C"}, {"label": "D"}, {"label": "E"}],
+        "answer": ["B", "C"],
+    }
+    assert depth.wrong_options(q) == ["A", "D", "E"]
 
 
 def test_wrong_options_gapfill_is_none():
@@ -59,7 +69,7 @@ def test_gapfill_two_steps_no_distractor_needed_passes():
 
 def test_mcq_missing_distractor_analysis_fails():
     q = {
-        "question_type": "multiple_choice",
+        "question_type": "mcq_single",
         "options": [{"label": "A"}, {"label": "B"}, {"label": "C"}],
         "answer": "B",
         "solution": {"solution_steps": _two_steps()},  # no distractor_analysis
@@ -70,7 +80,7 @@ def test_mcq_missing_distractor_analysis_fails():
 
 def test_mcq_full_distractor_coverage_passes():
     q = {
-        "question_type": "multiple_choice",
+        "question_type": "mcq_single",
         "options": [{"label": "A"}, {"label": "B"}, {"label": "C"}],
         "answer": "B",
         "solution": {
@@ -86,7 +96,7 @@ def test_mcq_full_distractor_coverage_passes():
 
 def test_mcq_partial_distractor_coverage_fails():
     q = {
-        "question_type": "multiple_choice",
+        "question_type": "mcq_single",
         "options": [{"label": "A"}, {"label": "B"}, {"label": "C"}],
         "answer": "B",
         "solution": {
@@ -115,7 +125,7 @@ def test_empty_why_wrong_flagged():
 
 def test_require_distractors_false_skips_coverage():
     q = {
-        "question_type": "multiple_choice",
+        "question_type": "mcq_single",
         "options": [{"label": "A"}, {"label": "B"}],
         "answer": "A",
         "solution": {"solution_steps": _two_steps()},

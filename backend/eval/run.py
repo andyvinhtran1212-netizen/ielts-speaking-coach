@@ -47,6 +47,10 @@ async def _grade_writing(item) -> dict | None:
     cfg = GraderConfig(
         task_type=item.task_type, prompt_text=item.prompt_text,
         essay_text=item.essay_text, analysis_level=(item.analysis_level or 3),
+        # forward the Task 1 chart so the harness exercises the SAME multimodal
+        # path production uses — without it, task1_academic items grade text-only
+        # (with the missing-image caveat), measuring a different grader (Codex F3).
+        prompt_image_url=item.prompt_image_url,
     )
     res = await GeminiWritingGrader().grade_essay(cfg)
     fb = res.feedback

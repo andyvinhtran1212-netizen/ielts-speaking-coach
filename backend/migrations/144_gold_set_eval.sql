@@ -86,3 +86,11 @@ CREATE TABLE IF NOT EXISTS gold_writing (
 
 CREATE INDEX IF NOT EXISTS idx_gold_writing_bucket ON gold_writing (band_bucket);
 CREATE INDEX IF NOT EXISTS idx_gold_writing_tags   ON gold_writing USING GIN (tags);
+
+-- ── RLS: service-role only ────────────────────────────────────────────────────
+-- These tables hold real student transcripts, essays, and private audio paths.
+-- Enable RLS with NO client policies: PostgREST anon/authenticated roles are then
+-- denied, while the backend service-role key bypasses RLS. (Same lock-down as
+-- error_logs / vocabulary_* — a public-schema table left RLS-off is exposed.)
+ALTER TABLE gold_speaking ENABLE ROW LEVEL SECURITY;
+ALTER TABLE gold_writing  ENABLE ROW LEVEL SECURITY;
