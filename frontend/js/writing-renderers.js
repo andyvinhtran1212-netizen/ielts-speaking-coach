@@ -85,7 +85,14 @@
   }
 
   function emptyShape(msg) {
-    return '<p class="empty-state">' + escapeHtml(msg || '— Chưa có nội dung —') + '</p>';
+    // audit #4.2 (+ Codex F4) — a NEUTRAL default: this helper is shared by
+    // REQUIRED renderers (overview, criteria, improved, ai-content) too, so we
+    // must NOT claim "không áp dụng" — a required section rendering empty is a
+    // regression, not an inapplicable section, and mislabelling it would hide the
+    // bug. The old "Chưa có nội dung" read like a failed grade; this states
+    // absence without asserting a cause. The render-error path still passes its
+    // own explicit '— Lỗi hiển thị section —', kept distinct.
+    return '<p class="empty-state">' + escapeHtml(msg || '— Không có nội dung cho mục này —') + '</p>';
   }
 
   // ── Section 1 — Overview (string) ──────────────────────────────────
