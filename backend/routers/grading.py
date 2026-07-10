@@ -21,6 +21,7 @@ import json
 import logging
 import os
 import uuid
+from functools import lru_cache
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Form, Header, HTTPException, UploadFile, File
@@ -28,6 +29,7 @@ from fastapi import APIRouter, BackgroundTasks, Form, Header, HTTPException, Upl
 from config import settings
 from database import supabase_admin
 from services.band_rounding import ielts_round
+from services.pron_calibration import pron_band
 from services.db_async import aexecute
 from routers.auth import get_supabase_user
 from services.whisper import transcribe_from_bytes
@@ -277,22 +279,35 @@ async def _assess_pronunciation_safe(
         return None
 
 
+@lru_cache(maxsize=1)
+def _load_pron_calibration() -> tuple | None:
+    """The isotonic Azure→P table from PRON_CALIBRATION_PATH, or None (→ linear).
+    Cached; a bad/missing file logs and falls back to linear rather than 500ing."""
+    path = getattr(settings, "PRON_CALIBRATION_PATH", "") or ""
+    if not path:
+        return None
+    try:
+        with open(path, encoding="utf-8") as f:
+            raw = json.load(f)
+        return tuple((float(x), float(y)) for x, y in raw)
+    except Exception as exc:  # noqa: BLE001 — never block grading on a bad table
+        logger.warning("[grading] pron calibration load failed (%s) — using linear map", exc)
+        return None
+
+
 def _pron_band_from_scores(
     pron_score: float | None,
     fluency_score: float | None,
 ) -> float | None:
     """Map Azure 0–100 pronunciation (blended with fluency) to an IELTS 1–9
-    WHOLE-integer criterion band. Returns None when there is no usable score."""
-    if pron_score is None:
-        return None
-    band = 1.0 + (float(pron_score) / 100.0) * 8.0
-    if fluency_score is not None:
-        band = 0.5 * band + 0.5 * (1.0 + (float(fluency_score) / 100.0) * 8.0)
-    # C2 (audit 2026-07-03): half-up to a WHOLE integer band. Plain round() was
-    # banker's — asymmetric at .5 (6.5→6 but 7.5→8). band is always ≥1, so
-    # int(band+0.5) is a clean half-up. (This maps to an integer, not 0.5, so it
-    # deliberately does NOT use ielts_round.)
-    return float(max(1, min(9, int(band + 0.5))))
+    WHOLE-integer criterion band. Returns None when there is no usable score.
+
+    audit #2: delegates to services.pron_calibration. With no calibration table
+    configured this is byte-for-byte the historical linear `1 + score/100·8`
+    (half-up to a whole band); a fitted isotonic table swaps in the empirical
+    mapping with no change here."""
+    table = _load_pron_calibration()
+    return pron_band(pron_score, fluency_score, table=list(table) if table else None)
 
 
 def _merge_pronunciation_into_grading(
