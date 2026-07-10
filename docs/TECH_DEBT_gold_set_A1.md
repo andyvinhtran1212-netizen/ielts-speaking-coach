@@ -36,9 +36,14 @@ Chi tiết đầy đủ: `docs/EVAL_HARNESS.md`.
 | **#2** Azure→P | Fit isotonic từ subset có audio → drop bảng calibration vào chỗ pluggable đã dựng sẵn (`services/pron_calibration.py`), thay `1+s/100×8`. |
 | **#8** FC word-timestamps | Bật flag `SPEAKING_WORD_TIMESTAMPS_ENABLED=true` → verify FC MAE giảm qua harness rồi mới mặc định ON. |
 | **#10** cross-cal | Chạy cả hai module trên gold set, đối chiếu nghĩa "band 6.5". |
+| **#1.5/#1.6/#1.7** speaking prompt | Descriptor kép positive+limitation; bỏ luật trừ cơ học GRA "lặp lỗi 2+ → −1 band"; model answer sát band học viên hơn. Đổi prompt → verify không regress qua harness. |
+| **#2.2/#2.3** writing prompt | Đo lại bảng "typical mistake count" (sức ép 2 chiều) bằng gold set; auto-đề-xuất level theo band ước lượng thay vì theo gói mua. |
+
+Các mục prompt (#1.5–1.7, #2.2–2.3) là refinement — CHỈ đổi sau khi harness có
+baseline, để đo được có cải thiện hay không (audit: "đừng bay không đồng hồ").
 
 ## Resume trigger
 
-Có **≥ 20+20** mẫu đã chấm 2-rater trong `gold_*` → chạy harness → làm #2/#8/#10.
-Dù chỉ 20+20 cũng đủ khởi động (con số nhỏ, kappa chưa ổn định, nhưng đủ bắt
-lệch lớn + fit mapping thô).
+Có **≥ 20+20** mẫu đã chấm 2-rater trong `gold_*` → chạy harness → làm #2/#8/#10,
+rồi mới tới các refinement prompt. Dù chỉ 20+20 cũng đủ khởi động (con số nhỏ,
+kappa chưa ổn định, nhưng đủ bắt lệch lớn + fit mapping thô).
