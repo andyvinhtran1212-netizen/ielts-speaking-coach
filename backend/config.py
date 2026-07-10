@@ -60,12 +60,27 @@ class Settings(BaseSettings):
     # segments). Keep whisper-1 unless a newer model is verified end-to-end.
     WHISPER_STT_MODEL: str = "whisper-1"
 
+    # audit #8 — request Whisper WORD-level timestamps and feed measured pause/
+    # articulation-rate into the FC prompt (services.fluency_signals) instead of
+    # the coarse total-words/total-duration heuristic. Default OFF: turning it on
+    # changes Speaking grading, so it must be A/B'd against the gold set first
+    # (docs/TECH_DEBT_gold_set_A1.md). Only effective with a whisper-* model
+    # (word timestamps need verbose_json).
+    SPEAKING_WORD_TIMESTAMPS_ENABLED: bool = False
+
     # Google Cloud TTS
     GOOGLE_APPLICATION_CREDENTIALS: str = ""
 
     # Azure Cognitive Services — Pronunciation Assessment
     AZURE_SPEECH_KEY: str = ""
     AZURE_SPEECH_REGION: str = ""   # e.g. "eastus", "southeastasia"
+
+    # audit #2 — Azure→P band mapping. Empty (default) → the historical linear
+    # `1 + score/100·8`. Point at a JSON file of isotonic breakpoints
+    # ([[azure_score, band], …], fit from the gold set once A1 lands — see
+    # docs/TECH_DEBT_gold_set_A1.md) to swap in the empirical mapping with no
+    # code change. Loaded once, cached (services.pron_calibration).
+    PRON_CALIBRATION_PATH: str = ""
 
     # Supabase Storage bucket holding Task 1 Academic writing-prompt
     # images (chart/graph). Mirrors READING_IMAGES_BUCKET /
