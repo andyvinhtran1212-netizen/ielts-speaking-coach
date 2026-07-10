@@ -58,11 +58,14 @@ describe('P0-2 FE — persist failure routes to RETRY, never feedback', () => {
     assert.match(fn, /_showRecError\(/);
     assert.ok(!/showState\('feedback'\)/.test(fn), 'must NOT enter feedback on a persist failure');
   });
-  test('partial save → soft note shown in feedback (still viewable)', () => {
+  test('partial save → VISIBLE warning shown in feedback (audit #3.4)', () => {
     assert.match(js, /_showPartialNote\(!!\(data && data\.partial\)\)/);
     const fn = js.slice(js.indexOf('function _showPartialNote'));
     assert.match(fn, /feedback-partial-note/);
-    assert.match(fn, /thiếu một số thông tin/);
+    // #3.4 — a real warning banner (not a faint color-free card) that honestly
+    // says detail data was lost.
+    assert.match(fn, /ds-warning-banner/);
+    assert.match(fn, /MỘT PHẦN|không lưu/);
   });
 });
 
