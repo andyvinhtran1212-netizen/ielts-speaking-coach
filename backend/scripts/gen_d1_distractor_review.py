@@ -125,7 +125,10 @@ def main(argv=None) -> int:
 
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     Path(args.out).write_text(yaml.safe_dump(reviews, allow_unicode=True, sort_keys=False), encoding="utf-8")
-    clean = sum(1 for r in reviews if r.get("gate_pass") and r.get("semantic_ok") is not False)
+    # Codex F3 — in non-dry runs require semantic_ok is TRUE (a None judge-parse
+    # failure must NOT count as clean); dry-run rows have no semantic_ok key.
+    clean = sum(1 for r in reviews
+                if r.get("gate_pass") and ("semantic_ok" not in r or r.get("semantic_ok") is True))
     print(f"\nĐã ghi {len(reviews)} review → {args.out} ({clean} chưa bị gắn cờ).")
     return 0
 

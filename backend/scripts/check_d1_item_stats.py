@@ -30,9 +30,13 @@ def _load_attempts(args) -> list[dict]:
     rows: list[dict] = []
     page, size = 0, 1000
     while True:  # paginate past the PostgREST 1000-row cap
+        # Codex F2 — restrict to D1 attempts. attempts has no exercise_type, so
+        # inner-join vocabulary_exercises and filter on it; otherwise D3 rows
+        # pollute both the per-item stats AND the per-user ability grouping.
         resp = (
             supabase_admin.table("vocabulary_exercise_attempts")
-            .select("exercise_id, user_id, is_correct")
+            .select("exercise_id, user_id, is_correct, vocabulary_exercises!inner(exercise_type)")
+            .eq("vocabulary_exercises.exercise_type", "D1")
             .range(page * size, page * size + size - 1)
             .execute()
         )

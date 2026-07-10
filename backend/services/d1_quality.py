@@ -46,12 +46,18 @@ def validate_d1_quality(payload: dict, label: str = "") -> list[str]:
     answer = _norm(payload.get("answer") or payload.get("word"))
     sentence = str(payload.get("sentence") or "")
     distractors = [_norm(d) for d in (payload.get("distractors") or [])]
-    # the sentence with the blank removed, for leak-detection
-    sentence_no_blank = sentence.replace("___", " ")
+    # strip ANY run of underscores for leak-detection (not just exactly "___")
+    sentence_no_blank = re.sub(r"_+", " ", sentence)
 
-    n_blanks = sentence.count("___")
-    if n_blanks != 1:
-        errs.append(f"{tag}câu phải có ĐÚNG một chỗ trống '___' (đang có {n_blanks}).")
+    # Codex F1 — validate the blank as an exact token, not a substring: count("___")
+    # returns 1 for "____" (4 underscores), which the UI then only half-replaces
+    # (d1-exercise.js swaps the first "___"), leaving a stray "_". Require EXACTLY
+    # one underscore run AND that run be exactly "___".
+    runs = re.findall(r"_+", sentence)
+    if len(runs) != 1:
+        errs.append(f"{tag}câu phải có ĐÚNG một chỗ trống (đang có {len(runs)} cụm gạch dưới).")
+    elif runs[0] != "___":
+        errs.append(f"{tag}chỗ trống phải đúng 3 gạch dưới '___' (đang là '{runs[0]}').")
 
     if not answer:
         errs.append(f"{tag}thiếu answer/word.")

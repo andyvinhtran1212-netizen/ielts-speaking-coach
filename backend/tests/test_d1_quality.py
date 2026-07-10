@@ -51,6 +51,13 @@ def test_no_blank_flagged():
     assert any("ĐÚNG một chỗ trống" in e for e in errs)
 
 
+def test_four_underscore_blank_flagged():
+    # Codex F1 — "____" (4 underscores) must be rejected, not accepted as one "___"
+    p = _payload(sentence="Children can be remarkably ____ after a difficult day at school.")
+    errs = q.validate_d1_quality(p)
+    assert any("đúng 3 gạch dưới" in e for e in errs)
+
+
 def test_distractor_equals_answer_flagged():
     p = _payload(distractors=["resilient", "hostile", "curious"])
     errs = q.validate_d1_quality(p)
