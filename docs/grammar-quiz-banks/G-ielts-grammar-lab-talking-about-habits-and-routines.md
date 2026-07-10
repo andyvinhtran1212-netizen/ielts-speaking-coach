@@ -123,7 +123,7 @@ input: "choice"
 headword: "thr-past-habits-used-to-would"
 skill: "usage"
 subtype: "intermediate"
-prompt: "Q: 'Did you read much as a child?' Choose the correct negative form: 'I ____ enjoy cooking — it's only something I've gotten into recently.'"
+prompt: "Q: 'Did you enjoy cooking as a child?' Choose the correct negative form: 'I ____ enjoy cooking — it's only something I've gotten into recently.'"
 options: ["didn't use to", "didn't used to", "not used to", "didn't using to"]
 answer: 0
 grammar_article_slug: "talking-about-habits-and-routines"

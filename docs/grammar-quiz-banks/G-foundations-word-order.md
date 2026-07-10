@@ -51,11 +51,11 @@ input: "choice"
 headword: "wo-svo-basic"
 skill: "usage"
 subtype: "intermediate"
-prompt: "Choose the most natural order: 'The examiner ____.'"
+prompt: "Chọn câu đặt trạng từ chỉ cách thức ở vị trí CUỐI (sau động từ + tân ngữ): 'The examiner ____.'"
 options: ["carefully explained the task to the candidates", "explained carefully the task to the candidates", "the task explained carefully to the candidates", "explained the task carefully to the candidates"]
 answer: 3
 grammar_article_slug: "word-order"
-explain: "Manner adverb 'carefully' tự nhiên nhất khi đứng SAU động từ và tân ngữ: 'explained the task carefully' (S-V-O giữ nguyên, adverb ở cuối). Đặt trước động từ ('carefully explained') đúng ngữ pháp nhưng không tự nhiên; chen giữa verb và object ('explained carefully the task') thì sai vì tách rời V-O."
+explain: "Đề hỏi vị trí CUỐI: trạng từ chỉ cách thức đứng sau động từ + tân ngữ → 'explained the task carefully'. ('carefully explained' đầu câu cũng đúng ngữ pháp nhưng không phải vị trí cuối; 'explained carefully the task' sai vì tách rời V–O; đảo tân ngữ lên đầu cũng sai.)"
 ---
 
 ---

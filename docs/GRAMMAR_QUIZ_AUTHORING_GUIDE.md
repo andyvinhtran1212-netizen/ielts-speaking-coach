@@ -106,6 +106,24 @@ Chỉ dùng **4** cặp type/input sau (player render + chấm được, hợp v
 
 ---
 
+### 3.4 ⚠️ Luật ĐÁP ÁN DUY NHẤT (bắt buộc — chống chấm cứng nhắc)
+
+Engine **chỉ lưu đúng 1 đáp án** cho `mcq`/`gap_mcq`/`boolean` (`answer` là 1 số nguyên). Chỉ `gap_text` mới nhận nhiều đáp án qua `accept: [...]`. Vì vậy:
+
+- **Mọi distractor của `mcq`/`gap_mcq`/`boolean` phải SAI RÕ RÀNG trong ngữ cảnh của đề.** Nếu **>1 phương án là tiếng Anh đúng** ở câu đó → câu **hỏng**: học viên giỏi chọn phương án đúng-nhưng-không-được-key sẽ bị chấm sai.
+- Khi một điểm ngữ pháp **cho phép nhiều dạng đúng** (thì tương lai `will`/`be going to`/present continuous; modal khả năng `may`/`might`/`could`; danh từ tập hợp `submit`/`submits`; vị trí trạng từ; liên từ thay thế được `although`/`though`/`even though`; `however`/`whereas`…), chọn **1 trong 3** cách:
+  1. **Thêm ngữ cảnh vào `prompt`** để chỉ 1 đáp án hợp (mốc thời gian, bằng chứng tức thì, `than …`, `every year`, …).
+  2. **Thay distractor** cạnh tranh bằng phương án SAI rõ (lỗi hình thái/trật tự), giữ nguyên điểm dạy.
+  3. **Chuyển sang `gap_text`** và liệt kê **đủ** biến thể vào `accept` (kể cả `don't`/`do not`, Anh-Anh/Anh-Mỹ, `may be`/`might be`/`could be`).
+- Với câu "diễn đạt X **tự nhiên**" (speaking/meaning) có nhiều cách nói tương đương → **ưu tiên `gap_text`** với `accept` rộng, ĐỪNG dùng mcq giả vờ chỉ 1 cách nói đúng.
+- **KHÔNG để lại ghi chú nghi ngờ trong `explain`** (kiểu "thực ra câu này sai / câu hỏi nên dùng…"). Nếu bạn viết được câu đó nghĩa là câu đang hỏng → **sửa đề/đáp án**, đừng ship. Lint CI (`content_lint`) sẽ **chặn** các explain tự-mâu-thuẫn và `accept` toàn ký tự khó gõ (vd `ø`).
+
+> **Cổng kiểm tra 2 lớp trước khi import cả loạt:**
+> 1. **Tĩnh (CI, bắt buộc):** `python scripts/validate_grammar_quiz_bank.py ../docs/grammar-quiz-banks/*.md` — cấu trúc + mastery + `content_lint` (đáp án tự-mâu-thuẫn, accept khó gõ).
+> 2. **Phản biện (LLM, thủ công/agent):** `docs/QA2_REVIEWER_PROMPT.md` + `scripts/qa2_extract_questions.py` — giải lại độc lập từng câu để bắt lớp **mơ hồ >1 đáp án** mà lint tĩnh không thấy. Reviewer LLM **dao động giữa các lần chạy** → chạy **≥3 lượt, gộp (union)** các cờ `ambiguous` rồi review tay.
+
+---
+
 ## 4. Hệ `skill` (khía cạnh kiểm tra)
 
 Mỗi câu gắn 1 `skill`. Để 1 item_key "thuộc được", pool của nó phải có **≥2 skill khác nhau + ≥1 câu production (`gap_text`)**. Bộ skill chuẩn cho grammar:
@@ -199,6 +217,7 @@ Gắn `subtype: basic|intermediate|advanced` cho mỗi câu. Chọn level trọn
 - [ ] **Mỗi item_key: ≥2 skill khác nhau + ≥1 câu `gap_text`.** (nếu thiếu → học viên không bao giờ "thuộc" được item đó)
 - [ ] Mọi `grammar_article_slug` là slug bài **có thật**.
 - [ ] Mọi câu có `explain` tiếng Việt nêu quy tắc; câu sai có phần sửa.
+- [ ] **§3.4 — Đáp án duy nhất:** mọi distractor `mcq`/`gap_mcq`/`boolean` SAI rõ trong ngữ cảnh (không có >1 phương án đúng); điểm ngữ pháp đa-dạng-đúng → thêm ngữ cảnh / đổi distractor / dùng `gap_text` với `accept` đủ biến thể. **Không để ghi chú nghi ngờ trong `explain`.**
 - [ ] Không câu nào trùng nguyên văn; ngữ cảnh đa dạng.
 - [ ] `subtype` (level) đặt cho mọi câu; phân bổ theo Tier.
 
