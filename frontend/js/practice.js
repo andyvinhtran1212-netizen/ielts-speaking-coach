@@ -1414,7 +1414,11 @@
       var reasoning = data.off_topic_verdict.reasoning || '';
       warnings.push({
         icon: '⚠️',
-        message: 'Cảnh báo: Câu trả lời có thể chưa bám sát đề.' +
+        // audit #3.3 — say the band was CAPPED so a low hero band isn't
+        // misread as weak ability. Cap fires under this same off-topic
+        // condition (grading.py _apply_off_topic_penalty).
+        message: 'Cảnh báo: Câu trả lời có thể chưa bám sát đề, nên band cho câu này đã bị giới hạn ' +
+                 '(không phản ánh năng lực thật của bạn).' +
                  (reasoning ? ' Lý do: ' + reasoning : ''),
       });
     }
