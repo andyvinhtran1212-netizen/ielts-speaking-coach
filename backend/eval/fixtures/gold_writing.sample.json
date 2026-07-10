@@ -1,0 +1,38 @@
+[
+  {
+    "id": "sample-wri-001",
+    "task_type": "task2",
+    "prompt_text": "Some people think that universities should provide graduates with the knowledge and skills needed in the workplace. Others think that the true function of a university should be to give access to knowledge for its own sake. Discuss both views and give your own opinion.",
+    "essay_text": "Nowadays, there is a debate about the true purpose of universities. While some argue that universities should focus on job skills, others believe knowledge itself is the goal. In my opinion, both aims can be combined. On one hand, practical skills help graduates find good jobs. On the other hand, pure knowledge develops critical thinking. Therefore, a balanced approach is best.",
+    "analysis_level": 3,
+    "ref_band_tr": 6.0,
+    "ref_band_cc": 6.0,
+    "ref_band_lr": 6.0,
+    "ref_band_gra": 6.0,
+    "ref_overall": 6.0,
+    "rater_bands": [
+      {"rater": "T1", "tr": 6, "cc": 6, "lr": 6, "gra": 6, "overall": 6.0},
+      {"rater": "T2", "tr": 6, "cc": 6, "lr": 5, "gra": 6, "overall": 6.0}
+    ],
+    "band_bucket": "mid",
+    "tags": ["sample"]
+  },
+  {
+    "id": "sample-wri-002-incident-like",
+    "task_type": "task2",
+    "prompt_text": "Many people believe that social media has a negative impact on society. To what extent do you agree or disagree?",
+    "essay_text": "In todays world, social media is very populer. I think it have both good and bad side. Firstly, it help people to comunicate with each other easyly. Secondly, some people spend to much time on it and become addicted. In conclusion, social media is usefull but we must use it carefuly.",
+    "analysis_level": 1,
+    "ref_band_tr": 5.0,
+    "ref_band_cc": 5.0,
+    "ref_band_lr": 5.0,
+    "ref_band_gra": 4.5,
+    "ref_overall": 5.0,
+    "rater_bands": [
+      {"rater": "T1", "tr": 5, "cc": 5, "lr": 5, "gra": 4.5, "overall": 5.0},
+      {"rater": "T2", "tr": 5, "cc": 5, "lr": 5, "gra": 5, "overall": 5.0}
+    ],
+    "band_bucket": "low",
+    "tags": ["sample", "spelling_errors", "incident_like"]
+  }
+]

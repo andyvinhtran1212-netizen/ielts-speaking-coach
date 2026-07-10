@@ -1,0 +1,36 @@
+[
+  {
+    "id": "sample-spk-001",
+    "question": "Do you enjoy outdoor activities?",
+    "transcript": "Yes, I really enjoy outdoor activities, especially hiking. On weekends I often go to the mountains near my hometown with my friends. It helps me relax and stay healthy, and I love breathing the fresh air.",
+    "part": 1,
+    "ref_band_fc": 7.0,
+    "ref_band_lr": 7.0,
+    "ref_band_gra": 6.0,
+    "ref_band_p": 6.0,
+    "ref_overall": 6.5,
+    "rater_bands": [
+      {"rater": "T1", "fc": 7, "lr": 7, "gra": 6, "p": 6, "overall": 6.5},
+      {"rater": "T2", "fc": 7, "lr": 6, "gra": 6, "p": 6, "overall": 6.5}
+    ],
+    "band_bucket": "mid",
+    "tags": ["sample"]
+  },
+  {
+    "id": "sample-spk-002",
+    "question": "Describe a book you enjoyed reading.",
+    "transcript": "Book is good. I like read book. It very interesting and I read many time.",
+    "part": 2,
+    "ref_band_fc": 4.0,
+    "ref_band_lr": 4.0,
+    "ref_band_gra": 3.0,
+    "ref_band_p": 4.0,
+    "ref_overall": 4.0,
+    "rater_bands": [
+      {"rater": "T1", "fc": 4, "lr": 4, "gra": 3, "p": 4, "overall": 4.0},
+      {"rater": "T2", "fc": 4, "lr": 4, "gra": 4, "p": 4, "overall": 4.0}
+    ],
+    "band_bucket": "low",
+    "tags": ["sample", "short"]
+  }
+]
