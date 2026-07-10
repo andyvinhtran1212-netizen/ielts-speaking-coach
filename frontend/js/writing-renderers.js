@@ -85,7 +85,11 @@
   }
 
   function emptyShape(msg) {
-    return '<p class="empty-state">' + escapeHtml(msg || '— Chưa có nội dung —') + '</p>';
+    // audit #4.2 — an empty section value means the grader didn't produce this
+    // section for THIS essay (e.g. not analysed at this level / not applicable),
+    // NOT that something failed. Say so honestly; the render-error path passes
+    // its own explicit '— Lỗi hiển thị section —' so the two stay distinct.
+    return '<p class="empty-state">' + escapeHtml(msg || '— Mục này không áp dụng cho bài viết này —') + '</p>';
   }
 
   // ── Section 1 — Overview (string) ──────────────────────────────────
