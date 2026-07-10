@@ -29,6 +29,7 @@ import anthropic
 
 from config import settings
 from services import ai_usage_logger
+from services import fluency_signals as _fluency_mod
 from services.grammar_content import grammar_service
 from services.grading_orchestrator import (
     GRADING_PROVIDER_ORDER,
@@ -434,6 +435,7 @@ async def grade_response(
     word_count:       int | None = None,
     fallback_events:  list[FallbackEvent] | None = None,
     length_context:   str | None = None,
+    fluency_signals:  dict | None = None,
 ) -> dict:
     """
     Chấm 1 câu trả lời IELTS Speaking.
@@ -468,6 +470,7 @@ async def grade_response(
         duration_seconds=duration_seconds,
         word_count=word_count,
         length_context=length_context,
+        fluency_signals=fluency_signals,
     )
     # Sprint 14.3 — `client` kept for the OPTIONAL sample/improved-answer
     # regeneration in post-processing (Claude Haiku). The grading LLM call
@@ -552,6 +555,7 @@ def _build_user_message(
     duration_seconds: float | None = None,
     word_count: int | None = None,
     length_context: str | None = None,
+    fluency_signals: dict | None = None,
 ) -> str:
     part_context = {
         1: "Part 1 (Introduction & Interview — short personal answers, ~1–2 min total)",
@@ -575,6 +579,12 @@ def _build_user_message(
         )
     elif duration_seconds is not None:
         msg += f"SPEAKING METRICS:\n  Duration: {duration_seconds:.1f}s\n\n"
+
+    # audit #8 — measured pause/articulation-rate from word timestamps, when the
+    # flag produced them. More reliable than the coarse words/sec above.
+    fc_evidence = _fluency_mod.summary_for_prompt(fluency_signals)
+    if fc_evidence:
+        msg += fc_evidence + "\n"
 
     msg += (
         f"EXAMINER QUESTION:\n{question.strip()}\n\n"

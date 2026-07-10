@@ -222,12 +222,16 @@ async def transcribe_from_bytes(audio_bytes: bytes, filename: str = "audio.webm"
     buffer = io.BytesIO(audio_bytes)
 
     model = _stt_model()
+    # audit #8 — request word-level timestamps when enabled (verbose_json only)
+    want_words = settings.SPEAKING_WORD_TIMESTAMPS_ENABLED and _response_format_for(model) == "verbose_json"
+    extra = {"timestamp_granularities": ["word"]} if want_words else {}
     response = await client.audio.transcriptions.create(
         model=model,
         file=(filename, buffer),        # tuple form: (name, file-like) — SDK uses name for Content-Disposition
         response_format=_response_format_for(model),
         language="en",
         prompt=_VERBATIM_PROMPT,        # bias toward preserving fillers/disfluencies
+        **extra,
     )
 
     transcript = response.text.strip() if response.text else ""
@@ -240,6 +244,7 @@ async def transcribe_from_bytes(audio_bytes: bytes, filename: str = "audio.webm"
     raw_segments = getattr(response, "segments", None)
     confidence: float = _estimate_confidence(raw_segments)
     segments: list[dict] = _extract_segments(raw_segments)
+    words: list[dict] = _extract_words(getattr(response, "words", None)) if want_words else []
 
     result = {
         "transcript":        transcript,
@@ -248,6 +253,7 @@ async def transcribe_from_bytes(audio_bytes: bytes, filename: str = "audio.webm"
         "confidence":        round(confidence, 4),
         "transcript_model":  model,
         "segments":          segments,
+        "words":             words,
     }
 
     logger.info(
@@ -342,6 +348,26 @@ def _extract_segments(segments) -> list[dict]:
                 "no_speech_prob": float(getattr(seg, "no_speech_prob", 0) or 0),
             })
     return result
+
+
+def _extract_words(words) -> list[dict]:
+    """Extract word-level timestamps from a verbose_json response (audit #8).
+
+    Each item: {"word": str, "start": float, "end": float}. Only populated when
+    SPEAKING_WORD_TIMESTAMPS_ENABLED requested timestamp_granularities=['word'];
+    consumed by services.fluency_signals."""
+    if not words:
+        return []
+    out = []
+    for w in words:
+        if isinstance(w, dict):
+            word, start, end = w.get("word"), w.get("start"), w.get("end")
+        else:
+            word, start, end = getattr(w, "word", None), getattr(w, "start", None), getattr(w, "end", None)
+        if start is None or end is None:
+            continue
+        out.append({"word": str(word or "").strip(), "start": float(start), "end": float(end)})
+    return out
 
 
 def _estimate_confidence(segments) -> float:

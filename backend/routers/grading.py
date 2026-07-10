@@ -30,6 +30,7 @@ from config import settings
 from database import supabase_admin
 from services.band_rounding import ielts_round
 from services.pron_calibration import pron_band
+from services import fluency_signals
 from services.db_async import aexecute
 from routers.auth import get_supabase_user
 from services.whisper import transcribe_from_bytes
@@ -560,6 +561,9 @@ async def grade_response_endpoint(
         confidence: float     = stt.get("confidence", 0.0)
         transcript_model: str = stt.get("transcript_model", "whisper-1")
         stt_segments: list    = stt.get("segments", [])
+        # audit #8 — measured pause/rate from word timestamps (None unless the
+        # SPEAKING_WORD_TIMESTAMPS_ENABLED flag produced a `words` list).
+        fluency_sig = fluency_signals.compute(stt.get("words") or []) if stt.get("words") else None
 
         logger.info(
             "[grading] Whisper OK — %d ký tự, %.1fs, conf=%.2f, segments=%d",
@@ -694,6 +698,7 @@ async def grade_response_endpoint(
                 word_count=word_count,
                 fallback_events=fallback_events,
                 length_context=length_context,
+                fluency_signals=fluency_sig,        # audit #8 (None unless flag on)
             )
         )
         judge_task = asyncio.create_task(

@@ -60,6 +60,14 @@ class Settings(BaseSettings):
     # segments). Keep whisper-1 unless a newer model is verified end-to-end.
     WHISPER_STT_MODEL: str = "whisper-1"
 
+    # audit #8 — request Whisper WORD-level timestamps and feed measured pause/
+    # articulation-rate into the FC prompt (services.fluency_signals) instead of
+    # the coarse total-words/total-duration heuristic. Default OFF: turning it on
+    # changes Speaking grading, so it must be A/B'd against the gold set first
+    # (docs/TECH_DEBT_gold_set_A1.md). Only effective with a whisper-* model
+    # (word timestamps need verbose_json).
+    SPEAKING_WORD_TIMESTAMPS_ENABLED: bool = False
+
     # Google Cloud TTS
     GOOGLE_APPLICATION_CREDENTIALS: str = ""
 
