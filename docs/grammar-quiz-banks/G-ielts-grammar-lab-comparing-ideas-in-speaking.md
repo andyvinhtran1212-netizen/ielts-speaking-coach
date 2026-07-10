@@ -38,11 +38,11 @@ input: "choice"
 headword: "cis-comparative-forms"
 skill: "usage"
 subtype: "intermediate"
-prompt: "Remote work can be ____ productive, but it's also more isolating for many employees."
-options: ["more", "much more", "very", "the most"]
+prompt: "Remote work can be ____ productive than working in an office, but it's also more isolating for many employees."
+options: ["more", "as", "very", "the most"]
 answer: 0
 grammar_article_slug: "comparing-ideas-in-speaking"
-explain: "'more + adjective' là dạng so sánh hơn chuẩn cho tính từ dài (productive). 'much more' vẫn đúng ngữ pháp nhưng không phải đáp án tối giản nhất cho ngữ cảnh này — chọn 'more' để giữ so sánh trung tính."
+explain: "So sánh hơn của tính từ dài: 'more + adj + than' → 'more productive than working in an office'. 'as' cần cặp 'as…as'; 'very' và 'the most' không đi với 'than'."
 ---
 
 ---

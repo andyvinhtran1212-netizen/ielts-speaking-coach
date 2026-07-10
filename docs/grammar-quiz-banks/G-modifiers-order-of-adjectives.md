@@ -68,9 +68,9 @@ skill: "usage"
 subtype: "intermediate"
 prompt: "The factory now uses ____ container to transport the goods."
 options: ["a durable large metal", "a large durable metal", "a metal large durable", "a durable metal large"]
-answer: 1
+answer: 0
 grammar_article_slug: "order-of-adjectives"
-explain: "Thứ tự đầy đủ: opinion (durable) → size (large) → material (metal) → 'a large durable metal container' — chú ý opinion vẫn đứng đầu dù đây là size+material: 'durable' (nhận xét) phải đứng trước 'large' (kích cỡ)."
+explain: "Thứ tự OSASCOMP: opinion (durable) → size (large) → material (metal) → 'a durable large metal container'. Opinion đứng đầu: 'durable' (nhận xét) phải đứng TRƯỚC 'large' (kích cỡ)."
 ---
 
 ---

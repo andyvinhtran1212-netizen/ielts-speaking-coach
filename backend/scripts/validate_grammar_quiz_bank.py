@@ -123,6 +123,46 @@ def check_file(path: Path) -> list[str]:
     return problems
 
 
+# --- Content-quality lint (§ authoring-guide "distractor phải sai rõ ràng") -------------
+# Bắt hai lớp lỗi CƠ HỌC (deterministic) mà cổng QA2 (LLM, docs/QA2_REVIEWER_PROMPT.md)
+# cũng nhắm tới, để chúng FAIL CI thay vì lọt tới học viên:
+#   1. `explain` TỰ NHẬN câu hỏi/đáp án bị hỏng (tác giả để lại ghi chú "thực ra câu này
+#      sai / câu hỏi nên dùng…" nhưng vẫn ship) — vd lỗi lc_addition_a2, rc_former_i1.
+#   2. `gap_text` mà mọi biến thể `accept` đều là ký tự KHÓ GÕ (chỉ 'ø'), khiến học viên
+#      không thể nhập được đáp án đúng.
+# LƯU Ý: lớp khó hơn — MCQ có >1 phương án đúng tiếng Anh — cần phán đoán ngữ nghĩa, do
+# reviewer QA2 (LLM) phụ trách, KHÔNG bắt được bằng lint tĩnh này.
+_SELF_ADMITTED_BROKEN = re.compile(
+    r"(prompt lạc lõng|lạc lõng|câu hỏi nên (dùng|sửa|là)|câu hỏi sai|đề bài sai"
+    r"|explain bị ngược|giải thích bị ngược|thực tế là sai nhưng)",
+    re.I,
+)
+_UNTYPEABLE = re.compile(r"[øØ∅]")
+
+
+def content_lint(path: Path) -> list[str]:
+    """Lint nội dung (ngoài cấu trúc): đáp án tự-mâu-thuẫn + accept không gõ được."""
+    problems: list[str] = []
+    docs = [d for d in _docs(path.read_text(encoding="utf-8")) if "__yaml_error__" not in d]
+    for d in docs:
+        if _is_meta_block(d) or not d.get("type"):
+            continue
+        qid = d.get("id") or "(thiếu id)"
+        explain = str(d.get("explain") or "")
+        if _SELF_ADMITTED_BROKEN.search(explain):
+            problems.append(
+                f"[{qid}] explain tự nhận câu hỏi/đáp án bị hỏng — sửa đề/đáp án cho đúng "
+                "thay vì để lại ghi chú nghi ngờ trong explain."
+            )
+        accept = d.get("accept")
+        if isinstance(accept, list) and accept and all(_UNTYPEABLE.search(str(a)) for a in accept):
+            problems.append(
+                f"[{qid}] accept toàn ký tự khó gõ ({accept}) — thêm biến thể gõ được "
+                "(vd 'no article') để học viên nhập được đáp án."
+            )
+    return problems
+
+
 def main(argv: list[str]) -> int:
     files = [Path(a) for a in argv[1:]]
     if not files:
@@ -134,7 +174,7 @@ def main(argv: list[str]) -> int:
             print(f"✗ {f} — không tìm thấy")
             total += 1
             continue
-        probs = check_file(f)
+        probs = check_file(f) + content_lint(f)
         if probs:
             total += len(probs)
             print(f"✗ {f} — {len(probs)} vấn đề:")

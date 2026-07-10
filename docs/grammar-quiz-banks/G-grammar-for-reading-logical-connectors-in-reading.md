@@ -400,9 +400,9 @@ input: "text"
 headword: "lc-addition-connectors"
 skill: "production"
 subtype: "advanced"
-prompt: "Complete with appropriate addition connector: 'Digital transformation has revolutionized business operations across sectors. ____, it has created cybersecurity challenges that demand urgent attention.' (use one connector)"
-accept: ["However", "Meanwhile", "At the same time"]
+prompt: "Complete with an appropriate addition connector: 'Digital transformation has streamlined internal communication across departments. ____, it has opened new channels for reaching customers directly.' (use one connector)"
+accept: ["Moreover", "Furthermore", "In addition", "Additionally"]
 case_sensitive: false
 grammar_article_slug: "logical-connectors-in-reading"
-explain: "Thực ra câu này cần tương phản, không phải bổ sung! Câu hỏi nên dùng 'However', 'Meanwhile', hoặc 'At the same time' để báo sự đối lập: lợi (transformation) vs thách thức (cybersecurity risks)."
+explain: "Hai vế cùng nêu lợi ích của chuyển đổi số (bổ sung ý cùng chiều, không đối lập) → dùng addition connector: 'Moreover', 'Furthermore', 'In addition' hoặc 'Additionally'."
 ---

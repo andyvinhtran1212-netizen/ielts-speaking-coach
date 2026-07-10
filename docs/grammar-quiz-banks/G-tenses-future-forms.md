@@ -150,11 +150,11 @@ input: "choice"
 headword: "ff-be-going-to-plan-evidence"
 skill: "usage"
 subtype: "intermediate"
-prompt: "She's not feeling well at all — I think she ____ sick."
+prompt: "Look — she's gone pale and she's holding her stomach. I think she ____ sick any second now."
 options: ["will be", "'s going to be", "is being", "was"]
 answer: 1
 grammar_article_slug: "future-forms"
-explain: "Có bằng chứng ngay trước mắt (cô ấy không khỏe) → dự đoán bằng be going to: 's going to be sick."
+explain: "Bằng chứng ngay trước mắt + sắp xảy ra tức thì ('any second now') → 'be going to' cho dự đoán dựa trên hiện tại: 's going to be. ('will be' hợp dự đoán chung, lệch với việc sắp xảy ra ngay lập tức.)"
 ---
 
 ---
@@ -248,11 +248,11 @@ input: "choice"
 headword: "ff-be-going-to-plan-evidence"
 skill: "contrast"
 subtype: "intermediate"
-prompt: "A: What are your plans for after graduation? B: I ____ a gap year and travel around Southeast Asia."
+prompt: "A: What are your plans for after graduation? B: Nothing's fixed yet, but I ____ a gap year and travel around Southeast Asia."
 options: ["'m taking", "'m going to take", "take", "will take"]
 answer: 1
 grammar_article_slug: "future-forms"
-explain: "Đây là kế hoạch/dự định chung, KHÔNG có thời gian/lịch cụ thể (không giống 'tomorrow at 3pm') → be going to tự nhiên hơn Present Continuous khi trả lời câu hỏi về plans nói chung: 'm going to take."
+explain: "Dự định CHƯA sắp xếp cụ thể ('nothing's fixed yet') → 'be going to' (ý định). Present Continuous 'm taking hàm ý đã sắp xếp/đặt chỗ rồi, mâu thuẫn với 'nothing's fixed yet'; 'take'/'will take' không hợp ngữ cảnh nói về dự định cá nhân này."
 ---
 
 ---

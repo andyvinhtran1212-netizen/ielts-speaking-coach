@@ -308,10 +308,10 @@ headword: "cis-zero-first-conditional"
 skill: "production"
 subtype: "intermediate"
 prompt: "Complete with a modal that shows this is a possibility, not a certainty: 'If we don't act on climate change now, the consequences ____ (be) irreversible.'"
-accept: ["may be"]
+accept: ["may be", "might be", "could be"]
 case_sensitive: false
 grammar_article_slug: "conditionals-in-speaking"
-explain: "First conditional với modal 'may' thay cho 'will' để giảm mức chắc chắn: if + present simple, may + verb gốc (may be)."
+explain: "First conditional có thể thay 'will' bằng modal khả năng để giảm mức chắc chắn: 'may be' / 'might be' / 'could be' đều diễn tả khả năng (không chắc chắn). Cấu trúc: if + present simple, modal + verb gốc."
 ---
 
 ---

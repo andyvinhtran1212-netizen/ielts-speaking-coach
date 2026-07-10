@@ -23,7 +23,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from scripts.validate_grammar_quiz_bank import check_file  # noqa: E402
+from scripts.validate_grammar_quiz_bank import check_file, content_lint  # noqa: E402
 _BANK_DIR = Path(__file__).resolve().parents[2] / "docs" / "grammar-quiz-banks"
 
 
@@ -50,4 +50,21 @@ def test_grammar_quiz_bank_valid(bank_path):
     problems = check_file(bank_path)
     assert not problems, (
         f"{bank_path.name} chưa import-ready:\n  - " + "\n  - ".join(problems)
+    )
+
+
+@pytest.mark.parametrize(
+    "bank_path",
+    _bank_files() or [pytest.param(None, id="no-banks-yet")],
+)
+def test_grammar_quiz_bank_content_clean(bank_path):
+    """Cổng lint nội dung: không có đáp án tự-mâu-thuẫn / accept không gõ được.
+
+    Lớp lỗi mơ-hồ-đa-đáp-án cần reviewer QA2 (LLM) — không gate được ở đây.
+    """
+    if bank_path is None:
+        pytest.skip("chưa có bank grammar nào (docs/grammar-quiz-banks/G-*.md)")
+    problems = content_lint(bank_path)
+    assert not problems, (
+        f"{bank_path.name} lỗi lint nội dung:\n  - " + "\n  - ".join(problems)
     )

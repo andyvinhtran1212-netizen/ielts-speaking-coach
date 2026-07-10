@@ -248,10 +248,10 @@ input: "boolean"
 headword: "rc-former-latter-distinction"
 skill: "error_id"
 subtype: "intermediate"
-prompt: "Đúng hay Sai: 'Digital marketing and traditional advertising are both effective. The former relies on personal relationships, while the latter uses data analytics.' Ở đây, 'The former' chỉ 'Digital marketing' là sai."
+prompt: "Đúng hay Sai: Trong câu 'Solar and wind power are both expanding rapidly. The former harnesses sunlight, while the latter captures the movement of air.', cụm 'the latter' chỉ 'wind power'."
 answer: true
 grammar_article_slug: "reference-and-cohesion"
-explain: "ĐÚNG (thực tế là sai nhưng prompt lạc lõng). Thực ra: 'The former' = Digital marketing (cái trước), 'the latter' = traditional advertising (cái sau). Nhưng explanations bị ngược — digital marketing sử dụng analytics, advertising truyền thống lại dựa trên quan hệ cá nhân. Nhưng về mặt cấu trúc tham chiếu, 'The former' chỉ 'Digital marketing' là đúng."
+explain: "ĐÚNG — 'the former' = cái được nhắc TRƯỚC (solar power), 'the latter' = cái được nhắc SAU (wind power). 'The latter captures the movement of air' mô tả đúng wind power."
 ---
 
 ---
