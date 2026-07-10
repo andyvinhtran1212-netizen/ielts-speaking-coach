@@ -2616,6 +2616,8 @@
       + _pronChip('Đầy đủ',     pronData.completeness_score)
       + _pronChip('Ngữ điệu',   pronData.prosody_score)
       + '</div>'
+      + '<p style="font-size:10px;color:var(--ds-muted);margin:-4px 0 10px;">'
+      + 'Điểm phát âm theo thang Azure 0–100 (khác thang band 0–9).</p>'
       + (summary ? '<ul style="font-size:12px;color:var(--ds-text);'
           + 'padding-left:16px;margin:0 0 4px;line-height:1.7;">' + summary + '</ul>' : '')
       + wordHtml

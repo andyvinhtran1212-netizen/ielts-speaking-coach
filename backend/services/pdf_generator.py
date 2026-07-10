@@ -536,7 +536,7 @@ def _build_pronunciation_pills(r: dict | None) -> list:
         ("TOPPADDING",    (0, 0), (-1, -1), 7),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
     ]))
-    return [Paragraph("Phát âm (Azure AI)", _T["pron_eye"]), t, Spacer(1, 6)]
+    return [Paragraph("Phát âm (Azure AI) · thang 0–100, khác thang band 0–9", _T["pron_eye"]), t, Spacer(1, 6)]
 
 
 # ── Phoneme drill-down (parity with result.html _buildPhonemeDrilldown) ────────
