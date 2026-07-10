@@ -85,11 +85,14 @@
   }
 
   function emptyShape(msg) {
-    // audit #4.2 — an empty section value means the grader didn't produce this
-    // section for THIS essay (e.g. not analysed at this level / not applicable),
-    // NOT that something failed. Say so honestly; the render-error path passes
-    // its own explicit '— Lỗi hiển thị section —' so the two stay distinct.
-    return '<p class="empty-state">' + escapeHtml(msg || '— Mục này không áp dụng cho bài viết này —') + '</p>';
+    // audit #4.2 (+ Codex F4) — a NEUTRAL default: this helper is shared by
+    // REQUIRED renderers (overview, criteria, improved, ai-content) too, so we
+    // must NOT claim "không áp dụng" — a required section rendering empty is a
+    // regression, not an inapplicable section, and mislabelling it would hide the
+    // bug. The old "Chưa có nội dung" read like a failed grade; this states
+    // absence without asserting a cause. The render-error path still passes its
+    // own explicit '— Lỗi hiển thị section —', kept distinct.
+    return '<p class="empty-state">' + escapeHtml(msg || '— Không có nội dung cho mục này —') + '</p>';
   }
 
   // ── Section 1 — Overview (string) ──────────────────────────────────
