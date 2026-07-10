@@ -655,6 +655,11 @@
           bodyHtml += '<div class="text-sm result-acc-failed italic">' + statusMsg + '</div>';
         } else if (fb && isPractice) {
           // Practice mode: coaching sections
+          // audit #3.5 — name the mode so its structure (coaching, not 4 bands)
+          // isn't mistaken for a bug when switching between practice and test.
+          bodyHtml += '<p class="text-xs italic mb-2" style="color:var(--av-text-secondary);">'
+            + 'Chế độ luyện tập — phản hồi dạng gợi ý (điểm mạnh, ngữ pháp, từ vựng, phát âm), '
+            + 'không chấm theo 4 tiêu chí IELTS.</p>';
           bodyHtml += _fbSection('Strengths', fb.strengths, 'var(--av-success)');
           bodyHtml += _fbGrammarIssues(fb.grammar_issues, fb.grammar_recommendations);
           bodyHtml += _fbSection('Vocabulary Issues', fb.vocabulary_issues, 'var(--av-warning)');
@@ -668,6 +673,10 @@
           }
         } else if (fb && !isPractice) {
           // Test mode: IELTS 4-criteria
+          // audit #3.5 — name the mode (mirror of the practice-mode note above).
+          bodyHtml += '<p class="text-xs italic mb-2" style="color:var(--av-text-secondary);">'
+            + 'Chế độ thi thử — chấm theo 4 tiêu chí IELTS (Fluency &amp; Coherence, Lexical, '
+            + 'Grammar, Phát âm).</p>';
           ['fc_feedback','lr_feedback','gra_feedback','p_feedback'].forEach(function (key) {
             var labels = { fc_feedback: 'Fluency &amp; Coherence', lr_feedback: 'Lexical Resource',
                            gra_feedback: 'Grammar &amp; Accuracy', p_feedback: 'Pronunciation' };
