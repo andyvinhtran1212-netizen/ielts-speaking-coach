@@ -222,9 +222,12 @@ async def transcribe_from_bytes(audio_bytes: bytes, filename: str = "audio.webm"
     buffer = io.BytesIO(audio_bytes)
 
     model = _stt_model()
-    # audit #8 — request word-level timestamps when enabled (verbose_json only)
+    # audit #8 — request word-level timestamps when enabled (verbose_json only).
+    # MUST include "segment" too: the API returns ONLY the requested granularities,
+    # so asking for word alone would drop response.segments — which the reliability
+    # pipeline (classify_reliability / transcript_logprobs) depends on.
     want_words = settings.SPEAKING_WORD_TIMESTAMPS_ENABLED and _response_format_for(model) == "verbose_json"
-    extra = {"timestamp_granularities": ["word"]} if want_words else {}
+    extra = {"timestamp_granularities": ["segment", "word"]} if want_words else {}
     response = await client.audio.transcriptions.create(
         model=model,
         file=(filename, buffer),        # tuple form: (name, file-like) — SDK uses name for Content-Disposition
