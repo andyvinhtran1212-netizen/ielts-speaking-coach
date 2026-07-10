@@ -383,7 +383,10 @@
         var reasoning = fb.off_topic_verdict.reasoning || '';
         warnings.push({
           icon: '⚠️',
-          message: 'Cảnh báo: Câu trả lời có thể chưa bám sát đề.' +
+          // audit #3.3 — same cap wording as practice.js so the reload/result
+          // path explains the capped band too (not just live after grading).
+          message: 'Cảnh báo: Câu trả lời có thể chưa bám sát đề, nên band cho câu này đã bị giới hạn ' +
+                   '(không phản ánh năng lực thật của bạn).' +
                    (reasoning ? ' Lý do: ' + reasoning : ''),
         });
       }
@@ -655,7 +658,7 @@
           bodyHtml += _fbSection('Strengths', fb.strengths, 'var(--av-success)');
           bodyHtml += _fbGrammarIssues(fb.grammar_issues, fb.grammar_recommendations);
           bodyHtml += _fbSection('Vocabulary Issues', fb.vocabulary_issues, 'var(--av-warning)');
-          bodyHtml += _fbSection('Pronunciation', fb.pronunciation_issues, '#a78bfa');
+          bodyHtml += _fbSection('Luyện phát âm — gợi ý chung', fb.pronunciation_issues, '#a78bfa');
           bodyHtml += _fbCorrections(fb.corrections);
           if (fb.sample_answer) {
             bodyHtml += '<div>'
@@ -800,7 +803,7 @@
       }
 
       return '<div class="result-pron-block">'
-        + '<div class="result-pron-block__eyebrow">Phát âm (Azure AI)</div>'
+        + '<div class="result-pron-block__eyebrow">Phát âm (Azure AI) · thang 0–100, khác thang band 0–9</div>'
         + '<div class="result-pron-block__pills">' + pills + '</div>'
         + summary
         + '</div>';

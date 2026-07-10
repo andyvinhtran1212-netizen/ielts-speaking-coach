@@ -888,7 +888,8 @@
         if (pronResult) {
           pronResult.innerHTML =
             '<p style="font-size:12px;color:rgba(255,255,255,0.28);line-height:1.6;font-style:italic;">'
-            + 'Chưa phân tích được phát âm lần này — thử nói to và rõ hơn một chút ở câu tiếp theo nhé.</p>';
+            + 'Chưa phân tích được phát âm cho câu này — có thể do sự cố kỹ thuật tạm thời, '
+            + 'không hẳn do cách bạn nói. Nếu tình trạng lặp lại ở câu sau, thử ghi âm nơi yên tĩnh và nói rõ hơn.</p>';
           pronResult.style.display = '';
         }
         pronSection.style.display = '';
@@ -1413,7 +1414,11 @@
       var reasoning = data.off_topic_verdict.reasoning || '';
       warnings.push({
         icon: '⚠️',
-        message: 'Cảnh báo: Câu trả lời có thể chưa bám sát đề.' +
+        // audit #3.3 — say the band was CAPPED so a low hero band isn't
+        // misread as weak ability. Cap fires under this same off-topic
+        // condition (grading.py _apply_off_topic_penalty).
+        message: 'Cảnh báo: Câu trả lời có thể chưa bám sát đề, nên band cho câu này đã bị giới hạn ' +
+                 '(không phản ánh năng lực thật của bạn).' +
                  (reasoning ? ' Lý do: ' + reasoning : ''),
       });
     }
@@ -2615,6 +2620,8 @@
       + _pronChip('Đầy đủ',     pronData.completeness_score)
       + _pronChip('Ngữ điệu',   pronData.prosody_score)
       + '</div>'
+      + '<p style="font-size:10px;color:var(--ds-muted);margin:-4px 0 10px;">'
+      + 'Điểm phát âm theo thang Azure 0–100 (khác thang band 0–9).</p>'
       + (summary ? '<ul style="font-size:12px;color:var(--ds-text);'
           + 'padding-left:16px;margin:0 0 4px;line-height:1.7;">' + summary + '</ul>' : '')
       + wordHtml

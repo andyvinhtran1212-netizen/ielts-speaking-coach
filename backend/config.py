@@ -117,12 +117,16 @@ class Settings(BaseSettings):
     FLASHCARD_ENABLED: bool = False
     FLASHCARD_DAILY_REVIEW_LIMIT: int = 500
 
-    # Sprint 2.6 — Writing grader prompt version selector. v1 stays the
-    # default until A/B testing confirms v2 is at least as good. Flip
-    # WRITING_PROMPT_VERSION=v2 in the environment to swap without a
-    # code change. Per-essay logging through writing_feedback.prompt_version
-    # lets Andy diff quality metrics by version.
-    WRITING_PROMPT_VERSION: str = "v1"
+    # Sprint 2.6 — Writing grader prompt version selector. Default flipped
+    # to v2 (2026-07-10, audit finding #1): v1's L1 prompt tells the model to
+    # "aim to find 8-15 mistakes / re-read if you find 0 — students always
+    # have basic errors" with no anti-fabrication floor, which drove the
+    # zero-mistake-Band-5 fabrication incident (essay 0caf5e59). v2 adds the
+    # ANTI-FABRICATION RULE + per-band descriptors + few-shot calibration.
+    # Override per-env with WRITING_PROMPT_VERSION (hot-read per grade_essay()
+    # call — no redeploy needed); per-essay logging through
+    # writing_feedback.prompt_version lets Andy diff quality metrics by version.
+    WRITING_PROMPT_VERSION: str = "v2"
 
     # Sprint 2.7a — Writing grading model selectors. Standard tier uses
     # GEMINI_PRO_MODEL by default (Pro, full 12-section analysis);

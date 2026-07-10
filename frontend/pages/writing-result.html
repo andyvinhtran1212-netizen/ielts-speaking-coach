@@ -121,6 +121,7 @@
             <span id="essay-date">—</span>
             <span class="separator">·</span>
             <span id="band-display" class="band-display">Band —</span>
+            <span id="scores-hidden-note" class="hidden">Giảng viên chọn tập trung vào phản hồi định tính cho bài này (không hiển thị điểm band).</span>
             <span id="tier-wrap" class="hidden">
               <span class="separator">·</span>
               <span id="tier-badge" class="tier-badge tier-standard" title="Grading tier">Standard</span>
@@ -508,6 +509,10 @@
       if (hideScores) {
         bandEl.classList.add('hidden');
         bandEl.textContent = '';
+        // U3 (audit #4.1) — don't hide scores silently: a blank header reads as
+        // "chưa chấm". Surface a one-line reason where the band would be.
+        var noteEl = document.getElementById('scores-hidden-note');
+        if (noteEl) noteEl.classList.remove('hidden');
         document.title = 'Phân tích bài viết';
       } else {
         var bandText = (feedback.overall_band_score != null)

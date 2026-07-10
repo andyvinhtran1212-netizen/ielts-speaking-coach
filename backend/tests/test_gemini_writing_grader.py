@@ -81,7 +81,10 @@ async def test_grade_essay_returns_valid_result(grader):
     assert result.tokens_output == 2000
     assert result.cost_usd is not None
     assert result.grading_duration_ms >= 0
-    assert result.prompt_version == "v1.0"
+    # Default flipped to v2 (config.py, 2026-07-10 audit finding #1) → stamps
+    # "v2.1". v1-stamping is still covered explicitly by
+    # test_grade_essay_picks_up_version_change_without_restart below.
+    assert result.prompt_version == "v2.1"
 
 
 @pytest.mark.asyncio
