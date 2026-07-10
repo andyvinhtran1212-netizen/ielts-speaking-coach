@@ -23,6 +23,7 @@ from typing import Any, Callable
 import google.generativeai as genai
 
 from config import settings
+from services.d1_quality import validate_d1_quality
 
 logger = logging.getLogger(__name__)
 
@@ -116,12 +117,21 @@ def _validate_d1_payload(payload: dict[str, Any]) -> dict[str, Any] | None:
     if word_count < 12 or word_count > 30:
         return None
 
-    return {
+    result = {
         "word": word,
         "answer": answer,
         "sentence": sentence,
         "distractors": distractors_clean,
     }
+    # audit #7 — stricter quality gate BEYOND form (answer leak, distractor in the
+    # sentence, multi-word distractor). Drop failing drafts so admin review starts
+    # from clean items. Semantic plausibility is a separate LLM-judge pass
+    # (scripts/gen_d1_distractor_review.py).
+    quality_issues = validate_d1_quality(result, label=word)
+    if quality_issues:
+        logger.info("[d1] dropped low-quality draft '%s': %s", word, "; ".join(quality_issues))
+        return None
+    return result
 
 
 def _generate_single_chunk(
