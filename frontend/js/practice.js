@@ -888,7 +888,8 @@
         if (pronResult) {
           pronResult.innerHTML =
             '<p style="font-size:12px;color:rgba(255,255,255,0.28);line-height:1.6;font-style:italic;">'
-            + 'Chưa phân tích được phát âm lần này — thử nói to và rõ hơn một chút ở câu tiếp theo nhé.</p>';
+            + 'Chưa phân tích được phát âm cho câu này — có thể do sự cố kỹ thuật tạm thời, '
+            + 'không hẳn do cách bạn nói. Nếu tình trạng lặp lại ở câu sau, thử ghi âm nơi yên tĩnh và nói rõ hơn.</p>';
           pronResult.style.display = '';
         }
         pronSection.style.display = '';
