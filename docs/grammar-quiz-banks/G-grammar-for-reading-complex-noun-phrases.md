@@ -138,11 +138,11 @@ input: "choice"
 headword: "cnp-agreement"
 skill: "form"
 subtype: "basic"
-prompt: "Every year, the committee of experts ____ their recommendation to the board."
+prompt: "Every year, the experts on the committee ____ their recommendation to the board."
 options: ["submits", "submit", "submitted", "have submitted"]
 answer: 1
 grammar_article_slug: "complex-noun-phrases"
-explain: "'Every year' → hiện tại đơn (thói quen), loại 'submitted' và 'have submitted'. Đại từ 'their' (số nhiều) coi 'committee' như các thành viên hành động riêng lẻ (notional plural) → 'submit', không phải 'submits' (số ít, sẽ chỏi với 'their')."
+explain: "Head noun là 'experts' (số nhiều); 'on the committee' chỉ là cụm giới từ bổ nghĩa → chia số nhiều: 'submit'. 'submits' (số ít) là lỗi chia theo danh từ gần nhất ('committee') thay vì head noun. 'Every year' → hiện tại đơn, loại 'submitted'/'have submitted'."
 ---
 
 ---
