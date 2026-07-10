@@ -710,7 +710,7 @@ def _build_question_blocks(questions: list, responses_by_qid: dict) -> list:
             # Pronunciation Issues
             pronun = fb.get("pronunciation_issues") or []
             if pronun:
-                block.append(Paragraph("PRONUNCIATION", _T["lbl"]))
+                block.append(Paragraph("LUYỆN PHÁT ÂM — GỢI Ý CHUNG", _T["lbl"]))
                 for p in pronun:
                     block.append(Paragraph(f"• {_esc(p)}", _T["ft_li"]))
                 block.append(Spacer(1, 6))
