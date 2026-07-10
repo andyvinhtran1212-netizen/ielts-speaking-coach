@@ -651,8 +651,11 @@
     _showRecError(msg);
   }
 
-  // P0-2 — soft "partial save" banner at the top of the feedback view (color-free
-  // so it can't introduce a theme contrast bug). Idempotent: removed when !show.
+  // audit #3.4 — partial save means detail data was LOST; surface it as a REAL,
+  // visible warning, not a faint color-free note. Reuses .ds-warning-banner
+  // (the off-topic/length warning style — theme-safe --ds-warning-* tokens,
+  // WCAG-AA verified), so being visible does not reintroduce a contrast bug.
+  // Idempotent: removed when !show.
   function _showPartialNote(show) {
     var host = $('state-feedback');
     var note = $('feedback-partial-note');
@@ -661,11 +664,14 @@
     if (!note) {
       note = document.createElement('div');
       note.id = 'feedback-partial-note';
-      note.className = 'card p-3 mb-4';
+      note.className = 'ds-warning-banner';
+      note.setAttribute('role', 'alert');
       host.insertBefore(note, host.firstChild);
     }
-    note.textContent = '⚠ Kết quả đã được lưu nhưng thiếu một số thông tin chi tiết. '
-      + 'Bạn vẫn xem được phần chấm bên dưới.';
+    note.innerHTML =
+      '<span class="ds-warning-icon" aria-hidden="true">⚠️</span>'
+      + '<p class="ds-warning-message">Kết quả chỉ lưu được MỘT PHẦN — một số dữ liệu chấm '
+      + 'chi tiết đã không lưu. Phần chấm bên dưới vẫn xem được; nếu cần đầy đủ, hãy chấm lại câu này.</p>';
   }
 
   // Sprint 14.2 — handle backend's HTTP 422 audio_too_short by returning
