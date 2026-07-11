@@ -53,6 +53,13 @@ class WritingBody(BaseModel):
     task2_text: str = ""
 
 
+@router.get("")
+async def list_open(authorization: str | None = Header(default=None)):
+    """Open exams the student can start (published + is_open + cohort-eligible)."""
+    user = await get_supabase_user(authorization)
+    return {"exams": svc.list_open_exams(user["id"])}
+
+
 @router.post("/{code}/sittings")
 async def open_sitting(code: str, authorization: str | None = Header(default=None)):
     user = await get_supabase_user(authorization)
@@ -73,26 +80,22 @@ async def get_sitting_state(
     if str(sitting.get("user_id")) != str(user["id"]):
         raise HTTPException(403, "Sitting không thuộc về bạn.")
     exam = svc.get_published_exam_by_id(sitting["mock_exam_id"])
-    time_left = {}
-    if exam:
-        for section in ("listening", "reading", "writing"):
-            remaining = svc.section_time_remaining_seconds(sitting, exam, section)
-            if remaining is not None:
-                time_left[section] = remaining
+    time_left = svc.lrw_time_remaining_seconds(sitting, exam) if exam else None
     return {
         "sitting": sitting,
         "exam": svc.get_exam_content_for_sitting(sitting),
-        "time_left_seconds": time_left,
+        "lrw_time_left_seconds": time_left,
     }
 
 
-@router.post("/sittings/{sitting_id}/sections/{section}/start")
-async def start_section(
-    sitting_id: str, section: str, authorization: str | None = Header(default=None),
+@router.post("/sittings/{sitting_id}/start")
+async def start_lrw(
+    sitting_id: str, authorization: str | None = Header(default=None),
 ):
+    """Open the whole LRW block (all 3 sections, one timer)."""
     user = await get_supabase_user(authorization)
     try:
-        return svc.start_section(sitting_id, user["id"], section)
+        return svc.start_lrw(sitting_id, user["id"])
     except Exception as e:  # noqa: BLE001
         _raise_for(e)
 

@@ -1372,6 +1372,7 @@
       // Best-effort auto-save — the source of truth is in-memory + submit body.
       if (window.console) console.warn('auto-save failed q=' + qNum, e && e.message);
     });
+    return savePromise;   // returned so the mock flush can await pending saves
   }
   function restoreAnswers() {
     SESSION.answers.forEach(function (value, qNum) {
@@ -1606,6 +1607,10 @@
     // be visible. If the state machine is somewhere else, don't tick.
     stopTimer();
     if ($('state-inprogress') && $('state-inprogress').hidden) return;
+    // 4-skill mock (mock_embed): the parent page owns the single TOTAL timer.
+    // Skip the per-section countdown — it would auto-submit Reading prematurely
+    // at the section limit while the mock is still running.
+    if (window.MockHook && MockHook.embedded && MockHook.embedded()) return;
     var limitSec = (SESSION.time_limit_minutes || 60) * 60;
     var startedMs = SESSION.started_at ? Date.parse(SESSION.started_at) : Date.now();
     var tick = function () {
@@ -1731,10 +1736,11 @@
           { answers: answers }
         );
     submitPromise.then(function (result) {
-      // Mock sitting: a sealed submit returns {received:true} (no score). Hand
-      // back to the orchestrator instead of rendering results.
+      // Mock sitting: a sealed submit returns {received:true} (no score).
+      // Embedded (3-tab mock) → the parent finalises, stay quiet. Standalone
+      // sealed mock → hand back to the orchestrator.
       if (window.MockHook && MockHook.isSealedResponse(result)) {
-        MockHook.showSealedAndReturn('reading');
+        if (!(MockHook.embedded && MockHook.embedded())) MockHook.showSealedAndReturn('reading');
         return;
       }
       lockExam();
@@ -2627,4 +2633,25 @@
       });
   }
   boot();
+
+  // 4-skill mock (mock_embed): the parent one-timer page asks this runner to
+  // FLUSH its debounced auto-saves before it submits the attempt — so an answer
+  // typed just before "Nộp toàn bộ" isn't stranded in the debounce queue.
+  window.addEventListener('message', function (ev) {
+    if (!ev.data || ev.data.type !== 'mock-flush') return;
+    var pending = [];
+    try {
+      SESSION.debounce_timers.forEach(function (handle, qNum) {
+        clearTimeout(handle);
+        // Flush from the IN-MEMORY answer store (source of truth), not the DOM
+        // card — the card may be unmounted (student switched Part within the
+        // debounce window) or be a non-#q-N input (summary/diagram), in which
+        // case readAnswer(card) would be null and the answer silently lost.
+        pending.push(patchAnswer(qNum, SESSION.answers.get(qNum)));
+      });
+      SESSION.debounce_timers.clear();
+    } catch (e) { /* best-effort */ }
+    Promise.all(pending.map(function (p) { return (p && p.catch) ? p.catch(function () {}) : Promise.resolve(); }))
+      .then(function () { if (ev.source) ev.source.postMessage({ type: 'mock-flushed', section: 'reading' }, '*'); });
+  });
 })();

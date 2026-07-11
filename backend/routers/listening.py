@@ -5304,6 +5304,12 @@ async def list_published_listening_tests(
         # Default/full library: legacy NULL rows stay, but mini + drill are
         # segregated into their own libraries.
         q = q.or_("metadata->>test_type.is.null,metadata->>test_type.not.in.(mini,drill)")
+    # Exclusivity: a listening test chosen for a 4-skill mock is reserved to it —
+    # hide it from the normal practice list.
+    from services import mock_exam_service
+    _reserved = mock_exam_service.reserved_test_ids("listening")
+    if _reserved:
+        q = q.not_.in_("id", list(_reserved))
     res = q.execute()
     raw_rows = res.data or []
     # Filter to rows with audio satisfied (full OR assembled).

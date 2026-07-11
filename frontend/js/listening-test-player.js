@@ -208,11 +208,17 @@ async function loadTest(testId) {
 // ── Start attempt + render player ────────────────────────────────────
 
 async function startAttempt() {
-  const ok = window.confirm(
-    'Bắt đầu test? Audio sẽ phát ngay và không thể tua lại. ' +
-    'Bài thi sẽ kết thúc khi bạn nộp bài hoặc audio chạy hết.',
-  );
-  if (!ok) return;
+  // 4-skill mock (mock_embed): skip the native confirm — it would pop from the
+  // hidden child iframe, and a dismiss/block would leave the listening attempt
+  // unattached. The parent's prep screen already confirmed the start.
+  var _embed = window.MockHook && MockHook.embedded && MockHook.embedded();
+  if (!_embed) {
+    const ok = window.confirm(
+      'Bắt đầu test? Audio sẽ phát ngay và không thể tua lại. ' +
+      'Bài thi sẽ kết thúc khi bạn nộp bài hoặc audio chạy hết.',
+    );
+    if (!ok) return;
+  }
 
   $('btn-start').disabled = true;
   $('btn-start').textContent = 'Đang khởi tạo…';
@@ -1117,10 +1123,10 @@ async function confirmSubmit() {
       {},
     );
     if (STATE.audio) STATE.audio.pause();
-    // Mock sitting: sealed submit returns {received:true} (no score) — hand back
-    // to the orchestrator instead of showing results.
+    // Mock sitting: sealed submit returns {received:true} (no score). Embedded
+    // (3-tab mock) → the parent finalises, stay quiet. Standalone → hand back.
     if (window.MockHook && MockHook.isSealedResponse(result)) {
-      MockHook.showSealedAndReturn('listening');
+      if (!(MockHook.embedded && MockHook.embedded())) MockHook.showSealedAndReturn('listening');
       return;
     }
     renderResult(result);
@@ -1217,5 +1223,22 @@ function main() {
   $('btn-start').addEventListener('click', startAttempt);
   void loadTest(id);
 }
+
+// 4-skill mock (mock_embed): the parent one-timer page asks this runner to
+// FLUSH its debounced auto-saves before it submits the attempt, so a just-typed
+// answer isn't stranded in the 2s debounce queue.
+window.addEventListener('message', async (ev) => {
+  if (!ev.data || ev.data.type !== 'mock-flush') return;
+  const pending = [];
+  try {
+    for (const q of Array.from(STATE.saveTimers.keys())) {
+      clearTimeout(STATE.saveTimers.get(q));
+      STATE.saveTimers.delete(q);
+      pending.push(saveAnswer(q, STATE.answers.get(q)));
+    }
+  } catch (e) { /* best-effort */ }
+  await Promise.all(pending.map((p) => (p && p.catch) ? p.catch(() => {}) : Promise.resolve()));
+  if (ev.source) ev.source.postMessage({ type: 'mock-flushed', section: 'listening' }, '*');
+});
 
 document.addEventListener('DOMContentLoaded', main);

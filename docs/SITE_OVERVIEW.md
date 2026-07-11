@@ -117,7 +117,8 @@ Operation column = audience-facing purpose + the main data in/out (key endpoint 
 
 | Page | Audience | Purpose · operation |
 |---|---|---|
-| `pages/mock-exam.html` | student | 4-skill mock orchestrator. `?code=` opens/resumes a sitting (`POST /api/mock-exams/{code}/sittings`), then a status-driven seated LRW flow: Listening → Reading redirect to the existing runners with `?sitting_id=` (sealed via `mock-exam-hook.js`), Writing is a native 2-tab step (`POST /sittings/{id}/writing` + `/submit-lrw`). Scores withheld until release. |
+| `pages/full-test.html` | student | Full-test **entry** — lists the currently-open mock exams (`GET /api/mock-exams`, published + `is_open` + cohort-eligible) and links to the runner. Reachable from a card on `home.html`. |
+| `pages/mock-exam.html` | student | 4-skill mock **runner** (all-at-once). `?code=` opens/resumes a sitting; `start` opens Listening + Reading + Writing TOGETHER under one total timer (`total_minutes`, `sắp hết giờ` warning). Reading/Listening are the existing runners embedded as `mock_embed` iframes (auto-start, chrome hidden, autosaved); Writing is a native 2-tab step. "Nộp toàn bộ" (or timer 0) submits every section's attempt + `/submit-lrw`. Scores withheld until release. |
 | `pages/mock-result.html` | student | Mock TRF result — 4 bands + overall + examiner comment. `GET /api/mock-exams/sittings/{id}/result` returns 403 until an admin releases the sitting. |
 
 ### 4.6 Student — Vocabulary
@@ -163,6 +164,7 @@ Operation column = audience-facing purpose + the main data in/out (key endpoint 
 | `pages/admin/reading/preview.html` | admin | Per-test preview with answer keys + diagram-image upload. |
 | `pages/admin/grammar/index.html` · `pages/admin/grammar/articles.html` · `pages/admin/grammar/analytics.html` · `pages/admin/grammar/recommend-test.html` | admin | Grammar Wiki authoring + recommendation analytics/testing. |
 | `pages/admin/vocab/index.html` · `pages/admin/vocab/lemmas.html` · `pages/admin/vocab/stats.html` · `pages/admin/vocab/exercises.html` · `pages/admin/vocab/d1-curation.html` | admin | Vocab bank curation, lemmas, stats, exercise authoring + D1 curation. |
+| `pages/admin/mock-exams/index.html` | admin | Full-test **management** — create an exam (pick Listening/Reading tests + Writing task1/task2 prompts + total minutes), publish, and **live open/close** (`is_open`) so students can start. A chosen test is reserved (hidden from the practice lists). `/admin/mock-exams/*`, `admin_mock_exams.py`. |
 | `pages/admin/mock-reviews/index.html` | admin | 4-skill mock review console — queue → atomic claim → 4 skill tabs (Listening/Reading AI draft, Writing text or `admin/writing/grade.html` deep-link, Speaking session links) → enter final bands (overall computed server-side) → release (lifts the seal). `/admin/mock-reviews/*`, `admin_mock_reviews.py`. |
 
 ### 4.10 Admin — people + access
