@@ -412,5 +412,5 @@ explain: "Theo bài Wiki, một cách sửa lỗi he/she sai đối tượng là
 why_wrong:
   '0': Quy tắc 'her' luôn chỉ người gần nhất không chính xác và không giải quyết được sự mơ hồ về người sở hữu thời gian trong câu.
   '2': Việc xóa hẳn tân ngữ sẽ làm mất đi thông tin quan trọng về lý do cảm ơn, thay đổi ý nghĩa gốc của câu và khiến câu bị thiếu ý.
-  '3': '''Their'' là đại từ sở hữu số nhiều hoặc đại từ phi giới tính không xác định, việc thay ''her'' bằng ''their'' sẽ sai ngữ pháp trong ngữ cảnh này vì thời gian chỉ thuộc về một người nữ cụ thể.'
+  '3': 'Singular "their" vẫn đúng ngữ pháp cho một người; nhưng đổi "her" → "their" KHÔNG xoá được sự mơ hồ — vẫn không rõ thời gian của candidate hay recruiter. Chỉ cấu trúc trực tiếp (đáp án) mới gắn rõ đại từ vào đúng người.'
 ---

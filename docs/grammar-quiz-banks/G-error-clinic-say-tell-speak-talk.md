@@ -330,6 +330,6 @@ grammar_article_slug: "say-tell-speak-talk"
 explain: "Ngữ cảnh trang trọng (hội nghị, bài phát biểu) ưu tiên 'speak at a conference'; 'talk' thiên về hội thoại thân mật hai chiều."
 why_wrong:
   '0': Động từ "talked" thường dùng cho các cuộc trò chuyện thân mật hoặc đối thoại hai chiều, không phù hợp với ngữ cảnh trang trọng của một bài phát biểu tại hội nghị.
-  '2': Mặc dù "talk highly of" là một thành ngữ đúng, câu hỏi này yêu cầu phân biệt "speak" và "talk" trong ngữ cảnh trình bày một bài phát biểu trang trọng, chứ không phải diễn đạt ý kiến.
+  '2': Sai ở hai điểm — (a) không đúng ngữ cảnh hội nghị mà câu hỏi yêu cầu; (b) collocation cố định là "speak highly of", KHÔNG phải "talk highly of".
   '3': Động từ "said" thường cần một tân ngữ trực tiếp (nói cái gì) hoặc dùng trong câu tường thuật, không diễn tả hành động phát biểu chính thức tại một hội nghị.
 ---
