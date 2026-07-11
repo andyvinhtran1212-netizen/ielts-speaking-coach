@@ -27,25 +27,28 @@ def _load_attempts(args) -> list[dict]:
     if args.file:
         return json.loads(Path(args.file).read_text(encoding="utf-8"))
     from database import supabase_admin
-    rows: list[dict] = []
-    page, size = 0, 1000
-    while True:  # paginate past the PostgREST 1000-row cap
-        # Codex F2 — restrict to D1 attempts. attempts has no exercise_type, so
-        # inner-join vocabulary_exercises and filter on it; otherwise D3 rows
-        # pollute both the per-item stats AND the per-user ability grouping.
-        resp = (
-            supabase_admin.table("vocabulary_exercise_attempts")
-            .select("exercise_id, user_id, is_correct, vocabulary_exercises!inner(exercise_type)")
-            .eq("vocabulary_exercises.exercise_type", "D1")
-            .range(page * size, page * size + size - 1)
-            .execute()
-        )
-        batch = resp.data or []
-        rows.extend(batch)
-        if len(batch) < size:
-            break
-        page += 1
-    return rows
+
+    def _paginate(table, select, eq=None):
+        out, page, size = [], 0, 1000
+        while True:  # past the PostgREST 1000-row cap
+            q = supabase_admin.table(table).select(select)
+            if eq:
+                q = q.eq(*eq)
+            batch = (q.range(page * size, page * size + size - 1).execute().data) or []
+            out.extend(batch)
+            if len(batch) < size:
+                return out
+            page += 1
+
+    # Restrict to D1 attempts (D3 rows would pollute per-item stats AND per-user
+    # ability grouping). attempts has no exercise_type column, and the PostgREST
+    # embedded-join (vocabulary_exercises!inner) isn't available for this FK in the
+    # schema cache — so fetch D1 exercise ids and filter attempts by them.
+    d1_ids = {str(r["id"]) for r in _paginate("vocabulary_exercises", "id", ("exercise_type", "D1"))}
+    return [
+        r for r in _paginate("vocabulary_exercise_attempts", "exercise_id, user_id, is_correct")
+        if str(r.get("exercise_id")) in d1_ids
+    ]
 
 
 def _load_words(ids: list[str]) -> dict:
