@@ -28,7 +28,7 @@ class ExamCreate(BaseModel):
     writing_task1_prompt_id: str | None = None
     writing_task2_prompt_id: str | None = None
     speaking_topic_set: dict = Field(default_factory=dict)
-    section_minutes: dict | None = None
+    total_minutes: int | None = None
     open_from: str | None = None
     open_until: str | None = None
     cohort_id: str | None = None
@@ -42,7 +42,7 @@ class ExamPatch(BaseModel):
     writing_task1_prompt_id: str | None = None
     writing_task2_prompt_id: str | None = None
     speaking_topic_set: dict | None = None
-    section_minutes: dict | None = None
+    total_minutes: int | None = None
     open_from: str | None = None
     open_until: str | None = None
     cohort_id: str | None = None
@@ -52,6 +52,10 @@ class ExamPatch(BaseModel):
 
 class VoidBody(BaseModel):
     reason: str = ""
+
+
+class OpenBody(BaseModel):
+    is_open: bool
 
 
 @router.get("")
@@ -83,6 +87,18 @@ async def update_exam(
         raise HTTPException(404, str(e))
     except ValueError as e:
         raise HTTPException(400, str(e))
+
+
+@router.post("/{exam_id}/open")
+async def set_open(
+    exam_id: str, body: OpenBody, authorization: str | None = Header(default=None),
+):
+    """Live toggle — open the exam so students can start, or close it."""
+    admin = await require_admin(authorization)
+    try:
+        return svc.set_open(exam_id, body.is_open, admin["id"])
+    except svc.NotFoundError as e:
+        raise HTTPException(404, str(e))
 
 
 @router.get("/{exam_id}/sittings")

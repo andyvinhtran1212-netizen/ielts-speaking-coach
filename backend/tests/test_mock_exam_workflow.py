@@ -6,8 +6,8 @@ share one fake instance so the sitting written by the service is visible to the
 review workflow).
 
 What we pin:
-  - create_sitting: gates (window, cohort), idempotent active-sitting return
-  - start_section: forward-only one-way machine, idempotent resume, auto-submit
+  - create_sitting: gates (is_open, window, cohort), idempotent active-sitting return
+  - start_lrw: opens all 3 sections at once under one total timer, idempotent
   - terminal reconciliation is ORDER-INDEPENDENT (speaking before or after LRW)
   - all_submitted auto-creates a review (idempotent)
   - claim is atomic — concurrent claims, exactly one wins
@@ -67,6 +67,10 @@ class _Query:
     def eq(self, field, value):
         self.filters.append((field, "eq", value, self._negate_next))
         self._negate_next = False
+        return self
+
+    def neq(self, field, value):
+        self.filters.append((field, "eq", value, True))   # negated eq
         return self
 
     def in_(self, field, values):
@@ -185,12 +189,13 @@ def wf():
     return mock_review_workflow
 
 
-def _seed_exam(fake, *, cohort_id=None, open_from=None, open_until=None, speaking=False):
+def _seed_exam(fake, *, cohort_id=None, open_from=None, open_until=None,
+               speaking=False, is_open=True):
     exam = {
         "id": str(uuid4()), "code": "MOCK-TEST-A", "title": "Test",
-        "status": "published", "cohort_id": cohort_id,
+        "status": "published", "is_open": is_open, "cohort_id": cohort_id,
         "open_from": open_from, "open_until": open_until,
-        "section_minutes": {"listening": 32, "reading": 60, "writing": 60},
+        "total_minutes": 150,
         # speaking is required only when the exam defines a speaking component
         "speaking_topic_set": ({"part1": ["x"]} if speaking else {}),
     }
@@ -236,59 +241,62 @@ def test_create_sitting_cohort_not_member_raises(fake_db, svc):
     assert s["status"] == "registered"
 
 
-# ── start_section (one-way machine) ───────────────────────────────────
+# ── start_lrw (all sections open at once, one timer) ──────────────────
 
 
-def test_start_section_forward_only(fake_db, svc):
+def test_create_sitting_not_open_raises(fake_db, svc):
+    """Live gate: a not-yet-opened exam can't be started."""
+    _seed_exam(fake_db, is_open=False)
+    with pytest.raises(svc.WindowClosedError):
+        svc.create_sitting(uuid4(), "MOCK-TEST-A")
+
+
+def test_start_lrw_opens_block_with_one_timer(fake_db, svc):
     _seed_exam(fake_db)
     u = uuid4()
     s = svc.create_sitting(u, "MOCK-TEST-A")
-    # cannot jump to writing before listening/reading
-    with pytest.raises(svc.SittingConflictError):
-        svc.start_section(s["id"], u, "writing")
-    # listening starts fine
-    s2 = svc.start_section(s["id"], u, "listening")
-    assert s2["status"] == "lrw_listening"
-    assert s2["listening_started_at"] is not None
-    assert s2["lrw_started_at"] is not None
+    started = svc.start_lrw(s["id"], u)
+    assert started["status"] == "lrw_in_progress"
+    assert started["lrw_started_at"] is not None
+    # total timer computed from the single start anchor
+    exam = svc.get_published_exam_by_id(s["mock_exam_id"])
+    left = svc.lrw_time_remaining_seconds(started, exam)
+    assert 0 < left <= 150 * 60
 
 
-def test_start_section_advance_stamps_prior_after_real_submit(fake_db, svc):
+def test_start_lrw_idempotent(fake_db, svc):
     _seed_exam(fake_db)
     u = uuid4()
     s = svc.create_sitting(u, "MOCK-TEST-A")
-    svc.start_section(s["id"], u, "listening")
-    _submit_section(svc, fake_db, s["id"], u, "listening")   # real submitted attempt
-    s2 = svc.start_section(s["id"], u, "reading")
-    assert s2["status"] == "lrw_reading"
-    assert s2["listening_submitted_at"] is not None
+    a = svc.start_lrw(s["id"], u)
+    b = svc.start_lrw(s["id"], u)   # reload/resume
+    assert a["lrw_started_at"] == b["lrw_started_at"]
 
 
-def test_start_section_advance_blocked_without_prior_submit(fake_db, svc):
-    """Finding 1: advancing must NOT fabricate a prior submission from nav state."""
-    _seed_exam(fake_db)
-    u = uuid4()
-    s = svc.create_sitting(u, "MOCK-TEST-A")
-    svc.start_section(s["id"], u, "listening")
-    # no listening attempt submitted → cannot advance to reading
-    with pytest.raises(svc.SittingConflictError):
-        svc.start_section(s["id"], u, "reading")
-
-
-def test_start_section_resume_is_idempotent(fake_db, svc):
-    _seed_exam(fake_db)
-    u = uuid4()
-    s = svc.create_sitting(u, "MOCK-TEST-A")
-    a = svc.start_section(s["id"], u, "listening")
-    b = svc.start_section(s["id"], u, "listening")   # reload/resume
-    assert a["listening_started_at"] == b["listening_started_at"]
-
-
-def test_start_section_wrong_owner_raises(fake_db, svc):
+def test_start_lrw_wrong_owner_raises(fake_db, svc):
     _seed_exam(fake_db)
     s = svc.create_sitting(uuid4(), "MOCK-TEST-A")
     with pytest.raises(PermissionError):
-        svc.start_section(s["id"], uuid4(), "listening")
+        svc.start_lrw(s["id"], uuid4())
+
+
+def test_set_open_toggles_exam(fake_db, svc):
+    exam = _seed_exam(fake_db, is_open=False)
+    svc.set_open(exam["id"], True, str(uuid4()))
+    assert fake_db.rows("mock_exams")[0]["is_open"] is True
+
+
+def test_reserved_test_ids_hides_mock_assigned(fake_db, svc):
+    """Exclusivity: a test chosen for a mock is reserved (hidden from lists)."""
+    exam = _seed_exam(fake_db)
+    exam["reading_test_id"] = "R-123"
+    exam["listening_test_id"] = "L-456"
+    assert "R-123" in svc.reserved_test_ids("reading")
+    assert "L-456" in svc.reserved_test_ids("listening")
+    # an archived exam does not reserve its tests
+    fake_db.seed("mock_exams", {"id": str(uuid4()), "status": "archived",
+                                "reading_test_id": "R-999", "listening_test_id": None})
+    assert "R-999" not in svc.reserved_test_ids("reading")
 
 
 # ── terminal reconciliation (order-independent) ───────────────────────
@@ -307,12 +315,11 @@ def _submit_section(svc, fake, sitting_id, u, section, test_id=None):
 
 
 def _reach_writing(svc, fake, sitting_id, u):
-    """Drive the sitting to the active Writing step (listening + reading submitted)."""
-    svc.start_section(sitting_id, u, "listening")
+    """Open the LRW block (all 3 at once) and submit the L+R attempts, as the
+    runner would before the student presses Nộp toàn bộ."""
+    svc.start_lrw(sitting_id, u)
     _submit_section(svc, fake, sitting_id, u, "listening")
-    svc.start_section(sitting_id, u, "reading")
     _submit_section(svc, fake, sitting_id, u, "reading")
-    svc.start_section(sitting_id, u, "writing")
 
 
 def _run_lrw(svc, fake, sitting_id, u):
