@@ -1731,6 +1731,12 @@
           { answers: answers }
         );
     submitPromise.then(function (result) {
+      // Mock sitting: a sealed submit returns {received:true} (no score). Hand
+      // back to the orchestrator instead of rendering results.
+      if (window.MockHook && MockHook.isSealedResponse(result)) {
+        MockHook.showSealedAndReturn('reading');
+        return;
+      }
       lockExam();
       if (SESSION.timer_interval) {
         clearInterval(SESSION.timer_interval);
@@ -2441,6 +2447,8 @@
     return startPromise
       .then(function (res) {
         SESSION.attempt_id = res.attempt_id;
+        // Mock sitting: link this attempt so its submit is sealed server-side.
+        if (window.MockHook && MockHook.active()) MockHook.attach('reading', res.attempt_id);
         SESSION.started_at = res.started_at;
         SESSION.time_limit_minutes = res.time_limit_minutes;
         // Clear the resumed answers — this is a fresh attempt.

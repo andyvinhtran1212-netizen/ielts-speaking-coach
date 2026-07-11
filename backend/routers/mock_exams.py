@@ -48,6 +48,11 @@ class SpeakingBody(BaseModel):
     session_ids: list[str] = Field(default_factory=list)
 
 
+class WritingBody(BaseModel):
+    task1_text: str = ""
+    task2_text: str = ""
+
+
 @router.post("/{code}/sittings")
 async def open_sitting(code: str, authorization: str | None = Header(default=None)):
     user = await get_supabase_user(authorization)
@@ -74,7 +79,11 @@ async def get_sitting_state(
             remaining = svc.section_time_remaining_seconds(sitting, exam, section)
             if remaining is not None:
                 time_left[section] = remaining
-    return {"sitting": sitting, "time_left_seconds": time_left}
+    return {
+        "sitting": sitting,
+        "exam": svc.get_exam_content_for_sitting(sitting),
+        "time_left_seconds": time_left,
+    }
 
 
 @router.post("/sittings/{sitting_id}/sections/{section}/start")
@@ -96,6 +105,18 @@ async def attach_attempt(
     user = await get_supabase_user(authorization)
     try:
         return svc.attach_attempt(sitting_id, user["id"], body.section, body.attempt_id)
+    except Exception as e:  # noqa: BLE001
+        _raise_for(e)
+
+
+@router.post("/sittings/{sitting_id}/writing")
+async def submit_writing(
+    sitting_id: str, body: WritingBody,
+    authorization: str | None = Header(default=None),
+):
+    user = await get_supabase_user(authorization)
+    try:
+        return svc.submit_writing(sitting_id, user["id"], body.task1_text, body.task2_text)
     except Exception as e:  # noqa: BLE001
         _raise_for(e)
 

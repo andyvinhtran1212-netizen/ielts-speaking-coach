@@ -185,12 +185,14 @@ def wf():
     return mock_review_workflow
 
 
-def _seed_exam(fake, *, cohort_id=None, open_from=None, open_until=None):
+def _seed_exam(fake, *, cohort_id=None, open_from=None, open_until=None, speaking=False):
     exam = {
         "id": str(uuid4()), "code": "MOCK-TEST-A", "title": "Test",
         "status": "published", "cohort_id": cohort_id,
         "open_from": open_from, "open_until": open_until,
         "section_minutes": {"listening": 32, "reading": 60, "writing": 60},
+        # speaking is required only when the exam defines a speaking component
+        "speaking_topic_set": ({"part1": ["x"]} if speaking else {}),
     }
     fake.seed("mock_exams", exam)
     return exam
@@ -287,21 +289,30 @@ def _run_lrw(svc, sitting_id, u):
     return svc.submit_lrw(sitting_id, u)
 
 
+def test_lrw_only_exam_finalises_without_speaking(fake_db, svc):
+    """No speaking_topic_set → the seated LRW mạch alone reaches all_submitted."""
+    _seed_exam(fake_db, speaking=False)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    final = _run_lrw(svc, s["id"], u)
+    assert final["status"] == "all_submitted"
+    assert len(fake_db.rows("mock_exam_reviews")) == 1
+
+
 def test_submit_lrw_then_speaking_reaches_all_submitted(fake_db, svc, wf):
-    _seed_exam(fake_db)
+    _seed_exam(fake_db, speaking=True)
     u = uuid4()
     s = svc.create_sitting(u, "MOCK-TEST-A")
     after_lrw = _run_lrw(svc, s["id"], u)
-    assert after_lrw["status"] == "speaking_pending"
+    assert after_lrw["status"] == "speaking_pending"    # speaking required, not yet done
     final = svc.record_speaking(s["id"], u, [str(uuid4())])
     assert final["status"] == "all_submitted"
-    # review auto-created
     assert len(fake_db.rows("mock_exam_reviews")) == 1
 
 
 def test_speaking_first_then_lrw_also_reaches_all_submitted(fake_db, svc):
     """Order independence: speaking taken BEFORE the LRW mạch."""
-    _seed_exam(fake_db)
+    _seed_exam(fake_db, speaking=True)
     u = uuid4()
     s = svc.create_sitting(u, "MOCK-TEST-A")
     mid = svc.record_speaking(s["id"], u, [str(uuid4())])
@@ -312,7 +323,7 @@ def test_speaking_first_then_lrw_also_reaches_all_submitted(fake_db, svc):
 
 
 def test_all_submitted_creates_review_once(fake_db, svc, wf):
-    _seed_exam(fake_db)
+    _seed_exam(fake_db, speaking=True)
     u = uuid4()
     s = svc.create_sitting(u, "MOCK-TEST-A")
     _run_lrw(svc, s["id"], u)
@@ -332,6 +343,17 @@ def test_attach_attempt_sets_both_directions(fake_db, svc):
     sitting = svc.get_sitting(s["id"])
     assert sitting["reading_attempt_id"] == attempt_id
     assert fake_db.rows("reading_test_attempts")[0]["sitting_id"] == s["id"]
+
+
+def test_submit_writing_stores_texts_with_word_counts(fake_db, svc):
+    _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    out = svc.submit_writing(s["id"], u, "one two three", "alpha beta")
+    ws = out["writing_submission"]
+    assert ws["task1"]["word_count"] == 3
+    assert ws["task2"]["word_count"] == 2
+    assert ws["task1"]["text"] == "one two three"
 
 
 def test_is_sealed_tracks_flag(fake_db, svc):

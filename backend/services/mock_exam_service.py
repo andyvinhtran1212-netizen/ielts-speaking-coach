@@ -111,6 +111,41 @@ def get_published_exam_by_id(exam_id: str) -> Optional[dict]:
     return resp.data[0] if resp.data else None
 
 
+def get_exam_content_for_sitting(sitting: dict) -> dict:
+    """Resolve the content refs the frontend runner needs to launch each section.
+
+    Reading pages link by the reading test CODE (reading_tests.test_id), listening
+    by the listening test UUID — this bridges the FK ids stored on mock_exams to
+    the values the existing runner pages expect in their URL. Writing returns the
+    two prompt texts for the native writing step.
+    """
+    exam = get_published_exam_by_id(sitting["mock_exam_id"]) or {}
+    out: dict = {
+        "listening_test_id": exam.get("listening_test_id"),
+        "reading_test_code": None,
+        "writing_task1": None,
+        "writing_task2": None,
+        "speaking_topic_set": exam.get("speaking_topic_set") or {},
+        "section_minutes": exam.get("section_minutes") or {},
+    }
+    if exam.get("reading_test_id"):
+        r = supabase_admin.table("reading_tests").select("test_id, title").eq(
+            "id", str(exam["reading_test_id"]),
+        ).limit(1).execute()
+        if r.data:
+            out["reading_test_code"] = r.data[0].get("test_id")
+            out["reading_title"] = r.data[0].get("title")
+    for slot, col in (("writing_task1", "writing_task1_prompt_id"),
+                      ("writing_task2", "writing_task2_prompt_id")):
+        if exam.get(col):
+            p = supabase_admin.table("writing_prompts").select(
+                "id, task_type, prompt_text, title",
+            ).eq("id", str(exam[col])).limit(1).execute()
+            if p.data:
+                out[slot] = p.data[0]
+    return out
+
+
 def get_sitting(sitting_id: UUID | str) -> Optional[dict]:
     resp = supabase_admin.table("mock_exam_sittings").select("*").eq(
         "id", str(sitting_id),
@@ -316,6 +351,41 @@ def submit_lrw(sitting_id: str, user_id: str) -> dict:
     return _reconcile_terminal(sitting_id)
 
 
+def _word_count(text: str) -> int:
+    return len((text or "").split())
+
+
+def submit_writing(
+    sitting_id: str, user_id: str, task1_text: str, task2_text: str,
+) -> dict:
+    """Store the two essay texts on the sitting (P1 native writing capture).
+
+    Does NOT stamp writing_submitted_at / advance status — the client calls
+    submit_lrw next to finalise the whole seated mạch. Sealed by construction:
+    the text lives on the sitting (admin-only); the student sees no band until
+    release.
+    """
+    sitting = get_sitting(sitting_id)
+    if not sitting:
+        raise NotFoundError(f"Sitting {sitting_id} không tồn tại.")
+    _assert_owner(sitting, user_id)
+    if sitting["status"] in ("released", "void"):
+        raise SittingConflictError(f"Sitting đang ở trạng thái {sitting['status']!r}.")
+
+    now = _now_iso()
+    submission = {
+        "task1": {"text": task1_text or "", "word_count": _word_count(task1_text),
+                  "submitted_at": now},
+        "task2": {"text": task2_text or "", "word_count": _word_count(task2_text),
+                  "submitted_at": now},
+    }
+    resp = supabase_admin.table("mock_exam_sittings").update({
+        "writing_submission": submission,
+    }).eq("id", str(sitting_id)).execute()
+    logger.info("[mock-exam] sitting=%s writing captured", sitting_id)
+    return resp.data[0] if resp.data else {**sitting, "writing_submission": submission}
+
+
 def record_speaking(sitting_id: str, user_id: str, session_ids: list[str]) -> dict:
     """Attach the decoupled speaking sessions and mark speaking complete.
 
@@ -355,7 +425,13 @@ def _reconcile_terminal(sitting_id: str) -> dict:
         return sitting or {}
 
     lrw_done = bool(sitting.get(_SUBMITTED_COL["writing"]))
-    speaking_done = bool(sitting.get("speaking_completed_at"))
+    # Speaking is required only when the exam defines a speaking component.
+    # An LRW-only exam (no speaking_topic_set) finalises on the seated mạch
+    # alone — this is what makes an LRW-only mock fully end-to-end in P1.
+    exam = get_published_exam_by_id(sitting["mock_exam_id"]) or {}
+    speaking_required = bool(exam.get("speaking_topic_set"))
+    speaking_done = (bool(sitting.get("speaking_completed_at"))
+                     if speaking_required else True)
 
     if lrw_done and speaking_done:
         new_status = "all_submitted"

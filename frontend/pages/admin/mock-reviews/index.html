@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Duyệt thi thử 4 kỹ năng — Admin</title>
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.setAttribute('data-theme', (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light'));
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-buttons.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-status.css" />
+  <style>
+    .mr-wrap { max-width:1080px; margin:0 auto; padding:24px 16px; }
+    .mr-row { display:flex; align-items:center; gap:12px; padding:12px 14px; border:1px solid var(--av-border-default); border-radius:10px; background:var(--av-surface-elevated); margin-bottom:8px; cursor:pointer; }
+    .mr-row:hover { border-color:var(--av-accent,#3b82f6); }
+    .mr-pill { font-size:11px; padding:2px 8px; border-radius:999px; background:var(--av-surface-card); border:1px solid var(--av-border-default); text-transform:uppercase; letter-spacing:.03em; }
+    .mr-tabs { display:flex; gap:6px; margin:16px 0; flex-wrap:wrap; }
+    .mr-tab { padding:8px 14px; border:1px solid var(--av-border-default); border-radius:8px; background:var(--av-surface-elevated); cursor:pointer; font-size:13px; }
+    .mr-tab.active { background:var(--av-accent,#2563eb); color:#fff; border-color:transparent; }
+    .mr-panel { display:none; border:1px solid var(--av-border-default); border-radius:12px; padding:16px; background:var(--av-surface-elevated); }
+    .mr-panel.active { display:block; }
+    .mr-band-form { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:12px; margin:12px 0; }
+    .mr-band-form label { font-size:12px; color:var(--av-text-secondary); display:block; margin-bottom:4px; }
+    .mr-band-form input { width:100%; padding:8px; border:1px solid var(--av-border-default); border-radius:8px; background:var(--av-surface-card); color:var(--av-text-primary); font-size:16px; text-align:center; }
+    .mr-essay { white-space:pre-wrap; background:var(--av-surface-card); border:1px solid var(--av-border-default); border-radius:8px; padding:12px; line-height:1.7; color:var(--av-text-primary); max-height:360px; overflow:auto; }
+    textarea.mr-input { width:100%; min-height:90px; padding:10px; border:1px solid var(--av-border-default); border-radius:8px; background:var(--av-surface-card); color:var(--av-text-primary); font:inherit; }
+    .mr-muted { color:var(--av-text-secondary); font-size:13px; }
+    .hidden { display:none; }
+  </style>
+</head>
+<body class="av-page font-sans min-h-screen">
+  <div class="mr-wrap">
+    <h1 style="font-size:22px;font-weight:800;color:var(--av-text-primary);margin-bottom:4px;">Duyệt thi thử 4 kỹ năng</h1>
+    <p class="mr-muted" style="margin-bottom:18px;">Nhận (claim) → xem 4 kỹ năng → nhập band cuối → công bố.</p>
+
+    <div id="queue-view">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+        <button class="av-btn" id="refresh-btn">↻ Tải lại</button>
+        <span class="mr-muted" id="queue-count"></span>
+      </div>
+      <div id="queue-list"></div>
+    </div>
+
+    <div id="detail-view" class="hidden"></div>
+  </div>
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2.107.0"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/toast.js"></script>
+  <script src="/js/admin-mock-reviews.js"></script>
+</body>
+</html>

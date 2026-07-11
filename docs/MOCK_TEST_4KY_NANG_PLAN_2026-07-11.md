@@ -307,12 +307,17 @@ Mở lại review UI (hết sealed), đổ kết quả vào learner report; lỗ
 - **Routers**: `mock_exams.py` (`/api/mock-exams`), `admin_mock_exams.py` (`/admin/mock-exams`), `admin_mock_reviews.py` (`/admin/mock-reviews`) — mount trong `main.py`.
 - **Tests**: `tests/test_mock_exam_workflow.py` — 24 test (state machine, forward-only, order-independent finalize, atomic claim 2-thread, overall .25→.5, sealed flag, endpoint seal helper).
 
-**Còn lại P1:**
-1. **Apply migrations 145–148** trong Supabase (tay).
-2. **Seed `band_conversion_tables`** (L + R academic) — data.
-3. **Frontend**: `mock-exam.html` + `mock-exam-runner.js` (vỏ LRW: nhúng reading/listening runner + writing 2 tab, timer server, autosave, auto-advance, beacon `exam_blur/focus`); màn "đã thu bài"; `mock-result.html` (TRF). Speaking: tái dùng `test_full`, gắn `sitting_id` vào sessions, đổi màn kết thúc.
-4. **Admin console** `pages/admin/mock-reviews/` (queue + 4 tab; Writing tab **link** trang `admin_writing`).
-5. **Publish ILR-LIS-001** làm đề mẫu + tạo 1 `mock_exams` (`MOCK-2026-08A`).
-6. Wiring integrity events (`exam_blur/exam_focus`) vào `/api/analytics/events` + job gộp vào `integrity`.
+**Frontend P1 (LRW) — ĐÃ CODE (2026-07-11).** Mig 149 (`writing_submission` trên sitting) + endpoint `POST /sittings/{id}/writing` + `get_exam_content_for_sitting` (resolve reading-code/listening-uuid/writing-prompts cho runner). Speaking optional: exam không có `speaking_topic_set` → LRW finalize thẳng (mock chạy end-to-end không cần speaking wiring).
+- `pages/mock-exam.html` + `js/mock-exam-runner.js` — orchestrator **status-driven**: prep → Listening/Reading **redirect** sang runner có sẵn (`?sitting_id=`) → buffer 60s auto-advance → Writing **native 2-tab** (word count, timer server, autosave localStorage) → submit-lrw → "đã thu bài".
+- `js/mock-exam-hook.js` — bridge nhỏ nhúng vào reading-exam + listening-test-player (mỗi runner sửa 2 dòng): sau khi tạo attempt → `attach` (seal); submit sealed `{received}` → màn "đã thu bài" → quay lại orchestrator (`?done=`).
+- `pages/mock-result.html` — TRF (403 tới released).
+- `pages/admin/mock-reviews/` + `js/admin-mock-reviews.js` — console: queue → claim → 4 tab (L/R nháp AI, Writing text hoặc link `admin_writing`, Speaking session links) → nhập final band (overall server tính) → release.
+- Test: backend 26 (mock) + suite CI-scope xanh (3794); frontend `node --test` **không phát sinh fail mới** (2 file đỏ còn lại = tailwind-ENOENT môi trường, đỏ cả trên cây sạch). SITE_OVERVIEW + token-sentinel đã cập nhật.
 
-**Chưa đụng frontend** (chạy `node --test` khi có runner). **Chưa commit** — chờ lệnh.
+**Còn lại P1:**
+1. **Apply migrations 145–149** trong Supabase (tay) + **seed `band_conversion_tables`**.
+2. **Publish ILR-LIS-001** + tạo 1 row `mock_exams` (`MOCK-2026-08A`) trỏ listening/reading/writing prompts → chạy E2E thật.
+3. **E2E verify trên dev server**: mạch LRW redirect + attach + sealed submit + admin release + result (chưa chạy browser trong session này).
+4. **Speaking wiring** (P1.1): `POST /sessions` nhận `sitting_id` (để per-response grading seal) + `practice.js` test_full gắn sitting + gọi `record_speaking` lúc finalize. Backend đã sẵn (`record_speaking`, sealed grading).
+5. **Writing→instructor-tier** (P1.1): promote `writing_submission` → `writing_essays` (tier instructor, AI Pass-1 draft) thay cho capture text.
+6. Integrity events (`exam_blur/exam_focus`) → `/api/analytics/events` + gộp vào `integrity`.

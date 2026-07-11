@@ -223,6 +223,8 @@ async function startAttempt() {
       {},
     );
     STATE.attemptId = res.attempt_id;
+    // Mock sitting: link this attempt so its submit is sealed server-side.
+    if (window.MockHook && MockHook.active()) MockHook.attach('listening', res.attempt_id);
     renderPaper();
     mountAudio();
     showState('player');
@@ -1111,6 +1113,12 @@ async function confirmSubmit() {
       {},
     );
     if (STATE.audio) STATE.audio.pause();
+    // Mock sitting: sealed submit returns {received:true} (no score) — hand back
+    // to the orchestrator instead of showing results.
+    if (window.MockHook && MockHook.isSealedResponse(result)) {
+      MockHook.showSealedAndReturn('listening');
+      return;
+    }
     renderResult(result);
     showState('result');
   } catch (e) {
