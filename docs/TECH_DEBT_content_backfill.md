@@ -8,11 +8,31 @@ gate + generator merged (PRs #702/#705); backfill RAN partially (2026-07-11) the
 
 | Area | State | PR |
 |------|-------|----|
-| **#6 reading** | ✅ DONE — L3-T1 40/40, L3-T2 40/40 (~90% draft-accept; adversarial verify caught real bugs, hand-fixed) | #708, #710 |
-| **#7a quiz** | ⚠️ PARTIAL — **409/1575** why_wrong injected (41 banks, all gate+adversarial clean). **BLOCKED: Gemini monthly spend cap (429 ResourceExhausted).** | #711 |
+| **#6 reading** | ⚠️ PARTIAL — L3-T1 35/40, L3-T2 32/40 (summary_completion + 2 items removed after Codex review) | #708, #710 |
+| **#7a quiz** | ⚠️ PARTIAL — **409/1575** why_wrong injected (41 banks). **BLOCKED: Gemini monthly spend cap (429 ResourceExhausted).** | #711 |
 | **#7 vocab** | ✅ Reviewed — item-stats fixed (#709) but data too sparse; distractor review found **65/128 ambiguous distractors (synonyms) + 4 structural = 69 flagged** → admin curation | #709 |
 
-Real content-rejection rate is only ~3% — the quiz stall was the spend cap, not quality.
+## ⚠️ CONTENT QUALITY — the automated pipeline is NOT enough (Codex review, 2026-07-11)
+
+Codex human-reviewed the generated content and found **8 real errors the gate +
+adversarial-verify pipeline let through** — and it only SAMPLED, so more likely
+remain. Lessons before trusting/merging any AI-backfilled content:
+
+- **summary_completion is unreliable**: the generator got only `prompt: "(see
+  summary above)"` with NO gap context, so it wrote solutions for the WRONG gaps.
+  The verifier lacked context too, so it passed them. **Fix the generator to pass
+  `template.summary_text` + which `{{N}}` gap** before regenerating these.
+- **YES/NO/NOT GIVEN + inference short-answer**: the model over-reaches (claims
+  contradictions the passage doesn't state; fabricates inferences). Some authored
+  answer keys are themselves shaky (e.g. answer "music" for "what instrument").
+- **quiz why_wrong can teach the error** (said "talk highly of" is fine when the
+  bank teaches "speak highly of"; called singular "their" ungrammatical).
+- **A gate/adversarial PASS ≠ correct.** Treat every AI PR as needing real human
+  spot-check across question types, not just the ⚠ items. Consider a stronger
+  verifier (full passage + answer key + type-aware) on regeneration.
+
+Removed the flagged-unreliable reading solutions (revert to no-solution) rather
+than ship wrong evidence; fixed the 2 quiz rationales by hand.
 
 ## RESUME the quiz backfill (the only blocked piece)
 
