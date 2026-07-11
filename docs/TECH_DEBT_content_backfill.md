@@ -8,9 +8,17 @@ gate + generator merged (PRs #702/#705); backfill RAN partially (2026-07-11) the
 
 | Area | State | PR |
 |------|-------|----|
-| **#6 reading** | ⚠️ PARTIAL — L3-T1 35/40, L3-T2 32/40 (summary_completion + 2 items removed after Codex review) | #708, #710 |
-| **#7a quiz** | ⚠️ PARTIAL — **409/1575** why_wrong injected (41 banks). **BLOCKED: Gemini monthly spend cap (429 ResourceExhausted).** | #711 |
+| **#6 reading** | ❌ REVERTED — backfill PRs closed after Codex found repeated content errors; regenerate later | ~~#708, #710~~ closed |
+| **#7a quiz** | ❌ REVERTED — backfill PR closed (409 injected discarded); regenerate later. Was also BLOCKED on the Gemini spend cap. | ~~#711~~ closed |
 | **#7 vocab** | ✅ Reviewed — item-stats fixed (#709) but data too sparse; distractor review found **65/128 ambiguous distractors (synonyms) + 4 structural = 69 flagged** → admin curation | #709 |
+
+**Decision (2026-07-11):** the AI-generated reading/quiz content was NOT
+merge-quality — two Codex sampling passes found 10 real errors, each pass
+surfacing new ones in the "kept" content, and the spend cap blocked
+regeneration/verification. Reverted (PRs closed, branches deleted) rather than
+ship unreliable feedback. **Durable value kept:** the depth/quality gates (merged),
+`scripts/backfill_quiz_why_wrong.py` (resumable batch tooling), and the vocab
+review findings. Regenerate from scratch when resuming (see the fixes below).
 
 ## ⚠️ CONTENT QUALITY — the automated pipeline is NOT enough (Codex review, 2026-07-11)
 
@@ -34,21 +42,27 @@ remain. Lessons before trusting/merging any AI-backfilled content:
 Removed the flagged-unreliable reading solutions (revert to no-solution) rather
 than ship wrong evidence; fixed the 2 quiz rationales by hand.
 
-## RESUME the quiz backfill (the only blocked piece)
+## REGENERATE from scratch (content was reverted — start clean)
 
-1. Raise the Gemini spend cap at <https://ai.studio/spend> (that's the hard blocker).
-2. Merge #711 first (so the 409 already-done are on `main`), then:
+Prereqs — do the quality fixes above FIRST, or you'll reproduce the same errors:
+- Generator: pass `template.summary_text` + the `{{N}}` gap for summary_completion;
+  pass the full passage + answer key to the verifier; make the verifier type-aware
+  (don't demand distractor_analysis for gap-fill types).
+- Then, and only then, run at scale.
+
+1. Raise the Gemini spend cap at <https://ai.studio/spend> (the hard blocker).
+2. Quiz (from 0/1575 now — content reverted):
    ```
    export GEMINI_API_KEY=...
    cd backend
    python -m scripts.backfill_quiz_why_wrong --out drafts/quiz-flagged.yaml --workers 6
    ```
-   It's **resumable** — skips questions that already have `why_wrong`, so it
-   continues from 409. Keep `--workers` ≈ 6 (12 blew past the per-minute quota).
-   It injects the clean ones in-place; commit the modified banks + open a PR
-   (PR review = the human spot-check tier).
-3. Verify: `python -m scripts.check_quiz_why_wrong` (coverage) → when full, enable
-   `--strict` in content-CI.
+   Resumable (skips questions that already have `why_wrong`); `--workers` ≈ 6
+   (12 blew past the per-minute quota). Injects clean ones in-place → commit + PR.
+3. Reading: `python -m scripts.gen_reading_solutions content/reading/<test>.md --out …`
+   → review EVERY item (not just ⚠) → paste into the .md.
+4. Verify coverage (`check_quiz_why_wrong` / `check_reading_solution_depth`) →
+   enable `--strict` in content-CI once full. **Do a real human review before merge.**
 
 Note: pushing content trips the pre-push hook (it runs the live-Gemini smoke test
 `tests/smoke/test_gemini_smoke.py`, which fails on the cap). Confirm
