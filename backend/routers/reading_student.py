@@ -1156,6 +1156,16 @@ async def submit_reading_test_attempt(
         "time_spent_seconds": max(0, elapsed_seconds),
     }).eq("id", attempt_id).execute()
 
+    # Sealed 4-skill mock: this attempt belongs to a sitting whose scores are
+    # withheld until an admin releases results. We STILL grade + persist above
+    # (that's the draft the admin reviews) — we just never expose the score to
+    # the student here. The gate is server-side, not a hidden button.
+    sitting_id = attempt.get("sitting_id")
+    if sitting_id:
+        from services import mock_exam_service
+        if mock_exam_service.is_sealed(sitting_id):
+            return {"received": True, "sitting_id": sitting_id, "sealed": True}
+
     return {
         "attempt_id":         attempt_id,
         "score":              result["score"],
@@ -1195,6 +1205,16 @@ async def review_reading_test_attempt(
     attempt = _fetch_attempt_owned(attempt_id, user, x_reading_anon)
     if attempt.get("status") != "submitted":
         raise HTTPException(409, "Chưa có chữa bài — attempt chưa submit.")
+
+    # Sealed 4-skill mock: the review reveals the answer key + rich solution, so
+    # it stays 403 until an admin releases the sitting. Server-side gate — the
+    # during-test fetch already strips the key; this is the other leak path.
+    sitting_id = attempt.get("sitting_id")
+    if sitting_id:
+        from services import mock_exam_service
+        if mock_exam_service.is_sealed(sitting_id):
+            raise HTTPException(
+                403, "Kết quả đang chờ giám khảo duyệt — chưa thể xem chữa bài.")
 
     test_uuid = attempt["test_id"]
     test_res = (

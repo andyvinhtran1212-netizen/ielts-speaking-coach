@@ -6017,6 +6017,18 @@ def _fetch_attempt_or_404(attempt_id: str, user_id: str) -> dict:
     return row
 
 
+def _mock_sealed(attempt: dict) -> bool:
+    """True when this attempt belongs to a still-sealed 4-skill mock sitting.
+
+    The submit/result/review endpoints check this to withhold scores until an
+    admin releases the sitting — the server-side seal, not a hidden button."""
+    sitting_id = attempt.get("sitting_id")
+    if not sitting_id:
+        return False
+    from services import mock_exam_service
+    return mock_exam_service.is_sealed(sitting_id)
+
+
 @user_router.patch("/tests/attempts/{attempt_id}/answers")
 async def patch_listening_test_attempt_answer(
     attempt_id: str,
@@ -6110,6 +6122,11 @@ async def submit_listening_test_attempt(
         .execute()
     )
 
+    # Sealed 4-skill mock: grade + persist above (the admin's draft), but never
+    # expose the score to the student until the sitting is released.
+    if _mock_sealed(attempt):
+        return {"received": True, "sitting_id": attempt["sitting_id"], "sealed": True}
+
     return {
         "attempt_id":        attempt_id,
         "score":             result["score"],
@@ -6132,6 +6149,8 @@ async def get_listening_test_attempt(
     """
     user = await _require_auth(authorization)
     attempt = _fetch_attempt_or_404(attempt_id, user["id"])
+    if _mock_sealed(attempt):
+        raise HTTPException(403, "Kết quả đang chờ giám khảo duyệt.")
     return {
         "attempt_id":      attempt["id"],
         "test_id":         attempt["test_id"],
@@ -6183,6 +6202,9 @@ async def get_listening_test_attempt_review(
     attempt = _fetch_attempt_or_404(attempt_id, user["id"])
     if attempt.get("status") != "submitted":
         raise HTTPException(409, "Chưa có chữa bài — attempt chưa submit.")
+    if _mock_sealed(attempt):
+        raise HTTPException(
+            403, "Kết quả đang chờ giám khảo duyệt — chưa thể xem chữa bài.")
 
     test_id = attempt["test_id"]
     test_res = (
