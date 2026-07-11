@@ -42,18 +42,8 @@ CREATE TABLE IF NOT EXISTS mock_exams (
     section_minutes JSONB NOT NULL DEFAULT
         '{"listening":32,"reading":60,"writing":60}'::jsonb,
 
-    -- LIVE open gate: the admin flips this on to let students start, and off to
-    -- stop taking new candidates. This is the primary gate (an admin-proctored
-    -- "mở kỳ" toggle), not the time window.
-    is_open       BOOLEAN NOT NULL DEFAULT false,
-
-    -- Total time for the seated LRW block. In this exam all three sections
-    -- (Listening + Reading + Writing) open together under ONE countdown; the
-    -- student allocates time freely and the whole block is collected at 0.
-    total_minutes INTEGER NOT NULL DEFAULT 150,
-
-    -- Optional time window (belt-and-suspenders alongside is_open). NULL = no
-    -- window; is_open still governs.
+    -- exam window (the time gate lives HERE, not on cohorts — cohorts have no
+    -- open_from/until). NULL = always open.
     open_from     TIMESTAMPTZ,
     open_until    TIMESTAMPTZ,
 

@@ -1372,6 +1372,7 @@
       // Best-effort auto-save — the source of truth is in-memory + submit body.
       if (window.console) console.warn('auto-save failed q=' + qNum, e && e.message);
     });
+    return savePromise;   // returned so the mock flush can await pending saves
   }
   function restoreAnswers() {
     SESSION.answers.forEach(function (value, qNum) {
@@ -2632,4 +2633,22 @@
       });
   }
   boot();
+
+  // 4-skill mock (mock_embed): the parent one-timer page asks this runner to
+  // FLUSH its debounced auto-saves before it submits the attempt — so an answer
+  // typed just before "Nộp toàn bộ" isn't stranded in the debounce queue.
+  window.addEventListener('message', function (ev) {
+    if (!ev.data || ev.data.type !== 'mock-flush') return;
+    var pending = [];
+    try {
+      SESSION.debounce_timers.forEach(function (handle, qNum) {
+        clearTimeout(handle);
+        var card = document.getElementById('q-' + qNum);
+        if (card) pending.push(patchAnswer(qNum, readAnswer(card)));
+      });
+      SESSION.debounce_timers.clear();
+    } catch (e) { /* best-effort */ }
+    Promise.all(pending.map(function (p) { return (p && p.catch) ? p.catch(function () {}) : Promise.resolve(); }))
+      .then(function () { if (ev.source) ev.source.postMessage({ type: 'mock-flushed', section: 'reading' }, '*'); });
+  });
 })();

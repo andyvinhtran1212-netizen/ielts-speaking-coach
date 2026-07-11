@@ -154,6 +154,22 @@
     timerIv = setInterval(tick, 1000);
   }
 
+  // Ask each embedded runner to flush its debounced autosaves; resolve when both
+  // ack OR after a 3s safety timeout (which also comfortably exceeds the runners'
+  // debounce windows, so answers are persisted even if an ack is missed).
+  function flushEmbeds() {
+    var frames = [el('if-reading'), el('if-listening')].filter(function (f) { return f && f.src; });
+    if (!frames.length) return Promise.resolve();
+    return new Promise(function (resolve) {
+      var acks = 0, done = false;
+      function finish() { if (!done) { done = true; window.removeEventListener('message', onMsg); resolve(); } }
+      function onMsg(ev) { if (ev.data && ev.data.type === 'mock-flushed') { acks++; if (acks >= frames.length) finish(); } }
+      window.addEventListener('message', onMsg);
+      frames.forEach(function (f) { try { f.contentWindow.postMessage({ type: 'mock-flush' }, '*'); } catch (e) {} });
+      setTimeout(finish, 3000);
+    });
+  }
+
   async function submitAll(auto) {
     if (_submitting) return;
     if (auto !== true && !confirm('Nộp toàn bộ và kết thúc bài thi? Bạn sẽ không sửa được nữa.')) return;
@@ -161,6 +177,9 @@
     if (timerIv) clearInterval(timerIv);
     el('submit-all').disabled = true;
     try {
+      // 0. ask the embedded Reading/Listening runners to flush their debounced
+      //    autosaves so a just-typed answer isn't lost before we submit.
+      await flushEmbeds();
       // 1. save writing text
       await api('post', '/api/mock-exams/sittings/' + S.sittingId + '/writing',
         { task1_text: el('essay-task1').value, task2_text: el('essay-task2').value });
