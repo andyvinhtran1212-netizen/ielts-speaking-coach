@@ -327,17 +327,6 @@ passages:
         prompt: "Battery prices have fallen sharply in the last decade."
         answer: "NO"
         skill_tag: writer_view_TFNG
-        solution:
-          solution_steps:
-          - action: locate
-            instruction_vi: 'Tìm các từ khóa trong câu hỏi ("battery prices", "fallen") trong đoạn văn. Đoạn B có thông tin liên quan trực tiếp: "the cost of the metals used in batteries".'
-          - action: confirm
-            instruction_vi: So sánh thông tin. Câu hỏi nói giá pin "fallen sharply" (giảm mạnh). Tuy nhiên, đoạn văn khẳng định giá của các kim loại dùng trong pin (Cobalt, nickel, manganese) đã "risen sharply in price" (tăng mạnh về giá). Đây là sự mâu thuẫn trực tiếp.
-          distractor_analysis:
-          - option: 'YES'
-            why_wrong_vi: Phương án 'YES' sai vì đoạn văn không nói giá pin đã giảm. Ngược lại, đoạn B nói rõ rằng giá của các kim loại được sử dụng trong pin ("the cost of the metals used in batteries") đã "risen sharply" (tăng mạnh), điều này trực tiếp mâu thuẫn với nhận định trong câu hỏi.
-          - option: NOT GIVEN
-            why_wrong_vi: Phương án 'NOT GIVEN' sai vì đoạn văn CÓ cung cấp thông tin liên quan đến giá cả của các thành phần làm nên pin. Thông tin này (giá kim loại tăng) cho phép chúng ta kết luận một cách chắc chắn rằng nhận định trong câu hỏi (giá pin giảm) là sai, do đó đáp án phải là 'NO'.
         explanation: "Paragraph B states that battery-metal prices have risen sharply."
 
   # ── Passage 2 — Qs 14–26 ────────────────────────────────────────
@@ -685,12 +674,6 @@ passages:
         answer: "music"
         alternatives: [musician]
         skill_tag: detail
-        solution:
-          solution_steps:
-          - action: locate
-            instruction_vi: 'Xác định vị trí thông tin về ''Bernie Krause'' trong đoạn văn. Câu văn có chứa từ khóa này là: ''Bernie Krause, a former musician turned field recordist, has spent decades cataloguing dawn choruses...'''
-          - action: infer
-            instruction_vi: 'Phân tích cụm từ mô tả nghề nghiệp cũ của ông: ''a former musician'' (một cựu nhạc sĩ). Câu hỏi yêu cầu tìm ''instrument'' (công cụ/nhạc cụ) mà ông bắt đầu sự nghiệp. Mặc dù đoạn văn không nêu tên một nhạc cụ cụ thể, nó cho biết ông là một ''musician'', ngụ ý rằng sự nghiệp ban đầu của ông gắn liền với ''music'' (âm nhạc).'
         explanation: "The passage calls him 'a former musician turned field recordist'."
       - q_num: 25
         question_type: short_answer
@@ -790,95 +773,36 @@ passages:
           - { label: J, text: "twelve" }
         answer: "C"
         skill_tag: scanning
-        solution:
-          solution_steps:
-          - action: locate
-            instruction_vi: 'Đọc lướt đoạn văn để tìm thông tin về số lượng vụ thu hoạch hàng năm. Câu thứ ba của đoạn một nêu rõ: ''A typical commercial facility can produce around twenty harvests of leafy greens per year...'''
-          - action: confirm
-            instruction_vi: Câu văn này có nghĩa là một cơ sở thương mại điển hình có thể sản xuất khoảng 'twenty harvests' (hai mươi vụ thu hoạch) mỗi năm. Con số 'twenty' khớp chính xác với phương án C.
-          distractor_analysis:
-          - option: A
-            why_wrong_vi: 'Con số ''five'' được nhắc đến trong đoạn văn là số ngày: ''After five days the seedlings move to the grow racks'', không phải số vụ thu hoạch mỗi năm.'
-          - option: B
-            why_wrong_vi: Con số 'ten' (mười) không xuất hiện trong đoạn văn.
-          - option: D
-            why_wrong_vi: Con số 'fifty' (năm mươi) không xuất hiện trong đoạn văn.
-          - option: E
-            why_wrong_vi: '''Rockwool'' là tên một loại vật liệu (''rockwool plugs'') dùng để cắm hạt giống, không phải là một con số chỉ số lượng vụ thu hoạch.'
-          - option: F
-            why_wrong_vi: 'Con số ''twenty-four'' là nhiệt độ (độ C) của buồng ươm mầm: ''a germination chamber kept near twenty-four degrees Celsius'', không phải số vụ thu hoạch.'
-          - option: G
-            why_wrong_vi: 'Tương tự phương án A, con số ''five'' là số ngày để cây con di chuyển: ''After five days the seedlings move...'', không phải số vụ thu hoạch trong một năm.'
-          - option: H
-            why_wrong_vi: '''Lettuce'' (xà lách) là tên một loại cây trồng được nhắc đến như một ví dụ, không phải là một con số.'
-          - option: I
-            why_wrong_vi: '''Basil'' (húng quế) là tên một loại cây trồng được nhắc đến như một ví dụ, không phải là một con số.'
-          - option: J
-            why_wrong_vi: 'Con số ''twelve'' là số giờ để sản phẩm đến siêu thị sau khi thu hoạch: ''reaching supermarket shelves within twelve hours of being cut'', không phải số vụ thu hoạch mỗi năm.'
         explanation: "Stated: 'around twenty harvests of leafy greens per year'."
       - q_num: 28
         question_type: summary_completion
         prompt: "(see summary above)"
         answer: "E"
         skill_tag: detail
-        solution:
-          solution_steps:
-          - action: locate
-            instruction_vi: 'Xác định vị trí thông tin: Câu hỏi yêu cầu tìm ra trở ngại (bottleneck) còn lại của canh tác theo chiều dọc, đặc biệt liên quan đến ''staple crops'' (cây lương thực). Đọc lướt và tìm các từ khóa này trong bài. Chúng xuất hiện ở đoạn văn cuối cùng: ''The remaining bottleneck is staple crops. Wheat, rice and maize...'''
-          - action: confirm
-            instruction_vi: 'Xác nhận câu trả lời: Đọc kỹ câu văn tiếp theo để hiểu tại sao các loại cây này lại là một trở ngại. Đoạn văn giải thích: ''...need so much light that the electricity cost still exceeds the market price.'' (cần nhiều ánh sáng đến mức chi phí điện vẫn vượt quá giá thị trường). Do đó, chi phí ''điện'' (electricity) chính là vấn đề cốt lõi.'
         explanation: "Stated: 'placed into rockwool plugs, which sit on trays'."
       - q_num: 29
         question_type: summary_completion
         prompt: "(see summary above)"
         answer: "F"
         skill_tag: detail
-        solution:
-          solution_steps:
-          - action: locate
-            instruction_vi: Đọc lướt đoạn văn để tìm từ khoá chỉ sự hạn chế, khó khăn. Ta thấy ngay từ 'bottleneck' (điểm nghẽn) ở đầu đoạn văn cuối cùng.
-          - action: confirm
-            instruction_vi: 'Đọc kỹ câu chứa từ khoá: ''The remaining bottleneck is staple crops.'' Câu này trực tiếp nêu ra ''điểm nghẽn còn lại'' là gì. Như vậy, đáp án chính là ''staple crops''.'
-          - action: decode_vocab
-            instruction_vi: 'Câu tiếp theo làm rõ hơn bằng cách đưa ra ví dụ về ''staple crops'' là ''Wheat, rice and maize'' (lúa mì, gạo và ngô) và giải thích lý do chúng là một thách thức: chi phí điện (''electricity cost'') để trồng chúng vẫn vượt quá giá thị trường (''exceeds the market price'').'
         explanation: "Stated: 'kept near twenty-four degrees Celsius'."
       - q_num: 30
         question_type: summary_completion
         prompt: "(see summary above)"
         answer: "G"
         skill_tag: detail
-        solution:
-          solution_steps:
-          - action: locate
-            instruction_vi: 'Đọc lướt đoạn văn để tìm các từ khóa có trong câu hỏi tóm tắt, ví dụ như ''twenty harvests'' (hai mươi vụ thu hoạch). Cụm từ này nằm ở câu thứ ba của đoạn một: ''A typical commercial facility can produce around twenty harvests of leafy greens per year...'''
-          - action: confirm
-            instruction_vi: So sánh trực tiếp câu trong đoạn văn với câu hỏi. Câu gốc là '...produce around twenty harvests of leafy greens per year...'. Nếu câu hỏi tóm tắt là '...produce around twenty harvests of leafy ______ per year...', từ cần điền vào chỗ trống chính là 'greens' để hoàn thiện ý nghĩa.
         explanation: "Stated: 'after five days the seedlings move to the grow racks'."
       - q_num: 31
         question_type: summary_completion
         prompt: "(see summary above)"
         answer: "H"
         skill_tag: detail
-        solution:
-          solution_steps:
-          - action: locate
-            instruction_vi: Đọc lướt đoạn văn thứ hai để tìm thông tin về việc các yếu tố bên trong trang trại được theo dõi như thế nào. Các từ khóa trong câu hỏi (thường được diễn giải lại) là 'theo dõi' (track), 'độ ẩm' (humidity), 'chất dinh dưỡng' (nutrient) và 'nhiệt độ' (temperature).
-          - action: confirm
-            instruction_vi: Câu văn 'Sensors track humidity, nutrient concentration and root temperature minute by minute...' trực tiếp chỉ ra rằng 'Sensors' (cảm biến) là thứ thực hiện hành động theo dõi các yếu tố này. Do đó, đây chính là từ cần điền vào chỗ trống để hoàn thành bản tóm tắt.
         explanation: "Stated: 'lettuce thrives on a heavy blue spectrum'."
       - q_num: 32
         question_type: summary_completion
         prompt: "(see summary above)"
         answer: "J"
         skill_tag: detail
-        solution:
-          solution_steps:
-          - action: locate
-            instruction_vi: Đầu tiên, đọc lướt (scan) đoạn văn để tìm thông tin về các hạn chế hoặc vấn đề còn tồn tại của nông nghiệp thẳng đứng. Đoạn văn cuối cùng đề cập trực tiếp đến vấn đề này với cụm từ 'The remaining bottleneck...'
-          - action: decode_vocab
-            instruction_vi: 'Phân tích từ khóa trong câu vừa tìm được: ''The remaining bottleneck is staple crops''. Từ ''bottleneck'' có nghĩa đen là ''cổ chai'', nhưng trong ngữ cảnh kinh doanh hoặc quy trình, nó có nghĩa là ''điểm nghẽn'', ''trở ngại chính'', ''vấn đề còn tồn tại gây cản trở''.'
-          - action: confirm
-            instruction_vi: 'Các câu tiếp theo giải thích rõ ''điểm nghẽn'' này là gì: ''Wheat, rice and maize need so much light that the electricity cost still exceeds the market price'' (Lúa mì, gạo và ngô cần quá nhiều ánh sáng đến mức chi phí điện vẫn vượt giá thị trường). Điều này xác nhận ''bottleneck'' chính là từ mô tả chính xác cho trở ngại lớn nhất còn lại của phương pháp canh tác này.'
         explanation: "Stated: 'within twelve hours of being cut'."
       # Qs 33–37 — flow_chart_completion (vertical chain of boxes)
       # Each stem references the next-step gap. The renderer wraps these
