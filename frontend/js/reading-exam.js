@@ -1600,16 +1600,16 @@
 
   // ── Timer: production countdown from started_at + time_limit ──────
   function startTimer() {
-    // 4-skill mock (mock_embed): the parent page owns the single TOTAL timer.
-    // Do not run the per-section countdown here — it would auto-submit Reading
-    // prematurely at the section limit while the mock is still running.
-    if (window.MockHook && MockHook.embedded && MockHook.embedded()) return;
     // Sprint 20.10 D2 — defence in depth. Clear any prior interval (so a
     // second enterInProgress call from an unusual code path doesn't run
     // two ticks per second) and require the in_progress state shell to
     // be visible. If the state machine is somewhere else, don't tick.
     stopTimer();
     if ($('state-inprogress') && $('state-inprogress').hidden) return;
+    // 4-skill mock (mock_embed): the parent page owns the single TOTAL timer.
+    // Skip the per-section countdown — it would auto-submit Reading prematurely
+    // at the section limit while the mock is still running.
+    if (window.MockHook && MockHook.embedded && MockHook.embedded()) return;
     var limitSec = (SESSION.time_limit_minutes || 60) * 60;
     var startedMs = SESSION.started_at ? Date.parse(SESSION.started_at) : Date.now();
     var tick = function () {
