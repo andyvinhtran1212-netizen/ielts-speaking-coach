@@ -12,7 +12,14 @@
   initSupabase('https://huwsmtubwulikhlmcirx.supabase.co', 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao');
 
   var SKILLS = ['listening', 'reading', 'writing', 'speaking'];
-  var current = null; // {review, sitting}
+  var current = null; // {review, sitting, required_skills}
+
+  // The skills the admin must band — from the exam config (Speaking optional for
+  // LRW-only exams). Falls back to all four.
+  function reqSkills() {
+    return (current && current.required_skills && current.required_skills.length)
+      ? current.required_skills : SKILLS;
+  }
 
   function esc(s) { return (window.WC && window.WC.escapeHtml) ? window.WC.escapeHtml(s) : String(s == null ? '' : s); }
   function toast(msg) { if (window.toast) window.toast(msg); else console.log(msg); }
@@ -101,7 +108,7 @@
       return '<div class="mr-panel' + (i === 0 ? ' active' : '') + '" data-panel="' + s + '">' + skillTabHtml(s, sitting, draft) + '</div>';
     }).join('');
 
-    var bandInputs = SKILLS.map(function (s) {
+    var bandInputs = reqSkills().map(function (s) {
       return '<div><label>' + s + '</label><input type="number" step="0.5" min="0" max="9" data-band="' + s + '" value="' + (fb[s] != null ? fb[s] : '') + '"></div>';
     }).join('');
 
@@ -141,9 +148,10 @@
     });
 
     function updateOverall() {
-      var vals = SKILLS.map(function (s) { return parseFloat(v.querySelector('[data-band="' + s + '"]').value); });
+      var skills = reqSkills();
+      var vals = skills.map(function (s) { return parseFloat(v.querySelector('[data-band="' + s + '"]').value); });
       if (vals.some(function (n) { return isNaN(n); })) { el('overall-preview').textContent = '—'; return; }
-      el('overall-preview').textContent = ieltsRound(vals.reduce(function (a, b) { return a + b; }, 0) / 4).toFixed(1);
+      el('overall-preview').textContent = ieltsRound(vals.reduce(function (a, b) { return a + b; }, 0) / vals.length).toFixed(1);
     }
     v.querySelectorAll('[data-band]').forEach(function (inp) { inp.addEventListener('input', updateOverall); });
     updateOverall();
@@ -162,13 +170,16 @@
 
   function collectBands(v) {
     var fb = {};
-    SKILLS.forEach(function (s) { fb[s] = parseFloat(v.querySelector('[data-band="' + s + '"]').value); });
+    reqSkills().forEach(function (s) { fb[s] = parseFloat(v.querySelector('[data-band="' + s + '"]').value); });
     return fb;
   }
 
   async function doSave(id, v) {
     var fb = collectBands(v);
-    if (SKILLS.some(function (s) { return isNaN(fb[s]); })) { toast('Nhập đủ 4 band trước khi lưu.'); return; }
+    var skills = reqSkills();
+    if (skills.some(function (s) { return isNaN(fb[s]); })) {
+      toast('Nhập đủ ' + skills.length + ' band trước khi lưu.'); return;
+    }
     try {
       await window.api.post('/admin/mock-reviews/' + encodeURIComponent(id) + '/final-bands', {
         final_bands: fb,

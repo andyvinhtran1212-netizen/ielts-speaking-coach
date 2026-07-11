@@ -317,13 +317,15 @@ def _run_lrw(svc, fake, sitting_id, u):
 
 
 def _do_speaking(svc, fake, sitting_id, u, n=1):
-    """Simulate speaking: seed n sessions already linked to the sitting (as if
-    created within it via bind_session_to_sitting), then record completion."""
+    """Simulate speaking: seed n COMPLETED sessions linked to the sitting (as if
+    created within it via bind_session_to_sitting), each with a graded response,
+    then record completion."""
     ids = []
     for _ in range(n):
         sid = str(uuid4())
         fake.seed("sessions", {"id": sid, "user_id": str(u),
-                               "sitting_id": str(sitting_id)})
+                               "sitting_id": str(sitting_id), "status": "completed"})
+        fake.seed("responses", {"id": str(uuid4()), "session_id": sid})
         ids.append(sid)
     return svc.record_speaking(sitting_id, str(u), ids)
 
@@ -414,7 +416,7 @@ def test_attach_attempt_rejects_wrong_test(fake_db, svc):
 
 
 def test_attach_attempt_rejects_swap(fake_db, svc):
-    """Finding 2: a section already bound cannot be re-bound to a different attempt."""
+    """Finding 2: a section bound to a SUBMITTED attempt can't swap to another."""
     _seed_exam(fake_db)
     u = uuid4()
     s = svc.create_sitting(u, "MOCK-TEST-A")
@@ -426,6 +428,25 @@ def test_attach_attempt_rejects_swap(fake_db, svc):
     svc.attach_attempt(s["id"], u, "reading", a1)
     with pytest.raises(svc.SittingConflictError):
         svc.attach_attempt(s["id"], u, "reading", a2)
+
+
+def test_attach_attempt_allows_rebind_of_unsubmitted(fake_db, svc):
+    """Finding 3 (round 3): a reload abandons the in_progress attempt and the
+    runner mints a new one — re-binding must succeed (else the student is locked
+    out), because the prior attempt was NOT submitted."""
+    _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    old, new = str(uuid4()), str(uuid4())
+    fake_db.seed("reading_test_attempts",
+                 {"id": old, "user_id": str(u), "test_id": None,
+                  "status": "in_progress", "sitting_id": None})
+    fake_db.seed("reading_test_attempts",
+                 {"id": new, "user_id": str(u), "test_id": None,
+                  "status": "in_progress", "sitting_id": None})
+    svc.attach_attempt(s["id"], u, "reading", old)
+    svc.attach_attempt(s["id"], u, "reading", new)   # resume — must not raise
+    assert svc.get_sitting(s["id"])["reading_attempt_id"] == new
 
 
 def test_submit_writing_stores_texts_with_word_counts(fake_db, svc):
@@ -481,6 +502,20 @@ def test_record_speaking_unlinked_session_raises(fake_db, svc):
     fake_db.seed("sessions", {"id": unlinked, "user_id": str(u), "sitting_id": None})
     with pytest.raises(svc.SittingConflictError):
         svc.record_speaking(s["id"], str(u), [unlinked])
+
+
+def test_record_speaking_incomplete_session_raises(fake_db, svc):
+    """Finding 2 (round 3): a linked but in_progress / response-less session (a
+    bare shell, no actual speaking) can't complete Speaking."""
+    _seed_exam(fake_db, speaking=True)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    shell = str(uuid4())
+    # linked + owned, but in_progress and no responses
+    fake_db.seed("sessions", {"id": shell, "user_id": str(u),
+                              "sitting_id": s["id"], "status": "in_progress"})
+    with pytest.raises(svc.SittingConflictError):
+        svc.record_speaking(s["id"], str(u), [shell])
 
 
 def test_bind_session_to_sitting_links_at_creation(fake_db, svc):
@@ -626,6 +661,21 @@ def test_release_lifts_seal_on_sitting(fake_db, svc, wf):
     assert sitting["status"] == "released"
     assert sitting["sealed"] is False
     assert svc.is_sealed(sid) is False   # seal lifted → scores now visible
+
+
+def test_save_final_bands_rejected_after_release(fake_db, svc, wf):
+    """Finding 4 (round 3): a stale admin tab can't rewrite bands after release."""
+    sid = _sitting_at_all_submitted(fake_db, svc)
+    review = wf.get_review_for_sitting(sid)
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    bands = {"listening": 7.0, "reading": 6.5, "writing": 6.0, "speaking": 6.5}
+    wf.save_final_bands(review["id"], admin, bands)
+    wf.release_results(review["id"], admin, channel="in_app")
+    with pytest.raises(wf.ConflictError):
+        wf.save_final_bands(review["id"], admin,
+                            {"listening": 9.0, "reading": 9.0,
+                             "writing": 9.0, "speaking": 9.0})
 
 
 def test_lrw_only_review_needs_no_speaking_band(fake_db, svc, wf):

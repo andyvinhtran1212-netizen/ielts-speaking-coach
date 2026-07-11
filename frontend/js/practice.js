@@ -68,6 +68,7 @@
   var _ftP2Topic        = null;   // stored Part 2 topic for Full Test chaining
   var _ftCurrentPart    = null;   // current part being tested in Full Test (1 | 2 | 3)
   var _ftAllSessionIds  = [];     // all session IDs created during a Full Test (completed at the end)
+  var _sittingId        = null;   // set when this full-test is part of a 4-skill mock sitting
   // B1 (audit 2026-07-03): track eager-upload / session-complete failures during
   // a Full Test so a swallowed error (previously console.warn only) surfaces to
   // the user instead of the answer silently vanishing from the aggregate.
@@ -2255,6 +2256,20 @@
     if (p3) body.p3_id = p3;
 
     window.api.post('/sessions/finalize-full-test', body)
+      .then(function () {
+        // 4-skill mock: report the completed speaking sessions to the sitting
+        // and hand back to the orchestrator. finalize marks the sessions
+        // 'submitted' with their graded responses, so record_speaking accepts
+        // them. Best-effort — the completion screen already shows.
+        if (!_sittingId) return;
+        var ids = [p1, p2, p3].filter(Boolean);
+        return window.api.post(
+          '/api/mock-exams/sittings/' + encodeURIComponent(_sittingId) + '/speaking',
+          { session_ids: ids }
+        ).then(function () {
+          window.location.href = '/pages/mock-exam.html?sitting=' + encodeURIComponent(_sittingId);
+        });
+      })
       .catch(function (err) {
         console.warn('[practice] finalize-full-test failed (non-fatal):', err);
         // Completion screen still shown. Sessions remain in_progress but
@@ -2315,11 +2330,11 @@
         : (_sessionData.topic || 'General');
 
       if (loadMsg) loadMsg.textContent = 'Đang tạo Part ' + part + '...';
-      var newSession = await window.api.post('/sessions', {
-        mode:  'test_full',
-        part:  part,
-        topic: nextTopic,
-      });
+      var _createBody = { mode: 'test_full', part: part, topic: nextTopic };
+      // Mock sitting: link later parts too, so their per-response grading is
+      // sealed like the opening session.
+      if (_sittingId) _createBody.sitting_id = _sittingId;
+      var newSession = await window.api.post('/sessions', _createBody);
 
       var newId = newSession && (newSession.id || newSession.session_id);
       if (!newId) throw new Error('Server không trả về session_id cho Part ' + part);
@@ -2957,6 +2972,11 @@
       _testMode = (_sessionData.mode === 'test_part' || _sessionData.mode === 'test_full')
         ? _sessionData.mode : null;
       _testResults = [];
+
+      // 4-skill mock: this speaking full-test belongs to a sealed sitting (the
+      // opening session was created with sitting_id). Carry it so later parts
+      // are created linked too, and so we can complete Speaking at the end.
+      if (_sessionData.sitting_id) _sittingId = _sessionData.sitting_id;
 
       // Full Test: initialise multi-part tracking on the opening session
       if (_testMode === 'test_full' && _ftAllSessionIds.length === 0) {

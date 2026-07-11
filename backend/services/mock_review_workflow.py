@@ -217,6 +217,13 @@ def save_final_bands(
     review = get_review(review_id)
     if not review:
         raise NotFoundError(f"Review {review_id} not found")
+    if review["status"] == "released":
+        # Results are already published — a stale admin tab must not silently
+        # rewrite the released bands (which would change what the student sees
+        # with no new release audit).
+        raise ConflictError(
+            f"Review {review_id} đã công bố — không thể sửa band. Thu hồi trước nếu cần."
+        )
     skills = _required_skills(review["sitting_id"])
     overall = compute_overall(final_bands, skills)
     stored = {s: _coerce_band(final_bands[s]) for s in skills}
@@ -300,6 +307,12 @@ def release_results(
         review_id, review["sitting_id"], admin_id, channel,
     )
     return review
+
+
+def required_skills_for_sitting(sitting_id: UUID | str) -> list:
+    """Public: the skills the admin must band for this sitting (Speaking optional
+    for LRW-only exams). Used by the console to render/validate the band form."""
+    return list(_required_skills(sitting_id))
 
 
 def get_review(review_id: UUID) -> Optional[dict]:

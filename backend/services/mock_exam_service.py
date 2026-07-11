@@ -364,9 +364,18 @@ def attach_attempt(
 
     existing = sitting.get(link_col)
     if existing and str(existing) != str(attempt_id):
-        raise SittingConflictError(
-            f"Phần {section} đã gắn bài làm khác — không thể thay."
-        )
+        # Allow REPLACING an unsubmitted prior attempt (resume after a reload
+        # abandoned the first attempt and the runner minted a new one). Only a
+        # SUBMITTED prior attempt is locked — no swap-to-a-better one after
+        # finishing.
+        prev = supabase_admin.table(domain_table).select("status").eq(
+            "id", str(existing),
+        ).limit(1).execute()
+        if prev.data and prev.data[0].get("status") == "submitted":
+            raise SittingConflictError(
+                f"Phần {section} đã nộp — không thể thay bài làm khác."
+            )
+        # else: fall through and re-bind to the fresh (resumed) attempt.
 
     supabase_admin.table("mock_exam_sittings").update({
         link_col: str(attempt_id),
@@ -497,9 +506,15 @@ def record_speaking(sitting_id: str, user_id: str, session_ids: list[str]) -> di
     if not ids:
         raise SittingConflictError("Chưa có bài Speaking để nộp.")
     rows = supabase_admin.table("sessions").select(
-        "id, user_id, sitting_id",
+        "id, user_id, sitting_id, status",
     ).in_("id", ids).execute()
     found = {r["id"]: r for r in (rows.data or [])}
+    # A session only counts if the student actually spoke — it must carry ≥1
+    # response, not be a bare in_progress shell.
+    resp_rows = supabase_admin.table("responses").select(
+        "session_id",
+    ).in_("session_id", ids).execute()
+    have_response = {r["session_id"] for r in (resp_rows.data or [])}
     for sid in ids:
         r = found.get(sid)
         if not r or str(r.get("user_id")) != str(sitting["user_id"]):
@@ -507,6 +522,10 @@ def record_speaking(sitting_id: str, user_id: str, session_ids: list[str]) -> di
         if str(r.get("sitting_id")) != str(sitting_id):
             raise SittingConflictError(
                 "Bài Speaking phải được tạo trong kỳ thi này (để chấm kín)."
+            )
+        if r.get("status") == "in_progress" or sid not in have_response:
+            raise SittingConflictError(
+                "Bài Speaking chưa hoàn thành (chưa nộp hoặc chưa có phần nói)."
             )
 
     supabase_admin.table("mock_exam_sittings").update({

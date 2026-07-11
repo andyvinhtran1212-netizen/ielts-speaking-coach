@@ -201,11 +201,34 @@
 
     var extra = el('submitted-extra');
     if (S.sitting.status === 'speaking_pending') {
-      extra.innerHTML = '<p class="me-muted">Phần <b>Speaking</b> của kỳ thi này được sắp lịch riêng — giám khảo sẽ liên hệ để hẹn giờ thi vấn đáp.</p>';
+      extra.innerHTML =
+        '<p class="me-muted">Còn phần <b>Speaking</b> (vấn đáp 3 phần) để hoàn tất bài thi.</p>' +
+        '<button class="av-btn av-btn--primary" id="start-speaking" style="margin-top:10px">Vào thi Speaking →</button>';
+      var sb = el('start-speaking');
+      if (sb) sb.onclick = startSpeaking;
     } else {
       extra.innerHTML = '<p class="me-muted">Kết quả đang chờ giám khảo duyệt.</p>';
     }
     showState('submitted');
+  }
+
+  async function startSpeaking() {
+    // Create the opening test_full session LINKED to the sitting (so all parts'
+    // per-response grading is sealed), then hand off to the speaking runner.
+    // practice.js carries sitting_id to parts 2/3 and calls record_speaking +
+    // redirects back here when the 3 parts finish.
+    var set = S.exam.speaking_topic_set || {};
+    var topic = (Array.isArray(set.part1) && set.part1[0]) || set.part1 || 'General';
+    var btn = el('start-speaking');
+    if (btn) { btn.disabled = true; btn.textContent = 'Đang mở…'; }
+    try {
+      var sess = await api('post', '/sessions',
+        { mode: 'test_full', part: 1, topic: topic, sitting_id: S.sittingId });
+      var sid = sess.session_id || sess.id;
+      location.href = '/pages/practice.html?session_id=' + encodeURIComponent(sid);
+    } catch (e) {
+      fail('Không mở được phần Speaking: ' + (e && e.message ? e.message : e));
+    }
   }
 
   boot();

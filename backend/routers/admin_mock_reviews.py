@@ -64,7 +64,11 @@ async def get_review(review_id: str, authorization: str | None = Header(default=
     review = wf.get_review(review_id)
     if not review:
         raise HTTPException(404, "Review không tồn tại.")
-    return {"review": review, "sitting": svc.get_sitting(review["sitting_id"])}
+    return {
+        "review": review,
+        "sitting": svc.get_sitting(review["sitting_id"]),
+        "required_skills": wf.required_skills_for_sitting(review["sitting_id"]),
+    }
 
 
 @router.post("/{review_id}/claim")
