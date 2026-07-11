@@ -49,12 +49,14 @@ generate replacement distractors (draft) for admin review. NOT a file injection.
 
 ## Process reference (draft → gate máy → adversarial LLM → spot-check người)
 
-- Reading: `scripts.gen_reading_solutions <test.md> --out drafts/x.yaml [--dry-run]`
-  → review ⚠ → paste `solution:` into the .md.
-- Quiz: `scripts.backfill_quiz_why_wrong` (batch, above) or per-bank
-  `scripts.gen_quiz_why_wrong <bank.md> --out …`; pick banks with
-  `scripts.check_quiz_why_wrong --rank`.
-- Vocab: `scripts.gen_d1_distractor_review` + `scripts.check_d1_item_stats --flagged-only`.
+Run all of these from `cd backend` (the `scripts` package lives under `backend/`;
+`docs/...` paths are then `../docs/...`):
+- Reading: `python -m scripts.gen_reading_solutions content/reading/<test>.md --out drafts/x.yaml [--dry-run]`
+  → review ⚠ → paste `solution:` into the .md. (reading content is under `backend/content/`)
+- Quiz: `python -m scripts.backfill_quiz_why_wrong --out drafts/q.yaml --workers 6` (batch,
+  above) or per-bank `python -m scripts.gen_quiz_why_wrong ../docs/grammar-quiz-banks/<bank>.md --out …`;
+  pick banks with `python -m scripts.check_quiz_why_wrong --rank`.
+- Vocab: `python -m scripts.gen_d1_distractor_review` + `python -m scripts.check_d1_item_stats --flagged-only`.
 
 Gates: `backend/services/{reading_solution_depth,quiz_why_wrong,d1_quality}.py`.
 Gold-set job (separate): `docs/TECH_DEBT_gold_set_A1.md`.
