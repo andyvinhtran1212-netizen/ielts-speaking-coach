@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Quản lý Full Test 4 kỹ năng — Admin</title>
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.setAttribute('data-theme', (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light'));
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-buttons.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-status.css" />
+  <style>
+    .me-wrap { max-width:1000px; margin:0 auto; padding:24px 16px; }
+    .me-card { background:var(--av-surface-elevated); border:1px solid var(--av-border-default); border-radius:12px; padding:16px; margin-bottom:12px; }
+    .me-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .me-pill { font-size:11px; padding:2px 8px; border-radius:999px; border:1px solid var(--av-border-default); text-transform:uppercase; letter-spacing:.03em; }
+    .me-pill.open { background:var(--av-accent); color:#fff; border-color:transparent; }
+    .me-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; }
+    .me-grid label { font-size:12px; color:var(--av-text-secondary); display:block; margin-bottom:4px; }
+    .me-grid input, .me-grid select { width:100%; padding:8px; border:1px solid var(--av-border-default); border-radius:8px; background:var(--av-surface-card); color:var(--av-text-primary); font-size:14px; }
+    .me-muted { color:var(--av-text-secondary); font-size:13px; }
+    h1 { font-size:22px; font-weight:800; color:var(--av-text-primary); }
+    h2 { font-size:15px; font-weight:700; color:var(--av-text-primary); margin:0 0 10px; }
+    .hidden { display:none; }
+  </style>
+</head>
+<body class="av-page font-sans min-h-screen">
+  <div class="me-wrap">
+    <h1>Quản lý Full Test 4 kỹ năng</h1>
+    <p class="me-muted" style="margin-bottom:16px;">Tạo đề · chọn Listening/Reading/Writing · <b>mở/đóng</b> kỳ live. Đề đã chọn sẽ bị ẩn khỏi list luyện tập Reading/Listening.</p>
+
+    <div class="me-card">
+      <h2>Tạo đề mới</h2>
+      <div class="me-grid">
+        <div><label>Mã đề (code)</label><input id="f-code" placeholder="MOCK-2026-08A"></div>
+        <div><label>Tiêu đề</label><input id="f-title" placeholder="IELTS Mock 2026-08A"></div>
+        <div><label>Tổng thời gian LRW (phút)</label><input id="f-total" type="number" value="150"></div>
+        <div><label>Listening test</label><select id="f-listening"></select></div>
+        <div><label>Reading test</label><select id="f-reading"></select></div>
+        <div><label>Writing Task 1 (prompt)</label><select id="f-w1"></select></div>
+        <div><label>Writing Task 2 (prompt)</label><select id="f-w2"></select></div>
+      </div>
+      <button class="av-btn av-btn--primary" id="create-btn" style="margin-top:12px;">Tạo đề (draft)</button>
+    </div>
+
+    <h2 style="margin-top:8px;">Danh sách đề</h2>
+    <div id="exam-list"></div>
+  </div>
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2.107.0"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/toast.js"></script>
+  <script src="/js/admin-mock-exams.js"></script>
+</body>
+</html>

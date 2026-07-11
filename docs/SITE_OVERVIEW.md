@@ -163,6 +163,7 @@ Operation column = audience-facing purpose + the main data in/out (key endpoint 
 | `pages/admin/reading/preview.html` | admin | Per-test preview with answer keys + diagram-image upload. |
 | `pages/admin/grammar/index.html` · `pages/admin/grammar/articles.html` · `pages/admin/grammar/analytics.html` · `pages/admin/grammar/recommend-test.html` | admin | Grammar Wiki authoring + recommendation analytics/testing. |
 | `pages/admin/vocab/index.html` · `pages/admin/vocab/lemmas.html` · `pages/admin/vocab/stats.html` · `pages/admin/vocab/exercises.html` · `pages/admin/vocab/d1-curation.html` | admin | Vocab bank curation, lemmas, stats, exercise authoring + D1 curation. |
+| `pages/admin/mock-exams/index.html` | admin | Full-test **management** — create an exam (pick Listening/Reading tests + Writing task1/task2 prompts + total minutes), publish, and **live open/close** (`is_open`) so students can start. A chosen test is reserved (hidden from the practice lists). `/admin/mock-exams/*`, `admin_mock_exams.py`. |
 | `pages/admin/mock-reviews/index.html` | admin | 4-skill mock review console — queue → atomic claim → 4 skill tabs (Listening/Reading AI draft, Writing text or `admin/writing/grade.html` deep-link, Speaking session links) → enter final bands (overall computed server-side) → release (lifts the seal). `/admin/mock-reviews/*`, `admin_mock_reviews.py`. |
 
 ### 4.10 Admin — people + access
