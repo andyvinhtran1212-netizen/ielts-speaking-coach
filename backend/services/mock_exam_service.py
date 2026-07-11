@@ -96,6 +96,21 @@ def _parse_ts(value) -> Optional[datetime]:
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
+def list_open_exams(user_id: str) -> list[dict]:
+    """Published + currently-open exams the student is eligible for (cohort).
+
+    Powers the student full-test entry page. Only card metadata — no content."""
+    resp = supabase_admin.table("mock_exams").select(
+        "id, code, title, total_minutes, cohort_id, review_sla_days",
+    ).eq("status", "published").eq("is_open", True).execute()
+    out = []
+    for e in (resp.data or []):
+        if e.get("cohort_id") and not _user_in_cohort(user_id, e["cohort_id"]):
+            continue
+        out.append({k: v for k, v in e.items() if k != "cohort_id"})
+    return out
+
+
 def get_published_exam(code: str) -> Optional[dict]:
     resp = supabase_admin.table("mock_exams").select("*").eq(
         "code", code,

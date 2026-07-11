@@ -117,7 +117,8 @@ Operation column = audience-facing purpose + the main data in/out (key endpoint 
 
 | Page | Audience | Purpose · operation |
 |---|---|---|
-| `pages/mock-exam.html` | student | 4-skill mock orchestrator. `?code=` opens/resumes a sitting (`POST /api/mock-exams/{code}/sittings`), then a status-driven seated LRW flow: Listening → Reading redirect to the existing runners with `?sitting_id=` (sealed via `mock-exam-hook.js`), Writing is a native 2-tab step (`POST /sittings/{id}/writing` + `/submit-lrw`). Scores withheld until release. |
+| `pages/full-test.html` | student | Full-test **entry** — lists the currently-open mock exams (`GET /api/mock-exams`, published + `is_open` + cohort-eligible) and links to the runner. Reachable from a card on `home.html`. |
+| `pages/mock-exam.html` | student | 4-skill mock **runner** (all-at-once). `?code=` opens/resumes a sitting; `start` opens Listening + Reading + Writing TOGETHER under one total timer (`total_minutes`, `sắp hết giờ` warning). Reading/Listening are the existing runners embedded as `mock_embed` iframes (auto-start, chrome hidden, autosaved); Writing is a native 2-tab step. "Nộp toàn bộ" (or timer 0) submits every section's attempt + `/submit-lrw`. Scores withheld until release. |
 | `pages/mock-result.html` | student | Mock TRF result — 4 bands + overall + examiner comment. `GET /api/mock-exams/sittings/{id}/result` returns 403 until an admin releases the sitting. |
 
 ### 4.6 Student — Vocabulary

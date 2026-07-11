@@ -280,6 +280,16 @@ def test_start_lrw_wrong_owner_raises(fake_db, svc):
         svc.start_lrw(s["id"], uuid4())
 
 
+def test_list_open_exams_only_published_open(fake_db, svc):
+    _seed_exam(fake_db, is_open=True)                       # published + open
+    fake_db.seed("mock_exams", {"id": str(uuid4()), "code": "B", "title": "B",
+                                "status": "published", "is_open": False})   # closed
+    fake_db.seed("mock_exams", {"id": str(uuid4()), "code": "C", "title": "C",
+                                "status": "draft", "is_open": True})        # not published
+    codes = {e["code"] for e in svc.list_open_exams(str(uuid4()))}
+    assert codes == {"MOCK-TEST-A"}
+
+
 def test_set_open_toggles_exam(fake_db, svc):
     exam = _seed_exam(fake_db, is_open=False)
     svc.set_open(exam["id"], True, str(uuid4()))
