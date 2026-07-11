@@ -980,60 +980,30 @@ passages:
         answer: replay
         alternatives: ["replays"]
         skill_tag: detail
-        solution:
-          solution_steps:
-          - action: locate
-            instruction_vi: Đầu tiên, ta cần xác định vị trí thông tin trong bài đọc mô tả quá trình củng cố trí nhớ vào ban đêm. Đọc lướt đoạn văn, ta thấy đoạn B tập trung vào chủ đề này, đặc biệt là vai trò của cấu trúc 'hippocampus' (hồi hải mã).
-          - action: confirm
-            instruction_vi: 'Đoạn B nêu rõ: ''At night, especially during slow-wave (deep) sleep, the hippocampus appears to replay these fragments...''. Câu này trực tiếp mô tả hành động của hồi hải mã vào ban đêm là ''phát lại'' (replay) các mảnh thông tin đã thu thập. Do đó, ''replay'' là từ chính xác cần điền vào chỗ trống.'
       - q_num: 37
         question_type: summary_completion
         prompt: "(see summary above)"
         answer: cortex
         alternatives: ["the cortex"]
         skill_tag: detail
-        solution:
-          solution_steps:
-          - action: locate
-            instruction_vi: 'Xác định vị trí trong đoạn văn mô tả quá trình thông tin được chuyển đi để lưu trữ dài hạn. Đoạn B chứa thông tin này, cụ thể trong câu: ''...the hippocampus appears to replay these fragments, and slowly transfers the most important of them to the cortex for long-term storage.'''
-          - action: confirm
-            instruction_vi: Phân tích câu trên cho thấy các mảnh thông tin (fragments) quan trọng được chuyển 'tới' (to) một nơi để 'lưu trữ dài hạn' (for long-term storage). Nơi đó chính là 'the cortex' (vỏ não). Vì vậy, 'cortex' là câu trả lời chính xác.
       - q_num: 38
         question_type: summary_completion
         prompt: "(see summary above)"
         answer: ninety
         alternatives: ["90"]
         skill_tag: scanning
-        solution:
-          solution_steps:
-          - action: locate
-            instruction_vi: Đọc lướt đoạn văn để tìm thông tin về độ dài cần thiết của một giấc ngủ ngắn (nap). Từ khóa 'naps' xuất hiện trong đoạn D.
-          - action: confirm
-            instruction_vi: 'Đọc kỹ câu liên quan trong đoạn D: ''short, regular naps after learning can themselves consolidate memory — though only if they are long enough to include slow-wave sleep, which usually means around ninety minutes.'' Câu này nêu rõ điều kiện để giấc ngủ ngắn có thể củng cố trí nhớ là chúng phải đủ dài, và con số cụ thể được đưa ra là ''khoảng chín mươi phút'' (around ninety minutes).'
       - q_num: 39
         question_type: summary_completion
         prompt: "(see summary above)"
         answer: creativity
         alternatives: []
         skill_tag: inference
-        solution:
-          solution_steps:
-          - action: locate
-            instruction_vi: 'Đọc lướt (scan) đoạn văn để tìm thông tin về một chức năng khác của giấc ngủ REM, đặc biệt là một ''lý thuyết hàng đầu'' (leading theory) về nó. Đoạn C thảo luận về giấc ngủ REM và câu cuối cùng giới thiệu lý thuyết này: ''One leading theory holds that...'''
-          - action: confirm
-            instruction_vi: 'Phân tích câu cuối của đoạn C: ''One leading theory holds that this is where creativity comes from...''. Câu này trực tiếp khẳng định rằng quá trình diễn ra trong giấc ngủ REM (kết nối thông tin cũ và mới một cách ngẫu nhiên) chính là nguồn gốc của ''creativity'' (sự sáng tạo). Vì vậy, ''creativity'' là từ chính xác cần điền vào chỗ trống.'
       - q_num: 40
         question_type: summary_completion
         prompt: "(see summary above)"
         answer: phase
         alternatives: []
         skill_tag: main_idea
-        solution:
-          solution_steps:
-          - action: locate
-            instruction_vi: 'Đầu tiên, ta cần xác định vị trí thông tin trong bài đọc. Câu hỏi tóm tắt lại một kết luận quan trọng: ''What is no longer debated is that sleep is not the opposite of mental activity but one of its essential...''. Cụm từ ''no longer debated'' và ''not the opposite of mental activity'' là các từ khóa chính, giúp ta định vị thông tin ở câu cuối cùng của đoạn văn, tức đoạn E.'
-          - action: confirm
-            instruction_vi: 'Câu gốc ở đoạn E dùng số nhiều: ''one of its essential phases'' (vì ''one of its essential + danh từ số nhiều''). Nhưng câu tóm tắt viết lại thành ''sleep is an essential ___ of mental activity'' — sau ''an essential'' phải là danh từ số ít, nên đổi ''phases'' → ''phase''. Đây là kiểu đổi dạng từ thường gặp ở summary completion.'
 ---
 <!--
 L3 files are YAML-only — all test data lives in the frontmatter above.
