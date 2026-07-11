@@ -306,12 +306,17 @@ def _submit_section(svc, fake, sitting_id, u, section, test_id=None):
     return aid
 
 
-def _run_lrw(svc, fake, sitting_id, u):
+def _reach_writing(svc, fake, sitting_id, u):
+    """Drive the sitting to the active Writing step (listening + reading submitted)."""
     svc.start_section(sitting_id, u, "listening")
     _submit_section(svc, fake, sitting_id, u, "listening")
     svc.start_section(sitting_id, u, "reading")
     _submit_section(svc, fake, sitting_id, u, "reading")
     svc.start_section(sitting_id, u, "writing")
+
+
+def _run_lrw(svc, fake, sitting_id, u):
+    _reach_writing(svc, fake, sitting_id, u)
     svc.submit_writing(sitting_id, u, "task one essay", "task two essay")
     return svc.submit_lrw(sitting_id, u)
 
@@ -453,11 +458,47 @@ def test_submit_writing_stores_texts_with_word_counts(fake_db, svc):
     _seed_exam(fake_db)
     u = uuid4()
     s = svc.create_sitting(u, "MOCK-TEST-A")
+    _reach_writing(svc, fake_db, s["id"], u)
     out = svc.submit_writing(s["id"], u, "one two three", "alpha beta")
     ws = out["writing_submission"]
     assert ws["task1"]["word_count"] == 3
     assert ws["task2"]["word_count"] == 2
     assert ws["task1"]["text"] == "one two three"
+
+
+def test_submit_writing_rejected_after_lrw_submit(fake_db, svc):
+    """Finding 1 (round 4): Writing text can't be overwritten after finalisation."""
+    _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    _run_lrw(svc, fake_db, s["id"], u)          # sitting now past lrw_writing
+    with pytest.raises(svc.SittingConflictError):
+        svc.submit_writing(s["id"], u, "sneaky edit", "sneaky edit 2")
+
+
+def test_submit_lrw_idempotent_no_status_regress(fake_db, svc, wf):
+    """Finding 2 (round 4): a stale submit-lrw retry after review started must
+    not regress under_review back to lrw_submitted."""
+    _seed_exam(fake_db, speaking=False)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    _run_lrw(svc, fake_db, s["id"], u)          # → all_submitted, review queued
+    review = wf.get_review_for_sitting(s["id"])
+    wf.claim(review["id"], uuid4())             # → under_review
+    assert svc.get_sitting(s["id"])["status"] == "under_review"
+    svc.submit_lrw(s["id"], u)                   # stale retry — must be a no-op
+    assert svc.get_sitting(s["id"])["status"] == "under_review"
+
+
+def test_void_keeps_sitting_sealed(fake_db, svc):
+    """Finding 3 (round 4): voiding a not-yet-released sitting must not unseal
+    (would expose scores/answer keys for a cancelled exam)."""
+    _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.void_sitting(s["id"], str(uuid4()), "tech failure")
+    assert svc.is_sealed(s["id"]) is True       # still sealed after void
+    assert svc.get_sitting(s["id"])["status"] == "void"
 
 
 def test_submit_lrw_on_empty_sitting_raises(fake_db, svc):

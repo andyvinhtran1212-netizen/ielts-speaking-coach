@@ -403,6 +403,12 @@ def submit_lrw(sitting_id: str, user_id: str) -> dict:
     if sitting["status"] in ("released", "void"):
         raise SittingConflictError(f"Sitting đang ở trạng thái {sitting['status']!r}.")
 
+    # Idempotent: LRW already finalised (or beyond) → no-op. Guards the one-way
+    # status machine — a stale retry must never rewrite the status backwards to
+    # 'lrw_submitted' and regress an under_review / reviewed sitting.
+    if sitting.get("writing_submitted_at"):
+        return sitting
+
     # Require real LRW work before finalising — a bare POST submit-lrw on an
     # empty/registered sitting must not stamp completion and queue a review.
     # Every section the exam CONFIGURES must have a submitted attempt, and the
@@ -451,8 +457,13 @@ def submit_writing(
     if not sitting:
         raise NotFoundError(f"Sitting {sitting_id} không tồn tại.")
     _assert_owner(sitting, user_id)
-    if sitting["status"] in ("released", "void"):
-        raise SittingConflictError(f"Sitting đang ở trạng thái {sitting['status']!r}.")
+    # Only accept writing while the sitting is actively in the Writing step.
+    # Once submit-lrw has run (writing_submitted_at set / status past lrw_writing),
+    # the text is final — a retry must NOT overwrite the graded submission.
+    if sitting["status"] != "lrw_writing" or sitting.get("writing_submitted_at"):
+        raise SittingConflictError(
+            "Không thể nộp/sửa Writing ngoài bước Writing hoặc sau khi đã nộp mạch."
+        )
 
     now = _now_iso()
     submission = {
@@ -668,9 +679,12 @@ def void_sitting(sitting_id: str, admin_id: str, reason: str = "") -> dict:
     integrity = dict(sitting.get("integrity") or {})
     integrity["void_reason"] = reason
     integrity["voided_by"] = str(admin_id)
+    # Keep the sitting SEALED. A voided (cancelled) exam never publishes results —
+    # unsealing here would expose scores / reviews / answer keys for the linked
+    # attempts without going through the release workflow. Only release_results
+    # ever lifts the seal.
     resp = supabase_admin.table("mock_exam_sittings").update({
         "status": "void",
-        "sealed": False,
         "integrity": integrity,
     }).eq("id", str(sitting_id)).execute()
     logger.info("[mock-exam] sitting=%s VOIDED by admin=%s", sitting_id, admin_id)
