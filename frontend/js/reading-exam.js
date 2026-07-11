@@ -2643,8 +2643,11 @@
     try {
       SESSION.debounce_timers.forEach(function (handle, qNum) {
         clearTimeout(handle);
-        var card = document.getElementById('q-' + qNum);
-        if (card) pending.push(patchAnswer(qNum, readAnswer(card)));
+        // Flush from the IN-MEMORY answer store (source of truth), not the DOM
+        // card — the card may be unmounted (student switched Part within the
+        // debounce window) or be a non-#q-N input (summary/diagram), in which
+        // case readAnswer(card) would be null and the answer silently lost.
+        pending.push(patchAnswer(qNum, SESSION.answers.get(qNum)));
       });
       SESSION.debounce_timers.clear();
     } catch (e) { /* best-effort */ }

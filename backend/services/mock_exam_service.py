@@ -293,9 +293,19 @@ def start_lrw(sitting_id: str, user_id: str) -> dict:
     _assert_owner(sitting, user_id)
     if sitting["status"] in ("released", "void"):
         raise SittingConflictError(f"Sitting đang ở trạng thái {sitting['status']!r}.")
-    # Resume: already started (or beyond) → no-op.
+    # Resume: already started (or beyond) → no-op (bypass the gate — a mid-exam
+    # student must not be blocked by a gate the admin closed after they began).
     if sitting.get("lrw_started_at"):
         return sitting
+
+    # NOT started yet: re-enforce the live gate here. A student can create a
+    # registered sitting while open, then sit on the prep screen — if the admin
+    # closes is_open (or the window expires) before they press Start, they must
+    # not be able to begin.
+    exam = get_published_exam_by_id(sitting["mock_exam_id"]) or {}
+    if not exam.get("is_open"):
+        raise WindowClosedError("Kỳ thi đã đóng — không thể bắt đầu.")
+    _assert_window_open(exam)
 
     now = _now_iso()
     update = {"status": "lrw_in_progress", "lrw_started_at": now}

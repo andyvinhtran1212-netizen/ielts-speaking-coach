@@ -290,6 +290,17 @@ def test_start_lrw_wrong_owner_raises(fake_db, svc):
         svc.start_lrw(s["id"], uuid4())
 
 
+def test_start_lrw_blocked_after_gate_closed(fake_db, svc):
+    """A not-yet-started sitting can't begin after the admin closes the gate —
+    only an already-started (resume) sitting bypasses the gate."""
+    exam = _seed_exam(fake_db, is_open=True)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")   # registered, not started
+    exam["is_open"] = False                     # admin closes before Start
+    with pytest.raises(svc.WindowClosedError):
+        svc.start_lrw(s["id"], u)
+
+
 def test_list_open_exams_only_published_open(fake_db, svc):
     _seed_exam(fake_db, is_open=True)                       # published + open
     fake_db.seed("mock_exams", {"id": str(uuid4()), "code": "B", "title": "B",
