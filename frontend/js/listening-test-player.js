@@ -224,7 +224,11 @@ async function startAttempt() {
     );
     STATE.attemptId = res.attempt_id;
     // Mock sitting: link this attempt so its submit is sealed server-side.
-    if (window.MockHook && MockHook.active()) MockHook.attach('listening', res.attempt_id);
+    // Fail-closed — do not start the audio/exam until the link is written
+    // (otherwise a submit before attach would return an unsealed score).
+    if (window.MockHook && MockHook.active()) {
+      await MockHook.attach('listening', res.attempt_id);
+    }
     renderPaper();
     mountAudio();
     showState('player');

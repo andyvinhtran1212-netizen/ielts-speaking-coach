@@ -39,6 +39,12 @@ _SECTION_STATUS = {
     "reading": "lrw_reading",
     "writing": "lrw_writing",
 }
+# LRW sections backed by a domain attempt (writing is native — no attempt row).
+# (link column on the sitting, domain attempt table, exam's configured-test column)
+_SECTION_ATTEMPT = {
+    "listening": ("listening_attempt_id", "listening_test_attempts", "listening_test_id"),
+    "reading":   ("reading_attempt_id",   "reading_test_attempts",   "reading_test_id"),
+}
 # Statuses from which _reconcile_terminal may still advance the sitting.
 # Once an admin has claimed (under_review) or beyond, we never downgrade.
 _PRE_REVIEW = {
@@ -189,6 +195,29 @@ def _assert_owner(sitting: dict, user_id: str) -> None:
         raise PermissionError("Sitting không thuộc về người dùng này.")
 
 
+def _assert_prior_section_submitted(sitting: dict, section: str) -> None:
+    """Raise unless `section`'s linked domain attempt exists and is submitted.
+
+    Guards the advance transition against fabricating a submission from
+    navigation alone (a student calling the next section's start endpoint
+    without having actually submitted the prior section)."""
+    link_col, table, _ = _SECTION_ATTEMPT.get(section, (None, None, None))
+    if not link_col:
+        return  # writing has no attempt
+    attempt_id = sitting.get(link_col)
+    if not attempt_id:
+        raise SittingConflictError(
+            f"Chưa thể chuyển tiếp: phần {section} chưa được nộp."
+        )
+    r = supabase_admin.table(table).select("status").eq(
+        "id", str(attempt_id),
+    ).limit(1).execute()
+    if not r.data or r.data[0].get("status") != "submitted":
+        raise SittingConflictError(
+            f"Chưa thể chuyển tiếp: phần {section} chưa nộp bài."
+        )
+
+
 # ── Lifecycle ─────────────────────────────────────────────────────────
 
 
@@ -262,6 +291,15 @@ def start_section(sitting_id: str, user_id: str, section: str) -> dict:
                 f"Chưa thể vào {section}: phải bắt đầu {prior} trước."
             )
 
+    # Advancing marks the prior section submitted — but ONLY after verifying its
+    # linked attempt actually exists and was submitted. Never fabricate a
+    # submission from navigation state (else a student could POST reading/start
+    # directly and record listening as done with no listening work).
+    if idx > 0:
+        prior = _LRW_ORDER[idx - 1]
+        if not sitting.get(_SUBMITTED_COL[prior]):
+            _assert_prior_section_submitted(sitting, prior)
+
     now = _now_iso()
     update: dict = {
         _STARTED_COL[section]: now,
@@ -269,7 +307,6 @@ def start_section(sitting_id: str, user_id: str, section: str) -> dict:
     }
     if not sitting.get("lrw_started_at"):
         update["lrw_started_at"] = now
-    # Auto-submit the immediately prior section on advance.
     if idx > 0:
         prior = _LRW_ORDER[idx - 1]
         if not sitting.get(_SUBMITTED_COL[prior]):
@@ -285,29 +322,51 @@ def start_section(sitting_id: str, user_id: str, section: str) -> dict:
 def attach_attempt(
     sitting_id: str, user_id: str, section: str, attempt_id: str,
 ) -> dict:
-    """Bind a domain attempt to the sitting (both directions).
+    """Bind a validated domain attempt to the sitting (both directions).
 
-    - Writes the id onto the sitting (sitting → attempt: lets the review console
-      load all 4 skills).
-    - Writes sitting_id back onto the domain attempt (attempt → sitting: the
-      hook the domain submit/review endpoints check for sealing).
-
-    `section` ∈ {listening, reading, writing_task1, writing_task2}. Speaking
-    uses record_speaking (multiple sessions).
+    Only reading/listening (writing is the native step; speaking uses
+    record_speaking). Before binding, VALIDATE — an authenticated student owns
+    this endpoint, so we cannot trust the supplied attempt id:
+      - the attempt row must exist,
+      - it must belong to the sitting's owner (no attaching someone else's work),
+      - it must be an attempt of the exam's CONFIGURED test for this section
+        (no attaching an unrelated / easier test), and
+      - the section must not already be bound to a DIFFERENT attempt (no swap
+        after a retake).
+    Then write the id onto the sitting (→ review console) and sitting_id back
+    onto the attempt (→ the seal hook the submit/review endpoints check).
     """
+    binding = _SECTION_ATTEMPT.get(section)
+    if not binding:
+        raise SittingConflictError(f"Section không gắn được attempt: {section!r}")
+    link_col, domain_table, exam_test_col = binding
+
     sitting = get_sitting(sitting_id)
     if not sitting:
         raise NotFoundError(f"Sitting {sitting_id} không tồn tại.")
     _assert_owner(sitting, user_id)
+    if sitting["status"] in ("released", "void"):
+        raise SittingConflictError(f"Sitting đang ở trạng thái {sitting['status']!r}.")
 
-    link_col, domain_table = {
-        "listening":     ("listening_attempt_id", "listening_test_attempts"),
-        "reading":       ("reading_attempt_id",   "reading_test_attempts"),
-        "writing_task1": ("essay_task1_id",       "writing_essays"),
-        "writing_task2": ("essay_task2_id",       "writing_essays"),
-    }.get(section, (None, None))
-    if not link_col:
-        raise SittingConflictError(f"Section không gắn được attempt: {section!r}")
+    r = supabase_admin.table(domain_table).select(
+        "id, user_id, test_id, status",
+    ).eq("id", str(attempt_id)).limit(1).execute()
+    if not r.data:
+        raise NotFoundError(f"Attempt {attempt_id} không tồn tại.")
+    att = r.data[0]
+    if str(att.get("user_id")) != str(sitting["user_id"]):
+        raise PermissionError("Bài làm không thuộc về thí sinh của kỳ thi này.")
+
+    exam = get_published_exam_by_id(sitting["mock_exam_id"]) or {}
+    expected_test = exam.get(exam_test_col)
+    if expected_test and str(att.get("test_id")) != str(expected_test):
+        raise SittingConflictError("Bài làm không khớp đề của kỳ thi này.")
+
+    existing = sitting.get(link_col)
+    if existing and str(existing) != str(attempt_id):
+        raise SittingConflictError(
+            f"Phần {section} đã gắn bài làm khác — không thể thay."
+        )
 
     supabase_admin.table("mock_exam_sittings").update({
         link_col: str(attempt_id),

@@ -31,7 +31,7 @@ from typing import Iterable, Optional
 from uuid import UUID
 
 from database import supabase_admin
-from services.band_rounding import overall_from_criteria
+from services.band_rounding import ielts_round, overall_from_criteria
 
 logger = logging.getLogger(__name__)
 
@@ -75,17 +75,36 @@ def _coerce_band(value) -> float:
     return b
 
 
-def compute_overall(final_bands: dict) -> float:
-    """Overall = verified 4-arg mean of L/R/W/S, IELTS-rounded. All 4 required."""
-    missing = [s for s in _SKILLS if final_bands.get(s) is None]
+def compute_overall(final_bands: dict, skills: tuple = _SKILLS) -> float:
+    """Overall = verified mean of the REQUIRED skills, IELTS-rounded.
+
+    `skills` defaults to all four (a full 4-skill mock). An LRW-only exam (no
+    speaking component) passes the 3 seated skills, so the admin isn't forced to
+    invent a Speaking band. For 4 skills this is exactly overall_from_criteria."""
+    missing = [s for s in skills if final_bands.get(s) is None]
     if missing:
         raise ValidationError(f"final_bands missing skill(s): {', '.join(missing)}")
-    return overall_from_criteria(
-        _coerce_band(final_bands["listening"]),
-        _coerce_band(final_bands["reading"]),
-        _coerce_band(final_bands["writing"]),
-        _coerce_band(final_bands["speaking"]),
-    )
+    vals = [_coerce_band(final_bands[s]) for s in skills]
+    if len(vals) == 4:
+        return overall_from_criteria(*vals)
+    return ielts_round(sum(vals) / len(vals))
+
+
+def _required_skills(sitting_id: UUID | str) -> tuple:
+    """The skills the admin must band for this sitting — Speaking is required
+    only when the exam defines a speaking component (mirrors the sitting-side
+    reconciliation)."""
+    s = supabase_admin.table("mock_exam_sittings").select("mock_exam_id").eq(
+        "id", str(sitting_id),
+    ).limit(1).execute()
+    if not s.data:
+        return _SKILLS
+    e = supabase_admin.table("mock_exams").select("speaking_topic_set").eq(
+        "id", str(s.data[0]["mock_exam_id"]),
+    ).limit(1).execute()
+    if e.data and e.data[0].get("speaking_topic_set"):
+        return _SKILLS
+    return ("listening", "reading", "writing")
 
 
 # ── Workflow ──────────────────────────────────────────────────────────
@@ -191,11 +210,16 @@ def save_final_bands(
     """Persist the admin's 4 skill bands + computed overall. Status → 'reviewed'.
 
     The overall is ALWAYS recomputed here (verified mean), never trusted from
-    the client — same posture as writing overall bands. Auth: only the current
-    claimant may save (filter inside the UPDATE).
+    the client — same posture as writing overall bands. Required skills come from
+    the exam config (Speaking optional for LRW-only exams). Auth: only the
+    current claimant may save (filter inside the UPDATE).
     """
-    overall = compute_overall(final_bands)
-    stored = {s: _coerce_band(final_bands[s]) for s in _SKILLS}
+    review = get_review(review_id)
+    if not review:
+        raise NotFoundError(f"Review {review_id} not found")
+    skills = _required_skills(review["sitting_id"])
+    overall = compute_overall(final_bands, skills)
+    stored = {s: _coerce_band(final_bands[s]) for s in skills}
     stored["overall"] = overall
 
     update: dict = {
@@ -293,8 +317,11 @@ def get_review_for_sitting(sitting_id: UUID) -> Optional[dict]:
 
 
 def get_queue(status_filter: Optional[Iterable[str]] = None) -> list[dict]:
-    """Active review queue (FIFO). Defaults to {queued, claimed}."""
-    statuses = list(status_filter) if status_filter else ["queued", "claimed"]
+    """Active review queue (FIFO). Defaults to {queued, claimed, reviewed} so a
+    sitting whose final bands are saved (reviewed) but not yet released stays
+    visible for release — it must not vanish if the admin navigates away or the
+    release call fails."""
+    statuses = list(status_filter) if status_filter else ["queued", "claimed", "reviewed"]
     response = supabase_admin.table("mock_exam_reviews").select("*").in_(
         "status", statuses,
     ).order("created_at", desc=False).execute()

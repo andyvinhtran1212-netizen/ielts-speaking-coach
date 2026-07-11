@@ -20,13 +20,18 @@ window.MockHook = (function () {
   async function attach(section, attemptId) {
     var sid = sittingId();
     if (!sid || !attemptId || !(window.api && window.api.post)) return;
+    // FAIL-CLOSED: the domain submit only withholds the score once sitting_id is
+    // written on the attempt, so a failed attach must NOT be swallowed — the
+    // caller awaits this and must block the exam if it rejects, otherwise the
+    // student could submit and get a normal (unsealed) score.
     try {
       await window.api.post(
         '/api/mock-exams/sittings/' + encodeURIComponent(sid) + '/attach',
         { section: section, attempt_id: attemptId }
       );
-    } catch (e) { /* best-effort — seal still applies at submit if attach retried */
+    } catch (e) {
       console.warn('[mock-hook] attach failed', e);
+      throw e;
     }
   }
 

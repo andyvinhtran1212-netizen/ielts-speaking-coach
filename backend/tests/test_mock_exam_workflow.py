@@ -253,14 +253,26 @@ def test_start_section_forward_only(fake_db, svc):
     assert s2["lrw_started_at"] is not None
 
 
-def test_start_section_advance_auto_submits_prior(fake_db, svc):
+def test_start_section_advance_stamps_prior_after_real_submit(fake_db, svc):
     _seed_exam(fake_db)
     u = uuid4()
     s = svc.create_sitting(u, "MOCK-TEST-A")
     svc.start_section(s["id"], u, "listening")
+    _submit_section(svc, fake_db, s["id"], u, "listening")   # real submitted attempt
     s2 = svc.start_section(s["id"], u, "reading")
     assert s2["status"] == "lrw_reading"
-    assert s2["listening_submitted_at"] is not None  # auto-submitted on advance
+    assert s2["listening_submitted_at"] is not None
+
+
+def test_start_section_advance_blocked_without_prior_submit(fake_db, svc):
+    """Finding 1: advancing must NOT fabricate a prior submission from nav state."""
+    _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.start_section(s["id"], u, "listening")
+    # no listening attempt submitted → cannot advance to reading
+    with pytest.raises(svc.SittingConflictError):
+        svc.start_section(s["id"], u, "reading")
 
 
 def test_start_section_resume_is_idempotent(fake_db, svc):
@@ -282,9 +294,23 @@ def test_start_section_wrong_owner_raises(fake_db, svc):
 # ── terminal reconciliation (order-independent) ───────────────────────
 
 
-def _run_lrw(svc, sitting_id, u):
+def _submit_section(svc, fake, sitting_id, u, section, test_id=None):
+    """Simulate a runner finishing a section: seed a SUBMITTED domain attempt +
+    attach it to the sitting (so the advance/finalize integrity checks pass)."""
+    table = {"listening": "listening_test_attempts",
+             "reading": "reading_test_attempts"}[section]
+    aid = str(uuid4())
+    fake.seed(table, {"id": aid, "user_id": str(u), "test_id": test_id,
+                      "status": "submitted", "sitting_id": None})
+    svc.attach_attempt(sitting_id, str(u), section, aid)
+    return aid
+
+
+def _run_lrw(svc, fake, sitting_id, u):
     svc.start_section(sitting_id, u, "listening")
+    _submit_section(svc, fake, sitting_id, u, "listening")
     svc.start_section(sitting_id, u, "reading")
+    _submit_section(svc, fake, sitting_id, u, "reading")
     svc.start_section(sitting_id, u, "writing")
     return svc.submit_lrw(sitting_id, u)
 
@@ -294,7 +320,7 @@ def test_lrw_only_exam_finalises_without_speaking(fake_db, svc):
     _seed_exam(fake_db, speaking=False)
     u = uuid4()
     s = svc.create_sitting(u, "MOCK-TEST-A")
-    final = _run_lrw(svc, s["id"], u)
+    final = _run_lrw(svc, fake_db, s["id"], u)
     assert final["status"] == "all_submitted"
     assert len(fake_db.rows("mock_exam_reviews")) == 1
 
@@ -303,7 +329,7 @@ def test_submit_lrw_then_speaking_reaches_all_submitted(fake_db, svc, wf):
     _seed_exam(fake_db, speaking=True)
     u = uuid4()
     s = svc.create_sitting(u, "MOCK-TEST-A")
-    after_lrw = _run_lrw(svc, s["id"], u)
+    after_lrw = _run_lrw(svc, fake_db, s["id"], u)
     assert after_lrw["status"] == "speaking_pending"    # speaking required, not yet done
     final = svc.record_speaking(s["id"], u, [str(uuid4())])
     assert final["status"] == "all_submitted"
@@ -317,7 +343,7 @@ def test_speaking_first_then_lrw_also_reaches_all_submitted(fake_db, svc):
     s = svc.create_sitting(u, "MOCK-TEST-A")
     mid = svc.record_speaking(s["id"], u, [str(uuid4())])
     assert mid["status"] == "registered"   # LRW not done yet → no premature advance
-    final = _run_lrw(svc, s["id"], u)
+    final = _run_lrw(svc, fake_db, s["id"], u)
     assert final["status"] == "all_submitted"
     assert len(fake_db.rows("mock_exam_reviews")) == 1
 
@@ -326,7 +352,7 @@ def test_all_submitted_creates_review_once(fake_db, svc, wf):
     _seed_exam(fake_db, speaking=True)
     u = uuid4()
     s = svc.create_sitting(u, "MOCK-TEST-A")
-    _run_lrw(svc, s["id"], u)
+    _run_lrw(svc, fake_db, s["id"], u)
     svc.record_speaking(s["id"], u, [str(uuid4())])
     # idempotent: reconciling again doesn't create a second review
     svc._reconcile_terminal(s["id"])
@@ -338,11 +364,55 @@ def test_attach_attempt_sets_both_directions(fake_db, svc):
     u = uuid4()
     s = svc.create_sitting(u, "MOCK-TEST-A")
     attempt_id = str(uuid4())
-    fake_db.seed("reading_test_attempts", {"id": attempt_id, "sitting_id": None})
+    fake_db.seed("reading_test_attempts",
+                 {"id": attempt_id, "user_id": str(u), "test_id": None,
+                  "status": "in_progress", "sitting_id": None})
     svc.attach_attempt(s["id"], u, "reading", attempt_id)
     sitting = svc.get_sitting(s["id"])
     assert sitting["reading_attempt_id"] == attempt_id
     assert fake_db.rows("reading_test_attempts")[0]["sitting_id"] == s["id"]
+
+
+def test_attach_attempt_rejects_foreign_attempt(fake_db, svc):
+    """Finding 2: cannot attach an attempt owned by another user."""
+    _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    other_attempt = str(uuid4())
+    fake_db.seed("reading_test_attempts",
+                 {"id": other_attempt, "user_id": str(uuid4()), "test_id": None,
+                  "status": "submitted", "sitting_id": None})
+    with pytest.raises(PermissionError):
+        svc.attach_attempt(s["id"], u, "reading", other_attempt)
+
+
+def test_attach_attempt_rejects_wrong_test(fake_db, svc):
+    """Finding 2: cannot attach an attempt of a different (easier) test."""
+    exam = _seed_exam(fake_db)
+    exam["reading_test_id"] = "the-real-test"      # exam now pins a reading test
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    wrong = str(uuid4())
+    fake_db.seed("reading_test_attempts",
+                 {"id": wrong, "user_id": str(u), "test_id": "some-other-test",
+                  "status": "submitted", "sitting_id": None})
+    with pytest.raises(svc.SittingConflictError):
+        svc.attach_attempt(s["id"], u, "reading", wrong)
+
+
+def test_attach_attempt_rejects_swap(fake_db, svc):
+    """Finding 2: a section already bound cannot be re-bound to a different attempt."""
+    _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    a1, a2 = str(uuid4()), str(uuid4())
+    for a in (a1, a2):
+        fake_db.seed("reading_test_attempts",
+                     {"id": a, "user_id": str(u), "test_id": None,
+                      "status": "submitted", "sitting_id": None})
+    svc.attach_attempt(s["id"], u, "reading", a1)
+    with pytest.raises(svc.SittingConflictError):
+        svc.attach_attempt(s["id"], u, "reading", a2)
 
 
 def test_submit_writing_stores_texts_with_word_counts(fake_db, svc):
@@ -369,10 +439,11 @@ def test_is_sealed_tracks_flag(fake_db, svc):
 
 
 def _sitting_at_all_submitted(fake_db, svc):
-    _seed_exam(fake_db)
+    # 4-skill exam so the review requires all four bands (see finding 5 tests).
+    _seed_exam(fake_db, speaking=True)
     u = uuid4()
     s = svc.create_sitting(u, "MOCK-TEST-A")
-    _run_lrw(svc, s["id"], u)
+    _run_lrw(svc, fake_db, s["id"], u)
     svc.record_speaking(s["id"], u, [str(uuid4())])
     return s["id"]
 
@@ -488,6 +559,25 @@ def test_release_lifts_seal_on_sitting(fake_db, svc, wf):
     assert svc.is_sealed(sid) is False   # seal lifted → scores now visible
 
 
+def test_lrw_only_review_needs_no_speaking_band(fake_db, svc, wf):
+    """Finding 5: an LRW-only exam bands 3 skills; overall = mean of the 3,
+    and no Speaking band is demanded."""
+    _seed_exam(fake_db, speaking=False)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    _run_lrw(svc, fake_db, s["id"], u)               # → all_submitted (no speaking)
+    review = wf.get_review_for_sitting(s["id"])
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    saved = wf.save_final_bands(
+        review["id"], admin,
+        {"listening": 7.0, "reading": 6.0, "writing": 5.0},   # no speaking
+    )
+    # mean(7,6,5) = 6.0
+    assert saved["final_bands"]["overall"] == 6.0
+    assert "speaking" not in saved["final_bands"]
+
+
 def test_compute_overall_pure():
     from services import mock_review_workflow as wf
     assert wf.compute_overall(
@@ -495,6 +585,10 @@ def test_compute_overall_pure():
     # mean 7.25 → IELTS rounds .25 UP → 7.5
     assert wf.compute_overall(
         {"listening": 7.0, "reading": 7.0, "writing": 7.0, "speaking": 8.0}) == 7.5
+    # LRW-only: mean of 3 skills, IELTS-rounded
+    assert wf.compute_overall(
+        {"listening": 7.0, "reading": 6.0, "writing": 6.0},
+        skills=("listening", "reading", "writing")) == 6.5
 
 
 # ── endpoint seal helper (the guarantee the domain endpoints rely on) ──
