@@ -53,6 +53,13 @@ class WritingBody(BaseModel):
     task2_text: str = ""
 
 
+@router.get("")
+async def list_open(authorization: str | None = Header(default=None)):
+    """Open exams the student can start (published + is_open + cohort-eligible)."""
+    user = await get_supabase_user(authorization)
+    return {"exams": svc.list_open_exams(user["id"])}
+
+
 @router.post("/{code}/sittings")
 async def open_sitting(code: str, authorization: str | None = Header(default=None)):
     user = await get_supabase_user(authorization)

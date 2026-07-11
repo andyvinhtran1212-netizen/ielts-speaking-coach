@@ -16,6 +16,27 @@ window.MockHook = (function () {
 
   function sittingId() { return new URLSearchParams(location.search).get('sitting_id'); }
   function active() { return !!sittingId(); }
+  function embedded() { return new URLSearchParams(location.search).get('mock_embed') === '1'; }
+
+  // In the 4-skill mock, Reading/Listening run as iframes inside one page with
+  // ONE total timer. Hide the runner's own timer + submit (the parent owns them)
+  // and auto-enter the attempt so the student just sees the questions.
+  function setupEmbed() {
+    if (!embedded()) return;
+    var css = document.createElement('style');
+    css.textContent =
+      '#exam-timer-wrap,#exam-submit-btn,#btn-submit,.ft-timer,.exam-topbar-actions{display:none !important}';
+    document.head.appendChild(css);
+    var tries = 0;
+    var iv = setInterval(function () {
+      tries++;
+      var resume = document.getElementById('exam-resume-btn-prestart');
+      var start = document.getElementById('exam-start-btn') || document.getElementById('btn-start');
+      var btn = (resume && resume.offsetParent !== null) ? resume : start;
+      if (btn && btn.offsetParent !== null) { btn.click(); clearInterval(iv); }
+      else if (tries > 50) clearInterval(iv);   // give up after ~10s
+    }, 200);
+  }
 
   async function attach(section, attemptId) {
     var sid = sittingId();
@@ -52,6 +73,14 @@ window.MockHook = (function () {
     }, 1200);
   }
 
-  return { sittingId: sittingId, active: active, attach: attach,
-           isSealedResponse: isSealedResponse, showSealedAndReturn: showSealedAndReturn };
+  // Run the embed presentation setup as soon as the runner DOM is ready.
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupEmbed);
+  } else {
+    setupEmbed();
+  }
+
+  return { sittingId: sittingId, active: active, embedded: embedded, attach: attach,
+           isSealedResponse: isSealedResponse, showSealedAndReturn: showSealedAndReturn,
+           setupEmbed: setupEmbed };
 })();

@@ -1117,10 +1117,10 @@ async function confirmSubmit() {
       {},
     );
     if (STATE.audio) STATE.audio.pause();
-    // Mock sitting: sealed submit returns {received:true} (no score) — hand back
-    // to the orchestrator instead of showing results.
+    // Mock sitting: sealed submit returns {received:true} (no score). Embedded
+    // (3-tab mock) → the parent finalises, stay quiet. Standalone → hand back.
     if (window.MockHook && MockHook.isSealedResponse(result)) {
-      MockHook.showSealedAndReturn('listening');
+      if (!(MockHook.embedded && MockHook.embedded())) MockHook.showSealedAndReturn('listening');
       return;
     }
     renderResult(result);

@@ -1600,6 +1600,10 @@
 
   // ── Timer: production countdown from started_at + time_limit ──────
   function startTimer() {
+    // 4-skill mock (mock_embed): the parent page owns the single TOTAL timer.
+    // Do not run the per-section countdown here — it would auto-submit Reading
+    // prematurely at the section limit while the mock is still running.
+    if (window.MockHook && MockHook.embedded && MockHook.embedded()) return;
     // Sprint 20.10 D2 — defence in depth. Clear any prior interval (so a
     // second enterInProgress call from an unusual code path doesn't run
     // two ticks per second) and require the in_progress state shell to
@@ -1731,10 +1735,11 @@
           { answers: answers }
         );
     submitPromise.then(function (result) {
-      // Mock sitting: a sealed submit returns {received:true} (no score). Hand
-      // back to the orchestrator instead of rendering results.
+      // Mock sitting: a sealed submit returns {received:true} (no score).
+      // Embedded (3-tab mock) → the parent finalises, stay quiet. Standalone
+      // sealed mock → hand back to the orchestrator.
       if (window.MockHook && MockHook.isSealedResponse(result)) {
-        MockHook.showSealedAndReturn('reading');
+        if (!(MockHook.embedded && MockHook.embedded())) MockHook.showSealedAndReturn('reading');
         return;
       }
       lockExam();

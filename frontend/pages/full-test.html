@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Thi thử Full Test 4 kỹ năng — Aver Learning</title>
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.setAttribute('data-theme', (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light'));
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/tailwind.build.css" />
+  <style>
+    .ft-wrap { max-width:760px; margin:0 auto; padding:32px 16px; }
+    .ft-card { background:var(--av-surface-elevated); border:1px solid var(--av-border-default); border-radius:14px; padding:20px; margin-bottom:12px; }
+    .ft-title { font-size:18px; font-weight:700; color:var(--av-text-primary); }
+    .ft-muted { color:var(--av-text-secondary); font-size:14px; line-height:1.6; }
+    .hidden { display:none; }
+  </style>
+</head>
+<body class="av-page font-sans min-h-screen">
+  <div class="ft-wrap">
+    <h1 style="font-size:24px;font-weight:800;color:var(--av-text-primary);margin-bottom:4px;">Thi thử Full Test 4 kỹ năng</h1>
+    <p class="ft-muted" style="margin-bottom:20px;">Listening + Reading + Writing làm liền một hơi (một đồng hồ tổng), Speaking vấn đáp riêng. Bài thu kín — giám khảo chấm và trả điểm sau.</p>
+
+    <div id="state-loading" class="ft-muted" style="text-align:center;padding:40px 0">Đang tải…</div>
+    <div id="state-empty" class="hidden ft-card" style="text-align:center">
+      <p class="ft-muted">Hiện chưa có kỳ thi nào được mở. Quay lại khi giám khảo mở kỳ nhé.</p>
+    </div>
+    <div id="state-error" class="hidden ft-card" style="text-align:center;color:var(--av-error)"></div>
+    <div id="exam-list" class="hidden"></div>
+  </div>
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2.107.0"></script>
+  <script src="/js/api.js"></script>
+  <script>
+  (function () {
+    'use strict';
+    initSupabase('https://huwsmtubwulikhlmcirx.supabase.co', 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao');
+    function el(id) { return document.getElementById(id); }
+    function esc(s) { return (window.WC && window.WC.escapeHtml) ? window.WC.escapeHtml(s) : String(s == null ? '' : s); }
+    function show(id) { ['loading', 'empty', 'error'].forEach(function (s) { el('state-' + s).classList.add('hidden'); }); el('exam-list').classList.add('hidden'); if (id) el(id).classList.remove('hidden'); }
+
+    async function boot() {
+      var sb = window.getSupabase && window.getSupabase();
+      if (sb) { var s = await sb.auth.getSession(); if (!s.data.session) { location.href = '/index.html'; return; } }
+      try {
+        var res = await window.api.get('/api/mock-exams');
+        var exams = (res && res.exams) || [];
+        if (!exams.length) { show('state-empty'); return; }
+        var host = el('exam-list'); host.innerHTML = '';
+        exams.forEach(function (ex) {
+          var c = document.createElement('div');
+          c.className = 'ft-card';
+          c.innerHTML =
+            '<div class="ft-title">' + esc(ex.title || ex.code) + '</div>' +
+            '<p class="ft-muted" style="margin:6px 0 12px">Tổng thời gian LRW: <b>' + (ex.total_minutes || 150) + ' phút</b> · Trả kết quả trong ~' + (ex.review_sla_days || 3) + ' ngày.</p>' +
+            '<a class="av-btn av-btn--primary" style="display:inline-block" href="/pages/mock-exam.html?code=' + encodeURIComponent(ex.code) + '">Bắt đầu →</a>';
+          host.appendChild(c);
+        });
+        show(); host.classList.remove('hidden');
+      } catch (e) {
+        el('state-error').textContent = 'Không tải được danh sách: ' + (e && e.message ? e.message : e);
+        show('state-error');
+      }
+    }
+    boot();
+  })();
+  </script>
+</body>
+</html>

@@ -21,70 +21,85 @@
   <link rel="stylesheet" href="/css/aver-design/components.css" />
   <link rel="stylesheet" href="/css/tailwind.build.css" />
   <style>
-    .me-wrap { max-width:760px; margin:0 auto; padding:32px 16px; }
+    body { margin:0; }
+    .me-center { max-width:760px; margin:0 auto; padding:32px 16px; }
     .me-card { background:var(--av-surface-elevated); border:1px solid var(--av-border-default); border-radius:14px; padding:24px; }
     .me-h1 { font-size:24px; font-weight:800; color:var(--av-text-primary); margin-bottom:6px; }
     .me-muted { color:var(--av-text-secondary); line-height:1.65; }
-    .me-sec-list { list-style:none; padding:0; margin:16px 0; }
-    .me-sec-list li { display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--av-border-default); color:var(--av-text-primary); }
-    .me-timer { font-variant-numeric:tabular-nums; font-weight:700; font-size:18px; color:var(--av-text-primary); }
-    .me-tabs { display:flex; gap:6px; margin-bottom:12px; }
-    .me-tab { padding:8px 16px; border:1px solid var(--av-border-default); border-radius:8px; cursor:pointer; background:var(--av-surface-card); }
-    .me-tab.active { background:var(--av-accent,#2563eb); color:#fff; border-color:transparent; }
-    .me-writing-panel { display:none; }
-    .me-writing-panel.active { display:block; }
-    textarea.me-essay { width:100%; min-height:300px; padding:14px; border:1px solid var(--av-border-default); border-radius:10px; background:var(--av-surface-card); color:var(--av-text-primary); font:inherit; line-height:1.6; resize:vertical; }
+
+    /* Exam layout: sticky timer bar + tabs + full-height section panels */
+    #state-test { display:none; flex-direction:column; height:100vh; }
+    #state-test.on { display:flex; }
+    .me-bar { display:flex; align-items:center; gap:14px; padding:10px 16px; border-bottom:1px solid var(--av-border-default); background:var(--av-surface-elevated); }
+    .me-timer { font-variant-numeric:tabular-nums; font-weight:800; font-size:20px; color:var(--av-text-primary); }
+    .me-timer.warn { color:var(--av-error); }
+    .me-tabs { display:flex; gap:6px; flex:1; }
+    .me-tab { padding:8px 14px; border:1px solid var(--av-border-default); border-radius:8px; background:var(--av-surface-card); cursor:pointer; font-size:14px; color:var(--av-text-primary); }
+    .me-tab.active { background:var(--av-accent); color:#fff; border-color:transparent; }
+    .me-warn-banner { display:none; padding:6px 16px; background:var(--av-error); color:#fff; font-size:13px; text-align:center; }
+    .me-warn-banner.on { display:block; }
+    .me-panels { flex:1; position:relative; overflow:hidden; }
+    .me-panel { position:absolute; inset:0; display:none; }
+    .me-panel.active { display:block; }
+    .me-panel iframe { width:100%; height:100%; border:0; }
+    .me-writing { position:absolute; inset:0; overflow:auto; padding:16px; }
+    .me-wtabs { display:flex; gap:6px; margin-bottom:10px; }
+    .me-wpanel { display:none; }
+    .me-wpanel.active { display:block; }
+    textarea.me-essay { width:100%; min-height:50vh; padding:14px; border:1px solid var(--av-border-default); border-radius:10px; background:var(--av-surface-card); color:var(--av-text-primary); font:inherit; line-height:1.6; }
     .me-count { font-size:12px; color:var(--av-text-secondary); margin-top:6px; }
-    .me-big-num { font-size:40px; font-weight:800; color:var(--av-text-primary); font-variant-numeric:tabular-nums; }
     .hidden { display:none; }
   </style>
 </head>
-<body class="av-page font-sans min-h-screen">
-  <div class="me-wrap">
-    <div id="state-loading" class="me-muted" style="text-align:center;padding:60px 0">Đang tải kỳ thi…</div>
-    <div id="state-error" class="hidden me-card" style="text-align:center;color:var(--av-error,#dc2626)"></div>
+<body class="av-page font-sans">
+  <div id="state-loading" class="me-center me-muted" style="text-align:center;padding:60px 16px">Đang tải kỳ thi…</div>
+  <div id="state-error" class="hidden me-center"><div class="me-card" style="text-align:center;color:var(--av-error)"></div></div>
 
-    <!-- PREP -->
-    <div id="state-prep" class="hidden me-card">
+  <!-- PREP -->
+  <div id="state-prep" class="hidden me-center">
+    <div class="me-card">
       <h1 class="me-h1" id="prep-title">Thi thử IELTS</h1>
-      <p class="me-muted">Kỳ thi gồm mạch <b>Listening → Reading → Writing</b> làm liền một hơi. Mỗi phần có thời gian riêng; hết giờ tự nộp. Không quay lại phần trước. Bài được <b>thu kín</b> — bạn sẽ nhận điểm sau khi giám khảo duyệt.</p>
-      <ul class="me-sec-list" id="prep-sections"></ul>
-      <button class="av-btn av-btn--primary" id="prep-start" style="width:100%;padding:14px;font-size:16px">Bắt đầu — vào Listening</button>
+      <p class="me-muted">Cả ba phần <b>Listening · Reading · Writing</b> sẽ mở <b>cùng lúc</b> dưới <b>một đồng hồ tổng</b>. Bạn tự phân bổ thời gian và chuyển qua lại giữa các tab. Hết giờ sẽ <b>tự nộp toàn bộ</b>. Bài được <b>thu kín</b> — nhận điểm sau khi giám khảo duyệt.</p>
+      <p class="me-muted" id="prep-total" style="margin-top:8px"></p>
+      <button class="av-btn av-btn--primary" id="prep-start" style="width:100%;padding:14px;font-size:16px;margin-top:12px">Bắt đầu — mở cả 3 phần</button>
     </div>
+  </div>
 
-    <!-- BUFFER -->
-    <div id="state-buffer" class="hidden me-card" style="text-align:center">
-      <p class="me-muted" id="buffer-msg">Nghỉ kỹ thuật…</p>
-      <div class="me-big-num" id="buffer-count">60</div>
-      <button class="av-btn av-btn--primary" id="buffer-skip" style="margin-top:14px">Tiếp tục ngay →</button>
+  <!-- TEST (3 tabs, one timer) -->
+  <div id="state-test">
+    <div class="me-bar">
+      <span class="me-timer" id="timer">--:--</span>
+      <div class="me-tabs" id="tabs"></div>
+      <button class="av-btn av-btn--primary" id="submit-all">Nộp toàn bộ</button>
     </div>
-
-    <!-- WRITING -->
-    <div id="state-writing" class="hidden me-card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <h1 class="me-h1" style="margin:0">Writing</h1>
-        <span class="me-timer" id="writing-timer">60:00</span>
+    <div class="me-warn-banner" id="warn-banner">⚠ Sắp hết giờ — bài sẽ tự nộp khi hết giờ.</div>
+    <div class="me-panels" id="panels">
+      <div class="me-panel" data-panel="listening"><iframe id="if-listening" title="Listening"></iframe></div>
+      <div class="me-panel" data-panel="reading"><iframe id="if-reading" title="Reading"></iframe></div>
+      <div class="me-panel" data-panel="writing">
+        <div class="me-writing">
+          <div class="me-wtabs">
+            <div class="me-tab active" data-wtab="task1">Task 1</div>
+            <div class="me-tab" data-wtab="task2">Task 2</div>
+          </div>
+          <div class="me-wpanel active" data-wpanel="task1">
+            <div class="me-muted" id="prompt-task1" style="margin-bottom:8px;white-space:pre-wrap"></div>
+            <textarea class="me-essay" id="essay-task1" placeholder="Viết Task 1…"></textarea>
+            <div class="me-count"><span id="count-task1">0</span> từ</div>
+          </div>
+          <div class="me-wpanel" data-wpanel="task2">
+            <div class="me-muted" id="prompt-task2" style="margin-bottom:8px;white-space:pre-wrap"></div>
+            <textarea class="me-essay" id="essay-task2" placeholder="Viết Task 2…"></textarea>
+            <div class="me-count"><span id="count-task2">0</span> từ</div>
+          </div>
+        </div>
       </div>
-      <p class="me-muted" style="margin-bottom:12px">Gợi ý phân bổ: Task 1 ~20 phút, Task 2 ~40 phút.</p>
-      <div class="me-tabs">
-        <div class="me-tab active" data-wtab="task1">Task 1</div>
-        <div class="me-tab" data-wtab="task2">Task 2</div>
-      </div>
-      <div class="me-writing-panel active" data-wpanel="task1">
-        <div class="me-muted" id="prompt-task1" style="margin-bottom:8px;white-space:pre-wrap"></div>
-        <textarea class="me-essay" id="essay-task1" placeholder="Viết Task 1 tại đây…"></textarea>
-        <div class="me-count"><span id="count-task1">0</span> từ</div>
-      </div>
-      <div class="me-writing-panel" data-wpanel="task2">
-        <div class="me-muted" id="prompt-task2" style="margin-bottom:8px;white-space:pre-wrap"></div>
-        <textarea class="me-essay" id="essay-task2" placeholder="Viết Task 2 tại đây…"></textarea>
-        <div class="me-count"><span id="count-task2">0</span> từ</div>
-      </div>
-      <button class="av-btn av-btn--primary" id="writing-submit" style="width:100%;padding:14px;margin-top:16px">Nộp cả mạch (kết thúc bài thi)</button>
     </div>
+  </div>
 
-    <!-- SUBMITTED -->
-    <div id="state-submitted" class="hidden me-card" style="text-align:center">
+  <!-- SUBMITTED -->
+  <div id="state-submitted" class="hidden me-center">
+    <div class="me-card" style="text-align:center">
       <div style="font-size:40px;margin-bottom:8px">✅</div>
       <h1 class="me-h1">Đã thu bài</h1>
       <p class="me-muted" id="submitted-msg"></p>
