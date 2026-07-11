@@ -1731,6 +1731,12 @@
           { answers: answers }
         );
     submitPromise.then(function (result) {
+      // Mock sitting: a sealed submit returns {received:true} (no score). Hand
+      // back to the orchestrator instead of rendering results.
+      if (window.MockHook && MockHook.isSealedResponse(result)) {
+        MockHook.showSealedAndReturn('reading');
+        return;
+      }
       lockExam();
       if (SESSION.timer_interval) {
         clearInterval(SESSION.timer_interval);
@@ -2447,6 +2453,11 @@
         SESSION.answers = new Map();
         SESSION.flagged = new Set();
         SESSION.resume_inprogress = false;
+        // Mock sitting: link this attempt so its submit is sealed server-side.
+        // Fail-closed — the exam must not start until the link is written.
+        if (window.MockHook && MockHook.active()) {
+          return MockHook.attach('reading', res.attempt_id).then(enterInProgress);
+        }
         enterInProgress();
       })
       .catch(function (e) {
@@ -2584,6 +2595,12 @@
           (inprog.answers || []).forEach(function (a) {
             SESSION.answers.set(a.q_num, a.user_answer);
           });
+          // Mock sitting: re-link on resume (idempotent) in case a create-time
+          // attach failed and left the attempt unsealed. User interaction before
+          // resume gives this time to complete.
+          if (window.MockHook && MockHook.active()) {
+            MockHook.attach('reading', inprog.attempt_id).catch(function () {});
+          }
           SESSION.resume_inprogress = true;
           configurePreStartActions(true);
         } else {

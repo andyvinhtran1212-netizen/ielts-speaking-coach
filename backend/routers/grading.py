@@ -447,7 +447,7 @@ async def grade_response_endpoint(
         try:
             s_res = await aexecute(
                 lambda db: db.table("sessions")
-                .select("id, part, topic, status, mode")
+                .select("id, part, topic, status, mode, sitting_id")
                 .eq("id", session_id)
                 .eq("user_id", user_id)
                 .limit(1)
@@ -1075,6 +1075,15 @@ async def grade_response_endpoint(
                 "score_confidence":    score_confidence,
                 **signals,
             }
+
+        # Sealed 4-skill mock speaking: grading is fully persisted above (the
+        # draft the admin reviews), but the per-response feedback is withheld
+        # from the student until the sitting is released. Server-side seal.
+        if session.get("sitting_id"):
+            from services import mock_exam_service
+            if mock_exam_service.is_sealed(session["sitting_id"]):
+                return {"received": True, "response_id": response_id,
+                        "sitting_id": session["sitting_id"], "sealed": True}
 
         return _build_response_payload(
             is_practice,

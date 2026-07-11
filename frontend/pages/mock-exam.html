@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Thi thử IELTS 4 kỹ năng — Aver Learning</title>
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.setAttribute('data-theme', (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light'));
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/tailwind.build.css" />
+  <style>
+    .me-wrap { max-width:760px; margin:0 auto; padding:32px 16px; }
+    .me-card { background:var(--av-surface-elevated); border:1px solid var(--av-border-default); border-radius:14px; padding:24px; }
+    .me-h1 { font-size:24px; font-weight:800; color:var(--av-text-primary); margin-bottom:6px; }
+    .me-muted { color:var(--av-text-secondary); line-height:1.65; }
+    .me-sec-list { list-style:none; padding:0; margin:16px 0; }
+    .me-sec-list li { display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--av-border-default); color:var(--av-text-primary); }
+    .me-timer { font-variant-numeric:tabular-nums; font-weight:700; font-size:18px; color:var(--av-text-primary); }
+    .me-tabs { display:flex; gap:6px; margin-bottom:12px; }
+    .me-tab { padding:8px 16px; border:1px solid var(--av-border-default); border-radius:8px; cursor:pointer; background:var(--av-surface-card); }
+    .me-tab.active { background:var(--av-accent,#2563eb); color:#fff; border-color:transparent; }
+    .me-writing-panel { display:none; }
+    .me-writing-panel.active { display:block; }
+    textarea.me-essay { width:100%; min-height:300px; padding:14px; border:1px solid var(--av-border-default); border-radius:10px; background:var(--av-surface-card); color:var(--av-text-primary); font:inherit; line-height:1.6; resize:vertical; }
+    .me-count { font-size:12px; color:var(--av-text-secondary); margin-top:6px; }
+    .me-big-num { font-size:40px; font-weight:800; color:var(--av-text-primary); font-variant-numeric:tabular-nums; }
+    .hidden { display:none; }
+  </style>
+</head>
+<body class="av-page font-sans min-h-screen">
+  <div class="me-wrap">
+    <div id="state-loading" class="me-muted" style="text-align:center;padding:60px 0">Đang tải kỳ thi…</div>
+    <div id="state-error" class="hidden me-card" style="text-align:center;color:var(--av-error,#dc2626)"></div>
+
+    <!-- PREP -->
+    <div id="state-prep" class="hidden me-card">
+      <h1 class="me-h1" id="prep-title">Thi thử IELTS</h1>
+      <p class="me-muted">Kỳ thi gồm mạch <b>Listening → Reading → Writing</b> làm liền một hơi. Mỗi phần có thời gian riêng; hết giờ tự nộp. Không quay lại phần trước. Bài được <b>thu kín</b> — bạn sẽ nhận điểm sau khi giám khảo duyệt.</p>
+      <ul class="me-sec-list" id="prep-sections"></ul>
+      <button class="av-btn av-btn--primary" id="prep-start" style="width:100%;padding:14px;font-size:16px">Bắt đầu — vào Listening</button>
+    </div>
+
+    <!-- BUFFER -->
+    <div id="state-buffer" class="hidden me-card" style="text-align:center">
+      <p class="me-muted" id="buffer-msg">Nghỉ kỹ thuật…</p>
+      <div class="me-big-num" id="buffer-count">60</div>
+      <button class="av-btn av-btn--primary" id="buffer-skip" style="margin-top:14px">Tiếp tục ngay →</button>
+    </div>
+
+    <!-- WRITING -->
+    <div id="state-writing" class="hidden me-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h1 class="me-h1" style="margin:0">Writing</h1>
+        <span class="me-timer" id="writing-timer">60:00</span>
+      </div>
+      <p class="me-muted" style="margin-bottom:12px">Gợi ý phân bổ: Task 1 ~20 phút, Task 2 ~40 phút.</p>
+      <div class="me-tabs">
+        <div class="me-tab active" data-wtab="task1">Task 1</div>
+        <div class="me-tab" data-wtab="task2">Task 2</div>
+      </div>
+      <div class="me-writing-panel active" data-wpanel="task1">
+        <div class="me-muted" id="prompt-task1" style="margin-bottom:8px;white-space:pre-wrap"></div>
+        <textarea class="me-essay" id="essay-task1" placeholder="Viết Task 1 tại đây…"></textarea>
+        <div class="me-count"><span id="count-task1">0</span> từ</div>
+      </div>
+      <div class="me-writing-panel" data-wpanel="task2">
+        <div class="me-muted" id="prompt-task2" style="margin-bottom:8px;white-space:pre-wrap"></div>
+        <textarea class="me-essay" id="essay-task2" placeholder="Viết Task 2 tại đây…"></textarea>
+        <div class="me-count"><span id="count-task2">0</span> từ</div>
+      </div>
+      <button class="av-btn av-btn--primary" id="writing-submit" style="width:100%;padding:14px;margin-top:16px">Nộp cả mạch (kết thúc bài thi)</button>
+    </div>
+
+    <!-- SUBMITTED -->
+    <div id="state-submitted" class="hidden me-card" style="text-align:center">
+      <div style="font-size:40px;margin-bottom:8px">✅</div>
+      <h1 class="me-h1">Đã thu bài</h1>
+      <p class="me-muted" id="submitted-msg"></p>
+      <div id="submitted-extra" style="margin-top:16px"></div>
+      <a class="av-btn" href="/pages/home.html" style="margin-top:16px;display:inline-block">Về trang chủ</a>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2.107.0"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/mock-exam-runner.js"></script>
+</body>
+</html>

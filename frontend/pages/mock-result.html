@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Kết quả thi thử — Aver Learning</title>
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia &&
+                          window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/tailwind.build.css" />
+  <style>
+    .trf-band-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:12px; }
+    .trf-band { background:var(--av-surface-elevated); border:1px solid var(--av-border-default); border-radius:12px; padding:16px; text-align:center; }
+    .trf-band-label { font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--av-text-secondary); }
+    .trf-band-val { font-size:32px; font-weight:800; color:var(--av-text-primary); font-variant-numeric:tabular-nums; }
+    .trf-overall { background:var(--av-accent,#2563eb); color:#fff; }
+    .trf-overall .trf-band-label, .trf-overall .trf-band-val { color:#fff; }
+  </style>
+</head>
+<body class="av-page font-sans min-h-screen">
+  <div class="av-w-read" style="padding:32px 16px; margin:0 auto;">
+    <div id="state-loading" class="py-16 text-center" style="color:var(--av-text-secondary)">Đang tải kết quả…</div>
+
+    <div id="state-pending" class="hidden py-16 text-center">
+      <h1 style="font-size:22px;font-weight:700;color:var(--av-text-primary);margin-bottom:8px;">Đang chờ giám khảo duyệt</h1>
+      <p style="color:var(--av-text-secondary);max-width:460px;margin:0 auto;line-height:1.6;">
+        Bài của bạn đã được ghi nhận. Giám khảo sẽ chấm và công bố kết quả trong thời gian cam kết.
+        Bạn sẽ thấy điểm tại đây khi có kết quả.
+      </p>
+    </div>
+
+    <div id="state-error" class="hidden py-16 text-center" style="color:var(--av-error,#dc2626)"></div>
+
+    <div id="state-content" class="hidden">
+      <header style="margin-bottom:20px;">
+        <h1 style="font-size:24px;font-weight:800;color:var(--av-text-primary);">Phiếu điểm thi thử (TRF)</h1>
+        <p id="released-at" style="color:var(--av-text-secondary);font-size:13px;margin-top:4px;"></p>
+      </header>
+
+      <section class="trf-band-grid" id="bands"></section>
+
+      <section id="comment-wrap" style="margin-top:24px;">
+        <h2 style="font-size:15px;font-weight:700;color:var(--av-text-primary);margin-bottom:8px;">Nhận xét của giám khảo</h2>
+        <div id="examiner-comment" style="background:var(--av-surface-elevated);border:1px solid var(--av-border-default);border-radius:12px;padding:16px;line-height:1.7;color:var(--av-text-primary);white-space:pre-wrap;"></div>
+      </section>
+
+      <section id="notes-wrap" style="margin-top:20px;"></section>
+
+      <p style="margin-top:28px;font-size:12px;color:var(--av-text-secondary);line-height:1.6;">
+        Kết quả do giám khảo duyệt, có tham khảo phân tích AI.
+      </p>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2.107.0"></script>
+  <script src="/js/api.js"></script>
+  <script>
+  (function () {
+    'use strict';
+    initSupabase('https://huwsmtubwulikhlmcirx.supabase.co', 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao');
+
+    var SKILLS = [
+      { key: 'listening', label: 'Listening' },
+      { key: 'reading', label: 'Reading' },
+      { key: 'writing', label: 'Writing' },
+      { key: 'speaking', label: 'Speaking' },
+    ];
+
+    function showState(name) {
+      ['loading', 'pending', 'error', 'content'].forEach(function (s) {
+        var el = document.getElementById('state-' + s);
+        if (el) el.classList.toggle('hidden', s !== name);
+      });
+    }
+    function esc(s) { return (window.WC && window.WC.escapeHtml) ? window.WC.escapeHtml(s) : String(s == null ? '' : s); }
+
+    function fmtBand(v) { return (v == null || v === '') ? '—' : Number(v).toFixed(1); }
+
+    function render(data) {
+      var fb = data.final_bands || {};
+      var grid = document.getElementById('bands');
+      grid.innerHTML = '';
+      SKILLS.forEach(function (s) {
+        var el = document.createElement('div');
+        el.className = 'trf-band';
+        el.innerHTML = '<div class="trf-band-label">' + s.label + '</div><div class="trf-band-val">' + fmtBand(fb[s.key]) + '</div>';
+        grid.appendChild(el);
+      });
+      var overall = document.createElement('div');
+      overall.className = 'trf-band trf-overall';
+      overall.innerHTML = '<div class="trf-band-label">Overall</div><div class="trf-band-val">' + fmtBand(fb.overall) + '</div>';
+      grid.appendChild(overall);
+
+      var comment = data.examiner_comment_vi;
+      if (comment) { document.getElementById('examiner-comment').textContent = comment; }
+      else { document.getElementById('comment-wrap').style.display = 'none'; }
+
+      var notes = data.per_skill_notes || {};
+      var nwrap = document.getElementById('notes-wrap');
+      var keys = Object.keys(notes).filter(function (k) { return notes[k]; });
+      if (keys.length) {
+        nwrap.innerHTML = '<h2 style="font-size:15px;font-weight:700;color:var(--av-text-primary);margin-bottom:8px;">Ghi chú từng kỹ năng</h2>';
+        keys.forEach(function (k) {
+          var row = document.createElement('div');
+          row.style.cssText = 'background:var(--av-surface-elevated);border:1px solid var(--av-border-default);border-radius:10px;padding:12px 14px;margin-bottom:8px;';
+          row.innerHTML = '<div style="font-weight:600;text-transform:capitalize;color:var(--av-text-primary);font-size:13px;">' + esc(k) + '</div><div style="color:var(--av-text-secondary);line-height:1.6;white-space:pre-wrap;margin-top:4px;">' + esc(notes[k]) + '</div>';
+          nwrap.appendChild(row);
+        });
+      }
+
+      if (data.released_at) {
+        document.getElementById('released-at').textContent = 'Công bố lúc ' + new Date(data.released_at).toLocaleString('vi-VN');
+      }
+      showState('content');
+    }
+
+    async function boot() {
+      var sittingId = new URLSearchParams(location.search).get('sitting');
+      if (!sittingId) { document.getElementById('state-error').textContent = 'Thiếu mã sitting.'; showState('error'); return; }
+      var sb = window.getSupabase && window.getSupabase();
+      if (sb) {
+        var sess = await sb.auth.getSession();
+        if (!sess.data.session) { location.href = '/index.html'; return; }
+      }
+      try {
+        var data = await window.api.get('/api/mock-exams/sittings/' + encodeURIComponent(sittingId) + '/result');
+        render(data);
+      } catch (e) {
+        // 403 = chưa released (sealed)
+        if (e && (e.status === 403 || /chờ giám khảo|403/.test(String(e.message || '')))) { showState('pending'); return; }
+        document.getElementById('state-error').textContent = 'Không tải được kết quả: ' + (e && e.message ? e.message : e);
+        showState('error');
+      }
+    }
+    boot();
+  })();
+  </script>
+</body>
+</html>
