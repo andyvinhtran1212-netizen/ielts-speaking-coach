@@ -22,10 +22,8 @@ CREATE TABLE IF NOT EXISTS mock_exam_sittings (
     -- One-way status machine. LRW runs as one seated flow; Speaking is decoupled
     -- (may be taken before or after LRW, anytime within the exam window).
     --   registered      → sitting created, nothing started
-    --   lrw_listening   → listening section in progress
-    --   lrw_reading     → reading section in progress
-    --   lrw_writing     → writing section in progress
-    --   lrw_submitted   → LRW mạch submitted (speaking may still be pending)
+    --   lrw_in_progress → all three sections (L+R+W) open under one countdown
+    --   lrw_submitted   → LRW block submitted (speaking may still be pending)
     --   speaking_pending→ LRW done, speaking not yet complete
     --   all_submitted   → LRW + speaking both in → auto-creates a review row
     --   under_review    → an admin has claimed the review
@@ -33,7 +31,7 @@ CREATE TABLE IF NOT EXISTS mock_exam_sittings (
     --   released        → results visible to the student (sealed lifted)
     --   void            → cancelled (tech failure / retake granted); audit kept
     status        TEXT NOT NULL DEFAULT 'registered' CHECK (status IN (
-                      'registered', 'lrw_listening', 'lrw_reading', 'lrw_writing',
+                      'registered', 'lrw_in_progress',
                       'lrw_submitted', 'speaking_pending', 'all_submitted',
                       'under_review', 'reviewed', 'released', 'void')),
 

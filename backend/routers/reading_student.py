@@ -752,6 +752,12 @@ async def list_reading_tests(
         # full (default): everything NOT a mini, INCLUDING legacy tests with no
         # test_type (metadata->>test_type IS NULL).
         q = q.or_("metadata->>test_type.is.null,metadata->>test_type.neq.mini")
+    # Exclusivity: a reading test chosen for a 4-skill mock is reserved to it —
+    # hide it from the normal practice browse.
+    from services import mock_exam_service
+    _reserved = mock_exam_service.reserved_test_ids("reading")
+    if _reserved:
+        q = q.not_.in_("id", list(_reserved))
     res = q.execute()
     return {
         "items":  res.data or [],
