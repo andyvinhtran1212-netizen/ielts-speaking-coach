@@ -27,25 +27,28 @@ def _load_attempts(args) -> list[dict]:
     if args.file:
         return json.loads(Path(args.file).read_text(encoding="utf-8"))
     from database import supabase_admin
-    rows: list[dict] = []
-    page, size = 0, 1000
-    while True:  # paginate past the PostgREST 1000-row cap
-        # Codex F2 — restrict to D1 attempts. attempts has no exercise_type, so
-        # inner-join vocabulary_exercises and filter on it; otherwise D3 rows
-        # pollute both the per-item stats AND the per-user ability grouping.
-        resp = (
-            supabase_admin.table("vocabulary_exercise_attempts")
-            .select("exercise_id, user_id, is_correct, vocabulary_exercises!inner(exercise_type)")
-            .eq("vocabulary_exercises.exercise_type", "D1")
-            .range(page * size, page * size + size - 1)
-            .execute()
-        )
-        batch = resp.data or []
-        rows.extend(batch)
-        if len(batch) < size:
-            break
-        page += 1
-    return rows
+
+    def _paginate(table, select, eq=None):
+        out, page, size = [], 0, 1000
+        while True:  # past the PostgREST 1000-row cap
+            q = supabase_admin.table(table).select(select)
+            if eq:
+                q = q.eq(*eq)
+            batch = (q.range(page * size, page * size + size - 1).execute().data) or []
+            out.extend(batch)
+            if len(batch) < size:
+                return out
+            page += 1
+
+    # Restrict to D1 attempts via the attempts table's OWN exercise_type column
+    # (migration 022). This is the correct discriminator: after migration 054 made
+    # attempts polymorphic (FK dropped, exercise_source added), a D1 exercise_id
+    # may point at user_d1_questions (personalized) OR vocabulary_exercises
+    # (admin) — so filtering by membership in vocabulary_exercises would silently
+    # drop personalized D1 attempts. Filter on exercise_type instead.
+    return _paginate(
+        "vocabulary_exercise_attempts", "exercise_id, user_id, is_correct", ("exercise_type", "D1")
+    )
 
 
 def _load_words(ids: list[str]) -> dict:
