@@ -29,6 +29,10 @@ options: ["Although", "Despite", "However", "Because of"]
 answer: 0
 grammar_article_slug: "although-though-even-though"
 explain: "'Although' + mệnh đề (subject + verb: 'the economy has grown') đứng đầu câu — đúng subordinating conjunction."
+why_wrong:
+  '1': Despite phải theo sau bởi một cụm danh từ hoặc V-ing, không phải một mệnh đề hoàn chỉnh (chủ ngữ + động từ).
+  '2': However là một trạng từ liên kết, không thể dùng để giới thiệu một mệnh đề phụ như trong trường hợp này.
+  '3': Because of phải đi với cụm danh từ hoặc V-ing, không được đi với mệnh đề, và nghĩa của câu này là sự tương phản chứ không phải nguyên nhân.
 ---
 
 ---
@@ -43,6 +47,10 @@ options: ["although", "however", "despite", "so"]
 answer: 0
 grammar_article_slug: "although-though-even-though"
 explain: "'although' có thể đứng giữa câu, sau mệnh đề chính, nối với mệnh đề phụ 'implementation remains a challenge'."
+why_wrong:
+  '1': Tuy nhiên (however) là trạng từ liên kết, không phải liên từ phụ thuộc, nên không thể dùng để nối hai mệnh đề độc lập chỉ bằng một dấu phẩy ở giữa như vậy.
+  '2': Mặc dù (despite) là giới từ, phải theo sau bởi danh từ, cụm danh từ hoặc V-ing, không thể đi với một mệnh đề đầy đủ (chủ ngữ + vị ngữ).
+  '3': Vì vậy (so) dùng để chỉ kết quả, trong khi hai mệnh đề này thể hiện sự đối lập, không phải quan hệ nguyên nhân-kết quả.
 ---
 
 ---
@@ -99,6 +107,10 @@ options: ["though", "despite", "so that", "in order to"]
 answer: 0
 grammar_article_slug: "although-though-even-though"
 explain: "'though' hoạt động giống 'although', đứng giữa câu nối với mệnh đề phụ 'she had very little free time'."
+why_wrong:
+  '1': Despite là giới từ, cần theo sau bởi danh từ/cụm danh từ hoặc V-ing, không phải một mệnh đề đầy đủ.
+  '2': So that dùng để chỉ mục đích hoặc kết quả, không phù hợp với ngữ cảnh tương phản của câu.
+  '3': In order to phải theo sau bởi động từ nguyên mẫu (infinitive), không thể theo sau bởi một mệnh đề đầy đủ.
 ---
 
 ---
@@ -113,6 +125,10 @@ options: ["though", "despite", "because", "unless"]
 answer: 0
 grammar_article_slug: "although-though-even-though"
 explain: "Chỉ 'though' (không phải although/even though) có thể đứng CUỐI câu như trạng từ bổ sung ý nhượng bộ — đặc trưng riêng của 'though'."
+why_wrong:
+  '1': Despite là giới từ, cần theo sau bởi danh từ, cụm danh từ hoặc V-ing, không thể đứng một mình cuối câu như trạng từ.
+  '2': Because là liên từ chỉ nguyên nhân, phải theo sau bởi một mệnh đề đầy đủ (chủ ngữ + động từ), không thể đứng một mình cuối câu.
+  '3': Unless là liên từ chỉ điều kiện, cần theo sau bởi một mệnh đề đầy đủ, không thể đứng một mình cuối câu như vậy.
 ---
 
 ---
@@ -156,6 +172,10 @@ options: ["Even though", "Despite", "Because", "So that"]
 answer: 0
 grammar_article_slug: "although-though-even-though"
 explain: "'Even though' + mệnh đề nhấn mạnh kết quả bất ngờ hoặc đặc biệt mạnh — phù hợp với 'a genuinely surprising result'."
+why_wrong:
+  '1': '''Despite'' là giới từ, cần theo sau bởi danh từ, cụm danh từ hoặc V-ing, không thể đi với một mệnh đề (S + V).'
+  '2': '''Because'' dùng để chỉ nguyên nhân, nhưng ở đây hai mệnh đề thể hiện sự tương phản (luyện tập nhiều nhưng vẫn trượt), không phải quan hệ nhân quả.'
+  '3': '''So that'' dùng để chỉ mục đích, nhưng ở đây việc luyện tập không nhằm mục đích trượt bài kiểm tra.'
 ---
 
 ---
@@ -170,6 +190,10 @@ options: ["Even though she studied hard,", "Although she studied hard,", "Though
 answer: 0
 grammar_article_slug: "although-though-even-though"
 explain: "'Even though' mang sắc thái nhấn mạnh nhất trong 3 từ — diễn đạt sự bất ngờ mạnh hơn 'although' (trung lập) và 'though' (nhẹ hơn, informal hơn)."
+why_wrong:
+  '1': Liên từ 'Although' diễn tả sự tương phản một cách trung lập, không mang sắc thái bất ngờ mạnh mẽ như yêu cầu của câu hỏi.
+  '2': Liên từ 'Though' mang sắc thái tương phản nhẹ hơn và thường dùng trong văn phong ít trang trọng hơn, không thể hiện sự bất ngờ mạnh nhất.
+  '3': Ba liên từ này có sắc thái ý nghĩa khác nhau về mức độ nhấn mạnh và bất ngờ, không phải là 'như nhau'.
 ---
 
 ---
@@ -213,6 +237,10 @@ options: ["However", "Although", "Even though", "Because"]
 answer: 0
 grammar_article_slug: "although-though-even-though"
 explain: "'However' là trạng từ liên kết nối hai câu độc lập (có dấu chấm ở giữa), khác với although/even though là liên từ phụ nối mệnh đề trong CÙNG một câu."
+why_wrong:
+  '1': Although là liên từ phụ, dùng để nối hai mệnh đề trong cùng MỘT câu, không dùng để nối hai câu độc lập đã được phân tách bằng dấu chấm.
+  '2': Even though là liên từ phụ, tương tự Although, dùng để nối hai mệnh đề trong cùng MỘT câu, không dùng để nối hai câu độc lập đã được phân tách bằng dấu chấm.
+  '3': Because là liên từ phụ diễn tả quan hệ nguyên nhân – kết quả, trong khi ngữ cảnh này cần một từ nối diễn tả sự tương phản hoặc kết quả không như mong đợi.
 ---
 
 ---
@@ -227,6 +255,10 @@ options: ["Despite", "Although", "Even though", "Because"]
 answer: 0
 grammar_article_slug: "although-though-even-though"
 explain: "'Despite' là giới từ, theo sau bởi V-ing/noun phrase ('working hard'), không phải mệnh đề đầy đủ như although/even though."
+why_wrong:
+  '1': Although đòi hỏi một mệnh đề đầy đủ (chủ ngữ + động từ) theo sau, nhưng ở đây lại là một cụm V-ing.
+  '2': Even though cũng cần một mệnh đề hoàn chỉnh (chủ ngữ + động từ) đi kèm, không phải cụm V-ing.
+  '3': Because phải theo sau bởi một mệnh đề chỉ nguyên nhân (chủ ngữ + động từ), không phải một cụm động từ V-ing.
 ---
 
 ---

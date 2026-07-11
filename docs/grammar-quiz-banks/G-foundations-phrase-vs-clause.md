@@ -43,6 +43,10 @@ options: ["technology has changed our lives", "because it rained", "in the early
 answer: 2
 grammar_article_slug: "phrase-vs-clause"
 explain: "'in the early morning' là prepositional phrase — không có chủ ngữ lẫn động từ chia. Các đáp án còn lại đều có S + V."
+why_wrong:
+  '0': Phương án này sai vì nó có đủ chủ ngữ ('technology') và động từ chia ('has changed').
+  '1': Phương án này sai vì nó có đủ chủ ngữ ('it') và động từ chia ('rained'), tạo thành một mệnh đề phụ thuộc.
+  '3': Phương án này sai vì nó có đủ chủ ngữ ('the government') và động từ chia ('announced').
 ---
 
 ---
@@ -57,6 +61,10 @@ options: ["clause / phrase", "phrase / clause", "phrase / phrase", "clause / cla
 answer: 1
 grammar_article_slug: "phrase-vs-clause"
 explain: "'Despite the challenges' không có động từ chia → phrase. 'Although there were challenges' có S (there) + V (were) → clause."
+why_wrong:
+  '0': Phương án này sai vì "Despite the challenges" là một cụm từ chứ không phải mệnh đề, và "Although there were challenges" là một mệnh đề chứ không phải cụm từ.
+  '2': Phương án này sai vì vế thứ hai, "Although there were challenges", chứa chủ ngữ và động từ chia nên nó là một mệnh đề, không phải cụm từ.
+  '3': Phương án này sai vì vế đầu tiên, "Despite the challenges", không có động từ chia nên nó là một cụm từ, không phải mệnh đề.
 ---
 
 ---
@@ -100,6 +108,10 @@ options: ["Because the population is growing rapidly.", "Although the results we
 answer: 2
 grammar_article_slug: "phrase-vs-clause"
 explain: "'The economy grew significantly' là independent clause, đứng một mình được. Ba câu còn lại bắt đầu bằng liên từ phụ thuộc (because/although/since) nên là dependent clause — không thể đứng một mình."
+why_wrong:
+  '0': Câu này bắt đầu bằng liên từ phụ thuộc "Because" nên là một mệnh đề phụ, không thể đứng độc lập làm thành một câu hoàn chỉnh.
+  '1': Câu này bắt đầu bằng liên từ phụ thuộc "Although" nên là một mệnh đề phụ, không thể đứng độc lập làm thành một câu hoàn chỉnh.
+  '3': Câu này bắt đầu bằng liên từ phụ thuộc "Since" nên là một mệnh đề phụ, không thể đứng độc lập làm thành một câu hoàn chỉnh.
 ---
 
 ---
@@ -114,6 +126,10 @@ options: ["remove 'Because'", "add an independent clause after it", "add a comma
 answer: 1
 grammar_article_slug: "phrase-vs-clause"
 explain: "Dependent clause bắt đầu bằng 'Because' cần một independent clause đi kèm để hoàn chỉnh nghĩa, ví dụ: '..., the government should act.'"
+why_wrong:
+  '0': Việc bỏ 'Because' sẽ biến mệnh đề phụ thuộc này thành một mệnh đề độc lập, làm thay đổi cấu trúc và ý nghĩa gốc của câu, thay vì hoàn thiện nó như một ý phụ thuộc.
+  '2': Chỉ thêm dấu phẩy vào cuối không giải quyết được vấn đề là câu còn thiếu mệnh đề độc lập để hoàn chỉnh nghĩa, nó vẫn là một câu cụt (fragment).
+  '3': Thay đổi thì của động từ ('are facing' thành 'face') không khắc phục được lỗi là đây vẫn là một mệnh đề phụ thuộc bắt đầu bằng 'Because' và cần một mệnh đề độc lập đi kèm.
 ---
 
 ---
@@ -170,6 +186,10 @@ options: ["She worked hard she passed the exam.", "She worked hard, so she passe
 answer: 1
 grammar_article_slug: "phrase-vs-clause"
 explain: "Hai independent clauses cần liên từ (so) + dấu phẩy để nối đúng cách, tạo thành compound sentence."
+why_wrong:
+  '0': Hai mệnh đề độc lập được nối mà không có dấu câu hoặc liên từ, tạo thành câu chạy (run-on sentence).
+  '2': Mệnh đề thứ hai thiếu chủ ngữ ("she"), khiến câu không đầy đủ và không rõ ràng về nghĩa.
+  '3': Nối hai mệnh đề độc lập bằng dấu phẩy mà không có liên từ là một lỗi (comma splice), và từ "and" ở cuối câu thừa và sai vị trí.
 ---
 
 ---
@@ -184,6 +204,10 @@ options: ["Technology is advancing rapidly, and people are adapting.", "Technolo
 answer: 0
 grammar_article_slug: "phrase-vs-clause"
 explain: "Hai independent clauses liền nhau cần dấu phẩy + liên từ (and) hoặc dấu chấm câu phù hợp để tránh run-on."
+why_wrong:
+  '1': Dấu phẩy được đặt sai vị trí sau liên từ 'and' thay vì đặt trước nó khi nối hai mệnh đề độc lập.
+  '2': Dấu phẩy đặt sai vị trí, không giải quyết được lỗi run-on và phá vỡ cấu trúc của mệnh đề thứ hai.
+  '3': Từ 'people' sau dấu chấm phải được viết hoa để bắt đầu một câu mới.
 ---
 
 ---
@@ -227,6 +251,10 @@ options: ["Walking to school, the rain started.", "Walking to school, I got caug
 answer: 1
 grammar_article_slug: "phrase-vs-clause"
 explain: "Participial phrase 'Walking to school' cần chủ ngữ tương ứng ngay sau nó là người thực hiện hành động 'walking' — đó là 'I', không phải 'the rain', 'it', hay 'my umbrella'."
+why_wrong:
+  '0': Chủ ngữ "the rain" không thể thực hiện hành động "walking to school".
+  '2': Chủ ngữ "it" (ám chỉ thời tiết) không thể thực hiện hành động "walking to school".
+  '3': Chủ ngữ "my umbrella" không thể thực hiện hành động "walking to school".
 ---
 
 ---
@@ -241,6 +269,10 @@ options: ["the room was silent.", "she sat down in silence.", "silence filled th
 answer: 1
 grammar_article_slug: "phrase-vs-clause"
 explain: "'Shocked by the news' mô tả một người (bị sốc) — chủ ngữ theo sau phải là người đó: 'she'. Các đáp án khác đặt vật vô tri làm chủ ngữ, gây dangling participle."
+why_wrong:
+  '0': Chủ ngữ 'the room' là vật vô tri, không thể bị 'shocked by the news'.
+  '2': Chủ ngữ 'silence' là khái niệm trừu tượng, không thể là đối tượng bị 'shocked by the news'.
+  '3': Chủ ngữ 'it' ở đây ám chỉ tình huống hoặc không gian, không phải người có thể bị 'shocked by the news'.
 ---
 
 ---

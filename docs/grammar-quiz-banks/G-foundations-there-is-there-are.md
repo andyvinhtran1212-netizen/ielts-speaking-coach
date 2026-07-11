@@ -29,6 +29,10 @@ options: ["is", "are", "be", "am"]
 answer: 0
 grammar_article_slug: "there-is-there-are"
 explain: "Danh từ số ít 'a book' theo sau 'there' → dùng 'is'."
+why_wrong:
+  '1': '"are" dùng cho danh từ số nhiều, trong khi chủ ngữ "a book" là số ít.'
+  '2': '"be" là dạng nguyên thể của động từ, không được chia trực tiếp cho chủ ngữ số ít ở thì hiện tại đơn trong cấu trúc "There is/are".'
+  '3': '"am" chỉ được dùng với chủ ngữ "I", không phải với "a book" (danh từ số ít ngôi thứ ba).'
 ---
 
 ---
@@ -43,6 +47,10 @@ options: ["is", "are", "was", "has"]
 answer: 1
 grammar_article_slug: "there-is-there-are"
 explain: "Danh từ số nhiều 'three students' theo sau 'there' → dùng 'are'."
+why_wrong:
+  '0': Is dùng cho chủ ngữ số ít, trong khi 'three students' là chủ ngữ số nhiều.
+  '2': Was dùng cho chủ ngữ số ít ở thì quá khứ, trong khi 'three students' là chủ ngữ số nhiều.
+  '3': Has không được dùng trong cấu trúc 'There + be + danh từ' để diễn tả sự tồn tại.
 ---
 
 ---
@@ -57,6 +65,10 @@ options: ["is / are", "are / is", "is / is", "are / are"]
 answer: 0
 grammar_article_slug: "there-is-there-are"
 explain: "'water' là uncountable noun → dùng 'is'. 'no clean cups' theo sau là danh từ số nhiều 'cups' → dùng 'are'. Đáp án đúng là 'is / are'."
+why_wrong:
+  '1': Cả hai động từ đều sai vì 'water' là danh từ không đếm được cần 'is', và 'cups' là danh từ số nhiều cần 'are'.
+  '2': Động từ thứ hai sai vì 'cups' là danh từ số nhiều nên cần 'are', không phải 'is'.
+  '3': Động từ thứ nhất sai vì 'water' là danh từ không đếm được nên cần 'is', không phải 'are'.
 ---
 
 ---
@@ -114,6 +126,10 @@ options: ["There / their", "Their / there", "They're / their", "Their / they're"
 answer: 1
 grammar_article_slug: "there-is-there-are"
 explain: "'Their house' = sở hữu (nhà của họ). 'there is a garden' = cấu trúc giới thiệu sự tồn tại."
+why_wrong:
+  '0': Phương án này sai vì "There" (vị trí 1) không phải là đại từ sở hữu, và "their" (vị trí 2) không dùng để giới thiệu sự tồn tại.
+  '2': Phương án này sai vì "They're" (vị trí 1) là viết tắt của "they are", không dùng để chỉ sở hữu, và "their" (vị trí 2) không dùng để giới thiệu sự tồn tại.
+  '3': Phương án này sai vì "They're" (vị trí 2) là viết tắt của "they are", không thể dùng trong cấu trúc "there is" để giới thiệu sự tồn tại.
 ---
 
 ---
@@ -128,6 +144,10 @@ options: ["They're / there", "There / they're", "Their / there", "There / their"
 answer: 0
 grammar_article_slug: "there-is-there-are"
 explain: "'They're here' = 'They are here'. 'there is plenty of food' = cấu trúc giới thiệu sự tồn tại."
+why_wrong:
+  '1': Phương án này sai vì 'There' không thể làm chủ ngữ và động từ (They are) ở vế đầu, và 'they're' không phải là cấu trúc giới thiệu sự tồn tại cho vế sau.
+  '2': Phương án này sai vì 'Their' là tính từ sở hữu, không thể thay thế cho 'They are' làm chủ ngữ và động từ của câu ở vế đầu.
+  '3': Phương án này sai vì 'There' không thể làm chủ ngữ và động từ (They are) ở vế đầu, và 'their' (tính từ sở hữu) không dùng được trong cấu trúc giới thiệu sự tồn tại 'there is' ở vế sau.
 ---
 
 ---
@@ -185,6 +205,10 @@ options: ["Is there", "There is", "Is", "Have"]
 answer: 0
 grammar_article_slug: "there-is-there-are"
 explain: "Câu hỏi cần đảo trợ động từ 'is' lên trước 'there': 'Is there...?', không được bỏ 'there'. Danh từ số ít 'a good restaurant' → dùng 'is'."
+why_wrong:
+  '1': Đây là một câu khẳng định, không phải câu hỏi.
+  '2': Thiếu "there" để tạo cấu trúc hỏi về sự tồn tại ("Is there...?").
+  '3': Động từ "have" dùng cho sở hữu hoặc thì hoàn thành, không dùng để hỏi về sự tồn tại chung.
 ---
 
 ---
@@ -228,6 +252,10 @@ options: ["The café is on this street.", "There is a new café on this street."
 answer: 1
 grammar_article_slug: "there-is-there-are"
 explain: "'There is a new café' giới thiệu một thứ người nghe chưa biết lần đầu. 'The café is...' giả định người nghe đã biết café đó."
+why_wrong:
+  '0': “The café” dùng mạo từ “the” ngụ ý người nghe đã biết về quán cà phê này, không phải giới thiệu thông tin mới.
+  '2': “It is” thường dùng để xác định hoặc nói về một vật đã được đề cập hoặc đang hiển thị, không phải để giới thiệu sự tồn tại của một vật mới một cách tổng quát.
+  '3': Danh từ đếm được “café” khi nói về một quán cụ thể cần có mạo từ (a/an hoặc the) trước nó.
 ---
 
 ---

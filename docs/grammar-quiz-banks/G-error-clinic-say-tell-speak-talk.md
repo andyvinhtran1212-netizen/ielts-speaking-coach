@@ -43,6 +43,10 @@ options: ["say", "tell", "speak", "talk"]
 answer: 0
 grammar_article_slug: "say-tell-speak-talk"
 explain: "Nêu quan điểm chung chung (nội dung, không nhắm vào người nghe cụ thể) → say that. Đây là mẫu câu rất phổ biến ở Speaking Part 3."
+why_wrong:
+  '1': 'Tell thường cần một tân ngữ chỉ người đi kèm (ví dụ: tell someone that...) chứ không đứng một mình với mệnh đề "that" để nêu quan điểm chung chung.'
+  '2': Speak thường dùng để chỉ hành động nói, khả năng nói, hoặc nói chuyện trang trọng, không phù hợp để trực tiếp theo sau bởi mệnh đề "that" nhằm diễn đạt một ý kiến hay quan điểm phổ biến.
+  '3': Talk thường ngụ ý một cuộc trò chuyện thân mật hoặc cần giới từ đi kèm (talk about/to/with) chứ không theo sau trực tiếp bởi mệnh đề "that" để đưa ra một phát biểu chung.
 ---
 
 ---
@@ -100,6 +104,10 @@ options: ["say", "tell", "speak", "talk"]
 answer: 1
 grammar_article_slug: "say-tell-speak-talk"
 explain: "Sau 'tell' luôn phải có tân ngữ chỉ người nghe ('me'): tell someone something."
+why_wrong:
+  '0': Trong ngữ cảnh này, 'say' không đi trực tiếp với tân ngữ chỉ người ('me') mà thường cần giới từ 'to' (say to me) hoặc dùng với cấu trúc tường thuật khác.
+  '2': '''Speak'' thường dùng để chỉ hành động nói chuyện, giao tiếp hoặc nói một ngôn ngữ, và không đi với cấu trúc tân ngữ kép ''speak someone something'' như trong câu hỏi.'
+  '3': '''Talk'' chỉ hành động trò chuyện, thường là hai chiều hoặc về một chủ đề, và không thể đi trực tiếp với tân ngữ chỉ người (''me'') để truyền đạt thông tin theo cách này.'
 ---
 
 ---
@@ -127,6 +135,10 @@ options: ["said", "told", "spoke", "talked"]
 answer: 1
 grammar_article_slug: "say-tell-speak-talk"
 explain: "Collocation cố định: tell a story / tell a joke / tell a lie — dùng tell, không dùng say/speak/talk."
+why_wrong:
+  '0': Sai vì "say" thường được dùng với lời nói trực tiếp hoặc để tuyên bố một điều gì đó, không dùng để kể một câu chuyện.
+  '2': Sai vì "speak" thường chỉ hành động nói chuyện, diễn thuyết, hoặc khả năng sử dụng ngôn ngữ, không phải để kể một câu chuyện.
+  '3': Sai vì "talk" thường dùng để chỉ việc trò chuyện hoặc thảo luận, không có cấu trúc "talk a story" để kể một câu chuyện.
 ---
 
 ---
@@ -170,6 +182,10 @@ options: ["says", "tells", "speaks", "talks"]
 answer: 2
 grammar_article_slug: "say-tell-speak-talk"
 explain: "Collocation cố định 'speak + language' (speak English/Japanese/three languages) — chỉ dùng speak, không dùng say/tell/talk."
+why_wrong:
+  '0': Say không dùng để diễn tả khả năng sử dụng hoặc biết một ngôn ngữ.
+  '1': Tell cần một tân ngữ chỉ người hoặc một câu chuyện/thông tin được kể, không dùng với ngôn ngữ.
+  '3': 'Talk thường cần giới từ (ví dụ: talk in a language, talk to someone) hoặc dùng để chỉ hành động giao tiếp, không diễn tả khả năng sử dụng một ngôn ngữ.'
 ---
 
 ---
@@ -184,6 +200,10 @@ options: ["say", "tell", "speak", "talk"]
 answer: 2
 grammar_article_slug: "say-tell-speak-talk"
 explain: "'speak to/with someone' trang trọng hơn 'talk to/with someone', phù hợp trong ngữ cảnh formal như xin gặp quản lý."
+why_wrong:
+  '0': '''Say'' thường dùng để thuật lại lời nói hoặc thể hiện một ý kiến, không dùng với giới từ ''with someone'' để diễn tả ý muốn trò chuyện.'
+  '1': '''Tell'' thường được dùng để kể, truyền đạt thông tin hoặc ra lệnh cho ai đó, không dùng với ''with someone'' để chỉ việc trò chuyện.'
+  '3': '''Talk'' tuy có nghĩa là trò chuyện nhưng ít trang trọng hơn ''speak'' và không phù hợp bằng trong một yêu cầu chính thức (''formal request'') như ngữ cảnh này.'
 ---
 
 ---
@@ -198,6 +218,10 @@ options: ["says", "tells", "speaks", "talks"]
 answer: 2
 grammar_article_slug: "say-tell-speak-talk"
 explain: "Collocation cố định: speak highly of (khen ngợi ai/cái gì). 'talk' không kết hợp với 'highly of' trong cụm này."
+why_wrong:
+  '0': Từ "says" thường được dùng để nói ra một điều gì đó trực tiếp (say something) hoặc dùng với mệnh đề (say that...), không kết hợp với "highly of" trong cụm từ cố định này.
+  '1': Động từ "tells" cần có tân ngữ gián tiếp (tell someone something) hoặc dùng để kể chuyện, không phù hợp với cấu trúc "highly of" để diễn đạt sự khen ngợi trong thành ngữ này.
+  '3': Cụm từ "talk highly of" không phải là một collocation chính xác; "talk" không kết hợp với "highly of" trong thành ngữ mang nghĩa khen ngợi này.
 ---
 
 ---
@@ -241,6 +265,10 @@ options: ["say", "tell", "speak", "talk"]
 answer: 3
 grammar_article_slug: "say-tell-speak-talk"
 explain: "Collocation cố định 'talk about + topic' — thân mật, dùng cho hội thoại hai chiều về một chủ đề."
+why_wrong:
+  '0': Say không đi với giới từ 'about' để nói về một chủ đề trong ngữ cảnh trò chuyện hai chiều.
+  '1': Tell cần có tân ngữ gián tiếp (người được kể) trước khi nói về một điều gì đó ('tell someone about something').
+  '2': Speak about thường dùng trong ngữ cảnh trang trọng hơn hoặc khi nói một chiều, ít phù hợp với lời mời trò chuyện thân mật, hai chiều ('Let's...').
 ---
 
 ---
@@ -255,6 +283,10 @@ options: ["say", "tell", "speak", "talk"]
 answer: 3
 grammar_article_slug: "say-tell-speak-talk"
 explain: "'talk about' phù hợp ngữ cảnh thân mật, đời thường (khác với 'speak about' trang trọng hơn, dùng cho thuyết trình/hội nghị)."
+why_wrong:
+  '0': Say không dùng với giới từ "about" để diễn tả việc trò chuyện hay thảo luận về một chủ đề.
+  '1': Tell thường cần một tân ngữ là người nghe (tell someone something) và không dùng để mô tả một cuộc trò chuyện chung về một chủ đề.
+  '2': Speak about mang sắc thái trang trọng hơn và không phù hợp với ngữ cảnh "casual, everyday chat" (trò chuyện thân mật, đời thường).
 ---
 
 ---
@@ -296,4 +328,8 @@ options: ["He talked at the annual conference.", "He spoke at the annual confere
 answer: 1
 grammar_article_slug: "say-tell-speak-talk"
 explain: "Ngữ cảnh trang trọng (hội nghị, bài phát biểu) ưu tiên 'speak at a conference'; 'talk' thiên về hội thoại thân mật hai chiều."
+why_wrong:
+  '0': Động từ "talked" thường dùng cho các cuộc trò chuyện thân mật hoặc đối thoại hai chiều, không phù hợp với ngữ cảnh trang trọng của một bài phát biểu tại hội nghị.
+  '2': Mặc dù "talk highly of" là một thành ngữ đúng, câu hỏi này yêu cầu phân biệt "speak" và "talk" trong ngữ cảnh trình bày một bài phát biểu trang trọng, chứ không phải diễn đạt ý kiến.
+  '3': Động từ "said" thường cần một tân ngữ trực tiếp (nói cái gì) hoặc dùng trong câu tường thuật, không diễn tả hành động phát biểu chính thức tại một hội nghị.
 ---

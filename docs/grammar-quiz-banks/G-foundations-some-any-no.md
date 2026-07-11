@@ -29,6 +29,10 @@ options: ["some", "any", "no", "a"]
 answer: 0
 grammar_article_slug: "some-any-no"
 explain: "Câu khẳng định với danh từ số nhiều đếm được → dùng 'some'."
+why_wrong:
+  '1': Từ 'any' thường được dùng trong câu phủ định hoặc câu hỏi, không dùng trong câu khẳng định thông thường.
+  '2': Từ 'no' mang nghĩa phủ định ('không có cái nào'), trong khi câu đang ở dạng khẳng định và cần một từ chỉ số lượng tồn tại.
+  '3': Mạo từ 'a' chỉ dùng với danh từ số ít đếm được, nhưng 'seats' là danh từ số nhiều.
 ---
 
 ---
@@ -56,6 +60,10 @@ options: ["some", "any", "no", "a few of"]
 answer: 0
 grammar_article_slug: "some-any-no"
 explain: "Khi mời mọc/đề nghị, dùng 'some' dù câu ở dạng câu hỏi, vì người nói kỳ vọng câu trả lời 'yes'."
+why_wrong:
+  '1': any thường dùng trong câu hỏi chung chung hoặc câu phủ định, không phù hợp cho lời mời/đề nghị kỳ vọng câu trả lời "yes".
+  '2': no là từ phủ định chỉ sự vắng mặt hoặc không có, không được dùng để đề nghị một thứ gì đó trong lời mời.
+  '3': a few of chỉ dùng với danh từ đếm được số nhiều, trong khi dessert trong ngữ cảnh này thường là danh từ không đếm được hoặc số ít.
 ---
 
 ---
@@ -99,6 +107,10 @@ options: ["some", "any", "no", "a"]
 answer: 1
 grammar_article_slug: "some-any-no"
 explain: "Câu phủ định (didn't) → dùng 'any', không dùng 'some'."
+why_wrong:
+  '0': '''Some'' không được dùng trong câu phủ định.'
+  '2': '''No'' không thể đi cùng với ''didn''t'' vì sẽ tạo thành phủ định kép.'
+  '3': '''A'' chỉ dùng với danh từ đếm được số ít, trong khi ''documents'' là danh từ số nhiều.'
 ---
 
 ---
@@ -126,6 +138,10 @@ options: ["some", "any", "no", "a little of"]
 answer: 1
 grammar_article_slug: "some-any-no"
 explain: "Câu hỏi thật (is there...?) → dùng 'any'."
+why_wrong:
+  '0': '''Some'' thường dùng trong câu khẳng định hoặc câu hỏi mang tính đề nghị/mong đợi câu trả lời khẳng định, không phải câu hỏi chung chung.'
+  '2': '''No'' thường dùng trong câu phủ định hoặc câu hỏi tu từ, không phù hợp để hỏi về sự tồn tại một cách trung lập.'
+  '3': 'Cụm ''a little of'' cần một từ hạn định hoặc đại từ theo sau ''of'' (ví dụ: a little of *it*), hoặc chỉ dùng ''a little'' trực tiếp với danh từ không đếm được.'
 ---
 
 ---
@@ -154,6 +170,10 @@ options: ["I don't have any strong opinion on this topic.", "Any candidate who s
 answer: 1
 grammar_article_slug: "some-any-no"
 explain: "'Any candidate who scores band 7...' là câu KHẲNG ĐỊNH với 'any' mang nghĩa 'bất kỳ ứng viên nào' — khác với 3 câu còn lại vốn dùng any thông thường trong phủ định/câu hỏi."
+why_wrong:
+  '0': '''Any'' trong câu này được dùng trong câu phủ định để chỉ số lượng bằng không, không phải nghĩa ''bất kỳ cái nào'' với ý ''không phân biệt cái nào''.'
+  '2': '''Any'' trong câu này được dùng trong câu hỏi để hỏi về sự tồn tại của một lượng nào đó, không phải nghĩa ''bất kỳ cái nào'' với ý ''không phân biệt cái nào''.'
+  '3': '''Any'' trong câu này được dùng trong câu phủ định để chỉ số lượng bằng không, không phải nghĩa ''bất kỳ cái nào'' với ý ''không phân biệt cái nào''.'
 ---
 
 # ===== item_key 3 · No — phủ định dứt khoát (thay 'not any', tránh double negative) =====
@@ -170,6 +190,10 @@ options: ["some", "any", "no", "not"]
 answer: 2
 grammar_article_slug: "some-any-no"
 explain: "'no' đứng trước danh từ, đi với động từ ở dạng KHẲNG ĐỊNH (is), thay cho 'not any': 'There is no direct flight...'"
+why_wrong:
+  '0': Some thường được dùng trong câu khẳng định và diễn tả sự tồn tại, mâu thuẫn với vế sau "so we need to transit" gợi ý sự không tồn tại.
+  '1': Any thường dùng trong câu phủ định hoặc câu hỏi, không đứng một mình trong câu khẳng định để mang nghĩa phủ định.
+  '3': Not cần một mạo từ (như "a" hoặc "an") đi kèm với danh từ số ít đếm được để tạo thành câu phủ định đúng ngữ pháp.
 ---
 
 ---
@@ -197,6 +221,10 @@ options: ["some", "any", "no", "not any"]
 answer: 2
 grammar_article_slug: "some-any-no"
 explain: "'no' + danh từ + động từ khẳng định (found) diễn đạt phủ định mạnh và dứt khoát hơn 'didn't find any'."
+why_wrong:
+  '0': '''Some'' thường dùng trong câu khẳng định, nhưng nếu dùng ở đây sẽ tạo ra mâu thuẫn logic với vế sau ''the appeal was rejected'' (đơn bị từ chối).'
+  '1': '''Any'' thường dùng trong câu phủ định hoặc câu hỏi, không đứng trực tiếp sau động từ khẳng định ''found'' để diễn đạt ý phủ định.'
+  '3': Cụm 'not any' không thể đứng trực tiếp trước danh từ 'evidence' trong cấu trúc câu khẳng định 'found', mà cần động từ phủ định như 'did not find any'.
 ---
 
 ---
@@ -240,6 +268,10 @@ options: ["Someone", "Anyone", "No one", "Something"]
 answer: 0
 grammar_article_slug: "some-any-no"
 explain: "Câu khẳng định, nói về người → 'someone'."
+why_wrong:
+  '1': Phương án này sai vì 'anyone' thường dùng trong câu phủ định, câu hỏi hoặc câu điều kiện, không dùng trong câu khẳng định thông thường để chỉ người.
+  '2': Phương án này sai vì 'no one' mang nghĩa phủ định ('không một ai') và sẽ làm thay đổi hoàn toàn ý nghĩa của câu thành không có ai để lại lời nhắn.
+  '3': Phương án này sai vì 'something' dùng để chỉ vật hoặc sự việc, không dùng để chỉ người thực hiện hành động để lại lời nhắn.
 ---
 
 ---
@@ -267,6 +299,10 @@ options: ["somewhere", "anywhere", "nowhere", "something"]
 answer: 1
 grammar_article_slug: "some-any-no"
 explain: "Câu phủ định (can't find) → dùng 'anywhere', không dùng 'somewhere'."
+why_wrong:
+  '0': Somewhere không dùng trong câu phủ định "can't find" theo quy tắc ngữ pháp.
+  '2': Dùng "nowhere" sẽ tạo thành cấu trúc phủ định kép với "can't", gây sai ngữ pháp.
+  '3': Something chỉ sự vật/vật thể, không phải địa điểm như ngữ cảnh câu yêu cầu ("in the apartment").
 ---
 
 ---
@@ -308,4 +344,8 @@ options: ["Did you find anything useful in the archive?", "Would you like someth
 answer: 1
 grammar_article_slug: "some-any-no"
 explain: "'Would you like something to drink?' là lời mời, tương tự cách 'some' được dùng trong câu hỏi mang tính mời mọc — kỳ vọng câu trả lời 'yes'."
+why_wrong:
+  '0': Phương án này dùng "anything" (một *any*-compound), không phải "some"-compound, và đây là một câu hỏi thông thường chứ không phải lời mời lịch sự.
+  '2': Phương án này dùng "anywhere" (một *any*-compound), không phải "some"-compound, và đây là một câu phủ định mô tả tình trạng, không phải lời đề nghị.
+  '3': Phương án này dùng "Nobody" (một *no*-compound), không phải "some"-compound, và đây là một câu trần thuật mang ý nghĩa phủ định, không phải lời mời.
 ---

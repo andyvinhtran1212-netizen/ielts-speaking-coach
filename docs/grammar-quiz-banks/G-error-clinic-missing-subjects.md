@@ -29,6 +29,10 @@ options: ["Is very important to study hard.", "It is very important to study har
 answer: 1
 grammar_article_slug: "missing-subjects"
 explain: "Tiếng Anh luôn cần chủ ngữ. Câu này thiếu chủ ngữ thật nên phải thêm dummy subject 'It': 'It is very important to study hard.'"
+why_wrong:
+  '0': Thiếu chủ ngữ cho động từ "is" để tạo thành một câu hoàn chỉnh.
+  '2': Thiếu chủ ngữ để tạo thành một câu hoàn chỉnh.
+  '3': Thiếu chủ ngữ để tạo thành một câu hoàn chỉnh.
 ---
 
 ---
@@ -43,6 +47,10 @@ options: ["Learned", "I have", "Have", "Has"]
 answer: 1
 grammar_article_slug: "missing-subjects"
 explain: "Câu dịch thẳng từ tiếng Việt ('Học tiếng Anh 5 năm rồi') dễ quên chủ ngữ. Tiếng Anh cần chủ ngữ rõ ràng: 'I have learned English for five years.'"
+why_wrong:
+  '0': Phương án này thiếu chủ ngữ, khiến câu không hoàn chỉnh.
+  '2': Phương án này thiếu chủ ngữ. "Have" là trợ động từ, cần có chủ ngữ đi kèm để tạo thành một câu hoàn chỉnh.
+  '3': Phương án này thiếu chủ ngữ. Hơn nữa, "has" chỉ dùng cho chủ ngữ ngôi thứ ba số ít (he/she/it), không phù hợp với chủ ngữ "I" được ngụ ý ở vế sau.
 ---
 
 ---
@@ -86,6 +94,10 @@ options: ["Although studied hard, didn't pass the exam.", "Although she studied 
 answer: 1
 grammar_article_slug: "missing-subjects"
 explain: "Mỗi mệnh đề trong câu phức cần chủ ngữ riêng — kể cả mệnh đề 'Although'. Đúng: 'Although she studied hard, she didn't pass the exam.'"
+why_wrong:
+  '0': Cả hai mệnh đề "Although studied hard" và "didn't pass the exam" đều thiếu chủ ngữ.
+  '2': Mệnh đề phụ "Although studied hard" thiếu chủ ngữ.
+  '3': Mệnh đề chính "didn't pass the exam" thiếu chủ ngữ.
 ---
 
 ---
@@ -100,6 +112,10 @@ options: ["arrived", "they", "was", "have"]
 answer: 1
 grammar_article_slug: "missing-subjects"
 explain: "Mệnh đề 'When...' cần chủ ngữ riêng của nó, không thể mượn chủ ngữ của mệnh đề chính. Đúng: 'When they arrived at the airport, everyone clapped.'"
+why_wrong:
+  '0': Arrived là động từ, không thể đóng vai trò chủ ngữ cho mệnh đề phụ.
+  '2': Was là động từ to-be dạng quá khứ, không thể làm chủ ngữ của mệnh đề.
+  '3': Have là trợ động từ, không thể đóng vai trò chủ ngữ cho mệnh đề.
 ---
 
 ---
@@ -143,6 +159,10 @@ options: ["I went to the market and bought vegetables, were fresh.", "I went to 
 answer: 1
 grammar_article_slug: "missing-subjects"
 explain: "Vế sau dấu phẩy 'were fresh' thiếu chủ ngữ. Cần nối bằng đại từ quan hệ 'that' để làm chủ ngữ cho mệnh đề sau: '...bought vegetables that were fresh.'"
+why_wrong:
+  '0': Mệnh đề "were fresh" thiếu đại từ quan hệ làm chủ ngữ để nối đúng cách với danh từ "vegetables".
+  '2': Động từ "was" không hòa hợp với chủ ngữ số nhiều "vegetables".
+  '3': Động từ "was" không hòa hợp với chủ ngữ số nhiều "vegetables".
 ---
 
 ---
@@ -200,6 +220,10 @@ options: ["Is raining outside.", "It is raining outside.", "Raining outside.", "
 answer: 1
 grammar_article_slug: "missing-subjects"
 explain: "Câu nói về thời tiết luôn cần dummy subject 'It' làm chủ ngữ hình thức, vì tiếng Việt không có từ tương đương nên người học hay bỏ sót. Đúng: 'It is raining outside.'"
+why_wrong:
+  '0': Câu thiếu chủ ngữ 'It' cần thiết cho các câu nói về thời tiết.
+  '2': Câu thiếu cả chủ ngữ 'It' và động từ 'is' để tạo thành một câu hoàn chỉnh.
+  '3': Chủ ngữ giả 'There' được dùng sai; 'There' chỉ sự tồn tại, trong khi 'It' dùng cho thời tiết.
 ---
 
 ---
@@ -214,6 +238,10 @@ options: ["(để trống)", "It", "There", "This one"]
 answer: 1
 grammar_article_slug: "missing-subjects"
 explain: "Cấu trúc 'takes + khoảng thời gian + to V' luôn cần dummy subject 'It' đứng đầu câu: 'It takes a long time to become fluent.'"
+why_wrong:
+  '0': Câu tiếng Anh luôn cần có chủ ngữ, không thể để trống.
+  '2': '"There" được dùng để giới thiệu sự tồn tại của cái gì đó (There is/are), không dùng trong cấu trúc "It takes + thời gian + to V".'
+  '3': '"This one" dùng để chỉ một đối tượng cụ thể đã được nhắc đến hoặc chỉ rõ, không phù hợp làm chủ ngữ giả cho một hành động hay quá trình chung chung.'
 ---
 
 ---

@@ -43,6 +43,10 @@ options: ["Is", "It is", "There", "Very"]
 answer: 1
 grammar_article_slug: "sentence-elements"
 explain: "Câu cần chủ ngữ trước động từ 'is'. 'It' là chủ ngữ giả bắt buộc trong tiếng Anh, khác với tiếng Việt có thể bỏ chủ ngữ."
+why_wrong:
+  '0': Thiếu chủ ngữ cho động từ "is" ở đầu câu khẳng định.
+  '2': '"There" dùng để chỉ sự tồn tại ("there is/are"), không dùng làm chủ ngữ giả cho câu đánh giá tính chất hoặc mức độ quan trọng.'
+  '3': '"Very" là trạng từ, không thể làm chủ ngữ hoặc động từ trong câu.'
 ---
 
 ---
@@ -57,6 +61,10 @@ options: ["Interesting very.", "It is very interesting.", "Very interesting is."
 answer: 1
 grammar_article_slug: "sentence-elements"
 explain: "Không giống tiếng Việt, tiếng Anh bắt buộc phải có chủ ngữ — dùng 'It' làm chủ ngữ hình thức khi không có chủ ngữ thật."
+why_wrong:
+  '0': Câu thiếu chủ ngữ và động từ; trật tự từ "very" và "interesting" cũng bị sai.
+  '2': Câu thiếu chủ ngữ; động từ "is" đứng sai vị trí trong câu trần thuật.
+  '3': Câu thiếu chủ ngữ; trật tự từ này chỉ dùng cho câu hỏi, không phải câu trần thuật.
 ---
 
 ---
@@ -100,6 +108,10 @@ options: ["(nothing needed)", "is", "very", "engineer"]
 answer: 1
 grammar_article_slug: "sentence-elements"
 explain: "Câu này cần động từ liên kết 'is' để nối chủ ngữ với bổ ngữ 'a software engineer' — tiếng Anh không thể bỏ động từ 'be' như tiếng Việt."
+why_wrong:
+  '0': Tiếng Anh luôn cần một động từ chính trong câu để liên kết chủ ngữ và tân ngữ/bổ ngữ, không thể bỏ trống như tiếng Việt.
+  '2': '"Very" là một trạng từ dùng để bổ nghĩa cho tính từ hoặc trạng từ khác, không thể dùng làm động từ chính trong câu.'
+  '3': '"Engineer" là một danh từ và không thể làm động từ chính để liên kết chủ ngữ "My brother" với cụm danh từ "a software engineer".'
 ---
 
 ---
@@ -114,6 +126,10 @@ options: ["is", "very", "tired of", "(no verb needed)"]
 answer: 0
 grammar_article_slug: "sentence-elements"
 explain: "Câu cần động từ 'is' làm động từ chính — không câu tiếng Anh nào thiếu động từ."
+why_wrong:
+  '1': Very là một trạng từ, không thể đóng vai trò là động từ chính mà câu đang thiếu để hoàn chỉnh ngữ pháp.
+  '2': Tired of là một cụm tính từ diễn tả sự chán nản hoặc mệt mỏi với điều gì đó, và câu vẫn thiếu động từ chính để liên kết chủ ngữ với tính từ.
+  '3': Mọi câu tiếng Anh đều cần một động từ chính để cấu thành câu hoàn chỉnh và đúng ngữ pháp.
 ---
 
 ---
@@ -128,6 +144,10 @@ options: ["no verb, like Vietnamese", "the verb 'be' (is/are)", "a preposition i
 answer: 1
 grammar_article_slug: "sentence-elements"
 explain: "Khác với tiếng Việt có thể bỏ động từ 'là', tiếng Anh bắt buộc phải có động từ 'be' (is/are) để liên kết chủ ngữ và bổ ngữ."
+why_wrong:
+  '0': Tiếng Anh luôn yêu cầu một động từ chính trong câu, không thể lược bỏ như tiếng Việt.
+  '2': Giới từ chỉ mối quan hệ và không thể đóng vai trò là động từ chính để liên kết chủ ngữ và bổ ngữ.
+  '3': Danh từ là thành phần chỉ người, vật hoặc ý tưởng, không thể làm động từ chính của một câu.
 ---
 
 ---
@@ -171,6 +191,10 @@ options: ["a teacher", "the book", "her friend home", "a message"]
 answer: 0
 grammar_article_slug: "sentence-elements"
 explain: "'is' là linking verb, theo sau là complement mô tả chủ ngữ 'She' → 'a teacher' đúng vai trò complement."
+why_wrong:
+  '1': Sai về nghĩa vì một người không thể là một cuốn sách vật lý.
+  '2': Cấu trúc 'tân ngữ + trạng từ' ('her friend home') không phù hợp đứng sau động từ nối 'is'.
+  '3': Sai về nghĩa vì một người không thể theo nghĩa đen là một thông điệp.
 ---
 
 ---
@@ -185,6 +209,10 @@ options: ["object", "complement", "adverbial", "indirect object"]
 answer: 1
 grammar_article_slug: "sentence-elements"
 explain: "'seems' là linking verb — từ theo sau mô tả chủ ngữ 'the situation' nên là complement, không phải object (object là vật bị tác động bởi động từ)."
+why_wrong:
+  '0': Phương án này sai vì "complicated" mô tả chủ ngữ thông qua động từ nối "seems", không phải đối tượng bị tác động bởi động từ.
+  '2': Phương án này sai vì "complicated" là một tính từ mô tả chủ ngữ, không phải trạng từ bổ nghĩa cho động từ hay các thành phần khác.
+  '3': Phương án này sai vì "complicated" là một tính từ mô tả chủ ngữ và động từ "seems" là động từ nối, không phải động từ có đối tượng gián tiếp.
 ---
 
 ---
@@ -228,6 +256,10 @@ options: ["It", "There", "This", "They"]
 answer: 1
 grammar_article_slug: "sentence-elements"
 explain: "Khi giới thiệu sự tồn tại của nhiều thứ, dùng 'There are' làm chủ ngữ giả — 'There' không phải chủ ngữ thật."
+why_wrong:
+  '0': It" là chủ ngữ giả số ít và không dùng để giới thiệu sự tồn tại của nhiều thứ, do đó không phù hợp với động từ "are".
+  '2': '"This" là đại từ chỉ định số ít, không thể đi với động từ "are" số nhiều và không dùng để giới thiệu sự tồn tại.'
+  '3': '"They" là đại từ nhân xưng chỉ các đối tượng số nhiều cụ thể đã được đề cập, không dùng để giới thiệu sự tồn tại mới.'
 ---
 
 ---
@@ -242,6 +274,10 @@ options: ["There / It", "It / There", "It / It", "There / There"]
 answer: 1
 grammar_article_slug: "sentence-elements"
 explain: "'It' làm chủ ngữ giả trước tính từ + to-infinitive ('It is important to...'). 'There' dùng để giới thiệu sự tồn tại của nhiều thứ ('There are many rules...')."
+why_wrong:
+  '0': Vế đầu, 'There' không dùng làm chủ ngữ giả khi theo sau là tính từ và động từ nguyên mẫu; vế sau, 'It' là chủ ngữ số ít không đi với 'are'.
+  '2': Vế thứ hai sai vì 'It' là chủ ngữ số ít, không thể đi với động từ 'are' và không dùng để giới thiệu sự tồn tại của nhiều thứ.
+  '3': Vế thứ nhất sai vì 'There' dùng để giới thiệu sự tồn tại, không làm chủ ngữ giả cho cấu trúc tính từ + động từ nguyên mẫu.
 ---
 
 ---

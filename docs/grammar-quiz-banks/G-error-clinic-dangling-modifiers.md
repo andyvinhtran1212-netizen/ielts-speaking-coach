@@ -29,6 +29,10 @@ options: ["Walking home, the rain started.", "Walking home, I was caught in the 
 answer: 1
 grammar_article_slug: "dangling-modifiers"
 explain: "Cụm phân từ đầu câu ('Walking home') mặc định thuộc về chủ ngữ ngay sau dấu phẩy. Chỉ 'I' mới có thể 'walking' — mưa, ô, điện thoại thì không."
+why_wrong:
+  '0': Mưa không thể tự đi bộ về nhà.
+  '2': Một chiếc ô không thể tự đi bộ về nhà.
+  '3': Điện thoại không thể tự đi bộ về nhà.
 ---
 
 ---
@@ -56,6 +60,10 @@ options: ["the bus took her", "she went", "her bag was carried", "the taxi arriv
 answer: 1
 grammar_article_slug: "dangling-modifiers"
 explain: "Chủ ngữ ngay sau dấu phẩy phải là người/vật cảm thấy 'exhausted'. Chỉ 'she' hợp lý — xe buýt, cái túi, taxi không thể 'feel exhausted'."
+why_wrong:
+  '0': Xe buýt không thể cảm thấy kiệt sức.
+  '2': Chiếc túi không thể cảm thấy kiệt sức.
+  '3': Xe taxi không thể cảm thấy kiệt sức.
 ---
 
 ---
@@ -97,6 +105,10 @@ options: ["Concerned about rising tuition fees, the university launched a schola
 answer: 0
 grammar_article_slug: "dangling-modifiers"
 explain: "'Concerned about rising tuition fees' phải mô tả một thực thể biết 'lo lắng' — 'the university' (chủ thể có ý chí), không phải 'a scholarship scheme' (vật vô tri không thể lo lắng)."
+why_wrong:
+  '1': Cụm từ "Concerned about rising tuition fees" vẫn bổ nghĩa cho "a scholarship scheme" (chương trình học bổng), một vật vô tri không thể lo lắng.
+  '2': Cụm từ "Concerning rising tuition fees" thay đổi ý nghĩa gốc ("lo lắng") thành "liên quan đến" và không chỉ ra đối tượng nào "lo lắng" như yêu cầu của câu gốc.
+  '3': Đại từ "it" (ám chỉ chương trình học bổng) không thể "lo lắng" về học phí, do đó lỗi bổ ngữ treo vẫn chưa được sửa.
 ---
 
 # ===== item_key 2 · Sửa bằng cách đổi chủ ngữ cho khớp phân từ =====
@@ -113,6 +125,10 @@ options: ["the shelf", "the manual", "she", "the screws"]
 answer: 2
 grammar_article_slug: "dangling-modifiers"
 explain: "Cách sửa 1: đổi chủ ngữ cho khớp phân từ. Chỉ 'she' (người) mới có thể 'reading the instructions' — cái kệ, sách hướng dẫn, con vít thì không đọc được."
+why_wrong:
+  '0': Cái kệ không thể đọc hướng dẫn sử dụng.
+  '1': Sách hướng dẫn không thể tự đọc hướng dẫn.
+  '3': Những con vít không thể đọc hướng dẫn sử dụng.
 ---
 
 ---
@@ -140,6 +156,10 @@ options: ["Determined to pass the IELTS test, she spent months preparing.", "Det
 answer: 0
 grammar_article_slug: "dangling-modifiers"
 explain: "'Determined to pass the IELTS test' chỉ mô tả một người có quyết tâm. Đổi chủ ngữ thành 'she' (người quyết tâm) khớp đúng với cụm phân từ."
+why_wrong:
+  '1': Chủ ngữ 'months of preparation' không thể là đối tượng 'determined' (quyết tâm), khiến cụm phân từ 'Determined to pass...' vẫn bị treo.
+  '2': Chủ ngữ 'preparation' không thể là người 'determined' (quyết tâm), khiến cụm phân từ 'Determined to pass...' vẫn bị treo.
+  '3': Chủ ngữ 'it' là một đại từ trống, không thể là người 'determined' (quyết tâm), khiến cụm phân từ 'Determined to pass...' vẫn bị treo.
 ---
 
 ---
@@ -224,6 +244,10 @@ options: ["While the committee reviewed the applications, several errors were fo
 answer: 0
 grammar_article_slug: "dangling-modifiers"
 explain: "Thêm chủ ngữ 'the committee' và chia động từ 'reviewed' biến cụm phân từ rút gọn thành mệnh đề phụ đầy đủ ('While the committee reviewed the applications'), tách biệt rõ với chủ ngữ mệnh đề chính 'several errors'."
+why_wrong:
+  '1': Mệnh đề phụ 'While reviewed the applications' thiếu chủ ngữ cho động từ 'reviewed' và cấu trúc ngữ pháp sai.
+  '2': Cả mệnh đề phụ 'While review the applications' và mệnh đề chính 'errors found' đều thiếu chủ ngữ và/hoặc động từ chưa được chia đúng thì.
+  '3': Cụm từ 'While reviewing applications' vẫn là mệnh đề rút gọn bị treo (dangling modifier) vì không có chủ ngữ riêng biệt rõ ràng.
 ---
 
 ---
@@ -265,6 +289,10 @@ options: ["Upon completing the internship, several interns were offered a perman
 answer: 1
 grammar_article_slug: "dangling-modifiers"
 explain: "Cách 2 giữ nguyên chủ ngữ mệnh đề chính ('a permanent contract') nhưng thêm chủ ngữ riêng ('she') và liên từ ('After') để biến cụm phân từ thành mệnh đề phụ đầy đủ — khác với phương án A vốn đổi chủ ngữ mệnh đề chính (đó là cách sửa 1)."
+why_wrong:
+  '0': Phương án này thay đổi chủ ngữ của mệnh đề chính (từ 'a permanent contract' sang 'several interns'), điều mà đề bài yêu cầu tránh khi áp dụng cách sửa này.
+  '2': Cụm từ 'Upon complete' sai ngữ pháp (phải là 'Upon completing') và mệnh đề chính 'a contract offered' cũng không đúng ngữ pháp và thiếu nghĩa.
+  '3': Cụm từ 'Completing the internship' vẫn là cụm phân từ treo (dangling participle) và mệnh đề chính thiếu chủ ngữ, khiến câu vẫn sai ngữ pháp.
 ---
 
 # ===== item_key 4 · Dangling to-infinitive / reduced clause đầu câu =====
@@ -281,6 +309,10 @@ options: ["To improve health, exercise is essential.", "To improve health, peopl
 answer: 1
 grammar_article_slug: "dangling-modifiers"
 explain: "'To improve health' cần một chủ ngữ biết chủ động hành động — 'people' (con người tập thể dục), không phải 'exercise' (bản thân việc tập thể dục không 'improve health' một cách chủ động)."
+why_wrong:
+  '0': Chủ ngữ "exercise" không phải là tác nhân hợp lý để chủ động "cải thiện sức khỏe" trong cấu trúc này, dẫn đến lỗi bổ ngữ lơ lửng.
+  '2': Đây không phải là một câu hoàn chỉnh vì thiếu động từ chính và cấu trúc chủ ngữ-vị ngữ để tạo thành một mệnh đề độc lập.
+  '3': Cụm từ "To improving health" sai ngữ pháp; cần dùng dạng nguyên thể "To improve".
 ---
 
 ---
@@ -349,4 +381,8 @@ options: ["To compete in the global job market, graduates need strong English sk
 answer: 0
 grammar_article_slug: "dangling-modifiers"
 explain: "'To compete in the global job market' cần tác nhân là người cạnh tranh — 'graduates' (người thực sự đi cạnh tranh việc làm), không phải 'strong English skills' (vật vô tri, dù có 'for graduates' bổ nghĩa phía sau vẫn không sửa được lỗi vị trí chủ ngữ)."
+why_wrong:
+  '1': Cụm "To competing" sai ngữ pháp; sau "to" (chỉ mục đích) là động từ nguyên mẫu không "ing".
+  '2': Cấu trúc "it is required strong English skills" không chuẩn ngữ pháp, và không sửa được lỗi bổ ngữ lửng (dangling modifier) vì "it" không phải là tác nhân cạnh tranh.
+  '3': Cụm "Competing in the global job market" vẫn là một bổ ngữ lửng, vì "strong English skills" không phải là chủ thể thực hiện hành động "competing".
 ---

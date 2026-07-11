@@ -29,6 +29,10 @@ options: ["benefit", "beneficial", "benefited", "beneficially"]
 answer: 1
 grammar_article_slug: "word-form-errors"
 explain: "Trước danh từ 'habit' cần TÍNH TỪ → beneficial. 'benefit' là danh từ/động từ, không đứng trước noun để bổ nghĩa."
+why_wrong:
+  '0': '"benefit" là danh từ hoặc động từ, không phải tính từ nên không thể bổ nghĩa cho danh từ "habit".'
+  '2': '"benefited" là phân từ quá khứ, chỉ sự việc đã được hưởng lợi, không phải tính từ mô tả một thói quen mang lại lợi ích.'
+  '3': '"beneficially" là trạng từ, dùng để bổ nghĩa cho động từ, tính từ hoặc trạng từ khác, không thể bổ nghĩa trực tiếp cho danh từ "habit".'
 ---
 
 ---
@@ -43,6 +47,10 @@ options: ["modern", "modernity", "modernise", "modernisation"]
 answer: 0
 grammar_article_slug: "word-form-errors"
 explain: "Sau 'look' (linking verb) cần TÍNH TỪ, không phải danh từ hay động từ → modern."
+why_wrong:
+  '1': Đây là một danh từ, trong khi vị trí cần điền là một tính từ bổ nghĩa cho chủ ngữ sau động từ nối "looks".
+  '2': Đây là một động từ, không phù hợp để bổ nghĩa cho chủ ngữ sau động từ nối "looks".
+  '3': Đây là một danh từ chỉ quá trình, không phải là tính từ cần thiết để mô tả chủ ngữ.
 ---
 
 ---
@@ -57,6 +65,10 @@ options: ["health", "healthy", "healthily", "healthiness"]
 answer: 1
 grammar_article_slug: "word-form-errors"
 explain: "Trước danh từ 'effect' cần TÍNH TỪ bổ nghĩa → healthy effect, không phải danh từ 'health'."
+why_wrong:
+  '0': '"Health" là danh từ, không thể dùng để bổ nghĩa cho danh từ "effect" trong ngữ cảnh cần một tính từ miêu tả tính chất.'
+  '2': '"Healthily" là trạng từ, dùng để bổ nghĩa cho động từ, tính từ hoặc trạng từ khác, không thể bổ nghĩa cho danh từ "effect".'
+  '3': '"Healthiness" là danh từ, không thể dùng để bổ nghĩa cho danh từ "effect" để miêu tả tính chất của nó.'
 ---
 
 ---
@@ -98,6 +110,10 @@ options: ["The plan has faced significance criticism from industry experts.", "T
 answer: 1
 grammar_article_slug: "word-form-errors"
 explain: "Trước danh từ 'criticism' cần TÍNH TỪ 'significant', không dùng danh từ 'significance' hay trạng từ 'significantly'."
+why_wrong:
+  '0': Significance là danh từ, không thể bổ nghĩa trực tiếp cho danh từ "criticism".
+  '2': Significantly là trạng từ, không thể bổ nghĩa cho danh từ "criticism".
+  '3': Signify là động từ, không thể bổ nghĩa cho danh từ "criticism".
 ---
 
 # ===== item_key 2 · Adjective → Noun (tính từ bị dùng nhầm ở vị trí danh từ) =====
@@ -114,6 +130,10 @@ options: ["Construct", "Constructive", "Construction", "Constructively"]
 answer: 2
 grammar_article_slug: "word-form-errors"
 explain: "Đầu câu, làm chủ ngữ → cần DANH TỪ: Construction (không phải tính từ 'constructive')."
+why_wrong:
+  '0': Construct là động từ, không thể làm chủ ngữ cho câu theo cấu trúc này.
+  '1': Constructive là tính từ, không thể làm chủ ngữ cho câu.
+  '3': Constructively là trạng từ, không thể làm chủ ngữ cho câu.
 ---
 
 ---
@@ -128,6 +148,10 @@ options: ["poor", "poorly", "poverty", "impoverished"]
 answer: 2
 grammar_article_slug: "word-form-errors"
 explain: "Sau động từ 'fight', vị trí tân ngữ cần DANH TỪ → poverty, không dùng tính từ 'poor'."
+why_wrong:
+  '0': Vị trí này yêu cầu một danh từ làm tân ngữ cho động từ 'fight', nhưng 'poor' là một tính từ.
+  '1': Vị trí này yêu cầu một danh từ làm tân ngữ cho động từ 'fight', nhưng 'poorly' là một trạng từ.
+  '3': Vị trí này yêu cầu một danh từ làm tân ngữ cho động từ 'fight', nhưng 'impoverished' là một tính từ.
 ---
 
 ---
@@ -142,6 +166,10 @@ options: ["creative", "creativity", "creatively", "create"]
 answer: 1
 grammar_article_slug: "word-form-errors"
 explain: "Sau động từ 'encourage', vị trí tân ngữ cần DANH TỪ → creativity (tính từ 'creative' không thể làm tân ngữ)."
+why_wrong:
+  '0': Tính từ "creative" không thể làm tân ngữ trực tiếp cho động từ "encourage" ở đây.
+  '2': Trạng từ "creatively" không thể làm tân ngữ cho động từ "encourage" vì tân ngữ cần là một danh từ.
+  '3': Động từ nguyên mẫu "create" không thể làm tân ngữ trực tiếp để chỉ khái niệm được khuyến khích sau "encourage".
 ---
 
 ---
@@ -183,6 +211,10 @@ options: ["Diverse in the workplace boosts innovation.", "Diversity in the workp
 answer: 1
 grammar_article_slug: "word-form-errors"
 explain: "Làm chủ ngữ đầu câu cần DANH TỪ: 'Diversity', không dùng tính từ 'diverse', trạng từ 'diversely' hay động từ 'diversify'."
+why_wrong:
+  '0': Phương án này sai vì 'diverse' là tính từ, không thể làm chủ ngữ của câu.
+  '2': Phương án này sai vì 'diversely' là trạng từ, không thể làm chủ ngữ của câu.
+  '3': Phương án này sai vì 'diversify' là động từ, không thể làm chủ ngữ của câu.
 ---
 
 # ===== item_key 3 · Adjective → Adverb (quên đuôi -ly khi bổ nghĩa động từ) =====
@@ -199,6 +231,10 @@ options: ["careful", "care", "carefully", "caring"]
 answer: 2
 grammar_article_slug: "word-form-errors"
 explain: "Sau động từ 'handled', bổ nghĩa cho động từ → cần TRẠNG TỪ: carefully (adjective + -ly)."
+why_wrong:
+  '0': Careful là tính từ, không thể bổ nghĩa cho động từ "handled".
+  '1': Care là danh từ, không có chức năng bổ nghĩa cho động từ.
+  '3': Caring là tính từ (có nghĩa là "quan tâm, chu đáo"), không phù hợp để mô tả cách thức một hành động được thực hiện.
 ---
 
 ---
@@ -213,6 +249,10 @@ options: ["rapid", "rapidly", "rapidity", "rapidness"]
 answer: 1
 grammar_article_slug: "word-form-errors"
 explain: "Bổ nghĩa cho động từ 'grown' cần TRẠNG TỪ → rapidly, không dùng tính từ 'rapid'."
+why_wrong:
+  '0': '"Rapid" là tính từ, không thể bổ nghĩa trực tiếp cho động từ "grown".'
+  '2': '"Rapidity" là danh từ, không phù hợp về mặt ngữ pháp để bổ nghĩa cho động từ "grown".'
+  '3': '"Rapidness" là danh từ, không thể dùng để bổ nghĩa cho động từ "grown".'
 ---
 
 ---
@@ -227,6 +267,10 @@ options: ["effective", "effectiveness", "effectively", "effect"]
 answer: 2
 grammar_article_slug: "word-form-errors"
 explain: "Bổ nghĩa cho động từ 'communicate' cần TRẠNG TỪ → effectively, không dùng tính từ 'effective'."
+why_wrong:
+  '0': '''Effective'' là tính từ, không thể bổ nghĩa cho động từ ''communicate''.'
+  '1': '''Effectiveness'' là danh từ, không có chức năng bổ nghĩa cho động từ.'
+  '3': '''Effect'' là danh từ hoặc động từ, không phù hợp để bổ nghĩa cho động từ ''communicate'' trong ngữ cảnh này.'
 ---
 
 ---
@@ -268,6 +312,10 @@ options: ["She answered every question confident and clear.", "She answered ever
 answer: 1
 grammar_article_slug: "word-form-errors"
 explain: "Cả hai từ bổ nghĩa cho động từ 'answered' đều cần TRẠNG TỪ: confidently and clearly (phải nhất quán cả hai, không trộn dạng)."
+why_wrong:
+  '0': Phương án này dùng hai tính từ ("confident" và "clear") để bổ nghĩa cho động từ "answered", trong khi cần phải dùng trạng từ.
+  '2': Phương án này dùng hai danh từ ("confidence" và "clearness") thay vì trạng từ để bổ nghĩa cho động từ "answered".
+  '3': Phương án này trộn lẫn một tính từ ("confident") và một trạng từ ("clearly"), trong khi cả hai từ bổ nghĩa cho động từ "answered" đều cần phải là trạng từ để đảm bảo tính nhất quán.
 ---
 
 # ===== item_key 4 · make/keep/find + Object + Adjective (không dùng danh từ/trạng từ) =====
@@ -284,6 +332,10 @@ options: ["health", "healthy", "healthily", "healthiness"]
 answer: 1
 grammar_article_slug: "word-form-errors"
 explain: "Cấu trúc 'make + object + ____' cần TÍNH TỪ bổ nghĩa cho object → healthy, không dùng danh từ hay trạng từ."
+why_wrong:
+  '0': Health là danh từ, không phải tính từ để bổ nghĩa cho 'people'.
+  '2': Healthily là trạng từ, không phải tính từ để bổ nghĩa cho 'people'.
+  '3': Healthiness là danh từ, không phải tính từ để bổ nghĩa cho 'people'.
 ---
 
 ---
@@ -298,6 +350,10 @@ options: ["bore", "bored", "boring", "boringly"]
 answer: 2
 grammar_article_slug: "word-form-errors"
 explain: "'find + object + ____' cần TÍNH TỪ mô tả cảm nhận về object → boring (chủ động gây nhàm chán), không phải trạng từ."
+why_wrong:
+  '0': Đây là động từ hoặc danh từ, không phải tính từ cần thiết để mô tả danh từ "online lectures".
+  '1': Đây là tính từ mô tả cảm giác của người bị động, không phải tính từ mô tả thứ gây ra cảm giác đó.
+  '3': Đây là trạng từ, trong khi cấu trúc câu cần một tính từ để mô tả "online lectures".
 ---
 
 ---
@@ -312,6 +368,10 @@ options: ["stable", "stability", "stabilise", "stably"]
 answer: 0
 grammar_article_slug: "word-form-errors"
 explain: "'keep + object + ____' cần TÍNH TỪ mô tả trạng thái của object → stable, không dùng danh từ 'stability' hay động từ 'stabilise'."
+why_wrong:
+  '1': '"stability" là danh từ, không thể dùng sau "keep + object" để mô tả trạng thái của đối tượng.'
+  '2': '"stabilise" là động từ, không dùng sau "keep + object" để mô tả trạng thái của đối tượng.'
+  '3': '"stably" là trạng từ, không dùng để mô tả trực tiếp danh từ (inflation) sau "keep".'
 ---
 
 ---
@@ -353,4 +413,8 @@ options: ["City planners try to keep public spaces accessibility for everyone.",
 answer: 1
 grammar_article_slug: "word-form-errors"
 explain: "'keep + object + ____' cần TÍNH TỪ: accessible, không dùng danh từ 'accessibility'/'access' hay trạng từ 'accessibly'."
+why_wrong:
+  '0': '''accessibility'' là danh từ, không thể dùng sau ''keep + object'' để mô tả trạng thái của danh từ ''public spaces'' mà cần một tính từ.'
+  '2': '''accessibly'' là trạng từ, không thể dùng sau ''keep + object'' để mô tả tính chất của danh từ ''public spaces'' mà cần một tính từ.'
+  '3': '''access'' là danh từ, không thể dùng sau ''keep + object'' để mô tả trạng thái của danh từ ''public spaces'' mà cần một tính từ.'
 ---

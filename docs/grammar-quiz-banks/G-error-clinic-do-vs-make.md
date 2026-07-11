@@ -29,6 +29,10 @@ options: ["do", "make", "make of", "do of"]
 answer: 0
 grammar_article_slug: "do-vs-make"
 explain: "Homework là một nhiệm vụ cần thực hiện, không phải thứ được tạo ra → dùng do: do homework."
+why_wrong:
+  '1': '''Make'' thường dùng để chỉ việc tạo ra hoặc xây dựng một thứ gì đó, không dùng với ''homework'' vốn là một nhiệm vụ cần thực hiện.'
+  '2': '''Make of'' là một cụm động từ có nghĩa khác (''hiểu về'', ''được làm từ'') và không dùng với ''homework''.'
+  '3': '''Of'' là giới từ thừa và không có tác dụng ngữ pháp đúng khi đi kèm với ''do homework''.'
 ---
 
 ---
@@ -43,6 +47,10 @@ options: ["makes", "does", "is doing of", "makes of"]
 answer: 1
 grammar_article_slug: "do-vs-make"
 explain: "housework là công việc nhà, thuộc nhóm activity/task → do the housework."
+why_wrong:
+  '0': '''Make'' không kết hợp với ''housework'' để chỉ việc thực hiện công việc nhà; ''make'' thường dùng để tạo ra cái gì đó.'
+  '2': Cấu trúc 'is doing of' là sai ngữ pháp, đặc biệt là giới từ 'of' không phù hợp khi đi với 'doing the housework'.
+  '3': Cấu trúc 'makes of' là sai ngữ pháp và 'make' không đi với 'housework' để diễn tả hành động thực hiện công việc.
 ---
 
 ---
@@ -57,6 +65,10 @@ options: ["make / make", "do / do", "make / do", "do / make"]
 answer: 1
 grammar_article_slug: "do-vs-make"
 explain: "Cả 'an entrance exam' và 'a foundation course' đều là hoạt động/nhiệm vụ tham gia (process), không phải sản phẩm tạo ra → do an exam, do a course."
+why_wrong:
+  '0': Cả hai "make" đều sai vì "make an exam" có nghĩa là tạo đề thi và "make a course" có nghĩa là thiết kế khóa học, không phải tham gia/hoàn thành chúng.
+  '2': '"Make an entrance exam" sai vì "make an exam" có nghĩa là tạo đề thi, không phải tham gia kỳ thi.'
+  '3': '"Make a foundation course" sai vì "make a course" có nghĩa là thiết kế khóa học, không phải tham gia khóa học.'
 ---
 
 ---
@@ -100,6 +112,10 @@ options: ["do", "make", "make of", "do a"]
 answer: 1
 grammar_article_slug: "do-vs-make"
 explain: "'a decision' là kết quả được đưa ra (outcome), thuộc nhóm tạo ra/quyết định → make a decision."
+why_wrong:
+  '0': '''Do'' thường dùng với các hành động, công việc hoặc nghĩa vụ, không phải để tạo ra hoặc đưa ra một quyết định.'
+  '2': '''Make of'' có nghĩa là hiểu, đánh giá hoặc được làm từ chất liệu gì đó, không phải để diễn tả việc đưa ra một quyết định.'
+  '3': Khi điền vào chỗ trống, 'do a' sẽ tạo thành 'do a a final decision', bị lặp mạo từ 'a' và sai ngữ pháp.
 ---
 
 ---
@@ -114,6 +130,10 @@ options: ["make", "do", "do of", "make of"]
 answer: 0
 grammar_article_slug: "do-vs-make"
 explain: "'mistakes' là kết quả tạo ra do sai sót → make a mistake / make mistakes."
+why_wrong:
+  '1': Động từ "do" không dùng để diễn tả hành động tạo ra lỗi sai; cụm từ chính xác là "make mistakes".
+  '2': '"Do of" không phải là một cụm động từ đúng ngữ pháp hoặc thành ngữ khi đi với "mistakes".'
+  '3': '"Make of" không phải là cách diễn đạt chính xác khi "mistakes" là tân ngữ trực tiếp; "make of" thường dùng để hỏi ý kiến hoặc chỉ vật liệu cấu thành.'
 ---
 
 ---
@@ -128,6 +148,10 @@ options: ["did", "made", "does", "make of"]
 answer: 1
 grammar_article_slug: "do-vs-make"
 explain: "'the choice' cùng nhóm với decision — một kết luận được đưa ra → make the choice."
+why_wrong:
+  '0': Động từ "do" (dạng quá khứ "did") không kết hợp đúng với danh từ "choice"; cách dùng chuẩn xác phải là "make a choice" (đưa ra lựa chọn).
+  '2': Động từ "do" (dạng hiện tại đơn "does") không kết hợp đúng với danh từ "choice"; đồng thời, thì hiện tại đơn "does" cũng không phù hợp với ngữ cảnh quá khứ của câu.
+  '3': Cụm động từ "make of" có nghĩa là "hiểu/đánh giá về cái gì" hoặc "được làm từ", hoàn toàn không phù hợp với ý nghĩa "đưa ra lựa chọn" trong ngữ cảnh này.
 ---
 
 ---
@@ -171,6 +195,10 @@ options: ["made", "done", "made of", "done of"]
 answer: 1
 grammar_article_slug: "do-vs-make"
 explain: "'business' đi với do khi nói về hoạt động giao dịch, hợp tác → do business (with someone)."
+why_wrong:
+  '0': Động từ "make" không đi kèm với "business" trong cụm "làm ăn, kinh doanh"; cụm từ đúng là "do business".
+  '2': Cụm "made of" dùng để chỉ chất liệu cấu tạo nên vật gì đó, không phù hợp với ngữ cảnh "kinh doanh" và cấu trúc câu này.
+  '3': Mặc dù "done" là động từ đúng, nhưng giới từ "of" là sai; cụm từ đúng là "do business with" chứ không phải "do business of".
 ---
 
 ---
@@ -185,6 +213,10 @@ options: ["make", "do", "do of", "make of"]
 answer: 1
 grammar_article_slug: "do-vs-make"
 explain: "'a favour' là một hành động giúp đỡ (activity) → do someone a favour."
+why_wrong:
+  '0': Động từ "make" không dùng với "a favour"; cụm từ cố định đúng phải là "do a favour".
+  '2': Giới từ "of" là thừa và không đúng ngữ pháp khi dùng trong cụm "do someone a favour".
+  '3': Động từ "make" là sai và giới từ "of" cũng không cần thiết trong cụm này.
 ---
 
 ---
@@ -199,6 +231,10 @@ options: ["making", "doing", "does", "make of"]
 answer: 1
 grammar_article_slug: "do-vs-make"
 explain: "'research' là một quá trình điều tra, thuộc nhóm hoạt động/nhiệm vụ → do research."
+why_wrong:
+  '0': Make research không phải là một cụm động từ đúng; cụm từ chính xác để nói về việc thực hiện nghiên cứu là "do research".
+  '2': Sau cấu trúc "spent [thời gian]" cần một động từ ở dạng V-ing (gerund), nhưng "does" là dạng động từ chia ở thì hiện tại đơn của ngôi thứ ba số ít.
+  '3': Make of research là cách diễn đạt sai; "make of" thường có nghĩa là hiểu hoặc cấu tạo từ, không phù hợp với ngữ cảnh thực hiện nghiên cứu.
 ---
 
 ---
@@ -242,6 +278,10 @@ options: ["do", "make", "make of", "do of"]
 answer: 1
 grammar_article_slug: "do-vs-make"
 explain: "'effort' là thứ được tạo ra/huy động để đạt mục tiêu → make an effort."
+why_wrong:
+  '0': '''Do effort'' là một cụm từ không chuẩn; động từ đúng đi với ''effort'' để diễn tả sự nỗ lực là ''make''.'
+  '2': '''Make of'' không đi cùng với ''effort'' trong ngữ cảnh này; giới từ ''of'' bị thừa và làm sai cấu trúc cụm từ.'
+  '3': Cụm 'do of effort' là sai ngữ pháp và không có nghĩa trong tiếng Anh.
 ---
 
 ---
@@ -256,6 +296,10 @@ options: ["made", "done", "done of", "made of"]
 answer: 0
 grammar_article_slug: "do-vs-make"
 explain: "'progress' là kết quả tích lũy dần theo thời gian → make progress."
+why_wrong:
+  '1': '''Do progress'' là cách dùng sai vì ''do'' thường đi với các hoạt động, nhiệm vụ, không phải thành tựu hay sự tiến bộ.'
+  '2': '''Done of'' là cấu trúc ngữ pháp sai, cụm ''do of'' không tồn tại trong cách diễn đạt về sự tiến bộ.'
+  '3': '''Made of'' mang nghĩa ''được làm từ'' một nguyên liệu nào đó, không đúng với ngữ cảnh ''đạt được tiến bộ''.'
 ---
 
 ---
@@ -313,6 +357,10 @@ options: ["do", "make", "make of", "do of"]
 answer: 1
 grammar_article_slug: "do-vs-make"
 explain: "'noise' là thứ gây ra/tạo ra, không phải nhiệm vụ thực hiện → make noise, khác với nhóm do (homework, business, research)."
+why_wrong:
+  '0': '''Do'' thường dùng cho các hoạt động, nhiệm vụ hoặc hành động chung chung, không phải để tạo ra ''tiếng ồn'' (noise).'
+  '2': Cụm 'make of' có nghĩa là 'làm từ' hoặc 'đánh giá', không phù hợp để nói về việc tạo ra tiếng ồn.
+  '3': '''Do of'' không phải là một cấu trúc động từ hay cụm từ đúng ngữ pháp trong tiếng Anh để diễn tả việc tạo ra tiếng ồn.'
 ---
 
 ---
@@ -327,6 +375,10 @@ options: ["makes", "does", "does of", "makes of"]
 answer: 0
 grammar_article_slug: "do-vs-make"
 explain: "'a mess' là kết quả gây ra (trạng thái bừa bộn) → make a mess, không dùng do dù người Việt hay nhầm sang 'làm bừa bộn' = do."
+why_wrong:
+  '1': '"Do a mess" là cụm động từ sai ngữ pháp; "a mess" luôn đi với động từ "make".'
+  '2': '"Does of" là sai về cấu trúc ngữ pháp; "a mess" không đi với "do" và cũng không cần giới từ "of".'
+  '3': Giới từ "of" không bao giờ được dùng sau "make" trong cụm từ "make a mess".
 ---
 
 ---
@@ -341,6 +393,10 @@ options: ["make / doing", "do / making", "do / doing", "make / making"]
 answer: 1
 grammar_article_slug: "do-vs-make"
 explain: "'duties' (nhiệm vụ) đi với do; 'noise' (kết quả gây ra) đi với make → do their duties / making noise."
+why_wrong:
+  '0': Cả cụm từ 'make duties' và 'doing noise' đều dùng sai động từ ghép với danh từ tương ứng.
+  '2': Cụm 'doing noise' sai vì động từ thích hợp đi với 'noise' là 'make' (making noise), không phải 'do'.
+  '3': Cụm 'make duties' sai vì động từ thích hợp đi với 'duties' là 'do' (do duties), không phải 'make'.
 ---
 
 ---

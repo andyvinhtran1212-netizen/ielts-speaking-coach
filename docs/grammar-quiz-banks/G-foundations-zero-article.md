@@ -29,6 +29,10 @@ options: ["A", "An", "The", "ø (no article)"]
 answer: 3
 grammar_article_slug: "zero-article"
 explain: "'Nurses' số nhiều mang nghĩa chung (y tá nói chung, không phải nhóm cụ thể) → zero article."
+why_wrong:
+  '0': '"A" chỉ dùng với danh từ số ít đếm được, nhưng "Nurses" là danh từ số nhiều.'
+  '1': '"An" chỉ dùng với danh từ số ít đếm được bắt đầu bằng nguyên âm, nhưng "Nurses" là danh từ số nhiều.'
+  '2': '"The" dùng để chỉ một nhóm y tá cụ thể, nhưng ở đây câu đang nói về y tá nói chung.'
 ---
 
 ---
@@ -84,6 +88,10 @@ options: ["ø / The", "The / ø", "A / The", "ø / A"]
 answer: 0
 grammar_article_slug: "zero-article"
 explain: "Câu 1 nói về tình nguyện viên NÓI CHUNG → zero article. Câu 2 nói về nhóm tình nguyện viên CỤ THỂ (đã giúp sau lũ lụt, cả hai bên đều biết) → 'The'."
+why_wrong:
+  '1': Phương án này sai vì mạo từ 'The' không dùng cho ý chung ở câu 1 và 'ø' không dùng cho ý cụ thể ở câu 2.
+  '2': Mạo từ 'A' không thể đứng trước danh từ số nhiều 'Volunteers' ở câu 1.
+  '3': Mạo từ 'A' không được dùng với danh từ số nhiều 'volunteers' và cũng không phù hợp để chỉ một nhóm cụ thể ở câu 2.
 ---
 
 # ===== item_key 2 · Bữa ăn và môn thể thao — cụm cố định không mạo từ =====
@@ -100,6 +108,10 @@ options: ["a", "an", "the", "ø (no article)"]
 answer: 3
 grammar_article_slug: "zero-article"
 explain: "Tên bữa ăn theo nghĩa thông thường không dùng mạo từ → 'skips breakfast'."
+why_wrong:
+  '0': Mạo từ bất định "a" không được dùng trước tên bữa ăn khi nói về bữa ăn nói chung.
+  '1': Mạo từ bất định "an" không được dùng trước tên bữa ăn khi nói về bữa ăn nói chung, và cũng không dùng cho từ bắt đầu bằng phụ âm.
+  '2': Mạo từ xác định "the" không dùng trước tên bữa ăn khi đề cập đến bữa ăn đó một cách thông thường, không cụ thể.
 ---
 
 ---
@@ -127,6 +139,10 @@ options: ["a", "an", "the", "ø (no article)"]
 answer: 3
 grammar_article_slug: "zero-article"
 explain: "'after + bữa ăn' theo nghĩa thông thường không dùng mạo từ → 'After dinner'."
+why_wrong:
+  '0': Không dùng mạo từ bất định "a" trước tên bữa ăn như "dinner" khi nói về bữa ăn một cách chung chung hoặc theo thói quen.
+  '1': Ngoài việc không dùng mạo từ bất định, từ "dinner" bắt đầu bằng phụ âm nên không thể dùng "an".
+  '2': Không dùng mạo từ xác định "the" trước tên bữa ăn như "dinner" khi đề cập đến bữa ăn một cách chung chung hoặc theo thói quen.
 ---
 
 ---
@@ -170,6 +186,10 @@ options: ["a", "an", "the", "ø (no article)"]
 answer: 3
 grammar_article_slug: "zero-article"
 explain: "Tên ngôn ngữ không dùng mạo từ → 'learning Korean'."
+why_wrong:
+  '0': '"a" là mạo từ không xác định, không được dùng trước tên ngôn ngữ.'
+  '1': '"an" là mạo từ không xác định, không được dùng trước tên ngôn ngữ.'
+  '2': '"the" là mạo từ xác định, nhưng không dùng trước tên ngôn ngữ khi nói chung chung.'
 ---
 
 ---
@@ -197,6 +217,10 @@ options: ["A", "An", "The", "ø (no article)"]
 answer: 3
 grammar_article_slug: "zero-article"
 explain: "Tên môn học nói chung không dùng mạo từ → 'Statistics is considered...'"
+why_wrong:
+  '0': Mạo từ không xác định "A" không dùng cho tên môn học nói chung.
+  '1': Mạo từ không xác định "An" không dùng cho tên môn học nói chung, và từ "Statistics" bắt đầu bằng phụ âm.
+  '2': Mạo từ xác định "The" không dùng khi nói về một môn học một cách tổng quát.
 ---
 
 ---
@@ -225,6 +249,10 @@ options: ["I'm currently studying the environmental science at a technical colle
 answer: 1
 grammar_article_slug: "zero-article"
 explain: "Môn học (environmental science) nói chung không dùng mạo từ → zero article: 'studying environmental science'."
+why_wrong:
+  '0': Mạo từ "the" không dùng trước tên môn học nói chung như "environmental science".
+  '2': '"Environmental science" là tên môn học, không phải danh từ đếm được số ít nên không dùng mạo từ "an".'
+  '3': Tên môn học thường được dùng ở dạng số ít "environmental science" khi nói về ngành học, không phải số nhiều "environmental sciences".
 ---
 
 # ===== item_key 4 · Cụm thành ngữ school/hospital/prison/bed/work — nghĩa chức năng =====
@@ -241,6 +269,10 @@ options: ["a", "an", "the", "ø (no article)"]
 answer: 3
 grammar_article_slug: "zero-article"
 explain: "'go to school' với nghĩa chức năng (đi học với tư cách học sinh) dùng zero article."
+why_wrong:
+  '0': Mạo từ 'a' sẽ làm thay đổi nghĩa, ám chỉ việc đi đến một địa điểm trường học bất kỳ chứ không phải hành động đi học nói chung.
+  '1': Mạo từ 'an' không dùng trước danh từ bắt đầu bằng phụ âm như 'school'.
+  '2': Mạo từ 'the' dùng để chỉ một ngôi trường cụ thể, làm mất đi nghĩa 'đi học' với tư cách học sinh.
 ---
 
 ---
@@ -268,6 +300,10 @@ options: ["a", "an", "the", "ø (no article)"]
 answer: 3
 grammar_article_slug: "zero-article"
 explain: "'at work' với nghĩa chức năng (đang làm việc) dùng zero article — khác với 'at the workplace/building' cụ thể."
+why_wrong:
+  '0': '''Work'' trong cụm ''at work'' mang nghĩa đang làm việc là danh từ không đếm được hoặc một ý niệm, không phải danh từ số ít đếm được để dùng mạo từ ''a''.'
+  '1': '''Work'' không bắt đầu bằng nguyên âm và không phải danh từ số ít đếm được trong ngữ cảnh này, nên không dùng mạo từ ''an''.'
+  '2': Cụm 'at work' khi diễn tả trạng thái đang làm việc tại nơi làm việc là một thành ngữ cố định dùng zero article, không cần mạo từ xác định 'the'.
 ---
 
 ---

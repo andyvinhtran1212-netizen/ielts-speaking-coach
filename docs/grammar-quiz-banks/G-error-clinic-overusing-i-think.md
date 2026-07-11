@@ -56,6 +56,10 @@ options: ["In my view", "For my view", "In my views", "At my view"]
 answer: 0
 grammar_article_slug: "overusing-i-think"
 explain: "'In my view' là cách diễn đạt trang trọng thay 'I think', phù hợp Speaking Part 3 hoặc Writing Task 2."
+why_wrong:
+  '1': Giới từ "for" không đi cùng với "view" khi diễn đạt ý kiến cá nhân; cụm đúng phải là "in my view".
+  '2': Khi dùng để bày tỏ ý kiến cá nhân, cụm từ cố định là "in my view" (số ít), không phải "in my views" (số nhiều).
+  '3': Giới từ "at" không được dùng với "view" để diễn đạt quan điểm cá nhân; cụm từ đúng phải là "in my view".
 ---
 
 ---
@@ -99,6 +103,10 @@ options: ["strongly", "strong", "strength", "stronger"]
 answer: 0
 grammar_article_slug: "overusing-i-think"
 explain: "'strongly' là trạng từ bổ nghĩa cho động từ 'believe': I strongly believe (that) + mệnh đề."
+why_wrong:
+  '1': '"Strong" là tính từ, không thể bổ nghĩa cho động từ "believe".'
+  '2': '"Strength" là danh từ, không có chức năng bổ nghĩa cho động từ.'
+  '3': '"Stronger" là tính từ so sánh hơn, không thể bổ nghĩa cho động từ.'
 ---
 
 ---
@@ -113,6 +121,10 @@ options: ["I am convinced that", "It seems to me that", "I'd say", "Honestly"]
 answer: 0
 grammar_article_slug: "overusing-i-think"
 explain: "'I am convinced that' ngụ ý bạn đã suy nghĩ kỹ và kết luận chắc chắn — phù hợp câu trả lời Part 3 dứt khoát."
+why_wrong:
+  '1': Cụm từ này thể hiện sự phỏng đoán, không chắc chắn, hoặc chỉ là một ấn tượng ban đầu, không phù hợp để bày tỏ quan điểm dứt khoát.
+  '2': Cụm từ này dùng để giới thiệu quan điểm một cách mềm mỏng, ít trang trọng hoặc không quá nhấn mạnh sự chắc chắn tuyệt đối.
+  '3': Từ này dùng để nhấn mạnh sự chân thật, thẳng thắn khi bày tỏ ý kiến, không trực tiếp thể hiện sự tin tưởng hay kết luận chắc chắn.
 ---
 
 ---
@@ -127,6 +139,10 @@ options: ["that", "what", "which", "about"]
 answer: 0
 grammar_article_slug: "overusing-i-think"
 explain: "'I have no doubt that' + mệnh đề — diễn đạt sự chắc chắn tuyệt đối, dùng tiết kiệm khi quan điểm thực sự rõ ràng."
+why_wrong:
+  '1': '''What'' thường dùng để giới thiệu mệnh đề danh từ khi ''what'' là chủ ngữ hoặc tân ngữ của mệnh đề đó, hoặc trong câu hỏi, không phù hợp để giới thiệu một mệnh đề khẳng định đã hoàn chỉnh ở đây.'
+  '2': '''Which'' là đại từ quan hệ dùng để bổ nghĩa cho một danh từ đã được nhắc đến hoặc để giới thiệu một lựa chọn, nhưng ở đây không có danh từ nào để nó tham chiếu và cũng không diễn tả sự lựa chọn.'
+  '3': '''About'' là giới từ và không thể trực tiếp giới thiệu một mệnh đề hoàn chỉnh (chủ ngữ + động từ) như ''technology will continue to transform the workplace''.'
 ---
 
 ---
@@ -170,6 +186,10 @@ options: ["I would say", "I would said", "I will say", "I says"]
 answer: 0
 grammar_article_slug: "overusing-i-think"
 explain: "'I would say (that)' là dạng cố định, không chia động từ 'say' theo thì quá khứ hay số ít."
+why_wrong:
+  '1': Sau trợ động từ khuyết thiếu 'would', động từ chính phải ở dạng nguyên mẫu, không phải dạng quá khứ 'said'.
+  '2': '''I will say'' thay đổi trợ động từ khuyết thiếu, làm mất đi sắc thái diễn tả ý kiến một cách lịch sự, nhã nhặn của cụm cố định ''I would say''.'
+  '3': Động từ 'says' ở ngôi thứ ba số ít không phù hợp với chủ ngữ 'I' (ngôi thứ nhất số ít).
 ---
 
 ---
@@ -225,6 +245,10 @@ options: ["I tend to think that", "I have no doubt that", "I am convinced that",
 answer: 0
 grammar_article_slug: "overusing-i-think"
 explain: "Với claim chưa chắc chắn, nên dùng phrase nhẹ như 'I tend to think that' thay vì các phrase quá mạnh ('convinced', 'no doubt', 'strongly believe') vốn ngụ ý chắc chắn tuyệt đối."
+why_wrong:
+  '1': '"I have no doubt that" thể hiện sự chắc chắn tuyệt đối, trái ngược với việc đưa ra một tuyên bố không chắc chắn.'
+  '2': '"I am convinced that" biểu thị niềm tin vững chắc hoặc đã được thuyết phục, không phù hợp khi nói về một điều chưa có bằng chứng mạnh.'
+  '3': '"I strongly believe that" thể hiện niềm tin cá nhân rất mạnh mẽ, không phù hợp với một ý kiến còn thiếu bằng chứng rõ ràng.'
 ---
 
 # ===== item_key 4 · Personally / For me / Honestly (cá nhân hóa, informal) =====
@@ -241,6 +265,10 @@ options: ["Honestly", "Honest", "Honesty", "Honestable"]
 answer: 0
 grammar_article_slug: "overusing-i-think"
 explain: "'Honestly' là trạng từ đứng đầu câu, theo sau là dấu phẩy — phù hợp Part 1, nghe tự nhiên và conversational."
+why_wrong:
+  '1': '''Honest'' là tính từ, không thể đứng đầu câu để bổ nghĩa cho cả mệnh đề như một trạng từ.'
+  '2': '''Honesty'' là danh từ, không thể đứng đầu câu để bổ nghĩa cho cả câu như một trạng từ.'
+  '3': '''Honestable'' không phải là một từ tiếng Anh hợp lệ.'
 ---
 
 ---
@@ -255,6 +283,10 @@ options: ["For me", "I am convinced that", "As far as I'm concerned", "I have no
 answer: 0
 grammar_article_slug: "overusing-i-think"
 explain: "'For me' là phrase cá nhân hóa, informal — phù hợp Part 1 hơn các phrase trang trọng như 'I am convinced that'."
+why_wrong:
+  '1': Cụm từ này quá trang trọng và thể hiện sự tin tưởng tuyệt đối, không phù hợp để nói về sở thích cá nhân một cách tự nhiên.
+  '2': Mặc dù diễn tả ý kiến cá nhân, cụm này hơi trang trọng và thường dùng khi bày tỏ quan điểm trong bối cảnh tranh luận, không phù hợp cho sở thích đơn giản.
+  '3': Cụm từ này mang tính trang trọng và khẳng định sự chắc chắn tuyệt đối, không phù hợp để bày tỏ một sở thích cá nhân thông thường.
 ---
 
 ---
@@ -330,6 +362,10 @@ options: [
 answer: 0
 grammar_article_slug: "overusing-i-think"
 explain: "Lặp 'I think' liên tục cho thấy thiếu vốn từ vựng để diễn đạt quan điểm đa dạng — đây là yếu tố Lexical Resource, không phải lỗi ngữ pháp."
+why_wrong:
+  '1': '''I think'' là một cụm từ hoàn toàn đúng ngữ pháp và được sử dụng phổ biến trong tiếng Anh.'
+  '2': '''I think'' được sử dụng rộng rãi và tự nhiên trong cả văn nói lẫn văn viết để diễn đạt quan điểm cá nhân.'
+  '3': Giám khảo là người có trình độ tiếng Anh cao và chắc chắn hiểu rõ nghĩa của 'I think', vấn đề nằm ở sự lặp lại ảnh hưởng đến tiêu chí đánh giá.
 ---
 
 ---
@@ -344,6 +380,10 @@ options: ["I think", "the fact that", "clearly", "in fact"]
 answer: 0
 grammar_article_slug: "overusing-i-think"
 explain: "'In my opinion' đã bao gồm ý 'I think' — thêm 'I think' vào sau là lặp nghĩa hai lần. Câu đúng: 'In my opinion, the government should invest more in education.'"
+why_wrong:
+  '1': '"The fact that" giới thiệu một mệnh đề sự thật hoặc một nguyên nhân, không lặp nghĩa với việc bày tỏ quan điểm cá nhân.'
+  '2': '"Clearly" là một trạng từ dùng để nhấn mạnh sự hiển nhiên hoặc rõ ràng của điều gì đó, không trùng lặp ý với "In my opinion".'
+  '3': '"In fact" dùng để nhấn mạnh một sự thật, một điều bất ngờ, hoặc để khẳng định điều gì đó là đúng, không gây lặp nghĩa với việc thể hiện ý kiến cá nhân.'
 ---
 
 ---

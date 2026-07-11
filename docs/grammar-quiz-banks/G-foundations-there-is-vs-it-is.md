@@ -43,6 +43,10 @@ options: ["It is", "There are", "They are", "It has"]
 answer: 1
 grammar_article_slug: "there-is-vs-it-is"
 explain: "Giới thiệu sự tồn tại của nhiều lý do (chưa được biết trước) → dùng 'There are', không dùng 'It is'."
+why_wrong:
+  '0': It is dùng để chỉ một chủ ngữ số ít hoặc một thông tin cụ thể đã biết, không dùng để giới thiệu sự tồn tại của nhiều thứ chưa được biết đến.
+  '2': They are dùng để nói về những chủ thể số nhiều đã được đề cập hoặc xác định trước đó, không dùng để giới thiệu một sự vật/hiện tượng mới.
+  '3': It has dùng để diễn tả sự sở hữu của một chủ ngữ số ít, không phải để giới thiệu sự tồn tại của một danh từ số nhiều.
 ---
 
 ---
@@ -86,6 +90,10 @@ options: ["There is", "It is", "There are", "They are"]
 answer: 1
 grammar_article_slug: "there-is-vs-it-is"
 explain: "Nói về thời tiết luôn dùng 'It is', không dùng 'there is/are'."
+why_wrong:
+  '0': There is dùng để diễn tả sự tồn tại của vật hoặc người, không dùng cho thời tiết.
+  '2': There are dùng để diễn tả sự tồn tại của nhiều vật/người, và không dùng cho thời tiết.
+  '3': They are dùng cho chủ ngữ là người, vật hoặc con vật số nhiều, không dùng để mô tả thời tiết.
 ---
 
 ---
@@ -100,6 +108,10 @@ options: ["There is", "It is", "There are", "It has"]
 answer: 1
 grammar_article_slug: "there-is-vs-it-is"
 explain: "Nói về khoảng cách dùng 'It is', đây là chủ ngữ hình thức cho các thông tin về thời gian, thời tiết, khoảng cách."
+why_wrong:
+  '0': Để diễn tả khoảng cách, chúng ta không dùng cấu trúc 'There is' vì nó được dùng để giới thiệu sự tồn tại của một vật thể.
+  '2': Tương tự 'There is', 'There are' cũng dùng để giới thiệu sự tồn tại của các vật thể số nhiều, không phù hợp để nói về khoảng cách.
+  '3': '''It has'' được dùng để diễn tả sự sở hữu hoặc một đặc điểm của chủ ngữ, không phải để diễn đạt khoảng cách.'
 ---
 
 ---
@@ -114,6 +126,10 @@ options: ["There is", "It is", "There are", "They are"]
 answer: 1
 grammar_article_slug: "there-is-vs-it-is"
 explain: "'It is + adjective + to-infinitive' là cấu trúc chủ ngữ hình thức phổ biến trong Writing Task 2 để mô tả/nhấn mạnh, không dùng 'there is'."
+why_wrong:
+  '0': There is dùng để giới thiệu sự tồn tại của một danh từ, không dùng để mở đầu một cấu trúc với tính từ theo sau là động từ nguyên mẫu có 'to'.
+  '2': There are dùng để giới thiệu sự tồn tại của một danh từ số nhiều, không dùng để mở đầu một cấu trúc với tính từ theo sau là động từ nguyên mẫu có 'to'.
+  '3': They là đại từ nhân xưng số nhiều, cần thay thế cho một danh từ số nhiều đã được nhắc đến trước đó, không phù hợp làm chủ ngữ hình thức cho hành động 'to consider'.
 ---
 
 ---
@@ -157,6 +173,10 @@ options: ["There are / They are", "They are / There are", "There are / There are
 answer: 0
 grammar_article_slug: "there-is-vs-it-is"
 explain: "Câu đầu giới thiệu sự tồn tại của hai giải pháp (lần đầu) → 'There are'. Câu sau mô tả hai giải pháp đã biết → 'They are'."
+why_wrong:
+  '1': Dùng 'They are' ở câu đầu không đúng ngữ cảnh giới thiệu sự tồn tại, và 'There are' ở câu sau không dùng để mô tả chủ thể đã biết.
+  '2': Sử dụng 'There are' ở vế sau sai vì nhiệm vụ của nó là giới thiệu sự tồn tại, không phải mô tả đặc điểm của chủ thể đã được nhắc đến.
+  '3': Sử dụng 'They are' ở câu đầu sai vì chủ thể 'two solutions' chưa được giới thiệu trước đó để 'They' thay thế.
 ---
 
 ---
@@ -171,6 +191,10 @@ options: ["There are", "They are", "It is", "There is"]
 answer: 1
 grammar_article_slug: "there-is-vs-it-is"
 explain: "Sau khi đã giới thiệu 'three main causes' (there are), câu tiếp theo mô tả/liệt kê chúng dùng 'They are', vì chủ thể đã được biết."
+why_wrong:
+  '0': '''There are'' dùng để giới thiệu sự tồn tại của một cái gì đó mới, nhưng ở đây chúng ta đang liệt kê/xác định các nguyên nhân đã được nhắc đến ở câu trước.'
+  '2': '''It is'' dùng cho chủ ngữ số ít, trong khi các nguyên nhân được liệt kê sau đó là số nhiều (''pollution, deforestation, and overpopulation'').'
+  '3': '''There is'' dùng để giới thiệu sự tồn tại của một cái gì đó số ít, trong khi các nguyên nhân được liệt kê là số nhiều.'
 ---
 
 ---
@@ -214,6 +238,10 @@ options: ["There is / It is", "It is / There is", "There is / There is", "It is 
 answer: 0
 grammar_article_slug: "there-is-vs-it-is"
 explain: "Câu đầu giới thiệu sự tồn tại của park (lần đầu) → 'There is'. Câu sau mô tả tính chất của park đã biết → 'It is'."
+why_wrong:
+  '1': '"It is" không dùng để giới thiệu sự tồn tại của một vật lần đầu tiên, và "there is" không dùng để mô tả tính chất của một vật đã được đề cập.'
+  '2': '"There is" ở vế thứ hai là sai vì nó dùng để giới thiệu sự tồn tại chứ không phải để mô tả tính chất của một đối tượng đã được nhắc đến.'
+  '3': '"It is" ở vế đầu là sai vì nó không được dùng để giới thiệu sự tồn tại của một sự vật lần đầu tiên.'
 ---
 
 ---
@@ -228,6 +256,10 @@ options: ["There is / it is", "It is / there is", "There is / there is", "It is 
 answer: 0
 grammar_article_slug: "there-is-vs-it-is"
 explain: "'There is no doubt that...' giới thiệu một nhận định. 'it is clear that...' dùng chủ ngữ hình thức để nhấn mạnh mô tả — đây là cách dùng chuẩn trong Writing Task 2."
+why_wrong:
+  '1': 'Phương án này sai ở cả hai vế: ''It is no doubt that'' không phải cách dùng chuẩn để giới thiệu nhận định không nghi ngờ, và ''there is clear that'' là cấu trúc ngữ pháp không chính xác để mô tả sự rõ ràng của một điều gì đó.'
+  '2': Vế thứ hai 'there is clear that' sai ngữ pháp vì 'there is' dùng để nói về sự tồn tại, không phải để mô tả một điều gì đó là 'rõ ràng'.
+  '3': Vế đầu 'It is no doubt that' là cách dùng không chuẩn khi muốn giới thiệu một nhận định không có gì phải nghi ngờ, cụm từ đúng phải là 'There is no doubt that'.
 ---
 
 ---

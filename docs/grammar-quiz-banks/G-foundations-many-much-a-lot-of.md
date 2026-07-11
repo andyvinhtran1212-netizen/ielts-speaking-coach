@@ -29,6 +29,10 @@ options: ["Much", "Many", "A little", "Little"]
 answer: 1
 grammar_article_slug: "many-much-a-lot-of"
 explain: "'commuters' là danh từ đếm được số nhiều → dùng 'Many'."
+why_wrong:
+  '0': Much được dùng với danh từ không đếm được, trong khi 'commuters' là danh từ đếm được.
+  '2': A little được dùng với danh từ không đếm được, trong khi 'commuters' là danh từ đếm được.
+  '3': Little được dùng với danh từ không đếm được, trong khi 'commuters' là danh từ đếm được.
 ---
 
 ---
@@ -43,6 +47,10 @@ options: ["much", "many", "a lot", "little"]
 answer: 1
 grammar_article_slug: "many-much-a-lot-of"
 explain: "'languages' là countable số nhiều → câu hỏi số lượng dùng 'How many'."
+why_wrong:
+  '0': '''Much'' được dùng để hỏi về số lượng cho danh từ không đếm được, không phải danh từ đếm được số nhiều như ''languages''.'
+  '2': '''A lot'' không được dùng trực tiếp sau ''How'' trong cấu trúc câu hỏi về số lượng như ''How many/much...''.'
+  '3': '''Little'' được dùng để chỉ số lượng ít cho danh từ không đếm được, không phải danh từ đếm được số nhiều như ''languages''.'
 ---
 
 ---
@@ -57,6 +65,10 @@ options: ["much", "many", "a great deal of", "little"]
 answer: 1
 grammar_article_slug: "many-much-a-lot-of"
 explain: "'flights' là countable số nhiều → dùng 'many' trong câu phủ định."
+why_wrong:
+  '0': “Much” dùng với danh từ không đếm được, trong khi “flights” là danh từ đếm được số nhiều.
+  '2': “A great deal of” thường dùng với danh từ không đếm được và không phù hợp trong câu phủ định với danh từ đếm được số nhiều như “flights”.
+  '3': “Little” dùng với danh từ không đếm được và có nghĩa là “một ít”, không phù hợp với danh từ đếm được số nhiều “flights” trong câu phủ định.
 ---
 
 ---
@@ -100,6 +112,10 @@ options: ["much", "many", "a few", "these"]
 answer: 0
 grammar_article_slug: "many-much-a-lot-of"
 explain: "'funding' là uncountable → dùng 'much' trong câu phủ định."
+why_wrong:
+  '1': Many dùng cho danh từ đếm được số nhiều, trong khi 'funding' là danh từ không đếm được.
+  '2': A few dùng cho danh từ đếm được số nhiều, trong khi 'funding' là danh từ không đếm được.
+  '3': These là tính từ/đại từ chỉ định dùng cho danh từ số nhiều đếm được, trong khi 'funding' là danh từ không đếm được.
 ---
 
 ---
@@ -114,6 +130,10 @@ options: ["many", "much", "a lot", "few"]
 answer: 1
 grammar_article_slug: "many-much-a-lot-of"
 explain: "'storage space' là uncountable → câu hỏi số lượng dùng 'How much'."
+why_wrong:
+  '0': '''many'' dùng cho danh từ đếm được, nhưng ''storage space'' là danh từ không đếm được.'
+  '2': '''a lot'' không được dùng trực tiếp sau ''How'' để tạo thành câu hỏi về số lượng theo cấu trúc này.'
+  '3': '''few'' dùng cho danh từ đếm được, nhưng ''storage space'' là danh từ không đếm được.'
 ---
 
 ---
@@ -128,6 +148,10 @@ options: ["many", "much", "a number of", "several"]
 answer: 1
 grammar_article_slug: "many-much-a-lot-of"
 explain: "'progress' là uncountable → dùng 'much', đặc biệt tự nhiên trong văn phong báo cáo/formal."
+why_wrong:
+  '0': '''Many'' chỉ dùng với danh từ đếm được số nhiều, trong khi ''progress'' là danh từ không đếm được.'
+  '2': '''A number of'' dùng để bổ nghĩa cho danh từ đếm được số nhiều, không dùng cho danh từ không đếm được như ''progress''.'
+  '3': '''Several'' chỉ được sử dụng với danh từ đếm được số nhiều, không dùng với danh từ không đếm được như ''progress''.'
 ---
 
 ---
@@ -171,6 +195,10 @@ options: ["a lot of", "much", "many", "a few"]
 answer: 0
 grammar_article_slug: "many-much-a-lot-of"
 explain: "Câu khẳng định, văn nói tự nhiên: 'much' đứng một mình nghe cứng/formal ('She spends much time' ít tự nhiên), nên 'a lot of' là lựa chọn informal tự nhiên hơn. 'many' sai vì 'time' là uncountable."
+why_wrong:
+  '1': Trong câu khẳng định, 'much' thường không được dùng một mình mà nghe cứng và ít tự nhiên.
+  '2': '''Many'' chỉ dùng với danh từ đếm được, nhưng ''time'' ở đây là danh từ không đếm được.'
+  '3': '''A few'' chỉ dùng với danh từ đếm được, nhưng ''time'' là danh từ không đếm được.'
 ---
 
 ---
@@ -185,6 +213,10 @@ options: ["a lot of", "much", "a little", "little"]
 answer: 0
 grammar_article_slug: "many-much-a-lot-of"
 explain: "'a lot of' là lựa chọn informal tự nhiên trong văn nói, dùng được cho 'apps' (countable)."
+why_wrong:
+  '1': '''Much'' chỉ dùng cho danh từ không đếm được, trong khi ''apps'' là danh từ đếm được số nhiều.'
+  '2': '''A little'' dùng để chỉ số lượng ít cho danh từ không đếm được, không dùng với danh từ đếm được ''apps''.'
+  '3': '''Little'' (không có ''a'') chỉ dùng cho danh từ không đếm được và mang nghĩa rất ít hoặc hầu như không có, không áp dụng cho danh từ đếm được ''apps''.'
 ---
 
 ---
@@ -228,6 +260,10 @@ options: ["too many", "too much", "so much", "a lot"]
 answer: 0
 grammar_article_slug: "many-much-a-lot-of"
 explain: "'people' là countable số nhiều và ngữ cảnh tiêu cực (uncomfortable) → dùng 'too many'."
+why_wrong:
+  '1': '''much'' chỉ dùng với danh từ không đếm được, trong khi ''people'' là danh từ đếm được số nhiều.'
+  '2': '''much'' chỉ dùng với danh từ không đếm được, trong khi ''people'' là danh từ đếm được số nhiều.'
+  '3': '''a lot'' chỉ diễn tả một số lượng lớn chung chung, không truyền tải ý nghĩa tiêu cực hay sự quá mức gây khó chịu như ngữ cảnh câu.'
 ---
 
 ---
@@ -242,6 +278,10 @@ options: ["so much", "too much", "so many", "too many"]
 answer: 0
 grammar_article_slug: "many-much-a-lot-of"
 explain: "'fun' là uncountable và ngữ cảnh tích cực + nhấn mạnh (stayed for the whole weekend) → dùng 'so much', không phải 'too much' (tiêu cực)."
+why_wrong:
+  '1': '''too much'' thường diễn tả lượng quá nhiều mang nghĩa tiêu cực hoặc không mong muốn, trong khi ngữ cảnh câu lại tích cực.'
+  '2': '''many'' chỉ dùng cho danh từ đếm được, nhưng ''fun'' là một danh từ không đếm được.'
+  '3': '''many'' chỉ dùng cho danh từ đếm được, nhưng ''fun'' là một danh từ không đếm được.'
 ---
 
 ---

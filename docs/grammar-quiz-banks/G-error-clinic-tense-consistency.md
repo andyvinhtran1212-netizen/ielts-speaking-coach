@@ -29,6 +29,10 @@ options: ["sat", "sits", "sitting", "has sat"]
 answer: 0
 grammar_article_slug: "tense-consistency"
 explain: "Khi kể chuỗi hành động quá khứ, mọi động từ giữ nguyên Past Simple: woke, made, sat — không nhảy sang thì khác giữa chừng."
+why_wrong:
+  '1': Chuỗi hành động đang kể diễn ra trong quá khứ (woke, made), nên không thể dùng thì hiện tại đơn "sits".
+  '2': '"Sitting" là dạng V-ing, không phải động từ chính có thể đứng độc lập trong chuỗi hành động được liệt kê sau liên từ "and".'
+  '3': Thì hiện tại hoàn thành "has sat" không phù hợp vì chuỗi hành động này là các sự kiện nối tiếp nhau đã hoàn thành trong quá khứ, không có liên hệ trực tiếp đến hiện tại.
 ---
 
 ---
@@ -56,6 +60,10 @@ options: ["never see", "had never seen", "never saw", "am never seeing"]
 answer: 1
 grammar_article_slug: "tense-consistency"
 explain: "Trong narrative quá khứ, hành động xảy ra TRƯỚC mốc quá khứ chính (arrived) dùng Past Perfect: had never seen — đây là chuyển thì HỢP LỆ, không phải lỗi."
+why_wrong:
+  '0': Thì hiện tại đơn "never see" không phù hợp với chuỗi sự kiện và ngữ cảnh quá khứ của câu chuyện.
+  '2': Thì quá khứ đơn "never saw" không diễn tả một hành động đã hoàn tất trước một mốc thời gian cụ thể khác trong quá khứ như từ "before" gợi ý.
+  '3': Thì hiện tại tiếp diễn "am never seeing" không đúng về mặt thời gian khi cả câu chuyện đang diễn ra trong quá khứ.
 ---
 
 ---
@@ -84,6 +92,10 @@ options: ["orbited", "orbits", "had orbited", "was orbiting"]
 answer: 1
 grammar_article_slug: "tense-consistency"
 explain: "Đây là sự thật khoa học vĩnh cửu xen vào narrative quá khứ → Present Simple 'orbits' vẫn HỢP LỆ dù câu chuyện đang ở quá khứ (không backshift sự thật bất biến)."
+why_wrong:
+  '0': Sai vì dùng thì quá khứ đơn ngụ ý sự thật khoa học này đã kết thúc hoặc chỉ đúng trong quá khứ, trong khi Trái Đất vẫn đang quay quanh Mặt Trời.
+  '2': Sai vì thì quá khứ hoàn thành dùng để diễn tả một hành động xảy ra trước một thời điểm khác trong quá khứ, không phù hợp với một sự thật khoa học bất biến.
+  '3': Sai vì thì quá khứ tiếp diễn diễn tả một hành động đang diễn ra tại một thời điểm cụ thể trong quá khứ, không thể hiện tính chất vĩnh cửu của sự thật khoa học.
 ---
 
 # ===== item_key 2 · Nhảy thì vô lý (random tense shift) sang Present giữa đoạn Past =====
@@ -113,6 +125,10 @@ options: ["hires", "hired", "is hiring", "has hired"]
 answer: 1
 grammar_article_slug: "tense-consistency"
 explain: "Cả đoạn kể về sự kiện quá khứ có mốc rõ (2010) → giữ nguyên Past Simple: hired, không nhảy sang 'hires'."
+why_wrong:
+  '0': Thì hiện tại đơn ('hires') dùng để diễn tả thói quen, sự thật hiển nhiên hoặc lịch trình, không phù hợp với chuỗi sự kiện đã xảy ra và kết thúc trong quá khứ (năm 2010).
+  '2': Thì hiện tại tiếp diễn ('is hiring') diễn tả hành động đang diễn ra tại thời điểm nói hoặc một sự kiện tạm thời, không phù hợp với hành động đã hoàn tất trong quá khứ.
+  '3': Thì hiện tại hoàn thành ('has hired') dùng để diễn tả hành động xảy ra trong quá khứ và có liên quan đến hiện tại hoặc không có mốc thời gian cụ thể, trong khi ở đây sự kiện đã có mốc rõ ràng (năm 2010) và đã kết thúc.
 ---
 
 ---
@@ -127,6 +143,10 @@ options: ["becomes", "became", "become", "is becoming"]
 answer: 1
 grammar_article_slug: "tense-consistency"
 explain: "Chuỗi hành động nối tiếp trong quá khứ (studied, passed) phải giữ nhất quán Past Simple: became — tránh lỗi tense_inconsistency khi nhảy sang 'becomes'."
+why_wrong:
+  '0': Phương án này dùng thì hiện tại đơn ("becomes") không phù hợp với chuỗi hành động đã xảy ra trong quá khứ ("studied", "passed"), phá vỡ tính nhất quán về thì của câu.
+  '2': Đây là dạng nguyên thể ("become"), không phải thì quá khứ đơn, nên không thể hoàn thành chuỗi hành động trong quá khứ theo đúng ngữ pháp.
+  '3': Thì hiện tại tiếp diễn ("is becoming") không chính xác trong ngữ cảnh này vì câu đang mô tả một kết quả đã hoàn thành trong quá khứ, không phải một hành động đang diễn ra hay một xu hướng.
 ---
 
 ---
@@ -197,6 +217,10 @@ options: ["finds", "found", "has found", "is finding"]
 answer: 1
 grammar_article_slug: "tense-consistency"
 explain: "Câu chủ đạo Task 2 ở Present Simple (suggests, perform) nhưng ví dụ cụ thể có mốc thời gian (2019) chuyển hợp lệ sang Past Simple: found — đây là lý do logic được phép."
+why_wrong:
+  '0': Thì Hiện tại đơn (finds) không phù hợp vì hành động của nghiên cứu diễn ra và hoàn tất vào một thời điểm cụ thể trong quá khứ (2019).
+  '2': Thì Hiện tại hoàn thành (has found) không được dùng khi có mốc thời gian cụ thể trong quá khứ (2019) được chỉ định rõ ràng.
+  '3': Thì Hiện tại tiếp diễn (is finding) miêu tả hành động đang diễn ra hoặc tạm thời, không phù hợp với một nghiên cứu đã hoàn thành vào năm 2019.
 ---
 
 ---
@@ -225,6 +249,10 @@ options: ["rise / flood", "will rise / will flood", "rose / flooded", "have rise
 answer: 1
 grammar_article_slug: "tense-consistency"
 explain: "Dự đoán tương lai có điều kiện Type 1 (If + Present, ...will + V) — dùng Present Simple ở mệnh đề If nhưng BẮT BUỘC modal 'will' ở mệnh đề chính, không dùng Present Simple trần cho kết quả tương lai."
+why_wrong:
+  '0': Mệnh đề chính dùng thì Hiện tại đơn để diễn tả kết quả tương lai là sai, vì theo quy tắc cần dùng modal 'will'.
+  '2': Dùng thì Quá khứ đơn ở mệnh đề chính là sai vì không phù hợp với cấu trúc câu điều kiện loại 1 và ngữ cảnh dự đoán tương lai.
+  '3': Dùng thì Hiện tại hoàn thành ở mệnh đề chính là sai vì không được sử dụng để dự đoán kết quả tương lai trong câu điều kiện loại 1.
 ---
 
 # ===== item_key 4 · Chuyển thì hợp lệ vs không hợp lệ (contrast) =====
@@ -241,6 +269,10 @@ options: ["is", "was", "has been", "be"]
 answer: 1
 grammar_article_slug: "tense-consistency"
 explain: "Reported speech backshift (said → was) là chuyển thì HỢP LỆ theo quy tắc tường thuật, không phải lỗi tense_inconsistency."
+why_wrong:
+  '0': Is giữ thì hiện tại, không phù hợp với động từ tường thuật "said" (quá khứ) trong câu tường thuật.
+  '2': Has been là thì hiện tại hoàn thành, không phải dạng lùi thì chính xác cho "am" (hiện tại đơn) trong câu tường thuật này.
+  '3': Be là dạng nguyên thể của động từ, không được chia thì và không hòa hợp với chủ ngữ "she" trong một câu tường thuật khẳng định.
 ---
 
 ---
@@ -268,6 +300,10 @@ options: ["forgot", "had forgotten", "forgets", "has forgotten"]
 answer: 1
 grammar_article_slug: "tense-consistency"
 explain: "'forgotten' xảy ra TRƯỚC 'arrived' (mốc quá khứ chính) → Past Perfect 'had forgotten' là chuyển thì hợp lệ để thể hiện trình tự trước/sau."
+why_wrong:
+  '0': '''forgot'' (quá khứ đơn) không thể hiện rõ hành động quên xảy ra TRƯỚC hành động đến (quá khứ đơn), gây sai lệch về trình tự thời gian của các sự kiện trong quá khứ.'
+  '2': '''forgets'' (hiện tại đơn) không phù hợp vì hành động này xảy ra trong quá khứ và dẫn đến một nhận ra trong quá khứ, không phải là một thói quen hay sự thật ở hiện tại.'
+  '3': '''has forgotten'' (hiện tại hoàn thành) liên kết hành động quên với hiện tại, trong khi toàn bộ ngữ cảnh câu chuyện (đến, nhận ra) đều diễn ra trong quá khứ.'
 ---
 
 ---

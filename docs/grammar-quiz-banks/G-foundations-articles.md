@@ -56,6 +56,10 @@ options: ["a / The", "the / A", "a / A", "the / The"]
 answer: 0
 grammar_article_slug: "articles"
 explain: "Lần đầu nhắc đến (first mention), 'documentary' bắt đầu bằng phụ âm /d/ → 'a documentary'; lần thứ hai nhắc lại cùng vật đó → 'The documentary'."
+why_wrong:
+  '1': 'Cả "The" ở chỗ trống đầu tiên và "A" ở chỗ trống thứ hai đều sai quy tắc sử dụng mạo từ: lần đầu nhắc đến một danh từ chung cần mạo từ bất định, và lần nhắc lại cần mạo từ xác định.'
+  '2': '"A" ở chỗ trống thứ hai sai vì nó đang nhắc đến một bộ phim tài liệu cụ thể đã được đề cập ở câu trước đó.'
+  '3': '"The" ở chỗ trống đầu tiên sai vì "documentary" được nhắc đến lần đầu tiên nên cần mạo từ bất định.'
 ---
 
 ---
@@ -84,6 +88,10 @@ options: ["It was such interesting a proposal!", "It was such a interesting prop
 answer: 2
 grammar_article_slug: "articles"
 explain: "Cấu trúc cố định 'such a/an + adj + noun'; vì 'interesting' bắt đầu bằng nguyên âm /ɪ/ nên dùng 'an': 'such an interesting proposal'."
+why_wrong:
+  '0': Thứ tự của mạo từ 'a' và tính từ 'interesting' bị đảo ngược; mạo từ phải đứng sau 'such' và trước tính từ trong cấu trúc này.
+  '1': Đã sử dụng mạo từ không xác định 'a' thay vì 'an' trước tính từ 'interesting' vì 'interesting' bắt đầu bằng một nguyên âm.
+  '3': Mạo từ xác định 'the' được sử dụng sai thay cho mạo từ không xác định 'a/an' theo cấu trúc cố định 'such a/an + adj + noun'.
 ---
 
 # ===== item_key 2 · The — lần thứ hai, cùng biết, duy nhất, so sánh nhất =====
@@ -100,6 +108,10 @@ options: ["a", "an", "the", "ø (no article)"]
 answer: 2
 grammar_article_slug: "articles"
 explain: "Cả người nói và người nghe đều biết cửa sổ nào (shared knowledge — chỉ có một cửa sổ trong phòng) → dùng 'the'."
+why_wrong:
+  '0': Mạo từ "a" dùng khi nói về một vật không xác định hoặc lần đầu được nhắc đến, trong khi ngữ cảnh ở đây chỉ rõ một cửa sổ cụ thể mà cả hai đều biết.
+  '1': Mạo từ "an" dùng trước danh từ bắt đầu bằng nguyên âm, nhưng "window" bắt đầu bằng phụ âm nên dùng "an" là sai về ngữ âm.
+  '3': Với danh từ đếm được số ít như "window", luôn cần có mạo từ đi kèm trừ một số trường hợp đặc biệt không áp dụng ở đây.
 ---
 
 ---
@@ -127,6 +139,10 @@ options: ["a", "an", "the", "ø (no article)"]
 answer: 2
 grammar_article_slug: "articles"
 explain: "Superlative (most confident) luôn đi kèm 'the': 'the most confident speaker'."
+why_wrong:
+  '0': '"a" là mạo từ không xác định, không dùng với hình thức so sánh nhất vì so sánh nhất luôn chỉ một đối tượng cụ thể nhất định.'
+  '1': '"an" là mạo từ không xác định, không dùng với hình thức so sánh nhất.'
+  '3': Hình thức so sánh nhất của tính từ (most confident speaker) luôn cần có mạo từ xác định "the" đi kèm.
 ---
 
 ---
@@ -170,6 +186,10 @@ options: ["A", "An", "The", "ø (no article)"]
 answer: 3
 grammar_article_slug: "articles"
 explain: "'Employees' số nhiều nói chung về nhân viên nói chung (không phải một nhóm nhân viên cụ thể đã nhắc) → zero article."
+why_wrong:
+  '0': '"A" chỉ dùng với danh từ số ít đếm được.'
+  '1': '"An" chỉ dùng với danh từ số ít đếm được.'
+  '2': '"The" được dùng khi danh từ chỉ một đối tượng cụ thể hoặc đã được xác định, trong khi "Employees" ở đây chỉ nhân viên nói chung.'
 ---
 
 ---
@@ -197,6 +217,10 @@ options: ["A", "An", "The", "ø (no article)"]
 answer: 3
 grammar_article_slug: "articles"
 explain: "Nói về công nghệ AI nói chung như một khái niệm (danh từ không đếm được, general) → zero article, không dùng 'the'."
+why_wrong:
+  '0': Mạo từ "a" chỉ dùng cho danh từ đếm được số ít, nhưng "artificial intelligence" trong ngữ cảnh này là một khái niệm chung không đếm được.
+  '1': Mạo từ "an" chỉ dùng cho danh từ đếm được số ít, nhưng "artificial intelligence" trong ngữ cảnh này là một khái niệm chung không đếm được.
+  '2': Mạo từ "the" dùng để chỉ đối tượng cụ thể hoặc đã xác định, nhưng trong câu này "artificial intelligence" là một khái niệm chung.
 ---
 
 ---
@@ -225,6 +249,10 @@ options: ["ø / The", "The / ø", "A / The", "ø / A"]
 answer: 0
 grammar_article_slug: "articles"
 explain: "Câu 1 nói về doanh nghiệp nhỏ NÓI CHUNG → zero article. Câu 2 nói về nhóm doanh nghiệp nhỏ CỤ THỂ 'in this district' (cả người nói/nghe đều biết) → 'The'."
+why_wrong:
+  '1': Ở câu 1, 'The' sai vì 'small businesses' được nói đến một cách chung chung; ở câu 2, 'ø' sai vì cụm 'in this district' đã xác định rõ nhóm doanh nghiệp cụ thể.
+  '2': Mạo từ 'A' không thể dùng với danh từ số nhiều 'Small businesses' ở câu 1.
+  '3': Mạo từ 'A' không thể dùng với danh từ số nhiều 'small businesses' ở câu 2.
 ---
 
 # ===== item_key 4 · A hay An — quy tắc âm thanh của từ tiếp theo =====
@@ -241,6 +269,10 @@ options: ["a", "an", "the", "ø (no article)"]
 answer: 0
 grammar_article_slug: "articles"
 explain: "'new' bắt đầu bằng âm phụ âm /nj/ → dùng 'a': 'a new mobile app'."
+why_wrong:
+  '1': Không dùng 'an' vì từ 'new' bắt đầu bằng một phụ âm /nj/, không phải nguyên âm.
+  '2': Không dùng 'the' vì ứng dụng đang được giới thiệu lần đầu và không phải là một đối tượng cụ thể hay đã được biết trước.
+  '3': Không dùng mạo từ vì 'mobile app' là danh từ đếm được số ít và cần có mạo từ đứng trước để hoàn chỉnh ngữ pháp.
 ---
 
 ---
@@ -255,6 +287,10 @@ options: ["a", "an", "the", "no article needed"]
 answer: 1
 grammar_article_slug: "articles"
 explain: "'hour' có 'h' câm, âm đầu thực tế là nguyên âm /aʊ/ → dùng 'an hour', theo quy tắc âm thanh chứ không phải chữ cái."
+why_wrong:
+  '0': Mạo từ 'a' chỉ dùng trước danh từ số ít đếm được bắt đầu bằng phụ âm, nhưng 'hour' bắt đầu bằng nguyên âm /aʊ/.
+  '2': Mạo từ 'the' dùng để chỉ một danh từ cụ thể hoặc đã được đề cập, nhưng ở đây 'hour' là một khoảng thời gian chung chung, không xác định.
+  '3': '''Hour'' là một danh từ số ít đếm được trong câu này và cần một mạo từ không xác định đứng trước.'
 ---
 
 ---

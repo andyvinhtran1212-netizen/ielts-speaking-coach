@@ -29,6 +29,10 @@ options: ["another", "other", "others", "the others"]
 answer: 0
 grammar_article_slug: "other-another-the-other-others"
 explain: "'appointment' là danh từ đếm được số ít → dùng 'another'."
+why_wrong:
+  '1': “Other” cần đi với danh từ số nhiều hoặc không đếm được, trong khi “appointment” là danh từ số ít đếm được.
+  '2': “Others” là đại từ thay thế cho danh từ số nhiều, không thể đứng trước một danh từ như “appointment” để bổ nghĩa.
+  '3': “The others” là đại từ chỉ nhóm đối tượng còn lại xác định, không thể bổ nghĩa trực tiếp cho danh từ “appointment”.
 ---
 
 ---
@@ -43,6 +47,10 @@ options: ["another", "other", "others", "the other"]
 answer: 0
 grammar_article_slug: "other-another-the-other-others"
 explain: "'way' là danh từ đếm được số ít, chưa xác định cụ thể là con đường nào → dùng 'another'."
+why_wrong:
+  '1': Từ 'other' đứng trước danh từ đếm được số ít như 'way' là sai ngữ pháp, nó thường đi với danh từ số nhiều hoặc không đếm được.
+  '2': Từ 'others' là một đại từ và không thể bổ nghĩa trực tiếp cho danh từ 'way'.
+  '3': Cụm 'the other' dùng để chỉ một đối tượng cụ thể còn lại trong một tập hợp đã xác định (thường là hai), không phù hợp với ngữ cảnh tìm một con đường thay thế bất kỳ.
 ---
 
 ---
@@ -57,6 +65,10 @@ options: ["another", "other", "others", "the others"]
 answer: 0
 grammar_article_slug: "other-another-the-other-others"
 explain: "'option' là danh từ đếm được số ít → dùng 'another'."
+why_wrong:
+  '1': '''Other'' không thể đứng một mình trước danh từ số ít đếm được như ''option'' mà không có mạo từ, hoặc chỉ bổ nghĩa cho danh từ số nhiều/không đếm được.'
+  '2': '''Others'' là một đại từ nên không thể đứng ngay trước một danh từ khác như ''option''.'
+  '3': '''The others'' là một đại từ chỉ những đối tượng còn lại trong một nhóm cụ thể, và không thể đứng ngay trước một danh từ khác như ''option''.'
 ---
 
 ---
@@ -100,6 +112,10 @@ options: ["Another", "Other", "The other", "Others"]
 answer: 1
 grammar_article_slug: "other-another-the-other-others"
 explain: "'passengers' là danh từ đếm được số nhiều, đứng ngay trước danh từ → dùng 'Other', không phải 'Another' (chỉ dành cho số ít)."
+why_wrong:
+  '0': Another chỉ dùng với danh từ đếm được số ít, nhưng "passengers" là danh từ số nhiều.
+  '2': The other dùng khi đề cập đến phần còn lại, cụ thể của một nhóm đã được xác định trước, điều không có trong ngữ cảnh này.
+  '3': Others là một đại từ (pronoun) và không đứng trước một danh từ như "passengers"; nó sẽ đứng một mình.
 ---
 
 ---
@@ -114,6 +130,10 @@ options: ["another", "other", "others", "the others"]
 answer: 1
 grammar_article_slug: "other-another-the-other-others"
 explain: "'medical history' là uncountable, đứng trước danh từ → dùng 'other', không dùng 'another'."
+why_wrong:
+  '0': '''Another'' chỉ dùng với danh từ đếm được số ít, không dùng với danh từ không đếm được ''medical history''.'
+  '2': '''Others'' là một đại từ, không dùng để bổ nghĩa trực tiếp cho một danh từ như ''medical history''.'
+  '3': '''The others'' là một đại từ, không dùng để bổ nghĩa trực tiếp cho một danh từ như ''medical history''.'
 ---
 
 ---
@@ -128,6 +148,10 @@ options: ["another", "other", "others", "the other"]
 answer: 1
 grammar_article_slug: "other-another-the-other-others"
 explain: "'causes' là danh từ đếm được số nhiều, đứng trước noun → dùng 'other'."
+why_wrong:
+  '0': '''another'' chỉ dùng với danh từ đếm được số ít, không phải ''causes'' số nhiều.'
+  '2': '''others'' là đại từ, không thể đứng trực tiếp trước một danh từ như ''possible causes''.'
+  '3': '''the other'' được dùng khi chỉ đến những đối tượng còn lại trong một nhóm xác định, trong khi ngữ cảnh này đang tìm kiếm các nguyên nhân khả thi mà không giới hạn số lượng cụ thể.'
 ---
 
 ---
@@ -171,6 +195,10 @@ options: ["another", "other", "the other", "others"]
 answer: 2
 grammar_article_slug: "other-another-the-other-others"
 explain: "Trong nhóm hai đối tượng đã xác định, cái còn lại dùng 'the other' (số ít)."
+why_wrong:
+  '0': Another dùng để chỉ một đối tượng không xác định khác hoặc một đối tượng bổ sung, không phải cái còn lại duy nhất đã xác định trong nhóm hai.
+  '1': Other không thể đứng một mình làm đại từ số ít để chỉ cái còn lại duy nhất đã xác định trong nhóm hai; nó thường cần mạo từ 'the' hoặc được dùng ở dạng số nhiều.
+  '3': Others là số nhiều, trong khi câu hỏi chỉ còn một chi nhánh duy nhất cần được nhắc đến sau khi đã xác định một chi nhánh.
 ---
 
 ---
@@ -185,6 +213,10 @@ options: ["another", "other", "the other", "others"]
 answer: 2
 grammar_article_slug: "other-another-the-other-others"
 explain: "Nhóm còn lại trong 5 ứng viên đã được xác định rõ (2 người còn lại) + có danh từ 'candidates' theo sau → dùng 'the other candidates'."
+why_wrong:
+  '0': '''Another'' chỉ dùng cho một cá thể khác hoặc thêm một cá thể nữa (thường là số ít) và không phù hợp với nhóm số nhiều xác định còn lại.'
+  '1': '''Other'' (không có ''the'') chỉ những người/vật khác không xác định hoặc bổ sung, không phải nhóm cụ thể còn lại trong tổng số đã biết.'
+  '3': '''Others'' là đại từ chỉ người/vật khác số nhiều và không thể đi kèm trực tiếp với danh từ ''candidates''.'
 ---
 
 ---
@@ -228,6 +260,10 @@ options: ["other", "others", "the other", "another"]
 answer: 1
 grammar_article_slug: "other-another-the-other-others"
 explain: "'others' là đại từ số nhiều, không có danh từ theo sau → thay cho 'other tourists'."
+why_wrong:
+  '0': '''Other'' là tính từ và cần một danh từ theo sau; không thể đứng độc lập làm đại từ.'
+  '2': '''The other'' dùng để chỉ một phần cụ thể, còn lại duy nhất của một nhóm đã xác định, không phải một nhóm khác không xác định.'
+  '3': '''Another'' là đại từ số ít, không phù hợp với động từ số nhiều ''like'' và ý nghĩa về một nhóm người.'
 ---
 
 ---
@@ -242,6 +278,10 @@ options: ["other", "others", "the others", "another"]
 answer: 2
 grammar_article_slug: "other-another-the-other-others"
 explain: "'the others' = ba người còn lại trong nhóm 5 đã xác định, đóng vai trò đại từ (không có noun theo sau) → dùng 'the others'."
+why_wrong:
+  '0': '''Other'' thường là tính từ cần danh từ theo sau hoặc chỉ một người/vật khác số ít, không phù hợp để chỉ nhóm nhiều người còn lại.'
+  '1': '''Others'' chỉ những người/vật khác nói chung, không xác định số lượng cụ thể còn lại trong một tập hợp đã biết.'
+  '3': '''Another'' dùng để chỉ ''một người/vật khác'' hoặc ''thêm một'', luôn ở số ít, trong khi ngữ cảnh cần chỉ ba người.'
 ---
 
 ---
@@ -298,6 +338,10 @@ options: ["On the other hand", "In another word", "The other day", "Others say"]
 answer: 0
 grammar_article_slug: "other-another-the-other-others"
 explain: "'On the other hand' = mặt khác, dùng để đưa ra ý đối lập — cụm cố định phổ biến trong Speaking Part 3 và Writing Task 2."
+why_wrong:
+  '1': Cụm từ đúng phải là 'in other words' và nó dùng để diễn đạt lại một ý khác, không phải để đưa ra ý đối lập.
+  '2': Đây là một cụm trạng ngữ chỉ thời gian với nghĩa 'vào mấy hôm trước', không có chức năng kết nối ý đối lập.
+  '3': Cụm này dùng để giới thiệu ý kiến của người khác và không phù hợp để thể hiện một khía cạnh đối lập của vấn đề đang nói đến.
 ---
 
 ---
@@ -312,6 +356,10 @@ options: ["the other day", "on the other hand", "in other words", "each other"]
 answer: 0
 grammar_article_slug: "other-another-the-other-others"
 explain: "'the other day' = hôm trước (một ngày gần đây không xác định cụ thể) — cụm cố định."
+why_wrong:
+  '1': '"On the other hand" là một cụm từ chuyển tiếp dùng để giới thiệu một ý đối lập hoặc một khía cạnh khác, không phải để chỉ thời gian xảy ra hành động.'
+  '2': '"In other words" là một cụm từ chuyển tiếp dùng để diễn đạt lại một ý đã nêu theo cách khác, không phù hợp để chỉ thời điểm một hành động diễn ra.'
+  '3': '"Each other" là đại từ chỉ sự tương hỗ (lẫn nhau) và không thể đứng cuối câu để bổ nghĩa cho thời gian hay địa điểm, cũng như không hợp ngữ pháp với cấu trúc "bumped into my old classmate".'
 ---
 
 ---

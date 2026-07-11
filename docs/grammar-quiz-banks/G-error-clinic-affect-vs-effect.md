@@ -29,6 +29,10 @@ options: ["affects", "effects", "affect's", "affection"]
 answer: 0
 grammar_article_slug: "affect-vs-effect"
 explain: "'affect' là động từ nghĩa 'tác động đến'. Chủ ngữ số ít (Pollution) + thì hiện tại đơn → affects."
+why_wrong:
+  '1': Effects là danh từ số nhiều, trong khi vị trí này cần một động từ để diễn tả hành động.
+  '2': Affect's không phải là một dạng động từ đúng; dấu 's thường dùng cho sở hữu hoặc viết tắt của is/has, không phù hợp ở đây.
+  '3': Affection là danh từ có nghĩa là 'tình cảm, sự yêu mến' và không phù hợp cả về ngữ pháp lẫn ngữ nghĩa với ngữ cảnh của câu.
 ---
 
 ---
@@ -43,6 +47,10 @@ options: ["effect", "affect", "affects", "effected"]
 answer: 1
 grammar_article_slug: "affect-vs-effect"
 explain: "Sau modal verb 'can' dùng động từ nguyên mẫu → affect (không chia). 'affect' = tác động đến."
+why_wrong:
+  '0': Effect là danh từ (tác động/kết quả), không phải động từ cần thiết sau modal verb 'can'.
+  '2': Sau modal verb 'can', động từ phải ở dạng nguyên mẫu không chia, không phải dạng chia số ít thì hiện tại đơn ('affects').
+  '3': Sau modal verb 'can', động từ phải ở dạng nguyên mẫu không chia, không phải dạng quá khứ hoặc quá khứ phân từ ('effected').
 ---
 
 ---
@@ -57,6 +65,10 @@ options: ["effects", "affects", "has effect", "is effect"]
 answer: 1
 grammar_article_slug: "affect-vs-effect"
 explain: "Có chủ ngữ (Poor nutrition) đang thực hiện hành động tác động lên tân ngữ → dùng động từ affects. Thử thay 'influences' vào vẫn đúng nghĩa."
+why_wrong:
+  '0': Effects là danh từ số nhiều, không phải động từ cần thiết ở đây để diễn tả hành động tác động.
+  '2': Cụm 'has effect' không đủ về ngữ pháp và cần mạo từ 'an' cùng giới từ 'on' để tạo thành cụm 'has an effect on' mang nghĩa tác động.
+  '3': Is effect là cấu trúc ngữ pháp sai; động từ 'to be' không thể kết hợp trực tiếp với danh từ 'effect' để tạo thành một động từ mang nghĩa tác động.
 ---
 
 ---
@@ -100,6 +112,10 @@ options: ["affect", "effect", "affects", "affecting"]
 answer: 1
 grammar_article_slug: "affect-vs-effect"
 explain: "Có mạo từ 'The' đứng trước → cần danh từ → effect (nghĩa: hệ quả, tác động)."
+why_wrong:
+  '0': affect là động từ, trong khi chỗ trống cần một danh từ sau mạo từ "The" để hoàn thành cụm danh từ.
+  '2': affects là động từ chia ở thì hiện tại đơn (ngôi thứ ba số ít), không phải danh từ cần thiết sau mạo từ "The".
+  '3': affecting là dạng V-ing của động từ, không phải danh từ chính xác mang nghĩa "hậu quả" mà câu yêu cầu sau mạo từ "The".
 ---
 
 ---
@@ -114,6 +130,10 @@ options: ["affects", "effects", "affect", "affected"]
 answer: 1
 grammar_article_slug: "affect-vs-effect"
 explain: "'the ____ of + noun' — sau mạo từ 'the' và trước 'of' là vị trí danh từ số nhiều → effects (các tác động)."
+why_wrong:
+  '0': Affects là dạng động từ ở ngôi thứ ba số ít (có nghĩa là tác động/ảnh hưởng), không phải danh từ chỉ kết quả/hậu quả.
+  '2': Affect chủ yếu là động từ (có nghĩa là tác động/ảnh hưởng) hoặc danh từ mang nghĩa cảm xúc, không phải danh từ chỉ kết quả/hậu quả.
+  '3': Affected là quá khứ phân từ hoặc tính từ, không phải danh từ cần ở vị trí này.
 ---
 
 ---
@@ -142,6 +162,10 @@ options: ["động từ affect", "danh từ effect", "trạng từ affectedly", 
 answer: 1
 grammar_article_slug: "affect-vs-effect"
 explain: "'a negative ___' → có mạo từ 'a' + tính từ đứng trước → vị trí danh từ → effect. Đáp án đúng: 'a negative effect on the economy'."
+why_wrong:
+  '0': Chỗ trống cần một danh từ theo sau mạo từ 'a' và tính từ 'negative', nhưng 'affect' là động từ.
+  '2': Chỗ trống cần một danh từ, nhưng 'affectedly' là trạng từ.
+  '3': Trong ngữ cảnh 'a negative ___', chỗ trống bắt buộc phải là danh từ, do đó chỉ có 'effect' là đúng chứ không phải cả hai.
 ---
 
 ---
@@ -171,6 +195,10 @@ options: ["affect", "effect", "affecting", "affected"]
 answer: 1
 grammar_article_slug: "affect-vs-effect"
 explain: "Cụm cố định 'have a positive/negative effect on' luôn dùng danh từ effect, không dùng affect."
+why_wrong:
+  '0': “Affect” chủ yếu là động từ, không phải danh từ để hoàn thành cụm “a positive ____” trong ngữ cảnh này.
+  '2': “Affecting” là dạng phân từ hiện tại (V-ing) của động từ, không thể đóng vai trò danh từ trong câu.
+  '3': “Affected” là dạng quá khứ phân từ (V3/ed) của động từ, không phải danh từ cần thiết sau “a positive”.
 ---
 
 ---
@@ -185,6 +213,10 @@ options: ["take affect", "take effect", "have affect", "be affect"]
 answer: 1
 grammar_article_slug: "affect-vs-effect"
 explain: "'take effect' là cụm cố định nghĩa 'có hiệu lực', luôn dùng effect (danh từ), không có dạng 'take affect'."
+why_wrong:
+  '0': Affect là động từ, trong khi cụm cố định ở đây yêu cầu danh từ 'effect' để mang nghĩa 'có hiệu lực'.
+  '2': Cụm từ 'have affect' không có nghĩa 'có hiệu lực'; 'affect' ở đây không phải là danh từ phù hợp để diễn đạt ý đó.
+  '3': Cấu trúc 'will be affect' (động từ nguyên mẫu sau 'be') là sai ngữ pháp và không diễn đạt được ý nghĩa 'có hiệu lực'.
 ---
 
 ---
@@ -241,6 +273,10 @@ options: ["effected", "affected", "effect", "affect"]
 answer: 1
 grammar_article_slug: "affect-vs-effect"
 explain: "Thể bị động của động từ 'affect' là 'be affected (by)'. 'effected' không dùng ở đây vì effect-là-động-từ chỉ nghĩa hiếm 'gây ra/thực hiện', không phù hợp ngữ cảnh này."
+why_wrong:
+  '0': effected là dạng quá khứ phân từ của động từ 'effect' (gây ra, thực hiện), không phù hợp với ngữ cảnh 'bị ảnh hưởng' ở đây.
+  '2': effect là danh từ hoặc động từ nguyên mẫu, không phải dạng quá khứ phân từ cần thiết cho thể bị động 'are ____'.
+  '3': affect là động từ nguyên mẫu, không phải dạng quá khứ phân từ cần thiết để tạo thành thể bị động 'are ____'.
 ---
 
 ---
@@ -255,6 +291,10 @@ options: ["affected", "effected", "effects", "affects"]
 answer: 0
 grammar_article_slug: "affect-vs-effect"
 explain: "Bị động của 'affect' (tác động đến) là 'were affected'. Communities bị ảnh hưởng, không phải 'bị thực hiện/tạo ra' nên không dùng effected."
+why_wrong:
+  '1': effected (quá khứ phân từ của động từ 'effect') có nghĩa là 'được thực hiện/gây ra', không phải 'bị ảnh hưởng' trong ngữ cảnh này.
+  '2': effects là danh từ số nhiều ('kết quả, ảnh hưởng') và không thể đứng sau 'were' để tạo thành thể bị động.
+  '3': affects là động từ chia ở thì hiện tại đơn (ngôi thứ ba số ít), không phù hợp với thì quá khứ và cấu trúc bị động 'were + V3/ed' của câu.
 ---
 
 ---
@@ -296,4 +336,8 @@ options: ["affected", "effected", "was affected", "was affecting"]
 answer: 1
 grammar_article_slug: "affect-vs-effect"
 explain: "Đây là cách dùng hiếm: 'effect' làm động từ trang trọng, nghĩa 'gây ra/thực hiện' (= bring about). 'The new leadership effected significant changes' = ban lãnh đạo mới đã thực hiện những thay đổi đáng kể. Khác với 'affect' (tác động đến) ở nghĩa chủ động tạo ra kết quả."
+why_wrong:
+  '0': Affected mang nghĩa 'tác động/ảnh hưởng đến', không phải 'thực hiện' hay 'tạo ra' sự thay đổi như ngữ cảnh mong muốn.
+  '2': Đây là cấu trúc bị động, không phù hợp vì chủ ngữ 'the new leadership' đang chủ động thực hiện hành động, và 'was affected significant changes' cũng sai ngữ pháp.
+  '3': Was affecting mang nghĩa 'đang tác động/ảnh hưởng đến', không truyền tải ý 'đang thực hiện' hay 'đang tạo ra' sự thay đổi.
 ---

@@ -29,6 +29,10 @@ options: ["She every morning drinks coffee.", "She drinks coffee every morning."
 answer: 1
 grammar_article_slug: "word-order"
 explain: "Trật tự cơ bản: Subject → Verb → Object → (Adverbial). 'She drinks coffee every morning' đúng thứ tự S-V-O-time."
+why_wrong:
+  '0': Trạng từ chỉ thời gian "every morning" không được đặt giữa chủ ngữ và động từ.
+  '2': Trạng từ chỉ thời gian "every morning" không được đặt giữa động từ và tân ngữ.
+  '3': Câu trần thuật phải bắt đầu bằng chủ ngữ, không phải bằng động từ.
 ---
 
 ---
@@ -85,6 +89,10 @@ options: ["Nowadays young people spend most of their free time online.", "Nowada
 answer: 0
 grammar_article_slug: "word-order"
 explain: "Trạng ngữ thời gian có thể đứng đầu câu ('Nowadays'), nhưng phần còn lại vẫn phải theo đúng Subject → Verb → Object: 'young people spend most of their free time online'."
+why_wrong:
+  '1': Trạng ngữ "online" được đặt giữa chủ ngữ ("young people") và động từ ("spend"), phá vỡ trật tự S-V.
+  '2': Tân ngữ ("most of their free time") bị đặt trước động từ ("spend"), làm sai trật tự S-V-O chuẩn.
+  '3': Câu bắt đầu bằng động từ ("Spend") và chủ ngữ ("young people") đứng sau, vi phạm nghiêm trọng trật tự S-V-O của câu trần thuật.
 ---
 
 # ===== item_key 2 · Trật tự tính từ trước danh từ (attributive vs predicative + adjective ordering) =====
@@ -101,6 +109,10 @@ options: ["a suit black new", "a new black suit", "a black new suit", "a suit ne
 answer: 1
 grammar_article_slug: "word-order"
 explain: "Tính từ luôn đứng TRƯỚC danh từ trong tiếng Anh, theo thứ tự Age → Colour: 'a new black suit'."
+why_wrong:
+  '0': Tính từ "black" và "new" đã bị đặt sai vị trí sau danh từ "suit".
+  '2': Thứ tự của các tính từ "black" và "new" bị đảo ngược so với quy tắc Age → Colour.
+  '3': Tính từ "new" và "black" đã bị đặt sai vị trí sau danh từ "suit".
 ---
 
 ---
@@ -128,6 +140,10 @@ options: ["a Chinese beautiful ancient", "an ancient beautiful Chinese", "a beau
 answer: 2
 grammar_article_slug: "word-order"
 explain: "Thứ tự Opinion (beautiful) → Age (ancient) → Origin (Chinese) → Noun: 'a beautiful ancient Chinese vase'."
+why_wrong:
+  '0': Tính từ "Chinese" (nguồn gốc) bị đặt sai vị trí trước "beautiful" (quan điểm) và "ancient" (tuổi tác).
+  '1': Tính từ "ancient" (tuổi tác) bị đặt sai vị trí trước "beautiful" (quan điểm).
+  '3': Tính từ "Chinese" (nguồn gốc) bị đặt sai vị trí trước "ancient" (tuổi tác).
 ---
 
 ---
@@ -156,6 +172,10 @@ options: ["She wore a dress beautiful to the ceremony.", "The dress looks beauti
 answer: 1
 grammar_article_slug: "word-order"
 explain: "'The dress looks beautiful' — tính từ đứng SAU động từ liên kết 'looks' (predicative use) là đúng ngữ pháp; đứng trước danh từ mới cần vị trí attributive."
+why_wrong:
+  '0': Tính từ "beautiful" phải đứng trước danh từ "dress" (attributive position), không phải đứng sau.
+  '2': Cụm "beautiful looks dress" sai cấu trúc ngữ pháp; từ "looks" được dùng không đúng cách trong cụm danh từ này.
+  '3': Câu thiếu động từ chính, chỉ là một cụm danh từ nên không phải một câu hoàn chỉnh.
 ---
 
 ---
@@ -185,6 +205,10 @@ options: ["I drink always coffee in the morning.", "I always drink coffee in the
 answer: 1
 grammar_article_slug: "word-order"
 explain: "Frequency adverb (always) đứng TRƯỚC động từ chính: 'I always drink coffee'."
+why_wrong:
+  '0': Trạng từ tần suất "always" đứng sau động từ chính "drink" là sai vị trí.
+  '2': Trạng từ tần suất "always" không đứng trước chủ ngữ "I" trong câu khẳng định thông thường.
+  '3': Trạng từ tần suất "always" đứng sau tân ngữ "coffee" là sai vị trí.
 ---
 
 ---
@@ -212,6 +236,10 @@ options: ["are usually", "usually are", "are always usually", "usually to be"]
 answer: 0
 grammar_article_slug: "word-order"
 explain: "Frequency adverb đứng SAU động từ 'be': 'candidates are usually nervous' (không phải trước be)."
+why_wrong:
+  '1': Trạng từ tần suất "usually" đứng trước động từ "are", trái với quy tắc trạng từ tần suất phải đứng sau động từ "to be".
+  '2': Sử dụng hai trạng từ tần suất ("always" và "usually") liên tiếp cùng lúc là thừa thãi và không đúng ngữ pháp.
+  '3': '"To be" là dạng nguyên thể, không phải dạng động từ đã chia phù hợp với chủ ngữ số nhiều "candidates" và thì hiện tại đơn.'
 ---
 
 ---
@@ -255,6 +283,10 @@ options: ["You are a student?", "Are you a student?", "You a student are?", "Stu
 answer: 1
 grammar_article_slug: "word-order"
 explain: "Câu hỏi Yes/No phải đảo trợ động từ (be/do/can...) lên trước chủ ngữ: 'Are you a student?'"
+why_wrong:
+  '0': Câu này có cấu trúc của một câu khẳng định (statement), không phải câu hỏi Yes/No.
+  '2': Trật tự từ của câu này sai ngữ pháp tiếng Anh, động từ 'are' không đứng cuối câu hỏi.
+  '3': Trật tự từ trong câu này hoàn toàn sai, không tuân theo bất kỳ cấu trúc câu hỏi nào trong tiếng Anh.
 ---
 
 ---
@@ -282,6 +314,10 @@ options: ["How did", "How you did", "Did how", "You did how"]
 answer: 0
 grammar_article_slug: "word-order"
 explain: "Câu hỏi Wh-: Wh-word + trợ động từ + Subject + Main Verb: 'How did you prepare...?'"
+why_wrong:
+  '1': Cấu trúc câu hỏi Wh-word đòi hỏi trợ động từ phải đứng trước chủ ngữ, không phải sau chủ ngữ.
+  '2': Trong câu hỏi Wh-word, từ Wh- (how) phải đứng đầu câu, không phải sau trợ động từ.
+  '3': Cấu trúc này không phải là một câu hỏi Wh-word trực tiếp; nó sai trật tự từ và Wh-word không được đặt ở cuối câu khi hỏi trực tiếp.
 ---
 
 ---

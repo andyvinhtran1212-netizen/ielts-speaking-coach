@@ -29,6 +29,10 @@ options: ["success", "successful", "succeed", "successfully"]
 answer: 1
 grammar_article_slug: "parts-of-speech"
 explain: "Trước danh từ 'person' cần tính từ (adjective) để mô tả, không dùng danh từ 'success'. Đuôi -ful là dấu hiệu tính từ."
+why_wrong:
+  '0': '"Success" là danh từ, không thể dùng để bổ nghĩa cho danh từ "person" ở vị trí này.'
+  '2': '"Succeed" là động từ, không thể đứng trước danh từ "person" để mô tả.'
+  '3': '"Successfully" là trạng từ, không dùng để bổ nghĩa trực tiếp cho danh từ "person".'
 ---
 
 ---
@@ -43,6 +47,10 @@ options: ["Educate", "Educational", "Education", "Educationally"]
 answer: 2
 grammar_article_slug: "parts-of-speech"
 explain: "Chủ ngữ của câu phải là danh từ (noun) → 'Education' (đuôi -tion là dấu hiệu danh từ)."
+why_wrong:
+  '0': Educate là động từ (verb), không thể đóng vai trò chủ ngữ của câu.
+  '1': Educational là tính từ (adjective), dùng để bổ nghĩa cho danh từ chứ không thể làm chủ ngữ của câu.
+  '3': Educationally là trạng từ (adverb), dùng để bổ nghĩa cho động từ, tính từ hoặc trạng từ khác, không thể làm chủ ngữ.
 ---
 
 ---
@@ -100,6 +108,10 @@ options: ["Study", "Studies", "Studying", "Studied"]
 answer: 2
 grammar_article_slug: "parts-of-speech"
 explain: "Động từ nguyên thể không thể làm chủ ngữ trực tiếp — cần V-ing (gerund) đóng vai trò danh từ: 'Studying'."
+why_wrong:
+  '0': Động từ nguyên thể (bare infinitive) không thể trực tiếp làm chủ ngữ của câu.
+  '1': Đây là dạng động từ chia theo ngôi (thì hiện tại đơn) hoặc danh từ số nhiều, không phù hợp làm chủ ngữ chỉ hành động.
+  '3': Dạng động từ quá khứ đơn hoặc quá khứ phân từ không thể làm chủ ngữ của câu.
 ---
 
 ---
@@ -114,6 +126,10 @@ options: ["explore", "explored", "exploring", "explores"]
 answer: 2
 grammar_article_slug: "parts-of-speech"
 explain: "Sau động từ 'enjoy' cần V-ing (gerund) làm tân ngữ, không dùng động từ nguyên thể."
+why_wrong:
+  '0': Động từ 'explore' ở dạng nguyên thể không phù hợp sau 'enjoy'.
+  '1': '''Explored'' là dạng quá khứ đơn hoặc phân từ hai, không dùng được sau ''enjoy''.'
+  '3': '''Explores'' là dạng động từ chia ở ngôi thứ ba số ít hiện tại đơn, không đúng sau ''enjoy''.'
 ---
 
 ---
@@ -157,6 +173,10 @@ options: ["fluent", "fluently", "fluency", "fluentness"]
 answer: 1
 grammar_article_slug: "parts-of-speech"
 explain: "Bổ nghĩa cho động từ 'speaks' cần trạng từ (adverb): fluent (adj) → fluently (adv), thêm -ly."
+why_wrong:
+  '0': Phương án này là một tính từ, không thể bổ nghĩa trực tiếp cho động từ "speaks".
+  '2': Phương án này là một danh từ, không thể bổ nghĩa cho động từ "speaks".
+  '3': Phương án này là một danh từ, không thể bổ nghĩa cho động từ "speaks".
 ---
 
 ---
@@ -171,6 +191,10 @@ options: ["incredible", "incredibly", "incredibility", "increase"]
 answer: 1
 grammar_article_slug: "parts-of-speech"
 explain: "Bổ nghĩa cho tính từ 'hot' cần trạng từ: incredible (adj) → incredibly (adv)."
+why_wrong:
+  '0': Phương án này là tính từ, không thể bổ nghĩa trực tiếp cho một tính từ khác ("hot") mà ta cần trạng từ.
+  '2': Đây là một danh từ, không có vai trò bổ nghĩa cho tính từ "hot" trong cấu trúc câu này.
+  '3': Phương án này là động từ hoặc danh từ, không phù hợp để bổ nghĩa cho tính từ "hot".
 ---
 
 ---
@@ -185,6 +209,10 @@ options: ["bad", "badly", "badness", "worsen"]
 answer: 0
 grammar_article_slug: "parts-of-speech"
 explain: "'feel' là linking verb — theo sau là tính từ mô tả chủ ngữ, không dùng trạng từ: 'felt bad', không phải 'felt badly'."
+why_wrong:
+  '1': '''badly'' là một trạng từ, nhưng sau động từ nối ''feel'' cần một tính từ để mô tả cảm xúc của chủ ngữ.'
+  '2': '''badness'' là một danh từ, không dùng để mô tả trực tiếp trạng thái cảm xúc của chủ ngữ sau động từ nối ''feel''.'
+  '3': '''worsen'' là một động từ, không thể dùng sau động từ nối ''feel'' để diễn tả cảm xúc của chủ ngữ trong cấu trúc này.'
 ---
 
 ---
@@ -242,6 +270,10 @@ options: ["Verb", "Adjective", "Noun", "Adverb"]
 answer: 2
 grammar_article_slug: "parts-of-speech"
 explain: "'communication' là tân ngữ của động từ 'improved', đuôi -tion là dấu hiệu danh từ (noun)."
+why_wrong:
+  '0': Nó không diễn tả hành động hay trạng thái, và động từ chính của câu đã là 'improved'.
+  '1': Nó không dùng để bổ nghĩa cho một danh từ hay đại từ nào khác trong câu.
+  '3': Nó không bổ nghĩa cho động từ, tính từ hay trạng từ khác để diễn tả cách thức, mức độ, thời gian, hoặc địa điểm.
 ---
 
 ---

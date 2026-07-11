@@ -43,6 +43,10 @@ options: ["Report", "The report", "Reports", "Of report"]
 answer: 1
 grammar_article_slug: "noun-phrase-basics"
 explain: "'report' là danh từ đếm được số ít, đã được nhắc tới gián tiếp qua 'the survey' (báo cáo về cuộc khảo sát đó) → cụ thể, xác định → dùng 'The report'."
+why_wrong:
+  '0': Danh từ đếm được số ít "report" cần có mạo từ (a/an/the) hoặc từ hạn định đi kèm khi làm chủ ngữ của câu.
+  '2': Việc sử dụng danh từ số nhiều "Reports" không phù hợp với ngữ cảnh đang đề cập đến một báo cáo cụ thể từ "the survey" (cuộc khảo sát).
+  '3': '"Of report" là một cụm giới từ và không thể trực tiếp làm chủ ngữ của câu.'
 ---
 
 ---
@@ -57,6 +61,10 @@ options: ["A", "An", "∅ (no article)", "Some"]
 answer: 0
 grammar_article_slug: "noun-phrase-basics"
 explain: "'number' là danh từ đếm được số ít bắt đầu bằng phụ âm khi đọc /n/ → dùng 'A growing number of'."
+why_wrong:
+  '1': Mạo từ 'an' được dùng trước các từ bắt đầu bằng nguyên âm, trong khi 'growing' bắt đầu bằng phụ âm /g/.
+  '2': Cụm 'growing number of' là một thành ngữ cố định yêu cầu mạo từ không xác định 'a' để diễn tả 'số lượng ngày càng tăng'.
+  '3': '''Some'' không dùng trong thành ngữ ''a growing number of'' để diễn tả ý nghĩa ''số lượng ngày càng tăng'' theo cách này.'
 ---
 
 ---
@@ -100,6 +108,10 @@ options: ["a wooden beautiful cabin", "a beautiful wooden cabin", "a cabin beaut
 answer: 1
 grammar_article_slug: "noun-phrase-basics"
 explain: "Thứ tự OSASCOMP: opinion (beautiful) đứng trước material (wooden) → 'a beautiful wooden cabin'."
+why_wrong:
+  '0': Thứ tự tính từ sai, vì tính từ chỉ chất liệu ("wooden") đứng trước tính từ chỉ ý kiến/quan điểm ("beautiful").
+  '2': Danh từ ("cabin") đứng trước các tính từ bổ nghĩa cho nó, trong khi đúng ra tính từ phải đứng trước danh từ.
+  '3': Sử dụng hai mạo từ không xác định ("a") liên tiếp trước cụm tính từ và danh từ, gây thừa và sai ngữ pháp.
 ---
 
 ---
@@ -114,6 +126,10 @@ options: ["an old Japanese temple", "a Japanese old temple", "an old temple Japa
 answer: 0
 grammar_article_slug: "noun-phrase-basics"
 explain: "Thứ tự OSASCOMP: age (old) đứng trước origin (Japanese) → 'an old Japanese temple'."
+why_wrong:
+  '1': Theo quy tắc OSASCOMP, tính từ chỉ tuổi (old) phải đứng trước tính từ chỉ nguồn gốc (Japanese).
+  '2': Tính từ (Japanese) phải đứng trước danh từ (temple) mà nó bổ nghĩa, không được đặt sau danh từ.
+  '3': Cả hai tính từ (old, Japanese) đều phải đứng trước danh từ (temple) mà chúng bổ nghĩa, không được đặt sau danh từ.
 ---
 
 ---
@@ -128,6 +144,10 @@ options: ["a serious environmental", "an environmental serious", "a serious an e
 answer: 0
 grammar_article_slug: "noun-phrase-basics"
 explain: "opinion (serious) đứng trước classifier (environmental) → 'a serious environmental issue'."
+why_wrong:
+  '1': 'Trật tự tính từ sai: tính từ chỉ ý kiến (serious) phải đứng trước tính từ phân loại (environmental).'
+  '2': Có hai mạo từ (a và an) được sử dụng cho cùng một cụm danh từ.
+  '3': Mạo từ (a) bị đặt sai vị trí, nó phải đứng trước tất cả các tính từ bổ nghĩa cho danh từ.
 ---
 
 ---
@@ -171,6 +191,10 @@ options: ["affecting", "affect", "affected by", "to affecting"]
 answer: 0
 grammar_article_slug: "noun-phrase-basics"
 explain: "Participial phrase (V-ing) bổ nghĩa cho danh từ khi danh từ là chủ thể thực hiện hành động: 'the factors affecting economic growth'."
+why_wrong:
+  '1': Dạng động từ nguyên thể 'affect' không thể trực tiếp bổ nghĩa cho danh từ 'factors' như một post-modifier độc lập mà cần là một dạng phân từ hoặc trong một mệnh đề quan hệ.
+  '2': Dạng phân từ quá khứ 'affected by' mang nghĩa bị động, nhưng 'factors' là chủ thể thực hiện hành động 'ảnh hưởng' đến sự tăng trưởng kinh tế, không phải là đối tượng bị 'ảnh hưởng bởi' nó.
+  '3': Cấu trúc 'to affecting' là sai ngữ pháp vì không thể kết hợp 'to' (như một giới từ hoặc phần của cấu trúc nguyên thể) trực tiếp với dạng V-ing trong vai trò bổ nghĩa này.
 ---
 
 ---
@@ -185,6 +209,10 @@ options: ["to reduce", "reducing", "reduce", "reduced"]
 answer: 0
 grammar_article_slug: "noun-phrase-basics"
 explain: "To-infinitive phrase diễn tả mục đích của danh từ: 'a policy to reduce carbon emissions'."
+why_wrong:
+  '1': Phương án này dùng hiện tại phân từ, không diễn tả mục đích của chính sách một cách tự nhiên và chính xác trong ngữ cảnh này.
+  '2': Động từ nguyên thể 'reduce' không thể trực tiếp theo sau danh từ 'policy' để bổ nghĩa hoặc diễn tả mục đích.
+  '3': Dạng quá khứ phân từ 'reduced' diễn tả trạng thái bị động hoặc đã hoàn thành, không phù hợp để diễn tả mục đích hướng tới tương lai của một chính sách.
 ---
 
 ---
@@ -228,6 +256,10 @@ options: ["job", "jobs", "job's", "of job"]
 answer: 0
 grammar_article_slug: "noun-phrase-basics"
 explain: "Noun modifier không thêm -s dù ý nghĩa số nhiều: 'a job centre', không phải 'jobs centre'."
+why_wrong:
+  '1': Danh từ dùng làm bổ ngữ (modifier) thường ở dạng số ít, ngay cả khi ý nghĩa là số nhiều.
+  '2': Dạng sở hữu 'job's' không phù hợp ngữ cảnh này vì câu cần một danh từ bổ nghĩa cho 'centre', không phải thể hiện sự sở hữu.
+  '3': Cụm 'of job' không tạo thành cấu trúc danh từ ghép chuẩn và thông dụng như 'job centre'.
 ---
 
 ---
@@ -242,6 +274,10 @@ options: ["scholarship", "scholarships", "scholarship's", "of scholarship"]
 answer: 0
 grammar_article_slug: "noun-phrase-basics"
 explain: "Noun modifier giữ nguyên dạng số ít: 'a scholarship programme'."
+why_wrong:
+  '1': Từ "scholarships" ở dạng số nhiều không được dùng làm bổ ngữ cho danh từ "programme".
+  '2': Dạng sở hữu "scholarship's" không phù hợp vì "scholarship" mô tả loại chương trình chứ không phải là chủ sở hữu.
+  '3': Cụm giới từ "of scholarship" tạo thành một cấu trúc không tự nhiên và không thông dụng khi "scholarship" đóng vai trò bổ nghĩa cho "programme".
 ---
 
 ---

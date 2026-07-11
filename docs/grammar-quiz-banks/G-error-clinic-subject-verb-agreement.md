@@ -29,6 +29,10 @@ options: ["is", "are", "were", "have been"]
 answer: 0
 grammar_article_slug: "subject-verb-agreement"
 explain: "Chủ ngữ thực sự là 'The list' (số ít), 'of requirements' chỉ là cụm giới từ chen giữa → bỏ qua nó khi chia động từ: is."
+why_wrong:
+  '1': Are là động từ số nhiều, không phù hợp để chia với chủ ngữ số ít “The list”.
+  '2': Were là động từ số nhiều (quá khứ), không phù hợp để chia với chủ ngữ số ít “The list”.
+  '3': Have been sử dụng have số nhiều, không phù hợp để chia với chủ ngữ số ít “The list”.
 ---
 
 ---
@@ -43,6 +47,10 @@ options: ["was", "were", "is", "has been"]
 answer: 1
 grammar_article_slug: "subject-verb-agreement"
 explain: "Chủ ngữ thực sự là 'Problems' (số nhiều), 'with the new system' là cụm giới từ chen giữa → were."
+why_wrong:
+  '0': Động từ 'was' chia cho chủ ngữ số ít, trong khi 'Problems' là chủ ngữ số nhiều.
+  '2': Động từ 'is' chia cho chủ ngữ số ít và ở thì hiện tại, nhưng 'Problems' là chủ ngữ số nhiều và sự việc xảy ra trong quá khứ ('yesterday').
+  '3': Động từ 'has been' chia cho chủ ngữ số ít và ở thì hiện tại hoàn thành, nhưng 'Problems' là chủ ngữ số nhiều và sự việc đã xảy ra vào một thời điểm cụ thể trong quá khứ ('yesterday').
 ---
 
 ---
@@ -57,6 +65,10 @@ options: ["have", "has", "are", "were"]
 answer: 1
 grammar_article_slug: "subject-verb-agreement"
 explain: "'The number of' + danh từ số nhiều → động từ SỐ ÍT (the number = một con số): has increased."
+why_wrong:
+  '0': '''Have'' là động từ số nhiều, không hòa hợp với chủ ngữ số ít ''The number''.'
+  '2': '''Are'' là động từ số nhiều, không chính xác khi đi với chủ ngữ số ít ''The number''.'
+  '3': '''Were'' là động từ số nhiều và ở thì quá khứ, không phù hợp với chủ ngữ số ít ''The number'' và ngữ cảnh ''this year'' yêu cầu thì hiện tại hoàn thành.'
 ---
 
 ---
@@ -71,6 +83,10 @@ options: ["is", "are", "was", "has been"]
 answer: 1
 grammar_article_slug: "subject-verb-agreement"
 explain: "'A number of' + danh từ số nhiều → động từ SỐ NHIỀU (nghĩa là 'nhiều'): are studying. Khác với 'the number of' luôn đi với động từ số ít."
+why_wrong:
+  '0': is là động từ số ít, nhưng chủ ngữ 'A number of students' yêu cầu động từ số nhiều.
+  '2': was là động từ số ít ở thì quá khứ, không phù hợp với chủ ngữ số nhiều và ngữ cảnh thì hiện tại tiếp diễn cho tương lai.
+  '3': has been là hình thức động từ số ít, không tương thích với chủ ngữ 'A number of students' yêu cầu động từ số nhiều.
 ---
 
 ---
@@ -127,6 +143,10 @@ options: ["is", "are", "have", "were"]
 answer: 0
 grammar_article_slug: "subject-verb-agreement"
 explain: "'Government' là danh từ tập hợp nhưng khi nói về nó như MỘT thực thể ra quyết định, thường dùng số ít: is considering."
+why_wrong:
+  '1': Are là động từ số nhiều, không phù hợp với chủ ngữ 'The government' khi nó được xem là một thực thể duy nhất.
+  '2': Have không thể kết hợp trực tiếp với V-ing (considering) để tạo thành thì tiếp diễn; cấu trúc đúng cho thì tiếp diễn phải dùng động từ 'to be'.
+  '3': Were là động từ số nhiều trong quá khứ, không phù hợp với chủ ngữ 'The government' (số ít) và ngữ cảnh của thì hiện tại tiếp diễn.
 ---
 
 ---
@@ -141,6 +161,10 @@ options: ["have", "has", "were", "are"]
 answer: 1
 grammar_article_slug: "subject-verb-agreement"
 explain: "'Committee' hoạt động như một khối thống nhất ở đây → số ít: has made."
+why_wrong:
+  '0': “Have” là trợ động từ số nhiều, không phù hợp với chủ ngữ “committee” khi nó hoạt động như một khối thống nhất (số ít).
+  '2': “Were” là động từ số nhiều và là dạng của “to be”, không phải trợ động từ phù hợp cho thì hiện tại hoàn thành (“has/have made”).
+  '3': “Are” là động từ số nhiều và là dạng của “to be”, không phải trợ động từ phù hợp cho thì hiện tại hoàn thành (“has/have made”).
 ---
 
 ---
@@ -155,6 +179,10 @@ options: ["is", "are", "has", "was"]
 answer: 1
 grammar_article_slug: "subject-verb-agreement"
 explain: "Tiếng Anh Anh (British English) thường coi danh từ tập hợp là số nhiều khi nhấn mạnh các thành viên riêng lẻ: The team are playing well. (Tiếng Anh Mỹ sẽ dùng 'is'.)"
+why_wrong:
+  '0': Phương án này coi 'team' là danh từ số ít, điều này ít phổ biến hơn trong tiếng Anh Anh khi nhấn mạnh hoạt động của từng thành viên.
+  '2': '''Has'' là động từ ''to have'' ở ngôi thứ ba số ít, không phù hợp để tạo thì hiện tại tiếp diễn với ''playing''.'
+  '3': '''Was'' là thì quá khứ của ''to be'', không phù hợp với ngữ cảnh "this season" (mùa này) vốn chỉ hành động đang diễn ra hoặc kéo dài đến hiện tại.'
 ---
 
 ---
@@ -169,6 +197,10 @@ options: ["was", "were", "have been", "are"]
 answer: 0
 grammar_article_slug: "subject-verb-agreement"
 explain: "'Company' khi nói về sự kiện thành lập (một thực thể pháp lý duy nhất) luôn dùng số ít: was founded."
+why_wrong:
+  '1': Chủ ngữ "The company" là số ít, nhưng "were" được dùng cho chủ ngữ số nhiều.
+  '2': Câu này nói về một sự kiện cụ thể đã xảy ra trong quá khứ (năm 1990), nên phải dùng thì quá khứ đơn, không phải thì hiện tại hoàn thành.
+  '3': Câu mô tả hành động thành lập đã diễn ra trong quá khứ (năm 1990), nên không thể dùng thì hiện tại "are".
 ---
 
 ---
@@ -225,6 +257,10 @@ options: ["know", "knows", "are knowing", "have known"]
 answer: 1
 grammar_article_slug: "subject-verb-agreement"
 explain: "'Everyone' luôn là chủ ngữ số ít → knows (không phải 'know')."
+why_wrong:
+  '0': '''know'' là dạng động từ số nhiều, không phù hợp với chủ ngữ số ít ''Everyone''.'
+  '2': Động từ 'know' thường là động từ chỉ trạng thái, hiếm khi được dùng ở thì tiếp diễn.
+  '3': '''have known'' dùng ''have'' là sai vì chủ ngữ ''Everyone'' là số ít, phải dùng ''has known''.'
 ---
 
 ---
@@ -253,6 +289,10 @@ options: ["have", "has", "are having", "were having"]
 answer: 1
 grammar_article_slug: "subject-verb-agreement"
 explain: "'Each of the + plural noun' vẫn lấy 'each' làm chủ ngữ, luôn số ít → has, dù danh từ theo sau (students) là số nhiều."
+why_wrong:
+  '0': Động từ 'have' là dạng số nhiều, không phù hợp với chủ ngữ 'Each' (luôn là số ít).
+  '2': '''Are having'' là dạng động từ số nhiều và thì hiện tại tiếp diễn không thích hợp để diễn tả sự sở hữu cố định.'
+  '3': '''Were having'' là dạng động từ số nhiều và thì quá khứ tiếp diễn không phù hợp để diễn tả sự sở hữu.'
 ---
 
 ---
@@ -267,6 +307,10 @@ options: ["are", "is", "were", "have been"]
 answer: 1
 grammar_article_slug: "subject-verb-agreement"
 explain: "'One of the + plural noun' → chủ ngữ thực sự là 'one' (số ít), không phải danh từ số nhiều đi kèm → is."
+why_wrong:
+  '0': Chủ ngữ 'One' là số ít, nhưng 'are' là động từ số nhiều.
+  '2': Chủ ngữ 'One' là số ít, nhưng 'were' là động từ số nhiều.
+  '3': Chủ ngữ 'One' là số ít, nhưng 'have been' là động từ số nhiều.
 ---
 
 ---
@@ -323,6 +367,10 @@ options: ["was", "were", "is", "has been"]
 answer: 1
 grammar_article_slug: "subject-verb-agreement"
 explain: "Trong 'neither A nor B', động từ chia theo chủ ngữ GẦN động từ nhất — ở đây là 'the students' (số nhiều) → were."
+why_wrong:
+  '0': '''was'' là động từ số ít trong thì quá khứ, không phù hợp với chủ ngữ số nhiều ''the students''.'
+  '2': '''is'' là động từ số ít trong thì hiện tại, không chia theo chủ ngữ số nhiều ''the students''.'
+  '3': '''has been'' là động từ thì hiện tại hoàn thành số ít, không tương thích với chủ ngữ số nhiều ''the students''.'
 ---
 
 ---
@@ -351,6 +399,10 @@ options: ["is", "are", "was", "has been"]
 answer: 1
 grammar_article_slug: "subject-verb-agreement"
 explain: "Chủ ngữ gần động từ nhất là 'my parents' (số nhiều) → are coming. Đổi thứ tự A và B trong either...or sẽ đổi cả dạng động từ."
+why_wrong:
+  '0': Sai vì "is" là động từ số ít, nhưng chủ ngữ gần nhất ("my parents") là số nhiều.
+  '2': Sai vì "was" là động từ quá khứ và số ít, không phù hợp với sự kiện tương lai ("this weekend") và chủ ngữ số nhiều ("my parents").
+  '3': Sai vì "has been" là động từ số ít và thì hiện tại hoàn thành, không phù hợp với chủ ngữ số nhiều ("my parents") và ngữ cảnh sự kiện sẽ diễn ra ("coming this weekend").
 ---
 
 ---
@@ -365,6 +417,10 @@ options: ["guarantee", "guarantees", "are guaranteeing", "have guaranteed"]
 answer: 1
 grammar_article_slug: "subject-verb-agreement"
 explain: "Cả 'money' và 'status' đều là danh từ số ít gần động từ → guarantees."
+why_wrong:
+  '0': Động từ "guarantee" ở dạng số nhiều không phù hợp với chủ ngữ số ít "status" đứng gần nhất.
+  '2': Thì hiện tại tiếp diễn ("are guaranteeing") không phù hợp để diễn tả một sự thật chung hoặc nhận định theo bài luận.
+  '3': Thì hiện tại hoàn thành ("have guaranteed") không thích hợp để diễn đạt một nhận định tổng quát hoặc một sự thật được trình bày trong bài luận.
 ---
 
 ---

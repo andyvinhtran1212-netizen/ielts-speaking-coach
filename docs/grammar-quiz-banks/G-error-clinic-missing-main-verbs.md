@@ -29,6 +29,10 @@ options: ["is", "very", "tired", "she"]
 answer: 0
 grammar_article_slug: "missing-main-verbs"
 explain: "Câu mô tả trạng thái (tired) cần động từ 'be' làm main verb. 'She' + tính từ không thể đứng một mình → phải có 'is'."
+why_wrong:
+  '1': '"Very" là một trạng từ dùng để bổ nghĩa, không phải động từ chính mà câu cần để liên kết chủ ngữ và tính từ.'
+  '2': '"Tired" ở đây là một tính từ mô tả trạng thái, không phải động từ chính để kết nối chủ ngữ "She" với trạng thái "very tired".'
+  '3': '"She" là một đại từ nhân xưng, đóng vai trò chủ ngữ; việc đặt thêm một chủ ngữ nữa vào vị trí này là thừa và câu vẫn thiếu động từ chính.'
 ---
 
 ---
@@ -43,6 +47,10 @@ options: ["is", "very", "table", "(để trống, không cần verb)"]
 answer: 0
 grammar_article_slug: "missing-main-verbs"
 explain: "Câu chỉ vị trí (on the table) vẫn cần main verb 'be': 'The book is on the table.'"
+why_wrong:
+  '1': '"Very" là một trạng từ, không thể đóng vai trò là động từ chính của câu.'
+  '2': '"Table" là một danh từ, không thể là động từ chính của câu để hoàn thiện cấu trúc ngữ pháp.'
+  '3': Một câu hoàn chỉnh luôn cần có động từ chính để diễn tả hành động hoặc trạng thái, và câu này thiếu động từ.
 ---
 
 ---
@@ -84,6 +92,10 @@ options: ["His answer completely wrong.", "His answer was completely wrong.", "H
 answer: 0
 grammar_article_slug: "missing-main-verbs"
 explain: "'His answer completely wrong' thiếu 'be' (was/is) làm main verb giữa chủ ngữ và tính từ 'wrong'."
+why_wrong:
+  '1': Đây là một câu hoàn chỉnh ngữ pháp vì động từ "was" đóng vai trò là động từ chính của câu.
+  '2': Đây là một câu hoàn chỉnh ngữ pháp vì động từ "seemed" đóng vai trò là động từ chính của câu.
+  '3': Đây là một câu hoàn chỉnh ngữ pháp vì động từ "is" đóng vai trò là động từ chính của câu.
 ---
 
 ---
@@ -98,6 +110,10 @@ options: ["was", "am", "be", "(không cần verb)"]
 answer: 0
 grammar_article_slug: "missing-main-verbs"
 explain: "Mốc thời gian quá khứ 'Yesterday' → 'be' chia ở quá khứ: 'was', không phải 'am' hay bỏ trống."
+why_wrong:
+  '1': '"Am" là thì hiện tại, không phù hợp với mốc thời gian "Yesterday" (hôm qua) trong câu.'
+  '2': '"Be" là dạng nguyên thể của động từ, không được chia theo chủ ngữ "I" và thì quá khứ của câu.'
+  '3': Câu thiếu động từ chính để liên kết chủ ngữ "I" với vị ngữ "at home", khiến câu không hoàn chỉnh về ngữ pháp.
 ---
 
 # ===== item_key 2 · V-ing thiếu "be" (continuous cần "be") =====
@@ -114,6 +130,10 @@ options: ["are", "very", "park", "playing"]
 answer: 0
 grammar_article_slug: "missing-main-verbs"
 explain: "V-ing trong continuous tense luôn cần 'be' đứng trước làm main verb: 'The children are playing.'"
+why_wrong:
+  '1': Đây là trạng từ, không thể đóng vai trò là động từ 'to be' cần thiết để tạo thành thì tiếp diễn.
+  '2': Đây là danh từ, không thể đứng trước V-ing để tạo thành thì tiếp diễn.
+  '3': Đặt 'playing' vào chỗ trống sẽ tạo thành cấu trúc lặp thừa và vẫn thiếu động từ 'to be' cần thiết cho thì tiếp diễn.
 ---
 
 ---
@@ -141,6 +161,10 @@ options: ["are", "have", "do", "will"]
 answer: 0
 grammar_article_slug: "missing-main-verbs"
 explain: "Xu hướng đang diễn ra (present continuous) → cần 'are' trước V-ing 'moving'."
+why_wrong:
+  '1': Động từ 'have' không kết hợp trực tiếp với dạng V-ing 'moving' để tạo thành thì hiện tại tiếp diễn hoặc bất kỳ cấu trúc ngữ pháp phổ biến nào.
+  '2': Trợ động từ 'do' không được dùng với dạng V-ing 'moving'; nó thường đi với động từ nguyên mẫu hoặc được dùng làm động từ chính.
+  '3': Trợ động từ 'will' phải được theo sau bởi động từ nguyên mẫu (V-base), không phải dạng V-ing 'moving', trừ khi trong cấu trúc thì tương lai tiếp diễn ('will be moving').
 ---
 
 ---
@@ -169,6 +193,10 @@ options: ["Chỉ câu 1 đúng (Swimming là gerund làm chủ ngữ)", "Chỉ c
 answer: 0
 grammar_article_slug: "missing-main-verbs"
 explain: "Câu 1: 'Swimming' là gerund làm chủ ngữ, có main verb 'is' → đúng. Câu 2 thiếu 'be' trước V-ing 'swimming' làm main verb → sai, phải là 'She is swimming every morning' hoặc 'She swims every morning.'"
+why_wrong:
+  '1': Câu 2 sai ngữ pháp do thiếu động từ "to be" trước "swimming".
+  '2': Câu 2 sai ngữ pháp do thiếu động từ "to be" trước "swimming".
+  '3': Câu 1 đúng ngữ pháp vì "Swimming" là danh động từ (gerund) làm chủ ngữ.
 ---
 
 # ===== item_key 3 · V-ed (past participle) thiếu "be" (passive) =====
@@ -212,6 +240,10 @@ options: ["are", "have", "do", "very"]
 answer: 0
 grammar_article_slug: "missing-main-verbs"
 explain: "Chủ ngữ số nhiều 'Many problems' + passive (caused) → cần 'be' chia là 'are' trước past participle."
+why_wrong:
+  '1': Cần động từ 'to be' cho thể bị động, 'have' là trợ động từ của thì hoàn thành hoặc dùng trong câu chủ động.
+  '2': '''Do'' là trợ động từ của thì hiện tại đơn (chủ động) hoặc dùng để nhấn mạnh/tạo câu hỏi, không dùng trong cấu trúc bị động.'
+  '3': '''Very'' là một trạng từ chỉ mức độ, không phải là động từ và không thể đứng trước một phân từ quá khứ để tạo thành cấu trúc bị động.'
 ---
 
 ---
@@ -255,6 +287,10 @@ options: ["Pollution is a very important issue in modern society.", "A very impo
 answer: 0
 grammar_article_slug: "missing-main-verbs"
 explain: "Chỉ câu đầu có main verb 'is'. Ba câu còn lại chỉ là noun phrase — dài nhưng không có predicate."
+why_wrong:
+  '1': Đây là một cụm danh từ, không chứa động từ chính để tạo thành một câu hoàn chỉnh.
+  '2': Cụm từ này không có động từ chính, chỉ là một cụm danh từ được mở rộng thêm thông tin.
+  '3': Đây chỉ là một cụm danh từ, thiếu động từ chính để biểu thị một hành động hay trạng thái.
 ---
 
 ---
@@ -310,4 +346,8 @@ options: ["has changed", "changing", "to change", "changed by"]
 answer: 0
 grammar_article_slug: "missing-main-verbs"
 explain: "Chủ ngữ dài 'The rapid development... century' vẫn chỉ là noun phrase nếu không có main verb chia đúng thì (has changed = present perfect, hợp lý cho xu hướng kéo dài đến nay). 'changing' hay 'to change' không phải finite verb nên không cứu được câu."
+why_wrong:
+  '1': '''changing'' là một hiện tại phân từ (present participle), không thể tự mình đóng vai trò là động từ chính của câu.'
+  '2': '''to change'' là một động từ nguyên mẫu (infinitive), không thể đứng một mình làm động từ chính để tạo thành một câu hoàn chỉnh.'
+  '3': '''changed by'' là một cụm phân từ bị động (passive participle phrase) không có trợ động từ, do đó không thể hoạt động như một động từ chính được chia thì cho chủ ngữ.'
 ---

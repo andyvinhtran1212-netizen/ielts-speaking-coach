@@ -29,6 +29,10 @@ options: ["a few", "a little", "much", "little"]
 answer: 0
 grammar_article_slug: "few-a-few-little-a-little"
 explain: "'nurses' là danh từ đếm được số nhiều → dùng 'a few', không dùng 'a little' (dành cho uncountable)."
+why_wrong:
+  '1': '"a little" được dùng với danh từ không đếm được, trong khi "nurses" là danh từ đếm được số nhiều.'
+  '2': '"much" chỉ dùng cho danh từ không đếm được, còn "nurses" là danh từ đếm được.'
+  '3': '"little" (mang nghĩa phủ định "không nhiều") dùng với danh từ không đếm được, không phải với "nurses" là danh từ đếm được.'
 ---
 
 ---
@@ -43,6 +47,10 @@ options: ["a few", "a little", "many", "few"]
 answer: 1
 grammar_article_slug: "few-a-few-little-a-little"
 explain: "'bandwidth' là uncountable → dùng 'a little', không dùng 'a few'."
+why_wrong:
+  '0': a few dùng cho danh từ đếm được số nhiều, trong khi 'bandwidth' là danh từ không đếm được.
+  '2': many dùng cho danh từ đếm được số nhiều, trong khi 'bandwidth' là danh từ không đếm được.
+  '3': few dùng cho danh từ đếm được số nhiều, trong khi 'bandwidth' là danh từ không đếm được.
 ---
 
 ---
@@ -57,6 +65,10 @@ options: ["a few", "a little", "much", "little"]
 answer: 0
 grammar_article_slug: "few-a-few-little-a-little"
 explain: "'flights' là countable số nhiều → nhóm 'few/a few' phù hợp, không phải 'little/a little'."
+why_wrong:
+  '1': '''A little'' dùng cho danh từ không đếm được, trong khi ''flights'' là danh từ đếm được số nhiều.'
+  '2': '''Much'' dùng cho danh từ không đếm được, trong khi ''flights'' là danh từ đếm được số nhiều.'
+  '3': '''Little'' (không có ''a'') dùng cho danh từ không đếm được, trong khi ''flights'' là danh từ đếm được số nhiều.'
 ---
 
 ---
@@ -100,6 +112,10 @@ options: ["few", "a few", "little", "much"]
 answer: 1
 grammar_article_slug: "few-a-few-little-a-little"
 explain: "Ngữ cảnh 'plenty of time' cho thấy sắc thái tích cực (đủ dùng) → dùng 'a few', không phải 'few'."
+why_wrong:
+  '0': Phương án này mang sắc thái tiêu cực (rất ít, không đủ), trái ngược với ngữ cảnh 'plenty of time' (đủ dùng).
+  '2': Phương án này chỉ dùng với danh từ không đếm được, trong khi 'minutes' là danh từ đếm được.
+  '3': Phương án này dùng cho danh từ không đếm được, không phù hợp với 'minutes' là danh từ đếm được.
 ---
 
 ---
@@ -114,6 +130,10 @@ options: ["little", "a little", "few", "much"]
 answer: 1
 grammar_article_slug: "few-a-few-little-a-little"
 explain: "'money' là uncountable và ngữ cảnh tích cực (đủ trả tiền thuê) → dùng 'a little', không phải 'little'."
+why_wrong:
+  '0': '''Little'' (không có ''a'') mang nghĩa tiêu cực, ám chỉ lượng tiền không đủ, mâu thuẫn với việc cô ấy có thể trả tiền thuê nhà mà không lo lắng.'
+  '2': '''Few'' chỉ dùng cho danh từ đếm được, trong khi ''money'' là danh từ không đếm được.'
+  '3': '''Much'' thường được dùng trong câu phủ định hoặc câu hỏi, và nó ám chỉ một lượng lớn, không hoàn toàn phù hợp với ngữ cảnh ''đủ để chi trả'' một cách nhẹ nhàng.'
 ---
 
 ---
@@ -157,6 +177,10 @@ options: ["A few", "Few", "A little", "Little"]
 answer: 1
 grammar_article_slug: "few-a-few-little-a-little"
 explain: "'passengers' là countable số nhiều và ngữ cảnh 'almost empty' mang sắc thái tiêu cực → dùng 'Few'."
+why_wrong:
+  '0': Mặc dù dùng cho danh từ đếm được số nhiều, nhưng "A few" mang nghĩa tích cực ("một vài, một ít"), không phù hợp với ngữ cảnh "sân bay gần như trống rỗng" (gợi ý rất ít).
+  '2': '"A little" được dùng cho danh từ không đếm được, trong khi "passengers" là danh từ đếm được số nhiều.'
+  '3': '"Little" được dùng cho danh từ không đếm được, trong khi "passengers" là danh từ đếm được số nhiều.'
 ---
 
 ---
@@ -171,6 +195,10 @@ options: ["a little", "little", "a few", "many"]
 answer: 1
 grammar_article_slug: "few-a-few-little-a-little"
 explain: "'hope' là uncountable và ngữ cảnh bi quan (rescue workers admitted) → dùng 'little' (tiêu cực), không phải 'a little'."
+why_wrong:
+  '0': a little mang nghĩa "một ít, đủ dùng" hoặc "tương đối", không phù hợp với ngữ cảnh bi quan "gần như không còn hy vọng".
+  '2': a few chỉ dùng cho danh từ đếm được số nhiều, trong khi 'hope' là danh từ không đếm được.
+  '3': many chỉ dùng cho danh từ đếm được số nhiều, trong khi 'hope' là danh từ không đếm được.
 ---
 
 ---
@@ -227,6 +255,10 @@ options: ["fewer", "less", "little", "much"]
 answer: 0
 grammar_article_slug: "few-a-few-little-a-little"
 explain: "'tourists' là countable số nhiều → dạng so sánh là 'fewer', không phải 'less'."
+why_wrong:
+  '1': '"Less" dùng cho danh từ không đếm được, nhưng "tourists" là danh từ đếm được số nhiều.'
+  '2': '"Little" dùng cho danh từ không đếm được và không phải dạng so sánh hơn, trong khi câu cần từ so sánh cho danh từ đếm được.'
+  '3': '"Much" dùng cho danh từ không đếm được và không phải dạng so sánh biểu thị sự ít hơn, trong khi "tourists" là danh từ đếm được.'
 ---
 
 ---
@@ -241,6 +273,10 @@ options: ["fewer", "less", "few", "a few"]
 answer: 1
 grammar_article_slug: "few-a-few-little-a-little"
 explain: "'traffic' là uncountable → dạng so sánh là 'less', không phải 'fewer'."
+why_wrong:
+  '0': '"Fewer" chỉ dùng với danh từ đếm được số nhiều ở dạng so sánh, trong khi "traffic congestion" là danh từ không đếm được.'
+  '2': '"Few" dùng cho danh từ đếm được số nhiều và không ở dạng so sánh, trong khi "traffic congestion" là danh từ không đếm được.'
+  '3': '"A few" dùng cho danh từ đếm được số nhiều và không ở dạng so sánh, trong khi "traffic congestion" là danh từ không đếm được.'
 ---
 
 ---

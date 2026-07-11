@@ -29,6 +29,10 @@ options: ["a", "an", "the", "some"]
 answer: 1
 grammar_article_slug: "articles-a-an-sound-rules"
 explain: "'excellent' bắt đầu bằng nguyên âm /e/ khi đọc → dùng 'an', bất kể chữ cái là gì."
+why_wrong:
+  '0': Phương án 'a' sai vì 'a' được dùng trước các từ bắt đầu bằng phụ âm, trong khi 'excellent' bắt đầu bằng nguyên âm.
+  '2': Phương án 'the' sai vì 'the' dùng để chỉ danh từ xác định, cụ thể, không phải danh từ lần đầu được nhắc đến chung chung như trong câu này.
+  '3': Phương án 'some' sai vì 'some' thường dùng với danh từ số nhiều hoặc danh từ không đếm được, không phù hợp với danh từ số ít 'reputation' ở đây.
 ---
 
 ---
@@ -43,6 +47,10 @@ options: ["a", "an", "the", "some"]
 answer: 0
 grammar_article_slug: "articles-a-an-sound-rules"
 explain: "'new' bắt đầu bằng phụ âm /nj/ khi đọc → dùng 'a'."
+why_wrong:
+  '1': An chỉ dùng trước các từ bắt đầu bằng nguyên âm, nhưng "new" lại bắt đầu bằng phụ âm.
+  '2': The dùng cho vật đã xác định hoặc được nhắc đến trước đó, trong khi thiết bị này đang được giới thiệu lần đầu và chưa xác định cụ thể.
+  '3': Some dùng cho danh từ số nhiều hoặc danh từ không đếm được, không dùng cho danh từ số ít "device".
 ---
 
 ---
@@ -57,6 +65,10 @@ options: ["an", "a", "the", "some"]
 answer: 0
 grammar_article_slug: "articles-a-an-sound-rules"
 explain: "'algorithm' đọc /ˈælɡərɪðəm/ — âm đầu /æ/ là nguyên âm → dùng 'an algorithm'."
+why_wrong:
+  '1': '''Algorithm'' bắt đầu bằng một âm nguyên âm (/æ/), nên phải dùng ''an'' thay vì ''a'' đứng trước nó.'
+  '2': '"Algorithm" ở đây là một thuật toán chung chung, chưa xác định cụ thể, không phải là một thuật toán duy nhất hay đã được biết đến từ trước nên không dùng mạo từ xác định ''the''.'
+  '3': '''Some'' dùng cho danh từ không đếm được hoặc danh từ đếm được số nhiều, trong khi ''algorithm'' là danh từ đếm được số ít.'
 ---
 
 ---
@@ -100,6 +112,10 @@ options: ["a", "an", "the", "this"]
 answer: 0
 grammar_article_slug: "articles-a-an-sound-rules"
 explain: "'urine' đọc là /ˈjʊərɪn/ — âm đầu /j/ là phụ âm → dùng 'a', dù chữ cái đầu là U."
+why_wrong:
+  '1': “An” dùng trước nguyên âm, nhưng “urine” bắt đầu bằng phụ âm /j/.
+  '2': “The” dùng khi vật đã xác định hoặc được biết đến, nhưng ở đây là một xét nghiệm chung chung.
+  '3': “This” dùng để chỉ vật cụ thể, gần hoặc đã được đề cập, không phù hợp với lời khuyên chung chung.
 ---
 
 ---
@@ -114,6 +130,10 @@ options: ["a", "an", "the", "some"]
 answer: 0
 grammar_article_slug: "articles-a-an-sound-rules"
 explain: "'union' đọc /ˈjuːniən/, âm đầu /j/ (phụ âm) → dùng 'a'."
+why_wrong:
+  '1': '''An'' dùng trước các từ bắt đầu bằng nguyên âm, trong khi ''union'' bắt đầu bằng phụ âm /j/.'
+  '2': '''The'' dùng để chỉ một đối tượng cụ thể hoặc đã được xác định, nhưng ở đây đang giới thiệu một chức danh chung.'
+  '3': '''Some'' dùng cho danh từ đếm được số nhiều hoặc danh từ không đếm được, trong khi ''representative'' là danh từ đếm được số ít.'
 ---
 
 ---
@@ -128,6 +148,10 @@ options: ["a", "an", "the", "some"]
 answer: 0
 grammar_article_slug: "articles-a-an-sound-rules"
 explain: "'uniform' đọc /ˈjuːnɪfɔːm/ — bắt đầu bằng /j/ → dùng 'a', giống quy tắc với 'university'."
+why_wrong:
+  '1': “An” được dùng trước các từ bắt đầu bằng nguyên âm, nhưng “uniform” bắt đầu bằng phụ âm /j/.
+  '2': “The” dùng cho danh từ xác định hoặc đã được nhắc đến, trong khi ở đây là một quy trình mới được giới thiệu, chưa xác định cụ thể.
+  '3': “Some” dùng cho danh từ số nhiều hoặc không đếm được, trong khi “procedure” ở đây là danh từ số ít.
 ---
 
 ---
@@ -184,6 +208,10 @@ options: ["a", "an", "the", "this"]
 answer: 1
 grammar_article_slug: "articles-a-an-sound-rules"
 explain: "'honest' có H câm, đọc /ˈɒnɪst/ — âm đầu là nguyên âm /ɒ/ → dùng 'an'."
+why_wrong:
+  '0': '''a'' dùng sai vì từ ''honest'' bắt đầu bằng âm nguyên âm /ɒ/, không phải âm phụ âm.'
+  '2': '''the'' dùng sai vì ''honest mistake'' là một lỗi chung chung, chưa xác định hoặc không phải là thứ đã được nhắc đến trước đó.'
+  '3': '''this'' dùng sai vì nó là tính từ chỉ định, không phải mạo từ để giới thiệu một sự việc chung chung lần đầu như vậy.'
 ---
 
 ---
@@ -212,6 +240,10 @@ options: ["a", "an", "the", "some"]
 answer: 1
 grammar_article_slug: "articles-a-an-sound-rules"
 explain: "'hour' có H câm, đọc /ˈaʊər/ — âm đầu là nguyên âm → dùng 'an'."
+why_wrong:
+  '0': Sai vì 'a' dùng trước danh từ bắt đầu bằng phụ âm, trong khi 'hour' bắt đầu bằng nguyên âm khi phát âm.
+  '2': Sai vì 'the' dùng cho danh từ xác định hoặc đã được nhắc đến, trong khi 'hour' trong ngữ cảnh này là không xác định.
+  '3': Sai vì 'some' dùng cho danh từ không đếm được hoặc danh từ đếm được số nhiều, trong khi 'hour' là danh từ đếm được số ít ở đây.
 ---
 
 ---
@@ -268,6 +300,10 @@ options: ["a", "an", "the", "some"]
 answer: 1
 grammar_article_slug: "articles-a-an-sound-rules"
 explain: "'MBA' đọc từng chữ /em-biː-eɪ/ — chữ M đọc là /em/, âm đầu là nguyên âm → dùng 'an'."
+why_wrong:
+  '0': '''A'' dùng trước các từ bắt đầu bằng phụ âm, trong khi âm đầu của ''MBA'' là nguyên âm /em/.'
+  '2': '''The'' dùng khi nói về một đối tượng cụ thể hoặc đã được xác định, trong khi ở đây ''MBA'' là một loại bằng cấp chung chung.'
+  '3': '''Some'' dùng cho danh từ không đếm được hoặc danh từ đếm được số nhiều, trong khi ''MBA'' là một danh từ đếm được số ít.'
 ---
 
 ---
@@ -282,6 +318,10 @@ options: ["a", "an", "the", "some"]
 answer: 0
 grammar_article_slug: "articles-a-an-sound-rules"
 explain: "'CV' đọc /siː-viː/ — chữ C đọc là /siː/, âm đầu là phụ âm /s/ → dùng 'a'."
+why_wrong:
+  '1': '`an` chỉ dùng trước các từ có âm đầu là nguyên âm, trong khi ''CV'' bắt đầu bằng phụ âm /s/.'
+  '2': '`the` dùng để chỉ vật đã được xác định hoặc nhắc đến trước đó, nhưng ''CV'' ở đây được nhắc đến lần đầu và chưa xác định.'
+  '3': '`some` dùng cho danh từ số nhiều hoặc không đếm được, nhưng ''CV'' là danh từ đếm được số ít.'
 ---
 
 ---
@@ -296,6 +336,10 @@ options: ["a", "an", "the", "some"]
 answer: 1
 grammar_article_slug: "articles-a-an-sound-rules"
 explain: "'NGO' đọc /en-dʒiː-əʊ/ — chữ N đọc là /en/, âm đầu là nguyên âm → dùng 'an'."
+why_wrong:
+  '0': '''NGO'' bắt đầu bằng một âm nguyên âm (/en/), nên không dùng ''a''.'
+  '2': '''The'' dùng cho danh từ xác định, trong khi ở đây đang giới thiệu loại hình tổ chức (một trong số các NGO) chứ không phải một NGO cụ thể đã được nhắc đến.'
+  '3': '''Some'' dùng cho danh từ số nhiều hoặc không đếm được, hoặc khi muốn chỉ một số lượng không xác định, trong khi ''NGO'' là danh từ đếm được số ít.'
 ---
 
 ---

@@ -29,6 +29,10 @@ options: ["This", "That", "These", "Those"]
 answer: 2
 grammar_article_slug: "this-that-these-those-in-use"
 explain: "'shoes' là danh từ số nhiều và đang ở gần người nói (right next to me) → dùng 'these'."
+why_wrong:
+  '0': '''This'' dùng cho danh từ số ít, trong khi ''shoes'' là danh từ số nhiều.'
+  '1': '''That'' dùng cho danh từ số ít, trong khi ''shoes'' là danh từ số nhiều.'
+  '3': '''Those'' dùng để chỉ những vật ở xa, nhưng câu hỏi cho biết đôi giày đang ''right next to me'' (rất gần người nói).'
 ---
 
 ---
@@ -43,6 +47,10 @@ options: ["This", "That", "These", "Those"]
 answer: 1
 grammar_article_slug: "this-that-these-those-in-use"
 explain: "'building' số ít, ở xa ('over there') → dùng 'that'."
+why_wrong:
+  '0': This dùng cho vật số ít ở gần, nhưng câu lại dùng "over there" chỉ sự ở xa.
+  '2': These dùng cho vật số nhiều, nhưng "building" là danh từ số ít.
+  '3': Those dùng cho vật số nhiều, nhưng "building" là danh từ số ít.
 ---
 
 ---
@@ -100,6 +108,10 @@ options: ["This", "These", "That", "Those"]
 answer: 0
 grammar_article_slug: "this-that-these-those-in-use"
 explain: "'This + danh từ tóm tắt (increase)' chỉ lại ý vừa nêu ở câu trước một cách rõ ràng — kỹ thuật cohesion cơ bản."
+why_wrong:
+  '1': These là tính từ chỉ định số nhiều, không thể đi kèm với danh từ số ít 'increase'.
+  '2': That thường dùng để chỉ một điều gì đó xa hơn về mặt thời gian hoặc ý nghĩa, không phù hợp để liên kết trực tiếp với thông tin vừa được đề cập.
+  '3': Those là tính từ chỉ định số nhiều, không thể đi kèm với danh từ số ít 'increase'.
 ---
 
 ---
@@ -114,6 +126,10 @@ options: ["This", "That", "These", "It"]
 answer: 2
 grammar_article_slug: "this-that-these-those-in-use"
 explain: "Ba ý vừa liệt kê (traffic, air pollution, noise) là một NHÓM ý số nhiều → dùng 'These + danh từ tóm tắt' (problems) để gom lại."
+why_wrong:
+  '0': '''This'' là từ chỉ định số ít, không phù hợp để bổ nghĩa cho danh từ số nhiều ''problems''.'
+  '1': '''That'' là từ chỉ định số ít, không phù hợp để bổ nghĩa cho danh từ số nhiều ''problems''.'
+  '3': '''It'' là đại từ số ít và không thể đứng trước trực tiếp một danh từ như ''problems'' để tạo thành cụm danh từ theo ngữ cảnh này.'
 ---
 
 ---
@@ -170,6 +186,10 @@ options: ["This", "That", "These", "Those"]
 answer: 3
 grammar_article_slug: "this-that-these-those-in-use"
 explain: "Nói về một giai đoạn quá khứ đã qua lâu, số nhiều (years) → 'those' diễn đạt khoảng cách thời gian."
+why_wrong:
+  '0': '''This'' dùng cho danh từ số ít, trong khi ''years'' là danh từ số nhiều.'
+  '1': '''That'' dùng cho danh từ số ít, trong khi ''years'' là danh từ số nhiều.'
+  '2': '''These'' chỉ những điều gần gũi trong thời gian hoặc không gian, không phù hợp để nói về một giai đoạn quá khứ đã qua lâu.'
 ---
 
 ---
@@ -184,6 +204,10 @@ options: ["this", "these", "that", "those"]
 answer: 2
 grammar_article_slug: "this-that-these-those-in-use"
 explain: "'that' diễn đạt khoảng cách CẢM XÚC — người nói muốn giữ khoảng cách với chủ đề gây khó chịu, không phải khoảng cách vật lý."
+why_wrong:
+  '0': “This” dùng để chỉ vật/vấn đề gần gũi về mặt không gian hoặc cảm xúc, trái ngược với mong muốn giữ khoảng cách của người nói với chủ đề gây khó chịu.
+  '1': “These” là dạng số nhiều, không phù hợp với danh từ số ít “topic”.
+  '3': “Those” là dạng số nhiều, không phù hợp với danh từ số ít “topic”.
 ---
 
 ---
@@ -227,6 +251,10 @@ options: ["This's", "That's", "These are", "Those are"]
 answer: 1
 grammar_article_slug: "this-that-these-those-in-use"
 explain: "Cụm cố định 'That's why...' dùng để nêu kết quả/lý do dẫn tới điều vừa nói."
+why_wrong:
+  '0': “This's” không phải là một phần của cụm từ cố định “That's why...” dùng để giới thiệu kết quả hoặc lý do.
+  '2': “These are” dùng để chỉ các đối tượng số nhiều, không phù hợp để chỉ một khái niệm số ít như “sự không đáng tin cậy” của giao thông công cộng.
+  '3': “Those are” dùng để chỉ các đối tượng số nhiều, không phù hợp để chỉ một khái niệm số ít như “sự không đáng tin cậy” của giao thông công cộng.
 ---
 
 ---

@@ -29,6 +29,10 @@ options: ["I love cooking, I do it every day.", "I love cooking. I do it every d
 answer: 1
 grammar_article_slug: "run-on-sentences"
 explain: "Dấu phẩy KHÔNG đủ để nối 2 mệnh đề độc lập (comma splice). Cách đơn giản nhất: tách thành 2 câu bằng dấu chấm."
+why_wrong:
+  '0': Phương án này vẫn mắc lỗi comma splice (dùng dấu phẩy nối hai mệnh đề độc lập) mà đề bài yêu cầu sửa.
+  '2': Phần thứ hai "do it every day" thiếu chủ ngữ, khiến nó không phải là một mệnh đề độc lập đầy đủ để được nối bằng dấu phẩy theo cách này.
+  '3': Phương án này thay đổi nghĩa gốc của câu, gộp hai ý riêng biệt thành một mệnh đề đơn giản hơn thay vì sửa lỗi nối câu.
 ---
 
 ---
@@ -56,6 +60,10 @@ options: ["so", "and", "however", "therefore,"]
 answer: 0
 grammar_article_slug: "run-on-sentences"
 explain: "Sau dấu phẩy cần một liên từ FANBOYS (for/and/but/or/nor/yet/so) để nối 2 mệnh đề độc lập. 'so' thể hiện quan hệ kết quả: khó → trượt."
+why_wrong:
+  '1': '''and'' chỉ dùng để nối các ý song song hoặc bổ sung, không thể hiện mối quan hệ nguyên nhân-kết quả giữa việc thi khó và kết quả trượt.'
+  '2': '''however'' là trạng từ liên kết, không phải liên từ kết hợp (FANBOYS), nên không thể nối hai mệnh đề độc lập chỉ bằng dấu phẩy.'
+  '3': '''therefore'' là trạng từ liên kết, không phải liên từ kết hợp (FANBOYS), nên không thể nối hai mệnh đề độc lập chỉ bằng dấu phẩy.'
 ---
 
 ---
@@ -113,6 +121,10 @@ options: ["She studies every night.", "I love cooking I do it every day.", "I lo
 answer: 1
 grammar_article_slug: "run-on-sentences"
 explain: "'I love cooking I do it every day.' là fused sentence: hai mệnh đề độc lập đặt cạnh nhau mà không có bất kỳ dấu câu hay liên từ nào ngăn cách."
+why_wrong:
+  '0': Đây chỉ là một mệnh đề độc lập duy nhất, không phải hai mệnh đề bị dính liền.
+  '2': Hai mệnh đề độc lập được ngăn cách đúng cách bằng dấu phẩy và liên từ kết hợp 'and'.
+  '3': Câu này gồm một mệnh đề phụ thuộc và một mệnh đề độc lập, được phân tách đúng cách bằng dấu phẩy.
 ---
 
 ---
@@ -140,6 +152,10 @@ options: ["it", "which", "so", "however"]
 answer: 1
 grammar_article_slug: "run-on-sentences"
 explain: "Câu thứ hai bổ sung thông tin về danh từ 'Australia' → dùng mệnh đề quan hệ với 'which': 'He moved to Australia, which is a beautiful country.'"
+why_wrong:
+  '0': it là một đại từ nhân xưng, không thể dùng để nối hai mệnh đề độc lập mà không có dấu câu hoặc liên từ thích hợp.
+  '2': so là liên từ chỉ kết quả hoặc phó từ, không dùng để giới thiệu mệnh đề quan hệ bổ sung thông tin cho danh từ.
+  '3': however là một trạng từ liên kết (conjunctive adverb) dùng để chỉ sự tương phản, không phải là đại từ quan hệ để bổ sung thông tin cho danh từ.
 ---
 
 ---
@@ -168,6 +184,10 @@ options: ["Thiếu chủ ngữ", "Fused sentence — ba mệnh đề độc lậ
 answer: 1
 grammar_article_slug: "run-on-sentences"
 explain: "Ba mệnh đề độc lập ('I enjoy cooking', 'I find it relaxing', 'it also helps me de-stress') bị nối liền nhau không có dấu câu hay liên từ nào → fused sentence, cần chia lại bằng dấu chấm, liên từ, hoặc mệnh đề quan hệ."
+why_wrong:
+  '0': Mọi mệnh đề trong câu ("I enjoy cooking", "I find it relaxing", "it also helps me de-stress") đều có chủ ngữ rõ ràng.
+  '2': Các động từ "enjoy", "find" và "helps" đều được chia ở thì hiện tại đơn, phù hợp để diễn tả thói quen hoặc sự thật chung.
+  '3': Câu không chứa danh từ nào cần hoặc bị thiếu mạo từ (a/an/the).
 ---
 
 ---
@@ -197,6 +217,10 @@ options: ["Technology is useful, however it can be addictive.", "Technology is u
 answer: 1
 grammar_article_slug: "run-on-sentences"
 explain: "'however' không phải liên từ (FANBOYS) nên KHÔNG thể nối 2 câu bằng dấu phẩy. Cần dấu chấm (hoặc chấm phẩy) trước 'however', và dấu phẩy ngay sau nó."
+why_wrong:
+  '0': Nối hai mệnh đề độc lập bằng dấu phẩy trước 'however' là sai vì 'however' không phải là liên từ.
+  '2': Không có dấu chấm hoặc chấm phẩy trước 'however' để tách biệt hai mệnh đề độc lập.
+  '3': Thiếu dấu câu cả trước và sau 'however' để tách hai mệnh đề và đặt 'however' đúng vị trí.
 ---
 
 ---
@@ -224,6 +248,10 @@ options: [",", ";", " and", " but"]
 answer: 1
 grammar_article_slug: "run-on-sentences"
 explain: "'therefore' là từ nối (transition word), không phải liên từ FANBOYS → không thể dùng dấu phẩy để nối 2 mệnh đề độc lập trước nó. Dùng dấu chấm phẩy (;) khi 2 ý liên quan chặt chẽ."
+why_wrong:
+  '0': Dấu phẩy không đủ mạnh để nối hai mệnh đề độc lập khi có từ nối "therefore"; đây là lỗi "comma splice" (lỗi nối câu bằng dấu phẩy).
+  '2': Liên từ "and" không phù hợp để kết nối mệnh đề độc lập với sự hiện diện của từ nối "therefore" ngay sau nó, tạo ra cấu trúc ngữ pháp không chính xác.
+  '3': Liên từ "but" dùng để diễn tả sự tương phản, không phù hợp với mối quan hệ nguyên nhân-kết quả được chỉ ra bởi "therefore", đồng thời không chính xác về mặt cấu trúc.
 ---
 
 ---
@@ -252,6 +280,10 @@ options: ["Giống hệt nhau, đều dùng dấu phẩy trước", "'but' dùng
 answer: 1
 grammar_article_slug: "run-on-sentences"
 explain: "'but' là liên từ phối hợp (FANBOYS) nên dùng dấu phẩy trước nó là đủ: 'X, but Y.' Còn 'however' là từ nối (transition word), cần dấu chấm/chấm phẩy trước và dấu phẩy sau: 'X; however, Y.' hoặc 'X. However, Y.'"
+why_wrong:
+  '0': Phương án này sai vì 'however' không chỉ dùng dấu phẩy trước mà cần dấu chấm hoặc chấm phẩy trước, và dấu phẩy sau.
+  '2': Phương án này sai vì 'however' có thể đứng giữa câu (sau dấu chấm phẩy) chứ không chỉ luôn đứng đầu câu.
+  '3': Phương án này sai vì câu hỏi tập trung vào sự khác biệt về dấu câu, và thực tế 'but' và 'however' có quy tắc dấu câu rất khác biệt.
 ---
 
 ---

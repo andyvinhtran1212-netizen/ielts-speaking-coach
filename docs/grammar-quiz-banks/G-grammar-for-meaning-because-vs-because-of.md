@@ -29,6 +29,10 @@ options: ["because", "because of", "due to", "despite"]
 answer: 0
 grammar_article_slug: "because-vs-because-of"
 explain: "'because' + mệnh đề (she was sick = subject + verb) — đúng liên từ nối nguyên nhân dạng mệnh đề."
+why_wrong:
+  '1': because of cần theo sau bởi danh từ hoặc cụm danh từ, không phải một mệnh đề.
+  '2': due to cũng yêu cầu một danh từ hoặc cụm danh từ theo sau, chứ không phải một mệnh đề.
+  '3': despite dùng để chỉ sự tương phản hoặc nhượng bộ, không phù hợp với mối quan hệ nguyên nhân – kết quả trong câu này.
 ---
 
 ---
@@ -43,6 +47,10 @@ options: ["because", "because of", "owing to", "as a result of"]
 answer: 0
 grammar_article_slug: "because-vs-because-of"
 explain: "Theo sau có động từ chia 'rained' (mệnh đề đầy đủ) → phải dùng liên từ 'because', không dùng giới từ 'because of/owing to/as a result of'."
+why_wrong:
+  '1': '"Because of" là giới từ kép và phải theo sau bởi danh từ hoặc cụm danh từ, không thể đi với một mệnh đề đầy đủ có chủ ngữ và động từ như "it rained heavily".'
+  '2': '"Owing to" là giới từ và phải theo sau bởi danh từ hoặc cụm danh từ, không thể đi với một mệnh đề đầy đủ có chủ ngữ và động từ như "it rained heavily".'
+  '3': '"As a result of" là giới từ kép và phải theo sau bởi danh từ hoặc cụm danh từ, không thể đi với một mệnh đề đầy đủ có chủ ngữ và động từ như "it rained heavily".'
 ---
 
 ---
@@ -99,6 +107,10 @@ options: ["because of", "because", "although", "so that"]
 answer: 0
 grammar_article_slug: "because-vs-because-of"
 explain: "'because of' + cụm danh từ (her illness) — đúng giới từ kép nối nguyên nhân dạng danh từ."
+why_wrong:
+  '1': '''Because'' là liên từ nối hai mệnh đề, nhưng sau chỗ trống là một cụm danh từ.'
+  '2': '''Although'' là liên từ phụ thuộc dùng để diễn tả sự tương phản, không phù hợp về nghĩa và cấu trúc (nó cần một mệnh đề).'
+  '3': '''So that'' là liên từ diễn tả mục đích hoặc kết quả và cần theo sau bởi một mệnh đề, không phải cụm danh từ.'
 ---
 
 ---
@@ -113,6 +125,10 @@ options: ["Because of", "Because", "Even though", "So"]
 answer: 0
 grammar_article_slug: "because-vs-because-of"
 explain: "Theo sau là cụm danh từ 'the heavy traffic' (không có động từ chia) → dùng giới từ kép 'Because of'."
+why_wrong:
+  '1': Cần theo sau bởi một mệnh đề (có chủ ngữ và động từ chia).
+  '2': Cần theo sau bởi một mệnh đề (có chủ ngữ và động từ chia).
+  '3': Không thể trực tiếp theo sau bởi một cụm danh từ để diễn tả nguyên nhân.
 ---
 
 ---
@@ -169,6 +185,10 @@ options: ["late", "lately", "lateness", "later"]
 answer: 0
 grammar_article_slug: "because-vs-because-of"
 explain: "'late arrival' là cụm danh từ (tính từ + danh từ) — 'because of his late arrival' tương đương 'because he arrived late'."
+why_wrong:
+  '1': '"lately" là trạng từ có nghĩa "gần đây", không thể dùng để bổ nghĩa cho danh từ "arrival" và làm sai lệch nghĩa gốc.'
+  '2': '"lateness" là danh từ, không thể đứng trước để bổ nghĩa trực tiếp cho danh từ "arrival" trong cụm tính từ + danh từ.'
+  '3': '"later" là dạng so sánh hơn của tính từ/trạng từ "late" hoặc trạng từ chỉ thời gian sau đó, không diễn tả nghĩa "muộn" (không đúng giờ) của "late" trong ngữ cảnh gốc.'
 ---
 
 ---
@@ -183,6 +203,10 @@ options: ["Because of", "Because", "Due", "So"]
 answer: 0
 grammar_article_slug: "because-vs-because-of"
 explain: "'traffic congestion' là danh từ hóa từ mệnh đề 'traffic was congested' → phải dùng 'Because of' + cụm danh từ."
+why_wrong:
+  '1': '"Because" phải theo sau bởi một mệnh đề (chủ ngữ + động từ), không phải cụm danh từ.'
+  '2': '"Due" không đứng một mình trước cụm danh từ để chỉ nguyên nhân; nó cần "to" để tạo thành "due to".'
+  '3': '"So" là liên từ chỉ kết quả hoặc trạng từ, không dùng để giới thiệu nguyên nhân bằng một cụm danh từ.'
 ---
 
 ---
@@ -226,6 +250,10 @@ options: ["Since", "Due to", "Owing to", "As a result of"]
 answer: 0
 grammar_article_slug: "because-vs-because-of"
 explain: "'Since' theo sau bởi mệnh đề đầy đủ ('prices rose') — giống 'because', trung tính, thường gặp trong academic writing."
+why_wrong:
+  '1': '"Due to" là một cụm giới từ, phải theo sau bởi danh từ hoặc cụm danh từ, không thể đi với một mệnh đề đầy đủ như "prices rose sharply".'
+  '2': '"Owing to" là một cụm giới từ, cần danh từ hoặc cụm danh từ theo sau, không dùng với một mệnh đề có chủ ngữ và vị ngữ như "prices rose sharply".'
+  '3': '"As a result of" là một cụm giới từ, yêu cầu theo sau là danh từ hoặc cụm danh từ, không phù hợp để bổ nghĩa cho một mệnh đề đầy đủ "prices rose sharply".'
 ---
 
 ---
@@ -240,6 +268,10 @@ options: ["due to", "due to that", "due because of", "because due"]
 answer: 0
 grammar_article_slug: "because-vs-because-of"
 explain: "'due to' + cụm danh từ ('unforeseen technical difficulties') — giống 'because of', rất trang trọng, phổ biến trong writing."
+why_wrong:
+  '1': Cụm giới từ "due to" đã đủ để nối với cụm danh từ chỉ nguyên nhân; thêm "that" vào đây là thừa và không đúng cấu trúc.
+  '2': '"Due" và "because of" đều dùng để chỉ nguyên nhân, việc dùng cả hai cùng lúc là lặp lại và sai ngữ pháp.'
+  '3': '"Because due" không phải là một cấu trúc ngữ pháp chuẩn để diễn tả nguyên nhân; "because" cần một mệnh đề theo sau hoặc đi với "of".'
 ---
 
 ---

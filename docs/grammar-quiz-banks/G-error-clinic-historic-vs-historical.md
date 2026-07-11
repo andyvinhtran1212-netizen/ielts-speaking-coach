@@ -29,6 +29,10 @@ options: ["historic", "historical", "history", "historian"]
 answer: 0
 grammar_article_slug: "historic-vs-historical"
 explain: "'historic' = quan trọng, đáng nhớ trong lịch sử. Một thành tựu mang tính bước ngoặt như đổ bộ Mặt Trăng → a historic achievement."
+why_wrong:
+  '1': historical mô tả cái gì đó liên quan đến lịch sử hoặc các sự kiện trong quá khứ, chứ không phải một sự kiện mang tính bước ngoặt, trọng đại.
+  '2': history là một danh từ, trong khi chỗ trống cần một tính từ để bổ nghĩa cho danh từ 'achievement'.
+  '3': historian là danh từ chỉ người (nhà sử học), không thể dùng để mô tả tính chất của một thành tựu.
 ---
 
 ---
@@ -43,6 +47,10 @@ options: ["historical", "historic", "history", "historically"]
 answer: 1
 grammar_article_slug: "historic-vs-historical"
 explain: "Một dịp trọng đại, đáng ghi nhớ → dùng 'historic' (tạo ra lịch sử), không phải 'historical'."
+why_wrong:
+  '0': Từ 'historical' có nghĩa là 'liên quan đến lịch sử' hoặc 'thuộc về quá khứ', không diễn tả ý nghĩa 'tạo nên lịch sử' hoặc 'rất quan trọng' như ngữ cảnh yêu cầu.
+  '2': Từ 'history' là danh từ, trong khi vị trí trống cần một tính từ để bổ nghĩa cho danh từ 'occasion'.
+  '3': Từ 'historically' là trạng từ, dùng để bổ nghĩa cho động từ, tính từ hoặc trạng từ khác, không thể bổ nghĩa trực tiếp cho danh từ 'occasion'.
 ---
 
 ---
@@ -57,6 +65,10 @@ options: ["historical", "historic", "historian's", "history"]
 answer: 1
 grammar_article_slug: "historic-vs-historical"
 explain: "Thỏa thuận có tầm ảnh hưởng lớn, được ghi nhớ trong lịch sử → 'a historic agreement'."
+why_wrong:
+  '0': '"Historical" mô tả cái gì đó liên quan đến lịch sử hoặc thuộc về quá khứ, không phải một sự kiện có tầm quan trọng lớn sẽ được ghi nhớ trong lịch sử.'
+  '2': '"Historian''s" là dạng sở hữu cách của danh từ ("thuộc về nhà sử học"), không phải là tính từ để bổ nghĩa cho danh từ "agreement".'
+  '3': '"History" là một danh từ, trong khi vị trí này cần một tính từ để bổ nghĩa cho danh từ "agreement".'
 ---
 
 ---
@@ -98,6 +110,10 @@ options: ["historical", "historic", "history", "historically"]
 answer: 1
 grammar_article_slug: "historic-vs-historical"
 explain: "Sự kiện bầu nữ tổng thống đầu tiên là dấu mốc quan trọng, đáng nhớ → 'a historic day', khác với 'historical' (chỉ nghĩa 'thuộc về lịch sử' nói chung, không nhấn mạnh tầm quan trọng)."
+why_wrong:
+  '0': Tính từ 'historical' chỉ mang nghĩa 'thuộc về lịch sử' hoặc 'liên quan đến lịch sử' nói chung, không nhấn mạnh tầm quan trọng hay tính bước ngoặt của sự kiện như yêu cầu của câu.
+  '2': '''History'' là danh từ, không thể dùng làm tính từ bổ nghĩa trực tiếp cho danh từ ''day'' trong cấu trúc câu này.'
+  '3': '''Historically'' là trạng từ, dùng để bổ nghĩa cho động từ, tính từ hoặc trạng từ khác, không thể đứng trước và bổ nghĩa cho danh từ ''day''.'
 ---
 
 # ===== item_key 2 · Historical — thuộc về lịch sử, bối cảnh học thuật =====
@@ -114,6 +130,10 @@ options: ["historic", "historical", "history", "historian"]
 answer: 1
 grammar_article_slug: "historic-vs-historical"
 explain: "'historical' = thuộc về/liên quan đến lịch sử nói chung. Hiện vật trong bảo tàng thuộc về lịch sử → historical artefacts."
+why_wrong:
+  '0': '''Historic'' dùng để chỉ những sự kiện, địa điểm hoặc vật thể có tầm quan trọng lớn trong lịch sử, không phải để mô tả loại hình hiện vật liên quan đến lịch sử nói chung.'
+  '2': '''History'' là danh từ, trong khi vị trí cần điền là một tính từ để bổ nghĩa cho danh từ ''artefacts''.'
+  '3': '''Historian'' là danh từ chỉ người nghiên cứu lịch sử, không phải tính từ dùng để mô tả loại hiện vật.'
 ---
 
 ---
@@ -128,6 +148,10 @@ options: ["historic", "historical", "history", "historically"]
 answer: 1
 grammar_article_slug: "historic-vs-historical"
 explain: "Bối cảnh mô tả thời kỳ quá khứ (Victorian era) trong tiểu thuyết → 'historical accuracy' (độ chính xác về mặt lịch sử)."
+why_wrong:
+  '0': '''Historic'' mang nghĩa ''có ý nghĩa lịch sử quan trọng'' hoặc ''nổi tiếng trong lịch sử'', không phải ''liên quan đến lịch sử'' để mô tả độ chính xác.'
+  '2': '''History'' là danh từ, trong khi vị trí này cần một tính từ để bổ nghĩa cho danh từ ''accuracy''.'
+  '3': '''Historically'' là trạng từ, không thể dùng để bổ nghĩa trực tiếp cho danh từ ''accuracy''.'
 ---
 
 ---
@@ -142,6 +166,10 @@ options: ["historic", "historical", "history's", "historically"]
 answer: 1
 grammar_article_slug: "historic-vs-historical"
 explain: "Bối cảnh học thuật, nghiên cứu số liệu quá khứ → 'historical data', không nhấn mạnh tầm quan trọng nên không dùng 'historic'."
+why_wrong:
+  '0': Từ "historic" dùng để chỉ những sự kiện/vật có ý nghĩa lịch sử quan trọng hoặc nổi bật, không chỉ đơn thuần là thuộc về quá khứ như dữ liệu thông thường.
+  '2': Đây là dạng sở hữu cách của danh từ ("của lịch sử"), nhưng vị trí này cần một tính từ để bổ nghĩa trực tiếp cho danh từ "data".
+  '3': Đây là một trạng từ, không thể đứng trước và bổ nghĩa trực tiếp cho danh từ "data"; vị trí này cần một tính từ.
 ---
 
 ---
@@ -170,6 +198,10 @@ options: ["historic", "historical", "history", "historian"]
 answer: 1
 grammar_article_slug: "historic-vs-historical"
 explain: "'evidence' thuộc lĩnh vực nghiên cứu, không tự nó có tầm quan trọng lịch sử → historical evidence (bằng chứng lịch sử)."
+why_wrong:
+  '0': “Historic” dùng để chỉ những sự kiện, địa điểm hoặc vật thể có tầm quan trọng lịch sử lớn, chứ không phải bản thân “bằng chứng” là quan trọng lịch sử.
+  '2': “History” là một danh từ, không thể dùng để bổ nghĩa cho danh từ “evidence” theo cấu trúc ngữ pháp này.
+  '3': “Historian” là một danh từ chỉ người làm nghề sử học, không thể dùng để mô tả “bằng chứng”.
 ---
 
 ---
@@ -199,6 +231,10 @@ options: ["historic", "historical", "history", "historically"]
 answer: 1
 grammar_article_slug: "historic-vs-historical"
 explain: "Cụm cố định 'historical research' (nghiên cứu lịch sử, học thuật) — không dùng 'historic research'."
+why_wrong:
+  '0': Historic mang nghĩa một sự kiện có tầm quan trọng lịch sử, không phù hợp để chỉ nghiên cứu thuộc lĩnh vực lịch sử.
+  '2': History là danh từ, không thể bổ nghĩa trực tiếp cho danh từ research trong cấu trúc này.
+  '3': Historically là trạng từ, không thể bổ nghĩa trực tiếp cho danh từ research.
 ---
 
 ---
@@ -213,6 +249,10 @@ options: ["historical", "historic", "history's", "historian"]
 answer: 1
 grammar_article_slug: "historic-vs-historical"
 explain: "Cụm cố định 'a historic achievement' (thành tựu mang dấu ấn lịch sử) — collocation chuẩn, không dùng 'historical achievement'."
+why_wrong:
+  '0': Từ "historical" mô tả những gì liên quan đến lịch sử hoặc thuộc về quá khứ, không diễn tả một thành tựu có ý nghĩa quan trọng, mang tính bước ngoặt.
+  '2': Cụm "history's" là dạng sở hữu cách của danh từ "history" (của lịch sử), không phải là tính từ để bổ nghĩa cho danh từ "achievement".
+  '3': Từ "historian" là một danh từ chỉ người nghiên cứu lịch sử, không phải là tính từ dùng để mô tả một "achievement" (thành tựu).
 ---
 
 ---
@@ -267,4 +307,8 @@ options: ["Câu (1) — historic building", "Câu (2) — historical building", 
 answer: 1
 grammar_article_slug: "historic-vs-historical"
 explain: "'a historical building' = tòa nhà cũ, thuộc về một thời kỳ lịch sử (không nhấn mạnh tầm quan trọng). 'a historic building' = tòa nhà nổi tiếng, có ý nghĩa lịch sử lớn. Đây là cặp collocation dễ nhầm nhất trong bài."
+why_wrong:
+  '0': Phương án này sai vì 'historic' dùng để chỉ một tòa nhà nổi tiếng, có ý nghĩa lịch sử quan trọng, không phải chỉ đơn thuần là cũ.
+  '2': Phương án này sai vì 'historic' và 'historical' có ý nghĩa khác biệt rõ rệt khi mô tả tòa nhà, đặc biệt về mức độ tầm quan trọng.
+  '3': Phương án này sai vì cả 'a historic building' và 'a historical building' đều là những cụm từ đúng ngữ pháp trong tiếng Anh.
 ---

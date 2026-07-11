@@ -29,6 +29,10 @@ options: ["economic", "economical", "economy-wise", "economist"]
 answer: 0
 grammar_article_slug: "economic-vs-economical"
 explain: "'economic' = thuộc về/liên quan đến nền kinh tế (economy). 'economical' lại mang nghĩa khác: tiết kiệm."
+why_wrong:
+  '1': Economical mang nghĩa là tiết kiệm, hiệu quả về chi phí, không phải thuộc về hoặc liên quan đến nền kinh tế nói chung.
+  '2': Economy-wise là cách diễn đạt không chuẩn hoặc không chính thức có nghĩa 'về mặt kinh tế', không phải là tính từ chuẩn xác có nghĩa 'thuộc về nền kinh tế'.
+  '3': Economist là danh từ chỉ người (nhà kinh tế học), không phải là tính từ có nghĩa 'liên quan đến nền kinh tế'.
 ---
 
 ---
@@ -43,6 +47,10 @@ options: ["economic", "economical", "economics", "economy"]
 answer: 1
 grammar_article_slug: "economic-vs-economical"
 explain: "'economical' = tiết kiệm, hiệu quả chi phí. Mẹo nhớ: economicAL giống practicAL, logicAL → mang tính chất."
+why_wrong:
+  '0': '''Economic'' là tính từ liên quan đến kinh tế học hoặc hệ thống kinh tế, không phải tính chất ''tiết kiệm'' hay ''hiệu quả'' của một người hoặc vật.'
+  '2': '''Economics'' là danh từ chỉ một môn học hoặc ngành khoa học, không phải tính từ mô tả sự tiết kiệm.'
+  '3': '''Economy'' là danh từ chỉ hệ thống kinh tế hoặc sự quản lý tài nguyên, không phải tính từ có nghĩa ''tiết kiệm'' hay ''hiệu quả chi phí''.'
 ---
 
 ---
@@ -113,6 +121,10 @@ options: ["economic", "economical", "economically", "economist"]
 answer: 0
 grammar_article_slug: "economic-vs-economical"
 explain: "'economic reform(s)' = cải cách kinh tế, một collocation cố định thuộc nhóm 'economic + noun'."
+why_wrong:
+  '1': Tính từ này có nghĩa là "tiết kiệm, ít tốn kém" chứ không phải "thuộc về kinh tế", nên không phù hợp để miêu tả "cải cách".
+  '2': Đây là một trạng từ, không thể dùng để bổ nghĩa trực tiếp cho danh từ "reforms" (cải cách).
+  '3': Đây là danh từ chỉ người (nhà kinh tế học), không thể dùng làm tính từ để bổ nghĩa cho danh từ "reforms".
 ---
 
 ---
@@ -127,6 +139,10 @@ options: ["economic", "economical", "economics", "economy"]
 answer: 1
 grammar_article_slug: "economic-vs-economical"
 explain: "So sánh mức tiêu hao nhiên liệu giữa hai loại xe → 'economical car' (xe ít tốn nhiên liệu), không phải 'economic'."
+why_wrong:
+  '0': 'Phương án ''economic'' là tính từ chỉ sự liên quan đến kinh tế, tài chính (ví dụ: an economic crisis), chứ không phải sự tiết kiệm hay hiệu quả chi phí của một vật cụ thể.'
+  '2': Phương án 'economics' là danh từ chỉ ngành kinh tế học hoặc các yếu tố kinh tế, không phải tính từ mô tả một phương tiện.
+  '3': Phương án 'economy' là danh từ có nghĩa là nền kinh tế hoặc sự tiết kiệm, không phải tính từ có thể dùng để mô tả một chiếc xe hiệu quả về chi phí.
 ---
 
 ---
@@ -141,6 +157,10 @@ options: ["economic", "economical", "economically", "economy"]
 answer: 0
 grammar_article_slug: "economic-vs-economical"
 explain: "'economic consequences' = hậu quả kinh tế — đi cùng danh từ 'consequences' để chỉ hậu quả thuộc lĩnh vực kinh tế."
+why_wrong:
+  '1': Tính từ 'economical' mang nghĩa 'tiết kiệm' hoặc 'hiệu quả về chi phí', không phù hợp với nghĩa 'thuộc về kinh tế' của hậu quả trong ngữ cảnh này.
+  '2': Trạng từ 'economically' dùng để bổ nghĩa cho động từ hoặc tính từ, không thể trực tiếp bổ nghĩa cho danh từ 'consequences'.
+  '3': Danh từ 'economy' không thể đứng trước một danh từ khác ('consequences') để bổ nghĩa cho nó trong vai trò của một tính từ trong cấu trúc này.
 ---
 
 ---
@@ -224,6 +244,10 @@ options: ["Economic", "Economical", "Economics", "Economically"]
 answer: 0
 grammar_article_slug: "economic-vs-economical"
 explain: "'Economic growth' = tăng trưởng kinh tế, collocation đúng. 'Economical growth' là lỗi thường gặp (Lỗi 1 trong bài)."
+why_wrong:
+  '1': '"Economical" mang nghĩa tiết kiệm hoặc hiệu quả về chi phí, không phù hợp để mô tả loại hình tăng trưởng này.'
+  '2': '"Economics" là một danh từ chỉ môn học hoặc ngành học kinh tế, không thể dùng làm tính từ bổ nghĩa cho danh từ "growth".'
+  '3': '"Economically" là trạng từ (adverb), không thể bổ nghĩa trực tiếp cho danh từ "growth"; cần một tính từ ở vị trí này.'
 ---
 
 ---
@@ -265,4 +289,8 @@ options: ["A", "B", "Both mean the same thing", "Neither is correct"]
 answer: 0
 grammar_article_slug: "economic-vs-economical"
 explain: "'economic policy' = chính sách liên quan đến kinh tế; 'economical policy' = chính sách mang tính tiết kiệm — hai nghĩa hoàn toàn khác nhau, đúng như phần So sánh trực tiếp trong bài."
+why_wrong:
+  '1': Nghĩa của "economic" và "economical" đã bị hoán đổi hoàn toàn so với định nghĩa chính xác của chúng.
+  '2': “Economic” và “economical” là hai tính từ có nghĩa hoàn toàn khác biệt, không thể thay thế cho nhau.
+  '3': Thực tế có một phương án đã đưa ra sự phân biệt nghĩa chính xác giữa hai tính từ này.
 ---

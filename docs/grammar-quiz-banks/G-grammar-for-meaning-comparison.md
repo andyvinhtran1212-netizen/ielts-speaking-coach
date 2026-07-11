@@ -29,6 +29,10 @@ options: ["cheaper", "more cheap", "cheapest", "more cheaper"]
 answer: 0
 grammar_article_slug: "comparison"
 explain: "'cheap' là tính từ ngắn (1 âm tiết) → thêm -er: cheaper. Không dùng 'more' với tính từ ngắn."
+why_wrong:
+  '1': Đây là lỗi dùng "more" với tính từ ngắn, trong khi tính từ ngắn chỉ cần thêm "-er" để tạo dạng so sánh hơn.
+  '2': '"Cheapest" là dạng so sánh nhất, nhưng câu này đang so sánh hai vật (laptop này và cái cũ) nên cần dùng dạng so sánh hơn.'
+  '3': Đây là lỗi lặp dạng so sánh hơn (vừa dùng "more" vừa thêm "-er"), chỉ cần dùng một trong hai.
 ---
 
 ---
@@ -114,6 +118,10 @@ options: ["the most populated", "the more populated", "most populated", "populat
 answer: 0
 grammar_article_slug: "comparison"
 explain: "Superlative của tính từ dài: the most + adjective. 'populated' dài → the most populated."
+why_wrong:
+  '1': Đây là dạng so sánh hơn (comparative) chứ không phải so sánh nhất (superlative).
+  '2': Thiếu mạo từ xác định 'the' trước hình thức so sánh nhất 'most populated'.
+  '3': Không thể thêm '-est' vào một tính từ dài như 'populated' để tạo thành so sánh nhất.
 ---
 
 ---

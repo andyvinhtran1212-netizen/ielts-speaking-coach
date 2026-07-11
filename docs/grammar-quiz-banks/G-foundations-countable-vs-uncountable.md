@@ -29,6 +29,10 @@ options: ["symptom", "equipment", "vaccine", "clinic"]
 answer: 1
 grammar_article_slug: "countable-vs-uncountable"
 explain: "'equipment' là danh từ không đếm được — không có dạng số nhiều 'equipments'."
+why_wrong:
+  '0': Danh từ 'symptom' là danh từ đếm được, có thể có dạng số ít và số nhiều (symptoms).
+  '2': Danh từ 'vaccine' là danh từ đếm được, có thể có dạng số ít và số nhiều (vaccines).
+  '3': Danh từ 'clinic' là danh từ đếm được, có thể có dạng số ít và số nhiều (clinics).
 ---
 
 ---
@@ -43,6 +47,10 @@ options: ["traffic", "footage", "device", "feedback"]
 answer: 2
 grammar_article_slug: "countable-vs-uncountable"
 explain: "'device' đếm được: a device, two devices. Ba từ còn lại (traffic, footage, feedback) đều không đếm được."
+why_wrong:
+  '0': Traffic là danh từ không đếm được, dùng để chỉ dòng phương tiện giao thông nói chung.
+  '1': Footage là danh từ không đếm được, dùng để chỉ một đoạn phim hoặc cảnh quay.
+  '3': Feedback là danh từ không đếm được, chỉ phản hồi hoặc ý kiến đóng góp nói chung.
 ---
 
 ---
@@ -57,6 +65,10 @@ options: ["criticism", "complaint", "review", "comment"]
 answer: 0
 grammar_article_slug: "countable-vs-uncountable"
 explain: "'criticism' (chỉ trích nói chung) là uncountable nên dùng được ngay sau 'a lot of' mà không cần số nhiều; ba từ còn lại là countable số ít nên sai ngữ pháp ở đây — muốn dùng phải chia số nhiều ('complaints', 'reviews', 'comments')."
+why_wrong:
+  '1': Vì "complaint" là danh từ đếm được số ít, nhưng sau "a lot of" cần danh từ đếm được số nhiều.
+  '2': Vì "review" là danh từ đếm được số ít, nhưng sau "a lot of" cần danh từ đếm được số nhiều.
+  '3': Vì "comment" là danh từ đếm được số ít, nhưng sau "a lot of" cần danh từ đếm được số nhiều.
 ---
 
 ---
@@ -100,6 +112,10 @@ options: ["a", "an", "some", "much"]
 answer: 0
 grammar_article_slug: "countable-vs-uncountable"
 explain: "'advice' là uncountable — không dùng 'a/an advice' trực tiếp; phải đo lường bằng cụm partitive 'a piece of advice', nên mạo từ 'a' đứng trước 'piece' (không phải 'an', vì 'piece' bắt đầu bằng phụ âm)."
+why_wrong:
+  '1': '`an` dùng trước từ bắt đầu bằng nguyên âm, nhưng `piece` bắt đầu bằng phụ âm.'
+  '2': '`some` không phù hợp với cấu trúc `____ piece of advice` vì `piece` đang ở dạng số ít và cần một mạo từ xác định số lượng một chiếc.'
+  '3': '`much` dùng cho danh từ không đếm được, nhưng `piece` là danh từ đếm được.'
 ---
 
 ---
@@ -114,6 +130,10 @@ options: ["a", "an", "some", "much"]
 answer: 0
 grammar_article_slug: "countable-vs-uncountable"
 explain: "'laptop' là countable số ít → phải có mạo từ 'a'."
+why_wrong:
+  '1': '"An" dùng trước danh từ bắt đầu bằng nguyên âm, nhưng "laptop" bắt đầu bằng phụ âm.'
+  '2': '"Some" dùng cho danh từ số nhiều hoặc không đếm được, nhưng "laptop" ở đây là số ít.'
+  '3': '"Much" dùng cho danh từ không đếm được, nhưng "laptop" là danh từ đếm được.'
 ---
 
 ---
@@ -128,6 +148,10 @@ options: ["a", "an", "some", "a number of"]
 answer: 2
 grammar_article_slug: "countable-vs-uncountable"
 explain: "'funding' là uncountable — không dùng 'a/an', dùng 'some' để chỉ số lượng chưa xác định."
+why_wrong:
+  '0': '''a'' chỉ dùng với danh từ đếm được số ít, trong khi ''funding'' là danh từ không đếm được.'
+  '1': '''an'' chỉ dùng với danh từ đếm được số ít bắt đầu bằng nguyên âm, trong khi ''funding'' là danh từ không đếm được.'
+  '3': '''a number of'' được dùng với danh từ đếm được số nhiều, không dùng với danh từ không đếm được như ''funding''.'
 ---
 
 ---
@@ -171,6 +195,10 @@ options: ["much", "many", "a little", "an"]
 answer: 1
 grammar_article_slug: "countable-vs-uncountable"
 explain: "'visitors' là countable số nhiều → dùng 'many'."
+why_wrong:
+  '0': much chỉ dùng với danh từ không đếm được, không dùng với 'visitors' là danh từ đếm được số nhiều.
+  '2': a little chỉ dùng với danh từ không đếm được, không phù hợp với 'visitors' là danh từ đếm được số nhiều.
+  '3': an là mạo từ dùng cho danh từ đếm được số ít, không dùng cho danh từ số nhiều như 'visitors'.
 ---
 
 ---
@@ -185,6 +213,10 @@ options: ["much", "many", "a few", "these"]
 answer: 0
 grammar_article_slug: "countable-vs-uncountable"
 explain: "'bandwidth' là uncountable → dùng 'much'."
+why_wrong:
+  '1': '''Many'' chỉ dùng với danh từ đếm được số nhiều, trong khi ''bandwidth'' là danh từ không đếm được.'
+  '2': '''A few'' chỉ dùng với danh từ đếm được số nhiều, trong khi ''bandwidth'' là danh từ không đếm được.'
+  '3': '''These'' là từ hạn định dùng cho danh từ đếm được số nhiều, không phù hợp với danh từ không đếm được ''bandwidth''.'
 ---
 
 ---
@@ -199,6 +231,10 @@ options: ["few", "little", "several", "a number of"]
 answer: 1
 grammar_article_slug: "countable-vs-uncountable"
 explain: "'evidence' là uncountable → dùng 'little' (không dùng 'few', vốn dành cho countable)."
+why_wrong:
+  '0': '''few'' chỉ dùng với danh từ đếm được số nhiều, trong khi ''evidence'' là danh từ không đếm được.'
+  '2': '''several'' chỉ dùng với danh từ đếm được số nhiều, trong khi ''evidence'' là danh từ không đếm được.'
+  '3': '''a number of'' chỉ dùng với danh từ đếm được số nhiều, trong khi ''evidence'' là danh từ không đếm được.'
 ---
 
 ---
@@ -242,6 +278,10 @@ options: ["piece", "number", "amount of", "few"]
 answer: 0
 grammar_article_slug: "countable-vs-uncountable"
 explain: "'research' là uncountable → đo lường bằng 'a piece of research' để chỉ một nghiên cứu cụ thể."
+why_wrong:
+  '1': '"Number" chỉ dùng cho danh từ đếm được, trong khi "research" là danh từ không đếm được.'
+  '2': '"Amount of" dùng để chỉ lượng chung của danh từ không đếm được, không phải để chỉ một nghiên cứu cụ thể.'
+  '3': '"Few" chỉ dùng cho danh từ đếm được, trong khi "research" là danh từ không đếm được.'
 ---
 
 ---
@@ -256,6 +296,10 @@ options: ["piece", "few", "many", "some of"]
 answer: 0
 grammar_article_slug: "countable-vs-uncountable"
 explain: "'data' thường được coi là uncountable trong văn phong học thuật → đo lường bằng 'a piece of data' cho một mẩu dữ liệu cụ thể."
+why_wrong:
+  '1': '''Few'' được dùng với danh từ đếm được số nhiều, trong khi ''data'' trong ngữ cảnh này được coi là danh từ không đếm được.'
+  '2': '''Many'' được dùng với danh từ đếm được số nhiều, trong khi ''data'' trong ngữ cảnh này được coi là danh từ không đếm được.'
+  '3': 'Cấu trúc ''a striking some of data'' không đúng ngữ pháp; ''some of'' không tạo thành cụm từ đo lường một đơn vị dữ liệu cụ thể và thường cần một danh từ xác định sau nó (ví dụ: ''some of the data'').'
 ---
 
 ---
@@ -299,6 +343,10 @@ options: ["light", "lights", "much light", "little light"]
 answer: 1
 grammar_article_slug: "countable-vs-uncountable"
 explain: "Khi 'light' mang nghĩa cụ thể là 'đèn' (nguồn sáng cụ thể), nó là countable: 'the lights' (số nhiều vì có nhiều đèn)."
+why_wrong:
+  '0': Light (số ít) không phù hợp vì khi mang nghĩa 'đèn' (đếm được) và chỉ các thiết bị trong văn phòng, nó cần ở dạng số nhiều là 'lights'.
+  '2': Much chỉ dùng với danh từ không đếm được, trong khi ở đây light được yêu cầu dùng với nghĩa 'đèn' (đếm được).
+  '3': Little chỉ dùng với danh từ không đếm được, trong khi ở đây light được yêu cầu dùng với nghĩa 'đèn' (đếm được).
 ---
 
 ---
@@ -313,6 +361,10 @@ options: ["light", "lights", "a light", "lights of"]
 answer: 0
 grammar_article_slug: "countable-vs-uncountable"
 explain: "'light' ở nghĩa 'ánh sáng nói chung' là uncountable, không thêm -s: 'not enough light'."
+why_wrong:
+  '1': Lights (số nhiều) dùng để chỉ các nguồn sáng cụ thể (bóng đèn, đèn), không phải lượng ánh sáng nói chung.
+  '2': A light là danh từ đếm được số ít, và cấu trúc 'enough a light' không đúng ngữ pháp khi diễn tả lượng ánh sáng nói chung.
+  '3': Lights of là cụm từ sai ngữ pháp và không phù hợp với ngữ cảnh diễn tả lượng ánh sáng nói chung trong phòng.
 ---
 
 ---

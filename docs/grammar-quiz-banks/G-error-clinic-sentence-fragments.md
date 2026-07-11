@@ -29,6 +29,10 @@ options: ["Although the exam was difficult.", "Although the exam was difficult, 
 answer: 1
 grammar_article_slug: "sentence-fragments"
 explain: "Mệnh đề phụ bắt đầu bằng although/when/because... không thể đứng một mình, luôn cần mệnh đề chính đi kèm. Chỉ câu B có đủ mệnh đề chính ('most students passed')."
+why_wrong:
+  '0': Mệnh đề này bắt đầu bằng "Although" nhưng thiếu mệnh đề chính đi kèm, khiến nó trở thành một câu cụt.
+  '2': Mệnh đề này bắt đầu bằng "When" nhưng thiếu mệnh đề chính đi kèm, khiến nó trở thành một câu cụt.
+  '3': Mệnh đề này bắt đầu bằng "Because" nhưng thiếu mệnh đề chính đi kèm, khiến nó trở thành một câu cụt.
 ---
 
 ---
@@ -56,6 +60,10 @@ options: ["traffic congestion will keep getting worse", "improving traffic conge
 answer: 0
 grammar_article_slug: "sentence-fragments"
 explain: "Mệnh đề phụ với 'unless' cần một mệnh đề chính có chủ ngữ + động từ chia ('traffic congestion will keep getting worse') để câu trọn nghĩa."
+why_wrong:
+  '1': Cụm từ này là một cụm phân từ hiện tại (present participle phrase), không có chủ ngữ và động từ chính được chia thì để tạo thành một mệnh đề độc lập.
+  '2': Mặc dù có chủ ngữ ("traffic congestion"), động từ "getting" là phân từ hiện tại chứ không phải động từ chính được chia thì, nên không tạo thành một mệnh đề độc lập.
+  '3': Đây là một cụm động từ nguyên mẫu (infinitive phrase), chỉ mục đích nhưng không có chủ ngữ và động từ chính được chia thì để tạo thành một mệnh đề độc lập.
 ---
 
 ---
@@ -111,6 +119,10 @@ options: ["Cities are becoming overcrowded because rural residents keep migratin
 answer: 0
 grammar_article_slug: "sentence-fragments"
 explain: "Cách sửa chuẩn nhất là gắn mệnh đề 'because...' trực tiếp vào câu trước (không chấm câu giữa chừng), tạo thành một câu phức hoàn chỉnh."
+why_wrong:
+  '1': '"Because of" là giới từ, cần theo sau bởi danh từ hoặc cụm danh từ, không phải một mệnh đề đầy đủ như "rural residents keep migrating for work".'
+  '2': Sau liên từ "because" phải là một mệnh đề hoàn chỉnh (có chủ ngữ và động từ chia thì), nhưng "rural residents migrating for work" thiếu động từ chia thì.
+  '3': Liên từ "because" không thể đứng trơ trọi ở cuối câu mà không có mệnh đề phụ đi kèm để giải thích lý do.
 ---
 
 # ===== item_key 2 · Cụm V-ing / V-ed đứng một mình =====
@@ -127,6 +139,10 @@ options: ["Spending hours on social media every day can harm concentration.", "S
 answer: 0
 grammar_article_slug: "sentence-fragments"
 explain: "Cụm V-ing ('Spending hours...') thiếu động từ chính. Thêm động từ chia ('can harm concentration') biến nó thành chủ ngữ danh động từ của một câu hoàn chỉnh."
+why_wrong:
+  '1': Cụm từ này vẫn thiếu động từ chính để tạo thành một câu hoàn chỉnh, chỉ thêm dấu phẩy và cụm trạng ngữ không thay đổi cấu trúc câu.
+  '2': “Spent” là động từ quá khứ đơn hoặc quá khứ phân từ, nhưng không có chủ ngữ đi kèm nên câu vẫn chưa hoàn chỉnh.
+  '3': Cụm động từ nguyên mẫu (infinitive phrase) không thể tự tạo thành một câu hoàn chỉnh vì nó thiếu động từ chính được chia thì.
 ---
 
 ---
@@ -154,6 +170,10 @@ options: ["Struggling to balance work and study", "Struggle to balance work and 
 answer: 0
 grammar_article_slug: "sentence-fragments"
 explain: "Cụm V-ing 'Struggling to balance work and study' có thể đứng đầu câu làm trạng ngữ, nhưng bắt buộc phải có mệnh đề chính theo sau ('many part-time students eventually drop out')."
+why_wrong:
+  '1': Struggle là dạng động từ nguyên thể, không thể làm bổ ngữ cho danh từ hoặc bắt đầu một mệnh đề trạng ngữ miêu tả nguyên nhân/cách thức cho hành động chính của chủ ngữ.
+  '2': Struggled là dạng động từ quá khứ đơn hoặc phân từ quá khứ, không phù hợp để diễn tả hành động đang diễn ra và chủ động của chủ ngữ "students" ở đầu câu.
+  '3': To struggling là một cấu trúc ngữ pháp sai trong tiếng Anh, không thể kết hợp "to" với dạng V-ing theo cách này.
 ---
 
 ---
@@ -209,6 +229,10 @@ options: ["Reduced by nearly half over the past decade, forest coverage continue
 answer: 0
 grammar_article_slug: "sentence-fragments"
 explain: "Cụm V-ed 'Reduced by nearly half over the past decade' cần được gắn với một chủ ngữ + động từ chính rõ ràng ('forest coverage continues to shrink') để không còn là fragment."
+why_wrong:
+  '1': Cụm phân từ 'Reduced...' đứng đầu câu nhưng không có chủ ngữ rõ ràng để nó bổ nghĩa, khiến cấu trúc câu mơ hồ và không đúng ngữ pháp.
+  '2': Sử dụng dạng động từ nguyên mẫu 'Reduce' thay vì phân từ quá khứ 'Reduced' ở đầu câu là sai ngữ pháp, và câu vẫn giữ nguyên lỗi câu cụt (fragment).
+  '3': Cấu trúc câu bị xáo trộn và thiếu động từ chính cho chủ ngữ 'deforestation', tạo thành một cụm từ không hoàn chỉnh thay vì một câu có nghĩa.
 ---
 
 # ===== item_key 3 · Cụm danh từ đứng một mình (không có động từ chính) =====
@@ -225,6 +249,10 @@ options: ["A serious shortage of affordable housing in most capital cities.", "A
 answer: 1
 grammar_article_slug: "sentence-fragments"
 explain: "Cụm danh từ dài ('A serious shortage of affordable housing in most capital cities') không có động từ chính là fragment. Cần thêm động từ như 'affects' để hoàn chỉnh."
+why_wrong:
+  '0': Đây là một cụm danh từ dài, thiếu động từ chính để tạo thành một câu hoàn chỉnh.
+  '2': Tương tự như phương án 0, đây vẫn là một cụm danh từ thiếu động từ chính, và dấu phẩy không bổ sung động từ cho câu.
+  '3': Đây là hai cụm danh từ riêng lẻ được ngăn cách bởi dấu phẩy và không có động từ chính để liên kết chúng thành một câu.
 ---
 
 ---
@@ -252,6 +280,10 @@ options: ["poses", "posing", "to pose", "posed by"]
 answer: 0
 grammar_article_slug: "sentence-fragments"
 explain: "Cụm danh từ dài cần một động từ chính chia đúng thì ('poses') để trở thành chủ ngữ của câu hoàn chỉnh, không phải dạng V-ing hay to-infinitive."
+why_wrong:
+  '1': Posing là một động từ dạng V-ing (hiện tại phân từ), không thể đóng vai trò là động từ chính của câu để tạo thành một câu hoàn chỉnh.
+  '2': To pose là một động từ nguyên mẫu (infinitive), không thể dùng làm động từ chính của chủ ngữ để tạo thành một câu hoàn chỉnh.
+  '3': Posed by là một cụm phân từ hoặc thì bị động không hoàn chỉnh, không thể làm động từ chính cho chủ ngữ 'The growing gap'.
 ---
 
 ---
@@ -307,4 +339,8 @@ options: ["Governments face a difficult choice: a trade-off between economic gro
 answer: 0
 grammar_article_slug: "sentence-fragments"
 explain: "Cụm danh từ fragment sau dấu chấm nên được nối vào câu trước bằng dấu hai chấm (không thêm động từ) vì nó đang giải thích/định nghĩa lại 'a difficult choice'."
+why_wrong:
+  '1': Cụm danh từ "Trade-off between economic growth and environmental protection" vẫn là một câu cụt (fragment) vì thiếu động từ chính.
+  '2': Câu này thiếu từ nối "and" trước "environmental protection" trong danh sách liệt kê, phá vỡ cấu trúc song song.
+  '3': Việc thêm từ "being" khiến câu trở nên rườm rà và làm mất đi sự trực tiếp, súc tích khi giới thiệu cụm danh từ giải thích.
 ---

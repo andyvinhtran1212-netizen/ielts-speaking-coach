@@ -29,6 +29,10 @@ options: ["childs", "childes", "children", "child"]
 answer: 2
 grammar_article_slug: "singular-vs-plural"
 explain: "'child' có dạng số nhiều bất quy tắc là 'children', không thêm -s hay -es."
+why_wrong:
+  '0': Danh từ "child" có dạng số nhiều bất quy tắc, không phải bằng cách thêm -s.
+  '1': Danh từ "child" có dạng số nhiều bất quy tắc, không phải bằng cách thêm -es.
+  '3': Đây là dạng số ít của danh từ "child", không phải dạng số nhiều.
 ---
 
 ---
@@ -57,6 +61,10 @@ options: ["criterias", "criterions", "criteria", "criterion"]
 answer: 2
 grammar_article_slug: "singular-vs-plural"
 explain: "'criterion' (gốc Greek) có số nhiều bất quy tắc là 'criteria', không thêm -s."
+why_wrong:
+  '0': '''Criterias'' là dạng sai vì danh từ ''criterion'' có số nhiều bất quy tắc là ''criteria'', không thêm ''s'' để tạo thành số nhiều.'
+  '1': '''Criterions'' là dạng số nhiều sai vì ''criterion'' là danh từ gốc Hy Lạp có số nhiều bất quy tắc là ''criteria'', không thêm -s.'
+  '3': '''Criterion'' là danh từ số ít, nhưng động từ trong câu ("have changed") yêu cầu một danh từ số nhiều tương ứng.'
 ---
 
 ---
@@ -100,6 +108,10 @@ options: ["is", "are", "was", "has"]
 answer: 1
 grammar_article_slug: "singular-vs-plural"
 explain: "Chủ ngữ 'The students' là số nhiều → dùng động từ số nhiều 'are'."
+why_wrong:
+  '0': is là động từ số ít, không phù hợp với chủ ngữ số nhiều 'The students'.
+  '2': was là động từ số ít (thì quá khứ), không tương thích với chủ ngữ số nhiều 'The students' và ngữ cảnh hiện tại.
+  '3': has là dạng của động từ 'to have', không phải động từ 'to be' cần thiết để tạo thành thì tiếp diễn với 'working'.
 ---
 
 ---
@@ -114,6 +126,10 @@ options: ["have", "has", "having", "are having"]
 answer: 1
 grammar_article_slug: "singular-vs-plural"
 explain: "'Each' luôn đi với danh từ số ít và động từ số ít: 'Each student has'."
+why_wrong:
+  '0': Động từ "have" là dạng số nhiều, không phù hợp với chủ ngữ số ít "Each student".
+  '2': '"Having" là dạng V-ing, không thể làm động từ chính của câu nếu không có trợ động từ.'
+  '3': Trợ động từ "are" là dạng số nhiều, không phù hợp với chủ ngữ số ít "Each student".
 ---
 
 ---
@@ -128,6 +144,10 @@ options: ["was", "were", "is", "has been"]
 answer: 1
 grammar_article_slug: "singular-vs-plural"
 explain: "Chủ ngữ thật là 'results' (số nhiều), không phải 'study' (từ gần động từ nhất) → dùng 'were'. Đây là lỗi phổ biến khi bị 'of the study' đánh lạc hướng."
+why_wrong:
+  '0': was là động từ số ít, không phù hợp với chủ ngữ số nhiều "results".
+  '2': is là động từ số ít, không phù hợp với chủ ngữ số nhiều "results".
+  '3': has been là động từ số ít, không phù hợp với chủ ngữ số nhiều "results".
 ---
 
 ---
@@ -184,6 +204,10 @@ options: ["is", "are", "were", "have been"]
 answer: 0
 grammar_article_slug: "singular-vs-plural"
 explain: "'The number of' là chủ ngữ số ít (bản thân 'number' là danh từ số ít) → dùng động từ số ít 'is'."
+why_wrong:
+  '1': are là động từ số nhiều, trong khi chủ ngữ 'The number of' là số ít.
+  '2': were là thì quá khứ, không phù hợp với ngữ cảnh 'every year' chỉ sự việc đang tiếp diễn ở hiện tại.
+  '3': have been là động từ số nhiều, không tương thích với chủ ngữ 'The number of' là số ít.
 ---
 
 ---
@@ -198,6 +222,10 @@ options: ["has", "have", "is", "was"]
 answer: 1
 grammar_article_slug: "singular-vs-plural"
 explain: "'A number of' mang nghĩa 'nhiều' → coi như chủ ngữ số nhiều, dùng động từ số nhiều 'have'."
+why_wrong:
+  '0': '''has'' là động từ số ít, không tương thích với chủ ngữ ''A number of solutions'' (số nhiều).'
+  '2': '''is'' là động từ số ít và không đúng cấu trúc ngữ pháp với ''been proposed''.'
+  '3': '''was'' là động từ số ít và không đúng cấu trúc ngữ pháp với ''been proposed''.'
 ---
 
 ---
@@ -255,6 +283,10 @@ options: ["is", "are", "was", "has been"]
 answer: 1
 grammar_article_slug: "singular-vs-plural"
 explain: "'glasses' (kính đeo mắt) là plural-only noun — luôn dùng động từ số nhiều 'are'."
+why_wrong:
+  '0': Phương án này dùng động từ "is" là số ít, không phù hợp với chủ ngữ "glasses" luôn được coi là số nhiều.
+  '2': Phương án này dùng động từ "was" là số ít (ở thì quá khứ), không đúng với chủ ngữ "glasses" là số nhiều.
+  '3': Phương án này dùng trợ động từ "has" ở dạng số ít, không tương thích với chủ ngữ "glasses" là số nhiều.
 ---
 
 ---
@@ -269,6 +301,10 @@ options: ["is", "are", "were", "have been"]
 answer: 0
 grammar_article_slug: "singular-vs-plural"
 explain: "'information' là uncountable noun, luôn dùng động từ số ít 'is', dù nghe có vẻ là 'nhiều thông tin'."
+why_wrong:
+  '1': Động từ "are" là số nhiều, không phù hợp với danh từ không đếm được "information" vốn luôn đi với động từ số ít.
+  '2': Động từ "were" là số nhiều và thì quá khứ, không phù hợp với danh từ không đếm được "information" và ngữ cảnh hiện tại ("still limited").
+  '3': Cụm động từ "have been" sử dụng trợ động từ "have" là số nhiều, không phù hợp với danh từ không đếm được "information" vốn cần trợ động từ số ít "has".
 ---
 
 ---
