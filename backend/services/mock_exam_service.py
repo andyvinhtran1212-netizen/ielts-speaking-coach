@@ -241,14 +241,11 @@ def create_sitting(user_id: str, code: str) -> dict:
     exam = get_published_exam(code)
     if not exam:
         raise NotFoundError(f"Không tìm thấy kỳ thi đã publish với mã {code!r}.")
-    # LIVE gate: the admin must have opened the exam. An optional time window is
-    # still enforced when set, but is_open is the primary proctor toggle.
-    if not exam.get("is_open"):
-        raise WindowClosedError("Kỳ thi chưa mở. Vui lòng chờ giám khảo mở kỳ.")
-    _assert_window_open(exam)
-    if exam.get("cohort_id") and not _user_in_cohort(user_id, exam["cohort_id"]):
-        raise NotEligibleError("Bạn không thuộc lớp được mở kỳ thi này.")
 
+    # RESUME FIRST: return an existing non-terminal sitting before applying the
+    # entry gates. A mid-exam student who refreshes after the admin CLOSED the
+    # live gate (to block late entrants) must not be locked out of their own
+    # in-progress sitting.
     existing = supabase_admin.table("mock_exam_sittings").select("*").eq(
         "mock_exam_id", exam["id"],
     ).eq("user_id", str(user_id)).not_.in_(
@@ -256,6 +253,14 @@ def create_sitting(user_id: str, code: str) -> dict:
     ).limit(1).execute()
     if existing.data:
         return existing.data[0]
+
+    # NEW sitting only: apply the entry gates (live-open toggle + optional window
+    # + cohort). is_open is the primary proctor gate.
+    if not exam.get("is_open"):
+        raise WindowClosedError("Kỳ thi chưa mở. Vui lòng chờ giám khảo mở kỳ.")
+    _assert_window_open(exam)
+    if exam.get("cohort_id") and not _user_in_cohort(user_id, exam["cohort_id"]):
+        raise NotEligibleError("Bạn không thuộc lớp được mở kỳ thi này.")
 
     inserted = supabase_admin.table("mock_exam_sittings").insert({
         "mock_exam_id": exam["id"],

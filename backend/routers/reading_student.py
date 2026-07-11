@@ -1097,7 +1097,11 @@ async def submit_reading_test_attempt(
         raise HTTPException(422, "Attempt có started_at không hợp lệ — không thể chấm điểm an toàn.")
     elapsed_seconds = int((now - started).total_seconds())
     limit_seconds = int(test_row["time_limit_minutes"]) * 60
-    if elapsed_seconds > limit_seconds + _SUBMIT_GRACE_SECONDS:
+    # 4-skill mock: the sitting's ONE total timer governs, not this section's
+    # standalone limit — a 150-minute mock legitimately keeps Reading open well
+    # past the 60-minute standalone Reading limit. Skip the section guard for
+    # attempts bound to a mock sitting (the mock finalise path is the deadline).
+    if not attempt.get("sitting_id") and elapsed_seconds > limit_seconds + _SUBMIT_GRACE_SECONDS:
         raise HTTPException(422, "Time limit exceeded — attempt expired.")
 
     # Pull every passage's reading_questions for this test, stamp each row

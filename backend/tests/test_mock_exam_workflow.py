@@ -251,6 +251,16 @@ def test_create_sitting_not_open_raises(fake_db, svc):
         svc.create_sitting(uuid4(), "MOCK-TEST-A")
 
 
+def test_create_sitting_resumes_after_gate_closed(fake_db, svc):
+    """A mid-exam student can resume even after the admin closes the live gate."""
+    exam = _seed_exam(fake_db, is_open=True)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    exam["is_open"] = False                          # admin closes the gate
+    resumed = svc.create_sitting(u, "MOCK-TEST-A")   # refresh → resume, not locked
+    assert resumed["id"] == s["id"]
+
+
 def test_start_lrw_opens_block_with_one_timer(fake_db, svc):
     _seed_exam(fake_db)
     u = uuid4()
