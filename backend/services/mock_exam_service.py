@@ -394,6 +394,20 @@ def submit_lrw(sitting_id: str, user_id: str) -> dict:
     if sitting["status"] in ("released", "void"):
         raise SittingConflictError(f"Sitting đang ở trạng thái {sitting['status']!r}.")
 
+    # Require real LRW work before finalising — a bare POST submit-lrw on an
+    # empty/registered sitting must not stamp completion and queue a review.
+    # Every section the exam CONFIGURES must have a submitted attempt, and the
+    # writing step must have been reached and submitted.
+    exam = get_published_exam_by_id(sitting["mock_exam_id"]) or {}
+    if exam.get("listening_test_id"):
+        _assert_prior_section_submitted(sitting, "listening")
+    if exam.get("reading_test_id"):
+        _assert_prior_section_submitted(sitting, "reading")
+    if not sitting.get("writing_started_at"):
+        raise SittingConflictError("Chưa vào phần Writing — không thể nộp bài.")
+    if not sitting.get("writing_submission"):
+        raise SittingConflictError("Chưa nộp bài Writing — không thể nộp mạch.")
+
     now = _now_iso()
     update: dict = {"status": "lrw_submitted"}
     for section in _LRW_ORDER:
@@ -445,11 +459,32 @@ def submit_writing(
     return resp.data[0] if resp.data else {**sitting, "writing_submission": submission}
 
 
-def record_speaking(sitting_id: str, user_id: str, session_ids: list[str]) -> dict:
-    """Attach the decoupled speaking sessions and mark speaking complete.
+def bind_session_to_sitting(session_id: str, user_id: str, sitting_id: str) -> None:
+    """Link a speaking session to a sitting AT CREATION (before any response is
+    graded), so per-response grading is sealed from the first answer.
 
-    Also stamps sessions.sitting_id on each session (the sealed hook for the
-    speaking result endpoint). Then reconciles the terminal state.
+    Validated: the sitting must exist, belong to the caller, and be sealed
+    (not released/void). Called by POST /sessions when sitting_id is supplied."""
+    sitting = get_sitting(sitting_id)
+    if not sitting:
+        raise NotFoundError(f"Sitting {sitting_id} không tồn tại.")
+    _assert_owner(sitting, user_id)
+    if sitting["status"] in ("released", "void") or not sitting.get("sealed"):
+        raise SittingConflictError("Kỳ thi không nhận thêm bài Speaking.")
+    supabase_admin.table("sessions").update({
+        "sitting_id": str(sitting_id),
+    }).eq("id", str(session_id)).eq("user_id", str(user_id)).execute()
+
+
+def record_speaking(sitting_id: str, user_id: str, session_ids: list[str]) -> dict:
+    """Mark speaking complete for the sitting.
+
+    Validated (the endpoint is student-authenticated): session_ids must be
+    non-empty, every session must exist, belong to the sitting's owner, AND
+    already be linked to THIS sitting — i.e. created within it via
+    bind_session_to_sitting, so its per-response grading was sealed. We do NOT
+    post-hoc link here (that would seal only the read, after feedback already
+    leaked during grading). Then reconciles the terminal state.
     """
     sitting = get_sitting(sitting_id)
     if not sitting:
@@ -458,17 +493,29 @@ def record_speaking(sitting_id: str, user_id: str, session_ids: list[str]) -> di
     if sitting["status"] in ("released", "void"):
         raise SittingConflictError(f"Sitting đang ở trạng thái {sitting['status']!r}.")
 
+    ids = [str(s) for s in (session_ids or [])]
+    if not ids:
+        raise SittingConflictError("Chưa có bài Speaking để nộp.")
+    rows = supabase_admin.table("sessions").select(
+        "id, user_id, sitting_id",
+    ).in_("id", ids).execute()
+    found = {r["id"]: r for r in (rows.data or [])}
+    for sid in ids:
+        r = found.get(sid)
+        if not r or str(r.get("user_id")) != str(sitting["user_id"]):
+            raise PermissionError("Bài Speaking không hợp lệ hoặc không thuộc về thí sinh.")
+        if str(r.get("sitting_id")) != str(sitting_id):
+            raise SittingConflictError(
+                "Bài Speaking phải được tạo trong kỳ thi này (để chấm kín)."
+            )
+
     supabase_admin.table("mock_exam_sittings").update({
-        "speaking_session_ids": [str(s) for s in session_ids],
+        "speaking_session_ids": ids,
         "speaking_completed_at": _now_iso(),
     }).eq("id", str(sitting_id)).execute()
-    for sid in session_ids:
-        supabase_admin.table("sessions").update({
-            "sitting_id": str(sitting_id),
-        }).eq("id", str(sid)).execute()
     logger.info(
         "[mock-exam] sitting=%s speaking recorded (%d sessions)",
-        sitting_id, len(session_ids),
+        sitting_id, len(ids),
     )
     return _reconcile_terminal(sitting_id)
 

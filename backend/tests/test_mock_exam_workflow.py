@@ -312,7 +312,20 @@ def _run_lrw(svc, fake, sitting_id, u):
     svc.start_section(sitting_id, u, "reading")
     _submit_section(svc, fake, sitting_id, u, "reading")
     svc.start_section(sitting_id, u, "writing")
+    svc.submit_writing(sitting_id, u, "task one essay", "task two essay")
     return svc.submit_lrw(sitting_id, u)
+
+
+def _do_speaking(svc, fake, sitting_id, u, n=1):
+    """Simulate speaking: seed n sessions already linked to the sitting (as if
+    created within it via bind_session_to_sitting), then record completion."""
+    ids = []
+    for _ in range(n):
+        sid = str(uuid4())
+        fake.seed("sessions", {"id": sid, "user_id": str(u),
+                               "sitting_id": str(sitting_id)})
+        ids.append(sid)
+    return svc.record_speaking(sitting_id, str(u), ids)
 
 
 def test_lrw_only_exam_finalises_without_speaking(fake_db, svc):
@@ -331,7 +344,7 @@ def test_submit_lrw_then_speaking_reaches_all_submitted(fake_db, svc, wf):
     s = svc.create_sitting(u, "MOCK-TEST-A")
     after_lrw = _run_lrw(svc, fake_db, s["id"], u)
     assert after_lrw["status"] == "speaking_pending"    # speaking required, not yet done
-    final = svc.record_speaking(s["id"], u, [str(uuid4())])
+    final = _do_speaking(svc, fake_db, s["id"], u)
     assert final["status"] == "all_submitted"
     assert len(fake_db.rows("mock_exam_reviews")) == 1
 
@@ -341,7 +354,7 @@ def test_speaking_first_then_lrw_also_reaches_all_submitted(fake_db, svc):
     _seed_exam(fake_db, speaking=True)
     u = uuid4()
     s = svc.create_sitting(u, "MOCK-TEST-A")
-    mid = svc.record_speaking(s["id"], u, [str(uuid4())])
+    mid = _do_speaking(svc, fake_db, s["id"], u)
     assert mid["status"] == "registered"   # LRW not done yet → no premature advance
     final = _run_lrw(svc, fake_db, s["id"], u)
     assert final["status"] == "all_submitted"
@@ -353,7 +366,7 @@ def test_all_submitted_creates_review_once(fake_db, svc, wf):
     u = uuid4()
     s = svc.create_sitting(u, "MOCK-TEST-A")
     _run_lrw(svc, fake_db, s["id"], u)
-    svc.record_speaking(s["id"], u, [str(uuid4())])
+    _do_speaking(svc, fake_db, s["id"], u)
     # idempotent: reconciling again doesn't create a second review
     svc._reconcile_terminal(s["id"])
     assert len(fake_db.rows("mock_exam_reviews")) == 1
@@ -426,6 +439,62 @@ def test_submit_writing_stores_texts_with_word_counts(fake_db, svc):
     assert ws["task1"]["text"] == "one two three"
 
 
+def test_submit_lrw_on_empty_sitting_raises(fake_db, svc):
+    """Finding 1: a bare submit-lrw on a registered sitting must not finalise or
+    queue a review with no work."""
+    _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    with pytest.raises(svc.SittingConflictError):
+        svc.submit_lrw(s["id"], u)
+    assert len(fake_db.rows("mock_exam_reviews")) == 0
+
+
+def test_record_speaking_empty_raises(fake_db, svc):
+    """Finding 2: an empty session list cannot mark Speaking complete."""
+    _seed_exam(fake_db, speaking=True)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    with pytest.raises(svc.SittingConflictError):
+        svc.record_speaking(s["id"], str(u), [])
+
+
+def test_record_speaking_foreign_session_raises(fake_db, svc):
+    """Finding 2: a session owned by another user cannot complete Speaking."""
+    _seed_exam(fake_db, speaking=True)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    other = str(uuid4())
+    fake_db.seed("sessions", {"id": other, "user_id": str(uuid4()),
+                              "sitting_id": s["id"]})
+    with pytest.raises(PermissionError):
+        svc.record_speaking(s["id"], str(u), [other])
+
+
+def test_record_speaking_unlinked_session_raises(fake_db, svc):
+    """Finding 3: a session NOT created within the sitting (its per-response
+    grading was never sealed) cannot be used to complete Speaking."""
+    _seed_exam(fake_db, speaking=True)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    unlinked = str(uuid4())
+    fake_db.seed("sessions", {"id": unlinked, "user_id": str(u), "sitting_id": None})
+    with pytest.raises(svc.SittingConflictError):
+        svc.record_speaking(s["id"], str(u), [unlinked])
+
+
+def test_bind_session_to_sitting_links_at_creation(fake_db, svc):
+    """Finding 3: sessions are linked to the sitting at creation so per-response
+    grading is sealed from the first answer."""
+    _seed_exam(fake_db, speaking=True)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    sess = str(uuid4())
+    fake_db.seed("sessions", {"id": sess, "user_id": str(u), "sitting_id": None})
+    svc.bind_session_to_sitting(sess, str(u), s["id"])
+    assert fake_db.rows("sessions")[0]["sitting_id"] == s["id"]
+
+
 def test_is_sealed_tracks_flag(fake_db, svc):
     _seed_exam(fake_db)
     s = svc.create_sitting(uuid4(), "MOCK-TEST-A")
@@ -444,7 +513,7 @@ def _sitting_at_all_submitted(fake_db, svc):
     u = uuid4()
     s = svc.create_sitting(u, "MOCK-TEST-A")
     _run_lrw(svc, fake_db, s["id"], u)
-    svc.record_speaking(s["id"], u, [str(uuid4())])
+    _do_speaking(svc, fake_db, s["id"], u)
     return s["id"]
 
 

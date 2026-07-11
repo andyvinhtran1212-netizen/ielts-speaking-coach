@@ -179,6 +179,10 @@ class CreateSessionBody(BaseModel):
     mode: str
     part: int
     topic: str
+    # When set, this session is part of a sealed 4-skill mock sitting. It is
+    # linked at creation (before any response is graded) so per-response speaking
+    # grading is sealed from the first answer.
+    sitting_id: str | None = None
 
     @field_validator("mode")
     @classmethod
@@ -353,6 +357,17 @@ async def create_session(
     if not rows:
         raise HTTPException(status_code=500, detail="Không thể tạo session")
     s = rows[0]
+
+    # Mock sitting: link the session AT CREATION (before any response can be
+    # graded) so per-response speaking grading is sealed. Validated inside.
+    if body.sitting_id:
+        from services import mock_exam_service
+        try:
+            mock_exam_service.bind_session_to_sitting(s["id"], user_id, body.sitting_id)
+        except (mock_exam_service.NotFoundError, PermissionError,
+                mock_exam_service.SittingConflictError) as e:
+            raise HTTPException(status_code=400, detail=f"Không gắn được session vào kỳ thi: {e}")
+
     return {
         "session_id": s["id"],
         "mode":       s["mode"],
@@ -670,6 +685,13 @@ async def get_session(
     except Exception as exc:
         logger.error("[get_session] responses query FAILED for session=%s: %s", session_id, exc)
         responses = []
+
+    # Sealed 4-skill mock: withhold the graded responses (bands + feedback) until
+    # the sitting is released. Questions still return so recording works.
+    if session.get("sitting_id"):
+        from services import mock_exam_service
+        if mock_exam_service.is_sealed(session["sitting_id"]):
+            responses = []
 
     return {
         **session,
