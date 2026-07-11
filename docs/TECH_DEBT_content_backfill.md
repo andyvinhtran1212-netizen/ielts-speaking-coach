@@ -1,60 +1,60 @@
 # Tech debt: content backfill for the depth/quality gates
 
-*Audit Giai đoạn 3 (#6 reading, #7a quiz, #7 vocab). **PARKED / tech debt**
-(quyết định 2026-07-10): các GATE + GENERATOR đã merge (PRs #702/#705), nhưng
-CHẠY generator để phủ nội dung + review + merge là một job ops chưa làm — cần
-`GEMINI_API_KEY`, tốn phí LLM, và cần người spot-check. Hoãn, làm dần theo pilot.*
+*Audit Giai đoạn 3 (#6 reading, #7a quiz, #7 vocab). **PARKED / tech debt** —
+gate + generator merged (PRs #702/#705); backfill RAN partially (2026-07-11) then
+**stopped on the Gemini monthly spending cap**. Resume when the cap is raised.*
 
-## Vì sao parked
+## CURRENT STATE (2026-07-11)
 
-Ba gate đo được khoảng trống hiện tại (đã có công cụ chạy):
-- Reading solution depth: **1/40** mỗi đề (`python -m scripts.check_reading_solution_depth`).
-- Quiz why_wrong: **0/1575** câu (`python -m scripts.check_quiz_why_wrong --rank`).
-- Vocab D1: gate chất lượng đã bật ở generation; item-stats chờ đủ attempt.
+| Area | State | PR |
+|------|-------|----|
+| **#6 reading** | ✅ DONE — L3-T1 40/40, L3-T2 40/40 (~90% draft-accept; adversarial verify caught real bugs, hand-fixed) | #708, #710 |
+| **#7a quiz** | ⚠️ PARTIAL — **409/1575** why_wrong injected (41 banks, all gate+adversarial clean). **BLOCKED: Gemini monthly spend cap (429 ResourceExhausted).** | #711 |
+| **#7 vocab** | ✅ Reviewed — item-stats fixed (#709) but data too sparse; distractor review found **65/128 ambiguous distractors (synonyms) + 4 structural = 69 flagged** → admin curation | #709 |
 
-Lấp khoảng trống = sinh draft bằng LLM + người review. Không tự động-hoá hết
-được (spot-check người là bắt buộc để không đẩy hàng loạt sư phạm chưa kiểm
-chứng — đúng luận điểm audit).
+Real content-rejection rate is only ~3% — the quiz stall was the spend cap, not quality.
 
-## Quy trình khi làm (draft → gate máy → adversarial LLM → spot-check người)
+## RESUME the quiz backfill (the only blocked piece)
 
-Mỗi generator: sinh draft → adversarial-verify LLM → chạy gate máy → ghi file
-DRAFT (KHÔNG đụng content live). Người duyệt các mục gắn ⚠ rồi merge cái đạt.
+1. Raise the Gemini spend cap at <https://ai.studio/spend> (that's the hard blocker).
+2. Merge #711 first (so the 409 already-done are on `main`), then:
+   ```
+   export GEMINI_API_KEY=...
+   cd backend
+   python -m scripts.backfill_quiz_why_wrong --out drafts/quiz-flagged.yaml --workers 6
+   ```
+   It's **resumable** — skips questions that already have `why_wrong`, so it
+   continues from 409. Keep `--workers` ≈ 6 (12 blew past the per-minute quota).
+   It injects the clean ones in-place; commit the modified banks + open a PR
+   (PR review = the human spot-check tier).
+3. Verify: `python -m scripts.check_quiz_why_wrong` (coverage) → when full, enable
+   `--strict` in content-CI.
 
-**#6 reading** (`docs/content-samples`/`backend/content/reading/*.md`):
-```
-export GEMINI_API_KEY=...
-python -m scripts.gen_reading_solutions content/reading/l3-academic-reading-test-1.md \
-    --out drafts/l3-t1.yaml            # --dry-run xem trước miễn phí
-```
-→ spot-check ⚠ → dán solution đạt vào md → `check_reading_solution_depth --strict`
-trong content-CI khi phủ đủ.
+Note: pushing content trips the pre-push hook (it runs the live-Gemini smoke test
+`tests/smoke/test_gemini_smoke.py`, which fails on the cap). Confirm
+`pytest tests/ -m "not smoke"` is green, then `git push --no-verify`.
 
-**#7a quiz** (`docs/grammar-quiz-banks/G-*.md`):
-```
-python -m scripts.check_quiz_why_wrong --rank        # chọn bank gap lớn nhất
-python -m scripts.gen_quiz_why_wrong docs/grammar-quiz-banks/<bank>.md --out drafts/ww.yaml
-```
-→ spot-check → dán `why_wrong` vào bank → `check_quiz_why_wrong --strict` khi xong.
+## FINISH the vocab fixes (needs admin / a regen pass)
 
-**#7 vocab D1** (`vocabulary_exercises`, DB):
-```
-python -m scripts.gen_d1_distractor_review --status draft --out drafts/d1-review.yaml
-python -m scripts.check_d1_item_stats --flagged-only     # khi có attempt data
-```
-→ sửa/loại item bị gắn cờ trong admin tool.
+69 flagged D1 exercises (report was `scratchpad/d1-flagged-actionable.md`; regenerate
+with `scripts.gen_d1_distractor_review --status published`). These are LIVE DB
+content edited via the admin tool — fix or retire the ambiguous ones there, OR
+generate replacement distractors (draft) for admin review. NOT a file injection.
 
-## Cách làm khuyến nghị: pilot → đo → scale
+## FLIP the strict gates (after coverage lands)
 
-Pilot nhỏ (1 đề reading + 10 bank quiz + N bài D1) → đo **tỉ lệ draft duyệt-không-sửa**.
-Nếu >80% → scale tự tin; nếu thấp → sửa prompt generator trước khi scale.
+- Reading: after #708 + #710 merge → `check_reading_solution_depth --strict` in content-CI.
+- Quiz: after the resume completes → `check_quiz_why_wrong --strict`.
+(Enabling early reds the build at the current partial coverage.)
 
-## Resume trigger
+## Process reference (draft → gate máy → adversarial LLM → spot-check người)
 
-Có `GEMINI_API_KEY` + thời gian review. Làm theo pilot, không big-bang. Bật cờ
-`--strict` của từng gate trong content-CI **sau khi** phủ đủ (bật sớm sẽ đỏ build
-ở mức 1/40, 0/1575 hiện tại).
+- Reading: `scripts.gen_reading_solutions <test.md> --out drafts/x.yaml [--dry-run]`
+  → review ⚠ → paste `solution:` into the .md.
+- Quiz: `scripts.backfill_quiz_why_wrong` (batch, above) or per-bank
+  `scripts.gen_quiz_why_wrong <bank.md> --out …`; pick banks with
+  `scripts.check_quiz_why_wrong --rank`.
+- Vocab: `scripts.gen_d1_distractor_review` + `scripts.check_d1_item_stats --flagged-only`.
 
-Liên quan: gate ở `backend/services/reading_solution_depth.py`,
-`backend/services/quiz_why_wrong.py`, `backend/services/d1_quality.py`.
-Gold-set job (khác): `docs/TECH_DEBT_gold_set_A1.md`.
+Gates: `backend/services/{reading_solution_depth,quiz_why_wrong,d1_quality}.py`.
+Gold-set job (separate): `docs/TECH_DEBT_gold_set_A1.md`.
