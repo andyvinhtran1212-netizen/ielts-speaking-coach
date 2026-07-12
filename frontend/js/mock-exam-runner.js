@@ -155,6 +155,16 @@
     var t1 = S.exam.writing_task1, t2 = S.exam.writing_task2;
     el('prompt-task1').textContent = t1 ? (t1.title ? t1.title + ' — ' : '') + (t1.prompt_text || '') : '(Không có đề Task 1)';
     el('prompt-task2').textContent = t2 ? (t2.title ? t2.title + ' — ' : '') + (t2.prompt_text || '') : '(Không có đề Task 2)';
+    // Task 1 Academic prompts may carry a chart/graph image — same treatment
+    // as the Writing dashboard's prompt modal (image shown, else hidden).
+    var img = el('prompt-task1-image');
+    if (t1 && t1.prompt_image_url) {
+      img.src = t1.prompt_image_url;
+      img.classList.remove('hidden');
+    } else {
+      img.removeAttribute('src');
+      img.classList.add('hidden');
+    }
     ['task1', 'task2'].forEach(function (t) {
       var ta = el('essay-' + t);
       try { var saved = localStorage.getItem(lsKey(t)); if (saved) ta.value = saved; } catch (e) {}

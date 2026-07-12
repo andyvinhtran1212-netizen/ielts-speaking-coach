@@ -46,6 +46,7 @@
     .me-tab.active { background:var(--av-accent); color:#fff; border-color:transparent; }
     .me-wpanel { display:none; }
     .me-wpanel.active { display:block; }
+    .me-prompt-image { display:block; margin-bottom:12px; border:1px solid var(--av-border-default); }
     textarea.me-essay { width:100%; min-height:50vh; padding:14px; border:1px solid var(--av-border-default); border-radius:10px; background:var(--av-surface-card); color:var(--av-text-primary); font:inherit; line-height:1.6; }
     .me-count { font-size:12px; color:var(--av-text-secondary); margin-top:6px; }
     .me-waiting-icon { font-size:40px; margin-bottom:8px; }
@@ -87,6 +88,7 @@
         </div>
         <div class="me-wpanel active" data-wpanel="task1">
           <div class="me-muted" id="prompt-task1" style="margin-bottom:8px;white-space:pre-wrap"></div>
+          <img id="prompt-task1-image" class="me-prompt-image hidden max-w-full rounded" alt="" loading="lazy" />
           <textarea class="me-essay" id="essay-task1" placeholder="Viết Task 1…"></textarea>
           <div class="me-count"><span id="count-task1">0</span> từ</div>
         </div>

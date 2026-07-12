@@ -173,7 +173,7 @@ def get_exam_content_for_sitting(sitting: dict) -> dict:
                       ("writing_task2", "writing_task2_prompt_id")):
         if exam.get(col):
             p = supabase_admin.table("writing_prompts").select(
-                "id, task_type, prompt_text, title",
+                "id, task_type, prompt_text, title, prompt_image_url",
             ).eq("id", str(exam[col])).limit(1).execute()
             if p.data:
                 out[slot] = p.data[0]
