@@ -64,6 +64,9 @@
           if (ev.target && ev.target.closest('.mr-check')) return;   // checkbox click ≠ open
           openDetail(tr.getAttribute('data-review-id'));
         });
+      list.innerHTML = renderRosterTable(rows);
+      list.querySelectorAll('[data-review-id]').forEach(function (tr) {
+        tr.addEventListener('click', function () { openDetail(tr.getAttribute('data-review-id')); });
       });
       if (gradable) wireBulkBar(list);
     } catch (e) {
@@ -144,6 +147,43 @@
         : '';
       return '<tr' + attrs + '>' +
         '<td>' + check + '</td>' +
+        '<td>' + esc(r.student_name) + '</td>' +
+        '<td>' + lrCell(r.listening) + '</td>' +
+        '<td>' + lrCell(r.reading) + '</td>' +
+        '<td>' + wCell(r.writing) + '</td>' +
+        '<td>' + spkCell(r.speaking) + '</td>' +
+        '<td>' + claimCell(r) + '</td>' +
+        '</tr>';
+    }).join('');
+    return '<div class="adm-table-wrap"><table class="adm-table mr-roster">' + head + '<tbody>' + body + '</tbody></table></div>';
+  }
+
+  function lrCell(o) {
+    if (!o || o.score == null) return '<span class="mr-muted">—</span>';
+    return '<b>' + o.score + '</b>/' + (o.max || '?') + (o.band != null ? ' · B' + Number(o.band).toFixed(1) : '');
+  }
+  function wCell(w) {
+    if (!w || (w.task1_wc == null && w.task2_wc == null)) return '<span class="mr-muted">—</span>';
+    return 'T1 ' + (w.task1_wc != null ? w.task1_wc : '—') + ' · T2 ' + (w.task2_wc != null ? w.task2_wc : '—') + ' từ';
+  }
+  function spkCell(s) {
+    return (s && s.count) ? (s.count + ' session') : '<span class="mr-muted">—</span>';
+  }
+  function claimCell(r) {
+    if (!r.review_id) return '<span class="mr-pill">đang làm</span>';
+    return '<span class="mr-pill">' + (r.claimed ? 'đã nhận' : 'chưa nhận') + '</span>';
+  }
+
+  function renderRosterTable(rows) {
+    var head = '<thead><tr>' +
+      ['Học viên', 'Listening', 'Reading', 'Writing', 'Speaking', 'Trạng thái']
+        .map(function (h) { return '<th>' + h + '</th>'; }).join('') +
+      '</tr></thead>';
+    var body = rows.map(function (r) {
+      var attrs = r.review_id
+        ? ' class="mr-trow" data-review-id="' + esc(r.review_id) + '"'
+        : ' class="mr-trow mr-trow--wip"';
+      return '<tr' + attrs + '>' +
         '<td>' + esc(r.student_name) + '</td>' +
         '<td>' + lrCell(r.listening) + '</td>' +
         '<td>' + lrCell(r.reading) + '</td>' +
