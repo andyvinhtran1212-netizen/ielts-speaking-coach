@@ -23,46 +23,62 @@
   <link rel="stylesheet" href="/css/aver-design/components.css" />
   <link rel="stylesheet" href="/css/tailwind.build.css" />
   <style>
-    .trf-band-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:12px; }
-    .trf-band { background:var(--av-surface-elevated); border:1px solid var(--av-border-default); border-radius:12px; padding:16px; text-align:center; }
+    .trf-wrap { max-width:var(--av-width-read,760px); margin:0 auto; padding:var(--av-space-8) var(--av-space-4) var(--av-space-16); }
+    .trf-state { padding:var(--av-space-16) 0; text-align:center; }
+    .trf-state h1 { font-size:var(--av-fs-xl,22px); font-weight:700; color:var(--av-text-primary); margin-bottom:var(--av-space-2); }
+    .trf-state p { color:var(--av-text-secondary); max-width:460px; margin:0 auto; line-height:1.6; }
+    .trf-state--error { color:var(--av-error); }
+    .trf-header { margin-bottom:var(--av-space-6); }
+    .trf-h1 { font-size:var(--av-fs-2xl,24px); font-weight:800; color:var(--av-text-primary); line-height:var(--av-lh-snug,1.4); }
+    .trf-released { color:var(--av-text-secondary); font-size:13px; margin-top:var(--av-space-1); }
+    .trf-band-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:var(--av-space-3); }
+    .trf-band { background:var(--av-surface-card); border:1px solid var(--av-border-subtle); border-radius:var(--av-radius-lg); padding:var(--av-space-4); text-align:center; box-shadow:var(--av-shadow-sm); }
     .trf-band-label { font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--av-text-secondary); }
-    .trf-band-val { font-size:32px; font-weight:800; color:var(--av-text-primary); font-variant-numeric:tabular-nums; }
-    .trf-overall { background:var(--av-accent,#2563eb); color:#fff; }
-    .trf-overall .trf-band-label, .trf-overall .trf-band-val { color:#fff; }
+    .trf-band-val { font-size:32px; font-weight:800; color:var(--av-text-primary); font-family:var(--av-font-mono); font-variant-numeric:tabular-nums; }
+    .trf-overall { background:var(--av-primary); border-color:transparent; }
+    .trf-overall .trf-band-label, .trf-overall .trf-band-val { color:var(--av-text-on-primary); }
+    .trf-section { margin-top:var(--av-space-6); }
+    .trf-h2 { font-size:15px; font-weight:700; color:var(--av-text-primary); margin-bottom:var(--av-space-2); }
+    .trf-box { background:var(--av-surface-card); border:1px solid var(--av-border-subtle); border-radius:var(--av-radius-lg); padding:var(--av-space-4); line-height:1.7; color:var(--av-text-primary); white-space:pre-wrap; box-shadow:var(--av-shadow-sm); }
+    .trf-links { display:flex; gap:var(--av-space-2); flex-wrap:wrap; }
+    .trf-note { background:var(--av-surface-card); border:1px solid var(--av-border-subtle); border-radius:var(--av-radius-md); padding:var(--av-space-3); margin-bottom:var(--av-space-2); }
+    .trf-note__skill { font-weight:600; text-transform:capitalize; color:var(--av-text-primary); font-size:13px; }
+    .trf-note__body { color:var(--av-text-secondary); line-height:1.6; white-space:pre-wrap; margin-top:var(--av-space-1); }
+    .trf-foot { margin-top:var(--av-space-8); font-size:12px; color:var(--av-text-secondary); line-height:1.6; }
   </style>
 </head>
 <body class="av-page font-sans min-h-screen">
-  <div class="av-w-read" style="padding:32px 16px; margin:0 auto;">
-    <div id="state-loading" class="py-16 text-center" style="color:var(--av-text-secondary)">Đang tải kết quả…</div>
+  <div class="trf-wrap">
+    <div id="state-loading" class="trf-state" style="color:var(--av-text-secondary)">Đang tải kết quả…</div>
 
-    <div id="state-pending" class="hidden py-16 text-center">
-      <h1 style="font-size:22px;font-weight:700;color:var(--av-text-primary);margin-bottom:8px;">Đang chờ giám khảo duyệt</h1>
-      <p style="color:var(--av-text-secondary);max-width:460px;margin:0 auto;line-height:1.6;">
+    <div id="state-pending" class="hidden trf-state">
+      <h1>Đang chờ giám khảo duyệt</h1>
+      <p>
         Bài của bạn đã được ghi nhận. Giám khảo sẽ chấm và công bố kết quả trong thời gian cam kết.
         Bạn sẽ thấy điểm tại đây khi có kết quả.
       </p>
     </div>
 
-    <div id="state-error" class="hidden py-16 text-center" style="color:var(--av-error,#dc2626)"></div>
+    <div id="state-error" class="hidden trf-state trf-state--error"></div>
 
     <div id="state-content" class="hidden">
-      <header style="margin-bottom:20px;">
-        <h1 style="font-size:24px;font-weight:800;color:var(--av-text-primary);">Phiếu điểm thi thử (TRF)</h1>
-        <p id="released-at" style="color:var(--av-text-secondary);font-size:13px;margin-top:4px;"></p>
+      <header class="trf-header">
+        <h1 class="trf-h1">Phiếu điểm thi thử (TRF)</h1>
+        <p id="released-at" class="trf-released"></p>
       </header>
 
       <section class="trf-band-grid" id="bands"></section>
 
-      <section id="comment-wrap" style="margin-top:24px;">
-        <h2 style="font-size:15px;font-weight:700;color:var(--av-text-primary);margin-bottom:8px;">Nhận xét của giám khảo</h2>
-        <div id="examiner-comment" style="background:var(--av-surface-elevated);border:1px solid var(--av-border-default);border-radius:12px;padding:16px;line-height:1.7;color:var(--av-text-primary);white-space:pre-wrap;"></div>
+      <section id="comment-wrap" class="trf-section">
+        <h2 class="trf-h2">Nhận xét của giám khảo</h2>
+        <div id="examiner-comment" class="trf-box"></div>
       </section>
 
-      <section id="notes-wrap" style="margin-top:20px;"></section>
+      <section id="notes-wrap" class="trf-section"></section>
 
-      <section id="chuabai-wrap" style="margin-top:24px;"></section>
+      <section id="chuabai-wrap" class="trf-section"></section>
 
-      <p style="margin-top:28px;font-size:12px;color:var(--av-text-secondary);line-height:1.6;">
+      <p class="trf-foot">
         Kết quả do giám khảo duyệt, có tham khảo phân tích AI.
       </p>
     </div>
@@ -115,11 +131,11 @@
       var nwrap = document.getElementById('notes-wrap');
       var keys = Object.keys(notes).filter(function (k) { return notes[k]; });
       if (keys.length) {
-        nwrap.innerHTML = '<h2 style="font-size:15px;font-weight:700;color:var(--av-text-primary);margin-bottom:8px;">Ghi chú từng kỹ năng</h2>';
+        nwrap.innerHTML = '<h2 class="trf-h2">Ghi chú từng kỹ năng</h2>';
         keys.forEach(function (k) {
           var row = document.createElement('div');
-          row.style.cssText = 'background:var(--av-surface-elevated);border:1px solid var(--av-border-default);border-radius:10px;padding:12px 14px;margin-bottom:8px;';
-          row.innerHTML = '<div style="font-weight:600;text-transform:capitalize;color:var(--av-text-primary);font-size:13px;">' + esc(k) + '</div><div style="color:var(--av-text-secondary);line-height:1.6;white-space:pre-wrap;margin-top:4px;">' + esc(notes[k]) + '</div>';
+          row.className = 'trf-note';
+          row.innerHTML = '<div class="trf-note__skill">' + esc(k) + '</div><div class="trf-note__body">' + esc(notes[k]) + '</div>';
           nwrap.appendChild(row);
         });
       }
@@ -146,15 +162,15 @@
       var cwrap = document.getElementById('chuabai-wrap');
       var sections = '';
       if (CHUABAI.length) {
-        sections += '<h2 style="font-size:15px;font-weight:700;color:var(--av-text-primary);margin-bottom:8px;">Xem chữa bài</h2>' +
-          '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+        sections += '<h2 class="trf-h2">Xem chữa bài</h2>' +
+          '<div class="trf-links">' +
           CHUABAI.map(function (s) {
             return '<a class="av-btn" target="_blank" href="' + s.href + encodeURIComponent(s.attempt) + '">Chữa bài ' + s.label + ' ↗</a>';
           }).join('') + '</div>';
       }
       if (WRITING.length) {
-        sections += '<h2 style="font-size:15px;font-weight:700;color:var(--av-text-primary);margin:16px 0 8px;">Nhận xét chi tiết Writing</h2>' +
-          '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+        sections += '<h2 class="trf-h2" style="margin-top:var(--av-space-6)">Nhận xét chi tiết Writing</h2>' +
+          '<div class="trf-links">' +
           WRITING.map(function (s) {
             return '<a class="av-btn" target="_blank" href="/pages/writing-result.html?id=' + encodeURIComponent(s.id) + '">Nhận xét ' + s.label + ' ↗</a>';
           }).join('') + '</div>';
