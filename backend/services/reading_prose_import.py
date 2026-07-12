@@ -317,11 +317,15 @@ _TEST_PASSAGE_RE = re.compile(r"^##\s+READING PASSAGE\s+(\d+)\s*$", re.MULTILINE
 _QGROUP_RE = re.compile(rf"^###\s+Questions\s+(\d+)\s*{_DASH}\s*(\d+)\s*$", re.MULTILINE)
 _STATEMENT_RE = re.compile(r"^\*\*(\d+)\*\*\s+(.*)$")
 _MCQ_OPT_RE = re.compile(r"^\*\*([A-D])\*\*\s+(.*)$")
-# Heading-bank option line. Two real authoring formats: full-tests align the
-# numerals with spaces ("> i    Text"), lessons punctuate them ("> i. Text").
-# The optional ./)/period sits OUTSIDE the capture so the label stays clean
-# (i / viii / ix) in both. (See reading L02 lesson import fix.)
-_HEADING_OPT_RE = re.compile(r"^>\s*([ivxIVX]+)[.)]?\s+(\S.*)$")
+# Shared option-bank line inside a group instruction. Two label styles:
+#   • roman numerals — matching_headings "List of Headings" ("> i    Text")
+#   • single letters A–H — matching_features / matching (people/statements)
+#     "List of Researchers" ("> A  John Flavell")
+# Full-tests align with spaces; lessons punctuate ("> i. Text"). The optional
+# ./)/period sits OUTSIDE the capture so the label stays clean. The label is a
+# single A–H OR a roman numeral, then whitespace + text — so prose instruction
+# lines ("> Choose the correct heading…", "> List of Researchers") never match.
+_HEADING_OPT_RE = re.compile(r"^>\s*([A-H]|[ivxIVX]+)[.)]?\s+(\S.*)$")
 # A fenced ```text``` block (note/summary template or ASCII diagram).
 _TEXT_BLOCK_RE = re.compile(r"```text\s*\n(.*?)\n```", re.DOTALL)
 # reading-header-notefill B — note/summary blank marker "20 ____" → "{{20}}"

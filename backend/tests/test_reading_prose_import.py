@@ -40,6 +40,20 @@ _HAVE_SAMPLE = os.path.exists(_TEST_MD) and os.path.exists(_SOL_MD)
 _skip = pytest.mark.skipif(not _HAVE_SAMPLE, reason="sample bundle not present")
 
 
+def test_heading_opt_re_matches_letters_and_romans():
+    """The shared option-bank line covers BOTH styles: roman numerals
+    (matching_headings "List of Headings") and A-H letters (matching_features
+    "List of Researchers"). Prose instruction lines must never match."""
+    m = _HEADING_OPT_RE.match("> A  John Flavell")
+    assert m and m.group(1) == "A" and m.group(2) == "John Flavell"
+    m = _HEADING_OPT_RE.match("> iii  Why temperature matters")
+    assert m and m.group(1) == "iii"
+    # prose instruction lines (incl. one starting with an A-H letter word) stay out
+    assert _HEADING_OPT_RE.match("> Choose the correct heading below.") is None
+    assert _HEADING_OPT_RE.match("> List of Researchers") is None
+    assert _HEADING_OPT_RE.match("> Do the following statements agree?") is None
+
+
 def _read(p):
     with open(p, encoding="utf-8") as f:
         return f.read()
