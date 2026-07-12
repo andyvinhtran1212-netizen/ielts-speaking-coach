@@ -1326,6 +1326,49 @@ def test_promote_writing_essays_skips_empty_task(fake_db, svc):
     assert sitting.get("essay_task2_id") is None
 
 
+def test_release_delivers_reviewed_writing_essays(fake_db, svc, wf):
+    """P2 (2026-07-12): CÔNG BỐ is the one action that unlocks everything —
+    release also flips the sitting's REVIEWED writing essays to 'delivered'
+    (so the student can open writing-result.html, which gates on 'delivered'),
+    while a still-'graded' essay (admin hasn't approved yet) is left untouched."""
+    exam = _seed_exam(fake_db, speaking=False)
+    p1, p2 = str(uuid4()), str(uuid4())
+    exam["writing_task1_prompt_id"] = p1
+    exam["writing_task2_prompt_id"] = p2
+    fake_db.seed("writing_prompts", {"id": p1, "task_type": "task1_academic",
+                                     "prompt_text": "x", "title": "T1"})
+    fake_db.seed("writing_prompts", {"id": p2, "task_type": "task2",
+                                     "prompt_text": "y", "title": "T2"})
+    u = uuid4()
+    fake_db.seed("students", {"id": str(uuid4()), "user_id": str(u)})
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    _run_lrw(svc, fake_db, exam, s["id"], u)   # promotes 2 pending essays
+
+    sitting = svc.get_sitting(s["id"])
+    e1, e2 = sitting["essay_task1_id"], sitting["essay_task2_id"]
+    for row in fake_db.rows("writing_essays"):
+        if row["id"] == e1:
+            row["status"] = "reviewed"   # admin approved
+        if row["id"] == e2:
+            row["status"] = "graded"     # AI done, admin not yet approved
+
+    review = wf.get_review_for_sitting(s["id"])
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    wf.save_final_bands(review["id"], admin,
+                        {"listening": 6.0, "reading": 6.0, "writing": 6.0})
+    wf.release_results(review["id"], admin)
+
+    by_id = {r["id"]: r for r in fake_db.rows("writing_essays")}
+    assert by_id[e1]["status"] == "delivered"
+    assert by_id[e1].get("delivered_at")
+    # delivery_method must be a value allowed by the writing_essays CHECK
+    # (migration 033) — else Postgres rejects the update in prod and the essay
+    # silently stays 'reviewed'.
+    assert by_id[e1]["delivery_method"] == "web_view"
+    assert by_id[e2]["status"] == "graded"   # not 'reviewed' → left untouched
+
+
 def test_compute_overall_pure():
     from services import mock_review_workflow as wf
     assert wf.compute_overall(

@@ -1021,18 +1021,19 @@ def test_start_grading_409_when_not_pending():
 
 def test_start_grading_409_when_atomic_update_loses_race():
     """Codex P2 (2026-07-12): the initial SELECT can see 'pending' and still
-    lose the race — a concurrent request's guarded UPDATE may have already
-    flipped the row to 'grading' by the time this request's own UPDATE runs.
-    The guarded UPDATE (.eq("status", "pending")) then matches zero rows,
-    which must be treated as a 409 conflict, not silently proceed to
+    lose the race — a concurrent request's guarded claim may have already
+    flipped the row to 'grading' by the time this request claims. The shared
+    claim_pending_for_grading helper returns None on a zero-row guarded
+    UPDATE, which must be treated as a 409 conflict, not silently proceed to
     schedule a second grading job."""
     db = MagicMock()
     db.table.return_value.select.return_value.eq.return_value.is_.return_value.limit.return_value.execute.return_value.data = \
         [{"id": _ESSAY_ID, "status": "pending"}]
-    db.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.return_value.data = []
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
-         patch("routers.admin_writing.supabase_admin", db):
+         patch("routers.admin_writing.supabase_admin", db), \
+         patch("routers.admin_writing.essay_service.claim_pending_for_grading",
+               return_value=None):
         r = _client().post(
             f"/admin/writing/essays/{_ESSAY_ID}/start-grading", json={}, headers=_ADMIN_AUTH,
         )
@@ -1064,8 +1065,8 @@ def test_start_grading_schedules_job_with_chosen_tier():
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_writing.supabase_admin", db), \
-         patch("routers.admin_writing.essay_service.schedule_grading_job",
-               return_value=job_info) as mock_sched, \
+         patch("routers.admin_writing.essay_service.claim_pending_for_grading",
+               return_value=job_info) as mock_claim, \
          patch("routers.admin_writing.essay_service._bg_grade_essay", new=sentinel_bg):
         r = _client().post(
             f"/admin/writing/essays/{_ESSAY_ID}/start-grading",
@@ -1075,15 +1076,12 @@ def test_start_grading_schedules_job_with_chosen_tier():
 
     assert r.status_code == 202, r.text
     assert r.json()["job_id"] == _JOB_ID
-    kwargs = mock_sched.call_args.kwargs
-    assert kwargs["essay_id"] == _ESSAY_ID
+    # the atomic claim (which flips status + writes the chosen tier) runs with
+    # the admin's picked tier/level, so _bg_grade_essay reads them off the row
+    kwargs = mock_claim.call_args.kwargs
+    assert mock_claim.call_args.args[0] == _ESSAY_ID
     assert kwargs["grading_tier"] == "instructor"
     assert kwargs["analysis_level"] == 4
-    # the essay row is updated with the chosen tier BEFORE the job runs, since
-    # _bg_grade_essay reads grading_tier/analysis_level off the essay row
-    update_arg = db.table.return_value.update.call_args[0][0]
-    assert update_arg["grading_tier"] == "instructor"
-    assert update_arg["analysis_level"] == 4
 
 
 def test_start_grading_default_tier_is_standard():
@@ -1096,12 +1094,12 @@ def test_start_grading_default_tier_is_standard():
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_writing.supabase_admin", db), \
-         patch("routers.admin_writing.essay_service.schedule_grading_job",
-               return_value=job_info) as mock_sched, \
+         patch("routers.admin_writing.essay_service.claim_pending_for_grading",
+               return_value=job_info) as mock_claim, \
          patch("routers.admin_writing.essay_service._bg_grade_essay", new=sentinel_bg):
         r = _client().post(
             f"/admin/writing/essays/{_ESSAY_ID}/start-grading", json={}, headers=_ADMIN_AUTH,
         )
 
     assert r.status_code == 202, r.text
-    assert mock_sched.call_args.kwargs["grading_tier"] == "standard"
+    assert mock_claim.call_args.kwargs["grading_tier"] == "standard"

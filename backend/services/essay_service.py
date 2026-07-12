@@ -21,7 +21,7 @@ import asyncio
 import json
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Iterable, Optional
 
 from fastapi import HTTPException
 
@@ -428,6 +428,90 @@ def schedule_grading_job(
         grading_tier=grading_tier,
     )
     return {"job_id": job["id"], "eta_seconds": eta}
+
+
+def claim_pending_for_grading(
+    essay_id: str,
+    *,
+    grading_tier: str,
+    analysis_level: int,
+    selected_model: str = "gemini-2.5-pro",
+) -> Optional[dict]:
+    """Atomic 'pending'→'grading' claim + schedule ONE grading job. The single
+    source of the start-grading race guard, shared by the per-essay admin
+    endpoint (admin_writing.start_grading) and the mock-exam bulk-grade
+    endpoint (2026-07-12).
+
+    The tier metadata + status flip is one guarded UPDATE (WHERE status=
+    'pending'); a zero-row result means the essay was already claimed/graded by
+    a concurrent request, so this returns None (caller treats as skip/409) and
+    NO job is scheduled. On success returns schedule_grading_job's
+    {"job_id", "eta_seconds"}. Caller must still add the request-scoped
+    _bg_grade_essay BackgroundTask — a service can't own request lifecycle."""
+    claimed = (
+        supabase_admin.table("writing_essays")
+        .update({
+            "grading_tier":   grading_tier,
+            "analysis_level": analysis_level,
+            "selected_model": selected_model,
+            "status":         "grading",
+        })
+        .eq("id", essay_id)
+        .eq("status", "pending")
+        .execute()
+    )
+    if not claimed.data:
+        return None
+    return schedule_grading_job(
+        essay_id=essay_id,
+        analysis_level=analysis_level,
+        selected_model=selected_model,
+        grading_tier=grading_tier,
+    )
+
+
+def deliver_reviewed_essay(essay_id: str) -> bool:
+    """Guarded 'reviewed'→'delivered' transition used when a mock sitting's
+    results are released (mock_review_workflow.release_results, 2026-07-12).
+    Mirrors admin_writing._deliver_essay's state-machine rule (only a REVIEWED
+    essay may be delivered) but kept minimal — no regrade bookkeeping, since a
+    mock essay has no regrade request at release time. WHERE status='reviewed'
+    so a still-'graded'/'pending' essay is left untouched; returns True iff a
+    row flipped."""
+    r = (
+        supabase_admin.table("writing_essays")
+        .update({
+            "status":          "delivered",
+            "delivered_at":    _now(),
+            # must be one of the values allowed by the writing_essays
+            # delivery_method CHECK (migration 033): google_docs_paste /
+            # word_download / gdocs_api / web_view. The student reads mock
+            # feedback in the web app, so 'web_view' is the right one — a
+            # non-listed value (e.g. 'mock_release') would be REJECTED by
+            # Postgres, silently leaving the essay 'reviewed' and the feedback
+            # link dead.
+            "delivery_method": "web_view",
+        })
+        .eq("id", essay_id)
+        .eq("status", "reviewed")
+        .execute()
+    )
+    return bool(r.data)
+
+
+def delivered_essay_ids(essay_ids: Iterable) -> set:
+    """Of the given essay ids, the subset whose status is 'delivered'. Used by
+    the mock TRF result endpoint so it only surfaces a Writing-feedback link
+    for essays the student can actually open (writing-result.html gates on
+    'delivered') — a still-'graded'/'reviewed'/'pending' essay would otherwise
+    render a dead-end link (2026-07-12)."""
+    ids = [str(e) for e in essay_ids if e]
+    if not ids:
+        return set()
+    res = supabase_admin.table("writing_essays").select("id, status").in_(
+        "id", ids,
+    ).execute()
+    return {r["id"] for r in (res.data or []) if r.get("status") == "delivered"}
 
 
 def create_essay_with_job(*, data: dict, admin_id: str) -> dict:

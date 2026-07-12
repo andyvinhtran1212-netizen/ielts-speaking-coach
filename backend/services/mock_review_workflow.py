@@ -321,11 +321,40 @@ def release_results(
         "status": "released",
         "sealed": False,
     }).eq("id", str(review["sitting_id"])).execute()
+
+    # Deliver the Writing feedback in the same action — CÔNG BỐ is the one
+    # moment everything unlocks for the student (2026-07-12). Only a 'reviewed'
+    # essay (admin approved the AI grade) flips to 'delivered'; a still-'graded'
+    # or 'pending' essay is left as-is and the student just won't see Writing
+    # feedback yet. Best-effort — a delivery hiccup must not fail the release.
+    _deliver_writing_for_sitting(review["sitting_id"])
+
     logger.info(
         "[mock-review] RELEASED review=%s sitting=%s by admin=%s channel=%s",
         review_id, review["sitting_id"], admin_id, channel,
     )
     return review
+
+
+def _deliver_writing_for_sitting(sitting_id: str) -> None:
+    """On release, push each of the sitting's promoted Writing essays that the
+    admin has reviewed to 'delivered' so the student can open the detailed
+    feedback (writing-result.html gates on status=='delivered'). Idempotent,
+    never raises."""
+    try:
+        from services import essay_service
+        row = supabase_admin.table("mock_exam_sittings").select(
+            "essay_task1_id, essay_task2_id",
+        ).eq("id", str(sitting_id)).limit(1).execute()
+        if not row.data:
+            return
+        s = row.data[0]
+        for essay_id in (s.get("essay_task1_id"), s.get("essay_task2_id")):
+            if essay_id and essay_service.deliver_reviewed_essay(str(essay_id)):
+                logger.info("[mock-review] delivered writing essay=%s (sitting=%s)",
+                            essay_id, sitting_id)
+    except Exception:
+        logger.exception("[mock-review] deliver-writing failed sitting=%s", sitting_id)
 
 
 def required_skills_for_sitting(sitting_id: UUID | str) -> list:
