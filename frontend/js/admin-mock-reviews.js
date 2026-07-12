@@ -67,7 +67,7 @@
       });
       if (gradable) wireBulkBar(list);
     } catch (e) {
-      list.innerHTML = '<p style="color:var(--av-error,#dc2626)">Lỗi tải bảng lớp: ' + esc(e && e.message) + '</p>';
+      list.innerHTML = '<p style="color:var(--av-error)">Lỗi tải bảng lớp: ' + esc(e && e.message) + '</p>';
     }
   }
 
