@@ -89,8 +89,14 @@
       }).map(function (s) {
         var sec = progress.sections[s] || { submitted: 0, total: 0 };
         var isActive = progress.active_section === s;
+        // "Đang làm" only means something for the currently-open section —
+        // sequential gating means every other section is either all-submitted
+        // (already passed) or not yet opened (nobody there yet).
+        var inProgress = isActive ? Math.max(0, sec.total - sec.submitted) : 0;
         return '<span class="me-pill' + (isActive ? ' open' : '') + '">' +
-          esc(SECTION_LABEL[s]) + ': ' + sec.submitted + '/' + sec.total + '</span>';
+          esc(SECTION_LABEL[s]) + ': ' + sec.submitted + '/' + sec.total + ' đã nộp' +
+          (isActive && inProgress > 0 ? ' · ' + inProgress + ' đang làm' : '') +
+          '</span>';
       }).join('') +
       '</div>';
   }
@@ -121,7 +127,7 @@
     if (pub) pub.addEventListener('click', function () { publish(ex.id); });
     card.querySelector('[data-act="toggle"]').addEventListener('click', function () { toggleOpen(ex); });
     var adv = card.querySelector('[data-act="advance"]');
-    if (adv) adv.addEventListener('click', function () { advance(ex, activeSection); });
+    if (adv) adv.addEventListener('click', function () { advance(ex, activeSection, progress); });
     return card;
   }
 
@@ -161,7 +167,7 @@
     catch (e) { toast('Thất bại: ' + (e && e.message)); }
   }
 
-  async function advance(ex, activeSection) {
+  async function advance(ex, activeSection, progress) {
     var seq = ['not_started', 'listening', 'reading', 'writing', 'done'].filter(function (s) {
       return s === 'not_started' || s === 'done' || s === 'writing' ||
         (s === 'listening' ? ex.listening_test_id : ex.reading_test_id);
@@ -169,9 +175,14 @@
     var idx = seq.indexOf(activeSection);
     var next = idx >= 0 && idx + 1 < seq.length ? seq[idx + 1] : null;
     var label = next ? (SECTION_LABEL[next] || next) : 'phần tiếp theo';
+    var sec = progress && progress.sections && progress.sections[activeSection];
+    var stillWorking = sec ? Math.max(0, sec.total - sec.submitted) : null;
+    var collectNote = stillWorking
+      ? stillWorking + ' học viên chưa nộp (' + sec.submitted + '/' + sec.total + ') sẽ được thu tự động'
+      : 'học viên chưa nộp sẽ được thu tự động';
     var msg = activeSection === 'not_started'
       ? 'Bắt đầu kỳ thi — mở phần ' + label + ' cho toàn bộ học viên?'
-      : 'Thu bài phần ' + (SECTION_LABEL[activeSection] || activeSection) + ' (học viên chưa nộp sẽ được thu tự động) và mở phần ' + label + '?';
+      : 'Thu bài phần ' + (SECTION_LABEL[activeSection] || activeSection) + ' (' + collectNote + ') và mở phần ' + label + '?';
     if (!confirm(msg)) return;
     try {
       await window.api.post('/admin/mock-exams/' + encodeURIComponent(ex.id) + '/advance', {});
