@@ -855,6 +855,31 @@ def void_sitting(sitting_id: str, admin_id: str, reason: str = "") -> dict:
     return resp.data[0] if resp.data else {**sitting, "status": "void"}
 
 
+def set_sitting_retest(
+    sitting_id: str, admin_id: str, needs_retest: bool, reason: str = "",
+) -> dict:
+    """Admin's EARLY (pre-grading) 'this student will retake' toggle (mig 153).
+    Set from the roster off the auto-graded L/R results so the Writing
+    bulk-grade can skip a retaker before spending grading budget. Idempotent —
+    just writes the boolean + a light audit stamp; clearing it (needs_retest=
+    False) wipes the stamp."""
+    sitting = get_sitting(sitting_id)
+    if not sitting:
+        raise NotFoundError(f"Sitting {sitting_id} không tồn tại.")
+    update = {
+        "needs_retest":        bool(needs_retest),
+        "needs_retest_at":     _now_iso() if needs_retest else None,
+        "needs_retest_by":     str(admin_id) if needs_retest else None,
+        "needs_retest_reason": (reason or None) if needs_retest else None,
+    }
+    resp = supabase_admin.table("mock_exam_sittings").update(update).eq(
+        "id", str(sitting_id),
+    ).execute()
+    logger.info("[mock-exam] sitting=%s needs_retest=%s by admin=%s",
+                sitting_id, bool(needs_retest), admin_id)
+    return resp.data[0] if resp.data else {**sitting, **update}
+
+
 # ── Admin: open/close + section advance + exclusivity ──────────────────
 
 

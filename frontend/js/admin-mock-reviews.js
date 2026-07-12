@@ -5,7 +5,10 @@
  * no cross-exam flat queue anymore. The landing view is a class ROSTER GRID
  * (rows = students, columns = 4 skills + claim status) from
  * GET /admin/mock-exams/{id}/roster; clicking a submitted row opens the review
- * detail. Drives /admin/mock-reviews (claim, final-bands, release) + reads the
+ * detail. Each row has an early "cần test lại" toggle (decided off L/R before
+ * grading) — flagging a student removes their Writing bulk-grade checkbox and
+ * tints the row, so a retaker's essays aren't queued. Drives /admin/mock-reviews
+ * (claim, final-bands, release) + reads the
  * sitting for the 4-skill surfaces. Writing
  * renders the native writing_submission text (P1); when essay ids are present
  * it deep-links to the admin_writing grade page instead. Listening/Reading
@@ -65,6 +68,11 @@
           openDetail(tr.getAttribute('data-review-id'));
         });
       });
+      list.querySelectorAll('.mr-retest-row').forEach(function (box) {
+        box.addEventListener('change', function () {
+          setRetest(box.getAttribute('data-sitting-id'), box.checked);
+        });
+      });
       if (gradable) wireBulkBar(list);
     } catch (e) {
       list.innerHTML = '<p style="color:var(--av-error)">Lỗi tải bảng lớp: ' + esc(e && e.message) + '</p>';
@@ -108,10 +116,26 @@
       var res = await window.api.post(
         '/admin/mock-exams/' + encodeURIComponent(examId) + '/writing/bulk-grade',
         { sitting_ids: sittingIds, grading_tier: tier });
-      var q = (res.queued || []).length, sk = (res.skipped || []).length;
-      toast('Đã đưa ' + q + ' bài vào hàng chấm' + (sk ? ' · bỏ qua ' + sk + ' (đã chấm)' : '') + '.');
+      var q = (res.queued || []).length, sk = (res.skipped || []).length,
+          rs = (res.retest_skipped || []).length;
+      toast('Đã đưa ' + q + ' bài vào hàng chấm' +
+        (sk ? ' · bỏ qua ' + sk + ' (đã chấm)' : '') +
+        (rs ? ' · ' + rs + ' cần test lại' : '') + '.');
       loadRoster();
     } catch (e) { toast('Chấm hàng loạt thất bại: ' + (e && e.message)); }
+  }
+
+  // Early "cần test lại" toggle — reloads the roster so the bulk-grade checkbox
+  // enables/disables and the class summary count updates.
+  async function setRetest(sittingId, needs) {
+    try {
+      await window.api.post(
+        '/admin/mock-exams/sittings/' + encodeURIComponent(sittingId) + '/retest',
+        { needs_retest: needs });
+      toast(needs ? 'Đã đánh dấu cần test lại.' : 'Đã bỏ đánh dấu test lại.');
+      loadRoster();
+      loadRetestSummary();
+    } catch (e) { toast('Không cập nhật được: ' + (e && e.message)); }
   }
 
   function lrCell(o) {
@@ -132,23 +156,26 @@
 
   function renderRosterTable(rows) {
     var head = '<thead><tr>' +
-      ['', 'Học viên', 'Listening', 'Reading', 'Writing', 'Speaking', 'Trạng thái']
+      ['', 'Học viên', 'Listening', 'Reading', 'Writing', 'Speaking', 'Test lại', 'Trạng thái']
         .map(function (h) { return '<th>' + h + '</th>'; }).join('') +
       '</tr></thead>';
     var body = rows.map(function (r) {
-      var attrs = r.review_id
-        ? ' class="mr-trow" data-review-id="' + esc(r.review_id) + '"'
-        : ' class="mr-trow mr-trow--wip"';
-      var check = hasWritingEssays(r)
+      var flagged = !!r.needs_retest;
+      var classes = 'mr-trow' + (r.review_id ? '' : ' mr-trow--wip') + (flagged ? ' mr-trow--retest' : '');
+      var reviewAttr = r.review_id ? ' data-review-id="' + esc(r.review_id) + '"' : '';
+      // bulk-grade select — only for a gradable sitting that is NOT a retaker
+      var check = (hasWritingEssays(r) && !flagged)
         ? '<label class="mr-check"><input type="checkbox" class="mr-check-row" data-sitting-id="' + esc(r.sitting_id) + '"></label>'
         : '';
-      return '<tr' + attrs + '>' +
+      var retest = '<label class="mr-check"><input type="checkbox" class="mr-retest-row" data-sitting-id="' + esc(r.sitting_id) + '"' + (flagged ? ' checked' : '') + '></label>';
+      return '<tr class="' + classes + '"' + reviewAttr + '>' +
         '<td>' + check + '</td>' +
         '<td>' + esc(r.student_name) + '</td>' +
         '<td>' + lrCell(r.listening) + '</td>' +
         '<td>' + lrCell(r.reading) + '</td>' +
         '<td>' + wCell(r.writing) + '</td>' +
         '<td>' + spkCell(r.speaking) + '</td>' +
+        '<td>' + retest + '</td>' +
         '<td>' + claimCell(r) + '</td>' +
         '</tr>';
     }).join('');
