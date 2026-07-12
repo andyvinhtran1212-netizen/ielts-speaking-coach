@@ -58,6 +58,40 @@ def test_bulk_grade_queues_pending_skips_others_and_foreign_exam():
     assert mock_claim.call_args_list[0].kwargs["grading_tier"] == "instructor"
 
 
+def test_bulk_grade_skips_sitting_flagged_for_retest():
+    """P4 (2026-07-12): a sitting the admin flagged for retest is skipped
+    entirely — no point grading a retaker's Writing — and reported separately."""
+    s1 = {"id": "s1", "mock_exam_id": _EXAM, "essay_task1_id": "e1",
+          "essay_task2_id": None, "needs_retest": True}
+    s2 = {"id": "s2", "mock_exam_id": _EXAM, "essay_task1_id": "e2",
+          "essay_task2_id": None, "needs_retest": False}
+
+    def fake_get_sitting(sid):
+        return {"s1": s1, "s2": s2}.get(sid)
+
+    def fake_claim(essay_id, **kw):
+        return {"job_id": "j-" + essay_id, "eta_seconds": 10}
+
+    bg = MagicMock(__name__="_bg_grade_essay")
+    with patch("routers.admin_mock_exams.require_admin", new=AsyncMock(return_value=_ADMIN)), \
+         patch("routers.admin_mock_exams.svc.get_sitting", side_effect=fake_get_sitting), \
+         patch("routers.admin_mock_exams.essay_service.claim_pending_for_grading",
+               side_effect=fake_claim) as mock_claim, \
+         patch("routers.admin_mock_exams.essay_service._bg_grade_essay", new=bg):
+        r = _client().post(
+            f"/admin/mock-exams/{_EXAM}/writing/bulk-grade",
+            json={"sitting_ids": ["s1", "s2"], "grading_tier": "standard"},
+            headers=_AUTH,
+        )
+
+    assert r.status_code == 202, r.text
+    body = r.json()
+    assert body["queued"] == ["e2"]           # only the non-retaker graded
+    assert body["retest_skipped"] == ["s1"]   # flagged sitting skipped
+    # e1 (retaker) must never have been claimed
+    assert "e1" not in [c.args[0] for c in mock_claim.call_args_list]
+
+
 def test_bulk_grade_rejects_bad_tier():
     with patch("routers.admin_mock_exams.require_admin", new=AsyncMock(return_value=_ADMIN)):
         r = _client().post(

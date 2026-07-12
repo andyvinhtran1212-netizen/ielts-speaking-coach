@@ -12,6 +12,7 @@ console lives in admin_mock_reviews.py.
   GET   /admin/mock-exams/{id}/section-progress  — active section + submitted/total
   GET   /admin/mock-exams/{id}/sittings          — sitting roster for an exam
   POST  /admin/mock-exams/sittings/{id}/void     — void a sitting (retake/tech)
+  POST  /admin/mock-exams/sittings/{id}/retest   — early "cần test lại" toggle
   GET   /admin/mock-exams/reading-tests          — published reading tests for the
                                                     create-exam picker (a test may be
                                                     reused across several mock exams)
@@ -72,6 +73,11 @@ class VoidBody(BaseModel):
 
 class OpenBody(BaseModel):
     is_open: bool
+
+
+class RetestBody(BaseModel):
+    needs_retest: bool
+    reason: str = ""
 
 
 class BulkGradeBody(BaseModel):
@@ -199,17 +205,24 @@ async def bulk_grade_writing(
     per-essay start-grading button. For each requested sitting (validated to
     belong to THIS exam), each task's essay that is still 'pending' is claimed
     atomically and queued; anything already grading/graded is skipped and
-    reported. Reuses the exact same claim + background task as the single
-    endpoint, so the downstream pipeline is unchanged."""
+    reported. A sitting the admin flagged for retest (needs_retest) is skipped
+    entirely — no point grading a retaker's Writing (server-side guard; the
+    roster UI already excludes it). Reuses the same claim + background task as
+    the single endpoint, so the downstream pipeline is unchanged."""
     await require_admin(authorization)
 
     queued: list[str] = []
     skipped: list[str] = []
+    retest_skipped: list[str] = []
     for sitting_id in body.sitting_ids:
         sitting = svc.get_sitting(sitting_id)
         # Only grade essays for a sitting that actually belongs to this exam —
         # never let a stray id reach into another exam's work.
         if not sitting or str(sitting.get("mock_exam_id")) != str(exam_id):
+            continue
+        # Early retest flag → this student is retaking; don't grade their Writing.
+        if sitting.get("needs_retest"):
+            retest_skipped.append(str(sitting_id))
             continue
         for essay_id in (sitting.get("essay_task1_id"), sitting.get("essay_task2_id")):
             if not essay_id:
@@ -228,7 +241,28 @@ async def bulk_grade_writing(
             )
             queued.append(str(essay_id))
 
-    return {"queued": queued, "skipped": skipped, "grading_tier": body.grading_tier}
+    return {
+        "queued":         queued,
+        "skipped":        skipped,
+        "retest_skipped": retest_skipped,
+        "grading_tier":   body.grading_tier,
+    }
+
+
+@router.post("/sittings/{sitting_id}/retest")
+async def set_sitting_retest(
+    sitting_id: str, body: RetestBody, authorization: str | None = Header(default=None),
+):
+    """Toggle the EARLY 'cần test lại' flag on a sitting (mig 153) — set from the
+    roster off the auto-graded L/R results so Writing bulk-grade skips a retaker
+    before any grading budget is spent."""
+    admin = await require_admin(authorization)
+    try:
+        return svc.set_sitting_retest(
+            sitting_id, admin["id"], body.needs_retest, body.reason,
+        )
+    except svc.NotFoundError as e:
+        raise HTTPException(404, str(e))
 
 
 @router.post("/sittings/{sitting_id}/void")

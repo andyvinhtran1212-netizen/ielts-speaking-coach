@@ -270,6 +270,17 @@ def save_final_bands(
             f"Review {review_id} is not claimed by admin {admin_id}; "
             f"cannot save final bands."
         )
+    # Sync the sitting-level needs_retest flag (mig 153) UP from the final
+    # per-skill decision — but only ever SET it true, never clear it here. The
+    # review form always posts a full retest_flags object (unchecked boxes =
+    # false), so clearing on "no skill flagged" would silently wipe an EARLIER
+    # early-toggle retake decision the admin never revoked. Clearing is the
+    # explicit /sittings/{id}/retest toggle's job alone.
+    if retest_flags is not None and any(update["retest_flags"].values()):
+        supabase_admin.table("mock_exam_sittings").update({
+            "needs_retest": True,
+        }).eq("id", str(response.data[0]["sitting_id"])).execute()
+
     logger.info(
         "[mock-review] saved final bands review=%s overall=%s", review_id, overall,
     )
@@ -401,10 +412,16 @@ def retest_summary(mock_exam_id: str) -> dict:
     reviewed_sittings only counts reviews in status IN ('reviewed',
     'released') — retest_flags/final_bands are only ever populated by
     save_final_bands(), so a still-'queued'/'claimed' review must not be
-    counted as "đã duyệt" (it would otherwise misreport as a clean pass)."""
-    sittings = supabase_admin.table("mock_exam_sittings").select("id, user_id").eq(
-        "mock_exam_id", str(mock_exam_id),
-    ).neq("status", "void").execute().data or []
+    counted as "đã duyệt" (it would otherwise misreport as a clean pass).
+
+    A student counts as "cần test lại" if EITHER the admin set the early
+    sitting-level needs_retest flag (mig 153, decided from L/R before grading)
+    OR a completed review has any per-skill retest flag true. per_skill is the
+    final per-skill breakdown (from reviews only); an early-flagged sitting
+    with no completed review appears in `students` with empty skills."""
+    sittings = supabase_admin.table("mock_exam_sittings").select(
+        "id, user_id, needs_retest",
+    ).eq("mock_exam_id", str(mock_exam_id)).neq("status", "void").execute().data or []
     sitting_by_id = {s["id"]: s for s in sittings}
     total = len(sittings)
 
@@ -419,7 +436,7 @@ def retest_summary(mock_exam_id: str) -> dict:
     names = resolve_display_names(s.get("user_id") for s in sittings)
 
     per_skill = {s: 0 for s in _SKILLS}
-    flagged_students = []
+    flagged_by_sitting: dict = {}   # sitting_id → active skills (deduped)
     for r in reviews:
         flags = r.get("retest_flags") or {}
         active = [s for s in _SKILLS if flags.get(s)]
@@ -427,12 +444,22 @@ def retest_summary(mock_exam_id: str) -> dict:
             continue
         for s in active:
             per_skill[s] += 1
-        sitting = sitting_by_id.get(r["sitting_id"]) or {}
-        flagged_students.append({
-            "sitting_id":   r["sitting_id"],
-            "student_name": names.get(sitting.get("user_id"), "—"),
-            "skills":       active,
-        })
+        flagged_by_sitting[r["sitting_id"]] = active
+
+    # Early sitting-level flags — a student the admin marked for retake before
+    # (or without) a completed per-skill review. No skill breakdown to add.
+    for sid, s in sitting_by_id.items():
+        if s.get("needs_retest") and sid not in flagged_by_sitting:
+            flagged_by_sitting[sid] = []
+
+    flagged_students = [
+        {
+            "sitting_id":   sid,
+            "student_name": names.get((sitting_by_id.get(sid) or {}).get("user_id"), "—"),
+            "skills":       skills,
+        }
+        for sid, skills in flagged_by_sitting.items()
+    ]
 
     return {
         "mock_exam_id":       str(mock_exam_id),
@@ -500,7 +527,8 @@ def roster(mock_exam_id: str) -> list[dict]:
     Batched attempt/review lookups avoid N+1. Ordered by student name."""
     sittings = supabase_admin.table("mock_exam_sittings").select(
         "id, user_id, status, listening_attempt_id, reading_attempt_id, "
-        "writing_submission, essay_task1_id, essay_task2_id, speaking_session_ids",
+        "writing_submission, essay_task1_id, essay_task2_id, speaking_session_ids, "
+        "needs_retest",
     ).eq("mock_exam_id", str(mock_exam_id)).neq("status", "void").execute().data or []
     if not sittings:
         return []
@@ -554,6 +582,7 @@ def roster(mock_exam_id: str) -> list[dict]:
             "speaking":       {"count": len(s.get("speaking_session_ids") or [])},
             "review_status":  rv.get("status"),
             "claimed":        bool(rv.get("claimed_by")),
+            "needs_retest":   bool(s.get("needs_retest")),
         })
     out.sort(key=lambda r: (r["student_name"] or "").lower())
     return out

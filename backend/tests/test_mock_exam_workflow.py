@@ -1190,6 +1190,86 @@ def test_roster_excludes_void_and_handles_in_progress(fake_db, svc, wf):
     assert chi["speaking"]["count"] == 0
     assert chi["review_id"] is None        # nothing to review yet
     assert chi["claimed"] is False
+    assert chi["needs_retest"] is False    # default, not flagged
+
+
+def test_set_sitting_retest_toggles_and_roster_reflects_it(fake_db, svc, wf):
+    """P4 (2026-07-12): admin marks a student 'cần test lại' EARLY from the
+    roster; the flag round-trips (set → roster shows it → clear → gone)."""
+    exam = _seed_exam(fake_db, speaking=False)
+    u = uuid4()
+    fake_db.seed("users", {"id": str(u), "display_name": "Em", "email": "em@x.com"})
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    admin = str(uuid4())
+
+    svc.set_sitting_retest(s["id"], admin, True, reason="trượt L/R")
+    assert wf.roster(exam["id"])[0]["needs_retest"] is True
+    sitting = svc.get_sitting(s["id"])
+    assert sitting["needs_retest_by"] == admin
+    assert sitting["needs_retest_reason"] == "trượt L/R"
+
+    svc.set_sitting_retest(s["id"], admin, False)
+    row = wf.roster(exam["id"])[0]
+    assert row["needs_retest"] is False
+    assert svc.get_sitting(s["id"])["needs_retest_at"] is None   # stamp cleared
+
+
+def test_retest_summary_counts_early_sitting_flag(fake_db, svc, wf):
+    """An early needs_retest flag (no completed review yet) still counts toward
+    the class 'cần test lại' total, with empty per-skill detail."""
+    exam = _seed_exam(fake_db, speaking=False)
+    u = uuid4()
+    fake_db.seed("users", {"id": str(u), "display_name": "Phúc", "email": "p@x.com"})
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.set_sitting_retest(s["id"], str(uuid4()), True)
+
+    summary = wf.retest_summary(exam["id"])
+    assert summary["needs_retest_count"] == 1
+    assert summary["students"] == [
+        {"sitting_id": s["id"], "student_name": "Phúc", "skills": []},
+    ]
+    assert summary["per_skill"] == {k: 0 for k in wf._SKILLS}   # no skill detail
+
+
+def test_save_final_bands_syncs_sitting_needs_retest(fake_db, svc, wf):
+    """save_final_bands with a per-skill flag also flips the sitting-level
+    needs_retest, so roster/summary stay consistent whichever path set it."""
+    exam = _seed_exam(fake_db, speaking=False)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    _run_lrw(svc, fake_db, exam, s["id"], u)
+    review = wf.get_review_for_sitting(s["id"])
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    wf.save_final_bands(
+        review["id"], admin,
+        {"listening": 6.0, "reading": 6.0, "writing": 4.0},
+        retest_flags={"writing": True},
+    )
+    assert svc.get_sitting(s["id"])["needs_retest"] is True
+
+
+def test_save_final_bands_does_not_clear_early_retest_flag(fake_db, svc, wf):
+    """Codex P2 (2026-07-12): the review form always posts a full retest_flags
+    object (unchecked = false). Saving bands with NO per-skill flag must NOT
+    wipe an EARLIER early-toggle retake decision — the sitting-level flag is
+    only ever set true here, never cleared (clearing is the explicit toggle)."""
+    exam = _seed_exam(fake_db, speaking=False)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    _run_lrw(svc, fake_db, exam, s["id"], u)
+    svc.set_sitting_retest(s["id"], str(uuid4()), True)   # early decision
+
+    review = wf.get_review_for_sitting(s["id"])
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    wf.save_final_bands(
+        review["id"], admin,
+        {"listening": 6.0, "reading": 6.0, "writing": 6.0},
+        retest_flags={"writing": False, "listening": False, "reading": False},
+    )
+    # early flag survives — admin never explicitly cleared it
+    assert svc.get_sitting(s["id"])["needs_retest"] is True
 
 
 def test_get_queue_scoped_to_one_exam_with_student_name(fake_db, svc, wf):
