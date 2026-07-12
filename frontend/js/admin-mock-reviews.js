@@ -2,8 +2,11 @@
  * admin-mock-reviews.js — admin review console for 4-skill mock sittings.
  *
  * Duyệt theo từng đề (2026-07-12): the page requires ?mock_exam_id= — there is
- * no cross-exam flat queue anymore. Drives /admin/mock-reviews (queue, claim,
- * final-bands, release) + reads the sitting for the 4-skill surfaces. Writing
+ * no cross-exam flat queue anymore. The landing view is a class ROSTER GRID
+ * (rows = students, columns = 4 skills + claim status) from
+ * GET /admin/mock-exams/{id}/roster; clicking a submitted row opens the review
+ * detail. Drives /admin/mock-reviews (claim, final-bands, release) + reads the
+ * sitting for the 4-skill surfaces. Writing
  * renders the native writing_submission text (P1); when essay ids are present
  * it deep-links to the admin_writing grade page instead. Listening/Reading
  * show a compact RESULTS summary (score/band/breakdown) fetched from the same
@@ -37,31 +40,62 @@
 
   function fmtBand(v) { return (v == null || v === '') ? '—' : Number(v).toFixed(1); }
 
-  // ── Queue ──────────────────────────────────────────────────────────
-  async function loadQueue() {
+  // ── Roster (bảng lớp: học viên × 4 kỹ năng + trạng thái) ─────────────
+  async function loadRoster() {
     el('detail-view').classList.add('hidden');
     el('queue-view').classList.remove('hidden');
     var list = el('queue-list');
     list.innerHTML = '<p class="mr-muted">Đang tải…</p>';
     try {
-      var res = await window.api.get('/admin/mock-reviews?mock_exam_id=' + encodeURIComponent(examId));
-      var reviews = (res && res.reviews) || [];
-      el('queue-count').textContent = reviews.length + ' hồ sơ trong hàng đợi';
-      if (!reviews.length) { list.innerHTML = '<p class="mr-muted">Chưa có sitting nào cần duyệt.</p>'; return; }
-      list.innerHTML = '';
-      reviews.forEach(function (r) {
-        var row = document.createElement('div');
-        row.className = 'mr-row';
-        row.innerHTML =
-          '<span class="mr-pill">' + esc(r.status) + '</span>' +
-          '<span style="flex:1;color:var(--av-text-primary)">' + esc(r.student_name || '—') + '</span>' +
-          '<span class="mr-muted">' + (r.claimed_by ? 'đã nhận' : 'chưa nhận') + '</span>';
-        row.addEventListener('click', function () { openDetail(r.id); });
-        list.appendChild(row);
+      var res = await window.api.get('/admin/mock-exams/' + encodeURIComponent(examId) + '/roster');
+      var rows = (res && res.roster) || [];
+      var submitted = rows.filter(function (r) { return r.review_id; }).length;
+      el('queue-count').textContent = rows.length + ' học viên · ' + submitted + ' đã nộp đủ';
+      if (!rows.length) { list.innerHTML = '<p class="mr-muted">Chưa có học viên nào trong đề này.</p>'; return; }
+      list.innerHTML = renderRosterTable(rows);
+      list.querySelectorAll('[data-review-id]').forEach(function (tr) {
+        tr.addEventListener('click', function () { openDetail(tr.getAttribute('data-review-id')); });
       });
     } catch (e) {
-      list.innerHTML = '<p style="color:var(--av-error,#dc2626)">Lỗi tải hàng đợi: ' + esc(e && e.message) + '</p>';
+      list.innerHTML = '<p style="color:var(--av-error,#dc2626)">Lỗi tải bảng lớp: ' + esc(e && e.message) + '</p>';
     }
+  }
+
+  function lrCell(o) {
+    if (!o || o.score == null) return '<span class="mr-muted">—</span>';
+    return '<b>' + o.score + '</b>/' + (o.max || '?') + (o.band != null ? ' · B' + Number(o.band).toFixed(1) : '');
+  }
+  function wCell(w) {
+    if (!w || (w.task1_wc == null && w.task2_wc == null)) return '<span class="mr-muted">—</span>';
+    return 'T1 ' + (w.task1_wc != null ? w.task1_wc : '—') + ' · T2 ' + (w.task2_wc != null ? w.task2_wc : '—') + ' từ';
+  }
+  function spkCell(s) {
+    return (s && s.count) ? (s.count + ' session') : '<span class="mr-muted">—</span>';
+  }
+  function claimCell(r) {
+    if (!r.review_id) return '<span class="mr-pill">đang làm</span>';
+    return '<span class="mr-pill">' + (r.claimed ? 'đã nhận' : 'chưa nhận') + '</span>';
+  }
+
+  function renderRosterTable(rows) {
+    var head = '<thead><tr>' +
+      ['Học viên', 'Listening', 'Reading', 'Writing', 'Speaking', 'Trạng thái']
+        .map(function (h) { return '<th>' + h + '</th>'; }).join('') +
+      '</tr></thead>';
+    var body = rows.map(function (r) {
+      var attrs = r.review_id
+        ? ' class="mr-trow" data-review-id="' + esc(r.review_id) + '"'
+        : ' class="mr-trow mr-trow--wip"';
+      return '<tr' + attrs + '>' +
+        '<td>' + esc(r.student_name) + '</td>' +
+        '<td>' + lrCell(r.listening) + '</td>' +
+        '<td>' + lrCell(r.reading) + '</td>' +
+        '<td>' + wCell(r.writing) + '</td>' +
+        '<td>' + spkCell(r.speaking) + '</td>' +
+        '<td>' + claimCell(r) + '</td>' +
+        '</tr>';
+    }).join('');
+    return '<div class="adm-table-wrap"><table class="adm-table mr-roster">' + head + '<tbody>' + body + '</tbody></table></div>';
   }
 
   // ── Detail ─────────────────────────────────────────────────────────
@@ -137,22 +171,58 @@
         return '<div style="margin:4px 0"><a target="_blank" href="/pages/full-test-result.html?session_id=' + encodeURIComponent(id) + '">Nghe & xem transcript ↗</a></div>';
       }).join('');
     }
-    // listening / reading — a compact RESULTS summary (score/band/breakdown),
-    // not the full chữa-bài (that's student-only, unlocked after CÔNG BỐ).
-    var dd = (draft && draft[skill]) || {};
-    var head = '<p class="mr-muted">Nháp AI (tham khảo): Raw ' + fmtBand(dd.raw).replace('.0', '') + ' · Band ' + fmtBand(dd.band) + '</p>';
+    // listening / reading — RESULTS view: per-Q answer vs đáp án, tổng đúng/sai,
+    // band ước tính, phân tích kỹ năng. NOT the deep chữa-bài (solution/giải
+    // thích) — that stays student-only, unlocked after CÔNG BỐ.
     var attemptId = sitting[skill + '_attempt_id'];
-    if (!attemptId) return head + '<p class="mr-muted">Chưa có bài ' + skill + '.</p>';
+    if (!attemptId) return '<p class="mr-muted">Chưa có bài ' + skill + '.</p>';
     var res = current.skillResult && current.skillResult[skill];
-    if (!res) return head + '<p class="mr-muted">Không tải được kết quả ' + skill + '.</p>';
-    var scoreLine = '<div style="margin-top:8px;font-weight:700;color:var(--av-text-primary)">Kết quả: ' +
+    if (!res) return '<p class="mr-muted">Không tải được kết quả ' + skill + '.</p>';
+    return resultDetailHtml(skill, res);
+  }
+
+  function resultDetailHtml(skill, res) {
+    var total = '<div class="mr-total">Kết quả: <b>' +
       (res.score != null ? res.score : '—') + '/' + (res.max_score != null ? res.max_score : '—') +
-      ' đúng · Band ' + fmtBand(res.band_estimate) + '</div>';
-    var byPart = res.by_part ? Object.keys(res.by_part).map(function (k) {
-      var b = res.by_part[k];
-      return '<span class="mr-pill">' + esc(k) + ': ' + b.correct + '/' + b.total + '</span>';
-    }).join(' ') : '';
-    return head + scoreLine + (byPart ? '<div style="margin-top:6px">' + byPart + '</div>' : '');
+      '</b> câu đúng · Band ước tính <b>' + fmtBand(res.band_estimate) + '</b></div>';
+    var analysis = skill === 'reading'
+      ? skillBreakdownHtml(res.skill_breakdown)
+      : trapAnalyticsHtml(res.trap_analytics);
+    return total + analysis + perQuestionTableHtml(res.review || []);
+  }
+
+  function skillBreakdownHtml(sb) {
+    if (!sb || !Object.keys(sb).length) return '';
+    var pills = Object.keys(sb).map(function (tag) {
+      var v = sb[tag] || {};
+      return '<span class="mr-pill">' + esc(tag) + ': ' + (v.correct || 0) + '/' + (v.total || 0) + '</span>';
+    }).join(' ');
+    return '<div class="mr-analysis"><div class="mr-analysis__label">Phân tích kỹ năng</div>' + pills + '</div>';
+  }
+
+  function trapAnalyticsHtml(ta) {
+    if (!ta || !Object.keys(ta).length) return '';
+    var pills = Object.keys(ta).map(function (k) {
+      var v = ta[k] || {};
+      return '<span class="mr-pill">' + esc(k) + ': bắt ' + (v.caught || 0) + ' · trượt ' + (v.missed || 0) + '</span>';
+    }).join(' ');
+    return '<div class="mr-analysis"><div class="mr-analysis__label">Phân tích bẫy nghe</div>' + pills + '</div>';
+  }
+
+  function perQuestionTableHtml(review) {
+    if (!review.length) return '';
+    var body = review.map(function (q) {
+      var ok = !!q.correct;
+      return '<tr>' +
+        '<td>' + (q.q_num != null ? q.q_num : '') + '</td>' +
+        '<td>' + esc(q.user_answer || '—') + '</td>' +
+        '<td>' + esc(q.expected || '—') + '</td>' +
+        '<td class="mr-perq__mark ' + (ok ? 'is-ok' : 'is-bad') + '">' + (ok ? '✓' : '✗') + '</td>' +
+        '</tr>';
+    }).join('');
+    return '<div class="adm-table-wrap" style="margin-top:10px"><table class="adm-table mr-perq">' +
+      '<thead><tr><th>Câu</th><th>Trả lời</th><th>Đáp án</th><th>KQ</th></tr></thead>' +
+      '<tbody>' + body + '</tbody></table></div>';
   }
 
   function renderDetail() {
@@ -227,7 +297,7 @@
     v.querySelectorAll('[data-band]').forEach(function (inp) { inp.addEventListener('input', updateOverall); });
     updateOverall();
 
-    el('back-btn').addEventListener('click', loadQueue);
+    el('back-btn').addEventListener('click', loadRoster);
     var claimBtn = el('claim-btn');
     if (claimBtn) claimBtn.addEventListener('click', function () { doClaim(review.id); });
     el('save-btn').addEventListener('click', function () { doSave(review.id, v); });
@@ -295,7 +365,8 @@
     try {
       await window.api.post('/admin/mock-reviews/' + encodeURIComponent(id) + '/release', { channel: channel });
       toast('Đã công bố kết quả.');
-      loadQueue();
+      loadRoster();
+      loadRetestSummary();
     } catch (e) { toast('Công bố thất bại: ' + (e && e.message)); }
   }
 
@@ -342,10 +413,10 @@
       el('queue-view').classList.add('hidden');
       return;
     }
-    var rb = el('refresh-btn'); if (rb) rb.addEventListener('click', function () { loadQueue(); loadRetestSummary(); });
+    var rb = el('refresh-btn'); if (rb) rb.addEventListener('click', function () { loadRoster(); loadRetestSummary(); });
     loadRetestSummary();
     loadExamHeader();
-    loadQueue();
+    loadRoster();
   }
   boot();
 })();

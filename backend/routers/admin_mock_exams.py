@@ -16,6 +16,7 @@ console lives in admin_mock_reviews.py.
                                                     create-exam picker (a test may be
                                                     reused across several mock exams)
   GET   /admin/mock-exams/{id}/retest-summary    — per-skill "cần test lại" counts
+  GET   /admin/mock-exams/{id}/roster            — class roster grid (per-skill snapshot)
 """
 from __future__ import annotations
 
@@ -163,6 +164,15 @@ async def retest_summary(exam_id: str, authorization: str | None = Header(defaul
     sittings an admin flagged, broken out per skill, plus the roster."""
     await require_admin(authorization)
     return wf.retest_summary(exam_id)
+
+
+@router.get("/{exam_id}/roster")
+async def roster(exam_id: str, authorization: str | None = Header(default=None)):
+    """Class roster grid for the review console — one row per sitting with a
+    per-skill preliminary snapshot (L/R correct count, Writing word counts,
+    Speaking session count) + claim status. Replaces the flat review queue."""
+    await require_admin(authorization)
+    return {"roster": wf.roster(exam_id)}
 
 
 @router.post("/sittings/{sitting_id}/void")

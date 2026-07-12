@@ -38,6 +38,20 @@
     .mr-essay { white-space:pre-wrap; background:var(--av-surface-card); border:1px solid var(--av-border-default); border-radius:8px; padding:12px; line-height:1.7; color:var(--av-text-primary); max-height:360px; overflow:auto; }
     textarea.mr-input { width:100%; min-height:90px; padding:10px; border:1px solid var(--av-border-default); border-radius:8px; background:var(--av-surface-card); color:var(--av-text-primary); font:inherit; }
     .mr-muted { color:var(--av-text-secondary); font-size:13px; }
+    /* roster grid (bảng lớp) */
+    .mr-roster td, .mr-roster th { white-space:nowrap; }
+    .mr-trow { cursor:pointer; }
+    .mr-trow:hover td { background:var(--av-surface-card); }
+    .mr-trow--wip { cursor:default; opacity:.72; }
+    .mr-trow--wip:hover td { background:transparent; }
+    /* L/R result detail */
+    .mr-total { font-size:14px; color:var(--av-text-primary); margin-bottom:10px; }
+    .mr-analysis { margin:10px 0; display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+    .mr-analysis__label { font-size:12px; color:var(--av-text-secondary); margin-right:4px; }
+    .mr-perq td, .mr-perq th { font-size:13px; }
+    .mr-perq__mark { text-align:center; font-weight:700; }
+    .mr-perq__mark.is-ok { color:var(--av-success,#16a34a); }
+    .mr-perq__mark.is-bad { color:var(--av-error,#dc2626); }
     .hidden { display:none; }
   </style>
 </head>

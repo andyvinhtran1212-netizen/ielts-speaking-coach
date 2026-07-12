@@ -455,3 +455,76 @@ def get_queue(
         sitting = sitting_by_id.get(r["sitting_id"]) or {}
         r["student_name"] = names.get(sitting.get("user_id"), "—")
     return reviews
+
+
+def roster(mock_exam_id: str) -> list[dict]:
+    """Per-exam class roster for the review console (2026-07-12) — one row per
+    sitting with a per-skill preliminary snapshot. The console renders a grid:
+    rows = students, columns = the 4 skills + claim status. Listening/Reading
+    show correct-count/total (the auto-grade off the attempt), Writing shows
+    per-task word counts (denormalized on the sitting), Speaking shows the
+    session count, and the claim column comes from the sitting's review status.
+
+    Preliminary only — the L/R 'score' is the machine grade, the real bands are
+    the admin's. Includes still-in-progress sittings (no review row yet →
+    review_id=None, not clickable into detail). Excludes voided sittings.
+    Batched attempt/review lookups avoid N+1. Ordered by student name."""
+    sittings = supabase_admin.table("mock_exam_sittings").select(
+        "id, user_id, status, listening_attempt_id, reading_attempt_id, "
+        "writing_submission, essay_task1_id, essay_task2_id, speaking_session_ids",
+    ).eq("mock_exam_id", str(mock_exam_id)).neq("status", "void").execute().data or []
+    if not sittings:
+        return []
+
+    def _load_attempts(table: str, col: str) -> dict:
+        ids = [s[col] for s in sittings if s.get(col)]
+        if not ids:
+            return {}
+        rows = supabase_admin.table(table).select(
+            "id, score, band_estimate, grading_details",
+        ).in_("id", ids).execute().data or []
+        return {r["id"]: r for r in rows}
+
+    l_by_id = _load_attempts("listening_test_attempts", "listening_attempt_id")
+    r_by_id = _load_attempts("reading_test_attempts", "reading_attempt_id")
+
+    reviews = supabase_admin.table("mock_exam_reviews").select(
+        "id, sitting_id, status, claimed_by",
+    ).in_("sitting_id", [s["id"] for s in sittings]).execute().data or []
+    review_by_sitting = {rv["sitting_id"]: rv for rv in reviews}
+
+    names = resolve_display_names(s.get("user_id") for s in sittings)
+
+    def _lr(attempt: Optional[dict]) -> dict:
+        # max mirrors the review endpoints' own derivation (len grading_details).
+        if not attempt:
+            return {"score": None, "max": None, "band": None}
+        return {
+            "score": attempt.get("score"),
+            "max":   len(attempt.get("grading_details") or []) or None,
+            "band":  attempt.get("band_estimate"),
+        }
+
+    out = []
+    for s in sittings:
+        ws = s.get("writing_submission") or {}
+        rv = review_by_sitting.get(s["id"]) or {}
+        out.append({
+            "sitting_id":     s["id"],
+            "review_id":      rv.get("id"),
+            "student_name":   names.get(s.get("user_id"), "—"),
+            "sitting_status": s.get("status"),
+            "listening":      _lr(l_by_id.get(s.get("listening_attempt_id"))),
+            "reading":        _lr(r_by_id.get(s.get("reading_attempt_id"))),
+            "writing": {
+                "task1_wc":       (ws.get("task1") or {}).get("word_count"),
+                "task2_wc":       (ws.get("task2") or {}).get("word_count"),
+                "task1_essay_id": s.get("essay_task1_id"),
+                "task2_essay_id": s.get("essay_task2_id"),
+            },
+            "speaking":       {"count": len(s.get("speaking_session_ids") or [])},
+            "review_status":  rv.get("status"),
+            "claimed":        bool(rv.get("claimed_by")),
+        })
+    out.sort(key=lambda r: (r["student_name"] or "").lower())
+    return out

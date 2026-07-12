@@ -1113,6 +1113,85 @@ def test_retest_summary_counts_per_skill_and_lists_students(fake_db, svc, wf):
     ]
 
 
+def _stamp_attempt_score(fake, section, aid, *, score, total, band):
+    """Write a machine grade onto a seeded L/R attempt so roster() has a
+    correct-count/total to report (mirrors the real grader's writeback)."""
+    table = {"listening": "listening_test_attempts",
+             "reading": "reading_test_attempts"}[section]
+    for row in fake.rows(table):
+        if row["id"] == aid:
+            row["score"] = score
+            row["grading_details"] = [{"q_num": i} for i in range(total)]
+            row["band_estimate"] = band
+
+
+def test_roster_lists_students_with_per_skill_snapshot(fake_db, svc, wf):
+    """P1 (2026-07-12): the review console shows a class grid — one row per
+    sitting with a per-skill preliminary snapshot (L/R correct/total, Writing
+    word counts, Speaking session count) + claim status. Two sittings share the
+    one exam clock (advance_section is class-wide)."""
+    exam = _seed_exam(fake_db, speaking=True)
+    admin_id = str(uuid4())
+    u1, u2 = uuid4(), uuid4()
+    fake_db.seed("users", {"id": str(u1), "display_name": "An", "email": "an@x.com"})
+    fake_db.seed("users", {"id": str(u2), "display_name": "Bình", "email": "binh@x.com"})
+    s1 = svc.create_sitting(u1, "MOCK-TEST-A")
+    s2 = svc.create_sitting(u2, "MOCK-TEST-A")
+
+    for section in svc._configured_sections(exam):
+        svc.advance_section(exam["id"], admin_id)
+        _expire_section(fake_db, exam["id"], section)
+        for sid, u in ((s1["id"], u1), (s2["id"], u2)):
+            if section == "writing":
+                svc.submit_section(sid, u, "writing", "one two three", "a b c d e f")
+            else:
+                aid = _attach_domain_submitted(svc, fake_db, exam, sid, u, section)
+                score = 30 if section == "reading" else 28
+                _stamp_attempt_score(fake_db, section, aid, score=score, total=40, band=7.0)
+                svc.submit_section(sid, u, section)
+    _do_speaking(svc, fake_db, s1["id"], u1, n=2)
+    _do_speaking(svc, fake_db, s2["id"], u2, n=1)
+
+    rows = wf.roster(exam["id"])
+    assert [r["student_name"] for r in rows] == ["An", "Bình"]   # sorted by name
+    an = rows[0]
+    assert an["listening"] == {"score": 28, "max": 40, "band": 7.0}
+    assert an["reading"] == {"score": 30, "max": 40, "band": 7.0}
+    assert an["writing"]["task1_wc"] == 3
+    assert an["writing"]["task2_wc"] == 6
+    assert an["speaking"]["count"] == 2
+    assert rows[1]["speaking"]["count"] == 1
+    # a fully-submitted sitting has a review row → clickable into detail, unclaimed
+    assert an["review_id"] is not None
+    assert an["review_status"] == "queued"
+    assert an["claimed"] is False
+
+
+def test_roster_excludes_void_and_handles_in_progress(fake_db, svc, wf):
+    """Roster includes still-in-progress sittings (no attempts yet → None cells,
+    no review to click) but excludes voided ones."""
+    exam = _seed_exam(fake_db, speaking=False)
+    u1, u2 = uuid4(), uuid4()
+    fake_db.seed("users", {"id": str(u1), "display_name": "Chi", "email": "chi@x.com"})
+    fake_db.seed("users", {"id": str(u2), "display_name": "Dũng", "email": "dung@x.com"})
+    s1 = svc.create_sitting(u1, "MOCK-TEST-A")   # in-progress, nothing submitted
+    s2 = svc.create_sitting(u2, "MOCK-TEST-A")
+    # void s2 directly (void_sitting needs an admin id; the roster only reads status)
+    for row in fake_db.rows("mock_exam_sittings"):
+        if row["id"] == s2["id"]:
+            row["status"] = "void"
+
+    rows = wf.roster(exam["id"])
+    assert [r["student_name"] for r in rows] == ["Chi"]   # Dũng (void) excluded
+    chi = rows[0]
+    assert chi["listening"] == {"score": None, "max": None, "band": None}
+    assert chi["reading"] == {"score": None, "max": None, "band": None}
+    assert chi["writing"]["task1_wc"] is None
+    assert chi["speaking"]["count"] == 0
+    assert chi["review_id"] is None        # nothing to review yet
+    assert chi["claimed"] is False
+
+
 def test_get_queue_scoped_to_one_exam_with_student_name(fake_db, svc, wf):
     """Codex-adjacent (2026-07-12): duyệt theo từng đề, not a cross-exam batch —
     mock_exam_id scopes the queue, and each row carries a resolved
