@@ -470,6 +470,27 @@ def test_reserved_test_ids_hides_mock_assigned(fake_db, svc):
     assert "R-999" not in svc.reserved_test_ids("reading")
 
 
+def test_available_reading_tests_includes_already_reserved(fake_db, svc):
+    """A reading test may be reused across mock exams — the create-exam
+    picker must NOT drop a test just because another mock exam already
+    reserved it (2026-07-12: reservation only hides from student practice)."""
+    fake_db.seed("reading_tests", {"id": "R-1", "test_id": "ILR-RDG-001",
+                                   "title": "Reused test", "status": "published",
+                                   "metadata": {"test_type": "full"},
+                                   "created_at": "2026-01-01T00:00:00+00:00"})
+    fake_db.seed("reading_tests", {"id": "R-2", "test_id": "ILR-RDG-002",
+                                   "title": "Mini test", "status": "published",
+                                   "metadata": {"test_type": "mini"},
+                                   "created_at": "2026-01-01T00:00:00+00:00"})
+    fake_db.seed("reading_tests", {"id": "R-3", "test_id": "ILR-RDG-003",
+                                   "title": "Draft test", "status": "draft",
+                                   "metadata": {}, "created_at": "2026-01-01T00:00:00+00:00"})
+    _seed_exam(fake_db)["reading_test_id"] = "R-1"  # already used by MOCK-TEST-A
+
+    ids = {t["id"] for t in svc.admin_available_reading_tests()}
+    assert ids == {"R-1"}  # reused-but-published in, mini + draft out
+
+
 # ── terminal reconciliation (order-independent) ───────────────────────
 
 
