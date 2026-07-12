@@ -21,7 +21,7 @@ import asyncio
 import json
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Iterable, Optional
 
 from fastapi import HTTPException
 
@@ -483,13 +483,35 @@ def deliver_reviewed_essay(essay_id: str) -> bool:
         .update({
             "status":          "delivered",
             "delivered_at":    _now(),
-            "delivery_method": "mock_release",
+            # must be one of the values allowed by the writing_essays
+            # delivery_method CHECK (migration 033): google_docs_paste /
+            # word_download / gdocs_api / web_view. The student reads mock
+            # feedback in the web app, so 'web_view' is the right one — a
+            # non-listed value (e.g. 'mock_release') would be REJECTED by
+            # Postgres, silently leaving the essay 'reviewed' and the feedback
+            # link dead.
+            "delivery_method": "web_view",
         })
         .eq("id", essay_id)
         .eq("status", "reviewed")
         .execute()
     )
     return bool(r.data)
+
+
+def delivered_essay_ids(essay_ids: Iterable) -> set:
+    """Of the given essay ids, the subset whose status is 'delivered'. Used by
+    the mock TRF result endpoint so it only surfaces a Writing-feedback link
+    for essays the student can actually open (writing-result.html gates on
+    'delivered') — a still-'graded'/'reviewed'/'pending' essay would otherwise
+    render a dead-end link (2026-07-12)."""
+    ids = [str(e) for e in essay_ids if e]
+    if not ids:
+        return set()
+    res = supabase_admin.table("writing_essays").select("id, status").in_(
+        "id", ids,
+    ).execute()
+    return {r["id"] for r in (res.data or []) if r.get("status") == "delivered"}
 
 
 def create_essay_with_job(*, data: dict, admin_id: str) -> dict:

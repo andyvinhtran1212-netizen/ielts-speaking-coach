@@ -18,7 +18,7 @@ _AUTH = {"Authorization": "Bearer faketoken"}
 _SITTING_ID = "00000000-0000-0000-0000-0000000000bb"
 
 
-def test_result_includes_listening_and_reading_attempt_ids():
+def test_result_includes_attempt_ids_and_delivered_essays():
     sitting = {
         "id":                   _SITTING_ID,
         "user_id":              _USER["id"],
@@ -36,7 +36,9 @@ def test_result_includes_listening_and_reading_attempt_ids():
     }
     with patch("routers.mock_exams.get_supabase_user", new=AsyncMock(return_value=_USER)), \
          patch("routers.mock_exams.svc.get_sitting", return_value=sitting), \
-         patch("routers.mock_exams.review_wf.get_review_for_sitting", return_value=review):
+         patch("routers.mock_exams.review_wf.get_review_for_sitting", return_value=review), \
+         patch("routers.mock_exams.essay_service.delivered_essay_ids",
+               return_value={"essay-1", "essay-2"}):
         r = _client().get(
             "/api/mock-exams/sittings/" + _SITTING_ID + "/result", headers=_AUTH,
         )
@@ -44,9 +46,35 @@ def test_result_includes_listening_and_reading_attempt_ids():
     body = r.json()
     assert body["listening_attempt_id"] == "l-attempt-1"
     assert body["reading_attempt_id"] == "r-attempt-1"
-    # so mock-result.html can link to the detailed Writing feedback
+    # both essays delivered → both linkable
     assert body["essay_task1_id"] == "essay-1"
     assert body["essay_task2_id"] == "essay-2"
+
+
+def test_result_hides_undelivered_writing_essay():
+    """Codex P2 (2026-07-12): release leaves a still-'graded' essay undelivered;
+    that id must NOT be surfaced (writing-result.html only shows 'delivered', so
+    it would be a dead-end link). Only the delivered essay comes back."""
+    sitting = {
+        "id":             _SITTING_ID,
+        "user_id":        _USER["id"],
+        "status":         "released",
+        "essay_task1_id": "essay-1",   # delivered
+        "essay_task2_id": "essay-2",   # still graded → not delivered
+    }
+    review = {"final_bands": {"writing": 6.0}}
+    with patch("routers.mock_exams.get_supabase_user", new=AsyncMock(return_value=_USER)), \
+         patch("routers.mock_exams.svc.get_sitting", return_value=sitting), \
+         patch("routers.mock_exams.review_wf.get_review_for_sitting", return_value=review), \
+         patch("routers.mock_exams.essay_service.delivered_essay_ids",
+               return_value={"essay-1"}):
+        r = _client().get(
+            "/api/mock-exams/sittings/" + _SITTING_ID + "/result", headers=_AUTH,
+        )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["essay_task1_id"] == "essay-1"
+    assert body["essay_task2_id"] is None   # undelivered → hidden
 
 
 def test_result_omits_attempt_ids_when_sitting_has_none():

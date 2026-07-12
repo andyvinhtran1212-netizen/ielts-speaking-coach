@@ -1362,6 +1362,10 @@ def test_release_delivers_reviewed_writing_essays(fake_db, svc, wf):
     by_id = {r["id"]: r for r in fake_db.rows("writing_essays")}
     assert by_id[e1]["status"] == "delivered"
     assert by_id[e1].get("delivered_at")
+    # delivery_method must be a value allowed by the writing_essays CHECK
+    # (migration 033) — else Postgres rejects the update in prod and the essay
+    # silently stays 'reviewed'.
+    assert by_id[e1]["delivery_method"] == "web_view"
     assert by_id[e2]["status"] == "graded"   # not 'reviewed' → left untouched
 
 
