@@ -6,9 +6,10 @@
  * final-bands, release) + reads the sitting for the 4-skill surfaces. Writing
  * renders the native writing_submission text (P1); when essay ids are present
  * it deep-links to the admin_writing grade page instead. Listening/Reading
- * embed the SAME chữa-bài page the student sees (an <iframe> onto
- * /pages/{skill}-review.html) instead of a bare raw/band line — the backend
- * review endpoint now lets an admin bypass ownership + the seal gate.
+ * show a compact RESULTS summary (score/band/breakdown) fetched from the same
+ * admin-bypassed review endpoint — NOT the full per-question chữa-bài (that
+ * has no value for an admin deciding a band; chữa bài only unlocks for the
+ * STUDENT after CÔNG BỐ, linked from mock-result.html, 2026-07-12).
  * Overall band is computed server-side (verified mean) — the client only
  * shows a live preview.
  */
@@ -83,6 +84,20 @@
         .then(function (s) { current.essayStatus[t] = s; })
         .catch(function () {});
     }));
+    // Results summary (score/band) for Listening/Reading — same endpoint the
+    // student's chữa-bài page calls (admin bypass), but we only render the
+    // top-level summary fields here, not the per-question solutions.
+    current.skillResult = {};
+    await Promise.all(['listening', 'reading'].map(function (skill) {
+      var attemptId = sitting[skill + '_attempt_id'];
+      if (!attemptId) return Promise.resolve();
+      var url = skill === 'reading'
+        ? '/api/reading/test/attempts/' + encodeURIComponent(attemptId) + '/review'
+        : '/api/listening/tests/attempts/' + encodeURIComponent(attemptId) + '/review';
+      return window.api.get(url)
+        .then(function (r) { current.skillResult[skill] = r; })
+        .catch(function () {});
+    }));
     renderDetail();
   }
 
@@ -122,15 +137,22 @@
         return '<div style="margin:4px 0"><a target="_blank" href="/pages/full-test-result.html?session_id=' + encodeURIComponent(id) + '">Nghe & xem transcript ↗</a></div>';
       }).join('');
     }
-    // listening / reading — reuse the SAME chữa-bài page the student sees
-    // (admin bypass on the /review endpoint's ownership + seal check lets
-    // this iframe load even before the sitting is released, 2026-07-12).
+    // listening / reading — a compact RESULTS summary (score/band/breakdown),
+    // not the full chữa-bài (that's student-only, unlocked after CÔNG BỐ).
     var dd = (draft && draft[skill]) || {};
     var head = '<p class="mr-muted">Nháp AI (tham khảo): Raw ' + fmtBand(dd.raw).replace('.0', '') + ' · Band ' + fmtBand(dd.band) + '</p>';
     var attemptId = sitting[skill + '_attempt_id'];
     if (!attemptId) return head + '<p class="mr-muted">Chưa có bài ' + skill + '.</p>';
-    var src = '/pages/' + skill + '-review.html?attempt_id=' + encodeURIComponent(attemptId);
-    return head + '<iframe src="' + src + '" style="width:100%;height:70vh;border:1px solid var(--av-border-default);border-radius:8px;margin-top:8px" title="Chữa bài ' + esc(skill) + '"></iframe>';
+    var res = current.skillResult && current.skillResult[skill];
+    if (!res) return head + '<p class="mr-muted">Không tải được kết quả ' + skill + '.</p>';
+    var scoreLine = '<div style="margin-top:8px;font-weight:700;color:var(--av-text-primary)">Kết quả: ' +
+      (res.score != null ? res.score : '—') + '/' + (res.max_score != null ? res.max_score : '—') +
+      ' đúng · Band ' + fmtBand(res.band_estimate) + '</div>';
+    var byPart = res.by_part ? Object.keys(res.by_part).map(function (k) {
+      var b = res.by_part[k];
+      return '<span class="mr-pill">' + esc(k) + ': ' + b.correct + '/' + b.total + '</span>';
+    }).join(' ') : '';
+    return head + scoreLine + (byPart ? '<div style="margin-top:6px">' + byPart + '</div>' : '');
   }
 
   function renderDetail() {
