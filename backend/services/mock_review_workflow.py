@@ -367,7 +367,12 @@ def retest_summary(mock_exam_id: str) -> dict:
     """Per-exam retest counts (2026-07-12, mig 152) — how many sittings an
     admin flagged as needing a retest, broken out per skill, plus the roster
     of flagged students. Sittings with no review yet or a review whose
-    retest_flags are all false/absent don't appear in `students`."""
+    retest_flags are all false/absent don't appear in `students`.
+
+    reviewed_sittings only counts reviews in status IN ('reviewed',
+    'released') — retest_flags/final_bands are only ever populated by
+    save_final_bands(), so a still-'queued'/'claimed' review must not be
+    counted as "đã duyệt" (it would otherwise misreport as a clean pass)."""
     sittings = supabase_admin.table("mock_exam_sittings").select("id, user_id").eq(
         "mock_exam_id", str(mock_exam_id),
     ).neq("status", "void").execute().data or []
@@ -378,7 +383,9 @@ def retest_summary(mock_exam_id: str) -> dict:
     if sitting_by_id:
         reviews = supabase_admin.table("mock_exam_reviews").select(
             "sitting_id, retest_flags",
-        ).in_("sitting_id", list(sitting_by_id.keys())).execute().data or []
+        ).in_("sitting_id", list(sitting_by_id.keys())).in_(
+            "status", ["reviewed", "released"],
+        ).execute().data or []
 
     names = resolve_display_names(s.get("user_id") for s in sittings)
 

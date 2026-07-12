@@ -1060,16 +1060,21 @@ def test_retest_summary_counts_per_skill_and_lists_students(fake_db, svc, wf):
     two-sitting-one-exam pattern, not _run_lrw (built for a solo sitting)."""
     exam = _seed_exam(fake_db, speaking=True)
     admin_id = str(uuid4())
-    u1, u2 = uuid4(), uuid4()
+    u1, u2, u3 = uuid4(), uuid4(), uuid4()
     fake_db.seed("users", {"id": str(u1), "display_name": "Học viên A", "email": "a@x.com"})
     fake_db.seed("users", {"id": str(u2), "display_name": "Học viên B", "email": "b@x.com"})
+    # a third sitting reaches the review queue but is never claimed/banded —
+    # Codex P2 (2026-07-12): a still-'queued' review must NOT count as
+    # "đã duyệt", or it silently reports as a clean pass with no retest.
+    fake_db.seed("users", {"id": str(u3), "display_name": "Học viên C", "email": "c@x.com"})
     s1 = svc.create_sitting(u1, "MOCK-TEST-A")
     s2 = svc.create_sitting(u2, "MOCK-TEST-A")
+    s3 = svc.create_sitting(u3, "MOCK-TEST-A")
 
     for section in svc._configured_sections(exam):
         svc.advance_section(exam["id"], admin_id)
         _expire_section(fake_db, exam["id"], section)
-        for sid, u in ((s1["id"], u1), (s2["id"], u2)):
+        for sid, u in ((s1["id"], u1), (s2["id"], u2), (s3["id"], u3)):
             if section == "writing":
                 svc.submit_section(sid, u, "writing", "essay a", "essay b")
             else:
@@ -1077,9 +1082,11 @@ def test_retest_summary_counts_per_skill_and_lists_students(fake_db, svc, wf):
                 svc.submit_section(sid, u, section)
     _do_speaking(svc, fake_db, s1["id"], u1)
     _do_speaking(svc, fake_db, s2["id"], u2)
+    _do_speaking(svc, fake_db, s3["id"], u3)
 
     r1 = wf.get_review_for_sitting(s1["id"])
     r2 = wf.get_review_for_sitting(s2["id"])
+    r3 = wf.get_review_for_sitting(s3["id"])
     admin = uuid4()
     wf.claim(r1["id"], admin)
     wf.save_final_bands(
@@ -1093,10 +1100,11 @@ def test_retest_summary_counts_per_skill_and_lists_students(fake_db, svc, wf):
         {"listening": 7.0, "reading": 7.0, "writing": 6.5, "speaking": 7.0},
         retest_flags={"writing": False},   # no retest — clean pass
     )
+    assert r3["status"] == "queued"   # never claimed/banded
 
     summary = wf.retest_summary(exam["id"])
-    assert summary["total_sittings"] == 2
-    assert summary["reviewed_sittings"] == 2
+    assert summary["total_sittings"] == 3
+    assert summary["reviewed_sittings"] == 2   # s3's queued review excluded
     assert summary["needs_retest_count"] == 1
     assert summary["per_skill"]["writing"] == 1
     assert summary["per_skill"]["listening"] == 0
@@ -1172,6 +1180,44 @@ def test_promote_writing_essays_creates_pending_rows(fake_db, svc):
     # idempotent — re-running (e.g. a stray force-collect) must not duplicate
     svc._promote_writing_essays(s["id"])
     assert len(fake_db.rows("writing_essays")) == 2
+
+
+def test_promote_writing_essays_snapshots_reviewed_task1_facts(fake_db, svc):
+    """Codex P2 (2026-07-12): mock Task 1 essays have no writing_assignments
+    row, so the grading-time fallback (reviewed_prompt_facts_for_essay) can
+    never find facts for them — the submit-time snapshot must happen here,
+    mirroring routers/writing_student.py's prompt_image_analysis_reviewed gate.
+    A REVIEWED extraction is copied onto the essay; an unreviewed one is not."""
+    exam = _seed_exam(fake_db, speaking=False)
+    prompt1, prompt2 = str(uuid4()), str(uuid4())
+    exam["writing_task1_prompt_id"] = prompt1
+    exam["writing_task2_prompt_id"] = prompt2
+    fake_db.seed("writing_prompts", {
+        "id": prompt1, "task_type": "task1_academic",
+        "prompt_text": "Describe the chart.", "title": "T1",
+        "prompt_image_url": "https://img/x.png",
+        "prompt_image_analysis": {"facts": ["bar A peaks in 2020"]},
+        "prompt_image_analysis_reviewed": True,
+    })
+    fake_db.seed("writing_prompts", {
+        "id": prompt2, "task_type": "task1_academic",
+        "prompt_text": "Describe the other chart.", "title": "T2",
+        "prompt_image_url": "https://img/y.png",
+        "prompt_image_analysis": {"facts": ["should not appear"]},
+        "prompt_image_analysis_reviewed": False,   # unreviewed — must NOT be copied
+    })
+    u = uuid4()
+    student_id = str(uuid4())
+    fake_db.seed("students", {"id": student_id, "user_id": str(u)})
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    _run_lrw(svc, fake_db, exam, s["id"], u)
+
+    sitting = svc.get_sitting(s["id"])
+    essays = fake_db.rows("writing_essays")
+    t1 = next(e for e in essays if e["id"] == sitting["essay_task1_id"])
+    t2 = next(e for e in essays if e["id"] == sitting["essay_task2_id"])
+    assert t1["prompt_image_analysis"] == {"facts": ["bar A peaks in 2020"]}
+    assert t2.get("prompt_image_analysis") is None
 
 
 def test_promote_writing_essays_skips_empty_task(fake_db, svc):

@@ -1019,6 +1019,26 @@ def test_start_grading_409_when_not_pending():
     assert r.status_code == 409
 
 
+def test_start_grading_409_when_atomic_update_loses_race():
+    """Codex P2 (2026-07-12): the initial SELECT can see 'pending' and still
+    lose the race — a concurrent request's guarded UPDATE may have already
+    flipped the row to 'grading' by the time this request's own UPDATE runs.
+    The guarded UPDATE (.eq("status", "pending")) then matches zero rows,
+    which must be treated as a 409 conflict, not silently proceed to
+    schedule a second grading job."""
+    db = MagicMock()
+    db.table.return_value.select.return_value.eq.return_value.is_.return_value.limit.return_value.execute.return_value.data = \
+        [{"id": _ESSAY_ID, "status": "pending"}]
+    db.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.return_value.data = []
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.supabase_admin", db):
+        r = _client().post(
+            f"/admin/writing/essays/{_ESSAY_ID}/start-grading", json={}, headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 409
+
+
 def test_start_grading_rejects_quick_and_deep_tiers():
     body_quick = {"grading_tier": "quick"}
     body_deep = {"grading_tier": "deep"}

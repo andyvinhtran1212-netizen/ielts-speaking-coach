@@ -517,20 +517,31 @@ def _promote_writing_essays(sitting_id: str) -> None:
             if not prompt_id:
                 continue
             prompt_res = supabase_admin.table("writing_prompts").select(
-                "task_type, prompt_text, title, prompt_image_url",
+                "task_type, prompt_text, title, prompt_image_url, "
+                "prompt_image_analysis, prompt_image_analysis_reviewed",
             ).eq("id", str(prompt_id)).limit(1).execute()
             if not prompt_res.data:
                 continue
             prompt = prompt_res.data[0]
+            # only a REVIEWED extraction is trustworthy as a grading anchor —
+            # mirrors routers/writing_student.py's submit-time snapshot so mock
+            # Task 1 essays get the same verified answer key as regular ones
+            # (they have no writing_assignments row, so the grading-time
+            # fallback lookup can't find facts for them otherwise).
+            prompt_image_analysis = (
+                prompt.get("prompt_image_analysis")
+                if prompt.get("prompt_image_analysis_reviewed") else None
+            )
             row_info = essay_service.create_essay_row_only(
                 data={
-                    "student_id":       student_id,
-                    "task_type":        prompt["task_type"],
-                    "prompt_text":      prompt["prompt_text"],
-                    "prompt_image_url": prompt.get("prompt_image_url"),
-                    "essay_text":       d["text"],
-                    "analysis_level":   3,
-                    "status":           "pending",
+                    "student_id":            student_id,
+                    "task_type":             prompt["task_type"],
+                    "prompt_text":           prompt["prompt_text"],
+                    "prompt_image_url":      prompt.get("prompt_image_url"),
+                    "prompt_image_analysis": prompt_image_analysis,
+                    "essay_text":            d["text"],
+                    "analysis_level":        3,
+                    "status":                "pending",
                 },
                 # Audit convention matches regular self-submit: the STUDENT's
                 # own user_id, not the reviewing admin.

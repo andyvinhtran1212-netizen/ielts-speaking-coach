@@ -352,11 +352,28 @@ async def start_grading(
             f"Essay đang ở trạng thái {row.data[0]['status']!r} — chỉ chấm được essay 'pending'.",
         )
 
-    supabase_admin.table("writing_essays").update({
-        "grading_tier":   body.grading_tier,
-        "analysis_level": body.analysis_level,
-        "selected_model": body.selected_model,
-    }).eq("id", essay_id).execute()
+    # Atomic claim (same pattern as mock_review_workflow.claim()) — the
+    # pending→grading transition happens IN the guarded update itself, not
+    # after a separate read. Otherwise a double-click/retry racing between
+    # the check above and _bg_grade_essay's own (unconditional) status write
+    # could re-pass the 'pending' check and schedule a duplicate job.
+    claimed = (
+        supabase_admin.table("writing_essays")
+        .update({
+            "grading_tier":   body.grading_tier,
+            "analysis_level": body.analysis_level,
+            "selected_model": body.selected_model,
+            "status":         "grading",
+        })
+        .eq("id", essay_id)
+        .eq("status", "pending")
+        .execute()
+    )
+    if not claimed.data:
+        raise HTTPException(
+            409,
+            f"Essay đang ở trạng thái {row.data[0]['status']!r} — chỉ chấm được essay 'pending'.",
+        )
 
     job_info = essay_service.schedule_grading_job(
         essay_id=essay_id,
