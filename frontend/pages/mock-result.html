@@ -60,6 +60,8 @@
 
       <section id="notes-wrap" style="margin-top:20px;"></section>
 
+      <section id="chuabai-wrap" style="margin-top:24px;"></section>
+
       <p style="margin-top:28px;font-size:12px;color:var(--av-text-secondary);line-height:1.6;">
         Kết quả do giám khảo duyệt, có tham khảo phân tích AI.
       </p>
@@ -124,6 +126,22 @@
 
       if (data.released_at) {
         document.getElementById('released-at').textContent = 'Công bố lúc ' + new Date(data.released_at).toLocaleString('vi-VN');
+      }
+
+      // "Xem chữa bài" — only reachable once released (this page itself is
+      // gated on that), links into the same detailed per-question review the
+      // student would've seen right after finishing the section.
+      var CHUABAI = [
+        { key: 'listening', label: 'Listening', attempt: data.listening_attempt_id, href: '/pages/listening-review.html?attempt_id=' },
+        { key: 'reading',   label: 'Reading',   attempt: data.reading_attempt_id,   href: '/pages/reading-review.html?attempt_id=' },
+      ].filter(function (s) { return s.attempt; });
+      var cwrap = document.getElementById('chuabai-wrap');
+      if (CHUABAI.length) {
+        cwrap.innerHTML = '<h2 style="font-size:15px;font-weight:700;color:var(--av-text-primary);margin-bottom:8px;">Xem chữa bài</h2>' +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+          CHUABAI.map(function (s) {
+            return '<a class="av-btn" target="_blank" href="' + s.href + encodeURIComponent(s.attempt) + '">Chữa bài ' + s.label + ' ↗</a>';
+          }).join('') + '</div>';
       }
       showState('content');
     }

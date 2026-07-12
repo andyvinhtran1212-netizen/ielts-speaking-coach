@@ -171,9 +171,14 @@ async def get_result(
     if not review:
         raise HTTPException(404, "Chưa có hồ sơ kết quả.")
     return {
-        "sitting_id":          sitting_id,
-        "final_bands":         review.get("final_bands") or {},
-        "examiner_comment_vi": review.get("examiner_comment_vi"),
-        "per_skill_notes":     review.get("per_skill_notes") or {},
-        "released_at":         review.get("released_at"),
+        "sitting_id":           sitting_id,
+        "final_bands":          review.get("final_bands") or {},
+        "examiner_comment_vi":  review.get("examiner_comment_vi"),
+        "per_skill_notes":      review.get("per_skill_notes") or {},
+        "released_at":          review.get("released_at"),
+        # so the TRF page can link to the detailed chữa bài for each skill —
+        # only reachable once release_results() has flipped sealed=False,
+        # same gate the review endpoints themselves enforce (2026-07-12).
+        "listening_attempt_id": sitting.get("listening_attempt_id"),
+        "reading_attempt_id":   sitting.get("reading_attempt_id"),
     }
