@@ -330,6 +330,97 @@ def test_section_time_remaining_from_shared_clock(fake_db, svc):
     assert 0 < left <= 1920
 
 
+def test_submit_section_rejects_before_clock_expires(fake_db, svc):
+    """No early manual submit, enforced server-side (not just a hidden UI
+    button) — a plain API call right after the section opens must be
+    rejected, even though attach_attempt / active_section both check out."""
+    exam = _seed_exam(fake_db, listening=False)   # single advance opens reading
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], str(uuid4()))   # → reading, clock just started
+    aid = str(uuid4())
+    fake_db.seed("reading_test_attempts", {
+        "id": aid, "user_id": str(u), "test_id": exam["reading_test_id"],
+        "status": "submitted", "sitting_id": None,
+    })
+    svc.attach_attempt(s["id"], u, "reading", aid)
+    with pytest.raises(svc.SittingConflictError):
+        svc.submit_section(s["id"], u, "reading")
+
+
+def test_force_collect_grades_the_straggler_listening_attempt(fake_db, svc):
+    """Codex P1: force-collecting a straggler must actually GRADE from
+    whatever was persisted — not just flip status, which would leave the
+    review draft blank for that skill."""
+    exam = _seed_exam(fake_db)
+    admin = str(uuid4())
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], admin)   # → listening
+    aid = str(uuid4())
+    fake_db.seed("listening_test_attempts", {
+        "id": aid, "user_id": str(u), "test_id": exam["listening_test_id"],
+        "status": "in_progress", "sitting_id": None,
+        "answers": [{"q_num": 1, "user_answer": "beach"}],
+    })
+    svc.attach_attempt(s["id"], u, "listening", aid)
+    fake_db.seed("listening_content", {"id": "c1", "test_id": exam["listening_test_id"]})
+    fake_db.seed("listening_exercises", {"content_id": "c1", "payload": {
+        "template_kind": "dictation_gap_fill",
+        "answers": [{"q_num": 1, "answer": "beach", "alternatives": []}],
+    }})
+    svc.advance_section(exam["id"], admin)   # → reading: force-collects listening (disconnected)
+    attempt = fake_db.rows("listening_test_attempts")[0]
+    assert attempt["status"] == "submitted"
+    assert attempt["score"] == 1   # actually graded, not just a blind status flip
+    assert attempt["grading_details"]  # per-question breakdown populated
+
+
+def test_force_collect_grades_the_straggler_reading_attempt(fake_db, svc):
+    exam = _seed_exam(fake_db, listening=False)   # single advance opens reading
+    admin = str(uuid4())
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], admin)   # → reading
+    aid = str(uuid4())
+    fake_db.seed("reading_test_attempts", {
+        "id": aid, "user_id": str(u), "test_id": exam["reading_test_id"],
+        "status": "in_progress", "sitting_id": None,
+    })
+    svc.attach_attempt(s["id"], u, "reading", aid)
+    fake_db.seed("reading_tests", {"id": exam["reading_test_id"], "module": "academic"})
+    fake_db.seed("reading_passages", {"id": "p1", "test_id": exam["reading_test_id"],
+                                      "library": "l3_test", "passage_order": 1})
+    fake_db.seed("reading_questions", {"q_num": 1, "answer": {"answer": "TRUE", "alternatives": []},
+                                       "skill_tag": "detail", "explanation": "", "passage_id": "p1"})
+    fake_db.seed("reading_attempt_answers", {"attempt_id": aid, "q_num": 1, "user_answer": "TRUE"})
+    svc.advance_section(exam["id"], admin)   # → writing: force-collects reading (disconnected)
+    attempt = fake_db.rows("reading_test_attempts")[0]
+    assert attempt["status"] == "submitted"
+    assert attempt["score"] == 1   # actually graded, not just a blind status flip
+    assert attempt["grading_details"]  # per-question breakdown populated
+
+
+def test_force_collect_skips_already_submitted_attempt(fake_db, svc):
+    """The client's own submit beat the sweep — force-collect must not
+    re-grade (idempotent, no wasted work / no risk of overwriting)."""
+    exam = _seed_exam(fake_db, listening=False)
+    admin = str(uuid4())
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], admin)   # → reading
+    aid = str(uuid4())
+    fake_db.seed("reading_test_attempts", {
+        "id": aid, "user_id": str(u), "test_id": exam["reading_test_id"],
+        "status": "submitted", "score": 7, "band_estimate": 6.5, "sitting_id": None,
+    })
+    svc.attach_attempt(s["id"], u, "reading", aid)
+    svc.advance_section(exam["id"], admin)   # → writing: sitting never called submit_section
+    attempt = fake_db.rows("reading_test_attempts")[0]
+    assert attempt["score"] == 7   # unchanged — not re-graded
+    assert svc.get_sitting(s["id"])["reading_submitted_at"] is not None  # sitting still collected
+
+
 def test_admin_section_progress_counts(fake_db, svc):
     """Powers the admin console's "đã nộp X/Y" readout that informs advance."""
     exam = _seed_exam(fake_db, listening=False, reading=False)   # writing-only
@@ -338,6 +429,7 @@ def test_admin_section_progress_counts(fake_db, svc):
     s1 = svc.create_sitting(u1, "MOCK-TEST-A")
     s2 = svc.create_sitting(u2, "MOCK-TEST-A")
     svc.advance_section(exam["id"], admin)   # → writing
+    _expire_section(fake_db, exam["id"], "writing")
     svc.submit_section(s1["id"], u1, "writing", "one", "two")
     progress = svc.admin_section_progress(exam["id"])
     assert progress["active_section"] == "writing"
@@ -396,6 +488,17 @@ def _attach_domain_submitted(svc, fake, exam, sitting_id, u, section):
     return aid
 
 
+def _expire_section(fake, exam_id, section):
+    """Fast-forward `section`'s shared clock into the past so submit_section's
+    no-early-submit grace check (server-side, real wall clock) doesn't reject
+    the test's simulated submit — mutates the SAME dict object the fake DB
+    holds, mirroring how the other tests mutate a seeded row in place."""
+    past = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
+    for row in fake.rows("mock_exams"):
+        if row["id"] == exam_id:
+            row[f"{section}_started_at"] = past
+
+
 def _reach_writing(svc, fake, exam, sitting_id, u):
     """Walk the admin-gated sequence through Listening + Reading (submitting
     each as the runner would) and open Writing — stops right before the
@@ -405,6 +508,7 @@ def _reach_writing(svc, fake, exam, sitting_id, u):
         svc.advance_section(exam["id"], admin)   # admin opens `section`
         if section == "writing":
             return
+        _expire_section(fake, exam["id"], section)
         _attach_domain_submitted(svc, fake, exam, sitting_id, u, section)
         svc.submit_section(sitting_id, u, section)
 
@@ -417,6 +521,7 @@ def _run_lrw(svc, fake, exam, sitting_id, u):
     result = None
     for section in svc._configured_sections(exam):
         svc.advance_section(exam["id"], admin)
+        _expire_section(fake, exam["id"], section)
         if section == "writing":
             result = svc.submit_section(
                 sitting_id, u, "writing", "task one essay", "task two essay",
@@ -653,6 +758,7 @@ def test_submit_section_writing_empty_text_still_accepted(fake_db, svc):
     u = uuid4()
     s = svc.create_sitting(u, "MOCK-TEST-A")
     svc.advance_section(exam["id"], str(uuid4()))   # → writing
+    _expire_section(fake_db, exam["id"], "writing")
     result = svc.submit_section(s["id"], u, "writing")
     assert result["writing_submitted_at"] is not None
 
@@ -880,6 +986,26 @@ def test_lrw_only_review_needs_no_speaking_band(fake_db, svc, wf):
     )
     # mean(7,6,5) = 6.0
     assert saved["final_bands"]["overall"] == 6.0
+    assert "speaking" not in saved["final_bands"]
+
+
+def test_reading_writing_only_review_needs_no_listening_band(fake_db, svc, wf):
+    """Codex P2: an exam with no Listening test configured must not force the
+    reviewer to invent a Listening band — required_skills mirrors
+    _configured_sections, not just "speaking present or not"."""
+    exam = _seed_exam(fake_db, speaking=False, listening=False)   # reading+writing only
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    _run_lrw(svc, fake_db, exam, s["id"], u)
+    review = wf.get_review_for_sitting(s["id"])
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    assert set(wf.required_skills_for_sitting(s["id"])) == {"reading", "writing"}
+    saved = wf.save_final_bands(
+        review["id"], admin, {"reading": 6.0, "writing": 5.0},   # no listening, no speaking
+    )
+    assert saved["final_bands"]["overall"] == 5.5   # mean(6,5)
+    assert "listening" not in saved["final_bands"]
     assert "speaking" not in saved["final_bands"]
 
 

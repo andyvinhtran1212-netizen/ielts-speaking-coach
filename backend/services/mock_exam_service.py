@@ -54,6 +54,10 @@ _SECTION_ATTEMPT = {
 # happen for a published test, but a mock must never divide by/anchor on None).
 _DEFAULT_LISTENING_MINUTES = 30
 _LISTENING_BUFFER_SECONDS = 120
+# No early manual submit: submit_section rejects unless the section's shared
+# clock has (about) run out. A few seconds of grace absorbs the gap between
+# the client's local tick hitting 0 and the request actually landing.
+_EARLY_SUBMIT_GRACE_SECONDS = 5
 # Statuses from which _reconcile_terminal may still advance the sitting.
 # Once an admin has claimed (under_review) or beyond, we never downgrade.
 _PRE_REVIEW = {
@@ -500,6 +504,15 @@ def submit_section(
         raise SittingConflictError(
             f"Phần {section} chưa được giám thị mở — không thể nộp bài."
         )
+    # No early manual submit: this endpoint only fires client-side at the
+    # section's own clock hitting 0 — but it's a plain authenticated API call,
+    # so enforce that server-side too (a small grace absorbs client/server
+    # timing skew, not enough to game "who submits first").
+    remaining = section_time_remaining_seconds(exam, section)
+    if remaining is None or remaining > _EARLY_SUBMIT_GRACE_SECONDS:
+        raise SittingConflictError(
+            f"Chưa hết giờ phần {section} — không thể nộp sớm."
+        )
 
     # Flip registered → lrw_in_progress BEFORE the section-specific submit —
     # submit_writing itself gates on lrw_in_progress, so for a student whose
@@ -764,6 +777,120 @@ def set_open(exam_id: str, is_open: bool, admin_id: str) -> dict:
     return resp.data[0]
 
 
+def _grade_and_finalize_listening(attempt_id: str) -> None:
+    """Straggler grading: mirrors routers/listening.py's submit endpoint, but
+    driven server-side (no live client) from whatever answers are already
+    persisted on the attempt row. Always leaves the attempt `submitted` —
+    even a grading failure (missing test bundle, etc.) still collects the
+    paper, just with blank score/band fields, rather than leaving it stuck
+    `in_progress` forever."""
+    from services import listening_test_grader as grader
+
+    attempt_res = supabase_admin.table("listening_test_attempts").select(
+        "*",
+    ).eq("id", attempt_id).limit(1).execute()
+    if not attempt_res.data:
+        return
+    attempt = attempt_res.data[0]
+    if attempt.get("status") == "submitted":
+        return  # already graded — the client's own submit beat the sweep
+
+    update: dict = {"status": "submitted", "submitted_at": _now_iso()}
+    try:
+        test_id = attempt["test_id"]
+        section_ids = [r["id"] for r in (
+            supabase_admin.table("listening_content").select("id")
+            .eq("test_id", test_id).execute().data or []
+        )]
+        ex_rows = (
+            supabase_admin.table("listening_exercises").select("payload")
+            .in_("content_id", section_ids).execute().data
+            if section_ids else []
+        )
+        answer_key = grader.collect_answer_key(ex_rows or [])
+        result = grader.grade_attempt(attempt.get("answers") or [], answer_key)
+        update.update({
+            "score":           result["score"],
+            "grading_details": result["per_question"],
+            "trap_analytics":  result["trap_analytics"],
+            "band_estimate":   result["band_estimate"],
+        })
+    except Exception:  # noqa: BLE001 — collection must not get stuck on a grading bug
+        logger.exception(
+            "[mock-exam] force-collect: grading failed listening attempt=%s", attempt_id,
+        )
+    supabase_admin.table("listening_test_attempts").update(update).eq(
+        "id", attempt_id,
+    ).execute()
+
+
+def _grade_and_finalize_reading(attempt_id: str) -> None:
+    """Straggler grading for Reading — mirrors routers/reading_student.py's
+    submit endpoint (grading from the persisted `reading_attempt_answers`
+    autosave rows, since there is no live request body to fall back on).
+    Same always-submitted guarantee as the Listening sibling above."""
+    from services import reading_test_grader as grader
+
+    attempt_res = supabase_admin.table("reading_test_attempts").select(
+        "*",
+    ).eq("id", attempt_id).limit(1).execute()
+    if not attempt_res.data:
+        return
+    attempt = attempt_res.data[0]
+    if attempt.get("status") == "submitted":
+        return
+
+    update: dict = {"status": "submitted", "submitted_at": _now_iso()}
+    try:
+        test_uuid = attempt["test_id"]
+        test_res = supabase_admin.table("reading_tests").select(
+            "id, module",
+        ).eq("id", test_uuid).limit(1).execute()
+        module = test_res.data[0].get("module") if test_res.data else None
+        passages = (
+            supabase_admin.table("reading_passages").select("id, passage_order")
+            .eq("test_id", test_uuid).eq("library", "l3_test").execute().data or []
+        )
+        passage_order_by_id = {p["id"]: p.get("passage_order") for p in passages}
+        q_rows = (
+            supabase_admin.table("reading_questions")
+            .select("q_num,answer,skill_tag,explanation,passage_id")
+            .in_("passage_id", list(passage_order_by_id.keys())).execute().data
+            if passage_order_by_id else []
+        )
+        answer_key = grader.collect_answer_key(q_rows or [], passage_order_by_id)
+        persisted = (
+            supabase_admin.table("reading_attempt_answers")
+            .select("q_num,user_answer").eq("attempt_id", attempt_id).execute().data or []
+        )
+        answers_by_qnum: dict[int, str] = {}
+        for row in persisted:
+            try:
+                qn = int(row["q_num"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            answers_by_qnum[qn] = row.get("user_answer") or ""
+        user_answers = [
+            {"q_num": qn, "user_answer": ua}
+            for qn, ua in sorted(answers_by_qnum.items())
+        ]
+        result = grader.grade_attempt(user_answers, answer_key, module=module or "academic")
+        update.update({
+            "answers":         user_answers,
+            "score":           result["score"],
+            "grading_details": result["per_question"],
+            "skill_breakdown": result["skill_breakdown"],
+            "band_estimate":   result["band_estimate"],
+        })
+    except Exception:  # noqa: BLE001
+        logger.exception(
+            "[mock-exam] force-collect: grading failed reading attempt=%s", attempt_id,
+        )
+    supabase_admin.table("reading_test_attempts").update(update).eq(
+        "id", attempt_id,
+    ).execute()
+
+
 def _force_collect_section(exam_id: str, section: str) -> None:
     """Straggler safety net: called right before the admin advances PAST
     `section`. Every non-terminal sitting that hasn't submitted this section
@@ -794,12 +921,12 @@ def _force_collect_section(exam_id: str, section: str) -> None:
                 "id", row["id"],
             ).execute()
             if section in _SECTION_ATTEMPT:
-                link_col, table, _ = _SECTION_ATTEMPT[section]
+                link_col, _table, _ = _SECTION_ATTEMPT[section]
                 attempt_id = row.get(link_col)
                 if attempt_id:
-                    supabase_admin.table(table).update({
-                        "status": "submitted", "submitted_at": now,
-                    }).eq("id", str(attempt_id)).neq("status", "submitted").execute()
+                    grade_fn = (_grade_and_finalize_listening if section == "listening"
+                                else _grade_and_finalize_reading)
+                    grade_fn(str(attempt_id))
             logger.info(
                 "[mock-exam] sitting=%s section=%s force-collected (straggler)",
                 row["id"], section,

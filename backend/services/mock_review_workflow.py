@@ -91,20 +91,31 @@ def compute_overall(final_bands: dict, skills: tuple = _SKILLS) -> float:
 
 
 def _required_skills(sitting_id: UUID | str) -> tuple:
-    """The skills the admin must band for this sitting — Speaking is required
-    only when the exam defines a speaking component (mirrors the sitting-side
+    """The skills the admin must band for this sitting.
+
+    Listening/Reading are required only when the exam actually configures a
+    test for them (mirrors mock_exam_service._configured_sections — a
+    Reading+Writing-only exam must not force the reviewer to invent a
+    Listening band). Writing is always required. Speaking is required only
+    when the exam defines a speaking component (mirrors the sitting-side
     reconciliation)."""
+    from services import mock_exam_service  # local import avoids import-order coupling
+
     s = supabase_admin.table("mock_exam_sittings").select("mock_exam_id").eq(
         "id", str(sitting_id),
     ).limit(1).execute()
     if not s.data:
         return _SKILLS
-    e = supabase_admin.table("mock_exams").select("speaking_topic_set").eq(
-        "id", str(s.data[0]["mock_exam_id"]),
-    ).limit(1).execute()
-    if e.data and e.data[0].get("speaking_topic_set"):
+    e = supabase_admin.table("mock_exams").select(
+        "speaking_topic_set, listening_test_id, reading_test_id",
+    ).eq("id", str(s.data[0]["mock_exam_id"])).limit(1).execute()
+    if not e.data:
         return _SKILLS
-    return ("listening", "reading", "writing")
+    exam = e.data[0]
+    skills = tuple(mock_exam_service._configured_sections(exam))  # ('listening'?, 'reading'?, 'writing')
+    if exam.get("speaking_topic_set"):
+        skills = skills + ("speaking",)
+    return skills
 
 
 # ── Workflow ──────────────────────────────────────────────────────────
