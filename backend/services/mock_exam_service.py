@@ -790,7 +790,7 @@ def assemble_ai_draft(sitting: dict) -> dict:
 
 
 _EXAM_WRITABLE = {
-    "code", "title", "listening_test_id", "reading_test_id",
+    "code", "title", "exam_mode", "listening_test_id", "reading_test_id",
     "writing_task1_prompt_id", "writing_task2_prompt_id", "speaking_topic_set",
     "total_minutes", "reading_minutes", "writing_minutes",
     "open_from", "open_until", "cohort_id",

@@ -34,6 +34,11 @@
     .me-muted { color:var(--av-text-secondary); font-size:13px; }
     h1 { font-size:22px; font-weight:800; color:var(--av-text-primary); }
     h2 { font-size:15px; font-weight:700; color:var(--av-text-primary); margin:0 0 10px; }
+    h3 { font-size:13px; font-weight:700; }
+    .me-modal { position:fixed; inset:0; background:rgba(15,23,42,0.45); display:flex; align-items:flex-start; justify-content:center; padding:32px 16px; overflow:auto; z-index:50; }
+    .me-modal__box { background:var(--av-surface-elevated); border:1px solid var(--av-border-default); border-radius:14px; padding:20px; width:100%; max-width:720px; }
+    .me-modal .adm-table th, .me-modal .adm-table td { text-align:center; }
+    .me-modal .adm-table th:nth-child(2), .me-modal .adm-table td:nth-child(2) { text-align:left; }
     .hidden { display:none; }
   </style>
 </head>
@@ -47,7 +52,11 @@
       <div class="me-grid">
         <div><label>Mã đề (code)</label><input id="f-code" placeholder="MOCK-2026-08A"></div>
         <div><label>Tiêu đề</label><input id="f-title" placeholder="IELTS Mock 2026-08A"></div>
-        <div><label>Lớp tham gia (bắt buộc)</label><select id="f-cohort"></select></div>
+        <div><label>Chế độ</label><select id="f-mode">
+          <option value="sequential">Sequential — cả lớp, giáo viên mở từng phần</option>
+          <option value="retake">Retake — gán từng học viên, tự hẹn giờ + tự thu bài</option>
+        </select></div>
+        <div><label>Lớp tham gia <span class="me-muted" id="cohort-hint">(bắt buộc — sequential)</span></label><select id="f-cohort"></select></div>
         <div><label>Listening test (published)</label><select id="f-listening"></select></div>
         <div><label>Reading test (published)</label><select id="f-reading"></select></div>
         <div><label>Writing Task 1 (prompt)</label><select id="f-w1"></select></div>

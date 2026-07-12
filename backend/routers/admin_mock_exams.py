@@ -19,6 +19,9 @@ console lives in admin_mock_reviews.py.
   GET   /admin/mock-exams/{id}/retest-summary    — per-skill "cần test lại" counts
   GET   /admin/mock-exams/{id}/roster            — class roster grid (per-skill snapshot)
   POST  /admin/mock-exams/{id}/writing/bulk-grade — queue many sittings' Writing at once
+  GET   /admin/mock-exams/{id}/assignments       — per-student retake assignments
+  POST  /admin/mock-exams/{id}/assignments       — assign retake exam to students
+  DELETE /admin/mock-exams/{id}/assignments/{sid}— un-assign one student
 """
 from __future__ import annotations
 
@@ -27,6 +30,7 @@ from pydantic import BaseModel, Field
 
 from routers.admin import require_admin
 from services import essay_service
+from services import mock_exam_assignment_service as assign_svc
 from services import mock_exam_service as svc
 from services import mock_review_workflow as wf
 
@@ -36,6 +40,7 @@ router = APIRouter(prefix="/admin/mock-exams", tags=["admin-mock-exams"])
 class ExamCreate(BaseModel):
     code: str
     title: str
+    exam_mode: str = Field(default="sequential", pattern=r"^(sequential|retake)$")
     listening_test_id: str | None = None
     reading_test_id: str | None = None
     writing_task1_prompt_id: str | None = None
@@ -52,6 +57,7 @@ class ExamCreate(BaseModel):
 
 class ExamPatch(BaseModel):
     title: str | None = None
+    exam_mode: str | None = Field(default=None, pattern=r"^(sequential|retake)$")
     listening_test_id: str | None = None
     reading_test_id: str | None = None
     writing_task1_prompt_id: str | None = None
@@ -65,6 +71,18 @@ class ExamPatch(BaseModel):
     cohort_id: str | None = None
     review_sla_days: int | None = None
     status: str | None = None      # draft | published | archived
+
+
+class AssignRow(BaseModel):
+    user_id: str
+    skills: list[str] = Field(default_factory=list)
+    open_from: str | None = None
+    open_until: str | None = None
+
+
+class AssignBody(BaseModel):
+    assignments: list[AssignRow] = Field(default_factory=list)
+    source_exam_id: str | None = None
 
 
 class VoidBody(BaseModel):
@@ -191,6 +209,37 @@ async def roster(exam_id: str, authorization: str | None = Header(default=None))
     Speaking session count) + claim status. Replaces the flat review queue."""
     await require_admin(authorization)
     return {"roster": wf.roster(exam_id)}
+
+
+@router.get("/{exam_id}/assignments")
+async def list_assignments(exam_id: str, authorization: str | None = Header(default=None)):
+    """Per-student retake assignments for this exam (with student names)."""
+    await require_admin(authorization)
+    return {"assignments": assign_svc.list_assignments(exam_id)}
+
+
+@router.post("/{exam_id}/assignments")
+async def create_assignments(
+    exam_id: str, body: AssignBody, authorization: str | None = Header(default=None),
+):
+    """Assign a retake exam to specific students (each with a skill subset +
+    time window). Idempotent per student — re-posting refreshes the row. The
+    admin UI builds `assignments` from the source exam's retest_summary."""
+    admin = await require_admin(authorization)
+    rows = [r.model_dump() for r in body.assignments]
+    return assign_svc.assign(
+        exam_id, rows, created_by=admin["id"], source_exam_id=body.source_exam_id,
+    )
+
+
+@router.delete("/{exam_id}/assignments/{student_id}")
+async def delete_assignment(
+    exam_id: str, student_id: str, authorization: str | None = Header(default=None),
+):
+    """Un-assign one student from a retake exam."""
+    await require_admin(authorization)
+    assign_svc.remove(exam_id, student_id)
+    return {"ok": True}
 
 
 @router.post("/{exam_id}/writing/bulk-grade", status_code=202)

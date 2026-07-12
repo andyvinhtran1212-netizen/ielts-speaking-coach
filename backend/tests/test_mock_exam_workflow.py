@@ -68,6 +68,10 @@ class _Query:
         self.payload = payload
         return self
 
+    def delete(self):
+        self.op = "delete"
+        return self
+
     def eq(self, field, value):
         self.filters.append((field, "eq", value, self._negate_next))
         self._negate_next = False
@@ -151,6 +155,14 @@ class _Query:
                         changed.append(r)
                 return _Response(changed)
 
+        if self.op == "delete":
+            with self.fake.lock:
+                removed = [r for r in rows if self._matches(r)]
+                self.fake.tables[self.table_name] = [
+                    r for r in rows if not self._matches(r)
+                ]
+                return _Response(removed)
+
         raise AssertionError(f"Unsupported op: {self.op!r}")
 
 
@@ -182,6 +194,7 @@ def fake_db(monkeypatch):
     # which reads/writes through essay_service's OWN supabase_admin binding —
     # share the same fake so promoted essays land in the same in-memory DB.
     monkeypatch.setattr("services.essay_service.supabase_admin", fake)
+    monkeypatch.setattr("services.mock_exam_assignment_service.supabase_admin", fake)
     return fake
 
 
@@ -1109,7 +1122,8 @@ def test_retest_summary_counts_per_skill_and_lists_students(fake_db, svc, wf):
     assert summary["per_skill"]["writing"] == 1
     assert summary["per_skill"]["listening"] == 0
     assert summary["students"] == [
-        {"sitting_id": s1["id"], "student_name": "Học viên A", "skills": ["writing"]},
+        {"sitting_id": s1["id"], "user_id": str(u1),
+         "student_name": "Học viên A", "skills": ["writing"]},
     ]
 
 
@@ -1226,7 +1240,7 @@ def test_retest_summary_counts_early_sitting_flag(fake_db, svc, wf):
     summary = wf.retest_summary(exam["id"])
     assert summary["needs_retest_count"] == 1
     assert summary["students"] == [
-        {"sitting_id": s["id"], "student_name": "Phúc", "skills": []},
+        {"sitting_id": s["id"], "user_id": str(u), "student_name": "Phúc", "skills": []},
     ]
     assert summary["per_skill"] == {k: 0 for k in wf._SKILLS}   # no skill detail
 
@@ -1447,6 +1461,52 @@ def test_release_delivers_reviewed_writing_essays(fake_db, svc, wf):
     # silently stays 'reviewed'.
     assert by_id[e1]["delivery_method"] == "web_view"
     assert by_id[e2]["status"] == "graded"   # not 'reviewed' → left untouched
+
+
+def test_retake_assign_scopes_skills_and_is_idempotent(fake_db):
+    """PR A (retake): assign() creates one row per (exam, user) with skills
+    scoped to v1 L/R/W (drops unknown/speaking), shares one group_id, and is
+    idempotent per user — re-assigning updates the row, no duplicate."""
+    from services import mock_exam_assignment_service as a
+    exam_id, admin = str(uuid4()), str(uuid4())
+    u1, u2 = str(uuid4()), str(uuid4())
+
+    res = a.assign(exam_id, [
+        {"user_id": u1, "skills": ["writing", "speaking", "bogus"]},   # speaking/bogus dropped
+        {"user_id": u2, "skills": ["listening", "reading"]},
+        {"user_id": str(uuid4()), "skills": []},                       # no valid skill → skipped
+    ], created_by=admin, source_exam_id="src-1")
+
+    assert set(res["assigned"]) == {u1, u2}
+    assert len(res["skipped"]) == 1
+    rows = fake_db.rows("mock_exam_assignments")
+    assert len(rows) == 2
+    by_uid = {r["user_id"]: r for r in rows}
+    assert by_uid[u1]["skills"] == ["writing"]          # speaking/bogus stripped
+    assert by_uid[u2]["skills"] == ["listening", "reading"]
+    assert by_uid[u1]["assignment_group_id"] == res["group_id"]
+    assert by_uid[u1]["source_exam_id"] == "src-1"
+
+    # re-assign u1 with a different skill set → UPDATE, not a duplicate row
+    a.assign(exam_id, [{"user_id": u1, "skills": ["reading"]}], created_by=admin)
+    rows2 = fake_db.rows("mock_exam_assignments")
+    assert len(rows2) == 2
+    assert next(r for r in rows2 if r["user_id"] == u1)["skills"] == ["reading"]
+
+
+def test_retake_list_and_remove_assignments(fake_db):
+    from services import mock_exam_assignment_service as a
+    exam_id = str(uuid4())
+    u1 = str(uuid4())
+    fake_db.seed("users", {"id": u1, "display_name": "Học viên X", "email": "x@x.com"})
+    a.assign(exam_id, [{"user_id": u1, "skills": ["writing"]}], created_by=str(uuid4()))
+
+    listed = a.list_assignments(exam_id)
+    assert len(listed) == 1
+    assert listed[0]["student_name"] == "Học viên X"
+
+    a.remove(exam_id, u1)
+    assert a.list_assignments(exam_id) == []
 
 
 def test_compute_overall_pure():

@@ -455,6 +455,9 @@ def retest_summary(mock_exam_id: str) -> dict:
     flagged_students = [
         {
             "sitting_id":   sid,
+            # user_id lets the retake-assign UI build per-student assignments
+            # directly (mock_exam_assignments is keyed on user_id).
+            "user_id":      (sitting_by_id.get(sid) or {}).get("user_id"),
             "student_name": names.get((sitting_by_id.get(sid) or {}).get("user_id"), "—"),
             "skills":       skills,
         }
