@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Phiếu báo điểm — Admin</title>
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.setAttribute('data-theme', (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light'));
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-buttons.css" />
+  <style>
+    .rp-wrap { max-width:640px; margin:0 auto; padding:32px 16px; }
+    .rp-card { border:1px solid var(--av-border-default); border-radius:14px; background:var(--av-surface-elevated); padding:28px; }
+    .rp-title { font-size:22px; font-weight:800; color:var(--av-text-primary); margin-bottom:4px; }
+    .rp-muted { color:var(--av-text-secondary); font-size:13px; }
+    .rp-skills { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:14px; margin:24px 0; }
+    .rp-skill { text-align:center; padding:14px 8px; border:1px solid var(--av-border-default); border-radius:10px; background:var(--av-surface-card); }
+    .rp-skill__label { font-size:12px; color:var(--av-text-secondary); text-transform:uppercase; letter-spacing:.03em; }
+    .rp-skill__band { font-size:28px; font-weight:800; color:var(--av-text-primary); margin-top:4px; }
+    .rp-overall { text-align:center; margin:24px 0; padding:20px; border-radius:12px; background:var(--av-accent,#2563eb); color:#fff; }
+    .rp-overall__label { font-size:13px; opacity:.85; }
+    .rp-overall__band { font-size:44px; font-weight:800; }
+    .rp-blocked { padding:20px; border-radius:10px; background:var(--av-surface-card); border:1px solid var(--av-error,#dc2626); color:var(--av-error,#dc2626); }
+    .hidden { display:none; }
+  </style>
+</head>
+<body class="av-page font-sans min-h-screen">
+  <div class="rp-wrap">
+    <div id="state-loading" class="rp-muted">Đang tải…</div>
+    <div id="state-blocked" class="hidden rp-blocked"></div>
+    <div id="state-report" class="hidden rp-card">
+      <div class="rp-title" id="rp-title">Phiếu báo điểm</div>
+      <p class="rp-muted" id="rp-sub"></p>
+      <div class="rp-skills" id="rp-skills"></div>
+      <div id="rp-overall-wrap"></div>
+      <p class="rp-muted" id="rp-comment" style="margin-top:20px;white-space:pre-wrap"></p>
+    </div>
+    <p style="margin-top:16px"><a class="av-btn" href="javascript:history.back()">← Quay lại</a></p>
+  </div>
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2.107.0"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/admin-mock-report.js"></script>
+</body>
+</html>

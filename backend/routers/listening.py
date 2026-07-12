@@ -6023,6 +6023,19 @@ def _fetch_attempt_or_404(attempt_id: str, user_id: str) -> dict:
     return row
 
 
+async def _is_admin(authorization: str | None) -> bool:
+    """Soft admin check — returns bool, never raises (mirrors routers/health.py
+    and the analogous helper added to reading_student.py, 2026-07-12)."""
+    if not authorization:
+        return False
+    from routers.admin import require_admin
+    try:
+        await require_admin(authorization)
+        return True
+    except Exception:
+        return False
+
+
 def _mock_sealed(attempt: dict) -> bool:
     """True when this attempt belongs to a still-sealed 4-skill mock sitting.
 
@@ -6203,12 +6216,27 @@ async def get_listening_test_attempt_review(
     in listening_exercises.payload.solutions / .audio_windows by the import),
     the per-section transcripts, the band-conversion table, the section offsets,
     and a signed URL for the full premixed audio (so the review player can seek
-    each answer's window). Mirrors the reading review contract."""
+    each answer's window). Mirrors the reading review contract.
+
+    Admin bypass (2026-07-12): an admin may open ANY submitted attempt's
+    review — including a still-sealed 4-skill mock — so the mock-review
+    console can reuse this same rich view while deciding the band, before
+    releasing results. Everyone else keeps the existing ownership + seal
+    gate unchanged."""
     user = await _require_auth(authorization)
-    attempt = _fetch_attempt_or_404(attempt_id, user["id"])
+    is_admin = await _is_admin(authorization)
+    if is_admin:
+        res = supabase_admin.table("listening_test_attempts").select("*").eq(
+            "id", attempt_id,
+        ).limit(1).execute()
+        if not res.data:
+            raise HTTPException(404, "Attempt not found")
+        attempt = res.data[0]
+    else:
+        attempt = _fetch_attempt_or_404(attempt_id, user["id"])
     if attempt.get("status") != "submitted":
         raise HTTPException(409, "Chưa có chữa bài — attempt chưa submit.")
-    if _mock_sealed(attempt):
+    if not is_admin and _mock_sealed(attempt):
         raise HTTPException(
             403, "Kết quả đang chờ giám khảo duyệt — chưa thể xem chữa bài.")
 

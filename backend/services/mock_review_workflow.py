@@ -217,6 +217,7 @@ def save_final_bands(
     final_bands: dict,
     examiner_comment_vi: Optional[str] = None,
     per_skill_notes: Optional[dict] = None,
+    retest_flags: Optional[dict] = None,
 ) -> dict:
     """Persist the admin's 4 skill bands + computed overall. Status → 'reviewed'.
 
@@ -224,6 +225,11 @@ def save_final_bands(
     the client — same posture as writing overall bands. Required skills come from
     the exam config (Speaking optional for LRW-only exams). Auth: only the
     current claimant may save (filter inside the UPDATE).
+
+    retest_flags (2026-07-12, mig 152) is the admin's independent PASS/FAIL
+    judgment per skill — {skill: bool} — separate from the score. Only keys
+    for the sitting's required skills are kept; an unset/False flag means "no
+    retest needed" for that skill.
     """
     review = get_review(review_id)
     if not review:
@@ -248,6 +254,8 @@ def save_final_bands(
         update["examiner_comment_vi"] = examiner_comment_vi
     if per_skill_notes is not None:
         update["per_skill_notes"] = per_skill_notes
+    if retest_flags is not None:
+        update["retest_flags"] = {s: bool(retest_flags.get(s)) for s in skills if s in retest_flags}
 
     response = supabase_admin.table("mock_exam_reviews").update(update).eq(
         "id", str(review_id),
@@ -340,13 +348,110 @@ def get_review_for_sitting(sitting_id: UUID) -> Optional[dict]:
     return response.data[0] if response.data else None
 
 
-def get_queue(status_filter: Optional[Iterable[str]] = None) -> list[dict]:
+def resolve_display_names(user_ids: Iterable[str]) -> dict:
+    """user_id → display name, same fallback chain as pdf_generator.py
+    (display_name, else email, else '—'). Batched — one query for N ids."""
+    ids = {str(u) for u in user_ids if u}
+    if not ids:
+        return {}
+    res = supabase_admin.table("users").select("id, display_name, email").in_(
+        "id", list(ids),
+    ).execute()
+    return {
+        r["id"]: (r.get("display_name") or r.get("email") or "—")
+        for r in (res.data or [])
+    }
+
+
+def retest_summary(mock_exam_id: str) -> dict:
+    """Per-exam retest counts (2026-07-12, mig 152) — how many sittings an
+    admin flagged as needing a retest, broken out per skill, plus the roster
+    of flagged students. Sittings with no review yet or a review whose
+    retest_flags are all false/absent don't appear in `students`.
+
+    reviewed_sittings only counts reviews in status IN ('reviewed',
+    'released') — retest_flags/final_bands are only ever populated by
+    save_final_bands(), so a still-'queued'/'claimed' review must not be
+    counted as "đã duyệt" (it would otherwise misreport as a clean pass)."""
+    sittings = supabase_admin.table("mock_exam_sittings").select("id, user_id").eq(
+        "mock_exam_id", str(mock_exam_id),
+    ).neq("status", "void").execute().data or []
+    sitting_by_id = {s["id"]: s for s in sittings}
+    total = len(sittings)
+
+    reviews: list = []
+    if sitting_by_id:
+        reviews = supabase_admin.table("mock_exam_reviews").select(
+            "sitting_id, retest_flags",
+        ).in_("sitting_id", list(sitting_by_id.keys())).in_(
+            "status", ["reviewed", "released"],
+        ).execute().data or []
+
+    names = resolve_display_names(s.get("user_id") for s in sittings)
+
+    per_skill = {s: 0 for s in _SKILLS}
+    flagged_students = []
+    for r in reviews:
+        flags = r.get("retest_flags") or {}
+        active = [s for s in _SKILLS if flags.get(s)]
+        if not active:
+            continue
+        for s in active:
+            per_skill[s] += 1
+        sitting = sitting_by_id.get(r["sitting_id"]) or {}
+        flagged_students.append({
+            "sitting_id":   r["sitting_id"],
+            "student_name": names.get(sitting.get("user_id"), "—"),
+            "skills":       active,
+        })
+
+    return {
+        "mock_exam_id":       str(mock_exam_id),
+        "total_sittings":     total,
+        "reviewed_sittings":  len(reviews),
+        "needs_retest_count": len(flagged_students),
+        "per_skill":          per_skill,
+        "students":           flagged_students,
+    }
+
+
+def get_queue(
+    status_filter: Optional[Iterable[str]] = None,
+    mock_exam_id: Optional[str] = None,
+) -> list[dict]:
     """Active review queue (FIFO). Defaults to {queued, claimed, reviewed} so a
     sitting whose final bands are saved (reviewed) but not yet released stays
     visible for release — it must not vanish if the admin navigates away or the
-    release call fails."""
+    release call fails.
+
+    mock_exam_id scopes the queue to ONE exam's sittings — the console reviews
+    one exam at a time, never a cross-exam batch (2026-07-12). Each row is
+    enriched with student_name so the console shows who the sitting belongs
+    to instead of a raw sitting UUID."""
     statuses = list(status_filter) if status_filter else ["queued", "claimed", "reviewed"]
-    response = supabase_admin.table("mock_exam_reviews").select("*").in_(
-        "status", statuses,
-    ).order("created_at", desc=False).execute()
-    return response.data or []
+    q = supabase_admin.table("mock_exam_reviews").select("*").in_("status", statuses)
+
+    sitting_by_id: dict = {}
+    if mock_exam_id:
+        sittings = supabase_admin.table("mock_exam_sittings").select("id, user_id").eq(
+            "mock_exam_id", str(mock_exam_id),
+        ).execute().data or []
+        sitting_by_id = {s["id"]: s for s in sittings}
+        if not sitting_by_id:
+            return []
+        q = q.in_("sitting_id", list(sitting_by_id.keys()))
+
+    reviews = (q.order("created_at", desc=False).execute().data) or []
+
+    missing_ids = [r["sitting_id"] for r in reviews if r["sitting_id"] not in sitting_by_id]
+    if missing_ids:
+        extra = supabase_admin.table("mock_exam_sittings").select("id, user_id").in_(
+            "id", missing_ids,
+        ).execute().data or []
+        sitting_by_id.update({s["id"]: s for s in extra})
+
+    names = resolve_display_names(s.get("user_id") for s in sitting_by_id.values())
+    for r in reviews:
+        sitting = sitting_by_id.get(r["sitting_id"]) or {}
+        r["student_name"] = names.get(sitting.get("user_id"), "—")
+    return reviews

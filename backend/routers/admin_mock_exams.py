@@ -15,6 +15,7 @@ console lives in admin_mock_reviews.py.
   GET   /admin/mock-exams/reading-tests          — published reading tests for the
                                                     create-exam picker (a test may be
                                                     reused across several mock exams)
+  GET   /admin/mock-exams/{id}/retest-summary    — per-skill "cần test lại" counts
 """
 from __future__ import annotations
 
@@ -23,6 +24,7 @@ from pydantic import BaseModel, Field
 
 from routers.admin import require_admin
 from services import mock_exam_service as svc
+from services import mock_review_workflow as wf
 
 router = APIRouter(prefix="/admin/mock-exams", tags=["admin-mock-exams"])
 
@@ -153,6 +155,14 @@ async def section_progress(
 async def list_sittings(exam_id: str, authorization: str | None = Header(default=None)):
     await require_admin(authorization)
     return {"sittings": svc.admin_list_sittings(exam_id)}
+
+
+@router.get("/{exam_id}/retest-summary")
+async def retest_summary(exam_id: str, authorization: str | None = Header(default=None)):
+    """Per-skill "cần test lại" counts for this exam's class — how many
+    sittings an admin flagged, broken out per skill, plus the roster."""
+    await require_admin(authorization)
+    return wf.retest_summary(exam_id)
 
 
 @router.post("/sittings/{sitting_id}/void")

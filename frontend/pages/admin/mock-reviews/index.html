@@ -44,9 +44,17 @@
 <body class="av-page font-sans min-h-screen">
   <div class="mr-wrap">
     <h1 style="font-size:22px;font-weight:800;color:var(--av-text-primary);margin-bottom:4px;">Duyệt thi thử 4 kỹ năng</h1>
-    <p class="mr-muted" style="margin-bottom:18px;">Nhận (claim) → xem 4 kỹ năng → nhập band cuối → công bố.</p>
+    <p class="mr-muted" style="margin-bottom:8px;">Nhận (claim) → xem 4 kỹ năng → nhập band cuối → công bố.</p>
+    <p id="exam-header" style="font-weight:700;color:var(--av-text-primary);margin-bottom:18px;"></p>
+
+    <div id="no-exam-view" class="hidden">
+      <div class="mr-row" style="cursor:default">
+        <span>Chưa chọn đề. Vào <a href="/pages/admin/mock-exams/index.html">Quản lý Full Test</a> và bấm "Duyệt bài →" trên đề cần duyệt.</span>
+      </div>
+    </div>
 
     <div id="queue-view">
+      <div id="retest-summary" class="mr-card" style="border:1px solid var(--av-border-default);border-radius:10px;background:var(--av-surface-elevated);padding:14px;margin-bottom:14px;"></div>
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
         <button class="av-btn" id="refresh-btn">↻ Tải lại</button>
         <span class="mr-muted" id="queue-count"></span>

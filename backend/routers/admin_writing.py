@@ -311,6 +311,84 @@ async def create_essay(
     return {**info, "status": "queued"}
 
 
+class StartGradingRequest(BaseModel):
+    grading_tier: str = Field(default="standard", pattern=r"^(standard|instructor)$")
+    analysis_level: int = Field(default=3, ge=1, le=5)
+    selected_model: str = Field(
+        default="gemini-2.5-pro",
+        pattern=r"^(gemini-2\.5-pro|gemini-2\.5-flash|gemini-3\.5-flash)$",
+    )
+
+
+@router.post("/essays/{essay_id}/start-grading", status_code=status.HTTP_202_ACCEPTED)
+async def start_grading(
+    essay_id: str,
+    body: StartGradingRequest,
+    background_tasks: BackgroundTasks,
+    authorization: str | None = Header(None),
+):
+    """Admin picks a tier + triggers grading for an essay that was created
+    WITHOUT an auto-scheduled job — currently only mock-exam Writing
+    promotion (mock_exam_service._promote_writing_essays leaves the row
+    'pending' until an admin explicitly starts grading here, 2026-07-12).
+    Everything after this point (AI grades → 'graded' → admin reviews/edits
+    in grade.html → 'reviewed' → 'delivered') reuses the existing pipeline
+    unchanged — this endpoint only does the one missing step."""
+    await require_admin(authorization)
+
+    row = (
+        supabase_admin.table("writing_essays")
+        .select("id, status")
+        .eq("id", essay_id)
+        .is_("deleted_at", "null")
+        .limit(1)
+        .execute()
+    )
+    if not row.data:
+        raise HTTPException(404, "Essay không tồn tại.")
+    if row.data[0]["status"] != "pending":
+        raise HTTPException(
+            409,
+            f"Essay đang ở trạng thái {row.data[0]['status']!r} — chỉ chấm được essay 'pending'.",
+        )
+
+    # Atomic claim (same pattern as mock_review_workflow.claim()) — the
+    # pending→grading transition happens IN the guarded update itself, not
+    # after a separate read. Otherwise a double-click/retry racing between
+    # the check above and _bg_grade_essay's own (unconditional) status write
+    # could re-pass the 'pending' check and schedule a duplicate job.
+    claimed = (
+        supabase_admin.table("writing_essays")
+        .update({
+            "grading_tier":   body.grading_tier,
+            "analysis_level": body.analysis_level,
+            "selected_model": body.selected_model,
+            "status":         "grading",
+        })
+        .eq("id", essay_id)
+        .eq("status", "pending")
+        .execute()
+    )
+    if not claimed.data:
+        raise HTTPException(
+            409,
+            f"Essay đang ở trạng thái {row.data[0]['status']!r} — chỉ chấm được essay 'pending'.",
+        )
+
+    job_info = essay_service.schedule_grading_job(
+        essay_id=essay_id,
+        analysis_level=body.analysis_level,
+        selected_model=body.selected_model,
+        grading_tier=body.grading_tier,
+    )
+    background_tasks.add_task(
+        essay_service._bg_grade_essay,
+        essay_id,
+        job_info["job_id"],
+    )
+    return {"essay_id": essay_id, **job_info, "status": "queued"}
+
+
 @router.get("/essays")
 async def list_essays(
     status: Optional[str]      = Query(default=None, max_length=32),
