@@ -30,6 +30,7 @@ class FinalBandsBody(BaseModel):
     final_bands: dict                        # {listening, reading, writing, speaking}
     examiner_comment_vi: str | None = None
     per_skill_notes: dict | None = None
+    retest_flags: dict | None = None          # {listening, reading, writing, speaking}: bool
 
 
 class ReleaseBody(BaseModel):
@@ -51,11 +52,15 @@ def _raise_for(e: Exception):
 @router.get("")
 async def queue(
     status: str | None = Query(default=None),
+    mock_exam_id: str | None = Query(default=None),
     authorization: str | None = Header(default=None),
 ):
+    """Reviews are duyệt theo từng đề — mock_exam_id scopes the queue to one
+    exam's sittings. Omitting it still works (cross-exam, legacy) but the
+    console always passes it now."""
     await require_admin(authorization)
     statuses = [status] if status else None
-    return {"reviews": wf.get_queue(statuses)}
+    return {"reviews": wf.get_queue(statuses, mock_exam_id=mock_exam_id)}
 
 
 @router.get("/{review_id}")
@@ -64,9 +69,12 @@ async def get_review(review_id: str, authorization: str | None = Header(default=
     review = wf.get_review(review_id)
     if not review:
         raise HTTPException(404, "Review không tồn tại.")
+    sitting = svc.get_sitting(review["sitting_id"]) or {}
+    names = wf.resolve_display_names([sitting.get("user_id")])
+    sitting["student_name"] = names.get(sitting.get("user_id"), "—")
     return {
         "review": review,
-        "sitting": svc.get_sitting(review["sitting_id"]),
+        "sitting": sitting,
         "required_skills": wf.required_skills_for_sitting(review["sitting_id"]),
     }
 
@@ -100,6 +108,7 @@ async def save_final_bands(
             review_id, admin["id"], body.final_bands,
             examiner_comment_vi=body.examiner_comment_vi,
             per_skill_notes=body.per_skill_notes,
+            retest_flags=body.retest_flags,
         )
     except Exception as e:  # noqa: BLE001
         _raise_for(e)

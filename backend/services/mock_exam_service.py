@@ -470,6 +470,85 @@ def submit_writing(
     return resp.data[0] if resp.data else {**sitting, "writing_submission": submission}
 
 
+def _promote_writing_essays(sitting_id: str) -> None:
+    """Turn a submitted Writing section's raw JSON (writing_submission) into
+    real writing_essays rows — the SAME rows grade.html/queue.html already
+    manage — so the existing tier-pick → AI-grade → admin-review pipeline
+    (built for regular Writing) works for mock essays too, instead of a
+    separate bespoke display (2026-07-12).
+
+    Rows are created with status='pending' and NO grading job scheduled — an
+    admin explicitly starts grading later via POST
+    /admin/writing/essays/{id}/start-grading after picking a tier. Idempotent
+    (skips a task whose essay id is already stamped) and never raises — a
+    promotion failure must not block the section from being collected."""
+    try:
+        sitting = get_sitting(sitting_id)
+        if not sitting:
+            return
+        submission = sitting.get("writing_submission") or {}
+        if not submission:
+            return
+        exam = get_published_exam_by_id(sitting["mock_exam_id"]) or {}
+        student_res = supabase_admin.table("students").select("id").eq(
+            "user_id", str(sitting["user_id"]),
+        ).limit(1).execute()
+        if not student_res.data:
+            logger.warning(
+                "[mock-exam] promote-writing sitting=%s: no students row for user=%s",
+                sitting_id, sitting["user_id"],
+            )
+            return
+        student_id = student_res.data[0]["id"]
+
+        from services import essay_service
+        updates: dict = {}
+        for task_key, prompt_col, link_col in (
+            ("task1", "writing_task1_prompt_id", "essay_task1_id"),
+            ("task2", "writing_task2_prompt_id", "essay_task2_id"),
+        ):
+            if sitting.get(link_col):
+                continue  # already promoted
+            d = submission.get(task_key) or {}
+            text = (d.get("text") or "").strip()
+            if not text:
+                continue
+            prompt_id = exam.get(prompt_col)
+            if not prompt_id:
+                continue
+            prompt_res = supabase_admin.table("writing_prompts").select(
+                "task_type, prompt_text, title, prompt_image_url",
+            ).eq("id", str(prompt_id)).limit(1).execute()
+            if not prompt_res.data:
+                continue
+            prompt = prompt_res.data[0]
+            row_info = essay_service.create_essay_row_only(
+                data={
+                    "student_id":       student_id,
+                    "task_type":        prompt["task_type"],
+                    "prompt_text":      prompt["prompt_text"],
+                    "prompt_image_url": prompt.get("prompt_image_url"),
+                    "essay_text":       d["text"],
+                    "analysis_level":   3,
+                    "status":           "pending",
+                },
+                # Audit convention matches regular self-submit: the STUDENT's
+                # own user_id, not the reviewing admin.
+                admin_id=str(sitting["user_id"]),
+            )
+            updates[link_col] = row_info["essay_id"]
+
+        if updates:
+            supabase_admin.table("mock_exam_sittings").update(updates).eq(
+                "id", str(sitting_id),
+            ).execute()
+            logger.info(
+                "[mock-exam] sitting=%s promoted writing essays: %s", sitting_id, updates,
+            )
+    except Exception:  # noqa: BLE001
+        logger.exception("[mock-exam] promote-writing failed sitting=%s", sitting_id)
+
+
 def submit_section(
     sitting_id: str, user_id: str, section: str,
     task1_text: str = "", task2_text: str = "",
@@ -537,6 +616,8 @@ def submit_section(
         "id", str(sitting_id),
     ).execute()
     sitting = {**sitting, col: now}
+    if section == "writing":
+        _promote_writing_essays(sitting_id)
     logger.info("[mock-exam] sitting=%s section=%s collected", sitting_id, section)
 
     exam = get_published_exam_by_id(sitting["mock_exam_id"]) or {}
@@ -927,6 +1008,8 @@ def _force_collect_section(exam_id: str, section: str) -> None:
                     grade_fn = (_grade_and_finalize_listening if section == "listening"
                                 else _grade_and_finalize_reading)
                     grade_fn(str(attempt_id))
+            elif section == "writing":
+                _promote_writing_essays(str(row["id"]))
             logger.info(
                 "[mock-exam] sitting=%s section=%s force-collected (straggler)",
                 row["id"], section,

@@ -114,3 +114,25 @@ def test_review_merges_solution_translation_and_by_part():
 
 def test_review_requires_auth():
     assert _client().get("/api/reading/test/attempts/a-uuid/review").status_code == 401
+
+
+def test_review_admin_bypasses_ownership_and_seal():
+    """2026-07-12: an admin may open ANOTHER user's submitted attempt, even a
+    still-sealed 4-skill mock — the mock-review console reuses this endpoint
+    while deciding the band, before the sitting is released."""
+    sealed_attempt = dict(_SUBMITTED_ATTEMPT, sitting_id="sit-1")
+    db = _db({
+        "reading_test_attempts": [sealed_attempt],
+        "reading_tests":         [_TEST_ROW],
+        "reading_passages":      _PASSAGES,
+        "reading_questions":     _QUESTIONS,
+        "users":                 [{"id": _OTHER["id"], "role": "admin"}],
+    })
+    with patch("routers.reading_student.get_supabase_user", new=AsyncMock(return_value=_OTHER)), \
+         patch("routers.admin.get_supabase_user", new=AsyncMock(return_value=_OTHER)), \
+         patch("routers.admin.supabase_admin", db), \
+         patch("routers.reading_student.supabase_admin", db), \
+         patch("services.mock_exam_service.is_sealed", return_value=True):
+        r = _client().get("/api/reading/test/attempts/a-uuid/review", headers=_AUTH)
+    assert r.status_code == 200
+    assert r.json()["score"] == 1

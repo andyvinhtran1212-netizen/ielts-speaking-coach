@@ -178,6 +178,10 @@ def fake_db(monkeypatch):
     fake = FakeSupabase()
     monkeypatch.setattr("services.mock_exam_service.supabase_admin", fake)
     monkeypatch.setattr("services.mock_review_workflow.supabase_admin", fake)
+    # _promote_writing_essays calls into essay_service.create_essay_row_only,
+    # which reads/writes through essay_service's OWN supabase_admin binding —
+    # share the same fake so promoted essays land in the same in-memory DB.
+    monkeypatch.setattr("services.essay_service.supabase_admin", fake)
     return fake
 
 
@@ -1028,6 +1032,173 @@ def test_reading_writing_only_review_needs_no_listening_band(fake_db, svc, wf):
     assert saved["final_bands"]["overall"] == 5.5   # mean(6,5)
     assert "listening" not in saved["final_bands"]
     assert "speaking" not in saved["final_bands"]
+
+
+def test_save_final_bands_persists_retest_flags(fake_db, svc, wf):
+    """mig 152 (2026-07-12): retest_flags is an independent pass/fail judgment
+    saved alongside final_bands, restricted to the sitting's required skills."""
+    exam = _seed_exam(fake_db, speaking=True)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    _run_lrw(svc, fake_db, exam, s["id"], u)
+    _do_speaking(svc, fake_db, s["id"], u)
+    review = wf.get_review_for_sitting(s["id"])
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    saved = wf.save_final_bands(
+        review["id"], admin,
+        {"listening": 5.0, "reading": 5.5, "writing": 4.0, "speaking": 6.0},
+        retest_flags={"writing": True, "listening": False, "unknown_skill": True},
+    )
+    # unknown_skill dropped — only keys for required skills survive
+    assert saved["retest_flags"] == {"writing": True, "listening": False}
+
+
+def test_retest_summary_counts_per_skill_and_lists_students(fake_db, svc, wf):
+    """Two sittings SHARE one exam's clock (advance_section is a single admin
+    action for the whole class) — mirrors test_admin_section_progress_counts'
+    two-sitting-one-exam pattern, not _run_lrw (built for a solo sitting)."""
+    exam = _seed_exam(fake_db, speaking=True)
+    admin_id = str(uuid4())
+    u1, u2 = uuid4(), uuid4()
+    fake_db.seed("users", {"id": str(u1), "display_name": "Học viên A", "email": "a@x.com"})
+    fake_db.seed("users", {"id": str(u2), "display_name": "Học viên B", "email": "b@x.com"})
+    s1 = svc.create_sitting(u1, "MOCK-TEST-A")
+    s2 = svc.create_sitting(u2, "MOCK-TEST-A")
+
+    for section in svc._configured_sections(exam):
+        svc.advance_section(exam["id"], admin_id)
+        _expire_section(fake_db, exam["id"], section)
+        for sid, u in ((s1["id"], u1), (s2["id"], u2)):
+            if section == "writing":
+                svc.submit_section(sid, u, "writing", "essay a", "essay b")
+            else:
+                _attach_domain_submitted(svc, fake_db, exam, sid, u, section)
+                svc.submit_section(sid, u, section)
+    _do_speaking(svc, fake_db, s1["id"], u1)
+    _do_speaking(svc, fake_db, s2["id"], u2)
+
+    r1 = wf.get_review_for_sitting(s1["id"])
+    r2 = wf.get_review_for_sitting(s2["id"])
+    admin = uuid4()
+    wf.claim(r1["id"], admin)
+    wf.save_final_bands(
+        r1["id"], admin,
+        {"listening": 5.0, "reading": 5.0, "writing": 4.0, "speaking": 5.0},
+        retest_flags={"writing": True},
+    )
+    wf.claim(r2["id"], admin)
+    wf.save_final_bands(
+        r2["id"], admin,
+        {"listening": 7.0, "reading": 7.0, "writing": 6.5, "speaking": 7.0},
+        retest_flags={"writing": False},   # no retest — clean pass
+    )
+
+    summary = wf.retest_summary(exam["id"])
+    assert summary["total_sittings"] == 2
+    assert summary["reviewed_sittings"] == 2
+    assert summary["needs_retest_count"] == 1
+    assert summary["per_skill"]["writing"] == 1
+    assert summary["per_skill"]["listening"] == 0
+    assert summary["students"] == [
+        {"sitting_id": s1["id"], "student_name": "Học viên A", "skills": ["writing"]},
+    ]
+
+
+def test_get_queue_scoped_to_one_exam_with_student_name(fake_db, svc, wf):
+    """Codex-adjacent (2026-07-12): duyệt theo từng đề, not a cross-exam batch —
+    mock_exam_id scopes the queue, and each row carries a resolved
+    student_name (display_name, falling back to email) instead of a bare
+    user_id."""
+    exam_a = _seed_exam(fake_db, speaking=True)
+    exam_b = _seed_exam(fake_db, speaking=True)
+    exam_b["code"] = "MOCK-TEST-B"
+
+    u_a = uuid4()
+    fake_db.seed("users", {"id": str(u_a), "display_name": "Nguyen Van A", "email": "a@x.com"})
+    s_a = svc.create_sitting(u_a, "MOCK-TEST-A")
+    _run_lrw(svc, fake_db, exam_a, s_a["id"], u_a)
+    _do_speaking(svc, fake_db, s_a["id"], u_a)
+
+    u_b = uuid4()
+    fake_db.seed("users", {"id": str(u_b), "display_name": None, "email": "b@x.com"})
+    s_b = svc.create_sitting(u_b, "MOCK-TEST-B")
+    _run_lrw(svc, fake_db, exam_b, s_b["id"], u_b)
+    _do_speaking(svc, fake_db, s_b["id"], u_b)
+
+    queue_a = wf.get_queue(mock_exam_id=exam_a["id"])
+    assert len(queue_a) == 1
+    assert queue_a[0]["sitting_id"] == s_a["id"]
+    assert queue_a[0]["student_name"] == "Nguyen Van A"
+
+    queue_b = wf.get_queue(mock_exam_id=exam_b["id"])
+    assert len(queue_b) == 1
+    assert queue_b[0]["sitting_id"] == s_b["id"]
+    assert queue_b[0]["student_name"] == "b@x.com"  # no display_name → falls back to email
+
+
+def test_promote_writing_essays_creates_pending_rows(fake_db, svc):
+    """P1.1 (2026-07-12): a submitted Writing section's raw JSON becomes real
+    writing_essays rows (status='pending', no job scheduled) — the same rows
+    grade.html/queue.html already manage, instead of a bespoke JSON display."""
+    exam = _seed_exam(fake_db, speaking=False)
+    prompt1, prompt2 = str(uuid4()), str(uuid4())
+    exam["writing_task1_prompt_id"] = prompt1
+    exam["writing_task2_prompt_id"] = prompt2
+    fake_db.seed("writing_prompts", {"id": prompt1, "task_type": "task1_academic",
+                                     "prompt_text": "Describe the chart.", "title": "T1",
+                                     "prompt_image_url": "https://img/x.png"})
+    fake_db.seed("writing_prompts", {"id": prompt2, "task_type": "task2",
+                                     "prompt_text": "Discuss both views.", "title": "T2"})
+    u = uuid4()
+    student_id = str(uuid4())
+    fake_db.seed("students", {"id": student_id, "user_id": str(u)})
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    _run_lrw(svc, fake_db, exam, s["id"], u)
+
+    sitting = svc.get_sitting(s["id"])
+    essays = fake_db.rows("writing_essays")
+    assert len(essays) == 2
+    assert {e["status"] for e in essays} == {"pending"}
+    essay_ids = {e["id"] for e in essays}
+    assert sitting["essay_task1_id"] in essay_ids
+    assert sitting["essay_task2_id"] in essay_ids
+    t1 = next(e for e in essays if e["id"] == sitting["essay_task1_id"])
+    assert t1["task_type"] == "task1_academic"
+    assert t1["student_id"] == student_id
+    assert t1["prompt_text"] == "Describe the chart."
+    assert not fake_db.rows("writing_jobs")   # no job auto-scheduled
+
+    # idempotent — re-running (e.g. a stray force-collect) must not duplicate
+    svc._promote_writing_essays(s["id"])
+    assert len(fake_db.rows("writing_essays")) == 2
+
+
+def test_promote_writing_essays_skips_empty_task(fake_db, svc):
+    """An empty essay text must not create a writing_essays row for that task."""
+    exam = _seed_exam(fake_db, speaking=False)
+    prompt1 = str(uuid4())
+    exam["writing_task1_prompt_id"] = prompt1
+    exam["writing_task2_prompt_id"] = None
+    fake_db.seed("writing_prompts", {"id": prompt1, "task_type": "task1_academic",
+                                     "prompt_text": "Describe the chart.", "title": "T1"})
+    u = uuid4()
+    fake_db.seed("students", {"id": str(uuid4()), "user_id": str(u)})
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    admin = str(uuid4())
+    for section in svc._configured_sections(exam):
+        svc.advance_section(exam["id"], admin)
+        _expire_section(fake_db, exam["id"], section)
+        if section == "writing":
+            svc.submit_section(s["id"], u, "writing", "", "")   # both blank
+        else:
+            _attach_domain_submitted(svc, fake_db, exam, s["id"], u, section)
+            svc.submit_section(s["id"], u, section)
+
+    assert fake_db.rows("writing_essays") == []
+    sitting = svc.get_sitting(s["id"])
+    assert sitting.get("essay_task1_id") is None
+    assert sitting.get("essay_task2_id") is None
 
 
 def test_compute_overall_pure():

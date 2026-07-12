@@ -116,6 +116,31 @@ def test_review_409_when_not_submitted(monkeypatch):
     assert e.value.status_code == 409
 
 
+def test_review_admin_bypasses_ownership(monkeypatch):
+    """2026-07-12: an admin may open ANOTHER user's (U1's) submitted attempt —
+    the mock-review console reuses this endpoint while deciding the band."""
+    async def _caller(_a): return {"id": "ADMIN1", "email": "admin@x"}
+    async def _admin_true(_a): return True
+    monkeypatch.setattr(L, "_require_auth", _caller)
+    monkeypatch.setattr(L, "_is_admin", _admin_true)
+    monkeypatch.setattr(L, "supabase_admin", _DB(_ATTEMPT_SUBMITTED))
+    out = _run(L.get_listening_test_attempt_review("att-1", authorization="x"))
+    assert out["score"] == 32
+
+
+def test_review_admin_bypasses_seal(monkeypatch):
+    """2026-07-12: an admin may open a still-sealed 4-skill mock attempt —
+    everyone else stays blocked by _mock_sealed until the sitting releases."""
+    async def _caller(_a): return {"id": "ADMIN1", "email": "admin@x"}
+    async def _admin_true(_a): return True
+    monkeypatch.setattr(L, "_require_auth", _caller)
+    monkeypatch.setattr(L, "_is_admin", _admin_true)
+    monkeypatch.setattr(L, "_mock_sealed", lambda attempt: True)
+    monkeypatch.setattr(L, "supabase_admin", _DB(_ATTEMPT_SUBMITTED))
+    out = _run(L.get_listening_test_attempt_review("att-1", authorization="x"))
+    assert out["score"] == 32
+
+
 # ── Mini-test replay rebase (audio_window absolute → section-relative) ─────────
 # A mini's premixed audio is its SINGLE section alone (mp3 starts ~0), but the
 # stored window is full-test-absolute (= section-relative + section_offset).

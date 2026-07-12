@@ -124,7 +124,7 @@
         (ex.status === 'draft' ? '<button class="av-btn" data-act="publish">Publish</button>' : '') +
         '<button class="av-btn ' + (ex.is_open ? '' : 'av-btn--primary') + '" data-act="toggle">' + (ex.is_open ? 'Đóng kỳ' : 'Mở kỳ (live)') + '</button>' +
         (canAdvance ? '<button class="av-btn av-btn--primary" data-act="advance">Mở phần tiếp theo →</button>' : '') +
-        '<a class="av-btn" href="/pages/admin/mock-reviews/index.html">Duyệt bài →</a>' +
+        '<a class="av-btn" href="/pages/admin/mock-reviews/index.html?mock_exam_id=' + encodeURIComponent(ex.id) + '">Duyệt bài →</a>' +
       '</div>';
     var pub = card.querySelector('[data-act="publish"]');
     if (pub) pub.addEventListener('click', function () { publish(ex.id); });

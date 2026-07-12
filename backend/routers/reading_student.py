@@ -77,6 +77,21 @@ async def _optional_auth(authorization: str | None) -> Optional[dict]:
         return None
 
 
+async def _is_admin(authorization: str | None) -> bool:
+    """Soft admin check — returns bool, never raises (mirrors routers/health.py).
+    Lets the mock-review console reach a sealed/other-user attempt's rich
+    review without touching _fetch_attempt_owned's ownership contract for
+    every other (write-path) caller."""
+    if not authorization:
+        return False
+    from routers.admin import require_admin
+    try:
+        await require_admin(authorization)
+        return True
+    except Exception:
+        return False
+
+
 def _gen_anon_id() -> str:
     """An unguessable capability token that OWNS an anonymous attempt (sent back
     on submit/review). Secret + random — never sequential/guessable."""
@@ -1210,9 +1225,25 @@ async def review_reading_test_attempt(
     Security boundary (reading-rich Part A): the solution is stripped from the
     DURING-test fetch; this endpoint is the only place it surfaces, and it
     HARD-gates on status == 'submitted' (409 otherwise) so an in-progress or
-    abandoned attempt can never leak the answers."""
+    abandoned attempt can never leak the answers.
+
+    Admin bypass (2026-07-12): an admin may open ANY submitted attempt's
+    review — including a still-sealed 4-skill mock — so the mock-review
+    console can show the same rich chữa-bài while the admin is deciding the
+    band, before they release results. Ownership + the seal gate still apply
+    to everyone else (the student can't see it early just by being an admin
+    of a DIFFERENT sitting)."""
     user = await _optional_auth(authorization)
-    attempt = _fetch_attempt_owned(attempt_id, user, x_reading_anon)
+    is_admin = await _is_admin(authorization)
+    if is_admin:
+        res = supabase_admin.table("reading_test_attempts").select("*").eq(
+            "id", attempt_id,
+        ).limit(1).execute()
+        if not res.data:
+            raise HTTPException(404, "Attempt not found")
+        attempt = res.data[0]
+    else:
+        attempt = _fetch_attempt_owned(attempt_id, user, x_reading_anon)
     if attempt.get("status") != "submitted":
         raise HTTPException(409, "Chưa có chữa bài — attempt chưa submit.")
 
@@ -1220,7 +1251,7 @@ async def review_reading_test_attempt(
     # it stays 403 until an admin releases the sitting. Server-side gate — the
     # during-test fetch already strips the key; this is the other leak path.
     sitting_id = attempt.get("sitting_id")
-    if sitting_id:
+    if sitting_id and not is_admin:
         from services import mock_exam_service
         if mock_exam_service.is_sealed(sitting_id):
             raise HTTPException(
