@@ -27,6 +27,7 @@ from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from routers.auth import get_supabase_user
+from services import essay_service
 from services import mock_exam_service as svc
 from services import mock_review_workflow as review_wf
 
@@ -170,6 +171,13 @@ async def get_result(
     review = review_wf.get_review_for_sitting(sitting_id)
     if not review:
         raise HTTPException(404, "Chưa có hồ sơ kết quả.")
+
+    # Only surface a Writing-feedback link for an essay that was actually
+    # DELIVERED — release leaves a still-'graded' essay untouched, and
+    # writing-result.html only shows feedback for 'delivered', so an
+    # undelivered id would be a dead-end link (2026-07-12).
+    e1, e2 = sitting.get("essay_task1_id"), sitting.get("essay_task2_id")
+    delivered = essay_service.delivered_essay_ids([e1, e2])
     return {
         "sitting_id":           sitting_id,
         "final_bands":          review.get("final_bands") or {},
@@ -182,6 +190,6 @@ async def get_result(
         # the review / my-essays endpoints themselves enforce (2026-07-12).
         "listening_attempt_id": sitting.get("listening_attempt_id"),
         "reading_attempt_id":   sitting.get("reading_attempt_id"),
-        "essay_task1_id":       sitting.get("essay_task1_id"),
-        "essay_task2_id":       sitting.get("essay_task2_id"),
+        "essay_task1_id":       e1 if str(e1) in delivered else None,
+        "essay_task2_id":       e2 if str(e2) in delivered else None,
     }
