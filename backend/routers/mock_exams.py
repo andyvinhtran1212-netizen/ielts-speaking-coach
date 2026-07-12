@@ -1,20 +1,25 @@
 """routers/mock_exams.py — 4-skill mock exam, student-facing (Phase 1).
 
 Auth: get_supabase_user (Bearer JWT). This router only ORCHESTRATES the sitting
-(create, section start, attach domain attempts, submit). The actual per-skill
+(create, attach domain attempts, submit each section). The actual per-skill
 work goes through the existing reading / listening / writing / speaking
 endpoints — those persist canonically and (when attempt.sitting_id is set + the
 sitting is sealed) withhold scores server-side.
 
+SEQUENTIAL model: the three seated sections open ONE AT A TIME, admin-gated
+(see services/mock_exam_service.py docstring). There is no per-student "start"
+— a section opens for everyone under the exam the moment the admin advances to
+it (POST /admin/mock-exams/{id}/advance), and the client picks that up on its
+next GET /sittings/{id} poll.
+
 Namespace note: distinct from /api/exams (the MCQ module). Prefix /api/mock-exams.
 
-  POST /api/mock-exams/{code}/sittings              — open/resume a sitting
-  GET  /api/mock-exams/sittings/{id}                — sitting state + time left
-  POST /api/mock-exams/sittings/{id}/sections/{section}/start
-  POST /api/mock-exams/sittings/{id}/attach         — bind a domain attempt
-  POST /api/mock-exams/sittings/{id}/submit-lrw     — finalise the seated mạch
-  POST /api/mock-exams/sittings/{id}/speaking       — attach speaking sessions
-  GET  /api/mock-exams/sittings/{id}/result         — 403 until released, then TRF
+  POST /api/mock-exams/{code}/sittings                    — open/resume a sitting
+  GET  /api/mock-exams/sittings/{id}                       — sitting + exam state, time left
+  POST /api/mock-exams/sittings/{id}/attach                — bind a domain attempt
+  POST /api/mock-exams/sittings/{id}/sections/{section}/submit — collect one section
+  POST /api/mock-exams/sittings/{id}/speaking               — attach speaking sessions
+  GET  /api/mock-exams/sittings/{id}/result                 — 403 until released, then TRF
 """
 from __future__ import annotations
 
@@ -53,6 +58,11 @@ class WritingBody(BaseModel):
     task2_text: str = ""
 
 
+class SectionSubmitBody(BaseModel):
+    task1_text: str = ""
+    task2_text: str = ""
+
+
 @router.get("")
 async def list_open(authorization: str | None = Header(default=None)):
     """Open exams the student can start (published + is_open + cohort-eligible)."""
@@ -80,24 +90,14 @@ async def get_sitting_state(
     if str(sitting.get("user_id")) != str(user["id"]):
         raise HTTPException(403, "Sitting không thuộc về bạn.")
     exam = svc.get_published_exam_by_id(sitting["mock_exam_id"])
-    time_left = svc.lrw_time_remaining_seconds(sitting, exam) if exam else None
+    active = (exam or {}).get("active_section") or "not_started"
+    time_left = svc.section_time_remaining_seconds(exam, active) if exam else None
     return {
         "sitting": sitting,
         "exam": svc.get_exam_content_for_sitting(sitting),
-        "lrw_time_left_seconds": time_left,
+        "active_section": active,
+        "section_time_left_seconds": time_left,
     }
-
-
-@router.post("/sittings/{sitting_id}/start")
-async def start_lrw(
-    sitting_id: str, authorization: str | None = Header(default=None),
-):
-    """Open the whole LRW block (all 3 sections, one timer)."""
-    user = await get_supabase_user(authorization)
-    try:
-        return svc.start_lrw(sitting_id, user["id"])
-    except Exception as e:  # noqa: BLE001
-        _raise_for(e)
 
 
 @router.post("/sittings/{sitting_id}/attach")
@@ -124,13 +124,19 @@ async def submit_writing(
         _raise_for(e)
 
 
-@router.post("/sittings/{sitting_id}/submit-lrw")
-async def submit_lrw(
-    sitting_id: str, authorization: str | None = Header(default=None),
+@router.post("/sittings/{sitting_id}/sections/{section}/submit")
+async def submit_section(
+    sitting_id: str, section: str, body: SectionSubmitBody,
+    authorization: str | None = Header(default=None),
 ):
+    """Collect ONE section (listening/reading/writing). No early manual
+    submit exists client-side — this fires when that section's shared clock
+    hits 0. Finalises the sitting once every configured section is in."""
     user = await get_supabase_user(authorization)
     try:
-        return svc.submit_lrw(sitting_id, user["id"])
+        return svc.submit_section(
+            sitting_id, user["id"], section, body.task1_text, body.task2_text,
+        )
     except Exception as e:  # noqa: BLE001
         _raise_for(e)
 

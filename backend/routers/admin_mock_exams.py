@@ -1,11 +1,15 @@
 """routers/admin_mock_exams.py — admin CRUD for 4-skill mock exams (Phase 1).
 
-Admin-gated (require_admin). Manages the exam DEFINITION and the per-exam
-sitting roster (list + void). The review console lives in admin_mock_reviews.py.
+Admin-gated (require_admin). Manages the exam DEFINITION, the SEQUENTIAL
+section gate, and the per-exam sitting roster (list + void). The review
+console lives in admin_mock_reviews.py.
 
   GET   /admin/mock-exams                       — all exams (incl. drafts)
   POST  /admin/mock-exams                        — create an exam definition
   PATCH /admin/mock-exams/{id}                   — edit / publish / archive
+  POST  /admin/mock-exams/{id}/open              — live open/close toggle
+  POST  /admin/mock-exams/{id}/advance           — open the NEXT seated section
+  GET   /admin/mock-exams/{id}/section-progress  — active section + submitted/total
   GET   /admin/mock-exams/{id}/sittings          — sitting roster for an exam
   POST  /admin/mock-exams/sittings/{id}/void     — void a sitting (retake/tech)
 """
@@ -29,6 +33,8 @@ class ExamCreate(BaseModel):
     writing_task2_prompt_id: str | None = None
     speaking_topic_set: dict = Field(default_factory=dict)
     total_minutes: int | None = None
+    reading_minutes: int | None = None
+    writing_minutes: int | None = None
     open_from: str | None = None
     open_until: str | None = None
     cohort_id: str | None = None
@@ -43,6 +49,8 @@ class ExamPatch(BaseModel):
     writing_task2_prompt_id: str | None = None
     speaking_topic_set: dict | None = None
     total_minutes: int | None = None
+    reading_minutes: int | None = None
+    writing_minutes: int | None = None
     open_from: str | None = None
     open_until: str | None = None
     cohort_id: str | None = None
@@ -97,6 +105,34 @@ async def set_open(
     admin = await require_admin(authorization)
     try:
         return svc.set_open(exam_id, body.is_open, admin["id"])
+    except svc.NotFoundError as e:
+        raise HTTPException(404, str(e))
+
+
+@router.post("/{exam_id}/advance")
+async def advance_section(
+    exam_id: str, authorization: str | None = Header(default=None),
+):
+    """Open the NEXT seated section for every sitting under this exam —
+    not_started → listening → reading → writing → done. Force-collects any
+    straggler who hasn't submitted the section being closed."""
+    admin = await require_admin(authorization)
+    try:
+        return svc.advance_section(exam_id, admin["id"])
+    except svc.NotFoundError as e:
+        raise HTTPException(404, str(e))
+    except svc.SittingConflictError as e:
+        raise HTTPException(409, str(e))
+
+
+@router.get("/{exam_id}/section-progress")
+async def section_progress(
+    exam_id: str, authorization: str | None = Header(default=None),
+):
+    """Live "đã nộp X/Y" counts per section — informs when to advance."""
+    await require_admin(authorization)
+    try:
+        return svc.admin_section_progress(exam_id)
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
 

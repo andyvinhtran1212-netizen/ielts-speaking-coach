@@ -1,22 +1,28 @@
 /*
- * mock-exam-runner.js — 4-skill mock orchestrator (student, all-at-once model).
+ * mock-exam-runner.js — 4-skill mock orchestrator (student, SEQUENTIAL model).
  *
- * The 3 seated sections open TOGETHER under one total timer. Reading + Listening
- * are the existing runner pages embedded as iframes in `mock_embed` mode (they
- * auto-start their attempt, autosave answers, and hide their own timer/submit —
- * see mock-exam-hook.js). Writing is a native 2-tab step. On "Nộp toàn bộ" (or
- * when the timer hits 0) the parent submits each section's attempt directly
- * (empty body → the autosaved answers are graded, sealed) then finalises.
+ * The three seated sections open ONE AT A TIME, gated by the admin — there is
+ * no per-student "Start" button. The client polls the sitting endpoint; when
+ * the exam's active_section changes it shows that section (Reading/Listening
+ * as an iframe, Writing as native textareas) under a countdown computed from
+ * the SHARED server clock. There is no early manual submit — the section
+ * auto-submits when its own clock hits 0. Between sections the student sees a
+ * waiting room until the admin opens the next one.
  *
  * Server timestamps are authoritative; the client timer is display-only and is
- * re-anchored from the server on every load.
+ * re-anchored from the server on every poll.
  */
 (function () {
   'use strict';
   initSupabase('https://huwsmtubwulikhlmcirx.supabase.co', 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao');
 
-  var S = { code: null, sittingId: null, sitting: null, exam: null, timeLeft: null };
+  var POLL_MS = 8000;
+  var WARN_SECONDS = 120;
+
+  var S = { code: null, sittingId: null, sitting: null, exam: null,
+            activeSection: null, timeLeft: null, remaining: 0, renderedSection: null };
   var timerIv = null;
+  var pollIv = null;
   var _submitting = false;
 
   function el(id) { return document.getElementById(id); }
@@ -25,12 +31,25 @@
   function api(method, path, body) { return method === 'get' ? window.api.get(path) : window.api.post(path, body || {}); }
 
   function showState(name) {
-    ['loading', 'error', 'prep', 'submitted'].forEach(function (s) {
+    ['loading', 'error', 'waiting', 'submitted'].forEach(function (s) {
       var e = el('state-' + s); if (e) e.classList.toggle('hidden', s !== name);
     });
     el('state-test').classList.toggle('on', name === 'test');
   }
-  function fail(msg) { el('state-error').querySelector('div').textContent = msg; showState('error'); }
+  function fail(msg) {
+    stopPolling();
+    if (timerIv) { clearInterval(timerIv); timerIv = null; }
+    el('state-error').querySelector('div').textContent = msg;
+    showState('error');
+  }
+
+  function configuredSections() {
+    var out = [];
+    if (S.exam.listening_test_id) out.push('listening');
+    if (S.exam.reading_test_code) out.push('reading');
+    out.push('writing');
+    return out;
+  }
 
   // ── Boot ───────────────────────────────────────────────────────────
   async function boot() {
@@ -48,54 +67,91 @@
     } catch (e) { fail('Không mở được kỳ thi: ' + (e && e.message ? e.message : e)); }
   }
 
-  async function loadState() {
+  async function loadState(isPoll) {
     var st = await api('get', '/api/mock-exams/sittings/' + encodeURIComponent(S.sittingId));
-    S.sitting = st.sitting; S.exam = st.exam || {}; S.timeLeft = st.lrw_time_left_seconds;
-    route();
+    S.sitting = st.sitting; S.exam = st.exam || {};
+    S.activeSection = st.active_section || 'not_started';
+    S.timeLeft = st.section_time_left_seconds;
+    route(isPoll);
   }
 
+  function startPolling() {
+    if (pollIv) return;
+    pollIv = setInterval(function () { loadState(true).catch(function () {}); }, POLL_MS);
+  }
+  function stopPolling() { if (pollIv) { clearInterval(pollIv); pollIv = null; } }
+
+  // ── Routing ────────────────────────────────────────────────────────
   function route() {
     var s = S.sitting.status;
-    if (s === 'released') { location.href = '/pages/mock-result.html?sitting=' + encodeURIComponent(S.sittingId); return; }
+    if (s === 'released') { stopPolling(); location.href = '/pages/mock-result.html?sitting=' + encodeURIComponent(S.sittingId); return; }
     if (s === 'void') return fail('Kỳ thi đã bị huỷ. Liên hệ giám khảo để được cấp lượt mới.');
-    if (s === 'registered') return renderPrep();
-    if (s === 'lrw_in_progress') return renderTest();
-    return renderSubmitted();   // lrw_submitted / speaking_pending / all_submitted / under_review / reviewed
+    if (s !== 'registered' && s !== 'lrw_in_progress') { stopPolling(); return renderSubmitted(); }
+
+    var configured = configuredSections();
+    var active = S.activeSection;
+    var isOpenSection = active && configured.indexOf(active) !== -1 && !S.sitting[active + '_submitted_at'];
+
+    if (!isOpenSection) {
+      S.renderedSection = null;
+      if (timerIv) { clearInterval(timerIv); timerIv = null; }
+      return renderWaiting();
+    }
+    if (S.renderedSection === active) {
+      // Already showing this section — resync the countdown only, never touch
+      // the iframe/src (that would reload it and lose in-progress answers).
+      S.remaining = (S.timeLeft != null) ? S.timeLeft : S.remaining;
+      return;
+    }
+    S.renderedSection = active;
+    renderSection(active);
   }
 
-  // ── Prep ───────────────────────────────────────────────────────────
-  function renderPrep() {
-    el('prep-title').textContent = 'Thi thử: ' + (S.exam.reading_title || S.code || 'IELTS');
-    el('prep-total').textContent = 'Tổng thời gian cho cả 3 phần: ' + (S.exam.total_minutes || 150) + ' phút.';
-    el('prep-start').onclick = async function () {
-      el('prep-start').disabled = true;
-      try { await api('post', '/api/mock-exams/sittings/' + S.sittingId + '/start'); await loadState(); }
-      catch (e) { el('prep-start').disabled = false; fail('Không bắt đầu được: ' + (e && e.message)); }
-    };
-    showState('prep');
+  // ── Waiting room ───────────────────────────────────────────────────
+  var _SECTION_LABEL = { listening: '🎧 Listening', reading: '📖 Reading', writing: '✍️ Writing' };
+
+  function renderWaiting() {
+    el('waiting-title').textContent = 'Thi thử: ' + (S.exam.reading_title || S.code || 'IELTS');
+    var configured = configuredSections();
+    el('waiting-msg').textContent = (S.activeSection === 'not_started')
+      ? 'Đang chờ giám thị bắt đầu bài thi…'
+      : 'Đã nộp phần trước — đang chờ giám thị mở phần tiếp theo…';
+    el('waiting-checklist').innerHTML = configured.map(function (s) {
+      var done = !!S.sitting[s + '_submitted_at'];
+      return '<span class="me-check-pill' + (done ? ' done' : '') + '">' + esc(_SECTION_LABEL[s]) + (done ? ' ✓' : '') + '</span>';
+    }).join('');
+    startPolling();
+    showState('waiting');
   }
 
-  // ── Test (3 tabs, one timer) ───────────────────────────────────────
+  // ── Test (ONE section at a time) ──────────────────────────────────
   function lsKey(t) { return 'mock-writing:' + S.sittingId + ':' + t; }
 
-  function renderTest() {
-    var sections = [];
-    if (S.exam.listening_test_id) sections.push({ key: 'listening', label: '🎧 Listening' });
-    if (S.exam.reading_test_code) sections.push({ key: 'reading', label: '📖 Reading' });
-    sections.push({ key: 'writing', label: '✍️ Writing' });
+  function renderSection(section) {
+    el('section-label').textContent = _SECTION_LABEL[section] || section;
+    el('timer').classList.remove('warn');
+    el('warn-banner').classList.remove('on');
 
-    // tabs
-    el('tabs').innerHTML = sections.map(function (s, i) {
-      return '<div class="me-tab' + (i === 0 ? ' active' : '') + '" data-tab="' + s.key + '">' + s.label + '</div>';
-    }).join('');
-    // iframes (only configured sections). Loaded now so each attempt is created.
-    if (S.exam.listening_test_id) {
-      el('if-listening').src = '/pages/listening-test.html?id=' + encodeURIComponent(S.exam.listening_test_id) + '&sitting_id=' + encodeURIComponent(S.sittingId) + '&mock_embed=1';
+    var frame = el('panel-frame'), writing = el('panel-writing');
+    if (section === 'writing') {
+      frame.classList.add('hidden'); frame.removeAttribute('src');
+      writing.classList.remove('hidden');
+      setupWriting();
+    } else {
+      writing.classList.add('hidden');
+      frame.classList.remove('hidden');
+      frame.src = section === 'listening'
+        ? '/pages/listening-test.html?id=' + encodeURIComponent(S.exam.listening_test_id) + '&sitting_id=' + encodeURIComponent(S.sittingId) + '&mock_embed=1'
+        : '/pages/reading-exam.html?test_id=' + encodeURIComponent(S.exam.reading_test_code) + '&sitting_id=' + encodeURIComponent(S.sittingId) + '&mock_embed=1';
     }
-    if (S.exam.reading_test_code) {
-      el('if-reading').src = '/pages/reading-exam.html?test_id=' + encodeURIComponent(S.exam.reading_test_code) + '&sitting_id=' + encodeURIComponent(S.sittingId) + '&mock_embed=1';
-    }
-    // writing prompts + native textareas
+
+    S.remaining = (S.timeLeft != null) ? S.timeLeft : 0;
+    startTimer(section);
+    startPolling();
+    showState('test');
+  }
+
+  function setupWriting() {
     var t1 = S.exam.writing_task1, t2 = S.exam.writing_task2;
     el('prompt-task1').textContent = t1 ? (t1.title ? t1.title + ' — ' : '') + (t1.prompt_text || '') : '(Không có đề Task 1)';
     el('prompt-task2').textContent = t2 ? (t2.title ? t2.title + ' — ' : '') + (t2.prompt_text || '') : '(Không có đề Task 2)';
@@ -108,16 +164,6 @@
         try { localStorage.setItem(lsKey(t), ta.value); } catch (e) {}
       });
     });
-
-    // tab switching (section tabs + writing sub-tabs share the .me-tab class)
-    el('tabs').querySelectorAll('.me-tab').forEach(function (tab) {
-      tab.addEventListener('click', function () {
-        el('tabs').querySelectorAll('.me-tab').forEach(function (x) { x.classList.remove('active'); });
-        document.querySelectorAll('.me-panel').forEach(function (x) { x.classList.remove('active'); });
-        tab.classList.add('active');
-        document.querySelector('.me-panel[data-panel="' + tab.dataset.tab + '"]').classList.add('active');
-      });
-    });
     document.querySelectorAll('.me-wtabs .me-tab').forEach(function (tab) {
       tab.addEventListener('click', function () {
         document.querySelectorAll('.me-wtabs .me-tab').forEach(function (x) { x.classList.remove('active'); });
@@ -126,86 +172,75 @@
         document.querySelector('.me-wpanel[data-wpanel="' + tab.dataset.wtab + '"]').classList.add('active');
       });
     });
-    // activate first panel
-    var first = sections[0].key;
-    document.querySelector('.me-panel[data-panel="' + first + '"]').classList.add('active');
-
-    el('submit-all').onclick = function () { submitAll(false); };
-    startTimer();
-    showState('test');
   }
 
-  function startTimer() {
-    var remaining = (S.timeLeft != null) ? S.timeLeft : (S.exam.total_minutes || 150) * 60;
+  function startTimer(section) {
+    if (timerIv) clearInterval(timerIv);
     function tick() {
-      if (remaining <= 0) {
-        clearInterval(timerIv);
+      if (S.remaining <= 0) {
+        clearInterval(timerIv); timerIv = null;
         el('timer').textContent = '00:00';
-        submitAll(true);
+        submitSection(section, true);
         return;
       }
-      var h = Math.floor(remaining / 3600), m = Math.floor((remaining % 3600) / 60), s = remaining % 60;
-      var txt = (h > 0 ? h + ':' + (m < 10 ? '0' : '') : (m < 10 ? '0' : '')) + m + ':' + (s < 10 ? '0' : '') + s;
+      var h = Math.floor(S.remaining / 3600), m = Math.floor((S.remaining % 3600) / 60), sec = S.remaining % 60;
+      var txt = (h > 0 ? h + ':' + (m < 10 ? '0' : '') : (m < 10 ? '0' : '')) + m + ':' + (sec < 10 ? '0' : '') + sec;
       el('timer').textContent = txt;
-      if (remaining <= 300) { el('timer').classList.add('warn'); el('warn-banner').classList.add('on'); }
-      remaining -= 1;
+      if (S.remaining <= WARN_SECONDS) { el('timer').classList.add('warn'); el('warn-banner').classList.add('on'); }
+      S.remaining -= 1;
     }
     tick();
     timerIv = setInterval(tick, 1000);
   }
 
-  // Ask each embedded runner to flush its debounced autosaves; resolve when both
-  // ack OR after a 3s safety timeout (which also comfortably exceeds the runners'
-  // debounce windows, so answers are persisted even if an ack is missed).
-  function flushEmbeds() {
-    var frames = [el('if-reading'), el('if-listening')].filter(function (f) { return f && f.src; });
-    if (!frames.length) return Promise.resolve();
+  // Ask the currently-embedded runner to flush its debounced autosave; resolve
+  // when it acks OR after a 3s safety timeout.
+  function flushEmbed() {
+    var frame = el('panel-frame');
+    if (!frame || !frame.src) return Promise.resolve();
     return new Promise(function (resolve) {
-      var acks = 0, done = false;
+      var done = false;
       function finish() { if (!done) { done = true; window.removeEventListener('message', onMsg); resolve(); } }
-      function onMsg(ev) { if (ev.data && ev.data.type === 'mock-flushed') { acks++; if (acks >= frames.length) finish(); } }
+      function onMsg(ev) { if (ev.data && ev.data.type === 'mock-flushed') finish(); }
       window.addEventListener('message', onMsg);
-      frames.forEach(function (f) { try { f.contentWindow.postMessage({ type: 'mock-flush' }, '*'); } catch (e) {} });
+      try { frame.contentWindow.postMessage({ type: 'mock-flush' }, '*'); } catch (e) {}
       setTimeout(finish, 3000);
     });
   }
 
-  async function submitAll(auto) {
+  async function submitSection(section, auto) {
     if (_submitting) return;
-    if (auto !== true && !confirm('Nộp toàn bộ và kết thúc bài thi? Bạn sẽ không sửa được nữa.')) return;
     _submitting = true;
-    if (timerIv) clearInterval(timerIv);
-    el('submit-all').disabled = true;
+    if (timerIv) { clearInterval(timerIv); timerIv = null; }
     try {
-      // 0. ask the embedded Reading/Listening runners to flush their debounced
-      //    autosaves so a just-typed answer isn't lost before we submit.
-      await flushEmbeds();
-      // 1. save writing text
-      await api('post', '/api/mock-exams/sittings/' + S.sittingId + '/writing',
-        { task1_text: el('essay-task1').value, task2_text: el('essay-task2').value });
-      // 2. submit the L/R attempts directly (empty body → autosaved answers graded)
-      var fresh = await api('get', '/api/mock-exams/sittings/' + encodeURIComponent(S.sittingId));
-      var sit = fresh.sitting || {};
-      if (sit.reading_attempt_id) {
-        await window.api.post('/api/reading/test/attempts/' + encodeURIComponent(sit.reading_attempt_id) + '/submit', { answers: [] }).catch(function () {});
+      if (section === 'writing') {
+        await api('post', '/api/mock-exams/sittings/' + S.sittingId + '/sections/writing/submit',
+          { task1_text: el('essay-task1').value, task2_text: el('essay-task2').value });
+        try { localStorage.removeItem(lsKey('task1')); localStorage.removeItem(lsKey('task2')); } catch (e) {}
+      } else {
+        await flushEmbed();
+        var fresh = await api('get', '/api/mock-exams/sittings/' + encodeURIComponent(S.sittingId));
+        var sit = fresh.sitting || {};
+        var attemptId = sit[section + '_attempt_id'];
+        if (attemptId) {
+          var path = section === 'reading'
+            ? '/api/reading/test/attempts/' + encodeURIComponent(attemptId) + '/submit'
+            : '/api/listening/tests/attempts/' + encodeURIComponent(attemptId) + '/submit';
+          await window.api.post(path, section === 'reading' ? { answers: [] } : {}).catch(function () {});
+        }
+        await api('post', '/api/mock-exams/sittings/' + S.sittingId + '/sections/' + section + '/submit', {});
       }
-      if (sit.listening_attempt_id) {
-        await window.api.post('/api/listening/tests/attempts/' + encodeURIComponent(sit.listening_attempt_id) + '/submit', {}).catch(function () {});
-      }
-      // 3. finalise the block
-      await api('post', '/api/mock-exams/sittings/' + S.sittingId + '/submit-lrw');
-      try { localStorage.removeItem(lsKey('task1')); localStorage.removeItem(lsKey('task2')); } catch (e) {}
       await loadState();
     } catch (e) {
-      _submitting = false;
-      el('submit-all').disabled = false;
       fail('Nộp bài thất bại: ' + (e && e.message ? e.message : e));
+    } finally {
+      _submitting = false;
     }
   }
 
   // ── Submitted ──────────────────────────────────────────────────────
   function renderSubmitted() {
-    if (timerIv) clearInterval(timerIv);
+    if (timerIv) { clearInterval(timerIv); timerIv = null; }
     var sla = (S.exam.review_sla_days != null) ? S.exam.review_sla_days : 3;
     el('submitted-msg').innerHTML =
       'Bài của bạn đã được ghi nhận. Giám khảo sẽ trả kết quả trong khoảng <b>' + sla + ' ngày</b>. ' +
