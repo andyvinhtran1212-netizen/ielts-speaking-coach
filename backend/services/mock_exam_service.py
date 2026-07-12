@@ -1006,10 +1006,14 @@ def admin_section_progress(exam_id: str) -> dict:
 
 
 def reserved_test_ids(kind: str) -> set:
-    """Reading/listening test ids reserved by a mock exam (any non-archived one).
+    """Reading/listening test ids assigned to any non-archived mock exam.
 
-    Used to HIDE those tests from the normal reading/listening practice lists —
-    a test chosen for a full mock is exclusive to it."""
+    Used ONLY to hide those tests from the normal student reading/listening
+    practice lists, so students can't self-practice on content that's staged
+    as an upcoming mock exam. This does NOT make a test exclusive to one mock
+    exam — the same reading test may be assigned to several mock exams, so the
+    admin create-exam picker (admin_available_reading_tests) deliberately
+    ignores this set (2026-07-12)."""
     col = {"reading": "reading_test_id", "listening": "listening_test_id"}.get(kind)
     if not col:
         return set()
@@ -1023,3 +1027,24 @@ def reserved_test_ids(kind: str) -> set:
         logger.warning("[mock-exam] reserved_test_ids lookup failed for %s", kind)
         return set()
     return {str(r[col]) for r in (resp.data or []) if r.get(col)}
+
+
+def admin_available_reading_tests() -> list[dict]:
+    """Published, non-mini reading tests for the create-exam picker.
+
+    Unlike the student browse endpoint (reading_student.list_reading_tests),
+    this intentionally does NOT exclude reading_test_ids already reserved by
+    another mock exam — a reading test may be reused across multiple mock
+    exams (2026-07-12)."""
+    res = (
+        supabase_admin.table("reading_tests")
+        .select(
+            "id,test_id,title,module,time_limit_minutes,passage_count,"
+            "total_questions,band_target,metadata",
+        )
+        .eq("status", "published")
+        .order("created_at", desc=True)
+        .execute()
+    )
+    rows = res.data or []
+    return [r for r in rows if (r.get("metadata") or {}).get("test_type") != "mini"]

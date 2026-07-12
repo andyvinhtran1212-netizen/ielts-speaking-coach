@@ -12,6 +12,9 @@ console lives in admin_mock_reviews.py.
   GET   /admin/mock-exams/{id}/section-progress  — active section + submitted/total
   GET   /admin/mock-exams/{id}/sittings          — sitting roster for an exam
   POST  /admin/mock-exams/sittings/{id}/void     — void a sitting (retake/tech)
+  GET   /admin/mock-exams/reading-tests          — published reading tests for the
+                                                    create-exam picker (a test may be
+                                                    reused across several mock exams)
 """
 from __future__ import annotations
 
@@ -70,6 +73,15 @@ class OpenBody(BaseModel):
 async def list_exams(authorization: str | None = Header(default=None)):
     await require_admin(authorization)
     return {"exams": svc.admin_list_exams()}
+
+
+@router.get("/reading-tests")
+async def available_reading_tests(authorization: str | None = Header(default=None)):
+    """Published reading tests for the "Tạo đề mới" picker. Deliberately does
+    NOT hide tests already assigned to another mock exam — unlike the student
+    practice list, a reading test may be reused across several mock exams."""
+    await require_admin(authorization)
+    return {"items": svc.admin_available_reading_tests()}
 
 
 @router.post("")

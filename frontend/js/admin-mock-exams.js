@@ -6,8 +6,10 @@
  * LIVE open/close it so assigned students can start. Once open, the admin walks
  * the seated block forward ONE SECTION AT A TIME via "Mở phần tiếp theo" —
  * Listening → Reading → Writing — watching the live "đã nộp X/Y" counts. A test
- * chosen for a mock is reserved (hidden from the normal practice lists —
- * enforced backend).
+ * chosen for a mock is hidden from the normal student practice lists — but NOT
+ * exclusive to one mock exam; the same reading/listening test may be reused
+ * across several mock exams, so the pickers below list ALL published tests
+ * (backend/services/mock_exam_service.py:admin_available_reading_tests).
  */
 (function () {
   'use strict';
@@ -34,8 +36,9 @@
 
   async function loadPickers() {
     try {
-      // PUBLISHED only — an exam must not offer a draft/unfinished test.
-      var reading = asList(await window.api.get('/api/reading/test?limit=100&test_type=full'));
+      // Admin-only picker: published tests, but NOT filtered by mock-exam
+      // reservation — a reading test may be reused across several mock exams.
+      var reading = asList(await window.api.get('/admin/mock-exams/reading-tests'));
       fillSelect(el('f-reading'), reading, 'id', function (t) { return (t.title || t.test_id) + ' (' + (t.test_id || '') + ')'; }, true);
     } catch (e) { console.warn('reading picker', e); }
     try {
