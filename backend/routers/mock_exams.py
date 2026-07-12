@@ -176,9 +176,12 @@ async def get_result(
         "examiner_comment_vi":  review.get("examiner_comment_vi"),
         "per_skill_notes":      review.get("per_skill_notes") or {},
         "released_at":          review.get("released_at"),
-        # so the TRF page can link to the detailed chữa bài for each skill —
-        # only reachable once release_results() has flipped sealed=False,
-        # same gate the review endpoints themselves enforce (2026-07-12).
+        # so the TRF page can link to the detailed chữa bài / Writing feedback
+        # for each skill — only reachable once release_results() has flipped
+        # sealed=False (L/R) and delivered the essays (Writing), the same gates
+        # the review / my-essays endpoints themselves enforce (2026-07-12).
         "listening_attempt_id": sitting.get("listening_attempt_id"),
         "reading_attempt_id":   sitting.get("reading_attempt_id"),
+        "essay_task1_id":       sitting.get("essay_task1_id"),
+        "essay_task2_id":       sitting.get("essay_task2_id"),
     }

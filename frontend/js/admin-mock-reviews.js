@@ -41,6 +41,11 @@
   function fmtBand(v) { return (v == null || v === '') ? '—' : Number(v).toFixed(1); }
 
   // ── Roster (bảng lớp: học viên × 4 kỹ năng + trạng thái) ─────────────
+  function hasWritingEssays(r) {
+    var w = r.writing || {};
+    return !!(w.task1_essay_id || w.task2_essay_id);
+  }
+
   async function loadRoster() {
     el('detail-view').classList.add('hidden');
     el('queue-view').classList.remove('hidden');
@@ -52,13 +57,61 @@
       var submitted = rows.filter(function (r) { return r.review_id; }).length;
       el('queue-count').textContent = rows.length + ' học viên · ' + submitted + ' đã nộp đủ';
       if (!rows.length) { list.innerHTML = '<p class="mr-muted">Chưa có học viên nào trong đề này.</p>'; return; }
-      list.innerHTML = renderRosterTable(rows);
+      var gradable = rows.some(hasWritingEssays);
+      list.innerHTML = (gradable ? bulkBarHtml() : '') + renderRosterTable(rows);
       list.querySelectorAll('[data-review-id]').forEach(function (tr) {
-        tr.addEventListener('click', function () { openDetail(tr.getAttribute('data-review-id')); });
+        tr.addEventListener('click', function (ev) {
+          if (ev.target && ev.target.closest('.mr-check')) return;   // checkbox click ≠ open
+          openDetail(tr.getAttribute('data-review-id'));
+        });
       });
+      if (gradable) wireBulkBar(list);
     } catch (e) {
       list.innerHTML = '<p style="color:var(--av-error,#dc2626)">Lỗi tải bảng lớp: ' + esc(e && e.message) + '</p>';
     }
+  }
+
+  function bulkBarHtml() {
+    return '<div class="mr-bulkbar">' +
+      '<label class="mr-check"><input type="checkbox" id="bulk-all"> Chọn tất cả</label>' +
+      '<span style="flex:1"></span>' +
+      '<span class="mr-muted">Chấm Writing hàng loạt:</span>' +
+      '<select id="bulk-tier"><option value="standard">Standard</option><option value="instructor">Instructor</option></select>' +
+      '<button class="av-btn av-btn--primary" id="bulk-grade-btn" disabled>Đưa vào hàng chấm</button>' +
+      '</div>';
+  }
+
+  function wireBulkBar(list) {
+    var boxes = Array.prototype.slice.call(list.querySelectorAll('.mr-check-row'));
+    var btn = el('bulk-grade-btn');
+    var all = el('bulk-all');
+    function refresh() {
+      var n = boxes.filter(function (b) { return b.checked; }).length;
+      btn.disabled = !n;
+      btn.textContent = n ? ('Đưa vào hàng chấm (' + n + ')') : 'Đưa vào hàng chấm';
+    }
+    boxes.forEach(function (b) { b.addEventListener('change', refresh); });
+    if (all) all.addEventListener('change', function () {
+      boxes.forEach(function (b) { b.checked = all.checked; });
+      refresh();
+    });
+    btn.addEventListener('click', function () {
+      var ids = boxes.filter(function (b) { return b.checked; })
+        .map(function (b) { return b.getAttribute('data-sitting-id'); });
+      if (ids.length) bulkGrade(ids, el('bulk-tier').value);
+    });
+    refresh();
+  }
+
+  async function bulkGrade(sittingIds, tier) {
+    try {
+      var res = await window.api.post(
+        '/admin/mock-exams/' + encodeURIComponent(examId) + '/writing/bulk-grade',
+        { sitting_ids: sittingIds, grading_tier: tier });
+      var q = (res.queued || []).length, sk = (res.skipped || []).length;
+      toast('Đã đưa ' + q + ' bài vào hàng chấm' + (sk ? ' · bỏ qua ' + sk + ' (đã chấm)' : '') + '.');
+      loadRoster();
+    } catch (e) { toast('Chấm hàng loạt thất bại: ' + (e && e.message)); }
   }
 
   function lrCell(o) {
@@ -79,14 +132,18 @@
 
   function renderRosterTable(rows) {
     var head = '<thead><tr>' +
-      ['Học viên', 'Listening', 'Reading', 'Writing', 'Speaking', 'Trạng thái']
+      ['', 'Học viên', 'Listening', 'Reading', 'Writing', 'Speaking', 'Trạng thái']
         .map(function (h) { return '<th>' + h + '</th>'; }).join('') +
       '</tr></thead>';
     var body = rows.map(function (r) {
       var attrs = r.review_id
         ? ' class="mr-trow" data-review-id="' + esc(r.review_id) + '"'
         : ' class="mr-trow mr-trow--wip"';
+      var check = hasWritingEssays(r)
+        ? '<label class="mr-check"><input type="checkbox" class="mr-check-row" data-sitting-id="' + esc(r.sitting_id) + '"></label>'
+        : '';
       return '<tr' + attrs + '>' +
+        '<td>' + check + '</td>' +
         '<td>' + esc(r.student_name) + '</td>' +
         '<td>' + lrCell(r.listening) + '</td>' +
         '<td>' + lrCell(r.reading) + '</td>' +

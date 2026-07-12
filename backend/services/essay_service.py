@@ -430,6 +430,68 @@ def schedule_grading_job(
     return {"job_id": job["id"], "eta_seconds": eta}
 
 
+def claim_pending_for_grading(
+    essay_id: str,
+    *,
+    grading_tier: str,
+    analysis_level: int,
+    selected_model: str = "gemini-2.5-pro",
+) -> Optional[dict]:
+    """Atomic 'pending'→'grading' claim + schedule ONE grading job. The single
+    source of the start-grading race guard, shared by the per-essay admin
+    endpoint (admin_writing.start_grading) and the mock-exam bulk-grade
+    endpoint (2026-07-12).
+
+    The tier metadata + status flip is one guarded UPDATE (WHERE status=
+    'pending'); a zero-row result means the essay was already claimed/graded by
+    a concurrent request, so this returns None (caller treats as skip/409) and
+    NO job is scheduled. On success returns schedule_grading_job's
+    {"job_id", "eta_seconds"}. Caller must still add the request-scoped
+    _bg_grade_essay BackgroundTask — a service can't own request lifecycle."""
+    claimed = (
+        supabase_admin.table("writing_essays")
+        .update({
+            "grading_tier":   grading_tier,
+            "analysis_level": analysis_level,
+            "selected_model": selected_model,
+            "status":         "grading",
+        })
+        .eq("id", essay_id)
+        .eq("status", "pending")
+        .execute()
+    )
+    if not claimed.data:
+        return None
+    return schedule_grading_job(
+        essay_id=essay_id,
+        analysis_level=analysis_level,
+        selected_model=selected_model,
+        grading_tier=grading_tier,
+    )
+
+
+def deliver_reviewed_essay(essay_id: str) -> bool:
+    """Guarded 'reviewed'→'delivered' transition used when a mock sitting's
+    results are released (mock_review_workflow.release_results, 2026-07-12).
+    Mirrors admin_writing._deliver_essay's state-machine rule (only a REVIEWED
+    essay may be delivered) but kept minimal — no regrade bookkeeping, since a
+    mock essay has no regrade request at release time. WHERE status='reviewed'
+    so a still-'graded'/'pending' essay is left untouched; returns True iff a
+    row flipped."""
+    r = (
+        supabase_admin.table("writing_essays")
+        .update({
+            "status":          "delivered",
+            "delivered_at":    _now(),
+            "delivery_method": "mock_release",
+        })
+        .eq("id", essay_id)
+        .eq("status", "reviewed")
+        .execute()
+    )
+    return bool(r.data)
+
+
 def create_essay_with_job(*, data: dict, admin_id: str) -> dict:
     """Backward-compat wrapper: row + job in one call.
 

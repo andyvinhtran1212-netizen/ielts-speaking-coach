@@ -135,14 +135,31 @@
         { key: 'listening', label: 'Listening', attempt: data.listening_attempt_id, href: '/pages/listening-review.html?attempt_id=' },
         { key: 'reading',   label: 'Reading',   attempt: data.reading_attempt_id,   href: '/pages/reading-review.html?attempt_id=' },
       ].filter(function (s) { return s.attempt; });
+      // Writing detailed feedback (nhận xét chi tiết) — separate from L/R chữa
+      // bài; the essays are delivered as part of release, so writing-result.html
+      // (gated on status=='delivered') opens for the student.
+      var WRITING = [
+        { label: 'Task 1', id: data.essay_task1_id },
+        { label: 'Task 2', id: data.essay_task2_id },
+      ].filter(function (s) { return s.id; });
+
       var cwrap = document.getElementById('chuabai-wrap');
+      var sections = '';
       if (CHUABAI.length) {
-        cwrap.innerHTML = '<h2 style="font-size:15px;font-weight:700;color:var(--av-text-primary);margin-bottom:8px;">Xem chữa bài</h2>' +
+        sections += '<h2 style="font-size:15px;font-weight:700;color:var(--av-text-primary);margin-bottom:8px;">Xem chữa bài</h2>' +
           '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
           CHUABAI.map(function (s) {
             return '<a class="av-btn" target="_blank" href="' + s.href + encodeURIComponent(s.attempt) + '">Chữa bài ' + s.label + ' ↗</a>';
           }).join('') + '</div>';
       }
+      if (WRITING.length) {
+        sections += '<h2 style="font-size:15px;font-weight:700;color:var(--av-text-primary);margin:16px 0 8px;">Nhận xét chi tiết Writing</h2>' +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+          WRITING.map(function (s) {
+            return '<a class="av-btn" target="_blank" href="/pages/writing-result.html?id=' + encodeURIComponent(s.id) + '">Nhận xét ' + s.label + ' ↗</a>';
+          }).join('') + '</div>';
+      }
+      cwrap.innerHTML = sections;
       showState('content');
     }
 

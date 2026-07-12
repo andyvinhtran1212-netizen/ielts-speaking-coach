@@ -25,6 +25,8 @@ def test_result_includes_listening_and_reading_attempt_ids():
         "status":               "released",
         "listening_attempt_id": "l-attempt-1",
         "reading_attempt_id":   "r-attempt-1",
+        "essay_task1_id":       "essay-1",
+        "essay_task2_id":       "essay-2",
     }
     review = {
         "final_bands":         {"listening": 7.0, "reading": 7.0},
@@ -42,6 +44,9 @@ def test_result_includes_listening_and_reading_attempt_ids():
     body = r.json()
     assert body["listening_attempt_id"] == "l-attempt-1"
     assert body["reading_attempt_id"] == "r-attempt-1"
+    # so mock-result.html can link to the detailed Writing feedback
+    assert body["essay_task1_id"] == "essay-1"
+    assert body["essay_task2_id"] == "essay-2"
 
 
 def test_result_omits_attempt_ids_when_sitting_has_none():
@@ -59,3 +64,5 @@ def test_result_omits_attempt_ids_when_sitting_has_none():
     body = r.json()
     assert body["listening_attempt_id"] is None
     assert body["reading_attempt_id"] is None
+    assert body["essay_task1_id"] is None
+    assert body["essay_task2_id"] is None

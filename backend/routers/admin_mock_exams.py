@@ -17,13 +17,15 @@ console lives in admin_mock_reviews.py.
                                                     reused across several mock exams)
   GET   /admin/mock-exams/{id}/retest-summary    — per-skill "cần test lại" counts
   GET   /admin/mock-exams/{id}/roster            — class roster grid (per-skill snapshot)
+  POST  /admin/mock-exams/{id}/writing/bulk-grade — queue many sittings' Writing at once
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from routers.admin import require_admin
+from services import essay_service
 from services import mock_exam_service as svc
 from services import mock_review_workflow as wf
 
@@ -70,6 +72,16 @@ class VoidBody(BaseModel):
 
 class OpenBody(BaseModel):
     is_open: bool
+
+
+class BulkGradeBody(BaseModel):
+    sitting_ids: list[str] = Field(default_factory=list)
+    grading_tier: str = Field(default="standard", pattern=r"^(standard|instructor)$")
+    analysis_level: int = Field(default=3, ge=1, le=5)
+    selected_model: str = Field(
+        default="gemini-2.5-pro",
+        pattern=r"^(gemini-2\.5-pro|gemini-2\.5-flash|gemini-3\.5-flash)$",
+    )
 
 
 @router.get("")
@@ -173,6 +185,50 @@ async def roster(exam_id: str, authorization: str | None = Header(default=None))
     Speaking session count) + claim status. Replaces the flat review queue."""
     await require_admin(authorization)
     return {"roster": wf.roster(exam_id)}
+
+
+@router.post("/{exam_id}/writing/bulk-grade", status_code=202)
+async def bulk_grade_writing(
+    exam_id: str,
+    body: BulkGradeBody,
+    background_tasks: BackgroundTasks,
+    authorization: str | None = Header(default=None),
+):
+    """Send the promoted Writing essays of several sittings into the grading
+    queue in one action (2026-07-12) — the roster-grid bulk version of the
+    per-essay start-grading button. For each requested sitting (validated to
+    belong to THIS exam), each task's essay that is still 'pending' is claimed
+    atomically and queued; anything already grading/graded is skipped and
+    reported. Reuses the exact same claim + background task as the single
+    endpoint, so the downstream pipeline is unchanged."""
+    await require_admin(authorization)
+
+    queued: list[str] = []
+    skipped: list[str] = []
+    for sitting_id in body.sitting_ids:
+        sitting = svc.get_sitting(sitting_id)
+        # Only grade essays for a sitting that actually belongs to this exam —
+        # never let a stray id reach into another exam's work.
+        if not sitting or str(sitting.get("mock_exam_id")) != str(exam_id):
+            continue
+        for essay_id in (sitting.get("essay_task1_id"), sitting.get("essay_task2_id")):
+            if not essay_id:
+                continue
+            job_info = essay_service.claim_pending_for_grading(
+                str(essay_id),
+                grading_tier=body.grading_tier,
+                analysis_level=body.analysis_level,
+                selected_model=body.selected_model,
+            )
+            if job_info is None:
+                skipped.append(str(essay_id))   # not 'pending' (already queued/graded)
+                continue
+            background_tasks.add_task(
+                essay_service._bg_grade_essay, str(essay_id), job_info["job_id"],
+            )
+            queued.append(str(essay_id))
+
+    return {"queued": queued, "skipped": skipped, "grading_tier": body.grading_tier}
 
 
 @router.post("/sittings/{sitting_id}/void")
