@@ -1249,6 +1249,29 @@ def test_save_final_bands_syncs_sitting_needs_retest(fake_db, svc, wf):
     assert svc.get_sitting(s["id"])["needs_retest"] is True
 
 
+def test_save_final_bands_does_not_clear_early_retest_flag(fake_db, svc, wf):
+    """Codex P2 (2026-07-12): the review form always posts a full retest_flags
+    object (unchecked = false). Saving bands with NO per-skill flag must NOT
+    wipe an EARLIER early-toggle retake decision — the sitting-level flag is
+    only ever set true here, never cleared (clearing is the explicit toggle)."""
+    exam = _seed_exam(fake_db, speaking=False)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    _run_lrw(svc, fake_db, exam, s["id"], u)
+    svc.set_sitting_retest(s["id"], str(uuid4()), True)   # early decision
+
+    review = wf.get_review_for_sitting(s["id"])
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    wf.save_final_bands(
+        review["id"], admin,
+        {"listening": 6.0, "reading": 6.0, "writing": 6.0},
+        retest_flags={"writing": False, "listening": False, "reading": False},
+    )
+    # early flag survives — admin never explicitly cleared it
+    assert svc.get_sitting(s["id"])["needs_retest"] is True
+
+
 def test_get_queue_scoped_to_one_exam_with_student_name(fake_db, svc, wf):
     """Codex-adjacent (2026-07-12): duyệt theo từng đề, not a cross-exam batch —
     mock_exam_id scopes the queue, and each row carries a resolved

@@ -469,7 +469,10 @@
     var host = el('retest-summary');
     try {
       var s = await window.api.get('/admin/mock-exams/' + encodeURIComponent(examId) + '/retest-summary');
-      if (!s.reviewed_sittings) {
+      // Show the summary as soon as there's ANY retake signal — an early
+      // needs_retest flag counts even before a single review is saved (fresh
+      // class: admin marks a retaker → count shows immediately).
+      if (!s.reviewed_sittings && !s.needs_retest_count) {
         host.innerHTML = '<span class="mr-muted">Tổng kết lớp: chưa có bài nào được duyệt.</span>';
         return;
       }
@@ -477,8 +480,8 @@
         .map(function (k) { return '<span class="mr-pill">' + esc(SKILL_VI[k] || k) + ': ' + s.per_skill[k] + '</span>'; })
         .join(' ');
       var roster = s.students.map(function (st) {
-        return '<div class="mr-muted" style="margin-top:4px">' + esc(st.student_name) + ' — cần test lại: ' +
-          st.skills.map(function (k) { return SKILL_VI[k] || k; }).join(', ') + '</div>';
+        var why = st.skills.length ? st.skills.map(function (k) { return SKILL_VI[k] || k; }).join(', ') : 'đánh dấu sớm';
+        return '<div class="mr-muted" style="margin-top:4px">' + esc(st.student_name) + ' — cần test lại: ' + why + '</div>';
       }).join('');
       host.innerHTML =
         '<b style="color:var(--av-text-primary)">Tổng kết lớp</b> ' +

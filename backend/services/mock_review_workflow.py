@@ -270,13 +270,15 @@ def save_final_bands(
             f"Review {review_id} is not claimed by admin {admin_id}; "
             f"cannot save final bands."
         )
-    # Keep the sitting-level needs_retest flag (mig 153) in sync with the final
-    # per-skill decision, so the roster + retest-summary stay consistent no
-    # matter which path set it: any skill flagged ⇒ the student is retaking.
-    if retest_flags is not None:
-        any_flag = any(update["retest_flags"].values())
+    # Sync the sitting-level needs_retest flag (mig 153) UP from the final
+    # per-skill decision — but only ever SET it true, never clear it here. The
+    # review form always posts a full retest_flags object (unchecked boxes =
+    # false), so clearing on "no skill flagged" would silently wipe an EARLIER
+    # early-toggle retake decision the admin never revoked. Clearing is the
+    # explicit /sittings/{id}/retest toggle's job alone.
+    if retest_flags is not None and any(update["retest_flags"].values()):
         supabase_admin.table("mock_exam_sittings").update({
-            "needs_retest": any_flag,
+            "needs_retest": True,
         }).eq("id", str(response.data[0]["sitting_id"])).execute()
 
     logger.info(
