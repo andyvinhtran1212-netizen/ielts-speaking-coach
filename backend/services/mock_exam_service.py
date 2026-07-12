@@ -2,16 +2,26 @@
 
 The sitting is the cross-skill coordinator. This service owns:
 
-  - create_sitting  — open a sitting (window + cohort gate; one active per user)
-  - start_section   — record a SERVER-authoritative section start (one-way)
-  - attach_attempt  — bind a domain attempt to the sitting (both directions)
-  - submit_lrw      — finalise the seated LRW mạch
-  - record_speaking — attach the (decoupled) speaking sessions
-  - is_sealed       — the hook domain submit/review endpoints check
+  - create_sitting   — open a sitting (window + cohort gate; one active per user)
+  - advance_section  — ADMIN advances the shared exam clock to the next section
+  - attach_attempt   — bind a domain attempt to the sitting (both directions)
+  - submit_section   — collect one section (listening/reading/writing) for a sitting
+  - record_speaking  — attach the (decoupled) speaking sessions
+  - is_sealed        — the hook domain submit/review endpoints check
 
 Student work stays canonical in its own domain table (reading_test_attempts /
 listening_test_attempts / writing_essays / sessions). This service never
 duplicates answers — it only binds ids and drives the status machine.
+
+SEQUENTIAL model (2026-07-12, supersedes the all-at-once model from mig 150):
+the three seated sections open ONE AT A TIME, gated by the admin —
+Listening → (admin sees all submitted, opens Reading) → Reading → (admin opens
+Writing) → Writing. Each section has its own SERVER-authoritative start
+timestamp on the EXAM (one shared classroom clock, not one per student) and a
+fixed duration (Listening = audio length + buffer; Reading/Writing = admin-set
+minutes). There is no early manual submit — a section is collected only when
+its own clock reaches zero (client auto-submit) or, as a stragglers safety
+net, when the admin advances past it (`_force_collect_section`).
 
 Speaking is decoupled from LRW: it may be taken before or after the seated flow,
 anytime within the exam window. `_reconcile_terminal` flips the sitting to
@@ -30,7 +40,8 @@ from database import supabase_admin
 
 logger = logging.getLogger(__name__)
 
-# The seated block: all three run at once under one timer. Speaking is decoupled.
+# The seated block now runs SEQUENTIALLY, admin-gated, in this fixed order.
+# Speaking is decoupled (not part of this sequence).
 _LRW_ORDER = ("listening", "reading", "writing")
 _SUBMITTED_COL = {s: f"{s}_submitted_at" for s in _LRW_ORDER}
 # LRW sections backed by a domain attempt (writing is native — no attempt row).
@@ -39,13 +50,15 @@ _SECTION_ATTEMPT = {
     "listening": ("listening_attempt_id", "listening_test_attempts", "listening_test_id"),
     "reading":   ("reading_attempt_id",   "reading_test_attempts",   "reading_test_id"),
 }
+# Default fallback if a listening test's audio duration is unknown (should not
+# happen for a published test, but a mock must never divide by/anchor on None).
+_DEFAULT_LISTENING_MINUTES = 30
+_LISTENING_BUFFER_SECONDS = 120
 # Statuses from which _reconcile_terminal may still advance the sitting.
 # Once an admin has claimed (under_review) or beyond, we never downgrade.
 _PRE_REVIEW = {
     "registered", "lrw_in_progress", "lrw_submitted", "speaking_pending",
 }
-# Grace after the deadline before a late submit is flagged (ms).
-LATE_GRACE_MS = 30_000
 
 
 # ── Errors ────────────────────────────────────────────────────────────
@@ -141,6 +154,9 @@ def get_exam_content_for_sitting(sitting: dict) -> dict:
         "writing_task2": None,
         "speaking_topic_set": exam.get("speaking_topic_set") or {},
         "total_minutes": exam.get("total_minutes") or 150,
+        "active_section": exam.get("active_section") or "not_started",
+        "reading_minutes": exam.get("reading_minutes") or 60,
+        "writing_minutes": exam.get("writing_minutes") or 60,
     }
     if exam.get("reading_test_id"):
         r = supabase_admin.table("reading_tests").select("test_id, title").eq(
@@ -226,6 +242,59 @@ def _assert_prior_section_submitted(sitting: dict, section: str) -> None:
         )
 
 
+def _configured_sections(exam: dict) -> list[str]:
+    """The seated sequence this exam actually has content for, in order.
+
+    Listening/Reading are skipped if the exam has no test configured for them
+    (an LRW-only exam might be reading+writing only, etc.). Writing is always
+    part of the sequence — even with no prompts configured, the admin still
+    opens a Writing step (the runner will just show "không có đề")."""
+    seq = []
+    if exam.get("listening_test_id"):
+        seq.append("listening")
+    if exam.get("reading_test_id"):
+        seq.append("reading")
+    seq.append("writing")
+    return seq
+
+
+def _listening_audio_duration_seconds(test_id) -> Optional[int]:
+    if not test_id:
+        return None
+    r = supabase_admin.table("listening_tests").select(
+        "full_audio_duration_seconds",
+    ).eq("id", str(test_id)).limit(1).execute()
+    if r.data:
+        return r.data[0].get("full_audio_duration_seconds")
+    return None
+
+
+def _section_duration_seconds(exam: dict, section: str) -> int:
+    """Fixed duration for one seated section — the shared classroom clock."""
+    if section == "listening":
+        audio = _listening_audio_duration_seconds(exam.get("listening_test_id"))
+        base = audio if audio else _DEFAULT_LISTENING_MINUTES * 60
+        return int(base) + _LISTENING_BUFFER_SECONDS
+    if section == "reading":
+        return int(exam.get("reading_minutes") or 60) * 60
+    if section == "writing":
+        return int(exam.get("writing_minutes") or 60) * 60
+    return 0
+
+
+def section_time_remaining_seconds(exam: dict, section: str) -> Optional[int]:
+    """Seconds left in `section`'s shared countdown, from the SERVER start
+    stamped on the exam. None if that section hasn't been opened yet."""
+    if section not in _LRW_ORDER:
+        return None
+    started = _parse_ts(exam.get(f"{section}_started_at"))
+    if not started:
+        return None
+    duration = _section_duration_seconds(exam, section)
+    elapsed = (_now() - started).total_seconds()
+    return max(0, int(duration - elapsed))
+
+
 # ── Lifecycle ─────────────────────────────────────────────────────────
 
 
@@ -277,45 +346,6 @@ def create_sitting(user_id: str, code: str) -> dict:
     return inserted.data[0]
 
 
-def start_lrw(sitting_id: str, user_id: str) -> dict:
-    """Open the seated LRW block — all three sections at once under ONE timer.
-
-    Stamps the server-authoritative `lrw_started_at` (the single countdown
-    anchor) and moves the sitting to `lrw_in_progress`. Idempotent: if already
-    started, returns the sitting unchanged so the client resumes from the stored
-    start time (the total time left is computed from it). The student then works
-    Listening / Reading / Writing freely as tabs; there is no per-section
-    sequencing or gating.
-    """
-    sitting = get_sitting(sitting_id)
-    if not sitting:
-        raise NotFoundError(f"Sitting {sitting_id} không tồn tại.")
-    _assert_owner(sitting, user_id)
-    if sitting["status"] in ("released", "void"):
-        raise SittingConflictError(f"Sitting đang ở trạng thái {sitting['status']!r}.")
-    # Resume: already started (or beyond) → no-op (bypass the gate — a mid-exam
-    # student must not be blocked by a gate the admin closed after they began).
-    if sitting.get("lrw_started_at"):
-        return sitting
-
-    # NOT started yet: re-enforce the live gate here. A student can create a
-    # registered sitting while open, then sit on the prep screen — if the admin
-    # closes is_open (or the window expires) before they press Start, they must
-    # not be able to begin.
-    exam = get_published_exam_by_id(sitting["mock_exam_id"]) or {}
-    if not exam.get("is_open"):
-        raise WindowClosedError("Kỳ thi đã đóng — không thể bắt đầu.")
-    _assert_window_open(exam)
-
-    now = _now_iso()
-    update = {"status": "lrw_in_progress", "lrw_started_at": now}
-    resp = supabase_admin.table("mock_exam_sittings").update(update).eq(
-        "id", str(sitting_id),
-    ).eq("status", "registered").execute()
-    logger.info("[mock-exam] sitting=%s LRW started (all-at-once)", sitting_id)
-    return resp.data[0] if resp.data else {**sitting, **update}
-
-
 def attach_attempt(
     sitting_id: str, user_id: str, section: str, attempt_id: str,
 ) -> dict:
@@ -345,6 +375,15 @@ def attach_attempt(
     if sitting["status"] in ("released", "void"):
         raise SittingConflictError(f"Sitting đang ở trạng thái {sitting['status']!r}.")
 
+    exam = get_published_exam_by_id(sitting["mock_exam_id"]) or {}
+    # Sequential gate: a domain attempt can only be attached while the ADMIN has
+    # this section open. Defense in depth — the runner UI only shows a section
+    # once it's active, but the endpoint itself must not trust that.
+    if (exam.get("active_section") or "not_started") != section:
+        raise SittingConflictError(
+            f"Phần {section} chưa được giám thị mở — không thể nộp bài."
+        )
+
     r = supabase_admin.table(domain_table).select(
         "id, user_id, test_id, status",
     ).eq("id", str(attempt_id)).limit(1).execute()
@@ -354,7 +393,6 @@ def attach_attempt(
     if str(att.get("user_id")) != str(sitting["user_id"]):
         raise PermissionError("Bài làm không thuộc về thí sinh của kỳ thi này.")
 
-    exam = get_published_exam_by_id(sitting["mock_exam_id"]) or {}
     expected_test = exam.get(exam_test_col)
     if expected_test and str(att.get("test_id")) != str(expected_test):
         raise SittingConflictError("Bài làm không khớp đề của kỳ thi này.")
@@ -386,56 +424,6 @@ def attach_attempt(
     return get_sitting(sitting_id) or sitting
 
 
-def submit_lrw(sitting_id: str, user_id: str) -> dict:
-    """Collect the whole LRW block at once and finalise.
-
-    Called when the student presses "Nộp toàn bộ" or the total timer hits 0
-    (the client submits the Listening + Reading attempts and saves the Writing
-    text first). Requires real work — every section the exam configures must
-    have a submitted attempt, and the Writing text must be present. Then
-    reconciles to the terminal state.
-    """
-    sitting = get_sitting(sitting_id)
-    if not sitting:
-        raise NotFoundError(f"Sitting {sitting_id} không tồn tại.")
-    _assert_owner(sitting, user_id)
-    if sitting["status"] in ("released", "void"):
-        raise SittingConflictError(f"Sitting đang ở trạng thái {sitting['status']!r}.")
-
-    # Idempotent: already finalised (or beyond) → no-op. Guards the one-way
-    # status machine — a stale retry must never regress an under_review/reviewed
-    # sitting back to 'lrw_submitted'.
-    if sitting.get("writing_submitted_at"):
-        return sitting
-
-    # The block must have been started (all-at-once) before it can be collected.
-    if not sitting.get("lrw_started_at") or sitting["status"] != "lrw_in_progress":
-        raise SittingConflictError("Kỳ thi chưa bắt đầu — không thể nộp bài.")
-
-    # Require real work: every configured section has a submitted attempt, and
-    # the Writing text is present.
-    exam = get_published_exam_by_id(sitting["mock_exam_id"]) or {}
-    if exam.get("listening_test_id"):
-        _assert_prior_section_submitted(sitting, "listening")
-    if exam.get("reading_test_id"):
-        _assert_prior_section_submitted(sitting, "reading")
-    if not sitting.get("writing_submission"):
-        raise SittingConflictError("Chưa nộp bài Writing — không thể nộp mạch.")
-
-    now = _now_iso()
-    update: dict = {
-        "status": "lrw_submitted",
-        "listening_submitted_at": sitting.get("listening_submitted_at") or now,
-        "reading_submitted_at":   sitting.get("reading_submitted_at") or now,
-        "writing_submitted_at":   now,
-    }
-    supabase_admin.table("mock_exam_sittings").update(update).eq(
-        "id", str(sitting_id),
-    ).execute()
-    logger.info("[mock-exam] sitting=%s LRW submitted (all-at-once)", sitting_id)
-    return _reconcile_terminal(sitting_id)
-
-
 def _word_count(text: str) -> int:
     return len((text or "").split())
 
@@ -445,22 +433,24 @@ def submit_writing(
 ) -> dict:
     """Store the two essay texts on the sitting (P1 native writing capture).
 
-    Does NOT stamp writing_submitted_at / advance status — the client calls
-    submit_lrw next to finalise the whole seated mạch. Sealed by construction:
-    the text lives on the sitting (admin-only); the student sees no band until
-    release.
+    Does NOT stamp writing_submitted_at — call submit_section("writing") to
+    finalise. Sealed by construction: the text lives on the sitting
+    (admin-only); the student sees no band until release.
     """
     sitting = get_sitting(sitting_id)
     if not sitting:
         raise NotFoundError(f"Sitting {sitting_id} không tồn tại.")
     _assert_owner(sitting, user_id)
-    # Only accept writing while the LRW block is live. Once submit-lrw has run
-    # (writing_submitted_at set / status past lrw_in_progress) the text is final —
-    # a retry must NOT overwrite the graded submission.
+    # Only accept writing while the LRW block is live and Writing is the
+    # currently-open section. Once finalised the text is final — a retry must
+    # NOT overwrite the graded submission.
     if sitting["status"] != "lrw_in_progress" or sitting.get("writing_submitted_at"):
         raise SittingConflictError(
             "Không thể nộp/sửa Writing khi kỳ thi chưa mở hoặc đã nộp bài."
         )
+    exam = get_published_exam_by_id(sitting["mock_exam_id"]) or {}
+    if (exam.get("active_section") or "not_started") != "writing":
+        raise SittingConflictError("Phần Writing chưa được giám thị mở.")
 
     now = _now_iso()
     submission = {
@@ -474,6 +464,77 @@ def submit_writing(
     }).eq("id", str(sitting_id)).execute()
     logger.info("[mock-exam] sitting=%s writing captured", sitting_id)
     return resp.data[0] if resp.data else {**sitting, "writing_submission": submission}
+
+
+def submit_section(
+    sitting_id: str, user_id: str, section: str,
+    task1_text: str = "", task2_text: str = "",
+) -> dict:
+    """Collect ONE section for this sitting — the sequential-model equivalent
+    of the old all-at-once `submit_lrw`.
+
+    Called when the section's shared clock hits 0 (client auto-submit; there
+    is no early manual submit — see module docstring). For listening/reading
+    the domain attempt must already be submitted (the runner's own submit,
+    sealed via attach_attempt); this just stamps the sitting's collected-at
+    timestamp. For writing, the text is saved (like submit_writing) and
+    stamped in the same call. Idempotent per section. Once every section the
+    exam configures is collected, finalises to `lrw_submitted` and reconciles
+    the terminal state (same as the old submit_lrw's tail).
+    """
+    if section not in _LRW_ORDER:
+        raise SittingConflictError(f"Section không hợp lệ: {section!r}")
+    sitting = get_sitting(sitting_id)
+    if not sitting:
+        raise NotFoundError(f"Sitting {sitting_id} không tồn tại.")
+    _assert_owner(sitting, user_id)
+    if sitting["status"] in ("released", "void"):
+        raise SittingConflictError(f"Sitting đang ở trạng thái {sitting['status']!r}.")
+
+    col = _SUBMITTED_COL[section]
+    if sitting.get(col):
+        return sitting  # idempotent — already collected
+
+    exam = get_published_exam_by_id(sitting["mock_exam_id"]) or {}
+    if (exam.get("active_section") or "not_started") != section:
+        raise SittingConflictError(
+            f"Phần {section} chưa được giám thị mở — không thể nộp bài."
+        )
+
+    # Flip registered → lrw_in_progress BEFORE the section-specific submit —
+    # submit_writing itself gates on lrw_in_progress, so for a student whose
+    # FIRST configured section is Writing (e.g. a writing-only exam) the flip
+    # must happen first, not after.
+    if sitting["status"] == "registered":
+        supabase_admin.table("mock_exam_sittings").update({
+            "status": "lrw_in_progress",
+        }).eq("id", str(sitting_id)).eq("status", "registered").execute()
+        sitting = {**sitting, "status": "lrw_in_progress"}
+
+    if section == "writing":
+        # submit_writing raises if Writing isn't the open section or is already
+        # final — that propagates as-is (nothing further to validate here: an
+        # empty essay is a valid, if weak, submission — not an error).
+        sitting = submit_writing(sitting_id, user_id, task1_text, task2_text)
+    else:
+        _assert_prior_section_submitted(sitting, section)
+
+    now = _now_iso()
+    supabase_admin.table("mock_exam_sittings").update({col: now}).eq(
+        "id", str(sitting_id),
+    ).execute()
+    sitting = {**sitting, col: now}
+    logger.info("[mock-exam] sitting=%s section=%s collected", sitting_id, section)
+
+    exam = get_published_exam_by_id(sitting["mock_exam_id"]) or {}
+    configured = _configured_sections(exam)
+    if all(sitting.get(_SUBMITTED_COL[s]) for s in configured):
+        supabase_admin.table("mock_exam_sittings").update({
+            "status": "lrw_submitted",
+        }).eq("id", str(sitting_id)).execute()
+        logger.info("[mock-exam] sitting=%s LRW submitted (sequential)", sitting_id)
+        return _reconcile_terminal(sitting_id)
+    return sitting
 
 
 def bind_session_to_sitting(session_id: str, user_id: str, sitting_id: str) -> None:
@@ -626,7 +687,8 @@ def assemble_ai_draft(sitting: dict) -> dict:
 _EXAM_WRITABLE = {
     "code", "title", "listening_test_id", "reading_test_id",
     "writing_task1_prompt_id", "writing_task2_prompt_id", "speaking_topic_set",
-    "total_minutes", "open_from", "open_until", "cohort_id",
+    "total_minutes", "reading_minutes", "writing_minutes",
+    "open_from", "open_until", "cohort_id",
     "review_sla_days", "status",
 }
 
@@ -688,20 +750,7 @@ def void_sitting(sitting_id: str, admin_id: str, reason: str = "") -> dict:
     return resp.data[0] if resp.data else {**sitting, "status": "void"}
 
 
-def lrw_time_remaining_seconds(sitting: dict, exam: dict) -> Optional[int]:
-    """Seconds left in the whole LRW block (single total timer), from the SERVER
-    start. None if not started yet. Negative clamped to 0 for display; the caller
-    handles late submits via LATE_GRACE_MS.
-    """
-    started = _parse_ts(sitting.get("lrw_started_at"))
-    if not started:
-        return None
-    minutes = exam.get("total_minutes") or 150
-    elapsed = (_now() - started).total_seconds()
-    return max(0, int(minutes * 60 - elapsed))
-
-
-# ── Admin: open/close + exclusivity ──────────────────────────────────
+# ── Admin: open/close + section advance + exclusivity ──────────────────
 
 
 def set_open(exam_id: str, is_open: bool, admin_id: str) -> dict:
@@ -713,6 +762,120 @@ def set_open(exam_id: str, is_open: bool, admin_id: str) -> dict:
         raise NotFoundError(f"Mock exam {exam_id} không tồn tại.")
     logger.info("[mock-exam] exam=%s is_open=%s by admin=%s", exam_id, is_open, admin_id)
     return resp.data[0]
+
+
+def _force_collect_section(exam_id: str, section: str) -> None:
+    """Straggler safety net: called right before the admin advances PAST
+    `section`. Every non-terminal sitting that hasn't submitted this section
+    yet (e.g. a disconnected student) is best-effort collected as-is — mirrors
+    a real proctor sweeping up papers when time's up, regardless of whether
+    the student finished. Never raises; a collection failure must not block
+    the admin's advance."""
+    col = _SUBMITTED_COL.get(section)
+    if not col:
+        return
+    try:
+        rows = supabase_admin.table("mock_exam_sittings").select("*").eq(
+            "mock_exam_id", str(exam_id),
+        ).is_(col, "null").not_.in_(
+            "status", ["released", "void"],
+        ).execute()
+    except Exception:  # noqa: BLE001
+        logger.exception("[mock-exam] force-collect lookup failed exam=%s section=%s", exam_id, section)
+        return
+
+    now = _now_iso()
+    for row in (rows.data or []):
+        try:
+            update: dict = {col: now}
+            if row.get("status") == "registered":
+                update["status"] = "lrw_in_progress"
+            supabase_admin.table("mock_exam_sittings").update(update).eq(
+                "id", row["id"],
+            ).execute()
+            if section in _SECTION_ATTEMPT:
+                link_col, table, _ = _SECTION_ATTEMPT[section]
+                attempt_id = row.get(link_col)
+                if attempt_id:
+                    supabase_admin.table(table).update({
+                        "status": "submitted", "submitted_at": now,
+                    }).eq("id", str(attempt_id)).neq("status", "submitted").execute()
+            logger.info(
+                "[mock-exam] sitting=%s section=%s force-collected (straggler)",
+                row["id"], section,
+            )
+            # Re-check terminal reconciliation now that this section is in.
+            fresh = get_sitting(row["id"])
+            exam = get_published_exam_by_id(str(exam_id)) or {}
+            configured = _configured_sections(exam)
+            if fresh and all(fresh.get(_SUBMITTED_COL[s]) for s in configured):
+                supabase_admin.table("mock_exam_sittings").update({
+                    "status": "lrw_submitted",
+                }).eq("id", row["id"]).execute()
+                _reconcile_terminal(row["id"])
+        except Exception:  # noqa: BLE001
+            logger.exception(
+                "[mock-exam] force-collect failed sitting=%s section=%s", row["id"], section,
+            )
+
+
+def advance_section(exam_id: str, admin_id: str) -> dict:
+    """Admin advances the shared classroom clock to the NEXT configured section.
+
+    not_started → listening → reading → writing → done (skipping any section
+    the exam has no test/prompt for). Force-collects stragglers of the section
+    being closed, then stamps `{next}_started_at` — every sitting under this
+    exam picks up the new section on its next poll.
+    """
+    exam = get_published_exam_by_id(exam_id)
+    if not exam:
+        raise NotFoundError(f"Mock exam {exam_id} không tồn tại.")
+    current = exam.get("active_section") or "not_started"
+    if current == "done":
+        raise SittingConflictError("Kỳ thi đã kết thúc tất cả các phần.")
+
+    seq = _configured_sections(exam)
+    if current == "not_started":
+        nxt = seq[0] if seq else "done"
+    else:
+        if current in seq:
+            idx = seq.index(current)
+            nxt = seq[idx + 1] if idx + 1 < len(seq) else "done"
+        else:
+            nxt = "done"
+        _force_collect_section(exam_id, current)
+
+    update: dict = {"active_section": nxt}
+    if nxt in _LRW_ORDER:
+        update[f"{nxt}_started_at"] = _now_iso()
+    resp = supabase_admin.table("mock_exams").update(update).eq(
+        "id", str(exam_id),
+    ).execute()
+    logger.info(
+        "[mock-exam] exam=%s section %s → %s by admin=%s",
+        exam_id, current, nxt, admin_id,
+    )
+    return resp.data[0] if resp.data else {**exam, **update}
+
+
+def admin_section_progress(exam_id: str) -> dict:
+    """Live per-section submitted/total counts for the admin console — powers
+    the "đã nộp X/Y" readout that informs when to advance."""
+    exam = get_published_exam_by_id(exam_id)
+    if not exam:
+        raise NotFoundError(f"Mock exam {exam_id} không tồn tại.")
+    rows = supabase_admin.table("mock_exam_sittings").select("*").eq(
+        "mock_exam_id", str(exam_id),
+    ).neq("status", "void").execute().data or []
+    total = len(rows)
+    sections: dict = {}
+    for s in _LRW_ORDER:
+        col = _SUBMITTED_COL[s]
+        sections[s] = {
+            "submitted": sum(1 for r in rows if r.get(col)),
+            "total": total,
+        }
+    return {"active_section": exam.get("active_section") or "not_started", "sections": sections}
 
 
 def reserved_test_ids(kind: str) -> set:

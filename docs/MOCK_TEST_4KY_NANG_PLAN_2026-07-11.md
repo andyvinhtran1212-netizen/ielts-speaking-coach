@@ -321,3 +321,24 @@ Mở lại review UI (hết sealed), đổ kết quả vào learner report; lỗ
 4. **Speaking wiring** (P1.1): `POST /sessions` nhận `sitting_id` (để per-response grading seal) + `practice.js` test_full gắn sitting + gọi `record_speaking` lúc finalize. Backend đã sẵn (`record_speaking`, sealed grading).
 5. **Writing→instructor-tier** (P1.1): promote `writing_submission` → `writing_essays` (tier instructor, AI Pass-1 draft) thay cho capture text.
 6. Integrity events (`exam_blur/exam_focus`) → `/api/analytics/events` + gộp vào `integrity`.
+
+---
+
+## Phần 11 — ĐẢO NGƯỢC quyết định "mở đồng loạt" → SEQUENTIAL, admin-gated (2026-07-12)
+
+Sau Phần 10 (mở đồng loạt, 1 đồng hồ tổng — đã build + merge), user yêu cầu đổi lại sang mô hình **tuần tự, admin gác từng chặng**:
+Listening → (chờ tất cả nộp) → admin bấm mở Reading → (chờ nộp) → admin bấm mở Writing. Không có nút "Nộp sớm" thủ công — mỗi phần tự nộp khi hết giờ riêng của phần đó.
+
+**Quyết định chốt (qua AskUserQuestion):**
+- Thời lượng: Listening = độ dài audio + 2 phút đệm (tự tính, không nhập tay); Reading = phút admin set (mặc định 60); Writing = phút admin set (mặc định 60).
+- Gán học viên: theo `cohort_id` có sẵn (không làm bảng participants riêng) — chỉ học viên trong lớp mới thấy tile Full Test.
+- Dropdown chọn đề Listening/Reading cho mock: chỉ hiện đề **published** (sửa lỗi dropdown Listening trước đó không lọc status).
+
+**Thi công:**
+- Migration 151 (additive): `mock_exams` + `active_section` (not_started/listening/reading/writing/done, admin advance một chiều) + `reading_minutes`/`writing_minutes` + `{section}_started_at` (đồng hồ CHUNG cho cả lớp, không phải mỗi sitting một đồng hồ riêng).
+- `mock_exam_service.py`: `advance_section` (admin), `_force_collect_section` (an toàn cho học viên rớt mạng — thu bài "trắng" khi admin next), `submit_section` (thay `submit_lrw`), `section_time_remaining_seconds` (thay `lrw_time_remaining_seconds`), `admin_section_progress` (đếm "đã nộp X/Y" theo phần). Đã bỏ `start_lrw` — không còn nút "Bắt đầu" riêng cho học viên, phần mở tự động khi admin advance.
+- `pages/mock-exam.html` + `mock-exam-runner.js`: đổi từ 3-tab-song-song → 1 phòng chờ + hiển thị ĐÚNG 1 phần đang mở, poll 8s để bắt admin advance, đồng hồ riêng từng phần (không có nút Nộp thủ công).
+- `pages/admin/mock-exams/` + `admin-mock-exams.js`: thêm chọn lớp (cohort, bắt buộc), 2 ô phút Reading/Writing, nút "Mở phần tiếp theo →", pill đếm "đã nộp X/Y" mỗi phần (poll 15s).
+- Test: `test_mock_exam_workflow.py` viết lại cho state machine mới (51 test, tất cả xanh).
+
+**Nguồn sự thật hiện tại = code + `docs/SITE_OVERVIEW.md`** (mô tả 2 trang mock-exam đã cập nhật theo model tuần tự). Phần 9/10 ở trên phản ánh lịch sử thiết kế, không còn khớp hành vi hiện tại — không sửa lại để giữ log quyết định.

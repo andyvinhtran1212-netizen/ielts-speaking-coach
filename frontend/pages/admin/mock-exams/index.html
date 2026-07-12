@@ -40,19 +40,23 @@
 <body class="av-page font-sans min-h-screen">
   <div class="me-wrap">
     <h1>Quản lý Full Test 4 kỹ năng</h1>
-    <p class="me-muted" style="margin-bottom:16px;">Tạo đề · chọn Listening/Reading/Writing · <b>mở/đóng</b> kỳ live. Đề đã chọn sẽ bị ẩn khỏi list luyện tập Reading/Listening.</p>
+    <p class="me-muted" style="margin-bottom:16px;">Tạo đề · chọn Listening/Reading/Writing (chỉ đề đã <b>published</b>) · chọn lớp tham gia · <b>mở/đóng</b> kỳ live · mở từng phần <b>tuần tự</b> (Listening → Reading → Writing). Đề đã chọn sẽ bị ẩn khỏi list luyện tập Reading/Listening.</p>
 
     <div class="me-card">
       <h2>Tạo đề mới</h2>
       <div class="me-grid">
         <div><label>Mã đề (code)</label><input id="f-code" placeholder="MOCK-2026-08A"></div>
         <div><label>Tiêu đề</label><input id="f-title" placeholder="IELTS Mock 2026-08A"></div>
-        <div><label>Tổng thời gian LRW (phút)</label><input id="f-total" type="number" value="150"></div>
-        <div><label>Listening test</label><select id="f-listening"></select></div>
-        <div><label>Reading test</label><select id="f-reading"></select></div>
+        <div><label>Lớp tham gia (bắt buộc)</label><select id="f-cohort"></select></div>
+        <div><label>Listening test (published)</label><select id="f-listening"></select></div>
+        <div><label>Reading test (published)</label><select id="f-reading"></select></div>
         <div><label>Writing Task 1 (prompt)</label><select id="f-w1"></select></div>
         <div><label>Writing Task 2 (prompt)</label><select id="f-w2"></select></div>
+        <div><label>Reading — thời lượng (phút)</label><input id="f-reading-min" type="number" value="60"></div>
+        <div><label>Writing — thời lượng (phút)</label><input id="f-writing-min" type="number" value="60"></div>
+        <div><label>Tổng thời gian ước tính (phút, tham khảo)</label><input id="f-total" type="number" value="150"></div>
       </div>
+      <p class="me-muted" style="margin-top:8px">Listening tính giờ theo <b>độ dài file audio + 2 phút</b> — không cần nhập tay.</p>
       <button class="av-btn av-btn--primary" id="create-btn" style="margin-top:12px;">Tạo đề (draft)</button>
     </div>
 
