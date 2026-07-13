@@ -683,9 +683,10 @@ def start_section(sitting_id: str, user_id: str, section: str) -> dict:
     (Sequential opens sections via the admin's advance_section instead.)
 
     Validates: retake exam, the section is assigned to this student, the window
-    is still open, and the section isn't already submitted. Idempotent — if the
-    clock is already running, returns the sitting unchanged (a refresh mid-
-    section must NOT restart the timer)."""
+    is still open, the section isn't already submitted, and NO OTHER assigned
+    section is currently in progress (one clock at a time). Idempotent — if THIS
+    section's clock is already running, returns the sitting unchanged (a refresh
+    mid-section must NOT restart the timer)."""
     if section not in _LRW_ORDER:
         raise SittingConflictError(f"Section không hợp lệ: {section!r}")
     sitting = get_sitting(sitting_id)
@@ -710,6 +711,17 @@ def start_section(sitting_id: str, user_id: str, section: str) -> dict:
     started_col = f"{section}_started_at"
     if sitting.get(started_col):
         return sitting  # idempotent — clock already running
+
+    # One clock at a time: block starting a DIFFERENT assigned section while one
+    # is already started-but-unsubmitted. Two concurrent per-sitting clocks (a
+    # double-click across "Bắt đầu" buttons, or a direct API call) would let the
+    # section the runner ISN'T showing silently bleed time / be reaped unseen.
+    for other in _sitting_sections(sitting, exam):
+        if other != section and sitting.get(f"{other}_started_at") \
+                and not sitting.get(_SUBMITTED_COL[other]):
+            raise SittingConflictError(
+                f"Đang làm phần {other} — nộp xong mới bắt đầu phần khác."
+            )
 
     updates = {started_col: _now_iso()}
     if sitting["status"] == "registered":

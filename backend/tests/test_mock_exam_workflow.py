@@ -1609,6 +1609,38 @@ def test_retake_start_section_rejects_unassigned(fake_db, svc):
         svc.start_section(s["id"], u, "reading")     # reading not assigned
 
 
+def test_retake_review_requires_only_assigned_skills(fake_db, svc, wf):
+    """Codex P1 (2026-07-13): a writing-only retake on a FULL mock must not force
+    Listening/Reading/Speaking bands with no submissions — the reviewer bands
+    only the sitting's assigned skills, so the result can actually be saved."""
+    u = uuid4()
+    _seed_retake(fake_db, u, ["writing"])            # exam has L/R config, but
+    s = svc.create_sitting(u, "MOCK-TEST-A")         # this student only does W
+    svc.start_section(s["id"], u, "writing")
+    svc.submit_section(s["id"], u, "writing", "essay a", "essay b")
+
+    assert wf.required_skills_for_sitting(s["id"]) == ["writing"]
+    review = wf.get_review_for_sitting(s["id"])
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    saved = wf.save_final_bands(review["id"], admin, {"writing": 6.5})   # no L/R/S needed
+    assert saved["final_bands"]["writing"] == 6.5
+
+
+def test_retake_start_section_blocks_second_concurrent(fake_db, svc):
+    """Codex P2 (2026-07-13): only one per-sitting clock may run at a time —
+    starting a second assigned section while one is in progress is rejected (a
+    hidden clock would bleed time / be reaped unseen)."""
+    u = uuid4()
+    _seed_retake(fake_db, u, ["reading", "writing"])
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.start_section(s["id"], u, "writing")          # writing clock running
+    with pytest.raises(svc.SittingConflictError):
+        svc.start_section(s["id"], u, "reading")      # a 2nd concurrent start
+    # re-entering the SAME in-progress section stays idempotent-OK
+    assert svc.start_section(s["id"], u, "writing")["writing_started_at"]
+
+
 def test_compute_overall_pure():
     from services import mock_review_workflow as wf
     assert wf.compute_overall(
