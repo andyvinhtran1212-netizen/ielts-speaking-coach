@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timezone
 from time import perf_counter
 
-from fastapi import APIRouter, HTTPException, Header, Response
+from fastapi import APIRouter, Depends, HTTPException, Header, Response
 
 logger = logging.getLogger(__name__)
 from pydantic import BaseModel
@@ -12,6 +12,7 @@ from config import settings
 from database import supabase_admin
 from services.server_timing import record_stage
 from services.feature_flags import is_flashcard_enabled
+from services.runtime_flags import require_flag
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -717,11 +718,19 @@ async def activate_account(
 
 # ── PATCH /auth/profile ───────────────────────────────────────────────────────
 
-@router.patch("/profile")
+# FE migration pilot 4 — FIRST require_flag adoption (ADR-010): flag
+# `profile_update`, default enabled (missing row = on, legacy unaffected);
+# admin flip via PATCH /admin/runtime-flags/profile_update is live within one
+# 15 s cache window on every instance, killing the mutation for BOTH stacks
+# at the backend seam. Disabled → 503 {"code": "feature_disabled", ...}.
+@router.patch("/profile", dependencies=[Depends(require_flag("profile_update"))])
 async def update_profile(
     payload: ProfileUpdate,
+    response: Response,
     authorization: str | None = Header(default=None),
 ):
+    # Pilot-3/4 checklist: private response — never shared-cacheable.
+    response.headers["Cache-Control"] = "private, no-store"
     auth_user = await get_supabase_user(authorization)
     user_id = auth_user["id"]
 
