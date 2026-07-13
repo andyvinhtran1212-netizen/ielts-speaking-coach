@@ -1,0 +1,55 @@
+# Staging E2E (plan §11.3 — "staging-e2e", the real-backend suite; the PR-time
+# fixture smoke stays in backend-tests.yml). Nightly + manual. NOT PR-blocking:
+# it exercises live staging infrastructure and must never gate unrelated PRs.
+#
+# Required repo secrets:
+#   STAGING_PROTECTION_BYPASS — Vercel "Protection Bypass for Automation"
+#   E2E_PASSWORD — synthetic identity password (NEVER committed — review P1);
+#                  must match the value used when running staging_seed.py
+#
+# Prerequisites (provisioned 2026-07-13, see docs/ENV_CERTIFICATION_STAGING_*):
+#   * staging.averlearning.com serving the `staging` branch
+#   * backend/scripts/staging_seed.py --ns smoke identities on staging
+#     Supabase (script ships in PR #733 — merge order #732 → #733 → this)
+name: Staging E2E
+
+on:
+  schedule:
+    # GitHub Actions cron is deliberate: this job runs a Playwright browser
+    # suite, which Vercel Cron Jobs (URL-invoking functions) cannot host.
+    - cron: "30 20 * * *" # 03:30 Asia/Ho_Chi_Minh, daily
+  workflow_dispatch:
+
+jobs:
+  staging-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Playwright chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run staging E2E
+        working-directory: frontend
+        env:
+          STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+        run: npm run test:e2e:staging
+
+      # Synthetic data only + short retention (plan B29).
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: staging-e2e-report
+          path: frontend/playwright-report
+          retention-days: 7
