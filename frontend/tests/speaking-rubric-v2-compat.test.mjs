@@ -78,10 +78,13 @@ describe('Sprint 14.5 — backend additive contract', () => {
     // keys the validator demands. If a future cleanup tries to bend it
     // toward the original commission\'s v2 shape (criteria object), the
     // diff would show as removing these keys — pin them.
+    // Audit 2026-07-02: band_p / p_feedback were REMOVED on purpose — the
+    // grader scores FC/LR/GRA only; pronunciation comes from Azure and is
+    // merged in routers/grading.py. They are pinned as ABSENT below.
     for (const field of [
-      '"band_fc"', '"band_lr"', '"band_gra"', '"band_p"',
+      '"band_fc"', '"band_lr"', '"band_gra"',
       '"overall_band"',
-      '"fc_feedback"', '"lr_feedback"', '"gra_feedback"', '"p_feedback"',
+      '"fc_feedback"', '"lr_feedback"', '"gra_feedback"',
       '"strengths"', '"improvements"', '"improved_response"',
     ]) {
       assert.ok(
@@ -89,6 +92,13 @@ describe('Sprint 14.5 — backend additive contract', () => {
         `claude_grader.py must still reference required field ${field}`,
       );
     }
+  });
+
+  test('band_p / p_feedback stay OUT of _REQUIRED_FIELDS (Azure owns P — audit 2026-07-02)', () => {
+    const reqBlock = GRADER_PY.match(/_REQUIRED_FIELDS: dict\[str, type\] = \{[\s\S]*?\n\}/);
+    assert.ok(reqBlock, '_REQUIRED_FIELDS dict not found in claude_grader.py');
+    assert.ok(!reqBlock[0].includes('"band_p"'), 'band_p must not be re-added to _REQUIRED_FIELDS');
+    assert.ok(!reqBlock[0].includes('"p_feedback"'), 'p_feedback must not be re-added to _REQUIRED_FIELDS');
   });
 
   test('rubric_version field is additive (default v1) — no required-field promotion', () => {

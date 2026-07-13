@@ -14,6 +14,10 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const read = (...r) => readFileSync(join(__dirname, '..', ...r), 'utf8');
 const H = read('pages', 'admin', 'writing', 'index.html');
+// dash-* styles moved from the page's inline <style> block into
+// css/admin-writing.css (2026-07-13) — admin-writing-redesign.test.mjs
+// pins "no inline style"; style assertions below read the CSS file.
+const CSS = read('css', 'admin-writing.css');
 
 
 describe('writing dashboard — 3 workflow groups', () => {
@@ -66,11 +70,11 @@ describe('writing dashboard — dead/stale tiles dropped', () => {
 
 describe('writing dashboard — token-driven + accessible', () => {
   test('tiles styled via --av-* tokens (light + dark)', () => {
-    assert.match(H, /\.dash-tile\s*\{[\s\S]*?var\(--av-surface-card\)/);
-    assert.match(H, /var\(--av-shadow-sm\)/);
+    assert.match(CSS, /\.dash-tile\s*\{[\s\S]*?var\(--av-surface-card\)/);
+    assert.match(CSS, /var\(--av-shadow-sm\)/);
   });
   test('groups use aria-labelledby; reveal is motion-safe', () => {
     assert.match(H, /aria-labelledby="dash-g-compose"/);
-    assert.match(H, /@media\s*\(prefers-reduced-motion:\s*no-preference\)/);
+    assert.match(CSS, /@media\s*\(prefers-reduced-motion:\s*no-preference\)/);
   });
 });
