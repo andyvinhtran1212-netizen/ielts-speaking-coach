@@ -101,17 +101,25 @@ def _required_skills(sitting_id: UUID | str) -> tuple:
     reconciliation)."""
     from services import mock_exam_service  # local import avoids import-order coupling
 
-    s = supabase_admin.table("mock_exam_sittings").select("mock_exam_id").eq(
-        "id", str(sitting_id),
-    ).limit(1).execute()
+    s = supabase_admin.table("mock_exam_sittings").select(
+        "mock_exam_id, assigned_skills",
+    ).eq("id", str(sitting_id)).limit(1).execute()
     if not s.data:
         return _SKILLS
+    sitting = s.data[0]
     e = supabase_admin.table("mock_exams").select(
-        "speaking_topic_set, listening_test_id, reading_test_id",
-    ).eq("id", str(s.data[0]["mock_exam_id"])).limit(1).execute()
+        "exam_mode, speaking_topic_set, listening_test_id, reading_test_id",
+    ).eq("id", str(sitting["mock_exam_id"])).limit(1).execute()
     if not e.data:
         return _SKILLS
     exam = e.data[0]
+    # Retake: the reviewer bands ONLY the skills THIS student was assigned (the
+    # sitting's snapshot), not the exam's full config — a writing-only retake on
+    # a full mock must not force Listening/Reading/Speaking bands with no work,
+    # which would make the retake result impossible to save/release.
+    if mock_exam_service.is_retake(exam):
+        assigned = set(sitting.get("assigned_skills") or [])
+        return tuple(s for s in _SKILLS if s in assigned)   # order-stable
     skills = tuple(mock_exam_service._configured_sections(exam))  # ('listening'?, 'reading'?, 'writing')
     if exam.get("speaking_topic_set"):
         skills = skills + ("speaking",)

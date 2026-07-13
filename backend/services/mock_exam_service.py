@@ -683,9 +683,10 @@ def start_section(sitting_id: str, user_id: str, section: str) -> dict:
     (Sequential opens sections via the admin's advance_section instead.)
 
     Validates: retake exam, the section is assigned to this student, the window
-    is still open, and the section isn't already submitted. Idempotent — if the
-    clock is already running, returns the sitting unchanged (a refresh mid-
-    section must NOT restart the timer)."""
+    is still open, the section isn't already submitted, and NO OTHER assigned
+    section is currently in progress (one clock at a time). Idempotent — if THIS
+    section's clock is already running, returns the sitting unchanged (a refresh
+    mid-section must NOT restart the timer)."""
     if section not in _LRW_ORDER:
         raise SittingConflictError(f"Section không hợp lệ: {section!r}")
     sitting = get_sitting(sitting_id)
@@ -710,6 +711,17 @@ def start_section(sitting_id: str, user_id: str, section: str) -> dict:
     started_col = f"{section}_started_at"
     if sitting.get(started_col):
         return sitting  # idempotent — clock already running
+
+    # One clock at a time: block starting a DIFFERENT assigned section while one
+    # is already started-but-unsubmitted. Two concurrent per-sitting clocks (a
+    # double-click across "Bắt đầu" buttons, or a direct API call) would let the
+    # section the runner ISN'T showing silently bleed time / be reaped unseen.
+    for other in _sitting_sections(sitting, exam):
+        if other != section and sitting.get(f"{other}_started_at") \
+                and not sitting.get(_SUBMITTED_COL[other]):
+            raise SittingConflictError(
+                f"Đang làm phần {other} — nộp xong mới bắt đầu phần khác."
+            )
 
     updates = {started_col: _now_iso()}
     if sitting["status"] == "registered":
@@ -1293,7 +1305,8 @@ def reap_expired_retake_sittings(grace_seconds: int = 30) -> dict:
         window_until = _parse_ts(sitting.get("retake_open_until"))
         window_closed = bool(window_until and now > window_until)
         did = False
-        for section in _sitting_sections(sitting, exam):
+        sections = _sitting_sections(sitting, exam)
+        for section in sections:
             if sitting.get(_SUBMITTED_COL[section]):
                 continue
             if window_closed or _retake_section_expired(sitting, exam, section, grace_seconds):
@@ -1302,6 +1315,19 @@ def reap_expired_retake_sittings(grace_seconds: int = 30) -> dict:
                 did = True
                 sitting = get_sitting(sitting["id"]) or sitting   # refresh for next section's terminal check
         if did:
+            touched += 1
+        # Retry-reconcile: if a PRIOR pass stamped every assigned section but
+        # died before finalising (e.g. an L/R grade write raised after the
+        # submitted_at write), this sweep would otherwise `continue` past all
+        # sections, never re-finalise, and strand the sitting in lrw_in_progress
+        # with no review. Re-run the terminal transition for a fully-stamped but
+        # not-yet-terminal sitting.
+        elif sections and all(sitting.get(_SUBMITTED_COL[s]) for s in sections) \
+                and sitting.get("status") in ("registered", "lrw_in_progress"):
+            supabase_admin.table("mock_exam_sittings").update({
+                "status": "lrw_submitted",
+            }).eq("id", sitting["id"]).execute()
+            _reconcile_terminal(sitting["id"])
             touched += 1
     if collected:
         logger.info("[retake-reaper] collected=%d across %d sitting(s)", collected, touched)
