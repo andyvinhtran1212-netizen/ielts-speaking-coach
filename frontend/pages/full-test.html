@@ -62,9 +62,15 @@
         exams.forEach(function (ex) {
           var c = document.createElement('div');
           c.className = 'ft-card';
+          var retake = ex.exam_mode === 'retake';
           c.innerHTML =
-            '<div class="ft-title">' + esc(ex.title || ex.code) + '</div>' +
-            '<p class="ft-muted" style="margin:6px 0 12px">Tổng thời gian LRW: <b>' + (ex.total_minutes || 150) + ' phút</b> · Trả kết quả trong ~' + (ex.review_sla_days || 3) + ' ngày.</p>' +
+            '<div class="ft-title">' + esc(ex.title || ex.code) +
+              (retake ? ' <span class="av-badge av-badge-warning">Test lại</span>' : '') + '</div>' +
+            '<p class="ft-muted" style="margin:6px 0 12px">' +
+              (retake
+                ? 'Bài test lại — chỉ làm kĩ năng được giao, có hẹn giờ, web tự thu bài khi hết giờ.'
+                : 'Tổng thời gian LRW: <b>' + (ex.total_minutes || 150) + ' phút</b> · Trả kết quả trong ~' + (ex.review_sla_days || 3) + ' ngày.') +
+            '</p>' +
             '<a class="av-btn av-btn--primary" style="display:inline-block" href="/pages/mock-exam.html?code=' + encodeURIComponent(ex.code) + '">Bắt đầu →</a>';
           host.appendChild(c);
         });

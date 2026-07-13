@@ -43,7 +43,15 @@
     showState('error');
   }
 
+  var _SEQ = ['listening', 'reading', 'writing'];
+
   function configuredSections() {
+    // Retake: only the skills THIS student was assigned (order-stable). Otherwise
+    // the exam's configured sequence.
+    if (S.examMode === 'retake') {
+      var assigned = S.assignedSkills || [];
+      return _SEQ.filter(function (s) { return assigned.indexOf(s) !== -1; });
+    }
     var out = [];
     if (S.exam.listening_test_id) out.push('listening');
     if (S.exam.reading_test_code) out.push('reading');
@@ -70,6 +78,8 @@
   async function loadState(isPoll) {
     var st = await api('get', '/api/mock-exams/sittings/' + encodeURIComponent(S.sittingId));
     S.sitting = st.sitting; S.exam = st.exam || {};
+    S.examMode = st.exam_mode || 'sequential';
+    S.assignedSkills = st.assigned_skills || null;
     S.activeSection = st.active_section || 'not_started';
     S.timeLeft = st.section_time_left_seconds;
     route(isPoll);
@@ -95,7 +105,9 @@
     if (!isOpenSection) {
       S.renderedSection = null;
       if (timerIv) { clearInterval(timerIv); timerIv = null; }
-      return renderWaiting();
+      // Retake has no invigilator to "open" the next section — the student
+      // picks the next assigned skill from a menu.
+      return (S.examMode === 'retake') ? renderRetakeMenu() : renderWaiting();
     }
     if (S.renderedSection === active) {
       // Already showing this section — resync the countdown only, never touch
@@ -122,6 +134,32 @@
     }).join('');
     startPolling();
     showState('waiting');
+  }
+
+  // Retake: no invigilator — the student starts each assigned skill themselves.
+  function renderRetakeMenu() {
+    el('waiting-title').textContent = 'Bài test lại: ' + (S.exam.reading_title || S.code || 'IELTS');
+    el('waiting-msg').textContent = 'Chọn phần để bắt đầu. Mỗi phần có thời gian riêng — web tự thu bài khi hết giờ.';
+    el('waiting-checklist').innerHTML = configuredSections().map(function (s) {
+      if (S.sitting[s + '_submitted_at']) {
+        return '<span class="me-check-pill done">' + esc(_SECTION_LABEL[s]) + ' ✓</span>';
+      }
+      return '<button class="av-btn av-btn--primary" data-start="' + s + '" style="margin:4px">Bắt đầu ' + esc(_SECTION_LABEL[s]) + '</button>';
+    }).join('');
+    el('waiting-checklist').querySelectorAll('[data-start]').forEach(function (b) {
+      b.addEventListener('click', function () { startRetakeSection(b.getAttribute('data-start')); });
+    });
+    startPolling();
+    showState('waiting');
+  }
+
+  async function startRetakeSection(section) {
+    try {
+      await api('post', '/api/mock-exams/sittings/' + encodeURIComponent(S.sittingId) + '/sections/' + encodeURIComponent(section) + '/start');
+      await loadState();   // active_section is now this section → it renders
+    } catch (e) {
+      el('waiting-msg').textContent = 'Không bắt đầu được: ' + (e && e.message ? e.message : e);
+    }
   }
 
   // ── Test (ONE section at a time) ──────────────────────────────────

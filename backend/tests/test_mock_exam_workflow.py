@@ -1541,6 +1541,74 @@ def test_retake_list_and_remove_assignments(fake_db):
     assert a.list_assignments(exam_id) == []
 
 
+def _seed_retake(fake, u, skills, *, open_from=None, open_until=None):
+    """A published retake exam + one assignment for user `u`. Returns the exam."""
+    exam = _seed_exam(fake, speaking=False)
+    exam["exam_mode"] = "retake"
+    p1, p2 = str(uuid4()), str(uuid4())
+    exam["writing_task1_prompt_id"] = p1
+    exam["writing_task2_prompt_id"] = p2
+    fake.seed("writing_prompts", {"id": p1, "task_type": "task1_academic",
+                                  "prompt_text": "x", "title": "T1"})
+    fake.seed("writing_prompts", {"id": p2, "task_type": "task2",
+                                  "prompt_text": "y", "title": "T2"})
+    fake.seed("students", {"id": str(uuid4()), "user_id": str(u)})
+    fake.seed("mock_exam_assignments", {
+        "exam_id": exam["id"], "user_id": str(u), "skills": skills,
+        "open_from": open_from, "open_until": open_until,
+    })
+    return exam
+
+
+def test_retake_sitting_flow_writing_only(fake_db, svc, wf):
+    """PR B: a retaker assigned only Writing enters via assignment (no cohort /
+    no admin advance), starts the section on their own clock, submits early
+    (self-paced), and finalises to all_submitted on the ASSIGNED skill alone."""
+    u = uuid4()
+    exam = _seed_retake(fake_db, u, ["writing"])
+
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    assert s["assigned_skills"] == ["writing"]
+    assert s["status"] == "registered"
+
+    s2 = svc.start_section(s["id"], u, "writing")
+    assert s2["writing_started_at"]
+    assert s2["status"] == "lrw_in_progress"
+    active, tl = svc.retake_active_section(svc.get_sitting(s["id"]), exam)
+    assert active == "writing"
+    assert tl is not None and tl > 0
+
+    # submit bypasses the sequential active_section gate; only-assigned skill
+    # done → all_submitted + review queued + writing promoted (pipeline reused).
+    result = svc.submit_section(s["id"], u, "writing", "essay a", "essay b")
+    assert result["status"] == "all_submitted"
+    assert len(fake_db.rows("mock_exam_reviews")) == 1
+    assert len(fake_db.rows("writing_essays")) == 2
+
+
+def test_retake_create_sitting_requires_assignment(fake_db, svc):
+    exam = _seed_exam(fake_db, speaking=False)
+    exam["exam_mode"] = "retake"
+    with pytest.raises(svc.NotEligibleError):
+        svc.create_sitting(uuid4(), "MOCK-TEST-A")   # no assignment
+
+
+def test_retake_create_sitting_respects_window(fake_db, svc):
+    u = uuid4()
+    future = (datetime.now(timezone.utc) + timedelta(hours=2)).isoformat()
+    _seed_retake(fake_db, u, ["writing"], open_from=future)
+    with pytest.raises(svc.WindowClosedError):
+        svc.create_sitting(u, "MOCK-TEST-A")         # before open_from
+
+
+def test_retake_start_section_rejects_unassigned(fake_db, svc):
+    u = uuid4()
+    _seed_retake(fake_db, u, ["writing"])            # only writing assigned
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    with pytest.raises(svc.SittingConflictError):
+        svc.start_section(s["id"], u, "reading")     # reading not assigned
+
+
 def test_compute_overall_pure():
     from services import mock_review_workflow as wf
     assert wf.compute_overall(
