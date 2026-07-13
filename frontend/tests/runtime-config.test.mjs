@@ -87,7 +87,8 @@ describe('api.js consumes the config first', () => {
   const api = readFileSync(path.join(FRONTEND, 'js', 'api.js'), 'utf8');
 
   test('_API_BASE prefers _RC.apiBase over hostname inference', () => {
-    assert.match(api, /window\.__AVER_RUNTIME_CONFIG__/);
+    // (window) may carry a JSDoc cast for @ts-check — match the property read.
+    assert.match(api, /\(?window\)?\.__AVER_RUNTIME_CONFIG__/);
     assert.match(api, /_RC\.apiBase\s*\|\|/);
   });
 
