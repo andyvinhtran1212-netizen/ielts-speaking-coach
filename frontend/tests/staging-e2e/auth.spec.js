@@ -17,9 +17,19 @@ const STAGING_API = 'https://ielts-speaking-coach-staging.up.railway.app';
 const STAGING_ANON = process.env.STAGING_SUPABASE_ANON ||
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpqcGhmZm91anhrcGx0aXhzYnpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwMTA5ODUsImV4cCI6MjA5MjU4Njk4NX0.A8CSIWH-_p8baHBSGDaNJ2kWyQVgZOLlSX3dD1lOuGU';
 const EMAIL = 'e2e-student-smoke@staging-e2e.averlearning.com';
-const PASSWORD = process.env.E2E_PASSWORD || 'E2e-staging-Passw0rd!';
+// REQUIRED — never committed (review P1, 2026-07-13): with the anon key and
+// email public, a committed password would let anyone with repo access mint
+// staging JWTs. staging_seed.py requires the same env var and ROTATES the
+// identities' passwords on reseed.
+const PASSWORD = process.env.E2E_PASSWORD || '';
 
 test('password sign-in on staging Supabase + /auth/me on staging API', async ({ request }) => {
+  if (!PASSWORD) {
+    throw new Error(
+      'E2E_PASSWORD is required (repo secret E2E_PASSWORD; must match the ' +
+      'value used for backend/scripts/staging_seed.py --ns smoke).',
+    );
+  }
   const login = await request.post(
     `${STAGING_SUPABASE}/auth/v1/token?grant_type=password`,
     {

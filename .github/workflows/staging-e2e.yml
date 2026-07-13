@@ -2,14 +2,15 @@
 # fixture smoke stays in backend-tests.yml). Nightly + manual. NOT PR-blocking:
 # it exercises live staging infrastructure and must never gate unrelated PRs.
 #
-# Required repo secret:
+# Required repo secrets:
 #   STAGING_PROTECTION_BYPASS — Vercel "Protection Bypass for Automation"
-# Optional:
-#   E2E_PASSWORD — synthetic identity password if rotated off the default
+#   E2E_PASSWORD — synthetic identity password (NEVER committed — review P1);
+#                  must match the value used when running staging_seed.py
 #
 # Prerequisites (provisioned 2026-07-13, see docs/ENV_CERTIFICATION_STAGING_*):
 #   * staging.averlearning.com serving the `staging` branch
-#   * backend/scripts/staging_seed.py --ns smoke identities on staging Supabase
+#   * backend/scripts/staging_seed.py --ns smoke identities on staging
+#     Supabase (script ships in PR #733 — merge order #732 → #733 → this)
 name: Staging E2E
 
 on:
