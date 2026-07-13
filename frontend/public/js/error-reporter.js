@@ -66,6 +66,24 @@
     }
   }
 
+  // ── ADR-012 migration tags (FE Next.js migration, Pilot Entry) ─────
+  // Every error report carries which STACK rendered the page and which
+  // RELEASE served it, so the cutover dashboard can compare error rates
+  // by implementation/release. Additive: rides in `extra`, no schema
+  // change. `__next_f` is the App Router RSC flight sink — present on
+  // every Next page before any app code runs, absent on legacy pages.
+  function migrationTags() {
+    var tags = {};
+    try {
+      tags.implementation =
+        (typeof window.__next_f !== 'undefined') ? 'next' : 'legacy';
+      var rc = window.__AVER_RUNTIME_CONFIG__ || {};
+      if (rc.release) tags.release = rc.release;
+      if (rc.environment) tags.environment = rc.environment;
+    } catch { /* tags are best-effort — never block a report */ }
+    return tags;
+  }
+
   // ── Pure helper, exported for tests ────────────────────────────────
   function buildDedupKey(message, stack) {
     var m = String(message || '');
@@ -133,7 +151,9 @@
         url:        (window.location && window.location.pathname) || null,
         user_agent: ((window.navigator && window.navigator.userAgent) || '').slice(0, 500),
         request_id: REQUEST_ID,
-        extra:      payload.extra || null,
+        // Caller extra first, ADR-012 tags second (tags win a collision —
+        // implementation/release are infrastructure truth, not caller data).
+        extra:      Object.assign({}, payload.extra || {}, migrationTags()),
       };
     } catch (e) {
       // Defensive: a circular `extra` or weird browser globals could
@@ -221,15 +241,22 @@
       || 'Unknown error';
     if (!msg || !String(msg).trim()) msg = 'Unknown error';
     if (_isIgnoredError(msg, event && event.filename)) return null;   // third-party / opaque noise
+    var extra = {
+      filename: (event && event.filename) || null,
+      line:     (event && event.lineno) || null,
+      col:      (event && event.colno) || null,
+    };
+    // ADR-012 §2 — api.js tags its thrown errors with the per-call
+    // correlation id (+ the server sanitizer ref on 5xx). Carrying them here
+    // is what lets an error_logs row join to the exact backend log line.
+    var errObj = event && event.error;
+    if (errObj && errObj.request_id) extra.api_request_id = errObj.request_id;
+    if (errObj && errObj.ref) extra.api_ref = errObj.ref;
     return {
       level:   'error',
       message: String(msg),
-      stack:   (event && event.error && event.error.stack) || null,
-      extra: {
-        filename: (event && event.filename) || null,
-        line:     (event && event.lineno) || null,
-        col:      (event && event.colno) || null,
-      },
+      stack:   (errObj && errObj.stack) || null,
+      extra:   extra,
     };
   }
 
@@ -259,11 +286,17 @@
         || (typeof reason === 'string' ? reason : null)
         || (reason != null ? String(reason) : null);
       if (_isIgnoredError(msg, null)) return;   // third-party / opaque noise
+      var extra = { type: 'unhandled_promise_rejection' };
+      // ADR-012 §2 — a rejected api.js call carries its per-call correlation
+      // id (+ server ref on 5xx); ship them so this report joins to the
+      // exact backend log line instead of only the page-session REQUEST_ID.
+      if (reason && reason.request_id) extra.api_request_id = reason.request_id;
+      if (reason && reason.ref) extra.api_ref = reason.ref;
       reportError({
         level:   'error',
         message: msg || 'Unhandled promise rejection',
         stack:   reason && reason.stack,
-        extra:   { type: 'unhandled_promise_rejection' },
+        extra:   extra,
       }).catch(function (e) {
         try { console.error('[error-reporter] reportError rejected (rejection):', e); } catch {}
       });

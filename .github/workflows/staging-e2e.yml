@@ -53,3 +53,25 @@ jobs:
           name: staging-e2e-report
           path: frontend/playwright-report
           retention-days: 7
+
+  # Rollback-pin drift monitor (Gate B re-drill lesson, 2026-07-13 — see
+  # docs/GATE_B_EVIDENCE_2026-07-13.md): an Instant Rollback leaves the
+  # project pinned and silently stops auto-promotion; six merges once built
+  # Ready production deployments that never received the domain. This job
+  # fails the nightly whenever production is not serving main HEAD.
+  production-release-drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Production serves main HEAD
+        run: |
+          SERVING=$(curl -sL --max-time 20 https://www.averlearning.com/js/runtime-config.js \
+            | grep -o '"release": *"[a-f0-9]\{40\}"' | grep -o '[a-f0-9]\{40\}' | head -1)
+          echo "serving=$SERVING main=$GITHUB_SHA"
+          if [ -z "$SERVING" ]; then
+            echo "::error::Khong doc duoc release tu production runtime-config"; exit 1
+          fi
+          if [ "$SERVING" != "$GITHUB_SHA" ]; then
+            echo "::error::PRODUCTION RELEASE DRIFT - production dang phuc vu $SERVING nhung main la $GITHUB_SHA. Kiem tra rollback-pin tren Vercel Overview (banner Undo Rollback) - bai hoc Gate B re-drill, docs/GATE_B_EVIDENCE_2026-07-13.md."
+            exit 1
+          fi

@@ -205,6 +205,17 @@
         </div>
       </section>
 
+      <!-- ADR-012 cutover dashboard (FE Next.js migration, Pilot Entry):
+           error counts by implementation/release so a migrated route's error
+           rate is comparable against legacy on the same release. Rendered by
+           admin-error-logs.js from GET /admin/error-logs/migration-stats. -->
+      <section class="el-stat-card el-migration-panel" id="migration-stats-panel"
+               aria-label="Migration theo implementation/release">
+        <div class="label">Migration (ADR-012) — lỗi 7 ngày theo implementation/release
+          <span id="migration-serving"></span></div>
+        <div id="migration-stats-body">—</div>
+      </section>
+
       <div class="el-toolbar">
         <div class="el-filter-bar">
           <div class="el-filter">

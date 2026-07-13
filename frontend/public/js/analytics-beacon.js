@@ -16,12 +16,22 @@
   function fire() {
     try {
       if (!(window.api && typeof window.api.post === 'function')) return;
+      // ADR-012 migration tags: which stack rendered the page + which
+      // release served it (cutover-dashboard denominator). Best-effort.
+      var impl = 'legacy';
+      var release = null;
+      try {
+        impl = (typeof window.__next_f !== 'undefined') ? 'next' : 'legacy';
+        release = (window.__AVER_RUNTIME_CONFIG__ || {}).release || null;
+      } catch (e) { /* tags must never block the beacon */ }
       window.api.post('/api/analytics/events', {
         event_name: 'page_view',
         event_data: {
           path: location.pathname,
           referrer: document.referrer || '',
           vw: window.innerWidth || 0,
+          implementation: impl,
+          release: release,
         },
       }).catch(function () { /* best-effort */ });
     } catch (e) { /* never affect the page */ }

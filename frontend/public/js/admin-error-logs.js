@@ -240,6 +240,49 @@ async function loadStats() {
   }
 }
 
+
+// ── ADR-012 cutover dashboard (FE Next.js migration, Pilot Entry) ──────
+// Error counts by (implementation, release) so a migrated route's error
+// rate is comparable against legacy on the same release; also shows which
+// release THIS admin session is being served (drift hint vs telemetry).
+async function loadMigrationStats() {
+  const body = document.getElementById('migration-stats-body');
+  if (!body) return;
+  try {
+    const rc = (typeof window !== 'undefined' && window.__AVER_RUNTIME_CONFIG__) || {};
+    const serving = document.getElementById('migration-serving');
+    if (serving && rc.release) {
+      serving.textContent = ' · đang phục vụ: ' + String(rc.release).slice(0, 8) +
+        (rc.environment ? ' (' + rc.environment + ')' : '');
+    }
+    const r = await api.get('/admin/error-logs/migration-stats');
+    const rows = (r && r.rows) || [];
+    if (!rows.length) {
+      body.textContent = 'Chưa có lỗi nào trong ' + ((r && r.window_days) || 7) + ' ngày qua.';
+      return;
+    }
+    const cells = rows.map((g) => {
+      const levels = Object.keys(g.by_level || {})
+        .map((k) => escapeHtml(k) + ' ' + g.by_level[k]).join(' · ');
+      return '<tr>' +
+        '<td>' + escapeHtml(g.implementation) + '</td>' +
+        '<td>' + escapeHtml(g.release) + '</td>' +
+        '<td>' + g.total + '</td>' +
+        '<td>' + g.undismissed + '</td>' +
+        '<td>' + levels + '</td>' +
+        '</tr>';
+    }).join('');
+    body.innerHTML =
+      '<table class="el-migration-table"><thead><tr>' +
+      '<th>Implementation</th><th>Release</th><th>Tổng</th><th>Chưa xử lý</th><th>Theo level</th>' +
+      '</tr></thead><tbody>' + cells + '</tbody></table>' +
+      (r.truncated ? '<div class="el-migration-note">⚠ Dữ liệu bị cắt ở ' + r.scanned + ' dòng.</div>' : '');
+  } catch (err) {
+    console.warn('[error-logs] migration-stats fetch failed:', err);
+    body.textContent = 'Không tải được migration-stats.';
+  }
+}
+
 function buildQuery() {
   const params = new URLSearchParams();
   const dismissed = $('filter-dismissed').value;
@@ -267,7 +310,7 @@ async function dismiss(id) {
   try {
     await api.post('/admin/error-logs/' + id + '/dismiss');
     showBanner('Đã đánh dấu xử lý.', 'success');
-    await Promise.all([loadLogs(), loadStats()]);
+    await Promise.all([loadLogs(), loadStats(), loadMigrationStats()]);
   } catch (err) {
     showBanner('Không xử lý được: ' + (err.message || err), 'error');
   }
@@ -277,7 +320,7 @@ async function undismiss(id) {
   try {
     await api.post('/admin/error-logs/' + id + '/undismiss');
     showBanner('Đã reset.', 'success');
-    await Promise.all([loadLogs(), loadStats()]);
+    await Promise.all([loadLogs(), loadStats(), loadMigrationStats()]);
   } catch (err) {
     showBanner('Không reset được: ' + (err.message || err), 'error');
   }
@@ -299,12 +342,12 @@ async function generateTestError() {
   const hideNoise = $('filter-hide-noise');
   if (hideNoise) hideNoise.checked = false;
   // Give the BackgroundTask a beat to land before refreshing.
-  setTimeout(() => { loadLogs(); loadStats(); }, 800);
+  setTimeout(() => { loadLogs(); loadStats(); loadMigrationStats(); }, 800);
   showBanner('Đang tạo lỗi test… một dòng "Thử nghiệm" sẽ xuất hiện trong giây lát.', 'success');
 }
 
 function bind() {
-  $('btn-refresh').addEventListener('click', () => { loadLogs(); loadStats(); });
+  $('btn-refresh').addEventListener('click', () => { loadLogs(); loadStats(); loadMigrationStats(); });
   $('btn-test-error').addEventListener('click', generateTestError);
   ['filter-dismissed', 'filter-level', 'filter-source'].forEach((id) => {
     $(id).addEventListener('change', loadLogs);
@@ -330,7 +373,7 @@ function bind() {
 
 async function main() {
   bind();
-  await Promise.all([loadStats(), loadLogs()]);
+  await Promise.all([loadStats(), loadLogs(), loadMigrationStats()]);
 }
 
 if (document.readyState === 'loading') {
