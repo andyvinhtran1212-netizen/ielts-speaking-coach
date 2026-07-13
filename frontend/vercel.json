@@ -1,4 +1,6 @@
 {
+  "buildCommand": "node tooling/generate-runtime-config.mjs",
+  "outputDirectory": ".",
   "headers": [
     {
       "source": "/js/(.*)",
@@ -18,7 +20,6 @@
     }
   ],
   "rewrites": [
-    { "source": "/api/public-stats", "destination": "https://ielts-speaking-coach-production.up.railway.app/api/public-stats" },
     { "source": "/grammar/:category/:slug", "destination": "/pages/grammar-article.html" },
     { "source": "/writing/dashboard",       "destination": "/pages/writing-dashboard.html" },
     { "source": "/writing/result",          "destination": "/pages/writing-result.html" },

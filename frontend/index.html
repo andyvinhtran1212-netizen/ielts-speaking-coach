@@ -703,6 +703,7 @@
   </script>
 
   <!-- Public stats loader — fills [data-stat] elements with real counts -->
+  <script src="/js/runtime-config.js"></script>
   <script>
     (function () {
       function formatNum(n) {
@@ -710,7 +711,14 @@
         if (n >= 1000) return (n / 1000).toFixed(1).replace('.0', '') + 'K+';
         return n + '+';
       }
-      fetch('/api/public-stats')
+      // Environment-aware API base (js/runtime-config.js) — the old
+      // vercel.json rewrite hardcoded production for every environment.
+      var _rc = window.__AVER_RUNTIME_CONFIG__ || {};
+      var _apiBase = _rc.apiBase ||
+        (location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+          ? 'http://localhost:8000'
+          : 'https://ielts-speaking-coach-production.up.railway.app');
+      fetch(_apiBase + '/api/public-stats')
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (data) {
           if (!data) return;
