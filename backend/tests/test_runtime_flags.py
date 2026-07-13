@@ -138,7 +138,14 @@ def test_require_flag_dependency(monkeypatch):
     with pytest.raises(HTTPException) as exc:
         guard()
     assert exc.value.status_code == 503
-    assert exc.value.detail["code"] == "feature_disabled"
+    assert exc.value.detail["error_code"] == "feature_disabled"
+
+    # The central 5xx sanitizer (services/errors.py safe_detail) only passes
+    # dict details through when they carry `error_code` — this is what keeps
+    # the kill-switch contract visible to clients on the REAL app (proven
+    # live: with `code` the body was replaced by the generic internal_error).
+    from services.errors import safe_detail
+    assert safe_detail(503, exc.value.detail) is exc.value.detail
 
     fake.rows["mut"]["enabled"] = True
     runtime_flags.clear_cache()

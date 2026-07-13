@@ -14,6 +14,14 @@ const { defineConfig } = require('@playwright/test');
 
 module.exports = defineConfig({
   testDir: './tests/staging-e2e',
+  // ONE worker, always: this suite drives a SHARED live environment with
+  // SHARED identities, so cross-file parallelism is racy by construction —
+  // proven live 2026-07-13: pilot-3's isolation test calls signOut() on the
+  // student (supabase-js default scope = GLOBAL → revokes every session of
+  // that identity server-side) and deterministically 401'd pilot-4's student
+  // session between its PATCH and its canonical-reconcile GET in the parallel
+  // worker. Kill-switch flips (pilot-4 drill) are similarly environment-global.
+  workers: 1,
   timeout: 45_000,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',

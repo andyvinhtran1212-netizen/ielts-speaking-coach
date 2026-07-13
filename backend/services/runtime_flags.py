@@ -91,10 +91,16 @@ def require_flag(key: str, default: bool = True):
     """
     def _guard() -> None:
         if not is_enabled(key, default=default):
+            # `error_code` (not `code`): the central 5xx sanitizer
+            # (services/errors.py safe_detail, P0-5) only passes through a
+            # dict detail carrying `error_code` — any other 5xx detail is
+            # REPLACED with the generic internal-error body. Proven live on
+            # staging 2026-07-13: with `code` the kill-switch contract never
+            # reached clients.
             raise HTTPException(
                 status_code=503,
                 detail={
-                    "code": "feature_disabled",
+                    "error_code": "feature_disabled",
                     "flag": key,
                     "message": "Tính năng này đang tạm khóa để bảo trì. Vui lòng thử lại sau.",
                 },

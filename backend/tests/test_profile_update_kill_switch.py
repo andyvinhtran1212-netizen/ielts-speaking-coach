@@ -109,7 +109,7 @@ def test_flag_disabled_returns_503_feature_disabled(harness, monkeypatch):
     )
     assert res.status_code == 503
     detail = res.json()["detail"]
-    assert detail["code"] == "feature_disabled"
+    assert detail["error_code"] == "feature_disabled"
     assert detail["flag"] == "profile_update"
     assert seen["key"] == "profile_update"
 
