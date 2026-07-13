@@ -1203,41 +1203,109 @@ def _force_collect_section(exam_id: str, section: str) -> None:
         logger.exception("[mock-exam] force-collect lookup failed exam=%s section=%s", exam_id, section)
         return
 
-    now = _now_iso()
     for row in (rows.data or []):
-        try:
-            update: dict = {col: now}
-            if row.get("status") == "registered":
-                update["status"] = "lrw_in_progress"
-            supabase_admin.table("mock_exam_sittings").update(update).eq(
-                "id", row["id"],
-            ).execute()
-            if section in _SECTION_ATTEMPT:
-                link_col, _table, _ = _SECTION_ATTEMPT[section]
-                attempt_id = row.get(link_col)
-                if attempt_id:
-                    grade_fn = (_grade_and_finalize_listening if section == "listening"
-                                else _grade_and_finalize_reading)
-                    grade_fn(str(attempt_id))
-            elif section == "writing":
-                _promote_writing_essays(str(row["id"]))
-            logger.info(
-                "[mock-exam] sitting=%s section=%s force-collected (straggler)",
-                row["id"], section,
-            )
-            # Re-check terminal reconciliation now that this section is in.
-            fresh = get_sitting(row["id"])
-            exam = get_published_exam_by_id(str(exam_id)) or {}
-            configured = _configured_sections(exam)
-            if fresh and all(fresh.get(_SUBMITTED_COL[s]) for s in configured):
-                supabase_admin.table("mock_exam_sittings").update({
-                    "status": "lrw_submitted",
-                }).eq("id", row["id"]).execute()
-                _reconcile_terminal(row["id"])
-        except Exception:  # noqa: BLE001
-            logger.exception(
-                "[mock-exam] force-collect failed sitting=%s section=%s", row["id"], section,
-            )
+        _collect_section_for_sitting(row, section)
+
+
+def _collect_section_for_sitting(sitting: dict, section: str) -> None:
+    """Force-collect ONE section of ONE sitting AS-IS (time's up / straggler /
+    closed tab). Stamps the collected-at timestamp, grades the bound L/R attempt
+    (or promotes Writing) if present, then re-checks terminal reconciliation on
+    the sitting's OWN sections (retake → assigned skills; sequential →
+    configured). Idempotent + best-effort — never raises. Shared by the admin
+    advance sweep and the retake reaper."""
+    col = _SUBMITTED_COL.get(section)
+    if not col or sitting.get(col):
+        return
+    try:
+        update: dict = {col: _now_iso()}
+        if sitting.get("status") == "registered":
+            update["status"] = "lrw_in_progress"
+        supabase_admin.table("mock_exam_sittings").update(update).eq(
+            "id", sitting["id"],
+        ).execute()
+        if section in _SECTION_ATTEMPT:
+            link_col, _table, _ = _SECTION_ATTEMPT[section]
+            attempt_id = sitting.get(link_col)
+            if attempt_id:
+                grade_fn = (_grade_and_finalize_listening if section == "listening"
+                            else _grade_and_finalize_reading)
+                grade_fn(str(attempt_id))
+        elif section == "writing":
+            _promote_writing_essays(str(sitting["id"]))
+        logger.info(
+            "[mock-exam] sitting=%s section=%s force-collected", sitting["id"], section,
+        )
+        # Re-check terminal reconciliation now that this section is in.
+        fresh = get_sitting(sitting["id"])
+        exam = get_published_exam_by_id(str(sitting["mock_exam_id"])) or {}
+        sections = _sitting_sections(fresh, exam) if fresh else []
+        if fresh and sections and all(fresh.get(_SUBMITTED_COL[s]) for s in sections):
+            supabase_admin.table("mock_exam_sittings").update({
+                "status": "lrw_submitted",
+            }).eq("id", sitting["id"]).execute()
+            _reconcile_terminal(sitting["id"])
+    except Exception:  # noqa: BLE001
+        logger.exception(
+            "[mock-exam] force-collect failed sitting=%s section=%s",
+            sitting["id"], section,
+        )
+
+
+def _retake_section_expired(sitting: dict, exam: dict, section: str, grace_seconds: int) -> bool:
+    """True once a STARTED retake section has run past its limit + grace. The
+    grace lets a still-connected browser auto-submit first (client owns the
+    happy path; the reaper is the closed-tab backstop)."""
+    started = _parse_ts(sitting.get(f"{section}_started_at"))
+    if not started:
+        return False
+    duration = _section_duration_seconds(exam, section)
+    elapsed = (_now() - started).total_seconds()
+    return elapsed >= duration + grace_seconds
+
+
+def reap_expired_retake_sittings(grace_seconds: int = 30) -> dict:
+    """Server-side backstop for retake self-timing (no invigilator). For each
+    pre-review retake sitting: collect any STARTED section whose per-sitting
+    clock ran out (+grace, so a live browser auto-submits first), and — once the
+    per-student window has closed — collect every remaining assigned section so
+    the sitting finalises even if the student never came back. Idempotent;
+    per-sitting failures isolated. Returns {"collected": n, "sittings": m}."""
+    try:
+        rows = supabase_admin.table("mock_exam_sittings").select("*").in_(
+            "status", ["registered", "lrw_in_progress"],
+        ).execute().data or []
+    except Exception:  # noqa: BLE001
+        logger.exception("[retake-reaper] lookup failed")
+        return {"collected": 0, "sittings": 0}
+
+    now = _now()
+    collected = 0
+    touched = 0
+    for sitting in rows:
+        # assigned_skills is set only on retake sittings — sequential stragglers
+        # are the admin advance-sweep's job, not the reaper's.
+        if not sitting.get("assigned_skills"):
+            continue
+        exam = get_published_exam_by_id(sitting["mock_exam_id"]) or {}
+        if not is_retake(exam):
+            continue
+        window_until = _parse_ts(sitting.get("retake_open_until"))
+        window_closed = bool(window_until and now > window_until)
+        did = False
+        for section in _sitting_sections(sitting, exam):
+            if sitting.get(_SUBMITTED_COL[section]):
+                continue
+            if window_closed or _retake_section_expired(sitting, exam, section, grace_seconds):
+                _collect_section_for_sitting(sitting, section)
+                collected += 1
+                did = True
+                sitting = get_sitting(sitting["id"]) or sitting   # refresh for next section's terminal check
+        if did:
+            touched += 1
+    if collected:
+        logger.info("[retake-reaper] collected=%d across %d sitting(s)", collected, touched)
+    return {"collected": collected, "sittings": touched}
 
 
 def advance_section(exam_id: str, admin_id: str) -> dict:

@@ -480,6 +480,34 @@ async def startup_event():
             settings.WRITING_STUCK_JOB_TIMEOUT_SECONDS,
         )
 
+    # Retake self-timing backstop — collect a retaker's expired section / finalise
+    # a past-window sitting even if their browser is gone (no invigilator). Runs
+    # sync svc call in a thread so it never blocks the loop. Disable via
+    # RETAKE_REAPER_ENABLED=false.
+    if settings.RETAKE_REAPER_ENABLED:
+        import asyncio as _asyncio_retake
+        from services import mock_exam_service as _mock_svc
+
+        async def _retake_reaper_loop():
+            while True:
+                await _asyncio_retake.sleep(settings.RETAKE_REAPER_INTERVAL_SECONDS)
+                try:
+                    res = await _asyncio_retake.to_thread(
+                        _mock_svc.reap_expired_retake_sittings,
+                        settings.RETAKE_REAPER_GRACE_SECONDS,
+                    )
+                    if res.get("collected"):
+                        logger.info("[retake-reaper] sweep %s", res)
+                except Exception:
+                    logger.exception("[retake-reaper] sweep failed")
+
+        _asyncio_retake.create_task(_retake_reaper_loop())
+        logger.info(
+            "[retake-reaper] started (interval=%ss, grace=%ss)",
+            settings.RETAKE_REAPER_INTERVAL_SECONDS,
+            settings.RETAKE_REAPER_GRACE_SECONDS,
+        )
+
 
 @app.on_event("shutdown")
 async def shutdown_event():
