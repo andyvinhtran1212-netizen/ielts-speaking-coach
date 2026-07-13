@@ -37,7 +37,8 @@
   // every non-Vercel context falls through to the legacy behavior below.
   // Vercel builds regenerate it per environment; config values win when set,
   // which is what keeps Preview/staging off the production origins.
-  var _RC = (typeof window !== 'undefined' && window.__AVER_RUNTIME_CONFIG__) || {};
+  /** @type {{environment?: string|null, apiBase?: string|null, supabaseUrl?: string|null, supabaseAnonKey?: string|null, release?: string|null, gitRef?: string|null}} */
+  var _RC = (typeof window !== 'undefined' && /** @type {any} */ (window).__AVER_RUNTIME_CONFIG__) || {};
 
   function initSupabase(url, anonKey) {
     _sb = window.supabase.createClient(
