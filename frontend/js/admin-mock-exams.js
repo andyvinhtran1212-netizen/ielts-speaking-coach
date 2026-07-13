@@ -107,6 +107,31 @@
   function examCard(ex, progress) {
     var card = document.createElement('div');
     card.className = 'me-card';
+    var isRetake = ex.exam_mode === 'retake';
+    var modePill = '<span class="me-pill">' + (isRetake ? 'Retake' : 'Sequential') + '</span>';
+
+    if (isRetake) {
+      // Retake exams have no shared clock / advance / open-kỳ — access is per
+      // student via assignment. Show publish + "Gán test lại" + duyệt.
+      card.innerHTML =
+        '<div class="me-row" style="justify-content:space-between">' +
+          '<div class="me-row">' +
+            '<b style="color:var(--av-text-primary)">' + esc(ex.code) + '</b>' +
+            '<span class="me-pill">' + esc(ex.status) + '</span>' + modePill +
+          '</div>' +
+        '</div>' +
+        '<div class="me-muted" style="margin:6px 0">' + esc(ex.title || '') + '</div>' +
+        '<div class="me-row" style="gap:6px;margin-top:10px">' +
+          (ex.status === 'draft' ? '<button class="av-btn" data-act="publish">Publish</button>' : '') +
+          '<button class="av-btn av-btn--primary" data-act="assign">Gán test lại</button>' +
+          '<a class="av-btn" href="/pages/admin/mock-reviews/index.html?mock_exam_id=' + encodeURIComponent(ex.id) + '">Duyệt bài →</a>' +
+        '</div>';
+      var pubR = card.querySelector('[data-act="publish"]');
+      if (pubR) pubR.addEventListener('click', function () { publish(ex.id); });
+      card.querySelector('[data-act="assign"]').addEventListener('click', function () { openAssign(ex); });
+      return card;
+    }
+
     var openPill = ex.is_open ? '<span class="me-pill open">ĐANG MỞ</span>' : '<span class="me-pill">đóng</span>';
     var activeSection = (progress && progress.active_section) || ex.active_section || 'not_started';
     var canAdvance = ex.status === 'published' && activeSection !== 'done';
@@ -114,7 +139,7 @@
       '<div class="me-row" style="justify-content:space-between">' +
         '<div class="me-row">' +
           '<b style="color:var(--av-text-primary)">' + esc(ex.code) + '</b>' +
-          '<span class="me-pill">' + esc(ex.status) + '</span>' + openPill +
+          '<span class="me-pill">' + esc(ex.status) + '</span>' + openPill + modePill +
           '<span class="me-pill">' + esc(SECTION_LABEL[activeSection] || activeSection) + '</span>' +
         '</div>' +
       '</div>' +
@@ -135,9 +160,11 @@
   }
 
   async function createExam() {
+    var mode = el('f-mode') ? el('f-mode').value : 'sequential';
     var body = {
       code: el('f-code').value.trim(),
       title: el('f-title').value.trim(),
+      exam_mode: mode,
       total_minutes: parseInt(el('f-total').value, 10) || 150,
       reading_minutes: parseInt(el('f-reading-min').value, 10) || 60,
       writing_minutes: parseInt(el('f-writing-min').value, 10) || 60,
@@ -148,7 +175,10 @@
       cohort_id: el('f-cohort').value || null,
     };
     if (!body.code || !body.title) { toast('Nhập mã đề và tiêu đề.'); return; }
-    if (!body.cohort_id) { toast('Chọn lớp tham gia — chỉ học viên trong lớp này mới thấy đề.'); return; }
+    // Retake exams grant access via per-student assignment, not a cohort.
+    if (mode === 'sequential' && !body.cohort_id) {
+      toast('Chọn lớp tham gia — chỉ học viên trong lớp này mới thấy đề.'); return;
+    }
     try {
       await window.api.post('/admin/mock-exams', body);
       toast('Đã tạo đề (draft). Publish rồi Mở kỳ để học sinh vào thi.');
@@ -194,10 +224,142 @@
     } catch (e) { toast('Thất bại: ' + (e && e.message)); }
   }
 
+  // ── Retake: gán đề cho từng học viên ────────────────────────────────
+  var RETAKE_SKILLS = [
+    { key: 'listening', label: 'Listening' },
+    { key: 'reading', label: 'Reading' },
+    { key: 'writing', label: 'Writing' },
+  ];
+
+  function closeAssign() {
+    var m = el('assign-modal'); if (m) m.remove();
+  }
+
+  async function openAssign(ex) {
+    closeAssign();
+    var overlay = document.createElement('div');
+    overlay.id = 'assign-modal';
+    overlay.className = 'me-modal';
+    overlay.innerHTML =
+      '<div class="me-modal__box">' +
+        '<div class="me-row" style="justify-content:space-between;margin-bottom:8px">' +
+          '<b style="color:var(--av-text-primary)">Gán test lại — ' + esc(ex.code) + '</b>' +
+          '<button class="av-btn" data-x>Đóng</button>' +
+        '</div>' +
+        '<div class="me-grid">' +
+          '<div><label>Đề gốc (lấy danh sách cần test lại)</label><select id="a-source"></select></div>' +
+          '<div><label>Mở từ</label><input id="a-from" type="datetime-local"></div>' +
+          '<div><label>Đóng lúc</label><input id="a-until" type="datetime-local"></div>' +
+        '</div>' +
+        '<div id="a-students" class="me-muted" style="margin-top:10px">Chọn đề gốc để hiện học viên cần test lại.</div>' +
+        '<div class="me-row" style="gap:6px;margin-top:12px">' +
+          '<button class="av-btn av-btn--primary" id="a-assign" disabled>Gán cho học viên đã tick</button>' +
+        '</div>' +
+        '<h3 style="margin-top:16px;color:var(--av-text-primary)">Đã gán</h3>' +
+        '<div id="a-current" class="me-muted">Đang tải…</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+    overlay.querySelector('[data-x]').addEventListener('click', closeAssign);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) closeAssign(); });
+
+    // Source picker = published exams (any mode) whose review produced flags.
+    try {
+      var exams = asList(await window.api.get('/admin/mock-exams'))
+        .filter(function (e) { return e.id !== ex.id && e.status === 'published'; });
+      fillSelect(el('a-source'), exams, 'id', function (e) { return (e.code || '') + ' — ' + (e.title || ''); }, true);
+    } catch (e) { /* leave empty */ }
+    el('a-source').addEventListener('change', function () { loadRetestStudents(el('a-source').value); });
+    el('a-assign').addEventListener('click', function () { doAssign(ex.id, el('a-source').value); });
+    loadCurrentAssignments(ex.id);
+  }
+
+  async function loadRetestStudents(sourceId) {
+    var host = el('a-students');
+    el('a-assign').disabled = true;
+    if (!sourceId) { host.textContent = 'Chọn đề gốc để hiện học viên cần test lại.'; return; }
+    host.textContent = 'Đang tải…';
+    try {
+      var s = await window.api.get('/admin/mock-exams/' + encodeURIComponent(sourceId) + '/retest-summary');
+      var studs = (s.students || []).filter(function (st) { return st.user_id; });
+      if (!studs.length) { host.textContent = 'Đề gốc chưa có học viên nào cần test lại.'; return; }
+      host.innerHTML = '<table class="adm-table"><thead><tr><th></th><th>Học viên</th>' +
+        RETAKE_SKILLS.map(function (sk) { return '<th>' + sk.label + '</th>'; }).join('') +
+        '</tr></thead><tbody>' +
+        studs.map(function (st) {
+          var flagged = st.skills || [];
+          return '<tr data-uid="' + esc(st.user_id) + '">' +
+            '<td><input type="checkbox" class="a-pick" checked></td>' +
+            '<td>' + esc(st.student_name) + '</td>' +
+            RETAKE_SKILLS.map(function (sk) {
+              return '<td><input type="checkbox" class="a-skill" data-skill="' + sk.key + '"' +
+                (flagged.indexOf(sk.key) !== -1 ? ' checked' : '') + '></td>';
+            }).join('') +
+            '</tr>';
+        }).join('') + '</tbody></table>';
+      el('a-assign').disabled = false;
+    } catch (e) { host.innerHTML = '<span style="color:var(--av-error)">Lỗi: ' + esc(e && e.message) + '</span>'; }
+  }
+
+  function toIso(localVal) {
+    // datetime-local → ISO (browser local time). Empty → null.
+    return localVal ? new Date(localVal).toISOString() : null;
+  }
+
+  async function doAssign(examId, sourceId) {
+    var from = toIso(el('a-from').value), until = toIso(el('a-until').value);
+    if (from && until && new Date(until) < new Date(from)) {
+      toast('Khung giờ không hợp lệ: "đóng lúc" sớm hơn "mở từ".'); return;
+    }
+    var rows = [];
+    el('a-students').querySelectorAll('tr[data-uid]').forEach(function (tr) {
+      if (!tr.querySelector('.a-pick').checked) return;
+      var skills = [];
+      tr.querySelectorAll('.a-skill').forEach(function (c) { if (c.checked) skills.push(c.getAttribute('data-skill')); });
+      if (skills.length) rows.push({ user_id: tr.getAttribute('data-uid'), skills: skills, open_from: from, open_until: until });
+    });
+    if (!rows.length) { toast('Chọn ít nhất 1 học viên + kĩ năng.'); return; }
+    try {
+      var res = await window.api.post('/admin/mock-exams/' + encodeURIComponent(examId) + '/assignments',
+        { assignments: rows, source_exam_id: sourceId || null });
+      toast('Đã gán ' + (res.assigned || []).length + ' học viên' +
+        ((res.skipped || []).length ? ' · bỏ qua ' + res.skipped.length : '') + '.');
+      loadCurrentAssignments(examId);
+    } catch (e) { toast('Gán thất bại: ' + (e && e.message)); }
+  }
+
+  async function loadCurrentAssignments(examId) {
+    var host = el('a-current');
+    try {
+      var res = await window.api.get('/admin/mock-exams/' + encodeURIComponent(examId) + '/assignments');
+      var rows = (res && res.assignments) || [];
+      if (!rows.length) { host.textContent = 'Chưa gán học viên nào.'; return; }
+      host.innerHTML = rows.map(function (r) {
+        return '<div class="me-row" style="gap:8px;margin-top:4px"><span style="color:var(--av-text-primary)">' +
+          esc(r.student_name) + '</span><span class="me-pill">' + (r.skills || []).join(', ') + '</span>' +
+          '<button class="av-btn" data-unassign="' + esc(r.user_id) + '">Gỡ</button></div>';
+      }).join('');
+      host.querySelectorAll('[data-unassign]').forEach(function (b) {
+        b.addEventListener('click', function () { doUnassign(examId, b.getAttribute('data-unassign')); });
+      });
+    } catch (e) { host.innerHTML = '<span style="color:var(--av-error)">Lỗi: ' + esc(e && e.message) + '</span>'; }
+  }
+
+  async function doUnassign(examId, userId) {
+    try {
+      await window.api.delete('/admin/mock-exams/' + encodeURIComponent(examId) + '/assignments/' + encodeURIComponent(userId));
+      loadCurrentAssignments(examId);
+    } catch (e) { toast('Gỡ thất bại: ' + (e && e.message)); }
+  }
+
   async function boot() {
     var sb = window.getSupabase && window.getSupabase();
     if (sb) { var s = await sb.auth.getSession(); if (!s.data.session) { location.href = '/index.html'; return; } }
     el('create-btn').addEventListener('click', createExam);
+    var modeSel = el('f-mode');
+    if (modeSel) modeSel.addEventListener('change', function () {
+      var hint = el('cohort-hint');
+      if (hint) hint.textContent = modeSel.value === 'retake' ? '(không cần — gán từng HV)' : '(bắt buộc — sequential)';
+    });
     await loadPickers();
     await loadExams();
     setInterval(loadExams, REFRESH_MS);
