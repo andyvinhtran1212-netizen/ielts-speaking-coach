@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timezone
 from time import perf_counter
 
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, HTTPException, Header, Response
 
 logger = logging.getLogger(__name__)
 from pydantic import BaseModel
@@ -162,7 +162,11 @@ async def get_supabase_user(authorization: str | None):
 # ── GET /auth/me ──────────────────────────────────────────────────────────────
 
 @router.get("/me")
-async def get_me(authorization: str | None = Header(default=None)):
+async def get_me(response: Response, authorization: str | None = Header(default=None)):
+    # FE migration pilot 3 (authenticated read) entry checklist: effective
+    # private responses must be uncacheable by ANY cache layer between the
+    # Next/legacy frontend and this API (plan Phase 2 per-pilot checklist).
+    response.headers["Cache-Control"] = "private, no-store"
     auth_user = await get_supabase_user(authorization)
 
     user_id = auth_user["id"]
@@ -268,8 +272,10 @@ async def check_active(authorization: str | None = Header(default=None)):
 # ── GET /auth/profile ─────────────────────────────────────────────────────────
 
 @router.get("/profile")
-async def get_profile(authorization: str | None = Header(default=None)):
+async def get_profile(response: Response, authorization: str | None = Header(default=None)):
     """Return the full user profile including extended fields from migration 013."""
+    # Pilot-3 checklist: private response — never shared-cacheable (see /me).
+    response.headers["Cache-Control"] = "private, no-store"
     auth_user = await get_supabase_user(authorization)
     user_id = auth_user["id"]
 

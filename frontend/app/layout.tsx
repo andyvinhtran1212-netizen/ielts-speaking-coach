@@ -9,9 +9,14 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
+  // suppressHydrationWarning: route-group layouts mutate <html>/<body>
+  // attributes BEFORE hydration by design (anti-flash [data-theme] IIFE,
+  // pre-paint legacy body classes — pilot 2 review #741). React must not
+  // flag those as mismatches; it never patches attributes anyway. Standard
+  // next-themes pattern.
   return (
-    <html lang="vi">
-      <body>{children}</body>
+    <html lang="vi" suppressHydrationWarning>
+      <body suppressHydrationWarning>{children}</body>
     </html>
   );
 }
