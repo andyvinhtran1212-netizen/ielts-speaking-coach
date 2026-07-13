@@ -5,11 +5,13 @@
 // renderProfile). Auth gating goes through useAuth() (ADR-011 state machine)
 // instead of the legacy raw getSession() check.
 //
-// PILOT 3 BOUNDARY — authenticated READ only (plan Phase 2 pilot #3): the
-// legacy saveProfile() PATCH /auth/profile mutation is pilot #4 scope (first
-// require_flag wiring + double-submit/timeout-after-commit hardening). The
-// Save button renders for visual parity but explains itself instead of
-// mutating.
+// PILOT 4 — the mutation is live (plan Phase 2 pilot #4): saveProfile() is
+// the legacy PATCH /auth/profile port, hardened per the mutation-pilot entry
+// checklist: double-submit lock, timeout-after-commit → canonical reconcile
+// GET (repo rule: refetch canonical state after mutations — no optimistic
+// divergence), 401 (api.js redirect) / 503 kill-switch (require_flag
+// "profile_update", ADR-010) surfaced verbatim, and an account-switch guard
+// so a stale reconcile can never render over a newer user.
 import { useEffect, useRef } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
@@ -37,6 +39,9 @@ export function ProfileBehavior() {
   // keeps status 'signed-in' (only `user` changes), so render state must be
   // keyed by id, never by a one-shot "inited" flag (review #742).
   const renderedForRef = useRef<string | null>(null);
+  // Double-submit lock: the disabled attribute alone is DOM-mutable state;
+  // the ref is the authoritative in-flight latch.
+  const savingRef = useRef(false);
 
   // Fail-closed gate (ADR-011): signed-out — including refresh failure, chrome
   // sign-out and bfcache-restored-after-logout — leaves via replace() so Back
@@ -80,11 +85,82 @@ export function ProfileBehavior() {
       cleanups.push(() => form.removeEventListener('submit', onSubmit));
     }
 
-    // Pilot-3 read-only boundary: legacy onclick="saveProfile()" is NOT wired.
-    const saveBtn = document.getElementById('btn-save');
+    // ── Save (legacy saveProfile(), pilot-4 hardened) ─────────────────
+    const saveBtn = document.getElementById('btn-save') as HTMLButtonElement | null;
     if (saveBtn) {
-      const onClick = () => {
-        showToast('Bản xem trước chỉ đọc — lưu thay đổi tại trang Hồ sơ hiện tại.', true);
+      const onClick = async () => {
+        if (savingRef.current) return; // double-submit lock
+        // Not-yet-loaded guard (review #743): before the canonical GET has
+        // rendered — slow first load, or the blanked window right after an
+        // account switch — the form holds SHELL DEFAULTS (weekly_goal 5,
+        // empty name). Saving would overwrite the user's real profile with
+        // placeholders. renderedForRef is null exactly in those windows.
+        if (!renderedForRef.current) {
+          showToast('Hồ sơ chưa tải xong — vui lòng đợi giây lát.', true);
+          return;
+        }
+        savingRef.current = true;
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Đang lưu…';
+
+        // Payload gathering — verbatim legacy: strip nulls so PATCH only
+        // updates provided fields.
+        const selectedLevel = document.querySelector(
+          '#level-options input[type=radio]:checked',
+        ) as HTMLInputElement | null;
+        const nameInput = document.getElementById('inp-display-name') as HTMLInputElement | null;
+        const dateInput = document.getElementById('inp-exam-date') as HTMLInputElement | null;
+        const goalInput = document.getElementById('inp-weekly-goal') as HTMLInputElement | null;
+        const payload: Record<string, unknown> = {
+          display_name: nameInput?.value.trim() || null,
+          target_band: _selectedBand,
+          exam_date: dateInput?.value || null,
+          self_level: selectedLevel ? selectedLevel.value : null,
+          weekly_goal: parseInt(goalInput?.value || '5', 10),
+        };
+        Object.keys(payload).forEach((k) => {
+          if (payload[k] === null) delete payload[k];
+        });
+
+        // Canonical reconcile (repo rule + checklist "canonical reload"):
+        // ALWAYS refetch the full profile after the mutation attempt — the
+        // PATCH response has no stats, and on an ambiguous outcome (network
+        // died after the server may have committed) the GET is the only
+        // truth. Account-switch guard: render only if the DOM still belongs
+        // to the same user this save started for.
+        const startedFor = renderedForRef.current;
+        const reconcile = async (api: any) => {
+          const fresh = await api.get('/auth/profile');
+          if (fresh && fresh.id && fresh.id === renderedForRef.current && renderedForRef.current === startedFor) {
+            renderProfile(fresh);
+          }
+          return fresh;
+        };
+
+        try {
+          const api = (window as any).api;
+          const saved = await api.patch('/auth/profile', payload);
+          if (saved === null) return; // 401 — api.js redirect to login in flight
+          await reconcile(api).catch(() => {});
+          showToast('✓ Đã lưu thành công');
+        } catch (err: any) {
+          if (err && err.status === undefined) {
+            // Timeout-after-commit ambiguity: no HTTP status means the
+            // request died in transit — the server MAY have committed.
+            // Reconcile with the canonical GET and say exactly that.
+            await reconcile((window as any).api).catch(() => {});
+            showToast('Mạng gián đoạn — đã tải lại dữ liệu mới nhất từ máy chủ. Kiểm tra rồi lưu lại nếu cần.', true);
+          } else {
+            // 400 validation / 403 / 503 kill switch: api.js already coerces
+            // detail.message (vd. "Tính năng này đang tạm khóa…") into
+            // err.message — legacy toast format shows it verbatim.
+            showToast('Lỗi: ' + (err?.message || err), true);
+          }
+        } finally {
+          savingRef.current = false;
+          saveBtn.disabled = false;
+          saveBtn.textContent = 'Lưu thay đổi';
+        }
       };
       saveBtn.addEventListener('click', onClick);
       cleanups.push(() => saveBtn.removeEventListener('click', onClick));
@@ -106,7 +182,16 @@ export function ProfileBehavior() {
 
     if (renderedForRef.current && renderedForRef.current !== user.id) {
       resetProfileDom(); // account switch: stale private data goes FIRST
+      // The DOM now renders NO user — saving in this window would PATCH the
+      // blanked shell defaults into the NEW user's profile (review #743).
+      renderedForRef.current = null;
     }
+
+    // Save is armed only once a canonical profile is on screen: the shell
+    // (and the post-switch blank) hold placeholder defaults that must never
+    // be committable. renderProfile → the data effect re-enables below.
+    const saveBtn = document.getElementById('btn-save') as HTMLButtonElement | null;
+    if (saveBtn && !renderedForRef.current) saveBtn.disabled = true;
 
     (async () => {
       const api = await waitForApi();
@@ -121,6 +206,7 @@ export function ProfileBehavior() {
         if (profile) {
           renderProfile(profile); // null = api.js 401 redirect in flight
           renderedForRef.current = user.id;
+          if (saveBtn && !savingRef.current) saveBtn.disabled = false;
         }
       } catch (err: any) {
         console.error('Could not load profile:', err?.message);
@@ -131,6 +217,7 @@ export function ProfileBehavior() {
           if (me) {
             renderProfile(Object.assign({ stats: {} }, me));
             renderedForRef.current = user.id;
+            if (saveBtn && !savingRef.current) saveBtn.disabled = false;
           }
         } catch (e2: any) {
           if (!disposed) showToast('Không thể tải hồ sơ: ' + (e2?.message || e2), true);

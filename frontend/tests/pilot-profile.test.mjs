@@ -61,18 +61,31 @@ test('shell: skeleton legacy nguyên bản — các id mà profile.css/behavior 
   assert.ok(!SHELL.includes("'use server'"));
 });
 
-test('behavior: read qua /auth/profile với fallback /auth/me; PILOT-3 KHÔNG mutation', () => {
+test('behavior: read qua /auth/profile với fallback /auth/me (ADR-011)', () => {
   assert.match(BEHAVIOR, /^'use client';/);
   assert.match(BEHAVIOR, /'\/auth\/profile'/);
   assert.match(BEHAVIOR, /'\/auth\/me'/, 'legacy fallback path must survive');
-  assert.ok(!/api\.patch|api\.post|api\.delete|api\.put/.test(BEHAVIOR),
-    'pilot-3 boundary: NO mutation — PATCH /auth/profile is pilot 4 (require_flag wiring)');
   assert.match(BEHAVIOR, /location\.replace\('\/login\.html'\)/,
     'signed-out must leave via replace() so Back cannot restore private data (ADR-011 §3)');
   assert.match(BEHAVIOR, /\[status, user\?\.id\]/,
     'data effect must be keyed by user id — same-status account switch A→B must refetch (review #742)');
   assert.match(BEHAVIOR, /resetProfileDom\(\)/,
     'account switch must blank stale private data BEFORE the next fetch (ADR-011)');
+});
+
+test('pilot-4 mutation: double-submit lock + canonical reconcile + ambiguous-commit + kill-switch surface', () => {
+  assert.match(BEHAVIOR, /api\.patch\('\/auth\/profile'/, 'mutation goes through the legacy endpoint');
+  assert.match(BEHAVIOR, /savingRef\.current\) return/, 'double-submit lock (checklist)');
+  assert.match(BEHAVIOR, /reconcile/, 'canonical reload after mutation (repo rule: refetch canonical state)');
+  assert.match(BEHAVIOR, /err\.status === undefined/,
+    'timeout-after-commit: statusless failure must reconcile via GET, never assume un-committed');
+  assert.match(BEHAVIOR, /renderedForRef\.current === startedFor/,
+    'account-switch guard: stale reconcile must never render over a newer user');
+  assert.match(BEHAVIOR, /if \(!renderedForRef\.current\) \{\n\s*showToast/,
+    'not-loaded guard: saving before the canonical GET rendered would PATCH shell defaults (review #743)');
+  const backend = readFileSync(path.join(FRONTEND, '..', 'backend', 'routers', 'auth.py'), 'utf8');
+  assert.match(backend, /require_flag\("profile_update"\)/,
+    'PATCH /auth/profile must sit behind the ADR-010 kill switch (first require_flag adoption)');
 });
 
 test('canonical /pages/profile.html vẫn thuộc legacy (public/ static, không app route)', () => {
