@@ -50,9 +50,13 @@ CREATE TABLE IF NOT EXISTS mock_exam_assignments (
     skills TEXT[] NOT NULL DEFAULT '{}',
 
     -- Per-student availability window; the student may start any time within it
-    -- and is locked out after open_until. NULL = no bound on that side.
+    -- and is locked out after open_until. NULL = no bound on that side. An
+    -- inverted window (until < from) would lock the student out entirely, so
+    -- it is rejected at the DB (backstop) + service (friendly 400) level.
     open_from  TIMESTAMPTZ,
     open_until TIMESTAMPTZ,
+    CONSTRAINT mock_exam_assignments_window_chk
+        CHECK (open_from IS NULL OR open_until IS NULL OR open_from <= open_until),
 
     -- Batch bookkeeping (mirror writing_assignment_groups) + audit of the
     -- original exam whose review produced the retake decision.

@@ -307,6 +307,9 @@
 
   async function doAssign(examId, sourceId) {
     var from = toIso(el('a-from').value), until = toIso(el('a-until').value);
+    if (from && until && new Date(until) < new Date(from)) {
+      toast('Khung giờ không hợp lệ: "đóng lúc" sớm hơn "mở từ".'); return;
+    }
     var rows = [];
     el('a-students').querySelectorAll('tr[data-uid]').forEach(function (tr) {
       if (!tr.querySelector('.a-pick').checked) return;

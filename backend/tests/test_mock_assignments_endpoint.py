@@ -44,6 +44,26 @@ def test_create_assignments_forwards_rows_and_admin():
     assert kwargs["source_exam_id"] == "src"
 
 
+def test_create_assignments_400_on_inverted_window():
+    """An inverted window surfaces as a 400 (not a 500) — the service raises
+    InvalidWindowError, the router maps it. Uses the REAL service (patched db)
+    so the mapping is exercised end-to-end."""
+    from unittest.mock import MagicMock
+    db = MagicMock()
+    db.table.return_value.select.return_value.eq.return_value.execute.return_value.data = []
+    with patch("routers.admin_mock_exams.require_admin", new=AsyncMock(return_value=_ADMIN)), \
+         patch("services.mock_exam_assignment_service.supabase_admin", db):
+        r = _client().post(
+            f"/admin/mock-exams/{_EXAM}/assignments",
+            json={"assignments": [{
+                "user_id": "u1", "skills": ["writing"],
+                "open_from": "2026-07-20T10:00:00Z", "open_until": "2026-07-20T09:00:00Z",
+            }]},
+            headers=_AUTH,
+        )
+    assert r.status_code == 400, r.text
+
+
 def test_delete_assignment_forwards():
     with patch("routers.admin_mock_exams.require_admin", new=AsyncMock(return_value=_ADMIN)), \
          patch("routers.admin_mock_exams.assign_svc.remove") as mock_remove:

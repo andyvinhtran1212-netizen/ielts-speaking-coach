@@ -227,9 +227,12 @@ async def create_assignments(
     admin UI builds `assignments` from the source exam's retest_summary."""
     admin = await require_admin(authorization)
     rows = [r.model_dump() for r in body.assignments]
-    return assign_svc.assign(
-        exam_id, rows, created_by=admin["id"], source_exam_id=body.source_exam_id,
-    )
+    try:
+        return assign_svc.assign(
+            exam_id, rows, created_by=admin["id"], source_exam_id=body.source_exam_id,
+        )
+    except assign_svc.InvalidWindowError as e:
+        raise HTTPException(400, str(e))
 
 
 @router.delete("/{exam_id}/assignments/{student_id}")

@@ -1494,6 +1494,38 @@ def test_retake_assign_scopes_skills_and_is_idempotent(fake_db):
     assert next(r for r in rows2 if r["user_id"] == u1)["skills"] == ["reading"]
 
 
+def test_retake_assign_coalesces_duplicate_user(fake_db):
+    """Codex P2 (2026-07-13): retest_summary is per-sitting, so a user with >1
+    flagged sitting arrives twice in one request. assign() must coalesce (union
+    skills, one row) — NOT let the second occurrence hit UNIQUE(exam,user)."""
+    from services import mock_exam_assignment_service as a
+    exam_id, admin, u = str(uuid4()), str(uuid4()), str(uuid4())
+    res = a.assign(exam_id, [
+        {"user_id": u, "skills": ["writing"]},
+        {"user_id": u, "skills": ["reading"]},   # same user, second sitting
+    ], created_by=admin)
+    assert res["assigned"] == [u]                # one, not two
+    rows = fake_db.rows("mock_exam_assignments")
+    assert len(rows) == 1
+    assert rows[0]["skills"] == ["writing", "reading"]   # union
+
+
+def test_retake_assign_rejects_inverted_window(fake_db):
+    """Codex P2 (2026-07-13): open_until earlier than open_from would lock the
+    student out — reject it (400 at the router) instead of persisting."""
+    from services import mock_exam_assignment_service as a
+    with pytest.raises(a.InvalidWindowError):
+        a.assign(str(uuid4()), [{
+            "user_id": str(uuid4()), "skills": ["writing"],
+            "open_from": "2026-07-20T10:00:00Z", "open_until": "2026-07-20T09:00:00Z",
+        }], created_by=str(uuid4()))
+    # a valid (from <= until) window is fine
+    a.assign(str(uuid4()), [{
+        "user_id": str(uuid4()), "skills": ["writing"],
+        "open_from": "2026-07-20T09:00:00Z", "open_until": "2026-07-20T10:00:00Z",
+    }], created_by=str(uuid4()))
+
+
 def test_retake_list_and_remove_assignments(fake_db):
     from services import mock_exam_assignment_service as a
     exam_id = str(uuid4())
