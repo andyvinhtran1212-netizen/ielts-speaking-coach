@@ -24,6 +24,35 @@ test.describe.serial('Gate A flows', () => {
   /** @type {string} */ let sessionId;
 
   const auth = (token) => ({ Authorization: `Bearer ${token}` });
+
+  // Best-effort cleanup that runs even when an earlier assertion failed
+  // mid-suite (review 2026-07-13): the freshly minted code must never be
+  // left active/assigned to the smoke student, or it pollutes later runs.
+  test.afterAll(async ({ request }) => {
+    try {
+      if (!code) return;
+      adminToken = adminToken || (await signIn(request, 'admin'));
+      if (!codeId) {
+        const list = await request.get(`${STAGING_API}/admin/access-codes`, { headers: auth(adminToken) });
+        if (list.ok()) {
+          const row = (await list.json()).find((c) => c.code === code);
+          codeId = row ? row.id : undefined;
+        }
+      }
+      if (!codeId) return;
+      if (studentId) {
+        await request.delete(
+          `${STAGING_API}/admin/access-codes/${codeId}/users/${studentId}`,
+          { headers: auth(adminToken) },
+        ); // 404 = already removed — fine
+      }
+      await request.delete(`${STAGING_API}/admin/access-codes/${codeId}`, {
+        headers: auth(adminToken),
+      }); // revoke is idempotent
+    } catch (e) {
+      console.warn(`gate-a cleanup skipped: ${e}`);
+    }
+  });
   // Lazy + memoized so a single test can also run in isolation (-g).
   const ensureTokens = async (request) => {
     adminToken = adminToken || (await signIn(request, 'admin'));
