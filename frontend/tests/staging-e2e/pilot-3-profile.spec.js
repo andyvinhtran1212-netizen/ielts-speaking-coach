@@ -136,4 +136,41 @@ test.describe('pilot 3 — /profile-preview authenticated read', () => {
 
     await context.close();
   });
+
+  test('same-status account switch (review #742): setSession(B) with NO intervening SIGNED_OUT refetches as B', async ({ browser, baseURL, request }) => {
+    test.setTimeout(90_000);
+    const sessionA = await signInSession(request, 'student');
+    const sessionB = await signInSession(request, 'instructor');
+    const emailA = identityEmail('student');
+    const emailB = identityEmail('instructor');
+
+    const context = await browser.newContext();
+    await primeBypassCookie(context, baseURL);
+    await context.addInitScript(
+      ([key, value]) => {
+        if (!window.localStorage.getItem('__e2e_seeded')) {
+          window.localStorage.setItem(key, value);
+          window.localStorage.setItem('__e2e_seeded', '1');
+        }
+      },
+      [STORAGE_KEY, JSON.stringify(sessionA)],
+    );
+    const page = await context.newPage();
+    await page.goto('/profile-preview');
+    await expect(page.locator('#profile-email')).toHaveText(emailA, { timeout: 20_000 });
+
+    // The exact review-#742 hazard: SIGNED_IN for a DIFFERENT user while
+    // status is already signed-in (cross-tab overwrite has no SIGNED_OUT).
+    await page.evaluate(
+      async ([at, rt]) => {
+        // @ts-ignore — window client from api.js
+        await window.getSupabase().auth.setSession({ access_token: at, refresh_token: rt });
+      },
+      [sessionB.access_token, sessionB.refresh_token],
+    );
+
+    await expect(page.locator('#profile-email')).toHaveText(emailB, { timeout: 20_000 });
+    expect(await page.locator('body').innerText()).not.toContain(emailA);
+    await context.close();
+  });
 });

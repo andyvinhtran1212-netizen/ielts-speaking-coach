@@ -32,8 +32,11 @@ function waitForApi(): Promise<any | null> {
 }
 
 export function ProfileBehavior() {
-  const { status } = useAuth();
-  const hasInitedRef = useRef(false);
+  const { status, user } = useAuth();
+  // Which user id the DOM currently renders — cross-tab account switch A→B
+  // keeps status 'signed-in' (only `user` changes), so render state must be
+  // keyed by id, never by a one-shot "inited" flag (review #742).
+  const renderedForRef = useRef<string | null>(null);
 
   // Fail-closed gate (ADR-011): signed-out — including refresh failure, chrome
   // sign-out and bfcache-restored-after-logout — leaves via replace() so Back
@@ -45,10 +48,10 @@ export function ProfileBehavior() {
     }
   }, [status]);
 
+  // ── Listeners (attach while signed-in; paired cleanup keeps StrictMode
+  //    re-runs and account switches idempotent) ───────────────────────
   useEffect(() => {
     if (status !== 'signed-in') return;
-    if (hasInitedRef.current) return;
-    hasInitedRef.current = true;
 
     const cleanups: Array<() => void> = [];
 
@@ -87,32 +90,58 @@ export function ProfileBehavior() {
       cleanups.push(() => saveBtn.removeEventListener('click', onClick));
     }
 
-    // ── Init (legacy init(), auth already proven by the provider) ───
+    return () => {
+      cleanups.forEach((fn) => fn());
+    };
+  }, [status]);
+
+  // ── Data (legacy init(), auth already proven by the provider) ────────
+  // Keyed by the signed-in user id: a same-status account switch (cross-tab
+  // sign-in of another user overwrites the shared storage without an
+  // intervening SIGNED_OUT) must blank A's data and refetch as B — never
+  // keep rendering A's email/stats under B's session (ADR-011, review #742).
+  useEffect(() => {
+    if (status !== 'signed-in' || !user) return;
+    let disposed = false;
+
+    if (renderedForRef.current && renderedForRef.current !== user.id) {
+      resetProfileDom(); // account switch: stale private data goes FIRST
+    }
+
     (async () => {
       const api = await waitForApi();
+      if (disposed) return;
       if (!api) {
         showToast('Không thể tải hồ sơ: API chưa sẵn sàng', true);
         return;
       }
       try {
         const profile = await api.get('/auth/profile');
-        if (profile) renderProfile(profile); // null = api.js 401 redirect in flight
+        if (disposed) return;
+        if (profile) {
+          renderProfile(profile); // null = api.js 401 redirect in flight
+          renderedForRef.current = user.id;
+        }
       } catch (err: any) {
         console.error('Could not load profile:', err?.message);
         // Fallback: try /auth/me (verbatim legacy fallback shape)
         try {
           const me = await api.get('/auth/me');
-          if (me) renderProfile(Object.assign({ stats: {} }, me));
+          if (disposed) return;
+          if (me) {
+            renderProfile(Object.assign({ stats: {} }, me));
+            renderedForRef.current = user.id;
+          }
         } catch (e2: any) {
-          showToast('Không thể tải hồ sơ: ' + (e2?.message || e2), true);
+          if (!disposed) showToast('Không thể tải hồ sơ: ' + (e2?.message || e2), true);
         }
       }
     })();
 
     return () => {
-      cleanups.forEach((fn) => fn());
+      disposed = true;
     };
-  }, [status]);
+  }, [status, user?.id]);
 
   return null;
 }
@@ -172,6 +201,51 @@ function setLevel(val: string) {
     const radio = el.querySelector('input[type=radio]') as HTMLInputElement | null;
     if (radio) radio.checked = isMatch;
   });
+}
+
+// ── Reset to the shell's placeholder state (account switch, review #742):
+//    undoes everything renderProfile() touches before the next user's fetch.
+function resetProfileDom() {
+  const set = (id: string, text: string) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  };
+  set('profile-initials', '—');
+  set('profile-display-name', '—');
+  set('profile-email', '—');
+  set('profile-joined', '—');
+  set('stat-sessions', '—');
+  set('stat-avg-band', '—');
+  set('stat-weekly', '—');
+
+  document.getElementById('profile-initials')?.classList.remove('hidden');
+  const img = document.getElementById('profile-avatar-img') as HTMLImageElement | null;
+  if (img) {
+    img.removeAttribute('src');
+    img.classList.add('hidden');
+  }
+
+  const chrome = document.querySelector('aver-chrome') as any;
+  if (chrome && typeof chrome.setUser === 'function') {
+    chrome.setUser({ name: '—', initials: '—' });
+  }
+
+  const setVal = (id: string, v: string) => {
+    const el = document.getElementById(id) as HTMLInputElement | null;
+    if (el) el.value = v;
+  };
+  setVal('inp-display-name', '');
+  setVal('inp-email', '');
+  setVal('inp-exam-date', '');
+
+  const wrap = document.getElementById('band-btns');
+  if (wrap) wrap.innerHTML = '';
+  _selectedBand = null;
+  setLevel('');
+
+  setVal('inp-weekly-goal', '5');
+  const goalDisplay = document.getElementById('goal-display');
+  if (goalDisplay) goalDisplay.textContent = '5';
 }
 
 // ── Render profile data ──────────────────────────────────────────────

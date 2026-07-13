@@ -69,6 +69,10 @@ test('behavior: read qua /auth/profile với fallback /auth/me; PILOT-3 KHÔNG m
     'pilot-3 boundary: NO mutation — PATCH /auth/profile is pilot 4 (require_flag wiring)');
   assert.match(BEHAVIOR, /location\.replace\('\/login\.html'\)/,
     'signed-out must leave via replace() so Back cannot restore private data (ADR-011 §3)');
+  assert.match(BEHAVIOR, /\[status, user\?\.id\]/,
+    'data effect must be keyed by user id — same-status account switch A→B must refetch (review #742)');
+  assert.match(BEHAVIOR, /resetProfileDom\(\)/,
+    'account switch must blank stale private data BEFORE the next fetch (ADR-011)');
 });
 
 test('canonical /pages/profile.html vẫn thuộc legacy (public/ static, không app route)', () => {
