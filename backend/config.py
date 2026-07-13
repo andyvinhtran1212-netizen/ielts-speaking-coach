@@ -190,6 +190,14 @@ class Settings(BaseSettings):
     # the primary model.
     WRITING_REAPER_ENABLED: bool = True
     WRITING_REAPER_INTERVAL_SECONDS: int = 120
+
+    # Retake self-timing backstop (mode='retake'): an in-process loop collects a
+    # retaker's section when its per-sitting clock expires even if their browser
+    # is gone, and finalises a sitting past its window. GRACE lets a live client
+    # auto-submit first. Disable via RETAKE_REAPER_ENABLED=false.
+    RETAKE_REAPER_ENABLED: bool = True
+    RETAKE_REAPER_INTERVAL_SECONDS: int = 60
+    RETAKE_REAPER_GRACE_SECONDS: int = 30
     WRITING_STUCK_JOB_TIMEOUT_SECONDS: int = 360        # standard tier
     WRITING_STUCK_JOB_TIMEOUT_DEEP_SECONDS: int = 600   # deep tier (3 passes)
     WRITING_GRADING_MAX_ATTEMPTS: int = 3

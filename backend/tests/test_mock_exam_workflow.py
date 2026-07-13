@@ -1641,6 +1641,85 @@ def test_retake_start_section_blocks_second_concurrent(fake_db, svc):
     assert svc.start_section(s["id"], u, "writing")["writing_started_at"]
 
 
+def _backdate_sitting(fake, sitting_id, **cols):
+    for row in fake.rows("mock_exam_sittings"):
+        if row["id"] == sitting_id:
+            row.update(cols)
+
+
+def test_retake_reaper_collects_expired_started_section(fake_db, svc, wf):
+    """PR C: a started section whose per-sitting clock ran out (+grace) is
+    collected even though the student's browser never submitted — and the
+    sitting finalises on its assigned skill alone."""
+    u = uuid4()
+    _seed_retake(fake_db, u, ["writing"])
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.start_section(s["id"], u, "writing")
+    # writing limit = 60min; back-date the start well past limit + grace.
+    past = (datetime.now(timezone.utc) - timedelta(seconds=3600 + 120)).isoformat()
+    _backdate_sitting(fake_db, s["id"], writing_started_at=past)
+
+    res = svc.reap_expired_retake_sittings(grace_seconds=30)
+    assert res["collected"] == 1
+    sit = svc.get_sitting(s["id"])
+    assert sit["writing_submitted_at"]
+    assert sit["status"] == "all_submitted"           # only-assigned skill done
+    assert len(fake_db.rows("mock_exam_reviews")) == 1
+
+
+def test_retake_reaper_skips_section_still_in_time(fake_db, svc):
+    u = uuid4()
+    _seed_retake(fake_db, u, ["writing"])
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.start_section(s["id"], u, "writing")           # just started — plenty of time
+    assert svc.reap_expired_retake_sittings(grace_seconds=30)["collected"] == 0
+    assert not svc.get_sitting(s["id"]).get("writing_submitted_at")
+
+
+def test_retake_reaper_finalizes_past_window(fake_db, svc):
+    """Once the availability window closes, an unstarted assigned section is
+    collected so the sitting finalises (student never came back)."""
+    u = uuid4()
+    future = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+    _seed_retake(fake_db, u, ["writing"], open_until=future)
+    s = svc.create_sitting(u, "MOCK-TEST-A")           # entered in-window
+    past = (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat()
+    _backdate_sitting(fake_db, s["id"], retake_open_until=past)   # window now closed
+
+    assert svc.reap_expired_retake_sittings()["collected"] == 1
+    sit = svc.get_sitting(s["id"])
+    assert sit["writing_submitted_at"]
+    assert sit["status"] == "all_submitted"
+
+
+def test_retake_reaper_ignores_sequential_sittings(fake_db, svc):
+    _seed_exam(fake_db, speaking=False)                # sequential (no assigned_skills)
+    s = svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    assert not s.get("assigned_skills")
+    assert svc.reap_expired_retake_sittings()["collected"] == 0
+
+
+def test_retake_reaper_reconciles_fully_stamped_orphan(fake_db, svc, wf):
+    """Codex P2 (2026-07-13): a prior pass stamped every assigned section but
+    died before finalising (e.g. a grade write raised after submitted_at). The
+    next sweep must re-run the terminal transition, not `continue` past a
+    fully-stamped sitting and strand it with no review."""
+    u = uuid4()
+    _seed_retake(fake_db, u, ["writing"])
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.start_section(s["id"], u, "writing")
+    # Simulate the crash aftermath: writing IS stamped submitted, but the sitting
+    # is still lrw_in_progress and NO review was ever created.
+    _backdate_sitting(fake_db, s["id"],
+                      writing_submitted_at=datetime.now(timezone.utc).isoformat(),
+                      status="lrw_in_progress")
+    assert not fake_db.rows("mock_exam_reviews")
+
+    svc.reap_expired_retake_sittings()
+    assert svc.get_sitting(s["id"])["status"] == "all_submitted"
+    assert len(fake_db.rows("mock_exam_reviews")) == 1
+
+
 def test_compute_overall_pure():
     from services import mock_review_workflow as wf
     assert wf.compute_overall(
