@@ -191,6 +191,12 @@ class OffTopicJudge:
             short-circuited the call. Callers must treat ``None`` as
             "no signal" — render no banner, log no warning to user.
         """
+        from services import provider_fixtures
+        if provider_fixtures.fixture_mode_enabled():
+            # Deterministic on-topic verdict — the judge is a REAL Haiku call
+            # otherwise, and an off-topic ruling on the fixed transcript would
+            # skew the fixture band (observed live: 6.0 -> 5).
+            return OffTopicVerdict(is_on_topic=True, reasoning="Fixture mode — luôn on-topic.")
         if not transcript.strip() or not question.strip():
             # Defensive — Whisper / question text validation should catch
             # this upstream, but if a junk pair slips through we skip
