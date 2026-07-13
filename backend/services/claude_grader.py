@@ -469,6 +469,9 @@ async def grade_response(
         ValueError:   Nếu Claude trả về JSON không hợp lệ sau 2 lần thử.
         anthropic.APIError: Lỗi API network/auth.
     """
+    from services import provider_fixtures
+    if provider_fixtures.fixture_mode_enabled():
+        return provider_fixtures.fixture_speaking_grade(mode)
     is_practice = (mode == "practice")
     system_prompt = SYSTEM_PROMPT_PRACTICE if is_practice else SYSTEM_PROMPT
     validator     = _parse_and_validate_practice if is_practice else _parse_and_validate

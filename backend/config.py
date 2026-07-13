@@ -68,6 +68,20 @@ class Settings(BaseSettings):
     # (word timestamps need verbose_json).
     SPEAKING_WORD_TIMESTAMPS_ENABLED: bool = False
 
+    # FE migration plan Phase 0 (B2) — deterministic provider fixture mode.
+    # "real" (default) calls Whisper/Claude/Azure exactly as today. "fixture"
+    # replaces the SPEAKING pipeline's provider calls (STT, grader,
+    # pronunciation) with deterministic production-shaped payloads so staging
+    # E2E is fast, free and repeatable — the persistence path still runs for
+    # real. Server-side only: clients can NEVER choose the mode. Startup
+    # ABORTS (services/provider_fixtures.assert_fixture_mode_safe) if fixture
+    # mode is combined with the production environment or production Supabase
+    # project — fail-closed by design.
+    GRADING_PROVIDER_MODE: str = "real"
+    # Optional fault injection, honored ONLY in fixture mode (applies to the
+    # speaking-grader seam): "" | "timeout" | "429" | "5xx" | "malformed".
+    GRADING_FIXTURE_FAULT: str = ""
+
     # Google Cloud TTS
     GOOGLE_APPLICATION_CREDENTIALS: str = ""
 

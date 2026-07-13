@@ -439,6 +439,11 @@ async def permission_error_handler(request: Request, exc: PermissionError):
 
 @app.on_event("startup")
 async def startup_event():
+    # Plan Phase 0 (B2): fixture mode must FAIL CLOSED on production — abort
+    # the process before serving a single request.
+    from services.provider_fixtures import assert_fixture_mode_safe
+    assert_fixture_mode_safe()
+
     logger.info("Server started")
 
     # P0-1 (C-1.1) async-DB scaffold. The event-loop-lag monitor always runs —
