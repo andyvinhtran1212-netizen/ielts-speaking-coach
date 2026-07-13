@@ -313,8 +313,17 @@ async function _initExerciseCTA(category: string, slug: string) {
   if (typeof window === 'undefined') return;
 
   try {
+    // Legacy fetchGrammarAPI goes through the backend API base — a relative
+    // fetch would hit the Next origin, which has no such route (review P2).
+    const rc = (window as any).__AVER_RUNTIME_CONFIG__ || {};
+    const apiBase =
+      ((window as any).api && (window as any).api.base) ||
+      rc.apiBase ||
+      (location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+        ? 'http://localhost:8000'
+        : 'https://ielts-speaking-coach-production.up.railway.app');
     const response = await fetch(
-      `/api/grammar/article/${encodeURIComponent(category)}/${encodeURIComponent(slug)}/exercise`
+      `${apiBase}/api/grammar/article/${encodeURIComponent(category)}/${encodeURIComponent(slug)}/exercise`
     );
     if (!response.ok) return; // no bank
 

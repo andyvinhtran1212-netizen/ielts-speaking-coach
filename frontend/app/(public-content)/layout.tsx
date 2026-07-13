@@ -73,6 +73,16 @@ document.addEventListener('DOMContentLoaded', function () {
         }}
       />
 
+      {/* grammar-wiki.css scopes overrides under body.av-page (e.g.
+          `body.av-page .text-white` recolors to readable) — a div wrapper
+          cannot satisfy those selectors, and React must not own <body>
+          attributes here. Same pre-paint technique as the anti-flash IIFE. */}
+      <script
+        dangerouslySetInnerHTML={{
+          __html:
+            "document.body.className += ' av-page min-h-screen font-sans antialiased';",
+        }}
+      />
       {children}
     </>
   );

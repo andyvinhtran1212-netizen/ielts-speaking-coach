@@ -160,7 +160,7 @@ export function ArticleShell({ article }: { article: GrammarArticle }) {
   }
 
   return (
-    <body className="av-page min-h-screen font-sans antialiased">
+    <>
       {/* Reading progress bar (Sprint 6.17.2: grammar.js line 214–220) */}
       <div id="reading-progress" />
 
@@ -361,6 +361,6 @@ export function ArticleShell({ article }: { article: GrammarArticle }) {
           </div>
         </div>
       </div>
-    </body>
+    </>
   );
 }
