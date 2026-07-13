@@ -144,6 +144,18 @@ describe('vercel.json', () => {
   });
 });
 
+describe('perf-hints consume the config (zero-production-egress covers resource hints)', () => {
+  test('supabase preconnect origin derives from runtime config; production is fallback-only', () => {
+    const src = readFileSync(path.join(FRONTEND, 'js', 'components', 'perf-hints.js'), 'utf8');
+    assert.match(src, /__AVER_RUNTIME_CONFIG__/);
+    assert.match(src, /rc\.supabaseUrl/);
+    const occurrences = src.match(/huwsmtubwulikhlmcirx/g) || [];
+    assert.equal(occurrences.length, 1,
+      'production Supabase origin must appear exactly once, as SUPABASE_ORIGIN_FALLBACK');
+    assert.match(src, /SUPABASE_ORIGIN_FALLBACK = 'https:\/\/huwsmtubwulikhlmcirx\.supabase\.co'/);
+  });
+});
+
 describe('public-stats call sites are environment-aware', () => {
   for (const page of ['index.html', 'login.html']) {
     test(`${page} builds the stats URL from runtime config`, () => {

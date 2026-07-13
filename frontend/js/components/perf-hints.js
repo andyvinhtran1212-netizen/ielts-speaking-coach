@@ -6,13 +6,15 @@
  * connections.
  */
 
-// The API origin is derived from the canonical window.api.base (api.js) so the
-// host never drifts from the real API base. The literal is kept only as a
-// fallback for the brief window before api.js has run. supabase/cloudinary are
-// third-party origins (not the API base) and stay static.
+// The API origin is derived from the canonical window.api.base (api.js) and
+// the Supabase origin from the generated runtime config (js/runtime-config.js),
+// so preview/staging pages never warm a connection to the PRODUCTION origins
+// (zero-production-egress — plan §7.1). The literals are kept only as
+// fallbacks for the unconfigured/local case. cloudinary is a static
+// third-party origin.
 const API_ORIGIN_FALLBACK = 'https://ielts-speaking-coach-production.up.railway.app';
+const SUPABASE_ORIGIN_FALLBACK = 'https://huwsmtubwulikhlmcirx.supabase.co';
 const STATIC_ORIGINS = [
-  'https://huwsmtubwulikhlmcirx.supabase.co',
   'https://res.cloudinary.com',
 ];
 
@@ -25,8 +27,16 @@ function apiOrigin() {
   return API_ORIGIN_FALLBACK;
 }
 
+function supabaseOrigin() {
+  try {
+    const rc = window.__AVER_RUNTIME_CONFIG__;
+    if (rc && rc.supabaseUrl) return new URL(rc.supabaseUrl).origin;
+  } catch { /* fall through to the literal */ }
+  return SUPABASE_ORIGIN_FALLBACK;
+}
+
 function perfOrigins() {
-  return [apiOrigin(), ...STATIC_ORIGINS];
+  return [apiOrigin(), supabaseOrigin(), ...STATIC_ORIGINS];
 }
 
 

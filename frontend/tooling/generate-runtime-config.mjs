@@ -26,6 +26,12 @@ const PROD = {
   supabaseAnonKey: 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao',
 };
 
+// NOTE (review 2026-07-13): generated *.vercel.app preview URLs are NOT in
+// the backend CORS allowlist (only *.averlearning.com subdomains are) — API
+// calls from such previews fail in the browser BY DESIGN: plan §7.1 limits
+// random PR previews to public/read-only checks and forbids wildcard
+// *.vercel.app CORS. The authenticated preview surface is the fixed staging
+// host staging.averlearning.com (branch `staging`), which passes CORS today.
 const STAGING = {
   environment: 'staging',
   apiBase: 'https://ielts-speaking-coach-staging.up.railway.app',
