@@ -67,10 +67,18 @@ def _ensure_user(sb, role: str, ns: str, password: str) -> str:
     # "unactivated" identity keeps false on purpose (§7.2 needs that state).
     is_active = role != "unactivated"
     db_role = "admin" if role == "admin" else "user"
+    # Deterministic display_name (pilot-4 review): profile-mutation E2E must
+    # be able to restore the field EXACTLY, but PATCH /auth/profile strips
+    # nulls (no clear-to-null semantics) — so a null seed value would be
+    # unrestorable. The sentinel makes reseed convergent: tests restore to
+    # this same value.
+    display_name = f"E2E {role} {ns}"
     existing = sb.table("users").select("id").eq("email", email).limit(1).execute()
     if existing.data:
         uid = existing.data[0]["id"]
-        sb.table("users").update({"role": db_role, "is_active": is_active}).eq("id", uid).execute()
+        sb.table("users").update({
+            "role": db_role, "is_active": is_active, "display_name": display_name,
+        }).eq("id", uid).execute()
         sb.auth.admin.update_user_by_id(uid, {"password": password})
         print(f"  = {email} (exists — role/is_active enforced, password rotated)")
         return uid
@@ -104,6 +112,7 @@ def _ensure_user(sb, role: str, ns: str, password: str) -> str:
     # 'user' and E2E promotes it through that flow when needed.
     sb.table("users").upsert({
         "id": uid, "email": email, "role": db_role, "is_active": is_active,
+        "display_name": display_name,
     }).execute()
     print(f"  + {email} ({db_role})")
     return uid

@@ -81,6 +81,8 @@ test('pilot-4 mutation: double-submit lock + canonical reconcile + ambiguous-com
     'timeout-after-commit: statusless failure must reconcile via GET, never assume un-committed');
   assert.match(BEHAVIOR, /renderedForRef\.current === startedFor/,
     'account-switch guard: stale reconcile must never render over a newer user');
+  assert.match(BEHAVIOR, /if \(!renderedForRef\.current\) \{\n\s*showToast/,
+    'not-loaded guard: saving before the canonical GET rendered would PATCH shell defaults (review #743)');
   const backend = readFileSync(path.join(FRONTEND, '..', 'backend', 'routers', 'auth.py'), 'utf8');
   assert.match(backend, /require_flag\("profile_update"\)/,
     'PATCH /auth/profile must sit behind the ADR-010 kill switch (first require_flag adoption)');

@@ -23,6 +23,10 @@ const {
 const STORAGE_KEY = `sb-${new URL(STAGING_SUPABASE).hostname.split('.')[0]}-auth-token`;
 const FLAG_URL = `${STAGING_API}/admin/runtime-flags/profile_update`;
 const auth = (token) => ({ Authorization: `Bearer ${token}` });
+// Sentinel staging_seed.py stamps on every identity. PATCH /auth/profile has
+// no clear-to-null semantics (nulls are stripped server-side), so when the
+// captured original is somehow empty the restore converges on the seed value.
+const SEED_DISPLAY_NAME = `E2E student ${process.env.E2E_NS || 'smoke'}`;
 
 async function signInSession(request, role) {
   const password = process.env.E2E_PASSWORD || '';
@@ -42,6 +46,16 @@ async function signInSession(request, role) {
 }
 
 test.describe.serial('pilot 4 — /profile-preview mutation', () => {
+  /** @type {any} */ let originalProfile;
+
+  test.beforeAll(async ({ request }) => {
+    // Canonical snapshot BEFORE any mutation — afterAll restores from this,
+    // so nightly runs leave the shared smoke student exactly as found.
+    const token = await signIn(request, 'student');
+    const res = await request.get(`${STAGING_API}/auth/profile`, { headers: auth(token) });
+    if (res.ok()) originalProfile = await res.json();
+  });
+
   test.afterAll(async ({ request }) => {
     // The kill switch must NEVER be left off on staging, even if a test blew
     // up mid-drill — every other suite (and the legacy page) depends on it.
@@ -53,6 +67,23 @@ test.describe.serial('pilot 4 — /profile-preview mutation', () => {
       });
     } catch (e) {
       console.warn(`pilot-4 flag restore skipped: ${e}`);
+    }
+    // Restore EVERY field any test below mutates (save drill: display_name +
+    // weekly_goal; kill-switch/idempotency probes: weekly_goal). Runs after
+    // the flag restore so the PATCH is never 503-blocked by our own drill.
+    try {
+      if (!originalProfile) return;
+      const token = await signIn(request, 'student');
+      const restore = await request.patch(`${STAGING_API}/auth/profile`, {
+        headers: auth(token),
+        data: {
+          display_name: originalProfile.display_name || SEED_DISPLAY_NAME,
+          weekly_goal: originalProfile.weekly_goal || 5,
+        },
+      });
+      if (!restore.ok()) console.warn(`pilot-4 profile restore HTTP ${restore.status()}`);
+    } catch (e) {
+      console.warn(`pilot-4 profile restore skipped: ${e}`);
     }
   });
 
@@ -96,8 +127,12 @@ test.describe.serial('pilot 4 — /profile-preview mutation', () => {
     await expect(page.locator('#inp-display-name')).toHaveValue(marker, { timeout: 20_000 });
     await expect(page.locator('#goal-display')).toHaveText('9');
 
-    // Reversible: put staging back exactly as found.
-    await page.locator('#inp-display-name').fill(original || marker);
+    // Reversible: put both mutated fields back through the UI (afterAll
+    // re-asserts the same restore request-level as a safety net). A blank
+    // original falls back to the seed sentinel — the PATCH endpoint strips
+    // empty/null display_name, so "restore to empty" is unreachable by design.
+    await page.locator('#inp-display-name').fill(original || SEED_DISPLAY_NAME);
+    await page.locator('#inp-weekly-goal').fill(String(originalProfile?.weekly_goal || 5));
     await page.locator('#btn-save').click();
     await expect(page.locator('#toast')).toHaveText('✓ Đã lưu thành công', { timeout: 20_000 });
     await context.close();

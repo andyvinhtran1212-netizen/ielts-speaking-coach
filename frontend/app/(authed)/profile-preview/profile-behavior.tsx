@@ -90,6 +90,15 @@ export function ProfileBehavior() {
     if (saveBtn) {
       const onClick = async () => {
         if (savingRef.current) return; // double-submit lock
+        // Not-yet-loaded guard (review #743): before the canonical GET has
+        // rendered — slow first load, or the blanked window right after an
+        // account switch — the form holds SHELL DEFAULTS (weekly_goal 5,
+        // empty name). Saving would overwrite the user's real profile with
+        // placeholders. renderedForRef is null exactly in those windows.
+        if (!renderedForRef.current) {
+          showToast('Hồ sơ chưa tải xong — vui lòng đợi giây lát.', true);
+          return;
+        }
         savingRef.current = true;
         saveBtn.disabled = true;
         saveBtn.textContent = 'Đang lưu…';
@@ -173,7 +182,16 @@ export function ProfileBehavior() {
 
     if (renderedForRef.current && renderedForRef.current !== user.id) {
       resetProfileDom(); // account switch: stale private data goes FIRST
+      // The DOM now renders NO user — saving in this window would PATCH the
+      // blanked shell defaults into the NEW user's profile (review #743).
+      renderedForRef.current = null;
     }
+
+    // Save is armed only once a canonical profile is on screen: the shell
+    // (and the post-switch blank) hold placeholder defaults that must never
+    // be committable. renderProfile → the data effect re-enables below.
+    const saveBtn = document.getElementById('btn-save') as HTMLButtonElement | null;
+    if (saveBtn && !renderedForRef.current) saveBtn.disabled = true;
 
     (async () => {
       const api = await waitForApi();
@@ -188,6 +206,7 @@ export function ProfileBehavior() {
         if (profile) {
           renderProfile(profile); // null = api.js 401 redirect in flight
           renderedForRef.current = user.id;
+          if (saveBtn && !savingRef.current) saveBtn.disabled = false;
         }
       } catch (err: any) {
         console.error('Could not load profile:', err?.message);
@@ -198,6 +217,7 @@ export function ProfileBehavior() {
           if (me) {
             renderProfile(Object.assign({ stats: {} }, me));
             renderedForRef.current = user.id;
+            if (saveBtn && !savingRef.current) saveBtn.disabled = false;
           }
         } catch (e2: any) {
           if (!disposed) showToast('Không thể tải hồ sơ: ' + (e2?.message || e2), true);
