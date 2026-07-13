@@ -22,3 +22,40 @@ async function primeBypassCookie(context, baseURL) {
 }
 
 module.exports = { BYPASS_HEADERS, primeBypassCookie };
+
+// ── Shared staging API helpers (Gate A flows) ────────────────────────────
+
+const STAGING_SUPABASE = 'https://zjphffoujxkpltixsbzj.supabase.co';
+const STAGING_API = 'https://ielts-speaking-coach-staging.up.railway.app';
+// Public (publishable) staging anon key — same value the staging
+// runtime-config ships to every browser.
+const STAGING_ANON = process.env.STAGING_SUPABASE_ANON ||
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpqcGhmZm91anhrcGx0aXhzYnpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwMTA5ODUsImV4cCI6MjA5MjU4Njk4NX0.A8CSIWH-_p8baHBSGDaNJ2kWyQVgZOLlSX3dD1lOuGU';
+
+const E2E_NS = process.env.E2E_NS || 'smoke';
+const identityEmail = (role) => `e2e-${role}-${E2E_NS}@staging-e2e.averlearning.com`;
+
+/** Password sign-in on staging Supabase; returns a bearer access token. */
+async function signIn(request, role) {
+  const password = process.env.E2E_PASSWORD || '';
+  if (!password) {
+    throw new Error('E2E_PASSWORD is required (must match staging_seed.py).');
+  }
+  const res = await request.post(
+    `${STAGING_SUPABASE}/auth/v1/token?grant_type=password`,
+    {
+      headers: { apikey: STAGING_ANON, 'Content-Type': 'application/json' },
+      data: { email: identityEmail(role), password },
+    },
+  );
+  if (res.status() !== 200) {
+    throw new Error(`sign-in failed for ${role}: HTTP ${res.status()} ${await res.text()}`);
+  }
+  return (await res.json()).access_token;
+}
+
+module.exports.STAGING_API = STAGING_API;
+module.exports.STAGING_SUPABASE = STAGING_SUPABASE;
+module.exports.STAGING_ANON = STAGING_ANON;
+module.exports.signIn = signIn;
+module.exports.identityEmail = identityEmail;
