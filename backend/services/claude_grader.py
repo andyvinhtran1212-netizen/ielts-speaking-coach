@@ -469,6 +469,12 @@ async def grade_response(
         ValueError:   Nếu Claude trả về JSON không hợp lệ sau 2 lần thử.
         anthropic.APIError: Lỗi API network/auth.
     """
+    # Fixture mode (plan Phase 0/B2) is injected at the RAW level below — not
+    # an early return — so JSON validation and ALL post-processing (including
+    # _attach_grammar_recommendations, which grading.py persists to the
+    # grammar_recommendations table) run exactly as in production.
+    from services import provider_fixtures
+    _fixture_mode = provider_fixtures.fixture_mode_enabled()
     is_practice = (mode == "practice")
     system_prompt = SYSTEM_PROMPT_PRACTICE if is_practice else SYSTEM_PROMPT
     validator     = _parse_and_validate_practice if is_practice else _parse_and_validate
@@ -495,14 +501,21 @@ async def grade_response(
             "grading routes to SPEAKING_GRADING_MODEL via the orchestrator", exc,
         )
         client = None
-    orchestrator = _get_orchestrator()
+    if _fixture_mode:
+        # No real Claude call for sample regeneration either — client=None
+        # takes the documented graceful skip path.
+        client = None
+    orchestrator = None if _fixture_mode else _get_orchestrator()
 
     # ── Attempt 1 ─────────────────────────────────────────────────────────────
-    raw = await _invoke_orchestrator(
-        orchestrator, system_prompt, user_message,
-        user_id=user_id, session_id=session_id,
-        sink=fallback_events,
-    )
+    if _fixture_mode:
+        raw = provider_fixtures.fixture_speaking_grade_raw(mode)
+    else:
+        raw = await _invoke_orchestrator(
+            orchestrator, system_prompt, user_message,
+            user_id=user_id, session_id=session_id,
+            sink=fallback_events,
+        )
     result, error = validator(raw)
 
     if result is not None:
@@ -527,11 +540,16 @@ async def grade_response(
         + "Output the raw JSON object only."
     )
 
-    raw2 = await _invoke_orchestrator(
-        orchestrator, system_prompt, retry_message,
-        user_id=user_id, session_id=session_id,
-        sink=fallback_events,
-    )
+    if _fixture_mode:
+        # Deterministic: the retry yields the same fixture, so a malformed
+        # fault walks the REAL two-attempt path into the terminal ValueError.
+        raw2 = provider_fixtures.fixture_speaking_grade_raw(mode)
+    else:
+        raw2 = await _invoke_orchestrator(
+            orchestrator, system_prompt, retry_message,
+            user_id=user_id, session_id=session_id,
+            sink=fallback_events,
+        )
     result2, error2 = validator(raw2)
 
     if result2 is not None:

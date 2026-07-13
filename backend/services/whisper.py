@@ -208,6 +208,9 @@ async def transcribe_from_bytes(audio_bytes: bytes, filename: str = "audio.webm"
     Returns:
         Same schema as :func:`transcribe_audio`.
     """
+    from services import provider_fixtures
+    if provider_fixtures.fixture_mode_enabled():
+        return provider_fixtures.fixture_transcription(filename)
     client = _get_client()
 
     size_mb = len(audio_bytes) / (1024 * 1024)
@@ -281,6 +284,9 @@ async def transcribe_from_url(audio_url: str) -> dict:
         httpx.HTTPError: Nếu download thất bại.
         RuntimeError: Nếu OPENAI_API_KEY chưa cấu hình.
     """
+    from services import provider_fixtures
+    if provider_fixtures.fixture_mode_enabled():
+        return provider_fixtures.fixture_transcription()
     logger.info("Whisper: download audio từ URL: %s", audio_url[:80])
 
     # Đoán extension từ URL (giúp Whisper nhận đúng format)

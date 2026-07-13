@@ -297,6 +297,9 @@ async def assess_pronunciation(
         ValueError:   AZURE_SPEECH_KEY or AZURE_SPEECH_REGION not set.
         RuntimeError: Azure returned a non-200 or non-JSON response.
     """
+    from services import provider_fixtures
+    if provider_fixtures.fixture_mode_enabled():
+        return provider_fixtures.fixture_pronunciation()
     key    = getattr(settings, "AZURE_SPEECH_KEY",    "") or ""
     region = getattr(settings, "AZURE_SPEECH_REGION", "") or ""
 
