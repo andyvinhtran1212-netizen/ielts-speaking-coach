@@ -189,3 +189,20 @@ async def test_grammar_check_seam(monkeypatch):
     result = await get_grammar_check_service().check("hello world")
     assert result is not None
     assert result.errors == [] and result.total_count == 0
+
+
+@pytest.mark.asyncio
+async def test_grammar_check_health_probe_bypasses_fixture(monkeypatch):
+    # /health/grammar-check verifies the REAL LanguageTool backend with a
+    # known-bad sample; the fixture's guaranteed-0 result would falsely mark
+    # it degraded. _health_probe=True must take the real path — in the unit
+    # env (no LanguageTool module) that path silent-skips to None, which is
+    # observably different from the fixture's empty result.
+    monkeypatch.setattr(settings, "GRADING_PROVIDER_MODE", "fixture")
+    from services.grammar_check import get_grammar_check_service
+    svc = get_grammar_check_service()
+    sample = "I goes to school yesterday and I doesn't have time."
+    fixture_result = await svc.check(sample)
+    assert fixture_result is not None and fixture_result.total_count == 0
+    real_path = await svc.check(sample, _health_probe=True)
+    assert real_path is None or real_path.total_count != 0

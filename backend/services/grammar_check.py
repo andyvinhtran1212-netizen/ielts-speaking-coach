@@ -362,6 +362,7 @@ class GrammarCheckService:
         question_id: Optional[str] = None,
         session_id: Optional[str] = None,
         response_id: Optional[str] = None,
+        _health_probe: bool = False,
     ) -> Optional[GrammarCheckResult]:
         """Run the check and return a result, or ``None`` on silent skip.
 
@@ -371,7 +372,11 @@ class GrammarCheckService:
           - any uncaught exception inside the sync worker
         """
         from services import provider_fixtures
-        if provider_fixtures.fixture_mode_enabled():
+        if provider_fixtures.fixture_mode_enabled() and not _health_probe:
+            # _health_probe bypasses the fixture: /health/grammar-check runs a
+            # known-bad sample to verify the REAL LanguageTool backend, and a
+            # fixtured 0-error result would falsely report "degraded" (review
+            # 2026-07-13).
             return GrammarCheckResult(errors=[], total_count=0, displayed_count=0, cached=False)
         if not transcript or not transcript.strip():
             return None
@@ -497,7 +502,7 @@ async def grammar_check_health() -> dict:
         out["languagetool_available"] = backend is not None and not svc._backend_init_failed
         out["backend_mode"] = getattr(backend, "mode", None) if backend is not None else None
 
-        result = await svc.check(sample)
+        result = await svc.check(sample, _health_probe=True)
         out["sample_error_count"] = result.total_count if result else 0
 
         if svc._backend_init_failed:
