@@ -310,7 +310,7 @@ async function dismiss(id) {
   try {
     await api.post('/admin/error-logs/' + id + '/dismiss');
     showBanner('Đã đánh dấu xử lý.', 'success');
-    await Promise.all([loadLogs(), loadStats()]);
+    await Promise.all([loadLogs(), loadStats(), loadMigrationStats()]);
   } catch (err) {
     showBanner('Không xử lý được: ' + (err.message || err), 'error');
   }
@@ -320,7 +320,7 @@ async function undismiss(id) {
   try {
     await api.post('/admin/error-logs/' + id + '/undismiss');
     showBanner('Đã reset.', 'success');
-    await Promise.all([loadLogs(), loadStats()]);
+    await Promise.all([loadLogs(), loadStats(), loadMigrationStats()]);
   } catch (err) {
     showBanner('Không reset được: ' + (err.message || err), 'error');
   }
@@ -342,7 +342,7 @@ async function generateTestError() {
   const hideNoise = $('filter-hide-noise');
   if (hideNoise) hideNoise.checked = false;
   // Give the BackgroundTask a beat to land before refreshing.
-  setTimeout(() => { loadLogs(); loadStats(); }, 800);
+  setTimeout(() => { loadLogs(); loadStats(); loadMigrationStats(); }, 800);
   showBanner('Đang tạo lỗi test… một dòng "Thử nghiệm" sẽ xuất hiện trong giây lát.', 'success');
 }
 

@@ -204,6 +204,13 @@ async def error_log_migration_stats(
                 supabase_admin.table("error_logs")
                 .select("level, extra, dismissed_at")
                 .gte("occurred_at", cutoff)
+                # Stable total order — offset pagination WITHOUT one lets
+                # Postgres return pages in different physical orders between
+                # reads (concurrent inserts / plan changes), double-counting
+                # or skipping rows (review #746). id tie-breaks equal
+                # timestamps.
+                .order("occurred_at", desc=True)
+                .order("id", desc=True)
                 .range(offset, offset + PAGE - 1)
                 .execute()
             )

@@ -39,6 +39,25 @@ test('api.js: X-Request-ID per call — correlation browser → FastAPI (ADR-012
     'correlation id must be set BEFORE the extraHeaders merge');
 });
 
+test('correlation chain: failed api calls carry join keys into error reports (review #746)', () => {
+  assert.match(API, /thrown\.request_id = requestId/,
+    'HTTP errors must carry the per-call correlation id');
+  assert.match(API, /fetchErr.*request_id = requestId|request_id = requestId;[\s\S]{0,80}throw fetchErr/,
+    'network failures must carry the SENT correlation id too');
+  assert.match(API, /thrown\.ref = \(isObj && detail\.ref\)/,
+    '5xx sanitizer ref must survive onto the thrown error');
+  assert.match(REPORTER, /api_request_id/,
+    'reporter must ship the api call id (page REQUEST_ID alone cannot join to a server log line)');
+  assert.match(REPORTER, /api_ref/,
+    'reporter must ship the server sanitizer ref when present');
+});
+
+test('triage refresh: dismiss/undismiss also refresh the migration panel (review #746)', () => {
+  const refreshes = ADMIN_JS.match(/loadLogs\(\), loadStats\(\), loadMigrationStats\(\)/g) || [];
+  assert.ok(refreshes.length >= 2,
+    'both dismiss and undismiss must refresh migration-stats (its undismissed column is canonical state)');
+});
+
 test('cutover dashboard: admin Báo lỗi renders migration-stats (ADR-012 điều kiện mở)', () => {
   assert.match(ADMIN_HTML, /id="migration-stats-panel"/);
   assert.match(ADMIN_HTML, /id="migration-stats-body"/);

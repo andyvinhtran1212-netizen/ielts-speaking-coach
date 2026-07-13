@@ -21,15 +21,20 @@ class _Result:
 
 
 class _Query:
-    def __init__(self, rows):
+    def __init__(self, rows, order_calls):
         self._rows = rows
         self._range = (0, len(rows) - 1)
+        self._order_calls = order_calls
 
     def __getattr__(self, _name):
         def _chain(*_a, **_kw):
             return self
 
         return _chain
+
+    def order(self, column, **_kw):
+        self._order_calls.append(column)
+        return self
 
     def range(self, start, end):
         self._range = (start, end)
@@ -43,9 +48,10 @@ class _Query:
 class _FakeAdmin:
     def __init__(self, rows):
         self._rows = rows
+        self.order_calls: list[str] = []
 
     def table(self, _name):
-        return _Query(self._rows)
+        return _Query(self._rows, self.order_calls)
 
 
 def _client(monkeypatch, rows):
@@ -53,11 +59,14 @@ def _client(monkeypatch, rows):
         return {"id": "admin", "role": "admin"}
 
     monkeypatch.setattr(el, "require_admin", _ok)
-    monkeypatch.setattr(el, "supabase_admin", _FakeAdmin(rows))
+    fake = _FakeAdmin(rows)
+    monkeypatch.setattr(el, "supabase_admin", fake)
     app = FastAPI()
     app.include_router(el.router)
     app.include_router(el._admin_router)
-    return TestClient(app)
+    client = TestClient(app)
+    client.fake_admin = fake  # type: ignore[attr-defined]
+    return client
 
 
 def test_groups_by_implementation_release_with_untagged_bucket(monkeypatch):
@@ -90,12 +99,17 @@ def test_paginates_past_postgrest_1000_cap(monkeypatch):
         {"level": "error", "dismissed_at": None,
          "extra": {"implementation": "legacy", "release": "r1"}}
     ] * 1500
-    res = _client(monkeypatch, rows).get(
+    client = _client(monkeypatch, rows)
+    res = client.get(
         "/admin/error-logs/migration-stats", headers={"Authorization": "Bearer x"}
     )
     body = res.json()
     assert body["scanned"] == 1500, "bare-select 1000-cap must not undercount"
     assert body["rows"][0]["total"] == 1500
+    # Offset pagination REQUIRES a stable order or pages can overlap/skip
+    # under concurrent inserts (review #746) — pin the order() calls.
+    assert "occurred_at" in client.fake_admin.order_calls
+    assert "id" in client.fake_admin.order_calls
 
 
 def test_days_param_clamped(monkeypatch):

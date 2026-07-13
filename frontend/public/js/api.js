@@ -74,9 +74,13 @@
     var headers = /** @type {Record<string, string>} */ ({});
 
     // ADR-012 §2 — correlation id browser → FastAPI (middleware echoes it;
-    // header CORS-allowlisted; best-effort, never blocks a call).
+    // header CORS-allowlisted; best-effort, never blocks a call). The SENT id
+    // is what the backend logs under (middleware prefers the inbound header),
+    // so failures below attach it to the thrown error — error-reporter then
+    // ships it and the frontend report joins to the exact server log line.
+    var requestId = null;
     try {
-      headers['X-Request-ID'] =
+      headers['X-Request-ID'] = requestId =
         (window.crypto && typeof window.crypto.randomUUID === 'function')
           ? window.crypto.randomUUID()
           : 'fb-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
@@ -88,11 +92,19 @@
     // token). Merged last so callers can't drop auth.
     if (extraHeaders) { for (var k in extraHeaders) { if (extraHeaders[k] != null) headers[k] = extraHeaders[k]; } }
 
-    var response = await fetch(_API_BASE + path, {
-      method: method,
-      headers: headers,
-      body: isFormData ? body : body ? JSON.stringify(body) : null,
-    });
+    var response;
+    try {
+      response = await fetch(_API_BASE + path, {
+        method: method,
+        headers: headers,
+        body: isFormData ? body : body ? JSON.stringify(body) : null,
+      });
+    } catch (fetchErr) {
+      // Network/CORS failure — tag the rejection with the id we SENT so an
+      // unhandled-rejection report still correlates to this exact call.
+      try { if (fetchErr && typeof fetchErr === 'object') /** @type {any} */ (fetchErr).request_id = requestId; } catch (_) {}
+      throw fetchErr;
+    }
 
     // reading-access-tracking B2 — anonymous (share-link) callers have NO
     // account; a 401 there must surface as a friendly error to the caller, not
@@ -126,6 +138,10 @@
       var thrown   = /** @type {any} */ (new Error(message));
       thrown.status = response.status;
       thrown.detail = detail || null;
+      // ADR-012 §2 — join keys for error reports: the correlation id of THIS
+      // call + the server's sanitizer ref when the 5xx body carries one.
+      thrown.request_id = requestId;
+      thrown.ref = (isObj && detail.ref) || null;
       throw thrown;
     }
 
