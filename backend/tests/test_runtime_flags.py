@@ -154,7 +154,7 @@ async def test_admin_router_rejects_bad_key(monkeypatch):
 
     monkeypatch.setattr(admin_flags, "require_admin", _fake_admin)
     with pytest.raises(HTTPException) as exc:
-        await admin_flags.put_flag(
+        await admin_flags.patch_flag(
             "BAD KEY!", admin_flags.FlagUpdate(enabled=False), authorization="Bearer x",
         )
     assert exc.value.status_code == 422
@@ -171,7 +171,7 @@ async def test_admin_router_flips_flag(monkeypatch):
         return {"id": "admin-1"}
 
     monkeypatch.setattr(admin_flags, "require_admin", _fake_admin)
-    out = await admin_flags.put_flag(
+    out = await admin_flags.patch_flag(
         "writing_submit", admin_flags.FlagUpdate(enabled=False, note="drill"),
         authorization="Bearer x",
     )

@@ -3,6 +3,10 @@
 Flipping a flag here is live on every backend instance within one cache
 window (15 s — services/runtime_flags._TTL_SECONDS) with NO redeploy. This is
 the mutation kill switch the FE migration plan's pilot checklist requires.
+
+PATCH (not PUT) on purpose: the CORS hardening in main.py (C-4.2) allows
+GET/POST/PATCH/DELETE only, and every other update endpoint in the app is
+PATCH — a PUT here would fail the browser preflight from the admin frontend.
 """
 
 from __future__ import annotations
@@ -39,8 +43,8 @@ async def list_flags(authorization: str | None = Header(default=None)):
     return {"flags": res.data or [], "cache_ttl_seconds": 15}
 
 
-@router.put("/admin/runtime-flags/{key}")
-async def put_flag(
+@router.patch("/admin/runtime-flags/{key}")
+async def patch_flag(
     key: str,
     body: FlagUpdate,
     authorization: str | None = Header(default=None),
