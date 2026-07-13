@@ -66,6 +66,24 @@
     }
   }
 
+  // ── ADR-012 migration tags (FE Next.js migration, Pilot Entry) ─────
+  // Every error report carries which STACK rendered the page and which
+  // RELEASE served it, so the cutover dashboard can compare error rates
+  // by implementation/release. Additive: rides in `extra`, no schema
+  // change. `__next_f` is the App Router RSC flight sink — present on
+  // every Next page before any app code runs, absent on legacy pages.
+  function migrationTags() {
+    var tags = {};
+    try {
+      tags.implementation =
+        (typeof window.__next_f !== 'undefined') ? 'next' : 'legacy';
+      var rc = window.__AVER_RUNTIME_CONFIG__ || {};
+      if (rc.release) tags.release = rc.release;
+      if (rc.environment) tags.environment = rc.environment;
+    } catch { /* tags are best-effort — never block a report */ }
+    return tags;
+  }
+
   // ── Pure helper, exported for tests ────────────────────────────────
   function buildDedupKey(message, stack) {
     var m = String(message || '');
@@ -133,7 +151,9 @@
         url:        (window.location && window.location.pathname) || null,
         user_agent: ((window.navigator && window.navigator.userAgent) || '').slice(0, 500),
         request_id: REQUEST_ID,
-        extra:      payload.extra || null,
+        // Caller extra first, ADR-012 tags second (tags win a collision —
+        // implementation/release are infrastructure truth, not caller data).
+        extra:      Object.assign({}, payload.extra || {}, migrationTags()),
       };
     } catch (e) {
       // Defensive: a circular `extra` or weird browser globals could

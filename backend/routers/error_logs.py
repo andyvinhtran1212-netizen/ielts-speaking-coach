@@ -172,6 +172,83 @@ async def list_error_logs(
     }
 
 
+@_admin_router.get("/migration-stats")
+async def error_log_migration_stats(
+    days: int = 7,
+    authorization: str | None = Header(default=None),
+):
+    """ADR-012 cutover dashboard: error counts by (implementation, release).
+
+    The FE-migration pilots run legacy and Next side by side; the Pilot Entry
+    checklist requires a dashboard that can compare error rates per
+    `implementation` tag (error-reporter rides them in `extra` — additive,
+    no schema change). Rows without tags (reports from before the tagging
+    change, or non-browser sources) group under "untagged".
+
+    Pagination is explicit: a bare select is capped at 1000 rows by PostgREST
+    (the admin-stats lesson, PR #688) — we page until exhausted with a hard
+    safety ceiling and report truncation honestly instead of undercounting.
+    """
+    await require_admin(authorization)
+    days = max(1, min(30, days))
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+
+    PAGE = 1000
+    MAX_ROWS = 20_000  # safety ceiling ≫ current table size; never silent
+    rows: list[dict] = []
+    truncated = False
+    try:
+        offset = 0
+        while True:
+            r = (
+                supabase_admin.table("error_logs")
+                .select("level, extra, dismissed_at")
+                .gte("occurred_at", cutoff)
+                .range(offset, offset + PAGE - 1)
+                .execute()
+            )
+            batch = r.data or []
+            rows.extend(batch)
+            if len(batch) < PAGE:
+                break
+            offset += PAGE
+            if offset >= MAX_ROWS:
+                truncated = True
+                break
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi tổng hợp migration-stats: {exc}")
+
+    groups: dict[tuple[str, str], dict] = {}
+    for row in rows:
+        extra = row.get("extra") or {}
+        if not isinstance(extra, dict):
+            extra = {}
+        key = (
+            str(extra.get("implementation") or "untagged"),
+            str(extra.get("release") or "untagged")[:12],
+        )
+        g = groups.setdefault(
+            key,
+            {"implementation": key[0], "release": key[1],
+             "total": 0, "undismissed": 0, "by_level": {}},
+        )
+        g["total"] += 1
+        if not row.get("dismissed_at"):
+            g["undismissed"] += 1
+        level = str(row.get("level") or "error")
+        g["by_level"][level] = g["by_level"].get(level, 0) + 1
+
+    ordered = sorted(
+        groups.values(), key=lambda g: (g["implementation"], -g["total"])
+    )
+    return {
+        "window_days": days,
+        "rows": ordered,
+        "scanned": len(rows),
+        "truncated": truncated,
+    }
+
+
 @_admin_router.get("/stats")
 async def error_log_stats(authorization: str | None = Header(default=None)):
     """Counts for the Tổng quan dashboard cards.

@@ -73,6 +73,14 @@
     var token = await _getAuthToken();
     var headers = /** @type {Record<string, string>} */ ({});
 
+    // ADR-012 §2 — correlation id browser → FastAPI (middleware echoes it;
+    // header CORS-allowlisted; best-effort, never blocks a call).
+    try {
+      headers['X-Request-ID'] =
+        (window.crypto && typeof window.crypto.randomUUID === 'function')
+          ? window.crypto.randomUUID()
+          : 'fb-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+    } catch (e) { /* correlation is optional */ }
     if (token) headers['Authorization'] = 'Bearer ' + token;
     if (!isFormData) headers['Content-Type'] = 'application/json';
     // reading-access-tracking — optional per-call headers (e.g. the locked-test
