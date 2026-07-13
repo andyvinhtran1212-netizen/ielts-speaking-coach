@@ -83,7 +83,7 @@ if (vercelEnv && vercelEnv !== 'production') {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const outPath = process.env.AVER_RUNTIME_CONFIG_OUT ||
-  path.join(__dirname, '..', 'js', 'runtime-config.js');
+  path.join(__dirname, '..', 'public', 'js', 'runtime-config.js');
 
 const banner =
   '// GENERATED FILE — do not edit by hand.\n' +

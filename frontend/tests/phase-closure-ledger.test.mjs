@@ -29,7 +29,7 @@ before(() => {
   ledger        = readFileSync(path.join(REPO_ROOT, 'PHASE_CLOSURE_LEDGER.md'),                    'utf8');
   designSystem  = readFileSync(path.join(REPO_ROOT, 'frontend/css/aver-design/DESIGN_SYSTEM.md'),  'utf8');
   brief         = readFileSync(path.join(REPO_ROOT, 'frontend/css/aver-design/UNIFIED_DESIGN_BRIEF.md'), 'utf8');
-  vercelConfig  = readFileSync(path.join(REPO_ROOT, 'frontend/vercel.json'),                       'utf8');
+  vercelConfig  = readFileSync(path.join(REPO_ROOT, 'frontend/next.config.ts'),                    'utf8'); // ADR-002: next.config is the routing source of truth
 });
 
 
@@ -184,7 +184,7 @@ describe('PHASE_CLOSURE_LEDGER.md / Vercel routing verification', () => {
   test('vercel.json dashboard.html redirect marked permanent: true', () => {
     const entry = vercelConfig.match(/\{[^}]*\/pages\/dashboard\.html[^}]*\}/);
     assert.ok(entry, 'Could not locate dashboard.html redirect entry');
-    assert.match(entry[0], /"permanent"\s*:\s*true/i,
+    assert.match(entry[0], /["']?permanent["']?\s*:\s*true/i,
       'dashboard.html redirect must be permanent: true');
   });
 });

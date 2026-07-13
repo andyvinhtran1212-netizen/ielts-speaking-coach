@@ -87,7 +87,13 @@ describe('merge-codes — user tab merged code columns (READ-ONLY)', () => {
 
 
 describe('merge-codes PR-3 — single entry (redirect + nav)', () => {
-  const vercel = JSON.parse(read('vercel.json'));
+  // ADR-002 (Phase 1): redirects live in next.config.ts now.
+  const NEXT_CONFIG = read('next.config.ts');
+  const vercel = {
+    redirects: Array.from(NEXT_CONFIG.matchAll(
+      /\{ source: '([^']+)', destination: '([^']+)', permanent: true \}/g,
+    )).map(([, source, destination]) => ({ source, destination, permanent: true })),
+  };
   const chrome = read('js', 'components', 'aver-admin-chrome.js');
 
   test('/admin/access-codes redirects to the users page codes tab', () => {

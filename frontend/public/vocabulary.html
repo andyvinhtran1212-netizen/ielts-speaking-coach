@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Vocabulary Wiki — Aver Learning</title>
+
+  <!-- Canonical anti-flash theme bootstrap (DESIGN_SYSTEM.md § 13). -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia &&
+                          window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark')
+                    ? stored
+                    : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=Hanken+Grotesk:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/vocab-wiki.css" />
+  <!-- P0-3 C-3.4: static Tailwind loaded LAST (after page CSS) to match the
+       Play-CDN cascade — utilities/.hidden win over same-specificity page rules. -->
+  <link rel="stylesheet" href="/css/tailwind.build.css" />
+
+  <script src="https://unpkg.com/lucide@1.17.0" defer></script>
+  <script type="module" src="/js/components/aver-chrome.js"></script>
+</head>
+<body class="av-page min-h-screen">
+
+  <!-- Canonical chrome — Vocabulary active (replaces the legacy dark wiki nav). -->
+  <aver-chrome active="vocabulary"></aver-chrome>
+
+  <!-- Master-detail browse: left = word list (from /categories), right = the v2
+       card (fetched per word from /articles). <860px collapses to list→sheet. -->
+  <div class="vmd-shell" id="vmd-shell">
+    <aside class="vmd-list">
+      <div class="vmd-list-head">
+        <span class="va-eyebrow">📚 Vocabulary Wiki</span>
+        <h2 class="vmd-title">Từ vựng theo chủ đề</h2>
+        <span class="vmd-count" id="vmd-count"></span>
+        <div class="vmd-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>
+          </svg>
+          <input id="vmd-q" type="search" placeholder="Tìm từ…" aria-label="Tìm từ vựng" autocomplete="off" />
+        </div>
+        <div class="vmd-chips" id="vmd-chips" role="tablist" aria-label="Lọc theo chủ đề"></div>
+      </div>
+      <div class="vmd-rows" id="vmd-rows" aria-label="Danh sách từ">
+        <p class="va-empty">Đang tải…</p>
+      </div>
+    </aside>
+
+    <section class="vmd-detail" id="vmd-detail" aria-live="polite">
+      <button type="button" class="vmd-back" id="vmd-back" aria-label="Quay lại danh sách">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+        Danh sách từ
+      </button>
+      <div id="vmd-card"><p class="va-empty">Chọn một từ ở danh sách để xem chi tiết.</p></div>
+    </section>
+  </div>
+
+  <!-- Supabase enables aver-chrome's session poll so the nav Vocabulary link
+       updates from /vocabulary.html (public wiki) → /pages/vocabulary.html
+       (user hub) for logged-in users. Same pattern as grammar.html. -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0/dist/umd/supabase.min.js"></script>
+  <script src="js/runtime-config.js"></script>
+  <script src="js/api.js"></script>
+  <script>
+    var SUPABASE_URL  = 'https://huwsmtubwulikhlmcirx.supabase.co';
+    var SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
+    try { initSupabase(SUPABASE_URL, SUPABASE_ANON); } catch (_) {}
+  </script>
+  <script src="js/vocabulary.js"></script>
+</body>
+</html>

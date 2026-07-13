@@ -128,19 +128,18 @@ describe('page coverage sweep', () => {
   });
 });
 
-describe('vercel.json', () => {
-  const cfg = JSON.parse(readFileSync(path.join(FRONTEND, 'vercel.json'), 'utf8'));
-
-  test('build generates the runtime config', () => {
-    assert.match(cfg.buildCommand || '', /generate-runtime-config\.mjs/);
-    assert.equal(cfg.outputDirectory, '.');
+describe('build + routing config (Phase 1: Next owns the build)', () => {
+  test('prebuild generates the runtime config; vercel.json only pins the framework', () => {
+    const pkg = JSON.parse(readFileSync(path.join(FRONTEND, 'package.json'), 'utf8'));
+    assert.match(pkg.scripts.prebuild || '', /generate-runtime-config\.mjs/);
+    const cfg = JSON.parse(readFileSync(path.join(FRONTEND, 'vercel.json'), 'utf8'));
+    assert.equal(cfg.framework, 'nextjs');
   });
 
-  test('the production-hardcoded /api/public-stats external rewrite stays gone', () => {
-    for (const r of cfg.rewrites || []) {
-      assert.ok(!(r.destination || '').includes('railway.app'),
-        `external rewrite to Railway found (${r.source}) — use runtime-config apiBase instead`);
-    }
+  test('no external rewrite to Railway anywhere in the routing config', () => {
+    const nextConfig = readFileSync(path.join(FRONTEND, 'next.config.ts'), 'utf8');
+    assert.ok(!nextConfig.includes('railway.app'),
+      'external rewrite to Railway found in next.config.ts — use runtime-config apiBase instead');
   });
 });
 
