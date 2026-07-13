@@ -40,7 +40,7 @@ function findHtmlFiles(dir, acc = []) {
     const full = path.join(dir, entry);
     const st = statSync(full);
     if (st.isDirectory()) {
-      if (['css', 'js', 'tests', 'images', 'fonts', 'aver-design'].includes(entry)) continue;
+      if (['css', 'js', 'tests', 'images', 'fonts', 'aver-design', 'node_modules', 'tooling'].includes(entry)) continue;
       findHtmlFiles(full, acc);
     } else if (entry.endsWith('.html') && !entry.startsWith('_') && entry !== 'practice.legacy.html') {
       acc.push(full);

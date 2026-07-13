@@ -45,7 +45,7 @@ function findHtmlFiles(dir, acc = []) {
     const st = statSync(full);
     if (st.isDirectory()) {
       // Skip non-page subdirs.
-      if (['css', 'js', 'tests', 'images', 'fonts', 'aver-design'].includes(entry)) continue;
+      if (['css', 'js', 'tests', 'images', 'fonts', 'aver-design', 'node_modules', 'tooling'].includes(entry)) continue;
       findHtmlFiles(full, acc);
     } else if (entry.endsWith('.html') && !entry.startsWith('_') && entry !== 'practice.legacy.html') {
       acc.push(full);
@@ -179,6 +179,7 @@ describe('Theme toggle button — immediate parent must be a flex container', ()
         /\bix-topnav\b/,
         /\bv-topnav\b/,
         /\bheader-actions\b/,
+        /\blx-form-nav\b/,
       ];
       const parentClassMatch = (parent.parentOpenTag || '').match(/class="([^"]+)"/);
       const parentClass = parentClassMatch ? parentClassMatch[1] : '';
