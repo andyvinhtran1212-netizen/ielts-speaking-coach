@@ -370,6 +370,9 @@ class GrammarCheckService:
           - 15s timeout (L10)
           - any uncaught exception inside the sync worker
         """
+        from services import provider_fixtures
+        if provider_fixtures.fixture_mode_enabled():
+            return GrammarCheckResult(errors=[], total_count=0, displayed_count=0, cached=False)
         if not transcript or not transcript.strip():
             return None
 

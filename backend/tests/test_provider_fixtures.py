@@ -167,3 +167,25 @@ async def test_azure_seam(monkeypatch):
     out = await assess_pronunciation(b"not-real-audio")
     assert out["raw_payload"] == {"fixture": True}
     assert out["pronunciation_score"] == 78.0
+
+
+@pytest.mark.asyncio
+async def test_off_topic_judge_seam(monkeypatch):
+    # The judge is a REAL Haiku call outside fixture mode; on the fixed
+    # transcript it can rule off-topic and skew the fixture band (observed
+    # live on staging: 6.0 -> 5). Fixture mode pins it on-topic.
+    monkeypatch.setattr(settings, "GRADING_PROVIDER_MODE", "fixture")
+    from services.off_topic_judge import get_judge
+    verdict = await get_judge().judge(
+        question="Do you enjoy your work?", transcript="hello", part_num=1,
+    )
+    assert verdict is not None and verdict.is_on_topic is True
+
+
+@pytest.mark.asyncio
+async def test_grammar_check_seam(monkeypatch):
+    monkeypatch.setattr(settings, "GRADING_PROVIDER_MODE", "fixture")
+    from services.grammar_check import get_grammar_check_service
+    result = await get_grammar_check_service().check("hello world")
+    assert result is not None
+    assert result.errors == [] and result.total_count == 0
