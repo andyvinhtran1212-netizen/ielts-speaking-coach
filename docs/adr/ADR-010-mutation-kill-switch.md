@@ -5,7 +5,7 @@
 
 ## Quyết định
 
-Kill switch cho mutation là **flag đọc per-request từ bảng `runtime_flags`** (migration 155) qua cache in-process TTL **15 giây** (`backend/services/runtime_flags.py`), flip bằng `PUT /admin/runtime-flags/{key}` (admin-gated). Worst-case thời gian hiệu lực = 1 cửa sổ TTL ≈ 15 s, **không cần redeploy/restart**.
+Kill switch cho mutation là **flag đọc per-request từ bảng `runtime_flags`** (migration 155) qua cache in-process TTL **15 giây** (`backend/services/runtime_flags.py`), flip bằng `PATCH /admin/runtime-flags/{key}` (admin-gated). Worst-case thời gian hiệu lực = 1 cửa sổ TTL ≈ 15 s, **không cần redeploy/restart**.
 
 Phương án bị loại — env flag + Railway restart: RTO cỡ phút, giết mọi request đang bay, và không flip được từng endpoint độc lập. Nó vẫn là **fallback layer** khi DB không đáng tin (mọi flag config.py hiện hữu giữ nguyên cơ chế cũ).
 

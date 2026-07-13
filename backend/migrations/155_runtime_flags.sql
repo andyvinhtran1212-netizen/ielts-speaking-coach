@@ -10,7 +10,7 @@
 --
 -- Mechanism: services/runtime_flags.py reads this table per-request through a
 -- short in-process cache (15 s TTL), so an admin flip via
--- PUT /admin/runtime-flags/{key} becomes effective on every instance within
+-- PATCH /admin/runtime-flags/{key} becomes effective on every instance within
 -- one cache window. Rows are created lazily on first flip; a missing row
 -- means "use the caller's default" (normally enabled).
 --
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS runtime_flags (
 );
 
 COMMENT ON TABLE runtime_flags IS
-  'Per-request kill-switch flags (ADR-010). Read via services/runtime_flags.py with a 15s cache; flip via PUT /admin/runtime-flags/{key} — no redeploy needed.';
+  'Per-request kill-switch flags (ADR-010). Read via services/runtime_flags.py with a 15s cache; flip via PATCH /admin/runtime-flags/{key} — no redeploy needed.';
 
 -- Service-role only: RLS on with NO policies denies anon/authenticated via
 -- PostgREST; the backend admin client (service key) bypasses RLS.
