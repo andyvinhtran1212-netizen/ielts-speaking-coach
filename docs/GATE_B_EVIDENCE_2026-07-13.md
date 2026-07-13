@@ -13,7 +13,7 @@ production và staging.
 | Next → legacy → Next navigation seam | ✅ | Cùng spec: full-document navigation giữ query/hash/theme (localStorage `av-theme` xuyên hai stack), zero console errors, zero production egress trong toàn hành trình |
 | Dark-launch route deploy không ảnh hưởng legacy root | ✅ | `/next-probe` sống trên production từ #738; root không đổi |
 | Drill: route emergency redeploy (<15 phút) | ✅ **83 giây** | Xem Drill 2 |
-| Drill: full-deployment rollback (<5 phút) | ✅ cơ chế chứng minh trọn vòng; số đo sạch cần re-drill với tooling đã sửa | Xem Drill 1 + bài học |
+| Drill: full-deployment rollback (<5 phút) | ✅ **≤ 12 giây** (re-drill 2026-07-13 tối, verification đã sửa) | Xem Drill 1 + mục RE-DRILL cuối file |
 | Backend/env N/N−1 | ✅ một phần | Runtime config giữ legacy N−1 hoạt động (fallback null-safe); consumer test hình thức hóa ở mutation pilot (ADR-009) |
 
 ## Drill 2 — Route emergency redeploy (staging)
@@ -43,9 +43,11 @@ Diễn biến:
   hiện release SHA) — **cơ chế rollback + roll-forward chứng minh trọn vòng,
   người dùng không bị gián đoạn** (nội dung hai bản giống hệt).
 
-**Số đo curl bị nhiễm** (xem bài học) → số "command→verified" sạch chưa chốt;
-quan sát UI cho thấy alias swap hoàn tất trong giây. Re-drill với tooling đã
-sửa trước pilot cutover đầu tiên để chốt số vào cutover sheet.
+**Số đo curl bị nhiễm** (xem bài học) → số "command→verified" sạch chưa chốt
+tại thời điểm drill; quan sát UI cho thấy alias swap hoàn tất trong giây.
+**→ ĐÃ CHỐT bằng RE-DRILL cùng ngày (mục cuối file): ≤ 12 giây.** Lưu ý hồi
+tố: leg "roll-forward" của drill này chính là thao tác để lại rollback-pin —
+xem PHÁT HIỆN NGHIÊM TRỌNG ở mục re-drill.
 
 ## BÀI HỌC QUAN TRỌNG (giá trị nhất của drill — B39 đề xuất)
 
@@ -68,11 +70,21 @@ Quy tắc rút ra cho mọi cutover/drill sau này:
 
 ## Phán quyết Gate B
 
-**PASS có điều kiện**: mọi tiêu chí cơ chế/parity/seam/ownership đạt với bằng
+**PASS — điều kiện đã đóng 2026-07-13 tối**: mọi tiêu chí cơ chế/parity/seam/
+ownership đạt với bằng chứng tự động lặp lại được. Điều kiện duy nhất của
+phán quyết gốc — số đo thời gian rollback production sạch — đã đóng bằng
+RE-DRILL cùng ngày (mục cuối file): Instant Rollback hiệu lực **≤ 12 giây**,
+restore **≤ 5 giây**, zero challenge, zero user impact.
+
+<details><summary>Phán quyết gốc trước re-drill (giữ làm lịch sử)</summary>
+
+PASS có điều kiện: mọi tiêu chí cơ chế/parity/seam/ownership đạt với bằng
 chứng tự động lặp lại được; riêng số đo thời gian rollback production cần một
 re-drill sạch (tooling đã sửa theo bài học trên) trước pilot cutover đầu tiên
 — re-drill này gộp vào chuẩn bị Pilot Entry, không chặn việc bắt đầu xây 4
 pilot.
+
+</details>
 
 ---
 
