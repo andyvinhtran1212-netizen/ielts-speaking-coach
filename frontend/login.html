@@ -649,6 +649,7 @@
 
   <!-- SCRIPTS: order matters — supabase CDN → api.js → inline -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0"></script>
+  <script src="js/runtime-config.js"></script>
   <script src="js/api.js"></script>
   <script>
     // ── Config ────────────────────────────────────────────────
@@ -899,7 +900,14 @@
       }
       var el = document.getElementById('pitch-stat');
       if (!el) return;
-      fetch('/api/public-stats')
+      // Environment-aware API base (js/runtime-config.js) — the old
+      // vercel.json rewrite hardcoded production for every environment.
+      var _rc = window.__AVER_RUNTIME_CONFIG__ || {};
+      var _apiBase = _rc.apiBase ||
+        (location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+          ? 'http://localhost:8000'
+          : 'https://ielts-speaking-coach-production.up.railway.app');
+      fetch(_apiBase + '/api/public-stats')
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (data) {
           if (data && data.sessions_completed != null) {

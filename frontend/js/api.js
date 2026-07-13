@@ -32,8 +32,18 @@
     };
   }
 
+  // Generated runtime config (js/runtime-config.js, loaded before this file —
+  // plan §7.1 / ADR-006). The committed copy is all-null ("unconfigured"), so
+  // every non-Vercel context falls through to the legacy behavior below.
+  // Vercel builds regenerate it per environment; config values win when set,
+  // which is what keeps Preview/staging off the production origins.
+  var _RC = (typeof window !== 'undefined' && window.__AVER_RUNTIME_CONFIG__) || {};
+
   function initSupabase(url, anonKey) {
-    _sb = window.supabase.createClient(url, anonKey);
+    _sb = window.supabase.createClient(
+      _RC.supabaseUrl || url,
+      _RC.supabaseAnonKey || anonKey
+    );
     return _sb;
   }
 
@@ -42,10 +52,11 @@
   }
 
   var _API_BASE =
-    window.location.hostname === 'localhost' ||
+    _RC.apiBase ||
+    (window.location.hostname === 'localhost' ||
     window.location.hostname === '127.0.0.1'
       ? 'http://localhost:8000'
-      : 'https://ielts-speaking-coach-production.up.railway.app';
+      : 'https://ielts-speaking-coach-production.up.railway.app');
 
   // Relative path prefix to the app root — works on both localhost and the deployed site.
   // pages/*.html are one level deep; index.html and admin.html are at root level.
