@@ -73,3 +73,54 @@ chứng tự động lặp lại được; riêng số đo thời gian rollback 
 re-drill sạch (tooling đã sửa theo bài học trên) trước pilot cutover đầu tiên
 — re-drill này gộp vào chuẩn bị Pilot Entry, không chặn việc bắt đầu xây 4
 pilot.
+
+---
+
+## RE-DRILL 2026-07-13 tối — Instant Rollback với verification đã sửa (đóng điều kiện Gate B)
+
+**Phương pháp** (đúng bài học Drill 1): poller curl cadence **15 giây** đọc
+`release` SHA từ `/js/runtime-config.js` (marker per-deployment, page bytes
+không đổi) + ghi `x-vercel-mitigated` mỗi poll; verification trạng thái bằng
+**browser thật** (Chromium page-load đầy đủ, console sạch); thao tác dashboard
+qua Chrome. Không một challenge nào bị kích hoạt trong toàn bộ re-drill
+(`mitigated=none` trên mọi poll — đối chứng trực tiếp với thảm họa curl@5s
+của Drill 1).
+
+**Số đo (lệnh Confirm trên dashboard → domain phục vụ deployment mới; độ phân
+giải poll 15s):**
+
+| Leg | Thao tác | Confirm lúc | Poll đầu tiên thấy flip | Hiệu lực |
+|---|---|---|---|---|
+| A | Undo Rollback (gỡ pin kẹt từ Drill 1) → `ef05046` | 21:51:08 | 21:51:15 | **≤ 7s** |
+| B | Instant Rollback `ef05046` → `4921bf0` (default "Previous") | 21:53:37 | 21:53:49 | **≤ 12s** |
+| C | Undo Rollback (restore chuẩn) → `ef05046` | 21:56:02 | 21:56:07 | **≤ 5s** |
+
+Zero user impact chứng minh: index hash không đổi qua flip (`5e5cb2e2d18c41c8`),
+delta frontend giữa hai deployment chỉ là test/config; browser verify ở trạng
+thái rolled-back lẫn restored: title/h1 đúng, `/next-probe` + `/profile-preview`
+200, **zero console errors**.
+
+### PHÁT HIỆN NGHIÊM TRỌNG (root cause "production kẹt 6 merge")
+
+Leg "restore" của Drill 1 (5h trước) thực hiện bằng một **Instant Rollback
+"forward"** thay vì Undo Rollback → project ở lại **rollback-pin mode**:
+Vercel NGỪNG auto-promote — 6 merge liên tiếp (#739→#744, gồm cả 4 pilots)
+build Production **Ready** nhưng domain không bao giờ được gán; production
+phục vụ bản Phase-1 (`6dcac878`) suốt ~5h trong khi cả team tin rằng pilots đã
+dark-launch trên production. UI xác nhận hành vi này ngay trong modal:
+*"After rolling back, production deployments will not be automatically
+promoted until the rollback is removed."*
+
+**Quy tắc mới (bổ sung runbook rollback):**
+1. Restore sau rollback = **Undo Rollback DUY NHẤT** — không bao giờ
+   Instant-Rollback "forward".
+2. Checklist hậu-drill/hậu-sự-cố bắt buộc: (a) banner rollback đã biến mất
+   trên Overview; (b) merge kế tiếp vào main **auto-promote** (release SHA
+   trên domain flip theo) — chính PR chứa evidence này là bài test đó.
+3. Giám sát trôi dạt: so `release` của `/js/runtime-config.js` production
+   với SHA của main sau mỗi merge — lệch >1 deploy = pin/failure, điều tra
+   ngay. (Ứng viên đưa vào observability dashboard trước pilot cutover.)
+
+**Điều kiện Gate B "số đo rollback sạch": ĐÓNG.** RTO thực đo cho
+full-deployment rollback: **≤ 12 giây** từ lệnh Confirm (kèm ~30–60s thao tác
+người: mở dashboard, chọn target, xác nhận).
