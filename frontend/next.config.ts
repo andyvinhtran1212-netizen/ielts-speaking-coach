@@ -18,6 +18,10 @@ const nextConfig: NextConfig = {
   // workspace root (breaks the TypeScript step with "id must be a string").
   turbopack: { root: path.join(__dirname) },
 
+  // ADR-008: public-content SSR caches via Cache Components
+  // ('use cache' + cacheLife in lib/grammar-api.ts).
+  cacheComponents: true,
+
   // The legacy compat symlink `pages -> public/pages` collides with Next's
   // Pages Router directory name. Restricting page extensions to TS keeps that
   // symlinked HTML tree permanently inert as a router source (the App Router
