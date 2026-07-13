@@ -22,7 +22,9 @@ SELECT flow, d14, d28 FROM (
   UNION ALL SELECT 'vocab: quiz sessions',              count(*) FILTER (WHERE created_at  > now()-interval '14 days'), count(*) FILTER (WHERE created_at  > now()-interval '28 days'), 9 FROM quiz_sessions
   UNION ALL SELECT 'vocab: D1 exercise sessions',       count(*) FILTER (WHERE started_at  > now()-interval '14 days'), count(*) FILTER (WHERE started_at  > now()-interval '28 days'), 10 FROM d1_sessions
   UNION ALL SELECT 'vocab: flashcard reviews',          count(*) FILTER (WHERE reviewed_at > now()-interval '14 days'), count(*) FILTER (WHERE reviewed_at > now()-interval '28 days'), 11 FROM flashcard_review_log
-  UNION ALL SELECT 'grammar: article views',            count(*) FILTER (WHERE created_at  > now()-interval '14 days'), count(*) FILTER (WHERE created_at  > now()-interval '28 days'), 12 FROM article_views
+  -- article_views is UNIQUE per (user, slug): revisits bump view_count/last_viewed_at,
+  -- not new rows — count pairs ACTIVE in the window (created_at would undercount; review P2).
+  UNION ALL SELECT 'grammar: reader-article pairs active', count(*) FILTER (WHERE last_viewed_at > now()-interval '14 days'), count(*) FILTER (WHERE last_viewed_at > now()-interval '28 days'), 12 FROM article_views
   UNION ALL SELECT 'grammar/exam: MCQ exam attempts',   count(*) FILTER (WHERE started_at  > now()-interval '14 days'), count(*) FILTER (WHERE started_at  > now()-interval '28 days'), 13 FROM exam_attempts
   UNION ALL SELECT 'mock: exam sittings',               count(*) FILTER (WHERE created_at  > now()-interval '14 days'), count(*) FILTER (WHERE created_at  > now()-interval '28 days'), 14 FROM mock_exam_sittings
   UNION ALL SELECT 'platform: analytics events',        count(*) FILTER (WHERE created_at  > now()-interval '14 days'), count(*) FILTER (WHERE created_at  > now()-interval '28 days'), 15 FROM analytics_events

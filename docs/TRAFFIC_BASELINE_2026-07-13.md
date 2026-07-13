@@ -17,7 +17,7 @@ phải con số tuyệt đối áp cho mọi route.
 | Listening: drills / dictation | 0 | 0 | **Zero traffic** — có route, không có users |
 | Vocab: quiz attempts / sessions | 1249 / 118 | 1249 / 118 | d14=d28 → toàn bộ trong 14 ngày (feature mới/burst cohort) |
 | Vocab: D1 / flashcards | 1 / 0 | 1 / 0 | Zero/near-zero |
-| Grammar: article views | 14 | 30 | **~1/ngày** — điểm nghẽn pilot #2 |
+| Grammar: article views | 14 | 30 | **~1/ngày** — điểm nghẽn pilot #2. ⚠ Số này đếm theo `created_at` nhưng `article_views` unique theo (user, slug) — lượt đọc lại chỉ bump `view_count`/`last_viewed_at`, nên đây là **cận dưới** (số cặp người-bài MỚI). Script đã sửa sang đếm cặp active theo `last_viewed_at`; chạy lại sát cutover. Kể cả hệ số 3-5×, kết luận low-traffic profile không đổi |
 | MCQ exam attempts | 0 | 0 | Zero |
 | Mock exam sittings | 18 | 18 | Feature mới (retake vừa ship) |
 | Analytics events | 5473 | 9331 | page_view 2399/14d; vocab_wiki_viewed 2868/14d |

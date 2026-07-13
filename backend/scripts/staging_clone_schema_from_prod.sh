@@ -34,6 +34,13 @@ if [[ "$TABLES" -lt 30 ]]; then
   exit 1
 fi
 
+# The dump re-creates schema public (we do it ourselves below) — drop that
+# one line BEFORE any destructive step, with a portable temp-file edit
+# (BSD `sed -i ''` breaks on GNU sed and would abort AFTER the schema drop,
+# leaving staging empty — review P1 2026-07-13).
+grep -v '^CREATE SCHEMA public;$' "$DUMP" > "$DUMP.tmp"
+mv "$DUMP.tmp" "$DUMP"
+
 echo "== resetting staging public schema"
 psql "$STAGING_URL" -v ON_ERROR_STOP=1 <<'SQL'
 DROP SCHEMA IF EXISTS public CASCADE;
@@ -42,9 +49,6 @@ COMMENT ON SCHEMA public IS 'standard public schema';
 GRANT USAGE ON SCHEMA public TO postgres, anon, authenticated, service_role;
 GRANT ALL ON SCHEMA public TO postgres, service_role;
 SQL
-
-# The dump re-creates schema public (we already did) — drop that one line.
-sed -i '' '/^CREATE SCHEMA public;$/d' "$DUMP"
 
 echo "== applying schema to staging"
 psql "$STAGING_URL" -v ON_ERROR_STOP=1 -q -f "$DUMP"
@@ -58,6 +62,9 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authentic
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon, authenticated, service_role;
 SQL
+
+echo "== baselining migration ledger (clone already contains all current migrations)"
+"$ROOT/backend/scripts/apply_migrations.sh" --baseline "$STAGING_URL" | tail -1
 
 echo "== verify: table count in staging public schema"
 psql "$STAGING_URL" -tAc "select count(*) from information_schema.tables where table_schema='public';"
