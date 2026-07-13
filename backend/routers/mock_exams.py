@@ -91,14 +91,38 @@ async def get_sitting_state(
     if str(sitting.get("user_id")) != str(user["id"]):
         raise HTTPException(403, "Sitting không thuộc về bạn.")
     exam = svc.get_published_exam_by_id(sitting["mock_exam_id"])
-    active = (exam or {}).get("active_section") or "not_started"
-    time_left = svc.section_time_remaining_seconds(exam, active) if exam else None
+    if svc.is_retake(exam):
+        # Per-student: active section + countdown come from THIS sitting's own
+        # clocks, and the runner shows only the assigned skills.
+        active, time_left = svc.retake_active_section(sitting, exam)
+        assigned = sitting.get("assigned_skills") or []
+    else:
+        active = (exam or {}).get("active_section") or "not_started"
+        time_left = svc.section_time_remaining_seconds(exam, active) if exam else None
+        assigned = None
     return {
         "sitting": sitting,
         "exam": svc.get_exam_content_for_sitting(sitting),
+        "exam_mode": (exam or {}).get("exam_mode") or "sequential",
+        "assigned_skills": assigned,
         "active_section": active,
         "section_time_left_seconds": time_left,
     }
+
+
+@router.post("/sittings/{sitting_id}/sections/{section}/start")
+async def start_section(
+    sitting_id: str, section: str,
+    authorization: str | None = Header(default=None),
+):
+    """Retake only: the student begins a section — stamps its per-sitting clock
+    so the countdown + auto-submit start. Sequential opens sections via the
+    admin's advance instead."""
+    user = await get_supabase_user(authorization)
+    try:
+        return svc.start_section(sitting_id, user["id"], section)
+    except Exception as e:  # noqa: BLE001
+        _raise_for(e)
 
 
 @router.post("/sittings/{sitting_id}/attach")

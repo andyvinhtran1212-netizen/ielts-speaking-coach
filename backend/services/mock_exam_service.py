@@ -113,18 +113,45 @@ def _parse_ts(value) -> Optional[datetime]:
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
-def list_open_exams(user_id: str) -> list[dict]:
-    """Published + currently-open exams the student is eligible for (cohort).
+def _retake_assigned_exam_ids(user_id: str) -> set:
+    """Exam ids this user is assigned to for retake AND is currently inside the
+    window for (locked out before open_from / after open_until)."""
+    rows = supabase_admin.table("mock_exam_assignments").select(
+        "exam_id, open_from, open_until",
+    ).eq("user_id", str(user_id)).execute().data or []
+    now = _now()
+    out = set()
+    for a in rows:
+        of, ou = _parse_ts(a.get("open_from")), _parse_ts(a.get("open_until"))
+        if of and now < of:
+            continue
+        if ou and now > ou:
+            continue
+        out.add(a["exam_id"])
+    return out
 
-    Powers the student full-test entry page. Only card metadata — no content."""
+
+def list_open_exams(user_id: str) -> list[dict]:
+    """Exams the student can enter right now — powers the full-test entry page
+    (card metadata only, no content). Sequential: published + live-open +
+    cohort-eligible. Retake: published + the student has an assignment inside
+    its window (no cohort / no shared is_open)."""
     resp = supabase_admin.table("mock_exams").select(
-        "id, code, title, total_minutes, cohort_id, review_sla_days",
-    ).eq("status", "published").eq("is_open", True).execute()
+        "id, code, title, total_minutes, cohort_id, review_sla_days, "
+        "exam_mode, is_open",
+    ).eq("status", "published").execute()
+    assigned = _retake_assigned_exam_ids(user_id)
     out = []
     for e in (resp.data or []):
-        if e.get("cohort_id") and not _user_in_cohort(user_id, e["cohort_id"]):
-            continue
-        out.append({k: v for k, v in e.items() if k != "cohort_id"})
+        if is_retake(e):
+            if e["id"] not in assigned:
+                continue
+        else:
+            if not e.get("is_open"):
+                continue
+            if e.get("cohort_id") and not _user_in_cohort(user_id, e["cohort_id"]):
+                continue
+        out.append({k: v for k, v in e.items() if k not in ("cohort_id", "is_open")})
     return out
 
 
@@ -299,6 +326,68 @@ def section_time_remaining_seconds(exam: dict, section: str) -> Optional[int]:
     return max(0, int(duration - elapsed))
 
 
+# ── Retake mode (per-student, skill-scoped, self-timed) ────────────────
+
+
+def is_retake(exam: Optional[dict]) -> bool:
+    return (exam or {}).get("exam_mode") == "retake"
+
+
+def _sitting_sections(sitting: dict, exam: dict) -> list[str]:
+    """The sections THIS sitting must complete. Retake → the sitting's snapshot
+    of assigned_skills (order-stable by _LRW_ORDER); sequential → the exam's
+    configured sections."""
+    if is_retake(exam):
+        assigned = set(sitting.get("assigned_skills") or [])
+        return [s for s in _LRW_ORDER if s in assigned]
+    return _configured_sections(exam)
+
+
+def retake_time_remaining_seconds(sitting: dict, exam: dict, section: str) -> Optional[int]:
+    """Seconds left in a RETAKE section's countdown — clocked PER SITTING (each
+    student times independently). None until the student starts the section."""
+    if section not in _LRW_ORDER:
+        return None
+    started = _parse_ts(sitting.get(f"{section}_started_at"))
+    if not started:
+        return None
+    duration = _section_duration_seconds(exam, section)
+    elapsed = (_now() - started).total_seconds()
+    return max(0, int(duration - elapsed))
+
+
+def retake_active_section(sitting: dict, exam: dict) -> tuple[str, Optional[int]]:
+    """(active_section, time_left) for a retake sitting, computed per-student.
+    A started-but-not-submitted section is the active one (its clock runs); if
+    none is in progress the student is at the section MENU ('not_started'); once
+    every assigned section is submitted → 'done'."""
+    sections = _sitting_sections(sitting, exam)
+    for s in sections:
+        if sitting.get(f"{s}_started_at") and not sitting.get(_SUBMITTED_COL[s]):
+            return s, retake_time_remaining_seconds(sitting, exam, s)
+    if sections and all(sitting.get(_SUBMITTED_COL[s]) for s in sections):
+        return "done", None
+    return "not_started", None
+
+
+def _get_assignment(exam_id: str, user_id: str) -> Optional[dict]:
+    rows = supabase_admin.table("mock_exam_assignments").select("*").eq(
+        "exam_id", str(exam_id),
+    ).eq("user_id", str(user_id)).limit(1).execute().data or []
+    return rows[0] if rows else None
+
+
+def _assert_retake_window_open(assignment: dict) -> None:
+    """The per-student availability window. Raises WindowClosedError outside it."""
+    now = _now()
+    of = _parse_ts(assignment.get("open_from"))
+    ou = _parse_ts(assignment.get("open_until"))
+    if of and now < of:
+        raise WindowClosedError("Chưa đến giờ làm bài test lại.")
+    if ou and now > ou:
+        raise WindowClosedError("Đã quá giờ làm bài test lại.")
+
+
 # ── Lifecycle ─────────────────────────────────────────────────────────
 
 
@@ -327,20 +416,35 @@ def create_sitting(user_id: str, code: str) -> dict:
     if existing.data:
         return existing.data[0]
 
-    # NEW sitting only: apply the entry gates (live-open toggle + optional window
-    # + cohort). is_open is the primary proctor gate.
-    if not exam.get("is_open"):
-        raise WindowClosedError("Kỳ thi chưa mở. Vui lòng chờ giám khảo mở kỳ.")
-    _assert_window_open(exam)
-    if exam.get("cohort_id") and not _user_in_cohort(user_id, exam["cohort_id"]):
-        raise NotEligibleError("Bạn không thuộc lớp được mở kỳ thi này.")
-
-    inserted = supabase_admin.table("mock_exam_sittings").insert({
+    # NEW sitting only: apply the entry gates.
+    new_row = {
         "mock_exam_id": exam["id"],
         "user_id":      str(user_id),
         "status":       "registered",
         "sealed":       True,
-    }).execute()
+    }
+    if is_retake(exam):
+        # Retake: access via a per-student assignment within its window (NOT
+        # cohort / NOT the shared is_open gate). Snapshot the assigned skills +
+        # window onto the sitting so the runner/reconcile are skill-scoped and
+        # each student times independently.
+        assignment = _get_assignment(exam["id"], user_id)
+        if not assignment:
+            raise NotEligibleError("Bạn chưa được gán làm bài test lại này.")
+        _assert_retake_window_open(assignment)
+        new_row["assigned_skills"]   = assignment.get("skills") or []
+        new_row["retake_open_from"]  = assignment.get("open_from")
+        new_row["retake_open_until"] = assignment.get("open_until")
+    else:
+        # Sequential: live-open toggle (primary proctor gate) + optional window
+        # + cohort membership.
+        if not exam.get("is_open"):
+            raise WindowClosedError("Kỳ thi chưa mở. Vui lòng chờ giám khảo mở kỳ.")
+        _assert_window_open(exam)
+        if exam.get("cohort_id") and not _user_in_cohort(user_id, exam["cohort_id"]):
+            raise NotEligibleError("Bạn không thuộc lớp được mở kỳ thi này.")
+
+    inserted = supabase_admin.table("mock_exam_sittings").insert(new_row).execute()
     if not inserted.data:
         raise MockExamError(f"Không tạo được sitting cho exam={code}.")
     logger.info(
@@ -380,10 +484,17 @@ def attach_attempt(
         raise SittingConflictError(f"Sitting đang ở trạng thái {sitting['status']!r}.")
 
     exam = get_published_exam_by_id(sitting["mock_exam_id"]) or {}
+    if is_retake(exam):
+        # Retake has no shared advance gate: the section must be assigned to this
+        # student and already STARTED (its per-sitting clock running).
+        if section not in _sitting_sections(sitting, exam):
+            raise SittingConflictError(f"Bạn không được gán phần {section}.")
+        if not sitting.get(f"{section}_started_at"):
+            raise SittingConflictError(f"Phần {section} chưa bắt đầu.")
     # Sequential gate: a domain attempt can only be attached while the ADMIN has
     # this section open. Defense in depth — the runner UI only shows a section
     # once it's active, but the endpoint itself must not trust that.
-    if (exam.get("active_section") or "not_started") != section:
+    elif (exam.get("active_section") or "not_started") != section:
         raise SittingConflictError(
             f"Phần {section} chưa được giám thị mở — không thể nộp bài."
         )
@@ -453,7 +564,14 @@ def submit_writing(
             "Không thể nộp/sửa Writing khi kỳ thi chưa mở hoặc đã nộp bài."
         )
     exam = get_published_exam_by_id(sitting["mock_exam_id"]) or {}
-    if (exam.get("active_section") or "not_started") != "writing":
+    if is_retake(exam):
+        # Retake: Writing must be assigned + started (per-student), not gated on
+        # a shared active_section.
+        if "writing" not in _sitting_sections(sitting, exam):
+            raise SittingConflictError("Bạn không được gán phần Writing.")
+        if not sitting.get("writing_started_at"):
+            raise SittingConflictError("Phần Writing chưa bắt đầu.")
+    elif (exam.get("active_section") or "not_started") != "writing":
         raise SittingConflictError("Phần Writing chưa được giám thị mở.")
 
     now = _now_iso()
@@ -560,6 +678,61 @@ def _promote_writing_essays(sitting_id: str) -> None:
         logger.exception("[mock-exam] promote-writing failed sitting=%s", sitting_id)
 
 
+def start_section(sitting_id: str, user_id: str, section: str) -> dict:
+    """Retake only: the student begins a section → stamp its PER-SITTING clock.
+    (Sequential opens sections via the admin's advance_section instead.)
+
+    Validates: retake exam, the section is assigned to this student, the window
+    is still open, the section isn't already submitted, and NO OTHER assigned
+    section is currently in progress (one clock at a time). Idempotent — if THIS
+    section's clock is already running, returns the sitting unchanged (a refresh
+    mid-section must NOT restart the timer)."""
+    if section not in _LRW_ORDER:
+        raise SittingConflictError(f"Section không hợp lệ: {section!r}")
+    sitting = get_sitting(sitting_id)
+    if not sitting:
+        raise NotFoundError(f"Sitting {sitting_id} không tồn tại.")
+    _assert_owner(sitting, user_id)
+    if sitting["status"] in ("released", "void"):
+        raise SittingConflictError(f"Sitting đang ở trạng thái {sitting['status']!r}.")
+
+    exam = get_published_exam_by_id(sitting["mock_exam_id"]) or {}
+    if not is_retake(exam):
+        raise SittingConflictError("Chỉ đề test lại mới tự bắt đầu từng phần.")
+    if section not in _sitting_sections(sitting, exam):
+        raise SittingConflictError(f"Bạn không được gán phần {section}.")
+    _assert_retake_window_open({
+        "open_from":  sitting.get("retake_open_from"),
+        "open_until": sitting.get("retake_open_until"),
+    })
+    if sitting.get(_SUBMITTED_COL[section]):
+        raise SittingConflictError(f"Phần {section} đã nộp.")
+
+    started_col = f"{section}_started_at"
+    if sitting.get(started_col):
+        return sitting  # idempotent — clock already running
+
+    # One clock at a time: block starting a DIFFERENT assigned section while one
+    # is already started-but-unsubmitted. Two concurrent per-sitting clocks (a
+    # double-click across "Bắt đầu" buttons, or a direct API call) would let the
+    # section the runner ISN'T showing silently bleed time / be reaped unseen.
+    for other in _sitting_sections(sitting, exam):
+        if other != section and sitting.get(f"{other}_started_at") \
+                and not sitting.get(_SUBMITTED_COL[other]):
+            raise SittingConflictError(
+                f"Đang làm phần {other} — nộp xong mới bắt đầu phần khác."
+            )
+
+    updates = {started_col: _now_iso()}
+    if sitting["status"] == "registered":
+        updates["status"] = "lrw_in_progress"
+    resp = supabase_admin.table("mock_exam_sittings").update(updates).eq(
+        "id", str(sitting_id),
+    ).execute()
+    logger.info("[mock-exam] sitting=%s retake section=%s started", sitting_id, section)
+    return resp.data[0] if resp.data else {**sitting, **updates}
+
+
 def submit_section(
     sitting_id: str, user_id: str, section: str,
     task1_text: str = "", task2_text: str = "",
@@ -590,19 +763,29 @@ def submit_section(
         return sitting  # idempotent — already collected
 
     exam = get_published_exam_by_id(sitting["mock_exam_id"]) or {}
-    if (exam.get("active_section") or "not_started") != section:
-        raise SittingConflictError(
-            f"Phần {section} chưa được giám thị mở — không thể nộp bài."
-        )
-    # No early manual submit: this endpoint only fires client-side at the
-    # section's own clock hitting 0 — but it's a plain authenticated API call,
-    # so enforce that server-side too (a small grace absorbs client/server
-    # timing skew, not enough to game "who submits first").
-    remaining = section_time_remaining_seconds(exam, section)
-    if remaining is None or remaining > _EARLY_SUBMIT_GRACE_SECONDS:
-        raise SittingConflictError(
-            f"Chưa hết giờ phần {section} — không thể nộp sớm."
-        )
+    if is_retake(exam):
+        # Retake is self-paced: the section must be assigned + started, but the
+        # student MAY finish early (no shared "who submits first" fairness rule).
+        # The clock still auto-submits at 0 (client) and the reaper backstops a
+        # closed tab.
+        if section not in _sitting_sections(sitting, exam):
+            raise SittingConflictError(f"Bạn không được gán phần {section}.")
+        if not sitting.get(f"{section}_started_at"):
+            raise SittingConflictError(f"Phần {section} chưa bắt đầu.")
+    else:
+        if (exam.get("active_section") or "not_started") != section:
+            raise SittingConflictError(
+                f"Phần {section} chưa được giám thị mở — không thể nộp bài."
+            )
+        # No early manual submit: this endpoint only fires client-side at the
+        # section's own clock hitting 0 — but it's a plain authenticated API
+        # call, so enforce that server-side too (a small grace absorbs
+        # client/server timing skew, not enough to game "who submits first").
+        remaining = section_time_remaining_seconds(exam, section)
+        if remaining is None or remaining > _EARLY_SUBMIT_GRACE_SECONDS:
+            raise SittingConflictError(
+                f"Chưa hết giờ phần {section} — không thể nộp sớm."
+            )
 
     # Flip registered → lrw_in_progress BEFORE the section-specific submit —
     # submit_writing itself gates on lrw_in_progress, so for a student whose
@@ -632,12 +815,12 @@ def submit_section(
     logger.info("[mock-exam] sitting=%s section=%s collected", sitting_id, section)
 
     exam = get_published_exam_by_id(sitting["mock_exam_id"]) or {}
-    configured = _configured_sections(exam)
-    if all(sitting.get(_SUBMITTED_COL[s]) for s in configured):
+    sections = _sitting_sections(sitting, exam)   # retake → assigned, seq → configured
+    if sections and all(sitting.get(_SUBMITTED_COL[s]) for s in sections):
         supabase_admin.table("mock_exam_sittings").update({
             "status": "lrw_submitted",
         }).eq("id", str(sitting_id)).execute()
-        logger.info("[mock-exam] sitting=%s LRW submitted (sequential)", sitting_id)
+        logger.info("[mock-exam] sitting=%s LRW submitted", sitting_id)
         return _reconcile_terminal(sitting_id)
     return sitting
 
@@ -723,12 +906,16 @@ def _reconcile_terminal(sitting_id: str) -> dict:
     if not sitting or sitting["status"] not in _PRE_REVIEW:
         return sitting or {}
 
-    lrw_done = bool(sitting.get(_SUBMITTED_COL["writing"]))
-    # Speaking is required only when the exam defines a speaking component.
-    # An LRW-only exam (no speaking_topic_set) finalises on the seated mạch
-    # alone — this is what makes an LRW-only mock fully end-to-end in P1.
+    # "LRW done" = every section THIS sitting must do is submitted. For retake
+    # that's the assigned skills (a retaker may do only Writing, or only L+R);
+    # for sequential it's the exam's configured sections. Keying on the writing
+    # column alone would be wrong for a retaker not assigned Writing.
     exam = get_published_exam_by_id(sitting["mock_exam_id"]) or {}
-    speaking_required = bool(exam.get("speaking_topic_set"))
+    sections = _sitting_sections(sitting, exam)
+    lrw_done = bool(sections) and all(sitting.get(_SUBMITTED_COL[s]) for s in sections)
+    # Speaking is required only when the exam defines a speaking component AND
+    # this isn't a retake (retake v1 covers L/R/W only — no speaking assigned).
+    speaking_required = bool(exam.get("speaking_topic_set")) and not is_retake(exam)
     speaking_done = (bool(sitting.get("speaking_completed_at"))
                      if speaking_required else True)
 
