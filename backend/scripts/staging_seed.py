@@ -7,7 +7,8 @@ a run id so parallel runs never collide, and removable in one command:
     python3 scripts/staging_seed.py --ns smoke          # create/ensure
     python3 scripts/staging_seed.py --ns smoke --cleanup
 
-Identities (all with password E2E_PASSWORD or the documented default):
+Identities (password = the REQUIRED env var E2E_PASSWORD; reseeding an
+existing namespace ROTATES every identity's password to the current value):
   * student-activated   — role=user, used access code + ACTIVE assignment
   * user-unactivated    — role=user, no code assignment
   * instructor          — role=user (promote via grants_role code in E2E)
@@ -30,7 +31,6 @@ from pathlib import Path
 BACKEND = Path(__file__).resolve().parent.parent
 PROD_REF = "huwsmtubwulikhlmcirx"
 EMAIL_DOMAIN = "staging-e2e.averlearning.com"
-DEFAULT_PASSWORD = "E2e-staging-Passw0rd!"
 
 
 def _load_staging_env() -> dict:
@@ -62,10 +62,17 @@ def _email(role: str, ns: str) -> str:
 def _ensure_user(sb, role: str, ns: str, password: str) -> str:
     """Create (or find) an auth user + its public.users row. Returns user id."""
     email = _email(role, ns)
+    # sessions.py _require_active gates on users.is_active (default false) —
+    # every identity that must reach app flows needs it set explicitly. The
+    # "unactivated" identity keeps false on purpose (§7.2 needs that state).
+    is_active = role != "unactivated"
+    db_role = "admin" if role == "admin" else "user"
     existing = sb.table("users").select("id").eq("email", email).limit(1).execute()
     if existing.data:
         uid = existing.data[0]["id"]
-        print(f"  = {email} (exists)")
+        sb.table("users").update({"role": db_role, "is_active": is_active}).eq("id", uid).execute()
+        sb.auth.admin.update_user_by_id(uid, {"password": password})
+        print(f"  = {email} (exists — role/is_active enforced, password rotated)")
         return uid
     try:
         created = sb.auth.admin.create_user({
@@ -95,8 +102,9 @@ def _ensure_user(sb, role: str, ns: str, password: str) -> str:
     # Instructor is granted at runtime via a grants_role='instructor' access
     # code (routers/auth.py W-2) — the e2e-instructor identity starts as
     # 'user' and E2E promotes it through that flow when needed.
-    db_role = "admin" if role == "admin" else "user"
-    sb.table("users").upsert({"id": uid, "email": email, "role": db_role}).execute()
+    sb.table("users").upsert({
+        "id": uid, "email": email, "role": db_role, "is_active": is_active,
+    }).execute()
     print(f"  + {email} ({db_role})")
     return uid
 
@@ -106,7 +114,9 @@ def _ensure_code(sb, code: str, **fields) -> str:
     if existing.data:
         print(f"  = code {code} (exists)")
         return existing.data[0]["id"]
-    row = {"code": code, "is_active": True, **fields}
+    # permissions defaults to '["all"]' at the column level; set it explicitly
+    # so the seeded state never depends on schema defaults (review 2026-07-13).
+    row = {"code": code, "is_active": True, "permissions": ["all"], **fields}
     res = sb.table("access_codes").insert(row).execute()
     print(f"  + code {code}")
     return res.data[0]["id"]
@@ -165,7 +175,11 @@ if __name__ == "__main__":
     ap.add_argument("--ns", default="smoke", help="run namespace (default: smoke)")
     ap.add_argument("--cleanup", action="store_true")
     args = ap.parse_args()
-    pw = os.environ.get("E2E_PASSWORD", DEFAULT_PASSWORD)
+    pw = os.environ.get("E2E_PASSWORD", "")
+    if not args.cleanup and not pw:
+        sys.exit("E2E_PASSWORD is required (no committed default — review P1, "
+                 "2026-07-13): export E2E_PASSWORD=... and store the same value "
+                 "as the GitHub secret E2E_PASSWORD.")
     if args.cleanup:
         cleanup(args.ns)
     else:

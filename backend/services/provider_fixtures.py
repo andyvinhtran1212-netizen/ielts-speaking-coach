@@ -149,6 +149,13 @@ def fixture_speaking_grade(mode: str = "test") -> dict:
     }
 
 
+def fixture_speaking_grade_raw(mode: str = "test") -> str:
+    """The grader fixture as the RAW JSON text the orchestrator would return —
+    injected pre-validator so validation + post-processing run for real."""
+    import json
+    return json.dumps(fixture_speaking_grade(mode), ensure_ascii=False)
+
+
 def fixture_pronunciation() -> dict:
     """Production-shaped Azure result (azure_pronunciation.assess_pronunciation)."""
     return {

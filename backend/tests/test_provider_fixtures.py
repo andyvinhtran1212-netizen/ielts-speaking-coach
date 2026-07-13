@@ -130,12 +130,34 @@ async def test_whisper_seam(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_grader_seam(monkeypatch):
+async def test_grader_seam_runs_validator_and_postprocessing(monkeypatch):
     monkeypatch.setattr(settings, "GRADING_PROVIDER_MODE", "fixture")
     from services.claude_grader import grade_response
     out = await grade_response(question="Q?", transcript="hello", part=1, mode="test")
     assert out["rubric_version"] == "fixture-v1"
     assert out["band_fc"] == 6
+
+
+@pytest.mark.asyncio
+async def test_grader_seam_practice_attaches_grammar_recommendations(monkeypatch):
+    # Review 2026-07-13: the fixture is injected at the RAW level so the real
+    # practice post-processing runs — grading.py persists this key to the
+    # grammar_recommendations table, which is exactly what E2E must exercise.
+    monkeypatch.setattr(settings, "GRADING_PROVIDER_MODE", "fixture")
+    from services.claude_grader import grade_response
+    out = await grade_response(question="Q?", transcript="hello", part=1, mode="practice")
+    assert "grammar_recommendations" in out, "practice post-processing must run on fixtures"
+
+
+@pytest.mark.asyncio
+async def test_grader_seam_malformed_walks_terminal_path(monkeypatch):
+    # malformed fixture fails the REAL validator on both attempts -> the
+    # production terminal ValueError, not a synthetic shortcut.
+    monkeypatch.setattr(settings, "GRADING_PROVIDER_MODE", "fixture")
+    monkeypatch.setattr(settings, "GRADING_FIXTURE_FAULT", "malformed")
+    from services.claude_grader import grade_response
+    with pytest.raises(ValueError):
+        await grade_response(question="Q?", transcript="hello", part=1, mode="test")
 
 
 @pytest.mark.asyncio
