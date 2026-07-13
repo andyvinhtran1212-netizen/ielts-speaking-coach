@@ -1,5 +1,5 @@
 // @ts-check
-/** @typedef {import('../types/api').components['schemas']['AccessCodeOut']} AccessCodeOut */
+/** @typedef {import('../../types/api').components['schemas']['AccessCodeOut']} AccessCodeOut */
 /**
  * frontend/js/admin-access-codes.js — Sprint 12.2.
  *

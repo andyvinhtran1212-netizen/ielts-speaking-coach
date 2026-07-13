@@ -30,8 +30,12 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: '24'
-      - name: tsc --noEmit
-        run: npx --yes --package=typescript@5.6.3 tsc --noEmit -p tsconfig.json
+      # Phase 1: tsconfig.json belongs to the Next app (strict, needs the
+      # generated next-env.d.ts — enforced by `next build` on Vercel). This
+      # job keeps its ORIGINAL purpose: the @ts-check field-drift check over
+      # legacy public/js, whose config moved to tsconfig.legacy.json.
+      - name: tsc --noEmit (legacy @ts-check drift)
+        run: npx --yes --package=typescript@5.6.3 tsc --noEmit -p tsconfig.legacy.json
 
   apitype-drift:
     name: api.d.ts ↔ openapi drift (non-blocking)

@@ -1,0 +1,17 @@
+{
+  "//": "Legacy @ts-check pilot config, MOVED here in Phase 1 (tsconfig.json now belongs to the Next app, strict:true). Semantics unchanged from the original pilot: tsc -p tsconfig.legacy.json --noEmit; opt-in per file via // @ts-check (checkJs:false) — only api.js + admin-access-codes.js are checked today. JSDoc only in .js files.",
+  "//strict": "strict:false is DELIBERATE for the legacy pilot — see the original rationale: strict:true on loose controllers drowns the field-drift signal (~170 errors/module). The NEXT app (tsconfig.json) is strict:true per plan Phase 1.",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "strict": false,
+    "skipLibCheck": true,
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"]
+  },
+  "include": ["public/js/**/*.js", "types/**/*.d.ts"],
+  "exclude": ["node_modules", "tests/e2e", "tooling"]
+}

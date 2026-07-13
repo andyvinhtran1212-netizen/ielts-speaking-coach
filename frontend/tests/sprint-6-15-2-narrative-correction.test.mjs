@@ -35,8 +35,9 @@ before(() => {
     path.join(REPO_ROOT, 'frontend/css/aver-design/UNIFIED_DESIGN_BRIEF.md'),
     'utf8',
   );
+  // ADR-002 (Phase 1): routing rules live in next.config.ts now.
   vercelConfig = readFileSync(
-    path.join(REPO_ROOT, 'frontend/vercel.json'),
+    path.join(REPO_ROOT, 'frontend/next.config.ts'),
     'utf8',
   );
 });
@@ -204,7 +205,7 @@ describe('Vercel routing preserved (handles legacy bookmarks)', () => {
     assert.ok(dashboardEntry, 'Could not locate /pages/dashboard.html redirect entry');
     assert.match(
       dashboardEntry[0],
-      /"permanent"\s*:\s*true/i,
+      /["']?permanent["']?\s*:\s*true/i,
       '/pages/dashboard.html redirect must be permanent: true',
     );
   });

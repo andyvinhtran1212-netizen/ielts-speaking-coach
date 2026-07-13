@@ -31,7 +31,7 @@ function walk(dir, rel = '') {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
     const r = rel ? rel + '/' + e.name : e.name;
     if (e.isDirectory()) {
-      if (['node_modules', 'graphify-out', 'tests'].includes(e.name)) continue;
+      if (['node_modules', 'graphify-out', 'tests', 'public', '.next', 'app'].includes(e.name)) continue; // public/ reached via compat symlinks at legacy paths (Phase 1)
       out.push(...walk(path.join(dir, e.name), r));
     } else if (e.name.endsWith('.html')) {
       if (e.name === '_theme-test.html' || e.name.includes('.legacy.')) continue;

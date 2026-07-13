@@ -25,7 +25,16 @@ const read = (...rel) => readFileSync(join(__dirname, '..', ...rel), 'utf8');
 const CHROME_JS    = read('js', 'components', 'aver-admin-chrome.js');
 const ADMIN_INDEX  = read('pages', 'admin', 'index.html');
 const ADMIN_LEGACY = read('admin.html');
-const VERCEL_JSON  = read('vercel.json');
+// ADR-002 (Phase 1): routing rules live in next.config.ts. Parse its
+// single-line entries into the same {source, destination, permanent} shape.
+const NEXT_CONFIG = read('next.config.ts');
+const routeEntries = Array.from(NEXT_CONFIG.matchAll(
+  /\{ source: '([^']+)', destination: '([^']+)'(?:, permanent: (true|false))? \}/g,
+)).map(([, source, destination, permanent]) => ({ source, destination, permanent: permanent === 'true' }));
+const routeConfig = {
+  redirects: routeEntries.filter((e) => e.permanent),
+  rewrites: routeEntries.filter((e) => !e.permanent),
+};
 
 
 /* ── Component source contract ─────────────────────────────────── */
@@ -327,22 +336,20 @@ describe('Sprint 12.1 — section index pages (all graduated from placeholders)'
 
 /* ── vercel.json redirects ─────────────────────────────────────── */
 
-describe('Sprint 12.1 — vercel.json carries 12 admin redirects', () => {
-  let json;
-  it('parses as valid JSON', () => {
-    json = JSON.parse(VERCEL_JSON);
-    assert.ok(Array.isArray(json.redirects));
+describe('Sprint 12.1 — next.config.ts carries 12 admin redirects', () => {
+  it('route entries parse out of next.config.ts', () => {
+    assert.ok(routeConfig.redirects.length > 0);
   });
 
   it('preserves Sprint 5.1 dashboard.html redirect', () => {
-    const json = JSON.parse(VERCEL_JSON);
+    const json = routeConfig;
     const found = json.redirects.find((r) => r.source === '/pages/dashboard.html');
     assert.ok(found, 'Sprint 5.1 dashboard redirect lost');
     assert.equal(found.destination, '/pages/speaking.html');
   });
 
   it('adds 12 admin page redirects', () => {
-    const json = JSON.parse(VERCEL_JSON);
+    const json = routeConfig;
     const adminRedirects = json.redirects.filter((r) =>
       r.source.startsWith('/pages/admin-'));
     assert.equal(adminRedirects.length, 12,
@@ -355,7 +362,7 @@ describe('Sprint 12.1 — vercel.json carries 12 admin redirects', () => {
   });
 
   it('updates two existing /admin/writing rewrites to nested paths', () => {
-    const json = JSON.parse(VERCEL_JSON);
+    const json = routeConfig;
     const prompts = json.rewrites.find((r) => r.source === '/admin/writing/prompts');
     const assignments = json.rewrites.find((r) => r.source === '/admin/writing/assignments');
     assert.equal(prompts.destination,     '/pages/admin/writing/prompts.html');
