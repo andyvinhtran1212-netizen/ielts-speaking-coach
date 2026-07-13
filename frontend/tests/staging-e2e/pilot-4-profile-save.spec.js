@@ -199,7 +199,10 @@ test.describe.serial('pilot 4 — /profile-preview mutation', () => {
       const res = await probe();
       if (res.status() === 503) {
         const body = await res.json();
-        expect(body.detail.code).toBe('feature_disabled');
+        // `error_code` — the shape the central 5xx sanitizer passes through
+        // (safe_detail contract); this assert ALSO guards against the
+        // sanitizer swallowing the kill-switch body again.
+        expect(body.detail.error_code).toBe('feature_disabled');
         expect(body.detail.flag).toBe('profile_update');
         blockedAfterMs = Date.now() - offAt;
         break;

@@ -15,7 +15,8 @@ Phương án bị loại — env flag + Railway restart: RTO cỡ phút, giết 
 - Lỗi lookup → trả `default`, **không cache** (không negative-cache lỗi), log warning. **Fail-open có chủ đích**: kill switch không được trở thành nguồn outage; nếu DB chết thì mutation được bảo vệ cũng đang chết.
 - `set_flag` upsert + invalidate cache entry ngay trong process xử lý request admin.
 - Adoption pattern cho mutation endpoint (dùng ở mutation pilot):
-  `dependencies=[Depends(require_flag("writing_submit"))]` → 503 `{"code": "feature_disabled", "flag": ...}` khi tắt.
+  `dependencies=[Depends(require_flag("writing_submit"))]` → 503 `{"error_code": "feature_disabled", "flag": ..., "message": ...}` khi tắt.
+  (Sửa 2026-07-13 từ `code` → `error_code` sau drill live pilot-4: central 5xx sanitizer `safe_detail()` (P0-5) chỉ pass-through dict detail mang `error_code` — key khác bị thay bằng generic internal_error, contract không bao giờ tới client.)
 
 ## Điều kiện dùng trong cutover sheet
 
