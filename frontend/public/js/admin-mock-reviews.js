@@ -357,7 +357,7 @@
             ? '<a class="av-btn" target="_blank" href="/pages/admin/mock-reviews/report.html?review_id=' + encodeURIComponent(review.id) + '">Xem phiếu báo điểm ↗</a>'
             : '') +
         '</div>' +
-        '<p class="mr-muted" style="margin-top:8px">Công bố yêu cầu đã “Lưu band” (trạng thái reviewed) và mở khoá điểm cho học viên. Phiếu báo điểm chỉ tạo được khi không còn kỹ năng nào bị đánh dấu "cần test lại".</p>' +
+        '<p class="mr-muted" style="margin-top:8px">Công bố yêu cầu đã “Lưu band” (trạng thái reviewed) và mở khoá điểm cho học viên. <b>Bài Writing phải được chấm &amp; “Lưu &amp; duyệt” (Đã duyệt/Đã trả) trước khi công bố</b> — nếu chưa, hệ thống sẽ chặn. Phiếu báo điểm chỉ tạo được khi không còn kỹ năng nào bị đánh dấu "cần test lại".</p>' +
       '</div>';
 
     el('queue-view').classList.add('hidden');

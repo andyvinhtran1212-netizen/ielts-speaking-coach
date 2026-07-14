@@ -1420,11 +1420,9 @@ def test_promote_writing_essays_skips_empty_task(fake_db, svc):
     assert sitting.get("essay_task2_id") is None
 
 
-def test_release_delivers_reviewed_writing_essays(fake_db, svc, wf):
-    """P2 (2026-07-12): CÔNG BỐ is the one action that unlocks everything —
-    release also flips the sitting's REVIEWED writing essays to 'delivered'
-    (so the student can open writing-result.html, which gates on 'delivered'),
-    while a still-'graded' essay (admin hasn't approved yet) is left untouched."""
+def _seed_mock_writing(fake_db, svc):
+    """A 4-skill-less (LRW) exam with both Writing prompts + a student, driven
+    to all_submitted so 2 pending essays are promoted. Returns (exam, u, s)."""
     exam = _seed_exam(fake_db, speaking=False)
     p1, p2 = str(uuid4()), str(uuid4())
     exam["writing_task1_prompt_id"] = p1
@@ -1437,14 +1435,25 @@ def test_release_delivers_reviewed_writing_essays(fake_db, svc, wf):
     fake_db.seed("students", {"id": str(uuid4()), "user_id": str(u)})
     s = svc.create_sitting(u, "MOCK-TEST-A")
     _run_lrw(svc, fake_db, exam, s["id"], u)   # promotes 2 pending essays
+    return exam, u, s
 
+
+def _set_essay_status(fake_db, essay_id, status):
+    for row in fake_db.rows("writing_essays"):
+        if row["id"] == essay_id:
+            row["status"] = status
+
+
+def test_release_delivers_reviewed_writing_essays(fake_db, svc, wf):
+    """P2 (2026-07-12): CÔNG BỐ is the one action that unlocks everything —
+    release also flips the sitting's REVIEWED writing essays to 'delivered'
+    (so the student can open writing-result.html, which gates on 'delivered').
+    Both essays must be reviewed before release is allowed (2026-07-14 block)."""
+    exam, u, s = _seed_mock_writing(fake_db, svc)
     sitting = svc.get_sitting(s["id"])
     e1, e2 = sitting["essay_task1_id"], sitting["essay_task2_id"]
-    for row in fake_db.rows("writing_essays"):
-        if row["id"] == e1:
-            row["status"] = "reviewed"   # admin approved
-        if row["id"] == e2:
-            row["status"] = "graded"     # AI done, admin not yet approved
+    _set_essay_status(fake_db, e1, "reviewed")   # admin approved both
+    _set_essay_status(fake_db, e2, "reviewed")
 
     review = wf.get_review_for_sitting(s["id"])
     admin = uuid4()
@@ -1454,13 +1463,91 @@ def test_release_delivers_reviewed_writing_essays(fake_db, svc, wf):
     wf.release_results(review["id"], admin)
 
     by_id = {r["id"]: r for r in fake_db.rows("writing_essays")}
-    assert by_id[e1]["status"] == "delivered"
-    assert by_id[e1].get("delivered_at")
-    # delivery_method must be a value allowed by the writing_essays CHECK
-    # (migration 033) — else Postgres rejects the update in prod and the essay
-    # silently stays 'reviewed'.
-    assert by_id[e1]["delivery_method"] == "web_view"
-    assert by_id[e2]["status"] == "graded"   # not 'reviewed' → left untouched
+    for e in (e1, e2):
+        assert by_id[e]["status"] == "delivered"
+        assert by_id[e].get("delivered_at")
+        # delivery_method must be a value allowed by the writing_essays CHECK
+        # (migration 033) — else Postgres rejects the update in prod and the
+        # essay silently stays 'reviewed'.
+        assert by_id[e]["delivery_method"] == "web_view"
+
+
+def test_release_blocked_when_a_writing_essay_not_reviewed(fake_db, svc, wf):
+    """2026-07-14 hard block: publishing while any promoted Writing essay is
+    still pending/grading/graded would give the student a Writing band with NO
+    deliverable feedback — so release raises ConflictError and NOTHING is
+    published (seal intact, the reviewed essay is NOT prematurely delivered)."""
+    exam, u, s = _seed_mock_writing(fake_db, svc)
+    sitting = svc.get_sitting(s["id"])
+    e1, e2 = sitting["essay_task1_id"], sitting["essay_task2_id"]
+    _set_essay_status(fake_db, e1, "reviewed")   # admin approved Task 1…
+    _set_essay_status(fake_db, e2, "graded")     # …but Task 2 only AI-graded
+
+    review = wf.get_review_for_sitting(s["id"])
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    wf.save_final_bands(review["id"], admin,
+                        {"listening": 6.0, "reading": 6.0, "writing": 6.0})
+    with pytest.raises(wf.ConflictError):
+        wf.release_results(review["id"], admin)
+
+    # Atomic: the block fires BEFORE any state changes.
+    assert svc.get_sitting(s["id"])["status"] != "released"
+    assert svc.is_sealed(s["id"]) is True
+    by_id = {r["id"]: r for r in fake_db.rows("writing_essays")}
+    assert by_id[e1]["status"] == "reviewed"   # not delivered — release didn't run
+    assert by_id[e2]["status"] == "graded"
+
+
+def test_release_blocked_when_writing_essay_still_pending(fake_db, svc, wf):
+    """A never-graded (pending) essay also blocks release."""
+    exam, u, s = _seed_mock_writing(fake_db, svc)   # both essays start 'pending'
+    review = wf.get_review_for_sitting(s["id"])
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    wf.save_final_bands(review["id"], admin,
+                        {"listening": 6.0, "reading": 6.0, "writing": 6.0})
+    with pytest.raises(wf.ConflictError):
+        wf.release_results(review["id"], admin)
+    assert svc.is_sealed(s["id"]) is True
+
+
+def test_release_allowed_when_writing_task_unanswered(fake_db, svc, wf):
+    """An EMPTY (unanswered) Writing task promotes no essay, so it has nothing to
+    deliver and must NOT block release — otherwise a blank Writing answer would
+    permanently wedge publishing."""
+    exam = _seed_exam(fake_db, speaking=False)
+    p1, p2 = str(uuid4()), str(uuid4())
+    exam["writing_task1_prompt_id"] = p1
+    exam["writing_task2_prompt_id"] = p2
+    fake_db.seed("writing_prompts", {"id": p1, "task_type": "task1_academic",
+                                     "prompt_text": "x", "title": "T1"})
+    fake_db.seed("writing_prompts", {"id": p2, "task_type": "task2",
+                                     "prompt_text": "y", "title": "T2"})
+    u = uuid4()
+    fake_db.seed("students", {"id": str(uuid4()), "user_id": str(u)})
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    # Drive LRW but submit EMPTY writing → no essays promoted.
+    admin = str(uuid4())
+    for section in svc._configured_sections(exam):
+        svc.advance_section(exam["id"], admin)
+        _expire_section(fake_db, exam["id"], section)
+        if section == "writing":
+            svc.submit_section(s["id"], u, "writing", "", "")
+        else:
+            _attach_domain_submitted(svc, fake_db, exam, s["id"], u, section)
+            svc.submit_section(s["id"], u, section)
+
+    sitting = svc.get_sitting(s["id"])
+    assert sitting.get("essay_task1_id") is None
+    assert sitting.get("essay_task2_id") is None
+    review = wf.get_review_for_sitting(s["id"])
+    rid_admin = uuid4()
+    wf.claim(review["id"], rid_admin)
+    wf.save_final_bands(review["id"], rid_admin,
+                        {"listening": 6.0, "reading": 6.0, "writing": 6.0})
+    released = wf.release_results(review["id"], rid_admin)   # must NOT raise
+    assert released["status"] == "released"
 
 
 def test_retake_assign_scopes_skills_and_is_idempotent(fake_db):

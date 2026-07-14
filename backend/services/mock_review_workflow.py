@@ -37,6 +37,12 @@ logger = logging.getLogger(__name__)
 
 _SKILLS = ("listening", "reading", "writing", "speaking")
 
+# A promoted Writing essay may only be published (released) once it has been
+# graded AND admin-approved — release delivers ONLY a 'reviewed' essay, so
+# publishing while it's still pending/grading/graded hands the student a Writing
+# band with no deliverable chữa bài (2026-07-14 audit).
+_WRITING_RELEASABLE = ("reviewed", "delivered")
+
 
 # ── Errors ────────────────────────────────────────────────────────────
 
@@ -295,18 +301,64 @@ def save_final_bands(
     return response.data[0]
 
 
+def _writing_pending_tasks(sitting_id: UUID | str) -> list[str]:
+    """Labels of Writing tasks that BLOCK release — a promoted essay not yet in
+    'reviewed'/'delivered'. On release only a 'reviewed' essay is delivered
+    (deliver_reviewed_essay), so publishing while an essay is still
+    pending/grading/graded would give the student a Writing band with NO
+    deliverable feedback. Returns [] when Writing isn't part of this sitting or
+    every promoted essay is ready. Only STAMPED essays are checked — an
+    unanswered Writing task (no essay id) has nothing to deliver and never
+    blocks."""
+    if "writing" not in _required_skills(sitting_id):
+        return []
+    row = supabase_admin.table("mock_exam_sittings").select(
+        "essay_task1_id, essay_task2_id",
+    ).eq("id", str(sitting_id)).limit(1).execute()
+    if not row.data:
+        return []
+    s = row.data[0]
+    tasks = [("Task 1", s.get("essay_task1_id")), ("Task 2", s.get("essay_task2_id"))]
+    ids = [eid for _, eid in tasks if eid]
+    if not ids:
+        return []
+    rows = supabase_admin.table("writing_essays").select("id, status").in_(
+        "id", ids,
+    ).execute().data or []
+    status_by_id = {r["id"]: r.get("status") for r in rows}
+    return [
+        label for label, eid in tasks
+        if eid and status_by_id.get(str(eid)) not in _WRITING_RELEASABLE
+    ]
+
+
 def release_results(
     review_id: UUID, admin_id: UUID, channel: str = "in_app",
 ) -> dict:
     """Release results to the student — the single moment the seal is lifted.
 
-    Requires the review to be in 'reviewed' (final bands entered). Flips the
+    Requires the review to be in 'reviewed' (final bands entered) AND — when the
+    sitting has Writing — every promoted essay graded + admin-reviewed (else the
+    student would get a Writing band with no deliverable feedback). Flips the
     review to 'released' with a full audit stamp AND flips the sitting to
     status='released' + sealed=False. After this, the domain review/result
     endpoints (which check sitting.sealed) start returning scores.
     """
     if channel not in ("in_app", "email", "manual"):
         raise ValidationError(f"unknown release channel {channel!r}")
+
+    # Hard block: only gate a review that's otherwise ready to release (status
+    # 'reviewed'). A not-yet-reviewed review is stopped by the atomic UPDATE's
+    # own status guard below with its existing message, so no double-reporting.
+    review = get_review(review_id)
+    if review and review.get("status") == "reviewed":
+        pending = _writing_pending_tasks(review["sitting_id"])
+        if pending:
+            raise ConflictError(
+                "Chưa thể công bố: bài Writing chưa được chấm & duyệt ("
+                + ", ".join(pending)
+                + "). Hãy chấm từng bài rồi bấm 'Lưu & duyệt' trước khi công bố."
+            )
 
     response = supabase_admin.table("mock_exam_reviews").update({
         "status":          "released",
