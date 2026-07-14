@@ -230,10 +230,12 @@
             <input id="rbm-route" type="text" value="/" size="18">
           </div>
           <div class="el-filter">
-            <label for="rbm-window">Cửa sổ</label>
+            <!-- Chỉ áp cho BẢNG số liệu — hai verdict luôn tính ở đúng cửa sổ
+                 freeze của chúng (error 30ph / LCP 24h; review #761). -->
+            <label for="rbm-window">Cửa sổ (bảng)</label>
             <select id="rbm-window">
-              <option value="30" selected>30 phút (error-rate)</option>
-              <option value="1440">24 giờ (LCP p75)</option>
+              <option value="30" selected>30 phút</option>
+              <option value="1440">24 giờ</option>
             </select>
           </div>
           <button id="rbm-load" class="btn btn-secondary" type="button">Đo</button>

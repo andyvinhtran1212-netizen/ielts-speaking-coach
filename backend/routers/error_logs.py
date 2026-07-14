@@ -284,6 +284,11 @@ ROLLBACK_ABS_LCP_MAX_MS = 4000.0    # longer serves `/`): absolute ceilings —
 #                                     without a relative baseline.
 ROLLBACK_MIN_VIEWS = 20    # below this the rate is noise, not a verdict
 ROLLBACK_MIN_VITALS = 10   # below this p75 is noise, not a verdict
+# Review #761: the two triggers have DIFFERENT frozen windows — error-rate
+# over 30 minutes, LCP p75 over 24h. Each verdict is always computed at its
+# own window; `window_minutes` only scopes the per-implementation table.
+ROLLBACK_ERROR_WINDOW_MIN = 30
+ROLLBACK_VITALS_WINDOW_MIN = 1440
 
 
 def _p75(values: list[float]) -> float | None:
@@ -314,16 +319,24 @@ def _rollback_error_verdict(next_views, next_errors, legacy_views, legacy_errors
         v["status"] = "insufficient-sample"
         return v
     next_rate = next_errors / next_views
+    # Review #761: verdict math runs on the RAW baseline — rounding first
+    # can hide a real regression (legacy 1/30000 rounds to 0.0 → the true 3×
+    # delta silently falls through to the absolute guard) or flip a
+    # just-over-threshold delta to ok. Rounding is display-only.
+    baseline_raw = None
     if legacy_views >= ROLLBACK_MIN_VIEWS:
-        v["baseline_rate"] = round(legacy_errors / legacy_views, 4)
+        baseline_raw = legacy_errors / legacy_views
+        v["baseline_rate"] = round(baseline_raw, 6)
         v["baseline_source"] = "legacy-window"
     elif param_baseline_rate is not None:
+        baseline_raw = param_baseline_rate
         v["baseline_rate"] = param_baseline_rate
         v["baseline_source"] = "param"
-    if v["baseline_rate"]:  # a zero baseline gives no meaningful multiplier
+    if baseline_raw:  # a zero baseline gives no meaningful multiplier
         v["basis"] = "relative"
-        v["delta_x"] = round(next_rate / v["baseline_rate"], 2)
-        v["status"] = "breach" if v["delta_x"] > ROLLBACK_ERROR_RATE_MULT else "ok"
+        delta_raw = next_rate / baseline_raw
+        v["delta_x"] = round(delta_raw, 2)
+        v["status"] = "breach" if delta_raw > ROLLBACK_ERROR_RATE_MULT else "ok"
     else:
         v["basis"] = "absolute"
         if next_rate > ROLLBACK_ABS_ERROR_RATE_MAX:
@@ -376,16 +389,21 @@ async def error_log_rollback_metrics(
     authorization: str | None = Header(default=None),
 ):
     """Compute the FROZEN rollback triggers for one route (see block comment
-    above). `window_minutes` defaults to the error-trigger window (30); pass
-    1440 for the 24h vitals window. Filters ride in event_data/extra JSON, so
+    above). The verdicts ALWAYS use their frozen windows — error-rate over
+    30 minutes, LCP p75 over 24h (review #761: one shared cutoff meant the
+    displayed verdicts were not the frozen triggers unless the admin happened
+    to pick the matching window). `window_minutes` scopes only the
+    per-implementation table. Filters ride in event_data/extra JSON, so
     matching happens in Python over the window's rows — same explicit
     pagination + stable ordering as migration-stats (PostgREST 1000-cap +
     review #746)."""
     await require_admin(authorization)
     window_minutes = max(5, min(1440, window_minutes))
-    cutoff = (
-        datetime.now(timezone.utc) - timedelta(minutes=window_minutes)
-    ).isoformat()
+    now = datetime.now(timezone.utc)
+    # One fetch covers the widest window needed; narrower windows filter by
+    # row timestamp in Python.
+    fetch_minutes = max(window_minutes, ROLLBACK_VITALS_WINDOW_MIN)
+    cutoff = (now - timedelta(minutes=fetch_minutes)).isoformat()
 
     PAGE = 1000
     MAX_ROWS = 50_000
@@ -425,35 +443,68 @@ async def error_log_rollback_metrics(
     def _impl_bucket(tag) -> str:
         return tag if tag in ("next", "legacy") else "untagged"
 
-    buckets = {
-        impl: {"page_views": 0, "errors": 0, "vitals_raw": {"lcp": [], "cls": [], "inp": []}}
-        for impl in ("next", "legacy", "untagged")
-    }
+    def _within(row_ts, window_cutoff: datetime) -> bool:
+        """Row-level window filter. Missing/unparseable timestamps count as
+        IN-window — inclusive is the safe direction for the error numerator,
+        and rows the DB already filtered by the fetch cutoff can't be older
+        than the widest window anyway."""
+        if not row_ts:
+            return True
+        try:
+            ts = datetime.fromisoformat(str(row_ts).replace("Z", "+00:00"))
+        except ValueError:
+            return True
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        return ts >= window_cutoff
 
-    for row in analytics_rows:
-        ed = row.get("event_data") or {}
-        if not isinstance(ed, dict) or ed.get("path") != route:
-            continue
-        b = buckets[_impl_bucket(ed.get("implementation"))]
-        name = row.get("event_name")
-        if name == "page_view":
-            b["page_views"] += 1
-        elif name == "web_vitals":
-            for metric in ("lcp", "cls", "inp"):
-                val = ed.get(metric)
-                if isinstance(val, (int, float)):
-                    b["vitals_raw"][metric].append(float(val))
+    def _bucketize(minutes: int) -> dict:
+        window_cutoff = now - timedelta(minutes=minutes)
+        buckets = {
+            impl: {"page_views": 0, "errors": 0,
+                   "vitals_raw": {"lcp": [], "cls": [], "inp": []}}
+            for impl in ("next", "legacy", "untagged")
+        }
+        for row in analytics_rows:
+            ed = row.get("event_data") or {}
+            if not isinstance(ed, dict) or ed.get("path") != route:
+                continue
+            if not _within(row.get("created_at"), window_cutoff):
+                continue
+            b = buckets[_impl_bucket(ed.get("implementation"))]
+            name = row.get("event_name")
+            if name == "page_view":
+                b["page_views"] += 1
+            elif name == "web_vitals":
+                for metric in ("lcp", "cls", "inp"):
+                    val = ed.get(metric)
+                    if isinstance(val, (int, float)):
+                        b["vitals_raw"][metric].append(float(val))
+        for row in error_rows:
+            if row.get("url") != route:
+                continue
+            if not _within(row.get("occurred_at"), window_cutoff):
+                continue
+            extra = row.get("extra") or {}
+            if not isinstance(extra, dict):
+                extra = {}
+            buckets[_impl_bucket(extra.get("implementation"))]["errors"] += 1
+        return buckets
 
-    for row in error_rows:
-        if row.get("url") != route:
-            continue
-        extra = row.get("extra") or {}
-        if not isinstance(extra, dict):
-            extra = {}
-        buckets[_impl_bucket(extra.get("implementation"))]["errors"] += 1
+    # Three windows: the table shows what the admin asked for; each verdict
+    # is pinned to ITS frozen trigger window (review #761).
+    table_buckets = _bucketize(window_minutes)
+    error_buckets = (
+        table_buckets if window_minutes == ROLLBACK_ERROR_WINDOW_MIN
+        else _bucketize(ROLLBACK_ERROR_WINDOW_MIN)
+    )
+    vitals_buckets = (
+        table_buckets if window_minutes == ROLLBACK_VITALS_WINDOW_MIN
+        else _bucketize(ROLLBACK_VITALS_WINDOW_MIN)
+    )
 
     implementations = {}
-    for impl, b in buckets.items():
+    for impl, b in table_buckets.items():
         views = b["page_views"]
         errors = b["errors"]
         lcp_vals = b["vitals_raw"]["lcp"]
@@ -469,21 +520,29 @@ async def error_log_rollback_metrics(
             },
         }
 
-    nxt, leg = buckets["next"], buckets["legacy"]
+    nxt, leg = error_buckets["next"], error_buckets["legacy"]
     error_verdict = _rollback_error_verdict(
         nxt["page_views"], nxt["errors"],
         leg["page_views"], leg["errors"],
         baseline_error_rate,
     )
+    error_verdict["window_minutes"] = ROLLBACK_ERROR_WINDOW_MIN
+    vn, vl = vitals_buckets["next"], vitals_buckets["legacy"]
     vitals_verdict = _rollback_vitals_verdict(
-        _p75(nxt["vitals_raw"]["lcp"]), len(nxt["vitals_raw"]["lcp"]),
-        _p75(leg["vitals_raw"]["lcp"]), len(leg["vitals_raw"]["lcp"]),
+        _p75(vn["vitals_raw"]["lcp"]), len(vn["vitals_raw"]["lcp"]),
+        _p75(vl["vitals_raw"]["lcp"]), len(vl["vitals_raw"]["lcp"]),
         baseline_lcp_ms,
     )
+    vitals_verdict["window_minutes"] = ROLLBACK_VITALS_WINDOW_MIN
 
     return {
         "route": route,
         "window_minutes": window_minutes,
+        "windows": {
+            "table": window_minutes,
+            "error_trigger": ROLLBACK_ERROR_WINDOW_MIN,
+            "vitals_trigger": ROLLBACK_VITALS_WINDOW_MIN,
+        },
         "implementations": implementations,
         "error_verdict": error_verdict,
         "vitals_verdict": vitals_verdict,

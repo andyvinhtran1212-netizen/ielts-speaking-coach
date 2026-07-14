@@ -243,6 +243,72 @@ def test_paginates_past_postgrest_1000_cap(monkeypatch):
     assert body["implementations"]["next"]["page_views"] == 1500
 
 
+def test_tiny_baseline_not_lost_to_rounding(monkeypatch):
+    """Review #761: verdict math must use the RAW baseline. legacy 1/15000
+    = 6.67e-5 rounds to 1e-4 at 4 decimals — the old code computed delta
+    against the ROUNDED value (2e-4/1e-4 = 2.0 → "ok") and missed this true
+    3× regression; even smaller baselines rounded to 0.0 and fell through to
+    the absolute guard entirely. (15k/side keeps the fixture under the 50k
+    MAX_ROWS fetch ceiling.)"""
+    analytics = [_pv("legacy")] * 15_000 + [_pv("next")] * 15_000
+    errors = [_err("legacy")] * 1 + [_err("next")] * 3
+    body = _client(monkeypatch, analytics, errors).get(
+        "/admin/error-logs/rollback-metrics", headers=AUTHZ
+    ).json()
+    v = body["error_verdict"]
+    assert v["basis"] == "relative", "a real legacy baseline must not vanish into rounding"
+    assert v["baseline_source"] == "legacy-window"
+    assert v["delta_x"] == 3.0
+    assert v["status"] == "breach"
+
+
+def _iso_ago(minutes):
+    from datetime import datetime, timedelta, timezone
+    return (datetime.now(timezone.utc) - timedelta(minutes=minutes)).isoformat()
+
+
+def test_verdicts_pinned_to_frozen_windows_not_table_window(monkeypatch):
+    """Review #761: error verdict = 30m and vitals verdict = 24h REGARDLESS
+    of window_minutes — one shared cutoff meant the displayed verdicts were
+    not the frozen triggers unless the admin picked the matching window."""
+    fresh, old = _iso_ago(5), _iso_ago(120)  # 5m vs 2h ago
+    analytics = (
+        [{**_pv("next"), "created_at": fresh}] * 100
+        + [{**_pv("legacy"), "created_at": fresh}] * 100
+        # vitals older than 30m but inside 24h — must still feed the LCP verdict
+        + [{**_wv("next", 1600), "created_at": old}] * 12
+        + [{**_wv("legacy", 1000), "created_at": old}] * 12
+    )
+    errors = (
+        [{**_err("next"), "occurred_at": fresh}] * 5
+        + [{**_err("legacy"), "occurred_at": fresh}] * 2
+        # errors older than 30m — must NOT count toward the 30m error trigger
+        + [{**_err("next"), "occurred_at": old}] * 40
+    )
+    body = _client(monkeypatch, analytics, errors).get(
+        "/admin/error-logs/rollback-metrics?window_minutes=1440", headers=AUTHZ
+    ).json()
+    # Error verdict: only the fresh 5-vs-2 within 30m → delta 2.5 breach
+    # (with the old 40 errors included it would be 45/100 vs 2/100 = 22.5×).
+    assert body["error_verdict"]["window_minutes"] == 30
+    assert body["error_verdict"]["delta_x"] == 2.5
+    # Vitals verdict: the 2h-old samples are inside its 24h window → breach 1.6×.
+    assert body["vitals_verdict"]["window_minutes"] == 1440
+    assert body["vitals_verdict"]["delta_x"] == 1.6
+    assert body["vitals_verdict"]["status"] == "breach"
+    # The TABLE at 1440 shows everything (45 next errors).
+    assert body["implementations"]["next"]["errors"] == 45
+    assert body["windows"] == {"table": 1440, "error_trigger": 30, "vitals_trigger": 1440}
+
+    # And with the default 30m table window, the vitals verdict still sees
+    # the 24h samples even though the table shows none.
+    body = _client(monkeypatch, analytics, errors).get(
+        "/admin/error-logs/rollback-metrics", headers=AUTHZ
+    ).json()
+    assert body["implementations"]["next"]["vitals"]["samples"] == 0
+    assert body["vitals_verdict"]["status"] == "breach"
+
+
 def test_untagged_and_malformed_rows_bucketed_not_crashed(monkeypatch):
     analytics = [
         {"event_name": "page_view", "event_data": {"path": "/"}},        # no impl
