@@ -68,6 +68,10 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
           works without api.js (which the lean marketing page doesn't load).
           Loaded AFTER runtime-config so the release tag is available. */}
       <script src="/js/error-reporter.js" defer />
+      {/* AUDIT F2: field Web Vitals (LCP/CLS/INP) per implementation tag —
+          the frozen LCP rollback trigger reads these via rollback-metrics.
+          Self-contained like error-reporter; after runtime-config. */}
+      <script src="/js/rum-vitals.js" defer />
 
       {children}
     </>

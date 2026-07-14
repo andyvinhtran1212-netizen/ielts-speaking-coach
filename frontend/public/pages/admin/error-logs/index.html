@@ -216,6 +216,31 @@
         <div id="migration-stats-body">—</div>
       </section>
 
+      <!-- AUDIT F1: rollback-trigger metrics per route — the FROZEN triggers
+           (error-rate > 2× baseline / 30ph; LCP p75 > 1.5× baseline / 24h)
+           computed with a real denominator (page_view beacons) and field Web
+           Vitals. Rendered by admin-error-logs.js from
+           GET /admin/error-logs/rollback-metrics. -->
+      <section class="el-stat-card el-migration-panel" id="rollback-metrics-panel"
+               aria-label="Rollback trigger theo route">
+        <div class="label">Rollback trigger (freeze §4) — theo route</div>
+        <div class="el-filter-bar" style="margin:8px 0;">
+          <div class="el-filter">
+            <label for="rbm-route">Route</label>
+            <input id="rbm-route" type="text" value="/" size="18">
+          </div>
+          <div class="el-filter">
+            <label for="rbm-window">Cửa sổ</label>
+            <select id="rbm-window">
+              <option value="30" selected>30 phút (error-rate)</option>
+              <option value="1440">24 giờ (LCP p75)</option>
+            </select>
+          </div>
+          <button id="rbm-load" class="btn btn-secondary" type="button">Đo</button>
+        </div>
+        <div id="rollback-metrics-body">Chọn route rồi bấm «Đo».</div>
+      </section>
+
       <div class="el-toolbar">
         <div class="el-filter-bar">
           <div class="el-filter">
