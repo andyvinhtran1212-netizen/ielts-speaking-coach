@@ -3,7 +3,7 @@
 **Dự án:** IELTS Speaking Coach / Aver Learning  
 **Ngày:** 2026-07-12 · v3 revised: 2026-07-13  
 **Phiên bản:** v3 — v2 đã qua adversarial review về architecture, delivery và safety; v3 bổ sung discovery validation độc lập trực tiếp trên repo (2026-07-13, HEAD `3f031d17`, 11 commits sau baseline `9047e09f`), yêu cầu đóng destination decision (ADR-000, mục 1.2), thêm bottleneck B34–B38 và hiệu chỉnh kế hoạch hai tuần đầu theo dữ kiện đã xác minh  
-**Trạng thái:** Conditional Go — discovery/dark launch được phép; bốn production pilot chỉ được cutover sau Gate A + Gate B + per-pilot entry checklist; Gate C chỉ mở bounded ramp tối đa 10 routes/ít nhất 2 domains; Gate D mới mở broad parallel scale. Cập nhật 2026-07-13: ADR-000 đã ratify (Next.js — mục 1.2); Vercel tier đã xác minh: **Hobby** (B34) — phải nâng Pro trước production pilot cutover đầu tiên  
+**Trạng thái:** Conditional Go — discovery/dark launch được phép; bốn production pilot chỉ được cutover sau Gate A + Gate B + per-pilot entry checklist; Gate C chỉ mở bounded ramp tối đa 10 routes/ít nhất 2 domains; Gate D mới mở broad parallel scale. Cập nhật 2026-07-13: ADR-000 đã ratify (Next.js — mục 1.2); Vercel tier: **Pro** (nâng từ Hobby cùng ngày — ADR-007; dòng "Hobby, phải nâng Pro" trước đây đã lỗi thời, audit F8 2026-07-14)  
 **Kiến trúc đích:** Next.js App Router trên Vercel; FastAPI/Railway tiếp tục là backend canonical  
 **Phương pháp:** Incremental strangler migration, một deployment, route-level cutover; rollback bằng deployment trừ khi ADR-007 duyệt control plane riêng  
 
@@ -906,6 +906,8 @@ Không đổi grading backend hoặc database schema trong cùng migration PR.
 - Rolling Releases không tồn tại trên Hobby → mọi nhánh "production canary" trong ADR-007/mục 12.2 không khả dụng; rollout thực tế là dark launch → atomic cutover → rollback by redeploy.
 - Fair-use của Vercel giới hạn Hobby cho mục đích non-commercial; averlearning.com là sản phẩm thương mại (bán access code) → rủi ro tuân thủ tồn tại độc lập với migration, và hybrid rendering sẽ tăng function usage đáng kể so với static hosting hiện tại.
 - **Quyết định:** nâng Pro trước production pilot cutover đầu tiên. Gate A/B và mọi dark-launch/Preview work chạy được trên Hobby; cutover canonical route thì không. Chi phí Pro đưa vào mục 15.3.
+
+**Cập nhật (2026-07-13, sau): ĐÃ NÂNG PRO** — ADR-007 ghi "Pro (nâng từ Hobby 2026-07-13)". Các gạch đầu dòng trên mô tả ràng buộc THỜI HOBBY, giữ làm bối cảnh quyết định. Hiện trạng: Instant Rollback đã drill (Gate B + re-drill, ≤12s); bẫy vận hành: restore = **Undo Rollback**, không dùng Instant Rollback "tiến" (rollback-pin tắt auto-promote — sự cố 6-merge 2026-07-13). (Audit F8 2026-07-14: đồng bộ đoạn này với ADR-007.)
 
 ### B35 — CI test manifest là danh sách tay và đang drift (v3)
 
