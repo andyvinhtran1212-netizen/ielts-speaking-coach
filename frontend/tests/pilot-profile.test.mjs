@@ -74,7 +74,8 @@ test('behavior: read qua /auth/profile với fallback /auth/me (ADR-011)', () =>
 });
 
 test('pilot-4 mutation: double-submit lock + canonical reconcile + ambiguous-commit + kill-switch surface', () => {
-  assert.match(BEHAVIOR, /api\.patch\('\/auth\/profile'/, 'mutation goes through the legacy endpoint');
+  assert.match(BEHAVIOR, /api\.patchWith\('\/auth\/profile'/,
+    'mutation goes through the legacy endpoint (patchWith — carries the abort signal, AUDIT F6)');
   assert.match(BEHAVIOR, /savingRef\.current\) return/, 'double-submit lock (checklist)');
   assert.match(BEHAVIOR, /reconcile/, 'canonical reload after mutation (repo rule: refetch canonical state)');
   assert.match(BEHAVIOR, /err\.status === undefined/,
@@ -91,4 +92,43 @@ test('pilot-4 mutation: double-submit lock + canonical reconcile + ambiguous-com
 test('canonical /pages/profile.html vẫn thuộc legacy (public/ static, không app route)', () => {
   const cfg = readFileSync(path.join(FRONTEND, 'next.config.ts'), 'utf8');
   assert.ok(!cfg.includes("'/profile'"), 'no canonical /profile ownership before pilot-3 cutover');
+});
+
+// ── AUDIT F6 (2026-07-14): ADR-011 §2 thực thi ĐÚNG như đã tuyên bố ────
+
+test('AUDIT F6: logout/account-switch abort mọi in-flight request (ADR-011 §2)', () => {
+  const API = readFileSync(path.join(FRONTEND, 'js', 'api.js'), 'utf8');
+  assert.match(API, /signal: \(opts && opts\.signal\) \|\| undefined/,
+    'api.js must plumb opts.signal into fetch — without it nothing is abortable');
+  assert.match(BEHAVIOR, /new AbortController\(\)/);
+  assert.match(BEHAVIOR, /inflightRef\.current\.forEach\(\(c\) => c\.abort\(\)\)/,
+    'the in-flight set must be aborted as a whole');
+  // The signed-out gate must abort BEFORE redirecting away.
+  const gate = BEHAVIOR.indexOf("status === 'signed-out'");
+  const abortIdx = BEHAVIOR.indexOf('.abort()', gate);
+  const redirectIdx = BEHAVIOR.indexOf("replace('/login.html')", gate);
+  assert.ok(gate !== -1 && abortIdx !== -1 && abortIdx < redirectIdx,
+    'signed-out gate: abort in-flight requests BEFORE leaving the page');
+  assert.match(BEHAVIOR, /AbortError'\) return/,
+    'aborted calls must exit silently — no toasts/fallbacks after logout');
+});
+
+test('AUDIT F6: toast trung thực — success chỉ khi reconcile THÀNH CÔNG; ambiguous không nhận vơ "đã tải lại"', () => {
+  assert.ok(!/reconcile\([^)]*\)\.catch\(\(\) => \{\}\)/.test(BEHAVIOR),
+    'reconcile failures must never be swallowed — the toast text depends on the outcome');
+  const successToast = BEHAVIOR.indexOf("showToast('✓ Đã lưu thành công')");
+  const awaitedReconcile = BEHAVIOR.lastIndexOf('await reconcile(api);', successToast);
+  assert.ok(successToast !== -1 && awaitedReconcile !== -1,
+    'the unqualified success toast must come after an AWAITED (unswallowed) reconcile');
+  assert.match(BEHAVIOR, /chưa tải lại được dữ liệu mới nhất/,
+    'saved-but-reconcile-failed must say the screen may be stale');
+  assert.match(BEHAVIOR, /KHÔNG xác nhận được/,
+    'ambiguous-commit + reconcile-failed must admit nothing was confirmed (the old text claimed a reload that never happened)');
+});
+
+test('AUDIT F6: signOut kiểm tra {error} đã resolve (supabase v2 KHÔNG throw)', () => {
+  assert.match(PROVIDER, /result\?\.error/,
+    'signOut() resolves {error} — a bare await silently discards a failed revoke');
+  assert.match(PROVIDER, /auth_signout_revoke_failed/,
+    'revoke failures must be observable on the error dashboard');
 });

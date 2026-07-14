@@ -98,6 +98,11 @@
         method: method,
         headers: headers,
         body: isFormData ? body : body ? JSON.stringify(body) : null,
+        // ADR-011 §2 (AUDIT F6): logout must be able to ABORT in-flight
+        // requests — callers pass an AbortController signal via opts.signal
+        // (getWith/patchWith/…). Undefined for the existing 4-arg helpers:
+        // zero behaviour change unless a caller opts in.
+        signal: (opts && opts.signal) || undefined,
       });
     } catch (fetchErr) {
       // Network/CORS failure — tag the rejection with the id we SENT so an
