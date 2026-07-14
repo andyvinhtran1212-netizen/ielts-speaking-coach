@@ -17,11 +17,17 @@ test('the dark-launch probe is an app route and owns no legacy URL', () => {
   assert.ok(!sources.includes('/next-probe'), 'probe must not appear in legacy config sources');
 });
 
-test('legacy clean URLs stay legacy-owned until their atomic cutover', () => {
+test('pilot-2 cutover: grammar is now an app route, its legacy rewrite is GONE', () => {
+  const { routes, sources } = findCollisions();
+  // Grammar (pilot #2) cut over: the app route owns the canonical URL and the
+  // legacy rewrite was removed in the SAME change (atomic — route-ownership
+  // check would flag a leftover rewrite as a collision).
+  assert.ok(routes.includes('/grammar/[category]/[slug]'), 'grammar canonical is now a Next app route');
+  assert.ok(!sources.includes('/grammar/:category/:slug'), 'legacy grammar rewrite must be removed at cutover');
+});
+
+test('not-yet-piloted clean URLs stay legacy-owned', () => {
   const { sources } = findCollisions();
-  // Grammar is the designated pilot #2 — its rewrite must exist until the
-  // cutover change removes it TOGETHER with adding the app route.
-  assert.ok(sources.includes('/grammar/:category/:slug'));
   assert.ok(sources.includes('/home'));
   assert.ok(sources.includes('/speaking'));
 });

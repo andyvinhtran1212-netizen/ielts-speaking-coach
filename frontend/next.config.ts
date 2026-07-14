@@ -38,7 +38,14 @@ const nextConfig: NextConfig = {
         // /index.html stays on disk for instant rollback and is consolidated
         // to `/` via the redirect below.
         // Legacy-owned clean URLs (from vercel.json, unchanged shapes).
-        { source: '/grammar/:category/:slug', destination: '/pages/grammar-article.html' },
+        // PILOT 2 CUTOVER (prep): `/grammar/:category/:slug` is now the Next
+        // app route app/(public-content)/grammar/[category]/[slug]. The legacy
+        // rewrite is REMOVED atomically (route-ownership check enforces it).
+        // Legacy /pages/grammar-article.html stays on disk (instant rollback
+        // target) and remains directly reachable — it is param-driven
+        // (?category=&slug=) so it CANNOT be redirected to the clean path;
+        // the whole site links via the clean /grammar/:cat/:slug URL
+        // (grammar.js buildUrl), so direct .html hits are effectively unused.
         { source: '/writing/dashboard', destination: '/pages/writing-dashboard.html' },
         { source: '/writing/result', destination: '/pages/writing-result.html' },
         { source: '/admin/writing/prompts', destination: '/pages/admin/writing/prompts.html' },
