@@ -9,6 +9,14 @@ import { getArticle } from '@/lib/grammar-api';
 import { ArticleShell } from './page-shell';
 import { ArticleBehavior } from './article-behavior';
 
+// ADR-008 §3: this route's uncached SSR fetch hits the FastAPI backend, which
+// runs on Railway in Singapore (x-railway-edge: sin1). Pin the function region
+// to Singapore so that fetch is intra-region (~ms) instead of the Vercel
+// default (US-East → a cross-Pacific round-trip per uncached render). Only the
+// grammar route does a server-side backend fetch; landing/profile fetch
+// client-side, so the region pin lives here, not globally.
+export const preferredRegion = 'sin1';
+
 type Params = { params: Promise<{ category: string; slug: string }> };
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
