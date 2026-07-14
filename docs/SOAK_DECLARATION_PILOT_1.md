@@ -2,6 +2,17 @@
 
 **Ngày lập:** 2026-07-14 · **Căn cứ:** audit ngoài 2026-07-14 (F1–F8) + ADR-007 §6 + quy tắc reset trong ADR-007 "Cập nhật trạng thái"
 
+> **PHỤ THUỘC BẮT BUỘC (review #765 — P1):** mọi telemetry mà protocol này
+> tham chiếu (`GET /admin/error-logs/rollback-metrics`, collector
+> `frontend/public/js/rum-vitals.js`, event `web_vitals`, panel admin
+> "Rollback trigger") **ship trong PR #761**, KHÔNG trong tree của PR này.
+> Đó là lý do PR này merge **CUỐI CÙNG** trong stack (#760 → #761 → #762 →
+> #763 → #765) và điều kiện 1 + 4 dưới đây tồn tại: nếu #761 chưa merge thì
+> gate này **bất khả thi by design** — không thể khai báo soak khi chưa có
+> nguồn đo; đó chính là chốt chặn chống lặp lại lỗi F3 (soak không đo được).
+> Điều kiện 4 là kiểm chứng THỰC NGHIỆM (đo thấy dữ liệu trên production),
+> không phải kiểm chứng "code đã merge".
+
 ## Vì sao restart
 Soak đầu (từ release `e22b84ff`, cutover 2026-07-14) bị VÔ HIỆU: 3 deploy production trong cửa sổ soak không cờ hotfix (vi phạm §6), ~2h đầu không có telemetry gắn tag từ `/`, và hai trigger rollback đã freeze không tính được từ dashboard thời điểm đó. Chi tiết: `PILOT_1_CUTOVER_SHEET.md` mục cuối.
 
