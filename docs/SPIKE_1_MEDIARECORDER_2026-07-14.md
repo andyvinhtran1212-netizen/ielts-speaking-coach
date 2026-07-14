@@ -34,7 +34,12 @@ React-đặc-thù (lifecycle) kiểm soát được bằng cleanup kỷ luật.
    Mọi E2E cho trang Next tương tác phải chờ signal hydration (spike dùng
    `__spikeDiag.mounted` từ effect).
 3. Cleanup phải `rec.onstop = null` TRƯỚC khi stop trong unmount (legacy đã
-   biết bài này ở `_resetRecorder` — giữ nguyên khi port).
+   biết bài này ở `_resetRecorder` — giữ nguyên khi port). VÀ (review #747):
+   cleanup KHÔNG đủ một mình — `getUserMedia` resolve MUỘN sau unmount (prompt
+   quyền đang mở, user navigate ngay) sẽ tái-vũ-trang mic trên component đã
+   chết. Bắt buộc `disposedRef` re-check sau MỌI `await` trong start(); stream
+   nhận muộn phải stop tại chỗ (test deterministic: wrap gum delay 1.5s →
+   unmount giữa chừng → track phải `ended`).
 4. `pickMime` ladder của legacy hoạt động nguyên vẹn trên cả hai engine.
 
 ## Rủi ro tồn dư (chấp nhận có điều kiện)
