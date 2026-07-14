@@ -195,6 +195,19 @@
 
     <div id="qz-loading" class="qz-muted" style="padding:2rem 0;">Đang tải bài kiểm tra…</div>
 
+    <!-- Shown instead of the player when EVERY word in the bank is already
+         mastered, so re-opening a finished bank never dead-ends on an instant,
+         un-interactive result screen. -->
+    <div id="qz-gate" class="hidden">
+      <div class="qz-head"><h1>🎉 Bạn đã thuộc trọn vẹn bộ từ này!</h1></div>
+      <p class="qz-muted">Ôn tập lại để củng cố trí nhớ, hoặc làm lại từ đầu nếu muốn kiểm tra nghiêm ngặt lại toàn bộ danh sách.</p>
+      <div class="qz-actions">
+        <button id="qz-gate-review" type="button" class="av-button av-button-primary">🔁 Ôn tập lại</button>
+        <button id="qz-gate-reset" type="button" class="av-button av-button-secondary">♻️ Làm lại từ đầu</button>
+      </div>
+      <p id="qz-gate-error" class="hidden qz-fb__verdict" style="color:var(--av-error);margin-top:var(--av-space-4);"></p>
+    </div>
+
     <div id="qz-main" class="hidden">
       <div class="qz-head">
         <h1 id="qz-title"></h1>
@@ -339,6 +352,12 @@
     let engine = null, sessionId = null, current = null, graded = false, startMs = Date.now();
     let pending = 0;   // attempts since last flush
     let wordCards = {};   // lowercased headword → glance card (meaning/IPA/audio/example)
+    let bank = null, currentBankId = null;   // fetched once in boot(), reused by startPlay()
+    // A review pass (started from the "already mastered" gate) re-tests every
+    // word from scratch for reinforcement, but must NEVER overwrite the real
+    // mastery cache — so its word_stats snapshots are dropped before sending
+    // (attempts still upload: they're a harmless practice-activity log).
+    let reviewMode = false;
 
     // ── Audio: preload + cache so playback is instant and seamless ──────
     // Without this every 🔊 built a fresh Audio() and fetched on click (first play
@@ -389,7 +408,9 @@
 
     function _mergeIntoOutbox(batch) {
       if (batch.attempts.length) outbox.attempts = outbox.attempts.concat(batch.attempts);
-      (batch.word_stats || []).forEach((w) => { outbox.word_stats[w.item_key] = w; });
+      // Review-mode snapshots are never sent — the pass must not overwrite the
+      // real quiz_word_stats mastery cache (see `reviewMode` declaration above).
+      if (!reviewMode) (batch.word_stats || []).forEach((w) => { outbox.word_stats[w.item_key] = w; });
     }
 
     const MAX_BATCH = 100;   // < backend's 200/array cap; a long offline backlog is chunked
@@ -786,48 +807,14 @@
       return banks[0].id;
     }
 
-    async function boot() {
-      const resolvedBankId = await resolveBankId();
-      if (!resolvedBankId) return;   // resolveBankId already showed the message / redirected
-      let bank;
-      try { bank = await window.api.get('/api/quiz/banks/' + encodeURIComponent(resolvedBankId)); }
-      catch (e) { return fail('Không tải được bài: ' + e.message); }
-      if (!bank || !bank.questions || !bank.questions.length) return fail('Bài chưa có câu hỏi.');
-
-      let start;
-      try { start = await window.api.post('/api/quiz/sessions', { bank_id: resolvedBankId }); }
-      catch (e) { return fail('Không tạo được phiên: ' + e.message); }
-      sessionId = start.session_id;
-
-      // Cache the access token for the keepalive unload beacon (which needs the
-      // Authorization header synchronously, before the page tears down).
-      try {
-        const sess = await getSupabase().auth.getSession();
-        authToken = sess && sess.data && sess.data.session ? sess.data.session.access_token : null;
-      } catch (e) { authToken = null; }
-
-      // Seed the engine with the session id so word order + variant tie-breaks are
-      // randomized per session (no two students get an identical question sequence).
-      engine = createEngine(bank, { resume: start.resume || [], seed: sessionId });
-      wordCards = (bank && bank.word_cards) || {};
-      // Map item_key(lower) → its first question audio_url, so _prefetchUpcoming can
-      // warm the audio of words still down the queue before they're shown.
-      _audioByKey = {};
-      (bank.questions || []).forEach((q) => {
-        const k = String(q.item_key || '').toLowerCase();
-        if (k && q.audio_url && !_audioByKey[k]) _audioByKey[k] = q.audio_url;
-      });
-      $('qz-loading').classList.add('hidden');
-      $('qz-main').classList.remove('hidden');
-      $('qz-title').textContent = (bank.bank && (bank.bank.title || bank.bank.code)) || 'Quick-Check';
-
-      // Chrome highlight + back links match the bank's area (grammar → Grammar
-      // Wiki, else Vocabulary). Back labels are set here (never hard-coded in
-      // markup) so the area is authoritative.
-      // Both back controls (top header + end-screen) point at the SAME place —
-      // the practice picker the user came from — so "back" is never ambiguous.
-      // grammar → Grammar Wiki; vocab → the lesson picker (vocab-practice), NOT
-      // the public word wiki (which is a different "Vocabulary" page).
+    // Chrome highlight + back links match the bank's area (grammar → Grammar
+    // Wiki, else Vocabulary). Back labels are set here (never hard-coded in
+    // markup) so the area is authoritative.
+    // Both back controls (top header + end-screen) point at the SAME place —
+    // the practice picker the user came from — so "back" is never ambiguous.
+    // grammar → Grammar Wiki; vocab → the lesson picker (vocab-practice), NOT
+    // the public word wiki (which is a different "Vocabulary" page).
+    function wireChrome(bank) {
       const topBack = $('qz-top-back'), topLabel = $('qz-top-back-label'), back = $('qz-back');
       const chrome = document.querySelector('aver-chrome');
       if (bank.bank && bank.bank.skill_area === 'grammar') {
@@ -839,12 +826,94 @@
         topBack.href = '/pages/vocab-practice.html'; topLabel.textContent = 'Luyện tập';
         back.href = '/pages/vocab-practice.html'; back.textContent = '← Về Luyện tập';
       }
+    }
+
+    // Start (or resume) a real play session — the normal first-visit path AND
+    // the "Ôn tập lại" action from the mastered gate both funnel through here.
+    // `opts.resume` seeds the engine's mastery state; `opts.review` gates
+    // whether word_stats snapshots are persisted (see `reviewMode` above).
+    async function startPlay(opts) {
+      let start;
+      try { start = await window.api.post('/api/quiz/sessions', { bank_id: currentBankId }); }
+      catch (e) { return fail('Không tạo được phiên: ' + e.message); }
+      sessionId = start.session_id;
+      reviewMode = !!(opts && opts.review);
+
+      // Cache the access token for the keepalive unload beacon (which needs the
+      // Authorization header synchronously, before the page tears down).
+      try {
+        const sess = await getSupabase().auth.getSession();
+        authToken = sess && sess.data && sess.data.session ? sess.data.session.access_token : null;
+      } catch (e) { authToken = null; }
+
+      // Seed the engine with the session id so word order + variant tie-breaks are
+      // randomized per session (no two students get an identical question sequence).
+      const resume = (opts && opts.resume) || [];
+      engine = createEngine(bank, { resume: resume, seed: sessionId });
+      wordCards = (bank && bank.word_cards) || {};
+      // Map item_key(lower) → its first question audio_url, so _prefetchUpcoming can
+      // warm the audio of words still down the queue before they're shown.
+      _audioByKey = {};
+      (bank.questions || []).forEach((q) => {
+        const k = String(q.item_key || '').toLowerCase();
+        if (k && q.audio_url && !_audioByKey[k]) _audioByKey[k] = q.audio_url;
+      });
+      $('qz-loading').classList.add('hidden');
+      $('qz-gate').classList.add('hidden');
+      $('qz-main').classList.remove('hidden');
+      $('qz-title').textContent = (bank.bank && (bank.bank.title || bank.bank.code)) || 'Quick-Check';
 
       updateProgress();
       advance();
       // pagehide is the reliable "leaving" signal (mobile-safe); use a keepalive
       // beacon so buffered progress survives the unload.
       window.addEventListener('pagehide', flushBeacon);
+    }
+
+    function showMasteredGate() {
+      $('qz-loading').classList.add('hidden');
+      $('qz-gate').classList.remove('hidden');
+    }
+
+    $('qz-gate-review').onclick = () => startPlay({ resume: [], review: true });
+    $('qz-gate-reset').onclick = async () => {
+      if (!confirm('Xoá toàn bộ tiến độ "đã thuộc" của bài này và làm lại từ đầu?')) return;
+      const reviewBtn = $('qz-gate-review'), resetBtn = $('qz-gate-reset'), err = $('qz-gate-error');
+      reviewBtn.disabled = true; resetBtn.disabled = true;
+      err.classList.add('hidden');
+      try {
+        await window.api.post('/api/quiz/banks/' + encodeURIComponent(currentBankId) + '/reset', {});
+      } catch (e) {
+        reviewBtn.disabled = false; resetBtn.disabled = false;
+        err.textContent = 'Không xoá được tiến độ: ' + e.message;
+        err.classList.remove('hidden');
+        return;
+      }
+      location.reload();   // re-run boot() fresh — resume is now empty, full test restarts
+    };
+
+    async function boot() {
+      const resolvedBankId = await resolveBankId();
+      if (!resolvedBankId) return;   // resolveBankId already showed the message / redirected
+      currentBankId = resolvedBankId;
+      try { bank = await window.api.get('/api/quiz/banks/' + encodeURIComponent(resolvedBankId)); }
+      catch (e) { return fail('Không tải được bài: ' + e.message); }
+      if (!bank || !bank.questions || !bank.questions.length) return fail('Bài chưa có câu hỏi.');
+      wireChrome(bank);
+
+      let resume;
+      try { resume = await window.api.get('/api/quiz/banks/' + encodeURIComponent(resolvedBankId) + '/resume'); }
+      catch (e) { return fail('Không tải được tiến độ: ' + e.message); }
+
+      // Precheck: if every word is already mastered, starting a session would
+      // immediately hit an empty queue and dead-end on a blank result screen
+      // (engine.next() returns null by design — see quiz-engine.test.mjs).
+      // Offer the gate instead of creating a wasted 0-question session.
+      const check = createEngine(bank, { resume: resume || [] });
+      const p = check.progress();
+      if (p.total > 0 && p.remaining === 0) return showMasteredGate();
+
+      await startPlay({ resume: resume || [] });
     }
 
     boot();
