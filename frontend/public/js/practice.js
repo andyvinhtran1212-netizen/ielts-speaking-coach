@@ -76,20 +76,15 @@
   var _ftSubmitFailures = [];     // questionIds whose eager upload failed
   var _ftCompleteFailures = 0;    // sessions whose /complete call failed
 
-  // Spike-2 fix (defect g, 2026-07-14): test_part answers used to queue as
-  // in-memory blobs (_pendingTestAnswers) graded only at the end — a refresh
-  // mid-test LOST every recorded-but-ungraded answer. Uploads are now EAGER
-  // (fire-and-forget, same pattern as test_full); these track the in-flight
-  // promises so the end-of-test screen can wait for them, and failures so
-  // they never vanish silently.
-  var _ptUploads        = [];  // settled-safe Promises of this page-load's eager uploads
-  var _ptUploadsDone    = 0;   // settled count — drives the progress line
-  var _ptUploadFailures = [];  // question ids whose eager upload failed
-
-  function _ptTrackUpload(promise) {
-    // _submitGradingEager catches internally, so `promise` never rejects.
-    _ptUploads.push(promise.then(function () { _ptUploadsDone++; }));
-  }
+  // Spike-2 fix (defect g, 2026-07-14, hardened per review #749): test_part
+  // answers used to queue as in-memory blobs graded only at the end — a
+  // refresh mid-test LOST every recorded-but-ungraded answer. test_part now
+  // grades each answer through the SAME awaited path as practice
+  // (_startProcessing → _uploadAndGrade), which persists the response
+  // server-side BEFORE advancing to the next question — so the blob is never
+  // the only copy across a screen transition. _showFeedback() short-circuits
+  // for test mode (no feedback shown, just accumulate + advance). init()
+  // resumes at the first still-unanswered question.
 
 
   // Blob URL for the current practice-mode recording (used for replay/download on feedback screen)
@@ -566,13 +561,9 @@
       _advanceTestMode();
       return;
     }
-    if (_testMode === 'test_part') {
-      // Eager upload — grading persists server-side per answer, so a refresh
-      // can no longer lose it; result.html reads the persisted rows.
-      _ptTrackUpload(_submitGradingEager(_sessionId, questionId, _recordedBlob));
-      _advanceTestMode();
-      return;
-    }
+    // test_part falls through to the awaited practice path below: each
+    // answer is graded + persisted before _showFeedback (test short-circuit)
+    // advances, so a refresh can never lose a confirmed answer (review #749).
 
     _startProcessing(_recordedBlob, questionId);
   }
@@ -2131,12 +2122,6 @@
         _advanceTestMode();
         return;
       }
-      if (_testMode === 'test_part') {
-        // Eager upload — same reasoning as the Part 1/3 submit path.
-        _ptTrackUpload(_submitGradingEager(_sessionId, questionId, _recordedBlob));
-        _advanceTestMode();
-        return;
-      }
 
       _startProcessing(_recordedBlob, questionId);
     };
@@ -2225,7 +2210,6 @@
         // answer never reaches the server aggregate. Record it so the
         // completion screen can tell the user, instead of it vanishing silently.
         console.warn('[practice] eager grading failed for q', questionId, err);
-        if (_testMode === 'test_part') _ptUploadFailures.push(questionId);
         if (_testMode === 'test_full') {
           _ftSubmitFailures.push(questionId);
           // This upload can reject AFTER the completion screen is already shown
@@ -2250,12 +2234,9 @@
 
     // Last question in this part
     if (_testMode === 'test_part') {
-      // Answers were graded server-side as they were submitted (eager) —
-      // just wait for the in-flight uploads, then hand off to the canonical
-      // result page.
-      _waitForEagerUploads(function () {
-        _finishTestAndShowResults();
-      });
+      // Every answer was graded + persisted before we got here (awaited
+      // practice path) — hand straight off to the canonical result page.
+      _finishTestAndShowResults();
     } else {
       // Full Test: do NOT grade between parts — go directly to next part
       var nextPart = _ftCurrentPart + 1;
@@ -2418,36 +2399,6 @@
     } catch (err) {
       showError('Không thể bắt đầu Part ' + part + ': ' + (err.message || 'Lỗi không xác định'));
     }
-  }
-
-  // Wait for the eager test_part uploads to settle, mirroring the old
-  // "Đang chấm điểm X/Y" progress screen. Grading already ran server-side
-  // per upload — there is nothing left to submit here, only to await.
-  function _waitForEagerUploads(callback) {
-    var pending = _ptUploads.slice();
-    var total = pending.length;
-    if (!total) { callback(); return; }
-
-    showState('processing');
-    var textEl = $('processing-text');
-    function renderProgress() {
-      if (textEl) {
-        textEl.textContent = 'Đang chấm điểm câu '
-          + Math.min(_ptUploadsDone + 1, total) + ' / ' + total + '...';
-      }
-    }
-    renderProgress();
-    var tick = setInterval(renderProgress, 500);
-
-    // Every tracked promise is settled-safe (eager catches internally).
-    Promise.all(pending).then(function () {
-      clearInterval(tick);
-      if (_ptUploadFailures.length) {
-        console.warn('[practice] test_part: ' + _ptUploadFailures.length
-          + ' upload(s) failed — result page will show fewer answers:', _ptUploadFailures);
-      }
-      callback();
-    });
   }
 
   function _finishTestAndShowResults() {

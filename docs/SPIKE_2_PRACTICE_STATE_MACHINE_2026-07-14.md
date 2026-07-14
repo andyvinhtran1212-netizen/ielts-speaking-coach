@@ -46,11 +46,15 @@ nhất, lần chấm sau ĐÈ lần trước im lặng** (grading.py:969-997; la
    e2e). Port Next thừa kế contract này nguyên trạng.
 3. `ielts_ft_p2topic` là contract NGẦM giữa 2 trang: `speaking.html:2088` ghi,
    `practice.js:2950` đọc — port phải giữ key này nguyên tên.
-4. `test_part` deferred-answers: **ĐÃ FIX trên legacy (2026-07-14)** — chuyển
-   sang eager-upload cùng pattern với test_full (quyết định chốt tại đây thay
-   vì lúc port): grading persist server-side per answer, cuối bài chỉ chờ
-   upload in-flight rồi giao cho result.html canonical; init resume tại câu
-   CHƯA trả lời đầu tiên (dựa trên responses đã persist — không re-grade).
+4. `test_part` deferred-answers: **ĐÃ FIX trên legacy (2026-07-14, hardened
+   review #749)** — chấm từng câu qua CÙNG path awaited với practice
+   (`_startProcessing` → `_uploadAndGrade`): response persist server-side
+   TRƯỚC khi advance, nên blob không bao giờ là bản duy nhất qua một screen
+   transition (đóng cửa sổ refresh-during-grading — fire-and-forget-rồi-advance
+   vẫn hở cửa này). `_showFeedback` short-circuit test-mode (không hiện
+   feedback, chỉ advance). Đánh đổi có chủ đích: giờ có spinner chấm giữa các
+   câu (như practice), thay vì batch cuối bài — data-safety > flow mượt cho
+   một P1 loss. Init resume tại câu CHƯA trả lời đầu (responses đã persist).
    Regression: `tests/e2e/test_part_resume.spec.js` + pins
    `tests/test-part-eager.test.mjs`. Port Next thừa kế nguyên trạng.
 5. Timers Part 2 (prep 60s/speak 120s) không recover được — chấp nhận restart.
