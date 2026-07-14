@@ -1,4 +1,4 @@
-// Pilot 1 — landing (dark launch tại /landing-preview, plan Phase 2).
+// Pilot 1 — landing. CUTOVER 2026-07-14: canonical `/` = app/(marketing)/page.tsx.
 // Pin các ràng buộc pilot: parity-first, client boundary hẹp nhất (ADR-004).
 import { test } from 'node:test';
 import assert from 'node:assert';
@@ -7,8 +7,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const PAGE = path.join(FRONTEND, 'app', '(marketing)', 'landing-preview', 'page.tsx');
-const BEHAVIOR = path.join(FRONTEND, 'app', '(marketing)', 'landing-preview', 'landing-behavior.tsx');
+const PAGE = path.join(FRONTEND, 'app', '(marketing)', 'page.tsx');
+const BEHAVIOR = path.join(FRONTEND, 'app', '(marketing)', 'landing-behavior.tsx');
 const LAYOUT = path.join(FRONTEND, 'app', '(marketing)', 'layout.tsx');
 
 test('page là Server Component; chỉ landing-behavior là client', () => {
@@ -42,4 +42,13 @@ test('parity: các marker nội dung chính của index.html có mặt trong pag
 
 test('legacy index.html còn nguyên (dark launch không chạm canonical)', () => {
   assert.ok(existsSync(path.join(FRONTEND, 'public', 'index.html')));
+});
+
+test('CUTOVER: `/` is the Next app route; the legacy `/`→/index.html rewrite is GONE', () => {
+  const cfg = readFileSync(path.join(FRONTEND, 'next.config.ts'), 'utf8');
+  assert.ok(!cfg.includes("{ source: '/', destination: '/index.html' }"),
+    'the `/` rewrite must be removed atomically with the cutover (route-ownership check enforces it)');
+  assert.match(cfg, /source: '\/index\.html', destination: '\/'/,
+    'legacy /index.html consolidates to the canonical `/`');
+  assert.ok(existsSync(PAGE), 'landing page.tsx now lives directly under (marketing) → route `/`');
 });

@@ -31,8 +31,12 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return {
       beforeFiles: [
-        // Legacy root — public/index.html does not auto-serve at `/`.
-        { source: '/', destination: '/index.html' },
+        // PILOT 1 CUTOVER (2026-07-14): `/` is now the Next app route
+        // app/(marketing)/page.tsx. The old `/` → /index.html rewrite is
+        // REMOVED in the same change (route-ownership check enforces this
+        // atomicity — leaving it here would shadow the app route). Legacy
+        // /index.html stays on disk for instant rollback and is consolidated
+        // to `/` via the redirect below.
         // Legacy-owned clean URLs (from vercel.json, unchanged shapes).
         { source: '/grammar/:category/:slug', destination: '/pages/grammar-article.html' },
         { source: '/writing/dashboard', destination: '/pages/writing-dashboard.html' },
@@ -53,6 +57,12 @@ const nextConfig: NextConfig = {
   async redirects() {
     // Permanent legacy-path consolidation — ported 1:1 from vercel.json.
     return [
+      // PILOT 1 CUTOVER: one canonical landing. Direct hits to the legacy
+      // file (bookmarks, aver-chrome logout → '/index.html') consolidate to
+      // the Next landing at `/`. Redirects run before the filesystem, so the
+      // on-disk public/index.html is never served while this is active — but
+      // it stays on disk so reverting this commit restores the old behavior.
+      { source: '/index.html', destination: '/', permanent: true },
       { source: '/pages/dashboard.html', destination: '/pages/speaking.html', permanent: true },
       { source: '/pages/my-vocabulary.html', destination: '/pages/vocabulary.html', permanent: true },
       { source: '/pages/admin-writing.html', destination: '/pages/admin/writing/index.html', permanent: true },
