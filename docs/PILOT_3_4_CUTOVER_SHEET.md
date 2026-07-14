@@ -5,10 +5,11 @@ READ) và pilot 4 (reversible MUTATION) là **CÙNG một trang** (profile) — 
 cutover mang cả hai.
 
 > **TRẠNG THÁI VẬN HÀNH: CHUẨN BỊ SẴN, CHƯA cutover.** Diff build + suite
-> verified; PR **DRAFT**. Blocker chính: **N/N−1 consumer test (pilot-4
-> mutation gate)** chưa làm. Profile hiện VẪN legacy tại `/pages/profile.html`;
-> bản Next dark-launch ở `/profile-preview` (đã đổi thành `/profile` trong
-> branch này).
+> verified; PR **DRAFT**. Gate mutation **N/N−1 consumer test đã đóng
+> (2026-07-14)** — blocker còn lại chỉ là **soak + re-measure ≤72h + refresh
+> main** (không có gate build-được nào còn mở). Profile hiện VẪN legacy tại
+> `/pages/profile.html`; bản Next dark-launch ở `/profile-preview` (đã đổi
+> thành `/profile` trong branch này).
 
 ## Khác biệt so với pilot 1/2 (đọc kỹ)
 
@@ -46,9 +47,12 @@ cutover mang cả hai.
 - [x] Idempotency (set-semantics PATCH; replay pin)
 - [x] Canonical reconcile GET + double-submit + timeout-after-commit (#743/#749)
 - [x] Kill switch `require_flag("profile_update")` + drill đo (545ms/759ms)
-- [ ] **N/N−1 consumer test (ADR-009)** — CHƯA hình thức hóa. Đây là gate
-      chốt. Bằng chứng tự nhiên đã có (cửa sổ rollback-pin ~5h chạy FE N−6 +
-      BE N với 0 lỗi) nhưng phải viết test chính thức trước cutover.
+- [x] **N/N−1 consumer test (ADR-009) — ĐÃ VIẾT + XANH (2026-07-14):**
+      static contract `tests/profile-nn1-contract.test.mjs` (legacy + Next gửi/đọc
+      shape GIỐNG HỆT, đều ⊆ backend accept/return — pin no-removal ADR-009 §1)
+      + live `tests/staging-e2e/nn1-profile-consumer.spec.js` chạy payload CẢ HAI
+      client với staging backend HEAD (legacy=rollback safety, Next=interchangeable,
+      idempotent replay) — 3/3 pass live. Đóng gate mutation chốt.
 
 **Chung:**
 - [x] Nightly streak 20/20 · [ ] Traffic baseline re-run ≤72h · [ ] Đo baseline
