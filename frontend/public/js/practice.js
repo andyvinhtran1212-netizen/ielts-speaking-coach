@@ -76,8 +76,15 @@
   var _ftSubmitFailures = [];     // questionIds whose eager upload failed
   var _ftCompleteFailures = 0;    // sessions whose /complete call failed
 
-  // Deferred grading: answers collected during test flow, processed in batch at end of part
-  var _pendingTestAnswers = [];  // [{questionId, blob, questionText, part}]
+  // Spike-2 fix (defect g, 2026-07-14, hardened per review #749): test_part
+  // answers used to queue as in-memory blobs graded only at the end — a
+  // refresh mid-test LOST every recorded-but-ungraded answer. test_part now
+  // grades each answer through the SAME awaited path as practice
+  // (_startProcessing → _uploadAndGrade), which persists the response
+  // server-side BEFORE advancing to the next question — so the blob is never
+  // the only copy across a screen transition. _showFeedback() short-circuits
+  // for test mode (no feedback shown, just accumulate + advance). init()
+  // resumes at the first still-unanswered question.
 
 
   // Blob URL for the current practice-mode recording (used for replay/download on feedback screen)
@@ -554,17 +561,9 @@
       _advanceTestMode();
       return;
     }
-    if (_testMode === 'test_part') {
-      _pendingTestAnswers.push({
-        sessionId:    _sessionId,
-        questionId:   questionId,
-        blob:         _recordedBlob,
-        questionText: _currentQ ? (_currentQ.question_text || '') : '',
-        part:         _sessionData ? _sessionData.part : null,
-      });
-      _advanceTestMode();
-      return;
-    }
+    // test_part falls through to the awaited practice path below: each
+    // answer is graded + persisted before _showFeedback (test short-circuit)
+    // advances, so a refresh can never lose a confirmed answer (review #749).
 
     _startProcessing(_recordedBlob, questionId);
   }
@@ -2123,17 +2122,6 @@
         _advanceTestMode();
         return;
       }
-      if (_testMode === 'test_part') {
-        _pendingTestAnswers.push({
-          sessionId:    _sessionId,
-          questionId:   questionId,
-          blob:         _recordedBlob,
-          questionText: _currentQ ? (_currentQ.question_text || '') : '',
-          part:         _sessionData ? _sessionData.part : null,
-        });
-        _advanceTestMode();
-        return;
-      }
 
       _startProcessing(_recordedBlob, questionId);
     };
@@ -2246,10 +2234,9 @@
 
     // Last question in this part
     if (_testMode === 'test_part') {
-      // Single-part test: grade everything, then show results
-      _processPendingAnswers(function () {
-        _finishTestAndShowResults();
-      });
+      // Every answer was graded + persisted before we got here (awaited
+      // practice path) — hand straight off to the canonical result page.
+      _finishTestAndShowResults();
     } else {
       // Full Test: do NOT grade between parts — go directly to next part
       var nextPart = _ftCurrentPart + 1;
@@ -2412,64 +2399,6 @@
     } catch (err) {
       showError('Không thể bắt đầu Part ' + part + ': ' + (err.message || 'Lỗi không xác định'));
     }
-  }
-
-  // Sequentially grade all deferred answers collected during test mode.
-  // Shows a "Đang chấm điểm X/Y" processing screen while working.
-  // Calls callback() when all done (or on failure).
-  function _processPendingAnswers(callback) {
-    var answers = _pendingTestAnswers.slice();
-    _pendingTestAnswers = [];
-
-    if (!answers.length) {
-      callback();
-      return;
-    }
-
-    var total   = answers.length;
-    var current = 0;
-
-    var textEl = $('processing-text');
-    showState('processing');
-
-    function gradeNext() {
-      if (current >= total) {
-        if (_processingTimer) { clearInterval(_processingTimer); _processingTimer = null; }
-        callback();
-        return;
-      }
-
-      var item = answers[current];
-      current++;
-
-      if (textEl) textEl.textContent = 'Đang chấm điểm câu ' + current + ' / ' + total + '...';
-
-      var fd = new FormData();
-      fd.append('question_id', item.questionId);
-      fd.append('audio_file',  item.blob, 'response.webm');
-
-      window.api.upload('/sessions/' + item.sessionId + '/responses', fd)
-        .then(function (data) {
-          _testResults.push({
-            part:         item.part,
-            questionText: item.questionText,
-            response:     data,
-            sessionId:    item.sessionId,
-          });
-        })
-        .catch(function (err) {
-          console.warn('[practice] deferred grading failed for q', item.questionId, err);
-          _testResults.push({
-            part:         item.part,
-            questionText: item.questionText,
-            response:     { _stub: true, _error: err.message || 'Lỗi không xác định' },
-            sessionId:    item.sessionId,
-          });
-        })
-        .then(function () { gradeNext(); });
-    }
-
-    gradeNext();
   }
 
   function _finishTestAndShowResults() {
@@ -3060,6 +2989,29 @@
 
       _questions  = questions;
       _currentIdx = 0;
+
+      // Spike-2 fix (defect g): with eager uploads, answered test_part
+      // questions are already graded server-side — resume at the first
+      // UNANSWERED question instead of forcing a redo from Q1 (which would
+      // re-grade every answer). test_part only: practice keeps its flow;
+      // sealed mock sittings return responses=[] and start at 0 as before.
+      if (_testMode === 'test_part' && _sessionData.responses && _sessionData.responses.length) {
+        var _answeredQ = {};
+        _sessionData.responses.forEach(function (r) {
+          if (r.question_id) _answeredQ[r.question_id] = true;
+        });
+        while (_currentIdx < _questions.length &&
+               _answeredQ[_questions[_currentIdx].id || _questions[_currentIdx].question_id]) {
+          _currentIdx++;
+        }
+        if (_currentIdx >= _questions.length) {
+          // Refresh landed AFTER the last answer was submitted: everything
+          // is graded — complete the session and go straight to the
+          // canonical result page.
+          _finishTestAndShowResults();
+          return;
+        }
+      }
 
       // Show a warning banner if Gemini was unavailable and fallback questions are being used
       var isFallback = questions.some(function (q) { return q._fallback; });
