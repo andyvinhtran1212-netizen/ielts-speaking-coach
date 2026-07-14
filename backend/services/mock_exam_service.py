@@ -595,11 +595,14 @@ def _promote_writing_essays(sitting_id: str) -> None:
     (built for regular Writing) works for mock essays too, instead of a
     separate bespoke display (2026-07-12).
 
-    Rows are created with status='pending' and NO grading job scheduled — an
-    admin explicitly starts grading later via POST
-    /admin/writing/essays/{id}/start-grading after picking a tier. Idempotent
-    (skips a task whose essay id is already stamped) and never raises — a
-    promotion failure must not block the section from being collected."""
+    Rows are created with status='pending'. On the student-submit path the
+    router then auto-starts AI grading (claim_mock_writing_grading), so a mock
+    essay lands 'graded' and ready for admin review without a manual "Bắt đầu
+    chấm" click; the server-side reaper/closed-tab path leaves them 'pending' for
+    that button. The admin can also (re)grade via POST
+    /admin/writing/essays/{id}/start-grading. Idempotent (skips a task whose
+    essay id is already stamped) and never raises — a promotion failure must not
+    block the section from being collected."""
     try:
         sitting = get_sitting(sitting_id)
         if not sitting:
@@ -676,6 +679,43 @@ def _promote_writing_essays(sitting_id: str) -> None:
             )
     except Exception:  # noqa: BLE001
         logger.exception("[mock-exam] promote-writing failed sitting=%s", sitting_id)
+
+
+# Auto-grade config for promoted mock Writing essays. 'standard' = AI grade only
+# (the human review happens in the mock-review console, never the instructor
+# queue — so mock essays deliberately don't create an instructor_reviews row);
+# level 3 mirrors what _promote_writing_essays gives create_essay_row_only.
+_MOCK_WRITING_GRADING_TIER = "standard"
+_MOCK_WRITING_ANALYSIS_LEVEL = 3
+
+
+def claim_mock_writing_grading(essay_ids: list) -> list[tuple[str, str]]:
+    """Atomically claim each still-'pending' promoted Writing essay for AI
+    grading (pending→grading + a job row) and return the (essay_id, job_id)
+    pairs the CALLER must launch as request-scoped BackgroundTasks — a service
+    can't own request lifecycle (same split as writing_student self-submit).
+
+    Idempotent + best-effort: a falsy id or an already-grading/graded essay
+    (claim returns None) is skipped; a claim error is logged, never raised —
+    auto-grading must not fail the student's section submit."""
+    from services import essay_service  # local import avoids import-order coupling
+    out: list[tuple[str, str]] = []
+    for essay_id in essay_ids:
+        if not essay_id:
+            continue
+        try:
+            job = essay_service.claim_pending_for_grading(
+                str(essay_id),
+                grading_tier=_MOCK_WRITING_GRADING_TIER,
+                analysis_level=_MOCK_WRITING_ANALYSIS_LEVEL,
+                selected_model=essay_service.default_grading_model(_MOCK_WRITING_ANALYSIS_LEVEL),
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception("[mock-exam] auto-grade claim failed essay=%s", essay_id)
+            continue
+        if job:
+            out.append((str(essay_id), job["job_id"]))
+    return out
 
 
 def start_section(sitting_id: str, user_id: str, section: str) -> dict:

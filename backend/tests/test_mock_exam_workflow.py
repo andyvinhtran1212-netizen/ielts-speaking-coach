@@ -1420,6 +1420,42 @@ def test_promote_writing_essays_skips_empty_task(fake_db, svc):
     assert sitting.get("essay_task2_id") is None
 
 
+# ── auto-grade helper (2026-07-14: close Gap 1 — grade on promote) ────
+
+def test_claim_mock_writing_grading_claims_pending_returns_pairs(svc, monkeypatch):
+    """Each non-null essay id is claimed with tier=standard, level=3, the
+    level-aware model; a None-returning claim (not pending) and falsy ids are
+    skipped; returns (essay_id, job_id) for the launched jobs."""
+    from services import essay_service
+    calls = []
+
+    def fake_claim(essay_id, **kw):
+        calls.append((essay_id, kw))
+        return {"job_id": "j-" + essay_id, "eta_seconds": 1} if essay_id != "e2" else None
+
+    monkeypatch.setattr(essay_service, "claim_pending_for_grading", fake_claim)
+    monkeypatch.setattr(essay_service, "default_grading_model", lambda level: "model-L%d" % level)
+
+    out = svc.claim_mock_writing_grading(["e1", "e2", None, "e3"])
+    assert out == [("e1", "j-e1"), ("e3", "j-e3")]     # e2 not pending, None ignored
+    assert [c[0] for c in calls] == ["e1", "e2", "e3"]
+    assert calls[0][1]["grading_tier"] == "standard"
+    assert calls[0][1]["analysis_level"] == 3
+    assert calls[0][1]["selected_model"] == "model-L3"
+
+
+def test_claim_mock_writing_grading_swallows_claim_error(svc, monkeypatch):
+    """A claim error is logged, never raised — auto-grade must not fail submit."""
+    from services import essay_service
+
+    def boom(essay_id, **kw):
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(essay_service, "claim_pending_for_grading", boom)
+    monkeypatch.setattr(essay_service, "default_grading_model", lambda level: "m")
+    assert svc.claim_mock_writing_grading(["e1"]) == []   # no raise, empty result
+
+
 def _seed_mock_writing(fake_db, svc):
     """A 4-skill-less (LRW) exam with both Writing prompts + a student, driven
     to all_submitted so 2 pending essays are promoted. Returns (exam, u, s)."""
