@@ -55,6 +55,10 @@ export function RecorderSpike() {
   const blobRef = useRef<Blob | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const blobUrlRef = useRef<string | null>(null);
+  // Late-async guard (review #747): true once the lifecycle cleanup has run.
+  // Every `await` inside start() must re-check it — a getUserMedia that
+  // resolves AFTER unmount would otherwise re-arm the mic on a dead component.
+  const disposedRef = useRef(false);
 
   const publishDiag = useCallback((patch: Record<string, unknown>) => {
     setDiag((prev) => {
@@ -78,11 +82,13 @@ export function RecorderSpike() {
 
   // ── Lifecycle cleanup — the React-specific risk under test ─────────
   useEffect(() => {
+    disposedRef.current = false; // StrictMode remount re-arms
     publishDiag({ mounted: true, strictModeProbe: (window.__spikeDiag?.mountCount as number || 0) + 1 });
     try {
       window.__spikeDiag = { ...(window.__spikeDiag || {}), mountCount: ((window.__spikeDiag?.mountCount as number) || 0) + 1 };
     } catch { /* ignore */ }
     return () => {
+      disposedRef.current = true;
       // Mirror legacy _resetRecorder + full teardown: a component that
       // unmounts MID-RECORDING must not leave the mic live (tab indicator)
       // or a zombie recorder pushing chunks into freed state.
@@ -121,8 +127,9 @@ export function RecorderSpike() {
 
     // Legacy rule: reuse the stream while it is still active.
     if (!streamRef.current || !streamRef.current.active) {
+      let acquired: MediaStream;
       try {
-        streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        acquired = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       } catch (err: any) {
         const name = err?.name;
         setError(
@@ -135,6 +142,16 @@ export function RecorderSpike() {
         publishDiag({ gumError: String(name || err) });
         return;
       }
+      // Unmounted while the permission prompt / acquisition was pending:
+      // cleanup already ran and saw streamRef=null, so the just-acquired
+      // tracks must be stopped HERE or the mic stays live on a dead
+      // component (review #747 — the exact zombie case under test).
+      if (disposedRef.current) {
+        acquired.getTracks().forEach((t) => { try { t.stop(); } catch { /* */ } });
+        try { window.__spikeDiag = { ...(window.__spikeDiag || {}), lateGumStopped: true }; } catch { /* */ }
+        return;
+      }
+      streamRef.current = acquired;
     }
 
     // AudioContext analyser — optional exactly like legacy (Safari: created
@@ -150,6 +167,15 @@ export function RecorderSpike() {
       analyser.fftSize = 256;
       src.connect(analyser);
     } catch { /* non-fatal, same as legacy */ }
+
+    // Second late-async checkpoint: resume() also awaited above.
+    if (disposedRef.current) {
+      streamRef.current?.getTracks().forEach((t) => { try { t.stop(); } catch { /* */ } });
+      streamRef.current = null;
+      try { void audioCtxRef.current?.close(); } catch { /* */ }
+      audioCtxRef.current = null;
+      return;
+    }
 
     const mime = pickMime();
     chunksRef.current = [];

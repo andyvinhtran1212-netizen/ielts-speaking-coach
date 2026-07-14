@@ -89,6 +89,37 @@ test('unmount MID-RECORDING releases the microphone (no zombie recorder)', async
   expect(Number(diag.blobSize)).toBeGreaterThan(500);
 });
 
+test('unmount WHILE getUserMedia is pending: late stream is stopped, no zombie (review #747)', async ({ page, browserName }) => {
+  test.skip(browserName === 'webkit', 'chromium-only lifecycle probe (fake mic)');
+  // Wrap getUserMedia with a 1.5s delay so the unmount can land while the
+  // acquisition is still pending (a real permission prompt does exactly this).
+  await page.addInitScript(() => {
+    const orig = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+    navigator.mediaDevices.getUserMedia = async (c) => {
+      await new Promise((r) => setTimeout(r, 1500));
+      const s = await orig(c);
+      // Keep a handle so the test can verify the late stream got stopped.
+      window.__lateStream = s;
+      return s;
+    };
+  });
+  await open(page);
+  await page.click('[data-testid="btn-start"]');
+  await page.waitForTimeout(300); // gum still pending…
+  await page.click('[data-testid="btn-toggle-mount"]'); // …unmount NOW
+  await expect(page.locator('[data-testid="unmounted-marker"]')).toBeVisible();
+  await page.waitForTimeout(2500); // let the delayed gum resolve
+
+  const verdict = await page.evaluate(() => ({
+    lateGumStopped: window.__spikeDiag && window.__spikeDiag.lateGumStopped,
+    // Every track of the late-resolved stream must be ended — a live one
+    // means the mic indicator stays on after navigation.
+    tracks: window.__lateStream ? window.__lateStream.getTracks().map((t) => t.readyState) : 'no-stream',
+  }));
+  expect(verdict.lateGumStopped).toBe(true);
+  expect(verdict.tracks).toEqual(['ended']);
+});
+
 test('browser-recorded blob uploads through the legacy multipart contract → fixture grade', async ({ page, browserName, request }) => {
   test.skip(browserName === 'webkit', 'upload flow pinned on chromium (fake mic)');
   test.skip(!process.env.E2E_PASSWORD, 'E2E_PASSWORD required (staging identities)');
