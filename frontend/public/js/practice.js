@@ -76,8 +76,20 @@
   var _ftSubmitFailures = [];     // questionIds whose eager upload failed
   var _ftCompleteFailures = 0;    // sessions whose /complete call failed
 
-  // Deferred grading: answers collected during test flow, processed in batch at end of part
-  var _pendingTestAnswers = [];  // [{questionId, blob, questionText, part}]
+  // Spike-2 fix (defect g, 2026-07-14): test_part answers used to queue as
+  // in-memory blobs (_pendingTestAnswers) graded only at the end — a refresh
+  // mid-test LOST every recorded-but-ungraded answer. Uploads are now EAGER
+  // (fire-and-forget, same pattern as test_full); these track the in-flight
+  // promises so the end-of-test screen can wait for them, and failures so
+  // they never vanish silently.
+  var _ptUploads        = [];  // settled-safe Promises of this page-load's eager uploads
+  var _ptUploadsDone    = 0;   // settled count — drives the progress line
+  var _ptUploadFailures = [];  // question ids whose eager upload failed
+
+  function _ptTrackUpload(promise) {
+    // _submitGradingEager catches internally, so `promise` never rejects.
+    _ptUploads.push(promise.then(function () { _ptUploadsDone++; }));
+  }
 
 
   // Blob URL for the current practice-mode recording (used for replay/download on feedback screen)
@@ -555,13 +567,9 @@
       return;
     }
     if (_testMode === 'test_part') {
-      _pendingTestAnswers.push({
-        sessionId:    _sessionId,
-        questionId:   questionId,
-        blob:         _recordedBlob,
-        questionText: _currentQ ? (_currentQ.question_text || '') : '',
-        part:         _sessionData ? _sessionData.part : null,
-      });
+      // Eager upload — grading persists server-side per answer, so a refresh
+      // can no longer lose it; result.html reads the persisted rows.
+      _ptTrackUpload(_submitGradingEager(_sessionId, questionId, _recordedBlob));
       _advanceTestMode();
       return;
     }
@@ -2124,13 +2132,8 @@
         return;
       }
       if (_testMode === 'test_part') {
-        _pendingTestAnswers.push({
-          sessionId:    _sessionId,
-          questionId:   questionId,
-          blob:         _recordedBlob,
-          questionText: _currentQ ? (_currentQ.question_text || '') : '',
-          part:         _sessionData ? _sessionData.part : null,
-        });
+        // Eager upload — same reasoning as the Part 1/3 submit path.
+        _ptTrackUpload(_submitGradingEager(_sessionId, questionId, _recordedBlob));
         _advanceTestMode();
         return;
       }
@@ -2222,6 +2225,7 @@
         // answer never reaches the server aggregate. Record it so the
         // completion screen can tell the user, instead of it vanishing silently.
         console.warn('[practice] eager grading failed for q', questionId, err);
+        if (_testMode === 'test_part') _ptUploadFailures.push(questionId);
         if (_testMode === 'test_full') {
           _ftSubmitFailures.push(questionId);
           // This upload can reject AFTER the completion screen is already shown
@@ -2246,8 +2250,10 @@
 
     // Last question in this part
     if (_testMode === 'test_part') {
-      // Single-part test: grade everything, then show results
-      _processPendingAnswers(function () {
+      // Answers were graded server-side as they were submitted (eager) —
+      // just wait for the in-flight uploads, then hand off to the canonical
+      // result page.
+      _waitForEagerUploads(function () {
         _finishTestAndShowResults();
       });
     } else {
@@ -2414,62 +2420,34 @@
     }
   }
 
-  // Sequentially grade all deferred answers collected during test mode.
-  // Shows a "Đang chấm điểm X/Y" processing screen while working.
-  // Calls callback() when all done (or on failure).
-  function _processPendingAnswers(callback) {
-    var answers = _pendingTestAnswers.slice();
-    _pendingTestAnswers = [];
+  // Wait for the eager test_part uploads to settle, mirroring the old
+  // "Đang chấm điểm X/Y" progress screen. Grading already ran server-side
+  // per upload — there is nothing left to submit here, only to await.
+  function _waitForEagerUploads(callback) {
+    var pending = _ptUploads.slice();
+    var total = pending.length;
+    if (!total) { callback(); return; }
 
-    if (!answers.length) {
-      callback();
-      return;
-    }
-
-    var total   = answers.length;
-    var current = 0;
-
-    var textEl = $('processing-text');
     showState('processing');
-
-    function gradeNext() {
-      if (current >= total) {
-        if (_processingTimer) { clearInterval(_processingTimer); _processingTimer = null; }
-        callback();
-        return;
+    var textEl = $('processing-text');
+    function renderProgress() {
+      if (textEl) {
+        textEl.textContent = 'Đang chấm điểm câu '
+          + Math.min(_ptUploadsDone + 1, total) + ' / ' + total + '...';
       }
-
-      var item = answers[current];
-      current++;
-
-      if (textEl) textEl.textContent = 'Đang chấm điểm câu ' + current + ' / ' + total + '...';
-
-      var fd = new FormData();
-      fd.append('question_id', item.questionId);
-      fd.append('audio_file',  item.blob, 'response.webm');
-
-      window.api.upload('/sessions/' + item.sessionId + '/responses', fd)
-        .then(function (data) {
-          _testResults.push({
-            part:         item.part,
-            questionText: item.questionText,
-            response:     data,
-            sessionId:    item.sessionId,
-          });
-        })
-        .catch(function (err) {
-          console.warn('[practice] deferred grading failed for q', item.questionId, err);
-          _testResults.push({
-            part:         item.part,
-            questionText: item.questionText,
-            response:     { _stub: true, _error: err.message || 'Lỗi không xác định' },
-            sessionId:    item.sessionId,
-          });
-        })
-        .then(function () { gradeNext(); });
     }
+    renderProgress();
+    var tick = setInterval(renderProgress, 500);
 
-    gradeNext();
+    // Every tracked promise is settled-safe (eager catches internally).
+    Promise.all(pending).then(function () {
+      clearInterval(tick);
+      if (_ptUploadFailures.length) {
+        console.warn('[practice] test_part: ' + _ptUploadFailures.length
+          + ' upload(s) failed — result page will show fewer answers:', _ptUploadFailures);
+      }
+      callback();
+    });
   }
 
   function _finishTestAndShowResults() {
@@ -3060,6 +3038,29 @@
 
       _questions  = questions;
       _currentIdx = 0;
+
+      // Spike-2 fix (defect g): with eager uploads, answered test_part
+      // questions are already graded server-side — resume at the first
+      // UNANSWERED question instead of forcing a redo from Q1 (which would
+      // re-grade every answer). test_part only: practice keeps its flow;
+      // sealed mock sittings return responses=[] and start at 0 as before.
+      if (_testMode === 'test_part' && _sessionData.responses && _sessionData.responses.length) {
+        var _answeredQ = {};
+        _sessionData.responses.forEach(function (r) {
+          if (r.question_id) _answeredQ[r.question_id] = true;
+        });
+        while (_currentIdx < _questions.length &&
+               _answeredQ[_questions[_currentIdx].id || _questions[_currentIdx].question_id]) {
+          _currentIdx++;
+        }
+        if (_currentIdx >= _questions.length) {
+          // Refresh landed AFTER the last answer was submitted: everything
+          // is graded — complete the session and go straight to the
+          // canonical result page.
+          _finishTestAndShowResults();
+          return;
+        }
+      }
 
       // Show a warning banner if Gemini was unavailable and fallback questions are being used
       var isFallback = questions.some(function (q) { return q._fallback; });
