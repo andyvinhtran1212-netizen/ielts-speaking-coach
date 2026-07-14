@@ -55,21 +55,43 @@ function configSources() {
   return Array.from(src.matchAll(/\{ source: '([^']+)'/g)).map((m) => m[1]);
 }
 
-/** Segment-aware equality: ':param' / '[param]' / '[...param]' all match any segment. */
-function samePath(a, b) {
+/** AUDIT F7 (2026-07-14): pattern OVERLAP, not same-length equality.
+ * The old samePath required equal segment COUNTS, so catch-alls were blind
+ * spots: `/grammar/[...slug]` vs source `/grammar/:category/:slug` never
+ * matched (1 vs 2 segments) even though both own the same URLs. Catch-alls
+ * (`[...p]`, `[[...p]]`, `:p*`, `:p+`) now consume any remaining segments
+ * (≥1, or ≥0 for the optional forms). Two patterns collide when at least one
+ * concrete URL satisfies both. */
+function isCatchAll(s) {
+  return /^\[\[?\.\.\./.test(s) || /^:[^/]+[*+]$/.test(s);
+}
+function isOptionalCatchAll(s) {
+  return /^\[\[\.\.\./.test(s) || /^:[^/]+\*$/.test(s);
+}
+export function samePath(a, b) {
   const A = a.split('/').filter(Boolean);
   const B = b.split('/').filter(Boolean);
-  if (A.length !== B.length) return false;
-  return A.every((seg, i) => {
-    const dyn = (s) => s.startsWith(':') || s.startsWith('[');
-    return dyn(seg) || dyn(B[i]) ? true : seg === B[i];
-  });
+  const dyn = (s) => s.startsWith(':') || s.startsWith('[');
+  const rec = (i, j) => {
+    const aDone = i >= A.length;
+    const bDone = j >= B.length;
+    if (aDone && bDone) return true;
+    // A catch-all is always the LAST segment of its pattern (Next/vercel
+    // both enforce this) — it matches iff the other side has enough left.
+    if (!aDone && isCatchAll(A[i])) {
+      return B.length - j >= (isOptionalCatchAll(A[i]) ? 0 : 1);
+    }
+    if (!bDone && isCatchAll(B[j])) {
+      return A.length - i >= (isOptionalCatchAll(B[j]) ? 0 : 1);
+    }
+    if (aDone || bDone) return false;
+    if (dyn(A[i]) || dyn(B[j]) || A[i] === B[j]) return rec(i + 1, j + 1);
+    return false;
+  };
+  return rec(0, 0);
 }
 
-export function findCollisions() {
-  const routes = appRoutes();
-  const pub = publicPaths();
-  const sources = configSources();
+function collisionsFor(routes, pub, sources) {
   const collisions = [];
   for (const r of routes) {
     for (const p of pub) {
@@ -83,7 +105,48 @@ export function findCollisions() {
       }
     }
   }
-  return { routes, publicCount: pub.length, sources, collisions };
+  return collisions;
+}
+
+export function findCollisions() {
+  const routes = appRoutes();
+  const pub = publicPaths();
+  const sources = configSources();
+  return { routes, publicCount: pub.length, sources, collisions: collisionsFor(routes, pub, sources) };
+}
+
+// ── AUDIT F7 (2026-07-14): manifest-based verification ─────────────────
+// The source walk above is a heuristic — it re-derives what the compiler
+// WILL do from file names. The audit's point: the artifact that actually
+// routes production traffic is .next/routes-manifest.json, so after a build
+// the check must run against THAT truth. Drift between the two means the
+// heuristic has a blind spot (parallel/intercepting routes, compiler
+// changes) — fail loudly, don't guess.
+const MANIFEST_INTERNAL = new Set(['/_global-error', '/_not-found']);
+
+export function manifestRoutes(manifestPath = path.join(FRONTEND, '.next', 'routes-manifest.json')) {
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  return [...(manifest.staticRoutes || []), ...(manifest.dynamicRoutes || [])]
+    .map((r) => r.page)
+    .filter((p) => !MANIFEST_INTERNAL.has(p));
+}
+
+export function findManifestProblems(manifestPath) {
+  const compiled = manifestRoutes(manifestPath);
+  const source = appRoutes();
+  const problems = [];
+  for (const r of compiled) {
+    if (!source.includes(r)) {
+      problems.push(`manifest route ${r} is INVISIBLE to the source walk — the heuristic has a blind spot; fix appRoutes()`);
+    }
+  }
+  for (const r of source) {
+    if (!compiled.includes(r)) {
+      problems.push(`source-derived route ${r} did not compile into the manifest — stale expectation`);
+    }
+  }
+  problems.push(...collisionsFor(compiled, publicPaths(), configSources()));
+  return { compiled, problems };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
@@ -94,4 +157,20 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     process.exit(1);
   }
   console.log('route-ownership: clean');
+
+  if (process.argv.includes('--manifest')) {
+    let result;
+    try {
+      result = findManifestProblems();
+    } catch (e) {
+      console.error('route-ownership --manifest: cannot read .next/routes-manifest.json — run `next build` first. ' + e.message);
+      process.exit(1);
+    }
+    console.log(`route-ownership --manifest: ${result.compiled.length} compiled routes`);
+    if (result.problems.length) {
+      for (const p of result.problems) console.error('MANIFEST: ' + p);
+      process.exit(1);
+    }
+    console.log('route-ownership --manifest: clean (compiled truth matches source heuristic, zero collisions)');
+  }
 }
