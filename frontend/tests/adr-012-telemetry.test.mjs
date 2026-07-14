@@ -65,3 +65,14 @@ test('cutover dashboard: admin Báo lỗi renders migration-stats (ADR-012 đi�
   assert.match(ADMIN_JS, /'\/admin\/error-logs\/migration-stats'/);
   assert.match(ADMIN_JS, /truncated/, 'silent truncation is forbidden — must render the warning');
 });
+
+test('error-reporter: _apiBase prefers runtime-config before the production fallback (review #755, ADR-006)', () => {
+  // A page that loads error-reporter WITHOUT api.js (the lean Next marketing
+  // landing) must still post to the ENVIRONMENT origin, not hardcoded prod —
+  // else staging landing errors pollute production error_logs.
+  assert.match(REPORTER, /rc\.apiBase/, 'must read runtime-config apiBase');
+  const rcIdx = REPORTER.indexOf('rc.apiBase');
+  const prodIdx = REPORTER.indexOf("ielts-speaking-coach-production", REPORTER.indexOf('function _apiBase'));
+  assert.ok(rcIdx !== -1 && prodIdx !== -1 && rcIdx < prodIdx,
+    'runtime-config must be consulted BEFORE the production Railway fallback');
+});

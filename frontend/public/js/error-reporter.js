@@ -50,12 +50,21 @@
   var MAX_DEDUP_ENTRIES = 100;  // hard cap so a flood doesn't grow forever
 
   // ── Resolve API base ──────────────────────────────────────────────
-  // Prefer the canonical window.api.base (api.js) so the host never drifts,
-  // but keep a self-contained fallback: error-reporter must still work when
-  // api.js itself failed to load (it reports that very failure).
+  // Precedence (ADR-006 runtime-config provenance):
+  //   1. window.api.base — canonical when api.js is loaded (it already
+  //      resolved via runtime-config, so the host never drifts).
+  //   2. window.__AVER_RUNTIME_CONFIG__.apiBase — the SAME environment source
+  //      api.js uses, read directly so a page that loads error-reporter
+  //      WITHOUT api.js (the lean Next marketing landing) still posts to the
+  //      RIGHT origin. Without this, a staging landing error would fall
+  //      through to the production Railway URL below — polluting production
+  //      error_logs and blinding the staging cutover dashboard (review #755).
+  //   3. host-based fallback — only when neither is present (unconfigured).
   function _apiBase() {
     try {
       if (window.api && window.api.base) return window.api.base;
+      var rc = window.__AVER_RUNTIME_CONFIG__ || {};
+      if (rc.apiBase) return rc.apiBase;
       var host = window.location.hostname;
       if (host === 'localhost' || host === '127.0.0.1') {
         return 'http://localhost:8000';
