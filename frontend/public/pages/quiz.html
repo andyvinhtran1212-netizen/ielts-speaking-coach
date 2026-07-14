@@ -354,9 +354,11 @@
     let wordCards = {};   // lowercased headword → glance card (meaning/IPA/audio/example)
     let bank = null, currentBankId = null;   // fetched once in boot(), reused by startPlay()
     // A review pass (started from the "already mastered" gate) re-tests every
-    // word from scratch for reinforcement, but must NEVER overwrite the real
-    // mastery cache — so its word_stats snapshots are dropped before sending
-    // (attempts still upload: they're a harmless practice-activity log).
+    // word from scratch for reinforcement, but must be FULLY non-destructive:
+    // it must not touch ANY saved derived state. So nothing is POSTed to
+    // /progress — not word_stats (mastery cache) and not attempts (which the
+    // backend feeds into grammar KP evidence + class error-rate analytics).
+    // Only the session row (duration/accuracy) is persisted, at finish().
     let reviewMode = false;
 
     // ── Audio: preload + cache so playback is instant and seamless ──────
@@ -407,10 +409,13 @@
     let authToken = null;                            // for the keepalive unload beacon
 
     function _mergeIntoOutbox(batch) {
+      // A review pass persists NOTHING via /progress (see `reviewMode` above):
+      // dropping attempts too keeps it from mutating grammar KP mastery or class
+      // error-rate analytics, not just the word_stats mastery cache. The engine
+      // batch is still drained (memory cleared) — it's simply discarded here.
+      if (reviewMode) return;
       if (batch.attempts.length) outbox.attempts = outbox.attempts.concat(batch.attempts);
-      // Review-mode snapshots are never sent — the pass must not overwrite the
-      // real quiz_word_stats mastery cache (see `reviewMode` declaration above).
-      if (!reviewMode) (batch.word_stats || []).forEach((w) => { outbox.word_stats[w.item_key] = w; });
+      (batch.word_stats || []).forEach((w) => { outbox.word_stats[w.item_key] = w; });
     }
 
     const MAX_BATCH = 100;   // < backend's 200/array cap; a long offline backlog is chunked
@@ -828,16 +833,20 @@
       }
     }
 
-    // Start (or resume) a real play session — the normal first-visit path AND
-    // the "Ôn tập lại" action from the mastered gate both funnel through here.
-    // `opts.resume` seeds the engine's mastery state; `opts.review` gates
-    // whether word_stats snapshots are persisted (see `reviewMode` above).
+    // Start a real play session — the normal first-visit path AND the "Ôn tập
+    // lại" action from the mastered gate both funnel through here. `opts.review`
+    // gates both the resume source and whether progress is persisted.
     async function startPlay(opts) {
+      const review = !!(opts && opts.review);
       let start;
       try { start = await window.api.post('/api/quiz/sessions', { bank_id: currentBankId }); }
       catch (e) { return fail('Không tạo được phiên: ' + e.message); }
       sessionId = start.session_id;
-      reviewMode = !!(opts && opts.review);
+      reviewMode = review;
+      // Reset the clock to session-start: excludes bank-load time and, crucially,
+      // any idle time spent on the mastered gate before "Ôn tập lại" — otherwise
+      // finish() would report that idle time as practice duration.
+      startMs = Date.now();
 
       // Cache the access token for the keepalive unload beacon (which needs the
       // Authorization header synchronously, before the page tears down).
@@ -848,7 +857,11 @@
 
       // Seed the engine with the session id so word order + variant tie-breaks are
       // randomized per session (no two students get an identical question sequence).
-      const resume = (opts && opts.resume) || [];
+      // Normal play seeds from start.resume — the fresh, fail-closed read done
+      // INSIDE start_session (not the earlier precheck GET, which can be stale if
+      // another tab/device advanced mastery in between → a stale engine could
+      // upsert lower word_stats over newer mastery). Review starts from scratch.
+      const resume = review ? [] : (start.resume || []);
       engine = createEngine(bank, { resume: resume, seed: sessionId });
       wordCards = (bank && bank.word_cards) || {};
       // Map item_key(lower) → its first question audio_url, so _prefetchUpcoming can
@@ -875,7 +888,7 @@
       $('qz-gate').classList.remove('hidden');
     }
 
-    $('qz-gate-review').onclick = () => startPlay({ resume: [], review: true });
+    $('qz-gate-review').onclick = () => startPlay({ review: true });
     $('qz-gate-reset').onclick = async () => {
       if (!confirm('Xoá toàn bộ tiến độ "đã thuộc" của bài này và làm lại từ đầu?')) return;
       const reviewBtn = $('qz-gate-review'), resetBtn = $('qz-gate-reset'), err = $('qz-gate-error');
@@ -913,7 +926,9 @@
       const p = check.progress();
       if (p.total > 0 && p.remaining === 0) return showMasteredGate();
 
-      await startPlay({ resume: resume || [] });
+      // Normal play re-reads resume inside start_session (fail-closed) and seeds
+      // from THAT, so this precheck read is only used for the gate decision.
+      await startPlay({ review: false });
     }
 
     boot();
