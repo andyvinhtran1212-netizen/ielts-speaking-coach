@@ -30,6 +30,20 @@ async function openPractice(page, seededChain) {
   // chain-init block, which runs before question routing).
   await page.route('http://localhost:8000/**', (route) => {
     const url = route.request().url();
+    // CORS preflights: Playwright's Chromium routing currently answers
+    // intercepted requests without enforcing preflight, but that is an
+    // implementation detail — answer OPTIONS properly so the stub stays
+    // valid if that behavior ever changes (review #748).
+    if (route.request().method() === 'OPTIONS') {
+      return route.fulfill({
+        status: 204,
+        headers: {
+          'access-control-allow-origin': '*',
+          'access-control-allow-methods': 'GET,POST,PATCH,DELETE,OPTIONS',
+          'access-control-allow-headers': 'authorization, content-type, x-request-id',
+        },
+      });
+    }
     if (url.endsWith(`/sessions/${SID}`)) {
       return route.fulfill({ json: { session_id: SID, id: SID, mode: 'test_full', part: 2, topic: 'Hobbies', status: 'in_progress' }, headers: { 'access-control-allow-origin': '*' } });
     }

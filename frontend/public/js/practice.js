@@ -2276,9 +2276,6 @@
     var p1 = _ftAllSessionIds[0] || _sessionId;
     var p2 = _ftAllSessionIds[1] || null;
     var p3 = _ftAllSessionIds[2] || null;
-    // Spike-2 fix: the chain is being finalized — a future full test in this
-    // tab must start fresh, never inherit these ids.
-    _clearFtChain();
 
     var body = { p1_id: p1 };
     if (p2) body.p2_id = p2;
@@ -2286,6 +2283,13 @@
 
     window.api.post('/sessions/finalize-full-test', body)
       .then(function () {
+        // Spike-2 fix (review #748): clear the persisted chain only AFTER
+        // the backend ACCEPTED finalize. Clearing before the call meant a
+        // failed finalize (network/5xx — the catch below deliberately keeps
+        // sessions in_progress for retry) lost the only persisted copy: a
+        // Part-3 refresh would rebuild the chain as [p3] and the retried
+        // finalize would aggregate WITHOUT Part 1/2.
+        _clearFtChain();
         // 4-skill mock: report the completed speaking sessions to the sitting
         // and hand back to the orchestrator. finalize marks the sessions
         // 'submitted' with their graded responses, so record_speaking accepts
