@@ -63,6 +63,17 @@ const nextConfig: NextConfig = {
       // on-disk public/index.html is never served while this is active — but
       // it stays on disk so reverting this commit restores the old behavior.
       { source: '/index.html', destination: '/', permanent: true },
+      // PILOTS 3+4 CUTOVER: profile page → canonical `/profile` (Next app
+      // route app/(authed)/profile). No legacy rewrite to remove (the legacy
+      // page was a direct public file), so the atomicity here is: the app
+      // route + this redirect land together. TEMPORARY (307) on purpose —
+      // unlike `/` (which always serves something), `/profile` 404s if this
+      // pilot is rolled back, so a browser-cached PERMANENT redirect would
+      // strand users on a 404; a temporary redirect isn't cached long-term.
+      // No SEO cost (authed route is noindex). aver-chrome/user-pill keep
+      // linking to /pages/profile.html (stable file path) — it redirects
+      // when the pilot is live and serves legacy directly on rollback.
+      { source: '/pages/profile.html', destination: '/profile', permanent: false },
       { source: '/pages/dashboard.html', destination: '/pages/speaking.html', permanent: true },
       { source: '/pages/my-vocabulary.html', destination: '/pages/vocabulary.html', permanent: true },
       { source: '/pages/admin-writing.html', destination: '/pages/admin/writing/index.html', permanent: true },

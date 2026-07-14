@@ -1,4 +1,4 @@
-// Pilot 3 — authenticated read (dark launch tại /profile-preview).
+// Pilots 3+4 — authed profile. CUTOVER (prep): canonical /profile.
 // Pin kiến trúc ADR-003/ADR-011 + ranh giới read-only (mutation = pilot 4).
 import { test } from 'node:test';
 import assert from 'node:assert';
@@ -7,7 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const DIR = path.join(FRONTEND, 'app', '(authed)', 'profile-preview');
+const DIR = path.join(FRONTEND, 'app', '(authed)', 'profile');
 const PROVIDER = readFileSync(path.join(FRONTEND, 'lib', 'auth', 'auth-provider.tsx'), 'utf8');
 const LAYOUT = readFileSync(path.join(FRONTEND, 'app', '(authed)', 'layout.tsx'), 'utf8');
 const PAGE = readFileSync(path.join(DIR, 'page.tsx'), 'utf8');
@@ -88,7 +88,11 @@ test('pilot-4 mutation: double-submit lock + canonical reconcile + ambiguous-com
     'PATCH /auth/profile must sit behind the ADR-010 kill switch (first require_flag adoption)');
 });
 
-test('canonical /pages/profile.html vẫn thuộc legacy (public/ static, không app route)', () => {
+test('CUTOVER: canonical /profile là app route + /pages/profile.html redirect (TEMPORARY)', () => {
   const cfg = readFileSync(path.join(FRONTEND, 'next.config.ts'), 'utf8');
-  assert.ok(!cfg.includes("'/profile'"), 'no canonical /profile ownership before pilot-3 cutover');
+  // profile page.tsx now lives directly under (authed) → route `/profile`
+  assert.ok(readFileSync(path.join(DIR, 'page.tsx'), 'utf8').length > 0, 'profile route at canonical path');
+  // legacy path consolidates via a TEMPORARY redirect (rollback-safe: /profile 404s on revert)
+  assert.match(cfg, /source: '\/pages\/profile\.html', destination: '\/profile', permanent: false/,
+    'profile redirect must be temporary — a permanent one would strand cached clients on 404 after rollback');
 });

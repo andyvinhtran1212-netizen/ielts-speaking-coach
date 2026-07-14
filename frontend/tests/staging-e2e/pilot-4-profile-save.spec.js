@@ -45,7 +45,7 @@ async function signInSession(request, role) {
   return session;
 }
 
-test.describe.serial('pilot 4 — /profile-preview mutation', () => {
+test.describe.serial('pilot 4 — /profile mutation', () => {
   /** @type {any} */ let originalProfile;
 
   test.beforeAll(async ({ request }) => {
@@ -102,7 +102,7 @@ test.describe.serial('pilot 4 — /profile-preview mutation', () => {
       [STORAGE_KEY, JSON.stringify(session)],
     );
     const page = await context.newPage();
-    await page.goto('/profile-preview');
+    await page.goto('/profile');
     await expect(page.locator('#profile-email')).toHaveText(identityEmail('student'), { timeout: 20_000 });
 
     const nameInput = page.locator('#inp-display-name');
@@ -162,7 +162,7 @@ test.describe.serial('pilot 4 — /profile-preview mutation', () => {
       return route.continue();
     });
 
-    await page.goto('/profile-preview');
+    await page.goto('/profile');
     await expect(page.locator('#profile-email')).toHaveText(identityEmail('student'), { timeout: 20_000 });
 
     const saveBtn = page.locator('#btn-save');
