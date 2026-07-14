@@ -316,9 +316,21 @@ def test_list_essays_passes_filters():
         "status": "graded",
         "student_id": _STUDENT_ID,
         "cohort_id": None,
+        "mock": None,
         "limit": 10,
         "offset": 20,
     }
+
+
+def test_list_essays_passes_mock_filter():
+    """?mock=true is threaded to the service (the Mock review lane)."""
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.essay_service.list_essays",
+               return_value=[]) as mock_list:
+        r = _client().get("/admin/writing/essays?mock=true", headers=_ADMIN_AUTH)
+    assert r.status_code == 200
+    assert mock_list.call_args.kwargs["mock"] is True
 
 
 def test_list_essays_passes_cohort_id():

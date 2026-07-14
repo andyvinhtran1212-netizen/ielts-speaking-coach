@@ -1306,6 +1306,7 @@ def list_essays(
     student_id: Optional[str] = None,
     cohort_id: Optional[str] = None,
     owner_id: Optional[str] = None,
+    mock: Optional[bool] = None,
     limit: int = 50,
     offset: int = 0,
 ) -> list[dict]:
@@ -1342,11 +1343,18 @@ def list_essays(
         supabase_admin.table("writing_essays")
         .select(
             "id, student_id, task_type, status, analysis_level, "
-            "selected_model, word_count, created_at, delivered_at, error_message"
+            "selected_model, word_count, created_at, delivered_at, error_message, "
+            "sitting_id, grading_skipped_at"
         )
         .is_("deleted_at", "null")          # hide soft-deleted essays
         .order("created_at", desc=True)
     )
+    # Mock filter: the mock-writing review lives in its own queue tab, so the
+    # regular tabs pass mock=False (exclude), the Mock tab passes mock=True.
+    if mock is True:
+        q = q.not_.is_("sitting_id", "null")
+    elif mock is False:
+        q = q.is_("sitting_id", "null")
     if status:
         q = q.eq("status", status)
     if student_id:

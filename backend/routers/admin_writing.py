@@ -380,17 +380,22 @@ async def list_essays(
     status: Optional[str]      = Query(default=None, max_length=32),
     student_id: Optional[UUID] = Query(default=None),
     cohort_id: Optional[UUID]  = Query(default=None),
+    mock: Optional[bool]       = Query(default=None),
     limit:  int                = Query(default=50, ge=1, le=200),
     offset: int                = Query(default=0, ge=0),
     authorization: str | None  = Header(None),
 ):
     """List essays with optional status / student / cohort filters. Newest first.
-    Enriched with student name+code, band, and deadline for the grade-queue UI."""
+    Enriched with student name+code, band, and deadline for the grade-queue UI.
+
+    `mock`: True → only 4-skill mock Writing essays (their own review tab);
+    False → exclude them from the regular tabs; omitted → no filter."""
     await require_admin(authorization)
     return essay_service.list_essays(
         status=status,
         student_id=str(student_id) if student_id else None,
         cohort_id=str(cohort_id) if cohort_id else None,
+        mock=mock,
         limit=limit,
         offset=offset,
     )
