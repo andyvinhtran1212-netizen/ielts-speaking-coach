@@ -92,6 +92,32 @@
     try { return sessionStorage.getItem('ielts_qmode') || 'visual'; } catch (e) { return 'visual'; }
   }());
 
+  // ── Full-test chain persistence (spike-2 fix, 2026-07-14) ────────────────────
+  // _ftAllSessionIds only lived in memory, so a refresh mid full-test LOST the
+  // earlier parts' session ids and finalize-full-test aggregated the wrong
+  // sessions (Part 1's score silently missing). The chain now mirrors to
+  // sessionStorage — same tab-scoped contract family as ielts_ft_p2topic.
+  var FT_CHAIN_KEY = 'ielts_ft_session_ids';
+
+  function _saveFtChain() {
+    try { sessionStorage.setItem(FT_CHAIN_KEY, JSON.stringify(_ftAllSessionIds)); } catch (e) { /* storage not available */ }
+  }
+
+  function _loadFtChain() {
+    try {
+      var arr = JSON.parse(sessionStorage.getItem(FT_CHAIN_KEY) || 'null');
+      if (!Array.isArray(arr) || arr.length === 0) return null;
+      for (var i = 0; i < arr.length; i++) {
+        if (typeof arr[i] !== 'string' || !arr[i]) return null;
+      }
+      return arr;
+    } catch (e) { return null; }
+  }
+
+  function _clearFtChain() {
+    try { sessionStorage.removeItem(FT_CHAIN_KEY); } catch (e) { /* storage not available */ }
+  }
+
   // ── DOM helper ────────────────────────────────────────────────────────────────
 
   function $(id) { return document.getElementById(id); }
@@ -2250,6 +2276,9 @@
     var p1 = _ftAllSessionIds[0] || _sessionId;
     var p2 = _ftAllSessionIds[1] || null;
     var p3 = _ftAllSessionIds[2] || null;
+    // Spike-2 fix: the chain is being finalized — a future full test in this
+    // tab must start fresh, never inherit these ids.
+    _clearFtChain();
 
     var body = { p1_id: p1 };
     if (p2) body.p2_id = p2;
@@ -2341,6 +2370,7 @@
 
       // Track this session so we can complete all of them at the end
       _ftAllSessionIds.push(newId);
+      _saveFtChain(); // spike-2 fix: the chain must survive a refresh
 
       // Generate questions for this part
       if (loadMsg) loadMsg.textContent = 'Đang tạo câu hỏi Part ' + part + '...';
@@ -2363,6 +2393,12 @@
       _sessionId     = newId;
       _sessionData   = newSession;
       _ftCurrentPart = part;
+      // Spike-2 fix: keep the URL (the routing source of truth — see init())
+      // pointing at the CURRENT part's session. Without this a refresh in
+      // Part 2/3 reloaded Part 1's session. replaceState = no navigation.
+      try {
+        history.replaceState(null, '', '?session_id=' + encodeURIComponent(newId));
+      } catch (e) { /* older browsers: refresh keeps legacy behavior */ }
       if (!_sessionData.mode) _sessionData.mode = 'test_full';
       _questions   = questions;
       _currentIdx  = 0;
@@ -2978,10 +3014,21 @@
       // are created linked too, and so we can complete Speaking at the end.
       if (_sessionData.sitting_id) _sittingId = _sessionData.sitting_id;
 
-      // Full Test: initialise multi-part tracking on the opening session
+      // Full Test: initialise multi-part tracking on the opening session.
+      // Spike-2 fix: RESTORE the chain persisted by earlier parts so a
+      // refresh (or same-tab handoff) mid full-test keeps Part 1's session
+      // id and finalize aggregates the right sessions. Membership check
+      // keeps a stale chain from an OLDER full test out; anything after the
+      // current session is truncated — those parts are being redone, and
+      // advancing will mint fresh sessions for them.
       if (_testMode === 'test_full' && _ftAllSessionIds.length === 0) {
+        var storedChain = _loadFtChain();
+        var chainPos    = storedChain ? storedChain.indexOf(_sessionId) : -1;
         _ftCurrentPart   = _sessionData.part;
-        _ftAllSessionIds = [_sessionId];
+        _ftAllSessionIds = (chainPos !== -1)
+          ? storedChain.slice(0, chainPos + 1)
+          : [_sessionId];
+        _saveFtChain();
         // B1: reset submit-failure trackers for a fresh full test.
         _ftSubmitTotal      = 0;
         _ftSubmitFailures   = [];

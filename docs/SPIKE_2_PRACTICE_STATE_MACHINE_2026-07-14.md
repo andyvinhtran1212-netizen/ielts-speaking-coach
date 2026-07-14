@@ -38,11 +38,12 @@ nhất, lần chấm sau ĐÈ lần trước im lặng** (grading.py:969-997; la
    thiểu phải GIỮ mức này (không tệ hơn); khuyến nghị cải thiện: suy ra câu
    chưa trả lời từ responses đã persist (backend đã có đủ dữ liệu — không cần
    schema mới).
-2. **CRITICAL — full-test chaining:** port Next KHÔNG ĐƯỢC tái tạo lỗi (f).
-   `_ftAllSessionIds` phải persist (sessionStorage hoặc URL params
-   `?p1_id=&p2_id=`) — đây là defect nghiêm trọng nhất spike tìm ra, tồn tại
-   ở legacy HÔM NAY. Cân nhắc fix legacy trước cutover (patch nhỏ:
-   set/get sessionStorage tại :2343 + :2982).
+2. **CRITICAL — full-test chaining: ĐÃ FIX trên legacy (2026-07-14, cùng ngày
+   spike).** Chain giờ mirror vào sessionStorage `ielts_ft_session_ids`
+   (restore theo membership + truncate sau vị trí hiện tại), URL
+   `replaceState` theo part hiện hành, clear khi finalize. Regression:
+   `tests/e2e/full_test_chain_persistence.spec.js` (4 case, chạy trong CI
+   e2e). Port Next thừa kế contract này nguyên trạng.
 3. `ielts_ft_p2topic` là contract NGẦM giữa 2 trang: `speaking.html:2088` ghi,
    `practice.js:2950` đọc — port phải giữ key này nguyên tên.
 4. `test_part` deferred-answers là thiết kế mất-dữ-liệu-khi-refresh; port giữ
