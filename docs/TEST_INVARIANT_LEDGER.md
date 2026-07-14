@@ -322,46 +322,13 @@
 
 ---
 
-## Tests Marked UNCLEAR (Require Human Review)
+## Tests Marked UNCLEAR — RESOLVED 2026-07-14
 
-These entries need clarification on invariant scope or disposition. Recommend reviewing with domain owner before Gate A:
-
-1. `speaking-rubric-v2-compat.test.mjs` — Clarify rubric version compat scope
-2. `admin-writing-new-redesign.test.mjs` — Confirm migration path (legacy form vs React)
-3. `admin-writing-assignments-redesign.test.mjs` — Confirm migration path
-4. `admin-writing-prompts-redesign.test.mjs` — Confirm migration path
-5. `admin-writing-status-redesign.test.mjs` — Confirm migration path
-6. `admin-writing-redesign.test.mjs` — Confirm migration path
-7. `reading-diagnostic.test.mjs` — Confirm still-active flow
-8. `listening-mcq-sessions-pages.test.mjs` — Confirm route coverage
-9. `admin-listening-content-management.test.mjs` — Clarify scope
-10. `admin-listening-convert.test.mjs` — Clarify scope
-11. `admin-listening-drills-import.test.mjs` — Clarify scope
-12. `admin-listening-segments.test.mjs` — Clarify scope
-13. `admin-listening-tests-detail.test.mjs` — Clarify scope
-14. `admin-listening-tests.test.mjs` — Clarify scope
-15. `admin-listening-upload.test.mjs` — Clarify scope
-16. `admin-vocab-quiz-analytics.test.mjs` — Confirm analytics route status
-17. `kp-fe-widgets.test.mjs` — Confirm Knowledge Plus widget migration
-18. `kp-roadmap.test.mjs` — Confirm roadmap widget migration
-19. `d1-srs-indicator.test.mjs` — Confirm SRS implementation
-20. `chrome-unification-canonical.test.mjs` — Clarify Web Component unification status
-21. `theme-toggle-layout-context.test.mjs` — Clarify layout context pattern
-22. `cue-card-*` tests (3 files) — Confirm cue-card feature status (being deprecated?)
-23. `audio-cutter.test.mjs` — Confirm still-active audio editing feature
-24. `exam-player.test.mjs` — Clarify exam player scope
-25. `admin-overview.test.mjs` — Confirm overview route active
-26. `admin-error-logs.test.mjs` — Confirm error-logs dashboard active
-27. `admin-instructor-queue-redesign.test.mjs` — Confirm instructor feature active
-28. `assignment-analysis-level.test.mjs` — Confirm analytics route active
-29. `regrade-level-picker.test.mjs` — Confirm regrade feature active
-30. `home-stats-loading.test.mjs` — Confirm skeletal UI pattern
-31. `student-hub-drawer.test.mjs` — Confirm drawer UI active
-32. `phase-closure-ledger.test.mjs` — Confirm phase closure contract
-33. `gate-9-5-9-6-9-7-formalization.test.mjs` — Confirm gate scope
-34. `gate-10-formalization.test.mjs` — Confirm gate scope
-
----
+All formerly-UNCLEAR entries were re-read against their test file + target
+source and finalized (durable invariant + ledger disposition). The per-test
+result is the **"## UNCLEAR resolution" appendix** at the end of this doc; the
+inline disposition column no longer contains any UNCLEAR marker. This queue is
+closed — do not treat these as open.
 
 ## Tests to Retire Immediately (Obsolete / Not Migrating)
 
@@ -422,13 +389,13 @@ These tests protect obsolete flows or historical audits. Recommend retiring befo
 | **dom-behavior** | ~18 | DOM shim, JSDOM, minimal mocking; tests JS function behavior | Replace with unit/integration test in Next.js harness; may add E2E for complex flows |
 | **contract** | ~23 | API shape, payload structure, TypeScript types | Replace with OpenAPI blocking + typed test; no need to re-pin source strings |
 | **e2e** | 4 | Playwright, real browser, fixture-based smoke | Keep as-is (migrate fixture source only); upgrade to full staging E2E in Phase 1 |
-| **unclear** | ~12 | Need human review to finalize | Defer categorization until Phase 1 domain review |
+| **unclear** | 0 | Resolved 2026-07-14 (see appendix) | — |
 
 ---
 
 ## Next Steps (Before Gate A)
 
-1. **Reconcile unclear entries** (34 tests) with domain owners — finalize invariant scope and disposition.
+1. ~~Reconcile unclear entries (34 tests)~~ — **DONE 2026-07-14** (finalized in the UNCLEAR resolution appendix).
 2. **Retire obsolete tests** (9 files) — remove immediately, no replacement needed.
 3. **Validate Route Ledger alignment** — ensure test disposition matches planned route migration order (Phase 2–6).
 4. **Create Test Replacement Backlog** — spike effort for porting top-priority tests (speaking, writing, reading, admin).
@@ -449,6 +416,8 @@ These tests protect obsolete flows or historical audits. Recommend retiring befo
 ## UNCLEAR resolution (2026-07-14)
 
 The 33 rows formerly marked **UNCLEAR** (disposition column) were re-read
+(and, after review #758, the endpoint-bearing invariants re-verified against
+each test's actual assertions — 6 were corrected)
 against their test file + target source and finalized. The disposition column
 now carries the ledger-taxonomy value; the **durable invariant** below is the
 implementation-agnostic guarantee each test protects (what must stay true
@@ -459,8 +428,8 @@ currently matches.
 |---|---|---|
 | speaking-rubric-v2-compat | Grading API response keeps legacy field names (band_fc/lr/gra/p, *_feedback, strengths, improvements) so the result renderer stays back-compatible | replace-by-types |
 | reading-diagnostic | Result page fetches the diagnostic for the submitted attempt (`/api/reading/diagnostic?attempt_id=`) and links to L2 exercises | replace-by-e2e |
-| admin-listening-convert | ILR/IELTS audio import endpoint (`/admin/listening/convert`) with auto-section mapping exists | replace-by-e2e |
-| admin-listening-drills-import | Drills-import endpoint accepts a mixed dictation/gist/MCQ bank with auto-segmentation | replace-by-e2e |
+| admin-listening-convert | Convert workflow (NOT audio import): two upload zones (question_paper + script_answerkey, `.md`), POST `/admin/listening/convert` then `/admin/listening/convert/commit` | replace-by-e2e |
+| admin-listening-drills-import | Two-step drills import: POST `/admin/listening/drills/import` then `/admin/listening/drills/import/commit` (dictation/gist/MCQ bank, auto-segmentation) | replace-by-e2e |
 | admin-vocab-quiz-analytics | Vocab analytics hits `/admin/quiz/students?skill_area=vocab` (per-student) + `/admin/quiz/banks?skill_area=vocab` (hard-words) | replace-by-e2e |
 | kp-fe-widgets | Weak-grammar widget fetches `/api/me/kp-mastery?status=weak&kp_type=grammar`; reading review renders a KP stepper with grammar deep-links | replace-by-e2e |
 | kp-roadmap | Roadmap branches on slug: no-slug → `/api/me/roadmap`; has-slug → per-article; articles link `/grammar/{category}/{slug}` | replace-by-e2e |
@@ -471,16 +440,16 @@ currently matches.
 | admin-writing-prompts-redesign | Prompt list paginated + filterable by level/topic with bulk publish/archive; create/edit via `POST /admin/writing/prompts` | port-to-component-test |
 | listening-mcq-sessions-pages | MCQ user page POSTs `/api/listening/attempts` (mode=mcq); admin editor POSTs `/admin/listening/exercises` (exercise_type=mcq, 1–20 Q); browse filters accent/cefr/section; analytics day-chart | port-to-component-test |
 | admin-listening-content-management | Content list GETs `/admin/listening/content` (status filter); detail GETs content/{id} + exercises?content_id= | port-to-component-test |
-| admin-listening-segments | Segments editor marks waveform regions, adjusts timing, exports via `/admin/listening/segments/{id}` | port-to-component-test |
+| admin-listening-segments | Segment/region editor on `/admin/listening/content/{id}` + `/admin/listening/exercises` (region marking + timing; NOT a `/segments/{id}` endpoint) | port-to-component-test |
 | admin-listening-tests-detail | Test detail shows sections + questions-per-section with edit/delete-confirm; GETs `/admin/listening/tests/{id}` | port-to-component-test |
 | admin-listening-tests | Tests list paginated + filterable by level/type with import/create | port-to-component-test |
 | admin-listening-upload | MP3/WAV upload with format auto-detect + progress + retry via `/admin/listening/upload` | port-to-component-test |
 | audio-cutter | Region selection + `/detect-silence` (auto-detect) + `/cut-audio` (export) endpoints | port-to-component-test |
 | admin-overview | Overview shows 4 stat tiles (students-total, students-active-7d, errors-undismissed, access-codes-active) + skill cards | port-to-component-test |
 | admin-error-logs | Error dashboard shows total/undismissed/24h/7d cards + 3-filter bar + dismiss/undismiss/refresh | port-to-component-test |
-| admin-instructor-queue-redesign | Instructor queue shows pending essays + re-grade requests + priority sort; GETs `/admin/writing/queue` | port-to-component-test |
-| assignment-analysis-level | Assignment analytics filters cohort/skill, shows completion % per level | port-to-component-test |
-| regrade-level-picker | Regrade flow: reason select (prompt-change/remark-request) + confirm before `POST /admin/writing/regrade` | port-to-component-test |
+| admin-instructor-queue-redesign | Instructor review queue: GET `/admin/instructor/queue` + claim/release lifecycle (`/admin/instructor/reviews/{id}/claim` + `/release`) | port-to-component-test |
+| assignment-analysis-level | Assignment analysis-LEVEL picker (L1–L5, default L3): assignment payloads carry `analysis_level`; queue/grade show read-only level badges | port-to-component-test |
+| regrade-level-picker | Regrade modal (L1–L5): the regrade POST body carries `analysis_level` (not empty `{}`), seeded from the current essay level; cancel is a hard no-op (confirmDanger a11y pattern) | port-to-component-test |
 | home-stats-loading | Home stats show a loading placeholder during fetch, real value on success, "—" on error (never literal 0) | port-to-component-test |
 | student-hub-drawer | Student drawer shows profile/cohort/target-vs-current/essay-history from `/admin/students/{id}` + writing summary; deep-links to assignment form | port-to-component-test |
 | admin-writing-status-redesign | Writing status dashboard: per-student grade counts, completion %, feedback rate | keep-until-route-retired |
