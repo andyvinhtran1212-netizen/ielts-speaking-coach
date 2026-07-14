@@ -282,6 +282,8 @@ async def bulk_grade_writing(
         res = svc.claim_mock_writing_grading(
             [sitting.get("essay_task1_id"), sitting.get("essay_task2_id")],
             grading_tier=body.grading_tier,
+            analysis_level=body.analysis_level,
+            selected_model=body.selected_model,
         )
         for essay_id, job_id in res["queued"]:
             background_tasks.add_task(essay_service._bg_grade_essay, essay_id, job_id)

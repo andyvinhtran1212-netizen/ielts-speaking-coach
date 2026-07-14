@@ -1464,6 +1464,21 @@ def test_claim_mock_writing_grading_gates_short_and_claims_long(fake_db, svc, mo
     assert calls[0][1]["selected_model"] == "model-L3"
 
 
+def test_claim_mock_writing_grading_threads_level_and_model(fake_db, svc, monkeypatch):
+    """Codex P2: a caller-supplied analysis_level + selected_model reach the
+    grading job (bulk-grade's depth/model choice isn't silently dropped)."""
+    from services import essay_service
+    _seed_essay(fake_db, "e1", "task1_academic", 200)
+    calls = []
+    monkeypatch.setattr(essay_service, "claim_pending_for_grading",
+                        lambda eid, **kw: (calls.append(kw) or {"job_id": "j", "eta_seconds": 1}))
+    monkeypatch.setattr(essay_service, "default_grading_model", lambda level: "should-not-be-used")
+
+    svc.claim_mock_writing_grading(["e1"], analysis_level=5, selected_model="gemini-2.5-flash")
+    assert calls[0]["analysis_level"] == 5
+    assert calls[0]["selected_model"] == "gemini-2.5-flash"   # explicit model wins over default
+
+
 def test_claim_mock_writing_grading_swallows_claim_error(fake_db, svc, monkeypatch):
     """A claim error is logged, never raised — auto-grade must not fail submit."""
     from services import essay_service
@@ -1498,6 +1513,22 @@ def test_skip_mock_writing_grading_rejects_non_mock_essay(fake_db, svc):
 def test_skip_mock_writing_grading_rejects_reviewed_essay(fake_db, svc):
     """A reviewed/delivered essay has a real grade — can't be overwritten by skip."""
     _seed_essay(fake_db, "e1", "task2", 300, status="reviewed", sitting_id="sit-1")
+    with pytest.raises(svc.SittingConflictError):
+        svc.skip_mock_writing_grading("e1", admin_id="admin-1")
+
+
+def test_skip_mock_writing_grading_rejects_long_pending_essay(fake_db, svc):
+    """Codex P2: a normal-length (≥ minimum) essay must be graded, not skipped —
+    else it could be published with no feedback."""
+    _seed_essay(fake_db, "e1", "task2", 300, status="pending", sitting_id="sit-1")
+    with pytest.raises(svc.SittingConflictError):
+        svc.skip_mock_writing_grading("e1", admin_id="admin-1")
+
+
+def test_skip_mock_writing_grading_rejects_in_flight_essay(fake_db, svc):
+    """Codex P2: an in-flight (grading) or graded essay isn't skippable — only a
+    still-pending, too-short one is."""
+    _seed_essay(fake_db, "e1", "task1_academic", 40, status="grading", sitting_id="sit-1")
     with pytest.raises(svc.SittingConflictError):
         svc.skip_mock_writing_grading("e1", admin_id="admin-1")
 

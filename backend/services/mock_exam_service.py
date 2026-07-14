@@ -707,6 +707,8 @@ def writing_meets_min_words(essay: dict) -> bool:
 
 def claim_mock_writing_grading(
     essay_ids: list, *, grading_tier: str = _MOCK_WRITING_GRADING_TIER,
+    analysis_level: int = _MOCK_WRITING_ANALYSIS_LEVEL,
+    selected_model: str | None = None,
 ) -> dict:
     """Word-count-gated claim of promoted mock Writing essays for AI grading.
 
@@ -717,6 +719,11 @@ def claim_mock_writing_grading(
     service can't own request lifecycle); `short` = below the word minimum, left
     'pending' for the admin to decide in the Mock queue tab; `skipped` = not
     'pending' (already grading/graded) or lost the claim race.
+
+    `analysis_level` / `selected_model` configure the grading JOB (the word gate
+    itself is fixed at the IELTS minimums). The auto-grade path uses the mock
+    defaults; bulk-grade passes the admin's chosen depth/model through. A None
+    model resolves to the level-aware default.
 
     Idempotent + best-effort: a falsy id is ignored; a read/claim error is
     logged, never raised — auto-grading must not fail the student's submit."""
@@ -747,8 +754,8 @@ def claim_mock_writing_grading(
             job = essay_service.claim_pending_for_grading(
                 eid,
                 grading_tier=grading_tier,
-                analysis_level=_MOCK_WRITING_ANALYSIS_LEVEL,
-                selected_model=essay_service.default_grading_model(_MOCK_WRITING_ANALYSIS_LEVEL),
+                analysis_level=analysis_level,
+                selected_model=selected_model or essay_service.default_grading_model(analysis_level),
             )
         except Exception:  # noqa: BLE001
             logger.exception("[mock-exam] auto-grade claim failed essay=%s", eid)
@@ -764,13 +771,14 @@ def skip_mock_writing_grading(essay_id: str, *, admin_id: str) -> dict:
     """Admin decides NOT to grade a too-short mock Writing essay — stamp
     grading_skipped_at (mig 156) so the mock release gate stops blocking on it.
 
-    Mock-scoped: rejects a non-mock essay (no sitting_id) so a normal
-    self-submit essay can't be quietly dropped out of its own grading queue.
-    Also rejects an already reviewed/delivered essay — that grade is real, use
-    the normal flow, don't overwrite it with a skip."""
+    Narrowly scoped, because grading_skipped_at makes the release gate treat the
+    essay as resolved: it may ONLY be set on a mock essay (sitting_id), that is
+    still 'pending' (not in-flight/graded/reviewed/delivered), AND is genuinely
+    too short (below the Task 1/Task 2 word minimum). This prevents a stray API
+    call from publishing a gradeable or in-flight Writing task with no feedback."""
     try:
         rows = (supabase_admin.table("writing_essays")
-                .select("id, sitting_id, status")
+                .select("id, sitting_id, status, task_type, word_count")
                 .eq("id", str(essay_id)).limit(1).execute()).data
     except Exception as exc:  # noqa: BLE001
         raise MockExamError(f"Lỗi truy vấn bài viết: {exc}")
@@ -779,8 +787,11 @@ def skip_mock_writing_grading(essay_id: str, *, admin_id: str) -> dict:
     essay = rows[0]
     if not essay.get("sitting_id"):
         raise SittingConflictError("Chỉ áp dụng cho bài Writing của mock test.")
-    if essay.get("status") in ("reviewed", "delivered"):
-        raise SittingConflictError("Bài đã được duyệt/trả — không thể bỏ qua chấm.")
+    if essay.get("status") != "pending":
+        raise SittingConflictError(
+            "Chỉ bỏ qua được bài chưa chấm (pending) — bài đang chấm/đã chấm hãy dùng luồng thường.")
+    if writing_meets_min_words(essay):
+        raise SittingConflictError("Bài đủ số từ — hãy chấm thay vì bỏ qua.")
     try:
         supabase_admin.table("writing_essays").update({
             "grading_skipped_at": _now_iso(),

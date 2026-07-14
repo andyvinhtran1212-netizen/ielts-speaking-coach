@@ -58,9 +58,12 @@ def test_bulk_grade_queues_pending_skips_others_and_foreign_exam():
     assert body["queued"] == ["e1"]      # only the pending essay of an in-exam sitting
     assert body["skipped"] == ["e2"]     # e2 not pending; s2 (foreign) + s3 (no essays) untouched
     assert body["grading_tier"] == "instructor"
-    # e3 (foreign exam) must never have been claimed; tier passed through.
+    # e3 (foreign exam) must never have been claimed; tier + model opts pass through.
     assert not any("e3" in (ids or []) for ids, _ in claim_calls)
-    assert (["e1", "e2"], {"grading_tier": "instructor"}) in claim_calls
+    s1_call = next((kw for ids, kw in claim_calls if ids == ["e1", "e2"]), None)
+    assert s1_call is not None
+    assert s1_call["grading_tier"] == "instructor"
+    assert "analysis_level" in s1_call and "selected_model" in s1_call
     assert bg.call_args_list[0].args == ("e1", "j-e1")
 
 
