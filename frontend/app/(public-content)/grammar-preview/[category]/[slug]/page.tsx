@@ -9,13 +9,13 @@ import { getArticle } from '@/lib/grammar-api';
 import { ArticleShell } from './page-shell';
 import { ArticleBehavior } from './article-behavior';
 
-// ADR-008 §3: this route's uncached SSR fetch hits the FastAPI backend, which
-// runs on Railway in Singapore (x-railway-edge: sin1). Pin the function region
-// to Singapore so that fetch is intra-region (~ms) instead of the Vercel
-// default (US-East → a cross-Pacific round-trip per uncached render). Only the
-// grammar route does a server-side backend fetch; landing/profile fetch
-// client-side, so the region pin lives here, not globally.
-export const preferredRegion = 'sin1';
+// ADR-008 §3: this route's uncached SSR fetch hits the FastAPI backend on
+// Railway in Singapore (x-railway-edge: sin1), so the Vercel function must run
+// in Singapore too (else the default US-East region makes every uncached
+// render a cross-Pacific round-trip). The function region is set project-wide
+// in vercel.json `regions: ["sin1"]` — NOT via `preferredRegion` here, which
+// is an EDGE-runtime-only segment config (ignored on this Node route; review
+// #757). sin1 is optimal for both the backend AND the users (Vietnam ≈ 30ms).
 
 type Params = { params: Promise<{ category: string; slug: string }> };
 
