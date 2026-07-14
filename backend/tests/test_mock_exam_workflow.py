@@ -1586,6 +1586,36 @@ def test_release_allowed_when_writing_task_unanswered(fake_db, svc, wf):
     assert released["status"] == "released"
 
 
+def test_release_allowed_for_needs_retest_sitting_with_ungraded_writing(fake_db, svc, wf):
+    """Codex P2: a sitting flagged needs_retest has its Writing intentionally
+    left ungraded (bulk-grade skips needs_retest sittings), so the Writing gate
+    must NOT block publishing the retest decision even though the essays are
+    still pending."""
+    exam, u, s = _seed_mock_writing(fake_db, svc)   # 2 pending essays
+    for row in fake_db.rows("mock_exam_sittings"):
+        if row["id"] == s["id"]:
+            row["needs_retest"] = True              # pre-grading retake toggle
+    review = wf.get_review_for_sitting(s["id"])
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    wf.save_final_bands(review["id"], admin,
+                        {"listening": 6.0, "reading": 6.0, "writing": 6.0})
+    released = wf.release_results(review["id"], admin)   # must NOT raise
+    assert released["status"] == "released"
+
+
+def test_writing_gate_runs_regardless_of_prefetched_review_status(fake_db, svc, wf):
+    """Codex P2 (race): the Writing gate must not be skipped just because the
+    review isn't 'reviewed' at pre-read time. _writing_pending_tasks itself is
+    unconditional on review status — a sitting with a pending essay reports it
+    whether or not final bands are saved yet (closes the claimed→reviewed race
+    window before the atomic release UPDATE)."""
+    exam, u, s = _seed_mock_writing(fake_db, svc)   # 2 pending essays, review still 'queued'
+    review = wf.get_review_for_sitting(s["id"])
+    assert review["status"] == "queued"             # NOT reviewed
+    assert wf._writing_pending_tasks(s["id"]) == ["Task 1", "Task 2"]
+
+
 def test_retake_assign_scopes_skills_and_is_idempotent(fake_db):
     """PR A (retake): assign() creates one row per (exam, user) with skills
     scoped to v1 L/R/W (drops unknown/speaking), shares one group_id, and is

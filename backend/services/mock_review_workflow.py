@@ -309,15 +309,21 @@ def _writing_pending_tasks(sitting_id: UUID | str) -> list[str]:
     deliverable feedback. Returns [] when Writing isn't part of this sitting or
     every promoted essay is ready. Only STAMPED essays are checked — an
     unanswered Writing task (no essay id) has nothing to deliver and never
-    blocks."""
+    blocks.
+
+    A sitting flagged `needs_retest` is exempt: its Writing is intentionally
+    left ungraded (bulk-grade skips needs_retest sittings), and the admin must
+    still be able to publish the retest decision — so it never blocks."""
     if "writing" not in _required_skills(sitting_id):
         return []
     row = supabase_admin.table("mock_exam_sittings").select(
-        "essay_task1_id, essay_task2_id",
+        "essay_task1_id, essay_task2_id, needs_retest",
     ).eq("id", str(sitting_id)).limit(1).execute()
     if not row.data:
         return []
     s = row.data[0]
+    if s.get("needs_retest"):
+        return []
     tasks = [("Task 1", s.get("essay_task1_id")), ("Task 2", s.get("essay_task2_id"))]
     ids = [eid for _, eid in tasks if eid]
     if not ids:
@@ -347,11 +353,14 @@ def release_results(
     if channel not in ("in_app", "email", "manual"):
         raise ValidationError(f"unknown release channel {channel!r}")
 
-    # Hard block: only gate a review that's otherwise ready to release (status
-    # 'reviewed'). A not-yet-reviewed review is stopped by the atomic UPDATE's
-    # own status guard below with its existing message, so no double-reporting.
+    # Hard block: gate for ANY existing review, NOT only one this pre-read sees as
+    # 'reviewed'. Gating on the pre-read status would race the atomic UPDATE below
+    # — a concurrent save_final_bands could flip claimed→reviewed between this
+    # check and the UPDATE, letting a sitting publish with pending/graded Writing.
+    # Writing essays never regress reviewed→pending, so checking unconditionally
+    # here + the status-guarded UPDATE below is race-free.
     review = get_review(review_id)
-    if review and review.get("status") == "reviewed":
+    if review:
         pending = _writing_pending_tasks(review["sitting_id"])
         if pending:
             raise ConflictError(
