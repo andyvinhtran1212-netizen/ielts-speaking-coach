@@ -31,7 +31,7 @@ aver-chrome logout (`→ '/index.html'`) giờ redirect về `/` — vẫn đún
 
 ## GATE trước khi merge (BẮT BUỘC — đây là lý do PR để DRAFT)
 
-- [ ] Nightly streak **20/20** frozen matrix (đang 7/20 lúc soạn).
+- [x] Nightly streak **20/20** frozen matrix — ĐẠT 2026-07-14 (20 run liên tiếp success từ mốc 2026-07-13T21:26Z; PR #752).
 - [ ] Traffic baseline re-run ≤72h trước (`backend/scripts/traffic_baseline.sh`) —
       root là route traffic cao nhất site → exposure floor chuẩn OK.
 - [ ] Đo lại `docs/PILOT_1_BASELINE_2026-07-14.md` ≤72h trước (Lighthouse +
