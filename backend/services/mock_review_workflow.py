@@ -313,7 +313,11 @@ def _writing_pending_tasks(sitting_id: UUID | str) -> list[str]:
 
     A sitting flagged `needs_retest` is exempt: its Writing is intentionally
     left ungraded (bulk-grade skips needs_retest sittings), and the admin must
-    still be able to publish the retest decision — so it never blocks."""
+    still be able to publish the retest decision — so it never blocks.
+
+    An essay the admin explicitly SKIPPED (grading_skipped_at set, mig 156 — the
+    "too short, don't grade" decision) also counts as resolved: it will never
+    reach 'reviewed', but the admin already ruled on it, so it must not block."""
     if "writing" not in _required_skills(sitting_id):
         return []
     row = supabase_admin.table("mock_exam_sittings").select(
@@ -328,14 +332,14 @@ def _writing_pending_tasks(sitting_id: UUID | str) -> list[str]:
     ids = [eid for _, eid in tasks if eid]
     if not ids:
         return []
-    rows = supabase_admin.table("writing_essays").select("id, status").in_(
-        "id", ids,
-    ).execute().data or []
-    status_by_id = {r["id"]: r.get("status") for r in rows}
-    return [
-        label for label, eid in tasks
-        if eid and status_by_id.get(str(eid)) not in _WRITING_RELEASABLE
-    ]
+    rows = supabase_admin.table("writing_essays").select(
+        "id, status, grading_skipped_at",
+    ).in_("id", ids).execute().data or []
+    by_id = {r["id"]: r for r in rows}
+    def _ready(eid) -> bool:
+        e = by_id.get(str(eid)) or {}
+        return e.get("status") in _WRITING_RELEASABLE or bool(e.get("grading_skipped_at"))
+    return [label for label, eid in tasks if eid and not _ready(eid)]
 
 
 def release_results(

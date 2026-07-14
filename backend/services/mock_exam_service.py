@@ -663,6 +663,9 @@ def _promote_writing_essays(sitting_id: str) -> None:
                     "essay_text":            d["text"],
                     "analysis_level":        3,
                     "status":                "pending",
+                    # Stamp the reverse link so the grading queue can filter mock
+                    # essays into their own tab (mig 148 column, mig 156 backfill).
+                    "sitting_id":            str(sitting_id),
                 },
                 # Audit convention matches regular self-submit: the STUDENT's
                 # own user_id, not the reviewing admin.
@@ -688,34 +691,104 @@ def _promote_writing_essays(sitting_id: str) -> None:
 _MOCK_WRITING_GRADING_TIER = "standard"
 _MOCK_WRITING_ANALYSIS_LEVEL = 3
 
+# IELTS word minimums. Below these a task's essay is "too short" and is NOT
+# auto-graded — it's held 'pending' for the admin to decide in the Mock queue tab
+# whether to grade it anyway or skip it. task_type 'task1_*' → task1 threshold.
+_WRITING_MIN_WORDS = {"task1": 150, "task2": 250}
 
-def claim_mock_writing_grading(essay_ids: list) -> list[tuple[str, str]]:
-    """Atomically claim each still-'pending' promoted Writing essay for AI
-    grading (pending→grading + a job row) and return the (essay_id, job_id)
-    pairs the CALLER must launch as request-scoped BackgroundTasks — a service
-    can't own request lifecycle (same split as writing_student self-submit).
 
-    Idempotent + best-effort: a falsy id or an already-grading/graded essay
-    (claim returns None) is skipped; a claim error is logged, never raised —
-    auto-grading must not fail the student's section submit."""
+def writing_meets_min_words(essay: dict) -> bool:
+    """True if the essay is long enough to auto-grade (Task 1 ≥150, Task 2 ≥250
+    words). A missing/zero word_count fails the gate (held for admin decision)."""
+    tt = str(essay.get("task_type") or "")
+    key = "task1" if tt.startswith("task1") else "task2"
+    return int(essay.get("word_count") or 0) >= _WRITING_MIN_WORDS[key]
+
+
+def claim_mock_writing_grading(
+    essay_ids: list, *, grading_tier: str = _MOCK_WRITING_GRADING_TIER,
+) -> dict:
+    """Word-count-gated claim of promoted mock Writing essays for AI grading.
+
+    For each still-'pending' essay that MEETS the word minimum, atomically claim
+    it (pending→grading + a job row). Returns
+      {"queued": [(essay_id, job_id)], "short": [essay_id], "skipped": [essay_id]}
+    — `queued` pairs the CALLER must launch as request-scoped BackgroundTasks (a
+    service can't own request lifecycle); `short` = below the word minimum, left
+    'pending' for the admin to decide in the Mock queue tab; `skipped` = not
+    'pending' (already grading/graded) or lost the claim race.
+
+    Idempotent + best-effort: a falsy id is ignored; a read/claim error is
+    logged, never raised — auto-grading must not fail the student's submit."""
     from services import essay_service  # local import avoids import-order coupling
-    out: list[tuple[str, str]] = []
-    for essay_id in essay_ids:
-        if not essay_id:
+    ids = [str(e) for e in essay_ids if e]
+    result: dict = {"queued": [], "short": [], "skipped": []}
+    if not ids:
+        return result
+    try:
+        rows = supabase_admin.table("writing_essays").select(
+            "id, task_type, word_count, status",
+        ).in_("id", ids).execute().data or []
+    except Exception:  # noqa: BLE001
+        logger.exception("[mock-exam] auto-grade: essay lookup failed ids=%s", ids)
+        return result
+    by_id = {r["id"]: r for r in rows}
+    for eid in ids:
+        essay = by_id.get(eid)
+        if not essay:
+            continue
+        if essay.get("status") != "pending":
+            result["skipped"].append(eid)          # already grading/graded/etc.
+            continue
+        if not writing_meets_min_words(essay):
+            result["short"].append(eid)            # held for admin decision
             continue
         try:
             job = essay_service.claim_pending_for_grading(
-                str(essay_id),
-                grading_tier=_MOCK_WRITING_GRADING_TIER,
+                eid,
+                grading_tier=grading_tier,
                 analysis_level=_MOCK_WRITING_ANALYSIS_LEVEL,
                 selected_model=essay_service.default_grading_model(_MOCK_WRITING_ANALYSIS_LEVEL),
             )
         except Exception:  # noqa: BLE001
-            logger.exception("[mock-exam] auto-grade claim failed essay=%s", essay_id)
+            logger.exception("[mock-exam] auto-grade claim failed essay=%s", eid)
             continue
         if job:
-            out.append((str(essay_id), job["job_id"]))
-    return out
+            result["queued"].append((eid, job["job_id"]))
+        else:
+            result["skipped"].append(eid)          # lost the pending→grading race
+    return result
+
+
+def skip_mock_writing_grading(essay_id: str, *, admin_id: str) -> dict:
+    """Admin decides NOT to grade a too-short mock Writing essay — stamp
+    grading_skipped_at (mig 156) so the mock release gate stops blocking on it.
+
+    Mock-scoped: rejects a non-mock essay (no sitting_id) so a normal
+    self-submit essay can't be quietly dropped out of its own grading queue.
+    Also rejects an already reviewed/delivered essay — that grade is real, use
+    the normal flow, don't overwrite it with a skip."""
+    try:
+        rows = (supabase_admin.table("writing_essays")
+                .select("id, sitting_id, status")
+                .eq("id", str(essay_id)).limit(1).execute()).data
+    except Exception as exc:  # noqa: BLE001
+        raise MockExamError(f"Lỗi truy vấn bài viết: {exc}")
+    if not rows:
+        raise NotFoundError("Không tìm thấy bài viết.")
+    essay = rows[0]
+    if not essay.get("sitting_id"):
+        raise SittingConflictError("Chỉ áp dụng cho bài Writing của mock test.")
+    if essay.get("status") in ("reviewed", "delivered"):
+        raise SittingConflictError("Bài đã được duyệt/trả — không thể bỏ qua chấm.")
+    try:
+        supabase_admin.table("writing_essays").update({
+            "grading_skipped_at": _now_iso(),
+            "grading_skipped_by": str(admin_id),
+        }).eq("id", str(essay_id)).execute()
+    except Exception as exc:  # noqa: BLE001
+        raise MockExamError(f"Lỗi cập nhật bài viết: {exc}")
+    return {"ok": True, "essay_id": str(essay_id), "grading_skipped": True}
 
 
 def start_section(sitting_id: str, user_id: str, section: str) -> dict:

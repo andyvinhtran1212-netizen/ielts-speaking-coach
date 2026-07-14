@@ -173,10 +173,13 @@ async def submit_section(
     if section == "writing":
         # Re-read the sitting: submit_section's returned dict may predate the
         # promote update, but the persisted row carries the stamped essay ids.
+        # Only essays meeting the IELTS word minimum are auto-graded; a too-short
+        # task is left 'pending' for the admin to decide in the Mock queue tab.
         sitting = svc.get_sitting(sitting_id) or {}
-        for essay_id, job_id in svc.claim_mock_writing_grading(
+        graded = svc.claim_mock_writing_grading(
             [sitting.get("essay_task1_id"), sitting.get("essay_task2_id")]
-        ):
+        )
+        for essay_id, job_id in graded["queued"]:
             background_tasks.add_task(essay_service._bg_grade_essay, essay_id, job_id)
     return result
 

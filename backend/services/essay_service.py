@@ -301,6 +301,9 @@ _OPTIONAL_ESSAY_FIELDS = (
     # Reviewed Task 1 answer-key snapshot (mirrors prompt_image_url). Copied
     # through only when present (None → column default null).
     "prompt_image_analysis",
+    # Non-null for a promoted 4-skill mock Writing essay (mig 148) — lets the
+    # grading queue tell mock essays apart from normal self-submit ones.
+    "sitting_id",
 )
 
 

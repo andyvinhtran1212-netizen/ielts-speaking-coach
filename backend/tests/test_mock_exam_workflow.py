@@ -1420,40 +1420,86 @@ def test_promote_writing_essays_skips_empty_task(fake_db, svc):
     assert sitting.get("essay_task2_id") is None
 
 
-# ── auto-grade helper (2026-07-14: close Gap 1 — grade on promote) ────
+# ── auto-grade helper + word-count gate (2026-07-14) ─────────────────
 
-def test_claim_mock_writing_grading_claims_pending_returns_pairs(svc, monkeypatch):
-    """Each non-null essay id is claimed with tier=standard, level=3, the
-    level-aware model; a None-returning claim (not pending) and falsy ids are
-    skipped; returns (essay_id, job_id) for the launched jobs."""
+def test_writing_meets_min_words_thresholds(svc):
+    """Task 1 needs ≥150 words, Task 2 needs ≥250; missing count fails."""
+    assert svc.writing_meets_min_words({"task_type": "task1_academic", "word_count": 150})
+    assert not svc.writing_meets_min_words({"task_type": "task1_general", "word_count": 149})
+    assert svc.writing_meets_min_words({"task_type": "task2", "word_count": 250})
+    assert not svc.writing_meets_min_words({"task_type": "task2", "word_count": 249})
+    assert not svc.writing_meets_min_words({"task_type": "task2", "word_count": None})
+
+
+def _seed_essay(fake_db, eid, task_type, word_count, status="pending", sitting_id="sit-x"):
+    fake_db.seed("writing_essays", {
+        "id": eid, "task_type": task_type, "word_count": word_count,
+        "status": status, "sitting_id": sitting_id,
+    })
+
+
+def test_claim_mock_writing_grading_gates_short_and_claims_long(fake_db, svc, monkeypatch):
+    """Only pending essays MEETING the word minimum are claimed; too-short ones
+    are reported in `short` (held for admin), non-pending ones in `skipped`."""
     from services import essay_service
+    _seed_essay(fake_db, "e1", "task1_academic", 200)              # long → queued
+    _seed_essay(fake_db, "e2", "task2", 100)                       # short → short
+    _seed_essay(fake_db, "e3", "task2", 300, status="graded")      # not pending → skipped
     calls = []
 
     def fake_claim(essay_id, **kw):
         calls.append((essay_id, kw))
-        return {"job_id": "j-" + essay_id, "eta_seconds": 1} if essay_id != "e2" else None
+        return {"job_id": "j-" + essay_id, "eta_seconds": 1}
 
     monkeypatch.setattr(essay_service, "claim_pending_for_grading", fake_claim)
     monkeypatch.setattr(essay_service, "default_grading_model", lambda level: "model-L%d" % level)
 
     out = svc.claim_mock_writing_grading(["e1", "e2", None, "e3"])
-    assert out == [("e1", "j-e1"), ("e3", "j-e3")]     # e2 not pending, None ignored
-    assert [c[0] for c in calls] == ["e1", "e2", "e3"]
+    assert out["queued"] == [("e1", "j-e1")]
+    assert out["short"] == ["e2"]
+    assert out["skipped"] == ["e3"]
+    assert [c[0] for c in calls] == ["e1"]                         # only the long, pending one
     assert calls[0][1]["grading_tier"] == "standard"
     assert calls[0][1]["analysis_level"] == 3
     assert calls[0][1]["selected_model"] == "model-L3"
 
 
-def test_claim_mock_writing_grading_swallows_claim_error(svc, monkeypatch):
+def test_claim_mock_writing_grading_swallows_claim_error(fake_db, svc, monkeypatch):
     """A claim error is logged, never raised — auto-grade must not fail submit."""
     from services import essay_service
+    _seed_essay(fake_db, "e1", "task2", 300)
 
     def boom(essay_id, **kw):
         raise RuntimeError("db down")
 
     monkeypatch.setattr(essay_service, "claim_pending_for_grading", boom)
     monkeypatch.setattr(essay_service, "default_grading_model", lambda level: "m")
-    assert svc.claim_mock_writing_grading(["e1"]) == []   # no raise, empty result
+    out = svc.claim_mock_writing_grading(["e1"])
+    assert out == {"queued": [], "short": [], "skipped": []}       # no raise
+
+
+def test_skip_mock_writing_grading_marks_skipped(fake_db, svc):
+    """Admin skips a too-short mock essay → grading_skipped_at stamped."""
+    _seed_essay(fake_db, "e1", "task1_academic", 40, sitting_id="sit-1")
+    out = svc.skip_mock_writing_grading("e1", admin_id="admin-1")
+    assert out["grading_skipped"] is True
+    row = next(r for r in fake_db.rows("writing_essays") if r["id"] == "e1")
+    assert row["grading_skipped_at"]
+    assert row["grading_skipped_by"] == "admin-1"
+
+
+def test_skip_mock_writing_grading_rejects_non_mock_essay(fake_db, svc):
+    """A normal self-submit essay (no sitting_id) can't be skipped via this path."""
+    _seed_essay(fake_db, "e1", "task2", 40, sitting_id=None)
+    with pytest.raises(svc.SittingConflictError):
+        svc.skip_mock_writing_grading("e1", admin_id="admin-1")
+
+
+def test_skip_mock_writing_grading_rejects_reviewed_essay(fake_db, svc):
+    """A reviewed/delivered essay has a real grade — can't be overwritten by skip."""
+    _seed_essay(fake_db, "e1", "task2", 300, status="reviewed", sitting_id="sit-1")
+    with pytest.raises(svc.SittingConflictError):
+        svc.skip_mock_writing_grading("e1", admin_id="admin-1")
 
 
 def _seed_mock_writing(fake_db, svc):
@@ -1614,6 +1660,26 @@ def test_writing_gate_runs_regardless_of_prefetched_review_status(fake_db, svc, 
     review = wf.get_review_for_sitting(s["id"])
     assert review["status"] == "queued"             # NOT reviewed
     assert wf._writing_pending_tasks(s["id"]) == ["Task 1", "Task 2"]
+
+
+def test_release_allowed_when_short_essay_is_skipped(fake_db, svc, wf):
+    """A too-short essay the admin SKIPPED (grading_skipped_at set) counts as
+    resolved — it never reaches 'reviewed' but must not block release."""
+    exam, u, s = _seed_mock_writing(fake_db, svc)   # 2 pending essays
+    sitting = svc.get_sitting(s["id"])
+    e1, e2 = sitting["essay_task1_id"], sitting["essay_task2_id"]
+    _set_essay_status(fake_db, e1, "reviewed")      # Task 1 graded + approved
+    for row in fake_db.rows("writing_essays"):      # Task 2 too short → skipped
+        if row["id"] == e2:
+            row["grading_skipped_at"] = "2026-07-14T00:00:00Z"
+    assert wf._writing_pending_tasks(s["id"]) == []   # neither blocks
+    review = wf.get_review_for_sitting(s["id"])
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    wf.save_final_bands(review["id"], admin,
+                        {"listening": 6.0, "reading": 6.0, "writing": 6.0})
+    released = wf.release_results(review["id"], admin)   # must NOT raise
+    assert released["status"] == "released"
 
 
 def test_retake_assign_scopes_skills_and_is_idempotent(fake_db):
