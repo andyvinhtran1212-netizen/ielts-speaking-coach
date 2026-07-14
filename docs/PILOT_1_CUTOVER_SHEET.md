@@ -66,3 +66,18 @@ Frozen estimate pilot 1 = 6h. Đã tiêu tới cutover-ready: build ~1h (#740) +
 baseline ~0.5h (#750) + cutover prep ~0.5h ≈ **2h** — dưới xa 2× gate. Số đo
 cutover (điền khi thực thi): JS route-specific ~0.9 KB (đo #750), Lighthouse
 98/98, API count 1=1, diff size (PR này), visual parity (đã proven #740).
+
+---
+
+## ✅ CUTOVER THỰC HIỆN — 2026-07-14 (release `e22b84ff`)
+
+Merged #751 → auto-promote **20s** → production phục vụ Next tại `/`.
+
+**Post-cutover verify (browser thật trên production):**
+- `/` = 200, served by Next (`__next_f` present), h1 = "Luyện thi IELTS toàn diện cùng AI Coach.", **zero console/page error**.
+- Stats render số thật: **67+ học viên · 3.1K+ buổi luyện · 6 kỹ năng** (khớp production public-stats) — screenshot lưu.
+- `/index.html` → 308 → `/` ✓ (một canonical landing).
+- Legacy nguyên vẹn: `/pages/home.html`, `/pages/speaking.html`, `/grammar/tenses/present-simple` đều 200 + legacy (Next không shadow).
+- Auto-promote OK: release trên `/js/runtime-config.js` = main HEAD `e22b84ff` → nightly `production-release-drift` sẽ xanh.
+
+**Đây là route production ĐẦU TIÊN của chương trình migration cutover sang Next.** Soak window bắt đầu; rollback trigger + cơ chế (Instant Rollback ≤12s → Undo Rollback) đã freeze ở §4 trên. Theo dõi error-rate `/` theo tag `implementation=next` trên dashboard ADR-012.
