@@ -52,3 +52,14 @@ test('CUTOVER: `/` is the Next app route; the legacy `/`→/index.html rewrite i
     'legacy /index.html consolidates to the canonical `/`');
   assert.ok(existsSync(PAGE), 'landing page.tsx now lives directly under (marketing) → route `/`');
 });
+
+test('ADR-012: migrated landing emits implementation=next telemetry (observability, review)', () => {
+  const layout = readFileSync(LAYOUT, 'utf8');
+  const behavior = readFileSync(BEHAVIOR, 'utf8');
+  // error signal: self-contained error-reporter is loaded (tags next via __next_f)
+  assert.match(layout, /error-reporter\.js/, 'error-reporter must load so landing errors are reported + tagged next');
+  // page-view denominator: raw beacon (no api.js dep) tagged next + release
+  assert.match(behavior, /\/api\/analytics\/events/, 'landing must emit a page_view beacon');
+  assert.match(behavior, /implementation: 'next'/, 'beacon must tag implementation=next for the ADR-012 dashboard');
+  assert.match(behavior, /event_name: 'page_view'/);
+});
