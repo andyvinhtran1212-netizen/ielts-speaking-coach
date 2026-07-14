@@ -149,6 +149,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // then the shared client broadcasts cross-tab, then the legacy-compat
     // event keeps any legacy chrome/listeners on the page in sync (ADR-011 §4
     // is bidirectional: phát/nhận).
+    //
+    // ⚠ ORDERING HAZARD for future callers (review #762): applySession(null)
+    // flips pages to signed-out, and a fail-closed page effect (profile)
+    // NAVIGATES on that. supabase-js v2 signOut() runs the network revoke
+    // BEFORE clearing localStorage — if the navigation fires mid-revoke, both
+    // the revoke and the storage cleanup are cancelled and the next page load
+    // RESTORES the session (logout silently undone). The legacy chrome logout
+    // (aver-chrome.js _bindLogout) therefore awaits the revoke before
+    // announcing sign-out — today the ONLY user-initiated logout path. If you
+    // wire a Next logout button to THIS function, await the revoke before
+    // applySession(null), or verify the caller's page has no signed-out
+    // navigation effect.
     applySession(null);
     try {
       // AUDIT F6: supabase-js v2 signOut() does NOT throw on failure — it

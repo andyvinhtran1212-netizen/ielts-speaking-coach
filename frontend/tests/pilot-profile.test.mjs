@@ -132,3 +132,24 @@ test('AUDIT F6: signOut kiểm tra {error} đã resolve (supabase v2 KHÔNG thro
   assert.match(PROVIDER, /auth_signout_revoke_failed/,
     'revoke failures must be observable on the error dashboard');
 });
+
+test('AUDIT F6/review #762: chrome logout (đường logout THẬT) cũng report revoke fail + giữ ordering revoke-trước-event', () => {
+  // useAuth().signOut has no callers today — the real user-initiated logout
+  // is the <aver-chrome> handler, so the {error} reporting must live THERE.
+  const CHROME = readFileSync(
+    path.join(FRONTEND, 'js', 'components', 'aver-chrome.js'), 'utf8');
+  assert.match(CHROME, /result && result\.error/,
+    'chrome must check the resolved {error} (v2 signOut does not throw)');
+  assert.match(CHROME, /auth_signout_revoke_failed/,
+    'chrome revoke failures must reach the error dashboard');
+  // Ordering is load-bearing: the signed-out event (which triggers the
+  // provider fail-closed NAVIGATION on profile) must come AFTER the awaited
+  // revoke — v2 clears localStorage only after the network call, so a
+  // navigation mid-revoke cancels the cleanup and the logout silently
+  // undoes itself on the next load.
+  const handler = CHROME.slice(CHROME.indexOf('_bindLogout'));
+  const revokeIdx = handler.indexOf('await sb.auth.signOut()');
+  const eventIdx = handler.indexOf("CustomEvent('av-chrome-signed-out'");
+  assert.ok(revokeIdx !== -1 && eventIdx !== -1 && revokeIdx < eventIdx,
+    'av-chrome-signed-out must be dispatched AFTER the awaited revoke');
+});

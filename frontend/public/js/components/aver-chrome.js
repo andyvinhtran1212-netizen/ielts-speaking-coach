@@ -670,16 +670,45 @@ export class AverChrome extends HTMLElement {
     if (!logout) return;
     const signal = this._abortController && this._abortController.signal;
     logout.addEventListener('click', async () => {
+      // ORDERING IS LOAD-BEARING (review #762): the event/redirect stay
+      // AFTER the awaited revoke. supabase-js v2 signOut() calls the
+      // network revoke BEFORE clearing the localStorage session — if we
+      // dispatched av-chrome-signed-out first, the Next AuthProvider's
+      // fail-closed redirect (profile → /login.html) would navigate away
+      // mid-revoke, cancelling BOTH the revoke and the storage cleanup:
+      // the next page load would restore the session and the logout would
+      // silently undo itself.
       try {
         const sb = (typeof window !== 'undefined'
                     && typeof window.getSupabase === 'function')
                    ? window.getSupabase()
                    : null;
         if (sb && sb.auth && typeof sb.auth.signOut === 'function') {
-          await sb.auth.signOut();
+          // AUDIT F6 / review #762: v2 signOut() does NOT throw on a failed
+          // revoke — it RESOLVES with { error }. Discarding it made a
+          // still-valid refresh token look identical to a real sign-out.
+          // The flow continues either way (fail-closed locally), but the
+          // failure must reach the error dashboard.
+          const result = await sb.auth.signOut();
+          if (result && result.error) {
+            console.error('Sign-out revoke failed:', result.error);
+            try {
+              window.aver && window.aver.reportError && window.aver.reportError(
+                'signOut revoke failed: '
+                  + (result.error.message || String(result.error)),
+                { type: 'auth_signout_revoke_failed' },
+              );
+            } catch (e) { /* reporting must never block logout */ }
+          }
         }
       } catch (err) {
         console.error('Sign-out failed:', err);
+        try {
+          window.aver && window.aver.reportError && window.aver.reportError(
+            'signOut threw: ' + ((err && err.message) || String(err)),
+            { type: 'auth_signout_revoke_failed' },
+          );
+        } catch (e) { /* reporting must never block logout */ }
       }
       this.dispatchEvent(new CustomEvent('av-chrome-signed-out', {
         bubbles: true,
