@@ -23,7 +23,7 @@ Namespace note: distinct from /api/exams (the MCQ module). Prefix /api/mock-exam
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from routers.auth import get_supabase_user
@@ -152,18 +152,33 @@ async def submit_writing(
 @router.post("/sittings/{sitting_id}/sections/{section}/submit")
 async def submit_section(
     sitting_id: str, section: str, body: SectionSubmitBody,
+    background_tasks: BackgroundTasks,
     authorization: str | None = Header(default=None),
 ):
     """Collect ONE section (listening/reading/writing). No early manual
     submit exists client-side — this fires when that section's shared clock
-    hits 0. Finalises the sitting once every configured section is in."""
+    hits 0. Finalises the sitting once every configured section is in.
+
+    On a Writing submit, auto-start AI grading for the essays this promoted so
+    they land 'graded' + ready for admin review without a manual "Bắt đầu chấm"
+    click (the review + release still gate on the admin approving each)."""
     user = await get_supabase_user(authorization)
     try:
-        return svc.submit_section(
+        result = svc.submit_section(
             sitting_id, user["id"], section, body.task1_text, body.task2_text,
         )
     except Exception as e:  # noqa: BLE001
         _raise_for(e)
+
+    if section == "writing":
+        # Re-read the sitting: submit_section's returned dict may predate the
+        # promote update, but the persisted row carries the stamped essay ids.
+        sitting = svc.get_sitting(sitting_id) or {}
+        for essay_id, job_id in svc.claim_mock_writing_grading(
+            [sitting.get("essay_task1_id"), sitting.get("essay_task2_id")]
+        ):
+            background_tasks.add_task(essay_service._bg_grade_essay, essay_id, job_id)
+    return result
 
 
 @router.post("/sittings/{sitting_id}/speaking")
