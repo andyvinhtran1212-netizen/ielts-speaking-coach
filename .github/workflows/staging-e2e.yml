@@ -13,18 +13,6 @@
 #     Supabase (script ships in PR #733 — merge order #732 → #733 → this)
 name: Staging E2E
 
-# AUDIT F4: staging is a SHARED live environment (shared smoke identities,
-# environment-global kill-switch flips). Two simultaneous runs corrupt each
-# other's state, so runs are QUEUED, never concurrent. cancel-in-progress
-# stays false: a streak run must finish, not be half-killed.
-# Known residual (documented, needs a repo secret to close): all runs share
-# the `smoke` namespace — per-run namespaces (staging_seed.py --ns run-<id>)
-# require the staging Supabase SERVICE key as a CI secret; until then this
-# concurrency gate is the isolation mechanism.
-concurrency:
-  group: staging-e2e-shared-env
-  cancel-in-progress: false
-
 on:
   schedule:
     # GitHub Actions cron is deliberate: this job runs a Playwright browser
@@ -34,6 +22,25 @@ on:
 
 jobs:
   staging-e2e:
+    # AUDIT F4: staging is a SHARED live environment (shared smoke identities,
+    # environment-global kill-switch flips). Two simultaneous runs corrupt
+    # each other's state, so runs are QUEUED, never concurrent.
+    # - JOB-scoped (not workflow-scoped, review #760): production-release-
+    #   drift below only reads the production runtime marker and touches no
+    #   shared staging state — it must not wait behind a long E2E run.
+    # - queue: max (review #760): the default queue keeps ONE pending run and
+    #   CANCELS it when another queues — a nightly + manual dispatch overlap
+    #   would silently drop a streak run. Every queued run must execute.
+    # - cancel-in-progress stays false: a streak run must finish, not be
+    #   half-killed.
+    # Known residual (documented, needs a repo secret to close): all runs
+    # share the `smoke` namespace — per-run namespaces (staging_seed.py
+    # --ns run-<id>) require the staging Supabase SERVICE key as a CI
+    # secret; until then this concurrency gate is the isolation mechanism.
+    concurrency:
+      group: staging-e2e-shared-env
+      cancel-in-progress: false
+      queue: max
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
