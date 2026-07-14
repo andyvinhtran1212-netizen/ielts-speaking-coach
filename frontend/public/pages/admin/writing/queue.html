@@ -74,6 +74,16 @@
       font-size: var(--av-fs-xs); font-weight: var(--av-fw-semibold);
       background: var(--av-warning-soft); color: var(--av-warning);
       border: 1px solid color-mix(in srgb, var(--av-warning) 30%, transparent); }
+    /* Mock lane: word count (⚠ warning when below the IELTS task minimum). */
+    .q-wc { display: inline-block; padding: 1px 6px; border-radius: var(--av-radius-sm);
+      font-size: var(--av-fs-xs); font-weight: var(--av-fw-medium);
+      background: var(--av-surface-sunken); color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default); }
+    .q-wc-short { background: var(--av-warning-soft); color: var(--av-warning);
+      border-color: color-mix(in srgb, var(--av-warning) 30%, transparent); font-weight: var(--av-fw-semibold); }
+    .q-mock-act { white-space: nowrap; }
+    .q-skip-btn { background: var(--av-surface-sunken); color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default); }
 
     /* Status pills (token-driven; one per essay status) */
     .q-pill { display: inline-flex; align-items: center; padding: 2px 10px;
@@ -111,6 +121,10 @@
         <button type="button" class="adm-subtab"           data-status="reviewed"  role="tab" aria-selected="false">Chờ trả</button>
         <button type="button" class="adm-subtab"           data-status="delivered" role="tab" aria-selected="false">Đã trả</button>
         <button type="button" class="adm-subtab"           data-status=""          role="tab" aria-selected="false">Tất cả</button>
+        <!-- 4-skill mock Writing essays get their own review lane (not mixed into
+             the tabs above): grade the sufficient-length ones, decide on the
+             too-short ones (chấm dù ngắn / bỏ qua). -->
+        <button type="button" class="adm-subtab"           id="q-mock-tab"         role="tab" aria-selected="false">Mock (bài thi)</button>
       </nav>
 
       <div class="q-toolbar">
@@ -139,6 +153,7 @@
               <th>Band</th>
               <th>Tuổi</th>
               <th>Hạn</th>
+              <th id="q-actions-th" hidden>Thao tác</th>
             </tr>
           </thead>
           <tbody id="q-tbody"></tbody>

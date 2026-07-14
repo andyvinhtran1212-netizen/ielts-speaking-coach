@@ -265,6 +265,7 @@ async def bulk_grade_writing(
 
     queued: list[str] = []
     skipped: list[str] = []
+    short: list[str] = []
     retest_skipped: list[str] = []
     for sitting_id in body.sitting_ids:
         sitting = svc.get_sitting(sitting_id)
@@ -276,29 +277,45 @@ async def bulk_grade_writing(
         if sitting.get("needs_retest"):
             retest_skipped.append(str(sitting_id))
             continue
-        for essay_id in (sitting.get("essay_task1_id"), sitting.get("essay_task2_id")):
-            if not essay_id:
-                continue
-            job_info = essay_service.claim_pending_for_grading(
-                str(essay_id),
-                grading_tier=body.grading_tier,
-                analysis_level=body.analysis_level,
-                selected_model=body.selected_model,
-            )
-            if job_info is None:
-                skipped.append(str(essay_id))   # not 'pending' (already queued/graded)
-                continue
-            background_tasks.add_task(
-                essay_service._bg_grade_essay, str(essay_id), job_info["job_id"],
-            )
-            queued.append(str(essay_id))
+        # Word-count-gated claim: too-short essays are reported in `short` (held
+        # for the admin's grade-anyway / skip decision), not auto-queued.
+        res = svc.claim_mock_writing_grading(
+            [sitting.get("essay_task1_id"), sitting.get("essay_task2_id")],
+            grading_tier=body.grading_tier,
+            analysis_level=body.analysis_level,
+            selected_model=body.selected_model,
+        )
+        for essay_id, job_id in res["queued"]:
+            background_tasks.add_task(essay_service._bg_grade_essay, essay_id, job_id)
+            queued.append(essay_id)
+        short.extend(res["short"])
+        skipped.extend(res["skipped"])
 
     return {
         "queued":         queued,
         "skipped":        skipped,
+        "short":          short,
         "retest_skipped": retest_skipped,
         "grading_tier":   body.grading_tier,
     }
+
+
+@router.post("/writing/essays/{essay_id}/skip-grading")
+async def skip_writing_grading(
+    essay_id: str, authorization: str | None = Header(default=None),
+):
+    """Admin decides NOT to grade a too-short mock Writing essay — stamp
+    grading_skipped_at so the mock release gate stops blocking on it (the student
+    gets the manual Writing band with no per-task feedback). Mock-scoped: rejects
+    a non-mock essay (sitting_id null) so this can't silently drop a normal
+    self-submit essay out of its own queue."""
+    admin = await require_admin(authorization)
+    try:
+        return svc.skip_mock_writing_grading(essay_id, admin_id=admin["id"])
+    except svc.NotFoundError as e:
+        raise HTTPException(404, str(e))
+    except svc.SittingConflictError as e:
+        raise HTTPException(409, str(e))
 
 
 @router.post("/sittings/{sitting_id}/retest")
