@@ -23,7 +23,12 @@ module.exports = defineConfig({
   // worker. Kill-switch flips (pilot-4 drill) are similarly environment-global.
   workers: 1,
   timeout: 45_000,
-  retries: process.env.CI ? 1 : 0,
+  // AUDIT F4: retries are FORBIDDEN — the Gate A streak contract (master
+  // plan §Gate A) says any retry resets the streak, so a run that only
+  // passes on retry must fail loudly, not count as green. retries: 0 makes
+  // pass-on-retry impossible by construction (nothing to audit after the
+  // fact — flaky = red).
+  retries: 0,
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL: process.env.STAGING_BASE_URL || 'https://staging.averlearning.com',

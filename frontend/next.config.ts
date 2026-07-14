@@ -96,6 +96,17 @@ const nextConfig: NextConfig = {
         headers: [{ key: 'Cache-Control', value: 'public, max-age=300, must-revalidate' }],
       },
       {
+        // AUDIT F5 (2026-07-14): runtime-config.js is the release/environment
+        // PROVENANCE MARKER — telemetry release tags, post-cutover and
+        // rollback verification, and the nightly drift monitor all read it.
+        // Under the generic /js/* 300s rule a browser/CDN could serve a
+        // 5-minute-stale marker, silently mis-tagging telemetry and lying to
+        // rollback verification. It must always be revalidated. Placed AFTER
+        // /js/:path* — for the same header key, the LAST matching rule wins.
+        source: '/js/runtime-config.js',
+        headers: [{ key: 'Cache-Control', value: 'no-store, max-age=0' }],
+      },
+      {
         source: '/css/:path*',
         headers: [{ key: 'Cache-Control', value: 'public, max-age=300, must-revalidate' }],
       },

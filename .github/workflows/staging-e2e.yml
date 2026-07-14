@@ -13,6 +13,18 @@
 #     Supabase (script ships in PR #733 — merge order #732 → #733 → this)
 name: Staging E2E
 
+# AUDIT F4: staging is a SHARED live environment (shared smoke identities,
+# environment-global kill-switch flips). Two simultaneous runs corrupt each
+# other's state, so runs are QUEUED, never concurrent. cancel-in-progress
+# stays false: a streak run must finish, not be half-killed.
+# Known residual (documented, needs a repo secret to close): all runs share
+# the `smoke` namespace — per-run namespaces (staging_seed.py --ns run-<id>)
+# require the staging Supabase SERVICE key as a CI secret; until then this
+# concurrency gate is the isolation mechanism.
+concurrency:
+  group: staging-e2e-shared-env
+  cancel-in-progress: false
+
 on:
   schedule:
     # GitHub Actions cron is deliberate: this job runs a Playwright browser
