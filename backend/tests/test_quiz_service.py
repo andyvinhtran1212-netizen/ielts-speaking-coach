@@ -184,6 +184,34 @@ def test_start_session_creates_and_returns_resume():
     assert ins["payload"]["user_id"] == _USER
 
 
+# ── reset progress ("Làm lại từ đầu") ────────────────────────────────
+
+def test_reset_progress_deletes_word_stats_scoped_to_user_and_bank():
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{"id": _BANK, "code": "L14", "is_published": True}],
+        ("quiz_word_stats", "delete"): [],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.reset_progress(user_id=_USER, bank_id=_BANK)
+    assert out == {"ok": True}
+    d = next(c for c in fake.calls if c["table"] == "quiz_word_stats" and c["op"] == "delete")
+    assert ("user_id", _USER) in d["filters"]
+    assert ("bank_id", _BANK) in d["filters"]
+    # history tables must never be touched by a reset
+    assert not any(c["table"] in ("quiz_sessions", "quiz_attempts") for c in fake.calls)
+
+
+def test_reset_progress_404_when_bank_unpublished():
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{"id": _BANK, "is_published": False}],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        with pytest.raises(HTTPException) as e:
+            quiz_service.reset_progress(user_id=_USER, bank_id=_BANK)
+    assert e.value.status_code == 404
+    assert not any(c["table"] == "quiz_word_stats" for c in fake.calls)
+
+
 # ── progress logging ─────────────────────────────────────────────────
 
 def _session_resp(user_id=_USER):

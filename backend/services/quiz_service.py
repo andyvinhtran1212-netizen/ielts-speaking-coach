@@ -324,6 +324,20 @@ def get_resume(*, user_id: str, bank_id: str) -> list[dict]:
     return rows
 
 
+def reset_progress(*, user_id: str, bank_id: str) -> dict:
+    """Wipe the caller's word_stats for one bank — a full restart of the adaptive
+    test (used by the "Làm lại từ đầu" action once every word is already mastered).
+    Session/attempt HISTORY in quiz_sessions/quiz_attempts is untouched (append-only
+    log of what actually happened); only the current mastery cache is cleared."""
+    _bank_meta_or_404(bank_id)   # 404 unless the bank exists + is published
+    try:
+        supabase_admin.table("quiz_word_stats").delete() \
+            .eq("user_id", user_id).eq("bank_id", bank_id).execute()
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Lỗi xoá tiến độ: {exc}")
+    return {"ok": True}
+
+
 def _record_quiz_kp_evidence(user_id: str, bank_id: str, attempt_rows: list[dict]) -> None:
     """Phase 2.4 — a graded quiz attempt on a grammar-linked question is a
     source=quiz signal on that article's KP (+1 correct / -1 wrong). Best-effort:
