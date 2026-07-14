@@ -692,12 +692,15 @@ def backfill_promote_writing(exam_id: str) -> dict:
     grade.
 
     Idempotent: `_promote_writing_essays` skips a task whose essay id is already
-    stamped, so re-running is safe. Per-sitting outcome:
-      - already   : essay id(s) already present (nothing to do)
-      - promoted  : had text, essays created now
-      - no_writing: no non-empty task text to promote
-      - failed    : had text but promotion produced no essay (e.g. no students
-                    row for the user, or the prompt is missing) — needs a look
+    stamped, so re-running is safe. Completeness is checked PER TASK — a sitting
+    with only ONE task promoted (a partial earlier run) still has its other
+    submitted task backfilled, instead of being treated as done. Per-sitting
+    outcome:
+      - already   : every submitted-with-text task already has an essay
+      - promoted  : a missing task's essay was created now
+      - no_writing: neither task has non-empty text
+      - failed    : a task with text still has no essay after promotion (e.g. no
+                    students row for the user, or the prompt is missing)
     Does NOT grade — grading is the separate bulk-grade step (and costs Gemini)."""
     sittings = (supabase_admin.table("mock_exam_sittings")
                 .select("id, essay_task1_id, essay_task2_id, writing_submission")
@@ -705,23 +708,30 @@ def backfill_promote_writing(exam_id: str) -> dict:
                 .execute()).data or []
     out: dict = {"total": len(sittings), "already": [], "promoted": [],
                  "no_writing": [], "failed": []}
+
+    def _has_text(sub, task):
+        return bool(((sub.get(task) or {}).get("text") or "").strip())
+
     for s in sittings:
         sid = s["id"]
-        if s.get("essay_task1_id") or s.get("essay_task2_id"):
-            out["already"].append(sid)
-            continue
         sub = s.get("writing_submission") or {}
-        has_text = bool(((sub.get("task1") or {}).get("text") or "").strip()
-                        or ((sub.get("task2") or {}).get("text") or "").strip())
-        if not has_text:
+        text = {"task1": _has_text(sub, "task1"), "task2": _has_text(sub, "task2")}
+        if not (text["task1"] or text["task2"]):
             out["no_writing"].append(sid)
+            continue
+        # A task needs promotion if it has text but no essay id yet (per-task).
+        essay = {"task1": bool(s.get("essay_task1_id")), "task2": bool(s.get("essay_task2_id"))}
+        needs = [t for t in ("task1", "task2") if text[t] and not essay[t]]
+        if not needs:
+            out["already"].append(sid)
             continue
         _promote_writing_essays(str(sid))          # idempotent, never raises
         after = get_sitting(sid) or {}
-        if after.get("essay_task1_id") or after.get("essay_task2_id"):
-            out["promoted"].append(sid)
-        else:
-            out["failed"].append(sid)
+        essay_after = {"task1": bool(after.get("essay_task1_id")),
+                       "task2": bool(after.get("essay_task2_id"))}
+        still_missing = [t for t in needs if not essay_after[t]]
+        (out["failed"] if still_missing else out["promoted"]).append(sid)
+
     logger.info("[mock-exam] backfill promote exam=%s → %s", exam_id,
                 {k: len(v) if isinstance(v, list) else v for k, v in out.items()})
     return out

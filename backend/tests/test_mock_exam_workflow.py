@@ -1619,12 +1619,26 @@ def test_backfill_promote_writing_creates_missing_essays(fake_db, svc):
     assert len(fake_db.rows("writing_essays")) == 2
 
 
+def test_backfill_promote_writing_backfills_partial_sitting(fake_db, svc):
+    """Codex P2: a sitting with only Task 1 already promoted still gets Task 2
+    backfilled (per-task completeness) — NOT skipped as 'already'."""
+    exam = _seed_writing_exam(fake_db)
+    sid = _seed_unpromoted_sitting(fake_db, exam, essay1="pre-existing-e1", essay2=None)
+
+    out = svc.backfill_promote_writing(exam["id"])
+    assert out["promoted"] == [sid] and out["already"] == []
+    sitting = svc.get_sitting(sid)
+    assert sitting["essay_task1_id"] == "pre-existing-e1"   # untouched
+    assert sitting["essay_task2_id"]                        # Task 2 created now
+    assert len(fake_db.rows("writing_essays")) == 1         # only the missing task
+
+
 def test_backfill_promote_writing_classifies_and_excludes_void(fake_db, svc):
-    """already-promoted → 'already'; empty writing → 'no_writing'; void sitting
+    """both tasks promoted → 'already'; empty writing → 'no_writing'; void sitting
     is excluded from the sweep entirely."""
     exam = _seed_writing_exam(fake_db)
-    done = _seed_unpromoted_sitting(fake_db, exam, essay1="e-x")      # already has an essay
-    empty = _seed_unpromoted_sitting(fake_db, exam, t1="", t2="   ")  # no real text
+    done = _seed_unpromoted_sitting(fake_db, exam, essay1="e-x", essay2="e-y")  # fully done
+    empty = _seed_unpromoted_sitting(fake_db, exam, t1="", t2="   ")           # no real text
     voided = _seed_unpromoted_sitting(fake_db, exam, status="void")
 
     out = svc.backfill_promote_writing(exam["id"])
