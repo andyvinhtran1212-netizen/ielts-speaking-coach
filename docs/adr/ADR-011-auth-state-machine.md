@@ -13,3 +13,16 @@ States: `initial-loading → signed-in | signed-out`; transitions: refresh-succe
 
 ## Điều kiện mở
 Implement khi scaffold Next (Phase 1); test isolation chạy trong browser-integration + staging-e2e trước pilot 3 (authenticated read).
+
+## Trạng thái implementation (AUDIT F6, 2026-07-14 — trung thực hóa scope)
+Audit ngoài phát hiện ADR này được đánh dấu "đóng" RỘNG hơn code thật. Đối chiếu từng khoản:
+
+| Khoản | Trạng thái | Ghi chú |
+|---|---|---|
+| §2 abort in-flight khi logout/switch | ✅ từ patch F6 | `api.js` nhận `opts.signal`; profile (route authed duy nhất) đăng ký AbortController vào `inflightRef`, abort ở gate signed-out + nhánh account-switch + effect cleanup. TRƯỚC patch này: KHÔNG abort — mục từng bị coi là xong. |
+| §2 clear user-scoped cache/storage | ✅ (scope hiện tại) | Route Next hiện không có query cache; DOM blank qua `resetProfileDom()`. Khi thêm cache layer (pilot sau) phải nối vào đây. |
+| signOut revoke kiểm tra kết quả | ✅ từ patch F6 | supabase-js v2 signOut() **resolve** `{error}` chứ không throw — trước đây bị nuốt; giờ report `auth_signout_revoke_failed`. Local state vẫn fail-closed signed-out dù revoke fail. |
+| Toast mutation trung thực | ✅ từ patch F6 | "✓ Đã lưu" chỉ khi reconcile GET thành công; nhánh ambiguous chỉ nói "đã tải lại" khi GET thật sự thành công, ngược lại nói thẳng "KHÔNG xác nhận được". |
+| §3 two-user isolation test | ✅ staging-e2e | pilot-3/pilot-4 specs. |
+
+Quy tắc rút ra: KHÔNG đánh dấu một khoản ADR là đóng khi chưa chỉ được vào dòng code/test thực hiện nó.
