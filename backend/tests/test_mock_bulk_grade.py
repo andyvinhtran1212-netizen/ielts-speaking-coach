@@ -130,6 +130,22 @@ def test_bulk_grade_skips_sitting_flagged_for_retest():
     assert not any("e1" in (ids or []) for ids in claim_calls)
 
 
+def test_promote_writing_backfill_delegates_to_service():
+    """POST /{exam}/writing/promote runs the backfill (creates missing essays)."""
+    with patch("routers.admin_mock_exams.require_admin", new=AsyncMock(return_value=_ADMIN)), \
+         patch("routers.admin_mock_exams.svc.backfill_promote_writing",
+               return_value={"total": 13, "promoted": ["s1"], "already": [], "no_writing": [], "failed": []}) as bf:
+        r = _client().post(f"/admin/mock-exams/{_EXAM}/writing/promote", headers=_AUTH)
+    assert r.status_code == 200, r.text
+    assert r.json()["promoted"] == ["s1"]
+    bf.assert_called_once_with(_EXAM)
+
+
+def test_promote_writing_backfill_requires_auth():
+    r = _client().post(f"/admin/mock-exams/{_EXAM}/writing/promote")
+    assert r.status_code == 401
+
+
 def test_skip_grading_marks_essay_and_maps_errors():
     """POST /writing/essays/{id}/skip-grading delegates to the service; a
     SittingConflictError (non-mock / already-reviewed essay) maps to 409."""

@@ -684,6 +684,49 @@ def _promote_writing_essays(sitting_id: str) -> None:
         logger.exception("[mock-exam] promote-writing failed sitting=%s", sitting_id)
 
 
+def backfill_promote_writing(exam_id: str) -> dict:
+    """Create the missing writing_essays for a mock exam's sittings whose Writing
+    was collected but never promoted — e.g. a cohort that sat the exam BEFORE the
+    promotion feature shipped (PR #720, 2026-07-12), so their `writing_submission`
+    text was captured but no essay rows were ever created and there is nothing to
+    grade.
+
+    Idempotent: `_promote_writing_essays` skips a task whose essay id is already
+    stamped, so re-running is safe. Per-sitting outcome:
+      - already   : essay id(s) already present (nothing to do)
+      - promoted  : had text, essays created now
+      - no_writing: no non-empty task text to promote
+      - failed    : had text but promotion produced no essay (e.g. no students
+                    row for the user, or the prompt is missing) — needs a look
+    Does NOT grade — grading is the separate bulk-grade step (and costs Gemini)."""
+    sittings = (supabase_admin.table("mock_exam_sittings")
+                .select("id, essay_task1_id, essay_task2_id, writing_submission")
+                .eq("mock_exam_id", str(exam_id)).neq("status", "void")
+                .execute()).data or []
+    out: dict = {"total": len(sittings), "already": [], "promoted": [],
+                 "no_writing": [], "failed": []}
+    for s in sittings:
+        sid = s["id"]
+        if s.get("essay_task1_id") or s.get("essay_task2_id"):
+            out["already"].append(sid)
+            continue
+        sub = s.get("writing_submission") or {}
+        has_text = bool(((sub.get("task1") or {}).get("text") or "").strip()
+                        or ((sub.get("task2") or {}).get("text") or "").strip())
+        if not has_text:
+            out["no_writing"].append(sid)
+            continue
+        _promote_writing_essays(str(sid))          # idempotent, never raises
+        after = get_sitting(sid) or {}
+        if after.get("essay_task1_id") or after.get("essay_task2_id"):
+            out["promoted"].append(sid)
+        else:
+            out["failed"].append(sid)
+    logger.info("[mock-exam] backfill promote exam=%s → %s", exam_id,
+                {k: len(v) if isinstance(v, list) else v for k, v in out.items()})
+    return out
+
+
 # Auto-grade config for promoted mock Writing essays. 'standard' = AI grade only
 # (the human review happens in the mock-review console, never the instructor
 # queue — so mock essays deliberately don't create an instructor_reviews row);

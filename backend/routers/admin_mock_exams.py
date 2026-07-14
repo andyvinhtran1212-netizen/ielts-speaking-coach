@@ -318,6 +318,18 @@ async def skip_writing_grading(
         raise HTTPException(409, str(e))
 
 
+@router.post("/{exam_id}/writing/promote")
+async def promote_writing(
+    exam_id: str, authorization: str | None = Header(default=None),
+):
+    """Backfill: create the writing_essays for this exam's sittings whose Writing
+    was collected but never promoted (a cohort that sat the exam before the
+    promotion feature shipped → text captured, no essay rows, nothing to grade).
+    Idempotent; does NOT grade (use bulk-grade next). Returns per-sitting counts."""
+    await require_admin(authorization)
+    return svc.backfill_promote_writing(exam_id)
+
+
 @router.post("/sittings/{sitting_id}/retest")
 async def set_sitting_retest(
     sitting_id: str, body: RetestBody, authorization: str | None = Header(default=None),

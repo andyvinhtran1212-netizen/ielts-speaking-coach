@@ -1574,6 +1574,67 @@ def test_sync_writing_band_noop_when_a_task_ungraded(fake_db, svc, wf):
     assert "writing" not in (rv.get("ai_draft") or {})
 
 
+# ── backfill promote (pre-#720 cohort: text captured, essays never created) ──
+
+def _seed_unpromoted_sitting(fake_db, exam, *, status="all_submitted",
+                             t1="task one essay text", t2="task two essay text",
+                             essay1=None, essay2=None):
+    u = uuid4()
+    fake_db.seed("students", {"id": str(uuid4()), "user_id": str(u)})
+    sid = str(uuid4())
+    fake_db.seed("mock_exam_sittings", {
+        "id": sid, "mock_exam_id": exam["id"], "user_id": str(u), "status": status,
+        "essay_task1_id": essay1, "essay_task2_id": essay2,
+        "writing_submission": {"task1": {"text": t1, "word_count": len(t1.split())},
+                               "task2": {"text": t2, "word_count": len(t2.split())}},
+    })
+    return sid
+
+
+def _seed_writing_exam(fake_db):
+    exam = _seed_exam(fake_db, speaking=False)
+    p1, p2 = str(uuid4()), str(uuid4())
+    exam["writing_task1_prompt_id"] = p1
+    exam["writing_task2_prompt_id"] = p2
+    fake_db.seed("writing_prompts", {"id": p1, "task_type": "task1_academic", "prompt_text": "x", "title": "T1"})
+    fake_db.seed("writing_prompts", {"id": p2, "task_type": "task2", "prompt_text": "y", "title": "T2"})
+    return exam
+
+
+def test_backfill_promote_writing_creates_missing_essays(fake_db, svc):
+    """A sitting whose Writing was collected but never promoted gets its 2 essays
+    created + stamped on the sitting; idempotent re-run reports 'already'."""
+    exam = _seed_writing_exam(fake_db)
+    sid = _seed_unpromoted_sitting(fake_db, exam)
+
+    out = svc.backfill_promote_writing(exam["id"])
+    assert out["promoted"] == [sid]
+    assert out["already"] == [] and out["no_writing"] == [] and out["failed"] == []
+    sitting = svc.get_sitting(sid)
+    assert sitting["essay_task1_id"] and sitting["essay_task2_id"]
+    assert len(fake_db.rows("writing_essays")) == 2
+
+    out2 = svc.backfill_promote_writing(exam["id"])   # idempotent
+    assert out2["already"] == [sid] and out2["promoted"] == []
+    assert len(fake_db.rows("writing_essays")) == 2
+
+
+def test_backfill_promote_writing_classifies_and_excludes_void(fake_db, svc):
+    """already-promoted → 'already'; empty writing → 'no_writing'; void sitting
+    is excluded from the sweep entirely."""
+    exam = _seed_writing_exam(fake_db)
+    done = _seed_unpromoted_sitting(fake_db, exam, essay1="e-x")      # already has an essay
+    empty = _seed_unpromoted_sitting(fake_db, exam, t1="", t2="   ")  # no real text
+    voided = _seed_unpromoted_sitting(fake_db, exam, status="void")
+
+    out = svc.backfill_promote_writing(exam["id"])
+    assert out["already"] == [done]
+    assert out["no_writing"] == [empty]
+    assert out["total"] == 2                                          # void excluded
+    for bucket in ("already", "promoted", "no_writing", "failed"):
+        assert voided not in out[bucket]
+
+
 def _seed_mock_writing(fake_db, svc):
     """A 4-skill-less (LRW) exam with both Writing prompts + a student, driven
     to all_submitted so 2 pending essays are promoted. Returns (exam, u, s)."""
