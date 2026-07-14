@@ -60,6 +60,14 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
       <script src="https://unpkg.com/lucide@1.17.0" defer />
       {/* Generated runtime config — before any consumer (plan §7.1). */}
       <script src="/js/runtime-config.js" />
+      {/* ADR-012 observability: this migrated (pilot-1) landing must emit
+          error telemetry tagged `implementation=next` so the cutover
+          dashboard has an error signal for the soak (the rollback trigger
+          reads it). error-reporter is self-contained — it resolves its own
+          API base and reads __next_f + runtime-config for the tag, so it
+          works without api.js (which the lean marketing page doesn't load).
+          Loaded AFTER runtime-config so the release tag is available. */}
+      <script src="/js/error-reporter.js" defer />
 
       {children}
     </>
