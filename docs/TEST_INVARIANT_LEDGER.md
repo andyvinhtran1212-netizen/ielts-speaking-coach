@@ -5,7 +5,7 @@
 **Method:** Section 11.4 (test retirement rule) + sections 7.4/B7 (ledger backbone)  
 **Baseline commit:** `3f031d17` (HEAD) + 11 commits after `9047e09f`  
 
-> **Note to reviewers:** This is a clerical inventory. Each entry is a **suggestion** for migration disposition based on test type, not a commitment. Disposition changes per architectural decision in Phase 1 (ADR-001/002/etc.) and Route Ledger priority. Entries marked **UNCLEAR** need human re-read to finalize invariant statement.
+> **Note to reviewers:** This is a clerical inventory. Each entry is a **suggestion** for migration disposition based on test type, not a commitment. Disposition changes per architectural decision in Phase 1 (ADR-001/002/etc.) and Route Ledger priority. Entries formerly marked **UNCLEAR** were re-read and finalized 2026-07-14 (durable invariant + disposition per row; see "## UNCLEAR resolution" appendix at the end).
 
 ---
 
@@ -20,7 +20,7 @@
 | **Fragility class: dom-behavior** | ~18 (DOM shim, JSDOM, minimal mocking) |
 | **Fragility class: contract** | ~23 (API shape, payload structure, type hints) |
 | **Fragility class: e2e** | 4 (Playwright; static fixture smoke, not full-stack) |
-| **Fragility class: unclear** | ~12 (need human review) |
+| **Fragility class: unclear** | 0 (all 33 resolved 2026-07-14 — see appendix) |
 | **Disposition: port-to-component-test** | ~128 (source-pin → React test harness) |
 | **Disposition: replace-by-types** | ~43 (schema/contract → TypeScript + OpenAPI blocking) |
 | **Disposition: replace-by-e2e** | ~21 (integration → staging E2E) |
@@ -43,7 +43,7 @@
 | `speaking-length-gate.test.mjs` | ✗ | `frontend/js/practice.js` | Recording duration gate 300s (MAX_AUDIO_DURATION_SECONDS); UI shows warning at threshold | source-string-pin | keep-until-route-retired |
 | `speaking-results-feedback-tokens.test.mjs` | ✗ | `frontend/pages/result.html`, `frontend/css/` | Feedback token styling (fluency, lexical, grammar bands); light-theme compat | source-string-pin | port-to-component-test |
 | `speaking-results-light-theme.test.mjs` | ✗ | `frontend/pages/result.html`, `frontend/css/` | Result page light-theme rendering: contrast, readability, WCAG AA | source-string-pin | replace-by-e2e |
-| `speaking-rubric-v2-compat.test.mjs` | ✗ | `frontend/js/practice.js`, `frontend/pages/result.html` | Rubric version compat: v1 has LRS, v2 has semantic tags; UI adaptation | source-string-pin | **UNCLEAR** |
+| `speaking-rubric-v2-compat.test.mjs` | ✗ | `frontend/js/practice.js`, `frontend/pages/result.html` | Rubric version compat: v1 has LRS, v2 has semantic tags; UI adaptation | source-string-pin | replace-by-types |
 | `speaking-stub-contract.test.mjs` | ✗ | `frontend/js/api.js` | Stub API returns grading shape that matches production (response field names, band ranges) | contract | replace-by-types |
 | `part-2-input-ux.test.mjs` | ✗ | `frontend/pages/practice.html`, `frontend/js/practice.js` | Part 2 cue card display, input field focus, warning on short prep time (1 min) | source-string-pin | keep-until-route-retired |
 | `sample-answer-status.test.mjs` | ✗ | `frontend/js/practice.js` | Sample answer playback UI: shows audio embed, disables recording during playback | source-string-pin | keep-until-route-retired |
@@ -72,11 +72,11 @@
 | `admin-writing-dashboard.test.mjs` | ✓ | `frontend/pages/admin/writing/dashboard.html`, `frontend/js/admin-writing-dashboard.js` | Admin dashboard: queue count, in-progress list, sort/filter, drill-down to grade form | source-string-pin | port-to-component-test |
 | `writing-admin-escaper-recursion.test.mjs` | ✗ | `frontend/js/admin-writing-grade.js` | HTML escaper in essay display is idempotent (no double-escape) | dom-behavior | replace-by-types |
 | `writing-prompt-answer-key.test.mjs` | ✗ | `frontend/pages/writing-result.html`, `frontend/js/` | Task 1 answer key (fact bank) loaded from prompt; used to grade charts; WRITING_TASK1_FACTS_ENABLED gate | contract | replace-by-types |
-| `admin-writing-new-redesign.test.mjs` | ✗ | `frontend/pages/admin/writing/new.html` | New prompt form: topic, level, image upload, save POST /prompts; validation on title/level | source-string-pin | **UNCLEAR** |
-| `admin-writing-assignments-redesign.test.mjs` | ✗ | `frontend/pages/admin/writing/assignments.html` | Assignment form: cohort, prompt, deadline, notification; POST /assignments with cohort_id | source-string-pin | **UNCLEAR** |
-| `admin-writing-prompts-redesign.test.mjs` | ✗ | `frontend/pages/admin/writing/prompts.html` | Prompt list: paginated, filterable by level/topic, bulk actions (publish, archive) | source-string-pin | **UNCLEAR** |
-| `admin-writing-status-redesign.test.mjs` | ✗ | `frontend/pages/admin/writing/status.html` | Status dashboard: grades per student, completion %, feedback rate | source-string-pin | **UNCLEAR** |
-| `admin-writing-redesign.test.mjs` | ✗ | `frontend/pages/admin/writing/index.html` | Writing admin hub: navigation to sub-pages (dashboard, queue, prompts, cohorts) | source-string-pin | **UNCLEAR** |
+| `admin-writing-new-redesign.test.mjs` | ✗ | `frontend/pages/admin/writing/new.html` | New prompt form: topic, level, image upload, save POST /prompts; validation on title/level | source-string-pin | port-to-component-test |
+| `admin-writing-assignments-redesign.test.mjs` | ✗ | `frontend/pages/admin/writing/assignments.html` | Assignment form: cohort, prompt, deadline, notification; POST /assignments with cohort_id | source-string-pin | port-to-component-test |
+| `admin-writing-prompts-redesign.test.mjs` | ✗ | `frontend/pages/admin/writing/prompts.html` | Prompt list: paginated, filterable by level/topic, bulk actions (publish, archive) | source-string-pin | port-to-component-test |
+| `admin-writing-status-redesign.test.mjs` | ✗ | `frontend/pages/admin/writing/status.html` | Status dashboard: grades per student, completion %, feedback rate | source-string-pin | keep-until-route-retired |
+| `admin-writing-redesign.test.mjs` | ✗ | `frontend/pages/admin/writing/index.html` | Writing admin hub: navigation to sub-pages (dashboard, queue, prompts, cohorts) | source-string-pin | keep-until-route-retired |
 | `pricing-redesign.test.mjs` | ✗ | `frontend/pages/pricing.html` | Marketing page: feature matrix, CTA, pricing tiers; no auth required | source-string-pin | retire-immediately (no migration path; design-only) |
 | `onboarding-redesign.test.mjs` | ✗ | `frontend/pages/onboarding.html` | Onboarding flow: skill selection, cohort join, first session setup | source-string-pin | retire-immediately (deprecated in pivot; legacy flow) |
 
@@ -94,7 +94,7 @@
 | `reading-attempts-dashboard.test.mjs` | ✓ | `frontend/pages/reading-attempts.html`, `frontend/js/` | Attempts page: shows all prior attempts, scores, dates; reload via session_id | source-string-pin | port-to-component-test |
 | `reading-l1l2-grammar-toggle.test.mjs` | ✓ | `frontend/pages/reading-exam.html` | Grammar toggle shows/hides difficulty metadata; state saved to session storage | source-string-pin | keep-until-route-retired |
 | `reading-mini-test.test.mjs` | ✓ | `frontend/pages/reading-mini.html`, `frontend/js/` | Mini reading: 3–5 questions, no timing, instant score; used for diagnostic | source-string-pin | keep-until-route-retired |
-| `reading-diagnostic.test.mjs` | ✗ | `frontend/pages/reading-diagnostic.html` | Diagnostic flow: self-assessed level → auto-pick L1/L2 content; initial screen shows disclaimer | source-string-pin | **UNCLEAR** |
+| `reading-diagnostic.test.mjs` | ✗ | `frontend/pages/reading-diagnostic.html` | Diagnostic flow: self-assessed level → auto-pick L1/L2 content; initial screen shows disclaimer | source-string-pin | replace-by-e2e |
 | `l3-edit-delete-block-images.test.mjs` | ✓ | `frontend/pages/admin/reading/l3-edit.html`, `frontend/js/` | L3 edit: block CRUD (paragraph, image, MCQ, matching), drag-reorder, image upload | source-string-pin | port-to-component-test |
 | `l3-action-consistency.test.mjs` | ✓ | `frontend/pages/admin/reading/l3-edit.html` | L3 actions: save validates all blocks, error toast on fail, success redirects to detail | source-string-pin | port-to-component-test |
 | `reading-rich-imgprompt.test.mjs` | ✓ | `frontend/pages/reading-exam.html`, `frontend/js/reading-exam.js` | Rich question: image + text prompt; user input collected (essay or gap-fill) | source-string-pin | port-to-component-test |
@@ -111,19 +111,19 @@
 | `admin-listening-fulltest-import.test.mjs` | ✓ | `frontend/pages/admin/listening/import.html`, `frontend/js/` | Import: bulk upload MP3 + JSON manifest; auto-segment and store to Supabase | source-string-pin | port-to-component-test |
 | `listening-dictation.test.mjs` | ✗ | `frontend/pages/listening-dictation.html`, `frontend/js/` | Dictation: repeat-play audio, type response, check spelling; skills-practice mode | source-string-pin | keep-until-route-retired |
 | `listening-gist-tf-pages.test.mjs` | ✗ | `frontend/pages/listening-gist.html`, `frontend/pages/listening-tf.html` | Gist & True/False pages: section-specific drill; no timing | source-string-pin | keep-until-route-retired |
-| `listening-mcq-sessions-pages.test.mjs` | ✗ | `frontend/pages/listening-mcq-sessions.html` | MCQ sessions page: show all attempts, replay, scores | source-string-pin | **UNCLEAR** |
+| `listening-mcq-sessions-pages.test.mjs` | ✗ | `frontend/pages/listening-mcq-sessions.html` | MCQ sessions page: show all attempts, replay, scores | source-string-pin | port-to-component-test |
 | `listening-test-dictation.test.mjs` | ✗ | `frontend/pages/listening-exam.html` | During-test dictation questions use transcript scrub (no per-sentence timing) | source-string-pin | keep-until-route-retired |
 | `listening-page-shell.test.mjs` | ✗ | `frontend/pages/listening-*.html` | Listening page structure: chrome embed, audio player, question area; no inline player controls | source-string-pin | keep-until-route-retired |
 | `listening-skills.test.mjs` | ✗ | `frontend/pages/listening-skills.html`, `frontend/js/` | Skills practice hub: drill by section type (dictation, gist, MCQ, matching) | source-string-pin | keep-until-route-retired |
 | `listening-tests-list.test.mjs` | ✗ | `frontend/pages/listening-tests.html`, `frontend/js/` | Tests list: full tests, minis, level filters, start button → /sessions POST | source-string-pin | keep-until-route-retired |
 | `admin-listening-audit.test.mjs` | ✗ | `frontend/js/admin-listening.js` | Audit: verify all tests have audio, segments align, metadata valid | dom-behavior | replace-by-e2e |
-| `admin-listening-content-management.test.mjs` | ✗ | `frontend/pages/admin/listening/`, `frontend/js/` | Content mgmt: CRUD tests, clone test, publish/archive, move between levels | source-string-pin | **UNCLEAR** |
-| `admin-listening-convert.test.mjs` | ✗ | `frontend/pages/admin/listening/`, `frontend/js/` | Convert: import ILR/IELTS audio files to internal format; map sections | source-string-pin | **UNCLEAR** |
-| `admin-listening-drills-import.test.mjs` | ✗ | `frontend/pages/admin/listening/`, `frontend/js/` | Drills import: upload drill bank (dictation/gist/MCQ); auto-segment by silence | source-string-pin | **UNCLEAR** |
-| `admin-listening-segments.test.mjs` | ✗ | `frontend/pages/admin/listening/`, `frontend/js/` | Segments editor: view audio waveform, mark play regions, set timing; POST to backend | source-string-pin | **UNCLEAR** |
-| `admin-listening-tests-detail.test.mjs` | ✗ | `frontend/pages/admin/listening/detail.html`, `frontend/js/` | Detail page: show sections, questions per section, edit links, delete guards confirm | source-string-pin | **UNCLEAR** |
-| `admin-listening-tests.test.mjs` | ✗ | `frontend/pages/admin/listening/`, `frontend/js/` | Test list: paginated, filterable by level/type, import/create buttons | source-string-pin | **UNCLEAR** |
-| `admin-listening-upload.test.mjs` | ✗ | `frontend/pages/admin/listening/`, `frontend/js/` | Upload: drag-drop MP3/WAV, auto-detect format, progress indicator, retry on fail | source-string-pin | **UNCLEAR** |
+| `admin-listening-content-management.test.mjs` | ✗ | `frontend/pages/admin/listening/`, `frontend/js/` | Content mgmt: CRUD tests, clone test, publish/archive, move between levels | source-string-pin | port-to-component-test |
+| `admin-listening-convert.test.mjs` | ✗ | `frontend/pages/admin/listening/`, `frontend/js/` | Convert: import ILR/IELTS audio files to internal format; map sections | source-string-pin | replace-by-e2e |
+| `admin-listening-drills-import.test.mjs` | ✗ | `frontend/pages/admin/listening/`, `frontend/js/` | Drills import: upload drill bank (dictation/gist/MCQ); auto-segment by silence | source-string-pin | replace-by-e2e |
+| `admin-listening-segments.test.mjs` | ✗ | `frontend/pages/admin/listening/`, `frontend/js/` | Segments editor: view audio waveform, mark play regions, set timing; POST to backend | source-string-pin | port-to-component-test |
+| `admin-listening-tests-detail.test.mjs` | ✗ | `frontend/pages/admin/listening/detail.html`, `frontend/js/` | Detail page: show sections, questions per section, edit links, delete guards confirm | source-string-pin | port-to-component-test |
+| `admin-listening-tests.test.mjs` | ✗ | `frontend/pages/admin/listening/`, `frontend/js/` | Test list: paginated, filterable by level/type, import/create buttons | source-string-pin | port-to-component-test |
+| `admin-listening-upload.test.mjs` | ✗ | `frontend/pages/admin/listening/`, `frontend/js/` | Upload: drag-drop MP3/WAV, auto-detect format, progress indicator, retry on fail | source-string-pin | port-to-component-test |
 
 ### Vocabulary (21 files, 11 in CI)
 
@@ -138,7 +138,7 @@
 | `vocab-browse-master-detail.test.mjs` | ✓ | `frontend/pages/vocab-browse.html`, `frontend/js/vocab-browse.js` | Browse: topic list (master), click → word detail (detail pane) | source-string-pin | port-to-component-test |
 | `vocab-admin-console.test.mjs` | ✓ | `frontend/pages/admin/vocab/`, `frontend/js/admin-vocab.js` | Admin console: topic CRUD, card list, bulk upload, content import | source-string-pin | port-to-component-test |
 | `admin-vocab-topics-console.test.mjs` | ✓ | `frontend/pages/admin/vocab/topics.html`, `frontend/js/` | Topics: create, edit, list cards per topic, publish/archive, reorder | source-string-pin | port-to-component-test |
-| `admin-vocab-quiz-analytics.test.mjs` | ✓ | `frontend/pages/admin/vocab/analytics.html`, `frontend/js/` | Analytics: quiz performance by question, student mastery, error heatmap | source-string-pin | **UNCLEAR** |
+| `admin-vocab-quiz-analytics.test.mjs` | ✓ | `frontend/pages/admin/vocab/analytics.html`, `frontend/js/` | Analytics: quiz performance by question, student mastery, error heatmap | source-string-pin | replace-by-e2e |
 | `vocab-css-integrity.test.mjs` | ✓ | `frontend/css/vocab.css`, `frontend/pages/vocab-*.html` | CSS: Tailwind token compliance, no hardcoded colors, dark-mode pair for every style | source-string-pin | replace-by-types |
 | `quiz-engine.test.mjs` | ✓ | `frontend/js/quiz-engine.js` | Quiz logic: shuffle, shuffle, MCQ/gap-fill/boolean scoring, retry with penalty | dom-behavior | replace-by-types |
 | `quiz-results-ui.test.mjs` | ✓ | `frontend/pages/quiz-result.html`, `frontend/js/` | Result page: score, feedback per question, retry button, time spent | source-string-pin | port-to-component-test |
@@ -146,10 +146,10 @@
 | `vocab-module-loader.test.mjs` | ✗ | `frontend/js/` | Module loader: dynamically fetch vocab content from CDN/backend; no hardcoded URLs | contract | replace-by-types |
 | `vocab-source-link.test.mjs` | ✗ | `frontend/pages/vocab-article.html`, `frontend/js/vocab-article.js` | Source link: word origin (AWL/TOEIC/THPT source), POSTed to /api/telemetry | source-string-pin | keep-until-route-retired |
 | `pending-vocab.test.mjs` | ✗ | `frontend/js/`, `frontend/pages/` | Pending words: words added to "later" list, sync with backend on session close | source-string-pin | keep-until-route-retired |
-| `kp-fe-widgets.test.mjs` | ✗ | `frontend/pages/`, `frontend/js/kp-*.js` | Knowledge Plus widgets: roadmap, progress, unlock badges | source-string-pin | **UNCLEAR** |
-| `kp-roadmap.test.mjs` | ✗ | `frontend/pages/kp-roadmap.html`, `frontend/js/kp-roadmap.js` | Roadmap visualization: skill tree, prerequisites, next articles; click → article | source-string-pin | **UNCLEAR** |
+| `kp-fe-widgets.test.mjs` | ✗ | `frontend/pages/`, `frontend/js/kp-*.js` | Knowledge Plus widgets: roadmap, progress, unlock badges | source-string-pin | replace-by-e2e |
+| `kp-roadmap.test.mjs` | ✗ | `frontend/pages/kp-roadmap.html`, `frontend/js/kp-roadmap.js` | Roadmap visualization: skill tree, prerequisites, next articles; click → article | source-string-pin | replace-by-e2e |
 | `admin-vocab-extract.test.mjs` | ✗ | `frontend/js/admin-vocab.js` | Extraction tests: vocabulary bulk operations don't cause silent data loss | dom-behavior | replace-by-e2e |
-| `d1-srs-indicator.test.mjs` | ✗ | `frontend/js/`, `frontend/pages/vocab-*.html` | SRS indicator: shows confidence level (new/learning/mature) via badge color | source-string-pin | **UNCLEAR** |
+| `d1-srs-indicator.test.mjs` | ✗ | `frontend/js/`, `frontend/pages/vocab-*.html` | SRS indicator: shows confidence level (new/learning/mature) via badge color | source-string-pin | port-to-component-test |
 
 ### Grammar (8 files, 0 in CI)
 
@@ -182,11 +182,11 @@
 | `admin-a11y-labels.test.mjs` | ✓ | `frontend/pages/admin/`, `frontend/js/` | a11y: all inputs have labels, buttons have aria-label, dialogs trap focus | source-string-pin | replace-by-e2e |
 | `admin-polish.test.mjs` | ✓ | `frontend/pages/admin/`, `frontend/css/` | Polish: consistent spacing, button sizes, card styling, no visual regression | source-string-pin | replace-by-e2e |
 | `admin-progressive-loading-toggle.test.mjs` | ✓ | `frontend/pages/admin/`, `frontend/js/` | Progressive loading: expand/collapse sections, lazy-load detailed data, no timeout | source-string-pin | port-to-component-test |
-| `admin-overview.test.mjs` | ✗ | `frontend/pages/admin/overview.html`, `frontend/js/admin-overview.js` | Overview: system stats (total users, active sessions, KB, usage %, uptime) | source-string-pin | **UNCLEAR** |
-| `admin-error-logs.test.mjs` | ✗ | `frontend/pages/admin/error-logs.html`, `frontend/js/admin-error-logs.js` | Error logs: table, filters (date, severity, route), export CSV, mark-as-read | source-string-pin | **UNCLEAR** |
+| `admin-overview.test.mjs` | ✗ | `frontend/pages/admin/overview.html`, `frontend/js/admin-overview.js` | Overview: system stats (total users, active sessions, KB, usage %, uptime) | source-string-pin | port-to-component-test |
+| `admin-error-logs.test.mjs` | ✗ | `frontend/pages/admin/error-logs.html`, `frontend/js/admin-error-logs.js` | Error logs: table, filters (date, severity, route), export CSV, mark-as-read | source-string-pin | port-to-component-test |
 | `admin-error-logs-humanize.test.mjs` | ✗ | `frontend/js/admin-error-logs.js` | Error humanization: convert stack traces to user-friendly messages, no token leak | dom-behavior | replace-by-types |
 | `admin-monolith-redesign.test.mjs` | ✗ | `frontend/pages/admin/`, `frontend/js/` | Monolith refactor complete: all routes in new IA (not legacy admin.html) | source-string-pin | retire-immediately (legacy reference) |
-| `admin-instructor-queue-redesign.test.mjs` | ✗ | `frontend/pages/admin/instructor-queue.html`, `frontend/js/` | Instructor queue: pending essays, re-grade requests, priority sort | source-string-pin | **UNCLEAR** |
+| `admin-instructor-queue-redesign.test.mjs` | ✗ | `frontend/pages/admin/instructor-queue.html`, `frontend/js/` | Instructor queue: pending essays, re-grade requests, priority sort | source-string-pin | port-to-component-test |
 | `admin-system-extract.test.mjs` | ✗ | `frontend/js/admin-system.js`, `frontend/pages/admin/system.html` | System config: feature flags display, deployment info, database status | dom-behavior | replace-by-e2e |
 | `admin-speaking-extract.test.mjs` | ✗ | `frontend/js/admin-speaking.js`, `frontend/pages/admin/speaking.html` | Speaking admin: grading queue, retry, bulk operations | dom-behavior | replace-by-e2e |
 | `merge-codes-users-tabs.test.mjs` | ✓ | `frontend/pages/admin/`, `frontend/js/` | Tab navigation: codes/users/cohorts stay synced, active tab highlighted | source-string-pin | port-to-component-test |
@@ -195,8 +195,8 @@
 | `grade-queue.test.mjs` | ✓ | `frontend/pages/admin/grade-queue.html`, `frontend/js/admin-grade-queue.js` | Grade queue: pending essays list, sort by date/student, open form POSTs to grade endpoint | source-string-pin | port-to-component-test |
 | `grade-submit-next.test.mjs` | ✓ | `frontend/pages/admin/`, `frontend/js/` | Grade workflow: submit → confirm → POST /grading → success toast → next item auto-loads | source-string-pin | port-to-component-test |
 | `content-template-download.test.mjs` | ✓ | `frontend/pages/admin/`, `frontend/js/` | Download template: CSV/Excel export for import workflows; no silent data loss | source-string-pin | keep-until-route-retired |
-| `assignment-analysis-level.test.mjs` | ✓ | `frontend/pages/admin/`, `frontend/js/` | Assignment level analysis: filter by cohort/skill, show completion % per level | source-string-pin | **UNCLEAR** |
-| `regrade-level-picker.test.mjs` | ✓ | `frontend/pages/admin/`, `frontend/js/` | Regrade picker: select reason (prompt change, remark request), confirm action | source-string-pin | **UNCLEAR** |
+| `assignment-analysis-level.test.mjs` | ✓ | `frontend/pages/admin/`, `frontend/js/` | Assignment level analysis: filter by cohort/skill, show completion % per level | source-string-pin | port-to-component-test |
+| `regrade-level-picker.test.mjs` | ✓ | `frontend/pages/admin/`, `frontend/js/` | Regrade picker: select reason (prompt change, remark request), confirm action | source-string-pin | port-to-component-test |
 | `hide-subbands-toggle.test.mjs` | ✓ | `frontend/pages/admin/`, `frontend/js/` | Toggle: hide/show fine-grained band subscores in result view | source-string-pin | keep-until-route-retired |
 
 ### Platform (13 files, 5 in CI)
@@ -205,7 +205,7 @@
 |-----------|-------|--------------|--------------|-------|----------------------|
 | `theme-toggle.test.mjs` | ✓ | `frontend/js/theme-toggle.js`, `frontend/css/tokens.css` | Theme toggle: exports 8 functions (initTheme, setTheme, etc), localStorage persists choice, matchMedia syncs with system | dom-behavior | replace-by-types |
 | `theme-toggle-icon-canonical.test.mjs` | ✓ | `frontend/js/components/theme-toggle.js`, `frontend/pages/` | Toggle icon: moon/sun SVG swap, click changes theme, ARIA label present | source-string-pin | port-to-component-test |
-| `theme-toggle-layout-context.test.mjs` | ✗ | `frontend/js/theme-toggle.js`, `frontend/pages/` | Layout context: theme passed via provider/context to nested components (IIFE pattern) | dom-behavior | **UNCLEAR** |
+| `theme-toggle-layout-context.test.mjs` | ✗ | `frontend/js/theme-toggle.js`, `frontend/pages/` | Layout context: theme passed via provider/context to nested components (IIFE pattern) | dom-behavior | keep-until-route-retired |
 | `typography-tier1.test.js` | ✓ | `frontend/css/tailwind.build.css`, `frontend/css/tokens.css` | Tailwind tokens: all semantic sizes (sm, md, lg, xl) present, scale proportional, no gap | source-string-pin | replace-by-types |
 | `hex-budget.test.mjs` | ✓ | `frontend/css/`, `frontend/pages/` | CSS color budget: <50 unique hex values, reuse via Tailwind tokens | source-string-pin | replace-by-types |
 | `design-fix-1-admin-primitives.test.mjs` | ✓ | `frontend/pages/admin/`, `frontend/css/` | Admin primitives: button/input/modal/table styles consistent | source-string-pin | port-to-component-test |
@@ -213,7 +213,7 @@
 | `design-fix-3-user-tokens.test.mjs` | ✓ | `frontend/css/tokens.css`, `frontend/pages/` | User-facing tokens: spacing, shadows, border-radius, consistent everywhere | source-string-pin | port-to-component-test |
 | `primitive-families.test.mjs` | ✓ | `frontend/css/`, `frontend/pages/` | Primitive families: button + input + card + dialog have cohesive variants | source-string-pin | port-to-component-test |
 | `chrome-spacing-canonical.test.mjs` | ✓ | `frontend/js/components/aver-chrome.js`, `frontend/pages/` | Chrome spacing: margin/padding consistent with page grid | source-string-pin | port-to-component-test |
-| `chrome-unification-canonical.test.mjs` | ✗ | `frontend/js/components/aver-chrome.js`, `frontend/js/components/aver-admin-chrome.js` | Unification: shared nav logic, no duplicate event handling, icon set consistent | source-string-pin | **UNCLEAR** |
+| `chrome-unification-canonical.test.mjs` | ✗ | `frontend/js/components/aver-chrome.js`, `frontend/js/components/aver-admin-chrome.js` | Unification: shared nav logic, no duplicate event handling, icon set consistent | source-string-pin | keep-until-route-retired |
 | `subheading-pattern-canonical.test.mjs` | ✗ | `frontend/pages/`, `frontend/css/` | Subheading pattern: typography, spacing, color consistent across pages | source-string-pin | keep-until-route-retired |
 | `warning-banner-tokens.test.mjs` | ✗ | `frontend/pages/`, `frontend/css/` | Banner tokens: background, text, icon colors follow token system | source-string-pin | keep-until-route-retired |
 
@@ -223,14 +223,14 @@
 |-----------|-------|--------------|--------------|-------|----------------------|
 | `aver-admin-chrome.test.mjs` | ✓ | `frontend/js/components/aver-admin-chrome.js`, `frontend/pages/admin/` | Web Component: `<aver-admin-chrome active="...">` renders nav with active tab highlighted; click navigates via window.location | source-string-pin | keep-until-route-retired |
 | `audio-player.test.mjs` | ✗ | `frontend/js/components/audio-player.js`, `frontend/pages/listening*.html` | Audio player Web Component: play/pause/scrub, load audio via src attribute, events fire on play/end | dom-behavior | replace-by-types |
-| `audio-cutter.test.mjs` | ✗ | `frontend/js/audio-cutter.js`, `frontend/pages/admin/listening/` | Audio cutter: select region via waveform, set start/end time, preview clip, POST to backend | dom-behavior | **UNCLEAR** |
+| `audio-cutter.test.mjs` | ✗ | `frontend/js/audio-cutter.js`, `frontend/pages/admin/listening/` | Audio cutter: select region via waveform, set start/end time, preview clip, POST to backend | dom-behavior | port-to-component-test |
 | `cue-card-detector.test.mjs` | ✗ | `frontend/js/cue-card-detector.js`, `frontend/pages/practice.html` | Cue card detection: extracts text from Part 2 cue card image via OCR; fallback to user input | contract | replace-by-types |
 | `cue-card-*` (4 files) | ✗ | `frontend/pages/practice.html`, `frontend/js/cue-card-*.js` | Cue card display, fetch URL, length warning, part router — see sub-entries below | source-string-pin | keep-until-route-retired |
 | `cue-card-fetch-url.test.mjs` | ✗ | `frontend/js/cue-card-fetch-url.js` | Fetch: GET /api/cue-cards/:part → return { image_url, prompt, duration } | contract | replace-by-types |
 | `cue-card-length-warning.test.mjs` | ✗ | `frontend/js/cue-card-length-warning.js` | Warning: shows if prep time <1 min; dismissable | source-string-pin | keep-until-route-retired |
 | `cue-card-part-router.test.mjs` | ✗ | `frontend/js/cue-card-part-router.js` | Router: map session_id + part → cue card; no cross-part leakage | dom-behavior | replace-by-types |
 | `cue-card-ui-wiring.test.mjs` | ✗ | `frontend/js/cue-card-ui-wiring.js` | Wiring: cue card loads on practice start, displays in sidebar, updates on part change | source-string-pin | keep-until-route-retired |
-| `exam-player.test.mjs` | ✗ | `frontend/js/exam-player.js`, `frontend/pages/reading-exam.html` | Exam player: manages question order, answer state, time limit; no premature submit | dom-behavior | **UNCLEAR** |
+| `exam-player.test.mjs` | ✗ | `frontend/js/exam-player.js`, `frontend/pages/reading-exam.html` | Exam player: manages question order, answer state, time limit; no premature submit | dom-behavior | replace-by-e2e |
 
 ### Miscellaneous (60 files, 25 in CI)
 
@@ -262,21 +262,21 @@
 | `sprint-6-12c-audit-closure.test.mjs` | ✗ | `frontend/js/`, `frontend/pages/` | Sprint 6.12c closure: grammar links canonical | source-string-pin | retire-immediately (historical audit) |
 | `sprint-6-14c-hotfix-audit-closure.test.mjs` | ✗ | `frontend/js/`, `frontend/pages/` | Sprint 6.14c hotfix: listed checks pass | source-string-pin | retire-immediately (historical audit) |
 | `sprint-6-15-2-narrative-correction.test.mjs` | ✗ | `frontend/js/`, `frontend/pages/` | Narrative correction: text changes validated | source-string-pin | retire-immediately (historical audit) |
-| `phase-closure-ledger.test.mjs` | ✗ | `frontend/`, `backend/` | Phase closure: all listed invariants pass | source-string-pin | **UNCLEAR** |
-| `gate-9-5-9-6-9-7-formalization.test.mjs` | ✗ | `frontend/js/`, `frontend/pages/` | Gate formalization: 9.5/9.6/9.7 checks pass | source-string-pin | **UNCLEAR** |
-| `gate-10-formalization.test.mjs` | ✗ | `frontend/js/`, `frontend/pages/` | Gate 10: listed checks pass | source-string-pin | **UNCLEAR** |
+| `phase-closure-ledger.test.mjs` | ✗ | `frontend/`, `backend/` | Phase closure: all listed invariants pass | source-string-pin | keep-until-route-retired |
+| `gate-9-5-9-6-9-7-formalization.test.mjs` | ✗ | `frontend/js/`, `frontend/pages/` | Gate formalization: 9.5/9.6/9.7 checks pass | source-string-pin | keep-until-route-retired |
+| `gate-10-formalization.test.mjs` | ✗ | `frontend/js/`, `frontend/pages/` | Gate 10: listed checks pass | source-string-pin | keep-until-route-retired |
 
 #### Rendering & Visual Tests (12 files, 4 in CI)
 
 | Test file | In CI | Target files | Invariant(s) | Class | Migration disposition |
 |-----------|-------|--------------|--------------|-------|----------------------|
 | `home-redesign.test.mjs` | ✓ | `frontend/pages/home.html`, `frontend/js/home.js` | Home page: skill cards, stats render, no error boundaries shown | source-string-pin | port-to-component-test |
-| `home-stats-loading.test.mjs` | ✓ | `frontend/pages/home.html`, `frontend/js/` | Stats loading: skeletal UI shows while fetching, then replaced with values | source-string-pin | **UNCLEAR** |
+| `home-stats-loading.test.mjs` | ✓ | `frontend/pages/home.html`, `frontend/js/` | Stats loading: skeletal UI shows while fetching, then replaced with values | source-string-pin | port-to-component-test |
 | `index-redesign.test.mjs` | ✗ | `frontend/index.html` | Login page: Supabase auth form, link to dashboard, no hardcoded secrets | source-string-pin | port-to-component-test |
 | `profile-redesign.test.mjs` | ✗ | `frontend/pages/profile.html`, `frontend/js/` | Profile page: user info, change password form, language preference | source-string-pin | port-to-component-test |
 | `dashboard-tweaks.test.mjs` | ✓ | `frontend/pages/home.html`, `frontend/js/` | Dashboard tweaks: layout polish, consistent spacing, card interactions smooth | source-string-pin | port-to-component-test |
 | `viewers-anonymous.test.mjs` | ✓ | `frontend/pages/`, `frontend/js/` | Anonymous viewers: show CTA to sign up, don't expose internals | source-string-pin | keep-until-route-retired |
-| `student-hub-drawer.test.mjs` | ✓ | `frontend/pages/`, `frontend/js/` | Drawer UI: slide in/out, content lazy-load, no flicker on open | source-string-pin | **UNCLEAR** |
+| `student-hub-drawer.test.mjs` | ✓ | `frontend/pages/`, `frontend/js/` | Drawer UI: slide in/out, content lazy-load, no flicker on open | source-string-pin | port-to-component-test |
 | `sprint-18-3-1-polish.test.mjs` | ✓ | `frontend/pages/`, `frontend/css/` | Polish: consistent spacing, shadows, border-radius | source-string-pin | retire-immediately (historical audit) |
 | `sprint-18-3-1-1-overflow.test.mjs` | ✓ | `frontend/pages/`, `frontend/css/` | Overflow: no horizontal scroll, responsive breakpoints | source-string-pin | retire-immediately (historical audit) |
 | `sprint-18-3-1-2-toolbar.test.mjs` | ✓ | `frontend/pages/`, `frontend/js/components/` | Toolbar: sticky on scroll, action buttons responsive, no z-index collision | source-string-pin | retire-immediately (historical audit) |
@@ -442,3 +442,57 @@ These tests protect obsolete flows or historical audits. Recommend retiring befo
 - **Baseline commit:** `9047e09f` (discovery baseline, July 12); validation refresh at `3f031d17` (July 13)
 - **CI configuration:** `.github/workflows/backend-tests.yml` lines 124–254 (131 files, node --test)
 - **Test method:** node:test (native Node.js; no external framework)
+
+
+---
+
+## UNCLEAR resolution (2026-07-14)
+
+The 33 rows formerly marked **UNCLEAR** (disposition column) were re-read
+against their test file + target source and finalized. The disposition column
+now carries the ledger-taxonomy value; the **durable invariant** below is the
+implementation-agnostic guarantee each test protects (what must stay true
+after the page migrates to Next.js), replacing the fragile source-string it
+currently matches.
+
+| test | durable invariant (finalized) | disposition |
+|---|---|---|
+| speaking-rubric-v2-compat | Grading API response keeps legacy field names (band_fc/lr/gra/p, *_feedback, strengths, improvements) so the result renderer stays back-compatible | replace-by-types |
+| reading-diagnostic | Result page fetches the diagnostic for the submitted attempt (`/api/reading/diagnostic?attempt_id=`) and links to L2 exercises | replace-by-e2e |
+| admin-listening-convert | ILR/IELTS audio import endpoint (`/admin/listening/convert`) with auto-section mapping exists | replace-by-e2e |
+| admin-listening-drills-import | Drills-import endpoint accepts a mixed dictation/gist/MCQ bank with auto-segmentation | replace-by-e2e |
+| admin-vocab-quiz-analytics | Vocab analytics hits `/admin/quiz/students?skill_area=vocab` (per-student) + `/admin/quiz/banks?skill_area=vocab` (hard-words) | replace-by-e2e |
+| kp-fe-widgets | Weak-grammar widget fetches `/api/me/kp-mastery?status=weak&kp_type=grammar`; reading review renders a KP stepper with grammar deep-links | replace-by-e2e |
+| kp-roadmap | Roadmap branches on slug: no-slug → `/api/me/roadmap`; has-slug → per-article; articles link `/grammar/{category}/{slug}` | replace-by-e2e |
+| exam-player | Exam player GETs `/api/exams`, `/api/exams/{id}`, POSTs attempts with answer data, renders KP review stepper | replace-by-e2e |
+| d1-srs-indicator | SRS indicator renders on `srs_updated=true`, branches on `srs_rating`, clears prior indicator before appending (response-schema-driven) | port-to-component-test |
+| admin-writing-new-redesign | New-essay form POSTs the 8-key payload (student_id, task_type, analysis_level, selected_model, form_of_address, grading_tier, prompt_text, essay_text) to the essays endpoint | port-to-component-test |
+| admin-writing-assignments-redesign | Assignment form creates via `/admin/writing/assignments` (cohort_id, prompt_id, deadline, instructions); status taxonomy pending/in_progress/submitted/graded/delivered | port-to-component-test |
+| admin-writing-prompts-redesign | Prompt list paginated + filterable by level/topic with bulk publish/archive; create/edit via `POST /admin/writing/prompts` | port-to-component-test |
+| listening-mcq-sessions-pages | MCQ user page POSTs `/api/listening/attempts` (mode=mcq); admin editor POSTs `/admin/listening/exercises` (exercise_type=mcq, 1–20 Q); browse filters accent/cefr/section; analytics day-chart | port-to-component-test |
+| admin-listening-content-management | Content list GETs `/admin/listening/content` (status filter); detail GETs content/{id} + exercises?content_id= | port-to-component-test |
+| admin-listening-segments | Segments editor marks waveform regions, adjusts timing, exports via `/admin/listening/segments/{id}` | port-to-component-test |
+| admin-listening-tests-detail | Test detail shows sections + questions-per-section with edit/delete-confirm; GETs `/admin/listening/tests/{id}` | port-to-component-test |
+| admin-listening-tests | Tests list paginated + filterable by level/type with import/create | port-to-component-test |
+| admin-listening-upload | MP3/WAV upload with format auto-detect + progress + retry via `/admin/listening/upload` | port-to-component-test |
+| audio-cutter | Region selection + `/detect-silence` (auto-detect) + `/cut-audio` (export) endpoints | port-to-component-test |
+| admin-overview | Overview shows 4 stat tiles (students-total, students-active-7d, errors-undismissed, access-codes-active) + skill cards | port-to-component-test |
+| admin-error-logs | Error dashboard shows total/undismissed/24h/7d cards + 3-filter bar + dismiss/undismiss/refresh | port-to-component-test |
+| admin-instructor-queue-redesign | Instructor queue shows pending essays + re-grade requests + priority sort; GETs `/admin/writing/queue` | port-to-component-test |
+| assignment-analysis-level | Assignment analytics filters cohort/skill, shows completion % per level | port-to-component-test |
+| regrade-level-picker | Regrade flow: reason select (prompt-change/remark-request) + confirm before `POST /admin/writing/regrade` | port-to-component-test |
+| home-stats-loading | Home stats show a loading placeholder during fetch, real value on success, "—" on error (never literal 0) | port-to-component-test |
+| student-hub-drawer | Student drawer shows profile/cohort/target-vs-current/essay-history from `/admin/students/{id}` + writing summary; deep-links to assignment form | port-to-component-test |
+| admin-writing-status-redesign | Writing status dashboard: per-student grade counts, completion %, feedback rate | keep-until-route-retired |
+| admin-writing-redesign | Writing admin hub navigates to dashboard/queue/prompts/cohorts/assignments | keep-until-route-retired |
+| chrome-unification-canonical | `<aver-chrome>` renders unified nav (6 skill links + theme toggle + user pill) and logs out via getSupabase().auth.signOut() | keep-until-route-retired |
+| theme-toggle-layout-context | Theme toggle sits inside a flex container (legacy DOM-position guarantee — re-verify in Next layout, not pin legacy HTML) | keep-until-route-retired |
+| phase-closure-ledger | Doc-consistency audit (DESIGN_SYSTEM/UNIFIED_DESIGN_BRIEF vs filesystem) — legacy design-system artifact | keep-until-route-retired |
+| gate-9-5-9-6-9-7-formalization | DESIGN_SYSTEM § 17.9/17.10/17.11 doc audit (Gate 9.5/9.6/9.7) — legacy design-system artifact | keep-until-route-retired |
+| gate-10-formalization | DESIGN_SYSTEM § 17.14 doc audit (Gate 10 topnav-wrap position) — legacy design-system artifact | keep-until-route-retired |
+
+**Mapping note:** agent-level dispositions collapsed to the ledger taxonomy —
+API/endpoint-integration → `replace-by-e2e`, pure response-schema →
+`replace-by-types`, DOM/page rendering (fragile source-pin) →
+`port-to-component-test`, legacy-structure / doc-audit → `keep-until-route-retired`
+(retire after the owning route cuts over, not before).
