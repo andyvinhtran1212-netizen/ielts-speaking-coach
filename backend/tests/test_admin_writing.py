@@ -631,7 +631,8 @@ def test_patch_feedback_validates_and_persists():
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_writing.supabase_admin", fake), \
-         patch("services.essay_service.upsert_composed_version", return_value=2) as mock_upsert:
+         patch("services.essay_service.upsert_composed_version", return_value=2) as mock_upsert, \
+         patch("services.mock_review_workflow.sync_writing_band_for_essay") as mock_sync:
         r = _client().patch(
             f"/admin/writing/essays/{_ESSAY_ID}/feedback",
             json=_valid_feedback_edits(),
@@ -640,6 +641,8 @@ def test_patch_feedback_validates_and_persists():
     assert r.status_code == 200, r.text
     assert r.json() == {"essay_id": _ESSAY_ID, "status": "reviewed"}
     mock_upsert.assert_called_once()                       # edit → composed version
+    # On review, the mock writing-band sync is invoked (no-op for a normal essay).
+    mock_sync.assert_called_once_with(str(_ESSAY_ID))
     payload = fake.table.return_value.update.call_args.args[0]
     assert payload["status"] == "reviewed"
     assert payload["is_manually_edited"] is True

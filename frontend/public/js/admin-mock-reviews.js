@@ -327,8 +327,19 @@
 
     var rf = review.retest_flags || {};
     var bandInputs = reqSkills().map(function (s) {
+      // Writing pre-fills from the band computed off the two graded essays
+      // (mock_review_workflow.sync_writing_band_for_essay → ai_draft.writing),
+      // so the examiner doesn't retype it. Not yet confirmed (final_bands) →
+      // fall back to the suggestion; a hint shows it came from the essays.
+      var draftBand = (s === 'writing' && draft.writing && draft.writing.band != null)
+        ? draft.writing.band : null;
+      var val = (fb[s] != null) ? fb[s] : (draftBand != null ? draftBand : '');
+      var hint = (draftBand != null && fb[s] == null)
+        ? '<div class="mr-muted" style="font-size:11px;margin-top:2px">Gợi ý từ 2 bài đã chấm: ' + fmtBand(draftBand) + '</div>'
+        : '';
       return '<div><label>' + s + '</label>' +
-        '<input type="number" step="0.5" min="0" max="9" data-band="' + s + '" value="' + (fb[s] != null ? fb[s] : '') + '">' +
+        '<input type="number" step="0.5" min="0" max="9" data-band="' + s + '" value="' + val + '">' +
+        hint +
         '<label style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:400;margin-top:4px;color:var(--av-text-secondary)">' +
           '<input type="checkbox" data-retest="' + s + '"' + (rf[s] ? ' checked' : '') + '> Cần test lại' +
         '</label></div>';

@@ -441,6 +441,75 @@ def _deliver_writing_for_sitting(sitting_id: str) -> None:
         logger.exception("[mock-review] deliver-writing failed sitting=%s", sitting_id)
 
 
+def _essay_bands(essay_ids: list) -> dict:
+    """essay_id → overall_band_score from the CURRENT feedback version (the view
+    reflects admin edits after review, so a reviewed essay yields its approved
+    band)."""
+    ids = [str(e) for e in essay_ids if e]
+    if not ids:
+        return {}
+    rows = supabase_admin.table("writing_feedback_current").select(
+        "essay_id, overall_band_score",
+    ).in_("essay_id", ids).execute().data or []
+    return {r["essay_id"]: r.get("overall_band_score") for r in rows if r.get("essay_id")}
+
+
+def _merge_review_ai_draft(sitting_id: UUID | str, patch: dict) -> None:
+    """Read-modify-write `patch` into the sitting's review.ai_draft (nháp only)."""
+    rows = supabase_admin.table("mock_exam_reviews").select("id, ai_draft").eq(
+        "sitting_id", str(sitting_id),
+    ).limit(1).execute().data
+    if not rows:
+        return
+    review = rows[0]
+    draft = dict(review.get("ai_draft") or {})
+    draft.update(patch)
+    supabase_admin.table("mock_exam_reviews").update({"ai_draft": draft}).eq(
+        "id", review["id"],
+    ).execute()
+
+
+def sync_writing_band_for_essay(essay_id: str) -> None:
+    """When a mock Writing essay is reviewed, roll the sitting's overall Writing
+    band — IELTS Task 1 + Task 2×2, weighted then rounded — into its review's
+    ai_draft as a PRE-FILLED suggestion (the mock console pre-populates the
+    Writing band input from it; the examiner can still override, and the overall
+    is always recomputed from the confirmed final_bands, never from the draft).
+
+    Computed only once BOTH task essays carry a band — a still-ungraded or
+    admin-skipped task means the examiner sets Writing manually. Best-effort:
+    never raises (a suggestion must not fail the reviewer's save)."""
+    try:
+        er = supabase_admin.table("writing_essays").select("sitting_id").eq(
+            "id", str(essay_id),
+        ).limit(1).execute().data
+        if not er or not er[0].get("sitting_id"):
+            return  # not a mock essay
+        sitting_id = er[0]["sitting_id"]
+        srow = supabase_admin.table("mock_exam_sittings").select(
+            "essay_task1_id, essay_task2_id",
+        ).eq("id", str(sitting_id)).limit(1).execute().data
+        if not srow:
+            return
+        t1_id, t2_id = srow[0].get("essay_task1_id"), srow[0].get("essay_task2_id")
+        if not t1_id or not t2_id:
+            return  # need both tasks to weight the Writing band
+        bands = _essay_bands([t1_id, t2_id])
+        b1, b2 = bands.get(str(t1_id)), bands.get(str(t2_id))
+        if b1 is None or b2 is None:
+            return  # a task not graded yet (or skipped) → examiner sets it manually
+        writing_band = ielts_round((float(b1) + 2.0 * float(b2)) / 3.0)
+        _merge_review_ai_draft(sitting_id, {
+            "writing": {"band": writing_band, "task1_band": float(b1), "task2_band": float(b2)},
+        })
+        logger.info(
+            "[mock-review] synced writing band=%s (T1=%s T2=%s) sitting=%s",
+            writing_band, b1, b2, sitting_id,
+        )
+    except Exception:  # noqa: BLE001 — suggestion only, never fatal
+        logger.exception("[mock-review] sync writing band failed essay=%s", essay_id)
+
+
 def required_skills_for_sitting(sitting_id: UUID | str) -> list:
     """Public: the skills the admin must band for this sitting (Speaking optional
     for LRW-only exams). Used by the console to render/validate the band form."""

@@ -1502,6 +1502,47 @@ def test_skip_mock_writing_grading_rejects_reviewed_essay(fake_db, svc):
         svc.skip_mock_writing_grading("e1", admin_id="admin-1")
 
 
+# ── band flow-back: reviewed essays → mock review Writing band ────────
+
+def test_sync_writing_band_computes_weighted_and_stores(fake_db, svc, wf):
+    """Both task essays graded → Writing band = ielts_round((T1 + 2·T2)/3) is
+    merged into the sitting's review ai_draft (existing draft keys preserved)."""
+    fake_db.seed("writing_essays", {"id": "e1", "sitting_id": "sit-1", "task_type": "task1_academic"})
+    fake_db.seed("writing_essays", {"id": "e2", "sitting_id": "sit-1", "task_type": "task2"})
+    fake_db.seed("mock_exam_sittings", {"id": "sit-1", "essay_task1_id": "e1", "essay_task2_id": "e2"})
+    fake_db.seed("writing_feedback_current", {"essay_id": "e1", "overall_band_score": 6.0})
+    fake_db.seed("writing_feedback_current", {"essay_id": "e2", "overall_band_score": 7.0})
+    fake_db.seed("mock_exam_reviews", {"id": "rv-1", "sitting_id": "sit-1",
+                                       "ai_draft": {"listening": {"band": 6.5}}})
+
+    wf.sync_writing_band_for_essay("e1")
+
+    rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-1")
+    assert rv["ai_draft"]["writing"]["band"] == 6.5     # (6 + 2·7)/3 = 6.667 → 6.5
+    assert rv["ai_draft"]["writing"]["task1_band"] == 6.0
+    assert rv["ai_draft"]["writing"]["task2_band"] == 7.0
+    assert rv["ai_draft"]["listening"] == {"band": 6.5}  # existing draft untouched
+
+
+def test_sync_writing_band_noop_for_non_mock_essay(fake_db, svc, wf):
+    """A normal self-submit essay (no sitting_id) is a no-op — no review touched."""
+    fake_db.seed("writing_essays", {"id": "e9", "sitting_id": None, "task_type": "task2"})
+    wf.sync_writing_band_for_essay("e9")
+    assert fake_db.rows("mock_exam_reviews") == []
+
+
+def test_sync_writing_band_noop_when_a_task_ungraded(fake_db, svc, wf):
+    """One task without a band (ungraded/skipped) → no suggestion yet (examiner
+    sets Writing manually)."""
+    fake_db.seed("writing_essays", {"id": "e1", "sitting_id": "sit-1", "task_type": "task1_academic"})
+    fake_db.seed("mock_exam_sittings", {"id": "sit-1", "essay_task1_id": "e1", "essay_task2_id": "e2"})
+    fake_db.seed("writing_feedback_current", {"essay_id": "e1", "overall_band_score": 6.0})
+    fake_db.seed("mock_exam_reviews", {"id": "rv-1", "sitting_id": "sit-1", "ai_draft": {}})
+    wf.sync_writing_band_for_essay("e1")
+    rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-1")
+    assert "writing" not in (rv.get("ai_draft") or {})
+
+
 def _seed_mock_writing(fake_db, svc):
     """A 4-skill-less (LRW) exam with both Writing prompts + a student, driven
     to all_submitted so 2 pending essays are promoted. Returns (exam, u, s)."""

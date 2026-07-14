@@ -511,6 +511,17 @@ async def update_feedback(
 
     if not r.data:
         raise HTTPException(404, "Essay not found")
+
+    # If this is a mock Writing essay, roll the sitting's computed Writing band
+    # back into its mock review as a pre-fill suggestion (best-effort — a no-op
+    # for a normal self-submit essay, and it must never fail the review save).
+    try:
+        from services import mock_review_workflow
+        mock_review_workflow.sync_writing_band_for_essay(str(essay_id))
+    except Exception:  # noqa: BLE001
+        _logger.warning("[admin-writing] mock writing-band sync skipped essay=%s",
+                        essay_id, exc_info=True)
+
     return {"essay_id": str(essay_id), "status": "reviewed"}
 
 
