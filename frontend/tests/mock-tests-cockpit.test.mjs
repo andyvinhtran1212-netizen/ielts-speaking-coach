@@ -203,3 +203,36 @@ describe('writing queue — opening an essay from the cockpit stays chrome-less'
     assert.match(GRADE_HTML, /back\.href = _withEmbed\('\/pages\/admin\/writing\/queue\.html'\)/);
   });
 });
+
+// Two bugs, one page, both invisible to a source read and obvious to a measure:
+// the cockpit never loads tailwind.build.css, where .hidden lives, so every
+// classList.add('hidden') here did nothing — #mt-need-exam stayed 687px tall (a
+// blank slab under the roster) and #mt-loading showed "Đang tải…" forever. Its
+// sibling admin pages already declare .hidden locally; this one didn't.
+describe('mock-tests cockpit — .hidden must actually hide', () => {
+  test('the page declares .hidden itself (it does not LINK tailwind)', () => {
+    // Match the <link>, not any mention — the comment above the rule names the
+    // stylesheet, and a bare substring check flagged that as a load.
+    assert.doesNotMatch(HTML, /<link[^>]+tailwind\.build\.css/);
+    assert.match(HTML, /\.hidden \{ display: none !important; \}/);
+  });
+  test('the JS still relies on the class it just got given teeth', () => {
+    assert.match(JS, /classList\.add\('hidden'\)/);
+  });
+});
+
+// applyTheme only touches its own document and emits no event; the embed reads
+// the theme once in its anti-flash IIFE. Toggling the cockpit therefore left the
+// panel on the old theme — a dark review tab under a light page.
+describe('mock-tests cockpit — the frame follows the theme toggle', () => {
+  test('the theme attribute is mirrored into the frame document', () => {
+    const body = JS.match(/function syncFrameTheme\(\) \{([\s\S]*?)\n  \}/);
+    assert.ok(body, 'syncFrameTheme() not found — sentinel is stale');
+    assert.match(body[1], /doc\.documentElement\.setAttribute\(\s*'data-theme'/);
+    assert.match(body[1], /document\.documentElement\.getAttribute\('data-theme'\)/);
+  });
+  test('it fires on toggle AND on every frame navigation', () => {
+    assert.match(JS, /new MutationObserver\(syncFrameTheme\)[\s\S]*?attributeFilter: \['data-theme'\]/);
+    assert.match(JS, /frame\.addEventListener\('load', syncFrameTheme\)/);
+  });
+});

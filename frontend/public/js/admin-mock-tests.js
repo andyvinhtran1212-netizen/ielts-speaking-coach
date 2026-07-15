@@ -107,6 +107,21 @@
     if (frameAt(frame) !== src) loadFrame(frame, src);
   }
 
+  // The embedded page resolves the theme ONCE, in its own anti-flash IIFE, and
+  // applyTheme only touches the document it runs in — it emits no event and the
+  // iframe is a separate document. So toggling the cockpit left the panel on the
+  // old theme (a dark review tab under a light page). Mirror the attribute across
+  // on every change; same-origin, so this is a plain attribute write.
+  function syncFrameTheme() {
+    var frame = $('mt-frame');
+    try {
+      var doc = frame && frame.contentDocument;
+      if (!doc) return;
+      doc.documentElement.setAttribute(
+        'data-theme', document.documentElement.getAttribute('data-theme') || 'light');
+    } catch (e) { /* cross-origin can't happen for our own pages */ }
+  }
+
   function setTab(tab) {
     state.tab = tab;
     document.querySelectorAll('.mt-tab').forEach(function (t) {
@@ -120,6 +135,15 @@
       var t = new URLSearchParams(location.search).get('tab');
       if (t && FRAME[t]) state.tab = t;
     } catch (e) { /* default tab */ }
+
+    // Follow the toggle, and re-apply after every navigation: a fresh frame
+    // document re-runs its own IIFE, which is right today (it reads the same
+    // localStorage) but would drift the moment the two disagree.
+    new MutationObserver(syncFrameTheme).observe(document.documentElement, {
+      attributes: true, attributeFilter: ['data-theme'],
+    });
+    var frame = $('mt-frame');
+    if (frame) frame.addEventListener('load', syncFrameTheme);
 
     document.querySelectorAll('.mt-tab').forEach(function (t) {
       t.addEventListener('click', function () { setTab(t.getAttribute('data-tab')); });
