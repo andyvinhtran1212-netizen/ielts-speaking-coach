@@ -793,6 +793,61 @@ _MOCK_WRITING_ANALYSIS_LEVEL = 3
 _WRITING_MIN_WORDS = {"task1": 150, "task2": 250}
 
 
+def writing_task_states(sitting: dict, delivered: set) -> list:
+    """Per-task Writing outcome for the student's TRF — one entry per task.
+
+    Pure: `delivered` is the set the caller already computed (essay_service.
+    delivered_essay_ids) and the word counts come off the sitting's own
+    writing_submission — the same blob the admin roster reads. An earlier cut
+    re-queried both and bought nothing but a second round-trip and a function
+    that couldn't be tested without a database.
+
+    The TRF used to surface a feedback link only for a DELIVERED essay and say
+    nothing at all about a task that never got graded, so a student whose Task 2
+    was too short just saw one link and no explanation of the gap. This reports
+    what actually happened to each task so the page can say it out loud.
+
+    States, straight off the row (never inferred from the band):
+      delivered  — graded + reviewed + released → feedback is readable
+      too_short  — below the IELTS minimum, so it was never auto-graded
+      not_graded — has an essay, but no feedback the student can open
+      missing    — the student wrote nothing for this task
+
+    `too_short` is reported from word_count vs the minimum, NOT from the admin's
+    retest decision: the word count is a fact on the row, while a retest flag is
+    a judgement the admin may simply not have recorded. The page must be able to
+    explain the gap either way.
+    """
+    ws = sitting.get("writing_submission") or {}
+    ids = {"task1": sitting.get("essay_task1_id"), "task2": sitting.get("essay_task2_id")}
+
+    out = []
+    for task in ("task1", "task2"):
+        eid = ids[task]
+        wc = (ws.get(task) or {}).get("word_count")
+        minimum = _WRITING_MIN_WORDS[task]
+
+        if eid and str(eid) in delivered:
+            state = "delivered"
+        elif not eid:
+            state = "missing"
+        elif wc is not None and wc < minimum:
+            state = "too_short"
+        else:
+            state = "not_graded"
+
+        out.append({
+            "task":       task,
+            "state":      state,
+            "word_count": wc,
+            "min_words":  minimum,
+            # only a readable essay gets an id — an unreadable one would be a
+            # dead-end link (writing-result.html gates on 'delivered').
+            "essay_id":   str(eid) if (eid and str(eid) in delivered) else None,
+        })
+    return out
+
+
 def writing_meets_min_words(essay: dict) -> bool:
     """True if the essay is long enough to auto-grade (Task 1 ≥150, Task 2 ≥250
     words). A missing/zero word_count fails the gate (held for admin decision)."""

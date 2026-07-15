@@ -242,4 +242,13 @@ async def get_result(
         "reading_attempt_id":   sitting.get("reading_attempt_id"),
         "essay_task1_id":       e1 if str(e1) in delivered else None,
         "essay_task2_id":       e2 if str(e2) in delivered else None,
+        # Per-task Writing outcome. The two ids above only ever surfaced a link
+        # for a readable essay and said NOTHING about a task that never got
+        # graded — the student saw one link, one silent gap, no explanation.
+        # This lets the TRF show the graded task AND state why the other is
+        # absent (2026-07-15).
+        "writing_tasks":        svc.writing_task_states(sitting, delivered),
+        # The admin's retest decision per skill, so the TRF can tell the student
+        # which skills to redo. Absent/false = not flagged.
+        "retest_flags":         {k: bool(v) for k, v in (review.get("retest_flags") or {}).items() if v},
     }

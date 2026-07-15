@@ -92,6 +92,18 @@
         transform var(--av-duration-fast) var(--av-easing-default); }
     .trf-review:hover { border-color: var(--av-primary-border); transform: translateY(-1px); }
     .trf-review:focus-visible { outline: none; box-shadow: var(--av-shadow-focus); }
+    /* Writing task with no chữa bài — states the reason instead of leaving a gap.
+       Warning-toned, not error: nothing is broken, the essay just isn't gradable. */
+    .trf-gap { display: flex; align-items: flex-start; gap: var(--av-space-3);
+      background: var(--av-warning-soft); border: 1px solid var(--av-warning);
+      border-radius: var(--av-radius-lg); padding: var(--av-space-4);
+      margin-top: var(--av-space-3); }
+    .trf-gap__icon { font-size: var(--av-fs-lg); line-height: 1.2; }
+    .trf-gap__body { display: flex; flex-direction: column; gap: 4px; }
+    .trf-gap__title { font-weight: var(--av-fw-semibold); color: var(--av-text-primary); }
+    .trf-gap__detail { font-size: var(--av-fs-sm); color: var(--av-text-secondary); }
+    .trf-gap__retest { font-size: var(--av-fs-sm); font-weight: var(--av-fw-semibold);
+      color: var(--av-text-primary); margin-top: 2px; }
     .trf-review__icon { font-size: var(--av-fs-2xl); line-height: 1; }
     .trf-review__body { flex: 1; }
     .trf-review__title { font-weight: var(--av-fw-semibold); font-size: var(--av-fs-sm); }
@@ -148,6 +160,9 @@
       <section id="notes-wrap" class="trf-section hidden"></section>
 
       <section id="chuabai-wrap" class="trf-section hidden"></section>
+      <!-- Why a Writing task has no chữa bài. Sits AFTER the review cards so the
+           student sees what they DID get before what they didn't. -->
+      <section id="writing-gap-wrap" class="trf-section hidden"></section>
 
       <p class="trf-foot">Kết quả do giám khảo duyệt, có tham khảo phân tích AI.</p>
     </div>
@@ -227,10 +242,18 @@
         href: '/pages/listening-review.html?attempt_id=' + encodeURIComponent(data.listening_attempt_id) });
       if (data.reading_attempt_id) reviews.push({ icon: '📖', title: 'Chữa bài Reading', hint: 'Xem lại từng câu + bài đọc',
         href: '/pages/reading-review.html?attempt_id=' + encodeURIComponent(data.reading_attempt_id) });
-      if (data.essay_task1_id) reviews.push({ icon: '✍️', title: 'Nhận xét Writing Task 1', hint: 'Chữa bài chi tiết',
-        href: '/pages/writing-result.html?id=' + encodeURIComponent(data.essay_task1_id) });
-      if (data.essay_task2_id) reviews.push({ icon: '✍️', title: 'Nhận xét Writing Task 2', hint: 'Chữa bài chi tiết',
-        href: '/pages/writing-result.html?id=' + encodeURIComponent(data.essay_task2_id) });
+      // Writing: one card per task. A task with readable feedback links to it; a
+      // task that never got graded says SO — the old code just skipped it, so a
+      // student with one graded task saw a single link and an unexplained gap.
+      var TASK_LABEL = { task1: 'Task 1', task2: 'Task 2' };
+      var wTasks = data.writing_tasks || [];
+      wTasks.forEach(function (t) {
+        var label = TASK_LABEL[t.task] || t.task;
+        if (t.state === 'delivered' && t.essay_id) {
+          reviews.push({ icon: '✍️', title: 'Nhận xét Writing ' + label, hint: 'Chữa bài chi tiết',
+            href: '/pages/writing-result.html?id=' + encodeURIComponent(t.essay_id) });
+        }
+      });
 
       var cwrap = $('chuabai-wrap');
       if (reviews.length) {
@@ -245,7 +268,51 @@
             }).join('') + '</div>';
       }
 
+      renderWritingGaps(wTasks, data.retest_flags || {});
       showState('content');
+    }
+
+    // Say out loud why a Writing task has no feedback. Silence here reads as "the
+    // system lost my essay"; the student is owed the reason, and the reason is a
+    // fact on the row (word count vs the IELTS minimum), not a guess.
+    //
+    // The retest line is separate on purpose: not-graded is what HAPPENED, "cần
+    // thi lại" is what the examiner DECIDED. Only the examiner's own flag may
+    // claim the second — this page must not invent an obligation for them.
+    function renderWritingGaps(wTasks, retestFlags) {
+      var TASK_LABEL = { task1: 'Task 1', task2: 'Task 2' };
+      var gaps = (wTasks || []).filter(function (t) { return t.state !== 'delivered'; });
+      var wrap = $('writing-gap-wrap');
+      if (!wrap || !gaps.length) return;
+
+      var mustRetakeWriting = !!retestFlags.writing;
+      wrap.classList.remove('hidden');
+      wrap.innerHTML = '<h2 class="trf-h2">Phần Writing chưa có nhận xét</h2>'
+        + gaps.map(function (t) {
+            var label = TASK_LABEL[t.task] || t.task;
+            var why, detail;
+            if (t.state === 'too_short') {
+              why = 'Bài không đạt yêu cầu';
+              detail = 'Bài viết chỉ có ' + (t.word_count == null ? 0 : t.word_count)
+                + ' từ, dưới mức tối thiểu ' + t.min_words + ' từ của IELTS ' + label
+                + ' — nên không chấm được.';
+            } else if (t.state === 'missing') {
+              why = 'Không có bài nộp';
+              detail = 'Bạn chưa nộp bài cho ' + label + '.';
+            } else {
+              why = 'Chưa có nhận xét';
+              detail = 'Bài ' + label + ' chưa được chấm xong nên chưa có phần chữa bài.';
+            }
+            return '<div class="trf-gap">'
+              + '<span class="trf-gap__icon" aria-hidden="true">⚠</span>'
+              + '<span class="trf-gap__body">'
+              +   '<span class="trf-gap__title">' + esc(label) + ' — ' + esc(why) + '</span>'
+              +   '<span class="trf-gap__detail">' + esc(detail) + '</span>'
+              +   (mustRetakeWriting
+                    ? '<span class="trf-gap__retest">Giám khảo yêu cầu thi lại phần Writing.</span>'
+                    : '')
+              + '</span></div>';
+          }).join('');
     }
 
     async function boot() {
