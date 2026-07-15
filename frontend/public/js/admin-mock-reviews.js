@@ -502,15 +502,17 @@
 
     var rf = review.retest_flags || {};
     var bandInputs = reqSkills().map(function (s) {
-      // Writing pre-fills from the band computed off the two graded essays
-      // (mock_review_workflow.sync_writing_band_for_essay → ai_draft.writing),
-      // so the examiner doesn't retype it. Not yet confirmed (final_bands) →
-      // fall back to the suggestion; a hint shows it came from the essays.
-      var draftBand = (s === 'writing' && draft.writing && draft.writing.band != null)
-        ? draft.writing.band : null;
+      // Pre-fill EVERY skill from the draft, not just Writing. The L/R bands are
+      // already in ai_draft — derived from the auto-graded score — but this only
+      // ever read draft.writing, so the examiner retyped numbers the machine had
+      // already computed and stored. Nothing here is a judgement call: L/R come
+      // off the answer key, Writing off the two essays the admin already approved
+      // one by one. Saving is a confirmation, not data entry (2026-07-15).
+      var draftBand = draftBandOf(draft, s);
       var val = (fb[s] != null) ? fb[s] : (draftBand != null ? draftBand : '');
       var hint = (draftBand != null && fb[s] == null)
-        ? '<div class="mr-muted" style="font-size:11px;margin-top:2px">Gợi ý từ 2 bài đã chấm: ' + fmtBand(draftBand) + '</div>'
+        ? '<div class="mr-muted" style="font-size:11px;margin-top:2px">'
+          + esc(DRAFT_SOURCE[s] || 'Tự tính') + ': ' + fmtBand(draftBand) + '</div>'
         : '';
       // Say WHY this one may be left empty, or the blank looks like an oversight
       // the examiner should correct — and they'd invent a band to fill it.
@@ -518,6 +520,15 @@
         hint = '<div class="mr-muted" style="font-size:11px;margin-top:2px">'
              + 'Điểm thô không có band trong bảng IELTS — có thể để trống '
              + '(overall sẽ để trống theo).</div>';
+      }
+      // No draft and not blankable → the examiner MUST type it. Speaking is the
+      // real case: nothing derives it (no answer key, no per-essay approval), so
+      // it arrives blank among pre-filled boxes and the save is refused. Saying
+      // nothing here would present the form as one-click and then reject it
+      // (Codex review, PR #782).
+      if (!hint && fb[s] == null) {
+        hint = '<div class="mr-muted" style="font-size:11px;margin-top:2px">'
+             + 'Chưa có band tự tính — cần bạn nhập.</div>';
       }
       return '<div><label>' + s + '</label>' +
         '<input type="number" step="0.5" min="0" max="9" data-band="' + s + '" value="' + val + '">' +
@@ -609,6 +620,27 @@
   // blank is legitimate — the server allows it and blanks the overall to match.
   function blankableSkills() {
     return (current && current.blankable_skills) || [];
+  }
+
+  // Where each pre-filled band came from — the examiner is confirming a number,
+  // and is owed its provenance before they do.
+  var DRAFT_SOURCE = {
+    listening: 'Tự tính từ số câu đúng',
+    reading:   'Tự tính từ số câu đúng',
+    writing:   'Gợi ý từ 2 bài đã chấm',
+  };
+
+  // Every skill in ai_draft is an object carrying `band`, but the payloads differ
+  // by author: listening/reading are {raw, band} from the auto-grader, writing is
+  // {band, task1_band, task2_band} from sync_writing_band_for_essay. A bare
+  // number is tolerated too — cheap, and the shape isn't pinned by a schema.
+  // (The L/R drafts were invisible because the caller tested the SKILL NAME, not
+  // the shape: `s === 'writing'`.)
+  function draftBandOf(draft, skill) {
+    var v = (draft || {})[skill];
+    if (v == null) return null;
+    if (typeof v === 'object') return v.band != null ? v.band : null;
+    return typeof v === 'number' ? v : null;
   }
 
   function collectBands(v) {
