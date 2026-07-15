@@ -43,7 +43,7 @@ import { installPerfResourceHints } from '/js/components/perf-hints.js';
 
 const VALID_ACTIVE = [
   'overview', 'dashboard',
-  'speaking', 'writing', 'listening', 'vocab', 'grammar',
+  'speaking', 'writing', 'listening', 'vocab', 'grammar', 'mock-tests',
   'students', 'users', 'cohorts',
   'access-codes', 'usage', 'foot-traffic',
   'error-logs', 'feedback',
@@ -388,6 +388,13 @@ const NAV_GROUPS = [
           { slug: 'instructor-queue', label: 'Hàng đợi Instructor', href: '/pages/admin/writing/instructor-queue.html' },
         ],
       },
+      { section: 'mock-tests', label: 'Mock Test', href: '/pages/admin/mock-tests/index.html', icon: 'clipboard',
+        subsections: [
+          { slug: 'manage', label: 'Tạo & quản lý đề', href: '/pages/admin/mock-tests/index.html?tab=manage' },
+          { slug: 'review', label: 'Duyệt bài thi',    href: '/pages/admin/mock-tests/index.html?tab=review' },
+          { slug: 'writing', label: 'Chấm Writing',    href: '/pages/admin/mock-tests/index.html?tab=writing' },
+        ],
+      },
       { section: 'instructors', label: 'Giảng viên', href: '/pages/admin/instructors.html', icon: 'users' },
       { section: 'listening', label: 'Listening', href: '/pages/admin/listening/index.html', icon: 'headphones',
         subsections: [
@@ -483,6 +490,8 @@ const ICONS = {
   alert:       '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>',
   message:     '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>',
   settings:    '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+  // clipboard-check — 4-skill mock lifecycle (create → run → review → release)
+  clipboard:   '<path d="M9 2h6a1 1 0 0 1 1 1v1H8V3a1 1 0 0 1 1-1z"/><path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/><path d="M9 14l2 2 4-4"/>',
 };
 
 
@@ -632,6 +641,15 @@ export class AverAdminChrome extends HTMLElement {
     } catch { /* swallow — private-browsing or storage disabled */ }
 
     const shadow = this.attachShadow({ mode: 'open' });
+
+    // Embed mode: the page is hosted INSIDE another admin surface (the Mock Test
+    // cockpit loads existing pages in iframes). Render only the slotted content —
+    // no sidebar/header nav — so the outer cockpit provides the chrome once.
+    if (this.hasAttribute('embed')) {
+      shadow.innerHTML = '<style>:host{display:block}</style><slot></slot>';
+      return;
+    }
+
     const active = this._normalizeActive(this.getAttribute('active'));
     const subsection = this._normalizeSubsection(this.getAttribute('subsection'), active);
     shadow.innerHTML = `<style>${STYLE}</style>${buildTemplate(active, subsection)}`;

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Mock Test — Admin</title>
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.setAttribute('data-theme',
+          (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light'));
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-components.css" />
+  <style>
+    /* Cockpit: an exam rail + a tabbed panel that hosts each mock surface.
+       The rail scopes "Duyệt bài thi" to one exam; the panel embeds the
+       existing (design-system) tools until each tab is ported natively. */
+    .mt-cockpit { display: grid; grid-template-columns: 300px 1fr; gap: var(--av-space-4);
+      padding: var(--av-space-6); min-height: 100vh; align-items: start; }
+
+    .mt-rail { position: sticky; top: var(--av-space-6); align-self: start;
+      background: var(--av-surface-card); border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-lg); overflow: hidden; }
+    .mt-rail__head { display: flex; align-items: baseline; justify-content: space-between;
+      gap: var(--av-space-2); padding: var(--av-space-4) var(--av-space-4) var(--av-space-2); }
+    .mt-rail__title { font-size: var(--av-fs-lg); font-weight: var(--av-fw-bold);
+      letter-spacing: var(--av-tracking-tight); color: var(--av-text-primary); }
+    .mt-rail__count { font-size: var(--av-fs-xs); color: var(--av-text-faint);
+      font-variant-numeric: tabular-nums; }
+    .mt-filters { display: flex; flex-wrap: wrap; gap: var(--av-space-1);
+      padding: 0 var(--av-space-4) var(--av-space-3); }
+    .mt-chip { font-size: var(--av-fs-xs); font-weight: var(--av-fw-medium);
+      padding: 3px var(--av-space-2); border-radius: var(--av-radius-pill);
+      border: 1px solid var(--av-border-default); background: var(--av-surface-sunken);
+      color: var(--av-text-secondary); cursor: pointer; }
+    .mt-chip.is-active { background: var(--av-primary-soft); color: var(--av-primary);
+      border-color: var(--av-primary-border); }
+    .mt-list { list-style: none; margin: 0; padding: 0 var(--av-space-2) var(--av-space-3);
+      max-height: calc(100vh - 200px); overflow-y: auto; }
+    .mt-exam { display: block; width: 100%; text-align: left; cursor: pointer;
+      padding: var(--av-space-3); border: 1px solid transparent; border-radius: var(--av-radius-md);
+      background: none; color: inherit; font: inherit; }
+    .mt-exam:hover { background: var(--av-surface-sunken); }
+    .mt-exam.is-active { background: var(--av-primary-soft); border-color: var(--av-primary-border); }
+    .mt-exam__code { font-weight: var(--av-fw-semibold); color: var(--av-primary);
+      letter-spacing: .02em; font-size: var(--av-fs-sm); }
+    .mt-exam__title { font-size: var(--av-fs-sm); color: var(--av-text-primary);
+      margin-top: 2px; line-height: var(--av-lh-snug); }
+    .mt-exam__meta { display: flex; align-items: center; gap: var(--av-space-2);
+      margin-top: var(--av-space-2); }
+    .mt-stage { font-size: var(--av-fs-xs); font-weight: var(--av-fw-medium);
+      padding: 1px var(--av-space-2); border-radius: var(--av-radius-pill);
+      background: var(--av-surface-sunken); color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-subtle); }
+    .mt-stage--draft { color: var(--av-text-muted); }
+    .mt-stage--live { background: var(--av-success-soft); color: var(--av-success);
+      border-color: color-mix(in srgb, var(--av-success) 30%, transparent); }
+    .mt-stage--closed { background: var(--av-warning-soft); color: var(--av-warning);
+      border-color: color-mix(in srgb, var(--av-warning) 30%, transparent); }
+    .mt-rail__empty, .mt-rail__loading { padding: var(--av-space-4); color: var(--av-text-muted);
+      font-size: var(--av-fs-sm); }
+
+    /* Panel: tab bar + embedded surface */
+    .mt-panel { background: var(--av-surface-card); border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-lg); overflow: hidden; min-height: calc(100vh - 48px);
+      display: flex; flex-direction: column; }
+    .mt-tabs { display: flex; gap: 2px; padding: var(--av-space-2) var(--av-space-3) 0;
+      border-bottom: 1px solid var(--av-border-default); }
+    .mt-tab { appearance: none; background: none; border: none; cursor: pointer; font: inherit;
+      font-size: var(--av-fs-sm); font-weight: var(--av-fw-medium); color: var(--av-text-secondary);
+      padding: var(--av-space-3) var(--av-space-4); border-radius: var(--av-radius-md) var(--av-radius-md) 0 0;
+      border-bottom: 2px solid transparent; margin-bottom: -1px; }
+    .mt-tab:hover { color: var(--av-text-primary); background: var(--av-surface-sunken); }
+    .mt-tab.is-active { color: var(--av-primary); border-bottom-color: var(--av-primary); }
+    .mt-tab:focus-visible { outline: none; box-shadow: var(--av-shadow-focus); }
+
+    .mt-frame-wrap { position: relative; flex: 1; }
+    .mt-frame { width: 100%; height: 100%; min-height: calc(100vh - 110px); border: 0; display: block; }
+    .mt-need-exam { display: flex; align-items: center; justify-content: center;
+      height: calc(100vh - 110px); padding: var(--av-space-8); text-align: center;
+      color: var(--av-text-muted); font-size: var(--av-fs-sm); }
+
+    @media (max-width: 900px) {
+      .mt-cockpit { grid-template-columns: 1fr; padding: var(--av-space-4); }
+      .mt-rail { position: static; }
+      .mt-list { max-height: 300px; }
+      .mt-frame, .mt-need-exam { min-height: 70vh; }
+    }
+  </style>
+</head>
+<body class="av-page font-sans antialiased">
+  <aver-admin-chrome active="mock-tests" subsection="manage">
+    <main class="mt-cockpit">
+      <!-- Exam rail — scopes the review tab to one exam. -->
+      <aside class="mt-rail">
+        <div class="mt-rail__head">
+          <span class="mt-rail__title">Đề thi</span>
+          <span class="mt-rail__count" id="mt-count"></span>
+        </div>
+        <div class="mt-filters" id="mt-filters">
+          <button type="button" class="mt-chip is-active" data-stage="all">Tất cả</button>
+          <button type="button" class="mt-chip" data-stage="draft">Nháp</button>
+          <button type="button" class="mt-chip" data-stage="live">Đang thi</button>
+          <button type="button" class="mt-chip" data-stage="closed">Đã đóng</button>
+        </div>
+        <p class="mt-rail__loading" id="mt-loading">Đang tải…</p>
+        <p class="mt-rail__empty hidden" id="mt-empty">Chưa có đề nào.</p>
+        <ul class="mt-list hidden" id="mt-list"></ul>
+      </aside>
+
+      <!-- Tabbed panel -->
+      <section class="mt-panel">
+        <nav class="mt-tabs" role="tablist" aria-label="Mock Test">
+          <button type="button" class="mt-tab is-active" data-tab="manage" role="tab">Quản lý đề</button>
+          <button type="button" class="mt-tab" data-tab="review" role="tab">Duyệt bài thi</button>
+          <button type="button" class="mt-tab" data-tab="writing" role="tab">Chấm Writing</button>
+        </nav>
+        <div class="mt-frame-wrap">
+          <iframe class="mt-frame hidden" id="mt-frame" title="Mock Test"></iframe>
+          <div class="mt-need-exam hidden" id="mt-need-exam">Chọn một đề ở danh sách bên trái để duyệt bài thi.</div>
+        </div>
+      </section>
+    </main>
+  </aver-admin-chrome>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0"></script>
+  <script src="/js/runtime-config.js"></script>
+  <script src="/js/api.js"></script>
+  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
+  <script src="/js/admin-mock-tests.js"></script>
+</body>
+</html>

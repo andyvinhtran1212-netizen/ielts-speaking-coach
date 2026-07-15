@@ -373,6 +373,11 @@ function wire() {
   $('q-bulk-deliver').addEventListener('click', bulkDeliver);
 
   loadCohorts();
+  // The Mock Test cockpit embeds this page with ?mocklane=1 → open the Mock lane
+  // straight away (skip the default status lane + polling).
+  let _mocklane = false;
+  try { _mocklane = new URLSearchParams(location.search).get('mocklane') === '1'; } catch { /* no-op */ }
+  if (_mocklane) { setMockLane(); return; }
   // F3 — honour a ?status= deep-link (e.g. nav "Trạng thái chấm" →
   // queue.html?status=grading lands on the "Đang chấm" lane). Falls back to
   // the default "Cần chấm" lane when absent/invalid.
