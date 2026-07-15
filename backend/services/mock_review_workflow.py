@@ -96,6 +96,53 @@ def compute_overall(final_bands: dict, skills: tuple = _SKILLS) -> float:
     return ielts_round(sum(vals) / len(vals))
 
 
+def _unconvertible_skills(sitting_id: UUID | str) -> set:
+    """Skills whose raw score has NO published band — legitimately blank.
+
+    The Cambridge tables bottom out at 10/40 (Listening) and 4/40 (Reading
+    Academic). Below that there is no official band, and the graders return None
+    rather than extrapolate. Forcing the examiner to supply one anyway would make
+    them invent a score, and today it does worse: compute_overall raises, so the
+    whole result cannot be saved or released — a student who scored 0 on
+    Listening and 6.5 on Reading is stranded with no results at all.
+
+    ONLY Listening/Reading can appear here. Writing and Speaking are the
+    examiner's own judgement with no table to fall off, so a blank there is a
+    forgotten entry and must keep failing.
+    """
+    from services.listening_test_grader import band_estimate as _l_band
+    from services.reading_test_grader import band_estimate as _r_band
+
+    row = supabase_admin.table("mock_exam_sittings").select(
+        "listening_attempt_id, reading_attempt_id",
+    ).eq("id", str(sitting_id)).limit(1).execute()
+    if not row.data:
+        return set()
+    s = row.data[0]
+
+    out: set = set()
+    for skill, col, table, band_of in (
+        ("listening", "listening_attempt_id", "listening_test_attempts", _l_band),
+        ("reading",   "reading_attempt_id",   "reading_test_attempts",   _r_band),
+    ):
+        aid = s.get(col)
+        if not aid:
+            continue
+        a = supabase_admin.table(table).select("score").eq(
+            "id", str(aid),
+        ).limit(1).execute().data
+        if not a:
+            continue
+        score = a[0].get("score")
+        # No attempt row / no score is NOT "unconvertible" — that is missing data,
+        # and silently blanking it would hide a broken attach.
+        if score is None:
+            continue
+        if band_of(score) is None:
+            out.add(skill)
+    return out
+
+
 def _required_skills(sitting_id: UUID | str) -> tuple:
     """The skills the admin must band for this sitting.
 
@@ -256,8 +303,24 @@ def save_final_bands(
             f"Review {review_id} đã công bố — không thể sửa band. Thu hồi trước nếu cần."
         )
     skills = _required_skills(review["sitting_id"])
-    overall = compute_overall(final_bands, skills)
-    stored = {s: _coerce_band(final_bands[s]) for s in skills}
+    # A skill whose raw score falls below the published Cambridge table has NO
+    # band — demanding one would make the examiner invent a number. Those may be
+    # left blank; the overall then goes blank too rather than being averaged over
+    # a hole. Every other blank is still an error: Writing/Speaking are the
+    # examiner's own judgement, so a gap there is a forgotten entry, not a
+    # missing table row (2026-07-15).
+    blankable = _unconvertible_skills(review["sitting_id"])
+    missing = [s for s in skills if final_bands.get(s) is None]
+    forgotten = [s for s in missing if s not in blankable]
+    if forgotten:
+        raise ValidationError(f"final_bands missing skill(s): {', '.join(forgotten)}")
+
+    stored = {
+        s: _coerce_band(final_bands[s]) for s in skills if final_bands.get(s) is not None
+    }
+    # Overall is the mean of ALL required skills — with one absent there is no
+    # honest mean, so it is blank, not a partial average dressed up as a total.
+    overall = None if missing else compute_overall(final_bands, skills)
     stored["overall"] = overall
 
     update: dict = {
