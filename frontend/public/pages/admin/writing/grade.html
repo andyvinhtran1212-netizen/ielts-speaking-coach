@@ -2075,10 +2075,14 @@
   <script>
     (function () {
       try {
-        if (new URLSearchParams(location.search).get('embed') === '1') {
-          var el = document.querySelector('aver-admin-chrome');
-          if (el) el.setAttribute('embed', '');
-        }
+        if (new URLSearchParams(location.search).get('embed') !== '1') return;
+        var el = document.querySelector('aver-admin-chrome');
+        if (el) el.setAttribute('embed', '');
+        // "← Writing Coach" escapes to the Writing section home. Inside the Mock
+        // cockpit that is nonsense (the Writing dashboard in a Mock tab) — so
+        // drop it rather than flag it; the cockpit's own nav is the way out.
+        var back = document.querySelector('.back-link');
+        if (back) back.hidden = true;
       } catch (e) { /* no-op */ }
     })();
   </script>

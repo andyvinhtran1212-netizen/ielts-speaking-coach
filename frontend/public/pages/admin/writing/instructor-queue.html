@@ -184,8 +184,8 @@
 
       if (status === 'claimed' && isMine) {
         return '<div class="aw-row-actions">' +
-          '<a class="aw-btn-act aw-btn-act--edit" href="/pages/admin/writing/grade.html?essay_id=' +
-          encodeURIComponent(essayId) + '">Edit</a>' +
+          '<a class="aw-btn-act aw-btn-act--edit" href="' +
+          _withEmbed('/pages/admin/writing/grade.html?essay_id=' + encodeURIComponent(essayId)) + '">Edit</a>' +
           '<button class="aw-btn-act aw-btn-act--release" data-action="release" data-review-id="' +
           WC.escapeHtml(reviewId) + '">Release</button>' +
         '</div>';
@@ -197,8 +197,8 @@
 
       if (status === 'delivered') {
         return '<div class="aw-row-actions">' +
-          '<a class="aw-btn-act aw-btn-act--view" href="/pages/admin/writing/grade.html?essay_id=' +
-          encodeURIComponent(essayId) + '">View</a>' +
+          '<a class="aw-btn-act aw-btn-act--view" href="' +
+          _withEmbed('/pages/admin/writing/grade.html?essay_id=' + encodeURIComponent(essayId)) + '">View</a>' +
         '</div>';
       }
 

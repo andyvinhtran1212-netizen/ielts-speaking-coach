@@ -146,6 +146,23 @@ describe('writing queue — opening an essay from the cockpit stays chrome-less'
     assert.match(INSTRUCTOR_QUEUE_HTML,
       /_withEmbed\('\/pages\/admin\/writing\/grade\.html\?essay_id=' \+ encodeURIComponent\(review\.essay_id\)\)/);
   });
+  // Codex review, PR #773: status.html rendered chrome-less but its own CTA out
+  // was still un-flagged, so finishing a grade re-nested the admin page.
+  test('status.html keeps the flags on its "Xem kết quả" CTA', () => {
+    assert.match(STATUS_HTML,
+      /viewBtn\.href = _withEmbed\('\/pages\/admin\/writing\/grade\.html\?essay_id=' \+ encodeURIComponent\(_essayId\)\)/);
+  });
+  // The instructor queue's per-row Edit/View links are hops into grade.html too.
+  test('instructor-queue row actions (Edit/View) keep the flags', () => {
+    const links = INSTRUCTOR_QUEUE_HTML.match(
+      /_withEmbed\('\/pages\/admin\/writing\/grade\.html\?essay_id=' \+ encodeURIComponent\(essayId\)\)/g) || [];
+    assert.equal(links.length, 2, 'both the Edit and the View link must carry the flags');
+  });
+  // "← Writing Coach" escapes to the Writing section home — meaningless inside a
+  // Mock tab, so the embed drops it rather than flagging it.
+  test('grade.html hides the "Writing Coach" back-link in the embed', () => {
+    assert.match(GRADE_HTML, /var back = document\.querySelector\('\.back-link'\);[\s\S]*?back\.hidden = true;/);
+  });
   test('instructor-queue._withEmbed forwards both flags and no-ops off the cockpit', () => {
     const body = INSTRUCTOR_QUEUE_HTML.match(/function _withEmbed\(url\) \{([\s\S]*?)\n    \}/);
     assert.ok(body, '_withEmbed() not found in instructor-queue — sentinel is stale');
