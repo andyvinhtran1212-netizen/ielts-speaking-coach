@@ -138,3 +138,36 @@ describe('roster TEST LẠI — popover styling', () => {
     assert.match(HTML, /\.mr-retest__menu \{ position:absolute; z-index:\d+/);
   });
 });
+
+// Công bố hàng loạt (2026-07-15). This publishes to real students, so the UI's
+// job is to never promise a release the server will refuse, and never hide one
+// it refused.
+describe('roster — bulk release (công bố hàng loạt)', () => {
+  test('only a reviewed sitting counts toward the release button', () => {
+    // final_bands are entered at save_final_bands → status 'reviewed'. Counting a
+    // queued/claimed row would promise a release release_results rejects.
+    const body = JS.match(/function releasable\(\) \{([\s\S]*?)\n    \}/);
+    assert.ok(body, 'releasable() not found — sentinel is stale');
+    assert.match(body[1], /data-review-status'\) === 'reviewed'/);
+  });
+  test('it confirms with the count before publishing', () => {
+    assert.match(JS, /confirm\('Công bố kết quả cho ' \+ ids\.length \+ ' học viên\?/);
+    assert.match(JS, /thu hồi trước/);   // says publishing is not freely undoable
+  });
+  test('refusals are named per sitting, not just counted', () => {
+    const body = JS.match(/async function bulkRelease\(sittingIds\) \{([\s\S]*?)\n  \}/);
+    assert.ok(body, 'bulkRelease() not found — sentinel is stale');
+    assert.match(body[1], /if \(sk\.length\) renderReleaseSkips\(sk\)/);
+    assert.match(JS, /function renderReleaseSkips\(skips\)[\s\S]*?s\.reason/);
+  });
+  test('a failed batch refetches rather than leaving a stale roster', () => {
+    const body = JS.match(/async function bulkRelease\(sittingIds\) \{([\s\S]*?)\n  \}/);
+    assert.match(body[1], /catch \(e\)[\s\S]*?loadRoster\(\)/);
+  });
+  test('every submitted sitting is selectable, not just the gradable ones', () => {
+    // A retest-flagged sitting is exempt from the Writing release gate and a
+    // Writing-less one still has results — both must be selectable to publish.
+    assert.match(JS, /var check = r\.review_id/);
+    assert.doesNotMatch(JS, /var check = \(hasWritingEssays\(r\) && !flagged\)/);
+  });
+});

@@ -1251,6 +1251,85 @@ def test_roster_exposes_only_the_true_retest_flags(fake_db, svc, wf):
     assert row["retest_flags"] == {"listening": True, "writing": True}
 
 
+def _seed_releasable(fake_db, sid, rid, admin, status="reviewed", claimed_by=None):
+    fake_db.seed("mock_exam_sittings", {"id": sid, "mock_exam_id": "ex-1",
+                                        "status": "submitted", "user_id": "u-" + sid,
+                                        "sealed": True, "needs_retest": False})
+    fake_db.seed("mock_exam_reviews", {"id": rid, "sitting_id": sid, "status": status,
+                                       "claimed_by": claimed_by if claimed_by is not None else admin,
+                                       "final_bands": {"writing": 6.0, "overall": 6.0},
+                                       "ai_draft": {}, "retest_flags": {}})
+
+
+def test_bulk_release_publishes_and_reports_each_refusal(fake_db, svc, wf, monkeypatch):
+    """Công bố hàng loạt publishes to real students, so a partial batch must name
+    what it refused — reporting only the success count would let the admin believe
+    a blocked student was published."""
+    admin = "admin-1"
+    _seed_releasable(fake_db, "sit-ok", "rv-ok", admin)                       # publishes
+    _seed_releasable(fake_db, "sit-queued", "rv-queued", admin, status="queued")   # no bands
+    _seed_releasable(fake_db, "sit-other", "rv-other", admin, claimed_by="admin-2")  # not mine
+    monkeypatch.setattr(wf, "_writing_pending_tasks", lambda _sid: [])
+
+    out = wf.bulk_release_sittings(["sit-ok", "sit-queued", "sit-other", "sit-ghost"], admin)
+
+    assert out["released"] == ["sit-ok"]
+    reasons = {s["sitting_id"]: s["reason"] for s in out["skipped"]}
+    assert set(reasons) == {"sit-queued", "sit-other", "sit-ghost"}
+    assert "admin khác" in reasons["sit-other"]
+    assert "hồ sơ duyệt" in reasons["sit-ghost"]          # no review row at all
+    # the published one really is published — seal lifted
+    sit = next(s for s in fake_db.rows("mock_exam_sittings") if s["id"] == "sit-ok")
+    assert sit["status"] == "released" and sit["sealed"] is False
+    # …and the refused ones are untouched
+    for sid in ("sit-queued", "sit-other"):
+        s = next(x for x in fake_db.rows("mock_exam_sittings") if x["id"] == sid)
+        assert s["status"] == "submitted" and s["sealed"] is True
+
+
+def test_bulk_release_never_relaxes_the_writing_gate(fake_db, svc, wf, monkeypatch):
+    """A sitting whose Writing isn't graded+reviewed must not slip through just
+    because it was published in a batch — the student would get a Writing band
+    with no chữa bài."""
+    admin = "admin-1"
+    _seed_releasable(fake_db, "sit-1", "rv-1", admin)
+    monkeypatch.setattr(wf, "_writing_pending_tasks", lambda _sid: ["Task 2"])
+
+    out = wf.bulk_release_sittings(["sit-1"], admin)
+
+    assert out["released"] == []
+    assert "Task 2" in out["skipped"][0]["reason"]
+    sit = next(s for s in fake_db.rows("mock_exam_sittings") if s["id"] == "sit-1")
+    assert sit["sealed"] is True
+
+
+def test_bulk_release_skips_an_already_published_sitting(fake_db, svc, wf, monkeypatch):
+    admin = "admin-1"
+    _seed_releasable(fake_db, "sit-1", "rv-1", admin, status="released")
+    monkeypatch.setattr(wf, "_writing_pending_tasks", lambda _sid: [])
+    out = wf.bulk_release_sittings(["sit-1"], admin)
+    assert out["released"] == []
+    assert "Đã công bố" in out["skipped"][0]["reason"]
+
+
+def test_bulk_release_one_bad_sitting_does_not_sink_the_batch(fake_db, svc, wf, monkeypatch):
+    admin = "admin-1"
+    _seed_releasable(fake_db, "sit-a", "rv-a", admin)
+    _seed_releasable(fake_db, "sit-b", "rv-b", admin)
+    monkeypatch.setattr(wf, "_writing_pending_tasks", lambda _sid: [])
+    real = wf.release_results
+
+    def boom(review_id, admin_id, channel="in_app"):
+        if str(review_id) == "rv-a":
+            raise RuntimeError("kaboom")
+        return real(review_id, admin_id, channel)
+
+    monkeypatch.setattr(wf, "release_results", boom)
+    out = wf.bulk_release_sittings(["sit-a", "sit-b"], admin)
+    assert out["released"] == ["sit-b"]                   # b still published
+    assert "kaboom" in out["skipped"][0]["reason"]
+
+
 def test_retest_summary_sees_a_queued_roster_decision(fake_db, svc, wf):
     """Codex P2 (PR #776): the summary filtered flags to reviewed/released because
     save_final_bands() used to be their only writer. The roster picker writes them

@@ -53,6 +53,15 @@
     .mr-trow--wip:hover td { background:transparent; }
     .mr-trow--retest td { background:var(--av-warning-soft); }
     .mr-trow--retest:hover td { background:var(--av-warning-soft); }
+    /* CÔNG BỐ sits apart from the grading action — it publishes to students. */
+    .mr-bulkbar__sep { width:1px; align-self:stretch; background:var(--av-border-default); margin:0 var(--av-space-2); }
+    /* Per-sitting release refusals — named, not just counted. */
+    .mr-relskips { background:var(--av-warning-soft); border:1px solid var(--av-warning);
+      border-radius:var(--av-radius-md); padding:var(--av-space-3); margin-bottom:var(--av-space-3);
+      font-size:var(--av-fs-sm); color:var(--av-text-primary); }
+    .mr-relskips ul { margin:var(--av-space-2) 0 0; padding-left:var(--av-space-4); }
+    .mr-relskips li { margin:2px 0; color:var(--av-text-secondary); }
+    .mr-relskips code { font-family:var(--av-font-mono); color:var(--av-text-primary); }
     /* Retest skill picker — a <details> popover in the roster's TEST LẠI cell. */
     .mr-retest { position:relative; display:inline-block; }
     .mr-retest__sum { list-style:none; cursor:pointer; font-size:12px; padding:2px var(--av-space-2);

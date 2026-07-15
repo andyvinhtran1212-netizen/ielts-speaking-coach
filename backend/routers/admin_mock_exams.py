@@ -98,6 +98,10 @@ class RetestBody(BaseModel):
     reason: str = ""
 
 
+class BulkReleaseBody(BaseModel):
+    sitting_ids: list[str] = Field(default_factory=list)
+
+
 class RetestFlagsBody(BaseModel):
     # {skill: bool} — the skills the student must retake. Skills the exam does
     # not require are dropped server-side, so a stale client cannot invent one.
@@ -350,6 +354,23 @@ async def set_sitting_retest(
         )
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
+
+
+@router.post("/{exam_id}/bulk-release")
+async def bulk_release(
+    exam_id: str, body: BulkReleaseBody, authorization: str | None = Header(default=None),
+):
+    """Công bố many sittings at once — PUBLISHES results to real students.
+
+    Gates are per sitting and unchanged (reviewed + claimed by this admin +
+    Writing resolved); a sitting failing any of them is skipped with a reason
+    rather than sinking the batch. The response's `skipped` list is not optional
+    detail — the caller must show it, or the admin cannot tell who was published.
+    """
+    admin = await require_admin(authorization)
+    if not body.sitting_ids:
+        return {"released": [], "skipped": []}
+    return wf.bulk_release_sittings(body.sitting_ids, admin["id"])
 
 
 @router.post("/sittings/{sitting_id}/retest-flags")
