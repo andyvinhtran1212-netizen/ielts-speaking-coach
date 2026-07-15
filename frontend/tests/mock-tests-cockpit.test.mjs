@@ -63,6 +63,32 @@ describe('mock-tests cockpit — controller', () => {
   });
 });
 
+// The frame navigates ITSELF (queue row-click → grade.html) without touching the
+// src attribute, so the attribute stops describing where the frame is. Comparing
+// it made re-clicking the active tab a no-op → teacher stranded on grade.html.
+describe('mock-tests cockpit — tab switch follows the frame, not its src attribute', () => {
+  test('renderFrame compares the LIVE location, never the src attribute', () => {
+    const body = JS.match(/function renderFrame\(\) \{([\s\S]*?)\n  \}/);
+    assert.ok(body, 'renderFrame() not found — sentinel is stale');
+    assert.match(body[1], /if \(frameAt\(frame\) !== src\) loadFrame\(frame, src\)/);
+    // the old attribute-compare is exactly the bug — it must not come back
+    assert.doesNotMatch(body[1], /getAttribute\('src'\) !== src/);
+  });
+  test('frameAt reads contentWindow.location, with about:blank + cross-origin fallbacks', () => {
+    const body = JS.match(/function frameAt\(frame\) \{([\s\S]*?)\n  \}/);
+    assert.ok(body, 'frameAt() not found — sentinel is stale');
+    assert.match(body[1], /frame\.contentWindow\.location/);
+    assert.match(body[1], /l\.protocol === 'about:'/);          // still loading → src attr
+    assert.match(body[1], /catch \(e\) \{[\s\S]*?getAttribute\('src'\)/);
+  });
+  test('loadFrame drives location.replace (same-src re-assign is not a renavigation)', () => {
+    const body = JS.match(/function loadFrame\(frame, src\) \{([\s\S]*?)\n  \}/);
+    assert.ok(body, 'loadFrame() not found — sentinel is stale');
+    assert.match(body[1], /contentWindow\.location\.replace\(src\)/);
+    assert.match(body[1], /frame\.setAttribute\('src', src\)/);   // first load / fallback
+  });
+});
+
 describe('mock-tests — admin nav entry', () => {
   test('mock-tests section + subsections registered in the nav + VALID_ACTIVE', () => {
     assert.match(CHROME, /section: 'mock-tests', label: 'Mock Test'/);
