@@ -27,13 +27,15 @@
   }
 
   function boot() {
-    var grid = document.getElementById('mock-hub-grid');
-    if (!grid || !window.api) return;
+    // Named `hub` (not "grid"): a negated grid var would make Tailwind's content
+    // scanner emit a spurious important-grid utility into the built CSS.
+    var hub = document.getElementById('mock-hub-grid');
+    if (!hub || !window.api) return;
     window.api.get('/api/mock-exams/my-sittings').then(function (res) {
       var sittings = (res && res.sittings) || [];
       // Newest-released first (the endpoint already orders newest-first).
       sittings.filter(function (s) { return s.released; }).forEach(function (s) {
-        grid.insertAdjacentHTML('beforeend', tile(s));
+        hub.insertAdjacentHTML('beforeend', tile(s));
       });
     }).catch(function () { /* silent — the start card still shows */ });
   }
