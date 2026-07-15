@@ -36,6 +36,7 @@ def test_result_includes_attempt_ids_and_delivered_essays():
     }
     with patch("routers.mock_exams.get_supabase_user", new=AsyncMock(return_value=_USER)), \
          patch("routers.mock_exams.svc.get_sitting", return_value=sitting), \
+         patch("routers.mock_exams.svc.lr_skill_states", return_value=[]), \
          patch("routers.mock_exams.review_wf.get_review_for_sitting", return_value=review), \
          patch("routers.mock_exams.essay_service.delivered_essay_ids",
                return_value={"essay-1", "essay-2"}):
@@ -65,6 +66,7 @@ def test_result_hides_undelivered_writing_essay():
     review = {"final_bands": {"writing": 6.0}}
     with patch("routers.mock_exams.get_supabase_user", new=AsyncMock(return_value=_USER)), \
          patch("routers.mock_exams.svc.get_sitting", return_value=sitting), \
+         patch("routers.mock_exams.svc.lr_skill_states", return_value=[]), \
          patch("routers.mock_exams.review_wf.get_review_for_sitting", return_value=review), \
          patch("routers.mock_exams.essay_service.delivered_essay_ids",
                return_value={"essay-1"}):
@@ -84,6 +86,7 @@ def test_result_omits_attempt_ids_when_sitting_has_none():
     review = {"final_bands": {"speaking": 7.0}}
     with patch("routers.mock_exams.get_supabase_user", new=AsyncMock(return_value=_USER)), \
          patch("routers.mock_exams.svc.get_sitting", return_value=sitting), \
+         patch("routers.mock_exams.svc.lr_skill_states", return_value=[]), \
          patch("routers.mock_exams.review_wf.get_review_for_sitting", return_value=review):
         r = _client().get(
             "/api/mock-exams/sittings/" + _SITTING_ID + "/result", headers=_AUTH,
@@ -162,6 +165,7 @@ def test_result_payload_carries_writing_tasks_and_retest_flags():
     review = {"final_bands": {"writing": 5.0}, "retest_flags": {"writing": True, "reading": False}}
     with patch("routers.mock_exams.get_supabase_user", new=AsyncMock(return_value=_USER)), \
          patch("routers.mock_exams.svc.get_sitting", return_value=sitting), \
+         patch("routers.mock_exams.svc.lr_skill_states", return_value=[]), \
          patch("routers.mock_exams.review_wf.get_review_for_sitting", return_value=review), \
          patch("routers.mock_exams.essay_service.delivered_essay_ids", return_value={"essay-1"}):
         r = _client().get("/api/mock-exams/sittings/" + _SITTING_ID + "/result", headers=_AUTH)
@@ -209,6 +213,7 @@ def test_result_omits_writing_tasks_when_the_sitting_has_no_writing():
     review = {"final_bands": {"listening": 6.0, "reading": 6.5}}
     with patch("routers.mock_exams.get_supabase_user", new=AsyncMock(return_value=_USER)), \
          patch("routers.mock_exams.svc.get_sitting", return_value=sitting), \
+         patch("routers.mock_exams.svc.lr_skill_states", return_value=[]), \
          patch("routers.mock_exams.review_wf.get_review_for_sitting", return_value=review), \
          patch("routers.mock_exams.essay_service.delivered_essay_ids", return_value=set()):
         r = _client().get("/api/mock-exams/sittings/" + _SITTING_ID + "/result", headers=_AUTH)
@@ -226,7 +231,106 @@ def test_result_includes_writing_tasks_when_writing_is_required():
     review = {"final_bands": {"writing": 5.0}}
     with patch("routers.mock_exams.get_supabase_user", new=AsyncMock(return_value=_USER)), \
          patch("routers.mock_exams.svc.get_sitting", return_value=sitting), \
+         patch("routers.mock_exams.svc.lr_skill_states", return_value=[]), \
          patch("routers.mock_exams.review_wf.get_review_for_sitting", return_value=review), \
          patch("routers.mock_exams.essay_service.delivered_essay_ids", return_value={"essay-1"}):
         r = _client().get("/api/mock-exams/sittings/" + _SITTING_ID + "/result", headers=_AUTH)
     assert len(r.json()["writing_tasks"]) == 2
+
+
+# ── Why an L/R skill has no band (2026-07-15) ─────────────────────────
+#
+# The TRF grid lists only banded skills, so a bandless one vanished with no
+# explanation. These states are kept apart because they are different truths:
+# every stuck production sitting DID submit, on time, with 40 questions — telling
+# those students "không nhận được bài làm" would be a lie about their own exam.
+
+def _lr(**kw):
+    from services import mock_exam_service as svc
+    from unittest.mock import patch as _p
+    # assigned_skills says WHICH skills this sitting runs — set it so
+    # _sitting_lr_skills short-circuits instead of querying for the exam config.
+    # Its own scoping is covered by the _sitting_lr_skills tests below.
+    sitting = {"listening_attempt_id": kw.get("l_id"), "reading_attempt_id": None,
+               "assigned_skills": kw.get("assigned", ["listening", "reading", "writing"])}
+    rows = kw.get("row")
+
+    class _Res:
+        data = [rows] if rows else []
+
+    class _Q:
+        def select(self, *a, **k): return self
+        def eq(self, *a, **k): return self
+        def limit(self, *a, **k): return self
+        def execute(self): return _Res()
+
+    class _DB:
+        def table(self, *a, **k): return _Q()
+
+    with _p.object(svc, "supabase_admin", _DB()):
+        return {s["skill"]: s for s in svc.lr_skill_states(sitting)}["listening"]
+
+
+def _q(n_answered, total=40):
+    return [{"q_num": i, "user_answer": ("x" if i <= n_answered else "")} for i in range(1, total + 1)]
+
+
+def test_lr_no_attempt_is_the_only_never_received():
+    st = _lr(l_id=None)
+    assert st["state"] == "no_attempt"
+
+
+def test_lr_submitted_but_blank_is_no_answers_not_never_received():
+    """0/40 with zero answers = a blank paper that WAS received. Production's
+    dd1106df is exactly this."""
+    st = _lr(l_id="la-1", row={"score": 0, "band_estimate": None, "grading_details": _q(0)})
+    assert st["state"] == "no_answers"
+    assert st["answered"] == 0
+
+
+def test_lr_answered_but_below_the_table_says_so_with_the_numbers():
+    """6d9192a3 answered 3 of 40 — they attempted. Calling that a blank paper, or
+    a lost submission, would both be false."""
+    st = _lr(l_id="la-1", row={"score": 0, "band_estimate": None, "grading_details": _q(3)})
+    assert st["state"] == "below_table"
+    assert st["answered"] == 3 and st["max"] == 40
+
+
+def test_lr_banded_skill_needs_no_excuse():
+    st = _lr(l_id="la-1", row={"score": 30, "band_estimate": 7.0, "grading_details": _q(40)})
+    assert st["state"] == "scored"
+
+
+def test_lr_dangling_attempt_id_reads_as_never_received_not_blank():
+    """A sitting pointing at an attempt that isn't there is broken data — calling
+    it a blank paper would blame the student for our bug."""
+    st = _lr(l_id="la-1", row=None)
+    assert st["state"] == "no_attempt"
+
+
+def test_lr_states_skip_a_skill_the_sitting_never_ran():
+    """Codex P2 (PR #780): a writing-only retake has no Listening. Emitting a
+    state for it rendered "Không nhận được bài làm" to a student who was never
+    set the skill — the same falsehood writing_task_states already guards, made
+    again one function over."""
+    from services import mock_exam_service as svc
+    sitting = {"assigned_skills": ["writing"], "listening_attempt_id": None,
+               "reading_attempt_id": None}
+    assert svc.lr_skill_states(sitting) == []
+
+
+def test_lr_states_cover_only_the_assigned_lr_skill():
+    from services import mock_exam_service as svc
+    sitting = {"assigned_skills": ["reading", "writing"],
+               "listening_attempt_id": None, "reading_attempt_id": None}
+    assert [s["skill"] for s in svc.lr_skill_states(sitting)] == ["reading"]
+
+
+def test_sitting_lr_skills_falls_back_to_the_exam_config():
+    """No assigned_skills = a normal sitting → the exam's configured sections
+    decide (a Reading+Writing exam runs no Listening)."""
+    from unittest.mock import patch as _p
+    from services import mock_exam_service as svc
+    with _p.object(svc, "get_published_exam_by_id",
+                   return_value={"reading_test_id": "r-1", "listening_test_id": None}):
+        assert svc._sitting_lr_skills({"mock_exam_id": "ex-1"}) == {"reading"}

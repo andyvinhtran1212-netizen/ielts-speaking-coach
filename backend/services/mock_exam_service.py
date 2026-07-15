@@ -793,6 +793,90 @@ _MOCK_WRITING_ANALYSIS_LEVEL = 3
 _WRITING_MIN_WORDS = {"task1": 150, "task2": 250}
 
 
+def _sitting_lr_skills(sitting: dict) -> set:
+    """Which of Listening/Reading this sitting actually runs.
+
+    Mirrors mock_review_workflow._required_skills' two branches without importing
+    it (that module imports this one — the dependency only goes one way):
+      · assigned_skills set  → a retake, banded on THAT student's subset
+      · otherwise            → the exam's configured sections
+    """
+    assigned = sitting.get("assigned_skills") or []
+    if assigned:
+        return {s for s in ("listening", "reading") if s in assigned}
+    exam = get_published_exam_by_id(sitting.get("mock_exam_id")) or {}
+    configured = set(_configured_sections(exam))
+    return {s for s in ("listening", "reading") if s in configured}
+
+
+def lr_skill_states(sitting: dict) -> list:
+    """Why a Listening/Reading skill has no band — for the student's TRF.
+
+    The TRF lists only the skills carrying a band, so a bandless one VANISHED
+    from the grid with no explanation: the student saw Reading and Writing and
+    was left to guess what happened to Listening. This says it.
+
+    The states are kept apart because they are different truths, and production
+    proves they diverge — every stuck sitting here DID submit, on time, with a
+    timestamp and 40 questions. Telling those students "không nhận được bài làm"
+    would be a lie about their own exam:
+
+      scored       — band exists; nothing to explain
+      no_attempt   — no attempt row at all → genuinely never received
+      no_answers   — submitted, but not one question answered → blank paper
+      below_table  — answered some, scored too low for the published table
+                     (e.g. 3/40): a real attempt, just no band to give
+
+    Reads the persisted band_estimate (module-aware — General Training Reading
+    has no Phase-1 table) rather than recomputing, same as _unconvertible_skills.
+
+    Only the skills this sitting actually RUNS are reported. A writing-only
+    retake, or a Reading+Writing exam (_configured_sections supports both), has
+    no Listening — emitting it anyway would render "Không nhận được bài làm" for
+    a skill the student was never set, which is the same falsehood
+    writing_task_states already guards against (Codex review, PR #780).
+    """
+    lr = _sitting_lr_skills(sitting)
+    out = []
+    for skill, col, table in (
+        ("listening", "listening_attempt_id", "listening_test_attempts"),
+        ("reading",   "reading_attempt_id",   "reading_test_attempts"),
+    ):
+        if skill not in lr:
+            continue
+        aid = sitting.get(col)
+        if not aid:
+            out.append({"skill": skill, "state": "no_attempt",
+                        "score": None, "max": None, "answered": None})
+            continue
+        rows = supabase_admin.table(table).select(
+            "score, band_estimate, grading_details",
+        ).eq("id", str(aid)).limit(1).execute().data
+        if not rows:
+            # The sitting points at an attempt that isn't there — broken data, not
+            # a blank paper. "Never received" is the honest thing to say.
+            out.append({"skill": skill, "state": "no_attempt",
+                        "score": None, "max": None, "answered": None})
+            continue
+        r = rows[0]
+        gd = r.get("grading_details") or []
+        answered = sum(1 for q in gd if str(q.get("user_answer") or "").strip())
+        if r.get("band_estimate") is not None:
+            state = "scored"
+        elif answered == 0:
+            state = "no_answers"
+        else:
+            state = "below_table"
+        out.append({
+            "skill":    skill,
+            "state":    state,
+            "score":    r.get("score"),
+            "max":      len(gd) or None,
+            "answered": answered,
+        })
+    return out
+
+
 def writing_task_states(sitting: dict, delivered: set) -> list:
     """Per-task Writing outcome for the student's TRF — one entry per task.
 
