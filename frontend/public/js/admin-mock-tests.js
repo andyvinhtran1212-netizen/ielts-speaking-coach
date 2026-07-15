@@ -11,6 +11,13 @@
  */
 (function () {
   'use strict';
+  // Init the Supabase client so window.api carries the admin Bearer token — the
+  // rail's GET /admin/mock-exams is require_admin-gated and 401s without it.
+  // (The embedded iframes init their own auth; the parent cockpit needs its own.)
+  if (window.initSupabase) {
+    initSupabase('https://huwsmtubwulikhlmcirx.supabase.co',
+                 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao');
+  }
   var $ = function (id) { return document.getElementById(id); };
   var api = window.api;
 

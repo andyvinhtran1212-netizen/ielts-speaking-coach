@@ -58,6 +58,9 @@ describe('mock-tests cockpit — controller', () => {
   test('exam list from GET /admin/mock-exams', () => {
     assert.match(JS, /api\.get\('\/admin\/mock-exams'\)/);
   });
+  test('inits Supabase so window.api carries the admin token (rail is require_admin)', () => {
+    assert.match(JS, /initSupabase\('https:\/\/huwsmtubwulikhlmcirx/);
+  });
 });
 
 describe('mock-tests — admin nav entry', () => {
