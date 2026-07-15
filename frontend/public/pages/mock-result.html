@@ -56,7 +56,7 @@
       letter-spacing: var(--av-tracking-wide); opacity: .85; font-weight: var(--av-fw-semibold); }
     .trf-overall__sub { font-size: var(--av-fs-sm); opacity: .9; margin-top: var(--av-space-1); }
 
-    .trf-band-grid { display: grid; grid-template-columns: repeat(4, 1fr);
+    .trf-band-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
       gap: var(--av-space-2); margin-top: var(--av-space-3); }
     .trf-band { background: var(--av-surface-card); border: 1px solid var(--av-border-default);
       border-radius: var(--av-radius-md); padding: var(--av-space-4) var(--av-space-3); text-align: center; }
@@ -181,14 +181,17 @@
     function render(data) {
       var fb = data.final_bands || {};
 
-      // Overall hero.
+      // Overall hero. Only the sitting's REQUIRED skills carry a band (a
+      // writing-only retake scores 1 skill, not 4) — so both the count and the
+      // band grid are driven by the skills actually scored, never a hard-coded 4.
       $('overall-val').textContent = fmtBand(fb.overall);
-      var have = SKILLS.filter(function (s) { return fb[s.key] != null; }).length;
-      $('overall-sub').textContent = have ? (have + '/4 kỹ năng đã có điểm') : '';
+      var scored = SKILLS.filter(function (s) { return fb[s.key] != null; });
+      $('overall-sub').textContent = scored.length ? (scored.length + ' kỹ năng đã chấm') : '';
 
-      // Per-skill bands.
+      // Per-skill bands — show the scored skills (fall back to all four only in
+      // the defensive no-band case, which release shouldn't produce).
       var grid = $('bands');
-      grid.innerHTML = SKILLS.map(function (s) {
+      grid.innerHTML = (scored.length ? scored : SKILLS).map(function (s) {
         var v = fb[s.key];
         return '<div class="trf-band' + (v == null ? ' trf-band--empty' : '') + '">'
           + '<div class="trf-band-label">' + s.label + '</div>'

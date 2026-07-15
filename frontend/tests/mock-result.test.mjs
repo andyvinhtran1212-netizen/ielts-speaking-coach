@@ -39,6 +39,12 @@ describe('mock-result — shell + design system', () => {
     assert.match(HTML, /id="bands"/);
     assert.match(HTML, /listening.*reading.*writing.*speaking/s);   // SKILLS order
   });
+  test('skill count + grid driven by scored skills, not a hard-coded 4 (partial mock)', () => {
+    assert.match(HTML, /var scored = SKILLS\.filter/);
+    assert.match(HTML, /scored\.length \+ ' kỹ năng đã chấm'/);
+    assert.doesNotMatch(HTML, /\/4 kỹ năng/);              // the old misleading denominator
+    assert.match(HTML, /\(scored\.length \? scored : SKILLS\)\.map/);
+  });
 });
 
 describe('mock-result — chữa bài links per skill', () => {
