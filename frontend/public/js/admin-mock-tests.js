@@ -72,13 +72,39 @@
     if (state.tab === 'review') renderFrame();
   }
 
+  // Where the frame ACTUALLY is — which is not what its src attribute says. The
+  // embedded queue navigates itself (row click → grade.html) and the attribute
+  // stays behind on queue.html. Comparing the attribute therefore made "click
+  // the tab you are already on" a no-op, stranding the teacher on the grade page
+  // with no way back to the list. None of the embedded pages rewrite their URL
+  // (no pushState/replaceState), so the live location is a faithful comparison.
+  function frameAt(frame) {
+    try {
+      var l = frame.contentWindow.location;
+      if (l.protocol === 'about:') return frame.getAttribute('src');   // still blank/loading
+      return l.pathname + l.search;
+    } catch (e) {
+      return frame.getAttribute('src');   // cross-origin — not expected, stay safe
+    }
+  }
+
+  // Drive the frame's own location: re-assigning an unchanged src attribute is
+  // not a dependable renavigation. replace() also keeps the tab rail out of the
+  // browser's history (tabs are not pages).
+  function loadFrame(frame, src) {
+    if (frame.getAttribute('src') && frame.contentWindow) {
+      try { frame.contentWindow.location.replace(src); return; } catch (e) { /* first load */ }
+    }
+    frame.setAttribute('src', src);
+  }
+
   function renderFrame() {
     var frame = $('mt-frame'), need = $('mt-need-exam');
     var src = state.tab === 'review' ? FRAME.review(state.selectedId) : FRAME[state.tab]();
     if (!src) { frame.classList.add('hidden'); need.classList.remove('hidden'); return; }
     need.classList.add('hidden');
     frame.classList.remove('hidden');
-    if (frame.getAttribute('src') !== src) frame.setAttribute('src', src);
+    if (frameAt(frame) !== src) loadFrame(frame, src);
   }
 
   function setTab(tab) {
