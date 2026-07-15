@@ -155,6 +155,49 @@ def list_open_exams(user_id: str) -> list[dict]:
     return out
 
 
+def list_my_sittings(user_id: str) -> list[dict]:
+    """The caller's own mock sittings — powers the student home: what to resume
+    and which results are RELEASED. A released sitting carries its overall band +
+    released_at (from the review) so the home can show a result tile without a
+    second fetch. Voided sittings are excluded; newest first."""
+    rows = (supabase_admin.table("mock_exam_sittings")
+            .select("id, mock_exam_id, status, created_at")
+            .eq("user_id", str(user_id)).neq("status", "void")
+            .order("created_at", desc=True).execute()).data or []
+    if not rows:
+        return []
+    exam_ids = list({r["mock_exam_id"] for r in rows if r.get("mock_exam_id")})
+    exams: dict = {}
+    if exam_ids:
+        er = (supabase_admin.table("mock_exams").select("id, code, title")
+              .in_("id", exam_ids).execute()).data or []
+        exams = {e["id"]: e for e in er}
+    released_ids = [r["id"] for r in rows if r.get("status") == "released"]
+    reviews: dict = {}
+    if released_ids:
+        rv = (supabase_admin.table("mock_exam_reviews")
+              .select("sitting_id, final_bands, released_at")
+              .in_("sitting_id", released_ids).execute()).data or []
+        reviews = {x["sitting_id"]: x for x in rv}
+    out = []
+    for r in rows:
+        ex = exams.get(r.get("mock_exam_id"), {})
+        rvw = reviews.get(r["id"], {})
+        fb = rvw.get("final_bands") or {}
+        released = r.get("status") == "released"
+        out.append({
+            "sitting_id":   r["id"],
+            "mock_exam_id": r.get("mock_exam_id"),
+            "code":         ex.get("code"),
+            "title":        ex.get("title"),
+            "status":       r.get("status"),
+            "released":     released,
+            "overall":      fb.get("overall") if released else None,
+            "released_at":  rvw.get("released_at"),
+        })
+    return out
+
+
 def get_published_exam(code: str) -> Optional[dict]:
     resp = supabase_admin.table("mock_exams").select("*").eq(
         "code", code,

@@ -1574,6 +1574,34 @@ def test_sync_writing_band_noop_when_a_task_ungraded(fake_db, svc, wf):
     assert "writing" not in (rv.get("ai_draft") or {})
 
 
+# ── student home: my-sittings (resume targets + released results) ────
+
+def test_list_my_sittings_flags_released_with_overall(fake_db, svc):
+    u = str(uuid4())
+    fake_db.seed("mock_exams", {"id": "ex-1", "code": "MOCK-1", "title": "Mid-term"})
+    fake_db.seed("mock_exam_sittings", {"id": "s1", "user_id": u, "mock_exam_id": "ex-1",
+                                        "status": "released", "created_at": "2026-07-15T00:00:00Z"})
+    fake_db.seed("mock_exam_sittings", {"id": "s2", "user_id": u, "mock_exam_id": "ex-1",
+                                        "status": "all_submitted", "created_at": "2026-07-14T00:00:00Z"})
+    fake_db.seed("mock_exam_sittings", {"id": "s3", "user_id": u, "mock_exam_id": "ex-1",
+                                        "status": "void", "created_at": "2026-07-13T00:00:00Z"})
+    fake_db.seed("mock_exam_reviews", {"id": "rv1", "sitting_id": "s1",
+                                       "final_bands": {"overall": 6.5, "writing": 6.0},
+                                       "released_at": "2026-07-15T01:00:00Z"})
+
+    out = svc.list_my_sittings(u)
+    assert {s["sitting_id"] for s in out} == {"s1", "s2"}     # void excluded
+    r = next(s for s in out if s["sitting_id"] == "s1")
+    assert r["released"] is True and r["overall"] == 6.5
+    assert r["code"] == "MOCK-1" and r["released_at"]
+    p = next(s for s in out if s["sitting_id"] == "s2")
+    assert p["released"] is False and p["overall"] is None    # unreleased → no band leak
+
+
+def test_list_my_sittings_empty(fake_db, svc):
+    assert svc.list_my_sittings(str(uuid4())) == []
+
+
 # ── backfill promote (pre-#720 cohort: text captured, essays never created) ──
 
 def _seed_unpromoted_sitting(fake_db, exam, *, status="all_submitted",
