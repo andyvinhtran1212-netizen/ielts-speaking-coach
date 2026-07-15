@@ -301,6 +301,45 @@ def save_final_bands(
     return response.data[0]
 
 
+def set_retest_flags_for_sitting(
+    sitting_id: UUID | str, admin_id: UUID | str, retest_flags: dict,
+) -> dict:
+    """Set the per-skill 'cần test lại' decision straight from the roster.
+
+    Deliberately does NOT touch the sitting's needs_retest gate. That flag makes
+    Writing bulk-grade skip the sitting (an early cost gate); the roster's skill
+    picker is an annotation of WHICH skills the student must retake, and the two
+    were conflated. Product decision 2026-07-15: the picker only ever records the
+    decision — grading is never blocked by it. Clearing a skill here therefore
+    also never clears needs_retest; /sittings/{id}/retest stays its only owner.
+
+    Unknown skills and skills the exam does not require are dropped, so a stale
+    client cannot write a band-less skill into the record. Released reviews are
+    frozen — same posture as save_final_bands.
+    """
+    review = get_review_for_sitting(sitting_id)
+    if not review:
+        raise NotFoundError(f"Review for sitting {sitting_id} not found")
+    if review.get("status") == "released":
+        raise ConflictError(
+            f"Sitting {sitting_id} đã công bố — không thể đổi quyết định test lại. "
+            "Thu hồi trước nếu cần."
+        )
+    skills = _required_skills(review["sitting_id"])
+    stored = {s: bool(retest_flags.get(s)) for s in skills if s in retest_flags}
+
+    response = supabase_admin.table("mock_exam_reviews").update({
+        "retest_flags": stored,
+    }).eq("id", str(review["id"])).execute()
+    if not response.data:
+        raise NotFoundError(f"Review {review['id']} not found")
+    logger.info(
+        "[mock-review] retest flags set from roster sitting=%s by=%s flags=%s",
+        sitting_id, admin_id, stored,
+    )
+    return response.data[0]
+
+
 def _writing_pending_tasks(sitting_id: UUID | str) -> list[str]:
     """Labels of Writing tasks that BLOCK release — a promoted essay not yet in
     'reviewed'/'delivered'. On release only a 'reviewed' essay is delivered
@@ -694,7 +733,7 @@ def roster(mock_exam_id: str) -> list[dict]:
         # ai_draft/final_bands feed the roster's Writing band (see _writing_band):
         # the column showed word counts only, so the examiner had to open every
         # row to see a band Listening/Reading already show inline.
-        "id, sitting_id, status, claimed_by, ai_draft, final_bands",
+        "id, sitting_id, status, claimed_by, ai_draft, final_bands, retest_flags",
     ).in_("sitting_id", [s["id"] for s in sittings]).execute().data or []
     review_by_sitting = {rv["sitting_id"]: rv for rv in reviews}
 
@@ -753,6 +792,14 @@ def roster(mock_exam_id: str) -> list[dict]:
             "review_status":  rv.get("status"),
             "claimed":        bool(rv.get("claimed_by")),
             "needs_retest":   bool(s.get("needs_retest")),
+            # Which skills the admin decided the student must retake. Distinct
+            # from needs_retest above: that one gates Writing bulk-grade, this is
+            # the per-skill record the roster's picker reads and writes.
+            # Only the true ones — the picker renders a fixed L/R/W set and the
+            # write path drops whatever this exam does not require, so the roster
+            # never pays _required_skills' per-sitting query (N+1 on a 13-row
+            # class; assigned_skills is per-sitting, so it cannot be hoisted).
+            "retest_flags":   {k: bool(v) for k, v in (rv.get("retest_flags") or {}).items() if v},
         })
     out.sort(key=lambda r: (r["student_name"] or "").lower())
     return out
