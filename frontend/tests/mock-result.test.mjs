@@ -86,9 +86,11 @@ describe('mock-result — a Writing task with no feedback says why', () => {
   });
   test('"cần thi lại" comes ONLY from the examiner flag, never from the gap', () => {
     // not-graded is what HAPPENED; "must retake" is what the examiner DECIDED.
-    // The page must not invent the second from the first.
-    assert.match(HTML, /var mustRetakeWriting = !!retestFlags\.writing;/);
-    assert.match(HTML, /mustRetakeWriting[\s\S]*?Giám khảo yêu cầu thi lại phần Writing/);
+    // The page must not invent the second from the first. Still true — the rule
+    // just moved: renderRetest reads retest_flags on its own, and the gap
+    // renderers no longer receive them at all (see the retest-block describe).
+    assert.match(HTML, /function renderRetest\(retestFlags\)/);
+    assert.doesNotMatch(HTML, /function renderWritingGaps\(wTasks, retestFlags\)/);
   });
   test('the gap section stays hidden when every task was graded', () => {
     assert.match(HTML, /if \(!wrap \|\| !gaps\.length\) return;/);
@@ -122,10 +124,36 @@ describe('mock-result — a skill with no band says why', () => {
     assert.match(HTML, /s\.max \|\| 40/);
     assert.match(HTML, /dưới mức thấp nhất của bảng quy đổi band IELTS/);
   });
-  test('"cần thi lại" still comes only from the examiner flag', () => {
-    assert.match(HTML, /retestFlags\[s\.skill\][\s\S]*?Giám khảo yêu cầu thi lại phần/);
-  });
+
   test('the section stays hidden when every skill has a band', () => {
     assert.match(HTML, /if \(!wrap \|\| !gaps\.length\) return;/);
+  });
+});
+
+// The retest instruction used to be a line INSIDE the no-band warning cards, so
+// it rendered only for a skill that had no band. The common case is the opposite
+// — the skill IS banded and the examiner still wants it redone — and for those
+// students it appeared nowhere at all.
+describe('mock-result — retest is its own block, not a footnote on a gap', () => {
+  test('it renders from retest_flags alone, independent of any band', () => {
+    assert.match(HTML, /function renderRetest\(retestFlags\)/);
+    assert.match(HTML, /Object\.keys\(LABEL\)\.filter\(function \(s\) \{ return retestFlags\[s\]; \}\)/);
+  });
+  test('it is driven off the payload, not off the gap lists', () => {
+    assert.match(HTML, /renderRetest\(data\.retest_flags \|\| \{\}\)/);
+    // the gap renderers no longer take retest at all
+    assert.match(HTML, /renderLrGaps\(data\.lr_skills \|\| \[\], fb\)/);
+    assert.match(HTML, /renderWritingGaps\(wTasks\)/);
+  });
+  test('the notice no longer hides inside a warning card', () => {
+    assert.doesNotMatch(HTML, /trf-gap__retest/);
+    assert.doesNotMatch(HTML, /mustRetakeWriting/);
+  });
+  test('it names every flagged skill and says the result still stands', () => {
+    assert.match(HTML, /Giám khảo yêu cầu thi lại: /);
+    assert.match(HTML, /vẫn là kết quả của lần thi này/);
+  });
+  test('no flags → the block stays hidden', () => {
+    assert.match(HTML, /if \(!wrap \|\| !skills\.length\) return;/);
   });
 });
