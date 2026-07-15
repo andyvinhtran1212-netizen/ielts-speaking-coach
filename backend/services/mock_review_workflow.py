@@ -109,10 +109,15 @@ def _unconvertible_skills(sitting_id: UUID | str) -> set:
     ONLY Listening/Reading can appear here. Writing and Speaking are the
     examiner's own judgement with no table to fall off, so a blank there is a
     forgotten entry and must keep failing.
-    """
-    from services.listening_test_grader import band_estimate as _l_band
-    from services.reading_test_grader import band_estimate as _r_band
 
+    Reads the PERSISTED band_estimate rather than recomputing from the raw score.
+    The grader stamps it with the attempt's own module — Reading General Training
+    has no table in Phase 1, so band_estimate is None at ANY score — and a
+    recompute here defaulted to the Academic table, deciding GT 27/40 was worth
+    6.5 and therefore not blankable, while the roster (which reads the persisted
+    value) showed the examiner no band to enter. Two sources of truth, and this
+    one was wrong (Codex review, PR #779).
+    """
     row = supabase_admin.table("mock_exam_sittings").select(
         "listening_attempt_id, reading_attempt_id",
     ).eq("id", str(sitting_id)).limit(1).execute()
@@ -121,24 +126,23 @@ def _unconvertible_skills(sitting_id: UUID | str) -> set:
     s = row.data[0]
 
     out: set = set()
-    for skill, col, table, band_of in (
-        ("listening", "listening_attempt_id", "listening_test_attempts", _l_band),
-        ("reading",   "reading_attempt_id",   "reading_test_attempts",   _r_band),
+    for skill, col, table in (
+        ("listening", "listening_attempt_id", "listening_test_attempts"),
+        ("reading",   "reading_attempt_id",   "reading_test_attempts"),
     ):
         aid = s.get(col)
         if not aid:
             continue
-        a = supabase_admin.table(table).select("score").eq(
+        a = supabase_admin.table(table).select("score, band_estimate").eq(
             "id", str(aid),
         ).limit(1).execute().data
         if not a:
             continue
-        score = a[0].get("score")
         # No attempt row / no score is NOT "unconvertible" — that is missing data,
         # and silently blanking it would hide a broken attach.
-        if score is None:
+        if a[0].get("score") is None:
             continue
-        if band_of(score) is None:
+        if a[0].get("band_estimate") is None:
             out.add(skill)
     return out
 
@@ -665,6 +669,13 @@ def sync_writing_band_for_essay(essay_id: str) -> None:
         )
     except Exception:  # noqa: BLE001 — suggestion only, never fatal
         logger.exception("[mock-review] sync writing band failed essay=%s", essay_id)
+
+
+def blankable_skills_for_sitting(sitting_id: UUID | str) -> set:
+    """Public: the skills the examiner may leave blank (no published band for
+    their raw score). The review console needs this to tell "no band exists"
+    from "you forgot one" — see _unconvertible_skills."""
+    return _unconvertible_skills(sitting_id)
 
 
 def required_skills_for_sitting(sitting_id: UUID | str) -> list:

@@ -512,6 +512,13 @@
       var hint = (draftBand != null && fb[s] == null)
         ? '<div class="mr-muted" style="font-size:11px;margin-top:2px">Gợi ý từ 2 bài đã chấm: ' + fmtBand(draftBand) + '</div>'
         : '';
+      // Say WHY this one may be left empty, or the blank looks like an oversight
+      // the examiner should correct — and they'd invent a band to fill it.
+      if (!hint && blankableSkills().indexOf(s) !== -1) {
+        hint = '<div class="mr-muted" style="font-size:11px;margin-top:2px">'
+             + 'Điểm thô không có band trong bảng IELTS — có thể để trống '
+             + '(overall sẽ để trống theo).</div>';
+      }
       return '<div><label>' + s + '</label>' +
         '<input type="number" step="0.5" min="0" max="9" data-band="' + s + '" value="' + val + '">' +
         hint +
@@ -597,9 +604,21 @@
     catch (e) { toast('Không nhận được: ' + (e && e.message)); }
   }
 
+  // Skills whose raw score has NO published band (e.g. Listening 0/40, or any
+  // General Training Reading in Phase 1). The examiner has nothing to type, so a
+  // blank is legitimate — the server allows it and blanks the overall to match.
+  function blankableSkills() {
+    return (current && current.blankable_skills) || [];
+  }
+
   function collectBands(v) {
     var fb = {};
-    reqSkills().forEach(function (s) { fb[s] = parseFloat(v.querySelector('[data-band="' + s + '"]').value); });
+    reqSkills().forEach(function (s) {
+      var n = parseFloat(v.querySelector('[data-band="' + s + '"]').value);
+      // OMIT a blank rather than sending NaN — NaN would serialise to null and
+      // read as "band unknown" for a skill that simply wasn't filled in.
+      if (!isNaN(n)) fb[s] = n;
+    });
     return fb;
   }
 
@@ -614,9 +633,16 @@
 
   async function doSave(id, v) {
     var fb = collectBands(v);
-    var skills = reqSkills();
-    if (skills.some(function (s) { return isNaN(fb[s]); })) {
-      toast('Nhập đủ ' + skills.length + ' band trước khi lưu.'); return;
+    var blankable = blankableSkills();
+    // Only a skill that HAS a band to give may be demanded. Listening 0/40 has
+    // no published band, so the old "all bands or nothing" gate blocked the save
+    // outright — and with it the whole result, for the one skill that could not
+    // be scored (Codex review, PR #779).
+    var missing = reqSkills().filter(function (s) {
+      return fb[s] == null && blankable.indexOf(s) === -1;
+    });
+    if (missing.length) {
+      toast('Còn thiếu band: ' + missing.join(', ') + '.'); return;
     }
     try {
       await window.api.post('/admin/mock-reviews/' + encodeURIComponent(id) + '/final-bands', {

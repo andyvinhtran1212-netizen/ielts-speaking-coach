@@ -1251,15 +1251,25 @@ def test_roster_exposes_only_the_true_retest_flags(fake_db, svc, wf):
     assert row["retest_flags"] == {"listening": True, "writing": True}
 
 
-def _seed_for_bands(fake_db, admin, l_score=None, r_score=None):
+def _seed_for_bands(fake_db, admin, l_score=None, r_score=None, r_module="academic"):
+    """Seed attempts the way the graders really persist them: score AND the
+    band_estimate they stamped, module included. blankable reads that stored
+    value — a fixture that only carried the score would be modelling the old
+    recompute design, not the shipped one."""
+    from services.listening_test_grader import band_estimate as _lb
+    from services.reading_test_grader import band_estimate as _rb
+
     fake_db.seed("mock_exam_sittings", {"id": "sit-1", "mock_exam_id": "ex-1",
                                         "status": "submitted", "user_id": "u-1",
                                         "listening_attempt_id": "la-1" if l_score is not None else None,
                                         "reading_attempt_id": "ra-1" if r_score is not None else None})
     if l_score is not None:
-        fake_db.seed("listening_test_attempts", {"id": "la-1", "score": l_score})
+        fake_db.seed("listening_test_attempts",
+                     {"id": "la-1", "score": l_score, "band_estimate": _lb(l_score)})
     if r_score is not None:
-        fake_db.seed("reading_test_attempts", {"id": "ra-1", "score": r_score})
+        fake_db.seed("reading_test_attempts",
+                     {"id": "ra-1", "score": r_score,
+                      "band_estimate": _rb(r_score, module=r_module)})
     fake_db.seed("mock_exam_reviews", {"id": "rv-1", "sitting_id": "sit-1",
                                        "status": "claimed", "claimed_by": admin,
                                        "final_bands": {}, "ai_draft": {}, "retest_flags": {}})
@@ -1310,6 +1320,21 @@ def test_final_bands_overall_still_computed_when_every_skill_is_present(fake_db,
     # examiner CHOSE to enter a Listening band anyway → the overall is real again
     out = wf.save_final_bands("rv-1", admin, {"listening": 4.0, "reading": 6.5, "writing": 6.0})
     assert out["final_bands"]["overall"] == 5.5     # mean(4.0, 6.5, 6.0) = 5.5
+
+
+def test_unconvertible_honours_the_attempt_s_own_module(fake_db, svc, wf):
+    """Codex P2 (PR #779): band_estimate is stamped WITH the attempt's module —
+    Reading General Training has no table in Phase 1, so it is None at any score.
+    Recomputing here defaulted to the Academic table, called GT 27/40 a 6.5, and
+    refused the blank — while the roster (reading the stored value) showed the
+    examiner no band to type. Read the persisted value, not a second guess."""
+    _seed_for_bands(fake_db, "admin-1", l_score=30, r_score=27, r_module="general_training")
+    assert wf.blankable_skills_for_sitting("sit-1") == {"reading"}     # GT → no band
+    # …and the same score on Academic converts, so it is NOT blankable
+    fake_db.rows("reading_test_attempts").clear()
+    fake_db.rows("mock_exam_sittings").clear()
+    _seed_for_bands(fake_db, "admin-1", l_score=30, r_score=27, r_module="academic")
+    assert wf.blankable_skills_for_sitting("sit-1") == set()
 
 
 def test_unconvertible_ignores_a_missing_attempt_rather_than_blanking_it(fake_db, svc, wf):
