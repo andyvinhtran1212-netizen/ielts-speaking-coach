@@ -234,6 +234,23 @@ function writeQueueContext(essayId) {
   } catch { /* sessionStorage unavailable — grade.html falls back to single-essay */ }
 }
 
+// Inside the Mock Test cockpit this page IS the iframe, so window.location is
+// the frame's — the essay page loads into the cockpit's tab panel. Carry the
+// embed flags along so it renders chrome-less there; without them the panel
+// gets a whole second admin page (nav + header) nested inside the cockpit.
+// mocklane rides along too, so the essay page's back-to-queue returns to the
+// Mock lane rather than the default "Cần chấm" one.
+function _withEmbed(url) {
+  try {
+    const p = new URLSearchParams(location.search);
+    const out = [];
+    if (p.get('embed') === '1') out.push('embed=1');
+    if (p.get('mocklane') === '1') out.push('mocklane=1');
+    if (!out.length) return url;
+    return url + (url.indexOf('?') === -1 ? '?' : '&') + out.join('&');
+  } catch { return url; }
+}
+
 function openEssay(essayId) {
   // In-flight essays (pending/grading) have no feedback yet — send them to
   // the live status poller, not the (empty) grade view. Graded+ rows open
@@ -241,11 +258,11 @@ function openEssay(essayId) {
   const row = _rows.find((e) => e.id === essayId);
   const st = row && row.status;
   if (st === 'pending' || st === 'grading') {
-    window.location.href = '/pages/admin/writing/status.html?essay_id=' + encodeURIComponent(essayId);
+    window.location.href = _withEmbed('/pages/admin/writing/status.html?essay_id=' + encodeURIComponent(essayId));
     return;
   }
   writeQueueContext(essayId);
-  window.location.href = '/pages/admin/writing/grade.html?essay_id=' + encodeURIComponent(essayId);
+  window.location.href = _withEmbed('/pages/admin/writing/grade.html?essay_id=' + encodeURIComponent(essayId));
 }
 
 async function bulkDeliver() {
@@ -291,6 +308,24 @@ function _setMockTabActive(on) {
   if (!mb) return;
   mb.classList.toggle('is-active', on);
   mb.setAttribute('aria-selected', on ? 'true' : 'false');
+}
+
+// Mock-only embed (?mocklane=1): the cockpit tab already says "Chấm Writing"
+// and the rail already scopes the exam, so the queue's own lane rail and filter
+// row are redundant chrome. Dropping the lane rail also stops the cockpit being
+// a second door into the non-mock writing queue (the standalone page's job).
+//
+// display:none inline, NOT the hidden attribute: .adm-subtabs / .q-toolbar both
+// set `display: flex` in the author stylesheet, which beats the UA's
+// `[hidden] { display: none }` — hidden alone leaves them on screen.
+//
+// Hidden, not removed: wire() still binds q-overdue / q-cohort and render()
+// still writes q-count. Their state stays at the defaults (_overdue = false,
+// _cohort = '') so the Mock lane loads unfiltered.
+function _stripEmbedChrome() {
+  document.querySelectorAll('.adm-subtabs, .q-toolbar').forEach((el) => {
+    el.style.display = 'none';
+  });
 }
 
 // The Mock lane: all statuses, mock essays only. No status filter, no polling
@@ -377,7 +412,7 @@ function wire() {
   // straight away (skip the default status lane + polling).
   let _mocklane = false;
   try { _mocklane = new URLSearchParams(location.search).get('mocklane') === '1'; } catch { /* no-op */ }
-  if (_mocklane) { setMockLane(); return; }
+  if (_mocklane) { _stripEmbedChrome(); setMockLane(); return; }
   // F3 — honour a ?status= deep-link (e.g. nav "Trạng thái chấm" →
   // queue.html?status=grading lands on the "Đang chấm" lane). Falls back to
   // the default "Cần chấm" lane when absent/invalid.

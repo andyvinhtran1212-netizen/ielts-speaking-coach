@@ -1254,6 +1254,25 @@
     // sessionStorage.gradeQueue = {ids:[…filter order…], i, status}. No
     // grade-logic change — "Lưu & bài kế" reuses handleSave() then navigates.
     var QUEUE_KEY = 'gradeQueue';
+    // Cockpit embed: this page is inside the Mock Test cockpit's iframe, so
+    // every hop from here (next essay, back to queue) must carry the flags
+    // forward — drop them and the next page renders its full admin chrome
+    // nested inside the cockpit, which is the bug this whole path fixes.
+    function _embedParams() {
+      try {
+        var p = new URLSearchParams(location.search);
+        var out = [];
+        if (p.get('embed') === '1') out.push('embed=1');
+        if (p.get('mocklane') === '1') out.push('mocklane=1');
+        return out.join('&');
+      } catch (e) { return ''; }
+    }
+    // Append the flags to a URL that already has a query, or start one if not.
+    function _withEmbed(url) {
+      var q = _embedParams();
+      if (!q) return url;
+      return url + (url.indexOf('?') === -1 ? '?' : '&') + q;
+    }
     function _readQueue() {
       try {
         var raw = sessionStorage.getItem(QUEUE_KEY);
@@ -1275,9 +1294,10 @@
       if (!ok) return;                     // save failed → stay put, don't navigate
       var nxt = _nextEssayId();
       if (nxt) {
-        window.location.href = '/pages/admin/writing/grade.html?essay_id=' + encodeURIComponent(nxt);
+        window.location.href = _withEmbed('/pages/admin/writing/grade.html?essay_id=' + encodeURIComponent(nxt));
       } else {
-        window.location.href = '/pages/admin/writing/queue.html';   // last in queue → back to queue
+        // last in queue → back to queue (the Mock lane when embedded)
+        window.location.href = _withEmbed('/pages/admin/writing/queue.html');
       }
     }
     // Reveal the queue controls only when this essay was opened from the queue;
@@ -1287,7 +1307,12 @@
       var inQueue = !!(q && q.ids.indexOf(_essayId) !== -1);
       var back = document.getElementById('btn-back-queue');
       var next = document.getElementById('btn-save-next');
-      if (back) back.hidden = !inQueue;
+      if (back) {
+        back.hidden = !inQueue;
+        // Static href in the markup — re-point it at the lane we came from so
+        // the cockpit embed returns to the Mock lane, still chrome-less.
+        back.href = _withEmbed('/pages/admin/writing/queue.html');
+      }
       if (next) {
         next.hidden = !inQueue;
         // Last-in-queue: relabel so it's clear save returns to the queue.
@@ -1897,7 +1922,7 @@
         await window.api.post(
           '/admin/instructor/reviews/' + encodeURIComponent(_currentReview.id) + '/release', {},
         );
-        window.location.href = '/pages/admin/writing/instructor-queue.html';
+        window.location.href = _withEmbed('/pages/admin/writing/instructor-queue.html');
       } catch (err) {
         setAlert('error', 'Lỗi release: ' + (err.message || ''));
       }
@@ -2041,6 +2066,26 @@
     })();
   </script>
   </aver-admin-chrome>
+
+  <!-- Opened from the Mock Test cockpit's queue (?embed=1) → hide the admin nav
+       so the cockpit's chrome shows once. Without this the queue's row-click
+       loads a whole second admin page inside the cockpit's tab panel. Runs
+       before the deferred chrome module, so the attribute is present when the
+       element upgrades. Mirrors the same hook in queue.html. -->
+  <script>
+    (function () {
+      try {
+        if (new URLSearchParams(location.search).get('embed') !== '1') return;
+        var el = document.querySelector('aver-admin-chrome');
+        if (el) el.setAttribute('embed', '');
+        // "← Writing Coach" escapes to the Writing section home. Inside the Mock
+        // cockpit that is nonsense (the Writing dashboard in a Mock tab) — so
+        // drop it rather than flag it; the cockpit's own nav is the way out.
+        var back = document.querySelector('.back-link');
+        if (back) back.hidden = true;
+      } catch (e) { /* no-op */ }
+    })();
+  </script>
   <script type="module" src="/js/components/aver-admin-chrome.js"></script>
 </body>
 </html>

@@ -18,6 +18,9 @@ const JS = read('public', 'js', 'admin-mock-tests.js');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 const QUEUE_HTML = read('public', 'pages', 'admin', 'writing', 'queue.html');
 const QUEUE_JS = read('public', 'js', 'admin-writing-queue.js');
+const GRADE_HTML = read('public', 'pages', 'admin', 'writing', 'grade.html');
+const STATUS_HTML = read('public', 'pages', 'admin', 'writing', 'status.html');
+const INSTRUCTOR_QUEUE_HTML = read('public', 'pages', 'admin', 'writing', 'instructor-queue.html');
 
 describe('mock-tests cockpit — page shell', () => {
   test('uses the admin chrome (active=mock-tests) + design-system sheets', () => {
@@ -108,6 +111,95 @@ describe('writing queue — cockpit embed hooks', () => {
   });
   test('?mocklane=1 opens the Mock lane on load', () => {
     assert.match(QUEUE_JS, /get\('mocklane'\) === '1'/);
-    assert.match(QUEUE_JS, /if \(_mocklane\) \{ setMockLane\(\); return; \}/);
+    assert.match(QUEUE_JS, /if \(_mocklane\) \{ _stripEmbedChrome\(\); setMockLane\(\); return; \}/);
+  });
+  // Mock-only embed: the cockpit tab names the lane and the rail scopes the
+  // exam, so the queue's lane rail + filter row are redundant there.
+  test('?mocklane=1 strips the lane rail and the filter row', () => {
+    const body = QUEUE_JS.match(/function _stripEmbedChrome\(\) \{([\s\S]*?)\n\}/);
+    assert.ok(body, '_stripEmbedChrome() not found — sentinel is stale');
+    assert.match(body[1], /querySelectorAll\('\.adm-subtabs, \.q-toolbar'\)/);
+  });
+  // Must be inline display:none, not the hidden attribute: both rows set
+  // `display: flex` in the author stylesheet, which beats the UA's
+  // `[hidden] { display: none }` — hidden alone leaves them on screen.
+  test('embed chrome is stripped with inline display:none (author CSS beats [hidden])', () => {
+    const body = QUEUE_JS.match(/function _stripEmbedChrome\(\) \{([\s\S]*?)\n\}/);
+    assert.match(body[1], /style\.display = 'none'/);
+  });
+  test('the standalone queue keeps its lane rail and filters (no cockpit bleed)', () => {
+    // _stripEmbedChrome fires from the ?mocklane=1 branch ONLY: the Mock chip's
+    // own click handler (setMockLane) must never strip the chrome, or clicking
+    // Mock on the standalone page would strand the admin there.
+    const body = QUEUE_JS.match(/function setMockLane\(\) \{([\s\S]*?)\n\}/);
+    assert.ok(body, 'setMockLane() not found — sentinel is stale');
+    assert.ok(!body[1].includes('_stripEmbedChrome'), 'setMockLane() must not strip the embed chrome');
+  });
+});
+
+// Row-click inside the cockpit navigates the IFRAME (window.location is the
+// frame's). Unless the flags ride along and the destination honours ?embed=1,
+// the tab panel gets a whole second admin page nested inside the cockpit.
+describe('writing queue — opening an essay from the cockpit stays chrome-less', () => {
+  test('openEssay carries embed + mocklane to grade.html and status.html', () => {
+    const body = QUEUE_JS.match(/function openEssay\(essayId\) \{([\s\S]*?)\n\}/);
+    assert.ok(body, 'openEssay() not found — sentinel is stale');
+    assert.match(body[1], /_withEmbed\('\/pages\/admin\/writing\/status\.html\?essay_id=/);
+    assert.match(body[1], /_withEmbed\('\/pages\/admin\/writing\/grade\.html\?essay_id=/);
+  });
+  test('_withEmbed forwards both flags and no-ops off the cockpit', () => {
+    const body = QUEUE_JS.match(/function _withEmbed\(url\) \{([\s\S]*?)\n\}/);
+    assert.ok(body, '_withEmbed() not found — sentinel is stale');
+    assert.match(body[1], /get\('embed'\) === '1'/);
+    assert.match(body[1], /get\('mocklane'\) === '1'/);
+    assert.match(body[1], /if \(!out\.length\) return url;/);   // standalone → untouched
+  });
+  // grade.html and status.html are both row-click destinations, so both need
+  // the hook queue.html already had — otherwise the flag arrives and is ignored.
+  for (const [name, html] of [
+    ['grade.html', GRADE_HTML],
+    ['status.html', STATUS_HTML],
+    ['instructor-queue.html', INSTRUCTOR_QUEUE_HTML],
+  ]) {
+    test(`${name} honours ?embed=1 by putting the chrome in embed mode`, () => {
+      assert.match(html, /get\('embed'\) === '1'[\s\S]*?setAttribute\('embed', ''\)/);
+    });
+  }
+  // grade → (release claim) → instructor-queue → (claim) → grade is a LOOP: a
+  // flag dropped at either hop re-nests a whole admin page in the tab panel.
+  test('the instructor-claim loop keeps the flags at both hops', () => {
+    assert.match(GRADE_HTML, /_withEmbed\('\/pages\/admin\/writing\/instructor-queue\.html'\)/);
+    assert.match(INSTRUCTOR_QUEUE_HTML,
+      /_withEmbed\('\/pages\/admin\/writing\/grade\.html\?essay_id=' \+ encodeURIComponent\(review\.essay_id\)\)/);
+  });
+  // Codex review, PR #773: status.html rendered chrome-less but its own CTA out
+  // was still un-flagged, so finishing a grade re-nested the admin page.
+  test('status.html keeps the flags on its "Xem kết quả" CTA', () => {
+    assert.match(STATUS_HTML,
+      /viewBtn\.href = _withEmbed\('\/pages\/admin\/writing\/grade\.html\?essay_id=' \+ encodeURIComponent\(_essayId\)\)/);
+  });
+  // The instructor queue's per-row Edit/View links are hops into grade.html too.
+  test('instructor-queue row actions (Edit/View) keep the flags', () => {
+    const links = INSTRUCTOR_QUEUE_HTML.match(
+      /_withEmbed\('\/pages\/admin\/writing\/grade\.html\?essay_id=' \+ encodeURIComponent\(essayId\)\)/g) || [];
+    assert.equal(links.length, 2, 'both the Edit and the View link must carry the flags');
+  });
+  // "← Writing Coach" escapes to the Writing section home — meaningless inside a
+  // Mock tab, so the embed drops it rather than flagging it.
+  test('grade.html hides the "Writing Coach" back-link in the embed', () => {
+    assert.match(GRADE_HTML, /var back = document\.querySelector\('\.back-link'\);[\s\S]*?back\.hidden = true;/);
+  });
+  test('instructor-queue._withEmbed forwards both flags and no-ops off the cockpit', () => {
+    const body = INSTRUCTOR_QUEUE_HTML.match(/function _withEmbed\(url\) \{([\s\S]*?)\n    \}/);
+    assert.ok(body, '_withEmbed() not found in instructor-queue — sentinel is stale');
+    assert.match(body[1], /get\('embed'\) === '1'/);
+    assert.match(body[1], /get\('mocklane'\) === '1'/);
+    assert.match(body[1], /if \(!out\.length\) return url;/);   // standalone → untouched
+  });
+  test('grade.html keeps the flags on every hop out (next essay + back to queue)', () => {
+    assert.match(GRADE_HTML, /_withEmbed\('\/pages\/admin\/writing\/grade\.html\?essay_id=' \+ encodeURIComponent\(nxt\)\)/);
+    assert.match(GRADE_HTML, /_withEmbed\('\/pages\/admin\/writing\/queue\.html'\)/);
+    // The back link's href is static in the markup — it must be re-pointed.
+    assert.match(GRADE_HTML, /back\.href = _withEmbed\('\/pages\/admin\/writing\/queue\.html'\)/);
   });
 });
