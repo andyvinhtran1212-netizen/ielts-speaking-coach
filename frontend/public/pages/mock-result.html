@@ -160,8 +160,9 @@
       <section id="notes-wrap" class="trf-section hidden"></section>
 
       <section id="chuabai-wrap" class="trf-section hidden"></section>
-      <!-- Why a Writing task has no chữa bài. Sits AFTER the review cards so the
-           student sees what they DID get before what they didn't. -->
+      <!-- Why a skill has no band / no chữa bài. Both sit AFTER the review cards
+           so the student sees what they DID get before what they didn't. -->
+      <section id="lr-gap-wrap" class="trf-section hidden"></section>
       <section id="writing-gap-wrap" class="trf-section hidden"></section>
 
       <p class="trf-foot">Kết quả do giám khảo duyệt, có tham khảo phân tích AI.</p>
@@ -268,8 +269,54 @@
             }).join('') + '</div>';
       }
 
+      renderLrGaps(data.lr_skills || [], fb, data.retest_flags || {});
       renderWritingGaps(wTasks, data.retest_flags || {});
       showState('content');
+    }
+
+    // A Listening/Reading skill with no band used to just DISAPPEAR from the
+    // grid — the student saw the other skills and was left guessing. Say what
+    // happened, and say the true thing: production's stuck sittings all submitted
+    // on time, so "không nhận được bài làm" would be a lie about their own exam.
+    function renderLrGaps(lrSkills, fb, retestFlags) {
+      var LABEL = { listening: 'Listening', reading: 'Reading' };
+      // A skill the examiner banded by hand needs no excuse, whatever the raw
+      // score did — the band is what the student is given.
+      var gaps = (lrSkills || []).filter(function (s) {
+        return s.state !== 'scored' && fb[s.skill] == null;
+      });
+      var wrap = $('lr-gap-wrap');
+      if (!wrap || !gaps.length) return;
+
+      wrap.classList.remove('hidden');
+      wrap.innerHTML = '<h2 class="trf-h2">Kỹ năng chưa có band</h2>'
+        + gaps.map(function (s) {
+            var label = LABEL[s.skill] || s.skill;
+            var why, detail;
+            if (s.state === 'no_attempt') {
+              why = 'Không nhận được bài làm';
+              detail = 'Hệ thống không nhận được bài ' + label + ' của bạn.';
+            } else if (s.state === 'no_answers') {
+              why = 'Không có đáp án';
+              detail = 'Bài ' + label + ' đã nộp nhưng không có câu trả lời nào, '
+                     + 'nên không chấm được.';
+            } else {
+              why = 'Không có band';
+              detail = 'Bạn đúng ' + (s.score == null ? 0 : s.score) + '/' + (s.max || 40)
+                     + ' câu — dưới mức thấp nhất của bảng quy đổi band IELTS, '
+                     + 'nên không có band cho phần này.';
+            }
+            return '<div class="trf-gap">'
+              + '<span class="trf-gap__icon" aria-hidden="true">⚠</span>'
+              + '<span class="trf-gap__body">'
+              +   '<span class="trf-gap__title">' + esc(label) + ' — ' + esc(why) + '</span>'
+              +   '<span class="trf-gap__detail">' + esc(detail) + '</span>'
+              +   (retestFlags[s.skill]
+                    ? '<span class="trf-gap__retest">Giám khảo yêu cầu thi lại phần '
+                      + esc(label) + '.</span>'
+                    : '')
+              + '</span></div>';
+          }).join('');
     }
 
     // Say out loud why a Writing task has no feedback. Silence here reads as "the

@@ -251,6 +251,10 @@ async def get_result(
         # Empty when the sitting has no Writing at all (an L/R-only retake) —
         # writing_task_states decides that off the sitting's own assigned_skills.
         "writing_tasks":        svc.writing_task_states(sitting, delivered),
+        # Why a Listening/Reading skill carries no band. The grid lists only
+        # banded skills, so a bandless one vanished with no explanation — the
+        # same silent gap the Writing cards fixed (2026-07-15).
+        "lr_skills":            svc.lr_skill_states(sitting),
         # The admin's retest decision per skill, so the TRF can tell the student
         # which skills to redo. Absent/false = not flagged.
         "retest_flags":         {k: bool(v) for k, v in (review.get("retest_flags") or {}).items() if v},

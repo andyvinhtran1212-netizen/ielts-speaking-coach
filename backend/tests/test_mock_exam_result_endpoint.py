@@ -37,6 +37,7 @@ def test_result_includes_attempt_ids_and_delivered_essays():
     with patch("routers.mock_exams.get_supabase_user", new=AsyncMock(return_value=_USER)), \
          patch("routers.mock_exams.svc.get_sitting", return_value=sitting), \
          patch("routers.mock_exams.review_wf.get_review_for_sitting", return_value=review), \
+         patch("routers.mock_exams.svc.lr_skill_states", return_value=[]), \
          patch("routers.mock_exams.essay_service.delivered_essay_ids",
                return_value={"essay-1", "essay-2"}):
         r = _client().get(
@@ -230,3 +231,69 @@ def test_result_includes_writing_tasks_when_writing_is_required():
          patch("routers.mock_exams.essay_service.delivered_essay_ids", return_value={"essay-1"}):
         r = _client().get("/api/mock-exams/sittings/" + _SITTING_ID + "/result", headers=_AUTH)
     assert len(r.json()["writing_tasks"]) == 2
+
+
+# ── Why an L/R skill has no band (2026-07-15) ─────────────────────────
+#
+# The TRF grid lists only banded skills, so a bandless one vanished with no
+# explanation. These states are kept apart because they are different truths:
+# every stuck production sitting DID submit, on time, with 40 questions — telling
+# those students "không nhận được bài làm" would be a lie about their own exam.
+
+def _lr(**kw):
+    from services import mock_exam_service as svc
+    from unittest.mock import patch as _p
+    sitting = {"listening_attempt_id": kw.get("l_id"), "reading_attempt_id": None}
+    rows = kw.get("row")
+
+    class _Res:
+        data = [rows] if rows else []
+
+    class _Q:
+        def select(self, *a, **k): return self
+        def eq(self, *a, **k): return self
+        def limit(self, *a, **k): return self
+        def execute(self): return _Res()
+
+    class _DB:
+        def table(self, *a, **k): return _Q()
+
+    with _p.object(svc, "supabase_admin", _DB()):
+        return {s["skill"]: s for s in svc.lr_skill_states(sitting)}["listening"]
+
+
+def _q(n_answered, total=40):
+    return [{"q_num": i, "user_answer": ("x" if i <= n_answered else "")} for i in range(1, total + 1)]
+
+
+def test_lr_no_attempt_is_the_only_never_received():
+    st = _lr(l_id=None)
+    assert st["state"] == "no_attempt"
+
+
+def test_lr_submitted_but_blank_is_no_answers_not_never_received():
+    """0/40 with zero answers = a blank paper that WAS received. Production's
+    dd1106df is exactly this."""
+    st = _lr(l_id="la-1", row={"score": 0, "band_estimate": None, "grading_details": _q(0)})
+    assert st["state"] == "no_answers"
+    assert st["answered"] == 0
+
+
+def test_lr_answered_but_below_the_table_says_so_with_the_numbers():
+    """6d9192a3 answered 3 of 40 — they attempted. Calling that a blank paper, or
+    a lost submission, would both be false."""
+    st = _lr(l_id="la-1", row={"score": 0, "band_estimate": None, "grading_details": _q(3)})
+    assert st["state"] == "below_table"
+    assert st["answered"] == 3 and st["max"] == 40
+
+
+def test_lr_banded_skill_needs_no_excuse():
+    st = _lr(l_id="la-1", row={"score": 30, "band_estimate": 7.0, "grading_details": _q(40)})
+    assert st["state"] == "scored"
+
+
+def test_lr_dangling_attempt_id_reads_as_never_received_not_blank():
+    """A sitting pointing at an attempt that isn't there is broken data — calling
+    it a blank paper would blame the student for our bug."""
+    st = _lr(l_id="la-1", row=None)
+    assert st["state"] == "no_attempt"

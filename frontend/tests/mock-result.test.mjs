@@ -101,3 +101,31 @@ describe('mock-result — result endpoint + release gating', () => {
     assert.match(HTML, /e\.status === 403[\s\S]*?showState\('pending'\)/);
   });
 });
+
+// An L/R skill with no band used to just vanish from the grid — the student saw
+// the other skills and was left guessing. The three states are kept apart because
+// they are different truths: production's stuck sittings all submitted on time,
+// so "không nhận được bài làm" would be a lie about their own exam.
+describe('mock-result — a skill with no band says why', () => {
+  test('only bandless skills get a card — a hand-entered band needs no excuse', () => {
+    assert.match(HTML, /s\.state !== 'scored' && fb\[s\.skill\] == null/);
+  });
+  test('never-received, blank paper and too-low are three different messages', () => {
+    assert.match(HTML, /s\.state === 'no_attempt'/);
+    assert.match(HTML, /Không nhận được bài làm/);
+    assert.match(HTML, /s\.state === 'no_answers'/);
+    assert.match(HTML, /Không có đáp án/);
+    assert.match(HTML, /Không có band/);
+  });
+  test('the too-low message carries the real numbers, not a vague excuse', () => {
+    assert.match(HTML, /s\.score == null \? 0 : s\.score/);
+    assert.match(HTML, /s\.max \|\| 40/);
+    assert.match(HTML, /dưới mức thấp nhất của bảng quy đổi band IELTS/);
+  });
+  test('"cần thi lại" still comes only from the examiner flag', () => {
+    assert.match(HTML, /retestFlags\[s\.skill\][\s\S]*?Giám khảo yêu cầu thi lại phần/);
+  });
+  test('the section stays hidden when every skill has a band', () => {
+    assert.match(HTML, /if \(!wrap \|\| !gaps\.length\) return;/);
+  });
+});
