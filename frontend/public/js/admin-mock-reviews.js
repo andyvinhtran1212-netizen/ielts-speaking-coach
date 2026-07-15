@@ -521,6 +521,15 @@
              + 'Điểm thô không có band trong bảng IELTS — có thể để trống '
              + '(overall sẽ để trống theo).</div>';
       }
+      // No draft and not blankable → the examiner MUST type it. Speaking is the
+      // real case: nothing derives it (no answer key, no per-essay approval), so
+      // it arrives blank among pre-filled boxes and the save is refused. Saying
+      // nothing here would present the form as one-click and then reject it
+      // (Codex review, PR #782).
+      if (!hint && fb[s] == null) {
+        hint = '<div class="mr-muted" style="font-size:11px;margin-top:2px">'
+             + 'Chưa có band tự tính — cần bạn nhập.</div>';
+      }
       return '<div><label>' + s + '</label>' +
         '<input type="number" step="0.5" min="0" max="9" data-band="' + s + '" value="' + val + '">' +
         hint +

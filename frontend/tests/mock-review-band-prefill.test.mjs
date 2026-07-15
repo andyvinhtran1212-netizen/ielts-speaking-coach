@@ -119,3 +119,25 @@ describe('admin-mock-reviews — every band pre-fills, not just Writing', () => 
     assert.match(JS, /var val = \(fb\[s\] != null\) \? fb\[s\] : \(draftBand != null \? draftBand : ''\)/);
   });
 });
+
+// Codex P2 (PR #782): Speaking has no draft source — nothing derives it (no
+// answer key like L/R, no per-essay approval like Writing). It arrives blank
+// among pre-filled boxes and doSave refuses it. Presenting the form as one-click
+// and then rejecting it is the lie; the box has to say it needs a band.
+describe('admin-mock-reviews — a skill with no draft says it needs typing', () => {
+  test('an undraftable, unblankable skill is captioned, not left bare', () => {
+    assert.match(JS, /if \(!hint && fb\[s\] == null\) \{[\s\S]*?Chưa có band tự tính — cần bạn nhập/);
+  });
+  test('the caption never overrides a draft hint or the blankable notice', () => {
+    // It is the LAST fallback: `!hint` guards it, so a pre-filled or blankable
+    // skill keeps its own, more specific explanation.
+    const body = JS.match(/var hint = \(draftBand != null[\s\S]*?Chưa có band tự tính[\s\S]*?\n      \}/);
+    assert.ok(body, 'the hint chain not found — sentinel is stale');
+    const iBlank = body[0].indexOf('blankableSkills()');
+    const iNeed = body[0].indexOf('Chưa có band tự tính');
+    assert.ok(iBlank !== -1 && iBlank < iNeed, 'the blankable notice must be checked first');
+  });
+  test('a confirmed band gets no caption at all', () => {
+    assert.match(JS, /if \(!hint && fb\[s\] == null\)/);
+  });
+});
