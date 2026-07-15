@@ -144,7 +144,16 @@
   }
   function wCell(w) {
     if (!w || (w.task1_wc == null && w.task2_wc == null)) return '<span class="mr-muted">—</span>';
-    return 'T1 ' + (w.task1_wc != null ? w.task1_wc : '—') + ' · T2 ' + (w.task2_wc != null ? w.task2_wc : '—') + ' từ';
+    var wc = 'T1 ' + (w.task1_wc != null ? w.task1_wc : '—') + ' · T2 ' + (w.task2_wc != null ? w.task2_wc : '—') + ' từ';
+    if (w.band == null) return wc;
+    // A CONFIRMED band reads like Listening/Reading (bold "B6.5"). A suggestion
+    // must NOT: it is synced from the two graded essays and nobody has signed off
+    // on it, so it stays muted and tilde-prefixed ("~B6.5"). Dressing it up as a
+    // settled band would show the examiner a score no examiner chose.
+    var b = 'B' + Number(w.band).toFixed(1);
+    return w.band_is_final
+      ? wc + ' · <b>' + b + '</b>'
+      : wc + ' · <span class="mr-muted" title="Gợi ý từ 2 bài đã chấm — chưa chốt">~' + b + '</span>';
   }
   function spkCell(s) {
     return (s && s.count) ? (s.count + ' session') : '<span class="mr-muted">—</span>';

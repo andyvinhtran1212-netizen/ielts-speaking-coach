@@ -26,3 +26,27 @@ describe('admin-mock-reviews — Writing band flows back from graded essays', ()
     assert.match(JS, /\(fb\[s\] != null\) \? fb\[s\]/);
   });
 });
+
+// The roster showed word counts only, so a Writing band the backend already had
+// was invisible until the examiner opened the row — while Listening/Reading
+// showed theirs inline. Source-sentinel (the page is a DOM/IIFE).
+describe('admin-mock-reviews — roster Writing cell carries the band', () => {
+  test('wCell renders the band next to the word counts', () => {
+    const body = JS.match(/function wCell\(w\) \{([\s\S]*?)\n  \}/);
+    assert.ok(body, 'wCell() not found — sentinel is stale');
+    assert.match(body[1], /w\.band == null/);            // no band → counts only
+    assert.match(body[1], /Number\(w\.band\)\.toFixed\(1\)/);
+  });
+  // A suggestion rendered like a confirmed band would show the examiner a score
+  // nobody signed off on — the two states must be visually distinct.
+  test('a suggestion is muted + tilde-prefixed; only a confirmed band is bold', () => {
+    const body = JS.match(/function wCell\(w\) \{([\s\S]*?)\n  \}/);
+    assert.match(body[1], /w\.band_is_final/);
+    assert.match(body[1], /<b>' \+ b \+ '<\/b>/);         // confirmed → bold, like L/R
+    assert.match(body[1], /mr-muted[\s\S]*?'~' \+ b|mr-muted[\s\S]*?~' \+ b/);   // suggestion → muted "~B6.5"
+  });
+  test('wCell still degrades to "—" when the sitting has no writing at all', () => {
+    const body = JS.match(/function wCell\(w\) \{([\s\S]*?)\n  \}/);
+    assert.match(body[1], /task1_wc == null && w\.task2_wc == null/);
+  });
+});
