@@ -691,11 +691,33 @@ def roster(mock_exam_id: str) -> list[dict]:
     r_by_id = _load_attempts("reading_test_attempts", "reading_attempt_id")
 
     reviews = supabase_admin.table("mock_exam_reviews").select(
-        "id, sitting_id, status, claimed_by",
+        # ai_draft/final_bands feed the roster's Writing band (see _writing_band):
+        # the column showed word counts only, so the examiner had to open every
+        # row to see a band Listening/Reading already show inline.
+        "id, sitting_id, status, claimed_by, ai_draft, final_bands",
     ).in_("sitting_id", [s["id"] for s in sittings]).execute().data or []
     review_by_sitting = {rv["sitting_id"]: rv for rv in reviews}
 
     names = resolve_display_names(s.get("user_id") for s in sittings)
+
+    def _writing_band(rv: dict) -> tuple:
+        """The roster's Writing band + whether it is CONFIRMED, as (band, is_final).
+
+        Two very different numbers can live here and the caller must be able to
+        tell them apart — rendering a suggestion as a settled band would show the
+        examiner a score nobody confirmed:
+          - final_bands.writing        → the examiner's confirmed band
+          - ai_draft.writing.band      → the suggestion synced from the two graded
+                                         essays (sync_writing_band_for_essay)
+        Confirmed wins; absent both, there is no band yet (None, False).
+        """
+        final = (rv.get("final_bands") or {}).get("writing")
+        if final is not None:
+            return _coerce_band(final), True
+        draft = ((rv.get("ai_draft") or {}).get("writing") or {}).get("band")
+        if draft is not None:
+            return _coerce_band(draft), False
+        return None, False
 
     def _lr(attempt: Optional[dict]) -> dict:
         # max mirrors the review endpoints' own derivation (len grading_details).
@@ -711,6 +733,7 @@ def roster(mock_exam_id: str) -> list[dict]:
     for s in sittings:
         ws = s.get("writing_submission") or {}
         rv = review_by_sitting.get(s["id"]) or {}
+        _wb = _writing_band(rv)
         out.append({
             "sitting_id":     s["id"],
             "review_id":      rv.get("id"),
@@ -723,6 +746,8 @@ def roster(mock_exam_id: str) -> list[dict]:
                 "task2_wc":       (ws.get("task2") or {}).get("word_count"),
                 "task1_essay_id": s.get("essay_task1_id"),
                 "task2_essay_id": s.get("essay_task2_id"),
+                "band":           _wb[0],
+                "band_is_final":  _wb[1],
             },
             "speaking":       {"count": len(s.get("speaking_session_ids") or [])},
             "review_status":  rv.get("status"),

@@ -143,8 +143,32 @@
     return '<b>' + o.score + '</b>/' + (o.max || '?') + (o.band != null ? ' · B' + Number(o.band).toFixed(1) : '');
   }
   function wCell(w) {
-    if (!w || (w.task1_wc == null && w.task2_wc == null)) return '<span class="mr-muted">—</span>';
-    return 'T1 ' + (w.task1_wc != null ? w.task1_wc : '—') + ' · T2 ' + (w.task2_wc != null ? w.task2_wc : '—') + ' từ';
+    if (!w) return '<span class="mr-muted">—</span>';
+    // Word counts and band are INDEPENDENT — the cell is empty only when both
+    // are. (Codex review, PR #775: the first cut returned "—" on missing counts
+    // before ever looking at the band, so a sitting carrying a band but no
+    // submission blob would hide the very thing this cell exists to show. Not
+    // reachable on today's data — every count-less sitting also lacks essays —
+    // but the guard conflated two unrelated facts.)
+    var hasWc = (w.task1_wc != null || w.task2_wc != null);
+    if (!hasWc && w.band == null) return '<span class="mr-muted">—</span>';
+
+    var parts = [];
+    if (hasWc) {
+      parts.push('T1 ' + (w.task1_wc != null ? w.task1_wc : '—') +
+                 ' · T2 ' + (w.task2_wc != null ? w.task2_wc : '—') + ' từ');
+    }
+    if (w.band != null) {
+      // A CONFIRMED band reads like Listening/Reading (bold "B6.5"). A suggestion
+      // must NOT: it is synced from the two graded essays and nobody has signed
+      // off on it, so it stays muted and tilde-prefixed ("~B6.5"). Dressing it up
+      // as a settled band would show the examiner a score no examiner chose.
+      var b = 'B' + Number(w.band).toFixed(1);
+      parts.push(w.band_is_final
+        ? '<b>' + b + '</b>'
+        : '<span class="mr-muted" title="Gợi ý từ 2 bài đã chấm — chưa chốt">~' + b + '</span>');
+    }
+    return parts.join(' · ');
   }
   function spkCell(s) {
     return (s && s.count) ? (s.count + ' session') : '<span class="mr-muted">—</span>';

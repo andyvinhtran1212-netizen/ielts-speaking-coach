@@ -1181,6 +1181,36 @@ def test_roster_lists_students_with_per_skill_snapshot(fake_db, svc, wf):
     assert an["claimed"] is False
 
 
+def test_roster_writing_band_absent_suggested_then_confirmed(fake_db, svc, wf):
+    """The roster's Writing cell carries a band the way Listening/Reading do —
+    but it must say WHICH KIND, or the examiner reads an unconfirmed suggestion
+    as a settled score. Three states, one row, in order."""
+    fake_db.seed("mock_exam_sittings", {"id": "sit-1", "mock_exam_id": "ex-1",
+                                        "status": "submitted", "user_id": "u-1",
+                                        "writing_submission": {"task1": {"word_count": 180},
+                                                               "task2": {"word_count": 260}}})
+    fake_db.seed("mock_exam_reviews", {"id": "rv-1", "sitting_id": "sit-1",
+                                       "status": "queued", "ai_draft": {}, "final_bands": {}})
+
+    # 1. nothing yet → no band, and the word counts still render
+    w = wf.roster("ex-1")[0]["writing"]
+    assert w["band"] is None and w["band_is_final"] is False
+    assert (w["task1_wc"], w["task2_wc"]) == (180, 260)
+
+    # 2. sync landed a suggestion → surfaced, but flagged as NOT final
+    rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-1")
+    rv["ai_draft"] = {"writing": {"band": 6.5, "task1_band": 6.0, "task2_band": 7.0}}
+    w = wf.roster("ex-1")[0]["writing"]
+    assert w["band"] == 6.5 and w["band_is_final"] is False
+
+    # 3. examiner confirmed a DIFFERENT band → the confirmed one wins outright.
+    #    (If the draft ever won here the roster would contradict the result the
+    #    student is given.)
+    rv["final_bands"] = {"writing": 7.0, "overall": 7.0}
+    w = wf.roster("ex-1")[0]["writing"]
+    assert w["band"] == 7.0 and w["band_is_final"] is True
+
+
 def test_roster_excludes_void_and_handles_in_progress(fake_db, svc, wf):
     """Roster includes still-in-progress sittings (no attempts yet → None cells,
     no review to click) but excludes voided ones."""
