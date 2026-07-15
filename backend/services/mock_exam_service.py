@@ -818,18 +818,36 @@ def writing_task_states(sitting: dict, delivered: set) -> list:
     a judgement the admin may simply not have recorded. The page must be able to
     explain the gap either way.
     """
+    # A retake may be assigned Listening/Reading only — assigned_skills is set
+    # ONLY when the sitting is created from a retake assignment, so a non-empty
+    # list without 'writing' means this student was never set Writing. The TRF
+    # renders every non-delivered task as a gap, so returning tasks here would
+    # tell them they failed to submit work that was never asked for (Codex
+    # review, PR #777). Read off the sitting — mirrors _required_skills' retake
+    # branch without paying its two queries.
+    assigned = sitting.get("assigned_skills") or []
+    if assigned and "writing" not in assigned:
+        return []
+
     ws = sitting.get("writing_submission") or {}
     ids = {"task1": sitting.get("essay_task1_id"), "task2": sitting.get("essay_task2_id")}
 
     out = []
     for task in ("task1", "task2"):
         eid = ids[task]
-        wc = (ws.get(task) or {}).get("word_count")
+        blob = ws.get(task) or {}
+        wc = blob.get("word_count")
         minimum = _WRITING_MIN_WORDS[task]
+        # Did the student actually write anything? The essay id is NOT the test:
+        # _promote_writing_essays is best-effort and returns without stamping one
+        # (e.g. no students row), so text can sit on the sitting with no essay.
+        # Calling that "missing" would tell the student they never submitted work
+        # the row itself has captured (Codex review, PR #777).
+        wrote = bool(str(blob.get("text") or "").strip()) or bool(wc)
 
         if eid and str(eid) in delivered:
             state = "delivered"
-        elif not eid:
+        elif not wrote:
             state = "missing"
         elif wc is not None and wc < minimum:
             state = "too_short"

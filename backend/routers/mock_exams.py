@@ -247,6 +247,9 @@ async def get_result(
         # graded — the student saw one link, one silent gap, no explanation.
         # This lets the TRF show the graded task AND state why the other is
         # absent (2026-07-15).
+        #
+        # Empty when the sitting has no Writing at all (an L/R-only retake) —
+        # writing_task_states decides that off the sitting's own assigned_skills.
         "writing_tasks":        svc.writing_task_states(sitting, delivered),
         # The admin's retest decision per skill, so the TRF can tell the student
         # which skills to redo. Absent/false = not flagged.
