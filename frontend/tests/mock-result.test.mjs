@@ -53,13 +53,45 @@ describe('mock-result — chữa bài links per skill', () => {
     assert.match(HTML, /reading-review\.html\?attempt_id=' \+ encodeURIComponent\(data\.reading_attempt_id\)/);
   });
   test('Writing tasks link to the delivered essay feedback by id', () => {
-    assert.match(HTML, /writing-result\.html\?id=' \+ encodeURIComponent\(data\.essay_task1_id\)/);
-    assert.match(HTML, /writing-result\.html\?id=' \+ encodeURIComponent\(data\.essay_task2_id\)/);
+    // Driven off writing_tasks[] now, not the two flat ids: the payload carries a
+    // per-task STATE so the page can also explain a task it cannot link.
+    assert.match(HTML, /writing-result\.html\?id=' \+ encodeURIComponent\(t\.essay_id\)/);
+    assert.match(HTML, /t\.state === 'delivered' && t\.essay_id/);
   });
   test('review cards render only for skills present in the payload', () => {
-    // Each link is pushed under an `if (data.<id>)` guard, not unconditionally.
+    // Each link is pushed under a guard, not unconditionally.
     assert.match(HTML, /if \(data\.listening_attempt_id\) reviews\.push/);
-    assert.match(HTML, /if \(data\.essay_task2_id\) reviews\.push/);
+    assert.match(HTML, /if \(data\.reading_attempt_id\) reviews\.push/);
+  });
+});
+
+// A Writing task with no feedback used to be skipped in silence — the student
+// saw one link and an unexplained gap, which reads as "the system lost my essay".
+describe('mock-result — a Writing task with no feedback says why', () => {
+  test('every non-delivered task gets a card', () => {
+    assert.match(HTML, /filter\(function \(t\) \{ return t\.state !== 'delivered'; \}\)/);
+  });
+  test('too_short states the real numbers — word count vs the IELTS minimum', () => {
+    assert.match(HTML, /t\.state === 'too_short'/);
+    assert.match(HTML, /Bài không đạt yêu cầu/);
+    assert.match(HTML, /t\.word_count/);
+    assert.match(HTML, /t\.min_words/);
+  });
+  test('missing and not-graded are told apart, not lumped into "too short"', () => {
+    // Blaming an un-graded long essay on length would tell the student something
+    // false about their own work.
+    assert.match(HTML, /t\.state === 'missing'/);
+    assert.match(HTML, /Không có bài nộp/);
+    assert.match(HTML, /Chưa có nhận xét/);
+  });
+  test('"cần thi lại" comes ONLY from the examiner flag, never from the gap', () => {
+    // not-graded is what HAPPENED; "must retake" is what the examiner DECIDED.
+    // The page must not invent the second from the first.
+    assert.match(HTML, /var mustRetakeWriting = !!retestFlags\.writing;/);
+    assert.match(HTML, /mustRetakeWriting[\s\S]*?Giám khảo yêu cầu thi lại phần Writing/);
+  });
+  test('the gap section stays hidden when every task was graded', () => {
+    assert.match(HTML, /if \(!wrap \|\| !gaps\.length\) return;/);
   });
 });
 
