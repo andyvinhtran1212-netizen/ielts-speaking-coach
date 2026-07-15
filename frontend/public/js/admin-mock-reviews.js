@@ -60,8 +60,14 @@
       var submitted = rows.filter(function (r) { return r.review_id; }).length;
       el('queue-count').textContent = rows.length + ' học viên · ' + submitted + ' đã nộp đủ';
       if (!rows.length) { list.innerHTML = '<p class="mr-muted">Chưa có học viên nào trong đề này.</p>'; return; }
+      // The bar carries TWO actions with different preconditions. Grading needs a
+      // promoted essay; releasing only needs a submitted sitting — an L/R-only
+      // retake has results to publish and no essay at all. Gating the whole bar
+      // on `gradable` hid the release button from exactly those (Codex review,
+      // PR #778).
       var gradable = rows.some(hasWritingEssays);
-      list.innerHTML = (gradable ? bulkBarHtml() : '') + renderRosterTable(rows);
+      var anySubmitted = rows.some(function (r) { return !!r.review_id; });
+      list.innerHTML = (anySubmitted ? bulkBarHtml(gradable) : '') + renderRosterTable(rows);
       list.querySelectorAll('[data-review-id]').forEach(function (tr) {
         tr.addEventListener('click', function (ev) {
           if (ev.target && ev.target.closest('.mr-check')) return;    // checkbox click ≠ open
@@ -81,17 +87,22 @@
     }
   }
 
-  function bulkBarHtml() {
+  // `gradable` = at least one sitting has a promoted Writing essay. The grading
+  // half is dropped without one; the release half always shows, because a
+  // submitted sitting has results to publish whether or not it involved Writing.
+  function bulkBarHtml(gradable) {
     return '<div class="mr-bulkbar">' +
       '<label class="mr-check"><input type="checkbox" id="bulk-all"> Chọn tất cả</label>' +
       '<span style="flex:1"></span>' +
-      '<span class="mr-muted">Chấm Writing hàng loạt:</span>' +
-      '<select id="bulk-tier"><option value="standard">Standard</option><option value="instructor">Instructor</option></select>' +
-      '<button class="av-btn av-btn--primary" id="bulk-grade-btn" disabled>Đưa vào hàng chấm</button>' +
+      (gradable
+        ? '<span class="mr-muted">Chấm Writing hàng loạt:</span>' +
+          '<select id="bulk-tier"><option value="standard">Standard</option><option value="instructor">Instructor</option></select>' +
+          '<button class="av-btn av-btn--primary" id="bulk-grade-btn" disabled>Đưa vào hàng chấm</button>' +
+          '<span class="mr-bulkbar__sep" aria-hidden="true"></span>'
+        : '') +
       // CÔNG BỐ publishes to real students, so it never sits next to the grading
       // action as an equal — it is separated and labelled with the count it will
       // publish, and confirms before firing.
-      '<span class="mr-bulkbar__sep" aria-hidden="true"></span>' +
       '<button class="av-btn av-btn--primary" id="bulk-release-btn" disabled>📤 Trả bài</button>' +
       '</div>';
   }
@@ -109,8 +120,12 @@
     }
     function refresh() {
       var n = checked().length;
-      btn.disabled = !n;
-      btn.textContent = n ? ('Đưa vào hàng chấm (' + n + ')') : 'Đưa vào hàng chấm';
+      // btn is absent when no sitting has a promoted essay — the bar is then
+      // release-only, and touching it would throw on the first checkbox click.
+      if (btn) {
+        btn.disabled = !n;
+        btn.textContent = n ? ('Đưa vào hàng chấm (' + n + ')') : 'Đưa vào hàng chấm';
+      }
       var r = releasable().length;
       rel.disabled = !r;
       rel.textContent = r ? ('📤 Trả bài (' + r + ')') : '📤 Trả bài';
@@ -123,7 +138,7 @@
       boxes.forEach(function (b) { b.checked = all.checked; });
       refresh();
     });
-    btn.addEventListener('click', function () {
+    if (btn) btn.addEventListener('click', function () {
       var ids = checked().map(function (b) { return b.getAttribute('data-sitting-id'); });
       if (ids.length) bulkGrade(ids, el('bulk-tier').value);
     });
@@ -153,9 +168,14 @@
       var ok = (res.released || []).length, sk = (res.skipped || []);
       toast('Đã công bố ' + ok + '/' + sittingIds.length + ' bài.'
         + (sk.length ? ' ' + sk.length + ' bài chưa công bố được.' : ''));
-      if (sk.length) renderReleaseSkips(sk);
-      loadRoster();
+      // AWAIT the reload before rendering the refusals: loadRoster()'s first act
+      // is to blank #queue-list, which is where the box goes — rendering first
+      // wiped it before the admin could read it, leaving only the toast count and
+      // hiding WHICH students were not published. That is the exact failure this
+      // box exists to prevent (Codex review, PR #778).
+      await loadRoster();
       loadRetestSummary();
+      if (sk.length) renderReleaseSkips(sk);
     } catch (e) {
       toast('Công bố thất bại: ' + (e && e.message));
       loadRoster();   // canonical refetch — never leave the roster guessing

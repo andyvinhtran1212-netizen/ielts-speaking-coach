@@ -171,3 +171,35 @@ describe('roster — bulk release (công bố hàng loạt)', () => {
     assert.doesNotMatch(JS, /var check = \(hasWritingEssays\(r\) && !flagged\)/);
   });
 });
+
+// Two Codex P2s on PR #778 — both were mine, and the first defeated the very
+// feature it lived in.
+describe('roster — bulk release, review fixes', () => {
+  test('refusals render AFTER the roster reload, not before it wipes them', () => {
+    // loadRoster()'s first act is to blank #queue-list, which is where the box
+    // goes. Rendering first wiped it before the admin could read it — leaving
+    // only a toast count and hiding WHICH students were not published.
+    const body = JS.match(/async function bulkRelease\(sittingIds\) \{([\s\S]*?)\n  \}/);
+    assert.ok(body, 'bulkRelease() not found — sentinel is stale');
+    const iLoad = body[1].indexOf('await loadRoster()');
+    const iSkips = body[1].indexOf('renderReleaseSkips(sk)');
+    assert.ok(iLoad !== -1, 'the roster reload must be awaited');
+    assert.ok(iSkips > iLoad, 'renderReleaseSkips must run AFTER the reload');
+  });
+  test('the release control shows for a roster with no Writing essays at all', () => {
+    // An L/R-only retake has results release_results can publish and no essay to
+    // grade; gating the whole bar on `gradable` hid the button from exactly those.
+    assert.match(JS, /var anySubmitted = rows\.some\(function \(r\) \{ return !!r\.review_id; \}\)/);
+    assert.match(JS, /anySubmitted \? bulkBarHtml\(gradable\)/);
+  });
+  test('the grading half is what drops without essays — the release half stays', () => {
+    const body = JS.match(/function bulkBarHtml\(gradable\) \{([\s\S]*?)\n  \}/);
+    assert.ok(body, 'bulkBarHtml() not found — sentinel is stale');
+    assert.match(body[1], /gradable[\s\S]*?bulk-grade-btn[\s\S]*?: ''/);
+    assert.match(body[1], /bulk-release-btn/);
+  });
+  test('wiring survives a missing grade button', () => {
+    assert.match(JS, /if \(btn\) \{[\s\S]*?btn\.disabled = !n;/);
+    assert.match(JS, /if \(btn\) btn\.addEventListener\('click'/);
+  });
+});
