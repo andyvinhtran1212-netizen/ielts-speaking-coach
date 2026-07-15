@@ -163,6 +163,19 @@
 
   </aver-admin-chrome>
 
+  <!-- Embedded inside the Mock Test cockpit (?embed=1) → hide the admin nav so
+       the cockpit's chrome shows once. Runs before the deferred chrome module,
+       so the attribute is present when the element upgrades. -->
+  <script>
+    (function () {
+      try {
+        if (new URLSearchParams(location.search).get('embed') === '1') {
+          var el = document.querySelector('aver-admin-chrome');
+          if (el) el.setAttribute('embed', '');
+        }
+      } catch (e) { /* no-op */ }
+    })();
+  </script>
   <script type="module" src="/js/components/aver-admin-chrome.js"></script>
   <script src="/js/error-reporter.js"></script>
   <script type="module" src="/js/admin-writing-queue.js"></script>
