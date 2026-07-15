@@ -20,6 +20,7 @@ const QUEUE_HTML = read('public', 'pages', 'admin', 'writing', 'queue.html');
 const QUEUE_JS = read('public', 'js', 'admin-writing-queue.js');
 const GRADE_HTML = read('public', 'pages', 'admin', 'writing', 'grade.html');
 const STATUS_HTML = read('public', 'pages', 'admin', 'writing', 'status.html');
+const INSTRUCTOR_QUEUE_HTML = read('public', 'pages', 'admin', 'writing', 'instructor-queue.html');
 
 describe('mock-tests cockpit — page shell', () => {
   test('uses the admin chrome (active=mock-tests) + design-system sheets', () => {
@@ -129,11 +130,29 @@ describe('writing queue — opening an essay from the cockpit stays chrome-less'
   });
   // grade.html and status.html are both row-click destinations, so both need
   // the hook queue.html already had — otherwise the flag arrives and is ignored.
-  for (const [name, html] of [['grade.html', GRADE_HTML], ['status.html', STATUS_HTML]]) {
+  for (const [name, html] of [
+    ['grade.html', GRADE_HTML],
+    ['status.html', STATUS_HTML],
+    ['instructor-queue.html', INSTRUCTOR_QUEUE_HTML],
+  ]) {
     test(`${name} honours ?embed=1 by putting the chrome in embed mode`, () => {
       assert.match(html, /get\('embed'\) === '1'[\s\S]*?setAttribute\('embed', ''\)/);
     });
   }
+  // grade → (release claim) → instructor-queue → (claim) → grade is a LOOP: a
+  // flag dropped at either hop re-nests a whole admin page in the tab panel.
+  test('the instructor-claim loop keeps the flags at both hops', () => {
+    assert.match(GRADE_HTML, /_withEmbed\('\/pages\/admin\/writing\/instructor-queue\.html'\)/);
+    assert.match(INSTRUCTOR_QUEUE_HTML,
+      /_withEmbed\('\/pages\/admin\/writing\/grade\.html\?essay_id=' \+ encodeURIComponent\(review\.essay_id\)\)/);
+  });
+  test('instructor-queue._withEmbed forwards both flags and no-ops off the cockpit', () => {
+    const body = INSTRUCTOR_QUEUE_HTML.match(/function _withEmbed\(url\) \{([\s\S]*?)\n    \}/);
+    assert.ok(body, '_withEmbed() not found in instructor-queue — sentinel is stale');
+    assert.match(body[1], /get\('embed'\) === '1'/);
+    assert.match(body[1], /get\('mocklane'\) === '1'/);
+    assert.match(body[1], /if \(!out\.length\) return url;/);   // standalone → untouched
+  });
   test('grade.html keeps the flags on every hop out (next essay + back to queue)', () => {
     assert.match(GRADE_HTML, /_withEmbed\('\/pages\/admin\/writing\/grade\.html\?essay_id=' \+ encodeURIComponent\(nxt\)\)/);
     assert.match(GRADE_HTML, /_withEmbed\('\/pages\/admin\/writing\/queue\.html'\)/);

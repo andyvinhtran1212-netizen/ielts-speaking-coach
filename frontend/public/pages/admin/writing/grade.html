@@ -1922,7 +1922,7 @@
         await window.api.post(
           '/admin/instructor/reviews/' + encodeURIComponent(_currentReview.id) + '/release', {},
         );
-        window.location.href = '/pages/admin/writing/instructor-queue.html';
+        window.location.href = _withEmbed('/pages/admin/writing/instructor-queue.html');
       } catch (err) {
         setAlert('error', 'Lỗi release: ' + (err.message || ''));
       }
