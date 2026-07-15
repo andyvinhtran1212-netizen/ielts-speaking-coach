@@ -557,7 +557,25 @@ def release_results(
     # here + the status-guarded UPDATE below is race-free.
     review = get_review(review_id)
     if review:
-        pending = _writing_pending_tasks(review["sitting_id"])
+        # The gate exists to stop a Writing BAND reaching the student with no
+        # chữa bài behind it. With the band blank (2026-07-15: an uncomputable
+        # Writing may be left empty) there is no band to mismatch, so the gate has
+        # nothing to protect — and blocking anyway stranded the whole result over a
+        # skill that was never scored. The student is still told what happened to
+        # each task (writing_task_states → the TRF's reason cards).
+        #
+        # RACE, narrowed but not eliminated: the check above is unconditional
+        # precisely because essays never regress reviewed→pending, so a pre-read
+        # cannot go stale in the unsafe direction. final_bands CAN — a concurrent
+        # save_final_bands could add a Writing band between this read and the
+        # UPDATE, publishing a band whose essay is still pending. It needs the
+        # SAME admin saving and releasing at once (both calls filter on
+        # claimed_by), and since 2026-07-15 the TRF explains a task with no
+        # feedback instead of leaving a silent hole — so the worst case is a band
+        # beside "Chưa có nhận xét", not an unexplained gap. Accepted knowingly;
+        # revisit if release ever stops being claimant-scoped.
+        has_writing_band = (review.get("final_bands") or {}).get("writing") is not None
+        pending = _writing_pending_tasks(review["sitting_id"]) if has_writing_band else []
         if pending:
             raise ConflictError(
                 "Chưa thể công bố: bài Writing chưa được chấm & duyệt ("

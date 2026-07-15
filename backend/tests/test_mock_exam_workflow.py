@@ -2518,3 +2518,55 @@ def test_writing_blank_leaves_the_overall_blank_and_saves(fake_db, svc, wf, monk
     assert fb["listening"] == 6.0 and fb["reading"] == 6.5
     assert fb["overall"] is None
     assert out["status"] == "reviewed"
+
+
+# ── Release gate vs a blank Writing band (2026-07-15) ─────────────────
+#
+# #783 let an uncomputable Writing band be left blank, but the release gate still
+# refused to publish while an essay was unresolved — so abe94da8 sat 'reviewed'
+# and unpublishable over a skill it was never scored on. The gate exists to stop a
+# BAND reaching the student with no chữa bài; with no band there is nothing to
+# protect.
+
+def _seed_release(fake_db, admin, final_bands):
+    fake_db.seed("mock_exam_sittings", {"id": "sit-r", "mock_exam_id": "ex-1",
+                                        "status": "submitted", "user_id": "u-r",
+                                        "sealed": True, "needs_retest": False})
+    fake_db.seed("mock_exam_reviews", {"id": "rv-r", "sitting_id": "sit-r",
+                                       "status": "reviewed", "claimed_by": admin,
+                                       "final_bands": final_bands, "ai_draft": {},
+                                       "retest_flags": {}})
+
+
+def test_release_allowed_when_the_writing_band_is_blank(fake_db, svc, wf, monkeypatch):
+    """The production shape: L/R banded, Writing blank, Task 1 still pending."""
+    admin = "admin-1"
+    _seed_release(fake_db, admin, {"listening": 4.0, "reading": 3.5, "overall": None})
+    monkeypatch.setattr(wf, "_writing_pending_tasks", lambda _s: ["Task 1"])
+
+    wf.release_results("rv-r", admin)
+
+    sit = next(s for s in fake_db.rows("mock_exam_sittings") if s["id"] == "sit-r")
+    assert sit["status"] == "released" and sit["sealed"] is False
+
+
+def test_release_still_blocked_when_a_writing_band_IS_published(fake_db, svc, wf, monkeypatch):
+    """The gate's whole point — a band with no chữa bài behind it stays blocked."""
+    admin = "admin-1"
+    _seed_release(fake_db, admin, {"listening": 6.0, "reading": 6.5, "writing": 6.0, "overall": 6.0})
+    monkeypatch.setattr(wf, "_writing_pending_tasks", lambda _s: ["Task 2"])
+
+    with pytest.raises(wf.ConflictError, match="Task 2"):
+        wf.release_results("rv-r", admin)
+
+    sit = next(s for s in fake_db.rows("mock_exam_sittings") if s["id"] == "sit-r")
+    assert sit["sealed"] is True
+
+
+def test_release_not_gated_at_all_when_writing_is_resolved(fake_db, svc, wf, monkeypatch):
+    admin = "admin-1"
+    _seed_release(fake_db, admin, {"listening": 6.0, "reading": 6.5, "writing": 6.0, "overall": 6.0})
+    monkeypatch.setattr(wf, "_writing_pending_tasks", lambda _s: [])
+    wf.release_results("rv-r", admin)
+    sit = next(s for s in fake_db.rows("mock_exam_sittings") if s["id"] == "sit-r")
+    assert sit["sealed"] is False
