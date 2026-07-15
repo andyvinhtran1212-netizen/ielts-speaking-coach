@@ -256,6 +256,21 @@
     })();
   </script>
   </aver-admin-chrome>
+
+  <!-- Opened from the Mock Test cockpit's queue (?embed=1) → hide the admin nav
+       so the cockpit's chrome shows once. The queue routes pending/grading rows
+       here, so this page needs the hook as much as grade.html does. Runs before
+       the deferred chrome module, so the attribute is present on upgrade. -->
+  <script>
+    (function () {
+      try {
+        if (new URLSearchParams(location.search).get('embed') === '1') {
+          var el = document.querySelector('aver-admin-chrome');
+          if (el) el.setAttribute('embed', '');
+        }
+      } catch (e) { /* no-op */ }
+    })();
+  </script>
   <script type="module" src="/js/components/aver-admin-chrome.js"></script>
 </body>
 </html>
