@@ -9,8 +9,7 @@
     (function () {
       try {
         var stored = localStorage.getItem('av-theme');
-        var prefersDark = window.matchMedia &&
-                          window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
         var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
         document.documentElement.setAttribute('data-theme', theme);
       } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
@@ -22,50 +21,122 @@
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
   <link rel="stylesheet" href="/css/aver-design/components.css" />
   <link rel="stylesheet" href="/css/tailwind.build.css" />
+  <script type="module" src="/js/components/aver-chrome.js"></script>
   <style>
-    .trf-wrap { max-width:var(--av-width-read,760px); margin:0 auto; padding:var(--av-space-8) var(--av-space-4) var(--av-space-16); }
-    .trf-state { padding:var(--av-space-16) 0; text-align:center; }
-    .trf-state h1 { font-size:var(--av-fs-xl,22px); font-weight:700; color:var(--av-text-primary); margin-bottom:var(--av-space-2); }
-    .trf-state p { color:var(--av-text-secondary); max-width:460px; margin:0 auto; line-height:1.6; }
-    .trf-state--error { color:var(--av-error); }
-    .trf-header { margin-bottom:var(--av-space-6); }
-    .trf-h1 { font-size:var(--av-fs-2xl,24px); font-weight:800; color:var(--av-text-primary); line-height:var(--av-lh-snug,1.4); }
-    .trf-released { color:var(--av-text-secondary); font-size:13px; margin-top:var(--av-space-1); }
-    .trf-band-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:var(--av-space-3); }
-    .trf-band { background:var(--av-surface-card); border:1px solid var(--av-border-subtle); border-radius:var(--av-radius-lg); padding:var(--av-space-4); text-align:center; box-shadow:var(--av-shadow-sm); }
-    .trf-band-label { font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--av-text-secondary); }
-    .trf-band-val { font-size:32px; font-weight:800; color:var(--av-text-primary); font-family:var(--av-font-mono); font-variant-numeric:tabular-nums; }
-    .trf-overall { background:var(--av-primary); border-color:transparent; }
-    .trf-overall .trf-band-label, .trf-overall .trf-band-val { color:var(--av-text-on-primary); }
-    .trf-section { margin-top:var(--av-space-6); }
-    .trf-h2 { font-size:15px; font-weight:700; color:var(--av-text-primary); margin-bottom:var(--av-space-2); }
-    .trf-box { background:var(--av-surface-card); border:1px solid var(--av-border-subtle); border-radius:var(--av-radius-lg); padding:var(--av-space-4); line-height:1.7; color:var(--av-text-primary); white-space:pre-wrap; box-shadow:var(--av-shadow-sm); }
-    .trf-links { display:flex; gap:var(--av-space-2); flex-wrap:wrap; }
-    .trf-note { background:var(--av-surface-card); border:1px solid var(--av-border-subtle); border-radius:var(--av-radius-md); padding:var(--av-space-3); margin-bottom:var(--av-space-2); }
-    .trf-note__skill { font-weight:600; text-transform:capitalize; color:var(--av-text-primary); font-size:13px; }
-    .trf-note__body { color:var(--av-text-secondary); line-height:1.6; white-space:pre-wrap; margin-top:var(--av-space-1); }
-    .trf-foot { margin-top:var(--av-space-8); font-size:12px; color:var(--av-text-secondary); line-height:1.6; }
+    .trf-wrap { max-width: var(--av-width-read, 760px); margin: 0 auto;
+      padding: var(--av-space-8) var(--av-space-4) var(--av-space-16); }
+    .trf-state { padding: var(--av-space-16) 0; text-align: center; }
+    .trf-state h1 { font-size: var(--av-fs-xl); font-weight: var(--av-fw-bold);
+      color: var(--av-text-primary); margin-bottom: var(--av-space-2); }
+    .trf-state p { color: var(--av-text-secondary); max-width: 460px; margin: 0 auto;
+      line-height: var(--av-lh-relaxed); }
+    .trf-state--error { color: var(--av-error); }
+
+    .trf-back { display: inline-flex; align-items: center; gap: var(--av-space-1);
+      color: var(--av-text-muted); font-size: var(--av-fs-sm); text-decoration: none;
+      margin-bottom: var(--av-space-4); }
+    .trf-back:hover { color: var(--av-text-primary); }
+
+    .trf-header { margin-bottom: var(--av-space-6); }
+    .trf-eyebrow { font-size: var(--av-fs-xs); text-transform: uppercase;
+      letter-spacing: var(--av-tracking-wide); color: var(--av-text-faint);
+      font-weight: var(--av-fw-semibold); }
+    .trf-h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-bold);
+      color: var(--av-text-primary); line-height: var(--av-lh-snug); margin-top: var(--av-space-1); }
+    .trf-released { color: var(--av-text-muted); font-size: var(--av-fs-sm); margin-top: var(--av-space-1); }
+
+    /* Overall band — the hero of a score report. */
+    .trf-overall { display: flex; align-items: center; gap: var(--av-space-4);
+      background: var(--av-primary); color: var(--av-text-on-primary);
+      border-radius: var(--av-radius-lg); padding: var(--av-space-6);
+      box-shadow: var(--av-shadow-md); }
+    .trf-overall__val { font-family: var(--av-font-mono); font-size: 56px;
+      font-weight: var(--av-fw-bold); line-height: 1; font-variant-numeric: tabular-nums; }
+    .trf-overall__label { font-size: var(--av-fs-xs); text-transform: uppercase;
+      letter-spacing: var(--av-tracking-wide); opacity: .85; font-weight: var(--av-fw-semibold); }
+    .trf-overall__sub { font-size: var(--av-fs-sm); opacity: .9; margin-top: var(--av-space-1); }
+
+    .trf-band-grid { display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: var(--av-space-2); margin-top: var(--av-space-3); }
+    .trf-band { background: var(--av-surface-card); border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md); padding: var(--av-space-4) var(--av-space-3); text-align: center; }
+    .trf-band-label { font-size: var(--av-fs-xs); text-transform: uppercase;
+      letter-spacing: var(--av-tracking-wide); color: var(--av-text-faint); font-weight: var(--av-fw-semibold); }
+    .trf-band-val { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-bold);
+      color: var(--av-text-primary); font-family: var(--av-font-mono);
+      font-variant-numeric: tabular-nums; margin-top: var(--av-space-1); }
+    .trf-band--empty .trf-band-val { color: var(--av-text-faint); }
+
+    .trf-section { margin-top: var(--av-space-8); }
+    .trf-h2 { font-size: var(--av-fs-lg); font-weight: var(--av-fw-semibold);
+      color: var(--av-text-primary); margin-bottom: var(--av-space-3); }
+    .trf-box { background: var(--av-surface-card); border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-lg); padding: var(--av-space-4);
+      line-height: var(--av-lh-relaxed); color: var(--av-text-primary); white-space: pre-wrap; }
+
+    .trf-note { background: var(--av-surface-card); border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md); padding: var(--av-space-3); margin-bottom: var(--av-space-2); }
+    .trf-note__skill { font-weight: var(--av-fw-semibold); text-transform: capitalize;
+      color: var(--av-text-primary); font-size: var(--av-fs-sm); }
+    .trf-note__body { color: var(--av-text-secondary); line-height: var(--av-lh-relaxed);
+      white-space: pre-wrap; margin-top: var(--av-space-1); }
+
+    /* Chữa bài — a clear action card per skill, not a tiny button. */
+    .trf-review-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: var(--av-space-3); }
+    .trf-review { display: flex; align-items: center; gap: var(--av-space-3);
+      background: var(--av-surface-card); border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-lg); padding: var(--av-space-4); text-decoration: none;
+      color: var(--av-text-primary);
+      transition: border-color var(--av-duration-fast) var(--av-easing-default),
+        transform var(--av-duration-fast) var(--av-easing-default); }
+    .trf-review:hover { border-color: var(--av-primary-border); transform: translateY(-1px); }
+    .trf-review:focus-visible { outline: none; box-shadow: var(--av-shadow-focus); }
+    .trf-review__icon { font-size: var(--av-fs-2xl); line-height: 1; }
+    .trf-review__body { flex: 1; }
+    .trf-review__title { font-weight: var(--av-fw-semibold); font-size: var(--av-fs-sm); }
+    .trf-review__hint { font-size: var(--av-fs-xs); color: var(--av-text-muted); margin-top: 2px; }
+    .trf-review__arrow { color: var(--av-primary); font-weight: var(--av-fw-bold); }
+
+    .trf-foot { margin-top: var(--av-space-8); font-size: var(--av-fs-xs);
+      color: var(--av-text-muted); line-height: var(--av-lh-relaxed); }
+
+    @media (max-width: 520px) {
+      .trf-band-grid { grid-template-columns: repeat(2, 1fr); }
+      .trf-overall { flex-direction: column; text-align: center; gap: var(--av-space-3); }
+    }
   </style>
 </head>
 <body class="av-page font-sans min-h-screen">
+  <aver-chrome active="home"></aver-chrome>
+
   <div class="trf-wrap">
     <div id="state-loading" class="trf-state" style="color:var(--av-text-secondary)">Đang tải kết quả…</div>
 
     <div id="state-pending" class="hidden trf-state">
       <h1>Đang chờ giám khảo duyệt</h1>
-      <p>
-        Bài của bạn đã được ghi nhận. Giám khảo sẽ chấm và công bố kết quả trong thời gian cam kết.
-        Bạn sẽ thấy điểm tại đây khi có kết quả.
-      </p>
+      <p>Bài của em đã được ghi nhận. Giám khảo sẽ chấm và công bố kết quả trong thời gian cam kết —
+         em sẽ thấy điểm và phần chữa bài tại đây ngay khi có.</p>
     </div>
 
     <div id="state-error" class="hidden trf-state trf-state--error"></div>
 
     <div id="state-content" class="hidden">
+      <a class="trf-back" href="/pages/home.html"><span aria-hidden="true">←</span> Trang chủ</a>
+
       <header class="trf-header">
-        <h1 class="trf-h1">Phiếu điểm thi thử (TRF)</h1>
+        <div class="trf-eyebrow">Phiếu điểm thi thử · TRF</div>
+        <h1 class="trf-h1">Kết quả bài thi thử của em</h1>
         <p id="released-at" class="trf-released"></p>
       </header>
+
+      <section class="trf-overall" id="overall">
+        <div>
+          <div class="trf-overall__label">Overall band</div>
+          <div class="trf-overall__val" id="overall-val">—</div>
+        </div>
+        <div class="trf-overall__sub" id="overall-sub"></div>
+      </section>
 
       <section class="trf-band-grid" id="bands"></section>
 
@@ -74,17 +145,15 @@
         <div id="examiner-comment" class="trf-box"></div>
       </section>
 
-      <section id="notes-wrap" class="trf-section"></section>
+      <section id="notes-wrap" class="trf-section hidden"></section>
 
-      <section id="chuabai-wrap" class="trf-section"></section>
+      <section id="chuabai-wrap" class="trf-section hidden"></section>
 
-      <p class="trf-foot">
-        Kết quả do giám khảo duyệt, có tham khảo phân tích AI.
-      </p>
+      <p class="trf-foot">Kết quả do giám khảo duyệt, có tham khảo phân tích AI.</p>
     </div>
   </div>
 
-  <script src="https://unpkg.com/@supabase/supabase-js@2.107.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0"></script>
   <script src="/js/runtime-config.js"></script>
   <script src="/js/api.js"></script>
   <script>
@@ -99,94 +168,86 @@
       { key: 'speaking', label: 'Speaking' },
     ];
 
+    var $ = function (id) { return document.getElementById(id); };
     function showState(name) {
       ['loading', 'pending', 'error', 'content'].forEach(function (s) {
-        var el = document.getElementById('state-' + s);
+        var el = $('state-' + s);
         if (el) el.classList.toggle('hidden', s !== name);
       });
     }
     function esc(s) { return (window.WC && window.WC.escapeHtml) ? window.WC.escapeHtml(s) : String(s == null ? '' : s); }
-
     function fmtBand(v) { return (v == null || v === '') ? '—' : Number(v).toFixed(1); }
 
     function render(data) {
       var fb = data.final_bands || {};
-      var grid = document.getElementById('bands');
-      grid.innerHTML = '';
-      SKILLS.forEach(function (s) {
-        var el = document.createElement('div');
-        el.className = 'trf-band';
-        el.innerHTML = '<div class="trf-band-label">' + s.label + '</div><div class="trf-band-val">' + fmtBand(fb[s.key]) + '</div>';
-        grid.appendChild(el);
-      });
-      var overall = document.createElement('div');
-      overall.className = 'trf-band trf-overall';
-      overall.innerHTML = '<div class="trf-band-label">Overall</div><div class="trf-band-val">' + fmtBand(fb.overall) + '</div>';
-      grid.appendChild(overall);
 
-      var comment = data.examiner_comment_vi;
-      if (comment) { document.getElementById('examiner-comment').textContent = comment; }
-      else { document.getElementById('comment-wrap').style.display = 'none'; }
+      // Overall hero.
+      $('overall-val').textContent = fmtBand(fb.overall);
+      var have = SKILLS.filter(function (s) { return fb[s.key] != null; }).length;
+      $('overall-sub').textContent = have ? (have + '/4 kỹ năng đã có điểm') : '';
 
+      // Per-skill bands.
+      var grid = $('bands');
+      grid.innerHTML = SKILLS.map(function (s) {
+        var v = fb[s.key];
+        return '<div class="trf-band' + (v == null ? ' trf-band--empty' : '') + '">'
+          + '<div class="trf-band-label">' + s.label + '</div>'
+          + '<div class="trf-band-val">' + fmtBand(v) + '</div></div>';
+      }).join('');
+
+      // Examiner comment.
+      if (data.examiner_comment_vi) $('examiner-comment').textContent = data.examiner_comment_vi;
+      else $('comment-wrap').classList.add('hidden');
+
+      // Per-skill notes.
       var notes = data.per_skill_notes || {};
-      var nwrap = document.getElementById('notes-wrap');
       var keys = Object.keys(notes).filter(function (k) { return notes[k]; });
+      var nwrap = $('notes-wrap');
       if (keys.length) {
-        nwrap.innerHTML = '<h2 class="trf-h2">Ghi chú từng kỹ năng</h2>';
-        keys.forEach(function (k) {
-          var row = document.createElement('div');
-          row.className = 'trf-note';
-          row.innerHTML = '<div class="trf-note__skill">' + esc(k) + '</div><div class="trf-note__body">' + esc(notes[k]) + '</div>';
-          nwrap.appendChild(row);
-        });
+        nwrap.classList.remove('hidden');
+        nwrap.innerHTML = '<h2 class="trf-h2">Ghi chú từng kỹ năng</h2>'
+          + keys.map(function (k) {
+              return '<div class="trf-note"><div class="trf-note__skill">' + esc(k)
+                + '</div><div class="trf-note__body">' + esc(notes[k]) + '</div></div>';
+            }).join('');
       }
 
       if (data.released_at) {
-        document.getElementById('released-at').textContent = 'Công bố lúc ' + new Date(data.released_at).toLocaleString('vi-VN');
+        $('released-at').textContent = 'Công bố lúc ' + new Date(data.released_at).toLocaleString('vi-VN');
       }
 
-      // "Xem chữa bài" — only reachable once released (this page itself is
-      // gated on that), links into the same detailed per-question review the
-      // student would've seen right after finishing the section.
-      var CHUABAI = [
-        { key: 'listening', label: 'Listening', attempt: data.listening_attempt_id, href: '/pages/listening-review.html?attempt_id=' },
-        { key: 'reading',   label: 'Reading',   attempt: data.reading_attempt_id,   href: '/pages/reading-review.html?attempt_id=' },
-      ].filter(function (s) { return s.attempt; });
-      // Writing detailed feedback (nhận xét chi tiết) — separate from L/R chữa
-      // bài; the essays are delivered as part of release, so writing-result.html
-      // (gated on status=='delivered') opens for the student.
-      var WRITING = [
-        { label: 'Task 1', id: data.essay_task1_id },
-        { label: 'Task 2', id: data.essay_task2_id },
-      ].filter(function (s) { return s.id; });
+      // Chữa bài — one action card per available skill review. L/R link to the
+      // per-question review; Writing links to the delivered essay feedback. All
+      // are only present in the payload once released (this page is gated on that).
+      var reviews = [];
+      if (data.listening_attempt_id) reviews.push({ icon: '🎧', title: 'Chữa bài Listening', hint: 'Xem lại từng câu + transcript',
+        href: '/pages/listening-review.html?attempt_id=' + encodeURIComponent(data.listening_attempt_id) });
+      if (data.reading_attempt_id) reviews.push({ icon: '📖', title: 'Chữa bài Reading', hint: 'Xem lại từng câu + bài đọc',
+        href: '/pages/reading-review.html?attempt_id=' + encodeURIComponent(data.reading_attempt_id) });
+      if (data.essay_task1_id) reviews.push({ icon: '✍️', title: 'Nhận xét Writing Task 1', hint: 'Chữa bài chi tiết',
+        href: '/pages/writing-result.html?id=' + encodeURIComponent(data.essay_task1_id) });
+      if (data.essay_task2_id) reviews.push({ icon: '✍️', title: 'Nhận xét Writing Task 2', hint: 'Chữa bài chi tiết',
+        href: '/pages/writing-result.html?id=' + encodeURIComponent(data.essay_task2_id) });
 
-      var cwrap = document.getElementById('chuabai-wrap');
-      var sections = '';
-      if (CHUABAI.length) {
-        sections += '<h2 class="trf-h2">Xem chữa bài</h2>' +
-          '<div class="trf-links">' +
-        sections += '<h2 style="font-size:15px;font-weight:700;color:var(--av-text-primary);margin-bottom:8px;">Xem chữa bài</h2>' +
-          '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
-          CHUABAI.map(function (s) {
-            return '<a class="av-btn" target="_blank" href="' + s.href + encodeURIComponent(s.attempt) + '">Chữa bài ' + s.label + ' ↗</a>';
-          }).join('') + '</div>';
+      var cwrap = $('chuabai-wrap');
+      if (reviews.length) {
+        cwrap.classList.remove('hidden');
+        cwrap.innerHTML = '<h2 class="trf-h2">Xem chữa bài chi tiết</h2><div class="trf-review-grid">'
+          + reviews.map(function (r) {
+              return '<a class="trf-review" target="_blank" rel="noopener" href="' + r.href + '">'
+                + '<span class="trf-review__icon" aria-hidden="true">' + r.icon + '</span>'
+                + '<span class="trf-review__body"><span class="trf-review__title">' + esc(r.title) + '</span>'
+                + '<span class="trf-review__hint">' + esc(r.hint) + '</span></span>'
+                + '<span class="trf-review__arrow" aria-hidden="true">↗</span></a>';
+            }).join('') + '</div>';
       }
-      if (WRITING.length) {
-        sections += '<h2 class="trf-h2" style="margin-top:var(--av-space-6)">Nhận xét chi tiết Writing</h2>' +
-          '<div class="trf-links">' +
-        sections += '<h2 style="font-size:15px;font-weight:700;color:var(--av-text-primary);margin:16px 0 8px;">Nhận xét chi tiết Writing</h2>' +
-          '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
-          WRITING.map(function (s) {
-            return '<a class="av-btn" target="_blank" href="/pages/writing-result.html?id=' + encodeURIComponent(s.id) + '">Nhận xét ' + s.label + ' ↗</a>';
-          }).join('') + '</div>';
-      }
-      cwrap.innerHTML = sections;
+
       showState('content');
     }
 
     async function boot() {
       var sittingId = new URLSearchParams(location.search).get('sitting');
-      if (!sittingId) { document.getElementById('state-error').textContent = 'Thiếu mã sitting.'; showState('error'); return; }
+      if (!sittingId) { $('state-error').textContent = 'Thiếu mã sitting.'; showState('error'); return; }
       var sb = window.getSupabase && window.getSupabase();
       if (sb) {
         var sess = await sb.auth.getSession();
@@ -196,9 +257,9 @@
         var data = await window.api.get('/api/mock-exams/sittings/' + encodeURIComponent(sittingId) + '/result');
         render(data);
       } catch (e) {
-        // 403 = chưa released (sealed)
+        // 403 = chưa công bố (sealed)
         if (e && (e.status === 403 || /chờ giám khảo|403/.test(String(e.message || '')))) { showState('pending'); return; }
-        document.getElementById('state-error').textContent = 'Không tải được kết quả: ' + (e && e.message ? e.message : e);
+        $('state-error').textContent = 'Không tải được kết quả: ' + (e && e.message ? e.message : e);
         showState('error');
       }
     }
