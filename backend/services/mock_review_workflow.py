@@ -106,9 +106,15 @@ def _unconvertible_skills(sitting_id: UUID | str) -> set:
     whole result cannot be saved or released — a student who scored 0 on
     Listening and 6.5 on Reading is stranded with no results at all.
 
-    ONLY Listening/Reading can appear here. Writing and Speaking are the
-    examiner's own judgement with no table to fall off, so a blank there is a
-    forgotten entry and must keep failing.
+    Writing qualifies too, on its own terms: its band is COMPUTED from the two
+    essays ((T1 + 2·T2)/3) and sync_writing_band_for_essay needs BOTH banded. No
+    essays, one task ungraded, or one skipped → there is no Writing band to give,
+    and demanding one made the whole sitting unsaveable (2026-07-15: 5 of 15
+    reviews were stuck exactly here). The student still gets the graded task's
+    feedback; only the band goes blank.
+
+    Speaking never qualifies — nothing derives it, it is purely the examiner's
+    judgement, so a blank there is a forgotten entry and must keep failing.
 
     Reads the PERSISTED band_estimate rather than recomputing from the raw score.
     The grader stamps it with the attempt's own module — Reading General Training
@@ -144,7 +150,32 @@ def _unconvertible_skills(sitting_id: UUID | str) -> set:
             continue
         if a[0].get("band_estimate") is None:
             out.add(skill)
+
+    if not _writing_band_derivable(sitting_id):
+        out.add("writing")
     return out
+
+
+def _writing_band_derivable(sitting_id: UUID | str) -> bool:
+    """True when a Writing band can be COMPUTED for this sitting.
+
+    Mirrors sync_writing_band_for_essay's own precondition exactly — both tasks
+    stamped AND both carrying a band — so the form never demands a band the
+    system would refuse to compute. Deliberately not "has essays": an essay held
+    pending (too short) or admin-skipped carries no band, and that sitting is
+    just as underivable as one with no essays at all.
+    """
+    row = supabase_admin.table("mock_exam_sittings").select(
+        "essay_task1_id, essay_task2_id",
+    ).eq("id", str(sitting_id)).limit(1).execute()
+    if not row.data:
+        return False
+    s = row.data[0]
+    t1, t2 = s.get("essay_task1_id"), s.get("essay_task2_id")
+    if not t1 or not t2:
+        return False
+    bands = _essay_bands([t1, t2])
+    return bands.get(str(t1)) is not None and bands.get(str(t2)) is not None
 
 
 def _required_skills(sitting_id: UUID | str) -> tuple:
