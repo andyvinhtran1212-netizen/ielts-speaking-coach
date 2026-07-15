@@ -301,6 +301,61 @@ def save_final_bands(
     return response.data[0]
 
 
+def bulk_release_sittings(
+    sitting_ids: Iterable, admin_id: UUID | str, channel: str = "in_app",
+) -> dict:
+    """Release many sittings' results in one action. Publishes to real students.
+
+    Per sitting the release gates are UNCHANGED — this only loops release_results,
+    it never relaxes a check:
+      · the review must be 'reviewed' (final bands entered), and
+      · claimed by THIS admin, and
+      · its Writing must be graded + admin-reviewed (or skipped/retest-exempt).
+
+    There is no auto-claim, and adding one would be theatre: 'reviewed' can only
+    be reached through save_final_bands, which itself requires the claim — so a
+    releasable review is ALWAYS already claimed, and an unclaimed one has no
+    final bands to publish either way. claim() only takes a 'queued' row, so it
+    could not lift another admin's review regardless.
+
+    Every failure is reported per sitting rather than raised: a bulk action that
+    aborts halfway would leave the admin guessing who got published. Returns
+    {released: [sitting_id], skipped: [{sitting_id, reason}]} — callers must show
+    `skipped`, never just the released count.
+    """
+    released: list = []
+    skipped: list = []
+    for sid in sitting_ids:
+        sid = str(sid)
+        try:
+            review = get_review_for_sitting(sid)
+            if not review:
+                skipped.append({"sitting_id": sid, "reason": "Chưa có hồ sơ duyệt."})
+                continue
+            if review.get("status") == "released":
+                skipped.append({"sitting_id": sid, "reason": "Đã công bố trước đó."})
+                continue
+            release_results(review["id"], admin_id, channel)
+            released.append(sid)
+        except ConflictError as e:
+            skipped.append({"sitting_id": sid, "reason": str(e)})
+        except PermissionError:
+            skipped.append({
+                "sitting_id": sid,
+                "reason": "Bài này do admin khác nhận — chỉ người nhận mới công bố được.",
+            })
+        except NotFoundError as e:
+            skipped.append({"sitting_id": sid, "reason": str(e)})
+        except Exception as e:  # noqa: BLE001 — one bad sitting must not sink the batch
+            logger.exception("[mock-review] bulk release failed sitting=%s", sid)
+            skipped.append({"sitting_id": sid, "reason": f"Lỗi: {e}"})
+    logger.info(
+        "[mock-review] bulk release by=%s released=%d skipped=%d",
+        admin_id, len(released), len(skipped),
+    )
+    return {"released": released, "skipped": skipped}
+
+
 def set_retest_flags_for_sitting(
     sitting_id: UUID | str, admin_id: UUID | str, retest_flags: dict,
 ) -> dict:

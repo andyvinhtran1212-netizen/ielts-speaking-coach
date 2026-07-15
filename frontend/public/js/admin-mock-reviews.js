@@ -60,8 +60,14 @@
       var submitted = rows.filter(function (r) { return r.review_id; }).length;
       el('queue-count').textContent = rows.length + ' học viên · ' + submitted + ' đã nộp đủ';
       if (!rows.length) { list.innerHTML = '<p class="mr-muted">Chưa có học viên nào trong đề này.</p>'; return; }
+      // The bar carries TWO actions with different preconditions. Grading needs a
+      // promoted essay; releasing only needs a submitted sitting — an L/R-only
+      // retake has results to publish and no essay at all. Gating the whole bar
+      // on `gradable` hid the release button from exactly those (Codex review,
+      // PR #778).
       var gradable = rows.some(hasWritingEssays);
-      list.innerHTML = (gradable ? bulkBarHtml() : '') + renderRosterTable(rows);
+      var anySubmitted = rows.some(function (r) { return !!r.review_id; });
+      list.innerHTML = (anySubmitted ? bulkBarHtml(gradable) : '') + renderRosterTable(rows);
       list.querySelectorAll('[data-review-id]').forEach(function (tr) {
         tr.addEventListener('click', function (ev) {
           if (ev.target && ev.target.closest('.mr-check')) return;    // checkbox click ≠ open
@@ -81,36 +87,113 @@
     }
   }
 
-  function bulkBarHtml() {
+  // `gradable` = at least one sitting has a promoted Writing essay. The grading
+  // half is dropped without one; the release half always shows, because a
+  // submitted sitting has results to publish whether or not it involved Writing.
+  function bulkBarHtml(gradable) {
     return '<div class="mr-bulkbar">' +
       '<label class="mr-check"><input type="checkbox" id="bulk-all"> Chọn tất cả</label>' +
       '<span style="flex:1"></span>' +
-      '<span class="mr-muted">Chấm Writing hàng loạt:</span>' +
-      '<select id="bulk-tier"><option value="standard">Standard</option><option value="instructor">Instructor</option></select>' +
-      '<button class="av-btn av-btn--primary" id="bulk-grade-btn" disabled>Đưa vào hàng chấm</button>' +
+      (gradable
+        ? '<span class="mr-muted">Chấm Writing hàng loạt:</span>' +
+          '<select id="bulk-tier"><option value="standard">Standard</option><option value="instructor">Instructor</option></select>' +
+          '<button class="av-btn av-btn--primary" id="bulk-grade-btn" disabled>Đưa vào hàng chấm</button>' +
+          '<span class="mr-bulkbar__sep" aria-hidden="true"></span>'
+        : '') +
+      // CÔNG BỐ publishes to real students, so it never sits next to the grading
+      // action as an equal — it is separated and labelled with the count it will
+      // publish, and confirms before firing.
+      '<button class="av-btn av-btn--primary" id="bulk-release-btn" disabled>📤 Trả bài</button>' +
       '</div>';
   }
 
   function wireBulkBar(list) {
     var boxes = Array.prototype.slice.call(list.querySelectorAll('.mr-check-row'));
     var btn = el('bulk-grade-btn');
+    var rel = el('bulk-release-btn');
     var all = el('bulk-all');
+    function checked() { return boxes.filter(function (b) { return b.checked; }); }
+    // Only a sitting whose final bands are in can be published. Counting the rest
+    // would promise the admin a release the server will refuse.
+    function releasable() {
+      return checked().filter(function (b) { return b.getAttribute('data-review-status') === 'reviewed'; });
+    }
     function refresh() {
-      var n = boxes.filter(function (b) { return b.checked; }).length;
-      btn.disabled = !n;
-      btn.textContent = n ? ('Đưa vào hàng chấm (' + n + ')') : 'Đưa vào hàng chấm';
+      var n = checked().length;
+      // btn is absent when no sitting has a promoted essay — the bar is then
+      // release-only, and touching it would throw on the first checkbox click.
+      if (btn) {
+        btn.disabled = !n;
+        btn.textContent = n ? ('Đưa vào hàng chấm (' + n + ')') : 'Đưa vào hàng chấm';
+      }
+      var r = releasable().length;
+      rel.disabled = !r;
+      rel.textContent = r ? ('📤 Trả bài (' + r + ')') : '📤 Trả bài';
+      rel.title = n && !r
+        ? 'Chỉ trả được bài đã chốt band cuối (trạng thái "đã duyệt").'
+        : 'Công bố kết quả cho học viên đã chọn';
     }
     boxes.forEach(function (b) { b.addEventListener('change', refresh); });
     if (all) all.addEventListener('change', function () {
       boxes.forEach(function (b) { b.checked = all.checked; });
       refresh();
     });
-    btn.addEventListener('click', function () {
-      var ids = boxes.filter(function (b) { return b.checked; })
-        .map(function (b) { return b.getAttribute('data-sitting-id'); });
+    if (btn) btn.addEventListener('click', function () {
+      var ids = checked().map(function (b) { return b.getAttribute('data-sitting-id'); });
       if (ids.length) bulkGrade(ids, el('bulk-tier').value);
     });
+    rel.addEventListener('click', function () {
+      var ids = releasable().map(function (b) { return b.getAttribute('data-sitting-id'); });
+      if (!ids.length) return;
+      // Publishing to students is not undoable without a revoke — say the number
+      // and what it means before doing it.
+      if (!confirm('Công bố kết quả cho ' + ids.length + ' học viên?\n\n'
+                   + 'Học viên sẽ thấy ngay band 4 kỹ năng và phần chữa bài. '
+                   + 'Muốn sửa band sau khi công bố thì phải thu hồi trước.')) return;
+      bulkRelease(ids);
+    });
     refresh();
+  }
+
+  // Công bố hàng loạt. The server gates each sitting and returns what it refused;
+  // showing only the success count would let the admin believe a blocked student
+  // was published.
+  async function bulkRelease(sittingIds) {
+    var rel = el('bulk-release-btn');
+    if (rel) rel.disabled = true;
+    try {
+      var res = await window.api.post(
+        '/admin/mock-exams/' + encodeURIComponent(examId) + '/bulk-release',
+        { sitting_ids: sittingIds });
+      var ok = (res.released || []).length, sk = (res.skipped || []);
+      toast('Đã công bố ' + ok + '/' + sittingIds.length + ' bài.'
+        + (sk.length ? ' ' + sk.length + ' bài chưa công bố được.' : ''));
+      // AWAIT the reload before rendering the refusals: loadRoster()'s first act
+      // is to blank #queue-list, which is where the box goes — rendering first
+      // wiped it before the admin could read it, leaving only the toast count and
+      // hiding WHICH students were not published. That is the exact failure this
+      // box exists to prevent (Codex review, PR #778).
+      await loadRoster();
+      loadRetestSummary();
+      if (sk.length) renderReleaseSkips(sk);
+    } catch (e) {
+      toast('Công bố thất bại: ' + (e && e.message));
+      loadRoster();   // canonical refetch — never leave the roster guessing
+    }
+  }
+
+  // The per-sitting refusals, named. A toast count alone would hide WHICH student
+  // was not published and why.
+  function renderReleaseSkips(skips) {
+    var host = el('queue-list');
+    if (!host) return;
+    var box = document.createElement('div');
+    box.className = 'mr-relskips';
+    box.innerHTML = '<b>Chưa công bố được ' + skips.length + ' bài:</b>'
+      + '<ul>' + skips.map(function (s) {
+          return '<li><code>' + esc(String(s.sitting_id).slice(0, 8)) + '</code> — ' + esc(s.reason) + '</li>';
+        }).join('') + '</ul>';
+    host.insertBefore(box, host.firstChild);
   }
 
   async function bulkGrade(sittingIds, tier) {
@@ -249,8 +332,15 @@
       var classes = 'mr-trow' + (r.review_id ? '' : ' mr-trow--wip') + (flagged ? ' mr-trow--retest' : '');
       var reviewAttr = r.review_id ? ' data-review-id="' + esc(r.review_id) + '"' : '';
       // bulk-grade select — only for a gradable sitting that is NOT a retaker
-      var check = (hasWritingEssays(r) && !flagged)
-        ? '<label class="mr-check"><input type="checkbox" class="mr-check-row" data-sitting-id="' + esc(r.sitting_id) + '"></label>'
+      // Selectable = any SUBMITTED sitting. This used to be "gradable and not
+      // retest-flagged", which left releasable sittings unselectable once bulk
+      // release existed: a retest-flagged sitting is exempt from the Writing
+      // release gate, and a Writing-less one still has results to publish.
+      // Widening is safe for bulk-grade — it skips what it cannot grade and
+      // REPORTS it (skipped / retest_skipped), rather than grading it silently.
+      var check = r.review_id
+        ? '<label class="mr-check"><input type="checkbox" class="mr-check-row" data-sitting-id="' + esc(r.sitting_id) + '"'
+          + ' data-review-status="' + esc(r.review_status || '') + '"></label>'
         : '';
       var retest = retestCell(r);
       return '<tr class="' + classes + '"' + reviewAttr + '>' +

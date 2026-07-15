@@ -138,3 +138,68 @@ describe('roster TEST LẠI — popover styling', () => {
     assert.match(HTML, /\.mr-retest__menu \{ position:absolute; z-index:\d+/);
   });
 });
+
+// Công bố hàng loạt (2026-07-15). This publishes to real students, so the UI's
+// job is to never promise a release the server will refuse, and never hide one
+// it refused.
+describe('roster — bulk release (công bố hàng loạt)', () => {
+  test('only a reviewed sitting counts toward the release button', () => {
+    // final_bands are entered at save_final_bands → status 'reviewed'. Counting a
+    // queued/claimed row would promise a release release_results rejects.
+    const body = JS.match(/function releasable\(\) \{([\s\S]*?)\n    \}/);
+    assert.ok(body, 'releasable() not found — sentinel is stale');
+    assert.match(body[1], /data-review-status'\) === 'reviewed'/);
+  });
+  test('it confirms with the count before publishing', () => {
+    assert.match(JS, /confirm\('Công bố kết quả cho ' \+ ids\.length \+ ' học viên\?/);
+    assert.match(JS, /thu hồi trước/);   // says publishing is not freely undoable
+  });
+  test('refusals are named per sitting, not just counted', () => {
+    const body = JS.match(/async function bulkRelease\(sittingIds\) \{([\s\S]*?)\n  \}/);
+    assert.ok(body, 'bulkRelease() not found — sentinel is stale');
+    assert.match(body[1], /if \(sk\.length\) renderReleaseSkips\(sk\)/);
+    assert.match(JS, /function renderReleaseSkips\(skips\)[\s\S]*?s\.reason/);
+  });
+  test('a failed batch refetches rather than leaving a stale roster', () => {
+    const body = JS.match(/async function bulkRelease\(sittingIds\) \{([\s\S]*?)\n  \}/);
+    assert.match(body[1], /catch \(e\)[\s\S]*?loadRoster\(\)/);
+  });
+  test('every submitted sitting is selectable, not just the gradable ones', () => {
+    // A retest-flagged sitting is exempt from the Writing release gate and a
+    // Writing-less one still has results — both must be selectable to publish.
+    assert.match(JS, /var check = r\.review_id/);
+    assert.doesNotMatch(JS, /var check = \(hasWritingEssays\(r\) && !flagged\)/);
+  });
+});
+
+// Two Codex P2s on PR #778 — both were mine, and the first defeated the very
+// feature it lived in.
+describe('roster — bulk release, review fixes', () => {
+  test('refusals render AFTER the roster reload, not before it wipes them', () => {
+    // loadRoster()'s first act is to blank #queue-list, which is where the box
+    // goes. Rendering first wiped it before the admin could read it — leaving
+    // only a toast count and hiding WHICH students were not published.
+    const body = JS.match(/async function bulkRelease\(sittingIds\) \{([\s\S]*?)\n  \}/);
+    assert.ok(body, 'bulkRelease() not found — sentinel is stale');
+    const iLoad = body[1].indexOf('await loadRoster()');
+    const iSkips = body[1].indexOf('renderReleaseSkips(sk)');
+    assert.ok(iLoad !== -1, 'the roster reload must be awaited');
+    assert.ok(iSkips > iLoad, 'renderReleaseSkips must run AFTER the reload');
+  });
+  test('the release control shows for a roster with no Writing essays at all', () => {
+    // An L/R-only retake has results release_results can publish and no essay to
+    // grade; gating the whole bar on `gradable` hid the button from exactly those.
+    assert.match(JS, /var anySubmitted = rows\.some\(function \(r\) \{ return !!r\.review_id; \}\)/);
+    assert.match(JS, /anySubmitted \? bulkBarHtml\(gradable\)/);
+  });
+  test('the grading half is what drops without essays — the release half stays', () => {
+    const body = JS.match(/function bulkBarHtml\(gradable\) \{([\s\S]*?)\n  \}/);
+    assert.ok(body, 'bulkBarHtml() not found — sentinel is stale');
+    assert.match(body[1], /gradable[\s\S]*?bulk-grade-btn[\s\S]*?: ''/);
+    assert.match(body[1], /bulk-release-btn/);
+  });
+  test('wiring survives a missing grade button', () => {
+    assert.match(JS, /if \(btn\) \{[\s\S]*?btn\.disabled = !n;/);
+    assert.match(JS, /if \(btn\) btn\.addEventListener\('click'/);
+  });
+});
