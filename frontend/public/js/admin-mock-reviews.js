@@ -517,8 +517,13 @@
       // Say WHY this one may be left empty, or the blank looks like an oversight
       // the examiner should correct — and they'd invent a band to fill it.
       if (!hint && blankableSkills().indexOf(s) !== -1) {
+        // The two blankable skills are blank for DIFFERENT reasons — L/R fell off
+        // the published table, Writing has no band to compute from. One sentence
+        // for both would be wrong for one of them.
         hint = '<div class="mr-muted" style="font-size:11px;margin-top:2px">'
-             + 'Điểm thô không có band trong bảng IELTS — có thể để trống '
+             + (s === 'writing'
+                 ? 'Chưa chấm đủ 2 bài nên không tính được band — có thể để trống '
+                 : 'Điểm thô không có band trong bảng IELTS — có thể để trống ')
              + '(overall sẽ để trống theo).</div>';
       }
       // No draft and not blankable → the examiner MUST type it. Speaking is the

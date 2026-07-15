@@ -1273,6 +1273,14 @@ def _seed_for_bands(fake_db, admin, l_score=None, r_score=None, r_module="academ
     fake_db.seed("mock_exam_reviews", {"id": "rv-1", "sitting_id": "sit-1",
                                        "status": "claimed", "claimed_by": admin,
                                        "final_bands": {}, "ai_draft": {}, "retest_flags": {}})
+    # Writing is blankable unless BOTH essays carry a band — these tests are about
+    # the L/R rule, so give it a derivable Writing and keep it out of the way.
+    fake_db.seed("writing_essays", {"id": "we-1", "sitting_id": "sit-1"})
+    fake_db.seed("writing_essays", {"id": "we-2", "sitting_id": "sit-1"})
+    fake_db.rows("mock_exam_sittings")[-1]["essay_task1_id"] = "we-1"
+    fake_db.rows("mock_exam_sittings")[-1]["essay_task2_id"] = "we-2"
+    fake_db.seed("writing_feedback_current", {"essay_id": "we-1", "overall_band_score": 6.0})
+    fake_db.seed("writing_feedback_current", {"essay_id": "we-2", "overall_band_score": 6.0})
 
 
 def test_final_bands_blank_when_the_raw_score_has_no_published_band(fake_db, svc, wf, monkeypatch):
@@ -2451,3 +2459,62 @@ def test_listening_endpoint_seal_helper(monkeypatch):
     assert listening._mock_sealed({}) is False
     assert listening._mock_sealed({"sitting_id": "sealed-one"}) is True
     assert listening._mock_sealed({"sitting_id": "other"}) is False
+
+
+# ── Writing band blankable when it cannot be computed (2026-07-15) ────
+#
+# 5 of 15 production reviews were unsaveable here: required_skills demands
+# writing, but sync_writing_band_for_essay only computes a band when BOTH tasks
+# carry one. No essays / one ungraded / one skipped → no band to give, and the
+# whole sitting was stuck. The student still gets the graded task's feedback.
+
+def _seed_writing_case(fake_db, t1_band=None, t2_band=None, stamp_ids=True):
+    fake_db.seed("mock_exam_sittings", {
+        "id": "sit-w", "mock_exam_id": "ex-1", "status": "submitted", "user_id": "u-w",
+        "essay_task1_id": "e1" if stamp_ids else None,
+        "essay_task2_id": "e2" if stamp_ids else None,
+    })
+    if t1_band is not None:
+        fake_db.seed("writing_feedback_current", {"essay_id": "e1", "overall_band_score": t1_band})
+    if t2_band is not None:
+        fake_db.seed("writing_feedback_current", {"essay_id": "e2", "overall_band_score": t2_band})
+
+
+def test_writing_blankable_when_no_essays_at_all(fake_db, svc, wf):
+    _seed_writing_case(fake_db, stamp_ids=False)
+    assert "writing" in wf._unconvertible_skills("sit-w")
+
+
+def test_writing_blankable_when_only_one_task_is_graded(fake_db, svc, wf):
+    """The exact production shape: T1 graded, T2 held pending (too short)."""
+    _seed_writing_case(fake_db, t1_band=7.0, t2_band=None)
+    assert "writing" in wf._unconvertible_skills("sit-w")
+    assert wf._writing_band_derivable("sit-w") is False
+
+
+def test_writing_NOT_blankable_once_both_tasks_carry_a_band(fake_db, svc, wf):
+    """Mirrors sync_writing_band_for_essay's own precondition — if it would
+    compute a band, the examiner must not skip it."""
+    _seed_writing_case(fake_db, t1_band=6.0, t2_band=7.0)
+    assert "writing" not in wf._unconvertible_skills("sit-w")
+    assert wf._writing_band_derivable("sit-w") is True
+
+
+def test_writing_blank_leaves_the_overall_blank_and_saves(fake_db, svc, wf, monkeypatch):
+    """The point of the change: the sitting becomes saveable, the bands that DO
+    exist are kept, and the overall is blank rather than a mean over a hole."""
+    admin = "admin-1"
+    _seed_writing_case(fake_db, t1_band=7.0, t2_band=None)
+    fake_db.seed("mock_exam_reviews", {"id": "rv-w", "sitting_id": "sit-w", "status": "claimed",
+                                       "claimed_by": admin, "final_bands": {}, "ai_draft": {},
+                                       "retest_flags": {}})
+    monkeypatch.setattr(wf, "_required_skills", lambda _s: ("listening", "reading", "writing"))
+    monkeypatch.setattr(wf, "_unconvertible_skills", lambda _s: {"writing"})
+
+    out = wf.save_final_bands("rv-w", admin, {"listening": 6.0, "reading": 6.5})
+
+    fb = out["final_bands"]
+    assert "writing" not in fb
+    assert fb["listening"] == 6.0 and fb["reading"] == 6.5
+    assert fb["overall"] is None
+    assert out["status"] == "reviewed"

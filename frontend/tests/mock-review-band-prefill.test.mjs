@@ -141,3 +141,18 @@ describe('admin-mock-reviews — a skill with no draft says it needs typing', ()
     assert.match(JS, /if \(!hint && fb\[s\] == null\)/);
   });
 });
+
+// Writing and L/R are blankable for DIFFERENT reasons — L/R fell off the
+// published table, Writing has no band to compute from (needs both tasks graded).
+// One sentence for both would be wrong for one of them.
+describe('admin-mock-reviews — the blankable notice states the right reason', () => {
+  test('Writing says it is the two-essay rule, not a raw-score table', () => {
+    assert.match(JS, /s === 'writing'[\s\S]*?Chưa chấm đủ 2 bài nên không tính được band/);
+  });
+  test('L/R keeps the raw-score-table reason', () => {
+    assert.match(JS, /Điểm thô không có band trong bảng IELTS/);
+  });
+  test('both still say the overall goes blank with them', () => {
+    assert.match(JS, /\(overall sẽ để trống theo\)/);
+  });
+});
