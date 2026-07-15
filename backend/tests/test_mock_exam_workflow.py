@@ -1181,6 +1181,113 @@ def test_roster_lists_students_with_per_skill_snapshot(fake_db, svc, wf):
     assert an["claimed"] is False
 
 
+def _seed_retest_fixture(fake_db):
+    fake_db.seed("mock_exam_sittings", {"id": "sit-1", "mock_exam_id": "ex-1",
+                                        "status": "submitted", "user_id": "u-1",
+                                        "needs_retest": False,
+                                        "writing_submission": {"task1": {"word_count": 180},
+                                                               "task2": {"word_count": 260}}})
+    fake_db.seed("mock_exam_reviews", {"id": "rv-1", "sitting_id": "sit-1",
+                                       "status": "queued", "ai_draft": {},
+                                       "final_bands": {}, "retest_flags": {}})
+
+
+def test_roster_retest_flags_never_gate_grading(fake_db, svc, wf, monkeypatch):
+    """The roster's skill picker RECORDS which skills must be retaken; it must
+    never flip needs_retest, which makes Writing bulk-grade skip the sitting.
+    The two were conflated — product decision 2026-07-15 separates them."""
+    _seed_retest_fixture(fake_db)
+    monkeypatch.setattr(wf, "_required_skills", lambda _sid: ("listening", "reading", "writing"))
+
+    wf.set_retest_flags_for_sitting("sit-1", "admin-1", {"listening": True, "writing": False})
+
+    rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-1")
+    # Only the skills the caller actually posted are stored (same contract as
+    # save_final_bands): an omitted skill is simply not flagged.
+    assert rv["retest_flags"] == {"listening": True, "writing": False}
+    sit = next(s for s in fake_db.rows("mock_exam_sittings") if s["id"] == "sit-1")
+    assert sit["needs_retest"] is False, "the picker must not gate grading"
+
+
+def test_roster_retest_flags_unticking_clears(fake_db, svc, wf, monkeypatch):
+    """Unticking has to actually clear — the client posts the full picture, so a
+    skill can always be un-flagged (a partial post would strand it on)."""
+    _seed_retest_fixture(fake_db)
+    monkeypatch.setattr(wf, "_required_skills", lambda _sid: ("listening", "reading", "writing"))
+    wf.set_retest_flags_for_sitting("sit-1", "admin-1", {"listening": True})
+    wf.set_retest_flags_for_sitting("sit-1", "admin-1",
+                                    {"listening": False, "reading": False, "writing": False})
+    rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-1")
+    assert not any(rv["retest_flags"].values())
+
+
+def test_roster_retest_flags_drop_unrequired_skills(fake_db, svc, wf, monkeypatch):
+    """A stale client must not write a skill this exam doesn't even run."""
+    _seed_retest_fixture(fake_db)
+    monkeypatch.setattr(wf, "_required_skills", lambda _sid: ("reading", "writing"))
+    wf.set_retest_flags_for_sitting("sit-1", "admin-1", {"listening": True, "reading": True})
+    rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-1")
+    assert "listening" not in rv["retest_flags"]
+    assert rv["retest_flags"]["reading"] is True
+
+
+def test_roster_retest_flags_frozen_after_release(fake_db, svc, wf, monkeypatch):
+    """A released result is what the student already saw — a stale admin tab must
+    not silently rewrite its retest decision."""
+    _seed_retest_fixture(fake_db)
+    rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-1")
+    rv["status"] = "released"
+    monkeypatch.setattr(wf, "_required_skills", lambda _sid: ("listening", "reading", "writing"))
+    with pytest.raises(wf.ConflictError):
+        wf.set_retest_flags_for_sitting("sit-1", "admin-1", {"writing": True})
+
+
+def test_roster_exposes_only_the_true_retest_flags(fake_db, svc, wf):
+    """The roster ships the picker's state — trimmed to the flagged skills."""
+    _seed_retest_fixture(fake_db)
+    rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-1")
+    rv["retest_flags"] = {"listening": True, "reading": False, "writing": True}
+    row = wf.roster("ex-1")[0]
+    assert row["retest_flags"] == {"listening": True, "writing": True}
+
+
+def test_retest_summary_sees_a_queued_roster_decision(fake_db, svc, wf):
+    """Codex P2 (PR #776): the summary filtered flags to reviewed/released because
+    save_final_bands() used to be their only writer. The roster picker writes them
+    on a QUEUED review and the client refreshes the summary straight after the
+    POST — filtering made a just-saved decision invisible until final bands were
+    entered. reviewed_sittings must stay strict, though: a queued review is not
+    "đã duyệt", and counting it would misreport a clean pass."""
+    fake_db.seed("mock_exam_sittings", {"id": "sit-1", "mock_exam_id": "ex-1",
+                                        "status": "submitted", "user_id": "u-1",
+                                        "needs_retest": False})
+    fake_db.seed("mock_exam_reviews", {"id": "rv-1", "sitting_id": "sit-1",
+                                       "status": "queued",
+                                       "retest_flags": {"listening": True, "writing": True}})
+
+    out = wf.retest_summary("ex-1")
+
+    assert out["needs_retest_count"] == 1                 # the decision is visible…
+    assert out["per_skill"]["listening"] == 1
+    assert out["per_skill"]["writing"] == 1
+    assert out["students"][0]["skills"] == ["listening", "writing"]
+    assert out["reviewed_sittings"] == 0                  # …but it is NOT "đã duyệt"
+
+
+def test_retest_summary_counts_only_completed_reviews_as_reviewed(fake_db, svc, wf):
+    fake_db.seed("mock_exam_sittings", {"id": "sit-1", "mock_exam_id": "ex-1",
+                                        "status": "submitted", "user_id": "u-1"})
+    fake_db.seed("mock_exam_sittings", {"id": "sit-2", "mock_exam_id": "ex-1",
+                                        "status": "submitted", "user_id": "u-2"})
+    fake_db.seed("mock_exam_reviews", {"id": "rv-1", "sitting_id": "sit-1",
+                                       "status": "reviewed", "retest_flags": {}})
+    fake_db.seed("mock_exam_reviews", {"id": "rv-2", "sitting_id": "sit-2",
+                                       "status": "claimed", "retest_flags": {}})
+    out = wf.retest_summary("ex-1")
+    assert out["reviewed_sittings"] == 1
+    assert out["needs_retest_count"] == 0
+
+
 def test_roster_writing_band_absent_suggested_then_confirmed(fake_db, svc, wf):
     """The roster's Writing cell carries a band the way Listening/Reading do —
     but it must say WHICH KIND, or the examiner reads an unconfirmed suggestion

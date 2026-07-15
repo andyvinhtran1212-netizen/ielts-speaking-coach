@@ -53,6 +53,28 @@
     .mr-trow--wip:hover td { background:transparent; }
     .mr-trow--retest td { background:var(--av-warning-soft); }
     .mr-trow--retest:hover td { background:var(--av-warning-soft); }
+    /* Retest skill picker — a <details> popover in the roster's TEST LẠI cell. */
+    .mr-retest { position:relative; display:inline-block; }
+    .mr-retest__sum { list-style:none; cursor:pointer; font-size:12px; padding:2px var(--av-space-2);
+      border:1px solid var(--av-border-default); border-radius:var(--av-radius-md);
+      background:var(--av-surface-card); color:var(--av-text-secondary); min-width:34px; text-align:center; }
+    .mr-retest__sum::-webkit-details-marker { display:none; }
+    .mr-retest__sum:hover { border-color:var(--av-border-strong); color:var(--av-text-primary); }
+    .mr-retest__sum:focus-visible { outline:2px solid var(--av-primary); outline-offset:1px; }
+    .mr-retest__sum.is-on { background:var(--av-warning-soft); border-color:var(--av-warning);
+      color:var(--av-text-primary); font-weight:var(--av-fw-semibold); }
+    /* Absolute so the popover can't stretch the row; the table scrolls, hence z-index.
+       The explicit display+position overrides how <details> hides its own content
+       when closed (measured: the menu still laid out at 98px tall), so closing has
+       to be spelled out or all 13 popovers sit open on top of the table. */
+    .mr-retest:not([open]) .mr-retest__menu { display:none; }
+    .mr-retest__menu { position:absolute; z-index:20; top:calc(100% + 4px); left:0;
+      display:flex; flex-direction:column; gap:6px; padding:var(--av-space-3);
+      background:var(--av-surface-card); border:1px solid var(--av-border-default);
+      border-radius:var(--av-radius-md); box-shadow:var(--av-shadow-md); white-space:nowrap; }
+    /* Bottom rows: .adm-table-wrap (overflow-x:auto → overflow-y:auto) clips the
+       menu, so it opens upward instead. placeRetestMenu() measures and applies. */
+    .mr-retest__menu--up { top:auto; bottom:calc(100% + 4px); }
     /* L/R result detail */
     .mr-total { font-size:14px; color:var(--av-text-primary); margin-bottom:var(--av-space-3); }
     .mr-total b { font-family:var(--av-font-mono); }

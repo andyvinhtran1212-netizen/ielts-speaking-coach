@@ -98,6 +98,12 @@ class RetestBody(BaseModel):
     reason: str = ""
 
 
+class RetestFlagsBody(BaseModel):
+    # {skill: bool} — the skills the student must retake. Skills the exam does
+    # not require are dropped server-side, so a stale client cannot invent one.
+    retest_flags: dict[str, bool] = Field(default_factory=dict)
+
+
 class BulkGradeBody(BaseModel):
     sitting_ids: list[str] = Field(default_factory=list)
     grading_tier: str = Field(default="standard", pattern=r"^(standard|instructor)$")
@@ -344,6 +350,28 @@ async def set_sitting_retest(
         )
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
+
+
+@router.post("/sittings/{sitting_id}/retest-flags")
+async def set_sitting_retest_flags(
+    sitting_id: str, body: RetestFlagsBody, authorization: str | None = Header(default=None),
+):
+    """Record WHICH skills the student must retake, straight from the roster.
+
+    Distinct from /retest above: that one flips the sitting's needs_retest gate
+    (Writing bulk-grade skips the sitting — an early cost gate). This one only
+    records the per-skill decision and never blocks grading (product decision
+    2026-07-15). PATCH-shaped semantics, POST verb to match the sibling route.
+    """
+    admin = await require_admin(authorization)
+    try:
+        return wf.set_retest_flags_for_sitting(
+            sitting_id, admin["id"], body.retest_flags,
+        )
+    except wf.NotFoundError as e:
+        raise HTTPException(404, str(e))
+    except wf.ConflictError as e:
+        raise HTTPException(409, str(e))
 
 
 @router.post("/sittings/{sitting_id}/void")

@@ -301,6 +301,45 @@ def save_final_bands(
     return response.data[0]
 
 
+def set_retest_flags_for_sitting(
+    sitting_id: UUID | str, admin_id: UUID | str, retest_flags: dict,
+) -> dict:
+    """Set the per-skill 'cần test lại' decision straight from the roster.
+
+    Deliberately does NOT touch the sitting's needs_retest gate. That flag makes
+    Writing bulk-grade skip the sitting (an early cost gate); the roster's skill
+    picker is an annotation of WHICH skills the student must retake, and the two
+    were conflated. Product decision 2026-07-15: the picker only ever records the
+    decision — grading is never blocked by it. Clearing a skill here therefore
+    also never clears needs_retest; /sittings/{id}/retest stays its only owner.
+
+    Unknown skills and skills the exam does not require are dropped, so a stale
+    client cannot write a band-less skill into the record. Released reviews are
+    frozen — same posture as save_final_bands.
+    """
+    review = get_review_for_sitting(sitting_id)
+    if not review:
+        raise NotFoundError(f"Review for sitting {sitting_id} not found")
+    if review.get("status") == "released":
+        raise ConflictError(
+            f"Sitting {sitting_id} đã công bố — không thể đổi quyết định test lại. "
+            "Thu hồi trước nếu cần."
+        )
+    skills = _required_skills(review["sitting_id"])
+    stored = {s: bool(retest_flags.get(s)) for s in skills if s in retest_flags}
+
+    response = supabase_admin.table("mock_exam_reviews").update({
+        "retest_flags": stored,
+    }).eq("id", str(review["id"])).execute()
+    if not response.data:
+        raise NotFoundError(f"Review {review['id']} not found")
+    logger.info(
+        "[mock-review] retest flags set from roster sitting=%s by=%s flags=%s",
+        sitting_id, admin_id, stored,
+    )
+    return response.data[0]
+
+
 def _writing_pending_tasks(sitting_id: UUID | str) -> list[str]:
     """Labels of Writing tasks that BLOCK release — a promoted essay not yet in
     'reviewed'/'delivered'. On release only a 'reviewed' essay is delivered
@@ -551,29 +590,36 @@ def retest_summary(mock_exam_id: str) -> dict:
     of flagged students. Sittings with no review yet or a review whose
     retest_flags are all false/absent don't appear in `students`.
 
-    reviewed_sittings only counts reviews in status IN ('reviewed',
-    'released') — retest_flags/final_bands are only ever populated by
-    save_final_bands(), so a still-'queued'/'claimed' review must not be
-    counted as "đã duyệt" (it would otherwise misreport as a clean pass).
+    reviewed_sittings only counts reviews in status IN ('reviewed', 'released')
+    — a still-'queued'/'claimed' review must not be counted as "đã duyệt" (it
+    would otherwise misreport as a clean pass). That count is now derived
+    separately from the flag scan: since 2026-07-15 the roster's skill picker
+    writes retest_flags on a queued review, so the two no longer share a filter.
 
     A student counts as "cần test lại" if EITHER the admin set the early
     sitting-level needs_retest flag (mig 153, decided from L/R before grading)
-    OR a completed review has any per-skill retest flag true. per_skill is the
-    final per-skill breakdown (from reviews only); an early-flagged sitting
-    with no completed review appears in `students` with empty skills."""
+    OR any review of theirs has a per-skill retest flag true — in ANY status, so
+    a decision made from the roster shows up immediately rather than waiting on
+    final bands. per_skill is the per-skill breakdown (from reviews only); an
+    early-flagged sitting with no flags of its own appears in `students` with
+    empty skills."""
     sittings = supabase_admin.table("mock_exam_sittings").select(
         "id, user_id, needs_retest",
     ).eq("mock_exam_id", str(mock_exam_id)).neq("status", "void").execute().data or []
     sitting_by_id = {s["id"]: s for s in sittings}
     total = len(sittings)
 
+    # Flags come from reviews in ANY status. save_final_bands() used to be their
+    # only writer, so this once filtered to reviewed/released — but the roster's
+    # skill picker (2026-07-15) writes them on a still-queued review, and the
+    # client refreshes this summary the moment it posts. Filtering here made a
+    # just-saved decision invisible until final bands were entered (Codex review,
+    # PR #776). reviewed_sittings keeps its own stricter count below.
     reviews: list = []
     if sitting_by_id:
         reviews = supabase_admin.table("mock_exam_reviews").select(
-            "sitting_id, retest_flags",
-        ).in_("sitting_id", list(sitting_by_id.keys())).in_(
-            "status", ["reviewed", "released"],
-        ).execute().data or []
+            "sitting_id, retest_flags, status",
+        ).in_("sitting_id", list(sitting_by_id.keys())).execute().data or []
 
     names = resolve_display_names(s.get("user_id") for s in sittings)
 
@@ -609,7 +655,11 @@ def retest_summary(mock_exam_id: str) -> dict:
     return {
         "mock_exam_id":       str(mock_exam_id),
         "total_sittings":     total,
-        "reviewed_sittings":  len(reviews),
+        # Strictly the COMPLETED reviews — a queued/claimed one carrying a retest
+        # flag is not "đã duyệt" and counting it would misreport a clean pass.
+        "reviewed_sittings":  sum(
+            1 for r in reviews if r.get("status") in ("reviewed", "released")
+        ),
         "needs_retest_count": len(flagged_students),
         "per_skill":          per_skill,
         "students":           flagged_students,
@@ -694,7 +744,7 @@ def roster(mock_exam_id: str) -> list[dict]:
         # ai_draft/final_bands feed the roster's Writing band (see _writing_band):
         # the column showed word counts only, so the examiner had to open every
         # row to see a band Listening/Reading already show inline.
-        "id, sitting_id, status, claimed_by, ai_draft, final_bands",
+        "id, sitting_id, status, claimed_by, ai_draft, final_bands, retest_flags",
     ).in_("sitting_id", [s["id"] for s in sittings]).execute().data or []
     review_by_sitting = {rv["sitting_id"]: rv for rv in reviews}
 
@@ -753,6 +803,14 @@ def roster(mock_exam_id: str) -> list[dict]:
             "review_status":  rv.get("status"),
             "claimed":        bool(rv.get("claimed_by")),
             "needs_retest":   bool(s.get("needs_retest")),
+            # Which skills the admin decided the student must retake. Distinct
+            # from needs_retest above: that one gates Writing bulk-grade, this is
+            # the per-skill record the roster's picker reads and writes.
+            # Only the true ones — the picker renders a fixed L/R/W set and the
+            # write path drops whatever this exam does not require, so the roster
+            # never pays _required_skills' per-sitting query (N+1 on a 13-row
+            # class; assigned_skills is per-sitting, so it cannot be hoisted).
+            "retest_flags":   {k: bool(v) for k, v in (rv.get("retest_flags") or {}).items() if v},
         })
     out.sort(key=lambda r: (r["student_name"] or "").lower())
     return out

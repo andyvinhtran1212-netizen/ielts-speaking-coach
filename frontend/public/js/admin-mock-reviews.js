@@ -64,14 +64,16 @@
       list.innerHTML = (gradable ? bulkBarHtml() : '') + renderRosterTable(rows);
       list.querySelectorAll('[data-review-id]').forEach(function (tr) {
         tr.addEventListener('click', function (ev) {
-          if (ev.target && ev.target.closest('.mr-check')) return;   // checkbox click ≠ open
+          if (ev.target && ev.target.closest('.mr-check')) return;    // checkbox click ≠ open
+          if (ev.target && ev.target.closest('.mr-retest')) return;   // ditto the skill picker
           openDetail(tr.getAttribute('data-review-id'));
         });
       });
-      list.querySelectorAll('.mr-retest-row').forEach(function (box) {
-        box.addEventListener('change', function () {
-          setRetest(box.getAttribute('data-sitting-id'), box.checked);
+      list.querySelectorAll('.mr-retest').forEach(function (dd) {
+        dd.addEventListener('change', function () {
+          setRetestSkills(dd, dd.getAttribute('data-sitting-id'));
         });
+        dd.addEventListener('toggle', function () { if (dd.open) placeRetestMenu(dd); });
       });
       if (gradable) wireBulkBar(list);
     } catch (e) {
@@ -125,17 +127,29 @@
     } catch (e) { toast('Chấm hàng loạt thất bại: ' + (e && e.message)); }
   }
 
-  // Early "cần test lại" toggle — reloads the roster so the bulk-grade checkbox
-  // enables/disables and the class summary count updates.
-  async function setRetest(sittingId, needs) {
+  // Record WHICH skills the student must retake. Posts the FULL picture every
+  // time (unticked = false) so unticking actually clears — a partial post would
+  // make a skill impossible to un-flag. Never blocks grading: /retest-flags does
+  // not touch needs_retest (product decision 2026-07-15).
+  async function setRetestSkills(el, sittingId) {
+    var flags = {};
+    RETEST_SKILLS.forEach(function (s) { flags[s.key] = false; });
+    el.querySelectorAll('.mr-retest-skill').forEach(function (box) {
+      flags[box.getAttribute('data-skill')] = box.checked;
+    });
+    var on = Object.keys(flags).filter(function (k) { return flags[k]; });
+    // Optimistic summary would lie if the POST fails — repaint from the server.
     try {
       await window.api.post(
-        '/admin/mock-exams/sittings/' + encodeURIComponent(sittingId) + '/retest',
-        { needs_retest: needs });
-      toast(needs ? 'Đã đánh dấu cần test lại.' : 'Đã bỏ đánh dấu test lại.');
+        '/admin/mock-exams/sittings/' + encodeURIComponent(sittingId) + '/retest-flags',
+        { retest_flags: flags });
+      toast(on.length ? 'Cần test lại: ' + on.join(', ') : 'Đã bỏ đánh dấu test lại.');
       loadRoster();
       loadRetestSummary();
-    } catch (e) { toast('Không cập nhật được: ' + (e && e.message)); }
+    } catch (e) {
+      toast('Không cập nhật được: ' + (e && e.message));
+      loadRoster();   // canonical refetch — the checkbox must not keep a state the server rejected
+    }
   }
 
   function lrCell(o) {
@@ -178,6 +192,53 @@
     return '<span class="mr-pill">' + (r.claimed ? 'đã nhận' : 'chưa nhận') + '</span>';
   }
 
+  // The skills the roster picker offers. Fixed rather than per-sitting: deriving
+  // the real required set costs a query PER ROW (assigned_skills is per-sitting,
+  // so it can't be hoisted to one per exam). The write path drops any skill this
+  // exam doesn't require, so offering a fixed set can't corrupt the record.
+  var RETEST_SKILLS = [
+    { key: 'listening', label: 'Listening', short: 'L' },
+    { key: 'reading',   label: 'Reading',   short: 'R' },
+    { key: 'writing',   label: 'Writing',   short: 'W' },
+  ];
+
+  // The roster table is rendered inside .adm-table-wrap, whose overflow-x:auto
+  // forces overflow-y to compute to `auto` too — so the scroller CLIPS an
+  // absolutely-positioned popover no matter its z-index. Measured on the last
+  // row: menu bottom 1116 vs scroller bottom 1027, leaving the Writing checkbox
+  // unreachable (Codex review, PR #776). Flip the menu above the summary when it
+  // would not fit below.
+  function placeRetestMenu(dd) {
+    var menu = dd.querySelector('.mr-retest__menu');
+    var scroller = dd.closest('.adm-table-wrap');
+    if (!menu || !scroller) return;
+    menu.classList.remove('mr-retest__menu--up');   // measure the default first
+    if (menu.getBoundingClientRect().bottom > scroller.getBoundingClientRect().bottom) {
+      menu.classList.add('mr-retest__menu--up');
+    }
+  }
+
+  // Multi-select of the skills the student must retake. A <details> popover, not
+  // a <select multiple>: the latter needs ctrl-click to multi-select and silently
+  // drops selections on a stray click — a bad way to record an exam decision.
+  function retestCell(r) {
+    if (!r.review_id) return '<span class="mr-muted">—</span>';   // sitting still in progress
+    var flags = r.retest_flags || {};
+    var on = RETEST_SKILLS.filter(function (s) { return flags[s.key]; });
+    var summary = on.length
+      ? on.map(function (s) { return s.short; }).join(' · ')
+      : '—';
+    return '<details class="mr-retest" data-sitting-id="' + esc(r.sitting_id) + '">' +
+      '<summary class="mr-retest__sum' + (on.length ? ' is-on' : '') + '" ' +
+        'title="Kỹ năng học viên cần thi lại">' + esc(summary) + '</summary>' +
+      '<div class="mr-retest__menu">' +
+        RETEST_SKILLS.map(function (s) {
+          return '<label class="mr-check"><input type="checkbox" class="mr-retest-skill" ' +
+            'data-skill="' + s.key + '"' + (flags[s.key] ? ' checked' : '') + '> ' + s.label + '</label>';
+        }).join('') +
+      '</div></details>';
+  }
+
   function renderRosterTable(rows) {
     var head = '<thead><tr>' +
       ['', 'Học viên', 'Listening', 'Reading', 'Writing', 'Speaking', 'Test lại', 'Trạng thái']
@@ -191,7 +252,7 @@
       var check = (hasWritingEssays(r) && !flagged)
         ? '<label class="mr-check"><input type="checkbox" class="mr-check-row" data-sitting-id="' + esc(r.sitting_id) + '"></label>'
         : '';
-      var retest = '<label class="mr-check"><input type="checkbox" class="mr-retest-row" data-sitting-id="' + esc(r.sitting_id) + '"' + (flagged ? ' checked' : '') + '></label>';
+      var retest = retestCell(r);
       return '<tr class="' + classes + '"' + reviewAttr + '>' +
         '<td>' + check + '</td>' +
         '<td>' + esc(r.student_name) + '</td>' +
