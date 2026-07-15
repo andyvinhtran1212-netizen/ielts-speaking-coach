@@ -793,6 +793,22 @@ _MOCK_WRITING_ANALYSIS_LEVEL = 3
 _WRITING_MIN_WORDS = {"task1": 150, "task2": 250}
 
 
+def _sitting_lr_skills(sitting: dict) -> set:
+    """Which of Listening/Reading this sitting actually runs.
+
+    Mirrors mock_review_workflow._required_skills' two branches without importing
+    it (that module imports this one — the dependency only goes one way):
+      · assigned_skills set  → a retake, banded on THAT student's subset
+      · otherwise            → the exam's configured sections
+    """
+    assigned = sitting.get("assigned_skills") or []
+    if assigned:
+        return {s for s in ("listening", "reading") if s in assigned}
+    exam = get_published_exam_by_id(sitting.get("mock_exam_id")) or {}
+    configured = set(_configured_sections(exam))
+    return {s for s in ("listening", "reading") if s in configured}
+
+
 def lr_skill_states(sitting: dict) -> list:
     """Why a Listening/Reading skill has no band — for the student's TRF.
 
@@ -813,12 +829,21 @@ def lr_skill_states(sitting: dict) -> list:
 
     Reads the persisted band_estimate (module-aware — General Training Reading
     has no Phase-1 table) rather than recomputing, same as _unconvertible_skills.
+
+    Only the skills this sitting actually RUNS are reported. A writing-only
+    retake, or a Reading+Writing exam (_configured_sections supports both), has
+    no Listening — emitting it anyway would render "Không nhận được bài làm" for
+    a skill the student was never set, which is the same falsehood
+    writing_task_states already guards against (Codex review, PR #780).
     """
+    lr = _sitting_lr_skills(sitting)
     out = []
     for skill, col, table in (
         ("listening", "listening_attempt_id", "listening_test_attempts"),
         ("reading",   "reading_attempt_id",   "reading_test_attempts"),
     ):
+        if skill not in lr:
+            continue
         aid = sitting.get(col)
         if not aid:
             out.append({"skill": skill, "state": "no_attempt",
