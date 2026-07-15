@@ -102,8 +102,16 @@
     .trf-gap__body { display: flex; flex-direction: column; gap: 4px; }
     .trf-gap__title { font-weight: var(--av-fw-semibold); color: var(--av-text-primary); }
     .trf-gap__detail { font-size: var(--av-fs-sm); color: var(--av-text-secondary); }
-    .trf-gap__retest { font-size: var(--av-fs-sm); font-weight: var(--av-fw-semibold);
-      color: var(--av-text-primary); margin-top: 2px; }
+    /* "Bạn phải thi lại phần X" — an instruction, not a warning about a gap, so
+       it carries the page's own accent rather than the amber of the reason cards
+       and sits directly under the bands. */
+    .trf-retest { display: flex; align-items: flex-start; gap: var(--av-space-3);
+      background: var(--av-primary-soft); border: 1px solid var(--av-primary-border);
+      border-radius: var(--av-radius-lg); padding: var(--av-space-4); }
+    .trf-retest__icon { font-size: var(--av-fs-lg); line-height: 1.2; color: var(--av-primary); }
+    .trf-retest__body { display: flex; flex-direction: column; gap: 4px; }
+    .trf-retest__title { font-weight: var(--av-fw-semibold); color: var(--av-text-primary); }
+    .trf-retest__detail { font-size: var(--av-fs-sm); color: var(--av-text-secondary); }
     .trf-review__icon { font-size: var(--av-fs-2xl); line-height: 1; }
     .trf-review__body { flex: 1; }
     .trf-review__title { font-weight: var(--av-fw-semibold); font-size: var(--av-fs-sm); }
@@ -151,6 +159,10 @@
       </section>
 
       <section class="trf-band-grid" id="bands"></section>
+      <!-- What the student must DO. Sits right under the bands, above the
+           commentary: it used to live inside the no-band warning cards, so a
+           skill that scored fine but was flagged showed nothing at all. -->
+      <section id="retest-wrap" class="trf-section hidden"></section>
 
       <section id="comment-wrap" class="trf-section">
         <h2 class="trf-h2">Nhận xét của giám khảo</h2>
@@ -269,16 +281,40 @@
             }).join('') + '</div>';
       }
 
-      renderLrGaps(data.lr_skills || [], fb, data.retest_flags || {});
-      renderWritingGaps(wTasks, data.retest_flags || {});
+      renderRetest(data.retest_flags || {});
+      renderLrGaps(data.lr_skills || [], fb);
+      renderWritingGaps(wTasks);
       showState('content');
+    }
+
+    // The skills the examiner ruled must be retaken. Its own block, driven ONLY
+    // by retest_flags — the notice used to be a line inside the no-band warning
+    // cards, so it appeared only for a skill that had no band. The common case is
+    // the opposite: a skill IS banded and the examiner still wants it redone. For
+    // those students the instruction rendered nowhere and they never learned they
+    // had to sit it again.
+    function renderRetest(retestFlags) {
+      var LABEL = { listening: 'Listening', reading: 'Reading',
+                    writing: 'Writing', speaking: 'Speaking' };
+      var skills = Object.keys(LABEL).filter(function (s) { return retestFlags[s]; });
+      var wrap = $('retest-wrap');
+      if (!wrap || !skills.length) return;
+      wrap.classList.remove('hidden');
+      wrap.innerHTML = '<div class="trf-retest">'
+        + '<span class="trf-retest__icon" aria-hidden="true">↻</span>'
+        + '<span class="trf-retest__body">'
+        +   '<span class="trf-retest__title">Giám khảo yêu cầu thi lại: '
+        +     esc(skills.map(function (s) { return LABEL[s]; }).join(', ')) + '</span>'
+        +   '<span class="trf-retest__detail">Kết quả dưới đây vẫn là kết quả của lần thi này. '
+        +     'Liên hệ lớp/trung tâm để sắp lịch thi lại phần được yêu cầu.</span>'
+        + '</span></div>';
     }
 
     // A Listening/Reading skill with no band used to just DISAPPEAR from the
     // grid — the student saw the other skills and was left guessing. Say what
     // happened, and say the true thing: production's stuck sittings all submitted
     // on time, so "không nhận được bài làm" would be a lie about their own exam.
-    function renderLrGaps(lrSkills, fb, retestFlags) {
+    function renderLrGaps(lrSkills, fb) {
       var LABEL = { listening: 'Listening', reading: 'Reading' };
       // A skill the examiner banded by hand needs no excuse, whatever the raw
       // score did — the band is what the student is given.
@@ -311,10 +347,8 @@
               + '<span class="trf-gap__body">'
               +   '<span class="trf-gap__title">' + esc(label) + ' — ' + esc(why) + '</span>'
               +   '<span class="trf-gap__detail">' + esc(detail) + '</span>'
-              +   (retestFlags[s.skill]
-                    ? '<span class="trf-gap__retest">Giám khảo yêu cầu thi lại phần '
-                      + esc(label) + '.</span>'
-                    : '')
+              // the retest instruction lives in its own block now — repeating it
+              // per card said it only where it mattered least
               + '</span></div>';
           }).join('');
     }
@@ -326,13 +360,12 @@
     // The retest line is separate on purpose: not-graded is what HAPPENED, "cần
     // thi lại" is what the examiner DECIDED. Only the examiner's own flag may
     // claim the second — this page must not invent an obligation for them.
-    function renderWritingGaps(wTasks, retestFlags) {
+    function renderWritingGaps(wTasks) {
       var TASK_LABEL = { task1: 'Task 1', task2: 'Task 2' };
       var gaps = (wTasks || []).filter(function (t) { return t.state !== 'delivered'; });
       var wrap = $('writing-gap-wrap');
       if (!wrap || !gaps.length) return;
 
-      var mustRetakeWriting = !!retestFlags.writing;
       wrap.classList.remove('hidden');
       wrap.innerHTML = '<h2 class="trf-h2">Phần Writing chưa có nhận xét</h2>'
         + gaps.map(function (t) {
@@ -355,9 +388,7 @@
               + '<span class="trf-gap__body">'
               +   '<span class="trf-gap__title">' + esc(label) + ' — ' + esc(why) + '</span>'
               +   '<span class="trf-gap__detail">' + esc(detail) + '</span>'
-              +   (mustRetakeWriting
-                    ? '<span class="trf-gap__retest">Giám khảo yêu cầu thi lại phần Writing.</span>'
-                    : '')
+              // retest lives in its own block — see renderRetest
               + '</span></div>';
           }).join('');
     }
