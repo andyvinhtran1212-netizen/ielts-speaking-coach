@@ -590,29 +590,36 @@ def retest_summary(mock_exam_id: str) -> dict:
     of flagged students. Sittings with no review yet or a review whose
     retest_flags are all false/absent don't appear in `students`.
 
-    reviewed_sittings only counts reviews in status IN ('reviewed',
-    'released') — retest_flags/final_bands are only ever populated by
-    save_final_bands(), so a still-'queued'/'claimed' review must not be
-    counted as "đã duyệt" (it would otherwise misreport as a clean pass).
+    reviewed_sittings only counts reviews in status IN ('reviewed', 'released')
+    — a still-'queued'/'claimed' review must not be counted as "đã duyệt" (it
+    would otherwise misreport as a clean pass). That count is now derived
+    separately from the flag scan: since 2026-07-15 the roster's skill picker
+    writes retest_flags on a queued review, so the two no longer share a filter.
 
     A student counts as "cần test lại" if EITHER the admin set the early
     sitting-level needs_retest flag (mig 153, decided from L/R before grading)
-    OR a completed review has any per-skill retest flag true. per_skill is the
-    final per-skill breakdown (from reviews only); an early-flagged sitting
-    with no completed review appears in `students` with empty skills."""
+    OR any review of theirs has a per-skill retest flag true — in ANY status, so
+    a decision made from the roster shows up immediately rather than waiting on
+    final bands. per_skill is the per-skill breakdown (from reviews only); an
+    early-flagged sitting with no flags of its own appears in `students` with
+    empty skills."""
     sittings = supabase_admin.table("mock_exam_sittings").select(
         "id, user_id, needs_retest",
     ).eq("mock_exam_id", str(mock_exam_id)).neq("status", "void").execute().data or []
     sitting_by_id = {s["id"]: s for s in sittings}
     total = len(sittings)
 
+    # Flags come from reviews in ANY status. save_final_bands() used to be their
+    # only writer, so this once filtered to reviewed/released — but the roster's
+    # skill picker (2026-07-15) writes them on a still-queued review, and the
+    # client refreshes this summary the moment it posts. Filtering here made a
+    # just-saved decision invisible until final bands were entered (Codex review,
+    # PR #776). reviewed_sittings keeps its own stricter count below.
     reviews: list = []
     if sitting_by_id:
         reviews = supabase_admin.table("mock_exam_reviews").select(
-            "sitting_id, retest_flags",
-        ).in_("sitting_id", list(sitting_by_id.keys())).in_(
-            "status", ["reviewed", "released"],
-        ).execute().data or []
+            "sitting_id, retest_flags, status",
+        ).in_("sitting_id", list(sitting_by_id.keys())).execute().data or []
 
     names = resolve_display_names(s.get("user_id") for s in sittings)
 
@@ -648,7 +655,11 @@ def retest_summary(mock_exam_id: str) -> dict:
     return {
         "mock_exam_id":       str(mock_exam_id),
         "total_sittings":     total,
-        "reviewed_sittings":  len(reviews),
+        # Strictly the COMPLETED reviews — a queued/claimed one carrying a retest
+        # flag is not "đã duyệt" and counting it would misreport a clean pass.
+        "reviewed_sittings":  sum(
+            1 for r in reviews if r.get("status") in ("reviewed", "released")
+        ),
         "needs_retest_count": len(flagged_students),
         "per_skill":          per_skill,
         "students":           flagged_students,

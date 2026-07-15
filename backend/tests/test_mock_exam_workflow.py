@@ -1251,6 +1251,43 @@ def test_roster_exposes_only_the_true_retest_flags(fake_db, svc, wf):
     assert row["retest_flags"] == {"listening": True, "writing": True}
 
 
+def test_retest_summary_sees_a_queued_roster_decision(fake_db, svc, wf):
+    """Codex P2 (PR #776): the summary filtered flags to reviewed/released because
+    save_final_bands() used to be their only writer. The roster picker writes them
+    on a QUEUED review and the client refreshes the summary straight after the
+    POST — filtering made a just-saved decision invisible until final bands were
+    entered. reviewed_sittings must stay strict, though: a queued review is not
+    "đã duyệt", and counting it would misreport a clean pass."""
+    fake_db.seed("mock_exam_sittings", {"id": "sit-1", "mock_exam_id": "ex-1",
+                                        "status": "submitted", "user_id": "u-1",
+                                        "needs_retest": False})
+    fake_db.seed("mock_exam_reviews", {"id": "rv-1", "sitting_id": "sit-1",
+                                       "status": "queued",
+                                       "retest_flags": {"listening": True, "writing": True}})
+
+    out = wf.retest_summary("ex-1")
+
+    assert out["needs_retest_count"] == 1                 # the decision is visible…
+    assert out["per_skill"]["listening"] == 1
+    assert out["per_skill"]["writing"] == 1
+    assert out["students"][0]["skills"] == ["listening", "writing"]
+    assert out["reviewed_sittings"] == 0                  # …but it is NOT "đã duyệt"
+
+
+def test_retest_summary_counts_only_completed_reviews_as_reviewed(fake_db, svc, wf):
+    fake_db.seed("mock_exam_sittings", {"id": "sit-1", "mock_exam_id": "ex-1",
+                                        "status": "submitted", "user_id": "u-1"})
+    fake_db.seed("mock_exam_sittings", {"id": "sit-2", "mock_exam_id": "ex-1",
+                                        "status": "submitted", "user_id": "u-2"})
+    fake_db.seed("mock_exam_reviews", {"id": "rv-1", "sitting_id": "sit-1",
+                                       "status": "reviewed", "retest_flags": {}})
+    fake_db.seed("mock_exam_reviews", {"id": "rv-2", "sitting_id": "sit-2",
+                                       "status": "claimed", "retest_flags": {}})
+    out = wf.retest_summary("ex-1")
+    assert out["reviewed_sittings"] == 1
+    assert out["needs_retest_count"] == 0
+
+
 def test_roster_writing_band_absent_suggested_then_confirmed(fake_db, svc, wf):
     """The roster's Writing cell carries a band the way Listening/Reading do —
     but it must say WHICH KIND, or the examiner reads an unconfirmed suggestion

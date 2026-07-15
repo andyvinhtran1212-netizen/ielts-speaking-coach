@@ -72,6 +72,9 @@
       display:flex; flex-direction:column; gap:6px; padding:var(--av-space-3);
       background:var(--av-surface-card); border:1px solid var(--av-border-default);
       border-radius:var(--av-radius-md); box-shadow:var(--av-shadow-md); white-space:nowrap; }
+    /* Bottom rows: .adm-table-wrap (overflow-x:auto → overflow-y:auto) clips the
+       menu, so it opens upward instead. placeRetestMenu() measures and applies. */
+    .mr-retest__menu--up { top:auto; bottom:calc(100% + 4px); }
     /* L/R result detail */
     .mr-total { font-size:14px; color:var(--av-text-primary); margin-bottom:var(--av-space-3); }
     .mr-total b { font-family:var(--av-font-mono); }

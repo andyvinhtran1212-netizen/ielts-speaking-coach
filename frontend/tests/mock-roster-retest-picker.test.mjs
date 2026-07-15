@@ -101,6 +101,32 @@ describe('roster TEST LẠI — wiring', () => {
   });
 });
 
+// The table renders inside .adm-table-wrap, whose overflow-x:auto forces
+// overflow-y to compute to auto — so the scroller clips the popover regardless
+// of z-index. Measured on the last row: menu bottom 1116 vs scroller bottom
+// 1027, leaving the Writing checkbox unreachable (Codex review, PR #776).
+describe('roster TEST LẠI — the scroller must not clip the menu', () => {
+  test('the menu flips up when it would not fit below', () => {
+    const body = JS.match(/function placeRetestMenu\(dd\) \{([\s\S]*?)\n  \}/);
+    assert.ok(body, 'placeRetestMenu() not found — sentinel is stale');
+    assert.match(body[1], /closest\('\.adm-table-wrap'\)/);
+    assert.match(body[1], /getBoundingClientRect\(\)\.bottom > scroller\.getBoundingClientRect\(\)\.bottom/);
+    assert.match(body[1], /add\('mr-retest__menu--up'\)/);
+  });
+  test('the default placement is re-measured, not remembered', () => {
+    // Without dropping the class first, a menu that flipped once would stay
+    // flipped after a scroll made room below.
+    const body = JS.match(/function placeRetestMenu\(dd\) \{([\s\S]*?)\n  \}/);
+    assert.match(body[1], /remove\('mr-retest__menu--up'\)[\s\S]*?if \(/);
+  });
+  test('placement runs on open', () => {
+    assert.match(JS, /addEventListener\('toggle', function \(\) \{ if \(dd\.open\) placeRetestMenu\(dd\); \}\)/);
+  });
+  test('the up variant anchors to the summary bottom', () => {
+    assert.match(HTML, /\.mr-retest__menu--up \{ top:auto; bottom:calc\(100% \+ 4px\); \}/);
+  });
+});
+
 describe('roster TEST LẠI — popover styling', () => {
   // <details> hides its own content when closed, but an explicit
   // display+position on the menu overrides that — measured: the menu still laid

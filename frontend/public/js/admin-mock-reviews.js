@@ -73,6 +73,7 @@
         dd.addEventListener('change', function () {
           setRetestSkills(dd, dd.getAttribute('data-sitting-id'));
         });
+        dd.addEventListener('toggle', function () { if (dd.open) placeRetestMenu(dd); });
       });
       if (gradable) wireBulkBar(list);
     } catch (e) {
@@ -200,6 +201,22 @@
     { key: 'reading',   label: 'Reading',   short: 'R' },
     { key: 'writing',   label: 'Writing',   short: 'W' },
   ];
+
+  // The roster table is rendered inside .adm-table-wrap, whose overflow-x:auto
+  // forces overflow-y to compute to `auto` too — so the scroller CLIPS an
+  // absolutely-positioned popover no matter its z-index. Measured on the last
+  // row: menu bottom 1116 vs scroller bottom 1027, leaving the Writing checkbox
+  // unreachable (Codex review, PR #776). Flip the menu above the summary when it
+  // would not fit below.
+  function placeRetestMenu(dd) {
+    var menu = dd.querySelector('.mr-retest__menu');
+    var scroller = dd.closest('.adm-table-wrap');
+    if (!menu || !scroller) return;
+    menu.classList.remove('mr-retest__menu--up');   // measure the default first
+    if (menu.getBoundingClientRect().bottom > scroller.getBoundingClientRect().bottom) {
+      menu.classList.add('mr-retest__menu--up');
+    }
+  }
 
   // Multi-select of the skills the student must retake. A <details> popover, not
   // a <select multiple>: the latter needs ctrl-click to multi-select and silently
