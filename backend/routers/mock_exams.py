@@ -71,6 +71,14 @@ async def list_open(authorization: str | None = Header(default=None)):
     return {"exams": svc.list_open_exams(user["id"])}
 
 
+@router.get("/my-sittings")
+async def my_sittings(authorization: str | None = Header(default=None)):
+    """The caller's own sittings (resume targets + released results) — powers the
+    student home's mock section + result tile."""
+    user = await get_supabase_user(authorization)
+    return {"sittings": svc.list_my_sittings(user["id"])}
+
+
 @router.post("/{code}/sittings")
 async def open_sitting(code: str, authorization: str | None = Header(default=None)):
     user = await get_supabase_user(authorization)

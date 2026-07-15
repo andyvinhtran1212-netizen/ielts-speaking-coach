@@ -42,6 +42,33 @@
 
   <!-- ── Canonical chrome Web Component (Sprint 7.12) ───────────────── -->
   <script type="module" src="/js/components/aver-chrome.js"></script>
+
+  <!-- Mock hub: the "Thi thử Full Test" start card + released-result tiles. -->
+  <style>
+    .mock-hub__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: var(--av-space-3); }
+    .mock-start { display: block; text-decoration: none; background: var(--av-surface-elevated);
+      border: 1px solid var(--av-border-default); border-radius: var(--av-radius-lg);
+      padding: var(--av-space-4) var(--av-space-6); }
+    .mock-start__title { font-size: var(--av-fs-lg); font-weight: var(--av-fw-bold); color: var(--av-text-primary); }
+    .mock-start__sub { color: var(--av-text-secondary); font-size: var(--av-fs-sm); margin-top: var(--av-space-1);
+      line-height: var(--av-lh-normal); }
+    .mock-result-tile { display: flex; align-items: center; gap: var(--av-space-4);
+      text-decoration: none; background: var(--av-primary-soft);
+      border: 1px solid var(--av-primary-border); border-radius: var(--av-radius-lg);
+      padding: var(--av-space-4) var(--av-space-6);
+      transition: transform var(--av-duration-fast) var(--av-easing-default),
+        border-color var(--av-duration-fast) var(--av-easing-default); }
+    .mock-result-tile:hover { transform: translateY(-1px); border-color: var(--av-primary); }
+    .mock-result-tile:focus-visible { outline: none; box-shadow: var(--av-shadow-focus); }
+    .mock-result-tile__band { font-family: var(--av-font-mono); font-size: var(--av-fs-3xl);
+      font-weight: var(--av-fw-bold); color: var(--av-primary); line-height: 1;
+      font-variant-numeric: tabular-nums; }
+    .mock-result-tile__title { font-weight: var(--av-fw-semibold); color: var(--av-text-primary);
+      font-size: var(--av-fs-sm); }
+    .mock-result-tile__hint { font-size: var(--av-fs-xs); color: var(--av-primary);
+      margin-top: 2px; font-weight: var(--av-fw-medium); }
+  </style>
 </head>
 <body class="av-page">
 
@@ -211,10 +238,14 @@
     </section>
 
     <section style="margin-top:20px">
-      <a href="/pages/full-test.html" style="display:block;text-decoration:none;background:var(--av-surface-elevated);border:1px solid var(--av-border-default);border-radius:14px;padding:18px 20px;">
-        <div style="font-size:17px;font-weight:700;color:var(--av-text-primary);">🎯 Thi thử Full Test 4 kỹ năng →</div>
-        <div style="color:var(--av-text-secondary);font-size:14px;margin-top:4px;">Listening + Reading + Writing (một đồng hồ tổng) + Speaking — thu bài kín, giám khảo chấm và trả điểm sau.</div>
-      </a>
+      <!-- Start card + result tiles side by side; a released result tile is
+           injected next to the start card by home-mock-tiles.js. -->
+      <div class="mock-hub__grid" id="mock-hub-grid">
+        <a href="/pages/full-test.html" class="mock-start">
+          <div class="mock-start__title">🎯 Thi thử Full Test 4 kỹ năng →</div>
+          <div class="mock-start__sub">Listening + Reading + Writing (một đồng hồ tổng) + Speaking — thu bài kín, giám khảo chấm và trả điểm sau.</div>
+        </a>
+      </div>
     </section>
 
     <footer class="page-footer">
@@ -235,6 +266,7 @@
     initSupabase(SUPABASE_URL, SUPABASE_ANON);
   </script>
   <script src="../js/home.js"></script>
+  <script src="../js/home-mock-tiles.js"></script>
 
   <!-- Sprint 7.12: theme toggle + user pill wiring moved into
        <aver-chrome>. Component owns bindToggleButton + pill populate.
