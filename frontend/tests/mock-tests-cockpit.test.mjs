@@ -236,3 +236,33 @@ describe('mock-tests cockpit — the frame follows the theme toggle', () => {
     assert.match(JS, /frame\.addEventListener\('load', syncFrameTheme\)/);
   });
 });
+
+// …but mirroring parent → frame is only safe while the cockpit KNOWS the theme.
+// The embedded writing grade page carries its OWN .av-theme-toggle, which sets
+// its own data-theme + writes localStorage and tells the parent nothing. The
+// cockpit's attribute went stale, and the next navigation had syncFrameTheme()
+// write that stale value over the theme the user had just picked — measured
+// before the fix: child toggle → frame dark / parent light, then navigate →
+// frame back to light (Codex P2, PR #785).
+describe('mock-tests cockpit — an embedded page may own the toggle too', () => {
+  test('a storage write of av-theme is adopted onto the cockpit', () => {
+    const body = JS.match(/function adoptStoredTheme\(e\) \{([\s\S]*?)\n  \}/);
+    assert.ok(body, 'adoptStoredTheme() not found — sentinel is stale');
+    assert.match(body[1], /localStorage\.getItem\('av-theme'\)/);
+    assert.match(body[1], /setAttribute\('data-theme', t\)/);
+  });
+  test('it is wired to the storage event', () => {
+    assert.match(JS, /window\.addEventListener\('storage', adoptStoredTheme\)/);
+  });
+  // storage fires for EVERY key; reacting to all of them would re-read the theme
+  // on unrelated writes (auth tokens, drafts) and fight the observer.
+  test('it ignores writes to other keys', () => {
+    const body = JS.match(/function adoptStoredTheme\(e\) \{([\s\S]*?)\n  \}/);
+    assert.match(body[1], /e\.key !== 'av-theme'/);
+  });
+  // A junk/absent value must not blank the attribute out from under the page.
+  test('only a valid theme is adopted', () => {
+    const body = JS.match(/function adoptStoredTheme\(e\) \{([\s\S]*?)\n  \}/);
+    assert.match(body[1], /t !== 'light' && t !== 'dark'/);
+  });
+});
