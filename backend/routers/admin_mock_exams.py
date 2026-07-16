@@ -19,6 +19,9 @@ console lives in admin_mock_reviews.py.
   GET   /admin/mock-exams/{id}/retest-summary    — per-skill "cần test lại" counts
   GET   /admin/mock-exams/{id}/roster            — class roster grid (per-skill snapshot)
   POST  /admin/mock-exams/{id}/writing/bulk-grade — queue many sittings' Writing at once
+  POST  /admin/mock-exams/{id}/bulk-claim        — nhận many reviews at once
+  POST  /admin/mock-exams/{id}/bulk-final-bands  — chốt band from the pre-filled values
+  POST  /admin/mock-exams/{id}/bulk-release      — công bố many sittings' results
   GET   /admin/mock-exams/{id}/assignments       — per-student retake assignments
   POST  /admin/mock-exams/{id}/assignments       — assign retake exam to students
   DELETE /admin/mock-exams/{id}/assignments/{sid}— un-assign one student
@@ -99,6 +102,13 @@ class RetestBody(BaseModel):
 
 
 class BulkReleaseBody(BaseModel):
+    sitting_ids: list[str] = Field(default_factory=list)
+
+
+class BulkSittingsBody(BaseModel):
+    """Selected roster rows for bulk-claim / bulk-final-bands. Neither carries
+    bands or flags: the server derives them, so a stale tab cannot post a band."""
+
     sitting_ids: list[str] = Field(default_factory=list)
 
 
@@ -354,6 +364,36 @@ async def set_sitting_retest(
         )
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
+
+
+@router.post("/{exam_id}/bulk-claim")
+async def bulk_claim(
+    exam_id: str, body: BulkSittingsBody, authorization: str | None = Header(default=None),
+):
+    """Nhận many reviews at once. Only a 'queued' row is taken — claim()'s atomic
+    WHERE clause is still the lock, so this cannot lift another admin's review.
+    A row it could not take is skipped with a reason, never raised."""
+    admin = await require_admin(authorization)
+    if not body.sitting_ids:
+        return {"claimed": [], "skipped": []}
+    return wf.bulk_claim_sittings(body.sitting_ids, admin["id"])
+
+
+@router.post("/{exam_id}/bulk-final-bands")
+async def bulk_final_bands(
+    exam_id: str, body: BulkSittingsBody, authorization: str | None = Header(default=None),
+):
+    """Chốt band for many claimed reviews from the bands the console pre-fills
+    (L/R off the Cambridge table, Writing off the two admin-reviewed essays).
+
+    The client posts NO bands — the server derives them, and save_final_bands
+    still validates each one and recomputes the overall. A sitting whose required
+    band cannot be derived (e.g. Speaking) is skipped with a reason rather than
+    signed off with a number nobody chose. Does not publish; use bulk-release."""
+    admin = await require_admin(authorization)
+    if not body.sitting_ids:
+        return {"saved": [], "skipped": []}
+    return wf.bulk_save_final_bands(body.sitting_ids, admin["id"])
 
 
 @router.post("/{exam_id}/bulk-release")

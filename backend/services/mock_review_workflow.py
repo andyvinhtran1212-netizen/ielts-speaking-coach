@@ -399,6 +399,156 @@ def save_final_bands(
     return response.data[0]
 
 
+_STATUS_VI = {
+    "queued":   "chưa nhận",
+    "claimed":  "đã nhận",
+    "edited":   "đang sửa",
+    "reviewed": "đã duyệt",
+    "released": "đã công bố",
+}
+
+
+def _draft_final_bands(review: dict) -> dict:
+    """The bands the review console would pre-fill, derived server-side.
+
+    Mirrors the console's rule exactly (admin-mock-reviews.js draftBandOf): a
+    saved final band wins, else the ai_draft suggestion. NOTHING here is
+    invented — assemble_ai_draft fills Listening/Reading from the attempt's
+    band_estimate (the published Cambridge table; arithmetic, not judgement) and
+    sync_writing_band_for_essay rolls Writing up from the two essays an admin
+    already graded AND reviewed.
+
+    Speaking has no draft source at all, so a Speaking exam yields no band here
+    and lands in `skipped` — it is never signed off with a number nobody chose.
+    """
+    draft = review.get("ai_draft") or {}
+    fb = review.get("final_bands") or {}
+    out: dict = {}
+    for s in _SKILLS:
+        if fb.get(s) is not None:
+            out[s] = fb[s]          # an examiner's own entry is never overwritten
+            continue
+        v = draft.get(s)
+        band = v.get("band") if isinstance(v, dict) else v
+        if band is not None:
+            out[s] = band
+    return out
+
+
+def bulk_claim_sittings(sitting_ids: Iterable, admin_id: UUID | str) -> dict:
+    """Nhận many reviews at once, so a class isn't claimed one row at a time.
+
+    The gate is unchanged — this only loops claim(), whose atomic
+    UPDATE ... WHERE status='queued' remains the lock. A row another admin holds
+    lands in `skipped`; nothing is stolen and no status is forced.
+
+    Returns {claimed: [sitting_id], skipped: [{sitting_id, reason}]} — callers
+    must show `skipped`, never just the count (same contract as
+    bulk_release_sittings).
+    """
+    claimed: list = []
+    skipped: list = []
+    for sid in sitting_ids:
+        sid = str(sid)
+        try:
+            review = get_review_for_sitting(sid)
+            if not review:
+                skipped.append({"sitting_id": sid, "reason": "Chưa có hồ sơ duyệt."})
+                continue
+            st = review.get("status")
+            if st != "queued":
+                # Pre-checked for a readable reason only; claim()'s WHERE clause
+                # is still the gate (same posture as bulk_release's 'released'
+                # check just below).
+                holder = review.get("claimed_by")
+                skipped.append({
+                    "sitting_id": sid,
+                    "reason": ("Admin khác đã nhận." if holder and str(holder) != str(admin_id)
+                               else "Đã nhận trước đó (%s)." % _STATUS_VI.get(st, st)),
+                })
+                continue
+            claim(review["id"], admin_id)
+            claimed.append(sid)
+        except ConflictError as e:
+            skipped.append({"sitting_id": sid, "reason": str(e)})
+        except NotFoundError as e:
+            skipped.append({"sitting_id": sid, "reason": str(e)})
+        except Exception as e:  # noqa: BLE001 — one bad sitting must not sink the batch
+            logger.exception("[mock-review] bulk claim failed sitting=%s", sid)
+            skipped.append({"sitting_id": sid, "reason": f"Lỗi: {e}"})
+    logger.info(
+        "[mock-review] bulk claim by=%s claimed=%d skipped=%d",
+        admin_id, len(claimed), len(skipped),
+    )
+    return {"claimed": claimed, "skipped": skipped}
+
+
+def bulk_save_final_bands(sitting_ids: Iterable, admin_id: UUID | str) -> dict:
+    """Chốt band for many claimed reviews from the values the console would
+    pre-fill — the admin stops opening 13 rows to confirm 13 computed numbers.
+
+    save_final_bands stays the ONLY gate: it re-derives required/blankable
+    skills, refuses a band it would have to invent, and always recomputes the
+    overall itself. This adds no authority — it supplies the same values the
+    form would have submitted, for reviews this admin already claimed.
+
+    Deliberately does NOT touch retest_flags or examiner_comment_vi: both are
+    per-student judgement, and passing None leaves whatever the admin set.
+
+    Returns {saved: [sitting_id], skipped: [{sitting_id, reason}]}.
+    """
+    saved: list = []
+    skipped: list = []
+    for sid in sitting_ids:
+        sid = str(sid)
+        try:
+            review = get_review_for_sitting(sid)
+            if not review:
+                skipped.append({"sitting_id": sid, "reason": "Chưa có hồ sơ duyệt."})
+                continue
+            st = review.get("status")
+            if st == "queued":
+                skipped.append({"sitting_id": sid, "reason": "Chưa nhận — bấm Nhận trước."})
+                continue
+            if st == "released":
+                skipped.append({
+                    "sitting_id": sid,
+                    "reason": "Đã công bố — thu hồi trước nếu cần sửa band.",
+                })
+                continue
+            bands = _draft_final_bands(review)
+            # Message-only pre-check — save_final_bands refuses these anyway, but
+            # it says "missing skill(s): speaking"; the admin needs to know WHICH
+            # row to open and why, not the field name.
+            skills = _required_skills(review["sitting_id"])
+            blankable = _unconvertible_skills(review["sitting_id"])
+            forgotten = [s for s in skills if bands.get(s) is None and s not in blankable]
+            if forgotten:
+                skipped.append({
+                    "sitting_id": sid,
+                    "reason": "Chưa có band tự động cho %s — cần mở bài chấm tay."
+                              % ", ".join(s.capitalize() for s in forgotten),
+                })
+                continue
+            save_final_bands(review["id"], admin_id, bands)
+            saved.append(sid)
+        except PermissionError:
+            skipped.append({
+                "sitting_id": sid,
+                "reason": "Bài này do admin khác nhận — chỉ người nhận mới chốt band được.",
+            })
+        except (ValidationError, ConflictError, NotFoundError) as e:
+            skipped.append({"sitting_id": sid, "reason": str(e)})
+        except Exception as e:  # noqa: BLE001 — one bad sitting must not sink the batch
+            logger.exception("[mock-review] bulk save bands failed sitting=%s", sid)
+            skipped.append({"sitting_id": sid, "reason": f"Lỗi: {e}"})
+    logger.info(
+        "[mock-review] bulk save bands by=%s saved=%d skipped=%d",
+        admin_id, len(saved), len(skipped),
+    )
+    return {"saved": saved, "skipped": skipped}
+
+
 def bulk_release_sittings(
     sitting_ids: Iterable, admin_id: UUID | str, channel: str = "in_app",
 ) -> dict:

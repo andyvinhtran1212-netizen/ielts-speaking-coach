@@ -157,8 +157,8 @@ describe('roster — bulk release (công bố hàng loạt)', () => {
   test('refusals are named per sitting, not just counted', () => {
     const body = JS.match(/async function bulkRelease\(sittingIds\) \{([\s\S]*?)\n  \}/);
     assert.ok(body, 'bulkRelease() not found — sentinel is stale');
-    assert.match(body[1], /if \(sk\.length\) renderReleaseSkips\(sk\)/);
-    assert.match(JS, /function renderReleaseSkips\(skips\)[\s\S]*?s\.reason/);
+    assert.match(body[1], /if \(sk\.length\) renderSkips\(sk, 'công bố'\)/);
+    assert.match(JS, /function renderSkips\(skips, what\)[\s\S]*?s\.reason/);
   });
   test('a failed batch refetches rather than leaving a stale roster', () => {
     const body = JS.match(/async function bulkRelease\(sittingIds\) \{([\s\S]*?)\n  \}/);
@@ -182,9 +182,9 @@ describe('roster — bulk release, review fixes', () => {
     const body = JS.match(/async function bulkRelease\(sittingIds\) \{([\s\S]*?)\n  \}/);
     assert.ok(body, 'bulkRelease() not found — sentinel is stale');
     const iLoad = body[1].indexOf('await loadRoster()');
-    const iSkips = body[1].indexOf('renderReleaseSkips(sk)');
+    const iSkips = body[1].indexOf('renderSkips(sk,');
     assert.ok(iLoad !== -1, 'the roster reload must be awaited');
-    assert.ok(iSkips > iLoad, 'renderReleaseSkips must run AFTER the reload');
+    assert.ok(iSkips > iLoad, 'renderSkips must run AFTER the reload');
   });
   test('the release control shows for a roster with no Writing essays at all', () => {
     // An L/R-only retake has results release_results can publish and no essay to

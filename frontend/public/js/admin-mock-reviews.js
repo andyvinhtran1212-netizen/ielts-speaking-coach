@@ -81,7 +81,12 @@
         });
         dd.addEventListener('toggle', function () { if (dd.open) placeRetestMenu(dd); });
       });
-      if (gradable) wireBulkBar(list);
+      // anySubmitted, NOT gradable: the bar renders on anySubmitted (#778 widened
+      // that so an essay-less L/R-only roster keeps its release button) but the
+      // wiring was left behind — so on such a roster every control in it was
+      // rendered dead, permanently disabled. wireBulkBar already guards the
+      // grade button's absence.
+      if (anySubmitted) wireBulkBar(list);
     } catch (e) {
       list.innerHTML = '<p style="color:var(--av-error)">Lỗi tải bảng lớp: ' + esc(e && e.message) + '</p>';
     }
@@ -100,6 +105,11 @@
           '<button class="av-btn av-btn--primary" id="bulk-grade-btn" disabled>Đưa vào hàng chấm</button>' +
           '<span class="mr-bulkbar__sep" aria-hidden="true"></span>'
         : '') +
+      // The two steps that used to cost one click PER STUDENT. Secondary next to
+      // CÔNG BỐ: neither shows the student anything, and nhận is undoable.
+      '<button class="av-btn" id="bulk-claim-btn" disabled>Nhận</button>' +
+      '<button class="av-btn" id="bulk-bands-btn" disabled>Chốt band</button>' +
+      '<span class="mr-bulkbar__sep" aria-hidden="true"></span>' +
       // CÔNG BỐ publishes to real students, so it never sits next to the grading
       // action as an equal — it is separated and labelled with the count it will
       // publish, and confirms before firing.
@@ -111,12 +121,26 @@
     var boxes = Array.prototype.slice.call(list.querySelectorAll('.mr-check-row'));
     var btn = el('bulk-grade-btn');
     var rel = el('bulk-release-btn');
+    var clm = el('bulk-claim-btn');
+    var bnd = el('bulk-bands-btn');
     var all = el('bulk-all');
     function checked() { return boxes.filter(function (b) { return b.checked; }); }
     // Only a sitting whose final bands are in can be published. Counting the rest
     // would promise the admin a release the server will refuse.
     function releasable() {
       return checked().filter(function (b) { return b.getAttribute('data-review-status') === 'reviewed'; });
+    }
+    // claim() only takes a 'queued' row — counting a claimed one would promise a
+    // no-op the server just refuses.
+    function claimable() {
+      return checked().filter(function (b) { return b.getAttribute('data-review-status') === 'queued'; });
+    }
+    // 'edited' rides with 'claimed': both are held by an admin, neither is banded.
+    function bandable() {
+      return checked().filter(function (b) {
+        var s = b.getAttribute('data-review-status');
+        return s === 'claimed' || s === 'edited';
+      });
     }
     function refresh() {
       var n = checked().length;
@@ -126,6 +150,18 @@
         btn.disabled = !n;
         btn.textContent = n ? ('Đưa vào hàng chấm (' + n + ')') : 'Đưa vào hàng chấm';
       }
+      var c = claimable().length;
+      clm.disabled = !c;
+      clm.textContent = c ? ('Nhận (' + c + ')') : 'Nhận';
+      clm.title = n && !c
+        ? 'Chỉ nhận được bài chưa ai nhận (trạng thái "chưa nhận").'
+        : 'Nhận các bài đã chọn để duyệt';
+      var bd = bandable().length;
+      bnd.disabled = !bd;
+      bnd.textContent = bd ? ('Chốt band (' + bd + ')') : 'Chốt band';
+      bnd.title = n && !bd
+        ? 'Chỉ chốt được bài BẠN đã nhận và chưa chốt band.'
+        : 'Chốt band từ điểm đã tính sẵn (L/R từ bảng quy đổi, W từ 2 bài đã chấm)';
       var r = releasable().length;
       rel.disabled = !r;
       rel.textContent = r ? ('📤 Trả bài (' + r + ')') : '📤 Trả bài';
@@ -141,6 +177,17 @@
     if (btn) btn.addEventListener('click', function () {
       var ids = checked().map(function (b) { return b.getAttribute('data-sitting-id'); });
       if (ids.length) bulkGrade(ids, el('bulk-tier').value);
+    });
+    // Send only the rows the action can actually take, not everything ticked —
+    // the server would skip the rest anyway, and the admin would get a refusal
+    // list full of rows they never asked to act on.
+    clm.addEventListener('click', function () {
+      var ids = claimable().map(function (b) { return b.getAttribute('data-sitting-id'); });
+      if (ids.length) bulkClaim(ids);
+    });
+    bnd.addEventListener('click', function () {
+      var ids = bandable().map(function (b) { return b.getAttribute('data-sitting-id'); });
+      if (ids.length) bulkSaveBands(ids);
     });
     rel.addEventListener('click', function () {
       var ids = releasable().map(function (b) { return b.getAttribute('data-sitting-id'); });
@@ -175,7 +222,7 @@
       // box exists to prevent (Codex review, PR #778).
       await loadRoster();
       loadRetestSummary();
-      if (sk.length) renderReleaseSkips(sk);
+      if (sk.length) renderSkips(sk, 'công bố');
     } catch (e) {
       toast('Công bố thất bại: ' + (e && e.message));
       loadRoster();   // canonical refetch — never leave the roster guessing
@@ -183,17 +230,63 @@
   }
 
   // The per-sitting refusals, named. A toast count alone would hide WHICH student
-  // was not published and why.
-  function renderReleaseSkips(skips) {
+  // was not handled and why. Shared by all three bulk actions — `what` names the
+  // action, because "Chưa công bố được 2 bài" is simply false after a bulk NHẬN.
+  function renderSkips(skips, what) {
     var host = el('queue-list');
     if (!host) return;
     var box = document.createElement('div');
     box.className = 'mr-relskips';
-    box.innerHTML = '<b>Chưa công bố được ' + skips.length + ' bài:</b>'
+    box.innerHTML = '<b>Chưa ' + esc(what) + ' được ' + skips.length + ' bài:</b>'
       + '<ul>' + skips.map(function (s) {
           return '<li><code>' + esc(String(s.sitting_id).slice(0, 8)) + '</code> — ' + esc(s.reason) + '</li>';
         }).join('') + '</ul>';
     host.insertBefore(box, host.firstChild);
+  }
+
+  // Nhận hàng loạt. No confirm: claiming is reversible (bỏ nhận) and shows the
+  // student nothing — unlike CÔNG BỐ, which is neither.
+  async function bulkClaim(sittingIds) {
+    var b = el('bulk-claim-btn');
+    if (b) b.disabled = true;
+    try {
+      var res = await window.api.post(
+        '/admin/mock-exams/' + encodeURIComponent(examId) + '/bulk-claim',
+        { sitting_ids: sittingIds });
+      var ok = (res.claimed || []).length, sk = (res.skipped || []);
+      toast('Đã nhận ' + ok + '/' + sittingIds.length + ' bài.'
+        + (sk.length ? ' ' + sk.length + ' bài không nhận được.' : ''));
+      // AWAIT before rendering: loadRoster() blanks #queue-list, which is where
+      // the box goes — rendering first wipes it (Codex P2, PR #778).
+      await loadRoster();
+      if (sk.length) renderSkips(sk, 'nhận');
+    } catch (e) {
+      toast('Nhận hàng loạt thất bại: ' + (e && e.message));
+      loadRoster();   // canonical refetch — never leave the roster guessing
+    }
+  }
+
+  // Chốt band hàng loạt. The client posts NO bands: the server re-derives what
+  // this form would have pre-filled (L/R off the Cambridge table, Writing off the
+  // two essays the admin already reviewed) and save_final_bands still validates
+  // each one. A band it cannot derive — Speaking has no draft source — comes back
+  // in `skipped` instead of being signed off with a number nobody chose.
+  async function bulkSaveBands(sittingIds) {
+    var b = el('bulk-bands-btn');
+    if (b) b.disabled = true;
+    try {
+      var res = await window.api.post(
+        '/admin/mock-exams/' + encodeURIComponent(examId) + '/bulk-final-bands',
+        { sitting_ids: sittingIds });
+      var ok = (res.saved || []).length, sk = (res.skipped || []);
+      toast('Đã chốt band ' + ok + '/' + sittingIds.length + ' bài.'
+        + (sk.length ? ' ' + sk.length + ' bài chưa chốt được.' : ''));
+      await loadRoster();
+      if (sk.length) renderSkips(sk, 'chốt band');
+    } catch (e) {
+      toast('Chốt band hàng loạt thất bại: ' + (e && e.message));
+      loadRoster();
+    }
   }
 
   async function bulkGrade(sittingIds, tier) {
