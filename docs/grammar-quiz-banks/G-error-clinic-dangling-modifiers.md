@@ -149,8 +149,8 @@ input: "text"
 headword: "dm-fix-change-subject"
 skill: "production"
 subtype: "intermediate"
-prompt: "Sửa câu treo bằng cách đổi chủ ngữ (không đổi cụm phân từ). Câu gốc: 'Worried about the deadline, the essay was rushed.' → 'Worried about the deadline, ____ (write a short subject + verb about the student rushing the essay).'"
-accept: ["the student rushed the essay", "she rushed the essay", "he rushed the essay", "the writer rushed the essay"]
+prompt: "Sửa câu treo bằng cách đổi chủ ngữ: 'Worried about the deadline, the essay was rushed.' → 'Worried about the deadline, ____ the essay.'"
+accept: ["the student rushed", "she rushed", "he rushed", "the writer rushed"]
 case_sensitive: false
 grammar_article_slug: "dangling-modifiers"
 explain: "'Worried about the deadline' chỉ người mới lo lắng được, không phải 'the essay'. Đổi chủ ngữ ngay sau phẩy thành người viết (the student/she/he/the writer) là đúng cách sửa 1 trong bài."
@@ -233,11 +233,11 @@ input: "text"
 headword: "dm-fix-full-clause"
 skill: "production"
 subtype: "intermediate"
-prompt: "Biến cụm phân từ treo thành mệnh đề phụ đầy đủ bằng cách thêm chủ ngữ. Câu gốc: 'Having lived abroad for years, the language barrier was no longer a problem.' → '____ (write 'After/Since + subject + verb', e.g. about her living abroad) , the language barrier was no longer a problem.'"
-accept: ["after she had lived abroad for years", "since she had lived abroad for years", "after she lived abroad for years"]
+prompt: "Biến 'Having lived abroad for years, the language barrier was no longer a problem.' thành mệnh đề đầy đủ: 'After _____ abroad for years, the language barrier was no longer a problem.'"
+accept: ["she had lived", "she lived", "she has lived"]
 case_sensitive: false
 grammar_article_slug: "dangling-modifiers"
-explain: "'Having lived abroad for years' phải gắn với người thực sự đã sống ở nước ngoài. Thêm chủ ngữ ('she') và liên từ ('after/since') biến cụm thành mệnh đề phụ đầy đủ, tách khỏi chủ ngữ mệnh đề chính 'the language barrier'."
+explain: "'Having lived abroad for years' phải gắn với người thực sự đã sống ở nước ngoài. Thêm chủ ngữ ('she') và chia động từ ('had lived') biến cụm thành mệnh đề phụ đầy đủ ('After she had lived...'), tách biệt khỏi chủ ngữ mệnh đề chính 'the language barrier'."
 ---
 
 ---
@@ -317,8 +317,8 @@ input: "text"
 headword: "dm-toinf-reduced-clause"
 skill: "production"
 subtype: "intermediate"
-prompt: "Nêu rõ tác nhân sau cụm to-infinitive để câu không bị treo: 'To reduce plastic waste effectively, ____ (write a short subject + modal + verb, e.g. about governments/consumers acting).'"
-accept: ["governments must introduce stricter regulations", "consumers should reduce single-use plastic", "people need to change their habits"]
+prompt: "Nêu rõ tác nhân sau cụm to-infinitive để câu không bị treo: 'To reduce plastic waste effectively, _____.' (gõ subject + modal + verb)"
+accept: ["governments must regulate", "consumers should recycle", "everyone must help"]
 case_sensitive: false
 grammar_article_slug: "dangling-modifiers"
 explain: "'To reduce plastic waste effectively' cần một tác nhân cụ thể có thể hành động (governments/consumers/people), không thể để trống hoặc gắn với vật vô tri — đây là cách sửa 3 trong bài: nêu rõ tác nhân."

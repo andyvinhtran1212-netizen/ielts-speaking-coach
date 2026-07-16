@@ -159,14 +159,14 @@ explain: "Bằng chứng ngay trước mắt + sắp xảy ra tức thì ('any s
 
 ---
 id: "ff_going_i2"
-type: "gap_text"
-input: "text"
+type: "mcq"
+input: "choice"
 headword: "ff-be-going-to-plan-evidence"
 skill: "production"
 subtype: "intermediate"
-prompt: "She ____ (quit) her job and start her own business — she's been planning this for months."
-accept: ["is going to quit", "'s going to quit"]
-case_sensitive: false
+prompt: "She ____ her job and start her own business — she's been planning this for months."
+options: ["is going to quit", "is quitting", "will quit", "quits"]
+answer: 0
 grammar_article_slug: "future-forms"
 explain: "Dự định đã lên kế hoạch từ trước (planning for months) → be going to: is going to quit."
 ---
@@ -178,11 +178,11 @@ input: "text"
 headword: "ff-be-going-to-plan-evidence"
 skill: "production"
 subtype: "intermediate"
-prompt: "Be careful with that box — you ____ (drop) it!"
-accept: ["are going to drop", "'re going to drop"]
+prompt: "Be careful with that box — you are ____ it!"
+accept: ["going to drop"]
 case_sensitive: false
 grammar_article_slug: "future-forms"
-explain: "Bằng chứng quan sát được ngay lúc nói (sắp làm rơi) → be going to: are going to drop."
+explain: "Bằng chứng quan sát được ngay lúc nói (sắp làm rơi) → be going to: going to drop."
 ---
 
 ---
@@ -333,8 +333,8 @@ input: "text"
 headword: "ff-will-overuse-error"
 skill: "production"
 subtype: "intermediate"
-prompt: "Tomorrow I ____ (visit) my grandmother — I decided this a week ago, not just now."
-accept: ["am going to visit", "'m going to visit"]
+prompt: "Tomorrow I am ____ my grandmother — I decided this a week ago, not just now."
+accept: ["going to visit"]
 case_sensitive: false
 grammar_article_slug: "future-forms"
 explain: "Đã quyết định từ trước (a week ago), không phải bộc phát → be going to, không dùng will."

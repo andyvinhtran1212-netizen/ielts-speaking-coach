@@ -79,11 +79,11 @@ input: "text"
 headword: "sf-subordinate-alone"
 skill: "production"
 subtype: "intermediate"
-prompt: "Rewrite so it is a complete sentence (add a main clause after the comma). Fragment: 'Although online courses are convenient.' → 'Although online courses are convenient, ____ (write a short main clause, e.g. about motivation).'"
-accept: ["many students lack the motivation to finish them", "many learners lack the motivation to complete them", "students often lack the discipline to finish them"]
+prompt: "Hoàn thành mệnh đề chính để hết fragment: 'Although online courses are convenient, many ____ (= thiếu động lực) to complete them.'"
+accept: ["lack motivation", "lack the motivation", "don't have motivation", "do not have motivation", "don't have the motivation", "do not have the motivation"]
 case_sensitive: false
 grammar_article_slug: "sentence-fragments"
-explain: "Mệnh đề phụ 'Although online courses are convenient' cần một mệnh đề chính có chủ ngữ + động từ để hoàn chỉnh, ví dụ: 'many students lack the motivation to finish them.'"
+explain: "Mệnh đề phụ 'Although online courses are convenient' cần một mệnh đề chính có chủ ngữ + động từ để hoàn chỉnh. Ví dụ: 'many lack the motivation to complete them.'"
 ---
 
 ---
@@ -177,11 +177,11 @@ input: "text"
 headword: "sf-ving-ved-alone"
 skill: "production"
 subtype: "intermediate"
-prompt: "Complete the sentence so the V-ing fragment is no longer standing alone: 'Working night shifts on a regular basis, ____ (write a short main clause about health).'"
-accept: ["many employees experience serious health problems", "many workers suffer from serious health problems", "employees often suffer from health problems"]
+prompt: "Hoàn thành mệnh đề chính để cụm V-ing hết đứng một mình: 'Working night shifts on a regular basis, many employees ____ (= gặp vấn đề sức khoẻ).'"
+accept: ["experience health problems", "have health problems", "suffer health problems", "develop health problems"]
 case_sensitive: false
 grammar_article_slug: "sentence-fragments"
-explain: "Cụm V-ing 'Working night shifts on a regular basis' cần một mệnh đề chính có chủ ngữ + động từ chia để thành câu hoàn chỉnh, ví dụ: 'many employees experience serious health problems.'"
+explain: "Cụm V-ing 'Working night shifts on a regular basis' cần một mệnh đề chính có chủ ngữ + động từ chia để thành câu hoàn chỉnh, ví dụ: 'many employees experience health problems.'"
 ---
 
 ---

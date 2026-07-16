@@ -66,8 +66,8 @@ input: "text"
 headword: "adj-position"
 skill: "production"
 subtype: "intermediate"
-prompt: "Viết lại cho đúng ngữ pháp tiếng Anh (chỉ viết cụm 2 từ): 'thành phố hiện đại' (modern + city, theo đúng thứ tự tiếng Anh)."
-accept: ["modern city", "a modern city"]
+prompt: "Dịch 'thành phố hiện đại' sang tiếng Anh: '____' (gõ cụm từ: adjective + noun, theo đúng thứ tự)"
+accept: ["modern city"]
 case_sensitive: false
 grammar_article_slug: "adjectives"
 explain: "Tiếng Anh đặt adjective TRƯỚC noun: modern city — khác tiếng Việt đặt tính từ sau danh từ (thành phố hiện đại)."
@@ -318,11 +318,11 @@ input: "text"
 headword: "adj-no-plural"
 skill: "production"
 subtype: "intermediate"
-prompt: "Sửa câu sau cho đúng: 'She has three talenteds daughters.' — viết lại cụm 'talenteds daughters' cho đúng."
-accept: ["talented daughters"]
+prompt: "Sửa lỗi adjective: 'She has three ____ daughters.' (điền dạng đúng của talented, không -s)"
+accept: ["talented"]
 case_sensitive: false
 grammar_article_slug: "adjectives"
-explain: "Adjective 'talented' không thêm -s dù danh từ 'daughters' số nhiều: talented daughters."
+explain: "Adjective 'talented' không thêm -s dù danh từ 'daughters' số nhiều — adjective luôn không đổi hình thức theo số của noun."
 ---
 
 ---

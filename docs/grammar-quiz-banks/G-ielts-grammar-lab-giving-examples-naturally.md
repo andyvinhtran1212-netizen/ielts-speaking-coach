@@ -87,16 +87,16 @@ explain: "SAI — ví dụ quá chung chung, không nêu tên quốc gia/số li
 
 ---
 id: "gen_fe_i3"
-type: "gap_mcq"
-input: "choice"
+type: "gap_text"
+input: "text"
 headword: "gen-for-example-instance"
-skill: "usage"
+skill: "production"
 subtype: "intermediate"
-prompt: "The impact of remote work is significant. For instance, a survey found that employees save an average of 40 minutes ____ by not commuting."
-options: ["daily", "day", "of day", "everyday time"]
-answer: 0
+prompt: "Điền cụm nối dẫn ví dụ: 'Office workers often experience burnout — ____ , many report exhaustion despite earning good salaries.'"
+accept: ["for example", "for instance"]
+case_sensitive: false
 grammar_article_slug: "giving-examples-naturally"
-explain: "'daily' là trạng từ chỉ tần suất, bổ nghĩa cho động từ 'save': save 40 minutes daily."
+explain: "'for example' điền vào vị trí giữa câu, luôn viết thường và không có dấu phẩy (dấu phẩy đã có trong cấu trúc câu)."
 ---
 
 # ===== item_key 2 · Such as (giữa câu, không mở đầu câu) =====

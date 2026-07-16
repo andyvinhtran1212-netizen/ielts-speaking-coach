@@ -261,11 +261,11 @@ input: "text"
 headword: "rc-former-latter-distinction"
 skill: "production"
 subtype: "intermediate"
-prompt: "Use 'the former' or 'the latter' to complete: 'Machine learning and artificial intelligence are closely related. ____ is a subset of ____ (choose both words, use 'the former' and 'the latter' appropriately)' "
-accept: ["The former is a subset of the latter", "the former is a subset of the latter"]
+prompt: "Machine learning and artificial intelligence are closely related. ____ is a subset of the latter."
+accept: ["The former", "the former"]
 case_sensitive: false
 grammar_article_slug: "reference-and-cohesion"
-explain: "'Machine learning' (trước/former) là một phần của 'artificial intelligence' (sau/latter). Nên: 'The former is a subset of the latter'."
+explain: "'Machine learning' (trước/former) là một phần của 'artificial intelligence' (sau/latter). Sử dụng 'The former' để chỉ Machine learning trong ví dụ tham chiếu này."
 ---
 
 ---
@@ -302,11 +302,11 @@ input: "text"
 headword: "rc-former-latter-distinction"
 skill: "production"
 subtype: "advanced"
-prompt: "Complete the comparison: 'Renaissance humanism and Medieval scholasticism represented fundamentally different intellectual movements. ____ prioritized individualism and empirical observation, while ____ emphasized religious doctrine and logical dialectic.' (use 'The former' and 'the latter')"
-accept: ["The former prioritized individualism and empirical observation, while the latter emphasized religious doctrine and logical dialectic", "the former prioritized individualism and empirical observation, while the latter emphasized religious doctrine and logical dialectic"]
+prompt: "Renaissance humanism and Medieval scholasticism represented fundamentally different intellectual movements. ____ prioritized individualism and empirical observation, while the latter emphasized religious doctrine and logical dialectic."
+accept: ["The former", "the former"]
 case_sensitive: false
 grammar_article_slug: "reference-and-cohesion"
-explain: "'Renaissance humanism' (trước/former) vs 'Medieval scholasticism' (sau/latter). Dùng 'The former' cho Renaissance, 'the latter' cho Medieval để tạo liên kết chính xác."
+explain: "'Renaissance humanism' (trước/former) vs 'Medieval scholasticism' (sau/latter). Sử dụng 'The former' để chỉ Renaissance humanism trong cấu trúc so sánh này."
 ---
 
 # ===== item_key 4 · Tránh lỗi tham chiếu: nhầm danh từ gần nhất =====
@@ -358,9 +358,9 @@ input: "text"
 headword: "rc-reference-accuracy"
 skill: "production"
 subtype: "advanced"
-prompt: "Rewrite this sentence to clarify the ambiguous reference: 'The committee approved the proposal after the board rejected it.' (Make clear what 'it' refers to by using a more explicit structure or adding clarification)"
-accept: ["The committee approved the proposal after the board rejected the original plan", "The committee approved the proposal even though the board had rejected it", "After the board rejected the initial proposal, the committee approved a revised version"]
+prompt: "Làm rõ tham chiếu mơ hồ: 'The committee approved the proposal after the board rejected it.' → 'The committee approved the ____ after the board rejected the original proposal.' (Điền một cụm để phân biệt phiên bản được phê duyệt)"
+accept: ["revised proposal", "modified proposal", "updated proposal"]
 case_sensitive: false
 grammar_article_slug: "reference-and-cohesion"
-explain: "Trong câu gốc, 'it' mơ hồ: có thể chỉ 'proposal' hoặc thứ khác từ trước. Cần làm rõ bằng cách: lặp lại danh từ rõ ràng, thêm bổ ngữ, hoặc sắp xếp lại cấu trúc."
+explain: "Bằng cách thêm tính từ bổ nghĩa ('revised', 'modified'), ta rõ ràng hóa kỳ vọng của từng bên: ban quản lý từ chối 'original', uỷ ban phê duyệt 'revised'."
 ---

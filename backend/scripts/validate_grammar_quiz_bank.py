@@ -134,10 +134,20 @@ def check_file(path: Path) -> list[str]:
 # reviewer QA2 (LLM) phụ trách, KHÔNG bắt được bằng lint tĩnh này.
 _SELF_ADMITTED_BROKEN = re.compile(
     r"(prompt lạc lõng|lạc lõng|câu hỏi nên (dùng|sửa|là)|câu hỏi sai|đề bài sai"
-    r"|explain bị ngược|giải thích bị ngược|thực tế là sai nhưng)",
+    r"|explain bị ngược|giải thích bị ngược|thực tế là sai nhưng"
+    # explain tự thú đáp án nước đôi (audit 2026-07-16 P6): "gấp 3 (hoặc gấp 4
+    # nếu tính…)" / "cấu trúc không sai, nhưng nội dung…" là câu hỏng còn ship.
+    r"|hoặc gấp \d|nếu tính cơ sở|cấu trúc không sai, nhưng)",
     re.I,
 )
 _UNTYPEABLE = re.compile(r"[øØ∅]")
+# Prompt gap_text hứa một cách trả lời KHÔNG tồn tại trong player: ô trống không
+# submit được (nút Kiểm tra disable khi rỗng) và 'ø' không gõ được trên bàn phím
+# thường. Convention đúng: "nếu không cần, gõ số 0" + accept có "0".
+_IMPOSSIBLE_GAP_INSTRUCTION = re.compile(r"để trống|bỏ trống|[øØ∅]")
+# Số từ tối đa của accept[0] cho câu tự gõ — dài hơn là bắt học viên gõ nguyên
+# câu/cụm dài, chấm exact-match + edit-distance-1 không đủ dung sai (audit S3).
+_MAX_ACCEPT_WORDS = 3
 
 
 def content_lint(path: Path) -> list[str]:
@@ -160,6 +170,32 @@ def content_lint(path: Path) -> list[str]:
                 f"[{qid}] accept toàn ký tự khó gõ ({accept}) — thêm biến thể gõ được "
                 "(vd 'no article') để học viên nhập được đáp án."
             )
+        # ── 3 lint bổ sung theo audit 2026-07-16 (§V đợt 3) — chỉ cho câu tự gõ ──
+        if str(d.get("input") or "") == "text":
+            prompt = str(d.get("prompt") or "")
+            if isinstance(accept, list):
+                for a in accept:
+                    if "/" in str(a):
+                        problems.append(
+                            f"[{qid}] accept chứa '/' literal ({a!r}) — engine so khớp "
+                            "nguyên văn, không hiểu 'biến thể nào cũng được'; tách thành "
+                            "các phần tử accept riêng."
+                        )
+                        break
+            if _IMPOSSIBLE_GAP_INSTRUCTION.search(prompt):
+                problems.append(
+                    f"[{qid}] prompt gap_text hứa cách trả lời không tồn tại "
+                    "('để trống'/'ø' — ô trống không submit được, ø không gõ được); "
+                    "đổi sang convention 'nếu không cần, gõ số 0'."
+                )
+            if isinstance(accept, list) and accept:
+                n_words = len(str(accept[0]).split())
+                if n_words > _MAX_ACCEPT_WORDS:
+                    problems.append(
+                        f"[{qid}] accept[0] dài {n_words} từ (> {_MAX_ACCEPT_WORDS}) — "
+                        "bắt gõ nguyên câu/cụm dài là chấm fragile; thu hẹp phần phải gõ "
+                        "hoặc chuyển sang mcq (giữ ≥1 gap_text khác cho item_key)."
+                    )
     return problems
 
 

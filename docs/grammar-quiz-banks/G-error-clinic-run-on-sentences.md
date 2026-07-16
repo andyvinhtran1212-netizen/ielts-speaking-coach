@@ -233,7 +233,7 @@ input: "text"
 headword: "ro-however-therefore"
 skill: "production"
 subtype: "intermediate"
-prompt: "Sửa lỗi dấu câu: 'The job pays well, however the hours are terrible.' → chỉ điền dấu câu thay cho '____' (giữ nguyên 'however' viết thường vì nó không đứng đầu câu mới): 'The job pays well____ however, the hours are terrible.'"
+prompt: "Sửa lỗi dấu câu: 'The job pays well, however the hours are terrible.' → 'The job pays well ____ however, the hours are terrible.'"
 accept: [";"]
 case_sensitive: false
 grammar_article_slug: "run-on-sentences"

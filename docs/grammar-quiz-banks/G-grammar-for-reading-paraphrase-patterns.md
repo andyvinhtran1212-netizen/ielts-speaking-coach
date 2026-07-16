@@ -106,11 +106,11 @@ input: "text"
 headword: "pp-synonym-paraphrase"
 skill: "production"
 subtype: "advanced"
-prompt: "Passage: 'The proliferation of digital technologies has engendered unprecedented socioeconomic transformation.' Write a paraphrase by replacing the key terms with synonyms: 'The ____ of ____ technologies has ____ major ____ change.' (fill 4 blanks with synonyms)"
-accept: ["spread of digital created socioeconomic", "expansion of digital triggered widespread socioeconomic", "growth of digital led to significant social", "increase of digital caused major social"]
+prompt: "Passage: 'The proliferation of digital technologies has engendered unprecedented socioeconomic transformation.' Paraphrase by replacing the main verb: 'The proliferation of digital technologies has ____ major socioeconomic change.'"
+accept: ["created", "triggered", "generated", "caused"]
 case_sensitive: false
 grammar_article_slug: "paraphrase-patterns"
-explain: "'Proliferation' (tăng cường) → spread/expansion/growth, 'engendered' (sinh ra) → created/triggered/led to, 'unprecedented' (chưa từng có) → major/significant/vast. Paraphrase cấp độ cao dùng từ học thuật."
+explain: "'Engendered' (sinh ra) là động từ chính biểu thị sự thay đổi. Dùng từ đồng nghĩa 'created', 'triggered', 'generated', 'caused' để tạo paraphrase giữ lại ý chính của bài."
 ---
 
 # ===== item_key 2 · Đổi từ loại (nominalization) =====
@@ -204,11 +204,11 @@ input: "text"
 headword: "pp-nominalization-paraphrase"
 skill: "production"
 subtype: "advanced"
-prompt: "Paraphrase with nominalization: 'Climate change has altered precipitation patterns globally.' Rewrite starting with: 'The ____ of precipitation patterns by climate change...' (use the nominalized form of 'alter')"
+prompt: "Paraphrase with nominalization: 'Climate change has altered precipitation patterns globally.' Complete: 'The ____ of precipitation patterns by climate change represents a critical concern.' (use the nominalized form of 'alter')"
 accept: ["alteration"]
 case_sensitive: false
 grammar_article_slug: "paraphrase-patterns"
-explain: "'Altered' (động từ quá khứ) → 'alteration' (danh từ). Danh hoá tạo câu học thuật tinh tế hơn: 'The alteration of precipitation patterns by climate change...'."
+explain: "'Altered' (động từ quá khứ) → 'alteration' (danh từ). Danh hoá tạo câu học thuật tinh tế hơn, thay thế cấu trúc chủ động bằng cứng danh từ đơn lẻ."
 ---
 
 # ===== item_key 3 · Đổi chủ động ↔ bị động =====

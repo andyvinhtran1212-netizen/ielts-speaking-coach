@@ -80,8 +80,8 @@ input: "text"
 headword: "oa-full-sequence"
 skill: "production"
 subtype: "intermediate"
-prompt: "Rearrange into the correct noun phrase: [carving / a / wooden / round / intricate] — write the full phrase in correct OSASCOMP order."
-accept: ["an intricate round wooden carving"]
+prompt: "Arrange these adjectives in correct OSASCOMP order (opinion → shape → material): intricate, round, wooden. Type them before 'carving': ____"
+accept: ["intricate round wooden"]
 case_sensitive: false
 grammar_article_slug: "order-of-adjectives"
 explain: "OSASCOMP: opinion (intricate) → shape (round) → material (wooden) → 'an intricate round wooden carving'."
@@ -179,8 +179,8 @@ input: "text"
 headword: "oa-opinion-vs-fact"
 skill: "production"
 subtype: "intermediate"
-prompt: "Rearrange into the correct noun phrase: [fascinating / a / ancient / ritual] — write the full phrase (opinion before age)."
-accept: ["a fascinating ancient ritual"]
+prompt: "Arrange these adjectives in correct order (opinion before age): fascinating, ancient. Type them before 'ritual': ____"
+accept: ["fascinating ancient"]
 case_sensitive: false
 grammar_article_slug: "order-of-adjectives"
 explain: "Ý kiến (fascinating) luôn đứng trước tuổi (ancient) vì tuổi là sự thật khách quan, không phải cảm nhận cá nhân → 'a fascinating ancient ritual'."
@@ -235,11 +235,11 @@ input: "choice"
 headword: "oa-coordinate-vs-cumulative"
 skill: "form"
 subtype: "basic"
-prompt: "Choose the version with correct comma usage for two adjectives of DIFFERENT categories (size + colour)."
-options: ["a big, red truck", "a big red truck", "a big; red truck", "a big and red truck, "]
+prompt: "Which version has the correct comma usage?"
+options: ["a big, red truck", "a big red truck", "a big; red truck", "a big, and red truck"]
 answer: 1
 grammar_article_slug: "order-of-adjectives"
-explain: "Hai tính từ KHÁC loại (size: big, colour: red) → cumulative adjectives, KHÔNG dùng dấu phẩy: 'a big red truck'."
+explain: "Hai tính từ 'big' (size) và 'red' (colour) thuộc hai phạm trù khác nhau → cumulative adjectives, KHÔNG dùng dấu phẩy: 'a big red truck'."
 ---
 
 ---
@@ -361,11 +361,11 @@ input: "text"
 headword: "oa-adjective-limit"
 skill: "production"
 subtype: "intermediate"
-prompt: "Shorten to at most THREE pre-modifying adjectives, moving the rest after the noun: 'a brilliant, innovative, award-winning, twenty-year-old architect' → write just the noun phrase with the leftover information as 'who' + verb (start with 'a brilliant, innovative architect who')."
-accept: ["a brilliant, innovative architect who is twenty years old and has won awards", "a brilliant, innovative architect who won an award and is twenty years old"]
+prompt: "Fix by keeping only 2 main adjectives before the noun: 'a brilliant, innovative, award-winning architect' → Complete this corrected version: 'a brilliant, innovative architect who ____'"
+accept: ["has won awards"]
 case_sensitive: false
 grammar_article_slug: "order-of-adjectives"
-explain: "Giữ 2–3 tính từ nổi bật nhất trước danh từ (brilliant, innovative), phần thông tin còn lại (award-winning, twenty-year-old) chuyển ra mệnh đề quan hệ 'who...' phía sau."
+explain: "Giữ 2–3 tính từ nổi bật nhất trước danh từ (brilliant, innovative), phần thông tin còn lại (award-winning) chuyển ra mệnh đề quan hệ 'who has won awards...' phía sau."
 ---
 
 ---

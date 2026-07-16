@@ -291,7 +291,7 @@ input: "text"
 headword: "rs-say-tell-commands"
 skill: "production"
 subtype: "intermediate"
-prompt: "Viết lại bằng 'suggested', đúng cấu trúc: \"You should exercise more,\" the doctor said. → The doctor suggested ____ (I / exercise) more. (dùng 'that' + should hoặc V-ing đều được, viết dạng V-ing)"
+prompt: "Viết lại bằng 'suggested', đúng cấu trúc: \"You should exercise more,\" the doctor said. → The doctor suggested ____ (I / exercise) more. (chia động từ dạng V-ing)"
 accept: ["exercising"]
 case_sensitive: false
 grammar_article_slug: "reported-speech"

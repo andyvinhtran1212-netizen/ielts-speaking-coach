@@ -223,7 +223,7 @@ input: "text"
 headword: "arc-result-connectors"
 skill: "production"
 subtype: "intermediate"
-prompt: "Air pollution worsened significantly last year. ____ ____ ____ (write the 3-word phrase meaning 'because of that'), respiratory illnesses became more common."
+prompt: "Air pollution worsened significantly last year. ____ (write the 3-word phrase meaning 'because of that'), respiratory illnesses became more common."
 accept: ["As a result"]
 case_sensitive: false
 grammar_article_slug: "adding-reasons-clearly"
@@ -280,11 +280,11 @@ input: "text"
 headword: "arc-this-is-because"
 skill: "production"
 subtype: "intermediate"
-prompt: "Many students perform poorly despite studying long hours. This ____ (write the phrase meaning 'can be traced to', 3-4 words) ineffective study techniques rather than a lack of effort."
-accept: ["can be attributed to", "is attributed to"]
+prompt: "Many students perform poorly despite studying long hours. This ____ ineffective study techniques rather than a lack of effort."
+accept: ["stems from", "arose from", "comes from"]
 case_sensitive: false
 grammar_article_slug: "adding-reasons-clearly"
-explain: "'This can be attributed to + noun phrase' là cách trang trọng để chỉ ra nguyên nhân của một hiện tượng vừa nêu."
+explain: "'This stems from + noun phrase' là cách tự nhiên để chỉ ra nguyên nhân của một hiện tượng vừa nêu; tương tự 'arises from' hay 'is due to'."
 ---
 
 ---

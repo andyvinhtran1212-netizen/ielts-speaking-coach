@@ -360,11 +360,11 @@ input: "text"
 headword: "pas-time-markers-sequence"
 skill: "production"
 subtype: "intermediate"
-prompt: "The meeting ____ (end) at noon."
-accept: ["ended"]
+prompt: "Three months ago, the company ____ (launch) a new product line."
+accept: ["launched"]
 case_sensitive: false
 grammar_article_slug: "past-simple"
-explain: "Hành động nối tiếp trong cùng chuỗi kể chuyện quá khứ → past simple: ended."
+explain: "'Three months ago' là dấu hiệu thời gian xác định trong quá khứ → past simple: launched."
 ---
 
 ---
@@ -388,8 +388,8 @@ input: "boolean"
 headword: "pas-time-markers-sequence"
 skill: "error_id"
 subtype: "advanced"
-prompt: "Đúng hay Sai: 'Yesterday I go to a coffee shop near my house and meet an old friend.'"
+prompt: "Đúng hay Sai: 'I go to a coffee shop yesterday.'"
 answer: false
 grammar_article_slug: "past-simple"
-explain: "SAI — 'Yesterday' đòi hỏi past simple, nhưng động từ vẫn ở nguyên thể. Sửa: 'Yesterday I went to a coffee shop near my house and met an old friend.'"
+explain: "SAI — 'yesterday' là dấu hiệu thời gian quá khứ, bắt buộc dùng past simple. Sửa: 'I went to a coffee shop yesterday.'"
 ---
