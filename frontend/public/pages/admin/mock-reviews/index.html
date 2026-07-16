@@ -30,6 +30,8 @@
     .mr-card { border:1px solid var(--av-border-subtle); border-radius:var(--av-radius-lg); background:var(--av-surface-card); padding:var(--av-space-4); box-shadow:var(--av-shadow-sm); }
     .mr-toolbar { display:flex; gap:var(--av-space-2); align-items:center; margin-bottom:var(--av-space-3); }
     .mr-pill { display:inline-block; font-size:11px; padding:2px var(--av-space-2); border-radius:var(--av-radius-pill); background:var(--av-surface-sunken); border:1px solid var(--av-border-subtle); color:var(--av-text-secondary); letter-spacing:.02em; }
+    /* "đã trả bài" — the one state the student can already see, so it reads as done rather than as one more step */
+    .mr-pill--done { background:var(--av-success-soft); border-color:var(--av-success); color:var(--av-success); font-weight:600; }
     .mr-tabs { display:flex; gap:var(--av-space-1); margin:var(--av-space-4) 0; flex-wrap:wrap; }
     .mr-tab { padding:var(--av-space-2) var(--av-space-3); border:1px solid var(--av-border-default); border-radius:var(--av-radius-md); background:var(--av-surface-card); cursor:pointer; font-size:13px; color:var(--av-text-primary); }
     .mr-tab.active { background:var(--av-primary); color:var(--av-text-on-primary); border-color:transparent; }

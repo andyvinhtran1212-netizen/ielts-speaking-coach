@@ -270,9 +270,27 @@
   function spkCell(s) {
     return (s && s.count) ? (s.count + ' session') : '<span class="mr-muted">—</span>';
   }
+  // The "Trạng thái" column reads review_status — the whole lifecycle — not the
+  // `claimed` flag. claimed_by is set at claim and cleared only by unclaim, so it
+  // stays true through 'reviewed' AND 'released': a claim-only cell collapsed
+  // three distinct states into "đã nhận", and a published result looked exactly
+  // like one nobody had touched since claiming. The bulk-release tooltip already
+  // sent the admin looking for trạng thái "đã duyệt" — a label this cell never
+  // rendered. 'edited' (mig 147's CHECK) has no place in the current flow, so it
+  // falls through to the claim flag rather than being given an invented label.
+  var REVIEW_STATUS_LABEL = {
+    queued:   'chưa nhận',
+    claimed:  'đã nhận',
+    reviewed: 'đã duyệt',
+    released: 'đã trả bài',
+  };
   function claimCell(r) {
     if (!r.review_id) return '<span class="mr-pill">đang làm</span>';
-    return '<span class="mr-pill">' + (r.claimed ? 'đã nhận' : 'chưa nhận') + '</span>';
+    var label = REVIEW_STATUS_LABEL[r.review_status] || (r.claimed ? 'đã nhận' : 'chưa nhận');
+    // Released is the one terminal state — the student can see it — so it is the
+    // only one that earns colour.
+    var cls = 'mr-pill' + (r.review_status === 'released' ? ' mr-pill--done' : '');
+    return '<span class="' + cls + '">' + label + '</span>';
   }
 
   // The skills the roster picker offers. Fixed rather than per-sitting: deriving
