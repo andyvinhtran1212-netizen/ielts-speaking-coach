@@ -60,8 +60,19 @@ describe('quiz.html — {{audio}} prompts stay readable and answerable', () => {
     // The token is a player placeholder; the audio has its own 🔊 control, so the
     // prompt must never render a literal "{{audio}}".
     assert.match(QUIZ, /const AUDIO_TOKEN = '\{\{audio\}\}'/);
-    assert.match(QUIZ, /rawPrompt\.split\(AUDIO_TOKEN\)\.join\(''\)\.trim\(\)/);
+    assert.match(QUIZ, /rawPrompt\.replace\(AUDIO_TOKEN_RE, ' '\)\.trim\(\)/);
     assert.doesNotMatch(QUIZ, /\$\('qz-prompt'\)\.innerHTML = fmt\(q\.prompt\);/);
+  });
+  test('the strip regex also eats a bold wrapper, which fmt() would leave as ****', () => {
+    // fmt()'s /\*\*(.+?)\*\*/ needs >=1 char between the fences, so a bare token
+    // strip would turn `**{{audio}}**` into a literal `****` in front of the
+    // learner. AUDIO_TOKEN itself stays the exact literal the backend keys on.
+    const m = QUIZ.match(/const AUDIO_TOKEN_RE = (\/.*\/g);/);
+    assert.ok(m, 'AUDIO_TOKEN_RE is defined');
+    const re = () => new RegExp(m[1].slice(1, -2), 'g');
+    assert.equal('Nghe **{{audio}}** rồi gõ'.replace(re(), ' ').trim(), 'Nghe rồi gõ');
+    assert.equal('Gõ từ có nghĩa: "x"  {{audio}}'.replace(re(), ' ').trim(), 'Gõ từ có nghĩa: "x"');
+    assert.equal('a{{audio}}b'.replace(re(), ' ').trim(), 'a b');
   });
   test('keeps the 🔊 button on an audio question even when audio_url is missing', () => {
     // A "nghe rồi gõ chữ" question with no pre-generated file used to render with no

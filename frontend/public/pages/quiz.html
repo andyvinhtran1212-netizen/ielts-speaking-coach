@@ -319,6 +319,13 @@
     // Marks a prompt as an audio question. Byte-identical to the token the backend
     // import + serve paths key off, so all three agree on which prompts want audio.
     const AUDIO_TOKEN = '{{audio}}';
+    // Display-only: drop the token AND any bold wrapper/padding around it. All 719
+    // live prompts today end with "  {{audio}}", which a bare strip + trim handles —
+    // but an authored `**{{audio}}**` would reduce to `****`, and fmt() leaves that
+    // as-is (its /\*\*(.+?)\*\*/ needs ≥1 char between the fences), putting raw
+    // markup back in front of the learner. Never widen AUDIO_TOKEN itself: the
+    // backend keys on the exact literal.
+    const AUDIO_TOKEN_RE = /\s*(?:\*\*)?\{\{audio\}\}(?:\*\*)?\s*/g;
 
     // Seeded PRNG (xmur3 hash → mulberry32) so the DISPLAYED option order is stable
     // per (session, qid) yet differs across students/sessions — defeating "the
@@ -597,8 +604,9 @@
       clearActions();
       // `{{audio}}` is a player placeholder, not prompt text: the audio gets its own
       // 🔊 control below, so strip the token rather than printing it at the learner.
+      // Collapse to one space so a mid-sentence token doesn't leave a double gap.
       const rawPrompt = String(q.prompt || '');
-      $('qz-prompt').innerHTML = fmt(rawPrompt.split(AUDIO_TOKEN).join('').trim());
+      $('qz-prompt').innerHTML = fmt(rawPrompt.replace(AUDIO_TOKEN_RE, ' ').trim());
 
       // audio — a prompt that ASKS the learner to listen must stay answerable even
       // when the pre-generated file isn't ready, so keep the button and fall back to
