@@ -48,7 +48,10 @@
       <div id="rp-overall-wrap"></div>
       <p class="rp-muted" id="rp-comment" style="margin-top:20px;white-space:pre-wrap"></p>
     </div>
-    <p style="margin-top:16px"><a class="av-btn" href="javascript:history.back()">← Quay lại</a></p>
+    <!-- A real href, not history.back(): the ONLY opener (admin-mock-reviews.js)
+         links here with target="_blank", so the tab has no history to go back to
+         and the button did nothing at all. -->
+    <p style="margin-top:16px"><a class="av-btn" href="/pages/admin/mock-reviews/index.html">← Danh sách chấm</a></p>
   </div>
 
   <script src="https://unpkg.com/@supabase/supabase-js@2.107.0"></script>

@@ -43,7 +43,10 @@
   <!-- ── TOP BAR ───────────────────────────────────────────────────── -->
   <header class="exam-topbar rr-topbar" role="banner">
     <div class="rr-topbar__left">
-      <a class="rr-back" href="/pages/reading.html">← Thư viện</a>
+      <!-- Default only. /pages/reading.html NEVER existed (dead 404) — this page is
+           reached from the full-test library, the mini-test library AND a mock
+           result, so the page script re-points it from ?from= at runtime. -->
+      <a class="rr-back" id="rr-back" href="/pages/reading-test.html">← Thư viện</a>
       <span class="rr-test-label" id="rr-test-label">Chữa bài</span>
     </div>
     <div class="rr-topbar__right">

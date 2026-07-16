@@ -343,6 +343,23 @@
     return (new URLSearchParams(window.location.search).get('share') || '').trim() || null;
   }
 
+  // ── Back target ──────────────────────────────────────────────────
+  // This page serves BOTH reading libraries (reading-test.html = full,
+  // reading-mini-test.html = mini), which stamp ?from= on the link in. The back
+  // buttons used to hardcode the FULL library, so a mini-test taker was sent to
+  // the wrong shelf. Map through an ALLOWLIST — never navigate to a raw URL from
+  // the query string. Unknown/absent → full, the historical default.
+  var BACK_TARGETS = { full: '/pages/reading-test.html', mini: '/pages/reading-mini-test.html' };
+  function originFromUrl() {
+    var v = (new URLSearchParams(window.location.search).get('from') || '').trim();
+    return BACK_TARGETS[v] ? v : 'full';
+  }
+  function wireBack() {
+    var href = BACK_TARGETS[originFromUrl()];
+    document.querySelectorAll('a.exam-btn[href="/pages/reading-test.html"]')
+      .forEach(function (a) { a.href = href; });
+  }
+
   // Sprint 20.11 D5 — surface a resume affordance on pre-start when an
   // open attempt is detected. The 20.6 boot auto-resumed; that meant a
   // student stuck mid-attempt could not see the pre-start screen again
@@ -1961,7 +1978,10 @@
       // page replays it as X-Reading-Anon). Authed takers use their session.
       var anonSuffix = (SESSION.share_mode && _getAnonId())
         ? '&anon=' + encodeURIComponent(_getAnonId()) : '';
-      chuaBai.href = '/pages/reading-review.html?attempt_id=' + encodeURIComponent(result.attempt_id) + anonSuffix;
+      // Carry the origin through to the review page too — it has the same
+      // both-libraries problem and would otherwise guess.
+      chuaBai.href = '/pages/reading-review.html?attempt_id=' + encodeURIComponent(result.attempt_id)
+        + anonSuffix + '&from=' + originFromUrl();
       chuaBai.hidden = false;
     }
 
@@ -2545,6 +2565,8 @@
   }
 
   function boot() {
+    wireBack();                 // before any early return — the error state is
+                                // exactly when a working way out matters most
     // Share-link mode wins when `?share=<token>` is present (anonymous, no
     // test_id needed). Otherwise the normal authed `?test_id=…` path.
     var shareToken = shareTokenFromUrl();
