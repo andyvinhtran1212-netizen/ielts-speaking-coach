@@ -52,8 +52,8 @@ input: "text"
 headword: "pass-spot-passive"
 skill: "production"
 subtype: "intermediate"
-prompt: "Convert to passive: 'Researchers conducted the experiment over six months' → 'The experiment ____ (conduct) ____ researchers over six months.'"
-accept: ["was conducted by"]
+prompt: "Convert to passive: 'Researchers conducted the experiment over six months' → 'The experiment ____ by researchers over six months.'"
+accept: ["was conducted"]
 case_sensitive: false
 grammar_article_slug: "passive-in-academic-texts"
 explain: "Bị động: The experiment (chủ ngữ bị động) + was conducted (be + V3) + by researchers (tác nhân). Chủ ngữ bị đảo từ tân ngữ sang chủ ngữ."

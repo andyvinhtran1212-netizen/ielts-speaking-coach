@@ -137,8 +137,8 @@ input: "text"
 headword: "cu-article-rule"
 skill: "error_id"
 subtype: "intermediate"
-prompt: "Sửa lỗi mạo từ và gõ lại CẢ CÂU cho đúng: 'The technician gave us an useful equipment for the survey.'"
-accept: ["the technician gave us some useful equipment for the survey", "the technician gave us useful equipment for the survey"]
+prompt: "Sửa lỗi trong câu: 'The technician gave us an useful equipment for the survey.' → 'The technician gave us ____ for the survey.'"
+accept: ["some useful equipment", "useful equipment"]
 case_sensitive: false
 grammar_article_slug: "countable-vs-uncountable"
 explain: "'equipment' là uncountable — không dùng 'an', dùng 'some' hoặc bỏ mạo từ."

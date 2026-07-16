@@ -52,11 +52,11 @@ input: "text"
 headword: "dm-addition"
 skill: "production"
 subtype: "intermediate"
-prompt: "It is not only affordable ____ also highly effective — write only the missing word to complete 'not only...but ___'."
+prompt: "It is not only affordable ____ also highly effective."
 accept: ["but"]
 case_sensitive: false
 grammar_article_slug: "discourse-markers"
-explain: "Cấu trúc cặp: 'not only...but also' — thêm ý mạnh mẽ, nhấn mạnh cả hai đặc điểm cùng lúc."
+explain: "Cấu trúc cặp: 'not only...but also' — thêm ý mạnh mẽ, nhấn mạnh cả hai đặc điểm cùng lúc. 'But' ở đây là liên từ kết nối hai phần của câu song song."
 ---
 
 ---

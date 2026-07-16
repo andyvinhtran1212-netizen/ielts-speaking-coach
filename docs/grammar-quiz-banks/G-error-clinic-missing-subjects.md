@@ -52,11 +52,11 @@ input: "text"
 headword: "ms-vietnamese-influence"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ needs to invest more in education to improve literacy rates. (điền chủ ngữ hợp lý — cơ quan/nhóm chịu trách nhiệm)"
-accept: ["The government", "The state"]
+prompt: "____ needs to invest more in education to improve literacy rates. (điền chủ ngữ = 'chính phủ')"
+accept: ["The government", "Government"]
 case_sensitive: false
 grammar_article_slug: "missing-subjects"
-explain: "Câu bắt đầu bằng động từ 'needs' không có chủ ngữ → phải thêm danh từ/chủ ngữ thật, ví dụ 'The government needs to invest more in education.'"
+explain: "Câu bắt đầu bằng động từ 'needs' không có chủ ngữ → phải thêm danh từ/chủ ngữ thật, ví dụ 'The government needs to invest more in education.' hoặc 'Society needs to invest...'"
 ---
 
 ---

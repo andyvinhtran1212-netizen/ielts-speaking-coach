@@ -291,8 +291,8 @@ input: "boolean"
 headword: "za-idiomatic-institutions"
 skill: "contrast"
 subtype: "advanced"
-prompt: "Đúng hay Sai: 'I went to the hospital to visit my colleague after her operation' và 'She was in hospital for a week' đều dùng đúng vì cả hai câu đều nói về cùng một ý nghĩa 'nhập viện'."
-answer: false
+prompt: "Đúng hay Sai: 'went to the hospital' (thăm ai đó) và 'in hospital' (nhập viện) là hai cách dùng khác nhau với ý nghĩa khác nhau."
+answer: true
 grammar_article_slug: "zero-article"
-explain: "SAI — 'went to THE hospital' (có 'the') nghĩa là đến toà nhà bệnh viện để THĂM ai đó, còn 'was IN hospital' (zero article) nghĩa là chính người đó đang NHẬP VIỆN — hai ý nghĩa khác nhau."
+explain: "ĐÚNG — 'went to THE hospital' (có 'the') nghĩa là đến toà nhà bệnh viện để THĂM, còn 'in hospital' (zero article) nghĩa là chính mình đang NHẬP VIỆN — hai ý nghĩa hoàn toàn khác nhau vì mạo từ khác."
 ---

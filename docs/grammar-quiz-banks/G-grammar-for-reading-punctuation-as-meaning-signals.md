@@ -194,11 +194,11 @@ input: "text"
 headword: "dash-and-brackets"
 skill: "production"
 subtype: "intermediate"
-prompt: "Viết lại câu dùng ngoặc thay vì dấu phẩy: 'The economy, which was in crisis, required immediate reform.' Đáp án: ____"
-accept: ["The economy (which was in crisis) required immediate reform", "The economy (in crisis) required immediate reform"]
+prompt: "Viết lại bằng ngoặc đơn: 'The economy, which was in crisis, required immediate reform.' → 'The economy (____) required immediate reform.'"
+accept: ["in crisis"]
 case_sensitive: false
 grammar_article_slug: "punctuation-as-meaning-signals"
-explain: "Ngoặc đơn hạ giọng phần giải thích 'which was in crisis' hoặc rút gọn '(in crisis)'. Câu vẫn đầy đủ."
+explain: "Chuyển mệnh đề quan hệ thành cụm trong ngoặc đơn: bỏ 'which was', giữ 'in crisis'. Ngoặc đơn hạ giọng phần giải thích phụ: 'The economy (in crisis) required immediate reform.'"
 ---
 
 ---
@@ -265,11 +265,11 @@ input: "text"
 headword: "punctuation-reading-strategy"
 skill: "production"
 subtype: "intermediate"
-prompt: "Đọc đoạn: 'The survey identified key barriers: lack of funding, inadequate training, and limited access. Interestingly; these factors were expected.' Dấu câu sai là dấu nào? (Chỉ dấu sai)"
-accept: ["semicolon", ";", "dấu chấm phẩy"]
+prompt: "Identify the error: 'The survey identified key barriers: lack of funding, inadequate training, and limited access. Interestingly ____ these factors were expected.' — write the incorrect punctuation mark (not the correction)."
+accept: [";", "semicolon", "dấu chấm phẩy"]
 case_sensitive: false
 grammar_article_slug: "punctuation-as-meaning-signals"
-explain: "SAI: 'Interestingly; these factors' — ngoài 'Interestingly' (adverbial) không phải mệnh đề độc lập, không dùng dấu chấm phẩy. Phải dùng dấu phẩy hoặc gạch ngang."
+explain: "SAI: 'Interestingly; these factors' — 'Interestingly' là adverbial, không phải mệnh đề độc lập. Dấu chấm phẩy yêu cầu hai mệnh đề độc lập. Sửa: 'Interestingly, these factors were expected.' (dấu phẩy) hoặc 'Interestingly — these factors were expected.' (gạch ngang)."
 ---
 
 ---

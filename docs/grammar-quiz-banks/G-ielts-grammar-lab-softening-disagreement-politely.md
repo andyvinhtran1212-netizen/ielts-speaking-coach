@@ -66,11 +66,11 @@ input: "text"
 headword: "sdp-acknowledge-before-countering"
 skill: "production"
 subtype: "intermediate"
-prompt: "Viết cụm mở đầu thể hiện SỰ THẤU HIỂU quan điểm đối lập (3 từ, bắt đầu bằng 'I'): 'I ____ where that's coming from, but city life isn't for everyone.'"
+prompt: "Write the recognizable phrase showing understanding: 'I ____ where that's coming from, but city life isn't for everyone.'"
 accept: ["can see"]
 case_sensitive: false
 grammar_article_slug: "softening-disagreement-politely"
-explain: "'I can see where that's coming from' là cụm chuẩn thể hiện sự thấu hiểu trước khi đưa quan điểm khác."
+explain: "'I can see where that's coming from' là cụm chuẩn để ghi nhận thấu hiểu trước khi phản đối — không thể thay bằng 'could understand' hay 'will see'."
 ---
 
 ---
@@ -150,7 +150,7 @@ input: "text"
 headword: "sdp-partial-agreement"
 skill: "production"
 subtype: "intermediate"
-prompt: "Điền cụm còn thiếu: 'I think there's something ____ that, though it depends on the context.'"
+prompt: "Điền từ còn thiếu: 'I think there's something ____ that, though it depends on the context.'"
 accept: ["to"]
 case_sensitive: false
 grammar_article_slug: "softening-disagreement-politely"

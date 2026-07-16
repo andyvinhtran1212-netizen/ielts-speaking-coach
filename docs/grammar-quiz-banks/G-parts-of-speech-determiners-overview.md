@@ -137,10 +137,10 @@ headword: "deto-countable-choice"
 skill: "usage"
 subtype: "intermediate"
 prompt: "Trước khi chọn determiner cho một danh từ, bước đầu tiên cần làm là gì? 'There isn't ____ furniture left in the old office.'"
-options: ["Xác định danh từ đó đếm được hay không đếm được, rồi chọn 'much'", "Chọn ngẫu nhiên bất kỳ determiner nào", "Luôn dùng 'many' cho mọi trường hợp phủ định", "Bỏ qua determiner vì không bắt buộc"]
+options: ["Xác định danh từ đó đếm được hay không đếm được", "Chọn ngẫu nhiên bất kỳ determiner nào", "Luôn dùng 'many' cho mọi trường hợp phủ định", "Bỏ qua determiner vì không bắt buộc"]
 answer: 0
 grammar_article_slug: "determiners-overview"
-explain: "Quy trình đúng: hỏi 'danh từ đếm được hay không?' trước — 'furniture' không đếm được → 'much'. Đây là bước tư duy nền tảng khi chọn determiner."
+explain: "Bước 1: hỏi 'danh từ đếm được hay không?' — 'furniture' không đếm được. Bước 2: chọn determiner phù hợp → 'much'. Xác định countable/uncountable là nền tảng đầu tiên."
 ---
 
 ---
@@ -261,7 +261,7 @@ input: "boolean"
 headword: "deto-specific-general"
 skill: "error_id"
 subtype: "advanced"
-prompt: "Đúng hay Sai: 'I need a advice about that specific issue we discussed yesterday' dùng determiner đúng vì 'advice' luôn cần mạo từ 'a' để rõ nghĩa."
+prompt: "Đúng hay Sai: 'I need a advice about that specific issue we discussed yesterday.'"
 answer: false
 grammar_article_slug: "determiners-overview"
 explain: "SAI — 'advice' không đếm được nên KHÔNG dùng 'a'; câu đúng phải là 'I need some advice...' hoặc 'I need advice...'. Xác định cụ thể không thay đổi việc danh từ không đếm được không nhận mạo từ 'a/an'."
@@ -318,8 +318,8 @@ input: "text"
 headword: "deto-multiple-order"
 skill: "production"
 subtype: "intermediate"
-prompt: "Viết lại đúng thứ tự (predeterminer → determiner → numeral → danh từ) từ các từ: half / her / two / paychecks → She spends ____ every month on rent."
-accept: ["half her two paychecks"]
+prompt: "Sắp xếp đúng thứ tự (predeterminer → determiner → numeral) từ: half, her, two — She spends ____ paychecks every month on rent."
+accept: ["half her two"]
 case_sensitive: false
 grammar_article_slug: "determiners-overview"
 explain: "Thứ tự chuẩn: predeterminer 'half' → determiner sở hữu 'her' → numeral 'two' → danh từ số nhiều 'paychecks': 'half her two paychecks'."

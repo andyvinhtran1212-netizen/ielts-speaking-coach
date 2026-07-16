@@ -208,7 +208,7 @@ input: "choice"
 headword: "ate-vs-however-despite"
 skill: "contrast"
 subtype: "basic"
-prompt: "Chọn từ đúng để nối HAI CÂU RIÊNG BIỆT: 'The government invested heavily in education. ____, the results have been disappointing.'"
+prompt: "Chọn từ kết nối thích hợp: 'The government invested heavily in education. ____, the results have been disappointing.'"
 options: ["However", "Although", "Even though", "Because"]
 answer: 0
 grammar_article_slug: "although-though-even-though"

@@ -306,8 +306,8 @@ input: "text"
 headword: "acn-on-the-other-hand"
 skill: "production"
 subtype: "intermediate"
-prompt: "Working from home saves commuting time. ____ (write the 4-word phrase meaning 'on the contrary side'), it can make employees feel isolated."
-accept: ["On the other hand"]
+prompt: "Working from home saves commuting time. On the other ____, it can make employees feel isolated."
+accept: ["hand"]
 case_sensitive: false
 grammar_article_slug: "adding-contrast-naturally"
 explain: "'On the other hand' có thể dùng độc lập, không nhất thiết phải có 'on the one hand' trước đó, để giới thiệu mặt đối lập."

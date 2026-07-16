@@ -194,8 +194,8 @@ input: "text"
 headword: "comparison-multiples"
 skill: "production"
 subtype: "intermediate"
-prompt: "Viết lại: 'A has doubled compared to B.' Dùng 'twice as': A is ____ B."
-accept: ["twice as large as", "twice as big as", "twice as much as", "two times as large as"]
+prompt: "Viết lại: 'A has doubled compared to B.' → 'A is twice ____ B.' (gõ 3 từ)"
+accept: ["as large as", "as big as", "as much as"]
 case_sensitive: false
 grammar_article_slug: "comparison-structures-in-reading"
 explain: "'doubled' = 'twice as...as'. A = 2 × B. Cách diễn đạt chính xác số lần."

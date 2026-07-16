@@ -80,7 +80,7 @@ input: "text"
 headword: "tq-basic-polarity-aux"
 skill: "production"
 subtype: "intermediate"
-prompt: "Your sister has finished her exams, ____ ____? (viết đuôi câu hỏi, 2 từ)"
+prompt: "Your sister has finished her exams, ____?"
 accept: ["hasn't she"]
 case_sensitive: false
 grammar_article_slug: "tag-questions-errors"
@@ -178,7 +178,7 @@ input: "text"
 headword: "tq-no-aux-add-do"
 skill: "production"
 subtype: "intermediate"
-prompt: "Your brother plays football every weekend, ____ ____? (viết đuôi câu hỏi, 2 từ)"
+prompt: "Your brother plays football every weekend, ____?"
 accept: ["doesn't he"]
 case_sensitive: false
 grammar_article_slug: "tag-questions-errors"
@@ -276,7 +276,7 @@ input: "text"
 headword: "tq-special-forms"
 skill: "production"
 subtype: "intermediate"
-prompt: "I'm always late for meetings, ____ ____? (viết đuôi câu hỏi, 2 từ)"
+prompt: "I'm always late for meetings, ____?"
 accept: ["aren't I"]
 case_sensitive: false
 grammar_article_slug: "tag-questions-errors"
@@ -374,7 +374,7 @@ input: "text"
 headword: "tq-there-and-negative"
 skill: "production"
 subtype: "intermediate"
-prompt: "There is nothing we can do about the delay, ____ ____? (viết đuôi câu hỏi, 2 từ)"
+prompt: "There is nothing we can do about the delay, ____?"
 accept: ["is there"]
 case_sensitive: false
 grammar_article_slug: "tag-questions-errors"

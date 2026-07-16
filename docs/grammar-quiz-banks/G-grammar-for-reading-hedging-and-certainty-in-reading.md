@@ -106,7 +106,7 @@ input: "text"
 headword: "hc-certainty-scale"
 skill: "production"
 subtype: "advanced"
-prompt: "Analyze mức chắc chắn: 'The study PROVES that exercise reduces depression' vs 'The study SUGGESTS that exercise may reduce depression.' Mệnh đề nào thể hiện mức chắc chắn cao hơn? (viết câu trả lời, 1-2 từ)"
+prompt: "Analyze mức chắc chắn: 'The study PROVES that exercise reduces depression' vs 'The study SUGGESTS that exercise may reduce depression.' Mệnh đề nào thể hiện mức chắc chắn cao hơn? → ____"
 accept: ["first", "the first", "first one"]
 case_sensitive: false
 grammar_article_slug: "hedging-and-certainty-in-reading"
@@ -204,11 +204,11 @@ input: "text"
 headword: "hc-hedging-markers"
 skill: "production"
 subtype: "advanced"
-prompt: "Identify all hedging markers in this passage and list them: 'The research SUGGESTS that artificial intelligence MIGHT TRANSFORM education, though evidence APPEARS limited at present.' (write them comma-separated)"
-accept: ["suggests, might, appears"]
+prompt: "Đoạn: 'The research SUGGESTS that artificial intelligence MIGHT transform education, though evidence APPEARS limited at present.' Có 3 từ rào đón (viết HOA). Gõ từ rào đón xuất hiện ĐẦU TIÊN: ____"
+accept: ["suggests"]
 case_sensitive: false
 grammar_article_slug: "hedging-and-certainty-in-reading"
-explain: "'Suggests', 'might', 'appears' đều là rào đón (hedging markers). Chúng hạ mức chắc chắn của khẳng định."
+explain: "Từ rào đón đầu tiên là 'suggests'; sau đó tới 'might' và 'appears'. Cả ba đều hạ mức chắc chắn của khẳng định — dấu hiệu văn phong thận trọng trong bài đọc."
 ---
 
 # ===== item_key 3 · Bẫy T/F/NG: thay đổi mức chắc chắn giữa bài và câu hỏi =====
@@ -220,11 +220,11 @@ input: "boolean"
 headword: "hc-tfng-certainty-trap"
 skill: "usage"
 subtype: "basic"
-prompt: "Bài: 'Exercise may improve health.' Câu hỏi: 'Exercise improves health.' Đáp án là?"
+prompt: "Đúng hay Sai: Câu 'Exercise improves health' phản ánh CHÍNH XÁC mức độ chắc chắn của câu 'Exercise may improve health.'"
 options: []
 answer: false
 grammar_article_slug: "hedging-and-certainty-in-reading"
-explain: "Bài nói 'may' (thận trọng) nhưng câu hỏi khẳng định chắc (không rào đón). Mức chắc chắn khác nhau → đáp án FALSE (không khớp). Bẫy T/F/NG kinh điển."
+explain: "SAI — Câu gốc dùng 'may' (thận trọng, hạ mức chắc chắn). Câu so sánh khẳng định chắc mà không rào đón ('improves' không có 'may'). Hai câu không phản ánh cùng mức độ chắc chắn."
 ---
 
 ---
@@ -261,11 +261,11 @@ input: "text"
 headword: "hc-tfng-certainty-trap"
 skill: "production"
 subtype: "intermediate"
-prompt: "Bài: 'Some studies indicate that coffee might improve concentration.' Câu hỏi: 'Coffee improves concentration.' Viết đáp án T/F/NG và giải thích ngắn gọn (1-2 từ):"
-accept: ["False because of hedging", "False due to hedging", "False", "Not enough certainty"]
+prompt: "Bài: 'Some studies indicate that coffee might improve concentration.' Từ rào đón nào trong bài khiến câu 'Coffee improves concentration' KHÔNG khớp mức chắc chắn của bài? Gõ từ đó: ____"
+accept: ["might"]
 case_sensitive: false
 grammar_article_slug: "hedging-and-certainty-in-reading"
-explain: "Bài dùng ba lớp rào đón: 'some' + 'indicate' + 'might'. Câu hỏi khẳng định tuyệt đối → FALSE."
+explain: "'might' là từ rào đón: bài chỉ nói coffee CÓ THỂ cải thiện ('some studies' + 'indicate' cũng góp phần hạ mức chắc chắn), còn câu khẳng định tuyệt đối 'improves' vượt mức chắc chắn của bài."
 ---
 
 ---
@@ -275,10 +275,10 @@ input: "boolean"
 headword: "hc-tfng-certainty-trap"
 skill: "contrast"
 subtype: "intermediate"
-prompt: "Đúng hay Sai: Bài: 'The experiments possibly showed a link between diet and weight.' Câu hỏi: 'A link exists between diet and weight.' Trong T/F/NG, câu hỏi là TRUE vì cùng chủ đề."
+prompt: "Đúng hay Sai: Câu 'A link exists between diet and weight' phản ánh CHÍNH XÁC mức độ chắc chắn của câu 'The experiments possibly showed a link between diet and weight.'"
 answer: false
 grammar_article_slug: "hedging-and-certainty-in-reading"
-explain: "SAI — dù cùng chủ đề nhưng mức chắc chắn khác. Bài nói 'possibly showed' (rất thận trọng), câu hỏi nói 'exists' (tuyệt đối) → FALSE."
+explain: "SAI — Câu gốc dùng 'possibly showed' (rất thận trọng, chỉ khả năng). Câu so sánh khẳng định chắc 'exists' mà không có từ rào đón. Hai câu không phản ánh cùng mức độ chắc chắn."
 ---
 
 ---
@@ -302,9 +302,9 @@ input: "text"
 headword: "hc-tfng-certainty-trap"
 skill: "production"
 subtype: "advanced"
-prompt: "Passage: 'Critics claim that globalization appears to have contributed, in some cases, to inequality.' Write a T/F/NG question that would test understanding of hedging, and indicate the answer (format: 'Question: [?]. Answer: [T/F/NG]'):"
-accept: ["Globalization causes inequality False", "Globalization always causes inequality False", "Globalization contributes to inequality in all cases FALSE"]
+prompt: "Passage: 'Critics claim that globalization appears to have contributed, in some cases, to inequality.' Gõ từ rào đón đứng ngay TRƯỚC 'to have contributed': ____"
+accept: ["appears"]
 case_sensitive: false
 grammar_article_slug: "hedging-and-certainty-in-reading"
-explain: "Câu hỏi bẫy: 'Globalization causes inequality' → FALSE (vì bài nói 'contributes in some cases' = rào đón). Hoặc 'always' thêm vào → cũng FALSE."
+explain: "'appears' đứng ngay trước 'to have contributed' là từ rào đón; cùng với 'claim' và 'in some cases', bài chỉ đưa nhận định thận trọng — khác hẳn khẳng định tuyệt đối 'causes'."
 ---

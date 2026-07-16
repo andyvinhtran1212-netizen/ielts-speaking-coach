@@ -70,7 +70,7 @@ prompt: "My hometown is much ____ (quiet) than the capital city."
 accept: ["quieter"]
 case_sensitive: false
 grammar_article_slug: "comparison"
-explain: "'quiet' là tính từ 2 âm tiết nhưng theo quy tắc âm tiết ngắn quen thuộc → quieter (thêm -er)."
+explain: "'quiet' → 'quieter' là dạng so sánh chuẩn (nhân đôi phụ âm t trước -er)."
 ---
 
 ---

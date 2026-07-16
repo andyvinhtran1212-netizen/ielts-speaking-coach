@@ -291,8 +291,8 @@ input: "text"
 headword: "wo-question-inversion"
 skill: "production"
 subtype: "intermediate"
-prompt: "Viết câu hỏi đúng trật tự (đảo trợ động từ): 'you / where / do / live' → ____?"
-accept: ["Where do you live", "where do you live"]
+prompt: "Arrange into correct question order (inversion required): 'you / where / do / live' → Where ____?"
+accept: ["do you live"]
 case_sensitive: false
 grammar_article_slug: "word-order"
 explain: "Wh-word (Where) + trợ động từ (do) + Subject (you) + Main Verb (live): 'Where do you live?'"

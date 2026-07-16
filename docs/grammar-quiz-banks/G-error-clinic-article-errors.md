@@ -52,10 +52,10 @@ input: "boolean"
 headword: "aerr-missing-the-unique"
 skill: "contrast"
 subtype: "intermediate"
-prompt: "Giám khảo gạch chân lỗi trong câu: 'Environment is being damaged faster than scientists predicted.' Đúng hay Sai: câu này SAI vì thiếu 'the' trước 'Environment'?"
+prompt: "Đúng hay Sai: 'The environment is being damaged faster than scientists predicted.'"
 answer: true
 grammar_article_slug: "article-errors"
-explain: "ĐÚNG — 'environment' (môi trường Trái Đất) là khái niệm duy nhất, cần 'The environment is being damaged...'."
+explain: "ĐÚNG — 'environment' (môi trường Trái Đất) là khái niệm duy nhất, phải dùng 'The environment is being damaged...'."
 ---
 
 ---
@@ -65,7 +65,7 @@ input: "text"
 headword: "aerr-missing-the-unique"
 skill: "production"
 subtype: "advanced"
-prompt: "Sửa lại câu bài viết của học sinh cho đúng, chỉ gõ 2 từ cần điền vào chỗ trống: '____ ____ has a duty to regulate large corporations that harm public health.' (gốc học sinh viết 'Government has a duty...')"
+prompt: "Sửa lại câu bài viết của học sinh cho đúng, chỉ gõ 2 từ cần điền vào chỗ trống: '____ has a duty to regulate large corporations that harm public health.' (gốc học sinh viết 'Government has a duty...')"
 accept: ["the government"]
 case_sensitive: false
 grammar_article_slug: "article-errors"
@@ -109,10 +109,10 @@ input: "boolean"
 headword: "aerr-extra-the-general"
 skill: "contrast"
 subtype: "intermediate"
-prompt: "Đúng hay Sai: câu 'The nature should be protected for future generations' dùng 'the' đúng vì 'nature' luôn cần mạo từ xác định?"
+prompt: "Đúng hay Sai: 'The nature should be protected for future generations.'"
 answer: false
 grammar_article_slug: "article-errors"
-explain: "SAI — 'nature' (thiên nhiên nói chung) là danh từ không đếm được mang nghĩa chung → không dùng 'the': 'Nature should be protected...'."
+explain: "SAI — 'nature' (thiên nhiên nói chung) là danh từ không đếm được mang nghĩa chung → không dùng 'the'. Đúng là: 'Nature should be protected...'."
 ---
 
 ---
@@ -166,10 +166,10 @@ input: "boolean"
 headword: "aerr-a-an-sound"
 skill: "usage"
 subtype: "intermediate"
-prompt: "Đúng hay Sai: trong câu 'She completed an MBA before joining the company', dùng 'an' trước 'MBA' là đúng vì chữ 'M' đọc là /em/ (âm nguyên âm)?"
+prompt: "Đúng hay Sai: 'She completed an MBA before joining the company.'"
 answer: true
 grammar_article_slug: "article-errors"
-explain: "ĐÚNG — mạo từ theo ÂM đọc, không theo chữ cái. 'MBA' đọc là /em-bi:-eɪ/, bắt đầu bằng âm /e/ → 'an MBA'."
+explain: "ĐÚNG — mạo từ theo ÂM đọc, không theo chữ cái. 'MBA' đọc là /em-bi:-eɪ/, bắt đầu bằng âm /e/ → dùng 'an': 'an MBA'."
 ---
 
 ---
@@ -223,10 +223,10 @@ input: "boolean"
 headword: "aerr-a-with-uncountable"
 skill: "contrast"
 subtype: "intermediate"
-prompt: "Đúng hay Sai: câu 'He has a deep knowledge of financial markets' dùng 'a' sai vì 'knowledge' luôn không đếm được nên không bao giờ đứng sau mạo từ 'a'?"
-answer: false
+prompt: "Đúng hay Sai: 'He has a deep knowledge of financial markets.'"
+answer: true
 grammar_article_slug: "article-errors"
-explain: "SAI (câu gốc đúng) — 'knowledge' không đếm được nhưng khi có tính từ miêu tả rõ mức độ như 'a deep knowledge of...' thì 'a' vẫn dùng được như một cách diễn đạt quen thuộc, khác với 'a information' hay 'a advice' (luôn sai)."
+explain: "ĐÚNG — 'knowledge' không đếm được nhưng khi có tính từ miêu tả rõ mức độ như 'a deep knowledge of...' thì 'a' vẫn dùng được như một cách diễn đạt quen thuộc, khác với 'a information' hay 'a advice' (luôn sai)."
 ---
 
 ---

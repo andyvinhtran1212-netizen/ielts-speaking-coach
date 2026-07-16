@@ -349,9 +349,9 @@ input: "choice"
 headword: "ah-scope-limiters"
 skill: "contrast"
 subtype: "advanced"
-prompt: "So sánh 'The Earth might orbit the Sun' và 'Technology might displace certain jobs' — câu nào KHÔNG nên hedge vì diễn đạt sự thật khoa học đã được công nhận?"
-options: ["'The Earth might orbit the Sun'", "'Technology might displace certain jobs'", "Cả hai đều cần hedge", "Cả hai đều không cần hedge"]
+prompt: "Which statement expresses an established scientific fact and should be written WITHOUT hedging? (A) 'The Earth orbits the Sun.' (B) 'Technology might displace certain jobs.'"
+options: ["(A) — orbiting is established fact", "(B) — job displacement is established fact", "Both equally need hedging", "Both should avoid hedging"]
 answer: 0
 grammar_article_slug: "academic-hedging"
-explain: "Sự thật khoa học/lịch sử đã được công nhận (Trái Đất quay quanh Mặt Trời) không cần hedge. Chỉ hedge nhận định, dự đoán, và generalisation như tác động của công nghệ."
+explain: "(A) is an established scientific fact that doesn't require hedging. (B) is a prediction/future possibility, so hedging 'might' is appropriate. Hedge only claims, predictions, and generalisations—not proven facts."
 ---

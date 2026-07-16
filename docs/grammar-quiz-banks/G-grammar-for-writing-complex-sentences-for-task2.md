@@ -208,11 +208,11 @@ input: "text"
 headword: "cts2-fronted-subordinate-comma"
 skill: "production"
 subtype: "advanced"
-prompt: "Viết lại câu sau bằng cách đảo mệnh đề nhượng bộ lên đầu câu, thêm đúng dấu câu. Chỉ gõ phần đã đảo (không lặp lại mệnh đề chính phía sau): 'Air pollution levels remain dangerously high even though stricter regulations were introduced last year.' → ____ air pollution levels remain dangerously high."
-accept: ["Even though stricter regulations were introduced last year,", "Even though stricter regulations were introduced last year"]
+prompt: "Viết lại câu sau bằng cách đảo mệnh đề nhượng bộ lên đầu câu. 'Air pollution levels remain dangerously high even though stricter regulations were introduced last year.' → ____ stricter regulations were introduced last year, air pollution levels remain dangerously high."
+accept: ["Even though"]
 case_sensitive: false
 grammar_article_slug: "complex-sentences-for-task2"
-explain: "Đảo mệnh đề nhượng bộ 'Even though stricter regulations were introduced last year' lên đầu câu, sau đó BẮT BUỘC có dấu phẩy trước khi mệnh đề chính ('air pollution levels remain dangerously high') bắt đầu."
+explain: "Đảo mệnh đề nhượng bộ lên đầu câu bằng liên từ 'Even though', theo sau bởi mệnh đề phụ ('stricter regulations were introduced last year'), rồi dấu phẩy, rồi mệnh đề chính ('air pollution levels remain dangerously high')."
 ---
 
 ---
@@ -279,11 +279,11 @@ input: "text"
 headword: "cts2-run-on-vs-split"
 skill: "production"
 subtype: "advanced"
-prompt: "Câu sau bị run-on vì nhồi quá nhiều mệnh đề: 'The scheme benefits rural households it also raises costs for urban consumers this trade-off needs careful evaluation.' Tách thành câu ĐẦU TIÊN của phiên bản đã sửa (chỉ gõ đúng câu đầu tiên, có dấu chấm cuối câu): '____'"
-accept: ["The scheme benefits rural households.", "The scheme benefits rural households, but it also raises costs for urban consumers."]
+prompt: "Câu sau bị run-on: 'The scheme benefits rural households it also raises costs for urban consumers this trade-off needs careful evaluation.' Tách thành câu đầu tiên (chỉ gõ chủ ngữ + động từ): 'The scheme benefits rural households.' → ____"
+accept: ["The scheme benefits"]
 case_sensitive: false
 grammar_article_slug: "complex-sentences-for-task2"
-explain: "Cách sửa run-on: tách thành các câu độc lập rõ ràng, mỗi câu một ý (vd 'The scheme benefits rural households.'), hoặc nối đúng 2 mệnh đề đầu bằng liên từ ghép 'but' có dấu phẩy — miễn là không còn 3 mệnh đề độc lập dính liền nhau không dấu câu."
+explain: "Cách sửa run-on: tách thành các câu độc lập rõ ràng, mỗi câu một ý. Câu đầu tiên: 'The scheme benefits rural households.' (chủ ngữ + động từ + bổ ngữ)."
 ---
 
 ---

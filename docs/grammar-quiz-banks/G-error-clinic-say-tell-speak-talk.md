@@ -207,11 +207,11 @@ input: "text"
 headword: "stst-speak"
 skill: "production"
 subtype: "intermediate"
-prompt: "Can I ____ (speak) Dr. Johnson, please? — write the base verb + preposition."
+prompt: "Can I ____ Dr. Johnson, please?"
 accept: ["speak to"]
 case_sensitive: false
 grammar_article_slug: "say-tell-speak-talk"
-explain: "'speak' cần giới từ 'to' (hoặc 'with') khi đi kèm người nghe: speak to someone. Thiếu giới từ là lỗi collocation rất phổ biến."
+explain: "'speak' luôn cần giới từ 'to' (hoặc 'with') khi đi kèm người nghe: speak to/with someone. Thiếu giới từ là lỗi collocation rất phổ biến trong tiếng Anh giao tiếp."
 ---
 
 ---

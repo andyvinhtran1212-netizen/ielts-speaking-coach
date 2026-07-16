@@ -87,16 +87,16 @@ explain: "SAI — 'prefer' không đi với 'than'. Sửa: 'I prefer coffee to t
 
 ---
 id: "epn_pref_i3"
-type: "gap_mcq"
-input: "choice"
+type: "gap_text"
+input: "text"
 headword: "epn-prefer-structure"
 skill: "usage"
 subtype: "intermediate"
-prompt: "I've always preferred the mountains ____ the beach, personally."
-options: ["to", "than", "from", "against"]
-answer: 0
+prompt: "Complete: 'I've always ____the mountains ... the beach, personally.' — write the verb + preposition (2 words)."
+accept: ["preferred to"]
+case_sensitive: false
 grammar_article_slug: "expressing-preferences-naturally"
-explain: "'prefer + noun + to + noun' — luôn dùng 'to' khi so sánh hai danh từ với 'prefer'."
+explain: "'prefer + noun + to + noun' → 'I've always preferred the mountains to the beach.' — 'to' là giới từ chuẩn (không dùng 'than' với prefer)."
 ---
 
 # ===== item_key 2 · I'd rather — tình huống cụ thể =====

@@ -280,11 +280,11 @@ input: "text"
 headword: "cigm-although-despite"
 skill: "production"
 subtype: "intermediate"
-prompt: "Viết lại dùng 'despite': 'Although the weather was bad, we went out.' → '____, we went out.' (gõ cụm 4 từ bắt đầu bằng Despite)"
-accept: ["Despite the bad weather,", "Despite the bad weather"]
+prompt: "Viết lại dùng 'despite': 'Although the weather was bad, we went out.' → '____ the bad weather, we went out.'"
+accept: ["Despite"]
 case_sensitive: false
 grammar_article_slug: "common-ielts-grammar-mistakes"
-explain: "Khi chuyển 'although + clause' sang 'despite', cần chuyển mệnh đề thành cụm danh từ: 'despite the bad weather'."
+explain: "Khi chuyển 'although + clause' sang 'despite', cần chuyển mệnh đề thành cụm danh từ: 'Despite the weather' hoặc 'Despite bad weather'."
 ---
 
 ---
@@ -310,7 +310,7 @@ subtype: "advanced"
 prompt: "Đúng hay Sai: 'Despite it was expensive, she bought the dress.'"
 answer: false
 grammar_article_slug: "common-ielts-grammar-mistakes"
-explain: "SAI — 'despite' không thể theo sau bởi mệnh đề trực tiếp ('it was expensive'). Sửa: 'Despite its high price, she bought the dress.' hoặc 'Although it was expensive, she bought the dress.'"
+explain: "SAI — 'despite' là giới từ nên chỉ theo sau bởi cụm danh từ, không phải mệnh đề (S + V). 'it was expensive' là mệnh đề đầy đủ → sửa: 'Despite its high price, she bought the dress.' hoặc dùng 'Although' + mệnh đề: 'Although it was expensive, she bought the dress.'"
 ---
 
 # ===== item_key 6 · Câu điều kiện (Conditionals) =====

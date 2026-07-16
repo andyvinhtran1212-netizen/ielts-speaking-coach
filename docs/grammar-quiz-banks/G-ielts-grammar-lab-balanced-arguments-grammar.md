@@ -52,11 +52,11 @@ input: "text"
 headword: "bag-one-hand-other-hand"
 skill: "production"
 subtype: "intermediate"
-prompt: "Q: Is it better to work for a large company or a small one? A: On the one hand, big companies offer more stability. ____ ____ ____ ____ (write the 4-word phrase meaning 'from the contrary perspective'), small companies often provide more room to grow."
-accept: ["On the other hand,", "On the other hand"]
+prompt: "Q: Is it better to work for a large company or a small one? A: On the one hand, big companies offer more stability. On the ____, small companies often provide more room to grow. — write the two words."
+accept: ["other hand", "other hand,"]
 case_sensitive: false
 grammar_article_slug: "balanced-arguments-grammar"
-explain: "'On the other hand,' hoàn thiện cặp cấu trúc 'on the one hand... on the other hand...' để trình bày mặt thứ hai."
+explain: "Cặp cấu trúc 'on the one hand... on the OTHER hand...' trình bày song song hai mặt của vấn đề; 'other' là từ khóa phân biệt hai mặt đối lập."
 ---
 
 ---
@@ -108,12 +108,12 @@ type: "gap_text"
 input: "text"
 headword: "bag-concession"
 skill: "production"
-subtype: "advanced"
-prompt: "Q: Do you think working from home is a good idea overall? A: ____ ____ ____ ____ ____ (write the 5-word phrase meaning 'it is true, however, that') remote work can feel isolating, I still believe it improves overall well-being."
-accept: ["While it is true that"]
+subtype: "intermediate"
+prompt: "Q: Do you think working from home is a good idea overall? A: ____ it is true that remote work can feel isolating, I still believe it improves overall well-being. — write the first word that introduces the concession."
+accept: ["While"]
 case_sensitive: false
 grammar_article_slug: "balanced-arguments-grammar"
-explain: "'While it is true that' là cấu trúc concession mạnh, công nhận điểm đối lập trước khi bảo vệ quan điểm chính."
+explain: "'While' mở đầu cấu trúc nhượng bộ mạnh 'While it is true that', công nhận điểm đối lập (remote work can feel isolating) trước khi bảo vệ quan điểm chính."
 ---
 
 ---
@@ -223,7 +223,7 @@ input: "text"
 headword: "bag-that-said"
 skill: "production"
 subtype: "intermediate"
-prompt: "Rewrite using a fixed phrase meaning 'that said': 'The downsides shouldn't be ignored.' → '____ ____ ____ (write the 3-word phrase), the downsides shouldn't be ignored.'"
+prompt: "Rewrite using the phrase 'Having said that': 'The downsides shouldn't be ignored.' → '____ the downsides shouldn't be ignored.' — write the three-word phrase."
 accept: ["Having said that,", "Having said that"]
 case_sensitive: false
 grammar_article_slug: "balanced-arguments-grammar"

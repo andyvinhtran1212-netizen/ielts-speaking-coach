@@ -123,11 +123,11 @@ input: "choice"
 headword: "rc-defining-vs-nondefining"
 skill: "contrast"
 subtype: "intermediate"
-prompt: "The Eiffel Tower____ was built in 1889____ is one of the most visited monuments in the world. (chỉ có một Eiffel Tower, thông tin thêm)"
-options: [", which / ,", " which / ", ", that / ,", " that / "]
+prompt: "Complete the non-defining relative clause: 'The Eiffel Tower, ____ was built in 1889, is one of the most visited monuments in the world.' — write the relative pronoun (commas already in place)."
+options: ["which", "that", "who", "where"]
 answer: 0
 grammar_article_slug: "relative-clauses"
-explain: "Chỉ có một Eiffel Tower nên mệnh đề chỉ THÊM thông tin, không cần thiết để xác định → non-defining: có dấu phẩy hai đầu, dùng 'which' (không dùng 'that')."
+explain: "Chỉ có một Eiffel Tower nên mệnh đề chỉ THÊM thông tin, không cần thiết để xác định → non-defining: dùng 'which' (không dùng 'that'). Dấu phẩy hai đầu đã có sẵn trong prompt."
 ---
 
 ---

@@ -52,8 +52,8 @@ input: "text"
 headword: "eu-modal-verbs"
 skill: "production"
 subtype: "intermediate"
-prompt: "The decline in sales ____ (may, suy đoán về quá khứ + have + V-ed của 'cause') by the recession."
-accept: ["may have been caused"]
+prompt: "The decline in sales may ____ by the recession."
+accept: ["have been caused"]
 case_sensitive: false
 grammar_article_slug: "expressing-uncertainty"
 explain: "'may/might + have + V-ed' dùng để suy đoán về một sự việc trong quá khứ: may have been caused."
@@ -136,7 +136,7 @@ input: "text"
 headword: "eu-adverbs-of-certainty"
 skill: "production"
 subtype: "intermediate"
-prompt: "This is ____ (arguably — viết lại nguyên trạng từ để nhấn mạnh 'có thể lập luận rằng') the most effective approach available today."
+prompt: "This is ____ the most effective approach available today."
 accept: ["arguably"]
 case_sensitive: false
 grammar_article_slug: "expressing-uncertainty"
