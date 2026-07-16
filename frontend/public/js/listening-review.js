@@ -154,6 +154,31 @@
     return (new URLSearchParams(window.location.search).get('attempt_id') || '').trim() || null;
   }
 
+  // ── Back target ──────────────────────────────────────────────────
+  // Three entry points — the full-test library, the mini-test library, and a
+  // mock-exam result (mock-result.html) — so a single hardcoded back is wrong
+  // for two of them. Callers stamp ?from=; map it through an ALLOWLIST (never
+  // navigate to a raw URL from the query string — that would be an open
+  // redirect). Unknown/absent → the full-test library, the historical default.
+  var BACK_TARGETS = {
+    full: { href: '/pages/listening-tests.html', label: '← Listening tests' },
+    mini: { href: '/pages/listening-mini-test.html', label: '← Mini tests' },
+    mock: { href: '/pages/mock-result.html', label: '← Kết quả thi thử' },
+  };
+  function wireBack() {
+    var q = new URLSearchParams(window.location.search);
+    var t = BACK_TARGETS[(q.get('from') || '').trim()] || BACK_TARGETS.full;
+    var href = t.href;
+    // The mock result is per-sitting, so it needs its id to come back to.
+    if (t === BACK_TARGETS.mock) {
+      var sitting = (q.get('sitting') || '').trim();
+      if (sitting) href += '?sitting=' + encodeURIComponent(sitting);
+      else t = BACK_TARGETS.full, href = t.href;   // no id → can't return there
+    }
+    var el = $('lr-back');
+    if (el) { el.href = href; el.textContent = t.label; }
+  }
+
   // ── 🔊 locate — full-track seek + transcript highlight (items 4 + 7) ──
   // Item 4: the player keeps the WHOLE track (free scrub); 🔊 seeks to the
   // window start and plays on from there (no segment window, no auto-stop).
@@ -485,6 +510,8 @@
   }
 
   document.addEventListener('DOMContentLoaded', function () {
+    wireBack();                 // before the early return — the empty/error
+                                // states are exactly when a way out matters most
     var id = attemptIdFromUrl();
     if (!id) { showState('empty'); return; }
     load(id);

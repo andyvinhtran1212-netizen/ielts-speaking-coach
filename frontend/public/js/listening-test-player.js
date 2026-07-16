@@ -162,6 +162,24 @@ function getTestIdFromUrl() {
   return (sp.get('id') || '').trim() || null;
 }
 
+// ── Back target ──────────────────────────────────────────────────────
+// This player serves BOTH listening libraries (listening-tests.html = full,
+// listening-mini-test.html = mini), which stamp ?from= on the link in. Every
+// "back to the list" link used to hardcode the FULL library, so a mini-test
+// taker was sent to the wrong shelf. Map through an ALLOWLIST — never navigate
+// to a raw URL from the query string. Unknown/absent → full (the historical
+// default, and what the mock embed gets — its back links are not shown anyway).
+const BACK_TARGETS = { full: '/pages/listening-tests.html', mini: '/pages/listening-mini-test.html' };
+function originFromUrl() {
+  const v = (new URLSearchParams(window.location.search).get('from') || '').trim();
+  return BACK_TARGETS[v] ? v : 'full';
+}
+function wireBack() {
+  const href = BACK_TARGETS[originFromUrl()];
+  document.querySelectorAll('a[href="/pages/listening-tests.html"]')
+    .forEach((a) => { a.href = href; });
+}
+
 function fmtTime(secs) {
   if (!Number.isFinite(secs) || secs < 0) return '0:00';
   const m = Math.floor(secs / 60);
@@ -1197,9 +1215,12 @@ function renderResult(result) {
 
   // listening-review-ui — point the chữa-bài CTA at this attempt's full-screen
   // review (transcript + per-question solution + 🔊 audio-window replay).
+  // &from= carries the origin through: the review page is shared by both
+  // libraries + the mock result, and would otherwise guess.
   const chuabai = $('res-chuabai');
   if (chuabai && STATE.attemptId) {
-    chuabai.href = '/pages/listening-review.html?attempt_id=' + encodeURIComponent(STATE.attemptId);
+    chuabai.href = '/pages/listening-review.html?attempt_id=' + encodeURIComponent(STATE.attemptId)
+      + '&from=' + originFromUrl();
   }
 
   // Dictation (chép chính tả) for the same test — reuses this test's
@@ -1215,6 +1236,8 @@ function renderResult(result) {
 // ── Entry point ──────────────────────────────────────────────────────
 
 function main() {
+  wireBack();               // before the early return — the 'missing' state is
+                            // itself a "pick one from the list" screen
   const id = getTestIdFromUrl();
   if (!id) {
     showState('missing');
