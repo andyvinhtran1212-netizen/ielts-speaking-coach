@@ -53,7 +53,18 @@ export function gradeText(q, answer) {
   var accept = Array.isArray(q.accept) ? q.accept : [];
   var norm = normalizeText(answer, { caseSensitive: q.case_sensitive });
   for (var i = 0; i < accept.length; i++) {
-    if (normalizeText(accept[i], { caseSensitive: q.case_sensitive }) === norm) {
+    var na = normalizeText(accept[i], { caseSensitive: q.case_sensitive });
+    if (na === '' || norm === '') {
+      // Punctuation-only accept (e.g. ";"): normalization strips it to '', which
+      // would equally match ANY punctuation answer ("." === ";" === ""). Compare
+      // the raw trimmed strings instead so only the exact mark passes.
+      if (String(accept[i]).trim() !== '' &&
+          String(accept[i]).trim() === String(answer == null ? '' : answer).trim()) {
+        return { correct: true, exact: true, canonical: accept[i] };
+      }
+      continue;
+    }
+    if (na === norm) {
       return { correct: true, exact: true, canonical: accept[i] };
     }
   }
@@ -323,6 +334,9 @@ export function createEngine(bank, options) {
       explain: q.explain || '',
       mastered: mastered,
       exhausted: exhausted,
+      // A lone correct MCQ is only PROVISIONAL credit (anti-guess) — the progress
+      // bar won't move yet. Exposed so the UI can tell the learner why.
+      provisional: !mastered && !exhausted && !!w.provisional,
       item_key: w.key,
       done: queue.length === 0,
       progress: progress(),

@@ -44,6 +44,14 @@
     .qz-card { margin-top: var(--av-space-6); }
     .qz-prompt { font-size: var(--av-fs-lg); font-weight: var(--av-fw-semibold);
       line-height: var(--av-lh-snug); color: var(--av-text-primary); margin: 0; }
+    /* Per-type instruction line ("Chọn đáp án đúng." / "Gõ đáp án (2 từ).") —
+       the ONE consistent how-to-answer cue; authors no longer need to improvise
+       it inside every prompt. */
+    .qz-instr { margin: var(--av-space-2) 0 0; font-size: var(--av-fs-sm);
+      color: var(--av-text-muted); }
+    /* One-line mode explainer under the progress bar (mastery mechanics). */
+    .qz-sub { margin: var(--av-space-2) 0 0; font-size: var(--av-fs-sm);
+      color: var(--av-text-muted); }
 
     /* Answer widgets — shared option button */
     .qz-options { display: flex; flex-direction: column; gap: var(--av-space-3);
@@ -199,8 +207,8 @@
          mastered, so re-opening a finished bank never dead-ends on an instant,
          un-interactive result screen. -->
     <div id="qz-gate" class="hidden">
-      <div class="qz-head"><h1>🎉 Bạn đã thuộc trọn vẹn bộ từ này!</h1></div>
-      <p class="qz-muted">Ôn tập lại để củng cố trí nhớ, hoặc làm lại từ đầu nếu muốn kiểm tra nghiêm ngặt lại toàn bộ danh sách.</p>
+      <div class="qz-head"><h1 id="qz-gate-title">🎉 Bạn đã thuộc trọn vẹn bộ từ này!</h1></div>
+      <p id="qz-gate-sub" class="qz-muted">Ôn tập lại để củng cố trí nhớ, hoặc làm lại từ đầu nếu muốn kiểm tra nghiêm ngặt lại toàn bộ danh sách.</p>
       <div class="qz-actions">
         <button id="qz-gate-review" type="button" class="av-button av-button-primary">🔁 Ôn tập lại</button>
         <button id="qz-gate-reset" type="button" class="av-button av-button-secondary">♻️ Làm lại từ đầu</button>
@@ -214,10 +222,12 @@
         <span id="qz-count" class="qz-count"></span>
       </div>
       <div class="qz-track"><div id="qz-bar" class="qz-bar"></div></div>
+      <p id="qz-sub" class="qz-sub"></p>
 
       <div id="qz-card" class="av-card qz-card">
         <div id="qz-audio" class="qz-audio hidden"></div>
         <p id="qz-prompt" class="qz-prompt"></p>
+        <p id="qz-instr" class="qz-instr hidden"></p>
         <div id="qz-widget"></div>
         <div id="qz-feedback" class="hidden"></div>
         <div id="qz-actions" class="qz-actions hidden"></div>
@@ -238,7 +248,7 @@
           <div class="qz-res-tile__val" id="qz-res-q">–</div>
         </div>
         <div class="qz-res-tile">
-          <div class="qz-res-tile__label">Đã thuộc</div>
+          <div class="qz-res-tile__label" id="qz-res-mastered-label">Đã thuộc</div>
           <div class="qz-res-tile__val" id="qz-res-mastered">–</div>
         </div>
       </div>
@@ -257,7 +267,7 @@
             · <strong style="color:var(--av-error);" id="qz-res-wrong">0</strong></span>
         </div>
         <div class="qz-res-row" id="qz-res-hardest-row" style="display:none;">
-          <span class="qz-muted">Từ khó nhất</span>
+          <span class="qz-muted" id="qz-res-hardest-label">Từ khó nhất</span>
           <span class="qz-fb__answer" id="qz-res-hardest"></span>
         </div>
       </div>
@@ -266,7 +276,7 @@
       <div class="av-card qz-card hidden" id="qz-res-review">
         <div class="qz-sec__label">Cần ôn lại (<span id="qz-res-review-n">0</span>)</div>
         <div class="qz-chips" id="qz-res-chips" style="margin-top:var(--av-space-3);"></div>
-        <p class="qz-muted" style="margin-top:var(--av-space-2);">Bấm vào từ để xem nhanh thẻ từ.</p>
+        <p id="qz-res-review-hint" class="qz-muted" style="margin-top:var(--av-space-2);">Bấm vào từ để xem nhanh thẻ từ.</p>
       </div>
 
       <div class="qz-note qz-note--warn hidden" id="qz-res-warn">
@@ -314,8 +324,9 @@
     const $ = (id) => document.getElementById(id);
     const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) =>
       ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
-    // Render **bold** + the ____ blank placeholder.
-    const fmt = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/_{4,}/g, '<u>&nbsp;&nbsp;&nbsp;</u>');
+    // Render **bold** + the ____ blank placeholder (authors use 2..n underscores;
+    // the canonical form is 4, but shorter blanks must still render as a blank).
+    const fmt = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/_{2,}/g, '<u>&nbsp;&nbsp;&nbsp;</u>');
     // Marks a prompt as an audio question. Byte-identical to the token the backend
     // import + serve paths key off, so all three agree on which prompts want audio.
     const AUDIO_TOKEN = '{{audio}}';
@@ -359,6 +370,12 @@
     const _params = new URLSearchParams(location.search);
     const bankId = _params.get('bank');
     const skillArea = _params.get('skill_area');
+    // Grammar banks reuse this player but the copy must not talk about "từ/thẻ từ"
+    // (item_keys are grammar points, not words). Set once in wireChrome().
+    let isGrammar = false;
+    // Prettify an item_key slug for display (grammar keys like "art-definite-usage"
+    // would otherwise show as raw slugs in the hardest/review chips).
+    const keyLabel = (k) => isGrammar ? String(k).replace(/-/g, ' ') : String(k);
     let engine = null, sessionId = null, current = null, graded = false, startMs = Date.now();
     let pending = 0;   // attempts since last flush
     let wordCards = {};   // lowercased headword → glance card (meaning/IPA/audio/example)
@@ -608,6 +625,27 @@
       const rawPrompt = String(q.prompt || '');
       $('qz-prompt').innerHTML = fmt(rawPrompt.replace(AUDIO_TOKEN_RE, ' ').trim());
 
+      // One consistent how-to-answer line per question TYPE (the audit found
+      // learners can't tell what to produce — esp. for typed answers). For text
+      // answers the expected word count is derived from accept[0] so the learner
+      // knows how much to type without the answer itself being revealed.
+      const instr = $('qz-instr');
+      let itxt = '';
+      if (q.input === 'boolean') {
+        itxt = 'Chọn Đúng hoặc Sai.';
+      } else if (q.input === 'choice') {
+        itxt = (q.type === 'gap_mcq' || /_{2,}/.test(rawPrompt))
+          ? 'Chọn từ/cụm đúng cho chỗ trống.' : 'Chọn đáp án đúng.';
+      } else if (q.input === 'syllable') {
+        itxt = 'Chọn một phương án.';
+      } else if (q.input === 'text') {
+        const n = (Array.isArray(q.accept) && q.accept[0])
+          ? String(q.accept[0]).trim().split(/\s+/).length : 0;
+        itxt = n >= 2 ? ('Gõ đáp án vào ô trống (' + n + ' từ).') : 'Gõ đáp án vào ô trống.';
+      }
+      instr.textContent = itxt;
+      instr.classList.toggle('hidden', !itxt);
+
       // audio — a prompt that ASKS the learner to listen must stay answerable even
       // when the pre-generated file isn't ready, so keep the button and fall back to
       // TTS of the word (the same fallback the vocab glance card uses).
@@ -724,6 +762,12 @@
             ? '<div class="qz-fb__detail">Đáp án chuẩn: <span class="qz-fb__answer">' + fmt(String(res.corrected)) + '</span></div>'
             : '')
         + (res.explain ? '<div class="qz-fb__detail">' + fmt(res.explain) + '</div>' : '')
+        // Provisional credit is invisible on the progress bar (anti-guess) — say
+        // so, or a correct first MCQ looks like the app ignored the answer.
+        + ((res.correct && res.provisional)
+            ? '<div class="qz-fb__detail">Đã ghi nhận ✓ — trả lời đúng thêm 1 câu dạng khác của '
+              + (isGrammar ? 'điểm này' : 'từ này') + ' để được tính vào tiến độ.</div>'
+            : '')
         // Grammar: on a wrong answer, link back to the Wiki article to review.
         + ((!res.correct && artUrl)
             ? '<div><a class="qz-fb__review" href="' + esc(artUrl) + '" target="_blank" rel="noopener">📖 Ôn lại bài</a></div>'
@@ -743,7 +787,7 @@
 
     function updateProgress() {
       const p = engine.progress();
-      $('qz-count').textContent = 'Đã thuộc ' + p.mastered + '/' + p.total;
+      $('qz-count').textContent = (isGrammar ? 'Đã nắm ' : 'Đã thuộc ') + p.mastered + '/' + p.total;
       $('qz-bar').style.width = (p.total ? Math.round(p.mastered / p.total * 100) : 0) + '%';
     }
 
@@ -773,7 +817,7 @@
       // Hardest word (only meaningful when it took more than one attempt).
       if (s.hardest && s.hardest.key && s.hardest.attempts > 1) {
         $('qz-res-hardest-row').style.display = '';
-        $('qz-res-hardest').textContent = s.hardest.key + ' · ' + s.hardest.attempts + ' lần';
+        $('qz-res-hardest').textContent = keyLabel(s.hardest.key) + ' · ' + s.hardest.attempts + ' lần';
       }
 
       // Words to review — chips; those with a glance card open the popup on click.
@@ -787,7 +831,7 @@
           const has = !!wordCards[key];
           const el = document.createElement(has ? 'button' : 'span');
           el.className = 'qz-chip' + (has ? ' qz-res-chip' : '');
-          el.textContent = k;
+          el.textContent = keyLabel(k);
           if (has) { el.type = 'button'; el.onclick = () => openCard(key, el); }
           box.appendChild(el);
         });
@@ -842,6 +886,19 @@
     function wireChrome(bank) {
       const topBack = $('qz-top-back'), topLabel = $('qz-top-back-label'), back = $('qz-back');
       const chrome = document.querySelector('aver-chrome');
+      isGrammar = !!(bank.bank && bank.bank.skill_area === 'grammar');
+      // Area-correct copy: the player was written for vocab ("từ") — on a grammar
+      // bank every "từ"-flavored string must speak about grammar points instead.
+      if (isGrammar) {
+        $('qz-gate-title').textContent = '🎉 Bạn đã nắm trọn vẹn các điểm ngữ pháp của bài này!';
+        $('qz-gate-sub').textContent = 'Ôn tập lại để củng cố, hoặc làm lại từ đầu nếu muốn kiểm tra nghiêm ngặt lại toàn bộ bài.';
+        $('qz-res-mastered-label').textContent = 'Đã nắm';
+        $('qz-res-hardest-label').textContent = 'Điểm khó nhất';
+        $('qz-res-review-hint').classList.add('hidden');   // grammar has no vocab glance cards
+        $('qz-sub').textContent = 'Trả lời đúng mỗi điểm ngữ pháp ở nhiều dạng câu (có ít nhất 1 câu tự gõ) để được tính là nắm — bài sẽ tự lặp lại điểm bạn còn sai.';
+      } else {
+        $('qz-sub').textContent = 'Trả lời đúng mỗi từ ở nhiều dạng câu (có ít nhất 1 câu tự gõ) để được tính là thuộc — bài sẽ tự lặp lại từ bạn còn sai.';
+      }
       if (bank.bank && bank.bank.skill_area === 'grammar') {
         if (chrome) chrome.setAttribute('active', 'grammar');
         topBack.href = '/grammar.html'; topLabel.textContent = 'Grammar';
