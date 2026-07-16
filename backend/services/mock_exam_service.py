@@ -257,6 +257,24 @@ def get_sitting(sitting_id: UUID | str) -> Optional[dict]:
     return resp.data[0] if resp.data else None
 
 
+def sittings_in_exam(exam_id: UUID | str, sitting_ids) -> set:
+    """The subset of `sitting_ids` that really belongs to `exam_id`.
+
+    A per-exam roster action must not reach into another exam's work — the
+    exam_id in the path is the admin's stated scope, so a sitting from outside it
+    arrived via a stale tab or a hand-made call, not the roster. writing/bulk-grade
+    has always enforced this per row; the bulk claim/band/release routes take the
+    set in ONE query instead of one per id.
+    """
+    ids = [str(s) for s in sitting_ids]
+    if not ids:
+        return set()
+    resp = supabase_admin.table("mock_exam_sittings").select("id").eq(
+        "mock_exam_id", str(exam_id),
+    ).in_("id", ids).execute()
+    return {str(r["id"]) for r in (resp.data or [])}
+
+
 def is_sealed(sitting_id: UUID | str) -> bool:
     """The hook domain endpoints call: is this sitting still withholding scores?
 

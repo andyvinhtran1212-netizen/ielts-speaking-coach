@@ -2716,3 +2716,57 @@ def test_bulk_save_bands_will_not_band_another_admins_review(fake_db, svc, wf):
     assert "admin khác" in out["skipped"][0]["reason"]
     rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-o")
     assert rv["status"] == "claimed" and rv["final_bands"] == {}
+
+
+# ── Bulk routes are scoped to the exam in the path (Codex, PR #787) ────
+#
+# The path's exam_id is the admin's stated scope. A sitting from outside it did
+# not come from this roster — it came from a stale tab or a hand-made call, and
+# a per-exam action must not reach into another exam's work. writing/bulk-grade
+# has always enforced this; the bulk claim/band/release routes did not.
+
+
+def _seed_two_exams(fake_db):
+    for sid, exam in (("sit-mine", "ex-1"), ("sit-foreign", "ex-2")):
+        fake_db.seed("mock_exam_sittings", {"id": sid, "mock_exam_id": exam,
+                                            "status": "submitted", "user_id": "u-" + sid})
+
+
+def test_sittings_in_exam_returns_only_this_exams_sittings(fake_db, svc):
+    _seed_two_exams(fake_db)
+    assert svc.sittings_in_exam("ex-1", ["sit-mine", "sit-foreign"]) == {"sit-mine"}
+    assert svc.sittings_in_exam("ex-2", ["sit-mine", "sit-foreign"]) == {"sit-foreign"}
+    # an id that exists nowhere is nobody's
+    assert svc.sittings_in_exam("ex-1", ["sit-ghost"]) == set()
+    # no ids → no query, no rows
+    assert svc.sittings_in_exam("ex-1", []) == set()
+
+
+def test_scope_to_exam_reports_the_stray_rather_than_dropping_it(fake_db, svc):
+    """A bulk action handed an id it will not act on must SAY so — silently
+    dropping it would report success over a student nobody touched."""
+    from routers import admin_mock_exams as r
+
+    _seed_two_exams(fake_db)
+    ids, foreign = r._scope_to_exam("ex-1", ["sit-mine", "sit-foreign"])
+
+    assert ids == ["sit-mine"]
+    assert foreign == [{"sitting_id": "sit-foreign", "reason": "Không thuộc đề này."}]
+
+
+def test_every_bulk_route_scopes_to_its_exam_id():
+    """The finding was not "the helper is wrong" — it was "the route ignores
+    exam_id entirely". A correct helper nobody calls fixes nothing, so pin the
+    call site of all three bulk routes, including bulk-release, which has had the
+    gap since #778 and is the one that PUBLISHES to real students."""
+    import inspect
+
+    from routers import admin_mock_exams as r
+
+    for route in (r.bulk_claim, r.bulk_final_bands, r.bulk_release):
+        src = inspect.getsource(route)
+        assert "_scope_to_exam(exam_id" in src, f"{route.__name__} ignores exam_id"
+        # and the strays it found must reach the caller, not be dropped
+        assert 'out["skipped"] = out["skipped"] + foreign' in src, (
+            f"{route.__name__} drops out-of-exam ids silently"
+        )
