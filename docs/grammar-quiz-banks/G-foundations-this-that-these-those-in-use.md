@@ -140,7 +140,7 @@ subtype: "advanced"
 prompt: "Đúng hay Sai: 'Fewer students are choosing to study abroad this year. This is a problem.'"
 answer: false
 grammar_article_slug: "this-that-these-those-in-use"
-explain: "SAI về mặt văn phong học thuật — 'This' đứng một mình không có danh từ tóm tắt khiến người đọc không rõ 'this' chỉ điều gì; nên viết 'This decline is a problem.'"
+explain: "SAI về mặt văn phong học thuật — 'This' đứng một mình không có danh từ tóm tắt nên không rõ 'this' chỉ điều gì. Cách viết tốt hơn: 'This decline in overseas study is a problem.' — danh từ tóm tắt 'decline' + giới từ 'in' làm rõ phạm vi."
 ---
 
 ---
@@ -150,7 +150,7 @@ input: "boolean"
 headword: "ttt-discourse-reference"
 skill: "contrast"
 subtype: "advanced"
-prompt: "Đúng hay Sai: một nghiên cứu được nhắc đến từ đầu đoạn văn, sau đó văn bản viết 'That conclusion remains controversial today' — dùng 'that' ở đây là hợp lý vì ý đó đã được nói từ khá lâu trước trong đoạn."
+prompt: "Đúng hay Sai: 'Một nghiên cứu được nhắc đến từ đầu đoạn văn. Sau đó văn bản viết: That conclusion remains controversial today.'"
 answer: true
 grammar_article_slug: "this-that-these-those-in-use"
 explain: "ĐÚNG — 'that' dùng để chỉ lại một ý đã được nêu khá lâu trước đó trong bài, tạo khoảng cách trong mạch văn, khác với 'this' thường chỉ ý vừa nói ngay trước."

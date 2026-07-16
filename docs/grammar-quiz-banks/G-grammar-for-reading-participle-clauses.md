@@ -166,11 +166,11 @@ input: "text"
 headword: "pc-having-v3"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (conduct / several / tests), the scientists confirmed their hypothesis."
-accept: ["having conducted several tests"]
+prompt: "Complete: '______ several tests, the scientists confirmed their hypothesis.' — write the perfect participle form (2 words)."
+accept: ["having conducted"]
 case_sensitive: false
 grammar_article_slug: "participle-clauses"
-explain: "'Having conducted' chỉ hành động xảy ra **trước** hành động chính 'confirmed'. Đây là perfect participle, không phải simple participle."
+explain: "'Having conducted' là perfect participle, chỉ hành động xảy ra **trước** hành động chính 'confirmed'. Cấu trúc đầy đủ: 'Having conducted several tests, the scientists confirmed their hypothesis.'"
 ---
 
 ---

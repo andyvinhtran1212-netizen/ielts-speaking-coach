@@ -118,8 +118,24 @@ Engine **chỉ lưu đúng 1 đáp án** cho `mcq`/`gap_mcq`/`boolean` (`answer`
 - Với câu "diễn đạt X **tự nhiên**" (speaking/meaning) có nhiều cách nói tương đương → **ưu tiên `gap_text`** với `accept` rộng, ĐỪNG dùng mcq giả vờ chỉ 1 cách nói đúng.
 - **KHÔNG để lại ghi chú nghi ngờ trong `explain`** (kiểu "thực ra câu này sai / câu hỏi nên dùng…"). Nếu bạn viết được câu đó nghĩa là câu đang hỏng → **sửa đề/đáp án**, đừng ship. Lint CI (`content_lint`) sẽ **chặn** các explain tự-mâu-thuẫn và `accept` toàn ký tự khó gõ (vd `ø`).
 
+### 3.5 ⚠️ Quy ước cho câu tự gõ `gap_text` (bắt buộc — audit 2026-07-16)
+
+Player chỉ có **1 ô nhập** và chấm **exact-match** (+ dung sai 1 ký tự). UI tự hiện dòng hướng dẫn "Gõ đáp án vào ô trống (N từ)" suy từ `accept[0]` — **đừng** tự ghi "(gõ N từ)" vào prompt nữa. Các luật sau được lint chặn trong CI:
+
+1. **`accept[0]` tối đa 3 từ.** Không ra đề "gõ lại cả câu" — chấm exact-match với câu dài là đánh đố. Câu sửa-lỗi-cả-câu → cho khung câu sẵn, chừa đúng 1 `____` ở phần cần sửa.
+2. **KHÔNG dùng `/` trong accept** để ghi "biến thể nào cũng được" — engine so khớp nguyên văn. Mỗi biến thể là **một phần tử accept riêng** (kể cả dạng viết tắt/đầy đủ: `["doesn't he", "does not he"]` → chỉ liệt kê dạng đúng).
+3. **Đúng 1 chỗ `____` mỗi câu.** Hai chỗ trống + một ô nhập là mơ hồ (tag question `..., ____ ____?` → viết `..., ____?` và accept cụm đầy đủ).
+4. **Đáp án "không cần mạo từ"**: KHÔNG bao giờ ghi "để trống" (ô trống không submit được) hay bắt gõ "ø" (không có trên bàn phím). Convention: prompt ghi *"nếu không cần mạo từ, gõ số 0"*, accept = `["0", "ø", "no article", "zero article"]`.
+5. **Hint trong ngoặc** chỉ chứa từ gốc cần chia hoặc loại từ — vd `(go)`, `(mạo từ)`. Không nhét jargon dài, không mô tả cấu trúc mâu thuẫn với accept, và **tuyệt đối không chứa đáp án**.
+
+### 3.6 ⚠️ Boolean: chỉ phán đoán MỘT tầng
+
+- Boolean chuẩn: `Đúng hay Sai: '<câu tiếng Anh>'` — người học phán xét đúng/sai của **chính câu đó**.
+- ❌ CẤM kiểu 2 tầng *"câu X dùng Y đúng **vì** <lý do>?"* — bắt phán xét đồng thời cách dùng **và** lý do là đánh đố logic, không phải kiểm tra ngữ pháp. Lý do/quy tắc thuộc về `explain`.
+- ❌ CẤM nhét bài True/False/**Not Given** (3 đáp án) vào widget 2 nút — dùng `mcq` 3 option, hoặc viết lại thành phán đoán 1 chiều ("câu Y phản ánh ĐÚNG mức chắc chắn của câu gốc X?").
+
 > **Cổng kiểm tra 2 lớp trước khi import cả loạt:**
-> 1. **Tĩnh (CI, bắt buộc):** `python scripts/validate_grammar_quiz_bank.py ../docs/grammar-quiz-banks/*.md` — cấu trúc + mastery + `content_lint` (đáp án tự-mâu-thuẫn, accept khó gõ).
+> 1. **Tĩnh (CI, bắt buộc):** `python scripts/validate_grammar_quiz_bank.py ../docs/grammar-quiz-banks/*.md` — cấu trúc + mastery + `content_lint` (đáp án tự-mâu-thuẫn, accept khó gõ, `/` trong accept, "để trống/ø" trong prompt gap_text, accept[0] > 3 từ).
 > 2. **Phản biện (LLM, thủ công/agent):** `docs/QA2_REVIEWER_PROMPT.md` + `scripts/qa2_extract_questions.py` — giải lại độc lập từng câu để bắt lớp **mơ hồ >1 đáp án** mà lint tĩnh không thấy. Reviewer LLM **dao động giữa các lần chạy** → chạy **≥3 lượt, gộp (union)** các cờ `ambiguous` rồi review tay.
 
 ---

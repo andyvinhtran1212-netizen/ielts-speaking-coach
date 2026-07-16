@@ -307,7 +307,7 @@ input: "choice"
 headword: "thr-gerund-infinitive-habits"
 skill: "contrast"
 subtype: "advanced"
-prompt: "Compare the two structures: 'I tend ____ eat out more when I'm busy' vs 'I've been making an effort ____ cook at home more often.' Choose the pair that fills both blanks correctly."
+prompt: "Complete both sentences using the correct forms: Sentence 1: 'I tend ____ eat out more when I'm busy.' Sentence 2: 'I've been making an effort ____ cook at home more often.' Choose the pair that fills both blanks correctly."
 options: ["to / to", "to / of", "-ing / to", "to / -ing"]
 answer: 0
 grammar_article_slug: "talking-about-habits-and-routines"

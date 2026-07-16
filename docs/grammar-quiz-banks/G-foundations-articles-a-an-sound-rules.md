@@ -137,8 +137,8 @@ input: "text"
 headword: "aan-u-yod"
 skill: "error_id"
 subtype: "intermediate"
-prompt: "Sửa lỗi mạo từ và gõ lại CẢ CÂU cho đúng: 'The airline launched an unified boarding system last year.'"
-accept: ["the airline launched a unified boarding system last year"]
+prompt: "Sửa lỗi mạo từ (gõ 1 từ): 'The airline launched ____ unified boarding system last year.'"
+accept: ["a"]
 case_sensitive: false
 grammar_article_slug: "articles-a-an-sound-rules"
 explain: "'unified' đọc /ˈjuːnɪfaɪd/, âm đầu /j/ (phụ âm) → phải là 'a unified', không phải 'an unified'."

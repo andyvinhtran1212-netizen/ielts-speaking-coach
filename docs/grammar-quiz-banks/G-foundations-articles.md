@@ -65,7 +65,7 @@ input: "text"
 headword: "art-indefinite-first-mention"
 skill: "production"
 subtype: "intermediate"
-prompt: "A dolphin is ____ (mạo từ + danh từ) mammal, not a fish."
+prompt: "A dolphin is ____ (mạo từ) mammal, not a fish."
 accept: ["a"]
 case_sensitive: false
 grammar_article_slug: "articles"
@@ -278,8 +278,8 @@ input: "boolean"
 headword: "art-a-vs-an-sound"
 skill: "error_id"
 subtype: "advanced"
-prompt: "Đúng hay Sai: 'She has a MBA from a well-known business school' dùng 'a' đúng vì chữ cái đầu 'M' là phụ âm."
+prompt: "Đúng hay Sai: 'She has a MBA from a well-known business school'"
 answer: false
 grammar_article_slug: "articles"
-explain: "SAI — khi đọc tên viết tắt theo chữ cái, 'M' được đọc là /ɛm/, bắt đầu bằng âm nguyên âm → phải dùng 'an MBA', không phải 'a MBA'. (lỗi missing_article dạng chọn sai a/an)"
+explain: "SAI — khi đọc tên viết tắt theo chữ cái, 'M' được đọc là /ɛm/, bắt đầu bằng âm nguyên âm → phải dùng 'an MBA', không phải 'a MBA'. Sửa đúng: 'She has an MBA from a well-known business school'."
 ---

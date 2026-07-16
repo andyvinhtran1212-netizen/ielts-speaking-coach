@@ -37,11 +37,11 @@ input: "choice"
 headword: "ellipsis-in-coordinate-clauses"
 skill: "usage"
 subtype: "intermediate"
-prompt: "She was promoted to senior manager; her colleague was not ____. (bỏ chỗ trống nếu hiểu)"
-options: ["promoted", "promoted to senior manager", "was not", ""]
+prompt: "She was promoted to senior manager; her colleague was not ____. (Chọn phần được lược sau 'was not')"
+options: ["promoted", "promoted to senior manager", "was not promoted herself", "senior manager"]
 answer: 1
 grammar_article_slug: "ellipsis-and-substitution"
-explain: "Sau 'was not' thường lược toàn bộ phần lặp 'promoted to senior manager'. Khôi phục để hiểu đầy đủ."
+explain: "Sau 'was not' thường lược toàn bộ phần lặp 'promoted to senior manager'. Phần bị lược là cụm vị từ đầy đủ từ câu trước."
 ---
 
 ---

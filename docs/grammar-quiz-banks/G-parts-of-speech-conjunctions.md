@@ -289,11 +289,11 @@ input: "text"
 headword: "conj-compound-sentence-errors"
 skill: "production"
 subtype: "intermediate"
-prompt: "Sửa câu sai thành đúng, chỉ viết LẠI TOÀN BỘ câu: 'Despite she studied hard, she failed the interview.'"
-accept: ["Although she studied hard, she failed the interview.", "Despite studying hard, she failed the interview.", "Despite her hard study, she failed the interview."]
+prompt: "Fix the error: 'Despite she studied hard, she failed the interview.' → '____ studied hard, she failed the interview.'"
+accept: ["Although she"]
 case_sensitive: false
 grammar_article_slug: "conjunctions"
-explain: "'despite' không đi với mệnh đề (S+V) — chỉ đi với cụm danh từ hoặc -ing. Dùng 'although' + mệnh đề, hoặc 'despite' + -ing/danh từ."
+explain: "'despite' không đi với mệnh đề (S+V) — chỉ đi với cụm danh từ hoặc -ing. Dùng 'although' + mệnh đề. Cách khác: 'Despite studying hard, she failed the interview.' hoặc 'Despite her hard study, she failed the interview.'"
 ---
 
 ---

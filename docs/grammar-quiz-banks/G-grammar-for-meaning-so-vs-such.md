@@ -137,11 +137,11 @@ input: "text"
 headword: "such-noun-phrase"
 skill: "production"
 subtype: "intermediate"
-prompt: "It was ____ (such / good idea) — write 'such' + article + adjective + noun for 'that was a really good idea!'"
-accept: ["such a good idea"]
+prompt: "That was ____ moment! (write 'such' + article + adjective, 3 từ)"
+accept: ["such a good", "such an amazing"]
 case_sensitive: false
 grammar_article_slug: "so-vs-such"
-explain: "Danh từ số ít đếm được ('idea') cần 'a' sau 'such': such a good idea. Quên 'a/an' là lỗi rất phổ biến."
+explain: "Danh từ số ít đếm được ('moment') sau 'such' cần mạo từ 'a/an': such a good moment. Quên 'a/an' là lỗi rất phổ biến."
 ---
 
 ---
