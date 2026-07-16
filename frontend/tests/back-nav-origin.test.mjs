@@ -107,6 +107,72 @@ describe('reading-exam — back follows the library you came from', () => {
   });
 });
 
+// ── listening mirrors reading: same dual library + mock, same fix ────
+const LREVIEW_JS = read('public', 'js', 'listening-review.js');
+const LPLAYER_JS = read('public', 'js', 'listening-test-player.js');
+
+const lReviewSrc = lift(
+  LREVIEW_JS,
+  /var BACK_TARGETS = \{[\s\S]*?el\.textContent = t\.label; \}\n  \}/,
+  'listening-review wireBack',
+);
+function lReviewBack(search) {
+  const el = { href: null, textContent: null };
+  const $ = (id) => (id === 'lr-back' ? el : null);
+  const win = { location: { search } };
+  new Function('$', 'window', 'URLSearchParams', 'encodeURIComponent',
+    `${lReviewSrc}\nwireBack();`)($, win, URLSearchParams, encodeURIComponent);
+  return el;
+}
+
+const lPlayerSrc = lift(
+  LPLAYER_JS,
+  /const BACK_TARGETS = \{ full[\s\S]*?a\.href = href; \}\);\n\}/,
+  'listening player wireBack',
+);
+function lPlayerBack(search) {
+  const links = [{ href: 'x' }, { href: 'x' }, { href: 'x' }];
+  const doc = { querySelectorAll: () => links };
+  const win = { location: { search } };
+  new Function('document', 'window', 'URLSearchParams',
+    `${lPlayerSrc}\nwireBack();`)(doc, win, URLSearchParams);
+  return [...new Set(links.map((l) => l.href))];
+}
+
+describe('listening-review — back follows the entry point', () => {
+  test('mini-test taker goes back to the MINI library', () => {
+    assert.equal(lReviewBack('?attempt_id=A&from=mini').href, '/pages/listening-mini-test.html');
+  });
+  test('mock taker goes back to THEIR sitting, not a test shelf', () => {
+    assert.equal(lReviewBack('?attempt_id=A&from=mock&sitting=S9').href,
+      '/pages/mock-result.html?sitting=S9');
+  });
+  test('legacy link with no origin → the full library (unchanged behaviour)', () => {
+    assert.equal(lReviewBack('?attempt_id=A').href, '/pages/listening-tests.html');
+  });
+  test('?from= is allowlisted — never navigated to raw', () => {
+    for (const evil of ['//evil.com', 'javascript:alert(1)', 'https://evil.com']) {
+      assert.equal(lReviewBack(`?attempt_id=A&from=${encodeURIComponent(evil)}`).href,
+        '/pages/listening-tests.html', `raw ?from=${evil} must not survive`);
+    }
+  });
+});
+
+describe('listening player — back follows the library you came from', () => {
+  test('mini library entry backs to the mini library', () => {
+    assert.deepEqual(lPlayerBack('?id=T&from=mini'), ['/pages/listening-mini-test.html']);
+  });
+  test('full library entry backs to the full library', () => {
+    assert.deepEqual(lPlayerBack('?id=T&from=full'), ['/pages/listening-tests.html']);
+  });
+  test('the mock embed (no ?from=) is unaffected — defaults to full', () => {
+    assert.deepEqual(lPlayerBack('?id=T&sitting_id=S&mock_embed=1'), ['/pages/listening-tests.html']);
+  });
+  test('?from= is allowlisted here too', () => {
+    assert.deepEqual(lPlayerBack('?id=T&from=//evil.com'), ['/pages/listening-tests.html']);
+  });
+});
+
 describe('the callers stamp the origin', () => {
   test('both reading libraries tag their link into the exam', () => {
     assert.match(read('public', 'js', 'reading-test.js'), /reading-exam\.html\?test_id=\$\{[^}]+\}&from=full/);
@@ -115,8 +181,18 @@ describe('the callers stamp the origin', () => {
   test('the exam carries the origin through to the review page', () => {
     assert.match(EXAM_JS, /reading-review\.html\?attempt_id=[\s\S]{0,120}&from=' \+ originFromUrl\(\)/);
   });
-  test('the mock result tags its reading review with the sitting to return to', () => {
-    assert.match(read('public', 'pages', 'mock-result.html'), /&from=mock&sitting=' \+ encodeURIComponent\(sitting\)/);
+  test('both listening libraries tag their link into the player', () => {
+    assert.match(read('public', 'js', 'listening-tests-list.js'), /listening-test\.html\?id=\$\{[^}]+\}&from=full/);
+    assert.match(read('public', 'js', 'listening-mini-test.js'), /listening-test\.html\?id=\$\{[^}]+\}&from=mini/);
+  });
+  test('the listening player carries the origin through to its review page', () => {
+    assert.match(LPLAYER_JS, /listening-review\.html\?attempt_id=[\s\S]{0,120}&from=' \+ originFromUrl\(\)/);
+  });
+  test('the mock result tags BOTH its reviews with the sitting to return to', () => {
+    const MOCK = read('public', 'pages', 'mock-result.html');
+    assert.match(MOCK, /var mockOrigin = '&from=mock&sitting=' \+ encodeURIComponent\(sitting\)/);
+    assert.match(MOCK, /listening-review\.html\?attempt_id=[^\n]*\+ mockOrigin/);
+    assert.match(MOCK, /reading-review\.html\?attempt_id=[^\n]*\+ mockOrigin/);
   });
 });
 
