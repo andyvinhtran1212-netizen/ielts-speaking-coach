@@ -2570,3 +2570,203 @@ def test_release_not_gated_at_all_when_writing_is_resolved(fake_db, svc, wf, mon
     wf.release_results("rv-r", admin)
     sit = next(s for s in fake_db.rows("mock_exam_sittings") if s["id"] == "sit-r")
     assert sit["sealed"] is False
+
+
+# ── Bulk nhận / chốt band (2026-07-16) ────────────────────────────────
+#
+# The pipeline is queued → claimed → reviewed → released, and #778 gave only the
+# last hop a bulk action. A 13-student class still cost 13 claims and 13 saves by
+# hand, which is what the admin actually complained about.
+
+
+def _seed_bulk(fake_db, sid, rid, admin, status="queued", claimed_by=None,
+               ai_draft=None, final_bands=None, speaking=False):
+    fake_db.seed("mock_exams", {"id": "ex-" + sid, "exam_mode": "sequential",
+                                "listening_test_id": "lt-1", "reading_test_id": "rt-1",
+                                "speaking_topic_set": "ts-1" if speaking else None})
+    fake_db.seed("mock_exam_sittings", {"id": sid, "mock_exam_id": "ex-" + sid,
+                                        "status": "submitted", "user_id": "u-" + sid,
+                                        "sealed": True, "needs_retest": False})
+    fake_db.seed("mock_exam_reviews", {
+        "id": rid, "sitting_id": sid, "status": status,
+        "claimed_by": (claimed_by if claimed_by is not None
+                       else (None if status == "queued" else admin)),
+        "final_bands": final_bands if final_bands is not None else {},
+        # What assemble_ai_draft persists at review creation: L/R off the
+        # attempt's Cambridge-table band_estimate, Writing rolled up later from
+        # the two admin-reviewed essays.
+        "ai_draft": ai_draft if ai_draft is not None else {
+            "listening": {"raw": 30, "band": 7.0},
+            "reading": {"raw": 27, "band": 6.5},
+            "writing": {"band": 6.0},
+        },
+        "retest_flags": {},
+    })
+
+
+def test_bulk_claim_takes_only_queued_and_names_every_refusal(fake_db, svc, wf):
+    """claim() only takes a 'queued' row, so the bulk action cannot lift another
+    admin's review — and a batch that refused something must say which one."""
+    admin = "admin-1"
+    _seed_bulk(fake_db, "sit-q", "rv-q", admin, status="queued")
+    _seed_bulk(fake_db, "sit-mine", "rv-mine", admin, status="claimed")
+    _seed_bulk(fake_db, "sit-other", "rv-other", admin, status="claimed", claimed_by="admin-2")
+
+    out = wf.bulk_claim_sittings(["sit-q", "sit-mine", "sit-other", "sit-ghost"], admin)
+
+    assert out["claimed"] == ["sit-q"]
+    reasons = {s["sitting_id"]: s["reason"] for s in out["skipped"]}
+    assert set(reasons) == {"sit-mine", "sit-other", "sit-ghost"}
+    assert "Admin khác" in reasons["sit-other"]
+    assert "hồ sơ duyệt" in reasons["sit-ghost"]
+    # the claimed one really is claimed, and the other admin's row is untouched
+    rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-q")
+    assert rv["status"] == "claimed" and rv["claimed_by"] == admin
+    other = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-other")
+    assert other["claimed_by"] == "admin-2"
+
+
+def test_bulk_claim_one_bad_sitting_does_not_sink_the_batch(fake_db, svc, wf, monkeypatch):
+    admin = "admin-1"
+    _seed_bulk(fake_db, "sit-a", "rv-a", admin)
+    _seed_bulk(fake_db, "sit-b", "rv-b", admin)
+    real = wf.claim
+
+    def boom(review_id, admin_id):
+        if str(review_id) == "rv-a":
+            raise RuntimeError("kaboom")
+        return real(review_id, admin_id)
+
+    monkeypatch.setattr(wf, "claim", boom)
+    out = wf.bulk_claim_sittings(["sit-a", "sit-b"], admin)
+    assert out["claimed"] == ["sit-b"]
+    assert out["skipped"][0]["sitting_id"] == "sit-a"
+
+
+def test_bulk_save_bands_uses_the_values_the_console_would_prefill(fake_db, svc, wf):
+    """The client posts no bands — the server re-derives the same L/R/W the form
+    pre-fills, and save_final_bands still recomputes the overall itself."""
+    admin = "admin-1"
+    _seed_bulk(fake_db, "sit-1", "rv-1", admin, status="claimed")
+
+    out = wf.bulk_save_final_bands(["sit-1"], admin)
+
+    assert out["saved"] == ["sit-1"] and out["skipped"] == []
+    rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-1")
+    assert rv["status"] == "reviewed"
+    assert rv["final_bands"]["listening"] == 7.0
+    assert rv["final_bands"]["reading"] == 6.5
+    assert rv["final_bands"]["writing"] == 6.0
+    # overall is the verified mean, computed server-side — never posted
+    assert rv["final_bands"]["overall"] == 6.5
+
+
+def test_bulk_save_bands_never_signs_off_a_band_it_cannot_derive(fake_db, svc, wf):
+    """Speaking has NO draft source (assemble_ai_draft never touches it), so a
+    Speaking exam must land in `skipped` — not be signed off with a number no
+    examiner chose. This is the whole safety of the feature."""
+    admin = "admin-1"
+    _seed_bulk(fake_db, "sit-s", "rv-s", admin, status="claimed", speaking=True)
+
+    out = wf.bulk_save_final_bands(["sit-s"], admin)
+
+    assert out["saved"] == []
+    assert "Speaking" in out["skipped"][0]["reason"]
+    rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-s")
+    assert rv["status"] == "claimed"          # untouched, still awaiting a human
+    assert rv["final_bands"] == {}
+
+
+def test_bulk_save_bands_never_overwrites_a_band_the_examiner_typed(fake_db, svc, wf):
+    """A saved final band is an examiner's own judgement; the draft is a
+    suggestion. Bulk must not quietly replace the first with the second."""
+    admin = "admin-1"
+    _seed_bulk(fake_db, "sit-1", "rv-1", admin, status="claimed",
+               final_bands={"writing": 7.5})
+
+    wf.bulk_save_final_bands(["sit-1"], admin)
+
+    rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-1")
+    assert rv["final_bands"]["writing"] == 7.5      # kept, not reset to the 6.0 draft
+
+
+def test_bulk_save_bands_skips_unclaimed_and_released_rows(fake_db, svc, wf):
+    admin = "admin-1"
+    _seed_bulk(fake_db, "sit-q", "rv-q", admin, status="queued")
+    _seed_bulk(fake_db, "sit-r", "rv-r", admin, status="released",
+               final_bands={"listening": 7.0, "reading": 6.5, "writing": 6.0, "overall": 6.5})
+
+    out = wf.bulk_save_final_bands(["sit-q", "sit-r"], admin)
+
+    assert out["saved"] == []
+    reasons = {s["sitting_id"]: s["reason"] for s in out["skipped"]}
+    assert "Chưa nhận" in reasons["sit-q"]
+    assert "Đã công bố" in reasons["sit-r"]
+
+
+def test_bulk_save_bands_will_not_band_another_admins_review(fake_db, svc, wf):
+    """save_final_bands filters the UPDATE on claimed_by — the loop must report
+    that as a refusal, not swallow it into a success count."""
+    admin = "admin-1"
+    _seed_bulk(fake_db, "sit-o", "rv-o", admin, status="claimed", claimed_by="admin-2")
+
+    out = wf.bulk_save_final_bands(["sit-o"], admin)
+
+    assert out["saved"] == []
+    assert "admin khác" in out["skipped"][0]["reason"]
+    rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-o")
+    assert rv["status"] == "claimed" and rv["final_bands"] == {}
+
+
+# ── Bulk routes are scoped to the exam in the path (Codex, PR #787) ────
+#
+# The path's exam_id is the admin's stated scope. A sitting from outside it did
+# not come from this roster — it came from a stale tab or a hand-made call, and
+# a per-exam action must not reach into another exam's work. writing/bulk-grade
+# has always enforced this; the bulk claim/band/release routes did not.
+
+
+def _seed_two_exams(fake_db):
+    for sid, exam in (("sit-mine", "ex-1"), ("sit-foreign", "ex-2")):
+        fake_db.seed("mock_exam_sittings", {"id": sid, "mock_exam_id": exam,
+                                            "status": "submitted", "user_id": "u-" + sid})
+
+
+def test_sittings_in_exam_returns_only_this_exams_sittings(fake_db, svc):
+    _seed_two_exams(fake_db)
+    assert svc.sittings_in_exam("ex-1", ["sit-mine", "sit-foreign"]) == {"sit-mine"}
+    assert svc.sittings_in_exam("ex-2", ["sit-mine", "sit-foreign"]) == {"sit-foreign"}
+    # an id that exists nowhere is nobody's
+    assert svc.sittings_in_exam("ex-1", ["sit-ghost"]) == set()
+    # no ids → no query, no rows
+    assert svc.sittings_in_exam("ex-1", []) == set()
+
+
+def test_scope_to_exam_reports_the_stray_rather_than_dropping_it(fake_db, svc):
+    """A bulk action handed an id it will not act on must SAY so — silently
+    dropping it would report success over a student nobody touched."""
+    from routers import admin_mock_exams as r
+
+    _seed_two_exams(fake_db)
+    ids, foreign = r._scope_to_exam("ex-1", ["sit-mine", "sit-foreign"])
+
+    assert ids == ["sit-mine"]
+    assert foreign == [{"sitting_id": "sit-foreign", "reason": "Không thuộc đề này."}]
+
+
+def test_every_bulk_route_scopes_to_its_exam_id():
+    """The finding was not "the helper is wrong" — it was "the route ignores
+    exam_id entirely". A correct helper nobody calls fixes nothing, so pin the
+    call site of all three bulk routes, including bulk-release, which has had the
+    gap since #778 and is the one that PUBLISHES to real students."""
+    import inspect
+
+    from routers import admin_mock_exams as r
+
+    for route in (r.bulk_claim, r.bulk_final_bands, r.bulk_release):
+        src = inspect.getsource(route)
+        assert "_scope_to_exam(exam_id" in src, f"{route.__name__} ignores exam_id"
+        # and the strays it found must reach the caller, not be dropped
+        assert 'out["skipped"] = out["skipped"] + foreign' in src, (
+            f"{route.__name__} drops out-of-exam ids silently"
+        )

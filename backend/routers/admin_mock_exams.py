@@ -19,6 +19,9 @@ console lives in admin_mock_reviews.py.
   GET   /admin/mock-exams/{id}/retest-summary    — per-skill "cần test lại" counts
   GET   /admin/mock-exams/{id}/roster            — class roster grid (per-skill snapshot)
   POST  /admin/mock-exams/{id}/writing/bulk-grade — queue many sittings' Writing at once
+  POST  /admin/mock-exams/{id}/bulk-claim        — nhận many reviews at once
+  POST  /admin/mock-exams/{id}/bulk-final-bands  — chốt band from the pre-filled values
+  POST  /admin/mock-exams/{id}/bulk-release      — công bố many sittings' results
   GET   /admin/mock-exams/{id}/assignments       — per-student retake assignments
   POST  /admin/mock-exams/{id}/assignments       — assign retake exam to students
   DELETE /admin/mock-exams/{id}/assignments/{sid}— un-assign one student
@@ -99,6 +102,13 @@ class RetestBody(BaseModel):
 
 
 class BulkReleaseBody(BaseModel):
+    sitting_ids: list[str] = Field(default_factory=list)
+
+
+class BulkSittingsBody(BaseModel):
+    """Selected roster rows for bulk-claim / bulk-final-bands. Neither carries
+    bands or flags: the server derives them, so a stale tab cannot post a band."""
+
     sitting_ids: list[str] = Field(default_factory=list)
 
 
@@ -356,6 +366,60 @@ async def set_sitting_retest(
         raise HTTPException(404, str(e))
 
 
+def _scope_to_exam(exam_id: str, sitting_ids: list[str]) -> tuple[list[str], list[dict]]:
+    """Split posted ids into this exam's and the strays, the latter as `skipped`
+    rows. The path's exam_id is the admin's stated scope: a sitting outside it
+    came from a stale tab or a hand-made call, never from this roster. Reported
+    rather than dropped silently — a bulk action that ignores an id it was given
+    must say so (Codex review, PR #787)."""
+    mine = svc.sittings_in_exam(exam_id, sitting_ids)
+    ids = [str(s) for s in sitting_ids]
+    return (
+        [s for s in ids if s in mine],
+        [{"sitting_id": s, "reason": "Không thuộc đề này."} for s in ids if s not in mine],
+    )
+
+
+@router.post("/{exam_id}/bulk-claim")
+async def bulk_claim(
+    exam_id: str, body: BulkSittingsBody, authorization: str | None = Header(default=None),
+):
+    """Nhận many reviews at once. Only a 'queued' row is taken — claim()'s atomic
+    WHERE clause is still the lock, so this cannot lift another admin's review.
+    A row it could not take is skipped with a reason, never raised. Scoped to
+    THIS exam, like writing/bulk-grade."""
+    admin = await require_admin(authorization)
+    if not body.sitting_ids:
+        return {"claimed": [], "skipped": []}
+    ids, foreign = _scope_to_exam(exam_id, body.sitting_ids)
+    out = wf.bulk_claim_sittings(ids, admin["id"])
+    out["skipped"] = out["skipped"] + foreign
+    return out
+
+
+@router.post("/{exam_id}/bulk-final-bands")
+async def bulk_final_bands(
+    exam_id: str, body: BulkSittingsBody, authorization: str | None = Header(default=None),
+):
+    """Chốt band for many claimed reviews from the bands the console pre-fills
+    (L/R off the Cambridge table, Writing off the two admin-reviewed essays).
+
+    The client posts NO bands — the server derives them, and save_final_bands
+    still validates each one and recomputes the overall. A sitting whose required
+    band cannot be derived (e.g. Speaking) is skipped with a reason rather than
+    signed off with a number nobody chose. Does not publish; use bulk-release.
+
+    Scoped to THIS exam: without it a stray id could mark another exam's review
+    'reviewed' — and 'reviewed' is exactly what bulk-release then publishes."""
+    admin = await require_admin(authorization)
+    if not body.sitting_ids:
+        return {"saved": [], "skipped": []}
+    ids, foreign = _scope_to_exam(exam_id, body.sitting_ids)
+    out = wf.bulk_save_final_bands(ids, admin["id"])
+    out["skipped"] = out["skipped"] + foreign
+    return out
+
+
 @router.post("/{exam_id}/bulk-release")
 async def bulk_release(
     exam_id: str, body: BulkReleaseBody, authorization: str | None = Header(default=None),
@@ -366,11 +430,19 @@ async def bulk_release(
     Writing resolved); a sitting failing any of them is skipped with a reason
     rather than sinking the batch. The response's `skipped` list is not optional
     detail — the caller must show it, or the admin cannot tell who was published.
+
+    Scoped to THIS exam (2026-07-16). Codex flagged the gap on the two new bulk
+    routes; this one has had it since #778 and is the one that PUBLISHES to real
+    students, so it is closed with the same helper rather than left as the only
+    unscoped bulk action in the file.
     """
     admin = await require_admin(authorization)
     if not body.sitting_ids:
         return {"released": [], "skipped": []}
-    return wf.bulk_release_sittings(body.sitting_ids, admin["id"])
+    ids, foreign = _scope_to_exam(exam_id, body.sitting_ids)
+    out = wf.bulk_release_sittings(ids, admin["id"])
+    out["skipped"] = out["skipped"] + foreign
+    return out
 
 
 @router.post("/sittings/{sitting_id}/retest-flags")
