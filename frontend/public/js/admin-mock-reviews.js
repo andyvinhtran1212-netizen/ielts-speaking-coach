@@ -674,7 +674,10 @@
           '<select id="channel-select" class="av-btn"><option value="in_app">Kênh: In-app</option><option value="manual">Thủ công</option><option value="email">Email</option></select>' +
           '<button class="av-btn av-btn--primary" id="release-btn">CÔNG BỐ kết quả</button>' +
           ((review.status === 'reviewed' || review.status === 'released')
-            ? '<a class="av-btn" target="_blank" href="/pages/admin/mock-reviews/report.html?review_id=' + encodeURIComponent(review.id) + '">Xem phiếu báo điểm ↗</a>'
+            // Carry mock_exam_id: this queue REFUSES to load without it, so the
+            // report's back button needs it to return to the exam we're in.
+            ? '<a class="av-btn" target="_blank" href="/pages/admin/mock-reviews/report.html?review_id=' + encodeURIComponent(review.id)
+              + '&mock_exam_id=' + encodeURIComponent(examId || '') + '">Xem phiếu báo điểm ↗</a>'
             : '') +
         '</div>' +
         '<p class="mr-muted" style="margin-top:8px">Công bố yêu cầu đã “Lưu band” (trạng thái reviewed) và mở khoá điểm cho học viên. <b>Bài Writing phải được chấm &amp; “Lưu &amp; duyệt” (Đã duyệt/Đã trả) trước khi công bố</b> — nếu chưa, hệ thống sẽ chặn. Phiếu báo điểm chỉ tạo được khi không còn kỹ năng nào bị đánh dấu "cần test lại".</p>' +

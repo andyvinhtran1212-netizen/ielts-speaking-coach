@@ -220,10 +220,44 @@ describe('admin mock-review report — a real href, not history.back()', () => {
     // Match the ATTRIBUTE, not the bare phrase — the comment above the fix
     // mentions history.back() by name and would trip a looser regex.
     assert.doesNotMatch(REPORT, /href="javascript:history\.back\(\)"/);
-    assert.match(REPORT, /href="\/pages\/admin\/mock-reviews\/index\.html"/);
+    assert.match(REPORT, /id="rp-back" href="\/pages\/admin\/mock-reviews\/index\.html"/);
   });
   test('the opener really does open a new tab — so history.back could never work', () => {
     assert.match(read('public', 'js', 'admin-mock-reviews.js'),
       /target="_blank" href="\/pages\/admin\/mock-reviews\/report\.html/);
+  });
+  test('the opener carries mock_exam_id — the queue refuses to load without it', () => {
+    assert.match(read('public', 'js', 'admin-mock-reviews.js'),
+      /&mock_exam_id=' \+ encodeURIComponent\(examId \|\| ''\)/);
+  });
+});
+
+// The queue reads ?mock_exam_id= and shows a "chọn đề" prompt without it
+// (admin-mock-reviews.js:30), so returning to a bare index.html would NOT put
+// the admin back on the queue they came from. Run the real wireBack().
+describe('admin mock-review report — back returns to the SAME exam queue', () => {
+  const REPORT_JS = read('public', 'js', 'admin-mock-report.js');
+  const src = lift(REPORT_JS, /function wireBack\(\) \{[\s\S]*?\n  \}/, 'report wireBack');
+  function reportBack(search) {
+    const a = { href: '/pages/admin/mock-reviews/index.html' };
+    const el = (id) => (id === 'rp-back' ? a : null);
+    new Function('el', 'location', 'URLSearchParams', 'encodeURIComponent',
+      `${src}\nwireBack();`)(el, { search }, URLSearchParams, encodeURIComponent);
+    return a.href;
+  }
+  test('replays the exam id so the queue actually loads', () => {
+    assert.equal(reportBack('?review_id=R1&mock_exam_id=E9'),
+      '/pages/admin/mock-reviews/index.html?mock_exam_id=E9');
+  });
+  test('an id with URL-unsafe chars is encoded, not injected', () => {
+    assert.equal(reportBack('?review_id=R1&mock_exam_id=' + encodeURIComponent('a&b=c')),
+      '/pages/admin/mock-reviews/index.html?mock_exam_id=a%26b%3Dc');
+  });
+  test('a legacy report link without the id still leaves a working way out', () => {
+    assert.equal(reportBack('?review_id=R1'), '/pages/admin/mock-reviews/index.html');
+  });
+  test('the id is only ever a query VALUE — the path stays fixed', () => {
+    assert.match(reportBack('?review_id=R1&mock_exam_id=' + encodeURIComponent('//evil.com')),
+      /^\/pages\/admin\/mock-reviews\/index\.html\?mock_exam_id=/);
   });
 });

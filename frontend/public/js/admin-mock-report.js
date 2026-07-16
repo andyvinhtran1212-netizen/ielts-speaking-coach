@@ -27,6 +27,17 @@
     return (new URLSearchParams(location.search).get('review_id') || '').trim() || null;
   }
 
+  // ── Back target ──────────────────────────────────────────────────
+  // The queue REFUSES to load without ?mock_exam_id= (it shows a "chọn đề"
+  // prompt instead), so a bare link to index.html would not return the admin to
+  // the exam they came from. The opener stamps the id; replay it here. Only ever
+  // used as a query VALUE on a fixed path — never as the path itself.
+  function wireBack() {
+    var examId = (new URLSearchParams(location.search).get('mock_exam_id') || '').trim();
+    var el2 = el('rp-back');
+    if (el2 && examId) el2.href = '/pages/admin/mock-reviews/index.html?mock_exam_id=' + encodeURIComponent(examId);
+  }
+
   function render(data) {
     var review = data.review, sitting = data.sitting || {};
     var skills = data.required_skills || [];
@@ -50,6 +61,8 @@
   }
 
   async function boot() {
+    wireBack();                 // before any early return — the blocked state is
+                                // exactly when a working way out matters most
     var sb = window.getSupabase && window.getSupabase();
     if (sb) { var s = await sb.auth.getSession(); if (!s.data.session) { location.href = '/index.html'; return; } }
     var id = reviewIdFromUrl();
