@@ -28,6 +28,11 @@ logger = logging.getLogger(__name__)
 # tag; only pure exam imports (no lesson source) are filtered out of the popup.
 _LESSON_SRC_RE = re.compile(r"^L\d")
 
+# The prompt placeholder that marks a question as needing the word's audio. Must
+# stay byte-identical to the token quiz_import._commit_bank keys off, so import
+# and serve agree on which questions are audio questions.
+_AUDIO_TOKEN = "{{audio}}"
+
 
 def _is_lesson_source(source) -> bool:
     return bool(_LESSON_SRC_RE.match((source or "").strip()))
@@ -190,8 +195,10 @@ def get_bank_for_play(bank_id: str) -> dict:
         ).data or []
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi truy vấn câu hỏi: {exc}")
+    word_cards = _word_cards_for(bank)
     _attach_article_urls(questions)
-    return {"bank": bank, "questions": questions, "word_cards": _word_cards_for(bank)}
+    _resolve_question_audio(questions, word_cards)
+    return {"bank": bank, "questions": questions, "word_cards": word_cards}
 
 
 def _bank_meta_or_404(bank_id: str) -> dict:
@@ -243,6 +250,26 @@ def _word_cards_for(bank: dict) -> dict:
         if hw:
             cards[hw] = c
     return cards
+
+
+def _resolve_question_audio(questions: list[dict], word_cards: dict) -> None:
+    """Re-point `{{audio}}` questions at the vocab card's CURRENT audio_headword.
+
+    `quiz_questions.audio_url` is written ONLY at import (quiz_import._commit_bank)
+    and never again — no other writer exists. So a bank imported before the word's
+    TTS pregen finished keeps audio_url NULL forever: the pregen fills
+    vocab_cards.audio_headword, but nothing propagates it back, and the player then
+    hides the 🔊 button on a "listen and type" question that cannot be answered
+    without it. The card is the source of truth for a word's audio, so resolve per
+    request from it and let the stored snapshot be the fallback (grammar banks carry
+    no word_cards, and keep theirs untouched)."""
+    for q in questions:
+        if _AUDIO_TOKEN not in (q.get("prompt") or ""):
+            continue
+        card = word_cards.get((q.get("item_key") or "").strip().lower()) or {}
+        live = card.get("audio_headword")
+        if live:
+            q["audio_url"] = live
 
 
 def _attach_article_urls(questions: list[dict]) -> None:

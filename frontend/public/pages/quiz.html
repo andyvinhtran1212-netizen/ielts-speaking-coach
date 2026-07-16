@@ -316,6 +316,9 @@
       ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
     // Render **bold** + the ____ blank placeholder.
     const fmt = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/_{4,}/g, '<u>&nbsp;&nbsp;&nbsp;</u>');
+    // Marks a prompt as an audio question. Byte-identical to the token the backend
+    // import + serve paths key off, so all three agree on which prompts want audio.
+    const AUDIO_TOKEN = '{{audio}}';
 
     // Seeded PRNG (xmur3 hash → mulberry32) so the DISPLAYED option order is stable
     // per (session, qid) yet differs across students/sessions — defeating "the
@@ -592,15 +595,24 @@
       const q = item.question;
       $('qz-feedback').classList.add('hidden'); $('qz-feedback').innerHTML = '';
       clearActions();
-      $('qz-prompt').innerHTML = fmt(q.prompt);
+      // `{{audio}}` is a player placeholder, not prompt text: the audio gets its own
+      // 🔊 control below, so strip the token rather than printing it at the learner.
+      const rawPrompt = String(q.prompt || '');
+      $('qz-prompt').innerHTML = fmt(rawPrompt.split(AUDIO_TOKEN).join('').trim());
 
-      // audio
+      // audio — a prompt that ASKS the learner to listen must stay answerable even
+      // when the pre-generated file isn't ready, so keep the button and fall back to
+      // TTS of the word (the same fallback the vocab glance card uses).
       const au = $('qz-audio');
-      if (q.audio_url) {
-        _getAudio(q.audio_url);   // start buffering NOW so the first play is instant
+      const wantsAudio = rawPrompt.includes(AUDIO_TOKEN);
+      if (q.audio_url || wantsAudio) {
+        if (q.audio_url) _getAudio(q.audio_url);   // start buffering NOW so the first play is instant
         au.innerHTML = '<button id="qz-play" type="button" class="av-button av-button-secondary av-button-sm">🔊 Nghe</button>';
         au.classList.remove('hidden');
-        $('qz-play').onclick = () => _playAudio(q.audio_url);
+        $('qz-play').onclick = () => {
+          if (q.audio_url) _playAudio(q.audio_url);
+          else _speak(q.item_key);
+        };
       } else { au.classList.add('hidden'); au.innerHTML = ''; }
 
       const w = $('qz-widget'); w.innerHTML = '';

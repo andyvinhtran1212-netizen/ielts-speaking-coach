@@ -55,6 +55,23 @@ describe('quiz.html — audio is preloaded + cached + prefetched (seamless playb
   });
 });
 
+describe('quiz.html — {{audio}} prompts stay readable and answerable', () => {
+  test('strips the {{audio}} token instead of printing it at the learner', () => {
+    // The token is a player placeholder; the audio has its own 🔊 control, so the
+    // prompt must never render a literal "{{audio}}".
+    assert.match(QUIZ, /const AUDIO_TOKEN = '\{\{audio\}\}'/);
+    assert.match(QUIZ, /rawPrompt\.split\(AUDIO_TOKEN\)\.join\(''\)\.trim\(\)/);
+    assert.doesNotMatch(QUIZ, /\$\('qz-prompt'\)\.innerHTML = fmt\(q\.prompt\);/);
+  });
+  test('keeps the 🔊 button on an audio question even when audio_url is missing', () => {
+    // A "nghe rồi gõ chữ" question with no pre-generated file used to render with no
+    // audio at all — unanswerable. The button now stays and falls back to TTS.
+    assert.match(QUIZ, /const wantsAudio = rawPrompt\.includes\(AUDIO_TOKEN\)/);
+    assert.match(QUIZ, /if \(q\.audio_url \|\| wantsAudio\)/);
+    assert.match(QUIZ, /else _speak\(q\.item_key\)/);
+  });
+});
+
 describe('quiz.html — typo-tolerant accept shows the canonical spelling', () => {
   test('renders "Đáp án chuẩn" from res.corrected when a fuzzy match was accepted', () => {
     assert.match(QUIZ, /res\.correct && res\.corrected/);
