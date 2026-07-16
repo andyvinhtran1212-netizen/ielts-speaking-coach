@@ -193,7 +193,7 @@ input: "text"
 headword: "pvc-run-on-sentence"
 skill: "production"
 subtype: "intermediate"
-prompt: "Fix the run-on by adding the missing punctuation mark before 'she': 'She loves cooking____ she spends every weekend in the kitchen.' Write only the punctuation mark needed (a semicolon)."
+prompt: "Sửa lỗi run-on: cần một dấu câu trước 'she' trong 'She loves cooking____ she spends every weekend in the kitchen.' Gõ đúng 1 dấu câu cần điền."
 accept: [";"]
 case_sensitive: false
 grammar_article_slug: "phrase-vs-clause"

@@ -137,7 +137,7 @@ input: "text"
 headword: "noun-articles"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (viết mạo từ đúng, hoặc để trống nếu không cần) unemployment rate in rural areas has risen sharply this year."
+prompt: "____ (viết mạo từ đúng; nếu không cần mạo từ, gõ số 0) unemployment rate in rural areas has risen sharply this year."
 accept: ["The"]
 case_sensitive: false
 grammar_article_slug: "nouns"

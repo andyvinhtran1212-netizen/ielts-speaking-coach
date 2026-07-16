@@ -280,7 +280,7 @@ input: "text"
 headword: "cigm-although-despite"
 skill: "production"
 subtype: "intermediate"
-prompt: "Rewrite using 'despite' correctly: 'Although the weather was bad, we went out.' → '____ (write the phrase 'despite the bad weather'), we went out.'"
+prompt: "Viết lại dùng 'despite': 'Although the weather was bad, we went out.' → '____, we went out.' (gõ cụm 4 từ bắt đầu bằng Despite)"
 accept: ["Despite the bad weather,", "Despite the bad weather"]
 case_sensitive: false
 grammar_article_slug: "common-ielts-grammar-mistakes"

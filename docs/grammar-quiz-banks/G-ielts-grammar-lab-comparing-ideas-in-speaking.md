@@ -96,7 +96,7 @@ prompt: "Public healthcare services are generally ____ accessible in urban areas
 options: ["more", "-er", "as", "so"]
 answer: 0
 grammar_article_slug: "comparing-ideas-in-speaking"
-explain: "'accessible' là tính từ dài (3 âm tiết) → dùng 'more accessible than', không thêm đuôi '-er'."
+explain: "'accessible' là tính từ dài (4 âm tiết: ac-cess-i-ble) → dùng 'more accessible than', không thêm đuôi '-er'."
 ---
 
 ---

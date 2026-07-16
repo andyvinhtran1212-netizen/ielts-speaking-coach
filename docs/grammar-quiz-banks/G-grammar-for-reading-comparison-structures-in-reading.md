@@ -52,11 +52,11 @@ input: "text"
 headword: "comparison-direction"
 skill: "production"
 subtype: "intermediate"
-prompt: "Viết lại câu dùng 'more...than': 'Technology adoption in urban areas is greater than in rural areas.' Đáp án: ____"
-accept: ["Technology adoption in urban areas is more rapid/extensive/widespread than in rural areas", "Urban technology adoption is more rapid than rural adoption"]
+prompt: "Viết lại phần so sánh dùng 'more … than' với tính từ 'widespread': 'Technology adoption in urban areas is greater than in rural areas.' → 'Technology adoption in urban areas is ____ in rural areas.' (gõ 3 từ)"
+accept: ["more widespread than"]
 case_sensitive: false
 grammar_article_slug: "comparison-structures-in-reading"
-explain: "'greater than' = 'more...than'. Chủ ngữ 'urban' > so sánh với 'rural'. Khôi phục đầy đủ chiều so sánh."
+explain: "'greater than' viết lại bằng 'more + tính từ + than' → 'more widespread than'. Chiều so sánh giữ nguyên: urban > rural."
 ---
 
 ---
@@ -66,10 +66,10 @@ input: "boolean"
 headword: "comparison-direction"
 skill: "error_id"
 subtype: "intermediate"
-prompt: "Đúng hay Sai: 'Carbon emissions in developing countries are less severe than in developed ones' → phát triển phát thải ít hơn."
+prompt: "Đúng hay Sai: câu 'Carbon emissions in developing countries are less severe than in developed ones' nghĩa là các nước ĐANG phát triển có mức phát thải nghiêm trọng HƠN các nước phát triển."
 answer: false
 grammar_article_slug: "comparison-structures-in-reading"
-explain: "SAI — 'less severe' = kém nghiêm trọng → phát triển (developing) có tình hình tốt hơn. Nhưng thực tế thường ngược lại. Cấu trúc không sai, nhưng nội dung mâu thuẫn."
+explain: "SAI — 'less severe than' = KÉM nghiêm trọng hơn: câu gốc nói các nước đang phát triển (developing) phát thải ít nghiêm trọng hơn các nước phát triển (developed). Mệnh đề trong đề đã đảo ngược chiều so sánh."
 ---
 
 ---
@@ -180,11 +180,11 @@ input: "choice"
 headword: "comparison-multiples"
 skill: "usage"
 subtype: "basic"
-prompt: "Câu: 'Pollution levels in City X are three times higher than in City Y.' City X ô nhiễm gấp mấy lần?"
+prompt: "Câu: 'Pollution levels in City X are three times as high as in City Y.' City X ô nhiễm gấp mấy lần City Y?"
 options: ["3 lần", "4 lần", "2 lần", "Không xác định"]
 answer: 0
 grammar_article_slug: "comparison-structures-in-reading"
-explain: "'three times higher' = gấp 3 (hoặc gấp 4 nếu tính cơ sở + 3 lần thêm — nhưng trong bài đọc thường hiểu = gấp 3)."
+explain: "'three times as high as' = gấp đúng 3 lần. Cấu trúc 'X times as + adj + as' luôn chỉ bội số chính xác — rõ ràng hơn 'three times higher' (dễ bị hiểu 2 cách)."
 ---
 
 ---
