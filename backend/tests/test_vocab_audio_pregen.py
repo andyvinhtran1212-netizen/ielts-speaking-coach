@@ -168,6 +168,29 @@ def test_rows_needing_audio_pages_past_the_postgrest_1000_cap():
     assert got[-1]["slug"] == "w2349"
 
 
+def test_dry_run_cost_estimate_covers_rows_past_the_cap(caplog):
+    """The estimate is computed from _rows_needing_audio()'s list, so the cap made
+    it UNDER-REPORT spend — the operator approved a number for 1000 rows while the
+    real run would bill for 1835. Every headword must be counted."""
+    table = [{"id": f"{i:05d}", "slug": f"w{i}", "headword": "Word",
+              "example": "", "audio_status": "pending", "audio_headword": None}
+             for i in range(1835)]
+    db = _paged_db(table)
+    with patch("scripts.pregen_vocab_audio.supabase_admin", db):
+        rows = pg._rows_needing_audio()
+        with caplog.at_level("INFO"):
+            pg._dry_run(rows, headword_only=True)
+    assert "est. characters     : %d" % (1835 * len("Word")) in caplog.text
+
+
+def test_all_vocab_rows_stops_on_a_short_first_page():
+    """A short first page ends paging — no needless second round-trip."""
+    db = _paged_db([{"id": "1", "slug": "a"}])
+    with patch("scripts.pregen_vocab_audio.supabase_admin", db):
+        assert len(pg._all_vocab_rows()) == 1
+    assert db.table.return_value.select.return_value.order.return_value.range.call_count == 1
+
+
 def test_rows_needing_audio_orders_by_pk_for_stable_paging():
     """Without an explicit order() PostgREST/Postgres don't guarantee row order
     across page requests, so a concurrent import can shift a row between offsets
