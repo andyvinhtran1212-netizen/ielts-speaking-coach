@@ -203,3 +203,66 @@ describe('writing queue — opening an essay from the cockpit stays chrome-less'
     assert.match(GRADE_HTML, /back\.href = _withEmbed\('\/pages\/admin\/writing\/queue\.html'\)/);
   });
 });
+
+// Two bugs, one page, both invisible to a source read and obvious to a measure:
+// the cockpit never loads tailwind.build.css, where .hidden lives, so every
+// classList.add('hidden') here did nothing — #mt-need-exam stayed 687px tall (a
+// blank slab under the roster) and #mt-loading showed "Đang tải…" forever. Its
+// sibling admin pages already declare .hidden locally; this one didn't.
+describe('mock-tests cockpit — .hidden must actually hide', () => {
+  test('the page declares .hidden itself (it does not LINK tailwind)', () => {
+    // Match the <link>, not any mention — the comment above the rule names the
+    // stylesheet, and a bare substring check flagged that as a load.
+    assert.doesNotMatch(HTML, /<link[^>]+tailwind\.build\.css/);
+    assert.match(HTML, /\.hidden \{ display: none !important; \}/);
+  });
+  test('the JS still relies on the class it just got given teeth', () => {
+    assert.match(JS, /classList\.add\('hidden'\)/);
+  });
+});
+
+// applyTheme only touches its own document and emits no event; the embed reads
+// the theme once in its anti-flash IIFE. Toggling the cockpit therefore left the
+// panel on the old theme — a dark review tab under a light page.
+describe('mock-tests cockpit — the frame follows the theme toggle', () => {
+  test('the theme attribute is mirrored into the frame document', () => {
+    const body = JS.match(/function syncFrameTheme\(\) \{([\s\S]*?)\n  \}/);
+    assert.ok(body, 'syncFrameTheme() not found — sentinel is stale');
+    assert.match(body[1], /doc\.documentElement\.setAttribute\(\s*'data-theme'/);
+    assert.match(body[1], /document\.documentElement\.getAttribute\('data-theme'\)/);
+  });
+  test('it fires on toggle AND on every frame navigation', () => {
+    assert.match(JS, /new MutationObserver\(syncFrameTheme\)[\s\S]*?attributeFilter: \['data-theme'\]/);
+    assert.match(JS, /frame\.addEventListener\('load', syncFrameTheme\)/);
+  });
+});
+
+// …but mirroring parent → frame is only safe while the cockpit KNOWS the theme.
+// The embedded writing grade page carries its OWN .av-theme-toggle, which sets
+// its own data-theme + writes localStorage and tells the parent nothing. The
+// cockpit's attribute went stale, and the next navigation had syncFrameTheme()
+// write that stale value over the theme the user had just picked — measured
+// before the fix: child toggle → frame dark / parent light, then navigate →
+// frame back to light (Codex P2, PR #785).
+describe('mock-tests cockpit — an embedded page may own the toggle too', () => {
+  test('a storage write of av-theme is adopted onto the cockpit', () => {
+    const body = JS.match(/function adoptStoredTheme\(e\) \{([\s\S]*?)\n  \}/);
+    assert.ok(body, 'adoptStoredTheme() not found — sentinel is stale');
+    assert.match(body[1], /localStorage\.getItem\('av-theme'\)/);
+    assert.match(body[1], /setAttribute\('data-theme', t\)/);
+  });
+  test('it is wired to the storage event', () => {
+    assert.match(JS, /window\.addEventListener\('storage', adoptStoredTheme\)/);
+  });
+  // storage fires for EVERY key; reacting to all of them would re-read the theme
+  // on unrelated writes (auth tokens, drafts) and fight the observer.
+  test('it ignores writes to other keys', () => {
+    const body = JS.match(/function adoptStoredTheme\(e\) \{([\s\S]*?)\n  \}/);
+    assert.match(body[1], /e\.key !== 'av-theme'/);
+  });
+  // A junk/absent value must not blank the attribute out from under the page.
+  test('only a valid theme is adopted', () => {
+    const body = JS.match(/function adoptStoredTheme\(e\) \{([\s\S]*?)\n  \}/);
+    assert.match(body[1], /t !== 'light' && t !== 'dark'/);
+  });
+});

@@ -107,6 +107,45 @@
     if (frameAt(frame) !== src) loadFrame(frame, src);
   }
 
+  // The embedded page resolves the theme ONCE, in its own anti-flash IIFE, and
+  // applyTheme only touches the document it runs in — it emits no event and the
+  // iframe is a separate document. So toggling the cockpit left the panel on the
+  // old theme (a dark review tab under a light page). Mirror the attribute across
+  // on every change; same-origin, so this is a plain attribute write.
+  function syncFrameTheme() {
+    var frame = $('mt-frame');
+    try {
+      var doc = frame && frame.contentDocument;
+      if (!doc) return;
+      doc.documentElement.setAttribute(
+        'data-theme', document.documentElement.getAttribute('data-theme') || 'light');
+    } catch (e) { /* cross-origin can't happen for our own pages */ }
+  }
+
+  // …but the mirroring only holds while the cockpit KNOWS the current theme, and
+  // one embedded page can change it behind the cockpit's back: the writing grade
+  // page carries its own .av-theme-toggle, which sets its own data-theme and
+  // writes localStorage without telling the parent. The cockpit's attribute then
+  // went stale, and the next frame navigation had syncFrameTheme() write that
+  // stale value over the theme the user had just picked — flipping it back until
+  // the parent was reloaded or toggled (Codex P2, PR #785).
+  //
+  // localStorage is what both sides already agree on, and `storage` fires on every
+  // same-origin document EXCEPT the one that wrote — measured: the cockpit does
+  // receive the frame's write. So the child's toggle becomes the cockpit's toggle,
+  // and the MutationObserver above then mirrors it back to the frame as a no-op.
+  // (It also follows a theme change made in another tab, which is the same
+  // preference the anti-flash IIFE would have read on a fresh load anyway.)
+  function adoptStoredTheme(e) {
+    if (e && e.key !== 'av-theme') return;    // storage fires for every key
+    var t;
+    try { t = localStorage.getItem('av-theme'); } catch (err) { return; }
+    if (t !== 'light' && t !== 'dark') return;
+    if (document.documentElement.getAttribute('data-theme') !== t) {
+      document.documentElement.setAttribute('data-theme', t);   // → observer → frame
+    }
+  }
+
   function setTab(tab) {
     state.tab = tab;
     document.querySelectorAll('.mt-tab').forEach(function (t) {
@@ -120,6 +159,18 @@
       var t = new URLSearchParams(location.search).get('tab');
       if (t && FRAME[t]) state.tab = t;
     } catch (e) { /* default tab */ }
+
+    // Follow the toggle, and re-apply after every navigation: a fresh frame
+    // document re-runs its own IIFE, which is right today (it reads the same
+    // localStorage) but would drift the moment the two disagree.
+    new MutationObserver(syncFrameTheme).observe(document.documentElement, {
+      attributes: true, attributeFilter: ['data-theme'],
+    });
+    // Adopt an embedded page's own toggle BEFORE the frame's load handler can
+    // mirror a stale attribute back over it.
+    window.addEventListener('storage', adoptStoredTheme);
+    var frame = $('mt-frame');
+    if (frame) frame.addEventListener('load', syncFrameTheme);
 
     document.querySelectorAll('.mt-tab').forEach(function (t) {
       t.addEventListener('click', function () { setTab(t.getAttribute('data-tab')); });

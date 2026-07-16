@@ -89,6 +89,14 @@
     .mt-need-exam { display: flex; align-items: center; justify-content: center;
       height: calc(100vh - 110px); padding: var(--av-space-8); text-align: center;
       color: var(--av-text-muted); font-size: var(--av-fs-sm); }
+    /* This page never loads tailwind.build.css, where .hidden is defined — so
+       every classList.add('hidden') here did NOTHING. Measured: #mt-need-exam
+       stayed 687px tall (the mysterious blank area under the roster) and
+       #mt-loading kept showing "Đang tải…" forever, both while carrying the
+       class. The sibling admin pages (mock-reviews, students) already declare it
+       locally for the same reason; the cockpit was the one that didn't.
+       Declared AFTER the block rules above so it wins on equal specificity. */
+    .hidden { display: none !important; }
 
     @media (max-width: 900px) {
       .mt-cockpit { grid-template-columns: 1fr; padding: var(--av-space-4); }
