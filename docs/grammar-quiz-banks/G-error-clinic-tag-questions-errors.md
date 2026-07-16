@@ -364,7 +364,7 @@ prompt: "Nobody answered the phone this morning, ____?"
 options: ["did they", "didn't they", "was he", "wasn't he"]
 answer: 0
 grammar_article_slug: "tag-questions-errors"
-explain: "'Nobody' vừa mang nghĩa phủ định ẩn (→ đuôi khẳng định: did they) vừa là chủ ngữ bất định số ít nhưng lấy đại từ đuôi là 'they'."
+explain: "'Nobody' mang nghĩa phủ định ẩn → đuôi KHẲNG ĐỊNH. Động từ chính chia số ít ('answered'), nhưng câu hỏi đuôi của các đại từ bất định chỉ người (nobody/everyone/someone) theo quy ước luôn dùng 'they': 'did they?'."
 ---
 
 ---

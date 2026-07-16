@@ -166,8 +166,8 @@ input: "text"
 headword: "nom-agent"
 skill: "production"
 subtype: "intermediate"
-prompt: "'the reduction of carbon emissions' — to show **who reduced**, we say: 'the reduction ____ carbon emissions ____ the government.'"
-accept: ["of / by", "of carbon emissions by"]
+prompt: "'the reduction of carbon emissions' — để chỉ rõ AI thực hiện (tác nhân), ta viết: 'the reduction of carbon emissions ____ the government.' (gõ 1 từ)"
+accept: ["by"]
 case_sensitive: false
 grammar_article_slug: "nominalization"
 explain: "'Reduction of carbon emissions by the government' = rõ tác nhân là 'government'. Danh hoá cần 'of' cho hành động, và 'by' để chỉ tác nhân."
