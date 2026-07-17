@@ -191,24 +191,12 @@
         <p class="subtitle">
           Duyệt + filter listening_content rows. Mở từng bài để xem 4 dạng
           exercise (dictation / gist / true-false / mcq) đã soạn hay chưa,
-          xuất bản hoặc archive. Tạo bài mới qua MP3 upload, render
-          ElevenLabs, hoặc convert Cambridge IELTS DOCX.
+          xuất bản hoặc archive. Tạo bài mới qua convert Cambridge IELTS
+          DOCX hoặc import full test / skill drill.
         </p>
       </header>
 
       <section class="lst-create-row" aria-label="Tạo nội dung mới">
-        <a class="lst-create-card is-live" href="/pages/admin/listening/upload.html"
-           data-create="upload">
-          <h3>Tải MP3</h3>
-          <p class="lede">Upload file mp3 + transcript + metadata cho bài nghe gốc hoặc curated. Hỗ trợ tải 1 file hoặc bulk tới 20 file.</p>
-          <span class="lst-soon">Sẵn sàng từ Sprint 13.2</span>
-        </a>
-        <a class="lst-create-card is-live" href="/pages/admin/listening/render.html"
-           data-create="render">
-          <h3>Render ElevenLabs</h3>
-          <p class="lede">Sinh audio TTS từ script + giọng + accent. Tạo draft row tự động (cần feature-flag bật).</p>
-          <span class="lst-soon">Sẵn sàng từ Sprint 13.3</span>
-        </a>
         <a class="lst-create-card is-live" href="/pages/admin/listening/convert.html"
            data-create="convert">
           <h3>Convert đề từ DOCX</h3>
@@ -223,12 +211,6 @@
           <h3>Test Cambridge IELTS</h3>
           <p class="lede">Quản lý các bộ đề Cambridge IELTS đã convert. Mỗi test có 4 sections × 10 questions.</p>
           <span class="lst-soon">Sẵn sàng từ Sprint 13.4</span>
-        </a>
-        <a class="lst-create-card is-live" href="/pages/admin/listening/audio-cutter.html"
-           data-create="audio-cutter">
-          <h3>Cắt audio full đề</h3>
-          <p class="lede">Cắt 25 phút full pre-mixed audio thành 4 section (S1/S2/S3/S4) bằng ffmpeg stream-copy. Không re-encode, $0 cost.</p>
-          <span class="lst-soon">Sẵn sàng từ Sprint 13.6</span>
         </a>
       </section>
 

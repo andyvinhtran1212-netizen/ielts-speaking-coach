@@ -159,14 +159,14 @@ describe('Sprint 13.4 — listening landing integrates convert + tests entry', (
     );
   });
 
-  test('all three create cards live (upload + render + convert)', () => {
-    const upload  = html.match(/<a[^>]*data-create=["']upload["'][^>]*>/);
-    const render  = html.match(/<a[^>]*data-create=["']render["'][^>]*>/);
+  test('convert create card live; upload + render cards stay removed', () => {
+    // 2026-07-17 usage audit: MP3 upload + ElevenLabs render cards were
+    // decommissioned; convert remains the markdown entry point.
     const convert = html.match(/<a[^>]*data-create=["']convert["'][^>]*>/);
-    assert.ok(upload && render && convert, 'all three create cards must exist');
-    assert.doesNotMatch(upload[0],  /aria-disabled=["']true["']/);
-    assert.doesNotMatch(render[0],  /aria-disabled=["']true["']/);
+    assert.ok(convert, 'convert create card must exist');
     assert.doesNotMatch(convert[0], /aria-disabled=["']true["']/);
+    assert.doesNotMatch(html, /data-create=["']upload["']/);
+    assert.doesNotMatch(html, /data-create=["']render["']/);
   });
 });
 
