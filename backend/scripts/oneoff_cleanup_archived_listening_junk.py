@@ -1,17 +1,17 @@
-"""One-off cleanup: hard-delete 5 zero-attempt archived listening tests
-(+ optional 'Untitled listening' draft render). Dry-run by default.
+"""One-off cleanup (ĐÃ CHẠY 2026-07-17): hard-delete 5 archived listening test
+0-attempt + draft render 'Untitled listening'. Dry-run mặc định; chạy lại vô
+hại (guard đếm attempts + rows đã xóa không còn match).
 
-Run dry-run:
-  cd /Users/trantrongvinh/code/ielts-speaking-coach/backend && \
-  venv/bin/python "<this file>"
-
-Commit:
-  ... "<this file>" --commit
+Run dry-run:  cd backend && venv/bin/python scripts/oneoff_cleanup_archived_listening_junk.py
+Commit:       ... --commit
 """
-import os, sys, json
+import json
+import os
+import sys
+from pathlib import Path
 
-BACKEND = "/Users/trantrongvinh/code/ielts-speaking-coach/backend"
-os.chdir(BACKEND)
+BACKEND = str(Path(__file__).resolve().parents[1])
+os.chdir(BACKEND)  # config.py đọc .env theo cwd
 sys.path.insert(0, BACKEND)
 from database import supabase_admin as sb  # noqa: E402
 from config import settings  # noqa: E402
