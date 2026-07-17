@@ -52,12 +52,14 @@ describe('toast helper — shared, aver-design (not ds.css)', () => {
 describe('migration — mechanical, timing preserved', () => {
   const delegates = (f) => assert.match(read('js', f), /function showBanner[\s\S]*?showToast\(/);
 
-  test('all 22 showBanner now delegate to showToast', () => {
+  // admin-listening-upload.js + admin-listening-render.js dropped from the
+  // list 2026-07-17 — those admin surfaces were decommissioned (usage audit).
+  test('all 20 showBanner now delegate to showToast', () => {
     for (const f of [
       'admin-access-codes.js','admin-cohorts.js','admin-dashboard.js','admin-error-logs.js',
       'admin-listening-content-detail.js','admin-listening-content-list.js','admin-listening-content-meta.js',
-      'admin-listening-gist.js','admin-listening-mcq.js','admin-listening-render.js','admin-listening-segments.js',
-      'admin-listening-tf.js','admin-listening-upload.js','admin-reading-attempts.js','admin-speaking-sessions.js',
+      'admin-listening-gist.js','admin-listening-mcq.js','admin-listening-segments.js',
+      'admin-listening-tf.js','admin-reading-attempts.js','admin-speaking-sessions.js',
       'admin-speaking-topics.js','admin-users.js','admin-vocab-d1.js','admin-vocab-exercises.js',
       'admin-vocab-lemmas.js','admin-vocab-stats.js','admin-writing-queue.js',
     ]) delegates(f);
@@ -66,8 +68,7 @@ describe('migration — mechanical, timing preserved', () => {
     assert.match(read('js', 'admin-access-codes.js'), /showToast\(msg, kind === 'error' \? 'error' : 'success', \{ timeout: 4000 \}\)/);
     assert.match(read('js', 'admin-speaking-sessions.js'), /timeout: 5000/);
   });
-  test('persist preserved: listening editors + dashboard keep persist:true', () => {
-    assert.match(read('js', 'admin-listening-upload.js'), /persist: true/);
+  test('persist preserved: dashboard keeps persist:true', () => {
     assert.match(read('js', 'admin-dashboard.js'), /persist: true/);
   });
   test('hybrid preserved: writing-queue error→persist, else 5s', () => {
@@ -76,7 +77,7 @@ describe('migration — mechanical, timing preserved', () => {
     assert.match(q, /else showToast\(msg, kind === 'warn' \? 'warn' : 'success', \{ timeout: 5000 \}\)/);
   });
   test('hideBanner/clearBanner now clear toasts', () => {
-    assert.match(read('js', 'admin-listening-render.js'), /function hideBanner[\s\S]*?clearToasts\(\)/);
+    assert.match(read('js', 'admin-listening-segments.js'), /clearToasts\(\)/);
     assert.match(read('js', 'admin-reading-attempts.js'), /function clearBanner[\s\S]*?clearToasts\(\)/);
   });
 });
@@ -101,7 +102,6 @@ describe('migration — toast.js loaded on migrated pages', () => {
   for (const p of [
     ['pages','admin','access-codes','index.html'],
     ['pages','admin','writing','queue.html'],
-    ['pages','admin','listening','upload.html'],
     ['pages','admin','writing','grade.html'],
     ['pages','admin','students','index.html'],
   ]) {

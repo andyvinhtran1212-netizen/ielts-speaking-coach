@@ -525,36 +525,17 @@ describe('Sprint 13.5.6 — tests-detail map-image panel + controller', () => {
     assert.match(js, /if \(!plExercises\.length\)\s*\{[\s\S]*?panel\.hidden\s*=\s*true/);
   });
 
-  test('renders a model selector with Nano Banana 2 as the recommended default (Sprint 13.5.9.2)', () => {
-    // Sprint 13.5.6 default was imagen-4.0-fast. Sprint 13.5.9.2 flips
-    // the recommendation to Gemini 3.1 Flash Image (Nano Banana 2) —
-    // Andy 2026-05-21 lock. The Imagen Fast option stays in the list
-    // (cheapest tier) but loses the "DEFAULT" badge.
-    assert.match(js, /gemini-3\.1-flash-image-preview/);
-    assert.match(js, /\$0\.067[\s\S]*?DEFAULT/);
-    assert.match(js, /imagen-4\.0-fast-generate-001/);
-    assert.match(js, /gemini-2\.5-flash-image/);
+  test('AI generation is decommissioned — no generate button, POST, or model selector', () => {
+    // 2026-07-17 usage audit: the generate-map-image flow was removed;
+    // manual upload is the only authoring path. Guard against re-adding.
+    assert.doesNotMatch(js, /td-map-gen\b/);
+    assert.doesNotMatch(js, /td-map-regen\b/);
+    assert.doesNotMatch(js, /generate-map-image/);
+    assert.doesNotMatch(js, /select class="td-map-model"/);
   });
 
-  test('shows a Generate button when no image yet + Regenerate/Delete when present', () => {
-    assert.match(js, /td-map-gen/);
-    assert.match(js, /td-map-regen/);
+  test('delete flow stays wired (button + DELETE call)', () => {
     assert.match(js, /td-map-delete/);
-  });
-
-  test('POSTs to /admin/listening/exercises/{id}/generate-map-image with model in body', () => {
-    assert.match(
-      js,
-      /window\.api\.post\(\s*`\/admin\/listening\/exercises\/\$\{encodeURIComponent\(exerciseId\)\}\/generate-map-image`/,
-    );
-    // Sprint 13.5.9.1 — the body is now a multi-field object literal
-    // ({ model, custom_prompt_override }) instead of the old `{ model }`
-    // shorthand. Pin the `model:` key explicitly.
-    assert.match(js, /model,\s*\n/);
-  });
-
-  test('DELETE clears the existing image before regenerate (cost guardrail confirm)', () => {
-    assert.match(js, /Generate lại sẽ xoá hình hiện tại/);
     assert.match(
       js,
       /window\.api\.delete\(\s*`\/admin\/listening\/exercises\/\$\{encodeURIComponent\(exerciseId\)\}\/map-image`/,
@@ -569,16 +550,8 @@ describe('Sprint 13.5.6 — tests-detail map-image panel + controller', () => {
     );
   });
 
-  test('inflight status text updates the per-card .td-map-status element', () => {
+  test('status helper updates the per-card .td-map-status element', () => {
     assert.match(js, /function setMapStatus\(/);
-    assert.match(js, /Đang generate \(10-30s\)/);
-  });
-
-  test('after a successful generate the page re-fetches and re-renders', () => {
-    // Sprint 13.5.6: each success path closes with fetchTest()+render()
-    // so the panel re-picks the new payload metadata.
-    assert.match(js, /await fetchTest\(\)/);
-    assert.match(js, /render\(\)/);
   });
 });
 
@@ -630,294 +603,20 @@ describe('Sprint 13.5.6 — student plan-label renderer accepts map image', () =
 });
 
 
-// ── Sprint 13.5.9 — custom AI prompt source indicator on admin map panel ──
-
-describe('Sprint 13.5.9 — admin map panel surfaces custom prompt source', () => {
-  const js = read('js', 'admin-listening-tests-detail.js');
-
-  test('panel reads map_image_custom_prompt off the exercise summary', () => {
-    // Sprint 13.5.9 backend extends plan_label_exercises rows with
-    // ``map_image_custom_prompt`` + ``map_image_prompt_source`` —
-    // the renderer must consume both so the indicator + preview
-    // render off the same source of truth.
-    assert.match(js, /ex\.map_image_custom_prompt/);
-    assert.match(js, /ex\.map_image_prompt_source/);
-  });
-
-  test('renders the custom-prompt indicator pill when a curated prompt exists', () => {
-    // The pill carries data-source="custom" + the Vietnamese label
-    // "Custom prompt từ markdown" so end-to-end tests can target it
-    // by selector and Andy can see the source at a glance.
-    assert.match(js, /td-prompt-source-custom/);
-    assert.match(js, /data-source="custom"/);
-    assert.match(js, /Custom prompt từ markdown/);
-  });
-
-  test('renders the template-prompt indicator pill when no curated prompt exists', () => {
-    assert.match(js, /td-prompt-source-template/);
-    assert.match(js, /data-source="template"/);
-    assert.match(js, /Template prompt/);
-    // The fallback copy must mention the missing <details> block so
-    // Andy knows where to add it.
-    assert.match(js, /details/);
-  });
-
-  test('curated prompt body is rendered inside a collapsible <details><textarea> (Sprint 13.5.9.1)', () => {
-    // Sprint 13.5.9 wrapped the body in a read-only <pre>. Sprint
-    // 13.5.9.1 swapped it for an editable <textarea> inside the same
-    // <details> shell so admin can review + edit before generating.
-    assert.match(js, /<details class="td-prompt-preview"/);
-    assert.match(js, /<textarea class="td-prompt-editable"/);
-    // The preview surfaces the char count so Andy can sanity-check
-    // that the parser caught the full body.
-    assert.match(js, /\$\{customPrompt\.length\}\s*chars/);
-  });
-
-  test('preview block is omitted when there is no custom prompt', () => {
-    // The renderer must only emit the preview when `hasCustom` is
-    // truthy; the empty-string template branch shouldn't render an
-    // empty <details>. Sprint 13.5.9.1 renamed `promptPreview` →
-    // `promptReview` (now contains both the textarea + edit indicator).
-    assert.match(js, /const promptReview = hasCustom\s*\?\s*`<div class="td-prompt-review"/);
-    assert.match(js, /:\s*'';/);
-  });
-
-  test('shows the "current image source" sub-label only when an image exists', () => {
-    // For freshly generated images we want to tell Andy whether the
-    // existing PNG was made from the curated prompt or the template.
-    // The sentinel pins the conditional: `has && lastSource` gates
-    // the sub-label.
-    assert.match(js, /has\s*&&\s*lastSource/);
-    assert.match(js, /Hình hiện tại generate từ/);
-  });
-
-  test('source indicator + preview live in their own .td-prompt-source-row block', () => {
-    // Keep the new chrome scoped so future stylesheet work can target
-    // the row without colliding with the existing actions row.
-    assert.match(js, /class="td-prompt-source-row"/);
-  });
-
-  test('renderer escapes the curated prompt body before rendering (defensive)', () => {
-    // The curated prompt comes from author-controlled markdown so XSS
-    // is low-risk, but the existing panel uses escapeHtml() on every
-    // user-controlled string — the new slot must follow suit.
-    assert.match(js, /escapeHtml\(customPrompt\)/);
-  });
-
-  test('hasCustom mirror tracks the trimmed prompt (empty string → template)', () => {
-    // A `<details>` block with a whitespace-only body must fall back
-    // to the template indicator, mirroring the backend's
-    // ``has_custom = bool(custom_prompt and custom_prompt.strip())``
-    // contract.
-    assert.match(js, /const customPrompt = \(ex\.map_image_custom_prompt \|\| ''\)\.trim\(\);/);
-    assert.match(js, /const hasCustom = Boolean\(customPrompt\)/);
-  });
-
-  test('existing generate / regenerate / delete flow remains wired up (regression)', () => {
-    // Sprint 13.5.9 only adds the source indicator. The existing
-    // CTAs must keep working — pin their handlers so a future refactor
-    // can't quietly delete them.
-    assert.match(js, /\.td-map-gen/);
-    assert.match(js, /\.td-map-regen/);
-    assert.match(js, /\.td-map-delete/);
-    assert.match(js, /\/generate-map-image/);
-  });
-});
-
-
-// ── Sprint 13.5.9.1 — review / edit / override workflow ──────────────────
-
-describe('Sprint 13.5.9.1 — admin reviews and optionally edits the prompt', () => {
-  const js = read('js', 'admin-listening-tests-detail.js');
-
-  test('replaces the read-only <pre> preview with an editable <textarea>', () => {
-    assert.match(js, /<textarea class="td-prompt-editable"/);
-    assert.ok(!/class="td-prompt-content"/.test(js),
-      'read-only td-prompt-content <pre> must be removed');
-  });
-
-  test('textarea stores the parser-extracted prompt in a data-original attribute', () => {
-    assert.match(js, /data-original="\$\{escapeHtml\(customPrompt\)\}"/);
-  });
-
-  test('renders a "↺ Reset về prompt gốc" button next to the textarea', () => {
-    assert.match(js, /class="td-btn td-prompt-reset"/);
-    assert.match(js, /Reset về prompt gốc/);
-  });
-
-  test('renders the "Prompt đã được edit" indicator span (hidden by default)', () => {
-    assert.match(js, /class="td-prompt-edit-indicator"/);
-    assert.match(js, /Prompt đã được edit/);
-    assert.match(js,
-      /class="td-prompt-edit-indicator"[\s\S]*?data-exercise-id="\$\{escapeHtml\(ex\.id\)\}"\s*\n\s*hidden/);
-  });
-
-  test('input handler toggles the edit indicator based on textarea diff', () => {
-    assert.match(js, /function updatePromptEditIndicator\(textarea\)/);
-    assert.match(js, /textarea\.getAttribute\(['"]data-original['"]\)/);
-    assert.match(js, /indicator\.hidden\s*=\s*\(textarea\.value\s*===\s*original\)/);
-  });
-
-  test('reset button restores the textarea to the data-original value', () => {
-    assert.match(js, /\.td-prompt-reset/);
-    assert.match(js, /ta\.value = ta\.getAttribute\(['"]data-original['"]\)/);
-    assert.match(js, /updatePromptEditIndicator\(ta\)/);
-  });
-
-  test('readCustomPromptOverride reads the textarea value (not data-original)', () => {
-    assert.match(js, /function readCustomPromptOverride\(exerciseId\)/);
-    assert.match(js, /ta\.value/);
-    assert.match(js, /return current && current\.trim\(\) \? current : null/);
-  });
-
-  test('generate POST forwards custom_prompt_override in the body', () => {
-    assert.match(js,
-      /window\.api\.post\([\s\S]+?\/generate-map-image[\s\S]+?custom_prompt_override:\s*customPromptOverride/);
-  });
-
-  test('generate flow shows a confirmation dialog before the POST', () => {
-    // Sprint 13.5.9.2 — confirm copy now interpolates a per-model
-    // cost (was a fixed "Cost ~$0.02-0.04"). The new message shows:
-    //   "Generate hình map với <sourceLine>?
-    //    Model: <model>
-    //    Cost ước tính: ~$<cost>"
-    assert.match(js, /window\.confirm\(/);
-    assert.match(js, /custom prompt \(\$\{promptChars\}\s*chars\)/);
-    // Cost line reads from the per-model lookup, formatted to 3 dp.
-    assert.match(js, /Cost ước tính:\s*~\$\$\{cost\.toFixed\(3\)\}/);
-  });
-
-  test('status line surfaces the prompt source returned by the API', () => {
-    assert.match(js, /res\.map_image_prompt_source/);
-    assert.match(js, /source=\$\{res\.map_image_prompt_source\}/);
-  });
-
-  test('curated prompt char count surfaces inside the <details> summary', () => {
-    assert.match(js,
-      /<summary>Review prompt sẽ gửi tới API \(\$\{customPrompt\.length\}\s*chars\)<\/summary>/);
-  });
-
-  test('handlers attach for both the textarea input and the reset button', () => {
-    assert.match(js, /\.td-prompt-editable[\s\S]+?addEventListener\(['"]input['"]/);
-    assert.match(js, /\.td-prompt-reset[\s\S]+?addEventListener\(['"]click['"]/);
-  });
-
-  test('confirmation dialog differentiates curated vs template messages', () => {
-    // Sprint 13.5.9.2 — the curated / template split now lives in a
-    // ``sourceLine`` ternary, not the confirm string itself. Pin the
-    // ternary structure so future refactors can't drop either branch.
-    assert.match(js, /custom prompt \(\$\{promptChars\}\s*chars\)/);
-    assert.match(js, /template prompt \(no <details> block trong markdown\)/);
-    assert.match(js, /Generate hình map với \$\{sourceLine\}/);
-  });
-
-  test('the indicator span is exercise-id-scoped (no cross-wiring on multi-card pages)', () => {
-    assert.match(js, /textarea\.td-prompt-editable\[data-exercise-id="\$\{exerciseId\}"\]/);
-    assert.match(js, /\.td-prompt-edit-indicator\[data-exercise-id="\$\{exerciseId\}"\]/);
-  });
-
-  test('preview block is omitted entirely when no curated prompt exists', () => {
-    assert.match(js, /const promptReview = hasCustom\s*\?\s*`<div class="td-prompt-review"/);
-    assert.match(js, /:\s*'';/);
-  });
-});
-
-
-// ── Sprint 13.5.9.2 — Gemini 3.x migration (Nano Banana 2 default) ───────
-
-describe('Sprint 13.5.9.2 — admin model selector + cost preview', () => {
-  const js = read('js', 'admin-listening-tests-detail.js');
-
-  test('model dropdown lists all six Sprint 13.5.9.2 supported models', () => {
-    // Each option must appear once in the rendered <select>. Pin the
-    // exact model IDs so a future refactor can't quietly drop the new
-    // Gemini 3.x family or add a 7th option without an admin label.
-    const expected = [
-      'gemini-3.1-flash-image-preview',
-      'gemini-3-pro-image-preview',
-      'imagen-4.0-ultra-generate-001',
-      'imagen-4.0-generate-001',
-      'imagen-4.0-fast-generate-001',
-      'gemini-2.5-flash-image',
-    ];
-    for (const id of expected) {
-      const re = new RegExp(`<option value="${id.replace(/\./g, '\\.')}"`);
-      assert.match(js, re, `missing option for ${id}`);
-    }
-  });
-
-  test('default selector falls back to Nano Banana 2 (gemini-3.1-flash-image-preview)', () => {
-    // When the exercise has no map_image_model yet (fresh row), the
-    // selector default is the cluster default. Sprint 13.5.6 used
-    // imagen-4.0-fast-generate-001; Sprint 13.5.9.2 flips this to
-    // Andy's locked Gemini 3.x default.
-    assert.match(js,
-      /const model = ex\.map_image_model \|\| ['"]gemini-3\.1-flash-image-preview['"]/);
-    // The old default is gone — pin the absence so a regression
-    // doesn't quietly resurface.
-    assert.ok(
-      !/const model = ex\.map_image_model \|\| ['"]imagen-4\.0-fast-generate-001['"]/.test(js),
-      'old imagen-4.0-fast default must be removed',
-    );
-  });
-
-  test('legacy 2.5 Flash option carries an explicit deprecation marker', () => {
-    // Andy needs to see "⚠️ deprecated 2026-10-02" inline so the
-    // legacy pick isn't a silent footgun. The shutdown date appears
-    // verbatim so a date-shift on the Google side reflects through
-    // the same edit.
-    assert.match(js, /Gemini 2\.5 Flash Image \(Nano Banana\)[\s\S]+?deprecated 2026-10-02/);
-  });
-
-  test('per-model pricing table mirrors the backend SUPPORTED_MODELS registry', () => {
-    // The frontend keeps its own price table for the confirmation
-    // dialog. Pin every model+price so a backend price change can't
-    // silently desync the UI quote.
-    assert.match(js, /'gemini-3\.1-flash-image-preview':\s*0\.067/);
-    assert.match(js, /'gemini-3-pro-image-preview':\s*0\.134/);
-    assert.match(js, /'imagen-4\.0-ultra-generate-001':\s*0\.06/);
-    assert.match(js, /'imagen-4\.0-generate-001':\s*0\.04/);
-    assert.match(js, /'imagen-4\.0-fast-generate-001':\s*0\.02/);
-    assert.match(js, /'gemini-2\.5-flash-image':\s*0\.039/);
-  });
-
-  test('confirm copy quotes the per-model cost via MAP_IMAGE_MODEL_PRICING', () => {
-    // The lookup must read from the new const map, and the cost must
-    // surface in the confirm message at 3-dp precision. Also pin that
-    // a deprecated pick triggers the inline warning string.
-    assert.match(js, /const cost = MAP_IMAGE_MODEL_PRICING\[model\]/);
-    assert.match(js, /Cost ước tính:\s*~\$\$\{cost\.toFixed\(3\)\}/);
-    assert.match(js, /MAP_IMAGE_DEPRECATED_MODELS\.has\(model\)/);
-    assert.match(js, /deprecated 2026-10-02/);
-  });
-});
-
 
 // ── Sprint 13.5.9.3 — manual upload escape hatch (admin panel) ───────────
 
 describe('Sprint 13.5.9.3 — manual map-image upload UI', () => {
   const js = read('js', 'admin-listening-tests-detail.js');
 
-  test('renders a tab nav with API-generate (default) + manual-upload tabs', () => {
-    // Two tabs per card. The API one is the default ``is-active``;
-    // pinning the active class so a refactor can't quietly flip the
-    // default tab and break Andy's muscle memory.
-    assert.match(js, /class="td-map-tab is-active"[\s\S]+?data-tab="api-generate"/);
-    assert.match(js, /class="td-map-tab"[\s\S]+?data-tab="manual-upload"/);
-    assert.match(js, /aria-selected="true"/);
-    // The labels include Andy's emoji shorthand so the tabs are
-    // scannable in Vietnamese without translation.
-    assert.match(js, /🎨 Generate via API/);
-    assert.match(js, /📤 Upload ảnh có sẵn/);
-  });
-
-  test('tab panes carry data-tab-pane="api-generate" + "manual-upload"', () => {
-    // The visibility toggle reads ``data-tab-pane`` on each pane, so
-    // pin both pane markers. Manual-upload pane starts hidden.
+  test('manual upload is the only pane — no tab nav, no api-generate pane', () => {
+    // 2026-07-17 usage audit: AI generation removed. The manual-upload
+    // pane renders directly (not hidden behind a tab).
+    assert.doesNotMatch(js, /data-tab="api-generate"/);
+    assert.doesNotMatch(js, /data-tab-pane="api-generate"/);
+    assert.doesNotMatch(js, /🎨 Generate via API/);
     assert.match(js,
-      /<div class="td-map-tab-pane" data-tab-pane="api-generate"/);
-    assert.match(js,
-      /<div class="td-map-tab-pane" data-tab-pane="manual-upload"[\s\S]+?hidden/);
+      /<div class="td-map-tab-pane" data-tab-pane="manual-upload"\n\s+data-exercise-id="\$\{escapeHtml\(ex\.id\)\}">/);
   });
 
   test('dropzone accepts only PNG / JPG / WebP via the file input accept attribute', () => {

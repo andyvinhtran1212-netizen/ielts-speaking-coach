@@ -183,68 +183,11 @@ function renderMapImagesPanel() {
   panel.hidden = false;
   host.innerHTML = plExercises.map((ex) => {
     const has = ex.has_map_image;
-    // Sprint 13.5.9.2 — default selector to Nano Banana 2 (Andy 2026-05-21
-    // lock). The previous default (imagen-4.0-fast) couldn't follow
-    // letter-placement instructions reliably for IELTS plan-label maps.
-    const model = ex.map_image_model || 'gemini-3.1-flash-image-preview';
-    const desc  = (ex.map_description || '').trim();
-    // Sprint 13.5.9 — surface Andy's curated prompt (when the parser
-    // pulled one from a `<details>` block) and the source actually used
-    // by the last successful generation. The image-gen service prefers
-    // the custom prompt verbatim and ignores the template.
-    const customPrompt = (ex.map_image_custom_prompt || '').trim();
-    const hasCustom = Boolean(customPrompt);
-    const lastSource = ex.map_image_prompt_source || null;
-    const sourceLabel = hasCustom
-      ? `<span class="td-prompt-source td-prompt-source-custom" data-source="custom"
-            style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:var(--av-fs-xs);background:#dcfce7;color:#166534;font-weight:600;">
-            ✅ Custom prompt từ markdown (sẽ dùng khi generate)
-          </span>`
-      : `<span class="td-prompt-source td-prompt-source-template" data-source="template"
-            style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:var(--av-fs-xs);background:#fef3c7;color:#92400e;font-weight:600;">
-            ⚠️ Template prompt (no &lt;details&gt; block found trong markdown)
-          </span>`;
-    const lastSourceNote = has && lastSource
-      ? `<span class="td-section-meta td-prompt-last-source" style="font-size:var(--av-fs-xs);">
-           Hình hiện tại generate từ: <strong>${escapeHtml(lastSource)}</strong>
-         </span>`
-      : '';
-    // Sprint 13.5.9.1 — replace the read-only `<pre>` preview with an
-    // editable textarea. Admin sees the exact prompt that will go to
-    // the API, can edit it (session-only — re-converting markdown
-    // resets), and an "edit indicator" flips on the moment the value
-    // diverges from the parser-extracted source. The reset button
-    // brings the textarea back to the original.
-    const promptReview = hasCustom
-      ? `<div class="td-prompt-review" data-exercise-id="${escapeHtml(ex.id)}"
-              style="margin-top:var(--av-space-3);">
-           <details class="td-prompt-preview" data-exercise-id="${escapeHtml(ex.id)}">
-             <summary>Review prompt sẽ gửi tới API (${customPrompt.length} chars)</summary>
-             <p class="td-section-meta" style="margin-top:var(--av-space-2);font-size:var(--av-fs-xs);">
-               Đây là prompt sẽ gửi tới Gemini API. Edit chỉ áp dụng cho lần generate này; re-convert markdown sẽ reset.
-             </p>
-             <textarea class="td-prompt-editable"
-                       data-exercise-id="${escapeHtml(ex.id)}"
-                       data-original="${escapeHtml(customPrompt)}"
-                       rows="14"
-                       style="width:100%;font-family:var(--av-font-mono);font-size:var(--av-fs-xs);padding:var(--av-space-2);border:1px solid var(--av-border-default);border-radius:var(--av-radius-sm);background:#f8fafc;">${escapeHtml(customPrompt)}</textarea>
-             <div class="td-prompt-edit-actions"
-                  style="display:flex;gap:var(--av-space-2);align-items:center;flex-wrap:wrap;margin-top:var(--av-space-2);">
-               <button class="td-btn td-prompt-reset" type="button"
-                       data-exercise-id="${escapeHtml(ex.id)}">↺ Reset về prompt gốc</button>
-               <span class="td-prompt-edit-indicator"
-                     data-exercise-id="${escapeHtml(ex.id)}"
-                     hidden
-                     style="font-size:var(--av-fs-xs);color:#92400e;font-weight:600;">⚠️ Prompt đã được edit — khác với markdown source</span>
-             </div>
-           </details>
-         </div>`
-      : '';
-    const descPreview = desc
-      ? `<details><summary>Map description (${desc.length} chars)</summary><pre style="white-space:pre-wrap;font-size:var(--av-fs-xs);max-height:160px;overflow:auto;">${escapeHtml(desc)}</pre></details>`
-      : `<p class="td-section-meta" style="color:#991B1B;">Map description trống — parser chưa extract được. Re-convert markdown trước khi generate.</p>`;
-    // Sprint 13.5.9.3 — header chip differentiates manual-upload vs
-    // API-generated provenance so admin sees the source at a glance.
+    const model = ex.map_image_model || '';
+    // Header chip differentiates manual-upload vs (legacy) API-generated
+    // provenance so admin sees the source at a glance. AI generation was
+    // decommissioned 2026-07-17; existing API-generated images keep their
+    // badge until replaced.
     const provenance = ex.map_image_source || (has && model ? 'api_generation' : null);
     const headerBadge = has
       ? (provenance === 'manual_upload'
@@ -266,65 +209,22 @@ function renderMapImagesPanel() {
           <strong>Section ${escapeHtml(ex.section_num)} — Plan label</strong>
           ${headerBadge}
         </div>
-        <!-- Sprint 13.5.9.3 — tab toggle between API generate (existing
-             flow) and manual upload (escape hatch). The API tab stays
-             the default so existing muscle memory is preserved. -->
-        <nav class="td-map-tabs" data-exercise-id="${escapeHtml(ex.id)}"
-             role="tablist"
-             style="display:flex;gap:var(--av-space-2);border-bottom:1px solid var(--av-border-default);margin:var(--av-space-3) 0 var(--av-space-2);">
-          <button type="button" role="tab" class="td-map-tab is-active"
-                  data-exercise-id="${escapeHtml(ex.id)}"
-                  data-tab="api-generate"
-                  aria-selected="true"
-                  style="background:none;border:none;border-bottom:2px solid var(--ielts-paper-accent, #1e3a5f);padding:var(--av-space-2) var(--av-space-3);cursor:pointer;font-weight:600;">
-            🎨 Generate via API
-          </button>
-          <button type="button" role="tab" class="td-map-tab"
-                  data-exercise-id="${escapeHtml(ex.id)}"
-                  data-tab="manual-upload"
-                  aria-selected="false"
-                  style="background:none;border:none;border-bottom:2px solid transparent;padding:var(--av-space-2) var(--av-space-3);cursor:pointer;color:var(--av-text-muted);">
-            📤 Upload ảnh có sẵn
-          </button>
-        </nav>
-        <div class="td-map-tab-pane" data-tab-pane="api-generate"
-             data-exercise-id="${escapeHtml(ex.id)}">
-        <div class="td-prompt-source-row" style="display:flex;gap:var(--av-space-2);flex-wrap:wrap;align-items:center;margin-top:var(--av-space-2);">
-          ${sourceLabel}
-          ${lastSourceNote}
-        </div>
-        ${promptReview}
-        ${descPreview}
-        <div class="td-map-actions" style="display:flex;gap:var(--av-space-2);flex-wrap:wrap;margin-top:var(--av-space-3);align-items:center;">
-          <label style="font-size:var(--av-fs-sm);">
-            Model:
-            <select class="td-map-model" data-exercise-id="${escapeHtml(ex.id)}">
-              <option value="gemini-3.1-flash-image-preview"${model === 'gemini-3.1-flash-image-preview' ? ' selected' : ''}>Gemini 3.1 Flash Image (Nano Banana 2) — $0.067 ⭐ DEFAULT</option>
-              <option value="gemini-3-pro-image-preview"${model === 'gemini-3-pro-image-preview' ? ' selected' : ''}>Gemini 3 Pro Image (Nano Banana Pro) — $0.134 (premium quality)</option>
-              <option value="imagen-4.0-ultra-generate-001"${model === 'imagen-4.0-ultra-generate-001' ? ' selected' : ''}>Imagen 4 Ultra — $0.06 (publication-grade max fidelity)</option>
-              <option value="imagen-4.0-generate-001"${model === 'imagen-4.0-generate-001' ? ' selected' : ''}>Imagen 4 Standard — $0.04 (general-purpose)</option>
-              <option value="imagen-4.0-fast-generate-001"${model === 'imagen-4.0-fast-generate-001' ? ' selected' : ''}>Imagen 4 Fast — $0.02 (cheapest, basic)</option>
-              <option value="gemini-2.5-flash-image"${model === 'gemini-2.5-flash-image' ? ' selected' : ''}>Gemini 2.5 Flash Image (Nano Banana) — $0.039 ⚠️ deprecated 2026-10-02</option>
-            </select>
-          </label>
-          ${has
-            ? `<button class="td-btn td-btn-primary td-map-regen" data-exercise-id="${escapeHtml(ex.id)}" type="button">Generate lại</button>
-               <button class="td-btn td-btn-danger  td-map-delete" data-exercise-id="${escapeHtml(ex.id)}" type="button">Xoá hình</button>`
-            : `<button class="td-btn td-btn-primary td-map-gen" data-exercise-id="${escapeHtml(ex.id)}" type="button">Generate hình map</button>`}
-          <span class="td-map-status" data-exercise-id="${escapeHtml(ex.id)}" style="font-size:var(--av-fs-xs);color:var(--av-text-muted);"></span>
-        </div>
-        </div><!-- /tab-pane api-generate -->
-        <!-- Sprint 13.5.9.3 — manual upload pane. Hidden until the
-             admin clicks the "📤 Upload ảnh có sẵn" tab. Bypasses any
-             API call so cost = $0. The same Supabase Storage bucket
-             persists the uploaded bytes; the student player can't
-             tell the source apart. -->
+        <!-- Manual upload — the only map-image path since 2026-07-17
+             (AI generation decommissioned). The same Supabase Storage
+             bucket persists the uploaded bytes; the student player
+             can't tell the source apart. -->
         <div class="td-map-tab-pane" data-tab-pane="manual-upload"
-             data-exercise-id="${escapeHtml(ex.id)}" hidden>
+             data-exercise-id="${escapeHtml(ex.id)}">
           <p class="td-section-meta" style="font-size:var(--av-fs-xs);margin:var(--av-space-3) 0 var(--av-space-2);">
             Upload ảnh map đã tạo qua tool ngoài (e.g. Gemini Banana standalone web app).
-            Hỗ trợ PNG / JPG / WebP — tối đa 5 MB. Cost: $0 (no API call).
+            Hỗ trợ PNG / JPG / WebP — tối đa 5 MB.
           </p>
+          ${has
+            ? `<div style="display:flex;gap:var(--av-space-2);align-items:center;margin-bottom:var(--av-space-2);">
+                 <button class="td-btn td-btn-danger td-map-delete" data-exercise-id="${escapeHtml(ex.id)}" type="button">Xoá hình</button>
+                 <span class="td-map-status" data-exercise-id="${escapeHtml(ex.id)}" style="font-size:var(--av-fs-xs);color:var(--av-text-muted);"></span>
+               </div>`
+            : ''}
           <div class="td-map-dropzone"
                data-exercise-id="${escapeHtml(ex.id)}"
                style="border:2px dashed var(--av-border-default);border-radius:var(--av-radius-md);padding:var(--av-space-6) var(--av-space-3);text-align:center;cursor:pointer;transition:border-color 0.15s ease,background 0.15s ease;">
@@ -386,36 +286,10 @@ function renderMapImagesPanel() {
 }
 
 function attachMapImageHandlers() {
-  document.querySelectorAll('.td-map-gen').forEach((b) => {
-    b.addEventListener('click', () => onGenerateMapImage(b.getAttribute('data-exercise-id')));
-  });
-  document.querySelectorAll('.td-map-regen').forEach((b) => {
-    b.addEventListener('click', () => onRegenerateMapImage(b.getAttribute('data-exercise-id')));
-  });
   document.querySelectorAll('.td-map-delete').forEach((b) => {
     b.addEventListener('click', () => onDeleteMapImage(b.getAttribute('data-exercise-id')));
   });
-  // Sprint 13.5.9.1 — wire the editable prompt textareas: keep the
-  // "Prompt đã được edit" indicator in sync with the textarea diff,
-  // and let the reset button restore the original.
-  document.querySelectorAll('.td-prompt-editable').forEach((ta) => {
-    ta.addEventListener('input', () => updatePromptEditIndicator(ta));
-  });
-  document.querySelectorAll('.td-prompt-reset').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const exerciseId = btn.getAttribute('data-exercise-id');
-      const ta = document.querySelector(
-        `textarea.td-prompt-editable[data-exercise-id="${exerciseId}"]`,
-      );
-      if (!ta) return;
-      ta.value = ta.getAttribute('data-original') || '';
-      updatePromptEditIndicator(ta);
-    });
-  });
-  // Sprint 13.5.9.3 — manual-upload tab + dropzone wiring.
-  document.querySelectorAll('.td-map-tab').forEach((tab) => {
-    tab.addEventListener('click', () => onMapTabSwitch(tab));
-  });
+  // Manual-upload dropzone wiring.
   document.querySelectorAll('.td-map-dropzone').forEach((zone) => {
     const exerciseId = zone.getAttribute('data-exercise-id');
     const fileInput = document.querySelector(
@@ -471,28 +345,6 @@ const MAP_IMAGE_MANUAL_UPLOAD_TYPES = new Set([
 // Per-exercise selected-file slot. Keyed by exerciseId so multiple
 // cards on the same page don't clobber each other.
 const _manualUploadSelections = new Map();
-
-function onMapTabSwitch(tabEl) {
-  const exerciseId = tabEl.getAttribute('data-exercise-id');
-  const targetTab  = tabEl.getAttribute('data-tab');
-  document.querySelectorAll(
-    `.td-map-tab[data-exercise-id="${exerciseId}"]`,
-  ).forEach((t) => {
-    const isActive = t === tabEl;
-    t.classList.toggle('is-active', isActive);
-    t.setAttribute('aria-selected', isActive ? 'true' : 'false');
-    t.style.borderBottomColor = isActive
-      ? 'var(--ielts-paper-accent, #1e3a5f)'
-      : 'transparent';
-    t.style.color = isActive ? '' : 'var(--av-text-muted)';
-    t.style.fontWeight = isActive ? '600' : '';
-  });
-  document.querySelectorAll(
-    `.td-map-tab-pane[data-exercise-id="${exerciseId}"]`,
-  ).forEach((pane) => {
-    pane.hidden = pane.getAttribute('data-tab-pane') !== targetTab;
-  });
-}
 
 function _validateManualUploadFile(file) {
   if (!MAP_IMAGE_MANUAL_UPLOAD_TYPES.has(file.type)) {
@@ -592,31 +444,6 @@ async function onConfirmManualUpload(exerciseId) {
   }
 }
 
-function updatePromptEditIndicator(textarea) {
-  const exerciseId = textarea.getAttribute('data-exercise-id');
-  const original = textarea.getAttribute('data-original') || '';
-  const indicator = document.querySelector(
-    `.td-prompt-edit-indicator[data-exercise-id="${exerciseId}"]`,
-  );
-  if (!indicator) return;
-  indicator.hidden = (textarea.value === original);
-}
-
-// Sprint 13.5.9.1 — read the (possibly admin-edited) prompt out of the
-// per-card textarea so the generate POST forwards what the admin
-// actually sees. Returns null when the card carries no curated prompt
-// (template path), or when the textarea is missing.
-function readCustomPromptOverride(exerciseId) {
-  const ta = document.querySelector(
-    `textarea.td-prompt-editable[data-exercise-id="${exerciseId}"]`,
-  );
-  if (!ta) return null;
-  const original = ta.getAttribute('data-original') || '';
-  const current = ta.value;
-  // Forward the current value verbatim — even if it matches the
-  // original we send it so the server logs the explicit source.
-  return current && current.trim() ? current : null;
-}
 
 function setMapStatus(exerciseId, text, isError) {
   const el = document.querySelector(`.td-map-status[data-exercise-id="${exerciseId}"]`);
@@ -637,93 +464,6 @@ async function refreshMapImage(exerciseId) {
   } catch (_e) {
     // Silent — the card already shows "Chưa có hình" if no image is stored.
   }
-}
-
-// Sprint 13.5.9.2 — keep the per-model price table in sync with the
-// backend SUPPORTED_MODELS registry so the confirmation dialog quotes
-// the right cost. Refer to ``backend/services/listening_map_image.py``
-// — when prices change there, update this map too.
-const MAP_IMAGE_MODEL_PRICING = {
-  'gemini-3.1-flash-image-preview': 0.067,
-  'gemini-3-pro-image-preview':     0.134,
-  'imagen-4.0-ultra-generate-001':  0.06,
-  'imagen-4.0-generate-001':        0.04,
-  'imagen-4.0-fast-generate-001':   0.02,
-  'gemini-2.5-flash-image':         0.039,
-};
-
-const MAP_IMAGE_DEPRECATED_MODELS = new Set(['gemini-2.5-flash-image']);
-
-async function onGenerateMapImage(exerciseId) {
-  const sel = document.querySelector(`select.td-map-model[data-exercise-id="${exerciseId}"]`);
-  const model = sel ? sel.value : null;
-  // Sprint 13.5.9.1 — forward the reviewed prompt the admin sees in
-  // the textarea. The backend treats this as a session-only override
-  // (not persisted back to markdown).
-  const customPromptOverride = readCustomPromptOverride(exerciseId);
-  const promptChars = customPromptOverride ? customPromptOverride.length : 0;
-  // Sprint 13.5.9.2 — cost preview reads from the per-model table so
-  // Andy sees the exact charge for the selected model (was a fixed
-  // "$0.02-0.04" copy under 13.5.9.1, which under-quoted the new
-  // Gemini 3.x default). The deprecation warning surfaces inline so
-  // a stale option pick isn't a silent footgun.
-  const cost = MAP_IMAGE_MODEL_PRICING[model] != null
-    ? MAP_IMAGE_MODEL_PRICING[model]
-    : 0.05;
-  const deprecatedWarning = MAP_IMAGE_DEPRECATED_MODELS.has(model)
-    ? '\n\n⚠️ Model này deprecated 2026-10-02. Cân nhắc đổi sang Nano Banana 2 / Pro.'
-    : '';
-  // Confirmation gate — cost guardrail + accuracy verification. The
-  // dialog spells out the prompt source so Andy can't accidentally
-  // burn an API call with the wrong prompt.
-  const sourceLine = customPromptOverride
-    ? `custom prompt (${promptChars} chars)`
-    : 'template prompt (no <details> block trong markdown)';
-  const confirmMsg =
-    `Generate hình map với ${sourceLine}?\n\n`
-    + `Model: ${model || 'default'}\n`
-    + `Cost ước tính: ~$${cost.toFixed(3)}`
-    + deprecatedWarning;
-  if (!window.confirm(confirmMsg)) return;
-  setMapStatus(exerciseId, 'Đang generate (10-30s)…', false);
-  try {
-    const res = await window.api.post(
-      `/admin/listening/exercises/${encodeURIComponent(exerciseId)}/generate-map-image`,
-      {
-        model,
-        custom_prompt_override: customPromptOverride,
-      },
-    );
-    const source = res.map_image_prompt_source
-      ? ` · source=${res.map_image_prompt_source}`
-      : '';
-    setMapStatus(
-      exerciseId,
-      `OK — ${res.map_image_model} · ~$${(res.cost_estimate_usd || 0).toFixed(3)}${source}`,
-      false,
-    );
-    // Refresh the test bundle so the panel re-renders with the new image.
-    await fetchTest();
-    render();
-  } catch (e) {
-    setMapStatus(exerciseId, `Lỗi: ${(e && e.message) || e}`, true);
-  }
-}
-
-async function onRegenerateMapImage(exerciseId) {
-  if (!window.confirm(
-    'Generate lại sẽ xoá hình hiện tại + tốn phí thêm cho lần generate mới. Tiếp tục?',
-  )) return;
-  setMapStatus(exerciseId, 'Đang xoá hình cũ…', false);
-  try {
-    await window.api.delete(
-      `/admin/listening/exercises/${encodeURIComponent(exerciseId)}/map-image`,
-    );
-  } catch (e) {
-    setMapStatus(exerciseId, `Xoá thất bại: ${(e && e.message) || e}`, true);
-    return;
-  }
-  await onGenerateMapImage(exerciseId);
 }
 
 async function onDeleteMapImage(exerciseId) {
@@ -782,10 +522,6 @@ function renderFullAudio() {
     // the upload before publishing.
     const signed = (STATE.signedUrls && STATE.signedUrls.full) || {};
     if (previewHost && signed.signed_url) {
-      // Sprint 13.6.1 — once full audio is present, surface a deep link
-      // to the audio cutter pre-filled with this test id. Discovery from
-      // the natural authoring context (test detail) — not just the hub.
-      const cutterHref = `/pages/admin/listening/audio-cutter.html?test_id=${encodeURIComponent(STATE.testId)}`;
       previewHost.innerHTML = `
         <div class="td-audio-preview">
           <audio controls preload="metadata"
@@ -796,9 +532,6 @@ function renderFullAudio() {
           <div class="td-audio-actions" style="display:flex; gap:var(--av-space-2); flex-wrap:wrap;">
             <button type="button" class="td-btn td-btn-ghost td-replace-btn"
                     id="td-full-replace">Tải lại audio</button>
-            <a class="td-btn td-btn-ghost td-cut-link"
-               id="td-cut-audio-link"
-               href="${cutterHref}">✂️ Cắt audio thành 4 sections</a>
           </div>
         </div>
       `;
