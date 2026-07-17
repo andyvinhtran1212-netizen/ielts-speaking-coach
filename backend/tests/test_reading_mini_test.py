@@ -1,11 +1,10 @@
 """Reading MINI TEST — the list endpoint's 2-way test_type filter.
 
-A mini is a full reading_test flagged metadata.test_type='mini'. GET
-/api/reading/test must segregate cleanly (blind-spot #1):
-  - test_type='mini'  → ONLY mini  (metadata->>test_type == 'mini')
-  - test_type='full' / omitted → EXCLUDE mini, but INCLUDE legacy tests that
-    predate the flag (metadata->>test_type IS NULL). A plain `!= 'mini'` would
-    drop those NULL rows, so the filter is `IS NULL OR != 'mini'`.
+A mini is a full reading_test flagged test_type='mini'. Mig 158 — test_type
+là cột thật (NOT NULL, CHECK full|mini; row legacy NULL đã backfill 'full'),
+nên cả 2 nhánh lọc đều là eq trên cột — không còn or_ NULL-fallback:
+  - test_type='mini'  → ONLY mini  (eq test_type 'mini')
+  - test_type='full' / omitted → ONLY full (eq test_type 'full')
 
 These capture the exact PostgREST filter the endpoint builds (verified live to
 behave correctly), so the segregation can't silently regress.
@@ -73,25 +72,23 @@ def _call(**kwargs):
     return rec
 
 
-_EXCLUDE_MINI_OR = "metadata->>test_type.is.null,metadata->>test_type.neq.mini"
-
-
 def test_mini_only_filter():
     rec = _call(test_type="mini")
-    assert ("eq", "metadata->>test_type", "mini") in rec
-    assert not any(t[0] == "or" for t in rec)  # mini uses eq, not the exclude-or
+    assert ("eq", "test_type", "mini") in rec
+    assert not any(t[0] == "or" for t in rec)
 
 
-def test_full_excludes_mini_but_keeps_legacy_null():
+def test_full_excludes_mini():
     rec = _call(test_type="full")
-    assert ("or", _EXCLUDE_MINI_OR) in rec      # IS NULL OR != mini → legacy kept
-    assert ("eq", "metadata->>test_type", "mini") not in rec
+    assert ("eq", "test_type", "full") in rec
+    assert ("eq", "test_type", "mini") not in rec
+    assert not any(t[0] == "or" for t in rec)
 
 
 def test_default_behaves_as_full():
-    rec = _call()  # no test_type → exclude mini (Full Tests default)
-    assert ("or", _EXCLUDE_MINI_OR) in rec
-    assert ("eq", "metadata->>test_type", "mini") not in rec
+    rec = _call()  # no test_type → Full Tests default
+    assert ("eq", "test_type", "full") in rec
+    assert ("eq", "test_type", "mini") not in rec
 
 
 def test_invalid_test_type_rejected():

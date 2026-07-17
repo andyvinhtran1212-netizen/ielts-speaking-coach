@@ -1826,8 +1826,10 @@ def admin_available_reading_tests() -> list[dict]:
             "total_questions,band_target,metadata",
         )
         .eq("status", "published")
+        # Mig 158 — test_type là cột thật (NOT NULL, full|mini); mini mới
+        # không còn stamp metadata nên phải lọc trên cột.
+        .eq("test_type", "full")
         .order("created_at", desc=True)
         .execute()
     )
-    rows = res.data or []
-    return [r for r in rows if (r.get("metadata") or {}).get("test_type") != "mini"]
+    return res.data or []

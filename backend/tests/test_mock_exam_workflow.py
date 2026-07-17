@@ -491,16 +491,19 @@ def test_available_reading_tests_includes_already_reserved(fake_db, svc):
     """A reading test may be reused across mock exams — the create-exam
     picker must NOT drop a test just because another mock exam already
     reserved it (2026-07-12: reservation only hides from student practice)."""
+    # Mig 158 — test_type là cột thật; mini mới KHÔNG còn stamp metadata
+    # (R-2 mô phỏng đúng row hậu-158: metadata rỗng, chỉ có cột).
     fake_db.seed("reading_tests", {"id": "R-1", "test_id": "ILR-RDG-001",
                                    "title": "Reused test", "status": "published",
-                                   "metadata": {"test_type": "full"},
+                                   "test_type": "full", "metadata": {},
                                    "created_at": "2026-01-01T00:00:00+00:00"})
     fake_db.seed("reading_tests", {"id": "R-2", "test_id": "ILR-RDG-002",
                                    "title": "Mini test", "status": "published",
-                                   "metadata": {"test_type": "mini"},
+                                   "test_type": "mini", "metadata": {},
                                    "created_at": "2026-01-01T00:00:00+00:00"})
     fake_db.seed("reading_tests", {"id": "R-3", "test_id": "ILR-RDG-003",
                                    "title": "Draft test", "status": "draft",
+                                   "test_type": "full",
                                    "metadata": {}, "created_at": "2026-01-01T00:00:00+00:00"})
     _seed_exam(fake_db)["reading_test_id"] = "R-1"  # already used by MOCK-TEST-A
 
