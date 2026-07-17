@@ -317,7 +317,8 @@ input: "text"
 headword: "dm-toinf-reduced-clause"
 skill: "production"
 subtype: "intermediate"
-prompt: "Nêu rõ tác nhân sau cụm to-infinitive để câu không bị treo: 'To reduce plastic waste effectively, _____.' (gõ subject + modal + verb)"
+prompt: "Nêu rõ tác nhân sau cụm to-infinitive để câu không bị treo: 'To reduce plastic waste effectively, _____.'"
+hint: "gõ chủ ngữ + động từ khiếm khuyết + động từ chính"
 accept: ["governments must regulate", "consumers should recycle", "everyone must help"]
 case_sensitive: false
 grammar_article_slug: "dangling-modifiers"

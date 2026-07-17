@@ -166,7 +166,7 @@ input: "text"
 headword: "nom-agent"
 skill: "production"
 subtype: "intermediate"
-prompt: "'the reduction of carbon emissions' — để chỉ rõ AI thực hiện (tác nhân), ta viết: 'the reduction of carbon emissions ____ the government.' (gõ 1 từ)"
+prompt: "'the reduction of carbon emissions' — để chỉ rõ AI thực hiện (tác nhân), ta viết: 'the reduction of carbon emissions ____ the government.'"
 accept: ["by"]
 case_sensitive: false
 grammar_article_slug: "nominalization"

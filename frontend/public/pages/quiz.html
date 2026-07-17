@@ -49,6 +49,10 @@
        it inside every prompt. */
     .qz-instr { margin: var(--av-space-2) 0 0; font-size: var(--av-fs-sm);
       color: var(--av-text-muted); }
+    /* Authored hint (quiz_questions.hint, migration 159) — its own muted line
+       so gợi ý never bulks up the bold prompt again (audit 2026-07-17 §I). */
+    .qz-hint { margin: var(--av-space-2) 0 0; font-size: var(--av-fs-sm);
+      color: var(--av-text-secondary); }
     /* One-line mode explainer under the progress bar (mastery mechanics). */
     .qz-sub { margin: var(--av-space-2) 0 0; font-size: var(--av-fs-sm);
       color: var(--av-text-muted); }
@@ -248,6 +252,7 @@
       <div id="qz-card" class="av-card qz-card">
         <div id="qz-audio" class="qz-audio hidden"></div>
         <p id="qz-prompt" class="qz-prompt"></p>
+        <p id="qz-hint" class="qz-hint hidden"></p>
         <p id="qz-instr" class="qz-instr hidden"></p>
         <div id="qz-widget"></div>
         <div id="qz-feedback" class="hidden"></div>
@@ -668,6 +673,13 @@
       const rawPrompt = String(q.prompt || '');
       $('qz-prompt').innerHTML = fmt(rawPrompt.replace(AUDIO_TOKEN_RE, ' ').trim());
 
+      // Authored hint (its own field since migration 159) — a muted line under
+      // the prompt, so gợi ý never bulks up the bold prompt text again.
+      const hintEl = $('qz-hint');
+      const hint = String(q.hint || '').trim();
+      hintEl.innerHTML = hint ? '💡 ' + fmt(hint) : '';
+      hintEl.classList.toggle('hidden', !hint);
+
       // One consistent how-to-answer line per question TYPE (the audit found
       // learners can't tell what to produce — esp. for typed answers). For text
       // answers the expected word count is derived from accept[0] so the learner
@@ -684,7 +696,9 @@
       } else if (q.input === 'text') {
         const n = (Array.isArray(q.accept) && q.accept[0])
           ? String(q.accept[0]).trim().split(/\s+/).length : 0;
-        itxt = n >= 2 ? ('Gõ đáp án vào ô trống (' + n + ' từ).') : 'Gõ đáp án vào ô trống.';
+        // Count shows for 1-word answers too: bank prompts no longer carry
+        // "write one word"-style tails (moved to `hint` / dropped, audit §I).
+        itxt = n >= 1 ? ('Gõ đáp án vào ô trống (' + n + ' từ).') : 'Gõ đáp án vào ô trống.';
       }
       instr.textContent = itxt;
       instr.classList.toggle('hidden', !itxt);
@@ -798,6 +812,7 @@
       sessionLog.push({
         qid: q.qid, item_key: current.item_key,
         prompt: String(q.prompt || '').replace(AUDIO_TOKEN_RE, ' ').trim(),
+        hint: String(q.hint || '').trim() || null,
         given: givenAnswerText(q, value),
         correctText: corr,
         correct: res.correct,
@@ -871,6 +886,7 @@
       const cls = lastWrong ? 'is-wrong' : (it.wrongCount > 0 ? 'is-fixed' : 'is-right');
       return '<div class="qz-rl-item ' + cls + '">'
         + '<div class="qz-rl-prompt">' + fmt(it.prompt) + '</div>'
+        + (it.hint ? '<div class="qz-rl-row">💡 ' + fmt(it.hint) + '</div>' : '')
         + '<div class="qz-rl-row">Bạn trả lời: <span class="qz-fb__answer '
           + (lastWrong ? 'is-wrong' : 'is-right') + '">' + fmt(String(it.given == null ? '' : it.given))
           + '</span>' + (lastWrong ? ' ✗' : ' ✓')

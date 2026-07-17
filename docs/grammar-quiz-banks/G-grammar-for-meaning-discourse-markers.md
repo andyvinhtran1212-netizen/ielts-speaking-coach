@@ -123,7 +123,8 @@ input: "text"
 headword: "dm-contrast"
 skill: "production"
 subtype: "intermediate"
-prompt: "The task was difficult. ____, they completed it on time — write the word meaning 'dù vậy vẫn' (stronger than 'however')."
+prompt: "The task was difficult. ____, they completed it on time."
+hint: "từ nghĩa là 'dù vậy vẫn' (mạnh hơn 'however')"
 accept: ["Nevertheless", "Nonetheless"]
 case_sensitive: false
 grammar_article_slug: "discourse-markers"
@@ -194,7 +195,8 @@ input: "text"
 headword: "dm-cause-effect"
 skill: "production"
 subtype: "intermediate"
-prompt: "Investment in education has declined. ____, graduate unemployment has risen sharply — write a 3-word formal linker (starts with 'As')."
+prompt: "Investment in education has declined. ____, graduate unemployment has risen sharply."
+hint: "từ nối trang trọng 3 từ, bắt đầu bằng 'As'"
 accept: ["As a result"]
 case_sensitive: false
 grammar_article_slug: "discourse-markers"

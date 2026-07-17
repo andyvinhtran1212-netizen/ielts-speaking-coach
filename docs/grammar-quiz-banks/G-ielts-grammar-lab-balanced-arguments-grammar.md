@@ -52,7 +52,7 @@ input: "text"
 headword: "bag-one-hand-other-hand"
 skill: "production"
 subtype: "intermediate"
-prompt: "Q: Is it better to work for a large company or a small one? A: On the one hand, big companies offer more stability. On the ____, small companies often provide more room to grow. — write the two words."
+prompt: "Q: Is it better to work for a large company or a small one? A: On the one hand, big companies offer more stability. On the ____, small companies often provide more room to grow."
 accept: ["other hand", "other hand,"]
 case_sensitive: false
 grammar_article_slug: "balanced-arguments-grammar"
@@ -109,7 +109,8 @@ input: "text"
 headword: "bag-concession"
 skill: "production"
 subtype: "intermediate"
-prompt: "Q: Do you think working from home is a good idea overall? A: ____ it is true that remote work can feel isolating, I still believe it improves overall well-being. — write the first word that introduces the concession."
+prompt: "Q: Do you think working from home is a good idea overall? A: ____ it is true that remote work can feel isolating, I still believe it improves overall well-being."
+hint: "từ đầu tiên mở đầu ý nhượng bộ"
 accept: ["While"]
 case_sensitive: false
 grammar_article_slug: "balanced-arguments-grammar"
@@ -223,7 +224,7 @@ input: "text"
 headword: "bag-that-said"
 skill: "production"
 subtype: "intermediate"
-prompt: "Rewrite using the phrase 'Having said that': 'The downsides shouldn't be ignored.' → '____ the downsides shouldn't be ignored.' — write the three-word phrase."
+prompt: "Rewrite using the phrase 'Having said that': 'The downsides shouldn't be ignored.' → '____ the downsides shouldn't be ignored.'"
 accept: ["Having said that,", "Having said that"]
 case_sensitive: false
 grammar_article_slug: "balanced-arguments-grammar"

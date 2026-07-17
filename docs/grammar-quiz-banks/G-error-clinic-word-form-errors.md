@@ -66,7 +66,8 @@ input: "text"
 headword: "wfe-noun-to-adjective"
 skill: "production"
 subtype: "intermediate"
-prompt: "Many parents worry that screen time has a ____ (danger) influence on young children — write the adjective form of 'danger'."
+prompt: "Many parents worry that screen time has a ____ (danger) influence on young children."
+hint: "viết dạng tính từ của 'danger'"
 accept: ["dangerous"]
 case_sensitive: false
 grammar_article_slug: "word-form-errors"
@@ -151,7 +152,8 @@ input: "text"
 headword: "wfe-adjective-to-noun"
 skill: "production"
 subtype: "intermediate"
-prompt: "The company values ____ (loyal) more than experience when hiring managers — write the noun form of 'loyal'."
+prompt: "The company values ____ (loyal) more than experience when hiring managers."
+hint: "viết dạng danh từ của 'loyal'"
 accept: ["loyalty"]
 case_sensitive: false
 grammar_article_slug: "word-form-errors"
@@ -236,7 +238,8 @@ input: "text"
 headword: "wfe-adjective-to-adverb"
 skill: "production"
 subtype: "intermediate"
-prompt: "The negotiations between the two companies proceeded ____ (smooth) despite early disagreements — write the adverb form of 'smooth'."
+prompt: "The negotiations between the two companies proceeded ____ (smooth) despite early disagreements."
+hint: "viết dạng trạng từ của 'smooth'"
 accept: ["smoothly"]
 case_sensitive: false
 grammar_article_slug: "word-form-errors"
@@ -321,7 +324,8 @@ input: "text"
 headword: "wfe-make-keep-find-adjective"
 skill: "production"
 subtype: "intermediate"
-prompt: "Strict deadlines often make employees ____ (stress) during busy periods — write the adjective form of 'stress' that fits after 'make employees'."
+prompt: "Strict deadlines often make employees ____ (stress) during busy periods."
+hint: "viết dạng tính từ của 'stress' hợp sau 'make employees'"
 accept: ["stressed"]
 case_sensitive: false
 grammar_article_slug: "word-form-errors"

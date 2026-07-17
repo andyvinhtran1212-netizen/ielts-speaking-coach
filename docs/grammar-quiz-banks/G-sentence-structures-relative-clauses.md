@@ -66,7 +66,8 @@ input: "text"
 headword: "rc-pronoun-choice"
 skill: "production"
 subtype: "intermediate"
-prompt: "Điền relative adverb đúng: 'I remember the day ____ we first met.' (chỉ thời gian)"
+prompt: "Điền relative adverb đúng: 'I remember the day ____ we first met.'"
+hint: "chỉ thời gian"
 accept: ["when"]
 case_sensitive: false
 grammar_article_slug: "relative-clauses"

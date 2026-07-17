@@ -80,7 +80,8 @@ input: "text"
 headword: "linking-vs-action-verb"
 skill: "production"
 subtype: "intermediate"
-prompt: "The situation became ____ (serious) after the second warning — write only the adjective form."
+prompt: "The situation became ____ (serious) after the second warning."
+hint: "chỉ viết dạng tính từ"
 accept: ["serious"]
 case_sensitive: false
 grammar_article_slug: "adjective-vs-adverb"
@@ -164,7 +165,8 @@ input: "text"
 headword: "adverb-before-adjective"
 skill: "production"
 subtype: "intermediate"
-prompt: "The two approaches to the problem were ____ (complete) different in every respect — write only the adverb form."
+prompt: "The two approaches to the problem were ____ (complete) different in every respect."
+hint: "chỉ viết dạng trạng từ"
 accept: ["completely"]
 case_sensitive: false
 grammar_article_slug: "adjective-vs-adverb"
@@ -248,7 +250,8 @@ input: "text"
 headword: "good-vs-well"
 skill: "production"
 subtype: "intermediate"
-prompt: "She performed ____ (good) in the final exam and got the highest score in class — write only the adverb form."
+prompt: "She performed ____ (good) in the final exam and got the highest score in class."
+hint: "chỉ viết dạng trạng từ"
 accept: ["well"]
 case_sensitive: false
 grammar_article_slug: "adjective-vs-adverb"
@@ -332,7 +335,8 @@ input: "text"
 headword: "hard-hardly-late-lately"
 skill: "production"
 subtype: "intermediate"
-prompt: "The train arrived ____ (late), so we missed our connecting flight — write only the adverb form meaning 'muộn'."
+prompt: "The train arrived ____ (late), so we missed our connecting flight."
+hint: "chỉ viết dạng trạng từ nghĩa là 'muộn'"
 accept: ["late"]
 case_sensitive: false
 grammar_article_slug: "adjective-vs-adverb"

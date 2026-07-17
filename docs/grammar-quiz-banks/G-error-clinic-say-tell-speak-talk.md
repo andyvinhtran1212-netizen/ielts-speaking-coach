@@ -264,7 +264,8 @@ input: "text"
 headword: "stst-talk"
 skill: "production"
 subtype: "intermediate"
-prompt: "She's ____ (talk) her friend on the phone right now — write the -ing form with the correct preposition."
+prompt: "She's ____ (talk) her friend on the phone right now."
+hint: "dạng V-ing kèm giới từ đúng"
 accept: ["talking to", "talking with"]
 case_sensitive: false
 grammar_article_slug: "say-tell-speak-talk"

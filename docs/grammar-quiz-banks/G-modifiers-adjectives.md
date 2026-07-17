@@ -66,7 +66,8 @@ input: "text"
 headword: "adj-position"
 skill: "production"
 subtype: "intermediate"
-prompt: "Dịch 'thành phố hiện đại' sang tiếng Anh: '____' (gõ cụm từ: adjective + noun, theo đúng thứ tự)"
+prompt: "Dịch 'thành phố hiện đại' sang tiếng Anh: '____'"
+hint: "gõ cụm: tính từ + danh từ, theo đúng thứ tự"
 accept: ["modern city"]
 case_sensitive: false
 grammar_article_slug: "adjectives"
@@ -234,7 +235,8 @@ input: "text"
 headword: "adj-linking-verbs"
 skill: "production"
 subtype: "intermediate"
-prompt: "The weather is getting ____ (cold) as winter approaches — write only the adjective form."
+prompt: "The weather is getting ____ (cold) as winter approaches."
+hint: "chỉ viết dạng tính từ"
 accept: ["cold"]
 case_sensitive: false
 grammar_article_slug: "adjectives"
@@ -318,7 +320,8 @@ input: "text"
 headword: "adj-no-plural"
 skill: "production"
 subtype: "intermediate"
-prompt: "Sửa lỗi adjective trong câu 'She has three talenteds daughters.' → 'She has three ____ daughters.' (gõ dạng đúng)"
+prompt: "Sửa lỗi adjective trong câu 'She has three talenteds daughters.' → 'She has three ____ daughters.'"
+hint: "gõ dạng đúng của tính từ"
 accept: ["talented"]
 case_sensitive: false
 grammar_article_slug: "adjectives"

@@ -336,7 +336,7 @@ input: "text"
 headword: "t1tg-tense-choice"
 skill: "production"
 subtype: "intermediate"
-prompt: "The graph indicates that the number of internet users ____ expected to rise sharply by 2030. (gõ 2 từ)"
+prompt: "The graph indicates that the number of internet users ____ expected to rise sharply by 2030."
 accept: ["is expected"]
 case_sensitive: false
 grammar_article_slug: "task1-trend-grammar"

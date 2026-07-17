@@ -73,7 +73,8 @@ id: "pp_exp_i1"
 | `input` | ✅ | `choice` \| `text` \| `boolean` (khớp với type, xem §3.3) |
 | `headword` | ✅ | **= item_key** (gom pool). Dùng slug điểm ngữ pháp: `pp-since-for` |
 | `skill` | ✅ | Khía cạnh kiểm tra (xem §4). Ví dụ: `form`, `usage`, `error_id` |
-| `prompt` | ✅ | Đề bài. Chỗ trống dùng `____` (4 gạch dưới) |
+| `prompt` | ✅ | Đề bài — **CHỈ câu đề**. Chỗ trống dùng `____` (4 gạch dưới); từ gốc cần biến đổi để inline cạnh chỗ trống: `____ (speak)`. **KHÔNG nhúng hướng dẫn/gợi ý** ("— write the …", "(điền cụm 2 từ…)") vào prompt — cách trả lời do dòng instruction per-type của player tự hiện, gợi ý để ở field `hint` (audit 2026-07-17 §I) |
+| `hint` | tuỳ chọn | Gợi ý cho người học, tiếng Việt, render thành dòng 💡 riêng dưới đề bài (migration 159). VD: `"viết dạng tính từ của 'speak'"`. **Cấm chứa đáp án** — nêu tiêu chí/nghĩa, không nêu từ cần gõ |
 | `explain` | ✅* | Giải thích chi tiết bằng tiếng Việt (xem §6). *Không bị importer bắt buộc nhưng BẮT BUỘC theo chuẩn nội dung này* |
 | `grammar_article_slug` | ✅* | Slug bài Wiki để mở lại khi sai. **Phải là slug có thật**, sai → importer từ chối |
 | `subtype` | nên có | **Dùng làm LEVEL**: `basic` \| `intermediate` \| `advanced` (xem §5) |

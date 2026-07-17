@@ -52,7 +52,8 @@ input: "text"
 headword: "tivi-there-is-existence"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (2 words) a strong correlation between education and income — write the two words needed to introduce this existence."
+prompt: "____ (2 words) a strong correlation between education and income."
+hint: "2 từ giới thiệu sự tồn tại"
 accept: ["there is"]
 case_sensitive: false
 grammar_article_slug: "there-is-vs-it-is"
@@ -123,7 +124,8 @@ input: "text"
 headword: "tivi-it-is-description"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (2 words) widely believed that education is the key to success — write the two words needed to introduce this claim."
+prompt: "____ (2 words) widely believed that education is the key to success."
+hint: "2 từ mở đầu một nhận định"
 accept: ["it is"]
 case_sensitive: false
 grammar_article_slug: "there-is-vs-it-is"
@@ -180,7 +182,8 @@ input: "text"
 headword: "tivi-there-are-vs-they-are"
 skill: "production"
 subtype: "intermediate"
-prompt: "There are many stars in the sky. ____ (2 words) very bright tonight — write the two words needed to describe the stars already mentioned."
+prompt: "There are many stars in the sky. ____ (2 words) very bright tonight."
+hint: "2 từ mô tả những ngôi sao đã được nhắc tới"
 accept: ["they are"]
 case_sensitive: false
 grammar_article_slug: "there-is-vs-it-is"
@@ -237,7 +240,8 @@ input: "text"
 headword: "tivi-mixed-usage-errors"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (2 words) a well-known fact that exercise improves mental health — write the two words needed to introduce this fact using the formal subject for describing/emphasising."
+prompt: "____ (2 words) a well-known fact that exercise improves mental health."
+hint: "2 từ dùng chủ ngữ hình thức để mô tả/nhấn mạnh"
 accept: ["it is"]
 case_sensitive: false
 grammar_article_slug: "there-is-vs-it-is"

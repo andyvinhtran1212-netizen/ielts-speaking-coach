@@ -109,7 +109,8 @@ input: "text"
 headword: "cigm-tense-choice"
 skill: "production"
 subtype: "intermediate"
-prompt: "I ____ (see) that documentary last week — write only the correct past-tense verb form for 'see'."
+prompt: "I ____ (see) that documentary last week."
+hint: "viết dạng quá khứ đúng của 'see'"
 accept: ["saw"]
 case_sensitive: false
 grammar_article_slug: "common-ielts-grammar-mistakes"
@@ -350,7 +351,8 @@ input: "text"
 headword: "cigm-conditionals"
 skill: "production"
 subtype: "advanced"
-prompt: "If she ____ (study) harder for the exam, she would have passed it. — write the correct Type 3 verb form for 'study'."
+prompt: "If she ____ (study) harder for the exam, she would have passed it."
+hint: "viết dạng động từ câu điều kiện loại 3 của 'study'"
 accept: ["had studied"]
 case_sensitive: false
 grammar_article_slug: "common-ielts-grammar-mistakes"

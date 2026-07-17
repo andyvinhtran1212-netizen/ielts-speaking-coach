@@ -66,7 +66,8 @@ input: "text"
 headword: "svp-irregular-plurals"
 skill: "production"
 subtype: "intermediate"
-prompt: "Many ____ (phenomenon) of modern life need to be studied carefully — write the plural form of 'phenomenon'."
+prompt: "Many ____ (phenomenon) of modern life need to be studied carefully."
+hint: "viết dạng số nhiều của 'phenomenon'"
 accept: ["phenomena"]
 case_sensitive: false
 grammar_article_slug: "singular-vs-plural"
@@ -137,7 +138,8 @@ input: "text"
 headword: "svp-subject-verb-agreement"
 skill: "production"
 subtype: "intermediate"
-prompt: "The information on the website ____ (be) accurate — write the correct form of 'be' for the subject 'information' (uncountable)."
+prompt: "The information on the website ____ (be) accurate."
+hint: "dạng đúng của 'be' cho chủ ngữ 'information' (không đếm được)"
 accept: ["is"]
 case_sensitive: false
 grammar_article_slug: "singular-vs-plural"
@@ -221,7 +223,8 @@ input: "text"
 headword: "svp-number-of-vs-a-number-of"
 skill: "production"
 subtype: "intermediate"
-prompt: "A number of employees ____ (request) additional training this year — write the correct plural verb form of 'request'."
+prompt: "A number of employees ____ (request) additional training this year."
+hint: "viết dạng động từ số nhiều đúng của 'request'"
 accept: ["have requested", "requested", "request"]
 case_sensitive: false
 grammar_article_slug: "singular-vs-plural"
@@ -278,7 +281,8 @@ input: "text"
 headword: "svp-plural-only-uncountable"
 skill: "production"
 subtype: "intermediate"
-prompt: "Where ____ (be) my jeans? I can't find them anywhere — write the correct form of 'be' since 'jeans' is a plural-only noun."
+prompt: "Where ____ (be) my jeans? I can't find them anywhere."
+hint: "dạng đúng của 'be' — 'jeans' là danh từ chỉ-có-số-nhiều"
 accept: ["are"]
 case_sensitive: false
 grammar_article_slug: "singular-vs-plural"

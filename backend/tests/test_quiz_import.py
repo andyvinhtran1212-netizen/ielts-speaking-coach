@@ -431,6 +431,24 @@ def test_commit_inserts_bank_and_questions_via_rpc_with_audio():
     assert [row["order"] for row in rows] == [0, 1, 2, 3, 4]
 
 
+def test_hint_field_parses_and_commits():
+    """`hint` (migration 159) is carried from frontmatter to the RPC rows so the
+    player can render it as its own line; a question without hint commits None."""
+    bank = _BANK.replace('accept: ["alpha"]', 'accept: ["alpha"]\nhint: "gợi ý mẫu"')
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [],
+        ("quiz_banks", "insert"): [{"id": "bank-1"}],
+        ("vocab_cards", "select"): [],
+        **_TOPIC_VOCAB,
+    })
+    with patch.object(quiz_import, "supabase_admin", fake):
+        r = quiz_import.import_quiz_file(bank, topic_id="topic-1", dry_run=False)
+    assert r["committed_bank_id"] == "bank-1"
+    rows = next(c for c in fake.calls if c["op"] == "rpc")["payload"]["p_rows"]
+    assert next(row for row in rows if row["qid"] == "alpha_v2")["hint"] == "gợi ý mẫu"
+    assert next(row for row in rows if row["qid"] == "alpha_v1")["hint"] is None
+
+
 def test_commit_replaces_existing_bank_via_rpc_then_updates_meta():
     fake = _FakeSupabase(responses={
         ("quiz_banks", "select"): [{"id": "bank-existing"}],   # already exists

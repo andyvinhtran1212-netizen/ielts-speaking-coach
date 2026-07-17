@@ -52,7 +52,7 @@ input: "text"
 headword: "comparison-direction"
 skill: "production"
 subtype: "intermediate"
-prompt: "Viết lại phần so sánh dùng 'more … than' với tính từ 'widespread': 'Technology adoption in urban areas is greater than in rural areas.' → 'Technology adoption in urban areas is ____ in rural areas.' (gõ 3 từ)"
+prompt: "Viết lại phần so sánh dùng 'more … than' với tính từ 'widespread': 'Technology adoption in urban areas is greater than in rural areas.' → 'Technology adoption in urban areas is ____ in rural areas.'"
 accept: ["more widespread than"]
 case_sensitive: false
 grammar_article_slug: "comparison-structures-in-reading"
@@ -194,7 +194,7 @@ input: "text"
 headword: "comparison-multiples"
 skill: "production"
 subtype: "intermediate"
-prompt: "Viết lại: 'A has doubled compared to B.' → 'A is twice ____ B.' (gõ 3 từ)"
+prompt: "Viết lại: 'A has doubled compared to B.' → 'A is twice ____ B.'"
 accept: ["as large as", "as big as", "as much as"]
 case_sensitive: false
 grammar_article_slug: "comparison-structures-in-reading"

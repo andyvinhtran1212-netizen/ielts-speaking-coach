@@ -65,7 +65,8 @@ input: "text"
 headword: "rc-pronoun-reference"
 skill: "production"
 subtype: "intermediate"
-prompt: "Complete the sentence with the correct pronoun: 'The government introduced new regulations. ____ were designed to reduce pollution.' (use one pronoun)"
+prompt: "Complete the sentence with the correct pronoun: 'The government introduced new regulations. ____ were designed to reduce pollution.'"
+hint: "dùng 1 đại từ"
 accept: ["They", "they"]
 case_sensitive: false
 grammar_article_slug: "reference-and-cohesion"
@@ -106,7 +107,8 @@ input: "text"
 headword: "rc-pronoun-reference"
 skill: "production"
 subtype: "advanced"
-prompt: "Select the correct pronoun for this passage: 'The research team discovered two distinct patterns in the data. ____ had not been documented in previous studies, which suggested a significant breakthrough.' (use it or they)"
+prompt: "Select the correct pronoun for this passage: 'The research team discovered two distinct patterns in the data. ____ had not been documented in previous studies, which suggested a significant breakthrough.'"
+hint: "dùng 'it' hoặc 'they'"
 accept: ["They", "they"]
 case_sensitive: false
 grammar_article_slug: "reference-and-cohesion"
@@ -163,7 +165,7 @@ input: "text"
 headword: "rc-this-such-reference"
 skill: "production"
 subtype: "intermediate"
-prompt: "Complete with 'this', 'these', or 'such': 'Artificial intelligence has surpassed human performance in certain domains. ____ advances have raised ethical concerns about AI deployment.' (use one word)"
+prompt: "Complete with 'this', 'these', or 'such': 'Artificial intelligence has surpassed human performance in certain domains. ____ advances have raised ethical concerns about AI deployment.'"
 accept: ["These", "these"]
 case_sensitive: false
 grammar_article_slug: "reference-and-cohesion"
@@ -204,7 +206,7 @@ input: "text"
 headword: "rc-this-such-reference"
 skill: "production"
 subtype: "advanced"
-prompt: "Fill the blank with 'this', 'these', or 'such': 'The study demonstrated that meditation reduces stress, improves focus, and enhances emotional resilience. ____ benefits have sparked widespread adoption of mindfulness programs in schools and workplaces.' (use one word)"
+prompt: "Fill the blank with 'this', 'these', or 'such': 'The study demonstrated that meditation reduces stress, improves focus, and enhances emotional resilience. ____ benefits have sparked widespread adoption of mindfulness programs in schools and workplaces.'"
 accept: ["These", "these", "Such", "such"]
 case_sensitive: false
 grammar_article_slug: "reference-and-cohesion"
@@ -358,7 +360,8 @@ input: "text"
 headword: "rc-reference-accuracy"
 skill: "production"
 subtype: "advanced"
-prompt: "Làm rõ tham chiếu mơ hồ: 'The committee approved the proposal after the board rejected it.' → 'The committee approved the ____ after the board rejected the original proposal.' (Điền một cụm để phân biệt phiên bản được phê duyệt)"
+prompt: "Làm rõ tham chiếu mơ hồ: 'The committee approved the proposal after the board rejected it.' → 'The committee approved the ____ after the board rejected the original proposal.'"
+hint: "điền một cụm để phân biệt phiên bản được phê duyệt"
 accept: ["revised proposal", "modified proposal", "updated proposal"]
 case_sensitive: false
 grammar_article_slug: "reference-and-cohesion"

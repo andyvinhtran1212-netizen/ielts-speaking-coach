@@ -52,7 +52,8 @@ input: "text"
 headword: "ms-vietnamese-influence"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ needs to invest more in education to improve literacy rates. (điền chủ ngữ = 'chính phủ')"
+prompt: "____ needs to invest more in education to improve literacy rates."
+hint: "điền chủ ngữ nghĩa là 'chính phủ'"
 accept: ["The government", "Government"]
 case_sensitive: false
 grammar_article_slug: "missing-subjects"
@@ -109,7 +110,8 @@ input: "text"
 headword: "ms-subordinate-clause"
 skill: "production"
 subtype: "intermediate"
-prompt: "If ____ (invest) in renewable energy, governments will see long-term environmental benefits. (điền chủ ngữ + động từ đúng cho mệnh đề 'If')"
+prompt: "If ____ (invest) in renewable energy, governments will see long-term environmental benefits."
+hint: "điền chủ ngữ + động từ đúng cho mệnh đề 'If'"
 accept: ["they invest", "countries invest", "we invest", "governments invest"]
 case_sensitive: false
 grammar_article_slug: "missing-subjects"
@@ -166,7 +168,7 @@ input: "text"
 headword: "ms-lost-subject-second-clause"
 skill: "production"
 subtype: "intermediate"
-prompt: "He studied economics at university, ____ (điền liên từ quan hệ) helped him get a good job. (điền 1 từ)"
+prompt: "He studied economics at university, ____ (điền liên từ quan hệ) helped him get a good job."
 accept: ["which"]
 case_sensitive: false
 grammar_article_slug: "missing-subjects"
@@ -223,7 +225,7 @@ input: "text"
 headword: "ms-dummy-it"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (điền dummy subject) is clear that more action is needed to fight climate change. (điền 1 từ)"
+prompt: "____ (điền dummy subject) is clear that more action is needed to fight climate change."
 accept: ["It"]
 case_sensitive: false
 grammar_article_slug: "missing-subjects"

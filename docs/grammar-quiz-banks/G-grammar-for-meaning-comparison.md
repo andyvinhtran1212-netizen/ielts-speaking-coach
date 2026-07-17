@@ -194,7 +194,7 @@ input: "text"
 headword: "comp-as-as"
 skill: "production"
 subtype: "intermediate"
-prompt: "This laptop costs twice ____ (much) as the one I bought last year — write only the missing words."
+prompt: "This laptop costs twice ____ (much) as the one I bought last year."
 accept: ["as much"]
 case_sensitive: false
 grammar_article_slug: "comparison"
@@ -334,7 +334,7 @@ input: "text"
 headword: "comp-dropped-than"
 skill: "production"
 subtype: "intermediate"
-prompt: "Prices in the city centre are significantly higher ____ in the suburbs — write only the missing word."
+prompt: "Prices in the city centre are significantly higher ____ in the suburbs."
 accept: ["than"]
 case_sensitive: false
 grammar_article_slug: "comparison"

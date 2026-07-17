@@ -136,7 +136,8 @@ input: "text"
 headword: "pgl-ed-endings"
 skill: "production"
 subtype: "intermediate"
-prompt: "Last night I ____ (cook) dinner and then watched TV — điền đúng dạng quá khứ, nhớ phát âm rõ -ed khi luyện nói để không nghe nhầm thì."
+prompt: "Last night I ____ (cook) dinner and then watched TV."
+hint: "điền đúng dạng quá khứ — nhớ phát âm rõ -ed khi luyện nói"
 accept: ["cooked"]
 case_sensitive: false
 grammar_article_slug: "pronunciation-grammar-link"
@@ -220,7 +221,8 @@ input: "text"
 headword: "pgl-contractions"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ already finished his report — điền dạng rút gọn của 'He has' để bắt đầu câu."
+prompt: "____ already finished his report."
+hint: "dạng rút gọn của 'He has' để bắt đầu câu"
 accept: ["He's", "he's"]
 case_sensitive: false
 grammar_article_slug: "pronunciation-grammar-link"
@@ -304,7 +306,8 @@ input: "text"
 headword: "pgl-cluster-simplification"
 skill: "production"
 subtype: "intermediate"
-prompt: "We ____ (stop, quá khứ đơn) at the traffic light before turning right — điền đúng dạng, chú ý cluster phụ âm cuối /pt/ khi phát âm."
+prompt: "We ____ (stop, quá khứ đơn) at the traffic light before turning right."
+hint: "điền đúng dạng — chú ý cụm phụ âm cuối /pt/ khi phát âm"
 accept: ["stopped"]
 case_sensitive: false
 grammar_article_slug: "pronunciation-grammar-link"

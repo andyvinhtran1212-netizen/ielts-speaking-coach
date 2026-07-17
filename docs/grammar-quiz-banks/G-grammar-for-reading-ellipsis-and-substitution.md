@@ -51,7 +51,8 @@ input: "text"
 headword: "ellipsis-in-coordinate-clauses"
 skill: "production"
 subtype: "intermediate"
-prompt: "The northern factories expanded, but the southern ones ____ (thay đổi động từ phù hợp)."
+prompt: "The northern factories expanded, but the southern ones ____."
+hint: "thay đổi động từ cho phù hợp"
 accept: ["did not", "did not expand", "did not change", "declined", "contracted"]
 case_sensitive: false
 grammar_article_slug: "ellipsis-and-substitution"

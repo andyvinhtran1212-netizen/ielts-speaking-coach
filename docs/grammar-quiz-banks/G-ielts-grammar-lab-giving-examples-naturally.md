@@ -52,7 +52,8 @@ input: "text"
 headword: "gen-for-example-instance"
 skill: "production"
 subtype: "intermediate"
-prompt: "Several European countries have excellent public transport systems, ____, Switzerland and the Netherlands. (điền cụm 2 từ dùng để nêu ví dụ, đặt giữa câu)"
+prompt: "Several European countries have excellent public transport systems, ____, Switzerland and the Netherlands."
+hint: "cụm 2 từ dùng để nêu ví dụ, đặt giữa câu"
 accept: ["for example", "for instance"]
 case_sensitive: false
 grammar_article_slug: "giving-examples-naturally"
@@ -220,7 +221,8 @@ input: "text"
 headword: "gen-speaking-informal-connectors"
 skill: "production"
 subtype: "intermediate"
-prompt: "Cities can be overwhelming — I ____ , the noise, the traffic, the crowds... it's a lot to deal with. (điền 1 từ sau 'I' tạo cụm đệm nghĩa là 'ý tôi là')"
+prompt: "Cities can be overwhelming — I ____ , the noise, the traffic, the crowds... it's a lot to deal with."
+hint: "1 từ sau 'I' tạo cụm đệm nghĩa là 'ý tôi là'"
 accept: ["mean"]
 case_sensitive: false
 grammar_article_slug: "giving-examples-naturally"
@@ -304,7 +306,8 @@ input: "text"
 headword: "gen-register-distinction"
 skill: "production"
 subtype: "intermediate"
-prompt: "The impact of social media on self-image cannot be underestimated. To ____ , a 2019 study found Instagram was the most harmful platform for young people's mental health. (điền động từ nghĩa 'minh họa')"
+prompt: "The impact of social media on self-image cannot be underestimated. To ____ , a 2019 study found Instagram was the most harmful platform for young people's mental health."
+hint: "điền động từ nghĩa 'minh họa'"
 accept: ["illustrate"]
 case_sensitive: false
 grammar_article_slug: "giving-examples-naturally"

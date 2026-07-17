@@ -66,7 +66,7 @@ input: "text"
 headword: "oat-another"
 skill: "production"
 subtype: "intermediate"
-prompt: "The startup needs ____ (another/other — choose for 'investor', a singular countable noun) investor before it can launch the product — write one word."
+prompt: "The startup needs ____ (another/other — choose for 'investor', a singular countable noun) investor before it can launch the product."
 accept: ["another"]
 case_sensitive: false
 grammar_article_slug: "other-another-the-other-others"
@@ -137,7 +137,7 @@ input: "text"
 headword: "oat-other"
 skill: "production"
 subtype: "intermediate"
-prompt: "The city needs ____ (other/others — choose for 'measures', a plural noun) measures to tackle air pollution besides banning old vehicles — write one word."
+prompt: "The city needs ____ (other/others — choose for 'measures', a plural noun) measures to tackle air pollution besides banning old vehicles."
 accept: ["other"]
 case_sensitive: false
 grammar_article_slug: "other-another-the-other-others"
@@ -194,7 +194,8 @@ input: "text"
 headword: "oat-the-other"
 skill: "production"
 subtype: "intermediate"
-prompt: "I've read one of the two reports already; I'll read ____ (the other) tomorrow — write the two-word phrase (referring back to 'report' as a pronoun, no noun after)."
+prompt: "I've read one of the two reports already; I'll read ____ (the other) tomorrow."
+hint: "cụm 2 từ thay cho 'report' đã nhắc, không kèm danh từ phía sau"
 accept: ["the other"]
 case_sensitive: false
 grammar_article_slug: "other-another-the-other-others"
@@ -251,7 +252,7 @@ input: "text"
 headword: "oat-others-pronoun"
 skill: "production"
 subtype: "intermediate"
-prompt: "Some employees welcomed the new policy, but ____ (others/the others — no specific group defined, general contrast) worried about job security — write one word."
+prompt: "Some employees welcomed the new policy, but ____ (others/the others — no specific group defined, general contrast) worried about job security."
 accept: ["others"]
 case_sensitive: false
 grammar_article_slug: "other-another-the-other-others"
@@ -321,7 +322,8 @@ input: "text"
 headword: "oat-fixed-phrases"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (in other words), the policy failed to achieve its main goal — write the three-word fixed phrase meaning 'nói cách khác'."
+prompt: "____ (in other words), the policy failed to achieve its main goal."
+hint: "cụm cố định 3 từ nghĩa là 'nói cách khác'"
 accept: ["in other words"]
 case_sensitive: false
 grammar_article_slug: "other-another-the-other-others"

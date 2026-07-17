@@ -321,7 +321,8 @@ input: "text"
 headword: "wfas-ful-less"
 skill: "production"
 subtype: "intermediate"
-prompt: "Arguing over such a minor detail seems completely ____ (point) — write the adjective meaning 'lacking any point/purpose'."
+prompt: "Arguing over such a minor detail seems completely ____ (point)."
+hint: "tính từ nghĩa là 'vô nghĩa/không có mục đích'"
 accept: ["pointless"]
 case_sensitive: false
 grammar_article_slug: "word-formation-adjective-suffixes"
