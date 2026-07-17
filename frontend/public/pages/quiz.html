@@ -694,10 +694,14 @@
       } else if (q.input === 'syllable') {
         itxt = 'Chọn một phương án.';
       } else if (q.input === 'text') {
-        const n = (Array.isArray(q.accept) && q.accept[0])
-          ? String(q.accept[0]).trim().split(/\s+/).length : 0;
         // Count shows for 1-word answers too: bank prompts no longer carry
         // "write one word"-style tails (moved to `hint` / dropped, audit §I).
+        // Derived ONLY when every accepted variant agrees — accepts of mixed
+        // lengths ("The government" / "Government") must not advertise a
+        // "required" count the grader doesn't actually require.
+        const counts = (Array.isArray(q.accept) ? q.accept : [])
+          .map((a) => String(a).trim().split(/\s+/).length);
+        const n = counts.length && counts.every((c) => c === counts[0]) ? counts[0] : 0;
         itxt = n >= 1 ? ('Gõ đáp án vào ô trống (' + n + ' từ).') : 'Gõ đáp án vào ô trống.';
       }
       instr.textContent = itxt;

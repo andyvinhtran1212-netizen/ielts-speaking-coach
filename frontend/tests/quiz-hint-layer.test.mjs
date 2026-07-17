@@ -25,6 +25,8 @@ describe('quiz.html — authored hint line (#qz-hint)', () => {
     // Bank prompts no longer carry "write one word"-style tails; the count on
     // the instruction line is the single remaining source of that info.
     assert.match(QUIZ, /itxt = n >= 1 \? \('Gõ đáp án vào ô trống \(' \+ n \+ ' từ\)\.'\)/);
+    // …but only when every accepted variant has the SAME length (review P2).
+    assert.match(QUIZ, /counts\.every\(\(c\) => c === counts\[0\]\) \? counts\[0\] : 0/);
   });
   test('the review log carries the hint so items keep their context', () => {
     assert.match(QUIZ, /hint: String\(q\.hint \|\| ''\)\.trim\(\) \|\| null/);
