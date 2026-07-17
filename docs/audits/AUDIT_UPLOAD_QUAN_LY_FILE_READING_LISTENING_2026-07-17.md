@@ -113,3 +113,17 @@ Admin triage: trang `pages/admin/feedback/` — filter theo skill/type/status/te
 - **Đã gỡ 4 chế độ khỏi admin + backend** (quyết định của Andy): MP3 upload đơn/bulk/validate, ElevenLabs render UI, audio cutter, AI map-image generation. Route + trang + JS + test tương ứng đã xóa; **manual map upload/delete/signed-url giữ nguyên**; `services/listening_renderer.py` GIỮ vì audio-assembly narrator (mini/full import) vẫn gọi `render_via_elevenlabs`; `ELEVENLABS_API_KEY` giữ (assembly + vocab TTS).
 - **Triage 9 feedback:** 6 rating (không cần hành động), 3 phản ánh nội dung → 2 lỗi THẬT đã soạn fix: L01 q2 answer key `(small) workshops`→`workshops` (+alt), L09 q11 reword "Name ONE type..." để khớp giới hạn 3 từ. Script: `backend/scripts/oneoff_fix_flagged_content_and_resolve_feedback.py` (admin chạy tay — classifier chặn ghi DB prod từ agent).
 - **Rác archived:** 14/19 test archived có attempts → giữ; 5 test 0-attempt (LSN-L06/07/11/12/13) + draft render "Untitled listening" → script `backend/scripts/oneoff_cleanup_archived_listening_junk.py` (dry-run mặc định, `--commit` để xóa).
+
+## Phụ lục 2 — toàn bộ 7 đề xuất ĐÃ HOÀN THÀNH (cùng ngày, 6 PR merged)
+
+| # | Đề xuất | PR |
+|---|---------|-----|
+| 1 | Triage 9 feedback + fix 2 answer key (L01 q2, L09 q11) | #797 (script đã chạy prod) |
+| 2 | Gỡ 4 chế độ ngủ đông/dở dang khỏi admin | #797 |
+| 3 | Dọn rác archived (5 test 0-attempt + draft render) | script đã chạy prod |
+| 4 | Chốt 1 flow import — retire convert DOCX | #801 |
+| 5 | Cứng hoá test_type thành cột thật | #799 (listening, mig 157) + #800 (reading, mig 158) |
+| 6 | Mở rộng flag người học cho practice + exercise lẻ | #802 |
+| 7 | Vá orphan: công cụ đối soát bucket ↔ DB + HEAD-check ảnh | #803 (chạy thật: xoá 4 file mồ côi, 3 bucket sạch; corpus reading 0 URL ngoài) |
+
+Bonus phát hiện trong quá trình làm: ledger `_schema_migrations` prod trống → đã baseline đủ (từ nay `apply_migrations.sh` dùng an toàn); ROUTE_LEDGER/listening-architecture dọn route chết; 2 flow orphan-prone (single/bulk upload) biến mất theo đề xuất #2 nên chỉ còn 2 điểm upload-audio cần theo dõi bằng công cụ #7.
