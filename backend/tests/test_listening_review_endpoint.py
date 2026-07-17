@@ -206,3 +206,15 @@ def test_review_mini_rebases_window_to_section_relative(monkeypatch):
     # (the wrong turn at this pack starts at 95.22 s)
     assert win["start"] < 95.22, "must seek before the next (wrong) turn"
     assert win["start"] <= 77.11 and win["end"] >= 67.06, "window must overlap the answer turn"
+
+
+def test_review_test_projection_selects_test_type():
+    """Mig 157 — is_mini đọc test_row['test_type'] (cột thật). Projection của
+    fetch listening_tests trong review PHẢI select cột này; thiếu nó thì mọi
+    mini mới (metadata không còn test_type) mất rebase audio window. Fake ở
+    trên bỏ qua projection nên pin thẳng vào source (Codex P1, PR #798)."""
+    import inspect, re
+    src = inspect.getsource(L.get_listening_test_attempt_review)
+    m = re.search(r'table\("listening_tests"\)[\s\S]{0,200}?select\("([^"]+)"', src)
+    assert m, "listening_tests fetch not found in review route"
+    assert "test_type" in m.group(1)

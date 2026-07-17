@@ -4872,7 +4872,7 @@ async def get_listening_test_attempt_review(
     test_id = attempt["test_id"]
     test_res = (
         supabase_admin.table("listening_tests")
-        .select("id,test_id,title,band_target,cue_points,metadata,"
+        .select("id,test_id,title,band_target,cue_points,metadata,test_type,"
                 "full_audio_storage_path,assembled_audio_storage_path,"
                 "full_audio_duration_seconds,themes")
         .eq("id", test_id).limit(1).execute()
