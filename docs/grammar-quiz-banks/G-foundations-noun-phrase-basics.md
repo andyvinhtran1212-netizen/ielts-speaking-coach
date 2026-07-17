@@ -66,7 +66,7 @@ input: "text"
 headword: "np-determiner"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (determiner) factor that most influences consumer choice is price — write the single word that fits the blank (a definite, specific factor already implied)."
+prompt: "____ (determiner, 1 từ) factor that most influences consumer choice is price."
 accept: ["The"]
 case_sensitive: false
 grammar_article_slug: "noun-phrase-basics"

@@ -109,7 +109,7 @@ input: "text"
 headword: "acn-subordinators"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (write 'even though') she had little experience in public speaking, she delivered a confident presentation."
+prompt: "____ (liên từ nhượng bộ gồm 2 từ) she had little experience in public speaking, she delivered a confident presentation."
 accept: ["Even though"]
 case_sensitive: false
 grammar_article_slug: "adding-contrast-naturally"

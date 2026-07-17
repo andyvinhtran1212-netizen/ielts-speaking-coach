@@ -66,7 +66,7 @@ input: "text"
 headword: "pr-it-ambiguous"
 skill: "production"
 subtype: "intermediate"
-prompt: "The committee reviewed the budget and the proposal. ____ (viết lại 'It was rejected' cho rõ nghĩa, dùng danh từ 'the proposal') was rejected."
+prompt: "The committee reviewed the budget and the proposal. ____ (thay 'It' mơ hồ bằng danh từ cụ thể — ý câu: bản đề xuất bị bác) was rejected."
 accept: ["the proposal"]
 case_sensitive: false
 grammar_article_slug: "wrong-pronoun-reference"
@@ -151,8 +151,8 @@ input: "text"
 headword: "pr-they-ambiguous"
 skill: "production"
 subtype: "intermediate"
-prompt: "Landlords and tenants often disagree about repairs. ____ (viết lại 'They' cho rõ nghĩa, dùng cụm 'both parties') should communicate more clearly."
-accept: ["both parties"]
+prompt: "Landlords and tenants often disagree about repairs. ____ (thay 'They' mơ hồ bằng cụm 2 từ chỉ CẢ HAI bên) should communicate more clearly."
+accept: ["both parties", "both sides", "both groups"]
 case_sensitive: false
 grammar_article_slug: "wrong-pronoun-reference"
 explain: "Khi 'they' có thể chỉ cả hai nhóm cùng lúc, dùng cụm gộp rõ nghĩa như 'both parties' thay vì để 'they' mơ hồ."
@@ -236,8 +236,8 @@ input: "text"
 headword: "pr-this-that-ambiguous"
 skill: "production"
 subtype: "intermediate"
-prompt: "Plastic waste is increasing, and recycling rates remain low. ____ (viết lại 'This is worrying' cho rõ nghĩa, dùng cụm 'this trend') is worrying."
-accept: ["this trend"]
+prompt: "Plastic waste is increasing, and recycling rates remain low. ____ (thay 'This' mơ hồ bằng cụm 'this + danh từ' tóm tắt hiện tượng) is worrying."
+accept: ["this trend", "this situation", "this development", "this problem"]
 case_sensitive: false
 grammar_article_slug: "wrong-pronoun-reference"
 explain: "'this + noun' như 'this trend' làm rõ 'this' đang tóm tắt ý gì, thay vì để người đọc tự đoán."
@@ -321,7 +321,7 @@ input: "text"
 headword: "pr-he-she-wrong-referent"
 skill: "production"
 subtype: "intermediate"
-prompt: "Tránh 'she' mơ hồ (Sarah hay her sister?): 'Sarah called her sister because ____ was worried about the trip.' Điền tên riêng rõ nghĩa vào chỗ trống:"
+prompt: "Tránh 'she' mơ hồ (Sarah hay her sister?): 'Sarah called her sister because ____ was worried about the trip.' Điền tên riêng rõ nghĩa — ý câu: người gọi điện là người đang lo."
 accept: ["Sarah", "sarah"]
 case_sensitive: false
 grammar_article_slug: "wrong-pronoun-reference"

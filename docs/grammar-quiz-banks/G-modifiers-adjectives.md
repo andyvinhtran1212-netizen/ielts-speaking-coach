@@ -318,7 +318,7 @@ input: "text"
 headword: "adj-no-plural"
 skill: "production"
 subtype: "intermediate"
-prompt: "Sửa lỗi adjective: 'She has three ____ daughters.' (điền dạng đúng của talented, không -s)"
+prompt: "Sửa lỗi adjective trong câu 'She has three talenteds daughters.' → 'She has three ____ daughters.' (gõ dạng đúng)"
 accept: ["talented"]
 case_sensitive: false
 grammar_article_slug: "adjectives"
