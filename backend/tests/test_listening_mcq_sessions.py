@@ -410,88 +410,126 @@ def test_browse_rejects_bad_accent(monkeypatch):
 
 
 # ── GET /api/listening/analytics ─────────────────────────────────────
+# Audit 2026-07-17: nguồn = listening_test_attempts (bảng listening_attempts
+# cũ đã chết); by_mode = theo test_type (mini/drill/full), avg_score = % đúng.
 
 
 def _iso_days_ago(n):
     return (datetime.now(timezone.utc) - timedelta(days=n)).isoformat()
 
 
-def test_analytics_by_mode_aggregation(monkeypatch):
-    """Sprint 11.5.1 hotfix — 3 distinct exercises per mode, no retries,
-    so by_mode counts = 3 (post-dedup)."""
-    U = "user-1"
+def _tests_canned():
+    return [
+        {"id": "t-mini", "test_id": "ILR-LIS-LSN-L01", "title": "Lesson 01", "test_type": "mini"},
+        {"id": "t-drill", "test_id": "ILR-LIS-DRL-01", "title": "Drill 01", "test_type": "drill"},
+        {"id": "t-full", "test_id": "C19-T1", "title": "Cam 19 Test 1", "test_type": "full"},
+    ]
+
+
+def _att(i, test="t-mini", *, status="submitted", score=8, total=10, days_ago=1.0, user="user-1"):
+    return {
+        "id": f"att-{i}", "user_id": user, "test_id": test, "status": status,
+        "score": (score if status == "submitted" else None),
+        "grading_details": ([{"q_num": q + 1} for q in range(total)]
+                            if status == "submitted" else []),
+        "created_at": _iso_days_ago(days_ago),
+        "submitted_at": (_iso_days_ago(days_ago) if status == "submitted" else None),
+    }
+
+
+def test_analytics_by_type_aggregation(monkeypatch):
     canned = {
-        "listening_attempts": [
-            {"id": "a1", "user_id": U, "exercise_id": "ex-d1", "score": 1.0, "is_correct": True,  "created_at": _iso_days_ago(1)},
-            {"id": "a2", "user_id": U, "exercise_id": "ex-d2", "score": 0.5, "is_correct": False, "created_at": _iso_days_ago(2)},
-            {"id": "a3", "user_id": U, "exercise_id": "ex-d3", "score": 0.8, "is_correct": False, "created_at": _iso_days_ago(3)},
-            {"id": "a4", "user_id": U, "exercise_id": "ex-m1", "score": 1.0, "is_correct": True,  "created_at": _iso_days_ago(1)},
-            {"id": "a5", "user_id": U, "exercise_id": "ex-m2", "score": 0.4, "is_correct": False, "created_at": _iso_days_ago(2)},
-            {"id": "a6", "user_id": U, "exercise_id": "ex-m3", "score": 0.6, "is_correct": False, "created_at": _iso_days_ago(3)},
+        "listening_test_attempts": [
+            _att(1, "t-mini", score=8, days_ago=1),      # 0.8
+            _att(2, "t-drill", score=5, days_ago=2),     # 0.5
         ],
-        "listening_exercises": [
-            {"id": "ex-d1", "exercise_type": "dictation"},
-            {"id": "ex-d2", "exercise_type": "dictation"},
-            {"id": "ex-d3", "exercise_type": "dictation"},
-            {"id": "ex-m1", "exercise_type": "mcq"},
-            {"id": "ex-m2", "exercise_type": "mcq"},
-            {"id": "ex-m3", "exercise_type": "mcq"},
+        "listening_tests": _tests_canned(),
+    }
+    _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
+    authz = _patch_user(monkeypatch)
+    out = _run(listening_router.get_listening_analytics(time_range="30d", authorization=authz))
+    assert out["total_attempts"] == 2
+    assert out["by_mode"]["mini"] == {"count": 1, "avg_score": 0.8, "completion": 1.0}
+    assert out["by_mode"]["drill"]["avg_score"] == 0.5
+    assert out["by_mode"]["full"] == {"count": 0, "avg_score": None, "completion": None}
+
+
+def test_analytics_first_attempt_rule_per_test(monkeypatch):
+    """Retry không được kéo avg: lượt đầu 1.0, retry 0.0 → avg = 1.0; nhưng
+    total_attempts + recent vẫn đếm mọi lượt (engagement/timeline)."""
+    canned = {
+        "listening_test_attempts": [
+            _att(1, "t-mini", score=10, days_ago=2),
+            _att(2, "t-mini", score=0, days_ago=1),      # retry
+        ],
+        "listening_tests": _tests_canned(),
+    }
+    _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
+    authz = _patch_user(monkeypatch)
+    out = _run(listening_router.get_listening_analytics(time_range="30d", authorization=authz))
+    assert out["total_attempts"] == 2
+    assert out["by_mode"]["mini"]["count"] == 1
+    assert out["by_mode"]["mini"]["avg_score"] == 1.0
+    assert len(out["recent_attempts"]) == 2
+
+
+def test_analytics_completion_counts_abandoned(monkeypatch):
+    """46/418 lượt prod là bỏ dở — completion phải lộ tín hiệu này."""
+    canned = {
+        "listening_test_attempts": [
+            _att(1, "t-drill", status="submitted", score=9, days_ago=1),
+            _att(2, "t-drill", status="abandoned", days_ago=2),
+        ],
+        "listening_tests": _tests_canned(),
+    }
+    _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
+    authz = _patch_user(monkeypatch)
+    out = _run(listening_router.get_listening_analytics(time_range="30d", authorization=authz))
+    assert out["by_mode"]["drill"]["completion"] == 0.5
+    # lượt bỏ dở không kéo avg_score (không có accuracy)
+    assert out["by_mode"]["drill"]["avg_score"] == 0.9
+
+
+def test_analytics_weakest_mode_requires_3_submitted(monkeypatch):
+    """Loại chỉ 2 lượt nộp (điểm thấp) KHÔNG được gắn 'yếu nhất' —
+    non-misleading rule; loại đủ 3 lượt là candidate duy nhất."""
+    canned = {
+        "listening_test_attempts": [
+            # 3 bài mini khác nhau, điểm cao
+            {**_att(i, "t-mini", score=9, days_ago=i + 1), "test_id": f"t-mini-{i}"}
+            for i in range(3)
+        ] + [
+            {**_att(10 + i, "t-drill", score=1, days_ago=i + 1), "test_id": f"t-drill-{i}"}
+            for i in range(2)
+        ],
+        "listening_tests": _tests_canned() + [
+            {"id": f"t-mini-{i}", "test_id": f"M{i}", "title": f"M{i}", "test_type": "mini"}
+            for i in range(3)
+        ] + [
+            {"id": f"t-drill-{i}", "test_id": f"D{i}", "title": f"D{i}", "test_type": "drill"}
+            for i in range(2)
         ],
     }
     _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
     authz = _patch_user(monkeypatch)
     out = _run(listening_router.get_listening_analytics(time_range="30d", authorization=authz))
-    assert out["total_attempts"] == 6     # raw count of all attempts (engagement)
-    assert out["by_mode"]["dictation"]["count"] == 3   # first-attempt-only
-    assert out["by_mode"]["mcq"]["count"] == 3
-    # gist/true_false → 0 attempts each, avg_score None.
-    assert out["by_mode"]["gist"]["count"] == 0
-    assert out["by_mode"]["gist"]["avg_score"] is None
-
-
-def test_analytics_weakest_mode_requires_3_attempts(monkeypatch):
-    """Sprint 11.5.1 hotfix — 2 distinct mcq exercises (insufficient) +
-    5 distinct dictation exercises; mcq score is lower but should NOT
-    be returned as weakest (insufficient data after first-attempt dedup)."""
-    U = "user-1"
-    canned = {
-        "listening_attempts": [
-            {"id": f"a-d-{i}", "user_id": U, "exercise_id": f"ex-d-{i}", "score": 0.95, "is_correct": True,
-             "created_at": _iso_days_ago(i + 1)}
-            for i in range(5)
-        ] + [
-            {"id": "a-m-1", "user_id": U, "exercise_id": "ex-m-1", "score": 0.1, "is_correct": False, "created_at": _iso_days_ago(1)},
-            {"id": "a-m-2", "user_id": U, "exercise_id": "ex-m-2", "score": 0.2, "is_correct": False, "created_at": _iso_days_ago(2)},
-        ],
-        "listening_exercises": [
-            {"id": f"ex-d-{i}", "exercise_type": "dictation"} for i in range(5)
-        ] + [
-            {"id": "ex-m-1", "exercise_type": "mcq"},
-            {"id": "ex-m-2", "exercise_type": "mcq"},
-        ],
-    }
-    _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
-    authz = _patch_user(monkeypatch)
-    out = _run(listening_router.get_listening_analytics(time_range="30d", authorization=authz))
-    # Only dictation qualifies (5 ≥ 3) — but it's the only mode, so it IS
-    # the weakest (and the only candidate).
-    assert out["weakest_mode"] == "dictation"
+    assert out["weakest_mode"] == "mini"
 
 
 def test_analytics_recent_attempts_capped_at_10(monkeypatch):
-    rows = [
-        {"id": f"a{i}", "user_id": "user-1", "exercise_id": "ex-d", "score": 0.5,
-         "is_correct": False, "created_at": _iso_days_ago(i)}
-        for i in range(15)
-    ]
     canned = {
-        "listening_attempts": rows,
-        "listening_exercises": [{"id": "ex-d", "exercise_type": "dictation"}],
+        "listening_test_attempts": [
+            _att(i, "t-mini", score=5, days_ago=i / 10) for i in range(15)
+        ],
+        "listening_tests": _tests_canned(),
     }
     _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
     authz = _patch_user(monkeypatch)
     out = _run(listening_router.get_listening_analytics(time_range="30d", authorization=authz))
     assert len(out["recent_attempts"]) == 10
+    r0 = out["recent_attempts"][0]
+    assert r0["type"] == "mini" and r0["title"] == "Lesson 01"
+    assert r0["accuracy"] == 0.5 and r0["total_questions"] == 10
 
 
 def test_analytics_rejects_bad_range(monkeypatch):
@@ -503,132 +541,12 @@ def test_analytics_rejects_bad_range(monkeypatch):
 
 
 def test_analytics_empty_user(monkeypatch):
-    """A user with zero attempts gets a valid empty-shape response, not
-    an error (CLAUDE.md non-misleading: 'insufficient data' not
-    'no data error')."""
-    _patch_admin_client(monkeypatch, _FakeAdminClient({"listening_attempts": []}))
+    """User 0 lượt → shape rỗng hợp lệ, không lỗi (non-misleading)."""
+    _patch_admin_client(monkeypatch, _FakeAdminClient({"listening_test_attempts": []}))
     authz = _patch_user(monkeypatch)
     out = _run(listening_router.get_listening_analytics(time_range="30d", authorization=authz))
     assert out["total_attempts"] == 0
     assert out["weakest_mode"] is None
-    assert out["by_mode"]["dictation"]["count"] == 0
+    assert set(out["by_mode"]) == {"mini", "drill", "full"}
+    assert out["by_mode"]["mini"]["count"] == 0
     assert len(out["by_day"]) == 14
-
-
-# ── Sprint 11.5.1 hotfix — first-attempt aggregation ─────────────────
-
-
-def test_first_attempt_helper_dedupes_by_exercise_segment():
-    """Pure helper unit test — dedupes by (exercise_id, segment_idx)
-    keeping earliest created_at per key."""
-    rows = [
-        {"exercise_id": "e1", "segment_idx": 0, "score": 1.0, "created_at": "2026-05-10T00:00:00Z"},
-        {"exercise_id": "e1", "segment_idx": 0, "score": 0.5, "created_at": "2026-05-11T00:00:00Z"},  # retry, drop
-        {"exercise_id": "e1", "segment_idx": 1, "score": 0.8, "created_at": "2026-05-10T00:01:00Z"},  # different segment, keep
-        {"exercise_id": "e2", "segment_idx": None, "score": 0.6, "created_at": "2026-05-10T00:02:00Z"},
-        {"exercise_id": "e2", "segment_idx": None, "score": 0.4, "created_at": "2026-05-10T00:03:00Z"},  # retry, drop
-    ]
-    out = listening_router._first_attempt_only(rows)
-    assert len(out) == 3
-    scores = sorted(r["score"] for r in out)
-    assert scores == [0.6, 0.8, 1.0]  # the 3 first attempts
-
-
-def test_analytics_avg_score_uses_first_attempt_only(monkeypatch):
-    """Retries should NOT distort by_mode.avg_score. First attempt =
-    1.0, retry = 0.0 → reported avg should be 1.0, not 0.5."""
-    U = "user-1"
-    canned = {
-        "listening_attempts": [
-            {"id": "first",  "user_id": U, "exercise_id": "ex-d1", "score": 1.0, "is_correct": True,
-             "created_at": _iso_days_ago(2)},
-            {"id": "retry", "user_id": U, "exercise_id": "ex-d1", "score": 0.0, "is_correct": False,
-             "created_at": _iso_days_ago(1)},
-        ],
-        "listening_exercises": [{"id": "ex-d1", "exercise_type": "dictation"}],
-    }
-    _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
-    authz = _patch_user(monkeypatch)
-    out = _run(listening_router.get_listening_analytics(time_range="30d", authorization=authz))
-    assert out["total_attempts"] == 2   # raw count for activity
-    assert out["by_mode"]["dictation"]["count"] == 1   # post-dedup
-    assert out["by_mode"]["dictation"]["avg_score"] == 1.0
-    assert out["by_mode"]["dictation"]["accuracy"] == 1.0
-
-
-def test_analytics_total_attempts_counts_all(monkeypatch):
-    """total_attempts must reflect raw activity (engagement), not
-    post-dedup count."""
-    U = "user-1"
-    canned = {
-        "listening_attempts": [
-            {"id": f"a{i}", "user_id": U, "exercise_id": "ex-d1", "score": 0.5, "is_correct": False,
-             "created_at": _iso_days_ago(i)}
-            for i in range(5)
-        ],
-        "listening_exercises": [{"id": "ex-d1", "exercise_type": "dictation"}],
-    }
-    _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
-    authz = _patch_user(monkeypatch)
-    out = _run(listening_router.get_listening_analytics(time_range="30d", authorization=authz))
-    assert out["total_attempts"] == 5            # all 5 attempts (engagement)
-    assert out["by_mode"]["dictation"]["count"] == 1  # only first attempt
-
-
-def test_analytics_weakest_mode_respects_first_attempt(monkeypatch):
-    """Mode with many retries on a single exercise should NOT cross the
-    3-attempt weakest-mode threshold."""
-    U = "user-1"
-    canned = {
-        "listening_attempts": [
-            # 5 retries of ONE mcq exercise → 1 unique attempt
-            {"id": f"a-m-{i}", "user_id": U, "exercise_id": "ex-m-1", "score": 0.1, "is_correct": False,
-             "created_at": _iso_days_ago(i + 1)}
-            for i in range(5)
-        ] + [
-            # 3 distinct dictation exercises
-            {"id": f"a-d-{i}", "user_id": U, "exercise_id": f"ex-d-{i}", "score": 0.9, "is_correct": True,
-             "created_at": _iso_days_ago(i + 1)}
-            for i in range(3)
-        ],
-        "listening_exercises": [
-            {"id": "ex-m-1", "exercise_type": "mcq"},
-        ] + [{"id": f"ex-d-{i}", "exercise_type": "dictation"} for i in range(3)],
-    }
-    _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
-    authz = _patch_user(monkeypatch)
-    out = _run(listening_router.get_listening_analytics(time_range="30d", authorization=authz))
-    # mcq only has 1 post-dedup attempt → does NOT qualify for weakest
-    # (despite low score). Dictation has 3 → qualifies and IS reported.
-    assert out["weakest_mode"] == "dictation"
-    assert out["by_mode"]["mcq"]["count"] == 1
-
-
-def test_analytics_recent_attempts_unaffected_by_dedup(monkeypatch):
-    """recent_attempts list reflects raw activity, not post-dedup
-    (so users see their actual recent timeline including retries)."""
-    rows = [
-        {"id": f"a{i}", "user_id": "user-1", "exercise_id": "ex-d1",
-         "score": 0.5, "is_correct": False, "created_at": _iso_days_ago(i)}
-        for i in range(8)
-    ]
-    canned = {
-        "listening_attempts": rows,
-        "listening_exercises": [{"id": "ex-d1", "exercise_type": "dictation"}],
-    }
-    _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
-    authz = _patch_user(monkeypatch)
-    out = _run(listening_router.get_listening_analytics(time_range="30d", authorization=authz))
-    assert len(out["recent_attempts"]) == 8
-
-
-def test_first_attempt_helper_handles_missing_segment_idx():
-    """Backward compat — rows from pre-Sprint-11.3 (no segment_idx)
-    treat the field as None and dedupe per exercise_id."""
-    rows = [
-        {"exercise_id": "e1", "score": 1.0, "created_at": "2026-05-10T00:00:00Z"},
-        {"exercise_id": "e1", "score": 0.0, "created_at": "2026-05-11T00:00:00Z"},  # retry, drop
-    ]
-    out = listening_router._first_attempt_only(rows)
-    assert len(out) == 1
-    assert out[0]["score"] == 1.0

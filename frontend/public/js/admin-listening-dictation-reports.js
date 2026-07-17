@@ -59,9 +59,12 @@
 
   function rowHtml(r) {
     var acc = r.accuracy || 0;
+    var u = r.user || {};
     return '' +
-      '<tr>' +
+      '<tr data-id="' + esc(r.id) + '">' +
       '<td class="dr-mono">' + esc(fmtDate(r.created_at)) + '</td>' +
+      '<td class="dr-user"><b>' + esc(u.display_name || '—') + '</b>' +
+        '<span>' + esc(u.email || u.id || '') + '</span></td>' +
       '<td class="dr-mono">' + esc(r.test_id_external || '—') + '</td>' +
       '<td>' + esc(r.section_title || ('Section ' + (r.section_num == null ? '?' : r.section_num))) + '</td>' +
       '<td>' + (r.correct_count || 0) + '/' + (r.total_sentences || 0) + '</td>' +
@@ -72,7 +75,11 @@
 
   function load() {
     var testId = ($('dr-test-id').value || '').trim();
-    var qs = testId ? ('?test_id=' + encodeURIComponent(testId)) : '';
+    var userQ = ($('dr-user').value || '').trim();
+    var parts = [];
+    if (testId) parts.push('test_id=' + encodeURIComponent(testId));
+    if (userQ) parts.push('user_query=' + encodeURIComponent(userQ));
+    var qs = parts.length ? ('?' + parts.join('&')) : '';
     $('dr-loading').hidden = false;
     $('dr-wrap').hidden = true;
     $('dr-empty').hidden = true;
@@ -89,6 +96,9 @@
       if (!items.length) { $('dr-empty').hidden = false; return; }
       $('dr-rows').innerHTML = items.map(rowHtml).join('');
       $('dr-wrap').hidden = false;
+      Array.prototype.forEach.call($('dr-rows').querySelectorAll('tr[data-id]'), function (tr) {
+        tr.addEventListener('click', function () { showDetail(tr.getAttribute('data-id')); });
+      });
     }).catch(function (e) {
       $('dr-loading').hidden = true;
       $('dr-error').hidden = false;
@@ -96,9 +106,56 @@
     });
   }
 
+  function sentenceRow(s) {
+    var pct = Math.round((s.score || 0) * 100);
+    var ops = s.ops || {};
+    var errs = [];
+    if (ops.miss) errs.push('sót ' + ops.miss);
+    if (ops.wrong) errs.push('sai ' + ops.wrong);
+    if (ops.extra) errs.push('thừa ' + ops.extra);
+    return '<tr>' +
+      '<td class="dr-mono">' + ((s.sentence_idx == null ? 0 : s.sentence_idx) + 1) + '</td>' +
+      '<td><span class="dr-acc ' + accClass(s.score || 0) + '">' + pct + '%</span></td>' +
+      '<td>' + esc(s.user_text || '(bỏ trống)') + '</td>' +
+      '<td class="dr-mono">' + (s.listen_count == null ? '—' : s.listen_count + '×') + '</td>' +
+      '<td class="dr-mono">' + esc(fmtDur(s.time_seconds)) + '</td>' +
+      '<td class="dr-mono">' + esc(errs.join(' · ') || '—') + '</td>' +
+      '</tr>';
+  }
+
+  function showDetail(id) {
+    var box = $('dr-detail');
+    box.hidden = false;
+    box.innerHTML = '<div class="dr-note">Đang tải chi tiết phiên…</div>';
+    window.api.get('/admin/listening/dictation-reports/' + encodeURIComponent(id)).then(function (r) {
+      var results = r.results || [];
+      box.innerHTML = '' +
+        '<div style="display:flex;align-items:flex-start;gap:var(--av-space-2)">' +
+          '<h2>Phiên ' + esc(r.test_id_external || '') + ' · ' +
+            esc(r.section_title || ('Section ' + (r.section_num == null ? '?' : r.section_num))) + '</h2>' +
+          '<button type="button" class="dr-close" id="dr-detail-x" aria-label="Đóng">×</button>' +
+        '</div>' +
+        '<div class="dr-mono">' + esc(fmtDate(r.completed_at || r.created_at)) +
+          ' · đúng ' + (r.correct_count || 0) + '/' + (r.total_sentences || 0) +
+          ' · ' + Math.round((r.accuracy || 0) * 100) + '%' +
+          ' · ' + esc(fmtDur(r.total_time_seconds)) + '</div>' +
+        (results.length
+          ? '<div class="dr-table-wrap"><table class="dr-table"><thead>' +
+            '<tr><th>Câu</th><th>Điểm</th><th>Học viên gõ</th><th>Nghe</th><th>Thời gian</th><th>Lỗi</th></tr>' +
+            '</thead><tbody>' + results.map(sentenceRow).join('') + '</tbody></table></div>'
+          : '<div class="dr-note">Phiên không có chi tiết từng câu.</div>');
+      var x = $('dr-detail-x');
+      if (x) x.onclick = function () { box.hidden = true; box.innerHTML = ''; };
+      box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }).catch(function (e) {
+      box.innerHTML = '<div class="dr-note">Không tải được chi tiết: ' + esc((e && e.message) || e) + '</div>';
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     $('dr-apply').addEventListener('click', load);
     $('dr-test-id').addEventListener('keydown', function (e) { if (e.key === 'Enter') load(); });
+    $('dr-user').addEventListener('keydown', function (e) { if (e.key === 'Enter') load(); });
     load();
   });
 })();

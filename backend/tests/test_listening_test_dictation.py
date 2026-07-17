@@ -184,12 +184,30 @@ class _Q:
     def insert(self, p): self._mode = "insert"; self._payload = p; return self
     def update(self, p): self._mode = "update"; self._payload = p; return self
     def eq(self, c, v): self._eq.append((c, v)); return self
+    def in_(self, c, vals): self._eq.append((c, ("__in__", list(vals)))); return self
+    def or_(self, expr): self._or = expr; return self
     def limit(self, *_a, **_kw): return self
     def order(self, *_a, **_kw): return self
     def range(self, s, e): self._range = (s, e); return self
 
     def _match(self, r):
-        return all(r.get(c) == v for c, v in self._eq)
+        for c, v in self._eq:
+            if isinstance(v, tuple) and len(v) == 2 and v[0] == "__in__":
+                if r.get(c) not in v[1]:
+                    return False
+            elif r.get(c) != v:
+                return False
+        # "col.ilike.%pat%,col2.ilike.%pat%" — substring, case-insensitive
+        if getattr(self, "_or", None):
+            hit = False
+            for part in self._or.split(","):
+                col, _op, pat = part.split(".", 2)
+                if pat.strip("%").lower() in str(r.get(col) or "").lower():
+                    hit = True
+                    break
+            if not hit:
+                return False
+        return True
 
     def execute(self):
         rows = self.fake.tables.setdefault(self.name, [])
@@ -654,9 +672,21 @@ def test_admin_list_and_aggregate_dictation_reports(monkeypatch):
          "accuracy": 0.6, "created_at": "2026-07-07T02:00:00Z",
          "error_trends": {"missed": {"brighton": 1}, "wrong": {}}},
     ])
+    fake.tables["users"] = [
+        {"id": "u1", "email": "u1@ex.com", "display_name": "Học Viên 1"},
+        {"id": "u2", "email": "u2@ex.com", "display_name": "Học Viên 2"},
+    ]
     lst = _run(listening_router.admin_list_dictation_reports(
-        test_id=None, limit=30, offset=0, authorization=authz))
+        test_id=None, user_query=None, limit=30, offset=0, authorization=authz))
     assert lst["total"] == 2 and len(lst["items"]) == 2
+    # audit 2026-07-17: item phải mang danh tính học viên, không chỉ user_id trần
+    by_uid = {it["user"]["id"]: it["user"] for it in lst["items"]}
+    assert by_uid["u1"]["email"] == "u1@ex.com"
+    assert by_uid["u2"]["display_name"] == "Học Viên 2"
+    # filter theo học viên (ilike email/tên)
+    only_u1 = _run(listening_router.admin_list_dictation_reports(
+        test_id=None, user_query="u1@ex", limit=30, offset=0, authorization=authz))
+    assert only_u1["total"] == 1 and only_u1["items"][0]["user"]["id"] == "u1"
     agg = _run(listening_router.admin_dictation_reports_aggregate(
         test_id="ILR-LIS-LSN-L01", authorization=authz))
     assert agg["session_count"] == 2
@@ -672,5 +702,5 @@ def test_admin_dictation_reports_requires_admin(monkeypatch):
     monkeypatch.setattr(listening_router, "require_admin", _deny)
     with pytest.raises(HTTPException) as e:
         _run(listening_router.admin_list_dictation_reports(
-            test_id=None, limit=30, offset=0, authorization=authz))
+            test_id=None, user_query=None, limit=30, offset=0, authorization=authz))
     assert e.value.status_code == 403

@@ -1417,28 +1417,6 @@ async def admin_delete_listening_exercise(
 # ══════════════════════════════════════════════════════════════════════════════
 
 
-def _first_attempt_only(rows: list[dict]) -> list[dict]:
-    """Sprint 11.5.1 hotfix — dedupe a list of listening_attempts rows
-    to the canonical first attempt per (exercise_id, segment_idx).
-
-    The first attempt is the row with the earliest `created_at` for each
-    tuple. Sprint 10.3's first-attempt rule was previously enforced only
-    at insert time (response field `is_first_attempt`) — analytics +
-    Mini Test completion previously aggregated ALL attempts, distorting
-    canonical scores when users replay. This helper restores truth.
-
-    Rows must have `exercise_id`, `created_at`. `segment_idx` is
-    optional — its absence is treated as `None` (single key per
-    exercise).
-    """
-    first_by_key: dict[tuple, dict] = {}
-    for r in rows:
-        key = (r.get("exercise_id"), r.get("segment_idx"))
-        prev = first_by_key.get(key)
-        if prev is None or (r.get("created_at") or "") < (prev.get("created_at") or ""):
-            first_by_key[key] = r
-    return list(first_by_key.values())
-
 # ── User route — content browse (Sprint 11.5) ─────────────────────────────────
 
 
@@ -1506,22 +1484,26 @@ async def get_listening_analytics(
     time_range: str = Query(default="30d", alias="range"),
     authorization: str | None = Header(default=None),
 ):
-    """Per-user listening analytics.
+    """Per-user listening analytics — nguồn: listening_test_attempts.
 
-    Range buckets (server-side filter to bound payload size + DB scan):
-      - 7d:  last 7 days
-      - 30d: last 30 days (default)
-      - all: all-time
+    Audit 2026-07-17: bảng listening_attempts (hệ exercise Sprint 11.x) đã chết
+    từ 05/2026 — mọi hoạt động thật (lesson/mini · drill · full) ghi vào
+    listening_test_attempts, nên thống kê đọc từ đó.
+
+    Range buckets: 7d | 30d (default) | all.
 
     Aggregations:
-      - total_attempts: int
-      - by_mode: { dictation, gist, true_false, mcq } → {count, avg_score, accuracy}
-      - by_day: last 14 days bar chart data (count + avg_score per day)
-      - recent_attempts: last 10 with exercise_type + score + created_at
-      - weakest_mode: mode with lowest avg_score (≥3 attempts), else null
+      - total_attempts: mọi lượt trong range (engagement — gồm đang làm/bỏ dở)
+      - by_mode: { mini, drill, full } → {count, avg_score, completion}
+        · count      = lượt ĐẦU per test (retry không đếm — Sprint 11.5.1 rule)
+        · avg_score  = % đúng TB (score/số câu) của lượt đầu ĐÃ NỘP, 0..1
+        · completion = tỉ lệ lượt đã nộp / mọi lượt của loại đó
+      - by_day: 14 ngày gần nhất (count + avg_score theo ngày)
+      - recent_attempts: 10 lượt gần nhất {type, title, status, accuracy, ...}
+      - weakest_mode: loại có avg_score thấp nhất (≥3 lượt đã nộp), else null
 
-    Per CLAUDE.md non-misleading-feedback rule: modes with <3 attempts
-    are reported as "insufficient data" rather than fabricating a band.
+    Per CLAUDE.md non-misleading-feedback rule: loại <3 lượt nộp không được
+    gắn nhãn "yếu nhất".
     """
     user = await _require_auth(authorization)
     user_id = user["id"]
@@ -1541,108 +1523,105 @@ async def get_listening_analytics(
         cutoff = None
 
     q = (
-        supabase_admin.table("listening_attempts")
-        .select("id,exercise_id,segment_idx,score,is_correct,created_at")
+        supabase_admin.table("listening_test_attempts")
+        .select("id,test_id,status,score,grading_details,created_at,submitted_at")
         .eq("user_id", user_id)
         .order("created_at", desc=True)
     )
     if cutoff is not None:
         q = q.gte("created_at", cutoff.isoformat())
-    res = q.execute()
-    attempts_raw = res.data or []
+    attempts_raw = q.execute().data or []
 
-    # Resolve exercise_type via a second query (avoids fragile relational
-    # select semantics when the FK exists but PostgREST hasn't refreshed).
-    type_by_eid: dict[str, str] = {}
-    distinct_eids = sorted({r["exercise_id"] for r in attempts_raw if r.get("exercise_id")})
-    if distinct_eids:
-        ex_res = (
-            supabase_admin.table("listening_exercises")
-            .select("id,exercise_type")
-            .in_("id", distinct_eids)
-            .execute()
-        )
-        type_by_eid = {
-            row["id"]: row["exercise_type"]
-            for row in (ex_res.data or [])
-        }
+    # Resolve test_type + title theo lô (không dùng relational select).
+    tests = _rows_by_id(
+        "listening_tests",
+        [r.get("test_id") for r in attempts_raw],
+        "id,test_id,title,test_type",
+    )
 
     flat: list[dict] = []
     for r in attempts_raw:
+        gd = r.get("grading_details") or []
+        submitted = r.get("status") == "submitted"
+        acc = (
+            round(r["score"] / len(gd), 4)
+            if submitted and r.get("score") is not None and gd else None
+        )
+        tinfo = tests.get(r.get("test_id")) or {}
         flat.append({
-            "id":            r["id"],
-            "exercise_id":   r["exercise_id"],
-            "segment_idx":   r.get("segment_idx"),
-            "score":         float(r.get("score") or 0),
-            "is_correct":    bool(r.get("is_correct")),
-            "created_at":    r["created_at"],
-            "exercise_type": type_by_eid.get(r["exercise_id"], "unknown"),
+            "id":         r["id"],
+            "test_id":    r.get("test_id"),
+            "type":       tinfo.get("test_type") or "unknown",
+            "title":      tinfo.get("title") or tinfo.get("test_id"),
+            "status":     r.get("status"),
+            "accuracy":   acc,
+            "score":      r.get("score"),
+            "total_questions": len(gd) or None,
+            "created_at": r["created_at"],
         })
 
-    # Sprint 11.5.1 hotfix — first-attempt rule for accuracy metrics:
-    # `avg_score`, `accuracy`, and `weakest_mode` use first-attempt rows
-    # only (one row per (exercise_id, segment_idx)). `total_attempts`
-    # remains a count of ALL attempts (engagement signal — re-listens
-    # count). `by_day` also uses all rows so the bar chart reflects
-    # daily activity, not unique-exercise completion.
-    flat_first = _first_attempt_only(flat)
-
-    modes = ("dictation", "gist", "true_false", "mcq")
-    by_mode: dict[str, dict] = {}
-    for m in modes:
-        rows_m = [r for r in flat_first if r["exercise_type"] == m]
-        n = len(rows_m)
-        if n == 0:
-            by_mode[m] = {"count": 0, "avg_score": None, "accuracy": None}
+    # First-attempt rule per test (giữ tinh thần Sprint 11.5.1): canonical cho
+    # ĐIỂM là lượt NỘP đầu tiên của mỗi bài (lượt bỏ dở/đang làm không chiếm
+    # slot — không có điểm để đại diện); mọi lượt vẫn đếm engagement/by_day.
+    first_by_test: dict[str, dict] = {}       # lượt đầu (mọi status) — đếm bài đã đụng
+    first_submitted: dict[str, dict] = {}     # lượt NỘP đầu — nguồn điểm canonical
+    for r in reversed(flat):                  # flat đang newest-first
+        tid = r["test_id"]
+        if not tid:
             continue
-        avg = sum(r["score"] for r in rows_m) / n
-        acc = sum(1 for r in rows_m if r["is_correct"]) / n
+        if tid not in first_by_test:
+            first_by_test[tid] = r
+        if r["accuracy"] is not None and tid not in first_submitted:
+            first_submitted[tid] = r
+    flat_first = list(first_by_test.values())
+    flat_first_submitted = list(first_submitted.values())
+
+    types = ("mini", "drill", "full")
+    by_mode: dict[str, dict] = {}
+    for m in types:
+        firsts = [r for r in flat_first if r["type"] == m]
+        alls = [r for r in flat if r["type"] == m]
+        accs = [r["accuracy"] for r in flat_first_submitted if r["type"] == m]
         by_mode[m] = {
-            "count":     n,
-            "avg_score": round(avg, 4),
-            "accuracy":  round(acc, 4),
+            "count":      len(firsts),
+            "avg_score":  round(sum(accs) / len(accs), 4) if accs else None,
+            "completion": (round(sum(1 for r in alls if r["status"] == "submitted")
+                                 / len(alls), 4) if alls else None),
         }
 
-    # Weakest mode (lowest avg_score) — only count modes with ≥3 attempts
-    # so we don't misrepresent thin slices as weaknesses. Uses
-    # first-attempt rows only (consistent with the rest of by_mode).
     candidates = [
         (m, by_mode[m]["avg_score"])
-        for m in modes
-        if by_mode[m]["count"] >= 3 and by_mode[m]["avg_score"] is not None
+        for m in types
+        if by_mode[m]["avg_score"] is not None
+        and sum(1 for r in flat_first_submitted if r["type"] == m) >= 3
     ]
-    weakest_mode = min(candidates, key=lambda t: t[1])[0] if candidates else None
+    weakest_mode = min(candidates, key=lambda t2: t2[1])[0] if candidates else None
 
-    # by_day — bin scores into last 14 calendar days (UTC).
+    # by_day — bin vào 14 ngày gần nhất (UTC), mọi lượt.
     by_day: list[dict] = []
     for day_offset in range(14):
         day_start = (now - timedelta(days=day_offset)).replace(
             hour=0, minute=0, second=0, microsecond=0,
         )
         day_end = day_start + timedelta(days=1)
-        day_start_iso = day_start.isoformat()
-        day_end_iso = day_end.isoformat()
         day_rows = [
             r for r in flat
-            if day_start_iso <= r["created_at"] < day_end_iso
+            if day_start.isoformat() <= r["created_at"] < day_end.isoformat()
         ]
-        n = len(day_rows)
-        avg = (sum(r["score"] for r in day_rows) / n) if n else None
+        day_accs = [r["accuracy"] for r in day_rows if r["accuracy"] is not None]
         by_day.append({
             "date":      day_start.date().isoformat(),
-            "count":     n,
-            "avg_score": round(avg, 4) if avg is not None else None,
+            "count":     len(day_rows),
+            "avg_score": round(sum(day_accs) / len(day_accs), 4) if day_accs else None,
         })
     by_day.reverse()  # oldest first for chart rendering
-
-    recent = flat[:10]
 
     return {
         "range":           time_range,
         "total_attempts":  len(flat),
         "by_mode":         by_mode,
         "by_day":          by_day,
-        "recent_attempts": recent,
+        "recent_attempts": flat[:10],
         "weakest_mode":    weakest_mode,
     }
 
@@ -4306,12 +4285,15 @@ async def flag_listening_dictation(
 @admin_router.get("/dictation-reports")
 async def admin_list_dictation_reports(
     test_id: str | None = Query(default=None),
+    user_query: str | None = Query(default=None),
     limit: int = Query(default=30, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     authorization: str | None = Header(default=None),
 ):
-    """Admin: list dictation sessions (newest first), optionally filtered by
-    external test id. Returns {items, total, limit, offset}."""
+    """Admin: list dictation sessions (newest first), filter theo external test
+    id và/hoặc học viên (user_query ilike email/tên). Mỗi item kèm danh tính
+    học viên (audit 2026-07-17: list từng trả user_id trần — admin không biết
+    "học viên nào"). Returns {items, total, limit, offset}."""
     await require_admin(authorization)
     q = (supabase_admin.table("dictation_sessions")
          .select("id,user_id,test_id_external,section_num,section_title,"
@@ -4319,8 +4301,24 @@ async def admin_list_dictation_reports(
                  "completed_at,created_at", count="exact"))
     if test_id:
         q = q.eq("test_id_external", test_id)
+    if user_query:
+        pat = f"%{user_query.strip()}%"
+        u_res = (supabase_admin.table("users").select("id")
+                 .or_(f"email.ilike.{pat},display_name.ilike.{pat}")
+                 .limit(200).execute())
+        uids = [r["id"] for r in (u_res.data or [])]
+        if not uids:
+            return {"items": [], "total": 0, "limit": limit, "offset": offset}
+        q = q.in_("user_id", uids)
     res = q.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
-    return {"items": res.data or [], "total": getattr(res, "count", None) or 0,
+    items = res.data or []
+    users = _rows_by_id("users", [r.get("user_id") for r in items],
+                        "id,email,display_name")
+    for r in items:
+        u = users.get(r.get("user_id")) or {}
+        r["user"] = {"id": r.get("user_id"), "email": u.get("email"),
+                     "display_name": u.get("display_name")}
+    return {"items": items, "total": getattr(res, "count", None) or 0,
             "limit": limit, "offset": offset}
 
 
