@@ -1,5 +1,7 @@
 # Audit Grammar Quiz — hiển thị câu hỏi rối & không xem lại được bài sau khi làm xong (2026-07-17)
 
+> **TRẠNG THÁI (cập nhật cùng ngày): cả 4 đầu việc §V đã triển khai** — PR #804 (màn "Xem lại bài làm" — §II đã xong, đừng re-implement; gap còn lại duy nhất: xem lại bài làm của *các phiên cũ* từ trang Thống kê), #805 (hotfix lớp B), #806 (field `hint` + tách instruction), #807 (lớp A/A-i/C + 2 lint CI). §I–§IV dưới đây mô tả hiện trạng TRƯỚC các PR đó — giữ nguyên làm căn cứ lịch sử.
+
 **Bối cảnh:** người dùng báo 2 vấn đề khi làm Quick Check từ Grammar Wiki (screenshot: bank `G-foundations-parts-of-speech`, câu `pos_id_i2`):
 1. Phần hiển thị câu hỏi rối mắt — yêu cầu, câu hỏi chính và gợi ý trộn vào nhau.
 2. Làm xong chỉ thấy màn "hoàn tất" — không có chỗ xem lại các câu đã trả lời / các câu sai.
