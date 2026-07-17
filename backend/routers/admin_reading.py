@@ -355,8 +355,9 @@ async def import_reading_test_bundle(
             "action":            None,
         }
     # Reading mini test — the toggle flags this test as 'mini' (1-passage) vs
-    # 'full' in reading_tests.metadata.test_type, the field the student list
-    # endpoint segregates on. The prose pipeline is otherwise identical.
+    # 'full' in the reading_tests.test_type column (mig 158), the field the
+    # student list endpoint segregates on. The prose pipeline is otherwise
+    # identical.
     result = await _commit_l3_parsed(
         parsed, dry_run, admin, test_type=("mini" if mini else "full"),
     )
@@ -491,21 +492,13 @@ async def _commit_l3_parsed(parsed, dry_run: bool, admin: dict, test_type: str |
             result["action"] = "created"
         result["committed_id"] = test_uuid
 
-        # Reading mini test — stamp metadata.test_type ('mini'|'full') WITHOUT
-        # clobbering other metadata keys (access lock / share live here too).
-        # test_row (plan) has no metadata key, so the upsert above left existing
-        # metadata intact; we read-merge-write just this one field. test_type is
-        # None for YAML imports (back-compat) → metadata untouched.
+        # Reading mini test — mig 158: test_type là cột thật (CHECK full|mini),
+        # không stamp metadata nữa. test_type=None (YAML import, back-compat)
+        # → không đụng: insert mới nhận DEFAULT 'full', re-import giữ nguyên.
         if test_type is not None:
-            cur = (
-                supabase_admin.table("reading_tests")
-                .select("metadata").eq("id", test_uuid).limit(1).execute()
-            )
-            md = dict((cur.data[0].get("metadata") if cur.data else None) or {})
-            md["test_type"] = test_type
-            supabase_admin.table("reading_tests").update({"metadata": md}).eq(
-                "id", test_uuid
-            ).execute()
+            supabase_admin.table("reading_tests").update(
+                {"test_type": test_type}
+            ).eq("id", test_uuid).execute()
 
         # 2a) Sprint 20.9 D1 — RECONCILE removed passages. List the passages
         #     currently attached to this test, compare with the incoming slugs,
