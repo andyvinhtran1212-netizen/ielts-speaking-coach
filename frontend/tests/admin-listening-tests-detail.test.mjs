@@ -203,16 +203,8 @@ describe('Sprint 13.4.3 — tests-list row links to tests-detail', () => {
 });
 
 
-describe('Sprint 13.4.3 — convert results CTA lands on tests-detail', () => {
-  const js = read('js', 'admin-listening-convert.js');
-
-  test('post-commit primary link goes to tests-detail.html?id=', () => {
-    assert.match(
-      js,
-      /\/pages\/admin\/listening\/tests-detail\.html\?id=\$\{encodeURIComponent\(result\.test_id\)\}/,
-    );
-  });
-});
+// (Convert flow retired 2026-07-17 — usage audit; the "convert results CTA"
+// suite that pinned admin-listening-convert.js went with it.)
 
 
 // ── Sprint 13.4.3.1 — mode toggle selection-driven render hotfix ───────────

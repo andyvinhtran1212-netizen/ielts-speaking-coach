@@ -7,8 +7,10 @@ content. This module parses Andy's canonical 2-file Markdown bundle:
   * ``<test_id>_Question_Paper.md``    — student-facing prompts
   * ``<test_id>_Script_AnswerKey.md``  — transcript + speakers + answer key
 
-The output schema matches Sprint 13.4's contract verbatim so the convert
-router (POST /convert + POST /convert/commit) and ``listening_content``
+The legacy convert router (POST /convert + /convert/commit) was RETIRED
+2026-07-17 (usage audit) — this service STAYS: the fulltest/drill importers
+and the audit engine reuse its parser + marker maps. The output schema
+matches Sprint 13.4's contract verbatim so ``listening_content``
 ingest layer are untouched. The only router-side change is the file
 extension allow-list (.docx → .md) + per-file size cap (5MB → 1MB).
 
