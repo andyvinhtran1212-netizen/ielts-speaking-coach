@@ -30,9 +30,21 @@ describe('buildReviewList', () => {
     assert.equal(q1.correct, true);
     assert.equal(q1.wrongCount, 1);        // wrong once along the way
     assert.equal(q1.attempts, 2);
+    assert.equal(q1.wrongGiven, 'bad');    // the actual wrong answer survives
     const q2 = list.find((it) => it.qid === 'q2');
     assert.equal(q2.wrongCount, 0);
     assert.equal(q2.attempts, 1);
+    assert.equal(q2.wrongGiven, null);
+  });
+
+  test('keeps the MOST RECENT wrong answer when a question was wrong twice', () => {
+    const list = buildReviewList([
+      e('q1', false, { given: 'bad1' }),
+      e('q1', false, { given: 'bad2' }),
+      e('q1', true, { given: 'good' }),
+    ]);
+    assert.equal(list[0].wrongGiven, 'bad2');
+    assert.equal(list[0].wrongCount, 2);
   });
 
   test('preserves first-seen (session) order', () => {
@@ -95,7 +107,11 @@ describe('quiz.html — review log + result-screen card (source sentinels)', () 
   });
   test('a question answered wrong then fixed renders as "fixed", not a false sai', () => {
     assert.match(QUIZ, /it\.wrongCount > 0 \? 'is-fixed' : 'is-right'/);
-    assert.match(QUIZ, /sai ' \+ it\.wrongCount \+ ' lần trước đó/);
+    // the actual wrong answer is shown for fixed items (review what went wrong),
+    // then the final correct answer — not only the correct one.
+    assert.match(QUIZ, /Từng trả lời sai: /);
+    assert.match(QUIZ, /fmt\(String\(it\.wrongGiven\)\)/);
+    assert.match(QUIZ, /Sau đó trả lời đúng: /);
   });
   test('wrong items reveal the correct answer + keep the 📖 article link durable', () => {
     assert.match(QUIZ, /lastWrong && it\.correctText/);

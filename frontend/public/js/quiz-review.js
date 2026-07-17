@@ -11,11 +11,15 @@
 /**
  * Group per-attempt log entries by qid, keeping the LAST attempt (what the
  * learner finally saw — the adaptive loop can re-ask a question until it's
- * answered right) plus how many attempts were wrong along the way. Output
- * preserves first-seen order so the review reads in session sequence.
+ * answered right) plus how many attempts were wrong along the way. A question
+ * answered wrong then fixed also keeps the most recent WRONG answer
+ * (wrongGiven) — reviewing "what did I actually get wrong" is the point of
+ * the screen, so the fixed item must not show only the final correct answer.
+ * Output preserves first-seen order so the review reads in session sequence.
  *
  * Entry shape (page-provided): {qid, item_key, prompt, given, correctText,
- * correct, explain, article_url}. Returned items add {attempts, wrongCount}.
+ * correct, explain, article_url}. Returned items add {attempts, wrongCount,
+ * wrongGiven}.
  */
 export function buildReviewList(log) {
   var byQid = new Map();
@@ -23,9 +27,9 @@ export function buildReviewList(log) {
   (log || []).forEach(function (e) {
     if (!e || !e.qid) return;
     var g = byQid.get(e.qid);
-    if (!g) { g = { attempts: 0, wrong: 0, last: null }; byQid.set(e.qid, g); order.push(e.qid); }
+    if (!g) { g = { attempts: 0, wrong: 0, last: null, lastWrong: null }; byQid.set(e.qid, g); order.push(e.qid); }
     g.attempts += 1;
-    if (!e.correct) g.wrong += 1;
+    if (!e.correct) { g.wrong += 1; g.lastWrong = e; }
     g.last = e;
   });
   return order.map(function (qid) {
@@ -34,6 +38,7 @@ export function buildReviewList(log) {
     Object.keys(g.last).forEach(function (k) { it[k] = g.last[k]; });
     it.attempts = g.attempts;
     it.wrongCount = g.wrong;
+    it.wrongGiven = g.lastWrong ? g.lastWrong.given : null;
     return it;
   });
 }
