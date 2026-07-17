@@ -58,6 +58,28 @@ _LIBRARIES = {"l1_vocab", "l2_skill", "l3_test"}
 _STATUSES = {"draft", "published", "archived"}
 
 
+def _check_image_url_reachable(url: str, timeout_s: float = 3.0) -> list[str]:
+    """Audit 2026-07-17 — HEAD-check một image_url ngoài (Cloudinary dán tay,
+    không được app quản lý). Trả list warning string (rỗng = OK). Fail-soft:
+    lỗi mạng/timeout → warning "không kiểm tra được", KHÔNG raise — check này
+    chỉ chạy ở dry-run preview và không được phép chặn import.
+
+    Quét định kỳ toàn corpus: scripts/check_reading_image_links.py.
+    """
+    import httpx
+
+    try:
+        resp = httpx.head(url, timeout=timeout_s, follow_redirects=True)
+        if resp.status_code == 405:  # host không hỗ trợ HEAD → thử GET nhẹ
+            resp = httpx.get(url, timeout=timeout_s, follow_redirects=True,
+                             headers={"Range": "bytes=0-0"})
+        if resp.status_code >= 400:
+            return [f"image_url trả HTTP {resp.status_code} — ảnh có thể đã chết: {url}"]
+        return []
+    except Exception as exc:  # noqa: BLE001 — fail-soft by design
+        return [f"Không kiểm tra được image_url ({type(exc).__name__}) — xác minh tay: {url}"]
+
+
 def _normalise_l3_test_row(r: dict) -> dict:
     """A reading_tests row → the shared admin-list row shape (slug = test_id,
     difficulty_level ← module, skill_focus ← '60 phút · 40 câu' summary). The
@@ -275,8 +297,14 @@ async def import_reading_content(
         "dry_run": dry_run,
         "committed_id": None,
         "action": None,
+        "warnings": [],
     }
     if dry_run or errors:
+        # Audit 2026-07-17 — HEAD-check ảnh ngoài (Cloudinary URL dán tay)
+        # CHỈ ở dry-run: link chết hiện thành warning trong preview, không
+        # chặn import (fail-soft cả khi mạng lỗi/timeout).
+        if dry_run and parsed.image_url:
+            result["warnings"].extend(_check_image_url_reachable(parsed.image_url))
         return result
 
     # ── Commit: upsert by slug ──
