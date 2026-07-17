@@ -66,7 +66,7 @@ input: "text"
 headword: "svc-strong-fact"
 skill: "production"
 subtype: "intermediate"
-prompt: "Complete with ONE word: 'It is ____ that technology has transformed how we communicate.' (meaning: obviously true, hard to deny)"
+prompt: "Complete with ONE word: 'It is ____ that technology has transformed how we communicate.' (nghĩa: rõ ràng, khó phủ nhận)"
 accept: ["clear", "evident", "obvious", "undeniable"]
 case_sensitive: false
 grammar_article_slug: "strong-vs-cautious-opinions"

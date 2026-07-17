@@ -193,7 +193,7 @@ input: "text"
 headword: "ttt-psychological-distance"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (viết 'that' hoặc 'those', số nhiều) kinds of excuses simply aren't convincing to the examiner."
+prompt: "____ (viết 'that' hoặc 'those' cho đúng) kinds of excuses simply aren't convincing to the examiner."
 accept: ["those"]
 case_sensitive: false
 grammar_article_slug: "this-that-these-those-in-use"

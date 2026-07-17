@@ -52,11 +52,11 @@ input: "text"
 headword: "gen-for-example-instance"
 skill: "production"
 subtype: "intermediate"
-prompt: "Several European countries have excellent public transport systems, ____, Switzerland and the Netherlands. (điền cụm 2 từ 'for example' đúng vị trí giữa câu)"
-accept: ["for example"]
+prompt: "Several European countries have excellent public transport systems, ____, Switzerland and the Netherlands. (điền cụm 2 từ dùng để nêu ví dụ, đặt giữa câu)"
+accept: ["for example", "for instance"]
 case_sensitive: false
 grammar_article_slug: "giving-examples-naturally"
-explain: "Khi đặt giữa câu sau danh từ, vẫn dùng 'for example' (có dấu phẩy trước và có thể sau), khác 'such as' không cần cụm 'for'."
+explain: "Khi đặt giữa câu sau danh từ, vẫn dùng 'for example' / 'for instance' (có dấu phẩy trước và có thể sau), khác 'such as' không cần cụm 'for'."
 ---
 
 ---
@@ -220,7 +220,7 @@ input: "text"
 headword: "gen-speaking-informal-connectors"
 skill: "production"
 subtype: "intermediate"
-prompt: "Cities can be overwhelming — I ____ , the noise, the traffic, the crowds... it's a lot to deal with. (điền cụm 'I mean' để làm rõ ý)"
+prompt: "Cities can be overwhelming — I ____ , the noise, the traffic, the crowds... it's a lot to deal with. (điền 1 từ sau 'I' tạo cụm đệm nghĩa là 'ý tôi là')"
 accept: ["mean"]
 case_sensitive: false
 grammar_article_slug: "giving-examples-naturally"

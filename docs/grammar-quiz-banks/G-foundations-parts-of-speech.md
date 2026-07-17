@@ -265,7 +265,7 @@ input: "text"
 headword: "pos-identify-in-context"
 skill: "production"
 subtype: "intermediate"
-prompt: "Complete with the correct part of speech: 'His ____ (speak) English is very good.' — write the word needed here (adjective form of 'speak' that means 'in spoken form')."
+prompt: "Complete with the correct part of speech: 'His ____ (speak) English is very good.' — write the adjective form of 'speak'."
 accept: ["spoken"]
 case_sensitive: false
 grammar_article_slug: "parts-of-speech"

@@ -234,7 +234,7 @@ input: "text"
 headword: "deto-specific-general"
 skill: "production"
 subtype: "intermediate"
-prompt: "A journalist interviewed several witnesses. ____ (viết mạo từ đúng, vì 'witnesses' đã được nhắc và giờ là xác định) witnesses gave conflicting accounts of the accident."
+prompt: "A journalist interviewed several witnesses. ____ (viết mạo từ phù hợp) witnesses gave conflicting accounts of the accident."
 accept: ["the"]
 case_sensitive: false
 grammar_article_slug: "determiners-overview"

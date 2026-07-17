@@ -109,7 +109,7 @@ input: "text"
 headword: "arso-fronting-adverbials"
 skill: "production"
 subtype: "intermediate"
-prompt: "Rewrite fronting the time adverbial: 'I spent most weekends at my grandparents' house as a child.' → '____ (gõ 3 từ: As a child; dấu phẩy tuỳ chọn), I spent most weekends at my grandparents' house.'"
+prompt: "Rewrite fronting the time adverbial: 'I spent most weekends at my grandparents' house as a child.' → '____ (gõ cụm trạng ngữ thời gian 3 từ; dấu phẩy tuỳ chọn), I spent most weekends at my grandparents' house.'"
 accept: ["As a child,", "As a child"]
 case_sensitive: false
 grammar_article_slug: "avoiding-repetitive-sentence-openings"
