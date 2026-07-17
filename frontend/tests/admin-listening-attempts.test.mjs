@@ -31,7 +31,9 @@ describe('attempts.html — cấu trúc trang', () => {
     assert.match(PAGE, /<th>Bài<\/th>/);
     assert.match(PAGE, /<th>Điểm<\/th>/);
     assert.match(PAGE, /<th>Thời lượng<\/th>/);
-    assert.match(PAGE, /<th>Đã nghe<\/th>/);
+    // KHÔNG có cột "Đã nghe": audio_duration_listened_seconds chưa từng được
+    // ghi (luôn 0) — hiện nó là misleading (review P1).
+    assert.doesNotMatch(PAGE, /Đã nghe/);
   });
   test('có khối chi tiết + pager', () => {
     assert.match(PAGE, /id="la-detail"/);
