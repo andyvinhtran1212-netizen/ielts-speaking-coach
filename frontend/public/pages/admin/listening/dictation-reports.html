@@ -80,6 +80,12 @@
     .dr-acc.warn { color: var(--av-warning); }
     .dr-acc.low { color: var(--av-error); }
     .dr-note { color: var(--av-text-muted); font-size: var(--av-fs-sm); padding: var(--av-space-4); }
+    .dr-table tbody tr { cursor: pointer; }
+    .dr-table tbody tr:hover td { background: var(--av-surface-sunken); }
+    .dr-user b { display: block; color: var(--av-text-primary); font-weight: var(--av-fw-medium); }
+    .dr-user span { color: var(--av-text-muted); font-size: var(--av-fs-xs); }
+    .dr-close { margin-left: auto; background: none; border: none; cursor: pointer;
+      color: var(--av-text-muted); font-size: var(--av-fs-xl); line-height: 1; }
     [hidden] { display: none !important; }
   </style>
 </head>
@@ -98,8 +104,11 @@
 
       <div class="dr-filter">
         <input id="dr-test-id" type="text" placeholder="Lọc theo Test ID (vd ILR-LIS-LSN-L01)…" />
+        <input id="dr-user" type="text" placeholder="Học viên (email / tên)…" />
         <button id="dr-apply" type="button">Áp dụng</button>
       </div>
+
+      <section class="dr-card" id="dr-detail" hidden></section>
 
       <section class="dr-card">
         <h2>Tổng hợp <span id="dr-agg-scope" class="dr-mono"></span></h2>
@@ -111,7 +120,7 @@
       <div class="dr-table-wrap" id="dr-wrap" hidden>
         <table class="dr-table">
           <thead>
-            <tr><th>Ngày</th><th>Test</th><th>Phần</th><th>Câu đúng</th><th>Độ chính xác</th><th>Thời gian</th></tr>
+            <tr><th>Ngày</th><th>Học viên</th><th>Test</th><th>Phần</th><th>Câu đúng</th><th>Độ chính xác</th><th>Thời gian</th></tr>
           </thead>
           <tbody id="dr-rows"></tbody>
         </table>

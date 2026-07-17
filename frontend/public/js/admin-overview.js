@@ -113,8 +113,11 @@ function renderSkills(data) {
   // Listening
   setValue('[data-skill-7d="listening"]', skills.listening?.attempts_7d);
   setValue('[data-skill-total="listening"]', skills.listening?.attempts_total);
+  // avg_score_7d là % đúng 0..1 (audit 2026-07-17 — nguồn listening_test_attempts,
+  // score thô không so được giữa các cỡ đề) → render dạng %.
   setValue('[data-skill-extra="listening"]',
-    skills.listening?.avg_score_7d != null ? skills.listening.avg_score_7d.toFixed(2) : '—');
+    skills.listening?.avg_score_7d != null ? Math.round(skills.listening.avg_score_7d * 100) + '%' : '—');
+  setValue('[data-skill-dict="listening"]', skills.listening?.dictation_7d);
 
   // Vocab
   setValue('[data-skill-7d="vocab"]', skills.vocab?.due_review_today);

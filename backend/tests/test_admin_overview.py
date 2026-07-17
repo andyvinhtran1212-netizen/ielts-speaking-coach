@@ -134,7 +134,8 @@ class _FakeSupabase:
             "cohorts":       [],
             "sessions":      [],
             "writing_essays": [],
-            "listening_attempts": [],
+            "listening_test_attempts": [],
+            "dictation_sessions": [],
             "listening_content":  [],
             "user_vocabulary":    [],
             "grammar_recommendations": [],
@@ -269,9 +270,10 @@ class TestActiveUsers:
             {"id": "sess1", "user_id": "u-speaker", "overall_band": 6.5,
              "status": "completed", "created_at": _iso(-1), "completed_at": _iso(-1)},
         ]
-        fake_db.tables["listening_attempts"] = [
-            {"id": "att1", "user_id": "u-listener", "exercise_id": "e1",
-             "segment_idx": 0, "score": 80, "created_at": _iso(-2)},
+        fake_db.tables["listening_test_attempts"] = [
+            {"id": "att1", "user_id": "u-listener", "test_id": "t1",
+             "status": "in_progress", "score": None, "grading_details": [],
+             "created_at": _iso(-2), "submitted_at": None},
         ]
         fake_db.tables["writing_essays"] = [
             {"id": "ess1", "student_id": "stu1", "status": "delivered",
@@ -318,21 +320,39 @@ class TestSpeakingMetrics:
 
 
 class TestListeningFirstAttempt:
-    def test_avg_score_uses_first_attempt_only(self, client, fake_db):
-        # 1 exercise+segment, 3 attempts with different scores. First attempt
-        # was 50; retries 90 and 95. Avg must be 50 (Sprint 11.5.1 rule).
-        fake_db.tables["listening_attempts"] = [
-            {"id": "a1", "user_id": "u1", "exercise_id": "ex1", "segment_idx": 0,
-             "score": 50, "created_at": _iso(-1)},
-            {"id": "a2", "user_id": "u1", "exercise_id": "ex1", "segment_idx": 0,
-             "score": 90, "created_at": _iso(-0.5)},
-            {"id": "a3", "user_id": "u1", "exercise_id": "ex1", "segment_idx": 0,
-             "score": 95, "created_at": _iso(-0.25)},
+    def test_avg_accuracy_uses_first_attempt_per_user_test(self, client, fake_db):
+        # Audit 2026-07-17: nguồn = listening_test_attempts; avg = % đúng
+        # (score/số câu) của lượt ĐẦU per (user, test) — retry không tính.
+        def _att(i, score, days_ago):
+            return {"id": f"a{i}", "user_id": "u1", "test_id": "t1",
+                    "status": "submitted", "score": score,
+                    "grading_details": [{"q_num": q + 1} for q in range(10)],
+                    "created_at": _iso(-days_ago), "submitted_at": _iso(-days_ago)}
+        fake_db.tables["listening_test_attempts"] = [
+            _att(1, 5, 1),      # first attempt: 5/10 = 0.5
+            _att(2, 9, 0.5),    # retry — ignored for avg
+            _att(3, 10, 0.25),  # retry — ignored for avg
         ]
         r = client.get("/admin/overview", headers=_ADMIN_AUTH)
-        assert r.json()["skills"]["listening"]["avg_score_7d"] == 50.0
+        assert r.json()["skills"]["listening"]["avg_score_7d"] == 0.5
         # But raw attempts_7d counts all 3 (engagement signal).
         assert r.json()["skills"]["listening"]["attempts_7d"] == 3
+
+    def test_dictation_counts_surface(self, client, fake_db):
+        fake_db.tables["dictation_sessions"] = [
+            {"id": "d1", "user_id": "u9", "accuracy": 0.9,
+             "section_title": "Section 1", "test_id_external": "ILR-LIS-LSN-L01",
+             "completed_at": _iso(-1), "created_at": _iso(-1)},
+        ]
+        r = client.get("/admin/overview", headers=_ADMIN_AUTH)
+        body = r.json()
+        assert body["skills"]["listening"]["dictation_total"] == 1
+        assert body["skills"]["listening"]["dictation_7d"] == 1
+        # phiên chép chính tả cũng tính active user
+        assert body["students"]["active_7d"] == 1
+        # và vào feed hoạt động với accuracy %
+        feed = [r2 for r2 in body["recent_activity"] if "chép chính tả" in r2["action"]]
+        assert feed and feed[0]["score"] == "90%"
 
 
 class TestWritingPending:
@@ -404,10 +424,11 @@ class TestRecentActivity:
 
     def test_capped_at_20_rows(self, client, fake_db):
         # 30 attempts in last 30d.
-        fake_db.tables["listening_attempts"] = [
-            {"id": f"a{i}", "user_id": "u1", "exercise_id": f"ex{i}",
-             "segment_idx": 0, "score": 80,
-             "created_at": _iso(-(i / 10))}
+        fake_db.tables["listening_test_attempts"] = [
+            {"id": f"a{i}", "user_id": "u1", "test_id": f"t{i}",
+             "status": "submitted", "score": 8,
+             "grading_details": [{"q_num": q + 1} for q in range(10)],
+             "created_at": _iso(-(i / 10)), "submitted_at": _iso(-(i / 10))}
             for i in range(30)
         ]
         r = client.get("/admin/overview", headers=_ADMIN_AUTH)
