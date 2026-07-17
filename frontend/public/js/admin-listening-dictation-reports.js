@@ -153,6 +153,11 @@
   }
 
   document.addEventListener('DOMContentLoaded', function () {
+    // Cho phép trang khác deep-link sẵn bộ lọc học viên: ?user=<email/tên>
+    try {
+      var pre = new URLSearchParams(location.search).get('user');
+      if (pre) $('dr-user').value = pre;
+    } catch (e) {}
     $('dr-apply').addEventListener('click', load);
     $('dr-test-id').addEventListener('keydown', function (e) { if (e.key === 'Enter') load(); });
     $('dr-user').addEventListener('keydown', function (e) { if (e.key === 'Enter') load(); });
