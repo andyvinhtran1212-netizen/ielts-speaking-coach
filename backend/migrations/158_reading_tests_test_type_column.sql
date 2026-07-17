@@ -11,6 +11,11 @@
 ALTER TABLE reading_tests
     ADD COLUMN IF NOT EXISTS test_type TEXT;
 
+-- DEFAULT trước backfill: row insert xen giữa UPDATE và SET NOT NULL sẽ nhận
+-- 'full' thay vì NULL (NULL sẽ làm SET NOT NULL fail giữa chừng trên DB live).
+ALTER TABLE reading_tests
+    ALTER COLUMN test_type SET DEFAULT 'full';
+
 -- Backfill từ metadata: giá trị hợp lệ giữ nguyên, NULL / giá trị lạ → 'full'
 -- (khớp fallback hiện hành của GET /api/reading/tests).
 UPDATE reading_tests
@@ -20,9 +25,6 @@ SET test_type = CASE
     ELSE 'full'
 END
 WHERE test_type IS NULL;
-
-ALTER TABLE reading_tests
-    ALTER COLUMN test_type SET DEFAULT 'full';
 
 ALTER TABLE reading_tests
     ALTER COLUMN test_type SET NOT NULL;
