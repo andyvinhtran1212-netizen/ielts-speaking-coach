@@ -64,4 +64,9 @@ describe('listening-analytics (học viên) — nguồn mới', () => {
   test('cột completion thay accuracy cũ', () => {
     assert.match(ANJS, /r\.completion == null \? '—'/);
   });
+  test('overall weight theo scored_count/attempts_count — không lấy count làm mẫu số (review P2)', () => {
+    assert.match(ANJS, /r\.avg_score \* r\.scored_count/);
+    assert.match(ANJS, /r\.completion \* r\.attempts_count/);
+    assert.match(ANJS, /trong \$\{scoredCount\} bài đã nộp/);
+  });
 });

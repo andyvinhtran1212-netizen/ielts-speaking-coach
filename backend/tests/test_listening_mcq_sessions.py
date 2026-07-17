@@ -449,9 +449,11 @@ def test_analytics_by_type_aggregation(monkeypatch):
     authz = _patch_user(monkeypatch)
     out = _run(listening_router.get_listening_analytics(time_range="30d", authorization=authz))
     assert out["total_attempts"] == 2
-    assert out["by_mode"]["mini"] == {"count": 1, "avg_score": 0.8, "completion": 1.0}
+    assert out["by_mode"]["mini"] == {"count": 1, "scored_count": 1, "attempts_count": 1,
+                                      "avg_score": 0.8, "completion": 1.0}
     assert out["by_mode"]["drill"]["avg_score"] == 0.5
-    assert out["by_mode"]["full"] == {"count": 0, "avg_score": None, "completion": None}
+    assert out["by_mode"]["full"] == {"count": 0, "scored_count": 0, "attempts_count": 0,
+                                      "avg_score": None, "completion": None}
 
 
 def test_analytics_first_attempt_rule_per_test(monkeypatch):
@@ -488,6 +490,9 @@ def test_analytics_completion_counts_abandoned(monkeypatch):
     assert out["by_mode"]["drill"]["completion"] == 0.5
     # lượt bỏ dở không kéo avg_score (không có accuracy)
     assert out["by_mode"]["drill"]["avg_score"] == 0.9
+    # mẫu số cho client: 1 bài có điểm / 2 lượt tổng (review P2 PR #809)
+    assert out["by_mode"]["drill"]["scored_count"] == 1
+    assert out["by_mode"]["drill"]["attempts_count"] == 2
 
 
 def test_analytics_weakest_mode_requires_3_submitted(monkeypatch):

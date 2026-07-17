@@ -64,7 +64,6 @@
       '<td><span class="la-st ' + esc(r.status) + '">' + esc(ST_LABEL[r.status] || r.status) + '</span></td>' +
       '<td>' + scoreHtml(r) + '</td>' +
       '<td class="la-mono">' + esc(fmtDur(r.duration_seconds)) + '</td>' +
-      '<td class="la-mono">' + esc(fmtDur(r.audio_seconds)) + '</td>' +
       '</tr>';
   }
 
@@ -97,7 +96,6 @@
           '<span>Điểm: <b>' + (r.score == null ? '—' : r.score + '/' + (r.total_questions || '?')) + '</b></span>' +
           (r.band_estimate != null ? '<span>Band ước lượng: <b>' + esc(r.band_estimate) + '</b></span>' : '') +
           '<span>Thời lượng: <b>' + esc(fmtDur(r.duration_seconds)) + '</b></span>' +
-          '<span>Đã nghe: <b>' + esc(fmtDur(r.audio_seconds)) + '</b></span>' +
           (traps.caught != null ? '<span>Trap: <b>' + traps.caught + ' tránh được · ' + (traps.missed || 0) + ' dính</b></span>' : '') +
         '</div>' +
         (gd.length
