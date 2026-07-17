@@ -147,24 +147,34 @@ def _listening_summary(user_id: str | None) -> dict | None:
     admin và thống kê học viên (đợt 2)."""
     if not user_id:
         return None
+
+    def _fetch_all(table: str, cols: str) -> list[dict]:
+        """Phân trang đủ TOÀN BỘ lịch sử (lô 1000 = PostgREST cap) — hồ sơ ghi
+        "tổng lượt"/"% đúng" nên không được cắt ở newest-N: cắt vừa sai tổng
+        vừa có thể chọn nhầm retry làm "lượt nộp đầu" (review P2, PR #810).
+        Trần an toàn 20 lô (20k lượt/học viên) — vượt xa thực tế."""
+        out: list[dict] = []
+        page = 1000
+        for i in range(20):
+            res = (
+                supabase_admin.table(table)
+                .select(cols)
+                .eq("user_id", user_id)
+                .order("created_at", desc=True)
+                .range(i * page, (i + 1) * page - 1)
+                .execute()
+            ).data or []
+            out.extend(res)
+            if len(res) < page:
+                break
+        return out
+
     try:
-        rows = (
-            supabase_admin.table("listening_test_attempts")
-            .select("test_id,status,score,grading_details,started_at,"
-                    "submitted_at,created_at")
-            .eq("user_id", user_id)
-            .order("created_at", desc=True)
-            .limit(500)
-            .execute()
-        ).data or []
-        d_rows = (
-            supabase_admin.table("dictation_sessions")
-            .select("accuracy,completed_at,created_at")
-            .eq("user_id", user_id)
-            .order("created_at", desc=True)
-            .limit(500)
-            .execute()
-        ).data or []
+        rows = _fetch_all(
+            "listening_test_attempts",
+            "test_id,status,score,grading_details,started_at,submitted_at,created_at",
+        )
+        d_rows = _fetch_all("dictation_sessions", "accuracy,completed_at,created_at")
         u_rows = (
             supabase_admin.table("users").select("email")
             .eq("id", user_id).limit(1).execute()

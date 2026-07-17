@@ -179,12 +179,18 @@ def test_create_student_returns_inserted_row():
 # ── _listening_summary (audit 2026-07-17 đợt 3) ──────────────────────
 
 class _LisQ:
-    def __init__(self, rows): self._rows = rows
+    def __init__(self, rows): self._rows = rows; self._range = None
     def select(self, *_a, **_k): return self
     def eq(self, *_a): return self
     def order(self, *_a, **_k): return self
     def limit(self, *_a): return self
-    def execute(self): return MagicMock(data=self._rows)
+    def range(self, s, e): self._range = (s, e); return self
+    def execute(self):
+        rows = self._rows
+        if self._range:
+            s, e = self._range
+            rows = rows[s:e + 1]
+        return MagicMock(data=rows)
 
 
 class _LisFake:
@@ -228,6 +234,20 @@ def test_listening_summary_aggregates_first_submitted_rule():
     assert out["dictation_total"] == 1
     assert out["dictation_avg_accuracy"] == 0.9
     assert out["user_email"] == "hv@ex.com"
+
+
+def test_listening_summary_paginates_past_1000_rows():
+    """Cap newest-N từng cắt lịch sử >N (sai tổng + chọn nhầm retry làm lượt
+    nộp đầu) — giờ phân trang đủ (review P2, PR #810)."""
+    rows = [_lis_att(f"t{i}", "submitted", 5, 10,
+                     f"2026-07-{17 - (i // 100):02d}T{i % 24:02d}:00:00+00:00")
+            for i in range(1200)]
+    tables = {"listening_test_attempts": rows, "dictation_sessions": [],
+              "users": [{"email": "hv@ex.com"}]}
+    with patch.object(student_service, "supabase_admin", _LisFake(tables)):
+        out = student_service._listening_summary("u1")
+    assert out["attempts_total"] == 1200          # không bị cắt ở 1000
+    assert out["attempts_submitted"] == 1200
 
 
 def test_listening_summary_none_without_account_or_on_error():
