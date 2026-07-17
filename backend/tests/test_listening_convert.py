@@ -1164,67 +1164,6 @@ def test_section_to_content_payload_placeholder_shape():
     assert payload["metadata"]["source_format"] == "cambridge_ielts_markdown"
 
 
-# ── Convert endpoint round-trip (router-level) ───────────────────────────
-
-
-from routers import listening as listening_router
-from tests.test_listening_router import (
-    _FakeAdminClient, _patch_admin_auth, _patch_admin_client, _run,
-)
-
-
-def _build_dry_run_envelope() -> dict:
-    return lc.parse_from_text(QUESTION_PAPER_MD, SCRIPT_ANSWERKEY_MD)
-
-
-def test_convert_commit_inserts_test_4_sections_and_exercises(monkeypatch):
-    fake = _FakeAdminClient(canned={"listening_tests": []})
-    _patch_admin_client(monkeypatch, fake)
-    authz = _patch_admin_auth(monkeypatch)
-
-    envelope = _build_dry_run_envelope()
-    body = listening_router.ConvertCommitRequest(
-        test_metadata=envelope["test_metadata"],
-        sections=envelope["sections"],
-    )
-    out = _run(listening_router.admin_convert_listening_commit(
-        body=body, authorization=authz,
-    ))
-
-    tables_inserted = [t for t, _ in fake.inserts]
-    assert tables_inserted.count("listening_tests") == 1
-    assert tables_inserted.count("listening_content") == 4
-    # Per Sprint 13.4.2: one exercise row per Question-Paper block.
-    # Pilot 01 has 3+2+2+3 = 10 blocks total.
-    assert tables_inserted.count("listening_exercises") == 10
-
-    assert out["test_id_external"] == "ILR-LIS-001"
-    assert len(out["content_ids"]) == 4
-    assert out["exercises_created"] == 10
-    assert out["failed_sections"] == []
-
-
-def test_convert_commit_rejects_duplicate_test_id(monkeypatch):
-    fake = _FakeAdminClient(canned={
-        "listening_tests": [{"id": "existing-uuid", "test_id": "ILR-LIS-001"}],
-    })
-    _patch_admin_client(monkeypatch, fake)
-    authz = _patch_admin_auth(monkeypatch)
-
-    envelope = _build_dry_run_envelope()
-    body = listening_router.ConvertCommitRequest(
-        test_metadata=envelope["test_metadata"],
-        sections=envelope["sections"],
-    )
-    with pytest.raises(HTTPException) as excinfo:
-        _run(listening_router.admin_convert_listening_commit(
-            body=body, authorization=authz,
-        ))
-    assert excinfo.value.status_code == 422
-    # Sprint 13.5.4: copy switched from "đã tồn tại" → "đang ACTIVE"
-    # since archived rows no longer block re-import.
-    assert "đang ACTIVE" in str(excinfo.value.detail)
-
 
 # ── Sprint 13.5.2 — structural context preservation ───────────────────────
 

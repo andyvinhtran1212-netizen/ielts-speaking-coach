@@ -1,14 +1,17 @@
 """
 routers/listening.py — Listening module router (user + admin).
 
-Content enters via the markdown import flows (convert, import-fulltest,
+Content enters via the markdown import flows (import-fulltest,
 skill-drill import) and is managed through the exercise/content/test
 CRUD + audit routes below.
 
 Decommissioned 2026-07-17 (usage audit — unused ≥2 months): direct MP3
 upload (single/bulk/validate), ElevenLabs AI render, the audio cutter,
-and AI map-image generation. Manual map-image upload/delete/signed-url
-remain. See docs/audits/AUDIT_UPLOAD_QUAN_LY_FILE_READING_LISTENING_2026-07-17.md.
+AI map-image generation, and the legacy 2-file /convert flow (superseded
+by import-fulltest; services/listening_convert.py STAYS — its parser and
+marker maps are reused by the fulltest/drill importers and the audit
+engine). Manual map-image upload/delete/signed-url remain. See
+docs/audits/AUDIT_UPLOAD_QUAN_LY_FILE_READING_LISTENING_2026-07-17.md.
 
 Storage bucket: `listening-audio` (private, signed URLs only — Sprint
 11.0 §2A.L2). Bucket creation is a manual operator step; see migration
@@ -40,7 +43,6 @@ from services.listening_grader import (
     proper_noun_hints,
     split_sentences,
 )
-from services import listening_convert
 from services import listening_fulltest_import
 from services import listening_drill_import
 from services import listening_audit as listening_audit_svc
@@ -1676,19 +1678,6 @@ class ListeningTestStatusPatchRequest(BaseModel):
     status: str
 
 
-class ConvertCommitRequest(BaseModel):
-    """POST /admin/listening/convert/commit body.
-
-    Carries the parsed-result envelope the dry-run returned, so the admin
-    can review + tweak before persisting. The server re-validates shape
-    (it does NOT trust the client to send arbitrary section payloads).
-    """
-    model_config = ConfigDict(extra="allow")
-
-    test_metadata: dict
-    sections:      list[dict]
-
-
 @admin_router.get("/tests")
 async def admin_list_listening_tests(
     status: str = Query(default="all"),
@@ -1810,7 +1799,7 @@ async def admin_get_listening_test(
     # tests-detail page can show a "Hình map" panel per exercise
     # without a second round-trip. We deliberately strip the answers
     # field at this admin surface as well — admins manage answer keys
-    # through the existing convert/commit flow, not this endpoint.
+    # through the import-fulltest re-import flow, not this endpoint.
     plan_label_exercises: list[dict] = []
     if content_ids:
         pl_res = (
@@ -2204,57 +2193,6 @@ def _read_text_upload(upload: UploadFile, label: str, *, exts: tuple) -> bytes:
     return data
 
 
-@admin_router.post("/convert")
-async def admin_convert_listening_dry_run(
-    question_paper:    UploadFile = File(...),
-    script_answerkey:  UploadFile = File(...),
-    authorization: str | None = Header(default=None),
-):
-    """Dry-run parse of a 2-file Cambridge IELTS DOCX bundle.
-
-    Returns the structured preview (test metadata + 4 sections +
-    warnings/errors). No DB writes. The admin reviews the preview, then
-    POSTs the same envelope to ``/convert/commit`` to persist.
-    """
-    await require_admin(authorization)
-
-    qp_bytes = _read_markdown_upload(question_paper,   "Question Paper")
-    sa_bytes = _read_markdown_upload(script_answerkey, "Script+AnswerKey")
-
-    try:
-        result = listening_convert.parse_listening_test(qp_bytes, sa_bytes)
-    except Exception as exc:
-        logger.exception("Convert dry-run failed")
-        raise HTTPException(422, f"Lỗi khi phân tích markdown: {exc}") from exc
-
-    # Surface duplicate test_id here so the UI can switch to an "update
-    # existing" flow without a second round-trip.
-    # Sprint 13.5.4: only ACTIVE rows (draft / published) block a
-    # re-import. Archived rows are kept for audit + attempt history
-    # and are explicitly allowed to share a test_id with the new draft.
-    test_id_external = (result.get("test_metadata") or {}).get("test_id")
-    if test_id_external:
-        dup = (
-            supabase_admin.table("listening_tests")
-            .select("id,status")
-            .eq("test_id", test_id_external)
-            .neq("status", "archived")
-            .limit(1)
-            .execute()
-        )
-        if dup.data:
-            result.setdefault("warnings", []).append(
-                f"Test ID '{test_id_external}' đang ACTIVE trong DB "
-                f"(status={dup.data[0].get('status')}). Lựa chọn: "
-                f"(1) Archive test cũ → re-import sẽ tạo version mới, "
-                f"(2) Hard delete test cũ qua Vùng nguy hiểm, hoặc "
-                f"(3) Đổi test_id trong markdown metadata."
-            )
-            result["duplicate_test_id"] = True
-
-    return result
-
-
 @admin_router.post("/import-fulltest")
 async def admin_import_fulltest_dry_run(
     question_paper: UploadFile = File(...),
@@ -2262,12 +2200,12 @@ async def admin_import_fulltest_dry_run(
     timings:        UploadFile = File(...),
     authorization: str | None = Header(default=None),
 ):
-    """listening-fulltest-md-import (Phase A) — ADDITIVE dry-run parse of the
+    """listening-fulltest-md-import (Phase A) — dry-run parse of the
     full-test pack (Question_Paper.md + Solution.md + timings.json; the audio
-    mp3 is uploaded at commit). The legacy 2-file ``/convert`` flow is
-    untouched. Returns the merged 40-question preview + FAIL-LOUD validation
-    (every missing answer / missing audio window / audio↔timings divergence is
-    an explicit error). No DB writes — the admin reviews, then commits (A2)."""
+    mp3 is uploaded at commit). Returns the merged 40-question preview +
+    FAIL-LOUD validation (every missing answer / missing audio window /
+    audio↔timings divergence is an explicit error). No DB writes — the admin
+    reviews, then commits (A2)."""
     await require_admin(authorization)
 
     qp_bytes  = _read_text_upload(question_paper, "Question Paper", exts=(".md", ".markdown"))
@@ -2284,7 +2222,7 @@ async def admin_import_fulltest_dry_run(
 
     preview = result.as_preview()
 
-    # Surface a duplicate ACTIVE test_id (same convention as /convert).
+    # Surface a duplicate ACTIVE test_id (archived rows are reusable).
     test_id_external = (result.metadata or {}).get("test_id")
     if test_id_external:
         dup = (
@@ -2321,7 +2259,7 @@ async def admin_import_fulltest_commit(
     (payload enriched with per-question audio_windows + solutions). The rows are
     the SAME shape the existing player + grader + attempt flow consume, so an
     imported test is takeable / gradeable / reviewable with no other changes.
-    No migration (Pattern #15). The legacy 2-file /convert flow is untouched."""
+    No migration (Pattern #15)."""
     from services import listening_audio
 
     await require_admin(authorization)
@@ -2363,7 +2301,7 @@ async def admin_import_fulltest_commit(
     if av["errors"]:
         raise HTTPException(422, "; ".join(av["errors"]))
 
-    # Duplicate ACTIVE test_id guard (archived rows are fine — convert parity).
+    # Duplicate ACTIVE test_id guard (archived rows are fine).
     dup = (
         supabase_admin.table("listening_tests")
         .select("id,status").eq("test_id", test_id_external)
@@ -3010,151 +2948,6 @@ async def admin_edit_exercise_question(
     }
 
 
-@admin_router.post("/convert/commit")
-async def admin_convert_listening_commit(
-    body: ConvertCommitRequest,
-    authorization: str | None = Header(default=None),
-):
-    """Persist a parsed test bundle: 1 listening_tests row + 4
-    listening_content rows + N listening_exercises rows.
-
-    Partial-failure semantics (Sprint 13.2 pattern):
-      * The listening_tests row is created first; if that fails the
-        whole call returns 422.
-      * Each of the 4 section INSERTs is independent — a failure on
-        section 2 still commits sections 1/3/4 and returns the failure
-        in ``failed_sections``.
-      * Each exercise INSERT is independent — failure recorded in
-        ``failed_exercises`` but the response is still 200.
-    """
-    await require_admin(authorization)
-
-    metadata = body.test_metadata or {}
-    test_id_external = (metadata.get("test_id") or "").strip()
-    if not test_id_external:
-        raise HTTPException(422, "test_metadata.test_id thiếu — không thể commit.")
-    if not body.sections:
-        raise HTTPException(422, "sections rỗng — không có section nào để tạo.")
-
-    # Duplicate guard (also enforced by the partial UNIQUE index — see
-    # migration 069 — surface a clean VN message instead of letting
-    # postgres bubble 23505). Sprint 13.5.4: only ACTIVE rows block; an
-    # archived row with the same test_id is fine and stays put.
-    dup = (
-        supabase_admin.table("listening_tests")
-        .select("id,status")
-        .eq("test_id", test_id_external)
-        .neq("status", "archived")
-        .limit(1)
-        .execute()
-    )
-    if dup.data:
-        raise HTTPException(
-            422,
-            f"Test ID '{test_id_external}' đang ACTIVE (status="
-            f"{dup.data[0].get('status')}) — không thể commit. "
-            f"Archive test cũ qua Vùng nguy hiểm rồi import lại, "
-            f"hoặc đổi test_id.",
-        )
-
-    test_uuid = str(uuid.uuid4())
-    accent_profile = metadata.get("accent_profile") or []
-    themes = metadata.get("themes") or {}
-
-    test_payload = {
-        "id":                      test_uuid,
-        "test_id":                 test_id_external,
-        "title":                   metadata.get("title") or test_id_external,
-        "version":                 (metadata.get("version") or "1.0"),
-        "band_target":             metadata.get("band_target"),
-        "accent_profile":          list(accent_profile),
-        "themes":                  dict(themes),
-        "total_transcript_words":  metadata.get("total_words"),
-        "metadata":                {
-            "source_format":     metadata.get("source_format") or "cambridge_ielts_docx",
-            "created_at_source": metadata.get("created_at_source"),
-        },
-        "status":                  "draft",
-    }
-
-    try:
-        (
-            supabase_admin.table("listening_tests")
-            .insert(test_payload)
-            .execute()
-        )
-    except Exception as exc:
-        logger.exception("INSERT listening_tests failed")
-        raise HTTPException(422, f"Lỗi khi tạo test row: {exc}") from exc
-
-    content_ids: list[str] = []
-    failed_sections: list[dict] = []
-    exercises_created = 0
-    failed_exercises: list[dict] = []
-
-    for section in body.sections:
-        section_num = section.get("section_num")
-        try:
-            content_payload = listening_convert.section_to_content_payload(
-                section, test_uuid, metadata,
-            )
-            content_payload["id"] = str(uuid.uuid4())
-            (
-                supabase_admin.table("listening_content")
-                .insert(content_payload)
-                .execute()
-            )
-            content_ids.append(content_payload["id"])
-        except Exception as exc:                     # one section fails — others continue
-            logger.exception("INSERT listening_content failed section=%s", section_num)
-            failed_sections.append({
-                "section_num": section_num,
-                "error":       str(exc),
-            })
-            continue
-
-        # Exercises (best-effort per row).
-        for exercise in section.get("exercises", []):
-            try:
-                ex_payload = {
-                    "id":            str(uuid.uuid4()),
-                    "content_id":    content_payload["id"],
-                    "exercise_type": exercise.get("exercise_type", "dictation"),
-                    "payload":       exercise.get("payload", {}),
-                    "order_num":     exercise.get("order_num", 1),
-                    "cefr_level":    content_payload.get("cefr_level"),
-                    "status":        "draft",
-                }
-                (
-                    supabase_admin.table("listening_exercises")
-                    .insert(ex_payload)
-                    .execute()
-                )
-                exercises_created += 1
-            except Exception as exc:
-                logger.exception(
-                    "INSERT listening_exercises failed section=%s order=%s",
-                    section_num, exercise.get("order_num"),
-                )
-                failed_exercises.append({
-                    "section_num": section_num,
-                    "order_num":   exercise.get("order_num"),
-                    "error":       str(exc),
-                })
-
-    return {
-        "test_id":           test_uuid,
-        "test_id_external":  test_id_external,
-        "content_ids":       content_ids,
-        "exercises_created": exercises_created,
-        "failed_sections":   failed_sections,
-        "failed_exercises":  failed_exercises,
-    }
-
-
-# ── Sprint 13.4.3 — test bundle audio upload + assembly ─────────────────────
-
-
 _AUDIO_ASSEMBLY_MODES = {"full_premixed", "parts_auto_assembled", "parts_only"}
 
 
@@ -3308,8 +3101,8 @@ async def admin_upload_test_section_audio(
     if not sec_res.data:
         raise HTTPException(
             404,
-            f"Section {section_num} row missing — convert flow may not have "
-            f"created it. Re-run convert/commit before uploading.",
+            f"Section {section_num} row missing — test này chưa có content row "
+            f"cho section đó. Import lại đề (import-fulltest) trước khi upload.",
         )
     content_id = sec_res.data[0]["id"]
 

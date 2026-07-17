@@ -8,8 +8,8 @@
  * actions land here too.
  */
 
-// Sprint 13.4.1 hotfix — bootstrap supabase at module load (see
-// admin-listening-convert.js for the same fix + reasoning).
+// Sprint 13.4.1 hotfix — bootstrap supabase at module load so the
+// first GET carries auth.
 const SUPABASE_URL  = 'https://huwsmtubwulikhlmcirx.supabase.co';
 const SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
 
