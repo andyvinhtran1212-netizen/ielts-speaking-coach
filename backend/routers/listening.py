@@ -4377,6 +4377,167 @@ async def admin_get_dictation_report(
     return res.data[0]
 
 
+# ── Admin: lượt làm bài nghe của học viên (mini/drill/full) ──────────────────
+# Audit 2026-07-17 (AUDIT_LISTENING_ACTIVITY_REPORTING): listening_test_attempts
+# giữ toàn bộ hoạt động thật của học viên nhưng không có mặt đọc admin nào —
+# 2 endpoint dưới đây trả lời "ai làm bài nào, bao lâu, đúng bao nhiêu, sai ở đâu".
+
+
+def _iso_to_dt(s):
+    from datetime import datetime
+    if not s:
+        return None
+    try:
+        return datetime.fromisoformat(str(s).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _attempt_duration_seconds(row: dict) -> int | None:
+    """Thời lượng làm bài = submitted_at - started_at (None khi chưa nộp)."""
+    a = _iso_to_dt(row.get("started_at"))
+    b = _iso_to_dt(row.get("submitted_at"))
+    if not a or not b:
+        return None
+    return max(0, int((b - a).total_seconds()))
+
+
+def _rows_by_id(table: str, ids: list, cols: str) -> dict:
+    """Batch-resolve id → row (lô 100/lần — tránh URL dài + PostgREST cap)."""
+    out: dict = {}
+    uniq = sorted({i for i in ids if i})
+    for i in range(0, len(uniq), 100):
+        try:
+            res = (supabase_admin.table(table).select(cols)
+                   .in_("id", uniq[i:i + 100]).execute())
+        except Exception as exc:  # noqa: BLE001 — join lỗi không được 500 cả list
+            logger.warning("[listening] admin join %s failed: %s", table, exc)
+            return out
+        for r in (res.data or []):
+            out[r["id"]] = r
+    return out
+
+
+def _attempt_public_shape(r: dict, users: dict, tests: dict) -> dict:
+    gd = r.get("grading_details") or []
+    total_q = len(gd) or None
+    score = r.get("score")
+    u = users.get(r.get("user_id")) or {}
+    t = tests.get(r.get("test_id")) or {}
+    return {
+        "id":               r.get("id"),
+        "status":           r.get("status"),
+        "score":            score,
+        "total_questions":  total_q,
+        "accuracy":         (round(score / total_q, 4)
+                             if score is not None and total_q else None),
+        "duration_seconds": _attempt_duration_seconds(r),
+        "audio_seconds":    r.get("audio_duration_listened_seconds"),
+        "started_at":       r.get("started_at"),
+        "submitted_at":     r.get("submitted_at"),
+        "created_at":       r.get("created_at"),
+        "user": {"id": r.get("user_id"), "email": u.get("email"),
+                 "display_name": u.get("display_name")},
+        "test": {"id": r.get("test_id"), "test_id": t.get("test_id"),
+                 "title": t.get("title"), "test_type": t.get("test_type")},
+    }
+
+
+@admin_router.get("/attempts")
+async def admin_list_listening_attempts(
+    user_query: str | None = Query(default=None),
+    test_query: str | None = Query(default=None),
+    test_type: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    authorization: str | None = Header(default=None),
+):
+    """Admin: list lượt làm bài nghe (newest first) kèm danh tính học viên + bài.
+
+    - user_query: khớp email/display_name (ilike) — admin gõ tên/email, không UUID.
+    - test_query: khớp test_id ngoài (ILR-LIS-…) hoặc title (ilike).
+    - test_type: full | mini | drill. status: in_progress | submitted | abandoned.
+    Trả {items, total, limit, offset}; item KHÔNG mang grading_details (xem detail).
+    """
+    await require_admin(authorization)
+
+    if status and status not in {"in_progress", "submitted", "abandoned"}:
+        raise HTTPException(422, "status phải là in_progress | submitted | abandoned.")
+    if test_type and test_type not in {"full", "mini", "drill"}:
+        raise HTTPException(422, "test_type phải là full | mini | drill.")
+
+    # Resolve các filter dạng text → danh sách id TRƯỚC khi query attempts.
+    user_ids: list | None = None
+    if user_query:
+        pat = f"%{user_query.strip()}%"
+        u_res = (supabase_admin.table("users").select("id")
+                 .or_(f"email.ilike.{pat},display_name.ilike.{pat}")
+                 .limit(200).execute())
+        user_ids = [r["id"] for r in (u_res.data or [])]
+        if not user_ids:
+            return {"items": [], "total": 0, "limit": limit, "offset": offset}
+
+    test_ids: list | None = None
+    if test_query or test_type:
+        t_q = supabase_admin.table("listening_tests").select("id")
+        if test_query:
+            pat = f"%{test_query.strip()}%"
+            t_q = t_q.or_(f"test_id.ilike.{pat},title.ilike.{pat}")
+        if test_type:
+            t_q = t_q.eq("test_type", test_type)
+        t_res = t_q.limit(1000).execute()
+        test_ids = [r["id"] for r in (t_res.data or [])]
+        if not test_ids:
+            return {"items": [], "total": 0, "limit": limit, "offset": offset}
+
+    q = (supabase_admin.table("listening_test_attempts")
+         .select("id,user_id,test_id,status,score,grading_details,started_at,"
+                 "submitted_at,audio_duration_listened_seconds,created_at",
+                 count="exact"))
+    if status:
+        q = q.eq("status", status)
+    if user_ids is not None:
+        q = q.in_("user_id", user_ids)
+    if test_ids is not None:
+        q = q.in_("test_id", test_ids)
+    res = q.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
+    rows = res.data or []
+
+    users = _rows_by_id("users", [r.get("user_id") for r in rows],
+                        "id,email,display_name")
+    tests = _rows_by_id("listening_tests", [r.get("test_id") for r in rows],
+                        "id,test_id,title,test_type")
+    return {
+        "items": [_attempt_public_shape(r, users, tests) for r in rows],
+        "total": getattr(res, "count", None) or 0,
+        "limit": limit, "offset": offset,
+    }
+
+
+@admin_router.get("/attempts/{attempt_id}")
+async def admin_get_listening_attempt(
+    attempt_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Admin: chi tiết 1 lượt làm bài — per-question grading_details (học viên trả
+    lời gì, đáp án, trap caught/missed) + trap_analytics + band ước lượng."""
+    await require_admin(authorization)
+    res = (supabase_admin.table("listening_test_attempts").select("*")
+           .eq("id", attempt_id).limit(1).execute())
+    if not res.data:
+        raise HTTPException(404, "Không tìm thấy lượt làm bài.")
+    r = res.data[0]
+    users = _rows_by_id("users", [r.get("user_id")], "id,email,display_name")
+    tests = _rows_by_id("listening_tests", [r.get("test_id")],
+                        "id,test_id,title,test_type")
+    out = _attempt_public_shape(r, users, tests)
+    out["grading_details"] = r.get("grading_details") or []
+    out["trap_analytics"] = r.get("trap_analytics") or {}
+    out["band_estimate"] = r.get("band_estimate")
+    return out
+
+
 @user_router.post("/tests/{test_id}/attempts")
 async def start_listening_test_attempt(
     test_id: str,
