@@ -41,7 +41,13 @@ _TEST_TABLE = {"reading": "reading_tests", "listening": "listening_tests"}
 class FeedbackIn(BaseModel):
     type: str
     skill: str
-    attempt_id: str
+    # Anchor 1 — test attempt (full/mini/drill review). Anchor 2 — practice
+    # content (2026-07-17 audit: flag mở rộng cho L1/L2 practice + listening
+    # exercise lẻ): passage_slug (reading) HOẶC content_id (listening).
+    # Đúng một anchor phải có mặt.
+    attempt_id: Optional[str] = None
+    passage_slug: Optional[str] = None
+    content_id: Optional[str] = None
     q_num: Optional[int] = None
     rating_de: Optional[int] = None
     rating_audio: Optional[int] = None
@@ -91,6 +97,41 @@ def _fetch_owned_attempt(skill: str, attempt_id: str, user: Optional[dict], anon
     return row
 
 
+def _resolve_practice_ref(skill: str, passage_slug: str | None, content_id: str | None) -> str:
+    """Validate a practice/exercise anchor and return the denormalised
+    test_id label for admin grouping: ``practice:<slug>`` (reading L1/L2)
+    hoặc ``exercise:<content_uuid>`` (listening standalone exercise). The
+    referenced row must exist — a flag on nothing is a 404, not a row."""
+    if skill == "reading":
+        slug = (passage_slug or "").strip()
+        if not slug:
+            raise HTTPException(422, "passage_slug is required for reading practice feedback")
+        res = (
+            supabase_admin.table("reading_passages")
+            .select("id").eq("slug", slug)
+            .in_("library", ["l1_vocab", "l2_skill"])
+            .limit(1).execute()
+        )
+        if not res.data:
+            raise HTTPException(404, "Passage not found")
+        return f"practice:{slug}"
+    # listening
+    cid = (content_id or "").strip()
+    if not cid:
+        raise HTTPException(422, "content_id is required for listening exercise feedback")
+    try:
+        uuid.UUID(cid)
+    except ValueError:
+        raise HTTPException(422, "content_id must be a UUID")
+    res = (
+        supabase_admin.table("listening_content")
+        .select("id").eq("id", cid).limit(1).execute()
+    )
+    if not res.data:
+        raise HTTPException(404, "Content not found")
+    return f"exercise:{cid}"
+
+
 def _resolve_test_id(skill: str, test_uuid: str | None) -> str | None:
     """attempt.test_id (UUID) → the human test_id (TEXT) used for admin grouping."""
     if not test_uuid:
@@ -117,9 +158,21 @@ async def submit_feedback(
     # anon_id only meaningful for reading (listening attempts are always authed)
     anon_id = (x_reading_anon or "").strip() or None if body.skill == "reading" else None
 
-    # Ownership: you may only give feedback on an attempt you own.
-    attempt = _fetch_owned_attempt(body.skill, body.attempt_id, user, anon_id)
-    test_id = _resolve_test_id(body.skill, attempt.get("test_id"))
+    if body.attempt_id:
+        # Ownership: you may only give feedback on an attempt you own.
+        attempt = _fetch_owned_attempt(body.skill, body.attempt_id, user, anon_id)
+        test_id = _resolve_test_id(body.skill, attempt.get("test_id"))
+    else:
+        # Practice/exercise mode — flag/report anchored on the content itself
+        # (reading L1/L2 practice, listening standalone exercise). No attempt
+        # row exists, so: login required (no anon capability token here) and
+        # rating is not applicable (ratings are one-per-attempt).
+        if user is None:
+            raise HTTPException(401, "Authentication required")
+        if body.type == "rating":
+            raise HTTPException(422, "rating requires an attempt_id")
+        anon_id = None
+        test_id = _resolve_practice_ref(body.skill, body.passage_slug, body.content_id)
 
     # ── per-type validation ──────────────────────────────────────────────────
     def _check_rating(v, name):
@@ -154,7 +207,9 @@ async def submit_feedback(
             raise HTTPException(422, "report requires a category or a note")
         rating_de = rating_audio = None
     else:  # flag
-        if q_num is None:
+        # Attempt-anchored flags target one review card → q_num bắt buộc.
+        # Practice/exercise flags may be content-level → q_num optional.
+        if q_num is None and body.attempt_id:
             raise HTTPException(422, "flag requires q_num")
         rating_de = rating_audio = None
 

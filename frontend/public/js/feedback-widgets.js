@@ -35,8 +35,13 @@
   }
 
   // ── POST helper — picks authed vs anon (reading share-link) ─────────────────
+  // Anchor: attempt_id (test review) HOẶC passage_slug / content_id
+  // (practice + exercise lẻ — 2026-07-17 audit extension).
   function submit(ctx, payload) {
-    var body = Object.assign({ skill: ctx.skill, attempt_id: ctx.attemptId }, payload);
+    var body = Object.assign({ skill: ctx.skill }, payload);
+    if (ctx.attemptId) body.attempt_id = ctx.attemptId;
+    if (ctx.passageSlug) body.passage_slug = ctx.passageSlug;
+    if (ctx.contentId) body.content_id = ctx.contentId;
     if (ctx.anonId && window.api.postWith) {
       return window.api.postWith('/api/feedback', body, { 'X-Reading-Anon': ctx.anonId }, { noRedirect: true });
     }
@@ -283,14 +288,17 @@
   function attachCardFlag(opts) {
     var card = opts.card, top = opts.top;
     if (!card || !top || top.querySelector('.fb-flag-btn')) return;   // idempotent
-    var ctx = { skill: opts.skill, attemptId: opts.attemptId, anonId: opts.anonId || null };
-    var qNum = opts.qNum;
+    var ctx = {
+      skill: opts.skill, attemptId: opts.attemptId, anonId: opts.anonId || null,
+      passageSlug: opts.passageSlug || null, contentId: opts.contentId || null,
+    };
+    var qNum = (opts.qNum == null) ? null : opts.qNum;
 
     var btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'av-fb fb-flag-btn';
     btn.setAttribute('aria-expanded', 'false');
-    btn.innerHTML = '<span aria-hidden="true">⚑</span> Báo lỗi bài giải';
+    btn.innerHTML = '<span aria-hidden="true">⚑</span> ' + (opts.label || 'Báo lỗi bài giải');
     top.appendChild(btn);
 
     var pop = null;
@@ -298,9 +306,13 @@
       if (pop) { pop.remove(); pop = null; btn.setAttribute('aria-expanded', 'false'); btn.classList.remove('is-on'); return; }
       pop = document.createElement('div');
       pop.className = 'av-fb fb-pop';
+      var noteId = 'fb-pop-note-' + (qNum == null ? 'page' : qNum);
+      var prompt = (qNum == null)
+        ? 'Bài này có vấn đề gì?'
+        : 'Bài giải câu này có vấn đề gì?';
       pop.innerHTML =
-        '<label for="fb-pop-note-' + qNum + '">Bài giải câu này có vấn đề gì? <span class="fb-opt">· không bắt buộc</span></label>' +
-        '<textarea id="fb-pop-note-' + qNum + '" class="fb-textarea" placeholder="VD: giải thích chưa khớp transcript, link nghe-lại sai đoạn…"></textarea>' +
+        '<label for="' + noteId + '">' + prompt + ' <span class="fb-opt">· không bắt buộc</span></label>' +
+        '<textarea id="' + noteId + '" class="fb-textarea" placeholder="VD: giải thích chưa khớp transcript, link nghe-lại sai đoạn…"></textarea>' +
         '<p class="fb-pop__msg" role="status" aria-live="polite" hidden></p>' +
         '<div class="fb-pop__foot">' +
           '<button type="button" class="fb-btn fb-btn--ghost fb-btn--sm" data-act="cancel">Huỷ</button>' +
@@ -315,7 +327,8 @@
       });
       pop.querySelector('[data-act="send"]').addEventListener('click', function () {
         var note = pop.querySelector('textarea').value.trim();
-        var payload = { type: 'flag', q_num: qNum };
+        var payload = { type: 'flag' };
+        if (qNum != null) payload.q_num = qNum;
         if (note) payload.note = note;
         var sb = pop.querySelector('[data-act="send"]');
         sb.disabled = true;
