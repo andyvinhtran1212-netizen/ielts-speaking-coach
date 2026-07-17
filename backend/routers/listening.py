@@ -1585,6 +1585,11 @@ async def get_listening_analytics(
         accs = [r["accuracy"] for r in flat_first_submitted if r["type"] == m]
         by_mode[m] = {
             "count":      len(firsts),
+            # scored_count/attempts_count: mẫu số đúng cho các chỉ số tổng hợp
+            # phía client — count (bài đã đụng, gồm bỏ dở) KHÔNG được làm mẫu
+            # số cho avg_score (chỉ tính bài đã nộp) (review P2, PR #809).
+            "scored_count":   len(accs),
+            "attempts_count": len(alls),
             "avg_score":  round(sum(accs) / len(accs), 4) if accs else None,
             "completion": (round(sum(1 for r in alls if r["status"] == "submitted")
                                  / len(alls), 4) if alls else None),
@@ -4303,9 +4308,8 @@ async def admin_list_dictation_reports(
     if test_id:
         q = q.eq("test_id_external", test_id)
     if user_query:
-        pat = f"%{user_query.strip()}%"
         u_res = (supabase_admin.table("users").select("id")
-                 .or_(f"email.ilike.{pat},display_name.ilike.{pat}")
+                 .or_(ilike_or_filter(["email", "display_name"], user_query.strip()))
                  .limit(200).execute())
         uids = [r["id"] for r in (u_res.data or [])]
         if not uids:
@@ -4326,15 +4330,27 @@ async def admin_list_dictation_reports(
 @admin_router.get("/dictation-reports/aggregate")
 async def admin_dictation_reports_aggregate(
     test_id: str | None = Query(default=None),
+    user_query: str | None = Query(default=None),
     authorization: str | None = Header(default=None),
 ):
     """Admin: per-test analytics — mean accuracy + the words most often missed
-    or typed wrong across sessions, so weak/ambiguous content surfaces."""
+    or typed wrong across sessions, so weak/ambiguous content surfaces.
+    Nhận CÙNG bộ lọc với list (test_id + user_query) — số tổng hợp phải cùng
+    phạm vi với bảng phiên, không được lệch (review P2, PR #809)."""
     await require_admin(authorization)
     q = supabase_admin.table("dictation_sessions").select(
         "test_id_external,section_num,accuracy,total_sentences,error_trends")
     if test_id:
         q = q.eq("test_id_external", test_id)
+    if user_query:
+        u_res = (supabase_admin.table("users").select("id")
+                 .or_(ilike_or_filter(["email", "display_name"], user_query.strip()))
+                 .limit(200).execute())
+        uids = [r["id"] for r in (u_res.data or [])]
+        if not uids:
+            return {"session_count": 0, "mean_accuracy": 0.0,
+                    "top_missed": [], "top_wrong": []}
+        q = q.in_("user_id", uids)
     rows = q.limit(2000).execute().data or []
 
     # Sum the FULL per-session word counters (error_trends.missed/.wrong maps),

@@ -197,12 +197,13 @@ class _Q:
                     return False
             elif r.get(c) != v:
                 return False
-        # "col.ilike.%pat%,col2.ilike.%pat%" — substring, case-insensitive
+        # ilike_or_filter sinh 'col.ilike."%pat%"' (value quoted + escaped) —
+        # strip cả ngoặc kép lẫn % để so substring, case-insensitive.
         if getattr(self, "_or", None):
             hit = False
             for part in self._or.split(","):
                 col, _op, pat = part.split(".", 2)
-                if pat.strip("%").lower() in str(r.get(col) or "").lower():
+                if pat.strip('"').strip("%").lower() in str(r.get(col) or "").lower():
                     hit = True
                     break
             if not hit:
@@ -688,10 +689,19 @@ def test_admin_list_and_aggregate_dictation_reports(monkeypatch):
         test_id=None, user_query="u1@ex", limit=30, offset=0, authorization=authz))
     assert only_u1["total"] == 1 and only_u1["items"][0]["user"]["id"] == "u1"
     agg = _run(listening_router.admin_dictation_reports_aggregate(
-        test_id="ILR-LIS-LSN-L01", authorization=authz))
+        test_id="ILR-LIS-LSN-L01", user_query=None, authorization=authz))
     assert agg["session_count"] == 2
     assert agg["mean_accuracy"] == 0.7
     assert agg["top_missed"][0] == {"word": "brighton", "count": 3}
+    # aggregate phải CÙNG phạm vi với bảng khi lọc học viên (review P2 #809)
+    agg_u1 = _run(listening_router.admin_dictation_reports_aggregate(
+        test_id=None, user_query="u1@ex", authorization=authz))
+    assert agg_u1["session_count"] == 1
+    assert agg_u1["mean_accuracy"] == 0.8
+    agg_none = _run(listening_router.admin_dictation_reports_aggregate(
+        test_id=None, user_query="khong-ai-ca", authorization=authz))
+    assert agg_none == {"session_count": 0, "mean_accuracy": 0.0,
+                        "top_missed": [], "top_wrong": []}
 
 
 def test_admin_dictation_reports_requires_admin(monkeypatch):

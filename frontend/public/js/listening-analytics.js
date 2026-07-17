@@ -68,22 +68,30 @@ async function load() {
 function render(data) {
   $('stat-total').textContent = String(data.total_attempts);
 
-  // Overall: % đúng TB (weighted theo count) + tỉ lệ hoàn thành TB.
+  // Overall: % đúng TB weight theo SỐ BÀI ĐÃ NỘP (scored_count) — count gồm
+  // cả bài bỏ dở/đang làm, lấy làm mẫu số sẽ kéo tụt % giả (review P2).
+  // Hoàn thành TB weight theo mọi lượt (attempts_count).
   const modes = ['mini', 'drill', 'full'];
   let weightedScore = 0;
+  let scoredCount = 0;
   let weightedAcc = 0;
-  let count = 0;
+  let attemptsCount = 0;
   modes.forEach((m) => {
     const r = (data.by_mode || {})[m];
-    if (!r || !r.count) return;
-    if (r.avg_score != null) weightedScore += r.avg_score * r.count;
-    if (r.completion != null) weightedAcc += r.completion * r.count;
-    count += r.count;
+    if (!r) return;
+    if (r.avg_score != null && r.scored_count) {
+      weightedScore += r.avg_score * r.scored_count;
+      scoredCount += r.scored_count;
+    }
+    if (r.completion != null && r.attempts_count) {
+      weightedAcc += r.completion * r.attempts_count;
+      attemptsCount += r.attempts_count;
+    }
   });
-  const avg = count ? (weightedScore / count) : null;
-  const acc = count ? (weightedAcc / count) : null;
+  const avg = scoredCount ? (weightedScore / scoredCount) : null;
+  const acc = attemptsCount ? (weightedAcc / attemptsCount) : null;
   $('stat-avg').textContent = avg == null ? '—' : `${Math.round(avg * 100)}%`;
-  $('stat-avg-sub').textContent = avg == null ? '' : `trong ${count} lượt`;
+  $('stat-avg-sub').textContent = avg == null ? '' : `trong ${scoredCount} bài đã nộp`;
   $('stat-acc').textContent = acc == null ? '—' : `${Math.round(acc * 100)}%`;
 
   // Weakest mode banner.
