@@ -694,10 +694,14 @@
       } else if (q.input === 'syllable') {
         itxt = 'Chọn một phương án.';
       } else if (q.input === 'text') {
-        const n = (Array.isArray(q.accept) && q.accept[0])
-          ? String(q.accept[0]).trim().split(/\s+/).length : 0;
         // Count shows for 1-word answers too: bank prompts no longer carry
         // "write one word"-style tails (moved to `hint` / dropped, audit §I).
+        // Derived ONLY when every accepted variant agrees — accepts of mixed
+        // lengths ("The government" / "Government") must not advertise a
+        // "required" count the grader doesn't actually require.
+        const counts = (Array.isArray(q.accept) ? q.accept : [])
+          .map((a) => String(a).trim().split(/\s+/).length);
+        const n = counts.length && counts.every((c) => c === counts[0]) ? counts[0] : 0;
         itxt = n >= 1 ? ('Gõ đáp án vào ô trống (' + n + ' từ).') : 'Gõ đáp án vào ô trống.';
       }
       instr.textContent = itxt;
@@ -887,11 +891,18 @@
       return '<div class="qz-rl-item ' + cls + '">'
         + '<div class="qz-rl-prompt">' + fmt(it.prompt) + '</div>'
         + (it.hint ? '<div class="qz-rl-row">💡 ' + fmt(it.hint) + '</div>' : '')
-        + '<div class="qz-rl-row">Bạn trả lời: <span class="qz-fb__answer '
+        // A fixed question shows what the learner actually got wrong first —
+        // that's what they came to review — then the final correct answer.
+        + (it.wrongCount > 0 && !lastWrong && it.wrongGiven != null
+            ? '<div class="qz-rl-row">Từng trả lời sai: <span class="qz-fb__answer is-wrong">'
+              + fmt(String(it.wrongGiven)) + '</span> ✗'
+              + (it.wrongCount > 1 ? ' <span class="qz-muted">(sai ' + it.wrongCount + ' lần)</span>' : '')
+              + '</div>'
+            : '')
+        + '<div class="qz-rl-row">' + (it.wrongCount > 0 && !lastWrong ? 'Sau đó trả lời đúng: ' : 'Bạn trả lời: ')
+          + '<span class="qz-fb__answer '
           + (lastWrong ? 'is-wrong' : 'is-right') + '">' + fmt(String(it.given == null ? '' : it.given))
           + '</span>' + (lastWrong ? ' ✗' : ' ✓')
-          + (it.wrongCount > 0 && !lastWrong
-              ? ' <span class="qz-muted">(sai ' + it.wrongCount + ' lần trước đó)</span>' : '')
           + '</div>'
         + (lastWrong && it.correctText
             ? '<div class="qz-rl-row">Đáp án đúng: <span class="qz-fb__answer is-right">'

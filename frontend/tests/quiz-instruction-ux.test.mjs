@@ -83,8 +83,11 @@ describe('quiz.html — instruction layer + copy (source sentinels)', () => {
     assert.match(QUIZ, /Chọn từ\/cụm đúng cho chỗ trống\./);
     assert.match(QUIZ, /Chọn đáp án đúng\./);
   });
-  test('typed answers get a word-count hint derived from accept[0]', () => {
-    assert.match(QUIZ, /String\(q\.accept\[0\]\)\.trim\(\)\.split\(\/\\s\+\/\)\.length/);
+  test('typed answers get a word-count hint — only when every accept agrees', () => {
+    // Mixed-length accepts ("The government" / "Government") must not advertise
+    // a "required" count the grader doesn't enforce (review P2, PR #806).
+    assert.match(QUIZ, /\.map\(\(a\) => String\(a\)\.trim\(\)\.split\(\/\\s\+\/\)\.length\)/);
+    assert.match(QUIZ, /counts\.every\(\(c\) => c === counts\[0\]\)/);
     assert.match(QUIZ, /Gõ đáp án vào ô trống \(' \+ n \+ ' từ\)\./);
   });
   test('blank placeholder renders from 2 underscores up (was 4)', () => {
