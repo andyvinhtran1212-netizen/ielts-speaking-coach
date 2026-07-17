@@ -186,6 +186,27 @@
       background var(--av-duration-fast) var(--av-easing-default); }
     .qz-res-chip:hover { border-color: var(--av-primary-border); background: var(--av-primary-soft); }
     .qz-res-chip:focus-visible { outline: none; box-shadow: var(--av-shadow-focus); }
+
+    /* Per-question review of the session ("Xem lại bài làm") */
+    .qz-rl-head { display: flex; align-items: center; justify-content: space-between;
+      gap: var(--av-space-3); }
+    .qz-rl-item { padding: var(--av-space-3) var(--av-space-4); margin-top: var(--av-space-3);
+      border-left: 3px solid var(--av-border-default);
+      border-radius: 0 var(--av-radius-md) var(--av-radius-md) 0;
+      background: var(--av-surface-sunken); }
+    .qz-rl-item.is-wrong { border-left-color: var(--av-error); }
+    .qz-rl-item.is-fixed { border-left-color: var(--av-warning); }
+    .qz-rl-item.is-right { border-left-color: var(--av-success); }
+    .qz-rl-prompt { color: var(--av-text-primary); font-weight: var(--av-fw-medium);
+      line-height: var(--av-lh-snug); }
+    .qz-rl-row { margin-top: var(--av-space-2); font-size: var(--av-fs-sm);
+      color: var(--av-text-secondary); }
+    .qz-rl-row .qz-fb__answer.is-wrong { color: var(--av-error); }
+    .qz-rl-row .qz-fb__answer.is-right { color: var(--av-success); }
+    .qz-rl-explain { margin-top: var(--av-space-2); font-size: var(--av-fs-sm);
+      color: var(--av-text-muted); line-height: var(--av-lh-relaxed); }
+    .qz-rl-empty { margin-top: var(--av-space-3); color: var(--av-text-muted);
+      font-size: var(--av-fs-sm); }
   </style>
 </head>
 <body class="av-page font-sans antialiased">
@@ -279,6 +300,16 @@
         <p id="qz-res-review-hint" class="qz-muted" style="margin-top:var(--av-space-2);">Bấm vào từ để xem nhanh thẻ từ.</p>
       </div>
 
+      <!-- Per-question review — every graded answer of the session, wrong-first
+           (audit 2026-07-17 §II: finishing used to discard all questions/answers). -->
+      <div class="av-card qz-card hidden" id="qz-res-log">
+        <div class="qz-rl-head">
+          <div class="qz-sec__label" style="margin-bottom:0;">Xem lại bài làm</div>
+          <button id="qz-res-log-toggle" type="button" class="av-button av-button-secondary av-button-sm"></button>
+        </div>
+        <div id="qz-res-log-list"></div>
+      </div>
+
       <div class="qz-note qz-note--warn hidden" id="qz-res-warn">
         <span class="qz-note__label">⚠ Chưa lưu hết tiến độ</span>
         <div>Một phần tiến độ chưa lưu được — sẽ tự thử lại ở phiên sau.</div>
@@ -317,6 +348,7 @@
   <script src="/js/api.js"></script>
   <script type="module">
     import { createEngine } from '/js/quiz-engine.js';
+    import { buildReviewList } from '/js/quiz-review.js';
 
     initSupabase('https://huwsmtubwulikhlmcirx.supabase.co',
                  'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao');
@@ -378,6 +410,9 @@
     const keyLabel = (k) => isGrammar ? String(k).replace(/-/g, ' ') : String(k);
     let engine = null, sessionId = null, current = null, graded = false, startMs = Date.now();
     let pending = 0;   // attempts since last flush
+    // Per-answer log for the end-of-session review. Page-level (the engine keeps
+    // no history — attempts are drained to the backend), works in reviewMode too.
+    let sessionLog = [];
     let wordCards = {};   // lowercased headword → glance card (meaning/IPA/audio/example)
     let bank = null, currentBankId = null;   // fetched once in boot(), reused by startPlay()
     // A review pass (started from the "already mastered" gate) re-tests every
@@ -512,6 +547,14 @@
       if (q.input === 'boolean') return (q.answer === 1 || q.answer === true) ? 'Đúng' : 'Sai';
       if (q.input === 'text') return (Array.isArray(q.accept) && q.accept[0]) || '';
       return '';
+    }
+
+    // The learner's answer in display form (mirrors correctAnswerText).
+    function givenAnswerText(q, value) {
+      if (q.input === 'choice') return (q.options || [])[value];
+      if (q.input === 'syllable') return (q.segments || [])[value];
+      if (q.input === 'boolean') return value ? 'Đúng' : 'Sai';
+      return String(value == null ? '' : value);
     }
 
     function setActions(html) {
@@ -697,8 +740,10 @@
         w.appendChild(box);
       } else { // text — needs typing, so a confirm button (Enter also works)
         const inp = document.createElement('input');
+        // No placeholder: the #qz-instr line already says "Gõ đáp án vào ô trống"
+        // — a third "type here" cue (audit 2026-07-17 D1) added noise, not help.
         inp.className = 'qz-input'; inp.id = 'qz-text'; inp.type = 'text';
-        inp.autocomplete = 'off'; inp.placeholder = 'Gõ đáp án…';
+        inp.autocomplete = 'off';
         inp.oninput = () => { const btn = $('qz-check'); if (btn) btn.disabled = !inp.value.trim(); };
         inp.onkeydown = (e) => { if (e.key === 'Enter' && inp.value.trim() && !graded) grade(inp.value); };
         w.appendChild(inp);
@@ -747,6 +792,18 @@
       // + a quick-glance vocab card link (when a card exists for this word).
       const artUrl = q && q.article_url;
       const corr = correctAnswerText(q);
+
+      // Log for the end-of-session review — the only place this answer survives
+      // (the engine drains attempts to the backend and keeps no history).
+      sessionLog.push({
+        qid: q.qid, item_key: current.item_key,
+        prompt: String(q.prompt || '').replace(AUDIO_TOKEN_RE, ' ').trim(),
+        given: givenAnswerText(q, value),
+        correctText: corr,
+        correct: res.correct,
+        explain: q.explain || '',
+        article_url: artUrl || null,
+      });
       const cardKey = (current.item_key || '').toLowerCase();
       const hasCard = !!wordCards[cardKey];
       const fb = $('qz-feedback');
@@ -802,6 +859,51 @@
       return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
     }
 
+    // ── "Xem lại bài làm" — per-question review on the result screen ────
+    // Wrong-only by default (the ask was "review lại các câu sai"); a toggle
+    // shows everything. Items are the LAST attempt per question: the adaptive
+    // loop re-asks until correct, so a question answered wrong then fixed shows
+    // as "fixed" (amber) with a wrong-count badge, not as a false "sai".
+    let _reviewList = [], _reviewWrongOnly = true;
+
+    function reviewItemHtml(it) {
+      const lastWrong = !it.correct;
+      const cls = lastWrong ? 'is-wrong' : (it.wrongCount > 0 ? 'is-fixed' : 'is-right');
+      return '<div class="qz-rl-item ' + cls + '">'
+        + '<div class="qz-rl-prompt">' + fmt(it.prompt) + '</div>'
+        + '<div class="qz-rl-row">Bạn trả lời: <span class="qz-fb__answer '
+          + (lastWrong ? 'is-wrong' : 'is-right') + '">' + fmt(String(it.given == null ? '' : it.given))
+          + '</span>' + (lastWrong ? ' ✗' : ' ✓')
+          + (it.wrongCount > 0 && !lastWrong
+              ? ' <span class="qz-muted">(sai ' + it.wrongCount + ' lần trước đó)</span>' : '')
+          + '</div>'
+        + (lastWrong && it.correctText
+            ? '<div class="qz-rl-row">Đáp án đúng: <span class="qz-fb__answer is-right">'
+              + fmt(String(it.correctText)) + '</span></div>'
+            : '')
+        + (it.explain ? '<div class="qz-rl-explain">' + fmt(it.explain) + '</div>' : '')
+        + (it.article_url
+            ? '<div><a class="qz-fb__review" href="' + esc(it.article_url)
+              + '" target="_blank" rel="noopener">📖 Ôn lại bài</a></div>'
+            : '')
+        + '</div>';
+    }
+
+    function renderReviewLog() {
+      const card = $('qz-res-log');
+      if (!_reviewList.length) { card.classList.add('hidden'); return; }
+      card.classList.remove('hidden');
+      const wrongs = _reviewList.filter((it) => it.wrongCount > 0);
+      const showing = _reviewWrongOnly ? wrongs : _reviewList;
+      const btn = $('qz-res-log-toggle');
+      btn.textContent = _reviewWrongOnly
+        ? ('Hiện tất cả (' + _reviewList.length + ')')
+        : ('Chỉ câu sai (' + wrongs.length + ')');
+      $('qz-res-log-list').innerHTML = showing.length
+        ? showing.map(reviewItemHtml).join('')
+        : '<p class="qz-rl-empty">🎉 Không sai câu nào trong phiên này.</p>';
+    }
+
     // Fill the end-of-session result screen from the in-memory summary (no fetch —
     // reliable even if the final progress flush failed). `ok` gates the sync warn.
     function renderResult(s, durSec, ok) {
@@ -836,6 +938,15 @@
           box.appendChild(el);
         });
       }
+      // Per-question review (wrong-only first; toggle to all).
+      _reviewList = buildReviewList(sessionLog);
+      _reviewWrongOnly = true;
+      renderReviewLog();
+      $('qz-res-log-toggle').onclick = () => {
+        _reviewWrongOnly = !_reviewWrongOnly;
+        renderReviewLog();
+      };
+
       if (!ok) $('qz-res-warn').classList.remove('hidden');
     }
 
@@ -924,6 +1035,7 @@
       // any idle time spent on the mastered gate before "Ôn tập lại" — otherwise
       // finish() would report that idle time as practice duration.
       startMs = Date.now();
+      sessionLog = [];   // fresh review log per play (startPlay is re-entrant via the gate)
 
       // Cache the access token for the keepalive unload beacon (which needs the
       // Authorization header synchronously, before the page tears down).
