@@ -871,11 +871,18 @@
       const cls = lastWrong ? 'is-wrong' : (it.wrongCount > 0 ? 'is-fixed' : 'is-right');
       return '<div class="qz-rl-item ' + cls + '">'
         + '<div class="qz-rl-prompt">' + fmt(it.prompt) + '</div>'
-        + '<div class="qz-rl-row">Bạn trả lời: <span class="qz-fb__answer '
+        // A fixed question shows what the learner actually got wrong first —
+        // that's what they came to review — then the final correct answer.
+        + (it.wrongCount > 0 && !lastWrong && it.wrongGiven != null
+            ? '<div class="qz-rl-row">Từng trả lời sai: <span class="qz-fb__answer is-wrong">'
+              + fmt(String(it.wrongGiven)) + '</span> ✗'
+              + (it.wrongCount > 1 ? ' <span class="qz-muted">(sai ' + it.wrongCount + ' lần)</span>' : '')
+              + '</div>'
+            : '')
+        + '<div class="qz-rl-row">' + (it.wrongCount > 0 && !lastWrong ? 'Sau đó trả lời đúng: ' : 'Bạn trả lời: ')
+          + '<span class="qz-fb__answer '
           + (lastWrong ? 'is-wrong' : 'is-right') + '">' + fmt(String(it.given == null ? '' : it.given))
           + '</span>' + (lastWrong ? ' ✗' : ' ✓')
-          + (it.wrongCount > 0 && !lastWrong
-              ? ' <span class="qz-muted">(sai ' + it.wrongCount + ' lần trước đó)</span>' : '')
           + '</div>'
         + (lastWrong && it.correctText
             ? '<div class="qz-rl-row">Đáp án đúng: <span class="qz-fb__answer is-right">'
