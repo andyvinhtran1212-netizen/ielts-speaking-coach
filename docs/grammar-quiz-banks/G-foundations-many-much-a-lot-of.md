@@ -66,7 +66,8 @@ input: "text"
 headword: "mma-many-countable"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (many/much — choose for 'startups', a countable plural noun) tech startups failed within their first two years."
+prompt: "____ tech startups failed within their first two years."
+hint: "chọn 'many' hoặc 'much'"
 accept: ["Many", "many"]
 case_sensitive: false
 grammar_article_slug: "many-much-a-lot-of"
@@ -137,7 +138,8 @@ input: "text"
 headword: "mma-much-uncountable"
 skill: "production"
 subtype: "intermediate"
-prompt: "There isn't ____ (many/much — choose for 'legroom', an uncountable noun) legroom on budget airlines these days."
+prompt: "There isn't ____ legroom on budget airlines these days."
+hint: "chọn 'many' hoặc 'much'"
 accept: ["much"]
 case_sensitive: false
 grammar_article_slug: "many-much-a-lot-of"
@@ -194,8 +196,9 @@ input: "text"
 headword: "mma-a-lot-of"
 skill: "production"
 subtype: "intermediate"
-prompt: "He has ____ (a lot of) experience volunteering at animal shelters."
-accept: ["a lot of"]
+prompt: "He has ____ experience volunteering at animal shelters."
+hint: "lượng từ 3 từ, thân mật, dùng thoải mái trong văn nói"
+accept: ["a lot of", "lots of"]
 case_sensitive: false
 grammar_article_slug: "many-much-a-lot-of"
 explain: "'a lot of' dùng được với uncountable ('experience') trong văn nói tự nhiên."
@@ -251,7 +254,8 @@ input: "text"
 headword: "mma-degree-intensifiers"
 skill: "production"
 subtype: "intermediate"
-prompt: "He spends ____ (too much) screen time on his phone, according to his doctor."
+prompt: "He spends ____ screen time on his phone, according to his doctor."
+hint: "cụm 2 từ nghĩa 'quá nhiều' (tiêu cực)"
 accept: ["too much"]
 case_sensitive: false
 grammar_article_slug: "many-much-a-lot-of"

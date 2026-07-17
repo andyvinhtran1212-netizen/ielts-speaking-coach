@@ -266,7 +266,8 @@ input: "text"
 headword: "dm-however-punctuation"
 skill: "production"
 subtype: "intermediate"
-prompt: "Fix the punctuation — write only the corrected linking word with its comma: 'The results are promising, therefore we should proceed.' → The results are promising. ____ we should proceed."
+prompt: "Fix the punctuation: 'The results are promising, therefore we should proceed.' → 'The results are promising. ____ we should proceed.'"
+hint: "viết từ nối kèm dấu phẩy của nó"
 accept: ["Therefore,"]
 case_sensitive: false
 grammar_article_slug: "discourse-markers"

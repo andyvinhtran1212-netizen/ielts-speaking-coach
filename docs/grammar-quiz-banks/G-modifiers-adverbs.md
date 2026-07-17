@@ -151,7 +151,7 @@ input: "text"
 headword: "manner-adverb-position"
 skill: "production"
 subtype: "intermediate"
-prompt: "Sửa lại câu cho đúng vị trí: 'She speaks fluently three languages.' — chỉ viết lại đúng: 'She speaks three languages ____.'"
+prompt: "Sửa lại vị trí trạng từ: 'She speaks fluently three languages.' → 'She speaks three languages ____.'"
 accept: ["fluently"]
 case_sensitive: false
 grammar_article_slug: "adverbs"
@@ -320,7 +320,7 @@ input: "text"
 headword: "sentence-adverb-punctuation"
 skill: "production"
 subtype: "intermediate"
-prompt: "Nối hai câu bằng linking adverb đúng dấu câu: 'The plan was good' + 'it was too expensive.' — viết đúng phần nối: 'The plan was good. ____, it was too expensive.'"
+prompt: "Nối hai câu bằng linking adverb đúng dấu câu: 'The plan was good' + 'it was too expensive.' → 'The plan was good. ____, it was too expensive.'"
 accept: ["However", "however"]
 case_sensitive: false
 grammar_article_slug: "adverbs"

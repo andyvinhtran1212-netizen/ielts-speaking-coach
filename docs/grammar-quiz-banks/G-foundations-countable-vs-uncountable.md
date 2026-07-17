@@ -67,7 +67,7 @@ headword: "cu-identify"
 skill: "production"
 subtype: "intermediate"
 prompt: "The gym has bought new ____ (equipment) for members."
-hint: "viết dạng đúng của 'equipment' (số ít, không -s)"
+hint: "viết dạng đúng của 'equipment'"
 accept: ["equipment"]
 case_sensitive: false
 grammar_article_slug: "countable-vs-uncountable"

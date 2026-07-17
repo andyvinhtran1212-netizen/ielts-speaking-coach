@@ -66,7 +66,8 @@ input: "text"
 headword: "noun-countable-uncountable"
 skill: "production"
 subtype: "intermediate"
-prompt: "Researchers say that reliable ____ (information — viết đúng dạng, không thêm 's') about climate change is now widely available online."
+prompt: "Researchers say that reliable ____ (information) about climate change is now widely available online."
+hint: "viết đúng dạng"
 accept: ["information"]
 case_sensitive: false
 grammar_article_slug: "nouns"

@@ -224,7 +224,7 @@ headword: "svp-number-of-vs-a-number-of"
 skill: "production"
 subtype: "intermediate"
 prompt: "A number of employees ____ (request) additional training this year."
-hint: "viết dạng động từ số nhiều đúng của 'request'"
+hint: "chia động từ 'request' đúng theo chủ ngữ"
 accept: ["have requested", "requested", "request"]
 case_sensitive: false
 grammar_article_slug: "singular-vs-plural"

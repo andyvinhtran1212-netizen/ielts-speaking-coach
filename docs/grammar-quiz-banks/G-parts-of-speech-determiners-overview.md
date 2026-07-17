@@ -150,7 +150,8 @@ input: "text"
 headword: "deto-countable-choice"
 skill: "production"
 subtype: "intermediate"
-prompt: "The survey found that ____ (many/much — chọn đúng vì 'complaints' là danh từ đếm được số nhiều) complaints were related to delayed shipping."
+prompt: "The survey found that ____ complaints were related to delayed shipping."
+hint: "chọn 'many' hoặc 'much'"
 accept: ["many"]
 case_sensitive: false
 grammar_article_slug: "determiners-overview"

@@ -65,7 +65,8 @@ input: "text"
 headword: "dm-participle-opening"
 skill: "production"
 subtype: "intermediate"
-prompt: "Điền chủ ngữ đúng ngay sau dấu phẩy để cụm phân từ không bị treo: 'Arriving late for the interview, ____ (write a short subject/noun phrase only, e.g. the candidate) apologised to the panel.'"
+prompt: "Điền chủ ngữ đúng ngay sau dấu phẩy để cụm phân từ không bị treo: 'Arriving late for the interview, ____ apologised to the panel.'"
+hint: "điền cụm danh từ ngắn làm chủ ngữ — ai mới là người đến muộn?"
 accept: ["the candidate", "she", "he", "the applicant"]
 case_sensitive: false
 grammar_article_slug: "dangling-modifiers"

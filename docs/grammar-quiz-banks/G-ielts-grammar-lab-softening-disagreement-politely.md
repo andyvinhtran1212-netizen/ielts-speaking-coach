@@ -234,7 +234,8 @@ input: "text"
 headword: "sdp-soft-modal-verbs"
 skill: "production"
 subtype: "intermediate"
-prompt: "Điền động từ đúng dạng: 'I wouldn't ____ (say) technology is ruining society; we're still adapting to it.'"
+prompt: "Điền động từ đúng dạng: 'I wouldn't ____ technology is ruining society; we're still adapting to it.'"
+hint: "động từ 'nói / cho rằng', nguyên mẫu sau 'wouldn't'"
 accept: ["say"]
 case_sensitive: false
 grammar_article_slug: "softening-disagreement-politely"

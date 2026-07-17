@@ -138,7 +138,8 @@ input: "text"
 headword: "titr-there-their-theyre"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (write the correct word: there/their/they're) is a book on their table. Write only the word needed to fill this blank."
+prompt: "____ is a book on their table."
+hint: "chọn đúng: there / their / they're"
 accept: ["there", "There"]
 case_sensitive: false
 grammar_article_slug: "there-is-there-are"

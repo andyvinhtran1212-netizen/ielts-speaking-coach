@@ -350,7 +350,7 @@ input: "text"
 headword: "aerr-the-with-place-names"
 skill: "production"
 subtype: "advanced"
-prompt: "Sửa câu học sinh viết sai 'the Japan' — gõ lại đúng 1 từ để điền: 'Many companies in ____ have adopted a four-day work week on a trial basis.'"
+prompt: "Sửa câu học sinh viết sai 'the Japan': 'Many companies in ____ have adopted a four-day work week on a trial basis.'"
 accept: ["Japan", "japan"]
 case_sensitive: false
 grammar_article_slug: "article-errors"

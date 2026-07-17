@@ -52,7 +52,8 @@ input: "text"
 headword: "bvb-because-clause"
 skill: "production"
 subtype: "intermediate"
-prompt: "Many people struggle with English ____ (because) the grammar is genuinely complex."
+prompt: "Many people struggle with English ____ the grammar is genuinely complex."
+hint: "chọn 'because' hoặc 'because of'"
 accept: ["because"]
 case_sensitive: false
 grammar_article_slug: "because-vs-because-of"
@@ -249,7 +250,8 @@ input: "text"
 headword: "bvb-alternative-cause-connectors"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (Given that) resources are limited, priorities must be carefully set by policymakers."
+prompt: "____ resources are limited, priorities must be carefully set by policymakers."
+hint: "cụm trang trọng 2 từ nghĩa 'xét rằng / do'"
 accept: ["Given that"]
 case_sensitive: false
 grammar_article_slug: "because-vs-because-of"

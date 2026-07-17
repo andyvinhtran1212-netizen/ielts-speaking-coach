@@ -151,7 +151,8 @@ input: "text"
 headword: "adj-vs-adverb-basic"
 skill: "production"
 subtype: "intermediate"
-prompt: "He speaks English very ____ (well/good — chọn dạng adverb đúng để mô tả 'speaks')."
+prompt: "He speaks English very ____."
+hint: "chọn 'well' hoặc 'good'"
 accept: ["well"]
 case_sensitive: false
 grammar_article_slug: "adjectives"
@@ -235,8 +236,8 @@ input: "text"
 headword: "adj-linking-verbs"
 skill: "production"
 subtype: "intermediate"
-prompt: "The weather is getting ____ (cold) as winter approaches."
-hint: "chỉ viết dạng tính từ"
+prompt: "The weather is getting ____ as winter approaches."
+hint: "chọn 'cold' hoặc 'coldly'"
 accept: ["cold"]
 case_sensitive: false
 grammar_article_slug: "adjectives"

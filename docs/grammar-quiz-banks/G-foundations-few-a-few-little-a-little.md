@@ -66,7 +66,8 @@ input: "text"
 headword: "fal-countable-group"
 skill: "production"
 subtype: "intermediate"
-prompt: "The tour guide gave us ____ (a little / a few — choose correctly for 'tips', a countable plural noun) useful tips before the hike."
+prompt: "The tour guide gave us ____ useful tips before the hike."
+hint: "chọn 'a little' hoặc 'a few'"
 accept: ["a few"]
 case_sensitive: false
 grammar_article_slug: "few-a-few-little-a-little"
@@ -123,7 +124,8 @@ input: "text"
 headword: "fal-positive-nuance"
 skill: "production"
 subtype: "intermediate"
-prompt: "He speaks ____ (a little / little — positive nuance, enough to get by) French, which helped him during the trip to Paris."
+prompt: "He speaks ____ French, which helped him during the trip to Paris."
+hint: "chọn 'a little' hoặc 'little'"
 accept: ["a little"]
 case_sensitive: false
 grammar_article_slug: "few-a-few-little-a-little"
@@ -180,7 +182,8 @@ input: "text"
 headword: "fal-negative-nuance"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (few / little — negative, countable noun 'researchers') researchers have studied this rare disease in depth."
+prompt: "____ researchers have studied this rare disease in depth."
+hint: "chọn 'few' hoặc 'little'"
 accept: ["Few", "few"]
 case_sensitive: false
 grammar_article_slug: "few-a-few-little-a-little"
@@ -250,7 +253,8 @@ input: "text"
 headword: "fal-fewer-less"
 skill: "production"
 subtype: "intermediate"
-prompt: "Compared with last semester, the class has ____ (fewer/less — students, a countable plural noun) students this term."
+prompt: "Compared with last semester, the class has ____ students this term."
+hint: "chọn 'fewer' hoặc 'less'"
 accept: ["fewer"]
 case_sensitive: false
 grammar_article_slug: "few-a-few-little-a-little"
