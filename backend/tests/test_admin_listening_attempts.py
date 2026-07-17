@@ -47,10 +47,11 @@ class _Q:
     def _or_match(self, r):
         if not self._or:
             return True
-        # "col.ilike.%pat%,col2.ilike.%pat%" — substring, case-insensitive
+        # ilike_or_filter sinh 'col.ilike."%pat%"' (value quoted + escaped) —
+        # strip cả ngoặc kép lẫn % để so substring.
         for part in self._or.split(","):
             col, _op, pat = part.split(".", 2)
-            needle = pat.strip("%").lower()
+            needle = pat.strip('"').strip("%").lower()
             if needle in str(r.get(col) or "").lower():
                 return True
         return False

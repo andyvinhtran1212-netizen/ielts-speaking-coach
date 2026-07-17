@@ -35,6 +35,7 @@ from database import supabase_admin
 from routers.admin import require_admin
 from routers.auth import get_supabase_user
 from services.listening_gist_grader import grade_gist_response
+from services.pg_search import ilike_or_filter
 from services.listening_grader import (
     aggregate_dictation_report,
     grade_dictation,
@@ -4432,7 +4433,9 @@ def _attempt_public_shape(r: dict, users: dict, tests: dict) -> dict:
         "accuracy":         (round(score / total_q, 4)
                              if score is not None and total_q else None),
         "duration_seconds": _attempt_duration_seconds(r),
-        "audio_seconds":    r.get("audio_duration_listened_seconds"),
+        # KHÔNG trả audio_duration_listened_seconds: chưa có write path nào ghi
+        # nó (luôn = default 0 của mig 068) — hiện "Đã nghe 0s" là misleading.
+        # Thêm lại khi có tracking playback thật (review P1, PR #808).
         "started_at":       r.get("started_at"),
         "submitted_at":     r.get("submitted_at"),
         "created_at":       r.get("created_at"),
@@ -4470,9 +4473,8 @@ async def admin_list_listening_attempts(
     # Resolve các filter dạng text → danh sách id TRƯỚC khi query attempts.
     user_ids: list | None = None
     if user_query:
-        pat = f"%{user_query.strip()}%"
         u_res = (supabase_admin.table("users").select("id")
-                 .or_(f"email.ilike.{pat},display_name.ilike.{pat}")
+                 .or_(ilike_or_filter(["email", "display_name"], user_query.strip()))
                  .limit(200).execute())
         user_ids = [r["id"] for r in (u_res.data or [])]
         if not user_ids:
@@ -4482,8 +4484,7 @@ async def admin_list_listening_attempts(
     if test_query or test_type:
         t_q = supabase_admin.table("listening_tests").select("id")
         if test_query:
-            pat = f"%{test_query.strip()}%"
-            t_q = t_q.or_(f"test_id.ilike.{pat},title.ilike.{pat}")
+            t_q = t_q.or_(ilike_or_filter(["test_id", "title"], test_query.strip()))
         if test_type:
             t_q = t_q.eq("test_type", test_type)
         t_res = t_q.limit(1000).execute()
@@ -4493,8 +4494,7 @@ async def admin_list_listening_attempts(
 
     q = (supabase_admin.table("listening_test_attempts")
          .select("id,user_id,test_id,status,score,grading_details,started_at,"
-                 "submitted_at,audio_duration_listened_seconds,created_at",
-                 count="exact"))
+                 "submitted_at,created_at", count="exact"))
     if status:
         q = q.eq("status", status)
     if user_ids is not None:
