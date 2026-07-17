@@ -242,6 +242,15 @@
         <div class="adm-card"><div class="adm-card-label">Avg band 5 bài</div><div id="stat-avg-band" class="adm-card-num">—</div></div>
       </div>
 
+      <h3 class="st-section-heading">Tiến độ (listening)</h3>
+      <div class="st-stat-grid">
+        <div class="adm-card"><div class="adm-card-label">Lượt làm bài</div><div id="stat-listen-total" class="adm-card-num">—</div></div>
+        <div class="adm-card"><div class="adm-card-label">Đúng TB</div><div id="stat-listen-acc" class="adm-card-num">—</div></div>
+        <div class="adm-card"><div class="adm-card-label">Bỏ dở</div><div id="stat-listen-abandoned" class="adm-card-num st-flagged">—</div></div>
+        <div class="adm-card"><div class="adm-card-label">Chép chính tả</div><div id="stat-listen-dict" class="adm-card-num">—</div></div>
+      </div>
+      <ul id="summary-listening" class="st-list"></ul>
+
       <h3 class="st-section-heading">Bài viết gần đây</h3>
       <ul id="summary-essays" class="st-list"></ul>
 
@@ -552,6 +561,11 @@
       document.getElementById('stat-avg-band').textContent = '—';
       document.getElementById('summary-essays').innerHTML = '<li class="st-list-empty">Đang tải…</li>';
       document.getElementById('summary-history').innerHTML = '<li class="st-list-empty">Đang tải…</li>';
+      document.getElementById('stat-listen-total').textContent = '—';
+      document.getElementById('stat-listen-acc').textContent = '—';
+      document.getElementById('stat-listen-abandoned').textContent = '—';
+      document.getElementById('stat-listen-dict').textContent = '—';
+      document.getElementById('summary-listening').innerHTML = '<li class="st-list-empty">Đang tải…</li>';
       document.getElementById('summary-assignments').innerHTML = '';
       document.getElementById('summary-assign').setAttribute(
         'href', '/pages/admin/writing/assignments.html?assign_student=' + encodeURIComponent(studentId));
@@ -641,6 +655,35 @@
       } else {
         document.getElementById('summary-essays').innerHTML = '<li class="st-list-empty">Không tải được tổng quan writing.</li>';
         document.getElementById('summary-assignments').innerHTML = '<li class="st-list-empty">—</li>';
+      }
+
+      // ── Tiến độ (listening) — detail.listening (audit 2026-07-17 đợt 3) ──
+      var lis = detail && detail.listening;
+      var lisList = document.getElementById('summary-listening');
+      if (lis) {
+        document.getElementById('stat-listen-total').textContent = lis.attempts_total || 0;
+        document.getElementById('stat-listen-acc').textContent =
+          lis.avg_accuracy != null ? Math.round(lis.avg_accuracy * 100) + '%' : '—';
+        document.getElementById('stat-listen-abandoned').textContent = lis.attempts_abandoned || 0;
+        document.getElementById('stat-listen-dict').textContent =
+          (lis.dictation_total || 0) +
+          (lis.dictation_avg_accuracy != null
+            ? ' (' + Math.round(lis.dictation_avg_accuracy * 100) + '%)' : '');
+        var userQ = lis.user_email || '';
+        var linkQs = userQ ? ('?user=' + encodeURIComponent(userQ)) : '';
+        var lisRows = [];
+        if (lis.last_attempt_at) {
+          lisRows.push('<li>Lượt gần nhất: ' + _formatDateShort(lis.last_attempt_at) +
+            (lis.avg_duration_seconds != null
+              ? ' · TB ' + Math.round(lis.avg_duration_seconds / 60) + ' phút/bài' : '') + '</li>');
+        }
+        lisRows.push('<li><a href="/pages/admin/listening/attempts.html' + linkQs + '">🎧 Xem lượt làm bài</a>' +
+          ' · <a href="/pages/admin/listening/dictation-reports.html' + linkQs + '">📝 Chép chính tả</a></li>');
+        lisList.innerHTML = lisRows.join('');
+      } else if (detail && !detail.user_id) {
+        lisList.innerHTML = '<li class="st-list-empty">Chưa kích hoạt tài khoản — chưa có dữ liệu listening.</li>';
+      } else {
+        lisList.innerHTML = '<li class="st-list-empty">Không tải được dữ liệu listening.</li>';
       }
 
       // ── Lịch sử nộp bài — essay_history from the detail endpoint ──────

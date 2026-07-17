@@ -174,3 +174,66 @@ def test_create_student_returns_inserted_row():
             admin_id=_ADMIN_ID,
         )
     assert row == inserted
+
+
+# ── _listening_summary (audit 2026-07-17 đợt 3) ──────────────────────
+
+class _LisQ:
+    def __init__(self, rows): self._rows = rows
+    def select(self, *_a, **_k): return self
+    def eq(self, *_a): return self
+    def order(self, *_a, **_k): return self
+    def limit(self, *_a): return self
+    def execute(self): return MagicMock(data=self._rows)
+
+
+class _LisFake:
+    def __init__(self, tables): self.tables = tables
+    def table(self, name): return _LisQ(self.tables.get(name, []))
+
+
+def _lis_att(test_id, status, score, total, created, dur=None):
+    row = {"test_id": test_id, "status": status,
+           "score": score if status == "submitted" else None,
+           "grading_details": ([{"q": i} for i in range(total)]
+                               if status == "submitted" else []),
+           "created_at": created, "started_at": None, "submitted_at": None}
+    if dur is not None:
+        row["started_at"] = "2026-07-17T10:00:00+00:00"
+        row["submitted_at"] = f"2026-07-17T10:{dur:02d}:00+00:00"
+    return row
+
+
+def test_listening_summary_aggregates_first_submitted_rule():
+    tables = {
+        "listening_test_attempts": [   # newest-first như query thật
+            _lis_att("t1", "submitted", 9, 10, "2026-07-17T12:00:00+00:00", dur=10),  # retry
+            _lis_att("t1", "submitted", 5, 10, "2026-07-16T12:00:00+00:00", dur=20),  # lượt nộp ĐẦU → 0.5
+            _lis_att("t2", "abandoned", None, 0, "2026-07-15T12:00:00+00:00"),
+        ],
+        "dictation_sessions": [
+            {"accuracy": 0.9, "completed_at": "2026-07-16T17:00:00+00:00",
+             "created_at": "2026-07-16T17:00:00+00:00"},
+        ],
+        "users": [{"email": "hv@ex.com"}],
+    }
+    with patch.object(student_service, "supabase_admin", _LisFake(tables)):
+        out = student_service._listening_summary("u1")
+    assert out["attempts_total"] == 3
+    assert out["attempts_submitted"] == 2
+    assert out["attempts_abandoned"] == 1
+    assert out["avg_accuracy"] == 0.5          # lượt NỘP đầu của t1, retry không tính
+    assert out["avg_duration_seconds"] == 900  # (10p + 20p)/2
+    assert out["last_attempt_at"] == "2026-07-17T12:00:00+00:00"
+    assert out["dictation_total"] == 1
+    assert out["dictation_avg_accuracy"] == 0.9
+    assert out["user_email"] == "hv@ex.com"
+
+
+def test_listening_summary_none_without_account_or_on_error():
+    assert student_service._listening_summary(None) is None
+
+    class _Boom:
+        def table(self, name): raise RuntimeError("db down")
+    with patch.object(student_service, "supabase_admin", _Boom()):
+        assert student_service._listening_summary("u1") is None

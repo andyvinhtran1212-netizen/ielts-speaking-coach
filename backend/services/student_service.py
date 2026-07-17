@@ -128,6 +128,87 @@ def _attach_cohort_names(rows: list[dict]) -> None:
         r["cohort_name"] = names.get(r.get("cohort_id"))
 
 
+def _iso_to_dt(s):
+    from datetime import datetime
+    if not s:
+        return None
+    try:
+        return datetime.fromisoformat(str(s).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _listening_summary(user_id: str | None) -> dict | None:
+    """Hoạt động Listening của học viên cho hồ sơ admin (audit 2026-07-17 đợt 3).
+
+    Nguồn: listening_test_attempts + dictation_sessions (canonical). Best-effort:
+    lỗi đọc → None (drawer hiện "không tải được"), không 500 cả trang detail.
+    avg_accuracy dùng quy tắc lượt-NỘP-đầu per test — nhất quán với dashboard
+    admin và thống kê học viên (đợt 2)."""
+    if not user_id:
+        return None
+    try:
+        rows = (
+            supabase_admin.table("listening_test_attempts")
+            .select("test_id,status,score,grading_details,started_at,"
+                    "submitted_at,created_at")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .limit(500)
+            .execute()
+        ).data or []
+        d_rows = (
+            supabase_admin.table("dictation_sessions")
+            .select("accuracy,completed_at,created_at")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .limit(500)
+            .execute()
+        ).data or []
+        u_rows = (
+            supabase_admin.table("users").select("email")
+            .eq("id", user_id).limit(1).execute()
+        ).data or []
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[students] listening summary read failed: %s", exc)
+        return None
+
+    abandoned = sum(1 for r in rows if r.get("status") == "abandoned")
+    submitted = [r for r in rows if r.get("status") == "submitted"]
+
+    first_acc_by_test: dict[str, float] = {}
+    for r in reversed(rows):                       # rows đang newest-first
+        gd = r.get("grading_details") or []
+        tid = r.get("test_id")
+        if (tid and tid not in first_acc_by_test and r.get("status") == "submitted"
+                and r.get("score") is not None and gd):
+            first_acc_by_test[tid] = r["score"] / len(gd)
+    accs = list(first_acc_by_test.values())
+
+    durations = []
+    for r in submitted:
+        a, b = _iso_to_dt(r.get("started_at")), _iso_to_dt(r.get("submitted_at"))
+        if a and b:
+            durations.append(max(0, int((b - a).total_seconds())))
+
+    d_accs = [float(r["accuracy"]) for r in d_rows if r.get("accuracy") is not None]
+    return {
+        "user_email":         (u_rows[0].get("email") if u_rows else None),
+        "attempts_total":     len(rows),
+        "attempts_submitted": len(submitted),
+        "attempts_abandoned": abandoned,
+        "avg_accuracy":       round(sum(accs) / len(accs), 4) if accs else None,
+        "avg_duration_seconds": (int(sum(durations) / len(durations))
+                                 if durations else None),
+        "last_attempt_at":    rows[0]["created_at"] if rows else None,
+        "dictation_total":    len(d_rows),
+        "dictation_avg_accuracy": (round(sum(d_accs) / len(d_accs), 4)
+                                   if d_accs else None),
+        "dictation_last_at":  ((d_rows[0].get("completed_at")
+                                or d_rows[0].get("created_at")) if d_rows else None),
+    }
+
+
 def get_student_with_history(student_id: str) -> dict:
     """Return one student row + recent essay history (up to 50 essays)."""
     sr = (
@@ -152,6 +233,9 @@ def get_student_with_history(student_id: str) -> dict:
         .execute()
     )
     student["essay_history"] = er.data or []
+    # Audit 2026-07-17 đợt 3 — hoạt động Listening trong hồ sơ học viên
+    # (None khi chưa kích hoạt tài khoản hoặc đọc lỗi — drawer nêu rõ).
+    student["listening"] = _listening_summary(student.get("user_id"))
     return student
 
 
