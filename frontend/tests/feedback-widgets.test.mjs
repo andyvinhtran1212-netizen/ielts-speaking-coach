@@ -33,15 +33,21 @@ describe('Feedback widgets — public API + POST contract', () => {
     assert.match(WIDGETS, /ctx\.anonId && window\.api\.postWith/);
     assert.match(WIDGETS, /postWith\('\/api\/feedback',\s*body,\s*\{\s*'X-Reading-Anon':\s*ctx\.anonId\s*\}/);
     assert.match(WIDGETS, /window\.api\.post\('\/api\/feedback',\s*body\)/);
-    // the request body carries only skill + attempt_id + the type payload —
+    // the request body carries skill + đúng MỘT anchor (attempt_id HOẶC
+    // passage_slug/content_id — 2026-07-17 practice extension) + payload;
     // identity (created_by/anon_id) + test_id are derived server-side (PR-1).
-    assert.match(WIDGETS, /var body = Object\.assign\(\{\s*skill:\s*ctx\.skill,\s*attempt_id:\s*ctx\.attemptId\s*\},\s*payload\)/);
+    assert.match(WIDGETS, /var body = Object\.assign\(\{\s*skill:\s*ctx\.skill\s*\},\s*payload\)/);
+    assert.match(WIDGETS, /if \(ctx\.attemptId\) body\.attempt_id = ctx\.attemptId/);
+    assert.match(WIDGETS, /if \(ctx\.passageSlug\) body\.passage_slug = ctx\.passageSlug/);
+    assert.match(WIDGETS, /if \(ctx\.contentId\) body\.content_id = ctx\.contentId/);
   });
   it('builds the three payload types', () => {
     assert.match(WIDGETS, /type:\s*'rating',\s*rating_de/);
     assert.match(WIDGETS, /payload\.rating_audio\s*=\s*audio/);
     assert.match(WIDGETS, /type:\s*'report'/);
-    assert.match(WIDGETS, /type:\s*'flag',\s*q_num:\s*qNum/);
+    // flag: q_num chỉ gửi khi có (flag mức-bài của practice/exercise bỏ q_num)
+    assert.match(WIDGETS, /var payload = \{\s*type:\s*'flag'\s*\}/);
+    assert.match(WIDGETS, /if \(qNum != null\) payload\.q_num = qNum/);
   });
 });
 
@@ -123,5 +129,41 @@ describe('Feedback CSS — real aver tokens, light+dark, a11y', () => {
   it('honours reduced-motion + visible keyboard focus', () => {
     assert.match(CSS, /@media \(prefers-reduced-motion: reduce\)/);
     assert.match(CSS, /:focus-visible/);
+  });
+});
+
+
+// ── 2026-07-17 — flag mở rộng cho practice L1/L2 + listening exercise lẻ ────
+
+describe('Practice/exercise flag — mounts + anchors', () => {
+  it('reading-questions component flags per question with passage_slug anchor', () => {
+    const RQ = read('js', 'components', 'reading-questions.js');
+    assert.match(RQ, /window\.AverFeedback\.attachCardFlag\(\{/);
+    assert.match(RQ, /passageSlug:\s*session\.slug/);
+    assert.match(RQ, /label:\s*'Báo lỗi câu này'/);
+  });
+
+  for (const page of ['listening-mcq', 'listening-tf', 'listening-gist', 'listening-dictation']) {
+    it(`${page}.js mounts a page-level flag with content_id anchor`, () => {
+      const js = read('js', `${page}.js`);
+      assert.match(js, /window\.AverFeedback\.attachCardFlag\(\{/);
+      assert.match(js, /contentId:\s*contentId/);
+      assert.match(js, /label:\s*'Báo lỗi bài này'/);
+    });
+  }
+
+  for (const page of ['listening-mcq', 'listening-tf', 'listening-gist',
+                      'listening-dictation', 'reading-skill-exercise',
+                      'reading-vocab-passage']) {
+    it(`${page}.html loads feedback widgets + css`, () => {
+      const html = read('pages', `${page}.html`);
+      assert.match(html, /\/js\/feedback-widgets\.js/);
+      assert.match(html, /\/css\/feedback\.css/);
+    });
+  }
+
+  it('admin inbox deep-link skips practice:/exercise: rows (no broken ?test= links)', () => {
+    const ADMIN = read('js', 'admin-feedback.js');
+    assert.match(ADMIN, /\^\(practice\|exercise\):/);
   });
 });
