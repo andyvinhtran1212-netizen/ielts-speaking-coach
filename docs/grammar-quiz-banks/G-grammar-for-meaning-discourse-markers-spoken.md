@@ -109,7 +109,8 @@ input: "text"
 headword: "dms-thinking-fillers"
 skill: "production"
 subtype: "intermediate"
-prompt: "I really enjoy cooking, ____ (you know), especially traditional Vietnamese dishes."
+prompt: "I really enjoy cooking, ____, especially traditional Vietnamese dishes."
+hint: "cụm đệm 2 từ giữ kết nối với người nghe ('bạn biết đấy')"
 accept: ["you know"]
 case_sensitive: false
 grammar_article_slug: "discourse-markers-spoken"
@@ -166,8 +167,9 @@ input: "text"
 headword: "dms-softeners"
 skill: "production"
 subtype: "intermediate"
-prompt: "I ____ (sort of) prefer staying at home, to be honest."
-accept: ["sort of"]
+prompt: "I ____ prefer staying at home, to be honest."
+hint: "cụm 2 từ làm mềm ý ('kiểu như')"
+accept: ["sort of", "kind of"]
 case_sensitive: false
 grammar_article_slug: "discourse-markers-spoken"
 explain: "'sort of' đứng giữa chủ ngữ và động từ, làm mềm phát biểu về sở thích cá nhân."
@@ -223,7 +225,8 @@ input: "text"
 headword: "dms-emphasis"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (the thing is), I never really enjoyed maths in school."
+prompt: "____, I never really enjoyed maths in school."
+hint: "cụm 3 từ báo hiệu điều quan trọng sắp nói ('vấn đề là')"
 accept: ["the thing is"]
 case_sensitive: false
 grammar_article_slug: "discourse-markers-spoken"
@@ -293,7 +296,8 @@ input: "text"
 headword: "dms-overuse-and-but-so"
 skill: "production"
 subtype: "intermediate"
-prompt: "I loved the food there. ____ (what's more), the people were incredibly friendly."
+prompt: "I loved the food there. ____, the people were incredibly friendly."
+hint: "cụm 2 từ bổ sung ý mạnh hơn 'and' ('hơn nữa')"
 accept: ["what's more"]
 case_sensitive: false
 grammar_article_slug: "discourse-markers-spoken"

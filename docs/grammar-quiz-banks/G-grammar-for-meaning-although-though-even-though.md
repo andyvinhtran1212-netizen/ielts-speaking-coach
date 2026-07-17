@@ -52,8 +52,9 @@ input: "text"
 headword: "ate-although"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (Although) she worked very hard, she did not pass the final exam."
-accept: ["Although"]
+prompt: "____ she worked very hard, she did not pass the final exam."
+hint: "liên từ nhượng bộ mở đầu mệnh đề đầy đủ"
+accept: ["Although", "Though", "Even though"]
 case_sensitive: false
 grammar_article_slug: "although-though-even-though"
 explain: "'Although' đứng đầu câu, theo sau bởi mệnh đề đầy đủ (she worked hard), rồi dấu phẩy, rồi mệnh đề chính."
@@ -122,7 +123,8 @@ input: "text"
 headword: "ate-though"
 skill: "production"
 subtype: "intermediate"
-prompt: "He didn't win the competition. He learned a lot, ____ (though)."
+prompt: "He didn't win the competition. He learned a lot, ____."
+hint: "từ nhượng bộ đứng CUỐI câu, tự nhiên trong văn nói"
 accept: ["though"]
 case_sensitive: false
 grammar_article_slug: "although-though-even-though"
@@ -179,7 +181,8 @@ input: "text"
 headword: "ate-even-though"
 skill: "production"
 subtype: "intermediate"
-prompt: "He donated the money ____ (even though) he could barely afford it himself."
+prompt: "He donated the money ____ he could barely afford it himself."
+hint: "liên từ nhượng bộ 2 từ, nhấn mạnh sự bất ngờ"
 accept: ["even though"]
 case_sensitive: false
 grammar_article_slug: "although-though-even-though"
@@ -236,8 +239,9 @@ input: "text"
 headword: "ate-vs-however-despite"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (Although) the approach was promising, the results were disappointing in the end."
-accept: ["Although"]
+prompt: "____ the approach was promising, the results were disappointing in the end."
+hint: "liên từ nhượng bộ + mệnh đề đầy đủ, KHÔNG dùng 'despite'"
+accept: ["Although", "Though", "Even though"]
 case_sensitive: false
 grammar_article_slug: "although-though-even-though"
 explain: "Với mệnh đề đầy đủ (subject + verb: 'the approach was promising') đứng sau, phải dùng 'Although', không dùng 'Despite' (chỉ theo sau bởi noun phrase)."

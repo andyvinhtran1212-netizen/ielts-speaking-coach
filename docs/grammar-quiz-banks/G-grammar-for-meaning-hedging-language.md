@@ -179,7 +179,8 @@ input: "text"
 headword: "hl-hedging-adverbs"
 skill: "production"
 subtype: "intermediate"
-prompt: "The side effects of the new treatment are ____ (potentially) serious and require further study."
+prompt: "The side effects of the new treatment are ____ (potential) serious and require further study."
+hint: "viết dạng trạng từ của 'potential'"
 accept: ["potentially"]
 case_sensitive: false
 grammar_article_slug: "hedging-language"

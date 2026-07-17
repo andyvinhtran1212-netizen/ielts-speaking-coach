@@ -136,8 +136,9 @@ input: "text"
 headword: "gis-modal-hedging"
 skill: "production"
 subtype: "intermediate"
-prompt: "Technology ____ (can, khả năng) help students learn faster, though results vary."
-accept: ["can"]
+prompt: "Technology ____ help students learn faster, though results vary."
+hint: "động từ khiếm khuyết diễn tả khả năng"
+accept: ["can", "could"]
 case_sensitive: false
 grammar_article_slug: "grammar-in-speaking"
 explain: "'can' diễn tả khả năng chung, theo sau là động từ nguyên mẫu không 'to': can help (không phải 'can to help')."

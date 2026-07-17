@@ -123,7 +123,8 @@ input: "text"
 headword: "t1tg-trend-noun-form"
 skill: "production"
 subtype: "intermediate"
-prompt: "There was a considerable ____ (increase — noun form) in tourist arrivals to the region after the visa restrictions were lifted."
+prompt: "There was a considerable ____ (increase) in tourist arrivals to the region after the visa restrictions were lifted."
+hint: "viết dạng danh từ"
 accept: ["increase"]
 case_sensitive: false
 grammar_article_slug: "task1-trend-grammar"

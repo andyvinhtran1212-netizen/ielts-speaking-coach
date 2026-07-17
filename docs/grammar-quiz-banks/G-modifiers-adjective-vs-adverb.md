@@ -80,8 +80,8 @@ input: "text"
 headword: "linking-vs-action-verb"
 skill: "production"
 subtype: "intermediate"
-prompt: "The situation became ____ (serious) after the second warning."
-hint: "chỉ viết dạng tính từ"
+prompt: "The situation became ____ after the second warning."
+hint: "chọn 'serious' hoặc 'seriously'"
 accept: ["serious"]
 case_sensitive: false
 grammar_article_slug: "adjective-vs-adverb"
@@ -335,8 +335,8 @@ input: "text"
 headword: "hard-hardly-late-lately"
 skill: "production"
 subtype: "intermediate"
-prompt: "The train arrived ____ (late), so we missed our connecting flight."
-hint: "chỉ viết dạng trạng từ nghĩa là 'muộn'"
+prompt: "The train arrived ____, so we missed our connecting flight."
+hint: "chọn 'late' hoặc 'lately' — nghĩa 'muộn'"
 accept: ["late"]
 case_sensitive: false
 grammar_article_slug: "adjective-vs-adverb"

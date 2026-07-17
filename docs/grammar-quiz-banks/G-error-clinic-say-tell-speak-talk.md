@@ -52,7 +52,8 @@ input: "text"
 headword: "stst-say"
 skill: "production"
 subtype: "intermediate"
-prompt: "Don't forget to ____ (say) thank you when someone helps you."
+prompt: "Don't forget to ____ thank you when someone helps you."
+hint: "chọn động từ đúng: say / tell / speak / talk"
 accept: ["say"]
 case_sensitive: false
 grammar_article_slug: "say-tell-speak-talk"
@@ -136,7 +137,8 @@ input: "text"
 headword: "stst-tell"
 skill: "production"
 subtype: "intermediate"
-prompt: "It's hard to ____ (tell) the difference between the two designs."
+prompt: "It's hard to ____ the difference between the two designs."
+hint: "chọn động từ đúng: say / tell / speak / talk"
 accept: ["tell"]
 case_sensitive: false
 grammar_article_slug: "say-tell-speak-talk"

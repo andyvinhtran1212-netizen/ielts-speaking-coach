@@ -66,7 +66,8 @@ input: "text"
 headword: "pr-it-ambiguous"
 skill: "production"
 subtype: "intermediate"
-prompt: "The committee reviewed the budget and the proposal. ____ (thay 'It' mơ hồ bằng danh từ cụ thể — ý câu: bản đề xuất bị bác) was rejected."
+prompt: "The committee reviewed the budget and the proposal. ____ was rejected."
+hint: "thay 'It' mơ hồ bằng danh từ cụ thể — ý câu: bản đề xuất bị bác"
 accept: ["the proposal"]
 case_sensitive: false
 grammar_article_slug: "wrong-pronoun-reference"
@@ -151,7 +152,8 @@ input: "text"
 headword: "pr-they-ambiguous"
 skill: "production"
 subtype: "intermediate"
-prompt: "Landlords and tenants often disagree about repairs. ____ (thay 'They' mơ hồ bằng cụm 2 từ chỉ CẢ HAI bên) should communicate more clearly."
+prompt: "Landlords and tenants often disagree about repairs. ____ should communicate more clearly."
+hint: "thay 'They' mơ hồ bằng cụm 2 từ chỉ CẢ HAI bên"
 accept: ["both parties", "both sides", "both groups"]
 case_sensitive: false
 grammar_article_slug: "wrong-pronoun-reference"
@@ -236,7 +238,8 @@ input: "text"
 headword: "pr-this-that-ambiguous"
 skill: "production"
 subtype: "intermediate"
-prompt: "Plastic waste is increasing, and recycling rates remain low. ____ (thay 'This' mơ hồ bằng cụm 'this + danh từ' tóm tắt hiện tượng) is worrying."
+prompt: "Plastic waste is increasing, and recycling rates remain low. ____ is worrying."
+hint: "thay 'This' mơ hồ bằng cụm 'this + danh từ' tóm tắt hiện tượng"
 accept: ["this trend", "this situation", "this development", "this problem"]
 case_sensitive: false
 grammar_article_slug: "wrong-pronoun-reference"

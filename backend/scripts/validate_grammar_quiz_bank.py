@@ -149,6 +149,25 @@ _IMPOSSIBLE_GAP_INSTRUCTION = re.compile(r"để trống|bỏ trống|[øØ∅]"
 # câu/cụm dài, chấm exact-match + edit-distance-1 không đủ dung sai (audit S3).
 _MAX_ACCEPT_WORDS = 3
 
+# ── 2 lint bổ sung theo audit 2026-07-17 (hint lộ đáp án + instruction nhúng) ──
+# Bài "viết lại / sửa / scan đoạn": đáp án vốn dĩ lặp lại từ trong nguồn được
+# trích — accept-trong-prompt là bản chất task, không phải lộ.
+_REWRITE_SOURCE = re.compile(
+    r"Viết lại|Sửa|Rewrite|Gộp|Chuyển|→|Đoạn|Bài:|Passage|Express|Fix|Hoàn thành|main clause",
+    re.I,
+)
+# Vế trích dẫn trong prompt ('…' / "…"): từ trong đó là ngữ liệu, không tính lộ.
+_QUOTED_SPAN = re.compile(r"'[^']*'|‘[^’]*’|“[^”]*”")
+# Instruction nhúng trong prompt (đã có lớp #qz-instr + field hint riêng — mig 159):
+# "— write/viết/gõ…" hoặc ngoặc-cuối-câu mở đầu bằng động từ hướng dẫn.
+_DASH_INSTRUCTION = re.compile(r"—\s*(?:write|viết|gõ|chỉ|điền|hãy)\b", re.I)
+_FINAL_PAREN_INSTRUCTION = re.compile(
+    r"\((?:write|use one|use a|use the|use it|điền|viết|gõ|chỉ|chọn|thay|meaning:|nghĩa:)\b[^)]*\)[\s.:]*$",
+    re.I,
+)
+# Hint dạng lựa chọn ("chọn X hoặc Y") được PHÉP chứa đáp án — như option của MCQ.
+_CHOICE_HINT = re.compile(r"chọn|hoặc|/", re.I)
+
 
 def content_lint(path: Path) -> list[str]:
     """Lint nội dung (ngoài cấu trúc): đáp án tự-mâu-thuẫn + accept không gõ được."""
@@ -196,6 +215,60 @@ def content_lint(path: Path) -> list[str]:
                         "bắt gõ nguyên câu/cụm dài là chấm fragile; thu hẹp phần phải gõ "
                         "hoặc chuyển sang mcq (giữ ≥1 gap_text khác cho item_key)."
                     )
+            # ── 2 lint theo audit 2026-07-17 — chỉ cho câu tự gõ ─────────────
+            hint = str(d.get("hint") or "")
+            # (a) LỘ ĐÁP ÁN qua 2 kênh gợi ý: NGOẶC trong prompt và field hint.
+            # Đáp án lặp lại từ trong THÂN câu là hợp lệ (bài chọn referent /
+            # viết lại / scan — bản chất task), nên chỉ soi ngoặc + hint.
+            # Ngoặc được PHÉP: cloze giữ-nguyên-dạng "____ (make)" (nội dung
+            # ngoặc == đúng 1 từ đáp án — người học vẫn phải QUYẾT dạng chia)
+            # và danh sách lựa chọn (chứa '/', 'hay', 'hoặc' — như option MCQ).
+            if isinstance(accept, list):
+                parens = re.findall(r"\(([^)]+)\)", prompt)
+                for a in accept:
+                    aw = str(a).strip()
+                    if not aw:
+                        continue
+                    word_re = re.compile(r"(?<![A-Za-z])" + re.escape(aw) + r"(?![A-Za-z])", re.I)
+                    # Từ đơn quá ngắn ('0' của quy ước zero-article, 'the', 'I')
+                    # xuất hiện trong text hướng dẫn là ngẫu nhiên, không phải lộ.
+                    if len(aw.split()) == 1 and len(aw) < 4:
+                        continue
+                    leaked = False
+                    for p in parens:
+                        # Vế trích dẫn trong ngoặc (câu gốc của bài sửa lỗi) là
+                        # ngữ liệu — bỏ khỏi phạm vi soi.
+                        pl = _QUOTED_SPAN.sub(" ", p).strip()
+                        if pl.lower() == aw.lower() and len(aw.split()) == 1:
+                            continue                     # base-form cloze "____ (make)"
+                        if _CHOICE_HINT.search(pl) or " hay " in pl.lower():
+                            continue                     # danh sách lựa chọn
+                        if word_re.search(pl):
+                            problems.append(
+                                f"[{qid}] ngoặc trong prompt chứa nguyên văn đáp án "
+                                f"({aw!r} trong '({pl})') — lộ đáp án; chuyển sang field "
+                                "hint nêu nghĩa/tiêu chí, không nêu cụm cần gõ."
+                            )
+                            leaked = True
+                            break
+                    if leaked:
+                        break
+                    if (hint and len(aw) >= 4 and not _CHOICE_HINT.search(hint)
+                            and f"({aw.lower()})" not in prompt.lower()
+                            and word_re.search(hint)):
+                        problems.append(
+                            f"[{qid}] hint chứa nguyên văn đáp án ({aw!r}) — hint chỉ được "
+                            "nêu nghĩa/tiêu chí, hoặc dạng lựa chọn 'chọn X hoặc Y'."
+                        )
+                        break
+            # (b) INSTRUCTION NHÚNG: prompt còn "— write/viết/gõ…" hay ngoặc
+            # hướng-dẫn cuối câu — đã có dòng instruction per-type + field hint.
+            if _DASH_INSTRUCTION.search(prompt) or _FINAL_PAREN_INSTRUCTION.search(prompt):
+                problems.append(
+                    f"[{qid}] prompt còn instruction nhúng ('— write…' / ngoặc hướng dẫn "
+                    "cuối câu) — prompt chỉ chứa câu đề; hướng dẫn thuộc lớp instruction "
+                    "của player, gợi ý thuộc field hint (guide §3.1)."
+                )
     return problems
 
 

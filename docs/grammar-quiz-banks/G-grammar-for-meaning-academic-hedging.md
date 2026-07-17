@@ -194,7 +194,8 @@ input: "text"
 headword: "ah-hedging-adverbs"
 skill: "production"
 subtype: "intermediate"
-prompt: "The long-term consequences are ____ (probably) more severe than currently acknowledged."
+prompt: "The long-term consequences are ____ (probable) more severe than currently acknowledged."
+hint: "viết dạng trạng từ của 'probable'"
 accept: ["probably"]
 case_sensitive: false
 grammar_article_slug: "academic-hedging"

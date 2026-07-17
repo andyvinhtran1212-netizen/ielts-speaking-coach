@@ -66,7 +66,8 @@ input: "text"
 headword: "verb-stative-action"
 skill: "production"
 subtype: "intermediate"
-prompt: "I completely ____ (understand, thì hiện tại đơn) your concerns about the new policy."
+prompt: "I completely ____ (understand) your concerns about the new policy."
+hint: "chia động từ cho đúng"
 accept: ["understand"]
 case_sensitive: false
 grammar_article_slug: "verbs"
@@ -305,7 +306,8 @@ input: "text"
 headword: "verb-linking-adjective"
 skill: "production"
 subtype: "intermediate"
-prompt: "Despite the bad news, she remained remarkably ____ (calm, viết đúng dạng tính từ, KHÔNG chia trạng từ) throughout the interview."
+prompt: "Despite the bad news, she remained remarkably ____ throughout the interview."
+hint: "chọn 'calm' hoặc 'calmly'"
 accept: ["calm"]
 case_sensitive: false
 grammar_article_slug: "verbs"
