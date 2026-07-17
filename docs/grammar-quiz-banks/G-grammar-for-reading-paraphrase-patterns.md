@@ -65,7 +65,8 @@ input: "text"
 headword: "pp-synonym-paraphrase"
 skill: "production"
 subtype: "intermediate"
-prompt: "If the passage says 'The species faced severe extinction risk,' write ONE word that would create a paraphrase: 'The species faced ____ extinction risk.' (use a synonym for 'severe')"
+prompt: "If the passage says 'The species faced severe extinction risk,' write ONE word that would create a paraphrase: 'The species faced ____ extinction risk.'"
+hint: "dùng từ đồng nghĩa với 'severe'"
 accept: ["grave", "critical", "acute", "serious", "extreme"]
 case_sensitive: false
 grammar_article_slug: "paraphrase-patterns"
@@ -204,7 +205,8 @@ input: "text"
 headword: "pp-nominalization-paraphrase"
 skill: "production"
 subtype: "advanced"
-prompt: "Paraphrase with nominalization: 'Climate change has altered precipitation patterns globally.' Complete: 'The ____ of precipitation patterns by climate change represents a critical concern.' (use the nominalized form of 'alter')"
+prompt: "Paraphrase with nominalization: 'Climate change has altered precipitation patterns globally.' Complete: 'The ____ of precipitation patterns by climate change represents a critical concern.'"
+hint: "dùng dạng danh từ hoá của 'alter'"
 accept: ["alteration"]
 case_sensitive: false
 grammar_article_slug: "paraphrase-patterns"

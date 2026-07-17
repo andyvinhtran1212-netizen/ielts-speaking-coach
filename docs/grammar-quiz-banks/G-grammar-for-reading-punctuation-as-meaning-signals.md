@@ -265,7 +265,8 @@ input: "text"
 headword: "punctuation-reading-strategy"
 skill: "production"
 subtype: "intermediate"
-prompt: "Identify the error: 'The survey identified key barriers: lack of funding, inadequate training, and limited access. Interestingly ____ these factors were expected.' — write the incorrect punctuation mark (not the correction)."
+prompt: "Identify the error: 'The survey identified key barriers: lack of funding, inadequate training, and limited access. Interestingly ____ these factors were expected.'"
+hint: "gõ DẤU CÂU đang bị dùng sai (không phải dấu sửa lại)"
 accept: [";", "semicolon", "dấu chấm phẩy"]
 case_sensitive: false
 grammar_article_slug: "punctuation-as-meaning-signals"

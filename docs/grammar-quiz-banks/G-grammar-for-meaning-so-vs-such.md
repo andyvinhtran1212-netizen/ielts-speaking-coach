@@ -66,7 +66,8 @@ input: "text"
 headword: "so-adj-adv"
 skill: "production"
 subtype: "intermediate"
-prompt: "The problem is ____ (so / serious) that it requires immediate attention — write only 'so' + the adjective."
+prompt: "The problem is ____ (so / serious) that it requires immediate attention."
+hint: "gõ 'so' + tính từ"
 accept: ["so serious"]
 case_sensitive: false
 grammar_article_slug: "so-vs-such"
@@ -137,7 +138,8 @@ input: "text"
 headword: "such-noun-phrase"
 skill: "production"
 subtype: "intermediate"
-prompt: "That was ____ moment! (write 'such' + article + adjective, 3 từ)"
+prompt: "That was ____ moment!"
+hint: "gõ 'such' + mạo từ + tính từ (3 từ)"
 accept: ["such a good", "such an amazing"]
 case_sensitive: false
 grammar_article_slug: "so-vs-such"
@@ -264,7 +266,8 @@ input: "text"
 headword: "so-such-common-errors"
 skill: "production"
 subtype: "intermediate"
-prompt: "There was ____ (such / much noise) that we couldn't hear each other — write the correct 2-word quantifier phrase (NOT 'such much')."
+prompt: "There was ____ (such / much noise) that we couldn't hear each other."
+hint: "cụm lượng từ 2 từ đúng (KHÔNG phải 'such much')"
 accept: ["so much"]
 case_sensitive: false
 grammar_article_slug: "so-vs-such"

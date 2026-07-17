@@ -66,7 +66,8 @@ input: "text"
 headword: "frequency-adverb-position"
 skill: "production"
 subtype: "intermediate"
-prompt: "Correct the adverb position: 'I skip breakfast sometimes when I'm running late.' → I ____ breakfast... (write the adverb + verb in correct order, 2 words)."
+prompt: "Correct the adverb position: 'I skip breakfast sometimes when I'm running late.' → I ____ breakfast..."
+hint: "gõ trạng từ + động từ theo đúng trật tự (2 từ)"
 accept: ["sometimes skip"]
 case_sensitive: false
 grammar_article_slug: "adverbs"
@@ -234,7 +235,8 @@ input: "text"
 headword: "degree-adverb-very-comparative"
 skill: "production"
 subtype: "intermediate"
-prompt: "Correct the sentence: 'This year's exam was very ____ than last year's.' — write the degree adverb that replaces 'very' (before the comparative)."
+prompt: "Correct the sentence: 'This year's exam was very ____ than last year's.'"
+hint: "gõ trạng từ chỉ mức độ thay cho 'very' (đứng trước so sánh hơn)"
 accept: ["much", "far", "considerably"]
 case_sensitive: false
 grammar_article_slug: "adverbs"

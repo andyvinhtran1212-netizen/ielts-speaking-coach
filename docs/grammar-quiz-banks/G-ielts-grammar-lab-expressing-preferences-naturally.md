@@ -92,7 +92,8 @@ input: "text"
 headword: "epn-prefer-structure"
 skill: "usage"
 subtype: "intermediate"
-prompt: "Complete: 'I've always ____the mountains ... the beach, personally.' — write the verb + preposition (2 words)."
+prompt: "Complete: 'I've always ____the mountains ... the beach, personally.'"
+hint: "gõ động từ + giới từ (2 từ)"
 accept: ["preferred to"]
 case_sensitive: false
 grammar_article_slug: "expressing-preferences-naturally"
@@ -220,7 +221,8 @@ input: "text"
 headword: "epn-vivid-expressions"
 skill: "production"
 subtype: "intermediate"
-prompt: "I have a soft spot ____ old black-and-white films — there's something charming about them. (điền giới từ)"
+prompt: "I have a soft spot ____ old black-and-white films — there's something charming about them."
+hint: "điền giới từ"
 accept: ["for"]
 case_sensitive: false
 grammar_article_slug: "expressing-preferences-naturally"
@@ -304,7 +306,8 @@ input: "text"
 headword: "epn-reason-expansion"
 skill: "production"
 subtype: "intermediate"
-prompt: "Reading appeals to me more than watching TV, mainly ____ books allow you to use your imagination. (điền liên từ chỉ lý do)"
+prompt: "Reading appeals to me more than watching TV, mainly ____ books allow you to use your imagination."
+hint: "điền liên từ chỉ lý do"
 accept: ["because"]
 case_sensitive: false
 grammar_article_slug: "expressing-preferences-naturally"

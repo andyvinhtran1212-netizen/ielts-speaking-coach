@@ -66,7 +66,8 @@ input: "text"
 headword: "cu-identify"
 skill: "production"
 subtype: "intermediate"
-prompt: "The gym has bought new ____ (equipment) for members — write the correct form of 'equipment' (singular, no -s)."
+prompt: "The gym has bought new ____ (equipment) for members."
+hint: "viết dạng đúng của 'equipment' (số ít, không -s)"
 accept: ["equipment"]
 case_sensitive: false
 grammar_article_slug: "countable-vs-uncountable"
@@ -208,7 +209,8 @@ input: "text"
 headword: "cu-quantifiers"
 skill: "production"
 subtype: "intermediate"
-prompt: "The airport reported that ____ luggage items had gone missing this month — write the correct quantifier (few/little)."
+prompt: "The airport reported that ____ luggage items had gone missing this month."
+hint: "chọn lượng từ đúng (few/little)"
 accept: ["a few", "few"]
 case_sensitive: false
 grammar_article_slug: "countable-vs-uncountable"
@@ -265,7 +267,8 @@ input: "text"
 headword: "cu-partitives"
 skill: "production"
 subtype: "intermediate"
-prompt: "She gave the team two ____ (piece) of useful feedback after the presentation — write the correct plural partitive noun."
+prompt: "She gave the team two ____ (piece) of useful feedback after the presentation."
+hint: "viết danh từ chỉ đơn vị (partitive) ở số nhiều"
 accept: ["pieces"]
 case_sensitive: false
 grammar_article_slug: "countable-vs-uncountable"
@@ -322,7 +325,8 @@ input: "text"
 headword: "cu-dual-meaning"
 skill: "production"
 subtype: "intermediate"
-prompt: "Working abroad for a year was ____ (article + noun: use 'experience' as countable, one specific event) she would never forget — write the two words (a/an + experience)."
+prompt: "Working abroad for a year was ____ (article + noun: use 'experience' as countable, one specific event) she would never forget."
+hint: "mạo từ (a/an) + 'experience'"
 accept: ["an experience"]
 case_sensitive: false
 grammar_article_slug: "countable-vs-uncountable"

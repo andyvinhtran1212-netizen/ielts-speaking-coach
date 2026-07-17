@@ -150,7 +150,8 @@ input: "text"
 headword: "cs-semicolon-adverb"
 skill: "production"
 subtype: "intermediate"
-prompt: "Điền conjunctive adverb phù hợp: 'The policy is costly; ____, it has proven ineffective at reducing emissions.' (nghĩa: hơn nữa)"
+prompt: "Điền conjunctive adverb phù hợp: 'The policy is costly; ____, it has proven ineffective at reducing emissions.'"
+hint: "nghĩa: hơn nữa"
 accept: ["moreover", "furthermore"]
 case_sensitive: false
 grammar_article_slug: "compound-sentence"

@@ -137,7 +137,8 @@ input: "text"
 headword: "np-adjective-order"
 skill: "production"
 subtype: "intermediate"
-prompt: "Complete the noun phrase with adjectives in correct order: 'a ____ population' — write the two adjectives (size before type)."
+prompt: "Complete the noun phrase with adjectives in correct order: 'a ____ population'"
+hint: "gõ 2 tính từ theo đúng trật tự (kích thước trước chủng loại)"
 accept: ["large urban"]
 case_sensitive: false
 grammar_article_slug: "noun-phrase-basics"
@@ -194,7 +195,8 @@ input: "text"
 headword: "np-post-modifiers"
 skill: "production"
 subtype: "intermediate"
-prompt: "Complete the noun phrase with a relative clause: 'the researchers ____ the study last year.' — write the relative pronoun and verb."
+prompt: "Complete the noun phrase with a relative clause: 'the researchers ____ the study last year.'"
+hint: "gõ đại từ quan hệ + động từ"
 accept: ["who published", "that published"]
 case_sensitive: false
 grammar_article_slug: "noun-phrase-basics"
@@ -251,7 +253,8 @@ input: "text"
 headword: "np-noun-modifiers"
 skill: "production"
 subtype: "intermediate"
-prompt: "Rewrite 'a system for managing data' as a compact noun-modifier phrase: 'a ____' — write the two-word noun modifier + noun."
+prompt: "Rewrite 'a system for managing data' as a compact noun-modifier phrase: 'a ____'"
+hint: "gõ danh từ-bổ-nghĩa + danh từ (2 từ)"
 accept: ["data management"]
 case_sensitive: false
 grammar_article_slug: "noun-phrase-basics"

@@ -66,7 +66,8 @@ input: "text"
 headword: "pvc-phrase-vs-clause"
 skill: "production"
 subtype: "intermediate"
-prompt: "Identify: 'What matters most' is a noun ____ because it contains a subject and a conjugated verb — write ONE word: 'phrase' or 'clause'."
+prompt: "Identify: 'What matters most' is a noun ____ because it contains a subject and a conjugated verb."
+hint: "gõ 1 từ: 'phrase' hoặc 'clause'"
 accept: ["clause"]
 case_sensitive: false
 grammar_article_slug: "phrase-vs-clause"

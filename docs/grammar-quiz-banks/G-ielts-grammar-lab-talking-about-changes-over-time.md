@@ -317,7 +317,8 @@ input: "text"
 headword: "toc-no-longer-not-anymore"
 skill: "production"
 subtype: "intermediate"
-prompt: "Điền cụm đúng: 'People don't rely on encyclopaedias ____ (anymore) — everything is searchable online.' (viết lại chính xác từ trong ngoặc)"
+prompt: "Điền cụm đúng: 'People don't rely on encyclopaedias ____ (anymore) — everything is searchable online.'"
+hint: "viết lại chính xác từ trong ngoặc"
 accept: ["anymore"]
 case_sensitive: false
 grammar_article_slug: "talking-about-changes-over-time"

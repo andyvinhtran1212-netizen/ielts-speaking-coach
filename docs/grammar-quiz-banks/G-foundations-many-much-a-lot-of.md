@@ -66,7 +66,7 @@ input: "text"
 headword: "mma-many-countable"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (many/much — choose for 'startups', a countable plural noun) tech startups failed within their first two years — write one word."
+prompt: "____ (many/much — choose for 'startups', a countable plural noun) tech startups failed within their first two years."
 accept: ["Many", "many"]
 case_sensitive: false
 grammar_article_slug: "many-much-a-lot-of"
@@ -137,7 +137,7 @@ input: "text"
 headword: "mma-much-uncountable"
 skill: "production"
 subtype: "intermediate"
-prompt: "There isn't ____ (many/much — choose for 'legroom', an uncountable noun) legroom on budget airlines these days — write one word."
+prompt: "There isn't ____ (many/much — choose for 'legroom', an uncountable noun) legroom on budget airlines these days."
 accept: ["much"]
 case_sensitive: false
 grammar_article_slug: "many-much-a-lot-of"
@@ -194,7 +194,7 @@ input: "text"
 headword: "mma-a-lot-of"
 skill: "production"
 subtype: "intermediate"
-prompt: "He has ____ (a lot of) experience volunteering at animal shelters — write the three-word phrase."
+prompt: "He has ____ (a lot of) experience volunteering at animal shelters."
 accept: ["a lot of"]
 case_sensitive: false
 grammar_article_slug: "many-much-a-lot-of"
@@ -251,7 +251,7 @@ input: "text"
 headword: "mma-degree-intensifiers"
 skill: "production"
 subtype: "intermediate"
-prompt: "He spends ____ (too much) screen time on his phone, according to his doctor — write the two-word phrase."
+prompt: "He spends ____ (too much) screen time on his phone, according to his doctor."
 accept: ["too much"]
 case_sensitive: false
 grammar_article_slug: "many-much-a-lot-of"

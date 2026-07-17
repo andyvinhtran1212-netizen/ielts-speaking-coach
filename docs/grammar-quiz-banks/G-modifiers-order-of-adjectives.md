@@ -277,7 +277,8 @@ input: "text"
 headword: "oa-coordinate-vs-cumulative"
 skill: "production"
 subtype: "intermediate"
-prompt: "Punctuate correctly (add a comma if needed): 'The committee proposed a bold ____ (innovative) strategy to cut emissions.' — write only the missing word plus punctuation exactly as it should appear before 'strategy'."
+prompt: "Punctuate correctly (add a comma if needed): 'The committee proposed a bold ____ (innovative) strategy to cut emissions.'"
+hint: "gõ từ còn thiếu kèm dấu câu đúng ngay trước 'strategy'"
 accept: ["bold, innovative"]
 case_sensitive: false
 grammar_article_slug: "order-of-adjectives"

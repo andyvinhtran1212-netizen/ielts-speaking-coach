@@ -66,7 +66,8 @@ input: "text"
 headword: "pos-noun-vs-adjective"
 skill: "production"
 subtype: "intermediate"
-prompt: "She gave a very ____ (danger) speech about climate change — write the adjective form of 'danger'."
+prompt: "She gave a very ____ (danger) speech about climate change."
+hint: "viết dạng tính từ của 'danger'"
 accept: ["dangerous"]
 case_sensitive: false
 grammar_article_slug: "parts-of-speech"
@@ -123,7 +124,8 @@ input: "text"
 headword: "pos-verb-vs-noun"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (learn) a foreign language takes a lot of time and patience — write the gerund form of 'learn' to act as the subject."
+prompt: "____ (learn) a foreign language takes a lot of time and patience."
+hint: "viết dạng danh động từ (V-ing) của 'learn' làm chủ ngữ"
 accept: ["learning"]
 case_sensitive: false
 grammar_article_slug: "parts-of-speech"
@@ -194,7 +196,8 @@ input: "text"
 headword: "pos-adjective-vs-adverb"
 skill: "production"
 subtype: "intermediate"
-prompt: "The teacher explained the lesson very ____ (clear), so everyone understood — write the adverb form of 'clear'."
+prompt: "The teacher explained the lesson very ____ (clear), so everyone understood."
+hint: "viết dạng trạng từ của 'clear'"
 accept: ["clearly"]
 case_sensitive: false
 grammar_article_slug: "parts-of-speech"
@@ -265,7 +268,8 @@ input: "text"
 headword: "pos-identify-in-context"
 skill: "production"
 subtype: "intermediate"
-prompt: "Complete with the correct part of speech: 'His ____ (speak) English is very good.' — write the adjective form of 'speak'."
+prompt: "Complete with the correct part of speech: 'His ____ (speak) English is very good.'"
+hint: "viết dạng tính từ của 'speak'"
 accept: ["spoken"]
 case_sensitive: false
 grammar_article_slug: "parts-of-speech"

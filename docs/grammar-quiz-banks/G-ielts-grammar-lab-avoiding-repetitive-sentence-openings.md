@@ -236,7 +236,8 @@ input: "text"
 headword: "arso-cleft-sentences"
 skill: "production"
 subtype: "advanced"
-prompt: "Rewrite 'I think motivation is the most important factor' as a cleft sentence starting with 'What': '____, in my view, is motivation.' (write the 3-word phrase: What/matters/most)"
+prompt: "Rewrite 'I think motivation is the most important factor' as a cleft sentence starting with 'What': '____, in my view, is motivation.'"
+hint: "cụm chẻ câu (cleft) 3 từ, bắt đầu bằng 'What'"
 accept: ["What matters most", "what matters most"]
 case_sensitive: false
 grammar_article_slug: "avoiding-repetitive-sentence-openings"

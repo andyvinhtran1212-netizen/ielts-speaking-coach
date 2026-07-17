@@ -66,7 +66,8 @@ input: "text"
 headword: "aan-core-sound"
 skill: "production"
 subtype: "intermediate"
-prompt: "Doctors say sitting for long hours can cause ____ (article) unhealthy strain on the spine — write only the article (a/an)."
+prompt: "Doctors say sitting for long hours can cause ____ (article) unhealthy strain on the spine."
+hint: "chỉ viết mạo từ (a/an)"
 accept: ["an"]
 case_sensitive: false
 grammar_article_slug: "articles-a-an-sound-rules"
@@ -221,7 +222,8 @@ input: "text"
 headword: "aan-h-silent"
 skill: "production"
 subtype: "intermediate"
-prompt: "It would be ____ (article) honour for the athlete to represent her country at the games — write only the article (a/an)."
+prompt: "It would be ____ (article) honour for the athlete to represent her country at the games."
+hint: "chỉ viết mạo từ (a/an)"
 accept: ["an"]
 case_sensitive: false
 grammar_article_slug: "articles-a-an-sound-rules"
@@ -305,7 +307,8 @@ input: "text"
 headword: "aan-abbreviations"
 skill: "production"
 subtype: "intermediate"
-prompt: "The doctor ordered ____ (article) MRI scan to check for internal injuries — write only the article (a/an)."
+prompt: "The doctor ordered ____ (article) MRI scan to check for internal injuries."
+hint: "chỉ viết mạo từ (a/an)"
 accept: ["an"]
 case_sensitive: false
 grammar_article_slug: "articles-a-an-sound-rules"

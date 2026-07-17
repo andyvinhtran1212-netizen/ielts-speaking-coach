@@ -233,7 +233,8 @@ input: "text"
 headword: "cohesion-topic-chain"
 skill: "production"
 subtype: "intermediate"
-prompt: "Complete the topic-chain link — write only the missing reference word + noun (2 words): 'Deforestation has accelerated in the region. ____ threatens dozens of native species.' (use a reference word + a noun summarising 'deforestation has accelerated')"
+prompt: "Complete the topic-chain link — write only the missing reference word + noun (2 words): 'Deforestation has accelerated in the region. ____ threatens dozens of native species.'"
+hint: "dùng từ quy chiếu + danh từ tóm tắt 'deforestation has accelerated'"
 accept: ["This trend", "This process", "This acceleration"]
 case_sensitive: false
 grammar_article_slug: "cohesion-devices-in-writing"

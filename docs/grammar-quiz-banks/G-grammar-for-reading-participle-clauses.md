@@ -166,7 +166,8 @@ input: "text"
 headword: "pc-having-v3"
 skill: "production"
 subtype: "intermediate"
-prompt: "Complete: '______ several tests, the scientists confirmed their hypothesis.' — write the perfect participle form (2 words)."
+prompt: "Complete: '______ several tests, the scientists confirmed their hypothesis.'"
+hint: "viết dạng phân từ hoàn thành (2 từ)"
 accept: ["having conducted"]
 case_sensitive: false
 grammar_article_slug: "participle-clauses"

@@ -65,7 +65,8 @@ input: "text"
 headword: "hc-certainty-scale"
 skill: "production"
 subtype: "intermediate"
-prompt: "Rewrite this sentence with a hedging word to lower certainty: 'Digital technology transforms education.' Insert a hedging word/phrase: 'Digital technology ____ transforms education.' (use one word or short phrase)"
+prompt: "Rewrite this sentence with a hedging word to lower certainty: 'Digital technology transforms education.' Insert a hedging word/phrase: 'Digital technology ____ transforms education.'"
+hint: "1 từ hoặc cụm ngắn"
 accept: ["may", "might", "could", "appears to", "seems to", "tends to"]
 case_sensitive: false
 grammar_article_slug: "hedging-and-certainty-in-reading"
@@ -163,7 +164,8 @@ input: "text"
 headword: "hc-hedging-markers"
 skill: "production"
 subtype: "intermediate"
-prompt: "Fill in a hedging marker: 'Social media ____ affect mental health.' (use one word that expresses uncertainty)"
+prompt: "Fill in a hedging marker: 'Social media ____ affect mental health.'"
+hint: "dùng 1 từ diễn tả sự không chắc chắn"
 accept: ["may", "might", "could", "appears to", "seems to"]
 case_sensitive: false
 grammar_article_slug: "hedging-and-certainty-in-reading"

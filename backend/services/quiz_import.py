@@ -45,8 +45,10 @@ _VALID_INPUTS = ("choice", "text", "boolean", "syllable", "match")
 
 # Question text columns copied straight from the frontmatter (same key name).
 # qid (← frontmatter `id`) and item_key (← `headword`) are mapped explicitly.
+# `hint` (optional, migration 159) is the learner-facing gợi ý rendered as its
+# own muted line — authors no longer embed it inside `prompt`.
 _Q_SCALARS = ("type", "subtype", "input", "skill", "pair",
-              "prompt", "mask", "explain", "grammar_article_slug")
+              "prompt", "hint", "mask", "explain", "grammar_article_slug")
 
 
 def parse_quiz_meta(fm: dict) -> dict:
@@ -481,7 +483,7 @@ def _commit_bank(meta_info, q_entries, *, topic_id, pools, import_batch_id) -> s
             "qid": p["qid"], "item_key": p["item_key"], "type": p["type"],
             "subtype": p.get("subtype"), "input": p["input"], "skill": p["skill"],
             "pair": p.get("pair"), "counts_toward_mastery": p["counts_toward_mastery"],
-            "prompt": p["prompt"], "options": p.get("options"),
+            "prompt": p["prompt"], "hint": p.get("hint"), "options": p.get("options"),
             # boolean answer persists in the int `answer` col as 1/0; choice/syllable as the index.
             "answer": (1 if e["_bool_answer"] else 0) if e["_bool_answer"] is not None else p.get("answer"),
             "accept": p.get("accept"), "segments": p.get("segments"),

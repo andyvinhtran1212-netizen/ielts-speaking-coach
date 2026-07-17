@@ -304,7 +304,8 @@ input: "text"
 headword: "gis-discourse-markers-register"
 skill: "production"
 subtype: "intermediate"
-prompt: "That's an interesting question — let me ____ about that for a moment. (điền động từ nghĩa 'suy nghĩ')"
+prompt: "That's an interesting question — let me ____ about that for a moment."
+hint: "điền động từ nghĩa 'suy nghĩ'"
 accept: ["think"]
 case_sensitive: false
 grammar_article_slug: "grammar-in-speaking"
