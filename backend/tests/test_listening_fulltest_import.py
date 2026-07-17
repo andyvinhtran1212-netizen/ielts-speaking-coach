@@ -368,6 +368,9 @@ def test_commit_endpoint_persists_fulltest(monkeypatch):
     assert tr["full_audio_duration_seconds"] == 1657
     assert len(tr["cue_points"]) == 4
     assert tr["status"] == "draft"
+    # Mig 157 — test_type stamp là cột thật (không còn trong metadata)
+    assert tr["test_type"] == "full"
+    assert "test_type" not in (tr["metadata"] or {})
     content_rows = [p for (t, p) in stub.inserts if t == "listening_content"]
     assert len(content_rows) == 4
 

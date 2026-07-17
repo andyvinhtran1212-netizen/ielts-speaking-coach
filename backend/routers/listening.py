@@ -2396,11 +2396,10 @@ async def admin_import_fulltest_commit(
             "source_format":   "listening-fulltest-v1.1",
             "section_offsets": offsets,
             "band_conversion": res.metadata.get("band_conversion") or [],
-            # Listening mini test — 'mini' (1 section) vs 'full' (4); the student
-            # list endpoint segregates on metadata.test_type. No migration: the
-            # metadata JSONB column already exists (mig 065).
-            "test_type":       "mini" if mini else "full",
         },
+        # Mig 157 — test_type là cột thật có CHECK ('mini' 1 section vs
+        # 'full' 4 sections); list endpoint student lọc trên cột này.
+        "test_type":                   "mini" if mini else "full",
         "status":                      "draft",
     }
     # ── Persist ALL-OR-NOTHING with full rollback ────────────────────
@@ -2619,6 +2618,8 @@ async def admin_import_drill_commit(
         "cue_points":      res.cue_points,
         "audio_assembly_mode": "full_premixed",
         "metadata":        tm.get("metadata") or {},
+        # Mig 157 — test_type là cột thật (CHECK full|mini|drill).
+        "test_type":       tm.get("test_type") or "drill",
         "status":          "draft",
     }
     if audio_bytes and av:
@@ -2750,7 +2751,7 @@ async def admin_get_test_audit(
         "uuid":        test_id,
         "title":       test.get("title"),
         "status":      test.get("status"),
-        "test_type":   (test.get("metadata") or {}).get("test_type"),
+        "test_type":   test.get("test_type"),
         "question_count": len(h["all_questions"]),
         "section_count":  len(h["sections"]),
         "sections":    editor_sections,   # for the inline editor
@@ -3907,12 +3908,11 @@ async def list_published_listening_tests(
     CTAs without a follow-up round-trip.
 
     test_type segregates the full-test, mini-test and skill-drill libraries,
-    reading metadata->>test_type:
+    reading the real ``test_type`` column (mig 157 — NOT NULL, CHECK
+    full|mini|drill; legacy NULL-metadata rows were backfilled to 'full'):
       - "mini"  → ONLY mini tests.
       - "drill" → ONLY skill drills (listening Skills Practice).
-      - "full" / omitted (default) → EXCLUDE mini AND drill, but KEEP legacy
-        tests whose test_type IS NULL (a plain != 'mini' would drop them and
-        also leak drills).
+      - "full" / omitted (default) → ONLY full tests.
     """
     user = await _require_auth(authorization)
     # Validate only a real string value. When the handler is called directly
@@ -3929,13 +3929,11 @@ async def list_published_listening_tests(
         .range(offset, offset + limit - 1)
     )
     if test_type == "mini":
-        q = q.eq("metadata->>test_type", "mini")
+        q = q.eq("test_type", "mini")
     elif test_type == "drill":
-        q = q.eq("metadata->>test_type", "drill")
+        q = q.eq("test_type", "drill")
     else:
-        # Default/full library: legacy NULL rows stay, but mini + drill are
-        # segregated into their own libraries.
-        q = q.or_("metadata->>test_type.is.null,metadata->>test_type.not.in.(mini,drill)")
+        q = q.eq("test_type", "full")
     # Exclusivity: a listening test chosen for a 4-skill mock is reserved to it —
     # hide it from the normal practice list.
     from services import mock_exam_service
@@ -4116,12 +4114,11 @@ async def get_published_listening_test(
         "id":                     test["id"],
         "test_id":                test.get("test_id"),
         "title":                  test.get("title"),
-        # Sprint — surface test_type so the student player can relax the
-        # single-shot audio constraint for mini + drill (practice), while
-        # full tests keep the Cambridge no-seek/no-pause behaviour. Legacy
-        # full tests may have test_type NULL → the frontend treats NULL as
-        # 'full'.
-        "test_type":              (test.get("metadata") or {}).get("test_type"),
+        # Surface test_type so the student player can relax the single-shot
+        # audio constraint for mini + drill (practice), while full tests keep
+        # the Cambridge no-seek/no-pause behaviour. Mig 157: real column,
+        # NOT NULL — the frontend's NULL→'full' fallback is now vestigial.
+        "test_type":              test.get("test_type"),
         "themes":                 test.get("themes") or {},
         "audio_url":              audio_url,
         "audio_storage_path":     audio_path,
@@ -4875,7 +4872,7 @@ async def get_listening_test_attempt_review(
     test_id = attempt["test_id"]
     test_res = (
         supabase_admin.table("listening_tests")
-        .select("id,test_id,title,band_target,cue_points,metadata,"
+        .select("id,test_id,title,band_target,cue_points,metadata,test_type,"
                 "full_audio_storage_path,assembled_audio_storage_path,"
                 "full_audio_duration_seconds,themes")
         .eq("id", test_id).limit(1).execute()
@@ -4934,7 +4931,7 @@ async def get_listening_test_attempt_review(
     # window to section-relative for a mini so the review player seeks the right
     # spot. Full tests keep absolute windows — their premixed audio holds every
     # section at its absolute position, so no rebase.
-    is_mini = meta.get("test_type") == "mini"
+    is_mini = test_row.get("test_type") == "mini"
     sec_offsets = meta.get("section_offsets") or {}
 
     # Join grading_details with the per-question solution + window.
