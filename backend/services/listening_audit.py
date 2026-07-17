@@ -116,7 +116,7 @@ def hydrate_test(test: dict, contents: list[dict], exercises: list[dict]) -> dic
         "uuid":        test.get("id"),
         "test_id":     test.get("test_id"),
         "status":      test.get("status"),
-        "test_type":   md.get("test_type"),
+        "test_type":   test.get("test_type") or md.get("test_type"),
         "metadata":    md,
         "full_audio_storage_path":      test.get("full_audio_storage_path"),
         "assembled_audio_storage_path": test.get("assembled_audio_storage_path"),

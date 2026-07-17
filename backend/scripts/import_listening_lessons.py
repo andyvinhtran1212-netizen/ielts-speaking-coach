@@ -116,8 +116,9 @@ def _commit_one(lid: str, res, qp_text: str, audio_bytes, av, status: str) -> di
             "source_format":   "listening-fulltest-v1.1",
             "section_offsets": offsets,
             "band_conversion": res.metadata.get("band_conversion") or [],
-            "test_type":       "mini",
         },
+        # Mig 157 — test_type là cột thật (CHECK full|mini|drill).
+        "test_type":                   "mini",
         "status":                      status,
     }
     created_content_ids: list[str] = []

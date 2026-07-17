@@ -174,7 +174,8 @@ _MINI_TEST_ROW = {
     "id": "t-uuid", "test_id": "ILR-LIS-L01", "title": "L01 mini", "band_target": 5.5,
     "cue_points": [], "full_audio_storage_path": "tests/t-uuid/full.mp3",
     "full_audio_duration_seconds": 302,
-    "metadata": {"section_offsets": {"S3": 30.12}, "test_type": "mini"},
+    "test_type": "mini",   # mig 157 — cột thật
+    "metadata": {"section_offsets": {"S3": 30.12}},
     "themes": {},
 }
 _MINI_CONTENT = [{"id": "c3", "section_num": 3, "title": "S3", "transcript": "…",

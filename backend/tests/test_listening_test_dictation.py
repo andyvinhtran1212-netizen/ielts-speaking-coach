@@ -278,18 +278,18 @@ def _seed_section(fake, test_id, section_num, transcript, metadata=None):
 
 def test_get_test_detail_surfaces_test_type_for_mini(monkeypatch):
     fake, authz = _patch(monkeypatch)
-    test = _seed_test(fake, metadata={"test_type": "mini"})
+    test = _seed_test(fake, test_type="mini")   # mig 157 — cột thật
     out = _run(listening_router.get_published_listening_test(
         test_id=test["id"], authorization=authz))
     assert out["test_type"] == "mini"
 
 
-def test_get_test_detail_test_type_none_for_legacy_full(monkeypatch):
+def test_get_test_detail_surfaces_test_type_full(monkeypatch):
     fake, authz = _patch(monkeypatch)
-    test = _seed_test(fake, metadata={})       # legacy full — no test_type
+    test = _seed_test(fake, test_type="full")   # mig 157: NULL đã backfill
     out = _run(listening_router.get_published_listening_test(
         test_id=test["id"], authorization=authz))
-    assert out["test_type"] is None
+    assert out["test_type"] == "full"
 
 
 # ── GET /tests/{id}/dictation ──────────────────────────────────────────────
