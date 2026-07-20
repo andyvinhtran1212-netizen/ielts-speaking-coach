@@ -159,6 +159,67 @@ def test_build_l3_payloads_emits_test_row_passage_rows_and_questions():
         assert q_rows and "passage_id" not in q_rows[0]
 
 
+# ── DEBT-2026-07-20-C: strip markdown emphasis from plain-text fields ──
+
+_L3_EMPH = """---
+content_type: reading_full_test
+test_id: TEST-EMPH-001
+title: Emphasis Test
+module: academic
+passage_count: 1
+total_questions: 1
+published: true
+passages:
+  - passage_order: 1
+    slug: emph-p1
+    title: '*Cutty Sark*: the fastest sailing ship'
+    body_markdown: 'Body keeps *italics* and **bold** because it IS rendered.'
+    questions:
+      - q_num: 1
+        question_type: summary_completion
+        prompt: (see summary above)
+        answer: clipper
+        skill_tag: detail
+        template:
+          summary_text: 'The **fastest** *tea* clipper was the {{1}}.'
+---
+"""
+
+
+def test_strip_inline_emphasis_helper():
+    """Unit: paired '**bold**'/'*italic*' markers are removed (inner text kept);
+    gap tokens, single unpaired '*', plain text, and None are left untouched."""
+    from services.content_import_service import _strip_inline_emphasis
+    # the 4 real R8r passage titles
+    assert _strip_inline_emphasis("*Cutty Sark*: the fastest sailing ship") == \
+        "Cutty Sark: the fastest sailing ship"
+    assert _strip_inline_emphasis("Book review: *The World of Sugar* by X") == \
+        "Book review: The World of Sugar by X"
+    assert _strip_inline_emphasis("**Building the Skyline**: growth") == "Building the Skyline: growth"
+    assert _strip_inline_emphasis("mix **bold** and *italic* here") == "mix bold and italic here"
+    # untouched
+    assert _strip_inline_emphasis("gap {{1}} and {{2}}") == "gap {{1}} and {{2}}"
+    assert _strip_inline_emphasis("2 * 3 = 6") == "2 * 3 = 6"        # single '*'
+    assert _strip_inline_emphasis("plain title") == "plain title"
+    assert _strip_inline_emphasis(None) is None
+    assert _strip_inline_emphasis("") == ""
+
+
+def test_build_l3_strips_emphasis_in_title_and_summary_keeps_body():
+    """DEBT-2026-07-20-C — passage title + completion summary_text render as
+    PLAIN TEXT in the exam UI, so their markdown emphasis would show literal
+    '*' chars. build strips the markers there while PRESERVING body_markdown
+    emphasis (body_markdown is markdown-rendered via marked)."""
+    plan = build_reading_test_payloads(parse_reading_test(_L3_EMPH))
+    prow = plan["passage_rows"][0]
+    assert prow["title"] == "Cutty Sark: the fastest sailing ship"          # stripped
+    assert prow["body_markdown"] == \
+        "Body keeps *italics* and **bold** because it IS rendered."          # preserved
+    q1 = plan["passage_questions"][0][1][0]
+    assert q1["payload"]["template"]["summary_text"] == \
+        "The fastest tea clipper was the {{1}}."                             # stripped + gap intact
+
+
 # ── Grader: Academic band table boundaries ────────────────────────────
 
 
