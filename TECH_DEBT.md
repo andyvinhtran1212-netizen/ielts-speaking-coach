@@ -59,7 +59,7 @@ material, not active backlog.
 - **Effort:** ~10 min merge; backfill per script.
 - **Blocked by:** soak + prod access for the backfill.
 
-#### DEBT-2026-07-20-C: Reading CONTENT render fixes (not covered by #811) — needs re-convert + re-import
+#### DEBT-2026-07-20-C: Reading CONTENT render fixes (not covered by #811) — FIXED at import layer (PR #814)
 - **What:** the audit found content-side (not renderer) issues #811 does NOT fix,
   because in reading only the passage `body_markdown` is markdown-rendered —
   titles + question templates are plain text:
@@ -68,11 +68,17 @@ material, not active backlog.
     `*The World of Sugar*`, B21-T4 `*The Globemakers*`.
   - **R3 (4 blocks):** `*emphasis*`/`**bold**` inside a rendered summary/notes
     shows literal chars — B15-T3 q32, B15-T4 q20, B19-T4 q31, B21-T1 q31.
-- **Action:** strip the markup in the `title` field (put any needed italics in
-  `body_markdown`, which DOES render) and in `summary_text`; re-run
-  `render_risk_scan.py`; re-import affected tests (folds into DEBT-A re-import).
-- **Effort:** ~1–2h (converter tweak + re-convert + re-import).
-- **Blocked by:** soak (ties into DEBT-A).
+- **Fix (PR #814, `fix/reading-strip-markdown-emphasis`):** solved at the IMPORT
+  layer instead of re-converting content. `_strip_inline_emphasis()` in
+  `services/content_import_service.py` strips `**bold**`/`*italic*` markers from
+  the passage `title` (`build_reading_test_payloads`) and `template.summary_text`
+  (`build_reading_question_payloads`); `body_markdown` is left untouched (it IS
+  markdown-rendered). Runs on EVERY reading import, so the DEBT-A re-import
+  auto-cleans these 8 cases — no re-convert, no folder access needed.
+- **Action (post-soak):** merge #814 (before/with the DEBT-A re-import so the
+  strip applies). No separate content work.
+- **Effort:** merge only; folds into DEBT-A.
+- **Blocked by:** soak.
 - **Reference:** `outputs/_convert_reading/RENDER_RISK_REPORT.md` +
   `render_risk_scan.py`. (Listening = 0 render risks; structured payloads render fine.)
 
