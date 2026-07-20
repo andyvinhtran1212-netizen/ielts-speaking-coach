@@ -807,14 +807,20 @@
   // change/input/readAnswer/restoreAnswers path keeps grading per Q.
   var _SUMMARY_MARKER_RE = /\{\{\s*(\d{1,3})\s*\}\}/g;
   // reading-completion-flowing-fix — completion types whose summary_text keeps
-  // a multi-line layout (table rows / flow-chart steps / note bullets /
-  // separate sentences) render via the pre-wrap `--notes` branch below.
-  // summary_completion is intentionally ABSENT → one justified prose paragraph.
-  // Built once at module scope, not rebuilt per render call.
+  // a MULTI-LINE layout render via a line-preserving branch; only
+  // summary_completion falls through to one justified prose paragraph.
+  // reading-completion-mono-fix — two flavours: the MONO types (table /
+  // flow-chart / diagram) convey columns/steps through spacing + indentation,
+  // so they need a whitespace-preserving pre-wrap MONO block — the note-heading
+  // parser's `line.trim()` + per-line <div> would collapse that alignment
+  // (`--notes` sets only line-height, not white-space: pre-wrap). notes /
+  // sentence / form are line-based prose → the note parser is correct. Both
+  // maps built once at module scope, not rebuilt per render call.
+  var MONO_LAYOUT = {
+    table_completion: 1, flow_chart_completion: 1, diagram_label_completion: 1,
+  };
   var STRUCTURED_LAYOUT = {
-    notes_completion: 1, table_completion: 1, form_completion: 1,
-    flow_chart_completion: 1, diagram_label_completion: 1,
-    sentence_completion: 1,
+    notes_completion: 1, form_completion: 1, sentence_completion: 1,
   };
   function _renderFlowingSummaryBlock(run) {
     var first = run[0];
@@ -826,13 +832,15 @@
     var byQNum = {};
     run.forEach(function (q) { byQNum[q.q_num] = q; });
 
-    // reading-header-notefill B / reading-completion-flowing-fix — notes and
-    // every other structured completion type keep the line/bullet/row layout
-    // (--notes → pre-wrap); only summary_completion falls through to prose.
-    var isNotes = !!STRUCTURED_LAYOUT[first.question_type];
+    // reading-completion-mono-fix — pick layout: MONO (pre-wrap monospace for
+    // table/flow/diagram), NOTES (line parser for notes/sentence/form), PROSE.
+    var qType   = first.question_type;
+    var isMono  = !!MONO_LAYOUT[qType];
+    var isNotes = !!STRUCTURED_LAYOUT[qType];
     var box = document.createElement('div');
-    box.className = 'exam-gap-box exam-gap-box--summary' + (isNotes ? ' exam-gap-box--notes' : '');
-    box.setAttribute('data-question-type', first.question_type || 'summary_completion');
+    box.className = 'exam-gap-box exam-gap-box--summary'
+      + (isNotes ? ' exam-gap-box--notes' : '');
+    box.setAttribute('data-question-type', qType || 'summary_completion');
 
     var src = String(template || '');
 
@@ -885,7 +893,14 @@
       if (last < text.length) container.appendChild(document.createTextNode(text.slice(last)));
     }
 
-    if (isNotes) {
+    if (isMono) {
+      // reading-completion-mono-fix — table/flow/diagram convey structure via
+      // spacing; render summary_text in ONE pre-wrap mono block so columns survive.
+      var mono = document.createElement('div');
+      mono.className = 'exam-summary__mono';
+      _fillTemplate(mono, src);
+      box.appendChild(mono);
+    } else if (isNotes) {
       // reading-review-locate-exam-format B1 — render notes as a STRUCTURED
       // block: the first non-blank line is the title, bullet lines ("• …") get
       // a styled marker, and other non-blank/no-blank lines are sub-headings —

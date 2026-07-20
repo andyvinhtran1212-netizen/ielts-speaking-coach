@@ -83,23 +83,49 @@ describe('reading-completion-flowing-fix — diagram/flow image wins (ordering)'
   });
 });
 
-describe('reading-completion-flowing-fix — line-preserving layout', () => {
+describe('reading-completion-flowing-fix — layout split (mono vs notes vs prose)', () => {
   const js = read('frontend/js/reading-exam.js');
+  const css = read('frontend/css/reading-exam.css');
 
-  test('_renderFlowingSummaryBlock uses STRUCTURED_LAYOUT for table/flow/sentence/form/diagram/notes', () => {
-    const m = js.match(/var STRUCTURED_LAYOUT = \{([\s\S]{0,300}?)\};/);
-    assert.ok(m, 'STRUCTURED_LAYOUT map not found');
-    for (const t of ['notes_completion', 'table_completion', 'form_completion',
-                     'flow_chart_completion', 'diagram_label_completion',
-                     'sentence_completion']) {
-      assert.match(m[1], new RegExp(`${t}:\\s*1`), `STRUCTURED_LAYOUT missing ${t}`);
+  test('MONO_LAYOUT covers table / flow-chart / diagram (whitespace-preserving types)', () => {
+    // reading-completion-mono-fix (Codex #811 P2) — these convey columns/steps
+    // via spacing, so they must NOT go through the trim+split note parser.
+    const m = js.match(/var MONO_LAYOUT = \{([\s\S]{0,200}?)\};/);
+    assert.ok(m, 'MONO_LAYOUT map not found');
+    for (const t of ['table_completion', 'flow_chart_completion', 'diagram_label_completion']) {
+      assert.match(m[1], new RegExp(`${t}:\\s*1`), `MONO_LAYOUT missing ${t}`);
     }
-    // summary_completion is intentionally ABSENT (stays a prose paragraph).
-    assert.doesNotMatch(m[1], /summary_completion:/);
   });
 
-  test('isNotes flag is driven by STRUCTURED_LAYOUT (not a single-type equality)', () => {
-    assert.match(js, /var isNotes = !!STRUCTURED_LAYOUT\[first\.question_type\]/);
+  test('STRUCTURED_LAYOUT (note parser) covers notes / form / sentence — NOT the mono types', () => {
+    const m = js.match(/var STRUCTURED_LAYOUT = \{([\s\S]{0,200}?)\};/);
+    assert.ok(m, 'STRUCTURED_LAYOUT map not found');
+    for (const t of ['notes_completion', 'form_completion', 'sentence_completion']) {
+      assert.match(m[1], new RegExp(`${t}:\\s*1`), `STRUCTURED_LAYOUT missing ${t}`);
+    }
+    // mono types + summary must NOT be in the note-parser map.
+    for (const t of ['table_completion', 'flow_chart_completion',
+                     'diagram_label_completion', 'summary_completion']) {
+      assert.doesNotMatch(m[1], new RegExp(`${t}:`), `${t} must not be in STRUCTURED_LAYOUT`);
+    }
+  });
+
+  test('render branches on isMono → .exam-summary__mono, then isNotes, then prose', () => {
+    assert.match(js, /var isMono\s*=\s*!!MONO_LAYOUT\[qType\]/);
+    assert.match(js, /var isNotes\s*=\s*!!STRUCTURED_LAYOUT\[qType\]/);
+    // isMono branch renders the WHOLE src into one .exam-summary__mono block.
+    assert.match(
+      js,
+      /if \(isMono\)[\s\S]{0,400}exam-summary__mono['"][\s\S]{0,120}_fillTemplate\(mono,\s*src\)/,
+    );
+    assert.match(js, /\}\s*else if \(isNotes\)\s*\{/);
+  });
+
+  test('CSS: .exam-summary__mono preserves whitespace (pre-wrap) + monospace font', () => {
+    const m = css.match(/\.exam-chrome\s+\.exam-summary__mono\s*\{([\s\S]{0,200}?)\}/);
+    assert.ok(m, '.exam-summary__mono rule not found');
+    assert.match(m[1], /white-space:\s*pre-wrap/);
+    assert.match(m[1], /font-family:\s*var\(--exam-font-mono\)/);
   });
 });
 
