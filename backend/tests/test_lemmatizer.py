@@ -203,3 +203,24 @@ def test_lemma_version_returns_positive_int():
     v = lemma_version()
     assert isinstance(v, int)
     assert v >= 1
+
+
+def test_lemmatize_builtin_irregular_plurals_model_independent():
+    """Irregular Greek/Latin NOUN plurals that spaCy's small model fails to
+    reduce (it returns "phenomena"/"criteria" unchanged) resolve via a
+    built-in map that runs BEFORE spaCy — so they're deterministic and need
+    no model. This is the canonical `test_lemmatize_plural_noun` case, now
+    model-independent (was red under the installed sm model version)."""
+    from services.lemmatizer import lemmatize
+    assert lemmatize("phenomena") == ("phenomenon", "NOUN")
+    assert lemmatize("criteria") == ("criterion", "NOUN")
+    # Input is lowercased before lookup, so casing doesn't matter.
+    assert lemmatize("PHENOMENA") == ("phenomenon", "NOUN")
+
+
+def test_lemma_version_bumped_for_irregular_map():
+    """Adding the built-in irregular map changed historical output for
+    affected rows, so the version MUST have advanced past the v1 baseline
+    (the backfill re-walks any row stored under the old version)."""
+    from services.lemmatizer import lemma_version
+    assert lemma_version() >= 2
