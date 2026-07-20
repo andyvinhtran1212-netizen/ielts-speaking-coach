@@ -1,6 +1,6 @@
 # Tech Debt — IELTS Speaking Coach
 
-**Last updated:** 2026-06-28 (Tech debt audit — removed confirmed-completed items)
+**Last updated:** 2026-07-20 (added post-soak Cambridge import + lemmatizer backfill — DEBT-2026-07-20-A/B/C)
 **Last reviewed:** 2026-05-07 (PM)
 
 Comprehensive snapshot of tech debt + improvement opportunities, restructured
@@ -21,6 +21,60 @@ material, not active backlog.
 ---
 
 ## 🔴 ACTIVE — Cần action
+
+### Blocked by Pilot-1 soak — post-soak actions (logged 2026-07-20)
+
+> **Context:** main is frozen for the Pilot-1 soak (any merge resets the soak
+> window — see memory `fe-nextjs-migration-program`). Three PRs are open, green,
+> and MUST NOT be merged until the soak passes. Bundle the merges + the
+> re-import/backfill below once soak ends. All three PRs came out of the
+> render-fidelity audit of the converted Cambridge test set (2026-07-20).
+
+#### DEBT-2026-07-20-A: Merge PR #811 + re-run render scan + re-import Cambridge reading/listening
+- **What:** PR #811 (`frontend/public/js/reading-exam.js`) fixes reading
+  completion questions (`table` / `sentence` / `flow_chart`) that carry
+  `template.summary_text` — they rendered "(see summary above)" with nothing
+  above (**23 runs / ~20 of 36 reading tests were UNANSWERABLE**). The renderer
+  now flows `summary_text` for every completion type, not just summary/notes.
+- **Action (post-soak, in order):**
+  1. Merge #811.
+  2. Re-run `outputs/_convert_reading/render_risk_scan.py` (from `backend` cwd)
+     → target **R0 = 0**.
+  3. Re-import Cambridge 13 (4 listening + 4 reading, published) via
+     `_convert/import_cam_listening.py` + `_convert_reading/import_cam_reading.py`;
+     verify on web (esp. B13-T1 map + table Q1–7).
+  4. Then import B14–B21 (32 remaining tests).
+- **Effort:** ~30 min merge+verify; ~1–2h full re-import.
+- **Blocked by:** soak.
+- **Reference:** memory `reading-render-summary-text-drop`, `cambridge-fulltest-converter`.
+
+#### DEBT-2026-07-20-B: Merge PR #812 + run lemma backfill
+- **What:** PR #812 (`backend/services/lemmatizer.py`) adds `_IRREGULAR_LEMMAS`
+  (phenomena→phenomenon, criteria→criterion — Greek/Latin plurals spaCy `sm`
+  misses) and bumps `lemma_version` 1→2. Fixed the pre-push DoD gate (was red on
+  `test_lemmatize_plural_noun` in the model-installed env).
+- **Action (post-soak):** Merge #812, then run `scripts/backfill_lemma.py` (needs
+  prod access) to re-walk rows stored under v1 and correct any "phenomena"/
+  "criteria" lemmas. Idempotent — safe to re-run.
+- **Effort:** ~10 min merge; backfill per script.
+- **Blocked by:** soak + prod access for the backfill.
+
+#### DEBT-2026-07-20-C: Reading CONTENT render fixes (not covered by #811) — needs re-convert + re-import
+- **What:** the audit found content-side (not renderer) issues #811 does NOT fix,
+  because in reading only the passage `body_markdown` is markdown-rendered —
+  titles + question templates are plain text:
+  - **R8r (4 titles):** passage `title` shows literal `*asterisks*` —
+    B13-T4 `*Cutty Sark*`, B17-T3 `*Building the Skyline*`, B21-T1
+    `*The World of Sugar*`, B21-T4 `*The Globemakers*`.
+  - **R3 (4 blocks):** `*emphasis*`/`**bold**` inside a rendered summary/notes
+    shows literal chars — B15-T3 q32, B15-T4 q20, B19-T4 q31, B21-T1 q31.
+- **Action:** strip the markup in the `title` field (put any needed italics in
+  `body_markdown`, which DOES render) and in `summary_text`; re-run
+  `render_risk_scan.py`; re-import affected tests (folds into DEBT-A re-import).
+- **Effort:** ~1–2h (converter tweak + re-convert + re-import).
+- **Blocked by:** soak (ties into DEBT-A).
+- **Reference:** `outputs/_convert_reading/RENDER_RISK_REPORT.md` +
+  `render_risk_scan.py`. (Listening = 0 render risks; structured payloads render fine.)
 
 ### High priority — blocking Phase 3 strategic decision
 
