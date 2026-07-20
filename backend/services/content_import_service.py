@@ -528,6 +528,29 @@ def validate_reading_questions(questions: Any) -> list[dict]:
     return errors
 
 
+# render-fidelity DEBT-2026-07-20-C — the reading exam renderer inserts a
+# passage `title` and a completion `template.summary_text` as PLAIN TEXT
+# (textContent / createTextNode in reading-exam.js); only passage
+# `body_markdown` is markdown-rendered (marked + GFM). So markdown emphasis in
+# those two fields surfaces as literal '*' characters (e.g. "*Cutty Sark*").
+# Strip the emphasis MARKERS at import — the source-of-truth fix — keeping the
+# inner words. body_markdown is never routed through here, so its markdown is
+# preserved.
+_MD_BOLD_RE   = re.compile(r"\*\*([^*\n]+?)\*\*")
+_MD_ITALIC_RE = re.compile(r"(?<!\*)\*([^*\n]+?)\*(?!\*)")
+
+
+def _strip_inline_emphasis(s: Optional[str]) -> Optional[str]:
+    """Remove markdown '**bold**' / '*italic*' MARKERS from a plain-text field,
+    keeping the inner text. Lone/unpaired '*' and gap tokens ({{N}}) are left
+    untouched. Returns the input unchanged when it has no paired emphasis."""
+    if not s or "*" not in s:
+        return s
+    out = _MD_BOLD_RE.sub(r"\1", s)
+    out = _MD_ITALIC_RE.sub(r"\1", out)
+    return out
+
+
 def build_reading_question_payloads(questions: list, passage_id: str) -> list[dict]:
     """Map validated question dicts to reading_questions row payloads. Splits
     the render-time fields (options/template → payload JSONB) from the answer
@@ -539,7 +562,13 @@ def build_reading_question_payloads(questions: list, passage_id: str) -> list[di
         if isinstance(q.get("options"), list):
             payload["options"] = q["options"]
         if isinstance(q.get("template"), dict):
-            payload["template"] = q["template"]
+            # DEBT-2026-07-20-C — summary_text renders as plain text; strip
+            # markdown emphasis markers so they don't show up literally. Copy
+            # the template so the caller's dict isn't mutated.
+            tmpl = dict(q["template"])
+            if isinstance(tmpl.get("summary_text"), str):
+                tmpl["summary_text"] = _strip_inline_emphasis(tmpl["summary_text"])
+            payload["template"] = tmpl
         # reading-rich-test-solution — the detailed "chữa bài" solution rides
         # payload.solution (Pattern #15; no schema change). Shape: {band, steps,
         # source_excerpt, vocab, paraphrase, trap_analysis, tips, skill_code}.
@@ -874,7 +903,10 @@ def build_reading_test_payloads(p: ParsedReadingTest) -> dict:
         prow = {
             "library":          "l3_test",
             "slug":             slug,
-            "title":            _as_str(pas.get("title")),
+            # DEBT-2026-07-20-C — passage title renders as plain text (<h2>
+            # textContent), so strip markdown emphasis markers. body_markdown
+            # keeps its markdown (it IS rendered via marked).
+            "title":            _strip_inline_emphasis(_as_str(pas.get("title"))),
             "body_markdown":    pas.get("body_markdown"),
             "passage_order":    pas.get("passage_order"),
             "word_count":       _as_opt_int(pas.get("word_count")),
