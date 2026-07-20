@@ -53,9 +53,14 @@ material, not active backlog.
   (phenomena→phenomenon, criteria→criterion — Greek/Latin plurals spaCy `sm`
   misses) and bumps `lemma_version` 1→2. Fixed the pre-push DoD gate (was red on
   `test_lemmatize_plural_noun` in the model-installed env).
-- **Action (post-soak):** Merge #812, then run `scripts/backfill_lemma.py` (needs
-  prod access) to re-walk rows stored under v1 and correct any "phenomena"/
-  "criteria" lemmas. Idempotent — safe to re-run.
+- **Action (post-soak):** Merge #812, then run the backfill from the backend
+  dir (the script is at `backend/scripts/backfill_lemma.py` and its header
+  requires module invocation — it fails from the repo root):
+  ```
+  cd backend && python -m scripts.backfill_lemma
+  ```
+  (needs prod access) to re-walk rows stored under v1 and correct any
+  "phenomena"/"criteria" lemmas. Idempotent — safe to re-run.
 - **Effort:** ~10 min merge; backfill per script.
 - **Blocked by:** soak + prod access for the backfill.
 
