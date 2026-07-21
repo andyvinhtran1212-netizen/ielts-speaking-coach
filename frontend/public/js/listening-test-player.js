@@ -561,9 +561,11 @@ function renderTableCompletion(tmpl, questions) {
         <tbody>
           ${rows.map((row) => `<tr>${row.map((c) => {
             if (c && typeof c === 'object' && c.q_num != null) {
+              // A cell may carry a trailing unit/word after the gap
+              // (`9 …… protection`) — render it after the input, not drop it.
               return `<td>
                 <span class="ielts-question-num">${esc(c.q_num)}</span>
-                ${gapInput(c.q_num)}
+                ${gapInput(c.q_num)}${c.suffix ? ' ' + mdInline(c.suffix) : ''}
               </td>`;
             }
             return `<td>${mdInline(c == null ? '' : c)}</td>`;

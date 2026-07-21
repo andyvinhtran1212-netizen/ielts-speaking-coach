@@ -894,11 +894,19 @@ def _extract_table_template(body: str, in_range) -> dict[str, Any]:
     for row in body_rows:
         cells_out: list[Any] = []
         for cell in row:
-            gap = re.match(r"^(\d{1,2})\s+[…\.]+\s*$", cell)
+            # A cell gap is `N …………` — but authentic Cambridge tables often put a
+            # trailing unit/word AFTER the blank (`9 …… protection`,
+            # `10 …… working days`). Capture that suffix instead of requiring the
+            # gap to end the cell; the renderer shows the input then the suffix.
+            gap = re.match(r"^(\d{1,2})\s+[…\.]+\s*(.*)$", cell)
             if gap:
                 n = int(gap.group(1))
                 if in_range(n):
-                    cells_out.append({"q_num": n})
+                    cell_obj: dict[str, Any] = {"q_num": n}
+                    suffix = gap.group(2).strip()
+                    if suffix:
+                        cell_obj["suffix"] = suffix
+                    cells_out.append(cell_obj)
                     continue
             cells_out.append(cell)
         out_rows.append(cells_out)
@@ -910,52 +918,64 @@ def _extract_notes_template(body: str, in_range) -> dict[str, Any]:
     so far have a single group, but the schema is forward-compatible
     with multiple grouped sub-headings (H5 lines).
     """
-    items: list[Any] = []
+    # Notes are grouped by sub-heading. A non-bullet, non-blank line that isn't
+    # the H4 block heading or an instruction blockquote is a SUB-HEADING (đề mục
+    # like "Heuristics:", "Framing effect:") — it starts a new group and becomes
+    # its heading. Before this fix every non-bullet line was dropped (`continue`),
+    # so the sub-headings vanished from the rendered notes. The renderer
+    # (renderNotesCompletion) already displays `groups[].heading`.
+    groups: list[dict[str, Any]] = []
+    cur: dict[str, Any] = {"heading": None, "items": []}
+
+    def _flush() -> None:
+        if cur["items"] or cur["heading"]:
+            g: dict[str, Any] = {"items": cur["items"]}
+            if cur["heading"]:
+                g["heading"] = cur["heading"]
+            groups.append(g)
+
     for line in body.splitlines():
         s = line.strip()
-        if not s or not s.startswith(("-", "*", "+")):
+        if not s:
             continue
-        # Sprint 13.5.5 — Andy's source markdown sometimes carries a
-        # leading Unicode bullet inside the markdown bullet
-        # (`- • Travellers …`) which rendered as a doubled bullet. Strip
-        # any leading Unicode bullet glyph after the markdown bullet.
+        if not s.startswith(("-", "*", "+")):
+            # `####` block heading + `>` instruction are handled elsewhere; any
+            # OTHER non-bullet line is a sub-heading → open a new group.
+            if s.startswith("#") or s.startswith(">"):
+                continue
+            _flush()
+            cur = {"heading": s, "items": []}
+            continue
+        # Sprint 13.5.5 — strip a leading Unicode bullet after the markdown
+        # bullet (`- • Travellers …`) that otherwise renders as a doubled bullet.
         s_content = s.lstrip("-*+").strip()
         s_content = re.sub(r"^[•·●○◦∙]\s*", "", s_content)
         gap_m = re.search(r"\*\*(\d{1,2})\*\*\s+_+\.?\s*(.*?)$", s_content)
         if gap_m:
             n = int(gap_m.group(1))
             if in_range(n):
-                items.append({
+                cur["items"].append({
                     "q_num":  n,
                     "prefix": s_content[: gap_m.start()].strip(),
                     "suffix": gap_m.group(2).strip(),
                 })
                 continue
-        # Sentence-style note item authored as `**N.** prefix ___ suffix`
-        # (number-DOT bold, blank mid/end-sentence). The bullet regex above
-        # only matches `**N** ___` (number bold IMMEDIATELY before the gap);
-        # a "Complete the note" block whose item is a full sentence — Andy's
-        # L05 Q1/Q2/Q3/Q6 — fell through to a raw {text} item, so the renderer
-        # showed a literal "___" with no input. Mirror the _SENTENCE_INLINE_RE
-        # fallback that _extract_gap_fill already uses for the questions list,
-        # so blank↔q_num maps in the template too. Matched on the ORIGINAL
-        # stripped line (`s`) because `**N.**` must be intact (lstrip stripped
-        # the leading `**` from s_content).
+        # Sentence-style note item `**N.** prefix ___ suffix` (number-DOT bold);
+        # the bullet regex above only matches `**N** ___`. Matched on the ORIGINAL
+        # stripped line (`s`) because `**N.**` must be intact.
         sent_m = _SENTENCE_INLINE_RE.match(s)
         if sent_m:
             n = int(sent_m.group(1))
             if in_range(n):
-                items.append({
+                cur["items"].append({
                     "q_num":  n,
                     "prefix": sent_m.group(2).strip(),
                     "suffix": sent_m.group(3).strip(),
                 })
                 continue
-        items.append({"text": s_content})
-    return {
-        "heading": _block_h4(body),
-        "groups":  [{"items": items}] if items else [],
-    }
+        cur["items"].append({"text": s_content})
+    _flush()
+    return {"heading": _block_h4(body), "groups": groups}
 
 
 def _extract_summary_template(body: str, in_range) -> dict[str, Any]:
