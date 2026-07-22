@@ -1,6 +1,6 @@
 # Tech Debt — IELTS Speaking Coach
 
-**Last updated:** 2026-07-20 (added post-soak Cambridge import + lemmatizer backfill — DEBT-2026-07-20-A/B/C)
+**Last updated:** 2026-07-22 (added reading-autosave silent failure + error-classifier gap — DEBT-2026-07-22-D/E)
 **Last reviewed:** 2026-05-07 (PM)
 
 Comprehensive snapshot of tech debt + improvement opportunities, restructured
@@ -22,13 +22,14 @@ material, not active backlog.
 
 ## 🔴 ACTIVE — Cần action
 
-### Blocked by Pilot-1 soak — post-soak actions (logged 2026-07-20)
+### Blocked by Pilot-1 soak — post-soak actions (logged 2026-07-20, extended 2026-07-22)
 
 > **Context:** main is frozen for the Pilot-1 soak (any merge resets the soak
-> window — see memory `fe-nextjs-migration-program`). Three PRs are open, green,
-> and MUST NOT be merged until the soak passes. Bundle the merges + the
-> re-import/backfill below once soak ends. All three PRs came out of the
-> render-fidelity audit of the converted Cambridge test set (2026-07-20).
+> window — see memory `fe-nextjs-migration-program`). The PRs below are open,
+> green, and MUST NOT be merged until the soak passes. Bundle the merges + the
+> re-import/backfill once soak ends. A/B/C came out of the render-fidelity audit
+> of the converted Cambridge test set (2026-07-20); D/E came out of triaging the
+> 2026-07-22 error-log burst and have **no PR yet** — they need writing.
 
 #### DEBT-2026-07-20-A: Merge PR #811 + re-run render scan + re-import Cambridge reading/listening
 - **What:** PR #811 (`frontend/public/js/reading-exam.js`) fixes reading
@@ -86,6 +87,72 @@ material, not active backlog.
 - **Blocked by:** soak.
 - **Reference:** `outputs/_convert_reading/RENDER_RISK_REPORT.md` +
   `render_risk_scan.py`. (Listening = 0 render risks; structured payloads render fine.)
+
+#### DEBT-2026-07-22-D: Reading autosave has no retry and fails silently → answers can be lost on resume
+- **What:** an upstream Supabase blip on 2026-07-22 (see DEBT-2026-07-22-E for
+  the root cause) made 11 API calls fail, 10 of them reading autosave
+  `PATCH /api/reading/test/attempts/{id}/answers`. The client swallows those
+  failures entirely:
+  - `frontend/public/js/reading-exam.js:1377` `patchAnswer()` — the only
+    handler is `.catch(function (e) { console.warn('auto-save failed q=' ...) })`.
+    No UI signal, no retry, no queue.
+  - `frontend/public/js/api.js:174` `patch → _apiRequest` — a single `fetch`,
+    no retry loop anywhere in the shared client.
+  The comment at the catch site says "the source of truth is in-memory + submit
+  body", which is true **only for submit from the same tab**
+  (`reading-exam.js:1740-1753` posts the whole `SESSION.answers` map).
+  **Resume does NOT use in-memory state** — it re-reads answers from the server:
+  `backend/routers/reading_student.py:671` `_fetch_in_progress_payload()` selects
+  from `reading_attempt_answers`.
+- **Impact:** any answer whose autosave PATCH failed is **permanently gone** if
+  the student refreshes, closes the tab, or reopens the test before submitting.
+  The student sees a blank field they believe they filled in, with no warning at
+  any point. Silent, and the debounce is per-`q_num` on edit only — there is no
+  periodic autosave, so a failed field is never retried unless the student edits
+  that exact field again.
+- **Action:**
+  1. Retry `patchAnswer` with backoff on 5xx / network errors (a few attempts).
+  2. Mark the question's palette tile "chưa lưu được" while a save is
+     outstanding/failed, so the failure is visible.
+  3. Consider flushing all unsaved answers on `pagehide`/`visibilitychange`.
+- **Effort:** ~2h incl. a regression test for the retry + unsaved-state cue.
+- **Blocked by:** soak (frontend change ⇒ merge to main ⇒ resets the soak clock).
+
+#### DEBT-2026-07-22-E: Admin error classifier misreads postgrest-py upstream 5xx → dumped into "Khác"
+- **What:** when the Supabase API gateway returns an HTTP error whose body is not
+  PostgREST JSON, `postgrest-py` synthesises an error where **`code` is the HTTP
+  status, not a Postgres SQLSTATE**:
+  - `postgrest/exceptions.py:62` `generate_default_error_message(r)` →
+    `{"message": "JSON could not be generated", "code": r.status_code,
+      "hint": ..., "details": str(r.content)}`
+  - raised at `postgrest/_sync/request_builder.py:55` (also 84/100/129 + the
+    `_async` twin) inside `except ValidationError` — i.e. the response was not
+    successful **and** its body would not parse as a PostgREST error.
+  The 2026-07-22 incident was therefore **HTTP 555 with body
+  `b'Internal server error.'`** — a Supabase platform failure, not our data and
+  not Postgres. (PostgREST itself always returns JSON, so a plain-text body means
+  the error came from the gateway in front of it.)
+- **Why it matters for triage:** `frontend/public/js/admin-error-logs.js:99`
+  extracts the code with `/'code':\s*'([^']+)'/`, which **requires the code to be
+  quoted** (a string). postgrest-py sets it to an `int`, so the repr is
+  `'code': 555` — unquoted — the regex misses, the row falls past the `CSDL`
+  branch, and "JSON could not be generated" matches none of the `Mạng` keywords
+  (`connection|timed out|ssl|...`). Result: the row lands in **"Khác"** with a
+  full raw traceback, at `level=error`. One short platform blip produced
+  **11 `level=error` rows**, all of which count against the error budget the
+  rollback triggers read.
+- **Action:**
+  1. Accept an unquoted/int `code` in the regex.
+  2. Route `message == "JSON could not be generated"` + 5xx `code` into the
+     existing transient bucket (`Mạng`, tone `warning`) instead of `Khác`,
+     surfacing `details` (the real upstream body) as the summary.
+  3. Optional: consider `noise: true` for this class so a platform blip does not
+     distort soak error counts.
+- **Effort:** ~45 min + a classifier unit test with the real 555 payload.
+- **Blocked by:** soak (frontend change).
+- **Reference:** memory `postgrest-code-is-http-status`. **Do not** chase invalid
+  Unicode / bad rows for this error — that hypothesis was investigated and
+  refuted on 2026-07-22.
 
 ### High priority — blocking Phase 3 strategic decision
 
