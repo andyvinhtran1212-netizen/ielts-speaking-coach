@@ -1,6 +1,6 @@
 # Tech Debt — IELTS Speaking Coach
 
-**Last updated:** 2026-07-22 (added reading-autosave silent failure + error-classifier gap — DEBT-2026-07-22-D/E)
+**Last updated:** 2026-07-22 (added reading-autosave silent failure, error-classifier gap, and two soak-measurement defects — DEBT-2026-07-22-D/E/F/G)
 **Last reviewed:** 2026-05-07 (PM)
 
 Comprehensive snapshot of tech debt + improvement opportunities, restructured
@@ -29,7 +29,8 @@ material, not active backlog.
 > green, and MUST NOT be merged until the soak passes. Bundle the merges + the
 > re-import/backfill once soak ends. A/B/C came out of the render-fidelity audit
 > of the converted Cambridge test set (2026-07-20); D/E came out of triaging the
-> 2026-07-22 error-log burst and have **no PR yet** — they need writing.
+> 2026-07-22 error-log burst; F/G came out of verifying the Pilot-1 exposure
+> floor the same day. D/E/F/G have **no PR yet** — they need writing.
 
 #### DEBT-2026-07-20-A: Merge PR #811 + re-run render scan + re-import Cambridge reading/listening
 - **What:** PR #811 (`frontend/public/js/reading-exam.js`) fixes reading
@@ -153,6 +154,82 @@ material, not active backlog.
 - **Reference:** memory `postgrest-code-is-http-status`. **Do not** chase invalid
   Unicode / bad rows for this error — that hypothesis was investigated and
   refuted on 2026-07-22.
+
+#### DEBT-2026-07-22-F: The soak instrument cannot measure half its own gate (rollback-metrics clamps to 24h)
+- **What:** `docs/FE_NEXTJS_MIGRATION_MASTER_PLAN_2026-07-12.md` §12.3 sets a
+  two-part exposure floor per cutover — e.g. public/read-only = **≥7 days AND
+  ≥100 real interactions**; authenticated mutation = ≥14 days AND ≥50 attempts;
+  core = ≥14 days AND ≥30 attempts. `docs/SOAK_DECLARATION_PILOT_1.md` names
+  `GET /admin/error-logs/rollback-metrics` as the measurement source.
+  That endpoint **cannot compute the volume half**:
+  ```python
+  # backend/routers/error_logs.py:401
+  window_minutes = max(5, min(1440, window_minutes))
+  ```
+  Any `window_minutes` above 1440 is silently clamped to 24h. There is no error,
+  no warning, and the response does not echo the effective window — a caller
+  asking for 30 days gets a 24-hour number that looks like a 30-day number.
+- **Why it's by design and still a gap:** the clamp is correct *for the frozen
+  triggers* (error-rate over 30 min, LCP p75 over 1440 min — nothing needs more).
+  But the cutover gate needs a **cumulative** count over the whole soak window,
+  and no field in this response provides it. Consequence: for 5 days of the
+  Pilot-1 soak, the daily log in issue #766 tracked the "7 days" half and never
+  the "100 interactions" half — not an oversight by the operator, there was
+  simply no surface showing it.
+- **Live cost (2026-07-22):** passing 2880 / 6833 / 11531 / 43200 all returned
+  the identical "14 views", which reads as *near-zero traffic across the whole
+  window* and nearly produced a false "exposure floor missed" conclusion. The
+  real count came from a different endpoint: `/` = **108 views** over 18–22/07,
+  i.e. the floor was comfortably met.
+- **Action:**
+  1. Either raise/remove the clamp for the table half (keep the frozen verdict
+     windows pinned as they are), **or** add an explicit cumulative field
+     (`window_views_total` since a given `since` timestamp).
+  2. Echo the **effective** window in the response so a clamped request is
+     visible to the caller instead of silently misreporting.
+  3. Surface the volume half in the admin panel next to the day count, so the
+     §12.3 gate is readable in one place.
+- **Effort:** ~1–2h incl. tests.
+- **Blocked by:** soak (backend + admin frontend change).
+- **Reference:** memory `fe-nextjs-migration-program`. Related in spirit to audit
+  finding F3 ("soak không đo được") — that one lost the whole measurement, this
+  one loses half the gate.
+
+#### DEBT-2026-07-22-G: `foot-traffic` admin analytics silently truncated by the PostgREST 1000-row cap
+- **What:** `GET /admin/analytics/foot-traffic` (admin page "Lưu lượng truy cập")
+  reads page views with no pagination:
+  ```python
+  # backend/routers/admin.py:1351
+  supabase_admin.table("analytics_events")
+      .select("user_id, event_data, created_at")
+      .eq("event_name", "page_view")
+      .gte("created_at", date_from)      # ← no .range(), no .order()
+  ```
+  PostgREST caps a single response at ~1000 rows, so any date range holding more
+  than 1000 page views returns an arbitrary 1000-row slice — and every derived
+  number (total views, unique visitors, per-path counts, the daily chart) is
+  computed from that slice.
+- **Confirmed live on production 2026-07-22:** the default 30-day view reports
+  **"TỔNG LƯỢT XEM 1000"** exactly, and the by-day chart shows only **22–27/06** —
+  the *oldest* days in the range. Everything after 27/06 is missing from a panel
+  that presents itself as "last 30 days". The "most viewed pages" table at that
+  range is therefore wrong, not merely incomplete.
+- **Workaround until fixed:** narrow `date_from`/`date_to` until the reported
+  total is **< 1000** — only then is the window complete (18–22/07 = 996 rows,
+  usable; that is how the DEBT-F count of 108 was obtained).
+- **Action:** paginate with `.range(offset, offset+999)` + a stable
+  `.order(created_at).order(id)` (same shape as `_fetch_all()` in
+  `routers/error_logs.py`), and cap total rows. Add a test using the `_paged_db()`
+  MagicMock helper in `backend/tests/test_vocab_audio_pregen.py`, which emulates
+  the cap — and **verify the test fails against the unpaginated code first**, or
+  it proves nothing.
+- **Effort:** ~1h incl. test.
+- **Blocked by:** soak (backend change).
+- **Note:** this is the **4th confirmed instance** of this recurring bug class
+  (three earlier ones were `vocab_cards` readers; `routers/admin_vocab.py`
+  audio-generate `all=true` is still open). Diagnostic signature is always the
+  same: a plausible non-zero number, a green run, no error. See memory
+  `vocab-bulk-upload-needs-reload`.
 
 ### High priority — blocking Phase 3 strategic decision
 
