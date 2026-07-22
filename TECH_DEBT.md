@@ -1,6 +1,6 @@
 # Tech Debt — IELTS Speaking Coach
 
-**Last updated:** 2026-07-22 (added reading-autosave silent failure, error-classifier gap, and two soak-measurement defects — DEBT-2026-07-22-D/E/F/G)
+**Last updated:** 2026-07-22 (added reading-autosave silent failure, error-classifier gap, two soak-measurement defects, and the §12.3 exposure-floor statistics gap — DEBT-2026-07-22-D/E/F/G/H)
 **Last reviewed:** 2026-05-07 (PM)
 
 Comprehensive snapshot of tech debt + improvement opportunities, restructured
@@ -30,7 +30,9 @@ material, not active backlog.
 > re-import/backfill once soak ends. A/B/C came out of the render-fidelity audit
 > of the converted Cambridge test set (2026-07-20); D/E came out of triaging the
 > 2026-07-22 error-log burst; F/G came out of verifying the Pilot-1 exposure
-> floor the same day. D/E/F/G have **no PR yet** — they need writing.
+> floor the same day; H is the plan-level finding that verification exposed.
+> D/E/F/G have **no PR yet** — they need writing. **H is not a code change** —
+> it is a plan amendment / ADR and must be decided *between* soaks, not during one.
 
 #### DEBT-2026-07-20-A: Merge PR #811 + re-run render scan + re-import Cambridge reading/listening
 - **What:** PR #811 (`frontend/public/js/reading-exam.js`) fixes reading
@@ -230,6 +232,77 @@ material, not active backlog.
   audio-generate `all=true` is still open). Diagnostic signature is always the
   same: a plausible non-zero number, a green run, no error. See memory
   `vocab-bulk-upload-needs-reload`.
+
+#### DEBT-2026-07-22-H: §12.3 exposure floors are below their own statistical minimum for 3 of 4 route classes
+- **What:** the master plan (§12.3) freezes a rollback trigger at **error-rate > 5%**
+  and, separately, fixes per-class volume floors. Those two numbers were never
+  reconciled: at the specified floors the 95% confidence interval on the observed
+  error rate **still contains 5%**, so reaching the floor does not let you
+  distinguish "healthy" from "breach".
+- **Numbers** (Clopper-Pearson exact binomial 95% CI; recompute with
+  `scipy.stats.beta` or a plain binomial-tail bisection — no library needed):
+
+  | Route class | Floor (plan) | Observed | 95% CI | Clears 5%? |
+  |---|---|---|---|---|
+  | Public/read-only — `/`, measured 2026-07-22 | 100 | 1 err / 108 views | **0.02 – 5.05%** | ❌ contains 5% |
+  | same, projected at full 7 days | — | 1 / ~151 | 0.02 – 3.63% | ✅ |
+  | Public low-traffic — grammar, 21d @ ~1 view/day | 20 | 0 / 21 | **0 – 16.11%** | ❌ |
+  | Authenticated mutation — profile | 50 | 0 / 50 | **0 – 7.11%** | ❌ |
+  | Core grading/exam | 30 | 0 / 30 | **0 – 11.57%** | ❌ |
+
+  Minimum sample for the CI to sit entirely below 5%: **n = 72** with zero errors,
+  **n = 110** with one error.
+- **The sharp edge:** the **core grading/exam** class has the **lowest** floor (30)
+  and therefore the **worst** statistical power (0–11.57%), while carrying the
+  **highest** stakes — a lost recording or a corrupted exam attempt. The floors are
+  ordered inversely to risk.
+- **Note this is not a "we have few users" problem.** It is an internal
+  inconsistency: even a high-traffic product hitting exactly these floors and
+  stopping would get the same useless intervals. Low traffic only makes it
+  impossible to *over*-shoot the floor by accident.
+- **Root of the mismatch:** a soak bundles three detectors that the plan treats as
+  one. Only the first is traffic-bound:
+  1. **Volume** — deterministic/widespread breakage. Needs large `n`.
+  2. **Elapsed time** — cache/ISR expiry (`use cache` + `cacheLife 1h` on the
+     grammar route), token refresh, cold starts, cron interaction, platform drift.
+     Needs *days*, not views.
+  3. **Client diversity** — e.g. the 2026-07-22 React #418 on `/`: not reproducible
+     on the dev machine, only a real Windows Chrome visitor produced it. Needs
+     calendar spread across a heterogeneous population.
+- **Proposed direction (needs a plan amendment / ADR — §14.3 makes merge =
+  ratification, so this must not be slipped in as a docs tweak):**
+  1. **Let synthetic carry the volume half.** A production smoke on the cutover
+     route every ~10 min yields ~144 observations/day and clears n=72 within half a
+     day, deterministically. The Playwright + nightly machinery already exists
+     (`playwright.staging.config.js`, `staging-e2e.yml`) — it needs a
+     production-targeted variant, not new infrastructure.
+     **Explicit limit:** synthetic only catches what it asserts and would never
+     have caught the #418 — so it supplements detectors 2 and 3, never replaces them.
+  2. **Let organic time carry the elapsed-time + diversity halves**, and stop
+     expressing those as an interaction count they cannot deliver.
+  3. **Re-derive each floor from the trigger it must clear**, instead of picking
+     round numbers; state the achieved CI in the soak declaration rather than
+     ticking a "≥N interactions" box. "n=151, 95% CI 0.02–3.63%, below the 5%
+     trigger" is audit-proof in a way "≥100 reached" is not.
+  4. **Apply the B36 low-traffic treatment to the core class too** — currently only
+     grammar got it. For core flows prefer: cross-version resume proven +
+     sufficient synthetic n + **explicitly recorded risk acceptance**, the same
+     shape already granted to zero-traffic routes.
+  5. **Consider decoupling freeze length from floor length.** The freeze exists for
+     single-variable attribution and a clean rollback target; that argument is
+     satisfied once the elapsed-time failure modes have had a chance to fire
+     (~48–72h), not by volume.
+- **Counter-consideration to record honestly:** the current protocol also serves a
+  non-statistical purpose — process credibility after the external audit
+  invalidated the first soak. Any loosening must not read as relitigating a gate
+  because it became inconvenient. That is exactly why this belongs in an amendment
+  argued on the arithmetic above, decided **between** soaks, never during one.
+- **Effort:** ~half a day to write the amendment/ADR + re-derive the four floors;
+  the production-smoke variant is a separate ~1 day.
+- **Blocked by:** soak (any merge to main resets the clock — including docs).
+- **Reference:** plan §12.3, B36, `docs/TRAFFIC_BASELINE_2026-07-13.md`; measured
+  inputs in memory `fe-nextjs-migration-program` (2026-07-22 entries) and
+  DEBT-2026-07-22-F (which is *why* the volume half went unmeasured for 5 days).
 
 ### High priority — blocking Phase 3 strategic decision
 
