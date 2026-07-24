@@ -6,11 +6,12 @@
     <pattern id="grid" width="52" height="52" patternUnits="userSpaceOnUse">
       <path d="M52 0 H0 V52" fill="none" stroke="#FFFFFF" stroke-opacity="0.05" stroke-width="1"/>
     </pattern>
+    <radialGradient id="glow"><stop offset="0%" stop-color="#0F766E" stop-opacity="0.32"/><stop offset="100%" stop-color="#0F766E" stop-opacity="0"/></radialGradient>
   </defs>
   <rect width="1640" height="624" fill="url(#g)"/>
   <rect width="1640" height="624" fill="url(#grid)"/>
-  <!-- teal glow accent bottom-right -->
-  <circle cx="1500" cy="600" r="360" fill="#0F766E" opacity="0.16"/>
+  <!-- teal glow accent bottom-right (rìa mờ) -->
+  <circle cx="1500" cy="600" r="420" fill="url(#glow)"/>
 
   <!-- mark above wordmark, centered -->
   <g transform="translate(743.2,86) scale(1.7)">
@@ -22,8 +23,8 @@
     <tspan font-weight="800" fill="#FFFFFF">Aver</tspan><tspan font-weight="600" fill="#5EEAD4"> Learning</tspan>
   </text>
 
-  <text x="820" y="390" text-anchor="middle" font-family="'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif" font-size="30" font-weight="500" fill="rgba(255,255,255,0.82)">
-    Luyện IELTS toàn diện cùng AI — phản hồi theo từng tiêu chí
+  <text x="820" y="392" text-anchor="middle" font-family="'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif" font-size="34" font-weight="600" fill="#fff">
+    Tiếng Anh của bạn, tiến bộ mỗi ngày
   </text>
 
   <!-- skill chips -->

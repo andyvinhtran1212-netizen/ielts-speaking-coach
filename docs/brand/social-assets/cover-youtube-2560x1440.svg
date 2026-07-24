@@ -12,15 +12,18 @@
 
   <!-- all key content inside the 1546×423 TV-safe centre box (x507..2053, y508..931) -->
   <!-- mark -->
-  <g transform="translate(1198.4,548) scale(2.4)">
+  <g transform="translate(1198.4,516) scale(2.4)">
     <path d="M18 66 L48 20 L78 66" fill="none" stroke="#14B8A6" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
     <circle cx="48" cy="11" r="8" fill="#FBBF24"/>
   </g>
 
-  <text x="1280" y="820" text-anchor="middle" font-family="'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif" font-size="96" letter-spacing="-3">
+  <text x="1280" y="788" text-anchor="middle" font-family="'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif" font-size="96" letter-spacing="-3">
     <tspan font-weight="800" fill="#FFFFFF">Aver</tspan><tspan font-weight="600" fill="#5EEAD4"> Learning</tspan>
   </text>
-  <text x="1280" y="892" text-anchor="middle" font-family="'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif" font-size="40" font-weight="500" fill="rgba(255,255,255,0.80)">
-    Luyện IELTS toàn diện cùng AI · Speaking · Writing · Reading · Listening · Grammar · Từ vựng
+  <text x="1280" y="856" text-anchor="middle" font-family="'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif" font-size="44" font-weight="700" fill="#fff" letter-spacing="-1">
+    Tiếng Anh của bạn, tiến bộ mỗi ngày
+  </text>
+  <text x="1280" y="912" text-anchor="middle" font-family="'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif" font-size="34" font-weight="500" fill="rgba(255,255,255,0.72)">
+    Speaking · Writing · Reading · Listening · Grammar · Từ vựng
   </text>
 </svg>

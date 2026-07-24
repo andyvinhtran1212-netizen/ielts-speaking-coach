@@ -5,22 +5,25 @@
   </defs>
   <rect width="1080" height="1080" fill="url(#gb)"/>
   <rect width="1080" height="1080" fill="url(#gb2)"/>
-  <g transform="translate(90,96)">
+  <g transform="translate(90,110)">
     <g transform="scale(0.5)"><path d="M18 66 L48 20 L78 66" fill="none" stroke="#14B8A6" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/><circle cx="48" cy="11" r="8" fill="#FBBF24"/></g>
     <text x="54" y="34" font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="30" letter-spacing="-1"><tspan font-weight="800" fill="#fff">Aver</tspan><tspan font-weight="600" fill="#5EEAD4"> Learning</tspan></text>
   </g>
-  <text x="90" y="300" font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="26" font-weight="700" letter-spacing="4" fill="#5EEAD4">KẾT QUẢ BUỔI LUYỆN</text>
-  <text x="90" y="470" font-family="'JetBrains Mono',monospace" font-size="200" font-weight="700" letter-spacing="-8" fill="#fff">6.5</text>
-  <text x="410" y="415" font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="34" font-weight="600" fill="#FBBF24">▲ 0.5</text>
-  <text x="410" y="460" font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="28" fill="rgba(255,255,255,0.6)">so với tuần trước</text>
+  <text x="90" y="330" font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="26" font-weight="700" letter-spacing="4" fill="#5EEAD4">KẾT QUẢ BUỔI LUYỆN</text>
+  <!-- band number + delta on its own line (không còn chồng) -->
+  <text x="86" y="500" font-family="'JetBrains Mono',monospace" font-size="180" font-weight="700" letter-spacing="-6" fill="#fff">6.5</text>
+  <g transform="translate(90,560)">
+    <path d="M6 22 L18 0 L30 22 Z" fill="#FBBF24"/>
+    <text x="42" y="20" font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="32" font-weight="600" fill="#FBBF24">0.5 <tspan font-weight="500" fill="rgba(255,255,255,0.6)">so với tuần trước</tspan></text>
+  </g>
   <!-- criteria -->
   <g font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="34" fill="rgba(255,255,255,0.82)">
-    <text x="90" y="610">Từ vựng (LR) · <tspan font-weight="700" fill="#fff">7.0</tspan></text>
-    <text x="570" y="610">Ngữ pháp (GRA) · <tspan font-weight="700" fill="#fff">6.0</tspan></text>
-    <text x="90" y="670">Mạch lạc (FC) · <tspan font-weight="700" fill="#fff">6.5</tspan></text>
-    <text x="570" y="670">Phát âm (P) · <tspan font-weight="700" fill="#fff">6.5</tspan></text>
+    <text x="90" y="700">Từ vựng (LR) · <tspan font-weight="700" fill="#fff">7.0</tspan></text>
+    <text x="570" y="700">Ngữ pháp (GRA) · <tspan font-weight="700" fill="#fff">6.0</tspan></text>
+    <text x="90" y="768">Mạch lạc (FC) · <tspan font-weight="700" fill="#fff">6.5</tspan></text>
+    <text x="570" y="768">Phát âm (P) · <tspan font-weight="700" fill="#fff">6.5</tspan></text>
   </g>
-  <line x1="90" y1="780" x2="990" y2="780" stroke="rgba(255,255,255,0.14)" stroke-width="2"/>
-  <text x="90" y="860" font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="38" font-weight="500" fill="rgba(255,255,255,0.88)">Điểm không tự đến — mỗi buổi luyện là một bước.</text>
-  <text x="90" y="912" font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="38" font-weight="500" fill="rgba(255,255,255,0.88)">Tiếp tục nhé, bạn.</text>
+  <line x1="90" y1="866" x2="990" y2="866" stroke="rgba(255,255,255,0.14)" stroke-width="2"/>
+  <text x="90" y="946" font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="38" font-weight="500" fill="rgba(255,255,255,0.9)">Điểm không tự đến — mỗi buổi luyện là một bước.</text>
+  <text x="90" y="998" font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="38" font-weight="500" fill="rgba(255,255,255,0.9)">Tiếp tục nhé, bạn.</text>
 </svg>
