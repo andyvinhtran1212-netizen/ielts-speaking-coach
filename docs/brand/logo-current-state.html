@@ -1,0 +1,100 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Aver Learning — 3 bộ nhận diện đang tồn tại</title>
+<style>
+  body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;margin:0;background:#FAFAF9;color:#0f172a}
+  h1{font-size:22px;padding:24px 24px 4px}
+  .sub{padding:0 24px 20px;color:#475569;font-size:14px;max-width:760px;line-height:1.55}
+  .row{display:flex;flex-wrap:wrap;gap:20px;padding:0 24px 28px}
+  .card{border:1px solid rgba(15,23,42,.12);border-radius:12px;overflow:hidden;width:340px;background:#fff}
+  .card h2{font-size:13px;margin:0;padding:12px 16px;background:#F5F5F4;border-bottom:1px solid rgba(15,23,42,.08);text-transform:uppercase;letter-spacing:.08em;color:#334155}
+  .card .stage{padding:28px 16px;display:flex;align-items:center;justify-content:center;min-height:96px}
+  .card .stage.dark{background:#0A1628}
+  .note{font-size:12px;color:#64748b;padding:8px 16px 14px;line-height:1.5}
+  .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;margin:0 16px 12px}
+  .tag.have{background:#D1FAE5;color:#065f46}
+  .tag.web{background:#FEF3C7;color:#92400e}
+  .banner{background:#B91C1C;color:#fff;font-size:13px;padding:12px 24px;line-height:1.5}
+  /* Fake play-button logo to represent what the live landing actually shows */
+  .playlogo{display:flex;align-items:center;gap:8px}
+  .playlogo .circ{width:32px;height:32px;border-radius:8px;background:#0F766E;display:flex;align-items:center;justify-content:center}
+  .playlogo .circ svg{width:18px;height:18px;fill:#fff}
+  .playlogo .wm{font-weight:700;font-size:18px;color:#0f172a}
+</style>
+
+<h1>Aver Learning — 3 bộ nhận diện đang cùng tồn tại</h1>
+<p class="sub">Đây là hiện trạng thật, không phải đề xuất. Vấn đề lớn nhất: <b>logo trong Design System project (nhóm "A trong ô vuông") KHÁC hoàn toàn logo mà web đang chạy (nút play)</b> — tức production chưa bao giờ dùng logo của design system. Trước khi thiết kế logo mới, phải thống nhất chuyện này.</p>
+
+<div class="banner">⚠ Ba identity khác nhau: (1) Design project = "A" trong ô vuông · (2) Web landing = nút play + "averlearning" · (3) Header app = chữ "Aver.Learning". Chúng không khớp nhau.</div>
+
+<span class="tag have" style="margin-top:16px">① CÓ SẴN TRONG DESIGN PROJECT (2026-05-09) — nhưng web không dùng</span>
+<div class="row">
+  <div class="card">
+    <h2>logo-wordmark.svg (light)</h2>
+    <div class="stage">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 80" width="300">
+        <rect x="6" y="14" width="52" height="52" rx="12" fill="#0C2340"></rect>
+        <text x="32" y="52" font-family="'Plus Jakarta Sans',Inter,sans-serif" font-size="34" font-weight="800" fill="#0F766E" text-anchor="middle" letter-spacing="-1">A</text>
+        <text x="76" y="52" font-family="'Plus Jakarta Sans',Inter,sans-serif" font-size="30" font-weight="800" fill="#1A1A16" letter-spacing="-0.6">Aver</text>
+        <text x="174" y="52" font-family="'Plus Jakarta Sans',Inter,sans-serif" font-size="30" font-weight="600" fill="#0F766E" letter-spacing="-0.4">Learning</text>
+      </svg>
+    </div>
+    <div class="note">Ô vuông navy + "A" teal, rồi "Aver" (đậm) + "Learning" (teal, nhạt hơn). Đây là wordmark chính thức trong design system.</div>
+  </div>
+
+  <div class="card">
+    <h2>logo-wordmark-dark.svg</h2>
+    <div class="stage dark">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 80" width="300">
+        <rect x="6" y="14" width="52" height="52" rx="12" fill="#FFFFFF" stroke="rgba(255,255,255,0.18)"></rect>
+        <text x="32" y="52" font-family="'Plus Jakarta Sans',Inter,sans-serif" font-size="34" font-weight="800" fill="#0F766E" text-anchor="middle" letter-spacing="-1">A</text>
+        <text x="76" y="52" font-family="'Plus Jakarta Sans',Inter,sans-serif" font-size="30" font-weight="800" fill="#FFFFFF" letter-spacing="-0.6">Aver</text>
+        <text x="174" y="52" font-family="'Plus Jakarta Sans',Inter,sans-serif" font-size="30" font-weight="600" fill="#5EEAD4" letter-spacing="-0.4">Learning</text>
+      </svg>
+    </div>
+    <div class="note">Bản cho nền tối: ô vuông trắng, "Learning" chuyển teal sáng #5EEAD4.</div>
+  </div>
+
+  <div class="card">
+    <h2>logo-mark-light.svg (mark app)</h2>
+    <div class="stage">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="72">
+        <rect width="100" height="100" rx="22" fill="#0F766E"></rect>
+        <text x="50" y="68" font-family="'Plus Jakarta Sans',Inter,sans-serif" font-size="58" font-weight="800" fill="#FFFFFF" text-anchor="middle" letter-spacing="-2">A</text>
+      </svg>
+    </div>
+    <div class="note">Mark vuông teal, "A" trắng — dùng cho top bar app / avatar.</div>
+  </div>
+
+  <div class="card">
+    <h2>favicon.svg</h2>
+    <div class="stage">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="64">
+        <rect width="100" height="100" rx="18" fill="#0C2340"></rect>
+        <text x="50" y="68" font-family="Inter,Arial,sans-serif" font-size="58" font-weight="700" fill="#14b8a6" text-anchor="middle">A</text>
+      </svg>
+    </div>
+    <div class="note">Favicon: ô vuông navy + "A" teal. ⚠ Font Inter (cũ) + teal #14b8a6 khác brand teal #0F766E — bản thân nó cũng lệch.</div>
+  </div>
+</div>
+
+<span class="tag web">② WEB LANDING ĐANG CHẠY — logo khác hẳn</span>
+<div class="row">
+  <div class="card">
+    <h2>averlearning.com/ (thực tế)</h2>
+    <div class="stage">
+      <div class="playlogo">
+        <span class="circ"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span>
+        <span class="wm">averlearning</span>
+      </div>
+    </div>
+    <div class="note">Nút play trong ô bo góc + "averlearning" viết thường, liền. KHÔNG liên quan gì tới nhóm "A" ở trên. Đây là cái người dùng thật đang thấy.</div>
+  </div>
+  <div class="card">
+    <h2>header app (grammar…)</h2>
+    <div class="stage">
+      <span style="font-weight:700;font-size:18px"><span style="color:#0f172a">Aver</span><span style="color:#0f172a">.</span><span style="color:#0F766E">Learning</span></span>
+    </div>
+    <div class="note">Trang app lại hiện chữ "Aver.Learning" (hoa, có chấm) — cách viết thứ ba, không có mark.</div>
+  </div>
+</div>

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 296 72" role="img" aria-label="Aver Learning">
+  <!-- mark: open chevron (mũi lên) + amber spark -->
+  <g transform="translate(4,8)">
+    <path d="M6 52 L28 16 L50 52" fill="none" stroke="#0F766E" stroke-width="8.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="28" cy="7.5" r="6" fill="#F59E0B"/>
+  </g>
+  <!-- wordmark: Aver (ink) + Learning (teal) -->
+  <text x="70" y="47" font-family="'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif" font-size="33" letter-spacing="-1">
+    <tspan font-weight="800" fill="#1A1A16">Aver</tspan><tspan font-weight="600" fill="#0F766E"> Learning</tspan>
+  </text>
+</svg>

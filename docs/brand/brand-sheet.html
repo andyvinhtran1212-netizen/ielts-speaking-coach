@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aver Learning — Logo (Hướng 3 · Mũi lên)</title>
+<style>
+  :root{
+    --brand:#0F766E; --brand-500:#14B8A6; --accent:#F59E0B;
+    --page:#FAFAF9; --card:#FFFFFF; --sunken:#F2F2F0;
+    --ink:rgba(15,23,42,.92); --ink2:rgba(15,23,42,.58); --ink3:rgba(15,23,42,.40);
+    --line:rgba(15,23,42,.10); --line2:rgba(15,23,42,.16);
+    --font:'Plus Jakarta Sans',ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,"SF Mono",Menlo,monospace;
+  }
+  @media (prefers-color-scheme:dark){:root{
+    --brand:#14B8A6; --accent:#FBBF24; --page:#0A1628; --card:#112236; --sunken:#0C1B2E;
+    --ink:rgba(241,245,249,.95); --ink2:rgba(241,245,249,.58); --ink3:rgba(241,245,249,.38);
+    --line:rgba(255,255,255,.10); --line2:rgba(255,255,255,.16);
+  }}
+  :root[data-theme="dark"]{
+    --brand:#14B8A6; --accent:#FBBF24; --page:#0A1628; --card:#112236; --sunken:#0C1B2E;
+    --ink:rgba(241,245,249,.95); --ink2:rgba(241,245,249,.58); --ink3:rgba(241,245,249,.38);
+    --line:rgba(255,255,255,.10); --line2:rgba(255,255,255,.16);
+  }
+  :root[data-theme="light"]{
+    --brand:#0F766E; --accent:#F59E0B; --page:#FAFAF9; --card:#FFFFFF; --sunken:#F2F2F0;
+    --ink:rgba(15,23,42,.92); --ink2:rgba(15,23,42,.58); --ink3:rgba(15,23,42,.40);
+    --line:rgba(15,23,42,.10); --line2:rgba(15,23,42,.16);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--page);color:var(--ink);font-family:var(--font);line-height:1.55;
+       -webkit-font-smoothing:antialiased;transition:background .3s,color .3s}
+  .wrap{max-width:940px;margin:0 auto;padding:32px 24px 72px}
+  header.top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+  .eyebrow{font-family:var(--mono);font-size:.68rem;letter-spacing:.18em;text-transform:uppercase;color:var(--brand);font-weight:600}
+  h1{font-size:clamp(1.5rem,3.2vw,2.1rem);font-weight:800;letter-spacing:-.02em;margin:6px 0 0;text-wrap:balance}
+  .toggle{border:1px solid var(--line2);background:var(--card);color:var(--ink);border-radius:999px;
+          padding:8px 16px;font:inherit;font-size:.82rem;font-weight:600;cursor:pointer}
+  .toggle:hover{border-color:var(--brand)} .toggle:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+
+  h2{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3);
+     margin:44px 0 14px;padding-bottom:7px;border-bottom:1px solid var(--line)}
+
+  /* hero lockup */
+  .hero{margin-top:24px;border-radius:20px;overflow:hidden;border:1px solid var(--line);display:grid;grid-template-columns:1fr 1fr}
+  @media (max-width:640px){.hero{grid-template-columns:1fr}}
+  .hero .pane{padding:44px 32px;display:flex;align-items:center;justify-content:center}
+  .hero .light{background:#FAFAF9}
+  .hero .dark{background:#0A1628}
+  .lockup{display:flex;align-items:center;gap:14px}
+  .lockup svg.mk{width:46px;height:46px}
+  .lockup .wm{font-weight:800;font-size:1.9rem;letter-spacing:-.03em;line-height:1}
+  .lockup .wm .l{font-weight:600}
+
+  .cards{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+  @media (max-width:640px){.cards{grid-template-columns:1fr}}
+  .card{border:1px solid var(--line);border-radius:16px;background:var(--card);padding:20px}
+  .card h3{margin:0 0 4px;font-size:.95rem;font-weight:700}
+  .card p{margin:0 0 14px;font-size:.8rem;color:var(--ink2)}
+
+  /* mark size row */
+  .sizes{display:flex;align-items:flex-end;gap:20px;flex-wrap:wrap}
+  .sizes .item{display:flex;flex-direction:column;align-items:center;gap:7px}
+  .sizes .cap{font-family:var(--mono);font-size:.64rem;color:var(--ink3)}
+  .sq{background:var(--brand);border-radius:22%;display:flex;align-items:center;justify-content:center}
+  .sq.s96{width:96px;height:96px} .sq.s48{width:48px;height:48px}
+  .sq.s24{width:24px;height:24px} .sq.s16{width:16px;height:16px}
+
+  /* colours */
+  .sw{display:flex;gap:12px;flex-wrap:wrap}
+  .chip{border:1px solid var(--line);border-radius:12px;overflow:hidden;width:132px}
+  .chip .fill{height:56px} .chip .m{padding:8px 10px;font-size:.7rem}
+  .chip .m b{display:block;font-size:.74rem} .chip .m code{font-family:var(--mono);color:var(--ink2);font-size:.64rem}
+
+  /* clearspace */
+  .clear{display:flex;align-items:center;justify-content:center;padding:26px;background:var(--sunken);border-radius:14px;position:relative}
+  .clearbox{position:relative;padding:34px}
+  .clearbox::before{content:"";position:absolute;inset:0;border:1px dashed var(--line2);border-radius:6px}
+  .clearbox .lockup .wm{font-size:1.3rem}
+  .clearbox .lockup svg.mk{width:32px;height:32px}
+
+  .usage{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media (max-width:640px){.usage{grid-template-columns:1fr}}
+  .do,.dont{border-radius:14px;padding:16px 18px;font-size:.82rem;border:1px solid var(--line)}
+  .do{background:rgba(4,120,87,.06)} .dont{background:rgba(185,28,28,.05)}
+  .do h4,.dont h4{margin:0 0 8px;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase}
+  .do h4{color:#047857} .dont h4{color:#B91C1C}
+  .do ul,.dont ul{margin:0;padding-left:18px;color:var(--ink2)} .do li,.dont li{margin:4px 0}
+
+  .files{width:100%;border-collapse:collapse;font-size:.78rem}
+  .files td,.files th{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+  .files th{font-size:.64rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);font-weight:600}
+  .files code{font-family:var(--mono);color:var(--brand);font-size:.72rem}
+  .note{font-size:.72rem;color:var(--ink3);margin-top:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div><div class="eyebrow">Logo · bản chốt</div><h1>Hướng 3 — “Mũi lên”</h1></div>
+    <button class="toggle" id="tg">◐ Sáng / Tối</button>
+  </header>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="open" viewBox="0 0 96 96">
+      <path d="M18 66 L48 20 L78 66" fill="none" stroke="currentColor" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="48" cy="11" r="7.5" fill="var(--accent)"/>
+    </symbol>
+    <symbol id="sqmk" viewBox="0 0 100 100">
+      <path d="M27 71 L50 34 L73 71" fill="none" stroke="#fff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="50" cy="25" r="7" fill="var(--accent)"/>
+    </symbol>
+  </svg>
+
+  <div class="hero">
+    <div class="pane light">
+      <span class="lockup">
+        <svg class="mk" viewBox="0 0 96 96" style="color:#0F766E"><use href="#open"/></svg>
+        <span class="wm" style="color:#1A1A16">Aver<span class="l" style="color:#0F766E"> Learning</span></span>
+      </span>
+    </div>
+    <div class="pane dark">
+      <span class="lockup">
+        <svg class="mk" viewBox="0 0 96 96" style="color:#14B8A6"><use href="#open"/></svg>
+        <span class="wm" style="color:#F1F5F9">Aver<span class="l" style="color:#5EEAD4"> Learning</span></span>
+      </span>
+    </div>
+  </div>
+  <p class="note">Lockup ngang: mark “mũi lên” (mũi nhọn đi lên + chấm amber = tia sáng/thành tích) + <b>Aver</b> (đậm) · <b>Learning</b> (teal, mảnh hơn). Mark ẩn ý chữ “A” không thanh ngang — gợi <i>tiến lên / lên band</i>.</p>
+
+  <h2>Mark ở mọi cỡ — kể cả 16px</h2>
+  <div class="card">
+    <p>Mark trong squircle teal, dùng cho favicon, avatar fanpage, app icon. Nét đủ dày để sống ở cỡ tab trình duyệt.</p>
+    <div class="sizes">
+      <div class="item"><span class="sq s96"><svg viewBox="0 0 100 100" width="66" height="66"><use href="#sqmk"/></svg></span><span class="cap">96 · app</span></div>
+      <div class="item"><span class="sq s48"><svg viewBox="0 0 100 100" width="34" height="34"><use href="#sqmk"/></svg></span><span class="cap">48 · avatar</span></div>
+      <div class="item"><span class="sq s24"><svg viewBox="0 0 100 100" width="18" height="18"><use href="#sqmk"/></svg></span><span class="cap">24</span></div>
+      <div class="item"><span class="sq s16"><svg viewBox="0 0 100 100" width="12" height="12"><use href="#sqmk"/></svg></span><span class="cap">16 · favicon</span></div>
+    </div>
+  </div>
+
+  <h2>Màu</h2>
+  <div class="sw">
+    <div class="chip"><div class="fill" style="background:#0F766E"></div><div class="m"><b>Brand teal</b><code>#0F766E</code></div></div>
+    <div class="chip"><div class="fill" style="background:#14B8A6"></div><div class="m"><b>Teal (dark)</b><code>#14B8A6</code></div></div>
+    <div class="chip"><div class="fill" style="background:#F59E0B"></div><div class="m"><b>Accent amber</b><code>#F59E0B</code></div></div>
+    <div class="chip"><div class="fill" style="background:#1A1A16"></div><div class="m"><b>Ink</b><code>#1A1A16</code></div></div>
+    <div class="chip"><div class="fill" style="background:#0A1628"></div><div class="m"><b>Navy (dark bg)</b><code>#0A1628</code></div></div>
+  </div>
+
+  <h2>Khoảng trống tối thiểu &amp; cỡ nhỏ nhất</h2>
+  <div class="cards">
+    <div class="card">
+      <h3>Clear space</h3>
+      <p>Chừa quanh lockup ít nhất bằng chiều cao của mark.</p>
+      <div class="clear"><div class="clearbox"><span class="lockup"><svg class="mk" viewBox="0 0 96 96" style="color:var(--brand)"><use href="#open"/></svg><span class="wm" style="color:var(--ink)">Aver<span class="l" style="color:var(--brand)"> Learning</span></span></span></div></div>
+    </div>
+    <div class="card">
+      <h3>Cỡ nhỏ nhất</h3>
+      <p>Lockup ngang không nhỏ hơn 120px rộng; dưới mức đó dùng mark vuông.</p>
+      <div style="display:flex;align-items:center;gap:16px;padding:16px 0">
+        <span class="sq s48" style="width:44px;height:44px"><svg viewBox="0 0 100 100" width="30" height="30"><use href="#sqmk"/></svg></span>
+        <span style="font-size:.78rem;color:var(--ink2)">≥ 20px cho mark vuông · nét không mảnh hơn ở cỡ này</span>
+      </div>
+    </div>
+  </div>
+
+  <h2>Bản 1 màu (in / khắc)</h2>
+  <div class="card" style="display:flex;gap:28px;align-items:center;flex-wrap:wrap">
+    <span class="lockup" style="color:var(--ink)"><svg class="mk" viewBox="0 0 96 96"><use href="#open"/></svg><span class="wm" style="color:var(--ink)">Aver<span style="font-weight:600"> Learning</span></span></span>
+    <span style="font-size:.78rem;color:var(--ink2);max-width:34ch">Dùng <code style="font-family:var(--mono);color:var(--brand)">currentColor</code> — đổ về bất kỳ mực đơn nào (đen, trắng, nhũ vàng). Không amber, không teal.</span>
+  </div>
+
+  <h2>Nên / Không nên</h2>
+  <div class="usage">
+    <div class="do"><h4>Nên</h4><ul>
+      <li>Giữ chấm amber là điểm nhấn duy nhất</li>
+      <li>Wordmark: “Aver” đậm, “Learning” mảnh + teal</li>
+      <li>Trên nền tối dùng bản dark (teal + chữ sáng)</li>
+    </ul></div>
+    <div class="dont"><h4>Không nên</h4><ul>
+      <li>Không xoay/nghiêng mark, không thêm bóng đổ</li>
+      <li>Không đổi amber sang màu khác</li>
+      <li>Không viết “averlearning” liền hay “Aver.Learning”</li>
+    </ul></div>
+  </div>
+
+  <h2>Bộ file sẽ ghi vào <code style="font-family:var(--mono);color:var(--brand);text-transform:none;letter-spacing:0">assets/</code></h2>
+  <table class="files">
+    <thead><tr><th>File</th><th>Dùng khi</th></tr></thead>
+    <tbody>
+      <tr><td><code>logo-wordmark.svg</code></td><td>Lockup ngang, nền sáng (navbar, header)</td></tr>
+      <tr><td><code>logo-wordmark-dark.svg</code></td><td>Lockup ngang, nền tối</td></tr>
+      <tr><td><code>logo-mark-light.svg</code></td><td>Mark vuông — top bar app, avatar</td></tr>
+      <tr><td><code>favicon.svg</code></td><td>Favicon tab (nét dày hơn cho 16px)</td></tr>
+      <tr><td><code>logo-mono.svg</code></td><td>1 màu — in, khắc, dập</td></tr>
+    </tbody>
+  </table>
+  <p class="note">Thay bộ “A trong ô vuông” cũ trong Design project. Wordmark trong SVG dùng Plus Jakarta Sans — ở đây có thể hiển thị bằng font hệ thống nếu máy chưa cài, nhưng trong app (đã nạp Jakarta) sẽ đúng nét.</p>
+</div>
+
+<script>
+  (function(){var r=document.documentElement,b=document.getElementById('tg');
+    b.addEventListener('click',function(){var c=r.getAttribute('data-theme');
+      if(!c)c=matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';
+      r.setAttribute('data-theme',c==='dark'?'light':'dark');});})();
+</script>
+</body>
+</html>
