@@ -603,7 +603,11 @@ def build_reading_passage_payload(p: ParsedReadingPassage, slug: str) -> dict:
     payload = {
         "library":           p.library,
         "slug":              slug,
-        "title":             p.title,
+        # DEBT-2026-07-20-C (Codex #814) — L1/L2 titles render via textContent
+        # (reading-vocab-passage.js / reading-skill-exercise.js), so strip
+        # markdown emphasis markers here too — same treatment the L3 test path
+        # already gets. body_markdown is markdown-rendered → left untouched.
+        "title":             _strip_inline_emphasis(p.title),
         "body_markdown":     p.body_markdown,
         "difficulty_level":  p.difficulty_level,
         "topic_tags":        p.topic_tags,
