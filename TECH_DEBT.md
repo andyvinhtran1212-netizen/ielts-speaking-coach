@@ -1,6 +1,6 @@
 # Tech Debt — IELTS Speaking Coach
 
-**Last updated:** 2026-07-22 (added reading-autosave silent failure, error-classifier gap, two soak-measurement defects, and the §12.3 exposure-floor statistics gap — DEBT-2026-07-22-D/E/F/G/H)
+**Last updated:** 2026-07-24 (added: roll new brand identity onto production web — DEBT-2026-07-24-I; prior 2026-07-22 batch D/E/F/G/H)
 **Last reviewed:** 2026-05-07 (PM)
 
 Comprehensive snapshot of tech debt + improvement opportunities, restructured
@@ -21,6 +21,38 @@ material, not active backlog.
 ---
 
 ## 🔴 ACTIVE — Cần action
+
+### Brand — áp bộ nhận diện mới vào web (logged 2026-07-24)
+
+#### DEBT-2026-07-24-I: Roll the new logo/brand identity onto production web
+- **What:** a new visual identity was designed and locked in the Claude Design
+  project ("Aver Learning Design System", id `019de70a…`) on 2026-07-24 —
+  direction **"Mũi lên"** (upward chevron mark + amber spark) with the wordmark
+  standardised to **"Aver Learning"** (Aver bold + Learning teal). Five SVGs now
+  live in the project `assets/` (`logo-wordmark[-dark].svg`, `logo-mark-light.svg`,
+  `favicon.svg`, `logo-mono.svg`; source copies in session scratchpad
+  `ds-assets/`). **Production web still shows the OLD identity** and is internally
+  inconsistent — three different marks:
+  - Landing (`/`, Next): **play-button-in-circle + "averlearning"** (lowercase).
+  - App header (aver-chrome): **"Aver.Learning"** text (with a dot), no mark.
+  - `favicon.svg` in repo: old navy-square "A" (Inter, teal #14b8a6 ≠ brand teal).
+- **Why deferred (not just soak):** applying it touches **frontend code** —
+  the Next landing lockup (`app/(marketing)/page.tsx`), the shared chrome
+  component/wordmark, and the favicon/apple-touch assets — so it must wait until
+  **after the soak AND the Next migration settles**, or the same logo gets
+  applied twice (once to legacy, once to Next) mid-coexistence. It is also a
+  user-facing brand change, not a bugfix — schedule it deliberately, not as a
+  soak-bundle afterthought.
+- **Action (post-migration):**
+  1. Pull the 5 SVGs from the design project `assets/` into `frontend/public/…`.
+  2. Replace the landing lockup, the chrome wordmark ("Aver.Learning" → "Aver Learning" + mark), and `favicon.svg` / apple-touch-icon.
+  3. Verify at 16px (favicon), on the navy hero, and in dark theme.
+  4. Update any `<title>`/OG image that bakes in the old wordmark.
+- **Effort:** ~half a day incl. dark/16px verification.
+- **Blocked by:** Pilot-1 soak **and** Next migration reaching steady state.
+- **Reference:** memory `claude-design-project-exists-drifted`; brand sheet
+  artifact (session 2026-07-24). Logo assets are design-project-only today —
+  **not** in the repo yet.
 
 ### Blocked by Pilot-1 soak — post-soak actions (logged 2026-07-20, extended 2026-07-22)
 
