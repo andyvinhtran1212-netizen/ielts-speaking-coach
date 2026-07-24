@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1080" width="1080" height="1080">
+  <rect width="1080" height="1080" fill="#FAFAF9"/>
+  <!-- brand -->
+  <g transform="translate(90,96)">
+    <g transform="scale(0.5)"><path d="M18 66 L48 20 L78 66" fill="none" stroke="#0F766E" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/><circle cx="48" cy="11" r="8" fill="#F59E0B"/></g>
+    <text x="54" y="34" font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="30" letter-spacing="-1"><tspan font-weight="800" fill="#1A1A16">Aver</tspan><tspan font-weight="600" fill="#0F766E"> Learning</tspan></text>
+  </g>
+  <text x="90" y="290" font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="26" font-weight="700" letter-spacing="4" fill="#B45309">MẸO NGỮ PHÁP</text>
+  <text x="90" y="360" font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="56" font-weight="800" letter-spacing="-1.5" fill="#1A1A16">Present Perfect vs</text>
+  <text x="90" y="428" font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="56" font-weight="800" letter-spacing="-1.5" fill="#1A1A16">Past Simple</text>
+  <!-- examples -->
+  <g font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="40">
+    <text x="90" y="560" font-weight="800" fill="#047857">✓</text>
+    <text x="150" y="560" fill="rgba(15,23,42,0.85)">I <tspan font-weight="700">have lived</tspan> here since 2020.</text>
+    <text x="90" y="640" font-weight="800" fill="#B91C1C">✗</text>
+    <text x="150" y="640" fill="rgba(15,23,42,0.85)">I <tspan font-weight="700">lived</tspan> here since 2020.</text>
+  </g>
+  <!-- note -->
+  <line x1="90" y1="760" x2="990" y2="760" stroke="rgba(15,23,42,0.12)" stroke-width="2"/>
+  <text x="90" y="835" font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="34" font-weight="500" fill="rgba(15,23,42,0.62)"><tspan font-weight="700" fill="#0F766E">since</tspan> + mốc thời gian → dùng Present Perfect:</text>
+  <text x="90" y="885" font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="34" font-weight="500" fill="rgba(15,23,42,0.62)">hành động bắt đầu trong quá khứ, còn kéo dài tới hiện tại.</text>
+</svg>

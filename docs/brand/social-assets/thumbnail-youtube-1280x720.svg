@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs>
+    <radialGradient id="gth" cx="20%" cy="12%" r="120%">
+      <stop offset="0%" stop-color="#0F2A3E"/><stop offset="55%" stop-color="#0A1628"/><stop offset="100%" stop-color="#070E19"/>
+    </radialGradient>
+    <pattern id="gth2" width="56" height="56" patternUnits="userSpaceOnUse"><path d="M56 0 H0 V56" fill="none" stroke="#FFFFFF" stroke-opacity="0.05" stroke-width="1"/></pattern>
+  </defs>
+  <rect width="1280" height="720" fill="url(#gth)"/>
+  <rect width="1280" height="720" fill="url(#gth2)"/>
+  <!-- brand line top-left -->
+  <g transform="translate(72,64)">
+    <g transform="translate(0,0) scale(0.62)"><path d="M18 66 L48 20 L78 66" fill="none" stroke="#14B8A6" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/><circle cx="48" cy="11" r="8" fill="#FBBF24"/></g>
+    <text x="66" y="42" font-family="'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif" font-size="34" letter-spacing="-1"><tspan font-weight="800" fill="#fff">Aver</tspan><tspan font-weight="600" fill="#5EEAD4"> Learning</tspan></text>
+  </g>
+  <!-- big hook headline (template: đổi chữ mỗi video) -->
+  <text x="72" y="380" font-family="'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif" font-size="96" font-weight="800" letter-spacing="-3" fill="#FFFFFF">Band <tspan fill="#FBBF24">7.0</tspan></text>
+  <text x="72" y="480" font-family="'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif" font-size="72" font-weight="800" letter-spacing="-2" fill="#FFFFFF">không còn xa</text>
+  <text x="76" y="560" font-family="'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif" font-size="32" font-weight="500" fill="rgba(255,255,255,0.72)">Speaking · Writing · Reading · Listening</text>
+  <!-- big mark badge right -->
+  <g transform="translate(880,250)"><rect width="330" height="330" rx="70" fill="#0F766E"/><g transform="translate(41,86) scale(2.6)"><path d="M18 66 L48 20 L78 66" fill="none" stroke="#fff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/><circle cx="48" cy="11" r="8" fill="#FBBF24"/></g></g>
+</svg>

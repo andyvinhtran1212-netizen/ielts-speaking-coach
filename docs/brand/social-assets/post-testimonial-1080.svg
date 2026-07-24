@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1080" width="1080" height="1080">
+  <!-- ===== TEMPLATE LỜI CHỨNG THỰC — đổi 3 chỗ: [QUOTE] · [TÊN] · [BAND] ===== -->
+  <rect width="1080" height="1080" fill="#FAFAF9"/>
+  <rect x="48" y="48" width="984" height="984" rx="36" fill="#FFFFFF" stroke="rgba(15,23,42,0.08)" stroke-width="2"/>
+  <!-- brand -->
+  <g transform="translate(96,120)">
+    <g transform="scale(0.5)"><path d="M18 66 L48 20 L78 66" fill="none" stroke="#0F766E" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/><circle cx="48" cy="11" r="8" fill="#F59E0B"/></g>
+    <text x="54" y="34" font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="30" letter-spacing="-1"><tspan font-weight="800" fill="#1A1A16">Aver</tspan><tspan font-weight="600" fill="#0F766E"> Learning</tspan></text>
+  </g>
+  <text x="96" y="235" font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="26" font-weight="700" letter-spacing="4" fill="#B45309">HỌC VIÊN NÓI GÌ</text>
+  <!-- big decorative quote mark -->
+  <text x="80" y="360" font-family="Georgia,serif" font-size="200" font-weight="700" fill="#0F766E" opacity="0.16">&#8220;</text>
+  <!-- [QUOTE] — 4 dòng, giọng chân thật -->
+  <g font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="44" font-weight="600" fill="#1A1A16" letter-spacing="-0.5">
+    <text x="96" y="430">Mình vốn ngại phần Speaking. Sau mỗi</text>
+    <text x="96" y="500">câu trả lời, AI chỉ đúng chỗ phát âm chưa</text>
+    <text x="96" y="570">rõ và cách sửa — không chung chung.</text>
+    <text x="96" y="640">Ba tháng sau, mình tự tin hơn hẳn.</text>
+  </g>
+  <!-- footer: avatar + [TÊN] + [BAND] -->
+  <g transform="translate(96,800)">
+    <circle cx="46" cy="46" r="46" fill="#0F766E"/>
+    <text x="46" y="62" text-anchor="middle" font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="40" font-weight="800" fill="#fff">MA</text>
+    <text x="120" y="38" font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="38" font-weight="800" fill="#1A1A16">Nguyễn Minh Anh</text>
+    <text x="120" y="80" font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="28" font-weight="500" fill="rgba(15,23,42,0.55)">Học viên IELTS</text>
+    <!-- band chip -->
+    <g transform="translate(660,10)">
+      <rect width="230" height="72" rx="36" fill="#FEF3C7"/>
+      <text x="115" y="48" text-anchor="middle" font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="34" font-weight="800" fill="#B45309">Band 7.0</text>
+    </g>
+  </g>
+</svg>

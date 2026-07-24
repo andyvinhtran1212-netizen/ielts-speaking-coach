@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 500" width="1500" height="500">
+  <defs>
+    <radialGradient id="gt" cx="82%" cy="10%" r="110%">
+      <stop offset="0%" stop-color="#0F2A3E"/><stop offset="55%" stop-color="#0A1628"/><stop offset="100%" stop-color="#08111F"/>
+    </radialGradient>
+    <pattern id="gt2" width="50" height="50" patternUnits="userSpaceOnUse"><path d="M50 0 H0 V50" fill="none" stroke="#FFFFFF" stroke-opacity="0.05" stroke-width="1"/></pattern>
+  </defs>
+  <rect width="1500" height="500" fill="url(#gt)"/>
+  <rect width="1500" height="500" fill="url(#gt2)"/>
+  <circle cx="1380" cy="470" r="300" fill="#0F766E" opacity="0.16"/>
+  <g transform="translate(678.4,64) scale(1.5)">
+    <path d="M18 66 L48 20 L78 66" fill="none" stroke="#14B8A6" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="48" cy="11" r="8" fill="#FBBF24"/>
+  </g>
+  <text x="750" y="290" text-anchor="middle" font-family="'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif" font-size="62" letter-spacing="-2">
+    <tspan font-weight="800" fill="#FFFFFF">Aver</tspan><tspan font-weight="600" fill="#5EEAD4"> Learning</tspan>
+  </text>
+  <text x="750" y="345" text-anchor="middle" font-family="'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif" font-size="27" font-weight="500" fill="rgba(255,255,255,0.80)">
+    Luyện IELTS toàn diện cùng AI — phản hồi theo từng tiêu chí
+  </text>
+</svg>

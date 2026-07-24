@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1640 624" width="1640" height="624">
+  <defs>
+    <radialGradient id="g" cx="82%" cy="0%" r="115%">
+      <stop offset="0%" stop-color="#0F2A3E"/><stop offset="55%" stop-color="#0A1628"/><stop offset="100%" stop-color="#08111F"/>
+    </radialGradient>
+    <pattern id="grid" width="52" height="52" patternUnits="userSpaceOnUse">
+      <path d="M52 0 H0 V52" fill="none" stroke="#FFFFFF" stroke-opacity="0.05" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="1640" height="624" fill="url(#g)"/>
+  <rect width="1640" height="624" fill="url(#grid)"/>
+  <!-- teal glow accent bottom-right -->
+  <circle cx="1500" cy="600" r="360" fill="#0F766E" opacity="0.16"/>
+
+  <!-- mark above wordmark, centered -->
+  <g transform="translate(743.2,86) scale(1.7)">
+    <path d="M18 66 L48 20 L78 66" fill="none" stroke="#14B8A6" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="48" cy="11" r="8" fill="#FBBF24"/>
+  </g>
+
+  <text x="820" y="330" text-anchor="middle" font-family="'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif" font-size="70" letter-spacing="-2">
+    <tspan font-weight="800" fill="#FFFFFF">Aver</tspan><tspan font-weight="600" fill="#5EEAD4"> Learning</tspan>
+  </text>
+
+  <text x="820" y="390" text-anchor="middle" font-family="'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif" font-size="30" font-weight="500" fill="rgba(255,255,255,0.82)">
+    Luyện IELTS toàn diện cùng AI — phản hồi theo từng tiêu chí
+  </text>
+
+  <!-- skill chips -->
+  <g font-family="'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif" font-size="24" font-weight="600" text-anchor="middle">
+    <g transform="translate(820,470)">
+      <rect x="-560" y="-26" width="150" height="46" rx="23" fill="rgba(255,255,255,0.10)"/><text x="-485" y="5" fill="#E2E8F0">Speaking</text>
+      <rect x="-395" y="-26" width="132" height="46" rx="23" fill="rgba(255,255,255,0.10)"/><text x="-329" y="5" fill="#E2E8F0">Writing</text>
+      <rect x="-248" y="-26" width="135" height="46" rx="23" fill="rgba(255,255,255,0.10)"/><text x="-180" y="5" fill="#E2E8F0">Reading</text>
+      <rect x="-98" y="-26" width="150" height="46" rx="23" fill="rgba(255,255,255,0.10)"/><text x="-23" y="5" fill="#E2E8F0">Listening</text>
+      <rect x="67" y="-26" width="140" height="46" rx="23" fill="rgba(255,255,255,0.10)"/><text x="137" y="5" fill="#E2E8F0">Grammar</text>
+      <rect x="222" y="-26" width="140" height="46" rx="23" fill="rgba(245,158,11,0.18)"/><text x="292" y="5" fill="#FBBF24">Từ vựng</text>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2560 1440" width="2560" height="1440">
+  <defs>
+    <radialGradient id="gy" cx="50%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#0F2A3E"/><stop offset="55%" stop-color="#0A1628"/><stop offset="100%" stop-color="#070E19"/>
+    </radialGradient>
+    <pattern id="gridy" width="64" height="64" patternUnits="userSpaceOnUse">
+      <path d="M64 0 H0 V64" fill="none" stroke="#FFFFFF" stroke-opacity="0.045" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="2560" height="1440" fill="url(#gy)"/>
+  <rect width="2560" height="1440" fill="url(#gridy)"/>
+
+  <!-- all key content inside the 1546×423 TV-safe centre box (x507..2053, y508..931) -->
+  <!-- mark -->
+  <g transform="translate(1198.4,548) scale(2.4)">
+    <path d="M18 66 L48 20 L78 66" fill="none" stroke="#14B8A6" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="48" cy="11" r="8" fill="#FBBF24"/>
+  </g>
+
+  <text x="1280" y="820" text-anchor="middle" font-family="'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif" font-size="96" letter-spacing="-3">
+    <tspan font-weight="800" fill="#FFFFFF">Aver</tspan><tspan font-weight="600" fill="#5EEAD4"> Learning</tspan>
+  </text>
+  <text x="1280" y="892" text-anchor="middle" font-family="'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif" font-size="40" font-weight="500" fill="rgba(255,255,255,0.80)">
+    Luyện IELTS toàn diện cùng AI · Speaking · Writing · Reading · Listening · Grammar · Từ vựng
+  </text>
+</svg>
