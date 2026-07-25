@@ -326,6 +326,89 @@ def test_collected_past_section_is_not_flagged_missed(fake_db, svc):
     assert res["sections"]["listening"]["missed"] == 0
 
 
+# ── pacing (PR-15) ────────────────────────────────────────────────────
+
+
+def test_pacing_reconstructs_the_order_answers_landed(fake_db, svc):
+    """Every answer write has always stamped answered_at; nobody read them.
+    Order + gaps are recoverable with no new collection at all."""
+    cohort = str(uuid4())
+    exam = _seed_exam(fake_db, cohort_id=cohort)
+    start = _now() - timedelta(minutes=10)
+    fake_db.table("mock_exams").update({
+        "active_section": "listening", "listening_started_at": _iso(start),
+    }).eq("id", exam["id"]).execute()
+    uid = _seed_student(fake_db, cohort, "An")
+    aid = str(uuid4())
+    fake_db.seed("listening_test_attempts", {
+        "id": aid, "status": "in_progress", "grading_details": [{}] * 40,
+        "answers": [
+            # answered out of paper order: 1, then 3, then back to 2
+            {"q_num": 1, "user_answer": "a", "answered_at": _iso(start + timedelta(seconds=30))},
+            {"q_num": 3, "user_answer": "c", "answered_at": _iso(start + timedelta(seconds=50))},
+            {"q_num": 2, "user_answer": "b", "answered_at": _iso(start + timedelta(seconds=230))},
+        ],
+    })
+    _seed_sitting(fake_db, exam, uid, listening_attempt_id=aid,
+                  listening_submitted_at=_iso(start + timedelta(minutes=8)))
+
+    out = svc.sitting_pacing(_find_sitting_id(fake_db))
+    lis = out["sections"]["listening"]
+
+    assert [r["q_num"] for r in lis["timeline"]] == [1, 3, 2]   # landing order
+    assert lis["worked_in_paper_order"] is False                # jumped around
+    assert lis["timeline"][0]["gap_seconds"] == 30              # from section start
+    assert lis["timeline"][2]["gap_seconds"] == 180             # the 3-minute pause
+    assert len(lis["long_gaps"]) == 1
+    assert lis["answered"] == 3 and lis["total"] == 40
+
+
+def test_pacing_reports_where_the_work_stopped(fake_db, svc):
+    """A big idle tail is a student who gave up (or dropped off) well before
+    time — invisible in a raw score."""
+    cohort = str(uuid4())
+    exam = _seed_exam(fake_db, cohort_id=cohort)
+    start = _now() - timedelta(minutes=30)
+    fake_db.table("mock_exams").update({
+        "active_section": "reading", "reading_started_at": _iso(start),
+    }).eq("id", exam["id"]).execute()
+    uid = _seed_student(fake_db, cohort, "An")
+    aid = str(uuid4())
+    fake_db.seed("reading_test_attempts", {"id": aid, "status": "submitted",
+                                           "grading_details": [{}] * 40})
+    fake_db.seed("reading_attempt_answers", {
+        "attempt_id": aid, "q_num": 1, "user_answer": "TRUE",
+        "answered_at": _iso(start + timedelta(minutes=2)),
+    })
+    _seed_sitting(fake_db, exam, uid, reading_attempt_id=aid,
+                  reading_submitted_at=_iso(start + timedelta(minutes=20)))
+
+    rd = svc.sitting_pacing(_find_sitting_id(fake_db))["sections"]["reading"]
+    assert rd["idle_tail_seconds"] == 18 * 60          # stopped 18 min early
+    assert rd["answers_in_final_minutes"] == 0
+
+
+def test_pacing_states_its_own_caveats(fake_db, svc):
+    """answered_at is the LAST touch, so a UI must not present these as exact
+    per-question think-time. The payload says so itself."""
+    cohort = str(uuid4())
+    exam = _seed_exam(fake_db, cohort_id=cohort)
+    uid = _seed_student(fake_db, cohort, "An")
+    _seed_sitting(fake_db, exam, uid)
+    out = svc.sitting_pacing(_find_sitting_id(fake_db))
+    assert out["caveats"]["answered_at_is_last_touch"] is True
+    assert out["caveats"]["gap_is_time_since_previous_answer"] is True
+
+
+def test_pacing_missing_sitting_raises(fake_db, svc):
+    with pytest.raises(svc.NotFoundError):
+        svc.sitting_pacing(str(uuid4()))
+
+
+def _find_sitting_id(fake):
+    return fake.rows("mock_exam_sittings")[0]["id"]
+
+
 def test_missing_exam_raises_not_found(fake_db, svc):
     with pytest.raises(svc.NotFoundError):
         svc.admin_live_monitor(str(uuid4()))

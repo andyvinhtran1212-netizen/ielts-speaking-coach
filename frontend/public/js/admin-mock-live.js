@@ -311,7 +311,9 @@
             (speaking ? '<td>' + speakingHtml(s) + '</td>' : '') +
             '<td class="ml-muted">' + esc(s.status) + '</td>' +
             '<td>' + (s.sitting_id
-              ? '<button type="button" class="ml-void" data-void="' + esc(s.sitting_id) +
+              ? '<a class="ml-void" href="/pages/admin/mock-pacing/index.html?sitting=' +
+                  encodeURIComponent(s.sitting_id) + '" style="text-decoration:none">Nhịp làm bài</a> ' +
+                '<button type="button" class="ml-void" data-void="' + esc(s.sitting_id) +
                 '" data-name="' + esc(s.student_name) + '">Huỷ lượt</button>'
               : '') + '</td>' +
           '</tr>';

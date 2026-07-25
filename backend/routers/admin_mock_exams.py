@@ -532,6 +532,24 @@ async def set_sitting_retest_flags(
         raise HTTPException(409, str(e))
 
 
+@router.get("/sittings/{sitting_id}/pacing")
+async def sitting_pacing(
+    sitting_id: str, authorization: str | None = Header(default=None),
+):
+    """How the student SPENT the exam — reconstructed from `answered_at` stamps
+    that every answer write has always made and nobody has ever read.
+
+    Order answers actually landed in, pauses between them, rushed finishes, and
+    where the work stopped. The response carries its own caveats: answered_at is
+    the LAST touch of a question, so gaps bracket think-time rather than being
+    it."""
+    await require_admin(authorization)
+    try:
+        return svc.sitting_pacing(sitting_id)
+    except svc.NotFoundError as e:
+        raise HTTPException(404, str(e))
+
+
 @router.post("/sittings/{sitting_id}/record-speaking")
 async def admin_record_speaking(
     sitting_id: str, authorization: str | None = Header(default=None),

@@ -2338,6 +2338,154 @@ def admin_live_monitor(exam_id: str) -> dict:
     }
 
 
+# A gap this long between two answers is a pause worth showing the teacher —
+# short enough to catch a stall, long enough not to flag normal reading.
+_PACING_LONG_GAP_SECONDS = 90
+# Answers landing in the closing minutes: the shape of a rushed finish.
+_PACING_TAIL_SECONDS = 300
+
+
+def sitting_pacing(sitting_id: str) -> dict:
+    """How a student SPENT the exam, reconstructed from data already stored.
+
+    Every answer write stamps `answered_at` — Listening on the attempt's JSONB
+    array, Reading on reading_attempt_answers (mig 088). Nobody has ever read
+    them. Together they give the order answers actually landed in, the pauses
+    between them, and where the work stopped.
+
+    HONEST LIMITS, because this is a teaching tool and a misread would be worse
+    than no tool:
+      · answered_at is OVERWRITTEN on each save, so it is the LAST touch of a
+        question, not the first. Order here is "order last worked on", which is
+        why revisiting shows up as a paper-order mismatch rather than a count.
+      · `gap_seconds` is therefore time-since-the-previous-answer-landed, not
+        time-spent-thinking-about-this-question. It brackets it; it isn't it.
+      · A student who answered nothing leaves no trace at all — absence of
+        timeline is not evidence of absence of effort.
+    """
+    sitting = get_sitting(sitting_id)
+    if not sitting:
+        raise NotFoundError(f"Sitting {sitting_id} không tồn tại.")
+    exam = get_published_exam_by_id(sitting["mock_exam_id"]) or {}
+    retake = is_retake(exam)
+
+    from services.mock_review_workflow import resolve_display_names
+    names = resolve_display_names([sitting.get("user_id")])
+
+    def _section_window(section):
+        """(started_at, ended_at) for this section — per-exam for a sequential
+        sitting (one classroom clock), per-sitting for a retake."""
+        started = _parse_ts(
+            sitting.get(f"{section}_started_at") if retake
+            else exam.get(f"{section}_started_at")
+        )
+        ended = _parse_ts(sitting.get(_SUBMITTED_COL[section]))
+        return started, ended
+
+    def _timeline(stamps, section):
+        """[{q_num, at, gap_seconds}] in the order the answers actually landed."""
+        started, ended = _section_window(section)
+        rows = sorted(
+            ((q, _parse_ts(at)) for q, at in stamps if at),
+            key=lambda r: r[1],
+        )
+        out, prev = [], started
+        for q, at in rows:
+            gap = int((at - prev).total_seconds()) if prev else None
+            out.append({"q_num": q, "at": at.isoformat(), "gap_seconds": gap})
+            prev = at
+        summary = {
+            "started_at":  started.isoformat() if started else None,
+            "ended_at":    ended.isoformat() if ended else None,
+            "answered":    len(out),
+            "total":       None,
+            "timeline":    out,
+            # Answers landing in the closing minutes — the shape of a rushed
+            # finish, which a raw score never shows.
+            "answers_in_final_minutes": (
+                sum(1 for r in out
+                    if ended and (ended - _parse_ts(r["at"])).total_seconds() <= _PACING_TAIL_SECONDS)
+                if ended else None
+            ),
+            # Where the work stopped relative to the section end. A big number
+            # means they gave up (or dropped off) well before time.
+            "idle_tail_seconds": (
+                int((ended - _parse_ts(out[-1]["at"])).total_seconds())
+                if (ended and out) else None
+            ),
+            "long_gaps": [r for r in out
+                          if r["gap_seconds"] and r["gap_seconds"] >= _PACING_LONG_GAP_SECONDS],
+            # Did they work straight down the paper, or jump around? Jumping is
+            # not bad in itself — it is how a strong candidate skips and returns
+            # — but it is invisible in the score.
+            "worked_in_paper_order": [r["q_num"] for r in out] == sorted(r["q_num"] for r in out),
+        }
+        return summary
+
+    sections: dict = {}
+
+    lid = sitting.get("listening_attempt_id")
+    if lid:
+        rows = supabase_admin.table("listening_test_attempts").select(
+            "answers, grading_details",
+        ).eq("id", str(lid)).limit(1).execute().data or []
+        answers = (rows[0].get("answers") or []) if rows else []
+        sections["listening"] = _timeline(
+            [(a.get("q_num"), a.get("answered_at")) for a in answers
+             if str(a.get("user_answer") or "").strip()],
+            "listening",
+        )
+        sections["listening"]["total"] = (
+            len(rows[0].get("grading_details") or []) or None) if rows else None
+
+    rid = sitting.get("reading_attempt_id")
+    if rid:
+        rows = supabase_admin.table("reading_attempt_answers").select(
+            "q_num, user_answer, answered_at",
+        ).eq("attempt_id", str(rid)).execute().data or []
+        sections["reading"] = _timeline(
+            [(r.get("q_num"), r.get("answered_at")) for r in rows
+             if str(r.get("user_answer") or "").strip()],
+            "reading",
+        )
+        att = supabase_admin.table("reading_test_attempts").select(
+            "grading_details",
+        ).eq("id", str(rid)).limit(1).execute().data or []
+        sections["reading"]["total"] = (
+            len(att[0].get("grading_details") or []) or None) if att else None
+
+    # Writing has no per-question stamps; what it has (since A2) is an autosaved
+    # draft with a word count and a last-saved time per task.
+    ws = sitting.get("writing_submission") or {}
+    w_started, w_ended = _section_window("writing")
+    sections["writing"] = {
+        "started_at": w_started.isoformat() if w_started else None,
+        "ended_at":   w_ended.isoformat() if w_ended else None,
+        "tasks": [
+            {
+                "task": t,
+                "word_count":   (ws.get(t) or {}).get("word_count"),
+                "last_saved_at": (ws.get(t) or {}).get("submitted_at"),
+            }
+            for t in ("task1", "task2")
+        ],
+    }
+
+    return {
+        "sitting_id":   str(sitting_id),
+        "student_name": names.get(str(sitting.get("user_id")), "—"),
+        "exam_code":    exam.get("code"),
+        "status":       sitting.get("status"),
+        "sections":     sections,
+        # Stated in the payload so a UI cannot quietly present these as exact
+        # per-question think-time.
+        "caveats": {
+            "answered_at_is_last_touch": True,
+            "gap_is_time_since_previous_answer": True,
+        },
+    }
+
+
 def reserved_test_ids(kind: str) -> set:
     """Reading/listening test ids assigned to any non-archived mock exam.
 
