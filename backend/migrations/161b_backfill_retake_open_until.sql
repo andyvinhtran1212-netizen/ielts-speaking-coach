@@ -1,4 +1,4 @@
--- 164_backfill_retake_open_until.sql
+-- 161b_backfill_retake_open_until.sql
 --
 -- D3 remediation, part 2: give EXISTING open-ended retakes a finite deadline.
 --
@@ -16,9 +16,14 @@
 --   `registered` FOREVER — never collected, never reviewed, never finished —
 --   and it permanently occupies their one-live-sitting slot.
 --
--- ORDERING NOTE: if migration 162 (uq one live sitting per student) has NOT
--- been applied yet, run THIS one first. It is what clears the stuck legacy
--- rows that would otherwise make 162's unique index fail its pre-check.
+-- NUMBERED 161b, NOT 164, ON PURPOSE. This must run BEFORE 162 (uq one live
+-- sitting per student): it is what clears the stuck legacy rows that would
+-- otherwise leave a student holding a permanent lock on every future exam.
+-- scripts/apply_migrations.sh applies files in FILENAME order, so a 164 would
+-- have run AFTER 162 and the ordering note would have been a lie the runner
+-- ignored. The `NNNb` suffix is the repo's existing convention for exactly this
+-- (see migrations/README.md — 019/019b, 022/022b) and sorts between 161 and 162
+-- under both the default locale and LC_ALL=C.
 --
 -- POLICY: 14 days. Chosen because it is comfortably longer than any real retake
 -- window the admin ever set by hand, so it cannot cut short a legitimately-open
