@@ -79,8 +79,11 @@ tương ứng cố ý thay đổi, và được cập nhật kèm lý do:
 | 4 test giả định sweep chạy inline | #844 | sweep chuyển sang BackgroundTask |
 | `test_writing_reports_not_live_before_submit` | #835 | Writing giờ CÓ dữ liệu sống |
 
-**Bậc 2 của đo đạc** (đường cong số từ Writing theo thời gian) có được **miễn phí**
-từ #835 — bản nháp tự lưu đã stamp số từ + giờ lưu mỗi lần.
+**Bậc 2 của đo đạc** (đường cong số từ Writing theo thời gian) **KHÔNG** có được từ
+#835. `submit_writing()` GHI ĐÈ một ảnh chụp duy nhất, chỉ giữ số từ + giờ lưu MỚI
+NHẤT của mỗi task, nên không dựng lại được đường cong nào. #848 vì thế chỉ hiển thị
+số từ cuối + lần lưu cuối. Muốn đường cong thì phải ghi thêm mẫu (thời điểm, số từ)
+nối đuôi ở tầng lưu chính tắc — xem §8, PR-16 (Codex review, PR #850).
 
 ---
 
@@ -96,10 +99,13 @@ Wave 1   ├─ PR-1   A1  Listening khôi phục bài               ◀ P0
  mất bài ├─ PR-4   A4a Listening autosave bền (client)
          └─ PR-5   A4b Ghi đáp án nguyên tử (RPC · mig 161)
 
-Wave 1b  ├─ PR-6   C3  Chặn 2 sitting cùng lúc (mig 162)     ◀ QĐ 1
- MỘT GÓI ├─ PR-7   D3  Bắt buộc hạn đóng retake              ◀ tiên quyết
- KHÔNG   └─ PR-8   D4  Gỡ assignment → huỷ sitting           ◀ tiên quyết
- TÁCH LẺ           +   Nút "huỷ sitting" cho admin gỡ kẹt
+Wave 1b  ├─ #839    D3  Bắt buộc hạn đóng retake (mig 164)       ◀ tiên quyết
+ MỘT GÓI ├─ #840    D4  Gỡ assignment → huỷ sitting              ◀ tiên quyết
+ KHÔNG   │           +  Nút "huỷ sitting" cho admin gỡ kẹt
+ TÁCH LẺ └─ #841    C3  Chặn 2 sitting cùng lúc (mig 162)        ◀ QĐ 1
+ ĐÚNG THỨ TỰ NÀY: C3 bật trước D3/D4 thì các lượt thi kẹt (hạn NULL,
+ assignment đã gỡ) khoá học viên khỏi MỌI kỳ thi khác mà chưa có đường gỡ —
+ xem §7 và cảnh báo ngay dưới (Codex review, PR #850).
 
 Wave 2   ├─ PR-9   B2  Chống đua khi "mở phần tiếp theo"
  an toàn ├─ PR-10  B4  Tách "thu bài" khỏi "mở phần sau"     ◀ QĐ 3
@@ -294,11 +300,49 @@ ghi đè đúng, không nhân bản.
 
 ## 5. Wave 1b — thực thi quyết định "chặn" · **MỘT GÓI, KHÔNG TÁCH LẺ**
 
-> Ba PR này ship cùng nhau. Merge PR-6 mà thiếu PR-7/PR-8 sẽ biến mọi sitting kẹt thành
-> khoá toàn tài khoản, và admin không có cách gỡ. Đây là hồi quy nặng hơn chính lỗi đang
-> sửa.
+> Ba PR này ship cùng nhau, VÀ THEO THỨ TỰ **#839 (D3) → #840 (D4) → #841 (C3)**.
+> Merge #841 mà thiếu #839/#840 sẽ biến mọi sitting kẹt thành khoá toàn tài khoản, và
+> admin không có cách gỡ. Đây là hồi quy nặng hơn chính lỗi đang sửa. Các mục dưới đây
+> viết theo thứ tự merge; đánh số PR thật thay vì nhãn PR-N trừu tượng để không còn
+> nguy cơ đọc nhầm thứ tự (Codex review, PR #850).
 
-### PR-6 · C3 — Chặn 2 sitting cùng lúc · **migration 162**
+### #839 · D3 — Bắt buộc hạn đóng cho retake · **migration 164**
+
+**Nguyên nhân gốc:** reaper chỉ thu phần **đã bắt đầu**, hoặc thu tất cả khi
+`retake_open_until` đã qua (`:1700-1707`). Nhưng `open_until` nullable và UI cho để trống
+(`admin-mock-exams.js:252`) → học viên không bao giờ bấm bắt đầu ⇒ sitting **kẹt
+`registered` vĩnh viễn**, giữ luôn slot `uq_mock_sitting_active`. **Sau #841 nó khoá học
+viên khỏi mọi kỳ thi.**
+
+**Cách sửa:** bắt buộc "Đóng lúc" ở form gán (gợi ý mặc định +7 ngày), validate trong
+`assign()`.
+
+**Backfill là BẮT BUỘC, và phải chạm cả hai bảng.** Điền bù mỗi
+`mock_exam_assignments.open_until` là CHƯA ĐỦ: `create_sitting()` chụp giá trị đó sang
+`mock_exam_sittings.retake_open_until` (`mock_exam_service.py:498`) và reaper đọc BẢN
+CHỤP chứ không đọc assignment (`:1700`). Một lượt thi đang kẹt `registered` vì thế vẫn
+giữ hạn NULL sau khi assignment đã được vá — và migration 162 sẽ biến đúng hàng đó
+thành cái khoá học viên khỏi mọi kỳ thi mới, vĩnh viễn (Codex review, PR #850).
+
+`migrations/164_backfill_retake_open_until.sql` làm cả hai bước, và cố ý neo hạn của
+một lượt thi ĐANG ĐƯỢC LÀM vào chính hoạt động của nó (created_at / các mốc bắt đầu)
+để backfill không bao giờ thu bài đang thi. **Chạy 164 TRƯỚC 162**, rồi xác minh bằng
+truy vấn join ở cuối file: không còn lượt thi retake sống nào có `retake_open_until`
+NULL trước khi tạo unique index.
+
+### #840 · D4 — Gỡ assignment thì huỷ sitting + nút gỡ kẹt cho admin
+
+**Nguyên nhân gốc:** `remove()` (`mock_exam_assignment_service.py:146-150`) gỡ assignment
+nhưng không void sitting đã tạo, mà `create_sitting:471-478` resume **trước** các gate
+(cố ý, có lý do tốt) → học viên đã bị gỡ vẫn vào được.
+
+**Cách sửa:**
+1. `remove()` void luôn sitting non-terminal của (exam, user) kèm lý do.
+2. **Nút "Huỷ sitting" trên phòng thi trực tiếp** — dùng `void_sitting()` đã có
+   (`:1420-1437`). Đây là van xả để admin gỡ kẹt tại chỗ giữa buổi thi; **bắt buộc phải
+   có trước khi #841 lên production.**
+
+### #841 · C3 — Chặn 2 sitting cùng lúc · **migration 162**
 
 **Người dùng thấy gì:** học viên đang thi dở một kỳ thì không mở được kỳ thứ hai; trang
 danh sách hiện *"Bạn đang có bài thi dở — tiếp tục bài đó trước"* kèm nút quay lại đúng
@@ -330,30 +374,6 @@ chỉ chặn 2 sitting trên **cùng** một đề, không chặn xuyên đề.
 **Test:** tạo sitting đề B khi đang `lrw_in_progress` đề A → 409; `speaking_pending` đề A
 → **cho phép**; resume chính sitting đề A → luôn được; sau khi đề A `released` → mở đề B
 bình thường.
-
-### PR-7 · D3 — Bắt buộc hạn đóng cho retake
-
-**Nguyên nhân gốc:** reaper chỉ thu phần **đã bắt đầu**, hoặc thu tất cả khi
-`retake_open_until` đã qua (`:1700-1707`). Nhưng `open_until` nullable và UI cho để trống
-(`admin-mock-exams.js:252`) → học viên không bao giờ bấm bắt đầu ⇒ sitting **kẹt
-`registered` vĩnh viễn**, giữ luôn slot `uq_mock_sitting_active`. **Sau PR-6 nó khoá học
-viên khỏi mọi kỳ thi.**
-
-**Cách sửa:** bắt buộc "Đóng lúc" ở form gán (gợi ý mặc định +7 ngày), validate trong
-`assign()`. Kèm truy vấn rà soát assignment đang null để admin điền bù **trước** khi
-PR-6 lên.
-
-### PR-8 · D4 — Gỡ assignment thì huỷ sitting + nút gỡ kẹt cho admin
-
-**Nguyên nhân gốc:** `remove()` (`mock_exam_assignment_service.py:146-150`) gỡ assignment
-nhưng không void sitting đã tạo, mà `create_sitting:471-478` resume **trước** các gate
-(cố ý, có lý do tốt) → học viên đã bị gỡ vẫn vào được.
-
-**Cách sửa:**
-1. `remove()` void luôn sitting non-terminal của (exam, user) kèm lý do.
-2. **Nút "Huỷ sitting" trên phòng thi trực tiếp** — dùng `void_sitting()` đã có
-   (`:1420-1437`). Đây là van xả để admin gỡ kẹt tại chỗ giữa buổi thi; **bắt buộc phải
-   có trước khi PR-6 lên production.**
 
 ---
 
@@ -516,10 +536,11 @@ sửa/skip/xfail test để ép xanh.
 - Migration áp **bằng tay trong Supabase SQL editor** theo tiền lệ repo, **trước** khi
   merge PR tương ứng:
   - **161** (PR-5) — RPC ghi đáp án Listening
-  - **162** (PR-6) — index chặn cross-exam · ⚠ **phải rà soát + dọn dữ liệu trước**, xem PR-6
+  - **164** (#839) — backfill hạn retake (assignment + BẢN CHỤP trên sitting) · chạy TRƯỚC 162
+  - **162** (#841) — index chặn cross-exam · ⚠ **phải rà soát + dọn dữ liệu trước**, xem #839
 - `frontend/pages` và `frontend/js` là **symlink** sang `frontend/public/*` — sửa file ở
   `public/`.
 - PR nào thêm class Tailwind mới thì rebuild `css/tailwind.build.css` (PR-A, PR-B không
   thêm class mới nên không cần).
-- **Wave 1b ship nguyên gói.** PR-6 lên một mình = mọi sitting kẹt biến thành khoá toàn
-  tài khoản, không có đường gỡ.
+- **Wave 1b ship nguyên gói, theo thứ tự #839 → #840 → #841.** #841 lên một mình = mọi
+  sitting kẹt biến thành khoá toàn tài khoản, không có đường gỡ.
