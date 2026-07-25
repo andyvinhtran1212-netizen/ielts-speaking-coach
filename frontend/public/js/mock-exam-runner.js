@@ -245,6 +245,12 @@
   // be the copy that gets promoted for grading (Codex review, PR #835).
   var _wInFlight = null;
   var _wGen = 0;                  // which save is the current one
+  // Abort handle for the request on the wire. The endpoint is last-writer-wins,
+  // so a keepalive replacement issued from pagehide must CANCEL the earlier
+  // request rather than race it: otherwise the older body can land last and
+  // overwrite the newer draft, and a force-collection then grades stale text
+  // (Codex review, PR #835).
+  var _wAbort = null;
 
   // `synced` records whether the SERVER has confirmed this exact text. It is
   // the only reliable answer to "is the local copy ahead?": the two timestamps
@@ -354,6 +360,11 @@
     // the current text instead; the endpoint is an idempotent overwrite of the
     // same draft, so a duplicate write costs nothing (Codex review, PR #835).
     if (_wSaving && !keepalive) return _wInFlight || Promise.resolve();
+    // Cancel the request this one supersedes. Without it both are in flight
+    // against a last-writer-wins endpoint and the OLDER body can commit last.
+    if (_wAbort) { try { _wAbort.abort(); } catch (e) {} _wAbort = null; }
+    var ctrl = (typeof AbortController === 'function') ? new AbortController() : null;
+    _wAbort = ctrl;
     var gen = ++_wGen;
     _wSaving = true;
     setSaveCue('saving');
@@ -362,7 +373,10 @@
     // the pagehide path is exactly the case this feature exists for.
     _wInFlight = window.api.postWith(
       '/api/mock-exams/sittings/' + encodeURIComponent(S.sittingId) + '/writing',
-      body, null, { keepalive: !!(opts && opts.keepalive) }
+      body, null, {
+        keepalive: keepalive,
+        signal: ctrl ? ctrl.signal : undefined,
+      }
     ).then(function () {
       _wLastSaved = { task1: body.task1_text, task2: body.task2_text };
       // Only declare the draft clean if the textareas STILL match what we sent.
@@ -382,6 +396,9 @@
         scheduleWritingSave();
       }
     }).catch(function (e) {
+      // A save we deliberately cancelled is not a failure: its replacement is
+      // already on the wire carrying newer text.
+      if (e && (e.name === 'AbortError' || e.code === 20)) return;
       // Stay dirty AND schedule a real retry. Leaving only the flag set meant
       // nothing retried until the student typed again, went offline→online, or
       // left the page — while the cue promised an automatic retry.
@@ -398,7 +415,7 @@
       // Only the LATEST request may clear these — a keepalive re-send issued
       // over a still-pending normal save would otherwise be un-tracked the
       // moment the older one settled.
-      if (gen === _wGen) { _wSaving = false; _wInFlight = null; }
+      if (gen === _wGen) { _wSaving = false; _wInFlight = null; _wAbort = null; }
     });
     return _wInFlight;
   }
