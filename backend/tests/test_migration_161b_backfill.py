@@ -1,4 +1,4 @@
-"""Migration 164 — the retake-deadline backfill must run, and must not collect
+"""Migration 161b — the retake-deadline backfill must run, and must not collect
 a test somebody is sitting.
 
 Two defects Codex found on PR #839, both of which only bite in production:
@@ -25,10 +25,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-MIGRATION = (
-    Path(__file__).resolve().parents[1]
-    / "migrations" / "164_backfill_retake_open_until.sql"
-)
+MIG_DIR = Path(__file__).resolve().parents[1] / "migrations"
+MIGRATION = MIG_DIR / "161b_backfill_retake_open_until.sql"
 
 
 def _sql() -> str:
@@ -93,3 +91,24 @@ def test_only_non_terminal_sittings_are_stamped():
 def test_the_write_is_wrapped_in_one_transaction():
     body = _sql().upper()
     assert body.count("BEGIN;") == 1 and body.count("COMMIT;") == 1
+
+
+def test_it_sorts_before_the_unique_index_migration():
+    """The whole point of the `b` suffix.
+
+    scripts/apply_migrations.sh applies files in FILENAME order. A file numbered
+    164 would have run AFTER 162's unique index — so the ordering note in the
+    header would have been a lie the runner ignored, and the stuck legacy rows
+    this backfill clears would first have become a permanent per-student lock on
+    every future exam.
+    """
+    names = sorted(p.name for p in MIG_DIR.glob("*.sql"))
+    unique_idx = "162_mock_sitting_one_live_per_user.sql"
+    if unique_idx not in names:
+        # 162 arrives on a later branch in the stack; nothing to order against
+        # yet. Once both are present (every branch from #841 onward, and main
+        # after the merge) the assertion below is live.
+        return
+    assert names.index(MIGRATION.name) < names.index(unique_idx), (
+        "the retake backfill must sort before the one-live-sitting index"
+    )
