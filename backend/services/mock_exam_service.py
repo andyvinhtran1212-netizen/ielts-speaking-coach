@@ -701,9 +701,19 @@ def submit_writing(
         "task2": {"text": task2_text or "", "word_count": _word_count(task2_text),
                   "submitted_at": now},
     }
+    # CONDITIONAL on the section still being open. The check above and this
+    # write are not atomic, so an admin advance, the retake reaper, or another
+    # tab could finalise Writing in between — and a late autosave would then
+    # overwrite writing_submission AFTER _promote_writing_essays() had already
+    # copied the older text, leaving the admin's word count disagreeing with the
+    # essay actually graded (Codex review, PR #835).
     resp = supabase_admin.table("mock_exam_sittings").update({
         "writing_submission": submission,
-    }).eq("id", str(sitting_id)).execute()
+    }).eq("id", str(sitting_id)).is_("writing_submitted_at", "null").execute()
+    if not resp.data:
+        raise SittingConflictError(
+            "Phần Writing vừa được thu — bản nháp gửi sau không được ghi đè."
+        )
     logger.info("[mock-exam] sitting=%s writing captured", sitting_id)
     return resp.data[0] if resp.data else {**sitting, "writing_submission": submission}
 

@@ -21,7 +21,12 @@
 
   function el(id) { return document.getElementById(id); }
   function esc(s) { return (window.WC && window.WC.escapeHtml) ? window.WC.escapeHtml(s) : String(s == null ? '' : s); }
-  function toast(m) { if (window.toast) window.toast(m); else console.log(m); }
+  // toast.js exports window.showToast — the old check was for a name that has
+  // never existed, so every message on this page went only to the console.
+  function toast(m, kind) {
+    if (window.showToast) return window.showToast(m, kind === 'error' ? 'error' : 'success', { timeout: 5000 });
+    console.log(m);
+  }
   function asList(r) { return Array.isArray(r) ? r : (r && (r.items || r.tests || r.prompts || r.exams || r.cohorts)) || []; }
 
   function fillSelect(sel, rows, valueKey, labelFn, allowEmpty) {
@@ -149,7 +154,14 @@
         (ex.status === 'draft' ? '<button class="av-btn" data-act="publish">Publish</button>' : '') +
         '<button class="av-btn ' + (ex.is_open ? '' : 'av-btn--primary') + '" data-act="toggle">' + (ex.is_open ? 'Đóng kỳ' : 'Mở kỳ (live)') + '</button>' +
         (canAdvance ? '<button class="av-btn av-btn--primary" data-act="advance">Mở phần tiếp theo →</button>' : '') +
-        '<a class="av-btn" href="/pages/admin/mock-live/index.html?exam_id=' + encodeURIComponent(ex.id) + '">Phòng thi trực tiếp →</a>' +
+        // Only for PUBLISHED exams: the console's picker lists published only,
+        // and its boot() silently falls back to the first published exam for an
+        // id it does not recognise — so a draft/archived card would open a
+        // DIFFERENT class's board with its irreversible controls
+        // (Codex review, PR #833).
+        (ex.status === 'published'
+          ? '<a class="av-btn" href="/pages/admin/mock-live/index.html?exam_id=' + encodeURIComponent(ex.id) + '">Phòng thi trực tiếp →</a>'
+          : '') +
         '<a class="av-btn" href="/pages/admin/mock-reviews/index.html?mock_exam_id=' + encodeURIComponent(ex.id) + '">Duyệt bài →</a>' +
       '</div>';
     var pub = card.querySelector('[data-act="publish"]');

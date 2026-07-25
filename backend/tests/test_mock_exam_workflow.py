@@ -756,6 +756,26 @@ def test_submit_writing_is_a_repeatable_draft_save(fake_db, svc):
     assert svc.get_sitting(s["id"]).get("writing_submitted_at") is None
 
 
+def test_late_autosave_cannot_overwrite_a_finalised_section(fake_db, svc):
+    """Codex #835 (correct): submit_writing's check and its update are not
+    atomic. If the section is finalised in between — admin advance, the reaper,
+    another tab — a late draft overwrote writing_submission AFTER
+    _promote_writing_essays had copied the older text, so the admin's word count
+    disagreed with the essay actually graded."""
+    exam = _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    _reach_writing(svc, fake_db, exam, s["id"], u)
+    svc.submit_writing(s["id"], u, "the real essay", "task two")
+    svc._force_collect_section(exam["id"], "writing")      # finalised
+
+    with pytest.raises(svc.SittingConflictError):
+        svc.submit_writing(s["id"], u, "late draft that should not land", "")
+
+    after = svc.get_sitting(s["id"])
+    assert after["writing_submission"]["task1"]["text"] == "the real essay"
+
+
 def test_autosaved_draft_survives_a_force_collect(fake_db, svc):
     """The exact loss A2 fixes: a tab that dies before the clock runs out used
     to leave writing_submission EMPTY, so force-collect promoted nothing and the
@@ -2305,6 +2325,23 @@ def test_retake_assign_requires_a_closing_bound(fake_db):
         }], created_by=str(uuid4()))
     # nothing persisted — the whole batch is rejected before any write
     assert fake_db.rows("mock_exam_assignments") == []
+
+
+def test_skill_less_row_is_skipped_not_fatal_to_the_batch(fake_db):
+    """Codex #839 (correct): validating the window of a row that is documented
+    to be SKIPPED aborted the whole request, so valid students in the same batch
+    went unassigned."""
+    from services import mock_exam_assignment_service as a
+    exam_id = str(uuid4())
+    good, empty = str(uuid4()), str(uuid4())
+    res = a.assign(exam_id, [
+        {"user_id": good,  "skills": ["writing"], **_WINDOW},
+        {"user_id": empty, "skills": [], "open_until": None},   # skipped, not fatal
+    ], created_by=str(uuid4()))
+
+    assert res["assigned"] == [good]
+    assert res["skipped"] == [empty]
+    assert len(fake_db.rows("mock_exam_assignments")) == 1
 
 
 def test_retake_assign_rejects_open_ended_before_writing_any_row(fake_db):

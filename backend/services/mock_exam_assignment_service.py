@@ -120,8 +120,13 @@ def assign(exam_id, rows, *, created_by, source_exam_id=None) -> dict:
             merged[uid]["open_until"] = row.get("open_until")
 
     # Validate every window up-front so a bad one fails the request cleanly
-    # (400) instead of persisting a subset then raising mid-batch.
+    # (400) instead of persisting a subset then raising mid-batch — but only for
+    # rows that will actually be WRITTEN. A skill-less row is documented to be
+    # skipped, so validating its window aborted the entire request and left the
+    # valid students in the same batch unassigned (Codex review, PR #839).
     for uid in order:
+        if not merged[uid]["skills"]:
+            continue
         _validate_window(merged[uid]["open_from"], merged[uid]["open_until"])
 
     group_id = str(uuid4())
