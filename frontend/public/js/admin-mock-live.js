@@ -28,11 +28,20 @@
     { key: 'absent',   label: 'Chưa vào' },
   ];
 
-  var S = { examId: null, data: null, filter: 'all', busy: false, tick: null, poll: null };
+  var S = { examId: null, data: null, filter: 'all', busy: false, tick: null, poll: null,
+            // Monotonic request id — only the newest load() may paint.
+            reqGen: 0 };
 
   function el(id) { return document.getElementById(id); }
   function esc(s) { return (window.WC && window.WC.escapeHtml) ? window.WC.escapeHtml(s) : String(s == null ? '' : s); }
-  function toast(m) { if (window.toast) window.toast(m); else console.log(m); }
+  // toast.js exports window.showToast (NOT window.toast) — the old wrapper
+  // checked a name that never existed, so every failure this page reported went
+  // to console.log and nowhere the invigilator could see it, including the 409
+  // from a conflicting advance (Codex review, PR #833).
+  function toast(m, kind) {
+    if (window.showToast) return window.showToast(m, kind === 'error' ? 'error' : 'success', { timeout: 5000 });
+    console.log(m);
+  }
 
   function show(name) {
     ['loading', 'error', 'board'].forEach(function (s) {
@@ -72,11 +81,21 @@
 
   async function load() {
     if (!S.examId) { show('error'); el('state-error').textContent = 'Chọn một kỳ thi.'; return; }
+    // Tag the request with the exam it was made for. Two 5s polls can overlap,
+    // or the admin can switch exams mid-flight — and a slower response for the
+    // PREVIOUS exam arriving last would repaint the board (and rewire the
+    // irreversible open/advance handlers) for a class the picker is no longer
+    // showing (Codex review, PR #833).
+    var want = S.examId;
+    var gen = ++S.reqGen;
     try {
-      S.data = await window.api.get('/admin/mock-exams/' + encodeURIComponent(S.examId) + '/live');
+      var data = await window.api.get('/admin/mock-exams/' + encodeURIComponent(want) + '/live');
+      if (gen !== S.reqGen || want !== S.examId) return;   // superseded — drop it
+      S.data = data;
       render();
       show('board');
     } catch (e) {
+      if (gen !== S.reqGen || want !== S.examId) return;   // superseded — stay quiet
       el('state-error').textContent = 'Không tải được bảng theo dõi: ' + (e && e.message ? e.message : e);
       show('error');
     }
@@ -162,7 +181,10 @@
       'Hành động này KHÔNG hoàn tác được.';
     if (!confirm(msg)) return;
     return guard(el('btn-collect'), function () {
-      return window.api.post('/admin/mock-exams/' + encodeURIComponent(ex.id) + '/collect', {})
+      // Carry the section THIS screen is showing, so a stale tab is rejected
+      // instead of sweeping whichever section is now open.
+      return window.api.post('/admin/mock-exams/' + encodeURIComponent(ex.id) +
+        '/collect?from_section=' + encodeURIComponent(ex.active_section), {})
         .then(function (r) {
           toast('Đang thu ' + r.pending + ' bài phần ' +
             (SECTION_LABEL[r.section] || r.section) + ' — bảng sẽ cập nhật dần.');
@@ -416,7 +438,7 @@
     return guard(el('btn-open'), function () {
       return window.api.post('/admin/mock-exams/' + encodeURIComponent(ex.id) + '/open', { is_open: next })
         .then(function () { toast(next ? 'Đã mở kỳ.' : 'Đã đóng kỳ.'); return load(); })
-        .catch(function (e) { toast('Thất bại: ' + (e && e.message)); });
+        .catch(function (e) { toast('Thất bại: ' + (e && e.message), 'error'); });
     });
   }
 
@@ -443,7 +465,7 @@
         // the section THIS console is showing — a stale tab is rejected
         { from_section: cur })
         .then(function () { toast('Đã chuyển phần.'); return load(); })
-        .catch(function (e) { toast('Thất bại: ' + (e && e.message)); });
+        .catch(function (e) { toast('Thất bại: ' + (e && e.message), 'error'); });
     });
   }
 
@@ -464,8 +486,23 @@
       show('error'); return;
     }
     var wanted = new URLSearchParams(location.search).get('exam_id');
-    S.examId = (wanted && exams.some(function (e) { return e.id === wanted; })) ? wanted
-      : (exams[0] && exams[0].id) || null;
+    if (wanted && !exams.some(function (e) { return e.id === wanted; })) {
+      // Say so instead of silently monitoring a DIFFERENT class. Falling back to
+      // the first published exam put the invigilator in front of another
+      // classroom's irreversible open/advance controls while they believed they
+      // had followed their own link (Codex review, PR #833).
+      el('state-error').textContent =
+        'Không mở được kỳ thi này (chưa publish, đã archive, hoặc mã không đúng). ' +
+        'Chọn kỳ thi từ danh sách phía trên.';
+      show('error');
+      el('exam-picker').addEventListener('change', function () {
+        S.examId = el('exam-picker').value;
+        history.replaceState(null, '', '?exam_id=' + encodeURIComponent(S.examId));
+        show('loading'); load();
+      });
+      return;
+    }
+    S.examId = wanted || (exams[0] && exams[0].id) || null;
     if (S.examId) el('exam-picker').value = S.examId;
 
     el('exam-picker').addEventListener('change', function () {
