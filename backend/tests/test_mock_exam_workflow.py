@@ -2467,6 +2467,74 @@ def test_collect_reports_a_lookup_failure_instead_of_zero_success(fake_db, svc, 
     monkeypatch.undo()
 
 
+def test_a_sitting_born_during_the_sweep_is_still_stamped(fake_db, svc, monkeypatch):
+    """Codex #843 (correct, P1): create_sitting() decided from an exam row read
+    BEFORE the insert, while /collect sets collected_section and sweeps the
+    sittings as separate queries. A student who started opening the exam before
+    the marker was set but whose row landed after the sweep was neither swept
+    NOR born submitted — so the runner handed them the collected paper."""
+    exam = _seed_exam(fake_db)
+    svc.advance_section(exam["id"], "admin-1")            # → listening
+
+    # Stage the window: the pre-insert read sees no pause, the post-insert
+    # re-read sees one.
+    real_get = svc.get_published_exam_by_id
+    calls = {"n": 0}
+
+    def pause_after_first_read(exam_id):
+        row = real_get(exam_id)
+        calls["n"] += 1
+        if calls["n"] == 1 and row:
+            return {**row, "collected_section": None}
+        return row
+
+    fake_db.table("mock_exams").update(
+        {"collected_section": "listening"}).eq("id", exam["id"]).execute()
+    monkeypatch.setattr(svc, "get_published_exam_by_id", pause_after_first_read)
+
+    late = svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    monkeypatch.undo()
+
+    assert late["listening_submitted_at"] is not None, (
+        "a sitting inserted during the pause must still be born submitted")
+
+
+def test_attach_is_refused_once_the_section_is_collected(fake_db, svc):
+    """Codex #843 (correct, P1): the pause deliberately leaves active_section
+    alone, so the sequential gate cannot see it. An attempt whose creation
+    finished after the sweep still attached — but the sitting was already
+    stamped and skipped for grading (nothing was bound yet), later sweeps skip
+    it, and the attempt is never graded."""
+    exam = _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → listening
+    svc.collect_section(exam["id"], "admin-1", from_section="listening")
+
+    aid = str(uuid4())
+    fake_db.seed("listening_test_attempts", {
+        "id": aid, "user_id": str(u), "test_id": exam["listening_test_id"],
+        "status": "in_progress", "answers": [],
+    })
+    with pytest.raises(svc.SittingConflictError):
+        svc.attach_attempt(s["id"], u, "listening", aid)
+
+
+def test_live_monitor_reports_the_pause_and_stops_the_clock(fake_db, svc):
+    """Codex #843 (correct): active_section does not change during the break, so
+    without the canonical marker the console kept rendering and ticking the
+    collected section's clock."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+    svc.collect_section(exam["id"], "admin-1", from_section="listening")
+
+    ex = svc.admin_live_monitor(exam["id"])["exam"]
+    assert ex["active_section"] == "listening"            # unchanged, by design
+    assert ex["collected_section"] == "listening"
+    assert ex["section_time_left_seconds"] is None, "no clock runs during the pause"
+
+
 def test_collect_rejected_before_the_exam_starts(fake_db, svc):
     exam = _seed_exam(fake_db)
     with pytest.raises(svc.SittingConflictError):

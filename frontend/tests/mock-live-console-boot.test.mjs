@@ -45,3 +45,16 @@ describe('mock-live console — boot wiring survives a bad exam link', () => {
     assert.match(JS, /function startPolling\(\) \{\s*\n\s*if \(S\.poll\) clearInterval\(S\.poll\);/);
   });
 });
+
+describe('mock-live console — the pause has no clock', () => {
+  test('a collected-but-not-advanced section renders "Đã thu bài", not a countdown', () => {
+    // active_section deliberately does not change during the break, so the
+    // console kept rendering AND TICKING the collected section's clock.
+    assert.match(JS, /var paused = !retake && ex\.collected_section\s*\n\s*&& ex\.collected_section === ex\.active_section;/);
+    assert.match(JS, /'<div><span class="ml-clock__cap">Đã thu bài — '/);
+  });
+
+  test('the local tick stops when the server reports no time left', () => {
+    assert.match(JS, /var left = S\.data\.exam\.section_time_left_seconds;\s*\n\s*if \(left == null\) return;/);
+  });
+});

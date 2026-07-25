@@ -118,10 +118,21 @@
       : '<span class="ml-pill ml-pill--shut">Đã đóng</span>';
     // Retake has no shared clock and no advance — say so instead of rendering
     // dead controls the mode does not have.
-    var clock = retake ? '' :
-      '<div><span class="ml-clock__cap">Còn lại — ' + esc(SECTION_LABEL[ex.active_section] || ex.active_section) + '</span>' +
-      '<div class="ml-clock' + ((ex.section_time_left_seconds != null && ex.section_time_left_seconds <= 120) ? ' is-low' : '') +
-      '" id="clock">' + fmtClock(ex.section_time_left_seconds) + '</div></div>';
+    //
+    // PAUSED: the papers are in and the next section is not open. active_section
+    // deliberately does not change during the break, so without the canonical
+    // marker the console kept rendering AND TICKING the collected section's
+    // clock — contradicting the clock-free pause it had just announced
+    // (Codex review, PR #843).
+    var paused = !retake && ex.collected_section
+      && ex.collected_section === ex.active_section;
+    var clock = retake ? '' : (paused
+      ? '<div><span class="ml-clock__cap">Đã thu bài — ' +
+          esc(SECTION_LABEL[ex.collected_section] || ex.collected_section) + '</span>' +
+        '<div class="ml-clock" id="clock">—</div></div>'
+      : '<div><span class="ml-clock__cap">Còn lại — ' + esc(SECTION_LABEL[ex.active_section] || ex.active_section) + '</span>' +
+        '<div class="ml-clock' + ((ex.section_time_left_seconds != null && ex.section_time_left_seconds <= 120) ? ' is-low' : '') +
+        '" id="clock">' + fmtClock(ex.section_time_left_seconds) + '</div></div>');
 
     el('ident').innerHTML =
       '<div class="ml-ident__top">' +
