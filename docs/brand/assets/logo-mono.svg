@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 296 72" role="img" aria-label="Aver Learning">
+  <!-- one-colour lockup for engraving / single-colour print / stamps.
+       Uses currentColor so it inherits any single ink (black, white, foil). -->
+  <g fill="currentColor">
+    <g transform="translate(4,8)">
+      <path d="M6 52 L28 16 L50 52" fill="none" stroke="currentColor" stroke-width="8.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="28" cy="7.5" r="6"/>
+    </g>
+    <text x="70" y="47" font-family="'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif" font-size="33" letter-spacing="-1">
+      <tspan font-weight="800">Aver</tspan><tspan font-weight="600"> Learning</tspan>
+    </text>
+  </g>
+</svg>

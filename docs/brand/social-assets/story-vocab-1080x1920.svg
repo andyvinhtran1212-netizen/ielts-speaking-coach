@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920" width="1080" height="1920">
+  <defs>
+    <linearGradient id="gv" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0F766E"/><stop offset="100%" stop-color="#0B5A54"/></linearGradient>
+  </defs>
+  <rect width="1080" height="1920" fill="url(#gv)"/>
+  <g transform="translate(90,300)">
+    <g transform="scale(0.55)"><path d="M18 66 L48 20 L78 66" fill="none" stroke="#fff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/><circle cx="48" cy="11" r="8" fill="#FBBF24"/></g>
+    <text x="60" y="38" font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="34" letter-spacing="-1"><tspan font-weight="800" fill="#fff">Aver</tspan><tspan font-weight="600" fill="#5EEAD4"> Learning</tspan></text>
+  </g>
+  <text x="90" y="500" font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="30" font-weight="700" letter-spacing="5" fill="#FBBF24">TỪ VỰNG · MÔI TRƯỜNG</text>
+  <g font-family="'Plus Jakarta Sans',system-ui,sans-serif">
+    <g transform="translate(90,640)">
+      <text y="0" font-size="60" font-weight="800" fill="#fff">mitigate</text>
+      <text y="58" font-size="34" fill="rgba(255,255,255,0.75)">giảm nhẹ · <tspan font-style="italic">mitigate climate change</tspan></text>
+    </g>
+    <g transform="translate(90,860)">
+      <text y="0" font-size="60" font-weight="800" fill="#fff">renewable</text>
+      <text y="58" font-size="34" fill="rgba(255,255,255,0.75)">tái tạo · <tspan font-style="italic">renewable energy</tspan></text>
+    </g>
+    <g transform="translate(90,1080)">
+      <text y="0" font-size="60" font-weight="800" fill="#fff">carbon footprint</text>
+      <text y="58" font-size="34" fill="rgba(255,255,255,0.75)">dấu chân carbon · <tspan font-style="italic">reduce your carbon footprint</tspan></text>
+    </g>
+  </g>
+  <line x1="90" y1="1240" x2="990" y2="1240" stroke="rgba(255,255,255,0.2)" stroke-width="2"/>
+  <text x="90" y="1330" font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="40" font-weight="500" fill="rgba(255,255,255,0.9)">3 từ ghi điểm cho chủ đề Environment</text>
+  <text x="90" y="1385" font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="40" font-weight="500" fill="rgba(255,255,255,0.9)">trong IELTS Speaking &amp; Writing.</text>
+  <g transform="translate(0,1560)">
+    <rect x="90" y="0" width="900" height="96" rx="48" fill="#FBBF24"/>
+    <text x="540" y="62" text-anchor="middle" font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="40" font-weight="700" fill="#1A1A16">Học trọn chủ đề trong app ↑</text>
+  </g>
+</svg>
