@@ -99,7 +99,7 @@ Wave 1   ├─ PR-1   A1  Listening khôi phục bài               ◀ P0
  mất bài ├─ PR-4   A4a Listening autosave bền (client)
          └─ PR-5   A4b Ghi đáp án nguyên tử (RPC · mig 161)
 
-Wave 1b  ├─ #839    D3  Bắt buộc hạn đóng retake (mig 164)       ◀ tiên quyết
+Wave 1b  ├─ #839    D3  Bắt buộc hạn đóng retake (mig 161b)      ◀ tiên quyết
  MỘT GÓI ├─ #840    D4  Gỡ assignment → huỷ sitting              ◀ tiên quyết
  KHÔNG   │           +  Nút "huỷ sitting" cho admin gỡ kẹt
  TÁCH LẺ └─ #841    C3  Chặn 2 sitting cùng lúc (mig 162)        ◀ QĐ 1
@@ -306,7 +306,7 @@ ghi đè đúng, không nhân bản.
 > viết theo thứ tự merge; đánh số PR thật thay vì nhãn PR-N trừu tượng để không còn
 > nguy cơ đọc nhầm thứ tự (Codex review, PR #850).
 
-### #839 · D3 — Bắt buộc hạn đóng cho retake · **migration 164**
+### #839 · D3 — Bắt buộc hạn đóng cho retake · **migration 161b**
 
 **Nguyên nhân gốc:** reaper chỉ thu phần **đã bắt đầu**, hoặc thu tất cả khi
 `retake_open_until` đã qua (`:1700-1707`). Nhưng `open_until` nullable và UI cho để trống
@@ -324,9 +324,11 @@ CHỤP chứ không đọc assignment (`:1700`). Một lượt thi đang kẹt `
 giữ hạn NULL sau khi assignment đã được vá — và migration 162 sẽ biến đúng hàng đó
 thành cái khoá học viên khỏi mọi kỳ thi mới, vĩnh viễn (Codex review, PR #850).
 
-`migrations/164_backfill_retake_open_until.sql` làm cả hai bước, và cố ý neo hạn của
+`migrations/161b_backfill_retake_open_until.sql` làm cả hai bước, và cố ý neo hạn của
 một lượt thi ĐANG ĐƯỢC LÀM vào chính hoạt động của nó (created_at / các mốc bắt đầu)
-để backfill không bao giờ thu bài đang thi. **Chạy 164 TRƯỚC 162**, rồi xác minh bằng
+để backfill không bao giờ thu bài đang thi. Đánh số **161b chứ không phải 164** chính là
+để `apply_migrations.sh` — vốn chạy theo thứ tự TÊN FILE — bắt buộc chạy nó trước 162; rồi
+xác minh bằng
 truy vấn join ở cuối file: không còn lượt thi retake sống nào có `retake_open_until`
 NULL trước khi tạo unique index.
 
@@ -536,7 +538,8 @@ sửa/skip/xfail test để ép xanh.
 - Migration áp **bằng tay trong Supabase SQL editor** theo tiền lệ repo, **trước** khi
   merge PR tương ứng:
   - **161** (PR-5) — RPC ghi đáp án Listening
-  - **164** (#839) — backfill hạn retake (assignment + BẢN CHỤP trên sitting) · chạy TRƯỚC 162
+  - **161b** (#839) — backfill hạn retake (assignment + BẢN CHỤP trên sitting) · tên đặt
+    để runner buộc phải chạy TRƯỚC 162
   - **162** (#841) — index chặn cross-exam · ⚠ **phải rà soát + dọn dữ liệu trước**, xem #839
 - `frontend/pages` và `frontend/js` là **symlink** sang `frontend/public/*` — sửa file ở
   `public/`.
