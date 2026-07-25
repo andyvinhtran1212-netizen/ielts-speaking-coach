@@ -18,6 +18,8 @@
   var SECTION_LABEL = { not_started: 'Chưa bắt đầu', listening: 'Listening',
                         reading: 'Reading', writing: 'Writing', done: 'Đã xong' };
   var REFRESH_MS = 15000;
+  // In-flight guard for the one irreversible action on this page.
+  var _advancing = false;
 
   function el(id) { return document.getElementById(id); }
   function esc(s) { return (window.WC && window.WC.escapeHtml) ? window.WC.escapeHtml(s) : String(s == null ? '' : s); }
@@ -218,11 +220,24 @@
       ? 'Bắt đầu kỳ thi — mở phần ' + label + ' cho toàn bộ học viên?'
       : 'Thu bài phần ' + (SECTION_LABEL[activeSection] || activeSection) + ' (' + collectNote + ') và mở phần ' + label + '?';
     if (!confirm(msg)) return;
+    // Disable while in flight. The server has an optimistic guard (B2) so a
+    // double-click can no longer skip a section or reset the class clock, but
+    // the second click would still surface a 409 the admin has to decode —
+    // better not to fire it at all.
+    if (_advancing) return;
+    _advancing = true;
+    var btn = document.querySelector('[data-act="advance"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Đang chuyển…'; }
     try {
       await window.api.post('/admin/mock-exams/' + encodeURIComponent(ex.id) + '/advance', {});
       toast('Đã mở phần ' + label + '.');
       loadExams();
-    } catch (e) { toast('Thất bại: ' + (e && e.message)); }
+    } catch (e) {
+      toast('Thất bại: ' + (e && e.message));
+      loadExams();   // re-read: a 409 means someone else already advanced
+    } finally {
+      _advancing = false;
+    }
   }
 
   // ── Retake: gán đề cho từng học viên ────────────────────────────────

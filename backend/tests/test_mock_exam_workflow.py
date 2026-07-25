@@ -2287,6 +2287,46 @@ def test_retake_assign_rejects_inverted_window(fake_db):
     }], created_by=str(uuid4()))
 
 
+# ── B2: advance is win-once ───────────────────────────────────────────
+
+
+def test_advance_is_win_once_under_concurrency(fake_db, svc):
+    """B2 — two invigilators, two tabs, or a double-click all reach here with
+    the SAME `current`. Without the optimistic guard both writes land: the class
+    either skips a whole section, or {next}_started_at is re-stamped and the
+    countdown RESETS, quietly handing everyone extra time."""
+    exam = _seed_exam(fake_db)
+    svc.advance_section(exam["id"], "admin-1")            # not_started → listening
+    first = svc.get_published_exam_by_id(exam["id"])
+    assert first["active_section"] == "listening"
+    started = first["listening_started_at"]
+
+    # A second caller that still believes the exam is at not_started.
+    with pytest.raises(svc.SittingConflictError):
+        svc._advance_from(exam["id"], "admin-2", "not_started")
+
+    after = svc.get_published_exam_by_id(exam["id"])
+    assert after["active_section"] == "listening"          # did not skip ahead
+    assert after["listening_started_at"] == started        # clock NOT reset
+
+
+def test_advance_conflict_message_names_the_current_section(fake_db, svc):
+    """The admin needs to know what actually holds, not just that it failed."""
+    exam = _seed_exam(fake_db)
+    svc.advance_section(exam["id"], "admin-1")
+    with pytest.raises(svc.SittingConflictError) as exc:
+        svc._advance_from(exam["id"], "admin-2", "not_started")
+    assert "listening" in str(exc.value)
+
+
+def test_advance_still_walks_the_configured_sequence(fake_db, svc):
+    """The guard must not change the normal one-at-a-time walk."""
+    exam = _seed_exam(fake_db)
+    for expected in ("listening", "reading", "writing", "done"):
+        svc.advance_section(exam["id"], "admin-1")
+        assert svc.get_published_exam_by_id(exam["id"])["active_section"] == expected
+
+
 # ── C3: one live sitting per student, across ALL exams ────────────────
 
 
