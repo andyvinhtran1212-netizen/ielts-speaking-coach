@@ -1125,6 +1125,34 @@ function retryFailedSaves() {
   due.forEach((qNum) => { void saveAnswer(qNum, STATE.answers.get(qNum)); });
 }
 
+// Drain every pending save before finalising, INCLUDING ones that had to be
+// re-queued behind an in-flight request.
+//
+// saveAnswer() returns immediately when the same question is already on the
+// wire — it re-arms the debounce with the newer value. A caller that simply
+// awaited the returned promise therefore proceeded to submit while the latest
+// answer was still only scheduled; the delayed PATCH then hit a finalised
+// attempt and was rejected, so grading used the PREVIOUS answer (Codex review,
+// PR #837).
+//
+// Loop until nothing is queued and nothing is in flight, bounded so a
+// permanently failing save can never wedge submission.
+async function flushAllPendingSaves(maxRounds = 6) {
+  for (let round = 0; round < maxRounds; round++) {
+    const due = Array.from(STATE.saveTimers.keys());
+    for (const q of due) {
+      clearTimeout(STATE.saveTimers.get(q));
+      STATE.saveTimers.delete(q);
+      // Read the CURRENT value, not one captured before the wait.
+      await saveAnswer(q, STATE.answers.get(q)).catch(() => {});
+    }
+    if (!STATE.saveTimers.size && !STATE.inflight.size) return;
+    // Give the in-flight request a moment to settle so its re-queued
+    // successor becomes visible on the next round.
+    await new Promise((r) => setTimeout(r, 150));
+  }
+}
+
 function scheduleAutoSave(qNum, value) {
   if (STATE.saveTimers.has(qNum)) {
     clearTimeout(STATE.saveTimers.get(qNum));
@@ -1182,7 +1210,14 @@ async function saveAnswer(qNum, value, opts) {
       setSaveState(qNum, 'retrying');
       const handle = setTimeout(() => {
         STATE.saveRetryTimers.delete(qNum);
-        void saveAnswer(qNum, value, { attempt: attempt + 1, gen });
+        // Re-read the CURRENT answer rather than replaying the value captured
+        // when this chain started. An edit made during the backoff only arms
+        // its own 500ms debounce and does not cancel this retry, so replaying
+        // the capture would PATCH stale text, then clear the unsaved cue —
+        // telling the student the newest answer is safe while the server holds
+        // the older one (Codex review, PR #837).
+        const current = STATE.answers.has(qNum) ? STATE.answers.get(qNum) : value;
+        void saveAnswer(qNum, current, { attempt: attempt + 1, gen });
       }, SAVE_RETRY_DELAYS[attempt]);
       STATE.saveRetryTimers.set(qNum, handle);
     } else {
@@ -1362,13 +1397,9 @@ async function confirmSubmit() {
   $('btn-submit').disabled = true;
   $('btn-submit').textContent = 'Đang chấm…';
 
-  // Flush any pending debounced saves first.
-  const pending = Array.from(STATE.saveTimers.keys());
-  for (const q of pending) {
-    clearTimeout(STATE.saveTimers.get(q));
-    STATE.saveTimers.delete(q);
-    await saveAnswer(q, STATE.answers.get(q));
-  }
+  // Flush any pending debounced saves first — including ones re-queued behind
+  // an in-flight request, which the old single pass walked straight past.
+  await flushAllPendingSaves();
 
   try {
     const result = await window.api.post(
@@ -1488,15 +1519,9 @@ function main() {
 // answer isn't stranded in the debounce queue.
 window.addEventListener('message', async (ev) => {
   if (!ev.data || ev.data.type !== 'mock-flush') return;
-  const pending = [];
   try {
-    for (const q of Array.from(STATE.saveTimers.keys())) {
-      clearTimeout(STATE.saveTimers.get(q));
-      STATE.saveTimers.delete(q);
-      pending.push(saveAnswer(q, STATE.answers.get(q)));
-    }
-  } catch (e) { /* best-effort */ }
-  await Promise.all(pending.map((p) => (p && p.catch) ? p.catch(() => {}) : Promise.resolve()));
+    await flushAllPendingSaves();
+  } catch (e) { /* best-effort — the parent must not hang on our failure */ }
   if (ev.source) ev.source.postMessage({ type: 'mock-flushed', section: 'listening' }, '*');
 });
 

@@ -111,6 +111,27 @@ describe('A4a — autosave no longer drops answers silently', () => {
     assert.match(JS, /addEventListener\('online', retryFailedSaves\)/);
   });
 
+  test('finalising DRAINS re-queued saves instead of walking past them', () => {
+    // saveAnswer returns immediately when the question is already on the wire —
+    // it re-arms the debounce. A single pass therefore submitted while the
+    // newest answer was still only scheduled, and the delayed PATCH was then
+    // rejected by a finalised attempt, so grading used the PREVIOUS answer.
+    assert.match(JS, /async function flushAllPendingSaves/);
+    assert.match(JS, /!STATE\.saveTimers\.size && !STATE\.inflight\.size/);
+    // both finalisation paths go through it
+    const uses = JS.match(/flushAllPendingSaves\(\)/g) || [];
+    assert.ok(uses.length >= 2, 'submit AND mock-flush must both drain');
+    // and it is bounded, so a permanently failing save cannot wedge submission
+    assert.match(JS, /maxRounds = \d+/);
+  });
+
+  test('a retry sends the CURRENT answer, not the value it captured', () => {
+    // An edit during the backoff arms its own debounce but does not cancel the
+    // retry; replaying the capture would PATCH stale text and then clear the
+    // unsaved cue, claiming the newest answer is safe when it is not.
+    assert.match(JS, /STATE\.answers\.has\(qNum\) \? STATE\.answers\.get\(qNum\) : value/);
+  });
+
   test('the pre-start rules no longer promise the old 2s save', () => {
     assert.doesNotMatch(HTML, /lưu tự động sau mỗi 2 giây/);
   });
