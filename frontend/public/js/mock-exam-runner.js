@@ -65,6 +65,11 @@
     S.code = q.get('code'); S.sittingId = q.get('sitting');
     var sb = window.getSupabase && window.getSupabase();
     if (sb) { var sess = await sb.auth.getSession(); if (!sess.data.session) { location.href = '/index.html'; return; } }
+    // Settle an unpaid Speaking report — AFTER the session check, never before.
+    // practice.js is loaded only by the practice pages, so a student who closed
+    // the completion tab and came back HERE would otherwise leave the sitting
+    // stuck in speaking_pending forever (Codex review, PR #847).
+    if (window.SpeakingDebt) window.SpeakingDebt.retryAll();
     try {
       var createdNow = false;
       if (!S.sittingId) {
@@ -259,6 +264,12 @@
   // be the copy that gets promoted for grading (Codex review, PR #835).
   var _wInFlight = null;
   var _wGen = 0;                  // which save is the current one
+  // Abort handle for the request on the wire. The endpoint is last-writer-wins,
+  // so a keepalive replacement issued from pagehide must CANCEL the earlier
+  // request rather than race it: otherwise the older body can land last and
+  // overwrite the newer draft, and a force-collection then grades stale text
+  // (Codex review, PR #835).
+  var _wAbort = null;
 
   // `synced` records whether the SERVER has confirmed this exact text. It is
   // the only reliable answer to "is the local copy ahead?": the two timestamps
@@ -368,6 +379,11 @@
     // the current text instead; the endpoint is an idempotent overwrite of the
     // same draft, so a duplicate write costs nothing (Codex review, PR #835).
     if (_wSaving && !keepalive) return _wInFlight || Promise.resolve();
+    // Cancel the request this one supersedes. Without it both are in flight
+    // against a last-writer-wins endpoint and the OLDER body can commit last.
+    if (_wAbort) { try { _wAbort.abort(); } catch (e) {} _wAbort = null; }
+    var ctrl = (typeof AbortController === 'function') ? new AbortController() : null;
+    _wAbort = ctrl;
     var gen = ++_wGen;
     _wSaving = true;
     setSaveCue('saving');
@@ -376,7 +392,10 @@
     // the pagehide path is exactly the case this feature exists for.
     _wInFlight = window.api.postWith(
       '/api/mock-exams/sittings/' + encodeURIComponent(S.sittingId) + '/writing',
-      body, null, { keepalive: !!(opts && opts.keepalive) }
+      body, null, {
+        keepalive: keepalive,
+        signal: ctrl ? ctrl.signal : undefined,
+      }
     ).then(function () {
       _wLastSaved = { task1: body.task1_text, task2: body.task2_text };
       // Only declare the draft clean if the textareas STILL match what we sent.
@@ -396,6 +415,9 @@
         scheduleWritingSave();
       }
     }).catch(function (e) {
+      // A save we deliberately cancelled is not a failure: its replacement is
+      // already on the wire carrying newer text.
+      if (e && (e.name === 'AbortError' || e.code === 20)) return;
       // Stay dirty AND schedule a real retry. Leaving only the flag set meant
       // nothing retried until the student typed again, went offline→online, or
       // left the page — while the cue promised an automatic retry.
@@ -412,7 +434,7 @@
       // Only the LATEST request may clear these — a keepalive re-send issued
       // over a still-pending normal save would otherwise be un-tracked the
       // moment the older one settled.
-      if (gen === _wGen) { _wSaving = false; _wInFlight = null; }
+      if (gen === _wGen) { _wSaving = false; _wInFlight = null; _wAbort = null; }
     });
     return _wInFlight;
   }
@@ -719,6 +741,16 @@
   async function submitSection(section, auto, attempt) {
     attempt = attempt || 0;
     if (_submitting && attempt === 0) return;
+    // A RETRY FOR A SECTION THE CLASS HAS LEFT MUST DO NOTHING. The retry is a
+    // delayed timer, so the admin can force-collect and a poll can render the
+    // NEXT section before it fires. It then cleared the global timerIv, and its
+    // own 409 handler — correctly seeing the exam had moved on — returned
+    // without restarting it: the new section's countdown froze at whatever it
+    // showed and never auto-submitted (Codex review, PR #836).
+    if (attempt > 0 && S.renderedSection && S.renderedSection !== section) {
+      _submitting = false;
+      return;
+    }
     _submitting = true;
     if (timerIv) { clearInterval(timerIv); timerIv = null; }
     try {

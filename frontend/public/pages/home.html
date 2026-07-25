@@ -265,6 +265,11 @@
     var SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
     initSupabase(SUPABASE_URL, SUPABASE_ANON);
   </script>
+  <!-- A5: settle any unpaid "Speaking is done" report. practice.js is loaded
+       only by the practice pages, so a student who closed the completion tab
+       and came back HERE — the normal post-exam path — would otherwise leave
+       the sitting stuck in speaking_pending forever (Codex review, PR #847). -->
+  <script src="../js/speaking-debt.js"></script>
   <script src="../js/home.js"></script>
   <script src="../js/home-mock-tiles.js"></script>
 

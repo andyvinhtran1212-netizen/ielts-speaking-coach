@@ -18,6 +18,11 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const JS = readFileSync(join(__dirname, '..', 'public', 'js', 'practice.js'), 'utf8');
+const DEBT = readFileSync(join(__dirname, '..', 'public', 'js', 'speaking-debt.js'), 'utf8');
+const HOME_JS = readFileSync(join(__dirname, '..', 'public', 'js', 'home.js'), 'utf8');
+const RUNNER = readFileSync(join(__dirname, '..', 'public', 'js', 'mock-exam-runner.js'), 'utf8');
+const HOME = readFileSync(join(__dirname, '..', 'public', 'pages', 'home.html'), 'utf8');
+const MOCK = readFileSync(join(__dirname, '..', 'public', 'pages', 'mock-exam.html'), 'utf8');
 const HTML = readFileSync(join(__dirname, '..', 'public', 'pages', 'practice.html'), 'utf8');
 
 describe('A5 — the debt retry must wait for authentication', () => {
@@ -45,18 +50,18 @@ describe('A5 — the debt retry must wait for authentication', () => {
 
 describe('A5 — an unauthenticated attempt must not look like success', () => {
   test('401 keeps the debt instead of discarding it', () => {
-    assert.match(JS, /if \(st === 401\) throw err;/);
+    assert.match(DEBT, /if \(st === 401\) throw err;/);
   });
 
   test('a null resolution (redirected request) is treated as failure', () => {
     // api.js resolves null after redirecting a 401; clearing the debt there
     // would throw away the only retry record.
-    assert.match(JS, /r === null \|\| r === undefined\) throw new Error\('unauthenticated'\)/);
+    assert.match(DEBT, /r === null \|\| r === undefined\) throw new Error\('unauthenticated'\)/);
   });
 
   test('genuinely terminal statuses still clear the debt', () => {
     // 403/404/409 repeat identically — keeping the debt would retry forever.
-    assert.match(JS, /st === 403 \|\| st === 409 \|\| st === 404.*_clearSpeakingDebt/s);
+    assert.match(DEBT, /st === 403 \|\| st === 409 \|\| st === 404.*clear\(sittingId\)/s);
   });
 });
 
@@ -66,22 +71,52 @@ describe('A5 round 3 — the debt is a per-sitting queue, not one slot', () => {
     // exam, so two debts can genuinely be outstanding at once. One slot meant
     // the second mock erased the first, which could then sit unreleased
     // forever.
-    assert.match(JS, /function _readSpeakingDebts\(\)/);
-    assert.match(JS, /function _writeSpeakingDebts\(list\)/);
-    assert.match(JS, /list\.push\(\{ sitting_id: sittingId, session_ids: ids \}\)/);
+    assert.match(DEBT, /function read\(\)/);
+    assert.match(DEBT, /function write\(list\)/);
+    assert.match(DEBT, /list\.push\(\{ sitting_id: sittingId, session_ids: ids, user_id: userId \|\| null \}\)/);
   });
 
   test('only the settled sitting is removed', () => {
-    assert.match(JS, /function _clearSpeakingDebt\(sittingId\)/);
-    assert.match(JS, /_clearSpeakingDebt\(sittingId\)/);
-    assert.doesNotMatch(JS, /_clearSpeakingDebt\(\);/);
+    assert.match(DEBT, /function clear\(sittingId\)/);
+    assert.match(DEBT, /clear\(sittingId\);/);
+    assert.doesNotMatch(DEBT, /clear\(\);/);
   });
 
   test('the single-object shape written before this change still loads', () => {
-    assert.match(JS, /if \(!Array\.isArray\(raw\)\) return raw\.sitting_id \? \[raw\] : \[\];/);
+    assert.match(DEBT, /if \(!Array\.isArray\(raw\)\) return raw\.sitting_id \? \[raw\] : \[\];/);
   });
 
   test('every outstanding debt is retried on load, independently', () => {
-    assert.match(JS, /_readSpeakingDebts\(\)\.forEach\(function \(owed\) \{/);
+    assert.match(DEBT, /debts\.forEach\(function \(owed\) \{/);
+  });
+});
+
+describe('A5 round 4 — the debt is settled from pages students revisit', () => {
+  test('the queue lives in a shared module, not inside practice.js', () => {
+    // practice.js is loaded ONLY by the practice pages: a student who closed
+    // the completion tab and came back through Home or the mock-exam page
+    // never processed the debt, so the sitting stayed speaking_pending.
+    assert.match(JS, /if \(window\.SpeakingDebt\) window\.SpeakingDebt\.retryAll\(\);/);
+    assert.match(DEBT, /window\.SpeakingDebt = \(function \(\)/);
+  });
+
+  test('home and the mock runner load it and call it after authenticating', () => {
+    assert.match(HOME, /speaking-debt\.js/);
+    assert.match(MOCK, /speaking-debt\.js/);
+    assert.match(HOME_JS, /if \(window\.SpeakingDebt\) window\.SpeakingDebt\.retryAll\(\);/);
+    assert.match(RUNNER, /if \(window\.SpeakingDebt\) window\.SpeakingDebt\.retryAll\(\);/);
+    // the runner's call must sit AFTER its session check
+    const boot = RUNNER.slice(RUNNER.indexOf('async function boot()'));
+    assert.ok(boot.indexOf('sb.auth.getSession()') < boot.indexOf('SpeakingDebt.retryAll()'));
+  });
+
+  test('a debt is stamped with its owner', () => {
+    assert.match(DEBT, /user_id: userId \|\| null/);
+  });
+
+  test("another account's debt is skipped, never cleared", () => {
+    // localStorage is origin-wide: user B's retry gets a 403 for user A's debt,
+    // and clearing on that response destroyed A's only record.
+    assert.match(DEBT, /if \(me && owed\.user_id && String\(owed\.user_id\) !== String\(me\)\) return;/);
   });
 });

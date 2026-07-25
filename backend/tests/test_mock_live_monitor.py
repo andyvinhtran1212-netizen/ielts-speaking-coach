@@ -681,3 +681,28 @@ def test_pacing_reports_unknown_order_when_nothing_was_answered(fake_db, svc):
     lis = svc.sitting_pacing(_find_sitting_id(fake_db))["sections"]["listening"]
     assert lis["timeline"] == []
     assert lis["worked_in_paper_order"] is None
+
+
+def test_pacing_shows_an_assigned_section_with_no_attempt(fake_db, svc):
+    """Codex #848 (correct): creating the L/R entries only when an attempt id
+    exists made an ASSIGNED section vanish when the attempt had not been created
+    yet — or its creation failed, a state admin_live_monitor() explicitly
+    supports — so an L/R-only retake opened a completely blank pacing page
+    instead of saying that no answers were saved."""
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    fake_db.seed("reading_tests", {"id": exam["reading_test_id"],
+                                   "total_questions": 40})
+    uid = str(uuid4())
+    fake_db.seed("users", {"id": uid, "display_name": "An", "email": None})
+    _seed_sitting(fake_db, exam, uid, assigned_skills=["reading"],
+                  reading_attempt_id=None)
+
+    out = svc.sitting_pacing(_find_sitting_id(fake_db))
+    assert "reading" in out["sections"], out["sections"].keys()
+    rd = out["sections"]["reading"]
+    assert rd["timeline"] == []
+    assert rd["answered"] == 0
+    assert rd["total"] == 40
+    assert rd["worked_in_paper_order"] is None

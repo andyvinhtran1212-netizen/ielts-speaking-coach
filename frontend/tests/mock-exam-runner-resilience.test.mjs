@@ -191,3 +191,25 @@ describe('integrity signals — the console renders what the runner records', ()
     assert.doesNotMatch(LIVE, /i\.resumes > 1/);
   });
 });
+
+describe('A3 round 4 — a stale retry must not stop the next section', () => {
+  test('a retry for a section the class has left returns immediately', () => {
+    // The retry is a delayed timer: the admin can force-collect and a poll can
+    // render the NEXT section before it fires. It then cleared the global
+    // timerIv, and its own 409 handler — correctly seeing the exam had moved on
+    // — returned without restarting it, so the new countdown froze and never
+    // auto-submitted.
+    assert.match(JS, /if \(attempt > 0 && S\.renderedSection && S\.renderedSection !== section\) \{\s*\n\s*_submitting = false;\s*\n\s*return;\s*\n\s*\}/);
+  });
+
+  test('the guard sits BEFORE the timer is cleared', () => {
+    const fn = JS.slice(JS.indexOf('async function submitSection(section, auto, attempt)'));
+    const guard = fn.indexOf('S.renderedSection !== section');
+    const clear = fn.indexOf('if (timerIv) { clearInterval(timerIv); timerIv = null; }');
+    assert.ok(guard > 0 && clear > guard, 'bail out before touching the shared timer');
+  });
+
+  test('the owed-submit path keeps its own moved-on check', () => {
+    assert.match(JS, /if \(sit\[section \+ '_submitted_at'\] \|\| S\.activeSection !== section\) \{/);
+  });
+});
