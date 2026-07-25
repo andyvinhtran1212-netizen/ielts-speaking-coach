@@ -2264,14 +2264,42 @@
   var _SPEAK_REPORT_KEY = 'mock-speaking-owed';
   var _SPEAK_RETRY_DELAYS = [1000, 3000, 8000];
 
-  function _rememberSpeakingDebt(sittingId, ids) {
+  // A QUEUE keyed by sitting, not a single slot. One slot overwrote the previous
+  // sitting's debt whenever another mock finished — and that is reachable:
+  // speaking_pending deliberately does NOT block the student from starting
+  // another exam, so if the first report is still failing when the second
+  // completes, only the second stays retryable and the first can sit unreleased
+  // indefinitely (Codex review, PR #847).
+  function _readSpeakingDebts() {
+    var raw = null;
+    try { raw = JSON.parse(localStorage.getItem(_SPEAK_REPORT_KEY) || 'null'); } catch (e) { return []; }
+    if (!raw) return [];
+    // Migrate the single-object shape written before this change.
+    if (!Array.isArray(raw)) return raw.sitting_id ? [raw] : [];
+    return raw.filter(function (d) { return d && d.sitting_id; });
+  }
+
+  function _writeSpeakingDebts(list) {
     try {
-      localStorage.setItem(_SPEAK_REPORT_KEY,
-        JSON.stringify({ sitting_id: sittingId, session_ids: ids }));
+      if (!list.length) localStorage.removeItem(_SPEAK_REPORT_KEY);
+      else localStorage.setItem(_SPEAK_REPORT_KEY, JSON.stringify(list));
     } catch (e) {}
   }
-  function _clearSpeakingDebt() {
-    try { localStorage.removeItem(_SPEAK_REPORT_KEY); } catch (e) {}
+
+  function _rememberSpeakingDebt(sittingId, ids) {
+    var list = _readSpeakingDebts().filter(function (d) {
+      return String(d.sitting_id) !== String(sittingId);
+    });
+    list.push({ sitting_id: sittingId, session_ids: ids });
+    _writeSpeakingDebts(list);
+  }
+
+  // Remove ONLY the entry whose request succeeded (or is deterministically
+  // dead). Clearing the whole key would drop every other sitting's debt with it.
+  function _clearSpeakingDebt(sittingId) {
+    _writeSpeakingDebts(_readSpeakingDebts().filter(function (d) {
+      return String(d.sitting_id) !== String(sittingId);
+    }));
   }
 
   function _reportSpeakingToSitting(sittingId, ids, attempt) {
@@ -2285,7 +2313,7 @@
       // api.js resolves NULL after redirecting an unauthenticated request.
       // Clearing the debt on that would throw away the only retry record.
       if (r === null || r === undefined) throw new Error('unauthenticated');
-      _clearSpeakingDebt();
+      _clearSpeakingDebt(sittingId);
       return r;
     }).catch(function (err) {
       // 409/403 are deterministic — the sitting is released/void, or the
@@ -2295,7 +2323,7 @@
       // 401 is NOT terminal — it means we asked too early or the token lapsed.
       // Keep the debt so the next authenticated load settles it.
       if (st === 401) throw err;
-      if (st === 403 || st === 409 || st === 404) { _clearSpeakingDebt(); throw err; }
+      if (st === 403 || st === 409 || st === 404) { _clearSpeakingDebt(sittingId); throw err; }
       if (attempt >= _SPEAK_RETRY_DELAYS.length) throw err;   // debt persists
       return new Promise(function (resolve) {
         setTimeout(function () {
@@ -2309,11 +2337,15 @@
   // when there is no debt, and is the difference between a sitting that
   // finalises on the student's next page view and one that never does.
   function _retryOwedSpeakingReport() {
-    var owed = null;
-    try { owed = JSON.parse(localStorage.getItem(_SPEAK_REPORT_KEY) || 'null'); } catch (e) {}
-    if (!owed || !owed.sitting_id) return;
-    _reportSpeakingToSitting(owed.sitting_id, owed.session_ids || [])
-      .catch(function (e) { console.warn('[practice] owed speaking report still failing', e); });
+    // Every outstanding sitting, each settled independently — one that is
+    // permanently dead (403/409) removes only itself.
+    _readSpeakingDebts().forEach(function (owed) {
+      _reportSpeakingToSitting(owed.sitting_id, owed.session_ids || [])
+        .catch(function (e) {
+          console.warn('[practice] owed speaking report still failing',
+                       owed.sitting_id, e);
+        });
+    });
   }
 
   // Called when the last Part 3 question is submitted in test_full mode.

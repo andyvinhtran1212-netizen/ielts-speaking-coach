@@ -59,3 +59,29 @@ describe('A5 — an unauthenticated attempt must not look like success', () => {
     assert.match(JS, /st === 403 \|\| st === 409 \|\| st === 404.*_clearSpeakingDebt/s);
   });
 });
+
+describe('A5 round 3 — the debt is a per-sitting queue, not one slot', () => {
+  test('a new debt is appended, never overwriting another sitting', () => {
+    // speaking_pending deliberately does NOT block the student starting another
+    // exam, so two debts can genuinely be outstanding at once. One slot meant
+    // the second mock erased the first, which could then sit unreleased
+    // forever.
+    assert.match(JS, /function _readSpeakingDebts\(\)/);
+    assert.match(JS, /function _writeSpeakingDebts\(list\)/);
+    assert.match(JS, /list\.push\(\{ sitting_id: sittingId, session_ids: ids \}\)/);
+  });
+
+  test('only the settled sitting is removed', () => {
+    assert.match(JS, /function _clearSpeakingDebt\(sittingId\)/);
+    assert.match(JS, /_clearSpeakingDebt\(sittingId\)/);
+    assert.doesNotMatch(JS, /_clearSpeakingDebt\(\);/);
+  });
+
+  test('the single-object shape written before this change still loads', () => {
+    assert.match(JS, /if \(!Array\.isArray\(raw\)\) return raw\.sitting_id \? \[raw\] : \[\];/);
+  });
+
+  test('every outstanding debt is retried on load, independently', () => {
+    assert.match(JS, /_readSpeakingDebts\(\)\.forEach\(function \(owed\) \{/);
+  });
+});

@@ -47,6 +47,7 @@ class _Query:
         self.in_filters = []       # (field, [values], negate)
         self.limit_n = None
         self.order_by = None
+        self.range_window = None
         self._negate_next = False
 
     @property
@@ -93,6 +94,14 @@ class _Query:
 
     def limit(self, n):
         self.limit_n = n
+        return self
+
+    def range(self, start, end):
+        # PostgREST-style inclusive window. Modelled because a query that can
+        # grow with the platform MUST page (PostgREST answers with one page and
+        # no error past its row cap) — so the fake has to be able to say
+        # "that's the last page" or the drain loop would never terminate.
+        self.range_window = (start, end)
         return self
 
     def order(self, field, desc=False):
@@ -143,6 +152,9 @@ class _Query:
                 matched.sort(key=lambda r: r.get(field) or "", reverse=desc)
             if self.limit_n is not None:
                 matched = matched[: self.limit_n]
+            if self.range_window is not None:
+                lo, hi = self.range_window
+                matched = matched[lo:hi + 1]
             return _Response(matched)
 
         if self.op == "update":
@@ -2394,6 +2406,149 @@ def test_collect_counts_only_papers_actually_taken(fake_db, svc, monkeypatch):
     assert svc.collect_section(exam["id"], "admin-1")["collected"] == 0
 
 
+def test_late_entrant_during_the_pause_stays_in_the_waiting_room(fake_db, svc):
+    """Codex #843 (correct, P1): collecting only stamped the sittings that
+    already EXISTED. `active_section` and `is_open` were untouched, so an
+    eligible student who had not opened the exam yet could create a sitting
+    during the pause — and their brand-new row has no submission stamp, so
+    get_sitting_state() reports the still-active section and the runner hands
+    them the paper the room already turned in, with the class clock running."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → listening
+    svc.collect_section(exam["id"], "admin-1")
+
+    # the pause is now a CANONICAL fact on the exam row, not an emergent one
+    assert svc.get_published_exam_by_id(exam["id"])["collected_section"] == "listening"
+
+    late = svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    assert late["listening_submitted_at"] is not None, (
+        "a sitting created during the pause must be born with the collected "
+        "section already in — otherwise the runner opens it")
+
+
+def test_advancing_ends_the_pause(fake_db, svc):
+    """Otherwise every sitting created after the advance would still be born
+    with the PREVIOUS section stamped submitted."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+    svc.collect_section(exam["id"], "admin-1")
+    svc.advance_section(exam["id"], "admin-1")            # → reading
+
+    after = svc.get_published_exam_by_id(exam["id"])
+    assert after["active_section"] == "reading"
+    assert after["collected_section"] is None
+    fresh = svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    assert fresh.get("reading_submitted_at") is None      # reading really is open
+
+
+def test_collect_reports_a_lookup_failure_instead_of_zero_success(fake_db, svc, monkeypatch):
+    """Codex #843 (correct, P1): returning 0 on a lookup failure made /collect
+    answer successfully and the console say "Đã thu bài … 0 bài" while every
+    student might still be working. Best-effort is right for the advance safety
+    net, wrong for the explicit collect action."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+
+    real_table = fake_db.table
+
+    def boom(name):
+        if name == "mock_exam_sittings":
+            raise RuntimeError("db down")
+        return real_table(name)
+
+    monkeypatch.setattr(fake_db, "table", boom)
+    with pytest.raises(svc.MockExamError):
+        svc.collect_section(exam["id"], "admin-1")
+    monkeypatch.undo()
+
+    # the advance safety net stays best-effort — the class must still move on
+    monkeypatch.setattr(fake_db, "table", boom)
+    assert svc._force_collect_section(exam["id"], "listening") == 0
+    monkeypatch.undo()
+
+
+def test_a_second_sweep_cannot_grade_the_same_paper_twice(fake_db, svc, monkeypatch):
+    """Codex #844 (correct, P1): the sweep is a background task, so an admin who
+    presses "Thu bài" again — or advances — before the first finishes queues a
+    SECOND sweep over the same rows. Each snapshots the rows with a null
+    submitted stamp, so without a compare-and-set both proceed to grade the same
+    attempt, and two concurrent Writing sweeps each promote essays before either
+    has stored essay_task*_id."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → listening
+    row = fake_db.rows("mock_exam_sittings")[0]
+
+    promoted = []
+    monkeypatch.setattr(svc, "_promote_writing_essays", lambda sid: promoted.append(sid))
+
+    # BOTH sweeps hold the same pre-collection snapshot of the row — exactly
+    # what two overlapping background tasks see.
+    snapshot = dict(row)
+    assert svc._collect_section_for_sitting(snapshot, "listening") is True
+    assert svc._collect_section_for_sitting(snapshot, "listening") is False, (
+        "the second sweep must lose the claim, not redo the work")
+
+
+def test_the_writing_sweep_promotes_essays_exactly_once(fake_db, svc, monkeypatch):
+    """The duplicate-essay case specifically: promotion happens only for the
+    task that WON the submitted-stamp claim."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    for _ in range(3):
+        svc.advance_section(exam["id"], "admin-1")        # → writing
+    row = dict(fake_db.rows("mock_exam_sittings")[0])
+
+    promoted = []
+    monkeypatch.setattr(svc, "_promote_writing_essays", lambda sid: promoted.append(sid))
+    svc._collect_section_for_sitting(row, "writing")
+    svc._collect_section_for_sitting(row, "writing")
+    assert len(promoted) == 1, promoted
+
+
+def test_the_final_advance_keeps_a_grace_anchor(fake_db, svc):
+    """Codex #844 (correct): with no anchor for 'done', _sweep_grace_elapsed
+    returned True immediately — so a poll taken while the healthy FINAL sweep
+    was still running labelled every unprocessed paper 'missed' and offered a
+    recollect that would race it."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    for _ in range(4):                                    # → done
+        svc.advance_section(exam["id"], "admin-1")
+
+    after = svc.get_published_exam_by_id(exam["id"])
+    assert after["active_section"] == "done"
+    assert after["done_at"], "the final transition must record its own time"
+    assert svc._sweep_grace_elapsed(after, "done") is False
+
+    # ...and the verdict is NOT suppressed forever: an old exam that reached
+    # 'done' before mig 167 has no anchor and still reports elapsed.
+    assert svc._sweep_grace_elapsed({**after, "done_at": None}, "done") is True
+
+
+def test_preflight_fails_loudly_when_the_pending_count_cannot_be_read(fake_db, svc, monkeypatch):
+    """Codex #844 (correct): returning 0 turned "we don't know" into a valid
+    count — /collect answered 202 and the console said it was collecting ZERO
+    papers, while the queued sweep hit the same failing database."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+
+    real_table = fake_db.table
+
+    def boom(name):
+        if name == "mock_exam_sittings":
+            raise RuntimeError("db down")
+        return real_table(name)
+
+    monkeypatch.setattr(fake_db, "table", boom)
+    with pytest.raises(svc.MockExamError):
+        svc.collect_preflight(exam["id"])
+
+
 def test_collect_rejected_before_the_exam_starts(fake_db, svc):
     exam = _seed_exam(fake_db)
     with pytest.raises(svc.SittingConflictError):
@@ -2795,6 +2950,36 @@ def test_reassign_reports_a_failed_refresh_separately(fake_db, svc, monkeypatch)
     assert res["refreshed"] == [] and res["locked"] == []
 
 
+def test_reassign_loses_the_race_when_the_student_starts_mid_write(fake_db, svc, monkeypatch):
+    """Codex #845 (correct): the guard SELECT and the UPDATE are two round
+    trips. A student who presses "Bắt đầu" in between has start_section() stamp
+    their clock, and the unconditional update still replaced the skill set —
+    potentially removing the very section they are actively sitting.
+
+    Staged by making the GUARD read stale (via the _sitting_started seam) while
+    the row in the database really has a clock running. That is precisely what
+    the racing caller sees, and reproducing it with real threads against a fake
+    database would be flaky theatre."""
+    from services import mock_exam_assignment_service as a
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    u = str(uuid4())
+    a.assign(exam["id"], [{"user_id": u, "skills": ["listening"], **_WINDOW}],
+             created_by=str(uuid4()))
+    sitting = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.start_section(sitting["id"], u, "listening")     # clock IS running
+
+    monkeypatch.setattr(a, "_sitting_started", lambda s: False)   # stale read
+    res = a.assign(exam["id"], [{"user_id": u, "skills": ["writing"], **_WINDOW}],
+                   created_by=str(uuid4()))
+
+    assert res["locked"] == [u], res
+    assert res["refreshed"] == []
+    assert svc.get_sitting(sitting["id"])["assigned_skills"] == ["listening"], (
+        "the section the student is actively sitting must not be taken away")
+
+
 def test_first_assign_with_no_sitting_reports_neither(fake_db):
     from services import mock_exam_assignment_service as a
     res = a.assign(str(uuid4()), [{"user_id": str(uuid4()), "skills": ["writing"], **_WINDOW}],
@@ -3037,6 +3222,40 @@ def _backdate_sitting(fake, sitting_id, **cols):
     for row in fake.rows("mock_exam_sittings"):
         if row["id"] == sitting_id:
             row.update(cols)
+
+
+def test_retake_reaper_pages_past_the_postgrest_row_cap(fake_db, svc, monkeypatch):
+    """Codex #846 (correct): PostgREST answers with ONE page and no error when a
+    query outgrows its row cap. Unpaginated, the exam lookup silently returned
+    only the first page once historical retake definitions passed it — so an
+    active sitting whose exam id fell off the end was never fetched and never
+    finalised. The generated `in.(...)` URL grows without bound too.
+
+    A 1000-row fixture would be slow theatre; shrinking the page size and the id
+    chunk proves the drain loop and the chunking instead."""
+    monkeypatch.setattr(svc, "_PAGE", 2)
+    monkeypatch.setattr(svc, "_ID_CHUNK", 2)
+
+    past = (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat()
+    n_exams = 5
+    for _ in range(n_exams):
+        exam = _seed_exam(fake_db)
+        fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+            "id", exam["id"]).execute()
+        fake_db.seed("mock_exam_sittings", {
+            "id": str(uuid4()), "mock_exam_id": exam["id"], "user_id": str(uuid4()),
+            "status": "registered", "sealed": True, "assigned_skills": ["writing"],
+            "retake_open_until": past,
+            "listening_submitted_at": None, "reading_submitted_at": None,
+            "writing_submitted_at": None,
+            "listening_attempt_id": None, "reading_attempt_id": None,
+            "speaking_session_ids": [], "writing_submission": {},
+        })
+
+    # Every exam AND every sitting must be reached — a single-page lookup would
+    # find at most _PAGE of each, whichever ones sorted first.
+    out = svc.reap_expired_retake_sittings()
+    assert out["sittings"] == n_exams, out
 
 
 def test_retake_reaper_collects_expired_started_section(fake_db, svc, wf):
