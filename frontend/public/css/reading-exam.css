@@ -729,6 +729,13 @@ body.exam-chrome[data-exam-theme="yellow-on-blue"] .exam-highlight {
   --ielts-blue:           #2b6cb0;
   --exam-timer-warn-bg:   #fff176;          /* §3A.3 10-min yellow background */
   --exam-timer-crit-bg:   #c62828;          /* §3A.3 5-min red background */
+  /* DEBT-2026-07-22-D — "answer not on the server". Derived from the design
+   * system's --av-error rather than a new literal (A4 hex ratchet), lightened
+   * with white so the ring reads on BOTH tile fills: navy (unanswered) and
+   * white (answered). --av-error alone is #B91C1C in light theme, which
+   * disappears against the navy chrome. */
+  --exam-unsaved:         color-mix(in srgb, var(--av-error) 68%, white);
+  --exam-unsaved-text:    color-mix(in srgb, var(--av-error) 30%, white);
 }
 
 /* ── AV4 — Navy header (Standards §3) ──────────────────────────────── */
@@ -1270,6 +1277,34 @@ body.exam-chrome[data-exam-theme="yellow-on-blue"] .exam-highlight {
 .exam-chrome .exam-palette__q.is-flagged.is-answered {
   border-color: var(--ielts-review);
 }
+/* DEBT-2026-07-22-D — "typed, but the server does not have it". An unsaved
+ * question is usually also answered, so this has to beat the white
+ * `.is-answered` fill: a red double-ring reads as an alert at 30px without
+ * inventing a new tile shape (the circle is already taken by review).
+ * Listed after is-flagged so unsaved wins on a flagged+unsaved tile — the
+ * data-loss warning outranks the student's own bookmark. The digit colour is
+ * left alone so the ring is the only signal to learn. */
+.exam-chrome .exam-palette__q.is-unsaved,
+.exam-chrome .exam-palette__q.is-unsaved.is-answered,
+.exam-chrome .exam-palette__q.is-unsaved.is-flagged,
+.exam-chrome .exam-palette__q.is-unsaved.is-flagged.is-answered {
+  border-color: var(--exam-unsaved);
+  box-shadow: inset 0 0 0 2px var(--exam-unsaved);
+}
+/* The unsaved note above the palette actions — only rendered while
+ * SESSION.unsaved is non-empty (JS toggles [hidden]). */
+.exam-chrome .exam-palette__unsaved {
+  margin: 6px 0 0;
+  padding: 6px 10px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--av-error) 22%, transparent);
+  border: 1px solid var(--exam-unsaved);
+  color: var(--exam-unsaved-text);
+  font-size: 12px;
+  line-height: 1.4;
+  font-family: var(--exam-font-sans);
+}
+.exam-chrome .exam-palette__unsaved[hidden] { display: none; }
 /* Legend strip (already aria-hidden) — recolour swatches against navy. */
 .exam-chrome .exam-palette__legend {
   color: rgba(255, 255, 255, 0.70);

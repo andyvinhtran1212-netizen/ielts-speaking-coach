@@ -47,6 +47,12 @@
     timer_interval: null,
     timer_locked: false,
     debounce_timers: new Map(), // q_num → setTimeout handle (auto-save debounce)
+    // DEBT-2026-07-22-D — auto-save durability. `unsaved` holds every q_num
+    // whose PATCH has failed and not yet succeeded (retries in flight count
+    // as unsaved); `save_retry_timers` holds the pending backoff handle so a
+    // fresh edit can cancel the stale retry chain for that question.
+    unsaved: new Set(),         // q_num → save failed, not yet re-saved
+    save_retry_timers: new Map(), // q_num → setTimeout handle (save backoff)
     resume_inprogress: false,   // Sprint 20.11 D5 — true when boot detected an
                                 // open attempt; pre-start surfaces the Resume
                                 // affordance and the Start button confirms.
@@ -1413,22 +1419,144 @@
     var card = document.getElementById('q-' + qNum);
     if (card) card.classList.toggle('is-answered', !!answered);
   }
-  function patchAnswer(qNum, userAnswer) {
+  // ── DEBT-2026-07-22-D — auto-save must not fail silently ────────────
+  // The comment that used to sit in patchAnswer's catch ("the source of
+  // truth is in-memory + submit body") holds ONLY for a submit from this
+  // same tab. RESUME does not use in-memory state — it re-reads the
+  // answers from the SERVER (`reading_student.py`
+  // `_fetch_in_progress_payload` → `reading_attempt_answers`). So an
+  // answer whose PATCH was swallowed is gone the moment the student
+  // refreshes, closes the tab, or reopens the test, and because the
+  // debounce fires per-q_num on edit only, that question is never retried
+  // unless the student happens to edit that exact field again.
+  //
+  // Three parts, in the order they matter: retry the failures a retry can
+  // fix, make a still-unsaved answer visible, and flush what is owed when
+  // the page goes away.
+
+  // Backoff between auto-save retries (ms). Length = retries AFTER the
+  // first attempt, so an answer gets 4 shots over ~4.6s before it is
+  // reported as unsaved-and-given-up.
+  var _SAVE_RETRY_DELAYS = [400, 1200, 3000];
+
+  // Retry only what a retry can fix. No `status` → the fetch never
+  // produced a response (offline, DNS, connection dropped). `status >= 500`
+  // → server or gateway failure, including the plain-text upstream 5xx the
+  // Supabase gateway emits during a platform blip (DEBT-2026-07-22-E).
+  // A 4xx is deterministic — 401/403 (access), 404 (attempt gone), 422
+  // (bad body) all repeat identically — so it fails fast and shows the cue
+  // instead of hammering the endpoint.
+  function _isRetriableSaveError(e) {
+    if (!e) return false;
+    var status = e.status;
+    if (status === undefined || status === null) return true;
+    return Number(status) >= 500;
+  }
+
+  // A question counts as unsaved from the moment its first save attempt
+  // fails until one succeeds. Deliberately NOT flipped on for in-flight
+  // saves on the happy path: a healthy PATCH settles well inside the 500ms
+  // debounce, and flashing every tile on every keystroke would train the
+  // student to ignore the one cue that matters.
+  function _setUnsavedState(qNum, unsaved) {
+    if (unsaved) SESSION.unsaved.add(qNum);
+    else SESSION.unsaved['delete'](qNum);
+    var btn = document.querySelector('.exam-palette__q[data-q="' + qNum + '"]');
+    if (btn) {
+      btn.classList.toggle('is-unsaved', !!unsaved);
+      if (unsaved) btn.setAttribute('title', 'Chưa lưu được — đang thử lại');
+      else btn.removeAttribute('title');
+      _updatePaletteAriaLabel(btn);
+    }
+    var card = document.getElementById('q-' + qNum);
+    if (card) card.classList.toggle('is-unsaved', !!unsaved);
+    _renderUnsavedNote();
+  }
+
+  // One honest line above the palette actions. A single amber tile among 40
+  // is easy to miss; this says how many answers the server does not have and
+  // what that means for closing the tab. `role="status"` announces it.
+  function _renderUnsavedNote() {
+    var note = $('exam-unsaved-note');
+    if (!note) return;
+    var n = SESSION.unsaved.size;
+    if (!n) { note.hidden = true; note.textContent = ''; return; }
+    note.hidden = false;
+    note.textContent = 'Chưa lưu được ' + n + ' câu lên máy chủ — đang thử lại. '
+      + 'Đừng đóng tab cho tới khi hết cảnh báo này.';
+  }
+
+  function patchAnswer(qNum, userAnswer, opts) {
     if (!SESSION.attempt_id || SESSION.timer_locked) return;
+    var attempt = (opts && opts.attempt) || 0;
+    var keepalive = !!(opts && opts.keepalive);
+    // A fresh edit supersedes any retry chain still waiting for this
+    // question — otherwise the pending retry would fire a second PATCH
+    // right behind the new one.
+    if (!attempt && SESSION.save_retry_timers.has(qNum)) {
+      clearTimeout(SESSION.save_retry_timers.get(qNum));
+      SESSION.save_retry_timers['delete'](qNum);
+    }
     var answersUrl = '/api/reading/test/attempts/' + encodeURIComponent(SESSION.attempt_id) + '/answers';
     var answerBody = { q_num: qNum, user_answer: String(userAnswer || '') };
     // reading-access-tracking B2 — anonymous auto-save carries X-Reading-Anon +
     // noRedirect (a transient 401 must not bounce an anon mid-test to login);
-    // the authed path keeps the plain window.api.patch call.
+    // the authed path passes no extra headers, so its 401 still redirects.
     var savePromise = SESSION.share_mode
-      ? window.api.patchWith(answersUrl, answerBody, _anonHeaders(), { noRedirect: true })
-      : window.api.patch('/api/reading/test/attempts/' + encodeURIComponent(SESSION.attempt_id) + '/answers',
-          { q_num: qNum, user_answer: String(userAnswer || '') });
-    savePromise.catch(function (e) {
-      // Best-effort auto-save — the source of truth is in-memory + submit body.
+      ? window.api.patchWith(answersUrl, answerBody, _anonHeaders(), { noRedirect: true, keepalive: keepalive })
+      : window.api.patchWith(answersUrl, answerBody, null, { keepalive: keepalive });
+    // The returned promise NEVER rejects — most call sites are
+    // fire-and-forget, and a rejection there would surface as an
+    // unhandled-rejection error-log row for something already handled.
+    // It settles only once the retry chain is done, so the mock flush
+    // awaiting it really does wait for the last attempt.
+    return savePromise.then(function (res) {
+      _setUnsavedState(qNum, false);
+      return res;
+    }, function (e) {
       if (window.console) console.warn('auto-save failed q=' + qNum, e && e.message);
+      _setUnsavedState(qNum, true);
+      if (!_isRetriableSaveError(e) || attempt >= _SAVE_RETRY_DELAYS.length) return null;
+      return _scheduleSaveRetry(qNum, attempt);
     });
-    return savePromise;   // returned so the mock flush can await pending saves
+  }
+
+  function _scheduleSaveRetry(qNum, attempt) {
+    return new Promise(function (resolve) {
+      var handle = setTimeout(function () {
+        SESSION.save_retry_timers['delete'](qNum);
+        // Re-read the CURRENT value rather than replaying the one that
+        // failed: if the student edited this question while the retry was
+        // waiting, sending the stale string would overwrite the newer
+        // answer server-side.
+        var latest = SESSION.answers.has(qNum) ? SESSION.answers.get(qNum) : '';
+        resolve(patchAnswer(qNum, latest, { attempt: attempt + 1 }));
+      }, _SAVE_RETRY_DELAYS[attempt]);
+      SESSION.save_retry_timers.set(qNum, handle);
+    });
+  }
+
+  // Last chance before the document goes away: everything still sitting in
+  // the debounce queue (the answer typed <500ms before the student hit
+  // refresh), every retry still waiting out its backoff, and every
+  // known-failed question. `keepalive` lets these requests outlive the
+  // page. Best-effort by design — it turns "guaranteed lost" into "usually
+  // saved"; the retry chain above is what actually fixes the common case.
+  function _flushPendingSaves() {
+    if (!SESSION.attempt_id || SESSION.timer_locked) return;
+    var due = [];
+    var add = function (qNum) { if (due.indexOf(qNum) === -1) due.push(qNum); };
+    SESSION.debounce_timers.forEach(function (handle, qNum) { clearTimeout(handle); add(qNum); });
+    SESSION.debounce_timers.clear();
+    SESSION.save_retry_timers.forEach(function (handle, qNum) { clearTimeout(handle); add(qNum); });
+    SESSION.save_retry_timers.clear();
+    SESSION.unsaved.forEach(add);
+    due.forEach(function (qNum) {
+      // From the in-memory store, not the DOM — the card may be unmounted
+      // (Part swap) or be an out-of-card gap (summary / diagram), in which
+      // case a DOM read would be null and the answer lost anyway.
+      patchAnswer(qNum, SESSION.answers.get(qNum), { keepalive: true });
+    });
   }
   function restoreAnswers() {
     SESSION.answers.forEach(function (value, qNum) {
@@ -1629,6 +1757,9 @@
     else parts.push('not answered');
     if (btn.classList.contains('is-flagged')) parts.push('flagged for review');
     if (btn.classList.contains('is-current')) parts.push('current');
+    // DEBT-2026-07-22-D — the answer is in the box but NOT on the server.
+    // Announced last so it reads as a warning on top of the state above.
+    if (btn.classList.contains('is-unsaved')) parts.push('not saved to server');
     btn.setAttribute('aria-label', parts.join(', '));
   }
   function setCurrent(qNum) {
@@ -2694,6 +2825,15 @@
       });
   }
   boot();
+
+  // DEBT-2026-07-22-D — flush what the server does not have yet when the
+  // page is going away. `pagehide` covers refresh / navigate / tab close;
+  // `visibilitychange → hidden` is the only reliable signal when a mobile
+  // OS kills a backgrounded tab, which never fires pagehide.
+  window.addEventListener('pagehide', _flushPendingSaves);
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden') _flushPendingSaves();
+  });
 
   // 4-skill mock (mock_embed): the parent one-timer page asks this runner to
   // FLUSH its debounced auto-saves before it submits the attempt — so an answer
