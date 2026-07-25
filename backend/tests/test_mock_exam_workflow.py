@@ -2531,6 +2531,27 @@ def test_retake_assign_rejects_open_ended_before_writing_any_row(fake_db):
     assert fake_db.rows("mock_exam_assignments") == []
 
 
+def test_reaper_ignores_sequential_exams_entirely(fake_db, svc):
+    """D5 — the sweep used to pull EVERY live sitting on the platform and then
+    do one exam lookup per row just to discard the sequential ones. It now
+    narrows at the database, so a sequential sitting is never even fetched —
+    and, more importantly, is never collected by the wrong mechanism."""
+    exam = _seed_exam(fake_db)                      # sequential
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    _advance_and_sweep(svc, exam["id"], str(uuid4()))   # → listening, clock running
+
+    assert svc.reap_expired_retake_sittings(grace_seconds=0)["collected"] == 0
+    # the sequential straggler is the admin advance-sweep's job, not the reaper's
+    assert svc.get_sitting(s["id"])["status"] in ("registered", "lrw_in_progress")
+
+
+def test_reaper_no_retake_exams_is_a_cheap_noop(fake_db, svc):
+    _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    assert svc.reap_expired_retake_sittings() == {"collected": 0, "sittings": 0}
+
+
 def test_reassign_updates_a_sitting_that_has_not_started(fake_db, svc):
     """D2 — create_sitting SNAPSHOTS assigned_skills + window onto the sitting,
     and assign() only ever wrote mock_exam_assignments. So correcting a wrong

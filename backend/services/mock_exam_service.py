@@ -1868,10 +1868,27 @@ def reap_expired_retake_sittings(grace_seconds: int = 30) -> dict:
     per-student window has closed — collect every remaining assigned section so
     the sitting finalises even if the student never came back. Idempotent;
     per-sitting failures isolated. Returns {"collected": n, "sittings": m}."""
+    # Narrow at the DATABASE, not in Python. The old sweep pulled EVERY
+    # registered/lrw_in_progress sitting across every exam, then did one
+    # get_published_exam_by_id per row just to discard the sequential ones —
+    # an N+1 whose N is "the whole platform's live sittings", on a timer.
+    try:
+        retake_exams = {
+            e["id"]: e for e in (
+                supabase_admin.table("mock_exams").select("*")
+                .eq("exam_mode", "retake").execute().data or []
+            )
+        }
+    except Exception:  # noqa: BLE001
+        logger.exception("[retake-reaper] exam lookup failed")
+        return {"collected": 0, "sittings": 0}
+    if not retake_exams:
+        return {"collected": 0, "sittings": 0}
+
     try:
         rows = supabase_admin.table("mock_exam_sittings").select("*").in_(
             "status", ["registered", "lrw_in_progress"],
-        ).execute().data or []
+        ).in_("mock_exam_id", list(retake_exams)).execute().data or []
     except Exception:  # noqa: BLE001
         logger.exception("[retake-reaper] lookup failed")
         return {"collected": 0, "sittings": 0}
@@ -1884,8 +1901,8 @@ def reap_expired_retake_sittings(grace_seconds: int = 30) -> dict:
         # are the admin advance-sweep's job, not the reaper's.
         if not sitting.get("assigned_skills"):
             continue
-        exam = get_published_exam_by_id(sitting["mock_exam_id"]) or {}
-        if not is_retake(exam):
+        exam = retake_exams.get(sitting["mock_exam_id"]) or {}
+        if not exam:
             continue
         window_until = _parse_ts(sitting.get("retake_open_until"))
         window_closed = bool(window_until and now > window_until)
