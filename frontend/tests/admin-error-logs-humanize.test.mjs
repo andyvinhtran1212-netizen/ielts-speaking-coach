@@ -156,6 +156,32 @@ describe('humanizeError — postgrest upstream 5xx (DEBT-2026-07-22-E)', () => {
     assert.match(h.summary, /published/);
   });
 
+  // Fixtures below are the EXACT `str(dict)` Python emits — generated with
+  // python3, not hand-escaped, so the delimiter/escaping choices are real.
+  test('a gateway body containing quotes still shows (review #822)', () => {
+    // Once the body holds a `"`, Python must delimit with single quotes and
+    // ESCAPE the inner ones. A `[^']*` capture stopped at the first `\'` and
+    // produced the summary `— b\`, throwing away the whole diagnostic.
+    const h = H({ source: 'backend', message:
+      "{'message': 'JSON could not be generated', 'code': 502, 'details': 'b\\'<html><title>502 Bad \"Gateway\"</title></html>\\''}" });
+    assert.equal(h.category, 'Mạng');
+    assert.match(h.summary, /502 Bad "Gateway"/);
+    assert.ok(!/— b\\?$/.test(h.summary), 'the capture must not stop at the escaped quote');
+  });
+
+  test('escaped newlines in the body do not break the one-line summary', () => {
+    const h = H({ source: 'backend', message:
+      "{'message': 'JSON could not be generated', 'code': 503, 'details': \"b'upstream\\\\ndown'\"}" });
+    assert.match(h.summary, /HTTP 503/);
+    assert.match(h.summary, /upstream down/);
+    assert.ok(!/\\n/.test(h.summary), 'escape sequences must not leak into the summary');
+  });
+
+  test('a body with no quotes at all is unchanged (the 2026-07-22 case)', () => {
+    const h = H({ source: 'backend', message: REAL_555 });
+    assert.match(h.summary, /Internal server error/);
+  });
+
   test('an unquoted numeric code alone does NOT hijack a genuine DB error', () => {
     // Only the "JSON could not be generated" message routes upstream; anything
     // else with a numeric code keeps the CSDL path.

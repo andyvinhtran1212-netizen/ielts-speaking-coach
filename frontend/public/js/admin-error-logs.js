@@ -81,6 +81,33 @@ function escapeHtml(s) {
 // a non-engineer admin. Turn each row into a plain-language summary + a category
 // so the table is triageable at a glance. Pure display logic; the raw message +
 // stack are still shown in the detail panel.
+// Review #822 — pull `details` out of a Python dict repr, escapes and all.
+// postgrest-py puts the raw upstream body there via `str(r.content)`, so the
+// value is itself a bytes repr: `b'Internal server error.'`. When that body
+// contains a double quote — routine for an HTML gateway error page — Python
+// must delimit with single quotes and ESCAPE the inner ones:
+//     'details': 'b\'<html>…502 Bad "Gateway"…\''
+// A `[^']*` capture stops dead at the first `\'` and yields `b\`, throwing away
+// the entire diagnostic. Allow an escaped pair anywhere inside, then undo the
+// escaping so the summary shows the body a human can act on.
+// (The `'message'` extraction in the CSDL branch below has the same latent
+// flaw. Left alone on purpose — it is pre-existing and belongs to its own
+// patch, not this one.)
+function _pyReprDetails(msg) {
+  const m = msg.match(/'details':\s*'((?:\\.|[^'\\])*)'/)
+         || msg.match(/'details':\s*"((?:\\.|[^"\\])*)"/);
+  if (!m) return undefined;
+  // Two layers of escaping sit here: the dict repr wraps a BYTES repr, and
+  // `str(b'a\nb')` is itself already escaped. Undo the outer layer, then
+  // flatten whatever whitespace escapes the inner one left, so a multi-line
+  // gateway page reads as one line instead of showing a literal `\n`.
+  return m[1]
+    .replace(/\\([nrt'"\\])/g, (_, c) => (c === 'n' || c === 't' ? ' ' : c === 'r' ? '' : c))
+    .replace(/\\[nrt]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function humanizeError(row) {
   const msg = String(row.message || '');
 
@@ -121,8 +148,7 @@ function humanizeError(row) {
   // Kept noise:false deliberately — a real platform outage must stay visible;
   // the defect was the mislabelling and the traceback, not the row existing.
   if (/JSON could not be generated/i.test(msg) && code !== undefined && /^\d{3}$/.test(String(code))) {
-    const details = (msg.match(/'details':\s*'([^']*)'/)
-                  || msg.match(/'details':\s*"([^"]*)"/) || [])[1];
+    const details = _pyReprDetails(msg);
     const transient = Number(code) >= 500;
     return {
       category: 'Mạng', tone: transient ? 'warning' : 'error', noise: false,
