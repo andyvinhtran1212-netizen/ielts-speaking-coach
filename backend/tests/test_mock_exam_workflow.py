@@ -2423,6 +2423,38 @@ def test_unassign_reports_when_revocation_failed(fake_db, svc, monkeypatch):
         a.remove(exam["id"], u, admin_id="admin-1")
 
 
+def test_voiding_blocks_a_stale_release(fake_db, svc, wf, monkeypatch):
+    """Codex #840 (correct): void cancelled the exam but left the review row
+    alone, so an admin holding an already-open review page could still release —
+    and release flips the sitting back to 'released' with sealed=False,
+    PUBLISHING an exam that was explicitly cancelled."""
+    exam = _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    rid = str(uuid4())
+    _seed_releasable(fake_db, s["id"], rid, "admin-1", claimed_by="admin-1")
+    monkeypatch.setattr(wf, "_writing_pending_tasks", lambda _sid: [])
+
+    svc.void_sitting(s["id"], "admin-1", reason="lỗi kỹ thuật")
+
+    with pytest.raises(wf.ConflictError):
+        wf.release_results(rid, "admin-1")
+    after = svc.get_sitting(s["id"])
+    assert after["status"] == "void" and after["sealed"] is True
+
+
+def test_unassign_is_a_noop_without_an_assignment(fake_db, svc):
+    """A stale DELETE for a sequential exam (or a user with no assignment) must
+    not cancel that student's live sitting — it was a harmless no-op before."""
+    from services import mock_exam_assignment_service as a
+    exam = _seed_exam(fake_db)
+    u = str(uuid4())
+    sitting = svc.create_sitting(u, "MOCK-TEST-A")
+
+    assert a.remove(exam["id"], u, admin_id="admin-1")["voided"] == []
+    assert svc.get_sitting(sitting["id"])["status"] != "void"
+
+
 def test_unassign_leaves_a_finished_sitting_alone(fake_db, svc):
     """Only NON-TERMINAL sittings are voided. A released result is a record of
     something that really happened and must not be rewritten by an un-assign."""

@@ -1513,6 +1513,19 @@ def void_sitting(sitting_id: str, admin_id: str, reason: str = "") -> dict:
         "status": "void",
         "integrity": integrity,
     }).eq("id", str(sitting_id)).execute()
+    # Cancel the linked review too. Leaving it 'reviewed' let a stale review page
+    # still call release_results(), which flips the sitting back to 'released'
+    # with sealed=False — publishing an exam that was explicitly cancelled.
+    # release_results now refuses a voided sitting as well; this is the other
+    # half, so the two records cannot disagree (Codex review, PR #840).
+    try:
+        supabase_admin.table("mock_exam_reviews").update({
+            "status": "void",
+        }).eq("sitting_id", str(sitting_id)).not_.in_(
+            "status", ["released", "void"],
+        ).execute()
+    except Exception:  # noqa: BLE001 — the sitting is already void; log and move on
+        logger.exception("[mock-exam] void: review cancel failed sitting=%s", sitting_id)
     logger.info("[mock-exam] sitting=%s VOIDED by admin=%s", sitting_id, admin_id)
     return resp.data[0] if resp.data else {**sitting, "status": "void"}
 
