@@ -2310,6 +2310,30 @@ def test_advance_is_win_once_under_concurrency(fake_db, svc):
     assert after["listening_started_at"] == started        # clock NOT reset
 
 
+def test_advance_rejects_a_click_from_a_stale_screen(fake_db, svc):
+    """Codex #842 (correct): the compare-and-set alone only catches requests
+    whose DB READS overlap. Two clicks where the first has already committed
+    both read the NEW section and both advance — so the class still skips one.
+    Comparing against the section the admin was LOOKING AT closes that."""
+    exam = _seed_exam(fake_db)
+    svc.advance_section(exam["id"], "admin-1")            # → listening
+    started = svc.get_published_exam_by_id(exam["id"])["listening_started_at"]
+
+    # a second tab still showing "not_started" clicks after the first committed
+    with pytest.raises(svc.SittingConflictError):
+        svc.advance_section(exam["id"], "admin-2", expected_section="not_started")
+
+    after = svc.get_published_exam_by_id(exam["id"])
+    assert after["active_section"] == "listening"          # did not skip to reading
+    assert after["listening_started_at"] == started        # clock not reset
+
+
+def test_advance_accepts_a_click_from_a_current_screen(fake_db, svc):
+    exam = _seed_exam(fake_db)
+    svc.advance_section(exam["id"], "admin-1", expected_section="not_started")
+    assert svc.get_published_exam_by_id(exam["id"])["active_section"] == "listening"
+
+
 def test_advance_conflict_message_names_the_current_section(fake_db, svc):
     """The admin needs to know what actually holds, not just that it failed."""
     exam = _seed_exam(fake_db)

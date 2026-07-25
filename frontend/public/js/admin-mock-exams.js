@@ -229,7 +229,9 @@
     var btn = document.querySelector('[data-act="advance"]');
     if (btn) { btn.disabled = true; btn.textContent = 'Đang chuyển…'; }
     try {
-      await window.api.post('/admin/mock-exams/' + encodeURIComponent(ex.id) + '/advance', {});
+      await window.api.post('/admin/mock-exams/' + encodeURIComponent(ex.id) + '/advance',
+        // the section THIS screen is showing — a stale tab is rejected
+        { from_section: activeSection });
       toast('Đã mở phần ' + label + '.');
       loadExams();
     } catch (e) {

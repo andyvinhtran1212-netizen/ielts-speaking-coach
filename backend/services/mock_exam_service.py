@@ -1867,7 +1867,8 @@ def reap_expired_retake_sittings(grace_seconds: int = 30) -> dict:
     return {"collected": collected, "sittings": touched}
 
 
-def advance_section(exam_id: str, admin_id: str) -> dict:
+def advance_section(exam_id: str, admin_id: str,
+                    expected_section: Optional[str] = None) -> dict:
     """Admin advances the shared classroom clock to the NEXT configured section.
 
     not_started → listening → reading → writing → done (skipping any section
@@ -1878,7 +1879,19 @@ def advance_section(exam_id: str, admin_id: str) -> dict:
     exam = get_published_exam_by_id(exam_id)
     if not exam:
         raise NotFoundError(f"Mock exam {exam_id} không tồn tại.")
-    return _advance_from(exam_id, admin_id, exam.get("active_section") or "not_started")
+    current = exam.get("active_section") or "not_started"
+    # `expected_section` is the section the ADMIN was looking at when they
+    # clicked. Without it the compare-and-set below only catches requests whose
+    # DB reads overlap — two clicks where the first has already committed both
+    # read the NEW section and both advance, so the class still skips one.
+    # Comparing against the caller's own view turns duplicate user actions into
+    # a 409 as well (Codex review, PR #842).
+    if expected_section and expected_section != current:
+        raise SittingConflictError(
+            f"Màn hình của bạn đang hiển thị phần {expected_section!r} nhưng kỳ thi "
+            f"đã ở phần {current!r} — có thao tác khác vừa chuyển phần. Tải lại trang."
+        )
+    return _advance_from(exam_id, admin_id, current)
 
 
 def _advance_from(exam_id: str, admin_id: str, current: str) -> dict:

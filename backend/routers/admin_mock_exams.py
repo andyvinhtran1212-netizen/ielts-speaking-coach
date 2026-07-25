@@ -96,6 +96,17 @@ class OpenBody(BaseModel):
     is_open: bool
 
 
+class AdvanceBody(BaseModel):
+    """The section the admin's screen was showing when they clicked.
+
+    Sent so a duplicate click from a stale tab is REJECTED, not replayed: the
+    optimistic compare-and-set alone only catches requests whose DB reads
+    overlap, so two clicks where the first has already committed would both
+    advance and the class would skip a section."""
+
+    from_section: str | None = None
+
+
 class RetestBody(BaseModel):
     needs_retest: bool
     reason: str = ""
@@ -182,14 +193,15 @@ async def set_open(
 
 @router.post("/{exam_id}/advance")
 async def advance_section(
-    exam_id: str, authorization: str | None = Header(default=None),
+    exam_id: str, body: AdvanceBody = AdvanceBody(),
+    authorization: str | None = Header(default=None),
 ):
     """Open the NEXT seated section for every sitting under this exam —
     not_started → listening → reading → writing → done. Force-collects any
     straggler who hasn't submitted the section being closed."""
     admin = await require_admin(authorization)
     try:
-        return svc.advance_section(exam_id, admin["id"])
+        return svc.advance_section(exam_id, admin["id"], body.from_section)
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
     except svc.SittingConflictError as e:
