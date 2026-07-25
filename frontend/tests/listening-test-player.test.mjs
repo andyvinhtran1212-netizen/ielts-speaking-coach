@@ -1167,3 +1167,32 @@ describe('questionRangeLabel — singular vs range', () => {
     assert.match(JS, /ielts-block-header">\$\{questionRangeLabel\(range\[0\], range\[1\]\)\}/);
   });
 });
+
+describe('listening-parser-render — table cell keeps its suffix (Bug A)', () => {
+  // A table cell `9 …… protection` parses to {q_num, suffix}; renderTable-
+  // Completion must render the input THEN the suffix, not drop it.
+  it('renderTableCompletion appends c.suffix after gapInput', () => {
+    assert.match(
+      JS,
+      /gapInput\(c\.q_num\)\}\$\{c\.suffix \? ' ' \+ mdInline\(c\.suffix\) : ''\}/,
+    );
+  });
+
+  it('runtime: a {q_num, suffix} cell emits the input then the suffix text', () => {
+    const src = JS.match(/function renderTableCompletion\([\s\S]*?\n\}/)[0];
+    const renderTableCompletion = new Function(
+      'esc', 'mdInline', 'gapInput', 'renderFallback',
+      src + '; return renderTableCompletion;',
+    )((x) => String(x), (x) => String(x),
+      (n) => `<input data-q="${n}">`, () => 'FALLBACK');
+    const html = renderTableCompletion(
+      { heading: 'H', headers: ['Item', 'Detail'],
+        rows: [['Optional service', { q_num: 9, suffix: 'protection' }],
+               ['Days', { q_num: 10 }]] },
+      [{ q_num: 9 }, { q_num: 10 }],
+    );
+    assert.match(html, /<input data-q="9">\s*protection/);   // suffix rendered
+    assert.match(html, /<input data-q="10">/);               // plain cell unaffected
+    assert.doesNotMatch(html, /undefined/);
+  });
+});

@@ -1254,6 +1254,60 @@ def test_table_template_separator_row_skipped():
     assert all("---" not in c for r in rows for c in r if isinstance(c, str))
 
 
+def test_table_template_captures_suffix_after_gap():
+    """listening-parser-render A — a cell `9 …… protection` (gap + trailing
+    unit) becomes {q_num, suffix}. Before this the gap regex required the gap at
+    the END of the cell, so a suffix dropped the whole gap → no input rendered."""
+    body = (
+        "| Item | Detail |\n"
+        "|---|---|\n"
+        "| Optional service | 9 …………… protection |\n"
+        "| Days to arrive | 10 …………… working days |\n"
+    )
+    tmpl = lc._extract_table_template(body, lambda n: 9 <= n <= 10)
+    cells = {c["q_num"]: c for r in tmpl["rows"] for c in r if isinstance(c, dict)}
+    assert cells[9]["suffix"] == "protection"
+    assert cells[10]["suffix"] == "working days"
+
+
+def test_table_template_end_of_cell_gap_has_no_suffix_key():
+    """Back-compat: a plain end-of-cell gap stays exactly {q_num} (no suffix)."""
+    body = "| A | B |\n|---|---|\n| Passport | 7 …………… |\n"
+    tmpl = lc._extract_table_template(body, lambda n: n == 7)
+    cell = next(c for r in tmpl["rows"] for c in r if isinstance(c, dict))
+    assert cell == {"q_num": 7}
+
+
+def test_notes_template_keeps_subheadings_as_group_headings():
+    """listening-parser-render C — a non-bullet line (đề mục like 'Heuristics:')
+    opens a NEW group with that heading instead of being dropped. Gaps land in
+    the right group. The renderer already shows groups[].heading."""
+    body = (
+        "#### BEHAVIOURAL ECONOMICS\n"
+        "Heuristics:\n"
+        "- Mental shortcuts used when full evaluation is impossible.\n"
+        "- Availability risk: the easiest choice may be most **31** ___________\n"
+        "Framing effect:\n"
+        "- Framing can shift preference by over **32** ___________\n"
+    )
+    tmpl = lc._extract_notes_template(body, lambda n: 31 <= n <= 32)
+    headings = [g.get("heading") for g in tmpl["groups"]]
+    assert "Heuristics:" in headings and "Framing effect:" in headings
+    heur = next(g for g in tmpl["groups"] if g.get("heading") == "Heuristics:")
+    assert any(it.get("q_num") == 31 for it in heur["items"])
+    fram = next(g for g in tmpl["groups"] if g.get("heading") == "Framing effect:")
+    assert any(it.get("q_num") == 32 for it in fram["items"])
+
+
+def test_notes_template_no_subheadings_stays_single_headless_group():
+    """Back-compat: a bullets-only notes block → one group with no heading key."""
+    body = "#### TITLE\n- First point **5** ___________\n- Second **6** ___________\n"
+    tmpl = lc._extract_notes_template(body, lambda n: 5 <= n <= 6)
+    assert len(tmpl["groups"]) == 1
+    assert "heading" not in tmpl["groups"][0]
+    assert {it["q_num"] for it in tmpl["groups"][0]["items"]} == {5, 6}
+
+
 def test_short_answer_template_is_empty_questions_carry_prompts():
     sections = lc.split_qp_sections(QUESTION_PAPER_MD)
     block = _qp_blocks_for_range(sections[1], 9, 10)
