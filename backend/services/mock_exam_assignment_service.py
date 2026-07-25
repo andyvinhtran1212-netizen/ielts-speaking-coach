@@ -185,6 +185,16 @@ def assign(exam_id, rows, *, created_by, source_exam_id=None) -> dict:
     }
 
 
+def _sitting_started(sitting: dict) -> bool:
+    """Has ANY section's clock been started on this sitting?
+
+    A named seam, not an inline `any(...)`, so a test can stage the exact race
+    the compare-and-set below defends against: a read that says "not started"
+    while the row has since been started.
+    """
+    return any(sitting.get(f"{s}_started_at") for s in _RETAKE_SKILLS)
+
+
 def _refresh_open_sitting(exam_id, user_id, skills, open_from, open_until) -> str:
     """Push an edited assignment onto a sitting the student already opened.
 
@@ -216,17 +226,33 @@ def _refresh_open_sitting(exam_id, user_id, skills, open_from, open_until) -> st
     if not rows:
         return "none"
     sitting = rows[0]
-    if any(sitting.get(f"{s}_started_at") for s in _RETAKE_SKILLS):
+    if _sitting_started(sitting):
         return "locked"
     try:
-        supabase_admin.table("mock_exam_sittings").update({
+        # RE-CHECK THE GUARD IN THE WRITE ITSELF. The SELECT above and this
+        # UPDATE are two round trips: a student who presses "Bắt đầu" in
+        # between has start_section() stamp their clock, and an unconditional
+        # update would still replace the skill set — potentially removing the
+        # very section they are sitting (Codex review, PR #845). Matching on
+        # all three clocks being null makes the write lose that race instead,
+        # and zero rows means the same thing the SELECT branch above means.
+        q = supabase_admin.table("mock_exam_sittings").update({
             "assigned_skills":   skills,
             "retake_open_from":  open_from,
             "retake_open_until": open_until,
-        }).eq("id", sitting["id"]).execute()
+        }).eq("id", sitting["id"]).not_.in_("status", ["released", "void"])
+        for s in _RETAKE_SKILLS:
+            q = q.is_(f"{s}_started_at", "null")
+        resp = q.execute()
     except Exception:  # noqa: BLE001
         logger.exception("[retake] sitting refresh failed sitting=%s", sitting["id"])
         return "failed"
+    if not resp.data:
+        logger.info(
+            "[retake] sitting refresh lost the race sitting=%s — student started meanwhile",
+            sitting["id"],
+        )
+        return "locked"
     return "refreshed"
 
 

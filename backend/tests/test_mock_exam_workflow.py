@@ -2853,6 +2853,36 @@ def test_reassign_reports_a_failed_refresh_separately(fake_db, svc, monkeypatch)
     assert res["refreshed"] == [] and res["locked"] == []
 
 
+def test_reassign_loses_the_race_when_the_student_starts_mid_write(fake_db, svc, monkeypatch):
+    """Codex #845 (correct): the guard SELECT and the UPDATE are two round
+    trips. A student who presses "Bắt đầu" in between has start_section() stamp
+    their clock, and the unconditional update still replaced the skill set —
+    potentially removing the very section they are actively sitting.
+
+    Staged by making the GUARD read stale (via the _sitting_started seam) while
+    the row in the database really has a clock running. That is precisely what
+    the racing caller sees, and reproducing it with real threads against a fake
+    database would be flaky theatre."""
+    from services import mock_exam_assignment_service as a
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    u = str(uuid4())
+    a.assign(exam["id"], [{"user_id": u, "skills": ["listening"], **_WINDOW}],
+             created_by=str(uuid4()))
+    sitting = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.start_section(sitting["id"], u, "listening")     # clock IS running
+
+    monkeypatch.setattr(a, "_sitting_started", lambda s: False)   # stale read
+    res = a.assign(exam["id"], [{"user_id": u, "skills": ["writing"], **_WINDOW}],
+                   created_by=str(uuid4()))
+
+    assert res["locked"] == [u], res
+    assert res["refreshed"] == []
+    assert svc.get_sitting(sitting["id"])["assigned_skills"] == ["listening"], (
+        "the section the student is actively sitting must not be taken away")
+
+
 def test_first_assign_with_no_sitting_reports_neither(fake_db):
     from services import mock_exam_assignment_service as a
     res = a.assign(str(uuid4()), [{"user_id": str(uuid4()), "skills": ["writing"], **_WINDOW}],
