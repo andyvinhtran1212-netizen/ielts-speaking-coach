@@ -1925,6 +1925,13 @@ def _answer_progress(rows, answer_key="user_answer", ts_key="answered_at") -> tu
     return answered, last
 
 
+def _sitting_recency(s: dict) -> tuple:
+    """Sort key that picks the sitting the invigilator actually means: a
+    not-yet-released attempt always beats a released one, then newest wins."""
+    return (0 if s.get("status") == "released" else 1,
+            str(s.get("created_at") or ""))
+
+
 def admin_live_monitor(exam_id: str) -> dict:
     """Per-STUDENT live state for the invigilator console (one poll, no N+1).
 
@@ -1947,10 +1954,22 @@ def admin_live_monitor(exam_id: str) -> dict:
     retake = is_retake(exam)
     active = exam.get("active_section") or "not_started"
 
-    sittings = supabase_admin.table("mock_exam_sittings").select("*").eq(
+    rows_raw = supabase_admin.table("mock_exam_sittings").select("*").eq(
         "mock_exam_id", str(exam_id),
     ).neq("status", "void").execute().data or []
-    by_user = {str(s["user_id"]): s for s in sittings}
+    # A student CAN hold more than one non-void sitting for the same exam: the
+    # one-live-per-user index only covers registered/lrw_in_progress, so an
+    # already-released attempt sits alongside a fresh one. An unordered dict
+    # comprehension kept whichever row PostgREST returned last, so the console
+    # could show the OLD released attempt's answers and submission stamps while
+    # the student is mid-exam. Pick deterministically (Codex review, PR #833).
+    by_user: dict = {}
+    for s in rows_raw:
+        uid = str(s["user_id"])
+        cur = by_user.get(uid)
+        if cur is None or _sitting_recency(s) > _sitting_recency(cur):
+            by_user[uid] = s
+    sittings = list(by_user.values())
 
     # ── batched lookups (never per student) ──────────────────────────
     l_ids = [s["listening_attempt_id"] for s in sittings if s.get("listening_attempt_id")]

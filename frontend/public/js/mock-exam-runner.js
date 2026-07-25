@@ -235,11 +235,24 @@
   // flight when the final submit lands can overwrite the submitted essay — or
   // be the copy that gets promoted for grading (Codex review, PR #835).
   var _wInFlight = null;
+  var _wGen = 0;                  // which save is the current one
 
-  function saveLocalDraft(task, text) {
+  // `synced` records whether the SERVER has confirmed this exact text. It is
+  // the only reliable answer to "is the local copy ahead?": the two timestamps
+  // come from different clocks AND measure different moments (keystroke vs
+  // server receipt), so an edit made while a request was in flight looks OLDER
+  // than the reply to the request it beat (Codex review, PR #835).
+  function saveLocalDraft(task, text, synced) {
     try {
-      localStorage.setItem(lsKey(task), JSON.stringify({ text: text, ts: Date.now() }));
+      localStorage.setItem(lsKey(task), JSON.stringify({
+        text: text, ts: Date.now(), synced: !!synced,
+      }));
     } catch (e) {}
+  }
+
+  function markLocalSynced(t1, t2) {
+    saveLocalDraft('task1', t1, true);
+    saveLocalDraft('task2', t2, true);
   }
 
   function readLocalDraft(task) {
@@ -248,12 +261,18 @@
     if (!raw) return null;
     try {
       var d = JSON.parse(raw);
-      if (d && typeof d === 'object' && typeof d.text === 'string') return d;
+      if (d && typeof d === 'object' && typeof d.text === 'string') {
+        // Records written before `synced` existed carry no verdict; fall back
+        // to the timestamp comparison for those rather than claiming they are
+        // unsynced (which would let a stale local copy beat a newer server one).
+        if (typeof d.synced !== 'boolean') d.synced = null;
+        return d;
+      }
     } catch (e) { /* pre-JSON draft, handled below */ }
     // Drafts written before this change were the bare string. Treat them as
     // real text with an unknown (oldest-possible) time, so the server copy wins
     // a tie rather than a stale local one silently overwriting it.
-    return { text: String(raw), ts: 0 };
+    return { text: String(raw), ts: 0, synced: null };
   }
 
   // Whichever copy is newer wins. Server time is the submitted_at the endpoint
@@ -269,7 +288,14 @@
     var serverText = typeof blob.text === 'string' ? blob.text : '';
     var serverTs = blob.submitted_at ? Date.parse(blob.submitted_at) : 0;
     var local = readLocalDraft(task);
-    if (!local || !local.text) return serverText;
+    if (!local) return serverText;
+    // An UNSYNCED local record always wins, including an empty one: a student
+    // who deletes their draft offline (or closes the tab before the next save)
+    // must not have the server's older essay resurrected on reload. Discarding
+    // empty text also skipped the correction save, so the deletion never
+    // reached the server at all (Codex review, PR #835).
+    if (local.synced === false) { _localDraftWon[task] = true; return local.text; }
+    if (!local.text) return serverText;   // legacy record, no verdict to trust
     if (!serverText) { _localDraftWon[task] = true; return local.text; }
     if (serverTs && serverTs > (local.ts || 0)) return serverText;
     _localDraftWon[task] = true;
@@ -304,13 +330,22 @@
   }
 
   function flushWritingSave(opts) {
+    var keepalive = !!(opts && opts.keepalive);
     if (_wSaveTimer) { clearTimeout(_wSaveTimer); _wSaveTimer = null; }
     // Never autosave outside the open Writing section: the endpoint rejects it,
     // and after submit the text is final — a late save must not race the
     // submitted copy.
-    if (!_wDirty || _wSaving || _submitting || S.renderedSection !== 'writing') {
+    if (!_wDirty || _submitting || S.renderedSection !== 'writing') {
       return _wInFlight || Promise.resolve();
     }
+    // A NORMAL save already on the wire is not keepalive, so the navigation
+    // that fired pagehide can kill it — and returning it here meant the
+    // lifecycle flush issued no keepalive replacement at all, leaving the
+    // server without the latest draft right before force-collection. Re-send
+    // the current text instead; the endpoint is an idempotent overwrite of the
+    // same draft, so a duplicate write costs nothing (Codex review, PR #835).
+    if (_wSaving && !keepalive) return _wInFlight || Promise.resolve();
+    var gen = ++_wGen;
     _wSaving = true;
     setSaveCue('saving');
     var body = { task1_text: el('essay-task1').value, task2_text: el('essay-task2').value };
@@ -329,6 +364,10 @@
       if (el('essay-task1').value === body.task1_text
           && el('essay-task2').value === body.task2_text) {
         _wDirty = false;
+        // The server now holds exactly this text, so the local copy is no
+        // longer ahead. This is what restoreDraft() reads instead of racing
+        // two clocks against each other.
+        markLocalSynced(body.task1_text, body.task2_text);
         setSaveCue('saved');
       } else {
         scheduleWritingSave();
@@ -347,8 +386,10 @@
         }, WRITE_RETRY_MS);
       }
     }).then(function () {
-      _wSaving = false;
-      _wInFlight = null;
+      // Only the LATEST request may clear these — a keepalive re-send issued
+      // over a still-pending normal save would otherwise be un-tracked the
+      // moment the older one settled.
+      if (gen === _wGen) { _wSaving = false; _wInFlight = null; }
     });
     return _wInFlight;
   }
