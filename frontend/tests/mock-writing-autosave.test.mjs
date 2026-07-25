@@ -102,6 +102,26 @@ describe('A2 round 3 — pagehide always issues a keepalive request', () => {
 
   test('only the newest request clears the in-flight tracking', () => {
     assert.match(JS, /var gen = \+\+_wGen;/);
-    assert.match(JS, /if \(gen === _wGen\) \{ _wSaving = false; _wInFlight = null; \}/);
+    assert.match(JS, /if \(gen === _wGen\) \{ _wSaving = false; _wInFlight = null; _wAbort = null; \}/);
+  });
+});
+
+describe('A2 round 4 — a superseded save is cancelled, not raced', () => {
+  test('the request on the wire is abortable', () => {
+    // The endpoint is last-writer-wins. A keepalive replacement issued from
+    // pagehide while a normal save is pending must CANCEL the earlier request:
+    // otherwise the older body can commit last and a force-collection grades
+    // stale text.
+    assert.match(JS, /var _wAbort = null;/);
+    assert.match(JS, /if \(_wAbort\) \{ try \{ _wAbort\.abort\(\); \} catch \(e\) \{\} _wAbort = null; \}/);
+    assert.match(JS, /signal: ctrl \? ctrl\.signal : undefined,/);
+  });
+
+  test('a deliberately cancelled save is not reported as a failure', () => {
+    assert.match(JS, /if \(e && \(e\.name === 'AbortError' \|\| e\.code === 20\)\) return;/);
+  });
+
+  test('the abort handle is cleared with the rest of the in-flight state', () => {
+    assert.match(JS, /_wSaving = false; _wInFlight = null; _wAbort = null;/);
   });
 });
