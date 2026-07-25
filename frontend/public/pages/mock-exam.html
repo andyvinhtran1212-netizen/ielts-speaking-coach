@@ -39,16 +39,71 @@
     .me-panels { flex:1; position:relative; overflow:hidden; }
     .me-panels iframe { width:100%; height:100%; border:0; display:block; }
     .me-panels iframe.hidden { display:none; }
-    .me-writing { position:absolute; inset:0; overflow:auto; padding:16px; }
+
+    /* ── Writing step: resizable two-pane composer ─────────────────────
+       The student picks which side the đề sits on (trái/phải/trên/dưới)
+       and drags the divider to size it. Both choices persist across
+       sections and sittings — a writer's habit, not exam state. */
+    .me-writing { position:absolute; inset:0; display:flex; flex-direction:column; overflow:hidden; }
     .me-writing.hidden { display:none; }
-    .me-wtabs { display:flex; gap:6px; margin-bottom:10px; }
+    .mw-toolbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:10px 16px; border-bottom:1px solid var(--av-border-default); }
+    .me-wtabs { display:flex; gap:6px; }
     .me-tab { padding:8px 14px; border:1px solid var(--av-border-default); border-radius:8px; background:var(--av-surface-card); cursor:pointer; font-size:14px; color:var(--av-text-primary); }
     .me-tab.active { background:var(--av-primary); color:var(--av-text-on-primary); border-color:transparent; }
-    .me-wpanel { display:none; }
-    .me-wpanel.active { display:block; }
-    .me-prompt-image { display:block; margin-bottom:12px; border:1px solid var(--av-border-default); }
-    textarea.me-essay { width:100%; min-height:50vh; padding:14px; border:1px solid var(--av-border-default); border-radius:10px; background:var(--av-surface-card); color:var(--av-text-primary); font:inherit; line-height:1.6; }
-    .me-count { font-size:12px; color:var(--av-text-secondary); margin-top:6px; }
+    .mw-layout { display:flex; align-items:center; gap:4px; margin-left:auto; }
+    .mw-layout__label { font-size:12px; color:var(--av-text-secondary); margin-right:2px; }
+    .mw-layout__btn { display:inline-flex; align-items:center; gap:5px; padding:6px 10px; border:1px solid var(--av-border-default); border-radius:8px; background:var(--av-surface-card); color:var(--av-text-secondary); cursor:pointer; font-size:12px; line-height:1; }
+    .mw-layout__btn:hover { color:var(--av-text-primary); border-color:var(--av-text-faint); }
+    .mw-layout__btn[aria-pressed="true"] { background:var(--av-primary); color:var(--av-text-on-primary); border-color:transparent; }
+    .mw-layout__btn:focus-visible { outline:2px solid var(--av-primary); outline-offset:2px; }
+    /* Glyph mirrors the arrangement: the filled half is where the đề goes. */
+    .mw-glyph { width:14px; height:12px; border:1.5px solid currentColor; border-radius:2px; display:block; position:relative; flex:none; }
+    .mw-glyph::before { content:''; position:absolute; background:currentColor; opacity:.85; }
+    .mw-glyph--left::before   { inset:1px auto 1px 1px; width:5px; }
+    .mw-glyph--right::before  { inset:1px 1px 1px auto; width:5px; }
+    .mw-glyph--top::before    { inset:1px 1px auto 1px; height:4px; }
+    .mw-glyph--bottom::before { inset:auto 1px 1px 1px; height:4px; }
+
+    .mw-split { flex:1; display:flex; min-height:0; --mw-split:45%; }
+    .mw-split[data-layout="left"]   { flex-direction:row; }
+    .mw-split[data-layout="right"]  { flex-direction:row-reverse; }
+    .mw-split[data-layout="top"]    { flex-direction:column; }
+    .mw-split[data-layout="bottom"] { flex-direction:column-reverse; }
+    .mw-pane { min-width:0; min-height:0; overflow:auto; padding:16px; }
+    .mw-pane--prompt { flex:0 0 var(--mw-split); background:var(--av-surface-card); }
+    .mw-pane--editor { flex:1 1 0; display:flex; flex-direction:column; }
+    .mw-taskpanel { display:none; }
+    .mw-taskpanel.active { display:block; }
+    .mw-pane--editor .mw-taskpanel.active { display:flex; flex-direction:column; flex:1; min-height:0; }
+
+    /* Divider: 8px hit area, visible 2px rule. role=separator + tabindex so
+       it is reachable and adjustable without a pointer. */
+    .mw-divider { flex:0 0 8px; position:relative; background:transparent; border:0; padding:0; }
+    .mw-divider::after { content:''; position:absolute; background:var(--av-border-default); }
+    .mw-split[data-layout="left"] .mw-divider,
+    .mw-split[data-layout="right"] .mw-divider { cursor:col-resize; }
+    .mw-split[data-layout="left"] .mw-divider::after,
+    .mw-split[data-layout="right"] .mw-divider::after { inset:0 3px; }
+    .mw-split[data-layout="top"] .mw-divider,
+    .mw-split[data-layout="bottom"] .mw-divider { cursor:row-resize; }
+    .mw-split[data-layout="top"] .mw-divider::after,
+    .mw-split[data-layout="bottom"] .mw-divider::after { inset:3px 0; }
+    .mw-divider:hover::after, .mw-divider.is-dragging::after { background:var(--av-primary); }
+    .mw-divider:focus-visible { outline:2px solid var(--av-primary); outline-offset:-2px; }
+
+    .me-prompt-image { display:block; margin-bottom:12px; border:1px solid var(--av-border-default); max-width:100%; height:auto; }
+    textarea.me-essay { flex:1; width:100%; min-height:180px; padding:14px; border:1px solid var(--av-border-default); border-radius:10px; background:var(--av-surface-card); color:var(--av-text-primary); font:inherit; line-height:1.6; resize:none; }
+    .me-count { font-size:12px; color:var(--av-text-secondary); margin-top:6px; flex:none; }
+
+    /* Narrow screens have no room for a side-by-side split — force the đề
+       above the editor and hide the picker rather than offer a choice that
+       cannot render. */
+    @media (max-width: 860px) {
+      .mw-layout { display:none; }
+      .mw-split { flex-direction:column !important; --mw-split:40% !important; }
+      .mw-split .mw-divider { cursor:row-resize; }
+      .mw-split .mw-divider::after { inset:3px 0; }
+    }
     .me-waiting-icon { font-size:40px; margin-bottom:8px; }
     .me-checklist { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; justify-content:center; }
     .me-check-pill { font-size:12px; padding:4px 10px; border-radius:999px; border:1px solid var(--av-border-default); color:var(--av-text-secondary); }
@@ -82,20 +137,42 @@
     <div class="me-panels" id="panels">
       <iframe id="panel-frame" class="hidden" title="Bài thi"></iframe>
       <div class="me-writing hidden" id="panel-writing">
-        <div class="me-wtabs">
-          <div class="me-tab active" data-wtab="task1">Task 1</div>
-          <div class="me-tab" data-wtab="task2">Task 2</div>
+        <div class="mw-toolbar">
+          <div class="me-wtabs" role="tablist" aria-label="Chọn task">
+            <div class="me-tab active" data-wtab="task1" role="tab" tabindex="0" aria-selected="true">Task 1</div>
+            <div class="me-tab" data-wtab="task2" role="tab" tabindex="0" aria-selected="false">Task 2</div>
+          </div>
+          <div class="mw-layout" id="mw-layout" role="group" aria-label="Bố cục đề và khung viết">
+            <span class="mw-layout__label">Bố cục đề:</span>
+            <button type="button" class="mw-layout__btn" data-layout="left"   aria-pressed="true"  title="Đề bên trái"><span class="mw-glyph mw-glyph--left"   aria-hidden="true"></span>Trái</button>
+            <button type="button" class="mw-layout__btn" data-layout="right"  aria-pressed="false" title="Đề bên phải"><span class="mw-glyph mw-glyph--right"  aria-hidden="true"></span>Phải</button>
+            <button type="button" class="mw-layout__btn" data-layout="top"    aria-pressed="false" title="Đề ở trên"><span class="mw-glyph mw-glyph--top"    aria-hidden="true"></span>Trên</button>
+            <button type="button" class="mw-layout__btn" data-layout="bottom" aria-pressed="false" title="Đề ở dưới"><span class="mw-glyph mw-glyph--bottom" aria-hidden="true"></span>Dưới</button>
+          </div>
         </div>
-        <div class="me-wpanel active" data-wpanel="task1">
-          <div class="me-muted" id="prompt-task1" style="margin-bottom:8px;white-space:pre-wrap"></div>
-          <img id="prompt-task1-image" class="me-prompt-image hidden max-w-full rounded" alt="" loading="lazy" />
-          <textarea class="me-essay" id="essay-task1" placeholder="Viết Task 1…"></textarea>
-          <div class="me-count"><span id="count-task1">0</span> từ</div>
-        </div>
-        <div class="me-wpanel" data-wpanel="task2">
-          <div class="me-muted" id="prompt-task2" style="margin-bottom:8px;white-space:pre-wrap"></div>
-          <textarea class="me-essay" id="essay-task2" placeholder="Viết Task 2…"></textarea>
-          <div class="me-count"><span id="count-task2">0</span> từ</div>
+        <div class="mw-split" id="mw-split" data-layout="left">
+          <section class="mw-pane mw-pane--prompt" id="mw-prompt-pane" aria-label="Đề bài">
+            <div class="mw-taskpanel active" data-wpanel="task1">
+              <div class="me-muted" id="prompt-task1" style="margin-bottom:8px;white-space:pre-wrap"></div>
+              <img id="prompt-task1-image" class="me-prompt-image hidden rounded" alt="" loading="lazy" />
+            </div>
+            <div class="mw-taskpanel" data-wpanel="task2">
+              <div class="me-muted" id="prompt-task2" style="white-space:pre-wrap"></div>
+            </div>
+          </section>
+          <div class="mw-divider" id="mw-divider" role="separator" tabindex="0"
+               aria-orientation="vertical" aria-label="Kéo để đổi tỉ lệ đề / khung viết"
+               aria-valuemin="25" aria-valuemax="75" aria-valuenow="45"></div>
+          <section class="mw-pane mw-pane--editor" aria-label="Khung viết bài">
+            <div class="mw-taskpanel active" data-wpanel="task1">
+              <textarea class="me-essay" id="essay-task1" placeholder="Viết Task 1…" aria-label="Bài viết Task 1"></textarea>
+              <div class="me-count"><span id="count-task1">0</span> từ</div>
+            </div>
+            <div class="mw-taskpanel" data-wpanel="task2">
+              <textarea class="me-essay" id="essay-task2" placeholder="Viết Task 2…" aria-label="Bài viết Task 2"></textarea>
+              <div class="me-count"><span id="count-task2">0</span> từ</div>
+            </div>
+          </section>
         </div>
       </div>
     </div>
