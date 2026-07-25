@@ -369,6 +369,12 @@
         msg += ' ⚠ ' + res.locked.length + ' học viên ĐANG LÀM BÀI nên giữ nguyên ' +
                'kĩ năng/khung giờ cũ — huỷ lượt của họ nếu cần áp thay đổi.';
       }
+      // Distinct from `locked`: that is a deliberate refusal, this means the
+      // write ERRORED and nobody knows what those students are now sitting.
+      if ((res.refresh_failed || []).length) {
+        msg += ' ❌ ' + res.refresh_failed.length + ' học viên KHÔNG áp được thay đổi ' +
+               'lên lượt thi đang mở (lỗi ghi) — kiểm tra lại trên phòng thi trực tiếp.';
+      }
       toast(msg);
       loadCurrentAssignments(examId);
     } catch (e) { toast('Gán thất bại: ' + (e && e.message)); }

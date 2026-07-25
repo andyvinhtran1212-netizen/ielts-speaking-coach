@@ -125,7 +125,7 @@ def assign(exam_id, rows, *, created_by, source_exam_id=None) -> dict:
         _validate_window(merged[uid]["open_from"], merged[uid]["open_until"])
 
     group_id = str(uuid4())
-    assigned, skipped, refreshed, locked = [], [], [], []
+    assigned, skipped, refreshed, locked, refresh_failed = [], [], [], [], []
     existing = {
         r["user_id"]: r["id"]
         for r in (supabase_admin.table("mock_exam_assignments")
@@ -162,6 +162,8 @@ def assign(exam_id, rows, *, created_by, source_exam_id=None) -> dict:
             refreshed.append(uid)
         elif outcome == "locked":
             locked.append(uid)
+        elif outcome == "failed":
+            refresh_failed.append(uid)
 
     logger.info("[retake] assign exam=%s assigned=%d skipped=%d refreshed=%d locked=%d group=%s",
                 exam_id, len(assigned), len(skipped), len(refreshed), len(locked), group_id)
@@ -171,6 +173,10 @@ def assign(exam_id, rows, *, created_by, source_exam_id=None) -> dict:
         # student is already mid-exam. The caller MUST show `locked`: silently
         # not applying an admin's correction is how the old bug felt.
         "refreshed": refreshed, "locked": locked,
+        # Could not be applied to an open sitting because the lookup/update
+        # errored. Distinct from `locked` (a deliberate refusal) — this one
+        # means we do not know what that student is now sitting.
+        "refresh_failed": refresh_failed,
     }
 
 
@@ -188,7 +194,11 @@ def _refresh_open_sitting(exam_id, user_id, skills, open_from, open_until) -> st
     student could lose a section they are actively working on. Those are
     reported as `locked` instead.
 
-    Returns 'refreshed' | 'locked' | 'none'.
+    Returns 'refreshed' | 'locked' | 'failed' | 'none'. `failed` is kept apart
+    from `none` on purpose: collapsing them made a database error look exactly
+    like "this student never opened the exam", so the admin was told the edit
+    applied while the open sitting kept its old skills and window
+    (Codex review, PR #845).
     """
     try:
         rows = (supabase_admin.table("mock_exam_sittings")
@@ -197,7 +207,7 @@ def _refresh_open_sitting(exam_id, user_id, skills, open_from, open_until) -> st
                 .not_.in_("status", ["released", "void"]).execute().data or [])
     except Exception:  # noqa: BLE001 — the assignment write already succeeded
         logger.exception("[retake] sitting refresh lookup failed exam=%s user=%s", exam_id, user_id)
-        return "none"
+        return "failed"
     if not rows:
         return "none"
     sitting = rows[0]
@@ -211,7 +221,7 @@ def _refresh_open_sitting(exam_id, user_id, skills, open_from, open_until) -> st
         }).eq("id", sitting["id"]).execute()
     except Exception:  # noqa: BLE001
         logger.exception("[retake] sitting refresh failed sitting=%s", sitting["id"])
-        return "none"
+        return "failed"
     return "refreshed"
 
 
