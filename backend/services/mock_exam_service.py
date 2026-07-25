@@ -2002,6 +2002,27 @@ def _retake_section_expired(sitting: dict, exam: dict, section: str, grace_secon
     return elapsed >= duration + grace_seconds
 
 
+# PostgREST answers with ONE page and no error when a query outgrows its row
+# cap, so any select that can grow with the platform must ask for the next page
+# explicitly. `_ID_CHUNK` keeps a generated `in.(...)` list off the URL-length
+# limit, which bites earlier than the row cap does.
+_PAGE = 1000
+_ID_CHUNK = 100
+
+
+def _paged(build) -> list:
+    """Drain every page of `build()` — a zero-arg factory returning a fresh
+    query builder (a builder cannot be re-ranged after execute)."""
+    out: list = []
+    start = 0
+    while True:
+        page = build().range(start, start + _PAGE - 1).execute().data or []
+        out.extend(page)
+        if len(page) < _PAGE:
+            return out
+        start += _PAGE
+
+
 def reap_expired_retake_sittings(grace_seconds: int = 30) -> dict:
     """Server-side backstop for retake self-timing (no invigilator). For each
     pre-review retake sitting: collect any STARTED section whose per-sitting
@@ -2015,9 +2036,9 @@ def reap_expired_retake_sittings(grace_seconds: int = 30) -> dict:
     # an N+1 whose N is "the whole platform's live sittings", on a timer.
     try:
         retake_exams = {
-            e["id"]: e for e in (
-                supabase_admin.table("mock_exams").select("*")
-                .eq("exam_mode", "retake").execute().data or []
+            e["id"]: e for e in _paged(
+                lambda: supabase_admin.table("mock_exams").select("*")
+                .eq("exam_mode", "retake").order("id")
             )
         }
     except Exception:  # noqa: BLE001
@@ -2026,10 +2047,22 @@ def reap_expired_retake_sittings(grace_seconds: int = 30) -> dict:
     if not retake_exams:
         return {"collected": 0, "sittings": 0}
 
+    # Both queries are PAGED, and the id filter is CHUNKED. Unpaginated, the
+    # exam lookup silently returns only the first PostgREST page once historical
+    # retake definitions pass the row cap — so an active sitting whose exam id
+    # fell off the end is never fetched and never finalised. The generated
+    # `in.(...)` URL also grows without bound and can be rejected as too long
+    # well before that (Codex review, PR #846).
+    exam_ids = list(retake_exams)
+    rows: list = []
     try:
-        rows = supabase_admin.table("mock_exam_sittings").select("*").in_(
-            "status", ["registered", "lrw_in_progress"],
-        ).in_("mock_exam_id", list(retake_exams)).execute().data or []
+        for i in range(0, len(exam_ids), _ID_CHUNK):
+            chunk = exam_ids[i:i + _ID_CHUNK]
+            rows.extend(_paged(
+                lambda c=chunk: supabase_admin.table("mock_exam_sittings").select("*")
+                .in_("status", ["registered", "lrw_in_progress"])
+                .in_("mock_exam_id", c).order("id")
+            ))
     except Exception:  # noqa: BLE001
         logger.exception("[retake-reaper] lookup failed")
         return {"collected": 0, "sittings": 0}

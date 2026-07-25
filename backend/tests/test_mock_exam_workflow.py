@@ -47,6 +47,7 @@ class _Query:
         self.in_filters = []       # (field, [values], negate)
         self.limit_n = None
         self.order_by = None
+        self.range_window = None
         self._negate_next = False
 
     @property
@@ -93,6 +94,14 @@ class _Query:
 
     def limit(self, n):
         self.limit_n = n
+        return self
+
+    def range(self, start, end):
+        # PostgREST-style inclusive window. Modelled because a query that can
+        # grow with the platform MUST page (PostgREST answers with one page and
+        # no error past its row cap) — so the fake has to be able to say
+        # "that's the last page" or the drain loop would never terminate.
+        self.range_window = (start, end)
         return self
 
     def order(self, field, desc=False):
@@ -143,6 +152,9 @@ class _Query:
                 matched.sort(key=lambda r: r.get(field) or "", reverse=desc)
             if self.limit_n is not None:
                 matched = matched[: self.limit_n]
+            if self.range_window is not None:
+                lo, hi = self.range_window
+                matched = matched[lo:hi + 1]
             return _Response(matched)
 
         if self.op == "update":
@@ -3146,6 +3158,40 @@ def _backdate_sitting(fake, sitting_id, **cols):
     for row in fake.rows("mock_exam_sittings"):
         if row["id"] == sitting_id:
             row.update(cols)
+
+
+def test_retake_reaper_pages_past_the_postgrest_row_cap(fake_db, svc, monkeypatch):
+    """Codex #846 (correct): PostgREST answers with ONE page and no error when a
+    query outgrows its row cap. Unpaginated, the exam lookup silently returned
+    only the first page once historical retake definitions passed it — so an
+    active sitting whose exam id fell off the end was never fetched and never
+    finalised. The generated `in.(...)` URL grows without bound too.
+
+    A 1000-row fixture would be slow theatre; shrinking the page size and the id
+    chunk proves the drain loop and the chunking instead."""
+    monkeypatch.setattr(svc, "_PAGE", 2)
+    monkeypatch.setattr(svc, "_ID_CHUNK", 2)
+
+    past = (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat()
+    n_exams = 5
+    for _ in range(n_exams):
+        exam = _seed_exam(fake_db)
+        fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+            "id", exam["id"]).execute()
+        fake_db.seed("mock_exam_sittings", {
+            "id": str(uuid4()), "mock_exam_id": exam["id"], "user_id": str(uuid4()),
+            "status": "registered", "sealed": True, "assigned_skills": ["writing"],
+            "retake_open_until": past,
+            "listening_submitted_at": None, "reading_submitted_at": None,
+            "writing_submitted_at": None,
+            "listening_attempt_id": None, "reading_attempt_id": None,
+            "speaking_session_ids": [], "writing_submission": {},
+        })
+
+    # Every exam AND every sitting must be reached — a single-page lookup would
+    # find at most _PAGE of each, whichever ones sorted first.
+    out = svc.reap_expired_retake_sittings()
+    assert out["sittings"] == n_exams, out
 
 
 def test_retake_reaper_collects_expired_started_section(fake_db, svc, wf):
