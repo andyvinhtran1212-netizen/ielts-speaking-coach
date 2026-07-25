@@ -39,8 +39,10 @@ const SANCTIONED = {
 // DEBT-2026-07-24-J step (c) empties the vocab rows; the ds.css row is the
 // tail of the separate --ds-* → --av-* migration.
 const ALLOWED_LITERALS = {
-  'vocab-wiki.css': ['Fraunces', 'DM Mono', 'Hanken Grotesk'],   // J step (c)
-  'ds.css': ['Manrope', 'Fraunces'],                   // legacy --ds-* system
+  // vocab-wiki.css cleared 2026-07-25 (J step c) — Fraunces / DM Mono /
+  // Hanken Grotesk all left the system. The row is deleted, not emptied:
+  // the budget only moves down.
+  'ds.css': ['Manrope', 'Fraunces'],   // tail of the legacy --ds-* migration
 };
 
 const stripComments = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '');
