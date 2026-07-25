@@ -108,6 +108,48 @@ def test_expected_is_none_when_exam_has_no_cohort(fake_db, svc):
     assert svc.admin_live_monitor(exam["id"])["roster"]["expected"] is None
 
 
+def test_no_cohort_exam_does_not_call_everyone_off_roster(fake_db, svc):
+    """Codex #833 (correct): returning {} for "no cohort" made `uid in roster`
+    False for every real sitting, so the console reported ZERO arrivals and an
+    outside-the-list warning while the class was actively sitting the exam."""
+    exam = _seed_exam(fake_db, cohort_id=None)
+    uid = str(uuid4())
+    fake_db.seed("users", {"id": uid, "display_name": "An", "email": None})
+    _seed_sitting(fake_db, exam, uid)
+
+    res = svc.admin_live_monitor(exam["id"])
+    assert res["roster"]["expected"] is None      # still honestly unknown
+    assert res["roster"]["started"] == 1          # ...but they DID arrive
+    assert res["roster"]["off_roster"] == []      # nobody can be "outside" it
+    assert _find(res, "An")["in_roster"] is True
+
+
+def test_empty_cohort_is_zero_not_unknown(fake_db, svc):
+    """An empty cohort is a real answer. Only a MISSING cohort is unknown."""
+    exam = _seed_exam(fake_db, cohort_id=str(uuid4()))
+    assert svc.admin_live_monitor(exam["id"])["roster"]["expected"] == 0
+
+
+def test_cohort_member_without_an_account_still_counts(fake_db, svc):
+    """Codex #833 P1 (correct): students.user_id is NULLABLE by design (mig 033
+    — "link to user account when student gets login"), so an unactivated cohort
+    member is a REAL roster member. Dropping them reproduced the exact bug this
+    endpoint exists to kill — a class of 20 with two unactivated reported 18."""
+    cohort = str(uuid4())
+    exam = _seed_exam(fake_db, cohort_id=cohort)
+    activated = _seed_student(fake_db, cohort, "An")
+    fake_db.seed("students", {"id": str(uuid4()), "user_id": None,
+                              "cohort_id": cohort, "full_name": "Bình chưa kích hoạt"})
+    _seed_sitting(fake_db, exam, activated)
+
+    res = svc.admin_live_monitor(exam["id"])
+    assert res["roster"]["expected"] == 2                       # not 1
+    assert res["roster"]["not_started"] == ["Bình chưa kích hoạt"]
+    # name comes off the students row — there is no `users` row to resolve
+    row = _find(res, "Bình chưa kích hoạt")
+    assert row["started"] is False and row["in_roster"] is True
+
+
 def test_off_roster_sitting_is_surfaced(fake_db, svc):
     cohort = str(uuid4())
     exam = _seed_exam(fake_db, cohort_id=cohort)
@@ -311,6 +353,54 @@ def test_uncollected_past_section_reads_as_missed_not_waiting(fake_db, svc):
     assert secs["reading"]["state"] == "working"      # the open one
     assert secs["writing"]["state"] == "waiting"      # genuinely not yet
     assert res["sections"]["listening"]["missed"] == 1
+
+
+def test_missed_is_suppressed_while_the_sweep_could_still_be_running(fake_db, svc):
+    """Codex #844 (correct): the sweep runs in the BACKGROUND, so immediately
+    after /advance every not-yet-processed sitting legitimately has no stamp.
+    Flagging those raised the interruption banner on EVERY normal advance and
+    offered a "Thu lại" that would start a second concurrent sweep."""
+    cohort = str(uuid4())
+    exam = _seed_exam(fake_db, cohort_id=cohort)
+    # Reading opened seconds ago — the Listening sweep is plausibly still going.
+    fake_db.table("mock_exams").update({
+        "active_section": "reading",
+        "reading_started_at": _iso(_now() - timedelta(seconds=5)),
+    }).eq("id", exam["id"]).execute()
+    uid = _seed_student(fake_db, cohort, "An")
+    _seed_sitting(fake_db, exam, uid)
+
+    res = svc.admin_live_monitor(exam["id"])
+    assert _find(res, "An")["sections"]["listening"]["state"] == "waiting"
+    assert res["sections"]["listening"]["missed"] == 0     # no false banner
+
+
+def test_missed_surfaces_once_the_sweep_has_clearly_died(fake_db, svc):
+    cohort = str(uuid4())
+    exam = _seed_exam(fake_db, cohort_id=cohort)
+    fake_db.table("mock_exams").update({
+        "active_section": "reading",
+        "reading_started_at": _iso(_now() - timedelta(minutes=10)),
+    }).eq("id", exam["id"]).execute()
+    uid = _seed_student(fake_db, cohort, "An")
+    _seed_sitting(fake_db, exam, uid)
+
+    res = svc.admin_live_monitor(exam["id"])
+    assert _find(res, "An")["sections"]["listening"]["state"] == "missed"
+    assert res["sections"]["listening"]["missed"] == 1
+
+
+def test_collect_rejects_a_section_the_exam_has_not_reached(fake_db, svc):
+    """Codex #844 (correct): preflight only checked the section was CONFIGURED.
+    /collect?section=writing while Listening is active would stamp every
+    student's future Writing as submitted — taking papers that do not exist."""
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"active_section": "listening"}).eq(
+        "id", exam["id"]).execute()
+    with pytest.raises(svc.SittingConflictError):
+        svc.collect_preflight(exam["id"], "writing")
+    # the open section and an earlier one are both fine
+    assert svc.collect_preflight(exam["id"], "listening")["section"] == "listening"
 
 
 def test_collected_past_section_is_not_flagged_missed(fake_db, svc):

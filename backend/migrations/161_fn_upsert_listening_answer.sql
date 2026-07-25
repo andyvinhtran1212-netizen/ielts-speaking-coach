@@ -79,8 +79,23 @@ BEGIN
 END;
 $$;
 
+-- ── Lock it down ────────────────────────────────────────────────────────────
+-- PostgreSQL grants EXECUTE on a new function to PUBLIC by default. Left as-is,
+-- this SECURITY DEFINER function is callable straight through PostgREST by any
+-- `anon` / `authenticated` client — which bypasses BOTH the table's RLS and the
+-- router's ownership + q_num validation, so anyone holding an in-progress
+-- attempt UUID could overwrite someone else's answers.
+--
+-- Same shape as migration 108 (append_paste_event), the repo's existing
+-- backend-only RPC.
+REVOKE EXECUTE ON FUNCTION public.fn_upsert_listening_answer(uuid, integer, text)
+    FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.fn_upsert_listening_answer(uuid, integer, text)
+    TO service_role;
+
 COMMENT ON FUNCTION fn_upsert_listening_answer(uuid, integer, text) IS
 'Atomically upsert ONE answer into listening_test_attempts.answers (A4b).
 Replaces the Python read-modify-write of the whole JSONB array, which lost
 answers whenever two questions were saved concurrently. Only touches an
-in_progress attempt. Returns the new answer count, NULL if no row matched.';
+in_progress attempt. Returns the new answer count, NULL if no row matched.
+service_role ONLY — it is SECURITY DEFINER and bypasses RLS by design.';

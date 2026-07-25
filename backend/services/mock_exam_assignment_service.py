@@ -24,6 +24,12 @@ class InvalidWindowError(ValueError):
     """open_until is earlier than open_from — an impossible availability window."""
 
 
+class RevocationError(RuntimeError):
+    """The assignment was deleted but an open sitting could not be voided, so
+    access was NOT actually revoked. Reported rather than swallowed: the admin
+    must know to clear it by hand."""
+
+
 # v1 retake covers Listening/Reading/Writing only (Speaking is session-based,
 # added later — the skills array leaves room). Order-stable canonical list.
 _RETAKE_SKILLS = ("listening", "reading", "writing")
@@ -247,7 +253,7 @@ def remove(exam_id, user_id, *, admin_id=None) -> dict:
     supabase_admin.table("mock_exam_assignments").delete().eq(
         "exam_id", str(exam_id)).eq("user_id", str(user_id)).execute()
 
-    voided = []
+    voided, failed = [], []
     for row in open_rows:
         try:
             mock_exam_service.void_sitting(
@@ -255,8 +261,20 @@ def remove(exam_id, user_id, *, admin_id=None) -> dict:
                 reason="Gỡ khỏi danh sách được gán bài test lại.",
             )
             voided.append(str(row["id"]))
-        except Exception:  # noqa: BLE001 — un-assign must still succeed
+        except Exception:  # noqa: BLE001
             logger.exception("[retake] unassign: void failed sitting=%s", row["id"])
+            failed.append(str(row["id"]))
+
+    # Swallowing this and still answering ok:true was the dangerous half. The
+    # assignment row is gone from the admin's list while the sitting stays
+    # usable — create_sitting RESUMES it before the eligibility gates — so the
+    # UI would show access revoked when it was not (Codex review, PR #840).
+    if failed:
+        raise RevocationError(
+            "Đã gỡ khỏi danh sách nhưng KHÔNG huỷ được lượt thi đang mở "
+            f"({len(failed)}). Học viên vẫn vào được — hãy huỷ lượt thủ công "
+            "trên trang phòng thi trực tiếp."
+        )
 
     logger.info("[retake] unassign exam=%s user=%s voided=%d",
                 exam_id, user_id, len(voided))
