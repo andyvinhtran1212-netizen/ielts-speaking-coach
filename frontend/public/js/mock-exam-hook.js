@@ -37,9 +37,19 @@ window.MockHook = (function () {
       var resume = document.getElementById('exam-resume-btn-prestart')
         || document.getElementById('ft-resume-btn');
       var start = document.getElementById('exam-start-btn') || document.getElementById('btn-start');
-      var btn = (resume && resume.offsetParent !== null) ? resume : start;
-      if (btn && btn.offsetParent !== null) { btn.click(); clearInterval(iv); }
-      else if (tries > 50) clearInterval(iv);   // give up after ~10s
+      // A DISABLED button is not actionable. The Listening runner disables
+      // Start while the in-progress lookup is still unknown (a transient
+      // failure it retries every 3s); clicking it was a no-op that cleared this
+      // interval anyway, so when the retry later succeeded nothing auto-clicked
+      // the revealed Resume and the iframe sat on the pre-start screen for the
+      // rest of the exam. Keep polling instead (Codex review, PR #834).
+      var onScreen = function (el) { return !!el && el.offsetParent !== null; };
+      // Once Resume is on screen it is the ONLY button we may press — falling
+      // through to Start while Resume is merely disabled would fire the
+      // destructive start path this whole guard exists to prevent.
+      var btn = onScreen(resume) ? resume : (onScreen(start) ? start : null);
+      if (btn && !btn.disabled) { btn.click(); clearInterval(iv); }
+      else if (tries > 100) clearInterval(iv);   // give up after ~20s
     }, 200);
   }
 
