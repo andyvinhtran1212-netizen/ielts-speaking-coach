@@ -736,6 +736,44 @@ def test_submit_writing_stores_texts_with_word_counts(fake_db, svc):
     assert ws["task1"]["text"] == "one two three"
 
 
+def test_submit_writing_is_a_repeatable_draft_save(fake_db, svc):
+    """A2 — the client autosaves through this endpoint every ~15s while the
+    student writes. Each call must OVERWRITE the draft and must NOT stamp
+    writing_submitted_at: stamping would finalise the section mid-sentence and
+    lock the student out of their own essay."""
+    exam = _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    _reach_writing(svc, fake_db, exam, s["id"], u)
+
+    svc.submit_writing(s["id"], u, "first draft", "")
+    out = svc.submit_writing(s["id"], u, "first draft much longer now", "task two")
+
+    ws = out["writing_submission"]
+    assert ws["task1"]["text"] == "first draft much longer now"
+    assert ws["task2"]["text"] == "task two"
+    # still collectable — the draft saves did not finalise the section
+    assert svc.get_sitting(s["id"]).get("writing_submitted_at") is None
+
+
+def test_autosaved_draft_survives_a_force_collect(fake_db, svc):
+    """The exact loss A2 fixes: a tab that dies before the clock runs out used
+    to leave writing_submission EMPTY, so force-collect promoted nothing and the
+    student was recorded as having written no essay at all."""
+    exam = _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    _reach_writing(svc, fake_db, exam, s["id"], u)
+    svc.submit_writing(s["id"], u, "an essay the student really wrote", "and task two")
+
+    # student's browser is gone; invigilator sweeps the room
+    svc._force_collect_section(exam["id"], "writing")
+
+    after = svc.get_sitting(s["id"])
+    assert after["writing_submitted_at"] is not None
+    assert after["writing_submission"]["task1"]["word_count"] == 6
+
+
 def test_submit_writing_rejected_after_lrw_submit(fake_db, svc):
     """Finding 1 (round 4): Writing text can't be overwritten after finalisation."""
     exam = _seed_exam(fake_db)

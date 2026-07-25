@@ -1973,16 +1973,26 @@ def admin_live_monitor(exam_id: str) -> dict:
             if aid in r_attempts:
                 answered, last = _answer_progress(r_answers.get(aid, []))
         else:
-            # Writing has NO server-side draft today — the text only reaches the
-            # server at submit, so there is nothing to report mid-section. Say so
-            # (live=False) instead of rendering a real 0 the invigilator would
-            # read as "this student has written nothing".
-            live = False
+            # Writing autosaves to the server during the section (A2), so the
+            # word count IS live now — `answered` is words, not questions, and
+            # `total` stays None because Writing has no denominator.
             ws = (sitting.get("writing_submission") or {})
             if ws:
                 answered = sum(int((ws.get(t) or {}).get("word_count") or 0)
                                for t in ("task1", "task2"))
-                last = sitting.get("writing_submitted_at")
+                # The autosave stamps submitted_at on each task blob every time,
+                # so the later of the two IS the last keystroke that reached us —
+                # the same "have they gone quiet" signal L/R get from answered_at.
+                last = max(
+                    (str((ws.get(t) or {}).get("submitted_at") or "")
+                     for t in ("task1", "task2")),
+                    default="",
+                ) or sitting.get("writing_submitted_at")
+            else:
+                # Nothing has arrived yet. 0 words is the truth once autosave is
+                # running, but only after the student has actually been in the
+                # section — before that there is simply no signal.
+                answered = 0 if state == "working" else None
 
         stalled = bool(
             state == "working" and live and last

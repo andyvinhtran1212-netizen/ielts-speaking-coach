@@ -165,6 +165,123 @@
   // ── Test (ONE section at a time) ──────────────────────────────────
   function lsKey(t) { return 'mock-writing:' + S.sittingId + ':' + t; }
 
+  // ── Writing draft persistence ──────────────────────────────────────
+  //
+  // Until this existed the essay lived ONLY in localStorage, so a new device, a
+  // crashed browser, a cleared cache or a private window lost it outright — and
+  // worse, a tab that died before the clock ran out let the server's
+  // force-collect promote an EMPTY writing_submission, recording the student as
+  // having written nothing. The endpoint that fixes this
+  // (POST /sittings/{id}/writing) already existed and was already designed for
+  // exactly this — it stores the text WITHOUT stamping writing_submitted_at.
+  // Nobody was calling it until submit.
+  //
+  // localStorage stays as the offline tier: it survives a dead network, the
+  // server survives a dead browser, and whichever copy is NEWER wins on load.
+  var WRITE_SAVE_MS = 15000;      // idle debounce
+  var WRITE_SAVE_CHARS = 400;     // ...or this much new text, whichever first
+  var _wSaveTimer = null;
+  var _wLastSaved = { task1: '', task2: '' };
+  var _wSaving = false;
+  var _wDirty = false;
+  var _wFlushWired = false;
+
+  function saveLocalDraft(task, text) {
+    try {
+      localStorage.setItem(lsKey(task), JSON.stringify({ text: text, ts: Date.now() }));
+    } catch (e) {}
+  }
+
+  function readLocalDraft(task) {
+    var raw = null;
+    try { raw = localStorage.getItem(lsKey(task)); } catch (e) { return null; }
+    if (!raw) return null;
+    try {
+      var d = JSON.parse(raw);
+      if (d && typeof d === 'object' && typeof d.text === 'string') return d;
+    } catch (e) { /* pre-JSON draft, handled below */ }
+    // Drafts written before this change were the bare string. Treat them as
+    // real text with an unknown (oldest-possible) time, so the server copy wins
+    // a tie rather than a stale local one silently overwriting it.
+    return { text: String(raw), ts: 0 };
+  }
+
+  // Whichever copy is newer wins. Server time is the submitted_at the endpoint
+  // stamps on each task blob; local time is Date.now() at keystroke. They come
+  // from different clocks, so this is a heuristic — but it only ever has to
+  // choose between two copies of the SAME student's work, and the alternative
+  // (always trusting one side) loses real text in the other direction.
+  function restoreDraft(task) {
+    var blob = ((S.sitting && S.sitting.writing_submission) || {})[task] || {};
+    var serverText = typeof blob.text === 'string' ? blob.text : '';
+    var serverTs = blob.submitted_at ? Date.parse(blob.submitted_at) : 0;
+    var local = readLocalDraft(task);
+    if (!local || !local.text) return serverText;
+    if (!serverText) return local.text;
+    return (serverTs && serverTs > (local.ts || 0)) ? serverText : local.text;
+  }
+
+  function setSaveCue(state) {
+    var cue = el('mw-savecue');
+    if (!cue) return;
+    var now = new Date();
+    var hh = ('0' + now.getHours()).slice(-2), mm = ('0' + now.getMinutes()).slice(-2);
+    cue.classList.toggle('is-failed', state === 'failed');
+    cue.textContent = state === 'saved' ? 'Đã lưu lúc ' + hh + ':' + mm
+      : state === 'saving' ? 'Đang lưu…'
+      : 'Chưa lưu được lên máy chủ — bài vẫn giữ trên máy này, sẽ tự thử lại.';
+  }
+
+  function scheduleWritingSave() {
+    _wDirty = true;
+    var t1 = el('essay-task1').value, t2 = el('essay-task2').value;
+    var delta = Math.abs(t1.length - _wLastSaved.task1.length)
+      + Math.abs(t2.length - _wLastSaved.task2.length);
+    // A burst of writing shouldn't sit unsent for the whole idle window.
+    if (delta >= WRITE_SAVE_CHARS) return flushWritingSave();
+    if (_wSaveTimer) return;
+    _wSaveTimer = setTimeout(flushWritingSave, WRITE_SAVE_MS);
+  }
+
+  function flushWritingSave(opts) {
+    if (_wSaveTimer) { clearTimeout(_wSaveTimer); _wSaveTimer = null; }
+    // Never autosave outside the open Writing section: the endpoint rejects it,
+    // and after submit the text is final — a late save must not race the
+    // submitted copy.
+    if (!_wDirty || _wSaving || _submitting || S.renderedSection !== 'writing') return;
+    _wSaving = true;
+    setSaveCue('saving');
+    var body = { task1_text: el('essay-task1').value, task2_text: el('essay-task2').value };
+    // keepalive lets the browser finish the request after the page is gone —
+    // the pagehide path is exactly the case this feature exists for.
+    return window.api.postWith(
+      '/api/mock-exams/sittings/' + encodeURIComponent(S.sittingId) + '/writing',
+      body, null, { keepalive: !!(opts && opts.keepalive) }
+    ).then(function () {
+      _wLastSaved = { task1: body.task1_text, task2: body.task2_text };
+      _wDirty = false;
+      setSaveCue('saved');
+    }).catch(function (e) {
+      // Stay dirty so the next tick retries. localStorage still holds the text,
+      // so this is a degraded state, not a loss.
+      setSaveCue('failed');
+      console.warn('[mock-exam] writing autosave failed', e);
+    }).then(function () { _wSaving = false; });
+  }
+
+  function wireWritingFlush() {
+    if (_wFlushWired) return;
+    _wFlushWired = true;
+    // pagehide covers refresh / navigate / close; visibilitychange→hidden is the
+    // only reliable signal when a mobile OS kills a backgrounded tab (same pair
+    // reading-exam.js relies on).
+    window.addEventListener('pagehide', function () { flushWritingSave({ keepalive: true }); });
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden') flushWritingSave({ keepalive: true });
+    });
+    window.addEventListener('online', function () { flushWritingSave(); });
+  }
+
   function renderSection(section) {
     el('section-label').textContent = _SECTION_LABEL[section] || section;
     el('timer').classList.remove('warn');
@@ -205,13 +322,16 @@
     }
     ['task1', 'task2'].forEach(function (t) {
       var ta = el('essay-' + t);
-      try { var saved = localStorage.getItem(lsKey(t)); if (saved) ta.value = saved; } catch (e) {}
+      ta.value = restoreDraft(t);
+      _wLastSaved[t] = ta.value;
       el('count-' + t).textContent = wordCount(ta.value);
       ta.addEventListener('input', function () {
         el('count-' + t).textContent = wordCount(ta.value);
-        try { localStorage.setItem(lsKey(t), ta.value); } catch (e) {}
+        saveLocalDraft(t, ta.value);
+        scheduleWritingSave();
       });
     });
+    wireWritingFlush();
     function selectTask(name) {
       document.querySelectorAll('.me-wtabs .me-tab').forEach(function (x) {
         var on = x.dataset.wtab === name;
