@@ -65,3 +65,68 @@ test('cutover dashboard: admin Báo lỗi renders migration-stats (ADR-012 đi�
   assert.match(ADMIN_JS, /'\/admin\/error-logs\/migration-stats'/);
   assert.match(ADMIN_JS, /truncated/, 'silent truncation is forbidden — must render the warning');
 });
+
+// ── AUDIT F2 (2026-07-14): field Web Vitals collector ──────────────────
+const RUM = read('js', 'rum-vitals.js');
+
+test('rum-vitals: measures LCP/CLS/INP via PerformanceObserver and ships tagged web_vitals events (AUDIT F2)', () => {
+  assert.match(RUM, /largest-contentful-paint/);
+  assert.match(RUM, /layout-shift/);
+  assert.match(RUM, /hadRecentInput/, 'CLS must exclude shifts caused by recent input');
+  assert.match(RUM, /interactionId/, 'INP approximation reads interaction entries only');
+  assert.match(RUM, /event_name: 'web_vitals'/);
+  assert.match(RUM, /__next_f/, 'implementation tag = same derivation as error-reporter/beacon');
+});
+
+test('rum-vitals: sends via fetch keepalive, NOT sendBeacon (cross-origin JSON needs headers)', () => {
+  assert.match(RUM, /keepalive: true/);
+  assert.ok(!/navigator\.sendBeacon/.test(RUM),
+    'sendBeacon cannot carry Content-Type: application/json on the cross-origin Railway API');
+});
+
+test('rum-vitals: sends once, on first pagehide/hidden — not per interaction', () => {
+  assert.match(RUM, /var sent = false/);
+  assert.match(RUM, /if \(sent\) return/);
+  assert.match(RUM, /pagehide/, 'pagehide covers navigation');
+  assert.match(RUM, /visibilitychange/, 'hidden covers tab/app switch where pagehide may never fire');
+});
+
+test('rum-vitals: apiBase prefers runtime-config before the production fallback (same contract as reporter, review #755)', () => {
+  assert.match(RUM, /rc\.apiBase/);
+  const rcIdx = RUM.indexOf('rc.apiBase');
+  const prodIdx = RUM.indexOf('ielts-speaking-coach-production');
+  assert.ok(rcIdx !== -1 && prodIdx !== -1 && rcIdx < prodIdx,
+    'runtime-config must be consulted BEFORE the production Railway fallback');
+});
+
+test('rum-vitals: loaded by all three Next route-group layouts (AUDIT F2)', () => {
+  for (const group of ['(marketing)', '(public-content)', '(authed)']) {
+    const layout = read('app', group, 'layout.tsx');
+    assert.match(layout, /\/js\/rum-vitals\.js/, `${group} layout must load the collector`);
+  }
+});
+
+// ── AUDIT F1 (2026-07-14): rollback-trigger metrics panel ──────────────
+test('rollback-metrics: admin panel computes the FROZEN triggers with a real denominator (AUDIT F1)', () => {
+  assert.match(ADMIN_HTML, /id="rollback-metrics-panel"/);
+  assert.match(ADMIN_HTML, /id="rbm-route"/);
+  assert.match(ADMIN_HTML, /id="rbm-window"/);
+  assert.match(ADMIN_JS, /function loadRollbackMetrics\(\)/);
+  assert.match(ADMIN_JS, /\/admin\/error-logs\/rollback-metrics\?route=/);
+  assert.match(ADMIN_JS, /encodeURIComponent\(route\)/, 'route param must be URL-encoded');
+  assert.match(ADMIN_JS, /error_verdict/, 'the verdict (not just raw counts) must render');
+  assert.match(ADMIN_JS, /vitals_verdict/, 'the LCP verdict must render');
+  assert.match(ADMIN_JS, /insufficient-sample/,
+    'sample insufficiency must be surfaced — a rate over 3 views is not a verdict');
+});
+
+test('error-reporter: _apiBase prefers runtime-config before the production fallback (review #755, ADR-006)', () => {
+  // A page that loads error-reporter WITHOUT api.js (the lean Next marketing
+  // landing) must still post to the ENVIRONMENT origin, not hardcoded prod —
+  // else staging landing errors pollute production error_logs.
+  assert.match(REPORTER, /rc\.apiBase/, 'must read runtime-config apiBase');
+  const rcIdx = REPORTER.indexOf('rc.apiBase');
+  const prodIdx = REPORTER.indexOf("ielts-speaking-coach-production", REPORTER.indexOf('function _apiBase'));
+  assert.ok(rcIdx !== -1 && prodIdx !== -1 && rcIdx < prodIdx,
+    'runtime-config must be consulted BEFORE the production Railway fallback');
+});

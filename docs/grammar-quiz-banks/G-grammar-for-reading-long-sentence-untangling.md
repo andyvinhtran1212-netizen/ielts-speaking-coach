@@ -65,7 +65,7 @@ input: "text"
 headword: "lsu-find-main-clause"
 skill: "production"
 subtype: "intermediate"
-prompt: "Simplify this complex sentence to show ONLY the main clause: 'Because climate change is accelerating, governments, which are increasingly under pressure, must implement radical strategies.' Write the main clause (subject + main verb only):"
+prompt: "Identify the main clause: 'Because climate change is accelerating, governments, which are increasingly under pressure, must implement radical strategies.' → ____"
 accept: ["governments must implement", "governments must implement radical strategies", "Governments must implement"]
 case_sensitive: false
 grammar_article_slug: "long-sentence-untangling"
@@ -149,7 +149,7 @@ input: "text"
 headword: "lsu-strip-modifiers"
 skill: "production"
 subtype: "intermediate"
-prompt: "Remove ALL modifiers from this sentence and write only the main clause: 'The results of the experiment, which lasted for eighteen months and involved hundreds of participants, demonstrated a clear correlation.' Write the core sentence:"
+prompt: "Strip all modifiers: 'The results of the experiment, which lasted for eighteen months and involved hundreds of participants, demonstrated a clear correlation.' → ____"
 accept: ["the results demonstrated", "The results demonstrated", "results demonstrated a clear correlation"]
 case_sensitive: false
 grammar_article_slug: "long-sentence-untangling"
@@ -219,7 +219,7 @@ input: "text"
 headword: "lsu-avoid-nested-verb-confusion"
 skill: "production"
 subtype: "intermediate"
-prompt: "Rewrite this sentence using ONLY the main clause: 'Because scientists discovered unprecedented ice loss in polar regions, which surprised even experts who had studied climate trends for decades, governments finally prioritized environmental policy.' Keep only the main verb and its subject:"
+prompt: "What is the main clause? 'Because scientists discovered unprecedented ice loss in polar regions, which surprised even experts who had studied climate trends for decades, governments finally prioritized environmental policy.' → ____"
 accept: ["governments prioritized", "governments finally prioritized", "Governments prioritized"]
 case_sensitive: false
 grammar_article_slug: "long-sentence-untangling"

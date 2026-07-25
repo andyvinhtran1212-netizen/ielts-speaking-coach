@@ -65,8 +65,9 @@ input: "text"
 headword: "eit-in-my-opinion"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (in my opinion), the job market is simply far more diverse in urban areas."
-accept: ["in my opinion", "In my opinion"]
+prompt: "____, the job market is simply far more diverse in urban areas."
+hint: "cụm 3 từ nêu quan điểm ('theo tôi'), KHÔNG kèm 'I think'"
+accept: ["in my opinion", "in my view"]
 case_sensitive: false
 grammar_article_slug: "overusing-i-think"
 explain: "Viết đúng cụm 'In my opinion' — không lặp thêm 'I think' phía sau vì đã cùng ý nghĩa."
@@ -136,8 +137,9 @@ input: "text"
 headword: "eit-strong-belief"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (I am convinced) that early childhood education has a far greater impact than people realise."
-accept: ["I am convinced", "i am convinced"]
+prompt: "____ that early childhood education has a far greater impact than people realise."
+hint: "cụm 3 từ khẳng định chắc chắn sau khi suy nghĩ kỹ ('tôi tin chắc')"
+accept: ["I am convinced", "I am certain"]
 case_sensitive: false
 grammar_article_slug: "overusing-i-think"
 explain: "'I am convinced that' dùng khi bạn đã suy nghĩ kỹ và đưa ra kết luận — phù hợp câu trả lời Part 3 phức tạp."
@@ -206,8 +208,8 @@ input: "text"
 headword: "eit-tentative"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (I tend to think) that smaller class sizes lead to better educational outcomes, though I know the research is mixed."
-accept: ["I tend to think", "i tend to think"]
+prompt: "Use a tentative phrase to complete: 'I ____ that smaller class sizes lead to better educational outcomes, though I know the research is mixed.'"
+accept: ["tend to think"]
 case_sensitive: false
 grammar_article_slug: "overusing-i-think"
 explain: "'I tend to think that' ngụ ý thiên hướng chung, không cứng nhắc — nghe rất tự nhiên khi kèm phần nhượng bộ ('though...')."
@@ -278,8 +280,9 @@ input: "text"
 headword: "eit-personal"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (for me), the most rewarding part of travelling is meeting local people rather than visiting tourist attractions."
-accept: ["for me", "For me"]
+prompt: "____, the most rewarding part of travelling is meeting local people rather than visiting tourist attractions."
+hint: "cụm 2 từ mở đầu góc nhìn cá nhân ('với tôi')"
+accept: ["for me", "to me"]
 case_sensitive: false
 grammar_article_slug: "overusing-i-think"
 explain: "'For me' không cần thêm 'think' hay 'believe' — bản thân phrase đã đủ để giới thiệu quan điểm cá nhân."
@@ -353,11 +356,11 @@ input: "text"
 headword: "eit-no-repeat"
 skill: "production"
 subtype: "intermediate"
-prompt: "Sửa lỗi lặp nghĩa 'In my opinion, I think the government should invest more in education.' bằng cách bỏ đúng 1 cụm thừa (điền cụm bị thừa cần xoá, 2 từ):"
-accept: ["I think"]
+prompt: "Fix the redundancy: 'In my opinion, I think the government should invest more in education.' → Rewrite: 'In my opinion, the government ____'"
+accept: ["should invest more"]
 case_sensitive: false
 grammar_article_slug: "overusing-i-think"
-explain: "'In my opinion' và 'I think' cùng nghĩa nêu quan điểm — chỉ giữ một trong hai. Cách sửa gọn nhất là bỏ 'I think': 'In my opinion, the government should invest more in education.' (Cũng có thể bỏ 'In my opinion' và giữ 'I think', theo đúng bài Wiki, nhưng ở đây ta luyện cách bỏ cụm thừa 'I think')."
+explain: "'In my opinion' và 'I think' cùng nghĩa nêu quan điểm — chỉ giữ một trong hai. Cách sửa gọn nhất là bỏ 'I think': 'In my opinion, the government should invest more in education.'"
 ---
 
 ---

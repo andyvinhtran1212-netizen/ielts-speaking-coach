@@ -124,6 +124,36 @@ describe('queue.html — bulk-deliver (reviewed-only, partial-success, refetch)'
 });
 
 
+describe('queue.html — Mock (bài thi) review lane', () => {
+  test('Mock tab button + hidden actions column present', () => {
+    assert.match(HTML, /id="q-mock-tab"/);
+    assert.match(HTML, /id="q-actions-th" hidden/);
+  });
+  test('every lane sends &mock= — regular lanes exclude, Mock lane includes', () => {
+    assert.match(JS, /'&mock=' \+ \(_mock \? 'true' : 'false'\)/);
+    assert.match(JS, /function setMockLane\(\)[\s\S]*?_mock = true[\s\S]*?_status = ''/);
+    assert.match(JS, /function setStatus[\s\S]*?_mock = false/);   // status tab leaves mock
+  });
+  test('bulk-deliver never offered on the Mock lane', () => {
+    assert.match(JS, /const bulkable = _status === 'reviewed' && !_mock/);
+  });
+  test('too-short badge derives from the IELTS task minimum (150 / 250)', () => {
+    assert.match(JS, /MOCK_MIN_WORDS = \{ task1: 150, task2: 250 \}/);
+    assert.match(JS, /function mockWcBadge[\s\S]*?q-wc-short/);
+  });
+  test('pending mock essay offers grade-anyway + skip; actions intercept row-open', () => {
+    assert.match(JS, /data-grade-anyway=/);
+    assert.match(JS, /data-skip=/);
+    assert.match(JS, /\[data-grade-anyway\][\s\S]*?stopPropagation\(\)[\s\S]*?mockGradeAnyway/);
+    assert.match(JS, /\[data-skip\][\s\S]*?stopPropagation\(\)[\s\S]*?mockSkipGrading/);
+  });
+  test('grade-anyway → start-grading; skip → mock skip-grading endpoint', () => {
+    assert.match(JS, /mockGradeAnyway[\s\S]*?\/admin\/writing\/essays\/[\s\S]*?\/start-grading/);
+    assert.match(JS, /mockSkipGrading[\s\S]*?\/admin\/mock-exams\/writing\/essays\/[\s\S]*?\/skip-grading/);
+  });
+});
+
+
 describe('grade-queue — chrome nav entry', () => {
   test('queue nav slot added after cohorts in the writing section', () => {
     assert.match(CHROME, /slug: 'queue'[\s\S]*?writing\/queue\.html/);

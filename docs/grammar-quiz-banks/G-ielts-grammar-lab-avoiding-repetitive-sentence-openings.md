@@ -109,11 +109,11 @@ input: "text"
 headword: "arso-fronting-adverbials"
 skill: "production"
 subtype: "intermediate"
-prompt: "Rewrite fronting the time adverbial: 'I spent most weekends at my grandparents' house as a child.' → '____ (write the 3-word phrase meaning 'during childhood'), I spent most weekends at my grandparents' house.'"
+prompt: "Rewrite fronting the time adverbial: 'I spent most weekends at my grandparents' house as a child.' → '____ (gõ cụm trạng ngữ thời gian 3 từ; dấu phẩy tuỳ chọn), I spent most weekends at my grandparents' house.'"
 accept: ["As a child,", "As a child"]
 case_sensitive: false
 grammar_article_slug: "avoiding-repetitive-sentence-openings"
-explain: "Đưa trạng ngữ thời gian 'as a child' lên đầu câu, có dấu phẩy theo sau, là cách mở câu đa dạng và tự nhiên."
+explain: "Đưa trạng ngữ thời gian 'as a child' (3 từ) lên đầu câu, theo sau là dấu phẩy, là cách mở câu đa dạng và tự nhiên trong Speaking IELTS."
 ---
 
 ---
@@ -236,7 +236,8 @@ input: "text"
 headword: "arso-cleft-sentences"
 skill: "production"
 subtype: "advanced"
-prompt: "Rewrite 'I think motivation is the most important factor' as a cleft sentence starting with 'What': '____, in my view, is motivation.' (write the 3-word phrase: What/matters/most)"
+prompt: "Rewrite 'I think motivation is the most important factor' as a cleft sentence starting with 'What': '____, in my view, is motivation.'"
+hint: "cụm chẻ câu (cleft) 3 từ, bắt đầu bằng 'What'"
 accept: ["What matters most", "what matters most"]
 case_sensitive: false
 grammar_article_slug: "avoiding-repetitive-sentence-openings"

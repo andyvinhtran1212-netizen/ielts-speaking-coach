@@ -110,6 +110,23 @@ def test_l1_still_derives_l1_vocab_library():
     assert payload["skill_focus"] is None       # not required for L1
 
 
+def test_build_l1_l2_strips_markdown_emphasis_from_title():
+    """DEBT-2026-07-20-C (Codex #814): L1/L2 titles render via textContent
+    (reading-vocab-passage.js / reading-skill-exercise.js), so paired
+    '**bold**'/'*italic*' markers must be stripped — same as the L3 test path.
+    body_markdown IS markdown-rendered, so it keeps its markers."""
+    md = (
+        "---\ncontent_type: reading_passage_l1\n"
+        "title: '*The World of Sugar*: a history'\nslug: sugar-l1\npublished: true\n---\n"
+        "Body keeps *italics* and **bold** because it IS rendered.\n"
+    )
+    p = parse_reading_passage(md)
+    payload = build_reading_passage_payload(p, p.slug)
+    assert payload["title"] == "The World of Sugar: a history"
+    # body_markdown untouched (it's rendered as markdown, not plain text)
+    assert payload["body_markdown"] == "Body keeps *italics* and **bold** because it IS rendered."
+
+
 # ── Admin list endpoint ───────────────────────────────────────────────
 
 

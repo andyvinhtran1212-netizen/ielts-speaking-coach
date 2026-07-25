@@ -66,7 +66,7 @@ input: "text"
 headword: "np-determiner"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (determiner) factor that most influences consumer choice is price — write the single word that fits the blank (a definite, specific factor already implied)."
+prompt: "____ (determiner, 1 từ) factor that most influences consumer choice is price."
 accept: ["The"]
 case_sensitive: false
 grammar_article_slug: "noun-phrase-basics"
@@ -137,11 +137,12 @@ input: "text"
 headword: "np-adjective-order"
 skill: "production"
 subtype: "intermediate"
-prompt: "Rearrange into the correct noun phrase: [population / large / a / urban] — write the full phrase in correct order."
-accept: ["a large urban population"]
+prompt: "Complete the noun phrase with adjectives in correct order: 'a ____ population'"
+hint: "gõ 2 tính từ theo đúng trật tự (kích thước trước chủng loại)"
+accept: ["large urban"]
 case_sensitive: false
 grammar_article_slug: "noun-phrase-basics"
-explain: "Theo OSASCOMP, size (large) đứng trước classifier (urban), rồi mới đến noun 'population' → 'a large urban population' (ví dụ này xuất hiện trực tiếp trong bài Wiki, mục 1.2)."
+explain: "Theo OSASCOMP, size (large) đứng trước classifier (urban) → 'large urban population' (ví dụ này xuất hiện trực tiếp trong bài Wiki, mục 1.2)."
 ---
 
 ---
@@ -194,11 +195,12 @@ input: "text"
 headword: "np-post-modifiers"
 skill: "production"
 subtype: "intermediate"
-prompt: "Combine into one noun phrase using a relative clause: [the researchers] + [they published the study last year] — write the full noun phrase starting with 'the researchers'."
-accept: ["the researchers who published the study last year", "the researchers that published the study last year"]
+prompt: "Complete the noun phrase with a relative clause: 'the researchers ____ the study last year.'"
+hint: "gõ đại từ quan hệ + động từ"
+accept: ["who published", "that published"]
 case_sensitive: false
 grammar_article_slug: "noun-phrase-basics"
-explain: "Mệnh đề quan hệ bổ nghĩa danh từ: 'the researchers who/that published the study last year'."
+explain: "Mệnh đề quan hệ bổ nghĩa danh từ với relative pronoun (who/that) + verb: 'the researchers who/that published the study last year'."
 ---
 
 ---
@@ -251,7 +253,8 @@ input: "text"
 headword: "np-noun-modifiers"
 skill: "production"
 subtype: "intermediate"
-prompt: "Rewrite 'a system for managing data' as a compact noun-modifier phrase — write two words only (noun modifier + noun)."
+prompt: "Rewrite 'a system for managing data' as a compact noun-modifier phrase: 'a ____'"
+hint: "gõ danh từ-bổ-nghĩa + danh từ (2 từ)"
 accept: ["data management"]
 case_sensitive: false
 grammar_article_slug: "noun-phrase-basics"

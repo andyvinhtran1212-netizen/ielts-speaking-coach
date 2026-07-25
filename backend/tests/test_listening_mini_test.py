@@ -135,26 +135,26 @@ def _call(**kw):
     return rec
 
 
-# Default/full library segregates BOTH mini and drill into their own libraries,
-# while keeping legacy NULL rows.
-_EXCLUDE = "metadata->>test_type.is.null,metadata->>test_type.not.in.(mini,drill)"
+# Mig 157 — test_type là cột thật (NOT NULL, CHECK full|mini|drill; legacy
+# NULL đã backfill = 'full') → cả 3 nhánh lọc đều là eq trên cột.
 
 
 def test_list_mini_only():
     rec = _call(test_type="mini")
-    assert ("eq", "metadata->>test_type", "mini") in rec
+    assert ("eq", "test_type", "mini") in rec
     assert not any(t[0] == "or" for t in rec)
 
 
-def test_list_full_excludes_mini_keeps_legacy_null():
+def test_list_full_excludes_mini_and_drill():
     rec = _call(test_type="full")
-    assert ("or", _EXCLUDE) in rec
-    assert ("eq", "metadata->>test_type", "mini") not in rec
+    assert ("eq", "test_type", "full") in rec
+    assert ("eq", "test_type", "mini") not in rec
+    assert not any(t[0] == "or" for t in rec)
 
 
 def test_list_default_behaves_as_full():
     rec = _call()
-    assert ("or", _EXCLUDE) in rec
+    assert ("eq", "test_type", "full") in rec
 
 
 def test_list_invalid_test_type_422():

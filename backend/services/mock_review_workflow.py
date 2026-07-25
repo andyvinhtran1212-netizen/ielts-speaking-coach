@@ -37,6 +37,12 @@ logger = logging.getLogger(__name__)
 
 _SKILLS = ("listening", "reading", "writing", "speaking")
 
+# A promoted Writing essay may only be published (released) once it has been
+# graded AND admin-approved — release delivers ONLY a 'reviewed' essay, so
+# publishing while it's still pending/grading/graded hands the student a Writing
+# band with no deliverable chữa bài (2026-07-14 audit).
+_WRITING_RELEASABLE = ("reviewed", "delivered")
+
 
 # ── Errors ────────────────────────────────────────────────────────────
 
@@ -88,6 +94,88 @@ def compute_overall(final_bands: dict, skills: tuple = _SKILLS) -> float:
     if len(vals) == 4:
         return overall_from_criteria(*vals)
     return ielts_round(sum(vals) / len(vals))
+
+
+def _unconvertible_skills(sitting_id: UUID | str) -> set:
+    """Skills whose raw score has NO published band — legitimately blank.
+
+    The Cambridge tables bottom out at 10/40 (Listening) and 4/40 (Reading
+    Academic). Below that there is no official band, and the graders return None
+    rather than extrapolate. Forcing the examiner to supply one anyway would make
+    them invent a score, and today it does worse: compute_overall raises, so the
+    whole result cannot be saved or released — a student who scored 0 on
+    Listening and 6.5 on Reading is stranded with no results at all.
+
+    Writing qualifies too, on its own terms: its band is COMPUTED from the two
+    essays ((T1 + 2·T2)/3) and sync_writing_band_for_essay needs BOTH banded. No
+    essays, one task ungraded, or one skipped → there is no Writing band to give,
+    and demanding one made the whole sitting unsaveable (2026-07-15: 5 of 15
+    reviews were stuck exactly here). The student still gets the graded task's
+    feedback; only the band goes blank.
+
+    Speaking never qualifies — nothing derives it, it is purely the examiner's
+    judgement, so a blank there is a forgotten entry and must keep failing.
+
+    Reads the PERSISTED band_estimate rather than recomputing from the raw score.
+    The grader stamps it with the attempt's own module — Reading General Training
+    has no table in Phase 1, so band_estimate is None at ANY score — and a
+    recompute here defaulted to the Academic table, deciding GT 27/40 was worth
+    6.5 and therefore not blankable, while the roster (which reads the persisted
+    value) showed the examiner no band to enter. Two sources of truth, and this
+    one was wrong (Codex review, PR #779).
+    """
+    row = supabase_admin.table("mock_exam_sittings").select(
+        "listening_attempt_id, reading_attempt_id",
+    ).eq("id", str(sitting_id)).limit(1).execute()
+    if not row.data:
+        return set()
+    s = row.data[0]
+
+    out: set = set()
+    for skill, col, table in (
+        ("listening", "listening_attempt_id", "listening_test_attempts"),
+        ("reading",   "reading_attempt_id",   "reading_test_attempts"),
+    ):
+        aid = s.get(col)
+        if not aid:
+            continue
+        a = supabase_admin.table(table).select("score, band_estimate").eq(
+            "id", str(aid),
+        ).limit(1).execute().data
+        if not a:
+            continue
+        # No attempt row / no score is NOT "unconvertible" — that is missing data,
+        # and silently blanking it would hide a broken attach.
+        if a[0].get("score") is None:
+            continue
+        if a[0].get("band_estimate") is None:
+            out.add(skill)
+
+    if not _writing_band_derivable(sitting_id):
+        out.add("writing")
+    return out
+
+
+def _writing_band_derivable(sitting_id: UUID | str) -> bool:
+    """True when a Writing band can be COMPUTED for this sitting.
+
+    Mirrors sync_writing_band_for_essay's own precondition exactly — both tasks
+    stamped AND both carrying a band — so the form never demands a band the
+    system would refuse to compute. Deliberately not "has essays": an essay held
+    pending (too short) or admin-skipped carries no band, and that sitting is
+    just as underivable as one with no essays at all.
+    """
+    row = supabase_admin.table("mock_exam_sittings").select(
+        "essay_task1_id, essay_task2_id",
+    ).eq("id", str(sitting_id)).limit(1).execute()
+    if not row.data:
+        return False
+    s = row.data[0]
+    t1, t2 = s.get("essay_task1_id"), s.get("essay_task2_id")
+    if not t1 or not t2:
+        return False
+    bands = _essay_bands([t1, t2])
+    return bands.get(str(t1)) is not None and bands.get(str(t2)) is not None
 
 
 def _required_skills(sitting_id: UUID | str) -> tuple:
@@ -250,8 +338,24 @@ def save_final_bands(
             f"Review {review_id} đã công bố — không thể sửa band. Thu hồi trước nếu cần."
         )
     skills = _required_skills(review["sitting_id"])
-    overall = compute_overall(final_bands, skills)
-    stored = {s: _coerce_band(final_bands[s]) for s in skills}
+    # A skill whose raw score falls below the published Cambridge table has NO
+    # band — demanding one would make the examiner invent a number. Those may be
+    # left blank; the overall then goes blank too rather than being averaged over
+    # a hole. Every other blank is still an error: Writing/Speaking are the
+    # examiner's own judgement, so a gap there is a forgotten entry, not a
+    # missing table row (2026-07-15).
+    blankable = _unconvertible_skills(review["sitting_id"])
+    missing = [s for s in skills if final_bands.get(s) is None]
+    forgotten = [s for s in missing if s not in blankable]
+    if forgotten:
+        raise ValidationError(f"final_bands missing skill(s): {', '.join(forgotten)}")
+
+    stored = {
+        s: _coerce_band(final_bands[s]) for s in skills if final_bands.get(s) is not None
+    }
+    # Overall is the mean of ALL required skills — with one absent there is no
+    # honest mean, so it is blank, not a partial average dressed up as a total.
+    overall = None if missing else compute_overall(final_bands, skills)
     stored["overall"] = overall
 
     update: dict = {
@@ -295,18 +399,339 @@ def save_final_bands(
     return response.data[0]
 
 
+_STATUS_VI = {
+    "queued":   "chưa nhận",
+    "claimed":  "đã nhận",
+    "edited":   "đang sửa",
+    "reviewed": "đã duyệt",
+    "released": "đã công bố",
+}
+
+
+def _draft_final_bands(review: dict) -> dict:
+    """The bands the review console would pre-fill, derived server-side.
+
+    Mirrors the console's rule exactly (admin-mock-reviews.js draftBandOf): a
+    saved final band wins, else the ai_draft suggestion. NOTHING here is
+    invented — assemble_ai_draft fills Listening/Reading from the attempt's
+    band_estimate (the published Cambridge table; arithmetic, not judgement) and
+    sync_writing_band_for_essay rolls Writing up from the two essays an admin
+    already graded AND reviewed.
+
+    Speaking has no draft source at all, so a Speaking exam yields no band here
+    and lands in `skipped` — it is never signed off with a number nobody chose.
+    """
+    draft = review.get("ai_draft") or {}
+    fb = review.get("final_bands") or {}
+    out: dict = {}
+    for s in _SKILLS:
+        if fb.get(s) is not None:
+            out[s] = fb[s]          # an examiner's own entry is never overwritten
+            continue
+        v = draft.get(s)
+        band = v.get("band") if isinstance(v, dict) else v
+        if band is not None:
+            out[s] = band
+    return out
+
+
+def bulk_claim_sittings(sitting_ids: Iterable, admin_id: UUID | str) -> dict:
+    """Nhận many reviews at once, so a class isn't claimed one row at a time.
+
+    The gate is unchanged — this only loops claim(), whose atomic
+    UPDATE ... WHERE status='queued' remains the lock. A row another admin holds
+    lands in `skipped`; nothing is stolen and no status is forced.
+
+    Returns {claimed: [sitting_id], skipped: [{sitting_id, reason}]} — callers
+    must show `skipped`, never just the count (same contract as
+    bulk_release_sittings).
+    """
+    claimed: list = []
+    skipped: list = []
+    for sid in sitting_ids:
+        sid = str(sid)
+        try:
+            review = get_review_for_sitting(sid)
+            if not review:
+                skipped.append({"sitting_id": sid, "reason": "Chưa có hồ sơ duyệt."})
+                continue
+            st = review.get("status")
+            if st != "queued":
+                # Pre-checked for a readable reason only; claim()'s WHERE clause
+                # is still the gate (same posture as bulk_release's 'released'
+                # check just below).
+                holder = review.get("claimed_by")
+                skipped.append({
+                    "sitting_id": sid,
+                    "reason": ("Admin khác đã nhận." if holder and str(holder) != str(admin_id)
+                               else "Đã nhận trước đó (%s)." % _STATUS_VI.get(st, st)),
+                })
+                continue
+            claim(review["id"], admin_id)
+            claimed.append(sid)
+        except ConflictError as e:
+            skipped.append({"sitting_id": sid, "reason": str(e)})
+        except NotFoundError as e:
+            skipped.append({"sitting_id": sid, "reason": str(e)})
+        except Exception as e:  # noqa: BLE001 — one bad sitting must not sink the batch
+            logger.exception("[mock-review] bulk claim failed sitting=%s", sid)
+            skipped.append({"sitting_id": sid, "reason": f"Lỗi: {e}"})
+    logger.info(
+        "[mock-review] bulk claim by=%s claimed=%d skipped=%d",
+        admin_id, len(claimed), len(skipped),
+    )
+    return {"claimed": claimed, "skipped": skipped}
+
+
+def bulk_save_final_bands(sitting_ids: Iterable, admin_id: UUID | str) -> dict:
+    """Chốt band for many claimed reviews from the values the console would
+    pre-fill — the admin stops opening 13 rows to confirm 13 computed numbers.
+
+    save_final_bands stays the ONLY gate: it re-derives required/blankable
+    skills, refuses a band it would have to invent, and always recomputes the
+    overall itself. This adds no authority — it supplies the same values the
+    form would have submitted, for reviews this admin already claimed.
+
+    Deliberately does NOT touch retest_flags or examiner_comment_vi: both are
+    per-student judgement, and passing None leaves whatever the admin set.
+
+    Returns {saved: [sitting_id], skipped: [{sitting_id, reason}]}.
+    """
+    saved: list = []
+    skipped: list = []
+    for sid in sitting_ids:
+        sid = str(sid)
+        try:
+            review = get_review_for_sitting(sid)
+            if not review:
+                skipped.append({"sitting_id": sid, "reason": "Chưa có hồ sơ duyệt."})
+                continue
+            st = review.get("status")
+            if st == "queued":
+                skipped.append({"sitting_id": sid, "reason": "Chưa nhận — bấm Nhận trước."})
+                continue
+            if st == "released":
+                skipped.append({
+                    "sitting_id": sid,
+                    "reason": "Đã công bố — thu hồi trước nếu cần sửa band.",
+                })
+                continue
+            bands = _draft_final_bands(review)
+            # Message-only pre-check — save_final_bands refuses these anyway, but
+            # it says "missing skill(s): speaking"; the admin needs to know WHICH
+            # row to open and why, not the field name.
+            skills = _required_skills(review["sitting_id"])
+            blankable = _unconvertible_skills(review["sitting_id"])
+            forgotten = [s for s in skills if bands.get(s) is None and s not in blankable]
+            if forgotten:
+                skipped.append({
+                    "sitting_id": sid,
+                    "reason": "Chưa có band tự động cho %s — cần mở bài chấm tay."
+                              % ", ".join(s.capitalize() for s in forgotten),
+                })
+                continue
+            save_final_bands(review["id"], admin_id, bands)
+            saved.append(sid)
+        except PermissionError:
+            skipped.append({
+                "sitting_id": sid,
+                "reason": "Bài này do admin khác nhận — chỉ người nhận mới chốt band được.",
+            })
+        except (ValidationError, ConflictError, NotFoundError) as e:
+            skipped.append({"sitting_id": sid, "reason": str(e)})
+        except Exception as e:  # noqa: BLE001 — one bad sitting must not sink the batch
+            logger.exception("[mock-review] bulk save bands failed sitting=%s", sid)
+            skipped.append({"sitting_id": sid, "reason": f"Lỗi: {e}"})
+    logger.info(
+        "[mock-review] bulk save bands by=%s saved=%d skipped=%d",
+        admin_id, len(saved), len(skipped),
+    )
+    return {"saved": saved, "skipped": skipped}
+
+
+def bulk_release_sittings(
+    sitting_ids: Iterable, admin_id: UUID | str, channel: str = "in_app",
+) -> dict:
+    """Release many sittings' results in one action. Publishes to real students.
+
+    Per sitting the release gates are UNCHANGED — this only loops release_results,
+    it never relaxes a check:
+      · the review must be 'reviewed' (final bands entered), and
+      · claimed by THIS admin, and
+      · its Writing must be graded + admin-reviewed (or skipped/retest-exempt).
+
+    There is no auto-claim, and adding one would be theatre: 'reviewed' can only
+    be reached through save_final_bands, which itself requires the claim — so a
+    releasable review is ALWAYS already claimed, and an unclaimed one has no
+    final bands to publish either way. claim() only takes a 'queued' row, so it
+    could not lift another admin's review regardless.
+
+    Every failure is reported per sitting rather than raised: a bulk action that
+    aborts halfway would leave the admin guessing who got published. Returns
+    {released: [sitting_id], skipped: [{sitting_id, reason}]} — callers must show
+    `skipped`, never just the released count.
+    """
+    released: list = []
+    skipped: list = []
+    for sid in sitting_ids:
+        sid = str(sid)
+        try:
+            review = get_review_for_sitting(sid)
+            if not review:
+                skipped.append({"sitting_id": sid, "reason": "Chưa có hồ sơ duyệt."})
+                continue
+            if review.get("status") == "released":
+                skipped.append({"sitting_id": sid, "reason": "Đã công bố trước đó."})
+                continue
+            release_results(review["id"], admin_id, channel)
+            released.append(sid)
+        except ConflictError as e:
+            skipped.append({"sitting_id": sid, "reason": str(e)})
+        except PermissionError:
+            skipped.append({
+                "sitting_id": sid,
+                "reason": "Bài này do admin khác nhận — chỉ người nhận mới công bố được.",
+            })
+        except NotFoundError as e:
+            skipped.append({"sitting_id": sid, "reason": str(e)})
+        except Exception as e:  # noqa: BLE001 — one bad sitting must not sink the batch
+            logger.exception("[mock-review] bulk release failed sitting=%s", sid)
+            skipped.append({"sitting_id": sid, "reason": f"Lỗi: {e}"})
+    logger.info(
+        "[mock-review] bulk release by=%s released=%d skipped=%d",
+        admin_id, len(released), len(skipped),
+    )
+    return {"released": released, "skipped": skipped}
+
+
+def set_retest_flags_for_sitting(
+    sitting_id: UUID | str, admin_id: UUID | str, retest_flags: dict,
+) -> dict:
+    """Set the per-skill 'cần test lại' decision straight from the roster.
+
+    Deliberately does NOT touch the sitting's needs_retest gate. That flag makes
+    Writing bulk-grade skip the sitting (an early cost gate); the roster's skill
+    picker is an annotation of WHICH skills the student must retake, and the two
+    were conflated. Product decision 2026-07-15: the picker only ever records the
+    decision — grading is never blocked by it. Clearing a skill here therefore
+    also never clears needs_retest; /sittings/{id}/retest stays its only owner.
+
+    Unknown skills and skills the exam does not require are dropped, so a stale
+    client cannot write a band-less skill into the record. Released reviews are
+    frozen — same posture as save_final_bands.
+    """
+    review = get_review_for_sitting(sitting_id)
+    if not review:
+        raise NotFoundError(f"Review for sitting {sitting_id} not found")
+    if review.get("status") == "released":
+        raise ConflictError(
+            f"Sitting {sitting_id} đã công bố — không thể đổi quyết định test lại. "
+            "Thu hồi trước nếu cần."
+        )
+    skills = _required_skills(review["sitting_id"])
+    stored = {s: bool(retest_flags.get(s)) for s in skills if s in retest_flags}
+
+    response = supabase_admin.table("mock_exam_reviews").update({
+        "retest_flags": stored,
+    }).eq("id", str(review["id"])).execute()
+    if not response.data:
+        raise NotFoundError(f"Review {review['id']} not found")
+    logger.info(
+        "[mock-review] retest flags set from roster sitting=%s by=%s flags=%s",
+        sitting_id, admin_id, stored,
+    )
+    return response.data[0]
+
+
+def _writing_pending_tasks(sitting_id: UUID | str) -> list[str]:
+    """Labels of Writing tasks that BLOCK release — a promoted essay not yet in
+    'reviewed'/'delivered'. On release only a 'reviewed' essay is delivered
+    (deliver_reviewed_essay), so publishing while an essay is still
+    pending/grading/graded would give the student a Writing band with NO
+    deliverable feedback. Returns [] when Writing isn't part of this sitting or
+    every promoted essay is ready. Only STAMPED essays are checked — an
+    unanswered Writing task (no essay id) has nothing to deliver and never
+    blocks.
+
+    A sitting flagged `needs_retest` is exempt: its Writing is intentionally
+    left ungraded (bulk-grade skips needs_retest sittings), and the admin must
+    still be able to publish the retest decision — so it never blocks.
+
+    An essay the admin explicitly SKIPPED (grading_skipped_at set, mig 156 — the
+    "too short, don't grade" decision) also counts as resolved: it will never
+    reach 'reviewed', but the admin already ruled on it, so it must not block."""
+    if "writing" not in _required_skills(sitting_id):
+        return []
+    row = supabase_admin.table("mock_exam_sittings").select(
+        "essay_task1_id, essay_task2_id, needs_retest",
+    ).eq("id", str(sitting_id)).limit(1).execute()
+    if not row.data:
+        return []
+    s = row.data[0]
+    if s.get("needs_retest"):
+        return []
+    tasks = [("Task 1", s.get("essay_task1_id")), ("Task 2", s.get("essay_task2_id"))]
+    ids = [eid for _, eid in tasks if eid]
+    if not ids:
+        return []
+    rows = supabase_admin.table("writing_essays").select(
+        "id, status, grading_skipped_at",
+    ).in_("id", ids).execute().data or []
+    by_id = {r["id"]: r for r in rows}
+    def _ready(eid) -> bool:
+        e = by_id.get(str(eid)) or {}
+        return e.get("status") in _WRITING_RELEASABLE or bool(e.get("grading_skipped_at"))
+    return [label for label, eid in tasks if eid and not _ready(eid)]
+
+
 def release_results(
     review_id: UUID, admin_id: UUID, channel: str = "in_app",
 ) -> dict:
     """Release results to the student — the single moment the seal is lifted.
 
-    Requires the review to be in 'reviewed' (final bands entered). Flips the
+    Requires the review to be in 'reviewed' (final bands entered) AND — when the
+    sitting has Writing — every promoted essay graded + admin-reviewed (else the
+    student would get a Writing band with no deliverable feedback). Flips the
     review to 'released' with a full audit stamp AND flips the sitting to
     status='released' + sealed=False. After this, the domain review/result
     endpoints (which check sitting.sealed) start returning scores.
     """
     if channel not in ("in_app", "email", "manual"):
         raise ValidationError(f"unknown release channel {channel!r}")
+
+    # Hard block: gate for ANY existing review, NOT only one this pre-read sees as
+    # 'reviewed'. Gating on the pre-read status would race the atomic UPDATE below
+    # — a concurrent save_final_bands could flip claimed→reviewed between this
+    # check and the UPDATE, letting a sitting publish with pending/graded Writing.
+    # Writing essays never regress reviewed→pending, so checking unconditionally
+    # here + the status-guarded UPDATE below is race-free.
+    review = get_review(review_id)
+    if review:
+        # The gate exists to stop a Writing BAND reaching the student with no
+        # chữa bài behind it. With the band blank (2026-07-15: an uncomputable
+        # Writing may be left empty) there is no band to mismatch, so the gate has
+        # nothing to protect — and blocking anyway stranded the whole result over a
+        # skill that was never scored. The student is still told what happened to
+        # each task (writing_task_states → the TRF's reason cards).
+        #
+        # RACE, narrowed but not eliminated: the check above is unconditional
+        # precisely because essays never regress reviewed→pending, so a pre-read
+        # cannot go stale in the unsafe direction. final_bands CAN — a concurrent
+        # save_final_bands could add a Writing band between this read and the
+        # UPDATE, publishing a band whose essay is still pending. It needs the
+        # SAME admin saving and releasing at once (both calls filter on
+        # claimed_by), and since 2026-07-15 the TRF explains a task with no
+        # feedback instead of leaving a silent hole — so the worst case is a band
+        # beside "Chưa có nhận xét", not an unexplained gap. Accepted knowingly;
+        # revisit if release ever stops being claimant-scoped.
+        has_writing_band = (review.get("final_bands") or {}).get("writing") is not None
+        pending = _writing_pending_tasks(review["sitting_id"]) if has_writing_band else []
+        if pending:
+            raise ConflictError(
+                "Chưa thể công bố: bài Writing chưa được chấm & duyệt ("
+                + ", ".join(pending)
+                + "). Hãy chấm từng bài rồi bấm 'Lưu & duyệt' trước khi công bố."
+            )
 
     response = supabase_admin.table("mock_exam_reviews").update({
         "status":          "released",
@@ -376,6 +801,82 @@ def _deliver_writing_for_sitting(sitting_id: str) -> None:
         logger.exception("[mock-review] deliver-writing failed sitting=%s", sitting_id)
 
 
+def _essay_bands(essay_ids: list) -> dict:
+    """essay_id → overall_band_score from the CURRENT feedback version (the view
+    reflects admin edits after review, so a reviewed essay yields its approved
+    band)."""
+    ids = [str(e) for e in essay_ids if e]
+    if not ids:
+        return {}
+    rows = supabase_admin.table("writing_feedback_current").select(
+        "essay_id, overall_band_score",
+    ).in_("essay_id", ids).execute().data or []
+    return {r["essay_id"]: r.get("overall_band_score") for r in rows if r.get("essay_id")}
+
+
+def _merge_review_ai_draft(sitting_id: UUID | str, patch: dict) -> None:
+    """Read-modify-write `patch` into the sitting's review.ai_draft (nháp only)."""
+    rows = supabase_admin.table("mock_exam_reviews").select("id, ai_draft").eq(
+        "sitting_id", str(sitting_id),
+    ).limit(1).execute().data
+    if not rows:
+        return
+    review = rows[0]
+    draft = dict(review.get("ai_draft") or {})
+    draft.update(patch)
+    supabase_admin.table("mock_exam_reviews").update({"ai_draft": draft}).eq(
+        "id", review["id"],
+    ).execute()
+
+
+def sync_writing_band_for_essay(essay_id: str) -> None:
+    """When a mock Writing essay is reviewed, roll the sitting's overall Writing
+    band — IELTS Task 1 + Task 2×2, weighted then rounded — into its review's
+    ai_draft as a PRE-FILLED suggestion (the mock console pre-populates the
+    Writing band input from it; the examiner can still override, and the overall
+    is always recomputed from the confirmed final_bands, never from the draft).
+
+    Computed only once BOTH task essays carry a band — a still-ungraded or
+    admin-skipped task means the examiner sets Writing manually. Best-effort:
+    never raises (a suggestion must not fail the reviewer's save)."""
+    try:
+        er = supabase_admin.table("writing_essays").select("sitting_id").eq(
+            "id", str(essay_id),
+        ).limit(1).execute().data
+        if not er or not er[0].get("sitting_id"):
+            return  # not a mock essay
+        sitting_id = er[0]["sitting_id"]
+        srow = supabase_admin.table("mock_exam_sittings").select(
+            "essay_task1_id, essay_task2_id",
+        ).eq("id", str(sitting_id)).limit(1).execute().data
+        if not srow:
+            return
+        t1_id, t2_id = srow[0].get("essay_task1_id"), srow[0].get("essay_task2_id")
+        if not t1_id or not t2_id:
+            return  # need both tasks to weight the Writing band
+        bands = _essay_bands([t1_id, t2_id])
+        b1, b2 = bands.get(str(t1_id)), bands.get(str(t2_id))
+        if b1 is None or b2 is None:
+            return  # a task not graded yet (or skipped) → examiner sets it manually
+        writing_band = ielts_round((float(b1) + 2.0 * float(b2)) / 3.0)
+        _merge_review_ai_draft(sitting_id, {
+            "writing": {"band": writing_band, "task1_band": float(b1), "task2_band": float(b2)},
+        })
+        logger.info(
+            "[mock-review] synced writing band=%s (T1=%s T2=%s) sitting=%s",
+            writing_band, b1, b2, sitting_id,
+        )
+    except Exception:  # noqa: BLE001 — suggestion only, never fatal
+        logger.exception("[mock-review] sync writing band failed essay=%s", essay_id)
+
+
+def blankable_skills_for_sitting(sitting_id: UUID | str) -> set:
+    """Public: the skills the examiner may leave blank (no published band for
+    their raw score). The review console needs this to tell "no band exists"
+    from "you forgot one" — see _unconvertible_skills."""
+    return _unconvertible_skills(sitting_id)
+
+
 def required_skills_for_sitting(sitting_id: UUID | str) -> list:
     """Public: the skills the admin must band for this sitting (Speaking optional
     for LRW-only exams). Used by the console to render/validate the band form."""
@@ -417,29 +918,36 @@ def retest_summary(mock_exam_id: str) -> dict:
     of flagged students. Sittings with no review yet or a review whose
     retest_flags are all false/absent don't appear in `students`.
 
-    reviewed_sittings only counts reviews in status IN ('reviewed',
-    'released') — retest_flags/final_bands are only ever populated by
-    save_final_bands(), so a still-'queued'/'claimed' review must not be
-    counted as "đã duyệt" (it would otherwise misreport as a clean pass).
+    reviewed_sittings only counts reviews in status IN ('reviewed', 'released')
+    — a still-'queued'/'claimed' review must not be counted as "đã duyệt" (it
+    would otherwise misreport as a clean pass). That count is now derived
+    separately from the flag scan: since 2026-07-15 the roster's skill picker
+    writes retest_flags on a queued review, so the two no longer share a filter.
 
     A student counts as "cần test lại" if EITHER the admin set the early
     sitting-level needs_retest flag (mig 153, decided from L/R before grading)
-    OR a completed review has any per-skill retest flag true. per_skill is the
-    final per-skill breakdown (from reviews only); an early-flagged sitting
-    with no completed review appears in `students` with empty skills."""
+    OR any review of theirs has a per-skill retest flag true — in ANY status, so
+    a decision made from the roster shows up immediately rather than waiting on
+    final bands. per_skill is the per-skill breakdown (from reviews only); an
+    early-flagged sitting with no flags of its own appears in `students` with
+    empty skills."""
     sittings = supabase_admin.table("mock_exam_sittings").select(
         "id, user_id, needs_retest",
     ).eq("mock_exam_id", str(mock_exam_id)).neq("status", "void").execute().data or []
     sitting_by_id = {s["id"]: s for s in sittings}
     total = len(sittings)
 
+    # Flags come from reviews in ANY status. save_final_bands() used to be their
+    # only writer, so this once filtered to reviewed/released — but the roster's
+    # skill picker (2026-07-15) writes them on a still-queued review, and the
+    # client refreshes this summary the moment it posts. Filtering here made a
+    # just-saved decision invisible until final bands were entered (Codex review,
+    # PR #776). reviewed_sittings keeps its own stricter count below.
     reviews: list = []
     if sitting_by_id:
         reviews = supabase_admin.table("mock_exam_reviews").select(
-            "sitting_id, retest_flags",
-        ).in_("sitting_id", list(sitting_by_id.keys())).in_(
-            "status", ["reviewed", "released"],
-        ).execute().data or []
+            "sitting_id, retest_flags, status",
+        ).in_("sitting_id", list(sitting_by_id.keys())).execute().data or []
 
     names = resolve_display_names(s.get("user_id") for s in sittings)
 
@@ -475,7 +983,11 @@ def retest_summary(mock_exam_id: str) -> dict:
     return {
         "mock_exam_id":       str(mock_exam_id),
         "total_sittings":     total,
-        "reviewed_sittings":  len(reviews),
+        # Strictly the COMPLETED reviews — a queued/claimed one carrying a retest
+        # flag is not "đã duyệt" and counting it would misreport a clean pass.
+        "reviewed_sittings":  sum(
+            1 for r in reviews if r.get("status") in ("reviewed", "released")
+        ),
         "needs_retest_count": len(flagged_students),
         "per_skill":          per_skill,
         "students":           flagged_students,
@@ -557,11 +1069,33 @@ def roster(mock_exam_id: str) -> list[dict]:
     r_by_id = _load_attempts("reading_test_attempts", "reading_attempt_id")
 
     reviews = supabase_admin.table("mock_exam_reviews").select(
-        "id, sitting_id, status, claimed_by",
+        # ai_draft/final_bands feed the roster's Writing band (see _writing_band):
+        # the column showed word counts only, so the examiner had to open every
+        # row to see a band Listening/Reading already show inline.
+        "id, sitting_id, status, claimed_by, ai_draft, final_bands, retest_flags",
     ).in_("sitting_id", [s["id"] for s in sittings]).execute().data or []
     review_by_sitting = {rv["sitting_id"]: rv for rv in reviews}
 
     names = resolve_display_names(s.get("user_id") for s in sittings)
+
+    def _writing_band(rv: dict) -> tuple:
+        """The roster's Writing band + whether it is CONFIRMED, as (band, is_final).
+
+        Two very different numbers can live here and the caller must be able to
+        tell them apart — rendering a suggestion as a settled band would show the
+        examiner a score nobody confirmed:
+          - final_bands.writing        → the examiner's confirmed band
+          - ai_draft.writing.band      → the suggestion synced from the two graded
+                                         essays (sync_writing_band_for_essay)
+        Confirmed wins; absent both, there is no band yet (None, False).
+        """
+        final = (rv.get("final_bands") or {}).get("writing")
+        if final is not None:
+            return _coerce_band(final), True
+        draft = ((rv.get("ai_draft") or {}).get("writing") or {}).get("band")
+        if draft is not None:
+            return _coerce_band(draft), False
+        return None, False
 
     def _lr(attempt: Optional[dict]) -> dict:
         # max mirrors the review endpoints' own derivation (len grading_details).
@@ -577,6 +1111,7 @@ def roster(mock_exam_id: str) -> list[dict]:
     for s in sittings:
         ws = s.get("writing_submission") or {}
         rv = review_by_sitting.get(s["id"]) or {}
+        _wb = _writing_band(rv)
         out.append({
             "sitting_id":     s["id"],
             "review_id":      rv.get("id"),
@@ -589,11 +1124,21 @@ def roster(mock_exam_id: str) -> list[dict]:
                 "task2_wc":       (ws.get("task2") or {}).get("word_count"),
                 "task1_essay_id": s.get("essay_task1_id"),
                 "task2_essay_id": s.get("essay_task2_id"),
+                "band":           _wb[0],
+                "band_is_final":  _wb[1],
             },
             "speaking":       {"count": len(s.get("speaking_session_ids") or [])},
             "review_status":  rv.get("status"),
             "claimed":        bool(rv.get("claimed_by")),
             "needs_retest":   bool(s.get("needs_retest")),
+            # Which skills the admin decided the student must retake. Distinct
+            # from needs_retest above: that one gates Writing bulk-grade, this is
+            # the per-skill record the roster's picker reads and writes.
+            # Only the true ones — the picker renders a fixed L/R/W set and the
+            # write path drops whatever this exam does not require, so the roster
+            # never pays _required_skills' per-sitting query (N+1 on a 13-row
+            # class; assigned_skills is per-sitting, so it cannot be hoisted).
+            "retest_flags":   {k: bool(v) for k, v in (rv.get("retest_flags") or {}).items() if v},
         })
     out.sort(key=lambda r: (r["student_name"] or "").lower())
     return out

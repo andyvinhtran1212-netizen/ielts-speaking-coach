@@ -491,16 +491,19 @@ def test_available_reading_tests_includes_already_reserved(fake_db, svc):
     """A reading test may be reused across mock exams — the create-exam
     picker must NOT drop a test just because another mock exam already
     reserved it (2026-07-12: reservation only hides from student practice)."""
+    # Mig 158 — test_type là cột thật; mini mới KHÔNG còn stamp metadata
+    # (R-2 mô phỏng đúng row hậu-158: metadata rỗng, chỉ có cột).
     fake_db.seed("reading_tests", {"id": "R-1", "test_id": "ILR-RDG-001",
                                    "title": "Reused test", "status": "published",
-                                   "metadata": {"test_type": "full"},
+                                   "test_type": "full", "metadata": {},
                                    "created_at": "2026-01-01T00:00:00+00:00"})
     fake_db.seed("reading_tests", {"id": "R-2", "test_id": "ILR-RDG-002",
                                    "title": "Mini test", "status": "published",
-                                   "metadata": {"test_type": "mini"},
+                                   "test_type": "mini", "metadata": {},
                                    "created_at": "2026-01-01T00:00:00+00:00"})
     fake_db.seed("reading_tests", {"id": "R-3", "test_id": "ILR-RDG-003",
                                    "title": "Draft test", "status": "draft",
+                                   "test_type": "full",
                                    "metadata": {}, "created_at": "2026-01-01T00:00:00+00:00"})
     _seed_exam(fake_db)["reading_test_id"] = "R-1"  # already used by MOCK-TEST-A
 
@@ -1181,6 +1184,323 @@ def test_roster_lists_students_with_per_skill_snapshot(fake_db, svc, wf):
     assert an["claimed"] is False
 
 
+def _seed_retest_fixture(fake_db):
+    fake_db.seed("mock_exam_sittings", {"id": "sit-1", "mock_exam_id": "ex-1",
+                                        "status": "submitted", "user_id": "u-1",
+                                        "needs_retest": False,
+                                        "writing_submission": {"task1": {"word_count": 180},
+                                                               "task2": {"word_count": 260}}})
+    fake_db.seed("mock_exam_reviews", {"id": "rv-1", "sitting_id": "sit-1",
+                                       "status": "queued", "ai_draft": {},
+                                       "final_bands": {}, "retest_flags": {}})
+
+
+def test_roster_retest_flags_never_gate_grading(fake_db, svc, wf, monkeypatch):
+    """The roster's skill picker RECORDS which skills must be retaken; it must
+    never flip needs_retest, which makes Writing bulk-grade skip the sitting.
+    The two were conflated — product decision 2026-07-15 separates them."""
+    _seed_retest_fixture(fake_db)
+    monkeypatch.setattr(wf, "_required_skills", lambda _sid: ("listening", "reading", "writing"))
+
+    wf.set_retest_flags_for_sitting("sit-1", "admin-1", {"listening": True, "writing": False})
+
+    rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-1")
+    # Only the skills the caller actually posted are stored (same contract as
+    # save_final_bands): an omitted skill is simply not flagged.
+    assert rv["retest_flags"] == {"listening": True, "writing": False}
+    sit = next(s for s in fake_db.rows("mock_exam_sittings") if s["id"] == "sit-1")
+    assert sit["needs_retest"] is False, "the picker must not gate grading"
+
+
+def test_roster_retest_flags_unticking_clears(fake_db, svc, wf, monkeypatch):
+    """Unticking has to actually clear — the client posts the full picture, so a
+    skill can always be un-flagged (a partial post would strand it on)."""
+    _seed_retest_fixture(fake_db)
+    monkeypatch.setattr(wf, "_required_skills", lambda _sid: ("listening", "reading", "writing"))
+    wf.set_retest_flags_for_sitting("sit-1", "admin-1", {"listening": True})
+    wf.set_retest_flags_for_sitting("sit-1", "admin-1",
+                                    {"listening": False, "reading": False, "writing": False})
+    rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-1")
+    assert not any(rv["retest_flags"].values())
+
+
+def test_roster_retest_flags_drop_unrequired_skills(fake_db, svc, wf, monkeypatch):
+    """A stale client must not write a skill this exam doesn't even run."""
+    _seed_retest_fixture(fake_db)
+    monkeypatch.setattr(wf, "_required_skills", lambda _sid: ("reading", "writing"))
+    wf.set_retest_flags_for_sitting("sit-1", "admin-1", {"listening": True, "reading": True})
+    rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-1")
+    assert "listening" not in rv["retest_flags"]
+    assert rv["retest_flags"]["reading"] is True
+
+
+def test_roster_retest_flags_frozen_after_release(fake_db, svc, wf, monkeypatch):
+    """A released result is what the student already saw — a stale admin tab must
+    not silently rewrite its retest decision."""
+    _seed_retest_fixture(fake_db)
+    rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-1")
+    rv["status"] = "released"
+    monkeypatch.setattr(wf, "_required_skills", lambda _sid: ("listening", "reading", "writing"))
+    with pytest.raises(wf.ConflictError):
+        wf.set_retest_flags_for_sitting("sit-1", "admin-1", {"writing": True})
+
+
+def test_roster_exposes_only_the_true_retest_flags(fake_db, svc, wf):
+    """The roster ships the picker's state — trimmed to the flagged skills."""
+    _seed_retest_fixture(fake_db)
+    rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-1")
+    rv["retest_flags"] = {"listening": True, "reading": False, "writing": True}
+    row = wf.roster("ex-1")[0]
+    assert row["retest_flags"] == {"listening": True, "writing": True}
+
+
+def _seed_for_bands(fake_db, admin, l_score=None, r_score=None, r_module="academic"):
+    """Seed attempts the way the graders really persist them: score AND the
+    band_estimate they stamped, module included. blankable reads that stored
+    value — a fixture that only carried the score would be modelling the old
+    recompute design, not the shipped one."""
+    from services.listening_test_grader import band_estimate as _lb
+    from services.reading_test_grader import band_estimate as _rb
+
+    fake_db.seed("mock_exam_sittings", {"id": "sit-1", "mock_exam_id": "ex-1",
+                                        "status": "submitted", "user_id": "u-1",
+                                        "listening_attempt_id": "la-1" if l_score is not None else None,
+                                        "reading_attempt_id": "ra-1" if r_score is not None else None})
+    if l_score is not None:
+        fake_db.seed("listening_test_attempts",
+                     {"id": "la-1", "score": l_score, "band_estimate": _lb(l_score)})
+    if r_score is not None:
+        fake_db.seed("reading_test_attempts",
+                     {"id": "ra-1", "score": r_score,
+                      "band_estimate": _rb(r_score, module=r_module)})
+    fake_db.seed("mock_exam_reviews", {"id": "rv-1", "sitting_id": "sit-1",
+                                       "status": "claimed", "claimed_by": admin,
+                                       "final_bands": {}, "ai_draft": {}, "retest_flags": {}})
+    # Writing is blankable unless BOTH essays carry a band — these tests are about
+    # the L/R rule, so give it a derivable Writing and keep it out of the way.
+    fake_db.seed("writing_essays", {"id": "we-1", "sitting_id": "sit-1"})
+    fake_db.seed("writing_essays", {"id": "we-2", "sitting_id": "sit-1"})
+    fake_db.rows("mock_exam_sittings")[-1]["essay_task1_id"] = "we-1"
+    fake_db.rows("mock_exam_sittings")[-1]["essay_task2_id"] = "we-2"
+    fake_db.seed("writing_feedback_current", {"essay_id": "we-1", "overall_band_score": 6.0})
+    fake_db.seed("writing_feedback_current", {"essay_id": "we-2", "overall_band_score": 6.0})
+
+
+def test_final_bands_blank_when_the_raw_score_has_no_published_band(fake_db, svc, wf, monkeypatch):
+    """L=0/40 is below the Cambridge table, so there IS no Listening band. Today
+    compute_overall raises and the whole result cannot be saved — stranding a
+    student who scored 6.5 on Reading. The skill and the overall go blank; the
+    bands that DO exist are still published."""
+    admin = "admin-1"
+    _seed_for_bands(fake_db, admin, l_score=0, r_score=27)
+    monkeypatch.setattr(wf, "_required_skills", lambda _s: ("listening", "reading", "writing"))
+
+    out = wf.save_final_bands("rv-1", admin, {"reading": 6.5, "writing": 6.0})
+
+    fb = out["final_bands"]
+    assert "listening" not in fb              # no invented number
+    assert fb["reading"] == 6.5 and fb["writing"] == 6.0
+    assert fb["overall"] is None              # no mean over a hole
+    assert out["status"] == "reviewed"        # …and it CAN be saved + released
+
+
+def test_final_bands_still_reject_a_forgotten_writing_band(fake_db, svc, wf, monkeypatch):
+    """Writing has no table to fall off — a blank there is a forgotten entry, and
+    must keep failing rather than quietly publishing a gap."""
+    admin = "admin-1"
+    _seed_for_bands(fake_db, admin, l_score=30, r_score=27)
+    monkeypatch.setattr(wf, "_required_skills", lambda _s: ("listening", "reading", "writing"))
+    with pytest.raises(wf.ValidationError, match="writing"):
+        wf.save_final_bands("rv-1", admin, {"listening": 7.0, "reading": 6.5})
+
+
+def test_final_bands_reject_a_blank_listening_that_DOES_convert(fake_db, svc, wf, monkeypatch):
+    """30/40 has a published band (7.0) — leaving it blank is forgetfulness, not
+    a missing table row, so the blanking rule must not cover it."""
+    admin = "admin-1"
+    _seed_for_bands(fake_db, admin, l_score=30, r_score=27)
+    monkeypatch.setattr(wf, "_required_skills", lambda _s: ("listening", "reading", "writing"))
+    with pytest.raises(wf.ValidationError, match="listening"):
+        wf.save_final_bands("rv-1", admin, {"reading": 6.5, "writing": 6.0})
+
+
+def test_final_bands_overall_still_computed_when_every_skill_is_present(fake_db, svc, wf, monkeypatch):
+    admin = "admin-1"
+    _seed_for_bands(fake_db, admin, l_score=0, r_score=27)
+    monkeypatch.setattr(wf, "_required_skills", lambda _s: ("listening", "reading", "writing"))
+    # examiner CHOSE to enter a Listening band anyway → the overall is real again
+    out = wf.save_final_bands("rv-1", admin, {"listening": 4.0, "reading": 6.5, "writing": 6.0})
+    assert out["final_bands"]["overall"] == 5.5     # mean(4.0, 6.5, 6.0) = 5.5
+
+
+def test_unconvertible_honours_the_attempt_s_own_module(fake_db, svc, wf):
+    """Codex P2 (PR #779): band_estimate is stamped WITH the attempt's module —
+    Reading General Training has no table in Phase 1, so it is None at any score.
+    Recomputing here defaulted to the Academic table, called GT 27/40 a 6.5, and
+    refused the blank — while the roster (reading the stored value) showed the
+    examiner no band to type. Read the persisted value, not a second guess."""
+    _seed_for_bands(fake_db, "admin-1", l_score=30, r_score=27, r_module="general_training")
+    assert wf.blankable_skills_for_sitting("sit-1") == {"reading"}     # GT → no band
+    # …and the same score on Academic converts, so it is NOT blankable
+    fake_db.rows("reading_test_attempts").clear()
+    fake_db.rows("mock_exam_sittings").clear()
+    _seed_for_bands(fake_db, "admin-1", l_score=30, r_score=27, r_module="academic")
+    assert wf.blankable_skills_for_sitting("sit-1") == set()
+
+
+def test_unconvertible_ignores_a_missing_attempt_rather_than_blanking_it(fake_db, svc, wf):
+    """No attempt row is missing DATA, not an unconvertible score — blanking it
+    would hide a broken attach behind a legitimate-looking gap."""
+    _seed_for_bands(fake_db, "admin-1", l_score=None, r_score=27)
+    assert wf._unconvertible_skills("sit-1") == set()
+
+
+def _seed_releasable(fake_db, sid, rid, admin, status="reviewed", claimed_by=None):
+    fake_db.seed("mock_exam_sittings", {"id": sid, "mock_exam_id": "ex-1",
+                                        "status": "submitted", "user_id": "u-" + sid,
+                                        "sealed": True, "needs_retest": False})
+    fake_db.seed("mock_exam_reviews", {"id": rid, "sitting_id": sid, "status": status,
+                                       "claimed_by": claimed_by if claimed_by is not None else admin,
+                                       "final_bands": {"writing": 6.0, "overall": 6.0},
+                                       "ai_draft": {}, "retest_flags": {}})
+
+
+def test_bulk_release_publishes_and_reports_each_refusal(fake_db, svc, wf, monkeypatch):
+    """Công bố hàng loạt publishes to real students, so a partial batch must name
+    what it refused — reporting only the success count would let the admin believe
+    a blocked student was published."""
+    admin = "admin-1"
+    _seed_releasable(fake_db, "sit-ok", "rv-ok", admin)                       # publishes
+    _seed_releasable(fake_db, "sit-queued", "rv-queued", admin, status="queued")   # no bands
+    _seed_releasable(fake_db, "sit-other", "rv-other", admin, claimed_by="admin-2")  # not mine
+    monkeypatch.setattr(wf, "_writing_pending_tasks", lambda _sid: [])
+
+    out = wf.bulk_release_sittings(["sit-ok", "sit-queued", "sit-other", "sit-ghost"], admin)
+
+    assert out["released"] == ["sit-ok"]
+    reasons = {s["sitting_id"]: s["reason"] for s in out["skipped"]}
+    assert set(reasons) == {"sit-queued", "sit-other", "sit-ghost"}
+    assert "admin khác" in reasons["sit-other"]
+    assert "hồ sơ duyệt" in reasons["sit-ghost"]          # no review row at all
+    # the published one really is published — seal lifted
+    sit = next(s for s in fake_db.rows("mock_exam_sittings") if s["id"] == "sit-ok")
+    assert sit["status"] == "released" and sit["sealed"] is False
+    # …and the refused ones are untouched
+    for sid in ("sit-queued", "sit-other"):
+        s = next(x for x in fake_db.rows("mock_exam_sittings") if x["id"] == sid)
+        assert s["status"] == "submitted" and s["sealed"] is True
+
+
+def test_bulk_release_never_relaxes_the_writing_gate(fake_db, svc, wf, monkeypatch):
+    """A sitting whose Writing isn't graded+reviewed must not slip through just
+    because it was published in a batch — the student would get a Writing band
+    with no chữa bài."""
+    admin = "admin-1"
+    _seed_releasable(fake_db, "sit-1", "rv-1", admin)
+    monkeypatch.setattr(wf, "_writing_pending_tasks", lambda _sid: ["Task 2"])
+
+    out = wf.bulk_release_sittings(["sit-1"], admin)
+
+    assert out["released"] == []
+    assert "Task 2" in out["skipped"][0]["reason"]
+    sit = next(s for s in fake_db.rows("mock_exam_sittings") if s["id"] == "sit-1")
+    assert sit["sealed"] is True
+
+
+def test_bulk_release_skips_an_already_published_sitting(fake_db, svc, wf, monkeypatch):
+    admin = "admin-1"
+    _seed_releasable(fake_db, "sit-1", "rv-1", admin, status="released")
+    monkeypatch.setattr(wf, "_writing_pending_tasks", lambda _sid: [])
+    out = wf.bulk_release_sittings(["sit-1"], admin)
+    assert out["released"] == []
+    assert "Đã công bố" in out["skipped"][0]["reason"]
+
+
+def test_bulk_release_one_bad_sitting_does_not_sink_the_batch(fake_db, svc, wf, monkeypatch):
+    admin = "admin-1"
+    _seed_releasable(fake_db, "sit-a", "rv-a", admin)
+    _seed_releasable(fake_db, "sit-b", "rv-b", admin)
+    monkeypatch.setattr(wf, "_writing_pending_tasks", lambda _sid: [])
+    real = wf.release_results
+
+    def boom(review_id, admin_id, channel="in_app"):
+        if str(review_id) == "rv-a":
+            raise RuntimeError("kaboom")
+        return real(review_id, admin_id, channel)
+
+    monkeypatch.setattr(wf, "release_results", boom)
+    out = wf.bulk_release_sittings(["sit-a", "sit-b"], admin)
+    assert out["released"] == ["sit-b"]                   # b still published
+    assert "kaboom" in out["skipped"][0]["reason"]
+
+
+def test_retest_summary_sees_a_queued_roster_decision(fake_db, svc, wf):
+    """Codex P2 (PR #776): the summary filtered flags to reviewed/released because
+    save_final_bands() used to be their only writer. The roster picker writes them
+    on a QUEUED review and the client refreshes the summary straight after the
+    POST — filtering made a just-saved decision invisible until final bands were
+    entered. reviewed_sittings must stay strict, though: a queued review is not
+    "đã duyệt", and counting it would misreport a clean pass."""
+    fake_db.seed("mock_exam_sittings", {"id": "sit-1", "mock_exam_id": "ex-1",
+                                        "status": "submitted", "user_id": "u-1",
+                                        "needs_retest": False})
+    fake_db.seed("mock_exam_reviews", {"id": "rv-1", "sitting_id": "sit-1",
+                                       "status": "queued",
+                                       "retest_flags": {"listening": True, "writing": True}})
+
+    out = wf.retest_summary("ex-1")
+
+    assert out["needs_retest_count"] == 1                 # the decision is visible…
+    assert out["per_skill"]["listening"] == 1
+    assert out["per_skill"]["writing"] == 1
+    assert out["students"][0]["skills"] == ["listening", "writing"]
+    assert out["reviewed_sittings"] == 0                  # …but it is NOT "đã duyệt"
+
+
+def test_retest_summary_counts_only_completed_reviews_as_reviewed(fake_db, svc, wf):
+    fake_db.seed("mock_exam_sittings", {"id": "sit-1", "mock_exam_id": "ex-1",
+                                        "status": "submitted", "user_id": "u-1"})
+    fake_db.seed("mock_exam_sittings", {"id": "sit-2", "mock_exam_id": "ex-1",
+                                        "status": "submitted", "user_id": "u-2"})
+    fake_db.seed("mock_exam_reviews", {"id": "rv-1", "sitting_id": "sit-1",
+                                       "status": "reviewed", "retest_flags": {}})
+    fake_db.seed("mock_exam_reviews", {"id": "rv-2", "sitting_id": "sit-2",
+                                       "status": "claimed", "retest_flags": {}})
+    out = wf.retest_summary("ex-1")
+    assert out["reviewed_sittings"] == 1
+    assert out["needs_retest_count"] == 0
+
+
+def test_roster_writing_band_absent_suggested_then_confirmed(fake_db, svc, wf):
+    """The roster's Writing cell carries a band the way Listening/Reading do —
+    but it must say WHICH KIND, or the examiner reads an unconfirmed suggestion
+    as a settled score. Three states, one row, in order."""
+    fake_db.seed("mock_exam_sittings", {"id": "sit-1", "mock_exam_id": "ex-1",
+                                        "status": "submitted", "user_id": "u-1",
+                                        "writing_submission": {"task1": {"word_count": 180},
+                                                               "task2": {"word_count": 260}}})
+    fake_db.seed("mock_exam_reviews", {"id": "rv-1", "sitting_id": "sit-1",
+                                       "status": "queued", "ai_draft": {}, "final_bands": {}})
+
+    # 1. nothing yet → no band, and the word counts still render
+    w = wf.roster("ex-1")[0]["writing"]
+    assert w["band"] is None and w["band_is_final"] is False
+    assert (w["task1_wc"], w["task2_wc"]) == (180, 260)
+
+    # 2. sync landed a suggestion → surfaced, but flagged as NOT final
+    rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-1")
+    rv["ai_draft"] = {"writing": {"band": 6.5, "task1_band": 6.0, "task2_band": 7.0}}
+    w = wf.roster("ex-1")[0]["writing"]
+    assert w["band"] == 6.5 and w["band_is_final"] is False
+
+    # 3. examiner confirmed a DIFFERENT band → the confirmed one wins outright.
+    #    (If the draft ever won here the roster would contradict the result the
+    #    student is given.)
+    rv["final_bands"] = {"writing": 7.0, "overall": 7.0}
+    w = wf.roster("ex-1")[0]["writing"]
+    assert w["band"] == 7.0 and w["band_is_final"] is True
+
+
 def test_roster_excludes_void_and_handles_in_progress(fake_db, svc, wf):
     """Roster includes still-in-progress sittings (no attempts yet → None cells,
     no review to click) but excludes voided ones."""
@@ -1420,11 +1740,266 @@ def test_promote_writing_essays_skips_empty_task(fake_db, svc):
     assert sitting.get("essay_task2_id") is None
 
 
-def test_release_delivers_reviewed_writing_essays(fake_db, svc, wf):
-    """P2 (2026-07-12): CÔNG BỐ is the one action that unlocks everything —
-    release also flips the sitting's REVIEWED writing essays to 'delivered'
-    (so the student can open writing-result.html, which gates on 'delivered'),
-    while a still-'graded' essay (admin hasn't approved yet) is left untouched."""
+# ── auto-grade helper + word-count gate (2026-07-14) ─────────────────
+
+def test_writing_meets_min_words_thresholds(svc):
+    """Task 1 needs ≥150 words, Task 2 needs ≥250; missing count fails."""
+    assert svc.writing_meets_min_words({"task_type": "task1_academic", "word_count": 150})
+    assert not svc.writing_meets_min_words({"task_type": "task1_general", "word_count": 149})
+    assert svc.writing_meets_min_words({"task_type": "task2", "word_count": 250})
+    assert not svc.writing_meets_min_words({"task_type": "task2", "word_count": 249})
+    assert not svc.writing_meets_min_words({"task_type": "task2", "word_count": None})
+
+
+def _seed_essay(fake_db, eid, task_type, word_count, status="pending", sitting_id="sit-x"):
+    fake_db.seed("writing_essays", {
+        "id": eid, "task_type": task_type, "word_count": word_count,
+        "status": status, "sitting_id": sitting_id,
+    })
+
+
+def test_claim_mock_writing_grading_gates_short_and_claims_long(fake_db, svc, monkeypatch):
+    """Only pending essays MEETING the word minimum are claimed; too-short ones
+    are reported in `short` (held for admin), non-pending ones in `skipped`."""
+    from services import essay_service
+    _seed_essay(fake_db, "e1", "task1_academic", 200)              # long → queued
+    _seed_essay(fake_db, "e2", "task2", 100)                       # short → short
+    _seed_essay(fake_db, "e3", "task2", 300, status="graded")      # not pending → skipped
+    calls = []
+
+    def fake_claim(essay_id, **kw):
+        calls.append((essay_id, kw))
+        return {"job_id": "j-" + essay_id, "eta_seconds": 1}
+
+    monkeypatch.setattr(essay_service, "claim_pending_for_grading", fake_claim)
+    monkeypatch.setattr(essay_service, "default_grading_model", lambda level: "model-L%d" % level)
+
+    out = svc.claim_mock_writing_grading(["e1", "e2", None, "e3"])
+    assert out["queued"] == [("e1", "j-e1")]
+    assert out["short"] == ["e2"]
+    assert out["skipped"] == ["e3"]
+    assert [c[0] for c in calls] == ["e1"]                         # only the long, pending one
+    assert calls[0][1]["grading_tier"] == "standard"
+    assert calls[0][1]["analysis_level"] == 3
+    assert calls[0][1]["selected_model"] == "model-L3"
+
+
+def test_claim_mock_writing_grading_threads_level_and_model(fake_db, svc, monkeypatch):
+    """Codex P2: a caller-supplied analysis_level + selected_model reach the
+    grading job (bulk-grade's depth/model choice isn't silently dropped)."""
+    from services import essay_service
+    _seed_essay(fake_db, "e1", "task1_academic", 200)
+    calls = []
+    monkeypatch.setattr(essay_service, "claim_pending_for_grading",
+                        lambda eid, **kw: (calls.append(kw) or {"job_id": "j", "eta_seconds": 1}))
+    monkeypatch.setattr(essay_service, "default_grading_model", lambda level: "should-not-be-used")
+
+    svc.claim_mock_writing_grading(["e1"], analysis_level=5, selected_model="gemini-2.5-flash")
+    assert calls[0]["analysis_level"] == 5
+    assert calls[0]["selected_model"] == "gemini-2.5-flash"   # explicit model wins over default
+
+
+def test_claim_mock_writing_grading_swallows_claim_error(fake_db, svc, monkeypatch):
+    """A claim error is logged, never raised — auto-grade must not fail submit."""
+    from services import essay_service
+    _seed_essay(fake_db, "e1", "task2", 300)
+
+    def boom(essay_id, **kw):
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(essay_service, "claim_pending_for_grading", boom)
+    monkeypatch.setattr(essay_service, "default_grading_model", lambda level: "m")
+    out = svc.claim_mock_writing_grading(["e1"])
+    assert out == {"queued": [], "short": [], "skipped": []}       # no raise
+
+
+def test_skip_mock_writing_grading_marks_skipped(fake_db, svc):
+    """Admin skips a too-short mock essay → grading_skipped_at stamped."""
+    _seed_essay(fake_db, "e1", "task1_academic", 40, sitting_id="sit-1")
+    out = svc.skip_mock_writing_grading("e1", admin_id="admin-1")
+    assert out["grading_skipped"] is True
+    row = next(r for r in fake_db.rows("writing_essays") if r["id"] == "e1")
+    assert row["grading_skipped_at"]
+    assert row["grading_skipped_by"] == "admin-1"
+
+
+def test_skip_mock_writing_grading_rejects_non_mock_essay(fake_db, svc):
+    """A normal self-submit essay (no sitting_id) can't be skipped via this path."""
+    _seed_essay(fake_db, "e1", "task2", 40, sitting_id=None)
+    with pytest.raises(svc.SittingConflictError):
+        svc.skip_mock_writing_grading("e1", admin_id="admin-1")
+
+
+def test_skip_mock_writing_grading_rejects_reviewed_essay(fake_db, svc):
+    """A reviewed/delivered essay has a real grade — can't be overwritten by skip."""
+    _seed_essay(fake_db, "e1", "task2", 300, status="reviewed", sitting_id="sit-1")
+    with pytest.raises(svc.SittingConflictError):
+        svc.skip_mock_writing_grading("e1", admin_id="admin-1")
+
+
+def test_skip_mock_writing_grading_rejects_long_pending_essay(fake_db, svc):
+    """Codex P2: a normal-length (≥ minimum) essay must be graded, not skipped —
+    else it could be published with no feedback."""
+    _seed_essay(fake_db, "e1", "task2", 300, status="pending", sitting_id="sit-1")
+    with pytest.raises(svc.SittingConflictError):
+        svc.skip_mock_writing_grading("e1", admin_id="admin-1")
+
+
+def test_skip_mock_writing_grading_rejects_in_flight_essay(fake_db, svc):
+    """Codex P2: an in-flight (grading) or graded essay isn't skippable — only a
+    still-pending, too-short one is."""
+    _seed_essay(fake_db, "e1", "task1_academic", 40, status="grading", sitting_id="sit-1")
+    with pytest.raises(svc.SittingConflictError):
+        svc.skip_mock_writing_grading("e1", admin_id="admin-1")
+
+
+# ── band flow-back: reviewed essays → mock review Writing band ────────
+
+def test_sync_writing_band_computes_weighted_and_stores(fake_db, svc, wf):
+    """Both task essays graded → Writing band = ielts_round((T1 + 2·T2)/3) is
+    merged into the sitting's review ai_draft (existing draft keys preserved)."""
+    fake_db.seed("writing_essays", {"id": "e1", "sitting_id": "sit-1", "task_type": "task1_academic"})
+    fake_db.seed("writing_essays", {"id": "e2", "sitting_id": "sit-1", "task_type": "task2"})
+    fake_db.seed("mock_exam_sittings", {"id": "sit-1", "essay_task1_id": "e1", "essay_task2_id": "e2"})
+    fake_db.seed("writing_feedback_current", {"essay_id": "e1", "overall_band_score": 6.0})
+    fake_db.seed("writing_feedback_current", {"essay_id": "e2", "overall_band_score": 7.0})
+    fake_db.seed("mock_exam_reviews", {"id": "rv-1", "sitting_id": "sit-1",
+                                       "ai_draft": {"listening": {"band": 6.5}}})
+
+    wf.sync_writing_band_for_essay("e1")
+
+    rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-1")
+    assert rv["ai_draft"]["writing"]["band"] == 6.5     # (6 + 2·7)/3 = 6.667 → 6.5
+    assert rv["ai_draft"]["writing"]["task1_band"] == 6.0
+    assert rv["ai_draft"]["writing"]["task2_band"] == 7.0
+    assert rv["ai_draft"]["listening"] == {"band": 6.5}  # existing draft untouched
+
+
+def test_sync_writing_band_noop_for_non_mock_essay(fake_db, svc, wf):
+    """A normal self-submit essay (no sitting_id) is a no-op — no review touched."""
+    fake_db.seed("writing_essays", {"id": "e9", "sitting_id": None, "task_type": "task2"})
+    wf.sync_writing_band_for_essay("e9")
+    assert fake_db.rows("mock_exam_reviews") == []
+
+
+def test_sync_writing_band_noop_when_a_task_ungraded(fake_db, svc, wf):
+    """One task without a band (ungraded/skipped) → no suggestion yet (examiner
+    sets Writing manually)."""
+    fake_db.seed("writing_essays", {"id": "e1", "sitting_id": "sit-1", "task_type": "task1_academic"})
+    fake_db.seed("mock_exam_sittings", {"id": "sit-1", "essay_task1_id": "e1", "essay_task2_id": "e2"})
+    fake_db.seed("writing_feedback_current", {"essay_id": "e1", "overall_band_score": 6.0})
+    fake_db.seed("mock_exam_reviews", {"id": "rv-1", "sitting_id": "sit-1", "ai_draft": {}})
+    wf.sync_writing_band_for_essay("e1")
+    rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-1")
+    assert "writing" not in (rv.get("ai_draft") or {})
+
+
+# ── student home: my-sittings (resume targets + released results) ────
+
+def test_list_my_sittings_flags_released_with_overall(fake_db, svc):
+    u = str(uuid4())
+    fake_db.seed("mock_exams", {"id": "ex-1", "code": "MOCK-1", "title": "Mid-term"})
+    fake_db.seed("mock_exam_sittings", {"id": "s1", "user_id": u, "mock_exam_id": "ex-1",
+                                        "status": "released", "created_at": "2026-07-15T00:00:00Z"})
+    fake_db.seed("mock_exam_sittings", {"id": "s2", "user_id": u, "mock_exam_id": "ex-1",
+                                        "status": "all_submitted", "created_at": "2026-07-14T00:00:00Z"})
+    fake_db.seed("mock_exam_sittings", {"id": "s3", "user_id": u, "mock_exam_id": "ex-1",
+                                        "status": "void", "created_at": "2026-07-13T00:00:00Z"})
+    fake_db.seed("mock_exam_reviews", {"id": "rv1", "sitting_id": "s1",
+                                       "final_bands": {"overall": 6.5, "writing": 6.0},
+                                       "released_at": "2026-07-15T01:00:00Z"})
+
+    out = svc.list_my_sittings(u)
+    assert {s["sitting_id"] for s in out} == {"s1", "s2"}     # void excluded
+    r = next(s for s in out if s["sitting_id"] == "s1")
+    assert r["released"] is True and r["overall"] == 6.5
+    assert r["code"] == "MOCK-1" and r["released_at"]
+    p = next(s for s in out if s["sitting_id"] == "s2")
+    assert p["released"] is False and p["overall"] is None    # unreleased → no band leak
+
+
+def test_list_my_sittings_empty(fake_db, svc):
+    assert svc.list_my_sittings(str(uuid4())) == []
+
+
+# ── backfill promote (pre-#720 cohort: text captured, essays never created) ──
+
+def _seed_unpromoted_sitting(fake_db, exam, *, status="all_submitted",
+                             t1="task one essay text", t2="task two essay text",
+                             essay1=None, essay2=None):
+    u = uuid4()
+    fake_db.seed("students", {"id": str(uuid4()), "user_id": str(u)})
+    sid = str(uuid4())
+    fake_db.seed("mock_exam_sittings", {
+        "id": sid, "mock_exam_id": exam["id"], "user_id": str(u), "status": status,
+        "essay_task1_id": essay1, "essay_task2_id": essay2,
+        "writing_submission": {"task1": {"text": t1, "word_count": len(t1.split())},
+                               "task2": {"text": t2, "word_count": len(t2.split())}},
+    })
+    return sid
+
+
+def _seed_writing_exam(fake_db):
+    exam = _seed_exam(fake_db, speaking=False)
+    p1, p2 = str(uuid4()), str(uuid4())
+    exam["writing_task1_prompt_id"] = p1
+    exam["writing_task2_prompt_id"] = p2
+    fake_db.seed("writing_prompts", {"id": p1, "task_type": "task1_academic", "prompt_text": "x", "title": "T1"})
+    fake_db.seed("writing_prompts", {"id": p2, "task_type": "task2", "prompt_text": "y", "title": "T2"})
+    return exam
+
+
+def test_backfill_promote_writing_creates_missing_essays(fake_db, svc):
+    """A sitting whose Writing was collected but never promoted gets its 2 essays
+    created + stamped on the sitting; idempotent re-run reports 'already'."""
+    exam = _seed_writing_exam(fake_db)
+    sid = _seed_unpromoted_sitting(fake_db, exam)
+
+    out = svc.backfill_promote_writing(exam["id"])
+    assert out["promoted"] == [sid]
+    assert out["already"] == [] and out["no_writing"] == [] and out["failed"] == []
+    sitting = svc.get_sitting(sid)
+    assert sitting["essay_task1_id"] and sitting["essay_task2_id"]
+    assert len(fake_db.rows("writing_essays")) == 2
+
+    out2 = svc.backfill_promote_writing(exam["id"])   # idempotent
+    assert out2["already"] == [sid] and out2["promoted"] == []
+    assert len(fake_db.rows("writing_essays")) == 2
+
+
+def test_backfill_promote_writing_backfills_partial_sitting(fake_db, svc):
+    """Codex P2: a sitting with only Task 1 already promoted still gets Task 2
+    backfilled (per-task completeness) — NOT skipped as 'already'."""
+    exam = _seed_writing_exam(fake_db)
+    sid = _seed_unpromoted_sitting(fake_db, exam, essay1="pre-existing-e1", essay2=None)
+
+    out = svc.backfill_promote_writing(exam["id"])
+    assert out["promoted"] == [sid] and out["already"] == []
+    sitting = svc.get_sitting(sid)
+    assert sitting["essay_task1_id"] == "pre-existing-e1"   # untouched
+    assert sitting["essay_task2_id"]                        # Task 2 created now
+    assert len(fake_db.rows("writing_essays")) == 1         # only the missing task
+
+
+def test_backfill_promote_writing_classifies_and_excludes_void(fake_db, svc):
+    """both tasks promoted → 'already'; empty writing → 'no_writing'; void sitting
+    is excluded from the sweep entirely."""
+    exam = _seed_writing_exam(fake_db)
+    done = _seed_unpromoted_sitting(fake_db, exam, essay1="e-x", essay2="e-y")  # fully done
+    empty = _seed_unpromoted_sitting(fake_db, exam, t1="", t2="   ")           # no real text
+    voided = _seed_unpromoted_sitting(fake_db, exam, status="void")
+
+    out = svc.backfill_promote_writing(exam["id"])
+    assert out["already"] == [done]
+    assert out["no_writing"] == [empty]
+    assert out["total"] == 2                                          # void excluded
+    for bucket in ("already", "promoted", "no_writing", "failed"):
+        assert voided not in out[bucket]
+
+
+def _seed_mock_writing(fake_db, svc):
+    """A 4-skill-less (LRW) exam with both Writing prompts + a student, driven
+    to all_submitted so 2 pending essays are promoted. Returns (exam, u, s)."""
     exam = _seed_exam(fake_db, speaking=False)
     p1, p2 = str(uuid4()), str(uuid4())
     exam["writing_task1_prompt_id"] = p1
@@ -1437,14 +2012,25 @@ def test_release_delivers_reviewed_writing_essays(fake_db, svc, wf):
     fake_db.seed("students", {"id": str(uuid4()), "user_id": str(u)})
     s = svc.create_sitting(u, "MOCK-TEST-A")
     _run_lrw(svc, fake_db, exam, s["id"], u)   # promotes 2 pending essays
+    return exam, u, s
 
+
+def _set_essay_status(fake_db, essay_id, status):
+    for row in fake_db.rows("writing_essays"):
+        if row["id"] == essay_id:
+            row["status"] = status
+
+
+def test_release_delivers_reviewed_writing_essays(fake_db, svc, wf):
+    """P2 (2026-07-12): CÔNG BỐ is the one action that unlocks everything —
+    release also flips the sitting's REVIEWED writing essays to 'delivered'
+    (so the student can open writing-result.html, which gates on 'delivered').
+    Both essays must be reviewed before release is allowed (2026-07-14 block)."""
+    exam, u, s = _seed_mock_writing(fake_db, svc)
     sitting = svc.get_sitting(s["id"])
     e1, e2 = sitting["essay_task1_id"], sitting["essay_task2_id"]
-    for row in fake_db.rows("writing_essays"):
-        if row["id"] == e1:
-            row["status"] = "reviewed"   # admin approved
-        if row["id"] == e2:
-            row["status"] = "graded"     # AI done, admin not yet approved
+    _set_essay_status(fake_db, e1, "reviewed")   # admin approved both
+    _set_essay_status(fake_db, e2, "reviewed")
 
     review = wf.get_review_for_sitting(s["id"])
     admin = uuid4()
@@ -1454,13 +2040,141 @@ def test_release_delivers_reviewed_writing_essays(fake_db, svc, wf):
     wf.release_results(review["id"], admin)
 
     by_id = {r["id"]: r for r in fake_db.rows("writing_essays")}
-    assert by_id[e1]["status"] == "delivered"
-    assert by_id[e1].get("delivered_at")
-    # delivery_method must be a value allowed by the writing_essays CHECK
-    # (migration 033) — else Postgres rejects the update in prod and the essay
-    # silently stays 'reviewed'.
-    assert by_id[e1]["delivery_method"] == "web_view"
-    assert by_id[e2]["status"] == "graded"   # not 'reviewed' → left untouched
+    for e in (e1, e2):
+        assert by_id[e]["status"] == "delivered"
+        assert by_id[e].get("delivered_at")
+        # delivery_method must be a value allowed by the writing_essays CHECK
+        # (migration 033) — else Postgres rejects the update in prod and the
+        # essay silently stays 'reviewed'.
+        assert by_id[e]["delivery_method"] == "web_view"
+
+
+def test_release_blocked_when_a_writing_essay_not_reviewed(fake_db, svc, wf):
+    """2026-07-14 hard block: publishing while any promoted Writing essay is
+    still pending/grading/graded would give the student a Writing band with NO
+    deliverable feedback — so release raises ConflictError and NOTHING is
+    published (seal intact, the reviewed essay is NOT prematurely delivered)."""
+    exam, u, s = _seed_mock_writing(fake_db, svc)
+    sitting = svc.get_sitting(s["id"])
+    e1, e2 = sitting["essay_task1_id"], sitting["essay_task2_id"]
+    _set_essay_status(fake_db, e1, "reviewed")   # admin approved Task 1…
+    _set_essay_status(fake_db, e2, "graded")     # …but Task 2 only AI-graded
+
+    review = wf.get_review_for_sitting(s["id"])
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    wf.save_final_bands(review["id"], admin,
+                        {"listening": 6.0, "reading": 6.0, "writing": 6.0})
+    with pytest.raises(wf.ConflictError):
+        wf.release_results(review["id"], admin)
+
+    # Atomic: the block fires BEFORE any state changes.
+    assert svc.get_sitting(s["id"])["status"] != "released"
+    assert svc.is_sealed(s["id"]) is True
+    by_id = {r["id"]: r for r in fake_db.rows("writing_essays")}
+    assert by_id[e1]["status"] == "reviewed"   # not delivered — release didn't run
+    assert by_id[e2]["status"] == "graded"
+
+
+def test_release_blocked_when_writing_essay_still_pending(fake_db, svc, wf):
+    """A never-graded (pending) essay also blocks release."""
+    exam, u, s = _seed_mock_writing(fake_db, svc)   # both essays start 'pending'
+    review = wf.get_review_for_sitting(s["id"])
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    wf.save_final_bands(review["id"], admin,
+                        {"listening": 6.0, "reading": 6.0, "writing": 6.0})
+    with pytest.raises(wf.ConflictError):
+        wf.release_results(review["id"], admin)
+    assert svc.is_sealed(s["id"]) is True
+
+
+def test_release_allowed_when_writing_task_unanswered(fake_db, svc, wf):
+    """An EMPTY (unanswered) Writing task promotes no essay, so it has nothing to
+    deliver and must NOT block release — otherwise a blank Writing answer would
+    permanently wedge publishing."""
+    exam = _seed_exam(fake_db, speaking=False)
+    p1, p2 = str(uuid4()), str(uuid4())
+    exam["writing_task1_prompt_id"] = p1
+    exam["writing_task2_prompt_id"] = p2
+    fake_db.seed("writing_prompts", {"id": p1, "task_type": "task1_academic",
+                                     "prompt_text": "x", "title": "T1"})
+    fake_db.seed("writing_prompts", {"id": p2, "task_type": "task2",
+                                     "prompt_text": "y", "title": "T2"})
+    u = uuid4()
+    fake_db.seed("students", {"id": str(uuid4()), "user_id": str(u)})
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    # Drive LRW but submit EMPTY writing → no essays promoted.
+    admin = str(uuid4())
+    for section in svc._configured_sections(exam):
+        svc.advance_section(exam["id"], admin)
+        _expire_section(fake_db, exam["id"], section)
+        if section == "writing":
+            svc.submit_section(s["id"], u, "writing", "", "")
+        else:
+            _attach_domain_submitted(svc, fake_db, exam, s["id"], u, section)
+            svc.submit_section(s["id"], u, section)
+
+    sitting = svc.get_sitting(s["id"])
+    assert sitting.get("essay_task1_id") is None
+    assert sitting.get("essay_task2_id") is None
+    review = wf.get_review_for_sitting(s["id"])
+    rid_admin = uuid4()
+    wf.claim(review["id"], rid_admin)
+    wf.save_final_bands(review["id"], rid_admin,
+                        {"listening": 6.0, "reading": 6.0, "writing": 6.0})
+    released = wf.release_results(review["id"], rid_admin)   # must NOT raise
+    assert released["status"] == "released"
+
+
+def test_release_allowed_for_needs_retest_sitting_with_ungraded_writing(fake_db, svc, wf):
+    """Codex P2: a sitting flagged needs_retest has its Writing intentionally
+    left ungraded (bulk-grade skips needs_retest sittings), so the Writing gate
+    must NOT block publishing the retest decision even though the essays are
+    still pending."""
+    exam, u, s = _seed_mock_writing(fake_db, svc)   # 2 pending essays
+    for row in fake_db.rows("mock_exam_sittings"):
+        if row["id"] == s["id"]:
+            row["needs_retest"] = True              # pre-grading retake toggle
+    review = wf.get_review_for_sitting(s["id"])
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    wf.save_final_bands(review["id"], admin,
+                        {"listening": 6.0, "reading": 6.0, "writing": 6.0})
+    released = wf.release_results(review["id"], admin)   # must NOT raise
+    assert released["status"] == "released"
+
+
+def test_writing_gate_runs_regardless_of_prefetched_review_status(fake_db, svc, wf):
+    """Codex P2 (race): the Writing gate must not be skipped just because the
+    review isn't 'reviewed' at pre-read time. _writing_pending_tasks itself is
+    unconditional on review status — a sitting with a pending essay reports it
+    whether or not final bands are saved yet (closes the claimed→reviewed race
+    window before the atomic release UPDATE)."""
+    exam, u, s = _seed_mock_writing(fake_db, svc)   # 2 pending essays, review still 'queued'
+    review = wf.get_review_for_sitting(s["id"])
+    assert review["status"] == "queued"             # NOT reviewed
+    assert wf._writing_pending_tasks(s["id"]) == ["Task 1", "Task 2"]
+
+
+def test_release_allowed_when_short_essay_is_skipped(fake_db, svc, wf):
+    """A too-short essay the admin SKIPPED (grading_skipped_at set) counts as
+    resolved — it never reaches 'reviewed' but must not block release."""
+    exam, u, s = _seed_mock_writing(fake_db, svc)   # 2 pending essays
+    sitting = svc.get_sitting(s["id"])
+    e1, e2 = sitting["essay_task1_id"], sitting["essay_task2_id"]
+    _set_essay_status(fake_db, e1, "reviewed")      # Task 1 graded + approved
+    for row in fake_db.rows("writing_essays"):      # Task 2 too short → skipped
+        if row["id"] == e2:
+            row["grading_skipped_at"] = "2026-07-14T00:00:00Z"
+    assert wf._writing_pending_tasks(s["id"]) == []   # neither blocks
+    review = wf.get_review_for_sitting(s["id"])
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    wf.save_final_bands(review["id"], admin,
+                        {"listening": 6.0, "reading": 6.0, "writing": 6.0})
+    released = wf.release_results(review["id"], admin)   # must NOT raise
+    assert released["status"] == "released"
 
 
 def test_retake_assign_scopes_skills_and_is_idempotent(fake_db):
@@ -1748,3 +2462,314 @@ def test_listening_endpoint_seal_helper(monkeypatch):
     assert listening._mock_sealed({}) is False
     assert listening._mock_sealed({"sitting_id": "sealed-one"}) is True
     assert listening._mock_sealed({"sitting_id": "other"}) is False
+
+
+# ── Writing band blankable when it cannot be computed (2026-07-15) ────
+#
+# 5 of 15 production reviews were unsaveable here: required_skills demands
+# writing, but sync_writing_band_for_essay only computes a band when BOTH tasks
+# carry one. No essays / one ungraded / one skipped → no band to give, and the
+# whole sitting was stuck. The student still gets the graded task's feedback.
+
+def _seed_writing_case(fake_db, t1_band=None, t2_band=None, stamp_ids=True):
+    fake_db.seed("mock_exam_sittings", {
+        "id": "sit-w", "mock_exam_id": "ex-1", "status": "submitted", "user_id": "u-w",
+        "essay_task1_id": "e1" if stamp_ids else None,
+        "essay_task2_id": "e2" if stamp_ids else None,
+    })
+    if t1_band is not None:
+        fake_db.seed("writing_feedback_current", {"essay_id": "e1", "overall_band_score": t1_band})
+    if t2_band is not None:
+        fake_db.seed("writing_feedback_current", {"essay_id": "e2", "overall_band_score": t2_band})
+
+
+def test_writing_blankable_when_no_essays_at_all(fake_db, svc, wf):
+    _seed_writing_case(fake_db, stamp_ids=False)
+    assert "writing" in wf._unconvertible_skills("sit-w")
+
+
+def test_writing_blankable_when_only_one_task_is_graded(fake_db, svc, wf):
+    """The exact production shape: T1 graded, T2 held pending (too short)."""
+    _seed_writing_case(fake_db, t1_band=7.0, t2_band=None)
+    assert "writing" in wf._unconvertible_skills("sit-w")
+    assert wf._writing_band_derivable("sit-w") is False
+
+
+def test_writing_NOT_blankable_once_both_tasks_carry_a_band(fake_db, svc, wf):
+    """Mirrors sync_writing_band_for_essay's own precondition — if it would
+    compute a band, the examiner must not skip it."""
+    _seed_writing_case(fake_db, t1_band=6.0, t2_band=7.0)
+    assert "writing" not in wf._unconvertible_skills("sit-w")
+    assert wf._writing_band_derivable("sit-w") is True
+
+
+def test_writing_blank_leaves_the_overall_blank_and_saves(fake_db, svc, wf, monkeypatch):
+    """The point of the change: the sitting becomes saveable, the bands that DO
+    exist are kept, and the overall is blank rather than a mean over a hole."""
+    admin = "admin-1"
+    _seed_writing_case(fake_db, t1_band=7.0, t2_band=None)
+    fake_db.seed("mock_exam_reviews", {"id": "rv-w", "sitting_id": "sit-w", "status": "claimed",
+                                       "claimed_by": admin, "final_bands": {}, "ai_draft": {},
+                                       "retest_flags": {}})
+    monkeypatch.setattr(wf, "_required_skills", lambda _s: ("listening", "reading", "writing"))
+    monkeypatch.setattr(wf, "_unconvertible_skills", lambda _s: {"writing"})
+
+    out = wf.save_final_bands("rv-w", admin, {"listening": 6.0, "reading": 6.5})
+
+    fb = out["final_bands"]
+    assert "writing" not in fb
+    assert fb["listening"] == 6.0 and fb["reading"] == 6.5
+    assert fb["overall"] is None
+    assert out["status"] == "reviewed"
+
+
+# ── Release gate vs a blank Writing band (2026-07-15) ─────────────────
+#
+# #783 let an uncomputable Writing band be left blank, but the release gate still
+# refused to publish while an essay was unresolved — so abe94da8 sat 'reviewed'
+# and unpublishable over a skill it was never scored on. The gate exists to stop a
+# BAND reaching the student with no chữa bài; with no band there is nothing to
+# protect.
+
+def _seed_release(fake_db, admin, final_bands):
+    fake_db.seed("mock_exam_sittings", {"id": "sit-r", "mock_exam_id": "ex-1",
+                                        "status": "submitted", "user_id": "u-r",
+                                        "sealed": True, "needs_retest": False})
+    fake_db.seed("mock_exam_reviews", {"id": "rv-r", "sitting_id": "sit-r",
+                                       "status": "reviewed", "claimed_by": admin,
+                                       "final_bands": final_bands, "ai_draft": {},
+                                       "retest_flags": {}})
+
+
+def test_release_allowed_when_the_writing_band_is_blank(fake_db, svc, wf, monkeypatch):
+    """The production shape: L/R banded, Writing blank, Task 1 still pending."""
+    admin = "admin-1"
+    _seed_release(fake_db, admin, {"listening": 4.0, "reading": 3.5, "overall": None})
+    monkeypatch.setattr(wf, "_writing_pending_tasks", lambda _s: ["Task 1"])
+
+    wf.release_results("rv-r", admin)
+
+    sit = next(s for s in fake_db.rows("mock_exam_sittings") if s["id"] == "sit-r")
+    assert sit["status"] == "released" and sit["sealed"] is False
+
+
+def test_release_still_blocked_when_a_writing_band_IS_published(fake_db, svc, wf, monkeypatch):
+    """The gate's whole point — a band with no chữa bài behind it stays blocked."""
+    admin = "admin-1"
+    _seed_release(fake_db, admin, {"listening": 6.0, "reading": 6.5, "writing": 6.0, "overall": 6.0})
+    monkeypatch.setattr(wf, "_writing_pending_tasks", lambda _s: ["Task 2"])
+
+    with pytest.raises(wf.ConflictError, match="Task 2"):
+        wf.release_results("rv-r", admin)
+
+    sit = next(s for s in fake_db.rows("mock_exam_sittings") if s["id"] == "sit-r")
+    assert sit["sealed"] is True
+
+
+def test_release_not_gated_at_all_when_writing_is_resolved(fake_db, svc, wf, monkeypatch):
+    admin = "admin-1"
+    _seed_release(fake_db, admin, {"listening": 6.0, "reading": 6.5, "writing": 6.0, "overall": 6.0})
+    monkeypatch.setattr(wf, "_writing_pending_tasks", lambda _s: [])
+    wf.release_results("rv-r", admin)
+    sit = next(s for s in fake_db.rows("mock_exam_sittings") if s["id"] == "sit-r")
+    assert sit["sealed"] is False
+
+
+# ── Bulk nhận / chốt band (2026-07-16) ────────────────────────────────
+#
+# The pipeline is queued → claimed → reviewed → released, and #778 gave only the
+# last hop a bulk action. A 13-student class still cost 13 claims and 13 saves by
+# hand, which is what the admin actually complained about.
+
+
+def _seed_bulk(fake_db, sid, rid, admin, status="queued", claimed_by=None,
+               ai_draft=None, final_bands=None, speaking=False):
+    fake_db.seed("mock_exams", {"id": "ex-" + sid, "exam_mode": "sequential",
+                                "listening_test_id": "lt-1", "reading_test_id": "rt-1",
+                                "speaking_topic_set": "ts-1" if speaking else None})
+    fake_db.seed("mock_exam_sittings", {"id": sid, "mock_exam_id": "ex-" + sid,
+                                        "status": "submitted", "user_id": "u-" + sid,
+                                        "sealed": True, "needs_retest": False})
+    fake_db.seed("mock_exam_reviews", {
+        "id": rid, "sitting_id": sid, "status": status,
+        "claimed_by": (claimed_by if claimed_by is not None
+                       else (None if status == "queued" else admin)),
+        "final_bands": final_bands if final_bands is not None else {},
+        # What assemble_ai_draft persists at review creation: L/R off the
+        # attempt's Cambridge-table band_estimate, Writing rolled up later from
+        # the two admin-reviewed essays.
+        "ai_draft": ai_draft if ai_draft is not None else {
+            "listening": {"raw": 30, "band": 7.0},
+            "reading": {"raw": 27, "band": 6.5},
+            "writing": {"band": 6.0},
+        },
+        "retest_flags": {},
+    })
+
+
+def test_bulk_claim_takes_only_queued_and_names_every_refusal(fake_db, svc, wf):
+    """claim() only takes a 'queued' row, so the bulk action cannot lift another
+    admin's review — and a batch that refused something must say which one."""
+    admin = "admin-1"
+    _seed_bulk(fake_db, "sit-q", "rv-q", admin, status="queued")
+    _seed_bulk(fake_db, "sit-mine", "rv-mine", admin, status="claimed")
+    _seed_bulk(fake_db, "sit-other", "rv-other", admin, status="claimed", claimed_by="admin-2")
+
+    out = wf.bulk_claim_sittings(["sit-q", "sit-mine", "sit-other", "sit-ghost"], admin)
+
+    assert out["claimed"] == ["sit-q"]
+    reasons = {s["sitting_id"]: s["reason"] for s in out["skipped"]}
+    assert set(reasons) == {"sit-mine", "sit-other", "sit-ghost"}
+    assert "Admin khác" in reasons["sit-other"]
+    assert "hồ sơ duyệt" in reasons["sit-ghost"]
+    # the claimed one really is claimed, and the other admin's row is untouched
+    rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-q")
+    assert rv["status"] == "claimed" and rv["claimed_by"] == admin
+    other = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-other")
+    assert other["claimed_by"] == "admin-2"
+
+
+def test_bulk_claim_one_bad_sitting_does_not_sink_the_batch(fake_db, svc, wf, monkeypatch):
+    admin = "admin-1"
+    _seed_bulk(fake_db, "sit-a", "rv-a", admin)
+    _seed_bulk(fake_db, "sit-b", "rv-b", admin)
+    real = wf.claim
+
+    def boom(review_id, admin_id):
+        if str(review_id) == "rv-a":
+            raise RuntimeError("kaboom")
+        return real(review_id, admin_id)
+
+    monkeypatch.setattr(wf, "claim", boom)
+    out = wf.bulk_claim_sittings(["sit-a", "sit-b"], admin)
+    assert out["claimed"] == ["sit-b"]
+    assert out["skipped"][0]["sitting_id"] == "sit-a"
+
+
+def test_bulk_save_bands_uses_the_values_the_console_would_prefill(fake_db, svc, wf):
+    """The client posts no bands — the server re-derives the same L/R/W the form
+    pre-fills, and save_final_bands still recomputes the overall itself."""
+    admin = "admin-1"
+    _seed_bulk(fake_db, "sit-1", "rv-1", admin, status="claimed")
+
+    out = wf.bulk_save_final_bands(["sit-1"], admin)
+
+    assert out["saved"] == ["sit-1"] and out["skipped"] == []
+    rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-1")
+    assert rv["status"] == "reviewed"
+    assert rv["final_bands"]["listening"] == 7.0
+    assert rv["final_bands"]["reading"] == 6.5
+    assert rv["final_bands"]["writing"] == 6.0
+    # overall is the verified mean, computed server-side — never posted
+    assert rv["final_bands"]["overall"] == 6.5
+
+
+def test_bulk_save_bands_never_signs_off_a_band_it_cannot_derive(fake_db, svc, wf):
+    """Speaking has NO draft source (assemble_ai_draft never touches it), so a
+    Speaking exam must land in `skipped` — not be signed off with a number no
+    examiner chose. This is the whole safety of the feature."""
+    admin = "admin-1"
+    _seed_bulk(fake_db, "sit-s", "rv-s", admin, status="claimed", speaking=True)
+
+    out = wf.bulk_save_final_bands(["sit-s"], admin)
+
+    assert out["saved"] == []
+    assert "Speaking" in out["skipped"][0]["reason"]
+    rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-s")
+    assert rv["status"] == "claimed"          # untouched, still awaiting a human
+    assert rv["final_bands"] == {}
+
+
+def test_bulk_save_bands_never_overwrites_a_band_the_examiner_typed(fake_db, svc, wf):
+    """A saved final band is an examiner's own judgement; the draft is a
+    suggestion. Bulk must not quietly replace the first with the second."""
+    admin = "admin-1"
+    _seed_bulk(fake_db, "sit-1", "rv-1", admin, status="claimed",
+               final_bands={"writing": 7.5})
+
+    wf.bulk_save_final_bands(["sit-1"], admin)
+
+    rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-1")
+    assert rv["final_bands"]["writing"] == 7.5      # kept, not reset to the 6.0 draft
+
+
+def test_bulk_save_bands_skips_unclaimed_and_released_rows(fake_db, svc, wf):
+    admin = "admin-1"
+    _seed_bulk(fake_db, "sit-q", "rv-q", admin, status="queued")
+    _seed_bulk(fake_db, "sit-r", "rv-r", admin, status="released",
+               final_bands={"listening": 7.0, "reading": 6.5, "writing": 6.0, "overall": 6.5})
+
+    out = wf.bulk_save_final_bands(["sit-q", "sit-r"], admin)
+
+    assert out["saved"] == []
+    reasons = {s["sitting_id"]: s["reason"] for s in out["skipped"]}
+    assert "Chưa nhận" in reasons["sit-q"]
+    assert "Đã công bố" in reasons["sit-r"]
+
+
+def test_bulk_save_bands_will_not_band_another_admins_review(fake_db, svc, wf):
+    """save_final_bands filters the UPDATE on claimed_by — the loop must report
+    that as a refusal, not swallow it into a success count."""
+    admin = "admin-1"
+    _seed_bulk(fake_db, "sit-o", "rv-o", admin, status="claimed", claimed_by="admin-2")
+
+    out = wf.bulk_save_final_bands(["sit-o"], admin)
+
+    assert out["saved"] == []
+    assert "admin khác" in out["skipped"][0]["reason"]
+    rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-o")
+    assert rv["status"] == "claimed" and rv["final_bands"] == {}
+
+
+# ── Bulk routes are scoped to the exam in the path (Codex, PR #787) ────
+#
+# The path's exam_id is the admin's stated scope. A sitting from outside it did
+# not come from this roster — it came from a stale tab or a hand-made call, and
+# a per-exam action must not reach into another exam's work. writing/bulk-grade
+# has always enforced this; the bulk claim/band/release routes did not.
+
+
+def _seed_two_exams(fake_db):
+    for sid, exam in (("sit-mine", "ex-1"), ("sit-foreign", "ex-2")):
+        fake_db.seed("mock_exam_sittings", {"id": sid, "mock_exam_id": exam,
+                                            "status": "submitted", "user_id": "u-" + sid})
+
+
+def test_sittings_in_exam_returns_only_this_exams_sittings(fake_db, svc):
+    _seed_two_exams(fake_db)
+    assert svc.sittings_in_exam("ex-1", ["sit-mine", "sit-foreign"]) == {"sit-mine"}
+    assert svc.sittings_in_exam("ex-2", ["sit-mine", "sit-foreign"]) == {"sit-foreign"}
+    # an id that exists nowhere is nobody's
+    assert svc.sittings_in_exam("ex-1", ["sit-ghost"]) == set()
+    # no ids → no query, no rows
+    assert svc.sittings_in_exam("ex-1", []) == set()
+
+
+def test_scope_to_exam_reports_the_stray_rather_than_dropping_it(fake_db, svc):
+    """A bulk action handed an id it will not act on must SAY so — silently
+    dropping it would report success over a student nobody touched."""
+    from routers import admin_mock_exams as r
+
+    _seed_two_exams(fake_db)
+    ids, foreign = r._scope_to_exam("ex-1", ["sit-mine", "sit-foreign"])
+
+    assert ids == ["sit-mine"]
+    assert foreign == [{"sitting_id": "sit-foreign", "reason": "Không thuộc đề này."}]
+
+
+def test_every_bulk_route_scopes_to_its_exam_id():
+    """The finding was not "the helper is wrong" — it was "the route ignores
+    exam_id entirely". A correct helper nobody calls fixes nothing, so pin the
+    call site of all three bulk routes, including bulk-release, which has had the
+    gap since #778 and is the one that PUBLISHES to real students."""
+    import inspect
+
+    from routers import admin_mock_exams as r
+
+    for route in (r.bulk_claim, r.bulk_final_bands, r.bulk_release):
+        src = inspect.getsource(route)
+        assert "_scope_to_exam(exam_id" in src, f"{route.__name__} ignores exam_id"
+        # and the strays it found must reach the caller, not be dropped
+        assert 'out["skipped"] = out["skipped"] + foreign' in src, (
+            f"{route.__name__} drops out-of-exam ids silently"
+        )

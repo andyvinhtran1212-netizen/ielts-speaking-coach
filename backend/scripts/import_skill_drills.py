@@ -112,6 +112,8 @@ def _commit_one(test_id: str, res, audio_bytes, status: str) -> dict:
         "full_audio_duration_seconds": av["duration_seconds"],
         "full_audio_size_bytes":       av["size_bytes"],
         "metadata":        tm.get("metadata") or {},
+        # Mig 157 — test_type là cột thật (CHECK full|mini|drill).
+        "test_type":       tm.get("test_type") or "drill",
         "status":          status,
     }
     created_content_ids: list[str] = []

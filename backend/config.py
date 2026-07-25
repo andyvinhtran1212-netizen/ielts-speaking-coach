@@ -218,14 +218,10 @@ class Settings(BaseSettings):
     WRITING_GRADING_FALLBACK_ENABLED: bool = True
     WRITING_FALLBACK_MODEL: str = "gemini-2.5-flash"
 
-    # Sprint 11.1 — Listening module (DEBT-LISTENING-MODULE foundation 1/5).
-    # ELEVENLABS_API_KEY: empty by default; render endpoint stays 503 until
-    # Andy provisions the Creator plan. LISTENING_AI_RENDER_ENABLED is the
-    # feature flag — flip to true in .env once the key is set (defense in
-    # depth so a leaked key without intentional enablement still gates
-    # safely).
+    # ELEVENLABS_API_KEY: used by the test-audio assembly narrator
+    # (services/listening_audio.py) and vocab TTS (services/tts_audio.py).
+    # The admin AI-render UI was decommissioned 2026-07-17 (usage audit).
     ELEVENLABS_API_KEY: str = ""
-    LISTENING_AI_RENDER_ENABLED: bool = False
     # V-eleven — vocab audio generate. ElevenLabs en-GB voice + model used when
     # the admin picks engine="elevenlabs" (OpenAI stays the default engine).
     VOCAB_TTS_ELEVENLABS_VOICE_ID: str = "aHCytOTnUOgfGPn5n89j"
@@ -246,20 +242,10 @@ class Settings(BaseSettings):
     # .env (ENABLE_SERVER_TIMING=true) to turn it on for a debugging session.
     ENABLE_SERVER_TIMING: bool = False
 
-    # Sprint 13.5.6 — map image generation for plan-label exercises
-    # (S2 Q16-20 IELTS standard format). Admin-initiated only; the
-    # student player renders the signed URL inline so the map is part
-    # of the test paper rather than a text-only description.
-    #   * LISTENING_MAP_IMAGE_MODEL — primary model id; the service
-    #     walks ``services.listening_map_image.FALLBACK_CHAIN`` on
-    #     failure (Pro → legacy 2.5 Flash).
-    #   * LISTENING_IMAGES_BUCKET — Supabase Storage bucket holding the
-    #     generated PNGs (created in the dashboard, Private, with admin
-    #     write + authenticated read policies).
-    # Sprint 13.5.9.2 — Andy 2026-05-21 lock: Nano Banana 2 as the
-    # cluster default. 95% of Pro quality at half the cost; ranks #1
-    # AI Arena text-to-image. Override per environment via env var.
-    LISTENING_MAP_IMAGE_MODEL: str = "gemini-3.1-flash-image-preview"
+    # LISTENING_IMAGES_BUCKET — Supabase Storage bucket holding map
+    # images for plan-label exercises (Private; admin write +
+    # authenticated read). Images are uploaded manually via the admin
+    # exercise UI; the AI-generation path was decommissioned 2026-07-17.
     LISTENING_IMAGES_BUCKET: str = "listening-images"
 
     # Sprint 20.14f-α — Supabase Storage bucket holding reading
@@ -269,14 +255,6 @@ class Settings(BaseSettings):
     # `reading-images` → Private). The student fetch mints 2h signed
     # URLs per request; nothing is persisted as a public URL.
     READING_IMAGES_BUCKET: str = "reading-images"
-
-    # Sprint 11.2 — IELTS-friendly default voices locked during the
-    # Sprint 11.1 audition (2026-05-18). Render endpoint uses these as
-    # fallback when voice_id is omitted + accent_tag is set. AU defers
-    # to Phase B voice cloning — stock library only offers Charlie
-    # (male) which doesn't fit the IELTS narration norm.
-    LISTENING_VOICE_US_FEMALE_DEFAULT: str = "EXAVITQu4vr4xnSDxMaL"  # Sarah
-    LISTENING_VOICE_UK_FEMALE_DEFAULT: str = "Xb7hH8MSUJpSbSDYk0k2"  # Alice
 
     class Config:
         env_file = ".env"

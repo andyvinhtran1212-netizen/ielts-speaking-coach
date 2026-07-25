@@ -57,6 +57,9 @@ export default function PublicContentLayout({ children }: { children: ReactNode 
       <script src="/js/runtime-config.js" defer />
       <script src="/js/api.js" defer />
       <script src="/js/analytics-beacon.js" defer />
+      {/* AUDIT F2: field Web Vitals per implementation tag (rollback-metrics
+          reads them for the frozen LCP trigger). */}
+      <script src="/js/rum-vitals.js" defer />
 
       {/* Supabase init + child initialization */}
       <script

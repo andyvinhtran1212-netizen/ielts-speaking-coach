@@ -346,8 +346,71 @@ async function generateTestError() {
   showBanner('Đang tạo lỗi test… một dòng "Thử nghiệm" sẽ xuất hiện trong giây lát.', 'success');
 }
 
+// ── AUDIT F1: rollback-trigger metrics per route ───────────────────────
+// The FROZEN triggers (Pilot Entry checklist §4) need error-rate WITH a
+// page-view denominator + field LCP p75 — migration-stats above can't
+// compute either. On demand (button), not on page load: it scans two
+// tables over a window and the answer only matters when someone is
+// actively watching a cutover.
+function _verdictLine(label, v) {
+  if (!v) return '';
+  const status = v.status || '—';
+  const cls = status === 'breach' ? 'is-warning' : '';
+  let detail = '';
+  if (v.basis === 'relative') {
+    detail = 'delta ' + (v.delta_x != null ? v.delta_x + '×' : '∞') +
+      ' (ngưỡng ' + v.threshold_x + '×, baseline ' + v.baseline_source + ')';
+  } else if (v.basis === 'absolute') {
+    detail = 'so ngưỡng tuyệt đối (không có baseline tương đối)';
+  } else if (status === 'insufficient-sample') {
+    detail = 'mẫu chưa đủ — chưa kết luận được';
+  }
+  return '<div class="el-migration-note ' + cls + '"><strong>' +
+    escapeHtml(label) + ':</strong> ' + escapeHtml(status) +
+    (detail ? ' — ' + escapeHtml(detail) : '') + '</div>';
+}
+
+async function loadRollbackMetrics() {
+  const body = document.getElementById('rollback-metrics-body');
+  if (!body) return;
+  body.textContent = 'Đang đo…';
+  try {
+    const route = (document.getElementById('rbm-route').value || '/').trim();
+    const win = document.getElementById('rbm-window').value || '30';
+    const r = await api.get('/admin/error-logs/rollback-metrics?route=' +
+      encodeURIComponent(route) + '&window_minutes=' + encodeURIComponent(win));
+    const impls = r.implementations || {};
+    const rows = ['next', 'legacy', 'untagged'].filter((k) => impls[k]).map((k) => {
+      const i = impls[k];
+      const vit = i.vitals || {};
+      return '<tr>' +
+        '<td>' + escapeHtml(k) + '</td>' +
+        '<td>' + i.page_views + '</td>' +
+        '<td>' + i.errors + '</td>' +
+        '<td>' + (i.error_rate != null ? (i.error_rate * 100).toFixed(2) + '%' : '—') + '</td>' +
+        '<td>' + (vit.lcp_p75 != null ? vit.lcp_p75 + 'ms (n=' + vit.samples + ')' : '—') + '</td>' +
+        '<td>' + (vit.cls_p75 != null ? vit.cls_p75 : '—') + '</td>' +
+        '<td>' + (vit.inp_p75 != null ? vit.inp_p75 + 'ms' : '—') + '</td>' +
+        '</tr>';
+    }).join('');
+    body.innerHTML =
+      '<table class="el-migration-table"><thead><tr>' +
+      '<th>Impl</th><th>Views</th><th>Lỗi</th><th>Error rate</th>' +
+      '<th>LCP p75</th><th>CLS p75</th><th>INP p75</th>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table>' +
+      _verdictLine('Error-rate (>2×/30ph)', r.error_verdict) +
+      _verdictLine('LCP p75 (>1.5×/24h)', r.vitals_verdict) +
+      (r.truncated ? '<div class="el-migration-note">⚠ Dữ liệu bị cắt.</div>' : '');
+  } catch (err) {
+    console.warn('[error-logs] rollback-metrics fetch failed:', err);
+    body.textContent = 'Không tải được rollback-metrics.';
+  }
+}
+
 function bind() {
   $('btn-refresh').addEventListener('click', () => { loadLogs(); loadStats(); loadMigrationStats(); });
+  const rbmLoad = document.getElementById('rbm-load');
+  if (rbmLoad) rbmLoad.addEventListener('click', loadRollbackMetrics);
   $('btn-test-error').addEventListener('click', generateTestError);
   ['filter-dismissed', 'filter-level', 'filter-source'].forEach((id) => {
     $(id).addEventListener('change', loadLogs);

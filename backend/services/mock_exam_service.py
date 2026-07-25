@@ -155,6 +155,49 @@ def list_open_exams(user_id: str) -> list[dict]:
     return out
 
 
+def list_my_sittings(user_id: str) -> list[dict]:
+    """The caller's own mock sittings — powers the student home: what to resume
+    and which results are RELEASED. A released sitting carries its overall band +
+    released_at (from the review) so the home can show a result tile without a
+    second fetch. Voided sittings are excluded; newest first."""
+    rows = (supabase_admin.table("mock_exam_sittings")
+            .select("id, mock_exam_id, status, created_at")
+            .eq("user_id", str(user_id)).neq("status", "void")
+            .order("created_at", desc=True).execute()).data or []
+    if not rows:
+        return []
+    exam_ids = list({r["mock_exam_id"] for r in rows if r.get("mock_exam_id")})
+    exams: dict = {}
+    if exam_ids:
+        er = (supabase_admin.table("mock_exams").select("id, code, title")
+              .in_("id", exam_ids).execute()).data or []
+        exams = {e["id"]: e for e in er}
+    released_ids = [r["id"] for r in rows if r.get("status") == "released"]
+    reviews: dict = {}
+    if released_ids:
+        rv = (supabase_admin.table("mock_exam_reviews")
+              .select("sitting_id, final_bands, released_at")
+              .in_("sitting_id", released_ids).execute()).data or []
+        reviews = {x["sitting_id"]: x for x in rv}
+    out = []
+    for r in rows:
+        ex = exams.get(r.get("mock_exam_id"), {})
+        rvw = reviews.get(r["id"], {})
+        fb = rvw.get("final_bands") or {}
+        released = r.get("status") == "released"
+        out.append({
+            "sitting_id":   r["id"],
+            "mock_exam_id": r.get("mock_exam_id"),
+            "code":         ex.get("code"),
+            "title":        ex.get("title"),
+            "status":       r.get("status"),
+            "released":     released,
+            "overall":      fb.get("overall") if released else None,
+            "released_at":  rvw.get("released_at"),
+        })
+    return out
+
+
 def get_published_exam(code: str) -> Optional[dict]:
     resp = supabase_admin.table("mock_exams").select("*").eq(
         "code", code,
@@ -212,6 +255,24 @@ def get_sitting(sitting_id: UUID | str) -> Optional[dict]:
         "id", str(sitting_id),
     ).limit(1).execute()
     return resp.data[0] if resp.data else None
+
+
+def sittings_in_exam(exam_id: UUID | str, sitting_ids) -> set:
+    """The subset of `sitting_ids` that really belongs to `exam_id`.
+
+    A per-exam roster action must not reach into another exam's work — the
+    exam_id in the path is the admin's stated scope, so a sitting from outside it
+    arrived via a stale tab or a hand-made call, not the roster. writing/bulk-grade
+    has always enforced this per row; the bulk claim/band/release routes take the
+    set in ONE query instead of one per id.
+    """
+    ids = [str(s) for s in sitting_ids]
+    if not ids:
+        return set()
+    resp = supabase_admin.table("mock_exam_sittings").select("id").eq(
+        "mock_exam_id", str(exam_id),
+    ).in_("id", ids).execute()
+    return {str(r["id"]) for r in (resp.data or [])}
 
 
 def is_sealed(sitting_id: UUID | str) -> bool:
@@ -595,11 +656,14 @@ def _promote_writing_essays(sitting_id: str) -> None:
     (built for regular Writing) works for mock essays too, instead of a
     separate bespoke display (2026-07-12).
 
-    Rows are created with status='pending' and NO grading job scheduled — an
-    admin explicitly starts grading later via POST
-    /admin/writing/essays/{id}/start-grading after picking a tier. Idempotent
-    (skips a task whose essay id is already stamped) and never raises — a
-    promotion failure must not block the section from being collected."""
+    Rows are created with status='pending'. On the student-submit path the
+    router then auto-starts AI grading (claim_mock_writing_grading), so a mock
+    essay lands 'graded' and ready for admin review without a manual "Bắt đầu
+    chấm" click; the server-side reaper/closed-tab path leaves them 'pending' for
+    that button. The admin can also (re)grade via POST
+    /admin/writing/essays/{id}/start-grading. Idempotent (skips a task whose
+    essay id is already stamped) and never raises — a promotion failure must not
+    block the section from being collected."""
     try:
         sitting = get_sitting(sitting_id)
         if not sitting:
@@ -660,6 +724,9 @@ def _promote_writing_essays(sitting_id: str) -> None:
                     "essay_text":            d["text"],
                     "analysis_level":        3,
                     "status":                "pending",
+                    # Stamp the reverse link so the grading queue can filter mock
+                    # essays into their own tab (mig 148 column, mig 156 backfill).
+                    "sitting_id":            str(sitting_id),
                 },
                 # Audit convention matches regular self-submit: the STUDENT's
                 # own user_id, not the reviewing admin.
@@ -676,6 +743,334 @@ def _promote_writing_essays(sitting_id: str) -> None:
             )
     except Exception:  # noqa: BLE001
         logger.exception("[mock-exam] promote-writing failed sitting=%s", sitting_id)
+
+
+def backfill_promote_writing(exam_id: str) -> dict:
+    """Create the missing writing_essays for a mock exam's sittings whose Writing
+    was collected but never promoted — e.g. a cohort that sat the exam BEFORE the
+    promotion feature shipped (PR #720, 2026-07-12), so their `writing_submission`
+    text was captured but no essay rows were ever created and there is nothing to
+    grade.
+
+    Idempotent: `_promote_writing_essays` skips a task whose essay id is already
+    stamped, so re-running is safe. Completeness is checked PER TASK — a sitting
+    with only ONE task promoted (a partial earlier run) still has its other
+    submitted task backfilled, instead of being treated as done. Per-sitting
+    outcome:
+      - already   : every submitted-with-text task already has an essay
+      - promoted  : a missing task's essay was created now
+      - no_writing: neither task has non-empty text
+      - failed    : a task with text still has no essay after promotion (e.g. no
+                    students row for the user, or the prompt is missing)
+    Does NOT grade — grading is the separate bulk-grade step (and costs Gemini)."""
+    sittings = (supabase_admin.table("mock_exam_sittings")
+                .select("id, essay_task1_id, essay_task2_id, writing_submission")
+                .eq("mock_exam_id", str(exam_id)).neq("status", "void")
+                .execute()).data or []
+    out: dict = {"total": len(sittings), "already": [], "promoted": [],
+                 "no_writing": [], "failed": []}
+
+    def _has_text(sub, task):
+        return bool(((sub.get(task) or {}).get("text") or "").strip())
+
+    for s in sittings:
+        sid = s["id"]
+        sub = s.get("writing_submission") or {}
+        text = {"task1": _has_text(sub, "task1"), "task2": _has_text(sub, "task2")}
+        if not (text["task1"] or text["task2"]):
+            out["no_writing"].append(sid)
+            continue
+        # A task needs promotion if it has text but no essay id yet (per-task).
+        essay = {"task1": bool(s.get("essay_task1_id")), "task2": bool(s.get("essay_task2_id"))}
+        needs = [t for t in ("task1", "task2") if text[t] and not essay[t]]
+        if not needs:
+            out["already"].append(sid)
+            continue
+        _promote_writing_essays(str(sid))          # idempotent, never raises
+        after = get_sitting(sid) or {}
+        essay_after = {"task1": bool(after.get("essay_task1_id")),
+                       "task2": bool(after.get("essay_task2_id"))}
+        still_missing = [t for t in needs if not essay_after[t]]
+        (out["failed"] if still_missing else out["promoted"]).append(sid)
+
+    logger.info("[mock-exam] backfill promote exam=%s → %s", exam_id,
+                {k: len(v) if isinstance(v, list) else v for k, v in out.items()})
+    return out
+
+
+# Auto-grade config for promoted mock Writing essays. 'standard' = AI grade only
+# (the human review happens in the mock-review console, never the instructor
+# queue — so mock essays deliberately don't create an instructor_reviews row);
+# level 3 mirrors what _promote_writing_essays gives create_essay_row_only.
+_MOCK_WRITING_GRADING_TIER = "standard"
+_MOCK_WRITING_ANALYSIS_LEVEL = 3
+
+# IELTS word minimums. Below these a task's essay is "too short" and is NOT
+# auto-graded — it's held 'pending' for the admin to decide in the Mock queue tab
+# whether to grade it anyway or skip it. task_type 'task1_*' → task1 threshold.
+_WRITING_MIN_WORDS = {"task1": 150, "task2": 250}
+
+
+def _sitting_lr_skills(sitting: dict) -> set:
+    """Which of Listening/Reading this sitting actually runs.
+
+    Mirrors mock_review_workflow._required_skills' two branches without importing
+    it (that module imports this one — the dependency only goes one way):
+      · assigned_skills set  → a retake, banded on THAT student's subset
+      · otherwise            → the exam's configured sections
+    """
+    assigned = sitting.get("assigned_skills") or []
+    if assigned:
+        return {s for s in ("listening", "reading") if s in assigned}
+    exam = get_published_exam_by_id(sitting.get("mock_exam_id")) or {}
+    configured = set(_configured_sections(exam))
+    return {s for s in ("listening", "reading") if s in configured}
+
+
+def lr_skill_states(sitting: dict) -> list:
+    """Why a Listening/Reading skill has no band — for the student's TRF.
+
+    The TRF lists only the skills carrying a band, so a bandless one VANISHED
+    from the grid with no explanation: the student saw Reading and Writing and
+    was left to guess what happened to Listening. This says it.
+
+    The states are kept apart because they are different truths, and production
+    proves they diverge — every stuck sitting here DID submit, on time, with a
+    timestamp and 40 questions. Telling those students "không nhận được bài làm"
+    would be a lie about their own exam:
+
+      scored       — band exists; nothing to explain
+      no_attempt   — no attempt row at all → genuinely never received
+      no_answers   — submitted, but not one question answered → blank paper
+      below_table  — answered some, scored too low for the published table
+                     (e.g. 3/40): a real attempt, just no band to give
+
+    Reads the persisted band_estimate (module-aware — General Training Reading
+    has no Phase-1 table) rather than recomputing, same as _unconvertible_skills.
+
+    Only the skills this sitting actually RUNS are reported. A writing-only
+    retake, or a Reading+Writing exam (_configured_sections supports both), has
+    no Listening — emitting it anyway would render "Không nhận được bài làm" for
+    a skill the student was never set, which is the same falsehood
+    writing_task_states already guards against (Codex review, PR #780).
+    """
+    lr = _sitting_lr_skills(sitting)
+    out = []
+    for skill, col, table in (
+        ("listening", "listening_attempt_id", "listening_test_attempts"),
+        ("reading",   "reading_attempt_id",   "reading_test_attempts"),
+    ):
+        if skill not in lr:
+            continue
+        aid = sitting.get(col)
+        if not aid:
+            out.append({"skill": skill, "state": "no_attempt",
+                        "score": None, "max": None, "answered": None})
+            continue
+        rows = supabase_admin.table(table).select(
+            "score, band_estimate, grading_details",
+        ).eq("id", str(aid)).limit(1).execute().data
+        if not rows:
+            # The sitting points at an attempt that isn't there — broken data, not
+            # a blank paper. "Never received" is the honest thing to say.
+            out.append({"skill": skill, "state": "no_attempt",
+                        "score": None, "max": None, "answered": None})
+            continue
+        r = rows[0]
+        gd = r.get("grading_details") or []
+        answered = sum(1 for q in gd if str(q.get("user_answer") or "").strip())
+        if r.get("band_estimate") is not None:
+            state = "scored"
+        elif answered == 0:
+            state = "no_answers"
+        else:
+            state = "below_table"
+        out.append({
+            "skill":    skill,
+            "state":    state,
+            "score":    r.get("score"),
+            "max":      len(gd) or None,
+            "answered": answered,
+        })
+    return out
+
+
+def writing_task_states(sitting: dict, delivered: set) -> list:
+    """Per-task Writing outcome for the student's TRF — one entry per task.
+
+    Pure: `delivered` is the set the caller already computed (essay_service.
+    delivered_essay_ids) and the word counts come off the sitting's own
+    writing_submission — the same blob the admin roster reads. An earlier cut
+    re-queried both and bought nothing but a second round-trip and a function
+    that couldn't be tested without a database.
+
+    The TRF used to surface a feedback link only for a DELIVERED essay and say
+    nothing at all about a task that never got graded, so a student whose Task 2
+    was too short just saw one link and no explanation of the gap. This reports
+    what actually happened to each task so the page can say it out loud.
+
+    States, straight off the row (never inferred from the band):
+      delivered  — graded + reviewed + released → feedback is readable
+      too_short  — below the IELTS minimum, so it was never auto-graded
+      not_graded — has an essay, but no feedback the student can open
+      missing    — the student wrote nothing for this task
+
+    `too_short` is reported from word_count vs the minimum, NOT from the admin's
+    retest decision: the word count is a fact on the row, while a retest flag is
+    a judgement the admin may simply not have recorded. The page must be able to
+    explain the gap either way.
+    """
+    # A retake may be assigned Listening/Reading only — assigned_skills is set
+    # ONLY when the sitting is created from a retake assignment, so a non-empty
+    # list without 'writing' means this student was never set Writing. The TRF
+    # renders every non-delivered task as a gap, so returning tasks here would
+    # tell them they failed to submit work that was never asked for (Codex
+    # review, PR #777). Read off the sitting — mirrors _required_skills' retake
+    # branch without paying its two queries.
+    assigned = sitting.get("assigned_skills") or []
+    if assigned and "writing" not in assigned:
+        return []
+
+    ws = sitting.get("writing_submission") or {}
+    ids = {"task1": sitting.get("essay_task1_id"), "task2": sitting.get("essay_task2_id")}
+
+    out = []
+    for task in ("task1", "task2"):
+        eid = ids[task]
+        blob = ws.get(task) or {}
+        wc = blob.get("word_count")
+        minimum = _WRITING_MIN_WORDS[task]
+        # Did the student actually write anything? The essay id is NOT the test:
+        # _promote_writing_essays is best-effort and returns without stamping one
+        # (e.g. no students row), so text can sit on the sitting with no essay.
+        # Calling that "missing" would tell the student they never submitted work
+        # the row itself has captured (Codex review, PR #777).
+        wrote = bool(str(blob.get("text") or "").strip()) or bool(wc)
+
+        if eid and str(eid) in delivered:
+            state = "delivered"
+        elif not wrote:
+            state = "missing"
+        elif wc is not None and wc < minimum:
+            state = "too_short"
+        else:
+            state = "not_graded"
+
+        out.append({
+            "task":       task,
+            "state":      state,
+            "word_count": wc,
+            "min_words":  minimum,
+            # only a readable essay gets an id — an unreadable one would be a
+            # dead-end link (writing-result.html gates on 'delivered').
+            "essay_id":   str(eid) if (eid and str(eid) in delivered) else None,
+        })
+    return out
+
+
+def writing_meets_min_words(essay: dict) -> bool:
+    """True if the essay is long enough to auto-grade (Task 1 ≥150, Task 2 ≥250
+    words). A missing/zero word_count fails the gate (held for admin decision)."""
+    tt = str(essay.get("task_type") or "")
+    key = "task1" if tt.startswith("task1") else "task2"
+    return int(essay.get("word_count") or 0) >= _WRITING_MIN_WORDS[key]
+
+
+def claim_mock_writing_grading(
+    essay_ids: list, *, grading_tier: str = _MOCK_WRITING_GRADING_TIER,
+    analysis_level: int = _MOCK_WRITING_ANALYSIS_LEVEL,
+    selected_model: str | None = None,
+) -> dict:
+    """Word-count-gated claim of promoted mock Writing essays for AI grading.
+
+    For each still-'pending' essay that MEETS the word minimum, atomically claim
+    it (pending→grading + a job row). Returns
+      {"queued": [(essay_id, job_id)], "short": [essay_id], "skipped": [essay_id]}
+    — `queued` pairs the CALLER must launch as request-scoped BackgroundTasks (a
+    service can't own request lifecycle); `short` = below the word minimum, left
+    'pending' for the admin to decide in the Mock queue tab; `skipped` = not
+    'pending' (already grading/graded) or lost the claim race.
+
+    `analysis_level` / `selected_model` configure the grading JOB (the word gate
+    itself is fixed at the IELTS minimums). The auto-grade path uses the mock
+    defaults; bulk-grade passes the admin's chosen depth/model through. A None
+    model resolves to the level-aware default.
+
+    Idempotent + best-effort: a falsy id is ignored; a read/claim error is
+    logged, never raised — auto-grading must not fail the student's submit."""
+    from services import essay_service  # local import avoids import-order coupling
+    ids = [str(e) for e in essay_ids if e]
+    result: dict = {"queued": [], "short": [], "skipped": []}
+    if not ids:
+        return result
+    try:
+        rows = supabase_admin.table("writing_essays").select(
+            "id, task_type, word_count, status",
+        ).in_("id", ids).execute().data or []
+    except Exception:  # noqa: BLE001
+        logger.exception("[mock-exam] auto-grade: essay lookup failed ids=%s", ids)
+        return result
+    by_id = {r["id"]: r for r in rows}
+    for eid in ids:
+        essay = by_id.get(eid)
+        if not essay:
+            continue
+        if essay.get("status") != "pending":
+            result["skipped"].append(eid)          # already grading/graded/etc.
+            continue
+        if not writing_meets_min_words(essay):
+            result["short"].append(eid)            # held for admin decision
+            continue
+        try:
+            job = essay_service.claim_pending_for_grading(
+                eid,
+                grading_tier=grading_tier,
+                analysis_level=analysis_level,
+                selected_model=selected_model or essay_service.default_grading_model(analysis_level),
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception("[mock-exam] auto-grade claim failed essay=%s", eid)
+            continue
+        if job:
+            result["queued"].append((eid, job["job_id"]))
+        else:
+            result["skipped"].append(eid)          # lost the pending→grading race
+    return result
+
+
+def skip_mock_writing_grading(essay_id: str, *, admin_id: str) -> dict:
+    """Admin decides NOT to grade a too-short mock Writing essay — stamp
+    grading_skipped_at (mig 156) so the mock release gate stops blocking on it.
+
+    Narrowly scoped, because grading_skipped_at makes the release gate treat the
+    essay as resolved: it may ONLY be set on a mock essay (sitting_id), that is
+    still 'pending' (not in-flight/graded/reviewed/delivered), AND is genuinely
+    too short (below the Task 1/Task 2 word minimum). This prevents a stray API
+    call from publishing a gradeable or in-flight Writing task with no feedback."""
+    try:
+        rows = (supabase_admin.table("writing_essays")
+                .select("id, sitting_id, status, task_type, word_count")
+                .eq("id", str(essay_id)).limit(1).execute()).data
+    except Exception as exc:  # noqa: BLE001
+        raise MockExamError(f"Lỗi truy vấn bài viết: {exc}")
+    if not rows:
+        raise NotFoundError("Không tìm thấy bài viết.")
+    essay = rows[0]
+    if not essay.get("sitting_id"):
+        raise SittingConflictError("Chỉ áp dụng cho bài Writing của mock test.")
+    if essay.get("status") != "pending":
+        raise SittingConflictError(
+            "Chỉ bỏ qua được bài chưa chấm (pending) — bài đang chấm/đã chấm hãy dùng luồng thường.")
+    if writing_meets_min_words(essay):
+        raise SittingConflictError("Bài đủ số từ — hãy chấm thay vì bỏ qua.")
+    try:
+        supabase_admin.table("writing_essays").update({
+            "grading_skipped_at": _now_iso(),
+            "grading_skipped_by": str(admin_id),
+        }).eq("id", str(essay_id)).execute()
+    except Exception as exc:  # noqa: BLE001
+        raise MockExamError(f"Lỗi cập nhật bài viết: {exc}")
+    return {"ok": True, "essay_id": str(essay_id), "grading_skipped": True}
 
 
 def start_section(sitting_id: str, user_id: str, section: str) -> dict:
@@ -1431,8 +1826,10 @@ def admin_available_reading_tests() -> list[dict]:
             "total_questions,band_target,metadata",
         )
         .eq("status", "published")
+        # Mig 158 — test_type là cột thật (NOT NULL, full|mini); mini mới
+        # không còn stamp metadata nên phải lọc trên cột.
+        .eq("test_type", "full")
         .order("created_at", desc=True)
         .execute()
     )
-    rows = res.data or []
-    return [r for r in rows if (r.get("metadata") or {}).get("test_type") != "mini"]
+    return res.data or []

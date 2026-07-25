@@ -19,6 +19,9 @@ console lives in admin_mock_reviews.py.
   GET   /admin/mock-exams/{id}/retest-summary    — per-skill "cần test lại" counts
   GET   /admin/mock-exams/{id}/roster            — class roster grid (per-skill snapshot)
   POST  /admin/mock-exams/{id}/writing/bulk-grade — queue many sittings' Writing at once
+  POST  /admin/mock-exams/{id}/bulk-claim        — nhận many reviews at once
+  POST  /admin/mock-exams/{id}/bulk-final-bands  — chốt band from the pre-filled values
+  POST  /admin/mock-exams/{id}/bulk-release      — công bố many sittings' results
   GET   /admin/mock-exams/{id}/assignments       — per-student retake assignments
   POST  /admin/mock-exams/{id}/assignments       — assign retake exam to students
   DELETE /admin/mock-exams/{id}/assignments/{sid}— un-assign one student
@@ -96,6 +99,23 @@ class OpenBody(BaseModel):
 class RetestBody(BaseModel):
     needs_retest: bool
     reason: str = ""
+
+
+class BulkReleaseBody(BaseModel):
+    sitting_ids: list[str] = Field(default_factory=list)
+
+
+class BulkSittingsBody(BaseModel):
+    """Selected roster rows for bulk-claim / bulk-final-bands. Neither carries
+    bands or flags: the server derives them, so a stale tab cannot post a band."""
+
+    sitting_ids: list[str] = Field(default_factory=list)
+
+
+class RetestFlagsBody(BaseModel):
+    # {skill: bool} — the skills the student must retake. Skills the exam does
+    # not require are dropped server-side, so a stale client cannot invent one.
+    retest_flags: dict[str, bool] = Field(default_factory=dict)
 
 
 class BulkGradeBody(BaseModel):
@@ -265,6 +285,7 @@ async def bulk_grade_writing(
 
     queued: list[str] = []
     skipped: list[str] = []
+    short: list[str] = []
     retest_skipped: list[str] = []
     for sitting_id in body.sitting_ids:
         sitting = svc.get_sitting(sitting_id)
@@ -276,29 +297,57 @@ async def bulk_grade_writing(
         if sitting.get("needs_retest"):
             retest_skipped.append(str(sitting_id))
             continue
-        for essay_id in (sitting.get("essay_task1_id"), sitting.get("essay_task2_id")):
-            if not essay_id:
-                continue
-            job_info = essay_service.claim_pending_for_grading(
-                str(essay_id),
-                grading_tier=body.grading_tier,
-                analysis_level=body.analysis_level,
-                selected_model=body.selected_model,
-            )
-            if job_info is None:
-                skipped.append(str(essay_id))   # not 'pending' (already queued/graded)
-                continue
-            background_tasks.add_task(
-                essay_service._bg_grade_essay, str(essay_id), job_info["job_id"],
-            )
-            queued.append(str(essay_id))
+        # Word-count-gated claim: too-short essays are reported in `short` (held
+        # for the admin's grade-anyway / skip decision), not auto-queued.
+        res = svc.claim_mock_writing_grading(
+            [sitting.get("essay_task1_id"), sitting.get("essay_task2_id")],
+            grading_tier=body.grading_tier,
+            analysis_level=body.analysis_level,
+            selected_model=body.selected_model,
+        )
+        for essay_id, job_id in res["queued"]:
+            background_tasks.add_task(essay_service._bg_grade_essay, essay_id, job_id)
+            queued.append(essay_id)
+        short.extend(res["short"])
+        skipped.extend(res["skipped"])
 
     return {
         "queued":         queued,
         "skipped":        skipped,
+        "short":          short,
         "retest_skipped": retest_skipped,
         "grading_tier":   body.grading_tier,
     }
+
+
+@router.post("/writing/essays/{essay_id}/skip-grading")
+async def skip_writing_grading(
+    essay_id: str, authorization: str | None = Header(default=None),
+):
+    """Admin decides NOT to grade a too-short mock Writing essay — stamp
+    grading_skipped_at so the mock release gate stops blocking on it (the student
+    gets the manual Writing band with no per-task feedback). Mock-scoped: rejects
+    a non-mock essay (sitting_id null) so this can't silently drop a normal
+    self-submit essay out of its own queue."""
+    admin = await require_admin(authorization)
+    try:
+        return svc.skip_mock_writing_grading(essay_id, admin_id=admin["id"])
+    except svc.NotFoundError as e:
+        raise HTTPException(404, str(e))
+    except svc.SittingConflictError as e:
+        raise HTTPException(409, str(e))
+
+
+@router.post("/{exam_id}/writing/promote")
+async def promote_writing(
+    exam_id: str, authorization: str | None = Header(default=None),
+):
+    """Backfill: create the writing_essays for this exam's sittings whose Writing
+    was collected but never promoted (a cohort that sat the exam before the
+    promotion feature shipped → text captured, no essay rows, nothing to grade).
+    Idempotent; does NOT grade (use bulk-grade next). Returns per-sitting counts."""
+    await require_admin(authorization)
+    return svc.backfill_promote_writing(exam_id)
 
 
 @router.post("/sittings/{sitting_id}/retest")
@@ -315,6 +364,107 @@ async def set_sitting_retest(
         )
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
+
+
+def _scope_to_exam(exam_id: str, sitting_ids: list[str]) -> tuple[list[str], list[dict]]:
+    """Split posted ids into this exam's and the strays, the latter as `skipped`
+    rows. The path's exam_id is the admin's stated scope: a sitting outside it
+    came from a stale tab or a hand-made call, never from this roster. Reported
+    rather than dropped silently — a bulk action that ignores an id it was given
+    must say so (Codex review, PR #787)."""
+    mine = svc.sittings_in_exam(exam_id, sitting_ids)
+    ids = [str(s) for s in sitting_ids]
+    return (
+        [s for s in ids if s in mine],
+        [{"sitting_id": s, "reason": "Không thuộc đề này."} for s in ids if s not in mine],
+    )
+
+
+@router.post("/{exam_id}/bulk-claim")
+async def bulk_claim(
+    exam_id: str, body: BulkSittingsBody, authorization: str | None = Header(default=None),
+):
+    """Nhận many reviews at once. Only a 'queued' row is taken — claim()'s atomic
+    WHERE clause is still the lock, so this cannot lift another admin's review.
+    A row it could not take is skipped with a reason, never raised. Scoped to
+    THIS exam, like writing/bulk-grade."""
+    admin = await require_admin(authorization)
+    if not body.sitting_ids:
+        return {"claimed": [], "skipped": []}
+    ids, foreign = _scope_to_exam(exam_id, body.sitting_ids)
+    out = wf.bulk_claim_sittings(ids, admin["id"])
+    out["skipped"] = out["skipped"] + foreign
+    return out
+
+
+@router.post("/{exam_id}/bulk-final-bands")
+async def bulk_final_bands(
+    exam_id: str, body: BulkSittingsBody, authorization: str | None = Header(default=None),
+):
+    """Chốt band for many claimed reviews from the bands the console pre-fills
+    (L/R off the Cambridge table, Writing off the two admin-reviewed essays).
+
+    The client posts NO bands — the server derives them, and save_final_bands
+    still validates each one and recomputes the overall. A sitting whose required
+    band cannot be derived (e.g. Speaking) is skipped with a reason rather than
+    signed off with a number nobody chose. Does not publish; use bulk-release.
+
+    Scoped to THIS exam: without it a stray id could mark another exam's review
+    'reviewed' — and 'reviewed' is exactly what bulk-release then publishes."""
+    admin = await require_admin(authorization)
+    if not body.sitting_ids:
+        return {"saved": [], "skipped": []}
+    ids, foreign = _scope_to_exam(exam_id, body.sitting_ids)
+    out = wf.bulk_save_final_bands(ids, admin["id"])
+    out["skipped"] = out["skipped"] + foreign
+    return out
+
+
+@router.post("/{exam_id}/bulk-release")
+async def bulk_release(
+    exam_id: str, body: BulkReleaseBody, authorization: str | None = Header(default=None),
+):
+    """Công bố many sittings at once — PUBLISHES results to real students.
+
+    Gates are per sitting and unchanged (reviewed + claimed by this admin +
+    Writing resolved); a sitting failing any of them is skipped with a reason
+    rather than sinking the batch. The response's `skipped` list is not optional
+    detail — the caller must show it, or the admin cannot tell who was published.
+
+    Scoped to THIS exam (2026-07-16). Codex flagged the gap on the two new bulk
+    routes; this one has had it since #778 and is the one that PUBLISHES to real
+    students, so it is closed with the same helper rather than left as the only
+    unscoped bulk action in the file.
+    """
+    admin = await require_admin(authorization)
+    if not body.sitting_ids:
+        return {"released": [], "skipped": []}
+    ids, foreign = _scope_to_exam(exam_id, body.sitting_ids)
+    out = wf.bulk_release_sittings(ids, admin["id"])
+    out["skipped"] = out["skipped"] + foreign
+    return out
+
+
+@router.post("/sittings/{sitting_id}/retest-flags")
+async def set_sitting_retest_flags(
+    sitting_id: str, body: RetestFlagsBody, authorization: str | None = Header(default=None),
+):
+    """Record WHICH skills the student must retake, straight from the roster.
+
+    Distinct from /retest above: that one flips the sitting's needs_retest gate
+    (Writing bulk-grade skips the sitting — an early cost gate). This one only
+    records the per-skill decision and never blocks grading (product decision
+    2026-07-15). PATCH-shaped semantics, POST verb to match the sibling route.
+    """
+    admin = await require_admin(authorization)
+    try:
+        return wf.set_retest_flags_for_sitting(
+            sitting_id, admin["id"], body.retest_flags,
+        )
+    except wf.NotFoundError as e:
+        raise HTTPException(404, str(e))
+    except wf.ConflictError as e:
+        raise HTTPException(409, str(e))
 
 
 @router.post("/sittings/{sitting_id}/void")

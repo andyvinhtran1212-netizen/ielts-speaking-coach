@@ -73,6 +73,19 @@ _overrides: dict[str, Tuple[str, Optional[str]]] = {}
 _overrides_loaded = False
 _overrides_lock = threading.Lock()
 
+# Sprint 10.1 fix — built-in irregular NOUN lemmas that spaCy's small model
+# (`en_core_web_sm`) fails to reduce. These are unambiguous Greek/Latin
+# plurals; the sm model returns the plural surface form unchanged
+# (e.g. "phenomena" → "phenomena" instead of "phenomenon"). Applied AFTER
+# the admin DB overrides (those still win) but BEFORE spaCy, so the result
+# is deterministic and independent of the installed model version. Keep this
+# list conservative — only forms whose singular is unambiguous (NOT mass-ish
+# nouns like "data"/"media" which the codebase intentionally leaves as-is).
+_IRREGULAR_LEMMAS: dict[str, str] = {
+    "phenomena": "phenomenon",
+    "criteria": "criterion",
+}
+
 
 def _load_overrides() -> None:
     """Populate `_overrides` from the lemma_overrides table.
@@ -193,6 +206,14 @@ def lemmatize(surface_form: str) -> Tuple[str, str]:
             pass
         return lemma_override, "NOUN"
 
+    # Built-in irregular NOUN lemmas (Greek/Latin plurals spaCy sm misses).
+    # Single-word only — multi-word inputs never key into this map. Admin
+    # overrides above take precedence; this runs before spaCy so the output
+    # is deterministic regardless of the installed model version.
+    irregular = _IRREGULAR_LEMMAS.get(cleaned)
+    if irregular is not None:
+        return irregular, "NOUN"
+
     nlp = _get_nlp()
     doc = nlp(cleaned)
 
@@ -224,5 +245,9 @@ def lemma_version() -> int:
     The backfill script (scripts/backfill_lemma.py) re-walks any row
     whose stored `lemma_version` is below this value. Bumping is
     expensive (re-processes every alive row) so do it deliberately.
+
+    v2 — added `_IRREGULAR_LEMMAS` (phenomena→phenomenon, criteria→
+    criterion). Rows lemmatized under v1 that stored the plural surface
+    form get corrected on the next backfill run.
     """
-    return 1
+    return 2

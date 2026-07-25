@@ -76,6 +76,12 @@ async def get_review(review_id: str, authorization: str | None = Header(default=
         "review": review,
         "sitting": sitting,
         "required_skills": wf.required_skills_for_sitting(review["sitting_id"]),
+        # Of those, the ones the examiner may legitimately leave blank: their raw
+        # score has no published band, so there is nothing to enter. Without this
+        # the console cannot tell "no band exists" from "you forgot one", and its
+        # all-bands-required gate blocked the save before the server's own rule
+        # could allow it (Codex review, PR #779).
+        "blankable_skills": sorted(wf.blankable_skills_for_sitting(review["sitting_id"])),
     }
 
 

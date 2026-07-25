@@ -66,7 +66,8 @@ input: "text"
 headword: "se-missing-subject"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (add subject) seems that technology is changing fast — write the one missing word that must start this sentence."
+prompt: "____ (add subject) seems that technology is changing fast."
+hint: "từ còn thiếu đứng ĐẦU câu"
 accept: ["it"]
 case_sensitive: false
 grammar_article_slug: "sentence-elements"
@@ -137,7 +138,8 @@ input: "text"
 headword: "se-missing-verb"
 skill: "production"
 subtype: "intermediate"
-prompt: "My sister ____ (be) a doctor at a big hospital — write the correct form of 'be' for the subject 'My sister'."
+prompt: "My sister ____ (be) a doctor at a big hospital."
+hint: "dạng đúng của 'be' cho chủ ngữ 'My sister'"
 accept: ["is"]
 case_sensitive: false
 grammar_article_slug: "sentence-elements"
@@ -194,7 +196,8 @@ input: "text"
 headword: "se-complement-vs-object"
 skill: "production"
 subtype: "intermediate"
-prompt: "She achieved great ____ (success) after years of hard work — write the noun form of 'success' functioning as an OBJECT (something achieved), not a complement."
+prompt: "She achieved great ____ (success) after years of hard work."
+hint: "viết dạng danh từ của 'success' làm TÂN NGỮ, không phải bổ ngữ"
 accept: ["success"]
 case_sensitive: false
 grammar_article_slug: "sentence-elements"
@@ -251,7 +254,8 @@ input: "text"
 headword: "se-dummy-subject"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (dummy subject) are 30 students in the classroom — write the one missing word needed at the start."
+prompt: "____ (dummy subject) are 30 students in the classroom."
+hint: "từ còn thiếu đứng đầu câu"
 accept: ["there"]
 case_sensitive: false
 grammar_article_slug: "sentence-elements"

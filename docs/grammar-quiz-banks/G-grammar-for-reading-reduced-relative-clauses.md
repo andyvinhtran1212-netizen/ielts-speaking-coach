@@ -167,7 +167,7 @@ headword: "rrc-distinguish-participle-mainverb"
 skill: "production"
 subtype: "intermediate"
 prompt: "The report submitted last week ____ (recommend) stricter environmental policies."
-accept: ["recommends", "recommend"]
+accept: ["recommends"]
 case_sensitive: false
 grammar_article_slug: "reduced-relative-clauses"
 explain: "Chủ ngữ là 'report' (số ít) → động từ chính là 'recommends'. 'Submitted' là V3 bổ nghĩa (mệnh đề rút gọn), không ảnh hưởng tới động từ chính."

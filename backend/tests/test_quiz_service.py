@@ -142,6 +142,63 @@ def test_get_bank_for_play_word_cards_resilient_to_db_error():
     assert out["word_cards"] == {}
 
 
+def test_get_bank_for_play_resolves_audio_missed_by_import():
+    """THE listen-and-type bug: quiz_questions.audio_url is written ONLY at import,
+    so a bank imported before the word's TTS pregen finished keeps audio_url NULL
+    forever — the player then hid the 🔊 button on a question that cannot be answered
+    without it. Serve-time resolution reads the card's CURRENT audio."""
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [
+            {"id": _BANK, "is_published": True, "skill_area": "vocab", "topic_id": "t1"}],
+        ("quiz_questions", "select"): [
+            {"qid": "v1", "item_key": "Vocation",
+             "prompt": "Nghe và gõ lại từ. {{audio}}", "audio_url": None}],
+        ("vocab_cards", "select"): [
+            {"headword": "Vocation", "audio_headword": "https://cdn/pregen-later.mp3"}],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.get_bank_for_play(_BANK)
+    assert out["questions"][0]["audio_url"] == "https://cdn/pregen-later.mp3"
+
+
+def test_get_bank_for_play_audio_follows_the_card_not_the_snapshot():
+    """The card is the source of truth: a re-generated audio file must reach the
+    player, not the URL frozen into the row at import time."""
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [
+            {"id": _BANK, "is_published": True, "skill_area": "vocab", "topic_id": "t1"}],
+        ("quiz_questions", "select"): [
+            {"qid": "v1", "item_key": "vocation",
+             "prompt": "{{audio}} Gõ lại từ.", "audio_url": "https://cdn/stale.mp3"}],
+        ("vocab_cards", "select"): [
+            {"headword": "Vocation", "audio_headword": "https://cdn/fresh.mp3"}],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.get_bank_for_play(_BANK)
+    assert out["questions"][0]["audio_url"] == "https://cdn/fresh.mp3"
+
+
+def test_get_bank_for_play_keeps_audio_url_when_no_card_audio():
+    """No card / no pregen yet → keep whatever the row holds (grammar banks carry no
+    word_cards at all). Resolution only ever upgrades; it never blanks a live URL."""
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [
+            {"id": _BANK, "is_published": True, "skill_area": "vocab", "topic_id": "t1"}],
+        ("quiz_questions", "select"): [
+            {"qid": "v1", "item_key": "Ghost",
+             "prompt": "Nghe. {{audio}}", "audio_url": "https://cdn/kept.mp3"},
+            {"qid": "v2", "item_key": "Vocation",
+             "prompt": "Nghĩa của từ?", "audio_url": None}],
+        ("vocab_cards", "select"): [
+            {"headword": "Vocation", "audio_headword": "https://cdn/fresh.mp3"}],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.get_bank_for_play(_BANK)
+    qs = {q["qid"]: q for q in out["questions"]}
+    assert qs["v1"]["audio_url"] == "https://cdn/kept.mp3"   # no card → snapshot stands
+    assert qs["v2"]["audio_url"] is None                     # no {{audio}} → untouched
+
+
 def test_get_bank_for_play_unpublished_404():
     fake = _FakeSupabase(responses={
         ("quiz_banks", "select"): [{"id": _BANK, "is_published": False}],
@@ -182,6 +239,34 @@ def test_start_session_creates_and_returns_resume():
     assert out["resume"] == [{"item_key": "Vocation", "status": "carried_over"}]
     ins = next(c for c in fake.calls if c["table"] == "quiz_sessions" and c["op"] == "insert")
     assert ins["payload"]["user_id"] == _USER
+
+
+# ── reset progress ("Làm lại từ đầu") ────────────────────────────────
+
+def test_reset_progress_deletes_word_stats_scoped_to_user_and_bank():
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{"id": _BANK, "code": "L14", "is_published": True}],
+        ("quiz_word_stats", "delete"): [],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.reset_progress(user_id=_USER, bank_id=_BANK)
+    assert out == {"ok": True}
+    d = next(c for c in fake.calls if c["table"] == "quiz_word_stats" and c["op"] == "delete")
+    assert ("user_id", _USER) in d["filters"]
+    assert ("bank_id", _BANK) in d["filters"]
+    # history tables must never be touched by a reset
+    assert not any(c["table"] in ("quiz_sessions", "quiz_attempts") for c in fake.calls)
+
+
+def test_reset_progress_404_when_bank_unpublished():
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{"id": _BANK, "is_published": False}],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        with pytest.raises(HTTPException) as e:
+            quiz_service.reset_progress(user_id=_USER, bank_id=_BANK)
+    assert e.value.status_code == 404
+    assert not any(c["table"] == "quiz_word_stats" for c in fake.calls)
 
 
 # ── progress logging ─────────────────────────────────────────────────

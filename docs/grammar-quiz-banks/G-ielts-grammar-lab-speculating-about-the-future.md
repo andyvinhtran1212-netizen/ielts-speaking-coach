@@ -149,8 +149,8 @@ input: "text"
 headword: "spec-is-likely-unlikely-to"
 skill: "production"
 subtype: "intermediate"
-prompt: "Điền cụm đúng: 'Urban populations ____ (unlikely / decline) in the near future, given continued rural-to-urban migration.'"
-accept: ["are unlikely to decline"]
+prompt: "Điền cụm khuyết thiếu: 'Urban populations ____ to decline in the near future, given continued rural-to-urban migration.'"
+accept: ["are unlikely"]
 case_sensitive: false
 grammar_article_slug: "speculating-about-the-future"
 explain: "Chủ ngữ số nhiều 'populations' + are unlikely to + V nguyên mẫu: 'are unlikely to decline'."
@@ -233,11 +233,11 @@ input: "text"
 headword: "spec-may-might-tentative"
 skill: "production"
 subtype: "intermediate"
-prompt: "Điền động từ khuyết thiếu ở thể phủ định, thể bị động: 'Some jobs ____ (might / not / lose) to automation, but new roles may emerge instead.'"
-accept: ["might not be lost"]
+prompt: "Điền modal + auxiliary (phủ định bị động): 'Some jobs ____ lost to automation, but new roles may emerge instead.'"
+accept: ["might not be"]
 case_sensitive: false
 grammar_article_slug: "speculating-about-the-future"
-explain: "'might not' + be + V3/ed (bị động) để phủ định khả năng khi chủ ngữ là vật bị tác động: 'jobs' không tự 'lose', mà 'be lost to automation' — khớp ví dụ gốc trong bài: 'jobs may be lost to automation'."
+explain: "'might not be' + V3/ed (bị động) để phủ định khả năng khi chủ ngữ là vật bị tác động: 'jobs' không tự 'lose', mà 'be lost to automation' — toàn câu: 'Some jobs might not be lost to automation'."
 ---
 
 ---
@@ -317,7 +317,7 @@ input: "text"
 headword: "spec-there-is-a-chance-that"
 skill: "production"
 subtype: "intermediate"
-prompt: "Điền cụm còn thiếu: 'I suppose this ____ (could / possibly / lead) to a significant shift in how people work.'"
+prompt: "Điền cụm 3 từ (dùng could, possibly, lead ở dạng đúng): 'I suppose this ____ to a significant shift in how people work.'"
 accept: ["could possibly lead"]
 case_sensitive: false
 grammar_article_slug: "speculating-about-the-future"

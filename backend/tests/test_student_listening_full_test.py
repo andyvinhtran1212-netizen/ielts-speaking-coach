@@ -225,9 +225,8 @@ class _Q:
     def delete(self): self._mode = "delete"; return self
     def eq(self, c, v): self._eq.append((c, v)); return self
     def in_(self, c, vs): self._in.append((c, list(vs))); return self
-    # Listening mini test — the list endpoint now adds a metadata->>test_type
-    # filter via .or_(); these seed rows carry no test_type (legacy), which the
-    # real "IS NULL OR != mini" keeps, so a no-op here preserves their behaviour.
+    # Mig 157 — the list endpoint filters eq("test_type", ...) on the real
+    # column; seed rows carry test_type='full' so the eq-match keeps them.
     def or_(self, *_a, **_kw): return self
     def limit(self, *_a, **_kw): return self
     def order(self, *_a, **_kw): return self
@@ -316,6 +315,7 @@ def _seed_test(fake, **overrides):
         "full_audio_duration_seconds":  1800,
         "assembled_audio_storage_path": None,
         "cue_points":                   [],
+        "test_type":                    "full",   # mig 157 — cột thật
         "created_at":                   "2026-05-21T00:00:00Z",
     }
     row.update(overrides)

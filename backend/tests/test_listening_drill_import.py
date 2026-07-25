@@ -65,9 +65,9 @@ def test_parse_each_type_clean(code):
     res = imp.parse_drill(_load(code), _timings(code))
     assert not res.errors, f"{code} errors: {res.errors}"
     assert res.exercise_rows, f"{code} produced no exercises"
-    # metadata carries the drill discriminators
+    # test_type là cột thật (mig 157); metadata giữ các discriminator còn lại
+    assert res.test_metadata["test_type"] == "drill"
     md = res.test_metadata["metadata"]
-    assert md["test_type"] == "drill"
     assert md["drill_type"] == _EXPECT_SKILL[code]
     assert md["level"] == "L2"
     assert md["task"] == "T1"
@@ -240,7 +240,7 @@ def test_drill_commit_persists_with_audio(monkeypatch):
     tests_rows = [p for (t, p) in stub.inserts if t == "listening_tests"]
     assert len(tests_rows) == 1
     tr = tests_rows[0]
-    assert tr["metadata"]["test_type"] == "drill"
+    assert tr["test_type"] == "drill"
     assert tr["metadata"]["drill_type"] == "mcq"
     assert tr["full_audio_storage_path"].startswith("drills/")
     content_rows = [p for (t, p) in stub.inserts if t == "listening_content"]
@@ -275,7 +275,7 @@ class _ListStub:
     def range(self, *a, **k): return self
     def in_(self, *a, **k): return self
     def eq(self, col, val=None):
-        if col == "metadata->>test_type":
+        if col == "test_type":
             self.eq_filter = val
         return self
     def or_(self, expr):
@@ -314,7 +314,9 @@ def test_list_default_excludes_drill(monkeypatch):
     monkeypatch.setattr(listening_module, "supabase_admin", stub)
     _run(listening_module.list_published_listening_tests(
         test_type="full", limit=50, offset=0, authorization="x"))
-    assert stub.or_filter and "not.in.(mini,drill)" in stub.or_filter
+    # Mig 157: full library = eq trên cột thật, không còn or_ NULL-fallback.
+    assert stub.eq_filter == "full"
+    assert stub.or_filter is None
 
 
 def test_list_rejects_bad_test_type(monkeypatch):

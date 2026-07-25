@@ -66,7 +66,8 @@ input: "text"
 headword: "noun-countable-uncountable"
 skill: "production"
 subtype: "intermediate"
-prompt: "Researchers say that reliable ____ (information — viết đúng dạng, không thêm 's') about climate change is now widely available online."
+prompt: "Researchers say that reliable ____ (information) about climate change is now widely available online."
+hint: "viết đúng dạng"
 accept: ["information"]
 case_sensitive: false
 grammar_article_slug: "nouns"
@@ -137,7 +138,7 @@ input: "text"
 headword: "noun-articles"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (viết mạo từ đúng, hoặc để trống nếu không cần) unemployment rate in rural areas has risen sharply this year."
+prompt: "____ (viết mạo từ đúng; nếu không cần mạo từ, gõ số 0) unemployment rate in rural areas has risen sharply this year."
 accept: ["The"]
 case_sensitive: false
 grammar_article_slug: "nouns"

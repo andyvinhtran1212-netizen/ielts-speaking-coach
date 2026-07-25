@@ -965,6 +965,15 @@ body.exam-chrome[data-exam-theme="yellow-on-blue"] .exam-highlight {
   content: "•"; position: absolute; left: 4px; color: var(--exam-accent); font-weight: 700;
 }
 .exam-chrome .exam-note__line { margin: 4px 0; }
+/* reading-completion-mono-fix — table / flow-chart / diagram completion
+ * templates render their summary_text in a whitespace-preserving monospace
+ * block so column alignment + indentation survive (the note parser trims +
+ * collapses them). Mirrors `.exam-gap-box--mono`. */
+.exam-chrome .exam-summary__mono {
+  font-family: var(--exam-font-mono);
+  white-space: pre-wrap;
+  line-height: 1.7;
+}
 .exam-chrome .exam-summary__gnum {
   display: inline-block;
   min-width: 22px;

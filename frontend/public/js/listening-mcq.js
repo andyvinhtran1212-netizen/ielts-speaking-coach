@@ -87,6 +87,15 @@ async function load(contentId) {
     STATE.lastResult = null;
 
     $('content-title').textContent = content.title || 'Bài nghe';
+    // 2026-07-17 — flag người học cho exercise lẻ: nút "Báo lỗi bài này"
+    // ở header, anchor = content_id (không có test attempt ở surface này).
+    if (window.AverFeedback) {
+      const fbHost = $('content-title').closest('header');
+      if (fbHost) window.AverFeedback.attachCardFlag({
+        card: fbHost, top: fbHost, skill: 'listening',
+        contentId: contentId, label: 'Báo lỗi bài này',
+      });
+    }
 
     const player = $('player');
     player.setAttribute('refetch-url', `/api/listening/content/${contentId}`);

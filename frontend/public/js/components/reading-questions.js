@@ -132,6 +132,16 @@
         if (r.explanation) msg += ' — ' + r.explanation;
         feedbackEl.textContent = msg;
         updateSummary(session);
+        // 2026-07-17 — flag người học cho practice L1/L2: sau khi kiểm tra,
+        // học viên có thể báo lỗi câu này (đáp án sai / giải thích khó hiểu).
+        // Anchor = passage slug (không có attempt row cho practice).
+        if (window.AverFeedback) {
+          window.AverFeedback.attachCardFlag({
+            card: card, top: card, skill: 'reading',
+            passageSlug: session.slug, qNum: qNum,
+            label: 'Báo lỗi câu này',
+          });
+        }
       })
       .catch(function (e) {
         btn.disabled = false;

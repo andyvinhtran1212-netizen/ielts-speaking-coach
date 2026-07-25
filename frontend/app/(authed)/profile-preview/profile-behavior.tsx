@@ -42,6 +42,12 @@ export function ProfileBehavior() {
   // Double-submit lock: the disabled attribute alone is DOM-mutable state;
   // the ref is the authoritative in-flight latch.
   const savingRef = useRef(false);
+  // ADR-011 §2 (AUDIT F6): logout/account-switch must ABORT in-flight
+  // requests — before this, a PATCH/GET launched pre-logout kept running
+  // (and could resolve) after the user signed out. Every profile request
+  // registers its AbortController here; the signed-out gate and the
+  // account-switch branch abort the whole set.
+  const inflightRef = useRef<Set<AbortController>>(new Set());
 
   // Fail-closed gate (ADR-011): signed-out — including refresh failure, chrome
   // sign-out and bfcache-restored-after-logout — leaves via replace() so Back
@@ -49,6 +55,8 @@ export function ProfileBehavior() {
   // profile.html redirects to login when there is no session).
   useEffect(() => {
     if (status === 'signed-out') {
+      inflightRef.current.forEach((c) => c.abort());
+      inflightRef.current.clear();
       window.location.replace('/login.html');
     }
   }, [status]);
@@ -129,8 +137,13 @@ export function ProfileBehavior() {
         // truth. Account-switch guard: render only if the DOM still belongs
         // to the same user this save started for.
         const startedFor = renderedForRef.current;
+        // ADR-011 §2 (AUDIT F6): the save chain (PATCH + reconcile GET) is
+        // abortable — logout mid-save cancels it instead of letting it land
+        // after the session is gone.
+        const controller = new AbortController();
+        inflightRef.current.add(controller);
         const reconcile = async (api: any) => {
-          const fresh = await api.get('/auth/profile');
+          const fresh = await api.getWith('/auth/profile', null, { signal: controller.signal });
           if (fresh && fresh.id && fresh.id === renderedForRef.current && renderedForRef.current === startedFor) {
             renderProfile(fresh);
           }
@@ -139,17 +152,35 @@ export function ProfileBehavior() {
 
         try {
           const api = (window as any).api;
-          const saved = await api.patch('/auth/profile', payload);
+          const saved = await api.patchWith('/auth/profile', payload, null, { signal: controller.signal });
           if (saved === null) return; // 401 — api.js redirect to login in flight
-          await reconcile(api).catch(() => {});
-          showToast('✓ Đã lưu thành công');
+          // AUDIT F6 (honest toasts): the PATCH succeeded, but "✓ Đã lưu"
+          // may only be claimed together with what the screen shows — if the
+          // reconcile GET fails, the DOM still renders PRE-save data and an
+          // unqualified success toast would lie about it.
+          try {
+            await reconcile(api);
+            showToast('✓ Đã lưu thành công');
+          } catch (reErr: any) {
+            if (reErr?.name === 'AbortError') return; // logout — say nothing
+            showToast('Đã lưu, nhưng chưa tải lại được dữ liệu mới nhất — hãy tải lại trang để kiểm tra.', true);
+          }
         } catch (err: any) {
+          if (err?.name === 'AbortError') return; // logout aborted the save
           if (err && err.status === undefined) {
             // Timeout-after-commit ambiguity: no HTTP status means the
-            // request died in transit — the server MAY have committed.
-            // Reconcile with the canonical GET and say exactly that.
-            await reconcile((window as any).api).catch(() => {});
-            showToast('Mạng gián đoạn — đã tải lại dữ liệu mới nhất từ máy chủ. Kiểm tra rồi lưu lại nếu cần.', true);
+            // request died in transit — the server MAY have committed. The
+            // canonical GET is the only truth — and the toast may only claim
+            // "đã tải lại" if that GET actually SUCCEEDED (AUDIT F6: with the
+            // network down, the reconcile usually fails too, and the old text
+            // claimed a reload that never happened).
+            try {
+              await reconcile((window as any).api);
+              showToast('Mạng gián đoạn — đã tải lại dữ liệu mới nhất từ máy chủ. Kiểm tra rồi lưu lại nếu cần.', true);
+            } catch (reErr: any) {
+              if (reErr?.name === 'AbortError') return;
+              showToast('Mạng gián đoạn — KHÔNG xác nhận được thay đổi đã lưu hay chưa. Kiểm tra kết nối rồi tải lại trang.', true);
+            }
           } else {
             // 400 validation / 403 / 503 kill switch: api.js already coerces
             // detail.message (vd. "Tính năng này đang tạm khóa…") into
@@ -157,6 +188,7 @@ export function ProfileBehavior() {
             showToast('Lỗi: ' + (err?.message || err), true);
           }
         } finally {
+          inflightRef.current.delete(controller);
           savingRef.current = false;
           saveBtn.disabled = false;
           saveBtn.textContent = 'Lưu thay đổi';
@@ -181,6 +213,11 @@ export function ProfileBehavior() {
     let disposed = false;
 
     if (renderedForRef.current && renderedForRef.current !== user.id) {
+      // ADR-011 §2 (AUDIT F6): account switch A→B aborts A's in-flight
+      // requests FIRST — a late-resolving GET for A must not render A's
+      // data (or race the reconcile guard) under B's session.
+      inflightRef.current.forEach((c) => c.abort());
+      inflightRef.current.clear();
       resetProfileDom(); // account switch: stale private data goes FIRST
       // The DOM now renders NO user — saving in this window would PATCH the
       // blanked shell defaults into the NEW user's profile (review #743).
@@ -193,6 +230,11 @@ export function ProfileBehavior() {
     const saveBtn = document.getElementById('btn-save') as HTMLButtonElement | null;
     if (saveBtn && !renderedForRef.current) saveBtn.disabled = true;
 
+    // ADR-011 §2 (AUDIT F6): the canonical load is abortable — logout or a
+    // key change (account switch, unmount) cancels it via the effect cleanup.
+    const controller = new AbortController();
+    inflightRef.current.add(controller);
+
     (async () => {
       const api = await waitForApi();
       if (disposed) return;
@@ -201,7 +243,7 @@ export function ProfileBehavior() {
         return;
       }
       try {
-        const profile = await api.get('/auth/profile');
+        const profile = await api.getWith('/auth/profile', null, { signal: controller.signal });
         if (disposed) return;
         if (profile) {
           renderProfile(profile); // null = api.js 401 redirect in flight
@@ -209,10 +251,11 @@ export function ProfileBehavior() {
           if (saveBtn && !savingRef.current) saveBtn.disabled = false;
         }
       } catch (err: any) {
+        if (err?.name === 'AbortError') return; // logout/switch — no fallback, no toast
         console.error('Could not load profile:', err?.message);
         // Fallback: try /auth/me (verbatim legacy fallback shape)
         try {
-          const me = await api.get('/auth/me');
+          const me = await api.getWith('/auth/me', null, { signal: controller.signal });
           if (disposed) return;
           if (me) {
             renderProfile(Object.assign({ stats: {} }, me));
@@ -220,6 +263,7 @@ export function ProfileBehavior() {
             if (saveBtn && !savingRef.current) saveBtn.disabled = false;
           }
         } catch (e2: any) {
+          if (e2?.name === 'AbortError') return;
           if (!disposed) showToast('Không thể tải hồ sơ: ' + (e2?.message || e2), true);
         }
       }
@@ -227,6 +271,8 @@ export function ProfileBehavior() {
 
     return () => {
       disposed = true;
+      controller.abort();
+      inflightRef.current.delete(controller);
     };
   }, [status, user?.id]);
 

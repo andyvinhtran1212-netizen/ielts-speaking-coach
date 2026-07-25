@@ -77,7 +77,7 @@ function render() {
   STATE.items.forEach((t) => {
     const a = document.createElement('a');
     a.className = 'rv-card';
-    a.href = `/pages/reading-exam.html?test_id=${encodeURIComponent(t.test_id)}`;
+    a.href = `/pages/reading-exam.html?test_id=${encodeURIComponent(t.test_id)}&from=full`;   // stamp the origin: reading-exam serves BOTH libraries
     const moduleLabel = MODULE_LABEL[t.module] || t.module || '';
     const parts = t.passage_count || 3;
     const totalQs = t.total_questions || 40;

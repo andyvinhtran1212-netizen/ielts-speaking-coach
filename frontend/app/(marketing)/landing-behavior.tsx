@@ -6,6 +6,7 @@ declare global {
   interface Window {
     __AVER_RUNTIME_CONFIG__?: {
       apiBase?: string;
+      release?: string;
     };
     lucide?: {
       createIcons?: () => void;
@@ -81,6 +82,32 @@ export function LandingBehavior() {
       .catch(() => {
         // Silently fail if stats endpoint is unavailable
       });
+
+    // ─── ADR-012 PAGE-VIEW BEACON (implementation-tagged) ──────
+    // The lean marketing page doesn't load api.js/analytics-beacon.js, so
+    // this is a raw-fetch equivalent (same /api/analytics/events contract,
+    // anonymous → user_id=NULL) that gives the cutover dashboard a
+    // page-view denominator for the migrated landing, tagged next + release.
+    // Fire-and-forget; tracking must never affect the page (Pattern #29).
+    try {
+      fetch(apiBase + '/api/analytics/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event_name: 'page_view',
+          event_data: {
+            path: location.pathname,
+            referrer: document.referrer || '',
+            implementation: 'next',
+            release: rc.release || null,
+          },
+        }),
+      }).catch(() => {
+        // Silently fail — a beacon must never surface to the user
+      });
+    } catch {
+      // never affect the page
+    }
   }, []);
 
   return null;

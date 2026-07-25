@@ -1,6 +1,6 @@
 # Tech Debt — IELTS Speaking Coach
 
-**Last updated:** 2026-06-28 (Tech debt audit — removed confirmed-completed items)
+**Last updated:** 2026-07-24 (added: roll new brand identity onto production web — DEBT-2026-07-24-I; prior 2026-07-22 batch D/E/F/G/H)
 **Last reviewed:** 2026-05-07 (PM)
 
 Comprehensive snapshot of tech debt + improvement opportunities, restructured
@@ -21,6 +21,320 @@ material, not active backlog.
 ---
 
 ## 🔴 ACTIVE — Cần action
+
+### Brand — áp bộ nhận diện mới vào web (logged 2026-07-24)
+
+#### DEBT-2026-07-24-I: Roll the new logo/brand identity onto production web
+- **What:** a new visual identity was designed and locked in the Claude Design
+  project ("Aver Learning Design System", id `019de70a…`) on 2026-07-24 —
+  direction **"Mũi lên"** (upward chevron mark + amber spark) with the wordmark
+  standardised to **"Aver Learning"** (Aver bold + Learning teal). Five SVGs now
+  live in the project `assets/` (`logo-wordmark[-dark].svg`, `logo-mark-light.svg`,
+  `favicon.svg`, `logo-mono.svg`; source copies in session scratchpad
+  `ds-assets/`). **Production web still shows the OLD identity** and is internally
+  inconsistent — three different marks:
+  - Landing (`/`, Next): **play-button-in-circle + "averlearning"** (lowercase).
+  - App header (aver-chrome): **"Aver.Learning"** text (with a dot), no mark.
+  - `favicon.svg` in repo: old navy-square "A" (Inter, teal #14b8a6 ≠ brand teal).
+- **Why deferred (not just soak):** applying it touches **frontend code** —
+  the Next landing lockup (`app/(marketing)/page.tsx`), the shared chrome
+  component/wordmark, and the favicon/apple-touch assets — so it must wait until
+  **after the soak AND the Next migration settles**, or the same logo gets
+  applied twice (once to legacy, once to Next) mid-coexistence. It is also a
+  user-facing brand change, not a bugfix — schedule it deliberately, not as a
+  soak-bundle afterthought.
+- **Action (post-migration):**
+  1. Pull the 5 SVGs from the design project `assets/` into `frontend/public/…`.
+  2. Replace the landing lockup, the chrome wordmark ("Aver.Learning" → "Aver Learning" + mark), and `favicon.svg` / apple-touch-icon.
+  3. Verify at 16px (favicon), on the navy hero, and in dark theme.
+  4. Update any `<title>`/OG image that bakes in the old wordmark.
+- **Effort:** ~half a day incl. dark/16px verification.
+- **Blocked by:** Pilot-1 soak **and** Next migration reaching steady state.
+- **Reference:** memory `claude-design-project-exists-drifted`; brand sheet
+  artifact (session 2026-07-24). Logo assets are design-project-only today —
+  **not** in the repo yet.
+
+### Blocked by Pilot-1 soak — post-soak actions (logged 2026-07-20, extended 2026-07-22)
+
+> **Context:** main is frozen for the Pilot-1 soak (any merge resets the soak
+> window — see memory `fe-nextjs-migration-program`). The PRs below are open,
+> green, and MUST NOT be merged until the soak passes. Bundle the merges + the
+> re-import/backfill once soak ends. A/B/C came out of the render-fidelity audit
+> of the converted Cambridge test set (2026-07-20); D/E came out of triaging the
+> 2026-07-22 error-log burst; F/G came out of verifying the Pilot-1 exposure
+> floor the same day; H is the plan-level finding that verification exposed.
+> D/E/F/G have **no PR yet** — they need writing. **H is not a code change** —
+> it is a plan amendment / ADR and must be decided *between* soaks, not during one.
+
+#### DEBT-2026-07-20-A: Merge PR #811 + re-run render scan + re-import Cambridge reading/listening
+- **What:** PR #811 (`frontend/public/js/reading-exam.js`) fixes reading
+  completion questions (`table` / `sentence` / `flow_chart`) that carry
+  `template.summary_text` — they rendered "(see summary above)" with nothing
+  above (**23 runs / ~20 of 36 reading tests were UNANSWERABLE**). The renderer
+  now flows `summary_text` for every completion type, not just summary/notes.
+- **Action (post-soak, in order):**
+  1. Merge #811.
+  2. Re-run `outputs/_convert_reading/render_risk_scan.py` (from `backend` cwd)
+     → target **R0 = 0**.
+  3. Re-import Cambridge 13 (4 listening + 4 reading, published) via
+     `_convert/import_cam_listening.py` + `_convert_reading/import_cam_reading.py`;
+     verify on web (esp. B13-T1 map + table Q1–7).
+  4. Then import B14–B21 (32 remaining tests).
+- **Effort:** ~30 min merge+verify; ~1–2h full re-import.
+- **Blocked by:** soak.
+- **Reference:** memory `reading-render-summary-text-drop`, `cambridge-fulltest-converter`.
+
+#### DEBT-2026-07-20-B: Merge PR #812 + run lemma backfill
+- **What:** PR #812 (`backend/services/lemmatizer.py`) adds `_IRREGULAR_LEMMAS`
+  (phenomena→phenomenon, criteria→criterion — Greek/Latin plurals spaCy `sm`
+  misses) and bumps `lemma_version` 1→2. Fixed the pre-push DoD gate (was red on
+  `test_lemmatize_plural_noun` in the model-installed env).
+- **Action (post-soak):** Merge #812, then run the backfill from the backend
+  dir (the script is at `backend/scripts/backfill_lemma.py` and its header
+  requires module invocation — it fails from the repo root):
+  ```
+  cd backend && python -m scripts.backfill_lemma
+  ```
+  (needs prod access) to re-walk rows stored under v1 and correct any
+  "phenomena"/"criteria" lemmas. Idempotent — safe to re-run.
+- **Effort:** ~10 min merge; backfill per script.
+- **Blocked by:** soak + prod access for the backfill.
+
+#### DEBT-2026-07-20-C: Reading CONTENT render fixes (not covered by #811) — FIXED at import layer (PR #814)
+- **What:** the audit found content-side (not renderer) issues #811 does NOT fix,
+  because in reading only the passage `body_markdown` is markdown-rendered —
+  titles + question templates are plain text:
+  - **R8r (4 titles):** passage `title` shows literal `*asterisks*` —
+    B13-T4 `*Cutty Sark*`, B17-T3 `*Building the Skyline*`, B21-T1
+    `*The World of Sugar*`, B21-T4 `*The Globemakers*`.
+  - **R3 (4 blocks):** `*emphasis*`/`**bold**` inside a rendered summary/notes
+    shows literal chars — B15-T3 q32, B15-T4 q20, B19-T4 q31, B21-T1 q31.
+- **Fix (PR #814, `fix/reading-strip-markdown-emphasis`):** solved at the IMPORT
+  layer instead of re-converting content. `_strip_inline_emphasis()` in
+  `services/content_import_service.py` strips `**bold**`/`*italic*` markers from
+  the passage `title` (`build_reading_test_payloads`) and `template.summary_text`
+  (`build_reading_question_payloads`); `body_markdown` is left untouched (it IS
+  markdown-rendered). Runs on EVERY reading import, so the DEBT-A re-import
+  auto-cleans these 8 cases — no re-convert, no folder access needed.
+- **Action (post-soak):** merge #814 (before/with the DEBT-A re-import so the
+  strip applies). No separate content work.
+- **Effort:** merge only; folds into DEBT-A.
+- **Blocked by:** soak.
+- **Reference:** `outputs/_convert_reading/RENDER_RISK_REPORT.md` +
+  `render_risk_scan.py`. (Listening = 0 render risks; structured payloads render fine.)
+
+#### DEBT-2026-07-22-D: Reading autosave has no retry and fails silently → answers can be lost on resume
+- **What:** an upstream Supabase blip on 2026-07-22 (see DEBT-2026-07-22-E for
+  the root cause) made 11 API calls fail, 10 of them reading autosave
+  `PATCH /api/reading/test/attempts/{id}/answers`. The client swallows those
+  failures entirely:
+  - `frontend/public/js/reading-exam.js:1377` `patchAnswer()` — the only
+    handler is `.catch(function (e) { console.warn('auto-save failed q=' ...) })`.
+    No UI signal, no retry, no queue.
+  - `frontend/public/js/api.js:174` `patch → _apiRequest` — a single `fetch`,
+    no retry loop anywhere in the shared client.
+  The comment at the catch site says "the source of truth is in-memory + submit
+  body", which is true **only for submit from the same tab**
+  (`reading-exam.js:1740-1753` posts the whole `SESSION.answers` map).
+  **Resume does NOT use in-memory state** — it re-reads answers from the server:
+  `backend/routers/reading_student.py:671` `_fetch_in_progress_payload()` selects
+  from `reading_attempt_answers`.
+- **Impact:** any answer whose autosave PATCH failed is **permanently gone** if
+  the student refreshes, closes the tab, or reopens the test before submitting.
+  The student sees a blank field they believe they filled in, with no warning at
+  any point. Silent, and the debounce is per-`q_num` on edit only — there is no
+  periodic autosave, so a failed field is never retried unless the student edits
+  that exact field again.
+- **Action:**
+  1. Retry `patchAnswer` with backoff on 5xx / network errors (a few attempts).
+  2. Mark the question's palette tile "chưa lưu được" while a save is
+     outstanding/failed, so the failure is visible.
+  3. Consider flushing all unsaved answers on `pagehide`/`visibilitychange`.
+- **Effort:** ~2h incl. a regression test for the retry + unsaved-state cue.
+- **Blocked by:** soak (frontend change ⇒ merge to main ⇒ resets the soak clock).
+
+#### DEBT-2026-07-22-E: Admin error classifier misreads postgrest-py upstream 5xx → dumped into "Khác"
+- **What:** when the Supabase API gateway returns an HTTP error whose body is not
+  PostgREST JSON, `postgrest-py` synthesises an error where **`code` is the HTTP
+  status, not a Postgres SQLSTATE**:
+  - `postgrest/exceptions.py:62` `generate_default_error_message(r)` →
+    `{"message": "JSON could not be generated", "code": r.status_code,
+      "hint": ..., "details": str(r.content)}`
+  - raised at `postgrest/_sync/request_builder.py:55` (also 84/100/129 + the
+    `_async` twin) inside `except ValidationError` — i.e. the response was not
+    successful **and** its body would not parse as a PostgREST error.
+  The 2026-07-22 incident was therefore **HTTP 555 with body
+  `b'Internal server error.'`** — a Supabase platform failure, not our data and
+  not Postgres. (PostgREST itself always returns JSON, so a plain-text body means
+  the error came from the gateway in front of it.)
+- **Why it matters for triage:** `frontend/public/js/admin-error-logs.js:99`
+  extracts the code with `/'code':\s*'([^']+)'/`, which **requires the code to be
+  quoted** (a string). postgrest-py sets it to an `int`, so the repr is
+  `'code': 555` — unquoted — the regex misses, the row falls past the `CSDL`
+  branch, and "JSON could not be generated" matches none of the `Mạng` keywords
+  (`connection|timed out|ssl|...`). Result: the row lands in **"Khác"** with a
+  full raw traceback, at `level=error`. One short platform blip produced
+  **11 `level=error` rows**, all of which count against the error budget the
+  rollback triggers read.
+- **Action:**
+  1. Accept an unquoted/int `code` in the regex.
+  2. Route `message == "JSON could not be generated"` + 5xx `code` into the
+     existing transient bucket (`Mạng`, tone `warning`) instead of `Khác`,
+     surfacing `details` (the real upstream body) as the summary.
+  3. Optional: consider `noise: true` for this class so a platform blip does not
+     distort soak error counts.
+- **Effort:** ~45 min + a classifier unit test with the real 555 payload.
+- **Blocked by:** soak (frontend change).
+- **Reference:** memory `postgrest-code-is-http-status`. **Do not** chase invalid
+  Unicode / bad rows for this error — that hypothesis was investigated and
+  refuted on 2026-07-22.
+
+#### DEBT-2026-07-22-F: The soak instrument cannot measure half its own gate (rollback-metrics clamps to 24h)
+- **What:** `docs/FE_NEXTJS_MIGRATION_MASTER_PLAN_2026-07-12.md` §12.3 sets a
+  two-part exposure floor per cutover — e.g. public/read-only = **≥7 days AND
+  ≥100 real interactions**; authenticated mutation = ≥14 days AND ≥50 attempts;
+  core = ≥14 days AND ≥30 attempts. `docs/SOAK_DECLARATION_PILOT_1.md` names
+  `GET /admin/error-logs/rollback-metrics` as the measurement source.
+  That endpoint **cannot compute the volume half**:
+  ```python
+  # backend/routers/error_logs.py:401
+  window_minutes = max(5, min(1440, window_minutes))
+  ```
+  Any `window_minutes` above 1440 is silently clamped to 24h. There is no error,
+  no warning, and the response does not echo the effective window — a caller
+  asking for 30 days gets a 24-hour number that looks like a 30-day number.
+- **Why it's by design and still a gap:** the clamp is correct *for the frozen
+  triggers* (error-rate over 30 min, LCP p75 over 1440 min — nothing needs more).
+  But the cutover gate needs a **cumulative** count over the whole soak window,
+  and no field in this response provides it. Consequence: for 5 days of the
+  Pilot-1 soak, the daily log in issue #766 tracked the "7 days" half and never
+  the "100 interactions" half — not an oversight by the operator, there was
+  simply no surface showing it.
+- **Live cost (2026-07-22):** passing 2880 / 6833 / 11531 / 43200 all returned
+  the identical "14 views", which reads as *near-zero traffic across the whole
+  window* and nearly produced a false "exposure floor missed" conclusion. The
+  real count came from a different endpoint: `/` = **108 views** over 18–22/07,
+  i.e. the floor was comfortably met.
+- **Action:**
+  1. Either raise/remove the clamp for the table half (keep the frozen verdict
+     windows pinned as they are), **or** add an explicit cumulative field
+     (`window_views_total` since a given `since` timestamp).
+  2. Echo the **effective** window in the response so a clamped request is
+     visible to the caller instead of silently misreporting.
+  3. Surface the volume half in the admin panel next to the day count, so the
+     §12.3 gate is readable in one place.
+- **Effort:** ~1–2h incl. tests.
+- **Blocked by:** soak (backend + admin frontend change).
+- **Reference:** memory `fe-nextjs-migration-program`. Related in spirit to audit
+  finding F3 ("soak không đo được") — that one lost the whole measurement, this
+  one loses half the gate.
+
+#### DEBT-2026-07-22-G: `foot-traffic` admin analytics silently truncated by the PostgREST 1000-row cap
+- **What:** `GET /admin/analytics/foot-traffic` (admin page "Lưu lượng truy cập")
+  reads page views with no pagination:
+  ```python
+  # backend/routers/admin.py:1351
+  supabase_admin.table("analytics_events")
+      .select("user_id, event_data, created_at")
+      .eq("event_name", "page_view")
+      .gte("created_at", date_from)      # ← no .range(), no .order()
+  ```
+  PostgREST caps a single response at ~1000 rows, so any date range holding more
+  than 1000 page views returns an arbitrary 1000-row slice — and every derived
+  number (total views, unique visitors, per-path counts, the daily chart) is
+  computed from that slice.
+- **Confirmed live on production 2026-07-22:** the default 30-day view reports
+  **"TỔNG LƯỢT XEM 1000"** exactly, and the by-day chart shows only **22–27/06** —
+  the *oldest* days in the range. Everything after 27/06 is missing from a panel
+  that presents itself as "last 30 days". The "most viewed pages" table at that
+  range is therefore wrong, not merely incomplete.
+- **Workaround until fixed:** narrow `date_from`/`date_to` until the reported
+  total is **< 1000** — only then is the window complete (18–22/07 = 996 rows,
+  usable; that is how the DEBT-F count of 108 was obtained).
+- **Action:** paginate with `.range(offset, offset+999)` + a stable
+  `.order(created_at).order(id)` (same shape as `_fetch_all()` in
+  `routers/error_logs.py`), and cap total rows. Add a test using the `_paged_db()`
+  MagicMock helper in `backend/tests/test_vocab_audio_pregen.py`, which emulates
+  the cap — and **verify the test fails against the unpaginated code first**, or
+  it proves nothing.
+- **Effort:** ~1h incl. test.
+- **Blocked by:** soak (backend change).
+- **Note:** this is the **4th confirmed instance** of this recurring bug class
+  (three earlier ones were `vocab_cards` readers; `routers/admin_vocab.py`
+  audio-generate `all=true` is still open). Diagnostic signature is always the
+  same: a plausible non-zero number, a green run, no error. See memory
+  `vocab-bulk-upload-needs-reload`.
+
+#### DEBT-2026-07-22-H: §12.3 exposure floors are below their own statistical minimum for 3 of 4 route classes
+- **What:** the master plan (§12.3) freezes a rollback trigger at **error-rate > 5%**
+  and, separately, fixes per-class volume floors. Those two numbers were never
+  reconciled: at the specified floors the 95% confidence interval on the observed
+  error rate **still contains 5%**, so reaching the floor does not let you
+  distinguish "healthy" from "breach".
+- **Numbers** (Clopper-Pearson exact binomial 95% CI; recompute with
+  `scipy.stats.beta` or a plain binomial-tail bisection — no library needed):
+
+  | Route class | Floor (plan) | Observed | 95% CI | Clears 5%? |
+  |---|---|---|---|---|
+  | Public/read-only — `/`, measured 2026-07-22 | 100 | 1 err / 108 views | **0.02 – 5.05%** | ❌ contains 5% |
+  | same, projected at full 7 days | — | 1 / ~151 | 0.02 – 3.63% | ✅ |
+  | Public low-traffic — grammar, 21d @ ~1 view/day | 20 | 0 / 21 | **0 – 16.11%** | ❌ |
+  | Authenticated mutation — profile | 50 | 0 / 50 | **0 – 7.11%** | ❌ |
+  | Core grading/exam | 30 | 0 / 30 | **0 – 11.57%** | ❌ |
+
+  Minimum sample for the CI to sit entirely below 5%: **n = 72** with zero errors,
+  **n = 110** with one error.
+- **The sharp edge:** the **core grading/exam** class has the **lowest** floor (30)
+  and therefore the **worst** statistical power (0–11.57%), while carrying the
+  **highest** stakes — a lost recording or a corrupted exam attempt. The floors are
+  ordered inversely to risk.
+- **Note this is not a "we have few users" problem.** It is an internal
+  inconsistency: even a high-traffic product hitting exactly these floors and
+  stopping would get the same useless intervals. Low traffic only makes it
+  impossible to *over*-shoot the floor by accident.
+- **Root of the mismatch:** a soak bundles three detectors that the plan treats as
+  one. Only the first is traffic-bound:
+  1. **Volume** — deterministic/widespread breakage. Needs large `n`.
+  2. **Elapsed time** — cache/ISR expiry (`use cache` + `cacheLife 1h` on the
+     grammar route), token refresh, cold starts, cron interaction, platform drift.
+     Needs *days*, not views.
+  3. **Client diversity** — e.g. the 2026-07-22 React #418 on `/`: not reproducible
+     on the dev machine, only a real Windows Chrome visitor produced it. Needs
+     calendar spread across a heterogeneous population.
+- **Proposed direction (needs a plan amendment / ADR — §14.3 makes merge =
+  ratification, so this must not be slipped in as a docs tweak):**
+  1. **Let synthetic carry the volume half.** A production smoke on the cutover
+     route every ~10 min yields ~144 observations/day and clears n=72 within half a
+     day, deterministically. The Playwright + nightly machinery already exists
+     (`playwright.staging.config.js`, `staging-e2e.yml`) — it needs a
+     production-targeted variant, not new infrastructure.
+     **Explicit limit:** synthetic only catches what it asserts and would never
+     have caught the #418 — so it supplements detectors 2 and 3, never replaces them.
+  2. **Let organic time carry the elapsed-time + diversity halves**, and stop
+     expressing those as an interaction count they cannot deliver.
+  3. **Re-derive each floor from the trigger it must clear**, instead of picking
+     round numbers; state the achieved CI in the soak declaration rather than
+     ticking a "≥N interactions" box. "n=151, 95% CI 0.02–3.63%, below the 5%
+     trigger" is audit-proof in a way "≥100 reached" is not.
+  4. **Apply the B36 low-traffic treatment to the core class too** — currently only
+     grammar got it. For core flows prefer: cross-version resume proven +
+     sufficient synthetic n + **explicitly recorded risk acceptance**, the same
+     shape already granted to zero-traffic routes.
+  5. **Consider decoupling freeze length from floor length.** The freeze exists for
+     single-variable attribution and a clean rollback target; that argument is
+     satisfied once the elapsed-time failure modes have had a chance to fire
+     (~48–72h), not by volume.
+- **Counter-consideration to record honestly:** the current protocol also serves a
+  non-statistical purpose — process credibility after the external audit
+  invalidated the first soak. Any loosening must not read as relitigating a gate
+  because it became inconvenient. That is exactly why this belongs in an amendment
+  argued on the arithmetic above, decided **between** soaks, never during one.
+- **Effort:** ~half a day to write the amendment/ADR + re-derive the four floors;
+  the production-smoke variant is a separate ~1 day.
+- **Blocked by:** soak (any merge to main resets the clock — including docs).
+- **Reference:** plan §12.3, B36, `docs/TRAFFIC_BASELINE_2026-07-13.md`; measured
+  inputs in memory `fe-nextjs-migration-program` (2026-07-22 entries) and
+  DEBT-2026-07-22-F (which is *why* the volume half went unmeasured for 5 days).
 
 ### High priority — blocking Phase 3 strategic decision
 

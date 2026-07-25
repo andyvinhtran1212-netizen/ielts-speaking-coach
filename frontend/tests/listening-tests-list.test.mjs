@@ -76,10 +76,13 @@ describe('Sprint 13.5 — tests-list JS contract', () => {
     assert.match(JS, /window\.api\.get\(['"`]\/api\/listening\/tests\?[^'"`]*\blimit=/);
   });
 
-  it('links each card to /pages/listening-test.html?id=<uuid>', () => {
+  it('links each card to /pages/listening-test.html?id=<uuid>&from=full', () => {
+    // &from=full stamps the ORIGIN: the player is shared with the mini-test
+    // library, and its back button used to send mini takers to this full-test
+    // shelf. See back-nav-origin.test.mjs for the behaviour that consumes it.
     assert.match(
       JS,
-      /href=["']\/pages\/listening-test\.html\?id=\$\{encodeURIComponent\(t\.id\)\}["']/,
+      /href=["']\/pages\/listening-test\.html\?id=\$\{encodeURIComponent\(t\.id\)\}&from=full["']/,
     );
   });
 

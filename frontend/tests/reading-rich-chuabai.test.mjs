@@ -133,7 +133,12 @@ describe('regression — endpoint reuse, security, results link, XSS, tokens', (
 /* ── reading-header-notefill — header refinements (A) + note block (B) ── */
 describe('header-notefill A — clean header, inline skills, sticky toggle', () => {
   test('back link is a clean link (no awkward exam-tool box) + test label', () => {
-    assert.match(html, /class="rr-back" href="\/pages\/reading\.html"/);
+    // This used to pin href="/pages/reading.html" — a page that has never existed
+    // in the repo, so the assertion was locking in a 404. The point of the test is
+    // the SHAPE of the header (plain .rr-back link, not a boxed .exam-tool), so
+    // assert that and leave the destination to back-nav-origin.test.mjs, which
+    // now drives it per entry point (?from=full|mini|mock).
+    assert.match(html, /class="rr-back" id="rr-back" href="\/pages\/[a-z-]+\.html"/);
     assert.ok(!/exam-tool[^>]*Thư viện/.test(html), 'back link must not use the boxed .exam-tool');
     assert.match(html, /class="rr-test-label" id="rr-test-label"/);
   });

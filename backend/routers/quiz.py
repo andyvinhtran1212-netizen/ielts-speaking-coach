@@ -7,6 +7,7 @@ and posts progress back here.
   GET   /api/quiz/banks?skill_area=&topic_id=   — list published banks.
   GET   /api/quiz/banks/{bank_id}               — bank META + questions (+answers).
   GET   /api/quiz/banks/{bank_id}/resume        — carry-over word_stats.
+  POST  /api/quiz/banks/{bank_id}/reset          — wipe mastery cache, restart the bank.
   POST  /api/quiz/sessions                       — start a session (+resume).
   POST  /api/quiz/sessions/{id}/progress         — batch log attempts + word_stats.
   PATCH /api/quiz/sessions/{id}                  — end a session (totals).
@@ -74,6 +75,14 @@ async def get_bank(bank_id: UUID, authorization: str | None = Header(None)):
 async def resume(bank_id: UUID, authorization: str | None = Header(None)):
     user = await get_supabase_user(authorization)
     return quiz_service.get_resume(user_id=user["id"], bank_id=str(bank_id))
+
+
+@router.post("/banks/{bank_id}/reset")
+async def reset_progress(bank_id: UUID, authorization: str | None = Header(None)):
+    """Wipe the caller's mastery cache for one bank so the adaptive test starts
+    over from scratch. Session/attempt history is untouched (append-only log)."""
+    user = await get_supabase_user(authorization)
+    return quiz_service.reset_progress(user_id=user["id"], bank_id=str(bank_id))
 
 
 @router.post("/sessions", status_code=201)

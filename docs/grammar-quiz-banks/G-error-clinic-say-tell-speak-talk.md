@@ -52,7 +52,8 @@ input: "text"
 headword: "stst-say"
 skill: "production"
 subtype: "intermediate"
-prompt: "Don't forget to ____ (say) thank you when someone helps you."
+prompt: "Don't forget to ____ thank you when someone helps you."
+hint: "chọn động từ đúng: say / tell / speak / talk"
 accept: ["say"]
 case_sensitive: false
 grammar_article_slug: "say-tell-speak-talk"
@@ -136,7 +137,8 @@ input: "text"
 headword: "stst-tell"
 skill: "production"
 subtype: "intermediate"
-prompt: "It's hard to ____ (tell) the difference between the two designs."
+prompt: "It's hard to ____ the difference between the two designs."
+hint: "chọn động từ đúng: say / tell / speak / talk"
 accept: ["tell"]
 case_sensitive: false
 grammar_article_slug: "say-tell-speak-talk"
@@ -207,11 +209,11 @@ input: "text"
 headword: "stst-speak"
 skill: "production"
 subtype: "intermediate"
-prompt: "Can I ____ (speak) Dr. Johnson, please? — write the base verb + preposition."
+prompt: "Can I ____ Dr. Johnson, please?"
 accept: ["speak to"]
 case_sensitive: false
 grammar_article_slug: "say-tell-speak-talk"
-explain: "'speak' cần giới từ 'to' (hoặc 'with') khi đi kèm người nghe: speak to someone. Thiếu giới từ là lỗi collocation rất phổ biến."
+explain: "'speak' luôn cần giới từ 'to' (hoặc 'with') khi đi kèm người nghe: speak to/with someone. Thiếu giới từ là lỗi collocation rất phổ biến trong tiếng Anh giao tiếp."
 ---
 
 ---
@@ -264,7 +266,8 @@ input: "text"
 headword: "stst-talk"
 skill: "production"
 subtype: "intermediate"
-prompt: "She's ____ (talk) her friend on the phone right now — write the -ing form with the correct preposition."
+prompt: "She's ____ (talk) her friend on the phone right now."
+hint: "dạng V-ing kèm giới từ đúng"
 accept: ["talking to", "talking with"]
 case_sensitive: false
 grammar_article_slug: "say-tell-speak-talk"

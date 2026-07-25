@@ -184,8 +184,8 @@
 
       if (status === 'claimed' && isMine) {
         return '<div class="aw-row-actions">' +
-          '<a class="aw-btn-act aw-btn-act--edit" href="/pages/admin/writing/grade.html?essay_id=' +
-          encodeURIComponent(essayId) + '">Edit</a>' +
+          '<a class="aw-btn-act aw-btn-act--edit" href="' +
+          _withEmbed('/pages/admin/writing/grade.html?essay_id=' + encodeURIComponent(essayId)) + '">Edit</a>' +
           '<button class="aw-btn-act aw-btn-act--release" data-action="release" data-review-id="' +
           WC.escapeHtml(reviewId) + '">Release</button>' +
         '</div>';
@@ -197,8 +197,8 @@
 
       if (status === 'delivered') {
         return '<div class="aw-row-actions">' +
-          '<a class="aw-btn-act aw-btn-act--view" href="/pages/admin/writing/grade.html?essay_id=' +
-          encodeURIComponent(essayId) + '">View</a>' +
+          '<a class="aw-btn-act aw-btn-act--view" href="' +
+          _withEmbed('/pages/admin/writing/grade.html?essay_id=' + encodeURIComponent(essayId)) + '">View</a>' +
         '</div>';
       }
 
@@ -242,6 +242,21 @@
 
     // ── Actions ───────────────────────────────────────────────────────
 
+    // Cockpit embed: this page can be reached from the Mock Test cockpit's grade
+    // page (release claim), so the hop back into grade.html must carry the flags
+    // forward — drop them and grade.html renders its full admin chrome nested
+    // inside the cockpit's tab panel.
+    function _withEmbed(url) {
+      try {
+        var p = new URLSearchParams(location.search);
+        var out = [];
+        if (p.get('embed') === '1') out.push('embed=1');
+        if (p.get('mocklane') === '1') out.push('mocklane=1');
+        if (!out.length) return url;
+        return url + (url.indexOf('?') === -1 ? '?' : '&') + out.join('&');
+      } catch (e) { return url; }
+    }
+
     async function handleClaim(reviewId) {
       try {
         var review = await window.api.post('/admin/instructor/reviews/' + encodeURIComponent(reviewId) + '/claim', {});
@@ -250,7 +265,7 @@
           return;
         }
         // Navigate straight to the grading page for editing.
-        window.location.href = '/pages/admin/writing/grade.html?essay_id=' + encodeURIComponent(review.essay_id);
+        window.location.href = _withEmbed('/pages/admin/writing/grade.html?essay_id=' + encodeURIComponent(review.essay_id));
       } catch (e) {
         // window.api.post throws Error with `message` from backend's
         // `detail` field. Conflict (409) text comes from the backend's
@@ -373,6 +388,21 @@
     })();
   </script>
   </aver-admin-chrome>
+
+  <!-- Reached from the Mock Test cockpit's grade page (release claim, ?embed=1)
+       → hide the admin nav so the cockpit's chrome shows once. Runs before the
+       deferred chrome module, so the attribute is present when the element
+       upgrades. Mirrors the same hook in queue.html / grade.html / status.html. -->
+  <script>
+    (function () {
+      try {
+        if (new URLSearchParams(location.search).get('embed') === '1') {
+          var el = document.querySelector('aver-admin-chrome');
+          if (el) el.setAttribute('embed', '');
+        }
+      } catch (e) { /* no-op */ }
+    })();
+  </script>
   <script type="module" src="/js/components/aver-admin-chrome.js"></script>
 </body>
 </html>

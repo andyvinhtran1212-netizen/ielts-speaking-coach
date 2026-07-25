@@ -52,8 +52,8 @@ input: "text"
 headword: "caus-have-get-person"
 skill: "production"
 subtype: "intermediate"
-prompt: "The landlord ____ (have / the caretaker / repair) the broken lift last week."
-accept: ["had the caretaker repair"]
+prompt: "Dùng causative 'have' với người thực hiện là 'the caretaker': 'The landlord ____ repair the broken lift last week.'"
+accept: ["had the caretaker"]
 case_sensitive: false
 grammar_article_slug: "causative-verbs"
 explain: "have + người + bare infinitive: 'had the caretaker repair' (không thêm 'to')."
@@ -149,8 +149,8 @@ input: "text"
 headword: "caus-have-get-thing"
 skill: "production"
 subtype: "intermediate"
-prompt: "The company ____ (have / its accounts / audit) at the end of every fiscal year."
-accept: ["has its accounts audited"]
+prompt: "The company has ____ at the end of every fiscal year."
+accept: ["its accounts audited"]
 case_sensitive: false
 grammar_article_slug: "causative-verbs"
 explain: "have + vật + V3: 'has its accounts audited' — nhấn mạnh kết quả, không nói rõ ai thực hiện."

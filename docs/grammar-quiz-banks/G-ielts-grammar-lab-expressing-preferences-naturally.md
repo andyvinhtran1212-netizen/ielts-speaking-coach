@@ -87,16 +87,17 @@ explain: "SAI — 'prefer' không đi với 'than'. Sửa: 'I prefer coffee to t
 
 ---
 id: "epn_pref_i3"
-type: "gap_mcq"
-input: "choice"
+type: "gap_text"
+input: "text"
 headword: "epn-prefer-structure"
 skill: "usage"
 subtype: "intermediate"
-prompt: "I've always preferred the mountains ____ the beach, personally."
-options: ["to", "than", "from", "against"]
-answer: 0
+prompt: "Complete: 'I've always ____the mountains ... the beach, personally.'"
+hint: "gõ động từ + giới từ (2 từ)"
+accept: ["preferred to"]
+case_sensitive: false
 grammar_article_slug: "expressing-preferences-naturally"
-explain: "'prefer + noun + to + noun' — luôn dùng 'to' khi so sánh hai danh từ với 'prefer'."
+explain: "'prefer + noun + to + noun' → 'I've always preferred the mountains to the beach.' — 'to' là giới từ chuẩn (không dùng 'than' với prefer)."
 ---
 
 # ===== item_key 2 · I'd rather — tình huống cụ thể =====
@@ -220,7 +221,8 @@ input: "text"
 headword: "epn-vivid-expressions"
 skill: "production"
 subtype: "intermediate"
-prompt: "I have a soft spot ____ old black-and-white films — there's something charming about them. (điền giới từ)"
+prompt: "I have a soft spot ____ old black-and-white films — there's something charming about them."
+hint: "điền giới từ"
 accept: ["for"]
 case_sensitive: false
 grammar_article_slug: "expressing-preferences-naturally"
@@ -304,7 +306,8 @@ input: "text"
 headword: "epn-reason-expansion"
 skill: "production"
 subtype: "intermediate"
-prompt: "Reading appeals to me more than watching TV, mainly ____ books allow you to use your imagination. (điền liên từ chỉ lý do)"
+prompt: "Reading appeals to me more than watching TV, mainly ____ books allow you to use your imagination."
+hint: "điền liên từ chỉ lý do"
 accept: ["because"]
 case_sensitive: false
 grammar_article_slug: "expressing-preferences-naturally"

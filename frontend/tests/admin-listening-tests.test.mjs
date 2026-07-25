@@ -51,11 +51,10 @@ describe('Sprint 13.4 — tests page structure', () => {
     assert.match(html, /placeholder=["']ILR-LIS-/);
   });
 
-  test('"Convert đề mới từ DOCX" CTA links to convert.html', () => {
-    assert.match(
-      html,
-      /href=["']\/pages\/admin\/listening\/convert\.html["'][^>]*>[^<]*Convert/,
-    );
+  test('convert CTA stays retired; import CTAs live (2026-07-17 usage audit)', () => {
+    assert.doesNotMatch(html, /listening\/convert\.html/);
+    assert.match(html, /href=["']\/pages\/admin\/listening\/import-fulltest\.html["']/);
+    assert.match(html, /href=["']\/pages\/admin\/listening\/import-drills\.html["']/);
   });
 
   test('table has all 9 columns (test_id / title / band / accent / sections / audio / status / created / actions)', () => {
@@ -69,10 +68,10 @@ describe('Sprint 13.4 — tests page structure', () => {
     }
   });
 
-  test('empty state copy mentions convert flow', () => {
+  test('empty state copy points at the import-fulltest flow', () => {
     assert.match(
       html,
-      /Convert đề đầu tiên từ DOCX/,
+      /Import full-test pack đầu tiên/,
     );
   });
 

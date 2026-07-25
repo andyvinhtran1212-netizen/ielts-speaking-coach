@@ -163,10 +163,10 @@ input: "boolean"
 headword: "cpx-relative-clause"
 skill: "contrast"
 subtype: "advanced"
-prompt: "Đúng hay Sai: 'The students who study regularly tend to do well.' (không dấu phẩy) và 'My brother, who lives in Hanoi, is a teacher.' (có dấu phẩy) đều đúng vì mang ý nghĩa khác nhau: câu đầu xác định (restrictive), câu sau bổ sung thông tin (non-restrictive)."
+prompt: "Đúng hay Sai: Dấu phẩy trong mệnh đề quan hệ thay đổi ý nghĩa — không dấu phẩy = restrictive (cần thiết xác định danh từ), có dấu phẩy = non-restrictive (bổ sung thông tin)."
 answer: true
 grammar_article_slug: "complex-sentence"
-explain: "ĐÚNG — dấu phẩy thay đổi nghĩa: không phẩy = restrictive (cần thiết để xác định danh từ); có phẩy = non-restrictive (thêm thông tin về đối tượng đã xác định)."
+explain: "ĐÚNG — dấu phẩy tạo ra sự khác biệt quan trọng: 'The students who study regularly' (xác định: chỉ những học sinh nào nỗ lực) vs 'My brother, who lives in Hanoi,' (bổ sung: thêm chi tiết về người được nhắc tới)."
 ---
 
 # ===== item_key 3 · Noun clause (mệnh đề danh từ: that/what/whether) =====

@@ -109,11 +109,11 @@ input: "text"
 headword: "cnp-premod-postmod"
 skill: "production"
 subtype: "intermediate"
-prompt: "The ____ (industrial / revolution / of / nineteenth / century) fundamentally transformed society."
-accept: ["industrial revolution of the nineteenth century"]
+prompt: "Complete this complex noun phrase: 'The industrial revolution of the ____ fundamentally transformed society.'"
+accept: ["nineteenth century"]
 case_sensitive: false
 grammar_article_slug: "complex-noun-phrases"
-explain: "Pre-modifier: 'industrial' → head noun: 'revolution' → post-modifier: 'of the nineteenth century'. Không sắp xếp được 'of the nineteenth century' vào giữa."
+explain: "Post-modifier 'of the nineteenth century' thêm chi tiết thời gian vào head noun 'revolution'. Cấu trúc: pre-modifier (industrial) → head noun (revolution) → post-modifier (of the nineteenth century)."
 ---
 
 ---

@@ -36,13 +36,40 @@ logger = logging.getLogger("pregen_vocab_audio")
 _TTS_PER_1K_USD = 0.015   # tts-1 pricing
 
 
+_PAGE = 1000   # PostgREST caps a single response at ~1000 rows
+
+
+def _all_vocab_rows() -> list[dict]:
+    """Every vocab_cards row, paged.
+
+    A bare select() is capped at ~1000 rows by PostgREST and truncates SILENTLY:
+    the script then logs a plausible count and finishes green while never even
+    CONSIDERING the rest. Measured 2026-07-16: 1000 of 1835 rows seen, 835
+    invisible — including 4 lesson words the vocab quiz actually serves, whose
+    audio therefore never got generated. Same cap class as PR #666
+    (vocab_content._load_from_db).
+    """
+    rows: list[dict] = []
+    start = 0
+    while True:
+        # order() on the PK gives a STABLE total order across page requests —
+        # without it PostgREST/Postgres don't guarantee row order, so a
+        # concurrent import could shift a row between offsets and duplicate one
+        # while skipping another.
+        res = (
+            supabase_admin.table("vocab_cards")
+            .select("id,slug,headword,example,audio_headword,audio_example,audio_status")
+            .order("id").range(start, start + _PAGE - 1).execute()
+        )
+        batch = res.data or []
+        rows.extend(batch)
+        if len(batch) < _PAGE:
+            return rows
+        start += _PAGE
+
+
 def _rows_needing_audio(regen: bool = False) -> list[dict]:
-    res = (
-        supabase_admin.table("vocab_cards")
-        .select("id,slug,headword,example,audio_headword,audio_example,audio_status")
-        .execute()
-    )
-    rows = res.data or []
+    rows = _all_vocab_rows()
     if regen:
         # --regen: reprocess EVERY row with a headword so existing (possibly
         # edge-clipped) audio is re-synthesised at the new padded path + re-stamped.

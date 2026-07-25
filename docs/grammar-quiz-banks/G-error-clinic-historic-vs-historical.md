@@ -66,7 +66,8 @@ input: "text"
 headword: "ec-historic-significance"
 skill: "production"
 subtype: "intermediate"
-prompt: "The signing of the peace treaty was widely regarded as a ____ (historic — viết đúng dạng) moment for both nations."
+prompt: "The signing of the peace treaty was widely regarded as a ____ moment for both nations."
+hint: "chọn 'historic' hoặc 'historical'"
 accept: ["historic"]
 case_sensitive: false
 grammar_article_slug: "historic-vs-historical"
@@ -151,7 +152,8 @@ input: "text"
 headword: "ec-historical-general"
 skill: "production"
 subtype: "intermediate"
-prompt: "From a ____ (historical — viết đúng dạng) perspective, urbanisation has always been accompanied by both opportunities and challenges."
+prompt: "From a ____ perspective, urbanisation has always been accompanied by both opportunities and challenges."
+hint: "chọn 'historic' hoặc 'historical'"
 accept: ["historical"]
 case_sensitive: false
 grammar_article_slug: "historic-vs-historical"
@@ -222,7 +224,8 @@ input: "text"
 headword: "ec-historic-collocations"
 skill: "production"
 subtype: "intermediate"
-prompt: "We are living through ____ (historic — viết đúng dạng) times that will be studied by future generations."
+prompt: "We are living through ____ times that will be studied by future generations."
+hint: "chọn 'historic' hoặc 'historical'"
 accept: ["historic"]
 case_sensitive: false
 grammar_article_slug: "historic-vs-historical"

@@ -3,7 +3,7 @@
 **Dự án:** IELTS Speaking Coach / Aver Learning  
 **Ngày:** 2026-07-12 · v3 revised: 2026-07-13  
 **Phiên bản:** v3 — v2 đã qua adversarial review về architecture, delivery và safety; v3 bổ sung discovery validation độc lập trực tiếp trên repo (2026-07-13, HEAD `3f031d17`, 11 commits sau baseline `9047e09f`), yêu cầu đóng destination decision (ADR-000, mục 1.2), thêm bottleneck B34–B38 và hiệu chỉnh kế hoạch hai tuần đầu theo dữ kiện đã xác minh  
-**Trạng thái:** Conditional Go — discovery/dark launch được phép; bốn production pilot chỉ được cutover sau Gate A + Gate B + per-pilot entry checklist; Gate C chỉ mở bounded ramp tối đa 10 routes/ít nhất 2 domains; Gate D mới mở broad parallel scale. Cập nhật 2026-07-13: ADR-000 đã ratify (Next.js — mục 1.2); Vercel tier đã xác minh: **Hobby** (B34) — phải nâng Pro trước production pilot cutover đầu tiên  
+**Trạng thái:** Conditional Go — discovery/dark launch được phép; bốn production pilot chỉ được cutover sau Gate A + Gate B + per-pilot entry checklist; Gate C chỉ mở bounded ramp tối đa 10 routes/ít nhất 2 domains; Gate D mới mở broad parallel scale. Cập nhật 2026-07-13: ADR-000 đã ratify (Next.js — mục 1.2); Vercel tier: **Pro** (nâng từ Hobby cùng ngày — ADR-007; dòng "Hobby, phải nâng Pro" trước đây đã lỗi thời, audit F8 2026-07-14)  
 **Kiến trúc đích:** Next.js App Router trên Vercel; FastAPI/Railway tiếp tục là backend canonical  
 **Phương pháp:** Incremental strangler migration, một deployment, route-level cutover; rollback bằng deployment trừ khi ADR-007 duyệt control plane riêng  
 
@@ -907,6 +907,8 @@ Không đổi grading backend hoặc database schema trong cùng migration PR.
 - Fair-use của Vercel giới hạn Hobby cho mục đích non-commercial; averlearning.com là sản phẩm thương mại (bán access code) → rủi ro tuân thủ tồn tại độc lập với migration, và hybrid rendering sẽ tăng function usage đáng kể so với static hosting hiện tại.
 - **Quyết định:** nâng Pro trước production pilot cutover đầu tiên. Gate A/B và mọi dark-launch/Preview work chạy được trên Hobby; cutover canonical route thì không. Chi phí Pro đưa vào mục 15.3.
 
+**Cập nhật (2026-07-13, sau): ĐÃ NÂNG PRO** — ADR-007 ghi "Pro (nâng từ Hobby 2026-07-13)". Các gạch đầu dòng trên mô tả ràng buộc THỜI HOBBY, giữ làm bối cảnh quyết định. Hiện trạng: Instant Rollback đã drill (Gate B + re-drill, ≤12s); bẫy vận hành: restore = **Undo Rollback**, không dùng Instant Rollback "tiến" (rollback-pin tắt auto-promote — sự cố 6-merge 2026-07-13). (Audit F8 2026-07-14: đồng bộ đoạn này với ADR-007.)
+
 ### B35 — CI test manifest là danh sách tay và đang drift (v3)
 
 **Mức độ:** High  
@@ -1048,6 +1050,8 @@ Nếu không đầu tư control plane, rollout là dark launch → staged produc
 - Authenticated mutation route: tối thiểu 14 ngày **và** 50 eligible real attempts.
 - Core grading/exam route: tối thiểu 14 ngày **và** 30 eligible real attempts; cross-version resume phải pass.
 - Synthetic/lab runs bổ sung coverage nhưng không được tính vào real mutation/core volume. Low traffic phải kéo dài window hoặc có explicit steering risk decision; không giả vờ p75 có ý nghĩa khi sample quá nhỏ.
+
+> **AMENDMENT ADR-013 (2026-07-25) — early-stage rollout profile.** Các sàn ngày+interactions ở trên áp cho route có traffic THẬT đạt sàn. Ở giai đoạn early-stage (product <100 user, chưa SEO/marketing, blast-radius nhỏ; Vercel Pro rollback ≤12s về bất-kỳ-deployment; telemetry đã tagged theo implementation/release), route **low/zero-traffic** dùng **early-stage profile** thay cho soak-dài-freeze: **48–72h quan sát + synthetic n≥72 gánh vế số-lượng + risk acceptance ghi rõ**, KHÔNG freeze-cứng-dài và KHÔNG dùng sàn "N interactions" (số làm tròn, không suy từ power — xem DEBT-2026-07-22-H). Lý do "100 interactions" không có cơ sở thống kê + con số "21 ngày grammar" = 20÷1view/ngày: xem ADR-013. Quy kết một-biến đến từ TAG (ADR-012), không từ freeze. GIỮ CỨNG bất kể scale: persistence/security invariant breach → rollback ngay; rollback-readiness (ADR-007); kill-switch (ADR-010). Core grading/exam giữ nghiêm nhất (cross-version resume + synthetic n≥72 + ≥72h + risk acceptance có incident-commander). **Tốt-nghiệp:** tại Gate D (broad-scale ready) re-đánh giá — khi traffic tăng thì siết lại về sàn thống kê thật. Ma trận sàn mới đầy đủ: `docs/adr/ADR-013-early-stage-rollout.md`.
 - Bất kỳ persistence/security invariant violation nào cũng kích hoạt rollback/kill switch bất kể sample size.
 - Fallback chỉ giữ nếu đã được chứng minh; có owner, expiry và request telemetry.
 

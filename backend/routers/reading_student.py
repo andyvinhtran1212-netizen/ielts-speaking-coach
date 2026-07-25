@@ -737,11 +737,10 @@ async def list_reading_tests(
     only — passage bodies + questions live behind GET .../{test_id}.
 
     test_type segregates the FULL-test and MINI-test libraries (Reading mini
-    test). It reads reading_tests.metadata->>test_type:
+    test), reading the real ``test_type`` column (mig 158 — NOT NULL, CHECK
+    full|mini; legacy NULL-metadata rows were backfilled to 'full'):
       - "mini" → ONLY mini tests.
-      - "full" or omitted (default) → EXCLUDE mini. Legacy tests predate
-        test_type (value IS NULL) and are full, so the filter must be
-        `IS NULL OR != 'mini'` — a plain `!= 'mini'` would wrongly drop them.
+      - "full" or omitted (default) → ONLY full tests.
     A mini is just a full test the admin flagged at import; the rest of the
     pipeline (passages/questions/grader) is identical."""
     await _require_auth(authorization)
@@ -762,11 +761,9 @@ async def list_reading_tests(
     if module:
         q = q.eq("module", module)
     if test_type == "mini":
-        q = q.eq("metadata->>test_type", "mini")
+        q = q.eq("test_type", "mini")
     else:
-        # full (default): everything NOT a mini, INCLUDING legacy tests with no
-        # test_type (metadata->>test_type IS NULL).
-        q = q.or_("metadata->>test_type.is.null,metadata->>test_type.neq.mini")
+        q = q.eq("test_type", "full")
     # Exclusivity: a reading test chosen for a 4-skill mock is reserved to it —
     # hide it from the normal practice browse.
     from services import mock_exam_service

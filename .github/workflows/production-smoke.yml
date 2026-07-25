@@ -1,0 +1,85 @@
+# Production Smoke — synthetic-volume verdict (ADR-013 early-stage rollout).
+#
+# The "volume half" of a low-traffic cutover: drives the cutover route on
+# PRODUCTION n times per run → an LCP p75 + error-rate verdict WITHOUT waiting
+# for organic traffic (which is too sparse to be statistically meaningful at
+# early-stage — DEBT-2026-07-22-H). ONE run = n=75 = one verdict. It carries
+# the volume/verdict half only; the 48–72h organic window carries the
+# time-drift + client-diversity halves (ADR-013).
+#
+# NOT PR-blocking — it hits live production and must never gate an unrelated PR.
+# Run it: (a) on-demand before a cutover to baseline the dark route, and
+# (b) a few times inside the 48–72h observation window after cutover.
+name: Production Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      route:
+        description: "Route to smoke (e.g. / , /grammar/tenses/present-simple , /profile)"
+        required: true
+        default: "/"
+      samples:
+        description: "Sample count n (≥72 for a meaningful verdict)"
+        required: false
+        default: "75"
+      lcp_ms:
+        description: "Absolute LCP p75 ceiling (ms)"
+        required: false
+        default: "4000"
+  # OPTIONAL freshness cron — intentionally DISABLED by default so it never
+  # burns CI outside an active observation window. To use during a 48–72h
+  # window, uncomment and set the route, then re-comment when the window ends:
+  # schedule:
+  #   - cron: "0 */3 * * *"   # every 3h
+
+jobs:
+  production-smoke:
+    # Two concurrent runs against the same route just add network contention
+    # that skews LCP; queue them.
+    concurrency:
+      group: production-smoke-${{ github.event.inputs.route || '/' }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Playwright chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run synthetic-volume smoke
+        working-directory: frontend
+        env:
+          PRODUCTION_SMOKE_ROUTE: ${{ github.event.inputs.route || '/' }}
+          PRODUCTION_SMOKE_SAMPLES: ${{ github.event.inputs.samples || '75' }}
+          PRODUCTION_SMOKE_LCP_MS: ${{ github.event.inputs.lcp_ms || '4000' }}
+        run: |
+          set -o pipefail
+          npx playwright test -c playwright.production-smoke.config.js 2>&1 | tee smoke.out
+
+      - name: Publish verdict to job summary
+        if: always()
+        working-directory: frontend
+        run: |
+          echo "## Synthetic-volume verdict" >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          grep "SYNTHETIC_VERDICT" smoke.out | sed 's/^.*SYNTHETIC_VERDICT //' >> "$GITHUB_STEP_SUMMARY" || echo "(no verdict line — run crashed before summary)" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-smoke-report
+          path: frontend/playwright-report/
+          retention-days: 7

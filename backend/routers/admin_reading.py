@@ -58,6 +58,28 @@ _LIBRARIES = {"l1_vocab", "l2_skill", "l3_test"}
 _STATUSES = {"draft", "published", "archived"}
 
 
+def _check_image_url_reachable(url: str, timeout_s: float = 3.0) -> list[str]:
+    """Audit 2026-07-17 — HEAD-check một image_url ngoài (Cloudinary dán tay,
+    không được app quản lý). Trả list warning string (rỗng = OK). Fail-soft:
+    lỗi mạng/timeout → warning "không kiểm tra được", KHÔNG raise — check này
+    chỉ chạy ở dry-run preview và không được phép chặn import.
+
+    Quét định kỳ toàn corpus: scripts/check_reading_image_links.py.
+    """
+    import httpx
+
+    try:
+        resp = httpx.head(url, timeout=timeout_s, follow_redirects=True)
+        if resp.status_code == 405:  # host không hỗ trợ HEAD → thử GET nhẹ
+            resp = httpx.get(url, timeout=timeout_s, follow_redirects=True,
+                             headers={"Range": "bytes=0-0"})
+        if resp.status_code >= 400:
+            return [f"image_url trả HTTP {resp.status_code} — ảnh có thể đã chết: {url}"]
+        return []
+    except Exception as exc:  # noqa: BLE001 — fail-soft by design
+        return [f"Không kiểm tra được image_url ({type(exc).__name__}) — xác minh tay: {url}"]
+
+
 def _normalise_l3_test_row(r: dict) -> dict:
     """A reading_tests row → the shared admin-list row shape (slug = test_id,
     difficulty_level ← module, skill_focus ← '60 phút · 40 câu' summary). The
@@ -275,8 +297,14 @@ async def import_reading_content(
         "dry_run": dry_run,
         "committed_id": None,
         "action": None,
+        "warnings": [],
     }
     if dry_run or errors:
+        # Audit 2026-07-17 — HEAD-check ảnh ngoài (Cloudinary URL dán tay)
+        # CHỈ ở dry-run: link chết hiện thành warning trong preview, không
+        # chặn import (fail-soft cả khi mạng lỗi/timeout).
+        if dry_run and parsed.image_url:
+            result["warnings"].extend(_check_image_url_reachable(parsed.image_url))
         return result
 
     # ── Commit: upsert by slug ──
@@ -355,8 +383,9 @@ async def import_reading_test_bundle(
             "action":            None,
         }
     # Reading mini test — the toggle flags this test as 'mini' (1-passage) vs
-    # 'full' in reading_tests.metadata.test_type, the field the student list
-    # endpoint segregates on. The prose pipeline is otherwise identical.
+    # 'full' in the reading_tests.test_type column (mig 158), the field the
+    # student list endpoint segregates on. The prose pipeline is otherwise
+    # identical.
     result = await _commit_l3_parsed(
         parsed, dry_run, admin, test_type=("mini" if mini else "full"),
     )
@@ -491,21 +520,13 @@ async def _commit_l3_parsed(parsed, dry_run: bool, admin: dict, test_type: str |
             result["action"] = "created"
         result["committed_id"] = test_uuid
 
-        # Reading mini test — stamp metadata.test_type ('mini'|'full') WITHOUT
-        # clobbering other metadata keys (access lock / share live here too).
-        # test_row (plan) has no metadata key, so the upsert above left existing
-        # metadata intact; we read-merge-write just this one field. test_type is
-        # None for YAML imports (back-compat) → metadata untouched.
+        # Reading mini test — mig 158: test_type là cột thật (CHECK full|mini),
+        # không stamp metadata nữa. test_type=None (YAML import, back-compat)
+        # → không đụng: insert mới nhận DEFAULT 'full', re-import giữ nguyên.
         if test_type is not None:
-            cur = (
-                supabase_admin.table("reading_tests")
-                .select("metadata").eq("id", test_uuid).limit(1).execute()
-            )
-            md = dict((cur.data[0].get("metadata") if cur.data else None) or {})
-            md["test_type"] = test_type
-            supabase_admin.table("reading_tests").update({"metadata": md}).eq(
-                "id", test_uuid
-            ).execute()
+            supabase_admin.table("reading_tests").update(
+                {"test_type": test_type}
+            ).eq("id", test_uuid).execute()
 
         # 2a) Sprint 20.9 D1 — RECONCILE removed passages. List the passages
         #     currently attached to this test, compare with the incoming slugs,

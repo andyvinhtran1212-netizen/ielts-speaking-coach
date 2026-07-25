@@ -172,11 +172,12 @@ describe('Sprint 11.5 — analytics dashboard contract', () => {
     assert.match(ANALYTICS_HTML, /id="weakest-banner"/);
   });
 
-  it('localises mode names to Vietnamese', () => {
-    assert.match(ANALYTICS_JS, /'Chép chính tả'/);
-    assert.match(ANALYTICS_JS, /'Nghe ý chính'/);
-    assert.match(ANALYTICS_JS, /'Đúng \/ Sai'/);
-    assert.match(ANALYTICS_JS, /'Trắc nghiệm'/);
+  it('localises type names to Vietnamese (audit 2026-07-17: mini/drill/full)', () => {
+    // Nguồn thống kê đổi sang listening_test_attempts — nhãn theo test_type,
+    // không còn hệ exercise cũ (dictation/gist/tf/mcq, chết từ 05/2026).
+    assert.match(ANALYTICS_JS, /'Bài học \/ Mini test'/);
+    assert.match(ANALYTICS_JS, /'Luyện kỹ năng \(drill\)'/);
+    assert.match(ANALYTICS_JS, /'Full test'/);
   });
 });
 

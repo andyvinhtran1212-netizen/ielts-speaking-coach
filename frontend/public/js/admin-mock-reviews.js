@@ -60,55 +60,233 @@
       var submitted = rows.filter(function (r) { return r.review_id; }).length;
       el('queue-count').textContent = rows.length + ' học viên · ' + submitted + ' đã nộp đủ';
       if (!rows.length) { list.innerHTML = '<p class="mr-muted">Chưa có học viên nào trong đề này.</p>'; return; }
+      // The bar carries TWO actions with different preconditions. Grading needs a
+      // promoted essay; releasing only needs a submitted sitting — an L/R-only
+      // retake has results to publish and no essay at all. Gating the whole bar
+      // on `gradable` hid the release button from exactly those (Codex review,
+      // PR #778).
       var gradable = rows.some(hasWritingEssays);
-      list.innerHTML = (gradable ? bulkBarHtml() : '') + renderRosterTable(rows);
+      var anySubmitted = rows.some(function (r) { return !!r.review_id; });
+      list.innerHTML = (anySubmitted ? bulkBarHtml(gradable) : '') + renderRosterTable(rows);
       list.querySelectorAll('[data-review-id]').forEach(function (tr) {
         tr.addEventListener('click', function (ev) {
-          if (ev.target && ev.target.closest('.mr-check')) return;   // checkbox click ≠ open
+          if (ev.target && ev.target.closest('.mr-check')) return;    // checkbox click ≠ open
+          if (ev.target && ev.target.closest('.mr-retest')) return;   // ditto the skill picker
           openDetail(tr.getAttribute('data-review-id'));
         });
       });
-      list.querySelectorAll('.mr-retest-row').forEach(function (box) {
-        box.addEventListener('change', function () {
-          setRetest(box.getAttribute('data-sitting-id'), box.checked);
+      list.querySelectorAll('.mr-retest').forEach(function (dd) {
+        dd.addEventListener('change', function () {
+          setRetestSkills(dd, dd.getAttribute('data-sitting-id'));
         });
+        dd.addEventListener('toggle', function () { if (dd.open) placeRetestMenu(dd); });
       });
-      if (gradable) wireBulkBar(list);
+      // anySubmitted, NOT gradable: the bar renders on anySubmitted (#778 widened
+      // that so an essay-less L/R-only roster keeps its release button) but the
+      // wiring was left behind — so on such a roster every control in it was
+      // rendered dead, permanently disabled. wireBulkBar already guards the
+      // grade button's absence.
+      if (anySubmitted) wireBulkBar(list);
     } catch (e) {
       list.innerHTML = '<p style="color:var(--av-error)">Lỗi tải bảng lớp: ' + esc(e && e.message) + '</p>';
     }
   }
 
-  function bulkBarHtml() {
+  // `gradable` = at least one sitting has a promoted Writing essay. The grading
+  // half is dropped without one; the release half always shows, because a
+  // submitted sitting has results to publish whether or not it involved Writing.
+  function bulkBarHtml(gradable) {
     return '<div class="mr-bulkbar">' +
       '<label class="mr-check"><input type="checkbox" id="bulk-all"> Chọn tất cả</label>' +
       '<span style="flex:1"></span>' +
-      '<span class="mr-muted">Chấm Writing hàng loạt:</span>' +
-      '<select id="bulk-tier"><option value="standard">Standard</option><option value="instructor">Instructor</option></select>' +
-      '<button class="av-btn av-btn--primary" id="bulk-grade-btn" disabled>Đưa vào hàng chấm</button>' +
+      (gradable
+        ? '<span class="mr-muted">Chấm Writing hàng loạt:</span>' +
+          '<select id="bulk-tier"><option value="standard">Standard</option><option value="instructor">Instructor</option></select>' +
+          '<button class="av-btn av-btn--primary" id="bulk-grade-btn" disabled>Đưa vào hàng chấm</button>' +
+          '<span class="mr-bulkbar__sep" aria-hidden="true"></span>'
+        : '') +
+      // The two steps that used to cost one click PER STUDENT. Secondary next to
+      // CÔNG BỐ: neither shows the student anything, and nhận is undoable.
+      '<button class="av-btn" id="bulk-claim-btn" disabled>Nhận</button>' +
+      '<button class="av-btn" id="bulk-bands-btn" disabled>Chốt band</button>' +
+      '<span class="mr-bulkbar__sep" aria-hidden="true"></span>' +
+      // CÔNG BỐ publishes to real students, so it never sits next to the grading
+      // action as an equal — it is separated and labelled with the count it will
+      // publish, and confirms before firing.
+      '<button class="av-btn av-btn--primary" id="bulk-release-btn" disabled>📤 Trả bài</button>' +
       '</div>';
   }
 
   function wireBulkBar(list) {
     var boxes = Array.prototype.slice.call(list.querySelectorAll('.mr-check-row'));
     var btn = el('bulk-grade-btn');
+    var rel = el('bulk-release-btn');
+    var clm = el('bulk-claim-btn');
+    var bnd = el('bulk-bands-btn');
     var all = el('bulk-all');
+    function checked() { return boxes.filter(function (b) { return b.checked; }); }
+    // Only a sitting whose final bands are in can be published. Counting the rest
+    // would promise the admin a release the server will refuse.
+    function releasable() {
+      return checked().filter(function (b) { return b.getAttribute('data-review-status') === 'reviewed'; });
+    }
+    // claim() only takes a 'queued' row — counting a claimed one would promise a
+    // no-op the server just refuses.
+    function claimable() {
+      return checked().filter(function (b) { return b.getAttribute('data-review-status') === 'queued'; });
+    }
+    // 'edited' rides with 'claimed': both are held by an admin, neither is banded.
+    function bandable() {
+      return checked().filter(function (b) {
+        var s = b.getAttribute('data-review-status');
+        return s === 'claimed' || s === 'edited';
+      });
+    }
     function refresh() {
-      var n = boxes.filter(function (b) { return b.checked; }).length;
-      btn.disabled = !n;
-      btn.textContent = n ? ('Đưa vào hàng chấm (' + n + ')') : 'Đưa vào hàng chấm';
+      var n = checked().length;
+      // btn is absent when no sitting has a promoted essay — the bar is then
+      // release-only, and touching it would throw on the first checkbox click.
+      if (btn) {
+        btn.disabled = !n;
+        btn.textContent = n ? ('Đưa vào hàng chấm (' + n + ')') : 'Đưa vào hàng chấm';
+      }
+      var c = claimable().length;
+      clm.disabled = !c;
+      clm.textContent = c ? ('Nhận (' + c + ')') : 'Nhận';
+      clm.title = n && !c
+        ? 'Chỉ nhận được bài chưa ai nhận (trạng thái "chưa nhận").'
+        : 'Nhận các bài đã chọn để duyệt';
+      var bd = bandable().length;
+      bnd.disabled = !bd;
+      bnd.textContent = bd ? ('Chốt band (' + bd + ')') : 'Chốt band';
+      bnd.title = n && !bd
+        ? 'Chỉ chốt được bài BẠN đã nhận và chưa chốt band.'
+        : 'Chốt band từ điểm đã tính sẵn (L/R từ bảng quy đổi, W từ 2 bài đã chấm)';
+      var r = releasable().length;
+      rel.disabled = !r;
+      rel.textContent = r ? ('📤 Trả bài (' + r + ')') : '📤 Trả bài';
+      rel.title = n && !r
+        ? 'Chỉ trả được bài đã chốt band cuối (trạng thái "đã duyệt").'
+        : 'Công bố kết quả cho học viên đã chọn';
     }
     boxes.forEach(function (b) { b.addEventListener('change', refresh); });
     if (all) all.addEventListener('change', function () {
       boxes.forEach(function (b) { b.checked = all.checked; });
       refresh();
     });
-    btn.addEventListener('click', function () {
-      var ids = boxes.filter(function (b) { return b.checked; })
-        .map(function (b) { return b.getAttribute('data-sitting-id'); });
+    if (btn) btn.addEventListener('click', function () {
+      var ids = checked().map(function (b) { return b.getAttribute('data-sitting-id'); });
       if (ids.length) bulkGrade(ids, el('bulk-tier').value);
     });
+    // Send only the rows the action can actually take, not everything ticked —
+    // the server would skip the rest anyway, and the admin would get a refusal
+    // list full of rows they never asked to act on.
+    clm.addEventListener('click', function () {
+      var ids = claimable().map(function (b) { return b.getAttribute('data-sitting-id'); });
+      if (ids.length) bulkClaim(ids);
+    });
+    bnd.addEventListener('click', function () {
+      var ids = bandable().map(function (b) { return b.getAttribute('data-sitting-id'); });
+      if (ids.length) bulkSaveBands(ids);
+    });
+    rel.addEventListener('click', function () {
+      var ids = releasable().map(function (b) { return b.getAttribute('data-sitting-id'); });
+      if (!ids.length) return;
+      // Publishing to students is not undoable without a revoke — say the number
+      // and what it means before doing it.
+      if (!confirm('Công bố kết quả cho ' + ids.length + ' học viên?\n\n'
+                   + 'Học viên sẽ thấy ngay band 4 kỹ năng và phần chữa bài. '
+                   + 'Muốn sửa band sau khi công bố thì phải thu hồi trước.')) return;
+      bulkRelease(ids);
+    });
     refresh();
+  }
+
+  // Công bố hàng loạt. The server gates each sitting and returns what it refused;
+  // showing only the success count would let the admin believe a blocked student
+  // was published.
+  async function bulkRelease(sittingIds) {
+    var rel = el('bulk-release-btn');
+    if (rel) rel.disabled = true;
+    try {
+      var res = await window.api.post(
+        '/admin/mock-exams/' + encodeURIComponent(examId) + '/bulk-release',
+        { sitting_ids: sittingIds });
+      var ok = (res.released || []).length, sk = (res.skipped || []);
+      toast('Đã công bố ' + ok + '/' + sittingIds.length + ' bài.'
+        + (sk.length ? ' ' + sk.length + ' bài chưa công bố được.' : ''));
+      // AWAIT the reload before rendering the refusals: loadRoster()'s first act
+      // is to blank #queue-list, which is where the box goes — rendering first
+      // wiped it before the admin could read it, leaving only the toast count and
+      // hiding WHICH students were not published. That is the exact failure this
+      // box exists to prevent (Codex review, PR #778).
+      await loadRoster();
+      loadRetestSummary();
+      if (sk.length) renderSkips(sk, 'công bố');
+    } catch (e) {
+      toast('Công bố thất bại: ' + (e && e.message));
+      loadRoster();   // canonical refetch — never leave the roster guessing
+    }
+  }
+
+  // The per-sitting refusals, named. A toast count alone would hide WHICH student
+  // was not handled and why. Shared by all three bulk actions — `what` names the
+  // action, because "Chưa công bố được 2 bài" is simply false after a bulk NHẬN.
+  function renderSkips(skips, what) {
+    var host = el('queue-list');
+    if (!host) return;
+    var box = document.createElement('div');
+    box.className = 'mr-relskips';
+    box.innerHTML = '<b>Chưa ' + esc(what) + ' được ' + skips.length + ' bài:</b>'
+      + '<ul>' + skips.map(function (s) {
+          return '<li><code>' + esc(String(s.sitting_id).slice(0, 8)) + '</code> — ' + esc(s.reason) + '</li>';
+        }).join('') + '</ul>';
+    host.insertBefore(box, host.firstChild);
+  }
+
+  // Nhận hàng loạt. No confirm: claiming is reversible (bỏ nhận) and shows the
+  // student nothing — unlike CÔNG BỐ, which is neither.
+  async function bulkClaim(sittingIds) {
+    var b = el('bulk-claim-btn');
+    if (b) b.disabled = true;
+    try {
+      var res = await window.api.post(
+        '/admin/mock-exams/' + encodeURIComponent(examId) + '/bulk-claim',
+        { sitting_ids: sittingIds });
+      var ok = (res.claimed || []).length, sk = (res.skipped || []);
+      toast('Đã nhận ' + ok + '/' + sittingIds.length + ' bài.'
+        + (sk.length ? ' ' + sk.length + ' bài không nhận được.' : ''));
+      // AWAIT before rendering: loadRoster() blanks #queue-list, which is where
+      // the box goes — rendering first wipes it (Codex P2, PR #778).
+      await loadRoster();
+      if (sk.length) renderSkips(sk, 'nhận');
+    } catch (e) {
+      toast('Nhận hàng loạt thất bại: ' + (e && e.message));
+      loadRoster();   // canonical refetch — never leave the roster guessing
+    }
+  }
+
+  // Chốt band hàng loạt. The client posts NO bands: the server re-derives what
+  // this form would have pre-filled (L/R off the Cambridge table, Writing off the
+  // two essays the admin already reviewed) and save_final_bands still validates
+  // each one. A band it cannot derive — Speaking has no draft source — comes back
+  // in `skipped` instead of being signed off with a number nobody chose.
+  async function bulkSaveBands(sittingIds) {
+    var b = el('bulk-bands-btn');
+    if (b) b.disabled = true;
+    try {
+      var res = await window.api.post(
+        '/admin/mock-exams/' + encodeURIComponent(examId) + '/bulk-final-bands',
+        { sitting_ids: sittingIds });
+      var ok = (res.saved || []).length, sk = (res.skipped || []);
+      toast('Đã chốt band ' + ok + '/' + sittingIds.length + ' bài.'
+        + (sk.length ? ' ' + sk.length + ' bài chưa chốt được.' : ''));
+      await loadRoster();
+      if (sk.length) renderSkips(sk, 'chốt band');
+    } catch (e) {
+      toast('Chốt band hàng loạt thất bại: ' + (e && e.message));
+      loadRoster();
+    }
   }
 
   async function bulkGrade(sittingIds, tier) {
@@ -125,17 +303,29 @@
     } catch (e) { toast('Chấm hàng loạt thất bại: ' + (e && e.message)); }
   }
 
-  // Early "cần test lại" toggle — reloads the roster so the bulk-grade checkbox
-  // enables/disables and the class summary count updates.
-  async function setRetest(sittingId, needs) {
+  // Record WHICH skills the student must retake. Posts the FULL picture every
+  // time (unticked = false) so unticking actually clears — a partial post would
+  // make a skill impossible to un-flag. Never blocks grading: /retest-flags does
+  // not touch needs_retest (product decision 2026-07-15).
+  async function setRetestSkills(el, sittingId) {
+    var flags = {};
+    RETEST_SKILLS.forEach(function (s) { flags[s.key] = false; });
+    el.querySelectorAll('.mr-retest-skill').forEach(function (box) {
+      flags[box.getAttribute('data-skill')] = box.checked;
+    });
+    var on = Object.keys(flags).filter(function (k) { return flags[k]; });
+    // Optimistic summary would lie if the POST fails — repaint from the server.
     try {
       await window.api.post(
-        '/admin/mock-exams/sittings/' + encodeURIComponent(sittingId) + '/retest',
-        { needs_retest: needs });
-      toast(needs ? 'Đã đánh dấu cần test lại.' : 'Đã bỏ đánh dấu test lại.');
+        '/admin/mock-exams/sittings/' + encodeURIComponent(sittingId) + '/retest-flags',
+        { retest_flags: flags });
+      toast(on.length ? 'Cần test lại: ' + on.join(', ') : 'Đã bỏ đánh dấu test lại.');
       loadRoster();
       loadRetestSummary();
-    } catch (e) { toast('Không cập nhật được: ' + (e && e.message)); }
+    } catch (e) {
+      toast('Không cập nhật được: ' + (e && e.message));
+      loadRoster();   // canonical refetch — the checkbox must not keep a state the server rejected
+    }
   }
 
   function lrCell(o) {
@@ -143,15 +333,104 @@
     return '<b>' + o.score + '</b>/' + (o.max || '?') + (o.band != null ? ' · B' + Number(o.band).toFixed(1) : '');
   }
   function wCell(w) {
-    if (!w || (w.task1_wc == null && w.task2_wc == null)) return '<span class="mr-muted">—</span>';
-    return 'T1 ' + (w.task1_wc != null ? w.task1_wc : '—') + ' · T2 ' + (w.task2_wc != null ? w.task2_wc : '—') + ' từ';
+    if (!w) return '<span class="mr-muted">—</span>';
+    // Word counts and band are INDEPENDENT — the cell is empty only when both
+    // are. (Codex review, PR #775: the first cut returned "—" on missing counts
+    // before ever looking at the band, so a sitting carrying a band but no
+    // submission blob would hide the very thing this cell exists to show. Not
+    // reachable on today's data — every count-less sitting also lacks essays —
+    // but the guard conflated two unrelated facts.)
+    var hasWc = (w.task1_wc != null || w.task2_wc != null);
+    if (!hasWc && w.band == null) return '<span class="mr-muted">—</span>';
+
+    var parts = [];
+    if (hasWc) {
+      parts.push('T1 ' + (w.task1_wc != null ? w.task1_wc : '—') +
+                 ' · T2 ' + (w.task2_wc != null ? w.task2_wc : '—') + ' từ');
+    }
+    if (w.band != null) {
+      // A CONFIRMED band reads like Listening/Reading (bold "B6.5"). A suggestion
+      // must NOT: it is synced from the two graded essays and nobody has signed
+      // off on it, so it stays muted and tilde-prefixed ("~B6.5"). Dressing it up
+      // as a settled band would show the examiner a score no examiner chose.
+      var b = 'B' + Number(w.band).toFixed(1);
+      parts.push(w.band_is_final
+        ? '<b>' + b + '</b>'
+        : '<span class="mr-muted" title="Gợi ý từ 2 bài đã chấm — chưa chốt">~' + b + '</span>');
+    }
+    return parts.join(' · ');
   }
   function spkCell(s) {
     return (s && s.count) ? (s.count + ' session') : '<span class="mr-muted">—</span>';
   }
+  // The "Trạng thái" column reads review_status — the whole lifecycle — not the
+  // `claimed` flag. claimed_by is set at claim and cleared only by unclaim, so it
+  // stays true through 'reviewed' AND 'released': a claim-only cell collapsed
+  // three distinct states into "đã nhận", and a published result looked exactly
+  // like one nobody had touched since claiming. The bulk-release tooltip already
+  // sent the admin looking for trạng thái "đã duyệt" — a label this cell never
+  // rendered. 'edited' (mig 147's CHECK) has no place in the current flow, so it
+  // falls through to the claim flag rather than being given an invented label.
+  var REVIEW_STATUS_LABEL = {
+    queued:   'chưa nhận',
+    claimed:  'đã nhận',
+    reviewed: 'đã duyệt',
+    released: 'đã trả bài',
+  };
   function claimCell(r) {
     if (!r.review_id) return '<span class="mr-pill">đang làm</span>';
-    return '<span class="mr-pill">' + (r.claimed ? 'đã nhận' : 'chưa nhận') + '</span>';
+    var label = REVIEW_STATUS_LABEL[r.review_status] || (r.claimed ? 'đã nhận' : 'chưa nhận');
+    // Released is the one terminal state — the student can see it — so it is the
+    // only one that earns colour.
+    var cls = 'mr-pill' + (r.review_status === 'released' ? ' mr-pill--done' : '');
+    return '<span class="' + cls + '">' + label + '</span>';
+  }
+
+  // The skills the roster picker offers. Fixed rather than per-sitting: deriving
+  // the real required set costs a query PER ROW (assigned_skills is per-sitting,
+  // so it can't be hoisted to one per exam). The write path drops any skill this
+  // exam doesn't require, so offering a fixed set can't corrupt the record.
+  var RETEST_SKILLS = [
+    { key: 'listening', label: 'Listening', short: 'L' },
+    { key: 'reading',   label: 'Reading',   short: 'R' },
+    { key: 'writing',   label: 'Writing',   short: 'W' },
+  ];
+
+  // The roster table is rendered inside .adm-table-wrap, whose overflow-x:auto
+  // forces overflow-y to compute to `auto` too — so the scroller CLIPS an
+  // absolutely-positioned popover no matter its z-index. Measured on the last
+  // row: menu bottom 1116 vs scroller bottom 1027, leaving the Writing checkbox
+  // unreachable (Codex review, PR #776). Flip the menu above the summary when it
+  // would not fit below.
+  function placeRetestMenu(dd) {
+    var menu = dd.querySelector('.mr-retest__menu');
+    var scroller = dd.closest('.adm-table-wrap');
+    if (!menu || !scroller) return;
+    menu.classList.remove('mr-retest__menu--up');   // measure the default first
+    if (menu.getBoundingClientRect().bottom > scroller.getBoundingClientRect().bottom) {
+      menu.classList.add('mr-retest__menu--up');
+    }
+  }
+
+  // Multi-select of the skills the student must retake. A <details> popover, not
+  // a <select multiple>: the latter needs ctrl-click to multi-select and silently
+  // drops selections on a stray click — a bad way to record an exam decision.
+  function retestCell(r) {
+    if (!r.review_id) return '<span class="mr-muted">—</span>';   // sitting still in progress
+    var flags = r.retest_flags || {};
+    var on = RETEST_SKILLS.filter(function (s) { return flags[s.key]; });
+    var summary = on.length
+      ? on.map(function (s) { return s.short; }).join(' · ')
+      : '—';
+    return '<details class="mr-retest" data-sitting-id="' + esc(r.sitting_id) + '">' +
+      '<summary class="mr-retest__sum' + (on.length ? ' is-on' : '') + '" ' +
+        'title="Kỹ năng học viên cần thi lại">' + esc(summary) + '</summary>' +
+      '<div class="mr-retest__menu">' +
+        RETEST_SKILLS.map(function (s) {
+          return '<label class="mr-check"><input type="checkbox" class="mr-retest-skill" ' +
+            'data-skill="' + s.key + '"' + (flags[s.key] ? ' checked' : '') + '> ' + s.label + '</label>';
+        }).join('') +
+      '</div></details>';
   }
 
   function renderRosterTable(rows) {
@@ -164,10 +443,17 @@
       var classes = 'mr-trow' + (r.review_id ? '' : ' mr-trow--wip') + (flagged ? ' mr-trow--retest' : '');
       var reviewAttr = r.review_id ? ' data-review-id="' + esc(r.review_id) + '"' : '';
       // bulk-grade select — only for a gradable sitting that is NOT a retaker
-      var check = (hasWritingEssays(r) && !flagged)
-        ? '<label class="mr-check"><input type="checkbox" class="mr-check-row" data-sitting-id="' + esc(r.sitting_id) + '"></label>'
+      // Selectable = any SUBMITTED sitting. This used to be "gradable and not
+      // retest-flagged", which left releasable sittings unselectable once bulk
+      // release existed: a retest-flagged sitting is exempt from the Writing
+      // release gate, and a Writing-less one still has results to publish.
+      // Widening is safe for bulk-grade — it skips what it cannot grade and
+      // REPORTS it (skipped / retest_skipped), rather than grading it silently.
+      var check = r.review_id
+        ? '<label class="mr-check"><input type="checkbox" class="mr-check-row" data-sitting-id="' + esc(r.sitting_id) + '"'
+          + ' data-review-status="' + esc(r.review_status || '') + '"></label>'
         : '';
-      var retest = '<label class="mr-check"><input type="checkbox" class="mr-retest-row" data-sitting-id="' + esc(r.sitting_id) + '"' + (flagged ? ' checked' : '') + '></label>';
+      var retest = retestCell(r);
       return '<tr class="' + classes + '"' + reviewAttr + '>' +
         '<td>' + check + '</td>' +
         '<td>' + esc(r.student_name) + '</td>' +
@@ -327,8 +613,42 @@
 
     var rf = review.retest_flags || {};
     var bandInputs = reqSkills().map(function (s) {
+      // Pre-fill EVERY skill from the draft, not just Writing. The L/R bands are
+      // already in ai_draft — derived from the auto-graded score — but this only
+      // ever read draft.writing, so the examiner retyped numbers the machine had
+      // already computed and stored. Nothing here is a judgement call: L/R come
+      // off the answer key, Writing off the two essays the admin already approved
+      // one by one. Saving is a confirmation, not data entry (2026-07-15).
+      var draftBand = draftBandOf(draft, s);
+      var val = (fb[s] != null) ? fb[s] : (draftBand != null ? draftBand : '');
+      var hint = (draftBand != null && fb[s] == null)
+        ? '<div class="mr-muted" style="font-size:11px;margin-top:2px">'
+          + esc(DRAFT_SOURCE[s] || 'Tự tính') + ': ' + fmtBand(draftBand) + '</div>'
+        : '';
+      // Say WHY this one may be left empty, or the blank looks like an oversight
+      // the examiner should correct — and they'd invent a band to fill it.
+      if (!hint && blankableSkills().indexOf(s) !== -1) {
+        // The two blankable skills are blank for DIFFERENT reasons — L/R fell off
+        // the published table, Writing has no band to compute from. One sentence
+        // for both would be wrong for one of them.
+        hint = '<div class="mr-muted" style="font-size:11px;margin-top:2px">'
+             + (s === 'writing'
+                 ? 'Chưa chấm đủ 2 bài nên không tính được band — có thể để trống '
+                 : 'Điểm thô không có band trong bảng IELTS — có thể để trống ')
+             + '(overall sẽ để trống theo).</div>';
+      }
+      // No draft and not blankable → the examiner MUST type it. Speaking is the
+      // real case: nothing derives it (no answer key, no per-essay approval), so
+      // it arrives blank among pre-filled boxes and the save is refused. Saying
+      // nothing here would present the form as one-click and then reject it
+      // (Codex review, PR #782).
+      if (!hint && fb[s] == null) {
+        hint = '<div class="mr-muted" style="font-size:11px;margin-top:2px">'
+             + 'Chưa có band tự tính — cần bạn nhập.</div>';
+      }
       return '<div><label>' + s + '</label>' +
-        '<input type="number" step="0.5" min="0" max="9" data-band="' + s + '" value="' + (fb[s] != null ? fb[s] : '') + '">' +
+        '<input type="number" step="0.5" min="0" max="9" data-band="' + s + '" value="' + val + '">' +
+        hint +
         '<label style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:400;margin-top:4px;color:var(--av-text-secondary)">' +
           '<input type="checkbox" data-retest="' + s + '"' + (rf[s] ? ' checked' : '') + '> Cần test lại' +
         '</label></div>';
@@ -354,10 +674,13 @@
           '<select id="channel-select" class="av-btn"><option value="in_app">Kênh: In-app</option><option value="manual">Thủ công</option><option value="email">Email</option></select>' +
           '<button class="av-btn av-btn--primary" id="release-btn">CÔNG BỐ kết quả</button>' +
           ((review.status === 'reviewed' || review.status === 'released')
-            ? '<a class="av-btn" target="_blank" href="/pages/admin/mock-reviews/report.html?review_id=' + encodeURIComponent(review.id) + '">Xem phiếu báo điểm ↗</a>'
+            // Carry mock_exam_id: this queue REFUSES to load without it, so the
+            // report's back button needs it to return to the exam we're in.
+            ? '<a class="av-btn" target="_blank" href="/pages/admin/mock-reviews/report.html?review_id=' + encodeURIComponent(review.id)
+              + '&mock_exam_id=' + encodeURIComponent(examId || '') + '">Xem phiếu báo điểm ↗</a>'
             : '') +
         '</div>' +
-        '<p class="mr-muted" style="margin-top:8px">Công bố yêu cầu đã “Lưu band” (trạng thái reviewed) và mở khoá điểm cho học viên. Phiếu báo điểm chỉ tạo được khi không còn kỹ năng nào bị đánh dấu "cần test lại".</p>' +
+        '<p class="mr-muted" style="margin-top:8px">Công bố yêu cầu đã “Lưu band” (trạng thái reviewed) và mở khoá điểm cho học viên. <b>Bài Writing phải được chấm &amp; “Lưu &amp; duyệt” (Đã duyệt/Đã trả) trước khi công bố</b> — nếu chưa, hệ thống sẽ chặn. Phiếu báo điểm chỉ tạo được khi không còn kỹ năng nào bị đánh dấu "cần test lại".</p>' +
       '</div>';
 
     el('queue-view').classList.add('hidden');
@@ -411,9 +734,42 @@
     catch (e) { toast('Không nhận được: ' + (e && e.message)); }
   }
 
+  // Skills whose raw score has NO published band (e.g. Listening 0/40, or any
+  // General Training Reading in Phase 1). The examiner has nothing to type, so a
+  // blank is legitimate — the server allows it and blanks the overall to match.
+  function blankableSkills() {
+    return (current && current.blankable_skills) || [];
+  }
+
+  // Where each pre-filled band came from — the examiner is confirming a number,
+  // and is owed its provenance before they do.
+  var DRAFT_SOURCE = {
+    listening: 'Tự tính từ số câu đúng',
+    reading:   'Tự tính từ số câu đúng',
+    writing:   'Gợi ý từ 2 bài đã chấm',
+  };
+
+  // Every skill in ai_draft is an object carrying `band`, but the payloads differ
+  // by author: listening/reading are {raw, band} from the auto-grader, writing is
+  // {band, task1_band, task2_band} from sync_writing_band_for_essay. A bare
+  // number is tolerated too — cheap, and the shape isn't pinned by a schema.
+  // (The L/R drafts were invisible because the caller tested the SKILL NAME, not
+  // the shape: `s === 'writing'`.)
+  function draftBandOf(draft, skill) {
+    var v = (draft || {})[skill];
+    if (v == null) return null;
+    if (typeof v === 'object') return v.band != null ? v.band : null;
+    return typeof v === 'number' ? v : null;
+  }
+
   function collectBands(v) {
     var fb = {};
-    reqSkills().forEach(function (s) { fb[s] = parseFloat(v.querySelector('[data-band="' + s + '"]').value); });
+    reqSkills().forEach(function (s) {
+      var n = parseFloat(v.querySelector('[data-band="' + s + '"]').value);
+      // OMIT a blank rather than sending NaN — NaN would serialise to null and
+      // read as "band unknown" for a skill that simply wasn't filled in.
+      if (!isNaN(n)) fb[s] = n;
+    });
     return fb;
   }
 
@@ -428,9 +784,16 @@
 
   async function doSave(id, v) {
     var fb = collectBands(v);
-    var skills = reqSkills();
-    if (skills.some(function (s) { return isNaN(fb[s]); })) {
-      toast('Nhập đủ ' + skills.length + ' band trước khi lưu.'); return;
+    var blankable = blankableSkills();
+    // Only a skill that HAS a band to give may be demanded. Listening 0/40 has
+    // no published band, so the old "all bands or nothing" gate blocked the save
+    // outright — and with it the whole result, for the one skill that could not
+    // be scored (Codex review, PR #779).
+    var missing = reqSkills().filter(function (s) {
+      return fb[s] == null && blankable.indexOf(s) === -1;
+    });
+    if (missing.length) {
+      toast('Còn thiếu band: ' + missing.join(', ') + '.'); return;
     }
     try {
       await window.api.post('/admin/mock-reviews/' + encodeURIComponent(id) + '/final-bands', {

@@ -52,7 +52,7 @@ input: "choice"
 headword: "im-gradable-vs-ungradable"
 skill: "contrast"
 subtype: "intermediate"
-prompt: "The two situations are actually quite different: her flat is ____ small, while his house is ____ huge."
+prompt: "Her flat is ____ small, while his house is ____ huge."
 options: ["very / absolutely", "absolutely / very", "very / very", "quite / quite"]
 answer: 0
 grammar_article_slug: "intensifiers-and-mitigators"

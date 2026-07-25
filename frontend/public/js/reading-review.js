@@ -82,6 +82,32 @@
     return (new URLSearchParams(window.location.search).get('anon') || '').trim() || null;
   }
 
+  // ── Back target ──────────────────────────────────────────────────
+  // This page has THREE entry points — the full-test library, the mini-test
+  // library, and a mock-exam result (mock-result.html) — so a single hardcoded
+  // back is wrong for two of them. Callers stamp ?from=; we map it through an
+  // ALLOWLIST (never navigate to a raw URL from the query string — that would be
+  // an open redirect). Unknown/absent → the full-test library, the historical
+  // default. The old href was /pages/reading.html, a page that never existed.
+  var BACK_TARGETS = {
+    full: { href: '/pages/reading-test.html', label: '← Thư viện' },
+    mini: { href: '/pages/reading-mini-test.html', label: '← Mini tests' },
+    mock: { href: '/pages/mock-result.html', label: '← Kết quả thi thử' },
+  };
+  function wireBack() {
+    var q = new URLSearchParams(window.location.search);
+    var t = BACK_TARGETS[(q.get('from') || '').trim()] || BACK_TARGETS.full;
+    var href = t.href;
+    // The mock result is per-sitting, so it needs its id to come back to.
+    if (t === BACK_TARGETS.mock) {
+      var sitting = (q.get('sitting') || '').trim();
+      if (sitting) href += '?sitting=' + encodeURIComponent(sitting);
+      else t = BACK_TARGETS.full, href = t.href;   // no id → can't return there
+    }
+    var el = $('rr-back');
+    if (el) { el.href = href; el.textContent = t.label; }
+  }
+
   // ── Compact top-bar summary (band + score) + skills popover ───────
   function renderSummary(d) {
     var band = (d.band_estimate != null) ? d.band_estimate : '—';
@@ -570,6 +596,8 @@
   }
 
   document.addEventListener('DOMContentLoaded', function () {
+    wireBack();                 // before the early return — the empty/error
+                                // states are exactly when a way out matters most
     var id = attemptIdFromUrl();
     if (!id) { showState('empty'); return; }
     load(id);

@@ -1,0 +1,51 @@
+# AUDIT F7 (2026-07-14) — manifest-based route-ownership verification.
+#
+# The source-walk checker (tooling/route-ownership-check.mjs, run inside
+# `node --test`) re-derives routes from file names — a heuristic. The artifact
+# that actually routes production traffic is .next/routes-manifest.json, so
+# this job builds and verifies against THAT truth: (1) zero drift between the
+# compiled manifest and the source heuristic (drift = the heuristic has a
+# blind spot), (2) zero ownership collisions computed from compiled routes.
+#
+# Scoped to the files that can change the route graph — the build costs ~2
+# minutes and is wasted on content-only PRs. The build has NO env/network
+# needs by design (plan B12: no fetch at build).
+name: Route manifest check
+
+on:
+  pull_request:
+    paths:
+      - 'frontend/app/**'
+      - 'frontend/next.config.ts'
+      - 'frontend/tooling/route-ownership-check.mjs'
+      - 'frontend/package-lock.json'
+      - '.github/workflows/route-manifest.yml'
+
+jobs:
+  route-manifest:
+    name: Build + verify routes-manifest ownership
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Build (produces .next/routes-manifest.json)
+        run: npm run build
+
+      - name: Verify route ownership against the compiled manifest
+        run: node tooling/route-ownership-check.mjs --manifest

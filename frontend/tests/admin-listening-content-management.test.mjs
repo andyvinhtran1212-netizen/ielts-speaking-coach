@@ -79,33 +79,16 @@ describe('Sprint 13.1 — content list page', () => {
     }
   });
 
-  test('"Tải MP3" card present (Sprint 13.2 — flipped to live link)', () => {
-    // Sprint 13.2 flipped the upload card from aria-disabled placeholder
-    // to a live link into /pages/admin/listening/upload.html.
-    assert.match(html, /data-create=["']upload["']/);
-    assert.match(html, /Tải MP3/);
-    const uploadCard = html.match(/<a[^>]*data-create=["']upload["'][^>]*>/);
-    assert.ok(uploadCard, 'upload card markup not found');
-    assert.match(
-      uploadCard[0],
-      /href=["']\/pages\/admin\/listening\/upload\.html["']/,
-      'upload card must link to /pages/admin/listening/upload.html (Sprint 13.2)',
-    );
-  });
-
-  test('"Render ElevenLabs" card live link (Sprint 13.3 flip)', () => {
-    // Sprint 13.3 flipped the render card from aria-disabled placeholder
-    // to a live link into /pages/admin/listening/render.html. The 13.1
-    // pin that required "Sắp ra mắt (Sprint 13.3)" text retires here.
-    assert.match(html, /data-create=["']render["']/);
-    const renderCard = html.match(/<a[^>]*data-create=["']render["'][^>]*>/);
-    assert.ok(renderCard, 'render card markup not found');
-    assert.match(
-      renderCard[0],
-      /href=["']\/pages\/admin\/listening\/render\.html["']/,
-      'render card must link to /pages/admin/listening/render.html (Sprint 13.3)',
-    );
-    assert.doesNotMatch(renderCard[0], /aria-disabled=["']true["']/);
+  test('decommissioned create cards stay gone (MP3 upload / render / audio cutter)', () => {
+    // 2026-07-17 usage audit: MP3 upload, ElevenLabs render, and the
+    // audio cutter were removed from the hub. Guard against re-adding
+    // dead links.
+    assert.doesNotMatch(html, /data-create=["']upload["']/);
+    assert.doesNotMatch(html, /data-create=["']render["']/);
+    assert.doesNotMatch(html, /data-create=["']audio-cutter["']/);
+    assert.doesNotMatch(html, /listening\/upload\.html/);
+    assert.doesNotMatch(html, /listening\/render\.html/);
+    assert.doesNotMatch(html, /listening\/audio-cutter\.html/);
   });
 
   test('edit-meta link in Actions points to content-meta.html?id=', () => {

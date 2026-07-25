@@ -44,6 +44,18 @@
     .qz-card { margin-top: var(--av-space-6); }
     .qz-prompt { font-size: var(--av-fs-lg); font-weight: var(--av-fw-semibold);
       line-height: var(--av-lh-snug); color: var(--av-text-primary); margin: 0; }
+    /* Per-type instruction line ("Chọn đáp án đúng." / "Gõ đáp án (2 từ).") —
+       the ONE consistent how-to-answer cue; authors no longer need to improvise
+       it inside every prompt. */
+    .qz-instr { margin: var(--av-space-2) 0 0; font-size: var(--av-fs-sm);
+      color: var(--av-text-muted); }
+    /* Authored hint (quiz_questions.hint, migration 159) — its own muted line
+       so gợi ý never bulks up the bold prompt again (audit 2026-07-17 §I). */
+    .qz-hint { margin: var(--av-space-2) 0 0; font-size: var(--av-fs-sm);
+      color: var(--av-text-secondary); }
+    /* One-line mode explainer under the progress bar (mastery mechanics). */
+    .qz-sub { margin: var(--av-space-2) 0 0; font-size: var(--av-fs-sm);
+      color: var(--av-text-muted); }
 
     /* Answer widgets — shared option button */
     .qz-options { display: flex; flex-direction: column; gap: var(--av-space-3);
@@ -178,6 +190,27 @@
       background var(--av-duration-fast) var(--av-easing-default); }
     .qz-res-chip:hover { border-color: var(--av-primary-border); background: var(--av-primary-soft); }
     .qz-res-chip:focus-visible { outline: none; box-shadow: var(--av-shadow-focus); }
+
+    /* Per-question review of the session ("Xem lại bài làm") */
+    .qz-rl-head { display: flex; align-items: center; justify-content: space-between;
+      gap: var(--av-space-3); }
+    .qz-rl-item { padding: var(--av-space-3) var(--av-space-4); margin-top: var(--av-space-3);
+      border-left: 3px solid var(--av-border-default);
+      border-radius: 0 var(--av-radius-md) var(--av-radius-md) 0;
+      background: var(--av-surface-sunken); }
+    .qz-rl-item.is-wrong { border-left-color: var(--av-error); }
+    .qz-rl-item.is-fixed { border-left-color: var(--av-warning); }
+    .qz-rl-item.is-right { border-left-color: var(--av-success); }
+    .qz-rl-prompt { color: var(--av-text-primary); font-weight: var(--av-fw-medium);
+      line-height: var(--av-lh-snug); }
+    .qz-rl-row { margin-top: var(--av-space-2); font-size: var(--av-fs-sm);
+      color: var(--av-text-secondary); }
+    .qz-rl-row .qz-fb__answer.is-wrong { color: var(--av-error); }
+    .qz-rl-row .qz-fb__answer.is-right { color: var(--av-success); }
+    .qz-rl-explain { margin-top: var(--av-space-2); font-size: var(--av-fs-sm);
+      color: var(--av-text-muted); line-height: var(--av-lh-relaxed); }
+    .qz-rl-empty { margin-top: var(--av-space-3); color: var(--av-text-muted);
+      font-size: var(--av-fs-sm); }
   </style>
 </head>
 <body class="av-page font-sans antialiased">
@@ -195,16 +228,32 @@
 
     <div id="qz-loading" class="qz-muted" style="padding:2rem 0;">Đang tải bài kiểm tra…</div>
 
+    <!-- Shown instead of the player when EVERY word in the bank is already
+         mastered, so re-opening a finished bank never dead-ends on an instant,
+         un-interactive result screen. -->
+    <div id="qz-gate" class="hidden">
+      <div class="qz-head"><h1 id="qz-gate-title">🎉 Bạn đã thuộc trọn vẹn bộ từ này!</h1></div>
+      <p id="qz-gate-sub" class="qz-muted">Ôn tập lại để củng cố trí nhớ, hoặc làm lại từ đầu nếu muốn kiểm tra nghiêm ngặt lại toàn bộ danh sách.</p>
+      <div class="qz-actions">
+        <button id="qz-gate-review" type="button" class="av-button av-button-primary">🔁 Ôn tập lại</button>
+        <button id="qz-gate-reset" type="button" class="av-button av-button-secondary">♻️ Làm lại từ đầu</button>
+      </div>
+      <p id="qz-gate-error" class="hidden qz-fb__verdict" style="color:var(--av-error);margin-top:var(--av-space-4);"></p>
+    </div>
+
     <div id="qz-main" class="hidden">
       <div class="qz-head">
         <h1 id="qz-title"></h1>
         <span id="qz-count" class="qz-count"></span>
       </div>
       <div class="qz-track"><div id="qz-bar" class="qz-bar"></div></div>
+      <p id="qz-sub" class="qz-sub"></p>
 
       <div id="qz-card" class="av-card qz-card">
         <div id="qz-audio" class="qz-audio hidden"></div>
         <p id="qz-prompt" class="qz-prompt"></p>
+        <p id="qz-hint" class="qz-hint hidden"></p>
+        <p id="qz-instr" class="qz-instr hidden"></p>
         <div id="qz-widget"></div>
         <div id="qz-feedback" class="hidden"></div>
         <div id="qz-actions" class="qz-actions hidden"></div>
@@ -225,7 +274,7 @@
           <div class="qz-res-tile__val" id="qz-res-q">–</div>
         </div>
         <div class="qz-res-tile">
-          <div class="qz-res-tile__label">Đã thuộc</div>
+          <div class="qz-res-tile__label" id="qz-res-mastered-label">Đã thuộc</div>
           <div class="qz-res-tile__val" id="qz-res-mastered">–</div>
         </div>
       </div>
@@ -244,7 +293,7 @@
             · <strong style="color:var(--av-error);" id="qz-res-wrong">0</strong></span>
         </div>
         <div class="qz-res-row" id="qz-res-hardest-row" style="display:none;">
-          <span class="qz-muted">Từ khó nhất</span>
+          <span class="qz-muted" id="qz-res-hardest-label">Từ khó nhất</span>
           <span class="qz-fb__answer" id="qz-res-hardest"></span>
         </div>
       </div>
@@ -253,7 +302,17 @@
       <div class="av-card qz-card hidden" id="qz-res-review">
         <div class="qz-sec__label">Cần ôn lại (<span id="qz-res-review-n">0</span>)</div>
         <div class="qz-chips" id="qz-res-chips" style="margin-top:var(--av-space-3);"></div>
-        <p class="qz-muted" style="margin-top:var(--av-space-2);">Bấm vào từ để xem nhanh thẻ từ.</p>
+        <p id="qz-res-review-hint" class="qz-muted" style="margin-top:var(--av-space-2);">Bấm vào từ để xem nhanh thẻ từ.</p>
+      </div>
+
+      <!-- Per-question review — every graded answer of the session, wrong-first
+           (audit 2026-07-17 §II: finishing used to discard all questions/answers). -->
+      <div class="av-card qz-card hidden" id="qz-res-log">
+        <div class="qz-rl-head">
+          <div class="qz-sec__label" style="margin-bottom:0;">Xem lại bài làm</div>
+          <button id="qz-res-log-toggle" type="button" class="av-button av-button-secondary av-button-sm"></button>
+        </div>
+        <div id="qz-res-log-list"></div>
       </div>
 
       <div class="qz-note qz-note--warn hidden" id="qz-res-warn">
@@ -294,6 +353,7 @@
   <script src="/js/api.js"></script>
   <script type="module">
     import { createEngine } from '/js/quiz-engine.js';
+    import { buildReviewList } from '/js/quiz-review.js';
 
     initSupabase('https://huwsmtubwulikhlmcirx.supabase.co',
                  'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao');
@@ -301,8 +361,19 @@
     const $ = (id) => document.getElementById(id);
     const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) =>
       ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
-    // Render **bold** + the ____ blank placeholder.
-    const fmt = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/_{4,}/g, '<u>&nbsp;&nbsp;&nbsp;</u>');
+    // Render **bold** + the ____ blank placeholder (authors use 2..n underscores;
+    // the canonical form is 4, but shorter blanks must still render as a blank).
+    const fmt = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/_{2,}/g, '<u>&nbsp;&nbsp;&nbsp;</u>');
+    // Marks a prompt as an audio question. Byte-identical to the token the backend
+    // import + serve paths key off, so all three agree on which prompts want audio.
+    const AUDIO_TOKEN = '{{audio}}';
+    // Display-only: drop the token AND any bold wrapper/padding around it. All 719
+    // live prompts today end with "  {{audio}}", which a bare strip + trim handles —
+    // but an authored `**{{audio}}**` would reduce to `****`, and fmt() leaves that
+    // as-is (its /\*\*(.+?)\*\*/ needs ≥1 char between the fences), putting raw
+    // markup back in front of the learner. Never widen AUDIO_TOKEN itself: the
+    // backend keys on the exact literal.
+    const AUDIO_TOKEN_RE = /\s*(?:\*\*)?\{\{audio\}\}(?:\*\*)?\s*/g;
 
     // Seeded PRNG (xmur3 hash → mulberry32) so the DISPLAYED option order is stable
     // per (session, qid) yet differs across students/sessions — defeating "the
@@ -336,9 +407,26 @@
     const _params = new URLSearchParams(location.search);
     const bankId = _params.get('bank');
     const skillArea = _params.get('skill_area');
+    // Grammar banks reuse this player but the copy must not talk about "từ/thẻ từ"
+    // (item_keys are grammar points, not words). Set once in wireChrome().
+    let isGrammar = false;
+    // Prettify an item_key slug for display (grammar keys like "art-definite-usage"
+    // would otherwise show as raw slugs in the hardest/review chips).
+    const keyLabel = (k) => isGrammar ? String(k).replace(/-/g, ' ') : String(k);
     let engine = null, sessionId = null, current = null, graded = false, startMs = Date.now();
     let pending = 0;   // attempts since last flush
+    // Per-answer log for the end-of-session review. Page-level (the engine keeps
+    // no history — attempts are drained to the backend), works in reviewMode too.
+    let sessionLog = [];
     let wordCards = {};   // lowercased headword → glance card (meaning/IPA/audio/example)
+    let bank = null, currentBankId = null;   // fetched once in boot(), reused by startPlay()
+    // A review pass (started from the "already mastered" gate) re-tests every
+    // word from scratch for reinforcement, but must be FULLY non-destructive:
+    // it must not touch ANY saved derived state. So nothing is POSTed to
+    // /progress — not word_stats (mastery cache) and not attempts (which the
+    // backend feeds into grammar KP evidence + class error-rate analytics).
+    // Only the session row (duration/accuracy) is persisted, at finish().
+    let reviewMode = false;
 
     // ── Audio: preload + cache so playback is instant and seamless ──────
     // Without this every 🔊 built a fresh Audio() and fetched on click (first play
@@ -388,6 +476,11 @@
     let authToken = null;                            // for the keepalive unload beacon
 
     function _mergeIntoOutbox(batch) {
+      // A review pass persists NOTHING via /progress (see `reviewMode` above):
+      // dropping attempts too keeps it from mutating grammar KP mastery or class
+      // error-rate analytics, not just the word_stats mastery cache. The engine
+      // batch is still drained (memory cleared) — it's simply discarded here.
+      if (reviewMode) return;
       if (batch.attempts.length) outbox.attempts = outbox.attempts.concat(batch.attempts);
       (batch.word_stats || []).forEach((w) => { outbox.word_stats[w.item_key] = w; });
     }
@@ -459,6 +552,14 @@
       if (q.input === 'boolean') return (q.answer === 1 || q.answer === true) ? 'Đúng' : 'Sai';
       if (q.input === 'text') return (Array.isArray(q.accept) && q.accept[0]) || '';
       return '';
+    }
+
+    // The learner's answer in display form (mirrors correctAnswerText).
+    function givenAnswerText(q, value) {
+      if (q.input === 'choice') return (q.options || [])[value];
+      if (q.input === 'syllable') return (q.segments || [])[value];
+      if (q.input === 'boolean') return value ? 'Đúng' : 'Sai';
+      return String(value == null ? '' : value);
     }
 
     function setActions(html) {
@@ -566,15 +667,59 @@
       const q = item.question;
       $('qz-feedback').classList.add('hidden'); $('qz-feedback').innerHTML = '';
       clearActions();
-      $('qz-prompt').innerHTML = fmt(q.prompt);
+      // `{{audio}}` is a player placeholder, not prompt text: the audio gets its own
+      // 🔊 control below, so strip the token rather than printing it at the learner.
+      // Collapse to one space so a mid-sentence token doesn't leave a double gap.
+      const rawPrompt = String(q.prompt || '');
+      $('qz-prompt').innerHTML = fmt(rawPrompt.replace(AUDIO_TOKEN_RE, ' ').trim());
 
-      // audio
+      // Authored hint (its own field since migration 159) — a muted line under
+      // the prompt, so gợi ý never bulks up the bold prompt text again.
+      const hintEl = $('qz-hint');
+      const hint = String(q.hint || '').trim();
+      hintEl.innerHTML = hint ? '💡 ' + fmt(hint) : '';
+      hintEl.classList.toggle('hidden', !hint);
+
+      // One consistent how-to-answer line per question TYPE (the audit found
+      // learners can't tell what to produce — esp. for typed answers). For text
+      // answers the expected word count is derived from accept[0] so the learner
+      // knows how much to type without the answer itself being revealed.
+      const instr = $('qz-instr');
+      let itxt = '';
+      if (q.input === 'boolean') {
+        itxt = 'Chọn Đúng hoặc Sai.';
+      } else if (q.input === 'choice') {
+        itxt = (q.type === 'gap_mcq' || /_{2,}/.test(rawPrompt))
+          ? 'Chọn từ/cụm đúng cho chỗ trống.' : 'Chọn đáp án đúng.';
+      } else if (q.input === 'syllable') {
+        itxt = 'Chọn một phương án.';
+      } else if (q.input === 'text') {
+        // Count shows for 1-word answers too: bank prompts no longer carry
+        // "write one word"-style tails (moved to `hint` / dropped, audit §I).
+        // Derived ONLY when every accepted variant agrees — accepts of mixed
+        // lengths ("The government" / "Government") must not advertise a
+        // "required" count the grader doesn't actually require.
+        const counts = (Array.isArray(q.accept) ? q.accept : [])
+          .map((a) => String(a).trim().split(/\s+/).length);
+        const n = counts.length && counts.every((c) => c === counts[0]) ? counts[0] : 0;
+        itxt = n >= 1 ? ('Gõ đáp án vào ô trống (' + n + ' từ).') : 'Gõ đáp án vào ô trống.';
+      }
+      instr.textContent = itxt;
+      instr.classList.toggle('hidden', !itxt);
+
+      // audio — a prompt that ASKS the learner to listen must stay answerable even
+      // when the pre-generated file isn't ready, so keep the button and fall back to
+      // TTS of the word (the same fallback the vocab glance card uses).
       const au = $('qz-audio');
-      if (q.audio_url) {
-        _getAudio(q.audio_url);   // start buffering NOW so the first play is instant
+      const wantsAudio = rawPrompt.includes(AUDIO_TOKEN);
+      if (q.audio_url || wantsAudio) {
+        if (q.audio_url) _getAudio(q.audio_url);   // start buffering NOW so the first play is instant
         au.innerHTML = '<button id="qz-play" type="button" class="av-button av-button-secondary av-button-sm">🔊 Nghe</button>';
         au.classList.remove('hidden');
-        $('qz-play').onclick = () => _playAudio(q.audio_url);
+        $('qz-play').onclick = () => {
+          if (q.audio_url) _playAudio(q.audio_url);
+          else _speak(q.item_key);
+        };
       } else { au.classList.add('hidden'); au.innerHTML = ''; }
 
       const w = $('qz-widget'); w.innerHTML = '';
@@ -613,8 +758,10 @@
         w.appendChild(box);
       } else { // text — needs typing, so a confirm button (Enter also works)
         const inp = document.createElement('input');
+        // No placeholder: the #qz-instr line already says "Gõ đáp án vào ô trống"
+        // — a third "type here" cue (audit 2026-07-17 D1) added noise, not help.
         inp.className = 'qz-input'; inp.id = 'qz-text'; inp.type = 'text';
-        inp.autocomplete = 'off'; inp.placeholder = 'Gõ đáp án…';
+        inp.autocomplete = 'off';
         inp.oninput = () => { const btn = $('qz-check'); if (btn) btn.disabled = !inp.value.trim(); };
         inp.onkeydown = (e) => { if (e.key === 'Enter' && inp.value.trim() && !graded) grade(inp.value); };
         w.appendChild(inp);
@@ -663,6 +810,19 @@
       // + a quick-glance vocab card link (when a card exists for this word).
       const artUrl = q && q.article_url;
       const corr = correctAnswerText(q);
+
+      // Log for the end-of-session review — the only place this answer survives
+      // (the engine drains attempts to the backend and keeps no history).
+      sessionLog.push({
+        qid: q.qid, item_key: current.item_key,
+        prompt: String(q.prompt || '').replace(AUDIO_TOKEN_RE, ' ').trim(),
+        hint: String(q.hint || '').trim() || null,
+        given: givenAnswerText(q, value),
+        correctText: corr,
+        correct: res.correct,
+        explain: q.explain || '',
+        article_url: artUrl || null,
+      });
       const cardKey = (current.item_key || '').toLowerCase();
       const hasCard = !!wordCards[cardKey];
       const fb = $('qz-feedback');
@@ -678,6 +838,12 @@
             ? '<div class="qz-fb__detail">Đáp án chuẩn: <span class="qz-fb__answer">' + fmt(String(res.corrected)) + '</span></div>'
             : '')
         + (res.explain ? '<div class="qz-fb__detail">' + fmt(res.explain) + '</div>' : '')
+        // Provisional credit is invisible on the progress bar (anti-guess) — say
+        // so, or a correct first MCQ looks like the app ignored the answer.
+        + ((res.correct && res.provisional)
+            ? '<div class="qz-fb__detail">Đã ghi nhận ✓ — trả lời đúng thêm 1 câu dạng khác của '
+              + (isGrammar ? 'điểm này' : 'từ này') + ' để được tính vào tiến độ.</div>'
+            : '')
         // Grammar: on a wrong answer, link back to the Wiki article to review.
         + ((!res.correct && artUrl)
             ? '<div><a class="qz-fb__review" href="' + esc(artUrl) + '" target="_blank" rel="noopener">📖 Ôn lại bài</a></div>'
@@ -697,7 +863,7 @@
 
     function updateProgress() {
       const p = engine.progress();
-      $('qz-count').textContent = 'Đã thuộc ' + p.mastered + '/' + p.total;
+      $('qz-count').textContent = (isGrammar ? 'Đã nắm ' : 'Đã thuộc ') + p.mastered + '/' + p.total;
       $('qz-bar').style.width = (p.total ? Math.round(p.mastered / p.total * 100) : 0) + '%';
     }
 
@@ -710,6 +876,59 @@
     function fmtDuration(sec) {
       sec = Math.max(0, Math.round(sec));
       return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
+    }
+
+    // ── "Xem lại bài làm" — per-question review on the result screen ────
+    // Wrong-only by default (the ask was "review lại các câu sai"); a toggle
+    // shows everything. Items are the LAST attempt per question: the adaptive
+    // loop re-asks until correct, so a question answered wrong then fixed shows
+    // as "fixed" (amber) with a wrong-count badge, not as a false "sai".
+    let _reviewList = [], _reviewWrongOnly = true;
+
+    function reviewItemHtml(it) {
+      const lastWrong = !it.correct;
+      const cls = lastWrong ? 'is-wrong' : (it.wrongCount > 0 ? 'is-fixed' : 'is-right');
+      return '<div class="qz-rl-item ' + cls + '">'
+        + '<div class="qz-rl-prompt">' + fmt(it.prompt) + '</div>'
+        + (it.hint ? '<div class="qz-rl-row">💡 ' + fmt(it.hint) + '</div>' : '')
+        // A fixed question shows what the learner actually got wrong first —
+        // that's what they came to review — then the final correct answer.
+        + (it.wrongCount > 0 && !lastWrong && it.wrongGiven != null
+            ? '<div class="qz-rl-row">Từng trả lời sai: <span class="qz-fb__answer is-wrong">'
+              + fmt(String(it.wrongGiven)) + '</span> ✗'
+              + (it.wrongCount > 1 ? ' <span class="qz-muted">(sai ' + it.wrongCount + ' lần)</span>' : '')
+              + '</div>'
+            : '')
+        + '<div class="qz-rl-row">' + (it.wrongCount > 0 && !lastWrong ? 'Sau đó trả lời đúng: ' : 'Bạn trả lời: ')
+          + '<span class="qz-fb__answer '
+          + (lastWrong ? 'is-wrong' : 'is-right') + '">' + fmt(String(it.given == null ? '' : it.given))
+          + '</span>' + (lastWrong ? ' ✗' : ' ✓')
+          + '</div>'
+        + (lastWrong && it.correctText
+            ? '<div class="qz-rl-row">Đáp án đúng: <span class="qz-fb__answer is-right">'
+              + fmt(String(it.correctText)) + '</span></div>'
+            : '')
+        + (it.explain ? '<div class="qz-rl-explain">' + fmt(it.explain) + '</div>' : '')
+        + (it.article_url
+            ? '<div><a class="qz-fb__review" href="' + esc(it.article_url)
+              + '" target="_blank" rel="noopener">📖 Ôn lại bài</a></div>'
+            : '')
+        + '</div>';
+    }
+
+    function renderReviewLog() {
+      const card = $('qz-res-log');
+      if (!_reviewList.length) { card.classList.add('hidden'); return; }
+      card.classList.remove('hidden');
+      const wrongs = _reviewList.filter((it) => it.wrongCount > 0);
+      const showing = _reviewWrongOnly ? wrongs : _reviewList;
+      const btn = $('qz-res-log-toggle');
+      btn.textContent = _reviewWrongOnly
+        ? ('Hiện tất cả (' + _reviewList.length + ')')
+        : ('Chỉ câu sai (' + wrongs.length + ')');
+      $('qz-res-log-list').innerHTML = showing.length
+        ? showing.map(reviewItemHtml).join('')
+        : '<p class="qz-rl-empty">🎉 Không sai câu nào trong phiên này.</p>';
     }
 
     // Fill the end-of-session result screen from the in-memory summary (no fetch —
@@ -727,7 +946,7 @@
       // Hardest word (only meaningful when it took more than one attempt).
       if (s.hardest && s.hardest.key && s.hardest.attempts > 1) {
         $('qz-res-hardest-row').style.display = '';
-        $('qz-res-hardest').textContent = s.hardest.key + ' · ' + s.hardest.attempts + ' lần';
+        $('qz-res-hardest').textContent = keyLabel(s.hardest.key) + ' · ' + s.hardest.attempts + ' lần';
       }
 
       // Words to review — chips; those with a glance card open the popup on click.
@@ -741,11 +960,20 @@
           const has = !!wordCards[key];
           const el = document.createElement(has ? 'button' : 'span');
           el.className = 'qz-chip' + (has ? ' qz-res-chip' : '');
-          el.textContent = k;
+          el.textContent = keyLabel(k);
           if (has) { el.type = 'button'; el.onclick = () => openCard(key, el); }
           box.appendChild(el);
         });
       }
+      // Per-question review (wrong-only first; toggle to all).
+      _reviewList = buildReviewList(sessionLog);
+      _reviewWrongOnly = true;
+      renderReviewLog();
+      $('qz-res-log-toggle').onclick = () => {
+        _reviewWrongOnly = !_reviewWrongOnly;
+        renderReviewLog();
+      };
+
       if (!ok) $('qz-res-warn').classList.remove('hidden');
     }
 
@@ -786,18 +1014,55 @@
       return banks[0].id;
     }
 
-    async function boot() {
-      const resolvedBankId = await resolveBankId();
-      if (!resolvedBankId) return;   // resolveBankId already showed the message / redirected
-      let bank;
-      try { bank = await window.api.get('/api/quiz/banks/' + encodeURIComponent(resolvedBankId)); }
-      catch (e) { return fail('Không tải được bài: ' + e.message); }
-      if (!bank || !bank.questions || !bank.questions.length) return fail('Bài chưa có câu hỏi.');
+    // Chrome highlight + back links match the bank's area (grammar → Grammar
+    // Wiki, else Vocabulary). Back labels are set here (never hard-coded in
+    // markup) so the area is authoritative.
+    // Both back controls (top header + end-screen) point at the SAME place —
+    // the practice picker the user came from — so "back" is never ambiguous.
+    // grammar → Grammar Wiki; vocab → the lesson picker (vocab-practice), NOT
+    // the public word wiki (which is a different "Vocabulary" page).
+    function wireChrome(bank) {
+      const topBack = $('qz-top-back'), topLabel = $('qz-top-back-label'), back = $('qz-back');
+      const chrome = document.querySelector('aver-chrome');
+      isGrammar = !!(bank.bank && bank.bank.skill_area === 'grammar');
+      // Area-correct copy: the player was written for vocab ("từ") — on a grammar
+      // bank every "từ"-flavored string must speak about grammar points instead.
+      if (isGrammar) {
+        $('qz-gate-title').textContent = '🎉 Bạn đã nắm trọn vẹn các điểm ngữ pháp của bài này!';
+        $('qz-gate-sub').textContent = 'Ôn tập lại để củng cố, hoặc làm lại từ đầu nếu muốn kiểm tra nghiêm ngặt lại toàn bộ bài.';
+        $('qz-res-mastered-label').textContent = 'Đã nắm';
+        $('qz-res-hardest-label').textContent = 'Điểm khó nhất';
+        $('qz-res-review-hint').classList.add('hidden');   // grammar has no vocab glance cards
+        $('qz-sub').textContent = 'Trả lời đúng mỗi điểm ngữ pháp ở nhiều dạng câu (có ít nhất 1 câu tự gõ) để được tính là nắm — bài sẽ tự lặp lại điểm bạn còn sai.';
+      } else {
+        $('qz-sub').textContent = 'Trả lời đúng mỗi từ ở nhiều dạng câu (có ít nhất 1 câu tự gõ) để được tính là thuộc — bài sẽ tự lặp lại từ bạn còn sai.';
+      }
+      if (bank.bank && bank.bank.skill_area === 'grammar') {
+        if (chrome) chrome.setAttribute('active', 'grammar');
+        topBack.href = '/grammar.html'; topLabel.textContent = 'Grammar';
+        back.href = '/grammar.html'; back.textContent = '← Về Grammar';
+      } else {
+        if (chrome) chrome.setAttribute('active', 'vocabulary');
+        topBack.href = '/pages/vocab-practice.html'; topLabel.textContent = 'Luyện tập';
+        back.href = '/pages/vocab-practice.html'; back.textContent = '← Về Luyện tập';
+      }
+    }
 
+    // Start a real play session — the normal first-visit path AND the "Ôn tập
+    // lại" action from the mastered gate both funnel through here. `opts.review`
+    // gates both the resume source and whether progress is persisted.
+    async function startPlay(opts) {
+      const review = !!(opts && opts.review);
       let start;
-      try { start = await window.api.post('/api/quiz/sessions', { bank_id: resolvedBankId }); }
+      try { start = await window.api.post('/api/quiz/sessions', { bank_id: currentBankId }); }
       catch (e) { return fail('Không tạo được phiên: ' + e.message); }
       sessionId = start.session_id;
+      reviewMode = review;
+      // Reset the clock to session-start: excludes bank-load time and, crucially,
+      // any idle time spent on the mastered gate before "Ôn tập lại" — otherwise
+      // finish() would report that idle time as practice duration.
+      startMs = Date.now();
+      sessionLog = [];   // fresh review log per play (startPlay is re-entrant via the gate)
 
       // Cache the access token for the keepalive unload beacon (which needs the
       // Authorization header synchronously, before the page tears down).
@@ -808,7 +1073,12 @@
 
       // Seed the engine with the session id so word order + variant tie-breaks are
       // randomized per session (no two students get an identical question sequence).
-      engine = createEngine(bank, { resume: start.resume || [], seed: sessionId });
+      // Normal play seeds from start.resume — the fresh, fail-closed read done
+      // INSIDE start_session (not the earlier precheck GET, which can be stale if
+      // another tab/device advanced mastery in between → a stale engine could
+      // upsert lower word_stats over newer mastery). Review starts from scratch.
+      const resume = review ? [] : (start.resume || []);
+      engine = createEngine(bank, { resume: resume, seed: sessionId });
       wordCards = (bank && bank.word_cards) || {};
       // Map item_key(lower) → its first question audio_url, so _prefetchUpcoming can
       // warm the audio of words still down the queue before they're shown.
@@ -818,33 +1088,63 @@
         if (k && q.audio_url && !_audioByKey[k]) _audioByKey[k] = q.audio_url;
       });
       $('qz-loading').classList.add('hidden');
+      $('qz-gate').classList.add('hidden');
       $('qz-main').classList.remove('hidden');
       $('qz-title').textContent = (bank.bank && (bank.bank.title || bank.bank.code)) || 'Quick-Check';
-
-      // Chrome highlight + back links match the bank's area (grammar → Grammar
-      // Wiki, else Vocabulary). Back labels are set here (never hard-coded in
-      // markup) so the area is authoritative.
-      // Both back controls (top header + end-screen) point at the SAME place —
-      // the practice picker the user came from — so "back" is never ambiguous.
-      // grammar → Grammar Wiki; vocab → the lesson picker (vocab-practice), NOT
-      // the public word wiki (which is a different "Vocabulary" page).
-      const topBack = $('qz-top-back'), topLabel = $('qz-top-back-label'), back = $('qz-back');
-      const chrome = document.querySelector('aver-chrome');
-      if (bank.bank && bank.bank.skill_area === 'grammar') {
-        if (chrome) chrome.setAttribute('active', 'grammar');
-        topBack.href = '/grammar.html'; topLabel.textContent = 'Grammar';
-        back.href = '/grammar.html'; back.textContent = '← Về Grammar';
-      } else {
-        if (chrome) chrome.setAttribute('active', 'vocabulary');
-        topBack.href = '/pages/vocab-practice.html'; topLabel.textContent = 'Luyện tập';
-        back.href = '/pages/vocab-practice.html'; back.textContent = '← Về Luyện tập';
-      }
 
       updateProgress();
       advance();
       // pagehide is the reliable "leaving" signal (mobile-safe); use a keepalive
       // beacon so buffered progress survives the unload.
       window.addEventListener('pagehide', flushBeacon);
+    }
+
+    function showMasteredGate() {
+      $('qz-loading').classList.add('hidden');
+      $('qz-gate').classList.remove('hidden');
+    }
+
+    $('qz-gate-review').onclick = () => startPlay({ review: true });
+    $('qz-gate-reset').onclick = async () => {
+      if (!confirm('Xoá toàn bộ tiến độ "đã thuộc" của bài này và làm lại từ đầu?')) return;
+      const reviewBtn = $('qz-gate-review'), resetBtn = $('qz-gate-reset'), err = $('qz-gate-error');
+      reviewBtn.disabled = true; resetBtn.disabled = true;
+      err.classList.add('hidden');
+      try {
+        await window.api.post('/api/quiz/banks/' + encodeURIComponent(currentBankId) + '/reset', {});
+      } catch (e) {
+        reviewBtn.disabled = false; resetBtn.disabled = false;
+        err.textContent = 'Không xoá được tiến độ: ' + e.message;
+        err.classList.remove('hidden');
+        return;
+      }
+      location.reload();   // re-run boot() fresh — resume is now empty, full test restarts
+    };
+
+    async function boot() {
+      const resolvedBankId = await resolveBankId();
+      if (!resolvedBankId) return;   // resolveBankId already showed the message / redirected
+      currentBankId = resolvedBankId;
+      try { bank = await window.api.get('/api/quiz/banks/' + encodeURIComponent(resolvedBankId)); }
+      catch (e) { return fail('Không tải được bài: ' + e.message); }
+      if (!bank || !bank.questions || !bank.questions.length) return fail('Bài chưa có câu hỏi.');
+      wireChrome(bank);
+
+      let resume;
+      try { resume = await window.api.get('/api/quiz/banks/' + encodeURIComponent(resolvedBankId) + '/resume'); }
+      catch (e) { return fail('Không tải được tiến độ: ' + e.message); }
+
+      // Precheck: if every word is already mastered, starting a session would
+      // immediately hit an empty queue and dead-end on a blank result screen
+      // (engine.next() returns null by design — see quiz-engine.test.mjs).
+      // Offer the gate instead of creating a wasted 0-question session.
+      const check = createEngine(bank, { resume: resume || [] });
+      const p = check.progress();
+      if (p.total > 0 && p.remaining === 0) return showMasteredGate();
+
+      // Normal play re-reads resume inside start_session (fail-closed) and seeds
+      // from THAT, so this precheck read is only used for the gate decision.
+      await startPlay({ review: false });
     }
 
     boot();

@@ -343,6 +343,23 @@
     return (new URLSearchParams(window.location.search).get('share') || '').trim() || null;
   }
 
+  // ── Back target ──────────────────────────────────────────────────
+  // This page serves BOTH reading libraries (reading-test.html = full,
+  // reading-mini-test.html = mini), which stamp ?from= on the link in. The back
+  // buttons used to hardcode the FULL library, so a mini-test taker was sent to
+  // the wrong shelf. Map through an ALLOWLIST — never navigate to a raw URL from
+  // the query string. Unknown/absent → full, the historical default.
+  var BACK_TARGETS = { full: '/pages/reading-test.html', mini: '/pages/reading-mini-test.html' };
+  function originFromUrl() {
+    var v = (new URLSearchParams(window.location.search).get('from') || '').trim();
+    return BACK_TARGETS[v] ? v : 'full';
+  }
+  function wireBack() {
+    var href = BACK_TARGETS[originFromUrl()];
+    document.querySelectorAll('a.exam-btn[href="/pages/reading-test.html"]')
+      .forEach(function (a) { a.href = href; });
+  }
+
   // Sprint 20.11 D5 — surface a resume affordance on pre-start when an
   // open attempt is detected. The 20.6 boot auto-resumed; that meant a
   // student stuck mid-attempt could not see the pre-start screen again
@@ -656,37 +673,18 @@
           }
         }
 
-        // Sprint 20.14e — summary_completion FLOWING block (Standards §2A.10
-        // / §2A.11). When the first Q in a summary_completion run carries
-        // `template.summary_text`, render the WHOLE run as one prose
-        // paragraph in a `.exam-gap-box` with inline inputs (or selects
-        // for the word-bank variant) at each `{{N}}` marker. The legacy
-        // per-Q card rendering is the fallback for runs without
-        // summary_text — kept for back-compat with seeds that pre-date
-        // 20.14e. See reading_content_format_v2.md §4.2 (Sprint 20.14e
-        // sub-section) for the authoring contract.
-        // reading-header-notefill B — note_completion joins this path: an
-        // authentic IELTS note/summary is ONE connected block with the
-        // numbered blanks inline, not per-Q rows. Both carry the flowing
-        // template ({{N}} markers) on the run's first Q.
-        if ((type === 'summary_completion' || type === 'notes_completion') &&
-            run[0].payload && run[0].payload.template &&
-            typeof run[0].payload.template.summary_text === 'string') {
-          var sumBox = _renderFlowingSummaryBlock(run);
-          groupEl.appendChild(sumBox);
-          host.appendChild(groupEl);
-          return; // skip the per-Q card path entirely for this run
-        }
-
         // Sprint 20.14f-α — diagram_label / flow_chart with admin-
         // uploaded image (Standards §2A.13 / §2A.12 image variant). The
         // student fetch surfaces a signed `payload.image_url` on the
         // FIRST Q of a diagram/flow run when an admin has uploaded an
         // image; the renderer emits ONE `.exam-diagram-container` with
         // the image on top + a numbered side-list of inputs below.
-        // Runs without an image fall through to the legacy mono-block
+        // Runs without an image fall through to the flowing / mono-block
         // path below (back-compat — admins upload an image when the
         // diagram is ready; legacy seeds keep working until then).
+        // reading-completion-flowing-fix — this MUST run BEFORE the
+        // flowing-block check so an uploaded diagram/flow image always
+        // wins over the shared-summary_text path.
         if ((type === 'diagram_label_completion' || type === 'flow_chart_completion') &&
             run[0].payload && typeof run[0].payload.image_url === 'string' &&
             run[0].payload.image_url) {
@@ -694,6 +692,39 @@
           groupEl.appendChild(diagramBox);
           host.appendChild(groupEl);
           return; // skip the mono-block path for this run
+        }
+
+        // Sprint 20.14e — completion FLOWING block (Standards §2A.10 /
+        // §2A.11). When the first Q of a completion run carries
+        // `template.summary_text` (with `{{N}}` markers), render the WHOLE
+        // run as ONE flowing block in a `.exam-gap-box` with inline inputs
+        // (or selects for the word-bank variant) at each `{{N}}` marker.
+        // The legacy per-Q card rendering is the fallback for runs without
+        // summary_text — kept for back-compat with seeds that pre-date
+        // 20.14e. See reading_content_format_v2.md §4.2 for the contract.
+        // reading-header-notefill B — note_completion joins this path: an
+        // authentic IELTS note/summary is ONE connected block with the
+        // numbered blanks inline, not per-Q rows.
+        // reading-completion-flowing-fix — the flowing path now covers
+        // EVERY completion type authors emit with the shared-summary_text +
+        // "(see summary above)" pattern (sentence / table / form / flow-
+        // chart / diagram — not just summary / notes). Before this, those
+        // types fell through to the mono-block per-Q path, which showed the
+        // placeholder prompt with the summary_text + its {{N}} gaps NEVER
+        // rendered → the whole run was UNANSWERABLE. The diagram/flow image
+        // variant is handled above (image wins); only no-image runs reach
+        // here. New types are listed FIRST so the tail keeps the original
+        // `summary_completion || notes_completion)` shape (pinned by tests).
+        if ((type === 'sentence_completion' || type === 'table_completion' ||
+             type === 'form_completion' || type === 'flow_chart_completion' ||
+             type === 'diagram_label_completion' ||
+             type === 'summary_completion' || type === 'notes_completion') &&
+            run[0].payload && run[0].payload.template &&
+            typeof run[0].payload.template.summary_text === 'string') {
+          var sumBox = _renderFlowingSummaryBlock(run);
+          groupEl.appendChild(sumBox);
+          host.appendChild(groupEl);
+          return; // skip the per-Q card path entirely for this run
         }
 
         // Sprint 20.14a T1.1 / T1.3 — wrap completion runs in a `.gap-box`
@@ -775,6 +806,22 @@
   // the `<input>`/`<select>` carries `name="q-N"` so the existing
   // change/input/readAnswer/restoreAnswers path keeps grading per Q.
   var _SUMMARY_MARKER_RE = /\{\{\s*(\d{1,3})\s*\}\}/g;
+  // reading-completion-flowing-fix — completion types whose summary_text keeps
+  // a MULTI-LINE layout render via a line-preserving branch; only
+  // summary_completion falls through to one justified prose paragraph.
+  // reading-completion-mono-fix — two flavours: the MONO types (table /
+  // flow-chart / diagram) convey columns/steps through spacing + indentation,
+  // so they need a whitespace-preserving pre-wrap MONO block — the note-heading
+  // parser's `line.trim()` + per-line <div> would collapse that alignment
+  // (`--notes` sets only line-height, not white-space: pre-wrap). notes /
+  // sentence / form are line-based prose → the note parser is correct. Both
+  // maps built once at module scope, not rebuilt per render call.
+  var MONO_LAYOUT = {
+    table_completion: 1, flow_chart_completion: 1, diagram_label_completion: 1,
+  };
+  var STRUCTURED_LAYOUT = {
+    notes_completion: 1, form_completion: 1, sentence_completion: 1,
+  };
   function _renderFlowingSummaryBlock(run) {
     var first = run[0];
     var template = first.payload.template.summary_text;
@@ -785,13 +832,15 @@
     var byQNum = {};
     run.forEach(function (q) { byQNum[q.q_num] = q; });
 
-    // reading-header-notefill B — notes keep the connected-block path but need
-    // their line/bullet structure preserved (a --notes modifier flips the
-    // prose to white-space: pre-wrap).
-    var isNotes = first.question_type === 'notes_completion';
+    // reading-completion-mono-fix — pick layout: MONO (pre-wrap monospace for
+    // table/flow/diagram), NOTES (line parser for notes/sentence/form), PROSE.
+    var qType   = first.question_type;
+    var isMono  = !!MONO_LAYOUT[qType];
+    var isNotes = !!STRUCTURED_LAYOUT[qType];
     var box = document.createElement('div');
-    box.className = 'exam-gap-box exam-gap-box--summary' + (isNotes ? ' exam-gap-box--notes' : '');
-    box.setAttribute('data-question-type', first.question_type || 'summary_completion');
+    box.className = 'exam-gap-box exam-gap-box--summary'
+      + (isNotes ? ' exam-gap-box--notes' : '');
+    box.setAttribute('data-question-type', qType || 'summary_completion');
 
     var src = String(template || '');
 
@@ -844,7 +893,14 @@
       if (last < text.length) container.appendChild(document.createTextNode(text.slice(last)));
     }
 
-    if (isNotes) {
+    if (isMono) {
+      // reading-completion-mono-fix — table/flow/diagram convey structure via
+      // spacing; render summary_text in ONE pre-wrap mono block so columns survive.
+      var mono = document.createElement('div');
+      mono.className = 'exam-summary__mono';
+      _fillTemplate(mono, src);
+      box.appendChild(mono);
+    } else if (isNotes) {
       // reading-review-locate-exam-format B1 — render notes as a STRUCTURED
       // block: the first non-blank line is the title, bullet lines ("• …") get
       // a styled marker, and other non-blank/no-blank lines are sub-headings —
@@ -1961,7 +2017,10 @@
       // page replays it as X-Reading-Anon). Authed takers use their session.
       var anonSuffix = (SESSION.share_mode && _getAnonId())
         ? '&anon=' + encodeURIComponent(_getAnonId()) : '';
-      chuaBai.href = '/pages/reading-review.html?attempt_id=' + encodeURIComponent(result.attempt_id) + anonSuffix;
+      // Carry the origin through to the review page too — it has the same
+      // both-libraries problem and would otherwise guess.
+      chuaBai.href = '/pages/reading-review.html?attempt_id=' + encodeURIComponent(result.attempt_id)
+        + anonSuffix + '&from=' + originFromUrl();
       chuaBai.hidden = false;
     }
 
@@ -2545,6 +2604,8 @@
   }
 
   function boot() {
+    wireBack();                 // before any early return — the error state is
+                                // exactly when a working way out matters most
     // Share-link mode wins when `?share=<token>` is present (anonymous, no
     // test_id needed). Otherwise the normal authed `?test_id=…` path.
     var shareToken = shareTokenFromUrl();
