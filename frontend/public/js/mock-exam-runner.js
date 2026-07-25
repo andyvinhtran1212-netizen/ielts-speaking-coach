@@ -98,6 +98,9 @@
   // genuinely cannot fix.
   var SUBMIT_RETRY_DELAYS = [2000, 5000, 10000, 20000];
   var _pollFails = 0;
+  // A section whose submit exhausted its retry ladder. Held so a later
+  // successful poll or an `online` event can finish the job.
+  var _owedSubmit = null;
 
   var _CONN_MSG = {
     offline: '⚠ Đang mất kết nối với máy chủ — bài của bạn vẫn được giữ, hệ thống sẽ tự thử lại.',
@@ -119,6 +122,7 @@
       loadState(true).then(function () {
         // Recovered — clear the warning rather than leaving it to rot.
         if (_pollFails) { _pollFails = 0; setConn(null); }
+        retryOwedSubmit();
       }).catch(function () {
         // One miss is noise; two in a row is a real problem worth telling the
         // student about. Polling deliberately keeps running either way.
@@ -628,13 +632,25 @@
         _submitting = false;
         return fail('Không nộp được bài: ' + (e && e.message ? e.message : e));
       }
-      // 409 = the invigilator already collected this section, or the exam moved
-      // on. That is the exam working correctly, not a failure — re-read state
-      // and follow it into the waiting room.
+      // 409 can mean two very different things. The backend maps EVERY
+      // SittingConflictError to 409 — "already collected / exam moved on" but
+      // also "clock hasn't run out" and "prior section not submitted". Treating
+      // them all as success stopped the timer and left the student parked at
+      // 00:00 with no further attempt and no warning. So: re-read state, and
+      // only accept it if the section really is done or the exam really moved
+      // on (Codex review, PR #836).
       if (st === 409) {
-        _submitting = false;
-        setConn(null);
-        return loadState().catch(function () {});
+        try {
+          await loadState();
+        } catch (e2) { /* fall through to the retry ladder below */ }
+        var sit = S.sitting || {};
+        if (sit[section + '_submitted_at'] || S.activeSection !== section) {
+          _submitting = false;
+          setConn(null);
+          return;                       // genuinely collected / moved on
+        }
+        // Still our open, unsubmitted section — this was a different conflict.
+        // Keep trying rather than silently stranding the student.
       }
       if (attempt < SUBMIT_RETRY_DELAYS.length) {
         setConn('submitting');
@@ -645,9 +661,14 @@
       }
       // Budget spent. Do NOT kill the page: the answers are already persisted
       // server-side (per-answer autosave for L/R, the Writing draft for W), so
-      // the admin's sweep still collects this student. Keep polling — if the
-      // connection returns, the next poll picks the exam back up.
+      // the admin's sweep still collects this student. Keep polling — and
+      // REMEMBER the submission, because polling alone never retried it: a
+      // successful poll for the same active section only resynced the clock
+      // while timerIv stayed null, so the student sat at 00:00 forever and the
+      // submit endpoint (including Writing's auto-grading) never ran
+      // (Codex review, PR #836).
       _submitting = false;
+      _owedSubmit = section;
       setConn('submit_failed');
       startPolling();
       return;
@@ -696,8 +717,25 @@
   });
   window.addEventListener('online', function () {
     _pollFails = 0;
-    loadState().then(function () { setConn(null); }).catch(function () {});
+    loadState().then(function () { setConn(null); retryOwedSubmit(); })
+      .catch(function () {});
   });
+
+  // Finish a submission whose retry ladder ran out, once the connection is
+  // demonstrably back. Guarded so it only fires while that section is still
+  // genuinely open and unsubmitted.
+  function retryOwedSubmit() {
+    if (!_owedSubmit || _submitting) return;
+    var section = _owedSubmit;
+    var sit = S.sitting || {};
+    if (sit[section + '_submitted_at'] || S.activeSection !== section) {
+      _owedSubmit = null;               // the sweep or the admin got there first
+      setConn(null);
+      return;
+    }
+    _owedSubmit = null;
+    submitSection(section, true);
+  }
 
   boot();
 })();

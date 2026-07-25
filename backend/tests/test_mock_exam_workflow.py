@@ -2344,6 +2344,19 @@ def test_collect_is_idempotent(fake_db, svc):
     assert svc.collect_section(exam["id"], "admin-1")["collected"] == 0
 
 
+def test_collect_counts_only_papers_actually_taken(fake_db, svc, monkeypatch):
+    """Codex #843 (correct): _collect_section_for_sitting swallows every
+    exception, but the counter incremented regardless — so /collect reported a
+    paper as collected when the update had failed, and the next poll silently
+    contradicted the success message."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+
+    monkeypatch.setattr(svc, "_collect_section_for_sitting", lambda *a, **k: False)
+    assert svc.collect_section(exam["id"], "admin-1")["collected"] == 0
+
+
 def test_collect_rejected_before_the_exam_starts(fake_db, svc):
     exam = _seed_exam(fake_db)
     with pytest.raises(svc.SittingConflictError):
@@ -2520,6 +2533,29 @@ def test_open_exam_list_reports_what_is_blocking(fake_db, svc):
     assert by_id[a["id"]]["my_sitting_id"] == str(mine["id"])
     assert by_id[b["id"]]["blocked_by_sitting_id"] == str(mine["id"])
     assert by_id[b["id"]]["my_sitting_id"] is None
+
+
+def test_own_exam_stays_listed_after_the_gate_closes(fake_db, svc):
+    """Codex #841 (correct): an admin closing the live toggle to block late
+    entrants dropped the exam from the list BEFORE my_sitting_id could be
+    attached — so the entry page showed the empty state instead of the promised
+    resume link, to precisely the student who is mid-exam."""
+    exam = _seed_exam(fake_db)
+    u = uuid4()
+    mine = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.set_open(exam["id"], False, "admin-1")          # block late entrants
+
+    listed = {e["id"]: e for e in svc.list_open_exams(u)}
+    assert exam["id"] in listed
+    assert listed[exam["id"]]["my_sitting_id"] == str(mine["id"])
+
+
+def test_closed_exam_stays_hidden_from_everyone_else(fake_db, svc):
+    """The relaxation is for the ONE person holding a sitting, nobody else."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.set_open(exam["id"], False, "admin-1")
+    assert svc.list_open_exams(uuid4()) == []
 
 
 def test_retake_assign_requires_a_closing_bound(fake_db):
