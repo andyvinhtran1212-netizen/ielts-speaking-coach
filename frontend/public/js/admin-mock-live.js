@@ -273,8 +273,14 @@
     if (!confirm('Thu lại phần ' + (SECTION_LABEL[section] || section) +
                  ' của kỳ "' + ex.code + '"?\n\nCác bài chưa thu sẽ được thu như hiện trạng.')) return;
     return guard(btn, function () {
+      // from_section is REQUIRED by the endpoint (the stale-screen guard), and
+      // a recovery click is by definition made from a screen showing a LATER
+      // section — or 'done'. Sending the section we are recovering as both
+      // would 409; sending nothing 422s before the preflight even runs, which
+      // made the advertised recovery path unusable (Codex review, PR #844).
       return window.api.post('/admin/mock-exams/' + encodeURIComponent(ex.id) +
-        '/collect?section=' + encodeURIComponent(section), {})
+        '/collect?section=' + encodeURIComponent(section) +
+        '&from_section=' + encodeURIComponent(ex.active_section), {})
         .then(function (r) {
           toast('Đang thu lại ' + r.pending + ' bài phần ' + (SECTION_LABEL[r.section] || r.section) + '…');
           return load();

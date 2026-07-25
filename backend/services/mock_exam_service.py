@@ -2043,6 +2043,24 @@ def _collect_section_for_sitting(sitting: dict, section: str) -> bool:
             "[mock-exam] force-collect failed sitting=%s section=%s",
             sitting["id"], section,
         )
+        # RELEASE THE CLAIM. The stamp is written BEFORE grading / Writing
+        # promotion / terminal reconciliation, so a failure after it left the
+        # paper looking submitted to every later sweep — which select only null
+        # stamps — while nothing had been graded. The monitor showed it in, the
+        # recovery button never offered it, and the attempt stayed ungraded
+        # forever (Codex review, PR #844). Rolling the stamp back makes the row
+        # claimable again, which is what both the retry and the admin's "thu
+        # lại" depend on.
+        try:
+            supabase_admin.table("mock_exam_sittings").update({col: None}).eq(
+                "id", sitting["id"],
+            ).execute()
+        except Exception:  # noqa: BLE001 — nothing further we can do here
+            logger.exception(
+                "[mock-exam] force-collect: could not release the claim sitting=%s "
+                "section=%s — this paper needs manual attention",
+                sitting["id"], section,
+            )
         # Report the failure so the caller's count reflects papers ACTUALLY
         # taken. Counting unconditionally told the admin "N bài đã thu" for
         # papers still sitting with the student, and the next poll silently

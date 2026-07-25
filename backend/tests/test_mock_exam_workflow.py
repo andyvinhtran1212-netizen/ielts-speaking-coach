@@ -2472,15 +2472,19 @@ def test_collect_reports_a_lookup_failure_instead_of_zero_success(fake_db, svc, 
             raise RuntimeError("db down")
         return real_table(name)
 
-    monkeypatch.setattr(fake_db, "table", boom)
-    with pytest.raises(svc.MockExamError):
-        svc.collect_section(exam["id"], "admin-1")
-    monkeypatch.undo()
-
-    # the advance safety net stays best-effort — the class must still move on
-    monkeypatch.setattr(fake_db, "table", boom)
-    assert svc._force_collect_section(exam["id"], "listening") == 0
-    monkeypatch.undo()
+    # Save/restore the ONE attribute rather than monkeypatch.undo(): pytest
+    # shares a single monkeypatch instance with the fake_db fixture, so undo()
+    # would restore the real Supabase client and later calls would silently go
+    # to the network (and "fail" in a way that made this assertion pass for the
+    # wrong reason).
+    fake_db.table = boom
+    try:
+        with pytest.raises(svc.MockExamError):
+            svc.collect_section(exam["id"], "admin-1", from_section="listening")
+        # the advance safety net stays best-effort — the class must still move on
+        assert svc._force_collect_section(exam["id"], "listening") == 0
+    finally:
+        fake_db.table = real_table
 
 
 def test_a_second_sweep_cannot_grade_the_same_paper_twice(fake_db, svc, monkeypatch):
@@ -2520,6 +2524,42 @@ def test_the_writing_sweep_promotes_essays_exactly_once(fake_db, svc, monkeypatc
     svc._collect_section_for_sitting(row, "writing")
     svc._collect_section_for_sitting(row, "writing")
     assert len(promoted) == 1, promoted
+
+
+def test_a_failed_sweep_releases_its_claim(fake_db, svc, monkeypatch):
+    """Codex #844 (correct, P1): the stamp is written BEFORE grading, Writing
+    promotion and terminal reconciliation. A failure after it left the paper
+    looking submitted to every later sweep — which select only null stamps —
+    while nothing had been graded: the monitor showed it in, the recovery button
+    never offered it, and the attempt stayed ungraded forever."""
+    exam = _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → listening
+    aid = str(uuid4())
+    fake_db.table("mock_exam_sittings").update(
+        {"listening_attempt_id": aid}).eq("id", s["id"]).execute()
+
+    def explode(_attempt_id):
+        raise RuntimeError("grading died mid-sweep")
+
+    # NOT monkeypatch.undo(): pytest gives ONE monkeypatch instance per test,
+    # and fake_db uses it to patch supabase_admin — undoing here would restore
+    # the REAL Supabase client mid-test and every later call would hit the
+    # network. Save and restore just this attribute.
+    real_grade = svc._grade_and_finalize_listening
+    svc._grade_and_finalize_listening = explode
+    try:
+        row = svc.get_sitting(s["id"])
+        assert svc._collect_section_for_sitting(row, "listening") is False
+    finally:
+        svc._grade_and_finalize_listening = real_grade
+
+    assert svc.get_sitting(s["id"])["listening_submitted_at"] is None, (
+        "a failed sweep must leave the paper claimable, not falsely submitted")
+    # ...and the recovery sweep can now take it
+    assert svc._force_collect_section(exam["id"], "listening") == 1
+    assert svc.get_sitting(s["id"])["listening_submitted_at"] is not None
 
 
 def test_the_final_advance_keeps_a_grace_anchor(fake_db, svc):
@@ -2584,10 +2624,13 @@ def test_a_sitting_born_during_the_sweep_is_still_stamped(fake_db, svc, monkeypa
 
     fake_db.table("mock_exams").update(
         {"collected_section": "listening"}).eq("id", exam["id"]).execute()
-    monkeypatch.setattr(svc, "get_published_exam_by_id", pause_after_first_read)
-
-    late = svc.create_sitting(uuid4(), "MOCK-TEST-A")
-    monkeypatch.undo()
+    # Save/restore rather than monkeypatch.undo(): pytest shares one monkeypatch
+    # instance with fake_db, so undo() would restore the REAL Supabase client.
+    svc.get_published_exam_by_id = pause_after_first_read
+    try:
+        late = svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    finally:
+        svc.get_published_exam_by_id = real_get
 
     assert late["listening_submitted_at"] is not None, (
         "a sitting inserted during the pause must still be born submitted")
