@@ -30,8 +30,9 @@ def test_create_assignments_forwards_rows_and_admin():
         r = _client().post(
             f"/admin/mock-exams/{_EXAM}/assignments",
             json={"source_exam_id": "src", "assignments": [
-                # open_until is REQUIRED since D3 (an open-ended retake never finishes),
-                # and the schema now says so — a null here is a 422.
+                # open_until is required for any row that is actually WRITTEN
+                # (an open-ended retake never finishes — D3). Enforced by the
+                # service, not the schema; see the skill-less test below.
                 {"user_id": "u1", "skills": ["writing"], "open_from": None,
                  "open_until": "2026-12-31T23:59:00Z"},
             ]},
@@ -79,3 +80,44 @@ def test_delete_assignment_forwards():
     mock_remove.assert_called_once_with(_EXAM, "u1", admin_id=_ADMIN["id"])
     # the voided ids are surfaced, not swallowed — one verb, two effects
     assert r.json() == {"ok": True, "voided": ["sit-1"]}
+
+
+def test_skill_less_row_without_deadline_does_not_abort_the_batch():
+    """A row with no valid skill is documented to be SKIPPED, and a skipped row
+    has no window to validate.
+
+    Making open_until unconditionally required at the schema level meant
+    FastAPI 422'd the whole payload before assign() could skip it — so one
+    leftover skill-less row unassigned every valid student sent alongside it
+    (Codex review, PR #839)."""
+    with patch("routers.admin_mock_exams.require_admin", new=AsyncMock(return_value=_ADMIN)), \
+         patch("routers.admin_mock_exams.assign_svc.assign",
+               return_value={"group_id": "g1", "assigned": ["u1"], "skipped": ["u2"]}) as mock_assign:
+        r = _client().post(
+            f"/admin/mock-exams/{_EXAM}/assignments",
+            json={"assignments": [
+                {"user_id": "u1", "skills": ["writing"],
+                 "open_until": "2026-12-31T23:59:00Z"},
+                {"user_id": "u2", "skills": []},          # no skills, no deadline
+            ]},
+            headers=_AUTH,
+        )
+    assert r.status_code == 200, r.text
+    assert r.json()["assigned"] == ["u1"]
+    assert mock_assign.call_args[0][1][1]["open_until"] is None
+
+
+def test_row_with_skills_but_no_deadline_is_a_400_not_a_422():
+    """The refusal still happens — as the explicit, translated 400 the service
+    raises, so the admin sees why rather than a schema dump."""
+    from unittest.mock import MagicMock
+    db = MagicMock()
+    db.table.return_value.select.return_value.eq.return_value.execute.return_value.data = []
+    with patch("routers.admin_mock_exams.require_admin", new=AsyncMock(return_value=_ADMIN)), \
+         patch("services.mock_exam_assignment_service.supabase_admin", db):
+        r = _client().post(
+            f"/admin/mock-exams/{_EXAM}/assignments",
+            json={"assignments": [{"user_id": "u1", "skills": ["writing"]}]},
+            headers=_AUTH,
+        )
+    assert r.status_code == 400, r.text
