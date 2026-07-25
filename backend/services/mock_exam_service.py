@@ -779,9 +779,19 @@ def submit_writing(
         "task2": {"text": task2_text or "", "word_count": _word_count(task2_text),
                   "submitted_at": now},
     }
+    # CONDITIONAL on the section still being open. The check above and this
+    # write are not atomic, so an admin advance, the retake reaper, or another
+    # tab could finalise Writing in between — and a late autosave would then
+    # overwrite writing_submission AFTER _promote_writing_essays() had already
+    # copied the older text, leaving the admin's word count disagreeing with the
+    # essay actually graded (Codex review, PR #835).
     resp = supabase_admin.table("mock_exam_sittings").update({
         "writing_submission": submission,
-    }).eq("id", str(sitting_id)).execute()
+    }).eq("id", str(sitting_id)).is_("writing_submitted_at", "null").execute()
+    if not resp.data:
+        raise SittingConflictError(
+            "Phần Writing vừa được thu — bản nháp gửi sau không được ghi đè."
+        )
     logger.info("[mock-exam] sitting=%s writing captured", sitting_id)
     return resp.data[0] if resp.data else {**sitting, "writing_submission": submission}
 
@@ -1581,6 +1591,19 @@ def void_sitting(sitting_id: str, admin_id: str, reason: str = "") -> dict:
         "status": "void",
         "integrity": integrity,
     }).eq("id", str(sitting_id)).execute()
+    # Cancel the linked review too. Leaving it 'reviewed' let a stale review page
+    # still call release_results(), which flips the sitting back to 'released'
+    # with sealed=False — publishing an exam that was explicitly cancelled.
+    # release_results now refuses a voided sitting as well; this is the other
+    # half, so the two records cannot disagree (Codex review, PR #840).
+    try:
+        supabase_admin.table("mock_exam_reviews").update({
+            "status": "void",
+        }).eq("sitting_id", str(sitting_id)).not_.in_(
+            "status", ["released", "void"],
+        ).execute()
+    except Exception:  # noqa: BLE001 — the sitting is already void; log and move on
+        logger.exception("[mock-exam] void: review cancel failed sitting=%s", sitting_id)
     logger.info("[mock-exam] sitting=%s VOIDED by admin=%s", sitting_id, admin_id)
     return resp.data[0] if resp.data else {**sitting, "status": "void"}
 
