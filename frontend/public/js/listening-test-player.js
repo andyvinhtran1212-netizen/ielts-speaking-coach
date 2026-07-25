@@ -269,9 +269,38 @@ async function detectResumable() {
     $('ft-resume-note').hidden = false;
     $('ft-resume-btn').hidden = false;
   } catch (e) {
-    // A failed lookup must not block starting the test — worst case the
-    // student sees only "Bắt đầu", which is today's behaviour.
     console.warn('[listening] resume lookup failed', e);
+    // FAIL CLOSED. Falling through to a normal pre-start meant the mock embed's
+    // auto-click hit "Bắt đầu test", whose POST ABANDONS the answered attempt —
+    // turning the very dropped-network case this feature exists to survive into
+    // a destroyed sitting (Codex review, PR #834). Until the server has said
+    // whether an attempt exists, Start must not be reachable.
+    STATE.resumeUnknown = true;
+    const startBtn = $('btn-start');
+    if (startBtn) { startBtn.disabled = true; startBtn.textContent = 'Đang kiểm tra bài cũ…'; }
+    const note = $('ft-resume-note');
+    if (note) {
+      note.textContent = 'Chưa kiểm tra được bạn có bài đang làm dở hay không '
+        + '(mất kết nối). Đang thử lại — đừng bấm gì để tránh mất bài.';
+      note.hidden = false;
+    }
+    setTimeout(retryDetectResumable, 3000);
+  }
+}
+
+// Keep retrying the resume lookup. Only once it answers do we know whether
+// starting over is safe, so this is what re-enables the Start button.
+async function retryDetectResumable() {
+  if (!STATE.resumeUnknown) return;
+  STATE.resumeUnknown = false;
+  await detectResumable();
+  if (!STATE.resumeUnknown) {
+    const startBtn = $('btn-start');
+    if (startBtn) { startBtn.disabled = false; startBtn.textContent = 'Bắt đầu test'; }
+    if (!STATE.resumable) {
+      const note = $('ft-resume-note');
+      if (note) note.hidden = true;
+    }
   }
 }
 
