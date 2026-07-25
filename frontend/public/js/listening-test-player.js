@@ -269,9 +269,38 @@ async function detectResumable() {
     $('ft-resume-note').hidden = false;
     $('ft-resume-btn').hidden = false;
   } catch (e) {
-    // A failed lookup must not block starting the test — worst case the
-    // student sees only "Bắt đầu", which is today's behaviour.
     console.warn('[listening] resume lookup failed', e);
+    // FAIL CLOSED. Falling through to a normal pre-start meant the mock embed's
+    // auto-click hit "Bắt đầu test", whose POST ABANDONS the answered attempt —
+    // turning the very dropped-network case this feature exists to survive into
+    // a destroyed sitting (Codex review, PR #834). Until the server has said
+    // whether an attempt exists, Start must not be reachable.
+    STATE.resumeUnknown = true;
+    const startBtn = $('btn-start');
+    if (startBtn) { startBtn.disabled = true; startBtn.textContent = 'Đang kiểm tra bài cũ…'; }
+    const note = $('ft-resume-note');
+    if (note) {
+      note.textContent = 'Chưa kiểm tra được bạn có bài đang làm dở hay không '
+        + '(mất kết nối). Đang thử lại — đừng bấm gì để tránh mất bài.';
+      note.hidden = false;
+    }
+    setTimeout(retryDetectResumable, 3000);
+  }
+}
+
+// Keep retrying the resume lookup. Only once it answers do we know whether
+// starting over is safe, so this is what re-enables the Start button.
+async function retryDetectResumable() {
+  if (!STATE.resumeUnknown) return;
+  STATE.resumeUnknown = false;
+  await detectResumable();
+  if (!STATE.resumeUnknown) {
+    const startBtn = $('btn-start');
+    if (startBtn) { startBtn.disabled = false; startBtn.textContent = 'Bắt đầu test'; }
+    if (!STATE.resumable) {
+      const note = $('ft-resume-note');
+      if (note) note.hidden = true;
+    }
   }
 }
 
@@ -1144,10 +1173,17 @@ function renderUnsavedNote() {
 
 // Manual + automatic escape hatch out of the terminal state. Coming back online
 // is by far the commonest reason a given-up save would now succeed.
-function retryFailedSaves() {
+async function retryFailedSaves() {
   const due = [];
   STATE.unsaved.forEach((state, qNum) => { if (state === 'failed') due.push(qNum); });
-  due.forEach((qNum) => { void saveAnswer(qNum, STATE.answers.get(qNum)); });
+  // SEQUENTIALLY. Coming back online typically releases several failed answers
+  // at once, and until the atomic RPC lands the backend reads and rewrites the
+  // WHOLE answers array per request — so firing them together lets each one
+  // overwrite the others while every response still reports success and clears
+  // its own warning (Codex review, PR #837).
+  for (const qNum of due) {
+    await saveAnswer(qNum, STATE.answers.get(qNum)).catch(() => {});
+  }
 }
 
 // Drain every pending save before finalising, INCLUDING ones that had to be
@@ -1171,7 +1207,18 @@ async function flushAllPendingSaves(maxRounds = 6) {
       // Read the CURRENT value, not one captured before the wait.
       await saveAnswer(q, STATE.answers.get(q)).catch(() => {});
     }
-    if (!STATE.saveTimers.size && !STATE.inflight.size) return;
+    // A transiently-failed PATCH leaves NO debounce timer and nothing in
+    // flight — only a saveRetryTimers entry. Ignoring those meant the drain
+    // returned immediately, confirmSubmit finalised the attempt, and the
+    // delayed retry was rejected with 422, so grading permanently omitted that
+    // answer (Codex review, PR #837).
+    if (!STATE.saveTimers.size && !STATE.inflight.size && !STATE.saveRetryTimers.size) return;
+    // Pull any waiting retry forward rather than sleeping out its backoff.
+    for (const q of Array.from(STATE.saveRetryTimers.keys())) {
+      clearTimeout(STATE.saveRetryTimers.get(q));
+      STATE.saveRetryTimers.delete(q);
+      await saveAnswer(q, STATE.answers.get(q)).catch(() => {});
+    }
     // Give the in-flight request a moment to settle so its re-queued
     // successor becomes visible on the next round.
     await new Promise((r) => setTimeout(r, 150));

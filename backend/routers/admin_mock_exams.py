@@ -80,7 +80,13 @@ class AssignRow(BaseModel):
     user_id: str
     skills: list[str] = Field(default_factory=list)
     open_from: str | None = None
-    open_until: str | None = None
+    # REQUIRED. The service rejects a missing closing bound (an open-ended
+    # retake never finishes — see D3), so leaving this nullable made OpenAPI and
+    # every generated client advertise a payload the API always refuses, turning
+    # a schema error into a surprise 400 (Codex review, PR #839).
+    open_until: str = Field(
+        ..., description="Bắt buộc: hạn đóng của bài test lại (ISO 8601).",
+    )
 
 
 class AssignBody(BaseModel):
