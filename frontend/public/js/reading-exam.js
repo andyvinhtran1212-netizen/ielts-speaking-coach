@@ -47,12 +47,24 @@
     timer_interval: null,
     timer_locked: false,
     debounce_timers: new Map(), // q_num → setTimeout handle (auto-save debounce)
-    // DEBT-2026-07-22-D — auto-save durability. `unsaved` holds every q_num
-    // whose PATCH has failed and not yet succeeded (retries in flight count
-    // as unsaved); `save_retry_timers` holds the pending backoff handle so a
-    // fresh edit can cancel the stale retry chain for that question.
-    unsaved: new Set(),         // q_num → save failed, not yet re-saved
-    save_retry_timers: new Map(), // q_num → setTimeout handle (save backoff)
+    // DEBT-2026-07-22-D — auto-save durability.
+    //   unsaved     q_num → 'retrying' | 'failed'. Two states, not one flag:
+    //               telling a student "đang thử lại" when the retry budget is
+    //               spent is a lie they cannot act on (review #820).
+    //   save_retry_timers  pending backoff handle, so a fresh edit can cancel
+    //               the stale retry chain for that question.
+    //   inflight    q_num → number of PATCHes currently in the air. The unload
+    //               flush needs these: once the debounce fires, the question
+    //               leaves debounce_timers immediately even though its request
+    //               may still be pending, and a request killed with the
+    //               document leaves no trace anywhere else (review #820).
+    //   save_gen    q_num → generation of the newest logical save. An older
+    //               response landing after a newer one must not touch the cue
+    //               (review #820).
+    unsaved: new Map(),
+    save_retry_timers: new Map(),
+    inflight: new Map(),
+    save_gen: new Map(),
     resume_inprogress: false,   // Sprint 20.11 D5 — true when boot detected an
                                 // open attempt; pre-start surfaces the Resume
                                 // affordance and the Start button confirms.
@@ -1453,37 +1465,83 @@
     return Number(status) >= 500;
   }
 
-  // A question counts as unsaved from the moment its first save attempt
-  // fails until one succeeds. Deliberately NOT flipped on for in-flight
-  // saves on the happy path: a healthy PATCH settles well inside the 500ms
-  // debounce, and flashing every tile on every keystroke would train the
-  // student to ignore the one cue that matters.
-  function _setUnsavedState(qNum, unsaved) {
-    if (unsaved) SESSION.unsaved.add(qNum);
+  // A question is unsaved from the moment its first save attempt fails until
+  // one succeeds. Deliberately NOT flipped on for in-flight saves on the happy
+  // path: a healthy PATCH settles well inside the 500ms debounce, and flashing
+  // every tile on every keystroke would train the student to ignore the one cue
+  // that matters.
+  //
+  // `state` is 'retrying' | 'failed' | null. Review #820: a single flag made the
+  // UI say "đang thử lại" after a non-retriable 4xx and after the retry budget
+  // was spent — in both cases nothing was retrying and the warning could never
+  // clear by itself, so the student was told to wait for something that would
+  // never happen.
+  function _setSaveState(qNum, state) {
+    if (state) SESSION.unsaved.set(qNum, state);
     else SESSION.unsaved['delete'](qNum);
     var btn = document.querySelector('.exam-palette__q[data-q="' + qNum + '"]');
     if (btn) {
-      btn.classList.toggle('is-unsaved', !!unsaved);
-      if (unsaved) btn.setAttribute('title', 'Chưa lưu được — đang thử lại');
-      else btn.removeAttribute('title');
+      btn.classList.toggle('is-unsaved', !!state);
+      btn.classList.toggle('is-save-failed', state === 'failed');
+      if (state) {
+        btn.setAttribute('title', state === 'failed'
+          ? 'Chưa lưu được — đã ngừng thử lại'
+          : 'Chưa lưu được — đang thử lại');
+      } else {
+        btn.removeAttribute('title');
+      }
       _updatePaletteAriaLabel(btn);
     }
     var card = document.getElementById('q-' + qNum);
-    if (card) card.classList.toggle('is-unsaved', !!unsaved);
+    if (card) card.classList.toggle('is-unsaved', !!state);
     _renderUnsavedNote();
   }
 
   // One honest line above the palette actions. A single amber tile among 40
   // is easy to miss; this says how many answers the server does not have and
   // what that means for closing the tab. `role="status"` announces it.
+  // Built with DOM nodes (not innerHTML) because it carries a real button.
   function _renderUnsavedNote() {
     var note = $('exam-unsaved-note');
     if (!note) return;
-    var n = SESSION.unsaved.size;
-    if (!n) { note.hidden = true; note.textContent = ''; return; }
+    var retrying = 0, failed = 0;
+    SESSION.unsaved.forEach(function (state) {
+      if (state === 'failed') failed++; else retrying++;
+    });
+    if (!retrying && !failed) { note.hidden = true; note.textContent = ''; return; }
     note.hidden = false;
-    note.textContent = 'Chưa lưu được ' + n + ' câu lên máy chủ — đang thử lại. '
-      + 'Đừng đóng tab cho tới khi hết cảnh báo này.';
+    note.textContent = '';
+    var parts = [];
+    if (retrying) parts.push('Đang thử lưu lại ' + retrying + ' câu.');
+    // Terminal state gets its own sentence and an action the student can take —
+    // "wait for the warning to disappear" is useless when nothing will clear it.
+    if (failed) parts.push(failed + ' câu chưa lưu được lên máy chủ và đã NGỪNG thử lại.');
+    parts.push(failed
+      ? 'Đừng đóng tab: bấm «Thử lại», hoặc sửa lại chính câu đó, trước khi nộp.'
+      : 'Đừng đóng tab cho tới khi hết cảnh báo này.');
+    note.appendChild(document.createTextNode(parts.join(' ')));
+    if (failed) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'exam-unsaved-retry';
+      btn.textContent = 'Thử lại';
+      btn.addEventListener('click', _retryFailedSaves);
+      note.appendChild(document.createTextNode(' '));
+      note.appendChild(btn);
+    }
+  }
+
+  // Manual + automatic escape hatch out of the terminal state. Coming back
+  // online is by far the commonest reason a given-up save would now succeed,
+  // so the browser's own signal drives a retry too.
+  function _retryFailedSaves() {
+    var due = [];
+    SESSION.unsaved.forEach(function (state, qNum) {
+      if (state === 'failed') due.push(qNum);
+    });
+    due.forEach(function (qNum) {
+      patchAnswer(qNum, SESSION.answers.has(qNum) ? SESSION.answers.get(qNum) : '');
+    });
   }
 
   function patchAnswer(qNum, userAnswer, opts) {
@@ -1497,8 +1555,29 @@
       clearTimeout(SESSION.save_retry_timers.get(qNum));
       SESSION.save_retry_timers['delete'](qNum);
     }
+    // Review #820 — one generation per logical save. A fresh edit (attempt 0)
+    // bumps it; retries inherit theirs. Without this, two overlapping PATCHes
+    // race: the newer one fails and raises the cue, the older one then resolves
+    // and clears it, so the student is told the latest answer is safe when the
+    // server only holds the previous one.
+    var gen = (opts && opts.gen);
+    if (gen === undefined) {
+      gen = (SESSION.save_gen.get(qNum) || 0) + 1;
+      SESSION.save_gen.set(qNum, gen);
+    }
     var answersUrl = '/api/reading/test/attempts/' + encodeURIComponent(SESSION.attempt_id) + '/answers';
     var answerBody = { q_num: qNum, user_answer: String(userAnswer || '') };
+    // Review #820 — count this request as in-flight until it settles. Once the
+    // debounce fires, onAnswerChanged drops the question from debounce_timers
+    // immediately, so between that moment and the response landing the question
+    // is in NO collection the unload flush looks at; a refresh right there kills
+    // the request and loses the answer with no keepalive replacement.
+    SESSION.inflight.set(qNum, (SESSION.inflight.get(qNum) || 0) + 1);
+    var settled = function () {
+      var n = (SESSION.inflight.get(qNum) || 1) - 1;
+      if (n > 0) SESSION.inflight.set(qNum, n);
+      else SESSION.inflight['delete'](qNum);
+    };
     // reading-access-tracking B2 — anonymous auto-save carries X-Reading-Anon +
     // noRedirect (a transient 401 must not bounce an anon mid-test to login);
     // the authed path passes no extra headers, so its 401 still redirects.
@@ -1510,27 +1589,37 @@
     // unhandled-rejection error-log row for something already handled.
     // It settles only once the retry chain is done, so the mock flush
     // awaiting it really does wait for the last attempt.
+    var current = function () { return gen === SESSION.save_gen.get(qNum); };
     return savePromise.then(function (res) {
-      _setUnsavedState(qNum, false);
+      settled();
+      if (current()) _setSaveState(qNum, null);
       return res;
     }, function (e) {
+      settled();
       if (window.console) console.warn('auto-save failed q=' + qNum, e && e.message);
-      _setUnsavedState(qNum, true);
-      if (!_isRetriableSaveError(e) || attempt >= _SAVE_RETRY_DELAYS.length) return null;
-      return _scheduleSaveRetry(qNum, attempt);
+      if (!current()) return null;      // superseded by a newer edit
+      if (_isRetriableSaveError(e) && attempt < _SAVE_RETRY_DELAYS.length) {
+        _setSaveState(qNum, 'retrying');
+        return _scheduleSaveRetry(qNum, attempt, gen);
+      }
+      // Nothing more will be tried automatically — say so, don't claim a retry.
+      _setSaveState(qNum, 'failed');
+      return null;
     });
   }
 
-  function _scheduleSaveRetry(qNum, attempt) {
+  function _scheduleSaveRetry(qNum, attempt, gen) {
     return new Promise(function (resolve) {
       var handle = setTimeout(function () {
         SESSION.save_retry_timers['delete'](qNum);
+        // A newer edit already owns this question — drop the stale chain.
+        if (gen !== SESSION.save_gen.get(qNum)) { resolve(null); return; }
         // Re-read the CURRENT value rather than replaying the one that
         // failed: if the student edited this question while the retry was
         // waiting, sending the stale string would overwrite the newer
         // answer server-side.
         var latest = SESSION.answers.has(qNum) ? SESSION.answers.get(qNum) : '';
-        resolve(patchAnswer(qNum, latest, { attempt: attempt + 1 }));
+        resolve(patchAnswer(qNum, latest, { attempt: attempt + 1, gen: gen }));
       }, _SAVE_RETRY_DELAYS[attempt]);
       SESSION.save_retry_timers.set(qNum, handle);
     });
@@ -1550,7 +1639,11 @@
     SESSION.debounce_timers.clear();
     SESSION.save_retry_timers.forEach(function (handle, qNum) { clearTimeout(handle); add(qNum); });
     SESSION.save_retry_timers.clear();
-    SESSION.unsaved.forEach(add);
+    // Review #820 — a PATCH already in the air is about to be killed with the
+    // document; re-send it with keepalive. The duplicate is harmless (the
+    // endpoint upserts one answer per q_num).
+    SESSION.inflight.forEach(function (_n, qNum) { add(qNum); });
+    SESSION.unsaved.forEach(function (_state, qNum) { add(qNum); });
     due.forEach(function (qNum) {
       // From the in-memory store, not the DOM — the card may be unmounted
       // (Part swap) or be an out-of-card gap (summary / diagram), in which
@@ -1758,8 +1851,14 @@
     if (btn.classList.contains('is-flagged')) parts.push('flagged for review');
     if (btn.classList.contains('is-current')) parts.push('current');
     // DEBT-2026-07-22-D — the answer is in the box but NOT on the server.
-    // Announced last so it reads as a warning on top of the state above.
-    if (btn.classList.contains('is-unsaved')) parts.push('not saved to server');
+    // Announced last so it reads as a warning on top of the state above, and
+    // it distinguishes "still trying" from "gave up" (review #820) — the second
+    // needs the student to act, the first does not.
+    if (btn.classList.contains('is-unsaved')) {
+      parts.push(btn.classList.contains('is-save-failed')
+        ? 'not saved to server, retries exhausted'
+        : 'not saved to server, retrying');
+    }
     btn.setAttribute('aria-label', parts.join(', '));
   }
   function setCurrent(qNum) {
@@ -2834,6 +2933,10 @@
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'hidden') _flushPendingSaves();
   });
+  // Review #820 — the retry budget is spent while offline far more often than
+  // for any other reason, so regaining connectivity retries the given-up saves
+  // without the student having to notice the button.
+  window.addEventListener('online', _retryFailedSaves);
 
   // 4-skill mock (mock_embed): the parent one-timer page asks this runner to
   // FLUSH its debounced auto-saves before it submits the attempt — so an answer

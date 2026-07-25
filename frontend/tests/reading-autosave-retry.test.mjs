@@ -53,16 +53,21 @@ function makeHarness({ responder, shareMode = false } = {}) {
       removeAttribute(k) { delete this.attrs[k]; },
     };
   };
-  const note = { hidden: true, textContent: '' };
+  const note = {
+    hidden: true, textContent: '', children: [],
+    appendChild(n) { this.children.push(n); this.textContent += (n.textContent || ''); return n; },
+  };
 
   const SESSION = {
     attempt_id: 'att-1',
     timer_locked: false,
     share_mode: shareMode,
     answers: new Map(),
-    unsaved: new Set(),
+    unsaved: new Map(),
     debounce_timers: new Map(),
     save_retry_timers: new Map(),
+    inflight: new Map(),
+    save_gen: new Map(),
   };
 
   const patchWith = (url, body, hdrs, opts) => {
@@ -79,12 +84,20 @@ function makeHarness({ responder, shareMode = false } = {}) {
       return tiles.get(m[1]);
     },
     getElementById: () => null,
+    createTextNode: (t) => ({ textContent: t }),
+    createElement: () => ({
+      textContent: '', className: '', type: '',
+      _handlers: {},
+      addEventListener(ev, fn) { this._handlers[ev] = fn; },
+      click() { if (this._handlers.click) this._handlers.click(); },
+    }),
   };
 
   const factory = new Function(
     'SESSION', 'window', 'document', '$', '_updatePaletteAriaLabel', '_anonHeaders',
     SRC + '\nreturn { patchAnswer: patchAnswer, _flushPendingSaves: _flushPendingSaves,' +
-    ' _isRetriableSaveError: _isRetriableSaveError, delays: _SAVE_RETRY_DELAYS };',
+    ' _isRetriableSaveError: _isRetriableSaveError, _retryFailedSaves: _retryFailedSaves,' +
+    ' delays: _SAVE_RETRY_DELAYS };',
   );
   const api = factory(
     SESSION, win, doc,
@@ -208,7 +221,7 @@ describe('DEBT-D — _flushPendingSaves on the way out', () => {
     h.SESSION.debounce_timers.set(1, setTimeout(() => {
       throw new Error('the debounce must be cleared, not allowed to fire');
     }, 500));
-    h.SESSION.unsaved.add(2);
+    h.SESSION.unsaved.set(2, 'failed');
 
     h.api._flushPendingSaves();
     await new Promise((r) => setTimeout(r, 5));
@@ -228,7 +241,7 @@ describe('DEBT-D — _flushPendingSaves on the way out', () => {
     const h = makeHarness({ responder: () => Promise.resolve(null) });
     h.SESSION.answers.set(6, 'once');
     h.SESSION.debounce_timers.set(6, setTimeout(() => {}, 500));
-    h.SESSION.unsaved.add(6);
+    h.SESSION.unsaved.set(6, 'failed');
     h.api._flushPendingSaves();
     await new Promise((r) => setTimeout(r, 5));
     assert.equal(h.calls.length, 1);
@@ -237,7 +250,7 @@ describe('DEBT-D — _flushPendingSaves on the way out', () => {
   test('no attempt / locked timer → no PATCH at all', () => {
     const h = makeHarness({ responder: () => Promise.resolve(null) });
     h.SESSION.answers.set(1, 'x');
-    h.SESSION.unsaved.add(1);
+    h.SESSION.unsaved.set(1, 'failed');
     h.SESSION.timer_locked = true;
     h.api._flushPendingSaves();
     h.SESSION.timer_locked = false;
@@ -279,9 +292,11 @@ describe('DEBT-D — surrounding contracts held', () => {
     assert.equal(!!(undefined && undefined) || undefined, undefined);
   });
 
-  test('the palette aria-label announces the unsaved state', () => {
-    const fnSrc = js.slice(js.indexOf('function _updatePaletteAriaLabel'));
-    assert.match(fnSrc.slice(0, 700), /is-unsaved'\)\) parts\.push\('not saved to server'\)/);
+  test('the palette aria-label announces the unsaved state, retrying vs given up', () => {
+    const fnSrc = js.slice(js.indexOf('function _updatePaletteAriaLabel')).slice(0, 900);
+    assert.match(fnSrc, /is-unsaved/);
+    assert.match(fnSrc, /'not saved to server, retries exhausted'/);
+    assert.match(fnSrc, /'not saved to server, retrying'/);
   });
 });
 
@@ -292,5 +307,134 @@ describe('DEBT-D — premise cross-check (backend)', () => {
   test('resume rebuilds answers from reading_attempt_answers, not client state', () => {
     const fn = router.slice(router.indexOf('def _fetch_in_progress_payload'));
     assert.match(fn.slice(0, 2500), /reading_attempt_answers/);
+  });
+});
+
+
+// ── Review #820 — three defects found on the first cut ──────────────────
+
+describe('#820 — an in-flight PATCH is flushed on unload', () => {
+  test('a save still in the air is re-sent with keepalive', async () => {
+    // The gap: onAnswerChanged drops the question from debounce_timers the
+    // instant the debounce fires, so between that moment and the response
+    // landing it sat in NO collection the flush looked at. Refresh there and
+    // the request dies with the document, silently.
+    let release;
+    const h = makeHarness({ responder: () => new Promise((r) => { release = r; }) });
+    h.SESSION.answers.set(3, 'inflight');
+    h.api.patchAnswer(3, 'inflight');            // in the air, not yet settled
+    assert.equal(h.SESSION.debounce_timers.size, 0, 'debounce is already gone here');
+    assert.equal(h.SESSION.unsaved.size, 0, 'not failed either — it has not settled');
+
+    h.api._flushPendingSaves();
+    await new Promise((r) => setTimeout(r, 5));
+    assert.equal(h.calls.length, 2, 'the in-flight answer must be re-sent');
+    assert.equal(h.calls[1].opts.keepalive, true);
+    assert.equal(h.calls[1].body.user_answer, 'inflight');
+    release(null);
+  });
+
+  test('in-flight bookkeeping clears once the request settles', async () => {
+    const h = makeHarness({ responder: () => Promise.resolve(null) });
+    h.SESSION.answers.set(4, 'x');
+    await h.api.patchAnswer(4, 'x');
+    assert.equal(h.SESSION.inflight.size, 0);
+    h.api._flushPendingSaves();
+    await new Promise((r) => setTimeout(r, 5));
+    assert.equal(h.calls.length, 1, 'a settled save must not be flushed again');
+  });
+});
+
+describe('#820 — a stale completion cannot clear a newer failure', () => {
+  test('old success resolving after a new failure leaves the cue up', async () => {
+    const resolvers = [];
+    const h = makeHarness({ responder: () => new Promise((res, rej) => resolvers.push({ res, rej })) });
+    h.SESSION.answers.set(8, 'old');
+    h.api.patchAnswer(8, 'old');                 // gen 1, in flight
+    h.SESSION.answers.set(8, 'new');
+    const p2 = h.api.patchAnswer(8, 'new');      // gen 2, in flight
+    assert.equal(h.calls.length, 2);
+
+    resolvers[1].rej(httpErr(403));              // newer one fails (terminal)
+    await p2;
+    assert.equal(h.SESSION.unsaved.get(8), 'failed');
+
+    resolvers[0].res({ ok: true });              // older one succeeds afterwards
+    await new Promise((r) => setTimeout(r, 5));
+    assert.equal(h.SESSION.unsaved.get(8), 'failed',
+      'the server only holds the OLD answer — the warning must stand');
+    assert.equal(h.tiles.get('8').classList.contains('is-unsaved'), true);
+  });
+
+  test('a superseded failure does not schedule its own retry', async () => {
+    const resolvers = [];
+    const h = makeHarness({ responder: () => new Promise((res, rej) => resolvers.push({ res, rej })) });
+    h.SESSION.answers.set(9, 'a');
+    h.api.patchAnswer(9, 'a');                   // gen 1
+    h.SESSION.answers.set(9, 'b');
+    h.api.patchAnswer(9, 'b');                   // gen 2
+    resolvers[0].rej(httpErr(500));              // gen 1 fails — retriable, but stale
+    await new Promise((r) => setTimeout(r, 10));
+    assert.equal(h.calls.length, 2, 'the superseded save must not retry');
+    assert.equal(h.SESSION.unsaved.size, 0, 'and must not raise a cue of its own');
+    resolvers[1].res(null);
+  });
+});
+
+describe('#820 — the UI stops claiming a retry that is not happening', () => {
+  test('while retries remain the note says so', async () => {
+    const h = makeHarness({ responder: () => Promise.reject(httpErr(500)) });
+    h.api.delays[0] = 40;
+    h.SESSION.answers.set(2, 'v');
+    h.api.patchAnswer(2, 'v');
+    await new Promise((r) => setTimeout(r, 10));
+    assert.equal(h.SESSION.unsaved.get(2), 'retrying');
+    assert.match(h.note.textContent, /Đang thử lưu lại 1 câu/);
+    assert.ok(!/NGỪNG/.test(h.note.textContent));
+  });
+
+  test('a terminal 4xx says it gave up and offers an action', async () => {
+    const h = makeHarness({ responder: () => Promise.reject(httpErr(403)) });
+    h.SESSION.answers.set(2, 'v');
+    await h.api.patchAnswer(2, 'v');
+    assert.equal(h.SESSION.unsaved.get(2), 'failed');
+    assert.match(h.note.textContent, /NGỪNG thử lại/);
+    assert.ok(!/Đang thử lưu lại/.test(h.note.textContent));
+    // "wait until this warning disappears" is useless when nothing will clear it
+    assert.ok(!/cho tới khi hết cảnh báo/.test(h.note.textContent));
+    assert.match(h.note.textContent, /Thử lại/);
+    assert.equal(h.tiles.get('2').attrs.title, 'Chưa lưu được — đã ngừng thử lại');
+    assert.equal(h.tiles.get('2').classList.contains('is-save-failed'), true);
+  });
+
+  test('exhausted transient retries are terminal too, not "still retrying"', async () => {
+    const h = makeHarness({ responder: () => Promise.reject(netErr()) });
+    h.SESSION.answers.set(5, 'v');
+    await h.api.patchAnswer(5, 'v');
+    assert.equal(h.calls.length, 4);
+    assert.equal(h.SESSION.unsaved.get(5), 'failed');
+    assert.match(h.note.textContent, /NGỪNG thử lại/);
+  });
+
+  test('the retry button re-sends every given-up answer', async () => {
+    let fail = true;
+    const h = makeHarness({ responder: () => (fail ? Promise.reject(httpErr(403)) : Promise.resolve(null)) });
+    h.SESSION.answers.set(1, 'a');
+    h.SESSION.answers.set(2, 'b');
+    await h.api.patchAnswer(1, 'a');
+    await h.api.patchAnswer(2, 'b');
+    assert.equal(h.SESSION.unsaved.size, 2);
+    const before = h.calls.length;
+
+    fail = false;
+    h.api._retryFailedSaves();
+    await new Promise((r) => setTimeout(r, 5));
+    assert.equal(h.calls.length, before + 2);
+    assert.equal(h.SESSION.unsaved.size, 0, 'cue clears once the retry lands');
+    assert.equal(h.note.hidden, true);
+  });
+
+  test('regaining connectivity triggers the same retry', () => {
+    assert.match(js, /addEventListener\('online', _retryFailedSaves\)/);
   });
 });
