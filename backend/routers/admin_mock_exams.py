@@ -255,7 +255,13 @@ async def collect_section(
     # opened. That is precisely the race this parameter prevents (Codex review,
     # PR #843).
     from_section: str = Query(
-        ..., pattern=r"^(listening|reading|writing)$",
+        ...,
+        # 'done' is a legitimate screen state for the RECOVERY path: re-sweeping
+        # a section whose background sweep died is done from a monitor showing a
+        # later section, and after the final advance that screen says 'done'.
+        # Excluding it 422'd every recovery click after the exam finished — the
+        # exact case the button exists for (Codex review, PR #844).
+        pattern=r"^(listening|reading|writing|done)$",
         description="Phần mà màn hình của admin đang hiển thị lúc bấm Thu bài.",
     ),
     # The section to sweep. Defaults to the open one; an EARLIER one re-sweeps

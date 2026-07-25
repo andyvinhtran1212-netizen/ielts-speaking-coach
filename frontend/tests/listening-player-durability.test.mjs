@@ -175,11 +175,38 @@ describe('round 3 — answer PATCHes are serialised attempt-wide', () => {
     // retries still overlapped after retryFailedSaves() was made sequential —
     // and the endpoint read-modify-writes the whole answers array.
     assert.match(JS, /let _patchChain = Promise\.resolve\(\);/);
-    assert.match(JS, /await enqueuePatch\(\(\) => window\.api\.patch\(/);
+    assert.match(JS, /await enqueuePatch\(\(signal\) => window\.api\.patchWith\(/);
   });
 
   test('a hung request cannot wedge every later save', () => {
     assert.match(JS, /PATCH_QUEUE_MAX_WAIT_MS/);
     assert.match(JS, /Promise\.race\(\[/);
+  });
+});
+
+describe('round 4 — the drain must not lie about being clean', () => {
+  test('exhausted retries are retried once more per round', () => {
+    // Answers whose ladder is spent sit in `unsaved` as 'failed' with no timer
+    // and nothing in flight, so the old emptiness test called the queue drained
+    // and finalisation went ahead without them.
+    assert.match(JS, /function failedAnswerNumbers\(\)/);
+    assert.match(JS, /const failed = failedAnswerNumbers\(\);/);
+  });
+
+  test('the drain reports success/failure instead of returning void', () => {
+    assert.match(JS, /&& !failedAnswerNumbers\(\)\.length\) return true;/);
+    assert.match(JS, /return !failedAnswerNumbers\(\)\.length/);
+  });
+
+  test('a MANUAL submit stops and hands the decision back', () => {
+    assert.match(JS, /const clean = await flushAllPendingSaves\(\);/);
+    assert.match(JS, /if \(!clean\) \{/);
+    assert.match(JS, /nộp bây giờ sẽ mất/);
+  });
+
+  test('the mock flush still answers, but tells the truth', () => {
+    // Blocking the parent would strand the student at 00:00 — the section clock
+    // has already hit zero and the server force-collects regardless.
+    assert.match(JS, /unsaved: clean \? 0 : failedAnswerNumbers\(\)\.length,/);
   });
 });

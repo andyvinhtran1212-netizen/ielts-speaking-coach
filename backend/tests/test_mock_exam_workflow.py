@@ -878,6 +878,31 @@ def test_submit_section_writing_empty_text_still_accepted(fake_db, svc):
     assert result["writing_submitted_at"] is not None
 
 
+def test_writing_finalisation_is_one_write(fake_db, svc):
+    """Codex #835 (correct, P1): submit_writing() wrote the payload and
+    submit_section() stamped writing_submitted_at as a SEPARATE statement, so an
+    autosave from another tab — or an older request the client no longer tracks
+    — could pass the null-timestamp predicate in between and replace the final
+    payload before _promote_writing_essays() read it. The student would submit
+    one essay and have a stale draft graded."""
+    exam = _seed_exam(fake_db, listening=False, reading=False)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], str(uuid4()))     # → writing
+    _expire_section(fake_db, exam["id"], "writing")
+
+    svc.submit_section(s["id"], u, "writing",
+                       task1_text="final one", task2_text="final two")
+
+    row = svc.get_sitting(s["id"])
+    assert row["writing_submitted_at"], "the stamp must land"
+    assert row["writing_submission"]["task1"]["text"] == "final one"
+    # ...and a late draft can no longer overwrite what was graded
+    with pytest.raises(svc.SittingConflictError):
+        svc.submit_writing(s["id"], u, "late draft", "late draft")
+    assert svc.get_sitting(s["id"])["writing_submission"]["task1"]["text"] == "final one"
+
+
 def test_record_speaking_empty_raises(fake_db, svc):
     """Finding 2: an empty session list cannot mark Speaking complete."""
     _seed_exam(fake_db, speaking=True)
@@ -2447,15 +2472,19 @@ def test_collect_reports_a_lookup_failure_instead_of_zero_success(fake_db, svc, 
             raise RuntimeError("db down")
         return real_table(name)
 
-    monkeypatch.setattr(fake_db, "table", boom)
-    with pytest.raises(svc.MockExamError):
-        svc.collect_section(exam["id"], "admin-1")
-    monkeypatch.undo()
-
-    # the advance safety net stays best-effort — the class must still move on
-    monkeypatch.setattr(fake_db, "table", boom)
-    assert svc._force_collect_section(exam["id"], "listening") == 0
-    monkeypatch.undo()
+    # Save/restore the ONE attribute rather than monkeypatch.undo(): pytest
+    # shares a single monkeypatch instance with the fake_db fixture, so undo()
+    # would restore the real Supabase client and later calls would silently go
+    # to the network (and "fail" in a way that made this assertion pass for the
+    # wrong reason).
+    fake_db.table = boom
+    try:
+        with pytest.raises(svc.MockExamError):
+            svc.collect_section(exam["id"], "admin-1", from_section="listening")
+        # the advance safety net stays best-effort — the class must still move on
+        assert svc._force_collect_section(exam["id"], "listening") == 0
+    finally:
+        fake_db.table = real_table
 
 
 def test_a_second_sweep_cannot_grade_the_same_paper_twice(fake_db, svc, monkeypatch):
@@ -2497,6 +2526,42 @@ def test_the_writing_sweep_promotes_essays_exactly_once(fake_db, svc, monkeypatc
     assert len(promoted) == 1, promoted
 
 
+def test_a_failed_sweep_releases_its_claim(fake_db, svc, monkeypatch):
+    """Codex #844 (correct, P1): the stamp is written BEFORE grading, Writing
+    promotion and terminal reconciliation. A failure after it left the paper
+    looking submitted to every later sweep — which select only null stamps —
+    while nothing had been graded: the monitor showed it in, the recovery button
+    never offered it, and the attempt stayed ungraded forever."""
+    exam = _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → listening
+    aid = str(uuid4())
+    fake_db.table("mock_exam_sittings").update(
+        {"listening_attempt_id": aid}).eq("id", s["id"]).execute()
+
+    def explode(_attempt_id):
+        raise RuntimeError("grading died mid-sweep")
+
+    # NOT monkeypatch.undo(): pytest gives ONE monkeypatch instance per test,
+    # and fake_db uses it to patch supabase_admin — undoing here would restore
+    # the REAL Supabase client mid-test and every later call would hit the
+    # network. Save and restore just this attribute.
+    real_grade = svc._grade_and_finalize_listening
+    svc._grade_and_finalize_listening = explode
+    try:
+        row = svc.get_sitting(s["id"])
+        assert svc._collect_section_for_sitting(row, "listening") is False
+    finally:
+        svc._grade_and_finalize_listening = real_grade
+
+    assert svc.get_sitting(s["id"])["listening_submitted_at"] is None, (
+        "a failed sweep must leave the paper claimable, not falsely submitted")
+    # ...and the recovery sweep can now take it
+    assert svc._force_collect_section(exam["id"], "listening") == 1
+    assert svc.get_sitting(s["id"])["listening_submitted_at"] is not None
+
+
 def test_the_final_advance_keeps_a_grace_anchor(fake_db, svc):
     """Codex #844 (correct): with no anchor for 'done', _sweep_grace_elapsed
     returned True immediately — so a poll taken while the healthy FINAL sweep
@@ -2535,6 +2600,76 @@ def test_preflight_fails_loudly_when_the_pending_count_cannot_be_read(fake_db, s
     monkeypatch.setattr(fake_db, "table", boom)
     with pytest.raises(svc.MockExamError):
         svc.collect_preflight(exam["id"])
+
+def test_a_sitting_born_during_the_sweep_is_still_stamped(fake_db, svc, monkeypatch):
+    """Codex #843 (correct, P1): create_sitting() decided from an exam row read
+    BEFORE the insert, while /collect sets collected_section and sweeps the
+    sittings as separate queries. A student who started opening the exam before
+    the marker was set but whose row landed after the sweep was neither swept
+    NOR born submitted — so the runner handed them the collected paper."""
+    exam = _seed_exam(fake_db)
+    svc.advance_section(exam["id"], "admin-1")            # → listening
+
+    # Stage the window: the pre-insert read sees no pause, the post-insert
+    # re-read sees one.
+    real_get = svc.get_published_exam_by_id
+    calls = {"n": 0}
+
+    def pause_after_first_read(exam_id):
+        row = real_get(exam_id)
+        calls["n"] += 1
+        if calls["n"] == 1 and row:
+            return {**row, "collected_section": None}
+        return row
+
+    fake_db.table("mock_exams").update(
+        {"collected_section": "listening"}).eq("id", exam["id"]).execute()
+    # Save/restore rather than monkeypatch.undo(): pytest shares one monkeypatch
+    # instance with fake_db, so undo() would restore the REAL Supabase client.
+    svc.get_published_exam_by_id = pause_after_first_read
+    try:
+        late = svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    finally:
+        svc.get_published_exam_by_id = real_get
+
+    assert late["listening_submitted_at"] is not None, (
+        "a sitting inserted during the pause must still be born submitted")
+
+
+def test_attach_is_refused_once_the_section_is_collected(fake_db, svc):
+    """Codex #843 (correct, P1): the pause deliberately leaves active_section
+    alone, so the sequential gate cannot see it. An attempt whose creation
+    finished after the sweep still attached — but the sitting was already
+    stamped and skipped for grading (nothing was bound yet), later sweeps skip
+    it, and the attempt is never graded."""
+    exam = _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → listening
+    svc.collect_section(exam["id"], "admin-1", from_section="listening")
+
+    aid = str(uuid4())
+    fake_db.seed("listening_test_attempts", {
+        "id": aid, "user_id": str(u), "test_id": exam["listening_test_id"],
+        "status": "in_progress", "answers": [],
+    })
+    with pytest.raises(svc.SittingConflictError):
+        svc.attach_attempt(s["id"], u, "listening", aid)
+
+
+def test_live_monitor_reports_the_pause_and_stops_the_clock(fake_db, svc):
+    """Codex #843 (correct): active_section does not change during the break, so
+    without the canonical marker the console kept rendering and ticking the
+    collected section's clock."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+    svc.collect_section(exam["id"], "admin-1", from_section="listening")
+
+    ex = svc.admin_live_monitor(exam["id"])["exam"]
+    assert ex["active_section"] == "listening"            # unchanged, by design
+    assert ex["collected_section"] == "listening"
+    assert ex["section_time_left_seconds"] is None, "no clock runs during the pause"
 
 
 def test_collect_rejected_before_the_exam_starts(fake_db, svc):
@@ -2974,6 +3109,64 @@ def test_voiding_blocks_a_stale_release(fake_db, svc, wf, monkeypatch):
         wf.release_results(rid, "admin-1")
     after = svc.get_sitting(s["id"])
     assert after["status"] == "void" and after["sealed"] is True
+
+
+def test_unassign_catches_a_sitting_opened_mid_request(fake_db, svc, monkeypatch):
+    """Codex #840 (correct): a student pressing "Bắt đầu" concurrently could
+    read the still-present assignment and insert their sitting AFTER the scan
+    but BEFORE the delete — so the new sitting was never voided, later refreshes
+    resumed it before the eligibility gates, and the endpoint still reported a
+    successful revocation.
+
+    Staged by making the racing sitting appear while the first pass is running:
+    void_sitting() seeds it on its first call, so it exists only in time for the
+    second pass to find."""
+    from services import mock_exam_assignment_service as a
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    u = str(uuid4())
+    a.assign(exam["id"], [{"user_id": u, "skills": ["writing"], **_WINDOW}],
+             created_by=str(uuid4()))
+    first = svc.create_sitting(u, "MOCK-TEST-A")
+
+    racing = str(uuid4())
+    orig_void = svc.void_sitting
+    spawned = {"done": False}
+
+    def void_then_spawn(sitting_id, admin_id, reason=""):
+        out = orig_void(sitting_id, admin_id, reason=reason)
+        if not spawned["done"]:
+            spawned["done"] = True
+            fake_db.seed("mock_exam_sittings", {
+                "id": racing, "mock_exam_id": exam["id"], "user_id": u,
+                "status": "registered", "sealed": True,
+                "assigned_skills": ["writing"],
+                "listening_submitted_at": None, "reading_submitted_at": None,
+                "writing_submitted_at": None,
+                "listening_attempt_id": None, "reading_attempt_id": None,
+                "speaking_session_ids": [], "writing_submission": {},
+                "integrity": {},
+            })
+        return out
+
+    monkeypatch.setattr(svc, "void_sitting", void_then_spawn)
+    out = a.remove(exam["id"], u, admin_id="admin-1")
+
+    assert str(first["id"]) in out["voided"]
+    assert racing in out["voided"], "the sitting opened mid-request must be voided too"
+    assert svc.get_sitting(racing)["status"] == "void"
+
+
+def test_unassign_deletes_the_assignment_before_scanning(fake_db, svc):
+    """Order matters: once the assignment row is gone create_sitting() refuses,
+    which closes the window from the other side. Scanning first left it open."""
+    import pathlib as _pl
+    from services import mock_exam_assignment_service as a
+    body = _pl.Path(a.__file__).read_text(encoding="utf-8")
+    body = body[body.index("def remove("):]
+    assert body.index('table("mock_exam_assignments").delete()') \
+        < body.index("def _open_sittings()")
 
 
 def test_unassign_is_a_noop_without_an_assignment(fake_db, svc):
