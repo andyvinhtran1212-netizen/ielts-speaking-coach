@@ -147,11 +147,21 @@ def list_open_exams(user_id: str) -> list[dict]:
     # actually in the middle of.
     live = live_sitting_for_user(user_id)
     out = []
+    mine_exam_id = str(live["mock_exam_id"]) if live else None
     for e in (resp.data or []):
+        # A student's OWN in-progress exam always stays listed, even once it
+        # fails the new-entry gates. The admin closing the live toggle to block
+        # late entrants (or a retake window lapsing) would otherwise drop the
+        # exam from the list BEFORE my_sitting_id could be attached — so the
+        # entry page showed the empty state instead of the resume link it
+        # promises, to precisely the student who is mid-exam
+        # (Codex review, PR #841). Only ever relaxes the gate for the one
+        # person who already has a sitting on that exam.
+        is_mine = mine_exam_id is not None and str(e["id"]) == mine_exam_id
         if is_retake(e):
-            if e["id"] not in assigned:
+            if e["id"] not in assigned and not is_mine:
                 continue
-        else:
+        elif not is_mine:
             if not e.get("is_open"):
                 continue
             if e.get("cohort_id") and not _user_in_cohort(user_id, e["cohort_id"]):
@@ -1850,8 +1860,8 @@ def _force_collect_section(exam_id: str, section: str) -> int:
 
     n = 0
     for row in (rows.data or []):
-        _collect_section_for_sitting(row, section)
-        n += 1
+        if _collect_section_for_sitting(row, section):
+            n += 1
     return n
 
 
@@ -1925,7 +1935,7 @@ def collect_section(exam_id: str, admin_id: str, section: Optional[str] = None) 
     return {"section": target, "collected": collected}
 
 
-def _collect_section_for_sitting(sitting: dict, section: str) -> None:
+def _collect_section_for_sitting(sitting: dict, section: str) -> bool:
     """Force-collect ONE section of ONE sitting AS-IS (time's up / straggler /
     closed tab). Stamps the collected-at timestamp, grades the bound L/R attempt
     (or promotes Writing) if present, then re-checks terminal reconciliation on
@@ -1934,7 +1944,7 @@ def _collect_section_for_sitting(sitting: dict, section: str) -> None:
     advance sweep and the retake reaper."""
     col = _SUBMITTED_COL.get(section)
     if not col or sitting.get(col):
-        return
+        return False
     try:
         update: dict = {col: _now_iso()}
         if sitting.get("status") == "registered":
@@ -1963,11 +1973,17 @@ def _collect_section_for_sitting(sitting: dict, section: str) -> None:
                 "status": "lrw_submitted",
             }).eq("id", sitting["id"]).execute()
             _reconcile_terminal(sitting["id"])
+        return True
     except Exception:  # noqa: BLE001
         logger.exception(
             "[mock-exam] force-collect failed sitting=%s section=%s",
             sitting["id"], section,
         )
+        # Report the failure so the caller's count reflects papers ACTUALLY
+        # taken. Counting unconditionally told the admin "N bài đã thu" for
+        # papers still sitting with the student, and the next poll silently
+        # contradicted it (Codex review, PR #843).
+        return False
 
 
 def _retake_section_expired(sitting: dict, exam: dict, section: str, grace_seconds: int) -> bool:
@@ -2367,10 +2383,20 @@ def admin_live_monitor(exam_id: str) -> dict:
             att = l_attempts.get(str(sitting.get("listening_attempt_id") or ""))
             if att:
                 answered, last = _answer_progress(att.get("answers") or [])
+            elif state == "working":
+                # In the open section with NO attempt bound: the runner is still
+                # loading, or attempt creation failed. Either way the server
+                # holds nothing for them. Leaving this None hid exactly this
+                # student from the "trắng" filter, which only matches 0 — so the
+                # one person who most needs checking on was the one the
+                # invigilator could not see (Codex review, PR #833).
+                answered = 0
         elif section == "reading":
             aid = str(sitting.get("reading_attempt_id") or "")
             if aid in r_attempts:
                 answered, last = _answer_progress(r_answers.get(aid, []))
+            elif state == "working":
+                answered = 0
         else:
             # Writing autosaves to the server during the section (A2), so the
             # word count IS live now — `answered` is words, not questions, and
@@ -2539,8 +2565,13 @@ def sitting_pacing(sitting_id: str) -> dict:
         ended = _parse_ts(sitting.get(_SUBMITTED_COL[section]))
         return started, ended
 
-    def _timeline(stamps, section):
-        """[{q_num, at, gap_seconds}] in the order the answers actually landed."""
+    def _timeline(stamps, section, answered=None):
+        """[{q_num, at, gap_seconds}] in the order the saves actually landed.
+
+        `answered` is passed in separately because the timeline counts every
+        timestamped save (a cleared answer is still activity) while the KPI
+        counts only non-empty ones.
+        """
         started, ended = _section_window(section)
         rows = sorted(
             ((q, _parse_ts(at)) for q, at in stamps if at),
@@ -2554,7 +2585,7 @@ def sitting_pacing(sitting_id: str) -> dict:
         summary = {
             "started_at":  started.isoformat() if started else None,
             "ended_at":    ended.isoformat() if ended else None,
-            "answered":    len(out),
+            "answered":    len(out) if answered is None else answered,
             "total":       None,
             "timeline":    out,
             # Answers landing in the closing minutes — the shape of a rushed
@@ -2587,10 +2618,17 @@ def sitting_pacing(sitting_id: str) -> dict:
             "answers, grading_details",
         ).eq("id", str(lid)).limit(1).execute().data or []
         answers = (rows[0].get("answers") or []) if rows else []
+        # Every timestamped save is activity, INCLUDING clearing an answer:
+        # both save paths persist the empty value with a fresh answered_at.
+        # Filtering those out made the last touch look older than it was,
+        # inflated idle_tail_seconds, hid a long gap, and reconstructed the
+        # wrong work order (Codex review, PR #848). The answered COUNT still
+        # counts only non-empty values.
         sections["listening"] = _timeline(
             [(a.get("q_num"), a.get("answered_at")) for a in answers
-             if str(a.get("user_answer") or "").strip()],
+             if a.get("answered_at")],
             "listening",
+            answered=sum(1 for a in answers if str(a.get("user_answer") or "").strip()),
         )
         sections["listening"]["total"] = (
             len(rows[0].get("grading_details") or []) or None) if rows else None
@@ -2602,8 +2640,9 @@ def sitting_pacing(sitting_id: str) -> dict:
         ).eq("attempt_id", str(rid)).execute().data or []
         sections["reading"] = _timeline(
             [(r.get("q_num"), r.get("answered_at")) for r in rows
-             if str(r.get("user_answer") or "").strip()],
+             if r.get("answered_at")],
             "reading",
+            answered=sum(1 for r in rows if str(r.get("user_answer") or "").strip()),
         )
         att = supabase_admin.table("reading_test_attempts").select(
             "grading_details",
@@ -2613,6 +2652,14 @@ def sitting_pacing(sitting_id: str) -> dict:
 
     # Writing has no per-question stamps; what it has (since A2) is an autosaved
     # draft with a word count and a last-saved time per task.
+    #
+    # A retake may be assigned Listening and/or Reading only — assigned_skills
+    # is the canonical retake scope (_sitting_sections). Rendering a blank
+    # Writing block for those students told the teacher they were missing work
+    # nobody ever asked them for (Codex review, PR #848).
+    if retake and "writing" not in (sitting.get("assigned_skills") or []):
+        return _pacing_payload(sitting, exam, names, sections)
+
     ws = sitting.get("writing_submission") or {}
     w_started, w_ended = _section_window("writing")
     sections["writing"] = {
@@ -2628,11 +2675,19 @@ def sitting_pacing(sitting_id: str) -> dict:
         ],
     }
 
+    return _pacing_payload(sitting, exam, names, sections)
+
+
+def _pacing_payload(sitting: dict, exam: dict, names: dict, sections: dict) -> dict:
     return {
-        "sitting_id":   str(sitting_id),
+        "sitting_id":   str(sitting["id"]),
         "student_name": names.get(str(sitting.get("user_id")), "—"),
         "exam_code":    exam.get("code"),
         "status":       sitting.get("status"),
+        # The exam this sitting belongs to, so a page linking BACK to the live
+        # console can return to the same classroom instead of whichever exam
+        # happens to be first in the list (Codex review, PR #848).
+        "exam_id":      str(sitting.get("mock_exam_id")),
         "sections":     sections,
         # Stated in the payload so a UI cannot quietly present these as exact
         # per-question think-time.

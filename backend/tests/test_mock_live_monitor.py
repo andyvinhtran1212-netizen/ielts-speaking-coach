@@ -220,6 +220,34 @@ def test_reading_progress_reads_the_autosave_table(fake_db, svc):
     assert sec["answered"] == 2
 
 
+def test_working_student_with_no_attempt_counts_as_blank(fake_db, svc):
+    """Codex #833 (correct): a student in the OPEN section with no attempt bound
+    (runner still loading, or attempt creation failed) left `answered` as None.
+    The console's "trắng" filter only matches 0, so the one person who most
+    needed checking on was the one the invigilator could not see."""
+    cohort = str(uuid4())
+    exam = _seed_exam(fake_db, cohort_id=cohort)
+    fake_db.table("mock_exams").update({"active_section": "listening"}).eq(
+        "id", exam["id"]).execute()
+    uid = _seed_student(fake_db, cohort, "An")
+    _seed_sitting(fake_db, exam, uid)          # no listening_attempt_id
+
+    sec = _find(svc.admin_live_monitor(exam["id"]), "An")["sections"]["listening"]
+    assert sec["state"] == "working"
+    assert sec["answered"] == 0                # visible to the problem filter
+
+
+def test_waiting_student_with_no_attempt_is_not_called_blank(fake_db, svc):
+    """Before their section opens there is nothing to be blank about."""
+    cohort = str(uuid4())
+    exam = _seed_exam(fake_db, cohort_id=cohort)
+    fake_db.table("mock_exams").update({"active_section": "listening"}).eq(
+        "id", exam["id"]).execute()
+    uid = _seed_student(fake_db, cohort, "An")
+    _seed_sitting(fake_db, exam, uid)
+    assert _find(svc.admin_live_monitor(exam["id"]), "An")["sections"]["reading"]["answered"] is None
+
+
 def test_stalled_flags_a_silent_working_student(fake_db, svc):
     cohort = str(uuid4())
     exam = _seed_exam(fake_db, cohort_id=cohort)
@@ -476,6 +504,51 @@ def test_pacing_reports_where_the_work_stopped(fake_db, svc):
     rd = svc.sitting_pacing(_find_sitting_id(fake_db))["sections"]["reading"]
     assert rd["idle_tail_seconds"] == 18 * 60          # stopped 18 min early
     assert rd["answers_in_final_minutes"] == 0
+
+
+def test_pacing_keeps_timestamped_clears_in_the_timeline(fake_db, svc):
+    """Codex #848 (correct): both save paths persist a CLEARED answer with a
+    fresh answered_at. Filtering those out made the last touch look older than
+    it was, inflated idle_tail_seconds and reconstructed the wrong work order.
+    The answered KPI still counts only non-empty values."""
+    cohort = str(uuid4())
+    exam = _seed_exam(fake_db, cohort_id=cohort)
+    start = _now() - timedelta(minutes=10)
+    fake_db.table("mock_exams").update({
+        "active_section": "listening", "listening_started_at": _iso(start),
+    }).eq("id", exam["id"]).execute()
+    uid = _seed_student(fake_db, cohort, "An")
+    aid = str(uuid4())
+    fake_db.seed("listening_test_attempts", {
+        "id": aid, "status": "in_progress", "grading_details": [{}] * 40,
+        "answers": [
+            {"q_num": 1, "user_answer": "cat", "answered_at": _iso(start + timedelta(seconds=30))},
+            {"q_num": 2, "user_answer": "",    "answered_at": _iso(start + timedelta(seconds=90))},
+        ],
+    })
+    _seed_sitting(fake_db, exam, uid, listening_attempt_id=aid,
+                  listening_submitted_at=_iso(start + timedelta(minutes=5)))
+
+    lis = svc.sitting_pacing(_find_sitting_id(fake_db))["sections"]["listening"]
+    assert [r["q_num"] for r in lis["timeline"]] == [1, 2]   # the clear is activity
+    assert lis["answered"] == 1                              # ...but not an answer
+    # last touch is the clear at +90s, so the idle tail is 5min − 90s
+    assert lis["idle_tail_seconds"] == 210
+
+
+def test_pacing_omits_writing_for_an_lr_only_retake(fake_db, svc):
+    """assigned_skills is the canonical retake scope; a blank Writing block told
+    the teacher the student was missing work nobody asked them for."""
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    uid = str(uuid4())
+    fake_db.seed("users", {"id": uid, "display_name": "An", "email": None})
+    _seed_sitting(fake_db, exam, uid, assigned_skills=["reading"])
+
+    out = svc.sitting_pacing(_find_sitting_id(fake_db))
+    assert "writing" not in out["sections"]
+    assert out["exam_id"] == exam["id"]          # back-link target
 
 
 def test_pacing_states_its_own_caveats(fake_db, svc):
