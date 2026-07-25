@@ -29,26 +29,39 @@ ALTER TABLE mock_exam_reviews
     ADD CONSTRAINT mock_exam_reviews_status_check
     CHECK (status IN ('queued', 'claimed', 'edited', 'reviewed', 'released', 'void'));
 
-COMMIT;
-
--- ── Backfill (optional, read the SELECT first).
+-- ── Backfill. RUN, not optional.
 --
--- Reviews whose sitting was voided BEFORE this migration are the rows that
--- silently failed the update. They are still in the queue.
+-- Reviews whose sitting was voided BEFORE this migration are the rows whose
+-- update silently failed the old CHECK. Extending the constraint only fixes
+-- FUTURE voids: without this they stay queued/claimed/reviewed and keep
+-- appearing in get_queue() as work someone is expected to finish for a
+-- cancelled exam (Codex review, PR #840). It runs inside the same transaction
+-- as the constraint change, so either both land or neither does.
+--
+-- Audit first if you want to see what will move (read-only):
 --
 -- SELECT r.id, r.sitting_id, r.status, s.status AS sitting_status
 --   FROM mock_exam_reviews r
 --   JOIN mock_exam_sittings s ON s.id = r.sitting_id
 --  WHERE s.status = 'void' AND r.status NOT IN ('released', 'void');
---
--- UPDATE mock_exam_reviews r
---    SET status = 'void'
---   FROM mock_exam_sittings s
---  WHERE s.id = r.sitting_id
---    AND s.status = 'void'
---    AND r.status NOT IN ('released', 'void');
 
--- ── VERIFY: the value is now accepted.
+UPDATE mock_exam_reviews r
+   SET status = 'void'
+  FROM mock_exam_sittings s
+ WHERE s.id = r.sitting_id
+   AND s.status = 'void'
+   AND r.status NOT IN ('released', 'void');
+
+COMMIT;
+
+-- ── VERIFY (read-only). Both must hold.
+--
+-- No non-released review may remain attached to a void sitting:
+-- SELECT COUNT(*) FROM mock_exam_reviews r
+--   JOIN mock_exam_sittings s ON s.id = r.sitting_id
+--  WHERE s.status = 'void' AND r.status NOT IN ('released', 'void');
+--
+-- ...and the value is now accepted:
 -- SELECT 'void' = ANY (
 --   SELECT unnest(string_to_array(
 --     regexp_replace(pg_get_constraintdef(oid), '[^a-z,]', '', 'g'), ','))

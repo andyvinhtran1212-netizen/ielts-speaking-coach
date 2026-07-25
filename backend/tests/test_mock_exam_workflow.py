@@ -2468,6 +2468,64 @@ def test_voiding_blocks_a_stale_release(fake_db, svc, wf, monkeypatch):
     assert after["status"] == "void" and after["sealed"] is True
 
 
+def test_unassign_catches_a_sitting_opened_mid_request(fake_db, svc, monkeypatch):
+    """Codex #840 (correct): a student pressing "Bắt đầu" concurrently could
+    read the still-present assignment and insert their sitting AFTER the scan
+    but BEFORE the delete — so the new sitting was never voided, later refreshes
+    resumed it before the eligibility gates, and the endpoint still reported a
+    successful revocation.
+
+    Staged by making the racing sitting appear while the first pass is running:
+    void_sitting() seeds it on its first call, so it exists only in time for the
+    second pass to find."""
+    from services import mock_exam_assignment_service as a
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    u = str(uuid4())
+    a.assign(exam["id"], [{"user_id": u, "skills": ["writing"], **_WINDOW}],
+             created_by=str(uuid4()))
+    first = svc.create_sitting(u, "MOCK-TEST-A")
+
+    racing = str(uuid4())
+    orig_void = svc.void_sitting
+    spawned = {"done": False}
+
+    def void_then_spawn(sitting_id, admin_id, reason=""):
+        out = orig_void(sitting_id, admin_id, reason=reason)
+        if not spawned["done"]:
+            spawned["done"] = True
+            fake_db.seed("mock_exam_sittings", {
+                "id": racing, "mock_exam_id": exam["id"], "user_id": u,
+                "status": "registered", "sealed": True,
+                "assigned_skills": ["writing"],
+                "listening_submitted_at": None, "reading_submitted_at": None,
+                "writing_submitted_at": None,
+                "listening_attempt_id": None, "reading_attempt_id": None,
+                "speaking_session_ids": [], "writing_submission": {},
+                "integrity": {},
+            })
+        return out
+
+    monkeypatch.setattr(svc, "void_sitting", void_then_spawn)
+    out = a.remove(exam["id"], u, admin_id="admin-1")
+
+    assert str(first["id"]) in out["voided"]
+    assert racing in out["voided"], "the sitting opened mid-request must be voided too"
+    assert svc.get_sitting(racing)["status"] == "void"
+
+
+def test_unassign_deletes_the_assignment_before_scanning(fake_db, svc):
+    """Order matters: once the assignment row is gone create_sitting() refuses,
+    which closes the window from the other side. Scanning first left it open."""
+    import pathlib as _pl
+    from services import mock_exam_assignment_service as a
+    body = _pl.Path(a.__file__).read_text(encoding="utf-8")
+    body = body[body.index("def remove("):]
+    assert body.index('table("mock_exam_assignments").delete()') \
+        < body.index("def _open_sittings()")
+
+
 def test_unassign_is_a_noop_without_an_assignment(fake_db, svc):
     """A stale DELETE for a sequential exam (or a user with no assignment) must
     not cancel that student's live sitting — it was a harmless no-op before."""
