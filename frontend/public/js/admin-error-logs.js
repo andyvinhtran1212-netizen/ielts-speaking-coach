@@ -81,6 +81,33 @@ function escapeHtml(s) {
 // a non-engineer admin. Turn each row into a plain-language summary + a category
 // so the table is triageable at a glance. Pure display logic; the raw message +
 // stack are still shown in the detail panel.
+// Review #822 — pull `details` out of a Python dict repr, escapes and all.
+// postgrest-py puts the raw upstream body there via `str(r.content)`, so the
+// value is itself a bytes repr: `b'Internal server error.'`. When that body
+// contains a double quote — routine for an HTML gateway error page — Python
+// must delimit with single quotes and ESCAPE the inner ones:
+//     'details': 'b\'<html>…502 Bad "Gateway"…\''
+// A `[^']*` capture stops dead at the first `\'` and yields `b\`, throwing away
+// the entire diagnostic. Allow an escaped pair anywhere inside, then undo the
+// escaping so the summary shows the body a human can act on.
+// (The `'message'` extraction in the CSDL branch below has the same latent
+// flaw. Left alone on purpose — it is pre-existing and belongs to its own
+// patch, not this one.)
+function _pyReprDetails(msg) {
+  const m = msg.match(/'details':\s*'((?:\\.|[^'\\])*)'/)
+         || msg.match(/'details':\s*"((?:\\.|[^"\\])*)"/);
+  if (!m) return undefined;
+  // Two layers of escaping sit here: the dict repr wraps a BYTES repr, and
+  // `str(b'a\nb')` is itself already escaped. Undo the outer layer, then
+  // flatten whatever whitespace escapes the inner one left, so a multi-line
+  // gateway page reads as one line instead of showing a literal `\n`.
+  return m[1]
+    .replace(/\\([nrt'"\\])/g, (_, c) => (c === 'n' || c === 't' ? ' ' : c === 'r' ? '' : c))
+    .replace(/\\[nrt]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function humanizeError(row) {
   const msg = String(row.message || '');
 
@@ -95,8 +122,42 @@ function humanizeError(row) {
     return { category: 'Bên thứ 3', tone: 'muted', noise: true,
              summary: 'Lỗi từ tiện ích/quảng cáo bên ngoài — không phải lỗi của ứng dụng' };
   }
-  // Database (Postgres / PostgREST) — message is a dict repr carrying a code
-  const code = (msg.match(/'code':\s*'([^']+)'/) || [])[1];
+  // Database (Postgres / PostgREST) — message is a dict repr carrying a code.
+  // DEBT-2026-07-22-E: the code is NOT always a quoted SQLSTATE. When the
+  // response body will not parse as a PostgREST error, postgrest-py synthesises
+  // one where `code` is the HTTP STATUS as an INT — repr `'code': 555`, no
+  // quotes — so the old quoted-only regex missed it entirely. Match either form;
+  // read the groups explicitly rather than `m[1] || m[2]` so an empty capture
+  // doesn't fall through to the wrong one.
+  const codeM = msg.match(/'code':\s*(?:'([^']*)'|(\d+))/);
+  const code = codeM ? (codeM[1] !== undefined ? codeM[1] : codeM[2]) : undefined;
+
+  // DEBT-2026-07-22-E — upstream gateway failure, NOT our data and not Postgres.
+  //   postgrest/exceptions.py:62 generate_default_error_message(r) →
+  //     {"message": "JSON could not be generated", "code": r.status_code,
+  //      "hint": ..., "details": str(r.content)}
+  //   raised at postgrest/_sync/request_builder.py:55 (also 84/100/129 + the
+  //   _async twin) inside `except ValidationError` — the response was not
+  //   successful AND its body would not parse as a PostgREST error.
+  // PostgREST itself always returns JSON, so a plain-text body means the error
+  // came from the gateway in FRONT of it. The 2026-07-22 incident was HTTP 555
+  // with body b'Internal server error.' — a Supabase platform blip. It used to
+  // land in "Khác" with a full raw traceback at level=error: 11 rows from one
+  // short outage, every one of them counting against the error budget.
+  // Checked BEFORE the CSDL branch because `code` is now truthy for these.
+  // Kept noise:false deliberately — a real platform outage must stay visible;
+  // the defect was the mislabelling and the traceback, not the row existing.
+  if (/JSON could not be generated/i.test(msg) && code !== undefined && /^\d{3}$/.test(String(code))) {
+    const details = _pyReprDetails(msg);
+    const transient = Number(code) >= 500;
+    return {
+      category: 'Mạng', tone: transient ? 'warning' : 'error', noise: false,
+      summary: `Dịch vụ Supabase trả HTTP ${code}`
+        + (transient ? ' (sự cố nền tảng, thường tạm thời)' : ' (lỗi cổng API)')
+        + (details ? ` — ${truncate(details, 60)}` : ''),
+    };
+  }
+
   if (code || /schema cache|violates .*constraint|does not exist|null value in column/i.test(msg)) {
     // The inner Postgres message is single-quoted but often contains double
     // quotes ("prompt_version"), or double-quoted and contains single quotes
