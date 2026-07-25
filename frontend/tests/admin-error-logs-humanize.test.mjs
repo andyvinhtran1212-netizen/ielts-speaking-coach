@@ -106,3 +106,61 @@ describe('humanizeError — categorisation', () => {
     assert.equal(h.noise, false);
   });
 });
+
+
+describe('humanizeError — postgrest upstream 5xx (DEBT-2026-07-22-E)', () => {
+  // The real 2026-07-22 payload. postgrest-py's generate_default_error_message
+  // puts the HTTP STATUS in `code` as an INT — unquoted in the repr — and the
+  // upstream body in `details`. One short Supabase platform blip produced 11
+  // level=error rows shaped exactly like this.
+  const REAL_555 = "{'message': 'JSON could not be generated', 'code': 555, "
+    + "'hint': 'Refer to full message for details.', 'details': \"b'Internal server error.'\"}";
+
+  test('the 555 blip lands in Mạng/warning, NOT Khác', () => {
+    const h = H({ source: 'backend', message: REAL_555 });
+    assert.equal(h.category, 'Mạng');
+    assert.equal(h.tone, 'warning');
+  });
+
+  test('the summary names the status and shows the real upstream body', () => {
+    const h = H({ source: 'backend', message: REAL_555 });
+    assert.match(h.summary, /HTTP 555/);
+    assert.match(h.summary, /Internal server error/);
+    assert.ok(!/Cột|cột/.test(h.summary), 'must not be described as a schema problem');
+  });
+
+  test('stays visible (noise:false) — a platform outage is not noise', () => {
+    // Hiding it would make a real Supabase outage invisible in the admin panel.
+    // The defect was the mislabelling + raw traceback, not the row existing.
+    const h = H({ source: 'backend', message: REAL_555 });
+    assert.equal(h.noise, false);
+  });
+
+  test('a non-5xx gateway body is upstream too, but not called transient', () => {
+    const h = H({ source: 'backend', message:
+      "{'message': 'JSON could not be generated', 'code': 502, 'details': \"b'Bad gateway'\"}" });
+    assert.equal(h.category, 'Mạng');
+    assert.equal(h.tone, 'warning');
+    const h4 = H({ source: 'backend', message:
+      "{'message': 'JSON could not be generated', 'code': 404, 'details': \"b'not found'\"}" });
+    assert.equal(h4.category, 'Mạng');
+    assert.equal(h4.tone, 'error');
+    assert.match(h4.summary, /cổng API/);
+  });
+
+  test('a real quoted SQLSTATE still routes to CSDL (no regression)', () => {
+    const h = H({ source: 'backend', message:
+      "{'message': 'column reading_tests.published does not exist', 'code': '42703', "
+      + "'hint': None, 'details': None}" });
+    assert.equal(h.category, 'CSDL');
+    assert.match(h.summary, /published/);
+  });
+
+  test('an unquoted numeric code alone does NOT hijack a genuine DB error', () => {
+    // Only the "JSON could not be generated" message routes upstream; anything
+    // else with a numeric code keeps the CSDL path.
+    const h = H({ source: 'backend', message:
+      "{'message': 'null value in column \"q_num\" violates not-null constraint', 'code': 23502}" });
+    assert.equal(h.category, 'CSDL');
+  });
+});

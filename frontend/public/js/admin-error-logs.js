@@ -95,8 +95,43 @@ function humanizeError(row) {
     return { category: 'Bên thứ 3', tone: 'muted', noise: true,
              summary: 'Lỗi từ tiện ích/quảng cáo bên ngoài — không phải lỗi của ứng dụng' };
   }
-  // Database (Postgres / PostgREST) — message is a dict repr carrying a code
-  const code = (msg.match(/'code':\s*'([^']+)'/) || [])[1];
+  // Database (Postgres / PostgREST) — message is a dict repr carrying a code.
+  // DEBT-2026-07-22-E: the code is NOT always a quoted SQLSTATE. When the
+  // response body will not parse as a PostgREST error, postgrest-py synthesises
+  // one where `code` is the HTTP STATUS as an INT — repr `'code': 555`, no
+  // quotes — so the old quoted-only regex missed it entirely. Match either form;
+  // read the groups explicitly rather than `m[1] || m[2]` so an empty capture
+  // doesn't fall through to the wrong one.
+  const codeM = msg.match(/'code':\s*(?:'([^']*)'|(\d+))/);
+  const code = codeM ? (codeM[1] !== undefined ? codeM[1] : codeM[2]) : undefined;
+
+  // DEBT-2026-07-22-E — upstream gateway failure, NOT our data and not Postgres.
+  //   postgrest/exceptions.py:62 generate_default_error_message(r) →
+  //     {"message": "JSON could not be generated", "code": r.status_code,
+  //      "hint": ..., "details": str(r.content)}
+  //   raised at postgrest/_sync/request_builder.py:55 (also 84/100/129 + the
+  //   _async twin) inside `except ValidationError` — the response was not
+  //   successful AND its body would not parse as a PostgREST error.
+  // PostgREST itself always returns JSON, so a plain-text body means the error
+  // came from the gateway in FRONT of it. The 2026-07-22 incident was HTTP 555
+  // with body b'Internal server error.' — a Supabase platform blip. It used to
+  // land in "Khác" with a full raw traceback at level=error: 11 rows from one
+  // short outage, every one of them counting against the error budget.
+  // Checked BEFORE the CSDL branch because `code` is now truthy for these.
+  // Kept noise:false deliberately — a real platform outage must stay visible;
+  // the defect was the mislabelling and the traceback, not the row existing.
+  if (/JSON could not be generated/i.test(msg) && code !== undefined && /^\d{3}$/.test(String(code))) {
+    const details = (msg.match(/'details':\s*'([^']*)'/)
+                  || msg.match(/'details':\s*"([^"]*)"/) || [])[1];
+    const transient = Number(code) >= 500;
+    return {
+      category: 'Mạng', tone: transient ? 'warning' : 'error', noise: false,
+      summary: `Dịch vụ Supabase trả HTTP ${code}`
+        + (transient ? ' (sự cố nền tảng, thường tạm thời)' : ' (lỗi cổng API)')
+        + (details ? ` — ${truncate(details, 60)}` : ''),
+    };
+  }
+
   if (code || /schema cache|violates .*constraint|does not exist|null value in column/i.test(msg)) {
     // The inner Postgres message is single-quoted but often contains double
     // quotes ("prompt_version"), or double-quoted and contains single quotes
