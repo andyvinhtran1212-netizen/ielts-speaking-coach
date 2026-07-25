@@ -108,6 +108,48 @@ def test_expected_is_none_when_exam_has_no_cohort(fake_db, svc):
     assert svc.admin_live_monitor(exam["id"])["roster"]["expected"] is None
 
 
+def test_no_cohort_exam_does_not_call_everyone_off_roster(fake_db, svc):
+    """Codex #833 (correct): returning {} for "no cohort" made `uid in roster`
+    False for every real sitting, so the console reported ZERO arrivals and an
+    outside-the-list warning while the class was actively sitting the exam."""
+    exam = _seed_exam(fake_db, cohort_id=None)
+    uid = str(uuid4())
+    fake_db.seed("users", {"id": uid, "display_name": "An", "email": None})
+    _seed_sitting(fake_db, exam, uid)
+
+    res = svc.admin_live_monitor(exam["id"])
+    assert res["roster"]["expected"] is None      # still honestly unknown
+    assert res["roster"]["started"] == 1          # ...but they DID arrive
+    assert res["roster"]["off_roster"] == []      # nobody can be "outside" it
+    assert _find(res, "An")["in_roster"] is True
+
+
+def test_empty_cohort_is_zero_not_unknown(fake_db, svc):
+    """An empty cohort is a real answer. Only a MISSING cohort is unknown."""
+    exam = _seed_exam(fake_db, cohort_id=str(uuid4()))
+    assert svc.admin_live_monitor(exam["id"])["roster"]["expected"] == 0
+
+
+def test_cohort_member_without_an_account_still_counts(fake_db, svc):
+    """Codex #833 P1 (correct): students.user_id is NULLABLE by design (mig 033
+    — "link to user account when student gets login"), so an unactivated cohort
+    member is a REAL roster member. Dropping them reproduced the exact bug this
+    endpoint exists to kill — a class of 20 with two unactivated reported 18."""
+    cohort = str(uuid4())
+    exam = _seed_exam(fake_db, cohort_id=cohort)
+    activated = _seed_student(fake_db, cohort, "An")
+    fake_db.seed("students", {"id": str(uuid4()), "user_id": None,
+                              "cohort_id": cohort, "full_name": "Bình chưa kích hoạt"})
+    _seed_sitting(fake_db, exam, activated)
+
+    res = svc.admin_live_monitor(exam["id"])
+    assert res["roster"]["expected"] == 2                       # not 1
+    assert res["roster"]["not_started"] == ["Bình chưa kích hoạt"]
+    # name comes off the students row — there is no `users` row to resolve
+    row = _find(res, "Bình chưa kích hoạt")
+    assert row["started"] is False and row["in_roster"] is True
+
+
 def test_off_roster_sitting_is_surfaced(fake_db, svc):
     cohort = str(uuid4())
     exam = _seed_exam(fake_db, cohort_id=cohort)
