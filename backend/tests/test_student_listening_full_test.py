@@ -217,6 +217,7 @@ class _Q:
         self._payload = None
         self._eq: list[tuple[str, object]] = []
         self._in: list[tuple[str, list]] = []
+        self._is: list[tuple[str, object]] = []
         self._range: tuple[int, int] | None = None
 
     def select(self, *_a, **_kw): self._mode = "select"; return self
@@ -225,6 +226,10 @@ class _Q:
     def delete(self): self._mode = "delete"; return self
     def eq(self, c, v): self._eq.append((c, v)); return self
     def in_(self, c, vs): self._in.append((c, list(vs))); return self
+    # PostgREST `.is_(col, "null")` — how the standalone resume lookup excludes
+    # mock attempts. Modelled rather than stubbed so the test exercises the real
+    # filter: an absent key and an explicit None both count as NULL.
+    def is_(self, c, v): self._is.append((c, v)); return self
     # Mig 157 — the list endpoint filters eq("test_type", ...) on the real
     # column; seed rows carry test_type='full' so the eq-match keeps them.
     def or_(self, *_a, **_kw): return self
@@ -238,6 +243,12 @@ class _Q:
                 return False
         for c, vs in self._in:
             if r.get(c) not in vs:
+                return False
+        for c, v in self._is:
+            is_null = r.get(c) is None
+            if str(v).lower() == "null" and not is_null:
+                return False
+            if str(v).lower() != "null" and is_null:
                 return False
         return True
 
@@ -562,6 +573,42 @@ def test_start_attempt_abandons_previous_in_progress(monkeypatch):
 
 
 # ── PATCH answers ──────────────────────────────────────────────────────────
+
+
+def test_standalone_resume_never_returns_a_mock_attempt(monkeypatch):
+    """Codex #834 (correct): scoping only the MOCK lookup left the mirror bug —
+    a student with a live mock attempt opening the same test from the normal
+    Listening library would resume the SEALED exam attempt, replay the audio,
+    and edit exam answers outside the runner."""
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    fake.tables["listening_test_attempts"].append({
+        "id": "mock-att", "test_id": test["id"], "user_id": "user-1",
+        "status": "in_progress", "sitting_id": "sit-1", "answers": [],
+    })
+    out = _run(listening_router.get_in_progress_listening_attempt(
+        test_id=test["id"], sitting_id=None, authorization=authz,
+    ))
+    assert out["attempt"] is None          # standalone must not see it
+
+    # ...and the mock runner, scoped to its sitting, still does
+    out2 = _run(listening_router.get_in_progress_listening_attempt(
+        test_id=test["id"], sitting_id="sit-1", authorization=authz,
+    ))
+    assert out2["attempt"]["attempt_id"] == "mock-att"
+
+
+def test_standalone_resume_still_finds_a_practice_attempt(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    fake.tables["listening_test_attempts"].append({
+        "id": "solo", "test_id": test["id"], "user_id": "user-1",
+        "status": "in_progress", "sitting_id": None, "answers": [],
+    })
+    out = _run(listening_router.get_in_progress_listening_attempt(
+        test_id=test["id"], sitting_id=None, authorization=authz,
+    ))
+    assert out["attempt"]["attempt_id"] == "solo"
 
 
 def test_patch_answer_upserts_by_q_num(monkeypatch):
