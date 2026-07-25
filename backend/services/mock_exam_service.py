@@ -147,11 +147,21 @@ def list_open_exams(user_id: str) -> list[dict]:
     # actually in the middle of.
     live = live_sitting_for_user(user_id)
     out = []
+    mine_exam_id = str(live["mock_exam_id"]) if live else None
     for e in (resp.data or []):
+        # A student's OWN in-progress exam always stays listed, even once it
+        # fails the new-entry gates. The admin closing the live toggle to block
+        # late entrants (or a retake window lapsing) would otherwise drop the
+        # exam from the list BEFORE my_sitting_id could be attached — so the
+        # entry page showed the empty state instead of the resume link it
+        # promises, to precisely the student who is mid-exam
+        # (Codex review, PR #841). Only ever relaxes the gate for the one
+        # person who already has a sitting on that exam.
+        is_mine = mine_exam_id is not None and str(e["id"]) == mine_exam_id
         if is_retake(e):
-            if e["id"] not in assigned:
+            if e["id"] not in assigned and not is_mine:
                 continue
-        else:
+        elif not is_mine:
             if not e.get("is_open"):
                 continue
             if e.get("cohort_id") and not _user_in_cohort(user_id, e["cohort_id"]):
