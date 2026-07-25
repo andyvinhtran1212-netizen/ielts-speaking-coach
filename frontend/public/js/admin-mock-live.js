@@ -309,7 +309,7 @@
               (s.needs_retest ? ' <span class="ml-pill">cần test lại</span>' : '') + '</td>' +
             cols.map(function (c) { return '<td>' + cellHtml(s, c) + '</td>'; }).join('') +
             (speaking ? '<td>' + speakingHtml(s) + '</td>' : '') +
-            '<td class="ml-muted">' + esc(s.status) + '</td>' +
+            '<td class="ml-muted">' + esc(s.status) + integrityHtml(s) + '</td>' +
             '<td>' + (s.sitting_id
               ? '<a class="ml-void" href="/pages/admin/mock-pacing/index.html?sitting=' +
                   encodeURIComponent(s.sitting_id) + '" style="text-decoration:none">Nhịp làm bài</a> ' +
@@ -380,6 +380,22 @@
       (c.total ? '/' + c.total : '') + '</span>' + flags +
       (c.last_activity_at ? '<span class="ml-cell__note">' + esc(fmtTime(c.last_activity_at)) + '</span>' : '') +
       '</span>';
+  }
+
+  // Soft signals, deliberately understated. They are context for a surprising
+  // result — "was the tab hidden, did the connection die" — NOT an accusation,
+  // and nothing here feeds a band.
+  function integrityHtml(s) {
+    var i = s.integrity || {};
+    var bits = [];
+    if (i.blur_count) {
+      bits.push('rời tab ' + i.blur_count + '×' +
+        (i.blur_seconds ? ' (' + Math.round(i.blur_seconds / 60) + 'p)' : ''));
+    }
+    if (i.offline_events) bits.push('mất mạng ' + i.offline_events + '×');
+    if (i.resumes > 1) bits.push('vào lại ' + i.resumes + '×');
+    if (!bits.length) return '';
+    return '<span class="ml-cell__note" style="display:block">' + esc(bits.join(' · ')) + '</span>';
   }
 
   function speakingHtml(s) {

@@ -71,7 +71,12 @@
         var created = await api('post', '/api/mock-exams/' + encodeURIComponent(S.code) + '/sittings');
         S.sittingId = created.id;
       }
+      wireIntegrity();
+      // A fresh page load on an exam already in progress IS a resume — count it
+      // before the first route() so a reload mid-section is recorded once.
+      bumpIntegrity('resumes', 1);
       await loadState();
+      reportIntegrity();
     } catch (e) { fail('Không mở được kỳ thi: ' + (e && e.message ? e.message : e)); }
   }
 
@@ -629,6 +634,66 @@
       var sid = sess.session_id || sess.id;
       location.href = '/pages/practice.html?session_id=' + encodeURIComponent(sid);
     } catch (e) { fail('Không mở được phần Speaking: ' + (e && e.message ? e.message : e)); }
+  }
+
+  // ── Soft integrity signals ─────────────────────────────────────────
+  //
+  // mock_exam_sittings.integrity has been reserved for these since mig 146 and
+  // nothing has ever written to it. INFORMATIONAL ONLY — they never penalise
+  // anyone and never feed a band. They exist so an examiner looking at a
+  // surprising result can see whether the tab was hidden for ten minutes or the
+  // connection died six times, instead of guessing.
+  //
+  // Totals live in localStorage so they survive a reload, and are sent as
+  // ABSOLUTE values: the server takes the max, which makes a retry idempotent
+  // and makes the record un-decreasable by the client.
+  var INTEGRITY_KEY_PREFIX = 'mock-integrity:';
+  var _integrity = null;
+  var _hiddenAt = null;
+
+  function integrityKey() { return INTEGRITY_KEY_PREFIX + S.sittingId; }
+
+  function loadIntegrity() {
+    if (_integrity) return _integrity;
+    var d = null;
+    try { d = JSON.parse(localStorage.getItem(integrityKey()) || 'null'); } catch (e) {}
+    _integrity = (d && typeof d === 'object') ? d : {};
+    ['blur_count', 'blur_seconds', 'resumes', 'offline_events'].forEach(function (k) {
+      _integrity[k] = parseInt(_integrity[k], 10) || 0;
+    });
+    return _integrity;
+  }
+
+  function bumpIntegrity(key, by) {
+    var d = loadIntegrity();
+    d[key] = (d[key] || 0) + (by == null ? 1 : by);
+    try { localStorage.setItem(integrityKey(), JSON.stringify(d)); } catch (e) {}
+  }
+
+  function reportIntegrity() {
+    if (!S.sittingId) return;
+    var d = loadIntegrity();
+    // Nothing to say yet — don't spend a request on four zeroes.
+    if (!(d.blur_count || d.resumes || d.offline_events)) return;
+    window.api.post(
+      '/api/mock-exams/sittings/' + encodeURIComponent(S.sittingId) + '/integrity', d
+    ).catch(function () { /* soft signal — never worth surfacing to a student */ });
+  }
+
+  function wireIntegrity() {
+    document.addEventListener('visibilitychange', function () {
+      if (!S.renderedSection) return;      // only while actually sitting a section
+      if (document.visibilityState === 'hidden') {
+        _hiddenAt = Date.now();
+        bumpIntegrity('blur_count', 1);
+      } else if (_hiddenAt) {
+        bumpIntegrity('blur_seconds', Math.round((Date.now() - _hiddenAt) / 1000));
+        _hiddenAt = null;
+        reportIntegrity();
+      }
+    });
+    window.addEventListener('offline', function () { bumpIntegrity('offline_events', 1); });
+    window.addEventListener('pagehide', reportIntegrity);
   }
 
   // The browser's own connectivity signal is faster and more reliable than

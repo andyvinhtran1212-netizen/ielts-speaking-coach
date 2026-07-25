@@ -1342,6 +1342,56 @@ def submit_section(
     return sitting
 
 
+# Counters the runner reports. mock_exam_sittings.integrity has been reserved
+# for exactly this since mig 146 ({blur_count, late_ms, resumes}) and nothing
+# has ever written to it.
+_INTEGRITY_COUNTERS = ("blur_count", "blur_seconds", "resumes", "offline_events")
+# A single value can't be gamed downwards, but it also shouldn't grow without
+# bound from a stuck client.
+_INTEGRITY_MAX = 100000
+
+
+def record_integrity(sitting_id: str, user_id: str, signals: dict) -> dict:
+    """Merge soft integrity counters reported by the student's runner.
+
+    INFORMATIONAL ONLY — the mig 146 comment is explicit that these never
+    auto-penalise, and nothing here feeds a band. They exist so an examiner
+    looking at a surprising result can see whether the tab was hidden for ten
+    minutes or the connection died six times, instead of guessing.
+
+    Counters are MONOTONIC (max, not sum): the client keeps its running total in
+    localStorage so it survives a reload, and sending an absolute value makes
+    the write idempotent under retries. Taking the max also means a client can
+    never DECREASE its own record — which is the whole point of storing it
+    server-side rather than trusting a report at submit time.
+    """
+    sitting = get_sitting(sitting_id)
+    if not sitting:
+        raise NotFoundError(f"Sitting {sitting_id} không tồn tại.")
+    _assert_owner(sitting, user_id)
+    if sitting["status"] in ("released", "void"):
+        raise SittingConflictError(f"Sitting đang ở trạng thái {sitting['status']!r}.")
+
+    current = dict(sitting.get("integrity") or {})
+    for key in _INTEGRITY_COUNTERS:
+        raw = signals.get(key)
+        if raw is None:
+            continue
+        try:
+            value = int(raw)
+        except (TypeError, ValueError):
+            continue
+        if value < 0:
+            continue
+        current[key] = min(max(int(current.get(key) or 0), value), _INTEGRITY_MAX)
+    current["reported_at"] = _now_iso()
+
+    supabase_admin.table("mock_exam_sittings").update({
+        "integrity": current,
+    }).eq("id", str(sitting_id)).execute()
+    return current
+
+
 def bind_session_to_sitting(session_id: str, user_id: str, sitting_id: str) -> None:
     """Link a speaking session to a sitting AT CREATION (before any response is
     graded), so per-response grading is sealed from the first answer.
@@ -2290,6 +2340,13 @@ def admin_live_monitor(exam_id: str) -> dict:
                 "completed_at": (sitting or {}).get("speaking_completed_at"),
             },
             "needs_retest":  bool((sitting or {}).get("needs_retest")),
+            # Soft signals from the runner. Surfaced here rather than written and
+            # forgotten — a column nobody reads is exactly the criticism that
+            # produced the pacing page. Informational: never a penalty.
+            "integrity":     {
+                k: v for k, v in ((sitting or {}).get("integrity") or {}).items()
+                if k in _INTEGRITY_COUNTERS and v
+            },
         })
     students.sort(key=lambda r: (r["student_name"] or "").lower())
 

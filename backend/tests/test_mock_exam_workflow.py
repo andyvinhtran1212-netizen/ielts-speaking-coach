@@ -2531,6 +2531,59 @@ def test_retake_assign_rejects_open_ended_before_writing_any_row(fake_db):
     assert fake_db.rows("mock_exam_assignments") == []
 
 
+def test_integrity_counters_are_monotonic(fake_db, svc):
+    """The column has been reserved since mig 146 and never written.
+
+    Counters are absolute totals kept in the client's localStorage (so they
+    survive a reload) and merged with MAX — which makes a retry idempotent and,
+    more importantly, makes the record UN-DECREASABLE by the client. That is the
+    whole reason it lives server-side instead of being reported at submit."""
+    _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+
+    svc.record_integrity(s["id"], u, {"blur_count": 3, "offline_events": 1})
+    svc.record_integrity(s["id"], u, {"blur_count": 5, "offline_events": 1})
+    svc.record_integrity(s["id"], u, {"blur_count": 2, "offline_events": 0})   # cannot walk it back
+
+    got = svc.get_sitting(s["id"])["integrity"]
+    assert got["blur_count"] == 5
+    assert got["offline_events"] == 1
+
+
+def test_integrity_rejects_a_foreign_sitting(fake_db, svc):
+    _seed_exam(fake_db)
+    s = svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    with pytest.raises(PermissionError):
+        svc.record_integrity(s["id"], uuid4(), {"blur_count": 99})
+
+
+def test_integrity_ignores_junk_without_failing(fake_db, svc):
+    """A soft signal must never break the exam — bad input is dropped, not
+    raised, and the write still lands for the fields that were valid."""
+    _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.record_integrity(s["id"], u, {"blur_count": "abc", "resumes": -4, "offline_events": 2})
+    got = svc.get_sitting(s["id"])["integrity"]
+    assert "blur_count" not in got and "resumes" not in got
+    assert got["offline_events"] == 2
+
+
+def test_integrity_surfaces_on_the_live_console(fake_db, svc):
+    """Written-and-forgotten is exactly the criticism that produced the pacing
+    page — these have to be readable somewhere."""
+    _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.record_integrity(s["id"], u, {"blur_count": 4, "blur_seconds": 120})
+
+    row = [r for r in svc.admin_live_monitor(
+        svc.get_sitting(s["id"])["mock_exam_id"])["students"]][0]
+    assert row["integrity"]["blur_count"] == 4
+    assert "reported_at" not in row["integrity"]     # counters only, no noise
+
+
 def test_admin_can_unstick_a_speaking_pending_sitting(fake_db, svc, wf):
     """A5 — the student's report call is fire-and-forget. If it failed the
     sitting stayed `speaking_pending` forever: no review row, never released,

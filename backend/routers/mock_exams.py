@@ -64,6 +64,17 @@ class SectionSubmitBody(BaseModel):
     task2_text: str = ""
 
 
+class IntegrityBody(BaseModel):
+    """Absolute running totals from the runner, not deltas — the client keeps
+    them in localStorage so they survive a reload, and the server takes the max,
+    which makes retries idempotent and makes the value un-decreasable."""
+
+    blur_count:     int = Field(default=0, ge=0)
+    blur_seconds:   int = Field(default=0, ge=0)
+    resumes:        int = Field(default=0, ge=0)
+    offline_events: int = Field(default=0, ge=0)
+
+
 @router.get("")
 async def list_open(authorization: str | None = Header(default=None)):
     """Open exams the student can start (published + is_open + cohort-eligible)."""
@@ -197,6 +208,24 @@ async def submit_section(
         for essay_id, job_id in graded["queued"]:
             background_tasks.add_task(essay_service._bg_grade_essay, essay_id, job_id)
     return result
+
+
+@router.post("/sittings/{sitting_id}/integrity")
+async def record_integrity(
+    sitting_id: str, body: IntegrityBody,
+    authorization: str | None = Header(default=None),
+):
+    """Soft integrity counters from the runner (tab hidden, resumes, drops).
+
+    INFORMATIONAL ONLY — never auto-penalises, never feeds a band. Lets an
+    examiner looking at a surprising result see whether the tab was hidden for
+    ten minutes or the connection died six times, instead of guessing.
+    Monotonic + idempotent, so a retry cannot inflate or erase anything."""
+    user = await get_supabase_user(authorization)
+    try:
+        return svc.record_integrity(sitting_id, user["id"], body.model_dump())
+    except Exception as e:  # noqa: BLE001
+        _raise_for(e)
 
 
 @router.post("/sittings/{sitting_id}/speaking")
