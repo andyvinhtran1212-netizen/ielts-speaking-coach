@@ -4700,34 +4700,36 @@ async def patch_listening_test_attempt_answer(
     body: TestAttemptAnswerPatchRequest,
     authorization: str | None = Header(default=None),
 ):
-    """Incrementally save a single answer. The frontend debounces ~2s
-    per gap; the backend treats this as an upsert keyed by ``q_num``.
-    """
-    from datetime import datetime, timezone
+    """Incrementally save a single answer. The frontend debounces per gap; the
+    backend treats this as an upsert keyed by ``q_num``.
 
+    A4b — the merge happens inside ONE statement (fn_upsert_listening_answer,
+    mig 161), not as a Python read-modify-write of the whole JSONB array. The
+    old shape lost answers whenever two questions were saved at the same moment:
+    both requests read the same array and both wrote their own version back, so
+    the second silently erased the first. That is the NORMAL case, not an edge
+    one — the client debounces per question, so concurrent saves of different
+    q_nums are exactly what a fast typist produces.
+    """
     user = await _require_auth(authorization)
-    attempt = _fetch_attempt_or_404(attempt_id, user["id"])
+    attempt = _fetch_attempt_or_404(attempt_id, user["id"])   # ownership gate
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể edit.")
     if not (1 <= body.q_num <= 40):
         raise HTTPException(422, "q_num must be in 1..40")
 
-    answers = attempt.get("answers") or []
-    answers = [a for a in answers if a.get("q_num") != body.q_num]
-    answers.append({
-        "q_num":       body.q_num,
-        "user_answer": body.user_answer,
-        "answered_at": datetime.now(timezone.utc).isoformat(),
-    })
-    answers.sort(key=lambda a: a.get("q_num") or 0)
-
-    (
-        supabase_admin.table("listening_test_attempts")
-        .update({"answers": answers})
-        .eq("id", attempt_id)
-        .execute()
-    )
-    return {"attempt_id": attempt_id, "answer_count": len(answers)}
+    res = supabase_admin.rpc("fn_upsert_listening_answer", {
+        "p_attempt_id":  attempt_id,
+        "p_q_num":       body.q_num,
+        "p_user_answer": body.user_answer,
+    }).execute()
+    count = res.data
+    if count is None:
+        # The RPC also enforces status='in_progress', so a NULL here means the
+        # attempt was submitted between the check above and the write — a real
+        # race, and the honest answer is that the edit did not land.
+        raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể edit.")
+    return {"attempt_id": attempt_id, "answer_count": count}
 
 
 @user_router.post("/tests/attempts/{attempt_id}/submit")
