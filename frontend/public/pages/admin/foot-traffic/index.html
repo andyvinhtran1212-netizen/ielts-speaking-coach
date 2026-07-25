@@ -75,6 +75,9 @@
       <div class="adm-empty" id="ft-empty" hidden>Không tải được dữ liệu lưu lượng.</div>
 
       <div id="ft-body">
+        <!-- DEBT-2026-07-22-G — shown only when the backend reports it hit the
+             row ceiling. A truncated count must never read as a complete one. -->
+        <div class="adm-banner is-error" id="ft-truncated" role="status" hidden></div>
         <div class="ft-cards">
           <div class="adm-card"><span class="adm-card-num" id="ft-total">0</span><span class="adm-card-label">Tổng lượt xem</span></div>
           <div class="adm-card"><span class="adm-card-num" id="ft-unique">0</span><span class="adm-card-label">Khách đăng nhập (duy nhất)</span></div>

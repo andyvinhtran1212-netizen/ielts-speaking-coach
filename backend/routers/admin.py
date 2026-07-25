@@ -1332,6 +1332,14 @@ async def code_usage(code_id: str, authorization: str | None = Header(default=No
 
 # ── Sprint 17.4 — foot-traffic dashboard aggregation ─────────────────────────────
 
+# DEBT-2026-07-22-G — page size / safety ceiling for the foot-traffic read.
+# PAGE is the PostgREST per-response cap; MAX_ROWS is a ceiling well above the
+# current table size, and hitting it sets `truncated` rather than quietly
+# shortening the answer. Module-level so a test can lower the ceiling.
+FOOT_TRAFFIC_PAGE = 1000
+FOOT_TRAFFIC_MAX_ROWS = 200_000
+
+
 @router.get("/analytics/foot-traffic")
 async def foot_traffic(
     authorization: str | None = Header(default=None),
@@ -1339,23 +1347,53 @@ async def foot_traffic(
     date_to: str | None = None,
 ):
     """Aggregated page-view foot traffic for the admin dashboard. Default window:
-    last 30 days. ONE query over page_view events + a Python rollup (no N+1).
+    last 30 days. Paged query over page_view events + a Python rollup (no N+1).
     Pattern #29: a query failure returns zeroed metrics, never a 500."""
     await require_admin(authorization)
     if not date_from:
         date_from = (datetime.now(timezone.utc) - timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    rows = []
+    rows: list[dict] = []
+    truncated = False
     try:
-        q = (
-            supabase_admin.table("analytics_events")
-            .select("user_id, event_data, created_at")
-            .eq("event_name", "page_view")
-            .gte("created_at", date_from)
-        )
-        if date_to:
-            q = q.lte("created_at", date_to)
-        rows = q.execute().data or []
+        # DEBT-2026-07-22-G — this read used to be a bare .select() with no
+        # .range(), so PostgREST capped the response at ~1000 rows and every
+        # number below (total views, unique visitors, per-path counts, the daily
+        # chart) was computed from an arbitrary 1000-row slice. Measured on prod
+        # 2026-07-22: the 30-day view reported exactly 1000 views and charted
+        # only 22–27/06 — the oldest days — so the panel was WRONG, not just
+        # incomplete. Page through with a stable (created_at, id) sort; without
+        # the ORDER BY, paging can repeat or skip rows between pages.
+        offset = 0
+        while True:
+            q = (
+                supabase_admin.table("analytics_events")
+                .select("user_id, event_data, created_at")
+                .eq("event_name", "page_view")
+                .gte("created_at", date_from)
+            )
+            if date_to:
+                q = q.lte("created_at", date_to)
+            batch = (
+                q.order("created_at")
+                .order("id")
+                .range(offset, offset + FOOT_TRAFFIC_PAGE - 1)
+                .execute()
+                .data
+                or []
+            )
+            rows.extend(batch)
+            if len(batch) < FOOT_TRAFFIC_PAGE:
+                break
+            offset += FOOT_TRAFFIC_PAGE
+            if offset >= FOOT_TRAFFIC_MAX_ROWS:
+                # Never silent — the caller is told the window was cut.
+                truncated = True
+                logger.warning(
+                    "foot_traffic: hit the %d-row ceiling; results truncated",
+                    FOOT_TRAFFIC_MAX_ROWS,
+                )
+                break
     except Exception as exc:
         logger.warning("foot_traffic: query failed: %s", exc)
 
@@ -1392,6 +1430,10 @@ async def foot_traffic(
         "anonymous_hits": anonymous_hits,
         "top_pages": top_pages,
         "daily": daily_series,
+        # DEBT-2026-07-22-G — true only if the MAX_ROWS ceiling bit. The admin
+        # panel renders a warning on it; a truncated count must never read as a
+        # complete one.
+        "truncated": truncated,
     }
 
 
