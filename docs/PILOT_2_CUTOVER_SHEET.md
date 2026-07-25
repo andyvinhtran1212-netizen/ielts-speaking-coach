@@ -3,8 +3,10 @@
 Theo `docs/PILOT_ENTRY_CHECKLIST_2026-07-13.md` §6.2.
 
 > **TRẠNG THÁI VẬN HÀNH: CHUẨN BỊ SẴN, CHƯA cutover.** Diff đã build + verify
-> (route-ownership + suite); PR **DRAFT**. Khác pilot 1: **gate là soak
-> 21 ngày** (không rút ngắn bằng dispatch). `/grammar/:cat/:slug` hiện VẪN
+> (route-ownership + suite); PR **DRAFT**. **[CẬP NHẬT 2026-07-25 theo ADR-013]**
+> gate KHÔNG còn là "soak 21 ngày" — grammar ~1 view/ngày là route low-traffic
+> ⇒ dùng **early-stage rollout profile**: cutover tagged → **48–72h quan sát +
+> synthetic n≥72 + risk acceptance ghi rõ**. `/grammar/:cat/:slug` hiện VẪN
 > legacy trên production; bản Next dark-launch ở `/grammar-preview/...` (đã gỡ
 > URL đó trong branch này — sau cutover chỉ còn canonical).
 
@@ -23,14 +25,19 @@ File giữ trên disk = instant-rollback target.
 
 ## GATE trước khi merge (BẮT BUỘC — lý do PR DRAFT)
 
-- [ ] **Soak 21 ngày low-traffic profile** (grammar ~1 view/ngày — B36): 21 ngày
-      + ≥20 interactions thật + synthetic crawl. Đây là gate DÀI, không rút
-      ngắn được; bắt đầu tính từ khi pilot 1 soak sạch + quyết định mở pilot 2.
+- [ ] **Early-stage rollout profile (ADR-013)** thay soak-21-ngày: **48–72h
+      quan sát** (bắt lỗi thời-gian-trôi: ADR-008 cache 1h/1d + client) +
+      **synthetic n≥72** (production-smoke gánh vế số-lượng — grammar ~1 view/ngày
+      nên organic KHÔNG đủ mẫu; bỏ sàn "20 interactions" vô nghĩa — DEBT-H) +
+      **risk acceptance ghi rõ** (route, ngày, rollback plan). Persistence/security
+      breach → rollback ngay. Không freeze-cứng-dài (quy kết một-biến từ TAG).
+- [ ] **Production-smoke synthetic sống** trên route grammar TRƯỚC cutover
+      (đây là vế số-lượng của ADR-013 — điều kiện tiên quyết).
 - [ ] Traffic baseline re-run ≤72h trước cutover.
 - [ ] Đo baseline grammar route ≤72h trước (Lighthouse + chunk-split /grammar-preview
-      vs legacy /grammar/:cat/:slug) — **đo tại thời điểm cutover, KHÔNG đo sớm 21 ngày**.
-- [ ] **REFRESH branch với main + re-verify**: DRAFT sống ~21 ngày → main drift
-      nhiều; merge main vào branch, rebuild `tailwind.build.css` nếu cần,
+      vs legacy /grammar/:cat/:slug) — đo tại thời điểm cutover.
+- [ ] **REFRESH branch với main + re-verify**: DRAFT có thể sống lâu → main drift;
+      merge main vào branch, rebuild `tailwind.build.css` nếu cần,
       chạy lại route-ownership + suite trước khi ready.
 - [ ] ADR-008 cache: xác nhận `lib/grammar-api.ts` cacheLife (1h stale/revalidate,
       1d expire) + PPR loading.tsx còn nguyên sau refresh.
