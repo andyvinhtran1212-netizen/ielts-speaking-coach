@@ -242,8 +242,13 @@ async function loadTest(testId) {
 
 async function detectResumable() {
   try {
+    // Inside a mock, scope the lookup to THIS sitting. Unscoped, a standalone
+    // practice attempt the student left open on the same test would be
+    // auto-resumed by the embed and then bound to the sealed sitting.
+    const sid = (window.MockHook && MockHook.active()) ? MockHook.sittingId() : null;
     const res = await window.api.get(
-      `/api/listening/tests/${encodeURIComponent(STATE.testId)}/attempts/in-progress`,
+      `/api/listening/tests/${encodeURIComponent(STATE.testId)}/attempts/in-progress`
+      + (sid ? `?sitting_id=${encodeURIComponent(sid)}` : ''),
     );
     const att = res && res.attempt;
     if (!att) return;

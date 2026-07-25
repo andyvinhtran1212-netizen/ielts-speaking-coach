@@ -629,8 +629,11 @@ def _attempt_has_answers(domain_table: str, attempt_id) -> bool:
     reading_attempt_answers (mig 088) — so the check has to branch. Blank
     strings don't count: a row exists the moment a field is touched and cleared.
 
-    Best-effort by design: a lookup failure returns False, which only ever means
-    "don't block the re-bind", never "throw away answers on a guess".
+    Raises on a lookup failure rather than returning False. The caller uses this
+    to decide whether a re-bind would ORPHAN existing work, so "I couldn't
+    check" must not be answered with "there is nothing there" — that is the one
+    wrong answer, and it fails in exactly the direction this guard exists to
+    prevent (Codex review, PR #834).
     """
     if not attempt_id:
         return False
@@ -649,9 +652,11 @@ def _attempt_has_answers(domain_table: str, attempt_id) -> bool:
             str(a.get("user_answer") or "").strip()
             for a in (rows[0].get("answers") or [])
         )
-    except Exception:  # noqa: BLE001
-        logger.warning("[mock-exam] answer-presence check failed for %s", attempt_id)
-        return False
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("[mock-exam] answer-presence check failed for %s", attempt_id)
+        raise MockExamError(
+            "Không kiểm tra được bài làm hiện có — tạm dừng để tránh mất bài."
+        ) from exc
 
 
 def _word_count(text: str) -> int:
