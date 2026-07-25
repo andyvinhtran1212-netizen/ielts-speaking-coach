@@ -28,7 +28,7 @@ console lives in admin_mock_reviews.py.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from routers.admin import require_admin
@@ -80,12 +80,17 @@ class AssignRow(BaseModel):
     user_id: str
     skills: list[str] = Field(default_factory=list)
     open_from: str | None = None
-    # REQUIRED. The service rejects a missing closing bound (an open-ended
-    # retake never finishes — see D3), so leaving this nullable made OpenAPI and
-    # every generated client advertise a payload the API always refuses, turning
-    # a schema error into a surprise 400 (Codex review, PR #839).
-    open_until: str = Field(
-        ..., description="Bắt buộc: hạn đóng của bài test lại (ISO 8601).",
+    # Optional AT THE SCHEMA LEVEL, required by the service for any row that is
+    # actually written. `assign()` documents that a row with no valid skill is
+    # SKIPPED, and a skipped row has no window to validate — making this
+    # unconditionally required let FastAPI 422 the whole batch before assign()
+    # could skip it, so one skill-less row aborted every valid assignment
+    # alongside it (Codex review, PR #839). Rows that do carry skills still get
+    # a 400 from _validate_window when the deadline is missing.
+    open_until: str | None = Field(
+        default=None,
+        description=("Hạn đóng của bài test lại (ISO 8601). Bắt buộc với mọi "
+                     "dòng CÓ kỹ năng; dòng không kỹ năng bị bỏ qua nên không cần."),
     )
 
 
@@ -243,8 +248,21 @@ async def advance_section(
 async def collect_section(
     exam_id: str,
     background_tasks: BackgroundTasks,
-    section: str | None = None,
-    from_section: str | None = None,
+    # REQUIRED, and validated. Optional, it could simply be omitted — and the
+    # stale-screen guard it exists for is skipped entirely: the service then
+    # reads the CANONICAL active_section, so if another invigilator advanced
+    # first this irreversibly collects the newly-opened paper the moment it
+    # opened. That is precisely the race this parameter prevents (Codex review,
+    # PR #843).
+    from_section: str = Query(
+        ..., pattern=r"^(listening|reading|writing)$",
+        description="Phần mà màn hình của admin đang hiển thị lúc bấm Thu bài.",
+    ),
+    # The section to sweep. Defaults to the open one; an EARLIER one re-sweeps
+    # it (recovery after a half-dead background sweep).
+    section: str | None = Query(
+        default=None, pattern=r"^(listening|reading|writing)$",
+    ),
     authorization: str | None = Header(default=None),
 ):
     """THU BÀI for a section WITHOUT opening the next one.
@@ -265,7 +283,20 @@ async def collect_section(
         raise HTTPException(404, str(e))
     except svc.SittingConflictError as e:
         raise HTTPException(409, str(e))
+    except svc.MockExamError as e:
+        # A lookup failure is NOT "0 bài đã thu" — the preflight does the count
+        # SYNCHRONOUSLY precisely so a dead database is a real error here rather
+        # than a 202 followed by a background sweep that collects nothing
+        # (Codex review, PR #844).
+        raise HTTPException(503, str(e))
+    # Close admissions synchronously — the pause must hold from the moment the
+    # request is accepted, not from whenever the queued sweep happens to run.
+    svc.mark_section_collected(exam_id, info["section"])
     background_tasks.add_task(
+        # No from_section: the stale-screen check already ran, synchronously,
+        # against the state at request time. Re-checking it inside the queued
+        # task would fail the sweep whenever a legitimate advance happened in
+        # between — losing the very papers this call accepted responsibility for.
         svc.collect_section, exam_id, admin["id"], info["section"],
     )
     return {**info, "queued": True}
