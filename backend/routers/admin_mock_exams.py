@@ -110,7 +110,16 @@ class AdvanceBody(BaseModel):
     overlap, so two clicks where the first has already committed would both
     advance and the class would skip a section."""
 
-    from_section: str | None = None
+    # REQUIRED, and validated. Accepting a missing/null/empty value let the
+    # stale-screen check be bypassed entirely: a cached pre-deploy frontend or
+    # any other caller sending {} would have TWO sequential requests each
+    # compare against the freshly-read section and both succeed — advancing
+    # not_started → listening → reading and skipping a section for the whole
+    # class (Codex review, PR #842).
+    from_section: str = Field(
+        ..., pattern=r"^(not_started|listening|reading|writing)$",
+        description="Phần mà màn hình của admin đang hiển thị lúc bấm.",
+    )
 
 
 class RetestBody(BaseModel):
@@ -199,7 +208,7 @@ async def set_open(
 
 @router.post("/{exam_id}/advance")
 async def advance_section(
-    exam_id: str, body: AdvanceBody = AdvanceBody(),
+    exam_id: str, body: AdvanceBody,
     authorization: str | None = Header(default=None),
 ):
     """Open the NEXT seated section for every sitting under this exam —
