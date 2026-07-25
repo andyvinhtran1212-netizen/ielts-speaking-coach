@@ -1,6 +1,6 @@
 # Tech Debt — IELTS Speaking Coach
 
-**Last updated:** 2026-07-25 (post-soak sweep A–H merged #820–#824; added DEBT-2026-07-24-J — four parallel font systems + hardcoded teal; DEBT-I corrected: brand assets ARE in the repo, on an unmerged branch)
+**Last updated:** 2026-07-25 (DEBT-J decisions answered: Lora as the one controlled serif, code→project canonical, J before I; DEBT-J teal claim CORRECTED — it was a miscount of comment lines, no sweep needed; brand branch merged #826)
 **Last reviewed:** 2026-05-07 (PM)
 
 Comprehensive snapshot of tech debt + improvement opportunities, restructured
@@ -86,43 +86,63 @@ material, not active backlog.
   Consequence a reader actually sees: a Grammar heading renders in a **serif**
   while the same heading on Landing is sans. That is the wordmark inconsistency
   in DEBT-I repeated at the type level.
-- **Text colour, same shape:** page CSS still hardcodes `#14b8a6` instead of
-  `var(--av-primary)` in **9 files** (`ds.css` ×3, `result.css`,
-  `full-test-result.css`, `exercises.css`, `writing-dashboard.css`,
-  `writing-renderers.css`, `admin-writing.css`, `admin-writing-grade.css`).
-  This is not a wrong colour — it is a *frozen* one: `--av-primary` is
-  `teal-700 #0F766E` in light and `teal-500 #14B8A6` in dark (deliberate, for
-  WCAG AA on navy), so a hardcoded `#14b8a6` silently pins the DARK value into
-  light theme. Several of those files carry half-finished `→ --av-primary`
-  migration comments, so this is a stalled sweep, not a decision.
+- **Text colour — CORRECTION 2026-07-25.** The first version of this entry
+  claimed "**9 files** hardcode `#14b8a6` instead of `var(--av-primary)`,
+  freezing the dark value into light theme". **Both halves were wrong**, and the
+  correction matters because it changes what work is owed:
+  - **Not 9 files.** Stripping comments before counting leaves exactly **one**
+    file with live declarations — `ds.css` (3: the `--ds-teal-lt` token plus two
+    `.band-high` colour rules). The other 8 hits were *comments recording a
+    migration that already finished* (`teal #14b8a6 → --av-primary`). Counting
+    comment lines as code is the whole error.
+  - **Not a frozen dark value.** `ds.css` is a **self-contained dark layer** —
+    `--ds-bg: #0a1628` navy, `--ds-text: rgba(255,255,255,0.85)`. Teal-500 on
+    navy is the *correct* high-contrast choice there, for the same reason
+    `--av-primary` lifts to teal-500 under `[data-theme="dark"]`. Nothing is
+    being pinned into light theme.
+  - **What is actually owed** is smaller and already half-done: `ds.css` is the
+    legacy `--ds-*` system still linked by **18 pages**, and pages have been
+    migrating off it one at a time (`listening.css` and `vocabulary.css` both
+    carry "`--ds-teal-lt` → `--av-primary`" completion notes). Finishing that
+    migration retires `--ds-*`; it is not a colour bug and not part of the type
+    convergence below. **No `#14b8a6` sweep is needed.**
 - **Why it belongs here and not in DEBT-I:** DEBT-I is a brand *rollout* (swap
   assets). This is design-system *convergence* (delete two font subsystems, land
   one display-font rule, finish the `--av-primary` sweep). Doing the logo without
   this leaves the new mark sitting on top of four type systems.
-- **Open decisions the owner must make first** — from
-  `docs/brand/DRIFT_REPORT.md` §E and `CONTEXT_PACK.md` §F, none answered yet:
-  1. **One display font for the whole system, or one controlled serif?**
-     Keeping Lora/Fraunces for long-form reading is defensible; having *two*
-     different serifs on two different subsystems is not.
-  2. **Motion — bounce or no bounce?** The old README says *"No bounces. No
-     spring physics."*; the code ships `--av-easing-bounce (0.34,1.56,0.64,1)`.
-  3. **Easing default** — keep material-standard `(0.4,0,0.2,1)` as in code, or
-     restore the more distinctive `(0.16,1,0.3,1)` the design project used.
-  (2 and 3 are motion, not type, but they sit in the same "one system or many"
-  decision and were logged unanswered on 2026-07-24.)
-- **Also unresolved: which direction is canonical.** `GUIDE_claude-design.md`
-  decision #4 says the end state is *design project → code, one-way*. The
-  2026-07-24 reconcile ran the **other** way (code → project, because code had
-  evolved past the 05-09 snapshot). Both are defensible; running both alternately
-  is how the two drift apart again. Pick one before the next design pass.
-- **Action:** (a) answer the decisions above; (b) fold `grammar-wiki.css` and the
-  vocab stack onto `--av-font-*`, dropping the extra `<link>` tags — that also
-  removes 5 font downloads from those pages; (c) finish the `#14b8a6` →
-  `var(--av-primary)` sweep with a lint (the hex-budget ratchet in
-  `frontend/tests/hex-budget.test.mjs` already has the mechanism); (d) re-run
-  `/ui-review` on grammar + vocab afterwards.
-- **Effort:** ~1 day for (b)+(c) plus visual verification; (a) is a decision, not
-  work. Sequence it **before** DEBT-I so the new mark lands on a settled system.
+- **Decisions — ANSWERED 2026-07-25 (project owner):**
+  1. **One controlled serif: Lora**, exposed as `--av-font-serif`, and used
+     **only for long-form reading** (Grammar article body/headings). The vocab
+     word card comes back to Plus Jakarta — so `Fraunces`, `Hanken Grotesk` and
+     `DM Mono` all leave the system, not just get renamed.
+  2. **Canonical direction: code → project.** This *reverses*
+     `GUIDE_claude-design.md` decision #4 (which said design → code, one-way).
+     Reason it went this way: the design project was a 05-09 snapshot and the
+     code had genuinely evolved past it (6-skill palette, chrome/width tokens,
+     navy dark theme). The rule now is one-way **code → project**; a design pass
+     that wants to change a token changes it in code first, then syncs up.
+  3. **Sequencing: J before I** — the new mark must land on a settled type
+     system, not on four.
+- **Still open (motion, deliberately deferred):** DRIFT_REPORT §E items 2 and 3
+  — keep or drop `--av-easing-bounce`, and material `(0.4,0,0.2,1)` vs the
+  design project's `(0.16,1,0.3,1)`. Not blocking J, which is type + fonts.
+- **Action (a is done; b–d remain):**
+  (a) ~~answer the decisions~~ ✅ 2026-07-25.
+  (b) Add `--av-font-serif: 'Lora'` to `tokens.css`; point `grammar-wiki.css`
+      body/`.font-sans` at `--av-font-sans` and its `.gw-display` headings at
+      `--av-font-serif`; drop the `DM Sans` `<link>` from the 5 grammar pages.
+  (c) Move `vocab-wiki.css` off `Fraunces` / `DM Mono` / `Hanken Grotesk` onto
+      `--av-font-sans` + `--av-font-mono`; drop those 3 `<link>` tags from
+      `vocabulary.html` + `vocab-article.html`. **Check the pinned tests first**
+      — memory `vocab-card-not-reusable` records that the word/flashcard card
+      has test-pinned inline styling, so this is the risky half.
+  (d) Re-run `/ui-review` on grammar + vocab, and add a lint that fails on a
+      `font-family` naming a family outside the `--av-font-*` set, so a fifth
+      subsystem cannot appear (same ratchet shape as
+      `frontend/tests/hex-budget.test.mjs`).
+- **Effort:** ~half a day for (b), ~half a day for (c) because of the pinned
+  vocab card, plus visual verification. Net effect on the wire: 5 fewer font
+  families downloaded across 7 pages.
 - **Reference:** `docs/brand/DRIFT_REPORT.md` (§A namespace, §B values, §E open
   questions), `docs/brand/CONTEXT_PACK.md` §F — both on branch
   `design/brand-redesign-2026-07-24`.

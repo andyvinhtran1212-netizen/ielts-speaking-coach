@@ -65,6 +65,20 @@
 
 ## E. 3 điểm cần anh quyết khi reconcile (code lệch README/project — chưa rõ cố ý hay trôi)
 
+> **CẬP NHẬT 2026-07-25 — chủ dự án đã trả lời 1 trong 3, và trả lời thêm câu
+> "chiều canonical" ở mục F.**
+>
+> - **Font hiển thị (câu hỏi sinh ra từ CONTEXT_PACK §F, liên quan trực tiếp mục
+>   này): CHO PHÉP MỘT SERIF CÓ KIỂM SOÁT = `Lora`**, đưa thành
+>   `--av-font-serif`, **chỉ dùng cho nội dung đọc dài** (bài Grammar). Thẻ từ
+>   vựng quay về Plus Jakarta ⇒ `Fraunces`, `Hanken Grotesk`, `DM Mono` **rời
+>   khỏi hệ**, không phải đổi tên. Việc thực thi nằm ở `TECH_DEBT.md` →
+>   **DEBT-2026-07-24-J**.
+> - **Mục 2 (bounce) và mục 3 (easing default): CHƯA QUYẾT, để mở.** Chúng thuộc
+>   motion, không chặn J. Đừng tự ý chốt hộ khi làm J.
+> - **Chiều canonical (mục F / GUIDE #4): CODE → PROJECT.** Xem ghi chú ở mục F.
+
+
 1. **Motion — "nảy hay không nảy?"** README cũ tuyên bố *"No bounces. No spring physics."* nhưng code hiện có `--av-easing-bounce (0.34,1.56,0.64,1)`. → Giữ bounce (cập nhật README) hay bỏ (xoá token)? Ảnh hưởng cảm giác cả hệ.
 2. **Dark theme — navy hay olive?** Project vẽ dark trên nền olive `#0F1411`; code chạy navy `#0A1628`. Code đang production ⇒ navy thắng, nhưng cần xác nhận đây là chủ đích (README cũ còn ghi "chưa trang nào chạy dark").
 3. **Easing default — đổi có chủ đích không?** Project dùng đường cong "fast-out, slow-settle" (0.16,1,0.3,1) rất đặc trưng; code chuyển sang material-standard (0.4,0,0.2,1) — mượt nhưng ít cá tính hơn. Giữ material hay lấy lại đường cong cũ làm nét riêng?
@@ -74,6 +88,15 @@
 ---
 
 ## F. Đề xuất phạm vi bước 2 (GHI vào project — cần anh duyệt trước khi mình chạy)
+
+> **CHỐT 2026-07-25 — chiều canonical là CODE → PROJECT.** Điều này **đảo**
+> quyết định #4 trong `GUIDE_claude-design.md` (vốn ghi "Claude Design là nguồn,
+> `tokens.css` là bản sync xuống"). Lý do đảo: project là ảnh chụp 05-09, còn
+> code đã tiến hoá thật vượt qua nó (bảng màu 6 kỹ năng, token chrome/width,
+> dark theme navy). Quy tắc từ nay: **một chiều code → project**. Đợt thiết kế
+> nào muốn đổi token thì đổi trong code trước, rồi mới sync ngược lên project —
+> chạy xen kẽ hai chiều chính là cách hai bên lệch nhau trở lại.
+
 
 Reconcile theo code, làm nhỏ và kiểm soát được:
 
