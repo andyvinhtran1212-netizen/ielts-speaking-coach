@@ -389,6 +389,14 @@
     var resumeBtn = $('exam-resume-btn-prestart');
     if (resumeBtn) resumeBtn.hidden = !hasResumable;
     if (startBtn) {
+      // IN A MOCK, RESTART IS NOT A STUDENT ACTION. The exam contract is one
+      // sealed attempt; "Bắt đầu lại từ đầu" abandons the answered row and
+      // mints a blank one, which attach_attempt() then refuses ("không thể
+      // thay bằng bài trống") — leaving the sitting bound to the abandoned
+      // attempt and the section unusable. Cancelling a sitting is the admin's
+      // "Huỷ lượt", not a button inside the paper (Codex review, PR #834).
+      var inMock = !!(window.MockHook && MockHook.active());
+      startBtn.hidden = hasResumable && inMock;
       startBtn.textContent = hasResumable
         ? 'Bắt đầu lại từ đầu'        // restart wins (existing button)
         : 'Bắt đầu bài thi';          // fresh path (no prior attempt)

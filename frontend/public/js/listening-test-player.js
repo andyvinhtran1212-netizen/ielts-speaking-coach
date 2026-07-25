@@ -268,6 +268,18 @@ async function detectResumable() {
       : 'Bạn có một bài đang làm dở (chưa lưu câu nào). Bấm "Tiếp tục" để làm tiếp.';
     $('ft-resume-note').hidden = false;
     $('ft-resume-btn').hidden = false;
+    // IN A MOCK, RESTART IS NOT A STUDENT ACTION. The exam contract is one
+    // sealed attempt; "Bắt đầu test" abandons the answered row and mints a
+    // blank one, which attach_attempt() then refuses ("không thể thay bằng bài
+    // trống") — leaving the sitting bound to the abandoned attempt and the
+    // section unusable. Cancelling a sitting is the admin's "Huỷ lượt", not a
+    // button inside the paper (Codex review, PR #834).
+    if (window.MockHook && MockHook.active()) {
+      const restart = $('btn-start');
+      if (restart) restart.hidden = true;
+      $('ft-resume-note').textContent =
+        `Bạn có một bài đang làm dở với ${n} câu đã lưu. Bấm "Tiếp tục" để làm tiếp.`;
+    }
   } catch (e) {
     console.warn('[listening] resume lookup failed', e);
     // FAIL CLOSED. Falling through to a normal pre-start meant the mock embed's
@@ -372,9 +384,33 @@ function restoreMultiSelectGroups() {
 // opened-the-section is the correct audio position — the student loses the
 // audio that played while they were disconnected, exactly as in a real hall.
 // Outside a mock there is no shared anchor, so the audio is left alone.
+// Where the audio should be when a resumed attempt remounts, or null to leave
+// it alone.
+//
+//   · MOCK  — the shared classroom clock on the exam (the whole room is at the
+//             same point, so that is the only honest anchor).
+//   · FULL standalone — this attempt's own `started_at`, which the server
+//             returns with the resumable attempt. Leaving it at 0 let a
+//             refreshed student replay audio they had already heard, breaking
+//             the single-shot/no-rewind contract that the very same file
+//             enforces by disabling scrub (Codex review, PR #834).
+//   · MINI / DRILL — practice deliberately allows pause, seek and replay, so
+//             there is nothing to restore.
+async function resumeAudioOffsetSeconds() {
+  if (window.MockHook && MockHook.active() && MockHook.sectionElapsedSeconds) {
+    return await MockHook.sectionElapsedSeconds('listening');
+  }
+  if (STATE.scrub) return null;                     // mini / drill: free replay
+  const startedAt = STATE.resumable && STATE.resumable.started_at;
+  if (!startedAt) return null;
+  const started = Date.parse(startedAt);
+  if (!started) return null;
+  const secs = Math.floor((Date.now() - started) / 1000);
+  return secs > 0 ? secs : null;
+}
+
 async function seekAudioToRoom() {
-  if (!(window.MockHook && MockHook.active() && MockHook.sectionElapsedSeconds)) return;
-  const elapsed = await MockHook.sectionElapsedSeconds('listening');
+  const elapsed = await resumeAudioOffsetSeconds();
   if (elapsed == null || !STATE.audio) return;
   try {
     STATE.audio.currentTime = elapsed;
