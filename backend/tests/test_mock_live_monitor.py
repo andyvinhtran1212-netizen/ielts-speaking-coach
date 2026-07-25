@@ -220,6 +220,34 @@ def test_reading_progress_reads_the_autosave_table(fake_db, svc):
     assert sec["answered"] == 2
 
 
+def test_working_student_with_no_attempt_counts_as_blank(fake_db, svc):
+    """Codex #833 (correct): a student in the OPEN section with no attempt bound
+    (runner still loading, or attempt creation failed) left `answered` as None.
+    The console's "trắng" filter only matches 0, so the one person who most
+    needed checking on was the one the invigilator could not see."""
+    cohort = str(uuid4())
+    exam = _seed_exam(fake_db, cohort_id=cohort)
+    fake_db.table("mock_exams").update({"active_section": "listening"}).eq(
+        "id", exam["id"]).execute()
+    uid = _seed_student(fake_db, cohort, "An")
+    _seed_sitting(fake_db, exam, uid)          # no listening_attempt_id
+
+    sec = _find(svc.admin_live_monitor(exam["id"]), "An")["sections"]["listening"]
+    assert sec["state"] == "working"
+    assert sec["answered"] == 0                # visible to the problem filter
+
+
+def test_waiting_student_with_no_attempt_is_not_called_blank(fake_db, svc):
+    """Before their section opens there is nothing to be blank about."""
+    cohort = str(uuid4())
+    exam = _seed_exam(fake_db, cohort_id=cohort)
+    fake_db.table("mock_exams").update({"active_section": "listening"}).eq(
+        "id", exam["id"]).execute()
+    uid = _seed_student(fake_db, cohort, "An")
+    _seed_sitting(fake_db, exam, uid)
+    assert _find(svc.admin_live_monitor(exam["id"]), "An")["sections"]["reading"]["answered"] is None
+
+
 def test_stalled_flags_a_silent_working_student(fake_db, svc):
     cohort = str(uuid4())
     exam = _seed_exam(fake_db, cohort_id=cohort)
