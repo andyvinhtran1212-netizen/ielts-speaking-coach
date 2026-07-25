@@ -219,14 +219,19 @@
   // from different clocks, so this is a heuristic — but it only ever has to
   // choose between two copies of the SAME student's work, and the alternative
   // (always trusting one side) loses real text in the other direction.
+  // Which tasks were restored from the LOCAL copy (server has older text).
+  var _localDraftWon = { task1: false, task2: false };
+
   function restoreDraft(task) {
     var blob = ((S.sitting && S.sitting.writing_submission) || {})[task] || {};
     var serverText = typeof blob.text === 'string' ? blob.text : '';
     var serverTs = blob.submitted_at ? Date.parse(blob.submitted_at) : 0;
     var local = readLocalDraft(task);
     if (!local || !local.text) return serverText;
-    if (!serverText) return local.text;
-    return (serverTs && serverTs > (local.ts || 0)) ? serverText : local.text;
+    if (!serverText) { _localDraftWon[task] = true; return local.text; }
+    if (serverTs && serverTs > (local.ts || 0)) return serverText;
+    _localDraftWon[task] = true;
+    return local.text;
   }
 
   function setSaveCue(state) {
@@ -246,8 +251,12 @@
     var t1 = el('essay-task1').value, t2 = el('essay-task2').value;
     var delta = Math.abs(t1.length - _wLastSaved.task1.length)
       + Math.abs(t2.length - _wLastSaved.task2.length);
-    // A burst of writing shouldn't sit unsent for the whole idle window.
-    if (delta >= WRITE_SAVE_CHARS) return flushWritingSave();
+    // A burst of writing shouldn't sit unsent for the whole idle window — but
+    // only flush IMMEDIATELY if nothing is on the wire. Calling flush while
+    // _wSaving is true made it exit having armed no timer, so a large paste
+    // during a slow request stayed dirty and unsent until the next keystroke or
+    // lifecycle event (Codex review, PR #835).
+    if (delta >= WRITE_SAVE_CHARS && !_wSaving) return flushWritingSave();
     if (_wSaveTimer) return;
     _wSaveTimer = setTimeout(flushWritingSave, WRITE_SAVE_MS);
   }
@@ -355,8 +364,13 @@
     }
     ['task1', 'task2'].forEach(function (t) {
       var ta = el('essay-' + t);
-      ta.value = restoreDraft(t);
-      _wLastSaved[t] = ta.value;
+      var restored = restoreDraft(t);
+      ta.value = restored;
+      // If the LOCAL copy won, the server still holds the older text. Recording
+      // it as already-saved meant that without one more keystroke a crash or a
+      // force-collect promoted the stale draft while the UI showed the
+      // recovered work (Codex review, PR #835).
+      _wLastSaved[t] = _localDraftWon[t] ? '' : restored;
       el('count-' + t).textContent = wordCount(ta.value);
       ta.addEventListener('input', function () {
         el('count-' + t).textContent = wordCount(ta.value);
@@ -364,6 +378,8 @@
         scheduleWritingSave();
       });
     });
+    // Upload anything recovered from localStorage that the server lacks.
+    if (_localDraftWon.task1 || _localDraftWon.task2) scheduleWritingSave();
     wireWritingFlush();
     function selectTask(name) {
       document.querySelectorAll('.me-wtabs .me-tab').forEach(function (x) {
