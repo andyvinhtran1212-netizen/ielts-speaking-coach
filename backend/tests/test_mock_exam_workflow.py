@@ -2635,6 +2635,27 @@ def test_reassign_will_not_rewrite_a_sitting_mid_exam(fake_db, svc):
     assert svc.get_sitting(sitting["id"])["assigned_skills"] == ["listening"]
 
 
+def test_reassign_reports_a_failed_refresh_separately(fake_db, svc, monkeypatch):
+    """Codex #845 (correct): returning 'none' for a DB error made it identical
+    to "this student never opened the exam", so the admin was told the edit
+    applied while the open sitting kept its old skills and window."""
+    from services import mock_exam_assignment_service as a
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    u = str(uuid4())
+    a.assign(exam["id"], [{"user_id": u, "skills": ["listening"], **_WINDOW}],
+             created_by=str(uuid4()))
+    svc.create_sitting(u, "MOCK-TEST-A")
+
+    monkeypatch.setattr(a, "_refresh_open_sitting", lambda *args, **kw: "failed")
+    res = a.assign(exam["id"], [{"user_id": u, "skills": ["writing"], **_WINDOW}],
+                   created_by=str(uuid4()))
+
+    assert res["refresh_failed"] == [u]
+    assert res["refreshed"] == [] and res["locked"] == []
+
+
 def test_first_assign_with_no_sitting_reports_neither(fake_db):
     from services import mock_exam_assignment_service as a
     res = a.assign(str(uuid4()), [{"user_id": str(uuid4()), "skills": ["writing"], **_WINDOW}],
