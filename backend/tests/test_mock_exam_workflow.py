@@ -2531,6 +2531,57 @@ def test_retake_assign_rejects_open_ended_before_writing_any_row(fake_db):
     assert fake_db.rows("mock_exam_assignments") == []
 
 
+def test_reassign_updates_a_sitting_that_has_not_started(fake_db, svc):
+    """D2 — create_sitting SNAPSHOTS assigned_skills + window onto the sitting,
+    and assign() only ever wrote mock_exam_assignments. So correcting a wrong
+    skill set after the student had opened (but not started) the exam was
+    SILENTLY IGNORED: they sat the old skills on the old window."""
+    from services import mock_exam_assignment_service as a
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    u = str(uuid4())
+    a.assign(exam["id"], [{"user_id": u, "skills": ["listening"], **_WINDOW}],
+             created_by=str(uuid4()))
+    sitting = svc.create_sitting(u, "MOCK-TEST-A")
+    assert sitting["assigned_skills"] == ["listening"]
+
+    res = a.assign(exam["id"], [{"user_id": u, "skills": ["writing"], **_WINDOW}],
+                   created_by=str(uuid4()))
+
+    assert res["refreshed"] == [u]
+    assert svc.get_sitting(sitting["id"])["assigned_skills"] == ["writing"]
+
+
+def test_reassign_will_not_rewrite_a_sitting_mid_exam(fake_db, svc):
+    """Once a clock is running, changing the skill set is WORSE than the stale
+    snapshot — the student could lose a section they are actively working on.
+    Report it as locked rather than doing either thing silently."""
+    from services import mock_exam_assignment_service as a
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    u = str(uuid4())
+    a.assign(exam["id"], [{"user_id": u, "skills": ["listening"], **_WINDOW}],
+             created_by=str(uuid4()))
+    sitting = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.start_section(sitting["id"], u, "listening")     # clock now running
+
+    res = a.assign(exam["id"], [{"user_id": u, "skills": ["writing"], **_WINDOW}],
+                   created_by=str(uuid4()))
+
+    assert res["locked"] == [u]
+    assert res["refreshed"] == []
+    assert svc.get_sitting(sitting["id"])["assigned_skills"] == ["listening"]
+
+
+def test_first_assign_with_no_sitting_reports_neither(fake_db):
+    from services import mock_exam_assignment_service as a
+    res = a.assign(str(uuid4()), [{"user_id": str(uuid4()), "skills": ["writing"], **_WINDOW}],
+                   created_by=str(uuid4()))
+    assert res["refreshed"] == [] and res["locked"] == []
+
+
 def test_unassign_voids_the_sitting_the_student_already_opened(fake_db, svc):
     """D4 — deleting the assignment alone did NOT revoke access.
 

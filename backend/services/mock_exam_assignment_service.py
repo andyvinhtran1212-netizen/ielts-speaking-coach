@@ -119,7 +119,7 @@ def assign(exam_id, rows, *, created_by, source_exam_id=None) -> dict:
         _validate_window(merged[uid]["open_from"], merged[uid]["open_until"])
 
     group_id = str(uuid4())
-    assigned, skipped = [], []
+    assigned, skipped, refreshed, locked = [], [], [], []
     existing = {
         r["user_id"]: r["id"]
         for r in (supabase_admin.table("mock_exam_assignments")
@@ -148,9 +148,65 @@ def assign(exam_id, rows, *, created_by, source_exam_id=None) -> dict:
             supabase_admin.table("mock_exam_assignments").insert(payload).execute()
         assigned.append(uid)
 
-    logger.info("[retake] assign exam=%s assigned=%d skipped=%d group=%s",
-                exam_id, len(assigned), len(skipped), group_id)
-    return {"group_id": group_id, "assigned": assigned, "skipped": skipped}
+        # D2 — carry the edit onto a sitting the student ALREADY opened.
+        outcome = _refresh_open_sitting(
+            exam_id, uid, info["skills"], info["open_from"], info["open_until"],
+        )
+        if outcome == "refreshed":
+            refreshed.append(uid)
+        elif outcome == "locked":
+            locked.append(uid)
+
+    logger.info("[retake] assign exam=%s assigned=%d skipped=%d refreshed=%d locked=%d group=%s",
+                exam_id, len(assigned), len(skipped), len(refreshed), len(locked), group_id)
+    return {
+        "group_id": group_id, "assigned": assigned, "skipped": skipped,
+        # Sittings the edit reached, and sittings it could NOT reach because the
+        # student is already mid-exam. The caller MUST show `locked`: silently
+        # not applying an admin's correction is how the old bug felt.
+        "refreshed": refreshed, "locked": locked,
+    }
+
+
+def _refresh_open_sitting(exam_id, user_id, skills, open_from, open_until) -> str:
+    """Push an edited assignment onto a sitting the student already opened.
+
+    create_sitting SNAPSHOTS assigned_skills + the window onto the sitting, and
+    assign() only ever updated mock_exam_assignments — so correcting a wrong
+    skill set after the student had opened (but not started) the exam was
+    SILENTLY IGNORED: they sat the old skills on the old window, and the admin
+    had no way to tell.
+
+    Only refreshes a sitting with NO section started. Once a clock is running,
+    changing the skill set mid-exam is worse than the stale snapshot: the
+    student could lose a section they are actively working on. Those are
+    reported as `locked` instead.
+
+    Returns 'refreshed' | 'locked' | 'none'.
+    """
+    try:
+        rows = (supabase_admin.table("mock_exam_sittings")
+                .select("id, listening_started_at, reading_started_at, writing_started_at")
+                .eq("mock_exam_id", str(exam_id)).eq("user_id", str(user_id))
+                .not_.in_("status", ["released", "void"]).execute().data or [])
+    except Exception:  # noqa: BLE001 — the assignment write already succeeded
+        logger.exception("[retake] sitting refresh lookup failed exam=%s user=%s", exam_id, user_id)
+        return "none"
+    if not rows:
+        return "none"
+    sitting = rows[0]
+    if any(sitting.get(f"{s}_started_at") for s in _RETAKE_SKILLS):
+        return "locked"
+    try:
+        supabase_admin.table("mock_exam_sittings").update({
+            "assigned_skills":   skills,
+            "retake_open_from":  open_from,
+            "retake_open_until": open_until,
+        }).eq("id", sitting["id"]).execute()
+    except Exception:  # noqa: BLE001
+        logger.exception("[retake] sitting refresh failed sitting=%s", sitting["id"])
+        return "none"
+    return "refreshed"
 
 
 def list_assignments(exam_id) -> list:

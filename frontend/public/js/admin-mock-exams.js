@@ -359,8 +359,15 @@
     try {
       var res = await window.api.post('/admin/mock-exams/' + encodeURIComponent(examId) + '/assignments',
         { assignments: rows, source_exam_id: sourceId || null });
-      toast('Đã gán ' + (res.assigned || []).length + ' học viên' +
-        ((res.skipped || []).length ? ' · bỏ qua ' + res.skipped.length : '') + '.');
+      var msg = 'Đã gán ' + (res.assigned || []).length + ' học viên' +
+        ((res.skipped || []).length ? ' · bỏ qua ' + res.skipped.length : '') + '.';
+      // A correction that could NOT reach a student already mid-exam must be
+      // said out loud — silently not applying it is exactly the old bug.
+      if ((res.locked || []).length) {
+        msg += ' ⚠ ' + res.locked.length + ' học viên ĐANG LÀM BÀI nên giữ nguyên ' +
+               'kĩ năng/khung giờ cũ — huỷ lượt của họ nếu cần áp thay đổi.';
+      }
+      toast(msg);
       loadCurrentAssignments(examId);
     } catch (e) { toast('Gán thất bại: ' + (e && e.message)); }
   }
