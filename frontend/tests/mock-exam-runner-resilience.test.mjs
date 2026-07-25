@@ -49,7 +49,7 @@ describe('A2 — Writing autosaves to the server', () => {
   test('a pre-JSON draft (bare string) is still readable', () => {
     // Students mid-exam when this ships have the old format in storage;
     // dropping it would lose the very text this feature exists to protect.
-    assert.match(JS, /return \{ text: String\(raw\), ts: 0 \}/);
+    assert.match(JS, /return \{ text: String\(raw\), ts: 0, synced: null \}/);
   });
 
   test('autosave never fires outside the open Writing section', () => {
@@ -59,8 +59,9 @@ describe('A2 — Writing autosaves to the server', () => {
 
   test('a failed save stays dirty so the next tick retries', () => {
     assert.match(JS, /catch\(function \(e\) \{[\s\S]*?setSaveCue\('failed'\)/);
-    // _wDirty is only cleared on success
-    assert.match(JS, /_wDirty = false;\s*\n\s*setSaveCue\('saved'\)/);
+    // _wDirty is only cleared on success (the confirmed text is also stamped
+    // synced in localStorage on the way past — see mock-writing-autosave)
+    assert.match(JS, /_wDirty = false;[\s\S]{0,320}?setSaveCue\('saved'\)/);
   });
 
   test('save cue element exists and is announced', () => {
@@ -130,5 +131,19 @@ describe('A3 — a network failure no longer ends the exam', () => {
     assert.match(HTML, /id="warn-banner"/);
     // amber not red: the exam is still running and the work is still safe
     assert.match(HTML, /\.me-conn-banner \{[^}]*var\(--av-warning\)/);
+  });
+});
+
+describe('A3 round 3 — a terminal poll response is terminal', () => {
+  test('403/404 from the poll fails the page instead of polling forever', () => {
+    // Discarding the status classified "sitting deleted / not yours" as an
+    // outage: the page polled forever behind a banner promising the work was
+    // safe and would reconnect.
+    assert.match(JS, /\}\)\.catch\(function \(e\) \{/);
+    assert.match(JS, /if \(st === 403 \|\| st === 404\) \{\s*\n\s*return fail\(/);
+  });
+
+  test('network / 5xx failures keep the retry banner', () => {
+    assert.match(JS, /_pollFails\+\+;\s*\n\s*if \(_pollFails >= 2 && !_submitting\) setConn\('offline'\);/);
   });
 });

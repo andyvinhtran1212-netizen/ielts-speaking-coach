@@ -40,7 +40,7 @@ describe('A1 — an interrupted Listening attempt can be resumed', () => {
   test('the mock embed auto-click prefers resume over start', () => {
     // This auto-click is WHY a refresh used to be destructive.
     assert.match(HOOK, /getElementById\('ft-resume-btn'\)/);
-    assert.match(HOOK, /resume && resume\.offsetParent !== null/);
+    assert.match(HOOK, /var btn = onScreen\(resume\) \? resume : \(onScreen\(start\) \? start : null\)/);
   });
 
   test('audio rejoins the shared class clock, not the student start click', () => {
@@ -165,5 +165,21 @@ describe('A4a — autosave no longer drops answers silently', () => {
 
   test('the pre-start rules no longer promise the old 2s save', () => {
     assert.doesNotMatch(HTML, /lưu tự động sau mỗi 2 giây/);
+  });
+});
+
+describe('round 3 — answer PATCHes are serialised attempt-wide', () => {
+  test('every PATCH goes through one FIFO queue, not just the manual retry', () => {
+    // The in-flight guard is per QUESTION. A transient outage fails several
+    // questions at once and each arms its OWN backoff timer, so timer-driven
+    // retries still overlapped after retryFailedSaves() was made sequential —
+    // and the endpoint read-modify-writes the whole answers array.
+    assert.match(JS, /let _patchChain = Promise\.resolve\(\);/);
+    assert.match(JS, /await enqueuePatch\(\(\) => window\.api\.patch\(/);
+  });
+
+  test('a hung request cannot wedge every later save', () => {
+    assert.match(JS, /PATCH_QUEUE_MAX_WAIT_MS/);
+    assert.match(JS, /Promise\.race\(\[/);
   });
 });

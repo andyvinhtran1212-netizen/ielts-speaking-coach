@@ -2394,6 +2394,149 @@ def test_collect_counts_only_papers_actually_taken(fake_db, svc, monkeypatch):
     assert svc.collect_section(exam["id"], "admin-1")["collected"] == 0
 
 
+def test_late_entrant_during_the_pause_stays_in_the_waiting_room(fake_db, svc):
+    """Codex #843 (correct, P1): collecting only stamped the sittings that
+    already EXISTED. `active_section` and `is_open` were untouched, so an
+    eligible student who had not opened the exam yet could create a sitting
+    during the pause — and their brand-new row has no submission stamp, so
+    get_sitting_state() reports the still-active section and the runner hands
+    them the paper the room already turned in, with the class clock running."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → listening
+    svc.collect_section(exam["id"], "admin-1")
+
+    # the pause is now a CANONICAL fact on the exam row, not an emergent one
+    assert svc.get_published_exam_by_id(exam["id"])["collected_section"] == "listening"
+
+    late = svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    assert late["listening_submitted_at"] is not None, (
+        "a sitting created during the pause must be born with the collected "
+        "section already in — otherwise the runner opens it")
+
+
+def test_advancing_ends_the_pause(fake_db, svc):
+    """Otherwise every sitting created after the advance would still be born
+    with the PREVIOUS section stamped submitted."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+    svc.collect_section(exam["id"], "admin-1")
+    svc.advance_section(exam["id"], "admin-1")            # → reading
+
+    after = svc.get_published_exam_by_id(exam["id"])
+    assert after["active_section"] == "reading"
+    assert after["collected_section"] is None
+    fresh = svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    assert fresh.get("reading_submitted_at") is None      # reading really is open
+
+
+def test_collect_reports_a_lookup_failure_instead_of_zero_success(fake_db, svc, monkeypatch):
+    """Codex #843 (correct, P1): returning 0 on a lookup failure made /collect
+    answer successfully and the console say "Đã thu bài … 0 bài" while every
+    student might still be working. Best-effort is right for the advance safety
+    net, wrong for the explicit collect action."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+
+    real_table = fake_db.table
+
+    def boom(name):
+        if name == "mock_exam_sittings":
+            raise RuntimeError("db down")
+        return real_table(name)
+
+    monkeypatch.setattr(fake_db, "table", boom)
+    with pytest.raises(svc.MockExamError):
+        svc.collect_section(exam["id"], "admin-1")
+    monkeypatch.undo()
+
+    # the advance safety net stays best-effort — the class must still move on
+    monkeypatch.setattr(fake_db, "table", boom)
+    assert svc._force_collect_section(exam["id"], "listening") == 0
+    monkeypatch.undo()
+
+
+def test_a_second_sweep_cannot_grade_the_same_paper_twice(fake_db, svc, monkeypatch):
+    """Codex #844 (correct, P1): the sweep is a background task, so an admin who
+    presses "Thu bài" again — or advances — before the first finishes queues a
+    SECOND sweep over the same rows. Each snapshots the rows with a null
+    submitted stamp, so without a compare-and-set both proceed to grade the same
+    attempt, and two concurrent Writing sweeps each promote essays before either
+    has stored essay_task*_id."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → listening
+    row = fake_db.rows("mock_exam_sittings")[0]
+
+    promoted = []
+    monkeypatch.setattr(svc, "_promote_writing_essays", lambda sid: promoted.append(sid))
+
+    # BOTH sweeps hold the same pre-collection snapshot of the row — exactly
+    # what two overlapping background tasks see.
+    snapshot = dict(row)
+    assert svc._collect_section_for_sitting(snapshot, "listening") is True
+    assert svc._collect_section_for_sitting(snapshot, "listening") is False, (
+        "the second sweep must lose the claim, not redo the work")
+
+
+def test_the_writing_sweep_promotes_essays_exactly_once(fake_db, svc, monkeypatch):
+    """The duplicate-essay case specifically: promotion happens only for the
+    task that WON the submitted-stamp claim."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    for _ in range(3):
+        svc.advance_section(exam["id"], "admin-1")        # → writing
+    row = dict(fake_db.rows("mock_exam_sittings")[0])
+
+    promoted = []
+    monkeypatch.setattr(svc, "_promote_writing_essays", lambda sid: promoted.append(sid))
+    svc._collect_section_for_sitting(row, "writing")
+    svc._collect_section_for_sitting(row, "writing")
+    assert len(promoted) == 1, promoted
+
+
+def test_the_final_advance_keeps_a_grace_anchor(fake_db, svc):
+    """Codex #844 (correct): with no anchor for 'done', _sweep_grace_elapsed
+    returned True immediately — so a poll taken while the healthy FINAL sweep
+    was still running labelled every unprocessed paper 'missed' and offered a
+    recollect that would race it."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    for _ in range(4):                                    # → done
+        svc.advance_section(exam["id"], "admin-1")
+
+    after = svc.get_published_exam_by_id(exam["id"])
+    assert after["active_section"] == "done"
+    assert after["done_at"], "the final transition must record its own time"
+    assert svc._sweep_grace_elapsed(after, "done") is False
+
+    # ...and the verdict is NOT suppressed forever: an old exam that reached
+    # 'done' before mig 167 has no anchor and still reports elapsed.
+    assert svc._sweep_grace_elapsed({**after, "done_at": None}, "done") is True
+
+
+def test_preflight_fails_loudly_when_the_pending_count_cannot_be_read(fake_db, svc, monkeypatch):
+    """Codex #844 (correct): returning 0 turned "we don't know" into a valid
+    count — /collect answered 202 and the console said it was collecting ZERO
+    papers, while the queued sweep hit the same failing database."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+
+    real_table = fake_db.table
+
+    def boom(name):
+        if name == "mock_exam_sittings":
+            raise RuntimeError("db down")
+        return real_table(name)
+
+    monkeypatch.setattr(fake_db, "table", boom)
+    with pytest.raises(svc.MockExamError):
+        svc.collect_preflight(exam["id"])
+
+
 def test_collect_rejected_before_the_exam_starts(fake_db, svc):
     exam = _seed_exam(fake_db)
     with pytest.raises(svc.SittingConflictError):
