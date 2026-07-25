@@ -19,14 +19,27 @@ import routers.error_logs as el
 
 
 class _Result:
-    def __init__(self, data):
+    def __init__(self, data, count=None):
         self.data = data
+        self.count = count
 
 
 class _Query:
-    def __init__(self, rows):
+    """Chain-anything stub. NOTE (review #823): `__getattr__` answers ANY method
+    with `self`, so this stub cannot prove a PostgREST filter is spelled
+    correctly — it only pins the Python-side logic. The `event_data->>path`
+    exact-count syntax the exposure block relies on was verified against
+    production separately.
+
+    It DOES model the two things that matter here: the `.range()` page window,
+    and `count="exact"` — which is answered from the FULL row set, not the page
+    slice, because that is the whole point of an exact count."""
+
+    def __init__(self, rows, eqs=None):
         self._rows = rows
         self._range = (0, len(rows) - 1)
+        self._count_mode = None
+        self._eqs = dict(eqs or {})
 
     def __getattr__(self, _name):
         def _chain(*_a, **_kw):
@@ -34,11 +47,33 @@ class _Query:
 
         return _chain
 
+    def select(self, *_a, **kw):
+        self._count_mode = kw.get("count")
+        return self
+
+    def eq(self, field, value):
+        self._eqs[field] = value
+        return self
+
     def range(self, start, end):
         self._range = (start, end)
         return self
 
+    def _matches(self, row) -> bool:
+        for field, want in self._eqs.items():
+            if field == "event_name":
+                got = row.get("event_name")
+            elif field.startswith("event_data->>"):
+                got = (row.get("event_data") or {}).get(field.split(">>", 1)[1])
+            else:
+                got = row.get(field)
+            if got != want:
+                return False
+        return True
+
     def execute(self):
+        if self._count_mode == "exact":
+            return _Result([], count=sum(1 for r in self._rows if self._matches(r)))
         s, e = self._range
         return _Result(self._rows[s:e + 1])
 
@@ -223,13 +258,134 @@ def test_lcp_insufficient_sample(monkeypatch):
 
 
 def test_window_clamped(monkeypatch):
+    """DEBT-2026-07-22-F — the table half now reaches 90 days, and a clamp is
+    REPORTED. The old ceiling was 1440: a caller asking for 30 days got a
+    24-hour number under the same field name, with no error and no warning."""
     client = _client(monkeypatch)
-    assert client.get(
-        "/admin/error-logs/rollback-metrics?window_minutes=99999", headers=AUTHZ
-    ).json()["window_minutes"] == 1440
-    assert client.get(
+
+    # Above the ceiling → clamped, and the response says so.
+    over = client.get(
+        "/admin/error-logs/rollback-metrics?window_minutes=999999", headers=AUTHZ
+    ).json()
+    assert over["window_minutes"] == el.ROLLBACK_TABLE_MAX_WINDOW_MIN
+    assert over["window_minutes_requested"] == 999999
+    assert over["window_clamped"] is True
+
+    # Below the floor → clamped up, also reported.
+    under = client.get(
         "/admin/error-logs/rollback-metrics?window_minutes=1", headers=AUTHZ
-    ).json()["window_minutes"] == 5
+    ).json()
+    assert under["window_minutes"] == 5
+    assert under["window_minutes_requested"] == 1
+    assert under["window_clamped"] is True
+
+
+def test_thirty_day_window_is_granted_not_silently_cut_to_24h(monkeypatch):
+    """The live failure on 2026-07-22: 2880 / 6833 / 11531 / 43200 all returned
+    the SAME number, because every one of them was clamped to 1440. That reads
+    as near-zero traffic across the whole window and nearly produced a false
+    "exposure floor missed" call; the real count over the same span was 108."""
+    client = _client(monkeypatch)
+    for minutes in (2880, 6833, 11531, 43200):
+        body = client.get(
+            f"/admin/error-logs/rollback-metrics?window_minutes={minutes}", headers=AUTHZ
+        ).json()
+        assert body["window_minutes"] == minutes, f"{minutes} was clamped"
+        assert body["window_clamped"] is False
+        assert body["windows"]["table"] == minutes
+
+
+def test_verdict_windows_stay_pinned_when_the_table_window_grows(monkeypatch):
+    """Raising the table ceiling must NOT loosen the frozen triggers — the
+    verdicts are the rollback contract and stay at 30 min / 24h."""
+    body = _client(monkeypatch).get(
+        "/admin/error-logs/rollback-metrics?window_minutes=43200", headers=AUTHZ
+    ).json()
+    assert body["error_verdict"]["window_minutes"] == el.ROLLBACK_ERROR_WINDOW_MIN == 30
+    assert body["vitals_verdict"]["window_minutes"] == el.ROLLBACK_VITALS_WINDOW_MIN == 1440
+    assert body["windows"]["error_trigger"] == 30
+    assert body["windows"]["vitals_trigger"] == 1440
+
+
+def test_exposure_carries_the_volume_half_of_the_gate(monkeypatch):
+    """§12.3 sets a two-part exposure floor (days AND interactions). No field
+    used to carry the interaction count, so the soak day-log could only ever
+    track the days half."""
+    analytics = [_pv("next")] * 70 + [_pv("legacy")] * 38
+    body = _client(monkeypatch, analytics, []).get(
+        "/admin/error-logs/rollback-metrics?window_minutes=43200", headers=AUTHZ
+    ).json()
+    exp = body["exposure"]
+    assert exp["evaluated_views"] == 70
+    assert exp["by_implementation"] == {"next": 70, "legacy": 38, "untagged": 0}
+    assert exp["all_views"] == 108
+    assert exp["exact"] is True
+
+
+def test_exposure_is_scoped_to_the_evaluated_cohort(monkeypatch):
+    """Review #823 (P1): the first cut summed next + legacy + untagged, so a
+    window spanning a cutover let traffic the OLD implementation served satisfy
+    the exposure floor of the code being evaluated. The gate number must count
+    only the cohort under test."""
+    analytics = [_pv("legacy")] * 500 + [_pv("next")] * 12 + [_pv(None)] * 40
+    body = _client(monkeypatch, analytics, []).get(
+        "/admin/error-logs/rollback-metrics?window_minutes=43200", headers=AUTHZ
+    ).json()
+    exp = body["exposure"]
+    assert exp["evaluated_implementation"] == "next"
+    assert exp["evaluated_views"] == 12, "500 legacy views must NOT count as exposure"
+    assert exp["by_implementation"]["legacy"] == 500
+    assert exp["by_implementation"]["untagged"] == 40
+    assert exp["all_views"] == 552
+
+
+def test_exposure_counts_only_this_route_and_page_views(monkeypatch):
+    """The count is filtered at the DB (event_name + route), unlike the scan
+    that feeds the table — noise on other routes must not inflate the gate."""
+    analytics = (
+        [_pv("next", "/")] * 9
+        + [_pv("next", "/grammar")] * 400
+        + [_wv("next", 1200, path="/")] * 30      # web_vitals, not a page_view
+    )
+    exp = _client(monkeypatch, analytics, []).get(
+        "/admin/error-logs/rollback-metrics?route=/&window_minutes=43200", headers=AUTHZ
+    ).json()["exposure"]
+    assert exp["evaluated_views"] == 9
+    assert exp["all_views"] == 9
+
+
+def test_exposure_degrades_to_a_lower_bound_when_the_count_query_fails(monkeypatch):
+    """Review #823 (P1): the fallback path (summing the capped scan) can only
+    UNDER-count, so it must not present itself as cumulative. `exact: false` is
+    what the admin panel turns into "ít nhất N"."""
+    analytics = [_pv("next")] * 25 + [_pv("legacy")] * 5
+
+    class _NoCount(_Query):
+        def execute(self):
+            if self._count_mode == "exact":
+                raise RuntimeError("count unsupported")
+            return super().execute()
+
+    class _Admin(_FakeAdmin):
+        def table(self, name):
+            return _NoCount(self._tables.get(name, []))
+
+    async def _ok(_authz):
+        return {"id": "admin", "role": "admin"}
+
+    monkeypatch.setattr(el, "require_admin", _ok)
+    monkeypatch.setattr(el, "supabase_admin", _Admin({
+        "analytics_events": analytics, "error_logs": [],
+    }))
+    app = FastAPI()
+    app.include_router(el.router)
+    app.include_router(el._admin_router)
+    exp = TestClient(app).get(
+        "/admin/error-logs/rollback-metrics?window_minutes=1440", headers=AUTHZ
+    ).json()["exposure"]
+    assert exp["exact"] is False
+    assert exp["evaluated_views"] == 25          # still useful, just not exact
+    assert exp["all_views"] == 30
 
 
 def test_paginates_past_postgrest_1000_cap(monkeypatch):
@@ -298,7 +454,12 @@ def test_verdicts_pinned_to_frozen_windows_not_table_window(monkeypatch):
     assert body["vitals_verdict"]["status"] == "breach"
     # The TABLE at 1440 shows everything (45 next errors).
     assert body["implementations"]["next"]["errors"] == 45
-    assert body["windows"] == {"table": 1440, "error_trigger": 30, "vitals_trigger": 1440}
+    # DEBT-2026-07-22-F added `table_max` (the documented table-half ceiling).
+    # Kept as an exact compare so a future field has to be acknowledged here.
+    assert body["windows"] == {
+        "table": 1440, "table_max": el.ROLLBACK_TABLE_MAX_WINDOW_MIN,
+        "error_trigger": 30, "vitals_trigger": 1440,
+    }
 
     # And with the default 30m table window, the vitals verdict still sees
     # the 24h samples even though the table shows none.
