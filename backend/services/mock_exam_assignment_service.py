@@ -164,8 +164,44 @@ def list_assignments(exam_id) -> list:
     return rows
 
 
-def remove(exam_id, user_id) -> None:
-    """Un-assign one user from a retake exam."""
+def remove(exam_id, user_id, *, admin_id=None) -> dict:
+    """Un-assign one user from a retake exam, and VOID any sitting they already
+    opened for it.
+
+    Deleting the assignment alone did not actually revoke access: create_sitting
+    RESUMES an existing non-terminal sitting *before* applying the eligibility
+    gates (mock_exam_service.py:471-478 — deliberate, so a mid-exam refresh
+    can't lock a student out of their own paper). So an un-assigned student who
+    had already opened the exam kept full access to it.
+
+    Voiding is also what frees the uq_mock_sitting_active slot. That matters
+    much more once one live sitting per student is enforced across all exams
+    (C3): without this, un-assigning someone would leave them holding a lock on
+    every OTHER exam too, with no way for the admin to clear it.
+
+    Returns {"voided": [sitting_id...]} so the caller can report what it did
+    rather than silently doing two different things under one verb.
+    """
+    from services import mock_exam_service  # local import avoids an import cycle
+
+    open_rows = (supabase_admin.table("mock_exam_sittings").select("id")
+                 .eq("mock_exam_id", str(exam_id)).eq("user_id", str(user_id))
+                 .not_.in_("status", ["released", "void"]).execute().data or [])
+
     supabase_admin.table("mock_exam_assignments").delete().eq(
         "exam_id", str(exam_id)).eq("user_id", str(user_id)).execute()
-    logger.info("[retake] unassign exam=%s user=%s", exam_id, user_id)
+
+    voided = []
+    for row in open_rows:
+        try:
+            mock_exam_service.void_sitting(
+                row["id"], admin_id or "system",
+                reason="Gỡ khỏi danh sách được gán bài test lại.",
+            )
+            voided.append(str(row["id"]))
+        except Exception:  # noqa: BLE001 — un-assign must still succeed
+            logger.exception("[retake] unassign: void failed sitting=%s", row["id"])
+
+    logger.info("[retake] unassign exam=%s user=%s voided=%d",
+                exam_id, user_id, len(voided))
+    return {"voided": voided}

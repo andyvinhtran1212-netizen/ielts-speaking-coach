@@ -2320,6 +2320,53 @@ def test_retake_assign_rejects_open_ended_before_writing_any_row(fake_db):
     assert fake_db.rows("mock_exam_assignments") == []
 
 
+def test_unassign_voids_the_sitting_the_student_already_opened(fake_db, svc):
+    """D4 — deleting the assignment alone did NOT revoke access.
+
+    create_sitting resumes an existing non-terminal sitting BEFORE the
+    eligibility gates (deliberate, so a mid-exam refresh can't lock a student
+    out of their own paper), so an un-assigned student who had already opened
+    the exam kept full access. Voiding is also what frees the
+    uq_mock_sitting_active slot — which matters far more once one live sitting
+    per student is enforced across all exams.
+    """
+    from services import mock_exam_assignment_service as a
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    u = str(uuid4())
+    a.assign(exam["id"], [{"user_id": u, "skills": ["writing"], **_WINDOW}],
+             created_by=str(uuid4()))
+    sitting = svc.create_sitting(u, "MOCK-TEST-A")
+    assert sitting["status"] == "registered"
+
+    out = a.remove(exam["id"], u, admin_id="admin-1")
+
+    assert out["voided"] == [str(sitting["id"])]
+    after = svc.get_sitting(sitting["id"])
+    assert after["status"] == "void"
+    # A voided sitting stays SEALED — a cancelled exam never publishes results.
+    assert after["sealed"] is True
+
+
+def test_unassign_leaves_a_finished_sitting_alone(fake_db, svc):
+    """Only NON-TERMINAL sittings are voided. A released result is a record of
+    something that really happened and must not be rewritten by an un-assign."""
+    from services import mock_exam_assignment_service as a
+    exam = _seed_exam(fake_db)
+    u = str(uuid4())
+    sid = str(uuid4())
+    fake_db.seed("mock_exam_sittings", {
+        "id": sid, "mock_exam_id": exam["id"], "user_id": u,
+        "status": "released", "sealed": False,
+    })
+    a.assign(exam["id"], [{"user_id": u, "skills": ["writing"], **_WINDOW}],
+             created_by=str(uuid4()))
+
+    assert a.remove(exam["id"], u)["voided"] == []
+    assert svc.get_sitting(sid)["status"] == "released"
+
+
 def test_retake_list_and_remove_assignments(fake_db):
     from services import mock_exam_assignment_service as a
     exam_id = str(uuid4())

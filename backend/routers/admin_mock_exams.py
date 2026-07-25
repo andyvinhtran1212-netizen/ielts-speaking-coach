@@ -272,10 +272,15 @@ async def create_assignments(
 async def delete_assignment(
     exam_id: str, student_id: str, authorization: str | None = Header(default=None),
 ):
-    """Un-assign one student from a retake exam."""
-    await require_admin(authorization)
-    assign_svc.remove(exam_id, student_id)
-    return {"ok": True}
+    """Un-assign one student from a retake exam.
+
+    Also VOIDS any sitting they already opened for it — deleting the assignment
+    alone did not revoke access, because create_sitting resumes an existing
+    sitting before the eligibility gates. Reports the voided ids rather than
+    doing two things silently under one verb."""
+    admin = await require_admin(authorization)
+    out = assign_svc.remove(exam_id, student_id, admin_id=admin["id"])
+    return {"ok": True, **out}
 
 
 @router.post("/{exam_id}/writing/bulk-grade", status_code=202)
