@@ -186,6 +186,41 @@ def test_foot_traffic_orders_stably_for_pagination(monkeypatch):
     assert '.order("id")' in src
 
 
+def test_foot_traffic_partial_page_failure_is_reported_as_truncated(monkeypatch):
+    """Review #821: a transient failure on the SECOND page kept page one and
+    left `truncated` false, so the panel presented a partial total, chart and
+    ranking as complete — the same silent-incompleteness defect this endpoint
+    was just fixed to stop producing."""
+    rows = [
+        {"user_id": f"u{i}", "event_data": {"path": "/home"},
+         "created_at": "2026-06-01T08:00:00Z"}
+        for i in range(1500)
+    ]
+
+    class _FlakyQ(_Q):
+        calls = 0
+
+        def execute(self):
+            _FlakyQ.calls += 1
+            if _FlakyQ.calls > 1:
+                raise RuntimeError("upstream blip on page 2")
+            return super().execute()
+
+    class _FlakyStub:
+        def table(self, _name):
+            return _FlakyQ(rows, [])
+
+    async def _ok(_authz):
+        return {"id": "admin"}
+
+    monkeypatch.setattr(admin_module, "require_admin", _ok)
+    monkeypatch.setattr(admin_module, "supabase_admin", _FlakyStub())
+    out = _run(admin_module.foot_traffic(authorization="x"))
+
+    assert out["total_views"] == 1000, "page one is kept — still useful"
+    assert out["truncated"] is True, "but it must NOT read as a complete window"
+
+
 def test_foot_traffic_graceful_on_query_failure(monkeypatch):
     class _BoomStub:
         def table(self, _n):

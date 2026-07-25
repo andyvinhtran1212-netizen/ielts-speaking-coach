@@ -1395,7 +1395,14 @@ async def foot_traffic(
                 )
                 break
     except Exception as exc:
+        # Review #821 — a failure on page ONE leaves rows empty, which is the
+        # documented Pattern #29 zero-on-failure contract. A failure on any
+        # LATER page leaves a partial set, and reporting that as complete is
+        # exactly the silent-incompleteness defect this endpoint just stopped
+        # doing. Partial ⇒ truncated.
         logger.warning("foot_traffic: query failed: %s", exc)
+        if rows:
+            truncated = True
 
     unique_users: set = set()
     anonymous_hits = 0
