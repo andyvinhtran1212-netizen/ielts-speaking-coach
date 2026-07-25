@@ -289,6 +289,17 @@ ROLLBACK_MIN_VITALS = 10   # below this p75 is noise, not a verdict
 # own window; `window_minutes` only scopes the per-implementation table.
 ROLLBACK_ERROR_WINDOW_MIN = 30
 ROLLBACK_VITALS_WINDOW_MIN = 1440
+# DEBT-2026-07-22-F: the table half used to be clamped to 1440 as well, which
+# was correct for the frozen verdicts (nothing above needs more than 24h) but
+# silently wrong for the OTHER thing this endpoint is used for — the cumulative
+# exposure count a cutover gate reads. A caller asking for 30 days got a 24-hour
+# number under the same field name. Measured 2026-07-22: 2880 / 6833 / 11531 /
+# 43200 all returned the identical "14 views", which reads as near-zero traffic
+# across the whole window and nearly produced a false "exposure floor missed"
+# conclusion; the real count over the same span was 108. The table half now
+# reaches 90 days; the verdict windows above stay pinned exactly as they were.
+ROLLBACK_TABLE_MAX_WINDOW_MIN = 129_600   # 90 days
+ROLLBACK_TABLE_MIN_WINDOW_MIN = 5
 
 
 def _p75(values: list[float]) -> float | None:
@@ -398,7 +409,16 @@ async def error_log_rollback_metrics(
     pagination + stable ordering as migration-stats (PostgREST 1000-cap +
     review #746)."""
     await require_admin(authorization)
-    window_minutes = max(5, min(1440, window_minutes))
+    # DEBT-2026-07-22-F — clamp the table half to a documented ceiling and TELL
+    # the caller when it bit. Silently returning a 24h number for a 30-day
+    # request is what made the volume half of the §12.3 exposure floor
+    # unmeasurable for five days of the Pilot-1 soak.
+    requested_window_minutes = window_minutes
+    window_minutes = max(
+        ROLLBACK_TABLE_MIN_WINDOW_MIN,
+        min(ROLLBACK_TABLE_MAX_WINDOW_MIN, window_minutes),
+    )
+    window_clamped = window_minutes != requested_window_minutes
     now = datetime.now(timezone.utc)
     # One fetch covers the widest window needed; narrower windows filter by
     # row timestamp in Python.
@@ -538,11 +558,23 @@ async def error_log_rollback_metrics(
     return {
         "route": route,
         "window_minutes": window_minutes,
+        # DEBT-2026-07-22-F — `window_minutes` alone is ambiguous: it is the
+        # EFFECTIVE window, so a caller cannot tell a granted request from a
+        # clamped one without remembering what it sent. These two make it
+        # unmistakable at the point the number is read.
+        "window_minutes_requested": requested_window_minutes,
+        "window_clamped": window_clamped,
         "windows": {
             "table": window_minutes,
+            "table_max": ROLLBACK_TABLE_MAX_WINDOW_MIN,
             "error_trigger": ROLLBACK_ERROR_WINDOW_MIN,
             "vitals_trigger": ROLLBACK_VITALS_WINDOW_MIN,
         },
+        # DEBT-2026-07-22-F — the cumulative exposure count over the requested
+        # window, summed across implementations. This is the "≥N interactions"
+        # half of the §12.3 gate; no field used to carry it, so the soak day-log
+        # tracked the elapsed-days half and never this one.
+        "window_views_total": sum(i["page_views"] for i in implementations.values()),
         "implementations": implementations,
         "error_verdict": error_verdict,
         "vitals_verdict": vitals_verdict,

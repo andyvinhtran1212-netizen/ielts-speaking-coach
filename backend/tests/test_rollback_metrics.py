@@ -223,13 +223,66 @@ def test_lcp_insufficient_sample(monkeypatch):
 
 
 def test_window_clamped(monkeypatch):
+    """DEBT-2026-07-22-F — the table half now reaches 90 days, and a clamp is
+    REPORTED. The old ceiling was 1440: a caller asking for 30 days got a
+    24-hour number under the same field name, with no error and no warning."""
     client = _client(monkeypatch)
-    assert client.get(
-        "/admin/error-logs/rollback-metrics?window_minutes=99999", headers=AUTHZ
-    ).json()["window_minutes"] == 1440
-    assert client.get(
+
+    # Above the ceiling → clamped, and the response says so.
+    over = client.get(
+        "/admin/error-logs/rollback-metrics?window_minutes=999999", headers=AUTHZ
+    ).json()
+    assert over["window_minutes"] == el.ROLLBACK_TABLE_MAX_WINDOW_MIN
+    assert over["window_minutes_requested"] == 999999
+    assert over["window_clamped"] is True
+
+    # Below the floor → clamped up, also reported.
+    under = client.get(
         "/admin/error-logs/rollback-metrics?window_minutes=1", headers=AUTHZ
-    ).json()["window_minutes"] == 5
+    ).json()
+    assert under["window_minutes"] == 5
+    assert under["window_minutes_requested"] == 1
+    assert under["window_clamped"] is True
+
+
+def test_thirty_day_window_is_granted_not_silently_cut_to_24h(monkeypatch):
+    """The live failure on 2026-07-22: 2880 / 6833 / 11531 / 43200 all returned
+    the SAME number, because every one of them was clamped to 1440. That reads
+    as near-zero traffic across the whole window and nearly produced a false
+    "exposure floor missed" call; the real count over the same span was 108."""
+    client = _client(monkeypatch)
+    for minutes in (2880, 6833, 11531, 43200):
+        body = client.get(
+            f"/admin/error-logs/rollback-metrics?window_minutes={minutes}", headers=AUTHZ
+        ).json()
+        assert body["window_minutes"] == minutes, f"{minutes} was clamped"
+        assert body["window_clamped"] is False
+        assert body["windows"]["table"] == minutes
+
+
+def test_verdict_windows_stay_pinned_when_the_table_window_grows(monkeypatch):
+    """Raising the table ceiling must NOT loosen the frozen triggers — the
+    verdicts are the rollback contract and stay at 30 min / 24h."""
+    body = _client(monkeypatch).get(
+        "/admin/error-logs/rollback-metrics?window_minutes=43200", headers=AUTHZ
+    ).json()
+    assert body["error_verdict"]["window_minutes"] == el.ROLLBACK_ERROR_WINDOW_MIN == 30
+    assert body["vitals_verdict"]["window_minutes"] == el.ROLLBACK_VITALS_WINDOW_MIN == 1440
+    assert body["windows"]["error_trigger"] == 30
+    assert body["windows"]["vitals_trigger"] == 1440
+
+
+def test_window_views_total_carries_the_volume_half_of_the_gate(monkeypatch):
+    """§12.3 sets a two-part exposure floor (days AND interactions). No field
+    used to carry the interaction count, so the soak day-log could only ever
+    track the days half."""
+    analytics = [_pv("next")] * 70 + [_pv("legacy")] * 38
+    body = _client(monkeypatch, analytics, []).get(
+        "/admin/error-logs/rollback-metrics?window_minutes=43200", headers=AUTHZ
+    ).json()
+    assert body["window_views_total"] == 108
+    assert body["implementations"]["next"]["page_views"] == 70
+    assert body["implementations"]["legacy"]["page_views"] == 38
 
 
 def test_paginates_past_postgrest_1000_cap(monkeypatch):
@@ -298,7 +351,12 @@ def test_verdicts_pinned_to_frozen_windows_not_table_window(monkeypatch):
     assert body["vitals_verdict"]["status"] == "breach"
     # The TABLE at 1440 shows everything (45 next errors).
     assert body["implementations"]["next"]["errors"] == 45
-    assert body["windows"] == {"table": 1440, "error_trigger": 30, "vitals_trigger": 1440}
+    # DEBT-2026-07-22-F added `table_max` (the documented table-half ceiling).
+    # Kept as an exact compare so a future field has to be acknowledged here.
+    assert body["windows"] == {
+        "table": 1440, "table_max": el.ROLLBACK_TABLE_MAX_WINDOW_MIN,
+        "error_trigger": 30, "vitals_trigger": 1440,
+    }
 
     # And with the default 30m table window, the vitals verdict still sees
     # the 24h samples even though the table shows none.

@@ -370,6 +370,30 @@ function _verdictLine(label, v) {
     (detail ? ' — ' + escapeHtml(detail) : '') + '</div>';
 }
 
+// DEBT-2026-07-22-F — the §12.3 exposure floor has TWO halves (elapsed days AND
+// interaction count) and this panel only ever showed rates. The volume half had
+// no surface at all, so for five days of the Pilot-1 soak the daily log tracked
+// days and never interactions — not an oversight by the operator, there was
+// nothing to read. Show the cumulative count next to the window it covers, and
+// say so loudly when the window asked for was not the window granted.
+function _exposureLine(r) {
+  if (!r || r.window_views_total == null) return '';
+  const mins = r.window_minutes;
+  const span = mins >= 1440 ? (mins / 1440).toFixed(mins % 1440 ? 1 : 0) + ' ngày'
+             : mins >= 60 ? (mins / 60).toFixed(mins % 60 ? 1 : 0) + ' giờ'
+             : mins + ' phút';
+  const clamp = r.window_clamped
+    ? '<div class="el-migration-note is-warning"><strong>⚠ Cửa sổ bị cắt:</strong> '
+      + 'yêu cầu ' + escapeHtml(String(r.window_minutes_requested)) + ' phút, '
+      + 'thực tế tính ' + escapeHtml(String(mins)) + ' phút '
+      + '(trần bảng ' + escapeHtml(String((r.windows || {}).table_max)) + ' phút). '
+      + 'Con số dưới đây KHÔNG phải của cửa sổ bạn hỏi.</div>'
+    : '';
+  return clamp + '<div class="el-migration-note"><strong>Phơi nhiễm luỹ kế:</strong> '
+    + escapeHtml(String(r.window_views_total)) + ' lượt xem trong ' + escapeHtml(span)
+    + ' (vế số-lượng của sàn §12.3)</div>';
+}
+
 async function loadRollbackMetrics() {
   const body = document.getElementById('rollback-metrics-body');
   if (!body) return;
@@ -398,6 +422,7 @@ async function loadRollbackMetrics() {
       '<th>Impl</th><th>Views</th><th>Lỗi</th><th>Error rate</th>' +
       '<th>LCP p75</th><th>CLS p75</th><th>INP p75</th>' +
       '</tr></thead><tbody>' + rows + '</tbody></table>' +
+      _exposureLine(r) +
       _verdictLine('Error-rate (>2×/30ph)', r.error_verdict) +
       _verdictLine('LCP p75 (>1.5×/24h)', r.vitals_verdict) +
       (r.truncated ? '<div class="el-migration-note">⚠ Dữ liệu bị cắt.</div>' : '');
