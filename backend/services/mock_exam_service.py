@@ -540,7 +540,13 @@ def create_sitting(user_id: str, code: str) -> dict:
         "status", ["released", "void"],
     ).limit(1).execute()
     if existing.data:
-        return existing.data[0]
+        # SAY SO. The runner counts a "resume" as an integrity signal, and it
+        # was inferring newness from mutable sitting fields: a reload before the
+        # first section is collected looks exactly like a fresh 'registered' row
+        # with nothing submitted, while a genuinely new arrival during a section
+        # PAUSE is born with a submitted stamp and looked like a resume
+        # (Codex review, PR #849). Only this function knows which happened.
+        return {**existing.data[0], "created": False}
 
     # NEW sitting only: apply the entry gates.
     #
@@ -639,7 +645,7 @@ def create_sitting(user_id: str, code: str) -> dict:
     logger.info(
         "[mock-exam] created sitting=%s user=%s exam=%s", row["id"], user_id, code,
     )
-    return row
+    return {**row, "created": True}
 
 
 def attach_attempt(
@@ -1798,6 +1804,17 @@ def void_sitting(sitting_id: str, admin_id: str, reason: str = "") -> dict:
         "p_admin_id":   str(admin_id),
         "p_reason":     reason,
     }).execute().data
+    if not voided:
+        # The RPC's own status guard refused. That happens when a release
+        # committed between the read above and this call, so the row is now
+        # `released`. Fabricating a void response here logged success and
+        # answered the admin 200 while the persisted row said the opposite
+        # (Codex review, PR #849). Report the state that actually holds.
+        fresh = get_sitting(sitting_id) or {}
+        raise SittingConflictError(
+            "Không huỷ được lượt thi — trạng thái hiện tại là "
+            f"{fresh.get('status') or 'không rõ'}. Tải lại trang để xem trạng thái mới nhất."
+        )
     # Cancel the linked review too. Leaving it 'reviewed' let a stale review page
     # still call release_results(), which flips the sitting back to 'released'
     # with sealed=False — publishing an exam that was explicitly cancelled.
@@ -1812,7 +1829,7 @@ def void_sitting(sitting_id: str, admin_id: str, reason: str = "") -> dict:
     except Exception:  # noqa: BLE001 — the sitting is already void; log and move on
         logger.exception("[mock-exam] void: review cancel failed sitting=%s", sitting_id)
     logger.info("[mock-exam] sitting=%s VOIDED by admin=%s", sitting_id, admin_id)
-    return voided or {**sitting, "status": "void"}
+    return voided
 
 
 def set_sitting_retest(

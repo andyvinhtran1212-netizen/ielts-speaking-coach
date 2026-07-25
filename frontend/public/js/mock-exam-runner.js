@@ -76,20 +76,24 @@
         if (!S.code) return fail('Thiếu mã kỳ thi (?code=).');
         var created = await api('post', '/api/mock-exams/' + encodeURIComponent(S.code) + '/sittings');
         S.sittingId = created.id;
-        // create_sitting is idempotent — it RESUMES an existing non-terminal
-        // sitting. Only a 'registered' row with nothing submitted is genuinely
-        // new; anything else means we just rejoined one already under way.
-        createdNow = created.status === 'registered'
-          && !created.listening_submitted_at && !created.reading_submitted_at
-          && !created.writing_submitted_at;
+        // The BACKEND says which happened. Inferring it from mutable sitting
+        // fields got both directions wrong: a reload before the first section
+        // is collected looks exactly like a fresh 'registered' row with nothing
+        // submitted, and a genuinely new arrival during a section pause is born
+        // with a submitted stamp and looked like a resume (Codex review, #849).
+        createdNow = created.created === true;
       }
       wireIntegrity();
-      // Count a RE-entry, never the first one. `created` is set only on the
-      // path that just minted this sitting, so counting unconditionally made
-      // every normal sitting report "vào lại 1×" from birth and "2×" after a
-      // single real reload (Codex review, PR #849).
-      if (!createdNow) bumpIntegrity('resumes', 1);
+      // Load state FIRST. Any entry through ?sitting= leaves createdNow false —
+      // including the application's own return from practice.js after Speaking,
+      // which happens once the sitting is already all_submitted. Counting
+      // before we know the status recorded an "integrity event" that was not an
+      // exam resume at all (Codex review, PR #849).
       await loadState();
+      var live = S.sitting && (S.sitting.status === 'registered'
+        || S.sitting.status === 'lrw_in_progress');
+      // Count a RE-entry, never the first one, and never after the exam is over.
+      if (!createdNow && live) bumpIntegrity('resumes', 1);
       reportIntegrity();
     } catch (e) { fail('Không mở được kỳ thi: ' + (e && e.message ? e.message : e)); }
   }
@@ -917,7 +921,13 @@
         reportIntegrity();
       }
     });
-    window.addEventListener('offline', function () { bumpIntegrity('offline_events', 1); });
+    window.addEventListener('offline', function () {
+      // Only while a section is actually being sat — the same guard the
+      // tab-hidden signal uses. Without it a network blip in the waiting room,
+      // or on a review screen left open afterwards, was persisted and shown to
+      // the invigilator as exam-integrity context (Codex review, PR #849).
+      if (S.renderedSection) bumpIntegrity('offline_events', 1);
+    });
     window.addEventListener('pagehide', function () {
       // A tab that is closed while STILL hidden never fires a visible event, so
       // this is the only chance to bank that interval.

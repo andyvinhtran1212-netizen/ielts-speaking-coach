@@ -3056,6 +3056,38 @@ def test_integrity_ignores_junk_without_failing(fake_db, svc):
     assert got["offline_events"] == 2
 
 
+def test_void_reports_the_truth_when_the_rpc_guard_refuses(fake_db, svc, monkeypatch):
+    """Codex #849 (correct): if a release commits between the read and the RPC,
+    the RPC's status guard returns null. Fabricating a void response there
+    logged success and answered the admin 200 while the persisted row said
+    `released`."""
+    _seed_exam(fake_db)
+    u = uuid4()
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+
+    real_rpc = fake_db.rpc
+
+    class _NullRpc:
+        data = None
+
+        def execute(self):
+            return self
+
+    def refuse_void(name, params):
+        if name == "fn_void_sitting":
+            return _NullRpc()
+        return real_rpc(name, params)
+
+    fake_db.rpc = refuse_void
+    try:
+        with pytest.raises(svc.SittingConflictError):
+            svc.void_sitting(sit["id"], "admin-1", reason="máy hỏng")
+    finally:
+        fake_db.rpc = real_rpc
+
+    assert svc.get_sitting(sit["id"])["status"] != "void"
+
+
 def test_voiding_preserves_counters_committed_in_between(fake_db, svc):
     """Codex #849 (correct): mig 163 made the COUNTER path atomic, but
     void_sitting() was still a Python read-modify-write of the same column —
