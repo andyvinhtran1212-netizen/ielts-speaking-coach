@@ -365,3 +365,30 @@ def test_retake_student_who_never_started_shows_waiting_not_working(fake_db, svc
 def test_missing_exam_raises_not_found(fake_db, svc):
     with pytest.raises(svc.NotFoundError):
         svc.admin_live_monitor(str(uuid4()))
+
+
+def test_repeat_attempt_shows_the_live_sitting_not_the_released_one(fake_db, svc):
+    """A released attempt sitting alongside a fresh one must not win.
+
+    The one-live-per-user index only covers registered/lrw_in_progress, so a
+    student who sat this exam before AND is sitting it again legitimately has
+    two non-void rows. Keying by user without ordering kept whichever row came
+    back last, which could paint the console with the old attempt's answers.
+    """
+    exam = _seed_exam(fake_db)
+    uid = str(uuid4())
+    fake_db.seed("users", {"id": uid, "display_name": "An", "email": None})
+    old_stamp = _iso(_now() - timedelta(days=3))
+    # seeded LAST so an unordered dict would keep it
+    _seed_sitting(fake_db, exam, uid, status="lrw_in_progress",
+                  created_at=_iso(_now()))
+    _seed_sitting(fake_db, exam, uid, status="released",
+                  created_at=old_stamp,
+                  listening_submitted_at=old_stamp,
+                  reading_submitted_at=old_stamp,
+                  writing_submitted_at=old_stamp)
+
+    rows = [r for r in svc.admin_live_monitor(exam["id"])["students"]
+            if str(r.get("user_id")) == uid]
+    assert len(rows) == 1
+    assert rows[0]["sections"]["listening"]["state"] != "submitted"
