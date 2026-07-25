@@ -2282,6 +2282,9 @@
       '/api/mock-exams/sittings/' + encodeURIComponent(sittingId) + '/speaking',
       { session_ids: ids }
     ).then(function (r) {
+      // api.js resolves NULL after redirecting an unauthenticated request.
+      // Clearing the debt on that would throw away the only retry record.
+      if (r === null || r === undefined) throw new Error('unauthenticated');
       _clearSpeakingDebt();
       return r;
     }).catch(function (err) {
@@ -2289,6 +2292,9 @@
       // sessions aren't eligible. Retrying repeats them identically, and
       // keeping the debt would make every future page load retry forever.
       var st = err && err.status;
+      // 401 is NOT terminal — it means we asked too early or the token lapsed.
+      // Keep the debt so the next authenticated load settles it.
+      if (st === 401) throw err;
       if (st === 403 || st === 409 || st === 404) { _clearSpeakingDebt(); throw err; }
       if (attempt >= _SPEAK_RETRY_DELAYS.length) throw err;   // debt persists
       return new Promise(function (resolve) {
@@ -2309,7 +2315,6 @@
     _reportSpeakingToSitting(owed.sitting_id, owed.session_ids || [])
       .catch(function (e) { console.warn('[practice] owed speaking report still failing', e); });
   }
-  _retryOwedSpeakingReport();
 
   // Called when the last Part 3 question is submitted in test_full mode.
   // Calls the backend finalize endpoint — server handles all aggregation.
@@ -2964,6 +2969,13 @@
       window.location.href = window.api.url('login.html');
       return;
     }
+
+    // Settle an unpaid Speaking report from a previous visit — AFTER the
+    // session check, never at top level. practice.js is deferred while
+    // initSupabase() runs in a later inline script, so a top-level call carries
+    // no Bearer token: it 401s, api.js redirects to login and resolves null,
+    // and the success handler then CLEARS the debt (Codex review, PR #847).
+    _retryOwedSpeakingReport();
 
     var params = new URLSearchParams(window.location.search);
     _sessionId = params.get('session_id');
