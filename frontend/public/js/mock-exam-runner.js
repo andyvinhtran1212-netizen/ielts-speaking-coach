@@ -123,7 +123,16 @@
         // Recovered — clear the warning rather than leaving it to rot.
         if (_pollFails) { _pollFails = 0; setConn(null); }
         retryOwedSubmit();
-      }).catch(function () {
+      }).catch(function (e) {
+        // Terminal statuses mean the sitting is gone or is not ours — the same
+        // verdict the submit path already reaches. Discarding the status here
+        // classified them as an outage, so the page polled forever behind a
+        // banner promising the work was safe and would reconnect, when in fact
+        // nothing was ever coming back (Codex review, PR #836).
+        var st = e && e.status;
+        if (st === 403 || st === 404) {
+          return fail('Lượt thi này không còn truy cập được. Liên hệ giám thị.');
+        }
         // One miss is noise; two in a row is a real problem worth telling the
         // student about. Polling deliberately keeps running either way.
         _pollFails++;
