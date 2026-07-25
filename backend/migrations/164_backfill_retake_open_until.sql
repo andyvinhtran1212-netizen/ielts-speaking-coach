@@ -20,13 +20,14 @@
 -- been applied yet, run THIS one first. It is what clears the stuck legacy
 -- rows that would otherwise make 162's unique index fail its pre-check.
 --
--- POLICY: 14 days from when the assignment was created. Chosen because it is
--- comfortably longer than any real retake window the admin ever set by hand, so
--- it cannot cut short a legitimately-open assignment; every affected row is
--- already months old in practice, so the deadline lands in the past and the
--- reaper collects the paper on its next run — which is the intended outcome.
--- Review the SELECT below before running the UPDATEs if that is not what you
--- want for your data.
+-- POLICY: 14 days. Chosen because it is comfortably longer than any real retake
+-- window the admin ever set by hand, so it cannot cut short a legitimately-open
+-- assignment. For an ABANDONED row (assigned months ago, never opened) the
+-- resulting deadline lands in the past and the reaper collects it on its next
+-- run — which is the intended outcome. For a row someone is actually SITTING,
+-- the deadline is measured from their own activity instead, so the backfill can
+-- never collect a test in progress. Review the SELECTs below before running the
+-- UPDATEs if that is not what you want for your data.
 
 -- ── 0. AUDIT FIRST (read-only). What is about to change, and how stale is it?
 -- SELECT a.id, a.exam_id, a.user_id, a.created_at,
@@ -34,6 +35,20 @@
 --   FROM mock_exam_assignments a
 --  WHERE a.open_until IS NULL
 --  ORDER BY a.created_at;
+--
+-- And the sittings, with the deadline step 2 would give them — check that no
+-- row someone is actively sitting comes out with a deadline in the past:
+--
+-- SELECT s.id, s.user_id, s.status, s.created_at,
+--        GREATEST(s.created_at,
+--                 COALESCE(s.listening_started_at, s.created_at),
+--                 COALESCE(s.reading_started_at,   s.created_at),
+--                 COALESCE(s.writing_started_at,   s.created_at))
+--          + INTERVAL '14 days' AS floor_deadline
+--   FROM mock_exam_sittings s
+--   JOIN mock_exams e ON e.id = s.mock_exam_id
+--  WHERE e.exam_mode = 'retake' AND s.retake_open_until IS NULL
+--    AND s.status IN ('registered', 'lrw_in_progress');
 --
 -- SELECT s.id, s.mock_exam_id, s.user_id, s.status, s.created_at
 --   FROM mock_exam_sittings s
@@ -50,14 +65,38 @@ UPDATE mock_exam_assignments
    SET open_until = created_at + INTERVAL '14 days'
  WHERE open_until IS NULL;
 
--- ── 2. Sittings: the SNAPSHOT taken at sitting-creation time. Prefer the
---      assignment's (now backfilled) value so the two agree; fall back to the
---      sitting's own age when no assignment row survives.
+-- ── 2. Sittings: the SNAPSHOT taken at sitting-creation time.
+--
+-- The assignment's (now backfilled) value keeps the two records agreeing, but
+-- it CANNOT be used on its own: an assignment created months ago whose student
+-- only opened or started the exam recently would inherit a deadline already in
+-- the past, and the reaper — enabled by this same wave — would immediately
+-- collect every outstanding section of a test that is actively being sat
+-- (Codex review, PR #839). So the deadline is the LATEST of:
+--
+--   · the assignment's deadline,
+--   · 14 days from when the sitting was created,
+--   · 14 days from the most recent section the student actually started.
+--
+-- The assignment lookup is a CORRELATED SUBQUERY, not a join in FROM: the
+-- UPDATE target alias `s` is not in scope inside a FROM-clause join condition,
+-- so `ON a.user_id = s.user_id` raises "invalid reference to FROM-clause entry
+-- for table s" and the whole transaction rolls back — leaving every legacy row
+-- exactly as it was (Codex review, PR #839).
 UPDATE mock_exam_sittings s
-   SET retake_open_until = COALESCE(a.open_until, s.created_at + INTERVAL '14 days')
+   SET retake_open_until = GREATEST(
+           COALESCE(
+               (SELECT a.open_until
+                  FROM mock_exam_assignments a
+                 WHERE a.exam_id = s.mock_exam_id
+                   AND a.user_id = s.user_id
+                 LIMIT 1),
+               s.created_at + INTERVAL '14 days'),
+           s.created_at + INTERVAL '14 days',
+           COALESCE(s.listening_started_at, s.created_at) + INTERVAL '14 days',
+           COALESCE(s.reading_started_at,   s.created_at) + INTERVAL '14 days',
+           COALESCE(s.writing_started_at,   s.created_at) + INTERVAL '14 days')
   FROM mock_exams e
-  LEFT JOIN mock_exam_assignments a
-         ON a.exam_id = e.id AND a.user_id = s.user_id
  WHERE e.id = s.mock_exam_id
    AND e.exam_mode = 'retake'
    AND s.retake_open_until IS NULL
