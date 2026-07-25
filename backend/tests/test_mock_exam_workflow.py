@@ -2378,6 +2378,70 @@ def test_collect_counts_only_papers_actually_taken(fake_db, svc, monkeypatch):
     assert svc.collect_section(exam["id"], "admin-1")["collected"] == 0
 
 
+def test_late_entrant_during_the_pause_stays_in_the_waiting_room(fake_db, svc):
+    """Codex #843 (correct, P1): collecting only stamped the sittings that
+    already EXISTED. `active_section` and `is_open` were untouched, so an
+    eligible student who had not opened the exam yet could create a sitting
+    during the pause — and their brand-new row has no submission stamp, so
+    get_sitting_state() reports the still-active section and the runner hands
+    them the paper the room already turned in, with the class clock running."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → listening
+    svc.collect_section(exam["id"], "admin-1")
+
+    # the pause is now a CANONICAL fact on the exam row, not an emergent one
+    assert svc.get_published_exam_by_id(exam["id"])["collected_section"] == "listening"
+
+    late = svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    assert late["listening_submitted_at"] is not None, (
+        "a sitting created during the pause must be born with the collected "
+        "section already in — otherwise the runner opens it")
+
+
+def test_advancing_ends_the_pause(fake_db, svc):
+    """Otherwise every sitting created after the advance would still be born
+    with the PREVIOUS section stamped submitted."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+    svc.collect_section(exam["id"], "admin-1")
+    svc.advance_section(exam["id"], "admin-1")            # → reading
+
+    after = svc.get_published_exam_by_id(exam["id"])
+    assert after["active_section"] == "reading"
+    assert after["collected_section"] is None
+    fresh = svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    assert fresh["reading_submitted_at"] is None          # reading really is open
+
+
+def test_collect_reports_a_lookup_failure_instead_of_zero_success(fake_db, svc, monkeypatch):
+    """Codex #843 (correct, P1): returning 0 on a lookup failure made /collect
+    answer successfully and the console say "Đã thu bài … 0 bài" while every
+    student might still be working. Best-effort is right for the advance safety
+    net, wrong for the explicit collect action."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+
+    real_table = fake_db.table
+
+    def boom(name):
+        if name == "mock_exam_sittings":
+            raise RuntimeError("db down")
+        return real_table(name)
+
+    monkeypatch.setattr(fake_db, "table", boom)
+    with pytest.raises(svc.MockExamError):
+        svc.collect_section(exam["id"], "admin-1")
+    monkeypatch.undo()
+
+    # the advance safety net stays best-effort — the class must still move on
+    monkeypatch.setattr(fake_db, "table", boom)
+    assert svc._force_collect_section(exam["id"], "listening") == 0
+    monkeypatch.undo()
+
+
 def test_collect_rejected_before_the_exam_starts(fake_db, svc):
     exam = _seed_exam(fake_db)
     with pytest.raises(svc.SittingConflictError):

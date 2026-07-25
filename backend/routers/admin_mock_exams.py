@@ -28,7 +28,7 @@ console lives in admin_mock_reviews.py.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from routers.admin import require_admin
@@ -230,7 +230,17 @@ async def advance_section(
 
 @router.post("/{exam_id}/collect")
 async def collect_section(
-    exam_id: str, from_section: str | None = None,
+    exam_id: str,
+    # REQUIRED, and validated. Optional, it could simply be omitted — and the
+    # stale-screen guard it exists for is skipped entirely: the service then
+    # reads the CANONICAL active_section, so if another invigilator advanced
+    # first this irreversibly collects the newly-opened paper the moment it
+    # opened. That is precisely the race this parameter prevents (Codex review,
+    # PR #843).
+    from_section: str = Query(
+        ..., pattern=r"^(listening|reading|writing)$",
+        description="Phần mà màn hình của admin đang hiển thị lúc bấm Thu bài.",
+    ),
     authorization: str | None = Header(default=None),
 ):
     """THU BÀI for the currently-open section WITHOUT opening the next one.
@@ -246,6 +256,10 @@ async def collect_section(
         raise HTTPException(404, str(e))
     except svc.SittingConflictError as e:
         raise HTTPException(409, str(e))
+    except svc.MockExamError as e:
+        # A lookup failure is NOT "0 bài đã thu" — say so instead of reporting
+        # a successful collection of nothing.
+        raise HTTPException(503, str(e))
 
 
 @router.get("/{exam_id}/section-progress")
