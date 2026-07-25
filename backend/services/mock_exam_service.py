@@ -2891,6 +2891,17 @@ def sitting_pacing(sitting_id: str) -> dict:
 
     sections: dict = {}
 
+    # EVERY assigned L/R section gets an entry, attempt or no attempt. Creating
+    # them only when an attempt id exists made an assigned section VANISH from
+    # the page when the attempt had not been created yet — or its creation
+    # failed, a state admin_live_monitor() explicitly supports — so an L/R-only
+    # retake could open a completely blank pacing page instead of saying that no
+    # answers were saved (Codex review, PR #848).
+    for _sec in _sitting_sections(sitting, exam):
+        if _sec in ("listening", "reading"):
+            sections[_sec] = _timeline([], _sec, answered=0)
+            sections[_sec]["total"] = _section_total(exam, _sec)
+
     lid = sitting.get("listening_attempt_id")
     if lid:
         rows = supabase_admin.table("listening_test_attempts").select(

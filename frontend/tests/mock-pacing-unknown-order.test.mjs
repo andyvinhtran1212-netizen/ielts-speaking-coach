@@ -28,3 +28,28 @@ describe('pacing — an empty timeline asserts nothing', () => {
     assert.match(JS, /d\.worked_in_paper_order \? 'Có' : 'Không'/);
   });
 });
+
+describe('pacing — a cleared field is activity, not an answer', () => {
+  test('cleared saves get their own marker instead of an answer bar', () => {
+    // The backend deliberately keeps timestamped clears in the timeline (they
+    // move the last-touch time, close a gap and shorten the idle tail), but
+    // drawing them as answer bars claimed an answer landed — contradicting both
+    // the "Đã trả lời" and final-minutes KPIs.
+    assert.match(JS, /var isClear = r\.is_answered === false;/);
+    assert.match(JS, /\(isClear \? ' is-cleared' : ''\)/);
+  });
+
+  test('the tooltip says which one it was', () => {
+    assert.match(JS, /\(isClear \? 'XOÁ ô' : 'lưu đáp án'\)/);
+  });
+
+  test('the legend only mentions clears when there are some', () => {
+    assert.match(JS, /var cleared = tl\.filter\(function \(r\) \{ return r\.is_answered === false; \}\)\.length;/);
+    assert.match(JS, /cleared \? '; cột <span class="mp-bar__legendclear">/);
+  });
+
+  test('the strip legend no longer claims every column is an answer', () => {
+    assert.match(JS, /Mỗi cột = một lần lưu/);
+    assert.doesNotMatch(JS, /Mỗi cột = một đáp án/);
+  });
+});

@@ -49,18 +49,29 @@
   function renderLR(key, d) {
     if (!d) return '';
     var tl = d.timeline || [];
+    // A CLEARED FIELD IS ACTIVITY, NOT AN ANSWER. The backend deliberately keeps
+    // timestamped clears in the timeline (they move the last-touch time, close a
+    // gap and shorten the idle tail), but drawing them as answer bars claimed an
+    // answer landed — contradicting both the "Đã trả lời" and final-minutes KPIs
+    // and giving the teacher a false answer sequence (Codex review, PR #848).
+    var cleared = tl.filter(function (r) { return r.is_answered === false; }).length;
     var bars = tl.length
       ? '<div class="mp-strip">' + tl.map(function (r) {
           var g = r.gap_seconds == null ? 0 : Math.min(r.gap_seconds, GAP_CAP_SECONDS);
           var h = Math.max(3, Math.round((g / GAP_CAP_SECONDS) * 80));
           var isLong = r.gap_seconds && r.gap_seconds >= 90;
-          return '<div class="mp-bar' + (isLong ? ' is-long' : '') + '" style="height:' + h + 'px" ' +
-            'title="Câu ' + esc(r.q_num) + ' — lưu lúc ' + esc(hhmm(r.at)) +
-            ', cách câu trước ' + esc(mmss(r.gap_seconds)) + '">' +
+          var isClear = r.is_answered === false;
+          return '<div class="mp-bar' + (isLong ? ' is-long' : '') +
+            (isClear ? ' is-cleared' : '') + '" style="height:' + h + 'px" ' +
+            'title="Câu ' + esc(r.q_num) + ' — ' + (isClear ? 'XOÁ ô' : 'lưu đáp án') +
+            ' lúc ' + esc(hhmm(r.at)) +
+            ', cách lần trước ' + esc(mmss(r.gap_seconds)) + '">' +
             '<span class="mp-bar__q">' + esc(r.q_num) + '</span></div>';
         }).join('') + '</div>' +
-        '<p class="mp-striplegend">Mỗi cột = một đáp án, xếp theo <b>thứ tự đáp án về máy chủ</b>. ' +
-        'Cột càng cao = càng lâu mới có đáp án tiếp theo; cột <span style="color:var(--av-warning)">vàng</span> = nghỉ trên 90 giây.</p>'
+        '<p class="mp-striplegend">Mỗi cột = một lần lưu, xếp theo <b>thứ tự về máy chủ</b>. ' +
+        'Cột càng cao = càng lâu mới có lần lưu tiếp theo; cột <span style="color:var(--av-warning)">vàng</span> = nghỉ trên 90 giây' +
+        (cleared ? '; cột <span class="mp-bar__legendclear">gạch chéo</span> = học viên XOÁ ô (không phải đáp án)' : '') +
+        '.</p>'
       : '<p class="mp-empty">Không có đáp án nào được lưu — không có gì để dựng lại nhịp làm bài.</p>';
 
     return '<section class="mp-sec">' +
