@@ -1792,7 +1792,8 @@ def _force_collect_section(exam_id: str, section: str) -> int:
     return n
 
 
-def collect_section(exam_id: str, admin_id: str) -> dict:
+def collect_section(exam_id: str, admin_id: str,
+                    from_section: Optional[str] = None) -> dict:
     """Admin THU BÀI for the open section — without opening the next one (B4).
 
     "Thu bài" and "mở phần sau" used to be one irreversible button, so the real
@@ -1812,6 +1813,17 @@ def collect_section(exam_id: str, admin_id: str) -> dict:
         # Retake is self-timed per student; there is no shared section to collect.
         raise SittingConflictError("Đề test lại tự thu bài theo từng học viên.")
     current = exam.get("active_section") or "not_started"
+    # Same stale-screen guard as /advance. Without it a monitor still showing
+    # Listening — because another invigilator advanced during the confirm dialog
+    # or inside the 5s poll window — sends a request carrying no section
+    # identity, and this re-reads the CANONICAL active_section and sweeps
+    # READING instead: irreversibly submitting every Reading paper the moment it
+    # opened (Codex review, PR #843).
+    if from_section and from_section != current:
+        raise SittingConflictError(
+            f"Màn hình của bạn đang hiển thị phần {from_section!r} nhưng kỳ thi "
+            f"đã ở phần {current!r} — có thao tác khác vừa chuyển phần. Tải lại trang."
+        )
     if current not in _LRW_ORDER:
         raise SittingConflictError("Chưa có phần nào đang mở để thu bài.")
 

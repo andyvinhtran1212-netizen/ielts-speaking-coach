@@ -181,7 +181,10 @@
       'Hành động này KHÔNG hoàn tác được.';
     if (!confirm(msg)) return;
     return guard(el('btn-collect'), function () {
-      return window.api.post('/admin/mock-exams/' + encodeURIComponent(ex.id) + '/collect', {})
+      // Carry the section THIS screen is showing, so a stale tab is rejected
+      // instead of sweeping whichever section is now open.
+      return window.api.post('/admin/mock-exams/' + encodeURIComponent(ex.id) +
+        '/collect?from_section=' + encodeURIComponent(ex.active_section), {})
         .then(function (r) {
           toast('Đã thu bài ' + (SECTION_LABEL[r.section] || r.section) + ' — ' + r.collected + ' bài.');
           return load();

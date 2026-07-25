@@ -225,7 +225,8 @@ async def advance_section(
 
 @router.post("/{exam_id}/collect")
 async def collect_section(
-    exam_id: str, authorization: str | None = Header(default=None),
+    exam_id: str, from_section: str | None = None,
+    authorization: str | None = Header(default=None),
 ):
     """THU BÀI for the currently-open section WITHOUT opening the next one.
 
@@ -235,7 +236,7 @@ async def collect_section(
     running until /advance."""
     admin = await require_admin(authorization)
     try:
-        return svc.collect_section(exam_id, admin["id"])
+        return svc.collect_section(exam_id, admin["id"], from_section)
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
     except svc.SittingConflictError as e:

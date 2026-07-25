@@ -2339,6 +2339,23 @@ def test_collect_then_advance_is_the_normal_two_step(fake_db, svc):
     assert svc.get_published_exam_by_id(exam["id"])["active_section"] == "reading"
 
 
+def test_collect_rejects_a_stale_screen(fake_db, svc):
+    """Codex #843 (correct): a monitor still showing Listening — because another
+    invigilator advanced during the confirm dialog or inside the 5s poll —
+    carried no section identity, so collect re-read the canonical active_section
+    and swept READING, irreversibly submitting every Reading paper the moment it
+    opened."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")     # → listening
+    svc.advance_section(exam["id"], "admin-1")     # → reading (other invigilator)
+
+    with pytest.raises(svc.SittingConflictError):
+        svc.collect_section(exam["id"], "admin-2", from_section="listening")
+    # the matching screen still works
+    assert svc.collect_section(exam["id"], "admin-2", from_section="reading")["section"] == "reading"
+
+
 def test_collect_is_idempotent(fake_db, svc):
     """Bấm lại sau khi đã thu đủ phải vô hại — nothing left to sweep."""
     exam = _seed_exam(fake_db)
