@@ -1164,12 +1164,26 @@ let _patchChain = Promise.resolve();
 const PATCH_QUEUE_MAX_WAIT_MS = 15000;
 
 function enqueuePatch(fn) {
-  const run = _patchChain.then(fn, fn);
-  // A hung request must never wedge every later save, so the queue moves on
-  // after a bounded wait even while that request is still open.
+  // The timeout must ABORT, not merely stop waiting. Advancing the chain while
+  // the old request is still open re-creates exactly what the queue exists to
+  // prevent: the endpoint read-modify-writes the whole `answers` array, so a
+  // slow PATCH finishing LAST can overwrite answers saved by the requests that
+  // overtook it — while every call reports success (Codex review, PR #837).
+  const ctrl = (typeof AbortController === 'function') ? new AbortController() : null;
+  const run = _patchChain.then(() => fn(ctrl && ctrl.signal),
+                               () => fn(ctrl && ctrl.signal));
+  let timer = null;
+  const bounded = new Promise((resolve) => {
+    timer = setTimeout(() => {
+      // A hung request must never wedge every later save — but it must be dead
+      // before the next one starts.
+      if (ctrl) { try { ctrl.abort(); } catch (e) { /* already settled */ } }
+      resolve();
+    }, PATCH_QUEUE_MAX_WAIT_MS);
+  });
   _patchChain = Promise.race([
-    run.then(() => {}, () => {}),
-    new Promise((resolve) => setTimeout(resolve, PATCH_QUEUE_MAX_WAIT_MS)),
+    run.then(() => {}, () => {}).then(() => { if (timer) clearTimeout(timer); }),
+    bounded,
   ]);
   return run;
 }
@@ -1262,6 +1276,15 @@ async function retryFailedSaves() {
 //
 // Loop until nothing is queued and nothing is in flight, bounded so a
 // permanently failing save can never wedge submission.
+function failedAnswerNumbers() {
+  const out = [];
+  STATE.unsaved.forEach((state, qNum) => { if (state === 'failed') out.push(qNum); });
+  return out;
+}
+
+// Returns TRUE when the server holds everything, FALSE when at least one answer
+// is still unsaved after the drain. The caller decides what to do with that —
+// see confirmSubmit / the mock-flush handler.
 async function flushAllPendingSaves(maxRounds = 6) {
   for (let round = 0; round < maxRounds; round++) {
     const due = Array.from(STATE.saveTimers.keys());
@@ -1271,12 +1294,22 @@ async function flushAllPendingSaves(maxRounds = 6) {
       // Read the CURRENT value, not one captured before the wait.
       await saveAnswer(q, STATE.answers.get(q)).catch(() => {});
     }
+    // Answers whose retry ladder is EXHAUSTED sit in `unsaved` as 'failed' with
+    // no timer and nothing in flight, so the old emptiness test called the queue
+    // drained and finalisation went ahead without them — permanently grading a
+    // paper that is missing answers the student gave (Codex review, PR #837).
+    // One more attempt per round, since the outage may well be over by now.
+    const failed = failedAnswerNumbers();
+    for (const q of failed) {
+      await saveAnswer(q, STATE.answers.get(q)).catch(() => {});
+    }
     // A transiently-failed PATCH leaves NO debounce timer and nothing in
     // flight — only a saveRetryTimers entry. Ignoring those meant the drain
     // returned immediately, confirmSubmit finalised the attempt, and the
     // delayed retry was rejected with 422, so grading permanently omitted that
     // answer (Codex review, PR #837).
-    if (!STATE.saveTimers.size && !STATE.inflight.size && !STATE.saveRetryTimers.size) return;
+    if (!STATE.saveTimers.size && !STATE.inflight.size
+        && !STATE.saveRetryTimers.size && !failedAnswerNumbers().length) return true;
     // Pull any waiting retry forward rather than sleeping out its backoff.
     for (const q of Array.from(STATE.saveRetryTimers.keys())) {
       clearTimeout(STATE.saveRetryTimers.get(q));
@@ -1287,6 +1320,8 @@ async function flushAllPendingSaves(maxRounds = 6) {
     // successor becomes visible on the next round.
     await new Promise((r) => setTimeout(r, 150));
   }
+  return !failedAnswerNumbers().length
+    && !STATE.saveTimers.size && !STATE.inflight.size && !STATE.saveRetryTimers.size;
 }
 
 function scheduleAutoSave(qNum, value) {
@@ -1331,9 +1366,10 @@ async function saveAnswer(qNum, value, opts) {
 
   STATE.inflight.add(qNum);
   try {
-    await enqueuePatch(() => window.api.patch(
+    await enqueuePatch((signal) => window.api.patchWith(
       `/api/listening/tests/attempts/${encodeURIComponent(STATE.attemptId)}/answers`,
       { q_num: qNum, user_answer: value == null ? '' : String(value) },
+      null, { signal: signal },
     ));
     if (gen === STATE.saveGen.get(qNum)) {
       setSaveState(qNum, null);
@@ -1535,7 +1571,23 @@ async function confirmSubmit() {
 
   // Flush any pending debounced saves first — including ones re-queued behind
   // an in-flight request, which the old single pass walked straight past.
-  await flushAllPendingSaves();
+  const clean = await flushAllPendingSaves();
+  if (!clean) {
+    // Finalising now would permanently grade a paper missing answers the
+    // student actually gave. A MANUAL submit can wait; hand the decision back
+    // rather than taking it silently (Codex review, PR #837).
+    const stuck = failedAnswerNumbers().sort((a, b) => a - b).join(', ');
+    STATE.submitting = false;
+    $('btn-submit').disabled = false;
+    $('btn-submit').textContent = 'Nộp bài';
+    renderUnsavedNote();
+    window.alert(
+      `Chưa lưu được đáp án câu ${stuck || '?'} lên máy chủ, nộp bây giờ sẽ mất ` +
+      'những câu đó. Kiểm tra kết nối rồi bấm «Thử lại» ở cảnh báo phía trên, ' +
+      'sau đó nộp lại.',
+    );
+    return;
+  }
 
   try {
     const result = await window.api.post(
@@ -1655,10 +1707,21 @@ function main() {
 // answer isn't stranded in the debounce queue.
 window.addEventListener('message', async (ev) => {
   if (!ev.data || ev.data.type !== 'mock-flush') return;
+  let clean = false;
   try {
-    await flushAllPendingSaves();
+    clean = await flushAllPendingSaves();
   } catch (e) { /* best-effort — the parent must not hang on our failure */ }
-  if (ev.source) ev.source.postMessage({ type: 'mock-flushed', section: 'listening' }, '*');
+  // Report the truth. The mock parent CANNOT be blocked — the section clock has
+  // hit zero and the server force-collects regardless, so refusing to answer
+  // would only strand the student at 00:00. But it must not be told the paper
+  // is clean when it is not: `unsaved` rides along so the runner can surface it
+  // and the invigilator sees a real signal (Codex review, PR #837).
+  if (ev.source) {
+    ev.source.postMessage({
+      type: 'mock-flushed', section: 'listening',
+      unsaved: clean ? 0 : failedAnswerNumbers().length,
+    }, '*');
+  }
 });
 
 // A4a — the retry budget is spent while offline far more often than for any
