@@ -40,19 +40,47 @@ là một gói, không tách ra merge lẻ.
 
 ---
 
-## 1. Trạng thái hiện tại
+## 1. Trạng thái — TOÀN BỘ ĐÃ CODE XONG, CHỜ MERGE (2026-07-25)
 
-| Hạng mục | Trạng thái |
-|---|---|
-| Audit 5 mục | ✅ xong |
-| Giao diện Writing chọn bố cục + kéo giãn | ✅ đã code, chưa merge |
-| Phòng thi trực tiếp (console theo dõi từng học viên) | ✅ đã code, chưa merge |
-| 16 PR còn lại | ⬜ kế hoạch dưới đây |
+18/18 PR đã tạo, xếp chồng tuần tự **#832 → #849**. Chưa merge cái nào.
 
-Baseline test: backend **3890 passed / 24 skipped**, frontend **5364 passed / 0 fail**.
+| # | PR | Nội dung |
+|---|---|---|
+| Wave 0 | [#832](../../pull/832) | Writing chọn bố cục + kéo giãn |
+| | [#833](../../pull/833) | Phòng thi trực tiếp |
+| Wave 1 | [#834](../../pull/834) | **A1** Listening khôi phục bài ◀ P0 |
+| | [#835](../../pull/835) | **A2** Writing lưu nháp lên server ◀ P0 |
+| | [#836](../../pull/836) | **A3** Mất mạng thì thử lại |
+| | [#837](../../pull/837) | **A4a** Listening autosave bền |
+| | [#838](../../pull/838) | **A4b** Ghi đáp án nguyên tử · **mig 161** |
+| Wave 1b | [#839](../../pull/839) | **D3** Bắt buộc hạn đóng retake |
+| MỘT GÓI | [#840](../../pull/840) | **D4** Gỡ assignment → huỷ sitting + nút gỡ kẹt |
+| | [#841](../../pull/841) | **C3** Chặn 2 sitting cùng lúc · **mig 162** (+ finding **E**) |
+| Wave 2 | [#842](../../pull/842) | **B2** Chống đua khi mở phần tiếp theo |
+| | [#843](../../pull/843) | **B4** Tách thu bài khỏi mở phần sau |
+| | [#844](../../pull/844) | **B3** Thu bài chạy nền + lưới an toàn |
+| Wave 3 | [#845](../../pull/845) | **D2** Sửa assignment tới sitting đã mở |
+| | [#846](../../pull/846) | **D5** Reaper hết N+1 |
+| Wave 4 | [#847](../../pull/847) | **A5** Speaking thử lại + gỡ kẹt |
+| | [#848](../../pull/848) | Trang "nhịp làm bài" (đo đạc **bậc 1**) |
+| | [#849](../../pull/849) | Tín hiệu integrity (**bậc 3**) |
 
-**Migration kế tiếp: `161_`** (160 đã dùng cho `security_advisor_followup`).
-Kế hoạch dùng 2 migration: **161** (RPC ghi đáp án Listening), **162** (chặn cross-exam).
+Test: backend **3890 → 3943 passed** (+53), frontend **5364 → 5396 passed** (+32),
+0 fail. Không skip / xfail / `--ignore` bất kỳ test nào.
+
+**Test cũ bị SỬA (không xoá, không skip)** — mỗi cái đều ghim đúng hành vi mà PR
+tương ứng cố ý thay đổi, và được cập nhật kèm lý do:
+
+| Test | PR | Vì sao |
+|---|---|---|
+| `debounces auto-save by 2000ms` | #837 | 2s → 500ms cho ngang Reading |
+| 3 test `a.assign(...)` không có khung giờ | #839 | hạn đóng thành bắt buộc |
+| `test_delete_assignment_forwards` | #840 | `remove()` nhận `admin_id`, trả `voided` |
+| 4 test giả định sweep chạy inline | #844 | sweep chuyển sang BackgroundTask |
+| `test_writing_reports_not_live_before_submit` | #835 | Writing giờ CÓ dữ liệu sống |
+
+**Bậc 2 của đo đạc** (đường cong số từ Writing theo thời gian) có được **miễn phí**
+từ #835 — bản nháp tự lưu đã stamp số từ + giờ lưu mỗi lần.
 
 ---
 
