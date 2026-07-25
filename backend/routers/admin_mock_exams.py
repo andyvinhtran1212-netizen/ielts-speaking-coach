@@ -532,6 +532,25 @@ async def set_sitting_retest_flags(
         raise HTTPException(409, str(e))
 
 
+@router.post("/sittings/{sitting_id}/record-speaking")
+async def admin_record_speaking(
+    sitting_id: str, authorization: str | None = Header(default=None),
+):
+    """Unstick a sitting whose Speaking never got reported.
+
+    The student's report call is fire-and-forget; if it failed the sitting stays
+    `speaking_pending` forever — no review, never released — and nobody could
+    fix it. Ratifies only the sessions ALREADY bound to this sitting, so it can
+    never attach work the student didn't do."""
+    admin = await require_admin(authorization)
+    try:
+        return svc.admin_record_speaking(sitting_id, admin["id"])
+    except svc.NotFoundError as e:
+        raise HTTPException(404, str(e))
+    except svc.SittingConflictError as e:
+        raise HTTPException(409, str(e))
+
+
 @router.post("/sittings/{sitting_id}/void")
 async def void_sitting(
     sitting_id: str, body: VoidBody, authorization: str | None = Header(default=None),

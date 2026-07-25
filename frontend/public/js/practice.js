@@ -2250,6 +2250,67 @@
     }
   }
 
+  // ── A5: reporting Speaking back to the mock sitting ─────────────────
+  //
+  // This call used to be fire-and-forget inside a swallowed .catch(). If it
+  // failed, the sitting stayed `speaking_pending` FOREVER: _reconcile_terminal
+  // never ran, no review row was created, the result was never released, and
+  // nobody — student or admin — had any way to fix it. The speaking work itself
+  // was fine; only the last hop was lost.
+  //
+  // Now: retry, and persist the debt so a reload finishes the job. The admin
+  // also has POST /admin/mock-exams/sittings/{id}/record-speaking as the
+  // last-resort unstick.
+  var _SPEAK_REPORT_KEY = 'mock-speaking-owed';
+  var _SPEAK_RETRY_DELAYS = [1000, 3000, 8000];
+
+  function _rememberSpeakingDebt(sittingId, ids) {
+    try {
+      localStorage.setItem(_SPEAK_REPORT_KEY,
+        JSON.stringify({ sitting_id: sittingId, session_ids: ids }));
+    } catch (e) {}
+  }
+  function _clearSpeakingDebt() {
+    try { localStorage.removeItem(_SPEAK_REPORT_KEY); } catch (e) {}
+  }
+
+  function _reportSpeakingToSitting(sittingId, ids, attempt) {
+    attempt = attempt || 0;
+    if (!sittingId || !ids || !ids.length) return Promise.resolve();
+    _rememberSpeakingDebt(sittingId, ids);
+    return window.api.post(
+      '/api/mock-exams/sittings/' + encodeURIComponent(sittingId) + '/speaking',
+      { session_ids: ids }
+    ).then(function (r) {
+      _clearSpeakingDebt();
+      return r;
+    }).catch(function (err) {
+      // 409/403 are deterministic — the sitting is released/void, or the
+      // sessions aren't eligible. Retrying repeats them identically, and
+      // keeping the debt would make every future page load retry forever.
+      var st = err && err.status;
+      if (st === 403 || st === 409 || st === 404) { _clearSpeakingDebt(); throw err; }
+      if (attempt >= _SPEAK_RETRY_DELAYS.length) throw err;   // debt persists
+      return new Promise(function (resolve) {
+        setTimeout(function () {
+          resolve(_reportSpeakingToSitting(sittingId, ids, attempt + 1));
+        }, _SPEAK_RETRY_DELAYS[attempt]);
+      });
+    });
+  }
+
+  // Settle an unpaid report from a previous visit. Runs on load, costs nothing
+  // when there is no debt, and is the difference between a sitting that
+  // finalises on the student's next page view and one that never does.
+  function _retryOwedSpeakingReport() {
+    var owed = null;
+    try { owed = JSON.parse(localStorage.getItem(_SPEAK_REPORT_KEY) || 'null'); } catch (e) {}
+    if (!owed || !owed.sitting_id) return;
+    _reportSpeakingToSitting(owed.sitting_id, owed.session_ids || [])
+      .catch(function (e) { console.warn('[practice] owed speaking report still failing', e); });
+  }
+  _retryOwedSpeakingReport();
+
   // Called when the last Part 3 question is submitted in test_full mode.
   // Calls the backend finalize endpoint — server handles all aggregation.
   // Browser is free to close immediately after this returns.
@@ -2282,13 +2343,10 @@
         // 'submitted' with their graded responses, so record_speaking accepts
         // them. Best-effort — the completion screen already shows.
         if (!_sittingId) return;
-        var ids = [p1, p2, p3].filter(Boolean);
-        return window.api.post(
-          '/api/mock-exams/sittings/' + encodeURIComponent(_sittingId) + '/speaking',
-          { session_ids: ids }
-        ).then(function () {
-          window.location.href = '/pages/mock-exam.html?sitting=' + encodeURIComponent(_sittingId);
-        });
+        return _reportSpeakingToSitting(_sittingId, [p1, p2, p3].filter(Boolean))
+          .then(function () {
+            window.location.href = '/pages/mock-exam.html?sitting=' + encodeURIComponent(_sittingId);
+          });
       })
       .catch(function (err) {
         console.warn('[practice] finalize-full-test failed (non-fatal):', err);
