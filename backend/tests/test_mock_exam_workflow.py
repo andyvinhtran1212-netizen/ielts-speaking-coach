@@ -2328,6 +2328,19 @@ def test_collect_is_idempotent(fake_db, svc):
     assert svc.collect_section(exam["id"], "admin-1")["collected"] == 0
 
 
+def test_collect_counts_only_papers_actually_taken(fake_db, svc, monkeypatch):
+    """Codex #843 (correct): _collect_section_for_sitting swallows every
+    exception, but the counter incremented regardless — so /collect reported a
+    paper as collected when the update had failed, and the next poll silently
+    contradicted the success message."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+
+    monkeypatch.setattr(svc, "_collect_section_for_sitting", lambda *a, **k: False)
+    assert svc.collect_section(exam["id"], "admin-1")["collected"] == 0
+
+
 def test_collect_rejected_before_the_exam_starts(fake_db, svc):
     exam = _seed_exam(fake_db)
     with pytest.raises(svc.SittingConflictError):

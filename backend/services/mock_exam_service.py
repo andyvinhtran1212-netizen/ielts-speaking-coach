@@ -1764,8 +1764,8 @@ def _force_collect_section(exam_id: str, section: str) -> int:
 
     n = 0
     for row in (rows.data or []):
-        _collect_section_for_sitting(row, section)
-        n += 1
+        if _collect_section_for_sitting(row, section):
+            n += 1
     return n
 
 
@@ -1798,7 +1798,7 @@ def collect_section(exam_id: str, admin_id: str) -> dict:
     return {"section": current, "collected": collected}
 
 
-def _collect_section_for_sitting(sitting: dict, section: str) -> None:
+def _collect_section_for_sitting(sitting: dict, section: str) -> bool:
     """Force-collect ONE section of ONE sitting AS-IS (time's up / straggler /
     closed tab). Stamps the collected-at timestamp, grades the bound L/R attempt
     (or promotes Writing) if present, then re-checks terminal reconciliation on
@@ -1807,7 +1807,7 @@ def _collect_section_for_sitting(sitting: dict, section: str) -> None:
     advance sweep and the retake reaper."""
     col = _SUBMITTED_COL.get(section)
     if not col or sitting.get(col):
-        return
+        return False
     try:
         update: dict = {col: _now_iso()}
         if sitting.get("status") == "registered":
@@ -1836,11 +1836,17 @@ def _collect_section_for_sitting(sitting: dict, section: str) -> None:
                 "status": "lrw_submitted",
             }).eq("id", sitting["id"]).execute()
             _reconcile_terminal(sitting["id"])
+        return True
     except Exception:  # noqa: BLE001
         logger.exception(
             "[mock-exam] force-collect failed sitting=%s section=%s",
             sitting["id"], section,
         )
+        # Report the failure so the caller's count reflects papers ACTUALLY
+        # taken. Counting unconditionally told the admin "N bài đã thu" for
+        # papers still sitting with the student, and the next poll silently
+        # contradicted it (Codex review, PR #843).
+        return False
 
 
 def _retake_section_expired(sitting: dict, exam: dict, section: str, grace_seconds: int) -> bool:
