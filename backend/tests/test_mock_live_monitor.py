@@ -602,3 +602,82 @@ def test_repeat_attempt_shows_the_live_sitting_not_the_released_one(fake_db, svc
             if str(r.get("user_id")) == uid]
     assert len(rows) == 1
     assert rows[0]["sections"]["listening"]["state"] != "submitted"
+
+
+def test_pacing_totals_come_from_the_test_not_the_grading_output(fake_db, svc):
+    """Codex #848 (correct): grading_details is populated only on SUBMISSION,
+    but the primary caller is the live console — a student still working. Their
+    attempt has answers and an empty grading_details, so the page rendered "1"
+    instead of "1/40" for the whole section."""
+    cohort = str(uuid4())
+    exam = _seed_exam(fake_db, cohort_id=cohort)
+    start = _now() - timedelta(minutes=5)
+    fake_db.table("mock_exams").update({
+        "active_section": "listening", "listening_started_at": _iso(start),
+    }).eq("id", exam["id"]).execute()
+    # the exam's listening test knows its own length
+    fake_db.table("listening_tests").update({"total_questions": 40}).eq(
+        "id", exam["listening_test_id"]).execute()
+    uid = _seed_student(fake_db, cohort, "An")
+    aid = str(uuid4())
+    fake_db.seed("listening_test_attempts", {
+        "id": aid, "status": "in_progress", "grading_details": [],   # NOT graded yet
+        "answers": [
+            {"q_num": 1, "user_answer": "cat", "answered_at": _iso(start + timedelta(seconds=30))},
+        ],
+    })
+    _seed_sitting(fake_db, exam, uid, listening_attempt_id=aid)
+
+    lis = svc.sitting_pacing(_find_sitting_id(fake_db))["sections"]["listening"]
+    assert lis["answered"] == 1
+    assert lis["total"] == 40
+
+
+def test_pacing_final_minutes_kpi_ignores_a_cleared_field(fake_db, svc):
+    """Codex #848 (correct): the timeline deliberately keeps a timestamped
+    clear as activity, but counting it as an ANSWER incremented "Đáp án 5 phút
+    cuối" past what the `answered` KPI allows — and drew an answer bar for a
+    blank."""
+    cohort = str(uuid4())
+    exam = _seed_exam(fake_db, cohort_id=cohort)
+    start = _now() - timedelta(minutes=60)
+    fake_db.table("mock_exams").update({
+        "active_section": "listening", "listening_started_at": _iso(start),
+    }).eq("id", exam["id"]).execute()
+    uid = _seed_student(fake_db, cohort, "An")
+    aid = str(uuid4())
+    end = start + timedelta(minutes=30)
+    fake_db.seed("listening_test_attempts", {
+        "id": aid, "status": "in_progress", "grading_details": [{}] * 40,
+        "answers": [
+            # both land inside the final 5 minutes; only one is an answer
+            {"q_num": 1, "user_answer": "cat", "answered_at": _iso(end - timedelta(minutes=2))},
+            {"q_num": 2, "user_answer": "",    "answered_at": _iso(end - timedelta(minutes=1))},
+        ],
+    })
+    _seed_sitting(fake_db, exam, uid, listening_attempt_id=aid,
+                  listening_submitted_at=_iso(end))
+
+    lis = svc.sitting_pacing(_find_sitting_id(fake_db))["sections"]["listening"]
+    assert len(lis["timeline"]) == 2                 # the clear is still activity
+    assert lis["answers_in_final_minutes"] == 1      # ...but not an answer
+    assert [r["is_answered"] for r in lis["timeline"]] == [True, False]
+
+
+def test_pacing_reports_unknown_order_when_nothing_was_answered(fake_db, svc):
+    """Codex #848 (correct): comparing two EMPTY lists is trivially equal, so a
+    sitting with no timestamped answers rendered "Làm theo thứ tự đề: Có" right
+    beside its own message that nothing was saved. With no observations the
+    order is unknown."""
+    cohort = str(uuid4())
+    exam = _seed_exam(fake_db, cohort_id=cohort)
+    uid = _seed_student(fake_db, cohort, "An")
+    aid = str(uuid4())
+    fake_db.seed("listening_test_attempts", {
+        "id": aid, "status": "in_progress", "grading_details": [], "answers": [],
+    })
+    _seed_sitting(fake_db, exam, uid, listening_attempt_id=aid)
+
+    lis = svc.sitting_pacing(_find_sitting_id(fake_db))["sections"]["listening"]
+    assert lis["timeline"] == []
+    assert lis["worked_in_paper_order"] is None

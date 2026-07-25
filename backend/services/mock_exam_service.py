@@ -2643,6 +2643,32 @@ _PACING_LONG_GAP_SECONDS = 90
 _PACING_TAIL_SECONDS = 300
 
 
+def _section_total(exam: dict, section: str, *, fallback: int = 0):
+    """How many questions this section HAS — from the test definition.
+
+    `grading_details` was the old source, and it is populated only on
+    submission. The primary caller is the live console, i.e. a student who is
+    still working: their attempt has answers and an empty grading_details, so
+    the page rendered "17" instead of "17/40" for the whole section (Codex
+    review, PR #848). The graded length stays as the fallback for an attempt
+    whose test row has since gone.
+    """
+    table = {"listening": ("listening_tests", "listening_test_id"),
+             "reading":   ("reading_tests", "reading_test_id")}.get(section)
+    if table:
+        tbl, col = table
+        test_id = exam.get(col)
+        if test_id:
+            try:
+                row = supabase_admin.table(tbl).select("total_questions").eq(
+                    "id", str(test_id)).limit(1).execute().data or []
+                if row and row[0].get("total_questions"):
+                    return row[0]["total_questions"]
+            except Exception:  # noqa: BLE001 — a missing total is not worth a 500
+                logger.warning("[mock-exam] pacing total lookup failed section=%s", section)
+    return fallback or None
+
+
 def sitting_pacing(sitting_id: str) -> dict:
     """How a student SPENT the exam, reconstructed from data already stored.
 
@@ -2681,21 +2707,23 @@ def sitting_pacing(sitting_id: str) -> dict:
         return started, ended
 
     def _timeline(stamps, section, answered=None):
-        """[{q_num, at, gap_seconds}] in the order the saves actually landed.
+        """[{q_num, at, gap_seconds, is_answered}] in the order the saves landed.
 
-        `answered` is passed in separately because the timeline counts every
-        timestamped save (a cleared answer is still activity) while the KPI
-        counts only non-empty ones.
+        `stamps` is (q_num, answered_at, is_answered). The flag rides along
+        because the timeline counts every timestamped save — clearing a field IS
+        activity, and dropping those made the last touch look older than it was
+        — while the KPIs that mean "an answer" must not count a blank.
         """
         started, ended = _section_window(section)
         rows = sorted(
-            ((q, _parse_ts(at)) for q, at in stamps if at),
+            ((q, _parse_ts(at), bool(ok)) for q, at, ok in stamps if at),
             key=lambda r: r[1],
         )
         out, prev = [], started
-        for q, at in rows:
+        for q, at, ok in rows:
             gap = int((at - prev).total_seconds()) if prev else None
-            out.append({"q_num": q, "at": at.isoformat(), "gap_seconds": gap})
+            out.append({"q_num": q, "at": at.isoformat(), "gap_seconds": gap,
+                        "is_answered": ok})
             prev = at
         summary = {
             "started_at":  started.isoformat() if started else None,
@@ -2704,10 +2732,15 @@ def sitting_pacing(sitting_id: str) -> dict:
             "total":       None,
             "timeline":    out,
             # Answers landing in the closing minutes — the shape of a rushed
-            # finish, which a raw score never shows.
+            # finish, which a raw score never shows. Counts only saves that left
+            # an ANSWER behind: a field cleared in the last five minutes is
+            # activity for the timeline but is not an answer, and counting it
+            # incremented "Đáp án 5 phút cuối" past what `answered` allows
+            # (Codex review, PR #848).
             "answers_in_final_minutes": (
                 sum(1 for r in out
-                    if ended and (ended - _parse_ts(r["at"])).total_seconds() <= _PACING_TAIL_SECONDS)
+                    if r["is_answered"]
+                    and ended and (ended - _parse_ts(r["at"])).total_seconds() <= _PACING_TAIL_SECONDS)
                 if ended else None
             ),
             # Where the work stopped relative to the section end. A big number
@@ -2721,7 +2754,16 @@ def sitting_pacing(sitting_id: str) -> dict:
             # Did they work straight down the paper, or jump around? Jumping is
             # not bad in itself — it is how a strong candidate skips and returns
             # — but it is invisible in the score.
-            "worked_in_paper_order": [r["q_num"] for r in out] == sorted(r["q_num"] for r in out),
+            #
+            # None, not True, for an empty timeline: comparing two empty lists
+            # is trivially equal, so a sitting with no timestamped answers
+            # rendered "Làm theo thứ tự đề: Có" right beside its own message
+            # that nothing was saved. With no observations the order is UNKNOWN
+            # (Codex review, PR #848).
+            "worked_in_paper_order": (
+                ([r["q_num"] for r in out] == sorted(r["q_num"] for r in out))
+                if out else None
+            ),
         }
         return summary
 
@@ -2740,13 +2782,16 @@ def sitting_pacing(sitting_id: str) -> dict:
         # wrong work order (Codex review, PR #848). The answered COUNT still
         # counts only non-empty values.
         sections["listening"] = _timeline(
-            [(a.get("q_num"), a.get("answered_at")) for a in answers
-             if a.get("answered_at")],
+            [(a.get("q_num"), a.get("answered_at"),
+              bool(str(a.get("user_answer") or "").strip()))
+             for a in answers if a.get("answered_at")],
             "listening",
             answered=sum(1 for a in answers if str(a.get("user_answer") or "").strip()),
         )
-        sections["listening"]["total"] = (
-            len(rows[0].get("grading_details") or []) or None) if rows else None
+        sections["listening"]["total"] = _section_total(
+            exam, "listening",
+            fallback=len(rows[0].get("grading_details") or []) if rows else 0,
+        )
 
     rid = sitting.get("reading_attempt_id")
     if rid:
@@ -2754,16 +2799,19 @@ def sitting_pacing(sitting_id: str) -> dict:
             "q_num, user_answer, answered_at",
         ).eq("attempt_id", str(rid)).execute().data or []
         sections["reading"] = _timeline(
-            [(r.get("q_num"), r.get("answered_at")) for r in rows
-             if r.get("answered_at")],
+            [(r.get("q_num"), r.get("answered_at"),
+              bool(str(r.get("user_answer") or "").strip()))
+             for r in rows if r.get("answered_at")],
             "reading",
             answered=sum(1 for r in rows if str(r.get("user_answer") or "").strip()),
         )
         att = supabase_admin.table("reading_test_attempts").select(
             "grading_details",
         ).eq("id", str(rid)).limit(1).execute().data or []
-        sections["reading"]["total"] = (
-            len(att[0].get("grading_details") or []) or None) if att else None
+        sections["reading"]["total"] = _section_total(
+            exam, "reading",
+            fallback=len(att[0].get("grading_details") or []) if att else 0,
+        )
 
     # Writing has no per-question stamps; what it has (since A2) is an autosaved
     # draft with a word count and a last-saved time per task.
