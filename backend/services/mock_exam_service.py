@@ -752,12 +752,14 @@ def _word_count(text: str) -> int:
 
 def submit_writing(
     sitting_id: str, user_id: str, task1_text: str, task2_text: str,
+    *, finalize: bool = False,
 ) -> dict:
     """Store the two essay texts on the sitting (P1 native writing capture).
 
-    Does NOT stamp writing_submitted_at — call submit_section("writing") to
-    finalise. Sealed by construction: the text lives on the sitting
-    (admin-only); the student sees no band until release.
+    `finalize=False` (autosave) writes the draft only. `finalize=True` writes
+    the payload AND stamps writing_submitted_at IN THE SAME STATEMENT — see
+    below for why that has to be one write. Sealed by construction: the text
+    lives on the sitting (admin-only); the student sees no band until release.
     """
     sitting = get_sitting(sitting_id)
     if not sitting:
@@ -794,9 +796,18 @@ def submit_writing(
     # overwrite writing_submission AFTER _promote_writing_essays() had already
     # copied the older text, leaving the admin's word count disagreeing with the
     # essay actually graded (Codex review, PR #835).
-    resp = supabase_admin.table("mock_exam_sittings").update({
-        "writing_submission": submission,
-    }).eq("id", str(sitting_id)).is_("writing_submitted_at", "null").execute()
+    update: dict = {"writing_submission": submission}
+    if finalize:
+        # ONE STATEMENT, not two. Stamping writing_submitted_at separately left
+        # a window in which an autosave from another tab — or an older request
+        # the client no longer tracks — passed the null-timestamp predicate and
+        # replaced the final payload BEFORE _promote_writing_essays() read it.
+        # The student would then submit one essay and have a stale draft graded
+        # (Codex review, PR #835).
+        update[_SUBMITTED_COL["writing"]] = now
+    resp = supabase_admin.table("mock_exam_sittings").update(update).eq(
+        "id", str(sitting_id),
+    ).is_("writing_submitted_at", "null").execute()
     if not resp.data:
         raise SittingConflictError(
             "Phần Writing vừa được thu — bản nháp gửi sau không được ghi đè."
@@ -1352,17 +1363,18 @@ def submit_section(
         # submit_writing raises if Writing isn't the open section or is already
         # final — that propagates as-is (nothing further to validate here: an
         # empty essay is a valid, if weak, submission — not an error).
-        sitting = submit_writing(sitting_id, user_id, task1_text, task2_text)
+        # finalize=True so the payload and the submitted stamp land together;
+        # see submit_writing for the race that two statements left open.
+        sitting = submit_writing(
+            sitting_id, user_id, task1_text, task2_text, finalize=True,
+        )
+        _promote_writing_essays(sitting_id)
     else:
         _assert_prior_section_submitted(sitting, section)
-
-    now = _now_iso()
-    supabase_admin.table("mock_exam_sittings").update({col: now}).eq(
-        "id", str(sitting_id),
-    ).execute()
-    sitting = {**sitting, col: now}
-    if section == "writing":
-        _promote_writing_essays(sitting_id)
+        supabase_admin.table("mock_exam_sittings").update({col: _now_iso()}).eq(
+            "id", str(sitting_id),
+        ).execute()
+        sitting = get_sitting(sitting_id) or sitting
     logger.info("[mock-exam] sitting=%s section=%s collected", sitting_id, section)
 
     exam = get_published_exam_by_id(sitting["mock_exam_id"]) or {}
