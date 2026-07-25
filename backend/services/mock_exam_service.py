@@ -697,8 +697,11 @@ def _attempt_has_answers(domain_table: str, attempt_id) -> bool:
     reading_attempt_answers (mig 088) — so the check has to branch. Blank
     strings don't count: a row exists the moment a field is touched and cleared.
 
-    Best-effort by design: a lookup failure returns False, which only ever means
-    "don't block the re-bind", never "throw away answers on a guess".
+    Raises on a lookup failure rather than returning False. The caller uses this
+    to decide whether a re-bind would ORPHAN existing work, so "I couldn't
+    check" must not be answered with "there is nothing there" — that is the one
+    wrong answer, and it fails in exactly the direction this guard exists to
+    prevent (Codex review, PR #834).
     """
     if not attempt_id:
         return False
@@ -717,9 +720,11 @@ def _attempt_has_answers(domain_table: str, attempt_id) -> bool:
             str(a.get("user_answer") or "").strip()
             for a in (rows[0].get("answers") or [])
         )
-    except Exception:  # noqa: BLE001
-        logger.warning("[mock-exam] answer-presence check failed for %s", attempt_id)
-        return False
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("[mock-exam] answer-presence check failed for %s", attempt_id)
+        raise MockExamError(
+            "Không kiểm tra được bài làm hiện có — tạm dừng để tránh mất bài."
+        ) from exc
 
 
 def _word_count(text: str) -> int:
@@ -1540,10 +1545,21 @@ def admin_list_sittings(exam_id: str) -> list[dict]:
 
 
 def void_sitting(sitting_id: str, admin_id: str, reason: str = "") -> dict:
-    """Admin voids a sitting (tech failure / retake). Keeps the row for audit."""
+    """Admin voids a sitting (tech failure / retake). Keeps the row for audit.
+
+    A RELEASED sitting cannot be voided. It is a published result the student
+    can already see; voiding would erase it and leave a `void` row whose seal
+    was lifted at release, i.e. a cancelled sitting still exposing scores.
+    The invigilator console hides the control for released rows, but the rule
+    belongs here — the UI is not the guard (Codex review, PR #840).
+    """
     sitting = get_sitting(sitting_id)
     if not sitting:
         raise NotFoundError(f"Sitting {sitting_id} không tồn tại.")
+    if sitting.get("status") == "released":
+        raise SittingConflictError(
+            "Không huỷ được lượt thi đã công bố kết quả."
+        )
     integrity = dict(sitting.get("integrity") or {})
     integrity["void_reason"] = reason
     integrity["voided_by"] = str(admin_id)
@@ -1887,7 +1903,8 @@ def reap_expired_retake_sittings(grace_seconds: int = 30) -> dict:
     return {"collected": collected, "sittings": touched}
 
 
-def advance_section(exam_id: str, admin_id: str) -> dict:
+def advance_section(exam_id: str, admin_id: str,
+                    expected_section: Optional[str] = None) -> dict:
     """Admin advances the shared classroom clock to the NEXT configured section.
 
     not_started → listening → reading → writing → done (skipping any section
@@ -1898,7 +1915,19 @@ def advance_section(exam_id: str, admin_id: str) -> dict:
     exam = get_published_exam_by_id(exam_id)
     if not exam:
         raise NotFoundError(f"Mock exam {exam_id} không tồn tại.")
-    return _advance_from(exam_id, admin_id, exam.get("active_section") or "not_started")
+    current = exam.get("active_section") or "not_started"
+    # `expected_section` is the section the ADMIN was looking at when they
+    # clicked. Without it the compare-and-set below only catches requests whose
+    # DB reads overlap — two clicks where the first has already committed both
+    # read the NEW section and both advance, so the class still skips one.
+    # Comparing against the caller's own view turns duplicate user actions into
+    # a 409 as well (Codex review, PR #842).
+    if expected_section and expected_section != current:
+        raise SittingConflictError(
+            f"Màn hình của bạn đang hiển thị phần {expected_section!r} nhưng kỳ thi "
+            f"đã ở phần {current!r} — có thao tác khác vừa chuyển phần. Tải lại trang."
+        )
+    return _advance_from(exam_id, admin_id, current)
 
 
 def _advance_from(exam_id: str, admin_id: str, current: str) -> dict:
@@ -1981,28 +2010,50 @@ def admin_section_progress(exam_id: str) -> dict:
 _STALLED_AFTER_SECONDS = 300
 
 
-def _expected_roster(exam: dict) -> dict:
-    """Who is SUPPOSED to sit this exam → {user_id: {"skills": [...] | None}}.
+def _expected_roster(exam: dict) -> Optional[dict]:
+    """Who is SUPPOSED to sit this exam, or None when that is UNKNOWABLE.
 
     This is the denominator `admin_section_progress` never had: it counts
     sittings, so a student who never opened the exam is invisible and a class of
     20 where 2 never showed reads as a complete 18/18. Sequential draws the
-    roster from the exam's cohort; retake from its assignments. An exam with no
-    cohort has no knowable roster — the caller must render "không rõ" rather
-    than quietly fall back to the sitting count.
+    roster from the exam's cohort; retake from its assignments.
+
+    Returns {key: {"user_id", "name", "skills"}}. The key is the user_id when the
+    student has an account and "student:<id>" when they do not — `students.user_id`
+    is NULLABLE by design ("link to user account when student gets login", mig
+    033), so a cohort member who has never activated is a REAL roster member.
+    Filtering them out reproduced the exact bug this endpoint exists to kill: a
+    class of 20 with two unactivated members reported 18 expected and those two
+    could never show up as absent.
+
+    None is NOT {}. A sequential exam with no cohort has no knowable roster,
+    whereas a cohort with nobody in it is a real (empty) answer. Collapsing the
+    two made every genuine sitting classify as off-roster, so the console showed
+    "0 đã vào thi" and an outside-the-list warning while the class was actually
+    sitting the exam.
     """
     if is_retake(exam):
         rows = supabase_admin.table("mock_exam_assignments").select(
             "user_id, skills",
         ).eq("exam_id", str(exam["id"])).execute().data or []
-        return {str(r["user_id"]): {"skills": r.get("skills") or []} for r in rows}
+        return {
+            str(r["user_id"]): {"user_id": str(r["user_id"]), "name": None,
+                                "skills": r.get("skills") or []}
+            for r in rows if r.get("user_id")
+        }
     cohort_id = exam.get("cohort_id")
     if not cohort_id:
-        return {}
-    rows = supabase_admin.table("students").select("user_id").eq(
+        return None                      # unknowable — not "nobody"
+    rows = supabase_admin.table("students").select("id, user_id, full_name").eq(
         "cohort_id", str(cohort_id),
     ).execute().data or []
-    return {str(r["user_id"]): {"skills": None} for r in rows if r.get("user_id")}
+    out: dict = {}
+    for r in rows:
+        uid = r.get("user_id")
+        key = str(uid) if uid else f"student:{r['id']}"
+        out[key] = {"user_id": str(uid) if uid else None,
+                    "name": r.get("full_name"), "skills": None}
+    return out
 
 
 def _answer_progress(rows, answer_key="user_answer", ts_key="answered_at") -> tuple:
@@ -2077,8 +2128,14 @@ def admin_live_monitor(exam_id: str) -> dict:
         totals["reading"] = row[0].get("total_questions") if row else None
 
     roster = _expected_roster(exam)
+    roster_known = roster is not None
+    roster = roster or {}
     from services.mock_review_workflow import resolve_display_names
-    names = resolve_display_names(set(roster) | set(by_user))
+    # Only real account ids can be resolved against `users`; an unactivated
+    # cohort member has no row there and carries students.full_name instead.
+    names = resolve_display_names(
+        {e["user_id"] for e in roster.values() if e.get("user_id")} | set(by_user)
+    )
 
     now = _now()
     speaking_required = bool(exam.get("speaking_topic_set")) and not retake
@@ -2138,22 +2195,33 @@ def admin_live_monitor(exam_id: str) -> dict:
         }
 
     students = []
-    for uid in set(roster) | set(by_user):
-        sitting = by_user.get(uid)
+    # Roster keys are user_ids for activated students and "student:<id>" for
+    # cohort members with no account; sitting keys are always user_ids, so a
+    # roster member who HAS an account collapses onto the same key as their
+    # sitting and is listed once.
+    for key in set(roster) | set(by_user):
+        entry = roster.get(key) or {}
+        uid = entry.get("user_id") if key in roster else key
+        sitting = by_user.get(uid) if uid else None
         assigned = (sitting.get("assigned_skills") if sitting else None) \
-            or (roster.get(uid) or {}).get("skills")
+            or entry.get("skills")
         mine = ([s for s in _LRW_ORDER if s in (assigned or [])] if retake
                 else _configured_sections(exam))
         sections = {s: _section_state(sitting, s) for s in mine}
         students.append({
             "user_id":       uid,
-            "student_name":  names.get(uid, "—"),
+            # An unactivated cohort member has no `users` row, so their name
+            # comes off the students record instead of resolving to "—".
+            "student_name":  names.get(uid) or entry.get("name") or "—",
             "sitting_id":    (sitting or {}).get("id"),
             "status":        (sitting or {}).get("status") or "chưa vào",
             "started":       bool(sitting),
             # A sitting from someone outside the cohort/assignment list — they
-            # are doing the exam but nobody put them on the roster.
-            "in_roster":     uid in roster,
+            # are doing the exam but nobody put them on the roster. When the
+            # roster is UNKNOWN nobody can be classified as outside it, so
+            # everyone counts as in — otherwise a no-cohort exam reports zero
+            # arrivals while the class is sitting it.
+            "in_roster":     (not roster_known) or (key in roster),
             "assigned_skills": assigned,
             "sections":      sections,
             "speaking": {
@@ -2190,8 +2258,9 @@ def admin_live_monitor(exam_id: str) -> dict:
         },
         "roster": {
             # None (not 0) when the exam has no cohort — "unknown" and "nobody"
-            # are different answers to "how many should be here".
-            "expected":   len(roster) if roster else None,
+            # are different answers to "how many should be here". An EMPTY
+            # cohort is a real 0 and must not be reported as unknown.
+            "expected":   len(roster) if roster_known else None,
             # Counted over ROSTER MEMBERS only. Including an off-roster sitting
             # here would inflate `started` against an `expected` that never
             # contained them, and the console renders the difference as "vắng" —
