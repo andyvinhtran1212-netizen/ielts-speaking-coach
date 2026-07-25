@@ -292,6 +292,40 @@ def test_retake_student_who_never_started_shows_waiting_not_working(fake_db, svc
     assert row["sections"]["reading"]["state"] == "waiting"
 
 
+def test_uncollected_past_section_reads_as_missed_not_waiting(fake_db, svc):
+    """B3 — with the straggler sweep queued in the background, a sweep that dies
+    (restart mid-task) leaves papers uncollected behind a moved-on exam.
+    Reporting that as 'waiting' would read as "not their turn yet" — the exact
+    opposite of the truth, and it would hide recoverable lost work."""
+    cohort = str(uuid4())
+    exam = _seed_exam(fake_db, cohort_id=cohort)
+    # exam has walked on to Reading, but Listening was never collected
+    fake_db.table("mock_exams").update({"active_section": "reading"}).eq(
+        "id", exam["id"]).execute()
+    uid = _seed_student(fake_db, cohort, "An")
+    _seed_sitting(fake_db, exam, uid)
+
+    res = svc.admin_live_monitor(exam["id"])
+    secs = _find(res, "An")["sections"]
+    assert secs["listening"]["state"] == "missed"     # behind the exam
+    assert secs["reading"]["state"] == "working"      # the open one
+    assert secs["writing"]["state"] == "waiting"      # genuinely not yet
+    assert res["sections"]["listening"]["missed"] == 1
+
+
+def test_collected_past_section_is_not_flagged_missed(fake_db, svc):
+    cohort = str(uuid4())
+    exam = _seed_exam(fake_db, cohort_id=cohort)
+    fake_db.table("mock_exams").update({"active_section": "reading"}).eq(
+        "id", exam["id"]).execute()
+    uid = _seed_student(fake_db, cohort, "An")
+    _seed_sitting(fake_db, exam, uid, listening_submitted_at=_iso(_now()))
+
+    res = svc.admin_live_monitor(exam["id"])
+    assert _find(res, "An")["sections"]["listening"]["state"] == "submitted"
+    assert res["sections"]["listening"]["missed"] == 0
+
+
 def test_missing_exam_raises_not_found(fake_db, svc):
     with pytest.raises(svc.NotFoundError):
         svc.admin_live_monitor(str(uuid4()))

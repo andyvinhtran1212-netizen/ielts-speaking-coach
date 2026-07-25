@@ -294,16 +294,16 @@ def test_create_sitting_resumes_after_gate_closed(fake_db, svc):
 def test_advance_section_walks_the_sequence(fake_db, svc):
     exam = _seed_exam(fake_db)   # listening + reading + writing all configured
     admin = str(uuid4())
-    a = svc.advance_section(exam["id"], admin)
+    a = _advance_and_sweep(svc, exam["id"], admin)
     assert a["active_section"] == "listening"
     assert a["listening_started_at"] is not None
-    b = svc.advance_section(exam["id"], admin)
+    b = _advance_and_sweep(svc, exam["id"], admin)
     assert b["active_section"] == "reading"
     assert b["reading_started_at"] is not None
-    c = svc.advance_section(exam["id"], admin)
+    c = _advance_and_sweep(svc, exam["id"], admin)
     assert c["active_section"] == "writing"
     assert c["writing_started_at"] is not None
-    d = svc.advance_section(exam["id"], admin)
+    d = _advance_and_sweep(svc, exam["id"], admin)
     assert d["active_section"] == "done"
 
 
@@ -311,17 +311,33 @@ def test_advance_section_skips_unconfigured_sections(fake_db, svc):
     """An exam with no Listening test skips straight to Reading."""
     exam = _seed_exam(fake_db, listening=False, reading=True)
     admin = str(uuid4())
-    a = svc.advance_section(exam["id"], admin)
+    a = _advance_and_sweep(svc, exam["id"], admin)
     assert a["active_section"] == "reading"
 
 
 def test_advance_section_past_done_raises(fake_db, svc):
     exam = _seed_exam(fake_db, listening=False, reading=False)   # writing-only
     admin = str(uuid4())
-    svc.advance_section(exam["id"], admin)   # → writing
-    svc.advance_section(exam["id"], admin)   # → done
+    _advance_and_sweep(svc, exam["id"], admin)   # → writing
+    _advance_and_sweep(svc, exam["id"], admin)   # → done
     with pytest.raises(svc.SittingConflictError):
-        svc.advance_section(exam["id"], admin)
+        _advance_and_sweep(svc, exam["id"], admin)
+
+
+def _advance_and_sweep(svc, exam_id, admin):
+    """What the ROUTER does on POST /advance: the fast, atomic transition, then
+    the straggler sweep.
+
+    Since B3 the sweep is a BackgroundTask queued by the router rather than part
+    of the service call — a class of 25-30 made it a very long request, and a
+    timeout left papers collected but the section unmoved. Production behaviour
+    ("admin advances → stragglers collected") is unchanged, so tests that assert
+    on collection run both halves, exactly as the request does.
+    """
+    out = svc.advance_section(exam_id, admin)
+    if out.get("sweep_section"):
+        svc._force_collect_section(exam_id, out["sweep_section"])
+    return out
 
 
 def test_advance_section_force_collects_stragglers(fake_db, svc):
@@ -331,8 +347,8 @@ def test_advance_section_force_collects_stragglers(fake_db, svc):
     admin = str(uuid4())
     u = uuid4()
     s = svc.create_sitting(u, "MOCK-TEST-A")
-    svc.advance_section(exam["id"], admin)          # → listening (straggler never submits)
-    svc.advance_section(exam["id"], admin)          # → reading: force-collects listening
+    _advance_and_sweep(svc, exam["id"], admin)          # → listening (straggler never submits)
+    _advance_and_sweep(svc, exam["id"], admin)          # → reading: force-collects listening
     sitting = svc.get_sitting(s["id"])
     assert sitting["listening_submitted_at"] is not None
     assert sitting["status"] == "lrw_in_progress"
@@ -341,7 +357,7 @@ def test_advance_section_force_collects_stragglers(fake_db, svc):
 def test_section_time_remaining_from_shared_clock(fake_db, svc):
     exam = _seed_exam(fake_db)
     admin = str(uuid4())
-    updated = svc.advance_section(exam["id"], admin)   # → listening
+    updated = _advance_and_sweep(svc, exam["id"], admin)   # → listening
     left = svc.section_time_remaining_seconds(updated, "listening")
     # audio 1800s + 120s buffer, just started
     assert 0 < left <= 1920
@@ -373,7 +389,7 @@ def test_force_collect_grades_the_straggler_listening_attempt(fake_db, svc):
     admin = str(uuid4())
     u = uuid4()
     s = svc.create_sitting(u, "MOCK-TEST-A")
-    svc.advance_section(exam["id"], admin)   # → listening
+    _advance_and_sweep(svc, exam["id"], admin)   # → listening
     aid = str(uuid4())
     fake_db.seed("listening_test_attempts", {
         "id": aid, "user_id": str(u), "test_id": exam["listening_test_id"],
@@ -386,7 +402,7 @@ def test_force_collect_grades_the_straggler_listening_attempt(fake_db, svc):
         "template_kind": "dictation_gap_fill",
         "answers": [{"q_num": 1, "answer": "beach", "alternatives": []}],
     }})
-    svc.advance_section(exam["id"], admin)   # → reading: force-collects listening (disconnected)
+    _advance_and_sweep(svc, exam["id"], admin)   # → reading: force-collects listening (disconnected)
     attempt = fake_db.rows("listening_test_attempts")[0]
     assert attempt["status"] == "submitted"
     assert attempt["score"] == 1   # actually graded, not just a blind status flip
@@ -398,7 +414,7 @@ def test_force_collect_grades_the_straggler_reading_attempt(fake_db, svc):
     admin = str(uuid4())
     u = uuid4()
     s = svc.create_sitting(u, "MOCK-TEST-A")
-    svc.advance_section(exam["id"], admin)   # → reading
+    _advance_and_sweep(svc, exam["id"], admin)   # → reading
     aid = str(uuid4())
     fake_db.seed("reading_test_attempts", {
         "id": aid, "user_id": str(u), "test_id": exam["reading_test_id"],
@@ -411,7 +427,7 @@ def test_force_collect_grades_the_straggler_reading_attempt(fake_db, svc):
     fake_db.seed("reading_questions", {"q_num": 1, "answer": {"answer": "TRUE", "alternatives": []},
                                        "skill_tag": "detail", "explanation": "", "passage_id": "p1"})
     fake_db.seed("reading_attempt_answers", {"attempt_id": aid, "q_num": 1, "user_answer": "TRUE"})
-    svc.advance_section(exam["id"], admin)   # → writing: force-collects reading (disconnected)
+    _advance_and_sweep(svc, exam["id"], admin)   # → writing: force-collects reading (disconnected)
     attempt = fake_db.rows("reading_test_attempts")[0]
     assert attempt["status"] == "submitted"
     assert attempt["score"] == 1   # actually graded, not just a blind status flip
@@ -425,14 +441,14 @@ def test_force_collect_skips_already_submitted_attempt(fake_db, svc):
     admin = str(uuid4())
     u = uuid4()
     s = svc.create_sitting(u, "MOCK-TEST-A")
-    svc.advance_section(exam["id"], admin)   # → reading
+    _advance_and_sweep(svc, exam["id"], admin)   # → reading
     aid = str(uuid4())
     fake_db.seed("reading_test_attempts", {
         "id": aid, "user_id": str(u), "test_id": exam["reading_test_id"],
         "status": "submitted", "score": 7, "band_estimate": 6.5, "sitting_id": None,
     })
     svc.attach_attempt(s["id"], u, "reading", aid)
-    svc.advance_section(exam["id"], admin)   # → writing: sitting never called submit_section
+    _advance_and_sweep(svc, exam["id"], admin)   # → writing: sitting never called submit_section
     attempt = fake_db.rows("reading_test_attempts")[0]
     assert attempt["score"] == 7   # unchanged — not re-graded
     assert svc.get_sitting(s["id"])["reading_submitted_at"] is not None  # sitting still collected
@@ -445,7 +461,7 @@ def test_admin_section_progress_counts(fake_db, svc):
     u1, u2 = uuid4(), uuid4()
     s1 = svc.create_sitting(u1, "MOCK-TEST-A")
     s2 = svc.create_sitting(u2, "MOCK-TEST-A")
-    svc.advance_section(exam["id"], admin)   # → writing
+    _advance_and_sweep(svc, exam["id"], admin)   # → writing
     _expire_section(fake_db, exam["id"], "writing")
     svc.submit_section(s1["id"], u1, "writing", "one", "two")
     progress = svc.admin_section_progress(exam["id"])
@@ -546,7 +562,7 @@ def _reach_writing(svc, fake, exam, sitting_id, u):
     student submits Writing, mirroring a mid-sequence sitting."""
     admin = str(uuid4())
     for section in svc._configured_sections(exam):
-        svc.advance_section(exam["id"], admin)   # admin opens `section`
+        _advance_and_sweep(svc, exam["id"], admin)   # admin opens `section`
         if section == "writing":
             return
         _expire_section(fake, exam["id"], section)
@@ -561,7 +577,7 @@ def _run_lrw(svc, fake, exam, sitting_id, u):
     admin = str(uuid4())
     result = None
     for section in svc._configured_sections(exam):
-        svc.advance_section(exam["id"], admin)
+        _advance_and_sweep(svc, exam["id"], admin)
         _expire_section(fake, exam["id"], section)
         if section == "writing":
             result = svc.submit_section(
@@ -1764,7 +1780,7 @@ def test_promote_writing_essays_skips_empty_task(fake_db, svc):
     s = svc.create_sitting(u, "MOCK-TEST-A")
     admin = str(uuid4())
     for section in svc._configured_sections(exam):
-        svc.advance_section(exam["id"], admin)
+        _advance_and_sweep(svc, exam["id"], admin)
         _expire_section(fake_db, exam["id"], section)
         if section == "writing":
             svc.submit_section(s["id"], u, "writing", "", "")   # both blank
@@ -2145,7 +2161,7 @@ def test_release_allowed_when_writing_task_unanswered(fake_db, svc, wf):
     # Drive LRW but submit EMPTY writing → no essays promoted.
     admin = str(uuid4())
     for section in svc._configured_sections(exam):
-        svc.advance_section(exam["id"], admin)
+        _advance_and_sweep(svc, exam["id"], admin)
         _expire_section(fake_db, exam["id"], section)
         if section == "writing":
             svc.submit_section(s["id"], u, "writing", "", "")

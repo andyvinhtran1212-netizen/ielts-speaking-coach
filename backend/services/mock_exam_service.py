@@ -1743,7 +1743,44 @@ def _force_collect_section(exam_id: str, section: str) -> int:
     return n
 
 
-def collect_section(exam_id: str, admin_id: str) -> dict:
+def pending_in_section(exam_id: str, section: str) -> int:
+    """How many non-terminal sittings still owe this section — the number the
+    admin needs BEFORE a sweep is queued, since the sweep itself now runs in the
+    background and can't report back synchronously."""
+    col = _SUBMITTED_COL.get(section)
+    if not col:
+        return 0
+    try:
+        rows = supabase_admin.table("mock_exam_sittings").select("id").eq(
+            "mock_exam_id", str(exam_id),
+        ).is_(col, "null").not_.in_("status", ["released", "void"]).execute()
+    except Exception:  # noqa: BLE001
+        logger.warning("[mock-exam] pending count failed exam=%s section=%s", exam_id, section)
+        return 0
+    return len(rows.data or [])
+
+
+def collect_preflight(exam_id: str, section: Optional[str] = None) -> dict:
+    """Validate a collect request and report what it will sweep.
+
+    Split from the sweep itself because the sweep is queued as a background
+    task: without this the admin would get a 202 for a request that was always
+    going to be rejected, and would learn about it only from the logs.
+    """
+    exam = get_published_exam_by_id(exam_id)
+    if not exam:
+        raise NotFoundError(f"Mock exam {exam_id} không tồn tại.")
+    if is_retake(exam):
+        raise SittingConflictError("Đề test lại tự thu bài theo từng học viên.")
+    target = section or (exam.get("active_section") or "not_started")
+    if target not in _LRW_ORDER:
+        raise SittingConflictError("Chưa có phần nào đang mở để thu bài.")
+    if target not in _configured_sections(exam):
+        raise SittingConflictError(f"Kỳ thi này không có phần {target}.")
+    return {"section": target, "pending": pending_in_section(exam_id, target)}
+
+
+def collect_section(exam_id: str, admin_id: str, section: Optional[str] = None) -> dict:
     """Admin THU BÀI for the open section — without opening the next one (B4).
 
     "Thu bài" and "mở phần sau" used to be one irreversible button, so the real
@@ -1755,21 +1792,16 @@ def collect_section(exam_id: str, admin_id: str) -> dict:
     {section}_submitted_at, which makes the runner's own isOpenSection test
     false, so every student drops into the waiting room with NO clock running
     until the admin advances.
-    """
-    exam = get_published_exam_by_id(exam_id)
-    if not exam:
-        raise NotFoundError(f"Mock exam {exam_id} không tồn tại.")
-    if is_retake(exam):
-        # Retake is self-timed per student; there is no shared section to collect.
-        raise SittingConflictError("Đề test lại tự thu bài theo từng học viên.")
-    current = exam.get("active_section") or "not_started"
-    if current not in _LRW_ORDER:
-        raise SittingConflictError("Chưa có phần nào đang mở để thu bài.")
 
-    collected = _force_collect_section(exam_id, current)
+    `section` defaults to the open one; passing an EARLIER section re-sweeps it,
+    which is the recovery path when a background sweep died half-way (a Railway
+    restart mid-task) and left papers uncollected behind a moved-on exam.
+    """
+    target = collect_preflight(exam_id, section)["section"]
+    collected = _force_collect_section(exam_id, target)
     logger.info("[mock-exam] exam=%s section=%s COLLECTED %d by admin=%s",
-                exam_id, current, collected, admin_id)
-    return {"section": current, "collected": collected}
+                exam_id, target, collected, admin_id)
+    return {"section": target, "collected": collected}
 
 
 def _collect_section_for_sitting(sitting: dict, section: str) -> None:
@@ -1924,7 +1956,6 @@ def _advance_from(exam_id: str, admin_id: str, current: str) -> dict:
             nxt = seq[idx + 1] if idx + 1 < len(seq) else "done"
         else:
             nxt = "done"
-        _force_collect_section(exam_id, current)
 
     update: dict = {"active_section": nxt}
     if nxt in _LRW_ORDER:
@@ -1952,7 +1983,19 @@ def _advance_from(exam_id: str, admin_id: str, current: str) -> dict:
         "[mock-exam] exam=%s section %s → %s by admin=%s",
         exam_id, current, nxt, admin_id,
     )
-    return resp.data[0]
+    out = dict(resp.data[0])
+    # B3 — the straggler sweep used to run INSIDE this request: one loop over
+    # every unsubmitted sitting, fully grading each L/R attempt inline. For a
+    # class of 25-30 that is a very long request with no progress feedback, and
+    # a timeout left the papers collected but active_section unmoved, with the
+    # admin unable to tell what had happened.
+    #
+    # The transition above is now the fast, atomic part; the caller queues the
+    # sweep as a background task. Safe in this order because submit_section
+    # gates on active_section, so a straggler can only get a 409 in the gap, and
+    # _collect_section_for_sitting is idempotent.
+    out["sweep_section"] = current if current in _LRW_ORDER else None
+    return out
 
 
 def admin_section_progress(exam_id: str) -> dict:
@@ -1979,6 +2022,20 @@ def admin_section_progress(exam_id: str) -> dict:
 # Long enough that a student re-reading a passage isn't flagged, short enough that
 # a dropped connection surfaces while the invigilator can still act.
 _STALLED_AFTER_SECONDS = 300
+
+
+def _seq_index(exam: dict, section: str) -> int:
+    """Position of `section` in this exam's configured walk.
+
+    'done' sorts after every real section, 'not_started' before them, so a
+    simple `<` comparison answers "has the exam already moved past this?".
+    """
+    if section == "done":
+        return 99
+    if section == "not_started":
+        return -1
+    seq = _configured_sections(exam)
+    return seq.index(section) if section in seq else 98
 
 
 def _expected_roster(exam: dict) -> dict:
@@ -2092,8 +2149,16 @@ def admin_live_monitor(exam_id: str) -> dict:
             state = "submitted"
         elif retake:
             state = "working" if sitting.get(f"{section}_started_at") else "waiting"
+        elif active == section:
+            state = "working"
+        elif _seq_index(exam, section) < _seq_index(exam, active):
+            # The exam has moved PAST this section but no paper was ever taken.
+            # With the sweep queued in the background (B3), that means the sweep
+            # died — a restart mid-task. "waiting" would read as "not their turn
+            # yet", which is the opposite of the truth and hides real lost work.
+            state = "missed"
         else:
-            state = "working" if active == section else "waiting"
+            state = "waiting"
 
         answered = last = None
         live = True
@@ -2172,6 +2237,9 @@ def admin_live_monitor(exam_id: str) -> dict:
             "submitted": sum(1 for r in rows if r["state"] == "submitted"),
             "working":   sum(1 for r in rows if r["state"] == "working"),
             "absent":    sum(1 for r in rows if r["state"] == "absent"),
+            # Papers the exam moved past without ever taking in — a sweep that
+            # died. The console offers a re-collect for exactly this.
+            "missed":    sum(1 for r in rows if r["state"] == "missed"),
             "expected":  len(rows),
         }
 

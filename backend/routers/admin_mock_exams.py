@@ -182,37 +182,65 @@ async def set_open(
 
 @router.post("/{exam_id}/advance")
 async def advance_section(
-    exam_id: str, authorization: str | None = Header(default=None),
+    exam_id: str,
+    background_tasks: BackgroundTasks,
+    authorization: str | None = Header(default=None),
 ):
     """Open the NEXT seated section for every sitting under this exam —
-    not_started → listening → reading → writing → done. Force-collects any
-    straggler who hasn't submitted the section being closed."""
+    not_started → listening → reading → writing → done.
+
+    The transition returns immediately; the straggler sweep for the section
+    being closed is QUEUED (B3). It used to run inline — one loop over every
+    unsubmitted sitting, grading each L/R attempt — which for a class of 25-30
+    made this a very long request, and a timeout left papers collected but the
+    section unmoved with no way for the admin to tell.
+
+    The live console polls every 5s, so the papers visibly land one by one. If
+    the sweep dies (a restart mid-task), the console flags the section as
+    "chưa thu đủ" and POST /collect?section=… re-runs it."""
     admin = await require_admin(authorization)
     try:
-        return svc.advance_section(exam_id, admin["id"])
+        out = svc.advance_section(exam_id, admin["id"])
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
     except svc.SittingConflictError as e:
         raise HTTPException(409, str(e))
+    if out.get("sweep_section"):
+        background_tasks.add_task(
+            svc._force_collect_section, exam_id, out["sweep_section"],
+        )
+    return out
 
 
-@router.post("/{exam_id}/collect")
+@router.post("/{exam_id}/collect", status_code=202)
 async def collect_section(
-    exam_id: str, authorization: str | None = Header(default=None),
+    exam_id: str,
+    background_tasks: BackgroundTasks,
+    section: str | None = None,
+    authorization: str | None = Header(default=None),
 ):
-    """THU BÀI for the currently-open section WITHOUT opening the next one.
+    """THU BÀI for a section WITHOUT opening the next one.
 
     Lets the invigilator run the real sequence — take papers in, check everyone
     is accounted for, then hand out the next section — instead of the two being
     one irreversible button. Students drop into the waiting room with no clock
-    running until /advance."""
+    running until /advance.
+
+    Validated synchronously (so a rejected request is a real error, not a silent
+    202) then swept in the background, same as /advance. `section` defaults to
+    the open one; passing an earlier one re-sweeps it — the recovery path when a
+    background sweep died half-way."""
     admin = await require_admin(authorization)
     try:
-        return svc.collect_section(exam_id, admin["id"])
+        info = svc.collect_preflight(exam_id, section)
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
     except svc.SittingConflictError as e:
         raise HTTPException(409, str(e))
+    background_tasks.add_task(
+        svc.collect_section, exam_id, admin["id"], info["section"],
+    )
+    return {**info, "queued": True}
 
 
 @router.get("/{exam_id}/section-progress")
