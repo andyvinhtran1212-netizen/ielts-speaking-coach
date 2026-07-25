@@ -147,11 +147,21 @@ def list_open_exams(user_id: str) -> list[dict]:
     # actually in the middle of.
     live = live_sitting_for_user(user_id)
     out = []
+    mine_exam_id = str(live["mock_exam_id"]) if live else None
     for e in (resp.data or []):
+        # A student's OWN in-progress exam always stays listed, even once it
+        # fails the new-entry gates. The admin closing the live toggle to block
+        # late entrants (or a retake window lapsing) would otherwise drop the
+        # exam from the list BEFORE my_sitting_id could be attached — so the
+        # entry page showed the empty state instead of the resume link it
+        # promises, to precisely the student who is mid-exam
+        # (Codex review, PR #841). Only ever relaxes the gate for the one
+        # person who already has a sitting on that exam.
+        is_mine = mine_exam_id is not None and str(e["id"]) == mine_exam_id
         if is_retake(e):
-            if e["id"] not in assigned:
+            if e["id"] not in assigned and not is_mine:
                 continue
-        else:
+        elif not is_mine:
             if not e.get("is_open"):
                 continue
             if e.get("cohort_id") and not _user_in_cohort(user_id, e["cohort_id"]):
@@ -1754,8 +1764,8 @@ def _force_collect_section(exam_id: str, section: str) -> int:
 
     n = 0
     for row in (rows.data or []):
-        _collect_section_for_sitting(row, section)
-        n += 1
+        if _collect_section_for_sitting(row, section):
+            n += 1
     return n
 
 
@@ -1829,7 +1839,7 @@ def collect_section(exam_id: str, admin_id: str, section: Optional[str] = None) 
     return {"section": target, "collected": collected}
 
 
-def _collect_section_for_sitting(sitting: dict, section: str) -> None:
+def _collect_section_for_sitting(sitting: dict, section: str) -> bool:
     """Force-collect ONE section of ONE sitting AS-IS (time's up / straggler /
     closed tab). Stamps the collected-at timestamp, grades the bound L/R attempt
     (or promotes Writing) if present, then re-checks terminal reconciliation on
@@ -1838,7 +1848,7 @@ def _collect_section_for_sitting(sitting: dict, section: str) -> None:
     advance sweep and the retake reaper."""
     col = _SUBMITTED_COL.get(section)
     if not col or sitting.get(col):
-        return
+        return False
     try:
         update: dict = {col: _now_iso()}
         if sitting.get("status") == "registered":
@@ -1867,11 +1877,17 @@ def _collect_section_for_sitting(sitting: dict, section: str) -> None:
                 "status": "lrw_submitted",
             }).eq("id", sitting["id"]).execute()
             _reconcile_terminal(sitting["id"])
+        return True
     except Exception:  # noqa: BLE001
         logger.exception(
             "[mock-exam] force-collect failed sitting=%s section=%s",
             sitting["id"], section,
         )
+        # Report the failure so the caller's count reflects papers ACTUALLY
+        # taken. Counting unconditionally told the admin "N bài đã thu" for
+        # papers still sitting with the student, and the next poll silently
+        # contradicted it (Codex review, PR #843).
+        return False
 
 
 def _retake_section_expired(sitting: dict, exam: dict, section: str, grace_seconds: int) -> bool:
@@ -2271,10 +2287,20 @@ def admin_live_monitor(exam_id: str) -> dict:
             att = l_attempts.get(str(sitting.get("listening_attempt_id") or ""))
             if att:
                 answered, last = _answer_progress(att.get("answers") or [])
+            elif state == "working":
+                # In the open section with NO attempt bound: the runner is still
+                # loading, or attempt creation failed. Either way the server
+                # holds nothing for them. Leaving this None hid exactly this
+                # student from the "trắng" filter, which only matches 0 — so the
+                # one person who most needs checking on was the one the
+                # invigilator could not see (Codex review, PR #833).
+                answered = 0
         elif section == "reading":
             aid = str(sitting.get("reading_attempt_id") or "")
             if aid in r_attempts:
                 answered, last = _answer_progress(r_answers.get(aid, []))
+            elif state == "working":
+                answered = 0
         else:
             # Writing autosaves to the server during the section (A2), so the
             # word count IS live now — `answered` is words, not questions, and
