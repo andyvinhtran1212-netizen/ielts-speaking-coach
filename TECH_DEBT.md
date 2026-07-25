@@ -1,6 +1,6 @@
 # Tech Debt — IELTS Speaking Coach
 
-**Last updated:** 2026-07-25 (post-soak sweep: A steps 1–3 done + Cam 13 live, C and H CLOSED, D/E/F/G fixed → PRs #820–#823; B backfill still needs prod access)
+**Last updated:** 2026-07-25 (post-soak sweep A–H merged #820–#824; added DEBT-2026-07-24-J — four parallel font systems + hardcoded teal; DEBT-I corrected: brand assets ARE in the repo, on an unmerged branch)
 **Last reviewed:** 2026-05-07 (PM)
 
 Comprehensive snapshot of tech debt + improvement opportunities, restructured
@@ -49,10 +49,83 @@ material, not active backlog.
   3. Verify at 16px (favicon), on the navy hero, and in dark theme.
   4. Update any `<title>`/OG image that bakes in the old wordmark.
 - **Effort:** ~half a day incl. dark/16px verification.
-- **Blocked by:** Pilot-1 soak **and** Next migration reaching steady state.
-- **Reference:** memory `claude-design-project-exists-drifted`; brand sheet
-  artifact (session 2026-07-24). Logo assets are design-project-only today —
-  **not** in the repo yet.
+- **Status 2026-07-25:** Pilot-1 soak is DONE, so only the migration half of the
+  block remains. **Correction to the line below:** the assets are no longer
+  design-project-only — the 2026-07-24 session committed them to branch
+  `design/brand-redesign-2026-07-24` (4 commits, **not merged**, was held back
+  while the soak ran):
+  - `docs/brand/assets/*.svg` — the 5 final logo files, the source for step 1.
+  - `docs/brand/{README,DRIFT_REPORT,CONTEXT_PACK,GUIDE_claude-design}.md` +
+    `brand-sheet.html`, `logo-directions.html`, `logo-current-state.html`,
+    `foundations-av.html`, `social-kit.html`.
+  - `docs/brand/social-assets/` — a full fan-page kit (avatars, FB/Twitter/YouTube
+    covers, 3 stories 9:16, 4-slide carousel, hero 16:9, tip/band posts, PNG+SVG)
+    plus the slogan **"Tiếng Anh của bạn, tiến bộ mỗi ngày"**.
+  That branch is docs + assets only — **zero code risk, safe to merge now**, and
+  merging it is worth doing on its own so the work stops living on a side branch.
+  The *rollout* (this item) still waits on the migration.
+- **Blocked by:** ~~Pilot-1 soak~~ (done 2026-07-24) **and** Next migration
+  reaching steady state.
+- **Reference:** memory `claude-design-project-exists-drifted`; branch
+  `design/brand-redesign-2026-07-24`; brand sheet artifact (session 2026-07-24).
+
+#### DEBT-2026-07-24-J: Four parallel font systems + hardcoded teal — unify type and text colour
+- **What:** the 2026-07-24 brand session inspected the live site and found the
+  type system is not one system. `docs/brand/CONTEXT_PACK.md` §F logged three
+  parallel font stacks; re-measured on main 2026-07-25 it is **four**, and
+  **seven Google Font families** are being downloaded across the site:
+
+  | Stack | Families | Where |
+  |---|---|---|
+  | `--av-*` (canonical) | Plus Jakarta Sans + JetBrains Mono | 46 / 42 pages |
+  | grammar sub-system (`grammar-wiki.css`) | DM Sans + **Lora** (serif) | `grammar.html`, `grammar-article`, `grammar-compare`, `grammar-exercises`, `grammar-search` |
+  | vocab sub-system | **Hanken Grotesk** + **Fraunces** (serif) + **DM Mono** | `vocabulary.html`, `vocab-article.html` — *not* in the 07-24 write-up; found on re-measure |
+  | legacy `ds.css` | Manrope + Fraunces | loaded by 20 pages |
+  | stray | Inter | `practice.legacy.html` only (reference file, do not edit) |
+
+  Consequence a reader actually sees: a Grammar heading renders in a **serif**
+  while the same heading on Landing is sans. That is the wordmark inconsistency
+  in DEBT-I repeated at the type level.
+- **Text colour, same shape:** page CSS still hardcodes `#14b8a6` instead of
+  `var(--av-primary)` in **9 files** (`ds.css` ×3, `result.css`,
+  `full-test-result.css`, `exercises.css`, `writing-dashboard.css`,
+  `writing-renderers.css`, `admin-writing.css`, `admin-writing-grade.css`).
+  This is not a wrong colour — it is a *frozen* one: `--av-primary` is
+  `teal-700 #0F766E` in light and `teal-500 #14B8A6` in dark (deliberate, for
+  WCAG AA on navy), so a hardcoded `#14b8a6` silently pins the DARK value into
+  light theme. Several of those files carry half-finished `→ --av-primary`
+  migration comments, so this is a stalled sweep, not a decision.
+- **Why it belongs here and not in DEBT-I:** DEBT-I is a brand *rollout* (swap
+  assets). This is design-system *convergence* (delete two font subsystems, land
+  one display-font rule, finish the `--av-primary` sweep). Doing the logo without
+  this leaves the new mark sitting on top of four type systems.
+- **Open decisions the owner must make first** — from
+  `docs/brand/DRIFT_REPORT.md` §E and `CONTEXT_PACK.md` §F, none answered yet:
+  1. **One display font for the whole system, or one controlled serif?**
+     Keeping Lora/Fraunces for long-form reading is defensible; having *two*
+     different serifs on two different subsystems is not.
+  2. **Motion — bounce or no bounce?** The old README says *"No bounces. No
+     spring physics."*; the code ships `--av-easing-bounce (0.34,1.56,0.64,1)`.
+  3. **Easing default** — keep material-standard `(0.4,0,0.2,1)` as in code, or
+     restore the more distinctive `(0.16,1,0.3,1)` the design project used.
+  (2 and 3 are motion, not type, but they sit in the same "one system or many"
+  decision and were logged unanswered on 2026-07-24.)
+- **Also unresolved: which direction is canonical.** `GUIDE_claude-design.md`
+  decision #4 says the end state is *design project → code, one-way*. The
+  2026-07-24 reconcile ran the **other** way (code → project, because code had
+  evolved past the 05-09 snapshot). Both are defensible; running both alternately
+  is how the two drift apart again. Pick one before the next design pass.
+- **Action:** (a) answer the decisions above; (b) fold `grammar-wiki.css` and the
+  vocab stack onto `--av-font-*`, dropping the extra `<link>` tags — that also
+  removes 5 font downloads from those pages; (c) finish the `#14b8a6` →
+  `var(--av-primary)` sweep with a lint (the hex-budget ratchet in
+  `frontend/tests/hex-budget.test.mjs` already has the mechanism); (d) re-run
+  `/ui-review` on grammar + vocab afterwards.
+- **Effort:** ~1 day for (b)+(c) plus visual verification; (a) is a decision, not
+  work. Sequence it **before** DEBT-I so the new mark lands on a settled system.
+- **Reference:** `docs/brand/DRIFT_REPORT.md` (§A namespace, §B values, §E open
+  questions), `docs/brand/CONTEXT_PACK.md` §F — both on branch
+  `design/brand-redesign-2026-07-24`.
 
 ### ~~Blocked by Pilot-1 soak~~ — UNBLOCKED 2026-07-24, worked 2026-07-25 (logged 2026-07-20, extended 2026-07-22)
 
