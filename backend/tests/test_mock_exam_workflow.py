@@ -862,6 +862,31 @@ def test_submit_section_writing_empty_text_still_accepted(fake_db, svc):
     assert result["writing_submitted_at"] is not None
 
 
+def test_writing_finalisation_is_one_write(fake_db, svc):
+    """Codex #835 (correct, P1): submit_writing() wrote the payload and
+    submit_section() stamped writing_submitted_at as a SEPARATE statement, so an
+    autosave from another tab — or an older request the client no longer tracks
+    — could pass the null-timestamp predicate in between and replace the final
+    payload before _promote_writing_essays() read it. The student would submit
+    one essay and have a stale draft graded."""
+    exam = _seed_exam(fake_db, listening=False, reading=False)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], str(uuid4()))     # → writing
+    _expire_section(fake_db, exam["id"], "writing")
+
+    svc.submit_section(s["id"], u, "writing",
+                       task1_text="final one", task2_text="final two")
+
+    row = svc.get_sitting(s["id"])
+    assert row["writing_submitted_at"], "the stamp must land"
+    assert row["writing_submission"]["task1"]["text"] == "final one"
+    # ...and a late draft can no longer overwrite what was graded
+    with pytest.raises(svc.SittingConflictError):
+        svc.submit_writing(s["id"], u, "late draft", "late draft")
+    assert svc.get_sitting(s["id"])["writing_submission"]["task1"]["text"] == "final one"
+
+
 def test_record_speaking_empty_raises(fake_db, svc):
     """Finding 2: an empty session list cannot mark Speaking complete."""
     _seed_exam(fake_db, speaking=True)
@@ -2625,6 +2650,64 @@ def test_voiding_blocks_a_stale_release(fake_db, svc, wf, monkeypatch):
         wf.release_results(rid, "admin-1")
     after = svc.get_sitting(s["id"])
     assert after["status"] == "void" and after["sealed"] is True
+
+
+def test_unassign_catches_a_sitting_opened_mid_request(fake_db, svc, monkeypatch):
+    """Codex #840 (correct): a student pressing "Bắt đầu" concurrently could
+    read the still-present assignment and insert their sitting AFTER the scan
+    but BEFORE the delete — so the new sitting was never voided, later refreshes
+    resumed it before the eligibility gates, and the endpoint still reported a
+    successful revocation.
+
+    Staged by making the racing sitting appear while the first pass is running:
+    void_sitting() seeds it on its first call, so it exists only in time for the
+    second pass to find."""
+    from services import mock_exam_assignment_service as a
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    u = str(uuid4())
+    a.assign(exam["id"], [{"user_id": u, "skills": ["writing"], **_WINDOW}],
+             created_by=str(uuid4()))
+    first = svc.create_sitting(u, "MOCK-TEST-A")
+
+    racing = str(uuid4())
+    orig_void = svc.void_sitting
+    spawned = {"done": False}
+
+    def void_then_spawn(sitting_id, admin_id, reason=""):
+        out = orig_void(sitting_id, admin_id, reason=reason)
+        if not spawned["done"]:
+            spawned["done"] = True
+            fake_db.seed("mock_exam_sittings", {
+                "id": racing, "mock_exam_id": exam["id"], "user_id": u,
+                "status": "registered", "sealed": True,
+                "assigned_skills": ["writing"],
+                "listening_submitted_at": None, "reading_submitted_at": None,
+                "writing_submitted_at": None,
+                "listening_attempt_id": None, "reading_attempt_id": None,
+                "speaking_session_ids": [], "writing_submission": {},
+                "integrity": {},
+            })
+        return out
+
+    monkeypatch.setattr(svc, "void_sitting", void_then_spawn)
+    out = a.remove(exam["id"], u, admin_id="admin-1")
+
+    assert str(first["id"]) in out["voided"]
+    assert racing in out["voided"], "the sitting opened mid-request must be voided too"
+    assert svc.get_sitting(racing)["status"] == "void"
+
+
+def test_unassign_deletes_the_assignment_before_scanning(fake_db, svc):
+    """Order matters: once the assignment row is gone create_sitting() refuses,
+    which closes the window from the other side. Scanning first left it open."""
+    import pathlib as _pl
+    from services import mock_exam_assignment_service as a
+    body = _pl.Path(a.__file__).read_text(encoding="utf-8")
+    body = body[body.index("def remove("):]
+    assert body.index('table("mock_exam_assignments").delete()') \
+        < body.index("def _open_sittings()")
 
 
 def test_unassign_is_a_noop_without_an_assignment(fake_db, svc):

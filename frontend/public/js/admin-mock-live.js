@@ -394,26 +394,26 @@
         'Không mở được kỳ thi này (chưa publish, đã archive, hoặc mã không đúng). ' +
         'Chọn kỳ thi từ danh sách phía trên.';
       show('error');
-      el('exam-picker').addEventListener('change', function () {
-        S.examId = el('exam-picker').value;
-        history.replaceState(null, '', '?exam_id=' + encodeURIComponent(S.examId));
-        show('loading'); load();
-      });
-      return;
+    } else {
+      S.examId = wanted || (exams[0] && exams[0].id) || null;
+      if (S.examId) el('exam-picker').value = S.examId;
     }
-    S.examId = wanted || (exams[0] && exams[0].id) || null;
-    if (S.examId) el('exam-picker').value = S.examId;
 
+    // WIRED UNCONDITIONALLY. Returning early on a bad ?exam_id= left the board
+    // with only a picker: after the admin selected a valid exam as instructed
+    // it loaded ONCE and then silently went stale for the rest of the exam,
+    // with both refresh controls inert (Codex review, PR #833).
     el('exam-picker').addEventListener('change', function () {
       S.examId = el('exam-picker').value;
       // Keep the URL in step so a reload — or a second monitor on another
       // screen — comes back to the same class.
       history.replaceState(null, '', '?exam_id=' + encodeURIComponent(S.examId));
-      show('loading'); load();
+      show('loading'); load(); startPolling();
     });
     el('refresh-now').addEventListener('click', function () { load(); });
     el('auto-refresh').addEventListener('change', startPolling);
 
+    if (!S.examId) return;      // nothing selected yet — the picker starts it
     await load();
     startPolling();
   }
