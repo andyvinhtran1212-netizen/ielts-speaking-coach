@@ -118,10 +118,21 @@
       : '<span class="ml-pill ml-pill--shut">Đã đóng</span>';
     // Retake has no shared clock and no advance — say so instead of rendering
     // dead controls the mode does not have.
-    var clock = retake ? '' :
-      '<div><span class="ml-clock__cap">Còn lại — ' + esc(SECTION_LABEL[ex.active_section] || ex.active_section) + '</span>' +
-      '<div class="ml-clock' + ((ex.section_time_left_seconds != null && ex.section_time_left_seconds <= 120) ? ' is-low' : '') +
-      '" id="clock">' + fmtClock(ex.section_time_left_seconds) + '</div></div>';
+    //
+    // PAUSED: the papers are in and the next section is not open. active_section
+    // deliberately does not change during the break, so without the canonical
+    // marker the console kept rendering AND TICKING the collected section's
+    // clock — contradicting the clock-free pause it had just announced
+    // (Codex review, PR #843).
+    var paused = !retake && ex.collected_section
+      && ex.collected_section === ex.active_section;
+    var clock = retake ? '' : (paused
+      ? '<div><span class="ml-clock__cap">Đã thu bài — ' +
+          esc(SECTION_LABEL[ex.collected_section] || ex.collected_section) + '</span>' +
+        '<div class="ml-clock" id="clock">—</div></div>'
+      : '<div><span class="ml-clock__cap">Còn lại — ' + esc(SECTION_LABEL[ex.active_section] || ex.active_section) + '</span>' +
+        '<div class="ml-clock' + ((ex.section_time_left_seconds != null && ex.section_time_left_seconds <= 120) ? ' is-low' : '') +
+        '" id="clock">' + fmtClock(ex.section_time_left_seconds) + '</div></div>');
 
     el('ident').innerHTML =
       '<div class="ml-ident__top">' +
@@ -489,26 +500,26 @@
         'Không mở được kỳ thi này (chưa publish, đã archive, hoặc mã không đúng). ' +
         'Chọn kỳ thi từ danh sách phía trên.';
       show('error');
-      el('exam-picker').addEventListener('change', function () {
-        S.examId = el('exam-picker').value;
-        history.replaceState(null, '', '?exam_id=' + encodeURIComponent(S.examId));
-        show('loading'); load();
-      });
-      return;
+    } else {
+      S.examId = wanted || (exams[0] && exams[0].id) || null;
+      if (S.examId) el('exam-picker').value = S.examId;
     }
-    S.examId = wanted || (exams[0] && exams[0].id) || null;
-    if (S.examId) el('exam-picker').value = S.examId;
 
+    // WIRED UNCONDITIONALLY. Returning early on a bad ?exam_id= left the board
+    // with only a picker: after the admin selected a valid exam as instructed
+    // it loaded ONCE and then silently went stale for the rest of the exam,
+    // with both refresh controls inert (Codex review, PR #833).
     el('exam-picker').addEventListener('change', function () {
       S.examId = el('exam-picker').value;
       // Keep the URL in step so a reload — or a second monitor on another
       // screen — comes back to the same class.
       history.replaceState(null, '', '?exam_id=' + encodeURIComponent(S.examId));
-      show('loading'); load();
+      show('loading'); load(); startPolling();
     });
     el('refresh-now').addEventListener('click', function () { load(); });
     el('auto-refresh').addEventListener('change', startPolling);
 
+    if (!S.examId) return;      // nothing selected yet — the picker starts it
     await load();
     startPolling();
   }
