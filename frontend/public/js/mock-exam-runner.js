@@ -429,6 +429,14 @@
     document.querySelectorAll('#mw-layout .mw-layout__btn').forEach(function (b) {
       b.addEventListener('click', function () { applyLayout(b.dataset.layout, true); });
     });
+    // Re-announce when the viewport crosses the breakpoint — the effective
+    // layout flips there even though data-layout does not.
+    if (window.matchMedia) {
+      var mq = window.matchMedia(NARROW_MQ);
+      var onMq = function () { applyLayout(split.dataset.layout); };
+      if (mq.addEventListener) mq.addEventListener('change', onMq);
+      else if (mq.addListener) mq.addListener(onMq);
+    }
 
     var dragging = false;
     function onMove(ev) {
@@ -465,6 +473,12 @@
     document.addEventListener('touchmove', onMove, { passive: false });
     document.addEventListener('mouseup', endDrag);
     document.addEventListener('touchend', endDrag);
+    // An interrupted gesture fires touchcancel, NOT touchend. Without this the
+    // drag never ends: `dragging` stays true, userSelect stays disabled, and
+    // every subsequent touch anywhere on the document resizes the pane and
+    // calls preventDefault() (Codex review, PR #832).
+    document.addEventListener('touchcancel', endDrag);
+    window.addEventListener('blur', endDrag);
 
     // Keyboard: any arrow grows or shrinks the đề pane, so the control works
     // without the student having to know which axis this arrangement uses.
@@ -497,8 +511,12 @@
       b.setAttribute('aria-pressed', b.dataset.layout === name ? 'true' : 'false');
     });
     if (divider) {
+      // From the EFFECTIVE layout: on a narrow viewport the stylesheet forces a
+      // vertical stack, so announcing the saved left/right value would tell
+      // assistive tech the separator moves along an axis it does not.
+      var eff = effectiveLayout(split);
       divider.setAttribute('aria-orientation',
-        (name === 'top' || name === 'bottom') ? 'horizontal' : 'vertical');
+        (eff === 'top' || eff === 'bottom') ? 'horizontal' : 'vertical');
     }
     if (persist) lsSet(LAYOUT_KEY, name);
   }
