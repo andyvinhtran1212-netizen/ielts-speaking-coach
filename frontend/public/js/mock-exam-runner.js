@@ -495,11 +495,15 @@
     // Keyboard: any arrow grows or shrinks the đề pane, so the control works
     // without the student having to know which axis this arrangement uses.
     divider.addEventListener('keydown', function (ev) {
-      var grow = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[ev.key];
-      if (!grow) return;
+      // NOT named `grow`: Tailwind's content scanner reads this file, and the
+      // literal `!grow` in a negation is indistinguishable from the important
+      // modifier of the `grow` utility — so it emitted a phantom `.\!grow`
+      // rule and the committed CSS drifted from a fresh build.
+      var step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[ev.key];
+      if (!step) return;
       var layout = split.dataset.layout;
-      if (layout === 'right' || layout === 'bottom') grow = -grow;
-      applySplit(currentSplit() + grow * 2, true);
+      if (layout === 'right' || layout === 'bottom') step = -step;
+      applySplit(currentSplit() + step * 2, true);
       ev.preventDefault();
     });
   }
