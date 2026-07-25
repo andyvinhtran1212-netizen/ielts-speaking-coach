@@ -61,3 +61,47 @@ describe('A2 — a failed save actually retries', () => {
     assert.match(JS, /_wRetries = 0;\s*\/\/ a fresh edit earns a fresh retry budget/);
   });
 });
+
+describe('A2 round 3 — the local copy carries a sync verdict, not a clock', () => {
+  test('every local write records whether the server confirmed it', () => {
+    assert.match(JS, /function saveLocalDraft\(task, text, synced\)/);
+    assert.match(JS, /synced: !!synced/);
+    // the keystroke path writes UNSYNCED (2-arg call)
+    assert.match(JS, /saveLocalDraft\(t, ta\.value\);/);
+  });
+
+  test('a confirmed save marks the local copy synced', () => {
+    assert.match(JS, /markLocalSynced\(body\.task1_text, body\.task2_text\)/);
+  });
+
+  test('an unsynced local record wins outright — no timestamp comparison', () => {
+    // Client edit time vs server receipt time are different clocks measuring
+    // different moments, so an edit that BEAT a request looked older than it.
+    assert.match(JS, /if \(local\.synced === false\) \{ _localDraftWon\[task\] = true; return local\.text; \}/);
+  });
+
+  test('a deliberately cleared draft is restored, not resurrected from the server', () => {
+    // `if (!local || !local.text) return serverText` discarded the deletion.
+    assert.match(JS, /if \(!local\) return serverText;/);
+    const i = JS.indexOf('if (local.synced === false)');
+    const j = JS.indexOf('if (!local.text) return serverText;');
+    assert.ok(i > 0 && j > i, 'the unsynced branch is reached before the empty-text bail-out');
+  });
+
+  test('records predating the flag fall back to the timestamp comparison', () => {
+    assert.match(JS, /if \(typeof d\.synced !== 'boolean'\) d\.synced = null;/);
+  });
+});
+
+describe('A2 round 3 — pagehide always issues a keepalive request', () => {
+  test('a normal save on the wire does not suppress the keepalive re-send', () => {
+    // Returning _wInFlight here meant the lifecycle flush issued NO keepalive
+    // replacement, and the navigation could kill the non-keepalive request.
+    assert.match(JS, /if \(_wSaving && !keepalive\) return _wInFlight \|\| Promise\.resolve\(\);/);
+  });
+
+  test('only the newest request clears the in-flight tracking', () => {
+    assert.match(JS, /var gen = \+\+_wGen;/);
+    assert.match(JS, /if \(gen === _wGen\) \{ _wSaving = false; _wInFlight = null; \}/);
+  });
+});
