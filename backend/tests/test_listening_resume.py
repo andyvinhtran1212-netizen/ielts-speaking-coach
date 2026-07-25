@@ -95,6 +95,19 @@ def test_missing_attempt_has_no_answers(fake_db, svc):
     assert svc._attempt_has_answers("listening_test_attempts", None) is False
 
 
+def test_answer_presence_raises_instead_of_guessing_empty(fake_db, svc, monkeypatch):
+    """Codex #834 P2 (correct): the caller uses this to decide whether a re-bind
+    would ORPHAN work, so "I couldn't check" must not be answered with "there is
+    nothing there" — that fails in exactly the direction the guard exists to
+    prevent."""
+    def boom(*_a, **_k):
+        raise RuntimeError("db down")
+    monkeypatch.setattr(fake_db, "table", boom)
+
+    with pytest.raises(svc.MockExamError):
+        svc._attempt_has_answers("listening_test_attempts", str(uuid4()))
+
+
 # ── attach_attempt: never trade work for a blank page ─────────────────
 
 
