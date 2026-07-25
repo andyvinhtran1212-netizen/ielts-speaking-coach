@@ -113,8 +113,11 @@
          the arrow keys silently did nothing on a phone. The split stays
          clamped 25–75% either way, so the persisted value is always usable. */
       .mw-split { flex-direction:column !important; }
-      .mw-split .mw-divider { cursor:row-resize; }
-      .mw-split .mw-divider::after { inset:3px 0; }
+      /* Must out-specify the [data-layout=…] rules above, which are (0,2,0):
+         otherwise a saved left/right layout keeps col-resize and inset:0 3px,
+         drawing an 8px-tall bar instead of a 2px horizontal rule. */
+      .mw-split[data-layout] .mw-divider { cursor:row-resize; }
+      .mw-split[data-layout] .mw-divider::after { inset:3px 0; }
     }
     .me-waiting-icon { font-size:40px; margin-bottom:8px; }
     .me-checklist { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; justify-content:center; }
