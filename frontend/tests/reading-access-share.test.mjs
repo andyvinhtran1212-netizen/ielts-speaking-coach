@@ -96,9 +96,20 @@ describe('B2 — exam share mode: submit + auto-save carry ownership; no login b
   test('authed submit literal is preserved (sprint-20-6 contract)', () => {
     assert.match(examJs, /window\.api\.post\(\s*\n?\s*'\/api\/reading\/test\/attempts\/'\s*\+\s*encodeURIComponent\(SESSION\.attempt_id\)\s*\+\s*'\/submit'/);
   });
-  test('auto-save branches to patchWith in share mode, keeps authed patch', () => {
-    assert.match(examJs, /window\.api\.patchWith\(answersUrl, answerBody, _anonHeaders\(\), \{ noRedirect: true \}\)/);
-    assert.match(examJs, /window\.api\.patch\('\/api\/reading\/test\/attempts\/'/);
+  test('auto-save branches on share mode; only the anon path gets noRedirect', () => {
+    // DEBT-2026-07-22-D moved BOTH branches onto patchWith so the auto-save can
+    // pass opts (keepalive for the unload flush). The literal `window.api.patch(`
+    // is therefore gone — what B2 actually guarantees is unchanged and is what
+    // is pinned here: the anon branch carries X-Reading-Anon + noRedirect, and
+    // the authed branch carries NEITHER (so its 401 still bounces to login).
+    assert.match(examJs, /window\.api\.patchWith\(answersUrl, answerBody, _anonHeaders\(\), \{ noRedirect: true/);
+    assert.match(examJs, /window\.api\.patchWith\(answersUrl, answerBody, null, \{ keepalive: keepalive \}\)/);
+    const branch = examJs.slice(
+      examJs.indexOf('var savePromise = SESSION.share_mode'),
+      examJs.indexOf('// The returned promise NEVER rejects'),
+    );
+    assert.equal((branch.match(/noRedirect/g) || []).length, 1,
+      'noRedirect must appear on the anon branch only');
   });
 });
 
