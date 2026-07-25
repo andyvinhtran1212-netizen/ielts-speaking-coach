@@ -10,6 +10,7 @@
     "build:css:plusjakarta": "./tooling/css/node_modules/.bin/tailwindcss -c ./tailwind.config.cjs -i ./css/tailwind.src.css -o ./css/tailwind.build.css --minify",
     "build:css:inter": "./tooling/css/node_modules/.bin/tailwindcss -c ./tailwind.config.inter.cjs -i ./css/tailwind.src.css -o ./css/tailwind.inter.css --minify",
     "test:e2e:staging": "playwright test -c playwright.staging.config.js",
+    "test:smoke:prod": "playwright test -c playwright.production-smoke.config.js",
     "dev": "next dev",
     "build": "next build",
     "prebuild": "node tooling/generate-runtime-config.mjs",
