@@ -2001,10 +2001,20 @@ def admin_live_monitor(exam_id: str) -> dict:
             att = l_attempts.get(str(sitting.get("listening_attempt_id") or ""))
             if att:
                 answered, last = _answer_progress(att.get("answers") or [])
+            elif state == "working":
+                # In the open section with NO attempt bound: the runner is still
+                # loading, or attempt creation failed. Either way the server
+                # holds nothing for them. Leaving this None hid exactly this
+                # student from the "trắng" filter, which only matches 0 — so the
+                # one person who most needs checking on was the one the
+                # invigilator could not see (Codex review, PR #833).
+                answered = 0
         elif section == "reading":
             aid = str(sitting.get("reading_attempt_id") or "")
             if aid in r_attempts:
                 answered, last = _answer_progress(r_answers.get(aid, []))
+            elif state == "working":
+                answered = 0
         else:
             # Writing autosaves to the server during the section (A2), so the
             # word count IS live now — `answered` is words, not questions, and
