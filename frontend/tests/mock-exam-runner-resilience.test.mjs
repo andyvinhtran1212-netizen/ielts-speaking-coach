@@ -118,3 +118,21 @@ describe('A3 — a network failure no longer ends the exam', () => {
     assert.match(HTML, /\.me-conn-banner \{[^}]*var\(--av-warning\)/);
   });
 });
+
+describe('integrity signals (PR #849 review fixes)', () => {
+  test('resumes counts a RE-entry, never the first boot of a new sitting', () => {
+    // Counting unconditionally made every normal sitting report "vào lại 1×"
+    // from birth, and "2×" after a single real reload.
+    assert.match(JS, /if \(!createdNow\) bumpIntegrity\('resumes', 1\)/);
+    // and "new" is judged from the sitting, since create_sitting is idempotent
+    // and RESUMES an existing non-terminal row
+    assert.match(JS, /createdNow = created\.status === 'registered'/);
+  });
+
+  test('the pagehide report uses keepalive', () => {
+    // A plain fetch from pagehide is cancelled, so counters would never leave
+    // localStorage for a student who does not load the page again.
+    assert.match(JS, /reportIntegrity\(\{ keepalive: true \}\)/);
+    assert.match(JS, /\/integrity',\s*\n\s*d, null, \{ keepalive:/);
+  });
+});

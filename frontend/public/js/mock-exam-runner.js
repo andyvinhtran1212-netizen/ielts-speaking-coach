@@ -66,15 +66,24 @@
     var sb = window.getSupabase && window.getSupabase();
     if (sb) { var sess = await sb.auth.getSession(); if (!sess.data.session) { location.href = '/index.html'; return; } }
     try {
+      var createdNow = false;
       if (!S.sittingId) {
         if (!S.code) return fail('Thiếu mã kỳ thi (?code=).');
         var created = await api('post', '/api/mock-exams/' + encodeURIComponent(S.code) + '/sittings');
         S.sittingId = created.id;
+        // create_sitting is idempotent — it RESUMES an existing non-terminal
+        // sitting. Only a 'registered' row with nothing submitted is genuinely
+        // new; anything else means we just rejoined one already under way.
+        createdNow = created.status === 'registered'
+          && !created.listening_submitted_at && !created.reading_submitted_at
+          && !created.writing_submitted_at;
       }
       wireIntegrity();
-      // A fresh page load on an exam already in progress IS a resume — count it
-      // before the first route() so a reload mid-section is recorded once.
-      bumpIntegrity('resumes', 1);
+      // Count a RE-entry, never the first one. `created` is set only on the
+      // path that just minted this sitting, so counting unconditionally made
+      // every normal sitting report "vào lại 1×" from birth and "2×" after a
+      // single real reload (Codex review, PR #849).
+      if (!createdNow) bumpIntegrity('resumes', 1);
       await loadState();
       reportIntegrity();
     } catch (e) { fail('Không mở được kỳ thi: ' + (e && e.message ? e.message : e)); }
@@ -709,13 +718,18 @@
     try { localStorage.setItem(integrityKey(), JSON.stringify(d)); } catch (e) {}
   }
 
-  function reportIntegrity() {
+  function reportIntegrity(opts) {
     if (!S.sittingId) return;
     var d = loadIntegrity();
     // Nothing to say yet — don't spend a request on four zeroes.
     if (!(d.blur_count || d.resumes || d.offline_events)) return;
-    window.api.post(
-      '/api/mock-exams/sittings/' + encodeURIComponent(S.sittingId) + '/integrity', d
+    // keepalive on the unload path: a plain fetch from pagehide is normally
+    // cancelled, so the counters would sit in localStorage and — if the student
+    // never loads the page again — never reach the console at all. Same reason
+    // the Writing flush uses postWith (Codex review, PR #849).
+    window.api.postWith(
+      '/api/mock-exams/sittings/' + encodeURIComponent(S.sittingId) + '/integrity',
+      d, null, { keepalive: !!(opts && opts.keepalive) }
     ).catch(function () { /* soft signal — never worth surfacing to a student */ });
   }
 
@@ -732,7 +746,9 @@
       }
     });
     window.addEventListener('offline', function () { bumpIntegrity('offline_events', 1); });
-    window.addEventListener('pagehide', reportIntegrity);
+    window.addEventListener('pagehide', function () {
+      reportIntegrity({ keepalive: true });
+    });
   }
 
   // The browser's own connectivity signal is faster and more reliable than
