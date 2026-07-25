@@ -164,7 +164,8 @@
     return guard(el('btn-collect'), function () {
       return window.api.post('/admin/mock-exams/' + encodeURIComponent(ex.id) + '/collect', {})
         .then(function (r) {
-          toast('Đã thu bài ' + (SECTION_LABEL[r.section] || r.section) + ' — ' + r.collected + ' bài.');
+          toast('Đang thu ' + r.pending + ' bài phần ' +
+            (SECTION_LABEL[r.section] || r.section) + ' — bảng sẽ cập nhật dần.');
           return load();
         })
         .catch(function (e) { toast('Thu bài thất bại: ' + (e && e.message)); });
@@ -310,7 +311,10 @@
             cols.map(function (c) { return '<td>' + cellHtml(s, c) + '</td>'; }).join('') +
             (speaking ? '<td>' + speakingHtml(s) + '</td>' : '') +
             '<td class="ml-muted">' + esc(s.status) + '</td>' +
-            '<td>' + (s.sitting_id
+            // A released sitting is a published result the student can already
+            // see — voiding it would erase that and leave an unsealed `void`
+            // row. Server rejects it too; the UI just shouldn't offer it.
+            '<td>' + (s.sitting_id && s.status !== 'released'
               ? '<button type="button" class="ml-void" data-void="' + esc(s.sitting_id) +
                 '" data-name="' + esc(s.student_name) + '">Huỷ lượt</button>'
               : '') + '</td>' +
@@ -429,7 +433,9 @@
     msg += '\n\nHành động này KHÔNG hoàn tác được.';
     if (!confirm(msg)) return;
     return guard(el('btn-advance'), function () {
-      return window.api.post('/admin/mock-exams/' + encodeURIComponent(ex.id) + '/advance', {})
+      return window.api.post('/admin/mock-exams/' + encodeURIComponent(ex.id) + '/advance',
+        // the section THIS console is showing — a stale tab is rejected
+        { from_section: cur })
         .then(function () { toast('Đã chuyển phần.'); return load(); })
         .catch(function (e) { toast('Thất bại: ' + (e && e.message)); });
     });

@@ -96,6 +96,17 @@ class OpenBody(BaseModel):
     is_open: bool
 
 
+class AdvanceBody(BaseModel):
+    """The section the admin's screen was showing when they clicked.
+
+    Sent so a duplicate click from a stale tab is REJECTED, not replayed: the
+    optimistic compare-and-set alone only catches requests whose DB reads
+    overlap, so two clicks where the first has already committed would both
+    advance and the class would skip a section."""
+
+    from_section: str | None = None
+
+
 class RetestBody(BaseModel):
     needs_retest: bool
     reason: str = ""
@@ -184,6 +195,7 @@ async def set_open(
 async def advance_section(
     exam_id: str,
     background_tasks: BackgroundTasks,
+    body: AdvanceBody = AdvanceBody(),
     authorization: str | None = Header(default=None),
 ):
     """Open the NEXT seated section for every sitting under this exam —
@@ -200,7 +212,7 @@ async def advance_section(
     "chưa thu đủ" and POST /collect?section=… re-runs it."""
     admin = await require_admin(authorization)
     try:
-        out = svc.advance_section(exam_id, admin["id"])
+        out = svc.advance_section(exam_id, admin["id"], body.from_section)
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
     except svc.SittingConflictError as e:
@@ -326,7 +338,13 @@ async def delete_assignment(
     sitting before the eligibility gates. Reports the voided ids rather than
     doing two things silently under one verb."""
     admin = await require_admin(authorization)
-    out = assign_svc.remove(exam_id, student_id, admin_id=admin["id"])
+    try:
+        out = assign_svc.remove(exam_id, student_id, admin_id=admin["id"])
+    except assign_svc.RevocationError as e:
+        # The assignment is gone but an open sitting survived, so access was
+        # NOT revoked. Answering ok:true here would show the admin a revocation
+        # that did not happen.
+        raise HTTPException(409, str(e))
     return {"ok": True, **out}
 
 
@@ -560,3 +578,5 @@ async def void_sitting(
         return svc.void_sitting(sitting_id, admin["id"], body.reason)
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
+    except svc.SittingConflictError as e:
+        raise HTTPException(409, str(e))
