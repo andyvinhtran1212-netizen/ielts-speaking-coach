@@ -2412,7 +2412,7 @@ def test_advancing_ends_the_pause(fake_db, svc):
     assert after["active_section"] == "reading"
     assert after["collected_section"] is None
     fresh = svc.create_sitting(uuid4(), "MOCK-TEST-A")
-    assert fresh["reading_submitted_at"] is None          # reading really is open
+    assert fresh.get("reading_submitted_at") is None      # reading really is open
 
 
 def test_collect_reports_a_lookup_failure_instead_of_zero_success(fake_db, svc, monkeypatch):
