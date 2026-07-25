@@ -707,6 +707,17 @@ def release_results(
     # here + the status-guarded UPDATE below is race-free.
     review = get_review(review_id)
     if review:
+        # A VOIDED sitting must never publish. void_sitting() cancels the exam
+        # but leaves the review row alone, so an admin holding an already-open
+        # review page could still release it — and release flips the sitting
+        # back to 'released' with sealed=False, publishing results that were
+        # explicitly cancelled (Codex review, PR #840).
+        from services import mock_exam_service as _mes
+        _sitting = _mes.get_sitting(review["sitting_id"]) or {}
+        if _sitting.get("status") == "void":
+            raise ConflictError(
+                "Lượt thi đã bị huỷ — không thể công bố kết quả."
+            )
         # The gate exists to stop a Writing BAND reaching the student with no
         # chữa bài behind it. With the band blank (2026-07-15: an uncomputable
         # Writing may be left empty) there is no band to mismatch, so the gate has
