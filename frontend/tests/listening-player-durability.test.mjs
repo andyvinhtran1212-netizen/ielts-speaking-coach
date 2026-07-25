@@ -46,8 +46,12 @@ describe('A1 — an interrupted Listening attempt can be resumed', () => {
   test('audio rejoins the shared class clock, not the student start click', () => {
     assert.match(JS, /function seekAudioToRoom/);
     assert.match(HOOK, /function sectionElapsedSeconds/);
-    // self-timed retake has no shared anchor — must not guess an offset
-    assert.match(HOOK, /=== 'retake'\) return null/);
+    // Elapsed comes from the SECTION clock, whichever kind it is: sequential
+    // uses the shared class clock, retake the per-sitting one. (Retake used to
+    // be excluded here, which threw away a perfectly good anchor and let a
+    // retake refresh replay the audio from 0 — Codex review, PR #834.)
+    assert.match(HOOK, /total - left/);
+    assert.match(HOOK, /st\.active_section !== section\) return null/);
   });
 
   test('multi-select groups are restored too, with their soft-lock', () => {
@@ -116,6 +120,22 @@ describe('A4a — autosave no longer drops answers silently', () => {
     // renderProgressTracker rebuilds every square via innerHTML; without this
     // the page would silently claim the answers are safe.
     assert.match(JS, /STATE\.unsaved\.forEach\(\(state, qNum\) => setSaveState\(qNum, state\)\)/);
+  });
+
+  test('the drain also flushes pending RETRY timers', () => {
+    // A failed PATCH leaves no debounce timer and nothing in flight — only a
+    // saveRetryTimers entry. Ignoring those let submit finalise the attempt
+    // while a retry was still queued; the delayed PATCH then 422'd and grading
+    // permanently omitted that answer.
+    assert.match(JS, /!STATE\.saveTimers\.size && !STATE\.inflight\.size && !STATE\.saveRetryTimers\.size/);
+    assert.match(JS, /STATE\.saveRetryTimers\.keys\(\)/);
+  });
+
+  test('batch retries are sequential, not concurrent', () => {
+    // The backend rewrites the whole answers array per request, so parallel
+    // retries overwrite each other while each reports success.
+    assert.match(JS, /async function retryFailedSaves/);
+    assert.match(JS, /for \(const qNum of due\) \{\s*\n\s*await saveAnswer/);
   });
 
   test('coming back online retries the given-up saves', () => {

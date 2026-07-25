@@ -1173,10 +1173,17 @@ function renderUnsavedNote() {
 
 // Manual + automatic escape hatch out of the terminal state. Coming back online
 // is by far the commonest reason a given-up save would now succeed.
-function retryFailedSaves() {
+async function retryFailedSaves() {
   const due = [];
   STATE.unsaved.forEach((state, qNum) => { if (state === 'failed') due.push(qNum); });
-  due.forEach((qNum) => { void saveAnswer(qNum, STATE.answers.get(qNum)); });
+  // SEQUENTIALLY. Coming back online typically releases several failed answers
+  // at once, and until the atomic RPC lands the backend reads and rewrites the
+  // WHOLE answers array per request — so firing them together lets each one
+  // overwrite the others while every response still reports success and clears
+  // its own warning (Codex review, PR #837).
+  for (const qNum of due) {
+    await saveAnswer(qNum, STATE.answers.get(qNum)).catch(() => {});
+  }
 }
 
 // Drain every pending save before finalising, INCLUDING ones that had to be
@@ -1200,7 +1207,18 @@ async function flushAllPendingSaves(maxRounds = 6) {
       // Read the CURRENT value, not one captured before the wait.
       await saveAnswer(q, STATE.answers.get(q)).catch(() => {});
     }
-    if (!STATE.saveTimers.size && !STATE.inflight.size) return;
+    // A transiently-failed PATCH leaves NO debounce timer and nothing in
+    // flight — only a saveRetryTimers entry. Ignoring those meant the drain
+    // returned immediately, confirmSubmit finalised the attempt, and the
+    // delayed retry was rejected with 422, so grading permanently omitted that
+    // answer (Codex review, PR #837).
+    if (!STATE.saveTimers.size && !STATE.inflight.size && !STATE.saveRetryTimers.size) return;
+    // Pull any waiting retry forward rather than sleeping out its backoff.
+    for (const q of Array.from(STATE.saveRetryTimers.keys())) {
+      clearTimeout(STATE.saveRetryTimers.get(q));
+      STATE.saveRetryTimers.delete(q);
+      await saveAnswer(q, STATE.answers.get(q)).catch(() => {});
+    }
     // Give the in-flight request a moment to settle so its re-queued
     // successor becomes visible on the next round.
     await new Promise((r) => setTimeout(r, 150));
