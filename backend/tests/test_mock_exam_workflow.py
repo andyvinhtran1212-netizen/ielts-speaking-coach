@@ -862,6 +862,31 @@ def test_submit_section_writing_empty_text_still_accepted(fake_db, svc):
     assert result["writing_submitted_at"] is not None
 
 
+def test_writing_finalisation_is_one_write(fake_db, svc):
+    """Codex #835 (correct, P1): submit_writing() wrote the payload and
+    submit_section() stamped writing_submitted_at as a SEPARATE statement, so an
+    autosave from another tab — or an older request the client no longer tracks
+    — could pass the null-timestamp predicate in between and replace the final
+    payload before _promote_writing_essays() read it. The student would submit
+    one essay and have a stale draft graded."""
+    exam = _seed_exam(fake_db, listening=False, reading=False)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], str(uuid4()))     # → writing
+    _expire_section(fake_db, exam["id"], "writing")
+
+    svc.submit_section(s["id"], u, "writing",
+                       task1_text="final one", task2_text="final two")
+
+    row = svc.get_sitting(s["id"])
+    assert row["writing_submitted_at"], "the stamp must land"
+    assert row["writing_submission"]["task1"]["text"] == "final one"
+    # ...and a late draft can no longer overwrite what was graded
+    with pytest.raises(svc.SittingConflictError):
+        svc.submit_writing(s["id"], u, "late draft", "late draft")
+    assert svc.get_sitting(s["id"])["writing_submission"]["task1"]["text"] == "final one"
+
+
 def test_record_speaking_empty_raises(fake_db, svc):
     """Finding 2: an empty session list cannot mark Speaking complete."""
     _seed_exam(fake_db, speaking=True)
