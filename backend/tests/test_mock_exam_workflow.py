@@ -2486,6 +2486,43 @@ def test_unassign_voids_the_sitting_the_student_already_opened(fake_db, svc):
     assert after["sealed"] is True
 
 
+def test_void_rejects_a_released_sitting(fake_db, svc):
+    """Codex #840 (correct): void_sitting had no terminal guard, so an
+    invigilator could cancel a PUBLISHED result — erasing what the student can
+    already see and leaving a `void` row whose seal was lifted at release."""
+    exam = _seed_exam(fake_db)
+    sid = str(uuid4())
+    fake_db.seed("mock_exam_sittings", {
+        "id": sid, "mock_exam_id": exam["id"], "user_id": str(uuid4()),
+        "status": "released", "sealed": False,
+    })
+    with pytest.raises(svc.SittingConflictError):
+        svc.void_sitting(sid, "admin-1", reason="nhầm")
+    assert svc.get_sitting(sid)["status"] == "released"
+
+
+def test_unassign_reports_when_revocation_failed(fake_db, svc, monkeypatch):
+    """Codex #840 (correct): swallowing the void failure and still answering
+    ok:true was the dangerous half — the assignment vanishes from the admin's
+    list while the sitting stays usable (create_sitting resumes it BEFORE the
+    eligibility gates), so the UI shows access revoked when it is not."""
+    from services import mock_exam_assignment_service as a
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    u = str(uuid4())
+    a.assign(exam["id"], [{"user_id": u, "skills": ["writing"], **_WINDOW}],
+             created_by=str(uuid4()))
+    svc.create_sitting(u, "MOCK-TEST-A")
+
+    def boom(*_a, **_k):
+        raise RuntimeError("db down")
+    monkeypatch.setattr(svc, "void_sitting", boom)
+
+    with pytest.raises(a.RevocationError):
+        a.remove(exam["id"], u, admin_id="admin-1")
+
+
 def test_unassign_leaves_a_finished_sitting_alone(fake_db, svc):
     """Only NON-TERMINAL sittings are voided. A released result is a record of
     something that really happened and must not be rewritten by an un-assign."""
