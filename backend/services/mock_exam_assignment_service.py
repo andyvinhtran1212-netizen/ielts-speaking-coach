@@ -120,8 +120,13 @@ def assign(exam_id, rows, *, created_by, source_exam_id=None) -> dict:
             merged[uid]["open_until"] = row.get("open_until")
 
     # Validate every window up-front so a bad one fails the request cleanly
-    # (400) instead of persisting a subset then raising mid-batch.
+    # (400) instead of persisting a subset then raising mid-batch — but only for
+    # rows that will actually be WRITTEN. A skill-less row is documented to be
+    # skipped, so validating its window aborted the entire request and left the
+    # valid students in the same batch unassigned (Codex review, PR #839).
     for uid in order:
+        if not merged[uid]["skills"]:
+            continue
         _validate_window(merged[uid]["open_from"], merged[uid]["open_until"])
 
     group_id = str(uuid4())
@@ -255,6 +260,17 @@ def remove(exam_id, user_id, *, admin_id=None) -> dict:
     rather than silently doing two different things under one verb.
     """
     from services import mock_exam_service  # local import avoids an import cycle
+
+    # Only ever cancel a sitting for a REAL assignment. Without this a stale or
+    # hand-made DELETE aimed at a sequential exam — or at a user who has no
+    # assignment at all — would cancel that student's live sitting, where the old
+    # implementation was a harmless no-op (Codex review, PR #840).
+    if not (supabase_admin.table("mock_exam_assignments").select("id")
+            .eq("exam_id", str(exam_id)).eq("user_id", str(user_id))
+            .limit(1).execute().data or []):
+        logger.info("[retake] unassign: no assignment exam=%s user=%s — no-op",
+                    exam_id, user_id)
+        return {"voided": []}
 
     open_rows = (supabase_admin.table("mock_exam_sittings").select("id")
                  .eq("mock_exam_id", str(exam_id)).eq("user_id", str(user_id))
