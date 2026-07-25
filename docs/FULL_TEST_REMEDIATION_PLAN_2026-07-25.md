@@ -46,24 +46,24 @@ là một gói, không tách ra merge lẻ.
 
 | # | PR | Nội dung |
 |---|---|---|
-| Wave 0 | [#832](../../pull/832) | Writing chọn bố cục + kéo giãn |
-| | [#833](../../pull/833) | Phòng thi trực tiếp |
-| Wave 1 | [#834](../../pull/834) | **A1** Listening khôi phục bài ◀ P0 |
-| | [#835](../../pull/835) | **A2** Writing lưu nháp lên server ◀ P0 |
-| | [#836](../../pull/836) | **A3** Mất mạng thì thử lại |
-| | [#837](../../pull/837) | **A4a** Listening autosave bền |
-| | [#838](../../pull/838) | **A4b** Ghi đáp án nguyên tử · **mig 161** |
-| Wave 1b | [#839](../../pull/839) | **D3** Bắt buộc hạn đóng retake |
-| MỘT GÓI | [#840](../../pull/840) | **D4** Gỡ assignment → huỷ sitting + nút gỡ kẹt |
-| | [#841](../../pull/841) | **C3** Chặn 2 sitting cùng lúc · **mig 162** (+ finding **E**) |
-| Wave 2 | [#842](../../pull/842) | **B2** Chống đua khi mở phần tiếp theo |
-| | [#843](../../pull/843) | **B4** Tách thu bài khỏi mở phần sau |
-| | [#844](../../pull/844) | **B3** Thu bài chạy nền + lưới an toàn |
-| Wave 3 | [#845](../../pull/845) | **D2** Sửa assignment tới sitting đã mở |
-| | [#846](../../pull/846) | **D5** Reaper hết N+1 |
-| Wave 4 | [#847](../../pull/847) | **A5** Speaking thử lại + gỡ kẹt |
-| | [#848](../../pull/848) | Trang "nhịp làm bài" (đo đạc **bậc 1**) |
-| | [#849](../../pull/849) | Tín hiệu integrity (**bậc 3**) |
+| Wave 0 | [#832](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/832) | Writing chọn bố cục + kéo giãn |
+| | [#833](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/833) | Phòng thi trực tiếp |
+| Wave 1 | [#834](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/834) | **A1** Listening khôi phục bài ◀ P0 |
+| | [#835](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/835) | **A2** Writing lưu nháp lên server ◀ P0 |
+| | [#836](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/836) | **A3** Mất mạng thì thử lại |
+| | [#837](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/837) | **A4a** Listening autosave bền |
+| | [#838](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/838) | **A4b** Ghi đáp án nguyên tử · **mig 161** |
+| Wave 1b | [#839](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/839) | **D3** Bắt buộc hạn đóng retake |
+| MỘT GÓI | [#840](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/840) | **D4** Gỡ assignment → huỷ sitting + nút gỡ kẹt |
+| | [#841](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/841) | **C3** Chặn 2 sitting cùng lúc · **mig 162** (+ finding **E**) |
+| Wave 2 | [#842](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/842) | **B2** Chống đua khi mở phần tiếp theo |
+| | [#843](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/843) | **B4** Tách thu bài khỏi mở phần sau |
+| | [#844](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/844) | **B3** Thu bài chạy nền + lưới an toàn |
+| Wave 3 | [#845](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/845) | **D2** Sửa assignment tới sitting đã mở |
+| | [#846](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/846) | **D5** Reaper hết N+1 |
+| Wave 4 | [#847](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/847) | **A5** Speaking thử lại + gỡ kẹt |
+| | [#848](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/848) | Trang "nhịp làm bài" (đo đạc **bậc 1**) |
+| | [#849](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/849) | Tín hiệu integrity (**bậc 3**) |
 
 Test: backend **3890 → 3943 passed** (+53), frontend **5364 → 5396 passed** (+32),
 0 fail. Không skip / xfail / `--ignore` bất kỳ test nào.
@@ -180,7 +180,7 @@ trí cả lớp đang nghe.
 
 | Bước | Việc | File |
 |---|---|---|
-| 1 | Endpoint mới `GET /api/listening/tests/{test_id}/attempts/in-progress` → `{attempt_id, started_at, answers[]}` hoặc `null`. **Không** sửa endpoint bundle dùng chung. | `backend/routers/listening.py` |
+| 1 | Endpoint mới `GET /api/listening/tests/{test_id}/attempts/in-progress?sitting_id=…` → `{attempt_id, started_at, answers[]}` hoặc `null`. **Không** sửa endpoint bundle dùng chung. **Phải lọc theo `sitting_id`:** `listening_test_attempts.sitting_id` là thứ phân biệt bài THI với bài luyện thường. Chỉ định danh theo (user, test) thì học viên có attempt luyện tập cũ dang dở trên đúng đề sau này được gán vào mock sẽ được resume và attach nhầm attempt đó — chốt ở bước 5 chỉ bảo vệ attempt ĐÃ gắn và ĐÃ có đáp án. Nhánh mock đòi đúng `sitting_id` hiện tại; nhánh luyện đơn lẻ đòi `sitting_id IS NULL` (chiều ngược lại: đang có attempt mock sống thì mở đề đó từ thư viện Listening thường KHÔNG được resume vào bài thi). | `backend/routers/listening.py`, `mock_exam_service.attach_attempt()` |
 | 2 | Prestart hiện nút "Tiếp tục bài đang làm"; khôi phục `STATE.answers`, `STATE.attemptId`. | `listening-test-player.js` |
 | 3 | `setupEmbed()` ưu tiên nút resume của Listening (mở rộng danh sách selector, giống cách nó đã ưu tiên `exam-resume-btn-prestart` của Reading). | `mock-exam-hook.js` |
 | 4 | **Audio (QĐ 2):** seek tới `now − exam.listening_started_at` — đồng hồ lớp dùng chung. Học viên mất phần audio đã trôi qua, đúng như phòng thi thật. | `listening-test-player.js` |
@@ -447,9 +447,23 @@ sách exam retake (nhỏ), `.in_("mock_exam_id", retake_ids)`, cache dict exam c
 ### PR-15 · Phân tích tiến trình bậc 1 — **không cần thu thập gì thêm**
 
 `reading_attempt_answers.answered_at` và `listening_test_attempts.answers[].answered_at`
-đã đủ dựng: **thời gian trên từng câu** (hiệu số các mốc), thứ tự làm bài thật, số lần
-đổi đáp án, điểm bỏ cuộc. Dữ liệu đang nằm đó và **chưa ai đọc**. Chỉ cần một trang phân
-tích hậu kỳ.
+đã đủ dựng một **phân tích bậc 1 thật thà**, và dữ liệu đang nằm đó **chưa ai đọc**. Chỉ
+cần một trang phân tích hậu kỳ — không phải thu thập gì thêm.
+
+**Nhưng phải nói rõ hai kho này lưu gì.** Cả hai chỉ giữ **giá trị CUỐI CÙNG cho mỗi
+câu**: Reading UPSERT theo `(attempt_id, q_num)`, Listening thay thế phần tử cùng `q_num`
+trong mảng JSON. Vậy nên:
+
+| Suy ra được | KHÔNG suy ra được |
+|---|---|
+| Thứ tự các lần ghi CUỐI hạ cánh (≈ "thứ tự làm sau cùng") | Thứ tự làm bài **thật** (lần chạm đầu tiên) |
+| Khoảng cách giữa hai lần ghi cuối liên tiếp | **Thời gian nghĩ trên từng câu** |
+| Điểm bỏ cuộc (đuôi im lặng trước giờ nộp) | **Số lần đổi đáp án** |
+
+Bản đã ship (#848) chỉ hiển thị cột trái, và tự khai `caveats` trong payload để giao diện
+không thể lặng lẽ trình bày chúng như think-time chính xác. Muốn cột phải thì phải ghi
+**nhật ký sự kiện append-only** cho mỗi lần lưu — một thay đổi lược đồ riêng, KHÔNG nằm
+trong PR-15 (Codex review, PR #850).
 
 ### PR-16 · Tín hiệu integrity bậc 3
 
@@ -458,7 +472,14 @@ resumes}`) nhưng chưa ai ghi. Ghi kèm mỗi lần autosave: đếm `visibilit
 resume, số lần mất kết nối, độ lệch đồng hồ client-server. Không cần bảng mới.
 
 > **Bậc 2** (đường cong số từ Writing theo thời gian — lúc nào bắt đầu Task 2, dừng bao
-> lâu, có viết vội 100 từ cuối trong 3 phút không) là **sản phẩm phụ miễn phí của PR-2**.
+> lâu, có viết vội 100 từ cuối trong 3 phút không) **KHÔNG phải sản phẩm phụ miễn phí của
+> PR-2.** PR-2 dùng lại `submit_writing()`, mà hàm đó **ghi đè**
+> `mock_exam_sittings.writing_submission` bằng MỘT ảnh chụp mới nhất của hai task: số từ
+> và mốc thời gian của các lần autosave trước không được giữ lại, nên không dựng lại được
+> đường cong nào cả. Bản đã ship (#848) vì thế chỉ hiển thị **số từ cuối + lần lưu cuối
+> mỗi task** — đúng những gì kho dữ liệu thật sự có. Muốn đường cong thì phải ghi thêm
+> **mẫu (thời điểm, số từ) nối đuôi** ở tầng lưu chính tắc — một thay đổi lược đồ riêng
+> (Codex review, PR #850).
 
 ---
 
