@@ -678,10 +678,15 @@
           await loadState();
         } catch (e2) { /* fall through to the retry ladder below */ }
         var sit = S.sitting || {};
-        if (sit[section + '_submitted_at'] || S.activeSection !== section) {
+        // A VOIDED sitting keeps the same active_section, so without this it
+        // failed the check, scheduled every retry, and restarted polling after
+        // fail() had already stopped it (Codex review, PR #836).
+        var terminal = sit.status === 'void' || sit.status === 'released'
+          || (sit.status && sit.status !== 'registered' && sit.status !== 'lrw_in_progress');
+        if (terminal || sit[section + '_submitted_at'] || S.activeSection !== section) {
           _submitting = false;
           setConn(null);
-          return;                       // genuinely collected / moved on
+          return;                       // genuinely collected / moved on / cancelled
         }
         // Still our open, unsubmitted section — this was a different conflict.
         // Keep trying rather than silently stranding the student.

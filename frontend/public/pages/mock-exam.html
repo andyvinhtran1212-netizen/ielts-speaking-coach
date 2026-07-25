@@ -127,6 +127,11 @@
   </style>
 </head>
 <body class="av-page font-sans">
+  <!-- Connection state — OUTSIDE #state-test on purpose. Nested inside it the
+       banner was hidden in the waiting room, i.e. exactly when a student who
+       has lost the server most needs to know: they could sit through the admin
+       opening the next timed section without a clue. -->
+  <div class="me-conn-banner" id="conn-banner" role="status" aria-live="polite"></div>
   <div id="state-loading" class="me-center me-muted" style="text-align:center;padding:60px 16px">Đang tải kỳ thi…</div>
   <div id="state-error" class="hidden me-center"><div class="me-card" style="text-align:center;color:var(--av-error)"></div></div>
 
@@ -153,7 +158,6 @@
          about the exam, this one is about the network, and a student who has
          lost the server needs to be told rather than left watching a countdown
          run on stale data. -->
-    <div class="me-conn-banner" id="conn-banner" role="status" aria-live="polite"></div>
     <div class="me-panels" id="panels">
       <iframe id="panel-frame" class="hidden" title="Bài thi"></iframe>
       <div class="me-writing hidden" id="panel-writing">
