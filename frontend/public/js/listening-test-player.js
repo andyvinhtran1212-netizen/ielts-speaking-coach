@@ -1110,6 +1110,34 @@ function updateTabProgressCounts() {
 const SAVE_DEBOUNCE_MS = 500;
 const SAVE_RETRY_DELAYS = [400, 1200, 3000];
 
+// ONE answer PATCH at a time for the WHOLE attempt.
+//
+// The in-flight guard in saveAnswer() is per QUESTION, so it does nothing about
+// two different questions writing at once — and a transient outage fails
+// several saves together, each arming its own backoff timer. Making
+// retryFailedSaves() sequential fixed only the manual/online path; the
+// timer-driven retries still overlapped. That matters because the endpoint
+// read-modify-writes the whole `answers` array, so concurrent writers overwrite
+// one another while every response reports success and clears its own warning —
+// the submitted test then silently omits answers (Codex review, PR #837).
+//
+// Serialising here is the client half of the fix; PR #838 makes the write
+// itself atomic server-side. Both are worth having: the queue also stops two
+// requests for the SAME question crossing on the wire.
+let _patchChain = Promise.resolve();
+const PATCH_QUEUE_MAX_WAIT_MS = 15000;
+
+function enqueuePatch(fn) {
+  const run = _patchChain.then(fn, fn);
+  // A hung request must never wedge every later save, so the queue moves on
+  // after a bounded wait even while that request is still open.
+  _patchChain = Promise.race([
+    run.then(() => {}, () => {}),
+    new Promise((resolve) => setTimeout(resolve, PATCH_QUEUE_MAX_WAIT_MS)),
+  ]);
+  return run;
+}
+
 // Retry only what a retry can fix. No `status` → the request never produced a
 // response (offline, DNS, dropped connection). `status >= 500` → server or
 // gateway. A 4xx is deterministic — 401/403 (access), 404 (attempt gone), 422
@@ -1267,10 +1295,10 @@ async function saveAnswer(qNum, value, opts) {
 
   STATE.inflight.add(qNum);
   try {
-    await window.api.patch(
+    await enqueuePatch(() => window.api.patch(
       `/api/listening/tests/attempts/${encodeURIComponent(STATE.attemptId)}/answers`,
       { q_num: qNum, user_answer: value == null ? '' : String(value) },
-    );
+    ));
     if (gen === STATE.saveGen.get(qNum)) {
       setSaveState(qNum, null);
       const el = document.querySelector(`.ft-q-input[data-q-num="${qNum}"]`);
