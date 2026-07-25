@@ -298,12 +298,26 @@ def remove(exam_id, user_id, *, admin_id=None) -> dict:
                     exam_id, user_id)
         return {"voided": []}
 
-    open_rows = (supabase_admin.table("mock_exam_sittings").select("id")
-                 .eq("mock_exam_id", str(exam_id)).eq("user_id", str(user_id))
-                 .not_.in_("status", ["released", "void"]).execute().data or [])
-
+    # DELETE THE ASSIGNMENT FIRST, then look for sittings. The other order left
+    # a real window: a student pressing "Bắt đầu" concurrently could read the
+    # assignment (still present), and insert their sitting after this scan and
+    # before the delete — so the new sitting was never voided, subsequent
+    # refreshes resumed it before the eligibility gates, and this endpoint
+    # reported a successful revocation (Codex review, PR #840).
+    #
+    # PostgREST gives no cross-table transaction, so this cannot be made
+    # strictly serialisable here. Deleting first closes the window from the
+    # other side — once the assignment is gone create_sitting() refuses — and
+    # the SECOND scan below catches anyone who slipped through in between.
     supabase_admin.table("mock_exam_assignments").delete().eq(
         "exam_id", str(exam_id)).eq("user_id", str(user_id)).execute()
+
+    def _open_sittings() -> list:
+        return (supabase_admin.table("mock_exam_sittings").select("id")
+                .eq("mock_exam_id", str(exam_id)).eq("user_id", str(user_id))
+                .not_.in_("status", ["released", "void"]).execute().data or [])
+
+    open_rows = _open_sittings()
 
     voided, failed = [], []
     for row in open_rows:
@@ -327,6 +341,29 @@ def remove(exam_id, user_id, *, admin_id=None) -> dict:
             f"({len(failed)}). Học viên vẫn vào được — hãy huỷ lượt thủ công "
             "trên trang phòng thi trực tiếp."
         )
+
+    # SECOND PASS. A sitting inserted between the delete and the first scan is
+    # exactly the interleaving above; catching it here turns a silent access
+    # leak into one extra query.
+    late = [r for r in _open_sittings() if str(r["id"]) not in voided]
+    for row in late:
+        try:
+            mock_exam_service.void_sitting(
+                row["id"], admin_id or "system",
+                reason="Gỡ khỏi danh sách được gán bài test lại.",
+            )
+            voided.append(str(row["id"]))
+            logger.warning(
+                "[retake] unassign: voided a sitting created mid-request sitting=%s",
+                row["id"],
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception("[retake] unassign: late void failed sitting=%s", row["id"])
+            raise RevocationError(
+                "Đã gỡ khỏi danh sách nhưng học viên vừa kịp mở một lượt thi mới "
+                "và KHÔNG huỷ được — hãy huỷ lượt thủ công trên trang phòng thi "
+                "trực tiếp."
+            )
 
     logger.info("[retake] unassign exam=%s user=%s voided=%d",
                 exam_id, user_id, len(voided))
