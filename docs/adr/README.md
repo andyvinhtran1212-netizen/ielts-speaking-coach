@@ -16,5 +16,6 @@ Quyết định kiến trúc của chương trình migration (plan: `docs/FE_NEX
 | 010 | Mutation kill switch | **Shipped** (PR #732, mig 155 prod+staging) | wired tại PATCH /auth/profile; drill đo 2026-07-13 |
 | 011 | Auth state machine | Accepted | two-user isolation: staging-e2e specs; abort-in-flight + signOut{error} vá theo audit F6 — xem bảng trạng thái trong ADR |
 | 012 | Observability contract | Accepted | dashboard: migration-stats + rollback-metrics (audit F1) + RUM web-vitals (audit F2) |
+| 013 | Early-stage rollout profile (thay soak-dài cho low-traffic) | **Accepted 2026-07-25** | sửa §12.3 + ADR-007 §6; tốt-nghiệp re-đánh giá tại Gate D khi scale |
 
 _Cập nhật cột "Điều kiện mở" 2026-07-14 (audit F8) — index này từng lỗi thời so với ADR bodies; khi đóng một điều kiện mở phải sửa CẢ index này._
