@@ -30,12 +30,42 @@ window.MockHook = (function () {
     var tries = 0;
     var iv = setInterval(function () {
       tries++;
-      var resume = document.getElementById('exam-resume-btn-prestart');
+      // RESUME ALWAYS WINS. This auto-click is why a refresh used to be
+      // destructive: it fired the runner's start path, which for Listening
+      // abandons the open attempt and mints an empty one. Both runners now
+      // publish a resume button, and it is preferred whenever it is on screen.
+      var resume = document.getElementById('exam-resume-btn-prestart')
+        || document.getElementById('ft-resume-btn');
       var start = document.getElementById('exam-start-btn') || document.getElementById('btn-start');
       var btn = (resume && resume.offsetParent !== null) ? resume : start;
       if (btn && btn.offsetParent !== null) { btn.click(); clearInterval(iv); }
       else if (tries > 50) clearInterval(iv);   // give up after ~10s
     }, 200);
+  }
+
+  // Seconds since the invigilator opened the CURRENT section, from the shared
+  // exam clock (not this student's own start click). A Listening runner that
+  // resumes mid-section seeks the audio here so the student rejoins the room
+  // where it actually is — they lose the audio that played while they were
+  // gone, exactly as in a real exam hall.
+  //
+  // Returns null when there is no sitting, the lookup fails, or the section is
+  // self-timed (retake) — the caller must then leave the audio alone rather
+  // than guess an offset.
+  async function sectionElapsedSeconds(section) {
+    var sid = sittingId();
+    if (!sid || !(window.api && window.api.get)) return null;
+    try {
+      var st = await window.api.get('/api/mock-exams/sittings/' + encodeURIComponent(sid));
+      if (!st || st.active_section !== section) return null;
+      if ((st.exam_mode || 'sequential') === 'retake') return null;
+      var total = st.section_duration_seconds, left = st.section_time_left_seconds;
+      if (total == null || left == null) return null;
+      return Math.max(0, total - left);
+    } catch (e) {
+      console.warn('[mock-hook] section elapsed lookup failed', e);
+      return null;
+    }
   }
 
   async function attach(section, attemptId) {
@@ -82,5 +112,5 @@ window.MockHook = (function () {
 
   return { sittingId: sittingId, active: active, embedded: embedded, attach: attach,
            isSealedResponse: isSealedResponse, showSealedAndReturn: showSealedAndReturn,
-           setupEmbed: setupEmbed };
+           setupEmbed: setupEmbed, sectionElapsedSeconds: sectionElapsedSeconds };
 })();

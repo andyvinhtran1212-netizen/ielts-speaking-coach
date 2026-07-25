@@ -4552,6 +4552,51 @@ async def admin_get_listening_attempt(
     return out
 
 
+@user_router.get("/tests/{test_id}/attempts/in-progress")
+async def get_in_progress_listening_attempt(
+    test_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """The caller's still-open attempt at this test, or null.
+
+    Exists so a Listening runner can RESUME instead of starting over. Without
+    it the only path to an attempt was POST /attempts, which abandons the
+    previous one and mints an empty replacement — so a refresh (or, inside a
+    4-skill mock, the embed's automatic start-click) silently destroyed every
+    answer the student had given.
+
+    Deliberately a separate endpoint rather than a field on the shared test
+    bundle: that bundle is served to several callers and is cacheable, while
+    this is per-user and must never be cached.
+    """
+    user = await _require_auth(authorization)
+    res = (
+        supabase_admin.table("listening_test_attempts")
+        .select("id, started_at, created_at, answers")
+        .eq("user_id", user["id"])
+        .eq("test_id", test_id)
+        .eq("status", "in_progress")
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    if not res.data:
+        return {"attempt": None}
+    row = res.data[0]
+    return {
+        "attempt": {
+            "attempt_id": row["id"],
+            "started_at": row.get("started_at") or row.get("created_at"),
+            # Only answers with real content — a blank row is not progress and
+            # would make the resume screen overstate what was recovered.
+            "answers": [
+                a for a in (row.get("answers") or [])
+                if str(a.get("user_answer") or "").strip()
+            ],
+        }
+    }
+
+
 @user_router.post("/tests/{test_id}/attempts")
 async def start_listening_test_attempt(
     test_id: str,
@@ -4560,6 +4605,10 @@ async def start_listening_test_attempt(
     """Open a new student attempt session. Marks any previously open
     in-progress attempt for the same (user, test) as abandoned so the
     1-active-attempt invariant holds.
+
+    NOTE: this is the "start over" path and it is destructive by design. A
+    caller that wants to CONTINUE must first check
+    GET /tests/{test_id}/attempts/in-progress — see that endpoint's docstring.
     """
     user = await _require_auth(authorization)
 

@@ -115,6 +115,13 @@ async def get_sitting_state(
         "assigned_skills": assigned,
         "active_section": active,
         "section_time_left_seconds": time_left,
+        # Full length of the open section. With time_left it gives ELAPSED,
+        # which is what a resuming Listening runner needs to seek the audio to
+        # the point the rest of the room is already at (the shared clock is on
+        # the exam, not on the student's own start click).
+        "section_duration_seconds": (
+            svc.section_duration_seconds(exam, active) if exam else None
+        ),
     }
 
 
