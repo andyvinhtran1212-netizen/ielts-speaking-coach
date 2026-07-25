@@ -248,10 +248,15 @@ def _field_key(label: str) -> Optional[str]:
     return None
 
 
-def parse_rich_solutions(sol_text: str) -> dict:
+def parse_rich_solutions(sol_text: str, hdr_re: re.Pattern = _SOL_HDR_RE) -> dict:
     """{q_num: {band, skill_code, skill_name, steps, source_excerpt, vocab[],
     paraphrase, trap_analysis, tips, question_text}} from the '### B. Giải chi
-    tiết' blocks. vocab is split on ';' into a list; other fields are prose."""
+    tiết' blocks. vocab is split on ';' into a list; other fields are prose.
+
+    `hdr_re` selects the per-question header dialect; it must expose the same 5
+    positional groups (q_num, answer, skill_code, skill_name, band). Full tests
+    use `_SOL_HDR_RE`; the skill drills carry looser headers and pass their own
+    (`reading_drill_import._DRILL_SOL_HDR_RE`)."""
     lines = sol_text.splitlines()
     out: dict[int, dict] = {}
     cur_q: Optional[int] = None
@@ -266,7 +271,7 @@ def parse_rich_solutions(sol_text: str) -> dict:
             out[cur_q] = {k: val for k, val in cur.items() if val not in (None, "", [])}
 
     for line in lines:
-        h = _SOL_HDR_RE.match(line.strip())
+        h = hdr_re.match(line.strip())
         if h:
             flush()
             cur_q = int(h.group(1))

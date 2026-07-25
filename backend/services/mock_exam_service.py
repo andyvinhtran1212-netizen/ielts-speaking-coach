@@ -779,9 +779,19 @@ def submit_writing(
         "task2": {"text": task2_text or "", "word_count": _word_count(task2_text),
                   "submitted_at": now},
     }
+    # CONDITIONAL on the section still being open. The check above and this
+    # write are not atomic, so an admin advance, the retake reaper, or another
+    # tab could finalise Writing in between — and a late autosave would then
+    # overwrite writing_submission AFTER _promote_writing_essays() had already
+    # copied the older text, leaving the admin's word count disagreeing with the
+    # essay actually graded (Codex review, PR #835).
     resp = supabase_admin.table("mock_exam_sittings").update({
         "writing_submission": submission,
-    }).eq("id", str(sitting_id)).execute()
+    }).eq("id", str(sitting_id)).is_("writing_submitted_at", "null").execute()
+    if not resp.data:
+        raise SittingConflictError(
+            "Phần Writing vừa được thu — bản nháp gửi sau không được ghi đè."
+        )
     logger.info("[mock-exam] sitting=%s writing captured", sitting_id)
     return resp.data[0] if resp.data else {**sitting, "writing_submission": submission}
 
@@ -1581,6 +1591,19 @@ def void_sitting(sitting_id: str, admin_id: str, reason: str = "") -> dict:
         "status": "void",
         "integrity": integrity,
     }).eq("id", str(sitting_id)).execute()
+    # Cancel the linked review too. Leaving it 'reviewed' let a stale review page
+    # still call release_results(), which flips the sitting back to 'released'
+    # with sealed=False — publishing an exam that was explicitly cancelled.
+    # release_results now refuses a voided sitting as well; this is the other
+    # half, so the two records cannot disagree (Codex review, PR #840).
+    try:
+        supabase_admin.table("mock_exam_reviews").update({
+            "status": "void",
+        }).eq("sitting_id", str(sitting_id)).not_.in_(
+            "status", ["released", "void"],
+        ).execute()
+    except Exception:  # noqa: BLE001 — the sitting is already void; log and move on
+        logger.exception("[mock-exam] void: review cancel failed sitting=%s", sitting_id)
     logger.info("[mock-exam] sitting=%s VOIDED by admin=%s", sitting_id, admin_id)
     return resp.data[0] if resp.data else {**sitting, "status": "void"}
 
@@ -1786,7 +1809,8 @@ def pending_in_section(exam_id: str, section: str) -> int:
     return len(rows.data or [])
 
 
-def collect_preflight(exam_id: str, section: Optional[str] = None) -> dict:
+def collect_preflight(exam_id: str, section: Optional[str] = None,
+                      from_section: Optional[str] = None) -> dict:
     """Validate a collect request and report what it will sweep.
 
     Split from the sweep itself because the sweep is queued as a background
@@ -1799,6 +1823,17 @@ def collect_preflight(exam_id: str, section: Optional[str] = None) -> dict:
     if is_retake(exam):
         raise SittingConflictError("Đề test lại tự thu bài theo từng học viên.")
     current = exam.get("active_section") or "not_started"
+    # Same stale-screen guard as /advance. Without it a monitor still showing
+    # Listening — because another invigilator advanced during the confirm dialog
+    # or inside the 5s poll window — sends a request carrying no section
+    # identity, and this re-reads the CANONICAL active_section and sweeps
+    # READING instead: irreversibly submitting every Reading paper the moment it
+    # opened (Codex review, PR #843).
+    if from_section and from_section != current:
+        raise SittingConflictError(
+            f"Màn hình của bạn đang hiển thị phần {from_section!r} nhưng kỳ thi "
+            f"đã ở phần {current!r} — có thao tác khác vừa chuyển phần. Tải lại trang."
+        )
     target = section or current
     if target not in _LRW_ORDER:
         raise SittingConflictError("Chưa có phần nào đang mở để thu bài.")
@@ -1815,7 +1850,8 @@ def collect_preflight(exam_id: str, section: Optional[str] = None) -> dict:
     return {"section": target, "pending": pending_in_section(exam_id, target)}
 
 
-def collect_section(exam_id: str, admin_id: str, section: Optional[str] = None) -> dict:
+def collect_section(exam_id: str, admin_id: str, section: Optional[str] = None,
+                    from_section: Optional[str] = None) -> dict:
     """Admin THU BÀI for the open section — without opening the next one (B4).
 
     "Thu bài" and "mở phần sau" used to be one irreversible button, so the real
@@ -1832,7 +1868,7 @@ def collect_section(exam_id: str, admin_id: str, section: Optional[str] = None) 
     which is the recovery path when a background sweep died half-way (a Railway
     restart mid-task) and left papers uncollected behind a moved-on exam.
     """
-    target = collect_preflight(exam_id, section)["section"]
+    target = collect_preflight(exam_id, section, from_section)["section"]
     collected = _force_collect_section(exam_id, target)
     logger.info("[mock-exam] exam=%s section=%s COLLECTED %d by admin=%s",
                 exam_id, target, collected, admin_id)

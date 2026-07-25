@@ -4588,6 +4588,15 @@ async def get_in_progress_listening_attempt(
     )
     if sitting_id:
         query = query.eq("sitting_id", sitting_id)
+    else:
+        # STANDALONE must exclude mock attempts, or the mirror of the bug above
+        # opens: a student with a live mock attempt who opens the same published
+        # test from the normal Listening library would resume the SEALED exam
+        # attempt. MockHook is inactive there, so they could replay the audio
+        # from the start and edit exam answers outside the runner — and pressing
+        # "Bắt đầu test" would abandon their mock attempt outright
+        # (Codex review, PR #834).
+        query = query.is_("sitting_id", "null")
     res = query.order("created_at", desc=True).limit(1).execute()
     if not res.data:
         return {"attempt": None}

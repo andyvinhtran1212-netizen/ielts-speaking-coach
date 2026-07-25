@@ -58,7 +58,11 @@ window.MockHook = (function () {
     try {
       var st = await window.api.get('/api/mock-exams/sittings/' + encodeURIComponent(sid));
       if (!st || st.active_section !== section) return null;
-      if ((st.exam_mode || 'sequential') === 'retake') return null;
+      // Retake has no CLASS clock, but it does have a per-SITTING one, and the
+      // endpoint already computes time-left from it. Returning null here threw
+      // that anchor away, so a retake refresh remounted the audio at 0 and let
+      // the student hear the opening again while their own countdown kept
+      // running (Codex review, PR #834).
       var total = st.section_duration_seconds, left = st.section_time_left_seconds;
       if (total == null || left == null) return null;
       return Math.max(0, total - left);
