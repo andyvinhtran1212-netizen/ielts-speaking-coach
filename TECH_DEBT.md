@@ -73,8 +73,9 @@ material, not active backlog.
 > - **DEBT-A step 4** — visually verify Cam 13 on the web, then import B14–B21
 >   (32 reading tests). Held deliberately: 38 `table_completion` runs render as
 >   flattened mono cards (R2), and that is a layout call only eyes can make.
-> - **DEBT-B backfill** — `cd backend && python -m scripts.backfill_lemma`
->   (needs prod access).
+> - **DEBT-B backfill** — re-verified as **not needed for correctness** (0 rows
+>   hold the two affected words); only a `lemma_version` bump remains, and it
+>   needs spaCy installed in the venv first. Lowest priority of the batch.
 
 #### DEBT-2026-07-20-A: Merge PR #811 + re-run render scan + re-import Cambridge reading/listening
 - **What:** PR #811 (`frontend/public/js/reading-exam.js`) fixes reading
@@ -134,9 +135,17 @@ material, not active backlog.
   (needs prod access) to re-walk rows stored under v1 and correct any
   "phenomena"/"criteria" lemmas. Idempotent — safe to re-run.
 - **Effort:** ~10 min merge; backfill per script.
-- **Status 2026-07-25:** ✅ #812 merged (`2d4e25e2`). ⏳ **backfill NOT run** —
-  still needs prod access from the project owner. This is the only piece of the
-  A/B/C batch with nothing a session can do for it.
+- **Status 2026-07-25:** ✅ #812 merged (`2d4e25e2`). The backfill is **NOT
+  needed for correctness** — re-verified against prod 2026-07-25: `user_vocabulary`
+  holds 96 rows and **0** of them contain "phenomena" or "criteria", the only two
+  words #812 targets. So there is no bad stored lemma to correct; #812 protects
+  future writes. What remains is pure housekeeping — 70 rows still sit at
+  `lemma_version: 1` (26 are NULL) and a run would bump them to 2.
+- **Blocked by (housekeeping only):** the venv has **no spacy** (`spacy==3.8.0`
+  is in `requirements.txt` but not installed), and `lemmatize` consults the
+  override dict first then falls through to spaCy, so the script skips
+  everything. Running it means installing spacy + `en_core_web_sm` first. Not
+  worth doing on its own — fold it into the next task that needs spaCy anyway.
 
 #### DEBT-2026-07-20-C: Reading CONTENT render fixes (not covered by #811) — FIXED at import layer (PR #814)
 - **What:** the audit found content-side (not renderer) issues #811 does NOT fix,
