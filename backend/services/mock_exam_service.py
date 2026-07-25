@@ -1556,7 +1556,13 @@ def admin_record_speaking(sitting_id: str, admin_id: str) -> dict:
     if sitting["status"] in ("released", "void"):
         raise SittingConflictError(f"Sitting đang ở trạng thái {sitting['status']!r}.")
     if sitting.get("speaking_completed_at"):
-        return sitting  # idempotent — already recorded
+        # IDEMPOTENT, BUT STILL RECONCILE. The speaking stamp and the terminal
+        # transition are separate writes: if the stamp committed and the status
+        # transition then failed transiently, returning here reported success
+        # while the sitting stayed `speaking_pending` with no review row — and
+        # this admin recovery, the last-resort unstick, could never fix it
+        # (Codex review, PR #847).
+        return _reconcile_terminal(sitting_id) or sitting
 
     rows = supabase_admin.table("sessions").select("id, status").eq(
         "sitting_id", str(sitting_id),

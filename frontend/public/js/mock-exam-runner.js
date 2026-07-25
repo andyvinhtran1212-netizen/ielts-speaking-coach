@@ -65,6 +65,11 @@
     S.code = q.get('code'); S.sittingId = q.get('sitting');
     var sb = window.getSupabase && window.getSupabase();
     if (sb) { var sess = await sb.auth.getSession(); if (!sess.data.session) { location.href = '/index.html'; return; } }
+    // Settle an unpaid Speaking report — AFTER the session check, never before.
+    // practice.js is loaded only by the practice pages, so a student who closed
+    // the completion tab and came back HERE would otherwise leave the sitting
+    // stuck in speaking_pending forever (Codex review, PR #847).
+    if (window.SpeakingDebt) window.SpeakingDebt.retryAll();
     try {
       if (!S.sittingId) {
         if (!S.code) return fail('Thiếu mã kỳ thi (?code=).');

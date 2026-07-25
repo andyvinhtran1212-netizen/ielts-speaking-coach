@@ -2261,91 +2261,20 @@
   // Now: retry, and persist the debt so a reload finishes the job. The admin
   // also has POST /admin/mock-exams/sittings/{id}/record-speaking as the
   // last-resort unstick.
-  var _SPEAK_REPORT_KEY = 'mock-speaking-owed';
-  var _SPEAK_RETRY_DELAYS = [1000, 3000, 8000];
+  // The queue itself lives in speaking-debt.js — practice.js is loaded only by
+  // the practice pages, so a student who closed the completion tab and came
+  // back through Home or the mock-exam page would never have settled the debt
+  // (Codex review, PR #847). These thin wrappers keep the call sites here
+  // unchanged and degrade to no-ops if the shared script is ever missing.
+  var _currentUserId = null;
 
-  // A QUEUE keyed by sitting, not a single slot. One slot overwrote the previous
-  // sitting's debt whenever another mock finished — and that is reachable:
-  // speaking_pending deliberately does NOT block the student from starting
-  // another exam, so if the first report is still failing when the second
-  // completes, only the second stays retryable and the first can sit unreleased
-  // indefinitely (Codex review, PR #847).
-  function _readSpeakingDebts() {
-    var raw = null;
-    try { raw = JSON.parse(localStorage.getItem(_SPEAK_REPORT_KEY) || 'null'); } catch (e) { return []; }
-    if (!raw) return [];
-    // Migrate the single-object shape written before this change.
-    if (!Array.isArray(raw)) return raw.sitting_id ? [raw] : [];
-    return raw.filter(function (d) { return d && d.sitting_id; });
+  function _reportSpeakingToSitting(sittingId, ids) {
+    if (!window.SpeakingDebt) return Promise.resolve();
+    return window.SpeakingDebt.report(sittingId, ids, 0, _currentUserId);
   }
 
-  function _writeSpeakingDebts(list) {
-    try {
-      if (!list.length) localStorage.removeItem(_SPEAK_REPORT_KEY);
-      else localStorage.setItem(_SPEAK_REPORT_KEY, JSON.stringify(list));
-    } catch (e) {}
-  }
-
-  function _rememberSpeakingDebt(sittingId, ids) {
-    var list = _readSpeakingDebts().filter(function (d) {
-      return String(d.sitting_id) !== String(sittingId);
-    });
-    list.push({ sitting_id: sittingId, session_ids: ids });
-    _writeSpeakingDebts(list);
-  }
-
-  // Remove ONLY the entry whose request succeeded (or is deterministically
-  // dead). Clearing the whole key would drop every other sitting's debt with it.
-  function _clearSpeakingDebt(sittingId) {
-    _writeSpeakingDebts(_readSpeakingDebts().filter(function (d) {
-      return String(d.sitting_id) !== String(sittingId);
-    }));
-  }
-
-  function _reportSpeakingToSitting(sittingId, ids, attempt) {
-    attempt = attempt || 0;
-    if (!sittingId || !ids || !ids.length) return Promise.resolve();
-    _rememberSpeakingDebt(sittingId, ids);
-    return window.api.post(
-      '/api/mock-exams/sittings/' + encodeURIComponent(sittingId) + '/speaking',
-      { session_ids: ids }
-    ).then(function (r) {
-      // api.js resolves NULL after redirecting an unauthenticated request.
-      // Clearing the debt on that would throw away the only retry record.
-      if (r === null || r === undefined) throw new Error('unauthenticated');
-      _clearSpeakingDebt(sittingId);
-      return r;
-    }).catch(function (err) {
-      // 409/403 are deterministic — the sitting is released/void, or the
-      // sessions aren't eligible. Retrying repeats them identically, and
-      // keeping the debt would make every future page load retry forever.
-      var st = err && err.status;
-      // 401 is NOT terminal — it means we asked too early or the token lapsed.
-      // Keep the debt so the next authenticated load settles it.
-      if (st === 401) throw err;
-      if (st === 403 || st === 409 || st === 404) { _clearSpeakingDebt(sittingId); throw err; }
-      if (attempt >= _SPEAK_RETRY_DELAYS.length) throw err;   // debt persists
-      return new Promise(function (resolve) {
-        setTimeout(function () {
-          resolve(_reportSpeakingToSitting(sittingId, ids, attempt + 1));
-        }, _SPEAK_RETRY_DELAYS[attempt]);
-      });
-    });
-  }
-
-  // Settle an unpaid report from a previous visit. Runs on load, costs nothing
-  // when there is no debt, and is the difference between a sitting that
-  // finalises on the student's next page view and one that never does.
   function _retryOwedSpeakingReport() {
-    // Every outstanding sitting, each settled independently — one that is
-    // permanently dead (403/409) removes only itself.
-    _readSpeakingDebts().forEach(function (owed) {
-      _reportSpeakingToSitting(owed.sitting_id, owed.session_ids || [])
-        .catch(function (e) {
-          console.warn('[practice] owed speaking report still failing',
-                       owed.sitting_id, e);
-        });
-    });
+    if (window.SpeakingDebt) window.SpeakingDebt.retryAll();
   }
 
   // Called when the last Part 3 question is submitted in test_full mode.
@@ -3001,6 +2930,9 @@
       window.location.href = window.api.url('login.html');
       return;
     }
+    // Stamp any debt WE create with the owner, so a shared browser cannot let
+    // one account's 403 delete another account's record.
+    _currentUserId = (result.data.session.user && result.data.session.user.id) || null;
 
     // Settle an unpaid Speaking report from a previous visit — AFTER the
     // session check, never at top level. practice.js is deferred while

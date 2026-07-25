@@ -222,6 +222,10 @@ def wf():
     return mock_review_workflow
 
 
+def _now_iso_for_test():
+    return datetime.now(timezone.utc).isoformat()
+
+
 def _seed_exam(fake, *, cohort_id=None, open_from=None, open_until=None,
                speaking=False, is_open=True, listening=True, reading=True):
     exam = {
@@ -913,6 +917,32 @@ def test_writing_finalisation_is_one_write(fake_db, svc):
     with pytest.raises(svc.SittingConflictError):
         svc.submit_writing(s["id"], u, "late draft", "late draft")
     assert svc.get_sitting(s["id"])["writing_submission"]["task1"]["text"] == "final one"
+
+
+def test_admin_record_speaking_reconciles_an_already_stamped_sitting(fake_db, svc, wf):
+    """Codex #847 (correct): the speaking stamp and the terminal transition are
+    separate writes. If the stamp committed and the transition then failed
+    transiently, the idempotent early return reported success while the sitting
+    stayed `speaking_pending` with no review row — and this admin recovery, the
+    last-resort unstick, could never fix it."""
+    exam = _seed_exam(fake_db, speaking=True, listening=False, reading=False)
+    u = uuid4()
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → writing
+    _expire_section(fake_db, exam["id"], "writing")
+    svc.submit_section(sit["id"], u, "writing")
+
+    # The half-finished state: speaking recorded, status never moved on.
+    fake_db.table("mock_exam_sittings").update({
+        "speaking_session_ids": [str(uuid4())],
+        "speaking_completed_at": _now_iso_for_test(),
+        "status": "speaking_pending",
+    }).eq("id", sit["id"]).execute()
+
+    out = svc.admin_record_speaking(sit["id"], "admin-1")
+
+    assert out["status"] != "speaking_pending", out["status"]
+    assert svc.get_sitting(sit["id"])["status"] != "speaking_pending"
 
 
 def test_record_speaking_empty_raises(fake_db, svc):

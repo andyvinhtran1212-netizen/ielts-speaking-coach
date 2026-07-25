@@ -303,6 +303,12 @@
       ]);
       if (results[0].status === 'fulfilled') data = results[0].value;
       else throw results[0].reason;
+      // The home-summary call above proves we are authenticated, which is the
+      // precondition for settling a Speaking-report debt: an unauthenticated
+      // POST 401s, api.js redirects to login and resolves null, and the student
+      // is bounced out (Codex review, PR #847). Fire-and-forget — a stuck
+      // sitting must never delay the page.
+      if (window.SpeakingDebt) window.SpeakingDebt.retryAll();
       if (results[1].status === 'fulfilled') permissions = results[1].value;
       else console.warn('permissions fetch failed:', results[1].reason);
     } catch (err) {
