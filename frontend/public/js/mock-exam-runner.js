@@ -722,6 +722,16 @@
   async function submitSection(section, auto, attempt) {
     attempt = attempt || 0;
     if (_submitting && attempt === 0) return;
+    // A RETRY FOR A SECTION THE CLASS HAS LEFT MUST DO NOTHING. The retry is a
+    // delayed timer, so the admin can force-collect and a poll can render the
+    // NEXT section before it fires. It then cleared the global timerIv, and its
+    // own 409 handler — correctly seeing the exam had moved on — returned
+    // without restarting it: the new section's countdown froze at whatever it
+    // showed and never auto-submitted (Codex review, PR #836).
+    if (attempt > 0 && S.renderedSection && S.renderedSection !== section) {
+      _submitting = false;
+      return;
+    }
     _submitting = true;
     if (timerIv) { clearInterval(timerIv); timerIv = null; }
     try {
