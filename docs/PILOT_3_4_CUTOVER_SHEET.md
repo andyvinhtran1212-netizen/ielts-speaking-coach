@@ -6,8 +6,11 @@ cutover mang cả hai.
 
 > **TRẠNG THÁI VẬN HÀNH: CHUẨN BỊ SẴN, CHƯA cutover.** Diff build + suite
 > verified; PR **DRAFT**. Gate mutation **N/N−1 consumer test đã đóng
-> (2026-07-14)** — blocker còn lại chỉ là **soak + re-measure ≤72h + refresh
-> main** (không có gate build-được nào còn mở). Profile hiện VẪN legacy tại
+> (2026-07-14)** — blocker còn lại **[CẬP NHẬT 2026-07-25 theo ADR-013]**:
+> profile authed traffic thấp ⇒ **early-stage profile** (48–72h + synthetic
+> mutation coverage + N/N−1 đã pass + kill-switch drill + risk acceptance),
+> KHÔNG soak-14-ngày-freeze; + re-measure ≤72h + refresh main (không có gate
+> build-được nào còn mở). Profile hiện VẪN legacy tại
 > `/pages/profile.html`; bản Next dark-launch ở `/profile-preview` (đã đổi
 > thành `/profile` trong branch này).
 
@@ -56,9 +59,11 @@ cutover mang cả hai.
 
 **Chung:**
 - [x] Nightly streak 20/20 · [ ] Traffic baseline re-run ≤72h · [ ] Đo baseline
-      /profile ≤72h (profile authed — traffic thấp hơn root; đo lại profile để
-      chốt exposure floor + có thể cần low-traffic profile) · [ ] REFRESH main
-      + rebuild tailwind + re-verify (DRAFT sống lâu).
+      /profile ≤72h (profile authed — traffic thấp hơn root ⇒ **early-stage
+      profile ADR-013**: 48–72h + synthetic mutation n≥72, KHÔNG dùng sàn "50
+      attempts") · [ ] **Production-smoke synthetic sống trên /profile** (vế
+      số-lượng ADR-013, điều kiện tiên quyết) · [ ] REFRESH main + rebuild
+      tailwind + re-verify (DRAFT sống lâu).
 
 ## Verify SAU cutover (browser-based, ≥15s cadence)
 
