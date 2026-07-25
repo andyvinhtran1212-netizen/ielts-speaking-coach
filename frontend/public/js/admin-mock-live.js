@@ -423,7 +423,11 @@
         (i.blur_seconds ? ' (' + Math.round(i.blur_seconds / 60) + 'p)' : ''));
     }
     if (i.offline_events) bits.push('mất mạng ' + i.offline_events + '×');
-    if (i.resumes > 1) bits.push('vào lại ' + i.resumes + '×');
+    // `> 1` was left over from when the runner counted the first boot too.
+    // It now records only actual RE-entries, so the commonest real case — one
+    // mid-exam reload, resumes === 1 — was persisted by the backend and then
+    // hidden by this condition (Codex review, PR #849).
+    if (i.resumes) bits.push('vào lại ' + i.resumes + '×');
     if (!bits.length) return '';
     return '<span class="ml-cell__note" style="display:block">' + esc(bits.join(' · ')) + '</span>';
   }

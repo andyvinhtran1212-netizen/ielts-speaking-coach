@@ -67,12 +67,20 @@ class SectionSubmitBody(BaseModel):
 class IntegrityBody(BaseModel):
     """Absolute running totals from the runner, not deltas — the client keeps
     them in localStorage so they survive a reload, and the server takes the max,
-    which makes retries idempotent and makes the value un-decreasable."""
+    which makes retries idempotent and makes the value un-decreasable.
 
-    blur_count:     int = Field(default=0, ge=0)
-    blur_seconds:   int = Field(default=0, ge=0)
-    resumes:        int = Field(default=0, ge=0)
-    offline_events: int = Field(default=0, ge=0)
+    DELIBERATELY UNCONSTRAINED at this boundary. record_integrity() sanitises
+    field by field — junk is dropped, never raised, because a SOFT signal must
+    never be able to break an exam. Constrained `int = Field(ge=0)` fields
+    undid that: a mixed payload like {"blur_count": "bad", "offline_events": 2}
+    was rejected wholesale with a 422 before the service ever saw it, so the
+    VALID counter was lost too (Codex review, PR #849).
+    """
+
+    blur_count:     object | None = None
+    blur_seconds:   object | None = None
+    resumes:        object | None = None
+    offline_events: object | None = None
 
 
 @router.get("")

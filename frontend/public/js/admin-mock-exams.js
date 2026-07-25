@@ -289,6 +289,13 @@
         '<div class="me-row" style="gap:6px;margin-top:12px">' +
           '<button class="av-btn av-btn--primary" id="a-assign" disabled>Gán cho học viên đã tick</button>' +
         '</div>' +
+        // PERSISTENT, and NAMED. A toast with a count told the admin that some
+        // students kept their old skills/window but not WHICH — and the table
+        // below re-renders from the canonical assignments, which show the NEW
+        // values for everyone, so there was nowhere left to find out (Codex
+        // review, PR #845). This survives the reload; the admin needs it to
+        // decide whose sitting to cancel.
+        '<div id="a-warn" hidden style="margin-top:10px"></div>' +
         '<h3 style="margin-top:16px;color:var(--av-text-primary)">Đã gán</h3>' +
         '<div id="a-current" class="me-muted">Đang tải…</div>' +
       '</div>';
@@ -376,20 +383,43 @@
       var msg = 'Đã gán ' + (res.assigned || []).length + ' học viên' +
         ((res.skipped || []).length ? ' · bỏ qua ' + res.skipped.length : '') + '.';
       // A correction that could NOT reach a student already mid-exam must be
-      // said out loud — silently not applying it is exactly the old bug.
-      if ((res.locked || []).length) {
-        msg += ' ⚠ ' + res.locked.length + ' học viên ĐANG LÀM BÀI nên giữ nguyên ' +
-               'kĩ năng/khung giờ cũ — huỷ lượt của họ nếu cần áp thay đổi.';
-      }
+      // said out loud — silently not applying it is exactly the old bug. And it
+      // must name them: a count alone leaves the admin unable to tell whose
+      // sitting still holds the old skills/window, or which one to cancel.
+      if ((res.locked || []).length) msg += ' ⚠ ' + res.locked.length + ' giữ nguyên.';
       // Distinct from `locked`: that is a deliberate refusal, this means the
       // write ERRORED and nobody knows what those students are now sitting.
-      if ((res.refresh_failed || []).length) {
-        msg += ' ❌ ' + res.refresh_failed.length + ' học viên KHÔNG áp được thay đổi ' +
-               'lên lượt thi đang mở (lỗi ghi) — kiểm tra lại trên phòng thi trực tiếp.';
-      }
+      if ((res.refresh_failed || []).length) msg += ' ❌ ' + res.refresh_failed.length + ' lỗi ghi.';
+      renderAssignWarning(res.locked || [], res.refresh_failed || []);
       toast(msg);
       loadCurrentAssignments(examId);
     } catch (e) { toast('Gán thất bại: ' + (e && e.message)); }
+  }
+
+  // Names come from the picker table that is still on screen — the same rows
+  // the admin just ticked — so no extra request is needed to say WHO.
+  function studentName(uid) {
+    var host = el('a-students');
+    var tr = host && host.querySelector('tr[data-uid="' + String(uid).replace(/"/g, '') + '"]');
+    var td = tr && tr.querySelectorAll('td')[1];
+    return (td && td.textContent.trim()) || String(uid);
+  }
+
+  function renderAssignWarning(locked, failed) {
+    var box = el('a-warn');
+    if (!box) return;
+    if (!locked.length && !failed.length) { box.hidden = true; box.innerHTML = ''; return; }
+    var html = '';
+    if (locked.length) {
+      html += '<div style="color:var(--av-warning);margin-bottom:6px">⚠ ĐANG LÀM BÀI — giữ nguyên kĩ năng/khung giờ cũ (huỷ lượt của họ nếu cần áp thay đổi): ' +
+        locked.map(function (u) { return esc(studentName(u)); }).join(', ') + '</div>';
+    }
+    if (failed.length) {
+      html += '<div style="color:var(--av-error)">❌ KHÔNG áp được thay đổi lên lượt thi đang mở (lỗi ghi) — kiểm tra trực tiếp: ' +
+        failed.map(function (u) { return esc(studentName(u)); }).join(', ') + '</div>';
+    }
+    box.innerHTML = html;
+    box.hidden = false;
   }
 
   async function loadCurrentAssignments(examId) {

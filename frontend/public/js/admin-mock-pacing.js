@@ -68,7 +68,10 @@
         '<span class="mp-muted">' + esc(hhmm(d.started_at)) + ' → ' + esc(hhmm(d.ended_at)) + '</span></div>' +
       '<div class="mp-kpis">' +
         kpi('Đã trả lời', (d.answered == null ? '—' : d.answered) + (d.total ? '/' + d.total : '')) +
-        kpi('Làm theo thứ tự đề', d.worked_in_paper_order ? 'Có' : 'Không') +
+        // null = no timestamped answers at all, so the order is UNKNOWN. It
+        // used to render "Có" beside its own "không có đáp án nào" message.
+        kpi('Làm theo thứ tự đề',
+            d.worked_in_paper_order == null ? '—' : (d.worked_in_paper_order ? 'Có' : 'Không')) +
         kpi('Lần nghỉ dài', (d.long_gaps || []).length, (d.long_gaps || []).length > 0) +
         kpi('Đáp án 5 phút cuối', d.answers_in_final_minutes == null ? '—' : d.answers_in_final_minutes,
             d.answers_in_final_minutes > 5) +

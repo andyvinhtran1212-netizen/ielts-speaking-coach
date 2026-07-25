@@ -20,6 +20,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const JS = readFileSync(join(__dirname, '..', 'public', 'js', 'mock-exam-runner.js'), 'utf8');
+const LIVE = readFileSync(join(__dirname, '..', 'public', 'js', 'admin-mock-live.js'), 'utf8');
 const HTML = readFileSync(join(__dirname, '..', 'public', 'pages', 'mock-exam.html'), 'utf8');
 
 describe('A2 — Writing autosaves to the server', () => {
@@ -49,7 +50,7 @@ describe('A2 — Writing autosaves to the server', () => {
   test('a pre-JSON draft (bare string) is still readable', () => {
     // Students mid-exam when this ships have the old format in storage;
     // dropping it would lose the very text this feature exists to protect.
-    assert.match(JS, /return \{ text: String\(raw\), ts: 0 \}/);
+    assert.match(JS, /return \{ text: String\(raw\), ts: 0, synced: null \}/);
   });
 
   test('autosave never fires outside the open Writing section', () => {
@@ -59,8 +60,9 @@ describe('A2 — Writing autosaves to the server', () => {
 
   test('a failed save stays dirty so the next tick retries', () => {
     assert.match(JS, /catch\(function \(e\) \{[\s\S]*?setSaveCue\('failed'\)/);
-    // _wDirty is only cleared on success
-    assert.match(JS, /_wDirty = false;\s*\n\s*setSaveCue\('saved'\)/);
+    // _wDirty is only cleared on success (the confirmed text is also stamped
+    // synced in localStorage on the way past — see mock-writing-autosave)
+    assert.match(JS, /_wDirty = false;[\s\S]{0,320}?setSaveCue\('saved'\)/);
   });
 
   test('save cue element exists and is announced', () => {
@@ -133,6 +135,20 @@ describe('A3 — a network failure no longer ends the exam', () => {
   });
 });
 
+describe('A3 round 3 — a terminal poll response is terminal', () => {
+  test('403/404 from the poll fails the page instead of polling forever', () => {
+    // Discarding the status classified "sitting deleted / not yours" as an
+    // outage: the page polled forever behind a banner promising the work was
+    // safe and would reconnect.
+    assert.match(JS, /\}\)\.catch\(function \(e\) \{/);
+    assert.match(JS, /if \(st === 403 \|\| st === 404\) \{\s*\n\s*return fail\(/);
+  });
+
+  test('network / 5xx failures keep the retry banner', () => {
+    assert.match(JS, /_pollFails\+\+;\s*\n\s*if \(_pollFails >= 2 && !_submitting\) setConn\('offline'\);/);
+  });
+});
+
 describe('integrity signals (PR #849 review fixes)', () => {
   test('resumes counts a RE-entry, never the first boot of a new sitting', () => {
     // Counting unconditionally made every normal sitting report "vào lại 1×"
@@ -148,5 +164,30 @@ describe('integrity signals (PR #849 review fixes)', () => {
     // localStorage for a student who does not load the page again.
     assert.match(JS, /reportIntegrity\(\{ keepalive: true \}\)/);
     assert.match(JS, /\/integrity',\s*\n\s*d, null, \{ keepalive:/);
+  });
+
+  test('a hidden interval is banked even if the section ended meanwhile', () => {
+    // The visibility handler returned early whenever renderedSection was false
+    // — but the section can END while the tab is hidden (the timer submits, or
+    // the admin advances), which clears it. The whole interval was then
+    // discarded: precisely the long absence this signal exists to surface.
+    assert.match(JS, /function closeHiddenInterval\(\)/);
+    assert.match(JS, /\} else if \(closeHiddenInterval\(\)\) \{/);
+    // the OPEN side stays gated — an interval only starts while sitting
+    assert.match(JS, /if \(!S\.renderedSection\) return;\s*\/\/ only OPEN one/);
+  });
+
+  test('a tab closed while still hidden banks its interval on pagehide', () => {
+    assert.match(JS, /closeHiddenInterval\(\);\s*\n\s*reportIntegrity\(\{ keepalive: true \}\)/);
+  });
+});
+
+describe('integrity signals — the console renders what the runner records', () => {
+  test('a single mid-exam re-entry is shown, not hidden behind > 1', () => {
+    // `> 1` was left over from when the runner counted the first boot too. It
+    // now records only actual RE-entries, so the commonest real case — one
+    // reload, resumes === 1 — was persisted and then hidden.
+    assert.match(LIVE, /if \(i\.resumes\) bits\.push\('vào lại ' \+ i\.resumes \+ '×'\);/);
+    assert.doesNotMatch(LIVE, /i\.resumes > 1/);
   });
 });
