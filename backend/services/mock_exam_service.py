@@ -1387,7 +1387,12 @@ def record_integrity(sitting_id: str, user_id: str, signals: dict) -> dict:
     if sitting["status"] in ("released", "void"):
         raise SittingConflictError(f"Sitting đang ở trạng thái {sitting['status']!r}.")
 
-    current = dict(sitting.get("integrity") or {})
+    # Sanitise here (junk is dropped, never raised — a soft signal must not be
+    # able to break an exam), then merge in ONE statement. The old Python
+    # read-modify-write let two overlapping reports both read the same value so
+    # the SMALLER total could write last, and could clobber void_reason written
+    # by a concurrent void_sitting (Codex review, PR #849).
+    params: dict = {"p_sitting_id": str(sitting_id)}
     for key in _INTEGRITY_COUNTERS:
         raw = signals.get(key)
         if raw is None:
@@ -1398,13 +1403,10 @@ def record_integrity(sitting_id: str, user_id: str, signals: dict) -> dict:
             continue
         if value < 0:
             continue
-        current[key] = min(max(int(current.get(key) or 0), value), _INTEGRITY_MAX)
-    current["reported_at"] = _now_iso()
+        params[f"p_{key}"] = min(value, _INTEGRITY_MAX)
 
-    supabase_admin.table("mock_exam_sittings").update({
-        "integrity": current,
-    }).eq("id", str(sitting_id)).execute()
-    return current
+    res = supabase_admin.rpc("fn_merge_sitting_integrity", params).execute()
+    return res.data or {}
 
 
 def bind_session_to_sitting(session_id: str, user_id: str, sitting_id: str) -> None:

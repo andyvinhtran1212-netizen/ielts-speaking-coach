@@ -166,6 +166,11 @@ class _Query:
         raise AssertionError(f"Unsupported op: {self.op!r}")
 
 
+class _RpcResult:
+    def __init__(self, data): self.data = data
+    def execute(self): return self
+
+
 class FakeSupabase:
     def __init__(self):
         self.tables: dict[str, list[dict]] = {}
@@ -173,6 +178,30 @@ class FakeSupabase:
 
     def table(self, name):
         return _Query(self, name)
+
+    # Mig 163 — the integrity merge moved into a Postgres function so two
+    # overlapping reports cannot lose a counter (or clobber void_reason). The
+    # fake models the SAME semantics the SQL implements — GREATEST per counter,
+    # jsonb-|| so untouched keys survive, and only a non-terminal sitting — so
+    # these tests keep exercising real behaviour instead of a stub.
+    def rpc(self, name, params):
+        if name != "fn_merge_sitting_integrity":
+            raise AssertionError(f"unexpected rpc: {name}")
+        row = next(
+            (r for r in self.tables.get("mock_exam_sittings", [])
+             if str(r.get("id")) == str(params["p_sitting_id"])
+             and r.get("status") not in ("released", "void")),
+            None,
+        )
+        if row is None:
+            return _RpcResult(None)
+        cur = dict(row.get("integrity") or {})
+        for key in ("blur_count", "blur_seconds", "resumes", "offline_events"):
+            incoming = params.get(f"p_{key}")
+            cur[key] = max(int(cur.get(key) or 0), int(incoming or 0))
+        cur["reported_at"] = "2026-01-01T00:00:00+00:00"
+        row["integrity"] = cur
+        return _RpcResult(cur)
 
     # test helpers
     def seed(self, name, row):
@@ -2626,7 +2655,11 @@ def test_integrity_ignores_junk_without_failing(fake_db, svc):
     s = svc.create_sitting(u, "MOCK-TEST-A")
     svc.record_integrity(s["id"], u, {"blur_count": "abc", "resumes": -4, "offline_events": 2})
     got = svc.get_sitting(s["id"])["integrity"]
-    assert "blur_count" not in got and "resumes" not in got
+    # Since mig 163 the merge happens in SQL, which writes all four counters
+    # (COALESCE → 0) rather than omitting the ones the caller skipped. Assert
+    # the MEANING — junk did not increment anything — not the key layout. 0 is
+    # falsy, so the live console still shows nothing for these.
+    assert got["blur_count"] == 0 and got["resumes"] == 0
     assert got["offline_events"] == 2
 
 
