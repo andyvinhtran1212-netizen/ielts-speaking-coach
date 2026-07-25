@@ -30,7 +30,10 @@ def test_create_assignments_forwards_rows_and_admin():
         r = _client().post(
             f"/admin/mock-exams/{_EXAM}/assignments",
             json={"source_exam_id": "src", "assignments": [
-                {"user_id": "u1", "skills": ["writing"], "open_from": None, "open_until": None},
+                # open_until is REQUIRED since D3 (an open-ended retake never finishes),
+                # and the schema now says so — a null here is a 422.
+                {"user_id": "u1", "skills": ["writing"], "open_from": None,
+                 "open_until": "2026-12-31T23:59:00Z"},
             ]},
             headers=_AUTH,
         )

@@ -2327,6 +2327,23 @@ def test_retake_assign_requires_a_closing_bound(fake_db):
     assert fake_db.rows("mock_exam_assignments") == []
 
 
+def test_skill_less_row_is_skipped_not_fatal_to_the_batch(fake_db):
+    """Codex #839 (correct): validating the window of a row that is documented
+    to be SKIPPED aborted the whole request, so valid students in the same batch
+    went unassigned."""
+    from services import mock_exam_assignment_service as a
+    exam_id = str(uuid4())
+    good, empty = str(uuid4()), str(uuid4())
+    res = a.assign(exam_id, [
+        {"user_id": good,  "skills": ["writing"], **_WINDOW},
+        {"user_id": empty, "skills": [], "open_until": None},   # skipped, not fatal
+    ], created_by=str(uuid4()))
+
+    assert res["assigned"] == [good]
+    assert res["skipped"] == [empty]
+    assert len(fake_db.rows("mock_exam_assignments")) == 1
+
+
 def test_retake_assign_rejects_open_ended_before_writing_any_row(fake_db):
     """One bad window fails the request cleanly instead of persisting a subset
     then raising mid-batch (the pre-existing validate-up-front contract)."""
