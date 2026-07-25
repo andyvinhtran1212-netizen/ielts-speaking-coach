@@ -50,6 +50,17 @@ describe('A1 — an interrupted Listening attempt can be resumed', () => {
     assert.match(HOOK, /=== 'retake'\) return null/);
   });
 
+  test('multi-select groups are restored too, with their soft-lock', () => {
+    // mcq_multi renders `.ft-mc-box` checkboxes WITHOUT data-q-num, so the
+    // per-input restore loop cannot see them. Unrestored they came back
+    // visually unchecked while counted as recovered — and ticking one more
+    // option then scheduled BLANK saves over the recovered slots.
+    assert.match(JS, /function restoreMultiSelectGroups/);
+    assert.match(JS, /restoreMultiSelectGroups\(\);/);
+    assert.match(JS, /data-mm-slots/);
+    assert.match(JS, /b\.disabled = lock/);
+  });
+
   test('resume UI states how much work is being recovered', () => {
     assert.match(HTML, /id="ft-resume-btn"/);
     assert.match(HTML, /id="ft-resume-note"/);
