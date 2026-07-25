@@ -1,6 +1,6 @@
 # Tech Debt — IELTS Speaking Coach
 
-**Last updated:** 2026-07-25 (DEBT-J decisions answered: Lora as the one controlled serif, code→project canonical, J before I; DEBT-J teal claim CORRECTED — it was a miscount of comment lines, no sweep needed; brand branch merged #826)
+**Last updated:** 2026-07-25 (DEBT-J CLOSED — 7 font families → 4, 4 type systems → 1, PRs #827/#828/#830; DEBT-I favicon half shipped #829, wordmark half still waits on the Next migration)
 **Last reviewed:** 2026-05-07 (PM)
 
 Comprehensive snapshot of tech debt + improvement opportunities, restructured
@@ -64,12 +64,24 @@ material, not active backlog.
   That branch is docs + assets only — **zero code risk, safe to merge now**, and
   merging it is worth doing on its own so the work stops living on a side branch.
   The *rollout* (this item) still waits on the migration.
+- **Status 2026-07-25 — the favicon half SHIPPED (PR #829); the rest still waits.**
+  The "apply it twice" argument that blocks this item does **not** hold for the
+  favicon: there is exactly **one** `frontend/public/favicon.svg`, all 55 pages
+  reference the same absolute `/favicon.svg`, Next serves it from `public/` too,
+  and `app/layout.tsx` declares no `metadata.icons` to override it. One file, one
+  path, both stacks — so it shipped on its own, and it closed a real colour
+  inconsistency on the way (the old file used teal-500 `#14b8a6`, the dark-theme
+  step, on a fixed asset; brand teal is `#0F766E`).
+  **What genuinely still waits for the migration** — both really do exist twice:
+  - `frontend/public/js/components/aver-chrome.js:315` — `Aver<span class="dot">.</span>Learning`
+  - `frontend/app/(marketing)/page.tsx` — `averlearning` in **4 places**,
+    including `<title>` and the footer copyright line.
 - **Blocked by:** ~~Pilot-1 soak~~ (done 2026-07-24) **and** Next migration
-  reaching steady state.
+  reaching steady state — *for the wordmark half only*.
 - **Reference:** memory `claude-design-project-exists-drifted`; branch
   `design/brand-redesign-2026-07-24`; brand sheet artifact (session 2026-07-24).
 
-#### DEBT-2026-07-24-J: Four parallel font systems + hardcoded teal — unify type and text colour
+#### ~~DEBT-2026-07-24-J: Four parallel font systems~~ — ✅ CLOSED 2026-07-25
 - **What:** the 2026-07-24 brand session inspected the live site and found the
   type system is not one system. `docs/brand/CONTEXT_PACK.md` §F logged three
   parallel font stacks; re-measured on main 2026-07-25 it is **four**, and
@@ -126,7 +138,42 @@ material, not active backlog.
 - **Still open (motion, deliberately deferred):** DRIFT_REPORT §E items 2 and 3
   — keep or drop `--av-easing-bounce`, and material `(0.4,0,0.2,1)` vs the
   design project's `(0.16,1,0.3,1)`. Not blocking J, which is type + fonts.
-- **Action (a is done; b–d remain):**
+- **✅ CLOSED 2026-07-25 — all four steps shipped the same day.**
+
+  | | | PR |
+  |---|---|---|
+  | (a) | decisions answered (Lora / code→project / J-before-I) | #827 |
+  | (b) | grammar → `--av-font-*`, DM Sans gone site-wide | #828 |
+  | (c) | vocab → `--av-font-*`, Fraunces + Hanken + DM Mono gone | #830 |
+  | (d) | `font-system-ratchet.test.mjs` guards against a fifth system | #828 |
+
+  **Measured, start → end:** Plus Jakarta 46→54 pages, JetBrains 42→50,
+  Lora 5→5 (the sanctioned serif, grammar only), and **DM Sans 6→0,
+  Fraunces 2→0, Hanken Grotesk 2→0, DM Mono 2→0**. Inter 1→1 —
+  `practice.legacy.html` only, a reference file that is not edited.
+  **Seven font families → four; four type systems → one.**
+
+  Two things the work surfaced that were not in the original write-up:
+  - The grammar pages named `--av-font-sans` / `--av-font-mono` in CSS but had
+    **never linked** Plus Jakarta or JetBrains, so those tokens were silently
+    falling back to `ui-sans-serif` / `ui-monospace`. Fixing the links is what
+    made the tokens actually take effect.
+  - `grammar-roadmap.html` nearly escaped: it linked DM Sans but not Lora, so it
+    was absent from a list derived from Lora. Missing it would have left DM Sans
+    live while the report claimed it was gone.
+
+  **Six tests were rewritten**, not deleted — each pinned the superseded
+  decision (*"preserve the DM Sans + Lora sub-system"*, *"Plus Jakarta NOT
+  loaded"*, *"headword uses Fraunces"*). Each was replaced by an equally strict
+  inverse, and the per-page one became a **hard cap of three families per page**,
+  which is tighter than what it replaced.
+
+  **Still open, deliberately, and NOT part of J:** `ds.css` still writes
+  `'Fraunces'` / `'Manrope'`, but no page downloads either any more, so those are
+  dead declarations — the tail of the separate `--ds-*` → `--av-*` migration
+  (18 pages). It stays in the ratchet's `ALLOWED_LITERALS`.
+
+- ~~**Action (a is done; b–d remain):**~~
   (a) ~~answer the decisions~~ ✅ 2026-07-25.
   (b) Add `--av-font-serif: 'Lora'` to `tokens.css`; point `grammar-wiki.css`
       body/`.font-sans` at `--av-font-sans` and its `.gw-display` headings at
