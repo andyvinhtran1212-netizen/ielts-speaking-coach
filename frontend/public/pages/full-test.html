@@ -31,7 +31,9 @@
 <body class="av-page font-sans min-h-screen">
   <div class="ft-wrap">
     <h1 style="font-size:24px;font-weight:800;color:var(--av-text-primary);margin-bottom:4px;">Thi thử Full Test 4 kỹ năng</h1>
-    <p class="ft-muted" style="margin-bottom:20px;">Listening + Reading + Writing làm liền một hơi (một đồng hồ tổng), Speaking vấn đáp riêng. Bài thu kín — giám khảo chấm và trả điểm sau.</p>
+    <!-- Copy fix (finding E): this described the all-at-once model that
+         migration 151 replaced with sequential, admin-gated sections. -->
+    <p class="ft-muted" style="margin-bottom:20px;">Listening → Reading → Writing, giám thị mở lần lượt từng phần và mỗi phần có đồng hồ riêng; Speaking vấn đáp riêng. Bài thu kín — giám khảo chấm và trả điểm sau. Mỗi lúc chỉ làm được một kỳ thi.</p>
 
     <div id="state-loading" class="ft-muted" style="text-align:center;padding:40px 0">Đang tải…</div>
     <div id="state-empty" class="hidden ft-card" style="text-align:center">
@@ -64,15 +66,24 @@
           var c = document.createElement('div');
           c.className = 'ft-card';
           var retake = ex.exam_mode === 'retake';
+          // C3 — a student sits one exam at a time. If another one is already in
+          // progress, say so and link BACK to it, rather than offering a button
+          // whose only outcome is a 409.
+          var action = ex.blocked_by_sitting_id
+            ? '<p class="ft-muted" style="color:var(--av-warning);margin:0 0 8px"><b>Bạn đang có một bài thi chưa hoàn thành.</b> Hãy hoàn thành bài đó trước.</p>' +
+              '<a class="av-btn" style="display:inline-block" href="/pages/mock-exam.html?sitting=' + encodeURIComponent(ex.blocked_by_sitting_id) + '">← Quay lại bài đang thi</a>'
+            : '<a class="av-btn av-btn--primary" style="display:inline-block" href="/pages/mock-exam.html?' +
+              (ex.my_sitting_id
+                ? 'sitting=' + encodeURIComponent(ex.my_sitting_id) + '">Tiếp tục bài đang làm →'
+                : 'code=' + encodeURIComponent(ex.code) + '">Bắt đầu →') + '</a>';
           c.innerHTML =
             '<div class="ft-title">' + esc(ex.title || ex.code) +
               (retake ? ' <span class="av-badge av-badge-warning">Test lại</span>' : '') + '</div>' +
             '<p class="ft-muted" style="margin:6px 0 12px">' +
               (retake
                 ? 'Bài test lại — chỉ làm kĩ năng được giao, có hẹn giờ, web tự thu bài khi hết giờ.'
-                : 'Tổng thời gian LRW: <b>' + (ex.total_minutes || 150) + ' phút</b> · Trả kết quả trong ~' + (ex.review_sla_days || 3) + ' ngày.') +
-            '</p>' +
-            '<a class="av-btn av-btn--primary" style="display:inline-block" href="/pages/mock-exam.html?code=' + encodeURIComponent(ex.code) + '">Bắt đầu →</a>';
+                : 'Listening → Reading → Writing, giám thị mở lần lượt từng phần · Trả kết quả trong ~' + (ex.review_sla_days || 3) + ' ngày.') +
+            '</p>' + action;
           host.appendChild(c);
         });
         show(); host.classList.remove('hidden');

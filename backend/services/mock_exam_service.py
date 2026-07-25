@@ -141,6 +141,11 @@ def list_open_exams(user_id: str) -> list[dict]:
         "exam_mode, is_open",
     ).eq("status", "published").execute()
     assigned = _retake_assigned_exam_ids(user_id)
+    # C3 — the student may only be seated at one exam at a time. Report WHICH
+    # sitting is holding them rather than letting them press a button that will
+    # only 409: the entry page can then send them back to the exam they are
+    # actually in the middle of.
+    live = live_sitting_for_user(user_id)
     out = []
     for e in (resp.data or []):
         if is_retake(e):
@@ -151,7 +156,15 @@ def list_open_exams(user_id: str) -> list[dict]:
                 continue
             if e.get("cohort_id") and not _user_in_cohort(user_id, e["cohort_id"]):
                 continue
-        out.append({k: v for k, v in e.items() if k not in ("cohort_id", "is_open")})
+        row = {k: v for k, v in e.items() if k not in ("cohort_id", "is_open")}
+        blocked = bool(live and str(live.get("mock_exam_id")) != str(e["id"]))
+        row["blocked_by_sitting_id"] = str(live["id"]) if blocked else None
+        # Their own in-progress sitting on THIS exam — the entry page turns the
+        # button into "tiếp tục" instead of "bắt đầu".
+        row["my_sitting_id"] = (
+            str(live["id"]) if live and str(live.get("mock_exam_id")) == str(e["id"]) else None
+        )
+        out.append(row)
     return out
 
 
@@ -287,6 +300,37 @@ def is_sealed(sitting_id: UUID | str) -> bool:
     if not sitting:
         return False
     return bool(sitting.get("sealed"))
+
+
+# C3 — statuses that mean "this student is ACTIVELY SEATED right now".
+# Deliberately NOT speaking_pending: that state waits on a viva appointment and
+# can legitimately last days, so blocking on it would lock a student out of an
+# unrelated exam for a week over something that is not a conflict at all.
+_LIVE_STATUSES = ("registered", "lrw_in_progress")
+
+
+def live_sitting_for_user(user_id: str, exclude_exam_id=None) -> Optional[dict]:
+    """The student's currently-seated sitting, if any (optionally ignoring one
+    exam's own sitting).
+
+    Fail-open on a lookup error: this gates ENTRY to an exam, and a transient
+    DB blip must not stop a legitimately-eligible student from sitting down.
+    The partial unique index (mig 162) is the hard backstop underneath.
+    """
+    try:
+        rows = supabase_admin.table("mock_exam_sittings").select(
+            "id, mock_exam_id",
+        ).eq("user_id", str(user_id)).in_(
+            "status", list(_LIVE_STATUSES),
+        ).execute().data or []
+    except Exception:  # noqa: BLE001
+        logger.warning("[mock-exam] live-sitting lookup failed for user=%s", user_id)
+        return None
+    for r in rows:
+        if exclude_exam_id and str(r.get("mock_exam_id")) == str(exclude_exam_id):
+            continue
+        return r
+    return None
 
 
 def _user_in_cohort(user_id: str, cohort_id: str) -> bool:
@@ -489,6 +533,19 @@ def create_sitting(user_id: str, code: str) -> dict:
         return existing.data[0]
 
     # NEW sitting only: apply the entry gates.
+    #
+    # C3 — one live sitting per student, across ALL exams. A student in two
+    # cohorts could see (and open) two exams at once; the pre-existing unique
+    # index is per (exam, user) and never stopped that. Checked AFTER the resume
+    # branch above, so this can never block someone from their own exam in
+    # progress — only from starting a second one on top of it.
+    other = live_sitting_for_user(user_id, exclude_exam_id=exam["id"])
+    if other:
+        raise SittingConflictError(
+            "Bạn đang có một bài thi chưa hoàn thành. Hãy hoàn thành bài đó "
+            "trước khi bắt đầu kỳ thi khác."
+        )
+
     new_row = {
         "mock_exam_id": exam["id"],
         "user_id":      str(user_id),
@@ -516,7 +573,18 @@ def create_sitting(user_id: str, code: str) -> dict:
         if exam.get("cohort_id") and not _user_in_cohort(user_id, exam["cohort_id"]):
             raise NotEligibleError("Bạn không thuộc lớp được mở kỳ thi này.")
 
-    inserted = supabase_admin.table("mock_exam_sittings").insert(new_row).execute()
+    try:
+        inserted = supabase_admin.table("mock_exam_sittings").insert(new_row).execute()
+    except Exception as exc:  # noqa: BLE001
+        # uq_mock_sitting_one_live_per_user (mig 162) is the DB backstop for the
+        # C3 check above — it also catches the race where two tabs pass the
+        # check simultaneously. Translate it, don't leak a constraint name.
+        if "uq_mock_sitting_one_live_per_user" in str(exc):
+            raise SittingConflictError(
+                "Bạn đang có một bài thi chưa hoàn thành. Hãy hoàn thành bài đó "
+                "trước khi bắt đầu kỳ thi khác."
+            )
+        raise
     if not inserted.data:
         raise MockExamError(f"Không tạo được sitting cho exam={code}.")
     logger.info(

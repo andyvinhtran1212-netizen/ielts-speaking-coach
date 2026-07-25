@@ -2287,6 +2287,103 @@ def test_retake_assign_rejects_inverted_window(fake_db):
     }], created_by=str(uuid4()))
 
 
+# ── C3: one live sitting per student, across ALL exams ────────────────
+
+
+def _seed_second_exam(fake, code="MOCK-TEST-B", cohort_id=None):
+    exam = {
+        "id": str(uuid4()), "code": code, "title": "Second", "status": "published",
+        "is_open": True, "cohort_id": cohort_id, "open_from": None, "open_until": None,
+        "total_minutes": 150, "reading_minutes": 60, "writing_minutes": 60,
+        "active_section": "not_started", "speaking_topic_set": {},
+        "listening_started_at": None, "reading_started_at": None, "writing_started_at": None,
+    }
+    fake.seed("mock_exams", exam)
+    return exam
+
+
+def test_second_exam_blocked_while_one_is_in_progress(fake_db, svc):
+    """C3 — _user_in_cohort matches ANY students row, so a student in two
+    cohorts really can see two open exams. uq_mock_sitting_active is per
+    (exam, user) and never stopped them opening one of each."""
+    _seed_exam(fake_db)
+    b = _seed_second_exam(fake_db)
+    u = uuid4()
+    svc.create_sitting(u, "MOCK-TEST-A")
+
+    with pytest.raises(svc.SittingConflictError):
+        svc.create_sitting(u, "MOCK-TEST-B")
+    assert [s for s in fake_db.rows("mock_exam_sittings")
+            if str(s["mock_exam_id"]) == b["id"]] == []
+
+
+def test_student_can_always_resume_their_own_live_sitting(fake_db, svc):
+    """The block must never fire on the student's OWN exam: create_sitting
+    resumes before the gates precisely so a mid-exam refresh cannot lock someone
+    out of their own paper."""
+    _seed_exam(fake_db)
+    u = uuid4()
+    first = svc.create_sitting(u, "MOCK-TEST-A")
+    again = svc.create_sitting(u, "MOCK-TEST-A")
+    assert again["id"] == first["id"]
+
+
+def test_speaking_pending_does_not_block_another_exam(fake_db, svc):
+    """speaking_pending waits on a viva appointment and can last days. Treating
+    it as a seating conflict would lock a student out of an unrelated exam for a
+    week over something that is not a conflict at all."""
+    exam = _seed_exam(fake_db)
+    _seed_second_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    fake_db.table("mock_exam_sittings").update(
+        {"status": "speaking_pending"}).eq("id", s["id"]).execute()
+
+    other = svc.create_sitting(u, "MOCK-TEST-B")     # must not raise
+    assert other["status"] == "registered"
+
+
+def test_finished_sitting_frees_the_student(fake_db, svc):
+    _seed_exam(fake_db)
+    _seed_second_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    fake_db.table("mock_exam_sittings").update(
+        {"status": "released"}).eq("id", s["id"]).execute()
+
+    assert svc.create_sitting(u, "MOCK-TEST-B")["status"] == "registered"
+
+
+def test_voiding_a_stuck_sitting_frees_the_student(fake_db, svc):
+    """The escape hatch D4 added must actually work: voiding is how an admin
+    unsticks a student who would otherwise be locked out of every exam."""
+    _seed_exam(fake_db)
+    _seed_second_exam(fake_db)
+    u = uuid4()
+    stuck = svc.create_sitting(u, "MOCK-TEST-A")
+    with pytest.raises(svc.SittingConflictError):
+        svc.create_sitting(u, "MOCK-TEST-B")
+
+    svc.void_sitting(stuck["id"], "admin-1", reason="kẹt")
+
+    assert svc.create_sitting(u, "MOCK-TEST-B")["status"] == "registered"
+
+
+def test_open_exam_list_reports_what_is_blocking(fake_db, svc):
+    """The entry page must be able to explain itself and link back, instead of
+    offering a button whose only outcome is a 409."""
+    a = _seed_exam(fake_db)
+    b = _seed_second_exam(fake_db)
+    u = uuid4()
+    mine = svc.create_sitting(u, "MOCK-TEST-A")
+
+    by_id = {e["id"]: e for e in svc.list_open_exams(u)}
+    assert by_id[a["id"]]["blocked_by_sitting_id"] is None
+    assert by_id[a["id"]]["my_sitting_id"] == str(mine["id"])
+    assert by_id[b["id"]]["blocked_by_sitting_id"] == str(mine["id"])
+    assert by_id[b["id"]]["my_sitting_id"] is None
+
+
 def test_retake_assign_requires_a_closing_bound(fake_db):
     """D3 — an open-ended retake never finishes.
 
