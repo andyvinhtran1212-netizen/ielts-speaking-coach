@@ -1712,16 +1712,20 @@ def _grade_and_finalize_reading(attempt_id: str) -> None:
     ).execute()
 
 
-def _force_collect_section(exam_id: str, section: str) -> None:
-    """Straggler safety net: called right before the admin advances PAST
-    `section`. Every non-terminal sitting that hasn't submitted this section
-    yet (e.g. a disconnected student) is best-effort collected as-is — mirrors
-    a real proctor sweeping up papers when time's up, regardless of whether
-    the student finished. Never raises; a collection failure must not block
-    the admin's advance."""
+def _force_collect_section(exam_id: str, section: str) -> int:
+    """Straggler safety net: sweep up every paper for `section` as-is.
+
+    Every non-terminal sitting that hasn't submitted this section yet (e.g. a
+    disconnected student) is best-effort collected — mirrors a real proctor
+    taking in papers when time's up, regardless of whether the student
+    finished. Never raises; a collection failure must not block the admin.
+
+    Returns the number of sittings swept, so the caller can tell the admin what
+    it actually did rather than just "ok".
+    """
     col = _SUBMITTED_COL.get(section)
     if not col:
-        return
+        return 0
     try:
         rows = supabase_admin.table("mock_exam_sittings").select("*").eq(
             "mock_exam_id", str(exam_id),
@@ -1730,10 +1734,42 @@ def _force_collect_section(exam_id: str, section: str) -> None:
         ).execute()
     except Exception:  # noqa: BLE001
         logger.exception("[mock-exam] force-collect lookup failed exam=%s section=%s", exam_id, section)
-        return
+        return 0
 
+    n = 0
     for row in (rows.data or []):
         _collect_section_for_sitting(row, section)
+        n += 1
+    return n
+
+
+def collect_section(exam_id: str, admin_id: str) -> dict:
+    """Admin THU BÀI for the open section — without opening the next one (B4).
+
+    "Thu bài" and "mở phần sau" used to be one irreversible button, so the real
+    proctor sequence — take the papers in, check everyone is accounted for, let
+    the room breathe, THEN hand out the next section — could not be expressed:
+    the moment you collected, the next clock was already running.
+
+    No schema change is needed for the pause. Collecting stamps each sitting's
+    {section}_submitted_at, which makes the runner's own isOpenSection test
+    false, so every student drops into the waiting room with NO clock running
+    until the admin advances.
+    """
+    exam = get_published_exam_by_id(exam_id)
+    if not exam:
+        raise NotFoundError(f"Mock exam {exam_id} không tồn tại.")
+    if is_retake(exam):
+        # Retake is self-timed per student; there is no shared section to collect.
+        raise SittingConflictError("Đề test lại tự thu bài theo từng học viên.")
+    current = exam.get("active_section") or "not_started"
+    if current not in _LRW_ORDER:
+        raise SittingConflictError("Chưa có phần nào đang mở để thu bài.")
+
+    collected = _force_collect_section(exam_id, current)
+    logger.info("[mock-exam] exam=%s section=%s COLLECTED %d by admin=%s",
+                exam_id, current, collected, admin_id)
+    return {"section": current, "collected": collected}
 
 
 def _collect_section_for_sitting(sitting: dict, section: str) -> None:

@@ -114,20 +114,61 @@
         (r.off_roster.length ? '<span class="ml-pill ml-pill--warn">' + r.off_roster.length + ' ngoài danh sách</span>' : '') +
       '</div>' +
       '<div class="ml-clockrow">' + clock +
-        '<div class="ml-actions">' +
-          (retake ? '' :
-            '<button type="button" class="av-btn" id="btn-open">' + (ex.is_open ? 'Đóng kỳ' : 'Mở kỳ (live)') + '</button>' +
-            (ex.active_section === 'done' ? '' :
-              '<button type="button" class="av-btn av-btn--primary" id="btn-advance">' +
-              (ex.active_section === 'not_started' ? 'Bắt đầu — mở phần đầu tiên' : 'Thu bài + mở phần tiếp theo →') +
-              '</button>')) +
+        '<div class="ml-actions">' + (retake ? '' : sequentialActions(ex)) +
           '<a class="av-btn" href="/pages/admin/mock-reviews/index.html?mock_exam_id=' + encodeURIComponent(ex.id) + '">Duyệt bài →</a>' +
         '</div>' +
       '</div>';
 
     var bo = el('btn-open'); if (bo) bo.addEventListener('click', toggleOpen);
+    var bc = el('btn-collect'); if (bc) bc.addEventListener('click', collectSection);
     var ba = el('btn-advance'); if (ba) ba.addEventListener('click', advance);
     startClockTick();
+  }
+
+  // B4 — "thu bài" and "mở phần sau" are two actions, in that order.
+  //
+  //   [Thu bài phần này]  → papers in, class to the waiting room, NO clock
+  //          ↓  (đếm đủ, cho nghỉ)
+  //   [Mở phần tiếp theo] → next section + its clock
+  //
+  // Once collected, nobody is still working, so the collect button retires and
+  // advance becomes the only forward move.
+  function sequentialActions(ex) {
+    var openBtn = '<button type="button" class="av-btn" id="btn-open">' +
+      (ex.is_open ? 'Đóng kỳ' : 'Mở kỳ (live)') + '</button>';
+    if (ex.active_section === 'done') return openBtn;
+    if (ex.active_section === 'not_started') {
+      return openBtn +
+        '<button type="button" class="av-btn av-btn--primary" id="btn-advance">Bắt đầu — mở phần đầu tiên</button>';
+    }
+    var sec = S.data.sections[ex.active_section] || {};
+    var stillWorking = sec.working || 0;
+    return openBtn +
+      (stillWorking > 0
+        ? '<button type="button" class="av-btn av-btn--primary" id="btn-collect">Thu bài phần này (' + stillWorking + ' chưa nộp)</button>'
+        : '<span class="ml-pill ml-pill--live">Đã thu đủ bài</span>') +
+      '<button type="button" class="av-btn' + (stillWorking > 0 ? '' : ' av-btn--primary') +
+        '" id="btn-advance">Mở phần tiếp theo →</button>';
+  }
+
+  function collectSection() {
+    var ex = S.data.exam;
+    var sec = S.data.sections[ex.active_section] || {};
+    var pending = sec.working || 0;
+    var msg = 'Kỳ thi "' + ex.code + '"\n\n' +
+      'THU BÀI phần ' + (SECTION_LABEL[ex.active_section] || ex.active_section) +
+      (pending ? ' — ' + pending + ' học viên chưa nộp sẽ bị thu tự động' : '') + '.\n\n' +
+      'Cả lớp sẽ vào phòng chờ, KHÔNG đồng hồ nào chạy. Phần tiếp theo chỉ mở khi bạn bấm nút thứ hai.\n\n' +
+      'Hành động này KHÔNG hoàn tác được.';
+    if (!confirm(msg)) return;
+    return guard(el('btn-collect'), function () {
+      return window.api.post('/admin/mock-exams/' + encodeURIComponent(ex.id) + '/collect', {})
+        .then(function (r) {
+          toast('Đã thu bài ' + (SECTION_LABEL[r.section] || r.section) + ' — ' + r.collected + ' bài.');
+          return load();
+        })
+        .catch(function (e) { toast('Thu bài thất bại: ' + (e && e.message)); });
+    });
   }
 
   // The clock ticks locally between polls so it reads as a live countdown, but
@@ -325,16 +366,19 @@
   function advance() {
     var ex = S.data.exam, secs = S.data.sections;
     var cur = ex.active_section;
-    var v = secs[cur] || null;
-    // Spell out exactly who is about to have their paper taken — the count the
-    // admin needs here is "how many have NOT submitted", not "how many have".
-    var pending = v ? Math.max(0, v.expected - v.submitted) : null;
+    // Who is about to have their paper taken. `working` (not expected−submitted)
+    // is the right count: a student who never showed up is absent, not someone
+    // whose paper is being swept.
+    var pending = (secs[cur] || {}).working || 0;
     var msg = 'Kỳ thi "' + ex.code + '"\n\n';
     msg += (cur === 'not_started')
       ? 'Bắt đầu kỳ thi và mở phần đầu tiên cho cả lớp?'
-      : 'THU BÀI phần ' + (SECTION_LABEL[cur] || cur) +
-        (pending != null ? ' — ' + pending + ' học viên chưa nộp sẽ bị thu tự động' : '') +
-        ', rồi mở phần tiếp theo?';
+      // Advance still sweeps stragglers, so it stays safe if the admin skips
+      // the collect step — but now it SAYS so instead of hiding it.
+      : (pending
+          ? 'Mở phần tiếp theo? ' + pending + ' học viên chưa nộp phần ' +
+            (SECTION_LABEL[cur] || cur) + ' sẽ bị thu tự động.'
+          : 'Phần ' + (SECTION_LABEL[cur] || cur) + ' đã thu đủ bài. Mở phần tiếp theo cho cả lớp?');
     msg += '\n\nHành động này KHÔNG hoàn tác được.';
     if (!confirm(msg)) return;
     return guard(el('btn-advance'), function () {

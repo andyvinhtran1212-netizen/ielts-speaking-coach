@@ -2287,6 +2287,64 @@ def test_retake_assign_rejects_inverted_window(fake_db):
     }], created_by=str(uuid4()))
 
 
+# ── B4: collect is separate from advance ──────────────────────────────
+
+
+def test_collect_takes_papers_without_opening_the_next_section(fake_db, svc):
+    """B4 — the whole point: papers in, class to the waiting room, and NO clock
+    running until the admin decides to advance."""
+    exam = _seed_exam(fake_db)
+    u = uuid4()
+    svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → listening
+
+    out = svc.collect_section(exam["id"], "admin-1")
+
+    assert out == {"section": "listening", "collected": 1}
+    after = svc.get_published_exam_by_id(exam["id"])
+    assert after["active_section"] == "listening"          # did NOT advance
+    assert after.get("reading_started_at") is None         # no clock started
+    # the student's paper is in, so the runner's isOpenSection goes false and
+    # they land in the waiting room
+    sitting = [s for s in fake_db.rows("mock_exam_sittings")][0]
+    assert sitting["listening_submitted_at"] is not None
+
+
+def test_collect_then_advance_is_the_normal_two_step(fake_db, svc):
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+    svc.collect_section(exam["id"], "admin-1")
+    svc.advance_section(exam["id"], "admin-1")
+    assert svc.get_published_exam_by_id(exam["id"])["active_section"] == "reading"
+
+
+def test_collect_is_idempotent(fake_db, svc):
+    """Bấm lại sau khi đã thu đủ phải vô hại — nothing left to sweep."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+    assert svc.collect_section(exam["id"], "admin-1")["collected"] == 1
+    assert svc.collect_section(exam["id"], "admin-1")["collected"] == 0
+
+
+def test_collect_rejected_before_the_exam_starts(fake_db, svc):
+    exam = _seed_exam(fake_db)
+    with pytest.raises(svc.SittingConflictError):
+        svc.collect_section(exam["id"], "admin-1")
+
+
+def test_collect_rejected_for_a_retake_exam(fake_db, svc):
+    """Retake is self-timed per student — there is no shared section to collect,
+    and pretending otherwise would sweep papers on someone else's clock."""
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update(
+        {"exam_mode": "retake", "active_section": "listening"}).eq(
+        "id", exam["id"]).execute()
+    with pytest.raises(svc.SittingConflictError):
+        svc.collect_section(exam["id"], "admin-1")
+
+
 # ── B2: advance is win-once ───────────────────────────────────────────
 
 

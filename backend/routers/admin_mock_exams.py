@@ -196,6 +196,25 @@ async def advance_section(
         raise HTTPException(409, str(e))
 
 
+@router.post("/{exam_id}/collect")
+async def collect_section(
+    exam_id: str, authorization: str | None = Header(default=None),
+):
+    """THU BÀI for the currently-open section WITHOUT opening the next one.
+
+    Lets the invigilator run the real sequence — take papers in, check everyone
+    is accounted for, then hand out the next section — instead of the two being
+    one irreversible button. Students drop into the waiting room with no clock
+    running until /advance."""
+    admin = await require_admin(authorization)
+    try:
+        return svc.collect_section(exam_id, admin["id"])
+    except svc.NotFoundError as e:
+        raise HTTPException(404, str(e))
+    except svc.SittingConflictError as e:
+        raise HTTPException(409, str(e))
+
+
 @router.get("/{exam_id}/section-progress")
 async def section_progress(
     exam_id: str, authorization: str | None = Header(default=None),
