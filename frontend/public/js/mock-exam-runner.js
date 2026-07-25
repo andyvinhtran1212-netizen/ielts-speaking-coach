@@ -180,11 +180,19 @@
   // server survives a dead browser, and whichever copy is NEWER wins on load.
   var WRITE_SAVE_MS = 15000;      // idle debounce
   var WRITE_SAVE_CHARS = 400;     // ...or this much new text, whichever first
+  var WRITE_RETRY_MS = 5000;      // after a failed save
+  var WRITE_MAX_RETRIES = 6;      // ~30s of trying, then wait for the next edit
   var _wSaveTimer = null;
   var _wLastSaved = { task1: '', task2: '' };
   var _wSaving = false;
   var _wDirty = false;
   var _wFlushWired = false;
+  var _wRetries = 0;
+  // The promise of the save currently on the wire. submitSection AWAITS this:
+  // submit_writing does an unconditional update, so a draft POST still in
+  // flight when the final submit lands can overwrite the submitted essay — or
+  // be the copy that gets promoted for grading (Codex review, PR #835).
+  var _wInFlight = null;
 
   function saveLocalDraft(task, text) {
     try {
@@ -234,6 +242,7 @@
 
   function scheduleWritingSave() {
     _wDirty = true;
+    _wRetries = 0;              // a fresh edit earns a fresh retry budget
     var t1 = el('essay-task1').value, t2 = el('essay-task2').value;
     var delta = Math.abs(t1.length - _wLastSaved.task1.length)
       + Math.abs(t2.length - _wLastSaved.task2.length);
@@ -248,25 +257,49 @@
     // Never autosave outside the open Writing section: the endpoint rejects it,
     // and after submit the text is final — a late save must not race the
     // submitted copy.
-    if (!_wDirty || _wSaving || _submitting || S.renderedSection !== 'writing') return;
+    if (!_wDirty || _wSaving || _submitting || S.renderedSection !== 'writing') {
+      return _wInFlight || Promise.resolve();
+    }
     _wSaving = true;
     setSaveCue('saving');
     var body = { task1_text: el('essay-task1').value, task2_text: el('essay-task2').value };
     // keepalive lets the browser finish the request after the page is gone —
     // the pagehide path is exactly the case this feature exists for.
-    return window.api.postWith(
+    _wInFlight = window.api.postWith(
       '/api/mock-exams/sittings/' + encodeURIComponent(S.sittingId) + '/writing',
       body, null, { keepalive: !!(opts && opts.keepalive) }
     ).then(function () {
       _wLastSaved = { task1: body.task1_text, task2: body.task2_text };
-      _wDirty = false;
-      setSaveCue('saved');
+      // Only declare the draft clean if the textareas STILL match what we sent.
+      // Clearing unconditionally lost every keystroke typed while the request
+      // was in flight: the scheduled follow-up then saw _wDirty false and
+      // exited, so a later crash or force-collect persisted the OLDER essay
+      // while the cue said "Đã lưu" (Codex review, PR #835).
+      if (el('essay-task1').value === body.task1_text
+          && el('essay-task2').value === body.task2_text) {
+        _wDirty = false;
+        setSaveCue('saved');
+      } else {
+        scheduleWritingSave();
+      }
     }).catch(function (e) {
-      // Stay dirty so the next tick retries. localStorage still holds the text,
-      // so this is a degraded state, not a loss.
+      // Stay dirty AND schedule a real retry. Leaving only the flag set meant
+      // nothing retried until the student typed again, went offline→online, or
+      // left the page — while the cue promised an automatic retry.
       setSaveCue('failed');
       console.warn('[mock-exam] writing autosave failed', e);
-    }).then(function () { _wSaving = false; });
+      if (_wRetries < WRITE_MAX_RETRIES) {
+        _wRetries++;
+        _wSaveTimer = setTimeout(function () {
+          _wSaveTimer = null;
+          flushWritingSave();
+        }, WRITE_RETRY_MS);
+      }
+    }).then(function () {
+      _wSaving = false;
+      _wInFlight = null;
+    });
+    return _wInFlight;
   }
 
   function wireWritingFlush() {
@@ -501,6 +534,12 @@
     if (timerIv) { clearInterval(timerIv); timerIv = null; }
     try {
       if (section === 'writing') {
+        // SERIALISE with the autosave. submit_writing does an unconditional
+        // update, so a draft POST still on the wire can land AFTER the final
+        // one and overwrite the submitted essay — or be the copy promoted for
+        // grading. Waiting costs at most one request; not waiting can cost the
+        // student their essay (Codex review, PR #835).
+        if (_wInFlight) { try { await _wInFlight; } catch (e) { /* draft lost; submit anyway */ } }
         await api('post', '/api/mock-exams/sittings/' + S.sittingId + '/sections/writing/submit',
           { task1_text: el('essay-task1').value, task2_text: el('essay-task2').value });
         try { localStorage.removeItem(lsKey('task1')); localStorage.removeItem(lsKey('task2')); } catch (e) {}
