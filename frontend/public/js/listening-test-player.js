@@ -11,8 +11,11 @@
  *   2. PLAYER — POST /api/listening/tests/{id}/attempts, then render
  *      the 4-section question paper + custom audio controls. Audio has
  *      Play/Pause + speed (0.75/1/1.25) + volume — NO seek/rewind
- *      (Cambridge constraint). Each answer change debounces 2s and
- *      PATCHes /api/listening/tests/attempts/{id}/answers.
+ *      (Cambridge constraint). Each answer change debounces 500ms and
+ *      PATCHes /api/listening/tests/attempts/{id}/answers, with a retry
+ *      ladder + a visible cue for anything the server does not hold (A4a).
+ *      A still-open attempt can be RESUMED from pre-start instead of
+ *      being abandoned (A1).
  *
  *   3. RESULT — POST /api/listening/tests/attempts/{id}/submit, render
  *      score + band + section breakdown + trap analytics + per-Q list.
@@ -37,6 +40,12 @@ const STATE = {
   answers:       new Map(),   // q_num → user_answer
   saveTimers:    new Map(),   // q_num → setTimeout handle
   inflight:      new Set(),   // q_nums mid-PATCH
+  // A4a — an answer is "unsaved" from the moment its first save attempt fails
+  // until one succeeds. saveGen keeps an older retry from clearing a newer
+  // failure's cue; saveRetryTimers lets a fresh edit cancel a pending retry.
+  unsaved:       new Map(),   // q_num → 'retrying' | 'failed'
+  saveRetryTimers: new Map(), // q_num → setTimeout handle
+  saveGen:       new Map(),   // q_num → generation counter
   // An open attempt the server still holds for this (user, test), found at
   // prestart. Non-null → the resume button is on screen and "Bắt đầu test"
   // means "throw that away and start over".
@@ -495,6 +504,10 @@ function renderProgressTracker() {
     );
   }
   bar.innerHTML = html.join('');
+  // The squares were just rebuilt from scratch, so any unsaved cue painted on
+  // the old nodes is gone. Re-apply it — a re-render must not silently tell the
+  // student their answers are safe.
+  STATE.unsaved.forEach((state, qNum) => setSaveState(qNum, state));
 }
 
 function attachProgressHandlers() {
@@ -1023,7 +1036,89 @@ function updateTabProgressCounts() {
 }
 
 
-// ── Debounced auto-save (2s per gap, last-write-wins) ────────────────
+// ── Debounced auto-save (A4a) ────────────────────────────────────────
+//
+// This used to drop answers three ways, all silently:
+//   · a save arriving while that question was already in flight RETURNED,
+//     discarding the newer value with nothing scheduled to send it;
+//   · errors were swallowed ("Silent — user can re-edit"), so a failed save
+//     looked identical to a successful one and was never retried;
+//   · the 2s debounce made the loss window 4× Reading's.
+//
+// Reading solved all of this in DEBT-2026-07-22-D / review #820. This ports the
+// same mechanism: retry what a retry can fix, make an unsaved answer visible,
+// and never let a newer value be beaten by an older one.
+const SAVE_DEBOUNCE_MS = 500;
+const SAVE_RETRY_DELAYS = [400, 1200, 3000];
+
+// Retry only what a retry can fix. No `status` → the request never produced a
+// response (offline, DNS, dropped connection). `status >= 500` → server or
+// gateway. A 4xx is deterministic — 401/403 (access), 404 (attempt gone), 422
+// (bad body) all repeat identically — so it fails fast and shows the cue.
+function isRetriableSaveError(e) {
+  if (!e) return false;
+  const status = e.status;
+  if (status === undefined || status === null) return true;
+  return Number(status) >= 500;
+}
+
+// 'retrying' | 'failed' | null. Two states, not one: after a non-retriable 4xx
+// or a spent budget nothing is retrying, and telling the student to "wait" for
+// a warning that can never clear by itself is worse than saying it stopped.
+function setSaveState(qNum, state) {
+  if (state) STATE.unsaved.set(qNum, state);
+  else STATE.unsaved.delete(qNum);
+  const sq = document.querySelector(`#ft-progress-bar .progress-square[data-q-num="${qNum}"]`);
+  if (sq) {
+    sq.classList.toggle('is-unsaved', !!state);
+    sq.classList.toggle('is-save-failed', state === 'failed');
+    if (state) {
+      sq.setAttribute('title', state === 'failed'
+        ? `Câu ${qNum} — chưa lưu được, đã ngừng thử lại`
+        : `Câu ${qNum} — chưa lưu được, đang thử lại`);
+    } else {
+      sq.setAttribute('title', `Câu ${qNum} — Section ${sectionForQ(qNum)}`);
+    }
+  }
+  renderUnsavedNote();
+}
+
+// One honest line above the submit button. A single amber square among 40 is
+// easy to miss; this says how many answers the server does not have and what
+// that means for closing the tab.
+function renderUnsavedNote() {
+  const note = $('ft-unsaved-note');
+  if (!note) return;
+  let retrying = 0, failed = 0;
+  STATE.unsaved.forEach((s) => { if (s === 'failed') failed++; else retrying++; });
+  if (!retrying && !failed) { note.hidden = true; note.textContent = ''; return; }
+  note.hidden = false;
+  note.textContent = '';
+  const parts = [];
+  if (retrying) parts.push(`Đang thử lưu lại ${retrying} câu.`);
+  if (failed) parts.push(`${failed} câu chưa lưu được lên máy chủ và đã NGỪNG thử lại.`);
+  parts.push(failed
+    ? 'Đừng đóng tab: bấm «Thử lại», hoặc sửa lại chính câu đó, trước khi nộp.'
+    : 'Đừng đóng tab cho tới khi hết cảnh báo này.');
+  note.appendChild(document.createTextNode(parts.join(' ')));
+  if (failed) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'ft-unsaved-retry';
+    btn.textContent = 'Thử lại';
+    btn.addEventListener('click', retryFailedSaves);
+    note.appendChild(document.createTextNode(' '));
+    note.appendChild(btn);
+  }
+}
+
+// Manual + automatic escape hatch out of the terminal state. Coming back online
+// is by far the commonest reason a given-up save would now succeed.
+function retryFailedSaves() {
+  const due = [];
+  STATE.unsaved.forEach((state, qNum) => { if (state === 'failed') due.push(qNum); });
+  due.forEach((qNum) => { void saveAnswer(qNum, STATE.answers.get(qNum)); });
+}
 
 function scheduleAutoSave(qNum, value) {
   if (STATE.saveTimers.has(qNum)) {
@@ -1032,23 +1127,62 @@ function scheduleAutoSave(qNum, value) {
   const handle = setTimeout(() => {
     STATE.saveTimers.delete(qNum);
     void saveAnswer(qNum, value);
-  }, 2000);
+  }, SAVE_DEBOUNCE_MS);
   STATE.saveTimers.set(qNum, handle);
 }
 
-async function saveAnswer(qNum, value) {
+async function saveAnswer(qNum, value, opts) {
   if (!STATE.attemptId) return;
-  if (STATE.inflight.has(qNum)) return;
+  const attempt = (opts && opts.attempt) || 0;
+
+  // A fresh edit supersedes any retry chain still waiting for this question —
+  // otherwise the pending retry fires a second PATCH right behind the new one.
+  if (!attempt && STATE.saveRetryTimers.has(qNum)) {
+    clearTimeout(STATE.saveRetryTimers.get(qNum));
+    STATE.saveRetryTimers.delete(qNum);
+  }
+
+  // One generation per logical save. A fresh edit bumps it; retries inherit
+  // theirs. Without this two overlapping PATCHes race: the newer fails and
+  // raises the cue, the older then resolves and clears it — telling the student
+  // the latest answer is safe when the server only holds the previous one.
+  let gen = opts && opts.gen;
+  if (gen === undefined) {
+    gen = (STATE.saveGen.get(qNum) || 0) + 1;
+    STATE.saveGen.set(qNum, gen);
+  }
+
+  // Already in flight for this question: do NOT drop the new value (the old bug
+  // — it was discarded with nothing scheduled to send it). Re-arm the debounce
+  // so the latest text goes out as soon as the current request settles.
+  if (STATE.inflight.has(qNum)) {
+    scheduleAutoSave(qNum, value);
+    return;
+  }
+
   STATE.inflight.add(qNum);
   try {
     await window.api.patch(
       `/api/listening/tests/attempts/${encodeURIComponent(STATE.attemptId)}/answers`,
       { q_num: qNum, user_answer: value == null ? '' : String(value) },
     );
-    const el = document.querySelector(`.ft-q-input[data-q-num="${qNum}"]`);
-    if (el && el.type !== 'radio') el.classList.add('saved');
+    if (gen === STATE.saveGen.get(qNum)) {
+      setSaveState(qNum, null);
+      const el = document.querySelector(`.ft-q-input[data-q-num="${qNum}"]`);
+      if (el && el.type !== 'radio') el.classList.add('saved');
+    }
   } catch (e) {
-    // Silent — user can re-edit; UI does not need to block on save errors.
+    if (gen !== STATE.saveGen.get(qNum)) return;   // superseded; its own chain owns the cue
+    if (isRetriableSaveError(e) && attempt < SAVE_RETRY_DELAYS.length) {
+      setSaveState(qNum, 'retrying');
+      const handle = setTimeout(() => {
+        STATE.saveRetryTimers.delete(qNum);
+        void saveAnswer(qNum, value, { attempt: attempt + 1, gen });
+      }, SAVE_RETRY_DELAYS[attempt]);
+      STATE.saveRetryTimers.set(qNum, handle);
+    } else {
+      setSaveState(qNum, 'failed');
+    }
   } finally {
     STATE.inflight.delete(qNum);
   }
@@ -1346,7 +1480,7 @@ function main() {
 
 // 4-skill mock (mock_embed): the parent one-timer page asks this runner to
 // FLUSH its debounced auto-saves before it submits the attempt, so a just-typed
-// answer isn't stranded in the 2s debounce queue.
+// answer isn't stranded in the debounce queue.
 window.addEventListener('message', async (ev) => {
   if (!ev.data || ev.data.type !== 'mock-flush') return;
   const pending = [];
@@ -1360,5 +1494,10 @@ window.addEventListener('message', async (ev) => {
   await Promise.all(pending.map((p) => (p && p.catch) ? p.catch(() => {}) : Promise.resolve()));
   if (ev.source) ev.source.postMessage({ type: 'mock-flushed', section: 'listening' }, '*');
 });
+
+// A4a — the retry budget is spent while offline far more often than for any
+// other reason, so regaining connectivity retries the given-up saves without
+// the student having to notice the button.
+window.addEventListener('online', retryFailedSaves);
 
 document.addEventListener('DOMContentLoaded', main);
