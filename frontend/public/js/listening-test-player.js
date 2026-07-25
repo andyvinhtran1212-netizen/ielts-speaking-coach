@@ -300,8 +300,33 @@ function restoreAnswersIntoPaper() {
       else el.value = val == null ? '' : val;
     });
   }
+  restoreMultiSelectGroups();
   updateAnsweredCount();
   renderProgressTracker();
+}
+
+// mcq_multi renders its choices as `.ft-mc-box` checkboxes WITHOUT data-q-num
+// (the group maps N checked letters onto N q-slots), so the loop above cannot
+// see them. Left unrestored they came back visually unchecked even though the
+// answers were recovered — and then ticking one more option remapped only the
+// newly-checked values onto the slots and scheduled BLANK saves for the rest,
+// overwriting recovered answers (Codex review, PR #834).
+function restoreMultiSelectGroups() {
+  document.querySelectorAll('.ielts-mc-group').forEach((grp) => {
+    const slots = (grp.getAttribute('data-mm-slots') || '')
+      .split(',').map(Number).filter(Number.isFinite);
+    const choose = Number(grp.getAttribute('data-mm-choose')) || slots.length || 2;
+    const letters = slots
+      .map((slot) => STATE.answers.get(slot))
+      .filter((v) => v != null && v !== '');
+    if (!letters.length) return;
+    const boxes = Array.from(grp.querySelectorAll('.ft-mc-box'));
+    boxes.forEach((b) => { b.checked = letters.indexOf(b.value) !== -1; });
+    // Re-apply the same N-pick soft-lock the change handler maintains, so a
+    // resumed group behaves identically to one filled in this sitting.
+    const lock = boxes.filter((b) => b.checked).length >= choose;
+    boxes.forEach((b) => { if (!b.checked) b.disabled = lock; });
+  });
 }
 
 // Rejoin the room where it actually is. The mock's Listening clock is stamped
