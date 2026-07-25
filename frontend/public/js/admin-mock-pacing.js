@@ -108,6 +108,12 @@
       show('error'); return;
     }
 
+    // Return to the SAME classroom. Without the exam id the live console falls
+    // back to the first published exam, silently switching which class the
+    // invigilator is monitoring after a normal round trip.
+    var back = document.querySelector('a[href="/pages/admin/mock-live/index.html"]');
+    if (back && d.exam_id) back.href += '?exam_id=' + encodeURIComponent(d.exam_id);
+
     el('head').innerHTML =
       '<span class="mp-name">' + esc(d.student_name) + '</span>' +
       '<span class="mp-code">' + esc(d.exam_code || '') + '</span>' +
