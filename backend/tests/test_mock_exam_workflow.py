@@ -2448,6 +2448,29 @@ def test_open_exam_list_reports_what_is_blocking(fake_db, svc):
     assert by_id[b["id"]]["my_sitting_id"] is None
 
 
+def test_own_exam_stays_listed_after_the_gate_closes(fake_db, svc):
+    """Codex #841 (correct): an admin closing the live toggle to block late
+    entrants dropped the exam from the list BEFORE my_sitting_id could be
+    attached — so the entry page showed the empty state instead of the promised
+    resume link, to precisely the student who is mid-exam."""
+    exam = _seed_exam(fake_db)
+    u = uuid4()
+    mine = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.set_open(exam["id"], False, "admin-1")          # block late entrants
+
+    listed = {e["id"]: e for e in svc.list_open_exams(u)}
+    assert exam["id"] in listed
+    assert listed[exam["id"]]["my_sitting_id"] == str(mine["id"])
+
+
+def test_closed_exam_stays_hidden_from_everyone_else(fake_db, svc):
+    """The relaxation is for the ONE person holding a sitting, nobody else."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.set_open(exam["id"], False, "admin-1")
+    assert svc.list_open_exams(uuid4()) == []
+
+
 def test_retake_assign_requires_a_closing_bound(fake_db):
     """D3 — an open-ended retake never finishes.
 

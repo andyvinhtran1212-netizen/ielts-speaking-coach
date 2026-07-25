@@ -79,11 +79,25 @@ describe('A3 — a network failure no longer ends the exam', () => {
     assert.match(JS, /st === 403 \|\| st === 404/);
   });
 
-  test('409 is followed, not treated as an error', () => {
-    // The invigilator collected the section (or the exam moved on). That is the
-    // exam working; the student belongs in the waiting room, not an error page.
+  test('409 is VERIFIED before being accepted', () => {
+    // The backend maps every SittingConflictError to 409 — "already collected"
+    // but also "clock hasn't run out" and "prior section not submitted".
+    // Accepting all of them stopped the timer and parked the student at 00:00
+    // with no further attempt and no warning.
     assert.match(JS, /st === 409/);
-    assert.match(JS, /st === 409[\s\S]{0,240}loadState\(\)/);
+    assert.match(JS, /st === 409[\s\S]{0,400}await loadState\(\)/);
+    assert.match(JS, /sit\[section \+ '_submitted_at'\] \|\| S\.activeSection !== section/);
+  });
+
+  test('a spent retry budget is remembered and finished on reconnect', () => {
+    // Polling alone never retried: a successful poll for the same active
+    // section only resynced the clock while timerIv stayed null, so the student
+    // sat at 00:00 forever and the submit endpoint never ran.
+    assert.match(JS, /_owedSubmit = section/);
+    assert.match(JS, /function retryOwedSubmit/);
+    assert.match(JS, /retryOwedSubmit\(\);/);
+    // and it must not fire for a section that is already done
+    assert.match(JS, /sit\[section \+ '_submitted_at'\] \|\| S\.activeSection !== section\)[\s\S]{0,80}_owedSubmit = null/);
   });
 
   test('exhausting the retry budget does NOT call fail()', () => {
