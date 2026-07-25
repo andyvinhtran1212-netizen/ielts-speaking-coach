@@ -3018,6 +3018,48 @@ def test_reassign_loses_the_race_when_the_student_starts_mid_write(fake_db, svc,
         "the section the student is actively sitting must not be taken away")
 
 
+def test_start_section_rolls_back_when_reassigned_mid_start(fake_db, svc, monkeypatch):
+    """Codex #845 (correct, P1): the CAS added last round covers the ordering
+    where the student started FIRST. The mirror image — start_section() reads
+    the old assigned_skills, the admin's refresh commits while every clock is
+    still null, and then start_section writes — left the sitting with a running
+    clock for a skill the refreshed snapshot no longer includes.
+
+    Staged by dropping the skill between start_section's read and its write."""
+    from services import mock_exam_assignment_service as a
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    u = str(uuid4())
+    a.assign(exam["id"], [{"user_id": u, "skills": ["listening", "writing"], **_WINDOW}],
+             created_by=str(uuid4()))
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+
+    real_get = svc.get_sitting
+    fired = {"done": False}
+
+    def drop_skill_after_the_read(sitting_id):
+        row = real_get(sitting_id)
+        if row and not fired["done"] and str(row["id"]) == str(sit["id"]):
+            fired["done"] = True                     # only the FIRST read
+        elif row and fired["done"] and str(row["id"]) == str(sit["id"]):
+            # the admin's refresh has landed by the time we look again
+            fake_db.table("mock_exam_sittings").update(
+                {"assigned_skills": ["writing"]}).eq("id", sit["id"]).execute()
+            return real_get(sitting_id)
+        return row
+
+    svc.get_sitting = drop_skill_after_the_read
+    try:
+        with pytest.raises(svc.SittingConflictError):
+            svc.start_section(sit["id"], u, "listening")
+    finally:
+        svc.get_sitting = real_get
+
+    assert svc.get_sitting(sit["id"])["listening_started_at"] is None, (
+        "a clock started for a skill the student no longer has must be rolled back")
+
+
 def test_first_assign_with_no_sitting_reports_neither(fake_db):
     from services import mock_exam_assignment_service as a
     res = a.assign(str(uuid4()), [{"user_id": str(uuid4()), "skills": ["writing"], **_WINDOW}],

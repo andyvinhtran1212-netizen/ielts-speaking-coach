@@ -1338,9 +1338,38 @@ def start_section(sitting_id: str, user_id: str, section: str) -> dict:
         updates["status"] = "lrw_in_progress"
     resp = supabase_admin.table("mock_exam_sittings").update(updates).eq(
         "id", str(sitting_id),
-    ).execute()
+    ).is_(started_col, "null").execute()
+    if not resp.data:
+        # Someone stamped this clock between the read above and this write —
+        # another tab, or a double-click. Idempotent, same as the guard above.
+        return get_sitting(sitting_id) or {**sitting, **updates}
+
+    # THE OTHER HALF OF THE REASSIGNMENT RACE. `_refresh_open_sitting()` now
+    # compare-and-sets on every clock being null, which covers the ordering
+    # where the student started FIRST. The mirror image — this function reads
+    # the old assigned_skills, the admin's refresh commits while every clock is
+    # still null, and then this write lands — left the sitting with a running
+    # clock for a skill the refreshed snapshot no longer includes: the runner
+    # can hide the section the student is sitting, and completion/reaping
+    # disagree about what is owed (Codex review, PR #845).
+    #
+    # PostgREST has no cross-table transaction, so close it by RE-READING the
+    # authority we depend on and rolling the clock back if it moved.
+    fresh = get_sitting(sitting_id) or {}
+    if section not in _sitting_sections(fresh, exam):
+        supabase_admin.table("mock_exam_sittings").update({started_col: None}).eq(
+            "id", str(sitting_id),
+        ).execute()
+        logger.warning(
+            "[mock-exam] sitting=%s start of %s rolled back — reassigned mid-start",
+            sitting_id, section,
+        )
+        raise SittingConflictError(
+            f"Phần {section} vừa bị gỡ khỏi bài test lại của bạn — tải lại trang."
+        )
+
     logger.info("[mock-exam] sitting=%s retake section=%s started", sitting_id, section)
-    return resp.data[0] if resp.data else {**sitting, **updates}
+    return fresh or (resp.data[0] if resp.data else {**sitting, **updates})
 
 
 def submit_section(
