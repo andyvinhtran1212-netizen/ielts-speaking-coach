@@ -4555,6 +4555,7 @@ async def admin_get_listening_attempt(
 @user_router.get("/tests/{test_id}/attempts/in-progress")
 async def get_in_progress_listening_attempt(
     test_id: str,
+    sitting_id: str | None = None,
     authorization: str | None = Header(default=None),
 ):
     """The caller's still-open attempt at this test, or null.
@@ -4565,21 +4566,29 @@ async def get_in_progress_listening_attempt(
     4-skill mock, the embed's automatic start-click) silently destroyed every
     answer the student had given.
 
+    `sitting_id` SCOPES the lookup to one mock sitting, and the mock runner
+    always sends it. Without that scope the query matched on (user, test,
+    in_progress) alone, so a student who already had a STANDALONE practice
+    attempt open on a test later reused by a mock exam would have the embed
+    auto-resume that practice attempt and attach_attempt bind it to the sealed
+    sitting — pulling practice answers into a real exam and corrupting both.
+    Standalone practice keeps the unscoped lookup.
+
     Deliberately a separate endpoint rather than a field on the shared test
     bundle: that bundle is served to several callers and is cacheable, while
     this is per-user and must never be cached.
     """
     user = await _require_auth(authorization)
-    res = (
+    query = (
         supabase_admin.table("listening_test_attempts")
         .select("id, started_at, created_at, answers")
         .eq("user_id", user["id"])
         .eq("test_id", test_id)
         .eq("status", "in_progress")
-        .order("created_at", desc=True)
-        .limit(1)
-        .execute()
     )
+    if sitting_id:
+        query = query.eq("sitting_id", sitting_id)
+    res = query.order("created_at", desc=True).limit(1).execute()
     if not res.data:
         return {"attempt": None}
     row = res.data[0]
