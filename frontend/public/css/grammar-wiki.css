@@ -8,10 +8,14 @@
  *   - admin-writing.css NOT linked (different cluster, at-cap)
  *   - writing-renderers.css NOT linked (Sprint 6.8 finding extends)
  *
- * Typography sub-system (DM Sans body + Lora display) preserved
- * intentionally per DESIGN_SYSTEM § 14.2 sub-system decision.
- * Grammar Wiki = long-form reading content; editorial typography
- * distinct from utilitarian dashboards (Plus Jakarta Sans elsewhere).
+ * Typography — DEBT-2026-07-24-J (decision 2026-07-25). The old § 14.2
+ * sub-system (its own body sans + its own display serif) is RETIRED: Grammar
+ * was the only corner of the site running a different body sans, which read as
+ * two products rather than one. Now: body + utilities use --av-font-sans like
+ * everywhere else, and the editorial intent survives where it actually earns
+ * its keep — long-form headings/prose use --av-font-serif, the ONE sanctioned
+ * serif (Lora). No family is named literally in this file; see
+ * frontend/tests/font-system-ratchet.test.mjs.
  *
  * Tailwind CDN + custom navy/teal palette config preserved per Phase A
  * finding — `frontend/js/grammar.js` renderer (1,034 lines) emits
@@ -33,12 +37,16 @@
  */
 
 
-/* ── Body surface + DM Sans + Lora sub-system override ─────────── */
+/* ── Body surface + type (DEBT-2026-07-24-J: now on --av-font-*) ── */
 
 body.av-page {
-  /* DM Sans wins on cascade because grammar-wiki.css loads after
-     components.css. Preserves the sub-system per § 14.2. */
-  font-family: 'DM Sans', ui-sans-serif, system-ui;
+  /* DEBT-2026-07-24-J — was `'DM Sans', ui-sans-serif, system-ui`, an
+     editorial sub-system that made Grammar the only corner of the site with a
+     different body sans. Decision 2026-07-25: one sans for the whole system.
+     The declaration stays (grammar-wiki.css loads after components.css, so
+     dropping it entirely would be a no-op either way) but now points at the
+     token, so it cannot drift from the rest of the site again. */
+  font-family: var(--av-font-sans);
   background: var(--av-surface-page);
   background-image: radial-gradient(
     color-mix(in srgb, var(--av-text-primary) 2.5%, transparent) 1px,
@@ -54,8 +62,8 @@ body.av-page {
 body.av-page .text-white { color: var(--av-text-primary); }
 
 /* Font-stack discipline under Tailwind utility classes */
-body.av-page .font-sans { font-family: 'DM Sans', ui-sans-serif, system-ui; }
-body.av-page .font-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-feature-settings: 'tnum'; }
+body.av-page .font-sans { font-family: var(--av-font-sans); }
+body.av-page .font-mono { font-family: var(--av-font-mono); font-feature-settings: 'tnum'; }
 
 /* Sprint 7.14 — Sprint 7.8-hotfix font-family scoping override retired.
    Chrome is now rendered by <aver-chrome> (Sprint 7.13) with styles
@@ -386,7 +394,7 @@ body.av-page .hover\:bg-white\/\[0\.03\]:hover { background-color: var(--av-surf
 .hero-title,
 #article-title,
 #search-heading {
-  font-family: 'Lora', Georgia, serif;
+  font-family: var(--av-font-serif);
 }
 
 
@@ -496,7 +504,7 @@ body.av-page .hover\:bg-white\/\[0\.03\]:hover { background-color: var(--av-surf
   padding: 14px 20px 14px 48px;
   color: var(--av-text-primary);
   font-size: 15px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--av-font-sans);
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
   width: 100%;
@@ -515,7 +523,7 @@ body.av-page .hover\:bg-white\/\[0\.03\]:hover { background-color: var(--av-surf
   display: inline-flex; align-items: center; gap: 8px;
   padding: 11px 22px; border-radius: 999px;
   font-weight: 600; font-size: 14px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--av-font-sans);
   transition: all 0.18s;
   cursor: pointer; border: none; text-decoration: none;
   letter-spacing: 0.01em;
@@ -665,7 +673,7 @@ body.av-page .hover\:bg-white\/\[0\.03\]:hover { background-color: var(--av-surf
 }
 
 .article-body h2 {
-  font-family: 'Lora', serif;
+  font-family: var(--av-font-serif);
   font-size: 1.3rem; font-weight: 700;
   color: var(--av-text-primary);
   margin-top: 2.5rem; margin-bottom: 0.85rem;
@@ -699,7 +707,7 @@ body.av-page .hover\:bg-white\/\[0\.03\]:hover { background-color: var(--av-surf
   border: 1px solid var(--av-primary-border);
   padding: 0.15em 0.45em; border-radius: 5px;
   font-size: 0.88em;
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--av-font-mono);
   color: var(--av-primary);
 }
 .article-body pre {
@@ -746,7 +754,7 @@ body.av-page .hover\:bg-white\/\[0\.03\]:hover { background-color: var(--av-surf
 }
 .article-body blockquote::before {
   content: '\201C';
-  font-family: 'Lora', serif;
+  font-family: var(--av-font-serif);
   font-size: 3.5rem; line-height: 1;
   color: color-mix(in srgb, var(--av-primary) 25%, transparent);
   position: absolute; top: -4px; left: 12px;
