@@ -109,3 +109,27 @@ def test_advance_forwards_the_screen_section():
             json={"from_section": "listening"}, headers=_AUTH)
     assert r.status_code == 200, r.text
     mock_adv.assert_called_once_with(_EXAM, "admin-1", "listening")
+
+
+def test_recovery_from_a_finished_exam_is_accepted():
+    """After the final advance the monitor shows 'done'. Rejecting that as a
+    screen state 422'd every recovery click once the exam had finished — the
+    exact case the button exists for (Codex review, PR #844)."""
+    with patch("routers.admin_mock_exams.require_admin", new=AsyncMock(return_value=_ADMIN)), \
+         patch("routers.admin_mock_exams.svc.collect_preflight",
+               return_value={"section": "writing", "pending": 2}), \
+         patch("routers.admin_mock_exams.svc.mark_section_collected"), \
+         patch("routers.admin_mock_exams.svc.collect_section"):
+        r = _client().post(
+            f"/admin/mock-exams/{_EXAM}/collect?section=writing&from_section=done",
+            headers=_AUTH)
+    assert r.status_code == 202, r.text
+
+
+def test_a_nonsense_screen_state_is_still_rejected():
+    with patch("routers.admin_mock_exams.require_admin", new=AsyncMock(return_value=_ADMIN)), \
+         patch("routers.admin_mock_exams.svc.collect_preflight") as mock_pre:
+        r = _client().post(
+            f"/admin/mock-exams/{_EXAM}/collect?from_section=banana", headers=_AUTH)
+    assert r.status_code == 422, r.text
+    mock_pre.assert_not_called()
