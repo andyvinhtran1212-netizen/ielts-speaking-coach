@@ -377,7 +377,8 @@ function _verdictLine(label, v) {
 // nothing to read. Show the cumulative count next to the window it covers, and
 // say so loudly when the window asked for was not the window granted.
 function _exposureLine(r) {
-  if (!r || r.window_views_total == null) return '';
+  const exp = r && r.exposure;
+  if (!exp || exp.evaluated_views == null) return '';
   const mins = r.window_minutes;
   const span = mins >= 1440 ? (mins / 1440).toFixed(mins % 1440 ? 1 : 0) + ' ngày'
              : mins >= 60 ? (mins / 60).toFixed(mins % 60 ? 1 : 0) + ' giờ'
@@ -389,9 +390,23 @@ function _exposureLine(r) {
       + '(trần bảng ' + escapeHtml(String((r.windows || {}).table_max)) + ' phút). '
       + 'Con số dưới đây KHÔNG phải của cửa sổ bạn hỏi.</div>'
     : '';
-  return clamp + '<div class="el-migration-note"><strong>Phơi nhiễm luỹ kế:</strong> '
-    + escapeHtml(String(r.window_views_total)) + ' lượt xem trong ' + escapeHtml(span)
-    + ' (vế số-lượng của sàn §12.3)</div>';
+  // Review #823 — name the cohort. The gate counts interactions the CODE UNDER
+  // TEST served; a window spanning a cutover otherwise lets legacy traffic
+  // satisfy the floor. And when the count is a fallback (`exact:false`) it can
+  // only under-count, so it is shown as a lower bound, never as a total.
+  const by = exp.by_implementation || {};
+  const prefix = exp.exact ? '' : 'ít nhất ';
+  const others = ['legacy', 'untagged']
+    .filter((k) => by[k])
+    .map((k) => k + ' ' + by[k]).join(', ');
+  return clamp
+    + '<div class="el-migration-note' + (exp.exact ? '' : ' is-warning') + '">'
+    + '<strong>Phơi nhiễm luỹ kế (' + escapeHtml(String(exp.evaluated_implementation)) + '):</strong> '
+    + prefix + escapeHtml(String(exp.evaluated_views)) + ' lượt xem trong ' + escapeHtml(span)
+    + ' — vế số-lượng của sàn §12.3'
+    + (others ? '. Không tính vào sàn: ' + escapeHtml(others) : '')
+    + (exp.exact ? '' : '. <em>Đếm chính xác không chạy được — đây là cận dưới.</em>')
+    + '</div>';
 }
 
 async function loadRollbackMetrics() {

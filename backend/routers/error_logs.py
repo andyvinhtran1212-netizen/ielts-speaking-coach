@@ -555,6 +555,74 @@ async def error_log_rollback_metrics(
     )
     vitals_verdict["window_minutes"] = ROLLBACK_VITALS_WINDOW_MIN
 
+    # ── Exposure (the §12.3 volume half) ────────────────────────────────
+    # Review #823 raised two defects in the first cut of this number, both of
+    # which made it a plausible-looking value with the wrong meaning — exactly
+    # the class DEBT-F exists to kill:
+    #
+    #   1. It summed next + legacy + untagged. A window that spans a cutover
+    #      therefore let traffic the OLD implementation served satisfy the
+    #      exposure floor of the code being evaluated.
+    #   2. It was summed over `analytics_rows`, which `_fetch_all` caps at
+    #      MAX_ROWS across EVERY route and event type (no route/event filter on
+    #      that fetch). Raising the table window to 90 days made that cap far
+    #      easier to reach — 20,179 rows already sit in the last 90 days against
+    #      a 50,000 ceiling — and past it, older qualifying page views are
+    #      dropped while the total still presents itself as cumulative.
+    #
+    # So the count is taken with scoped EXACT-count queries instead: filtered at
+    # the database on event_name + route + window (+ implementation), which is
+    # immune to the scan ceiling and is per-cohort by construction. Verified
+    # against production that PostgREST filters the JSON path — the `_Query`
+    # test stub answers any chain, so it cannot prove this syntax works.
+    exposure_cutoff = (now - timedelta(minutes=window_minutes)).isoformat()
+
+    def _exposure_count(impl: str | None) -> int | None:
+        q = (
+            supabase_admin.table("analytics_events")
+            .select("id", count="exact")
+            .eq("event_name", "page_view")
+            .eq("event_data->>path", route)
+            .gte("created_at", exposure_cutoff)
+        )
+        if impl is not None:
+            q = q.eq("event_data->>implementation", impl)
+        return q.limit(1).execute().count
+
+    try:
+        exp_total = _exposure_count(None)
+        exp_next = _exposure_count("next")
+        exp_legacy = _exposure_count("legacy")
+        exposure_exact = None not in (exp_total, exp_next, exp_legacy)
+    except Exception as exc:
+        logger.warning("rollback-metrics: exact exposure count failed: %s", exc)
+        exposure_exact = False
+        exp_total = exp_next = exp_legacy = None
+
+    if not exposure_exact:
+        # Fall back to the scanned table, but say plainly that the number is a
+        # LOWER BOUND. A capped scan reported as a cumulative total is the
+        # second defect above; degrading to "at least N" keeps it honest.
+        exp_next = table_buckets["next"]["page_views"]
+        exp_legacy = table_buckets["legacy"]["page_views"]
+        exp_total = sum(b["page_views"] for b in table_buckets.values())
+
+    exposure = {
+        # `evaluated` is the number a cutover gate reads: the cohort under test.
+        "evaluated_implementation": "next",
+        "evaluated_views": exp_next,
+        "by_implementation": {
+            "next": exp_next,
+            "legacy": exp_legacy,
+            "untagged": (max(0, exp_total - exp_next - exp_legacy)
+                         if exposure_exact else table_buckets["untagged"]["page_views"]),
+        },
+        "all_views": exp_total,
+        # False → treat every number above as "at least this many".
+        "exact": bool(exposure_exact),
+        "window_minutes": window_minutes,
+    }
+
     return {
         "route": route,
         "window_minutes": window_minutes,
@@ -570,11 +638,11 @@ async def error_log_rollback_metrics(
             "error_trigger": ROLLBACK_ERROR_WINDOW_MIN,
             "vitals_trigger": ROLLBACK_VITALS_WINDOW_MIN,
         },
-        # DEBT-2026-07-22-F — the cumulative exposure count over the requested
-        # window, summed across implementations. This is the "≥N interactions"
-        # half of the §12.3 gate; no field used to carry it, so the soak day-log
-        # tracked the elapsed-days half and never this one.
-        "window_views_total": sum(i["page_views"] for i in implementations.values()),
+        # DEBT-2026-07-22-F — the "≥N interactions" half of the §12.3 gate. No
+        # field used to carry it, so the soak day-log tracked the elapsed-days
+        # half and never this one. See _exposure() for why it is NOT a sum over
+        # the scanned table.
+        "exposure": exposure,
         "implementations": implementations,
         "error_verdict": error_verdict,
         "vitals_verdict": vitals_verdict,
