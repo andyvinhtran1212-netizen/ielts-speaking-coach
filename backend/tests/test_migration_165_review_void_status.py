@@ -59,3 +59,33 @@ def test_the_service_actually_writes_the_value_this_migration_allows():
     # starts failing silently again.
     src = SERVICE.read_text(encoding="utf-8")
     assert re.search(r'table\("mock_exam_reviews"\)\.update\(\{\s*\n?\s*"status":\s*"void"', src)
+
+
+def test_the_historical_backfill_actually_runs():
+    """Codex #840 (correct): extending the constraint only fixes FUTURE voids.
+    Reviews whose sitting was voided BEFORE this migration are the rows whose
+    update silently failed the old CHECK — they stay queued/claimed/reviewed and
+    keep appearing in get_queue() as work someone is expected to finish for a
+    cancelled exam. Leaving the corrective UPDATE commented out shipped that."""
+    body = "\n".join(
+        ln for ln in _sql().splitlines() if not ln.strip().startswith("--")
+    )
+    assert re.search(
+        r"UPDATE\s+mock_exam_reviews\s+r\s+SET\s+status\s*=\s*'void'",
+        body, re.I | re.S,
+    ), "the backfill UPDATE must be executable, not commented out"
+    assert "s.status = 'void'" in body
+    assert "r.status NOT IN ('released', 'void')" in body
+
+
+def test_constraint_change_and_backfill_share_one_transaction():
+    """Either both land or neither does — a backfill that runs against the OLD
+    constraint would fail on every row it tries to move."""
+    body = "\n".join(
+        ln for ln in _sql().splitlines() if not ln.strip().startswith("--")
+    )
+    begin = body.index("BEGIN;")
+    commit = body.index("COMMIT;")
+    add = body.index("ADD CONSTRAINT mock_exam_reviews_status_check")
+    upd = body.upper().index("UPDATE MOCK_EXAM_REVIEWS")
+    assert begin < add < upd < commit, "backfill must sit after ADD, before COMMIT"
