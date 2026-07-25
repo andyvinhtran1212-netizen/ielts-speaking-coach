@@ -395,6 +395,18 @@
   // (đề trái/phải/trên/dưới) and the đề pane's share of the split.
   // Modelled on reading-exam.js's divider — same 4-way drag + keyboard
   // affordance, extended to the vertical arrangements.
+  // Below this width the stylesheet forces a vertical stack regardless of the
+  // saved arrangement. The drag/keyboard maths must agree with what is actually
+  // ON SCREEN, not with data-layout — otherwise a phone drags on the horizontal
+  // axis of a vertical split and nothing moves (Codex review, PR #832).
+  var NARROW_MQ = '(max-width: 860px)';
+  function isNarrow() {
+    return !!(window.matchMedia && window.matchMedia(NARROW_MQ).matches);
+  }
+  function effectiveLayout(split) {
+    return isNarrow() ? 'top' : split.dataset.layout;
+  }
+
   var LAYOUT_KEY = 'mock-writing-layout';
   var SPLIT_KEY = 'mock-writing-split';
   var LAYOUTS = ['left', 'right', 'top', 'bottom'];
@@ -424,7 +436,7 @@
       var pt = (ev.touches && ev.touches[0]) || ev;
       if (pt.clientX == null) return;
       var rect = split.getBoundingClientRect();
-      var layout = split.dataset.layout;
+      var layout = effectiveLayout(split);
       var raw;
       // The đề pane is the FIRST flex item, so in the -reverse arrangements it
       // is anchored to the right/bottom edge — measure from that edge instead.
@@ -457,13 +469,15 @@
     // Keyboard: any arrow grows or shrinks the đề pane, so the control works
     // without the student having to know which axis this arrangement uses.
     divider.addEventListener('keydown', function (ev) {
-      // NOT named `grow`: Tailwind's content scanner reads this file, and the
-      // literal `!grow` in a negation is indistinguishable from the important
-      // modifier of the `grow` utility — so it emitted a phantom `.\!grow`
-      // rule and the committed CSS drifted from a fresh build.
+      // Deliberately NOT named after a Tailwind utility. This file is scanned
+      // by Tailwind's content globs, and a negated variable whose name matches
+      // a utility reads to the scanner as that utility's important modifier —
+      // so it emitted a phantom CSS rule and the committed build drifted from
+      // a fresh one. (Writing the offending string in a comment does it too:
+      // the scanner does not care that it is a comment.)
       var step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[ev.key];
       if (!step) return;
-      var layout = split.dataset.layout;
+      var layout = effectiveLayout(split);
       if (layout === 'right' || layout === 'bottom') step = -step;
       applySplit(currentSplit() + step * 2, true);
       ev.preventDefault();
