@@ -1,6 +1,6 @@
 # Tech Debt — IELTS Speaking Coach
 
-**Last updated:** 2026-07-24 (added: roll new brand identity onto production web — DEBT-2026-07-24-I; prior 2026-07-22 batch D/E/F/G/H)
+**Last updated:** 2026-07-25 (post-soak sweep: A steps 1–3 done + Cam 13 live, C and H CLOSED, D/E/F/G fixed → PRs #820–#823; B backfill still needs prod access)
 **Last reviewed:** 2026-05-07 (PM)
 
 Comprehensive snapshot of tech debt + improvement opportunities, restructured
@@ -54,17 +54,28 @@ material, not active backlog.
   artifact (session 2026-07-24). Logo assets are design-project-only today —
   **not** in the repo yet.
 
-### Blocked by Pilot-1 soak — post-soak actions (logged 2026-07-20, extended 2026-07-22)
+### ~~Blocked by Pilot-1 soak~~ — UNBLOCKED 2026-07-24, worked 2026-07-25 (logged 2026-07-20, extended 2026-07-22)
 
-> **Context:** main is frozen for the Pilot-1 soak (any merge resets the soak
-> window — see memory `fe-nextjs-migration-program`). The PRs below are open,
-> green, and MUST NOT be merged until the soak passes. Bundle the merges + the
-> re-import/backfill once soak ends. A/B/C came out of the render-fidelity audit
-> of the converted Cambridge test set (2026-07-20); D/E came out of triaging the
-> 2026-07-22 error-log burst; F/G came out of verifying the Pilot-1 exposure
-> floor the same day; H is the plan-level finding that verification exposed.
-> D/E/F/G have **no PR yet** — they need writing. **H is not a code change** —
-> it is a plan amendment / ADR and must be decided *between* soaks, not during one.
+> **Context (original):** main was frozen for the Pilot-1 soak (any merge reset
+> the soak window). A/B/C came out of the render-fidelity audit of the converted
+> Cambridge test set (2026-07-20); D/E came out of triaging the 2026-07-22
+> error-log burst; F/G came out of verifying the Pilot-1 exposure floor the same
+> day; H is the plan-level finding that verification exposed.
+>
+> **Status 2026-07-25.** Soak PASSED 2026-07-24 (`docs/SOAK_DECLARATION_PILOT_1.md`),
+> freeze over. A/B/C's PRs (#811/#812/#814) merged 2026-07-25. **H is CLOSED** by
+> ADR-013 + the production-smoke tool (#818/#819). D/E/F/G had no PR; they were
+> written 2026-07-25 → **PR #820 (D), #822 (E), #823 (F), #821 (G)**, all open.
+> DEBT-A's re-import ran the same day for Cambridge 13 only.
+>
+> **What is still owed, in one place:**
+> - Merge #820 / #821 / #822 / #823.
+> - **DEBT-A step 4** — visually verify Cam 13 on the web, then import B14–B21
+>   (32 reading tests). Held deliberately: 38 `table_completion` runs render as
+>   flattened mono cards (R2), and that is a layout call only eyes can make.
+> - **DEBT-B backfill** — re-verified as **not needed for correctness** (0 rows
+>   hold the two affected words); only a `lemma_version` bump remains, and it
+>   needs spaCy installed in the venv first. Lowest priority of the batch.
 
 #### DEBT-2026-07-20-A: Merge PR #811 + re-run render scan + re-import Cambridge reading/listening
 - **What:** PR #811 (`frontend/public/js/reading-exam.js`) fixes reading
@@ -81,7 +92,33 @@ material, not active backlog.
      verify on web (esp. B13-T1 map + table Q1–7).
   4. Then import B14–B21 (32 remaining tests).
 - **Effort:** ~30 min merge+verify; ~1–2h full re-import.
-- **Blocked by:** soak.
+- **Status 2026-07-25 — steps 1–3 DONE, step 4 held for a human look:**
+  1. ✅ #811 merged (`699d9811`).
+  2. ✅ Scan re-run: **R0 = 0**. 48 findings remain, none of them R0 — R3 (6,
+     emphasis in `summary_text`) and R8r (4, markdown in passage `title`) are
+     both auto-cleaned at import by #814, and R2 (38) is the known
+     `table_completion`-renders-as-mono-cards layout note, not an answerability
+     bug.
+  3. ✅ Cambridge 13 imported + **published** on prod: 4 reading
+     (`ILR-RDG-CAM-B13-T1..T4`, 40 Q each) + 4 listening
+     (`ILR-LIS-CAM-B13-T1..T4`). Nothing was overwritten — prod held **zero**
+     `ILR-*-CAM-*` rows before this. Verified in the persisted payloads:
+     0 titles with stray `*`, 0 `summary_text` with emphasis, and **12/12
+     completion runs render flowing with token count == run length** (this is
+     exactly the class #811 fixed: B13-T1 q1–7 table, B13-T3 q1–8 table,
+     B13-T1 q32–37 + B13-T2 q38–40 + B13-T4 q9–13 sentence would all have been
+     unanswerable before).
+  4. ⏳ **B14–B21 (32 tests) NOT imported** — deliberate. DEBT-A's own order is
+     "verify on web, then import the rest", and R2 is precisely what that look
+     is for: if the flattened table layout is unacceptable it costs a re-import
+     of 8 tests, not 40. What to eyeball: **B13-T1 reading table Q1–7** and the
+     **B13-T1 listening map** (`maps=1`; T2/T3/T4 have none).
+  - **Gotcha for whoever runs the listening import:** the flag is `--published`,
+    not `--status published`. Passing the latter imports as **draft** and then
+    treats `published` as a test stem (`ERROR: list index out of range`).
+    Publishing after the fact is one column — `listening_tests.status`; the
+    already-live `ILR-LIS-001/012/025/038` all carry `status=published` with
+    draft exercises, so exercise status is not part of it.
 - **Reference:** memory `reading-render-summary-text-drop`, `cambridge-fulltest-converter`.
 
 #### DEBT-2026-07-20-B: Merge PR #812 + run lemma backfill
@@ -98,7 +135,17 @@ material, not active backlog.
   (needs prod access) to re-walk rows stored under v1 and correct any
   "phenomena"/"criteria" lemmas. Idempotent — safe to re-run.
 - **Effort:** ~10 min merge; backfill per script.
-- **Blocked by:** soak + prod access for the backfill.
+- **Status 2026-07-25:** ✅ #812 merged (`2d4e25e2`). The backfill is **NOT
+  needed for correctness** — re-verified against prod 2026-07-25: `user_vocabulary`
+  holds 96 rows and **0** of them contain "phenomena" or "criteria", the only two
+  words #812 targets. So there is no bad stored lemma to correct; #812 protects
+  future writes. What remains is pure housekeeping — 70 rows still sit at
+  `lemma_version: 1` (26 are NULL) and a run would bump them to 2.
+- **Blocked by (housekeeping only):** the venv has **no spacy** (`spacy==3.8.0`
+  is in `requirements.txt` but not installed), and `lemmatize` consults the
+  override dict first then falls through to spaCy, so the script skips
+  everything. Running it means installing spacy + `en_core_web_sm` first. Not
+  worth doing on its own — fold it into the next task that needs spaCy anyway.
 
 #### DEBT-2026-07-20-C: Reading CONTENT render fixes (not covered by #811) — FIXED at import layer (PR #814)
 - **What:** the audit found content-side (not renderer) issues #811 does NOT fix,
@@ -119,7 +166,17 @@ material, not active backlog.
 - **Action (post-soak):** merge #814 (before/with the DEBT-A re-import so the
   strip applies). No separate content work.
 - **Effort:** merge only; folds into DEBT-A.
-- **Blocked by:** soak.
+- **Status 2026-07-25 — ✅ CLOSED.** #814 merged (`15d7ec0e`) before the DEBT-A
+  import, so the strip ran on the way in: the imported Cam 13 payloads hold
+  **0** titles with stray `*` and **0** `summary_text` with emphasis (B13-T4
+  `*Cutty Sark*` and B13-T4 q9 were both in the original finding list).
+  Note the scanner still reports R3/R8r because it reads the CONVERTED FILES,
+  which are untouched — the fix is at the import layer by design.
+  The scan now finds **6** R3 blocks, not the 4 originally logged: #811
+  broadened the flowing gate, so `sentence_completion` (B13-T4 q9) and
+  `flow_chart_completion` (B21-T4 q8) now RENDER their `summary_text` and their
+  emphasis became visible. `_strip_inline_emphasis` is unconditional on
+  `template.summary_text`, so it covers those two as well.
 - **Reference:** `outputs/_convert_reading/RENDER_RISK_REPORT.md` +
   `render_risk_scan.py`. (Listening = 0 render risks; structured payloads render fine.)
 
@@ -151,7 +208,18 @@ material, not active backlog.
      outstanding/failed, so the failure is visible.
   3. Consider flushing all unsaved answers on `pagehide`/`visibilitychange`.
 - **Effort:** ~2h incl. a regression test for the retry + unsaved-state cue.
-- **Blocked by:** soak (frontend change ⇒ merge to main ⇒ resets the soak clock).
+- **Status 2026-07-25 — ✅ FIXED, PR #820** (`fix/reading-autosave-retry`).
+  Retry with backoff 400/1200/3000ms on network + 5xx (4xx fails fast — it
+  would repeat identically); the retry re-reads the CURRENT answer instead of
+  replaying the one that failed, or it would overwrite a newer edit; a fresh
+  edit cancels the pending retry chain. Visible cue: red palette ring +
+  `title`, `aria-label` "not saved to server", and a `role="status"` line
+  saying how many answers the server does not have — one amber tile among 40
+  is too easy to miss. Unload flush on `pagehide` + `visibilitychange→hidden`
+  using `fetch keepalive` (`api.js` gained an opt-in `opts.keepalive`, same
+  shape as the existing `opts.signal`; no retry was added to the shared
+  client). The returned promise never rejects — most call sites are
+  fire-and-forget and a rejection there becomes an unhandled-rejection row.
 
 #### DEBT-2026-07-22-E: Admin error classifier misreads postgrest-py upstream 5xx → dumped into "Khác"
 - **What:** when the Supabase API gateway returns an HTTP error whose body is not
@@ -184,7 +252,14 @@ material, not active backlog.
   3. Optional: consider `noise: true` for this class so a platform blip does not
      distort soak error counts.
 - **Effort:** ~45 min + a classifier unit test with the real 555 payload.
-- **Blocked by:** soak (frontend change).
+- **Status 2026-07-25 — ✅ FIXED, PR #822** (`fix/error-classifier-postgrest-5xx`).
+  Regex accepts a quoted SQLSTATE or an unquoted int; groups read explicitly
+  (`m[1] !== undefined ? m[1] : m[2]`, not `||` — an empty capture falls to
+  the wrong branch). New upstream branch sits BEFORE the CSDL branch (the code
+  is truthy now): `Mạng`/`warning` with the real `details` body in the summary.
+  Kept `noise: false` on purpose — marking it noise would hide a genuine
+  Supabase outage from the admin table; the defect was the mislabelling and
+  the raw traceback, not the row existing.
 - **Reference:** memory `postgrest-code-is-http-status`. **Do not** chase invalid
   Unicode / bad rows for this error — that hypothesis was investigated and
   refuted on 2026-07-22.
@@ -224,7 +299,18 @@ material, not active backlog.
   3. Surface the volume half in the admin panel next to the day count, so the
      §12.3 gate is readable in one place.
 - **Effort:** ~1–2h incl. tests.
-- **Blocked by:** soak (backend + admin frontend change).
+- **Status 2026-07-25 — ✅ FIXED, PR #823** (`fix/rollback-metrics-window-echo`).
+  Took BOTH options the item offered rather than one: the table half now
+  reaches 90 days (`ROLLBACK_TABLE_MAX_WINDOW_MIN`) AND the response carries
+  `window_views_total` (the cumulative count), plus
+  `window_minutes_requested` + `window_clamped` so a clamped request is
+  unmistakable. Verdict windows stay frozen at 30 min / 1440 min, with a test
+  proving raising the table ceiling does not loosen them. Admin panel: 7-day
+  and 30-day options (previously pointless — the backend cut them), a
+  "Phơi nhiễm luỹ kế" line, and a warning printing BOTH numbers when clamped.
+  Note ADR-013 has since moved the volume half onto synthetic, which lowers
+  the urgency but not the bug: reporting a 24h number under a 30-day label is
+  false regardless of who consumes it.
 - **Reference:** memory `fe-nextjs-migration-program`. Related in spirit to audit
   finding F3 ("soak không đo được") — that one lost the whole measurement, this
   one loses half the gate.
@@ -258,7 +344,15 @@ material, not active backlog.
   the cap — and **verify the test fails against the unpaginated code first**, or
   it proves nothing.
 - **Effort:** ~1h incl. test.
-- **Blocked by:** soak (backend change).
+- **Status 2026-07-25 — ✅ FIXED, PR #821** (`fix/foot-traffic-pagination`).
+  Paged with a stable `(created_at, id)` order; `FOOT_TRAFFIC_MAX_ROWS =
+  200_000` ceiling returns `truncated: true` + a log warning instead of a
+  silent cut, and the admin panel renders that as a red banner — a flag
+  nobody renders is still a silent truncation. The 3 new tests were verified
+  RED against the unpaginated code first, as this item demanded; the `_Q`
+  stub now emulates the real 1000-row cap so a non-paging reader fails.
+  **Still open in this bug class:** `routers/admin_vocab.py` audio-generate
+  `all=true` (5th instance, untouched — out of scope for a one-issue patch).
 - **Note:** this is the **4th confirmed instance** of this recurring bug class
   (three earlier ones were `vocab_cards` readers; `routers/admin_vocab.py`
   audio-generate `all=true` is still open). Diagnostic signature is always the
@@ -331,7 +425,15 @@ material, not active backlog.
   argued on the arithmetic above, decided **between** soaks, never during one.
 - **Effort:** ~half a day to write the amendment/ADR + re-derive the four floors;
   the production-smoke variant is a separate ~1 day.
-- **Blocked by:** soak (any merge to main resets the clock — including docs).
+- **Status 2026-07-25 — ✅ CLOSED by ADR-013** (`docs/adr/ADR-013-early-stage-rollout.md`,
+  ACCEPTED 2026-07-25, PR #818) plus the production-smoke synthetic-volume
+  tool (PR #819). The amendment was argued on exactly the arithmetic logged
+  here: floors of 20–30 cannot separate healthy from a 5% trigger, n=72 is the
+  minimum with zero errors. Outcome matches the proposed direction — synthetic
+  carries the volume half, organic carries elapsed-time + client diversity,
+  low-traffic freeze drops from 21 days to a 48–72h observation window with a
+  recorded risk acceptance, and the core grading/exam class is held STRICTER
+  rather than looser (its inverted risk/power ordering was the sharp edge).
 - **Reference:** plan §12.3, B36, `docs/TRAFFIC_BASELINE_2026-07-13.md`; measured
   inputs in memory `fe-nextjs-migration-program` (2026-07-22 entries) and
   DEBT-2026-07-22-F (which is *why* the volume half went unmeasured for 5 days).
