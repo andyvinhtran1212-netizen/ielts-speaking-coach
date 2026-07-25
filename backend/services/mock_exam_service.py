@@ -1477,10 +1477,21 @@ def admin_list_sittings(exam_id: str) -> list[dict]:
 
 
 def void_sitting(sitting_id: str, admin_id: str, reason: str = "") -> dict:
-    """Admin voids a sitting (tech failure / retake). Keeps the row for audit."""
+    """Admin voids a sitting (tech failure / retake). Keeps the row for audit.
+
+    A RELEASED sitting cannot be voided. It is a published result the student
+    can already see; voiding would erase it and leave a `void` row whose seal
+    was lifted at release, i.e. a cancelled sitting still exposing scores.
+    The invigilator console hides the control for released rows, but the rule
+    belongs here — the UI is not the guard (Codex review, PR #840).
+    """
     sitting = get_sitting(sitting_id)
     if not sitting:
         raise NotFoundError(f"Sitting {sitting_id} không tồn tại.")
+    if sitting.get("status") == "released":
+        raise SittingConflictError(
+            "Không huỷ được lượt thi đã công bố kết quả."
+        )
     integrity = dict(sitting.get("integrity") or {})
     integrity["void_reason"] = reason
     integrity["voided_by"] = str(admin_id)

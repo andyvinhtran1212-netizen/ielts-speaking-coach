@@ -279,7 +279,13 @@ async def delete_assignment(
     sitting before the eligibility gates. Reports the voided ids rather than
     doing two things silently under one verb."""
     admin = await require_admin(authorization)
-    out = assign_svc.remove(exam_id, student_id, admin_id=admin["id"])
+    try:
+        out = assign_svc.remove(exam_id, student_id, admin_id=admin["id"])
+    except assign_svc.RevocationError as e:
+        # The assignment is gone but an open sitting survived, so access was
+        # NOT revoked. Answering ok:true here would show the admin a revocation
+        # that did not happen.
+        raise HTTPException(409, str(e))
     return {"ok": True, **out}
 
 
@@ -494,3 +500,5 @@ async def void_sitting(
         return svc.void_sitting(sitting_id, admin["id"], body.reason)
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
+    except svc.SittingConflictError as e:
+        raise HTTPException(409, str(e))
