@@ -222,6 +222,10 @@ def wf():
     return mock_review_workflow
 
 
+def _now_iso_for_test():
+    return datetime.now(timezone.utc).isoformat()
+
+
 def _seed_exam(fake, *, cohort_id=None, open_from=None, open_until=None,
                speaking=False, is_open=True, listening=True, reading=True):
     exam = {
@@ -913,6 +917,32 @@ def test_writing_finalisation_is_one_write(fake_db, svc):
     with pytest.raises(svc.SittingConflictError):
         svc.submit_writing(s["id"], u, "late draft", "late draft")
     assert svc.get_sitting(s["id"])["writing_submission"]["task1"]["text"] == "final one"
+
+
+def test_admin_record_speaking_reconciles_an_already_stamped_sitting(fake_db, svc, wf):
+    """Codex #847 (correct): the speaking stamp and the terminal transition are
+    separate writes. If the stamp committed and the transition then failed
+    transiently, the idempotent early return reported success while the sitting
+    stayed `speaking_pending` with no review row — and this admin recovery, the
+    last-resort unstick, could never fix it."""
+    exam = _seed_exam(fake_db, speaking=True, listening=False, reading=False)
+    u = uuid4()
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → writing
+    _expire_section(fake_db, exam["id"], "writing")
+    svc.submit_section(sit["id"], u, "writing")
+
+    # The half-finished state: speaking recorded, status never moved on.
+    fake_db.table("mock_exam_sittings").update({
+        "speaking_session_ids": [str(uuid4())],
+        "speaking_completed_at": _now_iso_for_test(),
+        "status": "speaking_pending",
+    }).eq("id", sit["id"]).execute()
+
+    out = svc.admin_record_speaking(sit["id"], "admin-1")
+
+    assert out["status"] != "speaking_pending", out["status"]
+    assert svc.get_sitting(sit["id"])["status"] != "speaking_pending"
 
 
 def test_record_speaking_empty_raises(fake_db, svc):
@@ -2933,6 +2963,70 @@ def test_retake_assign_rejects_open_ended_before_writing_any_row(fake_db):
             {"user_id": bad, "skills": ["reading"], "open_until": None},
         ], created_by=str(uuid4()))
     assert fake_db.rows("mock_exam_assignments") == []
+
+
+def test_admin_can_unstick_a_speaking_pending_sitting(fake_db, svc, wf):
+    """A5 — the student's report call is fire-and-forget. If it failed the
+    sitting stayed `speaking_pending` forever: no review row, never released,
+    and nobody could fix it. The speaking work was fine; only the last hop was
+    lost."""
+    exam = _seed_exam(fake_db, speaking=True)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    _run_lrw(svc, fake_db, exam, s["id"], u)
+    assert svc.get_sitting(s["id"])["status"] == "speaking_pending"
+
+    # sessions were bound + graded; only the report call never landed
+    sess = str(uuid4())
+    fake_db.seed("sessions", {"id": sess, "user_id": str(u),
+                              "sitting_id": str(s["id"]), "status": "submitted"})
+    fake_db.seed("responses", {"id": str(uuid4()), "session_id": sess})
+
+    out = svc.admin_record_speaking(s["id"], "admin-1")
+
+    assert out["status"] == "all_submitted"
+    assert svc.get_sitting(s["id"])["speaking_session_ids"] == [sess]
+    assert wf.get_review_for_sitting(s["id"]) is not None   # review now exists
+
+
+def test_admin_unstick_refuses_when_there_is_no_speaking_work(fake_db, svc):
+    """It ratifies what the student actually did — it must never fabricate a
+    completion for a sitting with no finished speaking sessions."""
+    exam = _seed_exam(fake_db, speaking=True)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    _run_lrw(svc, fake_db, exam, s["id"], u)
+    with pytest.raises(svc.SittingConflictError):
+        svc.admin_record_speaking(s["id"], "admin-1")
+
+
+def test_admin_unstick_ignores_an_unfinished_session(fake_db, svc):
+    """A bare in_progress shell, or a session with no responses, is not work."""
+    exam = _seed_exam(fake_db, speaking=True)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    _run_lrw(svc, fake_db, exam, s["id"], u)
+    fake_db.seed("sessions", {"id": str(uuid4()), "user_id": str(u),
+                              "sitting_id": str(s["id"]), "status": "in_progress"})
+    no_resp = str(uuid4())
+    fake_db.seed("sessions", {"id": no_resp, "user_id": str(u),
+                              "sitting_id": str(s["id"]), "status": "submitted"})
+    with pytest.raises(svc.SittingConflictError):
+        svc.admin_record_speaking(s["id"], "admin-1")
+
+
+def test_admin_unstick_is_idempotent(fake_db, svc):
+    exam = _seed_exam(fake_db, speaking=True)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    _run_lrw(svc, fake_db, exam, s["id"], u)
+    sess = str(uuid4())
+    fake_db.seed("sessions", {"id": sess, "user_id": str(u),
+                              "sitting_id": str(s["id"]), "status": "submitted"})
+    fake_db.seed("responses", {"id": str(uuid4()), "session_id": sess})
+    svc.admin_record_speaking(s["id"], "admin-1")
+    svc.admin_record_speaking(s["id"], "admin-1")       # must not raise
+    assert svc.get_sitting(s["id"])["speaking_session_ids"] == [sess]
 
 
 def test_reaper_ignores_sequential_exams_entirely(fake_db, svc):

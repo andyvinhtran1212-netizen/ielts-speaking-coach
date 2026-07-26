@@ -2250,6 +2250,33 @@
     }
   }
 
+  // ── A5: reporting Speaking back to the mock sitting ─────────────────
+  //
+  // This call used to be fire-and-forget inside a swallowed .catch(). If it
+  // failed, the sitting stayed `speaking_pending` FOREVER: _reconcile_terminal
+  // never ran, no review row was created, the result was never released, and
+  // nobody — student or admin — had any way to fix it. The speaking work itself
+  // was fine; only the last hop was lost.
+  //
+  // Now: retry, and persist the debt so a reload finishes the job. The admin
+  // also has POST /admin/mock-exams/sittings/{id}/record-speaking as the
+  // last-resort unstick.
+  // The queue itself lives in speaking-debt.js — practice.js is loaded only by
+  // the practice pages, so a student who closed the completion tab and came
+  // back through Home or the mock-exam page would never have settled the debt
+  // (Codex review, PR #847). These thin wrappers keep the call sites here
+  // unchanged and degrade to no-ops if the shared script is ever missing.
+  var _currentUserId = null;
+
+  function _reportSpeakingToSitting(sittingId, ids) {
+    if (!window.SpeakingDebt) return Promise.resolve();
+    return window.SpeakingDebt.report(sittingId, ids, 0, _currentUserId);
+  }
+
+  function _retryOwedSpeakingReport() {
+    if (window.SpeakingDebt) window.SpeakingDebt.retryAll();
+  }
+
   // Called when the last Part 3 question is submitted in test_full mode.
   // Calls the backend finalize endpoint — server handles all aggregation.
   // Browser is free to close immediately after this returns.
@@ -2282,13 +2309,10 @@
         // 'submitted' with their graded responses, so record_speaking accepts
         // them. Best-effort — the completion screen already shows.
         if (!_sittingId) return;
-        var ids = [p1, p2, p3].filter(Boolean);
-        return window.api.post(
-          '/api/mock-exams/sittings/' + encodeURIComponent(_sittingId) + '/speaking',
-          { session_ids: ids }
-        ).then(function () {
-          window.location.href = '/pages/mock-exam.html?sitting=' + encodeURIComponent(_sittingId);
-        });
+        return _reportSpeakingToSitting(_sittingId, [p1, p2, p3].filter(Boolean))
+          .then(function () {
+            window.location.href = '/pages/mock-exam.html?sitting=' + encodeURIComponent(_sittingId);
+          });
       })
       .catch(function (err) {
         console.warn('[practice] finalize-full-test failed (non-fatal):', err);
@@ -2906,6 +2930,16 @@
       window.location.href = window.api.url('login.html');
       return;
     }
+    // Stamp any debt WE create with the owner, so a shared browser cannot let
+    // one account's 403 delete another account's record.
+    _currentUserId = (result.data.session.user && result.data.session.user.id) || null;
+
+    // Settle an unpaid Speaking report from a previous visit — AFTER the
+    // session check, never at top level. practice.js is deferred while
+    // initSupabase() runs in a later inline script, so a top-level call carries
+    // no Bearer token: it 401s, api.js redirects to login and resolves null,
+    // and the success handler then CLEARS the debt (Codex review, PR #847).
+    _retryOwedSpeakingReport();
 
     var params = new URLSearchParams(window.location.search);
     _sessionId = params.get('session_id');

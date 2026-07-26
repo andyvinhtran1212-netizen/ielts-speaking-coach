@@ -1536,6 +1536,58 @@ def record_speaking(sitting_id: str, user_id: str, session_ids: list[str]) -> di
     return _reconcile_terminal(sitting_id)
 
 
+def admin_record_speaking(sitting_id: str, admin_id: str) -> dict:
+    """Unstick a sitting whose Speaking never got reported (A5).
+
+    The student's report call is fire-and-forget from practice.js: if it fails,
+    the sitting stays `speaking_pending` FOREVER — no review row is created, it
+    is never released, and there was no way for anyone to fix it. The speaking
+    work itself is fine; only the last hop was lost.
+
+    DISCOVERS the sessions already bound to this sitting rather than taking ids
+    from the caller. An admin unsticking a sitting must not be able to attach
+    work that isn't there, so this can only ever ratify what the student
+    actually did inside the sitting (sessions are bound at creation via
+    bind_session_to_sitting, which is what makes their grading sealed).
+    """
+    sitting = get_sitting(sitting_id)
+    if not sitting:
+        raise NotFoundError(f"Sitting {sitting_id} không tồn tại.")
+    if sitting["status"] in ("released", "void"):
+        raise SittingConflictError(f"Sitting đang ở trạng thái {sitting['status']!r}.")
+    if sitting.get("speaking_completed_at"):
+        # IDEMPOTENT, BUT STILL RECONCILE. The speaking stamp and the terminal
+        # transition are separate writes: if the stamp committed and the status
+        # transition then failed transiently, returning here reported success
+        # while the sitting stayed `speaking_pending` with no review row — and
+        # this admin recovery, the last-resort unstick, could never fix it
+        # (Codex review, PR #847).
+        return _reconcile_terminal(sitting_id) or sitting
+
+    rows = supabase_admin.table("sessions").select("id, status").eq(
+        "sitting_id", str(sitting_id),
+    ).execute().data or []
+    ids = [r["id"] for r in rows if r.get("status") != "in_progress"]
+    if ids:
+        resp = supabase_admin.table("responses").select("session_id").in_(
+            "session_id", ids,
+        ).execute().data or []
+        have = {r["session_id"] for r in resp}
+        ids = [i for i in ids if i in have]
+    if not ids:
+        raise SittingConflictError(
+            "Kỳ thi này chưa có bài Speaking nào hoàn thành để ghi nhận."
+        )
+
+    supabase_admin.table("mock_exam_sittings").update({
+        "speaking_session_ids":  ids,
+        "speaking_completed_at": _now_iso(),
+    }).eq("id", str(sitting_id)).execute()
+    logger.info("[mock-exam] sitting=%s speaking recorded by ADMIN=%s (%d sessions)",
+                sitting_id, admin_id, len(ids))
+    return _reconcile_terminal(sitting_id)
+
+
 def _reconcile_terminal(sitting_id: str) -> dict:
     """Flip to all_submitted (+ create review) once LRW and speaking are both in.
 
