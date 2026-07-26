@@ -52,6 +52,7 @@
     // while there is time left.
     tried_save_at: null,        // ms of the first save ATTEMPT
     server_has_one: false,      // a save the server CONFIRMED
+    nothing_reported: false,    // the server-side alert, sent once
     nothing_timer: null,
     timer_interval: null,
     timer_locked: false,
@@ -1570,6 +1571,7 @@
       box.hidden = true;
       return;
     }
+    _reportNothingSaved();
     if (!box.hidden) return;
     box.hidden = false;
     box.textContent = '';
@@ -1591,6 +1593,38 @@
     SESSION.answers.forEach(function (_v, qNum) { qs.push(qNum); });
     qs.sort(function (a, b) { return a - b; });
     qs.forEach(function (qNum) { patchAnswer(qNum, SESSION.answers.get(qNum)); });
+  }
+
+
+  // Tell the SERVER, over the one channel still known to work.
+
+  // The failure this fires on can be a blocked PATCH — and a request the browser
+  // refuses to send leaves NO trace server-side. That is why a student sat two
+  // full sections graded 0 while every dashboard looked healthy (2026-07-26).
+  // /api/error-logs is a POST and takes optional auth, so it survives exactly the
+  // conditions that kill the answer saves. Plain fetch, never window.api: a 401
+  // there would redirect a student out of a live exam.
+  function _reportNothingSaved() {
+    if (SESSION.nothing_reported) return;   // once per attempt, not per tick
+    SESSION.nothing_reported = true;
+    try {
+      window.fetch(window.api.base + '/api/error-logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          level: 'error',
+          source: 'frontend',
+          message: 'MOCK/READING: no answer save has reached the server',
+          url: location.pathname + location.search,
+          user_agent: navigator.userAgent,
+          extra: {
+            attempt_id: SESSION.attempt_id,
+            answers_held_locally: SESSION.answers.size,
+            seconds_since_first_try: Math.round((Date.now() - SESSION.tried_save_at) / 1000),
+          },
+        }),
+      })['catch'](function () {});           // logging must never escalate
+    } catch (e) { /* swallow */ }
   }
 
   function _startNothingSavedWatch() {

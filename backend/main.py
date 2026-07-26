@@ -138,6 +138,17 @@ origins = [
 # the regex is the safety net.
 _AVERLEARNING_ORIGIN_REGEX = r"^https://(?:[a-z0-9-]+\.)?averlearning\.com$"
 
+# ONE definition, used by the CORSMiddleware below AND by the unhandled-exception
+# handler. They were separate, and the handler simply had no methods/headers —
+# which is how a 500 on a preflight came out as "method not allowed" (see
+# _cors_headers_for_origin).
+_CORS_METHODS = ["GET", "POST", "PATCH", "DELETE", "OPTIONS"]
+# NB: beyond Authorization/Content-Type, the app sends X-Reading-Password /
+# X-Reading-Anon (reading lock + share-link flows) and X-Request-ID
+# (error-reporter). They MUST stay allowed or those flows' CORS preflight breaks.
+_CORS_HEADERS = ["Authorization", "Content-Type",
+                 "X-Reading-Password", "X-Reading-Anon", "X-Request-ID"]
+
 
 def _cors_headers_for_origin(origin: str | None) -> dict:
     """CORS headers to attach to a response when the request Origin is allowed —
@@ -149,6 +160,20 @@ def _cors_headers_for_origin(origin: str | None) -> dict:
     generic CORS error (the failure mode that hid the compose-500). Attaching ACAO
     here lets the true 500 surface in the console.
 
+    ALSO CARRIES METHODS/HEADERS, and that is not cosmetic. A 500 can land on a
+    PREFLIGHT (OPTIONS) too, and a preflight answered with Allow-Origin but no
+    Allow-Methods is read by the browser as "that method is not allowed" — the
+    literal message a student hit in production on 2026-07-26:
+
+        Method PATCH is not allowed by Access-Control-Allow-Methods
+        in preflight response
+
+    Every Listening/Reading answer save is a PATCH, so the browser blocked all of
+    them BEFORE they left the machine: nothing reached the server, nothing was
+    logged, and the student sat two full sections that were graded 0. Writing
+    survived only because it is a POST. Repeating the middleware's own answer
+    here keeps a failed preflight from mutating into a false "method not allowed".
+
     SECURITY: only echo an ALLOWED origin — never reflect an arbitrary one. Returns
     {} for a missing / non-allowed origin.
     """
@@ -156,6 +181,8 @@ def _cors_headers_for_origin(origin: str | None) -> dict:
         return {
             "Access-Control-Allow-Origin": origin,
             "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": ", ".join(_CORS_METHODS),
+            "Access-Control-Allow-Headers": ", ".join(_CORS_HEADERS),
             "Vary": "Origin",
         }
     return {}
@@ -168,19 +195,22 @@ app.add_middleware(
     allow_credentials=True,
     # C-4.2 hardening — tighten from "*" to the methods/headers the app actually
     # uses (regex + credentials kept; see the intentional-regex note above).
-    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    # NB: beyond Authorization/Content-Type, the app sends X-Reading-Password /
-    # X-Reading-Anon (reading lock + share-link flows) and X-Request-ID
-    # (error-reporter). They MUST stay allowed or those flows' CORS preflight
-    # breaks — the audit's 2-header list would have regressed them.
-    allow_headers=["Authorization", "Content-Type",
-                   "X-Reading-Password", "X-Reading-Anon", "X-Request-ID"],
-    # Cache the CORS preflight (OPTIONS) response for 24h.  Without this the
-    # browser issues a fresh preflight before every authenticated request,
-    # which on Railway adds ~300-500ms × N endpoints to first paint.  86400
-    # is the maximum Chromium honours; Firefox caps at 24h, so 86400 is the
-    # right value across both engines.
-    max_age=86400,
+    allow_methods=_CORS_METHODS,
+    allow_headers=_CORS_HEADERS,
+    # Cache the CORS preflight (OPTIONS) response. Without this the browser
+    # issues a fresh preflight before every authenticated request, which on
+    # Railway adds ~300-500ms × N endpoints to first paint.
+    #
+    # 7200, NOT 86400. The old value came with the note "86400 is the maximum
+    # Chromium honours" — that is simply wrong: Chromium caps
+    # Access-Control-Max-Age at 7200 SECONDS (2 hours). Firefox caps at 86400
+    # and Safari far lower, so 86400 bought nothing on the browser almost every
+    # student uses, while making a BAD preflight — from any cause — stick to a
+    # Firefox user's browser for a full day with no way for them to recover.
+    # A student who loses their preflight loses every PATCH, i.e. every answer
+    # they type (prod, 2026-07-26). Two hours is what Chrome actually gives us
+    # and is a blast radius an exam can survive.
+    max_age=7200,
 )
 
 app.include_router(auth_router)

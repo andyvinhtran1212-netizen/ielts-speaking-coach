@@ -54,6 +54,7 @@ const STATE = {
   // which is the one failure a student can still act on while there is time.
   triedSaveAt:   null,        // ms of the first save ATTEMPT
   serverHasOne:  false,       // a save the server CONFIRMED
+  nothingReported: false,     // the server-side alert, sent once
   nothingTimer:  null,
   // An open attempt the server still holds for this (user, test), found at
   // prestart. Non-null → the resume button is on screen and "Bắt đầu test"
@@ -1282,6 +1283,7 @@ function renderNothingSavedAlarm() {
     box.hidden = true;
     return;
   }
+  reportNothingSaved();
   if (!box.hidden) return;                    // already up; don't rebuild
   box.hidden = false;
   box.textContent = '';
@@ -1302,6 +1304,38 @@ function renderNothingSavedAlarm() {
 function resendEverything() {
   const qs = Array.from(STATE.answers.keys()).sort((a, b) => a - b);
   for (const qNum of qs) void saveAnswer(qNum, STATE.answers.get(qNum));
+}
+
+
+// Tell the SERVER, over the one channel still known to work.
+//
+// The failure this fires on can be a blocked PATCH — and a request the browser
+// refuses to send leaves NO trace server-side. That is why a student sat two
+// full sections graded 0 while every dashboard looked healthy (2026-07-26).
+// /api/error-logs is a POST and takes optional auth, so it survives exactly the
+// conditions that kill the answer saves. Plain fetch, never window.api: a 401
+// there would redirect a student out of a live exam.
+function reportNothingSaved() {
+  if (STATE.nothingReported) return;      // once per attempt, not per tick
+  STATE.nothingReported = true;
+  try {
+    window.fetch(window.api.base + '/api/error-logs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        level: 'error',
+        source: 'frontend',
+        message: 'MOCK/LISTENING: no answer save has reached the server',
+        url: location.pathname + location.search,
+        user_agent: navigator.userAgent,
+        extra: {
+          attempt_id: STATE.attemptId,
+          answers_held_locally: STATE.answers.size,
+          seconds_since_first_try: Math.round((Date.now() - STATE.triedSaveAt) / 1000),
+        },
+      }),
+    }).catch(function () {});               // logging must never escalate
+  } catch (e) { /* swallow */ }
 }
 
 function startNothingSavedWatch() {

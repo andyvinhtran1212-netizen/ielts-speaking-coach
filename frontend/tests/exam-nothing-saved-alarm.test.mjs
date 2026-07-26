@@ -113,6 +113,40 @@ for (const p of PAGES) {
   });
 }
 
+for (const p of PAGES) {
+  describe(`${p.name} — the server is told, over the one channel that still works`, () => {
+    test('it reports to /api/error-logs', () => {
+      // The failure being reported can be a BLOCKED request, and a request the
+      // browser refuses to send leaves no trace server-side — which is why a
+      // student sat two sections graded 0 while every dashboard looked healthy.
+      assert.match(p.js, /\/api\/error-logs/);
+      assert.match(p.js, /method: 'POST'/);
+    });
+
+    test('it uses plain fetch, never window.api', () => {
+      // A 401 through window.api redirects to login — out of a live exam.
+      const fn = p.js.slice(p.js.indexOf('no answer save has reached the server') - 1200);
+      const body = fn.slice(0, fn.indexOf('no answer save has reached the server') + 600);
+      assert.match(body, /window\.fetch\(/);
+      assert.doesNotMatch(body, /window\.api\.(post|patch)/);
+    });
+
+    test('it fires ONCE per attempt, not once per 10s tick', () => {
+      assert.match(p.js, /nothing_?[Rr]eported/);
+    });
+
+    test('it carries what an admin needs to act', () => {
+      assert.match(p.js, /attempt_id:/);
+      assert.match(p.js, /answers_held_locally:/);
+      assert.match(p.js, /seconds_since_first_try:/);
+    });
+
+    test('reporting can never escalate into a second failure', () => {
+      assert.match(p.js, /\)?\['?catch'?\]?\(function \(\) \{\}\)|\.catch\(function \(\) \{\}\)/);
+    });
+  });
+}
+
 describe('the alarm is visually louder than the per-question cue', () => {
   test('listening uses the error token, not the warning one', () => {
     const css = LIS_HTML.slice(LIS_HTML.indexOf('.ft-nothing-saved'));
