@@ -85,9 +85,60 @@
     route(isPoll);
   }
 
+  // ── Connection state ───────────────────────────────────────────────
+  //
+  // A3. Every API failure during the exam used to end it: the submit catch
+  // called fail(), which stops polling, clears the timer and paints a dead
+  // error screen with no way back — so a 30-second outage at the wrong moment
+  // finished the student. Poll failures went the other way and were swallowed
+  // entirely, so the countdown kept running on stale data with no hint that
+  // anything was wrong.
+  //
+  // Now: say it out loud, keep trying, and only give up on errors a retry
+  // genuinely cannot fix.
+  var SUBMIT_RETRY_DELAYS = [2000, 5000, 10000, 20000];
+  var _pollFails = 0;
+  // A section whose submit exhausted its retry ladder. Held so a later
+  // successful poll or an `online` event can finish the job.
+  var _owedSubmit = null;
+
+  var _CONN_MSG = {
+    offline: '⚠ Đang mất kết nối với máy chủ — bài của bạn vẫn được giữ, hệ thống sẽ tự thử lại.',
+    submitting: '⏳ Đang nộp bài — kết nối chập chờn, hệ thống đang thử lại…',
+    submit_failed: '⚠ Chưa nộp được lên máy chủ. Giữ nguyên tab này; giám thị vẫn thu được bài của bạn khi hết giờ.',
+  };
+
+  function setConn(state) {
+    var b = el('conn-banner');
+    if (!b) return;
+    if (!state) { b.classList.remove('on'); return; }
+    b.textContent = _CONN_MSG[state] || '';
+    b.classList.add('on');
+  }
+
   function startPolling() {
     if (pollIv) return;
-    pollIv = setInterval(function () { loadState(true).catch(function () {}); }, POLL_MS);
+    pollIv = setInterval(function () {
+      loadState(true).then(function () {
+        // Recovered — clear the warning rather than leaving it to rot.
+        if (_pollFails) { _pollFails = 0; setConn(null); }
+        retryOwedSubmit();
+      }).catch(function (e) {
+        // Terminal statuses mean the sitting is gone or is not ours — the same
+        // verdict the submit path already reaches. Discarding the status here
+        // classified them as an outage, so the page polled forever behind a
+        // banner promising the work was safe and would reconnect, when in fact
+        // nothing was ever coming back (Codex review, PR #836).
+        var st = e && e.status;
+        if (st === 403 || st === 404) {
+          return fail('Lượt thi này không còn truy cập được. Liên hệ giám thị.');
+        }
+        // One miss is noise; two in a row is a real problem worth telling the
+        // student about. Polling deliberately keeps running either way.
+        _pollFails++;
+        if (_pollFails >= 2 && !_submitting) setConn('offline');
+      });
+    }, POLL_MS);
   }
   function stopPolling() { if (pollIv) { clearInterval(pollIv); pollIv = null; } }
 
@@ -638,40 +689,109 @@
     });
   }
 
-  async function submitSection(section, auto) {
-    if (_submitting) return;
+  async function doSubmitSection(section) {
+    if (section === 'writing') {
+      // SERIALISE with the autosave. submit_writing does an unconditional
+      // update, so a draft POST still on the wire can land AFTER the final one
+      // and overwrite the submitted essay — or be the copy promoted for
+      // grading. Waiting costs at most one request; not waiting can cost the
+      // student their essay (Codex review, PR #835).
+      if (_wInFlight) { try { await _wInFlight; } catch (e) { /* draft lost; submit anyway */ } }
+      await api('post', '/api/mock-exams/sittings/' + S.sittingId + '/sections/writing/submit',
+        { task1_text: el('essay-task1').value, task2_text: el('essay-task2').value });
+      try { localStorage.removeItem(lsKey('task1')); localStorage.removeItem(lsKey('task2')); } catch (e) {}
+      return;
+    }
+    await flushEmbed();
+    var fresh = await api('get', '/api/mock-exams/sittings/' + encodeURIComponent(S.sittingId));
+    var sit = fresh.sitting || {};
+    var attemptId = sit[section + '_attempt_id'];
+    if (attemptId) {
+      var path = section === 'reading'
+        ? '/api/reading/test/attempts/' + encodeURIComponent(attemptId) + '/submit'
+        : '/api/listening/tests/attempts/' + encodeURIComponent(attemptId) + '/submit';
+      await window.api.post(path, section === 'reading' ? { answers: [] } : {}).catch(function () {});
+    }
+    await api('post', '/api/mock-exams/sittings/' + S.sittingId + '/sections/' + section + '/submit', {});
+  }
+
+  // Retries on anything a retry can fix. The section's clock has already hit 0,
+  // so there is no rush the student can feel — and the server's
+  // _force_collect_section is the ultimate backstop, which is exactly why the
+  // client should be patient here instead of declaring the exam over.
+  async function submitSection(section, auto, attempt) {
+    attempt = attempt || 0;
+    if (_submitting && attempt === 0) return;
+    // A RETRY FOR A SECTION THE CLASS HAS LEFT MUST DO NOTHING. The retry is a
+    // delayed timer, so the admin can force-collect and a poll can render the
+    // NEXT section before it fires. It then cleared the global timerIv, and its
+    // own 409 handler — correctly seeing the exam had moved on — returned
+    // without restarting it: the new section's countdown froze at whatever it
+    // showed and never auto-submitted (Codex review, PR #836).
+    if (attempt > 0 && S.renderedSection && S.renderedSection !== section) {
+      _submitting = false;
+      return;
+    }
     _submitting = true;
     if (timerIv) { clearInterval(timerIv); timerIv = null; }
     try {
-      if (section === 'writing') {
-        // SERIALISE with the autosave. submit_writing does an unconditional
-        // update, so a draft POST still on the wire can land AFTER the final
-        // one and overwrite the submitted essay — or be the copy promoted for
-        // grading. Waiting costs at most one request; not waiting can cost the
-        // student their essay (Codex review, PR #835).
-        if (_wInFlight) { try { await _wInFlight; } catch (e) { /* draft lost; submit anyway */ } }
-        await api('post', '/api/mock-exams/sittings/' + S.sittingId + '/sections/writing/submit',
-          { task1_text: el('essay-task1').value, task2_text: el('essay-task2').value });
-        try { localStorage.removeItem(lsKey('task1')); localStorage.removeItem(lsKey('task2')); } catch (e) {}
-      } else {
-        await flushEmbed();
-        var fresh = await api('get', '/api/mock-exams/sittings/' + encodeURIComponent(S.sittingId));
-        var sit = fresh.sitting || {};
-        var attemptId = sit[section + '_attempt_id'];
-        if (attemptId) {
-          var path = section === 'reading'
-            ? '/api/reading/test/attempts/' + encodeURIComponent(attemptId) + '/submit'
-            : '/api/listening/tests/attempts/' + encodeURIComponent(attemptId) + '/submit';
-          await window.api.post(path, section === 'reading' ? { answers: [] } : {}).catch(function () {});
-        }
-        await api('post', '/api/mock-exams/sittings/' + S.sittingId + '/sections/' + section + '/submit', {});
-      }
-      await loadState();
+      await doSubmitSection(section);
     } catch (e) {
-      fail('Nộp bài thất bại: ' + (e && e.message ? e.message : e));
-    } finally {
+      var st = e && e.status;
+      // Terminal: the sitting is gone, or isn't ours. Retrying cannot help.
+      if (st === 403 || st === 404) {
+        _submitting = false;
+        return fail('Không nộp được bài: ' + (e && e.message ? e.message : e));
+      }
+      // 409 can mean two very different things. The backend maps EVERY
+      // SittingConflictError to 409 — "already collected / exam moved on" but
+      // also "clock hasn't run out" and "prior section not submitted". Treating
+      // them all as success stopped the timer and left the student parked at
+      // 00:00 with no further attempt and no warning. So: re-read state, and
+      // only accept it if the section really is done or the exam really moved
+      // on (Codex review, PR #836).
+      if (st === 409) {
+        try {
+          await loadState();
+        } catch (e2) { /* fall through to the retry ladder below */ }
+        var sit = S.sitting || {};
+        // A VOIDED sitting keeps the same active_section, so without this it
+        // failed the check, scheduled every retry, and restarted polling after
+        // fail() had already stopped it (Codex review, PR #836).
+        var terminal = sit.status === 'void' || sit.status === 'released'
+          || (sit.status && sit.status !== 'registered' && sit.status !== 'lrw_in_progress');
+        if (terminal || sit[section + '_submitted_at'] || S.activeSection !== section) {
+          _submitting = false;
+          setConn(null);
+          return;                       // genuinely collected / moved on / cancelled
+        }
+        // Still our open, unsubmitted section — this was a different conflict.
+        // Keep trying rather than silently stranding the student.
+      }
+      if (attempt < SUBMIT_RETRY_DELAYS.length) {
+        setConn('submitting');
+        // stays _submitting = true so nothing else fires meanwhile
+        setTimeout(function () { submitSection(section, auto, attempt + 1); },
+          SUBMIT_RETRY_DELAYS[attempt]);
+        return;
+      }
+      // Budget spent. Do NOT kill the page: the answers are already persisted
+      // server-side (per-answer autosave for L/R, the Writing draft for W), so
+      // the admin's sweep still collects this student. Keep polling — and
+      // REMEMBER the submission, because polling alone never retried it: a
+      // successful poll for the same active section only resynced the clock
+      // while timerIv stayed null, so the student sat at 00:00 forever and the
+      // submit endpoint (including Writing's auto-grading) never ran
+      // (Codex review, PR #836).
       _submitting = false;
+      _owedSubmit = section;
+      setConn('submit_failed');
+      startPolling();
+      return;
     }
+    _submitting = false;
+    setConn(null);
+    await loadState().catch(function () {});
   }
 
   // ── Submitted ──────────────────────────────────────────────────────
@@ -703,6 +823,34 @@
       var sid = sess.session_id || sess.id;
       location.href = '/pages/practice.html?session_id=' + encodeURIComponent(sid);
     } catch (e) { fail('Không mở được phần Speaking: ' + (e && e.message ? e.message : e)); }
+  }
+
+  // The browser's own connectivity signal is faster and more reliable than
+  // waiting for two polls to time out, so use it to raise and clear the banner
+  // and to re-sync the moment the network returns.
+  window.addEventListener('offline', function () {
+    if (S.renderedSection) setConn('offline');
+  });
+  window.addEventListener('online', function () {
+    _pollFails = 0;
+    loadState().then(function () { setConn(null); retryOwedSubmit(); })
+      .catch(function () {});
+  });
+
+  // Finish a submission whose retry ladder ran out, once the connection is
+  // demonstrably back. Guarded so it only fires while that section is still
+  // genuinely open and unsubmitted.
+  function retryOwedSubmit() {
+    if (!_owedSubmit || _submitting) return;
+    var section = _owedSubmit;
+    var sit = S.sitting || {};
+    if (sit[section + '_submitted_at'] || S.activeSection !== section) {
+      _owedSubmit = null;               // the sweep or the admin got there first
+      setConn(null);
+      return;
+    }
+    _owedSubmit = null;
+    submitSection(section, true);
   }
 
   boot();
