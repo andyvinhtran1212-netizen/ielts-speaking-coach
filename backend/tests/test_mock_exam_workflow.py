@@ -5068,3 +5068,33 @@ def test_a_student_mid_exam_still_sees_their_own_finished_exam(fake_db, svc):
 
     mine = svc.list_open_exams(u)
     assert len(mine) == 1 and mine[0]["my_sitting_id"] == sit["id"]
+
+
+def test_a_finished_exam_cannot_be_reopened(fake_db, svc):
+    """Codex #858: set_open wrote is_open unconditionally, so an admin could
+    press "Mở kỳ" on a finished exam, be told it worked, and have is_open=true
+    persisted — while all three student gates kept turning everyone away. An
+    admin console reporting a state the system does not honour is worse than one
+    that refuses."""
+    exam = _seed_exam(fake_db)
+    # The state the final advance leaves behind: done, and the room closed.
+    fake_db.table("mock_exams").update(
+        {"active_section": "done", "is_open": False}).eq("id", exam["id"]).execute()
+    with pytest.raises(svc.SittingConflictError) as ei:
+        svc.set_open(exam["id"], True, "admin-1")
+    assert "kết thúc" in str(ei.value)
+    assert svc.get_published_exam_by_id(exam["id"])["is_open"] is False
+
+
+def test_closing_a_finished_exam_is_always_allowed(fake_db, svc):
+    """Closing is the safe direction and must never be blocked — an exam left
+    open by an older build still has to be closable."""
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update(
+        {"active_section": "done", "is_open": True}).eq("id", exam["id"]).execute()
+    assert svc.set_open(exam["id"], False, "admin-1")["is_open"] is False
+
+
+def test_a_live_exam_still_opens_normally(fake_db, svc):
+    exam = _seed_exam(fake_db)
+    assert svc.set_open(exam["id"], True, "admin-1")["is_open"] is True
