@@ -88,7 +88,7 @@ describe('A3 — a network failure no longer ends the exam', () => {
     // with no further attempt and no warning.
     assert.match(JS, /st === 409/);
     assert.match(JS, /st === 409[\s\S]{0,400}await loadState\(\)/);
-    assert.match(JS, /sit\[section \+ '_submitted_at'\] \|\| S\.activeSection !== section/);
+    assert.match(JS, /sit\[section \+ '_submitted_at'\][\s\S]{0,40}\|\| S\.activeSection !== section/);
   });
 
   test('a spent retry budget is remembered and finished on reconnect', () => {
@@ -99,7 +99,7 @@ describe('A3 — a network failure no longer ends the exam', () => {
     assert.match(JS, /function retryOwedSubmit/);
     assert.match(JS, /retryOwedSubmit\(\);/);
     // and it must not fire for a section that is already done
-    assert.match(JS, /sit\[section \+ '_submitted_at'\] \|\| S\.activeSection !== section\)[\s\S]{0,80}_owedSubmit = null/);
+    assert.match(JS, /sit\[section \+ '_submitted_at'\] \|\| S\.activeSection !== section[\s\S]{0,120}_owedSubmit = null/);
   });
 
   test('exhausting the retry budget does NOT call fail()', () => {
@@ -212,7 +212,7 @@ describe('A3 round 4 — a stale retry must not stop the next section', () => {
   });
 
   test('the owed-submit path keeps its own moved-on check', () => {
-    assert.match(JS, /if \(sit\[section \+ '_submitted_at'\] \|\| S\.activeSection !== section\) \{/);
+    assert.match(JS, /if \(sit\[section \+ '_submitted_at'\] \|\| S\.activeSection !== section[\s\S]{0,60}\) \{/);
   });
 });
 
@@ -233,5 +233,40 @@ describe('integrity signals round 4 — only count what the exam did', () => {
 
   test('offline events are gated on an active section, like tab-hidden is', () => {
     assert.match(JS, /if \(S\.renderedSection\) bumpIntegrity\('offline_events', 1\);/);
+  });
+});
+
+describe('pause — the student paper closes on the marker, not on its own stamp', () => {
+  test('a collected section is not open, even before this row is swept', () => {
+    // /collect stamps the sittings in the BACKGROUND and leaves active_section
+    // alone, so waiting for our own submitted stamp kept the paper open — and
+    // the clock running — after the invigilator was told the class was on break.
+    assert.match(JS, /&& S\.collectedSection !== active;/);
+  });
+
+  test('the runner reads the marker off the sitting-state response', () => {
+    assert.match(JS, /S\.collectedSection = st\.collected_section \|\| null;/);
+  });
+
+  test('a collected section stops the submit retry ladder', () => {
+    // The pause marker lands on the exam row the moment the admin collects, but
+    // the sweep that stamps each sitting is a BACKGROUND task. In that window
+    // the backend answers 409 while the refreshed state still shows the same
+    // active_section and a null stamp — so without the marker the runner read a
+    // legitimate close as a transient failure, burned the full backoff ladder
+    // and raised a connection warning over the pause screen (Codex, PR #852).
+    const at409 = JS.slice(JS.indexOf('if (st === 409)'));
+    assert.match(
+      at409.slice(0, at409.indexOf('if (attempt <')),
+      /\|\| S\.activeSection !== section \|\| S\.collectedSection === section\) \{/,
+    );
+  });
+
+  test('...and the reconnect retry does not resurrect it either', () => {
+    const owed = JS.slice(JS.indexOf('function retryOwedSubmit'));
+    assert.match(
+      owed.slice(0, owed.indexOf('_owedSubmit = null;')),
+      /S\.collectedSection === section/,
+    );
   });
 });
