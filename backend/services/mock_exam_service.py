@@ -2017,6 +2017,57 @@ def admin_update_exam(exam_id: str, patch: dict) -> dict:
     upd = {k: v for k, v in patch.items() if k in _EXAM_WRITABLE}
     if not upd:
         raise ValueError("Không có trường hợp lệ để cập nhật.")
+    if "exam_mode" in upd:
+        # MODE IS NOT A SETTING, IT IS THE CONTRACT A SITTING IS READ UNDER.
+        #
+        # Nothing stores the mode on the sitting: _sitting_sections() resolves
+        # it from the exam on EVERY read. So flipping a sequential exam that has
+        # live sittings to retake makes those rows resolve to an EMPTY skill set
+        # (they carry no assigned_skills) — the runner shows an empty retake
+        # menu, the reaper skips them because they are not assignments, and the
+        # papers can never be collected or finalised. The reverse direction is
+        # just as bad: retake sittings suddenly owe the exam's full configured
+        # sequence, including sections their student was never assigned.
+        #
+        # PR #851 closed one write path (advance) against a mid-request mode
+        # flip; that guarded the transition, not the invariant underneath it
+        # (Codex adversarial review, 2026-07-26).
+        current = get_published_exam_by_id(exam_id)
+        if not current:
+            raise NotFoundError(f"Mock exam {exam_id} không tồn tại.")
+        if (current.get("exam_mode") or "sequential") != upd["exam_mode"]:
+            # ONE STATEMENT (mig 169), not read-then-write. Checking for
+            # dependents and then PATCHing were two PostgREST requests, and a
+            # sitting inserted between them is read under the WRONG mode — the
+            # exact failure this guard exists to prevent (Codex review, PR
+            # #859). The RPC evaluates the same NOT EXISTS conditions in the
+            # statement that performs the write.
+            try:
+                changed = supabase_admin.rpc("fn_set_exam_mode", {
+                    "p_exam_id": str(exam_id),
+                    "p_mode":    upd["exam_mode"],
+                }).execute().data
+            except Exception as exc:  # noqa: BLE001
+                # FAIL CLOSED. Not knowing whether the exam is free is not the
+                # same as knowing it is: guessing "free" is how a live classroom
+                # loses its papers.
+                logger.exception("[mock-exam] mode change failed exam=%s", exam_id)
+                raise ValueError(
+                    "Không đổi được chế độ lúc này — thử lại sau giây lát."
+                ) from exc
+            if not changed:
+                raise ValueError(
+                    "Không đổi được chế độ của đề đã có lượt thi hoặc bài được "
+                    "gán. Tạo đề mới, hoặc huỷ hết lượt thi và gỡ hết phần gán "
+                    "trước khi đổi."
+                )
+            upd.pop("exam_mode")     # already written, atomically
+            if not upd:
+                return changed
+        else:
+            upd.pop("exam_mode")     # a no-op write, not a mode change
+            if not upd:
+                return current       # nothing left to write
     resp = supabase_admin.table("mock_exams").update(upd).eq(
         "id", str(exam_id),
     ).execute()

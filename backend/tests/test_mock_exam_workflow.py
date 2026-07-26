@@ -232,6 +232,30 @@ class FakeSupabase:
             row["status"] = "void"
             row["integrity"] = merged
             return _RpcResult(dict(row))
+        # fn_set_exam_mode (mig 169) — the dependent check and the write have
+        # to be ONE statement: as two PostgREST requests, a sitting inserted
+        # between them is read under the wrong mode. Modelled here with the same
+        # predicates the SQL uses so these tests exercise real behaviour.
+        if name == "fn_set_exam_mode":
+            mode = params["p_mode"]
+            if mode not in ("sequential", "retake"):
+                raise AssertionError(f"invalid exam_mode: {mode}")
+            row = next(
+                (r for r in self.tables.get("mock_exams", [])
+                 if str(r.get("id")) == str(params["p_exam_id"])),
+                None,
+            )
+            if row is None or (row.get("exam_mode") or "sequential") == mode:
+                return _RpcResult(None)
+            if any(str(r.get("mock_exam_id")) == str(row["id"])
+                   and r.get("status") != "void"
+                   for r in self.tables.get("mock_exam_sittings", [])):
+                return _RpcResult(None)
+            if any(str(r.get("exam_id")) == str(row["id"])
+                   for r in self.tables.get("mock_exam_assignments", [])):
+                return _RpcResult(None)
+            row["exam_mode"] = mode
+            return _RpcResult(dict(row))
         raise AssertionError(f"unexpected rpc: {name}")
 
     # test helpers
@@ -5098,3 +5122,97 @@ def test_closing_a_finished_exam_is_always_allowed(fake_db, svc):
 def test_a_live_exam_still_opens_normally(fake_db, svc):
     exam = _seed_exam(fake_db)
     assert svc.set_open(exam["id"], True, "admin-1")["is_open"] is True
+
+# ── exam_mode is a contract, not a setting ────────────────────────────
+#
+# Codex adversarial review 2026-07-26. Nothing stores the mode on the sitting:
+# _sitting_sections() resolves it from the EXAM on every read. So flipping a
+# sequential exam that has live sittings to retake makes those rows resolve to
+# an EMPTY skill set — empty retake menu for the student, skipped by the reaper,
+# papers that can never be collected. PR #851 guarded the advance write path
+# against a mid-request flip; that protected the transition, not the invariant.
+
+
+def test_mode_cannot_change_once_a_sitting_exists(fake_db, svc):
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    with pytest.raises(ValueError) as ei:
+        svc.admin_update_exam(exam["id"], {"exam_mode": "retake"})
+    assert "chế độ" in str(ei.value)
+    assert svc.get_published_exam_by_id(exam["id"]).get("exam_mode") in (None, "sequential")
+
+
+def test_mode_cannot_change_once_a_retake_is_assigned(fake_db, svc):
+    """The other direction: retake sittings would suddenly owe the exam's whole
+    configured sequence, including sections nobody assigned them."""
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    fake_db.seed("mock_exam_assignments", {
+        "id": str(uuid4()), "exam_id": exam["id"], "user_id": str(uuid4()),
+        "skills": ["writing"], "open_from": None, "open_until": _WINDOW["open_until"],
+    })
+    with pytest.raises(ValueError):
+        svc.admin_update_exam(exam["id"], {"exam_mode": "sequential"})
+
+
+def test_mode_is_still_editable_on_a_fresh_exam(fake_db, svc):
+    """The guard must not make a draft exam unconfigurable — that is the whole
+    point at which the admin is meant to choose."""
+    exam = _seed_exam(fake_db)
+    out = svc.admin_update_exam(exam["id"], {"exam_mode": "retake"})
+    assert out["exam_mode"] == "retake"
+
+
+def test_a_voided_sitting_leaves_the_door_open(fake_db, svc):
+    """A cancelled row is a closed record nothing reads a skill set out of, so
+    the admin has a real way through: void the sittings, then convert."""
+    exam = _seed_exam(fake_db)
+    sit = svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    fake_db.table("mock_exam_sittings").update({"status": "void"}).eq(
+        "id", sit["id"]).execute()
+    assert svc.admin_update_exam(exam["id"], {"exam_mode": "retake"})["exam_mode"] == "retake"
+
+
+def test_rewriting_the_same_mode_is_not_a_change(fake_db, svc):
+    """The admin console PATCHes the whole form, so it resends exam_mode on every
+    edit. Treating an unchanged value as a mode change would make a live exam
+    uneditable — the title could never be fixed again."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    out = svc.admin_update_exam(
+        exam["id"], {"exam_mode": "sequential", "title": "Tên mới"})
+    assert out["title"] == "Tên mới"
+    # ...and a patch of nothing BUT the unchanged mode is a clean no-op
+    assert svc.admin_update_exam(exam["id"], {"exam_mode": "sequential"})["title"] == "Tên mới"
+
+
+def test_the_mode_change_is_one_statement_not_a_read_then_write(fake_db, svc):
+    """The whole point of mig 169. As two PostgREST requests, a sitting inserted
+    between the dependent check and the PATCH is read under the WRONG mode."""
+    import inspect
+    src = inspect.getsource(svc.admin_update_exam)
+    assert 'rpc("fn_set_exam_mode"' in src
+    assert "_exam_has_dependents" not in src, "the read-then-write path is back"
+
+
+def test_an_unprovable_change_refuses_the_flip(fake_db, svc):
+    """Fail CLOSED. If we cannot prove the exam is unused, guessing 'unused' is
+    how a live classroom loses its papers."""
+    exam = _seed_exam(fake_db)
+    real = svc.supabase_admin
+
+    class _Broken:
+        def __getattr__(self, item):
+            return getattr(real, item)
+
+        def rpc(self, name, params):
+            raise RuntimeError("postgrest down")
+
+    svc.supabase_admin = _Broken()
+    try:
+        with pytest.raises(ValueError):
+            svc.admin_update_exam(exam["id"], {"exam_mode": "retake"})
+    finally:
+        svc.supabase_admin = real
+    assert svc.get_published_exam_by_id(exam["id"]).get("exam_mode") in (None, "sequential")
