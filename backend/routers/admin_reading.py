@@ -809,6 +809,35 @@ def _gen_test_password() -> str:
     return grp() + "-" + grp()
 
 
+@router.post("/tests/{test_id}/exam-only")
+async def admin_set_reading_exam_only(
+    test_id: str,
+    body: dict,
+    authorization: str | None = Header(default=None),
+):
+    """Giữ riêng một đề đọc cho kỳ thi thử — hoặc trả nó lại thư viện.
+
+    Mig 170 gives listening and writing a way to set the flag but left reading
+    with none, so a paper imported and published for a FUTURE exam stayed in the
+    student library until the moment an exam referenced it — the exact
+    pre-assignment leak the flag exists to close (Codex review, PR #862).
+
+    Keyed by the human test_id the admin list shows, like every other route
+    here — an admin should never have to find a UUID.
+    """
+    await require_admin(authorization)
+    value = bool(body.get("exam_only"))
+    resp = (
+        supabase_admin.table("reading_tests")
+        .update({"exam_only": value})
+        .eq("test_id", test_id)
+        .execute()
+    )
+    if not resp.data:
+        raise HTTPException(404, f"Không tìm thấy đề đọc '{test_id}'.")
+    return {"test_id": test_id, "exam_only": value}
+
+
 @router.post("/tests/{test_id}/lock")
 async def admin_lock_reading_test(
     test_id: str,
@@ -1237,12 +1266,24 @@ async def admin_preview_reading_test(
 
     await require_admin(authorization)
 
+    # Keyed by the HUMAN test_id first — that is the canonical identity across
+    # this whole admin surface (_normalise_l3_test_row sets slug = test_id, and
+    # the admin list links by it). Keying only on the internal UUID made the
+    # advertised preview 404 from every link the admin list produces
+    # (Codex review, PR #863). A UUID is still accepted so either link works;
+    # test_id is TEXT UNIQUE and id is UUID, so the two can never collide.
     test_res = (
         supabase_admin.table("reading_tests").select("id,module")
-        .eq("id", test_uuid).limit(1).execute()
+        .eq("test_id", test_uuid).limit(1).execute()
     )
     if not test_res.data:
+        test_res = (
+            supabase_admin.table("reading_tests").select("id,module")
+            .eq("id", test_uuid).limit(1).execute()
+        )
+    if not test_res.data:
         raise HTTPException(404, "Không tìm thấy đề đọc này.")
+    test_uuid = test_res.data[0]["id"]      # everything below wants the UUID
 
     passages = (
         supabase_admin.table("reading_passages").select("id,passage_order")

@@ -563,6 +563,26 @@
     if (firstBtn) firstBtn.classList.add('is-current');
   }
 
+
+  // PREVIEW MODE. The synthetic attempt marks every question `correct: false`
+  // because nobody sat it — so rendering it as a normal review labelled every
+  // answer "Sai", derived weakness stats from misses that never happened, and
+  // put "Bạn:" beside a blank. An admin checking a paper would read that as a
+  // broken paper (Codex review, PR #863).
+  //
+  // Suppressed with a class on <body> rather than by branching the renderer:
+  // the student path stays byte-identical, and the preview cannot drift from it.
+  function applyPreviewMode(d) {
+    if (!d || !d.preview) return;
+    document.body.classList.add('is-exam-preview');
+    var b = document.getElementById('rr-preview-banner');
+    if (b) {
+      b.hidden = false;
+      b.textContent = 'XEM TRƯỚC — chưa ai làm bài này. Ô trả lời để trống và '
+        + 'không có điểm; đáp án + giải thích là thật.';
+    }
+  }
+
   function load(attemptId) {
     showState('loading');
     SESSION.attemptId = attemptId;
@@ -585,6 +605,7 @@
     reviewPromise
       .then(function (d) {
         if (!d || !(d.review || []).length) { showState('empty'); return; }
+        applyPreviewMode(d);
         render(d);
       })
       .catch(function (e) {

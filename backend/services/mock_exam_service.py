@@ -3733,6 +3733,35 @@ def reserved_test_ids(kind: str) -> set:
     return {str(r[col]) for r in (resp.data or []) if r.get(col)}
 
 
+def _sitting_may_open_section(sitting: dict, exam: dict, section: str) -> bool:
+    """Is THIS section open to THIS sitting right now?
+
+    Holding a sitting is not the same as being entitled to every paper the exam
+    binds. A sequential student who has merely registered could otherwise fetch
+    the Reading passages while the room is still on Listening, and a retake
+    student assigned only Writing could fetch the Listening test they were never
+    given (Codex review, PR #862).
+
+    Three ways in, and only three:
+      · the section is ALREADY SUBMITTED — they sat it, reviewing it is the point;
+      · RETAKE — the skill is assigned AND they have started it;
+      · SEQUENTIAL — the invigilator has opened this exact section.
+
+    A released/reviewed sitting reaches this through the submitted branch, which
+    is what keeps "look at my own finished paper" working.
+    """
+    col = _SUBMITTED_COL.get(section)
+    if not col:
+        return False
+    if sitting.get(col):
+        return True
+    if is_retake(exam):
+        if section not in _sitting_sections(sitting, exam):
+            return False
+        return bool(sitting.get(f"{section}_started_at"))
+    return (exam.get("active_section") or "not_started") == section
+
+
 def user_may_open_exam_content(user_id, kind: str, test_id) -> bool:
     """May THIS student open a test reserved for mock exams (mig 170)?
 
@@ -3753,17 +3782,24 @@ def user_may_open_exam_content(user_id, kind: str, test_id) -> bool:
     if not col or not user_id or not test_id:
         return False
     try:
-        exams = supabase_admin.table("mock_exams").select("id").eq(
-            col, str(test_id),
-        ).execute().data or []
+        exams = {
+            e["id"]: e for e in (
+                supabase_admin.table("mock_exams").select("*").eq(
+                    col, str(test_id),
+                ).execute().data or []
+            )
+        }
         if not exams:
             return False
-        rows = supabase_admin.table("mock_exam_sittings").select("id").eq(
+        rows = supabase_admin.table("mock_exam_sittings").select("*").eq(
             "user_id", str(user_id),
-        ).in_("mock_exam_id", [e["id"] for e in exams]).neq(
+        ).in_("mock_exam_id", list(exams)).neq(
             "status", "void",
-        ).limit(1).execute().data or []
-        return bool(rows)
+        ).execute().data or []
+        return any(
+            _sitting_may_open_section(r, exams.get(r.get("mock_exam_id")) or {}, kind)
+            for r in rows
+        )
     except Exception:  # noqa: BLE001
         logger.warning(
             "[mock-exam] exam-content entitlement lookup failed user=%s %s=%s",

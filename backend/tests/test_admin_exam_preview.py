@@ -167,3 +167,91 @@ def test_the_preview_urls_match_the_endpoints_that_exist():
     rd = _src("routers/admin_reading.py")
     assert 'prefix="/admin/reading/content"' in rd
     assert '@router.get("/tests/{test_uuid}/preview")' in rd
+
+
+# ── The preview must not fabricate a wrong-answer state ───────────────
+#
+# The synthetic attempt marks every question `correct: false` because nobody sat
+# it. Rendered as a normal review that labelled every answer "Sai", derived the
+# weakness summary from misses that never happened, and put "Bạn:" beside a
+# blank — an admin checking a paper would read that as a broken paper
+# (Codex review, PR #863).
+
+
+def _css(name: str) -> str:
+    return (BACKEND.parent / "frontend" / "public" / "css" / name).read_text(encoding="utf-8")
+
+
+def _html(name: str) -> str:
+    return (BACKEND.parent / "frontend" / "public" / "pages" / name).read_text(encoding="utf-8")
+
+
+def test_both_pages_consume_the_preview_flag():
+    """The backend has always SENT `preview: true`; nothing read it."""
+    for name in ("listening-review.js", "reading-review.js"):
+        js = _js(name)
+        assert "function applyPreviewMode(d)" in js, name
+        assert "if (!d || !d.preview) return;" in js, name
+        assert "classList.add('is-exam-preview')" in js, name
+        # …and it is actually CALLED. A defined-but-never-invoked helper is the
+        # same bug with more code.
+        assert "        applyPreviewMode(d);\n        render(d);" in js, \
+            f"{name}: applyPreviewMode is not called before render"
+
+
+def test_the_suppression_is_a_class_not_a_renderer_branch():
+    """Branching the renderer is how the preview drifts from the student page.
+    A class on <body> leaves the student path byte-identical."""
+    for name in ("listening-review.css", "reading-review.css"):
+        css = _css(name)
+        assert ".is-exam-preview" in css, name
+        assert "card__verdict" in css, name          # ✓ Đúng / ✗ Sai badges
+        assert "display: none !important" in css, name
+
+
+def test_the_score_summary_is_hidden_in_a_preview():
+    """A score for a paper nobody sat is a fabricated result."""
+    assert "#lr-summary" in _css("listening-review.css")
+    assert "#rr-summary" in _css("reading-review.css")
+
+
+def test_the_wrong_answer_styling_is_neutralised():
+    """Not just the badge — the red card and the red nav square say "wrong" on
+    their own."""
+    for name in ("listening-review.css", "reading-review.css"):
+        css = _css(name)
+        seg = css[css.index(".is-exam-preview"):]
+        assert seg.count("is-incorrect") >= 2, name
+
+
+def test_each_page_says_out_loud_that_it_is_a_preview():
+    for name in ("listening-review.js", "reading-review.js"):
+        assert "XEM TRƯỚC" in _js(name), name
+    assert 'id="lr-preview-banner"' in _html("listening-review.html")
+    assert 'id="rr-preview-banner"' in _html("reading-review.html")
+
+
+def test_the_banner_starts_hidden():
+    """It must never show on a real student's review of their own paper."""
+    for name, bid in (("listening-review.html", "lr-preview-banner"),
+                      ("reading-review.html", "rr-preview-banner")):
+        html = _html(name)
+        at = html.index(f'id="{bid}"')
+        tag = html[html.rindex("<", 0, at):html.index(">", at) + 1]
+        assert "hidden" in tag, name
+
+
+def test_the_reading_preview_accepts_the_id_the_admin_ui_shows():
+    """_normalise_l3_test_row makes test_id the canonical identity across this
+    admin surface, so keying only on the internal UUID 404'd from every link the
+    admin list produces (Codex review, PR #863)."""
+    body = _preview_src("routers/admin_reading.py", "admin_preview_reading_test")
+    # Pin the LOOKUP line specifically. `.eq("test_id", …)` also appears in the
+    # passages query, where test_id is reading_passages' UUID foreign key — a
+    # loose substring match passes even when the lookup itself is wrong.
+    assert '.eq("test_id", test_uuid).limit(1).execute()' in body, \
+        "the lookup must resolve the HUMAN test_id first"
+    assert '.eq("id", test_uuid).limit(1).execute()' in body, \
+        "a UUID link must keep working too"
+    assert 'test_uuid = test_res.data[0]["id"]' in body, \
+        "everything downstream (passages) needs the UUID, not the human code"
