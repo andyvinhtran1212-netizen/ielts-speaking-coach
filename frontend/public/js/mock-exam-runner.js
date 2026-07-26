@@ -212,14 +212,169 @@
         try { localStorage.setItem(lsKey(t), ta.value); } catch (e) {}
       });
     });
+    function selectTask(name) {
+      document.querySelectorAll('.me-wtabs .me-tab').forEach(function (x) {
+        var on = x.dataset.wtab === name;
+        x.classList.toggle('active', on);
+        x.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      // Both panes carry a panel per task — switching the tab switches BOTH the
+      // đề side and the editor side, so the two never show different tasks.
+      document.querySelectorAll('.mw-taskpanel').forEach(function (x) {
+        x.classList.toggle('active', x.dataset.wpanel === name);
+      });
+    }
     document.querySelectorAll('.me-wtabs .me-tab').forEach(function (tab) {
-      tab.addEventListener('click', function () {
-        document.querySelectorAll('.me-wtabs .me-tab').forEach(function (x) { x.classList.remove('active'); });
-        document.querySelectorAll('.me-wpanel').forEach(function (x) { x.classList.remove('active'); });
-        tab.classList.add('active');
-        document.querySelector('.me-wpanel[data-wpanel="' + tab.dataset.wtab + '"]').classList.add('active');
+      tab.addEventListener('click', function () { selectTask(tab.dataset.wtab); });
+      tab.addEventListener('keydown', function (ev) {
+        if (ev.key !== 'Enter' && ev.key !== ' ') return;
+        ev.preventDefault();
+        selectTask(tab.dataset.wtab);
       });
     });
+    setupWritingLayout();
+  }
+
+  // ── Writing layout: which side the đề sits on + how big it is ────────
+  //
+  // Two independent controls, both a WRITER'S PREFERENCE rather than exam
+  // state, so both persist globally (not per sitting): the arrangement
+  // (đề trái/phải/trên/dưới) and the đề pane's share of the split.
+  // Modelled on reading-exam.js's divider — same 4-way drag + keyboard
+  // affordance, extended to the vertical arrangements.
+  // Below this width the stylesheet forces a vertical stack regardless of the
+  // saved arrangement. The drag/keyboard maths must agree with what is actually
+  // ON SCREEN, not with data-layout — otherwise a phone drags on the horizontal
+  // axis of a vertical split and nothing moves (Codex review, PR #832).
+  var NARROW_MQ = '(max-width: 860px)';
+  function isNarrow() {
+    return !!(window.matchMedia && window.matchMedia(NARROW_MQ).matches);
+  }
+  function effectiveLayout(split) {
+    return isNarrow() ? 'top' : split.dataset.layout;
+  }
+
+  var LAYOUT_KEY = 'mock-writing-layout';
+  var SPLIT_KEY = 'mock-writing-split';
+  var LAYOUTS = ['left', 'right', 'top', 'bottom'];
+  var SPLIT_MIN = 25, SPLIT_MAX = 75, SPLIT_DEFAULT = 45;
+  var _layoutWired = false;
+
+  function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+
+  function setupWritingLayout() {
+    var split = el('mw-split'), divider = el('mw-divider');
+    if (!split || !divider || _layoutWired) return;
+    _layoutWired = true;
+
+    var saved = lsGet(LAYOUT_KEY);
+    applyLayout(LAYOUTS.indexOf(saved) !== -1 ? saved : 'left');
+    var pct = parseFloat(lsGet(SPLIT_KEY));
+    applySplit(Number.isFinite(pct) ? pct : SPLIT_DEFAULT);
+
+    document.querySelectorAll('#mw-layout .mw-layout__btn').forEach(function (b) {
+      b.addEventListener('click', function () { applyLayout(b.dataset.layout, true); });
+    });
+    // Re-announce when the viewport crosses the breakpoint — the effective
+    // layout flips there even though data-layout does not.
+    if (window.matchMedia) {
+      var mq = window.matchMedia(NARROW_MQ);
+      var onMq = function () { applyLayout(split.dataset.layout); };
+      if (mq.addEventListener) mq.addEventListener('change', onMq);
+      else if (mq.addListener) mq.addListener(onMq);
+    }
+
+    var dragging = false;
+    function onMove(ev) {
+      if (!dragging) return;
+      var pt = (ev.touches && ev.touches[0]) || ev;
+      if (pt.clientX == null) return;
+      var rect = split.getBoundingClientRect();
+      var layout = effectiveLayout(split);
+      var raw;
+      // The đề pane is the FIRST flex item, so in the -reverse arrangements it
+      // is anchored to the right/bottom edge — measure from that edge instead.
+      if (layout === 'left')        raw = (pt.clientX - rect.left) / rect.width;
+      else if (layout === 'right')  raw = (rect.right - pt.clientX) / rect.width;
+      else if (layout === 'top')    raw = (pt.clientY - rect.top) / rect.height;
+      else                          raw = (rect.bottom - pt.clientY) / rect.height;
+      applySplit(raw * 100, true);
+      ev.preventDefault();
+    }
+    function endDrag() {
+      if (!dragging) return;
+      dragging = false;
+      divider.classList.remove('is-dragging');
+      document.body.style.userSelect = '';
+    }
+    function startDrag(ev) {
+      dragging = true;
+      divider.classList.add('is-dragging');
+      document.body.style.userSelect = 'none';
+      ev.preventDefault();
+    }
+    divider.addEventListener('mousedown', startDrag);
+    divider.addEventListener('touchstart', startDrag, { passive: false });
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('mouseup', endDrag);
+    document.addEventListener('touchend', endDrag);
+    // An interrupted gesture fires touchcancel, NOT touchend. Without this the
+    // drag never ends: `dragging` stays true, userSelect stays disabled, and
+    // every subsequent touch anywhere on the document resizes the pane and
+    // calls preventDefault() (Codex review, PR #832).
+    document.addEventListener('touchcancel', endDrag);
+    window.addEventListener('blur', endDrag);
+
+    // Keyboard: any arrow grows or shrinks the đề pane, so the control works
+    // without the student having to know which axis this arrangement uses.
+    divider.addEventListener('keydown', function (ev) {
+      // Deliberately NOT named after a Tailwind utility. This file is scanned
+      // by Tailwind's content globs, and a negated variable whose name matches
+      // a utility reads to the scanner as that utility's important modifier —
+      // so it emitted a phantom CSS rule and the committed build drifted from
+      // a fresh one. (Writing the offending string in a comment does it too:
+      // the scanner does not care that it is a comment.)
+      var step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[ev.key];
+      if (!step) return;
+      var layout = effectiveLayout(split);
+      if (layout === 'right' || layout === 'bottom') step = -step;
+      applySplit(currentSplit() + step * 2, true);
+      ev.preventDefault();
+    });
+  }
+
+  function currentSplit() {
+    var split = el('mw-split');
+    return parseFloat(getComputedStyle(split).getPropertyValue('--mw-split')) || SPLIT_DEFAULT;
+  }
+
+  function applyLayout(name, persist) {
+    var split = el('mw-split'), divider = el('mw-divider');
+    if (!split) return;
+    split.dataset.layout = name;
+    document.querySelectorAll('#mw-layout .mw-layout__btn').forEach(function (b) {
+      b.setAttribute('aria-pressed', b.dataset.layout === name ? 'true' : 'false');
+    });
+    if (divider) {
+      // From the EFFECTIVE layout: on a narrow viewport the stylesheet forces a
+      // vertical stack, so announcing the saved left/right value would tell
+      // assistive tech the separator moves along an axis it does not.
+      var eff = effectiveLayout(split);
+      divider.setAttribute('aria-orientation',
+        (eff === 'top' || eff === 'bottom') ? 'horizontal' : 'vertical');
+    }
+    if (persist) lsSet(LAYOUT_KEY, name);
+  }
+
+  function applySplit(pct, persist) {
+    var split = el('mw-split'), divider = el('mw-divider');
+    if (!split) return;
+    var clamped = Math.max(SPLIT_MIN, Math.min(SPLIT_MAX, pct));
+    split.style.setProperty('--mw-split', clamped + '%');
+    if (divider) divider.setAttribute('aria-valuenow', String(Math.round(clamped)));
+    if (persist) lsSet(SPLIT_KEY, String(clamped));
   }
 
   function startTimer(section) {
