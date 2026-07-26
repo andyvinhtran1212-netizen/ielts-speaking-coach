@@ -2150,6 +2150,24 @@ def _collect_section_for_sitting(sitting: dict, section: str) -> bool:
     col = _SUBMITTED_COL.get(section)
     if not col or sitting.get(col):
         return False
+    # NEVER STAMP A SECTION THIS SITTING DOES NOT OWN. The callers decide WHICH
+    # section to sweep from the EXAM (sequential) or from the reaper's own scan,
+    # but what a given sitting owes is a property of the SITTING — assigned
+    # skills for a retake, configured sections otherwise. Without this a sweep
+    # aimed at the wrong mode, or at a section a retake student was never
+    # assigned, would stamp a paper that does not exist
+    # (Codex adversarial review, 2026-07-26).
+    try:
+        exam_for_scope = get_published_exam_by_id(str(sitting["mock_exam_id"])) or {}
+        if section not in _sitting_sections(sitting, exam_for_scope):
+            logger.info(
+                "[mock-exam] sitting=%s section=%s not owned by this sitting — not swept",
+                sitting["id"], section,
+            )
+            return False
+    except Exception:  # noqa: BLE001 — scope lookup must not break the sweep
+        logger.exception("[mock-exam] sweep scope check failed sitting=%s", sitting["id"])
+        return False
     try:
         update: dict = {col: _now_iso()}
         if sitting.get("status") == "registered":
@@ -2355,6 +2373,19 @@ def advance_section(exam_id: str, admin_id: str,
     exam = get_published_exam_by_id(exam_id)
     if not exam:
         raise NotFoundError(f"Mock exam {exam_id} không tồn tại.")
+    if is_retake(exam):
+        # Retake has NO shared clock: each student starts and times each
+        # assigned skill themselves. collect_preflight() already refuses this
+        # mode; advance did not, so half the gate was missing. The live console
+        # hides the button, but a UI is not a guard — a direct API call or a
+        # stale admin tab could still walk a retake exam through the sequential
+        # state machine and then queue _force_collect_section over it, stamping
+        # students' papers outside their own self-timed flow
+        # (Codex adversarial review, 2026-07-26).
+        raise SittingConflictError(
+            "Đề test lại không có phần thi chung để mở — mỗi học viên tự bắt "
+            "đầu từng kỹ năng được gán."
+        )
     current = exam.get("active_section") or "not_started"
     # `expected_section` is the section the ADMIN was looking at when they
     # clicked. Without it the compare-and-set below only catches requests whose

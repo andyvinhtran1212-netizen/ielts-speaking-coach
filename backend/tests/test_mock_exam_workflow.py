@@ -2768,6 +2768,42 @@ def test_collect_rejected_before_the_exam_starts(fake_db, svc):
         svc.collect_section(exam["id"], "admin-1")
 
 
+def test_advance_rejected_for_a_retake_exam(fake_db, svc):
+    """Codex adversarial review (correct, high): collect_preflight refused
+    retake but advance_section did NOT — half the gate was missing. The console
+    hides the button, but a UI is not a guard: a direct API call or a stale
+    admin tab could walk a retake exam through the sequential state machine and
+    then queue a sweep over it, stamping students' papers outside their own
+    self-timed flow."""
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    with pytest.raises(svc.SittingConflictError):
+        svc.advance_section(exam["id"], "admin-1")
+    assert svc.get_published_exam_by_id(exam["id"])["active_section"] == "not_started"
+
+
+def test_sweep_refuses_a_section_the_sitting_does_not_own(fake_db, svc):
+    """Second layer: what a sitting OWES is a property of the sitting (assigned
+    skills for a retake), not of whatever section the caller aimed at."""
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    u = str(uuid4())
+    fake_db.seed("mock_exam_assignments", {
+        "id": str(uuid4()), "exam_id": exam["id"], "user_id": u,
+        "skills": ["writing"], "open_from": None,
+        "open_until": _WINDOW["open_until"],
+    })
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+
+    # Listening was never assigned to this student.
+    assert svc._collect_section_for_sitting(svc.get_sitting(sit["id"]), "listening") is False
+    assert svc.get_sitting(sit["id"]).get("listening_submitted_at") is None
+    # ...but the skill they DO owe is still sweepable.
+    assert svc._collect_section_for_sitting(svc.get_sitting(sit["id"]), "writing") is True
+
+
 def test_collect_rejected_for_a_retake_exam(fake_db, svc):
     """Retake is self-timed per student — there is no shared section to collect,
     and pretending otherwise would sweep papers on someone else's clock."""
