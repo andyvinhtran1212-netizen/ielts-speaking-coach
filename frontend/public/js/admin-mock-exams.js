@@ -20,6 +20,7 @@
   var REFRESH_MS = 15000;
   // In-flight guard for the one irreversible action on this page.
   var _advancing = false;
+  var _cohortName = {};      // cohort id → name, for the retake source picker
 
   function el(id) { return document.getElementById(id); }
   function esc(s) { return (window.WC && window.WC.escapeHtml) ? window.WC.escapeHtml(s) : String(s == null ? '' : s); }
@@ -62,6 +63,11 @@
     try {
       var cohorts = asList(await window.api.get('/admin/cohorts?is_active=true'));
       fillSelect(el('f-cohort'), cohorts, 'id', function (c) { return c.name || c.id; }, true);
+      // Cached for the retake source picker: a retake targets the students of
+      // ONE previous exam, so naming that exam's class is what tells the admin
+      // they are aiming at the right group.
+      _cohortName = {};
+      cohorts.forEach(function (c) { _cohortName[c.id] = c.name || c.id; });
     } catch (e) { console.warn('cohort picker', e); }
   }
 
@@ -265,6 +271,24 @@
     var m = el('assign-modal'); if (m) m.remove();
   }
 
+  // Which skills the TARGET retake exam can actually serve. The skills come off
+  // the SOURCE exam's retest flags, but they are sat on this one — ticking
+  // Listening on an exam with no listening test used to start the student's
+  // clock against an iframe with `id=undefined`. Mirrors servable_skills() in
+  // mock_exam_assignment_service.py, which now refuses the assign outright;
+  // this is so the admin sees WHY before pressing the button.
+  // Writing is ALWAYS servable — the panel is native textareas and a missing
+  // prompt renders as "(Không có đề Task N)". Same rule as servable_skills() in
+  // mock_exam_assignment_service.py and _configured_sections() in
+  // mock_exam_service.py; only L/R die without their test id.
+  function servableSkills(ex) {
+    var out = [];
+    if (ex.listening_test_id) out.push('listening');
+    if (ex.reading_test_id) out.push('reading');
+    out.push('writing');
+    return out;
+  }
+
   async function openAssign(ex) {
     closeAssign();
     var overlay = document.createElement('div');
@@ -308,17 +332,38 @@
     el('a-until').value = localDateTimeIn(7);
 
     // Source picker = published exams (any mode) whose review produced flags.
+    // Labelled with the CLASS that sat it: a retake is aimed at the students of
+    // one previous exam, so the class name is how the admin confirms they are
+    // targeting the right group before the roster even loads.
     try {
       var exams = asList(await window.api.get('/admin/mock-exams'))
         .filter(function (e) { return e.id !== ex.id && e.status === 'published'; });
-      fillSelect(el('a-source'), exams, 'id', function (e) { return (e.code || '') + ' — ' + (e.title || ''); }, true);
+      fillSelect(el('a-source'), exams, 'id', function (e) {
+        var cls = e.cohort_id ? _cohortName[e.cohort_id] : null;
+        return (e.code || '') + ' — ' + (e.title || '') + (cls ? ' · lớp ' + cls : '');
+      }, true);
     } catch (e) { /* leave empty */ }
-    el('a-source').addEventListener('change', function () { loadRetestStudents(el('a-source').value); });
+    el('a-source').addEventListener('change', function () { loadRetestStudents(el('a-source').value, ex); });
     el('a-assign').addEventListener('click', function () { doAssign(ex.id, el('a-source').value); });
+
+    // Say up front which skills this exam can hand out. Without it the admin
+    // only found out after the assign was refused — or, before that check
+    // existed, not at all.
+    var can = servableSkills(ex);
+    var missing = RETAKE_SKILLS.filter(function (s) { return can.indexOf(s.key) === -1; });
+    if (missing.length) {
+      var note = document.createElement('div');
+      note.className = 'me-muted';
+      note.style.cssText = 'margin-top:8px;color:var(--av-warning,#b45309)';
+      note.textContent = '⚠ Đề này chưa có nội dung cho: '
+        + missing.map(function (s) { return s.label; }).join(', ')
+        + ' — không gán được kĩ năng đó. Gắn đề ở "Sửa đề" rồi mở lại.';
+      el('a-students').parentNode.insertBefore(note, el('a-students'));
+    }
     loadCurrentAssignments(ex.id);
   }
 
-  async function loadRetestStudents(sourceId) {
+  async function loadRetestStudents(sourceId, targetEx) {
     var host = el('a-students');
     el('a-assign').disabled = true;
     if (!sourceId) { host.textContent = 'Chọn đề gốc để hiện học viên cần test lại.'; return; }
@@ -327,8 +372,11 @@
       var s = await window.api.get('/admin/mock-exams/' + encodeURIComponent(sourceId) + '/retest-summary');
       var studs = (s.students || []).filter(function (st) { return st.user_id; });
       if (!studs.length) { host.textContent = 'Đề gốc chưa có học viên nào cần test lại.'; return; }
+      var can = servableSkills(targetEx || {});
       host.innerHTML = '<table class="adm-table"><thead><tr><th></th><th>Học viên</th>' +
-        RETAKE_SKILLS.map(function (sk) { return '<th>' + sk.label + '</th>'; }).join('') +
+        RETAKE_SKILLS.map(function (sk) {
+          return '<th>' + sk.label + (can.indexOf(sk.key) === -1 ? ' <span class="me-muted">(chưa có đề)</span>' : '') + '</th>';
+        }).join('') +
         '</tr></thead><tbody>' +
         studs.map(function (st) {
           var flagged = st.skills || [];
@@ -336,8 +384,15 @@
             '<td><input type="checkbox" class="a-pick" checked></td>' +
             '<td>' + esc(st.student_name) + '</td>' +
             RETAKE_SKILLS.map(function (sk) {
+              // A skill this exam cannot serve is shown UNCHECKED and disabled,
+              // even when the source exam flagged it — ticking it would only be
+              // refused, and before the refusal existed it produced a student
+              // sitting a blank section on a running clock.
+              var ok = can.indexOf(sk.key) !== -1;
               return '<td><input type="checkbox" class="a-skill" data-skill="' + sk.key + '"' +
-                (flagged.indexOf(sk.key) !== -1 ? ' checked' : '') + '></td>';
+                (ok && flagged.indexOf(sk.key) !== -1 ? ' checked' : '') +
+                (ok ? '' : ' disabled title="Đề test lại này chưa có nội dung cho ' + esc(sk.label) + '"') +
+                '></td>';
             }).join('') +
             '</tr>';
         }).join('') + '</tbody></table>';

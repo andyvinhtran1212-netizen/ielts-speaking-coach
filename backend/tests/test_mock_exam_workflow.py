@@ -4566,3 +4566,84 @@ def test_the_reaper_settles_stranded_sequential_sittings_too(fake_db, svc):
     svc.reap_expired_retake_sittings()
     assert svc.get_sitting(sit["id"])["status"] == "all_submitted"
     assert len(fake_db.rows("mock_exam_reviews")) == 1
+
+
+# ── Retake: a skill you are assigned must be a skill you can OPEN ──────
+#
+# The skills come off the SOURCE exam's retest flags but are sat on the TARGET
+# exam, and nothing tied the two together. Assigning Listening on a retake exam
+# with no listening_test_id gave the student a "Bắt đầu Listening" button that
+# stamped their per-section clock and then loaded an iframe with `id=undefined`:
+# the time drained against a blank panel, the reaper collected the empty paper,
+# and a band was computed from it.
+
+
+def _retake_exam(fake_db, svc, **kw):
+    exam = _seed_exam(fake_db, **kw)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    return exam
+
+
+def test_assigning_a_skill_the_exam_has_no_paper_for_is_refused(fake_db, svc):
+    """Loud and whole-request. It is a SETUP mistake — the target exam is
+    missing a test — so it hits every student flagged for that skill at once,
+    and the admin can only fix it if they are told which skill."""
+    from services import mock_exam_assignment_service as a
+    exam = _retake_exam(fake_db, svc, listening=False)     # reading + writing only
+    with pytest.raises(a.UnservableSkillError) as ei:
+        a.assign(exam["id"], [{
+            "user_id": str(uuid4()), "skills": ["listening"], **_WINDOW,
+        }], created_by=str(uuid4()))
+    assert "Listening" in str(ei.value)
+    assert not fake_db.rows("mock_exam_assignments"), (
+        "nothing may be written when the batch is refused")
+
+
+def test_the_servable_skills_of_the_batch_still_go_through(fake_db, svc):
+    """A retake exam that HAS the paper assigns exactly as before — the guard
+    must not become a reason students stop being assigned."""
+    from services import mock_exam_assignment_service as a
+    exam = _retake_exam(fake_db, svc)                      # listening + reading + writing
+    u = str(uuid4())
+    res = a.assign(exam["id"], [{
+        "user_id": u, "skills": ["listening", "writing"], **_WINDOW,
+    }], created_by=str(uuid4()))
+    assert res["assigned"] == [u]
+    assert fake_db.rows("mock_exam_assignments")[0]["skills"] == ["listening", "writing"]
+
+
+def test_writing_needs_no_prompt_to_be_assignable(fake_db, svc):
+    """Same rule as _configured_sections: Writing is always part of an exam even
+    with no prompts — the panel is native textareas and the runner renders
+    '(Không có đề Task N)'. Treating a promptless Writing as unassignable would
+    break the ordinary retake, which is mostly Writing."""
+    from services import mock_exam_assignment_service as a
+    exam = _retake_exam(fake_db, svc, listening=False, reading=False)
+    u = str(uuid4())
+    assert a.assign(exam["id"], [{
+        "user_id": u, "skills": ["writing"], **_WINDOW,
+    }], created_by=str(uuid4()))["assigned"] == [u]
+
+
+def test_a_student_cannot_start_a_section_the_exam_cannot_render(fake_db, svc):
+    """Second layer, for the assignments made BEFORE the check existed — and for
+    an exam that loses a test to a later PATCH. The clock must not start."""
+    exam = _retake_exam(fake_db, svc, listening=False)
+    u = str(uuid4())
+    fake_db.seed("mock_exam_assignments", {
+        "id": str(uuid4()), "exam_id": exam["id"], "user_id": u,
+        "skills": ["listening", "writing"], "open_from": None,
+        "open_until": _WINDOW["open_until"],
+    })
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+
+    with pytest.raises(svc.SittingConflictError) as ei:
+        svc.start_section(sit["id"], u, "listening")
+    assert "chưa có đề" in str(ei.value)
+    assert svc.get_sitting(sit["id"]).get("listening_started_at") is None, (
+        "the clock must NOT be running on a section that cannot be rendered")
+
+    # ...and the skill that IS servable still starts normally.
+    svc.start_section(sit["id"], u, "writing")
+    assert svc.get_sitting(sit["id"])["writing_started_at"] is not None

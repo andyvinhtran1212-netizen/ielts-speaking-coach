@@ -30,6 +30,22 @@ class RevocationError(RuntimeError):
     must know to clear it by hand."""
 
 
+class UnservableSkillError(ValueError):
+    """A skill was assigned that this retake exam has no content for.
+
+    The skills come from the SOURCE exam's retest flags, but they are sat on the
+    TARGET exam — and nothing tied the two together. Assigning Listening on a
+    retake exam with no listening_test_id handed the student a "Bắt đầu
+    Listening" button that starts their per-section clock and then loads an
+    iframe with `id=undefined`: the time drains, the reaper collects an empty
+    paper, and the band is computed from it.
+
+    Loud and whole-request, not a silent per-student drop. This is a SETUP
+    mistake (the target exam is missing a test), so it hits every student
+    flagged for that skill at once, and the fix is to attach the test or untick
+    the skill — both of which the admin can only do if they are told."""
+
+
 # v1 retake covers Listening/Reading/Writing only (Speaking is session-based,
 # added later — the skills array leaves room). Order-stable canonical list.
 _RETAKE_SKILLS = ("listening", "reading", "writing")
@@ -43,6 +59,62 @@ def _clean_skills(skills) -> list:
             seen.add(s)
             out.append(s)
     return out
+
+
+_SKILL_LABEL = {"listening": "Listening", "reading": "Reading", "writing": "Writing"}
+
+
+def servable_skills(exam: dict) -> list:
+    """Which retake skills this exam can actually put in front of a student.
+
+    Deliberately the SAME rule as mock_exam_service._configured_sections: a
+    Listening/Reading section is nothing without its test id — the runner builds
+    an iframe src from it and gets `id=undefined` — whereas WRITING is always
+    part of an exam even with no prompts attached, because the panel is native
+    textareas and the runner renders the missing prompt as "(Không có đề Task
+    N)". A promptless Writing paper is a content gap for the admin to fix, not a
+    section the student cannot open.
+    """
+    have = []
+    if (exam or {}).get("listening_test_id"):
+        have.append("listening")
+    if (exam or {}).get("reading_test_id"):
+        have.append("reading")
+    have.append("writing")
+    return have
+
+
+def _assert_servable(exam_id, merged: dict) -> None:
+    """Refuse the batch if it assigns a skill the target exam cannot serve."""
+    try:
+        exam = (supabase_admin.table("mock_exams").select("*")
+                .eq("id", str(exam_id)).limit(1).execute().data or [None])[0]
+    except Exception:  # noqa: BLE001
+        logger.exception("[retake] servable-skill lookup failed exam=%s", exam_id)
+        return
+    if not exam:
+        # NOT our error to raise: mock_exam_assignments.exam_id is NOT NULL
+        # REFERENCES mock_exams(id) (mig 154), so a non-existent exam is already
+        # refused by the insert below. Inventing a second verdict here would
+        # only mask that one.
+        return
+    ok = set(servable_skills(exam))
+    wanted: dict = {}
+    for uid, info in merged.items():
+        for s in info["skills"]:
+            if s not in ok:
+                wanted.setdefault(s, []).append(uid)
+    if not wanted:
+        return
+    detail = "; ".join(
+        f"{_SKILL_LABEL.get(s, s)} ({len(uids)} học viên)"
+        for s, uids in wanted.items()
+    )
+    raise UnservableSkillError(
+        f"Đề test lại {exam.get('code') or exam_id!r} chưa có nội dung cho: {detail}. "
+        "Gắn đề cho kĩ năng đó rồi gán lại, hoặc bỏ tick kĩ năng đó — nếu gán "
+        "bây giờ, học viên sẽ bấm 'Bắt đầu' và đồng hồ chạy trên một phần trống."
+    )
 
 
 def _parse_ts(value):
@@ -128,6 +200,10 @@ def assign(exam_id, rows, *, created_by, source_exam_id=None) -> dict:
         if not merged[uid]["skills"]:
             continue
         _validate_window(merged[uid]["open_from"], merged[uid]["open_until"])
+    # ...and the same up-front, whole-request treatment for a skill the TARGET
+    # exam has no paper for. Checked here, after the skill-less rows are known
+    # to be skipped, so it only judges what will actually be written.
+    _assert_servable(exam_id, {u: merged[u] for u in order if merged[u]["skills"]})
 
     group_id = str(uuid4())
     assigned, skipped, refreshed, locked, refresh_failed = [], [], [], [], []

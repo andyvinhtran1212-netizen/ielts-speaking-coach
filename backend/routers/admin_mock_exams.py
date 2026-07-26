@@ -376,7 +376,7 @@ async def create_assignments(
         return assign_svc.assign(
             exam_id, rows, created_by=admin["id"], source_exam_id=body.source_exam_id,
         )
-    except assign_svc.InvalidWindowError as e:
+    except (assign_svc.InvalidWindowError, assign_svc.UnservableSkillError) as e:
         raise HTTPException(400, str(e))
 
 

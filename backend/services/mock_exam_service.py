@@ -1326,6 +1326,18 @@ def start_section(sitting_id: str, user_id: str, section: str) -> dict:
         raise SittingConflictError("Chỉ đề test lại mới tự bắt đầu từng phần.")
     if section not in _sitting_sections(sitting, exam):
         raise SittingConflictError(f"Bạn không được gán phần {section}.")
+    # DO NOT START A CLOCK ON A SECTION THAT CANNOT BE RENDERED. assign() now
+    # refuses to hand out a skill this exam has no paper for, but assignments
+    # made before that check exist, and an exam can lose a test by a later
+    # PATCH. Starting anyway stamped {section}_started_at, loaded an iframe with
+    # `id=undefined`, and let the student's own countdown drain against nothing
+    # until the reaper collected the empty paper and it was graded.
+    from services.mock_exam_assignment_service import servable_skills
+    if section not in servable_skills(exam):
+        raise SittingConflictError(
+            f"Phần {section} chưa có đề trong kỳ test lại này — báo giáo viên. "
+            "Đồng hồ của bạn chưa chạy."
+        )
     _assert_retake_window_open({
         "open_from":  sitting.get("retake_open_from"),
         "open_until": sitting.get("retake_open_until"),
