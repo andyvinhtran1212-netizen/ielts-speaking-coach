@@ -988,12 +988,24 @@ def submit_writing(
             raise SittingConflictError("Phần Writing chưa bắt đầu.")
     elif (exam.get("active_section") or "not_started") != "writing":
         raise SittingConflictError("Phần Writing chưa được giám thị mở.")
-    elif exam.get("collected_section") == "writing":
-        # Same pause guard as submit_section: the draft endpoint is the one a
-        # student's autosave keeps hitting, so without this the essay could keep
-        # changing after the invigilator collected it — and _promote_writing_
-        # essays() may already have copied the older text for grading
-        # (Codex adversarial review, 2026-07-26).
+    elif exam.get("collected_section") == "writing" and not finalize:
+        # THE PAUSE STOPS BACKGROUND AUTOSAVES, NOT THE STUDENT'S OWN SUBMIT.
+        #
+        # This guard used to reject both. But the FINAL submit is the request
+        # carrying the newest text — everything typed since the last 15s
+        # autosave — and the runner treats a 409 during the pause as "already
+        # collected, we're done". So an admin pressing "Thu bài" while a student
+        # was submitting silently dropped that text, and the sweep then promoted
+        # the OLDER draft for grading: the guard meant to protect the paper was
+        # the thing losing it (Codex adversarial review, 2026-07-26).
+        #
+        # Letting it through is safe because the write below is a
+        # compare-and-set on writing_submitted_at being NULL. That stamp is
+        # exactly what the sweep claims BEFORE _promote_writing_essays() reads
+        # the payload, so a submit landing after the claim still cannot change
+        # what was graded — and one landing before it saves work that would
+        # otherwise be lost. The stamp, not the pause marker, is the real
+        # boundary.
         raise SittingConflictError(
             "Phần Writing đã được thu bài — không nhận thêm bản nháp."
         )
@@ -1595,12 +1607,22 @@ def submit_section(
             raise SittingConflictError(
                 f"Phần {section} chưa được giám thị mở — không thể nộp bài."
             )
-        if exam.get("collected_section") == section:
+        if exam.get("collected_section") == section and section != "writing":
             # The papers for this section are already in. active_section is
             # deliberately unchanged during the pause, so the gate above cannot
             # see it — without this a student whose row the background sweep has
             # not reached yet could still submit into a collected section
             # (Codex adversarial review, 2026-07-26).
+            #
+            # WRITING IS EXEMPT, because for Writing this request IS the paper.
+            # L/R answers are already persisted server-side answer-by-answer, so
+            # refusing their submit costs nothing — the sweep grades exactly what
+            # the student had. Writing's newest text exists ONLY here, and
+            # refusing it threw away everything typed since the last 15s
+            # autosave while the sweep promoted the older draft for grading.
+            # submit_writing's own compare-and-set on writing_submitted_at is
+            # the real boundary and still refuses anything arriving after the
+            # sweep has claimed the sitting (Codex adversarial review, round 2).
             raise SittingConflictError(
                 f"Phần {section} đã được thu bài — không nhận thêm bài nộp."
             )

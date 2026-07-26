@@ -4931,3 +4931,74 @@ def test_a_retake_sitting_is_left_to_the_reaper(fake_db, svc):
     sit = svc.create_sitting(u, "MOCK-TEST-A")
     assert svc.retire_abandoned_sittings()["retired"] == 0
     assert svc.get_sitting(sit["id"])["status"] == "registered"
+
+
+# ── The pause stops autosaves, not the student's own final submit ─────
+#
+# Codex adversarial review 2026-07-26. The collected_section guard rejected BOTH
+# the autosave and the final submit, and the runner treats a 409 during the
+# pause as "already collected, done". The final submit is the one request
+# carrying everything typed since the last 15s autosave — so an admin pressing
+# "Thu bài" mid-submit silently dropped that text and the sweep promoted the
+# OLDER draft. The guard meant to protect the paper was the thing losing it.
+
+
+def _writing_open(fake_db, svc):
+    exam = _seed_exam(fake_db, listening=False, reading=False)
+    u = uuid4()
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → writing
+    # Mid-exam state: submit_writing gates on lrw_in_progress, and only
+    # submit_section flips it (at the FIRST section submitted).
+    fake_db.table("mock_exam_sittings").update(
+        {"status": "lrw_in_progress"}).eq("id", sit["id"]).execute()
+    # ...and the Writing clock has run out, which is when the runner fires its
+    # auto-submit — the same moment the invigilator reaches for "Thu bài".
+    fake_db.table("mock_exams").update({
+        "writing_started_at": (datetime.now(timezone.utc)
+                               - timedelta(minutes=61)).isoformat(),
+    }).eq("id", exam["id"]).execute()
+    return exam, u, sit
+
+
+def test_the_final_writing_submit_survives_the_collect_pause(fake_db, svc):
+    """The reported loss: text typed after the last autosave must still land."""
+    exam, u, sit = _writing_open(fake_db, svc)
+    svc.submit_writing(sit["id"], u, "bản nháp cũ", "", finalize=False)
+    svc.mark_section_collected(exam["id"], "writing")     # admin presses Thu bài
+
+    svc.submit_section(sit["id"], u, "writing",
+                       task1_text="bản cuối dài hơn hẳn", task2_text="task 2")
+
+    row = svc.get_sitting(sit["id"])
+    assert row["writing_submission"]["task1"]["text"] == "bản cuối dài hơn hẳn"
+    assert row["writing_submitted_at"] is not None
+
+
+def test_a_background_autosave_is_still_refused_during_the_pause(fake_db, svc):
+    """Only the FINAL submit gets through. A stale tab's autosave has nothing
+    the student is waiting on, and letting it run keeps the essay changing after
+    the invigilator was told the papers were in."""
+    exam, u, sit = _writing_open(fake_db, svc)
+    svc.submit_writing(sit["id"], u, "bản nháp", "", finalize=False)
+    svc.mark_section_collected(exam["id"], "writing")
+
+    with pytest.raises(svc.SittingConflictError):
+        svc.submit_writing(sit["id"], u, "gõ thêm sau khi đã thu", "", finalize=False)
+    assert svc.get_sitting(sit["id"])["writing_submission"]["task1"]["text"] == "bản nháp"
+
+
+def test_a_submit_after_the_sweep_claimed_it_cannot_rewrite_the_graded_text(fake_db, svc):
+    """The boundary is the STAMP, not the pause marker. Once the sweep has
+    claimed the sitting, _promote_writing_essays has (or is about to) read that
+    payload — a late submit must not change what gets graded."""
+    exam, u, sit = _writing_open(fake_db, svc)
+    svc.submit_writing(sit["id"], u, "văn bản được chấm", "", finalize=False)
+    svc.mark_section_collected(exam["id"], "writing")
+    svc._collect_section_for_sitting(svc.get_sitting(sit["id"]), "writing")
+    assert svc.get_sitting(sit["id"])["writing_submitted_at"] is not None
+
+    with pytest.raises(svc.SittingConflictError):
+        svc.submit_writing(sit["id"], u, "gửi muộn", "", finalize=True)
+    assert svc.get_sitting(sit["id"])["writing_submission"]["task1"]["text"] \
+        == "văn bản được chấm"

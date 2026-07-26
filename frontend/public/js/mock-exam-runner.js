@@ -800,8 +800,19 @@
         // legitimate close as a transient failure, burned the whole backoff
         // ladder and raised a connection warning over the pause screen the
         // student is already looking at (Codex review, PR #852).
+        //
+        // ...EXCEPT FOR WRITING, where "collected" alone is not proof our text
+        // landed. L/R answers are already persisted server-side per answer, so
+        // a dropped submit costs nothing; Writing's newest text lives ONLY in
+        // this request, and accepting the pause as success threw away
+        // everything typed since the last autosave. The backend now lets the
+        // final Writing submit through during the pause, so a 409 here means it
+        // was genuinely already claimed — keep retrying until the STAMP proves
+        // that (Codex adversarial review, 2026-07-26).
+        var collectedIsEnough = S.collectedSection === section
+          && (section !== 'writing' || !!sit.writing_submitted_at);
         if (terminal || sit[section + '_submitted_at']
-            || S.activeSection !== section || S.collectedSection === section) {
+            || S.activeSection !== section || collectedIsEnough) {
           _submitting = false;
           setConn(null);
           return;                       // genuinely collected / moved on / cancelled
@@ -973,10 +984,13 @@
     if (!_owedSubmit || _submitting) return;
     var section = _owedSubmit;
     var sit = S.sitting || {};
-    // Same three-way "already done" test as the 409 handler — a section the
-    // admin has collected must not be re-submitted when the link returns.
+    // Same "already done" test as the 409 handler, Writing carve-out included:
+    // giving up on an owed WRITING submit just because the section was
+    // collected discards the only copy of the newest text. Only the stamp
+    // settles it.
     if (sit[section + '_submitted_at'] || S.activeSection !== section
-        || S.collectedSection === section) {
+        || (S.collectedSection === section
+            && (section !== 'writing' || !!sit.writing_submitted_at))) {
       _owedSubmit = null;               // the sweep or the admin got there first
       setConn(null);
       return;
