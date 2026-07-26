@@ -127,12 +127,28 @@ async def get_sitting_state(
         active = (exam or {}).get("active_section") or "not_started"
         time_left = svc.section_time_remaining_seconds(exam, active) if exam else None
         assigned = None
+        # THE PAUSE APPLIES TO THE STUDENT TOO. `/collect` sets
+        # collected_section synchronously and sweeps the sittings in the
+        # BACKGROUND, and it deliberately leaves active_section alone — so
+        # between the two, a student whose row has not been swept yet still saw
+        # an open section with a running clock, while the invigilator had just
+        # been told the class was in a clock-free break. The live console was
+        # fixed for this; the student endpoint was not (Codex adversarial
+        # review, 2026-07-26).
+        if (exam or {}).get("collected_section") == active:
+            time_left = None
     return {
         "sitting": sitting,
         "exam": svc.get_exam_content_for_sitting(sitting),
         "exam_mode": (exam or {}).get("exam_mode") or "sequential",
         "assigned_skills": assigned,
         "active_section": active,
+        # The canonical pause marker, so the runner can close the paper without
+        # waiting for its own sitting to be swept. None for retake (no shared
+        # collect step exists in that mode).
+        "collected_section": (
+            None if svc.is_retake(exam) else (exam or {}).get("collected_section")
+        ),
         "section_time_left_seconds": time_left,
         # Full length of the open section. With time_left it gives ELAPSED,
         # which is what a resuming Listening runner needs to seek the audio to

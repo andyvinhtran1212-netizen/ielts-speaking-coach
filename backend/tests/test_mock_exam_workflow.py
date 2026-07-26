@@ -2768,6 +2768,52 @@ def test_collect_rejected_before_the_exam_starts(fake_db, svc):
         svc.collect_section(exam["id"], "admin-1")
 
 
+def test_pause_closes_the_paper_before_the_sweep_reaches_the_sitting(fake_db, svc, monkeypatch):
+    """Codex adversarial review (correct, high): /collect sets collected_section
+    SYNCHRONOUSLY and sweeps the sittings in the BACKGROUND, and deliberately
+    leaves active_section alone. Between the two, a student whose row had not
+    been swept yet still saw an open section with a running clock — while the
+    invigilator had just been told the class was in a clock-free break."""
+    exam = _seed_exam(fake_db)
+    u = uuid4()
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → listening
+
+    # Mark the pause WITHOUT running the sweep — exactly the window the router
+    # accepts the request in.
+    svc.mark_section_collected(exam["id"], "listening")
+
+    row = svc.get_sitting(sit["id"])
+    assert row.get("listening_submitted_at") is None, "this row is deliberately unswept"
+
+    ex = svc.get_published_exam_by_id(exam["id"])
+    # the clock the student endpoint would report
+    assert ex["collected_section"] == ex["active_section"]
+    # ...and neither write path may accept anything more for it
+    with pytest.raises(svc.SittingConflictError):
+        svc.submit_section(sit["id"], u, "listening")
+
+
+def test_pause_also_closes_the_writing_draft(fake_db, svc):
+    """The autosave endpoint is the one a student's browser keeps hitting, so
+    without the same guard the essay could keep changing after collection — and
+    _promote_writing_essays() may already have copied the older text."""
+    exam = _seed_exam(fake_db, listening=False, reading=False)
+    u = uuid4()
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → writing
+    # submit_writing gates on lrw_in_progress; the runner reaches it by starting
+    # the section, which is not what this test is about.
+    fake_db.table("mock_exam_sittings").update(
+        {"status": "lrw_in_progress"}).eq("id", sit["id"]).execute()
+    svc.submit_writing(sit["id"], u, "đang viết", "")     # draft works while open
+
+    svc.mark_section_collected(exam["id"], "writing")
+    with pytest.raises(svc.SittingConflictError):
+        svc.submit_writing(sit["id"], u, "viết thêm sau khi thu bài", "")
+    assert svc.get_sitting(sit["id"])["writing_submission"]["task1"]["text"] == "đang viết"
+
+
 def test_advance_rejected_for_a_retake_exam(fake_db, svc):
     """Codex adversarial review (correct, high): collect_preflight refused
     retake but advance_section did NOT — half the gate was missing. The console

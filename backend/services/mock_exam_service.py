@@ -836,6 +836,15 @@ def submit_writing(
             raise SittingConflictError("Phần Writing chưa bắt đầu.")
     elif (exam.get("active_section") or "not_started") != "writing":
         raise SittingConflictError("Phần Writing chưa được giám thị mở.")
+    elif exam.get("collected_section") == "writing":
+        # Same pause guard as submit_section: the draft endpoint is the one a
+        # student's autosave keeps hitting, so without this the essay could keep
+        # changing after the invigilator collected it — and _promote_writing_
+        # essays() may already have copied the older text for grading
+        # (Codex adversarial review, 2026-07-26).
+        raise SittingConflictError(
+            "Phần Writing đã được thu bài — không nhận thêm bản nháp."
+        )
 
     now = _now_iso()
     submission = {
@@ -1421,6 +1430,15 @@ def submit_section(
         if (exam.get("active_section") or "not_started") != section:
             raise SittingConflictError(
                 f"Phần {section} chưa được giám thị mở — không thể nộp bài."
+            )
+        if exam.get("collected_section") == section:
+            # The papers for this section are already in. active_section is
+            # deliberately unchanged during the pause, so the gate above cannot
+            # see it — without this a student whose row the background sweep has
+            # not reached yet could still submit into a collected section
+            # (Codex adversarial review, 2026-07-26).
+            raise SittingConflictError(
+                f"Phần {section} đã được thu bài — không nhận thêm bài nộp."
             )
         # No early manual submit: this endpoint only fires client-side at the
         # section's own clock hitting 0 — but it's a plain authenticated API

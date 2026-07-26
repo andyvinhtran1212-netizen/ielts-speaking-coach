@@ -235,3 +235,16 @@ describe('integrity signals round 4 — only count what the exam did', () => {
     assert.match(JS, /if \(S\.renderedSection\) bumpIntegrity\('offline_events', 1\);/);
   });
 });
+
+describe('pause — the student paper closes on the marker, not on its own stamp', () => {
+  test('a collected section is not open, even before this row is swept', () => {
+    // /collect stamps the sittings in the BACKGROUND and leaves active_section
+    // alone, so waiting for our own submitted stamp kept the paper open — and
+    // the clock running — after the invigilator was told the class was on break.
+    assert.match(JS, /&& S\.collectedSection !== active;/);
+  });
+
+  test('the runner reads the marker off the sitting-state response', () => {
+    assert.match(JS, /S\.collectedSection = st\.collected_section \|\| null;/);
+  });
+});

@@ -104,6 +104,7 @@
     S.examMode = st.exam_mode || 'sequential';
     S.assignedSkills = st.assigned_skills || null;
     S.activeSection = st.active_section || 'not_started';
+    S.collectedSection = st.collected_section || null;
     S.timeLeft = st.section_time_left_seconds;
     route(isPoll);
   }
@@ -174,7 +175,14 @@
 
     var configured = configuredSections();
     var active = S.activeSection;
-    var isOpenSection = active && configured.indexOf(active) !== -1 && !S.sitting[active + '_submitted_at'];
+    // A COLLECTED SECTION IS CLOSED, even before this student's own row has
+    // been swept. /collect stamps the sittings in the BACKGROUND and leaves
+    // active_section alone, so waiting for our own submitted stamp kept the
+    // paper open — and the clock running — after the invigilator had been told
+    // the class was in a break (Codex adversarial review, 2026-07-26).
+    var isOpenSection = active && configured.indexOf(active) !== -1
+      && !S.sitting[active + '_submitted_at']
+      && S.collectedSection !== active;
 
     if (!isOpenSection) {
       S.renderedSection = null;
