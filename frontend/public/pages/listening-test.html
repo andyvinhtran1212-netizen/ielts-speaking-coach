@@ -52,6 +52,17 @@
       display: flex; flex-direction: column; gap: var(--av-space-4);
     }
     .ft-prestart h2 { font-size: var(--av-fs-xl); }
+    /* Resume cue — states plainly how much work the server still holds, so
+       "Tiếp tục" vs "Bắt đầu" is an informed choice, not a guess. */
+    .ft-resume-note {
+      margin: 0;
+      padding: var(--av-space-3) var(--av-space-4);
+      border: 1px solid var(--av-success);
+      background: var(--av-success-soft);
+      color: var(--av-success);
+      border-radius: var(--av-radius-md);
+      font-size: var(--av-fs-sm);
+    }
     .ft-rules {
       padding: var(--av-space-3) var(--av-space-4);
       background: var(--av-surface-sunken);
@@ -360,6 +371,12 @@
             <li>Sau khi nộp bài, bạn sẽ thấy điểm + band ước tính + phân tích bẫy.</li>
           </ul>
         </div>
+        <!-- Resume affordance: shown only when the server still holds an open
+             attempt for this student. Comes BEFORE the start button so it is
+             the obvious action, and so the mock embed's auto-click finds it
+             first (mock-exam-hook.js prefers #ft-resume-btn). -->
+        <p id="ft-resume-note" class="ft-resume-note" hidden></p>
+        <button class="ft-control-btn" id="ft-resume-btn" type="button" hidden>Tiếp tục bài đang làm</button>
         <button class="ft-control-btn" id="btn-start" type="button">Bắt đầu test</button>
       </section>
 

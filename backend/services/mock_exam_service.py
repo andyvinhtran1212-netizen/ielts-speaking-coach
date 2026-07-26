@@ -361,6 +361,17 @@ def _listening_audio_duration_seconds(test_id) -> Optional[int]:
     return None
 
 
+def section_duration_seconds(exam: dict, section: str) -> Optional[int]:
+    """Public wrapper: full length of a seated section, None for not_started/done.
+
+    The student endpoint returns this alongside time_left so a resuming runner
+    can derive ELAPSED and seek the audio to where the room already is.
+    """
+    if section not in _LRW_ORDER:
+        return None
+    return _section_duration_seconds(exam, section)
+
+
 def _section_duration_seconds(exam: dict, section: str) -> int:
     """Fixed duration for one seated section — the shared classroom clock."""
     if section == "listening":
@@ -579,12 +590,22 @@ def attach_attempt(
         # abandoned the first attempt and the runner minted a new one). Only a
         # SUBMITTED prior attempt is locked — no swap-to-a-better one after
         # finishing.
-        prev = supabase_admin.table(domain_table).select("status").eq(
-            "id", str(existing),
-        ).limit(1).execute()
+        prev = supabase_admin.table(domain_table).select(
+            "status, answers",
+        ).eq("id", str(existing)).limit(1).execute()
         if prev.data and prev.data[0].get("status") == "submitted":
             raise SittingConflictError(
                 f"Phần {section} đã nộp — không thể thay bài làm khác."
+            )
+        # Never trade WORK for a blank page. The runner is supposed to resume an
+        # open attempt, but if that ever fails and it mints an empty one instead,
+        # re-binding here would hand the examiner the empty one and the answers
+        # the student actually gave would be orphaned on the abandoned row.
+        # Losing the swap is recoverable; losing the answers is not.
+        if _attempt_has_answers(domain_table, existing) \
+                and not _attempt_has_answers(domain_table, attempt_id):
+            raise SittingConflictError(
+                f"Phần {section} đã có bài làm — không thể thay bằng bài trống."
             )
         # else: fall through and re-bind to the fresh (resumed) attempt.
 
@@ -598,6 +619,44 @@ def attach_attempt(
         "[mock-exam] sitting=%s attach %s attempt=%s", sitting_id, section, attempt_id,
     )
     return get_sitting(sitting_id) or sitting
+
+
+def _attempt_has_answers(domain_table: str, attempt_id) -> bool:
+    """Does this domain attempt hold at least one non-empty answer?
+
+    The two runners persist answers differently — Listening keeps a JSONB array
+    on the attempt row, Reading keeps one row per question in
+    reading_attempt_answers (mig 088) — so the check has to branch. Blank
+    strings don't count: a row exists the moment a field is touched and cleared.
+
+    Raises on a lookup failure rather than returning False. The caller uses this
+    to decide whether a re-bind would ORPHAN existing work, so "I couldn't
+    check" must not be answered with "there is nothing there" — that is the one
+    wrong answer, and it fails in exactly the direction this guard exists to
+    prevent (Codex review, PR #834).
+    """
+    if not attempt_id:
+        return False
+    try:
+        if domain_table == "reading_test_attempts":
+            rows = supabase_admin.table("reading_attempt_answers").select(
+                "user_answer",
+            ).eq("attempt_id", str(attempt_id)).execute().data or []
+            return any(str(r.get("user_answer") or "").strip() for r in rows)
+        rows = supabase_admin.table(domain_table).select("answers").eq(
+            "id", str(attempt_id),
+        ).limit(1).execute().data or []
+        if not rows:
+            return False
+        return any(
+            str(a.get("user_answer") or "").strip()
+            for a in (rows[0].get("answers") or [])
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("[mock-exam] answer-presence check failed for %s", attempt_id)
+        raise MockExamError(
+            "Không kiểm tra được bài làm hiện có — tạm dừng để tránh mất bài."
+        ) from exc
 
 
 def _word_count(text: str) -> int:

@@ -4552,6 +4552,69 @@ async def admin_get_listening_attempt(
     return out
 
 
+@user_router.get("/tests/{test_id}/attempts/in-progress")
+async def get_in_progress_listening_attempt(
+    test_id: str,
+    sitting_id: str | None = None,
+    authorization: str | None = Header(default=None),
+):
+    """The caller's still-open attempt at this test, or null.
+
+    Exists so a Listening runner can RESUME instead of starting over. Without
+    it the only path to an attempt was POST /attempts, which abandons the
+    previous one and mints an empty replacement — so a refresh (or, inside a
+    4-skill mock, the embed's automatic start-click) silently destroyed every
+    answer the student had given.
+
+    `sitting_id` SCOPES the lookup to one mock sitting, and the mock runner
+    always sends it. Without that scope the query matched on (user, test,
+    in_progress) alone, so a student who already had a STANDALONE practice
+    attempt open on a test later reused by a mock exam would have the embed
+    auto-resume that practice attempt and attach_attempt bind it to the sealed
+    sitting — pulling practice answers into a real exam and corrupting both.
+    Standalone practice keeps the unscoped lookup.
+
+    Deliberately a separate endpoint rather than a field on the shared test
+    bundle: that bundle is served to several callers and is cacheable, while
+    this is per-user and must never be cached.
+    """
+    user = await _require_auth(authorization)
+    query = (
+        supabase_admin.table("listening_test_attempts")
+        .select("id, started_at, created_at, answers")
+        .eq("user_id", user["id"])
+        .eq("test_id", test_id)
+        .eq("status", "in_progress")
+    )
+    if sitting_id:
+        query = query.eq("sitting_id", sitting_id)
+    else:
+        # STANDALONE must exclude mock attempts, or the mirror of the bug above
+        # opens: a student with a live mock attempt who opens the same published
+        # test from the normal Listening library would resume the SEALED exam
+        # attempt. MockHook is inactive there, so they could replay the audio
+        # from the start and edit exam answers outside the runner — and pressing
+        # "Bắt đầu test" would abandon their mock attempt outright
+        # (Codex review, PR #834).
+        query = query.is_("sitting_id", "null")
+    res = query.order("created_at", desc=True).limit(1).execute()
+    if not res.data:
+        return {"attempt": None}
+    row = res.data[0]
+    return {
+        "attempt": {
+            "attempt_id": row["id"],
+            "started_at": row.get("started_at") or row.get("created_at"),
+            # Only answers with real content — a blank row is not progress and
+            # would make the resume screen overstate what was recovered.
+            "answers": [
+                a for a in (row.get("answers") or [])
+                if str(a.get("user_answer") or "").strip()
+            ],
+        }
+    }
+
+
 @user_router.post("/tests/{test_id}/attempts")
 async def start_listening_test_attempt(
     test_id: str,
@@ -4560,6 +4623,10 @@ async def start_listening_test_attempt(
     """Open a new student attempt session. Marks any previously open
     in-progress attempt for the same (user, test) as abandoned so the
     1-active-attempt invariant holds.
+
+    NOTE: this is the "start over" path and it is destructive by design. A
+    caller that wants to CONTINUE must first check
+    GET /tests/{test_id}/attempts/in-progress — see that endpoint's docstring.
     """
     user = await _require_auth(authorization)
 

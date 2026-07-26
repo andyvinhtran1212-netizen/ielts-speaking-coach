@@ -37,6 +37,10 @@ const STATE = {
   answers:       new Map(),   // q_num → user_answer
   saveTimers:    new Map(),   // q_num → setTimeout handle
   inflight:      new Set(),   // q_nums mid-PATCH
+  // An open attempt the server still holds for this (user, test), found at
+  // prestart. Non-null → the resume button is on screen and "Bắt đầu test"
+  // means "throw that away and start over".
+  resumable:     null,
   submitting:    false,
   // Sprint 13.5.5 — tab navigation state + audio cue auto-advance.
   activeTab:     1,
@@ -209,6 +213,7 @@ async function loadTest(testId) {
       el.textContent = String(STATE.totalQuestions);
     });
     $('ft-prestart-title').textContent = `Sẵn sàng bắt đầu — ${test.title || test.test_id || ''}`;
+    await detectResumable();
     showState('prestart');
   } catch (e) {
     const msg = (e && e.message) || String(e);
@@ -224,6 +229,190 @@ async function loadTest(testId) {
 
 
 // ── Start attempt + render player ────────────────────────────────────
+
+// ── Resume an interrupted attempt ────────────────────────────────────
+//
+// Until this existed the ONLY way into an attempt was startAttempt(), which
+// asks the server for a new one — and the server abandons the open attempt to
+// honour the 1-active-attempt invariant. So a refresh, a dropped connection, or
+// (inside a 4-skill mock) the embed's automatic start-click silently destroyed
+// every answer the student had given, with the class clock still running and
+// the audio not rewindable. Reading has had a resume path since Sprint 20.11;
+// Listening simply never got one.
+
+async function detectResumable() {
+  try {
+    // Inside a mock, scope the lookup to THIS sitting. Unscoped, a standalone
+    // practice attempt the student left open on the same test would be
+    // auto-resumed by the embed and then bound to the sealed sitting.
+    const sid = (window.MockHook && MockHook.active()) ? MockHook.sittingId() : null;
+    const res = await window.api.get(
+      `/api/listening/tests/${encodeURIComponent(STATE.testId)}/attempts/in-progress`
+      + (sid ? `?sitting_id=${encodeURIComponent(sid)}` : ''),
+    );
+    const att = res && res.attempt;
+    if (!att) return;
+    STATE.resumable = att;
+    const n = (att.answers || []).length;
+    $('ft-resume-note').textContent = n
+      ? `Bạn có một bài đang làm dở với ${n} câu đã lưu. Bấm "Tiếp tục" để làm tiếp — bấm "Bắt đầu test" sẽ BỎ số câu đó và làm lại từ đầu.`
+      : 'Bạn có một bài đang làm dở (chưa lưu câu nào). Bấm "Tiếp tục" để làm tiếp.';
+    $('ft-resume-note').hidden = false;
+    $('ft-resume-btn').hidden = false;
+    // IN A MOCK, RESTART IS NOT A STUDENT ACTION. The exam contract is one
+    // sealed attempt; "Bắt đầu test" abandons the answered row and mints a
+    // blank one, which attach_attempt() then refuses ("không thể thay bằng bài
+    // trống") — leaving the sitting bound to the abandoned attempt and the
+    // section unusable. Cancelling a sitting is the admin's "Huỷ lượt", not a
+    // button inside the paper (Codex review, PR #834).
+    if (window.MockHook && MockHook.active()) {
+      const restart = $('btn-start');
+      if (restart) restart.hidden = true;
+      $('ft-resume-note').textContent =
+        `Bạn có một bài đang làm dở với ${n} câu đã lưu. Bấm "Tiếp tục" để làm tiếp.`;
+    }
+  } catch (e) {
+    console.warn('[listening] resume lookup failed', e);
+    // FAIL CLOSED. Falling through to a normal pre-start meant the mock embed's
+    // auto-click hit "Bắt đầu test", whose POST ABANDONS the answered attempt —
+    // turning the very dropped-network case this feature exists to survive into
+    // a destroyed sitting (Codex review, PR #834). Until the server has said
+    // whether an attempt exists, Start must not be reachable.
+    STATE.resumeUnknown = true;
+    const startBtn = $('btn-start');
+    if (startBtn) { startBtn.disabled = true; startBtn.textContent = 'Đang kiểm tra bài cũ…'; }
+    const note = $('ft-resume-note');
+    if (note) {
+      note.textContent = 'Chưa kiểm tra được bạn có bài đang làm dở hay không '
+        + '(mất kết nối). Đang thử lại — đừng bấm gì để tránh mất bài.';
+      note.hidden = false;
+    }
+    setTimeout(retryDetectResumable, 3000);
+  }
+}
+
+// Keep retrying the resume lookup. Only once it answers do we know whether
+// starting over is safe, so this is what re-enables the Start button.
+async function retryDetectResumable() {
+  if (!STATE.resumeUnknown) return;
+  STATE.resumeUnknown = false;
+  await detectResumable();
+  if (!STATE.resumeUnknown) {
+    const startBtn = $('btn-start');
+    if (startBtn) { startBtn.disabled = false; startBtn.textContent = 'Bắt đầu test'; }
+    if (!STATE.resumable) {
+      const note = $('ft-resume-note');
+      if (note) note.hidden = true;
+    }
+  }
+}
+
+async function resumeAttempt() {
+  const att = STATE.resumable;
+  if (!att) return;
+  $('ft-resume-btn').disabled = true;
+  STATE.attemptId = att.attempt_id;
+  for (const a of (att.answers || [])) {
+    if (a && a.q_num != null) STATE.answers.set(a.q_num, a.user_answer);
+  }
+  try {
+    // Re-link (idempotent) in case a create-time attach failed and left the
+    // attempt unsealed — mirrors reading-exam.js's resume branch.
+    if (window.MockHook && MockHook.active()) {
+      await MockHook.attach('listening', att.attempt_id);
+    }
+    renderPaper();
+    restoreAnswersIntoPaper();
+    mountAudio();
+    await seekAudioToRoom();
+    showState('player');
+  } catch (e) {
+    $('ft-resume-btn').disabled = false;
+    showError(`Không tiếp tục được bài: ${(e && e.message) || e}`);
+  }
+}
+
+// Paint the recovered answers back onto the freshly-rendered paper and refresh
+// the counters, so the student sees their work rather than being told a number.
+function restoreAnswersIntoPaper() {
+  for (const [qNum, val] of STATE.answers.entries()) {
+    document.querySelectorAll(`.ft-q-input[data-q-num="${qNum}"]`).forEach((el) => {
+      if (el.type === 'radio') el.checked = (el.value === val);
+      else el.value = val == null ? '' : val;
+    });
+  }
+  restoreMultiSelectGroups();
+  updateAnsweredCount();
+  renderProgressTracker();
+}
+
+// mcq_multi renders its choices as `.ft-mc-box` checkboxes WITHOUT data-q-num
+// (the group maps N checked letters onto N q-slots), so the loop above cannot
+// see them. Left unrestored they came back visually unchecked even though the
+// answers were recovered — and then ticking one more option remapped only the
+// newly-checked values onto the slots and scheduled BLANK saves for the rest,
+// overwriting recovered answers (Codex review, PR #834).
+function restoreMultiSelectGroups() {
+  document.querySelectorAll('.ielts-mc-group').forEach((grp) => {
+    const slots = (grp.getAttribute('data-mm-slots') || '')
+      .split(',').map(Number).filter(Number.isFinite);
+    const choose = Number(grp.getAttribute('data-mm-choose')) || slots.length || 2;
+    const letters = slots
+      .map((slot) => STATE.answers.get(slot))
+      .filter((v) => v != null && v !== '');
+    if (!letters.length) return;
+    const boxes = Array.from(grp.querySelectorAll('.ft-mc-box'));
+    boxes.forEach((b) => { b.checked = letters.indexOf(b.value) !== -1; });
+    // Re-apply the same N-pick soft-lock the change handler maintains, so a
+    // resumed group behaves identically to one filled in this sitting.
+    const lock = boxes.filter((b) => b.checked).length >= choose;
+    boxes.forEach((b) => { if (!b.checked) b.disabled = lock; });
+  });
+}
+
+// Rejoin the room where it actually is. The mock's Listening clock is stamped
+// on the EXAM (one shared classroom clock), so elapsed-since-the-invigilator-
+// opened-the-section is the correct audio position — the student loses the
+// audio that played while they were disconnected, exactly as in a real hall.
+// Outside a mock there is no shared anchor, so the audio is left alone.
+// Where the audio should be when a resumed attempt remounts, or null to leave
+// it alone.
+//
+//   · MOCK  — the shared classroom clock on the exam (the whole room is at the
+//             same point, so that is the only honest anchor).
+//   · FULL standalone — this attempt's own `started_at`, which the server
+//             returns with the resumable attempt. Leaving it at 0 let a
+//             refreshed student replay audio they had already heard, breaking
+//             the single-shot/no-rewind contract that the very same file
+//             enforces by disabling scrub (Codex review, PR #834).
+//   · MINI / DRILL — practice deliberately allows pause, seek and replay, so
+//             there is nothing to restore.
+async function resumeAudioOffsetSeconds() {
+  if (window.MockHook && MockHook.active() && MockHook.sectionElapsedSeconds) {
+    return await MockHook.sectionElapsedSeconds('listening');
+  }
+  if (STATE.scrub) return null;                     // mini / drill: free replay
+  const startedAt = STATE.resumable && STATE.resumable.started_at;
+  if (!startedAt) return null;
+  const started = Date.parse(startedAt);
+  if (!started) return null;
+  const secs = Math.floor((Date.now() - started) / 1000);
+  return secs > 0 ? secs : null;
+}
+
+async function seekAudioToRoom() {
+  const elapsed = await resumeAudioOffsetSeconds();
+  if (elapsed == null || !STATE.audio) return;
+  try {
+    STATE.audio.currentTime = elapsed;
+  } catch (e) {
+    // Some browsers reject a seek before metadata lands — retry once it does.
+    STATE.audio.addEventListener('loadedmetadata', function once() {
+      STATE.audio.removeEventListener('loadedmetadata', once);
+      try { STATE.audio.currentTime = elapsed; } catch (err) { /* give up quietly */ }
+    });
+  }
+}
 
 async function startAttempt() {
   // 4-skill mock (mock_embed): skip the native confirm — it would pop from the
@@ -1246,6 +1435,7 @@ function main() {
     return;
   }
   $('btn-start').addEventListener('click', startAttempt);
+  $('ft-resume-btn').addEventListener('click', resumeAttempt);
   void loadTest(id);
 }
 
