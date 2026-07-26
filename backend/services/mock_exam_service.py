@@ -138,7 +138,7 @@ def list_open_exams(user_id: str) -> list[dict]:
     its window (no cohort / no shared is_open)."""
     resp = supabase_admin.table("mock_exams").select(
         "id, code, title, total_minutes, cohort_id, review_sla_days, "
-        "exam_mode, is_open",
+        "exam_mode, is_open, active_section",
     ).eq("status", "published").execute()
     assigned = _retake_assigned_exam_ids(user_id)
     # C3 — the student may only be seated at one exam at a time. Report WHICH
@@ -164,9 +164,16 @@ def list_open_exams(user_id: str) -> list[dict]:
         elif not is_mine:
             if not e.get("is_open"):
                 continue
+            # A finished exam has no section left to open, so entering it can
+            # only produce a dead `registered` row that holds the student's one
+            # live seat. Belt and braces with the same gate in create_sitting:
+            # this stops the button from ever being shown.
+            if (e.get("active_section") or "not_started") == "done":
+                continue
             if e.get("cohort_id") and not _user_in_cohort(user_id, e["cohort_id"]):
                 continue
-        row = {k: v for k, v in e.items() if k not in ("cohort_id", "is_open")}
+        row = {k: v for k, v in e.items()
+               if k not in ("cohort_id", "is_open", "active_section")}
         blocked = bool(live and str(live.get("mock_exam_id")) != str(e["id"]))
         row["blocked_by_sitting_id"] = str(live["id"]) if blocked else None
         # Their own in-progress sitting on THIS exam — the entry page turns the
@@ -737,6 +744,17 @@ def create_sitting(user_id: str, code: str) -> dict:
         # + cohort membership.
         if not exam.get("is_open"):
             raise WindowClosedError("Kỳ thi chưa mở. Vui lòng chờ giám khảo mở kỳ.")
+        if (exam.get("active_section") or "not_started") == "done":
+            # AN EXAM THAT HAS ENDED CANNOT SEAT ANYONE. `is_open` is a manual
+            # toggle the invigilator can simply forget after the final advance,
+            # and it was the only gate here — so a student arriving late got a
+            # `registered` sitting on an exam with no section left to open. That
+            # row is a dead end that then holds their ONE live seat (mig 162)
+            # and locks them out of every future exam until the janitor runs
+            # (Codex adversarial review, 2026-07-26).
+            raise WindowClosedError(
+                "Kỳ thi đã kết thúc — không còn phần nào để làm."
+            )
         _assert_window_open(exam)
         if exam.get("cohort_id") and not _user_in_cohort(user_id, exam["cohort_id"]):
             raise NotEligibleError("Bạn không thuộc lớp được mở kỳ thi này.")
@@ -2852,6 +2870,12 @@ def _advance_from(exam_id: str, admin_id: str, current: str) -> dict:
         # The final transition queues a sweep like every other one, so it needs
         # the same grace anchor (mig 167).
         update["done_at"] = _now_iso()
+        # ...and it closes the room. Leaving `is_open` true after the last
+        # section was the only thing standing between a late arrival and a
+        # `registered` sitting on an exam with nothing left to open — a dead row
+        # that then holds their one live seat. Closing it here means the
+        # invigilator cannot forget (Codex adversarial review, 2026-07-26).
+        update["is_open"] = False
     # OPTIMISTIC GUARD (B2). Without `.eq("active_section", current)` two
     # concurrent advances — a double-click, two invigilators, two tabs — both
     # read the same current section and both write. Two failure modes, both
