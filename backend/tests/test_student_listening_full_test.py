@@ -296,6 +296,38 @@ class _Fake:
 
     def table(self, name): return _Q(self, name)
 
+    # A4b (mig 161) — the answer write moved into a Postgres function so the
+    # read-modify-write is atomic. The fake models the SAME semantics the SQL
+    # implements, so these tests keep exercising real behaviour instead of
+    # asserting against a stub: replace-by-q_num, keep sorted, only touch an
+    # in_progress attempt, return the new count (None when nothing matched).
+    def rpc(self, name, params):
+        if name != "fn_upsert_listening_answer":
+            raise AssertionError(f"unexpected rpc: {name}")
+        rows = self.tables["listening_test_attempts"]
+        row = next(
+            (r for r in rows
+             if r.get("id") == params["p_attempt_id"] and r.get("status") == "in_progress"),
+            None,
+        )
+        if row is None:
+            return _RpcResult(None)
+        q = params["p_q_num"]
+        answers = [a for a in (row.get("answers") or []) if str(a.get("q_num")) != str(q)]
+        answers.append({
+            "q_num": q,
+            "user_answer": params["p_user_answer"] or "",
+            "answered_at": "2026-01-01T00:00:00+00:00",
+        })
+        answers.sort(key=lambda a: a.get("q_num") or 0)
+        row["answers"] = answers
+        return _RpcResult(len(answers))
+
+
+class _RpcResult:
+    def __init__(self, data): self.data = data
+    def execute(self): return self
+
 
 def _patch(monkeypatch, user_id="user-1"):
     fake = _Fake()
@@ -627,6 +659,70 @@ def test_patch_answer_upserts_by_q_num(monkeypatch):
     answers = fake.tables["listening_test_attempts"][0]["answers"]
     assert len(answers) == 1
     assert answers[0]["user_answer"] == "second"
+
+
+def test_patch_answer_goes_through_the_atomic_rpc(monkeypatch):
+    """A4b — the write must be the single-statement RPC, not a Python
+    read-modify-write of the whole array. Pinned by asserting the route calls
+    fn_upsert_listening_answer: that is the ONLY thing standing between two
+    concurrent saves and a silently lost answer."""
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    fake.tables["listening_test_attempts"].append({
+        "id": "att", "test_id": test["id"], "user_id": "user-1",
+        "status": "in_progress", "answers": [],
+    })
+    seen = []
+    real_rpc = fake.rpc
+    fake.rpc = lambda n, p: (seen.append(n), real_rpc(n, p))[1]
+
+    body = listening_router.TestAttemptAnswerPatchRequest(q_num=7, user_answer="x")
+    _run(listening_router.patch_listening_test_attempt_answer(
+        attempt_id="att", body=body, authorization=authz,
+    ))
+    assert seen == ["fn_upsert_listening_answer"]
+
+
+def test_patch_answer_keeps_other_questions_untouched(monkeypatch):
+    """The regression A4b fixes: saving q2 must not disturb q1. Under the old
+    read-modify-write two concurrent saves each rewrote the FULL array, so the
+    later write erased the earlier one's question entirely."""
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    fake.tables["listening_test_attempts"].append({
+        "id": "att", "test_id": test["id"], "user_id": "user-1",
+        "status": "in_progress",
+        "answers": [{"q_num": 1, "user_answer": "keep-me"}],
+    })
+    body = listening_router.TestAttemptAnswerPatchRequest(q_num=2, user_answer="new")
+    out = _run(listening_router.patch_listening_test_attempt_answer(
+        attempt_id="att", body=body, authorization=authz,
+    ))
+    assert out["answer_count"] == 2
+    answers = fake.tables["listening_test_attempts"][0]["answers"]
+    assert [a["q_num"] for a in answers] == [1, 2]          # sorted, both present
+    assert answers[0]["user_answer"] == "keep-me"
+
+
+def test_patch_answer_422_when_attempt_submitted_mid_write(monkeypatch):
+    """The RPC enforces status='in_progress' too, so it returns NULL if the
+    attempt was submitted between the router's check and the write. That is a
+    real race and the honest answer is that the edit did not land."""
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    fake.tables["listening_test_attempts"].append({
+        "id": "att", "test_id": test["id"], "user_id": "user-1",
+        "status": "in_progress", "answers": [],
+    })
+    # RPC sees a submitted attempt (the race) even though the router's read did not
+    fake.rpc = lambda n, p: _RpcResult(None)
+
+    body = listening_router.TestAttemptAnswerPatchRequest(q_num=1, user_answer="x")
+    with pytest.raises(HTTPException) as excinfo:
+        _run(listening_router.patch_listening_test_attempt_answer(
+            attempt_id="att", body=body, authorization=authz,
+        ))
+    assert excinfo.value.status_code == 422
 
 
 def test_patch_answer_rejects_q_num_out_of_range(monkeypatch):
