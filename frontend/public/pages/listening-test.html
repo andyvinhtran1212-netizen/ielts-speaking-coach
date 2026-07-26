@@ -72,6 +72,16 @@
       border-radius: var(--av-radius-md);
       font-size: var(--av-fs-sm);
     }
+    .ft-nothing-saved {
+      margin: 0 0 var(--av-space-2);
+      padding: var(--av-space-3);
+      border: 2px solid var(--av-error);
+      background: var(--av-error-soft);
+      color: var(--av-error);
+      border-radius: var(--av-radius-md);
+      font-size: var(--av-fs-sm);
+      font-weight: 700;
+    }
     .ft-unsaved-retry {
       margin-left: var(--av-space-2);
       padding: 2px var(--av-space-2);
@@ -470,6 +480,10 @@
                among 40 is easy to miss; this states the count and what it means
                for closing the tab. role=status so it is announced. -->
           <p class="ft-unsaved-note" id="ft-unsaved-note" role="status" aria-live="polite" hidden></p>
+          <!-- Louder than the per-question cue and separately hosted: this one
+               says the server has NONE of the student's work, which is the
+               difference between an amber square and a graded zero. -->
+          <p class="ft-nothing-saved" id="ft-nothing-saved" role="alert" aria-live="assertive" hidden></p>
           <div class="ielts-progress-summary">
             <span class="progress-count">
               Đã trả lời <strong id="ft-answered-foot">0</strong> / <strong data-total-q>40</strong> câu

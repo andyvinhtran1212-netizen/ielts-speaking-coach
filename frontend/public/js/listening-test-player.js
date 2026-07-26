@@ -46,6 +46,15 @@ const STATE = {
   unsaved:       new Map(),   // q_num → 'retrying' | 'failed'
   saveRetryTimers: new Map(), // q_num → setTimeout handle
   saveGen:       new Map(),   // q_num → generation counter
+  // NOTHING-IS-LANDING DETECTOR. A student sat a full 30-minute Listening
+  // section, auto-submitted, and was graded 0 because the server held ZERO
+  // answers — with no error anywhere and nothing on his screen to tell him
+  // (prod, 2026-07-26). The per-question cue only speaks for a question whose
+  // OWN save failed; it cannot say "none of this is reaching the server",
+  // which is the one failure a student can still act on while there is time.
+  triedSaveAt:   null,        // ms of the first save ATTEMPT
+  serverHasOne:  false,       // a save the server CONFIRMED
+  nothingTimer:  null,
   // An open attempt the server still holds for this (user, test), found at
   // prestart. Non-null → the resume button is on screen and "Bắt đầu test"
   // means "throw that away and start over".
@@ -321,6 +330,7 @@ async function resumeAttempt() {
   if (!att) return;
   $('ft-resume-btn').disabled = true;
   STATE.attemptId = att.attempt_id;
+  startNothingSavedWatch();
   for (const a of (att.answers || [])) {
     if (a && a.q_num != null) STATE.answers.set(a.q_num, a.user_answer);
   }
@@ -445,6 +455,7 @@ async function startAttempt() {
       {},
     );
     STATE.attemptId = res.attempt_id;
+    startNothingSavedWatch();
     // Mock sitting: link this attempt so its submit is sealed server-side.
     // Fail-closed — do not start the audio/exam until the link is written
     // (otherwise a submit before attach would return an unsealed score).
@@ -1249,6 +1260,55 @@ function renderUnsavedNote() {
   }
 }
 
+// How long after the FIRST save attempt we conclude that nothing is landing.
+// The retry ladder is 400+1200+3000ms and the debounce is 500ms, so a healthy
+// first save has resolved many times over by then; anything longer starts
+// eating the exam the warning exists to save.
+const NOTHING_SAVED_AFTER_MS = 45000;
+
+// The alarm the per-question cue cannot raise: not "this answer failed" but
+// "the server has NONE of your work". Deliberately louder and separately
+// hosted — a student who ignores an amber square must not be able to ignore
+// this one, because the alternative is a graded zero (prod, 2026-07-26).
+function renderNothingSavedAlarm() {
+  const box = $('ft-nothing-saved');
+  if (!box) return;
+  const tried = STATE.triedSaveAt !== null;
+  const overdue = tried && (Date.now() - STATE.triedSaveAt) >= NOTHING_SAVED_AFTER_MS;
+  // Only ever fires when the student is demonstrably WORKING and the server has
+  // nothing. Never for someone who simply has not answered yet — that is the
+  // normal opening minutes of a section, not a fault.
+  if (STATE.serverHasOne || !overdue || STATE.submitting) {
+    box.hidden = true;
+    return;
+  }
+  if (!box.hidden) return;                    // already up; don't rebuild
+  box.hidden = false;
+  box.textContent = '';
+  box.appendChild(document.createTextNode(
+    '⚠ MÁY CHỦ CHƯA NHẬN ĐƯỢC CÂU TRẢ LỜI NÀO của bạn. Nếu để nguyên, bài này '
+    + 'sẽ bị chấm 0. BÁO GIÁM THỊ NGAY và đừng đóng tab.'));
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'ft-unsaved-retry';
+  btn.textContent = 'Gửi lại toàn bộ';
+  btn.addEventListener('click', resendEverything);
+  box.appendChild(document.createTextNode(' '));
+  box.appendChild(btn);
+}
+
+// A warning with no remedy just tells the student something they cannot fix.
+// Re-sends every answer held locally, oldest question first.
+function resendEverything() {
+  const qs = Array.from(STATE.answers.keys()).sort((a, b) => a - b);
+  for (const qNum of qs) void saveAnswer(qNum, STATE.answers.get(qNum));
+}
+
+function startNothingSavedWatch() {
+  if (STATE.nothingTimer) return;
+  STATE.nothingTimer = setInterval(renderNothingSavedAlarm, 10000);
+}
+
 // Manual + automatic escape hatch out of the terminal state. Coming back online
 // is by far the commonest reason a given-up save would now succeed.
 async function retryFailedSaves() {
@@ -1364,6 +1424,7 @@ async function saveAnswer(qNum, value, opts) {
     return;
   }
 
+  if (STATE.triedSaveAt === null) STATE.triedSaveAt = Date.now();
   STATE.inflight.add(qNum);
   try {
     await enqueuePatch((signal) => window.api.patchWith(
@@ -1371,6 +1432,8 @@ async function saveAnswer(qNum, value, opts) {
       { q_num: qNum, user_answer: value == null ? '' : String(value) },
       null, { signal: signal },
     ));
+    STATE.serverHasOne = true;      // proof the pipe works at least once
+    renderNothingSavedAlarm();
     if (gen === STATE.saveGen.get(qNum)) {
       setSaveState(qNum, null);
       const el = document.querySelector(`.ft-q-input[data-q-num="${qNum}"]`);

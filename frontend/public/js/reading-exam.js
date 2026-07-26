@@ -44,6 +44,15 @@
     time_limit_minutes: 60,
     answers: new Map(),         // q_num → user_answer (in-memory authoritative)
     flagged: new Set(),
+    // NOTHING-IS-LANDING DETECTOR (prod 2026-07-26). A student sat a full
+    // section, auto-submitted and was graded 0 because the server held ZERO
+    // answers — no error anywhere, nothing on his screen. The per-question cue
+    // speaks only for a question whose OWN save failed; it cannot say "none of
+    // this is reaching the server", the one failure a student can still act on
+    // while there is time left.
+    tried_save_at: null,        // ms of the first save ATTEMPT
+    server_has_one: false,      // a save the server CONFIRMED
+    nothing_timer: null,
     timer_interval: null,
     timer_locked: false,
     debounce_timers: new Map(), // q_num → setTimeout handle (auto-save debounce)
@@ -1542,6 +1551,53 @@
   // Manual + automatic escape hatch out of the terminal state. Coming back
   // online is by far the commonest reason a given-up save would now succeed,
   // so the browser's own signal drives a retry too.
+  // How long after the FIRST save attempt we conclude nothing is landing. The
+  // retry ladder plus the debounce resolve a healthy save many times over
+  // inside this; anything longer starts eating the exam it exists to save.
+  var _NOTHING_SAVED_AFTER_MS = 45000;
+
+  // The alarm the per-question cue cannot raise: not "this answer failed" but
+  // "the server has NONE of your work".
+  function _renderNothingSavedAlarm() {
+    var box = document.getElementById('exam-nothing-saved');
+    if (!box) return;
+    var overdue = SESSION.tried_save_at !== null
+      && (Date.now() - SESSION.tried_save_at) >= _NOTHING_SAVED_AFTER_MS;
+    // Only ever fires when the student is demonstrably WORKING and the server
+    // has nothing — never for someone who has simply not answered yet, which
+    // is the normal opening of a Reading section, not a fault.
+    if (SESSION.server_has_one || !overdue || SESSION.timer_locked) {
+      box.hidden = true;
+      return;
+    }
+    if (!box.hidden) return;
+    box.hidden = false;
+    box.textContent = '';
+    box.appendChild(document.createTextNode(
+      '⚠ MÁY CHỦ CHƯA NHẬN ĐƯỢC CÂU TRẢ LỜI NÀO của bạn. Nếu để nguyên, bài này '
+      + 'sẽ bị chấm 0. BÁO GIÁM THỊ NGAY và đừng đóng tab.'));
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'exam-unsaved-retry';
+    btn.textContent = 'Gửi lại toàn bộ';
+    btn.addEventListener('click', _resendEverything);
+    box.appendChild(document.createTextNode(' '));
+    box.appendChild(btn);
+  }
+
+  // A warning with no remedy just tells the student something they cannot fix.
+  function _resendEverything() {
+    var qs = [];
+    SESSION.answers.forEach(function (_v, qNum) { qs.push(qNum); });
+    qs.sort(function (a, b) { return a - b; });
+    qs.forEach(function (qNum) { patchAnswer(qNum, SESSION.answers.get(qNum)); });
+  }
+
+  function _startNothingSavedWatch() {
+    if (SESSION.nothing_timer) return;
+    SESSION.nothing_timer = setInterval(_renderNothingSavedAlarm, 10000);
+  }
+
   function _retryFailedSaves() {
     var due = [];
     SESSION.unsaved.forEach(function (state, qNum) {
@@ -1580,6 +1636,7 @@
     // immediately, so between that moment and the response landing the question
     // is in NO collection the unload flush looks at; a refresh right there kills
     // the request and loses the answer with no keepalive replacement.
+    if (SESSION.tried_save_at === null) SESSION.tried_save_at = Date.now();
     SESSION.inflight.set(qNum, (SESSION.inflight.get(qNum) || 0) + 1);
     var settled = function () {
       var n = (SESSION.inflight.get(qNum) || 1) - 1;
@@ -1600,6 +1657,8 @@
     var current = function () { return gen === SESSION.save_gen.get(qNum); };
     return savePromise.then(function (res) {
       settled();
+      SESSION.server_has_one = true;     // proof the pipe works at least once
+      _renderNothingSavedAlarm();
       if (current()) _setSaveState(qNum, null);
       return res;
     }, function (e) {
@@ -2750,6 +2809,7 @@
     return startPromise
       .then(function (res) {
         SESSION.attempt_id = res.attempt_id;
+        _startNothingSavedWatch();
         SESSION.started_at = res.started_at;
         SESSION.time_limit_minutes = res.time_limit_minutes;
         // Clear the resumed answers — this is a fresh attempt.
@@ -2895,6 +2955,7 @@
           // instead of auto-entering in_progress. Perf-1 keeps that UX while
           // loading test detail + resume state through one backend request.
           SESSION.attempt_id = inprog.attempt_id;
+          _startNothingSavedWatch();
           SESSION.started_at = inprog.started_at;
           SESSION.time_limit_minutes = inprog.time_limit_minutes;
           (inprog.answers || []).forEach(function (a) {
