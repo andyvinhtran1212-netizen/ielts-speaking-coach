@@ -331,10 +331,17 @@ async function resumeAttempt() {
   if (!att) return;
   $('ft-resume-btn').disabled = true;
   STATE.attemptId = att.attempt_id;
-  startNothingSavedWatch();
   for (const a of (att.answers || [])) {
     if (a && a.q_num != null) STATE.answers.set(a.q_num, a.user_answer);
   }
+  // SEED FROM THE RESUME PAYLOAD. Answers already on the attempt are proof the
+  // server has this student's work — so the alarm must NOT claim otherwise if a
+  // later save fails. Without this, resuming and then losing the connection for
+  // 45s told a student with a full paper on the server that it held nothing and
+  // they would be graded 0 (Codex review, PR #860). A failing save after a
+  // resume is a per-question problem, and the amber cue already owns it.
+  if ((att.answers || []).length) STATE.serverHasOne = true;
+  startNothingSavedWatch();
   try {
     // Re-link (idempotent) in case a create-time attach failed and left the
     // attempt unsealed — mirrors reading-exam.js's resume branch.

@@ -20,7 +20,7 @@ for _std in (sys.stdout, sys.stderr):
 
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from services.errors import safe_detail, GENERIC_MESSAGE
 from config import settings
@@ -308,6 +308,13 @@ async def access_perm_memo_middleware(request: Request, call_next):
         begin_request_permission_memo,
         reset_request_permission_memo,
     )
+    # A CORS preflight carries no auth and reaches no route — CORSMiddleware
+    # answers it below us. Setting up a per-request permission memo for it is
+    # pure risk: this middleware sits OUTSIDE CORSMiddleware, so anything it
+    # raises turns a preflight into a 500 and the browser then blocks the real
+    # request (Codex review, PR #861).
+    if request.method == "OPTIONS" and request.headers.get("access-control-request-method"):
+        return await call_next(request)
     token = begin_request_permission_memo()
     try:
         return await call_next(request)
@@ -422,7 +429,37 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     # the 500 carries no ACAO and the browser reports a generic CORS error,
     # masking the real status (the trap that cost 4 hypotheses on the compose-500).
     headers = {"X-Request-ID": request_id}
-    headers.update(_cors_headers_for_origin(request.headers.get("origin")))
+    cors = _cors_headers_for_origin(request.headers.get("origin"))
+    headers.update(cors)
+
+    # A PREFLIGHT MUST SUCCEED, NOT MERELY CARRY THE RIGHT HEADERS.
+    #
+    # Three custom middlewares wrap OUTSIDE CORSMiddleware (they are registered
+    # after it, and Starlette builds the stack outside-in), so an OPTIONS
+    # preflight passes through them BEFORE CORSMiddleware can short-circuit it.
+    # If any of them raises, the preflight unwinds here.
+    #
+    # Answering 500 fails the preflight no matter what headers ride along: the
+    # Fetch spec requires an ok status, so the browser blocks the real request
+    # and the student loses every PATCH — i.e. every answer they type (prod,
+    # 2026-07-26). Adding Allow-Methods alone only changed which console message
+    # they got (Codex review, PR #861).
+    #
+    # So answer the preflight the way CORSMiddleware would have: 200, no body.
+    # This is safe because a preflight carries no data and grants nothing on its
+    # own — the REAL request still runs every gate. If the broken component is
+    # still broken it now fails on that request instead, which is logged, is
+    # visible to the client, and is a diagnosable 500 rather than an invisible
+    # CORS block. The exception is still logged + persisted above either way.
+    if request.method == "OPTIONS" and cors \
+            and request.headers.get("access-control-request-method"):
+        logger.error(
+            "[cors] preflight for %s raised (req=%s) — answering 200 so the real "
+            "request can surface the failure instead of being blocked client-side",
+            request.url.path, request_id,
+        )
+        return Response(status_code=200, headers=headers)
+
     return JSONResponse(
         status_code=500,
         content={

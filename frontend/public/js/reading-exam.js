@@ -2989,12 +2989,19 @@
           // instead of auto-entering in_progress. Perf-1 keeps that UX while
           // loading test detail + resume state through one backend request.
           SESSION.attempt_id = inprog.attempt_id;
-          _startNothingSavedWatch();
           SESSION.started_at = inprog.started_at;
           SESSION.time_limit_minutes = inprog.time_limit_minutes;
           (inprog.answers || []).forEach(function (a) {
             SESSION.answers.set(a.q_num, a.user_answer);
           });
+                  // SEED FROM THE RESUME PAYLOAD. Answers already on the attempt are proof the
+                  // server has this student's work — so the alarm must NOT claim otherwise if a
+                  // later save fails. Without this, resuming and then losing the connection for
+                  // 45s told a student with a full paper on the server that it held nothing and
+                  // they would be graded 0 (Codex review, PR #860). A failing save after a
+                  // resume is a per-question problem, and the amber cue already owns it.
+          if ((inprog.answers || []).length) SESSION.server_has_one = true;
+          _startNothingSavedWatch();
           // Mock sitting: re-link on resume (idempotent) in case a create-time
           // attach failed and left the attempt unsealed. User interaction before
           // resume gives this time to complete.

@@ -86,3 +86,100 @@ def test_the_false_claim_about_chromium_is_gone():
     src = (Path(__file__).resolve().parents[1] / "main.py").read_text(encoding="utf-8")
     assert "86400\n    # is the maximum Chromium honours" not in src
     assert "maximum Chromium honours" not in src
+
+
+# ── The preflight must SUCCEED, not merely carry the right headers ────
+#
+# Codex review PR #861 (correct, P1): adding Allow-Methods to a 500 only changed
+# which console message the student got. The Fetch spec requires a preflight to
+# have an OK status, so a 500 still blocks the real request — every PATCH, i.e.
+# every answer they type. These drive the real ASGI app with a middleware that
+# raises, which is the production shape: three custom middlewares are registered
+# AFTER CORSMiddleware and therefore wrap OUTSIDE it, so an OPTIONS preflight
+# passes through them before CORS can short-circuit it.
+
+import pytest
+from fastapi.testclient import TestClient
+
+PREFLIGHT = {
+    "Origin": ALLOWED,
+    "Access-Control-Request-Method": "PATCH",
+    "Access-Control-Request-Headers": "authorization,content-type",
+}
+
+
+@pytest.fixture()
+def client_with_a_broken_outer_middleware(monkeypatch):
+    """Reproduce the failure: something outside CORSMiddleware raises."""
+    from starlette.middleware.base import BaseHTTPMiddleware
+
+    class _Boom(BaseHTTPMiddleware):
+        async def dispatch(self, request, call_next):
+            raise RuntimeError("an outer middleware blew up")
+
+    # NOT app.add_middleware(): Starlette refuses that once any earlier test in
+    # the session has started the app ("Cannot add middleware after an
+    # application has started"). Splice the layer in and rebuild the stack
+    # directly — user_middleware[0] is the OUTERMOST layer, which is exactly
+    # where the production middlewares that can break a preflight sit.
+    from starlette.middleware import Middleware
+
+    app = app_main.app
+    saved = list(app.user_middleware)
+    app.user_middleware.insert(0, Middleware(_Boom))
+    app.middleware_stack = app.build_middleware_stack()
+    try:
+        yield TestClient(app, raise_server_exceptions=False)
+    finally:
+        app.user_middleware = saved
+        app.middleware_stack = app.build_middleware_stack()
+
+
+def test_a_broken_preflight_still_answers_200(client_with_a_broken_outer_middleware):
+    """The whole point. 500 here means the browser blocks the PATCH."""
+    r = client_with_a_broken_outer_middleware.options(
+        "/api/reading/test/attempts/abc/answers", headers=PREFLIGHT)
+    assert r.status_code == 200, (
+        "a failed preflight blocks every answer save client-side, where nothing "
+        "can see it")
+    assert "PATCH" in r.headers.get("access-control-allow-methods", "")
+    assert r.headers.get("access-control-allow-origin") == ALLOWED
+
+
+def test_the_real_request_still_fails_loudly(client_with_a_broken_outer_middleware):
+    """Rescuing the preflight must NOT paper over the fault. The actual request
+    still hits the broken component — and a 500 there is logged, visible to the
+    client and diagnosable, which an invisible CORS block never was."""
+    r = client_with_a_broken_outer_middleware.patch(
+        "/api/reading/test/attempts/abc/answers",
+        json={"q_num": 1, "user_answer": "x"},
+        headers={"Origin": ALLOWED},
+    )
+    assert r.status_code == 500
+    assert r.headers.get("access-control-allow-origin") == ALLOWED, (
+        "without ACAO the browser masks the real status as a CORS error")
+
+
+def test_only_a_real_preflight_is_rescued(client_with_a_broken_outer_middleware):
+    """A bare OPTIONS with no Access-Control-Request-Method is NOT a preflight —
+    turning every failed OPTIONS into a 200 would hide real faults."""
+    r = client_with_a_broken_outer_middleware.options(
+        "/api/reading/test/attempts/abc/answers", headers={"Origin": ALLOWED})
+    assert r.status_code == 500
+
+
+def test_a_foreign_origin_is_not_rescued(client_with_a_broken_outer_middleware):
+    """The rescue rides on the allowlist, exactly like the headers do."""
+    r = client_with_a_broken_outer_middleware.options(
+        "/api/reading/test/attempts/abc/answers",
+        headers={**PREFLIGHT, "Origin": "https://evil.com"})
+    assert r.status_code == 500
+
+
+def test_the_permission_memo_is_skipped_for_preflights():
+    """Second layer: the outer middleware that CAN raise now does nothing for a
+    preflight, so the commonest path to this failure is closed at the source."""
+    import inspect
+    src = inspect.getsource(app_main.access_perm_memo_middleware)
+    assert 'request.method == "OPTIONS"' in src
+    assert "access-control-request-method" in src

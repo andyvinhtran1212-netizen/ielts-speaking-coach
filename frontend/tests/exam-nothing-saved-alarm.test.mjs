@@ -147,6 +147,43 @@ for (const p of PAGES) {
   });
 }
 
+describe('resuming an attempt the server already holds', () => {
+  test('listening seeds the flag from the resume payload', () => {
+    // Answers already on the attempt ARE proof the server has this student's
+    // work. Without seeding, resuming and then losing the link for 45s told a
+    // student with a full paper on the server that it held nothing and they
+    // would be graded 0 (Codex review, PR #860).
+    assert.match(LIS, /if \(\(att\.answers \|\| \[\]\)\.length\) STATE\.serverHasOne = true;/);
+  });
+
+  test('reading seeds it too', () => {
+    assert.match(READ, /if \(\(inprog\.answers \|\| \[\]\)\.length\) SESSION\.server_has_one = true;/);
+  });
+
+  test('the seed happens BEFORE the watcher starts, on both pages', () => {
+    // Ordering is the whole fix: a watcher armed first can fire on the very
+    // next tick, before the flag is set.
+    for (const [js, seed, watch] of [
+      [LIS, 'STATE.serverHasOne = true;', 'startNothingSavedWatch();'],
+      [READ, 'SESSION.server_has_one = true;', '_startNothingSavedWatch();'],
+    ]) {
+      const at = js.indexOf(seed);
+      assert.ok(at > 0, 'seed missing');
+      const nextWatch = js.indexOf(watch, at);
+      const prevWatch = js.lastIndexOf(watch, at);
+      assert.ok(nextWatch > 0 && (prevWatch === -1 || prevWatch < js.lastIndexOf('answers', at) - 400),
+        'the watcher starts before the resume payload is read');
+    }
+  });
+
+  test('an EMPTY resumed attempt still arms the alarm', () => {
+    // Guarding on .length matters: resuming an attempt with nothing saved is
+    // exactly the case that must still be caught.
+    assert.match(LIS, /\(att\.answers \|\| \[\]\)\.length/);
+    assert.match(READ, /\(inprog\.answers \|\| \[\]\)\.length/);
+  });
+});
+
 describe('the alarm is visually louder than the per-question cue', () => {
   test('listening uses the error token, not the warning one', () => {
     const css = LIS_HTML.slice(LIS_HTML.indexOf('.ft-nothing-saved'));
