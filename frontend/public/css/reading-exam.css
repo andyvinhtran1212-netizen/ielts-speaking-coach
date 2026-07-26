@@ -1317,6 +1317,21 @@ body.exam-chrome[data-exam-theme="yellow-on-blue"] .exam-highlight {
 }
 /* The unsaved note above the palette actions — only rendered while
  * SESSION.unsaved is non-empty (JS toggles [hidden]). */
+/* The "server has NONE of your work" alarm — deliberately heavier than the
+   per-question cue above it, because ignoring this one costs the whole paper. */
+.exam-chrome .exam-palette__nothing {
+  margin: 6px 0 0;
+  padding: 10px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--av-error) 30%, transparent);
+  border: 2px solid var(--av-error);
+  color: var(--exam-unsaved-text);
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 700;
+  font-family: var(--exam-font-sans);
+}
+
 .exam-chrome .exam-palette__unsaved {
   margin: 6px 0 0;
   padding: 6px 10px;
