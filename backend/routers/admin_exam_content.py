@@ -44,8 +44,12 @@ async def list_exam_content(
     """Papers across all three libraries with level + classes, filterable."""
     await require_admin(authorization)
     try:
+        res = svc.list_exam_content(kind, course_level, cohort_id, exam_only)
         return {
-            "items":  svc.list_exam_content(kind, course_level, cohort_id, exam_only),
+            "items":  res["items"],
+            # Named so the screen can say "Listening không tải được" instead of
+            # rendering an empty library as if it were genuinely empty.
+            "failed_kinds": res["failed_kinds"],
             "levels": svc.known_course_levels(),
         }
     except svc.UnknownKindError as e:
@@ -67,15 +71,24 @@ async def set_course_level(
     return {"id": row.get("id"), "course_level": row.get("course_level")}
 
 
-@router.put("/{kind}/{content_id}/cohorts")
+@router.patch("/{kind}/{content_id}/cohorts")
 async def set_cohorts(
     kind: str, content_id: str, body: CohortsBody,
     authorization: str | None = Header(default=None),
 ):
-    """PUT, not POST: this replaces the whole set for this content."""
+    """Thay TOÀN BỘ tập lớp của nội dung này — body là trạng thái, không phải delta.
+
+    PATCH rather than PUT purely so the browser stays inside the CORS allowlist:
+    _CORS_METHODS lists only the verbs the app actually uses, and adding PUT for
+    one endpoint would mean a preflight that fails for everyone who has a cached
+    one — the exact failure that swallowed a student's whole paper on
+    2026-07-26. POST would be worse than either: it reads as "add one".
+    """
     admin = await require_admin(authorization)
     try:
         return svc.set_cohorts(kind, content_id, body.cohort_ids,
                                created_by=admin.get("id"))
     except svc.UnknownKindError as e:
         raise HTTPException(422, str(e))
+    except LookupError as e:
+        raise HTTPException(404, str(e))

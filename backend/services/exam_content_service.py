@@ -66,48 +66,47 @@ def set_course_level(kind: str, content_id: str, level: Optional[str]) -> dict:
     return resp.data[0]
 
 
+def _assert_content_exists(kind: str, content_id: str) -> None:
+    """The join table deliberately has no FK on content_id (it points into one of
+    three tables), so nothing else stops a stale UUID being "assigned" and the
+    endpoint reporting success for content that does not exist
+    (Codex review, PR #864)."""
+    table, _ = _assert_kind(kind)
+    rows = supabase_admin.table(table).select("id").eq(
+        "id", str(content_id),
+    ).limit(1).execute().data or []
+    if not rows:
+        raise LookupError(f"Không tìm thấy nội dung {kind}/{content_id}.")
+
+
 def set_cohorts(kind: str, content_id: str, cohort_ids: Iterable[str],
                 *, created_by=None) -> dict:
     """Replace the set of classes this content is meant for.
 
     A REPLACE, not an append: the admin screen shows the full set of ticks, so
-    what it sends IS the intended state. Diffed rather than delete-then-insert —
-    wiping first would leave the content briefly assigned to nobody, and a
-    failure in between would leave it that way for good.
+    what it sends IS the intended state.
+
+    ONE STATEMENT (mig 172), not insert-then-delete. As two calls, a failing
+    delete left {old ∪ new} persisted while the request reported an error — the
+    endpoint had then both failed AND widened the assignment, which can leave a
+    paper visible to a class the admin was taking it away from. Reversing the
+    order only swaps that for "assigned to nobody", so the fix is a transaction.
     """
     _assert_kind(kind)
-    wanted = {str(c) for c in (cohort_ids or []) if c}
-    current = {
-        str(r["cohort_id"]): r["id"]
-        for r in (supabase_admin.table("exam_content_cohorts")
-                  .select("id, cohort_id")
-                  .eq("content_kind", kind)
-                  .eq("content_id", str(content_id))
-                  .execute().data or [])
+    _assert_content_exists(kind, content_id)
+    wanted = sorted({str(c) for c in (cohort_ids or []) if c})
+    out = supabase_admin.rpc("fn_set_exam_content_cohorts", {
+        "p_kind":       kind,
+        "p_content_id": str(content_id),
+        "p_cohort_ids": wanted,
+        "p_created_by": str(created_by) if created_by else None,
+    }).execute().data or {}
+    logger.info("[exam-content] %s/%s cohorts → %d lớp", kind, content_id, len(wanted))
+    return {
+        "added":      sorted(out.get("added") or []),
+        "removed":    int(out.get("removed") or 0),
+        "cohort_ids": wanted,
     }
-    to_add = wanted - set(current)
-    to_drop = [rid for cid, rid in current.items() if cid not in wanted]
-
-    if to_add:
-        supabase_admin.table("exam_content_cohorts").insert([
-            {
-                "content_kind": kind,
-                "content_id":   str(content_id),
-                "cohort_id":    cid,
-                "created_by":   str(created_by) if created_by else None,
-            }
-            for cid in sorted(to_add)
-        ]).execute()
-    if to_drop:
-        for i in range(0, len(to_drop), _ID_CHUNK):
-            supabase_admin.table("exam_content_cohorts").delete().in_(
-                "id", to_drop[i:i + _ID_CHUNK],
-            ).execute()
-
-    logger.info("[exam-content] %s/%s cohorts +%d -%d",
-                kind, content_id, len(to_add), len(to_drop))
-    return {"added": sorted(to_add), "removed": len(to_drop),
-            "cohort_ids": sorted(wanted)}
 
 
 def cohorts_for(kind: str, content_ids: Iterable[str]) -> dict:
@@ -145,6 +144,7 @@ def list_exam_content(kind: Optional[str] = None,
         _assert_kind(k)
 
     out: list[dict] = []
+    failed: list[str] = []
     for k in kinds:
         table, code_col = _KINDS[k]
         cols = "id,title,course_level,exam_only"
@@ -154,8 +154,13 @@ def list_exam_content(kind: Optional[str] = None,
             rows = _paged(
                 lambda t=table, c=cols: supabase_admin.table(t).select(c).order("id")
             )
-        except Exception:  # noqa: BLE001 — one broken library must not blank the screen
+        except Exception:  # noqa: BLE001
+            # One broken library must not blank the screen — an admin looking at
+            # three libraries should still see two. But a silent partial reads
+            # exactly like "there is no content", so the caller is TOLD which
+            # library failed and decides what to show (Codex review, PR #864).
             logger.exception("[exam-content] list failed for %s", k)
+            failed.append(k)
             continue
         if course_level is not None:
             rows = [r for r in rows if (r.get("course_level") or "") == course_level]
@@ -180,7 +185,7 @@ def list_exam_content(kind: Optional[str] = None,
                 "cohort_ids":   cids,
             })
     out.sort(key=lambda r: (r["kind"], (r["code"] or r["title"] or "").lower()))
-    return out
+    return {"items": out, "failed_kinds": failed}
 
 
 def known_course_levels() -> list[str]:

@@ -60,6 +60,9 @@ class _Q:
     def order(self, *_a, **_k):
         return self
 
+    def limit(self, *_a, **_k):
+        return self
+
     def range(self, s, e):
         self._range = (s, e)
         return self
@@ -96,12 +99,49 @@ class _Q:
         return _Resp(hit)
 
 
+class _Deferred:
+    """postgrest-py defers until .execute(); the fake must too."""
+
+    def __init__(self, data):
+        self._d = data
+
+    def execute(self):
+        return _Resp(self._d)
+
+
 class _DB:
     def __init__(self):
         self.t: dict = {}
 
     def table(self, name):
         return _Q(self, name)
+
+    # fn_set_exam_content_cohorts (mig 172) — modelled with the SAME semantics
+    # the SQL implements (one transaction, ON CONFLICT DO NOTHING, delete of the
+    # complement), like the fakes for mig 163/168/169. A stub would make these
+    # tests assert against a stub.
+    def rpc(self, name, params):
+        assert name == "fn_set_exam_content_cohorts", name
+        kind, cid = params["p_kind"], str(params["p_content_id"])
+        wanted = sorted({str(c) for c in (params.get("p_cohort_ids") or [])})
+        rows = self.t.setdefault("exam_content_cohorts", [])
+        mine = [r for r in rows
+                if r["content_kind"] == kind and str(r["content_id"]) == cid]
+        have = {r["cohort_id"] for r in mine}
+        removed = len([r for r in mine if r["cohort_id"] not in wanted])
+        self.t["exam_content_cohorts"] = [
+            r for r in rows
+            if not (r["content_kind"] == kind and str(r["content_id"]) == cid
+                    and r["cohort_id"] not in wanted)
+        ]
+        added = [c for c in wanted if c not in have]
+        for c in added:
+            self.t["exam_content_cohorts"].append({
+                "id": "row-%d" % (len(self.t["exam_content_cohorts"]) + 1),
+                "content_kind": kind, "content_id": cid, "cohort_id": c,
+                "created_by": params.get("p_created_by"),
+            })
+        return _Deferred({"added": added, "removed": removed, "cohort_ids": wanted})
 
 
 @pytest.fixture()
@@ -157,6 +197,7 @@ def test_known_levels_are_derived_from_the_data(db):
 
 def test_assigning_a_paper_to_several_classes(db):
     """Many-to-many was the explicit decision: a paper is reused across classes."""
+    db.t["reading_tests"] = [{"id": "r1"}]
     out = svc.set_cohorts("reading", "r1", ["c1", "c2"], created_by="admin")
     assert out["cohort_ids"] == ["c1", "c2"]
     assert svc.cohorts_for("reading", ["r1"]) == {"r1": ["c1", "c2"]}
@@ -164,6 +205,8 @@ def test_assigning_a_paper_to_several_classes(db):
 
 def test_it_replaces_the_set_rather_than_appending(db):
     """The screen shows every tick, so what it sends IS the intended state."""
+    db.t["reading_tests"] = [{"id": "r1"}]
+    db.t["reading_tests"] = [{"id": "r1"}]
     svc.set_cohorts("reading", "r1", ["c1", "c2"])
     out = svc.set_cohorts("reading", "r1", ["c2", "c3"])
     assert out["cohort_ids"] == ["c2", "c3"]
@@ -173,6 +216,7 @@ def test_it_replaces_the_set_rather_than_appending(db):
 def test_re_sending_the_same_set_changes_nothing(db):
     """A double-click must not create a duplicate that then needs two clicks to
     undo — nor churn rows for no reason."""
+    db.t["reading_tests"] = [{"id": "r1"}]
     svc.set_cohorts("reading", "r1", ["c1"])
     before = list(db.t["exam_content_cohorts"])
     out = svc.set_cohorts("reading", "r1", ["c1"])
@@ -180,17 +224,30 @@ def test_re_sending_the_same_set_changes_nothing(db):
     assert db.t["exam_content_cohorts"] == before
 
 
-def test_the_content_is_never_briefly_assigned_to_nobody(db):
-    """Diffed, not delete-then-insert: wiping first leaves the paper assigned to
-    no class in between, and a failure there leaves it that way for good."""
+def test_the_replacement_is_one_statement_not_two_calls(db):
+    """As insert-then-delete, a failing delete left {old ∪ new} persisted while
+    the request reported an error — the endpoint had both FAILED and WIDENED the
+    assignment. Reversing the order only swaps that for "assigned to nobody", so
+    the fix is a transaction (mig 172, Codex review PR #864)."""
     import inspect
     src = inspect.getsource(svc.set_cohorts)
-    add_at, drop_at = src.index("to_add:"), src.index("to_drop:")
-    assert add_at < drop_at, "additions must be written before removals"
+    assert 'rpc("fn_set_exam_content_cohorts"' in src
+    assert ".insert(" not in src and ".delete(" not in src
+
+
+def test_assigning_to_content_that_does_not_exist_is_refused(db):
+    """The join table deliberately has no FK on content_id, so nothing else stops
+    a stale UUID being "assigned" while the endpoint reports success."""
+    db.t["reading_tests"] = []
+    with pytest.raises(LookupError):
+        svc.set_cohorts("reading", "ghost", ["c1"])
+    assert not db.t.get("exam_content_cohorts")
 
 
 def test_kinds_do_not_bleed_into_each_other(db):
     """content_id is polymorphic — the same UUID could exist in two libraries."""
+    db.t["reading_tests"] = [{"id": "x1"}]
+    db.t["listening_tests"] = [{"id": "x1"}]
     svc.set_cohorts("reading", "x1", ["c1"])
     svc.set_cohorts("listening", "x1", ["c2"])
     assert svc.cohorts_for("reading", ["x1"])["x1"] == ["c1"]
@@ -200,6 +257,7 @@ def test_kinds_do_not_bleed_into_each_other(db):
 def test_cohorts_for_answers_for_every_id_asked_about(db):
     """A list screen renders one row per id; a missing key would be a crash or a
     silently blank cell."""
+    db.t["reading_tests"] = [{"id": "r1"}]
     svc.set_cohorts("reading", "r1", ["c1"])
     assert svc.cohorts_for("reading", ["r1", "r2"]) == {"r1": ["c1"], "r2": []}
     assert svc.cohorts_for("reading", []) == {}
@@ -225,27 +283,27 @@ def _seed_three(db):
 
 def test_one_screen_covers_all_three_libraries(db):
     _seed_three(db)
-    kinds = {r["kind"] for r in svc.list_exam_content()}
+    kinds = {r["kind"] for r in svc.list_exam_content()["items"]}
     assert kinds == {"reading", "listening", "writing"}
 
 
 def test_writing_status_is_normalised_so_one_column_serves_three(db):
     """Prompts are soft-deleted with is_active, tests carry a status enum."""
     _seed_three(db)
-    by_kind = {r["kind"]: r for r in svc.list_exam_content()}
+    by_kind = {r["kind"]: r for r in svc.list_exam_content()["items"]}
     assert by_kind["writing"]["status"] == "published"
     db.t["writing_prompts"][0]["is_active"] = False
-    by_kind = {r["kind"]: r for r in svc.list_exam_content()}
+    by_kind = {r["kind"]: r for r in svc.list_exam_content()["items"]}
     assert by_kind["writing"]["status"] == "archived"
 
 
 def test_filters(db):
     _seed_three(db)
     svc.set_cohorts("reading", "r1", ["c1"])
-    assert {r["kind"] for r in svc.list_exam_content(course_level="C2")} == {"reading", "writing"}
-    assert {r["kind"] for r in svc.list_exam_content(exam_only=False)} == {"listening"}
-    assert [r["id"] for r in svc.list_exam_content(cohort_id="c1")] == ["r1"]
-    assert svc.list_exam_content(cohort_id="nope") == []
+    assert {r["kind"] for r in svc.list_exam_content(course_level="C2")["items"]} == {"reading", "writing"}
+    assert {r["kind"] for r in svc.list_exam_content(exam_only=False)["items"]} == {"listening"}
+    assert [r["id"] for r in svc.list_exam_content(cohort_id="c1")["items"]] == ["r1"]
+    assert svc.list_exam_content(cohort_id="nope")["items"] == []
 
 
 def test_one_broken_library_does_not_blank_the_whole_screen(db, monkeypatch):
@@ -260,7 +318,7 @@ def test_one_broken_library_does_not_blank_the_whole_screen(db, monkeypatch):
         return real(name)
 
     monkeypatch.setattr(svc, "supabase_admin", type("D", (), {"table": staticmethod(flaky)})())
-    kinds = {r["kind"] for r in svc.list_exam_content()}
+    kinds = {r["kind"] for r in svc.list_exam_content()["items"]}
     assert kinds == {"reading", "writing"}
 
 
@@ -331,7 +389,104 @@ def test_the_router_is_registered():
     assert "app.include_router(admin_exam_content_router)" in main
 
 
-def test_replacing_the_cohort_set_is_a_put_not_a_post():
-    """The verb has to say it replaces — a POST here reads as "add one"."""
+def test_replacing_the_cohort_set_is_not_a_post():
+    """POST reads as "add one", which is not what this does. PUT would say it
+    best but is NOT in _CORS_METHODS — adding a verb for one endpoint means a
+    preflight that fails for every client holding a cached one, the exact
+    failure that swallowed a student's paper on 2026-07-26. PATCH it is, with
+    the contract stated in the docstring."""
     src = (BACKEND / "routers" / "admin_exam_content.py").read_text(encoding="utf-8")
-    assert '@router.put("/{kind}/{content_id}/cohorts")' in src
+    assert '@router.patch("/{kind}/{content_id}/cohorts")' in src
+    assert '@router.post("/{kind}/{content_id}/cohorts")' not in src
+    seg = src[src.index("async def set_cohorts("):]
+    assert "Thay TOÀN BỘ" in seg[:600]
+
+
+def test_the_verb_used_by_the_page_is_in_the_cors_allowlist():
+    """A method the allowlist does not carry is blocked in the browser BEFORE it
+    is sent — and nothing server-side ever sees it."""
+    import main as app_main
+    js = (BACKEND.parent / "frontend" / "public" / "js" / "admin-exam-content.js").read_text(encoding="utf-8")
+    for verb, fn in (("PATCH", "window.api.patch("), ("GET", "window.api.get(")):
+        if fn in js:
+            assert verb in app_main._CORS_METHODS, verb
+    assert "window.api.put(" not in js, "api.js has no put(), and PUT is not allowed by CORS"
+
+
+# ── A broken library is NAMED, not silently rendered as empty ─────────
+
+
+def test_a_failed_library_is_reported_to_the_caller(db, monkeypatch):
+    """Keeping the other two visible is right, but a silent partial reads exactly
+    like "there is no content" — and an admin then chooses a paper from an
+    incomplete list without knowing it (Codex review, PR #864)."""
+    _seed_three(db)
+    real = db.table
+
+    def flaky(name):
+        if name == "listening_tests":
+            raise RuntimeError("postgrest down")
+        return real(name)
+
+    monkeypatch.setattr(svc, "supabase_admin",
+                        type("D", (), {"table": staticmethod(flaky)})())
+    out = svc.list_exam_content()
+    assert {r["kind"] for r in out["items"]} == {"reading", "writing"}
+    assert out["failed_kinds"] == ["listening"]
+
+
+def test_a_healthy_run_reports_no_failures(db):
+    _seed_three(db)
+    assert svc.list_exam_content()["failed_kinds"] == []
+
+
+def test_the_endpoint_passes_the_failure_through():
+    """A field the API never returns cannot warn anybody."""
+    src = (BACKEND / "routers" / "admin_exam_content.py").read_text(encoding="utf-8")
+    assert '"failed_kinds": res["failed_kinds"]' in src
+
+
+def test_assigning_to_missing_content_is_a_404_not_a_500():
+    src = (BACKEND / "routers" / "admin_exam_content.py").read_text(encoding="utf-8")
+    seg = src[src.index("async def set_cohorts("):]
+    assert "except LookupError as e:" in seg
+    assert "HTTPException(404" in seg
+
+
+# ── Migration 172 ─────────────────────────────────────────────────────
+
+
+def _mig172() -> str:
+    return (BACKEND / "migrations" / "172_fn_set_exam_content_cohorts.sql").read_text(encoding="utf-8")
+
+
+def test_the_replacement_happens_in_one_statement():
+    """Both the delete and the insert must be inside the SAME statement — as two
+    calls, a failing delete left {old ∪ new} persisted while the request
+    reported an error."""
+    sql = _mig172()
+    body = sql[sql.index("WITH wanted AS"):sql.index("RETURN jsonb_build_object")]
+    assert "DELETE FROM exam_content_cohorts" in body
+    assert "INSERT INTO exam_content_cohorts" in body
+
+
+def test_re_sending_the_same_set_is_a_no_op_at_the_database():
+    """The admin screen sends the whole state on every save; a double-click must
+    not rewrite rows that are already right."""
+    assert "ON CONFLICT (content_kind, content_id, cohort_id) DO NOTHING" in _mig172()
+
+
+def test_the_kind_is_validated():
+    assert "p_kind NOT IN ('reading', 'listening', 'writing')" in _mig172()
+
+
+def test_it_is_backend_only():
+    sql = _mig172()
+    assert "SECURITY DEFINER" in sql
+    assert "SET search_path = public, pg_temp" in sql
+    assert re.search(r"REVOKE\s+EXECUTE[\s\S]{0,120}FROM\s+PUBLIC,\s*anon,\s*authenticated", sql)
+    assert re.search(r"GRANT\s+EXECUTE[\s\S]{0,120}TO\s+service_role", sql)
+
+
+def test_the_reverse_is_written_down_172():
+    assert "TO REVERSE" in _mig172()

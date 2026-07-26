@@ -73,10 +73,43 @@
     <div id="exam-list"></div>
   </div>
 
+
+    <!-- Đợt 3 — Đề kỳ thi: cấp khoá + lớp, ngay TRÊN trang tạo đề chứ không
+         phải một trang riêng. Admin chọn đề ở đây; bảng tra cứu phải ở cùng
+         chỗ với việc nó phục vụ, không thì lại là một trang nữa phải nhớ. -->
+    <div class="me-card" id="ec-card">
+      <h2>Đề kỳ thi — cấp khoá &amp; lớp</h2>
+      <p class="me-muted" style="margin-bottom:12px">
+        Đề dành riêng cho kỳ thi (ẩn khỏi thư viện học viên). Đặt <b>cấp khoá</b>
+        và <b>lớp</b> để biết đề nào dùng cho lớp nào.
+      </p>
+      <div class="me-row" style="gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <select id="ec-kind">
+          <option value="">Tất cả kỹ năng</option>
+          <option value="reading">Reading</option>
+          <option value="listening">Listening</option>
+          <option value="writing">Writing</option>
+        </select>
+        <select id="ec-level"><option value="">Tất cả cấp khoá</option></select>
+        <select id="ec-cohort"><option value="">Tất cả lớp</option></select>
+        <label class="me-muted" style="display:flex;align-items:center;gap:6px">
+          <input type="checkbox" id="ec-exam-only" checked> chỉ đề dành cho kỳ thi
+        </label>
+        <button type="button" class="av-btn" id="ec-reload">Tải lại</button>
+      </div>
+      <!-- A library that failed to load is NAMED here, never rendered as an
+           empty list: an admin choosing a paper from a silently short list is
+           the failure this whole screen exists to prevent. -->
+      <p id="ec-warn" class="me-muted" hidden
+         style="color:var(--av-error);font-weight:600"></p>
+      <div id="ec-list" class="me-muted">Đang tải…</div>
+    </div>
+
   <script src="https://unpkg.com/@supabase/supabase-js@2.107.0"></script>
   <script src="/js/runtime-config.js"></script>
   <script src="/js/api.js"></script>
   <script src="/js/toast.js"></script>
   <script src="/js/admin-mock-exams.js"></script>
+  <script src="/js/admin-exam-content.js"></script>
 </body>
 </html>
