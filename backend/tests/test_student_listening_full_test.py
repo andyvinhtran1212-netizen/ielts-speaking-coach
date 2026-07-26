@@ -359,6 +359,10 @@ def _seed_test(fake, **overrides):
         "assembled_audio_storage_path": None,
         "cue_points":                   [],
         "test_type":                    "full",   # mig 157 — cột thật
+        # Mig 170 — NOT NULL DEFAULT false trong prod, nên seed phải có mặt:
+        # thiếu khoá thì .eq("exam_only", False) không khớp và bài test xanh/đỏ
+        # vì lý do sai, không phải vì hành vi.
+        "exam_only":                    False,
         "created_at":                   "2026-05-21T00:00:00Z",
     }
     row.update(overrides)

@@ -1656,6 +1656,8 @@ class ListeningTestPatchRequest(BaseModel):
     band_target:    Optional[float]            = None
     accent_profile: Optional[list[str]]        = None
     themes:         Optional[dict[str, str]]   = None
+    # Dành riêng cho kỳ thi thử — ẩn khỏi thư viện học viên (mig 170).
+    exam_only:      Optional[bool]              = None
 
 
 class ListeningTestStatusPatchRequest(BaseModel):
@@ -1883,6 +1885,9 @@ async def admin_patch_listening_test(
         if not title:
             raise HTTPException(422, "title must not be empty")
         update["title"] = title
+
+    if body.exam_only is not None:
+        update["exam_only"] = bool(body.exam_only)
 
     if body.version is not None:
         update["version"] = body.version.strip() or "1.0"
@@ -3712,8 +3717,12 @@ async def list_published_listening_tests(
         q = q.eq("test_type", "drill")
     else:
         q = q.eq("test_type", "full")
-    # Exclusivity: a listening test chosen for a 4-skill mock is reserved to it —
-    # hide it from the normal practice list.
+    # Reserved for a mock exam — never in the practice list (mig 170). The
+    # PERMANENT flag: unlike reserved_test_ids below it survives the exam being
+    # archived, which used to republish the paper to the next cohort.
+    q = q.eq("exam_only", False)
+    # Kept alongside it: a test assigned to a live exam by an admin who did not
+    # tick the flag is still hidden, immediately, with no backfill needed.
     from services import mock_exam_service
     _reserved = mock_exam_service.reserved_test_ids("listening")
     if _reserved:
@@ -3779,6 +3788,25 @@ async def list_published_listening_tests(
     }
 
 
+def _assert_listening_exam_content_allowed(test: dict, user_id) -> None:
+    """A test reserved for mock exams is served ONLY to a student sitting one.
+
+    Hiding it from the browse list is not enough — a direct link went straight
+    through the detail / dictation / attempt-start endpoints. But the mock runner
+    loads Listening through these SAME student endpoints, so a blanket refusal
+    would break the exam this flag protects: the entitlement is the sitting
+    (mig 170).
+
+    404, not 403: to anyone without a sitting the paper does not exist, and
+    "forbidden" would confirm the test id is real.
+    """
+    if not test.get("exam_only"):
+        return
+    from services import mock_exam_service
+    if not mock_exam_service.user_may_open_exam_content(user_id, "listening", test.get("id")):
+        raise HTTPException(404, "Test bundle not found or not published")
+
+
 @user_router.get("/tests/{test_id}")
 async def get_published_listening_test(
     test_id: str,
@@ -3806,6 +3834,7 @@ async def get_published_listening_test(
     if not res.data:
         raise HTTPException(404, "Test bundle not found or not published")
     test = res.data[0]
+    _assert_listening_exam_content_allowed(test, _user.get("id"))
 
     audio_url, audio_path, audio_duration = _student_audio_url_for_test(test)
     if not audio_url:
@@ -3968,7 +3997,7 @@ async def get_listening_test_dictation(
     (``GET /tests/{id}``) which strips transcripts to prevent students
     reading the answers during a graded attempt.
     """
-    await _require_auth(authorization)
+    _user = await _require_auth(authorization)
 
     res = (
         supabase_admin.table("listening_tests")
@@ -3981,6 +4010,7 @@ async def get_listening_test_dictation(
     if not res.data:
         raise HTTPException(404, "Test bundle not found or not published")
     test = res.data[0]
+    _assert_listening_exam_content_allowed(test, _user.get("id"))
 
     audio_url, audio_path, audio_duration = _student_audio_url_for_test(test)
     if not audio_url:
@@ -4049,22 +4079,14 @@ async def grade_listening_test_dictation(
     text. Returns the same shape as the content-based dictation grader so
     the frontend diff renderer is reused verbatim.
     """
-    await _require_auth(authorization)
+    _user = await _require_auth(authorization)
 
     # Gate on published status BEFORE reading any transcript. grade_dictation
     # echoes the missed reference words back in the diff, so an authenticated
     # user with a draft test ID could otherwise extract its transcript
     # sentence by sentence — even though the boot endpoint 404s on drafts.
-    test_res = (
-        supabase_admin.table("listening_tests")
-        .select("id")
-        .eq("id", body.test_id)
-        .eq("status", "published")
-        .limit(1)
-        .execute()
-    )
-    if not test_res.data:
-        raise HTTPException(404, "Test bundle not found or not published")
+    # Shared loader: published + exam_only, both BEFORE any transcript read.
+    _published_test_for_dictation(body.test_id, _user.get("id"))
 
     sec_res = (
         supabase_admin.table("listening_content")
@@ -4097,16 +4119,29 @@ async def grade_listening_test_dictation(
 # ── Dictation completion report (persisted) + content flags ──────────
 
 
-def _published_test_for_dictation(test_id: str) -> dict:
-    """Fetch a published test row (id, test_id, title) or 404. Shared gate for
-    the session + flag endpoints — same anti-cheat rule as the grade endpoint."""
+def _published_test_for_dictation(test_id: str, user_id=None) -> dict:
+    """Fetch a published test row (id, test_id, title) or 404 — and enforce the
+    exam_only reservation.
+
+    THE ONE loader for every dictation route. Dictation is built from the
+    section TRANSCRIPT, i.e. the answer key read aloud, and `grade_dictation()`
+    returns the missed `expected` words — so a caller who can hit these routes
+    can reconstruct the paper one sentence index at a time. Gating only the boot
+    route left grade/session/flag wide open (Codex adversarial review,
+    2026-07-26).
+
+    `exam_only` MUST be in the projection: the gate reads it off this row, and a
+    column the query never fetched is always None. That exact mistake shipped
+    four times in this feature.
+    """
     res = (
         supabase_admin.table("listening_tests")
-        .select("id,test_id,title,status")
+        .select("id,test_id,title,status,exam_only")
         .eq("id", test_id).eq("status", "published").limit(1).execute()
     )
     if not res.data:
         raise HTTPException(404, "Test bundle not found or not published")
+    _assert_listening_exam_content_allowed(res.data[0], user_id)
     return res.data[0]
 
 
@@ -4143,7 +4178,7 @@ async def submit_listening_dictation_session(
     if not body.sentences:
         raise HTTPException(422, "Chưa có câu nào để tổng kết.")
 
-    test = _published_test_for_dictation(body.test_id)
+    test = _published_test_for_dictation(body.test_id, user.get("id"))
     sec_res = (
         supabase_admin.table("listening_content")
         .select("title,transcript,metadata")
@@ -4264,7 +4299,7 @@ async def flag_listening_dictation(
     if not category and not note:
         raise HTTPException(422, "Cần chọn loại lỗi hoặc nhập mô tả.")
 
-    test = _published_test_for_dictation(body.test_id)
+    test = _published_test_for_dictation(body.test_id, user.get("id"))
     context = f"[chép chính tả · section {body.section_num}"
     context += f" · câu {body.sentence_idx + 1}]" if body.sentence_idx is not None else "]"
     flag_id = str(uuid.uuid4())
@@ -4633,7 +4668,7 @@ async def start_listening_test_attempt(
     # Verify the test is published + has audio.
     test_res = (
         supabase_admin.table("listening_tests")
-        .select("id,status,full_audio_storage_path,assembled_audio_storage_path")
+        .select("id,status,exam_only,full_audio_storage_path,assembled_audio_storage_path")
         .eq("id", test_id)
         .limit(1)
         .execute()
@@ -4641,6 +4676,7 @@ async def start_listening_test_attempt(
     if not test_res.data or test_res.data[0].get("status") != "published":
         raise HTTPException(404, "Test bundle not found or not published")
     test_row = test_res.data[0]
+    _assert_listening_exam_content_allowed(test_row, user.get("id"))
     if not (test_row.get("full_audio_storage_path")
             or test_row.get("assembled_audio_storage_path")):
         raise HTTPException(422, "Test chưa có audio sẵn sàng.")
