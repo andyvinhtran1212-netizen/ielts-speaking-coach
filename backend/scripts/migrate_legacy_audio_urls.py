@@ -1,5 +1,11 @@
 """Re-home AUDIO URLs off the legacy Supabase project so it can be deleted.
 
+STATUS: run on production 2026-07-26 (5835 rows rewritten, 0 objects copied,
+0 errors) and the legacy project has since been DELETED. This script is kept as
+the record of the fix and as a template for the next decommission — running it
+now is a harmless no-op that reports 0 rows. See the checklist at the end of
+`docs/WRITING_IMAGE_MIGRATION.md` before decommissioning any Supabase project.
+
 Context
 -------
 `docs/SUPABASE_REGION_MIGRATION.md` moved the database to the current Singapore

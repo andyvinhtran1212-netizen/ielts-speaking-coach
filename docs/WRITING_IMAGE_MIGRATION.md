@@ -99,18 +99,32 @@ re-graded (the fallback + fresh image now make it multimodal again).
 
 ## Post-migration
 
-Once the dry run reports **0 legacy URLs** and buckets are verified, the *image*
-half of the legacy debt is clear. **This is not sufficient to delete the old
-project** — see below.
+> ✅ **Done — the legacy project `nqhrtqspznepmveyurzm` was DELETED 2026-07-26.**
+> This section is kept as the record of what it took, because this runbook's
+> original conclusion ("images clear ⇒ safe to delete") was **wrong** and would
+> have broken production.
 
-> ⚠️ **Images were only half the debt (found 2026-07-26).**
-> This runbook covered `prompt_image_url` only. A full sweep of every text/jsonb
-> column found **5835 more rows still pointing at `nqhrtqspznepmveyurzm`**, all
-> **audio**: `responses.audio_url` (5002 — ~81% of all graded Speaking
-> responses), `vocab_cards.audio_headword` / `audio_example` (286 each) and
-> `quiz_questions.audio_url` (261). Deleting the old project with those in place
-> would break audio replay across Speaking, vocab and quiz.
->
-> Clear them with `backend/scripts/migrate_legacy_audio_urls.py`, then confirm
-> **both** scripts' dry runs report 0 before decommissioning per
-> `SUPABASE_REGION_MIGRATION.md`. Until then the old project must stay alive.
+**Images were only half the debt.** This runbook covered `prompt_image_url`
+only. A sweep of every text/jsonb column found **5835 more rows** still pointing
+at the old host, all **audio**: `responses.audio_url` (5002 — ~81% of all graded
+Speaking responses), `vocab_cards.audio_headword` / `audio_example` (286 each)
+and `quiz_questions.audio_url` (261). They were re-homed with
+`backend/scripts/migrate_legacy_audio_urls.py`.
+
+**A hostname sweep is not enough on its own.** It only sees **public** buckets,
+which store a full URL. **Private** buckets (`listening-audio`,
+`listening-images`, `reading-images`, `audio-recordings`, `gold-audio`) are
+served via signed URLs, so the DB stores a **relative path with no hostname** —
+invisible to any `like '%<project-ref>%'` scan. The only way to cover them is to
+diff the two projects' storage object lists. Doing that found 5 objects present
+only on the legacy project; all 5 turned out to be orphans (no exact-path
+reference anywhere), and all 139 private-bucket paths production references were
+confirmed present on production.
+
+> **If you ever decommission a Supabase project again**, the checklist is:
+> 1. hostname sweep of every text/jsonb column (catches public buckets),
+> 2. **storage object-list diff** between the two projects (catches private ones),
+> 3. for anything unique to the old project, match the **exact full path** before
+>    calling it referenced — near-miss filenames like `<uuid>.png` vs
+>    `<uuid>-manual-<ts>.png` make substring/UUID matching lie,
+> 4. verify the inverse too: every path the DB references exists on the new project.
