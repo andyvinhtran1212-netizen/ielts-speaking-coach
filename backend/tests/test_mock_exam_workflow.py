@@ -4811,22 +4811,81 @@ def test_a_live_exam_still_holds_the_seat(fake_db, svc):
     assert "chưa hoàn thành" in str(ei.value)
 
 
-def test_a_paper_with_any_work_on_it_is_never_retired(fake_db, svc):
-    """The one thing this must never do. A student who answered anything — even
-    on an exam that has since finished — owns a paper, and cancelling it would
-    destroy work that the collection path is supposed to grade."""
+_WORK_SAMPLE = {
+    "lrw_started_at":         "2026-07-12T02:00:00+00:00",
+    "listening_started_at":   "2026-07-12T02:00:00+00:00",
+    "reading_started_at":     "2026-07-12T02:00:00+00:00",
+    "writing_started_at":     "2026-07-12T02:00:00+00:00",
+    "listening_submitted_at": "2026-07-12T02:00:00+00:00",
+    "reading_submitted_at":   "2026-07-12T02:00:00+00:00",
+    "writing_submitted_at":   "2026-07-12T02:00:00+00:00",
+    "listening_attempt_id":   "11111111-1111-1111-1111-111111111111",
+    "reading_attempt_id":     "22222222-2222-2222-2222-222222222222",
+    "essay_task1_id":         "33333333-3333-3333-3333-333333333333",
+    "essay_task2_id":         "44444444-4444-4444-4444-444444444444",
+    "writing_submission":     {"task1": {"text": "draft", "word_count": 12}},
+    "speaking_completed_at":  "2026-07-12T02:00:00+00:00",
+    "speaking_session_ids":   ["s1"],
+}
+
+
+@pytest.mark.parametrize("col", list(_WORK_SAMPLE))
+def test_any_single_trace_of_work_blocks_retirement(fake_db, svc, col):
+    """Table-driven ON PURPOSE. The first version of this guard keyed on
+    `{section}_started_at` alone — and start_section() is RETAKE-ONLY, so a
+    SEQUENTIAL student's sitting stays `registered` with every one of those
+    columns null while they work. A student with a bound attempt and 30 answers
+    matched "no work" and was voided (Codex adversarial review, 2026-07-26).
+
+    The original test set listening_started_at — a column sequential never
+    writes — so it passed for the wrong reason. One case per column so an
+    omission is a red test, not a lost paper."""
     old, u, sit = _finished_exam_with_empty_sitting(fake_db, svc)
-    fake_db.table("mock_exam_sittings").update(
-        {"listening_started_at": "2026-07-12T02:00:00+00:00"}).eq(
+    fake_db.table("mock_exam_sittings").update({col: _WORK_SAMPLE[col]}).eq(
         "id", sit["id"]).execute()
 
-    assert svc.retire_abandoned_sittings()["retired"] == 0
+    assert svc.retire_abandoned_sittings()["retired"] == 0, f"{col} was ignored"
     assert svc.get_sitting(sit["id"])["status"] == "registered"
 
-    new = _seed_exam(fake_db)
-    fake_db.table("mock_exams").update({"code": "MOCK-NEW"}).eq("id", new["id"]).execute()
-    with pytest.raises(svc.SittingConflictError):
-        svc.create_sitting(u, "MOCK-NEW")
+
+def test_the_check_and_the_write_agree_on_what_work_is(fake_db, svc):
+    """The compare-and-set has to enforce the same list the branch reads.
+    speaking_session_ids is JSONB NOT NULL DEFAULT '[]', so predicating
+    `.is_(…, "null")` on it would match nothing and silently disable the whole
+    statement — stricter-looking, and doing less."""
+    assert set(svc._WORK_BEARING_NULLABLE_COLS) | {"speaking_session_ids"} \
+        == set(svc._WORK_BEARING_COLS)
+    assert set(_WORK_SAMPLE) == set(svc._WORK_BEARING_COLS), (
+        "a work-bearing column has no test case")
+    # ...and the statement still works at all
+    assert svc.retire_abandoned_sittings()["retired"] == 0
+
+
+def test_a_sequential_student_mid_exam_is_never_retired(fake_db, svc):
+    """The exact production shape Codex found: sequential, still `registered`
+    (status only flips at submit), no per-sitting clock (that is retake-only),
+    but a bound attempt holding real answers."""
+    exam = _seed_exam(fake_db)
+    u = uuid4()
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")           # listening opens
+    aid = str(uuid4())
+    fake_db.seed("listening_test_attempts", {
+        "id": aid, "status": "in_progress",
+        "answers": [{"q_num": n, "user_answer": "cat"} for n in range(1, 31)]})
+    fake_db.table("mock_exam_sittings").update(
+        {"listening_attempt_id": aid}).eq("id", sit["id"]).execute()
+
+    row = svc.get_sitting(sit["id"])
+    assert row["status"] == "registered", "precondition: sequential does not flip yet"
+    assert row.get("listening_started_at") is None, "precondition: retake-only column"
+
+    # The admin walks the exam to the end; the straggler sweep runs in the
+    # BACKGROUND, so the janitor can tick first.
+    fake_db.table("mock_exams").update({"active_section": "done"}).eq(
+        "id", exam["id"]).execute()
+    assert svc.retire_abandoned_sittings()["retired"] == 0
+    assert svc.get_sitting(sit["id"])["status"] != "void", "a real paper was voided"
 
 
 def test_a_student_waiting_between_sections_is_not_retired(fake_db, svc):

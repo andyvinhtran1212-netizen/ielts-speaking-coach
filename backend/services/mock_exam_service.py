@@ -343,15 +343,47 @@ def live_sitting_for_user(user_id: str, exclude_exam_id=None) -> Optional[dict]:
     return None
 
 
+# EVERY column on mock_exam_sittings that can carry, or point at, student work.
+# ONE list, because this is the input to an automatic VOID: anything missing
+# here is a paper that gets destroyed. The first version of this check keyed on
+# `{section}_started_at` alone and was blind for the mode it targets —
+# start_section() is RETAKE-ONLY, so a SEQUENTIAL student's section clock lives
+# on the EXAM row and their sitting stays `registered` with every one of those
+# columns null until they submit. A student mid-exam with a bound attempt and 30
+# answers matched "no work" (Codex adversarial review, 2026-07-26).
+_WORK_BEARING_COLS = (
+    "lrw_started_at",
+    "listening_started_at", "reading_started_at", "writing_started_at",
+    "listening_submitted_at", "reading_submitted_at", "writing_submitted_at",
+    # The real evidence for a SEQUENTIAL student: the runner binds the domain
+    # attempt as soon as the section opens, long before anything is submitted.
+    "listening_attempt_id", "reading_attempt_id",
+    "essay_task1_id", "essay_task2_id",
+    "writing_submission",          # the autosaved draft (mig 149)
+    "speaking_completed_at", "speaking_session_ids",
+)
+
+# The subset the compare-and-set can predicate on. `speaking_session_ids` is
+# JSONB NOT NULL DEFAULT '[]' (mig 146), so `.is_(…, "null")` matches NOTHING
+# and would silently disable the entire statement — the guard would look
+# stricter and do less. Both writers of that column stamp
+# speaking_completed_at in the same update (record_speaking / the admin path),
+# so the nullable stamp is an exact proxy for it.
+_WORK_BEARING_NULLABLE_COLS = tuple(
+    c for c in _WORK_BEARING_COLS if c != "speaking_session_ids"
+)
+
+
 def _is_abandoned(sitting: dict, exam: dict) -> bool:
     """A sitting that can never progress and holds NO work.
 
     Strict on purpose — this decides whether it is safe to cancel a row without
     an admin looking at it, so every clause has to be about the ABSENCE of work:
 
-      · status still `registered` — never even reached lrw_in_progress
-      · no section clock ever started, nothing ever submitted
-      · no Speaking recorded
+      · status still `registered` — never progressed
+      · every work-bearing column empty (see _WORK_BEARING_COLS: stamps AND the
+        attempt/essay/draft pointers, because for a sequential sitting the
+        pointers are the only signal there is)
       · the exam itself is over: a SEQUENTIAL exam walked to `done`
 
     Deliberately NOT keyed on `is_open`: an invigilator closes the toggle
@@ -367,11 +399,7 @@ def _is_abandoned(sitting: dict, exam: dict) -> bool:
         return False
     if is_retake(exam) or (exam.get("active_section") or "not_started") != "done":
         return False
-    for s in _LRW_ORDER:
-        if sitting.get(f"{s}_started_at") or sitting.get(_SUBMITTED_COL[s]):
-            return False
-    return not (sitting.get("speaking_completed_at")
-                or sitting.get("speaking_session_ids"))
+    return not any(sitting.get(c) for c in _WORK_BEARING_COLS)
 
 
 def _retire_abandoned_sitting(sitting: dict, exam: dict) -> bool:
@@ -410,8 +438,13 @@ def _retire_abandoned_sitting(sitting: dict, exam: dict) -> bool:
     q = supabase_admin.table("mock_exam_sittings").update({
         "status": "void", "integrity": audit,
     }).eq("id", str(sitting["id"])).eq("status", "registered")
-    for s in _LRW_ORDER:
-        q = q.is_(f"{s}_started_at", "null").is_(_SUBMITTED_COL[s], "null")
+    for col in _WORK_BEARING_NULLABLE_COLS:
+        # SAME list as the check above (minus the one column that is never
+        # NULL — see the constant). Predicating on a narrower set than
+        # _is_abandoned reads would leave the write able to land on a row the
+        # check would have spared — the guard has to be enforced by the
+        # statement, not only by the branch that leads to it.
+        q = q.is_(col, "null")
     try:
         won = q.execute()
     except Exception:  # noqa: BLE001 — cleanup must never break the caller
