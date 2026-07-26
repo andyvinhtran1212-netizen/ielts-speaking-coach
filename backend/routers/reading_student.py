@@ -547,11 +547,32 @@ def _require_test_unlocked(test: dict, password: str | None) -> None:
         raise HTTPException(403, "Bài thi đang khoá — cần nhập đúng mật khẩu để truy cập.")
 
 
-def _build_reading_test_detail(test_id: str, password: str | None = None) -> dict:
+def _assert_exam_content_allowed(test: dict, user_id) -> None:
+    """A test reserved for mock exams is served ONLY to a student sitting one.
+
+    Hiding it from the browse list is not enough — a direct link (a bookmark, a
+    URL passed between cohorts) went straight through the detail endpoint. But
+    the mock runner itself loads Reading/Listening through these SAME student
+    endpoints, so a blanket refusal would break the exam this flag protects: the
+    entitlement is the sitting (mig 170).
+
+    404, not 403: to anyone without a sitting the paper does not exist, and
+    saying "forbidden" would confirm the test id is real.
+    """
+    if not test.get("exam_only"):
+        return
+    from services import mock_exam_service
+    if not mock_exam_service.user_may_open_exam_content(user_id, "reading", test.get("id")):
+        raise HTTPException(404, "Không tìm thấy đề đọc này.")
+
+
+def _build_reading_test_detail(test_id: str, password: str | None = None,
+                               user_id=None) -> dict:
     """Return the student-safe L3 test bundle with answer keys stripped.
     Enforces the lock gate (F1) then drops the raw metadata (never leak the
     password to the client)."""
     test = dict(_fetch_published_test(test_id))
+    _assert_exam_content_allowed(test, user_id)
     _require_test_unlocked(test, password)
     locked = bool(((test.get("metadata") or {}).get("access") or {}).get("locked"))
     test.pop("metadata", None)
@@ -764,8 +785,12 @@ async def list_reading_tests(
         q = q.eq("test_type", "mini")
     else:
         q = q.eq("test_type", "full")
-    # Exclusivity: a reading test chosen for a 4-skill mock is reserved to it —
-    # hide it from the normal practice browse.
+    # Reserved for a mock exam — never in the practice browse (mig 170). This is
+    # the PERMANENT flag: unlike reserved_test_ids below it survives the exam
+    # being archived, which used to republish the paper to the next cohort.
+    q = q.eq("exam_only", False)
+    # Kept alongside it: a test assigned to a live exam by an admin who did not
+    # tick the flag is still hidden, immediately, with no backfill needed.
     from services import mock_exam_service
     _reserved = mock_exam_service.reserved_test_ids("reading")
     if _reserved:
@@ -794,8 +819,8 @@ async def get_reading_test(
     Q7 (cluster 20.4c approval gate): ONE continuous attempt covers all
     three parts. The exam UI scrolls between them; the backend doesn't
     enforce a per-part lock here — that's a UX call in 20.6."""
-    await _require_auth(authorization)
-    return _build_reading_test_detail(test_id, x_reading_password)
+    user = await _require_auth(authorization)
+    return _build_reading_test_detail(test_id, x_reading_password, user["id"])
 
 
 @router.get("/test/{test_id}/boot")
@@ -812,7 +837,7 @@ async def boot_reading_test(
     ``in_progress`` as either the existing resume payload or ``null``.
     """
     user = await _require_auth(authorization)
-    test = _build_reading_test_detail(test_id, x_reading_password)
+    test = _build_reading_test_detail(test_id, x_reading_password, user["id"])
     in_progress = _fetch_in_progress_payload(
         user["id"], test_id, test, raise_on_missing=False
     )
@@ -849,6 +874,12 @@ async def boot_shared_reading_test(
     student-safe bundle (lock bypassed), and — if the caller already holds an
     anon_id for an in-progress attempt on this test — the resume payload."""
     test = _resolve_share(share_token, by_token=True)
+    if test.get("exam_only"):
+        # A share link is by definition anonymous, so there is no sitting to
+        # check — a mock-exam paper can never be entitled through this route.
+        # An admin who reserved a test after minting a link must not have that
+        # link keep working (mig 170).
+        raise HTTPException(404, "Không tìm thấy đề đọc này.")
     test_text_id = test.get("test_id")
     detail = dict(test)
     detail["locked"] = False              # the valid share token IS the grant (bypass F1)

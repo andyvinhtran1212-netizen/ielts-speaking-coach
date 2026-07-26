@@ -68,6 +68,10 @@ class PromptCreate(BaseModel):
     title:                  str = Field(..., min_length=2, max_length=200)
     difficulty:             Optional[str] = Field(None, pattern=_DIFFICULTY_PATTERN)
     tags:                   list[str]     = Field(default_factory=list, max_length=20)
+    exam_only:              Optional[bool]      = Field(
+        None,
+        description="Dành riêng cho kỳ thi thử — ẩn khỏi ngân hàng đề của học viên (mig 170)",
+    )
     prompt_image_url:       Optional[str] = Field(None, max_length=500)
     prompt_image_public_id: Optional[str] = Field(None, max_length=300)
 
@@ -84,6 +88,10 @@ class PromptUpdate(BaseModel):
     is_active:              Optional[bool]      = None
     prompt_image_url:       Optional[str]       = Field(None, max_length=500)
     prompt_image_public_id: Optional[str]       = Field(None, max_length=300)
+    exam_only:              Optional[bool]      = Field(
+        None,
+        description="Dành riêng cho kỳ thi thử — ẩn khỏi ngân hàng đề của học viên (mig 170)",
+    )
 
 
 class UploadImageResponse(BaseModel):

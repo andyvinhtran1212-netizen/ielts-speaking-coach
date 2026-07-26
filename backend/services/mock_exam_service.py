@@ -2002,6 +2002,39 @@ def admin_list_exams() -> list[dict]:
     return resp.data or []
 
 
+# Content columns on mock_exams → (table, is-a-list-of-prompts).
+_EXAM_CONTENT_COLS = (
+    ("reading_test_id",          "reading_tests"),
+    ("listening_test_id",        "listening_tests"),
+    ("writing_task1_prompt_id",  "writing_prompts"),
+    ("writing_task2_prompt_id",  "writing_prompts"),
+)
+
+
+def _reserve_exam_content(row: dict) -> None:
+    """Flag every test/prompt this exam uses as exam_only (mig 170).
+
+    The admin can tick the flag at upload, but the moment that actually matters
+    is this one: the content is now a live exam paper, and nobody should have to
+    remember a checkbox for it to stop being practisable. Doing it here also
+    makes the flag survive the exam being archived — the hole in
+    reserved_test_ids() that republished last cohort's paper to the next one.
+
+    Best-effort: never let a bookkeeping write fail exam creation. The dynamic
+    reserved_test_ids() filter still hides live-exam content meanwhile.
+    """
+    for col, table in _EXAM_CONTENT_COLS:
+        value = row.get(col)
+        if not value:
+            continue
+        try:
+            supabase_admin.table(table).update({"exam_only": True}).eq(
+                "id", str(value),
+            ).execute()
+        except Exception:  # noqa: BLE001
+            logger.warning("[mock-exam] could not reserve %s=%s in %s", col, value, table)
+
+
 def admin_create_exam(payload: dict, created_by: str) -> dict:
     row = {k: v for k, v in payload.items() if k in _EXAM_WRITABLE}
     if not row.get("code") or not row.get("title"):
@@ -2010,6 +2043,7 @@ def admin_create_exam(payload: dict, created_by: str) -> dict:
     inserted = supabase_admin.table("mock_exams").insert(row).execute()
     if not inserted.data:
         raise MockExamError("Không tạo được mock exam.")
+    _reserve_exam_content(inserted.data[0])
     return inserted.data[0]
 
 
@@ -2073,6 +2107,9 @@ def admin_update_exam(exam_id: str, patch: dict) -> dict:
     ).execute()
     if not resp.data:
         raise NotFoundError(f"Mock exam {exam_id} không tồn tại.")
+    # Swapping a test INTO an exam reserves it too. The old one keeps its flag:
+    # it was an exam paper once, and students who sat it can still review it.
+    _reserve_exam_content(resp.data[0])
     return resp.data[0]
 
 
@@ -3694,6 +3731,45 @@ def reserved_test_ids(kind: str) -> set:
         logger.warning("[mock-exam] reserved_test_ids lookup failed for %s", kind)
         return set()
     return {str(r[col]) for r in (resp.data or []) if r.get(col)}
+
+
+def user_may_open_exam_content(user_id, kind: str, test_id) -> bool:
+    """May THIS student open a test reserved for mock exams (mig 170)?
+
+    Yes exactly when they hold a sitting on an exam that uses it. The mock
+    runner loads Reading/Listening through the ORDINARY student endpoints
+    (/pages/reading-exam.html?test_id=…&mock_embed=1), so a blanket 404 on an
+    exam_only test would break the exam itself — the very thing the flag exists
+    to protect. The sitting IS the entitlement.
+
+    Voided sittings do not count: a cancelled exam grants nothing. Released ones
+    DO — a student reviewing their own finished paper is the intended use.
+
+    Fail CLOSED. If the lookup errors we cannot prove the student is entitled,
+    and serving a reserved paper to someone who might not be is the failure that
+    matters here; the practice library has other content while it recovers.
+    """
+    col = {"reading": "reading_test_id", "listening": "listening_test_id"}.get(kind)
+    if not col or not user_id or not test_id:
+        return False
+    try:
+        exams = supabase_admin.table("mock_exams").select("id").eq(
+            col, str(test_id),
+        ).execute().data or []
+        if not exams:
+            return False
+        rows = supabase_admin.table("mock_exam_sittings").select("id").eq(
+            "user_id", str(user_id),
+        ).in_("mock_exam_id", [e["id"] for e in exams]).neq(
+            "status", "void",
+        ).limit(1).execute().data or []
+        return bool(rows)
+    except Exception:  # noqa: BLE001
+        logger.warning(
+            "[mock-exam] exam-content entitlement lookup failed user=%s %s=%s",
+            user_id, kind, test_id,
+        )
+        return False
 
 
 def admin_available_reading_tests() -> list[dict]:

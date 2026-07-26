@@ -170,6 +170,10 @@ async def get_prompt_bank(
         supabase_admin.table("writing_prompts")
         .select("id, title, prompt_text, task_type, difficulty, prompt_image_url, updated_at")
         .eq("is_active", True)
+        # Reserved for a mock exam — never in the student prompt bank. A prompt
+        # the student can rehearse before the exam makes the exam measure
+        # nothing (mig 170).
+        .eq("exam_only", False)
         .order("created_at", desc=True)
     )
     if task_type:

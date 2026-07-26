@@ -1,0 +1,336 @@
+"""exam_only — nội dung dành riêng cho kỳ thi không lọt ra thư viện học viên.
+
+WHY THIS EXISTS. A reading/listening test or writing prompt staged for a mock
+exam must not be practisable beforehand, or the exam measures nothing.
+
+Something already existed and was NOT enough: reserved_test_ids() hid tests
+assigned to a non-archived mock exam from the two BROWSE LISTS only. Three holes
+this closes (mig 170):
+
+  1. it filtered `status <> 'archived'`, so archiving an exam republished its
+     paper to the next cohort;
+  2. the detail / dictation / attempt-start endpoints never checked it, so a
+     direct link served the paper anyway;
+  3. writing prompts had no equivalent at all.
+
+The delicate part is that the mock runner loads Reading/Listening through the
+SAME student endpoints, so the gate cannot be a blanket refusal — a student with
+a sitting on an exam that uses the test must still be able to sit it. These
+tests pin both directions, because getting it wrong either leaks the paper or
+breaks the exam.
+"""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+import pytest
+
+import services.mock_exam_service as svc_mod
+
+BACKEND = Path(__file__).resolve().parents[1]
+
+
+# ── The entitlement rule ──────────────────────────────────────────────
+
+
+class _Resp:
+    def __init__(self, data):
+        self.data = data
+
+
+class _Q:
+    def __init__(self, rows, fail=False):
+        self._rows, self._fail, self._f = rows, fail, []
+
+    def select(self, *_a, **_k):
+        return self
+
+    def eq(self, c, v):
+        self._f.append((c, v))
+        return self
+
+    def neq(self, c, v):
+        self._f.append((c, ("!=", v)))
+        return self
+
+    def in_(self, c, vs):
+        self._f.append((c, list(vs)))
+        return self
+
+    def limit(self, *_a, **_k):
+        return self
+
+    def execute(self):
+        if self._fail:
+            raise RuntimeError("postgrest down")
+        out = []
+        for r in self._rows:
+            ok = True
+            for c, v in self._f:
+                if isinstance(v, tuple) and v[0] == "!=":
+                    ok = ok and r.get(c) != v[1]
+                elif isinstance(v, list):
+                    ok = ok and r.get(c) in v
+                else:
+                    ok = ok and str(r.get(c)) == str(v)
+            if ok:
+                out.append(r)
+        return _Resp(out)
+
+
+class _DB:
+    def __init__(self, exams, sittings, fail=False):
+        self._t = {"mock_exams": exams, "mock_exam_sittings": sittings}
+        self._fail = fail
+
+    def table(self, name):
+        return _Q(self._t.get(name, []), self._fail)
+
+
+@pytest.fixture()
+def patched_db(monkeypatch):
+    def _install(exams, sittings, fail=False):
+        monkeypatch.setattr(svc_mod, "supabase_admin", _DB(exams, sittings, fail))
+    return _install
+
+
+EXAM = [{"id": "e1", "reading_test_id": "rt1", "listening_test_id": "lt1"}]
+
+
+def test_a_student_sitting_the_exam_may_open_its_paper(patched_db):
+    """The reason this cannot be a blanket 404: the mock runner loads the paper
+    through the ordinary student endpoints."""
+    patched_db(EXAM, [{"id": "s1", "user_id": "u1", "mock_exam_id": "e1",
+                       "status": "lrw_in_progress"}])
+    assert svc_mod.user_may_open_exam_content("u1", "reading", "rt1") is True
+    assert svc_mod.user_may_open_exam_content("u1", "listening", "lt1") is True
+
+
+def test_everyone_else_may_not(patched_db):
+    patched_db(EXAM, [{"id": "s1", "user_id": "u1", "mock_exam_id": "e1",
+                       "status": "lrw_in_progress"}])
+    assert svc_mod.user_may_open_exam_content("u2", "reading", "rt1") is False
+
+
+def test_a_released_sitting_still_grants_it(patched_db):
+    """Reviewing your own finished paper is the intended use."""
+    patched_db(EXAM, [{"id": "s1", "user_id": "u1", "mock_exam_id": "e1",
+                       "status": "released"}])
+    assert svc_mod.user_may_open_exam_content("u1", "reading", "rt1") is True
+
+
+def test_a_voided_sitting_grants_nothing(patched_db):
+    """A cancelled exam is not an entitlement."""
+    patched_db(EXAM, [{"id": "s1", "user_id": "u1", "mock_exam_id": "e1",
+                       "status": "void"}])
+    assert svc_mod.user_may_open_exam_content("u1", "reading", "rt1") is False
+
+
+def test_an_archived_exam_still_grants_it(patched_db):
+    """No status filter on the EXAM, unlike reserved_test_ids — that filter is
+    exactly the hole where archiving an exam republished its paper."""
+    patched_db([{"id": "e1", "reading_test_id": "rt1", "status": "archived"}],
+               [{"id": "s1", "user_id": "u1", "mock_exam_id": "e1",
+                 "status": "released"}])
+    assert svc_mod.user_may_open_exam_content("u1", "reading", "rt1") is True
+
+
+def test_a_lookup_failure_denies(patched_db):
+    """Fail CLOSED: unable to prove entitlement is not the same as having it."""
+    patched_db(EXAM, [], fail=True)
+    assert svc_mod.user_may_open_exam_content("u1", "reading", "rt1") is False
+
+
+@pytest.mark.parametrize("kind,user,test", [
+    ("speaking", "u1", "rt1"),   # not a gated kind
+    ("reading", None, "rt1"),    # anonymous
+    ("reading", "u1", None),
+])
+def test_missing_inputs_deny(patched_db, kind, user, test):
+    patched_db(EXAM, [{"id": "s1", "user_id": "u1", "mock_exam_id": "e1",
+                       "status": "released"}])
+    assert svc_mod.user_may_open_exam_content(user, kind, test) is False
+
+
+# ── Every student door is gated, not just the browse list ─────────────
+#
+# Source sentinels: these endpoints are long, DB-backed and auth-gated, and the
+# regression that matters is a door being LEFT OUT — which is a question about
+# the source, not about one request's behaviour.
+
+
+def _src(rel: str) -> str:
+    return (BACKEND / rel).read_text(encoding="utf-8")
+
+
+def test_the_three_browse_lists_filter_the_flag():
+    assert '.eq("exam_only", False)' in _src("routers/reading_student.py")
+    assert '.eq("exam_only", False)' in _src("routers/listening.py")
+    assert '.eq("exam_only", False)' in _src("routers/writing_student.py")
+
+
+def test_reading_detail_and_share_are_gated():
+    src = _src("routers/reading_student.py")
+    # the shared gate exists and the detail builder calls it
+    assert "def _assert_exam_content_allowed(" in src
+    body = src[src.index("def _build_reading_test_detail("):]
+    assert "_assert_exam_content_allowed(test, user_id)" in body[:600]
+    # …and the anonymous share route refuses outright: no user, no sitting, so
+    # there is nothing that could entitle it
+    share = src[src.index("async def boot_shared_reading_test("):]
+    assert 'if test.get("exam_only"):' in share[:900]
+
+
+def test_reading_detail_receives_the_caller():
+    """A gate that never sees who is asking cannot gate anything — the endpoints
+    must pass the user id down, not call the builder bare."""
+    src = _src("routers/reading_student.py")
+    for call in re.findall(r"_build_reading_test_detail\([^)]*\)", src):
+        if call.startswith("_build_reading_test_detail(test_id"):
+            assert "user" in call, f"caller not threaded: {call}"
+
+
+def test_listening_detail_dictation_and_attempt_start_are_gated():
+    """Dictation matters as much as the paper: it is built from the transcript,
+    which IS the answer key read aloud."""
+    src = _src("routers/listening.py")
+    assert "def _assert_listening_exam_content_allowed(" in src
+    for fn in ("async def get_published_listening_test(",
+               "async def get_listening_test_dictation(",
+               "async def start_listening_test_attempt("):
+        seg = src[src.index(fn):]
+        seg = seg[:seg.index("\n@")] if "\n@" in seg else seg
+        assert "_assert_listening_exam_content_allowed(" in seg, f"{fn} not gated"
+
+
+def test_the_attempt_start_query_actually_selects_the_flag():
+    """A gate reading a column the query never fetched always sees None."""
+    src = _src("routers/listening.py")
+    seg = src[src.index("async def start_listening_test_attempt("):]
+    assert "exam_only" in seg[:seg.index("_assert_listening_exam_content_allowed(")]
+
+
+def test_admins_can_set_the_flag():
+    assert "exam_only" in _src("routers/admin_writing_prompts.py")
+    ls = _src("routers/listening.py")
+    assert 'update["exam_only"] = bool(body.exam_only)' in ls
+
+
+# ── The migration ─────────────────────────────────────────────────────
+
+
+def _mig() -> str:
+    return (BACKEND / "migrations" / "170_exam_only_content.sql").read_text(encoding="utf-8")
+
+
+def test_all_three_tables_get_the_column():
+    sql = _mig()
+    for t in ("reading_tests", "listening_tests", "writing_prompts"):
+        assert re.search(rf"ALTER TABLE {t}\s+ADD COLUMN IF NOT EXISTS exam_only", sql), t
+
+
+def _backfill_statements() -> str:
+    """The backfill SQL with comments stripped — the prose explains WHY there is
+    no status filter, so matching on raw text would assert against itself."""
+    sql = _mig()
+    body = sql[sql.index("-- ── Backfill"):]
+    return "\n".join(l for l in body.splitlines() if not l.lstrip().startswith("--"))
+
+
+def test_the_backfill_ignores_exam_status():
+    """The whole point of the chosen scope: a paper that was sat once stays out
+    of the library after its exam is archived."""
+    stmts = _backfill_statements()
+    assert "archived" not in stmts, "the backfill must not filter on exam status"
+    assert stmts.count("EXISTS (") >= 3
+
+
+def test_the_backfill_does_not_touch_unrelated_practice_content():
+    """Deliberately NOT `WHERE test_type = 'full'` — 6 reading + 7 listening full
+    tests belong to no exam and are real practice material."""
+    assert "test_type" not in _backfill_statements()
+
+
+def test_the_reverse_is_written_down():
+    """The backfill is the only part that changes what students see, so undoing
+    it must not require re-deriving anything."""
+    sql = _mig()
+    assert "TO REVERSE" in sql
+    assert "SET exam_only = false" in sql
+
+
+# ── Assigning content to an exam reserves it, automatically ───────────
+#
+# The tick at upload time is the admin's intent; THIS is the moment that
+# actually matters. Requiring someone to remember a checkbox for a paper to
+# stop being practisable is how the leak comes back.
+
+
+class _RecordingDB:
+    def __init__(self):
+        self.updates = []
+        self._pending = None
+
+    def table(self, name):
+        self._pending = name
+        return self
+
+    def update(self, payload):
+        self._payload = payload
+        return self
+
+    def insert(self, payload):
+        self._payload = payload
+        self._insert = True
+        return self
+
+    def eq(self, c, v):
+        self._eq = (c, v)
+        return self
+
+    def execute(self):
+        if getattr(self, "_insert", False):
+            self._insert = False
+            return _Resp([dict(self._payload, id="e1")])
+        self.updates.append((self._pending, self._payload, getattr(self, "_eq", None)))
+        return _Resp([{"id": "e1"}])
+
+
+def test_creating_an_exam_reserves_every_paper_it_uses(monkeypatch):
+    db = _RecordingDB()
+    monkeypatch.setattr(svc_mod, "supabase_admin", db)
+    svc_mod.admin_create_exam({
+        "code": "X", "title": "X",
+        "reading_test_id": "rt1", "listening_test_id": "lt1",
+        "writing_task1_prompt_id": "wp1", "writing_task2_prompt_id": "wp2",
+    }, created_by="admin")
+    reserved = {(t, e[1]) for t, p, e in db.updates if p == {"exam_only": True}}
+    assert reserved == {
+        ("reading_tests", "rt1"), ("listening_tests", "lt1"),
+        ("writing_prompts", "wp1"), ("writing_prompts", "wp2"),
+    }
+
+
+def test_an_exam_with_no_content_reserves_nothing(monkeypatch):
+    db = _RecordingDB()
+    monkeypatch.setattr(svc_mod, "supabase_admin", db)
+    svc_mod.admin_create_exam({"code": "X", "title": "X"}, created_by="admin")
+    assert not [u for u in db.updates if u[1] == {"exam_only": True}]
+
+
+def test_reserving_never_breaks_exam_creation(monkeypatch):
+    """Bookkeeping must not be able to fail the operator's actual action — the
+    dynamic reserved_test_ids() filter still hides live-exam content meanwhile."""
+    class _Broken(_RecordingDB):
+        def execute(self):
+            if getattr(self, "_insert", False):
+                self._insert = False
+                return _Resp([{"id": "e1", "reading_test_id": "rt1"}])
+            raise RuntimeError("postgrest down")
+
+    monkeypatch.setattr(svc_mod, "supabase_admin", _Broken())
+    out = svc_mod.admin_create_exam(
+        {"code": "X", "title": "X", "reading_test_id": "rt1"}, created_by="admin")
+    assert out["id"] == "e1"
