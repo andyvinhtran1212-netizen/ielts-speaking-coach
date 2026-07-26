@@ -1266,12 +1266,24 @@ async def admin_preview_reading_test(
 
     await require_admin(authorization)
 
+    # Keyed by the HUMAN test_id first — that is the canonical identity across
+    # this whole admin surface (_normalise_l3_test_row sets slug = test_id, and
+    # the admin list links by it). Keying only on the internal UUID made the
+    # advertised preview 404 from every link the admin list produces
+    # (Codex review, PR #863). A UUID is still accepted so either link works;
+    # test_id is TEXT UNIQUE and id is UUID, so the two can never collide.
     test_res = (
         supabase_admin.table("reading_tests").select("id,module")
-        .eq("id", test_uuid).limit(1).execute()
+        .eq("test_id", test_uuid).limit(1).execute()
     )
     if not test_res.data:
+        test_res = (
+            supabase_admin.table("reading_tests").select("id,module")
+            .eq("id", test_uuid).limit(1).execute()
+        )
+    if not test_res.data:
         raise HTTPException(404, "Không tìm thấy đề đọc này.")
+    test_uuid = test_res.data[0]["id"]      # everything below wants the UUID
 
     passages = (
         supabase_admin.table("reading_passages").select("id,passage_order")
