@@ -4079,22 +4079,14 @@ async def grade_listening_test_dictation(
     text. Returns the same shape as the content-based dictation grader so
     the frontend diff renderer is reused verbatim.
     """
-    await _require_auth(authorization)
+    _user = await _require_auth(authorization)
 
     # Gate on published status BEFORE reading any transcript. grade_dictation
     # echoes the missed reference words back in the diff, so an authenticated
     # user with a draft test ID could otherwise extract its transcript
     # sentence by sentence — even though the boot endpoint 404s on drafts.
-    test_res = (
-        supabase_admin.table("listening_tests")
-        .select("id")
-        .eq("id", body.test_id)
-        .eq("status", "published")
-        .limit(1)
-        .execute()
-    )
-    if not test_res.data:
-        raise HTTPException(404, "Test bundle not found or not published")
+    # Shared loader: published + exam_only, both BEFORE any transcript read.
+    _published_test_for_dictation(body.test_id, _user.get("id"))
 
     sec_res = (
         supabase_admin.table("listening_content")
@@ -4127,16 +4119,29 @@ async def grade_listening_test_dictation(
 # ── Dictation completion report (persisted) + content flags ──────────
 
 
-def _published_test_for_dictation(test_id: str) -> dict:
-    """Fetch a published test row (id, test_id, title) or 404. Shared gate for
-    the session + flag endpoints — same anti-cheat rule as the grade endpoint."""
+def _published_test_for_dictation(test_id: str, user_id=None) -> dict:
+    """Fetch a published test row (id, test_id, title) or 404 — and enforce the
+    exam_only reservation.
+
+    THE ONE loader for every dictation route. Dictation is built from the
+    section TRANSCRIPT, i.e. the answer key read aloud, and `grade_dictation()`
+    returns the missed `expected` words — so a caller who can hit these routes
+    can reconstruct the paper one sentence index at a time. Gating only the boot
+    route left grade/session/flag wide open (Codex adversarial review,
+    2026-07-26).
+
+    `exam_only` MUST be in the projection: the gate reads it off this row, and a
+    column the query never fetched is always None. That exact mistake shipped
+    four times in this feature.
+    """
     res = (
         supabase_admin.table("listening_tests")
-        .select("id,test_id,title,status")
+        .select("id,test_id,title,status,exam_only")
         .eq("id", test_id).eq("status", "published").limit(1).execute()
     )
     if not res.data:
         raise HTTPException(404, "Test bundle not found or not published")
+    _assert_listening_exam_content_allowed(res.data[0], user_id)
     return res.data[0]
 
 
@@ -4173,7 +4178,7 @@ async def submit_listening_dictation_session(
     if not body.sentences:
         raise HTTPException(422, "Chưa có câu nào để tổng kết.")
 
-    test = _published_test_for_dictation(body.test_id)
+    test = _published_test_for_dictation(body.test_id, user.get("id"))
     sec_res = (
         supabase_admin.table("listening_content")
         .select("title,transcript,metadata")
@@ -4294,7 +4299,7 @@ async def flag_listening_dictation(
     if not category and not note:
         raise HTTPException(422, "Cần chọn loại lỗi hoặc nhập mô tả.")
 
-    test = _published_test_for_dictation(body.test_id)
+    test = _published_test_for_dictation(body.test_id, user.get("id"))
     context = f"[chép chính tả · section {body.section_num}"
     context += f" · câu {body.sentence_idx + 1}]" if body.sentence_idx is not None else "]"
     flag_id = str(uuid.uuid4())

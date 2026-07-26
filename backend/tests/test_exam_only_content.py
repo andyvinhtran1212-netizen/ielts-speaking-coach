@@ -97,7 +97,7 @@ def patched_db(monkeypatch):
 
 
 EXAM = [{"id": "e1", "reading_test_id": "rt1", "listening_test_id": "lt1",
-         "active_section": "reading"}]
+         "status": "published", "active_section": "reading"}]
 
 
 def test_a_student_sitting_the_open_section_may_open_its_paper(patched_db):
@@ -153,7 +153,7 @@ def test_an_archived_exam_still_grants_a_sat_paper(patched_db):
 
 
 RETAKE = [{"id": "e1", "reading_test_id": "rt1", "listening_test_id": "lt1",
-           "exam_mode": "retake"}]
+           "status": "published", "exam_mode": "retake"}]
 
 
 def test_a_retake_may_open_an_assigned_skill_it_has_started(patched_db):
@@ -433,3 +433,95 @@ def test_reading_has_a_way_to_set_the_flag_before_assignment():
     assert "require_admin(authorization)" in seg
     assert '.update({"exam_only": value})' in seg
     assert "404" in seg
+
+
+# ── Doors I did not think of ──────────────────────────────────────────
+#
+# Codex adversarial review, 2026-07-26. Gating the list + detail + boot routes
+# left THREE writeable doors open, and each of them ends with the answer key:
+#
+#   · POST /api/reading/test/{id}/attempts — the attempt is then OWNED, and the
+#     review endpoint trusts ownership, not exam entitlement. Blank-submit →
+#     passages, expected answers, solutions.
+#   · POST /api/reading/test/share/{token}/attempts — same, anonymously, for any
+#     share token minted before the paper was reserved.
+#   · POST /api/listening/tests/dictation/grade — dictation is built from the
+#     TRANSCRIPT (the answer key read aloud) and returns the missed `expected`
+#     words, so the paper can be reconstructed one sentence index at a time.
+#
+# Enumerating doors by reading the code paths I happened to think of is what
+# missed them. These pin the doors themselves.
+
+
+def test_starting_a_reading_attempt_is_gated():
+    src = _src("routers/reading_student.py")
+    seg = src[src.index("async def start_reading_test_attempt("):]
+    seg = seg[:seg.index("\n@")]
+    assert '_assert_exam_content_allowed(test, user["id"])' in seg
+    # …and BEFORE anything is written, not after
+    assert seg.index("_assert_exam_content_allowed") < seg.index(".insert(")
+
+
+def test_starting_a_shared_reading_attempt_is_gated():
+    """Anonymous by definition — there is no sitting that could entitle it."""
+    src = _src("routers/reading_student.py")
+    seg = src[src.index("async def start_shared_reading_test_attempt("):]
+    seg = seg[:seg.index("\n@")]
+    assert 'if test.get("exam_only"):' in seg
+    assert seg.index('exam_only') < seg.index(".insert(")
+
+
+def test_every_dictation_route_goes_through_the_one_gated_loader():
+    """Structural, not per-route: dictation exposes the transcript, so a NEW
+    dictation route must inherit the gate instead of needing someone to remember
+    it. The shared loader is the only way in."""
+    src = _src("routers/listening.py")
+    loader = src[src.index("def _published_test_for_dictation("):]
+    loader = loader[:loader.index("\ndef ", 1)]
+    assert "exam_only" in loader, "the loader must project the column it gates on"
+    assert "_assert_listening_exam_content_allowed(" in loader
+
+    for fn in ("async def grade_listening_test_dictation(",
+               "async def submit_listening_dictation_session(",
+               "async def flag_listening_dictation("):
+        seg = src[src.index(fn):]
+        # Stop at the next top-level definition OR decorator, whichever comes
+        # first: a plain helper can sit between two routes, and slicing only on
+        # "\n@" swallows it — which made this assertion read the loader's own
+        # body and fail against itself.
+        ends = [x for x in (seg.find("\n@", 1), seg.find("\ndef ", 1),
+                            seg.find("\nasync def ", 1)) if x > 0]
+        seg = seg[:min(ends)] if ends else seg
+        assert "_published_test_for_dictation(" in seg, f"{fn} bypasses the loader"
+        assert 'table("listening_tests")' not in seg, \
+            f"{fn} loads the test itself instead of using the gated loader"
+
+
+def test_an_archived_exam_stops_handing_out_an_unsat_paper(patched_db):
+    """mig 170 backfilled archived exams' content ON PURPOSE, and `status` is
+    admin-writable — so an archived exam left sitting at active_section='reading'
+    would go on granting its paper forever."""
+    patched_db([{"id": "e1", "reading_test_id": "rt1",
+                 "status": "archived", "active_section": "reading"}],
+               [{"id": "s1", "user_id": "u1", "mock_exam_id": "e1",
+                 "status": "lrw_in_progress"}])
+    assert svc_mod.user_may_open_exam_content("u1", "reading", "rt1") is False
+
+
+def test_but_a_sat_paper_survives_archiving(patched_db):
+    """The submitted branch is checked BEFORE the live-exam rule — reviewing your
+    own finished paper must keep working after the exam is archived."""
+    patched_db([{"id": "e1", "reading_test_id": "rt1",
+                 "status": "archived", "active_section": "done"}],
+               [{"id": "s1", "user_id": "u1", "mock_exam_id": "e1",
+                 "status": "released",
+                 "reading_submitted_at": "2026-07-26T00:00:00+00:00"}])
+    assert svc_mod.user_may_open_exam_content("u1", "reading", "rt1") is True
+
+
+def test_a_draft_exam_grants_nothing_unsat(patched_db):
+    patched_db([{"id": "e1", "reading_test_id": "rt1",
+                 "status": "draft", "active_section": "reading"}],
+               [{"id": "s1", "user_id": "u1", "mock_exam_id": "e1",
+                 "status": "lrw_in_progress"}])
+    assert svc_mod.user_may_open_exam_content("u1", "reading", "rt1") is False

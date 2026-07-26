@@ -3755,6 +3755,15 @@ def _sitting_may_open_section(sitting: dict, exam: dict, section: str) -> bool:
         return False
     if sitting.get(col):
         return True
+    # Everything BELOW this line is "not submitted yet", i.e. a paper the student
+    # has not earned the right to keep. That needs a LIVE exam, not just a
+    # matching field: mig 170 deliberately backfilled archived exams' content and
+    # `status` is admin-writable, so an archived or abandoned exam left sitting at
+    # active_section='reading' would go on handing out its paper forever (Codex
+    # adversarial review, 2026-07-26). A submitted section is unaffected — it
+    # returned True above, which is what keeps review working after archiving.
+    if (exam.get("status") or "draft") != "published":
+        return False
     if is_retake(exam):
         if section not in _sitting_sections(sitting, exam):
             return False
