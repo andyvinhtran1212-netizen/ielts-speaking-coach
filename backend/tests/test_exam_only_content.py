@@ -96,16 +96,26 @@ def patched_db(monkeypatch):
     return _install
 
 
-EXAM = [{"id": "e1", "reading_test_id": "rt1", "listening_test_id": "lt1"}]
+EXAM = [{"id": "e1", "reading_test_id": "rt1", "listening_test_id": "lt1",
+         "active_section": "reading"}]
 
 
-def test_a_student_sitting_the_exam_may_open_its_paper(patched_db):
+def test_a_student_sitting_the_open_section_may_open_its_paper(patched_db):
     """The reason this cannot be a blanket 404: the mock runner loads the paper
-    through the ordinary student endpoints."""
+    through the ordinary student endpoints — but only for the section the
+    invigilator has actually opened."""
     patched_db(EXAM, [{"id": "s1", "user_id": "u1", "mock_exam_id": "e1",
                        "status": "lrw_in_progress"}])
     assert svc_mod.user_may_open_exam_content("u1", "reading", "rt1") is True
-    assert svc_mod.user_may_open_exam_content("u1", "listening", "lt1") is True
+
+
+def test_a_section_the_room_has_not_reached_is_refused(patched_db):
+    """Holding a sitting is not entitlement to every paper the exam binds. A
+    registered student could otherwise read the Listening paper while the room
+    is still on Reading (Codex review, PR #862)."""
+    patched_db(EXAM, [{"id": "s1", "user_id": "u1", "mock_exam_id": "e1",
+                       "status": "lrw_in_progress"}])
+    assert svc_mod.user_may_open_exam_content("u1", "listening", "lt1") is False
 
 
 def test_everyone_else_may_not(patched_db):
@@ -114,10 +124,13 @@ def test_everyone_else_may_not(patched_db):
     assert svc_mod.user_may_open_exam_content("u2", "reading", "rt1") is False
 
 
-def test_a_released_sitting_still_grants_it(patched_db):
-    """Reviewing your own finished paper is the intended use."""
-    patched_db(EXAM, [{"id": "s1", "user_id": "u1", "mock_exam_id": "e1",
-                       "status": "released"}])
+def test_a_section_already_submitted_stays_open(patched_db):
+    """They sat it — reviewing their own paper is the intended use, and it is
+    what keeps a released sitting working after the exam has moved on."""
+    patched_db([{"id": "e1", "reading_test_id": "rt1", "active_section": "done"}],
+               [{"id": "s1", "user_id": "u1", "mock_exam_id": "e1",
+                 "status": "released",
+                 "reading_submitted_at": "2026-07-26T00:00:00+00:00"}])
     assert svc_mod.user_may_open_exam_content("u1", "reading", "rt1") is True
 
 
@@ -128,13 +141,45 @@ def test_a_voided_sitting_grants_nothing(patched_db):
     assert svc_mod.user_may_open_exam_content("u1", "reading", "rt1") is False
 
 
-def test_an_archived_exam_still_grants_it(patched_db):
+def test_an_archived_exam_still_grants_a_sat_paper(patched_db):
     """No status filter on the EXAM, unlike reserved_test_ids — that filter is
     exactly the hole where archiving an exam republished its paper."""
-    patched_db([{"id": "e1", "reading_test_id": "rt1", "status": "archived"}],
+    patched_db([{"id": "e1", "reading_test_id": "rt1", "status": "archived",
+                 "active_section": "done"}],
                [{"id": "s1", "user_id": "u1", "mock_exam_id": "e1",
-                 "status": "released"}])
+                 "status": "released",
+                 "reading_submitted_at": "2026-07-26T00:00:00+00:00"}])
     assert svc_mod.user_may_open_exam_content("u1", "reading", "rt1") is True
+
+
+RETAKE = [{"id": "e1", "reading_test_id": "rt1", "listening_test_id": "lt1",
+           "exam_mode": "retake"}]
+
+
+def test_a_retake_may_open_an_assigned_skill_it_has_started(patched_db):
+    patched_db(RETAKE, [{"id": "s1", "user_id": "u1", "mock_exam_id": "e1",
+                         "status": "lrw_in_progress",
+                         "assigned_skills": ["reading"],
+                         "reading_started_at": "2026-07-26T00:00:00+00:00"}])
+    assert svc_mod.user_may_open_exam_content("u1", "reading", "rt1") is True
+
+
+def test_a_retake_may_not_open_a_skill_it_was_never_assigned(patched_db):
+    """The exam binds a Listening test; this student was given Reading only."""
+    patched_db(RETAKE, [{"id": "s1", "user_id": "u1", "mock_exam_id": "e1",
+                         "status": "lrw_in_progress",
+                         "assigned_skills": ["reading"],
+                         "reading_started_at": "2026-07-26T00:00:00+00:00"}])
+    assert svc_mod.user_may_open_exam_content("u1", "listening", "lt1") is False
+
+
+def test_a_retake_may_not_open_an_assigned_skill_before_starting_it(patched_db):
+    """Retake is self-paced, so 'started' is the moment the clock begins — before
+    that the paper is not theirs to read."""
+    patched_db(RETAKE, [{"id": "s1", "user_id": "u1", "mock_exam_id": "e1",
+                         "status": "registered",
+                         "assigned_skills": ["reading", "listening"]}])
+    assert svc_mod.user_may_open_exam_content("u1", "reading", "rt1") is False
 
 
 def test_a_lookup_failure_denies(patched_db):
@@ -150,7 +195,7 @@ def test_a_lookup_failure_denies(patched_db):
 ])
 def test_missing_inputs_deny(patched_db, kind, user, test):
     patched_db(EXAM, [{"id": "s1", "user_id": "u1", "mock_exam_id": "e1",
-                       "status": "released"}])
+                       "status": "lrw_in_progress"}])
     assert svc_mod.user_may_open_exam_content(user, kind, test) is False
 
 
@@ -334,3 +379,57 @@ def test_reserving_never_breaks_exam_creation(monkeypatch):
     out = svc_mod.admin_create_exam(
         {"code": "X", "title": "X", "reading_test_id": "rt1"}, created_by="admin")
     assert out["id"] == "e1"
+
+
+# ── A gate reading a column the query never fetched is no gate ────────
+#
+# The reading gate shipped dead: _fetch_published_test() and _resolve_share()
+# project explicit column lists that omitted exam_only, so `test.get("exam_only")`
+# was always None and every reserved paper went straight through (Codex review,
+# PR #862). The listening side already had this test; reading did not — which is
+# precisely why only reading broke.
+
+
+def test_every_reading_projection_feeding_the_gate_selects_the_flag():
+    """Any query whose row reaches _assert_exam_content_allowed must fetch the
+    column, or the guard silently passes."""
+    src = _src("routers/reading_student.py")
+    for fn in ("def _fetch_published_test(", "def _resolve_share("):
+        seg = src[src.index(fn):]
+        seg = seg[:seg.index("\ndef ", 1)]
+        # Comments in this function EXPLAIN the requirement, so matching raw text
+        # would assert against the explanation instead of the query. Strip them
+        # and look only at what is actually inside .select(...).
+        code = "\n".join(l for l in seg.splitlines() if not l.lstrip().startswith("#"))
+        projected = "".join(re.findall(r'\.select\(([\s\S]*?)\)', code))
+        assert "exam_only" in projected, f"{fn} does not project exam_only"
+
+
+def test_prompt_creation_never_writes_a_null_into_the_not_null_column():
+    """create_prompt() serialises the WHOLE model, so an Optional[...] = None here
+    becomes an explicit NULL and every prompt creation fails — including from the
+    current admin page, which does not send the field at all."""
+    from routers.admin_writing_prompts import PromptCreate
+    dumped = PromptCreate(
+        task_type="task2", prompt_text="x" * 20, title="tiêu đề",
+    ).model_dump()
+    assert dumped["exam_only"] is False, dumped["exam_only"]
+
+
+def test_the_update_model_still_allows_omitting_it():
+    """PATCH uses exclude_unset + drops None, so Optional is right THERE — the
+    two models differ on purpose."""
+    from routers.admin_writing_prompts import PromptUpdate
+    assert PromptUpdate().model_dump(exclude_unset=True) == {}
+
+
+def test_reading_has_a_way_to_set_the_flag_before_assignment():
+    """Listening and writing could stage a paper as exam-only; reading could not,
+    so a future exam paper stayed public until an exam referenced it."""
+    src = _src("routers/admin_reading.py")
+    assert '@router.post("/tests/{test_id}/exam-only")' in src
+    seg = src[src.index("async def admin_set_reading_exam_only("):]
+    seg = seg[:seg.index("\n@")]
+    assert "require_admin(authorization)" in seg
+    assert '.update({"exam_only": value})' in seg
+    assert "404" in seg

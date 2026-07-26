@@ -809,6 +809,35 @@ def _gen_test_password() -> str:
     return grp() + "-" + grp()
 
 
+@router.post("/tests/{test_id}/exam-only")
+async def admin_set_reading_exam_only(
+    test_id: str,
+    body: dict,
+    authorization: str | None = Header(default=None),
+):
+    """Giữ riêng một đề đọc cho kỳ thi thử — hoặc trả nó lại thư viện.
+
+    Mig 170 gives listening and writing a way to set the flag but left reading
+    with none, so a paper imported and published for a FUTURE exam stayed in the
+    student library until the moment an exam referenced it — the exact
+    pre-assignment leak the flag exists to close (Codex review, PR #862).
+
+    Keyed by the human test_id the admin list shows, like every other route
+    here — an admin should never have to find a UUID.
+    """
+    await require_admin(authorization)
+    value = bool(body.get("exam_only"))
+    resp = (
+        supabase_admin.table("reading_tests")
+        .update({"exam_only": value})
+        .eq("test_id", test_id)
+        .execute()
+    )
+    if not resp.data:
+        raise HTTPException(404, f"Không tìm thấy đề đọc '{test_id}'.")
+    return {"test_id": test_id, "exam_only": value}
+
+
 @router.post("/tests/{test_id}/lock")
 async def admin_lock_reading_test(
     test_id: str,

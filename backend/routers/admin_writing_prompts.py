@@ -68,8 +68,12 @@ class PromptCreate(BaseModel):
     title:                  str = Field(..., min_length=2, max_length=200)
     difficulty:             Optional[str] = Field(None, pattern=_DIFFICULTY_PATTERN)
     tags:                   list[str]     = Field(default_factory=list, max_length=20)
-    exam_only:              Optional[bool]      = Field(
-        None,
+    # NOT Optional here, unlike PromptUpdate: create_prompt() serialises the WHOLE
+    # model, so a None would be written as an explicit NULL into a NOT NULL column
+    # (mig 170) and EVERY prompt creation would fail — including from the current
+    # admin page, which does not send this field at all (Codex review, PR #862).
+    exam_only:              bool          = Field(
+        False,
         description="Dành riêng cho kỳ thi thử — ẩn khỏi ngân hàng đề của học viên (mig 170)",
     )
     prompt_image_url:       Optional[str] = Field(None, max_length=500)

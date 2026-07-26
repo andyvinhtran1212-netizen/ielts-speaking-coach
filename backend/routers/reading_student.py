@@ -167,7 +167,11 @@ def _resolve_share(test_id_or_token: str, *, by_token: bool) -> dict:
         res = (
             supabase_admin.table("reading_tests")
             .select("id,test_id,title,module,time_limit_minutes,passage_count,"
-                    "total_questions,band_target,status,updated_at,metadata")
+                    # exam_only MUST be projected: the reservation gate reads it
+                # off this row, and a column the query never fetched is always
+                # None — the gate silently passed everything through
+                # (Codex review, PR #862).
+                "total_questions,band_target,status,updated_at,metadata,exam_only")
             .eq("metadata->share->>token", test_id_or_token)
             .eq("status", "published")
             .limit(1)
@@ -519,7 +523,11 @@ def _fetch_published_test(test_id: str) -> dict:
     res = (
         supabase_admin.table("reading_tests")
         .select("id,test_id,title,module,time_limit_minutes,passage_count,"
-                "total_questions,band_target,status,updated_at,metadata")
+                # exam_only MUST be projected: the reservation gate reads it
+                # off this row, and a column the query never fetched is always
+                # None — the gate silently passed everything through
+                # (Codex review, PR #862).
+                "total_questions,band_target,status,updated_at,metadata,exam_only")
         .eq("test_id", test_id)
         .eq("status", "published")
         .limit(1)
