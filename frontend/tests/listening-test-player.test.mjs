@@ -130,7 +130,10 @@ describe('Sprint 13.5 — player JS contract', () => {
   it('PATCHes answers via /api/listening/tests/attempts/{id}/answers', () => {
     assert.match(
       JS,
-      /window\.api\.patch\(\s*`\/api\/listening\/tests\/attempts\/\$\{encodeURIComponent\(STATE\.attemptId\)\}\/answers`/,
+      // patchWith since #837: the save carries an AbortController signal so the
+      // attempt-wide queue can cancel a timed-out request before the next one
+      // starts. Same endpoint, same body.
+      /window\.api\.patchWith\(\s*`\/api\/listening\/tests\/attempts\/\$\{encodeURIComponent\(STATE\.attemptId\)\}\/answers`/,
     );
   });
 
@@ -139,8 +142,14 @@ describe('Sprint 13.5 — player JS contract', () => {
     assert.match(JS, /user_answer:/);
   });
 
-  it('debounces auto-save by 2000ms per gap (last-write-wins)', () => {
-    assert.match(JS, /setTimeout\([\s\S]+?,\s*2000\s*\)/);
+  // A4a (2026-07-25) — was "debounces by 2000ms". The 2s window was 4× Reading's
+  // and made the loss window on a dropped connection correspondingly wider, so
+  // the fix brought Listening to Reading parity at 500ms. Updated rather than
+  // deleted: the last-write-wins clearTimeout contract this also guarded is
+  // still real and still worth pinning.
+  it('debounces auto-save per gap at Reading parity (last-write-wins)', () => {
+    assert.match(JS, /SAVE_DEBOUNCE_MS\s*=\s*500/);
+    assert.match(JS, /setTimeout\([\s\S]+?,\s*SAVE_DEBOUNCE_MS\s*\)/);
     assert.match(JS, /clearTimeout\(STATE\.saveTimers\.get\(qNum\)\)/);
   });
 
