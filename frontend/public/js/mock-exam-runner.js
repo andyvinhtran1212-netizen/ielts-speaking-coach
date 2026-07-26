@@ -791,7 +791,17 @@
         // fail() had already stopped it (Codex review, PR #836).
         var terminal = sit.status === 'void' || sit.status === 'released'
           || (sit.status && sit.status !== 'registered' && sit.status !== 'lrw_in_progress');
-        if (terminal || sit[section + '_submitted_at'] || S.activeSection !== section) {
+        // COLLECTED COUNTS AS DONE. The admin pressing "Thu bài" marks the
+        // pause on the EXAM row immediately, but the sweep that stamps each
+        // sitting runs as a background task — so between the two there is a
+        // window where the backend rejects this submit (409, correctly: the
+        // section is closed) while the refreshed state still shows the same
+        // active_section and a null stamp. Without this the runner treated a
+        // legitimate close as a transient failure, burned the whole backoff
+        // ladder and raised a connection warning over the pause screen the
+        // student is already looking at (Codex review, PR #852).
+        if (terminal || sit[section + '_submitted_at']
+            || S.activeSection !== section || S.collectedSection === section) {
           _submitting = false;
           setConn(null);
           return;                       // genuinely collected / moved on / cancelled
@@ -963,7 +973,10 @@
     if (!_owedSubmit || _submitting) return;
     var section = _owedSubmit;
     var sit = S.sitting || {};
-    if (sit[section + '_submitted_at'] || S.activeSection !== section) {
+    // Same three-way "already done" test as the 409 handler — a section the
+    // admin has collected must not be re-submitted when the link returns.
+    if (sit[section + '_submitted_at'] || S.activeSection !== section
+        || S.collectedSection === section) {
       _owedSubmit = null;               // the sweep or the admin got there first
       setConn(null);
       return;
