@@ -51,10 +51,21 @@ Safety
 - Never deletes anything, on either project.
 - Paginates past the PostgREST 1000-row cap (this repo has been bitten by that
   cap repeatedly — see the vocab_cards incident).
-- Unrecoverable objects (gone from BOTH projects) are reported explicitly. They
-  are still rewritten, because a legacy URL is guaranteed dead once the project
-  is deleted — rewriting loses nothing and lets verification reach a clean 0.
-  Use `--skip-unrecoverable` to leave those rows untouched instead.
+- NEVER rewrites a row whose target object is missing. If a copy fails, the row
+  keeps its legacy URL. This matters because the two failure kinds are not
+  equally harmless:
+    * legacy returned non-200  -> the object is dead on both sides; rewriting
+      would be cosmetic.
+    * legacy SERVED the bytes but the upload failed -> the legacy URL still
+      WORKS, so rewriting it to a target we just confirmed missing would
+      actively break audio that was fine.
+  We cannot always tell them apart (a fetch exception could be either), so both
+  are held back by default and reported separately. `--rewrite-unrecoverable`
+  opts in, and is only appropriate once the legacy project is already deleted.
+- Exit code is a decommission gate: 0 only when NO legacy references remain.
+  Failed DB writes, held-back rows, unparseable URLs and `--limit` truncation
+  all produce a nonzero exit, so `script && next-step` cannot proceed on a
+  partial migration.
 
 Usage
 -----
@@ -62,7 +73,7 @@ Usage
     python -m scripts.migrate_legacy_audio_urls                 # dry run (read-only)
     python -m scripts.migrate_legacy_audio_urls --limit 20      # small canary plan
     python -m scripts.migrate_legacy_audio_urls --execute       # apply
-    python -m scripts.migrate_legacy_audio_urls                 # verify → expect 0
+    python -m scripts.migrate_legacy_audio_urls                 # verify → exit 0
 
 Requires the CURRENT project's SUPABASE_URL + SUPABASE_SERVICE_KEY (already in
 `backend/.env`).
@@ -157,6 +168,33 @@ def to_current(url: str, current_host: str) -> str:
     return url.replace(LEGACY_HOST, current_host)
 
 
+def partition_rows(work: list[dict],
+                   blocked_targets: set) -> tuple[list[dict], list[dict]]:
+    """Split rows into (safe_to_rewrite, held_back).
+
+    A row is held back when its target object is not on the current project.
+    Rewriting such a row would repoint a URL that may still work at one that
+    definitely 404s, so this is the safe default rather than an opt-in.
+    """
+    if not blocked_targets:
+        return list(work), []
+    safe = [w for w in work if w["new"] not in blocked_targets]
+    held = [w for w in work if w["new"] in blocked_targets]
+    return safe, held
+
+
+def remaining_legacy_rows(*, execute: bool, total_legacy: int,
+                          written: int) -> int:
+    """How many DB rows still reference the legacy project after this run.
+
+    Drives the exit code, so an operator can gate a decommission on it. A dry
+    run changes nothing, so everything found is still outstanding.
+    """
+    if not execute:
+        return total_legacy
+    return max(0, total_legacy - written)
+
+
 def _enumerate(supabase_admin, table: str, column: str) -> list[dict]:
     """Every row whose `column` still points at the legacy host, paginated past
     the PostgREST 1000-row cap."""
@@ -214,7 +252,7 @@ def _probe_many(client, urls: list[str], workers: int,
 
 
 def run(execute: bool, limit: Optional[int], workers: int,
-        skip_unrecoverable: bool) -> int:
+        rewrite_unrecoverable: bool) -> int:
     import httpx
 
     from database import supabase_admin
@@ -244,7 +282,10 @@ def run(execute: bool, limit: Optional[int], workers: int,
                 "new": to_current(old, current_host),
             })
 
-    print(f"\nTotal legacy rows: {len(work) + len(unparseable)}"
+    # Captured BEFORE --limit truncation: a limited run deliberately leaves
+    # rows behind, and the exit code must reflect that.
+    total_legacy = len(work) + len(unparseable)
+    print(f"\nTotal legacy rows: {total_legacy}"
           f"  (parseable: {len(work)}, unparseable: {len(unparseable)})")
 
     if limit:
@@ -274,7 +315,16 @@ def run(execute: bool, limit: Optional[int], workers: int,
             if w["new"] in missing_new and w["new"] not in need_copy:
                 need_copy[w["new"]] = w
 
-        copied, unrecoverable_urls = 0, set()
+        # Two DIFFERENT failure kinds, both of which must block the rewrite:
+        #   gone_urls     - legacy returned non-200: the object is dead on BOTH
+        #                   sides, so rewriting is merely cosmetic.
+        #   transfer_urls - legacy SERVED the bytes but we failed to store them.
+        #                   The legacy URL still works, so rewriting it to a
+        #                   target we just confirmed missing would actively
+        #                   BREAK working audio. This is the dangerous one.
+        copied = 0
+        gone_urls: set[str] = set()
+        transfer_urls: set[str] = set()
         if need_copy:
             print(f"\n{'Copying' if execute else 'WOULD COPY'} "
                   f"{len(need_copy)} object(s) legacy → current:")
@@ -283,13 +333,15 @@ def run(execute: bool, limit: Optional[int], workers: int,
             try:
                 resp = client.get(src, timeout=60)
             except Exception as exc:  # noqa: BLE001
-                print(f"  UNRECOVERABLE  {w['bucket']}/{w['path']}  (fetch error: {exc})")
-                unrecoverable_urls.add(new_url)
+                # Could be a dead object OR a transient network fault — we
+                # cannot tell, so treat it as the dangerous kind.
+                print(f"  TRANSFER FAILED  {w['bucket']}/{w['path']}  (fetch error: {exc})")
+                transfer_urls.add(new_url)
                 continue
             if resp.status_code != 200 or not resp.content:
-                print(f"  UNRECOVERABLE  {w['bucket']}/{w['path']}  "
+                print(f"  GONE  {w['bucket']}/{w['path']}  "
                       f"(legacy HTTP {resp.status_code})")
-                unrecoverable_urls.add(new_url)
+                gone_urls.add(new_url)
                 continue
 
             ctype = content_type_for(w["path"], resp.headers.get("content-type"))
@@ -306,16 +358,26 @@ def run(execute: bool, limit: Optional[int], workers: int,
                 copied += 1
                 print(f"  COPIED  {w['bucket']}/{w['path']}  ({len(resp.content)} bytes)")
             except Exception as exc:  # noqa: BLE001
-                print(f"  UPLOAD FAILED  {w['bucket']}/{w['path']}: {exc}")
-                unrecoverable_urls.add(new_url)
+                print(f"  TRANSFER FAILED  {w['bucket']}/{w['path']}: {exc}")
+                transfer_urls.add(new_url)
 
     # ── Rewrite the DB ───────────────────────────────────────────────────────
-    if skip_unrecoverable and unrecoverable_urls:
-        before = len(work)
-        work = [w for w in work if w["new"] not in unrecoverable_urls]
-        print(f"\n--skip-unrecoverable: holding back {before - len(work)} row(s).")
+    # SAFETY DEFAULT: never rewrite a row whose target object is still missing.
+    # Doing so would point a working legacy URL at a 404. Only an explicit
+    # --rewrite-unrecoverable opts into that (useful once the legacy project is
+    # already gone, when a legacy URL is dead anyway and the leftover rows just
+    # keep verification from reaching a clean 0).
+    blocked = gone_urls | transfer_urls
+    work, held_back = partition_rows(work, blocked if not rewrite_unrecoverable else set())
+    if held_back:
+        print(f"\nHolding back {len(held_back)} row(s) whose target object is "
+              f"missing ({len(transfer_urls)} transfer-failed, {len(gone_urls)} gone).")
+        print("  Their legacy URLs are left intact — rewriting them would break "
+              "audio that still works.")
+        print("  Re-run to retry the copy, or pass --rewrite-unrecoverable to "
+              "rewrite anyway.")
 
-    written = 0
+    written, write_failed = 0, 0
     if execute:
         print(f"\nRewriting {len(work)} DB row(s)…")
         for i, w in enumerate(work, 1):
@@ -325,6 +387,7 @@ def run(execute: bool, limit: Optional[int], workers: int,
                  .eq("id", w["id"]).execute())
                 written += 1
             except Exception as exc:  # noqa: BLE001
+                write_failed += 1
                 print(f"  WRITE FAILED  {w['table']}.{w['column']} id={w['id']}: {exc}")
             if i % 250 == 0:
                 print(f"    … {i}/{len(work)}")
@@ -341,17 +404,29 @@ def run(execute: bool, limit: Optional[int], workers: int,
             print(f"\n  example:\n    {s['old']}\n -> {s['new']}")
 
     # ── Summary ──────────────────────────────────────────────────────────────
+    remaining = remaining_legacy_rows(
+        execute=execute, total_legacy=total_legacy, written=written)
+
     print("\n── Summary ─────────────────────────────")
     print(f"  Objects {'copied' if execute else 'to copy'}      : "
-          f"{copied if execute else len(need_copy) - len(unrecoverable_urls)}")
+          f"{copied if execute else len(need_copy) - len(gone_urls) - len(transfer_urls)}")
     print(f"  Rows {'rewritten' if execute else 'to rewrite'}      : "
           f"{written if execute else len(work)}")
-    print(f"  Unrecoverable objects : {len(unrecoverable_urls)}")
+    print(f"  Held back (target missing) : {len(held_back)}")
+    print(f"    ├─ transfer failed  : {len(transfer_urls)}  (legacy still serves these)")
+    print(f"    └─ gone everywhere  : {len(gone_urls)}")
+    print(f"  DB writes failed      : {write_failed}")
     print(f"  Unparseable URLs      : {len(unparseable)}")
+    print(f"  Legacy rows REMAINING : {remaining}")
 
-    if unrecoverable_urls:
+    if transfer_urls:
+        print("\n  ⚠ Copy failed but legacy STILL SERVES these — rows left untouched.")
+        print("    Re-run to retry; do NOT delete the legacy project until this is 0:")
+        for u in sorted(transfer_urls)[:20]:
+            print(f"    - {u}")
+    if gone_urls:
         print("\n  ⚠ Gone from BOTH projects — these recordings have no audio either way:")
-        for u in sorted(unrecoverable_urls):
+        for u in sorted(gone_urls)[:20]:
             print(f"    - {u}")
     if unparseable:
         print("\n  ⚠ Legacy URLs that are not public-object URLs (left untouched):")
@@ -362,9 +437,15 @@ def run(execute: bool, limit: Optional[int], workers: int,
 
     if not execute:
         print("\n  Dry run only — re-run with --execute to apply.")
+    elif remaining:
+        print(f"\n  ⚠ INCOMPLETE — {remaining} row(s) still reference the legacy "
+              "project. Exiting nonzero; do NOT decommission yet.")
     else:
         print("\n  Done. Re-run WITHOUT --execute to verify it reports 0 legacy rows.")
-    return 0
+
+    # Exit code is a decommission gate: 0 means "no legacy references remain",
+    # so `migrate_legacy_audio_urls.py && <next step>` is safe to chain.
+    return 0 if remaining == 0 else 1
 
 
 def main() -> int:
@@ -376,8 +457,11 @@ def main() -> int:
                     help="Only process the first N rows (canary run).")
     ap.add_argument("--workers", type=int, default=16,
                     help="Concurrent HEAD probes (default 16).")
-    ap.add_argument("--skip-unrecoverable", action="store_true",
-                    help="Leave rows whose object is gone from both projects untouched.")
+    ap.add_argument("--rewrite-unrecoverable", action="store_true",
+                    help="Rewrite rows even when the target object is missing. "
+                         "UNSAFE while the legacy project is alive — it repoints "
+                         "a working URL at a 404. Only for cleanup after the "
+                         "legacy project is already gone.")
     args = ap.parse_args()
     try:
         from dotenv import load_dotenv
@@ -385,7 +469,7 @@ def main() -> int:
     except Exception:
         pass
     return run(execute=args.execute, limit=args.limit, workers=args.workers,
-               skip_unrecoverable=args.skip_unrecoverable)
+               rewrite_unrecoverable=args.rewrite_unrecoverable)
 
 
 if __name__ == "__main__":

@@ -11,6 +11,8 @@ from scripts.migrate_legacy_audio_urls import (
     LEGACY_HOST,
     content_type_for,
     host_of,
+    partition_rows,
+    remaining_legacy_rows,
     storage_path_of,
     to_current,
 )
@@ -64,6 +66,49 @@ def test_to_current_is_a_pure_host_swap():
 def test_to_current_is_idempotent_for_already_current_urls():
     already = f"https://{_CUR}{_PUB}/vocab-audio/x.mp3"
     assert to_current(already, _CUR) == already
+
+
+def _row(new_url, rid="r1"):
+    return {"table": "responses", "column": "audio_url", "id": rid,
+            "old": "legacy", "path": "p", "new": new_url}
+
+
+def test_failed_copy_rows_are_held_back_by_default():
+    """A row whose target object is missing must NOT be rewritten: its legacy
+    URL may still work, so repointing it at a confirmed-404 breaks live audio."""
+    ok, bad = _row("https://cur/ok.webm", "a"), _row("https://cur/bad.webm", "b")
+    safe, held = partition_rows([ok, bad], {"https://cur/bad.webm"})
+    assert safe == [ok]
+    assert held == [bad]
+
+
+def test_partition_rows_passes_everything_through_when_nothing_blocked():
+    rows = [_row("https://cur/a.webm", "a"), _row("https://cur/b.webm", "b")]
+    safe, held = partition_rows(rows, set())
+    assert safe == rows and held == []
+
+
+def test_partition_rows_can_block_every_row():
+    rows = [_row("https://cur/a.webm", "a")]
+    safe, held = partition_rows(rows, {"https://cur/a.webm"})
+    assert safe == [] and held == rows
+
+
+def test_remaining_rows_dry_run_reports_everything_outstanding():
+    """A dry run writes nothing, so the whole set is still outstanding — the
+    exit code must not signal 'safe to decommission'."""
+    assert remaining_legacy_rows(execute=False, total_legacy=5835, written=0) == 5835
+
+
+def test_remaining_rows_zero_only_when_all_written():
+    assert remaining_legacy_rows(execute=True, total_legacy=100, written=100) == 0
+    # Held-back rows / failed writes / --limit truncation all leave a remainder.
+    assert remaining_legacy_rows(execute=True, total_legacy=100, written=80) == 20
+    assert remaining_legacy_rows(execute=True, total_legacy=100, written=0) == 100
+
+
+def test_remaining_rows_never_negative():
+    assert remaining_legacy_rows(execute=True, total_legacy=5, written=9) == 0
 
 
 def test_content_type_from_extension_and_fallbacks():
