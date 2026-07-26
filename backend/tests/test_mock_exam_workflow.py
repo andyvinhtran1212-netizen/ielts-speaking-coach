@@ -2768,6 +2768,100 @@ def test_collect_rejected_before_the_exam_starts(fake_db, svc):
         svc.collect_section(exam["id"], "admin-1")
 
 
+def test_a_failed_sweep_cannot_erase_a_students_real_submit(fake_db, svc):
+    """Codex adversarial review (correct, high): the sweep claimed with a CAS
+    but the student's own submit wrote the stamp BLINDLY, so the two writers
+    were never serialised. Sweep claims → student submit overwrites with its own
+    timestamp → sweep's grading fails → the unconditional rollback deletes a
+    REAL submission. The guard added to save a paper became the thing that loses
+    one."""
+    exam = _seed_exam(fake_db)
+    u = uuid4()
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → listening
+    aid = str(uuid4())
+    fake_db.table("mock_exam_sittings").update(
+        {"listening_attempt_id": aid}).eq("id", sit["id"]).execute()
+
+    snapshot = svc.get_sitting(sit["id"])                 # what the sweep holds
+
+    real_grade = svc._grade_and_finalize_listening
+
+    def die_after_someone_else_wrote(_attempt_id):
+        # The student's submit lands between our claim and our failure.
+        fake_db.table("mock_exam_sittings").update(
+            {"listening_submitted_at": "2099-01-01T00:00:00+00:00"},
+        ).eq("id", sit["id"]).execute()
+        raise RuntimeError("grading died after the student submitted")
+
+    svc._grade_and_finalize_listening = die_after_someone_else_wrote
+    try:
+        assert svc._collect_section_for_sitting(snapshot, "listening") is False
+    finally:
+        svc._grade_and_finalize_listening = real_grade
+
+    assert svc.get_sitting(sit["id"])["listening_submitted_at"] == "2099-01-01T00:00:00+00:00", (
+        "the rollback must only clear the stamp IT wrote")
+
+
+def test_student_submit_uses_the_same_claim_as_the_sweep(fake_db, svc):
+    """The existing idempotency guard (`if sitting.get(col): return`) is a READ
+    followed by a WRITE, so a sweep landing between the two still slipped
+    through and overwrote the collected stamp. Staged by stamping the row from
+    inside _assert_prior_section_submitted — the last call before the write."""
+    exam = _seed_exam(fake_db)
+    u = uuid4()
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+    _expire_section(fake_db, exam["id"], "listening")
+    # submit_section requires this section's own attempt to exist + be submitted
+    aid = str(uuid4())
+    fake_db.seed("listening_test_attempts", {
+        "id": aid, "user_id": str(u), "test_id": exam["listening_test_id"],
+        "status": "submitted", "answers": [],
+    })
+    fake_db.table("mock_exam_sittings").update(
+        {"status": "lrw_in_progress", "listening_attempt_id": aid},
+    ).eq("id", sit["id"]).execute()
+
+    swept = "2098-01-01T00:00:00+00:00"
+    real_assert = svc._assert_prior_section_submitted
+
+    def sweep_lands_now(sitting, section):
+        real_assert(sitting, section)
+        fake_db.table("mock_exam_sittings").update(
+            {"listening_submitted_at": swept}).eq("id", sit["id"]).execute()
+
+    svc._assert_prior_section_submitted = sweep_lands_now
+    try:
+        svc.submit_section(sit["id"], u, "listening")     # must not raise
+    finally:
+        svc._assert_prior_section_submitted = real_assert
+
+    assert svc.get_sitting(sit["id"])["listening_submitted_at"] == swept, (
+        "a submit that loses the claim must not overwrite the collected stamp")
+
+
+def test_a_failure_after_the_terminal_transition_keeps_the_stamp(fake_db, svc):
+    """An all_submitted row with a cleared final stamp and no review row is
+    unreachable by every repair path — _reconcile_terminal does not come back
+    from all_submitted. Better a stamped row a retry can finish."""
+    exam = _seed_exam(fake_db, listening=False, reading=False)
+    u = uuid4()
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → writing
+
+    real_rec = svc._reconcile_terminal
+    svc._reconcile_terminal = lambda sid: (_ for _ in ()).throw(RuntimeError("boom"))
+    try:
+        svc._collect_section_for_sitting(svc.get_sitting(sit["id"]), "writing")
+    finally:
+        svc._reconcile_terminal = real_rec
+
+    assert svc.get_sitting(sit["id"])["writing_submitted_at"] is not None, (
+        "never roll back once the terminal transition has started")
+
+
 def test_pause_closes_the_paper_before_the_sweep_reaches_the_sitting(fake_db, svc, monkeypatch):
     """Codex adversarial review (correct, high): /collect sets collected_section
     SYNCHRONOUSLY and sweeps the sittings in the BACKGROUND, and deliberately

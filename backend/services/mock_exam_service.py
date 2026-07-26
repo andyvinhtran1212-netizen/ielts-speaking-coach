@@ -1472,9 +1472,20 @@ def submit_section(
         _promote_writing_essays(sitting_id)
     else:
         _assert_prior_section_submitted(sitting, section)
-        supabase_admin.table("mock_exam_sittings").update({col: _now_iso()}).eq(
-            "id", str(sitting_id),
-        ).execute()
+        # SAME CLAIM PRIMITIVE AS THE SWEEP. A blind write here meant the two
+        # writers were not actually serialised: a sweep could claim the stamp,
+        # this submit could overwrite it with its own timestamp, and the sweep's
+        # later rollback would then delete a real submission. Losing the race is
+        # not an error — it means the paper is already in, which is exactly what
+        # the student asked for (Codex adversarial review, 2026-07-26).
+        won = supabase_admin.table("mock_exam_sittings").update(
+            {col: _now_iso()},
+        ).eq("id", str(sitting_id)).is_(col, "null").execute()
+        if not won.data:
+            logger.info(
+                "[mock-exam] sitting=%s section=%s already collected — submit is a no-op",
+                sitting_id, section,
+            )
         sitting = get_sitting(sitting_id) or sitting
     logger.info("[mock-exam] sitting=%s section=%s collected", sitting_id, section)
 
@@ -2186,6 +2197,8 @@ def _collect_section_for_sitting(sitting: dict, section: str) -> bool:
     except Exception:  # noqa: BLE001 — scope lookup must not break the sweep
         logger.exception("[mock-exam] sweep scope check failed sitting=%s", sitting["id"])
         return False
+    claimed_at = None
+    terminal_started = False
     try:
         update: dict = {col: _now_iso()}
         if sitting.get("status") == "registered":
@@ -2198,6 +2211,7 @@ def _collect_section_for_sitting(sitting: dict, section: str) -> bool:
         # concurrent Writing sweeps each call _promote_writing_essays() before
         # either has stored essay_task*_id — creating duplicate essays (Codex
         # review, PR #844). Winning the stamp is the right to do the work.
+        claimed_at = update[col]
         claim = supabase_admin.table("mock_exam_sittings").update(update).eq(
             "id", sitting["id"],
         ).is_(col, "null").execute()
@@ -2224,6 +2238,12 @@ def _collect_section_for_sitting(sitting: dict, section: str) -> bool:
         exam = get_published_exam_by_id(str(sitting["mock_exam_id"])) or {}
         sections = _sitting_sections(fresh, exam) if fresh else []
         if fresh and sections and all(fresh.get(_SUBMITTED_COL[s]) for s in sections):
+            # PAST THE POINT OF NO RETURN. Once the sitting is moved to a
+            # terminal status the stamp must NEVER be rolled back: an
+            # all_submitted row with a cleared final stamp and no review row is
+            # unreachable by every repair path (_reconcile_terminal does not
+            # come back from all_submitted).
+            terminal_started = True
             supabase_admin.table("mock_exam_sittings").update({
                 "status": "lrw_submitted",
             }).eq("id", sitting["id"]).execute()
@@ -2242,10 +2262,27 @@ def _collect_section_for_sitting(sitting: dict, section: str) -> bool:
         # forever (Codex review, PR #844). Rolling the stamp back makes the row
         # claimable again, which is what both the retry and the admin's "thu
         # lại" depend on.
+        if terminal_started:
+            # Leave the stamp. The row is (or is becoming) terminal; clearing it
+            # would strand it in a state no repair path can reach. Reconcile is
+            # idempotent, so re-running the sweep or the admin's "thu lại" can
+            # still finish the job.
+            logger.error(
+                "[mock-exam] sitting=%s section=%s failed AFTER the terminal "
+                "transition — stamp kept, needs a reconcile retry",
+                sitting["id"], section,
+            )
+            return False
         try:
+            # MATCH THE EXACT STAMP WE WROTE. An unconditional clear also erased
+            # a DIFFERENT writer's successful submit: the student's own
+            # submit_section can land between our claim and our failure, and
+            # rolling back blindly deleted their real submission — turning the
+            # guard that exists to save a paper into the thing that loses one
+            # (Codex adversarial review, 2026-07-26).
             supabase_admin.table("mock_exam_sittings").update({col: None}).eq(
                 "id", sitting["id"],
-            ).execute()
+            ).eq(col, claimed_at).execute()
         except Exception:  # noqa: BLE001 — nothing further we can do here
             logger.exception(
                 "[mock-exam] force-collect: could not release the claim sitting=%s "
