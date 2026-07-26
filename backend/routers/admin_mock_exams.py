@@ -283,10 +283,21 @@ async def create_assignments(
 async def delete_assignment(
     exam_id: str, student_id: str, authorization: str | None = Header(default=None),
 ):
-    """Un-assign one student from a retake exam."""
-    await require_admin(authorization)
-    assign_svc.remove(exam_id, student_id)
-    return {"ok": True}
+    """Un-assign one student from a retake exam.
+
+    Also VOIDS any sitting they already opened for it — deleting the assignment
+    alone did not revoke access, because create_sitting resumes an existing
+    sitting before the eligibility gates. Reports the voided ids rather than
+    doing two things silently under one verb."""
+    admin = await require_admin(authorization)
+    try:
+        out = assign_svc.remove(exam_id, student_id, admin_id=admin["id"])
+    except assign_svc.RevocationError as e:
+        # The assignment is gone but an open sitting survived, so access was
+        # NOT revoked. Answering ok:true here would show the admin a revocation
+        # that did not happen.
+        raise HTTPException(409, str(e))
+    return {"ok": True, **out}
 
 
 @router.post("/{exam_id}/writing/bulk-grade", status_code=202)
@@ -500,3 +511,5 @@ async def void_sitting(
         return svc.void_sitting(sitting_id, admin["id"], body.reason)
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
+    except svc.SittingConflictError as e:
+        raise HTTPException(409, str(e))

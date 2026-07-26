@@ -24,6 +24,12 @@ class InvalidWindowError(ValueError):
     """open_until is earlier than open_from — an impossible availability window."""
 
 
+class RevocationError(RuntimeError):
+    """The assignment was deleted but an open sitting could not be voided, so
+    access was NOT actually revoked. Reported rather than swallowed: the admin
+    must know to clear it by hand."""
+
+
 # v1 retake covers Listening/Reading/Writing only (Speaking is session-based,
 # added later — the skills array leaves room). Order-stable canonical list.
 _RETAKE_SKILLS = ("listening", "reading", "writing")
@@ -169,8 +175,104 @@ def list_assignments(exam_id) -> list:
     return rows
 
 
-def remove(exam_id, user_id) -> None:
-    """Un-assign one user from a retake exam."""
+def remove(exam_id, user_id, *, admin_id=None) -> dict:
+    """Un-assign one user from a retake exam, and VOID any sitting they already
+    opened for it.
+
+    Deleting the assignment alone did not actually revoke access: create_sitting
+    RESUMES an existing non-terminal sitting *before* applying the eligibility
+    gates (mock_exam_service.py:471-478 — deliberate, so a mid-exam refresh
+    can't lock a student out of their own paper). So an un-assigned student who
+    had already opened the exam kept full access to it.
+
+    Voiding is also what frees the uq_mock_sitting_active slot. That matters
+    much more once one live sitting per student is enforced across all exams
+    (C3): without this, un-assigning someone would leave them holding a lock on
+    every OTHER exam too, with no way for the admin to clear it.
+
+    Returns {"voided": [sitting_id...]} so the caller can report what it did
+    rather than silently doing two different things under one verb.
+    """
+    from services import mock_exam_service  # local import avoids an import cycle
+
+    # Only ever cancel a sitting for a REAL assignment. Without this a stale or
+    # hand-made DELETE aimed at a sequential exam — or at a user who has no
+    # assignment at all — would cancel that student's live sitting, where the old
+    # implementation was a harmless no-op (Codex review, PR #840).
+    if not (supabase_admin.table("mock_exam_assignments").select("id")
+            .eq("exam_id", str(exam_id)).eq("user_id", str(user_id))
+            .limit(1).execute().data or []):
+        logger.info("[retake] unassign: no assignment exam=%s user=%s — no-op",
+                    exam_id, user_id)
+        return {"voided": []}
+
+    # DELETE THE ASSIGNMENT FIRST, then look for sittings. The other order left
+    # a real window: a student pressing "Bắt đầu" concurrently could read the
+    # assignment (still present), and insert their sitting after this scan and
+    # before the delete — so the new sitting was never voided, subsequent
+    # refreshes resumed it before the eligibility gates, and this endpoint
+    # reported a successful revocation (Codex review, PR #840).
+    #
+    # PostgREST gives no cross-table transaction, so this cannot be made
+    # strictly serialisable here. Deleting first closes the window from the
+    # other side — once the assignment is gone create_sitting() refuses — and
+    # the SECOND scan below catches anyone who slipped through in between.
     supabase_admin.table("mock_exam_assignments").delete().eq(
         "exam_id", str(exam_id)).eq("user_id", str(user_id)).execute()
-    logger.info("[retake] unassign exam=%s user=%s", exam_id, user_id)
+
+    def _open_sittings() -> list:
+        return (supabase_admin.table("mock_exam_sittings").select("id")
+                .eq("mock_exam_id", str(exam_id)).eq("user_id", str(user_id))
+                .not_.in_("status", ["released", "void"]).execute().data or [])
+
+    open_rows = _open_sittings()
+
+    voided, failed = [], []
+    for row in open_rows:
+        try:
+            mock_exam_service.void_sitting(
+                row["id"], admin_id or "system",
+                reason="Gỡ khỏi danh sách được gán bài test lại.",
+            )
+            voided.append(str(row["id"]))
+        except Exception:  # noqa: BLE001
+            logger.exception("[retake] unassign: void failed sitting=%s", row["id"])
+            failed.append(str(row["id"]))
+
+    # Swallowing this and still answering ok:true was the dangerous half. The
+    # assignment row is gone from the admin's list while the sitting stays
+    # usable — create_sitting RESUMES it before the eligibility gates — so the
+    # UI would show access revoked when it was not (Codex review, PR #840).
+    if failed:
+        raise RevocationError(
+            "Đã gỡ khỏi danh sách nhưng KHÔNG huỷ được lượt thi đang mở "
+            f"({len(failed)}). Học viên vẫn vào được — hãy huỷ lượt thủ công "
+            "trên trang phòng thi trực tiếp."
+        )
+
+    # SECOND PASS. A sitting inserted between the delete and the first scan is
+    # exactly the interleaving above; catching it here turns a silent access
+    # leak into one extra query.
+    late = [r for r in _open_sittings() if str(r["id"]) not in voided]
+    for row in late:
+        try:
+            mock_exam_service.void_sitting(
+                row["id"], admin_id or "system",
+                reason="Gỡ khỏi danh sách được gán bài test lại.",
+            )
+            voided.append(str(row["id"]))
+            logger.warning(
+                "[retake] unassign: voided a sitting created mid-request sitting=%s",
+                row["id"],
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception("[retake] unassign: late void failed sitting=%s", row["id"])
+            raise RevocationError(
+                "Đã gỡ khỏi danh sách nhưng học viên vừa kịp mở một lượt thi mới "
+                "và KHÔNG huỷ được — hãy huỷ lượt thủ công trên trang phòng thi "
+                "trực tiếp."
+            )
+
+    logger.info("[retake] unassign exam=%s user=%s voided=%d",
+                exam_id, user_id, len(voided))
+    return {"voided": voided}

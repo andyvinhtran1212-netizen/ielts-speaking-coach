@@ -2382,6 +2382,180 @@ def test_retake_assign_rejects_open_ended_before_writing_any_row(fake_db):
     assert fake_db.rows("mock_exam_assignments") == []
 
 
+def test_unassign_voids_the_sitting_the_student_already_opened(fake_db, svc):
+    """D4 — deleting the assignment alone did NOT revoke access.
+
+    create_sitting resumes an existing non-terminal sitting BEFORE the
+    eligibility gates (deliberate, so a mid-exam refresh can't lock a student
+    out of their own paper), so an un-assigned student who had already opened
+    the exam kept full access. Voiding is also what frees the
+    uq_mock_sitting_active slot — which matters far more once one live sitting
+    per student is enforced across all exams.
+    """
+    from services import mock_exam_assignment_service as a
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    u = str(uuid4())
+    a.assign(exam["id"], [{"user_id": u, "skills": ["writing"], **_WINDOW}],
+             created_by=str(uuid4()))
+    sitting = svc.create_sitting(u, "MOCK-TEST-A")
+    assert sitting["status"] == "registered"
+
+    out = a.remove(exam["id"], u, admin_id="admin-1")
+
+    assert out["voided"] == [str(sitting["id"])]
+    after = svc.get_sitting(sitting["id"])
+    assert after["status"] == "void"
+    # A voided sitting stays SEALED — a cancelled exam never publishes results.
+    assert after["sealed"] is True
+
+
+def test_void_rejects_a_released_sitting(fake_db, svc):
+    """Codex #840 (correct): void_sitting had no terminal guard, so an
+    invigilator could cancel a PUBLISHED result — erasing what the student can
+    already see and leaving a `void` row whose seal was lifted at release."""
+    exam = _seed_exam(fake_db)
+    sid = str(uuid4())
+    fake_db.seed("mock_exam_sittings", {
+        "id": sid, "mock_exam_id": exam["id"], "user_id": str(uuid4()),
+        "status": "released", "sealed": False,
+    })
+    with pytest.raises(svc.SittingConflictError):
+        svc.void_sitting(sid, "admin-1", reason="nhầm")
+    assert svc.get_sitting(sid)["status"] == "released"
+
+
+def test_unassign_reports_when_revocation_failed(fake_db, svc, monkeypatch):
+    """Codex #840 (correct): swallowing the void failure and still answering
+    ok:true was the dangerous half — the assignment vanishes from the admin's
+    list while the sitting stays usable (create_sitting resumes it BEFORE the
+    eligibility gates), so the UI shows access revoked when it is not."""
+    from services import mock_exam_assignment_service as a
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    u = str(uuid4())
+    a.assign(exam["id"], [{"user_id": u, "skills": ["writing"], **_WINDOW}],
+             created_by=str(uuid4()))
+    svc.create_sitting(u, "MOCK-TEST-A")
+
+    def boom(*_a, **_k):
+        raise RuntimeError("db down")
+    monkeypatch.setattr(svc, "void_sitting", boom)
+
+    with pytest.raises(a.RevocationError):
+        a.remove(exam["id"], u, admin_id="admin-1")
+
+
+def test_voiding_blocks_a_stale_release(fake_db, svc, wf, monkeypatch):
+    """Codex #840 (correct): void cancelled the exam but left the review row
+    alone, so an admin holding an already-open review page could still release —
+    and release flips the sitting back to 'released' with sealed=False,
+    PUBLISHING an exam that was explicitly cancelled."""
+    exam = _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    rid = str(uuid4())
+    _seed_releasable(fake_db, s["id"], rid, "admin-1", claimed_by="admin-1")
+    monkeypatch.setattr(wf, "_writing_pending_tasks", lambda _sid: [])
+
+    svc.void_sitting(s["id"], "admin-1", reason="lỗi kỹ thuật")
+
+    with pytest.raises(wf.ConflictError):
+        wf.release_results(rid, "admin-1")
+    after = svc.get_sitting(s["id"])
+    assert after["status"] == "void" and after["sealed"] is True
+
+
+def test_unassign_catches_a_sitting_opened_mid_request(fake_db, svc, monkeypatch):
+    """Codex #840 (correct): a student pressing "Bắt đầu" concurrently could
+    read the still-present assignment and insert their sitting AFTER the scan
+    but BEFORE the delete — so the new sitting was never voided, later refreshes
+    resumed it before the eligibility gates, and the endpoint still reported a
+    successful revocation.
+
+    Staged by making the racing sitting appear while the first pass is running:
+    void_sitting() seeds it on its first call, so it exists only in time for the
+    second pass to find."""
+    from services import mock_exam_assignment_service as a
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    u = str(uuid4())
+    a.assign(exam["id"], [{"user_id": u, "skills": ["writing"], **_WINDOW}],
+             created_by=str(uuid4()))
+    first = svc.create_sitting(u, "MOCK-TEST-A")
+
+    racing = str(uuid4())
+    orig_void = svc.void_sitting
+    spawned = {"done": False}
+
+    def void_then_spawn(sitting_id, admin_id, reason=""):
+        out = orig_void(sitting_id, admin_id, reason=reason)
+        if not spawned["done"]:
+            spawned["done"] = True
+            fake_db.seed("mock_exam_sittings", {
+                "id": racing, "mock_exam_id": exam["id"], "user_id": u,
+                "status": "registered", "sealed": True,
+                "assigned_skills": ["writing"],
+                "listening_submitted_at": None, "reading_submitted_at": None,
+                "writing_submitted_at": None,
+                "listening_attempt_id": None, "reading_attempt_id": None,
+                "speaking_session_ids": [], "writing_submission": {},
+                "integrity": {},
+            })
+        return out
+
+    monkeypatch.setattr(svc, "void_sitting", void_then_spawn)
+    out = a.remove(exam["id"], u, admin_id="admin-1")
+
+    assert str(first["id"]) in out["voided"]
+    assert racing in out["voided"], "the sitting opened mid-request must be voided too"
+    assert svc.get_sitting(racing)["status"] == "void"
+
+
+def test_unassign_deletes_the_assignment_before_scanning(fake_db, svc):
+    """Order matters: once the assignment row is gone create_sitting() refuses,
+    which closes the window from the other side. Scanning first left it open."""
+    import pathlib as _pl
+    from services import mock_exam_assignment_service as a
+    body = _pl.Path(a.__file__).read_text(encoding="utf-8")
+    body = body[body.index("def remove("):]
+    assert body.index('table("mock_exam_assignments").delete()') \
+        < body.index("def _open_sittings()")
+
+
+def test_unassign_is_a_noop_without_an_assignment(fake_db, svc):
+    """A stale DELETE for a sequential exam (or a user with no assignment) must
+    not cancel that student's live sitting — it was a harmless no-op before."""
+    from services import mock_exam_assignment_service as a
+    exam = _seed_exam(fake_db)
+    u = str(uuid4())
+    sitting = svc.create_sitting(u, "MOCK-TEST-A")
+
+    assert a.remove(exam["id"], u, admin_id="admin-1")["voided"] == []
+    assert svc.get_sitting(sitting["id"])["status"] != "void"
+
+
+def test_unassign_leaves_a_finished_sitting_alone(fake_db, svc):
+    """Only NON-TERMINAL sittings are voided. A released result is a record of
+    something that really happened and must not be rewritten by an un-assign."""
+    from services import mock_exam_assignment_service as a
+    exam = _seed_exam(fake_db)
+    u = str(uuid4())
+    sid = str(uuid4())
+    fake_db.seed("mock_exam_sittings", {
+        "id": sid, "mock_exam_id": exam["id"], "user_id": u,
+        "status": "released", "sealed": False,
+    })
+    a.assign(exam["id"], [{"user_id": u, "skills": ["writing"], **_WINDOW}],
+             created_by=str(uuid4()))
+
+    assert a.remove(exam["id"], u)["voided"] == []
+    assert svc.get_sitting(sid)["status"] == "released"
+
+
 def test_retake_list_and_remove_assignments(fake_db):
     from services import mock_exam_assignment_service as a
     exam_id = str(uuid4())

@@ -231,7 +231,7 @@
     var head = '<thead><tr><th>Học viên</th>' +
       cols.map(function (c) { return '<th>' + esc(SECTION_LABEL[c]) + '</th>'; }).join('') +
       (speaking ? '<th>Speaking</th>' : '') +
-      '<th>Trạng thái</th></tr></thead>';
+      '<th>Trạng thái</th><th></th></tr></thead>';
 
     var body = rows.length
       ? rows.map(function (s) {
@@ -245,11 +245,46 @@
             cols.map(function (c) { return '<td>' + cellHtml(s, c) + '</td>'; }).join('') +
             (speaking ? '<td>' + speakingHtml(s) + '</td>' : '') +
             '<td class="ml-muted">' + esc(s.status) + '</td>' +
+            // A released sitting is a published result the student can already
+            // see — voiding it would erase that and leave an unsealed `void`
+            // row. Server rejects it too; the UI just shouldn't offer it.
+            '<td>' + (s.sitting_id && s.status !== 'released'
+              ? '<button type="button" class="ml-void" data-void="' + esc(s.sitting_id) +
+                '" data-name="' + esc(s.student_name) + '">Huỷ lượt</button>'
+              : '') + '</td>' +
           '</tr>';
         }).join('')
-      : '<tr><td colspan="' + (cols.length + (speaking ? 3 : 2) + '') + '" class="ml-muted" style="padding:24px;text-align:center">Không có học viên nào khớp bộ lọc.</td></tr>';
+      : '<tr><td colspan="' + (cols.length + (speaking ? 4 : 3)) + '" class="ml-muted" style="padding:24px;text-align:center">Không có học viên nào khớp bộ lọc.</td></tr>';
 
     el('grid').innerHTML = head + '<tbody>' + body + '</tbody>';
+    el('grid').querySelectorAll('[data-void]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        voidSitting(b.getAttribute('data-void'), b.getAttribute('data-name'), b);
+      });
+    });
+  }
+
+  // The in-room escape hatch. A sitting can get stuck — a tech failure, a
+  // student who opened the wrong exam, a row left in `registered` by someone
+  // who never started. While one live sitting per student is enforced across
+  // ALL exams, a stuck row locks that student out of everything, so the
+  // invigilator needs to clear it themselves rather than filing a ticket
+  // mid-exam.
+  //
+  // Voiding keeps the row (audit) and keeps it SEALED — a cancelled sitting
+  // never publishes results.
+  function voidSitting(sittingId, name, btn) {
+    var reason = prompt('Huỷ lượt thi của "' + name + '"?\n\nNhập lý do (bắt buộc):');
+    if (reason == null) return;
+    reason = String(reason).trim();
+    if (!reason) { toast('Cần nêu lý do huỷ.'); return; }
+    return guard(btn, function () {
+      return window.api.post(
+        '/admin/mock-exams/sittings/' + encodeURIComponent(sittingId) + '/void',
+        { reason: reason }
+      ).then(function () { toast('Đã huỷ lượt thi của ' + name + '.'); return load(); })
+        .catch(function (e) { toast('Huỷ thất bại: ' + (e && e.message)); });
+    });
   }
 
   function cellHtml(s, section) {

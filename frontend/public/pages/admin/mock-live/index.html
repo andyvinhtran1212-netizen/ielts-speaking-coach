@@ -90,6 +90,13 @@
     .ml-flag--blank   { background:var(--av-error-soft); color:var(--av-error); }
     .ml-row--absent .ml-name { color:var(--av-error); }
     .ml-row--offroster { background:var(--av-warning-soft); }
+    /* Destructive, so it reads as destructive — but quiet until hovered, since
+       it sits on every row and must not compete with the live data. */
+    .ml-void { padding:3px var(--av-space-2); border:1px solid var(--av-border-default);
+               border-radius:var(--av-radius-md); background:transparent;
+               color:var(--av-text-faint); font-size:12px; cursor:pointer; }
+    .ml-void:hover { border-color:var(--av-error); color:var(--av-error); }
+    .ml-void:disabled { opacity:.5; cursor:default; }
 
     .ml-legend { display:flex; gap:var(--av-space-4); flex-wrap:wrap; margin-top:var(--av-space-3); font-size:12px; color:var(--av-text-secondary); }
     .ml-legend span { display:inline-flex; align-items:center; gap:6px; }

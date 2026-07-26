@@ -69,11 +69,17 @@ def test_create_assignments_400_on_inverted_window():
 
 
 def test_delete_assignment_forwards():
+    # D4 (2026-07-25) — remove() now also VOIDS any sitting the student already
+    # opened (deleting the assignment alone did not revoke access), so it takes
+    # the acting admin for the audit stamp and reports what it voided.
     with patch("routers.admin_mock_exams.require_admin", new=AsyncMock(return_value=_ADMIN)), \
-         patch("routers.admin_mock_exams.assign_svc.remove") as mock_remove:
+         patch("routers.admin_mock_exams.assign_svc.remove",
+               return_value={"voided": ["sit-1"]}) as mock_remove:
         r = _client().delete(f"/admin/mock-exams/{_EXAM}/assignments/u1", headers=_AUTH)
     assert r.status_code == 200, r.text
-    mock_remove.assert_called_once_with(_EXAM, "u1")
+    mock_remove.assert_called_once_with(_EXAM, "u1", admin_id=_ADMIN["id"])
+    # the voided ids are surfaced, not swallowed — one verb, two effects
+    assert r.json() == {"ok": True, "voided": ["sit-1"]}
 
 
 def test_skill_less_row_without_deadline_does_not_abort_the_batch():
