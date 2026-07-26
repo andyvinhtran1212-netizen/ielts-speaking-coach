@@ -99,7 +99,7 @@ describe('A3 — a network failure no longer ends the exam', () => {
     assert.match(JS, /function retryOwedSubmit/);
     assert.match(JS, /retryOwedSubmit\(\);/);
     // and it must not fire for a section that is already done
-    assert.match(JS, /sit\[section \+ '_submitted_at'\] \|\| S\.activeSection !== section[\s\S]{0,120}_owedSubmit = null/);
+    assert.match(JS, /sit\[section \+ '_submitted_at'\] \|\| S\.activeSection !== section[\s\S]{0,220}_owedSubmit = null/);
   });
 
   test('exhausting the retry budget does NOT call fail()', () => {
@@ -212,7 +212,7 @@ describe('A3 round 4 — a stale retry must not stop the next section', () => {
   });
 
   test('the owed-submit path keeps its own moved-on check', () => {
-    assert.match(JS, /if \(sit\[section \+ '_submitted_at'\] \|\| S\.activeSection !== section[\s\S]{0,60}\) \{/);
+    assert.match(JS, /if \(sit\[section \+ '_submitted_at'\] \|\| S\.activeSection !== section[\s\S]{0,180}\) \{/);
   });
 });
 
@@ -258,7 +258,7 @@ describe('pause — the student paper closes on the marker, not on its own stamp
     const at409 = JS.slice(JS.indexOf('if (st === 409)'));
     assert.match(
       at409.slice(0, at409.indexOf('if (attempt <')),
-      /\|\| S\.activeSection !== section \|\| S\.collectedSection === section\) \{/,
+      /var collectedIsEnough = S\.collectedSection === section/,
     );
   });
 
@@ -267,6 +267,19 @@ describe('pause — the student paper closes on the marker, not on its own stamp
     assert.match(
       owed.slice(0, owed.indexOf('_owedSubmit = null;')),
       /S\.collectedSection === section/,
+    );
+  });
+
+  test('...but Writing is not "done" until its stamp says so', () => {
+    // L/R answers are persisted server-side per answer, so a dropped submit
+    // costs nothing. Writing's newest text lives ONLY in that request — treating
+    // the pause marker as success threw away everything typed since the last
+    // autosave, and the sweep then graded the older draft (Codex, 2026-07-26).
+    assert.match(JS, /section !== 'writing' \|\| !!sit\.writing_submitted_at/);
+    const owed = JS.slice(JS.indexOf('function retryOwedSubmit'));
+    assert.match(
+      owed.slice(0, owed.indexOf('_owedSubmit = null;')),
+      /section !== 'writing' \|\| !!sit\.writing_submitted_at/,
     );
   });
 });
