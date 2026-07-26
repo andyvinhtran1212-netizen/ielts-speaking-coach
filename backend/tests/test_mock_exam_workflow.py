@@ -2768,6 +2768,42 @@ def test_collect_rejected_before_the_exam_starts(fake_db, svc):
         svc.collect_section(exam["id"], "admin-1")
 
 
+def test_advance_rejected_for_a_retake_exam(fake_db, svc):
+    """Codex adversarial review (correct, high): collect_preflight refused
+    retake but advance_section did NOT — half the gate was missing. The console
+    hides the button, but a UI is not a guard: a direct API call or a stale
+    admin tab could walk a retake exam through the sequential state machine and
+    then queue a sweep over it, stamping students' papers outside their own
+    self-timed flow."""
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    with pytest.raises(svc.SittingConflictError):
+        svc.advance_section(exam["id"], "admin-1")
+    assert svc.get_published_exam_by_id(exam["id"])["active_section"] == "not_started"
+
+
+def test_sweep_refuses_a_section_the_sitting_does_not_own(fake_db, svc):
+    """Second layer: what a sitting OWES is a property of the sitting (assigned
+    skills for a retake), not of whatever section the caller aimed at."""
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    u = str(uuid4())
+    fake_db.seed("mock_exam_assignments", {
+        "id": str(uuid4()), "exam_id": exam["id"], "user_id": u,
+        "skills": ["writing"], "open_from": None,
+        "open_until": _WINDOW["open_until"],
+    })
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+
+    # Listening was never assigned to this student.
+    assert svc._collect_section_for_sitting(svc.get_sitting(sit["id"]), "listening") is False
+    assert svc.get_sitting(sit["id"]).get("listening_submitted_at") is None
+    # ...but the skill they DO owe is still sweepable.
+    assert svc._collect_section_for_sitting(svc.get_sitting(sit["id"]), "writing") is True
+
+
 def test_collect_rejected_for_a_retake_exam(fake_db, svc):
     """Retake is self-timed per student — there is no shared section to collect,
     and pretending otherwise would sweep papers on someone else's clock."""
@@ -4091,3 +4127,110 @@ def test_every_bulk_route_scopes_to_its_exam_id():
         assert 'out["skipped"] = out["skipped"] + foreign' in src, (
             f"{route.__name__} drops out-of-exam ids silently"
         )
+
+
+def test_the_sweep_loads_its_exam_once_however_big_the_class(fake_db, svc, monkeypatch):
+    """Codex #851 (correct, P2): the scope guard added a per-sitting exam
+    lookup to a timer-driven background sweep, on top of the one the terminal
+    check already did. Every row in a sweep resolves to the SAME exam, so the
+    cost was pure N+1 — a class of 30 paid 60 round-trips inside a task with a
+    finite execution window, and a sweep that runs out of window leaves papers
+    uncollected. The query count must not grow with the class."""
+    exam = _seed_exam(fake_db)
+    for _ in range(6):
+        svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → listening
+
+    calls = []
+    real = svc.get_published_exam_by_id
+    monkeypatch.setattr(svc, "get_published_exam_by_id",
+                        lambda eid: (calls.append(str(eid)), real(eid))[1])
+
+    assert svc._force_collect_section(exam["id"], "listening") == 6
+    assert len(calls) == 1, (
+        f"{len(calls)} exam lookups for 6 sittings — the sweep is back to N+1")
+
+
+def test_the_reaper_does_not_reload_the_exam_it_already_holds(fake_db, svc, monkeypatch):
+    """Same guarantee on the retake path, where the reaper sweeps MANY exams and
+    already keys its own snapshot by exam id."""
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    for _ in range(4):
+        u = str(uuid4())
+        fake_db.seed("mock_exam_assignments", {
+            "id": str(uuid4()), "exam_id": exam["id"], "user_id": u,
+            "skills": ["writing"], "open_from": None,
+            "open_until": _WINDOW["open_until"],
+        })
+        s = svc.create_sitting(u, "MOCK-TEST-A")
+        # window shut → every assigned section is due for collection
+        fake_db.table("mock_exam_sittings").update(
+            {"retake_open_until": "2020-01-01T00:00:00+00:00"}).eq(
+            "id", s["id"]).execute()
+
+    calls = []
+    real = svc.get_published_exam_by_id
+    monkeypatch.setattr(svc, "get_published_exam_by_id",
+                        lambda eid: (calls.append(str(eid)), real(eid))[1])
+
+    out = svc.reap_expired_retake_sittings()
+    assert out["collected"] == 4
+    assert len(calls) <= 1, (
+        f"{len(calls)} exam lookups — the reaper is re-fetching an exam it holds")
+
+
+def test_the_advance_write_itself_refuses_a_retake_row(fake_db, svc):
+    """Codex #851 (correct, P2): advance_section checks the mode, then
+    _advance_from re-reads and writes. exam_mode is admin-writable, so a PATCH
+    landing inside that gap let a request that was accepted as sequential
+    advance an exam that had BECOME a retake. Staged by handing the guard a
+    stale sequential snapshot while the row is already retake: the write itself
+    must refuse."""
+    exam = _seed_exam(fake_db)
+    stale = dict(svc.get_published_exam_by_id(exam["id"]))   # exam_mode absent → sequential
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+
+    # The guard sees sequential (the snapshot taken before the flip); only the
+    # compare-and-set can still catch it.
+    #
+    # NOT monkeypatch.setattr + undo(): pytest hands the test and the fixtures
+    # ONE monkeypatch instance, and fake_db uses it to patch supabase_admin —
+    # undoing here restores the REAL client and the assertions below go to the
+    # network. Save and restore just this attribute.
+    real = svc.get_published_exam_by_id
+    svc.get_published_exam_by_id = lambda eid, _s=stale: dict(_s)
+    try:
+        with pytest.raises(svc.SittingConflictError):
+            svc._advance_from(exam["id"], "admin-1", "not_started")
+    finally:
+        svc.get_published_exam_by_id = real
+
+    fresh = svc.get_published_exam_by_id(exam["id"])
+    assert fresh["active_section"] == "not_started", (
+        "a retake exam was advanced through the sequential state machine")
+    assert fresh.get("listening_started_at") is None
+
+
+def test_a_mode_flip_is_reported_as_a_mode_flip(fake_db, svc, monkeypatch):
+    """The lost compare-and-set has two causes now. Blaming a mode change on
+    'someone else advanced' sends the admin looking for a second invigilator
+    who does not exist."""
+    exam = _seed_exam(fake_db)
+    stale = dict(svc.get_published_exam_by_id(exam["id"]))
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    real = svc.get_published_exam_by_id
+    seen = {"n": 0}
+
+    def stale_once(eid):
+        # stale for the guard, truthful for the post-failure diagnosis
+        seen["n"] += 1
+        return dict(stale) if seen["n"] == 1 else real(eid)
+
+    monkeypatch.setattr(svc, "get_published_exam_by_id", stale_once)
+    with pytest.raises(svc.SittingConflictError) as ei:
+        svc._advance_from(exam["id"], "admin-1", "not_started")
+    assert "test lại" in str(ei.value), str(ei.value)
