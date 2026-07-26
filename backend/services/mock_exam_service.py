@@ -1664,11 +1664,16 @@ def admin_record_speaking(sitting_id: str, admin_id: str) -> dict:
     return _reconcile_terminal(sitting_id)
 
 
-def _reconcile_terminal(sitting_id: str) -> dict:
+def _reconcile_terminal(sitting_id: str, exam: Optional[dict] = None) -> dict:
     """Flip to all_submitted (+ create review) once LRW and speaking are both in.
 
     Order-independent: whether speaking came first or LRW first, this converges.
     Never downgrades a sitting already claimed for review or beyond.
+
+    `exam` lets a SWEEP hand over the snapshot it already holds. Called once per
+    collected sitting, its own lookup was the remaining per-sitting round-trip
+    in the reaper's loop (Codex review, PR #851). The single-sitting callers —
+    the student submit paths — pass nothing and it looks the exam up.
     """
     sitting = get_sitting(sitting_id)
     if not sitting or sitting["status"] not in _PRE_REVIEW:
@@ -1678,7 +1683,8 @@ def _reconcile_terminal(sitting_id: str) -> dict:
     # that's the assigned skills (a retaker may do only Writing, or only L+R);
     # for sequential it's the exam's configured sections. Keying on the writing
     # column alone would be wrong for a retaker not assigned Writing.
-    exam = get_published_exam_by_id(sitting["mock_exam_id"]) or {}
+    if exam is None:
+        exam = get_published_exam_by_id(sitting["mock_exam_id"]) or {}
     sections = _sitting_sections(sitting, exam)
     lrw_done = bool(sections) and all(sitting.get(_SUBMITTED_COL[s]) for s in sections)
     # Speaking is required only when the exam defines a speaking component AND
@@ -2038,9 +2044,11 @@ def _force_collect_section(exam_id: str, section: str, *, strict: bool = False) 
             ) from exc
         return 0
 
+    # ONE lookup for the whole sweep — every row here belongs to `exam_id`.
+    exam = get_published_exam_by_id(str(exam_id)) or {}
     n = 0
     for row in (rows.data or []):
-        if _collect_section_for_sitting(row, section):
+        if _collect_section_for_sitting(row, section, exam):
             n += 1
     return n
 
@@ -2158,13 +2166,22 @@ def collect_section(exam_id: str, admin_id: str, section: Optional[str] = None,
     return {"section": target, "collected": collected}
 
 
-def _collect_section_for_sitting(sitting: dict, section: str) -> bool:
+def _collect_section_for_sitting(sitting: dict, section: str,
+                                 exam: Optional[dict] = None) -> bool:
     """Force-collect ONE section of ONE sitting AS-IS (time's up / straggler /
     closed tab). Stamps the collected-at timestamp, grades the bound L/R attempt
     (or promotes Writing) if present, then re-checks terminal reconciliation on
     the sitting's OWN sections (retake → assigned skills; sequential →
     configured). Idempotent + best-effort — never raises. Shared by the admin
-    advance sweep and the retake reaper."""
+    advance sweep and the retake reaper.
+
+    `exam` is the caller's snapshot of this sitting's exam. Both callers already
+    hold it — the reaper keyed by exam id, the admin sweep because every row it
+    loops over belongs to ONE exam — and every sitting in a given sweep resolves
+    to the SAME row, so looking it up per sitting made a class of 30 pay 60
+    round-trips inside a timer-driven task. Passing it in keeps the query count
+    flat as the class grows (Codex review, PR #851). Omitted → looked up, which
+    keeps the function usable standalone."""
     col = _SUBMITTED_COL.get(section)
     if not col or sitting.get(col):
         return False
@@ -2176,7 +2193,10 @@ def _collect_section_for_sitting(sitting: dict, section: str) -> bool:
     # assigned, would stamp a paper that does not exist
     # (Codex adversarial review, 2026-07-26).
     try:
-        exam_for_scope = get_published_exam_by_id(str(sitting["mock_exam_id"])) or {}
+        exam_for_scope = (
+            exam if exam is not None
+            else get_published_exam_by_id(str(sitting["mock_exam_id"])) or {}
+        )
         if section not in _sitting_sections(sitting, exam_for_scope):
             logger.info(
                 "[mock-exam] sitting=%s section=%s not owned by this sitting — not swept",
@@ -2221,13 +2241,12 @@ def _collect_section_for_sitting(sitting: dict, section: str) -> bool:
         )
         # Re-check terminal reconciliation now that this section is in.
         fresh = get_sitting(sitting["id"])
-        exam = get_published_exam_by_id(str(sitting["mock_exam_id"])) or {}
-        sections = _sitting_sections(fresh, exam) if fresh else []
+        sections = _sitting_sections(fresh, exam_for_scope) if fresh else []
         if fresh and sections and all(fresh.get(_SUBMITTED_COL[s]) for s in sections):
             supabase_admin.table("mock_exam_sittings").update({
                 "status": "lrw_submitted",
             }).eq("id", sitting["id"]).execute()
-            _reconcile_terminal(sitting["id"])
+            _reconcile_terminal(sitting["id"], exam_for_scope)
         return True
     except Exception:  # noqa: BLE001
         logger.exception(
@@ -2355,7 +2374,7 @@ def reap_expired_retake_sittings(grace_seconds: int = 30) -> dict:
             if sitting.get(_SUBMITTED_COL[section]):
                 continue
             if window_closed or _retake_section_expired(sitting, exam, section, grace_seconds):
-                _collect_section_for_sitting(sitting, section)
+                _collect_section_for_sitting(sitting, section, exam)
                 collected += 1
                 did = True
                 sitting = get_sitting(sitting["id"]) or sitting   # refresh for next section's terminal check
@@ -2372,7 +2391,7 @@ def reap_expired_retake_sittings(grace_seconds: int = 30) -> dict:
             supabase_admin.table("mock_exam_sittings").update({
                 "status": "lrw_submitted",
             }).eq("id", sitting["id"]).execute()
-            _reconcile_terminal(sitting["id"])
+            _reconcile_terminal(sitting["id"], exam)
             touched += 1
     if collected:
         logger.info("[retake-reaper] collected=%d across %d sitting(s)", collected, touched)
@@ -2430,6 +2449,17 @@ def _advance_from(exam_id: str, admin_id: str, current: str) -> dict:
     exam = get_published_exam_by_id(exam_id)
     if not exam:
         raise NotFoundError(f"Mock exam {exam_id} không tồn tại.")
+    if is_retake(exam):
+        # The SAME gate as advance_section, re-asserted on the row this call is
+        # actually about to write. advance_section reads the exam, checks the
+        # mode, then calls us — and we re-read. `exam_mode` is admin-writable
+        # (PATCH /admin/mock-exams/{id}), so a mode flip landing inside that gap
+        # passed a check made against the sequential snapshot and then advanced
+        # a retake exam anyway (Codex review, PR #851).
+        raise SittingConflictError(
+            "Đề test lại không có phần thi chung để mở — mỗi học viên tự bắt "
+            "đầu từng kỹ năng được gán."
+        )
     if current == "done":
         raise SittingConflictError("Kỳ thi đã kết thúc tất cả các phần.")
 
@@ -2461,13 +2491,24 @@ def _advance_from(exam_id: str, admin_id: str, current: str) -> dict:
     #   · {next}_started_at is re-stamped, RESETTING the countdown and handing
     #     everyone extra time on a section that was already running.
     # Matching on the section we decided from makes the transition win-once.
+    #
+    # `.neq("exam_mode", "retake")` closes the read-check-write gap for real:
+    # the guard above is still a check against a snapshot, so only predicating
+    # the WRITE on the mode makes it impossible to advance a row that became a
+    # retake in between. The column is NOT NULL DEFAULT 'sequential' (mig 154),
+    # so this never silently excludes a legacy row.
     resp = supabase_admin.table("mock_exams").update(update).eq(
         "id", str(exam_id),
-    ).eq("active_section", current).execute()
+    ).eq("active_section", current).neq("exam_mode", "retake").execute()
     if not resp.data:
         # Someone else advanced between our read and our write. Report the state
         # that actually holds rather than pretending this call did it.
         fresh = get_published_exam_by_id(exam_id) or {}
+        if is_retake(fresh):
+            raise SittingConflictError(
+                "Đề vừa được chuyển sang chế độ test lại — không còn phần thi "
+                "chung để mở. Tải lại trang để xem trạng thái mới nhất."
+            )
         raise SittingConflictError(
             "Phần thi đã được mở bởi một thao tác khác (hiện đang ở: "
             f"{fresh.get('active_section') or 'không rõ'}). Tải lại trang để xem trạng thái mới nhất."
