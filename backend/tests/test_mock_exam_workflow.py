@@ -2852,7 +2852,7 @@ def test_a_failure_after_the_terminal_transition_keeps_the_stamp(fake_db, svc):
     svc.advance_section(exam["id"], "admin-1")            # → writing
 
     real_rec = svc._reconcile_terminal
-    svc._reconcile_terminal = lambda sid: (_ for _ in ()).throw(RuntimeError("boom"))
+    svc._reconcile_terminal = lambda sid, exam=None: (_ for _ in ()).throw(RuntimeError("boom"))
     try:
         svc._collect_section_for_sitting(svc.get_sitting(sit["id"]), "writing")
     finally:
@@ -4269,26 +4269,34 @@ def test_every_bulk_route_scopes_to_its_exam_id():
         )
 
 
-def test_the_sweep_loads_its_exam_once_however_big_the_class(fake_db, svc, monkeypatch):
+def test_the_sweep_loads_its_exam_once_however_big_the_class(fake_db, svc):
     """Codex #851 (correct, P2): the scope guard added a per-sitting exam
     lookup to a timer-driven background sweep, on top of the one the terminal
     check already did. Every row in a sweep resolves to the SAME exam, so the
     cost was pure N+1 — a class of 30 paid 60 round-trips inside a task with a
     finite execution window, and a sweep that runs out of window leaves papers
     uncollected. The query count must not grow with the class."""
-    exam = _seed_exam(fake_db)
-    for _ in range(6):
-        svc.create_sitting(uuid4(), "MOCK-TEST-A")
-    svc.advance_section(exam["id"], "admin-1")            # → listening
+    def lookups_for(class_size, code):
+        exam = _seed_exam(fake_db)
+        fake_db.table("mock_exams").update({"code": code}).eq(
+            "id", exam["id"]).execute()
+        for _ in range(class_size):
+            svc.create_sitting(uuid4(), code)
+        svc.advance_section(exam["id"], "admin-1")        # → listening
+        calls = []
+        real = svc.get_published_exam_by_id
+        svc.get_published_exam_by_id = lambda eid: (calls.append(str(eid)), real(eid))[1]
+        try:
+            assert svc._force_collect_section(exam["id"], "listening") == class_size
+        finally:
+            svc.get_published_exam_by_id = real
+        return len(calls)
 
-    calls = []
-    real = svc.get_published_exam_by_id
-    monkeypatch.setattr(svc, "get_published_exam_by_id",
-                        lambda eid: (calls.append(str(eid)), real(eid))[1])
-
-    assert svc._force_collect_section(exam["id"], "listening") == 6
-    assert len(calls) == 1, (
-        f"{len(calls)} exam lookups for 6 sittings — the sweep is back to N+1")
+    # The number itself is an implementation detail (the sweep's own snapshot
+    # plus the janitor's); what must hold is that it does not track the class.
+    small, big = lookups_for(3, 'MOCK-SMALL'), lookups_for(9, 'MOCK-BIG')
+    assert small == big, (
+        f"{small} exam lookups for 3 students but {big} for 9 — the sweep is back to N+1")
 
 
 def test_the_reaper_does_not_reload_the_exam_it_already_holds(fake_db, svc, monkeypatch):
@@ -4374,3 +4382,187 @@ def test_a_mode_flip_is_reported_as_a_mode_flip(fake_db, svc, monkeypatch):
     with pytest.raises(svc.SittingConflictError) as ei:
         svc._advance_from(exam["id"], "admin-1", "not_started")
     assert "test lại" in str(ei.value), str(ei.value)
+
+
+# ── Stranded sittings: the paper is all in, finalisation never landed ──
+#
+# Codex #853 (correct, P1). Collecting is a stamp, then a status write, then a
+# review insert — three calls, no transaction. A failure between them leaves a
+# row that NOTHING can reach afterwards: _force_collect_section selects only
+# NULL stamps, _collect_section_for_sitting returns early on a stamped row, and
+# _reconcile_terminal used to bail on the status. Not the student (their section
+# is stamped), not the sweep, not the admin. Result released to nobody, ever.
+
+
+def _stall_after_stamp(svc, fake_db, sit_id, *, at):
+    """Run the writing sweep with `at` blown up — the real failure window."""
+    real = getattr(svc, at)
+    setattr(svc, at, lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
+    try:
+        svc._collect_section_for_sitting(svc.get_sitting(sit_id), "writing")
+    finally:
+        setattr(svc, at, real)
+
+
+def _writing_only_sitting(fake_db, svc):
+    exam = _seed_exam(fake_db, listening=False, reading=False)
+    u = uuid4()
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → writing
+    return exam, sit
+
+
+def test_shape_A_a_stalled_status_write_is_repaired(fake_db, svc):
+    """The stamp landed, the status write did not — the row still reads
+    lrw_in_progress with every section in. Seeded as the end state, because
+    that is what an operator actually finds; how it got there does not change
+    the fact that nothing reaches it."""
+    exam, sit = _writing_only_sitting(fake_db, svc)
+    svc._collect_section_for_sitting(svc.get_sitting(sit["id"]), "writing")
+    fake_db.tables["mock_exam_reviews"].clear()
+    fake_db.table("mock_exam_sittings").update(
+        {"status": "lrw_in_progress"}).eq("id", sit["id"]).execute()
+
+    row = svc.get_sitting(sit["id"])
+    assert row["writing_submitted_at"] is not None, "precondition: the paper IS in"
+
+    assert svc.reconcile_stalled_sittings(exam["id"])["repaired"] == 1
+    assert svc.get_sitting(sit["id"])["status"] == "all_submitted"
+    assert len(fake_db.rows("mock_exam_reviews")) == 1
+
+
+def test_shape_B_a_stalled_reconcile_is_repaired(fake_db, svc):
+    """The real failure window, run for real: the sweep stamps, flips to
+    lrw_submitted, and the reconcile blows up. #853 deliberately keeps the stamp
+    (clearing it strands the row worse) — which only holds up if something can
+    still finish the job."""
+    exam, sit = _writing_only_sitting(fake_db, svc)
+    _stall_after_stamp(svc, fake_db, sit["id"], at="_reconcile_terminal")
+
+    row = svc.get_sitting(sit["id"])
+    assert row["writing_submitted_at"] is not None
+    assert row["status"] == "lrw_submitted"
+    assert len(fake_db.rows("mock_exam_reviews")) == 0
+
+    assert svc.reconcile_stalled_sittings(exam["id"])["repaired"] == 1
+    assert svc.get_sitting(sit["id"])["status"] == "all_submitted"
+    assert len(fake_db.rows("mock_exam_reviews")) == 1
+
+
+def test_shape_C_a_terminal_row_with_no_review_is_repaired(fake_db, svc):
+    """The worst one: status reached all_submitted but the review insert failed.
+    _reconcile_terminal did not come back from all_submitted, so the sitting was
+    finished as far as the state machine knew and absent from the admin queue."""
+    exam, sit = _writing_only_sitting(fake_db, svc)
+    import services.mock_review_workflow as wf_mod
+    real = wf_mod.create_review
+    wf_mod.create_review = lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom"))
+    try:
+        svc._collect_section_for_sitting(svc.get_sitting(sit["id"]), "writing")
+    finally:
+        wf_mod.create_review = real
+
+    assert svc.get_sitting(sit["id"])["status"] == "all_submitted"
+    assert len(fake_db.rows("mock_exam_reviews")) == 0, "precondition: no review"
+
+    assert svc.reconcile_stalled_sittings(exam["id"])["repaired"] == 1
+    assert len(fake_db.rows("mock_exam_reviews")) == 1
+    assert svc.get_sitting(sit["id"])["status"] == "all_submitted", "never downgraded"
+
+
+def test_shape_D_speaking_is_in_but_the_row_never_moved(fake_db, svc):
+    """Same three-call gap on the Speaking path: the stamp is in, the transition
+    out of speaking_pending is not."""
+    exam = _seed_exam(fake_db, speaking=True, listening=False, reading=False)
+    u = uuid4()
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → writing
+    svc._collect_section_for_sitting(svc.get_sitting(sit["id"]), "writing")
+    assert svc.get_sitting(sit["id"])["status"] == "speaking_pending"
+
+    # Speaking lands, but the reconcile that should follow it never ran.
+    fake_db.table("mock_exam_sittings").update(
+        {"speaking_completed_at": "2026-07-26T00:00:00+00:00"}).eq(
+        "id", sit["id"]).execute()
+
+    assert svc.reconcile_stalled_sittings(exam["id"])["repaired"] == 1
+    assert svc.get_sitting(sit["id"])["status"] == "all_submitted"
+    assert len(fake_db.rows("mock_exam_reviews")) == 1
+
+
+def test_a_healthy_exam_is_left_completely_alone(fake_db, svc):
+    """The janitor runs on a timer and after every sweep, so it must be a no-op
+    on healthy data — including the two states that LOOK stalled: a terminal
+    row already queued for review, and a row genuinely waiting on Speaking."""
+    exam = _seed_exam(fake_db, speaking=True, listening=False, reading=False)
+    waiting = svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → writing
+    svc._collect_section_for_sitting(svc.get_sitting(waiting["id"]), "writing")
+    assert svc.get_sitting(waiting["id"])["status"] == "speaking_pending"
+
+    done = svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc._collect_section_for_sitting(svc.get_sitting(done["id"]), "writing")
+    fake_db.table("mock_exam_sittings").update(
+        {"speaking_completed_at": "2026-07-26T00:00:00+00:00"}).eq(
+        "id", done["id"]).execute()
+    svc._reconcile_terminal(done["id"])
+    assert svc.get_sitting(done["id"])["status"] == "all_submitted"
+    assert len(fake_db.rows("mock_exam_reviews")) == 1
+
+    assert svc.reconcile_stalled_sittings(exam["id"])["repaired"] == 0
+    assert len(fake_db.rows("mock_exam_reviews")) == 1, "no duplicate review"
+    assert svc.get_sitting(waiting["id"])["status"] == "speaking_pending", (
+        "a student still owing Speaking must not be finalised behind their back")
+
+
+def test_a_review_lookup_failure_does_not_re_drive_healthy_sittings(fake_db, svc):
+    """'Which terminal rows already have a review' decides what gets touched. If
+    that lookup fails, reading it as 'none of them do' would re-drive every
+    healthy finished sitting on the platform."""
+    exam = _seed_exam(fake_db, listening=False, reading=False)
+    s = svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+    svc._collect_section_for_sitting(svc.get_sitting(s["id"]), "writing")
+    assert svc.get_sitting(s["id"])["status"] == "all_submitted"
+
+    real_paged = svc._paged
+    calls = {"n": 0}
+
+    def flaky(build):
+        calls["n"] += 1
+        if calls["n"] > 1:                # the sittings page is fine, reviews blow up
+            raise RuntimeError("postgrest down")
+        return real_paged(build)
+
+    svc._paged = flaky
+    try:
+        assert svc.reconcile_stalled_sittings(exam["id"])["repaired"] == 0
+    finally:
+        svc._paged = real_paged
+
+
+def test_every_sweep_settles_what_an_earlier_one_stranded(fake_db, svc):
+    """The wiring, not just the function: a stranded row is invisible to the
+    next sweep's own query, so pressing 'Thu bài'/'Thu lại' has to repair it as
+    a side effect or nothing an admin can press ever will."""
+    exam, sit = _writing_only_sitting(fake_db, svc)
+    _stall_after_stamp(svc, fake_db, sit["id"], at="_reconcile_terminal")
+    assert len(fake_db.rows("mock_exam_reviews")) == 0
+
+    # The sweep's own query finds NOTHING to collect — the stamp is already
+    # there — yet the sitting must still come out finalised.
+    assert svc._force_collect_section(exam["id"], "writing") == 0
+    assert svc.get_sitting(sit["id"])["status"] == "all_submitted"
+    assert len(fake_db.rows("mock_exam_reviews")) == 1
+
+
+def test_the_reaper_settles_stranded_sequential_sittings_too(fake_db, svc):
+    """A sequential exam has no timer of its own. If the reaper's janitor pass
+    were scoped to the retake rows it just swept, a stranded classroom sitting
+    would wait for an admin who has no reason to press anything again."""
+    exam, sit = _writing_only_sitting(fake_db, svc)
+    _stall_after_stamp(svc, fake_db, sit["id"], at="_reconcile_terminal")
+
+    svc.reap_expired_retake_sittings()
+    assert svc.get_sitting(sit["id"])["status"] == "all_submitted"
+    assert len(fake_db.rows("mock_exam_reviews")) == 1

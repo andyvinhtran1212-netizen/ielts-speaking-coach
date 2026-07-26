@@ -1687,8 +1687,23 @@ def _reconcile_terminal(sitting_id: str, exam: Optional[dict] = None) -> dict:
     the student submit paths — pass nothing and it looks the exam up.
     """
     sitting = get_sitting(sitting_id)
-    if not sitting or sitting["status"] not in _PRE_REVIEW:
-        return sitting or {}
+    if not sitting:
+        return {}
+    if sitting["status"] == "all_submitted":
+        # REPAIR ONLY — never re-derive the status from here. The transition to
+        # all_submitted and the review insert are two calls, so a failure
+        # between them left a sitting that is terminal with NO review row: the
+        # admin queue never shows it, and every path that could fix it bails on
+        # the status. Creating the review is idempotent (one_review_per_sitting),
+        # so simply asking for it again converges (Codex review, PR #853).
+        #
+        # Re-deriving would be actively unsafe: a sitting whose speaking stamp
+        # is missing computes `speaking_pending`, which is a DOWNGRADE out of a
+        # terminal state.
+        _ensure_review(sitting)
+        return sitting
+    if sitting["status"] not in _PRE_REVIEW:
+        return sitting
 
     # "LRW done" = every section THIS sitting must do is submitted. For retake
     # that's the assigned skills (a retaker may do only Writing, or only L+R);
@@ -1718,16 +1733,22 @@ def _reconcile_terminal(sitting_id: str, exam: Optional[dict] = None) -> dict:
         sitting = {**sitting, "status": new_status}
 
     if new_status == "all_submitted":
-        # Idempotent — safe if a retry lands here twice.
-        from services import mock_review_workflow  # local import avoids cycle
-        try:
-            ai_draft = assemble_ai_draft(sitting)
-        except Exception:  # noqa: BLE001 — drafting must never block finalisation
-            logger.exception("[mock-exam] ai_draft assembly failed sitting=%s", sitting_id)
-            ai_draft = {}
-        mock_review_workflow.create_review(sitting["id"], ai_draft=ai_draft)
-        logger.info("[mock-exam] sitting=%s all_submitted → review queued", sitting_id)
+        _ensure_review(sitting)
     return sitting
+
+
+def _ensure_review(sitting: dict) -> None:
+    """Queue this sitting's review row. Idempotent — the one_review_per_sitting
+    UNIQUE constraint makes a duplicate call return the existing row, which is
+    what lets both the forward transition and the repair path call it freely."""
+    from services import mock_review_workflow  # local import avoids cycle
+    try:
+        ai_draft = assemble_ai_draft(sitting)
+    except Exception:  # noqa: BLE001 — drafting must never block finalisation
+        logger.exception("[mock-exam] ai_draft assembly failed sitting=%s", sitting["id"])
+        ai_draft = {}
+    mock_review_workflow.create_review(sitting["id"], ai_draft=ai_draft)
+    logger.info("[mock-exam] sitting=%s all_submitted → review queued", sitting["id"])
 
 
 def assemble_ai_draft(sitting: dict) -> dict:
@@ -2061,6 +2082,13 @@ def _force_collect_section(exam_id: str, section: str, *, strict: bool = False) 
     for row in (rows.data or []):
         if _collect_section_for_sitting(row, section, exam):
             n += 1
+    # A sweep is exactly where a paper gets stranded — stamped, then a failure
+    # before the status write or the review insert — and the stranded row is
+    # invisible to the NEXT sweep (this query selects null stamps only). So
+    # every sweep also settles what an earlier one left behind: pressing "Thu
+    # bài" / "Thu lại", or advancing, now repairs those rows instead of walking
+    # past them. Never raises (Codex review, PR #853).
+    reconcile_stalled_sittings(str(exam_id))
     return n
 
 
@@ -2348,13 +2376,127 @@ def _paged(build) -> list:
         start += _PAGE
 
 
+# Statuses a sitting can be stuck in while its paper is, in fact, fully in.
+_STALLED_CANDIDATE = ["registered", "lrw_in_progress", "lrw_submitted",
+                      "speaking_pending", "all_submitted"]
+
+
+def reconcile_stalled_sittings(exam_id: Optional[str] = None) -> dict:
+    """Finish sittings whose paper is all in but whose finalisation did not land.
+
+    THE HOLE THIS FILLS (Codex review, PR #853). Collecting a section is one
+    stamp, then a status write, then a review insert — three calls, no
+    transaction. A failure between them leaves a row that:
+
+      · has every section stamped, so `_force_collect_section` (which selects
+        only NULL stamps) cannot see it and `_collect_section_for_sitting`
+        returns early on it — no re-sweep and no "thu lại" reaches it; and
+      · is not terminal, or is terminal with no review row — so it never
+        appears in the admin queue either.
+
+    Nothing in the system moved it after that: not the student (their section
+    is stamped), not the sweep, not the admin. The result was released to
+    nobody, forever. Three shapes, all repaired here:
+
+      A. every section stamped, status registered/lrw_in_progress — the status
+         write failed
+      B. every section stamped, status lrw_submitted — reconciliation failed
+      C. status all_submitted with no review row — the review insert failed
+         (reachable from the student submit paths too, not just the sweep)
+      D. status speaking_pending with the speaking stamp already in — the same
+         gap on the Speaking path
+
+    Idempotent and cheap when healthy: one paged select plus one batched review
+    lookup, and normally nothing to do. Returns {"repaired": n}.
+    """
+    try:
+        def _sittings(_c=None):
+            q = supabase_admin.table("mock_exam_sittings").select("*").in_(
+                "status", _STALLED_CANDIDATE,
+            ).order("id")
+            return q.eq("mock_exam_id", str(exam_id)) if exam_id else q
+        rows = _paged(_sittings)
+    except Exception:  # noqa: BLE001
+        logger.exception("[mock-exam] stalled-sitting lookup failed exam=%s", exam_id)
+        return {"repaired": 0}
+    if not rows:
+        return {"repaired": 0}
+
+    exams: dict = {}
+    fully_in: list = []
+    for row in rows:
+        eid = str(row["mock_exam_id"])
+        if eid not in exams:
+            exams[eid] = get_published_exam_by_id(eid) or {}
+        sections = _sitting_sections(row, exams[eid])
+        if sections and all(row.get(_SUBMITTED_COL[s]) for s in sections):
+            fully_in.append(row)
+    if not fully_in:
+        return {"repaired": 0}
+
+    # An all_submitted row is only stalled if its review row is MISSING. Asking
+    # per sitting would put an N+1 on a timer; one chunked lookup answers for
+    # the whole batch. A lookup failure must not be read as "no reviews exist" —
+    # that would re-drive every healthy terminal sitting — so bail instead.
+    terminal_ids = [str(r["id"]) for r in fully_in if r["status"] == "all_submitted"]
+    reviewed: set = set()
+    if terminal_ids:
+        try:
+            for i in range(0, len(terminal_ids), _ID_CHUNK):
+                chunk = terminal_ids[i:i + _ID_CHUNK]
+                reviewed.update(
+                    str(r["sitting_id"]) for r in _paged(
+                        lambda c=chunk: supabase_admin.table("mock_exam_reviews")
+                        .select("sitting_id").in_("sitting_id", c).order("sitting_id")
+                    )
+                )
+        except Exception:  # noqa: BLE001
+            logger.exception("[mock-exam] stalled-sitting review lookup failed")
+            return {"repaired": 0}
+
+    repaired = 0
+    for row in fully_in:
+        if row["status"] == "all_submitted" and str(row["id"]) in reviewed:
+            continue                      # healthy — waiting on the admin
+        if row["status"] == "speaking_pending" and not row.get("speaking_completed_at"):
+            continue                      # healthy — genuinely waiting on Speaking
+        # ...but a speaking_pending row whose speaking IS in should have moved:
+        # the same three-call gap exists on that path (D). Decided in memory so
+        # a class waiting on Speaking costs no queries per tick.
+        try:
+            if row["status"] in ("registered", "lrw_in_progress"):
+                supabase_admin.table("mock_exam_sittings").update({
+                    "status": "lrw_submitted",
+                }).eq("id", row["id"]).execute()
+            _reconcile_terminal(row["id"], exams[str(row["mock_exam_id"])])
+            logger.warning(
+                "[mock-exam] sitting=%s was stalled at %s with the paper fully in "
+                "— finalisation retried", row["id"], row["status"],
+            )
+            repaired += 1
+        except Exception:  # noqa: BLE001 — one bad row must not stop the rest
+            logger.exception("[mock-exam] stalled-sitting repair failed sitting=%s", row["id"])
+    if repaired:
+        logger.info("[mock-exam] reconciled %d stalled sitting(s) exam=%s", repaired, exam_id)
+    return {"repaired": repaired}
+
+
 def reap_expired_retake_sittings(grace_seconds: int = 30) -> dict:
     """Server-side backstop for retake self-timing (no invigilator). For each
     pre-review retake sitting: collect any STARTED section whose per-sitting
     clock ran out (+grace, so a live browser auto-submits first), and — once the
     per-student window has closed — collect every remaining assigned section so
     the sitting finalises even if the student never came back. Idempotent;
-    per-sitting failures isolated. Returns {"collected": n, "sittings": m}."""
+    per-sitting failures isolated. Returns {"collected": n, "sittings": m}.
+
+    ALSO runs the platform janitor (reconcile_stalled_sittings) on every tick,
+    including the paths that find no retake work — this is the only timer the
+    mock subsystem has, and a stranded SEQUENTIAL sitting has nothing else that
+    would ever come back for it (Codex review, PR #853)."""
+    def _done(collected: int, touched: int) -> dict:
+        reconcile_stalled_sittings()
+        return {"collected": collected, "sittings": touched}
+
     # Narrow at the DATABASE, not in Python. The old sweep pulled EVERY
     # registered/lrw_in_progress sitting across every exam, then did one
     # get_published_exam_by_id per row just to discard the sequential ones —
@@ -2368,9 +2510,9 @@ def reap_expired_retake_sittings(grace_seconds: int = 30) -> dict:
         }
     except Exception:  # noqa: BLE001
         logger.exception("[retake-reaper] exam lookup failed")
-        return {"collected": 0, "sittings": 0}
+        return _done(0, 0)
     if not retake_exams:
-        return {"collected": 0, "sittings": 0}
+        return _done(0, 0)
 
     # Both queries are PAGED, and the id filter is CHUNKED. Unpaginated, the
     # exam lookup silently returns only the first PostgREST page once historical
@@ -2390,7 +2532,7 @@ def reap_expired_retake_sittings(grace_seconds: int = 30) -> dict:
             ))
     except Exception:  # noqa: BLE001
         logger.exception("[retake-reaper] lookup failed")
-        return {"collected": 0, "sittings": 0}
+        return _done(0, 0)
 
     now = _now()
     collected = 0
@@ -2432,7 +2574,7 @@ def reap_expired_retake_sittings(grace_seconds: int = 30) -> dict:
             touched += 1
     if collected:
         logger.info("[retake-reaper] collected=%d across %d sitting(s)", collected, touched)
-    return {"collected": collected, "sittings": touched}
+    return _done(collected, touched)
 
 
 def advance_section(exam_id: str, admin_id: str,
