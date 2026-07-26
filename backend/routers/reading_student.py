@@ -914,6 +914,13 @@ async def start_shared_reading_test_attempt(
     creates an attempt with user_id NULL. Returns attempt_id + anon_id."""
     import uuid as _uuid
     test = _resolve_share(share_token, by_token=True)
+    if test.get("exam_only"):
+        # Share links are anonymous by definition, so there is no sitting that
+        # could entitle this. Gating the share BOOT alone left the start route
+        # open: a token minted before the paper was reserved could still create
+        # an owned attempt, and submit/review then exposes the answer key
+        # (Codex adversarial review, 2026-07-26).
+        raise HTTPException(404, "Không tìm thấy đề đọc này.")
     test_uuid = test["id"]
     share = ((test.get("metadata") or {}).get("share") or {})
 
@@ -1013,6 +1020,12 @@ async def start_reading_test_attempt(
 
     user = await _require_auth(authorization)
     test = _fetch_published_test(test_id)
+    # Reserved for a mock exam. Gating the DETAIL route was not enough: a caller
+    # who starts an attempt here owns it, and the review endpoint trusts attempt
+    # ownership rather than exam entitlement — so a blank submit then hands back
+    # the passages, expected answers and solutions (Codex adversarial review,
+    # 2026-07-26).
+    _assert_exam_content_allowed(test, user["id"])
     _require_test_unlocked(test, x_reading_password)   # F1 gate on start too
     test_uuid = test["id"]
 
