@@ -71,12 +71,30 @@
     // stuck in speaking_pending forever (Codex review, PR #847).
     if (window.SpeakingDebt) window.SpeakingDebt.retryAll();
     try {
+      var createdNow = false;
       if (!S.sittingId) {
         if (!S.code) return fail('Thiếu mã kỳ thi (?code=).');
         var created = await api('post', '/api/mock-exams/' + encodeURIComponent(S.code) + '/sittings');
         S.sittingId = created.id;
+        // The BACKEND says which happened. Inferring it from mutable sitting
+        // fields got both directions wrong: a reload before the first section
+        // is collected looks exactly like a fresh 'registered' row with nothing
+        // submitted, and a genuinely new arrival during a section pause is born
+        // with a submitted stamp and looked like a resume (Codex review, #849).
+        createdNow = created.created === true;
       }
+      wireIntegrity();
+      // Load state FIRST. Any entry through ?sitting= leaves createdNow false —
+      // including the application's own return from practice.js after Speaking,
+      // which happens once the sitting is already all_submitted. Counting
+      // before we know the status recorded an "integrity event" that was not an
+      // exam resume at all (Codex review, PR #849).
       await loadState();
+      var live = S.sitting && (S.sitting.status === 'registered'
+        || S.sitting.status === 'lrw_in_progress');
+      // Count a RE-entry, never the first one, and never after the exam is over.
+      if (!createdNow && live) bumpIntegrity('resumes', 1);
+      reportIntegrity();
     } catch (e) { fail('Không mở được kỳ thi: ' + (e && e.message ? e.message : e)); }
   }
 
@@ -828,6 +846,94 @@
       var sid = sess.session_id || sess.id;
       location.href = '/pages/practice.html?session_id=' + encodeURIComponent(sid);
     } catch (e) { fail('Không mở được phần Speaking: ' + (e && e.message ? e.message : e)); }
+  }
+
+  // ── Soft integrity signals ─────────────────────────────────────────
+  //
+  // mock_exam_sittings.integrity has been reserved for these since mig 146 and
+  // nothing has ever written to it. INFORMATIONAL ONLY — they never penalise
+  // anyone and never feed a band. They exist so an examiner looking at a
+  // surprising result can see whether the tab was hidden for ten minutes or the
+  // connection died six times, instead of guessing.
+  //
+  // Totals live in localStorage so they survive a reload, and are sent as
+  // ABSOLUTE values: the server takes the max, which makes a retry idempotent
+  // and makes the record un-decreasable by the client.
+  var INTEGRITY_KEY_PREFIX = 'mock-integrity:';
+  var _integrity = null;
+  var _hiddenAt = null;
+
+  function integrityKey() { return INTEGRITY_KEY_PREFIX + S.sittingId; }
+
+  function loadIntegrity() {
+    if (_integrity) return _integrity;
+    var d = null;
+    try { d = JSON.parse(localStorage.getItem(integrityKey()) || 'null'); } catch (e) {}
+    _integrity = (d && typeof d === 'object') ? d : {};
+    ['blur_count', 'blur_seconds', 'resumes', 'offline_events'].forEach(function (k) {
+      _integrity[k] = parseInt(_integrity[k], 10) || 0;
+    });
+    return _integrity;
+  }
+
+  function bumpIntegrity(key, by) {
+    var d = loadIntegrity();
+    d[key] = (d[key] || 0) + (by == null ? 1 : by);
+    try { localStorage.setItem(integrityKey(), JSON.stringify(d)); } catch (e) {}
+  }
+
+  function reportIntegrity(opts) {
+    if (!S.sittingId) return;
+    var d = loadIntegrity();
+    // Nothing to say yet — don't spend a request on four zeroes.
+    if (!(d.blur_count || d.resumes || d.offline_events)) return;
+    // keepalive on the unload path: a plain fetch from pagehide is normally
+    // cancelled, so the counters would sit in localStorage and — if the student
+    // never loads the page again — never reach the console at all. Same reason
+    // the Writing flush uses postWith (Codex review, PR #849).
+    window.api.postWith(
+      '/api/mock-exams/sittings/' + encodeURIComponent(S.sittingId) + '/integrity',
+      d, null, { keepalive: !!(opts && opts.keepalive) }
+    ).catch(function () { /* soft signal — never worth surfacing to a student */ });
+  }
+
+  // Close an open hidden-interval and bank the seconds. Deliberately NOT
+  // gated on renderedSection: the interval only ever opens while a section is
+  // being sat, and by the time the tab comes back the section may have ended —
+  // the timer auto-submitted, or the admin advanced — which clears
+  // renderedSection. Returning early there discarded the whole interval, i.e.
+  // exactly the long absence this signal exists to surface (Codex review,
+  // PR #849).
+  function closeHiddenInterval() {
+    if (!_hiddenAt) return false;
+    bumpIntegrity('blur_seconds', Math.round((Date.now() - _hiddenAt) / 1000));
+    _hiddenAt = null;
+    return true;
+  }
+
+  function wireIntegrity() {
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden') {
+        if (!S.renderedSection) return;    // only OPEN one while sitting a section
+        _hiddenAt = Date.now();
+        bumpIntegrity('blur_count', 1);
+      } else if (closeHiddenInterval()) {
+        reportIntegrity();
+      }
+    });
+    window.addEventListener('offline', function () {
+      // Only while a section is actually being sat — the same guard the
+      // tab-hidden signal uses. Without it a network blip in the waiting room,
+      // or on a review screen left open afterwards, was persisted and shown to
+      // the invigilator as exam-integrity context (Codex review, PR #849).
+      if (S.renderedSection) bumpIntegrity('offline_events', 1);
+    });
+    window.addEventListener('pagehide', function () {
+      // A tab that is closed while STILL hidden never fires a visible event, so
+      // this is the only chance to bank that interval.
+      closeHiddenInterval();
+      reportIntegrity({ keepalive: true });
+    });
   }
 
   // The browser's own connectivity signal is faster and more reliable than

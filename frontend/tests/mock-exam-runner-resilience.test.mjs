@@ -20,6 +20,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const JS = readFileSync(join(__dirname, '..', 'public', 'js', 'mock-exam-runner.js'), 'utf8');
+const LIVE = readFileSync(join(__dirname, '..', 'public', 'js', 'admin-mock-live.js'), 'utf8');
 const HTML = readFileSync(join(__dirname, '..', 'public', 'pages', 'mock-exam.html'), 'utf8');
 
 describe('A2 — Writing autosaves to the server', () => {
@@ -148,6 +149,51 @@ describe('A3 round 3 — a terminal poll response is terminal', () => {
   });
 });
 
+describe('integrity signals (PR #849 review fixes)', () => {
+  test('resumes counts a RE-entry, never the first boot of a new sitting', () => {
+    // Counting unconditionally made every normal sitting report "vào lại 1×"
+    // from birth, and "2×" after a single real reload.
+    assert.match(JS, /if \(!createdNow && live\) bumpIntegrity\('resumes', 1\)/);
+    // ...and "new" now comes from the BACKEND, which is the only thing that
+    // knows: inferring it from mutable sitting fields got BOTH directions
+    // wrong (a reload before the first collect looks like a fresh row; a new
+    // arrival during a pause is born with a submitted stamp).
+    assert.match(JS, /createdNow = created\.created === true;/);
+  });
+
+  test('the pagehide report uses keepalive', () => {
+    // A plain fetch from pagehide is cancelled, so counters would never leave
+    // localStorage for a student who does not load the page again.
+    assert.match(JS, /reportIntegrity\(\{ keepalive: true \}\)/);
+    assert.match(JS, /\/integrity',\s*\n\s*d, null, \{ keepalive:/);
+  });
+
+  test('a hidden interval is banked even if the section ended meanwhile', () => {
+    // The visibility handler returned early whenever renderedSection was false
+    // — but the section can END while the tab is hidden (the timer submits, or
+    // the admin advances), which clears it. The whole interval was then
+    // discarded: precisely the long absence this signal exists to surface.
+    assert.match(JS, /function closeHiddenInterval\(\)/);
+    assert.match(JS, /\} else if \(closeHiddenInterval\(\)\) \{/);
+    // the OPEN side stays gated — an interval only starts while sitting
+    assert.match(JS, /if \(!S\.renderedSection\) return;\s*\/\/ only OPEN one/);
+  });
+
+  test('a tab closed while still hidden banks its interval on pagehide', () => {
+    assert.match(JS, /closeHiddenInterval\(\);\s*\n\s*reportIntegrity\(\{ keepalive: true \}\)/);
+  });
+});
+
+describe('integrity signals — the console renders what the runner records', () => {
+  test('a single mid-exam re-entry is shown, not hidden behind > 1', () => {
+    // `> 1` was left over from when the runner counted the first boot too. It
+    // now records only actual RE-entries, so the commonest real case — one
+    // reload, resumes === 1 — was persisted and then hidden.
+    assert.match(LIVE, /if \(i\.resumes\) bits\.push\('vào lại ' \+ i\.resumes \+ '×'\);/);
+    assert.doesNotMatch(LIVE, /i\.resumes > 1/);
+  });
+});
+
 describe('A3 round 4 — a stale retry must not stop the next section', () => {
   test('a retry for a section the class has left returns immediately', () => {
     // The retry is a delayed timer: the admin can force-collect and a poll can
@@ -167,5 +213,25 @@ describe('A3 round 4 — a stale retry must not stop the next section', () => {
 
   test('the owed-submit path keeps its own moved-on check', () => {
     assert.match(JS, /if \(sit\[section \+ '_submitted_at'\] \|\| S\.activeSection !== section\) \{/);
+  });
+});
+
+describe('integrity signals round 4 — only count what the exam did', () => {
+  test('state is loaded BEFORE a resume is counted', () => {
+    // Any entry through ?sitting= leaves createdNow false — including the
+    // application's own return from practice.js after Speaking, which happens
+    // once the sitting is already all_submitted.
+    const boot = JS.slice(JS.indexOf('async function boot()'));
+    const load = boot.indexOf('await loadState();');
+    const count = boot.indexOf("bumpIntegrity('resumes', 1)");
+    assert.ok(load > 0 && count > load, 'load state, then decide');
+  });
+
+  test('a finished sitting does not record a resume', () => {
+    assert.match(JS, /var live = S\.sitting && \(S\.sitting\.status === 'registered'\s*\n\s*\|\| S\.sitting\.status === 'lrw_in_progress'\);/);
+  });
+
+  test('offline events are gated on an active section, like tab-hidden is', () => {
+    assert.match(JS, /if \(S\.renderedSection\) bumpIntegrity\('offline_events', 1\);/);
   });
 });

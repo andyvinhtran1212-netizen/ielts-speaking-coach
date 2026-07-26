@@ -178,6 +178,11 @@ class _Query:
         raise AssertionError(f"Unsupported op: {self.op!r}")
 
 
+class _RpcResult:
+    def __init__(self, data): self.data = data
+    def execute(self): return self
+
+
 class FakeSupabase:
     def __init__(self):
         self.tables: dict[str, list[dict]] = {}
@@ -185,6 +190,49 @@ class FakeSupabase:
 
     def table(self, name):
         return _Query(self, name)
+
+    # Mig 163 — the integrity merge moved into a Postgres function so two
+    # overlapping reports cannot lose a counter (or clobber void_reason). The
+    # fake models the SAME semantics the SQL implements — GREATEST per counter,
+    # jsonb-|| so untouched keys survive, and only a non-terminal sitting — so
+    # these tests keep exercising real behaviour instead of a stub.
+    def rpc(self, name, params):
+        if name == "fn_merge_sitting_integrity":
+            row = next(
+                (r for r in self.tables.get("mock_exam_sittings", [])
+                 if str(r.get("id")) == str(params["p_sitting_id"])
+                 and r.get("status") not in ("released", "void")),
+                None,
+            )
+            if row is None:
+                return _RpcResult(None)
+            cur = dict(row.get("integrity") or {})
+            for key in ("blur_count", "blur_seconds", "resumes", "offline_events"):
+                incoming = params.get(f"p_{key}")
+                cur[key] = max(int(cur.get(key) or 0), int(incoming or 0))
+            cur["reported_at"] = "2026-01-01T00:00:00+00:00"
+            row["integrity"] = cur
+            return _RpcResult(cur)
+        # fn_void_sitting (mig 168) — the void transition merges its audit keys
+        # into the SAME column, so it must be atomic for the same reason: a
+        # Python read-modify-write here erased counters committed in between.
+        if name == "fn_void_sitting":
+            row = next(
+                (r for r in self.tables.get("mock_exam_sittings", [])
+                 if str(r.get("id")) == str(params["p_sitting_id"])
+                 and r.get("status") != "released"),
+                None,
+            )
+            if row is None:
+                return _RpcResult(None)
+            merged = dict(row.get("integrity") or {})      # jsonb-|| semantics
+            merged["void_reason"] = params.get("p_reason") or ""
+            merged["voided_by"] = params.get("p_admin_id")
+            merged["voided_at"] = "2026-01-01T00:00:00+00:00"
+            row["status"] = "void"
+            row["integrity"] = merged
+            return _RpcResult(dict(row))
+        raise AssertionError(f"unexpected rpc: {name}")
 
     # test helpers
     def seed(self, name, row):
@@ -2963,6 +3011,114 @@ def test_retake_assign_rejects_open_ended_before_writing_any_row(fake_db):
             {"user_id": bad, "skills": ["reading"], "open_until": None},
         ], created_by=str(uuid4()))
     assert fake_db.rows("mock_exam_assignments") == []
+
+
+def test_integrity_counters_are_monotonic(fake_db, svc):
+    """The column has been reserved since mig 146 and never written.
+
+    Counters are absolute totals kept in the client's localStorage (so they
+    survive a reload) and merged with MAX — which makes a retry idempotent and,
+    more importantly, makes the record UN-DECREASABLE by the client. That is the
+    whole reason it lives server-side instead of being reported at submit."""
+    _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+
+    svc.record_integrity(s["id"], u, {"blur_count": 3, "offline_events": 1})
+    svc.record_integrity(s["id"], u, {"blur_count": 5, "offline_events": 1})
+    svc.record_integrity(s["id"], u, {"blur_count": 2, "offline_events": 0})   # cannot walk it back
+
+    got = svc.get_sitting(s["id"])["integrity"]
+    assert got["blur_count"] == 5
+    assert got["offline_events"] == 1
+
+
+def test_integrity_rejects_a_foreign_sitting(fake_db, svc):
+    _seed_exam(fake_db)
+    s = svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    with pytest.raises(PermissionError):
+        svc.record_integrity(s["id"], uuid4(), {"blur_count": 99})
+
+
+def test_integrity_ignores_junk_without_failing(fake_db, svc):
+    """A soft signal must never break the exam — bad input is dropped, not
+    raised, and the write still lands for the fields that were valid."""
+    _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.record_integrity(s["id"], u, {"blur_count": "abc", "resumes": -4, "offline_events": 2})
+    got = svc.get_sitting(s["id"])["integrity"]
+    # Since mig 163 the merge happens in SQL, which writes all four counters
+    # (COALESCE → 0) rather than omitting the ones the caller skipped. Assert
+    # the MEANING — junk did not increment anything — not the key layout. 0 is
+    # falsy, so the live console still shows nothing for these.
+    assert got["blur_count"] == 0 and got["resumes"] == 0
+    assert got["offline_events"] == 2
+
+
+def test_void_reports_the_truth_when_the_rpc_guard_refuses(fake_db, svc, monkeypatch):
+    """Codex #849 (correct): if a release commits between the read and the RPC,
+    the RPC's status guard returns null. Fabricating a void response there
+    logged success and answered the admin 200 while the persisted row said
+    `released`."""
+    _seed_exam(fake_db)
+    u = uuid4()
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+
+    real_rpc = fake_db.rpc
+
+    class _NullRpc:
+        data = None
+
+        def execute(self):
+            return self
+
+    def refuse_void(name, params):
+        if name == "fn_void_sitting":
+            return _NullRpc()
+        return real_rpc(name, params)
+
+    fake_db.rpc = refuse_void
+    try:
+        with pytest.raises(svc.SittingConflictError):
+            svc.void_sitting(sit["id"], "admin-1", reason="máy hỏng")
+    finally:
+        fake_db.rpc = real_rpc
+
+    assert svc.get_sitting(sit["id"])["status"] != "void"
+
+
+def test_voiding_preserves_counters_committed_in_between(fake_db, svc):
+    """Codex #849 (correct): mig 163 made the COUNTER path atomic, but
+    void_sitting() was still a Python read-modify-write of the same column —
+    read integrity, add void_reason/voided_by, write the whole document back. A
+    report committing between that read and that write had its counters erased,
+    breaking the monotonic guarantee from the other side."""
+    _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.record_integrity(s["id"], u, {"blur_count": 3, "offline_events": 1})
+
+    svc.void_sitting(s["id"], "admin-1", reason="máy hỏng")
+
+    got = svc.get_sitting(s["id"])["integrity"]
+    assert got["blur_count"] == 3 and got["offline_events"] == 1   # not clobbered
+    assert got["void_reason"] == "máy hỏng"
+    assert got["voided_by"] == "admin-1"
+
+
+def test_integrity_surfaces_on_the_live_console(fake_db, svc):
+    """Written-and-forgotten is exactly the criticism that produced the pacing
+    page — these have to be readable somewhere."""
+    _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.record_integrity(s["id"], u, {"blur_count": 4, "blur_seconds": 120})
+
+    row = [r for r in svc.admin_live_monitor(
+        svc.get_sitting(s["id"])["mock_exam_id"])["students"]][0]
+    assert row["integrity"]["blur_count"] == 4
+    assert "reported_at" not in row["integrity"]     # counters only, no noise
 
 
 def test_admin_can_unstick_a_speaking_pending_sitting(fake_db, svc, wf):

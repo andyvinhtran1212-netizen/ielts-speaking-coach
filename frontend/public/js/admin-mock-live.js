@@ -349,7 +349,7 @@
               (s.needs_retest ? ' <span class="ml-pill">cần test lại</span>' : '') + '</td>' +
             cols.map(function (c) { return '<td>' + cellHtml(s, c) + '</td>'; }).join('') +
             (speaking ? '<td>' + speakingHtml(s) + '</td>' : '') +
-            '<td class="ml-muted">' + esc(s.status) + '</td>' +
+            '<td class="ml-muted">' + esc(s.status) + integrityHtml(s) + '</td>' +
             // Pacing is available for ANY sitting — a finished one is exactly
             // when you want to look at how it was spent. Voiding is not: a
             // released sitting is a published result the student can already
@@ -427,6 +427,26 @@
       (c.total ? '/' + c.total : '') + '</span>' + flags +
       (c.last_activity_at ? '<span class="ml-cell__note">' + esc(fmtTime(c.last_activity_at)) + '</span>' : '') +
       '</span>';
+  }
+
+  // Soft signals, deliberately understated. They are context for a surprising
+  // result — "was the tab hidden, did the connection die" — NOT an accusation,
+  // and nothing here feeds a band.
+  function integrityHtml(s) {
+    var i = s.integrity || {};
+    var bits = [];
+    if (i.blur_count) {
+      bits.push('rời tab ' + i.blur_count + '×' +
+        (i.blur_seconds ? ' (' + Math.round(i.blur_seconds / 60) + 'p)' : ''));
+    }
+    if (i.offline_events) bits.push('mất mạng ' + i.offline_events + '×');
+    // `> 1` was left over from when the runner counted the first boot too.
+    // It now records only actual RE-entries, so the commonest real case — one
+    // mid-exam reload, resumes === 1 — was persisted by the backend and then
+    // hidden by this condition (Codex review, PR #849).
+    if (i.resumes) bits.push('vào lại ' + i.resumes + '×');
+    if (!bits.length) return '';
+    return '<span class="ml-cell__note" style="display:block">' + esc(bits.join(' · ')) + '</span>';
   }
 
   function speakingHtml(s) {

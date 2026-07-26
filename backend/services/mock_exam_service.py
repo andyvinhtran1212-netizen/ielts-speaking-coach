@@ -540,7 +540,13 @@ def create_sitting(user_id: str, code: str) -> dict:
         "status", ["released", "void"],
     ).limit(1).execute()
     if existing.data:
-        return existing.data[0]
+        # SAY SO. The runner counts a "resume" as an integrity signal, and it
+        # was inferring newness from mutable sitting fields: a reload before the
+        # first section is collected looks exactly like a fresh 'registered' row
+        # with nothing submitted, while a genuinely new arrival during a section
+        # PAUSE is born with a submitted stamp and looked like a resume
+        # (Codex review, PR #849). Only this function knows which happened.
+        return {**existing.data[0], "created": False}
 
     # NEW sitting only: apply the entry gates.
     #
@@ -639,7 +645,7 @@ def create_sitting(user_id: str, code: str) -> dict:
     logger.info(
         "[mock-exam] created sitting=%s user=%s exam=%s", row["id"], user_id, code,
     )
-    return row
+    return {**row, "created": True}
 
 
 def attach_attempt(
@@ -1465,6 +1471,58 @@ def submit_section(
     return sitting
 
 
+# Counters the runner reports. mock_exam_sittings.integrity has been reserved
+# for exactly this since mig 146 ({blur_count, late_ms, resumes}) and nothing
+# has ever written to it.
+_INTEGRITY_COUNTERS = ("blur_count", "blur_seconds", "resumes", "offline_events")
+# A single value can't be gamed downwards, but it also shouldn't grow without
+# bound from a stuck client.
+_INTEGRITY_MAX = 100000
+
+
+def record_integrity(sitting_id: str, user_id: str, signals: dict) -> dict:
+    """Merge soft integrity counters reported by the student's runner.
+
+    INFORMATIONAL ONLY — the mig 146 comment is explicit that these never
+    auto-penalise, and nothing here feeds a band. They exist so an examiner
+    looking at a surprising result can see whether the tab was hidden for ten
+    minutes or the connection died six times, instead of guessing.
+
+    Counters are MONOTONIC (max, not sum): the client keeps its running total in
+    localStorage so it survives a reload, and sending an absolute value makes
+    the write idempotent under retries. Taking the max also means a client can
+    never DECREASE its own record — which is the whole point of storing it
+    server-side rather than trusting a report at submit time.
+    """
+    sitting = get_sitting(sitting_id)
+    if not sitting:
+        raise NotFoundError(f"Sitting {sitting_id} không tồn tại.")
+    _assert_owner(sitting, user_id)
+    if sitting["status"] in ("released", "void"):
+        raise SittingConflictError(f"Sitting đang ở trạng thái {sitting['status']!r}.")
+
+    # Sanitise here (junk is dropped, never raised — a soft signal must not be
+    # able to break an exam), then merge in ONE statement. The old Python
+    # read-modify-write let two overlapping reports both read the same value so
+    # the SMALLER total could write last, and could clobber void_reason written
+    # by a concurrent void_sitting (Codex review, PR #849).
+    params: dict = {"p_sitting_id": str(sitting_id)}
+    for key in _INTEGRITY_COUNTERS:
+        raw = signals.get(key)
+        if raw is None:
+            continue
+        try:
+            value = int(raw)
+        except (TypeError, ValueError):
+            continue
+        if value < 0:
+            continue
+        params[f"p_{key}"] = min(value, _INTEGRITY_MAX)
+
+    res = supabase_admin.rpc("fn_merge_sitting_integrity", params).execute()
+    return res.data or {}
+
+
 def bind_session_to_sitting(session_id: str, user_id: str, sitting_id: str) -> None:
     """Link a speaking session to a sitting AT CREATION (before any response is
     graded), so per-response grading is sealed from the first answer.
@@ -1730,17 +1788,33 @@ def void_sitting(sitting_id: str, admin_id: str, reason: str = "") -> dict:
         raise SittingConflictError(
             "Không huỷ được lượt thi đã công bố kết quả."
         )
-    integrity = dict(sitting.get("integrity") or {})
-    integrity["void_reason"] = reason
-    integrity["voided_by"] = str(admin_id)
-    # Keep the sitting SEALED. A voided (cancelled) exam never publishes results —
-    # unsealing here would expose scores / reviews / answer keys for the linked
-    # attempts without going through the release workflow. Only release_results
-    # ever lifts the seal.
-    resp = supabase_admin.table("mock_exam_sittings").update({
-        "status": "void",
-        "integrity": integrity,
-    }).eq("id", str(sitting_id)).execute()
+    # ONE statement (mig 168). This used to read `integrity`, add the two audit
+    # fields in Python, and write the whole document back — so an integrity
+    # report committing between the read and the write had its counters erased,
+    # breaking from the other side the monotonic guarantee mig 163 makes
+    # (Codex review, PR #849). `integrity || {...}` keeps every key this path
+    # does not touch.
+    #
+    # The sitting stays SEALED: a voided (cancelled) exam never publishes
+    # results, and unsealing here would expose scores / reviews / answer keys
+    # for the linked attempts without going through the release workflow. Only
+    # release_results ever lifts the seal.
+    voided = supabase_admin.rpc("fn_void_sitting", {
+        "p_sitting_id": str(sitting_id),
+        "p_admin_id":   str(admin_id),
+        "p_reason":     reason,
+    }).execute().data
+    if not voided:
+        # The RPC's own status guard refused. That happens when a release
+        # committed between the read above and this call, so the row is now
+        # `released`. Fabricating a void response here logged success and
+        # answered the admin 200 while the persisted row said the opposite
+        # (Codex review, PR #849). Report the state that actually holds.
+        fresh = get_sitting(sitting_id) or {}
+        raise SittingConflictError(
+            "Không huỷ được lượt thi — trạng thái hiện tại là "
+            f"{fresh.get('status') or 'không rõ'}. Tải lại trang để xem trạng thái mới nhất."
+        )
     # Cancel the linked review too. Leaving it 'reviewed' let a stale review page
     # still call release_results(), which flips the sitting back to 'released'
     # with sealed=False — publishing an exam that was explicitly cancelled.
@@ -1755,7 +1829,7 @@ def void_sitting(sitting_id: str, admin_id: str, reason: str = "") -> dict:
     except Exception:  # noqa: BLE001 — the sitting is already void; log and move on
         logger.exception("[mock-exam] void: review cancel failed sitting=%s", sitting_id)
     logger.info("[mock-exam] sitting=%s VOIDED by admin=%s", sitting_id, admin_id)
-    return resp.data[0] if resp.data else {**sitting, "status": "void"}
+    return voided
 
 
 def set_sitting_retest(
@@ -2700,6 +2774,13 @@ def admin_live_monitor(exam_id: str) -> dict:
                 "completed_at": (sitting or {}).get("speaking_completed_at"),
             },
             "needs_retest":  bool((sitting or {}).get("needs_retest")),
+            # Soft signals from the runner. Surfaced here rather than written and
+            # forgotten — a column nobody reads is exactly the criticism that
+            # produced the pacing page. Informational: never a penalty.
+            "integrity":     {
+                k: v for k, v in ((sitting or {}).get("integrity") or {}).items()
+                if k in _INTEGRITY_COUNTERS and v
+            },
         })
     students.sort(key=lambda r: (r["student_name"] or "").lower())
 
