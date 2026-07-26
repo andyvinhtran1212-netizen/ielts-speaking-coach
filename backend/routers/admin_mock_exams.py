@@ -208,6 +208,19 @@ async def section_progress(
         raise HTTPException(404, str(e))
 
 
+@router.get("/{exam_id}/live")
+async def live_monitor(exam_id: str, authorization: str | None = Header(default=None)):
+    """Per-student live state for the invigilator console — the shared section
+    clock, the expected roster vs who actually showed up, and each student's
+    per-section progress (submitted / working / waiting, answers the server
+    holds, last activity). One poll, batched lookups, persisted state only."""
+    await require_admin(authorization)
+    try:
+        return svc.admin_live_monitor(exam_id)
+    except svc.NotFoundError as e:
+        raise HTTPException(404, str(e))
+
+
 @router.get("/{exam_id}/sittings")
 async def list_sittings(exam_id: str, authorization: str | None = Header(default=None)):
     await require_admin(authorization)

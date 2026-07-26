@@ -1788,6 +1788,297 @@ def admin_section_progress(exam_id: str) -> dict:
     return {"active_section": exam.get("active_section") or "not_started", "sections": sections}
 
 
+# How long a started-but-silent section goes before the monitor calls it stalled.
+# Long enough that a student re-reading a passage isn't flagged, short enough that
+# a dropped connection surfaces while the invigilator can still act.
+_STALLED_AFTER_SECONDS = 300
+
+
+def _expected_roster(exam: dict) -> Optional[dict]:
+    """Who is SUPPOSED to sit this exam, or None when that is UNKNOWABLE.
+
+    This is the denominator `admin_section_progress` never had: it counts
+    sittings, so a student who never opened the exam is invisible and a class of
+    20 where 2 never showed reads as a complete 18/18. Sequential draws the
+    roster from the exam's cohort; retake from its assignments.
+
+    Returns {key: {"user_id", "name", "skills"}}. The key is the user_id when the
+    student has an account and "student:<id>" when they do not — `students.user_id`
+    is NULLABLE by design ("link to user account when student gets login", mig
+    033), so a cohort member who has never activated is a REAL roster member.
+    Filtering them out reproduced the exact bug this endpoint exists to kill: a
+    class of 20 with two unactivated members reported 18 expected and those two
+    could never show up as absent.
+
+    None is NOT {}. A sequential exam with no cohort has no knowable roster,
+    whereas a cohort with nobody in it is a real (empty) answer. Collapsing the
+    two made every genuine sitting classify as off-roster, so the console showed
+    "0 đã vào thi" and an outside-the-list warning while the class was actually
+    sitting the exam.
+    """
+    if is_retake(exam):
+        rows = supabase_admin.table("mock_exam_assignments").select(
+            "user_id, skills",
+        ).eq("exam_id", str(exam["id"])).execute().data or []
+        return {
+            str(r["user_id"]): {"user_id": str(r["user_id"]), "name": None,
+                                "skills": r.get("skills") or []}
+            for r in rows if r.get("user_id")
+        }
+    cohort_id = exam.get("cohort_id")
+    if not cohort_id:
+        return None                      # unknowable — not "nobody"
+    rows = supabase_admin.table("students").select("id, user_id, full_name").eq(
+        "cohort_id", str(cohort_id),
+    ).execute().data or []
+    out: dict = {}
+    for r in rows:
+        uid = r.get("user_id")
+        key = str(uid) if uid else f"student:{r['id']}"
+        out[key] = {"user_id": str(uid) if uid else None,
+                    "name": r.get("full_name"), "skills": None}
+    return out
+
+
+def _answer_progress(rows, answer_key="user_answer", ts_key="answered_at") -> tuple:
+    """(answered, last_activity_iso) over a list of persisted answer rows.
+
+    Counts only NON-EMPTY answers — a row exists the moment a field is touched
+    and cleared, so counting rows would report progress the student doesn't have.
+    """
+    answered, last = 0, None
+    for r in rows or []:
+        if str(r.get(answer_key) or "").strip():
+            answered += 1
+        ts = r.get(ts_key)
+        if ts and (last is None or str(ts) > str(last)):
+            last = ts
+    return answered, last
+
+
+def _sitting_recency(s: dict) -> tuple:
+    """Sort key that picks the sitting the invigilator actually means: a
+    not-yet-released attempt always beats a released one, then newest wins."""
+    return (0 if s.get("status") == "released" else 1,
+            str(s.get("created_at") or ""))
+
+
+def admin_live_monitor(exam_id: str) -> dict:
+    """Per-STUDENT live state for the invigilator console (one poll, no N+1).
+
+    `admin_section_progress` answers "how many submitted" and nothing else — it
+    cannot say who is still working, who is sitting on a blank paper, who
+    dropped off, or who never arrived. This does, for the whole roster at once:
+
+      · the shared section clock (what's open, how long is left)
+      · the expected roster vs who actually opened a sitting
+      · per section per student: submitted / working / waiting, how many answers
+        the SERVER holds, and when the last one landed
+
+    Everything is read from persisted state — no new client telemetry — so a
+    student whose browser is gone still reports truthfully (their answer count
+    simply stops moving, which is exactly the signal the invigilator needs).
+    """
+    exam = get_published_exam_by_id(exam_id)
+    if not exam:
+        raise NotFoundError(f"Mock exam {exam_id} không tồn tại.")
+    retake = is_retake(exam)
+    active = exam.get("active_section") or "not_started"
+
+    rows_raw = supabase_admin.table("mock_exam_sittings").select("*").eq(
+        "mock_exam_id", str(exam_id),
+    ).neq("status", "void").execute().data or []
+    # A student CAN hold more than one non-void sitting for the same exam: the
+    # one-live-per-user index only covers registered/lrw_in_progress, so an
+    # already-released attempt sits alongside a fresh one. An unordered dict
+    # comprehension kept whichever row PostgREST returned last, so the console
+    # could show the OLD released attempt's answers and submission stamps while
+    # the student is mid-exam. Pick deterministically (Codex review, PR #833).
+    by_user: dict = {}
+    for s in rows_raw:
+        uid = str(s["user_id"])
+        cur = by_user.get(uid)
+        if cur is None or _sitting_recency(s) > _sitting_recency(cur):
+            by_user[uid] = s
+    sittings = list(by_user.values())
+
+    # ── batched lookups (never per student) ──────────────────────────
+    l_ids = [s["listening_attempt_id"] for s in sittings if s.get("listening_attempt_id")]
+    r_ids = [s["reading_attempt_id"] for s in sittings if s.get("reading_attempt_id")]
+    l_attempts = {}
+    if l_ids:
+        l_attempts = {r["id"]: r for r in (supabase_admin.table(
+            "listening_test_attempts").select("id, status, answers")
+            .in_("id", l_ids).execute().data or [])}
+    r_attempts, r_answers = {}, {}
+    if r_ids:
+        r_attempts = {r["id"]: r for r in (supabase_admin.table(
+            "reading_test_attempts").select("id, status")
+            .in_("id", r_ids).execute().data or [])}
+        for row in (supabase_admin.table("reading_attempt_answers")
+                    .select("attempt_id, user_answer, answered_at")
+                    .in_("attempt_id", r_ids).execute().data or []):
+            r_answers.setdefault(str(row["attempt_id"]), []).append(row)
+
+    totals = {"listening": None, "reading": None}
+    if exam.get("listening_test_id"):
+        row = supabase_admin.table("listening_tests").select("total_questions").eq(
+            "id", str(exam["listening_test_id"])).limit(1).execute().data
+        totals["listening"] = row[0].get("total_questions") if row else None
+    if exam.get("reading_test_id"):
+        row = supabase_admin.table("reading_tests").select("total_questions").eq(
+            "id", str(exam["reading_test_id"])).limit(1).execute().data
+        totals["reading"] = row[0].get("total_questions") if row else None
+
+    roster = _expected_roster(exam)
+    roster_known = roster is not None
+    roster = roster or {}
+    from services.mock_review_workflow import resolve_display_names
+    # Only real account ids can be resolved against `users`; an unactivated
+    # cohort member has no row there and carries students.full_name instead.
+    names = resolve_display_names(
+        {e["user_id"] for e in roster.values() if e.get("user_id")} | set(by_user)
+    )
+
+    now = _now()
+    speaking_required = bool(exam.get("speaking_topic_set")) and not retake
+
+    def _section_state(sitting, section):
+        """One student's state in one section — persisted facts only."""
+        if not sitting:
+            return {"state": "absent", "answered": None, "total": totals.get(section),
+                    "submitted_at": None, "last_activity_at": None, "live": True}
+        if sitting.get(_SUBMITTED_COL[section]):
+            state = "submitted"
+        elif retake:
+            state = "working" if sitting.get(f"{section}_started_at") else "waiting"
+        else:
+            state = "working" if active == section else "waiting"
+
+        answered = last = None
+        live = True
+        if section == "listening":
+            att = l_attempts.get(str(sitting.get("listening_attempt_id") or ""))
+            if att:
+                answered, last = _answer_progress(att.get("answers") or [])
+            elif state == "working":
+                # In the open section with NO attempt bound: the runner is still
+                # loading, or attempt creation failed. Either way the server
+                # holds nothing for them. Leaving this None hid exactly this
+                # student from the "trắng" filter, which only matches 0 — so the
+                # one person who most needs checking on was the one the
+                # invigilator could not see (Codex review, PR #833).
+                answered = 0
+        elif section == "reading":
+            aid = str(sitting.get("reading_attempt_id") or "")
+            if aid in r_attempts:
+                answered, last = _answer_progress(r_answers.get(aid, []))
+            elif state == "working":
+                answered = 0
+        else:
+            # Writing has NO server-side draft today — the text only reaches the
+            # server at submit, so there is nothing to report mid-section. Say so
+            # (live=False) instead of rendering a real 0 the invigilator would
+            # read as "this student has written nothing".
+            live = False
+            ws = (sitting.get("writing_submission") or {})
+            if ws:
+                answered = sum(int((ws.get(t) or {}).get("word_count") or 0)
+                               for t in ("task1", "task2"))
+                last = sitting.get("writing_submitted_at")
+
+        stalled = bool(
+            state == "working" and live and last
+            and (now - (_parse_ts(last) or now)).total_seconds() > _STALLED_AFTER_SECONDS
+        )
+        return {
+            "state": state, "answered": answered, "total": totals.get(section),
+            "submitted_at": sitting.get(_SUBMITTED_COL[section]),
+            "last_activity_at": last, "live": live, "stalled": stalled,
+        }
+
+    students = []
+    # Roster keys are user_ids for activated students and "student:<id>" for
+    # cohort members with no account; sitting keys are always user_ids, so a
+    # roster member who HAS an account collapses onto the same key as their
+    # sitting and is listed once.
+    for key in set(roster) | set(by_user):
+        entry = roster.get(key) or {}
+        uid = entry.get("user_id") if key in roster else key
+        sitting = by_user.get(uid) if uid else None
+        assigned = (sitting.get("assigned_skills") if sitting else None) \
+            or entry.get("skills")
+        mine = ([s for s in _LRW_ORDER if s in (assigned or [])] if retake
+                else _configured_sections(exam))
+        sections = {s: _section_state(sitting, s) for s in mine}
+        students.append({
+            "user_id":       uid,
+            # An unactivated cohort member has no `users` row, so their name
+            # comes off the students record instead of resolving to "—".
+            "student_name":  names.get(uid) or entry.get("name") or "—",
+            "sitting_id":    (sitting or {}).get("id"),
+            "status":        (sitting or {}).get("status") or "chưa vào",
+            "started":       bool(sitting),
+            # A sitting from someone outside the cohort/assignment list — they
+            # are doing the exam but nobody put them on the roster. When the
+            # roster is UNKNOWN nobody can be classified as outside it, so
+            # everyone counts as in — otherwise a no-cohort exam reports zero
+            # arrivals while the class is sitting it.
+            "in_roster":     (not roster_known) or (key in roster),
+            "assigned_skills": assigned,
+            "sections":      sections,
+            "speaking": {
+                "required":  speaking_required,
+                "count":     len((sitting or {}).get("speaking_session_ids") or []),
+                "completed_at": (sitting or {}).get("speaking_completed_at"),
+            },
+            "needs_retest":  bool((sitting or {}).get("needs_retest")),
+        })
+    students.sort(key=lambda r: (r["student_name"] or "").lower())
+
+    section_rollup = {}
+    for s in _configured_sections(exam):
+        rows = [st["sections"].get(s) for st in students if st["sections"].get(s)]
+        section_rollup[s] = {
+            "submitted": sum(1 for r in rows if r["state"] == "submitted"),
+            "working":   sum(1 for r in rows if r["state"] == "working"),
+            "absent":    sum(1 for r in rows if r["state"] == "absent"),
+            "expected":  len(rows),
+        }
+
+    return {
+        "exam": {
+            "id": exam["id"], "code": exam.get("code"), "title": exam.get("title"),
+            "exam_mode": exam.get("exam_mode") or "sequential",
+            "status": exam.get("status"), "is_open": bool(exam.get("is_open")),
+            "active_section": active,
+            "section_started_at": exam.get(f"{active}_started_at") if active in _LRW_ORDER else None,
+            "section_duration_seconds": (
+                _section_duration_seconds(exam, active) if active in _LRW_ORDER else None),
+            "section_time_left_seconds": section_time_remaining_seconds(exam, active),
+            "configured_sections": _configured_sections(exam),
+            "cohort_id": exam.get("cohort_id"),
+        },
+        "roster": {
+            # None (not 0) when the exam has no cohort — "unknown" and "nobody"
+            # are different answers to "how many should be here". An EMPTY
+            # cohort is a real 0 and must not be reported as unknown.
+            "expected":   len(roster) if roster_known else None,
+            # Counted over ROSTER MEMBERS only. Including an off-roster sitting
+            # here would inflate `started` against an `expected` that never
+            # contained them, and the console renders the difference as "vắng" —
+            # a walk-in would silently cancel out a genuine absentee.
+            "started":    sum(1 for s in students if s["started"] and s["in_roster"]),
+            "not_started": [s["student_name"] for s in students
+                            if not s["started"] and s["in_roster"]],
+            "off_roster": [s["student_name"] for s in students if not s["in_roster"]],
+        },
+        "sections":  section_rollup,
+        "students":  students,
+        "server_time": _now_iso(),
+    }
+
+
 def reserved_test_ids(kind: str) -> set:
     """Reading/listening test ids assigned to any non-archived mock exam.
 
