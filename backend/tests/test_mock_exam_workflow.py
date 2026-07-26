@@ -2332,6 +2332,226 @@ def test_retake_assign_rejects_inverted_window(fake_db):
     }], created_by=str(uuid4()))
 
 
+# ── B4: collect is separate from advance ──────────────────────────────
+
+
+def test_collect_takes_papers_without_opening_the_next_section(fake_db, svc):
+    """B4 — the whole point: papers in, class to the waiting room, and NO clock
+    running until the admin decides to advance."""
+    exam = _seed_exam(fake_db)
+    u = uuid4()
+    svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → listening
+
+    out = svc.collect_section(exam["id"], "admin-1")
+
+    assert out == {"section": "listening", "collected": 1}
+    after = svc.get_published_exam_by_id(exam["id"])
+    assert after["active_section"] == "listening"          # did NOT advance
+    assert after.get("reading_started_at") is None         # no clock started
+    # the student's paper is in, so the runner's isOpenSection goes false and
+    # they land in the waiting room
+    sitting = [s for s in fake_db.rows("mock_exam_sittings")][0]
+    assert sitting["listening_submitted_at"] is not None
+
+
+def test_collect_then_advance_is_the_normal_two_step(fake_db, svc):
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+    svc.collect_section(exam["id"], "admin-1")
+    svc.advance_section(exam["id"], "admin-1")
+    assert svc.get_published_exam_by_id(exam["id"])["active_section"] == "reading"
+
+
+def test_collect_rejects_a_stale_screen(fake_db, svc):
+    """Codex #843 (correct): a monitor still showing Listening — because another
+    invigilator advanced during the confirm dialog or inside the 5s poll —
+    carried no section identity, so collect re-read the canonical active_section
+    and swept READING, irreversibly submitting every Reading paper the moment it
+    opened."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")     # → listening
+    svc.advance_section(exam["id"], "admin-1")     # → reading (other invigilator)
+
+    with pytest.raises(svc.SittingConflictError):
+        svc.collect_section(exam["id"], "admin-2", from_section="listening")
+    # the matching screen still works
+    assert svc.collect_section(exam["id"], "admin-2", from_section="reading")["section"] == "reading"
+
+
+def test_collect_is_idempotent(fake_db, svc):
+    """Bấm lại sau khi đã thu đủ phải vô hại — nothing left to sweep."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+    assert svc.collect_section(exam["id"], "admin-1")["collected"] == 1
+    assert svc.collect_section(exam["id"], "admin-1")["collected"] == 0
+
+
+def test_collect_counts_only_papers_actually_taken(fake_db, svc, monkeypatch):
+    """Codex #843 (correct): _collect_section_for_sitting swallows every
+    exception, but the counter incremented regardless — so /collect reported a
+    paper as collected when the update had failed, and the next poll silently
+    contradicted the success message."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+
+    monkeypatch.setattr(svc, "_collect_section_for_sitting", lambda *a, **k: False)
+    assert svc.collect_section(exam["id"], "admin-1")["collected"] == 0
+
+
+def test_late_entrant_during_the_pause_stays_in_the_waiting_room(fake_db, svc):
+    """Codex #843 (correct, P1): collecting only stamped the sittings that
+    already EXISTED. `active_section` and `is_open` were untouched, so an
+    eligible student who had not opened the exam yet could create a sitting
+    during the pause — and their brand-new row has no submission stamp, so
+    get_sitting_state() reports the still-active section and the runner hands
+    them the paper the room already turned in, with the class clock running."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → listening
+    svc.collect_section(exam["id"], "admin-1")
+
+    # the pause is now a CANONICAL fact on the exam row, not an emergent one
+    assert svc.get_published_exam_by_id(exam["id"])["collected_section"] == "listening"
+
+    late = svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    assert late["listening_submitted_at"] is not None, (
+        "a sitting created during the pause must be born with the collected "
+        "section already in — otherwise the runner opens it")
+
+
+def test_advancing_ends_the_pause(fake_db, svc):
+    """Otherwise every sitting created after the advance would still be born
+    with the PREVIOUS section stamped submitted."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+    svc.collect_section(exam["id"], "admin-1")
+    svc.advance_section(exam["id"], "admin-1")            # → reading
+
+    after = svc.get_published_exam_by_id(exam["id"])
+    assert after["active_section"] == "reading"
+    assert after["collected_section"] is None
+    fresh = svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    assert fresh.get("reading_submitted_at") is None      # reading really is open
+
+
+def test_collect_reports_a_lookup_failure_instead_of_zero_success(fake_db, svc, monkeypatch):
+    """Codex #843 (correct, P1): returning 0 on a lookup failure made /collect
+    answer successfully and the console say "Đã thu bài … 0 bài" while every
+    student might still be working. Best-effort is right for the advance safety
+    net, wrong for the explicit collect action."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+
+    real_table = fake_db.table
+
+    def boom(name):
+        if name == "mock_exam_sittings":
+            raise RuntimeError("db down")
+        return real_table(name)
+
+    monkeypatch.setattr(fake_db, "table", boom)
+    with pytest.raises(svc.MockExamError):
+        svc.collect_section(exam["id"], "admin-1")
+    monkeypatch.undo()
+
+    # the advance safety net stays best-effort — the class must still move on
+    monkeypatch.setattr(fake_db, "table", boom)
+    assert svc._force_collect_section(exam["id"], "listening") == 0
+    monkeypatch.undo()
+
+
+def test_a_sitting_born_during_the_sweep_is_still_stamped(fake_db, svc, monkeypatch):
+    """Codex #843 (correct, P1): create_sitting() decided from an exam row read
+    BEFORE the insert, while /collect sets collected_section and sweeps the
+    sittings as separate queries. A student who started opening the exam before
+    the marker was set but whose row landed after the sweep was neither swept
+    NOR born submitted — so the runner handed them the collected paper."""
+    exam = _seed_exam(fake_db)
+    svc.advance_section(exam["id"], "admin-1")            # → listening
+
+    # Stage the window: the pre-insert read sees no pause, the post-insert
+    # re-read sees one.
+    real_get = svc.get_published_exam_by_id
+    calls = {"n": 0}
+
+    def pause_after_first_read(exam_id):
+        row = real_get(exam_id)
+        calls["n"] += 1
+        if calls["n"] == 1 and row:
+            return {**row, "collected_section": None}
+        return row
+
+    fake_db.table("mock_exams").update(
+        {"collected_section": "listening"}).eq("id", exam["id"]).execute()
+    monkeypatch.setattr(svc, "get_published_exam_by_id", pause_after_first_read)
+
+    late = svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    monkeypatch.undo()
+
+    assert late["listening_submitted_at"] is not None, (
+        "a sitting inserted during the pause must still be born submitted")
+
+
+def test_attach_is_refused_once_the_section_is_collected(fake_db, svc):
+    """Codex #843 (correct, P1): the pause deliberately leaves active_section
+    alone, so the sequential gate cannot see it. An attempt whose creation
+    finished after the sweep still attached — but the sitting was already
+    stamped and skipped for grading (nothing was bound yet), later sweeps skip
+    it, and the attempt is never graded."""
+    exam = _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → listening
+    svc.collect_section(exam["id"], "admin-1", from_section="listening")
+
+    aid = str(uuid4())
+    fake_db.seed("listening_test_attempts", {
+        "id": aid, "user_id": str(u), "test_id": exam["listening_test_id"],
+        "status": "in_progress", "answers": [],
+    })
+    with pytest.raises(svc.SittingConflictError):
+        svc.attach_attempt(s["id"], u, "listening", aid)
+
+
+def test_live_monitor_reports_the_pause_and_stops_the_clock(fake_db, svc):
+    """Codex #843 (correct): active_section does not change during the break, so
+    without the canonical marker the console kept rendering and ticking the
+    collected section's clock."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+    svc.collect_section(exam["id"], "admin-1", from_section="listening")
+
+    ex = svc.admin_live_monitor(exam["id"])["exam"]
+    assert ex["active_section"] == "listening"            # unchanged, by design
+    assert ex["collected_section"] == "listening"
+    assert ex["section_time_left_seconds"] is None, "no clock runs during the pause"
+
+
+def test_collect_rejected_before_the_exam_starts(fake_db, svc):
+    exam = _seed_exam(fake_db)
+    with pytest.raises(svc.SittingConflictError):
+        svc.collect_section(exam["id"], "admin-1")
+
+
+def test_collect_rejected_for_a_retake_exam(fake_db, svc):
+    """Retake is self-timed per student — there is no shared section to collect,
+    and pretending otherwise would sweep papers on someone else's clock."""
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update(
+        {"exam_mode": "retake", "active_section": "listening"}).eq(
+        "id", exam["id"]).execute()
+    with pytest.raises(svc.SittingConflictError):
+        svc.collect_section(exam["id"], "admin-1")
+
+
 # ── B2: advance is win-once ───────────────────────────────────────────
 
 

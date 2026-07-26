@@ -582,6 +582,15 @@ def create_sitting(user_id: str, code: str) -> dict:
         _assert_window_open(exam)
         if exam.get("cohort_id") and not _user_in_cohort(user_id, exam["cohort_id"]):
             raise NotEligibleError("Bạn không thuộc lớp được mở kỳ thi này.")
+        # ARRIVING DURING THE PAUSE. Papers for the active section are already
+        # in; the invigilator has not opened the next one. Being born with that
+        # section stamped submitted is what keeps this student in the waiting
+        # room — otherwise their fresh row has no stamp, the runner's
+        # isOpenSection test passes, and they are handed the collected paper
+        # with the class clock running (Codex review, PR #843).
+        paused_on = exam.get("collected_section")
+        if paused_on and paused_on == (exam.get("active_section") or "not_started"):
+            new_row[_SUBMITTED_COL[paused_on]] = _now_iso()
 
     try:
         inserted = supabase_admin.table("mock_exam_sittings").insert(new_row).execute()
@@ -597,11 +606,40 @@ def create_sitting(user_id: str, code: str) -> dict:
         raise
     if not inserted.data:
         raise MockExamError(f"Không tạo được sitting cho exam={code}.")
+    row = inserted.data[0]
+
+    # RE-READ THE PAUSE MARKER AFTER THE INSERT. The check above ran against an
+    # exam row read BEFORE the insert, while /collect sets `collected_section`
+    # and sweeps the sittings as separate queries. A student who started opening
+    # the exam before the marker was set but whose row landed after the sweep is
+    # therefore neither swept NOR born submitted — and the runner hands them the
+    # section the room already turned in (Codex review, PR #843).
+    #
+    # There is no cross-table transaction through PostgREST, so this closes the
+    # window from the other end: whatever the marker says NOW is what the
+    # freshly-inserted row is made to agree with.
+    if not is_retake(exam):
+        fresh = get_published_exam_by_id(exam["id"]) or {}
+        paused_now = fresh.get("collected_section")
+        if (paused_now
+                and paused_now == (fresh.get("active_section") or "not_started")
+                and not row.get(_SUBMITTED_COL[paused_now])):
+            stamped = supabase_admin.table("mock_exam_sittings").update({
+                _SUBMITTED_COL[paused_now]: _now_iso(),
+            }).eq("id", row["id"]).is_(
+                _SUBMITTED_COL[paused_now], "null",
+            ).execute()
+            if stamped.data:
+                logger.info(
+                    "[mock-exam] sitting=%s born during the %s pause — stamped submitted",
+                    row["id"], paused_now,
+                )
+                row = stamped.data[0]
+
     logger.info(
-        "[mock-exam] created sitting=%s user=%s exam=%s",
-        inserted.data[0]["id"], user_id, code,
+        "[mock-exam] created sitting=%s user=%s exam=%s", row["id"], user_id, code,
     )
-    return inserted.data[0]
+    return row
 
 
 def attach_attempt(
@@ -647,6 +685,25 @@ def attach_attempt(
     elif (exam.get("active_section") or "not_started") != section:
         raise SittingConflictError(
             f"Phần {section} chưa được giám thị mở — không thể nộp bài."
+        )
+    elif exam.get("collected_section") == section:
+        # THE PAUSE DELIBERATELY LEAVES active_section ALONE, so the gate above
+        # cannot see it. Without this, an attempt whose creation finished after
+        # the sweep still attaches: _collect_section_for_sitting() has already
+        # stamped the sitting and skipped grading (no attempt was bound yet),
+        # later sweeps skip the now-submitted sitting, and that attempt is never
+        # graded — an incomplete full-test result nobody is told about
+        # (Codex review, PR #843).
+        raise SittingConflictError(
+            f"Phần {section} đã được thu bài — không nhận thêm bài làm."
+        )
+
+    # Same fact from the SITTING's side: this student's paper is already in.
+    # Belt and braces, because collect stamps the sittings one by one and the
+    # exam-level marker is cleared the moment the admin advances.
+    if sitting.get(_SUBMITTED_COL.get(section) or ""):
+        raise SittingConflictError(
+            f"Phần {section} của bạn đã được thu — không nhận thêm bài làm."
         )
 
     r = supabase_admin.table(domain_table).select(
@@ -1773,31 +1830,100 @@ def _grade_and_finalize_reading(attempt_id: str) -> None:
     ).execute()
 
 
-def _force_collect_section(exam_id: str, section: str) -> None:
-    """Straggler safety net: called right before the admin advances PAST
-    `section`. Every non-terminal sitting that hasn't submitted this section
-    yet (e.g. a disconnected student) is best-effort collected as-is — mirrors
-    a real proctor sweeping up papers when time's up, regardless of whether
-    the student finished. Never raises; a collection failure must not block
-    the admin's advance."""
+def _force_collect_section(exam_id: str, section: str, *, strict: bool = False) -> int:
+    """Straggler safety net: sweep up every paper for `section` as-is.
+
+    Every non-terminal sitting that hasn't submitted this section yet (e.g. a
+    disconnected student) is best-effort collected — mirrors a real proctor
+    taking in papers when time's up, regardless of whether the student
+    finished.
+
+    Returns the number of sittings swept, so the caller can tell the admin what
+    it actually did rather than just "ok".
+
+    `strict` decides what a LOOKUP failure means. Best-effort is right for the
+    advance safety net (a stumble there must not block the class from moving
+    on), but wrong for the explicit "Thu bài" action: returning 0 there told the
+    admin "Đã thu bài … 0 bài" — a success message — while every student was
+    still working (Codex review, PR #843).
+    """
     col = _SUBMITTED_COL.get(section)
     if not col:
-        return
+        return 0
     try:
         rows = supabase_admin.table("mock_exam_sittings").select("*").eq(
             "mock_exam_id", str(exam_id),
         ).is_(col, "null").not_.in_(
             "status", ["released", "void"],
         ).execute()
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
         logger.exception("[mock-exam] force-collect lookup failed exam=%s section=%s", exam_id, section)
-        return
+        if strict:
+            raise MockExamError(
+                "Không đọc được danh sách bài chưa nộp — CHƯA thu được bài nào. "
+                "Thử lại sau giây lát."
+            ) from exc
+        return 0
 
+    n = 0
     for row in (rows.data or []):
-        _collect_section_for_sitting(row, section)
+        if _collect_section_for_sitting(row, section):
+            n += 1
+    return n
 
 
-def _collect_section_for_sitting(sitting: dict, section: str) -> None:
+def collect_section(exam_id: str, admin_id: str,
+                    from_section: Optional[str] = None) -> dict:
+    """Admin THU BÀI for the open section — without opening the next one (B4).
+
+    "Thu bài" and "mở phần sau" used to be one irreversible button, so the real
+    proctor sequence — take the papers in, check everyone is accounted for, let
+    the room breathe, THEN hand out the next section — could not be expressed:
+    the moment you collected, the next clock was already running.
+
+    Collecting stamps each sitting's {section}_submitted_at, which makes the
+    runner's own isOpenSection test false, so every student drops into the
+    waiting room with NO clock running until the admin advances. It ALSO records
+    the pause on the exam row (`collected_section`, mig 166) — see below.
+    """
+    exam = get_published_exam_by_id(exam_id)
+    if not exam:
+        raise NotFoundError(f"Mock exam {exam_id} không tồn tại.")
+    if is_retake(exam):
+        # Retake is self-timed per student; there is no shared section to collect.
+        raise SittingConflictError("Đề test lại tự thu bài theo từng học viên.")
+    current = exam.get("active_section") or "not_started"
+    # Same stale-screen guard as /advance. Without it a monitor still showing
+    # Listening — because another invigilator advanced during the confirm dialog
+    # or inside the 5s poll window — sends a request carrying no section
+    # identity, and this re-reads the CANONICAL active_section and sweeps
+    # READING instead: irreversibly submitting every Reading paper the moment it
+    # opened (Codex review, PR #843).
+    if from_section and from_section != current:
+        raise SittingConflictError(
+            f"Màn hình của bạn đang hiển thị phần {from_section!r} nhưng kỳ thi "
+            f"đã ở phần {current!r} — có thao tác khác vừa chuyển phần. Tải lại trang."
+        )
+    if current not in _LRW_ORDER:
+        raise SittingConflictError("Chưa có phần nào đang mở để thu bài.")
+
+    # CLOSE ADMISSIONS FIRST, then sweep. Stamping the sittings alone left the
+    # pause with no representation on the exam row: an eligible student who had
+    # not opened the exam yet could create a sitting during the pause, and their
+    # brand-new row carries no submission stamp — so the runner handed them the
+    # paper the room had already turned in, with the class clock running (Codex
+    # review, PR #843). create_sitting() reads this and is born submitted.
+    supabase_admin.table("mock_exams").update({
+        "collected_section": current,
+    }).eq("id", str(exam_id)).eq("active_section", current).execute()
+
+    collected = _force_collect_section(exam_id, current, strict=True)
+    logger.info("[mock-exam] exam=%s section=%s COLLECTED %d by admin=%s",
+                exam_id, current, collected, admin_id)
+    return {"section": current, "collected": collected}
+
+
+def _collect_section_for_sitting(sitting: dict, section: str) -> bool:
     """Force-collect ONE section of ONE sitting AS-IS (time's up / straggler /
     closed tab). Stamps the collected-at timestamp, grades the bound L/R attempt
     (or promotes Writing) if present, then re-checks terminal reconciliation on
@@ -1806,7 +1932,7 @@ def _collect_section_for_sitting(sitting: dict, section: str) -> None:
     advance sweep and the retake reaper."""
     col = _SUBMITTED_COL.get(section)
     if not col or sitting.get(col):
-        return
+        return False
     try:
         update: dict = {col: _now_iso()}
         if sitting.get("status") == "registered":
@@ -1835,11 +1961,17 @@ def _collect_section_for_sitting(sitting: dict, section: str) -> None:
                 "status": "lrw_submitted",
             }).eq("id", sitting["id"]).execute()
             _reconcile_terminal(sitting["id"])
+        return True
     except Exception:  # noqa: BLE001
         logger.exception(
             "[mock-exam] force-collect failed sitting=%s section=%s",
             sitting["id"], section,
         )
+        # Report the failure so the caller's count reflects papers ACTUALLY
+        # taken. Counting unconditionally told the admin "N bài đã thu" for
+        # papers still sitting with the student, and the next poll silently
+        # contradicted it (Codex review, PR #843).
+        return False
 
 
 def _retake_section_expired(sitting: dict, exam: dict, section: str, grace_seconds: int) -> bool:
@@ -1964,7 +2096,10 @@ def _advance_from(exam_id: str, admin_id: str, current: str) -> dict:
             nxt = "done"
         _force_collect_section(exam_id, current)
 
-    update: dict = {"active_section": nxt}
+    # Opening the next section ENDS the collected-but-paused state, whatever it
+    # was. Leaving it set would keep every sitting created afterwards born with
+    # a stale section already stamped submitted.
+    update: dict = {"active_section": nxt, "collected_section": None}
     if nxt in _LRW_ORDER:
         update[f"{nxt}_started_at"] = _now_iso()
     # OPTIMISTIC GUARD (B2). Without `.eq("active_section", current)` two
@@ -2287,10 +2422,19 @@ def admin_live_monitor(exam_id: str) -> dict:
             "exam_mode": exam.get("exam_mode") or "sequential",
             "status": exam.get("status"), "is_open": bool(exam.get("is_open")),
             "active_section": active,
+            # The pause between "thu bài" and "mở phần sau". active_section is
+            # deliberately unchanged during it, so without this the console kept
+            # rendering AND TICKING the collected section's clock — contradicting
+            # the clock-free break it had just told the invigilator about
+            # (Codex review, PR #843).
+            "collected_section": exam.get("collected_section"),
             "section_started_at": exam.get(f"{active}_started_at") if active in _LRW_ORDER else None,
             "section_duration_seconds": (
                 _section_duration_seconds(exam, active) if active in _LRW_ORDER else None),
-            "section_time_left_seconds": section_time_remaining_seconds(exam, active),
+            # None while paused: there is no running clock to report.
+            "section_time_left_seconds": (
+                None if exam.get("collected_section") == active
+                else section_time_remaining_seconds(exam, active)),
             "configured_sections": _configured_sections(exam),
             "cohort_id": exam.get("cohort_id"),
         },
