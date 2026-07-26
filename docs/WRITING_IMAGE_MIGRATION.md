@@ -99,6 +99,18 @@ re-graded (the fallback + fresh image now make it multimodal again).
 
 ## Post-migration
 
-Once the dry run reports **0 legacy URLs** and buckets are verified, the old
-project (`nqhrtqspznepmveyurzm`) can be decommissioned per
-`SUPABASE_REGION_MIGRATION.md`. Until then it must stay alive.
+Once the dry run reports **0 legacy URLs** and buckets are verified, the *image*
+half of the legacy debt is clear. **This is not sufficient to delete the old
+project** — see below.
+
+> ⚠️ **Images were only half the debt (found 2026-07-26).**
+> This runbook covered `prompt_image_url` only. A full sweep of every text/jsonb
+> column found **5835 more rows still pointing at `nqhrtqspznepmveyurzm`**, all
+> **audio**: `responses.audio_url` (5002 — ~81% of all graded Speaking
+> responses), `vocab_cards.audio_headword` / `audio_example` (286 each) and
+> `quiz_questions.audio_url` (261). Deleting the old project with those in place
+> would break audio replay across Speaking, vocab and quiz.
+>
+> Clear them with `backend/scripts/migrate_legacy_audio_urls.py`, then confirm
+> **both** scripts' dry runs report 0 before decommissioning per
+> `SUPABASE_REGION_MIGRATION.md`. Until then the old project must stay alive.
