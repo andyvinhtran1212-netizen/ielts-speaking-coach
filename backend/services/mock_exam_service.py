@@ -2013,10 +2013,64 @@ def admin_create_exam(payload: dict, created_by: str) -> dict:
     return inserted.data[0]
 
 
+def _exam_has_dependents(exam_id: str) -> bool:
+    """Anything already interpreted under this exam's mode.
+
+    A VOIDED sitting does not count — it is a closed record nothing reads a
+    skill set out of — so an admin who genuinely needs to convert an exam has a
+    way through: cancel the sittings, remove the assignments, then flip.
+
+    Fail CLOSED: if the lookup errors we cannot prove the exam is unused, and
+    guessing "unused" is how a live classroom loses its papers.
+    """
+    try:
+        sittings = supabase_admin.table("mock_exam_sittings").select("id").eq(
+            "mock_exam_id", str(exam_id),
+        ).neq("status", "void").limit(1).execute().data or []
+        if sittings:
+            return True
+        rows = supabase_admin.table("mock_exam_assignments").select("id").eq(
+            "exam_id", str(exam_id),
+        ).limit(1).execute().data or []
+        return bool(rows)
+    except Exception:  # noqa: BLE001
+        logger.exception("[mock-exam] dependent lookup failed exam=%s", exam_id)
+        return True
+
+
 def admin_update_exam(exam_id: str, patch: dict) -> dict:
     upd = {k: v for k, v in patch.items() if k in _EXAM_WRITABLE}
     if not upd:
         raise ValueError("Không có trường hợp lệ để cập nhật.")
+    if "exam_mode" in upd:
+        # MODE IS NOT A SETTING, IT IS THE CONTRACT A SITTING IS READ UNDER.
+        #
+        # Nothing stores the mode on the sitting: _sitting_sections() resolves
+        # it from the exam on EVERY read. So flipping a sequential exam that has
+        # live sittings to retake makes those rows resolve to an EMPTY skill set
+        # (they carry no assigned_skills) — the runner shows an empty retake
+        # menu, the reaper skips them because they are not assignments, and the
+        # papers can never be collected or finalised. The reverse direction is
+        # just as bad: retake sittings suddenly owe the exam's full configured
+        # sequence, including sections their student was never assigned.
+        #
+        # PR #851 closed one write path (advance) against a mid-request mode
+        # flip; that guarded the transition, not the invariant underneath it
+        # (Codex adversarial review, 2026-07-26).
+        current = get_published_exam_by_id(exam_id)
+        if not current:
+            raise NotFoundError(f"Mock exam {exam_id} không tồn tại.")
+        if (current.get("exam_mode") or "sequential") != upd["exam_mode"]:
+            if _exam_has_dependents(exam_id):
+                raise ValueError(
+                    "Không đổi được chế độ của đề đã có lượt thi hoặc bài được "
+                    "gán. Tạo đề mới, hoặc huỷ hết lượt thi và gỡ hết phần gán "
+                    "trước khi đổi."
+                )
+        else:
+            upd.pop("exam_mode")     # a no-op write, not a mode change
+            if not upd:
+                return current       # nothing left to write
     resp = supabase_admin.table("mock_exams").update(upd).eq(
         "id", str(exam_id),
     ).execute()

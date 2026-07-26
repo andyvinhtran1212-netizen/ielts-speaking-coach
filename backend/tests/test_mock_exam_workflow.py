@@ -5068,3 +5068,90 @@ def test_a_student_mid_exam_still_sees_their_own_finished_exam(fake_db, svc):
 
     mine = svc.list_open_exams(u)
     assert len(mine) == 1 and mine[0]["my_sitting_id"] == sit["id"]
+
+
+# ── exam_mode is a contract, not a setting ────────────────────────────
+#
+# Codex adversarial review 2026-07-26. Nothing stores the mode on the sitting:
+# _sitting_sections() resolves it from the EXAM on every read. So flipping a
+# sequential exam that has live sittings to retake makes those rows resolve to
+# an EMPTY skill set — empty retake menu for the student, skipped by the reaper,
+# papers that can never be collected. PR #851 guarded the advance write path
+# against a mid-request flip; that protected the transition, not the invariant.
+
+
+def test_mode_cannot_change_once_a_sitting_exists(fake_db, svc):
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    with pytest.raises(ValueError) as ei:
+        svc.admin_update_exam(exam["id"], {"exam_mode": "retake"})
+    assert "chế độ" in str(ei.value)
+    assert svc.get_published_exam_by_id(exam["id"]).get("exam_mode") in (None, "sequential")
+
+
+def test_mode_cannot_change_once_a_retake_is_assigned(fake_db, svc):
+    """The other direction: retake sittings would suddenly owe the exam's whole
+    configured sequence, including sections nobody assigned them."""
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    fake_db.seed("mock_exam_assignments", {
+        "id": str(uuid4()), "exam_id": exam["id"], "user_id": str(uuid4()),
+        "skills": ["writing"], "open_from": None, "open_until": _WINDOW["open_until"],
+    })
+    with pytest.raises(ValueError):
+        svc.admin_update_exam(exam["id"], {"exam_mode": "sequential"})
+
+
+def test_mode_is_still_editable_on_a_fresh_exam(fake_db, svc):
+    """The guard must not make a draft exam unconfigurable — that is the whole
+    point at which the admin is meant to choose."""
+    exam = _seed_exam(fake_db)
+    out = svc.admin_update_exam(exam["id"], {"exam_mode": "retake"})
+    assert out["exam_mode"] == "retake"
+
+
+def test_a_voided_sitting_leaves_the_door_open(fake_db, svc):
+    """A cancelled row is a closed record nothing reads a skill set out of, so
+    the admin has a real way through: void the sittings, then convert."""
+    exam = _seed_exam(fake_db)
+    sit = svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    fake_db.table("mock_exam_sittings").update({"status": "void"}).eq(
+        "id", sit["id"]).execute()
+    assert svc.admin_update_exam(exam["id"], {"exam_mode": "retake"})["exam_mode"] == "retake"
+
+
+def test_rewriting_the_same_mode_is_not_a_change(fake_db, svc):
+    """The admin console PATCHes the whole form, so it resends exam_mode on every
+    edit. Treating an unchanged value as a mode change would make a live exam
+    uneditable — the title could never be fixed again."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    out = svc.admin_update_exam(
+        exam["id"], {"exam_mode": "sequential", "title": "Tên mới"})
+    assert out["title"] == "Tên mới"
+    # ...and a patch of nothing BUT the unchanged mode is a clean no-op
+    assert svc.admin_update_exam(exam["id"], {"exam_mode": "sequential"})["title"] == "Tên mới"
+
+
+def test_an_unprovable_lookup_refuses_the_flip(fake_db, svc):
+    """Fail CLOSED. If we cannot prove the exam is unused, guessing 'unused' is
+    how a live classroom loses its papers."""
+    exam = _seed_exam(fake_db)
+    real = svc.supabase_admin
+
+    class _Broken:
+        def __getattr__(self, item):
+            return getattr(real, item)
+
+        def table(self, name):
+            if name == "mock_exam_sittings":
+                raise RuntimeError("postgrest down")
+            return real.table(name)
+
+    svc.supabase_admin = _Broken()
+    try:
+        with pytest.raises(ValueError):
+            svc.admin_update_exam(exam["id"], {"exam_mode": "retake"})
+    finally:
+        svc.supabase_admin = real
