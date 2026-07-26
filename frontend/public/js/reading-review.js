@@ -563,19 +563,49 @@
     if (firstBtn) firstBtn.classList.add('is-current');
   }
 
+
+  // PREVIEW MODE. The synthetic attempt marks every question `correct: false`
+  // because nobody sat it — so rendering it as a normal review labelled every
+  // answer "Sai", derived weakness stats from misses that never happened, and
+  // put "Bạn:" beside a blank. An admin checking a paper would read that as a
+  // broken paper (Codex review, PR #863).
+  //
+  // Suppressed with a class on <body> rather than by branching the renderer:
+  // the student path stays byte-identical, and the preview cannot drift from it.
+  function applyPreviewMode(d) {
+    if (!d || !d.preview) return;
+    document.body.classList.add('is-exam-preview');
+    var b = document.getElementById('rr-preview-banner');
+    if (b) {
+      b.hidden = false;
+      b.textContent = 'XEM TRƯỚC — chưa ai làm bài này. Ô trả lời để trống và '
+        + 'không có điểm; đáp án + giải thích là thật.';
+    }
+  }
+
   function load(attemptId) {
     showState('loading');
     SESSION.attemptId = attemptId;
     // reading-access-tracking B2 — anonymous ownership header + noRedirect when
     // an anon_id is on the URL; otherwise the plain authed fetch.
-    var anonId = anonIdFromUrl();
-    var reviewUrl = '/api/reading/test/attempts/' + encodeURIComponent(attemptId) + '/review';
+  // ADMIN PREVIEW (Đợt 2). ?admin_test_id= renders a test that NOBODY sat: the
+  // backend builds the same chữa-bài payload from the answer key with every
+  // user answer blank. Reusing this page rather than writing an admin-only
+  // renderer is the point — an admin verifying a paper needs to see exactly
+  // what the student will see. The student branch below is untouched.
+    var previewId = (new URLSearchParams(window.location.search)
+      .get('admin_test_id') || '').trim() || null;
+    var anonId = previewId ? null : anonIdFromUrl();
+    var reviewUrl = previewId
+      ? '/admin/reading/content/tests/' + encodeURIComponent(previewId) + '/preview'
+      : '/api/reading/test/attempts/' + encodeURIComponent(attemptId) + '/review';
     var reviewPromise = anonId
       ? window.api.getWith(reviewUrl, { 'X-Reading-Anon': anonId }, { noRedirect: true })
       : window.api.get(reviewUrl);
     reviewPromise
       .then(function (d) {
         if (!d || !(d.review || []).length) { showState('empty'); return; }
+        applyPreviewMode(d);
         render(d);
       })
       .catch(function (e) {
@@ -598,8 +628,12 @@
   document.addEventListener('DOMContentLoaded', function () {
     wireBack();                 // before the early return — the empty/error
                                 // states are exactly when a way out matters most
+    // An admin preview has no attempt at all — that IS the point (nothing was
+    // sat). Either id is enough to boot; load() picks the right endpoint.
     var id = attemptIdFromUrl();
-    if (!id) { showState('empty'); return; }
+    var preview = (new URLSearchParams(window.location.search)
+      .get('admin_test_id') || '').trim() || null;
+    if (!id && !preview) { showState('empty'); return; }
     load(id);
   });
 })();

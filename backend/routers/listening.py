@@ -2644,6 +2644,73 @@ def _load_audit_row(test_id: str) -> dict | None:
     return r.data[0] if r.data else None
 
 
+@admin_router.get("/tests/{test_id}/preview")
+async def admin_preview_listening_test(
+    test_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Xem trước một đề nghe bằng ĐÚNG giao diện chữa bài của học viên.
+
+    Đợt 2 (mig 170). Reuses _assemble_listening_review byte for byte rather than
+    rendering a second admin-only view: the point of a preview is to show what
+    the student will actually see, and a parallel renderer drifts.
+
+    Deliberately the CHỮA BÀI shape, not the exam shape — an admin verifying a
+    paper needs the questions AND the answers AND the audio, which is exactly
+    what the review payload carries and exactly what the exam payload strips.
+
+    Creates NOTHING. The synthetic attempt below never touches the database, so
+    previewing does not consume an attempt slot, does not appear in the
+    student's history, and cannot be mistaken for a sitting.
+    """
+    from services import listening_test_grader as grader
+
+    await require_admin(authorization)
+
+    test_res = (
+        supabase_admin.table("listening_tests").select("id")
+        .eq("id", test_id).limit(1).execute()
+    )
+    if not test_res.data:
+        raise HTTPException(404, "Test bundle not found")
+
+    # Answer key = the same source the grader scores against, so the preview can
+    # never show an admin something different from what it will mark.
+    section_ids = [
+        r["id"] for r in (
+            supabase_admin.table("listening_content").select("id")
+            .eq("test_id", test_id).execute().data or []
+        )
+    ]
+    ex_rows = (
+        supabase_admin.table("listening_exercises").select("payload")
+        .in_("content_id", section_ids).execute().data or []
+    ) if section_ids else []
+    key = grader.collect_answer_key(ex_rows)
+
+    synthetic = {
+        "test_id":         test_id,
+        # status 'submitted' is what makes the page render the review layout;
+        # nothing is persisted, so this is a rendering hint, not a claim.
+        "status":          "submitted",
+        "score":           None,
+        "band_estimate":   None,
+        "trap_analytics":  {},
+        "grading_details": [
+            {
+                "q_num":       k.get("q_num"),
+                "correct":     False,
+                "user_answer": "",          # nobody sat this
+                "expected":    k.get("answer") or "",
+            }
+            for k in key if k.get("q_num") is not None
+        ],
+    }
+    out = _assemble_listening_review(synthetic, None)
+    out["preview"] = True                   # let the page label itself honestly
+    return out
+
+
 @admin_router.get("/tests/{test_id}/audit")
 async def admin_get_test_audit(
     test_id: str,
@@ -4906,42 +4973,19 @@ def _rebase_audio_window(win: dict | None, is_mini: bool, section_offsets: dict)
             "end":   round(win["end"]   - off, 2)}
 
 
-@user_router.get("/tests/attempts/{attempt_id}/review")
-async def get_listening_test_attempt_review(
-    attempt_id: str,
-    authorization: str | None = Header(default=None),
-):
-    """listening-review-ui (Phase B) — post-submit chữa-bài for a listening
-    full test. Owner-only + HARD-gated on status=='submitted' (409 otherwise).
-    Joins the attempt's grading_details (q_num · correct · user_answer ·
-    expected) with each question's rich solution + audio replay window (stored
-    in listening_exercises.payload.solutions / .audio_windows by the import),
-    the per-section transcripts, the band-conversion table, the section offsets,
-    and a signed URL for the full premixed audio (so the review player can seek
-    each answer's window). Mirrors the reading review contract.
+def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
+    """Build the chữa-bài payload from an attempt + its test.
 
-    Admin bypass (2026-07-12): an admin may open ANY submitted attempt's
-    review — including a still-sealed 4-skill mock — so the mock-review
-    console can reuse this same rich view while deciding the band, before
-    releasing results. Everyone else keeps the existing ownership + seal
-    gate unchanged."""
-    user = await _require_auth(authorization)
-    is_admin = await _is_admin(authorization)
-    if is_admin:
-        res = supabase_admin.table("listening_test_attempts").select("*").eq(
-            "id", attempt_id,
-        ).limit(1).execute()
-        if not res.data:
-            raise HTTPException(404, "Attempt not found")
-        attempt = res.data[0]
-    else:
-        attempt = _fetch_attempt_or_404(attempt_id, user["id"])
-    if attempt.get("status") != "submitted":
-        raise HTTPException(409, "Chưa có chữa bài — attempt chưa submit.")
-    if not is_admin and _mock_sealed(attempt):
-        raise HTTPException(
-            403, "Kết quả đang chờ giám khảo duyệt — chưa thể xem chữa bài.")
+    Split out of the student endpoint so the ADMIN PREVIEW can reuse it byte for
+    byte (mig 170 / Đợt 2). Rebuilding the same shape a second time is how the
+    two drift: the preview would quietly stop matching what a student sees,
+    which is the one thing the preview exists to show.
 
+    Takes an attempt-SHAPED dict, not necessarily a real row — the preview
+    passes a synthetic one whose grading_details come from the answer key with
+    every user_answer blank. `attempt_id` is None there, and the caller owns all
+    authorisation: this function checks nothing.
+    """
     test_id = attempt["test_id"]
     test_res = (
         supabase_admin.table("listening_tests")
@@ -5042,3 +5086,41 @@ async def get_listening_test_attempt_review(
         "sections":        sections,
         "review":          review,
     }
+
+@user_router.get("/tests/attempts/{attempt_id}/review")
+async def get_listening_test_attempt_review(
+    attempt_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """listening-review-ui (Phase B) — post-submit chữa-bài for a listening
+    full test. Owner-only + HARD-gated on status=='submitted' (409 otherwise).
+    Joins the attempt's grading_details (q_num · correct · user_answer ·
+    expected) with each question's rich solution + audio replay window (stored
+    in listening_exercises.payload.solutions / .audio_windows by the import),
+    the per-section transcripts, the band-conversion table, the section offsets,
+    and a signed URL for the full premixed audio (so the review player can seek
+    each answer's window). Mirrors the reading review contract.
+
+    Admin bypass (2026-07-12): an admin may open ANY submitted attempt's
+    review — including a still-sealed 4-skill mock — so the mock-review
+    console can reuse this same rich view while deciding the band, before
+    releasing results. Everyone else keeps the existing ownership + seal
+    gate unchanged."""
+    user = await _require_auth(authorization)
+    is_admin = await _is_admin(authorization)
+    if is_admin:
+        res = supabase_admin.table("listening_test_attempts").select("*").eq(
+            "id", attempt_id,
+        ).limit(1).execute()
+        if not res.data:
+            raise HTTPException(404, "Attempt not found")
+        attempt = res.data[0]
+    else:
+        attempt = _fetch_attempt_or_404(attempt_id, user["id"])
+    if attempt.get("status") != "submitted":
+        raise HTTPException(409, "Chưa có chữa bài — attempt chưa submit.")
+    if not is_admin and _mock_sealed(attempt):
+        raise HTTPException(
+            403, "Kết quả đang chờ giám khảo duyệt — chưa thể xem chữa bài.")
+
+    return _assemble_listening_review(attempt, attempt_id)
