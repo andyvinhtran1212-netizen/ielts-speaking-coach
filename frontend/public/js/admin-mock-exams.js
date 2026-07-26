@@ -262,7 +262,11 @@
         '<div class="me-grid">' +
           '<div><label>Đề gốc (lấy danh sách cần test lại)</label><select id="a-source"></select></div>' +
           '<div><label>Mở từ</label><input id="a-from" type="datetime-local"></div>' +
-          '<div><label>Đóng lúc</label><input id="a-until" type="datetime-local"></div>' +
+          // Required. Without a closing bound the reaper never collects a
+          // student who doesn't start, so the sitting sticks in `registered`
+          // forever and (after C3) locks them out of every other exam.
+          '<div><label>Đóng lúc <span style="color:var(--av-error)">*</span></label>' +
+            '<input id="a-until" type="datetime-local" required></div>' +
         '</div>' +
         '<div id="a-students" class="me-muted" style="margin-top:10px">Chọn đề gốc để hiện học viên cần test lại.</div>' +
         '<div class="me-row" style="gap:6px;margin-top:12px">' +
@@ -274,6 +278,10 @@
     document.body.appendChild(overlay);
     overlay.querySelector('[data-x]').addEventListener('click', closeAssign);
     overlay.addEventListener('click', function (e) { if (e.target === overlay) closeAssign(); });
+    // "Đóng lúc" is required, so offer a sane default rather than making the
+    // admin compute one — a week is long enough for a retake and short enough
+    // that a no-show is finalised while the class is still current.
+    el('a-until').value = localDateTimeIn(7);
 
     // Source picker = published exams (any mode) whose review produced flags.
     try {
@@ -318,9 +326,23 @@
     return localVal ? new Date(localVal).toISOString() : null;
   }
 
+  // `days` from now, formatted for a datetime-local input (which wants LOCAL
+  // time with no zone suffix — toISOString would silently shift by the offset).
+  function localDateTimeIn(days) {
+    var d = new Date(Date.now() + days * 86400000);
+    var p = function (n) { return (n < 10 ? '0' : '') + n; };
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())
+      + 'T' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+
   async function doAssign(examId, sourceId) {
     var from = toIso(el('a-from').value), until = toIso(el('a-until').value);
-    if (from && until && new Date(until) < new Date(from)) {
+    if (!until) {
+      toast('Phải đặt "đóng lúc" — không có hạn đóng thì bài của học viên không bao giờ được thu.');
+      el('a-until').focus();
+      return;
+    }
+    if (from && new Date(until) < new Date(from)) {
       toast('Khung giờ không hợp lệ: "đóng lúc" sớm hơn "mở từ".'); return;
     }
     var rows = [];

@@ -2260,6 +2260,15 @@ def test_release_allowed_when_short_essay_is_skipped(fake_db, svc, wf):
     assert released["status"] == "released"
 
 
+# D3 (2026-07-25) — assign() now REQUIRES a closing bound: without one the
+# reaper never collects a student who doesn't start, so the sitting sticks in
+# `registered` forever and (after C3) locks them out of every other exam. These
+# tests pre-date that rule and were written against the open-ended contract, so
+# they carry a real window now. The rule itself is pinned separately by
+# test_retake_assign_requires_a_closing_bound.
+_WINDOW = {"open_from": None, "open_until": "2026-12-31T23:59:00Z"}
+
+
 def test_retake_assign_scopes_skills_and_is_idempotent(fake_db):
     """PR A (retake): assign() creates one row per (exam, user) with skills
     scoped to v1 L/R/W (drops unknown/speaking), shares one group_id, and is
@@ -2269,9 +2278,9 @@ def test_retake_assign_scopes_skills_and_is_idempotent(fake_db):
     u1, u2 = str(uuid4()), str(uuid4())
 
     res = a.assign(exam_id, [
-        {"user_id": u1, "skills": ["writing", "speaking", "bogus"]},   # speaking/bogus dropped
-        {"user_id": u2, "skills": ["listening", "reading"]},
-        {"user_id": str(uuid4()), "skills": []},                       # no valid skill → skipped
+        {"user_id": u1, "skills": ["writing", "speaking", "bogus"], **_WINDOW},   # speaking/bogus dropped
+        {"user_id": u2, "skills": ["listening", "reading"], **_WINDOW},
+        {"user_id": str(uuid4()), "skills": [], **_WINDOW},             # no valid skill → skipped
     ], created_by=admin, source_exam_id="src-1")
 
     assert set(res["assigned"]) == {u1, u2}
@@ -2285,7 +2294,7 @@ def test_retake_assign_scopes_skills_and_is_idempotent(fake_db):
     assert by_uid[u1]["source_exam_id"] == "src-1"
 
     # re-assign u1 with a different skill set → UPDATE, not a duplicate row
-    a.assign(exam_id, [{"user_id": u1, "skills": ["reading"]}], created_by=admin)
+    a.assign(exam_id, [{"user_id": u1, "skills": ["reading"], **_WINDOW}], created_by=admin)
     rows2 = fake_db.rows("mock_exam_assignments")
     assert len(rows2) == 2
     assert next(r for r in rows2 if r["user_id"] == u1)["skills"] == ["reading"]
@@ -2298,8 +2307,8 @@ def test_retake_assign_coalesces_duplicate_user(fake_db):
     from services import mock_exam_assignment_service as a
     exam_id, admin, u = str(uuid4()), str(uuid4()), str(uuid4())
     res = a.assign(exam_id, [
-        {"user_id": u, "skills": ["writing"]},
-        {"user_id": u, "skills": ["reading"]},   # same user, second sitting
+        {"user_id": u, "skills": ["writing"], **_WINDOW},
+        {"user_id": u, "skills": ["reading"], **_WINDOW},   # same user, second sitting
     ], created_by=admin)
     assert res["assigned"] == [u]                # one, not two
     rows = fake_db.rows("mock_exam_assignments")
@@ -2323,12 +2332,62 @@ def test_retake_assign_rejects_inverted_window(fake_db):
     }], created_by=str(uuid4()))
 
 
+def test_retake_assign_requires_a_closing_bound(fake_db):
+    """D3 — an open-ended retake never finishes.
+
+    reap_expired_retake_sittings only collects a section that has STARTED, or
+    everything once retake_open_until has passed. With no closing bound a
+    student who never presses "Bắt đầu" leaves the sitting in `registered`
+    forever: never collected, never reviewed, and permanently holding the
+    uq_mock_sitting_active slot. Merely annoying while that blocked one exam;
+    after C3 the same stuck row locks them out of EVERY exam.
+    """
+    from services import mock_exam_assignment_service as a
+    with pytest.raises(a.InvalidWindowError):
+        a.assign(str(uuid4()), [{
+            "user_id": str(uuid4()), "skills": ["writing"],
+            "open_from": "2026-07-20T09:00:00Z", "open_until": None,
+        }], created_by=str(uuid4()))
+    # nothing persisted — the whole batch is rejected before any write
+    assert fake_db.rows("mock_exam_assignments") == []
+
+
+def test_skill_less_row_is_skipped_not_fatal_to_the_batch(fake_db):
+    """Codex #839 (correct): validating the window of a row that is documented
+    to be SKIPPED aborted the whole request, so valid students in the same batch
+    went unassigned."""
+    from services import mock_exam_assignment_service as a
+    exam_id = str(uuid4())
+    good, empty = str(uuid4()), str(uuid4())
+    res = a.assign(exam_id, [
+        {"user_id": good,  "skills": ["writing"], **_WINDOW},
+        {"user_id": empty, "skills": [], "open_until": None},   # skipped, not fatal
+    ], created_by=str(uuid4()))
+
+    assert res["assigned"] == [good]
+    assert res["skipped"] == [empty]
+    assert len(fake_db.rows("mock_exam_assignments")) == 1
+
+
+def test_retake_assign_rejects_open_ended_before_writing_any_row(fake_db):
+    """One bad window fails the request cleanly instead of persisting a subset
+    then raising mid-batch (the pre-existing validate-up-front contract)."""
+    from services import mock_exam_assignment_service as a
+    good, bad = str(uuid4()), str(uuid4())
+    with pytest.raises(a.InvalidWindowError):
+        a.assign(str(uuid4()), [
+            {"user_id": good, "skills": ["writing"], **_WINDOW},
+            {"user_id": bad, "skills": ["reading"], "open_until": None},
+        ], created_by=str(uuid4()))
+    assert fake_db.rows("mock_exam_assignments") == []
+
+
 def test_retake_list_and_remove_assignments(fake_db):
     from services import mock_exam_assignment_service as a
     exam_id = str(uuid4())
     u1 = str(uuid4())
     fake_db.seed("users", {"id": u1, "display_name": "Học viên X", "email": "x@x.com"})
-    a.assign(exam_id, [{"user_id": u1, "skills": ["writing"]}], created_by=str(uuid4()))
+    a.assign(exam_id, [{"user_id": u1, "skills": ["writing"], **_WINDOW}], created_by=str(uuid4()))
 
     listed = a.list_assignments(exam_id)
     assert len(listed) == 1

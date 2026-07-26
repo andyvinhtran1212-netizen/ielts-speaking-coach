@@ -53,10 +53,31 @@ def _parse_ts(value):
 
 
 def _validate_window(open_from, open_until) -> None:
-    """Reject an inverted window (open_until < open_from) — it would lock the
-    assigned student out entirely once the retake runner enforces the bounds."""
+    """Reject a window the retake flow cannot finish.
+
+    Two ways it can be wrong:
+
+    · INVERTED (open_until < open_from) — locks the student out entirely.
+
+    · OPEN-ENDED (no open_until) — worse, and silent. The reaper only collects a
+      section that has STARTED, or everything once the window has closed. With
+      no closing bound, a student who never presses "Bắt đầu" leaves the sitting
+      in `registered` FOREVER: never collected, never reviewed, never finished.
+      It also permanently occupies the uq_mock_sitting_active slot, so no fresh
+      sitting can be granted for that exam either.
+
+      That was merely annoying while a stuck sitting only blocked its own exam.
+      Once one live sitting per student is enforced across ALL exams (C3), the
+      same stuck row locks the student out of every future exam — so the window
+      is now required rather than optional.
+    """
     f, u = _parse_ts(open_from), _parse_ts(open_until)
-    if f is not None and u is not None and u < f:
+    if u is None:
+        raise InvalidWindowError(
+            "Phải đặt 'đóng lúc' cho bài test lại — không có hạn đóng thì bài "
+            "của học viên không bao giờ được thu và tài khoản bị kẹt."
+        )
+    if f is not None and u < f:
         raise InvalidWindowError("Khung giờ không hợp lệ: 'đóng lúc' sớm hơn 'mở từ'.")
 
 
@@ -93,8 +114,13 @@ def assign(exam_id, rows, *, created_by, source_exam_id=None) -> dict:
             merged[uid]["open_until"] = row.get("open_until")
 
     # Validate every window up-front so a bad one fails the request cleanly
-    # (400) instead of persisting a subset then raising mid-batch.
+    # (400) instead of persisting a subset then raising mid-batch — but only for
+    # rows that will actually be WRITTEN. A skill-less row is documented to be
+    # skipped, so validating its window aborted the entire request and left the
+    # valid students in the same batch unassigned (Codex review, PR #839).
     for uid in order:
+        if not merged[uid]["skills"]:
+            continue
         _validate_window(merged[uid]["open_from"], merged[uid]["open_until"])
 
     group_id = str(uuid4())
