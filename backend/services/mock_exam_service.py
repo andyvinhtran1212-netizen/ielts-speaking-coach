@@ -1912,7 +1912,8 @@ def reap_expired_retake_sittings(grace_seconds: int = 30) -> dict:
     return {"collected": collected, "sittings": touched}
 
 
-def advance_section(exam_id: str, admin_id: str) -> dict:
+def advance_section(exam_id: str, admin_id: str,
+                    expected_section: Optional[str] = None) -> dict:
     """Admin advances the shared classroom clock to the NEXT configured section.
 
     not_started → listening → reading → writing → done (skipping any section
@@ -1924,6 +1925,31 @@ def advance_section(exam_id: str, admin_id: str) -> dict:
     if not exam:
         raise NotFoundError(f"Mock exam {exam_id} không tồn tại.")
     current = exam.get("active_section") or "not_started"
+    # `expected_section` is the section the ADMIN was looking at when they
+    # clicked. Without it the compare-and-set below only catches requests whose
+    # DB reads overlap — two clicks where the first has already committed both
+    # read the NEW section and both advance, so the class still skips one.
+    # Comparing against the caller's own view turns duplicate user actions into
+    # a 409 as well (Codex review, PR #842).
+    if expected_section and expected_section != current:
+        raise SittingConflictError(
+            f"Màn hình của bạn đang hiển thị phần {expected_section!r} nhưng kỳ thi "
+            f"đã ở phần {current!r} — có thao tác khác vừa chuyển phần. Tải lại trang."
+        )
+    return _advance_from(exam_id, admin_id, current)
+
+
+def _advance_from(exam_id: str, admin_id: str, current: str) -> dict:
+    """The transition itself, from an EXPLICITLY supplied `current`.
+
+    Split out so the optimistic guard is directly testable: a caller holding a
+    stale `current` is exactly the concurrent-advance case, and reproducing it
+    with real threads against a fake DB would be flaky theatre. Production
+    always reaches here through advance_section, which reads `current` fresh.
+    """
+    exam = get_published_exam_by_id(exam_id)
+    if not exam:
+        raise NotFoundError(f"Mock exam {exam_id} không tồn tại.")
     if current == "done":
         raise SittingConflictError("Kỳ thi đã kết thúc tất cả các phần.")
 
@@ -1941,14 +1967,30 @@ def advance_section(exam_id: str, admin_id: str) -> dict:
     update: dict = {"active_section": nxt}
     if nxt in _LRW_ORDER:
         update[f"{nxt}_started_at"] = _now_iso()
+    # OPTIMISTIC GUARD (B2). Without `.eq("active_section", current)` two
+    # concurrent advances — a double-click, two invigilators, two tabs — both
+    # read the same current section and both write. Two failure modes, both
+    # silent and both unfair to the class:
+    #   · the class skips a whole section, or
+    #   · {next}_started_at is re-stamped, RESETTING the countdown and handing
+    #     everyone extra time on a section that was already running.
+    # Matching on the section we decided from makes the transition win-once.
     resp = supabase_admin.table("mock_exams").update(update).eq(
         "id", str(exam_id),
-    ).execute()
+    ).eq("active_section", current).execute()
+    if not resp.data:
+        # Someone else advanced between our read and our write. Report the state
+        # that actually holds rather than pretending this call did it.
+        fresh = get_published_exam_by_id(exam_id) or {}
+        raise SittingConflictError(
+            "Phần thi đã được mở bởi một thao tác khác (hiện đang ở: "
+            f"{fresh.get('active_section') or 'không rõ'}). Tải lại trang để xem trạng thái mới nhất."
+        )
     logger.info(
         "[mock-exam] exam=%s section %s → %s by admin=%s",
         exam_id, current, nxt, admin_id,
     )
-    return resp.data[0] if resp.data else {**exam, **update}
+    return resp.data[0]
 
 
 def admin_section_progress(exam_id: str) -> dict:

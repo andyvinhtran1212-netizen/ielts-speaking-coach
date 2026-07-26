@@ -360,7 +360,9 @@
     msg += '\n\nHành động này KHÔNG hoàn tác được.';
     if (!confirm(msg)) return;
     return guard(el('btn-advance'), function () {
-      return window.api.post('/admin/mock-exams/' + encodeURIComponent(ex.id) + '/advance', {})
+      return window.api.post('/admin/mock-exams/' + encodeURIComponent(ex.id) + '/advance',
+        // the section THIS console is showing — a stale tab is rejected
+        { from_section: cur })
         .then(function () { toast('Đã chuyển phần.'); return load(); })
         .catch(function (e) { toast('Thất bại: ' + (e && e.message), 'error'); });
     });
