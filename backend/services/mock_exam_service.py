@@ -2175,7 +2175,26 @@ def set_sitting_retest(
 
 
 def set_open(exam_id: str, is_open: bool, admin_id: str) -> dict:
-    """Admin live toggle — open the exam so students can start, or close it."""
+    """Admin live toggle — open the exam so students can start, or close it.
+
+    OPENING a finished exam is refused. The final advance now closes the room
+    and three separate gates reject a student entering a `done` exam — but this
+    toggle wrote `is_open` unconditionally, so an admin could press "Mở kỳ", be
+    told it worked, and have `is_open=true` persisted while every student was
+    still turned away. An admin console that reports a state the system does not
+    honour is worse than one that refuses (Codex review, PR #858).
+
+    CLOSING stays allowed from any state: it is the safe direction and must
+    never be blocked.
+    """
+    if is_open:
+        exam = get_published_exam_by_id(exam_id)
+        if not exam:
+            raise NotFoundError(f"Mock exam {exam_id} không tồn tại.")
+        if (exam.get("active_section") or "not_started") == "done":
+            raise SittingConflictError(
+                "Kỳ thi đã kết thúc — không mở lại được. Tạo đề mới nếu cần thi lại."
+            )
     resp = supabase_admin.table("mock_exams").update({
         "is_open": bool(is_open),
     }).eq("id", str(exam_id)).execute()

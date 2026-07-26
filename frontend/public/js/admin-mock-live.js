@@ -164,9 +164,16 @@
   // Once collected, nobody is still working, so the collect button retires and
   // advance becomes the only forward move.
   function sequentialActions(ex) {
-    var openBtn = '<button type="button" class="av-btn" id="btn-open">' +
-      (ex.is_open ? 'Đóng kỳ' : 'Mở kỳ (live)') + '</button>';
-    if (ex.active_section === 'done') return openBtn;
+    // A FINISHED exam cannot be reopened — the server refuses it (409) and every
+    // student gate rejects entry anyway. Offering the button meant the admin
+    // could press it, be told nothing was wrong, and believe the room was open
+    // while it was not (Codex review, PR #858).
+    var done = ex.active_section === 'done';
+    var openBtn = done && !ex.is_open
+      ? '<span class="me-muted">Kỳ thi đã kết thúc</span>'
+      : '<button type="button" class="av-btn" id="btn-open">' +
+        (ex.is_open ? 'Đóng kỳ' : 'Mở kỳ (live)') + '</button>';
+    if (done) return openBtn;
     if (ex.active_section === 'not_started') {
       return openBtn +
         '<button type="button" class="av-btn av-btn--primary" id="btn-advance">Bắt đầu — mở phần đầu tiên</button>';

@@ -160,7 +160,11 @@
       progressPills(ex, progress) +
       '<div class="me-row" style="gap:6px;margin-top:10px">' +
         (ex.status === 'draft' ? '<button class="av-btn" data-act="publish">Publish</button>' : '') +
-        '<button class="av-btn ' + (ex.is_open ? '' : 'av-btn--primary') + '" data-act="toggle">' + (ex.is_open ? 'Đóng kỳ' : 'Mở kỳ (live)') + '</button>' +
+        // Same rule as the live console: a `done` exam cannot be reopened, so
+        // only the CLOSE direction is ever offered for one (Codex, PR #858).
+        ((ex.active_section === 'done' && !ex.is_open)
+          ? '<span class="me-muted">Đã kết thúc</span>'
+          : '<button class="av-btn ' + (ex.is_open ? '' : 'av-btn--primary') + '" data-act="toggle">' + (ex.is_open ? 'Đóng kỳ' : 'Mở kỳ (live)') + '</button>') +
         (canAdvance ? '<button class="av-btn av-btn--primary" data-act="advance">Mở phần tiếp theo →</button>' : '') +
         // Only for PUBLISHED exams: the console's picker lists published only,
         // and its boot() silently falls back to the first published exam for an
