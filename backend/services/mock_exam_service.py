@@ -343,6 +343,116 @@ def live_sitting_for_user(user_id: str, exclude_exam_id=None) -> Optional[dict]:
     return None
 
 
+def _is_abandoned(sitting: dict, exam: dict) -> bool:
+    """A sitting that can never progress and holds NO work.
+
+    Strict on purpose — this decides whether it is safe to cancel a row without
+    an admin looking at it, so every clause has to be about the ABSENCE of work:
+
+      · status still `registered` — never even reached lrw_in_progress
+      · no section clock ever started, nothing ever submitted
+      · no Speaking recorded
+      · the exam itself is over: a SEQUENTIAL exam walked to `done`
+
+    Deliberately NOT keyed on `is_open`: an invigilator closes the toggle
+    mid-session to block late entrants, and a student waiting in the waiting
+    room for the next section is registered with nothing started — voiding them
+    there would cancel someone who is sitting in the room. `active_section ==
+    'done'` is the only unambiguous "this exam is finished" signal.
+
+    Retake is excluded: the reaper already force-collects a retake sitting once
+    its window closes, so those retire themselves.
+    """
+    if sitting.get("status") != "registered":
+        return False
+    if is_retake(exam) or (exam.get("active_section") or "not_started") != "done":
+        return False
+    for s in _LRW_ORDER:
+        if sitting.get(f"{s}_started_at") or sitting.get(_SUBMITTED_COL[s]):
+            return False
+    return not (sitting.get("speaking_completed_at")
+                or sitting.get("speaking_session_ids"))
+
+
+def _retire_abandoned_sitting(sitting: dict, exam: dict) -> bool:
+    """Cancel an abandoned sitting so it stops holding the student's ONE live
+    seat. Returns True if this call is the one that retired it.
+
+    WHY THIS EXISTS. Mig 162 (C3) enforces one live sitting per student across
+    ALL exams via a partial unique index on status IN
+    ('registered','lrw_in_progress'). That turned a previously-harmless leak
+    into a lockout: a student who was rostered onto an exam, never opened it,
+    and whose exam then finished keeps a `registered` row FOREVER — nothing
+    collects it (the advance sweep stamps sections, the reaper only handles
+    retake), and from then on every future exam answers "Bạn đang có một bài
+    thi chưa hoàn thành. Hãy hoàn thành bài đó trước." — an instruction that
+    cannot be followed, because the exam it names ended weeks ago.
+
+    Found in production 2026-07-26: two students blocked from a retake by empty
+    `registered` rows on an exam that reached `done` on 2026-07-12.
+
+    Relaxing the Python gate alone would not work — the unique index is the hard
+    constraint, so the stale row has to actually stop being `registered`.
+    """
+    if not _is_abandoned(sitting, exam):
+        return False
+    now = _now_iso()
+    audit = {
+        **(sitting.get("integrity") or {}),
+        "void_reason": "Không tham gia — kỳ thi đã kết thúc (hệ thống tự dọn).",
+        "voided_by":   "system",
+        "voided_at":   now,
+    }
+    # COMPARE-AND-SET on every "no work" column, not just on the id. The read
+    # above and this write are not atomic, and the one thing that must never
+    # happen is cancelling a paper someone is sitting: if any clock started in
+    # between, the predicate no longer matches and this is a no-op.
+    q = supabase_admin.table("mock_exam_sittings").update({
+        "status": "void", "integrity": audit,
+    }).eq("id", str(sitting["id"])).eq("status", "registered")
+    for s in _LRW_ORDER:
+        q = q.is_(f"{s}_started_at", "null").is_(_SUBMITTED_COL[s], "null")
+    try:
+        won = q.execute()
+    except Exception:  # noqa: BLE001 — cleanup must never break the caller
+        logger.exception("[mock-exam] retire failed sitting=%s", sitting["id"])
+        return False
+    if not won.data:
+        return False
+    logger.info(
+        "[mock-exam] sitting=%s retired — registered with no work on exam=%s "
+        "which already finished; it was holding the student's live seat",
+        sitting["id"], sitting.get("mock_exam_id"),
+    )
+    return True
+
+
+def retire_abandoned_sittings() -> dict:
+    """Platform sweep for the above. Cheap: one indexed status filter, then the
+    exam rows the survivors point at. Returns {"retired": n}."""
+    try:
+        rows = _paged(
+            lambda: supabase_admin.table("mock_exam_sittings").select("*")
+            .eq("status", "registered").order("id")
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("[mock-exam] abandoned-sitting lookup failed")
+        return {"retired": 0}
+    exams: dict = {}
+    retired = 0
+    for row in rows:
+        eid = str(row.get("mock_exam_id") or "")
+        if not eid:
+            continue
+        if eid not in exams:
+            exams[eid] = get_published_exam_by_id(eid) or {}
+        if _retire_abandoned_sitting(row, exams[eid]):
+            retired += 1
+    if retired:
+        logger.info("[mock-exam] retired %d abandoned sitting(s)", retired)
+    return {"retired": retired}
+
+
 def _user_in_cohort(user_id: str, cohort_id: str) -> bool:
     resp = supabase_admin.table("students").select("cohort_id").eq(
         "user_id", str(user_id),
@@ -557,10 +667,19 @@ def create_sitting(user_id: str, code: str) -> dict:
     # progress — only from starting a second one on top of it.
     other = live_sitting_for_user(user_id, exclude_exam_id=exam["id"])
     if other:
-        raise SittingConflictError(
-            "Bạn đang có một bài thi chưa hoàn thành. Hãy hoàn thành bài đó "
-            "trước khi bắt đầu kỳ thi khác."
-        )
+        # ...unless the seat is being held by a row that can never progress. A
+        # student rostered onto an exam they never opened keeps a `registered`
+        # sitting after that exam finishes, and nothing collects it — so the
+        # message below would tell them to go and finish an exam that ended
+        # weeks ago. Retire it here rather than making them wait for the next
+        # janitor tick; strictly guarded, so a real paper is never touched.
+        blocker = get_sitting(other["id"]) or {}
+        blocking_exam = get_published_exam_by_id(str(other["mock_exam_id"])) or {}
+        if not _retire_abandoned_sitting(blocker, blocking_exam):
+            raise SittingConflictError(
+                "Bạn đang có một bài thi chưa hoàn thành. Hãy hoàn thành bài đó "
+                "trước khi bắt đầu kỳ thi khác."
+            )
 
     new_row = {
         "mock_exam_id": exam["id"],
@@ -2507,6 +2626,10 @@ def reap_expired_retake_sittings(grace_seconds: int = 30) -> dict:
     would ever come back for it (Codex review, PR #853)."""
     def _done(collected: int, touched: int) -> dict:
         reconcile_stalled_sittings()
+        # ...and free the seats held by rows that will never progress, so the
+        # admin console stops listing phantom "registered" students and nobody
+        # is locked out of a future exam by one.
+        retire_abandoned_sittings()
         return {"collected": collected, "sittings": touched}
 
     # Narrow at the DATABASE, not in Python. The old sweep pulled EVERY

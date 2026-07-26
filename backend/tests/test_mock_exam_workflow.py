@@ -4759,3 +4759,116 @@ def test_nothing_asks_listening_tests_for_a_question_count(fake_db, svc):
         body = body[:body.index("\ndef ", 1)]
         assert 'table("listening_tests")' not in body, (
             f"{fn} queries listening_tests directly — it has no question count")
+
+
+# ── One live seat: it must not be held by a row that can never progress ──
+#
+# PROD 2026-07-26. Mig 162 (C3) enforces one live sitting per student across ALL
+# exams with a partial unique index on status IN ('registered','lrw_in_progress').
+# That turned a harmless leak into a lockout: a student rostered onto an exam
+# they never opened keeps a `registered` row after the exam finishes, nothing
+# collects it (the advance sweep stamps sections; the reaper only does retake),
+# and every future exam then answers "Bạn đang có một bài thi chưa hoàn thành.
+# Hãy hoàn thành bài đó trước." — about an exam that ended weeks ago. Two real
+# students were blocked from a retake by empty rows on an exam done 2026-07-12.
+
+
+def _finished_exam_with_empty_sitting(fake_db, svc, code="MOCK-OLD"):
+    old = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"code": code}).eq("id", old["id"]).execute()
+    u = uuid4()
+    sit = svc.create_sitting(u, code)
+    fake_db.table("mock_exams").update({"active_section": "done"}).eq(
+        "id", old["id"]).execute()
+    return old, u, sit
+
+
+def test_a_finished_exam_stops_holding_the_students_seat(fake_db, svc):
+    """The reported bug, end to end: the student must be able to enter the new
+    exam instead of being told to finish one that is over."""
+    old, u, sit = _finished_exam_with_empty_sitting(fake_db, svc)
+    new = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"code": "MOCK-NEW"}).eq("id", new["id"]).execute()
+
+    fresh = svc.create_sitting(u, "MOCK-NEW")
+    assert fresh["mock_exam_id"] == new["id"]
+    assert svc.get_sitting(sit["id"])["status"] == "void"
+    assert svc.get_sitting(sit["id"])["integrity"]["voided_by"] == "system"
+
+
+def test_a_live_exam_still_holds_the_seat(fake_db, svc):
+    """The C3 rule itself must survive: an exam that has NOT finished still
+    blocks a second seat, and the message still applies."""
+    old = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"code": "MOCK-LIVE"}).eq("id", old["id"]).execute()
+    u = uuid4()
+    svc.create_sitting(u, "MOCK-LIVE")          # exam left at not_started
+    new = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"code": "MOCK-NEW"}).eq("id", new["id"]).execute()
+
+    with pytest.raises(svc.SittingConflictError) as ei:
+        svc.create_sitting(u, "MOCK-NEW")
+    assert "chưa hoàn thành" in str(ei.value)
+
+
+def test_a_paper_with_any_work_on_it_is_never_retired(fake_db, svc):
+    """The one thing this must never do. A student who answered anything — even
+    on an exam that has since finished — owns a paper, and cancelling it would
+    destroy work that the collection path is supposed to grade."""
+    old, u, sit = _finished_exam_with_empty_sitting(fake_db, svc)
+    fake_db.table("mock_exam_sittings").update(
+        {"listening_started_at": "2026-07-12T02:00:00+00:00"}).eq(
+        "id", sit["id"]).execute()
+
+    assert svc.retire_abandoned_sittings()["retired"] == 0
+    assert svc.get_sitting(sit["id"])["status"] == "registered"
+
+    new = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"code": "MOCK-NEW"}).eq("id", new["id"]).execute()
+    with pytest.raises(svc.SittingConflictError):
+        svc.create_sitting(u, "MOCK-NEW")
+
+
+def test_a_student_waiting_between_sections_is_not_retired(fake_db, svc):
+    """`is_open=false` is NOT the signal. An invigilator closes the toggle
+    mid-session to block late entrants, and a student in the waiting room is
+    registered with nothing started — cancelling them there would void someone
+    sitting in the room."""
+    exam = _seed_exam(fake_db)
+    u = uuid4()
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+    fake_db.table("mock_exams").update(
+        {"is_open": False, "active_section": "listening"}).eq(
+        "id", exam["id"]).execute()
+
+    assert svc.retire_abandoned_sittings()["retired"] == 0
+    assert svc.get_sitting(sit["id"])["status"] == "registered"
+
+
+def test_the_janitor_sweeps_them_platform_wide(fake_db, svc):
+    """Not only on the blocked student's next click: the admin console must stop
+    listing phantom 'registered' students on an exam that ended."""
+    _finished_exam_with_empty_sitting(fake_db, svc, code="MOCK-OLD-1")
+    _finished_exam_with_empty_sitting(fake_db, svc, code="MOCK-OLD-2")
+    assert svc.retire_abandoned_sittings()["retired"] == 2
+    # ...and it is idempotent
+    assert svc.retire_abandoned_sittings()["retired"] == 0
+
+
+def test_a_retake_sitting_is_left_to_the_reaper(fake_db, svc):
+    """Retake retires itself: the reaper force-collects every assigned section
+    once the window closes. Voiding one here would cancel a paper the reaper is
+    about to collect and grade."""
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update(
+        {"exam_mode": "retake", "active_section": "done"}).eq(
+        "id", exam["id"]).execute()
+    u = str(uuid4())
+    fake_db.seed("mock_exam_assignments", {
+        "id": str(uuid4()), "exam_id": exam["id"], "user_id": u,
+        "skills": ["writing"], "open_from": None,
+        "open_until": _WINDOW["open_until"],
+    })
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+    assert svc.retire_abandoned_sittings()["retired"] == 0
+    assert svc.get_sitting(sit["id"])["status"] == "registered"
