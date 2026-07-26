@@ -113,6 +113,77 @@ for (const p of PAGES) {
   });
 }
 
+for (const p of PAGES) {
+  describe(`${p.name} — the server is told, over the one channel that still works`, () => {
+    test('it reports to /api/error-logs', () => {
+      // The failure being reported can be a BLOCKED request, and a request the
+      // browser refuses to send leaves no trace server-side — which is why a
+      // student sat two sections graded 0 while every dashboard looked healthy.
+      assert.match(p.js, /\/api\/error-logs/);
+      assert.match(p.js, /method: 'POST'/);
+    });
+
+    test('it uses plain fetch, never window.api', () => {
+      // A 401 through window.api redirects to login — out of a live exam.
+      const fn = p.js.slice(p.js.indexOf('no answer save has reached the server') - 1200);
+      const body = fn.slice(0, fn.indexOf('no answer save has reached the server') + 600);
+      assert.match(body, /window\.fetch\(/);
+      assert.doesNotMatch(body, /window\.api\.(post|patch)/);
+    });
+
+    test('it fires ONCE per attempt, not once per 10s tick', () => {
+      assert.match(p.js, /nothing_?[Rr]eported/);
+    });
+
+    test('it carries what an admin needs to act', () => {
+      assert.match(p.js, /attempt_id:/);
+      assert.match(p.js, /answers_held_locally:/);
+      assert.match(p.js, /seconds_since_first_try:/);
+    });
+
+    test('reporting can never escalate into a second failure', () => {
+      assert.match(p.js, /\)?\['?catch'?\]?\(function \(\) \{\}\)|\.catch\(function \(\) \{\}\)/);
+    });
+  });
+}
+
+describe('resuming an attempt the server already holds', () => {
+  test('listening seeds the flag from the resume payload', () => {
+    // Answers already on the attempt ARE proof the server has this student's
+    // work. Without seeding, resuming and then losing the link for 45s told a
+    // student with a full paper on the server that it held nothing and they
+    // would be graded 0 (Codex review, PR #860).
+    assert.match(LIS, /if \(\(att\.answers \|\| \[\]\)\.length\) STATE\.serverHasOne = true;/);
+  });
+
+  test('reading seeds it too', () => {
+    assert.match(READ, /if \(\(inprog\.answers \|\| \[\]\)\.length\) SESSION\.server_has_one = true;/);
+  });
+
+  test('the seed happens BEFORE the watcher starts, on both pages', () => {
+    // Ordering is the whole fix: a watcher armed first can fire on the very
+    // next tick, before the flag is set.
+    for (const [js, seed, watch] of [
+      [LIS, 'STATE.serverHasOne = true;', 'startNothingSavedWatch();'],
+      [READ, 'SESSION.server_has_one = true;', '_startNothingSavedWatch();'],
+    ]) {
+      const at = js.indexOf(seed);
+      assert.ok(at > 0, 'seed missing');
+      const nextWatch = js.indexOf(watch, at);
+      const prevWatch = js.lastIndexOf(watch, at);
+      assert.ok(nextWatch > 0 && (prevWatch === -1 || prevWatch < js.lastIndexOf('answers', at) - 400),
+        'the watcher starts before the resume payload is read');
+    }
+  });
+
+  test('an EMPTY resumed attempt still arms the alarm', () => {
+    // Guarding on .length matters: resuming an attempt with nothing saved is
+    // exactly the case that must still be caught.
+    assert.match(LIS, /\(att\.answers \|\| \[\]\)\.length/);
+    assert.match(READ, /\(inprog\.answers \|\| \[\]\)\.length/);
+  });
+});
+
 describe('the alarm is visually louder than the per-question cue', () => {
   test('listening uses the error token, not the warning one', () => {
     const css = LIS_HTML.slice(LIS_HTML.indexOf('.ft-nothing-saved'));
