@@ -1213,3 +1213,67 @@ async def admin_delete_diagram_image(
     )
 
     return {"question_id": question_id, "deleted": bool(storage_path)}
+
+
+@router.get("/tests/{test_uuid}/preview")
+async def admin_preview_reading_test(
+    test_uuid: str,
+    authorization: str | None = Header(default=None),
+):
+    """Xem trước một đề đọc bằng ĐÚNG giao diện chữa bài của học viên.
+
+    Đợt 2 (mig 170). Reuses _assemble_reading_review byte for byte rather than
+    rendering a second admin-only view — a preview that renders differently from
+    the student page is not a preview.
+
+    Deliberately the CHỮA BÀI shape, not the exam shape: verifying a paper needs
+    the questions AND the answers AND the explanations, which is exactly what
+    the review payload carries and the exam payload strips.
+
+    Creates NOTHING — the synthetic attempt never touches the database, so this
+    consumes no attempt and leaves no trace in anyone's history.
+    """
+    from services import reading_test_grader as grader
+
+    await require_admin(authorization)
+
+    test_res = (
+        supabase_admin.table("reading_tests").select("id,module")
+        .eq("id", test_uuid).limit(1).execute()
+    )
+    if not test_res.data:
+        raise HTTPException(404, "Không tìm thấy đề đọc này.")
+
+    passages = (
+        supabase_admin.table("reading_passages").select("id,passage_order")
+        .eq("test_id", test_uuid).eq("library", "l3_test").execute().data or []
+    )
+    order_by_id = {p["id"]: p.get("passage_order") for p in passages}
+    q_res = (
+        supabase_admin.table("reading_questions")
+        .select("q_num,answer,skill_tag,explanation,passage_id")
+        .in_("passage_id", list(order_by_id.keys())).execute()
+    ) if order_by_id else None
+    answer_key = grader.collect_answer_key(
+        (q_res.data if q_res else []) or [], order_by_id)
+
+    # Grade an EMPTY submission with the real grader rather than hand-building
+    # the rows: per_question then carries exactly the shape the review page
+    # expects, and cannot drift from what a real attempt produces.
+    result = grader.grade_attempt(
+        [], answer_key, module=(test_res.data[0].get("module") or "academic"))
+
+    synthetic = {
+        "test_id":          test_uuid,
+        # 'submitted' is what makes the page render the review layout; nothing
+        # is persisted, so this is a rendering hint, not a claim.
+        "status":           "submitted",
+        "score":            None,
+        "band_estimate":    None,
+        "skill_breakdown":  {},
+        "grading_details":  result.get("per_question") or [],
+    }
+    from routers.reading_student import _assemble_reading_review
+    out = _assemble_reading_review(synthetic, None)
+    out["preview"] = True                  # let the page label itself honestly
+    return out

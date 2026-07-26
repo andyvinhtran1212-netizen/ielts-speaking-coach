@@ -1234,57 +1234,17 @@ async def submit_reading_test_attempt(
 # ── reading-rich Part C — post-submit chữa-bài (solution review) ──────
 
 
-@router.get("/test/attempts/{attempt_id}/review")
-async def review_reading_test_attempt(
-    attempt_id: str,
-    authorization: str | None = Header(default=None),
-    x_reading_anon: str | None = Header(default=None, alias="X-Reading-Anon"),
-):
-    """Post-submit solution review ("chữa bài"). Returns, ONLY for a SUBMITTED
-    attempt owned by the caller: the score/band/skill breakdown, the per-Q
-    grading (user vs correct), and — now REVEALED — each question's rich
-    `payload.solution` (steps / source / vocab / paraphrase / trap / tips) plus
-    the passage bodies + VI translation.
+def _assemble_reading_review(attempt: dict, attempt_id) -> dict:
+    """Build the chữa-bài payload from an attempt + its test.
 
-    Ownership = auth user_id OR the anon_id capability token (anonymous share-
-    link attempts can review THEIR OWN attempt only — another anon_id 403s;
-    reading-access-tracking B).
+    Split out of the student endpoint so the ADMIN PREVIEW reuses it byte for
+    byte (Đợt 2). A second renderer for the same thing is how a preview stops
+    matching what the student sees — the one thing it exists to show.
 
-    Security boundary (reading-rich Part A): the solution is stripped from the
-    DURING-test fetch; this endpoint is the only place it surfaces, and it
-    HARD-gates on status == 'submitted' (409 otherwise) so an in-progress or
-    abandoned attempt can never leak the answers.
-
-    Admin bypass (2026-07-12): an admin may open ANY submitted attempt's
-    review — including a still-sealed 4-skill mock — so the mock-review
-    console can show the same rich chữa-bài while the admin is deciding the
-    band, before they release results. Ownership + the seal gate still apply
-    to everyone else (the student can't see it early just by being an admin
-    of a DIFFERENT sitting)."""
-    user = await _optional_auth(authorization)
-    is_admin = await _is_admin(authorization)
-    if is_admin:
-        res = supabase_admin.table("reading_test_attempts").select("*").eq(
-            "id", attempt_id,
-        ).limit(1).execute()
-        if not res.data:
-            raise HTTPException(404, "Attempt not found")
-        attempt = res.data[0]
-    else:
-        attempt = _fetch_attempt_owned(attempt_id, user, x_reading_anon)
-    if attempt.get("status") != "submitted":
-        raise HTTPException(409, "Chưa có chữa bài — attempt chưa submit.")
-
-    # Sealed 4-skill mock: the review reveals the answer key + rich solution, so
-    # it stays 403 until an admin releases the sitting. Server-side gate — the
-    # during-test fetch already strips the key; this is the other leak path.
-    sitting_id = attempt.get("sitting_id")
-    if sitting_id and not is_admin:
-        from services import mock_exam_service
-        if mock_exam_service.is_sealed(sitting_id):
-            raise HTTPException(
-                403, "Kết quả đang chờ giám khảo duyệt — chưa thể xem chữa bài.")
-
+    Takes an attempt-SHAPED dict, not necessarily a real row: the preview passes
+    a synthetic one with every user answer blank. `attempt_id` is None there,
+    and the caller owns all authorisation — this function checks nothing.
+    """
     test_uuid = attempt["test_id"]
     test_res = (
         supabase_admin.table("reading_tests")
@@ -1367,6 +1327,59 @@ async def review_reading_test_attempt(
         "passages":         passages,
         "review":           review,
     }
+
+@router.get("/test/attempts/{attempt_id}/review")
+async def review_reading_test_attempt(
+    attempt_id: str,
+    authorization: str | None = Header(default=None),
+    x_reading_anon: str | None = Header(default=None, alias="X-Reading-Anon"),
+):
+    """Post-submit solution review ("chữa bài"). Returns, ONLY for a SUBMITTED
+    attempt owned by the caller: the score/band/skill breakdown, the per-Q
+    grading (user vs correct), and — now REVEALED — each question's rich
+    `payload.solution` (steps / source / vocab / paraphrase / trap / tips) plus
+    the passage bodies + VI translation.
+
+    Ownership = auth user_id OR the anon_id capability token (anonymous share-
+    link attempts can review THEIR OWN attempt only — another anon_id 403s;
+    reading-access-tracking B).
+
+    Security boundary (reading-rich Part A): the solution is stripped from the
+    DURING-test fetch; this endpoint is the only place it surfaces, and it
+    HARD-gates on status == 'submitted' (409 otherwise) so an in-progress or
+    abandoned attempt can never leak the answers.
+
+    Admin bypass (2026-07-12): an admin may open ANY submitted attempt's
+    review — including a still-sealed 4-skill mock — so the mock-review
+    console can show the same rich chữa-bài while the admin is deciding the
+    band, before they release results. Ownership + the seal gate still apply
+    to everyone else (the student can't see it early just by being an admin
+    of a DIFFERENT sitting)."""
+    user = await _optional_auth(authorization)
+    is_admin = await _is_admin(authorization)
+    if is_admin:
+        res = supabase_admin.table("reading_test_attempts").select("*").eq(
+            "id", attempt_id,
+        ).limit(1).execute()
+        if not res.data:
+            raise HTTPException(404, "Attempt not found")
+        attempt = res.data[0]
+    else:
+        attempt = _fetch_attempt_owned(attempt_id, user, x_reading_anon)
+    if attempt.get("status") != "submitted":
+        raise HTTPException(409, "Chưa có chữa bài — attempt chưa submit.")
+
+    # Sealed 4-skill mock: the review reveals the answer key + rich solution, so
+    # it stays 403 until an admin releases the sitting. Server-side gate — the
+    # during-test fetch already strips the key; this is the other leak path.
+    sitting_id = attempt.get("sitting_id")
+    if sitting_id and not is_admin:
+        from services import mock_exam_service
+        if mock_exam_service.is_sealed(sitting_id):
+            raise HTTPException(
+                403, "Kết quả đang chờ giám khảo duyệt — chưa thể xem chữa bài.")
+
+    return _assemble_reading_review(attempt, attempt_id)
 
 
 # ── Sprint 20.6 — resilience: in-progress lookup + auto-save PATCH ────

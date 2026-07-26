@@ -153,6 +153,14 @@
   function attemptIdFromUrl() {
     return (new URLSearchParams(window.location.search).get('attempt_id') || '').trim() || null;
   }
+  // ADMIN PREVIEW (Đợt 2). ?admin_test_id= renders a test that NOBODY sat: the
+  // backend builds the same chữa-bài payload from the answer key with every
+  // user answer blank. Reusing this page rather than writing an admin-only
+  // renderer is the point — an admin verifying a paper needs to see exactly
+  // what the student will see. The student branch below is untouched.
+  function adminTestIdFromUrl() {
+    return (new URLSearchParams(window.location.search).get('admin_test_id') || '').trim() || null;
+  }
 
   // ── Back target ──────────────────────────────────────────────────
   // Three entry points — the full-test library, the mini-test library, and a
@@ -496,7 +504,11 @@
   function load(attemptId) {
     showState('loading');
     SESSION.attemptId = attemptId;
-    window.api.get('/api/listening/tests/attempts/' + encodeURIComponent(attemptId) + '/review')
+    var previewId = adminTestIdFromUrl();
+    var url = previewId
+      ? '/admin/listening/tests/' + encodeURIComponent(previewId) + '/preview'
+      : '/api/listening/tests/attempts/' + encodeURIComponent(attemptId) + '/review';
+    window.api.get(url)
       .then(function (d) {
         if (!d || !(d.review || []).length) { showState('empty'); return; }
         render(d);
@@ -512,8 +524,12 @@
   document.addEventListener('DOMContentLoaded', function () {
     wireBack();                 // before the early return — the empty/error
                                 // states are exactly when a way out matters most
+    // An admin preview has no attempt at all — that IS the point (nothing was
+    // sat). Either id is enough to boot; load() picks the right endpoint.
     var id = attemptIdFromUrl();
-    if (!id) { showState('empty'); return; }
+    var preview = (new URLSearchParams(window.location.search)
+      .get('admin_test_id') || '').trim() || null;
+    if (!id && !preview) { showState('empty'); return; }
     load(id);
   });
 })();

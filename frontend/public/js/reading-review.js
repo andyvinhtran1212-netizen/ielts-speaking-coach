@@ -568,8 +568,17 @@
     SESSION.attemptId = attemptId;
     // reading-access-tracking B2 — anonymous ownership header + noRedirect when
     // an anon_id is on the URL; otherwise the plain authed fetch.
-    var anonId = anonIdFromUrl();
-    var reviewUrl = '/api/reading/test/attempts/' + encodeURIComponent(attemptId) + '/review';
+  // ADMIN PREVIEW (Đợt 2). ?admin_test_id= renders a test that NOBODY sat: the
+  // backend builds the same chữa-bài payload from the answer key with every
+  // user answer blank. Reusing this page rather than writing an admin-only
+  // renderer is the point — an admin verifying a paper needs to see exactly
+  // what the student will see. The student branch below is untouched.
+    var previewId = (new URLSearchParams(window.location.search)
+      .get('admin_test_id') || '').trim() || null;
+    var anonId = previewId ? null : anonIdFromUrl();
+    var reviewUrl = previewId
+      ? '/admin/reading/content/tests/' + encodeURIComponent(previewId) + '/preview'
+      : '/api/reading/test/attempts/' + encodeURIComponent(attemptId) + '/review';
     var reviewPromise = anonId
       ? window.api.getWith(reviewUrl, { 'X-Reading-Anon': anonId }, { noRedirect: true })
       : window.api.get(reviewUrl);
@@ -598,8 +607,12 @@
   document.addEventListener('DOMContentLoaded', function () {
     wireBack();                 // before the early return — the empty/error
                                 // states are exactly when a way out matters most
+    // An admin preview has no attempt at all — that IS the point (nothing was
+    // sat). Either id is enough to boot; load() picks the right endpoint.
     var id = attemptIdFromUrl();
-    if (!id) { showState('empty'); return; }
+    var preview = (new URLSearchParams(window.location.search)
+      .get('admin_test_id') || '').trim() || null;
+    if (!id && !preview) { showState('empty'); return; }
     load(id);
   });
 })();
