@@ -444,6 +444,134 @@ def test_collected_past_section_is_not_flagged_missed(fake_db, svc):
     assert res["sections"]["listening"]["missed"] == 0
 
 
+# ── pacing (PR-15) ────────────────────────────────────────────────────
+
+
+def test_pacing_reconstructs_the_order_answers_landed(fake_db, svc):
+    """Every answer write has always stamped answered_at; nobody read them.
+    Order + gaps are recoverable with no new collection at all."""
+    cohort = str(uuid4())
+    exam = _seed_exam(fake_db, cohort_id=cohort)
+    start = _now() - timedelta(minutes=10)
+    fake_db.table("mock_exams").update({
+        "active_section": "listening", "listening_started_at": _iso(start),
+    }).eq("id", exam["id"]).execute()
+    uid = _seed_student(fake_db, cohort, "An")
+    aid = str(uuid4())
+    fake_db.seed("listening_test_attempts", {
+        "id": aid, "status": "in_progress", "grading_details": [{}] * 40,
+        "answers": [
+            # answered out of paper order: 1, then 3, then back to 2
+            {"q_num": 1, "user_answer": "a", "answered_at": _iso(start + timedelta(seconds=30))},
+            {"q_num": 3, "user_answer": "c", "answered_at": _iso(start + timedelta(seconds=50))},
+            {"q_num": 2, "user_answer": "b", "answered_at": _iso(start + timedelta(seconds=230))},
+        ],
+    })
+    _seed_sitting(fake_db, exam, uid, listening_attempt_id=aid,
+                  listening_submitted_at=_iso(start + timedelta(minutes=8)))
+
+    out = svc.sitting_pacing(_find_sitting_id(fake_db))
+    lis = out["sections"]["listening"]
+
+    assert [r["q_num"] for r in lis["timeline"]] == [1, 3, 2]   # landing order
+    assert lis["worked_in_paper_order"] is False                # jumped around
+    assert lis["timeline"][0]["gap_seconds"] == 30              # from section start
+    assert lis["timeline"][2]["gap_seconds"] == 180             # the 3-minute pause
+    assert len(lis["long_gaps"]) == 1
+    assert lis["answered"] == 3 and lis["total"] == 40
+
+
+def test_pacing_reports_where_the_work_stopped(fake_db, svc):
+    """A big idle tail is a student who gave up (or dropped off) well before
+    time — invisible in a raw score."""
+    cohort = str(uuid4())
+    exam = _seed_exam(fake_db, cohort_id=cohort)
+    start = _now() - timedelta(minutes=30)
+    fake_db.table("mock_exams").update({
+        "active_section": "reading", "reading_started_at": _iso(start),
+    }).eq("id", exam["id"]).execute()
+    uid = _seed_student(fake_db, cohort, "An")
+    aid = str(uuid4())
+    fake_db.seed("reading_test_attempts", {"id": aid, "status": "submitted",
+                                           "grading_details": [{}] * 40})
+    fake_db.seed("reading_attempt_answers", {
+        "attempt_id": aid, "q_num": 1, "user_answer": "TRUE",
+        "answered_at": _iso(start + timedelta(minutes=2)),
+    })
+    _seed_sitting(fake_db, exam, uid, reading_attempt_id=aid,
+                  reading_submitted_at=_iso(start + timedelta(minutes=20)))
+
+    rd = svc.sitting_pacing(_find_sitting_id(fake_db))["sections"]["reading"]
+    assert rd["idle_tail_seconds"] == 18 * 60          # stopped 18 min early
+    assert rd["answers_in_final_minutes"] == 0
+
+
+def test_pacing_keeps_timestamped_clears_in_the_timeline(fake_db, svc):
+    """Codex #848 (correct): both save paths persist a CLEARED answer with a
+    fresh answered_at. Filtering those out made the last touch look older than
+    it was, inflated idle_tail_seconds and reconstructed the wrong work order.
+    The answered KPI still counts only non-empty values."""
+    cohort = str(uuid4())
+    exam = _seed_exam(fake_db, cohort_id=cohort)
+    start = _now() - timedelta(minutes=10)
+    fake_db.table("mock_exams").update({
+        "active_section": "listening", "listening_started_at": _iso(start),
+    }).eq("id", exam["id"]).execute()
+    uid = _seed_student(fake_db, cohort, "An")
+    aid = str(uuid4())
+    fake_db.seed("listening_test_attempts", {
+        "id": aid, "status": "in_progress", "grading_details": [{}] * 40,
+        "answers": [
+            {"q_num": 1, "user_answer": "cat", "answered_at": _iso(start + timedelta(seconds=30))},
+            {"q_num": 2, "user_answer": "",    "answered_at": _iso(start + timedelta(seconds=90))},
+        ],
+    })
+    _seed_sitting(fake_db, exam, uid, listening_attempt_id=aid,
+                  listening_submitted_at=_iso(start + timedelta(minutes=5)))
+
+    lis = svc.sitting_pacing(_find_sitting_id(fake_db))["sections"]["listening"]
+    assert [r["q_num"] for r in lis["timeline"]] == [1, 2]   # the clear is activity
+    assert lis["answered"] == 1                              # ...but not an answer
+    # last touch is the clear at +90s, so the idle tail is 5min − 90s
+    assert lis["idle_tail_seconds"] == 210
+
+
+def test_pacing_omits_writing_for_an_lr_only_retake(fake_db, svc):
+    """assigned_skills is the canonical retake scope; a blank Writing block told
+    the teacher the student was missing work nobody asked them for."""
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    uid = str(uuid4())
+    fake_db.seed("users", {"id": uid, "display_name": "An", "email": None})
+    _seed_sitting(fake_db, exam, uid, assigned_skills=["reading"])
+
+    out = svc.sitting_pacing(_find_sitting_id(fake_db))
+    assert "writing" not in out["sections"]
+    assert out["exam_id"] == exam["id"]          # back-link target
+
+
+def test_pacing_states_its_own_caveats(fake_db, svc):
+    """answered_at is the LAST touch, so a UI must not present these as exact
+    per-question think-time. The payload says so itself."""
+    cohort = str(uuid4())
+    exam = _seed_exam(fake_db, cohort_id=cohort)
+    uid = _seed_student(fake_db, cohort, "An")
+    _seed_sitting(fake_db, exam, uid)
+    out = svc.sitting_pacing(_find_sitting_id(fake_db))
+    assert out["caveats"]["answered_at_is_last_touch"] is True
+    assert out["caveats"]["gap_is_time_since_previous_answer"] is True
+
+
+def test_pacing_missing_sitting_raises(fake_db, svc):
+    with pytest.raises(svc.NotFoundError):
+        svc.sitting_pacing(str(uuid4()))
+
+
+def _find_sitting_id(fake):
+    return fake.rows("mock_exam_sittings")[0]["id"]
+
+
 def test_missing_exam_raises_not_found(fake_db, svc):
     with pytest.raises(svc.NotFoundError):
         svc.admin_live_monitor(str(uuid4()))
@@ -474,3 +602,107 @@ def test_repeat_attempt_shows_the_live_sitting_not_the_released_one(fake_db, svc
             if str(r.get("user_id")) == uid]
     assert len(rows) == 1
     assert rows[0]["sections"]["listening"]["state"] != "submitted"
+
+
+def test_pacing_totals_come_from_the_test_not_the_grading_output(fake_db, svc):
+    """Codex #848 (correct): grading_details is populated only on SUBMISSION,
+    but the primary caller is the live console — a student still working. Their
+    attempt has answers and an empty grading_details, so the page rendered "1"
+    instead of "1/40" for the whole section."""
+    cohort = str(uuid4())
+    exam = _seed_exam(fake_db, cohort_id=cohort)
+    start = _now() - timedelta(minutes=5)
+    fake_db.table("mock_exams").update({
+        "active_section": "listening", "listening_started_at": _iso(start),
+    }).eq("id", exam["id"]).execute()
+    # the exam's listening test knows its own length
+    fake_db.table("listening_tests").update({"total_questions": 40}).eq(
+        "id", exam["listening_test_id"]).execute()
+    uid = _seed_student(fake_db, cohort, "An")
+    aid = str(uuid4())
+    fake_db.seed("listening_test_attempts", {
+        "id": aid, "status": "in_progress", "grading_details": [],   # NOT graded yet
+        "answers": [
+            {"q_num": 1, "user_answer": "cat", "answered_at": _iso(start + timedelta(seconds=30))},
+        ],
+    })
+    _seed_sitting(fake_db, exam, uid, listening_attempt_id=aid)
+
+    lis = svc.sitting_pacing(_find_sitting_id(fake_db))["sections"]["listening"]
+    assert lis["answered"] == 1
+    assert lis["total"] == 40
+
+
+def test_pacing_final_minutes_kpi_ignores_a_cleared_field(fake_db, svc):
+    """Codex #848 (correct): the timeline deliberately keeps a timestamped
+    clear as activity, but counting it as an ANSWER incremented "Đáp án 5 phút
+    cuối" past what the `answered` KPI allows — and drew an answer bar for a
+    blank."""
+    cohort = str(uuid4())
+    exam = _seed_exam(fake_db, cohort_id=cohort)
+    start = _now() - timedelta(minutes=60)
+    fake_db.table("mock_exams").update({
+        "active_section": "listening", "listening_started_at": _iso(start),
+    }).eq("id", exam["id"]).execute()
+    uid = _seed_student(fake_db, cohort, "An")
+    aid = str(uuid4())
+    end = start + timedelta(minutes=30)
+    fake_db.seed("listening_test_attempts", {
+        "id": aid, "status": "in_progress", "grading_details": [{}] * 40,
+        "answers": [
+            # both land inside the final 5 minutes; only one is an answer
+            {"q_num": 1, "user_answer": "cat", "answered_at": _iso(end - timedelta(minutes=2))},
+            {"q_num": 2, "user_answer": "",    "answered_at": _iso(end - timedelta(minutes=1))},
+        ],
+    })
+    _seed_sitting(fake_db, exam, uid, listening_attempt_id=aid,
+                  listening_submitted_at=_iso(end))
+
+    lis = svc.sitting_pacing(_find_sitting_id(fake_db))["sections"]["listening"]
+    assert len(lis["timeline"]) == 2                 # the clear is still activity
+    assert lis["answers_in_final_minutes"] == 1      # ...but not an answer
+    assert [r["is_answered"] for r in lis["timeline"]] == [True, False]
+
+
+def test_pacing_reports_unknown_order_when_nothing_was_answered(fake_db, svc):
+    """Codex #848 (correct): comparing two EMPTY lists is trivially equal, so a
+    sitting with no timestamped answers rendered "Làm theo thứ tự đề: Có" right
+    beside its own message that nothing was saved. With no observations the
+    order is unknown."""
+    cohort = str(uuid4())
+    exam = _seed_exam(fake_db, cohort_id=cohort)
+    uid = _seed_student(fake_db, cohort, "An")
+    aid = str(uuid4())
+    fake_db.seed("listening_test_attempts", {
+        "id": aid, "status": "in_progress", "grading_details": [], "answers": [],
+    })
+    _seed_sitting(fake_db, exam, uid, listening_attempt_id=aid)
+
+    lis = svc.sitting_pacing(_find_sitting_id(fake_db))["sections"]["listening"]
+    assert lis["timeline"] == []
+    assert lis["worked_in_paper_order"] is None
+
+
+def test_pacing_shows_an_assigned_section_with_no_attempt(fake_db, svc):
+    """Codex #848 (correct): creating the L/R entries only when an attempt id
+    exists made an ASSIGNED section vanish when the attempt had not been created
+    yet — or its creation failed, a state admin_live_monitor() explicitly
+    supports — so an L/R-only retake opened a completely blank pacing page
+    instead of saying that no answers were saved."""
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    fake_db.seed("reading_tests", {"id": exam["reading_test_id"],
+                                   "total_questions": 40})
+    uid = str(uuid4())
+    fake_db.seed("users", {"id": uid, "display_name": "An", "email": None})
+    _seed_sitting(fake_db, exam, uid, assigned_skills=["reading"],
+                  reading_attempt_id=None)
+
+    out = svc.sitting_pacing(_find_sitting_id(fake_db))
+    assert "reading" in out["sections"], out["sections"].keys()
+    rd = out["sections"]["reading"]
+    assert rd["timeline"] == []
+    assert rd["answered"] == 0
+    assert rd["total"] == 40
+    assert rd["worked_in_paper_order"] is None

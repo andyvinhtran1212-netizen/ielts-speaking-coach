@@ -350,12 +350,18 @@
             cols.map(function (c) { return '<td>' + cellHtml(s, c) + '</td>'; }).join('') +
             (speaking ? '<td>' + speakingHtml(s) + '</td>' : '') +
             '<td class="ml-muted">' + esc(s.status) + '</td>' +
-            // A released sitting is a published result the student can already
-            // see — voiding it would erase that and leave an unsealed `void`
-            // row. Server rejects it too; the UI just shouldn't offer it.
-            '<td>' + (s.sitting_id && s.status !== 'released'
-              ? '<button type="button" class="ml-void" data-void="' + esc(s.sitting_id) +
-                '" data-name="' + esc(s.student_name) + '">Huỷ lượt</button>'
+            // Pacing is available for ANY sitting — a finished one is exactly
+            // when you want to look at how it was spent. Voiding is not: a
+            // released sitting is a published result the student can already
+            // see, so erasing it would leave an unsealed `void` row. The server
+            // rejects that too; the UI just shouldn't offer it.
+            '<td>' + (s.sitting_id
+              ? '<a class="ml-void" href="/pages/admin/mock-pacing/index.html?sitting=' +
+                  encodeURIComponent(s.sitting_id) + '" style="text-decoration:none">Nhịp làm bài</a> ' +
+                (s.status !== 'released'
+                  ? '<button type="button" class="ml-void" data-void="' + esc(s.sitting_id) +
+                    '" data-name="' + esc(s.student_name) + '">Huỷ lượt</button>'
+                  : '')
               : '') + '</td>' +
           '</tr>';
         }).join('')

@@ -2758,6 +2758,242 @@ def admin_live_monitor(exam_id: str) -> dict:
     }
 
 
+# A gap this long between two answers is a pause worth showing the teacher —
+# short enough to catch a stall, long enough not to flag normal reading.
+_PACING_LONG_GAP_SECONDS = 90
+# Answers landing in the closing minutes: the shape of a rushed finish.
+_PACING_TAIL_SECONDS = 300
+
+
+def _section_total(exam: dict, section: str, *, fallback: int = 0):
+    """How many questions this section HAS — from the test definition.
+
+    `grading_details` was the old source, and it is populated only on
+    submission. The primary caller is the live console, i.e. a student who is
+    still working: their attempt has answers and an empty grading_details, so
+    the page rendered "17" instead of "17/40" for the whole section (Codex
+    review, PR #848). The graded length stays as the fallback for an attempt
+    whose test row has since gone.
+    """
+    table = {"listening": ("listening_tests", "listening_test_id"),
+             "reading":   ("reading_tests", "reading_test_id")}.get(section)
+    if table:
+        tbl, col = table
+        test_id = exam.get(col)
+        if test_id:
+            try:
+                row = supabase_admin.table(tbl).select("total_questions").eq(
+                    "id", str(test_id)).limit(1).execute().data or []
+                if row and row[0].get("total_questions"):
+                    return row[0]["total_questions"]
+            except Exception:  # noqa: BLE001 — a missing total is not worth a 500
+                logger.warning("[mock-exam] pacing total lookup failed section=%s", section)
+    return fallback or None
+
+
+def sitting_pacing(sitting_id: str) -> dict:
+    """How a student SPENT the exam, reconstructed from data already stored.
+
+    Every answer write stamps `answered_at` — Listening on the attempt's JSONB
+    array, Reading on reading_attempt_answers (mig 088). Nobody has ever read
+    them. Together they give the order answers actually landed in, the pauses
+    between them, and where the work stopped.
+
+    HONEST LIMITS, because this is a teaching tool and a misread would be worse
+    than no tool:
+      · answered_at is OVERWRITTEN on each save, so it is the LAST touch of a
+        question, not the first. Order here is "order last worked on", which is
+        why revisiting shows up as a paper-order mismatch rather than a count.
+      · `gap_seconds` is therefore time-since-the-previous-answer-landed, not
+        time-spent-thinking-about-this-question. It brackets it; it isn't it.
+      · A student who answered nothing leaves no trace at all — absence of
+        timeline is not evidence of absence of effort.
+    """
+    sitting = get_sitting(sitting_id)
+    if not sitting:
+        raise NotFoundError(f"Sitting {sitting_id} không tồn tại.")
+    exam = get_published_exam_by_id(sitting["mock_exam_id"]) or {}
+    retake = is_retake(exam)
+
+    from services.mock_review_workflow import resolve_display_names
+    names = resolve_display_names([sitting.get("user_id")])
+
+    def _section_window(section):
+        """(started_at, ended_at) for this section — per-exam for a sequential
+        sitting (one classroom clock), per-sitting for a retake."""
+        started = _parse_ts(
+            sitting.get(f"{section}_started_at") if retake
+            else exam.get(f"{section}_started_at")
+        )
+        ended = _parse_ts(sitting.get(_SUBMITTED_COL[section]))
+        return started, ended
+
+    def _timeline(stamps, section, answered=None):
+        """[{q_num, at, gap_seconds, is_answered}] in the order the saves landed.
+
+        `stamps` is (q_num, answered_at, is_answered). The flag rides along
+        because the timeline counts every timestamped save — clearing a field IS
+        activity, and dropping those made the last touch look older than it was
+        — while the KPIs that mean "an answer" must not count a blank.
+        """
+        started, ended = _section_window(section)
+        rows = sorted(
+            ((q, _parse_ts(at), bool(ok)) for q, at, ok in stamps if at),
+            key=lambda r: r[1],
+        )
+        out, prev = [], started
+        for q, at, ok in rows:
+            gap = int((at - prev).total_seconds()) if prev else None
+            out.append({"q_num": q, "at": at.isoformat(), "gap_seconds": gap,
+                        "is_answered": ok})
+            prev = at
+        summary = {
+            "started_at":  started.isoformat() if started else None,
+            "ended_at":    ended.isoformat() if ended else None,
+            "answered":    len(out) if answered is None else answered,
+            "total":       None,
+            "timeline":    out,
+            # Answers landing in the closing minutes — the shape of a rushed
+            # finish, which a raw score never shows. Counts only saves that left
+            # an ANSWER behind: a field cleared in the last five minutes is
+            # activity for the timeline but is not an answer, and counting it
+            # incremented "Đáp án 5 phút cuối" past what `answered` allows
+            # (Codex review, PR #848).
+            "answers_in_final_minutes": (
+                sum(1 for r in out
+                    if r["is_answered"]
+                    and ended and (ended - _parse_ts(r["at"])).total_seconds() <= _PACING_TAIL_SECONDS)
+                if ended else None
+            ),
+            # Where the work stopped relative to the section end. A big number
+            # means they gave up (or dropped off) well before time.
+            "idle_tail_seconds": (
+                int((ended - _parse_ts(out[-1]["at"])).total_seconds())
+                if (ended and out) else None
+            ),
+            "long_gaps": [r for r in out
+                          if r["gap_seconds"] and r["gap_seconds"] >= _PACING_LONG_GAP_SECONDS],
+            # Did they work straight down the paper, or jump around? Jumping is
+            # not bad in itself — it is how a strong candidate skips and returns
+            # — but it is invisible in the score.
+            #
+            # None, not True, for an empty timeline: comparing two empty lists
+            # is trivially equal, so a sitting with no timestamped answers
+            # rendered "Làm theo thứ tự đề: Có" right beside its own message
+            # that nothing was saved. With no observations the order is UNKNOWN
+            # (Codex review, PR #848).
+            "worked_in_paper_order": (
+                ([r["q_num"] for r in out] == sorted(r["q_num"] for r in out))
+                if out else None
+            ),
+        }
+        return summary
+
+    sections: dict = {}
+
+    # EVERY assigned L/R section gets an entry, attempt or no attempt. Creating
+    # them only when an attempt id exists made an assigned section VANISH from
+    # the page when the attempt had not been created yet — or its creation
+    # failed, a state admin_live_monitor() explicitly supports — so an L/R-only
+    # retake could open a completely blank pacing page instead of saying that no
+    # answers were saved (Codex review, PR #848).
+    for _sec in _sitting_sections(sitting, exam):
+        if _sec in ("listening", "reading"):
+            sections[_sec] = _timeline([], _sec, answered=0)
+            sections[_sec]["total"] = _section_total(exam, _sec)
+
+    lid = sitting.get("listening_attempt_id")
+    if lid:
+        rows = supabase_admin.table("listening_test_attempts").select(
+            "answers, grading_details",
+        ).eq("id", str(lid)).limit(1).execute().data or []
+        answers = (rows[0].get("answers") or []) if rows else []
+        # Every timestamped save is activity, INCLUDING clearing an answer:
+        # both save paths persist the empty value with a fresh answered_at.
+        # Filtering those out made the last touch look older than it was,
+        # inflated idle_tail_seconds, hid a long gap, and reconstructed the
+        # wrong work order (Codex review, PR #848). The answered COUNT still
+        # counts only non-empty values.
+        sections["listening"] = _timeline(
+            [(a.get("q_num"), a.get("answered_at"),
+              bool(str(a.get("user_answer") or "").strip()))
+             for a in answers if a.get("answered_at")],
+            "listening",
+            answered=sum(1 for a in answers if str(a.get("user_answer") or "").strip()),
+        )
+        sections["listening"]["total"] = _section_total(
+            exam, "listening",
+            fallback=len(rows[0].get("grading_details") or []) if rows else 0,
+        )
+
+    rid = sitting.get("reading_attempt_id")
+    if rid:
+        rows = supabase_admin.table("reading_attempt_answers").select(
+            "q_num, user_answer, answered_at",
+        ).eq("attempt_id", str(rid)).execute().data or []
+        sections["reading"] = _timeline(
+            [(r.get("q_num"), r.get("answered_at"),
+              bool(str(r.get("user_answer") or "").strip()))
+             for r in rows if r.get("answered_at")],
+            "reading",
+            answered=sum(1 for r in rows if str(r.get("user_answer") or "").strip()),
+        )
+        att = supabase_admin.table("reading_test_attempts").select(
+            "grading_details",
+        ).eq("id", str(rid)).limit(1).execute().data or []
+        sections["reading"]["total"] = _section_total(
+            exam, "reading",
+            fallback=len(att[0].get("grading_details") or []) if att else 0,
+        )
+
+    # Writing has no per-question stamps; what it has (since A2) is an autosaved
+    # draft with a word count and a last-saved time per task.
+    #
+    # A retake may be assigned Listening and/or Reading only — assigned_skills
+    # is the canonical retake scope (_sitting_sections). Rendering a blank
+    # Writing block for those students told the teacher they were missing work
+    # nobody ever asked them for (Codex review, PR #848).
+    if retake and "writing" not in (sitting.get("assigned_skills") or []):
+        return _pacing_payload(sitting, exam, names, sections)
+
+    ws = sitting.get("writing_submission") or {}
+    w_started, w_ended = _section_window("writing")
+    sections["writing"] = {
+        "started_at": w_started.isoformat() if w_started else None,
+        "ended_at":   w_ended.isoformat() if w_ended else None,
+        "tasks": [
+            {
+                "task": t,
+                "word_count":   (ws.get(t) or {}).get("word_count"),
+                "last_saved_at": (ws.get(t) or {}).get("submitted_at"),
+            }
+            for t in ("task1", "task2")
+        ],
+    }
+
+    return _pacing_payload(sitting, exam, names, sections)
+
+
+def _pacing_payload(sitting: dict, exam: dict, names: dict, sections: dict) -> dict:
+    return {
+        "sitting_id":   str(sitting["id"]),
+        "student_name": names.get(str(sitting.get("user_id")), "—"),
+        "exam_code":    exam.get("code"),
+        "status":       sitting.get("status"),
+        # The exam this sitting belongs to, so a page linking BACK to the live
+        # console can return to the same classroom instead of whichever exam
+        # happens to be first in the list (Codex review, PR #848).
+        "exam_id":      str(sitting.get("mock_exam_id")),
+        "sections":     sections,
+        # Stated in the payload so a UI cannot quietly present these as exact
+        # per-question think-time.
+        "caveats": {
+            "answered_at_is_last_touch": True,
+            "gap_is_time_since_previous_answer": True,
+        },
+    }
+
+
 def reserved_test_ids(kind: str) -> set:
     """Reading/listening test ids assigned to any non-archived mock exam.
 
