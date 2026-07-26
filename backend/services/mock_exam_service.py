@@ -2013,31 +2013,6 @@ def admin_create_exam(payload: dict, created_by: str) -> dict:
     return inserted.data[0]
 
 
-def _exam_has_dependents(exam_id: str) -> bool:
-    """Anything already interpreted under this exam's mode.
-
-    A VOIDED sitting does not count — it is a closed record nothing reads a
-    skill set out of — so an admin who genuinely needs to convert an exam has a
-    way through: cancel the sittings, remove the assignments, then flip.
-
-    Fail CLOSED: if the lookup errors we cannot prove the exam is unused, and
-    guessing "unused" is how a live classroom loses its papers.
-    """
-    try:
-        sittings = supabase_admin.table("mock_exam_sittings").select("id").eq(
-            "mock_exam_id", str(exam_id),
-        ).neq("status", "void").limit(1).execute().data or []
-        if sittings:
-            return True
-        rows = supabase_admin.table("mock_exam_assignments").select("id").eq(
-            "exam_id", str(exam_id),
-        ).limit(1).execute().data or []
-        return bool(rows)
-    except Exception:  # noqa: BLE001
-        logger.exception("[mock-exam] dependent lookup failed exam=%s", exam_id)
-        return True
-
-
 def admin_update_exam(exam_id: str, patch: dict) -> dict:
     upd = {k: v for k, v in patch.items() if k in _EXAM_WRITABLE}
     if not upd:
@@ -2061,12 +2036,34 @@ def admin_update_exam(exam_id: str, patch: dict) -> dict:
         if not current:
             raise NotFoundError(f"Mock exam {exam_id} không tồn tại.")
         if (current.get("exam_mode") or "sequential") != upd["exam_mode"]:
-            if _exam_has_dependents(exam_id):
+            # ONE STATEMENT (mig 169), not read-then-write. Checking for
+            # dependents and then PATCHing were two PostgREST requests, and a
+            # sitting inserted between them is read under the WRONG mode — the
+            # exact failure this guard exists to prevent (Codex review, PR
+            # #859). The RPC evaluates the same NOT EXISTS conditions in the
+            # statement that performs the write.
+            try:
+                changed = supabase_admin.rpc("fn_set_exam_mode", {
+                    "p_exam_id": str(exam_id),
+                    "p_mode":    upd["exam_mode"],
+                }).execute().data
+            except Exception as exc:  # noqa: BLE001
+                # FAIL CLOSED. Not knowing whether the exam is free is not the
+                # same as knowing it is: guessing "free" is how a live classroom
+                # loses its papers.
+                logger.exception("[mock-exam] mode change failed exam=%s", exam_id)
+                raise ValueError(
+                    "Không đổi được chế độ lúc này — thử lại sau giây lát."
+                ) from exc
+            if not changed:
                 raise ValueError(
                     "Không đổi được chế độ của đề đã có lượt thi hoặc bài được "
                     "gán. Tạo đề mới, hoặc huỷ hết lượt thi và gỡ hết phần gán "
                     "trước khi đổi."
                 )
+            upd.pop("exam_mode")     # already written, atomically
+            if not upd:
+                return changed
         else:
             upd.pop("exam_mode")     # a no-op write, not a mode change
             if not upd:

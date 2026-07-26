@@ -232,6 +232,30 @@ class FakeSupabase:
             row["status"] = "void"
             row["integrity"] = merged
             return _RpcResult(dict(row))
+        # fn_set_exam_mode (mig 169) — the dependent check and the write have
+        # to be ONE statement: as two PostgREST requests, a sitting inserted
+        # between them is read under the wrong mode. Modelled here with the same
+        # predicates the SQL uses so these tests exercise real behaviour.
+        if name == "fn_set_exam_mode":
+            mode = params["p_mode"]
+            if mode not in ("sequential", "retake"):
+                raise AssertionError(f"invalid exam_mode: {mode}")
+            row = next(
+                (r for r in self.tables.get("mock_exams", [])
+                 if str(r.get("id")) == str(params["p_exam_id"])),
+                None,
+            )
+            if row is None or (row.get("exam_mode") or "sequential") == mode:
+                return _RpcResult(None)
+            if any(str(r.get("mock_exam_id")) == str(row["id"])
+                   and r.get("status") != "void"
+                   for r in self.tables.get("mock_exam_sittings", [])):
+                return _RpcResult(None)
+            if any(str(r.get("exam_id")) == str(row["id"])
+                   for r in self.tables.get("mock_exam_assignments", [])):
+                return _RpcResult(None)
+            row["exam_mode"] = mode
+            return _RpcResult(dict(row))
         raise AssertionError(f"unexpected rpc: {name}")
 
     # test helpers
@@ -5163,7 +5187,16 @@ def test_rewriting_the_same_mode_is_not_a_change(fake_db, svc):
     assert svc.admin_update_exam(exam["id"], {"exam_mode": "sequential"})["title"] == "Tên mới"
 
 
-def test_an_unprovable_lookup_refuses_the_flip(fake_db, svc):
+def test_the_mode_change_is_one_statement_not_a_read_then_write(fake_db, svc):
+    """The whole point of mig 169. As two PostgREST requests, a sitting inserted
+    between the dependent check and the PATCH is read under the WRONG mode."""
+    import inspect
+    src = inspect.getsource(svc.admin_update_exam)
+    assert 'rpc("fn_set_exam_mode"' in src
+    assert "_exam_has_dependents" not in src, "the read-then-write path is back"
+
+
+def test_an_unprovable_change_refuses_the_flip(fake_db, svc):
     """Fail CLOSED. If we cannot prove the exam is unused, guessing 'unused' is
     how a live classroom loses its papers."""
     exam = _seed_exam(fake_db)
@@ -5173,10 +5206,8 @@ def test_an_unprovable_lookup_refuses_the_flip(fake_db, svc):
         def __getattr__(self, item):
             return getattr(real, item)
 
-        def table(self, name):
-            if name == "mock_exam_sittings":
-                raise RuntimeError("postgrest down")
-            return real.table(name)
+        def rpc(self, name, params):
+            raise RuntimeError("postgrest down")
 
     svc.supabase_admin = _Broken()
     try:
@@ -5184,3 +5215,4 @@ def test_an_unprovable_lookup_refuses_the_flip(fake_db, svc):
             svc.admin_update_exam(exam["id"], {"exam_mode": "retake"})
     finally:
         svc.supabase_admin = real
+    assert svc.get_published_exam_by_id(exam["id"]).get("exam_mode") in (None, "sequential")
