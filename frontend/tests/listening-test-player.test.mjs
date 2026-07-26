@@ -130,7 +130,10 @@ describe('Sprint 13.5 — player JS contract', () => {
   it('PATCHes answers via /api/listening/tests/attempts/{id}/answers', () => {
     assert.match(
       JS,
-      /window\.api\.patch\(\s*`\/api\/listening\/tests\/attempts\/\$\{encodeURIComponent\(STATE\.attemptId\)\}\/answers`/,
+      // patchWith since #837: the save carries an AbortController signal so the
+      // attempt-wide queue can cancel a timed-out request before the next one
+      // starts. Same endpoint, same body.
+      /window\.api\.patchWith\(\s*`\/api\/listening\/tests\/attempts\/\$\{encodeURIComponent\(STATE\.attemptId\)\}\/answers`/,
     );
   });
 
