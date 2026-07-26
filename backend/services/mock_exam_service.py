@@ -665,12 +665,14 @@ def _word_count(text: str) -> int:
 
 def submit_writing(
     sitting_id: str, user_id: str, task1_text: str, task2_text: str,
+    *, finalize: bool = False,
 ) -> dict:
     """Store the two essay texts on the sitting (P1 native writing capture).
 
-    Does NOT stamp writing_submitted_at — call submit_section("writing") to
-    finalise. Sealed by construction: the text lives on the sitting
-    (admin-only); the student sees no band until release.
+    `finalize=False` (autosave) writes the draft only. `finalize=True` writes
+    the payload AND stamps writing_submitted_at IN THE SAME STATEMENT — see
+    below for why that has to be one write. Sealed by construction: the text
+    lives on the sitting (admin-only); the student sees no band until release.
     """
     sitting = get_sitting(sitting_id)
     if not sitting:
@@ -701,9 +703,28 @@ def submit_writing(
         "task2": {"text": task2_text or "", "word_count": _word_count(task2_text),
                   "submitted_at": now},
     }
-    resp = supabase_admin.table("mock_exam_sittings").update({
-        "writing_submission": submission,
-    }).eq("id", str(sitting_id)).execute()
+    # CONDITIONAL on the section still being open. The check above and this
+    # write are not atomic, so an admin advance, the retake reaper, or another
+    # tab could finalise Writing in between — and a late autosave would then
+    # overwrite writing_submission AFTER _promote_writing_essays() had already
+    # copied the older text, leaving the admin's word count disagreeing with the
+    # essay actually graded (Codex review, PR #835).
+    update: dict = {"writing_submission": submission}
+    if finalize:
+        # ONE STATEMENT, not two. Stamping writing_submitted_at separately left
+        # a window in which an autosave from another tab — or an older request
+        # the client no longer tracks — passed the null-timestamp predicate and
+        # replaced the final payload BEFORE _promote_writing_essays() read it.
+        # The student would then submit one essay and have a stale draft graded
+        # (Codex review, PR #835).
+        update[_SUBMITTED_COL["writing"]] = now
+    resp = supabase_admin.table("mock_exam_sittings").update(update).eq(
+        "id", str(sitting_id),
+    ).is_("writing_submitted_at", "null").execute()
+    if not resp.data:
+        raise SittingConflictError(
+            "Phần Writing vừa được thu — bản nháp gửi sau không được ghi đè."
+        )
     logger.info("[mock-exam] sitting=%s writing captured", sitting_id)
     return resp.data[0] if resp.data else {**sitting, "writing_submission": submission}
 
@@ -1255,17 +1276,18 @@ def submit_section(
         # submit_writing raises if Writing isn't the open section or is already
         # final — that propagates as-is (nothing further to validate here: an
         # empty essay is a valid, if weak, submission — not an error).
-        sitting = submit_writing(sitting_id, user_id, task1_text, task2_text)
+        # finalize=True so the payload and the submitted stamp land together;
+        # see submit_writing for the race that two statements left open.
+        sitting = submit_writing(
+            sitting_id, user_id, task1_text, task2_text, finalize=True,
+        )
+        _promote_writing_essays(sitting_id)
     else:
         _assert_prior_section_submitted(sitting, section)
-
-    now = _now_iso()
-    supabase_admin.table("mock_exam_sittings").update({col: now}).eq(
-        "id", str(sitting_id),
-    ).execute()
-    sitting = {**sitting, col: now}
-    if section == "writing":
-        _promote_writing_essays(sitting_id)
+        supabase_admin.table("mock_exam_sittings").update({col: _now_iso()}).eq(
+            "id", str(sitting_id),
+        ).execute()
+        sitting = get_sitting(sitting_id) or sitting
     logger.info("[mock-exam] sitting=%s section=%s collected", sitting_id, section)
 
     exam = get_published_exam_by_id(sitting["mock_exam_id"]) or {}
@@ -2035,16 +2057,26 @@ def admin_live_monitor(exam_id: str) -> dict:
             elif state == "working":
                 answered = 0
         else:
-            # Writing has NO server-side draft today — the text only reaches the
-            # server at submit, so there is nothing to report mid-section. Say so
-            # (live=False) instead of rendering a real 0 the invigilator would
-            # read as "this student has written nothing".
-            live = False
+            # Writing autosaves to the server during the section (A2), so the
+            # word count IS live now — `answered` is words, not questions, and
+            # `total` stays None because Writing has no denominator.
             ws = (sitting.get("writing_submission") or {})
             if ws:
                 answered = sum(int((ws.get(t) or {}).get("word_count") or 0)
                                for t in ("task1", "task2"))
-                last = sitting.get("writing_submitted_at")
+                # The autosave stamps submitted_at on each task blob every time,
+                # so the later of the two IS the last keystroke that reached us —
+                # the same "have they gone quiet" signal L/R get from answered_at.
+                last = max(
+                    (str((ws.get(t) or {}).get("submitted_at") or "")
+                     for t in ("task1", "task2")),
+                    default="",
+                ) or sitting.get("writing_submitted_at")
+            else:
+                # Nothing has arrived yet. 0 words is the truth once autosave is
+                # running, but only after the student has actually been in the
+                # section — before that there is simply no signal.
+                answered = 0 if state == "working" else None
 
         stalled = bool(
             state == "working" and live and last

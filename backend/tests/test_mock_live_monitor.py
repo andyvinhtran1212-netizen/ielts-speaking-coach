@@ -265,20 +265,47 @@ def test_stalled_flags_a_silent_working_student(fake_db, svc):
     assert _find(svc.admin_live_monitor(exam["id"]), "An")["sections"]["listening"]["stalled"] is True
 
 
-def test_writing_reports_not_live_before_submit(fake_db, svc):
-    """There is no server-side Writing draft — reporting a real 0 would tell the
-    invigilator the student has written nothing."""
+def test_writing_word_count_is_live_from_the_autosaved_draft(fake_db, svc):
+    """Since A2 the essay autosaves to the server mid-section, so the word count
+    is a live signal — the same "are they still typing" reading L/R get."""
     cohort = str(uuid4())
     exam = _seed_exam(fake_db, cohort_id=cohort)
     fake_db.table("mock_exams").update({"active_section": "writing"}).eq(
         "id", exam["id"]).execute()
     uid = _seed_student(fake_db, cohort, "An")
-    _seed_sitting(fake_db, exam, uid)
+    stamp = _iso(_now())
+    _seed_sitting(fake_db, exam, uid, writing_submission={
+        "task1": {"text": "x " * 120, "word_count": 120, "submitted_at": stamp},
+        "task2": {"text": "y " * 40, "word_count": 40, "submitted_at": stamp},
+    })
 
     sec = _find(svc.admin_live_monitor(exam["id"]), "An")["sections"]["writing"]
     assert sec["state"] == "working"
-    assert sec["live"] is False
-    assert sec["answered"] is None
+    assert sec["live"] is True
+    assert sec["answered"] == 160          # words across both tasks
+    assert sec["total"] is None            # Writing has no denominator
+    assert sec["last_activity_at"] == stamp
+
+
+def test_writing_reports_zero_only_once_the_student_is_in_the_section(fake_db, svc):
+    """Before the section opens there is no signal at all — a 0 there would read
+    as "wrote nothing" for someone who was never given the chance."""
+    cohort = str(uuid4())
+    exam = _seed_exam(fake_db, cohort_id=cohort)
+    fake_db.table("mock_exams").update({"active_section": "listening"}).eq(
+        "id", exam["id"]).execute()
+    uid = _seed_student(fake_db, cohort, "An")
+    _seed_sitting(fake_db, exam, uid)
+
+    secs = _find(svc.admin_live_monitor(exam["id"]), "An")["sections"]
+    assert secs["writing"]["state"] == "waiting"
+    assert secs["writing"]["answered"] is None
+
+    fake_db.table("mock_exams").update({"active_section": "writing"}).eq(
+        "id", exam["id"]).execute()
+    sec = _find(svc.admin_live_monitor(exam["id"]), "An")["sections"]["writing"]
+    assert sec["state"] == "working"
+    assert sec["answered"] == 0            # in the section, nothing written yet
 
 
 def test_submitted_section_reports_its_timestamp(fake_db, svc):

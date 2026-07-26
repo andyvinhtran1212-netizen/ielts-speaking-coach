@@ -165,6 +165,223 @@
   // ── Test (ONE section at a time) ──────────────────────────────────
   function lsKey(t) { return 'mock-writing:' + S.sittingId + ':' + t; }
 
+  // ── Writing draft persistence ──────────────────────────────────────
+  //
+  // Until this existed the essay lived ONLY in localStorage, so a new device, a
+  // crashed browser, a cleared cache or a private window lost it outright — and
+  // worse, a tab that died before the clock ran out let the server's
+  // force-collect promote an EMPTY writing_submission, recording the student as
+  // having written nothing. The endpoint that fixes this
+  // (POST /sittings/{id}/writing) already existed and was already designed for
+  // exactly this — it stores the text WITHOUT stamping writing_submitted_at.
+  // Nobody was calling it until submit.
+  //
+  // localStorage stays as the offline tier: it survives a dead network, the
+  // server survives a dead browser, and whichever copy is NEWER wins on load.
+  var WRITE_SAVE_MS = 15000;      // idle debounce
+  var WRITE_SAVE_CHARS = 400;     // ...or this much new text, whichever first
+  var WRITE_RETRY_MS = 5000;      // after a failed save
+  var WRITE_MAX_RETRIES = 6;      // ~30s of trying, then wait for the next edit
+  var _wSaveTimer = null;
+  var _wLastSaved = { task1: '', task2: '' };
+  var _wSaving = false;
+  var _wDirty = false;
+  var _wFlushWired = false;
+  var _wRetries = 0;
+  // The promise of the save currently on the wire. submitSection AWAITS this:
+  // submit_writing does an unconditional update, so a draft POST still in
+  // flight when the final submit lands can overwrite the submitted essay — or
+  // be the copy that gets promoted for grading (Codex review, PR #835).
+  var _wInFlight = null;
+  var _wGen = 0;                  // which save is the current one
+  // Abort handle for the request on the wire. The endpoint is last-writer-wins,
+  // so a keepalive replacement issued from pagehide must CANCEL the earlier
+  // request rather than race it: otherwise the older body can land last and
+  // overwrite the newer draft, and a force-collection then grades stale text
+  // (Codex review, PR #835).
+  var _wAbort = null;
+
+  // `synced` records whether the SERVER has confirmed this exact text. It is
+  // the only reliable answer to "is the local copy ahead?": the two timestamps
+  // come from different clocks AND measure different moments (keystroke vs
+  // server receipt), so an edit made while a request was in flight looks OLDER
+  // than the reply to the request it beat (Codex review, PR #835).
+  function saveLocalDraft(task, text, synced) {
+    try {
+      localStorage.setItem(lsKey(task), JSON.stringify({
+        text: text, ts: Date.now(), synced: !!synced,
+      }));
+    } catch (e) {}
+  }
+
+  function markLocalSynced(t1, t2) {
+    saveLocalDraft('task1', t1, true);
+    saveLocalDraft('task2', t2, true);
+  }
+
+  function readLocalDraft(task) {
+    var raw = null;
+    try { raw = localStorage.getItem(lsKey(task)); } catch (e) { return null; }
+    if (!raw) return null;
+    try {
+      var d = JSON.parse(raw);
+      if (d && typeof d === 'object' && typeof d.text === 'string') {
+        // Records written before `synced` existed carry no verdict; fall back
+        // to the timestamp comparison for those rather than claiming they are
+        // unsynced (which would let a stale local copy beat a newer server one).
+        if (typeof d.synced !== 'boolean') d.synced = null;
+        return d;
+      }
+    } catch (e) { /* pre-JSON draft, handled below */ }
+    // Drafts written before this change were the bare string. Treat them as
+    // real text with an unknown (oldest-possible) time, so the server copy wins
+    // a tie rather than a stale local one silently overwriting it.
+    return { text: String(raw), ts: 0, synced: null };
+  }
+
+  // Whichever copy is newer wins. Server time is the submitted_at the endpoint
+  // stamps on each task blob; local time is Date.now() at keystroke. They come
+  // from different clocks, so this is a heuristic — but it only ever has to
+  // choose between two copies of the SAME student's work, and the alternative
+  // (always trusting one side) loses real text in the other direction.
+  // Which tasks were restored from the LOCAL copy (server has older text).
+  var _localDraftWon = { task1: false, task2: false };
+
+  function restoreDraft(task) {
+    var blob = ((S.sitting && S.sitting.writing_submission) || {})[task] || {};
+    var serverText = typeof blob.text === 'string' ? blob.text : '';
+    var serverTs = blob.submitted_at ? Date.parse(blob.submitted_at) : 0;
+    var local = readLocalDraft(task);
+    if (!local) return serverText;
+    // An UNSYNCED local record always wins, including an empty one: a student
+    // who deletes their draft offline (or closes the tab before the next save)
+    // must not have the server's older essay resurrected on reload. Discarding
+    // empty text also skipped the correction save, so the deletion never
+    // reached the server at all (Codex review, PR #835).
+    if (local.synced === false) { _localDraftWon[task] = true; return local.text; }
+    if (!local.text) return serverText;   // legacy record, no verdict to trust
+    if (!serverText) { _localDraftWon[task] = true; return local.text; }
+    if (serverTs && serverTs > (local.ts || 0)) return serverText;
+    _localDraftWon[task] = true;
+    return local.text;
+  }
+
+  function setSaveCue(state) {
+    var cue = el('mw-savecue');
+    if (!cue) return;
+    var now = new Date();
+    var hh = ('0' + now.getHours()).slice(-2), mm = ('0' + now.getMinutes()).slice(-2);
+    cue.classList.toggle('is-failed', state === 'failed');
+    cue.textContent = state === 'saved' ? 'Đã lưu lúc ' + hh + ':' + mm
+      : state === 'saving' ? 'Đang lưu…'
+      : 'Chưa lưu được lên máy chủ — bài vẫn giữ trên máy này, sẽ tự thử lại.';
+  }
+
+  function scheduleWritingSave() {
+    _wDirty = true;
+    _wRetries = 0;              // a fresh edit earns a fresh retry budget
+    var t1 = el('essay-task1').value, t2 = el('essay-task2').value;
+    var delta = Math.abs(t1.length - _wLastSaved.task1.length)
+      + Math.abs(t2.length - _wLastSaved.task2.length);
+    // A burst of writing shouldn't sit unsent for the whole idle window — but
+    // only flush IMMEDIATELY if nothing is on the wire. Calling flush while
+    // _wSaving is true made it exit having armed no timer, so a large paste
+    // during a slow request stayed dirty and unsent until the next keystroke or
+    // lifecycle event (Codex review, PR #835).
+    if (delta >= WRITE_SAVE_CHARS && !_wSaving) return flushWritingSave();
+    if (_wSaveTimer) return;
+    _wSaveTimer = setTimeout(flushWritingSave, WRITE_SAVE_MS);
+  }
+
+  function flushWritingSave(opts) {
+    var keepalive = !!(opts && opts.keepalive);
+    if (_wSaveTimer) { clearTimeout(_wSaveTimer); _wSaveTimer = null; }
+    // Never autosave outside the open Writing section: the endpoint rejects it,
+    // and after submit the text is final — a late save must not race the
+    // submitted copy.
+    if (!_wDirty || _submitting || S.renderedSection !== 'writing') {
+      return _wInFlight || Promise.resolve();
+    }
+    // A NORMAL save already on the wire is not keepalive, so the navigation
+    // that fired pagehide can kill it — and returning it here meant the
+    // lifecycle flush issued no keepalive replacement at all, leaving the
+    // server without the latest draft right before force-collection. Re-send
+    // the current text instead; the endpoint is an idempotent overwrite of the
+    // same draft, so a duplicate write costs nothing (Codex review, PR #835).
+    if (_wSaving && !keepalive) return _wInFlight || Promise.resolve();
+    // Cancel the request this one supersedes. Without it both are in flight
+    // against a last-writer-wins endpoint and the OLDER body can commit last.
+    if (_wAbort) { try { _wAbort.abort(); } catch (e) {} _wAbort = null; }
+    var ctrl = (typeof AbortController === 'function') ? new AbortController() : null;
+    _wAbort = ctrl;
+    var gen = ++_wGen;
+    _wSaving = true;
+    setSaveCue('saving');
+    var body = { task1_text: el('essay-task1').value, task2_text: el('essay-task2').value };
+    // keepalive lets the browser finish the request after the page is gone —
+    // the pagehide path is exactly the case this feature exists for.
+    _wInFlight = window.api.postWith(
+      '/api/mock-exams/sittings/' + encodeURIComponent(S.sittingId) + '/writing',
+      body, null, {
+        keepalive: keepalive,
+        signal: ctrl ? ctrl.signal : undefined,
+      }
+    ).then(function () {
+      _wLastSaved = { task1: body.task1_text, task2: body.task2_text };
+      // Only declare the draft clean if the textareas STILL match what we sent.
+      // Clearing unconditionally lost every keystroke typed while the request
+      // was in flight: the scheduled follow-up then saw _wDirty false and
+      // exited, so a later crash or force-collect persisted the OLDER essay
+      // while the cue said "Đã lưu" (Codex review, PR #835).
+      if (el('essay-task1').value === body.task1_text
+          && el('essay-task2').value === body.task2_text) {
+        _wDirty = false;
+        // The server now holds exactly this text, so the local copy is no
+        // longer ahead. This is what restoreDraft() reads instead of racing
+        // two clocks against each other.
+        markLocalSynced(body.task1_text, body.task2_text);
+        setSaveCue('saved');
+      } else {
+        scheduleWritingSave();
+      }
+    }).catch(function (e) {
+      // A save we deliberately cancelled is not a failure: its replacement is
+      // already on the wire carrying newer text.
+      if (e && (e.name === 'AbortError' || e.code === 20)) return;
+      // Stay dirty AND schedule a real retry. Leaving only the flag set meant
+      // nothing retried until the student typed again, went offline→online, or
+      // left the page — while the cue promised an automatic retry.
+      setSaveCue('failed');
+      console.warn('[mock-exam] writing autosave failed', e);
+      if (_wRetries < WRITE_MAX_RETRIES) {
+        _wRetries++;
+        _wSaveTimer = setTimeout(function () {
+          _wSaveTimer = null;
+          flushWritingSave();
+        }, WRITE_RETRY_MS);
+      }
+    }).then(function () {
+      // Only the LATEST request may clear these — a keepalive re-send issued
+      // over a still-pending normal save would otherwise be un-tracked the
+      // moment the older one settled.
+      if (gen === _wGen) { _wSaving = false; _wInFlight = null; _wAbort = null; }
+    });
+    return _wInFlight;
+  }
+
+  function wireWritingFlush() {
+    if (_wFlushWired) return;
+    _wFlushWired = true;
+    // pagehide covers refresh / navigate / close; visibilitychange→hidden is the
+    // only reliable signal when a mobile OS kills a backgrounded tab (same pair
+    // reading-exam.js relies on).
+    window.addEventListener('pagehide', function () { flushWritingSave({ keepalive: true }); });
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden') flushWritingSave({ keepalive: true });
+    });
+    window.addEventListener('online', function () { flushWritingSave(); });
+  }
+
   function renderSection(section) {
     el('section-label').textContent = _SECTION_LABEL[section] || section;
     el('timer').classList.remove('warn');
@@ -205,13 +422,23 @@
     }
     ['task1', 'task2'].forEach(function (t) {
       var ta = el('essay-' + t);
-      try { var saved = localStorage.getItem(lsKey(t)); if (saved) ta.value = saved; } catch (e) {}
+      var restored = restoreDraft(t);
+      ta.value = restored;
+      // If the LOCAL copy won, the server still holds the older text. Recording
+      // it as already-saved meant that without one more keystroke a crash or a
+      // force-collect promoted the stale draft while the UI showed the
+      // recovered work (Codex review, PR #835).
+      _wLastSaved[t] = _localDraftWon[t] ? '' : restored;
       el('count-' + t).textContent = wordCount(ta.value);
       ta.addEventListener('input', function () {
         el('count-' + t).textContent = wordCount(ta.value);
-        try { localStorage.setItem(lsKey(t), ta.value); } catch (e) {}
+        saveLocalDraft(t, ta.value);
+        scheduleWritingSave();
       });
     });
+    // Upload anything recovered from localStorage that the server lacks.
+    if (_localDraftWon.task1 || _localDraftWon.task2) scheduleWritingSave();
+    wireWritingFlush();
     function selectTask(name) {
       document.querySelectorAll('.me-wtabs .me-tab').forEach(function (x) {
         var on = x.dataset.wtab === name;
@@ -417,6 +644,12 @@
     if (timerIv) { clearInterval(timerIv); timerIv = null; }
     try {
       if (section === 'writing') {
+        // SERIALISE with the autosave. submit_writing does an unconditional
+        // update, so a draft POST still on the wire can land AFTER the final
+        // one and overwrite the submitted essay — or be the copy promoted for
+        // grading. Waiting costs at most one request; not waiting can cost the
+        // student their essay (Codex review, PR #835).
+        if (_wInFlight) { try { await _wInFlight; } catch (e) { /* draft lost; submit anyway */ } }
         await api('post', '/api/mock-exams/sittings/' + S.sittingId + '/sections/writing/submit',
           { task1_text: el('essay-task1').value, task2_text: el('essay-task2').value });
         try { localStorage.removeItem(lsKey('task1')); localStorage.removeItem(lsKey('task2')); } catch (e) {}

@@ -736,6 +736,64 @@ def test_submit_writing_stores_texts_with_word_counts(fake_db, svc):
     assert ws["task1"]["text"] == "one two three"
 
 
+def test_submit_writing_is_a_repeatable_draft_save(fake_db, svc):
+    """A2 — the client autosaves through this endpoint every ~15s while the
+    student writes. Each call must OVERWRITE the draft and must NOT stamp
+    writing_submitted_at: stamping would finalise the section mid-sentence and
+    lock the student out of their own essay."""
+    exam = _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    _reach_writing(svc, fake_db, exam, s["id"], u)
+
+    svc.submit_writing(s["id"], u, "first draft", "")
+    out = svc.submit_writing(s["id"], u, "first draft much longer now", "task two")
+
+    ws = out["writing_submission"]
+    assert ws["task1"]["text"] == "first draft much longer now"
+    assert ws["task2"]["text"] == "task two"
+    # still collectable — the draft saves did not finalise the section
+    assert svc.get_sitting(s["id"]).get("writing_submitted_at") is None
+
+
+def test_late_autosave_cannot_overwrite_a_finalised_section(fake_db, svc):
+    """Codex #835 (correct): submit_writing's check and its update are not
+    atomic. If the section is finalised in between — admin advance, the reaper,
+    another tab — a late draft overwrote writing_submission AFTER
+    _promote_writing_essays had copied the older text, so the admin's word count
+    disagreed with the essay actually graded."""
+    exam = _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    _reach_writing(svc, fake_db, exam, s["id"], u)
+    svc.submit_writing(s["id"], u, "the real essay", "task two")
+    svc._force_collect_section(exam["id"], "writing")      # finalised
+
+    with pytest.raises(svc.SittingConflictError):
+        svc.submit_writing(s["id"], u, "late draft that should not land", "")
+
+    after = svc.get_sitting(s["id"])
+    assert after["writing_submission"]["task1"]["text"] == "the real essay"
+
+
+def test_autosaved_draft_survives_a_force_collect(fake_db, svc):
+    """The exact loss A2 fixes: a tab that dies before the clock runs out used
+    to leave writing_submission EMPTY, so force-collect promoted nothing and the
+    student was recorded as having written no essay at all."""
+    exam = _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    _reach_writing(svc, fake_db, exam, s["id"], u)
+    svc.submit_writing(s["id"], u, "an essay the student really wrote", "and task two")
+
+    # student's browser is gone; invigilator sweeps the room
+    svc._force_collect_section(exam["id"], "writing")
+
+    after = svc.get_sitting(s["id"])
+    assert after["writing_submitted_at"] is not None
+    assert after["writing_submission"]["task1"]["word_count"] == 6
+
+
 def test_submit_writing_rejected_after_lrw_submit(fake_db, svc):
     """Finding 1 (round 4): Writing text can't be overwritten after finalisation."""
     exam = _seed_exam(fake_db)
@@ -802,6 +860,31 @@ def test_submit_section_writing_empty_text_still_accepted(fake_db, svc):
     _expire_section(fake_db, exam["id"], "writing")
     result = svc.submit_section(s["id"], u, "writing")
     assert result["writing_submitted_at"] is not None
+
+
+def test_writing_finalisation_is_one_write(fake_db, svc):
+    """Codex #835 (correct, P1): submit_writing() wrote the payload and
+    submit_section() stamped writing_submitted_at as a SEPARATE statement, so an
+    autosave from another tab — or an older request the client no longer tracks
+    — could pass the null-timestamp predicate in between and replace the final
+    payload before _promote_writing_essays() read it. The student would submit
+    one essay and have a stale draft graded."""
+    exam = _seed_exam(fake_db, listening=False, reading=False)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], str(uuid4()))     # → writing
+    _expire_section(fake_db, exam["id"], "writing")
+
+    svc.submit_section(s["id"], u, "writing",
+                       task1_text="final one", task2_text="final two")
+
+    row = svc.get_sitting(s["id"])
+    assert row["writing_submitted_at"], "the stamp must land"
+    assert row["writing_submission"]["task1"]["text"] == "final one"
+    # ...and a late draft can no longer overwrite what was graded
+    with pytest.raises(svc.SittingConflictError):
+        svc.submit_writing(s["id"], u, "late draft", "late draft")
+    assert svc.get_sitting(s["id"])["writing_submission"]["task1"]["text"] == "final one"
 
 
 def test_record_speaking_empty_raises(fake_db, svc):

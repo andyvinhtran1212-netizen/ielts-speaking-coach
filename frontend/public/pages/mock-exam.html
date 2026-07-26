@@ -50,6 +50,10 @@
     .me-wtabs { display:flex; gap:6px; }
     .me-tab { padding:8px 14px; border:1px solid var(--av-border-default); border-radius:8px; background:var(--av-surface-card); cursor:pointer; font-size:14px; color:var(--av-text-primary); }
     .me-tab.active { background:var(--av-primary); color:var(--av-text-on-primary); border-color:transparent; }
+    /* Autosave state. Silent on the happy path until the first save lands —
+       a permanently-lit "đã lưu" trains the student to stop reading it. */
+    .mw-savecue { font-size:12px; color:var(--av-text-secondary); margin-left:12px; }
+    .mw-savecue.is-failed { color:var(--av-error); font-weight:600; }
     .mw-layout { display:flex; align-items:center; gap:4px; margin-left:auto; }
     .mw-layout__label { font-size:12px; color:var(--av-text-secondary); margin-right:2px; }
     .mw-layout__btn { display:inline-flex; align-items:center; gap:5px; padding:6px 10px; border:1px solid var(--av-border-default); border-radius:8px; background:var(--av-surface-card); color:var(--av-text-secondary); cursor:pointer; font-size:12px; line-height:1; }
@@ -149,6 +153,7 @@
             <div class="me-tab active" data-wtab="task1" role="tab" tabindex="0" aria-selected="true">Task 1</div>
             <div class="me-tab" data-wtab="task2" role="tab" tabindex="0" aria-selected="false">Task 2</div>
           </div>
+          <span class="mw-savecue" id="mw-savecue" role="status" aria-live="polite"></span>
           <div class="mw-layout" id="mw-layout" role="group" aria-label="Bố cục đề và khung viết">
             <span class="mw-layout__label">Bố cục đề:</span>
             <button type="button" class="mw-layout__btn" data-layout="left"   aria-pressed="true"  title="Đề bên trái"><span class="mw-glyph mw-glyph--left"   aria-hidden="true"></span>Trái</button>
