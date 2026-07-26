@@ -53,6 +53,15 @@
     .ml-actions { display:flex; gap:var(--av-space-2); flex-wrap:wrap; margin-left:auto; }
 
     /* ── Roster + section rollup ─────────────────────────────────── */
+    /* Sweep that died mid-flight — silent until it happens, then loud: the
+       papers are recoverable ONLY while the attempts still exist. */
+    .ml-missed { display:none; }
+    .ml-missed.on { display:flex; flex-direction:column; gap:var(--av-space-2);
+                    border:1px solid var(--av-error); background:var(--av-error-soft);
+                    color:var(--av-error); border-radius:var(--av-radius-lg);
+                    padding:var(--av-space-3); margin-bottom:var(--av-space-4); font-size:13px; }
+    .ml-missed div { display:flex; align-items:center; gap:var(--av-space-2); flex-wrap:wrap; }
+    .ml-dot--missed { background:var(--av-error); }
     .ml-stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:var(--av-space-3); margin-bottom:var(--av-space-4); }
     .ml-stat { border:1px solid var(--av-border-subtle); border-radius:var(--av-radius-lg);
                background:var(--av-surface-card); padding:var(--av-space-3); }
@@ -128,6 +137,7 @@
 
     <div id="state-board" class="hidden">
       <div class="ml-ident" id="ident"></div>
+      <div class="ml-missed" id="missed-banner"></div>
       <div class="ml-stats" id="stats"></div>
       <div class="ml-toolbar" id="filters" role="group" aria-label="Lọc học viên"></div>
       <div class="ml-tablewrap"><table class="ml-grid" id="grid"></table></div>

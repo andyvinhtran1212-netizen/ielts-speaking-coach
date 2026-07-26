@@ -58,3 +58,11 @@ describe('mock-live console — the pause has no clock', () => {
     assert.match(JS, /var left = S\.data\.exam\.section_time_left_seconds;\s*\n\s*if \(left == null\) return;/);
   });
 });
+
+describe('mock-live console — the recovery sweep is reachable', () => {
+  test('recollect() sends from_section, which the endpoint requires', () => {
+    // Sending only `section` 422'd before the preflight even ran, making the
+    // advertised recovery path unusable whenever a sweep was interrupted.
+    assert.match(JS, /'\/collect\?section=' \+ encodeURIComponent\(section\) \+\s*\n\s*'&from_section=' \+ encodeURIComponent\(ex\.active_section\)/);
+  });
+});

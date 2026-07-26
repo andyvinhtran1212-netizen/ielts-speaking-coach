@@ -213,24 +213,41 @@ async def set_open(
 
 @router.post("/{exam_id}/advance")
 async def advance_section(
-    exam_id: str, body: AdvanceBody,
+    exam_id: str,
+    body: AdvanceBody,
+    background_tasks: BackgroundTasks,
     authorization: str | None = Header(default=None),
 ):
     """Open the NEXT seated section for every sitting under this exam —
-    not_started → listening → reading → writing → done. Force-collects any
-    straggler who hasn't submitted the section being closed."""
+    not_started → listening → reading → writing → done.
+
+    The transition returns immediately; the straggler sweep for the section
+    being closed is QUEUED (B3). It used to run inline — one loop over every
+    unsubmitted sitting, grading each L/R attempt — which for a class of 25-30
+    made this a very long request, and a timeout left papers collected but the
+    section unmoved with no way for the admin to tell.
+
+    The live console polls every 5s, so the papers visibly land one by one. If
+    the sweep dies (a restart mid-task), the console flags the section as
+    "chưa thu đủ" and POST /collect?section=… re-runs it."""
     admin = await require_admin(authorization)
     try:
-        return svc.advance_section(exam_id, admin["id"], body.from_section)
+        out = svc.advance_section(exam_id, admin["id"], body.from_section)
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
     except svc.SittingConflictError as e:
         raise HTTPException(409, str(e))
+    if out.get("sweep_section"):
+        background_tasks.add_task(
+            svc._force_collect_section, exam_id, out["sweep_section"],
+        )
+    return out
 
 
-@router.post("/{exam_id}/collect")
+@router.post("/{exam_id}/collect", status_code=202)
 async def collect_section(
     exam_id: str,
+    background_tasks: BackgroundTasks,
     # REQUIRED, and validated. Optional, it could simply be omitted — and the
     # stale-screen guard it exists for is skipped entirely: the service then
     # reads the CANONICAL active_section, so if another invigilator advanced
@@ -238,28 +255,57 @@ async def collect_section(
     # opened. That is precisely the race this parameter prevents (Codex review,
     # PR #843).
     from_section: str = Query(
-        ..., pattern=r"^(listening|reading|writing)$",
+        ...,
+        # 'done' is a legitimate screen state for the RECOVERY path: re-sweeping
+        # a section whose background sweep died is done from a monitor showing a
+        # later section, and after the final advance that screen says 'done'.
+        # Excluding it 422'd every recovery click after the exam finished — the
+        # exact case the button exists for (Codex review, PR #844).
+        pattern=r"^(listening|reading|writing|done)$",
         description="Phần mà màn hình của admin đang hiển thị lúc bấm Thu bài.",
+    ),
+    # The section to sweep. Defaults to the open one; an EARLIER one re-sweeps
+    # it (recovery after a half-dead background sweep).
+    section: str | None = Query(
+        default=None, pattern=r"^(listening|reading|writing)$",
     ),
     authorization: str | None = Header(default=None),
 ):
-    """THU BÀI for the currently-open section WITHOUT opening the next one.
+    """THU BÀI for a section WITHOUT opening the next one.
 
     Lets the invigilator run the real sequence — take papers in, check everyone
     is accounted for, then hand out the next section — instead of the two being
     one irreversible button. Students drop into the waiting room with no clock
-    running until /advance."""
+    running until /advance.
+
+    Validated synchronously (so a rejected request is a real error, not a silent
+    202) then swept in the background, same as /advance. `section` defaults to
+    the open one; passing an earlier one re-sweeps it — the recovery path when a
+    background sweep died half-way."""
     admin = await require_admin(authorization)
     try:
-        return svc.collect_section(exam_id, admin["id"], from_section)
+        info = svc.collect_preflight(exam_id, section, from_section)
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
     except svc.SittingConflictError as e:
         raise HTTPException(409, str(e))
     except svc.MockExamError as e:
-        # A lookup failure is NOT "0 bài đã thu" — say so instead of reporting
-        # a successful collection of nothing.
+        # A lookup failure is NOT "0 bài đã thu" — the preflight does the count
+        # SYNCHRONOUSLY precisely so a dead database is a real error here rather
+        # than a 202 followed by a background sweep that collects nothing
+        # (Codex review, PR #844).
         raise HTTPException(503, str(e))
+    # Close admissions synchronously — the pause must hold from the moment the
+    # request is accepted, not from whenever the queued sweep happens to run.
+    svc.mark_section_collected(exam_id, info["section"])
+    background_tasks.add_task(
+        # No from_section: the stale-screen check already ran, synchronously,
+        # against the state at request time. Re-checking it inside the queued
+        # task would fail the sweep whenever a legitimate advance happened in
+        # between — losing the very papers this call accepted responsibility for.
+        svc.collect_section, exam_id, admin["id"], info["section"],
+    )
+    return {**info, "queued": True}
 
 
 @router.get("/{exam_id}/section-progress")

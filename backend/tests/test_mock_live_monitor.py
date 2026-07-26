@@ -362,6 +362,88 @@ def test_retake_student_who_never_started_shows_waiting_not_working(fake_db, svc
     assert row["sections"]["reading"]["state"] == "waiting"
 
 
+def test_uncollected_past_section_reads_as_missed_not_waiting(fake_db, svc):
+    """B3 — with the straggler sweep queued in the background, a sweep that dies
+    (restart mid-task) leaves papers uncollected behind a moved-on exam.
+    Reporting that as 'waiting' would read as "not their turn yet" — the exact
+    opposite of the truth, and it would hide recoverable lost work."""
+    cohort = str(uuid4())
+    exam = _seed_exam(fake_db, cohort_id=cohort)
+    # exam has walked on to Reading, but Listening was never collected
+    fake_db.table("mock_exams").update({"active_section": "reading"}).eq(
+        "id", exam["id"]).execute()
+    uid = _seed_student(fake_db, cohort, "An")
+    _seed_sitting(fake_db, exam, uid)
+
+    res = svc.admin_live_monitor(exam["id"])
+    secs = _find(res, "An")["sections"]
+    assert secs["listening"]["state"] == "missed"     # behind the exam
+    assert secs["reading"]["state"] == "working"      # the open one
+    assert secs["writing"]["state"] == "waiting"      # genuinely not yet
+    assert res["sections"]["listening"]["missed"] == 1
+
+
+def test_missed_is_suppressed_while_the_sweep_could_still_be_running(fake_db, svc):
+    """Codex #844 (correct): the sweep runs in the BACKGROUND, so immediately
+    after /advance every not-yet-processed sitting legitimately has no stamp.
+    Flagging those raised the interruption banner on EVERY normal advance and
+    offered a "Thu lại" that would start a second concurrent sweep."""
+    cohort = str(uuid4())
+    exam = _seed_exam(fake_db, cohort_id=cohort)
+    # Reading opened seconds ago — the Listening sweep is plausibly still going.
+    fake_db.table("mock_exams").update({
+        "active_section": "reading",
+        "reading_started_at": _iso(_now() - timedelta(seconds=5)),
+    }).eq("id", exam["id"]).execute()
+    uid = _seed_student(fake_db, cohort, "An")
+    _seed_sitting(fake_db, exam, uid)
+
+    res = svc.admin_live_monitor(exam["id"])
+    assert _find(res, "An")["sections"]["listening"]["state"] == "waiting"
+    assert res["sections"]["listening"]["missed"] == 0     # no false banner
+
+
+def test_missed_surfaces_once_the_sweep_has_clearly_died(fake_db, svc):
+    cohort = str(uuid4())
+    exam = _seed_exam(fake_db, cohort_id=cohort)
+    fake_db.table("mock_exams").update({
+        "active_section": "reading",
+        "reading_started_at": _iso(_now() - timedelta(minutes=10)),
+    }).eq("id", exam["id"]).execute()
+    uid = _seed_student(fake_db, cohort, "An")
+    _seed_sitting(fake_db, exam, uid)
+
+    res = svc.admin_live_monitor(exam["id"])
+    assert _find(res, "An")["sections"]["listening"]["state"] == "missed"
+    assert res["sections"]["listening"]["missed"] == 1
+
+
+def test_collect_rejects_a_section_the_exam_has_not_reached(fake_db, svc):
+    """Codex #844 (correct): preflight only checked the section was CONFIGURED.
+    /collect?section=writing while Listening is active would stamp every
+    student's future Writing as submitted — taking papers that do not exist."""
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"active_section": "listening"}).eq(
+        "id", exam["id"]).execute()
+    with pytest.raises(svc.SittingConflictError):
+        svc.collect_preflight(exam["id"], "writing")
+    # the open section and an earlier one are both fine
+    assert svc.collect_preflight(exam["id"], "listening")["section"] == "listening"
+
+
+def test_collected_past_section_is_not_flagged_missed(fake_db, svc):
+    cohort = str(uuid4())
+    exam = _seed_exam(fake_db, cohort_id=cohort)
+    fake_db.table("mock_exams").update({"active_section": "reading"}).eq(
+        "id", exam["id"]).execute()
+    uid = _seed_student(fake_db, cohort, "An")
+    _seed_sitting(fake_db, exam, uid, listening_submitted_at=_iso(_now()))
+
+    res = svc.admin_live_monitor(exam["id"])
+    assert _find(res, "An")["sections"]["listening"]["state"] == "submitted"
+    assert res["sections"]["listening"]["missed"] == 0
+
+
 def test_missing_exam_raises_not_found(fake_db, svc):
     with pytest.raises(svc.NotFoundError):
         svc.admin_live_monitor(str(uuid4()))

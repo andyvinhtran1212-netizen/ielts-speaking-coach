@@ -197,7 +197,8 @@
       return window.api.post('/admin/mock-exams/' + encodeURIComponent(ex.id) +
         '/collect?from_section=' + encodeURIComponent(ex.active_section), {})
         .then(function (r) {
-          toast('Đã thu bài ' + (SECTION_LABEL[r.section] || r.section) + ' — ' + r.collected + ' bài.');
+          toast('Đang thu ' + r.pending + ' bài phần ' +
+            (SECTION_LABEL[r.section] || r.section) + ' — bảng sẽ cập nhật dần.');
           return load();
         })
         .catch(function (e) { toast('Thu bài thất bại: ' + (e && e.message)); });
@@ -233,10 +234,59 @@
       r.expected != null && r.started < r.expected));
     cards.push(stat('Cần chú ý', problems, 'trắng / im / chưa vào', problems > 0));
     (ex.configured_sections || []).forEach(function (s) {
-      var v = secs[s] || { submitted: 0, expected: 0 };
-      cards.push(stat(SECTION_LABEL[s], v.submitted + '/' + v.expected, 'đã nộp'));
+      var v = secs[s] || { submitted: 0, expected: 0, missed: 0 };
+      cards.push(stat(SECTION_LABEL[s], v.submitted + '/' + v.expected,
+        v.missed ? v.missed + ' bài CHƯA THU' : 'đã nộp', !!v.missed));
     });
     el('stats').innerHTML = cards.join('');
+    renderMissedBanner();
+  }
+
+  // A section the exam moved past without taking every paper — i.e. a
+  // background sweep that died (a restart mid-task). Silent by design until it
+  // happens, then loud, because the papers are recoverable ONLY while the
+  // attempts still exist.
+  function renderMissedBanner() {
+    var host = el('missed-banner');
+    if (!host) return;
+    var secs = S.data.sections, ex = S.data.exam;
+    var broken = (ex.configured_sections || []).filter(function (s) {
+      return (secs[s] || {}).missed > 0;
+    });
+    if (!broken.length) { host.innerHTML = ''; host.classList.remove('on'); return; }
+    host.classList.add('on');
+    host.innerHTML = broken.map(function (s) {
+      return '<div>⚠ Phần <b>' + esc(SECTION_LABEL[s]) + '</b> còn <b>' +
+        secs[s].missed + '</b> bài chưa được thu (đợt thu tự động bị gián đoạn). ' +
+        '<button type="button" class="av-btn" data-recollect="' + s + '">Thu lại phần ' +
+        esc(SECTION_LABEL[s]) + '</button></div>';
+    }).join('');
+    host.querySelectorAll('[data-recollect]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        recollect(b.getAttribute('data-recollect'), b);
+      });
+    });
+  }
+
+  function recollect(section, btn) {
+    var ex = S.data.exam;
+    if (!confirm('Thu lại phần ' + (SECTION_LABEL[section] || section) +
+                 ' của kỳ "' + ex.code + '"?\n\nCác bài chưa thu sẽ được thu như hiện trạng.')) return;
+    return guard(btn, function () {
+      // from_section is REQUIRED by the endpoint (the stale-screen guard), and
+      // a recovery click is by definition made from a screen showing a LATER
+      // section — or 'done'. Sending the section we are recovering as both
+      // would 409; sending nothing 422s before the preflight even runs, which
+      // made the advertised recovery path unusable (Codex review, PR #844).
+      return window.api.post('/admin/mock-exams/' + encodeURIComponent(ex.id) +
+        '/collect?section=' + encodeURIComponent(section) +
+        '&from_section=' + encodeURIComponent(ex.active_section), {})
+        .then(function (r) {
+          toast('Đang thu lại ' + r.pending + ' bài phần ' + (SECTION_LABEL[r.section] || r.section) + '…');
+          return load();
+        })
+        .catch(function (e) { toast('Thu lại thất bại: ' + (e && e.message)); });
+    });
   }
 
   function stat(k, n, sub, alert) {
@@ -350,6 +400,10 @@
     var dot = '<i class="ml-dot ml-dot--' + c.state + '"></i>';
     if (c.state === 'absent') return '<span class="ml-cell">' + dot + '<span class="ml-cell__note">chưa vào</span></span>';
     if (c.state === 'waiting') return '<span class="ml-cell">' + dot + '<span class="ml-cell__note">chờ mở</span></span>';
+    // The exam moved past this section without taking their paper — a sweep
+    // that died. Distinct from "chờ mở", which would read as "not their turn
+    // yet" and hide real lost work.
+    if (c.state === 'missed') return '<span class="ml-cell">' + dot + '<b class="ml-flag ml-flag--blank">chưa thu</b></span>';
     if (c.state === 'submitted') {
       return '<span class="ml-cell">' + dot +
         '<span class="ml-cell__note">nộp ' + esc(fmtTime(c.submitted_at)) + '</span></span>';

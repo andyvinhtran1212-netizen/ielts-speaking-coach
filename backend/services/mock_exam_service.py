@@ -1872,25 +1872,43 @@ def _force_collect_section(exam_id: str, section: str, *, strict: bool = False) 
     return n
 
 
-def collect_section(exam_id: str, admin_id: str,
-                    from_section: Optional[str] = None) -> dict:
-    """Admin THU BÀI for the open section — without opening the next one (B4).
+def pending_in_section(exam_id: str, section: str) -> int:
+    """How many non-terminal sittings still owe this section — the number the
+    admin needs BEFORE a sweep is queued, since the sweep itself now runs in the
+    background and can't report back synchronously."""
+    col = _SUBMITTED_COL.get(section)
+    if not col:
+        return 0
+    try:
+        rows = supabase_admin.table("mock_exam_sittings").select("id").eq(
+            "mock_exam_id", str(exam_id),
+        ).is_(col, "null").not_.in_("status", ["released", "void"]).execute()
+    except Exception as exc:  # noqa: BLE001
+        # Returning 0 turned "we don't know" into a valid count: /collect still
+        # answered 202 and the console said it was collecting ZERO papers, while
+        # the queued sweep — hitting the same failing database — collected
+        # nothing either. The admin found out from a missed-paper warning much
+        # later, if at all (Codex review, PR #844).
+        logger.exception("[mock-exam] pending count failed exam=%s section=%s", exam_id, section)
+        raise MockExamError(
+            "Không đọc được danh sách bài chưa nộp — chưa xác nhận được sẽ thu "
+            "bao nhiêu bài, nên chưa thu. Thử lại sau giây lát."
+        ) from exc
+    return len(rows.data or [])
 
-    "Thu bài" and "mở phần sau" used to be one irreversible button, so the real
-    proctor sequence — take the papers in, check everyone is accounted for, let
-    the room breathe, THEN hand out the next section — could not be expressed:
-    the moment you collected, the next clock was already running.
 
-    Collecting stamps each sitting's {section}_submitted_at, which makes the
-    runner's own isOpenSection test false, so every student drops into the
-    waiting room with NO clock running until the admin advances. It ALSO records
-    the pause on the exam row (`collected_section`, mig 166) — see below.
+def collect_preflight(exam_id: str, section: Optional[str] = None,
+                      from_section: Optional[str] = None) -> dict:
+    """Validate a collect request and report what it will sweep.
+
+    Split from the sweep itself because the sweep is queued as a background
+    task: without this the admin would get a 202 for a request that was always
+    going to be rejected, and would learn about it only from the logs.
     """
     exam = get_published_exam_by_id(exam_id)
     if not exam:
         raise NotFoundError(f"Mock exam {exam_id} không tồn tại.")
     if is_retake(exam):
-        # Retake is self-timed per student; there is no shared section to collect.
         raise SittingConflictError("Đề test lại tự thu bài theo từng học viên.")
     current = exam.get("active_section") or "not_started"
     # Same stale-screen guard as /advance. Without it a monitor still showing
@@ -1904,23 +1922,67 @@ def collect_section(exam_id: str, admin_id: str,
             f"Màn hình của bạn đang hiển thị phần {from_section!r} nhưng kỳ thi "
             f"đã ở phần {current!r} — có thao tác khác vừa chuyển phần. Tải lại trang."
         )
-    if current not in _LRW_ORDER:
+    target = section or current
+    if target not in _LRW_ORDER:
         raise SittingConflictError("Chưa có phần nào đang mở để thu bài.")
+    if target not in _configured_sections(exam):
+        raise SittingConflictError(f"Kỳ thi này không có phần {target}.")
+    # Only the OPEN section or an earlier one may be swept. Without this,
+    # /collect?section=writing while Listening is active would stamp every
+    # student's future Writing as submitted before they were ever given it —
+    # taking papers that do not exist yet (Codex review, PR #844).
+    if _seq_index(exam, target) > _seq_index(exam, current):
+        raise SittingConflictError(
+            f"Phần {target} chưa được mở — chưa có bài để thu."
+        )
+    return {"section": target, "pending": pending_in_section(exam_id, target)}
 
-    # CLOSE ADMISSIONS FIRST, then sweep. Stamping the sittings alone left the
-    # pause with no representation on the exam row: an eligible student who had
-    # not opened the exam yet could create a sitting during the pause, and their
-    # brand-new row carries no submission stamp — so the runner handed them the
-    # paper the room had already turned in, with the class clock running (Codex
-    # review, PR #843). create_sitting() reads this and is born submitted.
+
+
+def mark_section_collected(exam_id: str, section: str) -> None:
+    """CLOSE ADMISSIONS for `section` — the canonical "papers are in, next
+    section not open yet" state (mig 166).
+
+    Stamping the sittings alone left the pause with no representation on the
+    exam row: an eligible student who had not opened the exam yet could create a
+    sitting during the pause, and their brand-new row carries no submission
+    stamp — so the runner handed them the paper the room had already turned in,
+    with the class clock running (Codex review, PR #843). create_sitting() reads
+    this and is born submitted.
+
+    The `.eq("active_section", section)` is what keeps a RECOVERY re-sweep of an
+    earlier section from pushing a live exam into a pause it is not in.
+    """
     supabase_admin.table("mock_exams").update({
-        "collected_section": current,
-    }).eq("id", str(exam_id)).eq("active_section", current).execute()
+        "collected_section": section,
+    }).eq("id", str(exam_id)).eq("active_section", section).execute()
 
-    collected = _force_collect_section(exam_id, current, strict=True)
+
+def collect_section(exam_id: str, admin_id: str, section: Optional[str] = None,
+                    from_section: Optional[str] = None) -> dict:
+    """Admin THU BÀI for the open section — without opening the next one (B4).
+
+    "Thu bài" and "mở phần sau" used to be one irreversible button, so the real
+    proctor sequence — take the papers in, check everyone is accounted for, let
+    the room breathe, THEN hand out the next section — could not be expressed:
+    the moment you collected, the next clock was already running.
+
+    Collecting stamps each sitting's {section}_submitted_at, which makes the
+    runner's own isOpenSection test false, so every student drops into the
+    waiting room with NO clock running until the admin advances. It ALSO records
+    the pause on the exam row so a LATE entrant cannot be handed the collected
+    paper — see mark_section_collected().
+
+    `section` defaults to the open one; passing an EARLIER section re-sweeps it,
+    which is the recovery path when a background sweep died half-way (a Railway
+    restart mid-task) and left papers uncollected behind a moved-on exam.
+    """
+    target = collect_preflight(exam_id, section, from_section)["section"]
+    mark_section_collected(exam_id, target)
+    collected = _force_collect_section(exam_id, target, strict=True)
     logger.info("[mock-exam] exam=%s section=%s COLLECTED %d by admin=%s",
-                exam_id, current, collected, admin_id)
-    return {"section": current, "collected": collected}
+                exam_id, target, collected, admin_id)
+    return {"section": target, "collected": collected}
 
 
 def _collect_section_for_sitting(sitting: dict, section: str) -> bool:
@@ -1937,9 +1999,23 @@ def _collect_section_for_sitting(sitting: dict, section: str) -> bool:
         update: dict = {col: _now_iso()}
         if sitting.get("status") == "registered":
             update["status"] = "lrw_in_progress"
-        supabase_admin.table("mock_exam_sittings").update(update).eq(
+        # ATOMIC CLAIM, not a blind write. The sweep now runs as a background
+        # task, so an admin who presses "Thu bài" again — or advances — before
+        # the first one finishes queues a SECOND sweep over the same rows. Each
+        # snapshots the rows with a null submitted stamp, so without a
+        # compare-and-set both tasks proceed to grade the same attempt, and two
+        # concurrent Writing sweeps each call _promote_writing_essays() before
+        # either has stored essay_task*_id — creating duplicate essays (Codex
+        # review, PR #844). Winning the stamp is the right to do the work.
+        claim = supabase_admin.table("mock_exam_sittings").update(update).eq(
             "id", sitting["id"],
-        ).execute()
+        ).is_(col, "null").execute()
+        if not claim.data:
+            logger.info(
+                "[mock-exam] sitting=%s section=%s already claimed by another sweep",
+                sitting["id"], section,
+            )
+            return False
         if section in _SECTION_ATTEMPT:
             link_col, _table, _ = _SECTION_ATTEMPT[section]
             attempt_id = sitting.get(link_col)
@@ -1967,6 +2043,24 @@ def _collect_section_for_sitting(sitting: dict, section: str) -> bool:
             "[mock-exam] force-collect failed sitting=%s section=%s",
             sitting["id"], section,
         )
+        # RELEASE THE CLAIM. The stamp is written BEFORE grading / Writing
+        # promotion / terminal reconciliation, so a failure after it left the
+        # paper looking submitted to every later sweep — which select only null
+        # stamps — while nothing had been graded. The monitor showed it in, the
+        # recovery button never offered it, and the attempt stayed ungraded
+        # forever (Codex review, PR #844). Rolling the stamp back makes the row
+        # claimable again, which is what both the retry and the admin's "thu
+        # lại" depend on.
+        try:
+            supabase_admin.table("mock_exam_sittings").update({col: None}).eq(
+                "id", sitting["id"],
+            ).execute()
+        except Exception:  # noqa: BLE001 — nothing further we can do here
+            logger.exception(
+                "[mock-exam] force-collect: could not release the claim sitting=%s "
+                "section=%s — this paper needs manual attention",
+                sitting["id"], section,
+            )
         # Report the failure so the caller's count reflects papers ACTUALLY
         # taken. Counting unconditionally told the admin "N bài đã thu" for
         # papers still sitting with the student, and the next poll silently
@@ -2094,7 +2188,6 @@ def _advance_from(exam_id: str, admin_id: str, current: str) -> dict:
             nxt = seq[idx + 1] if idx + 1 < len(seq) else "done"
         else:
             nxt = "done"
-        _force_collect_section(exam_id, current)
 
     # Opening the next section ENDS the collected-but-paused state, whatever it
     # was. Leaving it set would keep every sitting created afterwards born with
@@ -2102,6 +2195,10 @@ def _advance_from(exam_id: str, admin_id: str, current: str) -> dict:
     update: dict = {"active_section": nxt, "collected_section": None}
     if nxt in _LRW_ORDER:
         update[f"{nxt}_started_at"] = _now_iso()
+    elif nxt == "done":
+        # The final transition queues a sweep like every other one, so it needs
+        # the same grace anchor (mig 167).
+        update["done_at"] = _now_iso()
     # OPTIMISTIC GUARD (B2). Without `.eq("active_section", current)` two
     # concurrent advances — a double-click, two invigilators, two tabs — both
     # read the same current section and both write. Two failure modes, both
@@ -2125,7 +2222,19 @@ def _advance_from(exam_id: str, admin_id: str, current: str) -> dict:
         "[mock-exam] exam=%s section %s → %s by admin=%s",
         exam_id, current, nxt, admin_id,
     )
-    return resp.data[0]
+    out = dict(resp.data[0])
+    # B3 — the straggler sweep used to run INSIDE this request: one loop over
+    # every unsubmitted sitting, fully grading each L/R attempt inline. For a
+    # class of 25-30 that is a very long request with no progress feedback, and
+    # a timeout left the papers collected but active_section unmoved, with the
+    # admin unable to tell what had happened.
+    #
+    # The transition above is now the fast, atomic part; the caller queues the
+    # sweep as a background task. Safe in this order because submit_section
+    # gates on active_section, so a straggler can only get a 409 in the gap, and
+    # _collect_section_for_sitting is idempotent.
+    out["sweep_section"] = current if current in _LRW_ORDER else None
+    return out
 
 
 def admin_section_progress(exam_id: str) -> dict:
@@ -2152,6 +2261,54 @@ def admin_section_progress(exam_id: str) -> dict:
 # Long enough that a student re-reading a passage isn't flagged, short enough that
 # a dropped connection surfaces while the invigilator can still act.
 _STALLED_AFTER_SECONDS = 300
+# How long after the exam moves on before an uncollected paper is called
+# `missed`. The straggler sweep runs in the BACKGROUND (B3), so immediately
+# after /advance every not-yet-processed sitting legitimately has no submitted
+# stamp — flagging those instantly would raise the interruption banner on every
+# normal advance and offer a "Thu lại" that starts a SECOND concurrent sweep
+# over the same rows (Codex review, PR #844). Comfortably longer than a sweep
+# of a full class, short enough that a genuinely dead sweep still surfaces
+# while the invigilator can act.
+_SWEEP_GRACE_SECONDS = 180
+
+
+def _sweep_grace_elapsed(exam: dict, active: str) -> bool:
+    """Has the background straggler sweep had time to finish?
+
+    Measured from when the CURRENT section opened, which is the same moment
+    /advance queued the sweep for the previous one.
+    """
+    if active in _LRW_ORDER:
+        started = _parse_ts(exam.get(f"{active}_started_at"))
+    elif active == "done":
+        # 'done' is a real transition with a real time — it just had nowhere to
+        # record it until mig 167. Without an anchor this returned True
+        # immediately, so a poll taken while the perfectly-healthy FINAL sweep
+        # was still running labelled every unprocessed paper 'missed', claimed
+        # the sweep had been interrupted, and offered a recollect that would
+        # race the sweep still in flight (Codex review, PR #844).
+        started = _parse_ts(exam.get("done_at"))
+    else:
+        started = None
+    if not started:
+        # Genuinely no anchor: an exam that reached 'done' before mig 167, or a
+        # row with no timestamps at all. Don't suppress the verdict forever.
+        return True
+    return (_now() - started).total_seconds() >= _SWEEP_GRACE_SECONDS
+
+
+def _seq_index(exam: dict, section: str) -> int:
+    """Position of `section` in this exam's configured walk.
+
+    'done' sorts after every real section, 'not_started' before them, so a
+    simple `<` comparison answers "has the exam already moved past this?".
+    """
+    if section == "done":
+        return 99
+    if section == "not_started":
+        return -1
+    seq = _configured_sections(exam)
+    return seq.index(section) if section in seq else 98
 
 
 def _expected_roster(exam: dict) -> Optional[dict]:
@@ -2312,8 +2469,17 @@ def admin_live_monitor(exam_id: str) -> dict:
             state = "submitted"
         elif retake:
             state = "working" if sitting.get(f"{section}_started_at") else "waiting"
+        elif active == section:
+            state = "working"
+        elif (_seq_index(exam, section) < _seq_index(exam, active)
+              and _sweep_grace_elapsed(exam, active)):
+            # The exam moved PAST this section, the sweep has had time to run,
+            # and still no paper was taken — so the sweep died (a restart
+            # mid-task). "waiting" would read as "not their turn yet", the
+            # opposite of the truth, and would hide recoverable lost work.
+            state = "missed"
         else:
-            state = "working" if active == section else "waiting"
+            state = "waiting"
 
         answered = last = None
         live = True
@@ -2413,6 +2579,9 @@ def admin_live_monitor(exam_id: str) -> dict:
             "submitted": sum(1 for r in rows if r["state"] == "submitted"),
             "working":   sum(1 for r in rows if r["state"] == "working"),
             "absent":    sum(1 for r in rows if r["state"] == "absent"),
+            # Papers the exam moved past without ever taking in — a sweep that
+            # died. The console offers a re-collect for exactly this.
+            "missed":    sum(1 for r in rows if r["state"] == "missed"),
             "expected":  len(rows),
         }
 
