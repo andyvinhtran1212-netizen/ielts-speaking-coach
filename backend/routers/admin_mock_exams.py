@@ -209,6 +209,8 @@ async def set_open(
         return svc.set_open(exam_id, body.is_open, admin["id"])
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
+    except svc.SittingConflictError as e:
+        raise HTTPException(409, str(e))
 
 
 @router.post("/{exam_id}/advance")
