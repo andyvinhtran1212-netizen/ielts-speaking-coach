@@ -4647,3 +4647,115 @@ def test_a_student_cannot_start_a_section_the_exam_cannot_render(fake_db, svc):
     # ...and the skill that IS servable still starts normally.
     svc.start_section(sit["id"], u, "writing")
     assert svc.get_sitting(sit["id"])["writing_started_at"] is not None
+
+
+# ── The live console must survive a denominator it cannot get ─────────
+#
+# 2026-07-26, PROD OUTAGE. admin_live_monitor selected `total_questions` from
+# `listening_tests` — a column that has never existed (mig 065 defines the
+# bundle; the `total_questions` in mig 056 belongs to listening_sessions, a
+# different table). PostgREST answers a missing column with error 42703, which
+# raises, so the invigilator console returned 500 for EVERY exam that had a
+# listening test. The board showed nothing at all because a "12/40" could not be
+# turned into a "12".
+
+
+class _MissingColumn(Exception):
+    """What PostgREST raises for `column ... does not exist` (SQLSTATE 42703)."""
+
+
+class _StrictSchema:
+    """Wraps the fake so a select of a column prod does NOT have raises, the way
+    the real database does. The fake stores loose dicts and would happily return
+    a row missing the key, which is exactly why this bug reached production with
+    a green suite."""
+
+    def __init__(self, inner, missing):
+        self._inner, self._missing = inner, missing   # {table: {column, ...}}
+
+    def __getattr__(self, item):
+        return getattr(self._inner, item)
+
+    def table(self, name):
+        q = self._inner.table(name)
+        gone = self._missing.get(name)
+        if not gone:
+            return q
+        real_select = q.select
+
+        def select(*cols, **kw):
+            for c in cols:
+                for part in str(c).split(","):
+                    if part.strip() in gone:
+                        raise _MissingColumn(
+                            f"column {name}.{part.strip()} does not exist")
+            return real_select(*cols, **kw)
+
+        q.select = select
+        return q
+
+
+def test_the_live_board_survives_a_listening_test_with_no_question_count(fake_db, svc):
+    """The regression guard. `listening_tests` has no total_questions in prod,
+    and asking for one is an EXCEPTION, not an empty result."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    strict = _StrictSchema(fake_db, {"listening_tests": {"total_questions"}})
+
+    real = svc.supabase_admin
+    svc.supabase_admin = strict
+    try:
+        out = svc.admin_live_monitor(exam["id"])
+    finally:
+        svc.supabase_admin = real
+
+    assert out["students"], "the board must still list the class"
+    # Degraded, not dead: no denominator is better than no console.
+    assert out["students"][0]["sections"]["listening"]["total"] is None
+
+
+def test_the_listening_total_comes_from_the_graders_own_answer_key(fake_db, svc):
+    """Counted from the SAME key the grader scores against, so the denominator
+    can never disagree with the graded total — and a 20-question mini-test is
+    not reported as 40."""
+    exam = _seed_exam(fake_db)
+    tid = exam["listening_test_id"]
+    fake_db.seed("listening_content", {"id": "sec-1", "test_id": tid})
+    fake_db.seed("listening_content", {"id": "sec-2", "test_id": tid})
+    fake_db.seed("listening_exercises", {"id": "ex-1", "content_id": "sec-1", "payload": {
+        "template_kind": "gap_fill",
+        "answers": [{"q_num": n, "accepted": ["x"]} for n in range(1, 7)]}})
+    fake_db.seed("listening_exercises", {"id": "ex-2", "content_id": "sec-2", "payload": {
+        "template_kind": "gap_fill",
+        "answers": [{"q_num": n, "accepted": ["x"]} for n in range(7, 11)]}})
+
+    assert svc._listening_total_questions(tid) == 10
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    out = svc.admin_live_monitor(exam["id"])
+    assert out["students"][0]["sections"]["listening"]["total"] == 10
+
+
+def test_the_pacing_page_reads_the_same_source(fake_db, svc):
+    """_section_total made the SAME phantom read, only swallowed — so Listening
+    silently fell through to the graded length (0 while the student is still
+    working) instead of failing loudly. Same bug, quieter symptom."""
+    exam = _seed_exam(fake_db)
+    tid = exam["listening_test_id"]
+    fake_db.seed("listening_content", {"id": "sec-1", "test_id": tid})
+    fake_db.seed("listening_exercises", {"id": "ex-1", "content_id": "sec-1", "payload": {
+        "template_kind": "gap_fill",
+        "answers": [{"q_num": n, "accepted": ["x"]} for n in range(1, 21)]}})
+    assert svc._section_total(exam, "listening", fallback=3) == 20
+
+
+def test_nothing_asks_listening_tests_for_a_question_count(fake_db, svc):
+    """Source sentinel. The fake cannot model a missing column, so only reading
+    the source stops this from being re-introduced by the next person who wants
+    a denominator."""
+    import inspect
+    src = inspect.getsource(svc)
+    for fn in ("admin_live_monitor", "_section_total"):
+        body = src[src.index(f"def {fn}("):]
+        body = body[:body.index("\ndef ", 1)]
+        assert 'table("listening_tests")' not in body, (
+            f"{fn} queries listening_tests directly — it has no question count")

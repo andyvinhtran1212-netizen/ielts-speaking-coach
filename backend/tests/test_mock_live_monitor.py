@@ -40,6 +40,25 @@ def svc():
     return mock_exam_service
 
 
+
+def _seed_listening_length(fake_db, test_id, n=40):
+    """Give a listening test a REAL length, the way prod stores one.
+
+    `listening_tests` has no total_questions column — mig 065 never defined one,
+    and the one in mig 056 belongs to listening_sessions. These tests used to
+    write that phantom column onto the fake, which accepts any key, so a green
+    suite sat on top of a query that 500'd against the real database
+    (prod outage 2026-07-26). The length lives in the exercises' answer key,
+    which is also what the grader scores against.
+    """
+    fake_db.seed("listening_content", {"id": f"sec-{test_id}", "test_id": test_id})
+    fake_db.seed("listening_exercises", {
+        "id": f"ex-{test_id}", "content_id": f"sec-{test_id}",
+        "payload": {"template_kind": "gap_fill",
+                    "answers": [{"q_num": i, "accepted": ["x"]} for i in range(1, n + 1)]},
+    })
+
+
 def _iso(dt):
     return dt.isoformat()
 
@@ -187,9 +206,7 @@ def test_listening_progress_counts_only_non_empty_answers(fake_db, svc):
             {"q_num": 3, "user_answer": "dog", "answered_at": stamp},
         ],
     })
-    # _seed_exam already created this row — UPDATE it, don't seed a second one.
-    fake_db.table("listening_tests").update({"total_questions": 40}).eq(
-        "id", exam["listening_test_id"]).execute()
+    _seed_listening_length(fake_db, exam["listening_test_id"])
     _seed_sitting(fake_db, exam, uid, listening_attempt_id=aid)
 
     sec = _find(svc.admin_live_monitor(exam["id"]), "An")["sections"]["listening"]
@@ -616,8 +633,7 @@ def test_pacing_totals_come_from_the_test_not_the_grading_output(fake_db, svc):
         "active_section": "listening", "listening_started_at": _iso(start),
     }).eq("id", exam["id"]).execute()
     # the exam's listening test knows its own length
-    fake_db.table("listening_tests").update({"total_questions": 40}).eq(
-        "id", exam["listening_test_id"]).execute()
+    _seed_listening_length(fake_db, exam["listening_test_id"])
     uid = _seed_student(fake_db, cohort, "An")
     aid = str(uuid4())
     fake_db.seed("listening_test_attempts", {

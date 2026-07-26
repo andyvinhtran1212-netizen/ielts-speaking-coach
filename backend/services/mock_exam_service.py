@@ -2859,6 +2859,56 @@ def _answer_progress(rows, answer_key="user_answer", ts_key="answered_at") -> tu
     return answered, last
 
 
+def _listening_total_questions(test_id) -> Optional[int]:
+    """How many questions a listening test HAS.
+
+    `listening_tests` has NO question-count column and never has — mig 065
+    defines the bundle (test_id/title/themes/…) and the `total_questions` in mig
+    056 belongs to `listening_sessions`, a different table. Reading a phantom
+    column made PostgREST answer 42703 ("column … does not exist"), which is an
+    exception, not an empty result — so the invigilator console 500'd on EVERY
+    exam that had a listening test (2026-07-26).
+
+    Counted from the SAME answer key the grader uses, so the denominator can
+    never disagree with the graded total, and it stays right for a mini-test /
+    drill instead of assuming the Cambridge 40. Two queries per EXAM (not per
+    student). None when it cannot be determined — the console renders "12"
+    instead of "12/40" rather than failing.
+    """
+    if not test_id:
+        return None
+    try:
+        from services import listening_test_grader as grader
+        section_ids = [r["id"] for r in (
+            supabase_admin.table("listening_content").select("id")
+            .eq("test_id", str(test_id)).execute().data or []
+        )]
+        if not section_ids:
+            return None
+        rows = (supabase_admin.table("listening_exercises").select("payload")
+                .in_("content_id", section_ids).execute().data or [])
+        return len(grader.collect_answer_key(rows)) or None
+    except Exception:  # noqa: BLE001 — a denominator is never worth a 500
+        logger.warning("[mock-exam] listening total lookup failed test=%s", test_id)
+        return None
+
+
+def _reading_total_questions(test_id) -> Optional[int]:
+    """Reading's counterpart. `reading_tests.total_questions` IS a real column
+    (mig 086), but the read is guarded all the same: this powers a live console
+    polled every few seconds during an exam, and no denominator is worth taking
+    the whole board down for."""
+    if not test_id:
+        return None
+    try:
+        row = supabase_admin.table("reading_tests").select("total_questions").eq(
+            "id", str(test_id)).limit(1).execute().data or []
+        return (row[0].get("total_questions") if row else None) or None
+    except Exception:  # noqa: BLE001
+        logger.warning("[mock-exam] reading total lookup failed test=%s", test_id)
+        return None
+
+
 def _sitting_recency(s: dict) -> tuple:
     """Sort key that picks the sitting the invigilator actually means: a
     not-yet-released attempt always beats a released one, then newest wins."""
@@ -2923,15 +2973,10 @@ def admin_live_monitor(exam_id: str) -> dict:
                     .in_("attempt_id", r_ids).execute().data or []):
             r_answers.setdefault(str(row["attempt_id"]), []).append(row)
 
-    totals = {"listening": None, "reading": None}
-    if exam.get("listening_test_id"):
-        row = supabase_admin.table("listening_tests").select("total_questions").eq(
-            "id", str(exam["listening_test_id"])).limit(1).execute().data
-        totals["listening"] = row[0].get("total_questions") if row else None
-    if exam.get("reading_test_id"):
-        row = supabase_admin.table("reading_tests").select("total_questions").eq(
-            "id", str(exam["reading_test_id"])).limit(1).execute().data
-        totals["reading"] = row[0].get("total_questions") if row else None
+    totals = {
+        "listening": _listening_total_questions(exam.get("listening_test_id")),
+        "reading":   _reading_total_questions(exam.get("reading_test_id")),
+    }
 
     roster = _expected_roster(exam)
     roster_known = roster is not None
@@ -3136,20 +3181,19 @@ def _section_total(exam: dict, section: str, *, fallback: int = 0):
     the page rendered "17" instead of "17/40" for the whole section (Codex
     review, PR #848). The graded length stays as the fallback for an attempt
     whose test row has since gone.
+
+    Shares its sources with the live console. This used to select
+    `total_questions` off `listening_tests` too — a column that does not exist —
+    so Listening silently fell through to the graded length here (the same read
+    that DID 500 the console, only swallowed). Same bug, quieter symptom.
     """
-    table = {"listening": ("listening_tests", "listening_test_id"),
-             "reading":   ("reading_tests", "reading_test_id")}.get(section)
-    if table:
-        tbl, col = table
-        test_id = exam.get(col)
-        if test_id:
-            try:
-                row = supabase_admin.table(tbl).select("total_questions").eq(
-                    "id", str(test_id)).limit(1).execute().data or []
-                if row and row[0].get("total_questions"):
-                    return row[0]["total_questions"]
-            except Exception:  # noqa: BLE001 — a missing total is not worth a 500
-                logger.warning("[mock-exam] pacing total lookup failed section=%s", section)
+    lookup = {"listening": (_listening_total_questions, "listening_test_id"),
+              "reading":   (_reading_total_questions, "reading_test_id")}.get(section)
+    if lookup:
+        fn, col = lookup
+        total = fn(exam.get(col))
+        if total:
+            return total
     return fallback or None
 
 
