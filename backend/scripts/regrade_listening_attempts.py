@@ -67,6 +67,17 @@ def _attempts_for_exam(code: str) -> list[dict]:
     return at.data or []
 
 
+def _drafts_by_sitting(sitting_ids: list) -> dict:
+    """ai_draft.listening hiện đang lưu, theo sitting_id."""
+    ids = [str(s) for s in sitting_ids if s]
+    if not ids:
+        return {}
+    r = (supabase_admin.table("mock_exam_reviews")
+         .select("sitting_id,ai_draft").in_("sitting_id", ids).execute())
+    return {row["sitting_id"]: ((row.get("ai_draft") or {}).get("listening"))
+            for row in (r.data or [])}
+
+
 def _attempts_for_test(code: str) -> list[dict]:
     """Every submitted attempt on one paper — including sittings of OTHER
     exams. Scoping by exam alone missed Lucas's retake, which sat the same
@@ -95,9 +106,15 @@ def main() -> int:
     args = ap.parse_args()
 
     if args.attempt:
+        # Cùng điều kiện với --exam/--test. Không có nó, một attempt_id gõ nhầm
+        # đang in_progress sẽ bị ghi điểm dở dang kèm nháp duyệt bài.
         r = (supabase_admin.table("listening_test_attempts")
              .select(_ATTEMPT_COLS).eq("id", args.attempt).limit(1).execute())
         attempts = r.data or []
+        if attempts and attempts[0].get("status") != "submitted":
+            raise SystemExit(
+                f"attempt {args.attempt} đang ở trạng thái "
+                f"{attempts[0].get('status')!r} — chỉ chấm lại bài ĐÃ NỘP.")
     elif args.test:
         attempts = _attempts_for_test(args.test)
     else:
@@ -109,6 +126,7 @@ def main() -> int:
 
     keys: dict[str, list[dict]] = {}
     changed, same, rows = [], 0, []
+    drafts = _drafts_by_sitting([a.get("sitting_id") for a in attempts])
 
     for a in attempts:
         tid = a["test_id"]
@@ -118,24 +136,37 @@ def main() -> int:
         old_s, new_s = a.get("score"), res["score"]
         old_b, new_b = a.get("band_estimate"), res["band_estimate"]
         rows.append((a["id"], a["user_id"], old_s, new_s, old_b, new_b))
-        if old_s == new_s and old_b == new_b:
+        # Nháp duyệt bài phải nằm TRONG phép so, không phải hệ quả của nó.
+        # Nếu ghi được attempt nhưng cập nhật nháp lỗi, lần chạy sau sẽ thấy
+        # điểm đã khớp và xếp bài này vào "giữ nguyên" — nháp cũ kẹt lại vĩnh
+        # viễn và giám khảo ký nhầm. Vì thế lệch nháp cũng là "cần sửa".
+        d = drafts.get(a.get("sitting_id"))
+        draft_stale = bool(a.get("sitting_id")) and (
+            d is None or d.get("raw") != new_s or d.get("band") != new_b)
+        if old_s == new_s and old_b == new_b and not draft_stale:
             same += 1
         else:
-            changed.append((a, res))
+            changed.append((a, res, draft_stale))
 
     print(f"{'attempt':10} {'học viên':10} {'điểm':>12}   {'band':>12}")
     for aid, uid, os_, ns, ob, nb in sorted(rows, key=lambda r: -( (r[3] or 0) - (r[2] or 0))):
         mark = "  ←" if (os_ != ns or ob != nb) else ""
         print(f"{aid[:8]:10} {uid[:8]:10} {str(os_):>5} → {str(ns):<5}  "
               f"{str(ob):>5} → {str(nb):<5}{mark}")
-    print(f"\nđổi điểm: {len(changed)} · giữ nguyên: {same} · tổng: {len(rows)}")
+    n_draft_only = sum(1 for a, _, st in changed
+                       if st and a.get("score") == next(
+                           r[3] for r in rows if r[0] == a["id"]))
+    print(f"\ncần sửa: {len(changed)} · đã đúng: {same} · tổng: {len(rows)}")
+    if n_draft_only:
+        print(f"  (trong đó {n_draft_only} bài điểm đã đúng nhưng NHÁP DUYỆT BÀI "
+              f"còn lệch — lần chạy trước ghi dở)")
 
     if not changed:
         return 0
 
     # Nói trước cái sẽ bị chạm tới, kể cả ở chế độ xem thử.
     fb_locked = []
-    for a, _ in changed:
+    for a, _, _st in changed:
         if not a.get("sitting_id"):
             continue
         r = (supabase_admin.table("mock_exam_reviews")
@@ -153,7 +184,7 @@ def main() -> int:
         print("\n(chỉ xem thử — thêm --commit để ghi)")
         return 0
 
-    for a, res in changed:
+    for a, res, _st in changed:
         # status + submitted_at giữ nguyên: đây là chấm lại, không phải nộp lại.
         (supabase_admin.table("listening_test_attempts")
          .update({"score": res["score"],

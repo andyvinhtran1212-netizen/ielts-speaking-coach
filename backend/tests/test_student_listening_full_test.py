@@ -976,3 +976,41 @@ def test_mm_rows_disagreeing_fall_back():
     res = grader.grade_attempt(
         [{"q_num": 17, "user_answer": "A"}, {"q_num": 18, "user_answer": "D"}], ak)
     assert res["score"] == 0, "rows must agree before their set is trusted"
+
+
+def test_mm_wholeset_rows_in_different_order_still_agree():
+    """"A, D" and "D, A" are the same answer written two ways.
+
+    Requiring string equality would drop the group to the fallback and score a
+    fully correct student ZERO — the same failure this whole block exists to
+    stop, reintroduced through a stricter-than-necessary agreement check.
+    """
+    rows = [{
+        "payload": {
+            "template_kind": "mcq_multi",
+            "answers": [
+                {"q_num": 17, "answer": "A, D"},
+                {"q_num": 18, "answer": "D, A"},
+            ],
+        },
+    }]
+    ak = grader.collect_answer_key(rows)
+    res = grader.grade_attempt(
+        [{"q_num": 17, "user_answer": "A"}, {"q_num": 18, "user_answer": "D"}], ak)
+    assert res["score"] == 2
+
+
+def test_mm_wholeset_reordered_rows_still_consume_once():
+    rows = [{
+        "payload": {
+            "template_kind": "mcq_multi",
+            "answers": [
+                {"q_num": 17, "answer": "A, D"},
+                {"q_num": 18, "answer": "D, A"},
+            ],
+        },
+    }]
+    ak = grader.collect_answer_key(rows)
+    res = grader.grade_attempt(
+        [{"q_num": 17, "user_answer": "D"}, {"q_num": 18, "user_answer": "D"}], ak)
+    assert res["score"] == 1, "one D expected, two picked — still one mark"

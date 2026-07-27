@@ -158,10 +158,15 @@ def _expected_letters(grp: list[dict[str, Any]]) -> list[str]:
     Only collapse when every row carries the SAME set and that set has one
     letter per slot; anything else is data we do not understand, so fall
     back to reading each row as its own answer rather than guessing.
+
+    Rows agree as SETS, not as strings: "A, D" and "D, A" are the same answer
+    written two ways, and rejecting that pair would drop the whole group back
+    to the fallback and score a fully correct student zero.
     """
     sets = [_letter_set(g.get("answer")) for g in grp]
     first = sets[0]
-    if first and len(first) == len(grp) and all(s == first for s in sets):
+    if first and len(first) == len(grp) \
+            and all(s is not None and sorted(s) == sorted(first) for s in sets):
         return list(first)
     return [normalize_answer(g.get("answer") or "") for g in grp]
 
