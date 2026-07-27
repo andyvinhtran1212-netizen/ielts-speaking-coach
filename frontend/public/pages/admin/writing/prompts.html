@@ -377,6 +377,9 @@
           +     '<div class="flex flex-wrap gap-1">' + tags + '</div>'
           +     '<div class="flex gap-2">'
           +       '<button type="button" class="aw-btn-secondary" data-action="edit"   data-id="' + p.id + '">Sửa</button>'
+          +       '<button type="button" class="aw-btn-secondary" data-action="exam-only" data-id="' + p.id + '"'
+          +         ' data-next="' + (p.exam_only ? '0' : '1') + '">'
+          +         (p.exam_only ? 'Trả về thư viện' : 'Chuyển sang đề kỳ thi') + '</button>'
           +       '<button type="button" class="aw-btn-danger"    data-action="delete" data-id="' + p.id + '">Xóa</button>'
           +     '</div>'
           +   '</div>'
@@ -391,6 +394,7 @@
           var id     = btn.getAttribute('data-id');
           if (action === 'edit')   openEditModal(id);
           if (action === 'delete') softDeletePrompt(id);
+          if (action === 'exam-only') setExamOnly(btn, id);
         });
       });
 
@@ -561,6 +565,29 @@
       var box = document.getElementById('modal-error');
       box.textContent = msg;
       show('modal-error');
+    }
+
+
+    // Reserve a prompt for mock exams, or hand it back to the student prompt
+    // bank. The RELEASE direction is refused server-side when a non-archived
+    // exam still binds it (409) — not pre-checked here, because a second copy of
+    // the rule in the browser is the copy that goes stale.
+    async function setExamOnly(btn, id) {
+      var next = btn.getAttribute('data-next') === '1';
+      var msg = next
+        ? 'Chuyển đề này thành đề kỳ thi?\n\nĐề sẽ BIẾN MẤT khỏi ngân hàng đề của học viên.'
+        : 'Trả đề này về ngân hàng đề?\n\nHọc viên sẽ luyện được nó. Nếu đề từng dùng cho '
+          + 'một kỳ thi ĐÃ LƯU TRỮ, khoá sau có thể luyện đúng đề khoá trước vừa thi.';
+      if (!window.confirm(msg)) return;
+      btn.disabled = true;
+      try {
+        await window.api.patch('/admin/writing/prompts/' + encodeURIComponent(id),
+                               { exam_only: next });
+        loadPrompts();
+      } catch (e) {
+        btn.disabled = false;
+        window.alert('Không đổi được: ' + (e && e.message ? e.message : e));
+      }
     }
 
     async function softDeletePrompt(id) {

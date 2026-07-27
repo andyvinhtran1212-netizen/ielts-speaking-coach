@@ -24,6 +24,15 @@
   <link rel="stylesheet" href="/css/aver-design/admin-status.css" />
   <style>
     .me-wrap { max-width:1000px; margin:0 auto; padding:24px 16px; }
+    /* Dải tab cấp khoá — cùng ngôn ngữ với .mt-tab của cockpit. */
+    .ec-tabs { display:flex; flex-wrap:wrap; gap:2px; margin-bottom:var(--av-space-3);
+      border-bottom:1px solid var(--av-border-default); }
+    .ec-tab { appearance:none; background:none; border:none; cursor:pointer; font:inherit;
+      font-size:var(--av-fs-sm); font-weight:var(--av-fw-medium); color:var(--av-text-secondary);
+      padding:var(--av-space-2) var(--av-space-3); border-bottom:2px solid transparent; }
+    .ec-tab:hover { color:var(--av-text-primary); background:var(--av-surface-sunken); }
+    .ec-tab.is-active { color:var(--av-primary); border-bottom-color:var(--av-primary); }
+    .ec-tab:focus-visible { outline:none; box-shadow:var(--av-shadow-focus); }
     .me-card { background:var(--av-surface-elevated); border:1px solid var(--av-border-default); border-radius:12px; padding:16px; margin-bottom:12px; }
     .me-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
     .me-pill { font-size:11px; padding:2px 8px; border-radius:999px; border:1px solid var(--av-border-default); text-transform:uppercase; letter-spacing:.03em; }
@@ -44,8 +53,8 @@
 </head>
 <body class="av-page font-sans min-h-screen">
   <div class="me-wrap">
-    <h1>Quản lý Full Test 4 kỹ năng</h1>
-    <p class="me-muted" style="margin-bottom:16px;">Tạo đề · chọn Listening/Reading/Writing (chỉ đề đã <b>published</b>) · chọn lớp tham gia · <b>mở/đóng</b> kỳ live · mở từng phần <b>tuần tự</b> (Listening → Reading → Writing). Đề đã chọn sẽ bị ẩn khỏi list luyện tập Reading/Listening.</p>
+    <h1 data-embed-hide>Quản lý Full Test 4 kỹ năng</h1>
+    <p class="me-muted" data-embed-hide style="margin-bottom:16px;">Tạo đề · chọn Listening/Reading/Writing (chỉ đề đã <b>published</b>) · chọn lớp tham gia · <b>mở/đóng</b> kỳ live · mở từng phần <b>tuần tự</b> (Listening → Reading → Writing). Đề đã chọn sẽ bị ẩn khỏi list luyện tập Reading/Listening.</p>
 
     <div class="me-card">
       <h2>Tạo đề mới</h2>
@@ -100,12 +109,15 @@
       <!-- A library that failed to load is NAMED here, never rendered as an
            empty list: an admin choosing a paper from a silently short list is
            the failure this whole screen exists to prevent. -->
+      <!-- Tab theo cấp khoá — sinh từ dữ liệu (course_level là text tự do). -->
+      <div id="ec-tabs" class="ec-tabs"></div>
       <p id="ec-warn" class="me-muted" hidden
          style="color:var(--av-error);font-weight:600"></p>
       <div id="ec-list" class="me-muted">Đang tải…</div>
     </div>
 
   <script src="https://unpkg.com/@supabase/supabase-js@2.107.0"></script>
+  <script src="/js/admin-embed.js"></script>
   <script src="/js/runtime-config.js"></script>
   <script src="/js/api.js"></script>
   <script src="/js/toast.js"></script>
