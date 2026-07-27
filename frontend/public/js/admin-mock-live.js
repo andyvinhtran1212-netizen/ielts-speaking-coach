@@ -535,9 +535,15 @@
       // the first published exam put the invigilator in front of another
       // classroom's irreversible open/advance controls while they believed they
       // had followed their own link (Codex review, PR #833).
+      // Point at the picker the admin can actually reach. Inside the cockpit the
+      // one above is hidden — the rail is the picker — so the original wording
+      // was a dead end: the rail lists every exam, this page only opens
+      // published ones, so clicking a draft landed here with nowhere to go.
       el('state-error').textContent =
         'Không mở được kỳ thi này (chưa publish, đã archive, hoặc mã không đúng). ' +
-        'Chọn kỳ thi từ danh sách phía trên.';
+        (window.AVER_EMBEDDED
+          ? 'Chọn một kỳ thi đã publish ở danh sách bên trái.'
+          : 'Chọn kỳ thi từ danh sách phía trên.');
       show('error');
     } else {
       S.examId = wanted || (exams[0] && exams[0].id) || null;

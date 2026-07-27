@@ -298,3 +298,13 @@ describe('vỏ cockpit — thiết kế lại (Giai đoạn 4)', () => {
     assert.match(HTML, /--mt-rail-chrome:/);
   });
 });
+
+describe('nhúng phòng thi trực tiếp — không để lại ngõ cụt', () => {
+  test('báo lỗi chỉ tới bộ chọn CÓ THẬT trong ngữ cảnh đang mở', () => {
+    // The rail lists every exam; this page only opens published ones. Clicking a
+    // draft therefore lands on the error branch — which pointed at the picker
+    // above, the one now hidden inside the cockpit. Nowhere to go.
+    const js = pub('js', 'admin-mock-live.js');
+    assert.match(js, /window\.AVER_EMBEDDED\s*\n?\s*\?\s*'Chọn một kỳ thi đã publish ở danh sách bên trái\.'/);
+  });
+});
