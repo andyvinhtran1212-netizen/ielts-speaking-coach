@@ -743,6 +743,16 @@ function renderFormCompletion(tmpl, questions) {
               <span class="ielts-form-example">${mdInline(r.example)} (Example)</span>
             </div>`;
           }
+          // A form line can hold more than one gap, and text after the gap as
+          // well as before it ("Reason for visit: business (to buy antique
+          // (2) ……… )"). `segments` covers those; the flat {prefix, q_num}
+          // shape stays valid.
+          if (Array.isArray(r.segments)) {
+            return `<div class="ielts-form-row">
+              ${label}
+              ${r.segments.map(tableGapSegment).join(' ')}
+            </div>`;
+          }
           if (r.q_num != null) {
             const pref = r.prefix
               ? `<span class="ielts-form-prefix">${mdInline(r.prefix)}</span>`
@@ -751,7 +761,7 @@ function renderFormCompletion(tmpl, questions) {
               ${label}
               ${pref}
               <span class="ielts-question-num">${esc(r.q_num)}</span>
-              ${gapInput(r.q_num)}
+              ${gapInput(r.q_num)}${r.suffix ? ' ' + mdInline(r.suffix) : ''}
             </div>`;
           }
           return `<div class="ielts-form-row">
@@ -767,6 +777,24 @@ function renderFormCompletion(tmpl, questions) {
 
 // ── Table completion ────────────────────────────────────────────────
 
+// One piece of a table cell (or a form row's value): plain text, or a gap with
+// text on either side of it.
+//
+// The paper needs both halves. Cambridge 20 Test 1 Part 1 prints "Good for
+// people who are especially keen on (1) ………" — words BEFORE the input — and
+// "Set lunch costs (9) ……… per person / Portions probably of (10) ……… size",
+// which is one cell holding TWO gaps. A cell limited to {q_num, suffix} can
+// express neither: the leading words vanish and the second gap has nowhere to
+// go. So a cell may also be an ARRAY of these segments.
+function tableGapSegment(seg) {
+  if (seg == null) return '';
+  if (typeof seg !== 'object') return mdInline(seg);
+  if (seg.q_num == null) return mdInline(seg.text || '');
+  return `${seg.prefix ? mdInline(seg.prefix) + ' ' : ''}` +
+         `<span class="ielts-question-num">${esc(seg.q_num)}</span>` +
+         `${gapInput(seg.q_num)}${seg.suffix ? ' ' + mdInline(seg.suffix) : ''}`;
+}
+
 function renderTableCompletion(tmpl, questions) {
   const heading = tmpl.heading || '';
   const headers = Array.isArray(tmpl.headers) ? tmpl.headers : [];
@@ -781,13 +809,11 @@ function renderTableCompletion(tmpl, questions) {
         </thead>
         <tbody>
           ${rows.map((row) => `<tr>${row.map((c) => {
+            if (Array.isArray(c)) {
+              return `<td>${c.map(tableGapSegment).join(' ')}</td>`;
+            }
             if (c && typeof c === 'object' && c.q_num != null) {
-              // A cell may carry a trailing unit/word after the gap
-              // (`9 …… protection`) — render it after the input, not drop it.
-              return `<td>
-                <span class="ielts-question-num">${esc(c.q_num)}</span>
-                ${gapInput(c.q_num)}${c.suffix ? ' ' + mdInline(c.suffix) : ''}
-              </td>`;
+              return `<td>${tableGapSegment(c)}</td>`;
             }
             return `<td>${mdInline(c == null ? '' : c)}</td>`;
           }).join('')}</tr>`).join('')}
