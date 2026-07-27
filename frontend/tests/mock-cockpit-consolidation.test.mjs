@@ -160,3 +160,113 @@ describe('tab theo cấp khoá', () => {
     assert.match(EXAM_CONTENT, /\+ rows\.map\(function \(r\)/);
   });
 });
+
+describe('vỏ cockpit — thiết kế lại (Giai đoạn 4)', () => {
+  const HTML = COCKPIT_HTML;
+
+  test('panel nói ĐANG thao tác trên đề nào', () => {
+    // Two tabs act on ONE class, and the only place that said which was the
+    // rail — an admin scrolled back to check before doing something
+    // irreversible (thu bài, mở phần sau).
+    assert.match(HTML, /id="mt-context"/);
+    assert.match(COCKPIT_JS, /function renderContext\(\)/);
+    // …and it is refreshed on every path that can change the answer
+    for (const call of ['setTab', 'selectExam', 'the exam list resolves']) void call;
+    assert.ok((COCKPIT_JS.match(/renderContext\(\)/g) || []).length >= 4,
+      'renderContext must run on tab change, selection AND first load');
+  });
+
+  test('thanh ngữ cảnh dựng bằng DOM, không nối chuỗi HTML', () => {
+    // Exam codes and titles are admin-authored; innerHTML here would be an
+    // injection surface for a value nobody thinks of as untrusted.
+    const fn = COCKPIT_JS.slice(COCKPIT_JS.indexOf('function renderContext()'));
+    const body = fn.slice(0, fn.indexOf('\n  function ', 1));
+    assert.doesNotMatch(body, /innerHTML/);
+    assert.match(body, /createElement\('span'\)/);
+  });
+
+  test('tab cần chọn đề nói ra ĐIỀU ĐÓ, không chỉ bằng chấm tròn', () => {
+    // A glyph is not an explanation. title= is announced and shows on hover.
+    // EVERY such tab, not "at least one" — a bare `assert.match` here passed
+    // while one of the two tabs had already lost its title.
+    const tabs = HTML.match(/<button[^>]*data-needs-exam[^>]*>/g) || [];
+    assert.ok(tabs.length >= 2, 'expected the live and review tabs to be marked');
+    for (const t of tabs) assert.match(t, /title="Cần chọn một đề/, t);
+    // …and the dot is decoration, so screen readers must not read "bullet".
+    assert.match(HTML, /content: "⦁" \/ ""/);
+  });
+
+  test('một biến duy nhất cho chiều cao khung', () => {
+    // It was written three times and drifted the moment the panel grew a
+    // context bar — frame and empty state then disagreed and the panel jumped.
+    assert.match(HTML, /--mt-chrome:/);
+    assert.doesNotMatch(HTML, /calc\(100vh - 110px\)/);
+  });
+
+  test('focus thấy được trên MỌI control, không riêng tab', () => {
+    const block = HTML.slice(HTML.indexOf('.mt-tab:focus-visible'));
+    const rule = block.slice(0, block.indexOf('}'));
+    for (const sel of ['.mt-chip:focus-visible', '.mt-exam:focus-visible']) {
+      assert.ok(rule.includes(sel), `${sel} has no visible focus`);
+    }
+  });
+
+  test('chip lọc đủ lớn để bấm', () => {
+    // 3px of vertical padding made these ~18px tall — a filter you have to aim at.
+    assert.match(HTML, /\.mt-chip \{[\s\S]{0,400}min-height: 32px/);
+  });
+
+  test('tablist khai báo đủ: selected, controls, và một tabpanel thật', () => {
+    assert.match(HTML, /role="tabpanel"/);
+    assert.match(HTML, /aria-controls="mt-panel-body"/);
+    assert.doesNotMatch(HTML, /aria-controls="mt-frame"/);
+    assert.match(COCKPIT_JS, /setAttribute\('aria-selected'/);
+  });
+
+  test('bàn phím đi được giữa các tab', () => {
+    // role="tablist" promises arrow-key navigation; it did not keep that.
+    assert.match(COCKPIT_JS, /function onTabKey/);
+    assert.match(COCKPIT_JS, /ArrowRight/);
+    assert.match(COCKPIT_JS, /setAttribute\('tabindex', on \? '0' : '-1'\)/);
+  });
+
+  test('chip lọc báo trạng thái cho trình đọc màn hình', () => {
+    assert.match(COCKPIT_JS, /setAttribute\('aria-pressed'/);
+  });
+
+  test('CHỈ data-needs-exam biết tab nào cần đề — JS không kể lại tên tab', () => {
+    // The rule was written three times: the CSS marker, the reload-on-select
+    // branch and the guard in renderFrame(). The dot could then say "pick an
+    // exam" while the guard had stopped asking for one.
+    assert.match(COCKPIT_JS, /function tabNeedsExam\(tab\)/);
+    assert.match(COCKPIT_JS, /hasAttribute\('data-needs-exam'\)/);
+    assert.doesNotMatch(COCKPIT_JS, /=== 'review' \|\| state\.tab === 'live'/);
+  });
+
+  test('panel mang tên của tab đang chọn', () => {
+    // role="tabpanel" with no accessible name drops a screen reader into an
+    // unnamed region that it has to guess the purpose of.
+    assert.match(COCKPIT_JS, /setAttribute\('aria-labelledby', t\.id\)/);
+    for (const t of ['manage', 'live', 'review', 'writing']) {
+      assert.match(HTML, new RegExp(`id="mt-tab-${t}"`), t);
+    }
+  });
+
+  test('mũi tên chỉ dời tiêu điểm, KHÔNG tự mở tab', () => {
+    // Each panel is a whole admin page loading in an iframe. Activating on arrow
+    // would fire three page loads just to walk across the strip.
+    const fn = COCKPIT_JS.slice(COCKPIT_JS.indexOf('function onTabKey'));
+    const body = fn.slice(0, fn.indexOf('\n  function ', 1));
+    assert.doesNotMatch(body, /setTab\(/);
+    assert.match(body, /\.focus\(\)/);
+  });
+
+  test('đề biến khỏi danh sách thì bỏ chọn, không để khung trỏ ID mồ côi', () => {
+    assert.match(COCKPIT_JS, /state\.selectedId = null;/);
+  });
+
+  test('không còn số ma nào cho chiều cao', () => {
+    assert.doesNotMatch(HTML, /calc\(100vh - \d+px\)/);
+    assert.match(HTML, /--mt-rail-chrome:/);
+  });
+});

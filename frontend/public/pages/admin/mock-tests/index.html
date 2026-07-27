@@ -40,13 +40,16 @@
     .mt-filters { display: flex; flex-wrap: wrap; gap: var(--av-space-1);
       padding: 0 var(--av-space-4) var(--av-space-3); }
     .mt-chip { font-size: var(--av-fs-xs); font-weight: var(--av-fw-medium);
-      padding: 3px var(--av-space-2); border-radius: var(--av-radius-pill);
+      /* 3px of vertical padding made this ~18px tall — a filter you have to aim
+         at. Height, not padding, so the pill keeps its shape. */
+      padding: 0 var(--av-space-3); min-height: 32px; display: inline-flex;
+      align-items: center; border-radius: var(--av-radius-pill);
       border: 1px solid var(--av-border-default); background: var(--av-surface-sunken);
       color: var(--av-text-secondary); cursor: pointer; }
     .mt-chip.is-active { background: var(--av-primary-soft); color: var(--av-primary);
       border-color: var(--av-primary-border); }
     .mt-list { list-style: none; margin: 0; padding: 0 var(--av-space-2) var(--av-space-3);
-      max-height: calc(100vh - 200px); overflow-y: auto; }
+      max-height: calc(100vh - var(--mt-rail-chrome)); overflow-y: auto; }
     .mt-exam { display: block; width: 100%; text-align: left; cursor: pointer;
       padding: var(--av-space-3); border: 1px solid transparent; border-radius: var(--av-radius-md);
       background: none; color: inherit; font: inherit; }
@@ -72,7 +75,7 @@
 
     /* Panel: tab bar + embedded surface */
     .mt-panel { background: var(--av-surface-card); border: 1px solid var(--av-border-default);
-      border-radius: var(--av-radius-lg); overflow: hidden; min-height: calc(100vh - 48px);
+      border-radius: var(--av-radius-lg); overflow: hidden; min-height: calc(100vh - var(--mt-page-chrome));
       display: flex; flex-direction: column; }
     .mt-tabs { display: flex; gap: 2px; padding: var(--av-space-2) var(--av-space-3) 0;
       border-bottom: 1px solid var(--av-border-default); }
@@ -82,13 +85,44 @@
       border-bottom: 2px solid transparent; margin-bottom: -1px; }
     .mt-tab:hover { color: var(--av-text-primary); background: var(--av-surface-sunken); }
     .mt-tab.is-active { color: var(--av-primary); border-bottom-color: var(--av-primary); }
-    .mt-tab:focus-visible { outline: none; box-shadow: var(--av-shadow-focus); }
+    /* Visible focus on EVERY control, not just the tabs: the rail buttons and the
+       stage chips are reachable by keyboard too, and a focus you cannot see is
+       the same as no focus. */
+    .mt-tab:focus-visible,
+    .mt-chip:focus-visible,
+    .mt-exam:focus-visible { outline: none; box-shadow: var(--av-shadow-focus); }
 
+    /* ONE number for the chrome the cockpit sits under. It was written three
+       times (110px twice, 200px once) and they drifted apart the moment the
+       panel grew a context bar — the frame and its empty state then disagreed
+       on height and the panel jumped when you switched tabs. */
+    .mt-cockpit {
+      /* The page padding the whole cockpit sits inside. */
+      --mt-page-chrome: 48px;
+      --mt-chrome: 110px;
+      /* The rail sits under its own title and filter chips, so its offset is
+         genuinely larger than the panel's — named, not left as a bare 200px. */
+      --mt-rail-chrome: 200px; }
     .mt-frame-wrap { position: relative; flex: 1; }
-    .mt-frame { width: 100%; height: 100%; min-height: calc(100vh - 110px); border: 0; display: block; }
+    .mt-frame { width: 100%; height: 100%; min-height: calc(100vh - var(--mt-chrome));
+      border: 0; display: block; }
     .mt-need-exam { display: flex; align-items: center; justify-content: center;
-      height: calc(100vh - 110px); padding: var(--av-space-8); text-align: center;
+      height: calc(100vh - var(--mt-chrome)); padding: var(--av-space-8); text-align: center;
       color: var(--av-text-muted); font-size: var(--av-fs-sm); }
+    /* Context bar — quiet by design: it is orientation, not a heading. */
+    .mt-context { display: flex; align-items: center; gap: var(--av-space-2);
+      padding: var(--av-space-2) var(--av-space-4);
+      border-bottom: 1px solid var(--av-border-subtle);
+      background: var(--av-surface-sunken); font-size: var(--av-fs-xs);
+      color: var(--av-text-secondary); }
+    .mt-context__code { font-weight: var(--av-fw-semibold); color: var(--av-text-primary); }
+    .mt-context__title { color: var(--av-text-muted); min-width: 0; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap; }
+    /* A tab that needs a class selected says so BEFORE it is clicked — otherwise
+       the only way to find out is to land on an empty state. */
+    .mt-tab[data-needs-exam]::before { content: "⦁" / ""; margin-right: 4px;
+      color: var(--av-text-faint); }
+    .mt-tab[data-needs-exam].is-active::before { color: var(--av-primary); }
     /* This page never loads tailwind.build.css, where .hidden is defined — so
        every classList.add('hidden') here did NOTHING. Measured: #mt-need-exam
        stayed 687px tall (the mysterious blank area under the roster) and
@@ -99,7 +133,8 @@
     .hidden { display: none !important; }
 
     @media (max-width: 900px) {
-      .mt-cockpit { grid-template-columns: 1fr; padding: var(--av-space-4); }
+      .mt-cockpit { grid-template-columns: 1fr; padding: var(--av-space-4);
+        --mt-chrome: 0px; }
       .mt-rail { position: static; }
       .mt-list { max-height: 300px; }
       .mt-frame, .mt-need-exam { min-height: 70vh; }
@@ -116,10 +151,10 @@
           <span class="mt-rail__count" id="mt-count"></span>
         </div>
         <div class="mt-filters" id="mt-filters">
-          <button type="button" class="mt-chip is-active" data-stage="all">Tất cả</button>
-          <button type="button" class="mt-chip" data-stage="draft">Nháp</button>
-          <button type="button" class="mt-chip" data-stage="live">Đang thi</button>
-          <button type="button" class="mt-chip" data-stage="closed">Đã đóng</button>
+          <button type="button" class="mt-chip is-active" data-stage="all" aria-pressed="true">Tất cả</button>
+          <button type="button" class="mt-chip" data-stage="draft" aria-pressed="false">Nháp</button>
+          <button type="button" class="mt-chip" data-stage="live" aria-pressed="false">Đang thi</button>
+          <button type="button" class="mt-chip" data-stage="closed" aria-pressed="false">Đã đóng</button>
         </div>
         <p class="mt-rail__loading" id="mt-loading">Đang tải…</p>
         <p class="mt-rail__empty hidden" id="mt-empty">Chưa có đề nào.</p>
@@ -129,12 +164,26 @@
       <!-- Tabbed panel -->
       <section class="mt-panel">
         <nav class="mt-tabs" role="tablist" aria-label="Mock Test">
-          <button type="button" class="mt-tab is-active" data-tab="manage" role="tab">Quản lý đề</button>
-          <button type="button" class="mt-tab" data-tab="live" role="tab">Phòng thi trực tiếp</button>
-          <button type="button" class="mt-tab" data-tab="review" role="tab">Duyệt bài thi</button>
-          <button type="button" class="mt-tab" data-tab="writing" role="tab">Chấm Writing</button>
+          <button type="button" class="mt-tab is-active" id="mt-tab-manage" data-tab="manage" role="tab"
+                  aria-selected="true" aria-controls="mt-panel-body">Quản lý đề</button>
+          <!-- data-needs-exam is read by BOTH the CSS (the ⦁ marker) and the JS
+               (which tabs require a selection). One source, so the dot cannot
+               say one thing while the behaviour does another. -->
+          <button type="button" class="mt-tab" id="mt-tab-live" data-tab="live" role="tab" data-needs-exam
+                  title="Cần chọn một đề ở danh sách bên trái"
+                  aria-selected="false" aria-controls="mt-panel-body" tabindex="-1">Phòng thi trực tiếp</button>
+          <button type="button" class="mt-tab" id="mt-tab-review" data-tab="review" role="tab" data-needs-exam
+                  title="Cần chọn một đề ở danh sách bên trái"
+                  aria-selected="false" aria-controls="mt-panel-body" tabindex="-1">Duyệt bài thi</button>
+          <button type="button" class="mt-tab" id="mt-tab-writing" data-tab="writing" role="tab"
+                  aria-selected="false" aria-controls="mt-panel-body" tabindex="-1">Chấm Writing</button>
         </nav>
-        <div class="mt-frame-wrap">
+        <!-- Which exam this panel is acting on. Two tabs (phòng thi trực tiếp,
+             duyệt bài) operate on ONE class, and the only place that said which
+             was the rail — so an admin scrolled back to check before doing
+             something irreversible. The panel now says it where the action is. -->
+        <div class="mt-context" id="mt-context" hidden></div>
+        <div class="mt-frame-wrap" id="mt-panel-body" role="tabpanel" tabindex="0">
           <iframe class="mt-frame hidden" id="mt-frame" title="Mock Test"></iframe>
           <div class="mt-need-exam hidden" id="mt-need-exam">Chọn một đề ở danh sách bên trái để duyệt bài thi.</div>
         </div>
