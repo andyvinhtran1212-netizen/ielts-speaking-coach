@@ -1,0 +1,107 @@
+{
+  "_why": "Ghim parser <-> renderer. Test Python dung 'markdown' chay lai bo trich va so voi 'template'; test JS dung 'template' cho qua bo render va doi moi o trong deu ra mot o nhap. Lech mot ben la mot trong hai test do.",
+  "q_range": [
+    1,
+    10
+  ],
+  "table": {
+    "markdown": "| Name of restaurant | Location | Reason for recommendation | Other comments |\n| --- | --- | --- | --- |\n| The Junction | Greyson Street, near the station | Good for people who are especially keen on 1 ………… | Quite expensive. The 2 ………… is a good place for a drink |\n| The 5 ………… | At the top of a 6 ………… | A famous chef | Set lunch costs 9 ………… per person. Portions probably of 10 ………… size |\n| Optional service | 9 …………… protection | Passport | 7 …………… |\n",
+    "template": {
+      "heading": "",
+      "headers": [
+        "Name of restaurant",
+        "Location",
+        "Reason for recommendation",
+        "Other comments"
+      ],
+      "rows": [
+        [
+          "The Junction",
+          "Greyson Street, near the station",
+          [
+            "Good for people who are especially keen on",
+            {
+              "q_num": 1
+            }
+          ],
+          [
+            "Quite expensive. The",
+            {
+              "q_num": 2
+            },
+            "is a good place for a drink"
+          ]
+        ],
+        [
+          [
+            "The",
+            {
+              "q_num": 5
+            }
+          ],
+          [
+            "At the top of a",
+            {
+              "q_num": 6
+            }
+          ],
+          "A famous chef",
+          [
+            "Set lunch costs",
+            {
+              "q_num": 9
+            },
+            "per person. Portions probably of",
+            {
+              "q_num": 10
+            },
+            "size"
+          ]
+        ],
+        [
+          "Optional service",
+          {
+            "q_num": 9,
+            "suffix": "protection"
+          },
+          "Passport",
+          {
+            "q_num": 7
+          }
+        ]
+      ]
+    }
+  },
+  "form": {
+    "markdown": "- **Name:** _Daniel Brennan (Example)_\n- **Nationality:** **1** …………\n- **Reason for visit:** business (to buy antique **2** ………… )\n- Cost (with early-bird discount): £ **5** …………\n",
+    "template": {
+      "heading": "",
+      "rows": [
+        {
+          "label": "Name",
+          "example": "Daniel Brennan"
+        },
+        {
+          "label": "Nationality",
+          "q_num": 1,
+          "prefix": ""
+        },
+        {
+          "label": "Reason for visit",
+          "segments": [
+            "business (to buy antique",
+            {
+              "q_num": 2
+            },
+            ")"
+          ]
+        },
+        {
+          "label": "Cost (with early-bird discount)",
+          "q_num": 5,
+          "prefix": "£"
+        }
+      ]
+    }
+  }
+}

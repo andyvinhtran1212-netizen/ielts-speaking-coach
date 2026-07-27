@@ -15,6 +15,8 @@ unchanged downstream.
 from __future__ import annotations
 
 import asyncio
+import json
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -2093,3 +2095,52 @@ def test_p2_footer_cut_is_noop_for_fulltest_end_of_paper():
     )
     out = lc._LESSON_FOOTER_RE.split(text, maxsplit=1)
     assert len(out) == 1  # nothing cut
+
+
+def test_segment_fixture_matches_extractor_output():
+    """Parser half of the parser↔renderer contract.
+
+    A Cambridge table cell is not limited to one gap at its start ("Good for
+    people who are especially keen on 1 …………", "Set lunch costs 9 ………… per
+    person. Portions probably of 10 ………… size"), and a form line can carry text
+    after its gap. Both now come out as segment lists.
+
+    The same fixture is rendered by frontend/tests/listening-test-player.test.mjs.
+    If the extractor's shape drifts, this test fails; if the renderer stops
+    understanding that shape, the JS one does. Neither can drift alone.
+    """
+    fixture = json.loads(
+        (Path(__file__).resolve().parents[2] / "frontend" / "tests" / "fixtures"
+         / "listening-segment-templates.json").read_text(encoding="utf-8")
+    )
+    lo, hi = fixture["q_range"]
+    in_range = lambda n: lo <= n <= hi  # noqa: E731
+
+    assert lc._extract_table_template(
+        fixture["table"]["markdown"], in_range) == fixture["table"]["template"]
+    assert lc._extract_form_template(
+        fixture["form"]["markdown"], in_range) == fixture["form"]["template"]
+
+
+def test_table_cell_gap_needs_a_real_blank_run():
+    """Unanchoring the cell-gap pattern must not turn prose into a gap.
+
+    The pattern used to be anchored at the start of the cell, which made a
+    stray "..." harmless. Now that a gap may appear anywhere in the cell, an
+    ordinary three-dot ellipsis has to stay text or "step 4 ... then" would
+    silently become question 4.
+    """
+    body = "| A | B |\n|---|---|\n| step 4 ... then stop | plain |\n"
+    tmpl = lc._extract_table_template(body, lambda n: 1 <= n <= 10)
+    assert tmpl["rows"] == [["step 4 ... then stop", "plain"]]
+
+
+def test_form_label_does_not_leak_bold_markers():
+    """"- **Nationality:** **1** …" splits on the FIRST colon, stranding the
+    bold markers on both sides. Unstripped they are shown to the student."""
+    tmpl = lc._extract_form_template(
+        "- **Nationality:** **1** …………\n", lambda n: n == 1)
+    row = tmpl["rows"][0]
+    assert row["label"] == "Nationality"
+    assert row["q_num"] == 1
+    assert row["prefix"] == ""
