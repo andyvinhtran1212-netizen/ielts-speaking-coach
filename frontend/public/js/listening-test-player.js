@@ -736,7 +736,13 @@ function renderFormCompletion(tmpl, questions) {
       ${heading ? `<div class="ielts-form-heading">${esc(heading)}</div>` : ''}
       <div class="ielts-form-grid">
         ${rows.map((r) => {
-          const label = `<span class="ielts-form-label">${mdInline(r.label || '')}:</span>`;
+          // A form can hold lines that are plain sentences rather than
+          // label/value pairs — Cambridge 21 Test 4 Part 1 ends with "Likes the
+          // (9) ……… best". Forcing a label onto one splits the sentence with a
+          // colon ("Likes the: 9 ___ best"), so an empty label renders nothing.
+          const label = r.label
+            ? `<span class="ielts-form-label">${mdInline(r.label)}:</span>`
+            : '';
           if (r.example != null) {
             return `<div class="ielts-form-row">
               ${label}

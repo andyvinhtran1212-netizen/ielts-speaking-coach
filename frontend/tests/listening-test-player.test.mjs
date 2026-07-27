@@ -1330,3 +1330,28 @@ describe('listening-parser-render — segment fixture renders end to end', () =>
               'cần hàng biểu mẫu dạng segments');
   });
 });
+
+describe('listening-parser-render — a form line need not be a label/value pair', () => {
+  it('an empty label renders no colon, so a sentence stays a sentence', () => {
+    const src = JS.match(/function tableGapSegment\([\s\S]*?\n\}/)[0] + '\n' +
+                JS.match(/function renderFormCompletion\([\s\S]*?\n\}/)[0];
+    const renderFormCompletion = new Function(
+      'esc', 'mdInline', 'gapInput', 'renderFallback',
+      src + '; return renderFormCompletion;',
+    )((x) => String(x), (x) => String(x),
+      (n) => `<input data-q="${n}">`, () => 'FALLBACK');
+    const html = renderFormCompletion(
+      { rows: [
+        { label: '', segments: ['Likes the', { q_num: 9 }, 'best'] },
+        { label: 'Name', q_num: 1, prefix: 'Martyn' },
+      ] },
+      [{ q_num: 1 }, { q_num: 9 }],
+    );
+    // the sentence row carries no label chrome at all …
+    assert.match(html, /Likes the\s*<span[^>]*>9<\/span><input data-q="9">\s*best/);
+    assert.doesNotMatch(html, /Likes the<\/span>/);
+    // … while a real label still gets its colon
+    assert.match(html, /ielts-form-label">Name:<\/span>/);
+    assert.doesNotMatch(html, /undefined/);
+  });
+});
