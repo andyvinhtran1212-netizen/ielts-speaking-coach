@@ -3709,6 +3709,57 @@ def _pacing_payload(sitting: dict, exam: dict, names: dict, sections: dict) -> d
     }
 
 
+def live_exams_using(kind: str, content_id) -> list[dict]:
+    """Kỳ thi CHƯA lưu trữ đang dùng nội dung này — [{id, code}].
+
+    Powers the refusal when an admin tries to hand a reserved paper back to the
+    student library. Returning the exams, not a bool, is the point: "không trả
+    về được" with no reason makes the admin guess which exam to archive first.
+
+    ARCHIVED exams deliberately do NOT count (decided 2026-07-27). That means a
+    paper from a finished, archived exam CAN go back to the library — and the
+    next cohort could then practise exactly what the last one sat. The button
+    says so before it acts; the decision to allow it is the operator's.
+
+    Fail CLOSED: unable to prove nothing is using it is not the same as proving
+    nothing is.
+    """
+    col = {
+        "reading":   ("reading_test_id",),
+        "listening": ("listening_test_id",),
+        "writing":   ("writing_task1_prompt_id", "writing_task2_prompt_id"),
+    }.get(kind)
+    if not col or not content_id:
+        raise ValueError(f"kind không hợp lệ: {kind!r}")
+    try:
+        rows = supabase_admin.table("mock_exams").select(
+            "id, code, status, " + ", ".join(col),
+        ).neq("status", "archived").execute().data or []
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("[mock-exam] live-exam lookup failed %s/%s", kind, content_id)
+        raise MockExamError(
+            "Không kiểm tra được đề này có đang dùng cho kỳ thi nào không — "
+            "chưa trả về thư viện được. Thử lại sau giây lát."
+        ) from exc
+    return [
+        {"id": r["id"], "code": r.get("code")}
+        for r in rows
+        if any(str(r.get(c) or "") == str(content_id) for c in col)
+    ]
+
+
+def assert_can_unreserve(kind: str, content_id) -> None:
+    """Raise if handing this content back to the library would pull a paper out
+    from under a live exam."""
+    live = live_exams_using(kind, content_id)
+    if live:
+        names = ", ".join(x["code"] or x["id"] for x in live)
+        raise SittingConflictError(
+            f"Không trả về thư viện được: đề này đang được kỳ thi {names} sử dụng. "
+            "Lưu trữ kỳ thi đó trước, hoặc đổi đề của kỳ thi."
+        )
+
+
 def reserved_test_ids(kind: str) -> set:
     """Reading/listening test ids assigned to any non-archived mock exam.
 

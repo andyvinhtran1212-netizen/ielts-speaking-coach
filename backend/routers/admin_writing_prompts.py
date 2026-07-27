@@ -272,6 +272,14 @@ async def update_prompt(
              if v is not None}
     if not patch:
         raise HTTPException(400, "No fields to update")
+    if patch.get("exam_only") is False:
+        from services import mock_exam_service
+        try:
+            mock_exam_service.assert_can_unreserve("writing", prompt_id)
+        except mock_exam_service.SittingConflictError as e:
+            raise HTTPException(409, str(e))
+        except mock_exam_service.MockExamError as e:
+            raise HTTPException(503, str(e))
 
     r = (
         supabase_admin.table("writing_prompts")

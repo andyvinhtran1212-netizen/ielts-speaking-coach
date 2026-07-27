@@ -100,6 +100,7 @@ def _normalise_l3_test_row(r: dict) -> dict:
         "difficulty_level": r.get("module"),
         "skill_focus":      summary,
         "topic_tags":       [],
+        "exam_only":        bool(r.get("exam_only")),
         "updated_at":       r.get("updated_at"),
         "created_at":       r.get("created_at"),
         # reading-access-tracking F1 — surface lock state for the admin row
@@ -121,7 +122,10 @@ def _l3_test_rows(status: str | None) -> list[dict]:
         supabase_admin.table("reading_tests")
         .select(
             "id,test_id,title,module,time_limit_minutes,passage_count,"
-            "total_questions,band_target,status,updated_at,created_at,metadata",
+            # exam_only: the admin list renders the reserve/release button, and a
+            # button that cannot see the current state renders the wrong label.
+            "total_questions,band_target,status,updated_at,created_at,metadata,"
+            "exam_only",
         )
         .order("updated_at", desc=True)
     )
@@ -163,7 +167,10 @@ async def list_reading_content(
             supabase_admin.table("reading_tests")
             .select(
                 "id,test_id,title,module,time_limit_minutes,passage_count,"
-                "total_questions,band_target,status,updated_at,created_at,metadata",
+                # exam_only: the admin list renders the reserve/release button, and a
+            # button that cannot see the current state renders the wrong label.
+            "total_questions,band_target,status,updated_at,created_at,metadata,"
+            "exam_only",
                 count="exact",
             )
             .order("updated_at", desc=True)
@@ -827,6 +834,22 @@ async def admin_set_reading_exam_only(
     """
     await require_admin(authorization)
     value = bool(body.get("exam_only"))
+    if not value:
+        # Handing it back to the library while a live exam still binds it would
+        # publish that exam's paper to the students about to sit it.
+        row = (
+            supabase_admin.table("reading_tests").select("id")
+            .eq("test_id", test_id).limit(1).execute().data or []
+        )
+        if not row:
+            raise HTTPException(404, f"Không tìm thấy đề đọc '{test_id}'.")
+        from services import mock_exam_service
+        try:
+            mock_exam_service.assert_can_unreserve("reading", row[0]["id"])
+        except mock_exam_service.SittingConflictError as e:
+            raise HTTPException(409, str(e))
+        except mock_exam_service.MockExamError as e:
+            raise HTTPException(503, str(e))
     resp = (
         supabase_admin.table("reading_tests")
         .update({"exam_only": value})

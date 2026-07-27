@@ -82,7 +82,7 @@ describe('Item 2 — L3 grouped as test rows (consistent + 404-safe)', () => {
   });
 
   test('delete gated on library — no footgun (no passage rows to mis-delete a test from)', () => {
-    assert.match(listJs, /if\s*\(\s*it\.library === 'l3_test' && it\.slug\s*\)[\s\S]{0,900}data-action="delete-test"/);
+    assert.match(listJs, /if\s*\(\s*it\.library === 'l3_test' && it\.slug\s*\)[\s\S]{0,1800}data-action="delete-test"/);
   });
 
   test('#363 404-safety holds: L3 slug IS the test_id (backend), never a passage slug', () => {

@@ -38,7 +38,7 @@ describe('Item 1 — preview link never passes a passage slug as test_id', () =>
     // confuse — gating on it.library is now correct + unambiguous.
     assert.match(
       listJs,
-      /it\.library === 'l3_test' && it\.slug[\s\S]{0,800}data-action="delete-test"/,
+      /it\.library === 'l3_test' && it\.slug[\s\S]{0,1800}data-action="delete-test"/,
     );
     // The old tab-gating + parent_test_id mechanism is gone from the action site.
     assert.ok(!/STATE\.libraryFilter\s*===\s*['"]l3_test['"]/.test(listJs),

@@ -26,6 +26,10 @@
   // Frame source per tab. `review` needs a selected exam; the others don't.
   var FRAME = {
     manage:  function () { return '/pages/admin/mock-exams/index.html?embed=1'; },
+    // The invigilator console. Scoped to the selected exam like `review` — a
+    // console that opens on somebody else's classroom is worse than one that
+    // asks which class you mean (the page itself refuses a wrong ?exam_id=).
+    live:    function (id) { return id ? '/pages/admin/mock-live/index.html?exam_id=' + encodeURIComponent(id) + '&embed=1' : null; },
     review:  function (id) { return id ? '/pages/admin/mock-reviews/index.html?mock_exam_id=' + encodeURIComponent(id) + '&embed=1' : null; },
     writing: function () { return '/pages/admin/writing/queue.html?embed=1&mocklane=1'; },
   };
@@ -69,7 +73,7 @@
   function selectExam(id) {
     state.selectedId = id;
     renderRail();
-    if (state.tab === 'review') renderFrame();
+    if (state.tab === 'review' || state.tab === 'live') renderFrame();
   }
 
   // Where the frame ACTUALLY is — which is not what its src attribute says. The
@@ -100,8 +104,18 @@
 
   function renderFrame() {
     var frame = $('mt-frame'), need = $('mt-need-exam');
-    var src = state.tab === 'review' ? FRAME.review(state.selectedId) : FRAME[state.tab]();
-    if (!src) { frame.classList.add('hidden'); need.classList.remove('hidden'); return; }
+    // `review` and `live` both need an exam; the others do not.
+    var needsExam = state.tab === 'review' || state.tab === 'live';
+    var src = needsExam ? FRAME[state.tab](state.selectedId) : FRAME[state.tab]();
+    if (!src) {
+      // Name the tab being asked about — "để duyệt bài thi" on the live console
+      // tab sends the admin looking for the wrong thing.
+      need.textContent = 'Chọn một đề ở danh sách bên trái để '
+        + (state.tab === 'live' ? 'mở phòng thi trực tiếp.' : 'duyệt bài thi.');
+      frame.classList.add('hidden');
+      need.classList.remove('hidden');
+      return;
+    }
     need.classList.add('hidden');
     frame.classList.remove('hidden');
     if (frameAt(frame) !== src) loadFrame(frame, src);

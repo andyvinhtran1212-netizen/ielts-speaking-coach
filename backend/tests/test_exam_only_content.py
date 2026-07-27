@@ -525,3 +525,115 @@ def test_a_draft_exam_grants_nothing_unsat(patched_db):
                [{"id": "s1", "user_id": "u1", "mock_exam_id": "e1",
                  "status": "lrw_in_progress"}])
     assert svc_mod.user_may_open_exam_content("u1", "reading", "rt1") is False
+
+
+# ── Trả đề về thư viện: chặn khi còn kỳ thi SỐNG dùng nó ──────────────
+#
+# The convert button works both ways, and the reverse direction is the dangerous
+# one: un-reserving a paper a live exam still binds publishes that exam's paper
+# to the very students about to sit it. Archived exams deliberately do NOT block
+# (decided 2026-07-27) — that is an operator call, and the button says so.
+
+
+LIVE_EXAMS = [
+    {"id": "e1", "code": "MOCK-A", "status": "published",
+     "reading_test_id": "rt1", "listening_test_id": "lt1",
+     "writing_task1_prompt_id": "wp1", "writing_task2_prompt_id": None},
+    {"id": "e2", "code": "OLD", "status": "archived",
+     "reading_test_id": "rt-old", "listening_test_id": None,
+     "writing_task1_prompt_id": None, "writing_task2_prompt_id": "wp-old"},
+]
+
+
+@pytest.fixture()
+def exams_db(monkeypatch):
+    def _install(rows, fail=False):
+        monkeypatch.setattr(svc_mod, "supabase_admin", _DB(rows, [], fail))
+    return _install
+
+
+@pytest.mark.parametrize("kind,cid", [
+    ("reading", "rt1"), ("listening", "lt1"), ("writing", "wp1"),
+])
+def test_a_live_exam_blocks_the_paper_going_back(exams_db, kind, cid):
+    exams_db(LIVE_EXAMS)
+    with pytest.raises(svc_mod.SittingConflictError) as ei:
+        svc_mod.assert_can_unreserve(kind, cid)
+    # …and NAMES the exam: "cannot un-reserve" with no reason makes the admin
+    # guess which exam to archive first.
+    assert "MOCK-A" in str(ei.value)
+
+
+@pytest.mark.parametrize("kind,cid", [
+    ("reading", "rt-old"), ("writing", "wp-old"),
+])
+def test_an_archived_exam_does_not_block(exams_db, kind, cid):
+    exams_db(LIVE_EXAMS)
+    svc_mod.assert_can_unreserve(kind, cid)      # no raise
+
+
+def test_content_no_exam_uses_goes_back_freely(exams_db):
+    exams_db(LIVE_EXAMS)
+    svc_mod.assert_can_unreserve("reading", "rt-unused")
+
+
+def test_both_writing_prompt_slots_are_checked(exams_db):
+    """An exam binds Task 1 AND Task 2 — checking only one slot would let the
+    other be pulled out from under a live exam."""
+    exams_db([{"id": "e1", "code": "MOCK-A", "status": "published",
+               "writing_task1_prompt_id": None, "writing_task2_prompt_id": "wp2"}])
+    with pytest.raises(svc_mod.SittingConflictError):
+        svc_mod.assert_can_unreserve("writing", "wp2")
+
+
+def test_a_lookup_failure_refuses_rather_than_allows(exams_db):
+    """Fail CLOSED: unable to prove nothing uses it is not proof nothing does."""
+    exams_db(LIVE_EXAMS, fail=True)
+    with pytest.raises(svc_mod.MockExamError):
+        svc_mod.assert_can_unreserve("reading", "rt1")
+
+
+def test_an_unknown_kind_is_a_programming_error_not_a_pass(exams_db):
+    exams_db(LIVE_EXAMS)
+    with pytest.raises(ValueError):
+        svc_mod.assert_can_unreserve("speaking", "x1")
+
+
+def test_all_three_endpoints_enforce_it_not_just_one():
+    """The rule lives at the source. A guard on one route is a guard the other
+    two routes route around."""
+    for rel, marker in (
+        ("routers/admin_reading.py", 'assert_can_unreserve("reading"'),
+        ("routers/listening.py", 'assert_can_unreserve("listening"'),
+        ("routers/admin_writing_prompts.py", 'assert_can_unreserve("writing"'),
+    ):
+        src = _src(rel)
+        assert marker in src, rel
+        assert "HTTPException(409" in src, f"{rel} must surface the refusal as 409"
+
+
+def test_turning_the_flag_ON_is_never_blocked():
+    """Reserving a paper is always safe — only releasing one can hurt."""
+    FALSE_GUARDS = ("if not value:", "if not body.exam_only:",
+                    'if patch.get("exam_only") is False:')
+    for rel in ("routers/admin_reading.py", "routers/listening.py",
+                "routers/admin_writing_prompts.py"):
+        lines = _src(rel).splitlines()
+        call = next(i for i, l in enumerate(lines) if "assert_can_unreserve(" in l)
+        # Walk BACK to the nearest line that is less indented than the call and
+        # opens an `if` — that is the branch the call actually sits in. A
+        # fixed-size text window guesses; this reads the structure, and the
+        # reading route has a whole lookup block between guard and call.
+        depth = len(lines[call]) - len(lines[call].lstrip())
+        guard = None
+        for i in range(call - 1, -1, -1):
+            l = lines[i]
+            if not l.strip():
+                continue
+            ind = len(l) - len(l.lstrip())
+            if ind < depth and l.lstrip().startswith("if "):
+                guard = l.strip()
+                break
+            if ind < depth:
+                depth = ind
+        assert guard in FALSE_GUARDS, f"{rel}: guarded by {guard!r}, not a false-check"

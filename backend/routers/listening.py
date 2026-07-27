@@ -1887,6 +1887,14 @@ async def admin_patch_listening_test(
         update["title"] = title
 
     if body.exam_only is not None:
+        if not body.exam_only:
+            from services import mock_exam_service
+            try:
+                mock_exam_service.assert_can_unreserve("listening", test_id)
+            except mock_exam_service.SittingConflictError as e:
+                raise HTTPException(409, str(e))
+            except mock_exam_service.MockExamError as e:
+                raise HTTPException(503, str(e))
         update["exam_only"] = bool(body.exam_only)
 
     if body.version is not None:
