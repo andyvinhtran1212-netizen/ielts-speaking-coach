@@ -872,3 +872,107 @@ def test_get_attempt_returns_grading(monkeypatch):
     assert out["score"] == 33
     assert out["band_estimate"] == 7.5
     assert out["trap_analytics"]["paraphrase_t0"]["caught"] == 5
+
+
+# ── "Choose TWO" khi đáp án lưu cả cặp vào từng dòng ────────────────────
+#
+# The tests above build the key the way the grader WANTED it (one letter per
+# slot). The Cambridge importer wrote the other shape — the whole set repeated
+# in every row — and nothing here ever exercised it, so a grader that could not
+# score a single one of those questions stayed green for months.
+#
+# Real damage: C2-FINAL-20260726 (Cambridge 15 Test 4) scored 0/14 students on
+# each of Q17-20. Students who picked exactly the right two letters were marked
+# wrong on both.
+
+
+def _mm_key_wholeset(pair=("A", "D"), qs=(17, 18)):
+    """The shape found in prod: every row carries the group's FULL set."""
+    both = ", ".join(pair)
+    rows = [{
+        "payload": {
+            "template_kind": "mcq_multi",
+            "answers": [{"q_num": q, "answer": both} for q in qs],
+        },
+    }]
+    return grader.collect_answer_key(rows)
+
+
+def test_mm_wholeset_both_letters_score_two():
+    ak = _mm_key_wholeset()
+    res = grader.grade_attempt(
+        [{"q_num": 17, "user_answer": "A"}, {"q_num": 18, "user_answer": "D"}], ak)
+    assert res["score"] == 2, "picking exactly the expected two letters must score 2"
+    assert [q["correct"] for q in res["per_question"]] == [True, True]
+
+
+def test_mm_wholeset_any_order():
+    ak = _mm_key_wholeset()
+    res = grader.grade_attempt(
+        [{"q_num": 17, "user_answer": "D"}, {"q_num": 18, "user_answer": "A"}], ak)
+    assert res["score"] == 2, "the player fills slots in click order, not key order"
+
+
+def test_mm_wholeset_one_right_one_wrong():
+    ak = _mm_key_wholeset()
+    res = grader.grade_attempt(
+        [{"q_num": 17, "user_answer": "D"}, {"q_num": 18, "user_answer": "E"}], ak)
+    assert res["score"] == 1
+
+
+def test_mm_wholeset_duplicate_pick_counts_once():
+    # Each expected letter is consumable once — two A's are not two marks.
+    ak = _mm_key_wholeset()
+    res = grader.grade_attempt(
+        [{"q_num": 17, "user_answer": "A"}, {"q_num": 18, "user_answer": "A"}], ak)
+    assert res["score"] == 1
+
+
+def test_mm_wholeset_blank_scores_zero():
+    ak = _mm_key_wholeset()
+    res = grader.grade_attempt(
+        [{"q_num": 17, "user_answer": ""}, {"q_num": 18, "user_answer": ""}], ak)
+    assert res["score"] == 0
+
+
+def test_mm_wholeset_case_and_spacing_insensitive():
+    ak = _mm_key_wholeset()
+    res = grader.grade_attempt(
+        [{"q_num": 17, "user_answer": " a "}, {"q_num": 18, "user_answer": "d"}], ak)
+    assert res["score"] == 2
+
+
+def test_mm_mismatched_set_falls_back_not_guesses():
+    """A set whose size does not match the slot count is data we do not
+    understand — read each row as its own answer rather than inventing a rule."""
+    rows = [{
+        "payload": {
+            "template_kind": "mcq_multi",
+            "answers": [
+                {"q_num": 17, "answer": "A, D"},
+                {"q_num": 18, "answer": "A, D"},
+                {"q_num": 19, "answer": "A, D"},
+            ],
+        },
+    }]
+    ak = grader.collect_answer_key(rows)
+    res = grader.grade_attempt(
+        [{"q_num": 17, "user_answer": "A"}, {"q_num": 18, "user_answer": "D"},
+         {"q_num": 19, "user_answer": "A"}], ak)
+    assert res["score"] == 0, "3 slots vs a 2-letter set: do not collapse"
+
+
+def test_mm_rows_disagreeing_fall_back():
+    rows = [{
+        "payload": {
+            "template_kind": "mcq_multi",
+            "answers": [
+                {"q_num": 17, "answer": "A, D"},
+                {"q_num": 18, "answer": "B, C"},
+            ],
+        },
+    }]
+    ak = grader.collect_answer_key(rows)
+    res = grader.grade_attempt(
+        [{"q_num": 17, "user_answer": "A"}, {"q_num": 18, "user_answer": "D"}], ak)
+    assert res["score"] == 0, "rows must agree before their set is trusted"

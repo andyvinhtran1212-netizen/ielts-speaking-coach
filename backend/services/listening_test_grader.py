@@ -130,6 +130,42 @@ def normalize_answer(raw: str | None) -> str:
     return " ".join(tokens)
 
 
+_LETTER_SET_RE = re.compile(r"^[A-H](\s*,\s*[A-H])+$", re.IGNORECASE)
+
+
+def _letter_set(raw: str | None) -> list[str] | None:
+    """"A, D" → ["a", "d"]. Anything else → None."""
+    s = str(raw or "").strip()
+    if not _LETTER_SET_RE.match(s):
+        return None
+    return [p.strip().lower() for p in s.split(",")]
+
+
+def _expected_letters(grp: list[dict[str, Any]]) -> list[str]:
+    """The letters a "Choose TWO" group expects, as a consumable multiset.
+
+    Two shapes exist in the corpus and BOTH are graded here:
+
+      per-slot   Q17.answer = "A"     Q18.answer = "D"
+      whole-set  Q17.answer = "A, D"  Q18.answer = "A, D"
+
+    The whole-set shape is what the Cambridge importer wrote. The player
+    stores ONE letter per slot, so scoring it against ["a, d", "a, d"]
+    could never match: every student who picked exactly the right two
+    letters was still marked wrong on both questions (0/14 on a real
+    sitting of C2-FINAL-20260726 — Cambridge 15 Test 4, Q17-20).
+
+    Only collapse when every row carries the SAME set and that set has one
+    letter per slot; anything else is data we do not understand, so fall
+    back to reading each row as its own answer rather than guessing.
+    """
+    sets = [_letter_set(g.get("answer")) for g in grp]
+    first = sets[0]
+    if first and len(first) == len(grp) and all(s == first for s in sets):
+        return list(first)
+    return [normalize_answer(g.get("answer") or "") for g in grp]
+
+
 def answer_matches(user: str | None, expected: str, alternatives: list[str]) -> bool:
     """Compare a user answer against the canonical answer + its
     alternatives. Hyphenated forms count as single words (no special
@@ -280,7 +316,7 @@ def grade_attempt(
                 continue
             graded_mm.add(gk)
             grp = sorted(mm_groups[gk], key=lambda r: r.get("q_num") or 0)
-            remaining = [normalize_answer(g.get("answer") or "") for g in grp]
+            remaining = _expected_letters(grp)
             for g in grp:
                 gq = g.get("q_num")
                 pick = normalize_answer((user_by_q.get(gq) or {}).get("user_answer"))
