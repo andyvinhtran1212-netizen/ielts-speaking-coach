@@ -124,8 +124,12 @@
     </p>
 
     <div class="ml-toolbar">
-      <label class="ml-muted" for="exam-picker">Kỳ thi:</label>
-      <select id="exam-picker" class="ml-filter" style="min-width:280px"></select>
+      <!-- Hidden inside the cockpit: the rail there is already the exam picker,
+           and two pickers over ONE console means the rail can say exam A while
+           thu bài / mở phần sau act on exam B. These actions do not undo. The
+           element stays in the DOM because boot() wires and reads it. -->
+      <label class="ml-muted" for="exam-picker" data-embed-hide>Kỳ thi:</label>
+      <select id="exam-picker" class="ml-filter" style="min-width:280px" data-embed-hide></select>
       <label class="ml-muted" style="display:inline-flex;align-items:center;gap:6px;margin-left:auto">
         <input type="checkbox" id="auto-refresh" checked /> Tự cập nhật (5s)
       </label>

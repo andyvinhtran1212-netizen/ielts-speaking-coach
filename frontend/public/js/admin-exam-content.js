@@ -16,6 +16,11 @@
   var _cohorts = [];          // [{id, name}]
   var _rows = [];
   var _level = null;          // tab đang chọn: null = tất cả, '' = chưa đặt
+  // A literal U+0000 was used here, but the HTML parser rewrites NULL to U+FFFD,
+  // so getAttribute() could never match it and "Tất cả" filtered to nothing.
+  // course_level is free text, so the sentinel must be a value it cannot hold —
+  // a level with surrounding underscores is not one an admin types.
+  var ALL_TABS = '__all__';
 
   function el(id) { return document.getElementById(id); }
   function esc(s) {
@@ -94,7 +99,7 @@
     var tab = function (val, label, count) {
       var on = (_level === val) || (_level === null && val === null);
       return '<button type="button" class="ec-tab' + (on ? ' is-active' : '') + '"'
-        + ' data-level="' + (val === null ? '\u0000' : esc(val)) + '">'
+        + ' data-level="' + (val === null ? ALL_TABS : esc(val)) + '">'
         + esc(label) + ' <span class="me-muted">(' + count + ')</span></button>';
     };
     var html = tab(null, 'Tất cả', _rows.length);
@@ -106,7 +111,7 @@
     host.querySelectorAll('.ec-tab').forEach(function (b) {
       b.addEventListener('click', function () {
         var v = b.getAttribute('data-level');
-        _level = (v === '\u0000') ? null : v;
+        _level = (v === ALL_TABS) ? null : v;
         renderTabs(); render();
       });
     });
@@ -135,7 +140,12 @@
               return '<span class="me-chip">' + esc(cohortName(c)) + '</span>';
             }).join(' ') + '</td>'
           + '<td><button type="button" class="av-btn ec-edit">Sửa lớp</button> '
-          +     '<button type="button" class="av-btn ec-release">Trả về thư viện</button></td>'
+          // Unchecking "chỉ đề dành cho kỳ thi" loads library rows too. Labelling
+          // those "Trả về thư viện" tells the admin they are reserved when they
+          // are not, and confirms an operation that changes nothing.
+          +     (r.exam_only
+                  ? '<button type="button" class="av-btn ec-release">Trả về thư viện</button>'
+                  : '<span class="me-muted">Đang ở thư viện</span>') + '</td>'
           + '</tr>';
       }).join('') + '</tbody></table>';
 

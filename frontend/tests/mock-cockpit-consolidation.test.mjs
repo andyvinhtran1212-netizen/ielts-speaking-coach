@@ -265,6 +265,34 @@ describe('vỏ cockpit — thiết kế lại (Giai đoạn 4)', () => {
     assert.match(COCKPIT_JS, /state\.selectedId = null;/);
   });
 
+  test('nhúng thì CHỈ thanh bên trái chọn kỳ thi, không có bộ chọn thứ hai', () => {
+    // The live console carries its own picker. Two pickers over ONE console means
+    // the rail can name exam A while thu bài / mở phần sau act on exam B — and
+    // those do not undo.
+    const live = pub('pages', 'admin', 'mock-live', 'index.html');
+    assert.match(live, /id="exam-picker"[^>]*data-embed-hide/);
+    // …and the handler refuses to move the console even if something changes the
+    // hidden control programmatically.
+    const js = pub('js', 'admin-mock-live.js');
+    const at = js.indexOf("el('exam-picker').addEventListener('change'");
+    assert.ok(at > 0);
+    assert.match(js.slice(at, at + 400), /if \(window\.AVER_EMBEDDED\) return;/);
+  });
+
+  test('tab "Tất cả" dùng sentinel qua được bộ phân tích HTML', () => {
+    // A literal U+0000 in innerHTML is rewritten to U+FFFD by the parser, so
+    // getAttribute() could never match it and the tab rendered an empty table.
+    assert.doesNotMatch(EXAM_CONTENT, /\\u0000/);
+    assert.match(EXAM_CONTENT, /var ALL_TABS = '__all__';/);
+  });
+
+  test('nhãn nút theo exam_only THẬT của hàng, không cố định', () => {
+    // Unchecking the filter loads library rows too; labelling those "Trả về thư
+    // viện" says they are reserved when they are not.
+    assert.match(EXAM_CONTENT, /r\.exam_only\s*\n?\s*\?\s*'<button[^']*ec-release/);
+    assert.match(EXAM_CONTENT, /Đang ở thư viện/);
+  });
+
   test('không còn số ma nào cho chiều cao', () => {
     assert.doesNotMatch(HTML, /calc\(100vh - \d+px\)/);
     assert.match(HTML, /--mt-rail-chrome:/);

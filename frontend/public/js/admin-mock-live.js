@@ -549,6 +549,10 @@
     // it loaded ONCE and then silently went stale for the rest of the exam,
     // with both refresh controls inert (Codex review, PR #833).
     el('exam-picker').addEventListener('change', function () {
+      // Belt and braces: the control is display:none under embed=1, but a stray
+      // programmatic change must not silently move the console off the exam the
+      // cockpit is naming.
+      if (window.AVER_EMBEDDED) return;
       S.examId = el('exam-picker').value;
       // Keep the URL in step so a reload — or a second monitor on another
       // screen — comes back to the same class.
