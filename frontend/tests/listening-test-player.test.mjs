@@ -1259,3 +1259,74 @@ describe('listening-parser-render — table cell keeps its suffix (Bug A)', () =
     assert.doesNotMatch(html, /undefined/);
   });
 });
+
+// ── Parser ↔ renderer contract ──────────────────────────────────────
+//
+// The renderer half. backend/tests/test_listening_convert.py holds the same
+// fixture and asserts the EXTRACTOR still produces it; here we assert the
+// renderer still understands it. A shape change that breaks the pair fails on
+// one side or the other — it cannot pass silently, which is how the segment
+// shape ended up supported by the renderer and unreachable from the importer.
+describe('listening-parser-render — segment fixture renders end to end', () => {
+  const fixture = JSON.parse(readFileSync(
+    join(__dirname, 'fixtures', 'listening-segment-templates.json'), 'utf8'));
+
+  const build = (name) => {
+    const src = JS.match(/function tableGapSegment\([\s\S]*?\n\}/)[0] + '\n' +
+                JS.match(new RegExp(`function ${name}\\([\\s\\S]*?\\n\\}`))[0];
+    return new Function(
+      'esc', 'mdInline', 'gapInput', 'renderFallback',
+      src + `; return ${name};`,
+    )((x) => String(x), (x) => String(x),
+      (n) => `<input data-q="${n}">`, () => 'FALLBACK');
+  };
+
+  const gapsIn = (tmpl) => {
+    const found = new Set();
+    const walk = (v) => {
+      if (Array.isArray(v)) return v.forEach(walk);
+      if (v && typeof v === 'object') {
+        if (v.q_num != null) found.add(Number(v.q_num));
+        Object.values(v).forEach(walk);
+      }
+    };
+    walk(tmpl);
+    return [...found].sort((a, b) => a - b);
+  };
+
+  it('every table gap in the fixture becomes an input', () => {
+    const tmpl = fixture.table.template;
+    const html = build('renderTableCompletion')(tmpl, []);
+    assert.notEqual(html, 'FALLBACK');
+    for (const n of gapsIn(tmpl)) {
+      assert.match(html, new RegExp(`<input data-q="${n}">`), `thiếu ô nhập ${n}`);
+    }
+  });
+
+  it('every form gap in the fixture becomes an input', () => {
+    const tmpl = fixture.form.template;
+    const html = build('renderFormCompletion')(tmpl, []);
+    assert.notEqual(html, 'FALLBACK');
+    for (const n of gapsIn(tmpl)) {
+      assert.match(html, new RegExp(`<input data-q="${n}">`), `thiếu ô nhập ${n}`);
+    }
+  });
+
+  it('the blank run itself is never printed next to the input', () => {
+    // "**1** …………" — the dots ARE the blank; the input replaces them. Carried
+    // through as text they print beside the box.
+    const html = build('renderFormCompletion')(fixture.form.template, []) +
+                 build('renderTableCompletion')(fixture.table.template, []);
+    assert.doesNotMatch(html, /…{2,}/);
+    assert.doesNotMatch(html, /undefined/);
+  });
+
+  it('the fixture actually exercises both new shapes', () => {
+    const rows = fixture.table.template.rows.flat();
+    assert.ok(rows.some((c) => Array.isArray(c)), 'cần ô dạng mảng');
+    assert.ok(rows.some((c) => c && !Array.isArray(c) && c.q_num != null),
+              'cần giữ ô dạng phẳng cũ');
+    assert.ok(fixture.form.template.rows.some((r) => Array.isArray(r.segments)),
+              'cần hàng biểu mẫu dạng segments');
+  });
+});
