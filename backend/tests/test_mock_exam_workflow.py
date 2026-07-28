@@ -5216,3 +5216,97 @@ def test_an_unprovable_change_refuses_the_flip(fake_db, svc):
     finally:
         svc.supabase_admin = real
     assert svc.get_published_exam_by_id(exam["id"]).get("exam_mode") in (None, "sequential")
+
+
+# ── Band NGOÀI required: Speaking thi trực tiếp với giáo viên ──────────
+#
+# C2-FINAL-20260726: exam has NO speaking_topic_set (speaking happened live,
+# off-platform, 13/14 students). Making speaking *required* would block the
+# 14th review from ever saving — but the old save filtered `stored` to the
+# required set, so an entered speaking band was DROPPED SILENTLY: the examiner
+# saved 4 numbers and the student's TRF showed 3.
+
+
+def _lrw_sitting(fake_db, svc):
+    exam = _seed_exam(fake_db, speaking=False)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    _run_lrw(svc, fake_db, exam, s["id"], u)
+    return s["id"]
+
+
+def test_extra_speaking_band_is_stored_not_dropped(fake_db, svc, wf):
+    sid = _lrw_sitting(fake_db, svc)
+    review = wf.get_review_for_sitting(sid)
+    # the live-assessment import stamps the draft — that marker is the licence
+    wf._merge_review_ai_draft(sid, {"speaking": {"band": 4.0}})
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    saved = wf.save_final_bands(
+        review["id"], admin,
+        {"listening": 6.0, "reading": 6.0, "writing": 6.0, "speaking": 4.0},
+    )
+    assert saved["final_bands"]["speaking"] == 4.0, \
+        "an entered band must never vanish between save and the student's TRF"
+    # overall averages the FOUR entered bands: (6+6+6+4)/4 = 5.5. A mean over
+    # only the 3 required skills would say 6.0 — so this line alone catches a
+    # regression that silently drops the extra from the mean.
+    assert saved["final_bands"]["overall"] == 5.5
+
+
+def test_extra_speaking_still_optional(fake_db, svc, wf):
+    """The 14th student (no live speaking) must still save and release on LRW
+    alone — that is WHY speaking cannot simply be made required."""
+    sid = _lrw_sitting(fake_db, svc)
+    review = wf.get_review_for_sitting(sid)
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    saved = wf.save_final_bands(
+        review["id"], admin, {"listening": 6.0, "reading": 6.0, "writing": 6.0},
+    )
+    assert "speaking" not in saved["final_bands"]
+    assert saved["final_bands"]["overall"] == 6.0
+
+
+def test_required_skills_still_enforced_with_extra_present(fake_db, svc, wf):
+    sid = _lrw_sitting(fake_db, svc)
+    review = wf.get_review_for_sitting(sid)
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    wf._merge_review_ai_draft(sid, {"speaking": {"band": 5.0}})
+    import pytest as _pytest
+    with _pytest.raises(Exception):
+        # speaking present but a REQUIRED skill missing → still an error
+        wf.save_final_bands(review["id"], admin,
+                            {"listening": 6.0, "writing": 6.0, "speaking": 5.0})
+
+
+def test_extra_band_without_live_assessment_is_refused_loudly(fake_db, svc, wf):
+    """A stale tab posting Listening bands onto a writing-only-style sitting
+    must ERROR, not be stored — and not be silently dropped either (a silent
+    drop is how the original bug shipped)."""
+    sid = _lrw_sitting(fake_db, svc)
+    review = wf.get_review_for_sitting(sid)
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    import pytest as _pytest
+    with _pytest.raises(Exception):
+        wf.save_final_bands(
+            review["id"], admin,
+            {"listening": 6.0, "reading": 6.0, "writing": 6.0, "speaking": 5.0})
+
+
+def test_live_assessed_speaking_cannot_be_left_blank(fake_db, svc, wf):
+    """Once the review carries a live Speaking assessment, releasing a 3-skill
+    overall while the TRF shows full Speaking feedback is a contradiction —
+    the blank is a forgotten entry, not a choice (Codex, #872)."""
+    sid = _lrw_sitting(fake_db, svc)
+    review = wf.get_review_for_sitting(sid)
+    wf._merge_review_ai_draft(sid, {"speaking": {"band": 5.0}})
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    import pytest as _pytest
+    with _pytest.raises(Exception):
+        wf.save_final_bands(
+            review["id"], admin,
+            {"listening": 6.0, "reading": 6.0, "writing": 6.0})

@@ -80,6 +80,16 @@
       color: var(--av-text-primary); font-size: var(--av-fs-sm); }
     .trf-note__body { color: var(--av-text-secondary); line-height: var(--av-lh-relaxed);
       white-space: pre-wrap; margin-top: var(--av-space-1); }
+    .trf-spk-metrics { width: 100%; border-collapse: collapse; margin: var(--av-space-3) 0;
+      font-size: var(--av-fs-sm); }
+    .trf-spk-metrics th, .trf-spk-metrics td { text-align: left;
+      padding: var(--av-space-2) var(--av-space-3);
+      border-bottom: 1px solid var(--av-border-subtle); color: var(--av-text-secondary); }
+    .trf-spk-metrics th { color: var(--av-text-muted); font-weight: var(--av-fw-semibold); }
+    .trf-spk-metrics td:nth-child(2) { color: var(--av-text-primary);
+      font-family: var(--av-font-mono); }
+    .trf-spk-metrics td:nth-child(3) { font-family: var(--av-font-mono); }
+    .trf-spk-advice { color: var(--av-text-primary); }
 
     /* Chữa bài — a clear action card per skill, not a tiny button. */
     .trf-review-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -169,6 +179,7 @@
         <div id="examiner-comment" class="trf-box"></div>
       </section>
 
+      <section id="speaking-wrap" class="trf-section hidden"></section>
       <section id="notes-wrap" class="trf-section hidden"></section>
 
       <section id="chuabai-wrap" class="trf-section hidden"></section>
@@ -206,6 +217,54 @@
     function esc(s) { return (window.WC && window.WC.escapeHtml) ? window.WC.escapeHtml(s) : String(s == null ? '' : s); }
     function fmtBand(v) { return (v == null || v === '') ? '—' : Number(v).toFixed(1); }
 
+    function renderSpeaking(spk) {
+      var host = $('speaking-wrap');
+      if (!host) return;
+      host.classList.remove('hidden');
+      function div(cls, text, parent) {
+        var d = document.createElement('div');
+        if (cls) d.className = cls;
+        if (text != null) d.textContent = text;   // authored content — never innerHTML
+        if (parent) parent.appendChild(d);
+        return d;
+      }
+      var h = document.createElement('h2'); h.className = 'trf-h2';
+      h.textContent = 'Speaking — thi trực tiếp với giáo viên';
+      host.appendChild(h);
+      if (spk.intro) div('trf-note__body', spk.intro, host);
+      var CRIT = [['fc','Fluency & Coherence'],['lr','Lexical Resource'],
+                  ['gra','Grammar'],['p','Pronunciation']];
+      var grid = div('trf-bands', null, host);
+      CRIT.forEach(function (c) {
+        var b = (spk.bands || {})[c[0]];
+        if (b == null) return;
+        var cell = div('trf-band', null, grid);
+        div('trf-band-label', c[1], cell);
+        div('trf-band-val', fmtBand(b), cell);
+      });
+      var metrics = spk.metrics || [];
+      if (metrics.length) {
+        var tbl = document.createElement('table'); tbl.className = 'trf-spk-metrics';
+        var tr0 = tbl.insertRow();
+        ['', 'Của em', 'Trung bình lớp'].forEach(function (t) {
+          var th = document.createElement('th'); th.textContent = t; tr0.appendChild(th);
+        });
+        metrics.forEach(function (m) {
+          var tr = tbl.insertRow();
+          [m.label, m.value, m.class_avg].forEach(function (t) {
+            tr.insertCell().textContent = t == null ? '—' : t;
+          });
+        });
+        host.appendChild(tbl);
+      }
+      (spk.sections || []).forEach(function (sec) {
+        var box = div('trf-note', null, host);
+        div('trf-note__skill', sec.title, box);
+        if (sec.body) div('trf-note__body', sec.body, box);
+        if (sec.advice) div('trf-note__body trf-spk-advice', 'Cách luyện: ' + sec.advice, box);
+      });
+    }
+
     function render(data) {
       var fb = data.final_bands || {};
 
@@ -230,9 +289,16 @@
       if (data.examiner_comment_vi) $('examiner-comment').textContent = data.examiner_comment_vi;
       else $('comment-wrap').classList.add('hidden');
 
-      // Per-skill notes.
+      // Per-skill notes. Speaking from a live teacher assessment arrives as a
+      // STRUCTURED object (bands per criterion, measured metrics vs class,
+      // per-criterion feedback) — the generic esc()'d text note would render it
+      // as "[object Object]". It gets its own block; strings keep the old path.
       var notes = data.per_skill_notes || {};
-      var keys = Object.keys(notes).filter(function (k) { return notes[k]; });
+      var spk = (notes.speaking && typeof notes.speaking === 'object') ? notes.speaking : null;
+      if (spk) renderSpeaking(spk);
+      var keys = Object.keys(notes).filter(function (k) {
+        return notes[k] && !(k === 'speaking' && spk);
+      });
       var nwrap = $('notes-wrap');
       if (keys.length) {
         nwrap.classList.remove('hidden');
