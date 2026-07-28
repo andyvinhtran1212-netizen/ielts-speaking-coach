@@ -50,7 +50,7 @@
       background: var(--av-primary); color: var(--av-text-on-primary);
       border-radius: var(--av-radius-lg); padding: var(--av-space-6);
       box-shadow: var(--av-shadow-md); }
-    .trf-overall__val { font-family: var(--av-font-mono); font-size: 56px;
+    .trf-overall__val { font-family: var(--av-font-mono); font-size: 64px;
       font-weight: var(--av-fw-bold); line-height: 1; font-variant-numeric: tabular-nums; }
     .trf-overall__label { font-size: var(--av-fs-xs); text-transform: uppercase;
       letter-spacing: var(--av-tracking-wide); opacity: .85; font-weight: var(--av-fw-semibold); }
@@ -66,10 +66,18 @@
       color: var(--av-text-primary); font-family: var(--av-font-mono);
       font-variant-numeric: tabular-nums; margin-top: var(--av-space-1); }
     .trf-band--empty .trf-band-val { color: var(--av-text-faint); }
+    /* Thanh mức band/9 dưới con số — con số có thước đo. Màu theo primary,
+       nền là border-subtle nên tự đúng ở cả hai theme. */
+    .trf-band-meter { height: 4px; border-radius: var(--av-radius-pill);
+      background: var(--av-border-subtle); margin-top: var(--av-space-2);
+      overflow: hidden; }
+    .trf-band-meter > span { display: block; height: 100%;
+      background: var(--av-primary); border-radius: inherit; }
 
     .trf-section { margin-top: var(--av-space-8); }
     .trf-h2 { font-size: var(--av-fs-lg); font-weight: var(--av-fw-semibold);
-      color: var(--av-text-primary); margin-bottom: var(--av-space-3); }
+      color: var(--av-text-primary); margin-bottom: var(--av-space-3);
+      padding-left: var(--av-space-3); border-left: 3px solid var(--av-primary); }
     .trf-box { background: var(--av-surface-card); border: 1px solid var(--av-border-default);
       border-radius: var(--av-radius-lg); padding: var(--av-space-4);
       line-height: var(--av-lh-relaxed); color: var(--av-text-primary); white-space: pre-wrap; }
@@ -131,6 +139,10 @@
     .trf-foot { margin-top: var(--av-space-8); font-size: var(--av-fs-xs);
       color: var(--av-text-muted); line-height: var(--av-lh-relaxed); }
 
+    @media (prefers-reduced-motion: reduce) {
+      .trf-review { transition: none; }
+      .trf-review:hover { transform: none; }
+    }
     @media (max-width: 520px) {
       .trf-band-grid { grid-template-columns: repeat(2, 1fr); }
       .trf-overall { flex-direction: column; text-align: center; gap: var(--av-space-3); }
@@ -234,13 +246,18 @@
       if (spk.intro) div('trf-note__body', spk.intro, host);
       var CRIT = [['fc','Fluency & Coherence'],['lr','Lexical Resource'],
                   ['gra','Grammar'],['p','Pronunciation']];
-      var grid = div('trf-bands', null, host);
+      var grid = div('trf-band-grid', null, host);
       CRIT.forEach(function (c) {
         var b = (spk.bands || {})[c[0]];
         if (b == null) return;
         var cell = div('trf-band', null, grid);
         div('trf-band-label', c[1], cell);
         div('trf-band-val', fmtBand(b), cell);
+        var m = div('trf-band-meter', null, cell);
+        m.setAttribute('aria-hidden', 'true');
+        var fill = document.createElement('span');
+        fill.style.width = Math.round(Math.min(9, Math.max(0, Number(b))) / 9 * 100) + '%';
+        m.appendChild(fill);
       });
       var metrics = spk.metrics || [];
       if (metrics.length) {
@@ -280,9 +297,12 @@
       var grid = $('bands');
       grid.innerHTML = (scored.length ? scored : SKILLS).map(function (s) {
         var v = fb[s.key];
+        var meter = (v == null) ? ''
+          : '<div class="trf-band-meter" aria-hidden="true"><span style="width:'
+            + Math.round(Math.min(9, Math.max(0, Number(v))) / 9 * 100) + '%"></span></div>';
         return '<div class="trf-band' + (v == null ? ' trf-band--empty' : '') + '">'
           + '<div class="trf-band-label">' + s.label + '</div>'
-          + '<div class="trf-band-val">' + fmtBand(v) + '</div></div>';
+          + '<div class="trf-band-val">' + fmtBand(v) + '</div>' + meter + '</div>';
       }).join('');
 
       // Examiner comment.
