@@ -145,6 +145,14 @@
          role="tablist", standards §4.6 + anti-pattern §10.3). The outer
          footer carries the navigation landmark; the grid is the group. -->
     <div class="exam-palette__grid" id="exam-palette-grid" role="group" aria-label="Questions 1 to 40"></div>
+    <!-- DEBT-2026-07-22-D — shown only while an auto-save is failing. A single
+         amber tile among 40 is easy to miss, and the student otherwise finds
+         out only when a blank field reappears after a refresh. -->
+    <p class="exam-palette__unsaved" id="exam-unsaved-note" role="status" hidden></p>
+    <!-- Louder than the per-question cue and separately hosted: this one says
+         the server has NONE of the student's work — the difference between an
+         amber square and a graded zero. -->
+    <p class="exam-palette__nothing" id="exam-nothing-saved" role="alert" aria-live="assertive" hidden></p>
     <div class="exam-palette__actions">
       <div class="exam-palette__nav" role="group" aria-label="Previous / next question">
         <button type="button" class="exam-palette__nav-btn" id="exam-prev" aria-label="Previous">← Prev</button>

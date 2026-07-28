@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Phòng thi trực tiếp — Full Test 4 kỹ năng</title>
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.setAttribute('data-theme', (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light'));
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-buttons.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-status.css" />
+  <style>
+    .ml-wrap { max-width:var(--av-width-page,1180px); margin:0 auto; padding:var(--av-space-6) var(--av-space-4) var(--av-space-16); }
+    .ml-muted { color:var(--av-text-secondary); font-size:13px; line-height:1.55; }
+
+    /* ── Identity bar ────────────────────────────────────────────────
+       With two exams live at once the FIRST question is always "which
+       class am I about to act on". The exam code, the class and the
+       accent stripe answer it before any control is reachable. */
+    .ml-ident { border:1px solid var(--av-border-subtle); border-left:5px solid var(--av-primary);
+                border-radius:var(--av-radius-lg); background:var(--av-surface-card);
+                padding:var(--av-space-4); margin-bottom:var(--av-space-4); box-shadow:var(--av-shadow-sm); }
+    .ml-ident__top { display:flex; align-items:baseline; gap:var(--av-space-3); flex-wrap:wrap; }
+    .ml-code { font-family:var(--av-font-mono); font-size:20px; font-weight:700; color:var(--av-text-primary); }
+    .ml-title { color:var(--av-text-secondary); font-size:14px; }
+    .ml-pill { display:inline-block; font-size:11px; padding:2px var(--av-space-2); border-radius:var(--av-radius-pill);
+               background:var(--av-surface-sunken); border:1px solid var(--av-border-subtle);
+               color:var(--av-text-secondary); letter-spacing:.03em; text-transform:uppercase; }
+    .ml-pill--live { background:var(--av-success-soft); border-color:var(--av-success); color:var(--av-success); font-weight:700; }
+    .ml-pill--shut { background:var(--av-surface-sunken); color:var(--av-text-faint); }
+    .ml-pill--warn { background:var(--av-warning-soft); border-color:var(--av-warning); color:var(--av-warning); font-weight:600; }
+
+    /* ── Clock + section ─────────────────────────────────────────── */
+    .ml-clockrow { display:flex; align-items:center; gap:var(--av-space-6); flex-wrap:wrap; margin-top:var(--av-space-3); }
+    .ml-clock { font-family:var(--av-font-mono); font-size:38px; font-weight:700; line-height:1;
+                color:var(--av-text-primary); font-variant-numeric:tabular-nums; }
+    .ml-clock.is-low { color:var(--av-error); }
+    .ml-clock__cap { display:block; font-family:var(--av-font-sans,inherit); font-size:11px; font-weight:600;
+                     letter-spacing:.05em; text-transform:uppercase; color:var(--av-text-secondary); margin-bottom:4px; }
+    .ml-actions { display:flex; gap:var(--av-space-2); flex-wrap:wrap; margin-left:auto; }
+
+    /* ── Roster + section rollup ─────────────────────────────────── */
+    /* Sweep that died mid-flight — silent until it happens, then loud: the
+       papers are recoverable ONLY while the attempts still exist. */
+    .ml-missed { display:none; }
+    .ml-missed.on { display:flex; flex-direction:column; gap:var(--av-space-2);
+                    border:1px solid var(--av-error); background:var(--av-error-soft);
+                    color:var(--av-error); border-radius:var(--av-radius-lg);
+                    padding:var(--av-space-3); margin-bottom:var(--av-space-4); font-size:13px; }
+    .ml-missed div { display:flex; align-items:center; gap:var(--av-space-2); flex-wrap:wrap; }
+    .ml-dot--missed { background:var(--av-error); }
+    .ml-stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:var(--av-space-3); margin-bottom:var(--av-space-4); }
+    .ml-stat { border:1px solid var(--av-border-subtle); border-radius:var(--av-radius-lg);
+               background:var(--av-surface-card); padding:var(--av-space-3); }
+    .ml-stat__n { font-family:var(--av-font-mono); font-size:26px; font-weight:700; color:var(--av-text-primary); font-variant-numeric:tabular-nums; }
+    .ml-stat__n--alert { color:var(--av-error); }
+    .ml-stat__k { font-size:11px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--av-text-secondary); }
+    .ml-stat__sub { font-size:12px; color:var(--av-text-faint); margin-top:2px; }
+
+    /* ── Student grid ────────────────────────────────────────────── */
+    .ml-toolbar { display:flex; align-items:center; gap:var(--av-space-2); flex-wrap:wrap; margin-bottom:var(--av-space-3); }
+    .ml-filter { padding:6px var(--av-space-2); border:1px solid var(--av-border-default); border-radius:var(--av-radius-md);
+                 background:var(--av-surface-card); color:var(--av-text-primary); cursor:pointer; font-size:13px; }
+    .ml-filter[aria-pressed="true"] { background:var(--av-primary); color:var(--av-text-on-primary); border-color:transparent; }
+    .ml-tablewrap { overflow-x:auto; border:1px solid var(--av-border-subtle); border-radius:var(--av-radius-lg); background:var(--av-surface-card); }
+    table.ml-grid { width:100%; border-collapse:collapse; font-size:13px; }
+    .ml-grid th { text-align:left; font-size:11px; letter-spacing:.04em; text-transform:uppercase;
+                  color:var(--av-text-secondary); padding:var(--av-space-3); border-bottom:1px solid var(--av-border-subtle); white-space:nowrap; }
+    .ml-grid td { padding:var(--av-space-3); border-bottom:1px solid var(--av-border-subtle); vertical-align:middle; white-space:nowrap; }
+    .ml-grid tbody tr:last-child td { border-bottom:0; }
+    .ml-grid tbody tr:hover td { background:var(--av-surface-sunken); }
+    .ml-name { font-weight:600; color:var(--av-text-primary); }
+
+    /* One cell = one student × one section. The dot carries the state, the
+       number carries the evidence (answers the SERVER holds). */
+    .ml-cell { display:flex; align-items:center; gap:6px; }
+    .ml-dot { width:8px; height:8px; border-radius:50%; flex:none; background:var(--av-text-faint); }
+    .ml-dot--submitted { background:var(--av-success); }
+    .ml-dot--working   { background:var(--av-primary); box-shadow:0 0 0 3px color-mix(in srgb, var(--av-primary) 22%, transparent); }
+    .ml-dot--waiting   { background:var(--av-border-default); }
+    .ml-dot--absent    { background:var(--av-error); }
+    .ml-num { font-family:var(--av-font-mono); font-variant-numeric:tabular-nums; color:var(--av-text-primary); }
+    .ml-cell__note { font-size:11px; color:var(--av-text-faint); }
+    .ml-flag { font-size:11px; padding:1px 6px; border-radius:var(--av-radius-pill); font-weight:600; }
+    .ml-flag--stalled { background:var(--av-warning-soft); color:var(--av-warning); }
+    .ml-flag--blank   { background:var(--av-error-soft); color:var(--av-error); }
+    .ml-row--absent .ml-name { color:var(--av-error); }
+    .ml-row--offroster { background:var(--av-warning-soft); }
+    /* Destructive, so it reads as destructive — but quiet until hovered, since
+       it sits on every row and must not compete with the live data. */
+    .ml-void { padding:3px var(--av-space-2); border:1px solid var(--av-border-default);
+               border-radius:var(--av-radius-md); background:transparent;
+               color:var(--av-text-faint); font-size:12px; cursor:pointer; }
+    .ml-void:hover { border-color:var(--av-error); color:var(--av-error); }
+    .ml-void:disabled { opacity:.5; cursor:default; }
+
+    .ml-legend { display:flex; gap:var(--av-space-4); flex-wrap:wrap; margin-top:var(--av-space-3); font-size:12px; color:var(--av-text-secondary); }
+    .ml-legend span { display:inline-flex; align-items:center; gap:6px; }
+    .ml-foot { display:flex; align-items:center; gap:var(--av-space-3); flex-wrap:wrap; margin-top:var(--av-space-3); }
+    .hidden { display:none; }
+  </style>
+</head>
+<body class="av-page font-sans min-h-screen">
+  <div class="ml-wrap">
+    <h1 data-embed-hide style="font-size:22px;font-weight:800;color:var(--av-text-primary);margin-bottom:2px;">Phòng thi trực tiếp</h1>
+    <p class="ml-muted" style="margin-bottom:var(--av-space-4)">
+      Theo dõi từng học viên trong lúc thi: ai đang làm, làm tới đâu, ai chưa vào, ai đứng im.
+      Số câu là số <b>máy chủ đã nhận</b> — không phải số học viên nhìn thấy trên màn hình.
+      · <a href="/pages/admin/mock-exams/index.html">Quản lý đề</a>
+      · <a href="/pages/admin/mock-reviews/index.html">Duyệt bài</a>
+    </p>
+
+    <div class="ml-toolbar">
+      <!-- Hidden inside the cockpit: the rail there is already the exam picker,
+           and two pickers over ONE console means the rail can say exam A while
+           thu bài / mở phần sau act on exam B. These actions do not undo. The
+           element stays in the DOM because boot() wires and reads it. -->
+      <label class="ml-muted" for="exam-picker" data-embed-hide>Kỳ thi:</label>
+      <select id="exam-picker" class="ml-filter" style="min-width:280px" data-embed-hide></select>
+      <label class="ml-muted" style="display:inline-flex;align-items:center;gap:6px;margin-left:auto">
+        <input type="checkbox" id="auto-refresh" checked /> Tự cập nhật (5s)
+      </label>
+      <button type="button" class="av-btn" id="refresh-now">Cập nhật ngay</button>
+    </div>
+
+    <div id="state-loading" class="ml-muted" style="padding:40px 0;text-align:center">Đang tải…</div>
+    <div id="state-error" class="hidden ml-muted" style="padding:24px 0;color:var(--av-error)"></div>
+
+    <div id="state-board" class="hidden">
+      <div class="ml-ident" id="ident"></div>
+      <div class="ml-missed" id="missed-banner"></div>
+      <div class="ml-stats" id="stats"></div>
+      <div class="ml-toolbar" id="filters" role="group" aria-label="Lọc học viên"></div>
+      <div class="ml-tablewrap"><table class="ml-grid" id="grid"></table></div>
+      <div class="ml-legend">
+        <span><i class="ml-dot ml-dot--submitted"></i> đã nộp</span>
+        <span><i class="ml-dot ml-dot--working"></i> đang làm</span>
+        <span><i class="ml-dot ml-dot--waiting"></i> chờ mở phần</span>
+        <span><i class="ml-dot ml-dot--absent"></i> chưa vào thi</span>
+        <span><b class="ml-flag ml-flag--stalled">im</b> không có câu trả lời mới &gt; 5 phút</span>
+        <span><b class="ml-flag ml-flag--blank">trắng</b> đang làm nhưng chưa lưu câu nào</span>
+      </div>
+      <div class="ml-foot">
+        <span class="ml-muted" id="updated-at"></span>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2.107.0"></script>
+  <script src="/js/admin-embed.js"></script>
+  <script src="/js/runtime-config.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/toast.js"></script>
+  <script src="/js/admin-mock-live.js"></script>
+</body>
+</html>

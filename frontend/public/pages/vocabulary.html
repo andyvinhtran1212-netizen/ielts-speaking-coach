@@ -77,27 +77,34 @@
       </p>
     </header>
 
-    <!-- ── Stats strip ───────────────────────────────────────────── -->
+    <!-- ── Stats strip ───────────────────────────────────────────────
+         Audit 2026-07-28 — all three tiles used to read the personal
+         flashcard wallet, which is behind a default-deny feature flag:
+         every learner who practises via Quick-Check saw "0 từ / 0 thẻ / —".
+         They now read the Quick-Check facets (words_learned is the UNION of
+         wallet + quiz mastery; the other two are quiz-side), so the numbers
+         reflect the practice the learner actually does. The "cần ôn" tile
+         deep-links to the mistakes review, which is the action it implies. -->
     <div class="vocab-stats" aria-label="Tổng quan từ vựng">
       <div class="stat">
-        <span class="label">Từ đã học</span>
+        <span class="label">Từ đã thuộc</span>
         <span class="value">
           <span id="stat-words-count" class="skeleton-num"></span>
           <span class="unit">từ</span>
         </span>
       </div>
       <div class="stat heat">
-        <span class="label">Cần ôn hôm nay</span>
+        <span class="label">Từ từng trả lời sai</span>
         <span class="value">
-          <span id="stat-flashcards-due" class="skeleton-num"></span>
-          <span class="unit">thẻ</span>
+          <span id="stat-words-missed" class="skeleton-num"></span>
+          <span class="unit">từ</span>
         </span>
       </div>
       <div class="stat">
-        <span class="label">Bộ flashcards</span>
+        <span class="label">Phiên đã luyện</span>
         <span class="value">
-          <span id="stat-stacks-count" class="skeleton-num"></span>
-          <span class="unit">bộ</span>
+          <span id="stat-quiz-sessions" class="skeleton-num"></span>
+          <span class="unit">phiên</span>
         </span>
       </div>
     </div>
@@ -124,7 +131,28 @@
           <h3>Từ vựng</h3>
           <p class="lede">Duyệt từ vựng IELTS theo chủ đề.</p>
         </a>
-        <a href="#" class="mode-card" data-mode="flashcards" aria-label="Mở Flashcards">
+        <!-- Quick-Check practice. Audit 2026-07-28 §C5: this was the only vocab
+             surface every learner can actually use, yet it was reachable only from
+             a small button inside a topic card — while the two flag-gated cards
+             below sat at the top level and dead-ended for 67 of 68 users. -->
+        <a href="/pages/vocab-practice.html" class="mode-card" aria-label="Mở Luyện tập từ vựng">
+          <div class="head">
+            <div class="icon"><i data-lucide="pen-line"></i></div>
+            <span class="arrow" aria-hidden="true">→</span>
+          </div>
+          <h3>Luyện tập</h3>
+          <p class="lede">Kiểm tra tới khi thuộc trọn cả list từ.</p>
+        </a>
+        <!-- data-flag: vocab-landing.js REVEALS these two only when /auth/me says
+             the learner's feature flag is on, and REMOVES them from the DOM
+             otherwise (default-deny, same rule the modules themselves apply).
+             Without that they rendered for everyone and led straight to
+             "Tính năng chưa được bật". They ship `hidden` because the flag
+             lookup is a network round-trip: rendering them visible until it
+             answers let a default-denied learner click through in the gap
+             (Codex review, PR #876). -->
+        <a href="#" class="mode-card" data-mode="flashcards" data-flag="flashcard_enabled"
+           hidden aria-label="Mở Flashcards">
           <div class="head">
             <div class="icon"><i data-lucide="layers"></i></div>
             <span class="arrow" aria-hidden="true">→</span>
@@ -132,7 +160,8 @@
           <h3>Flashcards</h3>
           <p class="lede">Học từ với hệ thống lặp khoảng cách.</p>
         </a>
-        <a href="#" class="mode-card" data-mode="exercises" aria-label="Mở Exercises">
+        <a href="#" class="mode-card" data-mode="exercises" data-flag="d1_enabled,flashcard_enabled"
+           hidden aria-label="Mở Exercises">
           <div class="head">
             <div class="icon"><i data-lucide="dumbbell"></i></div>
             <span class="arrow" aria-hidden="true">→</span>

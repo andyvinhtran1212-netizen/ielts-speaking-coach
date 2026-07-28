@@ -289,6 +289,17 @@ ROLLBACK_MIN_VITALS = 10   # below this p75 is noise, not a verdict
 # own window; `window_minutes` only scopes the per-implementation table.
 ROLLBACK_ERROR_WINDOW_MIN = 30
 ROLLBACK_VITALS_WINDOW_MIN = 1440
+# DEBT-2026-07-22-F: the table half used to be clamped to 1440 as well, which
+# was correct for the frozen verdicts (nothing above needs more than 24h) but
+# silently wrong for the OTHER thing this endpoint is used for — the cumulative
+# exposure count a cutover gate reads. A caller asking for 30 days got a 24-hour
+# number under the same field name. Measured 2026-07-22: 2880 / 6833 / 11531 /
+# 43200 all returned the identical "14 views", which reads as near-zero traffic
+# across the whole window and nearly produced a false "exposure floor missed"
+# conclusion; the real count over the same span was 108. The table half now
+# reaches 90 days; the verdict windows above stay pinned exactly as they were.
+ROLLBACK_TABLE_MAX_WINDOW_MIN = 129_600   # 90 days
+ROLLBACK_TABLE_MIN_WINDOW_MIN = 5
 
 
 def _p75(values: list[float]) -> float | None:
@@ -398,7 +409,16 @@ async def error_log_rollback_metrics(
     pagination + stable ordering as migration-stats (PostgREST 1000-cap +
     review #746)."""
     await require_admin(authorization)
-    window_minutes = max(5, min(1440, window_minutes))
+    # DEBT-2026-07-22-F — clamp the table half to a documented ceiling and TELL
+    # the caller when it bit. Silently returning a 24h number for a 30-day
+    # request is what made the volume half of the §12.3 exposure floor
+    # unmeasurable for five days of the Pilot-1 soak.
+    requested_window_minutes = window_minutes
+    window_minutes = max(
+        ROLLBACK_TABLE_MIN_WINDOW_MIN,
+        min(ROLLBACK_TABLE_MAX_WINDOW_MIN, window_minutes),
+    )
+    window_clamped = window_minutes != requested_window_minutes
     now = datetime.now(timezone.utc)
     # One fetch covers the widest window needed; narrower windows filter by
     # row timestamp in Python.
@@ -535,14 +555,94 @@ async def error_log_rollback_metrics(
     )
     vitals_verdict["window_minutes"] = ROLLBACK_VITALS_WINDOW_MIN
 
+    # ── Exposure (the §12.3 volume half) ────────────────────────────────
+    # Review #823 raised two defects in the first cut of this number, both of
+    # which made it a plausible-looking value with the wrong meaning — exactly
+    # the class DEBT-F exists to kill:
+    #
+    #   1. It summed next + legacy + untagged. A window that spans a cutover
+    #      therefore let traffic the OLD implementation served satisfy the
+    #      exposure floor of the code being evaluated.
+    #   2. It was summed over `analytics_rows`, which `_fetch_all` caps at
+    #      MAX_ROWS across EVERY route and event type (no route/event filter on
+    #      that fetch). Raising the table window to 90 days made that cap far
+    #      easier to reach — 20,179 rows already sit in the last 90 days against
+    #      a 50,000 ceiling — and past it, older qualifying page views are
+    #      dropped while the total still presents itself as cumulative.
+    #
+    # So the count is taken with scoped EXACT-count queries instead: filtered at
+    # the database on event_name + route + window (+ implementation), which is
+    # immune to the scan ceiling and is per-cohort by construction. Verified
+    # against production that PostgREST filters the JSON path — the `_Query`
+    # test stub answers any chain, so it cannot prove this syntax works.
+    exposure_cutoff = (now - timedelta(minutes=window_minutes)).isoformat()
+
+    def _exposure_count(impl: str | None) -> int | None:
+        q = (
+            supabase_admin.table("analytics_events")
+            .select("id", count="exact")
+            .eq("event_name", "page_view")
+            .eq("event_data->>path", route)
+            .gte("created_at", exposure_cutoff)
+        )
+        if impl is not None:
+            q = q.eq("event_data->>implementation", impl)
+        return q.limit(1).execute().count
+
+    try:
+        exp_total = _exposure_count(None)
+        exp_next = _exposure_count("next")
+        exp_legacy = _exposure_count("legacy")
+        exposure_exact = None not in (exp_total, exp_next, exp_legacy)
+    except Exception as exc:
+        logger.warning("rollback-metrics: exact exposure count failed: %s", exc)
+        exposure_exact = False
+        exp_total = exp_next = exp_legacy = None
+
+    if not exposure_exact:
+        # Fall back to the scanned table, but say plainly that the number is a
+        # LOWER BOUND. A capped scan reported as a cumulative total is the
+        # second defect above; degrading to "at least N" keeps it honest.
+        exp_next = table_buckets["next"]["page_views"]
+        exp_legacy = table_buckets["legacy"]["page_views"]
+        exp_total = sum(b["page_views"] for b in table_buckets.values())
+
+    exposure = {
+        # `evaluated` is the number a cutover gate reads: the cohort under test.
+        "evaluated_implementation": "next",
+        "evaluated_views": exp_next,
+        "by_implementation": {
+            "next": exp_next,
+            "legacy": exp_legacy,
+            "untagged": (max(0, exp_total - exp_next - exp_legacy)
+                         if exposure_exact else table_buckets["untagged"]["page_views"]),
+        },
+        "all_views": exp_total,
+        # False → treat every number above as "at least this many".
+        "exact": bool(exposure_exact),
+        "window_minutes": window_minutes,
+    }
+
     return {
         "route": route,
         "window_minutes": window_minutes,
+        # DEBT-2026-07-22-F — `window_minutes` alone is ambiguous: it is the
+        # EFFECTIVE window, so a caller cannot tell a granted request from a
+        # clamped one without remembering what it sent. These two make it
+        # unmistakable at the point the number is read.
+        "window_minutes_requested": requested_window_minutes,
+        "window_clamped": window_clamped,
         "windows": {
             "table": window_minutes,
+            "table_max": ROLLBACK_TABLE_MAX_WINDOW_MIN,
             "error_trigger": ROLLBACK_ERROR_WINDOW_MIN,
             "vitals_trigger": ROLLBACK_VITALS_WINDOW_MIN,
         },
+        # DEBT-2026-07-22-F — the "≥N interactions" half of the §12.3 gate. No
+        # field used to carry it, so the soak day-log tracked the elapsed-days
+        # half and never this one. See _exposure() for why it is NOT a sum over
+        # the scanned table.
+        "exposure": exposure,
         "implementations": implementations,
         "error_verdict": error_verdict,
         "vitals_verdict": vitals_verdict,

@@ -60,7 +60,10 @@ function init() {
   // Phase B — delegated publish/archive/restore on the rows.
   document.getElementById('tl-tbody').addEventListener('click', (e) => {
     const b = e.target.closest('.tl-status-btn');
-    if (b) changeStatus(b.dataset.id, b.dataset.status);
+    if (!b) return;
+    // Two kinds of button share the class; dispatch on which data-* they carry.
+    if (b.dataset.examOnly !== undefined) return setExamOnly(b);
+    changeStatus(b.dataset.id, b.dataset.status);
   });
 
   fetchTests();
@@ -144,12 +147,43 @@ function renderRows(items) {
 function statusActions(t) {
   const btn = (status, label) =>
     `<button type="button" class="tl-status-btn" data-id="${escapeHtml(t.id)}" data-status="${status}">${label}</button>`;
-  if (t.status === 'draft')     return btn('published', 'Publish') + btn('archived', 'Archive');
-  if (t.status === 'published') return btn('archived', 'Archive');
-  if (t.status === 'archived')  return btn('draft', 'Khôi phục');
-  return '';
+  // Reserve for a mock exam / hand back to the student library. Rendered for
+  // every status: an admin stages a paper for a future exam long before it is
+  // published, and that is exactly the pre-assignment window the flag exists for.
+  const reserve = `<button type="button" class="tl-status-btn" data-exam-only="${t.exam_only ? '0' : '1'}" `
+    + `data-id="${escapeHtml(t.id)}" data-code="${escapeHtml(t.test_id || t.id)}">`
+    + (t.exam_only ? 'Trả về thư viện' : 'Chuyển sang đề kỳ thi') + '</button>';
+  if (t.status === 'draft')     return btn('published', 'Publish') + btn('archived', 'Archive') + reserve;
+  if (t.status === 'published') return btn('archived', 'Archive') + reserve;
+  if (t.status === 'archived')  return btn('draft', 'Khôi phục') + reserve;
+  return reserve;
 }
 
+
+
+// Reserve a paper for mock exams, or hand it back to the student library.
+//
+// The RELEASE direction is refused server-side when a non-archived exam still
+// binds the test. Deliberately NOT pre-checked here: duplicating the rule in the
+// browser is how the two drift, and the browser's copy is the one that cannot be
+// trusted. We just surface the 409.
+async function setExamOnly(btn) {
+  const next = btn.dataset.examOnly === '1';
+  const code = btn.dataset.code || btn.dataset.id;
+  const msg = next
+    ? `Chuyển "${code}" thành đề kỳ thi?\n\nĐề sẽ BIẾN MẤT khỏi thư viện luyện tập của học viên.`
+    : `Trả "${code}" về thư viện luyện tập?\n\nHọc viên sẽ luyện được đề này. `
+      + 'Nếu đề từng dùng cho một kỳ thi ĐÃ LƯU TRỮ, khoá sau có thể luyện đúng đề khoá trước vừa thi.';
+  if (!window.confirm(msg)) return;
+  hideError();
+  try {
+    await window.api.patch(`/admin/listening/tests/${encodeURIComponent(btn.dataset.id)}`,
+                           { exam_only: next });
+    fetchTests();   // refetch canonical state — no optimistic divergence
+  } catch (e) {
+    showError(e.message || 'Không đổi được.');
+  }
+}
 
 async function changeStatus(id, status) {
   if (status === 'archived' && !window.confirm('Archive bản này? Học sinh sẽ không còn thấy nó.')) return;

@@ -18,10 +18,18 @@
   var SECTION_LABEL = { not_started: 'Chưa bắt đầu', listening: 'Listening',
                         reading: 'Reading', writing: 'Writing', done: 'Đã xong' };
   var REFRESH_MS = 15000;
+  // In-flight guard for the one irreversible action on this page.
+  var _advancing = false;
+  var _cohortName = {};      // cohort id → name, for the retake source picker
 
   function el(id) { return document.getElementById(id); }
   function esc(s) { return (window.WC && window.WC.escapeHtml) ? window.WC.escapeHtml(s) : String(s == null ? '' : s); }
-  function toast(m) { if (window.toast) window.toast(m); else console.log(m); }
+  // toast.js exports window.showToast — the old check was for a name that has
+  // never existed, so every message on this page went only to the console.
+  function toast(m, kind) {
+    if (window.showToast) return window.showToast(m, kind === 'error' ? 'error' : 'success', { timeout: 5000 });
+    console.log(m);
+  }
   function asList(r) { return Array.isArray(r) ? r : (r && (r.items || r.tests || r.prompts || r.exams || r.cohorts)) || []; }
 
   function fillSelect(sel, rows, valueKey, labelFn, allowEmpty) {
@@ -55,6 +63,11 @@
     try {
       var cohorts = asList(await window.api.get('/admin/cohorts?is_active=true'));
       fillSelect(el('f-cohort'), cohorts, 'id', function (c) { return c.name || c.id; }, true);
+      // Cached for the retake source picker: a retake targets the students of
+      // ONE previous exam, so naming that exam's class is what tells the admin
+      // they are aiming at the right group.
+      _cohortName = {};
+      cohorts.forEach(function (c) { _cohortName[c.id] = c.name || c.id; });
     } catch (e) { console.warn('cohort picker', e); }
   }
 
@@ -147,8 +160,20 @@
       progressPills(ex, progress) +
       '<div class="me-row" style="gap:6px;margin-top:10px">' +
         (ex.status === 'draft' ? '<button class="av-btn" data-act="publish">Publish</button>' : '') +
-        '<button class="av-btn ' + (ex.is_open ? '' : 'av-btn--primary') + '" data-act="toggle">' + (ex.is_open ? 'Đóng kỳ' : 'Mở kỳ (live)') + '</button>' +
+        // Same rule as the live console: a `done` exam cannot be reopened, so
+        // only the CLOSE direction is ever offered for one (Codex, PR #858).
+        ((ex.active_section === 'done' && !ex.is_open)
+          ? '<span class="me-muted">Đã kết thúc</span>'
+          : '<button class="av-btn ' + (ex.is_open ? '' : 'av-btn--primary') + '" data-act="toggle">' + (ex.is_open ? 'Đóng kỳ' : 'Mở kỳ (live)') + '</button>') +
         (canAdvance ? '<button class="av-btn av-btn--primary" data-act="advance">Mở phần tiếp theo →</button>' : '') +
+        // Only for PUBLISHED exams: the console's picker lists published only,
+        // and its boot() silently falls back to the first published exam for an
+        // id it does not recognise — so a draft/archived card would open a
+        // DIFFERENT class's board with its irreversible controls
+        // (Codex review, PR #833).
+        (ex.status === 'published'
+          ? '<a class="av-btn" href="/pages/admin/mock-live/index.html?exam_id=' + encodeURIComponent(ex.id) + '">Phòng thi trực tiếp →</a>'
+          : '') +
         '<a class="av-btn" href="/pages/admin/mock-reviews/index.html?mock_exam_id=' + encodeURIComponent(ex.id) + '">Duyệt bài →</a>' +
       '</div>';
     var pub = card.querySelector('[data-act="publish"]');
@@ -217,11 +242,26 @@
       ? 'Bắt đầu kỳ thi — mở phần ' + label + ' cho toàn bộ học viên?'
       : 'Thu bài phần ' + (SECTION_LABEL[activeSection] || activeSection) + ' (' + collectNote + ') và mở phần ' + label + '?';
     if (!confirm(msg)) return;
+    // Disable while in flight. The server has an optimistic guard (B2) so a
+    // double-click can no longer skip a section or reset the class clock, but
+    // the second click would still surface a 409 the admin has to decode —
+    // better not to fire it at all.
+    if (_advancing) return;
+    _advancing = true;
+    var btn = document.querySelector('[data-act="advance"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Đang chuyển…'; }
     try {
-      await window.api.post('/admin/mock-exams/' + encodeURIComponent(ex.id) + '/advance', {});
+      await window.api.post('/admin/mock-exams/' + encodeURIComponent(ex.id) + '/advance',
+        // the section THIS screen is showing — a stale tab is rejected
+        { from_section: activeSection });
       toast('Đã mở phần ' + label + '.');
       loadExams();
-    } catch (e) { toast('Thất bại: ' + (e && e.message)); }
+    } catch (e) {
+      toast('Thất bại: ' + (e && e.message));
+      loadExams();   // re-read: a 409 means someone else already advanced
+    } finally {
+      _advancing = false;
+    }
   }
 
   // ── Retake: gán đề cho từng học viên ────────────────────────────────
@@ -233,6 +273,24 @@
 
   function closeAssign() {
     var m = el('assign-modal'); if (m) m.remove();
+  }
+
+  // Which skills the TARGET retake exam can actually serve. The skills come off
+  // the SOURCE exam's retest flags, but they are sat on this one — ticking
+  // Listening on an exam with no listening test used to start the student's
+  // clock against an iframe with `id=undefined`. Mirrors servable_skills() in
+  // mock_exam_assignment_service.py, which now refuses the assign outright;
+  // this is so the admin sees WHY before pressing the button.
+  // Writing is ALWAYS servable — the panel is native textareas and a missing
+  // prompt renders as "(Không có đề Task N)". Same rule as servable_skills() in
+  // mock_exam_assignment_service.py and _configured_sections() in
+  // mock_exam_service.py; only L/R die without their test id.
+  function servableSkills(ex) {
+    var out = [];
+    if (ex.listening_test_id) out.push('listening');
+    if (ex.reading_test_id) out.push('reading');
+    out.push('writing');
+    return out;
   }
 
   async function openAssign(ex) {
@@ -249,31 +307,67 @@
         '<div class="me-grid">' +
           '<div><label>Đề gốc (lấy danh sách cần test lại)</label><select id="a-source"></select></div>' +
           '<div><label>Mở từ</label><input id="a-from" type="datetime-local"></div>' +
-          '<div><label>Đóng lúc</label><input id="a-until" type="datetime-local"></div>' +
+          // Required. Without a closing bound the reaper never collects a
+          // student who doesn't start, so the sitting sticks in `registered`
+          // forever and (after C3) locks them out of every other exam.
+          '<div><label>Đóng lúc <span style="color:var(--av-error)">*</span></label>' +
+            '<input id="a-until" type="datetime-local" required></div>' +
         '</div>' +
         '<div id="a-students" class="me-muted" style="margin-top:10px">Chọn đề gốc để hiện học viên cần test lại.</div>' +
         '<div class="me-row" style="gap:6px;margin-top:12px">' +
           '<button class="av-btn av-btn--primary" id="a-assign" disabled>Gán cho học viên đã tick</button>' +
         '</div>' +
+        // PERSISTENT, and NAMED. A toast with a count told the admin that some
+        // students kept their old skills/window but not WHICH — and the table
+        // below re-renders from the canonical assignments, which show the NEW
+        // values for everyone, so there was nowhere left to find out (Codex
+        // review, PR #845). This survives the reload; the admin needs it to
+        // decide whose sitting to cancel.
+        '<div id="a-warn" hidden style="margin-top:10px"></div>' +
         '<h3 style="margin-top:16px;color:var(--av-text-primary)">Đã gán</h3>' +
         '<div id="a-current" class="me-muted">Đang tải…</div>' +
       '</div>';
     document.body.appendChild(overlay);
     overlay.querySelector('[data-x]').addEventListener('click', closeAssign);
     overlay.addEventListener('click', function (e) { if (e.target === overlay) closeAssign(); });
+    // "Đóng lúc" is required, so offer a sane default rather than making the
+    // admin compute one — a week is long enough for a retake and short enough
+    // that a no-show is finalised while the class is still current.
+    el('a-until').value = localDateTimeIn(7);
 
     // Source picker = published exams (any mode) whose review produced flags.
+    // Labelled with the CLASS that sat it: a retake is aimed at the students of
+    // one previous exam, so the class name is how the admin confirms they are
+    // targeting the right group before the roster even loads.
     try {
       var exams = asList(await window.api.get('/admin/mock-exams'))
         .filter(function (e) { return e.id !== ex.id && e.status === 'published'; });
-      fillSelect(el('a-source'), exams, 'id', function (e) { return (e.code || '') + ' — ' + (e.title || ''); }, true);
+      fillSelect(el('a-source'), exams, 'id', function (e) {
+        var cls = e.cohort_id ? _cohortName[e.cohort_id] : null;
+        return (e.code || '') + ' — ' + (e.title || '') + (cls ? ' · lớp ' + cls : '');
+      }, true);
     } catch (e) { /* leave empty */ }
-    el('a-source').addEventListener('change', function () { loadRetestStudents(el('a-source').value); });
+    el('a-source').addEventListener('change', function () { loadRetestStudents(el('a-source').value, ex); });
     el('a-assign').addEventListener('click', function () { doAssign(ex.id, el('a-source').value); });
+
+    // Say up front which skills this exam can hand out. Without it the admin
+    // only found out after the assign was refused — or, before that check
+    // existed, not at all.
+    var can = servableSkills(ex);
+    var missing = RETAKE_SKILLS.filter(function (s) { return can.indexOf(s.key) === -1; });
+    if (missing.length) {
+      var note = document.createElement('div');
+      note.className = 'me-muted';
+      note.style.cssText = 'margin-top:8px;color:var(--av-warning,#b45309)';
+      note.textContent = '⚠ Đề này chưa có nội dung cho: '
+        + missing.map(function (s) { return s.label; }).join(', ')
+        + ' — không gán được kĩ năng đó. Gắn đề ở "Sửa đề" rồi mở lại.';
+      el('a-students').parentNode.insertBefore(note, el('a-students'));
+    }
     loadCurrentAssignments(ex.id);
   }
 
-  async function loadRetestStudents(sourceId) {
+  async function loadRetestStudents(sourceId, targetEx) {
     var host = el('a-students');
     el('a-assign').disabled = true;
     if (!sourceId) { host.textContent = 'Chọn đề gốc để hiện học viên cần test lại.'; return; }
@@ -282,8 +376,11 @@
       var s = await window.api.get('/admin/mock-exams/' + encodeURIComponent(sourceId) + '/retest-summary');
       var studs = (s.students || []).filter(function (st) { return st.user_id; });
       if (!studs.length) { host.textContent = 'Đề gốc chưa có học viên nào cần test lại.'; return; }
+      var can = servableSkills(targetEx || {});
       host.innerHTML = '<table class="adm-table"><thead><tr><th></th><th>Học viên</th>' +
-        RETAKE_SKILLS.map(function (sk) { return '<th>' + sk.label + '</th>'; }).join('') +
+        RETAKE_SKILLS.map(function (sk) {
+          return '<th>' + sk.label + (can.indexOf(sk.key) === -1 ? ' <span class="me-muted">(chưa có đề)</span>' : '') + '</th>';
+        }).join('') +
         '</tr></thead><tbody>' +
         studs.map(function (st) {
           var flagged = st.skills || [];
@@ -291,8 +388,15 @@
             '<td><input type="checkbox" class="a-pick" checked></td>' +
             '<td>' + esc(st.student_name) + '</td>' +
             RETAKE_SKILLS.map(function (sk) {
+              // A skill this exam cannot serve is shown UNCHECKED and disabled,
+              // even when the source exam flagged it — ticking it would only be
+              // refused, and before the refusal existed it produced a student
+              // sitting a blank section on a running clock.
+              var ok = can.indexOf(sk.key) !== -1;
               return '<td><input type="checkbox" class="a-skill" data-skill="' + sk.key + '"' +
-                (flagged.indexOf(sk.key) !== -1 ? ' checked' : '') + '></td>';
+                (ok && flagged.indexOf(sk.key) !== -1 ? ' checked' : '') +
+                (ok ? '' : ' disabled title="Đề test lại này chưa có nội dung cho ' + esc(sk.label) + '"') +
+                '></td>';
             }).join('') +
             '</tr>';
         }).join('') + '</tbody></table>';
@@ -305,9 +409,23 @@
     return localVal ? new Date(localVal).toISOString() : null;
   }
 
+  // `days` from now, formatted for a datetime-local input (which wants LOCAL
+  // time with no zone suffix — toISOString would silently shift by the offset).
+  function localDateTimeIn(days) {
+    var d = new Date(Date.now() + days * 86400000);
+    var p = function (n) { return (n < 10 ? '0' : '') + n; };
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())
+      + 'T' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+
   async function doAssign(examId, sourceId) {
     var from = toIso(el('a-from').value), until = toIso(el('a-until').value);
-    if (from && until && new Date(until) < new Date(from)) {
+    if (!until) {
+      toast('Phải đặt "đóng lúc" — không có hạn đóng thì bài của học viên không bao giờ được thu.');
+      el('a-until').focus();
+      return;
+    }
+    if (from && new Date(until) < new Date(from)) {
       toast('Khung giờ không hợp lệ: "đóng lúc" sớm hơn "mở từ".'); return;
     }
     var rows = [];
@@ -321,10 +439,46 @@
     try {
       var res = await window.api.post('/admin/mock-exams/' + encodeURIComponent(examId) + '/assignments',
         { assignments: rows, source_exam_id: sourceId || null });
-      toast('Đã gán ' + (res.assigned || []).length + ' học viên' +
-        ((res.skipped || []).length ? ' · bỏ qua ' + res.skipped.length : '') + '.');
+      var msg = 'Đã gán ' + (res.assigned || []).length + ' học viên' +
+        ((res.skipped || []).length ? ' · bỏ qua ' + res.skipped.length : '') + '.';
+      // A correction that could NOT reach a student already mid-exam must be
+      // said out loud — silently not applying it is exactly the old bug. And it
+      // must name them: a count alone leaves the admin unable to tell whose
+      // sitting still holds the old skills/window, or which one to cancel.
+      if ((res.locked || []).length) msg += ' ⚠ ' + res.locked.length + ' giữ nguyên.';
+      // Distinct from `locked`: that is a deliberate refusal, this means the
+      // write ERRORED and nobody knows what those students are now sitting.
+      if ((res.refresh_failed || []).length) msg += ' ❌ ' + res.refresh_failed.length + ' lỗi ghi.';
+      renderAssignWarning(res.locked || [], res.refresh_failed || []);
+      toast(msg);
       loadCurrentAssignments(examId);
     } catch (e) { toast('Gán thất bại: ' + (e && e.message)); }
+  }
+
+  // Names come from the picker table that is still on screen — the same rows
+  // the admin just ticked — so no extra request is needed to say WHO.
+  function studentName(uid) {
+    var host = el('a-students');
+    var tr = host && host.querySelector('tr[data-uid="' + String(uid).replace(/"/g, '') + '"]');
+    var td = tr && tr.querySelectorAll('td')[1];
+    return (td && td.textContent.trim()) || String(uid);
+  }
+
+  function renderAssignWarning(locked, failed) {
+    var box = el('a-warn');
+    if (!box) return;
+    if (!locked.length && !failed.length) { box.hidden = true; box.innerHTML = ''; return; }
+    var html = '';
+    if (locked.length) {
+      html += '<div style="color:var(--av-warning);margin-bottom:6px">⚠ ĐANG LÀM BÀI — giữ nguyên kĩ năng/khung giờ cũ (huỷ lượt của họ nếu cần áp thay đổi): ' +
+        locked.map(function (u) { return esc(studentName(u)); }).join(', ') + '</div>';
+    }
+    if (failed.length) {
+      html += '<div style="color:var(--av-error)">❌ KHÔNG áp được thay đổi lên lượt thi đang mở (lỗi ghi) — kiểm tra trực tiếp: ' +
+        failed.map(function (u) { return esc(studentName(u)); }).join(', ') + '</div>';
+    }
+    box.innerHTML = html;
+    box.hidden = false;
   }
 
   async function loadCurrentAssignments(examId) {

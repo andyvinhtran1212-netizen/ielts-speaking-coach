@@ -52,6 +52,58 @@
       display: flex; flex-direction: column; gap: var(--av-space-4);
     }
     .ft-prestart h2 { font-size: var(--av-fs-xl); }
+    /* A4a — unsaved-answer cue. Amber while retrying, red once it has given
+       up: those are different situations and only one of them can still clear
+       itself. */
+    .progress-square.is-unsaved {
+      border-color: var(--av-warning) !important;
+      background: var(--av-warning-soft) !important;
+    }
+    .progress-square.is-save-failed {
+      border-color: var(--av-error) !important;
+      background: var(--av-error-soft) !important;
+    }
+    .ft-unsaved-note {
+      margin: 0 0 var(--av-space-2);
+      padding: var(--av-space-2) var(--av-space-3);
+      border: 1px solid var(--av-warning);
+      background: var(--av-warning-soft);
+      color: var(--av-warning);
+      border-radius: var(--av-radius-md);
+      font-size: var(--av-fs-sm);
+    }
+    .ft-nothing-saved {
+      margin: 0 0 var(--av-space-2);
+      padding: var(--av-space-3);
+      border: 2px solid var(--av-error);
+      background: var(--av-error-soft);
+      color: var(--av-error);
+      border-radius: var(--av-radius-md);
+      font-size: var(--av-fs-sm);
+      font-weight: 700;
+    }
+    .ft-unsaved-retry {
+      margin-left: var(--av-space-2);
+      padding: 2px var(--av-space-2);
+      border: 1px solid currentColor;
+      border-radius: var(--av-radius-sm);
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    /* Resume cue — states plainly how much work the server still holds, so
+       "Tiếp tục" vs "Bắt đầu" is an informed choice, not a guess. */
+    .ft-resume-note {
+      margin: 0;
+      padding: var(--av-space-3) var(--av-space-4);
+      border: 1px solid var(--av-success);
+      background: var(--av-success-soft);
+      color: var(--av-success);
+      border-radius: var(--av-radius-md);
+      font-size: var(--av-fs-sm);
+    }
     .ft-rules {
       padding: var(--av-space-3) var(--av-space-4);
       background: var(--av-surface-sunken);
@@ -355,11 +407,17 @@
           <ul>
             <li><span id="ft-prestart-rule-count">40 câu trên 4 sections</span>, làm trong một lượt nghe.</li>
             <li>Audio <strong>không tua lại</strong> — bạn chỉ nghe được 1 lần như đề thật.</li>
-            <li>Đáp án được lưu tự động sau mỗi 2 giây — không cần bấm save.</li>
+            <li>Đáp án được lưu tự động lên máy chủ — không cần bấm save. Nếu có câu chưa lưu được, hệ thống sẽ báo rõ ở cuối trang.</li>
             <li>Có thể tạm dừng audio nếu cần nghỉ giữa chừng.</li>
             <li>Sau khi nộp bài, bạn sẽ thấy điểm + band ước tính + phân tích bẫy.</li>
           </ul>
         </div>
+        <!-- Resume affordance: shown only when the server still holds an open
+             attempt for this student. Comes BEFORE the start button so it is
+             the obvious action, and so the mock embed's auto-click finds it
+             first (mock-exam-hook.js prefers #ft-resume-btn). -->
+        <p id="ft-resume-note" class="ft-resume-note" hidden></p>
+        <button class="ft-control-btn" id="ft-resume-btn" type="button" hidden>Tiếp tục bài đang làm</button>
         <button class="ft-control-btn" id="btn-start" type="button">Bắt đầu test</button>
       </section>
 
@@ -418,6 +476,14 @@
              clicking switches tabs + scrolls to the input. -->
         <footer class="ielts-progress-tracker" id="ft-progress-tracker">
           <div class="ielts-progress-bar" id="ft-progress-bar" role="navigation" aria-label="Câu hỏi"></div>
+          <!-- A4a — answers the SERVER does not have. A single amber square
+               among 40 is easy to miss; this states the count and what it means
+               for closing the tab. role=status so it is announced. -->
+          <p class="ft-unsaved-note" id="ft-unsaved-note" role="status" aria-live="polite" hidden></p>
+          <!-- Louder than the per-question cue and separately hosted: this one
+               says the server has NONE of the student's work, which is the
+               difference between an amber square and a graded zero. -->
+          <p class="ft-nothing-saved" id="ft-nothing-saved" role="alert" aria-live="assertive" hidden></p>
           <div class="ielts-progress-summary">
             <span class="progress-count">
               Đã trả lời <strong id="ft-answered-foot">0</strong> / <strong data-total-q>40</strong> câu

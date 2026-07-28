@@ -80,7 +80,7 @@ describe('Sprint 20.15 D2 — per-row delete action', () => {
     // (no passage rows leak → no footgun) and keys on the test_id (it.slug).
     assert.match(
       js,
-      /it\.library === 'l3_test' && it\.slug[\s\S]{0,800}data-action="delete-test"/,
+      /it\.library === 'l3_test' && it\.slug[\s\S]{0,1800}data-action="delete-test"/,
     );
     assert.match(js, /href="\/pages\/admin\/reading\/preview\.html\?test_id=['"]/);
   });

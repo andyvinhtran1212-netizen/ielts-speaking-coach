@@ -44,10 +44,17 @@
 
   function $(id) { return document.getElementById(id); }
   function setHtml(id, html) { $(id).innerHTML = html; }
+  // Escapes for BOTH contexts this file interpolates into: text nodes and
+  // double-quoted attributes. The textContent→innerHTML trick alone encodes
+  // & < > but NOT quotes, so `data-say="${escape(v)}"` let a value containing a
+  // double quote close the attribute and add its own (Codex review, PR #876).
+  // That is reachable: the personal card's headword comes from user_vocabulary,
+  // which manual-add fills with an unrestricted string. Quotes stay readable in
+  // text position — the browser decodes the entity when rendering.
   function escape(s) {
     const d = document.createElement('div');
     d.textContent = s == null ? '' : String(s);
-    return d.innerHTML;
+    return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
   function showLoading() {
     setHtml('study-container', '<div class="state-msg"><div class="spinner"></div></div>');
@@ -435,10 +442,20 @@
     const hasDefinition = !!(card.definition_vi || card.definition_en);
     const hasContent    = hasDefinition || !!card.example_sentence;
 
+    // Audit 2026-07-28 §A1 — the personal SRS card had NO play button at all,
+    // while the wiki card next door had two. `user_vocabulary` carries no audio
+    // column, so the backend resolves `audio_headword` from vocab_cards by
+    // headword; when there's no match the button still works via speechSynthesis
+    // (playAudio falls back on an empty url), so it is always rendered.
+    const personalAudioBtn =
+      `<button type="button" class="wiki-audio" data-audio="${escape(card.audio_headword || '')}" ` +
+      `data-say="${escape(card.headword || '')}" aria-label="Nghe từ">🔊</button>`;
+
     const headwordBanner = `
       <div class="back-headword-row">
         <span class="back-headword">${escape(card.headword || '')}</span>
         ${card.ipa ? `<span class="back-ipa">${escape(card.ipa)}</span>` : ''}
+        ${personalAudioBtn}
       </div>
     `;
 
@@ -516,6 +533,7 @@
           <div class="face front">
             ${topicTag}
             <p class="headword" style="margin-top:14px">${escape(card.headword || '')}</p>
+            <div class="wiki-pron">${personalAudioBtn}</div>
             <p class="flip-hint">Tap / Space để xem nghĩa</p>
           </div>
           ${back}
@@ -523,10 +541,16 @@
       </div>
 
       <div id="study-ratings" class="ratings">${ratingButtons}</div>
-      <p class="ratings-hint">Bấm thẻ để xem nghĩa • Đánh giá: 1 Quên • 2 Khó • 3 Tốt • 4 Dễ</p>
+      <p class="ratings-hint">Bấm thẻ để xem nghĩa • 🔊 Nghe phát âm • Đánh giá: 1 Quên • 2 Khó • 3 Tốt • 4 Dễ</p>
     `);
 
     $('study-card').addEventListener('click', flipCard);
+    document.querySelectorAll('.wiki-audio').forEach(b => {
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();   // don't flip the card
+        playAudio(b.getAttribute('data-audio'), b.getAttribute('data-say'));
+      });
+    });
     document.querySelectorAll('.rate-btn').forEach(b => {
       b.addEventListener('click', () => submitRating(b.getAttribute('data-rating')));
     });

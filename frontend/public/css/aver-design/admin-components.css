@@ -249,3 +249,17 @@ th.adm-sortable:hover { color: var(--av-text-primary); }
 .av-confirm h2 { color: var(--av-text-primary); }
 .av-confirm__body { color: var(--av-text-secondary); font-size: var(--av-fs-sm);
   line-height: var(--av-lh-normal); margin: 0; }
+
+
+/* ── Embedded inside the Mock Test cockpit (?embed=1) ─────────────────
+   The cockpit hosts these pages in iframes and already shows the section name
+   on its tab, so the page's own title block would be the second copy. Opt-in
+   via [data-embed-hide]: these pages also use headings INSIDE panels, and a
+   blanket "hide every h1" would gut the page instead of de-duplicating its
+   chrome. Set by /js/admin-embed.js. */
+body.is-embedded [data-embed-hide] { display: none !important; }
+/* The frame supplies its own scroll; the page's outer padding would otherwise
+   double up against the cockpit panel's. */
+body.is-embedded .me-wrap,
+body.is-embedded .ml-wrap,
+body.is-embedded .mr-wrap { padding-top: 0; }

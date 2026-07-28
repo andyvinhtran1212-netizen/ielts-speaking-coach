@@ -26,6 +26,10 @@
   // Frame source per tab. `review` needs a selected exam; the others don't.
   var FRAME = {
     manage:  function () { return '/pages/admin/mock-exams/index.html?embed=1'; },
+    // The invigilator console. Scoped to the selected exam like `review` — a
+    // console that opens on somebody else's classroom is worse than one that
+    // asks which class you mean (the page itself refuses a wrong ?exam_id=).
+    live:    function (id) { return id ? '/pages/admin/mock-live/index.html?exam_id=' + encodeURIComponent(id) + '&embed=1' : null; },
     review:  function (id) { return id ? '/pages/admin/mock-reviews/index.html?mock_exam_id=' + encodeURIComponent(id) + '&embed=1' : null; },
     writing: function () { return '/pages/admin/writing/queue.html?embed=1&mocklane=1'; },
   };
@@ -66,10 +70,20 @@
     });
   }
 
+  // ONE place that knows which tabs are meaningless without an exam. It was
+  // written three times — the CSS marker, the reload-on-select branch and the
+  // guard in renderFrame() — so the dot could say "pick an exam" while the guard
+  // had stopped asking for one. Read the markup both sides already agree on.
+  function tabNeedsExam(tab) {
+    var el = document.querySelector('.mt-tab[data-tab="' + tab + '"]');
+    return !!(el && el.hasAttribute('data-needs-exam'));
+  }
+
   function selectExam(id) {
     state.selectedId = id;
     renderRail();
-    if (state.tab === 'review') renderFrame();
+    renderContext();
+    if (tabNeedsExam(state.tab)) renderFrame();
   }
 
   // Where the frame ACTUALLY is — which is not what its src attribute says. The
@@ -100,8 +114,17 @@
 
   function renderFrame() {
     var frame = $('mt-frame'), need = $('mt-need-exam');
-    var src = state.tab === 'review' ? FRAME.review(state.selectedId) : FRAME[state.tab]();
-    if (!src) { frame.classList.add('hidden'); need.classList.remove('hidden'); return; }
+    var needsExam = tabNeedsExam(state.tab);
+    var src = needsExam ? FRAME[state.tab](state.selectedId) : FRAME[state.tab]();
+    if (!src) {
+      // Name the tab being asked about — "để duyệt bài thi" on the live console
+      // tab sends the admin looking for the wrong thing.
+      need.textContent = 'Chọn một đề ở danh sách bên trái để '
+        + (state.tab === 'live' ? 'mở phòng thi trực tiếp.' : 'duyệt bài thi.');
+      frame.classList.add('hidden');
+      need.classList.remove('hidden');
+      return;
+    }
     need.classList.add('hidden');
     frame.classList.remove('hidden');
     if (frameAt(frame) !== src) loadFrame(frame, src);
@@ -149,9 +172,71 @@
   function setTab(tab) {
     state.tab = tab;
     document.querySelectorAll('.mt-tab').forEach(function (t) {
-      t.classList.toggle('is-active', t.getAttribute('data-tab') === tab);
+      var on = t.getAttribute('data-tab') === tab;
+      t.classList.toggle('is-active', on);
+      // role="tab" without aria-selected tells a screen reader there are four
+      // tabs and none of them is chosen. Roving tabindex so Tab moves PAST the
+      // strip instead of through all four.
+      t.setAttribute('aria-selected', on ? 'true' : 'false');
+      t.setAttribute('tabindex', on ? '0' : '-1');
+      // …and the panel must say WHICH tab named it, or a screen reader lands in
+      // an unnamed region and has to guess what it is looking at.
+      if (on) {
+        var panel = $('mt-panel-body');
+        if (panel) panel.setAttribute('aria-labelledby', t.id);
+      }
     });
+    renderContext();
     renderFrame();
+  }
+
+  // Which exam this panel is acting on. The rail was the only place that said
+  // so, and two of these tabs act on ONE class — an admin scrolled back to check
+  // before doing something irreversible (thu bài, mở phần sau).
+  function renderContext() {
+    var box = $('mt-context');
+    if (!box) return;
+    var tab = document.querySelector('.mt-tab[data-tab="' + state.tab + '"]');
+    if (!tab || !tab.hasAttribute('data-needs-exam') || !state.selectedId) {
+      box.hidden = true;
+      return;
+    }
+    var ex = null;
+    for (var i = 0; i < state.exams.length; i++) {
+      if (state.exams[i].id === state.selectedId) ex = state.exams[i];
+    }
+    if (!ex) { box.hidden = true; return; }
+    box.hidden = false;
+    box.textContent = '';
+    var code = document.createElement('span');
+    code.className = 'mt-context__code';
+    code.textContent = ex.code || ex.id;
+    var title = document.createElement('span');
+    title.className = 'mt-context__title';
+    title.textContent = ex.title || '';
+    box.appendChild(document.createTextNode('Đang thao tác trên: '));
+    box.appendChild(code);
+    box.appendChild(title);
+  }
+
+  // Left/Right move between tabs, Home/End jump to the ends — the pattern a
+  // role="tablist" promises and this one did not keep.
+  function onTabKey(e) {
+    var tabs = Array.prototype.slice.call(document.querySelectorAll('.mt-tab'));
+    var at = tabs.indexOf(e.currentTarget);
+    var to = null;
+    if (e.key === 'ArrowRight') to = (at + 1) % tabs.length;
+    else if (e.key === 'ArrowLeft') to = (at - 1 + tabs.length) % tabs.length;
+    else if (e.key === 'Home') to = 0;
+    else if (e.key === 'End') to = tabs.length - 1;
+    if (to === null) return;
+    e.preventDefault();
+    // Move focus only. Activating on arrow (APG's "automatic activation") is for
+    // panels that appear instantly; each of these is a whole admin page loading
+    // in an iframe, so arrowing across the strip would fire three page loads the
+    // admin never asked for. Enter/Space activates — buttons do that natively.
+    tabs.forEach(function (t) { t.setAttribute('tabindex', t === tabs[to] ? '0' : '-1'); });
+    tabs[to].focus();
   }
 
   function boot() {
@@ -174,11 +259,18 @@
 
     document.querySelectorAll('.mt-tab').forEach(function (t) {
       t.addEventListener('click', function () { setTab(t.getAttribute('data-tab')); });
+      t.addEventListener('keydown', onTabKey);
     });
     document.querySelectorAll('.mt-chip').forEach(function (c) {
       c.addEventListener('click', function () {
         state.stage = c.getAttribute('data-stage');
-        document.querySelectorAll('.mt-chip').forEach(function (x) { x.classList.toggle('is-active', x === c); });
+        document.querySelectorAll('.mt-chip').forEach(function (x) {
+          var on = x === c;
+          x.classList.toggle('is-active', on);
+          // A filter whose state is carried only by a colour is invisible to a
+          // screen reader — and to anyone who cannot separate those two greys.
+          x.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
         renderRail();
       });
     });
@@ -186,9 +278,18 @@
 
     api.get('/admin/mock-exams').then(function (res) {
       state.exams = (res && res.exams) || (Array.isArray(res) ? res : []);
+      // A refetch can drop the selected row (deleted, archived out of view). The
+      // context bar hides itself when it cannot find the exam, but the frame
+      // would keep pointing at the orphan id and open an empty console.
+      if (state.selectedId && !state.exams.some(function (x) { return x.id === state.selectedId; })) {
+        state.selectedId = null;
+      }
       $('mt-loading').classList.add('hidden');
       if (state.exams.length && !state.selectedId) state.selectedId = state.exams[0].id;
       renderRail();
+      // setTab() ran before this fetch resolved, so the context bar had no exam
+      // to name yet — without this it stays blank until the admin clicks a row.
+      renderContext();
       renderFrame();   // review tab can now target the auto-selected exam
     }).catch(function (e) {
       $('mt-loading').textContent = 'Không tải được danh sách đề: ' + (e && e.message || 'lỗi');

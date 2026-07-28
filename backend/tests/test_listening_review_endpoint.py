@@ -214,7 +214,10 @@ def test_review_test_projection_selects_test_type():
     mini mới (metadata không còn test_type) mất rebase audio window. Fake ở
     trên bỏ qua projection nên pin thẳng vào source (Codex P1, PR #798)."""
     import inspect, re
-    src = inspect.getsource(L.get_listening_test_attempt_review)
+    # Đợt 2 — thân hàm tách sang _assemble_listening_review để bản xem trước của
+    # admin dùng LẠI đúng payload này (dựng lại lần hai là cách hai bên trôi khỏi
+    # nhau). Projection vẫn phải select test_type; chỉ đổi chỗ.
+    src = inspect.getsource(L._assemble_listening_review)
     m = re.search(r'table\("listening_tests"\)[\s\S]{0,200}?select\("([^"]+)"', src)
     assert m, "listening_tests fetch not found in review route"
     assert "test_type" in m.group(1)

@@ -53,10 +53,17 @@ describe('AG2 — de-darked (no hardcoded dark colours)', () => {
       assert.match(html, /localStorage\.getItem\(\s*['"]av-theme['"]\s*\)/);
       assert.match(html, /prefers-color-scheme:\s*dark/);
     });
-    test(`${name}: loads the v2 font stack + shared vocab-wiki.css`, () => {
-      assert.match(html, /family=Fraunces/);
-      assert.match(html, /DM\+Mono/);
-      assert.match(html, /Hanken\+Grotesk/);
+    // DEBT-2026-07-24-J step (c), decision 2026-07-25 — inverted. The v2 card
+    // shipped its own 3-font stack (Fraunces + Hanken Grotesk + DM Mono), a
+    // third parallel type system. The system now allows ONE controlled serif
+    // (Lora) reserved for long-form reading; a word card is not long-form, so
+    // vocab comes back to the canonical sans.
+    test(`${name}: loads the canonical stack, none of the retired v2 fonts`, () => {
+      for (const gone of [/family=Fraunces/, /DM\+Mono/, /Hanken\+Grotesk/]) {
+        assert.doesNotMatch(html, gone, `${name}: retired v2 font still downloaded`);
+      }
+      assert.match(html, /family=Plus\+Jakarta\+Sans/);
+      assert.match(html, /family=JetBrains\+Mono/);
       assert.match(html, /css\/vocab-wiki\.css/);
     });
   }
@@ -99,9 +106,14 @@ describe('AG3 — v2 card components', () => {
     assert.match(CSS, /\.va-headword\b/);
     assert.match(CSS, /\.va-mini\b/);
   });
-  test('headword + mini-word use the Fraunces serif; IPA uses DM Mono', () => {
-    assert.match(CSS, /\.va-headword\s*\{[^}]*Fraunces/);
-    assert.match(CSS, /\.va-ipa\s*\{[^}]*DM Mono/);
+  test('headword + IPA reach type through tokens, not literal families', () => {
+    // The card keeps its size/weight hierarchy — only the family changes.
+    assert.match(CSS, /\.va-headword\s*\{[^}]*var\(--av-font-display\)/);
+    assert.match(CSS, /\.va-ipa\s*\{[^}]*var\(--av-font-mono\)/);
+    const live = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const gone of ['Fraunces', 'DM Mono', 'Hanken Grotesk']) {
+      assert.ok(!live.includes(gone), `${gone} must be out of vocab-wiki.css`);
+    }
   });
   test('vocabulary.js emits specimen + chips + callouts via the shared card builder', () => {
     // Slice-1 master-detail: stressSpecimen→stressParts/specimenHTML; the card is

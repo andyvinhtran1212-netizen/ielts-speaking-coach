@@ -236,6 +236,12 @@
             <select id="rbm-window">
               <option value="30" selected>30 phút</option>
               <option value="1440">24 giờ</option>
+              <!-- DEBT-2026-07-22-F: cửa sổ dài là vế SỐ-LƯỢNG của sàn phơi
+                   nhiễm §12.3 (ngày AND lượt). Trước đây backend cắt mọi giá
+                   trị >1440 xuống 24h mà không báo, nên hai lựa chọn này vô
+                   nghĩa; giờ trần bảng là 90 ngày. -->
+              <option value="10080">7 ngày</option>
+              <option value="43200">30 ngày</option>
             </select>
           </div>
           <button id="rbm-load" class="btn btn-secondary" type="button">Đo</button>

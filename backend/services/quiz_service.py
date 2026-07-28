@@ -632,9 +632,266 @@ def admin_student_detail(user_id: str, skill_area: str = "vocab") -> dict:
     }
 
 
-def student_progress(user_id: str) -> dict:
+_WORD_STAT_PAGE = 1000
+
+
+def mastered_item_keys(sb, user_id: str, bank_ids: list[str]) -> set[str]:
+    """DISTINCT lowercased item_keys this learner has mastered across `bank_ids`.
+
+    Distinct, not summed: 28 words live in two lessons each, so adding the
+    per-bank counts reports more words than the learner actually knows. Both the
+    Vocabulary hub tile and the stats-page header read this, so the two screens
+    can't disagree (they did: 141 vs 136 for the same learner).
+
+    Takes `sb` rather than reaching for the module-global client, because the home
+    aggregator is handed its own client (and a fake one in tests). Paged — a
+    learner several lessons in can exceed the PostgREST page cap.
+    """
+    if not bank_ids:
+        return set()
+    out: set[str] = set()
+    start = 0
+    while True:
+        rows = (
+            sb.table("quiz_word_stats").select("item_key")
+            .eq("user_id", user_id).eq("status", "mastered").in_("bank_id", bank_ids)
+            .order("item_key").range(start, start + _WORD_STAT_PAGE - 1).execute()
+        ).data or []
+        for r in rows:
+            key = (r.get("item_key") or "").strip().lower()
+            if key:
+                out.add(key)
+        if len(rows) < _WORD_STAT_PAGE:
+            return out
+        start += _WORD_STAT_PAGE
+
+
+def _bank_ids_for_skill(skill_area: str | None) -> list[str] | None:
+    """Bank ids for one skill_area, or None meaning "every bank" (no filter).
+
+    FAILS CLOSED: a lookup error raises rather than silently degrading to an
+    unscoped read — a vocabulary surface must never fall back to showing the
+    learner's grammar practice.
+    """
+    if not skill_area:
+        return None
+    try:
+        rows = (
+            supabase_admin.table("quiz_banks").select("id")
+            .eq("skill_area", skill_area).execute()
+        ).data or []
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Lỗi truy vấn bank theo kỹ năng: {exc}")
+    return [r["id"] for r in rows if r.get("id")]
+
+
+def _display_answer(question: dict, raw) -> str:
+    """Render a stored `answer_given` / the question's own answer as the learner
+    saw it. quiz_attempts stores the ORIGINAL option index for choice/syllable
+    (the player grades by index), so a bare echo would show "2" instead of the
+    option text."""
+    if raw is None:
+        return ""
+    inp = question.get("input")
+    if inp in ("choice", "syllable"):
+        pool = question.get("options") if inp == "choice" else question.get("segments")
+        pool = pool or []
+        try:
+            i = int(str(raw).strip())
+        except (TypeError, ValueError):
+            return str(raw)
+        return str(pool[i]) if 0 <= i < len(pool) else str(raw)
+    if inp == "boolean":
+        return "Đúng" if str(raw).strip().lower() in ("true", "1") else "Sai"
+    return str(raw)
+
+
+def _correct_answer_text(question: dict) -> str:
+    inp, ans = question.get("input"), question.get("answer")
+    if inp == "choice":
+        opts = question.get("options") or []
+        return str(opts[ans]) if isinstance(ans, int) and 0 <= ans < len(opts) else ""
+    if inp == "syllable":
+        segs = question.get("segments") or []
+        return str(segs[ans]) if isinstance(ans, int) and 0 <= ans < len(segs) else ""
+    if inp == "boolean":
+        return "Đúng" if (ans == 1 or ans is True) else "Sai"
+    if inp == "text":
+        accept = question.get("accept") or []
+        return str(accept[0]) if accept else ""
+    return ""
+
+
+_MISTAKE_ATTEMPT_CAP = 400      # newest wrong answers scanned
+_MISTAKE_ITEM_CAP = 60          # words shown
+
+# `{{audio}}` is a PLAYER placeholder, not prompt text — the player replaces it
+# with a 🔊 control. Anything else that shows a prompt to a learner must strip it
+# or the raw token reaches the screen (it did, on 16 of 47 review cards). Matches
+# the player's own regex, including an authored `**{{audio}}**` wrapper: stripping
+# the bare token there would leave `****` behind.
+_AUDIO_TOKEN_RE = re.compile(r"\s*(?:\*\*)?\{\{audio\}\}(?:\*\*)?\s*")
+
+
+def _display_prompt(prompt: str | None) -> str:
+    return _AUDIO_TOKEN_RE.sub(" ", str(prompt or "")).strip()
+
+
+def student_mistakes(user_id: str, skill_area: str | None = None) -> dict:
+    """The caller's own wrong answers, so they survive the session.
+
+    Audit 2026-07-28 (§C2): the end-of-session "Xem lại bài làm" list lives only
+    in the tab's memory (`sessionLog` in quiz.html) — leave the result screen and
+    every wrong answer is gone. The data was never the problem: quiz_attempts has
+    kept `qid` + `answer_given` + `is_correct` all along (6 948 rows on prod) and
+    quiz_word_stats.is_difficult was true for 47% of rows. There was simply no
+    read path. This is it.
+
+    Groups the newest wrong attempts by word, then by question, and joins the
+    question so the learner sees the prompt, what they answered, the right answer
+    and the explanation — the same four things the in-session review shows.
+    """
+    bank_ids = _bank_ids_for_skill(skill_area)
+    if bank_ids is not None and not bank_ids:
+        return {"items": [], "total_missed_words": 0}
+
+    try:
+        q = (
+            supabase_admin.table("quiz_attempts")
+            .select("bank_id, item_key, qid, skill, type, answer_given, created_at")
+            .eq("user_id", user_id).eq("is_correct", False)
+        )
+        if bank_ids is not None:
+            q = q.in_("bank_id", bank_ids)
+        attempts = (
+            q.order("created_at", desc=True).limit(_MISTAKE_ATTEMPT_CAP).execute()
+        ).data or []
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Lỗi truy vấn câu đã trả lời sai: {exc}")
+    if not attempts:
+        return {"items": [], "total_missed_words": 0}
+
+    # Newest-first, so the FIRST attempt seen per (bank, qid) is the latest one.
+    by_q: dict[tuple[str, str], dict] = {}
+    for a in attempts:
+        key = (a.get("bank_id"), a.get("qid"))
+        if not all(key):
+            continue
+        slot = by_q.get(key)
+        if slot is None:
+            by_q[key] = {"attempt": a, "wrong_times": 1}
+        else:
+            slot["wrong_times"] += 1
+
+    # Resolve the questions themselves, one read per bank.
+    questions: dict[tuple[str, str], dict] = {}
+    for bank_id in {k[0] for k in by_q}:
+        qids = [k[1] for k in by_q if k[0] == bank_id]
+        # Chunked: an in_() list goes into the QUERY STRING, so a few hundred qids
+        # would build a URL long enough for PostgREST/the proxy to reject.
+        for i in range(0, len(qids), 100):
+            try:
+                rows = (
+                    supabase_admin.table("quiz_questions")
+                    .select("bank_id, qid, item_key, prompt, hint, input, type, skill, "
+                            "options, segments, answer, accept, explain, "
+                            "grammar_article_slug")
+                    .eq("bank_id", bank_id).in_("qid", qids[i:i + 100]).execute()
+                ).data or []
+            except Exception as exc:  # noqa: BLE001
+                raise HTTPException(500, f"Lỗi truy vấn câu hỏi: {exc}")
+            _attach_article_urls(rows)
+            for r in rows:
+                questions[(r["bank_id"], r["qid"])] = r
+
+    # Bank meta for the card headers.
+    try:
+        meta = {
+            r["id"]: r for r in (
+                supabase_admin.table("quiz_banks")
+                .select("id, code, title, skill_area")
+                .in_("id", list({k[0] for k in by_q})).execute()
+            ).data or []
+        }
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Lỗi truy vấn bank: {exc}")
+
+    # Mastery state per word, so a word already fixed reads as fixed.
+    stats: dict[tuple[str, str], dict] = {}
+    try:
+        s = (
+            supabase_admin.table("quiz_word_stats")
+            .select("bank_id, item_key, status, wrong_count, correct_count, is_difficult")
+            .eq("user_id", user_id)
+            .in_("bank_id", list({k[0] for k in by_q})).execute()
+        ).data or []
+        stats = {(r["bank_id"], r["item_key"]): r for r in s}
+    except Exception:  # noqa: BLE001 — enrichment only; the mistakes still render
+        stats = {}
+
+    grouped: dict[tuple[str, str], dict] = {}
+    for (bank_id, qid), slot in by_q.items():
+        question = questions.get((bank_id, qid))
+        if not question:
+            continue          # question retired since the attempt — nothing to show
+        a = slot["attempt"]
+        item_key = question.get("item_key") or a.get("item_key") or ""
+        gkey = (bank_id, item_key)
+        b = meta.get(bank_id, {})
+        st = stats.get(gkey, {})
+        g = grouped.setdefault(gkey, {
+            "bank_id": bank_id,
+            "item_key": item_key,
+            "code": b.get("code"),
+            "title": b.get("title"),
+            "skill_area": b.get("skill_area"),
+            "status": st.get("status"),
+            "is_difficult": bool(st.get("is_difficult")),
+            "wrong_count": int(st.get("wrong_count") or 0),
+            "correct_count": int(st.get("correct_count") or 0),
+            "last_wrong_at": a.get("created_at"),
+            "questions": [],
+        })
+        if (a.get("created_at") or "") > (g["last_wrong_at"] or ""):
+            g["last_wrong_at"] = a.get("created_at")
+        g["questions"].append({
+            "qid": qid,
+            "prompt": _display_prompt(question.get("prompt")),
+            "hint": question.get("hint") or "",
+            "skill": question.get("skill") or a.get("skill"),
+            "type": question.get("type") or a.get("type"),
+            "your_answer": _display_answer(question, a.get("answer_given")),
+            "correct_answer": _correct_answer_text(question),
+            "explain": question.get("explain") or "",
+            "article_url": question.get("article_url"),
+            "wrong_times": slot["wrong_times"],
+            "last_wrong_at": a.get("created_at"),
+        })
+
+    items = sorted(
+        grouped.values(),
+        key=lambda g: (g["last_wrong_at"] or ""),
+        reverse=True,
+    )
+    for g in items:
+        g["questions"].sort(key=lambda x: (x["last_wrong_at"] or ""), reverse=True)
+    return {
+        "items": items[:_MISTAKE_ITEM_CAP],
+        "total_missed_words": len(items),
+        "attempts_scanned": len(attempts),
+        "capped": len(attempts) >= _MISTAKE_ATTEMPT_CAP,
+    }
+
+
+def student_progress(user_id: str, skill_area: str | None = None) -> dict:
     """A learner's own progress: per-bank mastered/in-progress (from word_stats)
-    enriched with bank meta, plus recent sessions for an accuracy trend."""
+    enriched with bank meta, plus recent sessions for an accuracy trend.
+
+    `skill_area` scopes BOTH halves (audit 2026-07-28 §C3). Without it the vocab
+    entry point — "📊 Tiến độ luyện tập" on the Vocabulary page, whose back link
+    reads "← Luyện tập" — listed the learner's grammar banks and grammar sessions
+    too. admin_student_detail already scoped its view; the learner's own did not.
+    """
     # Aggregate per-bank in SQL (RPC) so a learner with more word_stats rows than
     # the PostgREST page cap is counted fully — a plain select would silently see
     # only the first page and undercount.
@@ -669,6 +926,8 @@ def student_progress(user_id: str) -> dict:
     banks = []
     for bid, cnt in by_bank.items():
         m = meta.get(bid, {})
+        if skill_area and (m.get("skill_area") or "") != skill_area:
+            continue
         banks.append({
             "bank_id": bid, "code": m.get("code"), "title": m.get("title"),
             "skill_area": m.get("skill_area"), "words_count": m.get("words_count"),
@@ -676,13 +935,21 @@ def student_progress(user_id: str) -> dict:
         })
     banks.sort(key=lambda x: (x.get("skill_area") or "", x.get("code") or ""))
 
+    # Sessions are scoped by the skill's bank_ids BEFORE the 20-row cap — filtering
+    # an already-capped all-skills list would hide vocab practice behind newer
+    # grammar sessions, and matching on `code` would leak when two skills' banks
+    # share one. Same reasoning as admin_student_detail.
+    scoped_bank_ids = _bank_ids_for_skill(skill_area)
     try:
-        sessions = (
+        sq = (
             supabase_admin.table("quiz_sessions")
             .select("code, accuracy, words_mastered, total_questions, total_correct, "
                     "duration_sec, ended_at, ended_by")
-            .eq("user_id", user_id).order("started_at", desc=True).limit(20).execute()
-        ).data or []
+            .eq("user_id", user_id)
+        )
+        if scoped_bank_ids is not None:
+            sq = sq.in_("bank_id", scoped_bank_ids)
+        sessions = sq.order("started_at", desc=True).limit(20).execute().data or []
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi truy vấn phiên: {exc}")
 
@@ -692,10 +959,13 @@ def student_progress(user_id: str) -> dict:
     # per-session sum. Session time/accuracy come from a lean all-sessions read;
     # a learner's session count is far below the PostgREST page cap in practice.
     try:
-        all_sess = (
+        aq = (
             supabase_admin.table("quiz_sessions")
-            .select("duration_sec, accuracy, ended_at").eq("user_id", user_id).execute()
-        ).data or []
+            .select("duration_sec, accuracy, ended_at").eq("user_id", user_id)
+        )
+        if scoped_bank_ids is not None:
+            aq = aq.in_("bank_id", scoped_bank_ids)
+        all_sess = aq.execute().data or []
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi truy vấn tổng hợp phiên: {exc}")
     # Count only FINALIZED sessions: start_session inserts a row when the quiz page
@@ -705,10 +975,14 @@ def student_progress(user_id: str) -> dict:
     # so ended_at present == real, finished practice.
     fin = [r for r in all_sess if r.get("ended_at")]
     accs = [r["accuracy"] for r in fin if r.get("accuracy") is not None]
+    # DISTINCT words, not the sum of per-bank counts: a word that lives in two
+    # lessons is one word. Summing made this header disagree with the Vocabulary
+    # hub tile (141 vs 136 for the same learner) — see mastered_item_keys.
     totals = {
         "sessions": len(fin),
         "time_sec": sum(int(r.get("duration_sec") or 0) for r in fin),
-        "words_mastered": sum(b["mastered"] for b in banks),
+        "words_mastered": len(mastered_item_keys(
+            supabase_admin, user_id, [b["bank_id"] for b in banks])),
         "avg_accuracy": (sum(accs) / len(accs)) if accs else None,
     }
 

@@ -64,6 +64,25 @@ class SectionSubmitBody(BaseModel):
     task2_text: str = ""
 
 
+class IntegrityBody(BaseModel):
+    """Absolute running totals from the runner, not deltas — the client keeps
+    them in localStorage so they survive a reload, and the server takes the max,
+    which makes retries idempotent and makes the value un-decreasable.
+
+    DELIBERATELY UNCONSTRAINED at this boundary. record_integrity() sanitises
+    field by field — junk is dropped, never raised, because a SOFT signal must
+    never be able to break an exam. Constrained `int = Field(ge=0)` fields
+    undid that: a mixed payload like {"blur_count": "bad", "offline_events": 2}
+    was rejected wholesale with a 422 before the service ever saw it, so the
+    VALID counter was lost too (Codex review, PR #849).
+    """
+
+    blur_count:     object | None = None
+    blur_seconds:   object | None = None
+    resumes:        object | None = None
+    offline_events: object | None = None
+
+
 @router.get("")
 async def list_open(authorization: str | None = Header(default=None)):
     """Open exams the student can start (published + is_open + cohort-eligible)."""
@@ -108,13 +127,36 @@ async def get_sitting_state(
         active = (exam or {}).get("active_section") or "not_started"
         time_left = svc.section_time_remaining_seconds(exam, active) if exam else None
         assigned = None
+        # THE PAUSE APPLIES TO THE STUDENT TOO. `/collect` sets
+        # collected_section synchronously and sweeps the sittings in the
+        # BACKGROUND, and it deliberately leaves active_section alone — so
+        # between the two, a student whose row has not been swept yet still saw
+        # an open section with a running clock, while the invigilator had just
+        # been told the class was in a clock-free break. The live console was
+        # fixed for this; the student endpoint was not (Codex adversarial
+        # review, 2026-07-26).
+        if (exam or {}).get("collected_section") == active:
+            time_left = None
     return {
         "sitting": sitting,
         "exam": svc.get_exam_content_for_sitting(sitting),
         "exam_mode": (exam or {}).get("exam_mode") or "sequential",
         "assigned_skills": assigned,
         "active_section": active,
+        # The canonical pause marker, so the runner can close the paper without
+        # waiting for its own sitting to be swept. None for retake (no shared
+        # collect step exists in that mode).
+        "collected_section": (
+            None if svc.is_retake(exam) else (exam or {}).get("collected_section")
+        ),
         "section_time_left_seconds": time_left,
+        # Full length of the open section. With time_left it gives ELAPSED,
+        # which is what a resuming Listening runner needs to seek the audio to
+        # the point the rest of the room is already at (the shared clock is on
+        # the exam, not on the student's own start click).
+        "section_duration_seconds": (
+            svc.section_duration_seconds(exam, active) if exam else None
+        ),
     }
 
 
@@ -190,6 +232,24 @@ async def submit_section(
         for essay_id, job_id in graded["queued"]:
             background_tasks.add_task(essay_service._bg_grade_essay, essay_id, job_id)
     return result
+
+
+@router.post("/sittings/{sitting_id}/integrity")
+async def record_integrity(
+    sitting_id: str, body: IntegrityBody,
+    authorization: str | None = Header(default=None),
+):
+    """Soft integrity counters from the runner (tab hidden, resumes, drops).
+
+    INFORMATIONAL ONLY — never auto-penalises, never feeds a band. Lets an
+    examiner looking at a surprising result see whether the tab was hidden for
+    ten minutes or the connection died six times, instead of guessing.
+    Monotonic + idempotent, so a retry cannot inflate or erase anything."""
+    user = await get_supabase_user(authorization)
+    try:
+        return svc.record_integrity(sitting_id, user["id"], body.model_dump())
+    except Exception as e:  # noqa: BLE001
+        _raise_for(e)
 
 
 @router.post("/sittings/{sitting_id}/speaking")

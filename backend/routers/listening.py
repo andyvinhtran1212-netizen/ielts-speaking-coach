@@ -1656,6 +1656,8 @@ class ListeningTestPatchRequest(BaseModel):
     band_target:    Optional[float]            = None
     accent_profile: Optional[list[str]]        = None
     themes:         Optional[dict[str, str]]   = None
+    # Dành riêng cho kỳ thi thử — ẩn khỏi thư viện học viên (mig 170).
+    exam_only:      Optional[bool]              = None
 
 
 class ListeningTestStatusPatchRequest(BaseModel):
@@ -1883,6 +1885,17 @@ async def admin_patch_listening_test(
         if not title:
             raise HTTPException(422, "title must not be empty")
         update["title"] = title
+
+    if body.exam_only is not None:
+        if not body.exam_only:
+            from services import mock_exam_service
+            try:
+                mock_exam_service.assert_can_unreserve("listening", test_id)
+            except mock_exam_service.SittingConflictError as e:
+                raise HTTPException(409, str(e))
+            except mock_exam_service.MockExamError as e:
+                raise HTTPException(503, str(e))
+        update["exam_only"] = bool(body.exam_only)
 
     if body.version is not None:
         update["version"] = body.version.strip() or "1.0"
@@ -2637,6 +2650,73 @@ def _load_audit_row(test_id: str) -> dict | None:
     r = (supabase_admin.table("listening_audit").select("*")
          .eq("test_id", test_id).limit(1).execute())
     return r.data[0] if r.data else None
+
+
+@admin_router.get("/tests/{test_id}/preview")
+async def admin_preview_listening_test(
+    test_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Xem trước một đề nghe bằng ĐÚNG giao diện chữa bài của học viên.
+
+    Đợt 2 (mig 170). Reuses _assemble_listening_review byte for byte rather than
+    rendering a second admin-only view: the point of a preview is to show what
+    the student will actually see, and a parallel renderer drifts.
+
+    Deliberately the CHỮA BÀI shape, not the exam shape — an admin verifying a
+    paper needs the questions AND the answers AND the audio, which is exactly
+    what the review payload carries and exactly what the exam payload strips.
+
+    Creates NOTHING. The synthetic attempt below never touches the database, so
+    previewing does not consume an attempt slot, does not appear in the
+    student's history, and cannot be mistaken for a sitting.
+    """
+    from services import listening_test_grader as grader
+
+    await require_admin(authorization)
+
+    test_res = (
+        supabase_admin.table("listening_tests").select("id")
+        .eq("id", test_id).limit(1).execute()
+    )
+    if not test_res.data:
+        raise HTTPException(404, "Test bundle not found")
+
+    # Answer key = the same source the grader scores against, so the preview can
+    # never show an admin something different from what it will mark.
+    section_ids = [
+        r["id"] for r in (
+            supabase_admin.table("listening_content").select("id")
+            .eq("test_id", test_id).execute().data or []
+        )
+    ]
+    ex_rows = (
+        supabase_admin.table("listening_exercises").select("payload")
+        .in_("content_id", section_ids).execute().data or []
+    ) if section_ids else []
+    key = grader.collect_answer_key(ex_rows)
+
+    synthetic = {
+        "test_id":         test_id,
+        # status 'submitted' is what makes the page render the review layout;
+        # nothing is persisted, so this is a rendering hint, not a claim.
+        "status":          "submitted",
+        "score":           None,
+        "band_estimate":   None,
+        "trap_analytics":  {},
+        "grading_details": [
+            {
+                "q_num":       k.get("q_num"),
+                "correct":     False,
+                "user_answer": "",          # nobody sat this
+                "expected":    k.get("answer") or "",
+            }
+            for k in key if k.get("q_num") is not None
+        ],
+    }
+    out = _assemble_listening_review(synthetic, None)
+    out["preview"] = True                   # let the page label itself honestly
+    return out
 
 
 @admin_router.get("/tests/{test_id}/audit")
@@ -3712,8 +3792,12 @@ async def list_published_listening_tests(
         q = q.eq("test_type", "drill")
     else:
         q = q.eq("test_type", "full")
-    # Exclusivity: a listening test chosen for a 4-skill mock is reserved to it —
-    # hide it from the normal practice list.
+    # Reserved for a mock exam — never in the practice list (mig 170). The
+    # PERMANENT flag: unlike reserved_test_ids below it survives the exam being
+    # archived, which used to republish the paper to the next cohort.
+    q = q.eq("exam_only", False)
+    # Kept alongside it: a test assigned to a live exam by an admin who did not
+    # tick the flag is still hidden, immediately, with no backfill needed.
     from services import mock_exam_service
     _reserved = mock_exam_service.reserved_test_ids("listening")
     if _reserved:
@@ -3779,6 +3863,25 @@ async def list_published_listening_tests(
     }
 
 
+def _assert_listening_exam_content_allowed(test: dict, user_id) -> None:
+    """A test reserved for mock exams is served ONLY to a student sitting one.
+
+    Hiding it from the browse list is not enough — a direct link went straight
+    through the detail / dictation / attempt-start endpoints. But the mock runner
+    loads Listening through these SAME student endpoints, so a blanket refusal
+    would break the exam this flag protects: the entitlement is the sitting
+    (mig 170).
+
+    404, not 403: to anyone without a sitting the paper does not exist, and
+    "forbidden" would confirm the test id is real.
+    """
+    if not test.get("exam_only"):
+        return
+    from services import mock_exam_service
+    if not mock_exam_service.user_may_open_exam_content(user_id, "listening", test.get("id")):
+        raise HTTPException(404, "Test bundle not found or not published")
+
+
 @user_router.get("/tests/{test_id}")
 async def get_published_listening_test(
     test_id: str,
@@ -3806,6 +3909,7 @@ async def get_published_listening_test(
     if not res.data:
         raise HTTPException(404, "Test bundle not found or not published")
     test = res.data[0]
+    _assert_listening_exam_content_allowed(test, _user.get("id"))
 
     audio_url, audio_path, audio_duration = _student_audio_url_for_test(test)
     if not audio_url:
@@ -3968,7 +4072,7 @@ async def get_listening_test_dictation(
     (``GET /tests/{id}``) which strips transcripts to prevent students
     reading the answers during a graded attempt.
     """
-    await _require_auth(authorization)
+    _user = await _require_auth(authorization)
 
     res = (
         supabase_admin.table("listening_tests")
@@ -3981,6 +4085,7 @@ async def get_listening_test_dictation(
     if not res.data:
         raise HTTPException(404, "Test bundle not found or not published")
     test = res.data[0]
+    _assert_listening_exam_content_allowed(test, _user.get("id"))
 
     audio_url, audio_path, audio_duration = _student_audio_url_for_test(test)
     if not audio_url:
@@ -4049,22 +4154,14 @@ async def grade_listening_test_dictation(
     text. Returns the same shape as the content-based dictation grader so
     the frontend diff renderer is reused verbatim.
     """
-    await _require_auth(authorization)
+    _user = await _require_auth(authorization)
 
     # Gate on published status BEFORE reading any transcript. grade_dictation
     # echoes the missed reference words back in the diff, so an authenticated
     # user with a draft test ID could otherwise extract its transcript
     # sentence by sentence — even though the boot endpoint 404s on drafts.
-    test_res = (
-        supabase_admin.table("listening_tests")
-        .select("id")
-        .eq("id", body.test_id)
-        .eq("status", "published")
-        .limit(1)
-        .execute()
-    )
-    if not test_res.data:
-        raise HTTPException(404, "Test bundle not found or not published")
+    # Shared loader: published + exam_only, both BEFORE any transcript read.
+    _published_test_for_dictation(body.test_id, _user.get("id"))
 
     sec_res = (
         supabase_admin.table("listening_content")
@@ -4097,16 +4194,29 @@ async def grade_listening_test_dictation(
 # ── Dictation completion report (persisted) + content flags ──────────
 
 
-def _published_test_for_dictation(test_id: str) -> dict:
-    """Fetch a published test row (id, test_id, title) or 404. Shared gate for
-    the session + flag endpoints — same anti-cheat rule as the grade endpoint."""
+def _published_test_for_dictation(test_id: str, user_id=None) -> dict:
+    """Fetch a published test row (id, test_id, title) or 404 — and enforce the
+    exam_only reservation.
+
+    THE ONE loader for every dictation route. Dictation is built from the
+    section TRANSCRIPT, i.e. the answer key read aloud, and `grade_dictation()`
+    returns the missed `expected` words — so a caller who can hit these routes
+    can reconstruct the paper one sentence index at a time. Gating only the boot
+    route left grade/session/flag wide open (Codex adversarial review,
+    2026-07-26).
+
+    `exam_only` MUST be in the projection: the gate reads it off this row, and a
+    column the query never fetched is always None. That exact mistake shipped
+    four times in this feature.
+    """
     res = (
         supabase_admin.table("listening_tests")
-        .select("id,test_id,title,status")
+        .select("id,test_id,title,status,exam_only")
         .eq("id", test_id).eq("status", "published").limit(1).execute()
     )
     if not res.data:
         raise HTTPException(404, "Test bundle not found or not published")
+    _assert_listening_exam_content_allowed(res.data[0], user_id)
     return res.data[0]
 
 
@@ -4143,7 +4253,7 @@ async def submit_listening_dictation_session(
     if not body.sentences:
         raise HTTPException(422, "Chưa có câu nào để tổng kết.")
 
-    test = _published_test_for_dictation(body.test_id)
+    test = _published_test_for_dictation(body.test_id, user.get("id"))
     sec_res = (
         supabase_admin.table("listening_content")
         .select("title,transcript,metadata")
@@ -4264,7 +4374,7 @@ async def flag_listening_dictation(
     if not category and not note:
         raise HTTPException(422, "Cần chọn loại lỗi hoặc nhập mô tả.")
 
-    test = _published_test_for_dictation(body.test_id)
+    test = _published_test_for_dictation(body.test_id, user.get("id"))
     context = f"[chép chính tả · section {body.section_num}"
     context += f" · câu {body.sentence_idx + 1}]" if body.sentence_idx is not None else "]"
     flag_id = str(uuid.uuid4())
@@ -4552,6 +4662,69 @@ async def admin_get_listening_attempt(
     return out
 
 
+@user_router.get("/tests/{test_id}/attempts/in-progress")
+async def get_in_progress_listening_attempt(
+    test_id: str,
+    sitting_id: str | None = None,
+    authorization: str | None = Header(default=None),
+):
+    """The caller's still-open attempt at this test, or null.
+
+    Exists so a Listening runner can RESUME instead of starting over. Without
+    it the only path to an attempt was POST /attempts, which abandons the
+    previous one and mints an empty replacement — so a refresh (or, inside a
+    4-skill mock, the embed's automatic start-click) silently destroyed every
+    answer the student had given.
+
+    `sitting_id` SCOPES the lookup to one mock sitting, and the mock runner
+    always sends it. Without that scope the query matched on (user, test,
+    in_progress) alone, so a student who already had a STANDALONE practice
+    attempt open on a test later reused by a mock exam would have the embed
+    auto-resume that practice attempt and attach_attempt bind it to the sealed
+    sitting — pulling practice answers into a real exam and corrupting both.
+    Standalone practice keeps the unscoped lookup.
+
+    Deliberately a separate endpoint rather than a field on the shared test
+    bundle: that bundle is served to several callers and is cacheable, while
+    this is per-user and must never be cached.
+    """
+    user = await _require_auth(authorization)
+    query = (
+        supabase_admin.table("listening_test_attempts")
+        .select("id, started_at, created_at, answers")
+        .eq("user_id", user["id"])
+        .eq("test_id", test_id)
+        .eq("status", "in_progress")
+    )
+    if sitting_id:
+        query = query.eq("sitting_id", sitting_id)
+    else:
+        # STANDALONE must exclude mock attempts, or the mirror of the bug above
+        # opens: a student with a live mock attempt who opens the same published
+        # test from the normal Listening library would resume the SEALED exam
+        # attempt. MockHook is inactive there, so they could replay the audio
+        # from the start and edit exam answers outside the runner — and pressing
+        # "Bắt đầu test" would abandon their mock attempt outright
+        # (Codex review, PR #834).
+        query = query.is_("sitting_id", "null")
+    res = query.order("created_at", desc=True).limit(1).execute()
+    if not res.data:
+        return {"attempt": None}
+    row = res.data[0]
+    return {
+        "attempt": {
+            "attempt_id": row["id"],
+            "started_at": row.get("started_at") or row.get("created_at"),
+            # Only answers with real content — a blank row is not progress and
+            # would make the resume screen overstate what was recovered.
+            "answers": [
+                a for a in (row.get("answers") or [])
+                if str(a.get("user_answer") or "").strip()
+            ],
+        }
+    }
+
+
 @user_router.post("/tests/{test_id}/attempts")
 async def start_listening_test_attempt(
     test_id: str,
@@ -4560,13 +4733,17 @@ async def start_listening_test_attempt(
     """Open a new student attempt session. Marks any previously open
     in-progress attempt for the same (user, test) as abandoned so the
     1-active-attempt invariant holds.
+
+    NOTE: this is the "start over" path and it is destructive by design. A
+    caller that wants to CONTINUE must first check
+    GET /tests/{test_id}/attempts/in-progress — see that endpoint's docstring.
     """
     user = await _require_auth(authorization)
 
     # Verify the test is published + has audio.
     test_res = (
         supabase_admin.table("listening_tests")
-        .select("id,status,full_audio_storage_path,assembled_audio_storage_path")
+        .select("id,status,exam_only,full_audio_storage_path,assembled_audio_storage_path")
         .eq("id", test_id)
         .limit(1)
         .execute()
@@ -4574,6 +4751,7 @@ async def start_listening_test_attempt(
     if not test_res.data or test_res.data[0].get("status") != "published":
         raise HTTPException(404, "Test bundle not found or not published")
     test_row = test_res.data[0]
+    _assert_listening_exam_content_allowed(test_row, user.get("id"))
     if not (test_row.get("full_audio_storage_path")
             or test_row.get("assembled_audio_storage_path")):
         raise HTTPException(422, "Test chưa có audio sẵn sàng.")
@@ -4651,34 +4829,36 @@ async def patch_listening_test_attempt_answer(
     body: TestAttemptAnswerPatchRequest,
     authorization: str | None = Header(default=None),
 ):
-    """Incrementally save a single answer. The frontend debounces ~2s
-    per gap; the backend treats this as an upsert keyed by ``q_num``.
-    """
-    from datetime import datetime, timezone
+    """Incrementally save a single answer. The frontend debounces per gap; the
+    backend treats this as an upsert keyed by ``q_num``.
 
+    A4b — the merge happens inside ONE statement (fn_upsert_listening_answer,
+    mig 161), not as a Python read-modify-write of the whole JSONB array. The
+    old shape lost answers whenever two questions were saved at the same moment:
+    both requests read the same array and both wrote their own version back, so
+    the second silently erased the first. That is the NORMAL case, not an edge
+    one — the client debounces per question, so concurrent saves of different
+    q_nums are exactly what a fast typist produces.
+    """
     user = await _require_auth(authorization)
-    attempt = _fetch_attempt_or_404(attempt_id, user["id"])
+    attempt = _fetch_attempt_or_404(attempt_id, user["id"])   # ownership gate
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể edit.")
     if not (1 <= body.q_num <= 40):
         raise HTTPException(422, "q_num must be in 1..40")
 
-    answers = attempt.get("answers") or []
-    answers = [a for a in answers if a.get("q_num") != body.q_num]
-    answers.append({
-        "q_num":       body.q_num,
-        "user_answer": body.user_answer,
-        "answered_at": datetime.now(timezone.utc).isoformat(),
-    })
-    answers.sort(key=lambda a: a.get("q_num") or 0)
-
-    (
-        supabase_admin.table("listening_test_attempts")
-        .update({"answers": answers})
-        .eq("id", attempt_id)
-        .execute()
-    )
-    return {"attempt_id": attempt_id, "answer_count": len(answers)}
+    res = supabase_admin.rpc("fn_upsert_listening_answer", {
+        "p_attempt_id":  attempt_id,
+        "p_q_num":       body.q_num,
+        "p_user_answer": body.user_answer,
+    }).execute()
+    count = res.data
+    if count is None:
+        # The RPC also enforces status='in_progress', so a NULL here means the
+        # attempt was submitted between the check above and the write — a real
+        # race, and the honest answer is that the edit did not land.
+        raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể edit.")
+    return {"attempt_id": attempt_id, "answer_count": count}
 
 
 @user_router.post("/tests/attempts/{attempt_id}/submit")
@@ -4801,42 +4981,19 @@ def _rebase_audio_window(win: dict | None, is_mini: bool, section_offsets: dict)
             "end":   round(win["end"]   - off, 2)}
 
 
-@user_router.get("/tests/attempts/{attempt_id}/review")
-async def get_listening_test_attempt_review(
-    attempt_id: str,
-    authorization: str | None = Header(default=None),
-):
-    """listening-review-ui (Phase B) — post-submit chữa-bài for a listening
-    full test. Owner-only + HARD-gated on status=='submitted' (409 otherwise).
-    Joins the attempt's grading_details (q_num · correct · user_answer ·
-    expected) with each question's rich solution + audio replay window (stored
-    in listening_exercises.payload.solutions / .audio_windows by the import),
-    the per-section transcripts, the band-conversion table, the section offsets,
-    and a signed URL for the full premixed audio (so the review player can seek
-    each answer's window). Mirrors the reading review contract.
+def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
+    """Build the chữa-bài payload from an attempt + its test.
 
-    Admin bypass (2026-07-12): an admin may open ANY submitted attempt's
-    review — including a still-sealed 4-skill mock — so the mock-review
-    console can reuse this same rich view while deciding the band, before
-    releasing results. Everyone else keeps the existing ownership + seal
-    gate unchanged."""
-    user = await _require_auth(authorization)
-    is_admin = await _is_admin(authorization)
-    if is_admin:
-        res = supabase_admin.table("listening_test_attempts").select("*").eq(
-            "id", attempt_id,
-        ).limit(1).execute()
-        if not res.data:
-            raise HTTPException(404, "Attempt not found")
-        attempt = res.data[0]
-    else:
-        attempt = _fetch_attempt_or_404(attempt_id, user["id"])
-    if attempt.get("status") != "submitted":
-        raise HTTPException(409, "Chưa có chữa bài — attempt chưa submit.")
-    if not is_admin and _mock_sealed(attempt):
-        raise HTTPException(
-            403, "Kết quả đang chờ giám khảo duyệt — chưa thể xem chữa bài.")
+    Split out of the student endpoint so the ADMIN PREVIEW can reuse it byte for
+    byte (mig 170 / Đợt 2). Rebuilding the same shape a second time is how the
+    two drift: the preview would quietly stop matching what a student sees,
+    which is the one thing the preview exists to show.
 
+    Takes an attempt-SHAPED dict, not necessarily a real row — the preview
+    passes a synthetic one whose grading_details come from the answer key with
+    every user_answer blank. `attempt_id` is None there, and the caller owns all
+    authorisation: this function checks nothing.
+    """
     test_id = attempt["test_id"]
     test_res = (
         supabase_admin.table("listening_tests")
@@ -4937,3 +5094,41 @@ async def get_listening_test_attempt_review(
         "sections":        sections,
         "review":          review,
     }
+
+@user_router.get("/tests/attempts/{attempt_id}/review")
+async def get_listening_test_attempt_review(
+    attempt_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """listening-review-ui (Phase B) — post-submit chữa-bài for a listening
+    full test. Owner-only + HARD-gated on status=='submitted' (409 otherwise).
+    Joins the attempt's grading_details (q_num · correct · user_answer ·
+    expected) with each question's rich solution + audio replay window (stored
+    in listening_exercises.payload.solutions / .audio_windows by the import),
+    the per-section transcripts, the band-conversion table, the section offsets,
+    and a signed URL for the full premixed audio (so the review player can seek
+    each answer's window). Mirrors the reading review contract.
+
+    Admin bypass (2026-07-12): an admin may open ANY submitted attempt's
+    review — including a still-sealed 4-skill mock — so the mock-review
+    console can reuse this same rich view while deciding the band, before
+    releasing results. Everyone else keeps the existing ownership + seal
+    gate unchanged."""
+    user = await _require_auth(authorization)
+    is_admin = await _is_admin(authorization)
+    if is_admin:
+        res = supabase_admin.table("listening_test_attempts").select("*").eq(
+            "id", attempt_id,
+        ).limit(1).execute()
+        if not res.data:
+            raise HTTPException(404, "Attempt not found")
+        attempt = res.data[0]
+    else:
+        attempt = _fetch_attempt_or_404(attempt_id, user["id"])
+    if attempt.get("status") != "submitted":
+        raise HTTPException(409, "Chưa có chữa bài — attempt chưa submit.")
+    if not is_admin and _mock_sealed(attempt):
+        raise HTTPException(
+            403, "Kết quả đang chờ giám khảo duyệt — chưa thể xem chữa bài.")
+
+    return _assemble_listening_review(attempt, attempt_id)

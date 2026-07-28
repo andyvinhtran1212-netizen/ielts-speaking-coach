@@ -1068,6 +1068,20 @@ Frontend rollback không sửa semantic writes đã xảy ra. Mutation ledger ph
 
 Với active exam/session, ưu tiên bidirectional compatibility. Nếu chưa chứng minh được, chỉ new sessions vào Next và giữ implementation affinity/drain đến maximum session TTL trước khi retire.
 
+### 12.5 Trạng thái thực thi — Pilot 1 xong, Pilot 2 prep xong (cập nhật 2026-07-25)
+
+**Pilot 1 (landing) — PASS.** Soak restart#2 (release `856688dd`, 17/07 22:22 → 24/07 22:22) chốt PASS với ngoại lệ LCP ghi rõ: p75 = 4180ms tại điểm thoát là **outlier môi trường mạng khách trên n=22** (cụm buổi chiều; máy đo tự đo nhanh, code không hồi quy) — không phải regression. Hồ sơ: `docs/SOAK_DECLARATION_PILOT_1.md`. Đây là soak-dài cuối cùng theo lối cũ; từ Pilot 2 trở đi áp **early-stage profile** (ADR-013, xem §12.3).
+
+**Pilot 2 (grammar) — PREP XONG, CHƯA CUTOVER, CHƯA ĐẾM GIỜ.** Theo quyết định của chủ dự án: làm sẵn hạ tầng nhưng không bật đồng hồ quan sát. Ba việc đã hoàn tất:
+
+1. **Công cụ synthetic-volume trên production** — merged `#819` (`b0bf71c0` trên main): `frontend/playwright.production-smoke.config.js` + `frontend/tests/production-smoke/synthetic-volume.spec.js` + workflow `production-smoke.yml` (workflow_dispatch, NOT PR-blocking). Đo LCP p75 (nearest-rank) qua n cold browser context, verdict `SYNTHETIC_VERDICT {...}`. Đây là **vế số-lượng n≥72** của ADR-013 (không phải organic).
+2. **Verify công cụ chạy được trên route grammar SSR** — n=75 trên `/grammar-preview/tenses/present-perfect` (dark, live HTTP 200): **p75 = 996ms, 0 lỗi, 0 failure → pass** (đối chiếu landing `/` = 556ms; grammar cao hơn do SSR + backend fetch, vẫn ≪ ceiling 4000ms). Tool chạy được cả trang tĩnh lẫn SSR. Đây mới là **smoke verify công cụ**, chưa phải baseline/verdict chính thức của cutover.
+3. **Nhánh cutover pilot 2 đã refresh lên main** — `feat/pilot-2-cutover-prep` merge `origin/main` (61 commit drift) **sạch, 0 conflict** → route-ownership + pilot-grammar **9/9**, full suite frontend **5281 pass / 0 fail / 1 skipped** → pushed `17a1eefc`. Invariant cutover ("grammar là app route + legacy rewrite đã GONE") còn nguyên qua drift. Sheet: `docs/PILOT_2_CUTOVER_SHEET.md` (trên nhánh đó, đã theo profile ADR-013).
+
+**Chuỗi "đếm giờ" còn lại — chỉ chạy khi chủ dự án quyết cutover:** (a) traffic baseline re-run + đo baseline grammar (≤72h, sát giờ cutover); (b) ghi **risk acceptance** (route, ngày, người duyệt, rollback plan) theo ADR-013; (c) cutover atomic (đổi ownership `/grammar/[category]/[slug]` sang Next, gỡ rewrite); (d) `workflow_dispatch` production-smoke route grammar làm baseline + verdict; (e) quan sát organic 48–72h ở chế độ rollback-trigger tuyệt đối, synthetic-n là mẫu chính. Rút gọn từ "21 ngày freeze" xuống **~3 ngày** nhờ ADR-013.
+
+**Pilot 3+4 (profile).** Prep chưa làm. Khi cần: refresh `feat/pilot-3-4-cutover-prep` (`docs/PILOT_3_4_CUTOVER_SHEET.md`, đã theo ADR-013) + verify smoke trên `/profile-preview`, cùng khuôn Pilot 2.
+
 ---
 
 ## 13. Performance, SEO, security và accessibility budgets

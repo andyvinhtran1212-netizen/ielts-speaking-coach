@@ -28,7 +28,7 @@ console lives in admin_mock_reviews.py.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from routers.admin import require_admin
@@ -80,7 +80,18 @@ class AssignRow(BaseModel):
     user_id: str
     skills: list[str] = Field(default_factory=list)
     open_from: str | None = None
-    open_until: str | None = None
+    # Optional AT THE SCHEMA LEVEL, required by the service for any row that is
+    # actually written. `assign()` documents that a row with no valid skill is
+    # SKIPPED, and a skipped row has no window to validate — making this
+    # unconditionally required let FastAPI 422 the whole batch before assign()
+    # could skip it, so one skill-less row aborted every valid assignment
+    # alongside it (Codex review, PR #839). Rows that do carry skills still get
+    # a 400 from _validate_window when the deadline is missing.
+    open_until: str | None = Field(
+        default=None,
+        description=("Hạn đóng của bài test lại (ISO 8601). Bắt buộc với mọi "
+                     "dòng CÓ kỹ năng; dòng không kỹ năng bị bỏ qua nên không cần."),
+    )
 
 
 class AssignBody(BaseModel):
@@ -94,6 +105,26 @@ class VoidBody(BaseModel):
 
 class OpenBody(BaseModel):
     is_open: bool
+
+
+class AdvanceBody(BaseModel):
+    """The section the admin's screen was showing when they clicked.
+
+    Sent so a duplicate click from a stale tab is REJECTED, not replayed: the
+    optimistic compare-and-set alone only catches requests whose DB reads
+    overlap, so two clicks where the first has already committed would both
+    advance and the class would skip a section."""
+
+    # REQUIRED, and validated. Accepting a missing/null/empty value let the
+    # stale-screen check be bypassed entirely: a cached pre-deploy frontend or
+    # any other caller sending {} would have TWO sequential requests each
+    # compare against the freshly-read section and both succeed — advancing
+    # not_started → listening → reading and skipping a section for the whole
+    # class (Codex review, PR #842).
+    from_section: str = Field(
+        ..., pattern=r"^(not_started|listening|reading|writing)$",
+        description="Phần mà màn hình của admin đang hiển thị lúc bấm.",
+    )
 
 
 class RetestBody(BaseModel):
@@ -178,22 +209,105 @@ async def set_open(
         return svc.set_open(exam_id, body.is_open, admin["id"])
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
+    except svc.SittingConflictError as e:
+        raise HTTPException(409, str(e))
 
 
 @router.post("/{exam_id}/advance")
 async def advance_section(
-    exam_id: str, authorization: str | None = Header(default=None),
+    exam_id: str,
+    body: AdvanceBody,
+    background_tasks: BackgroundTasks,
+    authorization: str | None = Header(default=None),
 ):
     """Open the NEXT seated section for every sitting under this exam —
-    not_started → listening → reading → writing → done. Force-collects any
-    straggler who hasn't submitted the section being closed."""
+    not_started → listening → reading → writing → done.
+
+    The transition returns immediately; the straggler sweep for the section
+    being closed is QUEUED (B3). It used to run inline — one loop over every
+    unsubmitted sitting, grading each L/R attempt — which for a class of 25-30
+    made this a very long request, and a timeout left papers collected but the
+    section unmoved with no way for the admin to tell.
+
+    The live console polls every 5s, so the papers visibly land one by one. If
+    the sweep dies (a restart mid-task), the console flags the section as
+    "chưa thu đủ" and POST /collect?section=… re-runs it."""
     admin = await require_admin(authorization)
     try:
-        return svc.advance_section(exam_id, admin["id"])
+        out = svc.advance_section(exam_id, admin["id"], body.from_section)
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
     except svc.SittingConflictError as e:
         raise HTTPException(409, str(e))
+    if out.get("sweep_section"):
+        background_tasks.add_task(
+            svc._force_collect_section, exam_id, out["sweep_section"],
+        )
+    return out
+
+
+@router.post("/{exam_id}/collect", status_code=202)
+async def collect_section(
+    exam_id: str,
+    background_tasks: BackgroundTasks,
+    # REQUIRED, and validated. Optional, it could simply be omitted — and the
+    # stale-screen guard it exists for is skipped entirely: the service then
+    # reads the CANONICAL active_section, so if another invigilator advanced
+    # first this irreversibly collects the newly-opened paper the moment it
+    # opened. That is precisely the race this parameter prevents (Codex review,
+    # PR #843).
+    from_section: str = Query(
+        ...,
+        # 'done' is a legitimate screen state for the RECOVERY path: re-sweeping
+        # a section whose background sweep died is done from a monitor showing a
+        # later section, and after the final advance that screen says 'done'.
+        # Excluding it 422'd every recovery click after the exam finished — the
+        # exact case the button exists for (Codex review, PR #844).
+        pattern=r"^(listening|reading|writing|done)$",
+        description="Phần mà màn hình của admin đang hiển thị lúc bấm Thu bài.",
+    ),
+    # The section to sweep. Defaults to the open one; an EARLIER one re-sweeps
+    # it (recovery after a half-dead background sweep).
+    section: str | None = Query(
+        default=None, pattern=r"^(listening|reading|writing)$",
+    ),
+    authorization: str | None = Header(default=None),
+):
+    """THU BÀI for a section WITHOUT opening the next one.
+
+    Lets the invigilator run the real sequence — take papers in, check everyone
+    is accounted for, then hand out the next section — instead of the two being
+    one irreversible button. Students drop into the waiting room with no clock
+    running until /advance.
+
+    Validated synchronously (so a rejected request is a real error, not a silent
+    202) then swept in the background, same as /advance. `section` defaults to
+    the open one; passing an earlier one re-sweeps it — the recovery path when a
+    background sweep died half-way."""
+    admin = await require_admin(authorization)
+    try:
+        info = svc.collect_preflight(exam_id, section, from_section)
+    except svc.NotFoundError as e:
+        raise HTTPException(404, str(e))
+    except svc.SittingConflictError as e:
+        raise HTTPException(409, str(e))
+    except svc.MockExamError as e:
+        # A lookup failure is NOT "0 bài đã thu" — the preflight does the count
+        # SYNCHRONOUSLY precisely so a dead database is a real error here rather
+        # than a 202 followed by a background sweep that collects nothing
+        # (Codex review, PR #844).
+        raise HTTPException(503, str(e))
+    # Close admissions synchronously — the pause must hold from the moment the
+    # request is accepted, not from whenever the queued sweep happens to run.
+    svc.mark_section_collected(exam_id, info["section"])
+    background_tasks.add_task(
+        # No from_section: the stale-screen check already ran, synchronously,
+        # against the state at request time. Re-checking it inside the queued
+        # task would fail the sweep whenever a legitimate advance happened in
+        # between — losing the very papers this call accepted responsibility for.
+        svc.collect_section, exam_id, admin["id"], info["section"],
+    )
+    return {**info, "queued": True}
 
 
 @router.get("/{exam_id}/section-progress")
@@ -204,6 +318,19 @@ async def section_progress(
     await require_admin(authorization)
     try:
         return svc.admin_section_progress(exam_id)
+    except svc.NotFoundError as e:
+        raise HTTPException(404, str(e))
+
+
+@router.get("/{exam_id}/live")
+async def live_monitor(exam_id: str, authorization: str | None = Header(default=None)):
+    """Per-student live state for the invigilator console — the shared section
+    clock, the expected roster vs who actually showed up, and each student's
+    per-section progress (submitted / working / waiting, answers the server
+    holds, last activity). One poll, batched lookups, persisted state only."""
+    await require_admin(authorization)
+    try:
+        return svc.admin_live_monitor(exam_id)
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
 
@@ -251,7 +378,7 @@ async def create_assignments(
         return assign_svc.assign(
             exam_id, rows, created_by=admin["id"], source_exam_id=body.source_exam_id,
         )
-    except assign_svc.InvalidWindowError as e:
+    except (assign_svc.InvalidWindowError, assign_svc.UnservableSkillError) as e:
         raise HTTPException(400, str(e))
 
 
@@ -259,10 +386,21 @@ async def create_assignments(
 async def delete_assignment(
     exam_id: str, student_id: str, authorization: str | None = Header(default=None),
 ):
-    """Un-assign one student from a retake exam."""
-    await require_admin(authorization)
-    assign_svc.remove(exam_id, student_id)
-    return {"ok": True}
+    """Un-assign one student from a retake exam.
+
+    Also VOIDS any sitting they already opened for it — deleting the assignment
+    alone did not revoke access, because create_sitting resumes an existing
+    sitting before the eligibility gates. Reports the voided ids rather than
+    doing two things silently under one verb."""
+    admin = await require_admin(authorization)
+    try:
+        out = assign_svc.remove(exam_id, student_id, admin_id=admin["id"])
+    except assign_svc.RevocationError as e:
+        # The assignment is gone but an open sitting survived, so access was
+        # NOT revoked. Answering ok:true here would show the admin a revocation
+        # that did not happen.
+        raise HTTPException(409, str(e))
+    return {"ok": True, **out}
 
 
 @router.post("/{exam_id}/writing/bulk-grade", status_code=202)
@@ -467,6 +605,43 @@ async def set_sitting_retest_flags(
         raise HTTPException(409, str(e))
 
 
+@router.get("/sittings/{sitting_id}/pacing")
+async def sitting_pacing(
+    sitting_id: str, authorization: str | None = Header(default=None),
+):
+    """How the student SPENT the exam — reconstructed from `answered_at` stamps
+    that every answer write has always made and nobody has ever read.
+
+    Order answers actually landed in, pauses between them, rushed finishes, and
+    where the work stopped. The response carries its own caveats: answered_at is
+    the LAST touch of a question, so gaps bracket think-time rather than being
+    it."""
+    await require_admin(authorization)
+    try:
+        return svc.sitting_pacing(sitting_id)
+    except svc.NotFoundError as e:
+        raise HTTPException(404, str(e))
+
+
+@router.post("/sittings/{sitting_id}/record-speaking")
+async def admin_record_speaking(
+    sitting_id: str, authorization: str | None = Header(default=None),
+):
+    """Unstick a sitting whose Speaking never got reported.
+
+    The student's report call is fire-and-forget; if it failed the sitting stays
+    `speaking_pending` forever — no review, never released — and nobody could
+    fix it. Ratifies only the sessions ALREADY bound to this sitting, so it can
+    never attach work the student didn't do."""
+    admin = await require_admin(authorization)
+    try:
+        return svc.admin_record_speaking(sitting_id, admin["id"])
+    except svc.NotFoundError as e:
+        raise HTTPException(404, str(e))
+    except svc.SittingConflictError as e:
+        raise HTTPException(409, str(e))
+
+
 @router.post("/sittings/{sitting_id}/void")
 async def void_sitting(
     sitting_id: str, body: VoidBody, authorization: str | None = Header(default=None),
@@ -476,3 +651,5 @@ async def void_sitting(
         return svc.void_sitting(sitting_id, admin["id"], body.reason)
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
+    except svc.SittingConflictError as e:
+        raise HTTPException(409, str(e))

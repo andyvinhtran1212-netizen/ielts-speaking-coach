@@ -855,25 +855,104 @@ def _extract_form_template(body: str, in_range) -> dict[str, Any]:
         # defensive).
         if label.startswith("####"):
             continue
+        # The line splits on the FIRST colon, so a bolded label
+        # ("- **Nationality:** **1** ………") leaves its markers stranded: "**"
+        # closes on the value side and "**" opens on the label side. Both would
+        # be shown to the student verbatim.
+        label = label.strip("*").strip()
+        value = re.sub(r"^\*\*\s+", "", value)
         example_m = re.match(r"^_([^_]+)\(Example\)[^_]*_", value, re.IGNORECASE)
         if example_m:
             rows.append({"label": label, "example": example_m.group(1).strip()})
             continue
-        gap_m = re.search(r"\*\*(\d{1,2})\*\*", value)
-        if gap_m:
-            n = int(gap_m.group(1))
-            if in_range(n):
-                # Preserve any prefix text before the bold number (e.g. "£").
-                prefix = value[: gap_m.start()].strip()
-                rows.append({
-                    "label":  label,
-                    "q_num":  n,
-                    "prefix": prefix,
-                })
-                continue
+        hits = [g for g in re.finditer(r"\*\*(\d{1,2})\*\*", value)
+                if in_range(int(g.group(1)))]
+
+        def _after(pos: int) -> str:
+            """Text following a gap, minus the blank run that draws it.
+
+            The bold number is only the LABEL of the blank; the dotted run after
+            it ("**1** …………") is the blank itself, which the input box replaces.
+            Carried through as text it would print dots beside the box.
+            """
+            return re.sub(r"^\s*[…\._]{2,}\s*", " ", value[pos:]).strip()
+
+        if len(hits) == 1 and not _after(hits[0].end()):
+            # The shape this branch was written for: one gap, nothing after it.
+            # Keep it byte-identical so existing fixtures do not shift.
+            rows.append({
+                "label":  label,
+                "q_num":  int(hits[0].group(1)),
+                "prefix": value[: hits[0].start()].strip(),
+            })
+            continue
+        if hits:
+            # A form line can carry text AFTER the blank, or more than one blank
+            # ("business (to buy antique **2** ………… )"). Neither survives a
+            # single {prefix, q_num}: the tail is dropped and the second gap is
+            # never rendered as an input at all.
+            segs: list[Any] = []
+            pos = 0
+            for g in hits:
+                lead = re.sub(r"^\s*[…\._]{2,}\s*", " ", value[pos:g.start()]).strip()
+                if lead:
+                    segs.append(lead)
+                segs.append({"q_num": int(g.group(1))})
+                pos = g.end()
+            tail = _after(pos)
+            if tail:
+                segs.append(tail)
+            rows.append({"label": label, "segments": segs})
+            continue
         # Anything else (rare in canonical fixtures) — preserve as text.
         rows.append({"label": label, "text": value})
     return {"heading": _block_h4(body), "rows": rows}
+
+
+# A blank inside a table cell: `9 ……………`, `9 ......`, `9 ______`. Deliberately
+# stricter than "any run of dots" so ordinary prose ellipsis ("wait ... then")
+# is not mistaken for a gap now that the pattern is no longer anchored to the
+# start of the cell.
+_TABLE_CELL_GAP_RE = re.compile(r"(\d{1,2})\s*(?:…{2,}|\.{4,}|_{3,})")
+
+
+def _cell_segments(cell: str, in_range) -> Any:
+    """One table cell → plain text, a single gap, or a list of segments.
+
+    Cambridge does not confine a cell to one gap at its start. Test 1 Part 1 of
+    Book 20 prints "Good for people who are especially keen on (1) ………" — words
+    BEFORE the blank — and "Set lunch costs (9) ……… per person / Portions
+    probably of (10) ……… size", which is one cell holding TWO blanks. Matching
+    only `^N ………` left every such cell as literal text, so the student saw
+    "1 ………" printed on the page with no box to type in.
+
+    The historical flat shape is kept for the case it was written for — a single
+    gap opening the cell — so existing fixtures and the renderer's older branch
+    are untouched.
+    """
+    hits = [m for m in _TABLE_CELL_GAP_RE.finditer(cell)
+            if in_range(int(m.group(1)))]
+    if not hits:
+        return cell
+    if len(hits) == 1 and not cell[:hits[0].start()].strip():
+        out: dict[str, Any] = {"q_num": int(hits[0].group(1))}
+        suffix = cell[hits[0].end():].strip()
+        if suffix:
+            out["suffix"] = suffix
+        return out
+
+    segs: list[Any] = []
+    pos = 0
+    for m in hits:
+        lead = cell[pos:m.start()].strip()
+        if lead:
+            segs.append(lead)
+        segs.append({"q_num": int(m.group(1))})
+        pos = m.end()
+    tail = cell[pos:].strip()
+    if tail:
+        segs.append(tail)
+    return segs
 
 
 def _extract_table_template(body: str, in_range) -> dict[str, Any]:
@@ -892,23 +971,7 @@ def _extract_table_template(body: str, in_range) -> dict[str, Any]:
     headers, body_rows = table_rows[0], table_rows[1:]
     out_rows: list[list[Any]] = []
     for row in body_rows:
-        cells_out: list[Any] = []
-        for cell in row:
-            # A cell gap is `N …………` — but authentic Cambridge tables often put a
-            # trailing unit/word AFTER the blank (`9 …… protection`,
-            # `10 …… working days`). Capture that suffix instead of requiring the
-            # gap to end the cell; the renderer shows the input then the suffix.
-            gap = re.match(r"^(\d{1,2})\s+[…\.]+\s*(.*)$", cell)
-            if gap:
-                n = int(gap.group(1))
-                if in_range(n):
-                    cell_obj: dict[str, Any] = {"q_num": n}
-                    suffix = gap.group(2).strip()
-                    if suffix:
-                        cell_obj["suffix"] = suffix
-                    cells_out.append(cell_obj)
-                    continue
-            cells_out.append(cell)
+        cells_out: list[Any] = [_cell_segments(cell, in_range) for cell in row]
         out_rows.append(cells_out)
     return {"heading": _block_h4(body), "headers": headers, "rows": out_rows}
 

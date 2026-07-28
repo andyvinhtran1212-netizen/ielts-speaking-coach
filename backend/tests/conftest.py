@@ -41,6 +41,27 @@ def _writing_permission_lookup_grants_all(monkeypatch):
     )
 
 
+# The unhandled-exception handler in main.py fires a background INSERT into
+# error_logs on the REAL Supabase (asyncio.to_thread → supabase_admin). Every
+# test that deliberately provokes a 500 — the CORS-preflight suite does exactly
+# that — therefore opened a live network call, and TestClient's teardown waits
+# for that task to finish. With Supabase slow (2026-07-28) the whole suite hung
+# at ~16% instead of finishing in ~60s. Same class of bug as the
+# sync_writing_band_for_essay hang in test_admin_writing.py: a module-level
+# supabase_admin used on a side-effect path no test thinks to patch.
+#
+# test_cors_5xx_diagnosability.py already patched this symbol locally — its
+# decorator re-patches on top of this fixture, so nothing changes there.
+@pytest.fixture(autouse=True)
+def _no_live_error_log_insert(monkeypatch):
+    try:
+        import main
+        monkeypatch.setattr(main, "_insert_error_log_safely",
+                            lambda payload: None, raising=True)
+    except Exception:
+        pass
+
+
 @pytest.fixture(autouse=True)
 def _reset_activate_rate_limit():
     """B4 — /auth/activate uses a module-global per-user attempt window. Reset it

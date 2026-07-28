@@ -33,6 +33,14 @@ class FinalBandsBody(BaseModel):
     retest_flags: dict | None = None          # {listening, reading, writing, speaking}: bool
 
 
+class SpeakingAssessmentBody(BaseModel):
+    bands: dict                              # {fc, lr, gra, p} — overall server tính
+    intro: str | None = None
+    meta: dict | None = None
+    metrics: list | None = None
+    sections: list | None = None             # [{title, body, advice}]
+
+
 class ReleaseBody(BaseModel):
     channel: str = "in_app"                  # in_app | email | manual
 
@@ -116,6 +124,19 @@ async def save_final_bands(
             per_skill_notes=body.per_skill_notes,
             retest_flags=body.retest_flags,
         )
+    except Exception as e:  # noqa: BLE001
+        _raise_for(e)
+
+
+@router.post("/{review_id}/speaking-assessment")
+async def save_speaking_assessment(
+    review_id: str, body: SpeakingAssessmentBody,
+    authorization: str | None = Header(default=None),
+):
+    """Form console nhập bài chấm Speaking trực tiếp (thay đường import docx)."""
+    admin = await require_admin(authorization)
+    try:
+        return wf.save_speaking_assessment(review_id, admin["id"], body.model_dump())
     except Exception as e:  # noqa: BLE001
         _raise_for(e)
 

@@ -307,6 +307,40 @@ def release(review_id: UUID, admin_id: UUID) -> dict:
     return response.data[0]
 
 
+def save_speaking_assessment(review_id: UUID, admin_id: UUID, payload: dict) -> dict:
+    """Nhập/sửa bài chấm Speaking TRỰC TIẾP cho một review — đường nhập bằng
+    form console, thay cho script import docx. Ghi đúng hai chỗ mà cả luồng
+    duyệt lẫn TRF đang đọc: per_skill_notes.speaking (khối render cho học
+    viên) + ai_draft.speaking = {band} (ô điền sẵn; save_final_bands coi đây
+    là giấy phép nhận band ngoài required). Từ chối sau công bố."""
+    review = get_review(review_id)
+    if not review:
+        raise NotFoundError(f"Review {review_id} not found")
+    if review["status"] == "released":
+        raise ConflictError("Đã công bố — không sửa bài chấm Speaking nữa.")
+    bands = {k: _coerce_band((payload.get("bands") or {}).get(k))
+             for k in ("fc", "lr", "gra", "p")}
+    overall = ielts_round(sum(bands.values()) / 4.0)
+    spk = {
+        "meta":     payload.get("meta") or {},
+        "intro":    (payload.get("intro") or "").strip(),
+        "bands":    {**bands, "overall": overall},
+        "metrics":  payload.get("metrics") or [],
+        "sections": [sec for sec in (payload.get("sections") or [])
+                     if (sec.get("body") or sec.get("advice"))],
+    }
+    notes = dict(review.get("per_skill_notes") or {})
+    notes["speaking"] = spk
+    draft = dict(review.get("ai_draft") or {})
+    draft["speaking"] = {"band": overall}
+    supabase_admin.table("mock_exam_reviews").update(
+        {"per_skill_notes": notes, "ai_draft": draft},
+    ).eq("id", str(review_id)).execute()
+    logger.info("[mock-review] speaking assessment saved review=%s by=%s overall=%s",
+                review_id, admin_id, overall)
+    return {"review_id": str(review_id), "overall": overall}
+
+
 def save_final_bands(
     review_id: UUID,
     admin_id: UUID,
@@ -350,12 +384,39 @@ def save_final_bands(
     if forgotten:
         raise ValidationError(f"final_bands missing skill(s): {', '.join(forgotten)}")
 
+    # Speaking assessed LIVE with a teacher is a real band even when the exam
+    # has no speaking_topic_set (C2-FINAL-20260726: 13/14 sat a live speaking
+    # test; the 14th did not, so making speaking *required* would block that
+    # one review from ever saving). Required skills stay required; an extra
+    # band the examiner chose to enter is accepted and counted — dropping it
+    # silently is how a signed-off band vanishes from the student's TRF.
+    # ...but ONLY for a skill this review carries a live assessment for (the
+    # import stamps ai_draft/per_skill_notes). Without that gate a stale tab
+    # could post Listening/Reading bands onto a writing-only retake; and once
+    # a live assessment exists, leaving its band blank would release a
+    # 3-skill overall while the TRF shows full Speaking feedback (Codex, #872).
+    def _has_live(sk):
+        return ((review.get("ai_draft") or {}).get(sk) is not None
+                or (review.get("per_skill_notes") or {}).get(sk) is not None)
+    live_extras = tuple(s for s in _SKILLS if s not in skills and _has_live(s))
+    bogus = [s for s in _SKILLS if s not in skills and s not in live_extras
+             and final_bands.get(s) is not None]
+    if bogus:
+        raise ValidationError(
+            "band cho kỹ năng không thuộc bài thi này: " + ", ".join(bogus))
+    forgotten_live = [s for s in live_extras if final_bands.get(s) is None]
+    if forgotten_live:
+        raise ValidationError(
+            "final_bands missing skill(s): " + ", ".join(forgotten_live)
+            + " (có bài chấm trực tiếp — không được bỏ trống)")
+    banded = tuple(skills) + live_extras
     stored = {
-        s: _coerce_band(final_bands[s]) for s in skills if final_bands.get(s) is not None
+        s: _coerce_band(final_bands[s]) for s in banded if final_bands.get(s) is not None
     }
-    # Overall is the mean of ALL required skills — with one absent there is no
-    # honest mean, so it is blank, not a partial average dressed up as a total.
-    overall = None if missing else compute_overall(final_bands, skills)
+    # Overall is the mean of every skill that HAS a band (required + entered
+    # extras) — with a required one absent there is no honest mean, so it is
+    # blank, not a partial average dressed up as a total.
+    overall = None if missing else compute_overall(final_bands, banded)
     stored["overall"] = overall
 
     update: dict = {
@@ -707,6 +768,17 @@ def release_results(
     # here + the status-guarded UPDATE below is race-free.
     review = get_review(review_id)
     if review:
+        # A VOIDED sitting must never publish. void_sitting() cancels the exam
+        # but leaves the review row alone, so an admin holding an already-open
+        # review page could still release it — and release flips the sitting
+        # back to 'released' with sealed=False, publishing results that were
+        # explicitly cancelled (Codex review, PR #840).
+        from services import mock_exam_service as _mes
+        _sitting = _mes.get_sitting(review["sitting_id"]) or {}
+        if _sitting.get("status") == "void":
+            raise ConflictError(
+                "Lượt thi đã bị huỷ — không thể công bố kết quả."
+            )
         # The gate exists to stop a Writing BAND reaching the student with no
         # chữa bài behind it. With the band blank (2026-07-15: an uncomputable
         # Writing may be left empty) there is no band to mismatch, so the gate has
@@ -1036,6 +1108,15 @@ def get_queue(
     return reviews
 
 
+def _draft_band_value(v):
+    """ai_draft chứa band theo HAI hình dạng — {band: x} và số trần — đúng như
+    draftBandOf() phía console. Chỉ nhận dict là hình dạng số trần thành '—'
+    trên roster trong khi màn chi tiết vẫn thấy band (Codex #873)."""
+    if isinstance(v, dict):
+        return v.get("band")
+    return v if isinstance(v, (int, float)) else None
+
+
 def roster(mock_exam_id: str) -> list[dict]:
     """Per-exam class roster for the review console (2026-07-12) — one row per
     sitting with a per-skill preliminary snapshot. The console renders a grid:
@@ -1127,7 +1208,18 @@ def roster(mock_exam_id: str) -> list[dict]:
                 "band":           _wb[0],
                 "band_is_final":  _wb[1],
             },
-            "speaking":       {"count": len(s.get("speaking_session_ids") or [])},
+            # band: final nếu đã chốt, không thì bản nhập từ bài chấm trực tiếp
+            # (ai_draft.speaking) — cột S từng chỉ đếm bản ghi nền tảng, nên 13
+            # band Speaking chấm trực tiếp đã lưu mà bảng lớp vẫn hiện "—".
+            "speaking":       {
+                "count": len(s.get("speaking_session_ids") or []),
+                "band": ((rv.get("final_bands") or {}).get("speaking")
+                         if (rv.get("final_bands") or {}).get("speaking") is not None
+                         else _draft_band_value((rv.get("ai_draft") or {}).get("speaking"))),
+                # phân biệt band ĐÃ CHỐT với nháp — cột Writing đã giữ đúng
+                # ranh giới này, cột Speaking không được xoá nó (Codex #873)
+                "band_is_final": (rv.get("final_bands") or {}).get("speaking") is not None,
+            },
             "review_status":  rv.get("status"),
             "claimed":        bool(rv.get("claimed_by")),
             "needs_retest":   bool(s.get("needs_retest")),

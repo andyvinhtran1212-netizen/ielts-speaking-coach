@@ -45,31 +45,48 @@
       color: var(--av-text-primary); line-height: var(--av-lh-snug); margin-top: var(--av-space-1); }
     .trf-released { color: var(--av-text-muted); font-size: var(--av-fs-sm); margin-top: var(--av-space-1); }
 
-    /* Overall band — the hero of a score report. */
-    .trf-overall { display: flex; align-items: center; gap: var(--av-space-4);
-      background: var(--av-primary); color: var(--av-text-on-primary);
-      border-radius: var(--av-radius-lg); padding: var(--av-space-6);
-      box-shadow: var(--av-shadow-md); }
-    .trf-overall__val { font-family: var(--av-font-mono); font-size: 56px;
-      font-weight: var(--av-fw-bold); line-height: 1; font-variant-numeric: tabular-nums; }
-    .trf-overall__label { font-size: var(--av-fs-xs); text-transform: uppercase;
-      letter-spacing: var(--av-tracking-wide); opacity: .85; font-weight: var(--av-fw-semibold); }
-    .trf-overall__sub { font-size: var(--av-fs-sm); opacity: .9; margin-top: var(--av-space-1); }
-
-    .trf-band-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-      gap: var(--av-space-2); margin-top: var(--av-space-3); }
-    .trf-band { background: var(--av-surface-card); border: 1px solid var(--av-border-default);
-      border-radius: var(--av-radius-md); padding: var(--av-space-4) var(--av-space-3); text-align: center; }
-    .trf-band-label { font-size: var(--av-fs-xs); text-transform: uppercase;
-      letter-spacing: var(--av-tracking-wide); color: var(--av-text-faint); font-weight: var(--av-fw-semibold); }
-    .trf-band-val { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-bold);
-      color: var(--av-text-primary); font-family: var(--av-font-mono);
-      font-variant-numeric: tabular-nums; margin-top: var(--av-space-1); }
-    .trf-band--empty .trf-band-val { color: var(--av-text-faint); }
+    /* Tấm phiếu điểm (bản duyệt Explorations/trf-result-v2): điểm nằm trong
+       MỘT tấm phiếu có đầu đề + con dấu ngày, overall là vòng cung /9 cùng
+       ngôn ngữ với thanh mức từng kỹ năng — không còn hero + lưới ô rời. */
+    .trf-card { background: var(--av-surface-card); border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-xl); overflow: hidden; box-shadow: var(--av-shadow-md); }
+    .trf-card__head { display: flex; justify-content: space-between; align-items: flex-start;
+      gap: var(--av-space-4); padding: var(--av-space-4) var(--av-space-6);
+      background: var(--av-surface-sunken); border-bottom: 1px solid var(--av-border-subtle); }
+    .trf-stamp { text-align: right; font-size: var(--av-fs-xs); color: var(--av-text-muted); }
+    .trf-card__body { display: grid; grid-template-columns: 168px 1fr;
+      gap: var(--av-space-6); padding: var(--av-space-6); align-items: center; }
+    .trf-card__foot { padding: var(--av-space-3) var(--av-space-6);
+      border-top: 1px dashed var(--av-border-default);
+      font-size: var(--av-fs-xs); color: var(--av-text-muted); }
+    .trf-ring { width: 168px; height: 168px; border-radius: 50%; display: grid;
+      place-items: center;
+      background: conic-gradient(var(--av-primary) 0deg, var(--av-border-subtle) 0); }
+    .trf-ring > div { width: 132px; height: 132px; border-radius: 50%; display: grid;
+      place-items: center; text-align: center; background: var(--av-surface-card); }
+    .trf-ring b { font-family: var(--av-font-mono); font-size: 44px; line-height: 1;
+      font-weight: var(--av-fw-bold); color: var(--av-text-primary);
+      font-variant-numeric: tabular-nums; }
+    .trf-ring span { display: block; font-size: 10px; text-transform: uppercase;
+      letter-spacing: var(--av-tracking-wide); color: var(--av-text-faint);
+      font-weight: var(--av-fw-semibold); margin-top: 4px; }
+    .trf-skills { display: grid; gap: var(--av-space-3); }
+    .trf-sk { display: grid; grid-template-columns: 92px 1fr 48px;
+      gap: var(--av-space-3); align-items: center; }
+    .trf-sk__name { font-size: var(--av-fs-sm); font-weight: var(--av-fw-semibold);
+      color: var(--av-text-secondary); }
+    .trf-sk__bar { height: 8px; border-radius: var(--av-radius-pill);
+      background: var(--av-border-subtle); overflow: hidden; }
+    .trf-sk__bar > i { display: block; height: 100%; background: var(--av-primary);
+      border-radius: inherit; }
+    .trf-sk__val { font-family: var(--av-font-mono); font-weight: var(--av-fw-bold);
+      text-align: right; color: var(--av-text-primary); font-variant-numeric: tabular-nums; }
+    .trf-sk--empty .trf-sk__val { color: var(--av-text-faint); }
 
     .trf-section { margin-top: var(--av-space-8); }
     .trf-h2 { font-size: var(--av-fs-lg); font-weight: var(--av-fw-semibold);
-      color: var(--av-text-primary); margin-bottom: var(--av-space-3); }
+      color: var(--av-text-primary); margin-bottom: var(--av-space-3);
+      padding-left: var(--av-space-3); border-left: 3px solid var(--av-primary); }
     .trf-box { background: var(--av-surface-card); border: 1px solid var(--av-border-default);
       border-radius: var(--av-radius-lg); padding: var(--av-space-4);
       line-height: var(--av-lh-relaxed); color: var(--av-text-primary); white-space: pre-wrap; }
@@ -80,6 +97,16 @@
       color: var(--av-text-primary); font-size: var(--av-fs-sm); }
     .trf-note__body { color: var(--av-text-secondary); line-height: var(--av-lh-relaxed);
       white-space: pre-wrap; margin-top: var(--av-space-1); }
+    .trf-spk-metrics { width: 100%; border-collapse: collapse; margin: var(--av-space-3) 0;
+      font-size: var(--av-fs-sm); }
+    .trf-spk-metrics th, .trf-spk-metrics td { text-align: left;
+      padding: var(--av-space-2) var(--av-space-3);
+      border-bottom: 1px solid var(--av-border-subtle); color: var(--av-text-secondary); }
+    .trf-spk-metrics th { color: var(--av-text-muted); font-weight: var(--av-fw-semibold); }
+    .trf-spk-metrics td:nth-child(2) { color: var(--av-text-primary);
+      font-family: var(--av-font-mono); }
+    .trf-spk-metrics td:nth-child(3) { font-family: var(--av-font-mono); }
+    .trf-spk-advice { color: var(--av-text-primary); }
 
     /* Chữa bài — a clear action card per skill, not a tiny button. */
     .trf-review-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -121,9 +148,23 @@
     .trf-foot { margin-top: var(--av-space-8); font-size: var(--av-fs-xs);
       color: var(--av-text-muted); line-height: var(--av-lh-relaxed); }
 
+    @media (prefers-reduced-motion: reduce) {
+      .trf-review { transition: none; }
+      .trf-review:hover { transform: none; }
+    }
     @media (max-width: 520px) {
-      .trf-band-grid { grid-template-columns: repeat(2, 1fr); }
-      .trf-overall { flex-direction: column; text-align: center; gap: var(--av-space-3); }
+      /* Phiếu xếp dọc trên máy nhỏ: vòng cung lên trên, hàng kỹ năng co cột —
+         168px + gap + 92/48px tràn khung 320px và .trf-card overflow:hidden
+         sẽ CẮT mất thanh với con số (Codex #875). */
+      .trf-card__head { flex-direction: column; }
+      .trf-stamp { text-align: left; }
+      .trf-card__body { grid-template-columns: 1fr; justify-items: center;
+        gap: var(--av-space-4); }
+      .trf-ring { width: 132px; height: 132px; }
+      .trf-ring > div { width: 102px; height: 102px; }
+      .trf-ring b { font-size: 32px; }
+      .trf-skills { width: 100%; }
+      .trf-sk { grid-template-columns: 80px 1fr 40px; }
     }
   </style>
 </head>
@@ -144,21 +185,22 @@
     <div id="state-content" class="hidden">
       <a class="trf-back" href="/pages/home.html"><span aria-hidden="true">←</span> Trang chủ</a>
 
-      <header class="trf-header">
-        <div class="trf-eyebrow">Phiếu điểm thi thử · TRF</div>
-        <h1 class="trf-h1">Kết quả bài thi thử của em</h1>
-        <p id="released-at" class="trf-released"></p>
-      </header>
-
-      <section class="trf-overall" id="overall">
-        <div>
-          <div class="trf-overall__label">Overall band</div>
-          <div class="trf-overall__val" id="overall-val">—</div>
+      <section class="trf-card" id="overall">
+        <div class="trf-card__head">
+          <div>
+            <div class="trf-eyebrow">Phiếu kết quả thi thử · TRF</div>
+            <h1 class="trf-h1">Kết quả bài thi thử của em</h1>
+          </div>
+          <p id="released-at" class="trf-stamp"></p>
         </div>
-        <div class="trf-overall__sub" id="overall-sub"></div>
+        <div class="trf-card__body">
+          <div class="trf-ring" id="overall-ring" aria-hidden="true"><div><div>
+            <b id="overall-val">—</b><span>Overall</span>
+          </div></div></div>
+          <div class="trf-skills" id="bands"></div>
+        </div>
+        <div class="trf-card__foot"><span id="overall-sub"></span> · thang IELTS 0–9, giám khảo xác nhận từng kỹ năng</div>
       </section>
-
-      <section class="trf-band-grid" id="bands"></section>
       <!-- What the student must DO. Sits right under the bands, above the
            commentary: it used to live inside the no-band warning cards, so a
            skill that scored fine but was flagged showed nothing at all. -->
@@ -213,6 +255,12 @@
       // writing-only retake scores 1 skill, not 4) — so both the count and the
       // band grid are driven by the skills actually scored, never a hard-coded 4.
       $('overall-val').textContent = fmtBand(fb.overall);
+      // Vòng cung /9 quanh overall — cùng thước đo với thanh mức từng kỹ năng.
+      var ringEl = $('overall-ring');
+      if (ringEl && fb.overall != null) {
+        ringEl.style.background = 'conic-gradient(var(--av-primary) '
+          + (Math.min(9, Math.max(0, Number(fb.overall))) / 9 * 360) + 'deg, var(--av-border-subtle) 0)';
+      }
       var scored = SKILLS.filter(function (s) { return fb[s.key] != null; });
       $('overall-sub').textContent = scored.length ? (scored.length + ' kỹ năng đã chấm') : '';
 
@@ -221,18 +269,28 @@
       var grid = $('bands');
       grid.innerHTML = (scored.length ? scored : SKILLS).map(function (s) {
         var v = fb[s.key];
-        return '<div class="trf-band' + (v == null ? ' trf-band--empty' : '') + '">'
-          + '<div class="trf-band-label">' + s.label + '</div>'
-          + '<div class="trf-band-val">' + fmtBand(v) + '</div></div>';
+        var pct = (v == null) ? 0 : Math.round(Math.min(9, Math.max(0, Number(v))) / 9 * 100);
+        return '<div class="trf-sk' + (v == null ? ' trf-sk--empty' : '') + '">'
+          + '<span class="trf-sk__name">' + s.label + '</span>'
+          + '<span class="trf-sk__bar" aria-hidden="true"><i style="width:' + pct + '%"></i></span>'
+          + '<span class="trf-sk__val">' + fmtBand(v) + '</span></div>';
       }).join('');
 
       // Examiner comment.
       if (data.examiner_comment_vi) $('examiner-comment').textContent = data.examiner_comment_vi;
       else $('comment-wrap').classList.add('hidden');
 
-      // Per-skill notes.
+      // Per-skill notes. Speaking from a live teacher assessment arrives as a
+      // STRUCTURED object (bands per criterion, measured metrics vs class,
+      // per-criterion feedback) — the generic esc()'d text note would render it
+      // as "[object Object]". It gets its own block; strings keep the old path.
       var notes = data.per_skill_notes || {};
-      var keys = Object.keys(notes).filter(function (k) { return notes[k]; });
+      // Speaking chi tiết KHÔNG còn nằm chen giữa trang — nó là thẻ trong
+      // "Việc tiếp theo" mở /pages/speaking-result.html (bản duyệt trf-v2).
+      var spk = (notes.speaking && typeof notes.speaking === 'object') ? notes.speaking : null;
+      var keys = Object.keys(notes).filter(function (k) {
+        return notes[k] && !(k === 'speaking' && spk);
+      });
       var nwrap = $('notes-wrap');
       if (keys.length) {
         nwrap.classList.remove('hidden');
@@ -273,6 +331,11 @@
             href: '/pages/writing-result.html?id=' + encodeURIComponent(t.essay_id) });
         }
       });
+
+      if (spk) {
+        reviews.push({ icon: '🎙', title: 'Nhận xét Speaking', hint: 'Thi trực tiếp — band 4 tiêu chí + cách luyện',
+          href: '/pages/speaking-result.html?sitting=' + encodeURIComponent(sitting) });
+      }
 
       var cwrap = $('chuabai-wrap');
       if (reviews.length) {

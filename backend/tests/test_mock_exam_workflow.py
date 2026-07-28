@@ -47,6 +47,7 @@ class _Query:
         self.in_filters = []       # (field, [values], negate)
         self.limit_n = None
         self.order_by = None
+        self.range_window = None
         self._negate_next = False
 
     @property
@@ -93,6 +94,14 @@ class _Query:
 
     def limit(self, n):
         self.limit_n = n
+        return self
+
+    def range(self, start, end):
+        # PostgREST-style inclusive window. Modelled because a query that can
+        # grow with the platform MUST page (PostgREST answers with one page and
+        # no error past its row cap) — so the fake has to be able to say
+        # "that's the last page" or the drain loop would never terminate.
+        self.range_window = (start, end)
         return self
 
     def order(self, field, desc=False):
@@ -143,6 +152,9 @@ class _Query:
                 matched.sort(key=lambda r: r.get(field) or "", reverse=desc)
             if self.limit_n is not None:
                 matched = matched[: self.limit_n]
+            if self.range_window is not None:
+                lo, hi = self.range_window
+                matched = matched[lo:hi + 1]
             return _Response(matched)
 
         if self.op == "update":
@@ -166,6 +178,11 @@ class _Query:
         raise AssertionError(f"Unsupported op: {self.op!r}")
 
 
+class _RpcResult:
+    def __init__(self, data): self.data = data
+    def execute(self): return self
+
+
 class FakeSupabase:
     def __init__(self):
         self.tables: dict[str, list[dict]] = {}
@@ -173,6 +190,73 @@ class FakeSupabase:
 
     def table(self, name):
         return _Query(self, name)
+
+    # Mig 163 — the integrity merge moved into a Postgres function so two
+    # overlapping reports cannot lose a counter (or clobber void_reason). The
+    # fake models the SAME semantics the SQL implements — GREATEST per counter,
+    # jsonb-|| so untouched keys survive, and only a non-terminal sitting — so
+    # these tests keep exercising real behaviour instead of a stub.
+    def rpc(self, name, params):
+        if name == "fn_merge_sitting_integrity":
+            row = next(
+                (r for r in self.tables.get("mock_exam_sittings", [])
+                 if str(r.get("id")) == str(params["p_sitting_id"])
+                 and r.get("status") not in ("released", "void")),
+                None,
+            )
+            if row is None:
+                return _RpcResult(None)
+            cur = dict(row.get("integrity") or {})
+            for key in ("blur_count", "blur_seconds", "resumes", "offline_events"):
+                incoming = params.get(f"p_{key}")
+                cur[key] = max(int(cur.get(key) or 0), int(incoming or 0))
+            cur["reported_at"] = "2026-01-01T00:00:00+00:00"
+            row["integrity"] = cur
+            return _RpcResult(cur)
+        # fn_void_sitting (mig 168) — the void transition merges its audit keys
+        # into the SAME column, so it must be atomic for the same reason: a
+        # Python read-modify-write here erased counters committed in between.
+        if name == "fn_void_sitting":
+            row = next(
+                (r for r in self.tables.get("mock_exam_sittings", [])
+                 if str(r.get("id")) == str(params["p_sitting_id"])
+                 and r.get("status") != "released"),
+                None,
+            )
+            if row is None:
+                return _RpcResult(None)
+            merged = dict(row.get("integrity") or {})      # jsonb-|| semantics
+            merged["void_reason"] = params.get("p_reason") or ""
+            merged["voided_by"] = params.get("p_admin_id")
+            merged["voided_at"] = "2026-01-01T00:00:00+00:00"
+            row["status"] = "void"
+            row["integrity"] = merged
+            return _RpcResult(dict(row))
+        # fn_set_exam_mode (mig 169) — the dependent check and the write have
+        # to be ONE statement: as two PostgREST requests, a sitting inserted
+        # between them is read under the wrong mode. Modelled here with the same
+        # predicates the SQL uses so these tests exercise real behaviour.
+        if name == "fn_set_exam_mode":
+            mode = params["p_mode"]
+            if mode not in ("sequential", "retake"):
+                raise AssertionError(f"invalid exam_mode: {mode}")
+            row = next(
+                (r for r in self.tables.get("mock_exams", [])
+                 if str(r.get("id")) == str(params["p_exam_id"])),
+                None,
+            )
+            if row is None or (row.get("exam_mode") or "sequential") == mode:
+                return _RpcResult(None)
+            if any(str(r.get("mock_exam_id")) == str(row["id"])
+                   and r.get("status") != "void"
+                   for r in self.tables.get("mock_exam_sittings", [])):
+                return _RpcResult(None)
+            if any(str(r.get("exam_id")) == str(row["id"])
+                   for r in self.tables.get("mock_exam_assignments", [])):
+                return _RpcResult(None)
+            row["exam_mode"] = mode
+            return _RpcResult(dict(row))
+        raise AssertionError(f"unexpected rpc: {name}")
 
     # test helpers
     def seed(self, name, row):
@@ -208,6 +292,10 @@ def svc():
 def wf():
     from services import mock_review_workflow
     return mock_review_workflow
+
+
+def _now_iso_for_test():
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _seed_exam(fake, *, cohort_id=None, open_from=None, open_until=None,
@@ -294,16 +382,16 @@ def test_create_sitting_resumes_after_gate_closed(fake_db, svc):
 def test_advance_section_walks_the_sequence(fake_db, svc):
     exam = _seed_exam(fake_db)   # listening + reading + writing all configured
     admin = str(uuid4())
-    a = svc.advance_section(exam["id"], admin)
+    a = _advance_and_sweep(svc, exam["id"], admin)
     assert a["active_section"] == "listening"
     assert a["listening_started_at"] is not None
-    b = svc.advance_section(exam["id"], admin)
+    b = _advance_and_sweep(svc, exam["id"], admin)
     assert b["active_section"] == "reading"
     assert b["reading_started_at"] is not None
-    c = svc.advance_section(exam["id"], admin)
+    c = _advance_and_sweep(svc, exam["id"], admin)
     assert c["active_section"] == "writing"
     assert c["writing_started_at"] is not None
-    d = svc.advance_section(exam["id"], admin)
+    d = _advance_and_sweep(svc, exam["id"], admin)
     assert d["active_section"] == "done"
 
 
@@ -311,17 +399,33 @@ def test_advance_section_skips_unconfigured_sections(fake_db, svc):
     """An exam with no Listening test skips straight to Reading."""
     exam = _seed_exam(fake_db, listening=False, reading=True)
     admin = str(uuid4())
-    a = svc.advance_section(exam["id"], admin)
+    a = _advance_and_sweep(svc, exam["id"], admin)
     assert a["active_section"] == "reading"
 
 
 def test_advance_section_past_done_raises(fake_db, svc):
     exam = _seed_exam(fake_db, listening=False, reading=False)   # writing-only
     admin = str(uuid4())
-    svc.advance_section(exam["id"], admin)   # → writing
-    svc.advance_section(exam["id"], admin)   # → done
+    _advance_and_sweep(svc, exam["id"], admin)   # → writing
+    _advance_and_sweep(svc, exam["id"], admin)   # → done
     with pytest.raises(svc.SittingConflictError):
-        svc.advance_section(exam["id"], admin)
+        _advance_and_sweep(svc, exam["id"], admin)
+
+
+def _advance_and_sweep(svc, exam_id, admin):
+    """What the ROUTER does on POST /advance: the fast, atomic transition, then
+    the straggler sweep.
+
+    Since B3 the sweep is a BackgroundTask queued by the router rather than part
+    of the service call — a class of 25-30 made it a very long request, and a
+    timeout left papers collected but the section unmoved. Production behaviour
+    ("admin advances → stragglers collected") is unchanged, so tests that assert
+    on collection run both halves, exactly as the request does.
+    """
+    out = svc.advance_section(exam_id, admin)
+    if out.get("sweep_section"):
+        svc._force_collect_section(exam_id, out["sweep_section"])
+    return out
 
 
 def test_advance_section_force_collects_stragglers(fake_db, svc):
@@ -331,8 +435,8 @@ def test_advance_section_force_collects_stragglers(fake_db, svc):
     admin = str(uuid4())
     u = uuid4()
     s = svc.create_sitting(u, "MOCK-TEST-A")
-    svc.advance_section(exam["id"], admin)          # → listening (straggler never submits)
-    svc.advance_section(exam["id"], admin)          # → reading: force-collects listening
+    _advance_and_sweep(svc, exam["id"], admin)          # → listening (straggler never submits)
+    _advance_and_sweep(svc, exam["id"], admin)          # → reading: force-collects listening
     sitting = svc.get_sitting(s["id"])
     assert sitting["listening_submitted_at"] is not None
     assert sitting["status"] == "lrw_in_progress"
@@ -341,7 +445,7 @@ def test_advance_section_force_collects_stragglers(fake_db, svc):
 def test_section_time_remaining_from_shared_clock(fake_db, svc):
     exam = _seed_exam(fake_db)
     admin = str(uuid4())
-    updated = svc.advance_section(exam["id"], admin)   # → listening
+    updated = _advance_and_sweep(svc, exam["id"], admin)   # → listening
     left = svc.section_time_remaining_seconds(updated, "listening")
     # audio 1800s + 120s buffer, just started
     assert 0 < left <= 1920
@@ -373,7 +477,7 @@ def test_force_collect_grades_the_straggler_listening_attempt(fake_db, svc):
     admin = str(uuid4())
     u = uuid4()
     s = svc.create_sitting(u, "MOCK-TEST-A")
-    svc.advance_section(exam["id"], admin)   # → listening
+    _advance_and_sweep(svc, exam["id"], admin)   # → listening
     aid = str(uuid4())
     fake_db.seed("listening_test_attempts", {
         "id": aid, "user_id": str(u), "test_id": exam["listening_test_id"],
@@ -386,7 +490,7 @@ def test_force_collect_grades_the_straggler_listening_attempt(fake_db, svc):
         "template_kind": "dictation_gap_fill",
         "answers": [{"q_num": 1, "answer": "beach", "alternatives": []}],
     }})
-    svc.advance_section(exam["id"], admin)   # → reading: force-collects listening (disconnected)
+    _advance_and_sweep(svc, exam["id"], admin)   # → reading: force-collects listening (disconnected)
     attempt = fake_db.rows("listening_test_attempts")[0]
     assert attempt["status"] == "submitted"
     assert attempt["score"] == 1   # actually graded, not just a blind status flip
@@ -398,7 +502,7 @@ def test_force_collect_grades_the_straggler_reading_attempt(fake_db, svc):
     admin = str(uuid4())
     u = uuid4()
     s = svc.create_sitting(u, "MOCK-TEST-A")
-    svc.advance_section(exam["id"], admin)   # → reading
+    _advance_and_sweep(svc, exam["id"], admin)   # → reading
     aid = str(uuid4())
     fake_db.seed("reading_test_attempts", {
         "id": aid, "user_id": str(u), "test_id": exam["reading_test_id"],
@@ -411,7 +515,7 @@ def test_force_collect_grades_the_straggler_reading_attempt(fake_db, svc):
     fake_db.seed("reading_questions", {"q_num": 1, "answer": {"answer": "TRUE", "alternatives": []},
                                        "skill_tag": "detail", "explanation": "", "passage_id": "p1"})
     fake_db.seed("reading_attempt_answers", {"attempt_id": aid, "q_num": 1, "user_answer": "TRUE"})
-    svc.advance_section(exam["id"], admin)   # → writing: force-collects reading (disconnected)
+    _advance_and_sweep(svc, exam["id"], admin)   # → writing: force-collects reading (disconnected)
     attempt = fake_db.rows("reading_test_attempts")[0]
     assert attempt["status"] == "submitted"
     assert attempt["score"] == 1   # actually graded, not just a blind status flip
@@ -425,14 +529,14 @@ def test_force_collect_skips_already_submitted_attempt(fake_db, svc):
     admin = str(uuid4())
     u = uuid4()
     s = svc.create_sitting(u, "MOCK-TEST-A")
-    svc.advance_section(exam["id"], admin)   # → reading
+    _advance_and_sweep(svc, exam["id"], admin)   # → reading
     aid = str(uuid4())
     fake_db.seed("reading_test_attempts", {
         "id": aid, "user_id": str(u), "test_id": exam["reading_test_id"],
         "status": "submitted", "score": 7, "band_estimate": 6.5, "sitting_id": None,
     })
     svc.attach_attempt(s["id"], u, "reading", aid)
-    svc.advance_section(exam["id"], admin)   # → writing: sitting never called submit_section
+    _advance_and_sweep(svc, exam["id"], admin)   # → writing: sitting never called submit_section
     attempt = fake_db.rows("reading_test_attempts")[0]
     assert attempt["score"] == 7   # unchanged — not re-graded
     assert svc.get_sitting(s["id"])["reading_submitted_at"] is not None  # sitting still collected
@@ -445,7 +549,7 @@ def test_admin_section_progress_counts(fake_db, svc):
     u1, u2 = uuid4(), uuid4()
     s1 = svc.create_sitting(u1, "MOCK-TEST-A")
     s2 = svc.create_sitting(u2, "MOCK-TEST-A")
-    svc.advance_section(exam["id"], admin)   # → writing
+    _advance_and_sweep(svc, exam["id"], admin)   # → writing
     _expire_section(fake_db, exam["id"], "writing")
     svc.submit_section(s1["id"], u1, "writing", "one", "two")
     progress = svc.admin_section_progress(exam["id"])
@@ -546,7 +650,7 @@ def _reach_writing(svc, fake, exam, sitting_id, u):
     student submits Writing, mirroring a mid-sequence sitting."""
     admin = str(uuid4())
     for section in svc._configured_sections(exam):
-        svc.advance_section(exam["id"], admin)   # admin opens `section`
+        _advance_and_sweep(svc, exam["id"], admin)   # admin opens `section`
         if section == "writing":
             return
         _expire_section(fake, exam["id"], section)
@@ -561,7 +665,7 @@ def _run_lrw(svc, fake, exam, sitting_id, u):
     admin = str(uuid4())
     result = None
     for section in svc._configured_sections(exam):
-        svc.advance_section(exam["id"], admin)
+        _advance_and_sweep(svc, exam["id"], admin)
         _expire_section(fake, exam["id"], section)
         if section == "writing":
             result = svc.submit_section(
@@ -736,6 +840,64 @@ def test_submit_writing_stores_texts_with_word_counts(fake_db, svc):
     assert ws["task1"]["text"] == "one two three"
 
 
+def test_submit_writing_is_a_repeatable_draft_save(fake_db, svc):
+    """A2 — the client autosaves through this endpoint every ~15s while the
+    student writes. Each call must OVERWRITE the draft and must NOT stamp
+    writing_submitted_at: stamping would finalise the section mid-sentence and
+    lock the student out of their own essay."""
+    exam = _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    _reach_writing(svc, fake_db, exam, s["id"], u)
+
+    svc.submit_writing(s["id"], u, "first draft", "")
+    out = svc.submit_writing(s["id"], u, "first draft much longer now", "task two")
+
+    ws = out["writing_submission"]
+    assert ws["task1"]["text"] == "first draft much longer now"
+    assert ws["task2"]["text"] == "task two"
+    # still collectable — the draft saves did not finalise the section
+    assert svc.get_sitting(s["id"]).get("writing_submitted_at") is None
+
+
+def test_late_autosave_cannot_overwrite_a_finalised_section(fake_db, svc):
+    """Codex #835 (correct): submit_writing's check and its update are not
+    atomic. If the section is finalised in between — admin advance, the reaper,
+    another tab — a late draft overwrote writing_submission AFTER
+    _promote_writing_essays had copied the older text, so the admin's word count
+    disagreed with the essay actually graded."""
+    exam = _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    _reach_writing(svc, fake_db, exam, s["id"], u)
+    svc.submit_writing(s["id"], u, "the real essay", "task two")
+    svc._force_collect_section(exam["id"], "writing")      # finalised
+
+    with pytest.raises(svc.SittingConflictError):
+        svc.submit_writing(s["id"], u, "late draft that should not land", "")
+
+    after = svc.get_sitting(s["id"])
+    assert after["writing_submission"]["task1"]["text"] == "the real essay"
+
+
+def test_autosaved_draft_survives_a_force_collect(fake_db, svc):
+    """The exact loss A2 fixes: a tab that dies before the clock runs out used
+    to leave writing_submission EMPTY, so force-collect promoted nothing and the
+    student was recorded as having written no essay at all."""
+    exam = _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    _reach_writing(svc, fake_db, exam, s["id"], u)
+    svc.submit_writing(s["id"], u, "an essay the student really wrote", "and task two")
+
+    # student's browser is gone; invigilator sweeps the room
+    svc._force_collect_section(exam["id"], "writing")
+
+    after = svc.get_sitting(s["id"])
+    assert after["writing_submitted_at"] is not None
+    assert after["writing_submission"]["task1"]["word_count"] == 6
+
+
 def test_submit_writing_rejected_after_lrw_submit(fake_db, svc):
     """Finding 1 (round 4): Writing text can't be overwritten after finalisation."""
     exam = _seed_exam(fake_db)
@@ -802,6 +964,57 @@ def test_submit_section_writing_empty_text_still_accepted(fake_db, svc):
     _expire_section(fake_db, exam["id"], "writing")
     result = svc.submit_section(s["id"], u, "writing")
     assert result["writing_submitted_at"] is not None
+
+
+def test_writing_finalisation_is_one_write(fake_db, svc):
+    """Codex #835 (correct, P1): submit_writing() wrote the payload and
+    submit_section() stamped writing_submitted_at as a SEPARATE statement, so an
+    autosave from another tab — or an older request the client no longer tracks
+    — could pass the null-timestamp predicate in between and replace the final
+    payload before _promote_writing_essays() read it. The student would submit
+    one essay and have a stale draft graded."""
+    exam = _seed_exam(fake_db, listening=False, reading=False)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], str(uuid4()))     # → writing
+    _expire_section(fake_db, exam["id"], "writing")
+
+    svc.submit_section(s["id"], u, "writing",
+                       task1_text="final one", task2_text="final two")
+
+    row = svc.get_sitting(s["id"])
+    assert row["writing_submitted_at"], "the stamp must land"
+    assert row["writing_submission"]["task1"]["text"] == "final one"
+    # ...and a late draft can no longer overwrite what was graded
+    with pytest.raises(svc.SittingConflictError):
+        svc.submit_writing(s["id"], u, "late draft", "late draft")
+    assert svc.get_sitting(s["id"])["writing_submission"]["task1"]["text"] == "final one"
+
+
+def test_admin_record_speaking_reconciles_an_already_stamped_sitting(fake_db, svc, wf):
+    """Codex #847 (correct): the speaking stamp and the terminal transition are
+    separate writes. If the stamp committed and the transition then failed
+    transiently, the idempotent early return reported success while the sitting
+    stayed `speaking_pending` with no review row — and this admin recovery, the
+    last-resort unstick, could never fix it."""
+    exam = _seed_exam(fake_db, speaking=True, listening=False, reading=False)
+    u = uuid4()
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → writing
+    _expire_section(fake_db, exam["id"], "writing")
+    svc.submit_section(sit["id"], u, "writing")
+
+    # The half-finished state: speaking recorded, status never moved on.
+    fake_db.table("mock_exam_sittings").update({
+        "speaking_session_ids": [str(uuid4())],
+        "speaking_completed_at": _now_iso_for_test(),
+        "status": "speaking_pending",
+    }).eq("id", sit["id"]).execute()
+
+    out = svc.admin_record_speaking(sit["id"], "admin-1")
+
+    assert out["status"] != "speaking_pending", out["status"]
+    assert svc.get_sitting(sit["id"])["status"] != "speaking_pending"
 
 
 def test_record_speaking_empty_raises(fake_db, svc):
@@ -1726,7 +1939,7 @@ def test_promote_writing_essays_skips_empty_task(fake_db, svc):
     s = svc.create_sitting(u, "MOCK-TEST-A")
     admin = str(uuid4())
     for section in svc._configured_sections(exam):
-        svc.advance_section(exam["id"], admin)
+        _advance_and_sweep(svc, exam["id"], admin)
         _expire_section(fake_db, exam["id"], section)
         if section == "writing":
             svc.submit_section(s["id"], u, "writing", "", "")   # both blank
@@ -2107,7 +2320,7 @@ def test_release_allowed_when_writing_task_unanswered(fake_db, svc, wf):
     # Drive LRW but submit EMPTY writing → no essays promoted.
     admin = str(uuid4())
     for section in svc._configured_sections(exam):
-        svc.advance_section(exam["id"], admin)
+        _advance_and_sweep(svc, exam["id"], admin)
         _expire_section(fake_db, exam["id"], section)
         if section == "writing":
             svc.submit_section(s["id"], u, "writing", "", "")
@@ -2177,6 +2390,15 @@ def test_release_allowed_when_short_essay_is_skipped(fake_db, svc, wf):
     assert released["status"] == "released"
 
 
+# D3 (2026-07-25) — assign() now REQUIRES a closing bound: without one the
+# reaper never collects a student who doesn't start, so the sitting sticks in
+# `registered` forever and (after C3) locks them out of every other exam. These
+# tests pre-date that rule and were written against the open-ended contract, so
+# they carry a real window now. The rule itself is pinned separately by
+# test_retake_assign_requires_a_closing_bound.
+_WINDOW = {"open_from": None, "open_until": "2026-12-31T23:59:00Z"}
+
+
 def test_retake_assign_scopes_skills_and_is_idempotent(fake_db):
     """PR A (retake): assign() creates one row per (exam, user) with skills
     scoped to v1 L/R/W (drops unknown/speaking), shares one group_id, and is
@@ -2186,9 +2408,9 @@ def test_retake_assign_scopes_skills_and_is_idempotent(fake_db):
     u1, u2 = str(uuid4()), str(uuid4())
 
     res = a.assign(exam_id, [
-        {"user_id": u1, "skills": ["writing", "speaking", "bogus"]},   # speaking/bogus dropped
-        {"user_id": u2, "skills": ["listening", "reading"]},
-        {"user_id": str(uuid4()), "skills": []},                       # no valid skill → skipped
+        {"user_id": u1, "skills": ["writing", "speaking", "bogus"], **_WINDOW},   # speaking/bogus dropped
+        {"user_id": u2, "skills": ["listening", "reading"], **_WINDOW},
+        {"user_id": str(uuid4()), "skills": [], **_WINDOW},             # no valid skill → skipped
     ], created_by=admin, source_exam_id="src-1")
 
     assert set(res["assigned"]) == {u1, u2}
@@ -2202,7 +2424,7 @@ def test_retake_assign_scopes_skills_and_is_idempotent(fake_db):
     assert by_uid[u1]["source_exam_id"] == "src-1"
 
     # re-assign u1 with a different skill set → UPDATE, not a duplicate row
-    a.assign(exam_id, [{"user_id": u1, "skills": ["reading"]}], created_by=admin)
+    a.assign(exam_id, [{"user_id": u1, "skills": ["reading"], **_WINDOW}], created_by=admin)
     rows2 = fake_db.rows("mock_exam_assignments")
     assert len(rows2) == 2
     assert next(r for r in rows2 if r["user_id"] == u1)["skills"] == ["reading"]
@@ -2215,8 +2437,8 @@ def test_retake_assign_coalesces_duplicate_user(fake_db):
     from services import mock_exam_assignment_service as a
     exam_id, admin, u = str(uuid4()), str(uuid4()), str(uuid4())
     res = a.assign(exam_id, [
-        {"user_id": u, "skills": ["writing"]},
-        {"user_id": u, "skills": ["reading"]},   # same user, second sitting
+        {"user_id": u, "skills": ["writing"], **_WINDOW},
+        {"user_id": u, "skills": ["reading"], **_WINDOW},   # same user, second sitting
     ], created_by=admin)
     assert res["assigned"] == [u]                # one, not two
     rows = fake_db.rows("mock_exam_assignments")
@@ -2240,12 +2462,1274 @@ def test_retake_assign_rejects_inverted_window(fake_db):
     }], created_by=str(uuid4()))
 
 
+# ── B4: collect is separate from advance ──────────────────────────────
+
+
+def test_collect_takes_papers_without_opening_the_next_section(fake_db, svc):
+    """B4 — the whole point: papers in, class to the waiting room, and NO clock
+    running until the admin decides to advance."""
+    exam = _seed_exam(fake_db)
+    u = uuid4()
+    svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → listening
+
+    out = svc.collect_section(exam["id"], "admin-1")
+
+    assert out == {"section": "listening", "collected": 1}
+    after = svc.get_published_exam_by_id(exam["id"])
+    assert after["active_section"] == "listening"          # did NOT advance
+    assert after.get("reading_started_at") is None         # no clock started
+    # the student's paper is in, so the runner's isOpenSection goes false and
+    # they land in the waiting room
+    sitting = [s for s in fake_db.rows("mock_exam_sittings")][0]
+    assert sitting["listening_submitted_at"] is not None
+
+
+def test_collect_then_advance_is_the_normal_two_step(fake_db, svc):
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+    svc.collect_section(exam["id"], "admin-1")
+    svc.advance_section(exam["id"], "admin-1")
+    assert svc.get_published_exam_by_id(exam["id"])["active_section"] == "reading"
+
+
+def test_collect_rejects_a_stale_screen(fake_db, svc):
+    """Codex #843 (correct): a monitor still showing Listening — because another
+    invigilator advanced during the confirm dialog or inside the 5s poll —
+    carried no section identity, so collect re-read the canonical active_section
+    and swept READING, irreversibly submitting every Reading paper the moment it
+    opened."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")     # → listening
+    svc.advance_section(exam["id"], "admin-1")     # → reading (other invigilator)
+
+    with pytest.raises(svc.SittingConflictError):
+        svc.collect_section(exam["id"], "admin-2", from_section="listening")
+    # the matching screen still works
+    assert svc.collect_section(exam["id"], "admin-2", from_section="reading")["section"] == "reading"
+
+
+def test_collect_is_idempotent(fake_db, svc):
+    """Bấm lại sau khi đã thu đủ phải vô hại — nothing left to sweep."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+    assert svc.collect_section(exam["id"], "admin-1")["collected"] == 1
+    assert svc.collect_section(exam["id"], "admin-1")["collected"] == 0
+
+
+def test_collect_counts_only_papers_actually_taken(fake_db, svc, monkeypatch):
+    """Codex #843 (correct): _collect_section_for_sitting swallows every
+    exception, but the counter incremented regardless — so /collect reported a
+    paper as collected when the update had failed, and the next poll silently
+    contradicted the success message."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+
+    monkeypatch.setattr(svc, "_collect_section_for_sitting", lambda *a, **k: False)
+    assert svc.collect_section(exam["id"], "admin-1")["collected"] == 0
+
+
+def test_late_entrant_during_the_pause_stays_in_the_waiting_room(fake_db, svc):
+    """Codex #843 (correct, P1): collecting only stamped the sittings that
+    already EXISTED. `active_section` and `is_open` were untouched, so an
+    eligible student who had not opened the exam yet could create a sitting
+    during the pause — and their brand-new row has no submission stamp, so
+    get_sitting_state() reports the still-active section and the runner hands
+    them the paper the room already turned in, with the class clock running."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → listening
+    svc.collect_section(exam["id"], "admin-1")
+
+    # the pause is now a CANONICAL fact on the exam row, not an emergent one
+    assert svc.get_published_exam_by_id(exam["id"])["collected_section"] == "listening"
+
+    late = svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    assert late["listening_submitted_at"] is not None, (
+        "a sitting created during the pause must be born with the collected "
+        "section already in — otherwise the runner opens it")
+
+
+def test_advancing_ends_the_pause(fake_db, svc):
+    """Otherwise every sitting created after the advance would still be born
+    with the PREVIOUS section stamped submitted."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+    svc.collect_section(exam["id"], "admin-1")
+    svc.advance_section(exam["id"], "admin-1")            # → reading
+
+    after = svc.get_published_exam_by_id(exam["id"])
+    assert after["active_section"] == "reading"
+    assert after["collected_section"] is None
+    fresh = svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    assert fresh.get("reading_submitted_at") is None      # reading really is open
+
+
+def test_collect_reports_a_lookup_failure_instead_of_zero_success(fake_db, svc, monkeypatch):
+    """Codex #843 (correct, P1): returning 0 on a lookup failure made /collect
+    answer successfully and the console say "Đã thu bài … 0 bài" while every
+    student might still be working. Best-effort is right for the advance safety
+    net, wrong for the explicit collect action."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+
+    real_table = fake_db.table
+
+    def boom(name):
+        if name == "mock_exam_sittings":
+            raise RuntimeError("db down")
+        return real_table(name)
+
+    # Save/restore the ONE attribute rather than monkeypatch.undo(): pytest
+    # shares a single monkeypatch instance with the fake_db fixture, so undo()
+    # would restore the real Supabase client and later calls would silently go
+    # to the network (and "fail" in a way that made this assertion pass for the
+    # wrong reason).
+    fake_db.table = boom
+    try:
+        with pytest.raises(svc.MockExamError):
+            svc.collect_section(exam["id"], "admin-1", from_section="listening")
+        # the advance safety net stays best-effort — the class must still move on
+        assert svc._force_collect_section(exam["id"], "listening") == 0
+    finally:
+        fake_db.table = real_table
+
+
+def test_a_second_sweep_cannot_grade_the_same_paper_twice(fake_db, svc, monkeypatch):
+    """Codex #844 (correct, P1): the sweep is a background task, so an admin who
+    presses "Thu bài" again — or advances — before the first finishes queues a
+    SECOND sweep over the same rows. Each snapshots the rows with a null
+    submitted stamp, so without a compare-and-set both proceed to grade the same
+    attempt, and two concurrent Writing sweeps each promote essays before either
+    has stored essay_task*_id."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → listening
+    row = fake_db.rows("mock_exam_sittings")[0]
+
+    promoted = []
+    monkeypatch.setattr(svc, "_promote_writing_essays", lambda sid: promoted.append(sid))
+
+    # BOTH sweeps hold the same pre-collection snapshot of the row — exactly
+    # what two overlapping background tasks see.
+    snapshot = dict(row)
+    assert svc._collect_section_for_sitting(snapshot, "listening") is True
+    assert svc._collect_section_for_sitting(snapshot, "listening") is False, (
+        "the second sweep must lose the claim, not redo the work")
+
+
+def test_the_writing_sweep_promotes_essays_exactly_once(fake_db, svc, monkeypatch):
+    """The duplicate-essay case specifically: promotion happens only for the
+    task that WON the submitted-stamp claim."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    for _ in range(3):
+        svc.advance_section(exam["id"], "admin-1")        # → writing
+    row = dict(fake_db.rows("mock_exam_sittings")[0])
+
+    promoted = []
+    monkeypatch.setattr(svc, "_promote_writing_essays", lambda sid: promoted.append(sid))
+    svc._collect_section_for_sitting(row, "writing")
+    svc._collect_section_for_sitting(row, "writing")
+    assert len(promoted) == 1, promoted
+
+
+def test_a_failed_sweep_releases_its_claim(fake_db, svc, monkeypatch):
+    """Codex #844 (correct, P1): the stamp is written BEFORE grading, Writing
+    promotion and terminal reconciliation. A failure after it left the paper
+    looking submitted to every later sweep — which select only null stamps —
+    while nothing had been graded: the monitor showed it in, the recovery button
+    never offered it, and the attempt stayed ungraded forever."""
+    exam = _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → listening
+    aid = str(uuid4())
+    fake_db.table("mock_exam_sittings").update(
+        {"listening_attempt_id": aid}).eq("id", s["id"]).execute()
+
+    def explode(_attempt_id):
+        raise RuntimeError("grading died mid-sweep")
+
+    # NOT monkeypatch.undo(): pytest gives ONE monkeypatch instance per test,
+    # and fake_db uses it to patch supabase_admin — undoing here would restore
+    # the REAL Supabase client mid-test and every later call would hit the
+    # network. Save and restore just this attribute.
+    real_grade = svc._grade_and_finalize_listening
+    svc._grade_and_finalize_listening = explode
+    try:
+        row = svc.get_sitting(s["id"])
+        assert svc._collect_section_for_sitting(row, "listening") is False
+    finally:
+        svc._grade_and_finalize_listening = real_grade
+
+    assert svc.get_sitting(s["id"])["listening_submitted_at"] is None, (
+        "a failed sweep must leave the paper claimable, not falsely submitted")
+    # ...and the recovery sweep can now take it
+    assert svc._force_collect_section(exam["id"], "listening") == 1
+    assert svc.get_sitting(s["id"])["listening_submitted_at"] is not None
+
+
+def test_the_final_advance_keeps_a_grace_anchor(fake_db, svc):
+    """Codex #844 (correct): with no anchor for 'done', _sweep_grace_elapsed
+    returned True immediately — so a poll taken while the healthy FINAL sweep
+    was still running labelled every unprocessed paper 'missed' and offered a
+    recollect that would race it."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    for _ in range(4):                                    # → done
+        svc.advance_section(exam["id"], "admin-1")
+
+    after = svc.get_published_exam_by_id(exam["id"])
+    assert after["active_section"] == "done"
+    assert after["done_at"], "the final transition must record its own time"
+    assert svc._sweep_grace_elapsed(after, "done") is False
+
+    # ...and the verdict is NOT suppressed forever: an old exam that reached
+    # 'done' before mig 167 has no anchor and still reports elapsed.
+    assert svc._sweep_grace_elapsed({**after, "done_at": None}, "done") is True
+
+
+def test_preflight_fails_loudly_when_the_pending_count_cannot_be_read(fake_db, svc, monkeypatch):
+    """Codex #844 (correct): returning 0 turned "we don't know" into a valid
+    count — /collect answered 202 and the console said it was collecting ZERO
+    papers, while the queued sweep hit the same failing database."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+
+    real_table = fake_db.table
+
+    def boom(name):
+        if name == "mock_exam_sittings":
+            raise RuntimeError("db down")
+        return real_table(name)
+
+    monkeypatch.setattr(fake_db, "table", boom)
+    with pytest.raises(svc.MockExamError):
+        svc.collect_preflight(exam["id"])
+
+def test_a_sitting_born_during_the_sweep_is_still_stamped(fake_db, svc, monkeypatch):
+    """Codex #843 (correct, P1): create_sitting() decided from an exam row read
+    BEFORE the insert, while /collect sets collected_section and sweeps the
+    sittings as separate queries. A student who started opening the exam before
+    the marker was set but whose row landed after the sweep was neither swept
+    NOR born submitted — so the runner handed them the collected paper."""
+    exam = _seed_exam(fake_db)
+    svc.advance_section(exam["id"], "admin-1")            # → listening
+
+    # Stage the window: the pre-insert read sees no pause, the post-insert
+    # re-read sees one.
+    real_get = svc.get_published_exam_by_id
+    calls = {"n": 0}
+
+    def pause_after_first_read(exam_id):
+        row = real_get(exam_id)
+        calls["n"] += 1
+        if calls["n"] == 1 and row:
+            return {**row, "collected_section": None}
+        return row
+
+    fake_db.table("mock_exams").update(
+        {"collected_section": "listening"}).eq("id", exam["id"]).execute()
+    # Save/restore rather than monkeypatch.undo(): pytest shares one monkeypatch
+    # instance with fake_db, so undo() would restore the REAL Supabase client.
+    svc.get_published_exam_by_id = pause_after_first_read
+    try:
+        late = svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    finally:
+        svc.get_published_exam_by_id = real_get
+
+    assert late["listening_submitted_at"] is not None, (
+        "a sitting inserted during the pause must still be born submitted")
+
+
+def test_attach_is_refused_once_the_section_is_collected(fake_db, svc):
+    """Codex #843 (correct, P1): the pause deliberately leaves active_section
+    alone, so the sequential gate cannot see it. An attempt whose creation
+    finished after the sweep still attached — but the sitting was already
+    stamped and skipped for grading (nothing was bound yet), later sweeps skip
+    it, and the attempt is never graded."""
+    exam = _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → listening
+    svc.collect_section(exam["id"], "admin-1", from_section="listening")
+
+    aid = str(uuid4())
+    fake_db.seed("listening_test_attempts", {
+        "id": aid, "user_id": str(u), "test_id": exam["listening_test_id"],
+        "status": "in_progress", "answers": [],
+    })
+    with pytest.raises(svc.SittingConflictError):
+        svc.attach_attempt(s["id"], u, "listening", aid)
+
+
+def test_live_monitor_reports_the_pause_and_stops_the_clock(fake_db, svc):
+    """Codex #843 (correct): active_section does not change during the break, so
+    without the canonical marker the console kept rendering and ticking the
+    collected section's clock."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+    svc.collect_section(exam["id"], "admin-1", from_section="listening")
+
+    ex = svc.admin_live_monitor(exam["id"])["exam"]
+    assert ex["active_section"] == "listening"            # unchanged, by design
+    assert ex["collected_section"] == "listening"
+    assert ex["section_time_left_seconds"] is None, "no clock runs during the pause"
+
+
+def test_collect_rejected_before_the_exam_starts(fake_db, svc):
+    exam = _seed_exam(fake_db)
+    with pytest.raises(svc.SittingConflictError):
+        svc.collect_section(exam["id"], "admin-1")
+
+
+def test_a_failed_sweep_cannot_erase_a_students_real_submit(fake_db, svc):
+    """Codex adversarial review (correct, high): the sweep claimed with a CAS
+    but the student's own submit wrote the stamp BLINDLY, so the two writers
+    were never serialised. Sweep claims → student submit overwrites with its own
+    timestamp → sweep's grading fails → the unconditional rollback deletes a
+    REAL submission. The guard added to save a paper became the thing that loses
+    one."""
+    exam = _seed_exam(fake_db)
+    u = uuid4()
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → listening
+    aid = str(uuid4())
+    fake_db.table("mock_exam_sittings").update(
+        {"listening_attempt_id": aid}).eq("id", sit["id"]).execute()
+
+    snapshot = svc.get_sitting(sit["id"])                 # what the sweep holds
+
+    real_grade = svc._grade_and_finalize_listening
+
+    def die_after_someone_else_wrote(_attempt_id):
+        # The student's submit lands between our claim and our failure.
+        fake_db.table("mock_exam_sittings").update(
+            {"listening_submitted_at": "2099-01-01T00:00:00+00:00"},
+        ).eq("id", sit["id"]).execute()
+        raise RuntimeError("grading died after the student submitted")
+
+    svc._grade_and_finalize_listening = die_after_someone_else_wrote
+    try:
+        assert svc._collect_section_for_sitting(snapshot, "listening") is False
+    finally:
+        svc._grade_and_finalize_listening = real_grade
+
+    assert svc.get_sitting(sit["id"])["listening_submitted_at"] == "2099-01-01T00:00:00+00:00", (
+        "the rollback must only clear the stamp IT wrote")
+
+
+def test_student_submit_uses_the_same_claim_as_the_sweep(fake_db, svc):
+    """The existing idempotency guard (`if sitting.get(col): return`) is a READ
+    followed by a WRITE, so a sweep landing between the two still slipped
+    through and overwrote the collected stamp. Staged by stamping the row from
+    inside _assert_prior_section_submitted — the last call before the write."""
+    exam = _seed_exam(fake_db)
+    u = uuid4()
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+    _expire_section(fake_db, exam["id"], "listening")
+    # submit_section requires this section's own attempt to exist + be submitted
+    aid = str(uuid4())
+    fake_db.seed("listening_test_attempts", {
+        "id": aid, "user_id": str(u), "test_id": exam["listening_test_id"],
+        "status": "submitted", "answers": [],
+    })
+    fake_db.table("mock_exam_sittings").update(
+        {"status": "lrw_in_progress", "listening_attempt_id": aid},
+    ).eq("id", sit["id"]).execute()
+
+    swept = "2098-01-01T00:00:00+00:00"
+    real_assert = svc._assert_prior_section_submitted
+
+    def sweep_lands_now(sitting, section):
+        real_assert(sitting, section)
+        fake_db.table("mock_exam_sittings").update(
+            {"listening_submitted_at": swept}).eq("id", sit["id"]).execute()
+
+    svc._assert_prior_section_submitted = sweep_lands_now
+    try:
+        svc.submit_section(sit["id"], u, "listening")     # must not raise
+    finally:
+        svc._assert_prior_section_submitted = real_assert
+
+    assert svc.get_sitting(sit["id"])["listening_submitted_at"] == swept, (
+        "a submit that loses the claim must not overwrite the collected stamp")
+
+
+def test_a_failure_after_the_terminal_transition_keeps_the_stamp(fake_db, svc):
+    """An all_submitted row with a cleared final stamp and no review row is
+    unreachable by every repair path — _reconcile_terminal does not come back
+    from all_submitted. Better a stamped row a retry can finish."""
+    exam = _seed_exam(fake_db, listening=False, reading=False)
+    u = uuid4()
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → writing
+
+    real_rec = svc._reconcile_terminal
+    svc._reconcile_terminal = lambda sid, exam=None: (_ for _ in ()).throw(RuntimeError("boom"))
+    try:
+        svc._collect_section_for_sitting(svc.get_sitting(sit["id"]), "writing")
+    finally:
+        svc._reconcile_terminal = real_rec
+
+    assert svc.get_sitting(sit["id"])["writing_submitted_at"] is not None, (
+        "never roll back once the terminal transition has started")
+
+
+def test_pause_closes_the_paper_before_the_sweep_reaches_the_sitting(fake_db, svc, monkeypatch):
+    """Codex adversarial review (correct, high): /collect sets collected_section
+    SYNCHRONOUSLY and sweeps the sittings in the BACKGROUND, and deliberately
+    leaves active_section alone. Between the two, a student whose row had not
+    been swept yet still saw an open section with a running clock — while the
+    invigilator had just been told the class was in a clock-free break."""
+    exam = _seed_exam(fake_db)
+    u = uuid4()
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → listening
+
+    # Mark the pause WITHOUT running the sweep — exactly the window the router
+    # accepts the request in.
+    svc.mark_section_collected(exam["id"], "listening")
+
+    row = svc.get_sitting(sit["id"])
+    assert row.get("listening_submitted_at") is None, "this row is deliberately unswept"
+
+    ex = svc.get_published_exam_by_id(exam["id"])
+    # the clock the student endpoint would report
+    assert ex["collected_section"] == ex["active_section"]
+    # ...and neither write path may accept anything more for it
+    with pytest.raises(svc.SittingConflictError):
+        svc.submit_section(sit["id"], u, "listening")
+
+
+def test_pause_also_closes_the_writing_draft(fake_db, svc):
+    """The autosave endpoint is the one a student's browser keeps hitting, so
+    without the same guard the essay could keep changing after collection — and
+    _promote_writing_essays() may already have copied the older text."""
+    exam = _seed_exam(fake_db, listening=False, reading=False)
+    u = uuid4()
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → writing
+    # submit_writing gates on lrw_in_progress; the runner reaches it by starting
+    # the section, which is not what this test is about.
+    fake_db.table("mock_exam_sittings").update(
+        {"status": "lrw_in_progress"}).eq("id", sit["id"]).execute()
+    svc.submit_writing(sit["id"], u, "đang viết", "")     # draft works while open
+
+    svc.mark_section_collected(exam["id"], "writing")
+    with pytest.raises(svc.SittingConflictError):
+        svc.submit_writing(sit["id"], u, "viết thêm sau khi thu bài", "")
+    assert svc.get_sitting(sit["id"])["writing_submission"]["task1"]["text"] == "đang viết"
+
+
+def test_advance_rejected_for_a_retake_exam(fake_db, svc):
+    """Codex adversarial review (correct, high): collect_preflight refused
+    retake but advance_section did NOT — half the gate was missing. The console
+    hides the button, but a UI is not a guard: a direct API call or a stale
+    admin tab could walk a retake exam through the sequential state machine and
+    then queue a sweep over it, stamping students' papers outside their own
+    self-timed flow."""
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    with pytest.raises(svc.SittingConflictError):
+        svc.advance_section(exam["id"], "admin-1")
+    assert svc.get_published_exam_by_id(exam["id"])["active_section"] == "not_started"
+
+
+def test_sweep_refuses_a_section_the_sitting_does_not_own(fake_db, svc):
+    """Second layer: what a sitting OWES is a property of the sitting (assigned
+    skills for a retake), not of whatever section the caller aimed at."""
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    u = str(uuid4())
+    fake_db.seed("mock_exam_assignments", {
+        "id": str(uuid4()), "exam_id": exam["id"], "user_id": u,
+        "skills": ["writing"], "open_from": None,
+        "open_until": _WINDOW["open_until"],
+    })
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+
+    # Listening was never assigned to this student.
+    assert svc._collect_section_for_sitting(svc.get_sitting(sit["id"]), "listening") is False
+    assert svc.get_sitting(sit["id"]).get("listening_submitted_at") is None
+    # ...but the skill they DO owe is still sweepable.
+    assert svc._collect_section_for_sitting(svc.get_sitting(sit["id"]), "writing") is True
+
+
+def test_collect_rejected_for_a_retake_exam(fake_db, svc):
+    """Retake is self-timed per student — there is no shared section to collect,
+    and pretending otherwise would sweep papers on someone else's clock."""
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update(
+        {"exam_mode": "retake", "active_section": "listening"}).eq(
+        "id", exam["id"]).execute()
+    with pytest.raises(svc.SittingConflictError):
+        svc.collect_section(exam["id"], "admin-1")
+
+
+# ── B2: advance is win-once ───────────────────────────────────────────
+
+
+def test_advance_is_win_once_under_concurrency(fake_db, svc):
+    """B2 — two invigilators, two tabs, or a double-click all reach here with
+    the SAME `current`. Without the optimistic guard both writes land: the class
+    either skips a whole section, or {next}_started_at is re-stamped and the
+    countdown RESETS, quietly handing everyone extra time."""
+    exam = _seed_exam(fake_db)
+    svc.advance_section(exam["id"], "admin-1")            # not_started → listening
+    first = svc.get_published_exam_by_id(exam["id"])
+    assert first["active_section"] == "listening"
+    started = first["listening_started_at"]
+
+    # A second caller that still believes the exam is at not_started.
+    with pytest.raises(svc.SittingConflictError):
+        svc._advance_from(exam["id"], "admin-2", "not_started")
+
+    after = svc.get_published_exam_by_id(exam["id"])
+    assert after["active_section"] == "listening"          # did not skip ahead
+    assert after["listening_started_at"] == started        # clock NOT reset
+
+
+def test_advance_rejects_a_click_from_a_stale_screen(fake_db, svc):
+    """Codex #842 (correct): the compare-and-set alone only catches requests
+    whose DB READS overlap. Two clicks where the first has already committed
+    both read the NEW section and both advance — so the class still skips one.
+    Comparing against the section the admin was LOOKING AT closes that."""
+    exam = _seed_exam(fake_db)
+    svc.advance_section(exam["id"], "admin-1")            # → listening
+    started = svc.get_published_exam_by_id(exam["id"])["listening_started_at"]
+
+    # a second tab still showing "not_started" clicks after the first committed
+    with pytest.raises(svc.SittingConflictError):
+        svc.advance_section(exam["id"], "admin-2", expected_section="not_started")
+
+    after = svc.get_published_exam_by_id(exam["id"])
+    assert after["active_section"] == "listening"          # did not skip to reading
+    assert after["listening_started_at"] == started        # clock not reset
+
+
+def test_advance_accepts_a_click_from_a_current_screen(fake_db, svc):
+    exam = _seed_exam(fake_db)
+    svc.advance_section(exam["id"], "admin-1", expected_section="not_started")
+    assert svc.get_published_exam_by_id(exam["id"])["active_section"] == "listening"
+
+
+def test_advance_conflict_message_names_the_current_section(fake_db, svc):
+    """The admin needs to know what actually holds, not just that it failed."""
+    exam = _seed_exam(fake_db)
+    svc.advance_section(exam["id"], "admin-1")
+    with pytest.raises(svc.SittingConflictError) as exc:
+        svc._advance_from(exam["id"], "admin-2", "not_started")
+    assert "listening" in str(exc.value)
+
+
+def test_advance_still_walks_the_configured_sequence(fake_db, svc):
+    """The guard must not change the normal one-at-a-time walk."""
+    exam = _seed_exam(fake_db)
+    for expected in ("listening", "reading", "writing", "done"):
+        svc.advance_section(exam["id"], "admin-1")
+        assert svc.get_published_exam_by_id(exam["id"])["active_section"] == expected
+
+
+# ── C3: one live sitting per student, across ALL exams ────────────────
+
+
+def _seed_second_exam(fake, code="MOCK-TEST-B", cohort_id=None):
+    exam = {
+        "id": str(uuid4()), "code": code, "title": "Second", "status": "published",
+        "is_open": True, "cohort_id": cohort_id, "open_from": None, "open_until": None,
+        "total_minutes": 150, "reading_minutes": 60, "writing_minutes": 60,
+        "active_section": "not_started", "speaking_topic_set": {},
+        "listening_started_at": None, "reading_started_at": None, "writing_started_at": None,
+    }
+    fake.seed("mock_exams", exam)
+    return exam
+
+
+def test_second_exam_blocked_while_one_is_in_progress(fake_db, svc):
+    """C3 — _user_in_cohort matches ANY students row, so a student in two
+    cohorts really can see two open exams. uq_mock_sitting_active is per
+    (exam, user) and never stopped them opening one of each."""
+    _seed_exam(fake_db)
+    b = _seed_second_exam(fake_db)
+    u = uuid4()
+    svc.create_sitting(u, "MOCK-TEST-A")
+
+    with pytest.raises(svc.SittingConflictError):
+        svc.create_sitting(u, "MOCK-TEST-B")
+    assert [s for s in fake_db.rows("mock_exam_sittings")
+            if str(s["mock_exam_id"]) == b["id"]] == []
+
+
+def test_student_can_always_resume_their_own_live_sitting(fake_db, svc):
+    """The block must never fire on the student's OWN exam: create_sitting
+    resumes before the gates precisely so a mid-exam refresh cannot lock someone
+    out of their own paper."""
+    _seed_exam(fake_db)
+    u = uuid4()
+    first = svc.create_sitting(u, "MOCK-TEST-A")
+    again = svc.create_sitting(u, "MOCK-TEST-A")
+    assert again["id"] == first["id"]
+
+
+def test_speaking_pending_does_not_block_another_exam(fake_db, svc):
+    """speaking_pending waits on a viva appointment and can last days. Treating
+    it as a seating conflict would lock a student out of an unrelated exam for a
+    week over something that is not a conflict at all."""
+    exam = _seed_exam(fake_db)
+    _seed_second_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    fake_db.table("mock_exam_sittings").update(
+        {"status": "speaking_pending"}).eq("id", s["id"]).execute()
+
+    other = svc.create_sitting(u, "MOCK-TEST-B")     # must not raise
+    assert other["status"] == "registered"
+
+
+def test_finished_sitting_frees_the_student(fake_db, svc):
+    _seed_exam(fake_db)
+    _seed_second_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    fake_db.table("mock_exam_sittings").update(
+        {"status": "released"}).eq("id", s["id"]).execute()
+
+    assert svc.create_sitting(u, "MOCK-TEST-B")["status"] == "registered"
+
+
+def test_voiding_a_stuck_sitting_frees_the_student(fake_db, svc):
+    """The escape hatch D4 added must actually work: voiding is how an admin
+    unsticks a student who would otherwise be locked out of every exam."""
+    _seed_exam(fake_db)
+    _seed_second_exam(fake_db)
+    u = uuid4()
+    stuck = svc.create_sitting(u, "MOCK-TEST-A")
+    with pytest.raises(svc.SittingConflictError):
+        svc.create_sitting(u, "MOCK-TEST-B")
+
+    svc.void_sitting(stuck["id"], "admin-1", reason="kẹt")
+
+    assert svc.create_sitting(u, "MOCK-TEST-B")["status"] == "registered"
+
+
+def test_open_exam_list_reports_what_is_blocking(fake_db, svc):
+    """The entry page must be able to explain itself and link back, instead of
+    offering a button whose only outcome is a 409."""
+    a = _seed_exam(fake_db)
+    b = _seed_second_exam(fake_db)
+    u = uuid4()
+    mine = svc.create_sitting(u, "MOCK-TEST-A")
+
+    by_id = {e["id"]: e for e in svc.list_open_exams(u)}
+    assert by_id[a["id"]]["blocked_by_sitting_id"] is None
+    assert by_id[a["id"]]["my_sitting_id"] == str(mine["id"])
+    assert by_id[b["id"]]["blocked_by_sitting_id"] == str(mine["id"])
+    assert by_id[b["id"]]["my_sitting_id"] is None
+
+
+def test_own_exam_stays_listed_after_the_gate_closes(fake_db, svc):
+    """Codex #841 (correct): an admin closing the live toggle to block late
+    entrants dropped the exam from the list BEFORE my_sitting_id could be
+    attached — so the entry page showed the empty state instead of the promised
+    resume link, to precisely the student who is mid-exam."""
+    exam = _seed_exam(fake_db)
+    u = uuid4()
+    mine = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.set_open(exam["id"], False, "admin-1")          # block late entrants
+
+    listed = {e["id"]: e for e in svc.list_open_exams(u)}
+    assert exam["id"] in listed
+    assert listed[exam["id"]]["my_sitting_id"] == str(mine["id"])
+
+
+def test_closed_exam_stays_hidden_from_everyone_else(fake_db, svc):
+    """The relaxation is for the ONE person holding a sitting, nobody else."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.set_open(exam["id"], False, "admin-1")
+    assert svc.list_open_exams(uuid4()) == []
+
+
+def test_retake_assign_requires_a_closing_bound(fake_db):
+    """D3 — an open-ended retake never finishes.
+
+    reap_expired_retake_sittings only collects a section that has STARTED, or
+    everything once retake_open_until has passed. With no closing bound a
+    student who never presses "Bắt đầu" leaves the sitting in `registered`
+    forever: never collected, never reviewed, and permanently holding the
+    uq_mock_sitting_active slot. Merely annoying while that blocked one exam;
+    after C3 the same stuck row locks them out of EVERY exam.
+    """
+    from services import mock_exam_assignment_service as a
+    with pytest.raises(a.InvalidWindowError):
+        a.assign(str(uuid4()), [{
+            "user_id": str(uuid4()), "skills": ["writing"],
+            "open_from": "2026-07-20T09:00:00Z", "open_until": None,
+        }], created_by=str(uuid4()))
+    # nothing persisted — the whole batch is rejected before any write
+    assert fake_db.rows("mock_exam_assignments") == []
+
+
+def test_skill_less_row_is_skipped_not_fatal_to_the_batch(fake_db):
+    """Codex #839 (correct): validating the window of a row that is documented
+    to be SKIPPED aborted the whole request, so valid students in the same batch
+    went unassigned."""
+    from services import mock_exam_assignment_service as a
+    exam_id = str(uuid4())
+    good, empty = str(uuid4()), str(uuid4())
+    res = a.assign(exam_id, [
+        {"user_id": good,  "skills": ["writing"], **_WINDOW},
+        {"user_id": empty, "skills": [], "open_until": None},   # skipped, not fatal
+    ], created_by=str(uuid4()))
+
+    assert res["assigned"] == [good]
+    assert res["skipped"] == [empty]
+    assert len(fake_db.rows("mock_exam_assignments")) == 1
+
+
+def test_retake_assign_rejects_open_ended_before_writing_any_row(fake_db):
+    """One bad window fails the request cleanly instead of persisting a subset
+    then raising mid-batch (the pre-existing validate-up-front contract)."""
+    from services import mock_exam_assignment_service as a
+    good, bad = str(uuid4()), str(uuid4())
+    with pytest.raises(a.InvalidWindowError):
+        a.assign(str(uuid4()), [
+            {"user_id": good, "skills": ["writing"], **_WINDOW},
+            {"user_id": bad, "skills": ["reading"], "open_until": None},
+        ], created_by=str(uuid4()))
+    assert fake_db.rows("mock_exam_assignments") == []
+
+
+def test_integrity_counters_are_monotonic(fake_db, svc):
+    """The column has been reserved since mig 146 and never written.
+
+    Counters are absolute totals kept in the client's localStorage (so they
+    survive a reload) and merged with MAX — which makes a retry idempotent and,
+    more importantly, makes the record UN-DECREASABLE by the client. That is the
+    whole reason it lives server-side instead of being reported at submit."""
+    _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+
+    svc.record_integrity(s["id"], u, {"blur_count": 3, "offline_events": 1})
+    svc.record_integrity(s["id"], u, {"blur_count": 5, "offline_events": 1})
+    svc.record_integrity(s["id"], u, {"blur_count": 2, "offline_events": 0})   # cannot walk it back
+
+    got = svc.get_sitting(s["id"])["integrity"]
+    assert got["blur_count"] == 5
+    assert got["offline_events"] == 1
+
+
+def test_integrity_rejects_a_foreign_sitting(fake_db, svc):
+    _seed_exam(fake_db)
+    s = svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    with pytest.raises(PermissionError):
+        svc.record_integrity(s["id"], uuid4(), {"blur_count": 99})
+
+
+def test_integrity_ignores_junk_without_failing(fake_db, svc):
+    """A soft signal must never break the exam — bad input is dropped, not
+    raised, and the write still lands for the fields that were valid."""
+    _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.record_integrity(s["id"], u, {"blur_count": "abc", "resumes": -4, "offline_events": 2})
+    got = svc.get_sitting(s["id"])["integrity"]
+    # Since mig 163 the merge happens in SQL, which writes all four counters
+    # (COALESCE → 0) rather than omitting the ones the caller skipped. Assert
+    # the MEANING — junk did not increment anything — not the key layout. 0 is
+    # falsy, so the live console still shows nothing for these.
+    assert got["blur_count"] == 0 and got["resumes"] == 0
+    assert got["offline_events"] == 2
+
+
+def test_void_reports_the_truth_when_the_rpc_guard_refuses(fake_db, svc, monkeypatch):
+    """Codex #849 (correct): if a release commits between the read and the RPC,
+    the RPC's status guard returns null. Fabricating a void response there
+    logged success and answered the admin 200 while the persisted row said
+    `released`."""
+    _seed_exam(fake_db)
+    u = uuid4()
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+
+    real_rpc = fake_db.rpc
+
+    class _NullRpc:
+        data = None
+
+        def execute(self):
+            return self
+
+    def refuse_void(name, params):
+        if name == "fn_void_sitting":
+            return _NullRpc()
+        return real_rpc(name, params)
+
+    fake_db.rpc = refuse_void
+    try:
+        with pytest.raises(svc.SittingConflictError):
+            svc.void_sitting(sit["id"], "admin-1", reason="máy hỏng")
+    finally:
+        fake_db.rpc = real_rpc
+
+    assert svc.get_sitting(sit["id"])["status"] != "void"
+
+
+def test_voiding_preserves_counters_committed_in_between(fake_db, svc):
+    """Codex #849 (correct): mig 163 made the COUNTER path atomic, but
+    void_sitting() was still a Python read-modify-write of the same column —
+    read integrity, add void_reason/voided_by, write the whole document back. A
+    report committing between that read and that write had its counters erased,
+    breaking the monotonic guarantee from the other side."""
+    _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.record_integrity(s["id"], u, {"blur_count": 3, "offline_events": 1})
+
+    svc.void_sitting(s["id"], "admin-1", reason="máy hỏng")
+
+    got = svc.get_sitting(s["id"])["integrity"]
+    assert got["blur_count"] == 3 and got["offline_events"] == 1   # not clobbered
+    assert got["void_reason"] == "máy hỏng"
+    assert got["voided_by"] == "admin-1"
+
+
+def test_integrity_surfaces_on_the_live_console(fake_db, svc):
+    """Written-and-forgotten is exactly the criticism that produced the pacing
+    page — these have to be readable somewhere."""
+    _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.record_integrity(s["id"], u, {"blur_count": 4, "blur_seconds": 120})
+
+    row = [r for r in svc.admin_live_monitor(
+        svc.get_sitting(s["id"])["mock_exam_id"])["students"]][0]
+    assert row["integrity"]["blur_count"] == 4
+    assert "reported_at" not in row["integrity"]     # counters only, no noise
+
+
+def test_admin_can_unstick_a_speaking_pending_sitting(fake_db, svc, wf):
+    """A5 — the student's report call is fire-and-forget. If it failed the
+    sitting stayed `speaking_pending` forever: no review row, never released,
+    and nobody could fix it. The speaking work was fine; only the last hop was
+    lost."""
+    exam = _seed_exam(fake_db, speaking=True)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    _run_lrw(svc, fake_db, exam, s["id"], u)
+    assert svc.get_sitting(s["id"])["status"] == "speaking_pending"
+
+    # sessions were bound + graded; only the report call never landed
+    sess = str(uuid4())
+    fake_db.seed("sessions", {"id": sess, "user_id": str(u),
+                              "sitting_id": str(s["id"]), "status": "submitted"})
+    fake_db.seed("responses", {"id": str(uuid4()), "session_id": sess})
+
+    out = svc.admin_record_speaking(s["id"], "admin-1")
+
+    assert out["status"] == "all_submitted"
+    assert svc.get_sitting(s["id"])["speaking_session_ids"] == [sess]
+    assert wf.get_review_for_sitting(s["id"]) is not None   # review now exists
+
+
+def test_admin_unstick_refuses_when_there_is_no_speaking_work(fake_db, svc):
+    """It ratifies what the student actually did — it must never fabricate a
+    completion for a sitting with no finished speaking sessions."""
+    exam = _seed_exam(fake_db, speaking=True)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    _run_lrw(svc, fake_db, exam, s["id"], u)
+    with pytest.raises(svc.SittingConflictError):
+        svc.admin_record_speaking(s["id"], "admin-1")
+
+
+def test_admin_unstick_ignores_an_unfinished_session(fake_db, svc):
+    """A bare in_progress shell, or a session with no responses, is not work."""
+    exam = _seed_exam(fake_db, speaking=True)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    _run_lrw(svc, fake_db, exam, s["id"], u)
+    fake_db.seed("sessions", {"id": str(uuid4()), "user_id": str(u),
+                              "sitting_id": str(s["id"]), "status": "in_progress"})
+    no_resp = str(uuid4())
+    fake_db.seed("sessions", {"id": no_resp, "user_id": str(u),
+                              "sitting_id": str(s["id"]), "status": "submitted"})
+    with pytest.raises(svc.SittingConflictError):
+        svc.admin_record_speaking(s["id"], "admin-1")
+
+
+def test_admin_unstick_is_idempotent(fake_db, svc):
+    exam = _seed_exam(fake_db, speaking=True)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    _run_lrw(svc, fake_db, exam, s["id"], u)
+    sess = str(uuid4())
+    fake_db.seed("sessions", {"id": sess, "user_id": str(u),
+                              "sitting_id": str(s["id"]), "status": "submitted"})
+    fake_db.seed("responses", {"id": str(uuid4()), "session_id": sess})
+    svc.admin_record_speaking(s["id"], "admin-1")
+    svc.admin_record_speaking(s["id"], "admin-1")       # must not raise
+    assert svc.get_sitting(s["id"])["speaking_session_ids"] == [sess]
+
+
+def test_reaper_ignores_sequential_exams_entirely(fake_db, svc):
+    """D5 — the sweep used to pull EVERY live sitting on the platform and then
+    do one exam lookup per row just to discard the sequential ones. It now
+    narrows at the database, so a sequential sitting is never even fetched —
+    and, more importantly, is never collected by the wrong mechanism."""
+    exam = _seed_exam(fake_db)                      # sequential
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    _advance_and_sweep(svc, exam["id"], str(uuid4()))   # → listening, clock running
+
+    assert svc.reap_expired_retake_sittings(grace_seconds=0)["collected"] == 0
+    # the sequential straggler is the admin advance-sweep's job, not the reaper's
+    assert svc.get_sitting(s["id"])["status"] in ("registered", "lrw_in_progress")
+
+
+def test_reaper_no_retake_exams_is_a_cheap_noop(fake_db, svc):
+    _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    assert svc.reap_expired_retake_sittings() == {"collected": 0, "sittings": 0}
+
+
+def test_reassign_updates_a_sitting_that_has_not_started(fake_db, svc):
+    """D2 — create_sitting SNAPSHOTS assigned_skills + window onto the sitting,
+    and assign() only ever wrote mock_exam_assignments. So correcting a wrong
+    skill set after the student had opened (but not started) the exam was
+    SILENTLY IGNORED: they sat the old skills on the old window."""
+    from services import mock_exam_assignment_service as a
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    u = str(uuid4())
+    a.assign(exam["id"], [{"user_id": u, "skills": ["listening"], **_WINDOW}],
+             created_by=str(uuid4()))
+    sitting = svc.create_sitting(u, "MOCK-TEST-A")
+    assert sitting["assigned_skills"] == ["listening"]
+
+    res = a.assign(exam["id"], [{"user_id": u, "skills": ["writing"], **_WINDOW}],
+                   created_by=str(uuid4()))
+
+    assert res["refreshed"] == [u]
+    assert svc.get_sitting(sitting["id"])["assigned_skills"] == ["writing"]
+
+
+def test_reassign_will_not_rewrite_a_sitting_mid_exam(fake_db, svc):
+    """Once a clock is running, changing the skill set is WORSE than the stale
+    snapshot — the student could lose a section they are actively working on.
+    Report it as locked rather than doing either thing silently."""
+    from services import mock_exam_assignment_service as a
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    u = str(uuid4())
+    a.assign(exam["id"], [{"user_id": u, "skills": ["listening"], **_WINDOW}],
+             created_by=str(uuid4()))
+    sitting = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.start_section(sitting["id"], u, "listening")     # clock now running
+
+    res = a.assign(exam["id"], [{"user_id": u, "skills": ["writing"], **_WINDOW}],
+                   created_by=str(uuid4()))
+
+    assert res["locked"] == [u]
+    assert res["refreshed"] == []
+    assert svc.get_sitting(sitting["id"])["assigned_skills"] == ["listening"]
+
+
+def test_reassign_reports_a_failed_refresh_separately(fake_db, svc, monkeypatch):
+    """Codex #845 (correct): returning 'none' for a DB error made it identical
+    to "this student never opened the exam", so the admin was told the edit
+    applied while the open sitting kept its old skills and window."""
+    from services import mock_exam_assignment_service as a
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    u = str(uuid4())
+    a.assign(exam["id"], [{"user_id": u, "skills": ["listening"], **_WINDOW}],
+             created_by=str(uuid4()))
+    svc.create_sitting(u, "MOCK-TEST-A")
+
+    monkeypatch.setattr(a, "_refresh_open_sitting", lambda *args, **kw: "failed")
+    res = a.assign(exam["id"], [{"user_id": u, "skills": ["writing"], **_WINDOW}],
+                   created_by=str(uuid4()))
+
+    assert res["refresh_failed"] == [u]
+    assert res["refreshed"] == [] and res["locked"] == []
+
+
+def test_reassign_loses_the_race_when_the_student_starts_mid_write(fake_db, svc, monkeypatch):
+    """Codex #845 (correct): the guard SELECT and the UPDATE are two round
+    trips. A student who presses "Bắt đầu" in between has start_section() stamp
+    their clock, and the unconditional update still replaced the skill set —
+    potentially removing the very section they are actively sitting.
+
+    Staged by making the GUARD read stale (via the _sitting_started seam) while
+    the row in the database really has a clock running. That is precisely what
+    the racing caller sees, and reproducing it with real threads against a fake
+    database would be flaky theatre."""
+    from services import mock_exam_assignment_service as a
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    u = str(uuid4())
+    a.assign(exam["id"], [{"user_id": u, "skills": ["listening"], **_WINDOW}],
+             created_by=str(uuid4()))
+    sitting = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.start_section(sitting["id"], u, "listening")     # clock IS running
+
+    monkeypatch.setattr(a, "_sitting_started", lambda s: False)   # stale read
+    res = a.assign(exam["id"], [{"user_id": u, "skills": ["writing"], **_WINDOW}],
+                   created_by=str(uuid4()))
+
+    assert res["locked"] == [u], res
+    assert res["refreshed"] == []
+    assert svc.get_sitting(sitting["id"])["assigned_skills"] == ["listening"], (
+        "the section the student is actively sitting must not be taken away")
+
+
+def test_start_section_rolls_back_when_reassigned_mid_start(fake_db, svc, monkeypatch):
+    """Codex #845 (correct, P1): the CAS added last round covers the ordering
+    where the student started FIRST. The mirror image — start_section() reads
+    the old assigned_skills, the admin's refresh commits while every clock is
+    still null, and then start_section writes — left the sitting with a running
+    clock for a skill the refreshed snapshot no longer includes.
+
+    Staged by dropping the skill between start_section's read and its write."""
+    from services import mock_exam_assignment_service as a
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    u = str(uuid4())
+    a.assign(exam["id"], [{"user_id": u, "skills": ["listening", "writing"], **_WINDOW}],
+             created_by=str(uuid4()))
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+
+    real_get = svc.get_sitting
+    fired = {"done": False}
+
+    def drop_skill_after_the_read(sitting_id):
+        row = real_get(sitting_id)
+        if row and not fired["done"] and str(row["id"]) == str(sit["id"]):
+            fired["done"] = True                     # only the FIRST read
+        elif row and fired["done"] and str(row["id"]) == str(sit["id"]):
+            # the admin's refresh has landed by the time we look again
+            fake_db.table("mock_exam_sittings").update(
+                {"assigned_skills": ["writing"]}).eq("id", sit["id"]).execute()
+            return real_get(sitting_id)
+        return row
+
+    svc.get_sitting = drop_skill_after_the_read
+    try:
+        with pytest.raises(svc.SittingConflictError):
+            svc.start_section(sit["id"], u, "listening")
+    finally:
+        svc.get_sitting = real_get
+
+    assert svc.get_sitting(sit["id"])["listening_started_at"] is None, (
+        "a clock started for a skill the student no longer has must be rolled back")
+
+
+def test_first_assign_with_no_sitting_reports_neither(fake_db):
+    from services import mock_exam_assignment_service as a
+    res = a.assign(str(uuid4()), [{"user_id": str(uuid4()), "skills": ["writing"], **_WINDOW}],
+                   created_by=str(uuid4()))
+    assert res["refreshed"] == [] and res["locked"] == []
+
+
+def test_unassign_voids_the_sitting_the_student_already_opened(fake_db, svc):
+    """D4 — deleting the assignment alone did NOT revoke access.
+
+    create_sitting resumes an existing non-terminal sitting BEFORE the
+    eligibility gates (deliberate, so a mid-exam refresh can't lock a student
+    out of their own paper), so an un-assigned student who had already opened
+    the exam kept full access. Voiding is also what frees the
+    uq_mock_sitting_active slot — which matters far more once one live sitting
+    per student is enforced across all exams.
+    """
+    from services import mock_exam_assignment_service as a
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    u = str(uuid4())
+    a.assign(exam["id"], [{"user_id": u, "skills": ["writing"], **_WINDOW}],
+             created_by=str(uuid4()))
+    sitting = svc.create_sitting(u, "MOCK-TEST-A")
+    assert sitting["status"] == "registered"
+
+    out = a.remove(exam["id"], u, admin_id="admin-1")
+
+    assert out["voided"] == [str(sitting["id"])]
+    after = svc.get_sitting(sitting["id"])
+    assert after["status"] == "void"
+    # A voided sitting stays SEALED — a cancelled exam never publishes results.
+    assert after["sealed"] is True
+
+
+def test_void_rejects_a_released_sitting(fake_db, svc):
+    """Codex #840 (correct): void_sitting had no terminal guard, so an
+    invigilator could cancel a PUBLISHED result — erasing what the student can
+    already see and leaving a `void` row whose seal was lifted at release."""
+    exam = _seed_exam(fake_db)
+    sid = str(uuid4())
+    fake_db.seed("mock_exam_sittings", {
+        "id": sid, "mock_exam_id": exam["id"], "user_id": str(uuid4()),
+        "status": "released", "sealed": False,
+    })
+    with pytest.raises(svc.SittingConflictError):
+        svc.void_sitting(sid, "admin-1", reason="nhầm")
+    assert svc.get_sitting(sid)["status"] == "released"
+
+
+def test_unassign_reports_when_revocation_failed(fake_db, svc, monkeypatch):
+    """Codex #840 (correct): swallowing the void failure and still answering
+    ok:true was the dangerous half — the assignment vanishes from the admin's
+    list while the sitting stays usable (create_sitting resumes it BEFORE the
+    eligibility gates), so the UI shows access revoked when it is not."""
+    from services import mock_exam_assignment_service as a
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    u = str(uuid4())
+    a.assign(exam["id"], [{"user_id": u, "skills": ["writing"], **_WINDOW}],
+             created_by=str(uuid4()))
+    svc.create_sitting(u, "MOCK-TEST-A")
+
+    def boom(*_a, **_k):
+        raise RuntimeError("db down")
+    monkeypatch.setattr(svc, "void_sitting", boom)
+
+    with pytest.raises(a.RevocationError):
+        a.remove(exam["id"], u, admin_id="admin-1")
+
+
+def test_voiding_blocks_a_stale_release(fake_db, svc, wf, monkeypatch):
+    """Codex #840 (correct): void cancelled the exam but left the review row
+    alone, so an admin holding an already-open review page could still release —
+    and release flips the sitting back to 'released' with sealed=False,
+    PUBLISHING an exam that was explicitly cancelled."""
+    exam = _seed_exam(fake_db)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    rid = str(uuid4())
+    _seed_releasable(fake_db, s["id"], rid, "admin-1", claimed_by="admin-1")
+    monkeypatch.setattr(wf, "_writing_pending_tasks", lambda _sid: [])
+
+    svc.void_sitting(s["id"], "admin-1", reason="lỗi kỹ thuật")
+
+    with pytest.raises(wf.ConflictError):
+        wf.release_results(rid, "admin-1")
+    after = svc.get_sitting(s["id"])
+    assert after["status"] == "void" and after["sealed"] is True
+
+
+def test_unassign_catches_a_sitting_opened_mid_request(fake_db, svc, monkeypatch):
+    """Codex #840 (correct): a student pressing "Bắt đầu" concurrently could
+    read the still-present assignment and insert their sitting AFTER the scan
+    but BEFORE the delete — so the new sitting was never voided, later refreshes
+    resumed it before the eligibility gates, and the endpoint still reported a
+    successful revocation.
+
+    Staged by making the racing sitting appear while the first pass is running:
+    void_sitting() seeds it on its first call, so it exists only in time for the
+    second pass to find."""
+    from services import mock_exam_assignment_service as a
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    u = str(uuid4())
+    a.assign(exam["id"], [{"user_id": u, "skills": ["writing"], **_WINDOW}],
+             created_by=str(uuid4()))
+    first = svc.create_sitting(u, "MOCK-TEST-A")
+
+    racing = str(uuid4())
+    orig_void = svc.void_sitting
+    spawned = {"done": False}
+
+    def void_then_spawn(sitting_id, admin_id, reason=""):
+        out = orig_void(sitting_id, admin_id, reason=reason)
+        if not spawned["done"]:
+            spawned["done"] = True
+            fake_db.seed("mock_exam_sittings", {
+                "id": racing, "mock_exam_id": exam["id"], "user_id": u,
+                "status": "registered", "sealed": True,
+                "assigned_skills": ["writing"],
+                "listening_submitted_at": None, "reading_submitted_at": None,
+                "writing_submitted_at": None,
+                "listening_attempt_id": None, "reading_attempt_id": None,
+                "speaking_session_ids": [], "writing_submission": {},
+                "integrity": {},
+            })
+        return out
+
+    monkeypatch.setattr(svc, "void_sitting", void_then_spawn)
+    out = a.remove(exam["id"], u, admin_id="admin-1")
+
+    assert str(first["id"]) in out["voided"]
+    assert racing in out["voided"], "the sitting opened mid-request must be voided too"
+    assert svc.get_sitting(racing)["status"] == "void"
+
+
+def test_unassign_deletes_the_assignment_before_scanning(fake_db, svc):
+    """Order matters: once the assignment row is gone create_sitting() refuses,
+    which closes the window from the other side. Scanning first left it open."""
+    import pathlib as _pl
+    from services import mock_exam_assignment_service as a
+    body = _pl.Path(a.__file__).read_text(encoding="utf-8")
+    body = body[body.index("def remove("):]
+    assert body.index('table("mock_exam_assignments").delete()') \
+        < body.index("def _open_sittings()")
+
+
+def test_unassign_is_a_noop_without_an_assignment(fake_db, svc):
+    """A stale DELETE for a sequential exam (or a user with no assignment) must
+    not cancel that student's live sitting — it was a harmless no-op before."""
+    from services import mock_exam_assignment_service as a
+    exam = _seed_exam(fake_db)
+    u = str(uuid4())
+    sitting = svc.create_sitting(u, "MOCK-TEST-A")
+
+    assert a.remove(exam["id"], u, admin_id="admin-1")["voided"] == []
+    assert svc.get_sitting(sitting["id"])["status"] != "void"
+
+
+def test_unassign_leaves_a_finished_sitting_alone(fake_db, svc):
+    """Only NON-TERMINAL sittings are voided. A released result is a record of
+    something that really happened and must not be rewritten by an un-assign."""
+    from services import mock_exam_assignment_service as a
+    exam = _seed_exam(fake_db)
+    u = str(uuid4())
+    sid = str(uuid4())
+    fake_db.seed("mock_exam_sittings", {
+        "id": sid, "mock_exam_id": exam["id"], "user_id": u,
+        "status": "released", "sealed": False,
+    })
+    a.assign(exam["id"], [{"user_id": u, "skills": ["writing"], **_WINDOW}],
+             created_by=str(uuid4()))
+
+    assert a.remove(exam["id"], u)["voided"] == []
+    assert svc.get_sitting(sid)["status"] == "released"
+
+
 def test_retake_list_and_remove_assignments(fake_db):
     from services import mock_exam_assignment_service as a
     exam_id = str(uuid4())
     u1 = str(uuid4())
     fake_db.seed("users", {"id": u1, "display_name": "Học viên X", "email": "x@x.com"})
-    a.assign(exam_id, [{"user_id": u1, "skills": ["writing"]}], created_by=str(uuid4()))
+    a.assign(exam_id, [{"user_id": u1, "skills": ["writing"], **_WINDOW}], created_by=str(uuid4()))
 
     listed = a.list_assignments(exam_id)
     assert len(listed) == 1
@@ -2359,6 +3843,40 @@ def _backdate_sitting(fake, sitting_id, **cols):
     for row in fake.rows("mock_exam_sittings"):
         if row["id"] == sitting_id:
             row.update(cols)
+
+
+def test_retake_reaper_pages_past_the_postgrest_row_cap(fake_db, svc, monkeypatch):
+    """Codex #846 (correct): PostgREST answers with ONE page and no error when a
+    query outgrows its row cap. Unpaginated, the exam lookup silently returned
+    only the first page once historical retake definitions passed it — so an
+    active sitting whose exam id fell off the end was never fetched and never
+    finalised. The generated `in.(...)` URL grows without bound too.
+
+    A 1000-row fixture would be slow theatre; shrinking the page size and the id
+    chunk proves the drain loop and the chunking instead."""
+    monkeypatch.setattr(svc, "_PAGE", 2)
+    monkeypatch.setattr(svc, "_ID_CHUNK", 2)
+
+    past = (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat()
+    n_exams = 5
+    for _ in range(n_exams):
+        exam = _seed_exam(fake_db)
+        fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+            "id", exam["id"]).execute()
+        fake_db.seed("mock_exam_sittings", {
+            "id": str(uuid4()), "mock_exam_id": exam["id"], "user_id": str(uuid4()),
+            "status": "registered", "sealed": True, "assigned_skills": ["writing"],
+            "retake_open_until": past,
+            "listening_submitted_at": None, "reading_submitted_at": None,
+            "writing_submitted_at": None,
+            "listening_attempt_id": None, "reading_attempt_id": None,
+            "speaking_session_ids": [], "writing_submission": {},
+        })
+
+    # Every exam AND every sitting must be reached — a single-page lookup would
+    # find at most _PAGE of each, whichever ones sorted first.
+    out = svc.reap_expired_retake_sittings()
+    assert out["sittings"] == n_exams, out
 
 
 def test_retake_reaper_collects_expired_started_section(fake_db, svc, wf):
@@ -2773,3 +4291,1058 @@ def test_every_bulk_route_scopes_to_its_exam_id():
         assert 'out["skipped"] = out["skipped"] + foreign' in src, (
             f"{route.__name__} drops out-of-exam ids silently"
         )
+
+
+def test_the_sweep_loads_its_exam_once_however_big_the_class(fake_db, svc):
+    """Codex #851 (correct, P2): the scope guard added a per-sitting exam
+    lookup to a timer-driven background sweep, on top of the one the terminal
+    check already did. Every row in a sweep resolves to the SAME exam, so the
+    cost was pure N+1 — a class of 30 paid 60 round-trips inside a task with a
+    finite execution window, and a sweep that runs out of window leaves papers
+    uncollected. The query count must not grow with the class."""
+    def lookups_for(class_size, code):
+        exam = _seed_exam(fake_db)
+        fake_db.table("mock_exams").update({"code": code}).eq(
+            "id", exam["id"]).execute()
+        for _ in range(class_size):
+            svc.create_sitting(uuid4(), code)
+        svc.advance_section(exam["id"], "admin-1")        # → listening
+        calls = []
+        real = svc.get_published_exam_by_id
+        svc.get_published_exam_by_id = lambda eid: (calls.append(str(eid)), real(eid))[1]
+        try:
+            assert svc._force_collect_section(exam["id"], "listening") == class_size
+        finally:
+            svc.get_published_exam_by_id = real
+        return len(calls)
+
+    # The number itself is an implementation detail (the sweep's own snapshot
+    # plus the janitor's); what must hold is that it does not track the class.
+    small, big = lookups_for(3, 'MOCK-SMALL'), lookups_for(9, 'MOCK-BIG')
+    assert small == big, (
+        f"{small} exam lookups for 3 students but {big} for 9 — the sweep is back to N+1")
+
+
+def test_the_reaper_does_not_reload_the_exam_it_already_holds(fake_db, svc, monkeypatch):
+    """Same guarantee on the retake path, where the reaper sweeps MANY exams and
+    already keys its own snapshot by exam id."""
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    for _ in range(4):
+        u = str(uuid4())
+        fake_db.seed("mock_exam_assignments", {
+            "id": str(uuid4()), "exam_id": exam["id"], "user_id": u,
+            "skills": ["writing"], "open_from": None,
+            "open_until": _WINDOW["open_until"],
+        })
+        s = svc.create_sitting(u, "MOCK-TEST-A")
+        # window shut → every assigned section is due for collection
+        fake_db.table("mock_exam_sittings").update(
+            {"retake_open_until": "2020-01-01T00:00:00+00:00"}).eq(
+            "id", s["id"]).execute()
+
+    calls = []
+    real = svc.get_published_exam_by_id
+    monkeypatch.setattr(svc, "get_published_exam_by_id",
+                        lambda eid: (calls.append(str(eid)), real(eid))[1])
+
+    out = svc.reap_expired_retake_sittings()
+    assert out["collected"] == 4
+    assert len(calls) <= 1, (
+        f"{len(calls)} exam lookups — the reaper is re-fetching an exam it holds")
+
+
+def test_the_advance_write_itself_refuses_a_retake_row(fake_db, svc):
+    """Codex #851 (correct, P2): advance_section checks the mode, then
+    _advance_from re-reads and writes. exam_mode is admin-writable, so a PATCH
+    landing inside that gap let a request that was accepted as sequential
+    advance an exam that had BECOME a retake. Staged by handing the guard a
+    stale sequential snapshot while the row is already retake: the write itself
+    must refuse."""
+    exam = _seed_exam(fake_db)
+    stale = dict(svc.get_published_exam_by_id(exam["id"]))   # exam_mode absent → sequential
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+
+    # The guard sees sequential (the snapshot taken before the flip); only the
+    # compare-and-set can still catch it.
+    #
+    # NOT monkeypatch.setattr + undo(): pytest hands the test and the fixtures
+    # ONE monkeypatch instance, and fake_db uses it to patch supabase_admin —
+    # undoing here restores the REAL client and the assertions below go to the
+    # network. Save and restore just this attribute.
+    real = svc.get_published_exam_by_id
+    svc.get_published_exam_by_id = lambda eid, _s=stale: dict(_s)
+    try:
+        with pytest.raises(svc.SittingConflictError):
+            svc._advance_from(exam["id"], "admin-1", "not_started")
+    finally:
+        svc.get_published_exam_by_id = real
+
+    fresh = svc.get_published_exam_by_id(exam["id"])
+    assert fresh["active_section"] == "not_started", (
+        "a retake exam was advanced through the sequential state machine")
+    assert fresh.get("listening_started_at") is None
+
+
+def test_a_mode_flip_is_reported_as_a_mode_flip(fake_db, svc, monkeypatch):
+    """The lost compare-and-set has two causes now. Blaming a mode change on
+    'someone else advanced' sends the admin looking for a second invigilator
+    who does not exist."""
+    exam = _seed_exam(fake_db)
+    stale = dict(svc.get_published_exam_by_id(exam["id"]))
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    real = svc.get_published_exam_by_id
+    seen = {"n": 0}
+
+    def stale_once(eid):
+        # stale for the guard, truthful for the post-failure diagnosis
+        seen["n"] += 1
+        return dict(stale) if seen["n"] == 1 else real(eid)
+
+    monkeypatch.setattr(svc, "get_published_exam_by_id", stale_once)
+    with pytest.raises(svc.SittingConflictError) as ei:
+        svc._advance_from(exam["id"], "admin-1", "not_started")
+    assert "test lại" in str(ei.value), str(ei.value)
+
+
+# ── Stranded sittings: the paper is all in, finalisation never landed ──
+#
+# Codex #853 (correct, P1). Collecting is a stamp, then a status write, then a
+# review insert — three calls, no transaction. A failure between them leaves a
+# row that NOTHING can reach afterwards: _force_collect_section selects only
+# NULL stamps, _collect_section_for_sitting returns early on a stamped row, and
+# _reconcile_terminal used to bail on the status. Not the student (their section
+# is stamped), not the sweep, not the admin. Result released to nobody, ever.
+
+
+def _stall_after_stamp(svc, fake_db, sit_id, *, at):
+    """Run the writing sweep with `at` blown up — the real failure window."""
+    real = getattr(svc, at)
+    setattr(svc, at, lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
+    try:
+        svc._collect_section_for_sitting(svc.get_sitting(sit_id), "writing")
+    finally:
+        setattr(svc, at, real)
+
+
+def _writing_only_sitting(fake_db, svc):
+    exam = _seed_exam(fake_db, listening=False, reading=False)
+    u = uuid4()
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → writing
+    return exam, sit
+
+
+def test_shape_A_a_stalled_status_write_is_repaired(fake_db, svc):
+    """The stamp landed, the status write did not — the row still reads
+    lrw_in_progress with every section in. Seeded as the end state, because
+    that is what an operator actually finds; how it got there does not change
+    the fact that nothing reaches it."""
+    exam, sit = _writing_only_sitting(fake_db, svc)
+    svc._collect_section_for_sitting(svc.get_sitting(sit["id"]), "writing")
+    fake_db.tables["mock_exam_reviews"].clear()
+    fake_db.table("mock_exam_sittings").update(
+        {"status": "lrw_in_progress"}).eq("id", sit["id"]).execute()
+
+    row = svc.get_sitting(sit["id"])
+    assert row["writing_submitted_at"] is not None, "precondition: the paper IS in"
+
+    assert svc.reconcile_stalled_sittings(exam["id"])["repaired"] == 1
+    assert svc.get_sitting(sit["id"])["status"] == "all_submitted"
+    assert len(fake_db.rows("mock_exam_reviews")) == 1
+
+
+def test_shape_B_a_stalled_reconcile_is_repaired(fake_db, svc):
+    """The real failure window, run for real: the sweep stamps, flips to
+    lrw_submitted, and the reconcile blows up. #853 deliberately keeps the stamp
+    (clearing it strands the row worse) — which only holds up if something can
+    still finish the job."""
+    exam, sit = _writing_only_sitting(fake_db, svc)
+    _stall_after_stamp(svc, fake_db, sit["id"], at="_reconcile_terminal")
+
+    row = svc.get_sitting(sit["id"])
+    assert row["writing_submitted_at"] is not None
+    assert row["status"] == "lrw_submitted"
+    assert len(fake_db.rows("mock_exam_reviews")) == 0
+
+    assert svc.reconcile_stalled_sittings(exam["id"])["repaired"] == 1
+    assert svc.get_sitting(sit["id"])["status"] == "all_submitted"
+    assert len(fake_db.rows("mock_exam_reviews")) == 1
+
+
+def test_shape_C_a_terminal_row_with_no_review_is_repaired(fake_db, svc):
+    """The worst one: status reached all_submitted but the review insert failed.
+    _reconcile_terminal did not come back from all_submitted, so the sitting was
+    finished as far as the state machine knew and absent from the admin queue."""
+    exam, sit = _writing_only_sitting(fake_db, svc)
+    import services.mock_review_workflow as wf_mod
+    real = wf_mod.create_review
+    wf_mod.create_review = lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom"))
+    try:
+        svc._collect_section_for_sitting(svc.get_sitting(sit["id"]), "writing")
+    finally:
+        wf_mod.create_review = real
+
+    assert svc.get_sitting(sit["id"])["status"] == "all_submitted"
+    assert len(fake_db.rows("mock_exam_reviews")) == 0, "precondition: no review"
+
+    assert svc.reconcile_stalled_sittings(exam["id"])["repaired"] == 1
+    assert len(fake_db.rows("mock_exam_reviews")) == 1
+    assert svc.get_sitting(sit["id"])["status"] == "all_submitted", "never downgraded"
+
+
+def test_shape_D_speaking_is_in_but_the_row_never_moved(fake_db, svc):
+    """Same three-call gap on the Speaking path: the stamp is in, the transition
+    out of speaking_pending is not."""
+    exam = _seed_exam(fake_db, speaking=True, listening=False, reading=False)
+    u = uuid4()
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → writing
+    svc._collect_section_for_sitting(svc.get_sitting(sit["id"]), "writing")
+    assert svc.get_sitting(sit["id"])["status"] == "speaking_pending"
+
+    # Speaking lands, but the reconcile that should follow it never ran.
+    fake_db.table("mock_exam_sittings").update(
+        {"speaking_completed_at": "2026-07-26T00:00:00+00:00"}).eq(
+        "id", sit["id"]).execute()
+
+    assert svc.reconcile_stalled_sittings(exam["id"])["repaired"] == 1
+    assert svc.get_sitting(sit["id"])["status"] == "all_submitted"
+    assert len(fake_db.rows("mock_exam_reviews")) == 1
+
+
+def test_a_healthy_exam_is_left_completely_alone(fake_db, svc):
+    """The janitor runs on a timer and after every sweep, so it must be a no-op
+    on healthy data — including the two states that LOOK stalled: a terminal
+    row already queued for review, and a row genuinely waiting on Speaking."""
+    exam = _seed_exam(fake_db, speaking=True, listening=False, reading=False)
+    waiting = svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → writing
+    svc._collect_section_for_sitting(svc.get_sitting(waiting["id"]), "writing")
+    assert svc.get_sitting(waiting["id"])["status"] == "speaking_pending"
+
+    done = svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc._collect_section_for_sitting(svc.get_sitting(done["id"]), "writing")
+    fake_db.table("mock_exam_sittings").update(
+        {"speaking_completed_at": "2026-07-26T00:00:00+00:00"}).eq(
+        "id", done["id"]).execute()
+    svc._reconcile_terminal(done["id"])
+    assert svc.get_sitting(done["id"])["status"] == "all_submitted"
+    assert len(fake_db.rows("mock_exam_reviews")) == 1
+
+    assert svc.reconcile_stalled_sittings(exam["id"])["repaired"] == 0
+    assert len(fake_db.rows("mock_exam_reviews")) == 1, "no duplicate review"
+    assert svc.get_sitting(waiting["id"])["status"] == "speaking_pending", (
+        "a student still owing Speaking must not be finalised behind their back")
+
+
+def test_a_review_lookup_failure_does_not_re_drive_healthy_sittings(fake_db, svc):
+    """'Which terminal rows already have a review' decides what gets touched. If
+    that lookup fails, reading it as 'none of them do' would re-drive every
+    healthy finished sitting on the platform."""
+    exam = _seed_exam(fake_db, listening=False, reading=False)
+    s = svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+    svc._collect_section_for_sitting(svc.get_sitting(s["id"]), "writing")
+    assert svc.get_sitting(s["id"])["status"] == "all_submitted"
+
+    real_paged = svc._paged
+    calls = {"n": 0}
+
+    def flaky(build):
+        calls["n"] += 1
+        if calls["n"] > 1:                # the sittings page is fine, reviews blow up
+            raise RuntimeError("postgrest down")
+        return real_paged(build)
+
+    svc._paged = flaky
+    try:
+        assert svc.reconcile_stalled_sittings(exam["id"])["repaired"] == 0
+    finally:
+        svc._paged = real_paged
+
+
+def test_every_sweep_settles_what_an_earlier_one_stranded(fake_db, svc):
+    """The wiring, not just the function: a stranded row is invisible to the
+    next sweep's own query, so pressing 'Thu bài'/'Thu lại' has to repair it as
+    a side effect or nothing an admin can press ever will."""
+    exam, sit = _writing_only_sitting(fake_db, svc)
+    _stall_after_stamp(svc, fake_db, sit["id"], at="_reconcile_terminal")
+    assert len(fake_db.rows("mock_exam_reviews")) == 0
+
+    # The sweep's own query finds NOTHING to collect — the stamp is already
+    # there — yet the sitting must still come out finalised.
+    assert svc._force_collect_section(exam["id"], "writing") == 0
+    assert svc.get_sitting(sit["id"])["status"] == "all_submitted"
+    assert len(fake_db.rows("mock_exam_reviews")) == 1
+
+
+def test_the_reaper_settles_stranded_sequential_sittings_too(fake_db, svc):
+    """A sequential exam has no timer of its own. If the reaper's janitor pass
+    were scoped to the retake rows it just swept, a stranded classroom sitting
+    would wait for an admin who has no reason to press anything again."""
+    exam, sit = _writing_only_sitting(fake_db, svc)
+    _stall_after_stamp(svc, fake_db, sit["id"], at="_reconcile_terminal")
+
+    svc.reap_expired_retake_sittings()
+    assert svc.get_sitting(sit["id"])["status"] == "all_submitted"
+    assert len(fake_db.rows("mock_exam_reviews")) == 1
+
+
+# ── Retake: a skill you are assigned must be a skill you can OPEN ──────
+#
+# The skills come off the SOURCE exam's retest flags but are sat on the TARGET
+# exam, and nothing tied the two together. Assigning Listening on a retake exam
+# with no listening_test_id gave the student a "Bắt đầu Listening" button that
+# stamped their per-section clock and then loaded an iframe with `id=undefined`:
+# the time drained against a blank panel, the reaper collected the empty paper,
+# and a band was computed from it.
+
+
+def _retake_exam(fake_db, svc, **kw):
+    exam = _seed_exam(fake_db, **kw)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    return exam
+
+
+def test_assigning_a_skill_the_exam_has_no_paper_for_is_refused(fake_db, svc):
+    """Loud and whole-request. It is a SETUP mistake — the target exam is
+    missing a test — so it hits every student flagged for that skill at once,
+    and the admin can only fix it if they are told which skill."""
+    from services import mock_exam_assignment_service as a
+    exam = _retake_exam(fake_db, svc, listening=False)     # reading + writing only
+    with pytest.raises(a.UnservableSkillError) as ei:
+        a.assign(exam["id"], [{
+            "user_id": str(uuid4()), "skills": ["listening"], **_WINDOW,
+        }], created_by=str(uuid4()))
+    assert "Listening" in str(ei.value)
+    assert not fake_db.rows("mock_exam_assignments"), (
+        "nothing may be written when the batch is refused")
+
+
+def test_the_servable_skills_of_the_batch_still_go_through(fake_db, svc):
+    """A retake exam that HAS the paper assigns exactly as before — the guard
+    must not become a reason students stop being assigned."""
+    from services import mock_exam_assignment_service as a
+    exam = _retake_exam(fake_db, svc)                      # listening + reading + writing
+    u = str(uuid4())
+    res = a.assign(exam["id"], [{
+        "user_id": u, "skills": ["listening", "writing"], **_WINDOW,
+    }], created_by=str(uuid4()))
+    assert res["assigned"] == [u]
+    assert fake_db.rows("mock_exam_assignments")[0]["skills"] == ["listening", "writing"]
+
+
+def test_writing_needs_no_prompt_to_be_assignable(fake_db, svc):
+    """Same rule as _configured_sections: Writing is always part of an exam even
+    with no prompts — the panel is native textareas and the runner renders
+    '(Không có đề Task N)'. Treating a promptless Writing as unassignable would
+    break the ordinary retake, which is mostly Writing."""
+    from services import mock_exam_assignment_service as a
+    exam = _retake_exam(fake_db, svc, listening=False, reading=False)
+    u = str(uuid4())
+    assert a.assign(exam["id"], [{
+        "user_id": u, "skills": ["writing"], **_WINDOW,
+    }], created_by=str(uuid4()))["assigned"] == [u]
+
+
+def test_a_student_cannot_start_a_section_the_exam_cannot_render(fake_db, svc):
+    """Second layer, for the assignments made BEFORE the check existed — and for
+    an exam that loses a test to a later PATCH. The clock must not start."""
+    exam = _retake_exam(fake_db, svc, listening=False)
+    u = str(uuid4())
+    fake_db.seed("mock_exam_assignments", {
+        "id": str(uuid4()), "exam_id": exam["id"], "user_id": u,
+        "skills": ["listening", "writing"], "open_from": None,
+        "open_until": _WINDOW["open_until"],
+    })
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+
+    with pytest.raises(svc.SittingConflictError) as ei:
+        svc.start_section(sit["id"], u, "listening")
+    assert "chưa có đề" in str(ei.value)
+    assert svc.get_sitting(sit["id"]).get("listening_started_at") is None, (
+        "the clock must NOT be running on a section that cannot be rendered")
+
+    # ...and the skill that IS servable still starts normally.
+    svc.start_section(sit["id"], u, "writing")
+    assert svc.get_sitting(sit["id"])["writing_started_at"] is not None
+
+
+# ── The live console must survive a denominator it cannot get ─────────
+#
+# 2026-07-26, PROD OUTAGE. admin_live_monitor selected `total_questions` from
+# `listening_tests` — a column that has never existed (mig 065 defines the
+# bundle; the `total_questions` in mig 056 belongs to listening_sessions, a
+# different table). PostgREST answers a missing column with error 42703, which
+# raises, so the invigilator console returned 500 for EVERY exam that had a
+# listening test. The board showed nothing at all because a "12/40" could not be
+# turned into a "12".
+
+
+class _MissingColumn(Exception):
+    """What PostgREST raises for `column ... does not exist` (SQLSTATE 42703)."""
+
+
+class _StrictSchema:
+    """Wraps the fake so a select of a column prod does NOT have raises, the way
+    the real database does. The fake stores loose dicts and would happily return
+    a row missing the key, which is exactly why this bug reached production with
+    a green suite."""
+
+    def __init__(self, inner, missing):
+        self._inner, self._missing = inner, missing   # {table: {column, ...}}
+
+    def __getattr__(self, item):
+        return getattr(self._inner, item)
+
+    def table(self, name):
+        q = self._inner.table(name)
+        gone = self._missing.get(name)
+        if not gone:
+            return q
+        real_select = q.select
+
+        def select(*cols, **kw):
+            for c in cols:
+                for part in str(c).split(","):
+                    if part.strip() in gone:
+                        raise _MissingColumn(
+                            f"column {name}.{part.strip()} does not exist")
+            return real_select(*cols, **kw)
+
+        q.select = select
+        return q
+
+
+def test_the_live_board_survives_a_listening_test_with_no_question_count(fake_db, svc):
+    """The regression guard. `listening_tests` has no total_questions in prod,
+    and asking for one is an EXCEPTION, not an empty result."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    strict = _StrictSchema(fake_db, {"listening_tests": {"total_questions"}})
+
+    real = svc.supabase_admin
+    svc.supabase_admin = strict
+    try:
+        out = svc.admin_live_monitor(exam["id"])
+    finally:
+        svc.supabase_admin = real
+
+    assert out["students"], "the board must still list the class"
+    # Degraded, not dead: no denominator is better than no console.
+    assert out["students"][0]["sections"]["listening"]["total"] is None
+
+
+def test_the_listening_total_comes_from_the_graders_own_answer_key(fake_db, svc):
+    """Counted from the SAME key the grader scores against, so the denominator
+    can never disagree with the graded total — and a 20-question mini-test is
+    not reported as 40."""
+    exam = _seed_exam(fake_db)
+    tid = exam["listening_test_id"]
+    fake_db.seed("listening_content", {"id": "sec-1", "test_id": tid})
+    fake_db.seed("listening_content", {"id": "sec-2", "test_id": tid})
+    fake_db.seed("listening_exercises", {"id": "ex-1", "content_id": "sec-1", "payload": {
+        "template_kind": "gap_fill",
+        "answers": [{"q_num": n, "accepted": ["x"]} for n in range(1, 7)]}})
+    fake_db.seed("listening_exercises", {"id": "ex-2", "content_id": "sec-2", "payload": {
+        "template_kind": "gap_fill",
+        "answers": [{"q_num": n, "accepted": ["x"]} for n in range(7, 11)]}})
+
+    assert svc._listening_total_questions(tid) == 10
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    out = svc.admin_live_monitor(exam["id"])
+    assert out["students"][0]["sections"]["listening"]["total"] == 10
+
+
+def test_the_pacing_page_reads_the_same_source(fake_db, svc):
+    """_section_total made the SAME phantom read, only swallowed — so Listening
+    silently fell through to the graded length (0 while the student is still
+    working) instead of failing loudly. Same bug, quieter symptom."""
+    exam = _seed_exam(fake_db)
+    tid = exam["listening_test_id"]
+    fake_db.seed("listening_content", {"id": "sec-1", "test_id": tid})
+    fake_db.seed("listening_exercises", {"id": "ex-1", "content_id": "sec-1", "payload": {
+        "template_kind": "gap_fill",
+        "answers": [{"q_num": n, "accepted": ["x"]} for n in range(1, 21)]}})
+    assert svc._section_total(exam, "listening", fallback=3) == 20
+
+
+def test_nothing_asks_listening_tests_for_a_question_count(fake_db, svc):
+    """Source sentinel. The fake cannot model a missing column, so only reading
+    the source stops this from being re-introduced by the next person who wants
+    a denominator."""
+    import inspect
+    src = inspect.getsource(svc)
+    for fn in ("admin_live_monitor", "_section_total"):
+        body = src[src.index(f"def {fn}("):]
+        body = body[:body.index("\ndef ", 1)]
+        assert 'table("listening_tests")' not in body, (
+            f"{fn} queries listening_tests directly — it has no question count")
+
+
+# ── One live seat: it must not be held by a row that can never progress ──
+#
+# PROD 2026-07-26. Mig 162 (C3) enforces one live sitting per student across ALL
+# exams with a partial unique index on status IN ('registered','lrw_in_progress').
+# That turned a harmless leak into a lockout: a student rostered onto an exam
+# they never opened keeps a `registered` row after the exam finishes, nothing
+# collects it (the advance sweep stamps sections; the reaper only does retake),
+# and every future exam then answers "Bạn đang có một bài thi chưa hoàn thành.
+# Hãy hoàn thành bài đó trước." — about an exam that ended weeks ago. Two real
+# students were blocked from a retake by empty rows on an exam done 2026-07-12.
+
+
+def _finished_exam_with_empty_sitting(fake_db, svc, code="MOCK-OLD"):
+    old = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"code": code}).eq("id", old["id"]).execute()
+    u = uuid4()
+    sit = svc.create_sitting(u, code)
+    fake_db.table("mock_exams").update({"active_section": "done"}).eq(
+        "id", old["id"]).execute()
+    return old, u, sit
+
+
+def test_a_finished_exam_stops_holding_the_students_seat(fake_db, svc):
+    """The reported bug, end to end: the student must be able to enter the new
+    exam instead of being told to finish one that is over."""
+    old, u, sit = _finished_exam_with_empty_sitting(fake_db, svc)
+    new = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"code": "MOCK-NEW"}).eq("id", new["id"]).execute()
+
+    fresh = svc.create_sitting(u, "MOCK-NEW")
+    assert fresh["mock_exam_id"] == new["id"]
+    assert svc.get_sitting(sit["id"])["status"] == "void"
+    assert svc.get_sitting(sit["id"])["integrity"]["voided_by"] == "system"
+
+
+def test_a_live_exam_still_holds_the_seat(fake_db, svc):
+    """The C3 rule itself must survive: an exam that has NOT finished still
+    blocks a second seat, and the message still applies."""
+    old = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"code": "MOCK-LIVE"}).eq("id", old["id"]).execute()
+    u = uuid4()
+    svc.create_sitting(u, "MOCK-LIVE")          # exam left at not_started
+    new = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"code": "MOCK-NEW"}).eq("id", new["id"]).execute()
+
+    with pytest.raises(svc.SittingConflictError) as ei:
+        svc.create_sitting(u, "MOCK-NEW")
+    assert "chưa hoàn thành" in str(ei.value)
+
+
+_WORK_SAMPLE = {
+    "lrw_started_at":         "2026-07-12T02:00:00+00:00",
+    "listening_started_at":   "2026-07-12T02:00:00+00:00",
+    "reading_started_at":     "2026-07-12T02:00:00+00:00",
+    "writing_started_at":     "2026-07-12T02:00:00+00:00",
+    "listening_submitted_at": "2026-07-12T02:00:00+00:00",
+    "reading_submitted_at":   "2026-07-12T02:00:00+00:00",
+    "writing_submitted_at":   "2026-07-12T02:00:00+00:00",
+    "listening_attempt_id":   "11111111-1111-1111-1111-111111111111",
+    "reading_attempt_id":     "22222222-2222-2222-2222-222222222222",
+    "essay_task1_id":         "33333333-3333-3333-3333-333333333333",
+    "essay_task2_id":         "44444444-4444-4444-4444-444444444444",
+    "writing_submission":     {"task1": {"text": "draft", "word_count": 12}},
+    "speaking_completed_at":  "2026-07-12T02:00:00+00:00",
+    "speaking_session_ids":   ["s1"],
+}
+
+
+@pytest.mark.parametrize("col", list(_WORK_SAMPLE))
+def test_any_single_trace_of_work_blocks_retirement(fake_db, svc, col):
+    """Table-driven ON PURPOSE. The first version of this guard keyed on
+    `{section}_started_at` alone — and start_section() is RETAKE-ONLY, so a
+    SEQUENTIAL student's sitting stays `registered` with every one of those
+    columns null while they work. A student with a bound attempt and 30 answers
+    matched "no work" and was voided (Codex adversarial review, 2026-07-26).
+
+    The original test set listening_started_at — a column sequential never
+    writes — so it passed for the wrong reason. One case per column so an
+    omission is a red test, not a lost paper."""
+    old, u, sit = _finished_exam_with_empty_sitting(fake_db, svc)
+    fake_db.table("mock_exam_sittings").update({col: _WORK_SAMPLE[col]}).eq(
+        "id", sit["id"]).execute()
+
+    assert svc.retire_abandoned_sittings()["retired"] == 0, f"{col} was ignored"
+    assert svc.get_sitting(sit["id"])["status"] == "registered"
+
+
+def test_the_check_and_the_write_agree_on_what_work_is(fake_db, svc):
+    """The compare-and-set has to enforce the same list the branch reads.
+    speaking_session_ids is JSONB NOT NULL DEFAULT '[]', so predicating
+    `.is_(…, "null")` on it would match nothing and silently disable the whole
+    statement — stricter-looking, and doing less."""
+    assert set(svc._WORK_BEARING_NULLABLE_COLS) | {"speaking_session_ids"} \
+        == set(svc._WORK_BEARING_COLS)
+    assert set(_WORK_SAMPLE) == set(svc._WORK_BEARING_COLS), (
+        "a work-bearing column has no test case")
+    # ...and the statement still works at all
+    assert svc.retire_abandoned_sittings()["retired"] == 0
+
+
+def test_a_sequential_student_mid_exam_is_never_retired(fake_db, svc):
+    """The exact production shape Codex found: sequential, still `registered`
+    (status only flips at submit), no per-sitting clock (that is retake-only),
+    but a bound attempt holding real answers."""
+    exam = _seed_exam(fake_db)
+    u = uuid4()
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")           # listening opens
+    aid = str(uuid4())
+    fake_db.seed("listening_test_attempts", {
+        "id": aid, "status": "in_progress",
+        "answers": [{"q_num": n, "user_answer": "cat"} for n in range(1, 31)]})
+    fake_db.table("mock_exam_sittings").update(
+        {"listening_attempt_id": aid}).eq("id", sit["id"]).execute()
+
+    row = svc.get_sitting(sit["id"])
+    assert row["status"] == "registered", "precondition: sequential does not flip yet"
+    assert row.get("listening_started_at") is None, "precondition: retake-only column"
+
+    # The admin walks the exam to the end; the straggler sweep runs in the
+    # BACKGROUND, so the janitor can tick first.
+    fake_db.table("mock_exams").update({"active_section": "done"}).eq(
+        "id", exam["id"]).execute()
+    assert svc.retire_abandoned_sittings()["retired"] == 0
+    assert svc.get_sitting(sit["id"])["status"] != "void", "a real paper was voided"
+
+
+def test_a_student_waiting_between_sections_is_not_retired(fake_db, svc):
+    """`is_open=false` is NOT the signal. An invigilator closes the toggle
+    mid-session to block late entrants, and a student in the waiting room is
+    registered with nothing started — cancelling them there would void someone
+    sitting in the room."""
+    exam = _seed_exam(fake_db)
+    u = uuid4()
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+    fake_db.table("mock_exams").update(
+        {"is_open": False, "active_section": "listening"}).eq(
+        "id", exam["id"]).execute()
+
+    assert svc.retire_abandoned_sittings()["retired"] == 0
+    assert svc.get_sitting(sit["id"])["status"] == "registered"
+
+
+def test_the_janitor_sweeps_them_platform_wide(fake_db, svc):
+    """Not only on the blocked student's next click: the admin console must stop
+    listing phantom 'registered' students on an exam that ended."""
+    _finished_exam_with_empty_sitting(fake_db, svc, code="MOCK-OLD-1")
+    _finished_exam_with_empty_sitting(fake_db, svc, code="MOCK-OLD-2")
+    assert svc.retire_abandoned_sittings()["retired"] == 2
+    # ...and it is idempotent
+    assert svc.retire_abandoned_sittings()["retired"] == 0
+
+
+def test_a_retake_sitting_is_left_to_the_reaper(fake_db, svc):
+    """Retake retires itself: the reaper force-collects every assigned section
+    once the window closes. Voiding one here would cancel a paper the reaper is
+    about to collect and grade."""
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update(
+        {"exam_mode": "retake", "active_section": "done"}).eq(
+        "id", exam["id"]).execute()
+    u = str(uuid4())
+    fake_db.seed("mock_exam_assignments", {
+        "id": str(uuid4()), "exam_id": exam["id"], "user_id": u,
+        "skills": ["writing"], "open_from": None,
+        "open_until": _WINDOW["open_until"],
+    })
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+    assert svc.retire_abandoned_sittings()["retired"] == 0
+    assert svc.get_sitting(sit["id"])["status"] == "registered"
+
+
+# ── The pause stops autosaves, not the student's own final submit ─────
+#
+# Codex adversarial review 2026-07-26. The collected_section guard rejected BOTH
+# the autosave and the final submit, and the runner treats a 409 during the
+# pause as "already collected, done". The final submit is the one request
+# carrying everything typed since the last 15s autosave — so an admin pressing
+# "Thu bài" mid-submit silently dropped that text and the sweep promoted the
+# OLDER draft. The guard meant to protect the paper was the thing losing it.
+
+
+def _writing_open(fake_db, svc):
+    exam = _seed_exam(fake_db, listening=False, reading=False)
+    u = uuid4()
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")            # → writing
+    # Mid-exam state: submit_writing gates on lrw_in_progress, and only
+    # submit_section flips it (at the FIRST section submitted).
+    fake_db.table("mock_exam_sittings").update(
+        {"status": "lrw_in_progress"}).eq("id", sit["id"]).execute()
+    # ...and the Writing clock has run out, which is when the runner fires its
+    # auto-submit — the same moment the invigilator reaches for "Thu bài".
+    fake_db.table("mock_exams").update({
+        "writing_started_at": (datetime.now(timezone.utc)
+                               - timedelta(minutes=61)).isoformat(),
+    }).eq("id", exam["id"]).execute()
+    return exam, u, sit
+
+
+def test_the_final_writing_submit_survives_the_collect_pause(fake_db, svc):
+    """The reported loss: text typed after the last autosave must still land."""
+    exam, u, sit = _writing_open(fake_db, svc)
+    svc.submit_writing(sit["id"], u, "bản nháp cũ", "", finalize=False)
+    svc.mark_section_collected(exam["id"], "writing")     # admin presses Thu bài
+
+    svc.submit_section(sit["id"], u, "writing",
+                       task1_text="bản cuối dài hơn hẳn", task2_text="task 2")
+
+    row = svc.get_sitting(sit["id"])
+    assert row["writing_submission"]["task1"]["text"] == "bản cuối dài hơn hẳn"
+    assert row["writing_submitted_at"] is not None
+
+
+def test_a_background_autosave_is_still_refused_during_the_pause(fake_db, svc):
+    """Only the FINAL submit gets through. A stale tab's autosave has nothing
+    the student is waiting on, and letting it run keeps the essay changing after
+    the invigilator was told the papers were in."""
+    exam, u, sit = _writing_open(fake_db, svc)
+    svc.submit_writing(sit["id"], u, "bản nháp", "", finalize=False)
+    svc.mark_section_collected(exam["id"], "writing")
+
+    with pytest.raises(svc.SittingConflictError):
+        svc.submit_writing(sit["id"], u, "gõ thêm sau khi đã thu", "", finalize=False)
+    assert svc.get_sitting(sit["id"])["writing_submission"]["task1"]["text"] == "bản nháp"
+
+
+def test_a_submit_after_the_sweep_claimed_it_cannot_rewrite_the_graded_text(fake_db, svc):
+    """The boundary is the STAMP, not the pause marker. Once the sweep has
+    claimed the sitting, _promote_writing_essays has (or is about to) read that
+    payload — a late submit must not change what gets graded."""
+    exam, u, sit = _writing_open(fake_db, svc)
+    svc.submit_writing(sit["id"], u, "văn bản được chấm", "", finalize=False)
+    svc.mark_section_collected(exam["id"], "writing")
+    svc._collect_section_for_sitting(svc.get_sitting(sit["id"]), "writing")
+    assert svc.get_sitting(sit["id"])["writing_submitted_at"] is not None
+
+    with pytest.raises(svc.SittingConflictError):
+        svc.submit_writing(sit["id"], u, "gửi muộn", "", finalize=True)
+    assert svc.get_sitting(sit["id"])["writing_submission"]["task1"]["text"] \
+        == "văn bản được chấm"
+
+
+# ── A finished exam must not seat anyone ──────────────────────────────
+#
+# Codex adversarial review 2026-07-26. The sequential entry path gated on
+# `is_open` alone — a manual toggle the invigilator can forget after the final
+# advance. A student arriving then got a `registered` sitting on an exam with no
+# section left to open: a dead row that holds their ONE live seat (mig 162) and
+# locks them out of every future exam until the janitor runs.
+
+
+def test_a_finished_exam_refuses_a_new_sitting(fake_db, svc):
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update(
+        {"active_section": "done", "is_open": True}).eq(   # toggle left on
+        "id", exam["id"]).execute()
+    with pytest.raises(svc.WindowClosedError) as ei:
+        svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    assert "kết thúc" in str(ei.value)
+    assert not fake_db.rows("mock_exam_sittings"), "no dead row may be created"
+
+
+def test_the_final_advance_closes_the_room(fake_db, svc):
+    """So the invigilator cannot forget: reaching `done` turns the toggle off."""
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"is_open": True}).eq(
+        "id", exam["id"]).execute()
+    for _ in range(4):                       # → listening → reading → writing → done
+        svc.advance_section(exam["id"], "admin-1")
+    fresh = svc.get_published_exam_by_id(exam["id"])
+    assert fresh["active_section"] == "done"
+    assert fresh["is_open"] is False
+
+
+def test_a_finished_exam_is_not_offered_to_enter(fake_db, svc):
+    """The entry list must not show a button that can only produce a dead row."""
+    exam = _seed_exam(fake_db, cohort_id="c-1")
+    u = str(uuid4())
+    fake_db.seed("students", {"id": str(uuid4()), "user_id": u, "cohort_id": "c-1"})
+    fake_db.table("mock_exams").update({"is_open": True}).eq(
+        "id", exam["id"]).execute()
+    assert [e["code"] for e in svc.list_open_exams(u)] == ["MOCK-TEST-A"]
+
+    fake_db.table("mock_exams").update({"active_section": "done"}).eq(
+        "id", exam["id"]).execute()
+    assert svc.list_open_exams(u) == []
+    # ...and the response never leaks the new internal field
+    fake_db.table("mock_exams").update({"active_section": "listening"}).eq(
+        "id", exam["id"]).execute()
+    assert "active_section" not in svc.list_open_exams(u)[0]
+
+
+def test_a_student_mid_exam_still_sees_their_own_finished_exam(fake_db, svc):
+    """The `is_mine` relaxation must survive: someone who is IN the exam when it
+    finishes still needs the link back to their own sitting."""
+    exam = _seed_exam(fake_db, cohort_id="c-1")
+    u = str(uuid4())
+    fake_db.seed("students", {"id": str(uuid4()), "user_id": u, "cohort_id": "c-1"})
+    fake_db.table("mock_exams").update({"is_open": True}).eq(
+        "id", exam["id"]).execute()
+    sit = svc.create_sitting(u, "MOCK-TEST-A")
+    fake_db.table("mock_exams").update({"active_section": "done"}).eq(
+        "id", exam["id"]).execute()
+
+    mine = svc.list_open_exams(u)
+    assert len(mine) == 1 and mine[0]["my_sitting_id"] == sit["id"]
+
+
+def test_a_finished_exam_cannot_be_reopened(fake_db, svc):
+    """Codex #858: set_open wrote is_open unconditionally, so an admin could
+    press "Mở kỳ" on a finished exam, be told it worked, and have is_open=true
+    persisted — while all three student gates kept turning everyone away. An
+    admin console reporting a state the system does not honour is worse than one
+    that refuses."""
+    exam = _seed_exam(fake_db)
+    # The state the final advance leaves behind: done, and the room closed.
+    fake_db.table("mock_exams").update(
+        {"active_section": "done", "is_open": False}).eq("id", exam["id"]).execute()
+    with pytest.raises(svc.SittingConflictError) as ei:
+        svc.set_open(exam["id"], True, "admin-1")
+    assert "kết thúc" in str(ei.value)
+    assert svc.get_published_exam_by_id(exam["id"])["is_open"] is False
+
+
+def test_closing_a_finished_exam_is_always_allowed(fake_db, svc):
+    """Closing is the safe direction and must never be blocked — an exam left
+    open by an older build still has to be closable."""
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update(
+        {"active_section": "done", "is_open": True}).eq("id", exam["id"]).execute()
+    assert svc.set_open(exam["id"], False, "admin-1")["is_open"] is False
+
+
+def test_a_live_exam_still_opens_normally(fake_db, svc):
+    exam = _seed_exam(fake_db)
+    assert svc.set_open(exam["id"], True, "admin-1")["is_open"] is True
+
+# ── exam_mode is a contract, not a setting ────────────────────────────
+#
+# Codex adversarial review 2026-07-26. Nothing stores the mode on the sitting:
+# _sitting_sections() resolves it from the EXAM on every read. So flipping a
+# sequential exam that has live sittings to retake makes those rows resolve to
+# an EMPTY skill set — empty retake menu for the student, skipped by the reaper,
+# papers that can never be collected. PR #851 guarded the advance write path
+# against a mid-request flip; that protected the transition, not the invariant.
+
+
+def test_mode_cannot_change_once_a_sitting_exists(fake_db, svc):
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    with pytest.raises(ValueError) as ei:
+        svc.admin_update_exam(exam["id"], {"exam_mode": "retake"})
+    assert "chế độ" in str(ei.value)
+    assert svc.get_published_exam_by_id(exam["id"]).get("exam_mode") in (None, "sequential")
+
+
+def test_mode_cannot_change_once_a_retake_is_assigned(fake_db, svc):
+    """The other direction: retake sittings would suddenly owe the exam's whole
+    configured sequence, including sections nobody assigned them."""
+    exam = _seed_exam(fake_db)
+    fake_db.table("mock_exams").update({"exam_mode": "retake"}).eq(
+        "id", exam["id"]).execute()
+    fake_db.seed("mock_exam_assignments", {
+        "id": str(uuid4()), "exam_id": exam["id"], "user_id": str(uuid4()),
+        "skills": ["writing"], "open_from": None, "open_until": _WINDOW["open_until"],
+    })
+    with pytest.raises(ValueError):
+        svc.admin_update_exam(exam["id"], {"exam_mode": "sequential"})
+
+
+def test_mode_is_still_editable_on_a_fresh_exam(fake_db, svc):
+    """The guard must not make a draft exam unconfigurable — that is the whole
+    point at which the admin is meant to choose."""
+    exam = _seed_exam(fake_db)
+    out = svc.admin_update_exam(exam["id"], {"exam_mode": "retake"})
+    assert out["exam_mode"] == "retake"
+
+
+def test_a_voided_sitting_leaves_the_door_open(fake_db, svc):
+    """A cancelled row is a closed record nothing reads a skill set out of, so
+    the admin has a real way through: void the sittings, then convert."""
+    exam = _seed_exam(fake_db)
+    sit = svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    fake_db.table("mock_exam_sittings").update({"status": "void"}).eq(
+        "id", sit["id"]).execute()
+    assert svc.admin_update_exam(exam["id"], {"exam_mode": "retake"})["exam_mode"] == "retake"
+
+
+def test_rewriting_the_same_mode_is_not_a_change(fake_db, svc):
+    """The admin console PATCHes the whole form, so it resends exam_mode on every
+    edit. Treating an unchanged value as a mode change would make a live exam
+    uneditable — the title could never be fixed again."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    out = svc.admin_update_exam(
+        exam["id"], {"exam_mode": "sequential", "title": "Tên mới"})
+    assert out["title"] == "Tên mới"
+    # ...and a patch of nothing BUT the unchanged mode is a clean no-op
+    assert svc.admin_update_exam(exam["id"], {"exam_mode": "sequential"})["title"] == "Tên mới"
+
+
+def test_the_mode_change_is_one_statement_not_a_read_then_write(fake_db, svc):
+    """The whole point of mig 169. As two PostgREST requests, a sitting inserted
+    between the dependent check and the PATCH is read under the WRONG mode."""
+    import inspect
+    src = inspect.getsource(svc.admin_update_exam)
+    assert 'rpc("fn_set_exam_mode"' in src
+    assert "_exam_has_dependents" not in src, "the read-then-write path is back"
+
+
+def test_an_unprovable_change_refuses_the_flip(fake_db, svc):
+    """Fail CLOSED. If we cannot prove the exam is unused, guessing 'unused' is
+    how a live classroom loses its papers."""
+    exam = _seed_exam(fake_db)
+    real = svc.supabase_admin
+
+    class _Broken:
+        def __getattr__(self, item):
+            return getattr(real, item)
+
+        def rpc(self, name, params):
+            raise RuntimeError("postgrest down")
+
+    svc.supabase_admin = _Broken()
+    try:
+        with pytest.raises(ValueError):
+            svc.admin_update_exam(exam["id"], {"exam_mode": "retake"})
+    finally:
+        svc.supabase_admin = real
+    assert svc.get_published_exam_by_id(exam["id"]).get("exam_mode") in (None, "sequential")
+
+
+# ── Band NGOÀI required: Speaking thi trực tiếp với giáo viên ──────────
+#
+# C2-FINAL-20260726: exam has NO speaking_topic_set (speaking happened live,
+# off-platform, 13/14 students). Making speaking *required* would block the
+# 14th review from ever saving — but the old save filtered `stored` to the
+# required set, so an entered speaking band was DROPPED SILENTLY: the examiner
+# saved 4 numbers and the student's TRF showed 3.
+
+
+def _lrw_sitting(fake_db, svc):
+    exam = _seed_exam(fake_db, speaking=False)
+    u = uuid4()
+    s = svc.create_sitting(u, "MOCK-TEST-A")
+    _run_lrw(svc, fake_db, exam, s["id"], u)
+    return s["id"]
+
+
+def test_extra_speaking_band_is_stored_not_dropped(fake_db, svc, wf):
+    sid = _lrw_sitting(fake_db, svc)
+    review = wf.get_review_for_sitting(sid)
+    # the live-assessment import stamps the draft — that marker is the licence
+    wf._merge_review_ai_draft(sid, {"speaking": {"band": 4.0}})
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    saved = wf.save_final_bands(
+        review["id"], admin,
+        {"listening": 6.0, "reading": 6.0, "writing": 6.0, "speaking": 4.0},
+    )
+    assert saved["final_bands"]["speaking"] == 4.0, \
+        "an entered band must never vanish between save and the student's TRF"
+    # overall averages the FOUR entered bands: (6+6+6+4)/4 = 5.5. A mean over
+    # only the 3 required skills would say 6.0 — so this line alone catches a
+    # regression that silently drops the extra from the mean.
+    assert saved["final_bands"]["overall"] == 5.5
+
+
+def test_extra_speaking_still_optional(fake_db, svc, wf):
+    """The 14th student (no live speaking) must still save and release on LRW
+    alone — that is WHY speaking cannot simply be made required."""
+    sid = _lrw_sitting(fake_db, svc)
+    review = wf.get_review_for_sitting(sid)
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    saved = wf.save_final_bands(
+        review["id"], admin, {"listening": 6.0, "reading": 6.0, "writing": 6.0},
+    )
+    assert "speaking" not in saved["final_bands"]
+    assert saved["final_bands"]["overall"] == 6.0
+
+
+def test_required_skills_still_enforced_with_extra_present(fake_db, svc, wf):
+    sid = _lrw_sitting(fake_db, svc)
+    review = wf.get_review_for_sitting(sid)
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    wf._merge_review_ai_draft(sid, {"speaking": {"band": 5.0}})
+    import pytest as _pytest
+    with _pytest.raises(Exception):
+        # speaking present but a REQUIRED skill missing → still an error
+        wf.save_final_bands(review["id"], admin,
+                            {"listening": 6.0, "writing": 6.0, "speaking": 5.0})
+
+
+def test_extra_band_without_live_assessment_is_refused_loudly(fake_db, svc, wf):
+    """A stale tab posting Listening bands onto a writing-only-style sitting
+    must ERROR, not be stored — and not be silently dropped either (a silent
+    drop is how the original bug shipped)."""
+    sid = _lrw_sitting(fake_db, svc)
+    review = wf.get_review_for_sitting(sid)
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    import pytest as _pytest
+    with _pytest.raises(Exception):
+        wf.save_final_bands(
+            review["id"], admin,
+            {"listening": 6.0, "reading": 6.0, "writing": 6.0, "speaking": 5.0})
+
+
+def test_live_assessed_speaking_cannot_be_left_blank(fake_db, svc, wf):
+    """Once the review carries a live Speaking assessment, releasing a 3-skill
+    overall while the TRF shows full Speaking feedback is a contradiction —
+    the blank is a forgotten entry, not a choice (Codex, #872)."""
+    sid = _lrw_sitting(fake_db, svc)
+    review = wf.get_review_for_sitting(sid)
+    wf._merge_review_ai_draft(sid, {"speaking": {"band": 5.0}})
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    import pytest as _pytest
+    with _pytest.raises(Exception):
+        wf.save_final_bands(
+            review["id"], admin,
+            {"listening": 6.0, "reading": 6.0, "writing": 6.0})
+
+
+def test_save_speaking_assessment_stamps_notes_and_draft(fake_db, svc, wf):
+    """Form console: một lần lưu phải ghi CẢ per_skill_notes.speaking (khối TRF)
+    lẫn ai_draft.speaking (ô điền sẵn + giấy phép nhận band ngoài required)."""
+    sid = _lrw_sitting(fake_db, svc)
+    review = wf.get_review_for_sitting(sid)
+    out = wf.save_speaking_assessment(review["id"], uuid4(), {
+        "bands": {"fc": 5, "lr": 4, "gra": 5, "p": 5},
+        "intro": "nói ổn",
+        "sections": [{"title": "1. FC", "body": "x", "advice": "y"}],
+    })
+    assert out["overall"] == 5.0   # (5+4+5+5)/4 = 4.75 → IELTS .75 lên → 5.0
+    r = wf.get_review(review["id"])
+    assert r["per_skill_notes"]["speaking"]["bands"]["overall"] == 5.0
+    assert r["ai_draft"]["speaking"] == {"band": 5.0}
+    # ...và giờ save_final_bands NHẬN speaking nhờ đúng giấy phép đó
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    saved = wf.save_final_bands(review["id"], admin,
+        {"listening": 6.0, "reading": 6.0, "writing": 6.0, "speaking": 5.0})
+    assert saved["final_bands"]["speaking"] == 5.0
+
+
+def test_save_speaking_assessment_refused_after_release(fake_db, svc, wf):
+    sid = _sitting_at_all_submitted(fake_db, svc)
+    review = wf.get_review_for_sitting(sid)
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    wf.save_final_bands(review["id"], admin,
+        {"listening": 7.0, "reading": 6.5, "writing": 6.0, "speaking": 6.5})
+    wf.release_results(review["id"], admin)
+    import pytest as _pytest
+    with _pytest.raises(Exception):
+        wf.save_speaking_assessment(review["id"], admin,
+            {"bands": {"fc": 5, "lr": 5, "gra": 5, "p": 5}})

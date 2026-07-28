@@ -167,7 +167,11 @@ def _resolve_share(test_id_or_token: str, *, by_token: bool) -> dict:
         res = (
             supabase_admin.table("reading_tests")
             .select("id,test_id,title,module,time_limit_minutes,passage_count,"
-                    "total_questions,band_target,status,updated_at,metadata")
+                    # exam_only MUST be projected: the reservation gate reads it
+                # off this row, and a column the query never fetched is always
+                # None — the gate silently passed everything through
+                # (Codex review, PR #862).
+                "total_questions,band_target,status,updated_at,metadata,exam_only")
             .eq("metadata->share->>token", test_id_or_token)
             .eq("status", "published")
             .limit(1)
@@ -519,7 +523,11 @@ def _fetch_published_test(test_id: str) -> dict:
     res = (
         supabase_admin.table("reading_tests")
         .select("id,test_id,title,module,time_limit_minutes,passage_count,"
-                "total_questions,band_target,status,updated_at,metadata")
+                # exam_only MUST be projected: the reservation gate reads it
+                # off this row, and a column the query never fetched is always
+                # None — the gate silently passed everything through
+                # (Codex review, PR #862).
+                "total_questions,band_target,status,updated_at,metadata,exam_only")
         .eq("test_id", test_id)
         .eq("status", "published")
         .limit(1)
@@ -547,11 +555,32 @@ def _require_test_unlocked(test: dict, password: str | None) -> None:
         raise HTTPException(403, "Bài thi đang khoá — cần nhập đúng mật khẩu để truy cập.")
 
 
-def _build_reading_test_detail(test_id: str, password: str | None = None) -> dict:
+def _assert_exam_content_allowed(test: dict, user_id) -> None:
+    """A test reserved for mock exams is served ONLY to a student sitting one.
+
+    Hiding it from the browse list is not enough — a direct link (a bookmark, a
+    URL passed between cohorts) went straight through the detail endpoint. But
+    the mock runner itself loads Reading/Listening through these SAME student
+    endpoints, so a blanket refusal would break the exam this flag protects: the
+    entitlement is the sitting (mig 170).
+
+    404, not 403: to anyone without a sitting the paper does not exist, and
+    saying "forbidden" would confirm the test id is real.
+    """
+    if not test.get("exam_only"):
+        return
+    from services import mock_exam_service
+    if not mock_exam_service.user_may_open_exam_content(user_id, "reading", test.get("id")):
+        raise HTTPException(404, "Không tìm thấy đề đọc này.")
+
+
+def _build_reading_test_detail(test_id: str, password: str | None = None,
+                               user_id=None) -> dict:
     """Return the student-safe L3 test bundle with answer keys stripped.
     Enforces the lock gate (F1) then drops the raw metadata (never leak the
     password to the client)."""
     test = dict(_fetch_published_test(test_id))
+    _assert_exam_content_allowed(test, user_id)
     _require_test_unlocked(test, password)
     locked = bool(((test.get("metadata") or {}).get("access") or {}).get("locked"))
     test.pop("metadata", None)
@@ -764,8 +793,12 @@ async def list_reading_tests(
         q = q.eq("test_type", "mini")
     else:
         q = q.eq("test_type", "full")
-    # Exclusivity: a reading test chosen for a 4-skill mock is reserved to it —
-    # hide it from the normal practice browse.
+    # Reserved for a mock exam — never in the practice browse (mig 170). This is
+    # the PERMANENT flag: unlike reserved_test_ids below it survives the exam
+    # being archived, which used to republish the paper to the next cohort.
+    q = q.eq("exam_only", False)
+    # Kept alongside it: a test assigned to a live exam by an admin who did not
+    # tick the flag is still hidden, immediately, with no backfill needed.
     from services import mock_exam_service
     _reserved = mock_exam_service.reserved_test_ids("reading")
     if _reserved:
@@ -794,8 +827,8 @@ async def get_reading_test(
     Q7 (cluster 20.4c approval gate): ONE continuous attempt covers all
     three parts. The exam UI scrolls between them; the backend doesn't
     enforce a per-part lock here — that's a UX call in 20.6."""
-    await _require_auth(authorization)
-    return _build_reading_test_detail(test_id, x_reading_password)
+    user = await _require_auth(authorization)
+    return _build_reading_test_detail(test_id, x_reading_password, user["id"])
 
 
 @router.get("/test/{test_id}/boot")
@@ -812,7 +845,7 @@ async def boot_reading_test(
     ``in_progress`` as either the existing resume payload or ``null``.
     """
     user = await _require_auth(authorization)
-    test = _build_reading_test_detail(test_id, x_reading_password)
+    test = _build_reading_test_detail(test_id, x_reading_password, user["id"])
     in_progress = _fetch_in_progress_payload(
         user["id"], test_id, test, raise_on_missing=False
     )
@@ -849,6 +882,12 @@ async def boot_shared_reading_test(
     student-safe bundle (lock bypassed), and — if the caller already holds an
     anon_id for an in-progress attempt on this test — the resume payload."""
     test = _resolve_share(share_token, by_token=True)
+    if test.get("exam_only"):
+        # A share link is by definition anonymous, so there is no sitting to
+        # check — a mock-exam paper can never be entitled through this route.
+        # An admin who reserved a test after minting a link must not have that
+        # link keep working (mig 170).
+        raise HTTPException(404, "Không tìm thấy đề đọc này.")
     test_text_id = test.get("test_id")
     detail = dict(test)
     detail["locked"] = False              # the valid share token IS the grant (bypass F1)
@@ -875,6 +914,13 @@ async def start_shared_reading_test_attempt(
     creates an attempt with user_id NULL. Returns attempt_id + anon_id."""
     import uuid as _uuid
     test = _resolve_share(share_token, by_token=True)
+    if test.get("exam_only"):
+        # Share links are anonymous by definition, so there is no sitting that
+        # could entitle this. Gating the share BOOT alone left the start route
+        # open: a token minted before the paper was reserved could still create
+        # an owned attempt, and submit/review then exposes the answer key
+        # (Codex adversarial review, 2026-07-26).
+        raise HTTPException(404, "Không tìm thấy đề đọc này.")
     test_uuid = test["id"]
     share = ((test.get("metadata") or {}).get("share") or {})
 
@@ -974,6 +1020,12 @@ async def start_reading_test_attempt(
 
     user = await _require_auth(authorization)
     test = _fetch_published_test(test_id)
+    # Reserved for a mock exam. Gating the DETAIL route was not enough: a caller
+    # who starts an attempt here owns it, and the review endpoint trusts attempt
+    # ownership rather than exam entitlement — so a blank submit then hands back
+    # the passages, expected answers and solutions (Codex adversarial review,
+    # 2026-07-26).
+    _assert_exam_content_allowed(test, user["id"])
     _require_test_unlocked(test, x_reading_password)   # F1 gate on start too
     test_uuid = test["id"]
 
@@ -1203,57 +1255,17 @@ async def submit_reading_test_attempt(
 # ── reading-rich Part C — post-submit chữa-bài (solution review) ──────
 
 
-@router.get("/test/attempts/{attempt_id}/review")
-async def review_reading_test_attempt(
-    attempt_id: str,
-    authorization: str | None = Header(default=None),
-    x_reading_anon: str | None = Header(default=None, alias="X-Reading-Anon"),
-):
-    """Post-submit solution review ("chữa bài"). Returns, ONLY for a SUBMITTED
-    attempt owned by the caller: the score/band/skill breakdown, the per-Q
-    grading (user vs correct), and — now REVEALED — each question's rich
-    `payload.solution` (steps / source / vocab / paraphrase / trap / tips) plus
-    the passage bodies + VI translation.
+def _assemble_reading_review(attempt: dict, attempt_id) -> dict:
+    """Build the chữa-bài payload from an attempt + its test.
 
-    Ownership = auth user_id OR the anon_id capability token (anonymous share-
-    link attempts can review THEIR OWN attempt only — another anon_id 403s;
-    reading-access-tracking B).
+    Split out of the student endpoint so the ADMIN PREVIEW reuses it byte for
+    byte (Đợt 2). A second renderer for the same thing is how a preview stops
+    matching what the student sees — the one thing it exists to show.
 
-    Security boundary (reading-rich Part A): the solution is stripped from the
-    DURING-test fetch; this endpoint is the only place it surfaces, and it
-    HARD-gates on status == 'submitted' (409 otherwise) so an in-progress or
-    abandoned attempt can never leak the answers.
-
-    Admin bypass (2026-07-12): an admin may open ANY submitted attempt's
-    review — including a still-sealed 4-skill mock — so the mock-review
-    console can show the same rich chữa-bài while the admin is deciding the
-    band, before they release results. Ownership + the seal gate still apply
-    to everyone else (the student can't see it early just by being an admin
-    of a DIFFERENT sitting)."""
-    user = await _optional_auth(authorization)
-    is_admin = await _is_admin(authorization)
-    if is_admin:
-        res = supabase_admin.table("reading_test_attempts").select("*").eq(
-            "id", attempt_id,
-        ).limit(1).execute()
-        if not res.data:
-            raise HTTPException(404, "Attempt not found")
-        attempt = res.data[0]
-    else:
-        attempt = _fetch_attempt_owned(attempt_id, user, x_reading_anon)
-    if attempt.get("status") != "submitted":
-        raise HTTPException(409, "Chưa có chữa bài — attempt chưa submit.")
-
-    # Sealed 4-skill mock: the review reveals the answer key + rich solution, so
-    # it stays 403 until an admin releases the sitting. Server-side gate — the
-    # during-test fetch already strips the key; this is the other leak path.
-    sitting_id = attempt.get("sitting_id")
-    if sitting_id and not is_admin:
-        from services import mock_exam_service
-        if mock_exam_service.is_sealed(sitting_id):
-            raise HTTPException(
-                403, "Kết quả đang chờ giám khảo duyệt — chưa thể xem chữa bài.")
-
+    Takes an attempt-SHAPED dict, not necessarily a real row: the preview passes
+    a synthetic one with every user answer blank. `attempt_id` is None there,
+    and the caller owns all authorisation — this function checks nothing.
+    """
     test_uuid = attempt["test_id"]
     test_res = (
         supabase_admin.table("reading_tests")
@@ -1336,6 +1348,59 @@ async def review_reading_test_attempt(
         "passages":         passages,
         "review":           review,
     }
+
+@router.get("/test/attempts/{attempt_id}/review")
+async def review_reading_test_attempt(
+    attempt_id: str,
+    authorization: str | None = Header(default=None),
+    x_reading_anon: str | None = Header(default=None, alias="X-Reading-Anon"),
+):
+    """Post-submit solution review ("chữa bài"). Returns, ONLY for a SUBMITTED
+    attempt owned by the caller: the score/band/skill breakdown, the per-Q
+    grading (user vs correct), and — now REVEALED — each question's rich
+    `payload.solution` (steps / source / vocab / paraphrase / trap / tips) plus
+    the passage bodies + VI translation.
+
+    Ownership = auth user_id OR the anon_id capability token (anonymous share-
+    link attempts can review THEIR OWN attempt only — another anon_id 403s;
+    reading-access-tracking B).
+
+    Security boundary (reading-rich Part A): the solution is stripped from the
+    DURING-test fetch; this endpoint is the only place it surfaces, and it
+    HARD-gates on status == 'submitted' (409 otherwise) so an in-progress or
+    abandoned attempt can never leak the answers.
+
+    Admin bypass (2026-07-12): an admin may open ANY submitted attempt's
+    review — including a still-sealed 4-skill mock — so the mock-review
+    console can show the same rich chữa-bài while the admin is deciding the
+    band, before they release results. Ownership + the seal gate still apply
+    to everyone else (the student can't see it early just by being an admin
+    of a DIFFERENT sitting)."""
+    user = await _optional_auth(authorization)
+    is_admin = await _is_admin(authorization)
+    if is_admin:
+        res = supabase_admin.table("reading_test_attempts").select("*").eq(
+            "id", attempt_id,
+        ).limit(1).execute()
+        if not res.data:
+            raise HTTPException(404, "Attempt not found")
+        attempt = res.data[0]
+    else:
+        attempt = _fetch_attempt_owned(attempt_id, user, x_reading_anon)
+    if attempt.get("status") != "submitted":
+        raise HTTPException(409, "Chưa có chữa bài — attempt chưa submit.")
+
+    # Sealed 4-skill mock: the review reveals the answer key + rich solution, so
+    # it stays 403 until an admin releases the sitting. Server-side gate — the
+    # during-test fetch already strips the key; this is the other leak path.
+    sitting_id = attempt.get("sitting_id")
+    if sitting_id and not is_admin:
+        from services import mock_exam_service
+        if mock_exam_service.is_sealed(sitting_id):
+            raise HTTPException(
+                403, "Kết quả đang chờ giám khảo duyệt — chưa thể xem chữa bài.")
+
+    return _assemble_reading_review(attempt, attempt_id)
 
 
 # ── Sprint 20.6 — resilience: in-progress lookup + auto-save PATCH ────
