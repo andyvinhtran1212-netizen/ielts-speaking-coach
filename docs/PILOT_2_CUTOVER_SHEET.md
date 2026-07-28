@@ -47,14 +47,21 @@ File giữ trên disk = instant-rollback target.
 1. `/grammar/tenses/present-simple` = Next SSR (`__next_f`); title/meta
    server-rendered (SEO — mục tiêu pilot 2); TOC/breadcrumb/body render đúng;
    guest CTA + save button hoạt động; zero console error.
-2. **PPR/cache**: response có streamed shell; article không tồn tại phải KHÔNG
-   được index. **ĐÍNH CHÍNH 28/07 (đo trên production sau cutover)** — câu
-   "= HTTP 404 thật" viết lúc prep là SAI với PPR: khi **category hợp lệ +
-   slug sai** (`/grammar/tenses/<slug-bịa>`), shell đã stream nên status là
-   **200 + `<meta name="robots" content="noindex">` + thân 404**; chỉ khi
-   **category cũng sai** (`/grammar/<cat-bịa>/...`) mới ra **404 cứng**.
-   Legacy cùng ca đó trả **200 KHÔNG noindex** ⇒ Next vẫn tốt hơn về SEO,
-   không phải hồi quy. Tiêu chí đúng = "noindex + không soft-200-được-index".
+2. **PPR/cache**: response có streamed shell; **bài không tồn tại ⇒ thân 404 +
+   `<meta name="robots" content="noindex">`**, để không có gì bị index.
+   **ĐÍNH CHÍNH 2026-07-28/29 (đo trên production, cùng UA + cùng điều kiện
+   cache):** câu "= HTTP 404 thật" viết lúc prep là SAI với PPR — route trả
+   **HTTP 200 cho MỌI bài thiếu**, vì shell prerender được phục vụ từ cache
+   (`x-nextjs-prerender: 1`, `x-vercel-cache: HIT`) trước khi `generateMetadata`
+   kịp chạy, nên status đã chốt. **KHÔNG có khác biệt theo category** — cả slug
+   sai lẫn category sai đều 200 + noindex (`grammar_content.get_article()` trả
+   `None` cho cả hai, `fetchArticle()` map cả hai về `null`, cùng một
+   `notFound()`). Lần đầu tôi ghi "category sai ⇒ 404 cứng" là do **so hai phép
+   đo khác điều kiện** (curl vs điều hướng trong trình duyệt): trình duyệt hiển
+   thị trang 404 của Next sau khi phần stream giải quyết, nhưng **status của
+   document vẫn là 200**. Legacy cùng ca trả 200 **KHÔNG** noindex ⇒ Next vẫn
+   tốt hơn về SEO, không hồi quy. Tiêu chí đúng = "thân 404 + noindex", không
+   phải "404 cứng". (Phát hiện bởi Codex review trên PR #878 — P2.)
 3. Legacy nguyên vẹn: grammar wiki home `/grammar.html`, `/pages/home.html`,
    `/` (pilot 1 Next) đều đúng.
 4. Auto-promote: release = main HEAD; drift job xanh.
