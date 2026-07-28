@@ -5310,3 +5310,39 @@ def test_live_assessed_speaking_cannot_be_left_blank(fake_db, svc, wf):
         wf.save_final_bands(
             review["id"], admin,
             {"listening": 6.0, "reading": 6.0, "writing": 6.0})
+
+
+def test_save_speaking_assessment_stamps_notes_and_draft(fake_db, svc, wf):
+    """Form console: một lần lưu phải ghi CẢ per_skill_notes.speaking (khối TRF)
+    lẫn ai_draft.speaking (ô điền sẵn + giấy phép nhận band ngoài required)."""
+    sid = _lrw_sitting(fake_db, svc)
+    review = wf.get_review_for_sitting(sid)
+    out = wf.save_speaking_assessment(review["id"], uuid4(), {
+        "bands": {"fc": 5, "lr": 4, "gra": 5, "p": 5},
+        "intro": "nói ổn",
+        "sections": [{"title": "1. FC", "body": "x", "advice": "y"}],
+    })
+    assert out["overall"] == 5.0   # (5+4+5+5)/4 = 4.75 → IELTS .75 lên → 5.0
+    r = wf.get_review(review["id"])
+    assert r["per_skill_notes"]["speaking"]["bands"]["overall"] == 5.0
+    assert r["ai_draft"]["speaking"] == {"band": 5.0}
+    # ...và giờ save_final_bands NHẬN speaking nhờ đúng giấy phép đó
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    saved = wf.save_final_bands(review["id"], admin,
+        {"listening": 6.0, "reading": 6.0, "writing": 6.0, "speaking": 5.0})
+    assert saved["final_bands"]["speaking"] == 5.0
+
+
+def test_save_speaking_assessment_refused_after_release(fake_db, svc, wf):
+    sid = _sitting_at_all_submitted(fake_db, svc)
+    review = wf.get_review_for_sitting(sid)
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    wf.save_final_bands(review["id"], admin,
+        {"listening": 7.0, "reading": 6.5, "writing": 6.0, "speaking": 6.5})
+    wf.release_results(review["id"], admin)
+    import pytest as _pytest
+    with _pytest.raises(Exception):
+        wf.save_speaking_assessment(review["id"], admin,
+            {"bands": {"fc": 5, "lr": 5, "gra": 5, "p": 5}})
