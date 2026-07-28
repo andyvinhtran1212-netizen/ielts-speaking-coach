@@ -434,6 +434,12 @@ def _build_vocabulary(sb, user_id: str) -> Dict[str, Any]:
         "last_activity_at": last_activity,
         "words_learned": int(words_learned),
         "flashcards_due": due_count,
+        # `words_learned` is now a UNION of two different sources, so consumers
+        # can no longer describe it as one of them — the home card called any
+        # nonzero value "Wallet từ vựng cá nhân" and would have claimed an empty
+        # wallet held words (Codex review, PR #876). Both sides are exposed so a
+        # caller can label the number it actually shows.
+        "wallet_words": int(wallet_count),
         # Quick-Check facets — the Vocabulary hub renders these instead of the
         # flashcard-only tiles, which read 0 / "—" for every learner without the
         # (default-deny) flashcard flag.

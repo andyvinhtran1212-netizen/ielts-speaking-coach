@@ -661,3 +661,36 @@ def test_vocabulary_quiz_failure_keeps_the_wallet_number(fake_db, aggregator):
     assert v["status"] == "active"
     assert v["words_learned"] == 1
     assert v["quiz_words_mastered"] == 0
+
+
+def test_vocabulary_exposes_both_sources_so_the_home_card_can_label_the_number(
+        fake_db, aggregator):
+    """`words_learned` is a UNION, so no consumer may describe it as one source.
+    The home card called any nonzero value "Wallet từ vựng cá nhân" and would
+    have claimed an empty wallet held words (Codex review, PR #876)."""
+    user_id, bank = str(uuid4()), str(uuid4())
+    _seed_quiz_bank(fake_db, bank)
+    _seed_word_stat(fake_db, user_id, bank, "Gridlock")
+
+    v = aggregator.get_home_summary(
+        fake_db, user_id, name="X", email="x@x.com",
+    )["skills"]["vocabulary"]
+
+    assert v["words_learned"] == 1
+    assert v["wallet_words"] == 0            # quiz-only learner
+    assert v["quiz_words_mastered"] == 1
+
+
+def test_vocabulary_wallet_words_counts_only_the_wallet(fake_db, aggregator):
+    user_id, bank = str(uuid4()), str(uuid4())
+    _seed_vocab(fake_db, user_id)            # headword 'ephemeral'
+    _seed_quiz_bank(fake_db, bank)
+    _seed_word_stat(fake_db, user_id, bank, "Gridlock")
+
+    v = aggregator.get_home_summary(
+        fake_db, user_id, name="X", email="x@x.com",
+    )["skills"]["vocabulary"]
+
+    assert v["wallet_words"] == 1
+    assert v["quiz_words_mastered"] == 1
+    assert v["words_learned"] == 2

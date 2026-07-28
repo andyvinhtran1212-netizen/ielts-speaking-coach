@@ -106,11 +106,21 @@
     },
     vocabulary(s) {
       const due = s.flashcards_due || 0;
+      // `words_learned` is the UNION of the personal wallet and Quick-Check
+      // mastery, so the sub-line must name whichever source the number actually
+      // came from — calling it "Wallet từ vựng cá nhân" told a quiz-only learner
+      // their empty wallet held 136 words (Codex review, PR #876).
+      const wallet = s.wallet_words || 0;
+      const quiz = s.quiz_words_mastered || 0;
+      let sub;
+      if (due) sub = '<span class="pulse"></span>' + due + ' thẻ đến hạn';
+      else if (wallet && quiz) sub = 'Wallet cá nhân + Quick-Check';
+      else if (quiz) sub = 'Đã thuộc qua Quick-Check';
+      else if (wallet) sub = 'Wallet từ vựng cá nhân';
+      else sub = 'Bắt đầu lưu từ mới';
       return {
         primary: { value: String(s.words_learned || 0), unit: 'từ' },
-        sub: due
-          ? '<span class="pulse"></span>' + due + ' thẻ đến hạn'
-          : (s.words_learned ? 'Wallet từ vựng cá nhân' : 'Bắt đầu lưu từ mới'),
+        sub: sub,
       };
     },
     reading(s) {

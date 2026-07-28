@@ -44,10 +44,17 @@
 
   function $(id) { return document.getElementById(id); }
   function setHtml(id, html) { $(id).innerHTML = html; }
+  // Escapes for BOTH contexts this file interpolates into: text nodes and
+  // double-quoted attributes. The textContent→innerHTML trick alone encodes
+  // & < > but NOT quotes, so `data-say="${escape(v)}"` let a value containing a
+  // double quote close the attribute and add its own (Codex review, PR #876).
+  // That is reachable: the personal card's headword comes from user_vocabulary,
+  // which manual-add fills with an unrestricted string. Quotes stay readable in
+  // text position — the browser decodes the entity when rendering.
   function escape(s) {
     const d = document.createElement('div');
     d.textContent = s == null ? '' : String(s);
-    return d.innerHTML;
+    return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
   function showLoading() {
     setHtml('study-container', '<div class="state-msg"><div class="spinner"></div></div>');

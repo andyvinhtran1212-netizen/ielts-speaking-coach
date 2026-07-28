@@ -28,7 +28,7 @@ from config import settings
 from database import supabase_admin
 from routers.auth import get_supabase_user
 from services.feature_flags import is_flashcard_enabled
-from services.pg_search import ilike_or_filter
+from services.pg_search import ilike_eq_any_filter, ilike_or_filter
 from services.rate_limit import rate_limit_flashcard
 from services.srs import update_srs
 from services import kp_evidence
@@ -371,24 +371,39 @@ def _audio_by_headword(headwords: list[str]) -> dict[str, str]:
     Best-effort: a miss simply leaves the URL empty and the player falls back to
     speechSynthesis, which is still better than the silent card it replaced.
     """
-    keys = sorted({(h or "").strip().lower() for h in headwords} - {""})
+    # One representative per case-insensitive headword: the match is
+    # case-insensitive, so querying "gridlock" AND "Gridlock" AND "GRIDLOCK"
+    # would just triple the filter for identical rows.
+    seen: dict[str, str] = {}
+    for h in headwords:
+        t = (h or "").strip()
+        if t:
+            seen.setdefault(t.lower(), t)
+    keys = [seen[k] for k in sorted(seen)]
     if not keys:
         return {}
-    try:
-        rows = (
-            supabase_admin.table("vocab_cards")
-            .select("headword, audio_headword")
-            .in_("headword", keys).execute()
-        ).data or []
-    except Exception as e:  # noqa: BLE001 — audio is an enhancement, never fatal
-        logger.warning("[flashcards] audio lookup failed (non-fatal): %s", e)
-        return {}
     out: dict[str, str] = {}
-    for r in rows:
-        hw = (r.get("headword") or "").strip().lower()
-        url = (r.get("audio_headword") or "").strip()
-        if hw and url:
-            out.setdefault(hw, url)
+    # Case-INSENSITIVE exact match, not in_(): user_vocabulary headwords come from
+    # a learner's own transcripts ("gridlock"), vocab_cards stores title case
+    # ("Gridlock"), and PostgreSQL compares TEXT case-sensitively — an in_() on
+    # lowercased keys matched nothing at all. Chunked because the or_() string
+    # rides in the query string, so a whole stack's worth would build a URL long
+    # enough for PostgREST to reject.
+    for i in range(0, len(keys), 50):
+        try:
+            rows = (
+                supabase_admin.table("vocab_cards")
+                .select("headword, audio_headword")
+                .or_(ilike_eq_any_filter("headword", keys[i:i + 50])).execute()
+            ).data or []
+        except Exception as e:  # noqa: BLE001 — audio is an enhancement, never fatal
+            logger.warning("[flashcards] audio lookup failed (non-fatal): %s", e)
+            return {}
+        for r in rows:
+            hw = (r.get("headword") or "").strip().lower()
+            url = (r.get("audio_headword") or "").strip()
+            if hw and url:
+                out.setdefault(hw, url)
     return out
 
 
