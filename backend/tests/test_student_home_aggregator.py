@@ -601,17 +601,15 @@ def test_vocabulary_union_does_not_double_count_a_shared_word(fake_db, aggregato
 
 
 def test_vocabulary_quiz_side_ignores_other_skills_and_unmastered(fake_db, aggregator):
-    """Only PUBLISHED vocab banks count, and only 'mastered' rows — a grammar
-    bank's progress must not inflate the vocabulary card."""
+    """Only vocab banks count, and only 'mastered' rows — a grammar bank's
+    progress must not inflate the vocabulary card."""
     user_id = str(uuid4())
-    vocab_bank, grammar_bank, draft_bank = str(uuid4()), str(uuid4()), str(uuid4())
+    vocab_bank, grammar_bank = str(uuid4()), str(uuid4())
     _seed_quiz_bank(fake_db, vocab_bank)
     _seed_quiz_bank(fake_db, grammar_bank, skill_area="grammar")
-    _seed_quiz_bank(fake_db, draft_bank, is_published=False)
     _seed_word_stat(fake_db, user_id, vocab_bank, "Gridlock")
     _seed_word_stat(fake_db, user_id, vocab_bank, "Mobility", status="carried_over")
     _seed_word_stat(fake_db, user_id, grammar_bank, "art-definite-usage")
-    _seed_word_stat(fake_db, user_id, draft_bank, "Unpublished")
 
     v = aggregator.get_home_summary(
         fake_db, user_id, name="X", email="x@x.com",
@@ -619,6 +617,25 @@ def test_vocabulary_quiz_side_ignores_other_skills_and_unmastered(fake_db, aggre
 
     assert v["words_learned"] == 1
     assert v["quiz_words_mastered"] == 1
+
+
+def test_vocabulary_still_counts_a_bank_that_was_later_unpublished(fake_db, aggregator):
+    """Publication controls whether a learner can START a bank, not whether their
+    past practice happened — a word_stats row can only exist because the bank WAS
+    playable. Filtering on is_published made the hub tile drop words the stats
+    page still counted the moment a bank was unpublished (Codex review, #876)."""
+    user_id, retired = str(uuid4()), str(uuid4())
+    _seed_quiz_bank(fake_db, retired, is_published=False)
+    _seed_word_stat(fake_db, user_id, retired, "Gridlock", wrong_count=2)
+    _seed_quiz_session(fake_db, user_id, retired, ended_at=_today_iso())
+
+    v = aggregator.get_home_summary(
+        fake_db, user_id, name="X", email="x@x.com",
+    )["skills"]["vocabulary"]
+
+    assert v["quiz_words_mastered"] == 1
+    assert v["quiz_words_missed"] == 1
+    assert v["quiz_sessions"] == 1
 
 
 def test_vocabulary_missed_and_session_facets(fake_db, aggregator):

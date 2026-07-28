@@ -886,6 +886,14 @@ aver-chrome { display: block; min-height: 137px; }
     border-color var(--av-duration-base) var(--av-easing-default),
     box-shadow var(--av-duration-base) var(--av-easing-default);
 }
+/* `display: flex` above outranks the UA stylesheet's [hidden] rule, so a
+   feature-gated card marked hidden in markup would still paint. Needed by the
+   vocabulary hub, where the gated cards must not be visible or clickable while
+   the /auth/me flag lookup is in flight. */
+.mode-card[hidden] {
+  display: none;
+}
+
 .mode-card:hover {
   transform: translateY(-2px);
   border-color: var(--av-primary-border);

@@ -313,6 +313,19 @@ describe('vocabulary.html / Sprint 8.2 mode-card IA + module-mount contract', ()
     assert.match(html, /data-mode="exercises"[^>]*data-flag="d1_enabled,flashcard_enabled"/);
   });
 
+  // The flag lookup is a network round-trip; shipping these visible let a
+  // default-denied learner click into a disabled module in the gap.
+  test('flag-gated cards ship hidden and are revealed only on authorization', () => {
+    assert.match(html, /data-flag="flashcard_enabled"[\s\S]{0,40}?\bhidden\b/);
+    assert.match(html, /data-flag="d1_enabled,flashcard_enabled"[\s\S]{0,40}?\bhidden\b/);
+  });
+
+  test('.mode-card[hidden] is actually display:none (display:flex would win)', () => {
+    const components = readFileSync(
+      path.join(__dirname, '..', 'css', 'aver-design', 'components.css'), 'utf8');
+    assert.match(components, /\.mode-card\[hidden\]\s*\{\s*display:\s*none/);
+  });
+
   test('role="tabpanel" preserved on 3 panels; role="tab" + aria-selected retired', () => {
     const tabsWithRole    = (html.match(/role=["']tab["']/g) || []).length;
     const panelsWithRole  = (html.match(/role=["']tabpanel["']/g) || []).length;

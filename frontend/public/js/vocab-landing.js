@@ -258,6 +258,10 @@
   // the card work — ANY of them is enough (Exercises needs d1 OR
   // flashcards). REMOVED from the DOM, not hidden: a flag must not leave
   // a clickable element behind.
+  // The cards ship `hidden` in the markup and are REVEALED only on a positive
+  // answer — never the reverse. /auth/me is a network round-trip, so rendering
+  // them visible until it replies left a default-denied learner able to click
+  // straight into a disabled module during the gap (Codex review, PR #876).
   async function gateModeCards() {
     let me = null;
     try {
@@ -269,7 +273,8 @@
     $$('.mode-card[data-flag]').forEach((card) => {
       const flags = card.dataset.flag.split(',').map(s => s.trim()).filter(Boolean);
       const allowed = !!me && flags.some(f => me[f] === true);
-      if (!allowed && card.parentNode) card.parentNode.removeChild(card);
+      if (allowed) card.hidden = false;
+      else if (card.parentNode) card.parentNode.removeChild(card);
     });
   }
 

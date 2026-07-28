@@ -83,6 +83,8 @@ function buildPage() {
     makeElement('a', { 'data-mode': 'flashcards', 'data-flag': 'flashcard_enabled' }),
     makeElement('a', { 'data-mode': 'exercises', 'data-flag': 'd1_enabled,flashcard_enabled' }),
   ];
+  // The gated cards ship hidden in the markup — the gate reveals, never hides.
+  modeCards.filter(c => c.dataset.flag).forEach((c) => { c.hidden = true; });
   // Removal walks parentNode, so the shim needs one.
   modeCards.forEach((c) => {
     c.parentNode = {
@@ -276,6 +278,21 @@ test('gate keeps a card whose flag is on', async () => {
   const modes = doc._modeCards.map(c => c.dataset.mode);
   // Exercises needs d1 OR flashcards — flashcards alone is enough for it too.
   assert.deepEqual(modes, ['vocab-topics', 'flashcards', 'exercises']);
+  // Revealed, not merely left in the DOM.
+  assert.equal(doc._modeCards.find(c => c.dataset.mode === 'flashcards').hidden, false);
+});
+
+test('gated cards are never visible before the flag lookup answers', async () => {
+  // /auth/me that never settles: the cards must stay hidden the whole time,
+  // otherwise a default-denied learner can click into a disabled module during
+  // the round-trip (Codex review, PR #876).
+  const doc = buildPage();
+  loadVocabLanding(doc, (url) =>
+    url === '/auth/me' ? new Promise(() => {}) : Promise.resolve(null));
+  await flush(); await flush();
+  const gated = doc._modeCards.filter(c => c.dataset.flag);
+  assert.equal(gated.length, 2, 'still in the DOM while pending');
+  assert.ok(gated.every(c => c.hidden === true), 'and still hidden');
 });
 
 test('gate DEFAULT-DENIES when /auth/me fails', async () => {

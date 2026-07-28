@@ -317,10 +317,17 @@ def _vocab_quiz_progress(sb, user_id: str) -> Dict[str, Any]:
     A word that lives in two lessons (28 of them do) is one word, hence the set.
     """
     empty = {"mastered": set(), "missed": set(), "sessions": 0}
+    # NOT filtered by is_published (Codex review, PR #876). Publication controls
+    # whether a learner can START a bank, not whether their past practice
+    # happened — a word_stats row can only exist because the bank WAS playable.
+    # Filtering here made the hub tile drop words the stats page still counted the
+    # moment a bank was unpublished, reintroducing the very disagreement that
+    # mastered_item_keys() exists to prevent. The other read path
+    # (_bank_ids_for_skill) scopes by skill_area only, and this now matches it.
     bank_ids = [
         r["id"] for r in (
             sb.table("quiz_banks").select("id")
-            .eq("skill_area", "vocab").eq("is_published", True).execute()
+            .eq("skill_area", "vocab").execute()
         ).data or [] if r.get("id")
     ]
     if not bank_ids:
