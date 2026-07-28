@@ -42,30 +42,54 @@ describe('console duyệt bài — ô band Speaking tuỳ dữ liệu', () => {
   });
 });
 
-describe('TRF học viên — khối Speaking có cấu trúc', () => {
-  test('object speaking đi khối riêng, không rơi vào ghi chú text', () => {
-    // esc(object) render "[object Object]" cho học viên.
+describe('TRF học viên — Speaking là thẻ mở trang riêng (bản duyệt trf-v2)', () => {
+  const SPR = pub('pages', 'speaking-result.html');
+
+  test('TRF đẩy thẻ Speaking vào Việc tiếp theo, KHÔNG render inline nữa', () => {
+    assert.match(TRF, /speaking-result\.html\?sitting='/);
     assert.match(TRF, /typeof notes\.speaking === 'object'/);
-    assert.match(TRF, /function renderSpeaking\(spk\)/);
-    assert.match(TRF, /id="speaking-wrap"/);
+    assert.doesNotMatch(TRF, /function renderSpeaking/);
+    assert.doesNotMatch(TRF, /id="speaking-wrap"/);
   });
 
-  test('nội dung do người chấm viết đi qua textContent, không innerHTML', () => {
-    const fn = TRF.slice(TRF.indexOf('function renderSpeaking'),
-                         TRF.indexOf('function render(data)'));
-    // Lột chú thích trước khi soi — chữ "innerHTML" trong một dòng chú thích
-    // từng làm sentinel này đỏ oan (cùng lớp bẫy với vụ Tailwind quét chữ
-    // `ring` trong comment).
-    const code = fn.replace(/\/\/[^\n]*/g, '');
-    assert.doesNotMatch(code, /innerHTML/);
-    assert.match(code, /textContent/);
+  test('trang riêng render đủ ba tầng: band tiêu chí, số đo so lớp, cách luyện', () => {
+    assert.match(SPR, /function render\(spk\)/);
+    assert.match(SPR, /Fluency & Coherence/);
+    assert.match(SPR, /Trung bình lớp/);
+    assert.match(SPR, /Cách luyện: /);
   });
 
-  test('đủ ba tầng nội dung: band tiêu chí, số đo so lớp, cách luyện', () => {
-    const fn = TRF.slice(TRF.indexOf('function renderSpeaking'),
-                         TRF.indexOf('function render(data)'));
-    assert.match(fn, /Fluency & Coherence/);
-    assert.match(fn, /Trung bình lớp/);
-    assert.match(fn, /Cách luyện: /);
+  test('nội dung người chấm viết đi qua textContent, không innerHTML', () => {
+    const code = SPR.replace(/\/\/[^\n]*/g, '');
+    const body = code.slice(code.indexOf('function render(spk)'), code.indexOf('async function boot'));
+    assert.doesNotMatch(body, /innerHTML/);
+    assert.match(body, /textContent/);
+  });
+
+  test('trang riêng gate đúng: thiếu sitting hay không có nhận xét đều báo rõ', () => {
+    assert.match(SPR, /Thiếu mã lượt thi/);
+    assert.match(SPR, /không có nhận xét Speaking/);
+    assert.match(SPR, /mock-result\.html\?sitting='/);
+  });
+
+  test('trang riêng NẠP supabase-js trước api.js', () => {
+    // initSupabase dereference window.supabase.createClient — thiếu script CDN
+    // là trang chết vĩnh viễn ở "Đang tải" ngay lần ghé đầu tiên (Codex #875).
+    const at = SPR.indexOf('@supabase/supabase-js');
+    assert.ok(at > 0, 'thiếu script supabase-js');
+    assert.ok(at < SPR.indexOf('/js/api.js'), 'supabase-js phải đứng trước api.js');
+  });
+
+  test('phiếu v2 co được về 320px: media query trỏ đúng class đang tồn tại', () => {
+    // Media query cũ trỏ .trf-overall/.trf-band-grid đã gỡ — phiếu 168px +
+    // overflow:hidden CẮT mất thanh và con số trên máy nhỏ (Codex #875).
+    assert.match(TRF, /\.trf-card__body \{ grid-template-columns: 1fr/);
+    assert.doesNotMatch(TRF, /@media[^}]*\.trf-overall/);
+  });
+
+  test('phiếu điểm v2: vòng cung overall + hàng kỹ năng có thanh mức', () => {
+    assert.match(TRF, /id="overall-ring"/);
+    assert.match(TRF, /conic-gradient\(var\(--av-primary\)/);
+    assert.match(TRF, /trf-sk__bar/);
   });
 });
