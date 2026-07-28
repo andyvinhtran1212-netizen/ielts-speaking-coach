@@ -101,14 +101,14 @@ cả `frontend/app/**/*.tsx`. **#877 ĐÃ MERGE vào main 2026-07-28** (`444b4c4
 nhánh này đã refresh qua nó — suite **5617 pass / 0 fail / 0 skipped**,
 `route-ownership --manifest` clean, build vẫn `◐ PPR`, Tailwind FRESH.
 
-## Risk acceptance (ADR-013 — điền + ký TẠI cutover)
+## Risk acceptance (ADR-013 — ĐÃ KÝ)
 
 | Trường | Giá trị |
 |---|---|
 | Route | `/grammar/:category/:slug` (canonical chuyển từ legacy → Next) |
 | Lớp rủi ro | Public / read-only, traffic <3 lượt/ngày (đo 14/14d) |
-| Ngày cutover | _(điền)_ |
-| Người duyệt | _(điền — chủ dự án)_ |
+| Ngày cutover | **2026-07-28** |
+| Người duyệt | **Chủ dự án** (duyệt trong phiên 28/07: "cutover luôn đi", sau khi #877 merge + #754 refresh xanh) |
 | Vế số-lượng | Production Smoke n=75 trên route sau cutover, p75 < 4000ms, 0 lỗi |
 | Vế thời-gian | Quan sát organic **48–72h**, rollback trigger ở chế độ tuyệt đối |
 | Rollback | Instant Rollback ≤12s về deployment N−1; khôi phục = **Undo Rollback DUY NHẤT**; legacy `public/pages/grammar-article.html` vẫn nằm trên disk |
@@ -118,9 +118,11 @@ nhánh này đã refresh qua nó — suite **5617 pass / 0 fail / 0 skipped**,
 
 1. ~~Merge **#877** (font parity) → refresh nhánh này qua `main` → suite + build lại.~~
    **XONG 2026-07-28** (#877 = `444b4c4c` trên main; nhánh này đã refresh + verify lại).
-2. Chạy `backend/scripts/traffic_baseline.sh` (≤72h) + dispatch **Production Smoke**
-   trên `/grammar-preview/tenses/present-perfect` = baseline TRƯỚC cutover.
-3. Điền + ký bảng risk acceptance ở trên.
+2. ~~Chạy `backend/scripts/traffic_baseline.sh` (≤72h) + dispatch **Production Smoke**
+   trên `/grammar-preview/tenses/present-perfect` = baseline TRƯỚC cutover.~~
+   **XONG 2026-07-28**: baseline 15:21 UTC (grammar 14 cặp/14d) + smoke run
+   `30373000306` n=75 → **LCP p75 956ms, 0 lỗi**.
+3. ~~Điền + ký bảng risk acceptance ở trên.~~ **XONG 2026-07-28.**
 4. Merge PR này (atomic: đổi ownership + gỡ rewrite trong CÙNG một commit).
 5. Chờ auto-promote (~20s), verify `runtime-config.release` = main HEAD.
 6. Verify browser-based theo mục "Verify SAU cutover" (cadence ≥15s, KHÔNG poll
