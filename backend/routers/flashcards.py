@@ -358,6 +358,48 @@ def _filter_due_rows(rows: list[dict], *, now: datetime, limit: int | None = Non
     return out
 
 
+def _audio_by_headword(headwords: list[str]) -> dict[str, str]:
+    """headword(lower) → pregenerated mp3 URL, from the public `vocab_cards`.
+
+    Audit 2026-07-28 (§A1): the personal SRS study screen rendered no play button
+    at all, because `user_vocabulary` has no audio column — the wallet is built
+    from a learner's own transcripts, not from the curated cards. Every one of the
+    1 835 vocab_cards rows DOES have a working `audio_headword` (verified: 3 569
+    URLs, all HTTP 200), so resolve it by headword at serve time. Same pattern as
+    quiz_service._resolve_question_audio — no migration, no second writer.
+
+    Best-effort: a miss simply leaves the URL empty and the player falls back to
+    speechSynthesis, which is still better than the silent card it replaced.
+    """
+    keys = sorted({(h or "").strip().lower() for h in headwords} - {""})
+    if not keys:
+        return {}
+    try:
+        rows = (
+            supabase_admin.table("vocab_cards")
+            .select("headword, audio_headword")
+            .in_("headword", keys).execute()
+        ).data or []
+    except Exception as e:  # noqa: BLE001 — audio is an enhancement, never fatal
+        logger.warning("[flashcards] audio lookup failed (non-fatal): %s", e)
+        return {}
+    out: dict[str, str] = {}
+    for r in rows:
+        hw = (r.get("headword") or "").strip().lower()
+        url = (r.get("audio_headword") or "").strip()
+        if hw and url:
+            out.setdefault(hw, url)
+    return out
+
+
+def _with_audio(cards: list[dict]) -> list[dict]:
+    """Stamp `audio_headword` onto card views (in place) and return them."""
+    audio = _audio_by_headword([c.get("headword") for c in cards])
+    for c in cards:
+        c["audio_headword"] = audio.get((c.get("headword") or "").strip().lower(), "")
+    return cards
+
+
 def _vocab_card_view(vocab_row: dict, review_row: dict | None) -> dict:
     """
     Card-shaped JSON for the study page.  Pulled out so list_cards_in_stack
@@ -911,7 +953,8 @@ async def list_cards_in_stack(
     review_map = _fetch_reviews_by_vocab(sb, [r["id"] for r in vocab_rows if r.get("id")])
     return {
         "stack_id": stack_id,
-        "cards":    [_vocab_card_view(r, review_map.get(r["id"])) for r in vocab_rows],
+        "cards":    _with_audio(
+            [_vocab_card_view(r, review_map.get(r["id"])) for r in vocab_rows]),
     }
 
 
@@ -1083,7 +1126,7 @@ async def get_due_cards(
             # rather than surfacing a phantom card.
             continue
         cards.append(_vocab_card_view(v, r))
-    return {"cards": cards}
+    return {"cards": _with_audio(cards)}
 
 
 @user_router.get("/due/count")
