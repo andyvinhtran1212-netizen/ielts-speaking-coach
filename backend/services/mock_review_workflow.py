@@ -307,6 +307,40 @@ def release(review_id: UUID, admin_id: UUID) -> dict:
     return response.data[0]
 
 
+def save_speaking_assessment(review_id: UUID, admin_id: UUID, payload: dict) -> dict:
+    """Nhập/sửa bài chấm Speaking TRỰC TIẾP cho một review — đường nhập bằng
+    form console, thay cho script import docx. Ghi đúng hai chỗ mà cả luồng
+    duyệt lẫn TRF đang đọc: per_skill_notes.speaking (khối render cho học
+    viên) + ai_draft.speaking = {band} (ô điền sẵn; save_final_bands coi đây
+    là giấy phép nhận band ngoài required). Từ chối sau công bố."""
+    review = get_review(review_id)
+    if not review:
+        raise NotFoundError(f"Review {review_id} not found")
+    if review["status"] == "released":
+        raise ConflictError("Đã công bố — không sửa bài chấm Speaking nữa.")
+    bands = {k: _coerce_band((payload.get("bands") or {}).get(k))
+             for k in ("fc", "lr", "gra", "p")}
+    overall = ielts_round(sum(bands.values()) / 4.0)
+    spk = {
+        "meta":     payload.get("meta") or {},
+        "intro":    (payload.get("intro") or "").strip(),
+        "bands":    {**bands, "overall": overall},
+        "metrics":  payload.get("metrics") or [],
+        "sections": [sec for sec in (payload.get("sections") or [])
+                     if (sec.get("body") or sec.get("advice"))],
+    }
+    notes = dict(review.get("per_skill_notes") or {})
+    notes["speaking"] = spk
+    draft = dict(review.get("ai_draft") or {})
+    draft["speaking"] = {"band": overall}
+    supabase_admin.table("mock_exam_reviews").update(
+        {"per_skill_notes": notes, "ai_draft": draft},
+    ).eq("id", str(review_id)).execute()
+    logger.info("[mock-review] speaking assessment saved review=%s by=%s overall=%s",
+                review_id, admin_id, overall)
+    return {"review_id": str(review_id), "overall": overall}
+
+
 def save_final_bands(
     review_id: UUID,
     admin_id: UUID,
@@ -1074,6 +1108,15 @@ def get_queue(
     return reviews
 
 
+def _draft_band_value(v):
+    """ai_draft chứa band theo HAI hình dạng — {band: x} và số trần — đúng như
+    draftBandOf() phía console. Chỉ nhận dict là hình dạng số trần thành '—'
+    trên roster trong khi màn chi tiết vẫn thấy band (Codex #873)."""
+    if isinstance(v, dict):
+        return v.get("band")
+    return v if isinstance(v, (int, float)) else None
+
+
 def roster(mock_exam_id: str) -> list[dict]:
     """Per-exam class roster for the review console (2026-07-12) — one row per
     sitting with a per-skill preliminary snapshot. The console renders a grid:
@@ -1165,7 +1208,18 @@ def roster(mock_exam_id: str) -> list[dict]:
                 "band":           _wb[0],
                 "band_is_final":  _wb[1],
             },
-            "speaking":       {"count": len(s.get("speaking_session_ids") or [])},
+            # band: final nếu đã chốt, không thì bản nhập từ bài chấm trực tiếp
+            # (ai_draft.speaking) — cột S từng chỉ đếm bản ghi nền tảng, nên 13
+            # band Speaking chấm trực tiếp đã lưu mà bảng lớp vẫn hiện "—".
+            "speaking":       {
+                "count": len(s.get("speaking_session_ids") or []),
+                "band": ((rv.get("final_bands") or {}).get("speaking")
+                         if (rv.get("final_bands") or {}).get("speaking") is not None
+                         else _draft_band_value((rv.get("ai_draft") or {}).get("speaking"))),
+                # phân biệt band ĐÃ CHỐT với nháp — cột Writing đã giữ đúng
+                # ranh giới này, cột Speaking không được xoá nó (Codex #873)
+                "band_is_final": (rv.get("final_bands") or {}).get("speaking") is not None,
+            },
             "review_status":  rv.get("status"),
             "claimed":        bool(rv.get("claimed_by")),
             "needs_retest":   bool(s.get("needs_retest")),

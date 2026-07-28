@@ -376,6 +376,16 @@
     return parts.join(' · ');
   }
   function spkCell(s) {
+    // Band trước (thi trực tiếp hoặc đã chốt); số session chỉ là phụ chú.
+    // Nháp chưa chốt phải NHÌN KHÁC band đã chốt — cùng quy ước ~B của cột
+    // Writing, kẻo bảng lớp trưng một con số chưa giám khảo nào ký (Codex #873).
+    if (s && s.band != null) {
+      var b = 'B' + Number(s.band).toFixed(1);
+      var shown = s.band_is_final
+        ? '<b>' + b + '</b>'
+        : '<span class="mr-muted" title="Bài chấm trực tiếp — chưa chốt">~' + b + '</span>';
+      return shown + (s.count ? ' <span class="mr-muted">(' + s.count + ' session)</span>' : '');
+    }
     return (s && s.count) ? (s.count + ' session') : '<span class="mr-muted">—</span>';
   }
   // The "Trạng thái" column reads review_status — the whole lifecycle — not the
@@ -551,8 +561,27 @@
     }
     if (skill === 'speaking') {
       var ids = sitting.speaking_session_ids || [];
-      if (!ids.length) return '<p class="mr-muted">Chưa có bài Speaking.</p>';
-      return '<p class="mr-muted">' + ids.length + ' session:</p>' + ids.map(function (id) {
+      // Form nhập bài chấm TRỰC TIẾP — đường nhập chính từ nay (thay docx +
+      // script). Điền sẵn từ per_skill_notes.speaking nếu đã có (sửa được tới
+      // trước khi công bố). Overall server tự tính từ 4 tiêu chí.
+      var spk = ((current.review || {}).per_skill_notes || {}).speaking || {};
+      var sb = spk.bands || {};
+      var secs = spk.sections || [];
+      function secOf(i) { return secs[i] || {}; }
+      var CRIT = [['fc', 'Fluency & Coherence'], ['lr', 'Lexical Resource'],
+                  ['gra', 'Grammar'], ['p', 'Pronunciation']];
+      var form = '<div class="mr-spk-form"><h4>Bài chấm trực tiếp với giáo viên</h4>' +
+        '<label>Nhận xét chung<br><textarea data-spk="intro" rows="2">' + esc(spk.intro || '') + '</textarea></label>' +
+        CRIT.map(function (c, i) {
+          return '<div class="mr-spk-crit"><b>' + c[1] + '</b> ' +
+            'band <input data-spk-band="' + c[0] + '" type="number" min="0" max="9" step="0.5" value="' + (sb[c[0]] != null ? sb[c[0]] : '') + '" style="width:70px">' +
+            '<textarea data-spk-body="' + i + '" rows="2" placeholder="Nhận xét">' + esc(secOf(i).body || '') + '</textarea>' +
+            '<textarea data-spk-advice="' + i + '" rows="1" placeholder="Cách luyện">' + esc(secOf(i).advice || '') + '</textarea></div>';
+        }).join('') +
+        '<button class="av-btn av-btn--primary" id="spk-save-btn">Lưu bài chấm Speaking</button>' +
+        '<span class="mr-muted"> Lưu xong, ô band Speaking ở dưới sẽ được điền sẵn.</span></div>';
+      if (!ids.length) return form;
+      return form + '<p class="mr-muted">' + ids.length + ' session:</p>' + ids.map(function (id) {
         return '<div style="margin:4px 0"><a target="_blank" href="/pages/full-test-result.html?session_id=' + encodeURIComponent(id) + '">Nghe & xem transcript ↗</a></div>';
       }).join('');
     }
@@ -729,6 +758,8 @@
     var claimBtn = el('claim-btn');
     if (claimBtn) claimBtn.addEventListener('click', function () { doClaim(review.id); });
     el('save-btn').addEventListener('click', function () { doSave(review.id, v); });
+    var spkBtn = v.querySelector('#spk-save-btn');
+    if (spkBtn) spkBtn.addEventListener('click', function () { doSaveSpeaking(review.id, v); });
     el('release-btn').addEventListener('click', function () { doRelease(review.id); });
     v.querySelectorAll('[data-start-grade]').forEach(function (btn) {
       btn.addEventListener('click', function () {
@@ -738,6 +769,32 @@
         doStartGrading(essayId, tier, review.id);
       });
     });
+  }
+
+  async function doSaveSpeaking(reviewId, v) {
+    var bands = {};
+    var missing = [];
+    ['fc', 'lr', 'gra', 'p'].forEach(function (k) {
+      var n = parseFloat((v.querySelector('[data-spk-band="' + k + '"]') || {}).value);
+      if (isNaN(n)) missing.push(k); else bands[k] = n;
+    });
+    if (missing.length) { toast('Thiếu band: ' + missing.join(', ')); return; }
+    var CRIT_TITLES = ['1. Fluency & Coherence', '2. Lexical Resource',
+                       '3. Grammatical Range & Accuracy', '4. Pronunciation'];
+    var sections = CRIT_TITLES.map(function (t, i) {
+      return { title: t,
+               body: ((v.querySelector('[data-spk-body="' + i + '"]') || {}).value || '').trim(),
+               advice: ((v.querySelector('[data-spk-advice="' + i + '"]') || {}).value || '').trim() || null };
+    });
+    try {
+      var r = await window.api.post('/admin/mock-reviews/' + encodeURIComponent(reviewId) + '/speaking-assessment', {
+        bands: bands,
+        intro: (v.querySelector('[data-spk="intro"]') || {}).value || null,
+        sections: sections,
+      });
+      toast('Đã lưu bài chấm Speaking — overall ' + r.overall + '.');
+      openDetail(reviewId);   // nạp lại: ô band Speaking giờ được điền sẵn
+    } catch (e) { toast('Lưu thất bại: ' + (e && e.message)); }
   }
 
   async function doStartGrading(essayId, tier, reviewId) {
