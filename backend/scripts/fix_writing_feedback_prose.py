@@ -98,6 +98,14 @@ PROSE: dict[tuple[str, str], dict] = {
 }
 
 
+def _current_version(essay_id: str) -> int:
+    r = (supabase_admin.table("writing_essays").select("current_version")
+         .eq("id", essay_id).limit(1).execute()).data
+    if not r or not r[0].get("current_version"):
+        raise SystemExit(f"essay {essay_id}: không đọc được current_version")
+    return r[0]["current_version"]
+
+
 def _targets() -> list[dict]:
     ex = supabase_admin.table("mock_exams").select("id").eq("code", EXAM).execute()
     if not ex.data:
@@ -111,6 +119,10 @@ def _targets() -> list[dict]:
             k = (s["user_id"][:8], label)
             if k in PROSE and s.get(key):
                 out.append({"user": k[0], "task": label, "essay_id": s[key], **PROSE[k]})
+    keys = [(o["user"], o["task"]) for o in out]
+    dup = {k for k in keys if keys.count(k) > 1}
+    if dup:
+        raise SystemExit(f"tiền tố user khớp NHIỀU lượt thi (retake/void/va chạm): {sorted(dup)} — dừng, không đoán")
     missing = set(PROSE) - {(o["user"], o["task"]) for o in out}
     if missing:
         raise SystemExit(f"không khớp được bài nào cho: {sorted(missing)}")
@@ -127,6 +139,7 @@ def main() -> int:
         r = (supabase_admin.table("writing_feedback")
              .select("id,overall_band_score,feedback_json")
              .eq("essay_id", t["essay_id"]).eq("source", "composed")
+             .eq("version", _current_version(t["essay_id"]))
              .limit(1).execute()).data
         if not r:
             raise SystemExit(f"{t['user']} {t['task']}: không có bản composed")
