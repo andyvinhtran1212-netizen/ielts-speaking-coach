@@ -27,6 +27,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FRONTEND = path.join(__dirname, '..');
 const CSS_DIR = path.join(FRONTEND, 'css');
 const PUBLIC = path.join(FRONTEND, 'public');
+// Next layouts link the same stylesheets by the same URLs as the legacy pages
+// (FE migration coexistence), so they are subject to the same font contract.
+const APP = path.join(FRONTEND, 'app');
 
 // The only families the system sanctions, and the token each is reached by.
 const SANCTIONED = {
@@ -111,7 +114,10 @@ describe('font-system ratchet (DEBT-2026-07-24-J)', () => {
   });
 
   test('grammar pages are fully converged — DM Sans is gone site-wide', () => {
-    const pages = walk(PUBLIC, ['.html']).filter((f) => !f.includes('legacy'));
+    const pages = [
+      ...walk(PUBLIC, ['.html']).filter((f) => !f.includes('legacy')),
+      ...walk(APP, ['.tsx']),
+    ];
     const stillLinking = pages
       .filter((f) => /family=DM\+Sans/.test(readFileSync(f, 'utf8')))
       .map((f) => path.basename(f));
@@ -128,10 +134,13 @@ describe('font-system ratchet (DEBT-2026-07-24-J)', () => {
     // Catches the failure this change fixed: the grammar pages named
     // --av-font-sans in CSS but never linked Plus Jakarta, so the token
     // silently fell back to ui-sans-serif.
-    for (const file of walk(PUBLIC, ['.html'])) {
+    // Next layouts count too: (public-content)/layout.tsx links grammar-wiki.css
+    // by the same URL, and DEBT-J step (b) swept only frontend/public — it kept
+    // linking DM Sans while the CSS had already moved to --av-font-sans.
+    for (const file of [...walk(PUBLIC, ['.html']), ...walk(APP, ['.tsx'])]) {
       const html = readFileSync(file, 'utf8');
       if (!/css\/grammar-wiki\.css/.test(html)) continue;
-      const base = path.basename(file);
+      const base = path.relative(FRONTEND, file);
       assert.match(html, /family=Plus\+Jakarta\+Sans/,
         `${base} loads grammar-wiki.css (which uses --av-font-sans) but never links Plus Jakarta`);
       assert.match(html, /family=JetBrains\+Mono/,
