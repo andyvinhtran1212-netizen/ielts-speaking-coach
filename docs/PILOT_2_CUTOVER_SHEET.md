@@ -2,13 +2,13 @@
 
 Theo `docs/PILOT_ENTRY_CHECKLIST_2026-07-13.md` §6.2.
 
-> **TRẠNG THÁI VẬN HÀNH: CHUẨN BỊ SẴN, CHƯA cutover.** Diff đã build + verify
-> (route-ownership + suite); PR **DRAFT**. **[CẬP NHẬT 2026-07-25 theo ADR-013]**
-> gate KHÔNG còn là "soak 21 ngày" — grammar ~1 view/ngày là route low-traffic
-> ⇒ dùng **early-stage rollout profile**: cutover tagged → **48–72h quan sát +
-> synthetic n≥72 + risk acceptance ghi rõ**. `/grammar/:cat/:slug` hiện VẪN
-> legacy trên production; bản Next dark-launch ở `/grammar-preview/...` (đã gỡ
-> URL đó trong branch này — sau cutover chỉ còn canonical).
+> **TRẠNG THÁI VẬN HÀNH: ĐÃ CUTOVER 2026-07-28 22:3x +07** (PR #754 merged,
+> release `524fd210`). `/grammar/:cat/:slug` trên production **đang chạy Next**;
+> `/grammar-preview/...` không còn tồn tại. Gate áp dụng là **early-stage
+> rollout profile** (ADR-013): cutover tagged → **48–72h quan sát + synthetic
+> n≥72 + risk acceptance ghi rõ** — KHÔNG phải soak-21-ngày.
+> **Cửa sổ quan sát đang mở** — xem mục cuối trang. Phần dưới giữ nguyên văn
+> lúc prep để đọc được lịch sử quyết định.
 
 ## Thay đổi (atomic — một commit)
 
@@ -47,8 +47,14 @@ File giữ trên disk = instant-rollback target.
 1. `/grammar/tenses/present-simple` = Next SSR (`__next_f`); title/meta
    server-rendered (SEO — mục tiêu pilot 2); TOC/breadcrumb/body render đúng;
    guest CTA + save button hoạt động; zero console error.
-2. **PPR/cache**: response có streamed shell; article 404 (slug sai) = HTTP 404
-   thật (notFound trong generateMetadata — không soft-200).
+2. **PPR/cache**: response có streamed shell; article không tồn tại phải KHÔNG
+   được index. **ĐÍNH CHÍNH 28/07 (đo trên production sau cutover)** — câu
+   "= HTTP 404 thật" viết lúc prep là SAI với PPR: khi **category hợp lệ +
+   slug sai** (`/grammar/tenses/<slug-bịa>`), shell đã stream nên status là
+   **200 + `<meta name="robots" content="noindex">` + thân 404**; chỉ khi
+   **category cũng sai** (`/grammar/<cat-bịa>/...`) mới ra **404 cứng**.
+   Legacy cùng ca đó trả **200 KHÔNG noindex** ⇒ Next vẫn tốt hơn về SEO,
+   không phải hồi quy. Tiêu chí đúng = "noindex + không soft-200-được-index".
 3. Legacy nguyên vẹn: grammar wiki home `/grammar.html`, `/pages/home.html`,
    `/` (pilot 1 Next) đều đúng.
 4. Auto-promote: release = main HEAD; drift job xanh.
@@ -137,3 +143,38 @@ nhánh này đã refresh qua nó — suite **5617 pass / 0 fail / 0 skipped**,
 Frozen estimate pilot 2 = 8h. Đã tiêu tới prep: build ~1.5h (#741) + prep ~0.5h.
 Số đo cutover (đo TẠI cutover): JS route-specific, Lighthouse, API count, cache
 hit-rate, visual/SEO parity (title/meta), error rate 7 ngày trước/sau.
+
+## ✅ CUTOVER ĐÃ THỰC HIỆN — 2026-07-28 22:3x +07
+
+Release: **`524fd210`** (merge PR #754). Auto-promote: production
+`runtime-config.release` = main HEAD ngay ở lần poll đầu (≤20s).
+
+**Bằng chứng verify (đo trên production, cadence thưa):**
+
+| Mục | Kết quả |
+|---|---|
+| Canonical `/grammar/:cat/:slug` | **Next SSR** (`__next_f`), 200, ~116KB |
+| Title/description | server-rendered đúng định dạng legacy (mục tiêu SEO của pilot 2) — vd `Present Perfect — IELTS Grammar \| Aver Learning` |
+| Phủ toàn bộ danh mục | **11/11 category** (tenses, grammar-for-meaning, grammar-for-writing, grammar-for-reading, verb-patterns, modifiers, sentence-structures, parts-of-speech, foundations, ielts-grammar-lab, error-clinic) — mỗi cái 1 bài thật: **200 + Next SSR + title đúng** |
+| Trình duyệt thật | 2 bài (`tenses/present-perfect`, `grammar-for-meaning/conditionals`): chrome nav + breadcrumb + TOC + thân bài + nút Lưu bài render đúng, **0 console error** |
+| Font parity (sau #877) | trang phục vụ đúng link Plus Jakarta + JetBrains + Lora |
+| Legacy nguyên vẹn | `/grammar.html` 200 legacy · `/pages/grammar-article.html?...` 200 legacy (target rollback vẫn trên disk) · `/pages/home.html` 200 legacy · `/` 200 Next (pilot 1) |
+| Rewrite đã gỡ | `next.config.ts` trên main không còn `source: '/grammar/:category/:slug'` |
+| Synthetic n=75 TRƯỚC cutover (`/grammar-preview/...`) | run `30373000306` — LCP p75 **956ms**, 0 lỗi |
+| Synthetic n=75 SAU cutover (`/grammar/tenses/present-perfect`) | run `30374618340` — LCP p75 **848ms**, 0 lỗi (ceiling 4000ms) |
+
+**Cửa sổ quan sát ADR-013 mở từ 2026-07-28 22:3x +07** → tối thiểu 48h
+(**30/07 ~22:30**), tối đa 72h (**31/07 ~22:30**). Mỗi ngày: admin *Báo lỗi* →
+*Rollback trigger* → route `/grammar` → **Đo**, cộng 1 lần dispatch Production
+Smoke; ghi vào bảng dưới. Hết cửa sổ, nếu không breach ⇒ tuyên PASS.
+
+| Ngày | Views/Lỗi (24h) | LCP p75 organic | Smoke p75 (n=75) | Verdict |
+|---|---|---|---|---|
+| D0 28/07 | — (mới cutover) | — | **848ms / 0 lỗi** | ok |
+| D1 29/07 | | | | |
+| D2 30/07 | | | | |
+
+Rollback nếu: persistence/security breach (ngay lập tức), P1 trang không render,
+error-rate > 2× baseline/30ph, LCP p75 > 1.5×/24h, cache poisoning. Cơ chế:
+Instant Rollback ≤12s → điều tra → **Undo Rollback DUY NHẤT** (không bao giờ
+"rollback tiến" — bài học Gate B đã làm production kẹt pin 5 tiếng).
