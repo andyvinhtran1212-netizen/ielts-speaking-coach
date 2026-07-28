@@ -1,7 +1,7 @@
-// Pilot 2 — public grammar article, dark-launched at
-// /grammar-preview/[category]/[slug] (plan Phase 2). The canonical
-// /grammar/:category/:slug stays legacy-owned until its atomic cutover
-// (route-ownership check enforces the pairing).
+// Pilot 2 — public grammar article. CUTOVER (prep): canonical
+// /grammar/:category/:slug is now this Next app route; the legacy rewrite
+// was removed atomically in the same change (route-ownership check enforces
+// the pairing).
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 
