@@ -324,7 +324,9 @@
         <!-- Neutral label — boot() sets "← Về Grammar" / "← Về Từ vựng" per skill_area. -->
         <!-- Neutral default; boot() sets the real target (Luyện tập / Grammar) per skill_area. -->
         <a id="qz-back" href="/pages/vocab-practice.html" class="av-button av-button-primary">← Quay lại</a>
-        <a href="/pages/quiz-progress.html" class="av-button av-button-secondary">📊 Thống kê của tôi</a>
+        <!-- Neutral default; wireChrome() appends ?skill_area= so the stats page
+             scopes to the skill just practised (audit 2026-07-28 §C3). -->
+        <a id="qz-stats" href="/pages/quiz-progress.html" class="av-button av-button-secondary">📊 Thống kê của tôi</a>
       </div>
     </div>
 
@@ -407,6 +409,9 @@
     const _params = new URLSearchParams(location.search);
     const bankId = _params.get('bank');
     const skillArea = _params.get('skill_area');
+    // Scopes the bank lookup to one lesson so a topic card can start its own
+    // Quick-Check directly instead of bouncing through the picker (§C6).
+    const topicId = _params.get('topic_id');
     // Grammar banks reuse this player but the copy must not talk about "từ/thẻ từ"
     // (item_keys are grammar points, not words). Set once in wireChrome().
     let isGrammar = false;
@@ -1006,10 +1011,17 @@
       if (bankId) return bankId;
       if (!skillArea) { fail('Thiếu tham số bank.'); return null; }
       let banks;
-      try { banks = await window.api.get('/api/quiz/banks?skill_area=' + encodeURIComponent(skillArea)); }
+      const q = '/api/quiz/banks?skill_area=' + encodeURIComponent(skillArea)
+              + (topicId ? '&topic_id=' + encodeURIComponent(topicId) : '');
+      try { banks = await window.api.get(q); }
       catch (e) { fail('Không tải được danh sách bài: ' + e.message); return null; }
       banks = Array.isArray(banks) ? banks : [];
-      if (!banks.length) { fail('Chưa có bài luyện nào được mở. Vui lòng quay lại sau.'); return null; }
+      // A topic that resolves to nothing must not dead-end on "chưa có bài luyện":
+      // fall back to the picker, which lists every lesson.
+      if (!banks.length) {
+        if (topicId) { location.replace('/pages/vocab-practice.html'); return null; }
+        fail('Chưa có bài luyện nào được mở. Vui lòng quay lại sau.'); return null;
+      }
       if (banks.length > 1) { location.replace('/pages/vocab-practice.html'); return null; }
       return banks[0].id;
     }
@@ -1037,6 +1049,9 @@
       } else {
         $('qz-sub').textContent = 'Trả lời đúng mỗi từ ở nhiều dạng câu (có ít nhất 1 câu tự gõ) để được tính là thuộc — bài sẽ tự lặp lại từ bạn còn sai.';
       }
+      const stats = $('qz-stats');
+      const area = (bank.bank && bank.bank.skill_area) || '';
+      if (stats && area) stats.href = '/pages/quiz-progress.html?skill_area=' + encodeURIComponent(area);
       if (bank.bank && bank.bank.skill_area === 'grammar') {
         if (chrome) chrome.setAttribute('active', 'grammar');
         topBack.href = '/grammar.html'; topLabel.textContent = 'Grammar';

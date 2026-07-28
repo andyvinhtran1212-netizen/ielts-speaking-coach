@@ -46,6 +46,7 @@ class _FakeRpc:
 class _FakeQuery:
     def __init__(self, p, t):
         self._p = p; self._t = t; self._op = None; self._payload = None; self._filters = []; self._count = False
+        self._range = None
 
     def insert(self, payload): self._op = "insert"; self._payload = payload; return self
     def upsert(self, payload, **k): self._op = "upsert"; self._payload = payload; return self
@@ -57,12 +58,19 @@ class _FakeQuery:
     def in_(self, c, vals): self._filters.append(("in", c, list(vals))); return self
     def order(self, *a, **k): return self
     def limit(self, *a, **k): return self
+    # PostgREST range() is an inclusive offset window — the paging primitive
+    # mastered_item_keys() uses so a long word_stats list isn't truncated.
+    def range(self, a, b): self._range = (a, b); return self
 
     def execute(self):
         data = self._p.responses.get((self._t, self._op), [])
         self._p.calls.append({"table": self._t, "op": self._op, "payload": self._payload, "filters": list(self._filters)})
         if isinstance(data, Exception):
             raise data
+        if self._range is not None:
+            lo, hi = self._range
+            return MagicMock(data=data[lo:hi + 1],
+                             count=(len(data) if self._count else None))
         return MagicMock(data=data, count=(len(data) if self._count else None))
 
 
@@ -381,6 +389,9 @@ def test_student_progress_groups_by_bank_and_lists_sessions():
             {"code": "L99", "accuracy": None, "words_mastered": 0, "duration_sec": None,
              "ended_at": None},                                          # abandoned on load
         ],
+        # The lifetime total is a DISTINCT word count (see mastered_item_keys),
+        # so it reads the rows rather than summing the per-bank aggregate.
+        ("quiz_word_stats", "select"): [{"item_key": "Tenure"}, {"item_key": "Commute"}],
     })
     with patch.object(quiz_service, "supabase_admin", fake):
         out = quiz_service.student_progress(_USER)
@@ -394,7 +405,7 @@ def test_student_progress_groups_by_bank_and_lists_sessions():
     t = out["totals"]
     assert t["sessions"] == 1
     assert t["time_sec"] == 120
-    assert t["words_mastered"] == 2          # summed across banks (page-safe RPC)
+    assert t["words_mastered"] == 2          # distinct words, not summed bank rows
     assert t["avg_accuracy"] == 0.8
 
 
@@ -476,3 +487,236 @@ def test_admin_student_detail_scoped_to_skill_and_wraps_identity():
     assert any(c["table"] == "quiz_sessions"
                and any(f[0] == "in" and f[1] == "bank_id" for f in c["filters"])
                for c in fake.calls)
+
+
+# ── skill scoping on the LEARNER's own progress (audit 2026-07-28 §C3) ────────
+
+
+def test_student_progress_scopes_banks_and_sessions_by_skill_area():
+    """The vocab entry point ("📊 Tiến độ luyện tập" on the Vocabulary page) must
+    not list the learner's grammar banks or grammar sessions. admin_student_detail
+    already scoped its view; the learner's own did not."""
+    fake = _FakeSupabase(responses={
+        ("rpc", "quiz_user_bank_progress"): [
+            {"bank_id": "v1", "mastered": 5, "in_progress": 1},
+            {"bank_id": "g1", "mastered": 9, "in_progress": 0},
+        ],
+        ("quiz_banks", "select"): [
+            {"id": "v1", "code": "L08", "title": "Env", "skill_area": "vocab", "words_count": 24},
+            {"id": "g1", "code": "G01", "title": "Tenses", "skill_area": "grammar", "words_count": 12},
+        ],
+        ("quiz_sessions", "select"): [{"code": "L08", "accuracy": 0.9, "ended_at": "2026-07-01"}],
+        # Only the vocab bank's words — the scoped read never asks for g1's.
+        ("quiz_word_stats", "select"): [
+            {"item_key": "Carbon footprint"}, {"item_key": "Biodiversity"},
+            {"item_key": "Gridlock"}, {"item_key": "Mobility"}, {"item_key": "Emission"},
+        ],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.student_progress(_USER, skill_area="vocab")
+
+    assert [b["code"] for b in out["banks"]] == ["L08"]
+    # Grammar mastery must not leak into the headline number either.
+    assert out["totals"]["words_mastered"] == 5
+    # Sessions are scoped by bank_id (before the 20-row cap), not by `code`.
+    assert any(c["table"] == "quiz_sessions"
+               and any(f[0] == "in" and f[1] == "bank_id" for f in c["filters"])
+               for c in fake.calls)
+
+
+def test_student_progress_unscoped_keeps_every_skill():
+    """No skill_area → unchanged behaviour (the /api/quiz/progress default)."""
+    fake = _FakeSupabase(responses={
+        ("rpc", "quiz_user_bank_progress"): [
+            {"bank_id": "v1", "mastered": 5, "in_progress": 1},
+            {"bank_id": "g1", "mastered": 9, "in_progress": 0},
+        ],
+        ("quiz_banks", "select"): [
+            {"id": "v1", "code": "L08", "skill_area": "vocab"},
+            {"id": "g1", "code": "G01", "skill_area": "grammar"},
+        ],
+        ("quiz_sessions", "select"): [],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.student_progress(_USER)
+    assert sorted(b["code"] for b in out["banks"]) == ["G01", "L08"]
+
+
+def test_bank_ids_for_skill_fails_closed_on_db_error():
+    """A lookup failure must 500, never fall through to an UNSCOPED read — a
+    vocabulary surface silently showing grammar practice is the bug being fixed."""
+    fake = _FakeSupabase(responses={("quiz_banks", "select"): RuntimeError("boom")})
+    with patch.object(quiz_service, "supabase_admin", fake):
+        with pytest.raises(HTTPException) as e:
+            quiz_service._bank_ids_for_skill("vocab")
+    assert e.value.status_code == 500
+
+
+# ── mistakes review (audit 2026-07-28 §C2) ───────────────────────────────────
+
+
+def _mistakes_fake(over=None):
+    responses = {
+        ("quiz_attempts", "select"): [
+            {"bank_id": _BANK, "item_key": "Gridlock", "qid": "gridlock_v1",
+             "skill": "meaning", "type": "mcq", "answer_given": "2",
+             "created_at": "2026-07-20T10:00:00+00:00"},
+            {"bank_id": _BANK, "item_key": "Gridlock", "qid": "gridlock_v1",
+             "skill": "meaning", "type": "mcq", "answer_given": "0",
+             "created_at": "2026-07-19T10:00:00+00:00"},
+            {"bank_id": _BANK, "item_key": "Mobility", "qid": "mobility_v5",
+             "skill": "usage", "type": "gap_text", "answer_given": "mobil",
+             "created_at": "2026-07-18T10:00:00+00:00"},
+        ],
+        ("quiz_questions", "select"): [
+            {"bank_id": _BANK, "qid": "gridlock_v1", "item_key": "Gridlock",
+             "prompt": "Từ **Gridlock** nghĩa là gì?", "input": "choice", "type": "mcq",
+             "skill": "meaning", "options": ["A", "B", "C", "D"], "answer": 3,
+             "explain": "Gridlock = tắc nghẽn.", "hint": ""},
+            {"bank_id": _BANK, "qid": "mobility_v5", "item_key": "Mobility",
+             "prompt": "Urban ____ matters.", "input": "text", "type": "gap_text",
+             "skill": "usage", "accept": ["mobility"], "explain": "Đáp án: mobility."},
+        ],
+        ("quiz_banks", "select"): [
+            {"id": _BANK, "code": "L11", "title": "Transport", "skill_area": "vocab"}],
+        ("quiz_word_stats", "select"): [
+            {"bank_id": _BANK, "item_key": "Gridlock", "status": "mastered",
+             "wrong_count": 2, "correct_count": 3, "is_difficult": True}],
+    }
+    responses.update(over or {})
+    return _FakeSupabase(responses=responses)
+
+
+def test_student_mistakes_groups_by_word_and_renders_answers():
+    fake = _mistakes_fake()
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.student_mistakes(_USER, skill_area="vocab")
+
+    by_key = {i["item_key"]: i for i in out["items"]}
+    assert set(by_key) == {"Gridlock", "Mobility"}
+    assert out["total_missed_words"] == 2
+
+    g = by_key["Gridlock"]
+    assert g["code"] == "L11" and g["status"] == "mastered" and g["is_difficult"]
+    assert len(g["questions"]) == 1          # two attempts on ONE question
+    q = g["questions"][0]
+    assert q["wrong_times"] == 2
+    # quiz_attempts stores the option INDEX; the learner must see the option text.
+    assert q["your_answer"] == "C"           # answer_given "2" → options[2]
+    assert q["correct_answer"] == "D"        # answer 3 → options[3]
+    assert q["explain"] == "Gridlock = tắc nghẽn."
+
+    m = by_key["Mobility"]["questions"][0]
+    assert m["your_answer"] == "mobil"       # typed text passes through
+    assert m["correct_answer"] == "mobility"  # accept[0]
+
+
+def test_student_mistakes_keeps_the_latest_wrong_answer_per_question():
+    """Newest-first: the answer shown is the most recent wrong one, not the first."""
+    fake = _mistakes_fake()
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.student_mistakes(_USER, skill_area="vocab")
+    g = next(i for i in out["items"] if i["item_key"] == "Gridlock")
+    assert g["questions"][0]["last_wrong_at"] == "2026-07-20T10:00:00+00:00"
+    assert g["questions"][0]["your_answer"] == "C"      # the 2026-07-20 answer
+
+
+def test_student_mistakes_empty_when_skill_has_no_banks():
+    fake = _mistakes_fake({("quiz_banks", "select"): []})
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.student_mistakes(_USER, skill_area="vocab")
+    assert out == {"items": [], "total_missed_words": 0}
+
+
+def test_student_mistakes_skips_a_retired_question():
+    """A question deleted since the attempt has nothing to show — drop it rather
+    than render a card with an empty prompt."""
+    fake = _mistakes_fake({("quiz_questions", "select"): []})
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.student_mistakes(_USER, skill_area="vocab")
+    assert out["items"] == []
+
+
+def test_student_mistakes_renders_boolean_and_syllable_answers():
+    fake = _mistakes_fake({
+        ("quiz_attempts", "select"): [
+            {"bank_id": _BANK, "item_key": "X", "qid": "b1", "answer_given": "true",
+             "created_at": "2026-07-20T10:00:00+00:00"},
+            {"bank_id": _BANK, "item_key": "X", "qid": "s1", "answer_given": "1",
+             "created_at": "2026-07-20T09:00:00+00:00"},
+        ],
+        ("quiz_questions", "select"): [
+            {"bank_id": _BANK, "qid": "b1", "item_key": "X", "prompt": "P",
+             "input": "boolean", "answer": 0},
+            {"bank_id": _BANK, "qid": "s1", "item_key": "X", "prompt": "P2",
+             "input": "syllable", "segments": ["au", "ton", "o"], "answer": 2},
+        ],
+        ("quiz_word_stats", "select"): [],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.student_mistakes(_USER)
+    qs = {q["qid"]: q for q in out["items"][0]["questions"]}
+    assert qs["b1"]["your_answer"] == "Đúng" and qs["b1"]["correct_answer"] == "Sai"
+    assert qs["s1"]["your_answer"] == "ton" and qs["s1"]["correct_answer"] == "o"
+
+
+def test_totals_words_mastered_counts_distinct_words_not_bank_rows():
+    """A word in two lessons is ONE word. Summing the per-bank counts made this
+    header disagree with the Vocabulary hub tile (141 vs 136 for one learner)."""
+    fake = _FakeSupabase(responses={
+        ("rpc", "quiz_user_bank_progress"): [
+            {"bank_id": "v1", "mastered": 2, "in_progress": 0},
+            {"bank_id": "v2", "mastered": 2, "in_progress": 0},
+        ],
+        ("quiz_banks", "select"): [
+            {"id": "v1", "code": "L11", "skill_area": "vocab"},
+            {"id": "v2", "code": "L21", "skill_area": "vocab"},
+        ],
+        ("quiz_sessions", "select"): [],
+        # "Autonomous" is mastered in BOTH lessons.
+        ("quiz_word_stats", "select"): [
+            {"item_key": "Autonomous"}, {"item_key": "Gridlock"},
+            {"item_key": "autonomous"}, {"item_key": "Robotics"},
+        ],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.student_progress(_USER, skill_area="vocab")
+    assert sum(b["mastered"] for b in out["banks"]) == 4     # per-bank rows
+    assert out["totals"]["words_mastered"] == 3              # distinct words
+
+
+def test_mastered_item_keys_is_empty_without_banks():
+    """No banks → no query at all (an unfiltered in_() would read every bank)."""
+    fake = _FakeSupabase(responses={("quiz_word_stats", "select"): [{"item_key": "X"}]})
+    assert quiz_service.mastered_item_keys(fake, _USER, []) == set()
+    assert fake.calls == []
+
+
+def test_student_mistakes_strips_the_audio_placeholder_from_prompts():
+    """`{{audio}}` is a player placeholder, not prompt text. The review screen has
+    no 🔊 control to replace it with, so a raw prompt put the literal token in front
+    of the learner (16 of 47 cards on real data). Also covers the `**{{audio}}**`
+    wrapper: stripping the bare token there would leave `****` behind."""
+    fake = _mistakes_fake({
+        ("quiz_attempts", "select"): [
+            {"bank_id": _BANK, "item_key": "X", "qid": "a1", "answer_given": "sup",
+             "created_at": "2026-07-20T10:00:00+00:00"},
+            {"bank_id": _BANK, "item_key": "X", "qid": "a2", "answer_given": "sup",
+             "created_at": "2026-07-20T09:00:00+00:00"},
+        ],
+        ("quiz_questions", "select"): [
+            {"bank_id": _BANK, "qid": "a1", "item_key": "X", "input": "text",
+             "accept": ["surveillance"],
+             "prompt": 'Gõ từ tiếng Anh có nghĩa: "Sự giám sát"  {{audio}}'},
+            {"bank_id": _BANK, "qid": "a2", "item_key": "X", "input": "text",
+             "accept": ["surveillance"],
+             "prompt": "Nghe rồi gõ lại. **{{audio}}**"},
+        ],
+        ("quiz_word_stats", "select"): [],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.student_mistakes(_USER)
+    prompts = {q["qid"]: q["prompt"] for q in out["items"][0]["questions"]}
+    assert prompts["a1"] == 'Gõ từ tiếng Anh có nghĩa: "Sự giám sát"'
+    assert prompts["a2"] == "Nghe rồi gõ lại."
+    assert not any("{{" in p or "**" in p for p in prompts.values())

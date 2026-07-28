@@ -91,7 +91,10 @@ describe('Pha 5a — analytics + progress', () => {
     assert.match(html, /Từ dễ sai/);
   });
   test('student progress page reads /api/quiz/progress', () => {
-    assert.match(progress, /api\.get\('\/api\/quiz\/progress'\)/);
+    // Audit 2026-07-28 §C3 — the call now carries ?skill_area= so the page
+    // scopes to the skill the learner came from instead of mixing vocab +
+    // grammar banks and sessions into one list.
+    assert.match(progress, /api\.get\('\/api\/quiz\/progress' \+ qs\(\)\)/);
     assert.match(progress, /Đã thuộc/);
   });
   test('player summary links to the progress page', () => {

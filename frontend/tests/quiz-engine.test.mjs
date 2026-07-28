@@ -68,6 +68,36 @@ describe('gradeQuestion', () => {
   test('text: case_sensitive opts out of tolerance (precise)', () => {
     assert.equal(gradeQuestion({ input: 'text', type: 'gap_text', accept: ['Alpha'], case_sensitive: true }, 'Alpna'), false);
   });
+  // Audit 2026-07-28 §B2 — the long-PHRASE exception. A spelling item guards the
+  // orthography of a WORD; that reasoning doesn't reach a 26-char multi-word phrase
+  // whose single accepted form must otherwise be typed letter-perfect (163 such
+  // items live in the vocab banks). The guard stays tight enough that short minimal
+  // pairs are unaffected.
+  test('text: spelling tolerates one typo in a LONG multi-word phrase', () => {
+    const q = { input: 'text', type: 'spelling', accept: ['climb the corporate ladder'] };
+    assert.equal(gradeQuestion(q, 'climb the corporate ladder'), true);
+    assert.equal(gradeQuestion(q, 'climb the corporate laddr'), true);   // 1 deletion
+    assert.equal(gradeQuestion(q, 'climb the corprate ladder'), true);   // 1 deletion mid-phrase
+    assert.equal(gradeQuestion(q, 'climb the corporate stairs'), false); // still >1 edit
+  });
+  test('text: spelling stays STRICT for short phrases (minimal-pair safety)', () => {
+    // 3 words but only 10 chars — "in the bed" is one edit from "in the red".
+    const q = { input: 'text', type: 'spelling', accept: ['in the red', 'in the black'] };
+    assert.equal(gradeQuestion(q, 'in the red'), true);
+    assert.equal(gradeQuestion(q, 'in the bed'), false);
+    // 2 words, long enough in chars but under the word bar.
+    const q2 = { input: 'text', type: 'spelling', accept: ['carbon footprint'] };
+    assert.equal(gradeQuestion(q2, 'carbon footprnt'), false);
+  });
+  test('text: one SHORT accepted form keeps the whole spelling item strict', () => {
+    // The "csr" abbreviation is exactly the minimal pair that must not go fuzzy,
+    // so its presence pins the item back to exact matching.
+    const q = { input: 'text', type: 'spelling',
+                accept: ['corporate social responsibility', 'csr'] };
+    assert.equal(gradeQuestion(q, 'corporate social responsibility'), true);
+    assert.equal(gradeQuestion(q, 'corporate social responsibilty'), false);
+    assert.equal(gradeQuestion(q, 'csr'), true);
+  });
   test('text: literal grading on a text answer is done via type (spelling/missing_letters), the persisted signal', () => {
     // exact/fuzzy frontmatter flags are NOT persisted, so they must NOT be the opt-out.
     assert.equal(gradeQuestion({ input: 'text', type: 'spelling', accept: ['environment'] }, 'enviroment'), false);
