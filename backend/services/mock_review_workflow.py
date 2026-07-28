@@ -356,9 +356,26 @@ def save_final_bands(
     # one review from ever saving). Required skills stay required; an extra
     # band the examiner chose to enter is accepted and counted — dropping it
     # silently is how a signed-off band vanishes from the student's TRF.
-    extras = tuple(s for s in _SKILLS
-                   if s not in skills and final_bands.get(s) is not None)
-    banded = tuple(skills) + extras
+    # ...but ONLY for a skill this review carries a live assessment for (the
+    # import stamps ai_draft/per_skill_notes). Without that gate a stale tab
+    # could post Listening/Reading bands onto a writing-only retake; and once
+    # a live assessment exists, leaving its band blank would release a
+    # 3-skill overall while the TRF shows full Speaking feedback (Codex, #872).
+    def _has_live(sk):
+        return ((review.get("ai_draft") or {}).get(sk) is not None
+                or (review.get("per_skill_notes") or {}).get(sk) is not None)
+    live_extras = tuple(s for s in _SKILLS if s not in skills and _has_live(s))
+    bogus = [s for s in _SKILLS if s not in skills and s not in live_extras
+             and final_bands.get(s) is not None]
+    if bogus:
+        raise ValidationError(
+            "band cho kỹ năng không thuộc bài thi này: " + ", ".join(bogus))
+    forgotten_live = [s for s in live_extras if final_bands.get(s) is None]
+    if forgotten_live:
+        raise ValidationError(
+            "final_bands missing skill(s): " + ", ".join(forgotten_live)
+            + " (có bài chấm trực tiếp — không được bỏ trống)")
+    banded = tuple(skills) + live_extras
     stored = {
         s: _coerce_band(final_bands[s]) for s in banded if final_bands.get(s) is not None
     }

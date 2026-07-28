@@ -5238,6 +5238,8 @@ def _lrw_sitting(fake_db, svc):
 def test_extra_speaking_band_is_stored_not_dropped(fake_db, svc, wf):
     sid = _lrw_sitting(fake_db, svc)
     review = wf.get_review_for_sitting(sid)
+    # the live-assessment import stamps the draft — that marker is the licence
+    wf._merge_review_ai_draft(sid, {"speaking": {"band": 4.0}})
     admin = uuid4()
     wf.claim(review["id"], admin)
     saved = wf.save_final_bands(
@@ -5271,8 +5273,40 @@ def test_required_skills_still_enforced_with_extra_present(fake_db, svc, wf):
     review = wf.get_review_for_sitting(sid)
     admin = uuid4()
     wf.claim(review["id"], admin)
+    wf._merge_review_ai_draft(sid, {"speaking": {"band": 5.0}})
     import pytest as _pytest
     with _pytest.raises(Exception):
         # speaking present but a REQUIRED skill missing → still an error
         wf.save_final_bands(review["id"], admin,
                             {"listening": 6.0, "writing": 6.0, "speaking": 5.0})
+
+
+def test_extra_band_without_live_assessment_is_refused_loudly(fake_db, svc, wf):
+    """A stale tab posting Listening bands onto a writing-only-style sitting
+    must ERROR, not be stored — and not be silently dropped either (a silent
+    drop is how the original bug shipped)."""
+    sid = _lrw_sitting(fake_db, svc)
+    review = wf.get_review_for_sitting(sid)
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    import pytest as _pytest
+    with _pytest.raises(Exception):
+        wf.save_final_bands(
+            review["id"], admin,
+            {"listening": 6.0, "reading": 6.0, "writing": 6.0, "speaking": 5.0})
+
+
+def test_live_assessed_speaking_cannot_be_left_blank(fake_db, svc, wf):
+    """Once the review carries a live Speaking assessment, releasing a 3-skill
+    overall while the TRF shows full Speaking feedback is a contradiction —
+    the blank is a forgotten entry, not a choice (Codex, #872)."""
+    sid = _lrw_sitting(fake_db, svc)
+    review = wf.get_review_for_sitting(sid)
+    wf._merge_review_ai_draft(sid, {"speaking": {"band": 5.0}})
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    import pytest as _pytest
+    with _pytest.raises(Exception):
+        wf.save_final_bands(
+            review["id"], admin,
+            {"listening": 6.0, "reading": 6.0, "writing": 6.0})

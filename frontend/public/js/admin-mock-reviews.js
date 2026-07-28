@@ -811,8 +811,12 @@
     // no published band, so the old "all bands or nothing" gate blocked the save
     // outright — and with it the whole result, for the one skill that could not
     // be scored (Codex review, PR #779).
-    var missing = reqSkills().filter(function (s) {
-      return fb[s] == null && blankable.indexOf(s) === -1;
+    // bandSkills, not reqSkills: a live-assessed Speaking input left blank
+    // would release a 3-skill overall while the TRF shows full Speaking
+    // feedback. Live extras are never blankable — the band exists on paper.
+    var missing = bandSkills().filter(function (s) {
+      return fb[s] == null
+        && (reqSkills().indexOf(s) === -1 || blankable.indexOf(s) === -1);
     });
     if (missing.length) {
       toast('Còn thiếu band: ' + missing.join(', ') + '.'); return;
