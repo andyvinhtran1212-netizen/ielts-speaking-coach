@@ -20,7 +20,10 @@ test('data layer: server-only + use cache + cacheLife + abort timeout (ADR-008)'
   assert.match(LIB, /cache\(fetchArticle\)/, 'metadata + body must share one memoized loader');
 });
 
-test('page: Server Component, async params, notFound TRƯỚC khi stream (404 thật)', () => {
+// Bài đã thiếu => thân 404 + noindex. KHÔNG hứa "404 cứng": đo trên
+// production 28/07, PPR phục vụ shell prerender (x-nextjs-prerender: 1) nên
+// status luôn 200, cho cả slug sai lẫn category sai.
+test('page: Server Component, async params, notFound trong metadata (=> noindex, không index được)', () => {
   assert.ok(!PAGE.includes("'use client'"));
   assert.match(PAGE, /await params/);
   assert.match(PAGE, /generateMetadata[\s\S]*?notFound\(\)/, 'notFound must fire in generateMetadata (PPR soft-404 guard)');
