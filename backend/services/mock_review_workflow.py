@@ -1165,7 +1165,16 @@ def roster(mock_exam_id: str) -> list[dict]:
                 "band":           _wb[0],
                 "band_is_final":  _wb[1],
             },
-            "speaking":       {"count": len(s.get("speaking_session_ids") or [])},
+            # band: final nếu đã chốt, không thì bản nhập từ bài chấm trực tiếp
+            # (ai_draft.speaking) — cột S từng chỉ đếm bản ghi nền tảng, nên 13
+            # band Speaking chấm trực tiếp đã lưu mà bảng lớp vẫn hiện "—".
+            "speaking":       {
+                "count": len(s.get("speaking_session_ids") or []),
+                "band": ((rv.get("final_bands") or {}).get("speaking")
+                         if (rv.get("final_bands") or {}).get("speaking") is not None
+                         else (((rv.get("ai_draft") or {}).get("speaking") or {}).get("band")
+                               if isinstance((rv.get("ai_draft") or {}).get("speaking"), dict) else None)),
+            },
             "review_status":  rv.get("status"),
             "claimed":        bool(rv.get("claimed_by")),
             "needs_retest":   bool(s.get("needs_retest")),

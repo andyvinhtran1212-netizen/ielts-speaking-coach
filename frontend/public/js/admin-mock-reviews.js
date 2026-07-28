@@ -376,6 +376,10 @@
     return parts.join(' · ');
   }
   function spkCell(s) {
+    // Band trước (thi trực tiếp hoặc đã chốt); số session chỉ là phụ chú.
+    if (s && s.band != null) {
+      return fmtBand(s.band) + (s.count ? ' <span class="mr-muted">(' + s.count + ' session)</span>' : '');
+    }
     return (s && s.count) ? (s.count + ' session') : '<span class="mr-muted">—</span>';
   }
   // The "Trạng thái" column reads review_status — the whole lifecycle — not the
