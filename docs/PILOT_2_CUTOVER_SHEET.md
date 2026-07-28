@@ -97,8 +97,9 @@ trong nhánh này): `app/(public-content)/layout.tsx` vẫn nạp `Lora + DM San
 trong khi `grammar-wiki.css` đã chuyển sang `var(--av-font-*)` từ #828
 (DEBT-2026-07-24-J bước b, quét thiếu `frontend/app/`) ⇒ bản Next của bài
 Grammar rơi về font hệ thống, **lệch font so với legacy**. Ratchet test nay quét
-cả `frontend/app/**/*.tsx`. **#877 phải merge TRƯỚC cutover** (và nhánh này
-refresh lại qua nó), nếu không cutover sẽ đổi font trước mắt người đọc.
+cả `frontend/app/**/*.tsx`. **#877 ĐÃ MERGE vào main 2026-07-28** (`444b4c4c`);
+nhánh này đã refresh qua nó — suite **5617 pass / 0 fail / 0 skipped**,
+`route-ownership --manifest` clean, build vẫn `◐ PPR`, Tailwind FRESH.
 
 ## Risk acceptance (ADR-013 — điền + ký TẠI cutover)
 
@@ -115,7 +116,8 @@ refresh lại qua nó), nếu không cutover sẽ đổi font trước mắt ng�
 
 ## Runbook ngày cutover (thứ tự bắt buộc)
 
-1. Merge **#877** (font parity) → refresh nhánh này qua `main` → suite + build lại.
+1. ~~Merge **#877** (font parity) → refresh nhánh này qua `main` → suite + build lại.~~
+   **XONG 2026-07-28** (#877 = `444b4c4c` trên main; nhánh này đã refresh + verify lại).
 2. Chạy `backend/scripts/traffic_baseline.sh` (≤72h) + dispatch **Production Smoke**
    trên `/grammar-preview/tenses/present-perfect` = baseline TRƯỚC cutover.
 3. Điền + ký bảng risk acceptance ở trên.
