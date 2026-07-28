@@ -36,6 +36,21 @@
       ? current.required_skills : SKILLS;
   }
 
+  // Skills that get a band INPUT: the required set, plus Speaking when a live
+  // speaking assessment was imported for this sitting (ai_draft.speaking or
+  // per_skill_notes.speaking). The exam config has no speaking component — 13
+  // of 14 students sat a live test with the teacher, so speaking can't be
+  // *required* (the 14th could never save) but a real assessment must still be
+  // enterable; the server accepts and counts extra bands (2026-07-28).
+  function bandSkills() {
+    var req = reqSkills();
+    if (req.indexOf('speaking') !== -1 || !current) return req;
+    var r = current.review || {};
+    var hasLive = ((r.ai_draft || {}).speaking != null)
+               || ((r.per_skill_notes || {}).speaking != null);
+    return hasLive ? req.concat(['speaking']) : req;
+  }
+
   function esc(s) { return (window.WC && window.WC.escapeHtml) ? window.WC.escapeHtml(s) : String(s == null ? '' : s); }
   function toast(msg) { if (window.toast) window.toast(msg); else console.log(msg); }
   function el(id) { return document.getElementById(id); }
@@ -612,7 +627,7 @@
     }).join('');
 
     var rf = review.retest_flags || {};
-    var bandInputs = reqSkills().map(function (s) {
+    var bandInputs = bandSkills().map(function (s) {
       // Pre-fill EVERY skill from the draft, not just Writing. The L/R bands are
       // already in ai_draft — derived from the auto-graded score — but this only
       // ever read draft.writing, so the examiner retyped numbers the machine had
@@ -696,7 +711,13 @@
     });
 
     function updateOverall() {
-      var skills = reqSkills();
+      // Preview mirrors the server: mean over every skill with a band entered
+      // (required + optional speaking) — but an EMPTY optional doesn't blank it.
+      var skills = bandSkills().filter(function (s) {
+        if (reqSkills().indexOf(s) !== -1) return true;
+        var n = v.querySelector('[data-band="' + s + '"]');
+        return n && n.value !== '';
+      });
       var vals = skills.map(function (s) { return parseFloat(v.querySelector('[data-band="' + s + '"]').value); });
       if (vals.some(function (n) { return isNaN(n); })) { el('overall-preview').textContent = '—'; return; }
       el('overall-preview').textContent = ieltsRound(vals.reduce(function (a, b) { return a + b; }, 0) / vals.length).toFixed(1);
@@ -747,6 +768,7 @@
     listening: 'Tự tính từ số câu đúng',
     reading:   'Tự tính từ số câu đúng',
     writing:   'Gợi ý từ 2 bài đã chấm',
+    speaking:  'Thi trực tiếp với giáo viên',
   };
 
   // Every skill in ai_draft is an object carrying `band`, but the payloads differ
@@ -764,7 +786,7 @@
 
   function collectBands(v) {
     var fb = {};
-    reqSkills().forEach(function (s) {
+    bandSkills().forEach(function (s) {
       var n = parseFloat(v.querySelector('[data-band="' + s + '"]').value);
       // OMIT a blank rather than sending NaN — NaN would serialise to null and
       // read as "band unknown" for a skill that simply wasn't filled in.

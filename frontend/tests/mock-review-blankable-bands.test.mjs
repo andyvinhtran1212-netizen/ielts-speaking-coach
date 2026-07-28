@@ -29,6 +29,10 @@ function grab(re, what) {
 async function doSave({ bands, blankable, required }) {
   const body = [
     grab(/  function blankableSkills\(\) \{[\s\S]*?\n  \}/, 'blankableSkills()'),
+    // collectBands giờ đọc bandSkills() (= required + Speaking chấm trực tiếp
+    // nếu có) — tiêm NGUYÊN nguồn thật để harness chạy đúng luật đó thay vì
+    // giả lập một bản riêng rồi trôi khỏi code thật.
+    grab(/  function bandSkills\(\) \{[\s\S]*?\n  \}/, 'bandSkills()'),
     grab(/  function collectBands\(v\) \{[\s\S]*?\n  \}/, 'collectBands()'),
     grab(/  async function doSave\(id, v\) \{[\s\S]*?\n  \}/, 'doSave()'),
     'return doSave("rv-1", v);',

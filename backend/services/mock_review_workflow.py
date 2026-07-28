@@ -350,12 +350,22 @@ def save_final_bands(
     if forgotten:
         raise ValidationError(f"final_bands missing skill(s): {', '.join(forgotten)}")
 
+    # Speaking assessed LIVE with a teacher is a real band even when the exam
+    # has no speaking_topic_set (C2-FINAL-20260726: 13/14 sat a live speaking
+    # test; the 14th did not, so making speaking *required* would block that
+    # one review from ever saving). Required skills stay required; an extra
+    # band the examiner chose to enter is accepted and counted — dropping it
+    # silently is how a signed-off band vanishes from the student's TRF.
+    extras = tuple(s for s in _SKILLS
+                   if s not in skills and final_bands.get(s) is not None)
+    banded = tuple(skills) + extras
     stored = {
-        s: _coerce_band(final_bands[s]) for s in skills if final_bands.get(s) is not None
+        s: _coerce_band(final_bands[s]) for s in banded if final_bands.get(s) is not None
     }
-    # Overall is the mean of ALL required skills — with one absent there is no
-    # honest mean, so it is blank, not a partial average dressed up as a total.
-    overall = None if missing else compute_overall(final_bands, skills)
+    # Overall is the mean of every skill that HAS a band (required + entered
+    # extras) — with a required one absent there is no honest mean, so it is
+    # blank, not a partial average dressed up as a total.
+    overall = None if missing else compute_overall(final_bands, banded)
     stored["overall"] = overall
 
     update: dict = {
