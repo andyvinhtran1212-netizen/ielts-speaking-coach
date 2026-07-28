@@ -71,6 +71,63 @@ cache poisoning (sai article cho slug khác). Cơ chế: **Instant Rollback** �
   :8000 local) — đã proven trên Vercel preview #741 ở `/grammar-preview`; sau
   cutover component byte-identical, chỉ đổi URL. Re-verify trên preview khi refresh.
 
+## Chuẩn bị đợt 2 — đã chạy 2026-07-28 (CHƯA cutover, CHƯA đếm giờ)
+
+Nhánh refresh lần 2 lên `origin/main` (`c090c1da`, drift 353 commit) — merge
+**sạch, 0 conflict**; invariant cutover còn nguyên (grammar là app route +
+rewrite legacy đã GONE).
+
+| Kiểm | Kết quả |
+|---|---|
+| Suite contract frontend | **5612 pass / 0 fail / 1 skipped** |
+| `route-ownership` (heuristic) | clean — 5 app route · 304 public file · 27 config source |
+| `route-ownership --manifest` | clean — 5 compiled route, khớp heuristic, 0 collision |
+| `npm run build` | `◐ /grammar/[category]/[slug]` = Partial Prerender ✔ (và `/grammar-preview` đã biến mất) |
+| Tailwind `build.css` + `inter.css` | FRESH (rebuild + diff, không stale sau merge) |
+| ADR-008 cache | `lib/grammar-api.ts` không bị main đụng tới kể từ 14/07 (`git log` rỗng) |
+
+**Traffic baseline chạy lại 2026-07-28 15:21 UTC** (`backend/scripts/traffic_baseline.sh`,
+SELECT-only trên prod): grammar = **14 cặp reader-article active/14 ngày**
+(28 ngày: 31) ⇒ ~1 lượt/ngày, **vẫn đúng lớp "public/read-only <3 lượt/ngày"**
+của ma trận ADR-013 ⇒ early-stage profile (48–72h + synthetic n≥72 + risk
+acceptance) là profile đúng. Đối chiếu: speaking 735/14d, vocab quiz 5457/14d.
+
+**MỘT BLOCKER PARITY ĐÃ PHÁT HIỆN + VÁ — PR #877** (vá trên `main`, không nằm
+trong nhánh này): `app/(public-content)/layout.tsx` vẫn nạp `Lora + DM Sans`
+trong khi `grammar-wiki.css` đã chuyển sang `var(--av-font-*)` từ #828
+(DEBT-2026-07-24-J bước b, quét thiếu `frontend/app/`) ⇒ bản Next của bài
+Grammar rơi về font hệ thống, **lệch font so với legacy**. Ratchet test nay quét
+cả `frontend/app/**/*.tsx`. **#877 phải merge TRƯỚC cutover** (và nhánh này
+refresh lại qua nó), nếu không cutover sẽ đổi font trước mắt người đọc.
+
+## Risk acceptance (ADR-013 — điền + ký TẠI cutover)
+
+| Trường | Giá trị |
+|---|---|
+| Route | `/grammar/:category/:slug` (canonical chuyển từ legacy → Next) |
+| Lớp rủi ro | Public / read-only, traffic <3 lượt/ngày (đo 14/14d) |
+| Ngày cutover | _(điền)_ |
+| Người duyệt | _(điền — chủ dự án)_ |
+| Vế số-lượng | Production Smoke n=75 trên route sau cutover, p75 < 4000ms, 0 lỗi |
+| Vế thời-gian | Quan sát organic **48–72h**, rollback trigger ở chế độ tuyệt đối |
+| Rollback | Instant Rollback ≤12s về deployment N−1; khôi phục = **Undo Rollback DUY NHẤT**; legacy `public/pages/grammar-article.html` vẫn nằm trên disk |
+| Chấp nhận rủi ro | Traffic organic quá thưa để có ý nghĩa thống kê; synthetic gánh vế số-lượng; blast-radius ~1 người đọc/ngày |
+
+## Runbook ngày cutover (thứ tự bắt buộc)
+
+1. Merge **#877** (font parity) → refresh nhánh này qua `main` → suite + build lại.
+2. Chạy `backend/scripts/traffic_baseline.sh` (≤72h) + dispatch **Production Smoke**
+   trên `/grammar-preview/tenses/present-perfect` = baseline TRƯỚC cutover.
+3. Điền + ký bảng risk acceptance ở trên.
+4. Merge PR này (atomic: đổi ownership + gỡ rewrite trong CÙNG một commit).
+5. Chờ auto-promote (~20s), verify `runtime-config.release` = main HEAD.
+6. Verify browser-based theo mục "Verify SAU cutover" (cadence ≥15s, KHÔNG poll
+   nhanh — bài học Gate B: poller 5s kích hoạt DDoS mitigation của Vercel).
+7. Dispatch **Production Smoke** trên `/grammar/tenses/present-perfect` (n=75)
+   = verdict SAU cutover; so với baseline bước 2.
+8. Mở cửa sổ quan sát 48–72h: mỗi ngày đo panel Rollback trigger route
+   `/grammar` + 1 lần smoke; ghi nhật ký. Hết cửa sổ → tuyên PASS hoặc rollback.
+
 ## Register (checklist §5)
 
 Frozen estimate pilot 2 = 8h. Đã tiêu tới prep: build ~1.5h (#741) + prep ~0.5h.
