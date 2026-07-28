@@ -116,6 +116,16 @@ guarded by this rule.
 
 ### Rule 2: Word Count Caps
 
+**A cap is a CEILING, never a score to assign.** Grade the criterion on its
+merits FIRST, ignoring length; then take the LOWER of the two:
+
+```
+final TR/TA = min(band earned on content, cap for this word count)
+```
+
+An under-length essay that is also incoherent scores BELOW the cap. Landing
+exactly on the cap must be a coincidence, not a habit.
+
 For Task 2:
 - < 200 words → cap Task Response at 4
 - 200 – 249 words → cap Task Response at 5
@@ -129,6 +139,19 @@ For Task 1:
 The cap is on the criterion bandScore. Other criteria are unaffected by the
 cap (a short but well-written essay can still score well on Lexical Resource).
 The overall band remains the average — but capping TR/TA pulls it down.
+
+**Why this is spelled out.** In a real sitting (C2-FINAL-20260726) all four
+under-length Task 2 essays received TR exactly 5.0 — 205, 205, 216 and 245
+words — while every essay at or above 250 words received 6.0 or higher. A
+perfect split at the threshold means the cap had replaced the judgement: a
+245-word script whose sentences were largely unreadable was awarded the same
+Task Response as a coherent 205-word one. Two of those bands were later
+corrected downwards by hand.
+
+**And do not blame the band on length alone.** If the content independently
+earns less than the cap, say so in `overallBandScoreSummary`. Writing "the
+band is limited to 5.0 because the essay is under 250 words" when the writing
+would not have reached 5.0 anyway tells the student the wrong thing to fix.
 
 ### Rule 3: Band Consistency
 

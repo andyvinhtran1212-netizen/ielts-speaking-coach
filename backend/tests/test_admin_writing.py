@@ -33,6 +33,27 @@ _ESSAY_ID   = "00000000-0000-0000-0000-000000000002"
 _JOB_ID     = "00000000-0000-0000-0000-000000000003"
 
 
+
+# PATCH .../feedback ends by calling mock_review_workflow.sync_writing_band_for_essay
+# as a best-effort side effect. That module holds its OWN `from database import
+# supabase_admin`, so patching routers.admin_writing.supabase_admin — which every
+# test here does — leaves it untouched: the call went out to the REAL Supabase.
+#
+# It stayed invisible because the round-trip was fast and the function swallows
+# every exception. On 2026-07-28 the project's Supabase slowed down and the whole
+# backend suite stopped finishing: it hung at ~15%, in a file whose tests look
+# fully mocked. A unit test must not depend on a live database being reachable.
+#
+# One test (test_patch_feedback_validates_and_persists) already patched this and
+# asserts the call — a local `with patch()` still wins over an autouse fixture,
+# so that assertion keeps working.
+@pytest.fixture(autouse=True)
+def _no_live_writing_band_sync():
+    with patch("services.mock_review_workflow.sync_writing_band_for_essay"):
+        yield
+
+
+
 def _valid_create_body() -> dict:
     return {
         "student_id":      _STUDENT_ID,

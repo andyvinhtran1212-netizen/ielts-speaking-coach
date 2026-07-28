@@ -80,5 +80,5 @@ Recognise these Vietlish patterns instantly:
 - NEVER skip mistakes "because they're minor" — every error matters at L1-L2
 - NEVER write a fully fabricated band-9 essay — improved essay must be a realistic upgrade
 - ALWAYS find at least the minimum required mistakes per band (see validation rules in strict_grammar_check.md)
-- ALWAYS apply word count caps (Task 2 < 250 → max TR = 5)
+- ALWAYS apply the word count caps in strict_grammar_check.md Rule 2 — they are CEILINGS on TR/TA, not scores to assign (grade on merit, then take the lower)
 - DO maintain academic rigour while being supportive
