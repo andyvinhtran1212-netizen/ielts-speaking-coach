@@ -213,9 +213,26 @@ test('METRIC_FORMATTERS produce expected shapes for each skill', () => {
   assert.equal(v.primary.value, '42');
   assert.match(v.sub, /5 thẻ đến hạn/);
 
-  // Vocabulary — no due cards but words exist.
-  const vNoDue = formatters.vocabulary({ words_learned: 20, flashcards_due: 0 });
+  // Vocabulary — no due cards but words exist. `words_learned` is a UNION of the
+  // personal wallet and Quick-Check mastery, so the sub-line must name whichever
+  // source the number actually came from: labelling every nonzero value
+  // "Wallet từ vựng cá nhân" told a quiz-only learner their empty wallet held
+  // words (Codex review, PR #876).
+  const vNoDue = formatters.vocabulary({
+    words_learned: 20, flashcards_due: 0, wallet_words: 20, quiz_words_mastered: 0 });
   assert.equal(vNoDue.sub, 'Wallet từ vựng cá nhân');
+
+  const vQuizOnly = formatters.vocabulary({
+    words_learned: 136, flashcards_due: 0, wallet_words: 0, quiz_words_mastered: 136 });
+  assert.equal(vQuizOnly.primary.value, '136');
+  assert.equal(vQuizOnly.sub, 'Đã thuộc qua Quick-Check');
+
+  const vBoth = formatters.vocabulary({
+    words_learned: 30, flashcards_due: 0, wallet_words: 12, quiz_words_mastered: 20 });
+  assert.equal(vBoth.sub, 'Wallet cá nhân + Quick-Check');
+
+  const vEmpty = formatters.vocabulary({ words_learned: 0, flashcards_due: 0 });
+  assert.equal(vEmpty.sub, 'Bắt đầu lưu từ mới');
 });
 
 test('renderSkillCard wires a click handler that navigates to primary_cta_url', () => {

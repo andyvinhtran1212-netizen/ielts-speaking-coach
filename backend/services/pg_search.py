@@ -29,3 +29,25 @@ def ilike_or_filter(columns: list[str], term: str) -> str:
     ``term`` against each column, hardened against reserved chars + wildcards."""
     value = _quoted_ilike_value(term)
     return ",".join(f"{col}.ilike.{value}" for col in columns)
+
+
+def _quoted_exact_value(term: str) -> str:
+    """Same hardening as above but with NO surrounding %, so ilike matches the
+    whole value rather than a substring."""
+    like = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    quoted = like.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{quoted}"'
+
+
+def ilike_eq_any_filter(column: str, terms: list[str]) -> str:
+    """Return a PostgREST or_() string matching ``column`` case-insensitively but
+    EXACTLY against any of ``terms``.
+
+    `in_()` is the obvious tool and the wrong one: PostgreSQL compares TEXT
+    case-sensitively, so `in_("headword", ["gridlock"])` finds nothing when the
+    column stores "Gridlock" (Codex review, PR #876 — it silently returned zero
+    rows and every card fell back to speech synthesis). `ilike` without wildcards
+    is a whole-value case-insensitive match; the wildcard escaping above keeps a
+    literal `_` or `%` inside a headword from matching anything else.
+    """
+    return ",".join(f"{column}.ilike.{_quoted_exact_value(t)}" for t in terms if t)

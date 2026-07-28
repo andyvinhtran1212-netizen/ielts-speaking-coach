@@ -5,6 +5,8 @@ client grades instantly (QĐ-5); the Adaptive Mastery loop runs in the browser
 and posts progress back here.
 
   GET   /api/quiz/banks?skill_area=&topic_id=   — list published banks.
+  GET   /api/quiz/progress?skill_area=           — own per-bank mastery + sessions.
+  GET   /api/quiz/mistakes?skill_area=           — own wrong answers, by word.
   GET   /api/quiz/banks/{bank_id}               — bank META + questions (+answers).
   GET   /api/quiz/banks/{bank_id}/resume        — carry-over word_stats.
   POST  /api/quiz/banks/{bank_id}/reset          — wipe mastery cache, restart the bank.
@@ -59,10 +61,32 @@ async def list_banks(
 
 
 @router.get("/progress")
-async def my_progress(authorization: str | None = Header(None)):
-    """The caller's own quiz progress — per-bank mastery + recent sessions."""
+async def my_progress(
+    skill_area: str | None = Query(default=None),
+    authorization: str | None = Header(None),
+):
+    """The caller's own quiz progress — per-bank mastery + recent sessions.
+
+    `skill_area` scopes it: the Vocabulary page's "📊 Tiến độ luyện tập" link
+    must not list the learner's grammar banks (audit 2026-07-28 §C3).
+    """
     user = await get_supabase_user(authorization)
-    return quiz_service.student_progress(user_id=user["id"])
+    return quiz_service.student_progress(user_id=user["id"], skill_area=skill_area)
+
+
+@router.get("/mistakes")
+async def my_mistakes(
+    skill_area: str | None = Query(default=None),
+    authorization: str | None = Header(None),
+):
+    """The caller's own wrong answers, grouped by word.
+
+    The in-session "Xem lại bài làm" list only ever existed in the tab's memory,
+    so leaving the result screen destroyed it (audit 2026-07-28 §C2). The attempts
+    were persisted all along — this is the missing read path.
+    """
+    user = await get_supabase_user(authorization)
+    return quiz_service.student_mistakes(user["id"], skill_area=skill_area)
 
 
 @router.get("/banks/{bank_id}")

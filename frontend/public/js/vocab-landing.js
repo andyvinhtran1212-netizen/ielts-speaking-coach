@@ -82,11 +82,16 @@
               + '<a class="vtc-act vtc-act--browse" href="/vocabulary.html?cat=' + slug + '">Khám phá</a>'
               + '<a class="vtc-act vtc-act--study" href="/pages/flashcard-study.html?stack=wiki:' + slug + '">🃏 Flashcards</a>'
               // "✍️ Luyện tập" → straight into the adaptive Quick-Check player.
-              // quiz.html?skill_area=vocab resolves the bank itself: one published
-              // bank → starts immediately (no intermediate picker); 2+ → shows the
-              // lesson picker so the student chooses. Lessons are their own taxonomy
-              // (not the wiki categories), so the link is global — always shown.
-              + '<a class="vtc-act vtc-act--ex" href="/pages/quiz.html?skill_area=vocab">✍️ Luyện tập</a>'
+              // Audit 2026-07-28 §C6: this link used to be global, so picking
+              // "Environment" still dumped the learner on the L01–L30 picker to
+              // choose again. Quick-Check banks are keyed by topic_id and the
+              // categories feed now carries it (30 of 31 categories map 1:1 onto a
+              // lesson), so pass it through — quiz.html resolves the single matching
+              // bank and starts it. A category with no unanimous topic keeps the
+              // global link and its picker, which is the honest fallback.
+              + '<a class="vtc-act vtc-act--ex" href="/pages/quiz.html?skill_area=vocab'
+              + (c.topic_id ? '&topic_id=' + encodeURIComponent(c.topic_id) : '')
+              + '">✍️ Luyện tập</a>'
               + '</div>'
               + '</div>';
           }).join('');
@@ -95,7 +100,7 @@
             + '<p class="vtc-panel-sub">Chọn chủ đề để khám phá từ vựng theo ngữ cảnh IELTS.</p>'
             // Progress lives here (entry on the Vocabulary page) rather than behind
             // the practice flow.
-            + '<a class="vtc-progress-link" href="/pages/quiz-progress.html"'
+            + '<a class="vtc-progress-link" href="/pages/quiz-progress.html?skill_area=vocab"'
             + ' style="display:inline-block;margin-top:var(--av-space-2);font-size:var(--av-fs-sm);'
             + 'font-weight:var(--av-fw-semibold);color:var(--av-primary);text-decoration:none;">'
             + '📊 Tiến độ luyện tập →</a>'
@@ -231,16 +236,46 @@
     if (!data || !data.skills || !data.skills.vocabulary) return;
     const v = data.skills.vocabulary;
 
-    const wordsEl = document.getElementById('stat-words-count');
-    const dueEl   = document.getElementById('stat-flashcards-due');
-    const stacksEl = document.getElementById('stat-stacks-count');
+    // Audit 2026-07-28 — these read the Quick-Check facets now. The old tiles
+    // were sourced from the flashcard wallet only (default-deny feature flag),
+    // so a learner with 128 quiz-mastered words still saw "0 từ / 0 thẻ / —".
+    // `words_learned` is now the UNION of wallet + quiz mastery (backend).
+    const wordsEl  = document.getElementById('stat-words-count');
+    const missedEl = document.getElementById('stat-words-missed');
+    const sessEl   = document.getElementById('stat-quiz-sessions');
 
-    if (wordsEl) wordsEl.textContent = String(v.words_learned || 0);
-    if (dueEl)   dueEl.textContent   = String(v.flashcards_due || 0);
-    // The stacks count isn't part of home-summary today; show "—" until
-    // an aggregator endpoint exposes it. Anti-pattern #23 — don't add
-    // a new endpoint just to fill one cosmetic stat.
-    if (stacksEl) stacksEl.textContent = '—';
+    if (wordsEl)  wordsEl.textContent  = String(v.words_learned || 0);
+    if (missedEl) missedEl.textContent = String(v.quiz_words_missed || 0);
+    if (sessEl)   sessEl.textContent   = String(v.quiz_sessions || 0);
+  }
+
+  // ── Feature-flag gate for the mode-cards ────────────────────────
+  // Audit 2026-07-28 §C5 — the Flashcards + Exercises cards are gated
+  // server-side by users.feature_flags (default-deny). 67 of 68 accounts
+  // have an empty flags object, so both cards rendered for everyone and
+  // opened onto "Tính năng chưa được bật". A card the learner cannot use
+  // must not be on the page. `data-flag` lists the flags that would make
+  // the card work — ANY of them is enough (Exercises needs d1 OR
+  // flashcards). REMOVED from the DOM, not hidden: a flag must not leave
+  // a clickable element behind.
+  // The cards ship `hidden` in the markup and are REVEALED only on a positive
+  // answer — never the reverse. /auth/me is a network round-trip, so rendering
+  // them visible until it replies left a default-denied learner able to click
+  // straight into a disabled module during the gap (Codex review, PR #876).
+  async function gateModeCards() {
+    let me = null;
+    try {
+      me = await window.api.get('/auth/me');
+    } catch (err) {
+      // Default-deny on a failed read, matching the modules' own behaviour.
+      console.warn('[vocab-landing] /auth/me failed — hiding gated cards:', err);
+    }
+    $$('.mode-card[data-flag]').forEach((card) => {
+      const flags = card.dataset.flag.split(',').map(s => s.trim()).filter(Boolean);
+      const allowed = !!me && flags.some(f => me[f] === true);
+      if (allowed) card.hidden = false;
+      else if (card.parentNode) card.parentNode.removeChild(card);
+    });
   }
 
   function bootstrap() {
@@ -248,6 +283,7 @@
       return setTimeout(bootstrap, 30);
     }
     setupModeCards();
+    gateModeCards();
     // Sprint 8.2 — default landing state is the dashboard view (the
     // .vocab-modes section). Only activate a panel when the URL hash
     // explicitly requests one (e.g., vocabulary.html#flashcards from a
