@@ -67,9 +67,16 @@ describe('vocab-practice hub — lists published vocab banks', () => {
 
 describe('vocab-landing — "Luyện tập" goes straight into the player', () => {
   test('CTA opens the player directly (no intermediate picker), resolving by skill_area', () => {
-    assert.match(LANDING, /vtc-act--ex.*href="\/pages\/quiz\.html\?skill_area=vocab"/);
+    assert.match(LANDING, /vtc-act--ex.*href="\/pages\/quiz\.html\?skill_area=vocab/);
     assert.ok(!/topic-exercise/.test(LANDING),
       'vocab-landing must not reference the retired topic-exercise drill');
+  });
+
+  // Audit 2026-07-28 §C6 — skill_area alone resolves to 30 published banks, so
+  // the CTA always bounced to the picker: pick "Environment", then pick the
+  // lesson again. The categories feed carries topic_id, so pass it through.
+  test('CTA carries the topic so the matching lesson starts directly', () => {
+    assert.match(LANDING, /c\.topic_id \? '&topic_id=' \+ encodeURIComponent\(c\.topic_id\)/);
   });
   test('progress is reachable from the Vocabulary page', () => {
     assert.match(LANDING, /\/pages\/quiz-progress\.html/);

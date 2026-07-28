@@ -197,6 +197,10 @@ class VocabContentService:
             # THPT import vocab → served by the exam-prep area, kept OUT of the
             # self-curated topic surfaces (see _is_exam).
             "lists":          list(r.get("lists") or []),
+            # Quick-Check banks are keyed by topic_id, so carrying it here lets the
+            # topic grid link straight into the matching lesson instead of bouncing
+            # the learner through the global picker (audit 2026-07-28 §C6).
+            "topic_id":       r.get("topic_id") or "",
             "tested_in":      list(r.get("tested_in") or []),
             "gloss_vi":       r.get("gloss_vi") or "",
             "definition_en":  r.get("definition_en") or "",
@@ -311,11 +315,17 @@ class VocabContentService:
         for slug in manifest_order + new_cats:
             cat_def = manifest_map.get(slug, {})
             arts = self.articles_by_category.get(slug, [])
+            # One topic_id per category in practice (verified 2026-07-28: 30 of 31
+            # categories map 1:1 onto a published lesson bank). Emit it ONLY when
+            # the category is unanimous — a mixed category would send the learner
+            # to an arbitrary lesson, which is worse than the picker.
+            topic_ids = {a.get("topic_id") for a in arts if a.get("topic_id")}
             self.all_categories.append({
                 "slug":          slug,
                 "title":         cat_def.get("title") or _prettify(slug),
                 "description":   cat_def.get("description", ""),
                 "article_count": len(arts),
+                "topic_id":      topic_ids.pop() if len(topic_ids) == 1 else "",
                 "articles":      [self._summary(a) for a in arts],
             })
 
@@ -392,6 +402,8 @@ class VocabContentService:
             "source":         str(fm.get("source") or ""),
             "audio_headword": "",
             "audio_example":  "",
+            # Markdown-sourced words predate quiz banks — no topic to link to.
+            "topic_id":       "",
             "html":           html,
         }
 

@@ -70,7 +70,7 @@ def _article(headword: str, slug: str, category: str) -> dict:
         "word_family": [], "gloss_vi": "", "definition_en": "", "definition_vi": "",
         "example": "", "html": "", "syllables": "", "audio_headword": "",
         "audio_example": "", "register": "", "common_error": "", "memory_hook": "",
-        "source": "",
+        "source": "", "topic_id": "",
     }
 
 
@@ -134,3 +134,46 @@ def test_vocab_search_prefix():
     assert any(h.startswith("mit") for h in headwords), (
         f"Prefix search 'mit' returned no matching headwords: {headwords}"
     )
+
+
+# ── topic_id on the category feed (audit 2026-07-28 §C6) ─────────────────────
+# The topic grid's "✍️ Luyện tập" link was global, so choosing "Environment"
+# still dumped the learner on the L01–L30 picker to choose again. Quick-Check
+# banks are keyed by topic_id, so the feed must carry it.
+
+
+def _cat(svc, slug: str) -> dict:
+    return next(c for c in svc.all_categories if c["slug"] == slug)
+
+
+def _rebuild(svc, articles):
+    svc.articles_by_slug = {}
+    svc.articles_by_cat_slug = {}
+    svc._all_articles = []
+    svc.articles_by_category = {}
+    svc.all_categories = []
+    svc._build_indexes(articles)
+
+
+def test_category_carries_its_topic_id():
+    svc = _service()
+    a = _article("Gridlock", "gridlock", "transport-travel"); a["topic_id"] = "t-11"
+    b = _article("Mobility", "mobility", "transport-travel"); b["topic_id"] = "t-11"
+    _rebuild(svc, [a, b])
+    assert _cat(svc, "transport-travel")["topic_id"] == "t-11"
+
+
+def test_category_with_mixed_topics_emits_no_topic_id():
+    """Emit only when the category is unanimous — sending the learner to an
+    arbitrary one of two lessons is worse than showing them the picker."""
+    svc = _service()
+    a = _article("Gridlock", "gridlock", "transport-travel"); a["topic_id"] = "t-11"
+    b = _article("Mobility", "mobility", "transport-travel"); b["topic_id"] = "t-21"
+    _rebuild(svc, [a, b])
+    assert _cat(svc, "transport-travel")["topic_id"] == ""
+
+
+def test_category_without_a_bank_emits_no_topic_id():
+    svc = _service()
+    _rebuild(svc, [_article("Heritage", "heritage", "people-society")])
+    assert _cat(svc, "people-society")["topic_id"] == ""

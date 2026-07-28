@@ -66,6 +66,7 @@ function makeElement(tagName = 'div', attrs = {}) {
   };
   if (attrs && attrs['data-mode'])  el.dataset.mode  = attrs['data-mode'];
   if (attrs && attrs['data-panel']) el.dataset.panel = attrs['data-panel'];
+  if (attrs && attrs['data-flag'])  el.dataset.flag  = attrs['data-flag'];
   return el;
 }
 
@@ -75,9 +76,22 @@ function buildPage() {
   // ARIA tablist DOM was retired alongside the vocab-tabs CSS block.
   const dashboard = makeElement('section');
   dashboard.classList.add('vocab-modes');
-  const modeCards = ['vocab-topics', 'flashcards', 'exercises'].map(m =>
-    makeElement('a', { 'data-mode': m }),
-  );
+  // Audit 2026-07-28 §C5 — the two flag-gated cards carry data-flag so
+  // gateModeCards() can remove them when the learner's flag is off.
+  const modeCards = [
+    makeElement('a', { 'data-mode': 'vocab-topics' }),
+    makeElement('a', { 'data-mode': 'flashcards', 'data-flag': 'flashcard_enabled' }),
+    makeElement('a', { 'data-mode': 'exercises', 'data-flag': 'd1_enabled,flashcard_enabled' }),
+  ];
+  // Removal walks parentNode, so the shim needs one.
+  modeCards.forEach((c) => {
+    c.parentNode = {
+      removeChild(child) {
+        const i = modeCards.indexOf(child);
+        if (i !== -1) modeCards.splice(i, 1);
+      },
+    };
+  });
 
   // 5 panels — all hidden by default; activateTab() reveals the target.
   const panels = ['vocab-topics', 'flashcards', 'exercises'].map(t => {
@@ -92,8 +106,8 @@ function buildPage() {
   // Stat slots (loadStats writes here — null tolerant via getElementById).
   const statEls = {
     'stat-words-count':       makeElement(),
-    'stat-flashcards-due':    makeElement(),
-    'stat-stacks-count':      makeElement(),
+    'stat-words-missed':      makeElement(),
+    'stat-quiz-sessions':     makeElement(),
   };
 
   return {
@@ -111,7 +125,8 @@ function buildPage() {
       return null;
     },
     querySelectorAll(sel) {
-      if (sel === '.mode-card[data-mode]') return modeCards;
+      if (sel === '.mode-card[data-mode]') return modeCards.filter(c => c.dataset.mode);
+      if (sel === '.mode-card[data-flag]') return modeCards.filter(c => c.dataset.flag);
       if (sel === '.tab-panel')            return panels;
       return [];
     },
@@ -122,7 +137,7 @@ function buildPage() {
   };
 }
 
-function loadVocabLanding(doc) {
+function loadVocabLanding(doc, apiGet) {
   const scriptPath = path.join(__dirname, '..', 'js', 'vocab-landing.js');
   const code = fs.readFileSync(scriptPath, 'utf8');
   const sandbox = {
@@ -131,7 +146,8 @@ function loadVocabLanding(doc) {
     clearTimeout,
     console,
     window: {
-      api: { get: async () => null },  // loadStats short-circuits on falsy.
+      // loadStats short-circuits on falsy; gateModeCards reads /auth/me.
+      api: { get: apiGet || (async () => null) },
       location: { hash: '' },
       addEventListener: () => {},
     },
@@ -234,4 +250,40 @@ test('VALID_TABS surface lists exactly the three supported modes', () => {
   );
   assert.equal(win.__vocabLanding.DEFAULT_TAB, 'vocab-topics',
     'DEFAULT_TAB is vocab-topics (the unknown-mode fallback after My Vocab was removed)');
+});
+
+// ── Feature-flag gate on the mode-cards (audit 2026-07-28 §C5) ─────────
+// Flashcards + Exercises are gated server-side by users.feature_flags
+// (default-deny). 67 of 68 prod accounts have an empty flags object, so
+// both cards rendered for everyone and opened onto "Tính năng chưa được
+// bật". A card the learner cannot use must not be on the page.
+
+const flush = () => new Promise((r) => setImmediate(r));
+
+test('gate removes both flag-gated cards when the learner has no flags', async () => {
+  const doc = buildPage();
+  loadVocabLanding(doc, async (url) =>
+    url === '/auth/me' ? { flashcard_enabled: false, d1_enabled: false } : null);
+  await flush(); await flush();
+  assert.deepEqual(doc._modeCards.map(c => c.dataset.mode), ['vocab-topics']);
+});
+
+test('gate keeps a card whose flag is on', async () => {
+  const doc = buildPage();
+  loadVocabLanding(doc, async (url) =>
+    url === '/auth/me' ? { flashcard_enabled: true, d1_enabled: false } : null);
+  await flush(); await flush();
+  const modes = doc._modeCards.map(c => c.dataset.mode);
+  // Exercises needs d1 OR flashcards — flashcards alone is enough for it too.
+  assert.deepEqual(modes, ['vocab-topics', 'flashcards', 'exercises']);
+});
+
+test('gate DEFAULT-DENIES when /auth/me fails', async () => {
+  const doc = buildPage();
+  loadVocabLanding(doc, async (url) => {
+    if (url === '/auth/me') throw new Error('offline');
+    return null;
+  });
+  await flush(); await flush();
+  assert.deepEqual(doc._modeCards.map(c => c.dataset.mode), ['vocab-topics']);
 });

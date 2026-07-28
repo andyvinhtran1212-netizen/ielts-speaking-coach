@@ -298,6 +298,72 @@ def _build_grammar(sb, user_id: str) -> Dict[str, Any]:
     }
 
 
+_QUIZ_PAGE = 1000
+
+
+def _vocab_quiz_progress(sb, user_id: str) -> Dict[str, Any]:
+    """The learner's Quick-Check progress on the VOCAB banks.
+
+    Audit 2026-07-28: the Vocabulary card counted ONLY `user_vocabulary` — the
+    personal auto-discovery wallet, which is gated behind a default-deny feature
+    flag. Measured on prod: 13 learners had quiz-mastered words (up to 128 each),
+    exactly 1 learner had any `user_vocabulary` row, and the two sets did NOT
+    overlap — so every learner who actually practised read "Từ đã học: 0 từ".
+    Quick-Check mastery is the same fact ("a word this learner has learned")
+    stored in a different table, so it must feed the same number.
+
+    Returns headword SETS (not counts) so the caller can union them with the
+    wallet by lowercased headword instead of double-counting a word held in both.
+    A word that lives in two lessons (28 of them do) is one word, hence the set.
+    """
+    empty = {"mastered": set(), "missed": set(), "sessions": 0}
+    bank_ids = [
+        r["id"] for r in (
+            sb.table("quiz_banks").select("id")
+            .eq("skill_area", "vocab").eq("is_published", True).execute()
+        ).data or [] if r.get("id")
+    ]
+    if not bank_ids:
+        return empty
+
+    # ONE definition of "distinct mastered words", shared with the stats page —
+    # otherwise the two screens report different totals for the same learner.
+    from services.quiz_service import mastered_item_keys
+    mastered = mastered_item_keys(sb, user_id, bank_ids)
+
+    # Paged: a learner's word_stats rows can exceed the PostgREST page cap once
+    # several banks are in progress, and a bare select would silently truncate.
+    missed: set[str] = set()
+    start = 0
+    while True:
+        rows = (
+            sb.table("quiz_word_stats")
+            .select("item_key, wrong_count")
+            .eq("user_id", user_id).in_("bank_id", bank_ids)
+            .order("item_key").range(start, start + _QUIZ_PAGE - 1).execute()
+        ).data or []
+        for r in rows:
+            key = (r.get("item_key") or "").strip().lower()
+            if key and int(r.get("wrong_count") or 0) > 0:
+                missed.add(key)
+        if len(rows) < _QUIZ_PAGE:
+            break
+        start += _QUIZ_PAGE
+
+    # Only FINISHED sessions count: start_session inserts a row the moment the
+    # quiz page opens, so unfinished rows (36% of them on prod) would inflate this.
+    sess = (
+        sb.table("quiz_sessions").select("id", count="exact")
+        .eq("user_id", user_id).in_("bank_id", bank_ids)
+        .not_.is_("ended_at", "null").limit(1).execute()
+    )
+    return {
+        "mastered": mastered,
+        "missed": missed,
+        "sessions": int(sess.count or 0),
+    }
+
+
 def _build_vocabulary(sb, user_id: str) -> Dict[str, Any]:
     """`words_learned` excludes archived + skipped rows (the active wallet);
     `flashcards_due` is the SRS queue at "now". Both queries are cheap —
@@ -310,18 +376,39 @@ def _build_vocabulary(sb, user_id: str) -> Dict[str, Any]:
     # rows predate the soft-skip feature anyway.
     words_res = (
         sb.table("user_vocabulary")
-        .select("id, created_at", count="exact")
+        .select("id, headword, created_at", count="exact")
         .eq("user_id", user_id)
         .eq("is_archived", False)
         .eq("is_skipped", False)
         .eq("is_pending", False)  # Sprint 10.4
         .order("created_at", desc=True)
-        .limit(1)
+        .limit(_QUIZ_PAGE)
         .execute()
     )
     word_rows = words_res.data or []
-    words_count = words_res.count if words_res.count is not None else len(word_rows)
+    wallet_count = words_res.count if words_res.count is not None else len(word_rows)
     last_activity = word_rows[0].get("created_at") if word_rows else None
+    wallet_headwords = {
+        (r.get("headword") or "").strip().lower() for r in word_rows
+    } - {""}
+
+    # Quick-Check mastery is the OTHER half of "words this learner has learned"
+    # (audit 2026-07-28 — see _vocab_quiz_progress). Union by headword so a word
+    # held in both the wallet and a lesson bank is counted once. Best-effort: a
+    # quiz-side failure must not blank the wallet number that already worked.
+    quiz = {"mastered": set(), "missed": set(), "sessions": 0}
+    try:
+        quiz = _vocab_quiz_progress(sb, user_id)
+    except Exception as e:
+        logger.debug("vocab quiz progress failed: %s", _short_error(e))
+    # The wallet page cap only matters when a learner exceeds it; past that point
+    # fall back to the raw count (the union can only under-report by the overlap,
+    # which is empty in practice) so the number never SHRINKS.
+    words_learned = (
+        len(wallet_headwords | quiz["mastered"])
+        if wallet_count <= len(word_rows)
+        else int(wallet_count) + len(quiz["mastered"] - wallet_headwords)
+    )
 
     due_count = 0
     try:
@@ -345,8 +432,14 @@ def _build_vocabulary(sb, user_id: str) -> Dict[str, Any]:
     return {
         "status": "active",
         "last_activity_at": last_activity,
-        "words_learned": int(words_count),
+        "words_learned": int(words_learned),
         "flashcards_due": due_count,
+        # Quick-Check facets — the Vocabulary hub renders these instead of the
+        # flashcard-only tiles, which read 0 / "—" for every learner without the
+        # (default-deny) flashcard flag.
+        "quiz_words_mastered": len(quiz["mastered"]),
+        "quiz_words_missed": len(quiz["missed"]),
+        "quiz_sessions": int(quiz["sessions"]),
         "primary_cta": "Practice flashcards" if due_count else "Browse vocabulary",
         "primary_cta_url": (
             "/pages/vocabulary.html#flashcards" if due_count

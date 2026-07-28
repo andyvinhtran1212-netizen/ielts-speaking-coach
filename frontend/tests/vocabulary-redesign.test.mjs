@@ -286,10 +286,31 @@ describe('vocabulary.html / Sprint 8.2 mode-card IA + module-mount contract', ()
     assert.equal(refCount, 0);
   });
 
+  // Audit 2026-07-28 — the flashcard-wallet tiles (stat-flashcards-due /
+  // stat-stacks-count) were replaced by the Quick-Check facets, because the
+  // wallet is behind a default-deny flag and read 0 / "—" for every learner.
   test('three stat IDs preserved (vocab-landing.js reads by id)', () => {
     assert.match(html, /id=["']stat-words-count["']/);
-    assert.match(html, /id=["']stat-flashcards-due["']/);
-    assert.match(html, /id=["']stat-stacks-count["']/);
+    assert.match(html, /id=["']stat-words-missed["']/);
+    assert.match(html, /id=["']stat-quiz-sessions["']/);
+  });
+
+  test('retired flashcard-wallet stat IDs are gone', () => {
+    assert.ok(!/id=["']stat-flashcards-due["']/.test(html));
+    assert.ok(!/id=["']stat-stacks-count["']/.test(html));
+  });
+
+  // Audit 2026-07-28 §C5 — practice is the one vocab surface every learner can
+  // use, but it was reachable only from a button inside a topic card, while the
+  // two flag-gated cards sat at the top level and dead-ended for 67 of 68 users.
+  test('a Luyện tập mode-card links straight to the practice picker', () => {
+    assert.match(html, /<a[^>]*href="\/pages\/vocab-practice\.html"[^>]*class="[^"]*\bmode-card\b/);
+    assert.match(html, /<h3>Luyện tập<\/h3>/);
+  });
+
+  test('the two flag-gated cards declare the flag that unlocks them', () => {
+    assert.match(html, /data-mode="flashcards"[^>]*data-flag="flashcard_enabled"/);
+    assert.match(html, /data-mode="exercises"[^>]*data-flag="d1_enabled,flashcard_enabled"/);
   });
 
   test('role="tabpanel" preserved on 3 panels; role="tab" + aria-selected retired', () => {
