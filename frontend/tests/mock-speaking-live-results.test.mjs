@@ -72,6 +72,21 @@ describe('TRF học viên — Speaking là thẻ mở trang riêng (bản duyệ
     assert.match(SPR, /mock-result\.html\?sitting='/);
   });
 
+  test('trang riêng NẠP supabase-js trước api.js', () => {
+    // initSupabase dereference window.supabase.createClient — thiếu script CDN
+    // là trang chết vĩnh viễn ở "Đang tải" ngay lần ghé đầu tiên (Codex #875).
+    const at = SPR.indexOf('@supabase/supabase-js');
+    assert.ok(at > 0, 'thiếu script supabase-js');
+    assert.ok(at < SPR.indexOf('/js/api.js'), 'supabase-js phải đứng trước api.js');
+  });
+
+  test('phiếu v2 co được về 320px: media query trỏ đúng class đang tồn tại', () => {
+    // Media query cũ trỏ .trf-overall/.trf-band-grid đã gỡ — phiếu 168px +
+    // overflow:hidden CẮT mất thanh và con số trên máy nhỏ (Codex #875).
+    assert.match(TRF, /\.trf-card__body \{ grid-template-columns: 1fr/);
+    assert.doesNotMatch(TRF, /@media[^}]*\.trf-overall/);
+  });
+
   test('phiếu điểm v2: vòng cung overall + hàng kỹ năng có thanh mức', () => {
     assert.match(TRF, /id="overall-ring"/);
     assert.match(TRF, /conic-gradient\(var\(--av-primary\)/);

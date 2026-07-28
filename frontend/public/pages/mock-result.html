@@ -153,8 +153,18 @@
       .trf-review:hover { transform: none; }
     }
     @media (max-width: 520px) {
-      .trf-band-grid { grid-template-columns: repeat(2, 1fr); }
-      .trf-overall { flex-direction: column; text-align: center; gap: var(--av-space-3); }
+      /* Phiếu xếp dọc trên máy nhỏ: vòng cung lên trên, hàng kỹ năng co cột —
+         168px + gap + 92/48px tràn khung 320px và .trf-card overflow:hidden
+         sẽ CẮT mất thanh với con số (Codex #875). */
+      .trf-card__head { flex-direction: column; }
+      .trf-stamp { text-align: left; }
+      .trf-card__body { grid-template-columns: 1fr; justify-items: center;
+        gap: var(--av-space-4); }
+      .trf-ring { width: 132px; height: 132px; }
+      .trf-ring > div { width: 102px; height: 102px; }
+      .trf-ring b { font-size: 32px; }
+      .trf-skills { width: 100%; }
+      .trf-sk { grid-template-columns: 80px 1fr 40px; }
     }
   </style>
 </head>
@@ -178,7 +188,7 @@
       <section class="trf-card" id="overall">
         <div class="trf-card__head">
           <div>
-            <div class="trf-eyebrow">Phiếu kết quả · Thi thử 4 kỹ năng</div>
+            <div class="trf-eyebrow">Phiếu kết quả thi thử · TRF</div>
             <h1 class="trf-h1">Kết quả bài thi thử của em</h1>
           </div>
           <p id="released-at" class="trf-stamp"></p>
