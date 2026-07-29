@@ -3789,9 +3789,14 @@ def _student_audio_url_for_test(test_row: dict) -> tuple[str | None, str | None,
     return url, storage_path, duration
 
 
+# A row is audio-ready when EITHER path is present AND non-blank. The blank
+# check matters: `''` is not NULL, so a bare `not.is.null` would count the row
+# in SQL while the Python guard (`r.get(...)` falsy) and the signer both treat
+# it as missing — reopening the very count-vs-list gap this endpoint closes.
+# Nested and() inside or() is valid PostgREST and verified against the live DB.
 _AUDIO_READY_OR = (
-    "full_audio_storage_path.not.is.null,"
-    "assembled_audio_storage_path.not.is.null"
+    "and(full_audio_storage_path.not.is.null,full_audio_storage_path.neq.),"
+    "and(assembled_audio_storage_path.not.is.null,assembled_audio_storage_path.neq.)"
 )
 
 # Columns needed to judge readiness (below). Kept next to the rule so the two
@@ -3820,16 +3825,22 @@ def _exercise_is_ready(row: dict) -> bool:
     "missing model_answer" — after the learner has written their summary. So
     readiness follows the GRADER's requirement, not the page's.
     """
+    def _filled_list(v) -> bool:
+        # The pages test `Array.isArray(x) && x.length`, so a truthiness check
+        # here would pass malformed JSONB (an object, a string) that the page
+        # then refuses — advertising a mode whose page shows its empty state.
+        return isinstance(v, list) and len(v) > 0
+
     etype = row.get("exercise_type")
     payload = row.get("payload")
     if not isinstance(payload, dict):
         payload = {}
     if etype == "dictation":
-        return bool(row.get("segments"))
+        return _filled_list(row.get("segments"))
     if etype == "true_false":
-        return bool(payload.get("statements"))
+        return _filled_list(payload.get("statements"))
     if etype == "mcq":
-        return bool(payload.get("questions"))
+        return _filled_list(payload.get("questions"))
     if etype == "gist":
         return bool(str(payload.get("model_answer") or "").strip())
     return False

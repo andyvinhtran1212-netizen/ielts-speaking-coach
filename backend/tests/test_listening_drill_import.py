@@ -321,8 +321,7 @@ def test_list_default_excludes_drill(monkeypatch):
     # /overview khớp danh sách), truy vấn có đúng MỘT or_, và nó nói về audio
     # chứ không về test_type. Siết lại đúng ý định gốc.
     assert stub.eq_filter == "full"
-    assert stub.or_filter == ("full_audio_storage_path.not.is.null,"
-                              "assembled_audio_storage_path.not.is.null"), \
+    assert stub.or_filter == listening_module._AUDIO_READY_OR, \
         "test_type phải lọc bằng eq trên cột, không quay về or_ trên metadata"
 
 

@@ -144,8 +144,12 @@ def _call(**kw):
 # phải về test_type. Nên siết assert lại đúng ý định gốc: test_type phải là eq
 # trên cột, không được quay về or_ trên metadata.
 
-_AUDIO_OR = ("or", "full_audio_storage_path.not.is.null,"
-                   "assembled_audio_storage_path.not.is.null")
+def _audio_or():
+    """The one or_ the query is allowed to carry — read from the module so a
+    change to the expression does not need editing here, while an EXTRA or_
+    (e.g. test_type going back to a metadata fallback) still trips."""
+    from routers import listening as listening_mod
+    return ("or", listening_mod._AUDIO_READY_OR)
 
 
 def _or_clauses(rec):
@@ -155,14 +159,14 @@ def _or_clauses(rec):
 def test_list_mini_only():
     rec = _call(test_type="mini")
     assert ("eq", "test_type", "mini") in rec
-    assert _or_clauses(rec) == [_AUDIO_OR], "test_type must not be filtered via or_"
+    assert _or_clauses(rec) == [_audio_or()], "test_type must not be filtered via or_"
 
 
 def test_list_full_excludes_mini_and_drill():
     rec = _call(test_type="full")
     assert ("eq", "test_type", "full") in rec
     assert ("eq", "test_type", "mini") not in rec
-    assert _or_clauses(rec) == [_AUDIO_OR], "test_type must not be filtered via or_"
+    assert _or_clauses(rec) == [_audio_or()], "test_type must not be filtered via or_"
 
 
 def test_list_filters_audio_readiness_in_sql_before_paging():
@@ -173,7 +177,7 @@ def test_list_filters_audio_readiness_in_sql_before_paging():
     different set than the page. The predicate must reach the database.
     """
     rec = _call(test_type="full")
-    assert _AUDIO_OR in rec
+    assert _audio_or() in rec
 
 
 def test_list_default_behaves_as_full():

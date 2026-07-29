@@ -17,6 +17,7 @@ endpoints use — eq / in_ / not_.in_ / or_ / range / count="exact".
 from __future__ import annotations
 
 import asyncio
+import re
 import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
@@ -70,12 +71,14 @@ class _Query:
         return _Not(self)
 
     def or_(self, expr):
-        # Only the audio-ready shape is used: "<col>.not.is.null,<col>.not.is.null"
-        cols = []
-        for clause in expr.split(","):
-            col, _, rest = clause.partition(".")
-            assert rest == "not.is.null", f"unsupported or_ clause: {clause}"
-            cols.append(col)
+        # Only the audio-ready shape is used:
+        #   and(<col>.not.is.null,<col>.neq.),and(<col2>.not.is.null,<col2>.neq.)
+        # "either path present AND non-blank" — which is exactly `any(r.get(c))`,
+        # since both None and "" are falsy. Parsed strictly so a change to the
+        # real expression cannot silently keep passing here.
+        cols = re.findall(r"and\((\w+)\.not\.is\.null,\1\.neq\.\)", expr)
+        assert cols and len(cols) == expr.count("and("), \
+            f"unsupported or_ clause: {expr}"
         self._preds.append(lambda r, cs=tuple(cols): any(r.get(c) for c in cs))
         return self
 
@@ -306,3 +309,26 @@ def test_published_content_ids_pages_past_the_1000_row_cap():
     rows = [{"id": f"c{i}", "status": "published"} for i in range(2500)]
     with patch.object(mod, "supabase_admin", _FakeSB({"listening_content": rows})):
         assert len(mod._published_content_ids()) == 2500
+
+
+def test_blank_audio_path_is_not_audio_ready(tmp_path=None):
+    """`''` is not NULL. A bare `not.is.null` would count the row in SQL while
+    the Python guard and the URL signer both treat it as missing — the exact
+    count-vs-list gap this endpoint exists to close."""
+    from routers import listening as mod
+    import services.mock_exam_service as mes
+
+    tables = _dataset()
+    tables["listening_tests"].append(
+        _test_row(31, "full", full_audio_storage_path="",
+                  assembled_audio_storage_path=""))
+    with patch.object(mod, "supabase_admin", _FakeSB(tables)), \
+         patch.object(mod, "_require_auth", AsyncMock(return_value={"id": "u"})), \
+         patch.object(mes, "reserved_test_ids", lambda _s: set(RESERVED)):
+        ov = _run(mod.listening_overview(authorization="Bearer x"))
+        listed = _run(mod.list_published_listening_tests(
+            test_type="full", limit=100, offset=0, authorization="Bearer x"))
+
+    assert ov["tests"]["full"] == 5, "a blank path is not audio"
+    assert len(listed["items"]) == 5
+    assert all(i["id"] != "t31" for i in listed["items"])
