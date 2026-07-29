@@ -401,3 +401,56 @@ theo file, dùng `item_ids`, thêm `--audio-dir`, và 2 verdict mới:
 - Render vào **`audio_output_kokoro_v2/`**, giữ nguyên bản cũ. Bắt buộc: logic
   resume bỏ qua file đã tồn tại, nên render đè lên thư mục cũ sẽ **không bao giờ
   sửa** được các block hỏng (`Level1_1a.wav` đã có → skip).
+
+---
+
+## Phần 5 — Kết quả render lại (2026-07-29)
+
+`audio_output_kokoro_v2/` · **1.022 file · 2,3 GB · 14,2 giờ · 0 lỗi render**.
+
+### 5.1 Cổng audit — trước và sau
+
+| | Trước | Sau |
+|---|---:|---:|
+| UPLOADABLE | 797 block · 6.725 câu | **1.022 block · 8.690 câu** |
+| PARTIAL | 87 block · **4.444 câu không nghe được** | **0** |
+| NO_AUDIO_CONTENT | 94 block · 665 câu | **0** |
+| NOT_RENDERED | — | 10 block · 3.310 câu *(do `--max-parts 5` cắt có chủ ý)* |
+
+8.690 + 3.310 = **12.000** — mọi câu đều được tính, không câu nào rơi im lặng.
+
+Nhãn `Câu chứa đáp án`: **27/27 đúng nguyên văn** (trước: 0/978). Cảnh báo
+"map-labelling thiếu sơ đồ" đã hết.
+
+### 5.2 Cùng một lỗi `items[0]`, ba nơi
+
+| Nơi | Hậu quả |
+|---|---|
+| `kokoro_audio.py` → `block_plan()` | 4.532 câu mất tiếng |
+| `build_md_companions.py` → `transcript(rep)` | transcript trong `.md` bị cắt y hệt |
+| `build_md_companions.py` → `items[0].get("assetRef")` | **Mock 1/2/3 Section 2 mất sơ đồ** — assetRef nằm ở item thứ 2/6, không phải item đầu |
+
+Cả ba đều được sửa bằng cách duyệt mọi item thay vì tin item đầu.
+
+### 5.3 Hai phép đo sai của chính cổng audit
+
+Phát hiện khi chạy cổng lên bản mới — **cổng sai, không phải nội dung sai**:
+
+1. **Nhãn người nói phá probe.** Transcript hội thoại xen `**Nữ:** … **Nam:** …`;
+   probe 8 từ bắc qua hai lượt bị nhãn chen giữa. Toàn bộ **90 block
+   `Gen_FormVenue`** bị chấm `NO_AUDIO_CONTENT` trong khi audio hoàn toàn đúng
+   (44 giây, 11 lượt thoại). → gỡ nhãn trước khi chuẩn hoá.
+2. **So từng byte quá chặt.** `Rem_TR12` ghi *"…the training apart from…"* còn
+   audio nói *"…the training, apart from…"* — lệch một dấu phẩy, từ ngữ y hệt,
+   mà bị chấm là gắn nhãn sai. → so theo **câu** sau chuẩn hoá; đổi từ ngữ vẫn trượt.
+
+### 5.4 Còn tồn đọng (đã biết, chưa xử lý)
+
+- **Nhịp vẫn 5,7 giây/câu** (21/1.022 block đạt ≥15 s/câu). Đã chốt: chấp nhận,
+  định vị là bài tập bắt thông tin. Muốn đạt nhịp thi phải **viết dài transcript**,
+  không phải render lại.
+- **3.310 câu chưa render** — phần đuôi 11 mega trap-drill. Bỏ `--max-parts`
+  và render thêm ~2 giờ nếu muốn, nhưng lặp khuôn sẽ nặng.
+- **Chưa chuyển WAV → MP3** (2,3 GB → ~200 MB) và **chưa có bộ chuyển đổi** sang
+  định dạng `import_listening_lessons.py` nhận. Đây là hai việc còn lại trước khi
+  import được lên web.
