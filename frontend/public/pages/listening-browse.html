@@ -124,6 +124,14 @@
     .mode-link:hover {
       background: var(--av-brand-teal-50);
     }
+    /* Rendered instead of the mode links when the backend reports no
+       published exercise for this content row — an honest note beats four
+       links that all dead-end on "Bài này chưa có dạng ...". */
+    .mode-empty {
+      font-size: var(--av-fs-xs);
+      color: var(--av-text-muted);
+      font-style: italic;
+    }
     .empty-state, .error-banner {
       padding: var(--av-space-8); text-align: center;
       border: 1px dashed var(--av-border-default);

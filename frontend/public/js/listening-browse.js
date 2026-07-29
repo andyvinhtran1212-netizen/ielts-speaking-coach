@@ -69,6 +69,29 @@ async function load() {
 }
 
 
+/* Exercise-mode → link. A mode page needs a published exercise for THIS
+   content row; without one it renders "Bài này chưa có dạng ...". The card
+   used to offer all four unconditionally, so most links dead-ended. The
+   backend now reports `available_modes` per row and we render only those. */
+const MODE_LINKS = {
+  dictation:  { label: 'Chép chính tả', page: '/pages/listening-dictation.html' },
+  gist:       { label: 'Ý chính',       page: '/pages/listening-gist.html' },
+  true_false: { label: 'Đúng/Sai',      page: '/pages/listening-tf.html' },
+  mcq:        { label: 'Trắc nghiệm',   page: '/pages/listening-mcq.html' },
+};
+
+export function modeLinksHtml(item) {
+  const cid = encodeURIComponent(item && item.id ? item.id : '');
+  const modes = Array.isArray(item && item.available_modes) ? item.available_modes : [];
+  const links = Object.keys(MODE_LINKS)
+    .filter((m) => modes.includes(m))
+    .map((m) => `<a class="mode-link" href="${MODE_LINKS[m].page}?content_id=${cid}">`
+      + `${escapeHtml(MODE_LINKS[m].label)}</a>`);
+  return links.length
+    ? links.join('')
+    : '<span class="mode-empty">Chưa có dạng luyện nào cho bài này</span>';
+}
+
 function render() {
   const grid = VIEWS.grid;
   grid.innerHTML = '';
@@ -83,17 +106,11 @@ function render() {
       mins > 0 ? `<span class="meta-pill">${mins}p</span>` : '',
     ].join('');
 
-    const cid = encodeURIComponent(c.id);
     card.innerHTML = `
       <h3>${escapeHtml(c.title || 'Bài nghe')}</h3>
       <div class="desc">${escapeHtml(c.description || '')}</div>
       <div class="meta-row">${pills}</div>
-      <div class="mode-links">
-        <a class="mode-link" href="/pages/listening-dictation.html?content_id=${cid}">Chép chính tả</a>
-        <a class="mode-link" href="/pages/listening-gist.html?content_id=${cid}">Ý chính</a>
-        <a class="mode-link" href="/pages/listening-tf.html?content_id=${cid}">Đúng/Sai</a>
-        <a class="mode-link" href="/pages/listening-mcq.html?content_id=${cid}">Trắc nghiệm</a>
-      </div>
+      <div class="mode-links">${modeLinksHtml(c)}</div>
     `;
     grid.appendChild(card);
   });

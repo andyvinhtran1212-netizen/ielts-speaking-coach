@@ -1466,8 +1466,36 @@ async def list_listening_content(
         q = q.eq("ielts_section", ielts_section)
 
     res = q.execute()
+    items = res.data or []
+
+    # Which exercise modes each row can actually serve. Without this the
+    # browse card offered all four mode links unconditionally, and three of
+    # them dead-ended on "Bài này chưa có dạng ..." because no exercise had
+    # ever been authored. One extra round trip for the whole page, not N+1.
+    modes_by_content: dict[str, list[str]] = {c["id"]: [] for c in items if c.get("id")}
+    if modes_by_content:
+        try:
+            ex = (
+                supabase_admin.table("listening_exercises")
+                .select("content_id,exercise_type")
+                .eq("status", "published")
+                .in_("content_id", list(modes_by_content))
+                .execute()
+            )
+            for row in ex.data or []:
+                bucket = modes_by_content.get(row.get("content_id"))
+                etype = row.get("exercise_type")
+                if bucket is not None and etype and etype not in bucket:
+                    bucket.append(etype)
+        except Exception as exc:                                             # pragma: no cover
+            logger.warning("[listening] available_modes lookup failed: %s", exc)
+            # Leave the lists empty rather than guessing: an empty mode row
+            # renders as "chưa có dạng luyện nào", never as a broken link.
+    for c in items:
+        c["available_modes"] = sorted(modes_by_content.get(c.get("id"), []))
+
     return {
-        "items":  res.data or [],
+        "items":  items,
         "total":  getattr(res, "count", None) or 0,
         "limit":  limit,
         "offset": offset,
@@ -3749,6 +3777,102 @@ def _student_audio_url_for_test(test_row: dict) -> tuple[str | None, str | None,
         return None, storage_path, duration
     url = (signed or {}).get("signedURL") or (signed or {}).get("signed_url")
     return url, storage_path, duration
+
+
+_AUDIO_READY_OR = (
+    "full_audio_storage_path.not.is.null,"
+    "assembled_audio_storage_path.not.is.null"
+)
+
+
+def _published_content_ids() -> list[str]:
+    """Every published listening_content id, paged past the PostgREST cap.
+
+    A bare `.select()` silently stops at 1000 rows, which would under-count
+    the exercise-mode tiles the moment the library grows. Page explicitly.
+    """
+    out: list[str] = []
+    start, step = 0, 1000
+    while True:
+        res = (
+            supabase_admin.table("listening_content")
+            .select("id")
+            .eq("status", "published")
+            .range(start, start + step - 1)
+            .execute()
+        )
+        rows = res.data or []
+        out.extend(r["id"] for r in rows if r.get("id"))
+        if len(rows) < step:
+            return out
+        start += step
+
+
+@user_router.get("/overview")
+async def listening_overview(authorization: str | None = Header(default=None)):
+    """How much practice material each Listening surface actually holds.
+
+    The landing page renders one tile per surface. Before this endpoint the
+    tiles were hard-coded, so four of them pointed at surfaces with zero
+    published rows — a learner clicked "Nghe ý chính" and landed on an empty
+    page. The landing page now hides a tile whose count is 0, which means the
+    count MUST match what the corresponding list endpoint would return, or a
+    tile promises content its own page cannot show.
+
+    So every filter here mirrors ``list_published_listening_tests`` /
+    ``list_listening_content`` / ``get_listening_exercises`` exactly:
+    published only, audio-ready only, exam-reserved papers excluded, and an
+    exercise counts only when BOTH it and its content row are published.
+    ``test_counts_consistent_with_list`` in the test suite pins that.
+    """
+    await _require_auth(authorization)
+
+    from services import mock_exam_service
+    reserved = mock_exam_service.reserved_test_ids("listening")
+
+    tests: dict[str, int] = {}
+    for kind in ("full", "mini", "drill"):
+        q = (
+            supabase_admin.table("listening_tests")
+            .select("id", count="exact")
+            .eq("status", "published")
+            .eq("test_type", kind)
+            .eq("exam_only", False)
+            .or_(_AUDIO_READY_OR)
+            .limit(1)
+        )
+        if reserved:
+            q = q.not_.in_("id", list(reserved))
+        tests[kind] = getattr(q.execute(), "count", None) or 0
+
+    content_ids = set(_published_content_ids())
+    modes: dict[str, int] = {t: 0 for t in sorted(_EXERCISE_TYPES)}
+    if content_ids:
+        # Intersect in Python rather than `.in_(content_ids)`: the id list is
+        # unbounded and a few thousand UUIDs in a query string exceeds the URL
+        # limit, which would fail as a 4xx rather than a wrong count.
+        start, step = 0, 1000
+        while True:
+            res = (
+                supabase_admin.table("listening_exercises")
+                .select("content_id,exercise_type")
+                .eq("status", "published")
+                .range(start, start + step - 1)
+                .execute()
+            )
+            rows = res.data or []
+            for r in rows:
+                if r.get("content_id") in content_ids and r.get("exercise_type") in modes:
+                    modes[r["exercise_type"]] += 1
+            if len(rows) < step:
+                break
+            start += step
+
+    return {
+        "tests":          tests,
+        "content":        len(content_ids),
+        "exercise_modes": modes,
+    }
 
 
 @user_router.get("/tests")

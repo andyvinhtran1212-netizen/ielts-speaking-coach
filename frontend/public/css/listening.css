@@ -430,3 +430,33 @@ a { color: inherit; text-decoration: none; }
   .vocab-topic-card,
   .vocab-topic-card .vtc-arrow { transition: none !important; }
 }
+
+
+/* ── Landing: count-driven sections ─────────────────────────────── */
+/* The landing reveals a mode-card only when GET /api/listening/overview
+   reports a non-zero count for it, so these two states cover "the whole
+   section came back empty" and "the counts could not be fetched". Both
+   must read as information, not as breakage. */
+
+.ll-empty {
+  margin: 0;
+  padding: var(--av-space-6);
+  border: 1px dashed var(--av-border-default);
+  border-radius: var(--av-radius-lg);
+  background: var(--av-surface-card);
+  color: var(--av-text-secondary);
+  font-size: var(--av-fs-sm);
+  line-height: var(--av-lh-relaxed);
+}
+.ll-empty[hidden] { display: none; }
+
+.error-banner {
+  margin-bottom: var(--av-space-8);
+  padding: var(--av-space-3) var(--av-space-4);
+  border: 1px solid var(--av-error);
+  border-radius: var(--av-radius-md);
+  background: var(--av-error-soft);
+  color: var(--av-error);
+  font-size: var(--av-fs-sm);
+}
+.error-banner[hidden] { display: none; }
