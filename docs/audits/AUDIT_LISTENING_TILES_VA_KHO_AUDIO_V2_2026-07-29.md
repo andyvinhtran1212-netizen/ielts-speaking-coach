@@ -247,10 +247,18 @@ Số đếm trên tile tự tăng theo — không phải sửa HTML.
   phát hiện của Codex review, đã vá.
 - `_published_content_ids()` *(mới)* — phân trang tường minh, tránh trần
   1000 dòng của PostgREST.
-- `GET /api/listening/content` — mỗi dòng thêm `available_modes: string[]`
-  (chỉ những dạng có `listening_exercises` đã publish). Một truy vấn cho cả
-  trang, không N+1. Nếu truy vấn lỗi → để rỗng, hiển thị "chưa có dạng luyện",
-  không đoán bừa.
+- `GET /api/listening/content` — mỗi dòng thêm `available_modes: string[]`.
+  Một truy vấn cho cả trang, không N+1. Nếu truy vấn lỗi → để rỗng, hiển thị
+  "chưa có dạng luyện", không đoán bừa.
+- `_exercise_is_ready()` *(mới)* — `status='published'` **chưa đủ**.
+  `_ensure_dictation_exercise` chèn một dòng dictation đã publish với
+  `segments` rỗng ngay lần đầu người dùng nộp bài, mà trang dictation đòi
+  `segments.length > 0`. Điều kiện "sẵn sàng" nay phản chiếu đúng cái mỗi
+  trang cần: dictation → `segments[]`; true_false → `payload.statements[]`;
+  mcq → `payload.questions[]`; gist → chỉ cần có dòng.
+- Hai vòng quét phân trang đều thêm `.order("id")` — `LIMIT/OFFSET` không kèm
+  `ORDER BY` thì Postgres không đảm bảo thứ tự, quá 1000 dòng là có thể trùng
+  hoặc sót.
 
 **Frontend**
 
@@ -267,9 +275,9 @@ Số đếm trên tile tự tăng theo — không phải sửa HTML.
 
 | File | Nội dung |
 |---|---|
-| `backend/tests/test_listening_overview.py` *(mới, 9 test)* | bộ lọc, đếm mode, phân trang 2.500 dòng, bất biến **overview == list**, và hồi quy "trang đầy không bị hụt dòng" |
-| `backend/tests/test_audit_kokoro_bundle.py` *(mới, 5 test)* | cổng audit không được duyệt block thiếu `.wav` / `.wav` rỗng / `.wav` mang tên khác |
-| `frontend/tests/listening-landing-counts.test.mjs` *(mới, 12 test)* | ẩn/hiện theo số đếm, nhãn mode, `modeLinksHtml` |
+| `backend/tests/test_listening_overview.py` *(mới, 20 test)* | bộ lọc, đếm mode, phân trang 2.500 dòng, bất biến **overview == list**, hồi quy "trang đầy không bị hụt dòng", và bảng điều kiện `_exercise_is_ready` |
+| `backend/tests/test_audit_kokoro_bundle.py` *(mới, 9 test)* | cổng audit không được duyệt block thiếu `.wav`, `.wav` không giải mã được, bị cắt sau header, toàn khoảng lặng, sai độ dài, hoặc mang tên khác |
+| `frontend/tests/listening-landing-counts.test.mjs` *(mới, 13 test)* | ẩn/hiện theo số đếm, nhãn mode, `modeLinksHtml`, và **`MODE_LABELS` (landing) phải trùng tập với `MODE_LINKS` (browse)** |
 | `frontend/tests/listening-page-shell.test.mjs` *(viết lại)* | cấm link trần tới 4 trang phụ thuộc `content_id` |
 | `frontend/tests/listening-mcq-sessions-pages.test.mjs` | đổi sang chốt cơ chế gating |
 
