@@ -14,9 +14,14 @@ Verdicts
                       AND the .wav the companion names is present and playable
     PARTIAL           the block has audio, but some questions are not in it
     NO_AUDIO_CONTENT  no question in the block is in its audio
-    NO_AUDIO_FILE     no .md companion, or its .wav is missing, undecodable,
-                      truncated, silent, or a different length than the
-                      companion advertises
+    NO_AUDIO_FILE     the .wav is missing, undecodable, truncated, silent, or a
+                      different length than the companion advertises
+    NOT_RENDERED      corpus questions that no audio file claims at all
+    ORPHAN_AUDIO      an audio file whose questions are not in the corpus
+
+One audio file = one exercise. A block may be split across several files
+(`Gen_Contra` -> `Gen_Contra_p01`..`_p05`); `item_ids` in timing.json says which
+questions each file serves.
 
 Read-only. Touches nothing outside the bundle directory.
 
@@ -157,7 +162,19 @@ def load_disk(audio_dir: str) -> dict:
             raw = m.group(1) if m else ""
             fm = parse_fm(txt)
             state, secs = wav_state(path, fm)
-            out[f[:-3]] = {
+            stem = f[:-3]
+            # `item_ids` says which corpus questions THIS audio file serves.
+            # Needed since a block can be split across several files
+            # (`Gen_Contra` -> `Gen_Contra_p01`..`_p05`), so the file name is
+            # no longer a `subsection`. Absent on pre-split bundles.
+            ids = []
+            tpath = os.path.join(dirpath, stem + ".timing.json")
+            if os.path.exists(tpath):
+                try:
+                    ids = json.load(open(tpath, encoding="utf-8")).get("item_ids") or []
+                except Exception:
+                    ids = []
+            out[stem] = {
                 "dir": os.path.relpath(dirpath, audio_dir),
                 "path": path,
                 "transcript": norm(raw),
@@ -166,6 +183,7 @@ def load_disk(audio_dir: str) -> dict:
                 "quotes": QUOTE_RE.findall(txt),
                 "wav_state": state,
                 "wav_seconds": secs,
+                "item_ids": ids,
             }
     return out
 
@@ -177,8 +195,8 @@ def item_scripts(item: dict) -> str:
     return norm(" ".join(p for p in parts if p))
 
 
-def audit(bundle: str) -> list[dict]:
-    audio_dir = os.path.join(bundle, "audio_output_kokoro")
+def audit(bundle: str, audio_subdir: str = "audio_output_kokoro") -> list[dict]:
+    audio_dir = os.path.join(bundle, audio_subdir)
     corpus_path = os.path.join(bundle, "corpus_v2.json")
     for p in (audio_dir, corpus_path):
         if not os.path.exists(p):
@@ -190,22 +208,39 @@ def audit(bundle: str) -> list[dict]:
     disk = load_disk(audio_dir)
 
     by_block = collections.defaultdict(list)
+    byid = {}
     for it in items:
         by_block[it.get("subsection")].append(it)
+        if it.get("id"):
+            byid[it["id"]] = it
 
+    # Walk the AUDIO FILES, not the corpus: one file = one exercise. A block may
+    # now be split across several files, so a corpus-first walk would look for a
+    # `Gen_Contra.wav` that does not exist and never see the five that do.
     rows = []
-    for block, its in sorted(by_block.items()):
-        d = disk.get(block)
-        if not d or d["wav_state"] != "ok":
-            # No companion at all, or one whose .wav was never rendered. A
-            # transcript with no file behind it is text, not a listening
-            # exercise — it must never reach UPLOADABLE.
-            rows.append({"block": block, "batch": d["dir"].split(os.sep)[0] if d else "?",
+    covered = set()
+    for block, d in sorted(disk.items()):
+        its = [byid[i] for i in d["item_ids"] if i in byid]
+        if not its:
+            its = by_block.get(block) or []          # bundle without item_ids
+        if not its:
+            rows.append({"block": block, "batch": d["dir"].split(os.sep)[0],
+                         "verdict": "ORPHAN_AUDIO", "questions": 0, "unheard": 0,
+                         "seconds": round(d["wav_seconds"], 1), "sec_per_q": 0,
+                         "part": "", "tasks": "", "image": "", "image_ok": "",
+                         "quotes_verbatim": "", "wav": d["wav_state"]})
+            continue
+        covered.update(o["id"] for o in its if o.get("id"))
+
+        if d["wav_state"] != "ok":
+            # A transcript with no playable file behind it is text, not a
+            # listening exercise — it must never reach UPLOADABLE.
+            rows.append({"block": block, "batch": d["dir"].split(os.sep)[0],
                          "verdict": "NO_AUDIO_FILE",
                          "questions": len(its), "unheard": len(its), "seconds": 0,
                          "sec_per_q": 0, "part": "", "tasks": "", "image": "",
                          "image_ok": "", "quotes_verbatim": "",
-                         "wav": (d["wav_state"] if d else "no_companion")})
+                         "wav": d["wav_state"]})
             continue
 
         unheard = 0
@@ -244,6 +279,21 @@ def audit(bundle: str) -> list[dict]:
             "quotes_verbatim": f"{verbatim}/{len(quotes)}" if quotes else "",
             "wav": d["wav_state"],
         })
+
+    # Questions no audio file claims. On a full render this means a block was
+    # skipped; with `--max-parts` it is the deliberately un-rendered tail. Either
+    # way they are reported, never silently dropped — a shorter corpus that
+    # looks 100% clean is exactly how truncation hides.
+    missing = collections.defaultdict(list)
+    for it in items:
+        if it.get("id") and it["id"] not in covered:
+            missing[it.get("subsection")].append(it)
+    for block, its in sorted(missing.items()):
+        rows.append({"block": block, "batch": (its[0].get("section") or "?"),
+                     "verdict": "NOT_RENDERED", "questions": len(its),
+                     "unheard": len(its), "seconds": 0, "sec_per_q": 0,
+                     "part": "", "tasks": "", "image": "", "image_ok": "",
+                     "quotes_verbatim": "", "wav": "no_file"})
     return rows
 
 
@@ -252,7 +302,8 @@ def report(rows: list[dict], min_sec_per_q: float) -> None:
     print(f"blocks {len(rows)}   questions {tot_q}   "
           f"audio {sum(r['seconds'] for r in rows) / 3600:.1f} h\n")
 
-    for verdict in ("UPLOADABLE", "PARTIAL", "NO_AUDIO_CONTENT", "NO_AUDIO_FILE"):
+    for verdict in ("UPLOADABLE", "PARTIAL", "NO_AUDIO_CONTENT", "NO_AUDIO_FILE",
+                    "NOT_RENDERED", "ORPHAN_AUDIO"):
         sub = [r for r in rows if r["verdict"] == verdict]
         if not sub:
             continue
@@ -300,14 +351,16 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--bundle", required=True,
-                    help="path to audio_pipeline/v2 (holds corpus_v2.json + audio_output_kokoro/)")
+                    help="path to audio_pipeline/v2 (holds corpus_v2.json + the audio dir)")
+    ap.add_argument("--audio-dir", default="audio_output_kokoro",
+                    help="audio directory inside the bundle (default audio_output_kokoro)")
     ap.add_argument("--manifest", help="write the per-block verdict table to this CSV")
     ap.add_argument("--verdict", help="print only block ids with this verdict")
     ap.add_argument("--min-sec-per-q", type=float, default=15.0,
                     help="pacing floor used in the summary (default 15)")
     args = ap.parse_args()
 
-    rows = audit(args.bundle)
+    rows = audit(args.bundle, args.audio_dir)
 
     if args.verdict:
         for r in rows:

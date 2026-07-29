@@ -167,3 +167,73 @@ def test_question_absent_from_transcript_downgrades_the_block(tmp_path):
     rows = audit(str(d))
     assert rows[0]["verdict"] == "PARTIAL"
     assert rows[0]["unheard"] == 1
+
+
+# ── Split blocks: one block -> several audio files ───────────────────────────
+
+
+def _write_timing(path: Path, stem: str, seconds: float, item_ids: list[str]) -> None:
+    path.write_text(json.dumps({
+        "audio": f"{stem}.wav", "sample_rate": _RATE, "total_seconds": seconds,
+        "has_word_timings": False, "item_ids": item_ids,
+        "segments": [{"index": 1, "speaker": "narrator", "voice": "bm_george",
+                      "text": TRANSCRIPT, "start": 0.0, "end": seconds}],
+    }), encoding="utf-8")
+
+
+def _split_bundle(tmp_path: Path) -> Path:
+    """A block split into two files, the way --drill-batch renders it."""
+    d = tmp_path / "audio_output_kokoro" / "Batch"
+    d.mkdir(parents=True)
+    items = []
+    for part, ids in (("p01", ["Q1", "Q2"]), ("p02", ["Q3", "Q4"])):
+        stem = f"Blk_{part}"
+        (d / f"{stem}.md").write_text(_companion(stem), encoding="utf-8")
+        _write_wav(d / f"{stem}.wav", 40.0)
+        _write_timing(d / f"{stem}.timing.json", stem, 40.0, ids)
+        items += [{"id": i, "subsection": "Blk", "script": TRANSCRIPT} for i in ids]
+    (tmp_path / "corpus_v2.json").write_text(json.dumps(items), encoding="utf-8")
+    return tmp_path
+
+
+def test_split_block_is_audited_per_file_not_per_subsection(tmp_path):
+    """The corpus calls all four questions `Blk`, but they live in two files.
+
+    A corpus-first walk would look for `Blk.wav` (absent) and never see the two
+    files that exist — reporting 4 questions with no audio while the audio is
+    right there.
+    """
+    rows = audit(str(_split_bundle(tmp_path)))
+    assert _verdicts(rows) == {"Blk_p01": "UPLOADABLE", "Blk_p02": "UPLOADABLE"}
+    assert sorted(r["questions"] for r in rows) == [2, 2]
+
+
+def test_questions_no_file_claims_are_reported_not_dropped(tmp_path):
+    """`--max-parts` renders only the head of a block. The unrendered tail must
+    surface as NOT_RENDERED — a shorter corpus that reads 100% clean is exactly
+    how truncation hides."""
+    d = _split_bundle(tmp_path)
+    items = json.loads((d / "corpus_v2.json").read_text(encoding="utf-8"))
+    items.append({"id": "Q99", "subsection": "Blk", "script": "Never rendered."})
+    (d / "corpus_v2.json").write_text(json.dumps(items), encoding="utf-8")
+
+    rows = audit(str(d))
+    nr = [r for r in rows if r["verdict"] == "NOT_RENDERED"]
+    assert len(nr) == 1 and nr[0]["questions"] == 1
+    assert sum(r["questions"] for r in rows) == 5, "every corpus question is accounted for"
+
+
+def test_audio_file_matching_no_corpus_question_is_flagged(tmp_path):
+    d = _split_bundle(tmp_path)
+    (d / "corpus_v2.json").write_text(json.dumps(
+        [{"id": "Q1", "subsection": "Blk", "script": TRANSCRIPT}]), encoding="utf-8")
+    rows = audit(str(d))
+    assert "ORPHAN_AUDIO" in {r["verdict"] for r in rows}
+
+
+def test_alternate_audio_dir_is_honoured(tmp_path):
+    """A re-render lands in a new directory so the old one stays intact."""
+    d = _split_bundle(tmp_path)
+    (d / "audio_output_kokoro").rename(d / "audio_output_kokoro_v2")
+    rows = audit(str(d), "audio_output_kokoro_v2")
+    assert _verdicts(rows) == {"Blk_p01": "UPLOADABLE", "Blk_p02": "UPLOADABLE"}
