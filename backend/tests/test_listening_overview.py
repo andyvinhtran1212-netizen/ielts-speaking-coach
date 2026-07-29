@@ -152,7 +152,7 @@ def _dataset():
         {"id": "e3", "content_id": "c1", "exercise_type": "mcq",
          "status": "draft", "segments": [], "payload": {"questions": [{"q": 1}]}},
         {"id": "e4", "content_id": "c3", "exercise_type": "gist",
-         "status": "published", "segments": [], "payload": {}},
+         "status": "published", "segments": [], "payload": {"model_answer": "m"}},
         # Published, but never curated: `_ensure_dictation_exercise` inserts
         # exactly this shape on a user's first attempt. The page cannot run it.
         {"id": "e5", "content_id": "c2", "exercise_type": "true_false",
@@ -216,8 +216,15 @@ def test_overview_counts_only_published_exercises_on_published_content():
     ({"exercise_type": "true_false", "segments": [], "payload": {}}, False),
     ({"exercise_type": "mcq", "segments": [], "payload": {"questions": [1]}}, True),
     ({"exercise_type": "mcq", "segments": [], "payload": {}}, False),
-    # gist's page falls back to a default prompt, so the row alone is enough.
-    ({"exercise_type": "gist", "segments": [], "payload": {}}, True),
+    # Gist renders without a rubric but 422s at SUBMIT, after the learner has
+    # written their summary — readiness follows the grader, not the page.
+    ({"exercise_type": "gist", "segments": [], "payload": {"model_answer": "x"}}, True),
+    ({"exercise_type": "gist", "segments": [], "payload": {"model_answer": "  "}}, False),
+    ({"exercise_type": "gist", "segments": [], "payload": {"prompt_text": "q"}}, False),
+    ({"exercise_type": "gist", "segments": [], "payload": {}}, False),
+    # A malformed payload must not crash the availability scan.
+    ({"exercise_type": "mcq", "segments": [], "payload": None}, False),
+    ({"exercise_type": "mcq", "segments": [], "payload": "junk"}, False),
     ({"exercise_type": "mini_test", "segments": [], "payload": {}}, False),
     ({"exercise_type": "wat", "segments": [], "payload": {}}, False),
 ])

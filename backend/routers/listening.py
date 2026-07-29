@@ -3800,23 +3800,29 @@ def _exercise_is_ready(row: dict) -> bool:
         dictation   listening-dictation.js  needs segments[].length  > 0
         true_false  listening-tf.js         needs payload.statements[] > 0
         mcq         listening-mcq.js        needs payload.questions[]  > 0
-        gist        listening-gist.js       needs only the row (prompt_text
-                                            falls back to a default)
+        gist        _grade_and_save_gist    needs payload.model_answer
 
     Advertising a mode whose page then shows "chưa được phân câu" is the same
     dead end this module was reorganised to remove, one level down. So the
     availability check mirrors what the page requires.
+
+    Gist is the nastiest of the four: its page RENDERS fine without a rubric
+    (prompt_text falls back to a default), and only the submit 422s with
+    "missing model_answer" — after the learner has written their summary. So
+    readiness follows the GRADER's requirement, not the page's.
     """
     etype = row.get("exercise_type")
-    payload = row.get("payload") or {}
+    payload = row.get("payload")
+    if not isinstance(payload, dict):
+        payload = {}
     if etype == "dictation":
         return bool(row.get("segments"))
     if etype == "true_false":
-        return bool(isinstance(payload, dict) and payload.get("statements"))
+        return bool(payload.get("statements"))
     if etype == "mcq":
-        return bool(isinstance(payload, dict) and payload.get("questions"))
+        return bool(payload.get("questions"))
     if etype == "gist":
-        return True
+        return bool(str(payload.get("model_answer") or "").strip())
     return False
 
 
