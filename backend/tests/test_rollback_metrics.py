@@ -279,6 +279,50 @@ def test_prefix_on_root_route_does_not_swallow_the_whole_site(monkeypatch):
     assert body["match_coerced_from"] == "prefix"
 
 
+def test_trailing_slash_route_is_not_counted_twice(monkeypatch):
+    """Review #879 — `LIKE '/grammar/%'` also matches `/grammar/` itself, so a
+    route that already ends in `/` was counted once by the exact query and again
+    by the subtree query. The table counts it once; the two numbers on the same
+    screen must not disagree."""
+    analytics = (
+        [_pv("next", "/grammar/")] * 4
+        + [_pv("next", "/grammar/tenses/present-perfect")] * 6
+    )
+    body = _client(monkeypatch, analytics, []).get(
+        "/admin/error-logs/rollback-metrics?route=/grammar/&match=prefix&window_minutes=1440",
+        headers=AUTHZ,
+    ).json()
+    assert body["implementations"]["next"]["page_views"] == 10
+    assert body["exposure"]["evaluated_views"] == 10, "exposure must agree with the table"
+    assert body["exposure"]["exact"] is True
+
+
+def test_like_metacharacters_in_route_refuse_the_exact_count(monkeypatch):
+    """Review #879 — `%`/`_` are legal path characters AND LIKE wildcards, and
+    PostgREST has no ESCAPE clause. The table matcher treats them literally, so
+    an unescaped LIKE would count siblings the table excludes. Better to fall
+    back to the scanned count, which is labelled a lower bound, than to publish
+    two disagreeing numbers.
+
+    NOTE: `_Query.like()` matches literally, so this test cannot reproduce the
+    wildcard inflation itself — it pins the REFUSAL (`exact: false`), which is
+    the behaviour we control. Same limitation the class docstring records for
+    every PostgREST filter here."""
+    analytics = (
+        [_pv("next", "/a_b")] * 2
+        + [_pv("next", "/a_b/child")] * 3
+        + [_pv("next", "/axb/child")] * 7   # only a LIKE wildcard would take these
+    )
+    body = _client(monkeypatch, analytics, []).get(
+        "/admin/error-logs/rollback-metrics?route=/a_b&match=prefix&window_minutes=1440",
+        headers=AUTHZ,
+    ).json()
+    # The table half matches literally — `_` is not a wildcard there.
+    assert body["implementations"]["next"]["page_views"] == 5
+    assert body["exposure"]["exact"] is False, "must not publish a wildcard-inflated count"
+    assert body["exposure"]["evaluated_views"] == 5
+
+
 def test_match_coerced_from_is_null_when_the_mode_was_honoured(monkeypatch):
     analytics, errors = _grammar_traffic()
     for mode in ("exact", "prefix"):

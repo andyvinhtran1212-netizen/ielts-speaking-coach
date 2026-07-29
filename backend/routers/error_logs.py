@@ -628,9 +628,27 @@ async def error_log_rollback_metrics(
         return q.limit(1).execute().count
 
     def _exposure_count(impl: str | None) -> int | None:
+        if route_prefix is None:
+            return _exposure_count_one(impl, prefix=False)
+        # Review #879 — `%` and `_` are LIKE wildcards. They are also legal path
+        # characters, and `_route_matches()` (which produces the TABLE numbers)
+        # treats them literally. PostgREST exposes no ESCAPE clause, so a route
+        # carrying either would make the exposure count include siblings the
+        # table excludes — two numbers on one screen disagreeing, which is the
+        # failure mode this whole block exists to prevent. Refuse the exact
+        # count instead: returning None drops to the scanned fallback, which is
+        # labelled a LOWER BOUND in the response and the panel.
+        if any(ch in route_prefix for ch in ("%", "_")):
+            return None
+        # Review #879 — `LIKE 'x/%'` also matches `x/` itself (`%` matches zero
+        # characters), so for a route that ALREADY ends in `/` the subtree query
+        # covers the route too. Adding an exact count on top double-counted it
+        # against a table that counts it once.
+        if route == route_prefix:
+            return _exposure_count_one(impl, prefix=True)
         own = _exposure_count_one(impl, prefix=False)
-        if route_prefix is None or own is None:
-            return own
+        if own is None:
+            return None
         below = _exposure_count_one(impl, prefix=True)
         return None if below is None else own + below
 
