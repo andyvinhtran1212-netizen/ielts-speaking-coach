@@ -219,6 +219,32 @@ def test_counts_consistent_with_list(kind):
     assert count == listed, f"{kind}: overview says {count}, list returns {listed}"
 
 
+def test_a_no_audio_row_early_in_the_order_does_not_shorten_the_page():
+    """Regression: audio-readiness must be filtered in SQL, before paging.
+
+    It used to be a Python post-filter over the already-paged result. A
+    published-but-audioless row sitting inside page 1 was fetched, then
+    dropped — so a page of `limit=3` returned 2 items while /overview counted
+    over the whole filtered set. The badge and the page disagreed, which is
+    exactly the promise the count-driven landing makes.
+    """
+    from routers import listening as mod
+    import services.mock_exam_service as mes
+
+    tables = _dataset()
+    # Put the audioless row FIRST so a post-filter would eat a page slot.
+    tables["listening_tests"].insert(0, _test_row(30, "full", full_audio_storage_path=None))
+
+    with patch.object(mod, "supabase_admin", _FakeSB(tables)), \
+         patch.object(mod, "_require_auth", AsyncMock(return_value={"id": "u"})), \
+         patch.object(mes, "reserved_test_ids", lambda _s: set(RESERVED)):
+        page = _run(mod.list_published_listening_tests(
+            test_type="full", limit=3, offset=0, authorization="Bearer x"))
+
+    assert len(page["items"]) == 3, "a full page must not be shortened by a dropped row"
+    assert all(i["id"] != "t30" for i in page["items"])
+
+
 def test_reserved_exam_papers_are_excluded():
     """A paper held for a mock exam is invisible to the practice library, so
     it must not inflate the tile either."""

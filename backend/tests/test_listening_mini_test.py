@@ -137,19 +137,43 @@ def _call(**kw):
 
 # Mig 157 — test_type là cột thật (NOT NULL, CHECK full|mini|drill; legacy
 # NULL đã backfill = 'full') → cả 3 nhánh lọc đều là eq trên cột.
+#
+# Các assert "không có or_" ban đầu chốt điều đó bằng cách cấm MỌI or_. Sau khi
+# lọc audio-ready được đẩy xuống SQL (để phân trang không bị hụt dòng và để số
+# đếm ở /overview khớp danh sách), truy vấn có đúng MỘT or_ — về audio, không
+# phải về test_type. Nên siết assert lại đúng ý định gốc: test_type phải là eq
+# trên cột, không được quay về or_ trên metadata.
+
+_AUDIO_OR = ("or", "full_audio_storage_path.not.is.null,"
+                   "assembled_audio_storage_path.not.is.null")
+
+
+def _or_clauses(rec):
+    return [t for t in rec if t[0] == "or"]
 
 
 def test_list_mini_only():
     rec = _call(test_type="mini")
     assert ("eq", "test_type", "mini") in rec
-    assert not any(t[0] == "or" for t in rec)
+    assert _or_clauses(rec) == [_AUDIO_OR], "test_type must not be filtered via or_"
 
 
 def test_list_full_excludes_mini_and_drill():
     rec = _call(test_type="full")
     assert ("eq", "test_type", "full") in rec
     assert ("eq", "test_type", "mini") not in rec
-    assert not any(t[0] == "or" for t in rec)
+    assert _or_clauses(rec) == [_AUDIO_OR], "test_type must not be filtered via or_"
+
+
+def test_list_filters_audio_readiness_in_sql_before_paging():
+    """Pinned by /overview: the tile count and the page must agree.
+
+    A Python post-filter over an already-paged result made a page shed rows
+    (short page indistinguishable from last page) and made the badge count a
+    different set than the page. The predicate must reach the database.
+    """
+    rec = _call(test_type="full")
+    assert _AUDIO_OR in rec
 
 
 def test_list_default_behaves_as_full():

@@ -10,10 +10,11 @@ This script decides, per block, whether every question in it can actually be
 heard, and writes a manifest the importer can be pointed at.
 
 Verdicts
-    UPLOADABLE        every question's script is inside the block's transcript
+    UPLOADABLE        every question's script is inside the block's transcript,
+                      AND the .wav the companion names is present and playable
     PARTIAL           the block has audio, but some questions are not in it
     NO_AUDIO_CONTENT  no question in the block is in its audio
-    NO_AUDIO_FILE     the block has no .md/.wav on disk at all
+    NO_AUDIO_FILE     no .md companion, or its .wav is missing / empty
 
 Read-only. Touches nothing outside the bundle directory.
 
@@ -62,8 +63,30 @@ def parse_fm(txt: str) -> dict:
     return fm
 
 
+# A .wav smaller than this is a stub, not speech (a header alone is 44 bytes).
+_MIN_WAV_BYTES = 2048
+
+
+def wav_state(md_path: str, fm: dict) -> tuple[str, int]:
+    """Is the audio the companion names actually on disk and non-empty?
+
+    The .md is generated from the corpus and exists whether or not the TTS
+    step ever ran for that block — so transcript text alone must never be
+    taken as proof of audio. Returns (state, bytes) where state is
+    "ok" | "missing" | "empty".
+    """
+    name = (fm.get("audio") or "").strip()
+    if not name:
+        name = os.path.basename(md_path)[:-3] + ".wav"
+    path = os.path.join(os.path.dirname(md_path), name)
+    if not os.path.exists(path):
+        return "missing", 0
+    size = os.path.getsize(path)
+    return ("ok" if size >= _MIN_WAV_BYTES else "empty"), size
+
+
 def load_disk(audio_dir: str) -> dict:
-    """block id -> {dir, transcript(normalised), raw, fm}."""
+    """block id -> {dir, transcript(normalised), raw, fm, wav_state, wav_bytes}."""
     out = {}
     for dirpath, _, files in os.walk(audio_dir):
         for f in sorted(files):
@@ -73,13 +96,17 @@ def load_disk(audio_dir: str) -> dict:
             txt = open(path, encoding="utf-8").read()
             m = TRANSCRIPT_RE.search(txt)
             raw = m.group(1) if m else ""
+            fm = parse_fm(txt)
+            state, size = wav_state(path, fm)
             out[f[:-3]] = {
                 "dir": os.path.relpath(dirpath, audio_dir),
                 "path": path,
                 "transcript": norm(raw),
                 "raw_transcript": raw,
-                "fm": parse_fm(txt),
+                "fm": fm,
                 "quotes": QUOTE_RE.findall(txt),
+                "wav_state": state,
+                "wav_bytes": size,
             }
     return out
 
@@ -110,11 +137,16 @@ def audit(bundle: str) -> list[dict]:
     rows = []
     for block, its in sorted(by_block.items()):
         d = disk.get(block)
-        if not d:
-            rows.append({"block": block, "batch": "?", "verdict": "NO_AUDIO_FILE",
+        if not d or d["wav_state"] != "ok":
+            # No companion at all, or one whose .wav was never rendered. A
+            # transcript with no file behind it is text, not a listening
+            # exercise — it must never reach UPLOADABLE.
+            rows.append({"block": block, "batch": d["dir"].split(os.sep)[0] if d else "?",
+                         "verdict": "NO_AUDIO_FILE",
                          "questions": len(its), "unheard": len(its), "seconds": 0,
                          "sec_per_q": 0, "part": "", "tasks": "", "image": "",
-                         "image_ok": "", "quotes_verbatim": ""})
+                         "image_ok": "", "quotes_verbatim": "",
+                         "wav": (d["wav_state"] if d else "no_companion")})
             continue
 
         unheard = 0
@@ -151,6 +183,7 @@ def audit(bundle: str) -> list[dict]:
             "image": image,
             "image_ok": image_ok,
             "quotes_verbatim": f"{verbatim}/{len(quotes)}" if quotes else "",
+            "wav": d["wav_state"],
         })
     return rows
 
@@ -176,6 +209,12 @@ def report(rows: list[dict], min_sec_per_q: float) -> None:
               f"(a real IELTS section runs ~30)")
         slow = [r for r in up if r["sec_per_q"] >= min_sec_per_q]
         print(f"blocks at >= {min_sec_per_q} s/question: {len(slow)} / {len(up)}")
+
+    no_wav = [r for r in rows if r.get("wav") in ("missing", "empty", "no_companion")]
+    if no_wav:
+        print(f"\nblocks with no playable .wav: {len(no_wav)} "
+              f"({sum(r['questions'] for r in no_wav)} questions) — "
+              f"{[r['block'] for r in no_wav][:6]}")
 
     bad_img = [r for r in rows if r["image_ok"] == "MISSING"]
     if bad_img:

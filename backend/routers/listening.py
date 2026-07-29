@@ -3907,6 +3907,14 @@ async def list_published_listening_tests(
         supabase_admin.table("listening_tests")
         .select("*", count="exact")
         .eq("status", "published")
+        # Audio-readiness is filtered in SQL, BEFORE .range(). It used to be a
+        # Python post-filter over the fetched page, which quietly made
+        # pagination wrong: a page of `limit` rows could shed no-audio rows and
+        # return fewer, with no way for the caller to tell short-page from
+        # last-page. It also broke the /overview invariant — the tile counts
+        # over the whole filtered set, so a no-audio row inside page 1 made the
+        # badge disagree with the page. Same predicate, evaluated in one place.
+        .or_(_AUDIO_READY_OR)
         .order("created_at", desc=True)
         .range(offset, offset + limit - 1)
     )
@@ -3927,10 +3935,11 @@ async def list_published_listening_tests(
     if _reserved:
         q = q.not_.in_("id", list(_reserved))
     res = q.execute()
-    raw_rows = res.data or []
-    # Filter to rows with audio satisfied (full OR assembled).
+    # Audio-readiness is already applied in SQL above; this repeat is a cheap
+    # backstop so a row could never reach a student with no file to play, even
+    # if the `.or_()` expression were mangled. It is a no-op in normal service.
     rows = [
-        r for r in raw_rows
+        r for r in (res.data or [])
         if r.get("full_audio_storage_path") or r.get("assembled_audio_storage_path")
     ]
 

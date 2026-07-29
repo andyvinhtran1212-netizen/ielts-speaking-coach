@@ -239,6 +239,12 @@ Số đếm trên tile tự tăng theo — không phải sửa HTML.
   Dùng **đúng** bộ lọc của endpoint danh sách: `status='published'`,
   `exam_only=false`, loại đề bị giữ cho thi thử, và audio đã sẵn
   (`full_audio_storage_path` **hoặc** `assembled_audio_storage_path`).
+- `GET /api/listening/tests` — đẩy điều kiện audio **xuống SQL, trước
+  `.range()`**. Trước đây nó lọc bằng Python *sau khi* đã phân trang, nên một
+  dòng đã publish mà thiếu audio nằm trong trang 1 sẽ bị bỏ đi và trang trả về
+  ít hơn `limit` — vừa làm phân trang sai (không phân biệt được "trang ngắn"
+  với "trang cuối"), vừa làm số trên thẻ lệch với số trang hiển thị. Đây là
+  phát hiện của Codex review, đã vá.
 - `_published_content_ids()` *(mới)* — phân trang tường minh, tránh trần
   1000 dòng của PostgREST.
 - `GET /api/listening/content` — mỗi dòng thêm `available_modes: string[]`
@@ -261,7 +267,8 @@ Số đếm trên tile tự tăng theo — không phải sửa HTML.
 
 | File | Nội dung |
 |---|---|
-| `backend/tests/test_listening_overview.py` *(mới, 8 test)* | bộ lọc, đếm mode, phân trang 2.500 dòng, và bất biến **overview == list** |
+| `backend/tests/test_listening_overview.py` *(mới, 9 test)* | bộ lọc, đếm mode, phân trang 2.500 dòng, bất biến **overview == list**, và hồi quy "trang đầy không bị hụt dòng" |
+| `backend/tests/test_audit_kokoro_bundle.py` *(mới, 5 test)* | cổng audit không được duyệt block thiếu `.wav` / `.wav` rỗng / `.wav` mang tên khác |
 | `frontend/tests/listening-landing-counts.test.mjs` *(mới, 12 test)* | ẩn/hiện theo số đếm, nhãn mode, `modeLinksHtml` |
 | `frontend/tests/listening-page-shell.test.mjs` *(viết lại)* | cấm link trần tới 4 trang phụ thuộc `content_id` |
 | `frontend/tests/listening-mcq-sessions-pages.test.mjs` | đổi sang chốt cơ chế gating |
@@ -274,9 +281,9 @@ Chạy chính handler với DB prod (chỉ đọc):
 OVERVIEW: {'tests': {'full': 37, 'mini': 32, 'drill': 66}, 'content': 4,
            'exercise_modes': {'dictation': 2, 'gist': 0, 'mcq': 0,
                               'mini_test': 0, 'true_false': 0}}
-  full: overview=37  list=37 OK
-  mini: overview=32  list=32 OK
-  drill: overview=66  list=66 OK
+  full   limit=  5 items=  5 | limit= 20 items= 20 | limit=100 items= 37  OK
+  mini   limit=  5 items=  5 | limit= 20 items= 20 | limit=100 items= 32  OK
+  drill  limit=  5 items=  5 | limit= 20 items= 20 | limit=100 items= 66  OK
 
 CONTENT (4 dòng) available_modes:
   the history of public lighting systems in cities  -> []
