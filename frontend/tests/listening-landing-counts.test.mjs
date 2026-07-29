@@ -12,6 +12,12 @@
 
 import { describe, it, before } from 'node:test';
 import { strict as assert } from 'node:assert';
+import { readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const read = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
 
 
 /* ── tiny DOM model ──────────────────────────────────────────────────── */
@@ -102,6 +108,30 @@ describe('listening-landing — availableModeLabels', () => {
   });
   it('is empty when nothing is published', () => {
     assert.deepEqual(landing.availableModeLabels({ exercise_modes: {} }), []);
+  });
+
+  it('never advertises mini_test — the library has no page for it', () => {
+    // /overview reports mini_test because it is a valid listening_exercises
+    // type, but there is no ?content_id= page for it. Naming it in the lede
+    // would recreate the dead end this whole change removes.
+    assert.deepEqual(
+      landing.availableModeLabels({ exercise_modes: { mini_test: 5 } }), [],
+    );
+  });
+
+  it('advertises exactly the modes the browse card can link', () => {
+    // The landing's promise and the browse card's links must be the same set.
+    // Read both source files rather than the modules, so this holds even for
+    // keys that have no fixture in either direction.
+    const keysOf = (src, name) => {
+      const body = src.split(`const ${name} = {`)[1].split('};')[0];
+      return [...body.matchAll(/^\s{2}([a-z_]+):/gm)].map((m) => m[1]).sort();
+    };
+    assert.deepEqual(
+      keysOf(read('js', 'listening-landing.js'), 'MODE_LABELS'),
+      keysOf(read('js', 'listening-browse.js'), 'MODE_LINKS'),
+      'MODE_LABELS (landing) and MODE_LINKS (browse) must cover the same modes',
+    );
   });
 });
 

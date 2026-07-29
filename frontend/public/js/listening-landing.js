@@ -25,15 +25,21 @@ const SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
   }
 })();
 
-/** Vietnamese labels for the free-practice exercise modes. Anything the
- *  backend reports that is not in this map is ignored rather than printed —
- *  the lede must never echo a raw server string. */
+/** Vietnamese labels for the free-practice exercise modes.
+ *
+ *  These keys MUST stay equal to MODE_LINKS in listening-browse.js: this list
+ *  is the promise the landing makes about what the library can open, and the
+ *  browse card is what has to honour it. `mini_test` is deliberately absent —
+ *  /overview reports it because it is a valid `listening_exercises` type, but
+ *  there is no content-level page for it, so advertising it here would be the
+ *  original dead-end bug in a new place. Anything the backend reports that is
+ *  not in this map is ignored rather than printed, so the lede can never echo
+ *  a raw server string. Pinned by listening-landing-counts.test.mjs. */
 const MODE_LABELS = {
   dictation:  'Chép chính tả',
   gist:       'Nghe ý chính',
   true_false: 'Đúng / Sai',
   mcq:        'Trắc nghiệm',
-  mini_test:  'Mini Test',
 };
 
 /** Resolve a dotted path such as "tests.full" against the overview payload. */

@@ -3798,6 +3798,10 @@ def _published_content_ids() -> list[str]:
             supabase_admin.table("listening_content")
             .select("id")
             .eq("status", "published")
+            # LIMIT/OFFSET without ORDER BY has no defined row order in
+            # Postgres, so successive pages could repeat or skip rows and the
+            # count would drift. `id` is unique, which makes the walk stable.
+            .order("id")
             .range(start, start + step - 1)
             .execute()
         )
@@ -3857,6 +3861,7 @@ async def listening_overview(authorization: str | None = Header(default=None)):
                 supabase_admin.table("listening_exercises")
                 .select("content_id,exercise_type")
                 .eq("status", "published")
+                .order("id")                       # stable paging — see above
                 .range(start, start + step - 1)
                 .execute()
             )
