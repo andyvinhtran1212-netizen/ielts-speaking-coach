@@ -1477,7 +1477,7 @@ async def list_listening_content(
         try:
             ex = (
                 supabase_admin.table("listening_exercises")
-                .select("content_id,exercise_type")
+                .select(_EXERCISE_READY_COLS)
                 .eq("status", "published")
                 .in_("content_id", list(modes_by_content))
                 .execute()
@@ -1485,7 +1485,8 @@ async def list_listening_content(
             for row in ex.data or []:
                 bucket = modes_by_content.get(row.get("content_id"))
                 etype = row.get("exercise_type")
-                if bucket is not None and etype and etype not in bucket:
+                if (bucket is not None and etype and etype not in bucket
+                        and _exercise_is_ready(row)):
                     bucket.append(etype)
         except Exception as exc:                                             # pragma: no cover
             logger.warning("[listening] available_modes lookup failed: %s", exc)
@@ -3784,6 +3785,40 @@ _AUDIO_READY_OR = (
     "assembled_audio_storage_path.not.is.null"
 )
 
+# Columns needed to judge readiness (below). Kept next to the rule so the two
+# cannot drift.
+_EXERCISE_READY_COLS = "content_id,exercise_type,segments,payload"
+
+
+def _exercise_is_ready(row: dict) -> bool:
+    """Can the mode page actually RUN this exercise, or only greet it?
+
+    `status='published'` is not enough. `_ensure_dictation_exercise` inserts a
+    published dictation row with an empty `segments` array the first time any
+    user posts an attempt, and each mode page refuses its own empty shape:
+
+        dictation   listening-dictation.js  needs segments[].length  > 0
+        true_false  listening-tf.js         needs payload.statements[] > 0
+        mcq         listening-mcq.js        needs payload.questions[]  > 0
+        gist        listening-gist.js       needs only the row (prompt_text
+                                            falls back to a default)
+
+    Advertising a mode whose page then shows "chưa được phân câu" is the same
+    dead end this module was reorganised to remove, one level down. So the
+    availability check mirrors what the page requires.
+    """
+    etype = row.get("exercise_type")
+    payload = row.get("payload") or {}
+    if etype == "dictation":
+        return bool(row.get("segments"))
+    if etype == "true_false":
+        return bool(isinstance(payload, dict) and payload.get("statements"))
+    if etype == "mcq":
+        return bool(isinstance(payload, dict) and payload.get("questions"))
+    if etype == "gist":
+        return True
+    return False
+
 
 def _published_content_ids() -> list[str]:
     """Every published listening_content id, paged past the PostgREST cap.
@@ -3859,7 +3894,7 @@ async def listening_overview(authorization: str | None = Header(default=None)):
         while True:
             res = (
                 supabase_admin.table("listening_exercises")
-                .select("content_id,exercise_type")
+                .select(_EXERCISE_READY_COLS)
                 .eq("status", "published")
                 .order("id")                       # stable paging — see above
                 .range(start, start + step - 1)
@@ -3867,7 +3902,9 @@ async def listening_overview(authorization: str | None = Header(default=None)):
             )
             rows = res.data or []
             for r in rows:
-                if r.get("content_id") in content_ids and r.get("exercise_type") in modes:
+                if (r.get("content_id") in content_ids
+                        and r.get("exercise_type") in modes
+                        and _exercise_is_ready(r)):
                     modes[r["exercise_type"]] += 1
             if len(rows) < step:
                 break

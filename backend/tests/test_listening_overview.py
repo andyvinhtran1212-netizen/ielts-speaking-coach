@@ -143,11 +143,20 @@ def _dataset():
         {"id": "c2", "status": "published"},
         {"id": "c3", "status": "draft"},
     ]
+    seg = [{"idx": 0, "start_sec": 0, "end_sec": 3, "transcript": "hi"}]
     exercises = [
-        {"id": "e1", "content_id": "c1", "exercise_type": "dictation", "status": "published"},
-        {"id": "e2", "content_id": "c2", "exercise_type": "dictation", "status": "published"},
-        {"id": "e3", "content_id": "c1", "exercise_type": "mcq",       "status": "draft"},
-        {"id": "e4", "content_id": "c3", "exercise_type": "gist",      "status": "published"},
+        {"id": "e1", "content_id": "c1", "exercise_type": "dictation",
+         "status": "published", "segments": seg, "payload": {}},
+        {"id": "e2", "content_id": "c2", "exercise_type": "dictation",
+         "status": "published", "segments": seg, "payload": {}},
+        {"id": "e3", "content_id": "c1", "exercise_type": "mcq",
+         "status": "draft", "segments": [], "payload": {"questions": [{"q": 1}]}},
+        {"id": "e4", "content_id": "c3", "exercise_type": "gist",
+         "status": "published", "segments": [], "payload": {}},
+        # Published, but never curated: `_ensure_dictation_exercise` inserts
+        # exactly this shape on a user's first attempt. The page cannot run it.
+        {"id": "e5", "content_id": "c2", "exercise_type": "true_false",
+         "status": "published", "segments": [], "payload": {}},
     ]
     return {
         "listening_tests": tests,
@@ -193,8 +202,35 @@ def test_overview_counts_only_published_exercises_on_published_content():
     assert modes["dictation"] == 2, "two published dictations on published content"
     assert modes["mcq"] == 0, "a draft exercise must not be counted"
     assert modes["gist"] == 0, "a published exercise on DRAFT content must not be counted"
+    assert modes["true_false"] == 0, "published but uncurated (empty payload) is not runnable"
     # Every known mode is reported, so the client can rely on the key existing.
     assert set(modes) == {"dictation", "gist", "true_false", "mcq", "mini_test"}
+
+
+@pytest.mark.parametrize("row,ready", [
+    ({"exercise_type": "dictation", "segments": [{"idx": 0}], "payload": {}}, True),
+    ({"exercise_type": "dictation", "segments": [], "payload": {}}, False),
+    ({"exercise_type": "dictation", "segments": None, "payload": {}}, False),
+    ({"exercise_type": "true_false", "segments": [], "payload": {"statements": [1]}}, True),
+    ({"exercise_type": "true_false", "segments": [], "payload": {"statements": []}}, False),
+    ({"exercise_type": "true_false", "segments": [], "payload": {}}, False),
+    ({"exercise_type": "mcq", "segments": [], "payload": {"questions": [1]}}, True),
+    ({"exercise_type": "mcq", "segments": [], "payload": {}}, False),
+    # gist's page falls back to a default prompt, so the row alone is enough.
+    ({"exercise_type": "gist", "segments": [], "payload": {}}, True),
+    ({"exercise_type": "mini_test", "segments": [], "payload": {}}, False),
+    ({"exercise_type": "wat", "segments": [], "payload": {}}, False),
+])
+def test_exercise_readiness_mirrors_what_each_mode_page_requires(row, ready):
+    """Published != runnable.
+
+    `_ensure_dictation_exercise` publishes a dictation row with no segments on
+    a user's first attempt, and listening-dictation.js then refuses it. If
+    availability ignored that, the browse card would offer a link straight into
+    "Bài này chưa được phân câu" — the dead end this module removed.
+    """
+    from routers import listening as mod
+    assert mod._exercise_is_ready(row) is ready
 
 
 def test_overview_reports_published_content_count():
