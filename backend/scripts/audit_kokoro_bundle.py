@@ -14,7 +14,8 @@ Verdicts
                       AND the .wav the companion names is present and playable
     PARTIAL           the block has audio, but some questions are not in it
     NO_AUDIO_CONTENT  no question in the block is in its audio
-    NO_AUDIO_FILE     no .md companion, or its .wav is missing / empty
+    NO_AUDIO_FILE     no .md companion, or its .wav is missing, undecodable,
+                      silent-short, or a different length than it advertises
 
 Read-only. Touches nothing outside the bundle directory.
 
@@ -33,6 +34,7 @@ import os
 import re
 import sys
 import unicodedata
+import wave
 
 TRANSCRIPT_RE = re.compile(
     r"## Transcript\n\n<details><summary>.*?</summary>\n\n(.*?)\n\n</details>", re.S)
@@ -63,30 +65,56 @@ def parse_fm(txt: str) -> dict:
     return fm
 
 
-# A .wav smaller than this is a stub, not speech (a header alone is 44 bytes).
-_MIN_WAV_BYTES = 2048
+# Shorter than this and there is nothing to listen to, whatever the header says.
+_MIN_WAV_SECONDS = 0.5
+# How far the real duration may drift from the companion's `audio_seconds`
+# before the pair is untrustworthy (dictation windows are cut from that number).
+_DURATION_TOLERANCE = 1.5
 
 
-def wav_state(md_path: str, fm: dict) -> tuple[str, int]:
-    """Is the audio the companion names actually on disk and non-empty?
+def wav_state(md_path: str, fm: dict) -> tuple[str, float]:
+    """Is the audio the companion names on disk, decodable, and the right length?
 
     The .md is generated from the corpus and exists whether or not the TTS
-    step ever ran for that block — so transcript text alone must never be
-    taken as proof of audio. Returns (state, bytes) where state is
-    "ok" | "missing" | "empty".
+    step ever ran for that block — so transcript text is never proof of audio.
+    Byte size is not proof either: an aborted render can leave a large,
+    undecodable or all-silence file. So the file is opened as a WAV and its
+    real frame count is read, then cross-checked against the duration the
+    companion advertises (the dictation timings are cut from that number, so a
+    mismatch breaks seeking even when the audio plays).
+
+    Returns (state, seconds); state is
+    "ok" | "missing" | "unreadable" | "empty" | "duration_mismatch".
     """
     name = (fm.get("audio") or "").strip()
     if not name:
         name = os.path.basename(md_path)[:-3] + ".wav"
     path = os.path.join(os.path.dirname(md_path), name)
-    if not os.path.exists(path):
-        return "missing", 0
-    size = os.path.getsize(path)
-    return ("ok" if size >= _MIN_WAV_BYTES else "empty"), size
+    if not os.path.isfile(path):
+        return "missing", 0.0
+    try:
+        with wave.open(path) as w:
+            rate = w.getframerate()
+            frames = w.getnframes()
+            if not rate or frames <= 0:
+                return "empty", 0.0
+            seconds = frames / float(rate)
+    except (wave.Error, EOFError, OSError):
+        return "unreadable", 0.0
+
+    if seconds < _MIN_WAV_SECONDS:
+        return "empty", seconds
+    try:
+        declared = float(fm.get("audio_seconds") or 0)
+    except ValueError:
+        declared = 0.0
+    if declared and abs(declared - seconds) > _DURATION_TOLERANCE:
+        return "duration_mismatch", seconds
+    return "ok", seconds
 
 
 def load_disk(audio_dir: str) -> dict:
-    """block id -> {dir, transcript(normalised), raw, fm, wav_state, wav_bytes}."""
+    """block id -> {dir, transcript(normalised), raw, fm, wav_state, wav_seconds}."""
     out = {}
     for dirpath, _, files in os.walk(audio_dir):
         for f in sorted(files):
@@ -97,7 +125,7 @@ def load_disk(audio_dir: str) -> dict:
             m = TRANSCRIPT_RE.search(txt)
             raw = m.group(1) if m else ""
             fm = parse_fm(txt)
-            state, size = wav_state(path, fm)
+            state, secs = wav_state(path, fm)
             out[f[:-3]] = {
                 "dir": os.path.relpath(dirpath, audio_dir),
                 "path": path,
@@ -106,7 +134,7 @@ def load_disk(audio_dir: str) -> dict:
                 "fm": fm,
                 "quotes": QUOTE_RE.findall(txt),
                 "wav_state": state,
-                "wav_bytes": size,
+                "wav_seconds": secs,
             }
     return out
 
@@ -210,11 +238,13 @@ def report(rows: list[dict], min_sec_per_q: float) -> None:
         slow = [r for r in up if r["sec_per_q"] >= min_sec_per_q]
         print(f"blocks at >= {min_sec_per_q} s/question: {len(slow)} / {len(up)}")
 
-    no_wav = [r for r in rows if r.get("wav") in ("missing", "empty", "no_companion")]
-    if no_wav:
-        print(f"\nblocks with no playable .wav: {len(no_wav)} "
-              f"({sum(r['questions'] for r in no_wav)} questions) — "
-              f"{[r['block'] for r in no_wav][:6]}")
+    bad_wav = [r for r in rows if r.get("wav") and r["wav"] != "ok"]
+    if bad_wav:
+        print(f"\nblocks with no playable .wav: {len(bad_wav)} "
+              f"({sum(r['questions'] for r in bad_wav)} questions)")
+        for state, n in collections.Counter(r["wav"] for r in bad_wav).most_common():
+            sample = [r["block"] for r in bad_wav if r["wav"] == state][:4]
+            print(f"    {state:18s} {n:4d}  {sample}")
 
     bad_img = [r for r in rows if r["image_ok"] == "MISSING"]
     if bad_img:
