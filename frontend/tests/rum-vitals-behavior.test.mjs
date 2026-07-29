@@ -19,7 +19,7 @@ import vm from 'node:vm';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SOURCE = readFileSync(join(__dirname, '..', 'js', 'rum-vitals.js'), 'utf8');
 
-function setupSandbox({ next = true, runtimeConfig = {} } = {}) {
+function setupSandbox({ next = true, runtimeConfig = {}, userAgent = 'UA/1.0 test' } = {}) {
   const fetchCalls = [];
   const observers = {};        // entry type → callback
   const winListeners = {};
@@ -43,6 +43,9 @@ function setupSandbox({ next = true, runtimeConfig = {} } = {}) {
     },
     addEventListener: (name, fn) => { (winListeners[name] ||= []).push(fn); },
   };
+  // DEBT-2026-07-29-M — a UA-less window must still beacon (older automation
+  // contexts have no navigator); `userAgent: null` exercises that path.
+  if (userAgent !== null) window.navigator = { userAgent };
   if (next) window.__next_f = [];
   const document = {
     visibilityState: 'visible',
@@ -96,6 +99,29 @@ test('aggregates LCP (last wins) + CLS (sum, no recent-input) + INP (max interac
   // Second hide must NOT double-send.
   sb.fireHidden();
   assert.equal(sb.fetchCalls.length, 1, 'send-once contract');
+});
+
+// DEBT-2026-07-29-M — pilot 2 opened with LCP p75 12624ms over n=4 and no way
+// to tell a real weak-network phone from an automated browser. error_logs has
+// carried the UA all along; the vitals stream must be comparable to it.
+test('beacon carries the user-agent, capped at 300 chars', () => {
+  const long = 'Mozilla/5.0 ' + 'x'.repeat(500);
+  const sb = setupSandbox({ runtimeConfig: { apiBase: 'https://api.example' }, userAgent: long });
+  sb.emit('largest-contentful-paint', [{ startTime: 900 }]);
+  sb.firePagehide();
+  const body = JSON.parse(sb.fetchCalls[0].opts.body);
+  assert.equal(body.event_data.ua.length, 300, 'capped — attribution, not forensics');
+  assert.ok(body.event_data.ua.startsWith('Mozilla/5.0 '));
+});
+
+test('no navigator → ua null, beacon still sent (never break the page)', () => {
+  const sb = setupSandbox({ runtimeConfig: { apiBase: 'https://api.example' }, userAgent: null });
+  sb.emit('largest-contentful-paint', [{ startTime: 900 }]);
+  sb.firePagehide();
+  assert.equal(sb.fetchCalls.length, 1);
+  const body = JSON.parse(sb.fetchCalls[0].opts.body);
+  assert.equal(body.event_data.ua, null);
+  assert.equal(body.event_data.lcp, 900);
 });
 
 test('legacy page (no __next_f) tags implementation=legacy — the baseline side of the trigger', () => {

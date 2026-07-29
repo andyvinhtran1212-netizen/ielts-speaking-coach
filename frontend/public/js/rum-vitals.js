@@ -10,7 +10,7 @@
  *
  *   POST {apiBase}/api/analytics/events
  *   { event_name: 'web_vitals',
- *     event_data: { path, implementation, release, lcp, cls, inp } }
+ *     event_data: { path, implementation, release, ua, lcp, cls, inp } }
  *
  * Measurement notes (self-contained on purpose — no web-vitals npm dep, the
  * legacy stack has no bundler):
@@ -96,6 +96,13 @@
   // Same tag derivation as error-reporter.js / analytics-beacon.js (ADR-012):
   // __next_f is the App Router flight sink — present on every Next page,
   // absent on legacy.
+  function uaString() {
+    try {
+      var ua = (window.navigator && window.navigator.userAgent) || null;
+      return ua ? String(ua).slice(0, 300) : null;
+    } catch (e) { return null; }
+  }
+
   function buildPayload() {
     var impl = 'legacy';
     var release = null;
@@ -107,6 +114,14 @@
       path: (window.location && window.location.pathname) || null,
       implementation: impl,
       release: release,
+      // DEBT-2026-07-29-M — without this a slow sample is unattributable. The
+      // pilot-2 window opened with p75 = 12624ms over n=4, two of them ≥12s,
+      // and nothing in the row could say whether those were real phones on a
+      // weak network, an automated browser, or a crawler — so the verdict
+      // could be neither trusted nor dismissed. error_logs already stores the
+      // UA, so this only makes the two telemetry streams comparable. Capped:
+      // the field is for cohort attribution, not forensics.
+      ua: uaString(),
     };
     if (lcp !== null) data.lcp = Math.round(lcp);
     if (clsSeen) data.cls = Math.round(cls * 1000) / 1000;

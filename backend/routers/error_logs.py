@@ -395,6 +395,7 @@ def _rollback_vitals_verdict(next_p75, next_samples, legacy_p75, legacy_samples,
 async def error_log_rollback_metrics(
     route: str = "/",
     window_minutes: int = 30,
+    match: str = "exact",
     baseline_error_rate: float | None = None,
     baseline_lcp_ms: float | None = None,
     authorization: str | None = Header(default=None),
@@ -409,6 +410,26 @@ async def error_log_rollback_metrics(
     pagination + stable ordering as migration-stats (PostgREST 1000-cap +
     review #746)."""
     await require_admin(authorization)
+    # DEBT-2026-07-29-L — `route` matched the recorded path EXACTLY, which made
+    # every parameterised route unmeasurable: asking for `/grammar` during the
+    # pilot-2 observation window returned 0 views / 0 errors because the paths
+    # actually recorded are `/grammar/:category/:slug`. A panel that answers
+    # "zero" for a live route is worse than one that refuses — it reads as "no
+    # traffic, nothing to see". `match=prefix` counts the route AND everything
+    # below it (`/grammar` + `/grammar/...`), which is the unit a cutover gate
+    # actually owns. Default stays `exact` so every number measured before this
+    # change is still reproducible; the mode is echoed in the response so a
+    # logged measurement says which rule produced it.
+    match = match if match in ("exact", "prefix") else "exact"
+    route_prefix = (route.rstrip("/") + "/") if match == "prefix" else None
+
+    def _route_matches(path) -> bool:
+        if not isinstance(path, str):
+            return False
+        if path == route:
+            return True
+        return route_prefix is not None and path.startswith(route_prefix)
+
     # DEBT-2026-07-22-F — clamp the table half to a documented ceiling and TELL
     # the caller when it bit. Silently returning a 24h number for a 30-day
     # request is what made the volume half of the §12.3 exposure floor
@@ -487,7 +508,7 @@ async def error_log_rollback_metrics(
         }
         for row in analytics_rows:
             ed = row.get("event_data") or {}
-            if not isinstance(ed, dict) or ed.get("path") != route:
+            if not isinstance(ed, dict) or not _route_matches(ed.get("path")):
                 continue
             if not _within(row.get("created_at"), window_cutoff):
                 continue
@@ -501,7 +522,7 @@ async def error_log_rollback_metrics(
                     if isinstance(val, (int, float)):
                         b["vitals_raw"][metric].append(float(val))
         for row in error_rows:
-            if row.get("url") != route:
+            if not _route_matches(row.get("url")):
                 continue
             if not _within(row.get("occurred_at"), window_cutoff):
                 continue
@@ -577,17 +598,31 @@ async def error_log_rollback_metrics(
     # test stub answers any chain, so it cannot prove this syntax works.
     exposure_cutoff = (now - timedelta(minutes=window_minutes)).isoformat()
 
-    def _exposure_count(impl: str | None) -> int | None:
+    def _exposure_count_one(impl: str | None, *, prefix: bool) -> int | None:
         q = (
             supabase_admin.table("analytics_events")
             .select("id", count="exact")
             .eq("event_name", "page_view")
-            .eq("event_data->>path", route)
             .gte("created_at", exposure_cutoff)
         )
+        # DEBT-2026-07-29-L — two scoped exact counts (route itself, then the
+        # subtree) instead of one `or_` over a JSON path: `or_` filter strings
+        # are parsed by PostgREST and the `->>` operator inside them is exactly
+        # the kind of syntax the `_Query` test stub answers happily while
+        # production rejects it. Two `.eq`/`.like` calls use the same operators
+        # this endpoint already proved against production.
+        q = (q.like("event_data->>path", route_prefix + "%") if prefix
+             else q.eq("event_data->>path", route))
         if impl is not None:
             q = q.eq("event_data->>implementation", impl)
         return q.limit(1).execute().count
+
+    def _exposure_count(impl: str | None) -> int | None:
+        own = _exposure_count_one(impl, prefix=False)
+        if route_prefix is None or own is None:
+            return own
+        below = _exposure_count_one(impl, prefix=True)
+        return None if below is None else own + below
 
     try:
         exp_total = _exposure_count(None)
@@ -625,6 +660,9 @@ async def error_log_rollback_metrics(
 
     return {
         "route": route,
+        # DEBT-2026-07-29-L — say which matching rule produced these numbers, so
+        # a logged measurement is reproducible after the default ever changes.
+        "match": match,
         "window_minutes": window_minutes,
         # DEBT-2026-07-22-F — `window_minutes` alone is ambiguous: it is the
         # EFFECTIVE window, so a caller cannot tell a granted request from a

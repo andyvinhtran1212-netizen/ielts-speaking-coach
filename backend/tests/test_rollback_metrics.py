@@ -40,6 +40,7 @@ class _Query:
         self._range = (0, len(rows) - 1)
         self._count_mode = None
         self._eqs = dict(eqs or {})
+        self._likes: list[tuple[str, str]] = []
 
     def __getattr__(self, _name):
         def _chain(*_a, **_kw):
@@ -55,11 +56,29 @@ class _Query:
         self._eqs[field] = value
         return self
 
+    def like(self, field, pattern):
+        # DEBT-2026-07-29-L — the subtree half of the exposure count uses LIKE.
+        # Modelled (prefix patterns only, which is all the endpoint emits) so
+        # the prefix test measures something instead of passing on a no-op.
+        self._likes.append((field, pattern))
+        return self
+
     def range(self, start, end):
         self._range = (start, end)
         return self
 
+    def _field(self, row, field):
+        if field.startswith("event_data->>"):
+            return (row.get("event_data") or {}).get(field.split(">>", 1)[1])
+        return row.get(field)
+
     def _matches(self, row) -> bool:
+        for field, pattern in self._likes:
+            got = self._field(row, field)
+            if not isinstance(got, str) or not pattern.endswith("%"):
+                return False
+            if not got.startswith(pattern[:-1]):
+                return False
         for field, want in self._eqs.items():
             if field == "event_name":
                 got = row.get("event_name")
@@ -169,6 +188,80 @@ def test_route_filter_excludes_other_paths(monkeypatch):
     assert nxt["page_views"] == 30
     assert nxt["errors"] == 1
     assert nxt["vitals"]["samples"] == 0
+
+
+# ── DEBT-2026-07-29-L: route family matching ───────────────────────────────
+# Measured on production 2026-07-29: route `/grammar` returned 0 views / 0
+# errors DURING the pilot-2 observation window, because the paths actually
+# recorded are `/grammar/:category/:slug`. Exact matching makes every
+# parameterised route unmeasurable, and answers "zero" rather than refusing.
+
+def _grammar_traffic():
+    analytics = (
+        [_pv("next", "/grammar")] * 3                            # the route itself
+        + [_pv("next", "/grammar/tenses/present-perfect")] * 40  # below it
+        + [_pv("next", "/grammar-quiz/x")] * 25                  # NOT below it
+        + [_wv("next", 900, path="/grammar/tenses/present-perfect")] * 12
+        + [_wv("next", 9999, path="/grammar-quiz/x")] * 12
+    )
+    errors = (
+        [_err("next", "/grammar")] * 1
+        + [_err("next", "/grammar/tenses/present-perfect")] * 2
+        + [_err("next", "/grammar-quiz/x")] * 30
+    )
+    return analytics, errors
+
+
+def test_exact_match_is_the_default_and_misses_the_subtree(monkeypatch):
+    """Back-compat pin: every measurement logged before this change must stay
+    reproducible, so the default must NOT quietly widen."""
+    analytics, errors = _grammar_traffic()
+    body = _client(monkeypatch, analytics, errors).get(
+        "/admin/error-logs/rollback-metrics?route=/grammar&window_minutes=1440",
+        headers=AUTHZ,
+    ).json()
+    assert body["match"] == "exact"
+    assert body["implementations"]["next"]["page_views"] == 3
+    assert body["implementations"]["next"]["errors"] == 1
+    assert body["exposure"]["evaluated_views"] == 3
+
+
+def test_prefix_match_counts_the_route_family_and_nothing_else(monkeypatch):
+    analytics, errors = _grammar_traffic()
+    body = _client(monkeypatch, analytics, errors).get(
+        "/admin/error-logs/rollback-metrics?route=/grammar&window_minutes=1440&match=prefix",
+        headers=AUTHZ,
+    ).json()
+    nxt = body["implementations"]["next"]
+    assert body["match"] == "prefix"
+    assert nxt["page_views"] == 43          # 3 own + 40 below
+    assert nxt["errors"] == 3               # 1 own + 2 below
+    assert nxt["vitals"]["samples"] == 12   # /grammar-quiz/x excluded
+    assert nxt["vitals"]["lcp_p75"] == 900  # the 9999s belong to a sibling
+    # `/grammar-quiz/x` starts with the STRING "/grammar" but is a different
+    # route — the boundary is the path separator, not a substring.
+    assert body["exposure"]["evaluated_views"] == 43
+
+
+def test_unknown_match_mode_falls_back_to_exact(monkeypatch):
+    analytics, errors = _grammar_traffic()
+    body = _client(monkeypatch, analytics, errors).get(
+        "/admin/error-logs/rollback-metrics?route=/grammar&match=everything",
+        headers=AUTHZ,
+    ).json()
+    assert body["match"] == "exact"
+    assert body["implementations"]["next"]["page_views"] == 3
+
+
+def test_prefix_on_root_route_does_not_swallow_the_whole_site(monkeypatch):
+    """`/` is the one route where a naive prefix rule would match every path
+    on the site and silently turn a per-route trigger into a site-wide one."""
+    analytics = [_pv("next", "/")] * 5 + [_pv("next", "/grammar/x/y")] * 50
+    body = _client(monkeypatch, analytics, []).get(
+        "/admin/error-logs/rollback-metrics?route=/&match=exact",
+        headers=AUTHZ,
+    ).json()
+    assert body["implementations"]["next"]["page_views"] == 5
 
 
 def test_insufficient_sample_never_pretends_to_conclude(monkeypatch):

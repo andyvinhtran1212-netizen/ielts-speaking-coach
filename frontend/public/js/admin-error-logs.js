@@ -477,8 +477,12 @@ async function loadRollbackMetrics() {
   try {
     const route = (document.getElementById('rbm-route').value || '/').trim();
     const win = document.getElementById('rbm-window').value || '30';
+    // DEBT-2026-07-29-L — route có tham số chỉ đo được ở chế độ «cả route con».
+    const matchEl = document.getElementById('rbm-match');
+    const match = (matchEl && matchEl.value) || 'exact';
     const r = await api.get('/admin/error-logs/rollback-metrics?route=' +
-      encodeURIComponent(route) + '&window_minutes=' + encodeURIComponent(win));
+      encodeURIComponent(route) + '&window_minutes=' + encodeURIComponent(win) +
+      '&match=' + encodeURIComponent(match));
     const impls = r.implementations || {};
     const rows = ['next', 'legacy', 'untagged'].filter((k) => impls[k]).map((k) => {
       const i = impls[k];
@@ -493,7 +497,13 @@ async function loadRollbackMetrics() {
         '<td>' + (vit.inp_p75 != null ? vit.inp_p75 + 'ms' : '—') + '</td>' +
         '</tr>';
     }).join('');
-    body.innerHTML =
+    // Ghi rõ luật khớp đã tạo ra con số — một phép đo chép vào nhật ký mà
+    // không kèm luật khớp thì không tái lập được (DEBT-2026-07-29-L).
+    const scope = '<div class="el-migration-note">Phạm vi: <strong>'
+      + escapeHtml(r.route || route) + '</strong> — '
+      + (r.match === 'prefix' ? 'tính CẢ route con' : 'khớp chính xác đường dẫn')
+      + '.</div>';
+    body.innerHTML = scope +
       '<table class="el-migration-table"><thead><tr>' +
       '<th>Impl</th><th>Views</th><th>Lỗi</th><th>Error rate</th>' +
       '<th>LCP p75</th><th>CLS p75</th><th>INP p75</th>' +

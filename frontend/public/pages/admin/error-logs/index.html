@@ -230,6 +230,17 @@
             <input id="rbm-route" type="text" value="/" size="18">
           </div>
           <div class="el-filter">
+            <!-- DEBT-2026-07-29-L: route có tham số (/grammar/:cat/:slug) không
+                 bao giờ khớp CHÍNH XÁC với đường dẫn ghi trong log, nên chế độ
+                 cũ trả 0 lượt xem cho một route đang sống. «Cả route con» đếm
+                 chính nó + mọi thứ bên dưới. -->
+            <label for="rbm-match">Khớp</label>
+            <select id="rbm-match">
+              <option value="exact" selected>Chính xác</option>
+              <option value="prefix">Cả route con (/x + /x/…)</option>
+            </select>
+          </div>
+          <div class="el-filter">
             <!-- Chỉ áp cho BẢNG số liệu — hai verdict luôn tính ở đúng cửa sổ
                  freeze của chúng (error 30ph / LCP 24h; review #761). -->
             <label for="rbm-window">Cửa sổ (bảng)</label>
