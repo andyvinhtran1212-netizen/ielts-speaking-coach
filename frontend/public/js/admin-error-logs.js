@@ -499,10 +499,19 @@ async function loadRollbackMetrics() {
     }).join('');
     // Ghi rõ luật khớp đã tạo ra con số — một phép đo chép vào nhật ký mà
     // không kèm luật khớp thì không tái lập được (DEBT-2026-07-29-L).
-    const scope = '<div class="el-migration-note">Phạm vi: <strong>'
+    const scope = '<div class="el-migration-note'
+      + (r.match_coerced_from ? ' is-warning' : '') + '">Phạm vi: <strong>'
       + escapeHtml(r.route || route) + '</strong> — '
       + (r.match === 'prefix' ? 'tính CẢ route con' : 'khớp chính xác đường dẫn')
-      + '.</div>';
+      + '.'
+      // Review #879 — «cả route con» trên `/` sẽ khớp mọi đường dẫn của site,
+      // biến trigger theo-route thành trigger toàn-site. Backend hạ về exact;
+      // người đọc phải thấy điều đó, nếu không họ tưởng đang đọc số của cả cây.
+      + (r.match_coerced_from
+        ? ' <strong>⚠ Đã bỏ chế độ «' + escapeHtml(String(r.match_coerced_from))
+          + '»</strong>: trên route gốc «/» nó sẽ nuốt cả site — số dưới đây chỉ của riêng «/».'
+        : '')
+      + '</div>';
     body.innerHTML = scope +
       '<table class="el-migration-table"><thead><tr>' +
       '<th>Impl</th><th>Views</th><th>Lỗi</th><th>Error rate</th>' +

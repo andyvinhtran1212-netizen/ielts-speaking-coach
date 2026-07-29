@@ -254,14 +254,40 @@ def test_unknown_match_mode_falls_back_to_exact(monkeypatch):
 
 
 def test_prefix_on_root_route_does_not_swallow_the_whole_site(monkeypatch):
-    """`/` is the one route where a naive prefix rule would match every path
-    on the site and silently turn a per-route trigger into a site-wide one."""
-    analytics = [_pv("next", "/")] * 5 + [_pv("next", "/grammar/x/y")] * 50
-    body = _client(monkeypatch, analytics, []).get(
-        "/admin/error-logs/rollback-metrics?route=/&match=exact",
+    """`/` is the one route where a naive prefix rule matches EVERY path on the
+    site, silently turning a per-route trigger into a site-wide one. Review #879
+    caught that the first cut of this test proved nothing: it sent match=exact,
+    so it passed with or without the guard. It now sends match=prefix."""
+    analytics = (
+        [_pv("next", "/")] * 5
+        + [_pv("next", "/grammar/x/y")] * 50
+        + [_wv("next", 9999, path="/grammar/x/y")] * 30
+    )
+    errors = [_err("next", "/")] * 1 + [_err("next", "/grammar/x/y")] * 20
+    body = _client(monkeypatch, analytics, errors).get(
+        "/admin/error-logs/rollback-metrics?route=/&match=prefix&window_minutes=1440",
         headers=AUTHZ,
     ).json()
-    assert body["implementations"]["next"]["page_views"] == 5
+    nxt = body["implementations"]["next"]
+    assert nxt["page_views"] == 5, "site-wide totals must not be served as `/`"
+    assert nxt["errors"] == 1
+    assert nxt["vitals"]["samples"] == 0
+    assert body["exposure"]["evaluated_views"] == 5
+    # The coercion must be VISIBLE — an admin who asked for prefix and silently
+    # got exact would read the number as the whole tree.
+    assert body["match"] == "exact"
+    assert body["match_coerced_from"] == "prefix"
+
+
+def test_match_coerced_from_is_null_when_the_mode_was_honoured(monkeypatch):
+    analytics, errors = _grammar_traffic()
+    for mode in ("exact", "prefix"):
+        body = _client(monkeypatch, analytics, errors).get(
+            f"/admin/error-logs/rollback-metrics?route=/grammar&match={mode}",
+            headers=AUTHZ,
+        ).json()
+        assert body["match"] == mode
+        assert body["match_coerced_from"] is None
 
 
 def test_insufficient_sample_never_pretends_to_conclude(monkeypatch):

@@ -421,6 +421,16 @@ async def error_log_rollback_metrics(
     # change is still reproducible; the mode is echoed in the response so a
     # logged measurement says which rule produced it.
     match = match if match in ("exact", "prefix") else "exact"
+    # Review #879 — `/` is the one route where the prefix rule degenerates:
+    # `"/".rstrip("/") + "/"` is `/`, which every pathname on the site starts
+    # with, so a PER-ROUTE trigger would quietly become a site-wide one and the
+    # verdict would be attributed to the landing page. Coerce to exact rather
+    # than 4xx (the panel would just say "không tải được") and SAY SO in the
+    # response — a coercion the caller cannot see is the same silent-wrong-
+    # number failure as DEBT-F.
+    match_coerced_from = None
+    if match == "prefix" and route.rstrip("/") == "":
+        match, match_coerced_from = "exact", "prefix"
     route_prefix = (route.rstrip("/") + "/") if match == "prefix" else None
 
     def _route_matches(path) -> bool:
@@ -662,7 +672,10 @@ async def error_log_rollback_metrics(
         "route": route,
         # DEBT-2026-07-29-L — say which matching rule produced these numbers, so
         # a logged measurement is reproducible after the default ever changes.
+        # `match_coerced_from` is set when the requested mode could not be
+        # honoured (review #879: prefix on `/` would match the whole site).
         "match": match,
+        "match_coerced_from": match_coerced_from,
         "window_minutes": window_minutes,
         # DEBT-2026-07-22-F — `window_minutes` alone is ambiguous: it is the
         # EFFECTIVE window, so a caller cannot tell a granted request from a
