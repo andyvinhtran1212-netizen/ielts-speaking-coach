@@ -54,8 +54,17 @@ QUOTE_RE = re.compile(r'Câu chứa đáp án: \*"(.+?)"\*')
 _PROBE_WORDS = 8
 
 
+# A dialogue transcript interleaves speaker labels: "**Nữ:** …  **Nam:** …".
+# They must come out BEFORE normalising, or a probe that spans two turns is
+# broken by a label that is not part of the speech. Left in, `Gen_FormVenue`
+# (whose first turn is only five words long) read as NO_AUDIO_CONTENT across
+# all 90 blocks while its audio was in fact correct.
+_SPEAKER_LABEL_RE = re.compile(r"\*\*[^*\n]{1,24}:\*\*")
+
+
 def norm(s) -> str:
-    s = unicodedata.normalize("NFKD", str(s or ""))
+    s = _SPEAKER_LABEL_RE.sub(" ", str(s or ""))
+    s = unicodedata.normalize("NFKD", s)
     s = "".join(c for c in s if not unicodedata.combining(c)).lower()
     return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9 ]+", " ", s)).strip()
 
@@ -261,7 +270,13 @@ def audit(bundle: str, audio_subdir: str = "audio_output_kokoro") -> list[dict]:
             image_ok = "yes" if os.path.exists(p) else "MISSING"
 
         quotes = d["quotes"]
-        verbatim = sum(1 for q in quotes if q and q in d["raw_transcript"])
+        # Compare sentence-for-sentence after normalising, not byte-for-byte:
+        # the companion drops a comma ("…the training apart from…" vs
+        # "…the training, apart from…") and a raw substring test would call a
+        # genuinely verbatim quote a mislabel.
+        sentences = {norm(x) for x in re.split(r"(?<=[.!?])\s+", d["raw_transcript"])}
+        sentences.discard("")
+        verbatim = sum(1 for q in quotes if q and norm(q) in sentences)
 
         rows.append({
             "block": block,

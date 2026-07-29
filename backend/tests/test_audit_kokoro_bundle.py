@@ -237,3 +237,59 @@ def test_alternate_audio_dir_is_honoured(tmp_path):
     (d / "audio_output_kokoro").rename(d / "audio_output_kokoro_v2")
     rows = audit(str(d), "audio_output_kokoro_v2")
     assert _verdicts(rows) == {"Blk_p01": "UPLOADABLE", "Blk_p02": "UPLOADABLE"}
+
+
+def test_dialogue_speaker_labels_do_not_break_the_probe(tmp_path):
+    """A dialogue transcript reads "**Nữ:** … **Nam:** …".
+
+    Those labels are not speech. Left in, a question whose script spans two
+    turns fails to match its own transcript — which is how all 90
+    `Gen_FormVenue` blocks read as NO_AUDIO_CONTENT while their audio was
+    correct.
+    """
+    d = tmp_path / "audio_output_kokoro" / "Batch"
+    d.mkdir(parents=True)
+    spoken = "Riverside Venue Hire, good afternoon. Hello, I'd like to book a room."
+    md = (
+        "---\n" 'id: "Blk"\n' 'section: "Batch"\n' "part: 1\n"
+        'task_types: ["note-completion"]\n' "question_count: 1\n"
+        'audio: "Blk.wav"\n' "audio_seconds: 40.0\n" "---\n\n"
+        "# Blk\n\n## Transcript\n\n<details><summary>x</summary>\n\n"
+        "**Nữ:** Riverside Venue Hire, good afternoon.\n\n"
+        "**Nam:** Hello, I'd like to book a room.\n\n</details>\n"
+    )
+    (d / "Blk.md").write_text(md, encoding="utf-8")
+    _write_wav(d / "Blk.wav", 40.0)
+    (tmp_path / "corpus_v2.json").write_text(json.dumps(
+        [{"id": "Q1", "subsection": "Blk", "script": spoken}]), encoding="utf-8")
+
+    rows = audit(str(tmp_path))
+    assert _verdicts(rows) == {"Blk": "UPLOADABLE"}, \
+        "speaker labels must be stripped before matching"
+
+
+def test_quote_label_check_tolerates_punctuation_not_wording(tmp_path):
+    """A quote differing only by a comma is still verbatim; different WORDS are
+    not. Byte-for-byte comparison called the first case a mislabel."""
+    d = tmp_path / "audio_output_kokoro" / "Batch"
+    d.mkdir(parents=True)
+    said = "All staff must attend the training, apart from the night-shift workers."
+    md = (
+        "---\n" 'id: "Blk"\n' 'section: "Batch"\n' "part: 1\n"
+        'task_types: ["mcq"]\n' "question_count: 1\n" 'audio: "Blk.wav"\n'
+        "audio_seconds: 40.0\n" "---\n\n# Blk\n\n"
+        "## Giải thích\n\n"
+        '- 🗣️ Câu chứa đáp án: *"All staff must attend the training apart from '
+        'the night-shift workers."*\n'
+        '- 🗣️ Câu chứa đáp án: *"Only the day shift attends."*\n\n'
+        "## Transcript\n\n<details><summary>x</summary>\n\n"
+        f"{said}\n\n</details>\n"
+    )
+    (d / "Blk.md").write_text(md, encoding="utf-8")
+    _write_wav(d / "Blk.wav", 40.0)
+    (tmp_path / "corpus_v2.json").write_text(json.dumps(
+        [{"id": "Q1", "subsection": "Blk", "script": said}]), encoding="utf-8")
+
+    row = audit(str(tmp_path))[0]
+    assert row["quotes_verbatim"] == "1/2", \
+        "comma-only difference counts as verbatim; a reworded quote does not"
