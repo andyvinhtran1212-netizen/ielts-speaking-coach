@@ -78,7 +78,28 @@ YAML frontmatter máy đọc được, đề bài, bảng đáp án, giải thí
 mốc thời gian cho chép chính tả, transcript, và một khối `json` answer-key ở
 cuối. `timing.json` có mốc **tới từng từ**. Không có trùng ID (0/12.000).
 
-### 2.2 Nhưng: 44% số câu KHÔNG có audio
+### 2.2 Nguyên nhân gốc: MỘT DÒNG trong `kokoro_audio.py`
+
+> **Cập nhật sau khi truy nguyên.** `README_v2.md` ghi nguyên nhân là "844 block
+> mới chưa có audio → chạy lại `kokoro_audio.py`". **Sai.** File audio đã tồn tại
+> đủ 978/978. Lỗi thật nằm ở `block_plan()`:
+>
+> ```python
+> rep = items[0]      # rồi bỏ hết item còn lại của block
+> ```
+>
+> Hàm này giả định mọi câu trong một block dùng chung một đoạn nói. Đúng với
+> form-completion (8 chỗ trống trên 1 hội thoại), **sai** với block ghép nhiều
+> câu độc lập. Hệ quả: **4.532 câu mất tiếng** — mà script trả lời chúng **nằm
+> sẵn trong `corpus_v2.json`**, chỉ chưa bao giờ được đọc.
+>
+> `build_md_companions.py` có **cùng lỗi** ở dòng `transcript(rep)`, nên
+> transcript trong `.md` bị cắt y hệt audio — đó là lý do phép đo ở §2.2 thấy
+> "câu không có trong transcript".
+>
+> Nghĩa là **không cần soạn thêm nội dung nào** cho Mock 4–7.
+
+### 2.2b Số liệu đo trước khi sửa
 
 Kiểm chứng bằng cách đối chiếu `script` của từng item trong `corpus_v2.json`
 với transcript của chính block chứa nó:
@@ -302,3 +323,81 @@ CONTENT (4 dòng) available_modes:
 
 → landing hiện đúng 4 thẻ (không còn 4 thẻ chết); Kho còn 2 link sống thay vì
 16 link trong đó 14 chết.
+
+---
+
+## Phần 4 — Sửa pipeline sinh audio (2026-07-29, sau khi chốt hướng)
+
+Bản gốc giữ tại `kokoro_audio.py.orig` và `build_md_companions.py.orig`.
+
+### 4.1 `kokoro_audio.py`
+
+| Sửa | Nội dung |
+|---|---|
+| `block_units()` thay `block_plan()` | Duyệt **mọi** item theo thứ tự câu hỏi, khử trùng lặp theo đoạn nói. Trả kèm `item_ids`. |
+| `plan_block()` | Một block → một **hoặc nhiều** file. |
+| CLI | `--blocks --outdir --gap-sent --gap-turn --split-threshold --drill-batch --max-parts` |
+
+**Quy tắc tách.** Block >25 đoạn nói **và** `partScope != 'mock-explicit'` thì
+chia thành bài 10 câu. `partScope` là khoá phân biệt — Mock 1–3 được ghép từ 10
+mẩu hội thoại rời nhau, nhìn "giống drill" nhưng học viên nghe một lượt trả lời
+10 câu, nên **không bao giờ** chia. Nếu chỉ lấy số lượng làm tiêu chí thì 12
+section của Mock 1–3 bị tách nhầm.
+
+Ngưỡng 25 tách đúng 11 mega-block `Gen_*`, không đụng Level (≤21 câu),
+Expansion, Remediation.
+
+`timing.json` nay có **`item_ids`** — bắt buộc: không có nó thì không biết
+`Gen_Contra_p07.wav` phục vụ 10 câu nào trong 536.
+
+### 4.2 `build_md_companions.py`
+
+- **Transcript lấy từ `timing.json`**, tức từ đúng thứ đã thành tiếng — `.md` và
+  `.wav` không thể lệch nhau nữa.
+- **`main()` duyệt theo file audio có thật**, không theo corpus. Duyệt theo
+  corpus sẽ sinh `Gen_Contra.md` gộp 536 câu cho một `.wav` không tồn tại, và
+  không sinh `.md` nào cho 5 bài thật.
+- **Nhãn `Câu chứa đáp án` chỉ giữ khi câu đó THẬT SỰ có nguyên văn trong
+  transcript**; còn lại đổi thành `Ý mấu chốt (diễn giải)`. Thông tin không sai,
+  nhưng nhãn cũ thì sai — chuẩn dự án là phản hồi không được gây hiểu nhầm.
+
+### 4.3 Cổng audit đi theo file audio
+
+`audit_kokoro_bundle.py` cũng lặp theo corpus nên sẽ hiểu sai bản mới. Nay duyệt
+theo file, dùng `item_ids`, thêm `--audio-dir`, và 2 verdict mới:
+
+- **`NOT_RENDERED`** — câu trong corpus không file nào nhận (phần đuôi bị
+  `--max-parts` cắt). Một corpus ngắn đi mà vẫn báo "100% sạch" đúng là cách một
+  lần cắt xén tự giấu mình.
+- **`ORPHAN_AUDIO`** — file audio không map được câu nào.
+
+### 4.4 Kiểm chứng thí điểm (4 block)
+
+| Block | Câu | Cũ | Mới |
+|---|---:|---|---|
+| `Level1_1a` | 15 | **1** nghe được · 3,3 s | **15** · 60,5 s |
+| `MockTest4_Section2` | 10 | **6** · 41,6 s | **10** · 69,8 s |
+| `Gen_FormAccom_01a05f` | 8 | 8 · 47,6 s | 8 · 47,6 s (không đổi) |
+| `Lec2_Antarctica` | 8 | 8 · 46,4 s | 8 · 46,4 s (không đổi) |
+| | **41** | **23** | **41** |
+
+`Gen_Contra` 536 câu → 54 bài; render 3 bài đầu: 30/30 câu nghe được, 0 ID trùng,
+đúng thứ tự block.
+
+### 4.5 Quyết định vận hành
+
+- **Nhịp: dùng A** (mặc định `speed 1.0 · gap-sent 0.10 · gap-turn 0.35`).
+  Biến thể chậm 0.92x + khoảng lặng gấp 3 chỉ dài thêm **10%** — nhịp do **độ dài
+  transcript** chứ không do khoảng lặng (Mock4-S2 có 174 từ/10 câu, Cambridge
+  cùng dạng ~700–800 từ). Định vị: **bài tập bắt thông tin**, không phải mô
+  phỏng phòng thi.
+- **`--max-parts 5`** — 390 bài trap-drill sinh từ 11 khuôn câu, lặp quá nặng.
+  Giới hạn còn **55 bài / 550 câu**. Tổng: 978 block → **1.022 file**,
+  586.878 ký tự.
+- **Render song song 5 tiến trình, mỗi tiến trình 2 thread.** Một tiến trình mất
+  ~6,7 giờ. Chạy 5 tiến trình mà **không** giới hạn thread thì gần như vô ích
+  (torch lấy hết core, load average 38 trên 10 core, chỉ nhanh 1,28x). Đặt
+  `OMP_NUM_THREADS=2` v.v. → thông lượng gấp đôi, còn ~2,5 giờ.
+- Render vào **`audio_output_kokoro_v2/`**, giữ nguyên bản cũ. Bắt buộc: logic
+  resume bỏ qua file đã tồn tại, nên render đè lên thư mục cũ sẽ **không bao giờ
+  sửa** được các block hỏng (`Level1_1a.wav` đã có → skip).
