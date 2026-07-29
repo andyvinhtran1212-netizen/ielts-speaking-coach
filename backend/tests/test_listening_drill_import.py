@@ -315,8 +315,15 @@ def test_list_default_excludes_drill(monkeypatch):
     _run(listening_module.list_published_listening_tests(
         test_type="full", limit=50, offset=0, authorization="x"))
     # Mig 157: full library = eq trên cột thật, không còn or_ NULL-fallback.
+    #
+    # Assert cũ là `or_filter is None` — cấm MỌI or_. Từ khi điều kiện
+    # audio-ready được đẩy xuống SQL (để phân trang không hụt dòng và để
+    # /overview khớp danh sách), truy vấn có đúng MỘT or_, và nó nói về audio
+    # chứ không về test_type. Siết lại đúng ý định gốc.
     assert stub.eq_filter == "full"
-    assert stub.or_filter is None
+    assert stub.or_filter == ("full_audio_storage_path.not.is.null,"
+                              "assembled_audio_storage_path.not.is.null"), \
+        "test_type phải lọc bằng eq trên cột, không quay về or_ trên metadata"
 
 
 def test_list_rejects_bad_test_type(monkeypatch):
