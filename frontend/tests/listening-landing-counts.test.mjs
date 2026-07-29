@@ -236,3 +236,29 @@ describe('listening-browse — modeLinksHtml', () => {
     assert.doesNotMatch(html, /content_id=a b&c/);
   });
 });
+
+
+describe('listening-browse — lookup failure must not read as no-data', () => {
+  let browse;
+  before(async () => {
+    globalThis.document = { getElementById: () => ({ hidden: true }), addEventListener() {} };
+    browse = await import('../js/listening-browse.js');
+  });
+
+  it('null available_modes renders a warning, not "chưa có dạng luyện nào"', () => {
+    // The backend sets null when the listening_exercises read threw. An empty
+    // list there would be indistinguishable from genuine no-data, dressing a
+    // DB fault up as canonical truth — the same trap the access-code endpoints
+    // avoid with association_lookup_failed.
+    const html = browse.modeLinksHtml({ id: 'x', available_modes: null });
+    assert.match(html, /Không đọc được/);
+    assert.doesNotMatch(html, /Chưa có dạng luyện nào/);
+    assert.doesNotMatch(html, /<a /);
+  });
+
+  it('an empty array still means genuine no-data', () => {
+    const html = browse.modeLinksHtml({ id: 'x', available_modes: [] });
+    assert.match(html, /Chưa có dạng luyện nào/);
+    assert.doesNotMatch(html, /Không đọc được/);
+  });
+});

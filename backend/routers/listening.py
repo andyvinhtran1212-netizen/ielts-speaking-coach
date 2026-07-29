@@ -1473,6 +1473,7 @@ async def list_listening_content(
     # them dead-ended on "Bài này chưa có dạng ..." because no exercise had
     # ever been authored. One extra round trip for the whole page, not N+1.
     modes_by_content: dict[str, list[str]] = {c["id"]: [] for c in items if c.get("id")}
+    modes_lookup_failed = False
     if modes_by_content:
         try:
             ex = (
@@ -1490,16 +1491,24 @@ async def list_listening_content(
                     bucket.append(etype)
         except Exception as exc:                                             # pragma: no cover
             logger.warning("[listening] available_modes lookup failed: %s", exc)
-            # Leave the lists empty rather than guessing: an empty mode row
-            # renders as "chưa có dạng luyện nào", never as a broken link.
+            # An empty list here would be indistinguishable from "this content
+            # genuinely has no exercises" — the browse card would print "chưa có
+            # dạng luyện nào" and a DB fault would read as canonical no-data.
+            # Same rule the access-code endpoints already follow with
+            # `association_lookup_failed`: say the lookup failed, never invent
+            # an answer.
+            modes_lookup_failed = True
     for c in items:
-        c["available_modes"] = sorted(modes_by_content.get(c.get("id"), []))
+        c["available_modes"] = (
+            None if modes_lookup_failed else sorted(modes_by_content.get(c.get("id"), []))
+        )
 
     return {
         "items":  items,
         "total":  getattr(res, "count", None) or 0,
         "limit":  limit,
         "offset": offset,
+        "modes_lookup_failed": modes_lookup_failed,
     }
 
 

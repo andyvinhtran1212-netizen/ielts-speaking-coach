@@ -82,6 +82,13 @@ const MODE_LINKS = {
 
 export function modeLinksHtml(item) {
   const cid = encodeURIComponent(item && item.id ? item.id : '');
+  // `available_modes: null` means the server could not read the exercise table.
+  // Printing "chưa có dạng luyện nào" there would dress a backend fault up as
+  // canonical no-data — the same trap the access-code endpoints avoid with
+  // `association_lookup_failed`. Say so instead.
+  if (item && item.available_modes === null) {
+    return '<span class="mode-empty">⚠ Không đọc được danh sách dạng luyện</span>';
+  }
   const modes = Array.isArray(item && item.available_modes) ? item.available_modes : [];
   const links = Object.keys(MODE_LINKS)
     .filter((m) => modes.includes(m))
