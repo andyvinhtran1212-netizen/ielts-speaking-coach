@@ -22,13 +22,20 @@ TRANSCRIPT = "Welcome to Oakwood Centre. The library is on the left."
 _RATE = 24_000
 
 
-def _write_wav(path: Path, seconds: float) -> None:
-    """A real, decodable mono WAV of the requested length."""
+def _write_wav(path: Path, seconds: float, silent: bool = False) -> None:
+    """A real, decodable mono WAV of the requested length.
+
+    Non-silent by default: an all-zero payload is a legitimate REJECT, so the
+    happy-path fixtures must carry actual signal or they would test nothing.
+    """
+    n = int(_RATE * seconds)
+    frames = b"\0\0" * n if silent else bytes(
+        b for i in range(n) for b in ((i * 37) % 251 + 1, (i * 11) % 251 + 1))
     with wave.open(str(path), "wb") as w:
         w.setnchannels(1)
         w.setsampwidth(2)
         w.setframerate(_RATE)
-        w.writeframes(b"\0\0" * int(_RATE * seconds))
+        w.writeframes(frames)
 
 
 def _companion(block: str, secs: float = 40.0, audio: str | None = None) -> str:
@@ -101,6 +108,27 @@ def test_undecodable_file_is_not_uploadable(tmp_path):
     rows = audit(str(d))
     assert _verdicts(rows) == {"Blk_junk": "NO_AUDIO_FILE"}
     assert _wav_states(rows) == {"Blk_junk": "unreadable"}
+
+
+def test_header_only_truncated_wav_is_not_uploadable(tmp_path):
+    """The RIFF header advertises the full length even when the write was cut
+    short, so the header alone must not be believed — the payload is read."""
+    d = _bundle(tmp_path, {"Blk_trunc": 40.0})
+    wav = d / "audio_output_kokoro" / "Batch" / "Blk_trunc.wav"
+    with open(wav, "r+b") as fh:
+        fh.truncate(44 + 1000)        # keep the header, drop the audio
+    rows = audit(str(d))
+    assert _verdicts(rows) == {"Blk_trunc": "NO_AUDIO_FILE"}
+    assert _wav_states(rows) in ({"Blk_trunc": "truncated"}, {"Blk_trunc": "empty"})
+
+
+def test_all_silence_wav_is_not_uploadable(tmp_path):
+    """A render that produced only zeros plays, and teaches nothing."""
+    d = _bundle(tmp_path, {"Blk_silent": None})
+    _write_wav(d / "audio_output_kokoro" / "Batch" / "Blk_silent.wav", 40.0, silent=True)
+    rows = audit(str(d))
+    assert _verdicts(rows) == {"Blk_silent": "NO_AUDIO_FILE"}
+    assert _wav_states(rows) == {"Blk_silent": "silent"}
 
 
 def test_wav_shorter_than_advertised_is_not_uploadable(tmp_path):

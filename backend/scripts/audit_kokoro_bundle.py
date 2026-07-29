@@ -15,7 +15,8 @@ Verdicts
     PARTIAL           the block has audio, but some questions are not in it
     NO_AUDIO_CONTENT  no question in the block is in its audio
     NO_AUDIO_FILE     no .md companion, or its .wav is missing, undecodable,
-                      silent-short, or a different length than it advertises
+                      truncated, silent, or a different length than the
+                      companion advertises
 
 Read-only. Touches nothing outside the bundle directory.
 
@@ -70,21 +71,34 @@ _MIN_WAV_SECONDS = 0.5
 # How far the real duration may drift from the companion's `audio_seconds`
 # before the pair is untrustworthy (dictation windows are cut from that number).
 _DURATION_TOLERANCE = 1.5
+# Payload is read in chunks so a long file never has to fit in memory at once.
+_READ_CHUNK_FRAMES = 65_536
 
 
 def wav_state(md_path: str, fm: dict) -> tuple[str, float]:
-    """Is the audio the companion names on disk, decodable, and the right length?
+    """Is the audio the companion names on disk, decodable, audible, and the
+    length it claims?
 
-    The .md is generated from the corpus and exists whether or not the TTS
-    step ever ran for that block — so transcript text is never proof of audio.
-    Byte size is not proof either: an aborted render can leave a large,
-    undecodable or all-silence file. So the file is opened as a WAV and its
-    real frame count is read, then cross-checked against the duration the
-    companion advertises (the dictation timings are cut from that number, so a
-    mismatch breaks seeking even when the audio plays).
+    Three things are deliberately NOT trusted here, because each has been a
+    real failure mode of an interrupted render:
 
-    Returns (state, seconds); state is
-    "ok" | "missing" | "unreadable" | "empty" | "duration_mismatch".
+      * the .md itself — it is generated from the corpus whether or not the
+        TTS step ever ran, so transcript text is never proof of audio;
+      * byte size — a large file can be undecodable junk;
+      * the RIFF header — ``getnframes()`` reports the data-chunk size the
+        header *advertises*. A file truncated mid-write still advertises the
+        full length, so the header alone would pass a truncated stub.
+
+    So the payload is actually read, in chunks. The returned duration is
+    computed from the frames that could really be read, and that number — not
+    the header's — is compared with the companion's ``audio_seconds`` (the
+    dictation windows are cut from it; a mismatch makes every seek land in the
+    wrong place even when the file plays). An all-zero payload is silence, not
+    speech, and is rejected too.
+
+    Returns (state, seconds); state is one of
+    "ok" | "missing" | "unreadable" | "empty" | "truncated" | "silent"
+    | "duration_mismatch".
     """
     name = (fm.get("audio") or "").strip()
     if not name:
@@ -92,23 +106,40 @@ def wav_state(md_path: str, fm: dict) -> tuple[str, float]:
     path = os.path.join(os.path.dirname(md_path), name)
     if not os.path.isfile(path):
         return "missing", 0.0
+
     try:
         with wave.open(path) as w:
             rate = w.getframerate()
-            frames = w.getnframes()
-            if not rate or frames <= 0:
+            declared_frames = w.getnframes()
+            frame_bytes = max(1, w.getnchannels() * w.getsampwidth())
+            if not rate or declared_frames <= 0:
                 return "empty", 0.0
-            seconds = frames / float(rate)
+
+            read_frames, has_signal = 0, False
+            while True:
+                chunk = w.readframes(_READ_CHUNK_FRAMES)
+                if not chunk:
+                    break
+                read_frames += len(chunk) // frame_bytes
+                if not has_signal and any(chunk):
+                    has_signal = True
     except (wave.Error, EOFError, OSError):
         return "unreadable", 0.0
 
-    if seconds < _MIN_WAV_SECONDS:
+    seconds = read_frames / float(rate)
+    if read_frames <= 0 or seconds < _MIN_WAV_SECONDS:
         return "empty", seconds
+    # Header promised more audio than the file actually holds.
+    if (declared_frames - read_frames) / float(rate) > _DURATION_TOLERANCE:
+        return "truncated", seconds
+    if not has_signal:
+        return "silent", seconds
+
     try:
-        declared = float(fm.get("audio_seconds") or 0)
+        advertised = float(fm.get("audio_seconds") or 0)
     except ValueError:
-        declared = 0.0
-    if declared and abs(declared - seconds) > _DURATION_TOLERANCE:
+        advertised = 0.0
+    if advertised and abs(advertised - seconds) > _DURATION_TOLERANCE:
         return "duration_mismatch", seconds
     return "ok", seconds
 
