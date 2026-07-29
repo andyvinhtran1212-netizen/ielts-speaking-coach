@@ -1080,6 +1080,41 @@ Với active exam/session, ưu tiên bidirectional compatibility. Nếu chưa ch
 
 **Chuỗi "đếm giờ" còn lại — chỉ chạy khi chủ dự án quyết cutover:** (a) traffic baseline re-run + đo baseline grammar (≤72h, sát giờ cutover); (b) ghi **risk acceptance** (route, ngày, người duyệt, rollback plan) theo ADR-013; (c) cutover atomic (đổi ownership `/grammar/[category]/[slug]` sang Next, gỡ rewrite); (d) `workflow_dispatch` production-smoke route grammar làm baseline + verdict; (e) quan sát organic 48–72h ở chế độ rollback-trigger tuyệt đối, synthetic-n là mẫu chính. Rút gọn từ "21 ngày freeze" xuống **~3 ngày** nhờ ADR-013.
 
+### 12.6 Nợ kỹ thuật mở trong cửa sổ quan sát pilot 2 (2026-07-29)
+
+**DEBT-2026-07-29-K — Next chunk dùng `static{`, iOS ≤16.3 không parse được.**
+Toàn bộ 6 lỗi trong 24h đầu sau cutover là **một chữ ký duy nhất**:
+`SyntaxError: Unexpected token '{'`, url `/`, `filename=/_next/static/chunks/
+16axsefbfc-3t.js`, line 1, không stack, UA iPhone **iOS 15.8.5** (Google Search
+App + Safari), một cụm 13:09–13:12 +07 ngày 28/07. Tải chunk về grep: **đúng 1
+occurrence `static{`**, nằm trong code của CHÍNH Next —
+`class h extends React.Component{static{this.contextType=AppRouterContext}…}`
+(error boundary của App Router). Class static block chỉ có từ **Safari 16.4**
+⇒ mọi iOS ≤16.3 **không parse nổi chunk ⇒ không hydrate** trên MỌI route Next
+(`/` và `/grammar/*`); nội dung SSR vẫn đọc được, phần JS (icon, nút Lưu bài,
+TOC) chết. Trang legacy không dính.
+
+**HOÃN CÓ CHỦ Ý tới sau khi cửa sổ quan sát pilot 2 đóng (30–31/07).** Lý do:
+bản vá là đổi build target ⇒ **build lại toàn bộ client JS của chính route
+đang quan sát** (bundle to hơn, LCP có thể dịch chuyển, và đổi target là loại
+thay đổi có thể làm gãy hydrate diện rộng). Lỗi đã tồn tại từ cutover pilot 1
+(14/07) với ~1–2 phiên/ngày, nên chờ thêm 2 ngày là rẻ hơn nhiều so với việc
+mất khả năng quy kết một-biến cho pilot 2. Khi làm: đọc docs Next 16 về
+browserslist/target trước, PR riêng, rồi **đo lại smoke baseline** trên release
+mới (số cũ 848ms thuộc release `524fd210`).
+
+**Đã đóng cùng ngày:** DEBT-2026-07-29-L (rollback-metrics khớp route chính
+xác ⇒ route có tham số đo ra 0 — thêm `match=prefix`) và DEBT-2026-07-29-M
+(payload web_vitals thiếu UA ⇒ mẫu LCP chậm không quy kết được).
+
+**LƯU Ý VẬN HÀNH (áp cho mọi merge trong cửa sổ quan sát):** mỗi merge lên main
+= một deployment Vercel mới ⇒ **cache prerender của route bị xoá**, người đầu
+tiên vào mỗi bài phải chờ render nguội (bài grammar là PPR: vỏ tĩnh + thân bài
+fetch backend, `cacheLife` 1h). Với n organic nhỏ, đúng một lần deploy đủ kéo
+lệch p75. **Sau mỗi deploy trong cửa sổ: dispatch lại production-smoke** (n=75,
+~3 phút) để vừa làm ấm cache vừa có verdict sạch trên release mới, và ghi
+release vào bảng nhật ký.
+
 **Pilot 3+4 (profile).** Prep chưa làm. Khi cần: refresh `feat/pilot-3-4-cutover-prep` (`docs/PILOT_3_4_CUTOVER_SHEET.md`, đã theo ADR-013) + verify smoke trên `/profile-preview`, cùng khuôn Pilot 2.
 
 ---
