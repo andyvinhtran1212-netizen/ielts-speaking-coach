@@ -206,7 +206,7 @@ Vế số-lượng do **synthetic** gánh, đúng thiết kế ADR-013 — khôn
 
 | Điều kiện ADR-013 (lớp public/read-only <3 lượt/ngày) | Kết quả |
 |---|---|
-| Quan sát 48–72h với telemetry tagged | **51h10m** (cutover 28/07 22:37:10 → chốt 31/07 01:47) ✔ |
+| Quan sát 48–72h với telemetry tagged | **51h10m** (cutover 28/07 22:37:10 → chốt 31/07 01:47) ✔ — **nhưng vế "tagged" chỉ đạt MỘT PHẦN, xem risk acceptance bổ sung dưới** |
 | Synthetic n≥72 | **4 lần**: 848 / 976 / 968 / **856ms**, mỗi lần n=75, **0 lỗi**, trần 4000ms ✔ — lần cuối chạy SAU mốc 48h thật |
 | Risk acceptance ghi rõ + ký | ✔ (28/07, bảng trên) |
 | Persistence/security invariant | không vi phạm ✔ |
@@ -230,8 +230,52 @@ Production đi qua **3 release**:
 một merge commit). **#877** (font parity) merge lúc **22:30:04**, tức **7 phút
 TRƯỚC cutover** — nó thuộc phần chuẩn bị, không phải nhiễu trong cửa sổ.
 ADR-013 cho phép merge trong cửa sổ vì quy kết đi bằng tag
-`implementation`/`release`; mỗi deploy đều đã smoke lại theo luật §12.6 (đó là
-lý do có tới 4 lần smoke, và mỗi mốc D0–D3 đều ghi kèm release đang phục vụ).
+`implementation`/`release`.
+
+**MỘT DEPLOY KHÔNG ĐƯỢC SMOKE — nói thẳng (review #881).** Câu "mỗi deploy đều
+đã smoke lại theo luật §12.6" ở bản trước là **sai**. Bảng thật:
+
+| Release | Sống từ → đến (+07) | Smoke trong khoảng đó |
+|---|---|---|
+| `524fd210` | 28/07 22:37 → 29/07 06:44 | ✔ run `30374618340` lúc 22:41 — 848ms |
+| `10405d0e` | 29/07 06:44 → 29/07 11:12 (4h28m) | ✘ **KHÔNG có** |
+| `cedd4dd5` | 29/07 11:12 → hết cửa sổ | ✔ 3 run: `30421689223` (11:13, 976ms), `30557484374` (30/07 22:36, 968ms), `30571613070` (31/07 01:47, 856ms) |
+
+Bằng chứng thay thế cho khoảng `10405d0e` (đo lại trên DB): **0 lỗi toàn site**,
+`/grammar/*` nhận **0 lượt xem và 0 mẫu vitals** (toàn site đúng 1 lượt xem)
+trong suốt 4h28m đó — tức khoảng bị bỏ sót cũng là khoảng không có ai dùng
+route và không có lỗi nào. Ghi chú thêm: **luật smoke-sau-mỗi-deploy của §12.6
+chính là do PR #879 mang lên lúc 11:12**, tức nó ra đời SAU deploy này — nên
+đây là thiếu sót về bằng chứng, không phải vi phạm một luật đang có hiệu lực.
+Vẫn ghi vào hồ sơ thay vì bỏ qua.
+
+## Risk acceptance BỔ SUNG — vế "telemetry tagged" chỉ đạt một phần (review #881)
+
+ADR-013 đặt **telemetry tagged** làm điều kiện tiên quyết, trong khi chính hồ sơ
+này ghi **DEBT-2026-07-30-N**: thẻ `release` có thể cũ (2/6 mẫu vitals + 1 lượt
+xem mang release `856688dd` của 17/07), và nguyên nhân **chưa sửa**. Vì
+production đi qua 3 release trong cửa sổ, một thẻ không đáng tin làm suy yếu
+đúng thứ ADR-013 dựa vào. Phân tích phạm vi ảnh hưởng, không giấu:
+
+| Chỗ dựa của verdict | Có bị thẻ release làm hỏng không |
+|---|---|
+| **0 lỗi** (trên route và toàn site) | **Không** — không có lỗi nào để quy sai chỗ. Đây là chân đỡ chính của PASS |
+| **Synthetic 4 lần** (848/976/968/856ms) | **Không** — quy kết đến từ chính workflow run (route + thời điểm + SHA đang deploy), không đọc thẻ của client |
+| **LCP organic** | **Có thể** — mẫu có thể bị gán nhầm release. Nhưng verdict là `insufficient-sample`, **không mang trọng số nào** trong PASS |
+| Điều KHÔNG loại trừ được | Tỷ lệ release thật của 6 mẫu organic là bất định; và có client chạy JS cũ hơn deploy mà mình không nhận diện được |
+
+**Quyết định:** chấp nhận rủi ro có-ghi-rõ và giữ PASS, vì chân đỡ của verdict
+(0 lỗi + synthetic) không phụ thuộc thẻ client. **Điều kiện lật ngược:** nếu
+trong cửa sổ có **bất kỳ lỗi nào** trên route thì quy kết theo release trở
+thành thiết yếu — khi đó **không được tuyên PASS** trước khi đóng DEBT-N. Ràng
+buộc này áp cho **pilot 3+4 trở đi**: DEBT-N phải đóng, hoặc phải viết lại
+đúng khối risk acceptance như trên trước khi mở cửa sổ.
+
+| Trường | Giá trị |
+|---|---|
+| Rủi ro chấp nhận | Vế "telemetry tagged" đạt một phần — thẻ `release` phía client có thể cũ (DEBT-2026-07-30-N) |
+| Người duyệt | **Chủ dự án** — xác nhận bằng việc merge PR #881; nếu không chấp nhận thì verdict phải hạ xuống *chưa kết luận* cho tới khi DEBT-N đóng |
+| Ngày | 2026-07-31 |
 
 ### Nợ mở ra từ cửa sổ này
 

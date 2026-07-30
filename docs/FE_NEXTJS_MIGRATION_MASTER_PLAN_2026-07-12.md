@@ -1145,6 +1145,14 @@ ký D0–D3: `docs/PILOT_2_CUTOVER_SHEET.md`.
 thời điểm đó mới 47h58m50s vì cutover là 22:37:10 chứ không phải 22:35. Đã đo
 lại sau mốc thật thay vì sửa số cho khớp (Codex review #881).
 
+*Ghi chú thứ hai:* vế "telemetry tagged" của ADR-013 chỉ đạt MỘT PHẦN — thẻ
+`release` phía client có thể cũ (DEBT-N), nên hồ sơ có thêm một **risk acceptance
+bổ sung** (sheet, mục cuối): giữ PASS vì chân đỡ của verdict là *0 lỗi* +
+*synthetic*, cả hai không đọc thẻ client; nhưng **từ pilot 3+4 trở đi, nếu cửa
+sổ có bất kỳ lỗi nào trên route thì phải đóng DEBT-N trước khi tuyên PASS**.
+Một deploy trong cửa sổ (`10405d0e`, sống 4h28m) **không được smoke** — ghi rõ
+trong sheet kèm bằng chứng thay thế (0 lỗi, 0 lượt xem route trong khoảng đó).
+
 **DEBT-2026-07-29-K hết lý do hoãn — là việc kế tiếp.** Nợ mới sinh trong cửa
 sổ: **DEBT-2026-07-30-N** (thẻ `release` có thể cũ do cache client/trung gian ⇒
 quy kết một-biến của ADR-012 bị suy yếu; chi tiết trong sheet).
