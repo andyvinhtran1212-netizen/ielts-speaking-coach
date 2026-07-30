@@ -1154,8 +1154,11 @@ Một deploy trong cửa sổ (`10405d0e`, sống 4h28m) **không được smoke
 trong sheet kèm bằng chứng thay thế (0 lỗi, 0 lượt xem route trong khoảng đó).
 
 **DEBT-2026-07-29-K hết lý do hoãn — là việc kế tiếp.** Nợ mới sinh trong cửa
-sổ: **DEBT-2026-07-30-N** (thẻ `release` có thể cũ do cache client/trung gian ⇒
-quy kết một-biến của ADR-012 bị suy yếu; chi tiết trong sheet).
+sổ: **DEBT-2026-07-30-N** (thẻ `release` không cho biết tài liệu được tải lúc nào ⇒
+quy kết một-biến của ADR-012 bị suy yếu; **nguyên nhân CHƯA xác định** — cache
+client/trung gian hay tab sống lâu; việc đầu tiên là thêm mốc-thời-gian-tải +
+build id vào payload để phân biệt, chứ không kê đơn `?v=<release>` ngay; chi
+tiết + bảng hai giả thuyết trong sheet).
 
 ## 13. Performance, SEO, security và accessibility budgets
 

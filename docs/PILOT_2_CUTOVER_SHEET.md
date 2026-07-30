@@ -281,14 +281,33 @@ buộc này áp cho **pilot 3+4 trở đi**: DEBT-N phải đóng, hoặc phải
 
 - **DEBT-2026-07-29-K** (đã ghi §12.6): chunk Next dùng `static{` ⇒ iOS ≤16.3
   không hydrate. **Giờ là việc kế tiếp** — cửa sổ đã đóng nên không còn lý do hoãn.
-- **DEBT-2026-07-30-N — thẻ `release` có thể nói dối.** Hai mẫu vitals ngày 30/07
-  mang release `856688dd` (bản 17/07, cách 13 ngày) và thiếu trường `ua` dù bản
-  có UA đã lên từ 29/07 ⇒ client đó chạy `runtime-config.js` + `rum-vitals.js` cũ
-  hơn deploy hiện tại. Repo **không có service worker**; header hiện tại là
-  `no-store` (runtime-config) và `max-age=300, must-revalidate` (rum-vitals) ⇒
-  cache nằm ở phía client/trung gian không kiểm soát được. Hệ quả: **quy kết
-  một-biến của ADR-012 dựa vào `release`, mà thẻ này có thể cũ**. Khả dĩ: gắn
-  `?v=<release>` cho runtime-config.js. Chưa làm.
+- **DEBT-2026-07-30-N — thẻ `release` không mô tả được thời điểm tải trang.
+  NGUYÊN NHÂN CHƯA XÁC ĐỊNH** (đã hạ cấp từ khẳng định "cache trung gian" sau
+  review #881 — kết luận cũ vượt quá bằng chứng).
+
+  *Quan sát:* hai mẫu vitals ngày 30/07 (02:36 và 02:52, `/grammar/tenses/past-simple`)
+  mang release `856688dd` — bản phục vụ production **17/07 → 25/07** — và thiếu
+  trường `ua` dù bản có UA lên lúc **29/07 11:12**. Tức tài liệu đang chạy dùng
+  `runtime-config.js` + `rum-vitals.js` cũ hơn deploy hiện hành.
+
+  *Hai giả thuyết, chưa cái nào chứng minh được:*
+
+  | # | Giả thuyết | Điểm mạnh | Điểm yếu |
+  |---|---|---|---|
+  | A | Tài liệu tải asset từ **cache client/trung gian** | Repo **không có service worker**; header hiện tại `no-store` (runtime-config) + `max-age=300, must-revalidate` (rum-vitals) ⇒ nếu đúng thì cache nằm ngoài tầm kiểm soát | Không quan sát trực tiếp được cache đó |
+  | B | **Tab sống lâu**: `rum-vitals.js` chỉ gửi ở lần `hidden`/`pagehide` ĐẦU TIÊN, nên một tab mở từ lâu và đóng ngày 30/07 sinh đúng payload này — khi đó thẻ **nói thật** về asset đang chạy | Giải thích được việc thiếu `ua` mà không cần cache | **Không tự nó giải thích được thẻ `856688dd`**: đường dẫn `/grammar/:cat/:slug` chỉ tồn tại dưới dạng route Next từ **28/07 22:37**, trước đó là trang legacy (không nạp `rum-vitals.js`) ⇒ tài liệu phải được tải SAU 28/07 22:37, lúc production đã là `524fd210`, chứ không phải `856688dd`. Muốn khớp thì vẫn phải giả định thêm một asset cũ |
+
+  *Hệ quả cho ADR-012:* dù nguyên nhân là A hay B, **thẻ `release` không cho biết
+  tài liệu được tải lúc nào**, nên quy kết một-biến theo release bị suy yếu ở
+  đúng ca này.
+
+  *Việc cần làm — theo thứ tự:* (1) **thêm mốc thời gian tải trang + build id
+  đọc tại lúc parse tài liệu** vào payload — đây là thứ phân biệt được A với B,
+  và phải làm TRƯỚC khi kê đơn; (2) tái hiện riêng hai kịch bản (giữ một tab
+  xuyên qua một lần deploy; và một lần điều hướng mới qua chỗ nghi có cache);
+  (3) chỉ khi kết luận là A mới gắn `?v=<release>` cho runtime-config.js —
+  **cách này KHÔNG cứu được kịch bản B**, vì tài liệu đã mở thì không thể cập
+  nhật config bằng URL mới.
 
 Rollback nếu: persistence/security breach (ngay lập tức), P1 trang không render,
 error-rate > 2× baseline/30ph, LCP p75 > 1.5×/24h, cache poisoning. Cơ chế:
