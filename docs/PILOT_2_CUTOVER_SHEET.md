@@ -2,8 +2,9 @@
 
 Theo `docs/PILOT_ENTRY_CHECKLIST_2026-07-13.md` §6.2.
 
-> **TRẠNG THÁI VẬN HÀNH: ĐÃ CUTOVER 2026-07-28 22:3x +07** (PR #754 merged,
-> release `524fd210`). `/grammar/:cat/:slug` trên production **đang chạy Next**;
+> **TRẠNG THÁI VẬN HÀNH: ĐÃ CUTOVER + CỬA SỔ QUAN SÁT ĐÃ PASS** (cutover
+> 2026-07-28 22:3x +07 qua PR #754 release `524fd210`; PASS 2026-07-30 22:36 +07
+> — xem mục cuối trang). `/grammar/:cat/:slug` trên production **đang chạy Next**;
 > `/grammar-preview/...` không còn tồn tại. Gate áp dụng là **early-stage
 > rollout profile** (ADR-013): cutover tagged → **48–72h quan sát + synthetic
 > n≥72 + risk acceptance ghi rõ** — KHÔNG phải soak-21-ngày.
@@ -175,11 +176,52 @@ Release: **`524fd210`** (merge PR #754). Auto-promote: production
 *Rollback trigger* → route `/grammar` → **Đo**, cộng 1 lần dispatch Production
 Smoke; ghi vào bảng dưới. Hết cửa sổ, nếu không breach ⇒ tuyên PASS.
 
-| Ngày | Views/Lỗi (24h) | LCP p75 organic | Smoke p75 (n=75) | Verdict |
-|---|---|---|---|---|
-| D0 28/07 | — (mới cutover) | — | **848ms / 0 lỗi** | ok |
-| D1 29/07 | | | | |
-| D2 30/07 | | | | |
+| Ngày | Views/Lỗi trên `/grammar/*` | LCP p75 organic | Smoke p75 (n=75) | Release | Verdict |
+|---|---|---|---|---|---|
+| D0 28/07 22:4x | 80 view (76 = smoke) / **0 lỗi** | 12624ms (n=4) — xem ghi chú | **848ms / 0 lỗi** | `524fd210` | ok |
+| D1 29/07 | 80 view / **0 lỗi** | 12624ms (n=4), verdict *insufficient-sample* | **976ms / 0 lỗi** | `cedd4dd5` | ok |
+| D2 30/07 22:36 (mốc 48h) | **229 view / 0 lỗi** | 3432ms (n=5), verdict *insufficient-sample* | **968ms / 0 lỗi** | `cedd4dd5` | ok |
+
+**Ghi chú trung thực về cột LCP organic:** con số này **KHÔNG phải một verdict
+đạt** — công cụ trả `insufficient-sample` ở mọi lần đo (ngưỡng ≥10 mẫu; cả cửa
+sổ chỉ có **6 mẫu organic**). Đây là điểm khác pilot 1: lần đó n=21 đủ để verdict
+tuyên breach; lần này công cụ nói thẳng là chưa kết luận được. Toàn bộ 6 mẫu
+trong cửa sổ: **288 · 532 · 1496 · 3432 · 12624 · 17236 ms**. Hai mẫu ≥12s là
+tab trình duyệt tự động của phiên làm việc (22:40 ngày 28 và 06:38 ngày 29 —
+beacon flush khi điều hướng), không phải khách; bốn mẫu còn lại đều <4000ms.
+Vế số-lượng do **synthetic** gánh, đúng thiết kế ADR-013 — không phải lách.
+
+## ✅ KẾT LUẬN CỬA SỔ QUAN SÁT — PASS (2026-07-30 22:36 +07, đủ 48h01)
+
+| Điều kiện ADR-013 (lớp public/read-only <3 lượt/ngày) | Kết quả |
+|---|---|
+| Quan sát 48–72h với telemetry tagged | **48h01** ✔ |
+| Synthetic n≥72 | **3 lần**: 848 / 976 / **968ms**, mỗi lần n=75, **0 lỗi**, trần 4000ms ✔ |
+| Risk acceptance ghi rõ + ký | ✔ (28/07, bảng trên) |
+| Persistence/security invariant | không vi phạm ✔ |
+| Rollback trigger §4 | **không cái nào chạm**: 0 lỗi trên route suốt cửa sổ; error verdict `no-baseline` (rate 0); LCP organic `insufficient-sample`; không P1; không cache poisoning ✔ |
+
+**Số chốt tại mốc:** `/grammar/*` (match=prefix, cửa sổ 48h) = **229 lượt xem /
+0 lỗi**, exposure 229 (exact). Đối chứng `/` 24h = 12 lượt / **0 lỗi** / LCP p75
+2976ms (n=10, dưới trần). **Toàn site 0 lỗi trong suốt 48h của cửa sổ.**
+Production = main = `cedd4dd5` trong toàn bộ thời gian đo.
+
+4 lần merge lên main trong cửa sổ (#877 font, #878 hồ sơ, #879 telemetry ×2) —
+ADR-013 cho phép, quy kết đi bằng tag `implementation`/`release`, và mỗi lần
+deploy đều đã smoke lại theo luật §12.6.
+
+### Nợ mở ra từ cửa sổ này
+
+- **DEBT-2026-07-29-K** (đã ghi §12.6): chunk Next dùng `static{` ⇒ iOS ≤16.3
+  không hydrate. **Giờ là việc kế tiếp** — cửa sổ đã đóng nên không còn lý do hoãn.
+- **DEBT-2026-07-30-N — thẻ `release` có thể nói dối.** Hai mẫu vitals ngày 30/07
+  mang release `856688dd` (bản 17/07, cách 13 ngày) và thiếu trường `ua` dù bản
+  có UA đã lên từ 29/07 ⇒ client đó chạy `runtime-config.js` + `rum-vitals.js` cũ
+  hơn deploy hiện tại. Repo **không có service worker**; header hiện tại là
+  `no-store` (runtime-config) và `max-age=300, must-revalidate` (rum-vitals) ⇒
+  cache nằm ở phía client/trung gian không kiểm soát được. Hệ quả: **quy kết
+  một-biến của ADR-012 dựa vào `release`, mà thẻ này có thể cũ**. Khả dĩ: gắn
+  `?v=<release>` cho runtime-config.js. Chưa làm.
 
 Rollback nếu: persistence/security breach (ngay lập tức), P1 trang không render,
 error-rate > 2× baseline/30ph, LCP p75 > 1.5×/24h, cache poisoning. Cơ chế:

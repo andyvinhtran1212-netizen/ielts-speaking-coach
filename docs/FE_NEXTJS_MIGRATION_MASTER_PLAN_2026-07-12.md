@@ -1082,6 +1082,16 @@ Với active exam/session, ưu tiên bidirectional compatibility. Nếu chưa ch
 
 ### 12.6 Nợ kỹ thuật mở trong cửa sổ quan sát pilot 2 (2026-07-29)
 
+> **CẬP NHẬT 2026-07-30 22:36 +07 — CỬA SỔ QUAN SÁT PILOT 2 ĐÃ PASS (48h01).**
+> `/grammar/:category/:slug` chính thức thuộc Next. Số chốt: **229 lượt xem /
+> 0 lỗi** trên `/grammar/*` (match=prefix, 48h), **0 lỗi toàn site** suốt cửa
+> sổ, synthetic 3 lần **848 / 976 / 968ms** (n=75, 0 lỗi). LCP organic là
+> `insufficient-sample` (6 mẫu) — ghi rõ KHÔNG phải verdict đạt. Hồ sơ đầy đủ:
+> `docs/PILOT_2_CUTOVER_SHEET.md`. **DEBT-K dưới đây hết lý do hoãn — làm tiếp.**
+> Nợ mới sinh trong cửa sổ: **DEBT-2026-07-30-N** (thẻ `release` có thể cũ do
+> cache client/trung gian ⇒ quy kết một-biến của ADR-012 bị suy yếu; chi tiết
+> trong sheet).
+
 **DEBT-2026-07-29-K — Next chunk dùng `static{`, iOS ≤16.3 không parse được.**
 Toàn bộ 6 lỗi trong 24h đầu sau cutover là **một chữ ký duy nhất**:
 `SyntaxError: Unexpected token '{'`, url `/`, `filename=/_next/static/chunks/
