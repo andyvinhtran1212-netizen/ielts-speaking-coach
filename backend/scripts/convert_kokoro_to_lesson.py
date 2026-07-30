@@ -171,65 +171,38 @@ def _contains_phrase(haystack: str, needle: str) -> bool:
     return re.search(rf"(?:^| ){re.escape(needle)}(?: |$)", haystack) is not None
 
 
-def _match_segment(text: str, norms: list) -> tuple[float, float] | None:
+def _match_indexes(text: str, norms: list) -> list[int]:
+    """EVERY segment whose words contain this text (any spoken variant)."""
+    hits: list[int] = []
     for v in answer_variants(text):
-        for s, ns in norms:
-            if _contains_phrase(ns, v):
-                return float(s["start"]), float(s["end"])
-    return None
+        for i, (_s, ns) in enumerate(norms):
+            if _contains_phrase(ns, v) and i not in hits:
+                hits.append(i)
+    return hits
+
+
+def _support(item: dict, ns: str) -> float:
+    """How strongly the block's own commentary points at this segment.
+
+    Used only to break a tie; `answerSentence` / `coreInfo` are paraphrases, so
+    they are evidence of WHICH occurrence, never of whether one exists.
+    """
+    best = 0.0
+    for key in ("answerSentence", "coreInfo"):
+        toks = [t for t in norm(item.get(key)).split() if len(t) > 2]
+        if toks:
+            best = max(best, sum(1 for t in toks if _contains_phrase(ns, t)) / len(toks))
+    return best
 
 
 def find_window(item: dict, segments: list[dict]) -> tuple[float, float] | None:
-    """The segment that actually says this question's answer.
+    """Single-item convenience wrapper over `assign_windows` (one code path)."""
+    try:
+        windows, _unsure = assign_windows([item], segments)
+    except ValueError:
+        return None
+    return windows[1]
 
-    Tried in order of how directly each signal names the answer. `coreInfo` and
-    `answerSentence` are only paraphrases, so they are a last resort and must
-    match a decent share of their content words rather than any single one.
-    """
-    norms = [(s, norm(s.get("text"))) for s in segments]
-    options = dict((l, t) for l, t in (item.get("options") or []))
-
-    # An MCQ often carries only `answerLetter`, with `acceptedAnswers` empty —
-    # the words that appear in the audio are the correct OPTION's text, so
-    # resolve the letter before giving up.
-    probes = list(item.get("acceptedAnswers") or [])
-    letter = item.get("answerLetter")
-    if letter and options.get(letter):
-        probes.append(options[letter])
-    for ans in probes:
-        w = _match_segment(ans, norms)
-        if w:
-            return w
-
-    # A negative question ("Which method was NOT used?") is answered by what the
-    # audio DOESN'T say, so no segment can contain the answer — searching for one
-    # is the wrong question. The evidence is the passage that lists the options
-    # it DOES mention, so span those.
-    q = str(item.get("question") or "")
-    if options and _NEGATIVE_RE.search(q):
-        wrong = {norm(a) for a in (item.get("acceptedAnswers") or [])}
-        if letter and options.get(letter):
-            wrong.add(norm(options[letter]))
-        spans = [w for l, opt in options.items() if norm(opt) not in wrong
-                 for w in [_match_segment(opt, norms)] if w]
-        if len(spans) >= 2:
-            return min(s for s, _e in spans), max(e for _s, e in spans)
-
-    for key in ("answerSentence", "coreInfo"):
-        probe = norm(item.get(key))
-        if not probe:
-            continue
-        toks = [t for t in probe.split() if len(t) > 2]
-        if not toks:
-            continue
-        best, score = None, 0.0
-        for s, ns in norms:
-            hit = sum(1 for t in toks if t in ns) / len(toks)
-            if hit > score:
-                best, score = s, hit
-        if best is not None and score >= 0.6:
-            return float(best["start"]), float(best["end"])
-    return None
 
 
 _FM_AUDIO_RE = re.compile(r'^audio:\s*"?([^"\n]+?)"?\s*$', re.MULTILINE)
@@ -240,6 +213,88 @@ def _fm_audio(md_path: Path) -> str | None:
     head = md_path.read_text(encoding="utf-8")[:2000]
     m = _FM_AUDIO_RE.search(head)
     return m.group(1).strip() if m else None
+
+
+def candidate_indexes(item: dict, norms: list) -> list[int] | None:
+    """Segments that could hold this question's answer (None = no evidence)."""
+    options = dict((l, t) for l, t in (item.get("options") or []))
+    letter = item.get("answerLetter")
+    probes = list(item.get("acceptedAnswers") or [])
+    if letter and options.get(letter):
+        probes.append(options[letter])
+    for ans in probes:
+        hits = _match_indexes(ans, norms)
+        if hits:
+            return sorted(hits)
+
+    q = str(item.get("question") or "")
+    if options and _NEGATIVE_RE.search(q):
+        wrong = {norm(a) for a in (item.get("acceptedAnswers") or [])}
+        if letter and options.get(letter):
+            wrong.add(norm(options[letter]))
+        spans = sorted({i for opt in options.values() if norm(opt) not in wrong
+                        for i in _match_indexes(opt, norms)})
+        if len(spans) >= 2:
+            return spans                       # caller spans first..last
+
+    # Last resort: the answer words never appear verbatim (a paraphrased MCQ,
+    # a spelled-out name). The commentary is only a paraphrase, so it must
+    # cover a clear majority of the segment's own wording to count.
+    best, score = None, 0.0
+    for key in ("answerSentence", "coreInfo"):
+        toks = [t for t in norm(item.get(key)).split() if len(t) > 2]
+        if not toks:
+            continue
+        for i, (_s, ns) in enumerate(norms):
+            hit = sum(1 for t in toks if _contains_phrase(ns, t)) / len(toks)
+            if hit > score:
+                best, score = i, hit
+    return [best] if best is not None and score >= 0.6 else None
+
+
+def assign_windows(items: list[dict], segments: list[dict]
+                   ) -> tuple[dict[int, tuple[float, float]], list[int]]:
+    """Pick one segment per question. Returns (windows, unsure_question_numbers).
+
+    A repeated answer has no single right rule: "China" is said four times in
+    the tea lecture and the answer is the FIRST, while an IELTS self-correction
+    ("£12 — sorry, it's now £9") puts it in the LAST. Audio order does not help
+    either — these papers list four completion questions then four MCQs whose
+    evidence sits earlier in the recording, so a monotonic assignment rejects
+    most of the corpus outright.
+
+    So: the item's own commentary (`answerSentence` / `coreInfo`) decides when
+    it points anywhere; otherwise the first occurrence is taken and the question
+    is REPORTED as unsure. Refusing instead would throw away ~70% of the corpus
+    over a field that only drives the "replay this question" button — it never
+    affects grading. What must not happen is passing that uncertainty off as
+    fact, so the caller surfaces the count.
+    """
+    norms = [(s, norm(s.get("text"))) for s in segments]
+    out: dict[int, tuple[float, float]] = {}
+    unsure: list[int] = []
+
+    for n, it in enumerate(items, 1):
+        cands = candidate_indexes(it, norms)
+        if not cands:
+            raise ValueError(
+                f"Q{n} ({it.get('id')}): không định vị được đoạn audio chứa đáp án")
+
+        if (_NEGATIVE_RE.search(str(it.get("question") or "")) and it.get("options")
+                and len(cands) >= 2):
+            out[n] = (float(segments[cands[0]]["start"]), float(segments[cands[-1]]["end"]))
+            continue
+
+        pick = cands[0]
+        if len(cands) > 1:
+            scored = sorted(((_support(it, norms[i][1]), -i) for i in cands), reverse=True)
+            if scored[0][0] > 0 and scored[0][0] > scored[1][0]:
+                pick = -scored[0][1]
+            else:
+                unsure.append(n)
+        s = segments[pick]
+        out[n] = (float(s["start"]), float(s["end"]))
+    return out, unsure
 
 
 def make_test_id(stem: str, prefix: str) -> str:
@@ -275,14 +330,10 @@ def build_pack(stem: str, items: list[dict], timing: dict, prefix: str) -> dict:
     part = items[0].get("part")
     topic = (items[0].get("topic") or "").strip() or stem
 
-    windows: dict[int, tuple[float, float]] = {}
-    for n, it in enumerate(items, 1):
-        w = find_window(it, segments)
-        if w is None:
-            raise ValueError(f"Q{n} ({it.get('id')}): không định vị được đoạn audio chứa đáp án")
+    windows, unsure = assign_windows(items, segments)
+    for n, w in windows.items():
         if w[1] <= w[0]:
             raise ValueError(f"Q{n}: cửa sổ audio không hợp lệ {w}")
-        windows[n] = w
 
     # ── Question paper ───────────────────────────────────────────────────────
     qp = [
@@ -413,7 +464,8 @@ def build_pack(stem: str, items: list[dict], timing: dict, prefix: str) -> dict:
         }],
     }
     return {"test_id": tid, "qp": "\n".join(qp), "sol": "\n".join(sol),
-            "timings": timings, "part": part, "questions": len(items)}
+            "timings": timings, "part": part, "questions": len(items),
+            "unsure_windows": unsure}
 
 
 def convert_block(bundle: Path, audio_dir: str, stem: str, byid: dict,
@@ -522,8 +574,13 @@ def main() -> None:
             write_pack(pack, out, args.bitrate)
         ok.append(pack)
 
+    unsure_q = sum(len(p.get("unsure_windows") or []) for p in ok)
     print(f"{'GHI' if args.write else 'CHẠY THỬ'} — {len(ok)}/{len(stems)} block chuyển được, "
           f"{sum(p['questions'] for p in ok)} câu")
+    if unsure_q:
+        tot = sum(p["questions"] for p in ok)
+        print(f"  cửa sổ nghe-lại KHÔNG CHẮC (đáp án lặp, không có căn cứ chọn): "
+              f"{unsure_q}/{tot} câu ({unsure_q/tot*100:.1f}%) — lấy lần xuất hiện đầu")
     if warned:
         print(f"  (có cảnh báo parser: {warned} pack)")
     if failed:

@@ -213,3 +213,35 @@ def test_negative_detection_is_case_insensitive():
             "options": [["A", "questionnaire"], ["B", "interviews"],
                         ["C", "focus groups"]]}
     assert find_window(item, segs) == (0.0, 8.0)
+
+
+def test_repeated_answer_is_disambiguated_by_the_block_commentary():
+    """IELTS self-correction: the answer number is said twice, the first time
+    as the distractor. Taking the first hit would anchor replay to the wrong
+    sentence with nothing downstream able to tell."""
+    segs = [seg(1, "Day entry costs 9 pounds for children.", 0.0, 4.0),
+            seg(2, "Annual membership is 9 pounds a month now.", 4.1, 9.0)]
+    item = {"acceptedAnswers": ["9"],
+            "coreInfo": "annual membership 9 pounds a month"}
+    assert find_window(item, segs) == (4.1, 9.0)
+
+
+def test_repeated_answer_with_no_tiebreaker_is_reported_not_hidden():
+    """No rule picks correctly here (the answer is said twice with nothing to
+    separate them), and refusing would discard the block over a field that only
+    drives the replay button. So take the first and SAY it is unsure — the one
+    thing that must not happen is passing the guess off as fact."""
+    from convert_kokoro_to_lesson import assign_windows
+    segs = [seg(1, "The fee is 9 pounds.", 0.0, 4.0),
+            seg(2, "The deposit is 9 pounds.", 4.1, 8.0)]
+    windows, unsure = assign_windows([{"acceptedAnswers": ["9"]}], segs)
+    assert windows[1] == (0.0, 4.0)
+    assert unsure == [1], "an unresolved window must be reported"
+
+
+def test_resolved_window_is_not_flagged_unsure():
+    from convert_kokoro_to_lesson import assign_windows
+    segs = [seg(1, "The fee is 9 pounds.", 0.0, 4.0),
+            seg(2, "The deposit is 250 pounds.", 4.1, 8.0)]
+    windows, unsure = assign_windows([{"acceptedAnswers": ["250"]}], segs)
+    assert windows[1] == (4.1, 8.0) and unsure == []
