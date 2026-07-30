@@ -181,7 +181,8 @@ describe('listening-landing — applyOverview', () => {
     // card leaked into examShown, the empty note would wrongly stay hidden.
     const doc = buildDoc();
     landing.applyOverview(doc, {
-      tests: { full: 0, mini: 0, drill: 0 }, content: 7, exercise_modes: {},
+      tests: { full: 0, mini: 0, drill: 0 }, content: 7,
+      exercise_modes: { dictation: 2 },      // a runnable mode, else the card hides
     });
     assert.equal(doc.browse.hidden, false);
     assert.equal(doc.examEmpty.hidden, false,
@@ -260,5 +261,32 @@ describe('listening-browse — lookup failure must not read as no-data', () => {
     const html = browse.modeLinksHtml({ id: 'x', available_modes: [] });
     assert.match(html, /Chưa có dạng luyện nào/);
     assert.doesNotMatch(html, /Không đọc được/);
+  });
+});
+
+
+describe('listening-landing — library needs a way in, not just rows', () => {
+  it('hides the library when no mode is runnable', () => {
+    // Content rows alone are not something a learner can DO: the library would
+    // open onto a list where every card reads "chưa có dạng luyện nào" — the
+    // dead end this page was reorganised to remove, one level down.
+    const doc = buildDoc();
+    landing.applyOverview(doc, {
+      tests: { full: 40, mini: 0, drill: 0 }, content: 12,
+      exercise_modes: { dictation: 0, gist: 0, true_false: 0, mcq: 0 },
+    });
+    assert.equal(doc.browse.hidden, true);
+    assert.equal(doc.library.hidden, true);
+  });
+
+  it('shows the library as soon as one mode is runnable', () => {
+    const doc = buildDoc();
+    landing.applyOverview(doc, {
+      tests: { full: 0, mini: 0, drill: 0 }, content: 12,
+      exercise_modes: { dictation: 3, gist: 0, true_false: 0, mcq: 0 },
+    });
+    assert.equal(doc.browse.hidden, false);
+    assert.equal(doc.library.hidden, false);
+    assert.match(doc.lede.textContent, /Chép chính tả/);
   });
 });

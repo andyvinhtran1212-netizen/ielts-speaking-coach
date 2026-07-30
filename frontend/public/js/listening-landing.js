@@ -76,15 +76,18 @@ export function applyOverview(doc, overview) {
 
   const library = doc.getElementById('section-library');
   const browseCard = doc.querySelector('[data-mode="browse"]');
+  const labels = availableModeLabels(overview);
+  // Content rows alone are not something a learner can DO. With no runnable
+  // mode, the library opens onto a list where every card reads "chưa có dạng
+  // luyện nào" — a dead end one level down, which is the whole thing this page
+  // was reorganised to remove. So the card needs both: rows AND a way in.
+  if (browseCard && !browseCard.hidden && !labels.length) browseCard.hidden = true;
   if (library) library.hidden = !(browseCard && !browseCard.hidden);
 
   const lede = doc.getElementById('library-lede');
   if (lede && library && !library.hidden) {
-    const labels = availableModeLabels(overview);
-    lede.textContent = labels.length
-      ? `Nghe tự do theo chủ đề, giọng và trình độ. Dạng luyện đang có: ${labels.join(' · ')}.`
-      : 'Nghe tự do theo chủ đề, giọng và trình độ. Các dạng luyện cho kho bài này '
-        + 'chưa được soạn — hiện chỉ nghe và đọc transcript.';
+    lede.textContent =
+      `Nghe tự do theo chủ đề, giọng và trình độ. Dạng luyện đang có: ${labels.join(' · ')}.`;
   }
 
   const examEmpty = doc.getElementById('exam-empty');
