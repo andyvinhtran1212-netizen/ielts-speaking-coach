@@ -60,6 +60,11 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--commit", action="store_true", help="actually write (default: dry-run)")
+    # The docstring tells operators to confirm with --dry-run before touching
+    # prod; without this flag that exact command errors out, which is the worst
+    # possible time to hit an argparse failure.
+    ap.add_argument("--dry-run", action="store_true",
+                    help="no-op (default) — accepted so the documented safe command works")
     args = ap.parse_args()
 
     targets, total = find_targets()

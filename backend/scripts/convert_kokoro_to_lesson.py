@@ -447,7 +447,13 @@ def build_pack(stem: str, items: list[dict], timing: dict, prefix: str) -> dict:
         sol += [
             f"### Q{n}", "",
             f"**Answer:** {canonical(it)}  ",
-            f"**Trích đoạn audio:** [nghe lại](audio://{sid}.mp3?start={st:.2f}&end={en:.2f}&q={n}&section={sid})  ",
+            # Label matters: `_classify_field` files anything containing "trích"
+            # or "đoạn audio" as `script`, so "Trích đoạn audio" would persist
+            # the raw audio:// link AS the script excerpt and print it in the
+            # review pane. "Re-listen" lands in the `relisten` field, which is
+            # what this line actually is. The window itself is read from the
+            # audio:// URL regardless of label.
+            f"**Re-listen:** [nghe lại](audio://{sid}.mp3?start={st:.2f}&end={en:.2f}&q={n}&section={sid})  ",
         ]
         if it.get("trapPrimary"):
             sol.append(f"**Bẫy:** {it['trapPrimary']}  ")
@@ -457,6 +463,11 @@ def build_pack(stem: str, items: list[dict], timing: dict, prefix: str) -> dict:
 
     # Display transcript (v1.2) — one paragraph per segment, so the review pane
     # shows the real reading rather than joined per-question extracts.
+    # A `### Qn` block runs to the next `### Qn` or end-of-string, and a field
+    # value runs to the NEXT LABEL — so without a closing label here the last
+    # question's field swallows the whole transcript tail. Any unclassified
+    # label ends it; this one is dropped by `_classify_field` on purpose.
+    sol += ["**Ghi chú:** (hết phần giải thích)", ""]
     sol += ["# Transcript (bản đọc — chỉ vai thoại, không chú thích sản xuất)", "",
             f"## Section {part}", ""]
     spk_vi = {"M": "Nam", "F": "Nữ", "T": "Giảng viên", "narrator": "Người dẫn"}

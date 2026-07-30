@@ -319,3 +319,30 @@ def test_2000s_years_are_matched():
 def test_2000s_year_is_located_in_audio():
     segs = [seg(1, "The centre opened in twenty oh five.", 0.0, 5.0)]
     assert find_window({"acceptedAnswers": ["2005"]}, segs) == (0.0, 5.0)
+
+
+def test_replay_link_does_not_land_in_the_script_field():
+    """`_classify_field` files any label containing "trích" / "đoạn audio" as
+    `script`. Labelling the replay line "Trích đoạn audio" therefore persisted
+    the raw audio:// URL AS the script excerpt, and the review pane printed it."""
+    from services.listening_fulltest_import import parse_solution_blocks
+    pack = build_pack("Blk", _items_completion(), timing(_segs_completion()), "ILR-LIS-KKR")
+    blocks = parse_solution_blocks(pack["sol"])
+    for n, rec in blocks.items():
+        assert rec.get("audio_window"), f"Q{n} lost its replay window"
+        assert "audio://" not in (rec.get("script") or ""), \
+            f"Q{n}: replay link leaked into solution.script"
+
+
+def test_last_question_does_not_swallow_the_transcript():
+    """A `### Qn` block runs to end-of-string and a field value runs to the next
+    label, so without a closing label the final question absorbs the whole
+    transcript tail into whatever field came last."""
+    from services.listening_fulltest_import import parse_solution_blocks
+    pack = build_pack("Blk", _items_completion(), timing(_segs_completion()), "ILR-LIS-KKR")
+    last = max(parse_solution_blocks(pack["sol"]))
+    rec = parse_solution_blocks(pack["sol"])[last]
+    for field, val in rec.items():
+        if isinstance(val, str):
+            assert "# Transcript" not in val, f"Q{last}.{field} swallowed the transcript"
+            assert "Audio Transcript" not in val
