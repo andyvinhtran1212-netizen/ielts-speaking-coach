@@ -302,3 +302,20 @@ def test_ordinal_word_is_bounded_to_real_days():
 def test_time_answer_is_located_in_spoken_audio():
     segs = [seg(1, "The class starts at nine thirty on Mondays.", 0.0, 5.0)]
     assert find_window({"acceptedAnswers": ["9.30"]}, segs) == (0.0, 5.0)
+
+
+def test_2000s_years_are_matched():
+    """`hi < 20` silently excluded every year from 2000 on, so a 2005 answer
+    could never be located and its block was rejected."""
+    assert "twenty oh five" in spoken_forms(2005)
+    assert "two thousand and five" in spoken_forms(2005)
+    assert "twenty twenty" in spoken_forms(2020)
+    assert "two thousand" in spoken_forms(2000)
+    # the pre-2000 readings must keep working
+    assert "sixteen ten" in spoken_forms(1610)
+    assert "nineteen oh five" in spoken_forms(1905)
+
+
+def test_2000s_year_is_located_in_audio():
+    segs = [seg(1, "The centre opened in twenty oh five.", 0.0, 5.0)]
+    assert find_window({"acceptedAnswers": ["2005"]}, segs) == (0.0, 5.0)

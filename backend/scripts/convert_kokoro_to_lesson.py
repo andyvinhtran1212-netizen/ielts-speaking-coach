@@ -92,19 +92,29 @@ def spoken_forms(n: int) -> set[str]:
         out.add(_TENS[t] if not r else f"{_TENS[t]} {_ONES[r]}")
     elif n < 1000 and n % 100 == 0:
         out.add(f"{_ONES[n // 100]} hundred")
-    if 1000 <= n <= 2100:                      # years: "sixteen ten", "nineteen oh five"
+    def _two(v: int) -> str:                   # 0-99 spoken
+        if v < 20:
+            return _ONES[v]
+        t, r = (v // 10) * 10, v % 10
+        return _TENS[t] if not r else f"{_TENS[t]} {_ONES[r]}"
+
+    if 1000 <= n <= 2100:
+        # Years read as two halves: "sixteen ten", "nineteen oh five",
+        # "twenty twenty". `hi` runs past 19 for 20xx, so it must NOT be capped
+        # at 20 — that silently excluded every year from 2000 on.
         hi, lo = n // 100, n % 100
-        if hi < 20:
-            if lo == 0:
-                out.add(f"{_ONES[hi]} hundred")
-            elif lo < 10:
-                out.add(f"{_ONES[hi]} oh {_ONES[lo]}")
-            elif lo < 20:
-                out.add(f"{_ONES[hi]} {_ONES[lo]}")
-            else:
-                t, r = (lo // 10) * 10, lo % 10
-                out.add(f"{_ONES[hi]} {_TENS[t]}" if not r
-                        else f"{_ONES[hi]} {_TENS[t]} {_ONES[r]}")
+        if lo == 0:
+            out.add(f"{_two(hi)} hundred")
+        elif lo < 10:
+            out.add(f"{_two(hi)} oh {_ONES[lo]}")
+        else:
+            out.add(f"{_two(hi)} {_two(lo)}")
+        # 20xx is just as often read in full: "two thousand and five".
+        if 2000 <= n < 2100:
+            rest = n - 2000
+            out.add("two thousand" if not rest else f"two thousand {_two(rest)}")
+            if rest:
+                out.add(f"two thousand and {_two(rest)}")
     if n % 1000 == 0 and 0 < n // 1000 < 20:
         out.add(f"{_ONES[n // 1000]} thousand")
     return out
