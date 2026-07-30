@@ -35,6 +35,7 @@ from __future__ import annotations
 import argparse
 import collections
 import csv
+import itertools
 import json
 
 import re
@@ -115,16 +116,21 @@ _ORDINALS = {1: "first", 2: "second", 3: "third", 5: "fifth", 8: "eighth",
 
 def _ordinal_word(n: int) -> str | None:
     """Spoken ordinal for a day-of-month ("3" -> "third"). Dates are read as
-    ordinals, so the cardinal form alone never matches the transcript."""
+    ordinals, so the cardinal form alone never matches the transcript.
+
+    Only 1-31 is meaningful; anything larger is a price or a phone number and
+    must return None rather than fall through the tens lookup.
+    """
+    if not 1 <= n <= 31:
+        return None
     if n in _ORDINALS:
         return _ORDINALS[n]
     if n < 20:
-        return _ONES[n] + "th" if n < 20 else None
+        return _ONES[n] + "th"
     tens, unit = (n // 10) * 10, n % 10
     if unit == 0:
-        return _TENS.get(tens, "").replace("y", "ieth") or None
-    base = _ORDINALS.get(unit) or (_ONES[unit] + "th")
-    return f"{_TENS[tens]} {base}"
+        return _TENS[tens].replace("y", "ieth")
+    return f"{_TENS[tens]} {_ORDINALS.get(unit) or _ONES[unit] + 'th'}"
 
 
 def answer_variants(ans: str) -> set[str]:
@@ -133,10 +139,27 @@ def answer_variants(ans: str) -> set[str]:
     if not a:
         return set()
     out = {a}
-    for m in re.finditer(r"\d+", a):
-        d = int(m.group())
-        for sp in spoken_forms(d):
-            out.add(f"{a[:m.start()]}{sp}{a[m.end():]}".strip())
+    # Expand EVERY numeric group together, not one at a time: a time like
+    # "9.30" is read "nine thirty", and replacing a single group would only ever
+    # produce "nine 30" / "9 thirty" — neither of which appears in the audio.
+    # The ordinal suffix is swallowed with its number: "3rd" must become
+    # "third", never "threerd".
+    groups = list(re.finditer(r"(\d+)(st|nd|rd|th)?", a))
+    if 1 <= len(groups) <= 3:
+        choices = []
+        for m in groups:
+            d = int(m.group(1))
+            forms = {m.group(0)} | spoken_forms(d)
+            o = _ordinal_word(d)
+            if o:
+                forms.add(o)                    # "the third of August"
+            choices.append(sorted(forms))
+        for combo in itertools.product(*choices):
+            buf, prev = [], 0
+            for m, rep in zip(groups, combo):
+                buf.append(a[prev:m.start()]); buf.append(rep); prev = m.end()
+            buf.append(a[prev:])
+            out.add("".join(buf).strip())
     digits = [c for c in a if c.isdigit()]
     if len(digits) >= 4:
         # Phone / postcode, read out one character at a time. The transcript may

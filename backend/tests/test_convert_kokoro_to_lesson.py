@@ -272,3 +272,33 @@ def test_partless_drill_falls_back_to_section_1():
     pack = build_pack("Drl", items, timing(segs), "ILR-LIS-KKR")
     assert pack["section_id"] == "S1"
     assert parse_fulltest(pack["qp"], pack["sol"], pack["timings"]).errors == []
+
+
+def test_time_answers_expand_every_numeric_group_together():
+    """"9.30" is read "nine thirty". Expanding one group at a time yields only
+    "nine 30" / "9 thirty", so the sentence is never found and the whole block
+    is rejected."""
+    assert "nine thirty" in answer_variants("9.30")
+    assert "nine thirty" in answer_variants("9 30")
+
+
+def test_day_only_dates_get_an_ordinal():
+    """The prompt often supplies the month, leaving the answer as "3rd" — the
+    audio still says "the third"."""
+    v = answer_variants("3rd")
+    assert "third" in v
+    assert "threerd" not in v, "the ordinal suffix must be swallowed, not appended"
+    assert "first january" in answer_variants("1st January")
+
+
+def test_ordinal_word_is_bounded_to_real_days():
+    from convert_kokoro_to_lesson import _ordinal_word
+    assert _ordinal_word(21) == "twenty first"
+    assert _ordinal_word(30) == "thirtieth"
+    for n in (0, 32, 250, 7938001320):
+        assert _ordinal_word(n) is None, f"{n} is not a day of the month"
+
+
+def test_time_answer_is_located_in_spoken_audio():
+    segs = [seg(1, "The class starts at nine thirty on Mondays.", 0.0, 5.0)]
+    assert find_window({"acceptedAnswers": ["9.30"]}, segs) == (0.0, 5.0)
