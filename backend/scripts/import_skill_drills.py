@@ -92,7 +92,7 @@ def _dup_active(test_id: str) -> dict | None:
 def _commit_one(test_id: str, res, audio_bytes, status: str) -> dict:
     """Insert one drill (tests + content + exercises) + upload audio. Raises on
     failure after a best-effort rollback."""
-    av = listening_audio.validate_section_audio(audio_bytes)
+    av = listening_audio.validate_section_audio(audio_bytes, test_type="drill")
     if av["errors"]:
         raise RuntimeError("; ".join(av["errors"]))
 

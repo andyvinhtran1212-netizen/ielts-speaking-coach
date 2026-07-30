@@ -54,13 +54,27 @@ FULL_AUDIO_WARN_HI      = 35 * 60     # 35 min — Cambridge target band hi
 FULL_AUDIO_MIN_BYTES    = 50 * 1024
 FULL_AUDIO_MAX_BYTES    = 100 * 1024 * 1024
 
-# Per-section guardrails.
+# Per-section guardrails. These describe a CAMBRIDGE EXAM SECTION: 3-8 minutes
+# of continuous speech carrying ten questions.
 SECTION_AUDIO_MIN_SECONDS = 60        # 1 min hard floor
 SECTION_AUDIO_MAX_SECONDS = 15 * 60   # 15 min hard ceiling
 SECTION_WARN_LO           = 3 * 60    # 3 min — Cambridge target band lo
 SECTION_WARN_HI           = 8 * 60    # 8 min — Cambridge target band hi
 SECTION_AUDIO_MIN_BYTES   = 20 * 1024
 SECTION_AUDIO_MAX_BYTES   = 30 * 1024 * 1024
+
+# A short practice item is not a short exam section — it is a different KIND of
+# material. A 40-second trap drill with eight questions is correct at its job;
+# judging it against the exam floor rejects it as malformed, which is why the
+# generated bank could not be imported at all (only 88 of 1022 blocks cleared
+# 60s). Lowering the exam floor instead would stop catching a genuinely
+# truncated Cambridge section, so the floor is per KIND rather than global.
+PRACTICE_AUDIO_MIN_SECONDS = 20       # below this there is nothing to practise on
+PRACTICE_WARN_LO           = 45       # shorter than this is a snippet, flag it
+
+# Which floor applies to which library. `full` sections are exam material;
+# `mini` and `drill` are practice items that may legitimately be short.
+_EXAM_KINDS = {"full", None}
 
 DEFAULT_NARRATOR_VOICE = "EXAVITQu4vr4xnSDxMaL"     # Sarah (us_general)
 DEFAULT_NARRATOR_MODEL = "eleven_multilingual_v2"
@@ -161,8 +175,15 @@ def validate_full_audio(file_bytes: bytes) -> dict[str, Any]:
     return out
 
 
-def validate_section_audio(file_bytes: bytes) -> dict[str, Any]:
-    """Validate a per-section audio upload (3-8 min target band)."""
+def validate_section_audio(file_bytes: bytes, test_type: str | None = None) -> dict[str, Any]:
+    """Validate a per-section audio upload.
+
+    `test_type` selects the duration floor. An exam section (`full`, or omitted
+    for backward compatibility) keeps the 1-15 minute rule and the 3-8 minute
+    Cambridge target. A practice item (`mini`, `drill`) is allowed to be short —
+    it is a different kind of material, not a defective section — but still has
+    a floor, so a genuinely truncated upload is caught.
+    """
     out: dict[str, Any] = {
         "duration_seconds": 0,
         "size_bytes":       len(file_bytes),
@@ -189,13 +210,19 @@ def validate_section_audio(file_bytes: bytes) -> dict[str, Any]:
         out["errors"].append(str(exc))
         return out
 
-    if duration < SECTION_AUDIO_MIN_SECONDS or duration > SECTION_AUDIO_MAX_SECONDS:
+    is_exam = test_type in _EXAM_KINDS
+    lo = SECTION_AUDIO_MIN_SECONDS if is_exam else PRACTICE_AUDIO_MIN_SECONDS
+    warn_lo = SECTION_WARN_LO if is_exam else PRACTICE_WARN_LO
+
+    if duration < lo or duration > SECTION_AUDIO_MAX_SECONDS:
         out["errors"].append(
-            f"Section duration {duration}s ngoài 1-15 phút phạm vi hợp lệ.",
+            f"Section duration {duration}s ngoài {lo}s-{SECTION_AUDIO_MAX_SECONDS // 60} "
+            f"phút phạm vi hợp lệ ({'đề thi' if is_exam else 'bài luyện'}).",
         )
-    elif duration < SECTION_WARN_LO or duration > SECTION_WARN_HI:
+    elif duration < warn_lo or duration > SECTION_WARN_HI:
         out["warnings"].append(
-            f"Section duration {duration}s ngoài 3-8 phút target Cambridge.",
+            f"Section duration {duration}s ngoài {warn_lo}s-{SECTION_WARN_HI // 60} phút "
+            f"target ({'Cambridge' if is_exam else 'bài luyện'}).",
         )
     return out
 

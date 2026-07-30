@@ -200,7 +200,9 @@ def main() -> int:
 
         rows = listening_fulltest_import.build_section_persistence(res, qp)
         segs = sum(len((r["content_row"]["metadata"].get("dictation_segments") or [])) for r in rows)
-        av = listening_audio.validate_section_audio(audio_bytes)
+        # A lesson is a one-section MINI, i.e. practice material — judging it
+        # against the exam floor rejected short-but-valid drills outright.
+        av = listening_audio.validate_section_audio(audio_bytes, test_type="mini")
         if av["errors"]:
             print(f"{lid:<22}{len(res.questions):>3} {segs:>5}  AUDIO ERROR: {av['errors']}")
             failed += 1

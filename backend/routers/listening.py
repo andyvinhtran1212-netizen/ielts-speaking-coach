@@ -2332,7 +2332,7 @@ async def admin_import_fulltest_commit(
     # return {duration_seconds, size_bytes, errors, warnings}, so downstream use
     # of `av` is unchanged. (Without this, mini commit 422'd on the 300s floor
     # even though validate/preview — which never sees the audio — passed.)
-    av = (listening_audio.validate_section_audio(audio_bytes) if mini
+    av = (listening_audio.validate_section_audio(audio_bytes, test_type="mini") if mini
           else listening_audio.validate_full_audio(audio_bytes))
     if av["errors"]:
         raise HTTPException(422, "; ".join(av["errors"]))
@@ -2552,7 +2552,7 @@ async def admin_import_drill_commit(
         audio_bytes = audio.file.read()
         if len(audio_bytes) > _DRILL_MAX_AUDIO_BYTES:
             raise HTTPException(422, f"Audio quá lớn ({len(audio_bytes)//(1024*1024)} MB > 30 MB).")
-        av = listening_audio.validate_section_audio(audio_bytes)
+        av = listening_audio.validate_section_audio(audio_bytes, test_type="drill")
         if av["errors"]:
             raise HTTPException(422, "; ".join(av["errors"]))
 
