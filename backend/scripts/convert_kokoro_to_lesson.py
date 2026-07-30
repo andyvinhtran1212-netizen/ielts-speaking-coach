@@ -155,13 +155,26 @@ def answer_variants(ans: str) -> set[str]:
     return {re.sub(r"\s+", " ", v).strip() for v in out if v.strip()}
 
 
-_NEGATIVE_RE = re.compile(r"\bNOT\b|\bEXCEPT\b|\bnever\b", re.UNICODE)
+_NEGATIVE_RE = re.compile(r"\bnot\b|\bexcept\b|\bnever\b", re.IGNORECASE | re.UNICODE)
+
+
+def _contains_phrase(haystack: str, needle: str) -> bool:
+    """Whole-token containment on two already-normalised strings.
+
+    A plain substring test is wrong here and quietly so: the answer "9" matches
+    inside "19" and "art" inside "start", which yields a pack that parses fine
+    but whose replay button jumps to the wrong sentence. Both sides are
+    space-separated tokens after `norm()`, so anchor on token boundaries.
+    """
+    if not needle:
+        return False
+    return re.search(rf"(?:^| ){re.escape(needle)}(?: |$)", haystack) is not None
 
 
 def _match_segment(text: str, norms: list) -> tuple[float, float] | None:
     for v in answer_variants(text):
         for s, ns in norms:
-            if v and v in ns:
+            if _contains_phrase(ns, v):
                 return float(s["start"]), float(s["end"])
     return None
 
@@ -217,6 +230,16 @@ def find_window(item: dict, segments: list[dict]) -> tuple[float, float] | None:
         if best is not None and score >= 0.6:
             return float(best["start"]), float(best["end"])
     return None
+
+
+_FM_AUDIO_RE = re.compile(r'^audio:\s*"?([^"\n]+?)"?\s*$', re.MULTILINE)
+
+
+def _fm_audio(md_path: Path) -> str | None:
+    """The `audio:` filename the companion declares, if any."""
+    head = md_path.read_text(encoding="utf-8")[:2000]
+    m = _FM_AUDIO_RE.search(head)
+    return m.group(1).strip() if m else None
 
 
 def make_test_id(stem: str, prefix: str) -> str:
@@ -427,8 +450,13 @@ def convert_block(bundle: Path, audio_dir: str, stem: str, byid: dict,
     res = parse_fulltest(pack["qp"], pack["sol"], pack["timings"])
     if res.errors:
         return {"stem": stem, "error": "parse_fulltest: " + " | ".join(res.errors[:3])}
-    pack.update(stem=stem, wav=str(md.parent / f"{stem}.wav"),
-                warnings=[w for w in res.warnings])
+    # The companion's `audio:` frontmatter is authoritative — it is the file the
+    # audit gate opened and validated. Assuming `<stem>.wav` would convert a
+    # DIFFERENT (or missing) file than the one the manifest passed.
+    wav = md.parent / (_fm_audio(md) or f"{stem}.wav")
+    if not wav.exists():
+        return {"stem": stem, "error": f"không thấy audio {wav.name} mà .md khai"}
+    pack.update(stem=stem, wav=str(wav), warnings=list(res.warnings))
     return pack
 
 

@@ -182,3 +182,34 @@ def test_every_question_reaches_the_quick_answer_key():
     pack = build_pack("Blk", items, timing(_segs_completion()), "ILR-LIS-KKR")
     for n in range(1, len(items) + 1):
         assert f"| **{n}.** " in pack["sol"]
+
+
+# ── whole-token matching ─────────────────────────────────────────────────────
+
+def test_short_answer_does_not_match_inside_a_longer_token():
+    """A substring test makes "9" match "19" and "art" match "start", producing
+    a pack that parses fine but whose replay button jumps to the wrong sentence
+    — a wrong window is worse than no window, because nothing flags it."""
+    segs = [seg(1, "The course lasts 19 weeks in total.", 0.0, 5.0),
+            seg(2, "The deposit is 9 pounds.", 5.1, 9.0)]
+    assert find_window({"acceptedAnswers": ["9"]}, segs) == (5.1, 9.0)
+
+    segs2 = [seg(1, "Please start at the entrance.", 0.0, 4.0),
+             seg(2, "The art gallery is upstairs.", 4.1, 8.0)]
+    assert find_window({"acceptedAnswers": ["art"]}, segs2) == (4.1, 8.0)
+
+
+def test_multiword_answer_still_matches_across_tokens():
+    segs = [seg(1, "Just bring comfortable shoes.", 0.0, 4.0)]
+    assert find_window({"acceptedAnswers": ["comfortable shoes"]}, segs) == (0.0, 4.0)
+
+
+def test_negative_detection_is_case_insensitive():
+    """IELTS capitalises NOT, but the corpus does not always."""
+    segs = [seg(1, "Priya ran a questionnaire.", 0.0, 4.0),
+            seg(2, "Tom did interviews.", 4.1, 8.0)]
+    item = {"question": "Which method was not used?", "answerLetter": "C",
+            "acceptedAnswers": ["focus groups"],
+            "options": [["A", "questionnaire"], ["B", "interviews"],
+                        ["C", "focus groups"]]}
+    assert find_window(item, segs) == (0.0, 8.0)
