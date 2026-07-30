@@ -454,3 +454,78 @@ Phát hiện khi chạy cổng lên bản mới — **cổng sai, không phải 
 - **Chưa chuyển WAV → MP3** (2,3 GB → ~200 MB) và **chưa có bộ chuyển đổi** sang
   định dạng `import_listening_lessons.py` nhận. Đây là hai việc còn lại trước khi
   import được lên web.
+
+---
+
+## Phần 6 — Bộ chuyển đổi sang định dạng import (2026-07-30)
+
+`backend/scripts/convert_kokoro_to_lesson.py`. Mỗi block → **một mini test 1
+section** (đúng bản chất: một audio, N câu).
+
+### 6.1 Việc khó không phải markdown, mà là cửa sổ nghe lại
+
+Kho **không có mapping câu → audio**, chỉ có segment. Với mỗi câu, bộ chuyển đi
+tìm đoạn thật sự NÓI ra đáp án, khớp theo cách audio đọc:
+
+| Dạng | Ví dụ |
+|---|---|
+| Năm | `1610` → "sixteen ten" · `1905` → "nineteen oh five" · `2005` → "twenty oh five" / "two thousand and five" |
+| Giờ | `9.30` → "nine thirty" *(phải khai triển ĐỒNG THỜI mọi nhóm số)* |
+| Ngày | `3rd` → "third" · `1st January` → "January the first" / "the first of January" |
+| Điện thoại | `07938001323` → "0 7 9 3 8 0 0 1 3 2 3" (kho đọc kiểu này) hoặc "zero seven nine…" |
+| MCQ | chỉ có `answerLetter` → tra text của option đúng |
+| Câu phủ định | "which was NOT used" — KHÔNG đoạn nào chứa đáp án; lấy khoảng bao các option ĐƯỢC nhắc |
+
+Không định vị được → **bỏ cả block**, không bịa cửa sổ. `parse_fulltest` đối
+chiếu `audio://` với `timings.json` ±0,1 s, nên cửa sổ đoán sẽ thành nút nghe lại
+nhảy sai chỗ.
+
+Mỗi pack sinh ra được đưa **ngược qua chính parser của bộ import** trước khi ghi.
+
+### 6.2 Đáp án lặp: hai cách đều SAI, ghi lại để khỏi thử lại
+
+| Cách | Kết quả |
+|---|---|
+| "mơ hồ thì từ chối" | mất 166 block — "China" (nói 4 lần, đáp án ở lần đầu), "Ethiopia", "lava" bị loại oan |
+| "đáp án theo thứ tự audio" (ràng buộc không-giảm-dần) | còn **269/1022** — đề ở kho này lắp ghép 4 câu điền rồi 4 câu MCQ mà nội dung MCQ nằm giữa audio |
+
+**Chốt:** `answerSentence`/`coreInfo` phân giải khi trỏ rõ; còn lại lấy lần đầu
+**nhưng đếm và in ra**. Cửa sổ chỉ điều khiển nút "nghe lại câu này", không ảnh
+hưởng chấm điểm — vứt 70% kho vì nó là sai tỉ lệ. Điều không được phép là coi
+phỏng đoán như sự thật.
+
+### 6.3 Kết quả
+
+**994/1022 block · 8.436 câu.** 183 câu (2,2%) cửa sổ không chắc — có báo.
+28 block không chuyển được, đều fail-loud có lý do: 9 cần sơ đồ, 3 câu nhiều chỗ
+trống, 16 câu không định vị được đáp án.
+
+`part` của block quyết định số section (lecture → S4, Gen_P2 → S2…), nên bài
+không bị lưu nhầm thành Part 1.
+
+### 6.4 ⚠ Chặn thật sự: validator từ chối audio < 1 phút
+
+Chạy `import_listening_lessons.py --dry-run` trên lô thí điểm:
+
+```
+ILR-LIS-KKR-Lec2-Antarctica   AUDIO ERROR: Section duration 46s ngoài 1-15 phút
+ILR-LIS-KKR-Level1-1a         would IMPORT (15 segs)
+```
+
+`SECTION_AUDIO_MIN_SECONDS = 60`. Phân bố kho: **chỉ 88/1022 block (9%) đạt
+≥60 giây**; 928 block nằm ở 30–59 s.
+
+Tức nhịp nhanh không chỉ "khác đề thật" mà còn **không lọt cổng kiểm của chính
+web**. Ba hướng, **cần người dùng quyết**:
+
+1. **Hạ ngưỡng** `SECTION_AUDIO_MIN_SECONDS` (60 → 30). Đổi hành vi cho MỌI
+   import, kể cả nội dung Cambridge.
+2. **Ngưỡng theo loại test** — mini/drill được ngắn hơn full. Đúng hơn nhưng
+   phải sửa validator + đường gọi.
+3. **Chỉ import 88 block ≥60 s** — không đụng hệ thống, nhưng bỏ 91% kho.
+
+### 6.5 Còn lại
+
+- 106 pack có cảnh báo "thiếu transcript anchor": đoạn chứa đáp án ngắn dưới 4 từ
+  chung nên không neo được vào bản đọc. Giới hạn cố hữu, chỉ ảnh hưởng highlight.
+- WAV → MP3 đã tự động trong bộ chuyển (`ffmpeg`, 96 kbps).
