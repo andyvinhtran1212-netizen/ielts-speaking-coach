@@ -312,7 +312,7 @@ describe('badge count vs what the destination renders', () => {
 
   it('the shared paging helper stops on a short page', () => {
     const src = read('js', 'listening-list-paging.js');
-    assert.match(src, /if \(items\.length < PAGE_LIMIT\) break;/,
+    assert.match(src, /if \(items\.length < PAGE_LIMIT\) return all;/,
       'a loop with no short-page exit would spin to the guard limit');
   });
 
@@ -324,5 +324,34 @@ describe('badge count vs what the destination renders', () => {
     const src = read('js', 'listening-list-paging.js');
     assert.doesNotMatch(src, /document\./, 'the shared helper must not touch the DOM');
     assert.doesNotMatch(src, /addEventListener/);
+  });
+});
+
+
+describe('shared list pager', () => {
+  let paging;
+  before(async () => { paging = await import('../js/listening-list-paging.js'); });
+
+  it('stops at the first short page', async () => {
+    const pages = [Array(100).fill({}), Array(100).fill({}), Array(7).fill({})];
+    let n = 0;
+    const items = await paging.fetchAllPages(() => '/x', async () => ({ items: pages[n++] }));
+    assert.equal(items.length, 207);
+    assert.equal(n, 3, 'must not keep fetching past the short page');
+  });
+
+  it('throws rather than silently truncating at the guard', async () => {
+    // Returning a partial list here would put the page back where it started:
+    // the badge counts the whole set, the list renders a slice, and nothing on
+    // screen admits it.
+    await assert.rejects(
+      paging.fetchAllPages(() => '/x', async () => ({ items: Array(100).fill({}) })),
+      /chưa tải hết/,
+    );
+  });
+
+  it('handles an empty first page', async () => {
+    const items = await paging.fetchAllPages(() => '/x', async () => ({ items: [] }));
+    assert.deepEqual(items, []);
   });
 });

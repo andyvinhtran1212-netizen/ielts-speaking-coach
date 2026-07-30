@@ -25,10 +25,16 @@ export async function fetchAllPages(buildPath, get) {
     const res = await get(buildPath(PAGE_LIMIT, offset));
     const items = Array.isArray(res && res.items) ? res.items : [];
     all.push(...items);
-    if (items.length < PAGE_LIMIT) break;
+    if (items.length < PAGE_LIMIT) return all;      // short page = last page
     offset += PAGE_LIMIT;
   }
-  return all;
+  // Every page came back full, so there is more behind the guard. Returning
+  // what we have would put the list back exactly where it started: the badge
+  // counts the whole set while the page renders a slice, with nothing on
+  // screen admitting it. A visible failure is the honest outcome.
+  throw new Error(
+    `Danh sách vượt ${MAX_PAGES * PAGE_LIMIT} mục — chưa tải hết, `
+    + 'cần phân trang trên giao diện thay vì tải một lượt.');
 }
 
 export function fetchAllTests(testType, get) {
