@@ -623,8 +623,16 @@ def main() -> None:
         for s, e in failed[:5]:
             print(f"    - {s}: {e[:110]}")
     if args.write:
-        print(f"\nĐã ghi vào {out}")
-        print(f"Import: python3 scripts/import_listening_lessons.py --lessons-dir {out} --dry-run")
+        # The importer defaults to its own ILR-LIS-LSN-* id list, which is not
+        # what this writes. Emit the real ids so the follow-up command targets
+        # the packs that were just generated instead of failing to find them.
+        ids_file = out / "ids.txt"
+        ids_file.write_text("\n".join(p["test_id"] for p in ok) + "\n", encoding="utf-8")
+        print(f"\nĐã ghi {len(ok)} pack vào {out}  (danh sách id: {ids_file})")
+        print("Import (zsh — biến KHÔNG tự tách từ, phải dùng mảng):")
+        print(f'  IDS=(${{(f)"$(cat {ids_file})"}})')
+        print(f'  python3 scripts/import_listening_lessons.py --lessons-dir {out} \\')
+        print('      --ids "${IDS[@]}" --dry-run')
 
 
 if __name__ == "__main__":
