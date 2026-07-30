@@ -136,11 +136,22 @@ describe('Sprint 11.5 — content browse page contract', () => {
     assert.match(BROWSE_JS, /ielts_section/);
   });
 
-  it('renders per-card deep links into all 4 modes', () => {
-    assert.match(BROWSE_JS, /\/pages\/listening-dictation\.html\?content_id=/);
-    assert.match(BROWSE_JS, /\/pages\/listening-gist\.html\?content_id=/);
-    assert.match(BROWSE_JS, /\/pages\/listening-tf\.html\?content_id=/);
-    assert.match(BROWSE_JS, /\/pages\/listening-mcq\.html\?content_id=/);
+  it('knows all 4 mode pages and deep-links them with content_id', () => {
+    // Was: four hard-coded `?content_id=` links per card. That promised every
+    // mode for every row, and three of the four dead-ended on
+    // "Bài này chưa có dạng ..." because no exercise had been authored. The
+    // pages are still all four — they are now emitted from the MODE_LINKS map
+    // and gated on the row's `available_modes`. Per-mode gating behaviour is
+    // pinned in listening-landing-counts.test.mjs.
+    for (const page of ['listening-dictation', 'listening-gist',
+                        'listening-tf', 'listening-mcq']) {
+      assert.match(BROWSE_JS, new RegExp(`/pages/${page}\\.html`),
+        `browse must still be able to link ${page}.html`);
+    }
+    assert.match(BROWSE_JS, /\?content_id=\$\{cid\}/,
+      'mode links must carry the content id');
+    assert.match(BROWSE_JS, /available_modes/,
+      'links must be gated on the backend-reported available_modes');
   });
 });
 

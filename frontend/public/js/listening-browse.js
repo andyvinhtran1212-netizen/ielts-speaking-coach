@@ -16,6 +16,8 @@ const SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
   }
 })();
 
+import { fetchAllPages } from './listening-list-paging.js';
+
 const $ = (id) => document.getElementById(id);
 
 const STATE = {
@@ -55,11 +57,14 @@ async function load() {
   if (f.accent_tag) qs.set('accent_tag', f.accent_tag);
   if (f.cefr_level) qs.set('cefr_level', f.cefr_level);
   if (f.ielts_section) qs.set('ielts_section', f.ielts_section);
-  qs.set('limit', '50');
-
   try {
-    const res = await window.api.get(`/api/listening/content?${qs.toString()}`);
-    STATE.items = (res && res.items) || [];
+    // Paged: the landing badge reports every published row, so stopping at the
+    // first page would promise more than this list shows.
+    STATE.items = await fetchAllPages((limit, offset) => {
+      qs.set('limit', String(limit));
+      qs.set('offset', String(offset));
+      return `/api/listening/content?${qs.toString()}`;
+    }, (path) => window.api.get(path));
     if (!STATE.items.length) { showState('empty'); return; }
     render();
     showState('ready');
@@ -68,6 +73,36 @@ async function load() {
   }
 }
 
+
+/* Exercise-mode → link. A mode page needs a published exercise for THIS
+   content row; without one it renders "Bài này chưa có dạng ...". The card
+   used to offer all four unconditionally, so most links dead-ended. The
+   backend now reports `available_modes` per row and we render only those. */
+const MODE_LINKS = {
+  dictation:  { label: 'Chép chính tả', page: '/pages/listening-dictation.html' },
+  gist:       { label: 'Ý chính',       page: '/pages/listening-gist.html' },
+  true_false: { label: 'Đúng/Sai',      page: '/pages/listening-tf.html' },
+  mcq:        { label: 'Trắc nghiệm',   page: '/pages/listening-mcq.html' },
+};
+
+export function modeLinksHtml(item) {
+  const cid = encodeURIComponent(item && item.id ? item.id : '');
+  // `available_modes: null` means the server could not read the exercise table.
+  // Printing "chưa có dạng luyện nào" there would dress a backend fault up as
+  // canonical no-data — the same trap the access-code endpoints avoid with
+  // `association_lookup_failed`. Say so instead.
+  if (item && item.available_modes === null) {
+    return '<span class="mode-empty">⚠ Không đọc được danh sách dạng luyện</span>';
+  }
+  const modes = Array.isArray(item && item.available_modes) ? item.available_modes : [];
+  const links = Object.keys(MODE_LINKS)
+    .filter((m) => modes.includes(m))
+    .map((m) => `<a class="mode-link" href="${MODE_LINKS[m].page}?content_id=${cid}">`
+      + `${escapeHtml(MODE_LINKS[m].label)}</a>`);
+  return links.length
+    ? links.join('')
+    : '<span class="mode-empty">Chưa có dạng luyện nào cho bài này</span>';
+}
 
 function render() {
   const grid = VIEWS.grid;
@@ -83,17 +118,11 @@ function render() {
       mins > 0 ? `<span class="meta-pill">${mins}p</span>` : '',
     ].join('');
 
-    const cid = encodeURIComponent(c.id);
     card.innerHTML = `
       <h3>${escapeHtml(c.title || 'Bài nghe')}</h3>
       <div class="desc">${escapeHtml(c.description || '')}</div>
       <div class="meta-row">${pills}</div>
-      <div class="mode-links">
-        <a class="mode-link" href="/pages/listening-dictation.html?content_id=${cid}">Chép chính tả</a>
-        <a class="mode-link" href="/pages/listening-gist.html?content_id=${cid}">Ý chính</a>
-        <a class="mode-link" href="/pages/listening-tf.html?content_id=${cid}">Đúng/Sai</a>
-        <a class="mode-link" href="/pages/listening-mcq.html?content_id=${cid}">Trắc nghiệm</a>
-      </div>
+      <div class="mode-links">${modeLinksHtml(c)}</div>
     `;
     grid.appendChild(card);
   });

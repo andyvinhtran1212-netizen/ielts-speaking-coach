@@ -18,6 +18,8 @@ const SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
   }
 })();
 
+import { fetchAllTests } from './listening-list-paging.js';
+
 const $ = (id) => document.getElementById(id);
 
 const VIEWS = {
@@ -84,8 +86,7 @@ async function load() {
   try {
     // Full Tests library EXCLUDES mini tests (they have their own page). Explicit
     // so it can't regress if the endpoint default ever changes.
-    const res = await window.api.get('/api/listening/tests?test_type=full&limit=50');
-    const items = Array.isArray(res && res.items) ? res.items : [];
+    const items = await fetchAllTests('full', (p) => window.api.get(p));
     if (!items.length) {
       showState('empty');
       return;

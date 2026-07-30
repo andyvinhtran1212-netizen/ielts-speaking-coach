@@ -1466,11 +1466,49 @@ async def list_listening_content(
         q = q.eq("ielts_section", ielts_section)
 
     res = q.execute()
+    items = res.data or []
+
+    # Which exercise modes each row can actually serve. Without this the
+    # browse card offered all four mode links unconditionally, and three of
+    # them dead-ended on "Bài này chưa có dạng ..." because no exercise had
+    # ever been authored. One extra round trip for the whole page, not N+1.
+    modes_by_content: dict[str, list[str]] = {c["id"]: [] for c in items if c.get("id")}
+    modes_lookup_failed = False
+    if modes_by_content:
+        try:
+            ex = (
+                supabase_admin.table("listening_exercises")
+                .select(_EXERCISE_READY_COLS)
+                .eq("status", "published")
+                .in_("content_id", list(modes_by_content))
+                .execute()
+            )
+            for row in ex.data or []:
+                bucket = modes_by_content.get(row.get("content_id"))
+                etype = row.get("exercise_type")
+                if (bucket is not None and etype and etype not in bucket
+                        and _exercise_is_ready(row)):
+                    bucket.append(etype)
+        except Exception as exc:                                             # pragma: no cover
+            logger.warning("[listening] available_modes lookup failed: %s", exc)
+            # An empty list here would be indistinguishable from "this content
+            # genuinely has no exercises" — the browse card would print "chưa có
+            # dạng luyện nào" and a DB fault would read as canonical no-data.
+            # Same rule the access-code endpoints already follow with
+            # `association_lookup_failed`: say the lookup failed, never invent
+            # an answer.
+            modes_lookup_failed = True
+    for c in items:
+        c["available_modes"] = (
+            None if modes_lookup_failed else sorted(modes_by_content.get(c.get("id"), []))
+        )
+
     return {
-        "items":  res.data or [],
+        "items":  items,
         "total":  getattr(res, "count", None) or 0,
         "limit":  limit,
         "offset": offset,
+        "modes_lookup_failed": modes_lookup_failed,
     }
 
 
@@ -2294,7 +2332,7 @@ async def admin_import_fulltest_commit(
     # return {duration_seconds, size_bytes, errors, warnings}, so downstream use
     # of `av` is unchanged. (Without this, mini commit 422'd on the 300s floor
     # even though validate/preview — which never sees the audio — passed.)
-    av = (listening_audio.validate_section_audio(audio_bytes) if mini
+    av = (listening_audio.validate_section_audio(audio_bytes, test_type="mini") if mini
           else listening_audio.validate_full_audio(audio_bytes))
     if av["errors"]:
         raise HTTPException(422, "; ".join(av["errors"]))
@@ -2514,7 +2552,7 @@ async def admin_import_drill_commit(
         audio_bytes = audio.file.read()
         if len(audio_bytes) > _DRILL_MAX_AUDIO_BYTES:
             raise HTTPException(422, f"Audio quá lớn ({len(audio_bytes)//(1024*1024)} MB > 30 MB).")
-        av = listening_audio.validate_section_audio(audio_bytes)
+        av = listening_audio.validate_section_audio(audio_bytes, test_type="drill")
         if av["errors"]:
             raise HTTPException(422, "; ".join(av["errors"]))
 
@@ -3751,6 +3789,160 @@ def _student_audio_url_for_test(test_row: dict) -> tuple[str | None, str | None,
     return url, storage_path, duration
 
 
+# A row is audio-ready when EITHER path is present AND non-blank. The blank
+# check matters: `''` is not NULL, so a bare `not.is.null` would count the row
+# in SQL while the Python guard (`r.get(...)` falsy) and the signer both treat
+# it as missing — reopening the very count-vs-list gap this endpoint closes.
+# Nested and() inside or() is valid PostgREST and verified against the live DB.
+_AUDIO_READY_OR = (
+    "and(full_audio_storage_path.not.is.null,full_audio_storage_path.neq.),"
+    "and(assembled_audio_storage_path.not.is.null,assembled_audio_storage_path.neq.)"
+)
+
+# Columns needed to judge readiness (below). Kept next to the rule so the two
+# cannot drift.
+_EXERCISE_READY_COLS = "content_id,exercise_type,segments,payload"
+
+
+def _exercise_is_ready(row: dict) -> bool:
+    """Can the mode page actually RUN this exercise, or only greet it?
+
+    `status='published'` is not enough. `_ensure_dictation_exercise` inserts a
+    published dictation row with an empty `segments` array the first time any
+    user posts an attempt, and each mode page refuses its own empty shape:
+
+        dictation   listening-dictation.js  needs segments[].length  > 0
+        true_false  listening-tf.js         needs payload.statements[] > 0
+        mcq         listening-mcq.js        needs payload.questions[]  > 0
+        gist        _grade_and_save_gist    needs payload.model_answer
+
+    Advertising a mode whose page then shows "chưa được phân câu" is the same
+    dead end this module was reorganised to remove, one level down. So the
+    availability check mirrors what the page requires.
+
+    Gist is the nastiest of the four: its page RENDERS fine without a rubric
+    (prompt_text falls back to a default), and only the submit 422s with
+    "missing model_answer" — after the learner has written their summary. So
+    readiness follows the GRADER's requirement, not the page's.
+    """
+    def _filled_list(v) -> bool:
+        # The pages test `Array.isArray(x) && x.length`, so a truthiness check
+        # here would pass malformed JSONB (an object, a string) that the page
+        # then refuses — advertising a mode whose page shows its empty state.
+        return isinstance(v, list) and len(v) > 0
+
+    etype = row.get("exercise_type")
+    payload = row.get("payload")
+    if not isinstance(payload, dict):
+        payload = {}
+    if etype == "dictation":
+        return _filled_list(row.get("segments"))
+    if etype == "true_false":
+        return _filled_list(payload.get("statements"))
+    if etype == "mcq":
+        return _filled_list(payload.get("questions"))
+    if etype == "gist":
+        return bool(str(payload.get("model_answer") or "").strip())
+    return False
+
+
+def _published_content_ids() -> list[str]:
+    """Every published listening_content id, paged past the PostgREST cap.
+
+    A bare `.select()` silently stops at 1000 rows, which would under-count
+    the exercise-mode tiles the moment the library grows. Page explicitly.
+    """
+    out: list[str] = []
+    start, step = 0, 1000
+    while True:
+        res = (
+            supabase_admin.table("listening_content")
+            .select("id")
+            .eq("status", "published")
+            # LIMIT/OFFSET without ORDER BY has no defined row order in
+            # Postgres, so successive pages could repeat or skip rows and the
+            # count would drift. `id` is unique, which makes the walk stable.
+            .order("id")
+            .range(start, start + step - 1)
+            .execute()
+        )
+        rows = res.data or []
+        out.extend(r["id"] for r in rows if r.get("id"))
+        if len(rows) < step:
+            return out
+        start += step
+
+
+@user_router.get("/overview")
+async def listening_overview(authorization: str | None = Header(default=None)):
+    """How much practice material each Listening surface actually holds.
+
+    The landing page renders one tile per surface. Before this endpoint the
+    tiles were hard-coded, so four of them pointed at surfaces with zero
+    published rows — a learner clicked "Nghe ý chính" and landed on an empty
+    page. The landing page now hides a tile whose count is 0, which means the
+    count MUST match what the corresponding list endpoint would return, or a
+    tile promises content its own page cannot show.
+
+    So every filter here mirrors ``list_published_listening_tests`` /
+    ``list_listening_content`` / ``get_listening_exercises`` exactly:
+    published only, audio-ready only, exam-reserved papers excluded, and an
+    exercise counts only when BOTH it and its content row are published.
+    ``test_counts_consistent_with_list`` in the test suite pins that.
+    """
+    await _require_auth(authorization)
+
+    from services import mock_exam_service
+    reserved = mock_exam_service.reserved_test_ids("listening")
+
+    tests: dict[str, int] = {}
+    for kind in ("full", "mini", "drill"):
+        q = (
+            supabase_admin.table("listening_tests")
+            .select("id", count="exact")
+            .eq("status", "published")
+            .eq("test_type", kind)
+            .eq("exam_only", False)
+            .or_(_AUDIO_READY_OR)
+            .limit(1)
+        )
+        if reserved:
+            q = q.not_.in_("id", list(reserved))
+        tests[kind] = getattr(q.execute(), "count", None) or 0
+
+    content_ids = set(_published_content_ids())
+    modes: dict[str, int] = {t: 0 for t in sorted(_EXERCISE_TYPES)}
+    if content_ids:
+        # Intersect in Python rather than `.in_(content_ids)`: the id list is
+        # unbounded and a few thousand UUIDs in a query string exceeds the URL
+        # limit, which would fail as a 4xx rather than a wrong count.
+        start, step = 0, 1000
+        while True:
+            res = (
+                supabase_admin.table("listening_exercises")
+                .select(_EXERCISE_READY_COLS)
+                .eq("status", "published")
+                .order("id")                       # stable paging — see above
+                .range(start, start + step - 1)
+                .execute()
+            )
+            rows = res.data or []
+            for r in rows:
+                if (r.get("content_id") in content_ids
+                        and r.get("exercise_type") in modes
+                        and _exercise_is_ready(r)):
+                    modes[r["exercise_type"]] += 1
+            if len(rows) < step:
+                break
+            start += step
+
+    return {
+        "tests":          tests,
+        "content":        len(content_ids),
+        "exercise_modes": modes,
+    }
+
+
 @user_router.get("/tests")
 async def list_published_listening_tests(
     test_type: str | None = Query(default=None),
@@ -3783,6 +3975,14 @@ async def list_published_listening_tests(
         supabase_admin.table("listening_tests")
         .select("*", count="exact")
         .eq("status", "published")
+        # Audio-readiness is filtered in SQL, BEFORE .range(). It used to be a
+        # Python post-filter over the fetched page, which quietly made
+        # pagination wrong: a page of `limit` rows could shed no-audio rows and
+        # return fewer, with no way for the caller to tell short-page from
+        # last-page. It also broke the /overview invariant — the tile counts
+        # over the whole filtered set, so a no-audio row inside page 1 made the
+        # badge disagree with the page. Same predicate, evaluated in one place.
+        .or_(_AUDIO_READY_OR)
         .order("created_at", desc=True)
         .range(offset, offset + limit - 1)
     )
@@ -3803,10 +4003,11 @@ async def list_published_listening_tests(
     if _reserved:
         q = q.not_.in_("id", list(_reserved))
     res = q.execute()
-    raw_rows = res.data or []
-    # Filter to rows with audio satisfied (full OR assembled).
+    # Audio-readiness is already applied in SQL above; this repeat is a cheap
+    # backstop so a row could never reach a student with no file to play, even
+    # if the `.or_()` expression were mangled. It is a no-op in normal service.
     rows = [
-        r for r in raw_rows
+        r for r in (res.data or [])
         if r.get("full_audio_storage_path") or r.get("assembled_audio_storage_path")
     ]
 
