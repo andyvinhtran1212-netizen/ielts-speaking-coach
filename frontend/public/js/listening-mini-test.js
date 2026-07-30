@@ -18,6 +18,8 @@ const SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
   }
 })();
 
+import { fetchAllTests } from './listening-list-paging.js';
+
 const $ = (id) => document.getElementById(id);
 
 const VIEWS = {
@@ -84,8 +86,9 @@ async function load() {
   try {
     // Mini Tests library shows ONLY mini tests (test_type=mini). Reuses the SAME
     // player (listening-test.html?id) + review as a full test — just 1 section.
-    const res = await window.api.get('/api/listening/tests?test_type=mini&limit=50');
-    const items = Array.isArray(res && res.items) ? res.items : [];
+    // Paged for the same reason as the Full Tests list: the landing badge
+    // reports the whole published count, so this page must render all of it.
+    const items = await fetchAllTests('mini', (path) => window.api.get(path));
     if (!items.length) {
       showState('empty');
       return;

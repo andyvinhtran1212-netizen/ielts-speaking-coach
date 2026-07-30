@@ -42,7 +42,10 @@ describe('Mini test — list page reuses the full-test player', () => {
 
 describe('Mini test — 2-way segregation', () => {
   it('Full Tests list explicitly excludes mini (test_type=full)', () => {
-    assert.match(LIST_JS, /\/api\/listening\/tests\?test_type=full/);
+    // The type is now the paging helper's argument rather than a literal in
+    // the URL — what matters is that this list asks for 'full' and nothing else.
+    assert.match(LIST_JS, /fetchAllTests\('full'/);
+    assert.doesNotMatch(LIST_JS, /fetchAllTests\('mini'/);
   });
 });
 

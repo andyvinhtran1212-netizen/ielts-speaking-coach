@@ -293,3 +293,56 @@ def test_quote_label_check_tolerates_punctuation_not_wording(tmp_path):
     row = audit(str(tmp_path))[0]
     assert row["quotes_verbatim"] == "1/2", \
         "comma-only difference counts as verbatim; a reworded quote does not"
+
+
+def test_shared_opening_does_not_certify_a_missing_answer_turn(tmp_path):
+    """The failure the gate exists to catch, in its subtlest form.
+
+    Probing only the first eight words of a concatenated script lets a block
+    whose audio carries the shared template opening — but drops the later
+    answer-bearing turn — pass as UPLOADABLE. The manifest then approves
+    questions the learner cannot hear.
+    """
+    d = tmp_path / "audio_output_kokoro" / "Batch"
+    d.mkdir(parents=True)
+    opening = "Good morning and welcome to the centre today."
+    answer_turn = "Annual membership costs thirty five pounds."
+    md = (
+        "---\n" 'id: "Blk"\n' 'section: "Batch"\n' "part: 1\n"
+        'task_types: ["note-completion"]\n' "question_count: 1\n"
+        'audio: "Blk.wav"\n' "audio_seconds: 40.0\n" "---\n\n"
+        "# Blk\n\n## Transcript\n\n<details><summary>x</summary>\n\n"
+        f"{opening}\n\n</details>\n"                 # answer turn NOT rendered
+    )
+    (d / "Blk.md").write_text(md, encoding="utf-8")
+    _write_wav(d / "Blk.wav", 40.0)
+    (tmp_path / "corpus_v2.json").write_text(json.dumps([{
+        "id": "Q1", "subsection": "Blk", "script": "",
+        "dialogueTurns": [{"speaker": "F", "text": opening},
+                          {"speaker": "M", "text": answer_turn}],
+    }]), encoding="utf-8")
+
+    rows = audit(str(tmp_path))
+    assert _verdicts(rows) == {"Blk": "NO_AUDIO_CONTENT"}, \
+        "a matching opening must not certify the turn that carries the answer"
+
+
+def test_every_turn_present_is_still_uploadable(tmp_path):
+    d = tmp_path / "audio_output_kokoro" / "Batch"
+    d.mkdir(parents=True)
+    t1 = "Good morning and welcome to the centre today."
+    t2 = "Annual membership costs thirty five pounds."
+    md = (
+        "---\n" 'id: "Blk"\n' 'section: "Batch"\n' "part: 1\n"
+        'task_types: ["note-completion"]\n' "question_count: 1\n"
+        'audio: "Blk.wav"\n' "audio_seconds: 40.0\n" "---\n\n"
+        "# Blk\n\n## Transcript\n\n<details><summary>x</summary>\n\n"
+        f"**Nữ:** {t1}\n\n**Nam:** {t2}\n\n</details>\n"
+    )
+    (d / "Blk.md").write_text(md, encoding="utf-8")
+    _write_wav(d / "Blk.wav", 40.0)
+    (tmp_path / "corpus_v2.json").write_text(json.dumps([{
+        "id": "Q1", "subsection": "Blk", "script": "",
+        "dialogueTurns": [{"speaker": "F", "text": t1}, {"speaker": "M", "text": t2}],
+    }]), encoding="utf-8")
+    assert _verdicts(audit(str(tmp_path))) == {"Blk": "UPLOADABLE"}

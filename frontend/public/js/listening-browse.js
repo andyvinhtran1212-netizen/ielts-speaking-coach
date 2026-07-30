@@ -16,6 +16,8 @@ const SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
   }
 })();
 
+import { fetchAllPages } from './listening-list-paging.js';
+
 const $ = (id) => document.getElementById(id);
 
 const STATE = {
@@ -55,11 +57,14 @@ async function load() {
   if (f.accent_tag) qs.set('accent_tag', f.accent_tag);
   if (f.cefr_level) qs.set('cefr_level', f.cefr_level);
   if (f.ielts_section) qs.set('ielts_section', f.ielts_section);
-  qs.set('limit', '50');
-
   try {
-    const res = await window.api.get(`/api/listening/content?${qs.toString()}`);
-    STATE.items = (res && res.items) || [];
+    // Paged: the landing badge reports every published row, so stopping at the
+    // first page would promise more than this list shows.
+    STATE.items = await fetchAllPages((limit, offset) => {
+      qs.set('limit', String(limit));
+      qs.set('offset', String(offset));
+      return `/api/listening/content?${qs.toString()}`;
+    }, (path) => window.api.get(path));
     if (!STATE.items.length) { showState('empty'); return; }
     render();
     showState('ready');

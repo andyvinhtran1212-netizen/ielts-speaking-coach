@@ -197,11 +197,39 @@ def load_disk(audio_dir: str) -> dict:
     return out
 
 
-def item_scripts(item: dict) -> str:
-    parts = [item.get("script") or ""]
-    parts += [(t.get("text") if isinstance(t, dict) else str(t))
-              for t in (item.get("dialogueTurns") or [])]
-    return norm(" ".join(p for p in parts if p))
+def item_spans(item: dict) -> list[str]:
+    """This item's spoken parts, kept SEPARATE — monologue script and each
+    dialogue turn on its own.
+
+    They used to be concatenated and probed by their first eight words. A block
+    whose audio carried the shared opening but dropped later answer-bearing
+    turns then passed as UPLOADABLE, so the gate approved questions a learner
+    cannot hear — the exact failure it exists to catch. Every span must be
+    present independently.
+    """
+    out = [item.get("script") or ""]
+    out += [(t.get("text") if isinstance(t, dict) else str(t))
+            for t in (item.get("dialogueTurns") or [])]
+    return [norm(p) for p in out if norm(p)]
+
+
+def span_is_audible(span: str, transcript: str) -> bool:
+    """Is this one spoken span in the transcript?
+
+    Long spans are probed by their opening words (a sentence split differently
+    between corpus and render would otherwise read as missing); short ones must
+    appear whole, since a few words are not distinctive enough to sample.
+    """
+    toks = span.split()
+    if not toks:
+        return True
+    probe = " ".join(toks[:_PROBE_WORDS]) if len(toks) > _PROBE_WORDS else span
+    return probe in transcript
+
+
+def item_is_audible(item: dict, transcript: str) -> bool:
+    spans = item_spans(item)
+    return bool(spans) and all(span_is_audible(s, transcript) for s in spans)
 
 
 def audit(bundle: str, audio_subdir: str = "audio_output_kokoro") -> list[dict]:
@@ -252,11 +280,7 @@ def audit(bundle: str, audio_subdir: str = "audio_output_kokoro") -> list[dict]:
                          "wav": d["wav_state"]})
             continue
 
-        unheard = 0
-        for it in its:
-            toks = item_scripts(it).split()
-            if not toks or " ".join(toks[:_PROBE_WORDS]) not in d["transcript"]:
-                unheard += 1
+        unheard = sum(1 for it in its if not item_is_audible(it, d["transcript"]))
 
         try:
             secs = float(d["fm"].get("audio_seconds") or 0)

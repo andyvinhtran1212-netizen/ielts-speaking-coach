@@ -290,3 +290,39 @@ describe('listening-landing — library needs a way in, not just rows', () => {
     assert.match(doc.lede.textContent, /Chép chính tả/);
   });
 });
+
+
+describe('badge count vs what the destination renders', () => {
+  it('every count-driven library pages through its endpoint', () => {
+    // The landing promises the FULL published count. A single fixed-size
+    // request would show 50 of 60 the moment a library outgrows one page,
+    // breaking the contract the whole page is built on.
+    // skills keeps its own loop (it predates the shared helper); the other
+    // three go through listening-list-paging.js.
+    const skills = read('js', 'listening-skills.js');
+    assert.match(skills, /offset/);
+    for (const f of ['listening-tests-list.js', 'listening-mini-test.js',
+                     'listening-browse.js']) {
+      const src = read('js', f);
+      assert.match(src, /from '\.\/listening-list-paging\.js'/,
+        `${f} must page via the shared helper`);
+      assert.doesNotMatch(src, /limit=50\b/, `${f} still pins a single 50-row page`);
+    }
+  });
+
+  it('the shared paging helper stops on a short page', () => {
+    const src = read('js', 'listening-list-paging.js');
+    assert.match(src, /if \(items\.length < PAGE_LIMIT\) break;/,
+      'a loop with no short-page exit would spin to the guard limit');
+  });
+
+  it('the paging helper is side-effect free', () => {
+    // It used to live in listening-tests-list.js, which reads #lt-grid and
+    // registers DOMContentLoaded at import time — and listening-mini-test.html
+    // uses the SAME ids, so importing it there would have run the full-test
+    // loader and overwritten the mini list with Cambridge full tests.
+    const src = read('js', 'listening-list-paging.js');
+    assert.doesNotMatch(src, /document\./, 'the shared helper must not touch the DOM');
+    assert.doesNotMatch(src, /addEventListener/);
+  });
+});
