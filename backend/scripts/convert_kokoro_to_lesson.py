@@ -327,7 +327,15 @@ def build_pack(stem: str, items: list[dict], timing: dict, prefix: str) -> dict:
     segments = timing.get("segments") or []
     tid = make_test_id(stem, prefix)
     accent = _ACCENT.get(((items[0].get("audio") or {}).get("accent")), "BrE")
-    part = items[0].get("part")
+    # The block's IELTS part becomes the section number, so a Part 4 lecture
+    # persists as section 4 instead of being filed and filtered as Part 1.
+    # Trap drills carry no part (they are cross-part) -> section 1.
+    try:
+        part = int(items[0].get("part") or 0) or 1
+    except (TypeError, ValueError):
+        part = 1
+    part = part if 1 <= part <= 4 else 1
+    sid = f"S{part}"
     topic = (items[0].get("topic") or "").strip() or stem
 
     windows, unsure = assign_windows(items, segments)
@@ -341,7 +349,7 @@ def build_pack(stem: str, items: list[dict], timing: dict, prefix: str) -> dict:
         f"**Test title:** {topic}  ",
         "**Target band:** 5.5  ",
         f"**Total questions:** {len(items)}", "",
-        "---", "", "## SECTION 1", "",
+        "---", "", f"## SECTION {part}", "",
     ]
     # One heading per run of same-typed questions, so each run can carry its own
     # qtype marker (a block mixing shapes would classify as one and lose the rest).
@@ -393,9 +401,9 @@ def build_pack(stem: str, items: list[dict], timing: dict, prefix: str) -> dict:
         f"**Accent profile:** {accent}", "",
         "## Topic distribution", "",
         "| Section | Chủ đề | Question types |", "|---|---|---|",
-        f"| S1 | {topic} | {', '.join(sorted({i.get('taskType') for i in items}))} |", "",
+        f"| {sid} | {topic} | {', '.join(sorted({i.get('taskType') for i in items}))} |", "",
         "## Quick Answer Key", "",
-        "| Section 1 |", "|---|",
+        f"| Section {part} |", "|---|",
     ]
     for n, it in enumerate(items, 1):
         sol.append(f"| **{n}.** {canonical(it)} |")
@@ -406,7 +414,7 @@ def build_pack(stem: str, items: list[dict], timing: dict, prefix: str) -> dict:
         sol += [
             f"### Q{n}", "",
             f"**Answer:** {canonical(it)}  ",
-            f"**Trích đoạn audio:** [nghe lại](audio://S1.mp3?start={st:.2f}&end={en:.2f}&q={n}&section=S1)  ",
+            f"**Trích đoạn audio:** [nghe lại](audio://{sid}.mp3?start={st:.2f}&end={en:.2f}&q={n}&section={sid})  ",
         ]
         if it.get("trapPrimary"):
             sol.append(f"**Bẫy:** {it['trapPrimary']}  ")
@@ -417,7 +425,7 @@ def build_pack(stem: str, items: list[dict], timing: dict, prefix: str) -> dict:
     # Display transcript (v1.2) — one paragraph per segment, so the review pane
     # shows the real reading rather than joined per-question extracts.
     sol += ["# Transcript (bản đọc — chỉ vai thoại, không chú thích sản xuất)", "",
-            "## Section 1", ""]
+            f"## Section {part}", ""]
     spk_vi = {"M": "Nam", "F": "Nữ", "T": "Giảng viên", "narrator": "Người dẫn"}
     for s in segments:
         who = spk_vi.get(s.get("speaker") or "narrator", s.get("speaker") or "Người dẫn")
@@ -434,7 +442,7 @@ def build_pack(stem: str, items: list[dict], timing: dict, prefix: str) -> dict:
             if float(s["start"]) >= st - 1e-6 and float(s["end"]) <= en + 1e-6:
                 q_by_seg[i].append(n)
                 break
-    sol += ["# Audio Transcript / Script đầy đủ", "", "### SECTION 1 (S1)", ""]
+    sol += ["# Audio Transcript / Script đầy đủ", "", f"### SECTION {part} ({sid})", ""]
     for i, s in enumerate(segments):
         who = (s.get("speaker") or "narrator").upper()
         marks = "".join(f" (Q{n})" for n in sorted(q_by_seg.get(i, [])))
@@ -448,9 +456,9 @@ def build_pack(stem: str, items: list[dict], timing: dict, prefix: str) -> dict:
         "test_id": tid,
         "timebase": "seconds",
         "method": "kokoro-segments",
-        "full_test": {"file": "full_test.mp3", "section_offsets": {"S1": 0}},
+        "full_test": {"file": "full_test.mp3", "section_offsets": {sid: 0}},
         "sections": [{
-            "id": "S1", "file": "S1.mp3",
+            "id": sid, "file": f"{sid}.mp3",
             "duration": round(float(timing.get("total_seconds") or 0), 2),
             "events": [],
             "turns": [{"idx": i, "speaker": s.get("speaker") or "narrator",
@@ -464,7 +472,7 @@ def build_pack(stem: str, items: list[dict], timing: dict, prefix: str) -> dict:
         }],
     }
     return {"test_id": tid, "qp": "\n".join(qp), "sol": "\n".join(sol),
-            "timings": timings, "part": part, "questions": len(items),
+            "timings": timings, "part": part, "section_id": sid, "questions": len(items),
             "unsure_windows": unsure}
 
 
@@ -525,7 +533,7 @@ def write_pack(pack: dict, out: Path, bitrate: str) -> None:
         json.dumps(pack["timings"], ensure_ascii=False, indent=2), encoding="utf-8")
     subprocess.run(
         ["ffmpeg", "-y", "-loglevel", "error", "-i", pack["wav"], "-b:a", bitrate,
-         str(adir / "S1.mp3")], check=True)
+         str(adir / f"{pack['section_id']}.mp3")], check=True)
 
 
 def main() -> None:

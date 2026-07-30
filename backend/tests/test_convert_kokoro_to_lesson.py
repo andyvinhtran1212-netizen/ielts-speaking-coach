@@ -245,3 +245,30 @@ def test_resolved_window_is_not_flagged_unsure():
             seg(2, "The deposit is 250 pounds.", 4.1, 8.0)]
     windows, unsure = assign_windows([{"acceptedAnswers": ["250"]}], segs)
     assert windows[1] == (4.1, 8.0) and unsure == []
+
+
+def test_block_part_becomes_the_section_number():
+    """A Part 4 lecture must persist as section 4. Hard-coding S1 would file
+    and filter every non-Part-1 block as Part 1 in the mini-test player."""
+    items = [{"id": "L1", "taskType": "note-completion", "question": "Origin: __________",
+              "acceptedAnswers": ["Ethiopia"], "audio": {"accent": "en-GB"}, "part": 4}]
+    segs = [seg(1, "Coffee originates from Ethiopia.", 0.0, 5.0)]
+    pack = build_pack("Lec", items, timing(segs), "ILR-LIS-KKR")
+    assert pack["section_id"] == "S4"
+    assert "## SECTION 4" in pack["qp"]
+    assert "audio://S4.mp3" in pack["sol"]
+    assert pack["timings"]["sections"][0]["id"] == "S4"
+    assert list(pack["timings"]["full_test"]["section_offsets"]) == ["S4"]
+    res = parse_fulltest(pack["qp"], pack["sol"], pack["timings"])
+    assert res.errors == [], res.errors
+    assert res.questions[0]["section_num"] == 4
+
+
+def test_partless_drill_falls_back_to_section_1():
+    items = [{"id": "D1", "taskType": "mcq", "question": "Who bought a laptop?",
+              "options": [["A", "John"], ["B", "Sarah"]], "answerLetter": "A",
+              "acceptedAnswers": [], "audio": {"accent": "en-GB"}, "part": None}]
+    segs = [seg(1, "John bought a new laptop yesterday.", 0.0, 4.0)]
+    pack = build_pack("Drl", items, timing(segs), "ILR-LIS-KKR")
+    assert pack["section_id"] == "S1"
+    assert parse_fulltest(pack["qp"], pack["sol"], pack["timings"]).errors == []
