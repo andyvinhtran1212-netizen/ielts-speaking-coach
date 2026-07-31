@@ -19,7 +19,8 @@ import vm from 'node:vm';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SOURCE = readFileSync(join(__dirname, '..', 'js', 'rum-vitals.js'), 'utf8');
 
-function setupSandbox({ next = true, runtimeConfig = {}, userAgent = 'UA/1.0 test' } = {}) {
+function setupSandbox({ next = true, runtimeConfig = {}, userAgent = 'UA/1.0 test',
+  docRelease = 'doc-sha-abc' } = {}) {
   const fetchCalls = [];
   const observers = {};        // entry type → callback
   const winListeners = {};
@@ -50,10 +51,14 @@ function setupSandbox({ next = true, runtimeConfig = {}, userAgent = 'UA/1.0 tes
   const document = {
     visibilityState: 'visible',
     addEventListener: (name, fn) => { (docListeners[name] ||= []).push(fn); },
+    // DEBT-2026-07-30-N — release nướng vào chính tài liệu (app/layout.tsx).
+    documentElement: {
+      getAttribute: (name) => (name === 'data-release' ? (docRelease ?? null) : null),
+    },
   };
   window.document = document;
 
-  const ctx = vm.createContext({ window, document, Object, JSON, Math });
+  const ctx = vm.createContext({ window, document, Object, JSON, Math, Date });
   vm.runInContext(SOURCE, ctx);
 
   const emit = (type, entries) => {
@@ -122,6 +127,39 @@ test('no navigator → ua null, beacon still sent (never break the page)', () =>
   const body = JSON.parse(sb.fetchCalls[0].opts.body);
   assert.equal(body.event_data.ua, null);
   assert.equal(body.event_data.lcp, 900);
+});
+
+// DEBT-2026-07-30-N — pilot 2 gặp mẫu vitals mang release của 13 ngày trước mà
+// KHÔNG phân xử được giữa hai giả thuyết: asset rời bị cache cũ, hay tab mở lâu.
+// Ba trường dưới đây tách được hai ca đó.
+test('beacon mang xuất xứ: doc_release + loaded_at + age_ms', () => {
+  const sb = setupSandbox({
+    runtimeConfig: { release: 'config-sha-cu', apiBase: 'https://api.example' },
+    docRelease: 'doc-sha-moi',
+  });
+  sb.emit('largest-contentful-paint', [{ startTime: 900 }]);
+  sb.firePagehide();
+  const body = JSON.parse(sb.fetchCalls[0].opts.body);
+
+  // Đây chính là chữ ký của "asset rời bị cache cũ": tài liệu là bản mới,
+  // runtime-config lại là bản cũ.
+  assert.equal(body.event_data.doc_release, 'doc-sha-moi');
+  assert.equal(body.event_data.release, 'config-sha-cu');
+
+  assert.equal(typeof body.event_data.loaded_at, 'number');
+  assert.ok(body.event_data.loaded_at > 0);
+  assert.equal(typeof body.event_data.age_ms, 'number');
+  assert.ok(body.event_data.age_ms >= 0, 'age không được âm dù đồng hồ máy nhảy');
+});
+
+test('không có data-release (trang legacy) → doc_release null, vẫn gửi bình thường', () => {
+  const sb = setupSandbox({ runtimeConfig: { apiBase: 'https://api.example' }, docRelease: null });
+  sb.emit('largest-contentful-paint', [{ startTime: 700 }]);
+  sb.firePagehide();
+  const body = JSON.parse(sb.fetchCalls[0].opts.body);
+  assert.equal(body.event_data.doc_release, null,
+    'trang legacy không có thẻ này — phải là null chứ không được nổ');
+  assert.equal(body.event_data.lcp, 700);
 });
 
 test('legacy page (no __next_f) tags implementation=legacy — the baseline side of the trigger', () => {

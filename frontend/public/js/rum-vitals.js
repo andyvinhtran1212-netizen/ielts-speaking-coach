@@ -10,7 +10,8 @@
  *
  *   POST {apiBase}/api/analytics/events
  *   { event_name: 'web_vitals',
- *     event_data: { path, implementation, release, ua, lcp, cls, inp } }
+ *     event_data: { path, implementation, release, doc_release, loaded_at,
+ *                   age_ms, ua, lcp, cls, inp } }
  *
  * Measurement notes (self-contained on purpose — no web-vitals npm dep, the
  * legacy stack has no bundler):
@@ -93,9 +94,20 @@
     } catch (e) { return ''; }
   }
 
-  // Same tag derivation as error-reporter.js / analytics-beacon.js (ADR-012):
-  // __next_f is the App Router flight sink — present on every Next page,
-  // absent on legacy.
+  // DEBT-2026-07-30-N — mốc thời gian TẢI TRANG, lấy ngay lúc script chạy.
+  // Cùng với `age_ms` (khoảng cách tới lúc gửi beacon), nó tách được hai giả
+  // thuyết mà pilot 2 không phân xử nổi: tab mở lâu thì `age_ms` rất lớn; còn
+  // tải mới mà `release` lại cũ thì `age_ms` nhỏ ⇒ asset rời bị cache cũ.
+  var LOADED_AT = Date.now();
+
+  /** Release nướng vào chính tài liệu (app/layout.tsx) — không thể cũ hơn trang. */
+  function docRelease() {
+    try {
+      var el = document.documentElement;
+      return (el && el.getAttribute && el.getAttribute('data-release')) || null;
+    } catch (e) { return null; }
+  }
+
   function uaString() {
     try {
       var ua = (window.navigator && window.navigator.userAgent) || null;
@@ -103,6 +115,9 @@
     } catch (e) { return null; }
   }
 
+  // Same tag derivation as error-reporter.js / analytics-beacon.js (ADR-012):
+  // __next_f is the App Router flight sink — present on every Next page,
+  // absent on legacy.
   function buildPayload() {
     var impl = 'legacy';
     var release = null;
@@ -122,6 +137,14 @@
       // UA, so this only makes the two telemetry streams comparable. Capped:
       // the field is for cohort attribution, not forensics.
       ua: uaString(),
+      // DEBT-2026-07-30-N — xuất xứ của phép đo:
+      //  · `doc_release` đến từ CHÍNH tài liệu; `release` đến từ file rời.
+      //    Hai cái khác nhau ⇒ client đang chạy asset cache cũ.
+      //  · `age_ms` = trang đã mở bao lâu trước khi beacon bay. Lớn bất thường
+      //    ⇒ tab sống lâu, và mẫu LCP của nó không đại diện cho lần tải mới.
+      doc_release: docRelease(),
+      loaded_at: LOADED_AT,
+      age_ms: Math.max(0, Date.now() - LOADED_AT),
     };
     if (lcp !== null) data.lcp = Math.round(lcp);
     if (clsSeen) data.cls = Math.round(cls * 1000) / 1000;

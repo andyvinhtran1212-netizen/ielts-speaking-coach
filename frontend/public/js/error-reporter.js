@@ -81,6 +81,8 @@
   // by implementation/release. Additive: rides in `extra`, no schema
   // change. `__next_f` is the App Router RSC flight sink — present on
   // every Next page before any app code runs, absent on legacy pages.
+  var LOADED_AT = Date.now();
+
   function migrationTags() {
     var tags = {};
     try {
@@ -89,6 +91,17 @@
       var rc = window.__AVER_RUNTIME_CONFIG__ || {};
       if (rc.release) tags.release = rc.release;
       if (rc.environment) tags.environment = rc.environment;
+      // DEBT-2026-07-30-N — `release` ở trên đọc từ file RỜI (runtime-config),
+      // nên client chạy asset cache cũ sẽ báo release cũ và quy kết lệch.
+      // `doc_release` nướng vào chính tài liệu lúc build (app/layout.tsx):
+      // hai giá trị khác nhau ⇒ đúng là asset cũ, không phải deployment cũ.
+      // `age_ms` cho biết trang đã mở bao lâu trước khi lỗi xảy ra — tab sống
+      // lâu là giả thuyết cạnh tranh phải loại trước khi kết luận.
+      var docRelease = document.documentElement
+        && document.documentElement.getAttribute
+        && document.documentElement.getAttribute('data-release');
+      if (docRelease) tags.doc_release = docRelease;
+      tags.age_ms = Math.max(0, Date.now() - LOADED_AT);
     } catch { /* tags are best-effort — never block a report */ }
     return tags;
   }
