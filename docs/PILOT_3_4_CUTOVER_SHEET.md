@@ -146,3 +146,32 @@ route công khai. Ghi rõ ở đây để lần sau không ai chạy smoke rồi
 4. Cutover atomic → verify browser-based ≥15s → quan sát organic 48–72h.
    Trong cửa sổ, telemetry nay có `doc_release`/`age_ms` (DEBT-N đã đóng
    `cb313997`), nên nếu có lỗi thì quy kết được theo release thật.
+
+### Bằng chứng synthetic mutation coverage — ĐÃ CÓ (2026-07-31)
+
+Staging đã cập nhật lên nhánh cutover (`0db3f77b`, chủ dự án force-push) →
+dispatch `staging-e2e` trên nhánh: **23/23 PASS** (run `30639297343`,
+1.0 phút). Đây là vế **synthetic mutation coverage** mà ADR-013 đòi cho lớp
+*authenticated + mutation* — gồm pilot-3 isolation matrix (signed-out
+fail-closed, A→signout→Back→B, đổi tài khoản cùng-trạng-thái), pilot-4
+save→reload→revert + double-submit + kill-switch, N/N−1 consumer, gate-a
+flows và bộ platform.
+
+**Lần chạy đầu ĐỎ và đó là chuyện tốt:** nó bắt được `gate-b-coexistence`
+còn khẳng định grammar thuộc legacy — tripwire lẽ ra phải lật tại cutover
+pilot 2 (28/07) nhưng nightly vẫn xanh 3 đêm vì staging ghim ở bản 14/07.
+Sửa ở PR #885. Bài học đã ghi vào chính spec đó: **tripwire chỉ có giá trị
+khi môi trường nó chạy CÙNG BẢN với môi trường nó bảo vệ.**
+
+Ghi chú CI: job `production-release-drift` trong cùng workflow so production
+với `GITHUB_SHA` của **ref được dispatch**, nên chạy trên nhánh là đỏ theo
+thiết kế — không phải drift thật (production vẫn = main HEAD). Vá ở PR #886.
+
+### Còn lại trước khi cutover
+
+- [ ] Kill-switch drill đo lại (ADR-010) — số cũ 545ms/759ms từ 13/07.
+- [ ] Traffic baseline ≤72h + **risk acceptance ký tên** (kèm điều kiện của
+      pilot 2: nếu cửa sổ có lỗi trên route thì DEBT-N phải đóng trước khi
+      tuyên PASS — DEBT-N ĐÃ đóng `cb313997`, nên điều kiện này đã sẵn).
+- [ ] Cutover atomic → verify browser-based ≥15s → quan sát organic 48–72h
+      (KHÔNG dùng production-smoke cho route authed — xem mục trên).
