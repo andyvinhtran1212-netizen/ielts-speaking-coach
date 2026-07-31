@@ -51,6 +51,36 @@ function loadsScript(src, file) {
   ).test(file);
 }
 
+/**
+ * File nào trong nhóm tự phát `page_view`, VÀ có được render thật không.
+ *
+ * Review PR 887: bản trước chỉ quét văn bản các file `.tsx` cùng thư mục tìm
+ * chuỗi `event_name: 'page_view'`, không kiểm file đó có được import + render
+ * hay không. Gỡ `<LandingBehavior />` khỏi `page.tsx` mà vẫn giữ file thì cổng
+ * vẫn xanh, trong khi thực tế trang chủ không phát mẫu số nào nữa.
+ */
+function rendersOwnPageViewEmitter(dir) {
+  const files = readdirSync(dir).filter((f) => f.endsWith('.tsx'));
+  const read = (f) => readFileSync(path.join(dir, f), 'utf8');
+  const emitters = files.filter((f) => read(f).includes("event_name: 'page_view'"));
+
+  for (const emitter of emitters) {
+    const base = emitter.replace(/\.tsx$/, '');
+    for (const consumer of files) {
+      if (consumer === emitter) continue;
+      const src = read(consumer);
+      // import { X } from './base'  |  import X from './base'
+      const imported = new RegExp(
+        `import\\s+(?:\\{\\s*([\\w]+)[^}]*\\}|([\\w]+))\\s+from\\s+['"]\\./${base}(?:\\.tsx)?['"]`,
+      ).exec(src);
+      if (!imported) continue;
+      const symbol = imported[1] || imported[2];
+      if (new RegExp(`<${symbol}[\\s/>]`).test(src)) return true;
+    }
+  }
+  return false;
+}
+
 /** Layout của route group = nơi khai báo script cho mọi trang trong nhóm. */
 function groupLayouts() {
   return readdirSync(APP, { withFileTypes: true })
@@ -68,10 +98,7 @@ describe('phủ telemetry (DEBT-2026-07-31-O)', () => {
       // Hoặc nạp beacon dùng chung, hoặc tự gửi page_view (landing làm vậy vì
       // cố ý không kéo api.js) — cái nào cũng được, KHÔNG có mới là hỏng.
       const viaBeacon = loadsScript('analytics-beacon.js', src);
-      const viaOwnFetch = readdirSync(path.dirname(layout))
-        .filter((f) => f.endsWith('.tsx'))
-        .some((f) => readFileSync(path.join(path.dirname(layout), f), 'utf8')
-          .includes("event_name: 'page_view'"));
+      const viaOwnFetch = rendersOwnPageViewEmitter(path.dirname(layout));
       assert.ok(viaBeacon || viaOwnFetch,
         `${name} không phát page_view ⇒ error-rate không có mẫu số, exposure = 0`);
     });
