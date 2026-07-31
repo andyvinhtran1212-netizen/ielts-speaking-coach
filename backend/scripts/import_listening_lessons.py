@@ -49,6 +49,12 @@ from database import supabase_admin                            # noqa: E402
 from services import listening_fulltest_import, listening_audio  # noqa: E402
 
 
+# Phải khớp CHECK trên listening_tests.test_type (mig 157/173) và các tab của
+# listening-practice.js. Lệch một trong hai là bài import xong không ai thấy.
+_VALID_TEST_TYPES = {"mini", "practice"}
+_PRACTICE_GROUPS = {"trap", "section", "curated"}
+
+
 def _load_bundle(lessons_dir: Path, lid: str):
     """Return (qp_text, sol_text, timings, audio_bytes) or raise."""
     qp = (lessons_dir / "Lessons" / f"{lid}_Question_Paper.md")
@@ -224,6 +230,21 @@ def main() -> int:
                 ttype = pm.get("test_type") or ttype
             except Exception as exc:
                 print(f"{lid:<22}  practice.json hỏng: {exc}")
+                failed += 1
+                continue
+        if ttype not in _VALID_TEST_TYPES:
+            print(f"{lid:<22}  test_type không hợp lệ: {ttype!r} "
+                  f"(chỉ {sorted(_VALID_TEST_TYPES)})")
+            failed += 1
+            continue
+        # Một bài `practice` không có nhóm hợp lệ sẽ làm TĂNG số đếm trên thẻ
+        # Luyện nhanh nhưng không tab nào chứa nó — thẻ mở ra một trang không
+        # có nó. Thà chặn ở đây còn hơn để người học bấm vào chỗ trống.
+        if ttype == "practice":
+            g = extra_meta.get("practice_group")
+            if g not in _PRACTICE_GROUPS:
+                print(f"{lid:<22}  practice thiếu/sai practice_group: {g!r} "
+                      f"(cần một trong {sorted(_PRACTICE_GROUPS)})")
                 failed += 1
                 continue
         av = listening_audio.validate_section_audio(audio_bytes, test_type=ttype)

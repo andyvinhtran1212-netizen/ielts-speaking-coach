@@ -552,6 +552,9 @@ def test_analytics_empty_user(monkeypatch):
     out = _run(listening_router.get_listening_analytics(time_range="30d", authorization=authz))
     assert out["total_attempts"] == 0
     assert out["weakest_mode"] is None
-    assert set(out["by_mode"]) == {"mini", "drill", "full"}
+    # Every persisted test_type (mig 173 added `practice`). A type missing from
+    # by_mode still contributes to total_attempts and recent activity, so its
+    # score would sit outside the average — the dashboard contradicting itself.
+    assert set(out["by_mode"]) == {"mini", "drill", "full", "practice"}
     assert out["by_mode"]["mini"]["count"] == 0
     assert len(out["by_day"]) == 14

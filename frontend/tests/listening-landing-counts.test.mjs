@@ -430,3 +430,30 @@ describe('shared player knows the practice library', () => {
     assert.match(read('js', 'listening-practice.js'), /from=practice/);
   });
 });
+
+
+describe('analytics covers every persisted test type', () => {
+  it('practice appears in the dashboard modes', () => {
+    // A type missing here is worse than invisible: its attempts still raise
+    // total_attempts and show in recent activity, so its score sits outside
+    // the average and completion — the dashboard contradicts itself.
+    const js = read('js', 'listening-analytics.js');
+    const labels = js.split('const MODE_LABELS = {')[1].split('};')[0];
+    for (const m of ['mini', 'drill', 'full', 'practice']) {
+      assert.match(labels, new RegExp(`^\\s*${m}:`, 'm'), `mode ${m} has no label`);
+    }
+  });
+
+  it('the weighted overall figures use exactly the labelled modes', () => {
+    const js = read('js', 'listening-analytics.js');
+    assert.match(js, /const MODES = Object\.keys\(MODE_LABELS\)/,
+      'a hand-written list would drift from the labels');
+    assert.doesNotMatch(js, /\['mini', 'drill', 'full'\]/,
+      'the old hard-coded three-mode list is back');
+  });
+
+  it('backend and frontend enumerate the same modes', () => {
+    const be = read('..', 'backend', 'routers', 'listening.py');
+    assert.match(be, /types = \("mini", "drill", "full", "practice"\)/);
+  });
+});

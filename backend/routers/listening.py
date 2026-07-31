@@ -1533,7 +1533,7 @@ async def get_listening_analytics(
 
     Aggregations:
       - total_attempts: mọi lượt trong range (engagement — gồm đang làm/bỏ dở)
-      - by_mode: { mini, drill, full } → {count, avg_score, completion}
+      - by_mode: { mini, drill, full, practice } → {count, avg_score, completion}
         · count      = lượt ĐẦU per test (retry không đếm — Sprint 11.5.1 rule)
         · avg_score  = % đúng TB (score/số câu) của lượt đầu ĐÃ NỘP, 0..1
         · completion = tỉ lệ lượt đã nộp / mọi lượt của loại đó
@@ -1615,7 +1615,12 @@ async def get_listening_analytics(
     flat_first = list(first_by_test.values())
     flat_first_submitted = list(first_submitted.values())
 
-    types = ("mini", "drill", "full")
+    # Every persisted test_type, or the dashboard contradicts itself: a
+    # practice attempt would raise total_attempts and show up in daily/recent
+    # activity while its score sat outside the average, the completion rate and
+    # the weakest-mode pick. Keep this in step with the CHECK on
+    # listening_tests.test_type (mig 157/173).
+    types = ("mini", "drill", "full", "practice")
     by_mode: dict[str, dict] = {}
     for m in types:
         firsts = [r for r in flat_first if r["type"] == m]
