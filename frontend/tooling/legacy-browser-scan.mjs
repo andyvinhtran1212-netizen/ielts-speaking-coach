@@ -192,6 +192,20 @@ if (STATIC_JS) {
   });
 }
 
+// Review #882 vòng 10 — "tồn tại" chưa đủ: một thư mục RỖNG cũng cho ra
+// "0 script tĩnh, sạch", tức vẫn là tự tắt cổng, chỉ khác cách.
+const staticUnits = ROOTS
+  .filter((r) => !r.allowPolyfilled)
+  .reduce((n, r) => n + (r.inline || r.files).length, 0);
+if (STATIC_JS && staticUnits === 0) {
+  console.error(
+    `legacy-browser-scan: nguồn tĩnh RỖNG: ${STATIC_JS}\n`
+    + '  Không có file .js NÀO và cũng không có script inline nào ⇒ không thể kết\n'
+    + '  luận "sạch" cho vùng vốn không có polyfill. Kiểm tra đường dẫn/bố cục.',
+  );
+  process.exit(1);
+}
+
 /**
  * Có ít nhất một lần xuất hiện KHÔNG phải là định nghĩa polyfill hay không.
  * Định nghĩa = ngay sau tên API là `||` (dạng guard `X||(X=…)` / `X||function`)
@@ -213,6 +227,23 @@ function apiMatcher(pattern) {
     : new RegExp(escapeRe(pattern), 'g');
 }
 
+/**
+ * Bản CHUẨN HOÁ của mã nguồn để bắt các dạng viết thưa hợp lệ mà bản thô bỏ
+ * lọt: `values . at(-1)`, `values.at /* chú thích *\/ (-1)` (review #882 vòng
+ * 10). Bỏ chú thích rồi gom khoảng trắng quanh dấu chấm.
+ *
+ * GIỚI HẠN, ghi thẳng ra: đây là bộ quét VĂN BẢN, không phải parser. Cách bỏ
+ * chú thích bằng regex có thể cắt nhầm nội dung trong chuỗi (ví dụ "https://x").
+ * Vì thế mỗi mẫu được dò trên CẢ bản thô LẪN bản chuẩn hoá và lấy hợp — chuẩn
+ * hoá chỉ THÊM khả năng bắt, không bao giờ làm mất thứ bản thô đã thấy.
+ */
+function normalize(src) {
+  return src
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/(^|[^:])\/\/[^\n]*/g, '$1 ')
+    .replace(/\s*\.\s*/g, '.');
+}
+
 function hasRealUse(src, pattern) {
   const re = apiMatcher(pattern);
   let m;
@@ -232,20 +263,22 @@ const units = root.inline
   : root.files.map((f) => ({ label: path.relative(root.dir, f), read: () => readFileSync(f, 'utf8') }));
 for (const unit of units) {
   const file = `${root.kind}: ${unit.label}`;
-  const src = unit.read();
+  const raw = unit.read();
+  const src = raw;
+  const norm = normalize(raw);
   for (const { re, label, since } of SYNTAX_BANNED) {
-    if (re.test(src)) {
+    if (re.test(src) || re.test(norm)) {
       problems.push(`CÚ PHÁP  ${file}: ${label} — cần ${since}; cả file sẽ không parse được dưới sàn đó`);
     }
   }
   for (const { pattern, since, requires } of API_BANNED) {
-    if (!apiMatcher(pattern).test(src)) continue;
+    if (!apiMatcher(pattern).test(src) && !apiMatcher(pattern).test(norm)) continue;
     // Bản trước miễn trừ CẢ FILE khi thấy `!<pattern>` ở bất kỳ đâu, nên
     // `if(!structuredClone(v))` — một lời gọi THẬT — cũng được tha (review
     // #882 vòng 4). Nay xét TỪNG lần xuất hiện: chỉ dạng `X||…` hoặc `X=…`
     // (Next tự chèn `Object.hasOwn||(Object.hasOwn=function…)`) mới là định
     // nghĩa; còn một lần xuất hiện không phải định nghĩa là còn lời gọi thật.
-    if (!hasRealUse(src, pattern)) continue;
+    if (!hasRealUse(src, pattern) && !hasRealUse(norm, pattern)) continue;
     const missing = (requires || []).filter((token) => !polyfilled.has(token));
     if (root.allowPolyfilled && requires && missing.length === 0) continue;
     const detail = !root.allowPolyfilled

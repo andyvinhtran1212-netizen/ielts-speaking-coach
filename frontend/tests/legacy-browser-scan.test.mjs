@@ -161,6 +161,20 @@ describe('legacy-browser-scan (DEBT-2026-07-29-K)', () => {
 
   // Review #882 vòng 8 — script INLINE trong HTML cũng chạy nguyên xi. Ví dụ
   // thật tìm được: speaking.html gọi `.split(' ').at(-1)` giữa renderUser.
+  // Review #882 vòng 10 — dạng viết thưa hợp lệ trong code chưa minify.
+  test('khoảng trắng quanh dấu chấm và chú thích xen giữa vẫn bị bắt', () => {
+    assert.equal(scanStatic({ 'a.js': 'const x = values . at(-1);' }).code, 1,
+      '`values . at(-1)` là lời gọi thật');
+    assert.equal(scanStatic({ 'b.js': 'const y = values.at /* chú thích */ (-1);' }).code, 1,
+      'chú thích xen giữa không làm nó thành thứ khác');
+  });
+
+  test('gốc tĩnh RỖNG → đỏ (giống thư mục chunk rỗng)', () => {
+    const r = scanStatic({});
+    assert.equal(r.code, 1, 'quét 0 file mà báo sạch = tự tắt cổng\n' + r.out);
+    assert.match(r.out, /RỖNG/);
+  });
+
   test('script inline trong HTML bị quét', () => {
     const r = scanStatic({
       'page.html': '<html><body><script>\nconst x = list.at(-1);\n</script></body></html>',
@@ -172,6 +186,9 @@ describe('legacy-browser-scan (DEBT-2026-07-29-K)', () => {
 
   test('script inline có src hoặc type dữ liệu thì bỏ qua', () => {
     const r = scanStatic({
+      // Kèm một file .js sạch: nếu không, gốc tĩnh thành RỖNG và cổng đỏ vì
+      // lý do khác (không kết luận được), che mất thứ bài này định kiểm.
+      'noop.js': 'const a = 1;',
       'ok.html': '<script src="/js/app.js"></script>'
         + '<script type="application/json">{"a":".at("}</script>',
     });
