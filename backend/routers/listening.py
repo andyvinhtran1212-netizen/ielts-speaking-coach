@@ -1734,7 +1734,13 @@ async def admin_list_listening_tests(
             f"status must be one of {sorted(_TEST_STATUS_VALUES | {'all'})}",
         )
     _ADMIN_TYPE_FILTERS = {"exam", "all", "full", "mini", "drill", "practice"}
-    if isinstance(test_type, str) and test_type not in _ADMIN_TYPE_FILTERS:
+    # Called directly (unit tests, internal reuse) an omitted Query() param
+    # arrives as its FieldInfo sentinel, not the default string — comparing that
+    # to "exam" is false, so the filter would fall through to
+    # `eq("test_type", <FieldInfo>)` and quietly return nothing.
+    if not isinstance(test_type, str):
+        test_type = "exam"
+    if test_type not in _ADMIN_TYPE_FILTERS:
         raise HTTPException(
             422, f"test_type must be one of {sorted(_ADMIN_TYPE_FILTERS)}")
 
