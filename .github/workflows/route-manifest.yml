@@ -26,6 +26,11 @@ on:
       # (client component, được layout (authed) import) vẫn đổi chunk mà trước
       # đây không kích hoạt job nào có build ⇒ cú pháp/API vượt sàn lọt thẳng.
       - 'frontend/lib/**'
+      # Review #882 (vòng 6): public/js/** được phục vụ NGUYÊN XI (không qua
+      # bundler) và trang legacy KHÔNG nạp instrumentation-client ⇒ cú pháp
+      # vượt sàn ở đây là chết cả file. Đợt này tìm ra lookbehind trong
+      # listening-test-player.js — file học viên nạp khi làm bài nghe.
+      - 'frontend/public/js/**'
       - 'frontend/instrumentation-client.ts'
       - 'frontend/next.config.ts'
       - 'frontend/tsconfig.json'

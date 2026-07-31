@@ -178,7 +178,11 @@ export function splitIntoSentences(raw) {
   const sentences = [];
   for (const line of lines) {
     const parts = line
-      .split(/(?<=[.!?])\s+(?=[A-Z"'\u201C\u2018])/)
+      // Không dùng lookbehind — cần Safari 16.4, mà file này phục vụ
+      // NGUYÊN XI nên iOS ≤16.3 không parse nổi CẢ FILE (DEBT-2026-07-29-K,
+      // review #882). Bắt dấu câu vào nhóm rồi chèn ký tự mốc; hành vi giữ nguyên.
+      .replace(/([.!?])\s+(?=[A-Z"'\u201C\u2018])/g, '$1\u0000')
+      .split('\u0000')
       .map((s) => s.trim())
       .filter(Boolean);
     for (const p of parts) sentences.push(p);

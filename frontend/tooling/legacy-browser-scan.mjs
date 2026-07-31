@@ -31,6 +31,17 @@ const CHUNKS = process.argv[2]
   ? path.resolve(process.argv[2])
   : path.join(FRONTEND, '.next', 'static', 'chunks');
 
+// Review #882 (vòng 6) — chunk KHÔNG phải nơi duy nhất chạy trên máy khách.
+// `public/js/**` được phục vụ NGUYÊN XI: không qua bundler, không hạ target,
+// và **instrumentation-client KHÔNG chạy trên trang legacy** nên polyfill của
+// Next không cứu được chúng. Vì vậy thư mục này quét ở chế độ NGHIÊM: mọi API
+// vượt sàn đều bị chặn, không có miễn trừ theo khai báo POLYFILLED.
+// (Đợt này tìm ra lookbehind trong `listening-test-player.js` — file học viên
+// nạp ở trang làm bài nghe: iOS ≤16.3 không parse nổi cả file.)
+const STATIC_JS = process.env.LEGACY_SCAN_STATIC_DIR
+  ? path.resolve(process.env.LEGACY_SCAN_STATIC_DIR)
+  : (process.argv[2] ? null : path.join(FRONTEND, 'public', 'js'));
+
 // Sàn hiện tại = iOS/Safari 15 (xem `browserslist` trong package.json).
 // Mỗi mục ghi rõ phiên bản Safari ĐẦU TIÊN hỗ trợ, để lần sau nâng sàn thì
 // biết bỏ mục nào đi.
@@ -115,16 +126,27 @@ function walkJs(dir, out = []) {
   return out;
 }
 
-const files = walkJs(CHUNKS);
+const chunkFiles = walkJs(CHUNKS);
 
 // Cùng một lớp thất bại: thư mục còn đó nhưng rỗng (bố cục đổi, chunk sang chỗ
 // khác) thì "quét 0 file, sạch" là câu trả lời sai.
-if (files.length === 0) {
+if (chunkFiles.length === 0) {
   console.error(
     `legacy-browser-scan: thư mục chunk RỖNG: ${CHUNKS}\n`
     + '  Không có gì để quét ⇒ không thể kết luận "sạch". Kiểm tra bố cục output của Next.',
   );
   process.exit(1);
+}
+
+// Hai nhóm nguồn, khác nhau ở chỗ có được hưởng polyfill hay không:
+//  - chunk Next: instrumentation-client chạy trước ⇒ API đã khai là an toàn;
+//  - public/js: phục vụ nguyên xi, trang legacy KHÔNG nạp instrumentation ⇒
+//    không miễn trừ gì hết.
+const ROOTS = [{ dir: CHUNKS, files: chunkFiles, allowPolyfilled: true, kind: 'chunk' }];
+if (STATIC_JS && existsSync(STATIC_JS)) {
+  ROOTS.push({
+    dir: STATIC_JS, files: walkJs(STATIC_JS), allowPolyfilled: false, kind: 'script tĩnh',
+  });
 }
 
 /**
@@ -146,8 +168,9 @@ function hasRealUse(src, pattern) {
 
 const problems = [];
 
-for (const full of files) {
-  const file = path.relative(CHUNKS, full);
+for (const root of ROOTS) {
+for (const full of root.files) {
+  const file = `${root.kind}: ${path.relative(root.dir, full)}`;
   const src = readFileSync(full, 'utf8');
   for (const { pattern, label, since } of SYNTAX_BANNED) {
     if (src.includes(pattern)) {
@@ -163,12 +186,15 @@ for (const full of files) {
     // nghĩa; còn một lần xuất hiện không phải định nghĩa là còn lời gọi thật.
     if (!hasRealUse(src, pattern)) continue;
     const missing = (requires || []).filter((token) => !polyfilled.has(token));
-    if (requires && missing.length === 0) continue;
-    const detail = requires
-      ? `khai báo POLYFILLED thiếu: ${missing.join(', ')}`
-      : 'chưa có polyfill nào';
+    if (root.allowPolyfilled && requires && missing.length === 0) continue;
+    const detail = !root.allowPolyfilled
+      ? 'script tĩnh KHÔNG nạp instrumentation-client ⇒ không có polyfill nào áp dụng'
+      : requires
+        ? `khai báo POLYFILLED thiếu: ${missing.join(', ')}`
+        : 'chưa có polyfill nào';
     problems.push(`API      ${file}: ${pattern} — cần ${since}; ${detail}`);
   }
+}
 }
 
 if (problems.length) {
@@ -182,4 +208,8 @@ if (problems.length) {
   process.exit(1);
 }
 
-console.log(`legacy-browser-scan: sạch — ${files.length} chunk, sàn iOS/Safari 15.`);
+console.log(
+  'legacy-browser-scan: sạch — '
+  + ROOTS.map((r) => `${r.files.length} ${r.kind}`).join(' + ')
+  + ', sàn iOS/Safari 15.',
+);

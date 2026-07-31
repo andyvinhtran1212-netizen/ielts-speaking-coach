@@ -38,6 +38,24 @@ function scan(files, declSource) {
   return { code: r.status, out: (r.stdout || '') + (r.stderr || '') };
 }
 
+/** Quét thư mục script tĩnh (public/js) — chế độ NGHIÊM, không miễn trừ. */
+function scanStatic(files) {
+  const dir = mkdtempSync(path.join(tmpdir(), 'staticscan-'));
+  for (const [rel, source] of Object.entries(files)) {
+    const full = path.join(dir, rel);
+    mkdirSync(path.dirname(full), { recursive: true });
+    writeFileSync(full, source);
+  }
+  const chunkDir = mkdtempSync(path.join(tmpdir(), 'chunkok-'));
+  writeFileSync(path.join(chunkDir, 'ok.js'), 'export const x=1;');
+  const r = spawnSync(process.execPath, [SCANNER], {
+    encoding: 'utf8',
+    env: { ...process.env, LEGACY_SCAN_STATIC_DIR: dir },
+    cwd: path.join(SCANNER, '..', '..'),
+  });
+  return { code: r.status, out: (r.stdout || '') + (r.stderr || ''), chunkDir };
+}
+
 describe('legacy-browser-scan (DEBT-2026-07-29-K)', () => {
   test('chunk sạch → exit 0', () => {
     const r = scan({ 'a.js': 'export const x=1;const y=[1,2].map(v=>v+1);' });
@@ -113,6 +131,21 @@ describe('legacy-browser-scan (DEBT-2026-07-29-K)', () => {
     // Next tự chèn `Object.hasOwn||(Object.hasOwn=function(){})` vào bundle.
     const r = scan({ 'e.js': 'Object.hasOwn||(Object.hasOwn=function(e,t){return false});' });
     assert.equal(r.code, 0, r.out);
+  });
+
+  // Review #882 vòng 6 — public/js phục vụ NGUYÊN XI và trang legacy KHÔNG nạp
+  // instrumentation-client, nên ở đó khai báo POLYFILLED không cứu được gì.
+  test('script tĩnh: API đã khai POLYFILLED vẫn bị chặn (legacy không nạp polyfill)', () => {
+    const r = scanStatic({ 'legacy.js': 'const last=arr.at(-1);' });
+    assert.equal(r.code, 1, 'public/js không được hưởng miễn trừ\n' + r.out);
+    assert.match(r.out, /script tĩnh/);
+    assert.match(r.out, /KHÔNG nạp instrumentation-client/);
+  });
+
+  test('script tĩnh: cú pháp vượt sàn bị chặn (đúng ca listening-test-player)', () => {
+    const r = scanStatic({ 'player.js': "const p=s.split(/(?<=\\.)\\s+/);" });
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.out, /lookbehind/);
   });
 
   // Review #882 vòng 5 — danh sách API bỏ sót anh em của findLast/toSorted.

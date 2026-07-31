@@ -716,8 +716,14 @@ function renderExercise(ex) {
 function formatInstruction(raw) {
   // Each sentence on its own line preserves the second-line italic
   // emphasis pattern (`Write NO MORE THAN…`).
+  // Tách câu KHÔNG dùng lookbehind: cú pháp đó cần Safari 16.4, mà
+  // file này phục vụ NGUYÊN XI (không qua bundler) nên iPhone iOS ≤16.3 không
+  // parse nổi CẢ FILE ⇒ chết toàn bộ trình phát bài nghe, không riêng hàm này
+  // (DEBT-2026-07-29-K, review #882). Giữ nguyên hành vi bằng cách bắt dấu câu
+  // vào nhóm rồi chèn ký tự mốc; lookahead `(?=…)` thì mọi trình duyệt đều có.
   const parts = String(raw)
-    .split(/(?<=\.)\s+(?=[A-Z])/)
+    .replace(/(\.)\s+(?=[A-Z])/g, '$1\u0000')
+    .split('\u0000')
     .map((s) => s.trim())
     .filter(Boolean);
   if (parts.length <= 1) return `<p>${mdInline(raw)}</p>`;
