@@ -44,7 +44,7 @@ describe('sàn trình duyệt (DEBT-2026-07-29-K)', () => {
     }
   });
 
-  test('instrumentation-client vá Object.hasOwn — API 16.4 mà browserslist KHÔNG tự vá', () => {
+  test('instrumentation-client khai báo + nạp polyfill — browserslist KHÔNG tự vá API', () => {
     // browserslist chỉ hạ target CÚ PHÁP. Next chỉ tự chèn polyfill cho
     // fetch/URL/Object.assign, và chunk polyfill riêng của nó nạp bằng
     // `noModule` nên không chạy trên iOS 15 (iOS 15 có ES module).
@@ -53,9 +53,13 @@ describe('sàn trình duyệt (DEBT-2026-07-29-K)', () => {
       .find(existsSync);
     assert.ok(file, 'thiếu frontend/instrumentation-client.* — nơi duy nhất chạy TRƯỚC code app');
     const src = readFileSync(file, 'utf8');
-    assert.match(src, /Object\.hasOwn/,
-      'runtime App Router gọi thẳng Object.hasOwn (Safari 16.4+) — phải vá ở đây');
-    assert.match(src, /hasOwnProperty/, 'bản vá phải dựa trên hasOwnProperty');
+    assert.match(src, /POLYFILLED:.*Object\.hasOwn/,
+      'runtime App Router gọi thẳng Object.hasOwn (Safari 16.4+) — phải khai + vá');
+    assert.match(src, /import '\.\/lib\/polyfills\/legacy-safari\.js'/,
+      'phần cài đặt nằm ở module riêng để test chạy được nó trong realm sạch');
+    // Hành vi của từng polyfill do tests/legacy-safari-polyfills.test.mjs kiểm —
+    // ở đây chỉ pin rằng file cài đặt tồn tại và được nạp.
+    assert.ok(existsSync(path.join(FRONTEND, 'lib', 'polyfills', 'legacy-safari.js')));
   });
 
   test('bộ quét chunk tồn tại và được CI gọi sau build', () => {

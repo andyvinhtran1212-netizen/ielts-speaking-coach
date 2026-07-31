@@ -10,62 +10,27 @@
  *
  * Quét chunk đã build (2026-07-31) tìm API vượt sàn:
  *   - `Object.hasOwn` (Safari 16.4) — CÓ, gọi trực tiếp trong runtime App
- *     Router (adapter `searchParams`), phải tự vá.
+ *     Router (adapter `searchParams`).
  *   - `.at()` (Safari 15.4) — CÓ. Sàn khai báo là `ios_saf 15`, tức **15.0**,
  *     nên máy iOS 15.0–15.3 nằm trong cam kết mà lại thiếu API này (review
  *     #882). Vá luôn thay vì nâng sàn lên 15.4: nâng sàn là bỏ rơi máy thật
- *     để hồ sơ trông sạch, còn bản vá dưới đây tốn vài dòng.
+ *     để hồ sơ trông sạch.
  *   - `findLast` / `toSorted` / `toReversed` / `Object.groupBy` /
  *     `structuredClone` / `replaceAll` — quét: không có trong chunk.
  *
- * File này chạy TRƯỚC code frontend của ứng dụng (file convention của Next),
- * nên phép gán dưới đây chắc chắn xong trước khi runtime gọi tới.
+ * Phần CÀI ĐẶT nằm ở `lib/polyfills/legacy-safari.js` (JS thuần) để test nạp
+ * được vào realm sạch và kiểm hành vi thật — xem
+ * `tests/legacy-safari-polyfills.test.mjs`. Trước đây nó nằm ngay trong file
+ * này và chỉ được "khai báo" chứ chưa từng được chạy thử (review #882 vòng 4).
+ *
+ * File này chạy TRƯỚC code frontend của ứng dụng (file convention của Next).
  * Quét lại danh sách trên mỗi lần nâng Next — API mới có thể lọt vào chunk.
  *
- * Dòng dưới đây là HỢP ĐỒNG với `tooling/legacy-browser-scan.mjs`: bộ quét đọc
- * nó để biết API nào đã được vá mà cho qua. Sửa code thì sửa cả dòng này.
+ * Dòng dưới đây là HỢP ĐỒNG với `tooling/legacy-browser-scan.mjs` VÀ với bài
+ * test hành vi: bộ quét đọc nó để biết API nào đã vá mà cho qua, còn test lấy
+ * đúng danh sách này để chạy thử từng receiver. Thêm tên vào đây mà không cài
+ * đặt thật thì test đỏ.
  * POLYFILLED: Object.hasOwn, Array.prototype.at, String.prototype.at, TypedArray.prototype.at
  */
 
-if (!Object.hasOwn) {
-  Object.defineProperty(Object, 'hasOwn', {
-    value: function hasOwn(target: unknown, property: PropertyKey) {
-      if (target === null || target === undefined) {
-        throw new TypeError('Cannot convert undefined or null to object');
-      }
-      return Object.prototype.hasOwnProperty.call(Object(target), property);
-    },
-    configurable: true,
-    writable: true,
-  });
-}
-
-// `.at()` — Safari 15.4 / iOS 15.4. Chỉ số âm đếm ngược từ cuối; ngoài khoảng
-// thì trả undefined (KHÔNG throw) — đúng đặc tả, và cũng là hành vi mà code
-// gọi nó đang trông đợi.
-function atPolyfill(this: { length: number; [index: number]: unknown }, index: number) {
-  const len = this.length;
-  let i = Math.trunc(index) || 0;
-  if (i < 0) i += len;
-  if (i < 0 || i >= len) return undefined;
-  return this[i];
-}
-
-// Mảng có kiểu (Uint8Array…) KHÔNG kế thừa Array.prototype — chúng dùng
-// %TypedArray%.prototype riêng, cũng thiếu `.at()` trên iOS 15.0–15.3
-// (review #882). Lấy nó qua prototype cha của một typed array bất kỳ.
-const typedArrayProto = Object.getPrototypeOf(Uint8Array.prototype) as Record<string, unknown>;
-
-for (const proto of [
-  Array.prototype as unknown as Record<string, unknown>,
-  String.prototype as unknown as Record<string, unknown>,
-  typedArrayProto,
-]) {
-  if (proto && typeof proto.at !== 'function') {
-    Object.defineProperty(proto, 'at', {
-      value: atPolyfill,
-      configurable: true,
-      writable: true,
-    });
-  }
-}
+import './lib/polyfills/legacy-safari.js';

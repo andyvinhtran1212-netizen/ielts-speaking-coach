@@ -121,6 +121,23 @@ if (files.length === 0) {
   process.exit(1);
 }
 
+/**
+ * Có ít nhất một lần xuất hiện KHÔNG phải là định nghĩa polyfill hay không.
+ * Định nghĩa = ngay sau tên API là `||` (dạng guard `X||(X=…)` / `X||function`)
+ * hoặc một dấu `=` đơn (gán). Mọi dạng khác — kể cả `!X(...)` — là lời gọi
+ * thật và phải bị tính.
+ */
+function hasRealUse(src, pattern) {
+  let idx = src.indexOf(pattern);
+  while (idx !== -1) {
+    const after = src.slice(idx + pattern.length, idx + pattern.length + 4);
+    const isDefinition = /^\s*(\|\||=[^=])/.test(after);
+    if (!isDefinition) return true;
+    idx = src.indexOf(pattern, idx + 1);
+  }
+  return false;
+}
+
 const problems = [];
 
 for (const full of files) {
@@ -133,9 +150,12 @@ for (const full of files) {
   }
   for (const { pattern, since, requires } of API_BANNED) {
     if (!src.includes(pattern)) continue;
-    // Chính dòng định nghĩa polyfill (`Object.hasOwn||(...)`) không tính là dùng.
-    const isPolyfillDefinition = src.includes(`${pattern}||`) || src.includes(`!${pattern}`);
-    if (isPolyfillDefinition) continue;
+    // Bản trước miễn trừ CẢ FILE khi thấy `!<pattern>` ở bất kỳ đâu, nên
+    // `if(!structuredClone(v))` — một lời gọi THẬT — cũng được tha (review
+    // #882 vòng 4). Nay xét TỪNG lần xuất hiện: chỉ dạng `X||…` hoặc `X=…`
+    // (Next tự chèn `Object.hasOwn||(Object.hasOwn=function…)`) mới là định
+    // nghĩa; còn một lần xuất hiện không phải định nghĩa là còn lời gọi thật.
+    if (!hasRealUse(src, pattern)) continue;
     const missing = (requires || []).filter((token) => !polyfilled.has(token));
     if (requires && missing.length === 0) continue;
     const detail = requires

@@ -114,4 +114,19 @@ describe('legacy-browser-scan (DEBT-2026-07-29-K)', () => {
     const r = scan({ 'e.js': 'Object.hasOwn||(Object.hasOwn=function(e,t){return false});' });
     assert.equal(r.code, 0, r.out);
   });
+
+  // Review #882 vòng 4 — miễn trừ cũ dò `!<pattern>` trên cả file, nên một lời
+  // gọi phủ định THẬT cũng được tha.
+  test('lời gọi phủ định là lời gọi THẬT, không phải định nghĩa', () => {
+    const r = scan({ 'f.js': 'if(!structuredClone(v)){doSomething()}' });
+    assert.equal(r.code, 1, 'if(!structuredClone(v)) là dùng thật, phải bị chặn\n' + r.out);
+    assert.match(r.out, /structuredClone/);
+  });
+
+  test('file vừa ĐỊNH NGHĨA vừa DÙNG thì vẫn bị chặn (không tha cả file)', () => {
+    const r = scan({
+      'g.js': 'Object.hasOwn||(Object.hasOwn=function(){return false});if(Object.hasOwn(o,"k")){}',
+    }, '// POLYFILLED: (không khai gì)');
+    assert.equal(r.code, 1, 'có định nghĩa không có nghĩa là mọi lời gọi khác đều an toàn\n' + r.out);
+  });
 });
