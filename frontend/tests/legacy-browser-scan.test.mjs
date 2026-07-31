@@ -21,14 +21,20 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCANNER = path.join(__dirname, '..', 'tooling', 'legacy-browser-scan.mjs');
 
-function scan(files) {
+function scan(files, declSource) {
   const dir = mkdtempSync(path.join(tmpdir(), 'chunkscan-'));
   for (const [rel, source] of Object.entries(files)) {
     const full = path.join(dir, rel);
     mkdirSync(path.dirname(full), { recursive: true });
     writeFileSync(full, source);
   }
-  const r = spawnSync(process.execPath, [SCANNER, dir], { encoding: 'utf8' });
+  const args = [SCANNER, dir];
+  if (declSource !== undefined) {
+    const decl = path.join(dir, '..', path.basename(dir) + '-decl.ts');
+    writeFileSync(decl, declSource);
+    args.push(decl);
+  }
+  const r = spawnSync(process.execPath, args, { encoding: 'utf8' });
   return { code: r.status, out: (r.stdout || '') + (r.stderr || '') };
 }
 
@@ -80,6 +86,27 @@ describe('legacy-browser-scan (DEBT-2026-07-29-K)', () => {
     const r = scan({});
     assert.equal(r.code, 1, r.out);
     assert.match(r.out, /RỖNG/);
+  });
+
+  // Review #882 vòng 3 — cổng phải đọc ĐÚNG dòng khai báo, không phải "cái tên
+  // có xuất hiện đâu đó trong file". Bản trước dò includes() toàn file, nên chỉ
+  // cần tên API nằm trong bình luận là đã coi như đã vá.
+  test('chỉ nhắc tên API trong văn xuôi thì KHÔNG được tính là đã vá', () => {
+    const proseOnly = '// Bàn về Object.hasOwn và Array.prototype.at nhưng không khai báo gì.';
+    const r = scan({ 'a.js': 'if(Object.hasOwn(o,"k")){}' }, proseOnly);
+    assert.equal(r.code, 1, 'văn xuôi không phải hợp đồng\n' + r.out);
+    assert.match(r.out, /POLYFILLED thiếu/);
+  });
+
+  test('.at() cần ĐỦ cả ba receiver — thiếu TypedArray là chưa an toàn', () => {
+    // Typed array dùng %TypedArray%.prototype riêng, không kế thừa Array.prototype.
+    const partial = '// POLYFILLED: Array.prototype.at, String.prototype.at';
+    const r = scan({ 'a.js': 'const b=new Uint8Array(4).at(-1);' }, partial);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.out, /TypedArray\.prototype\.at/);
+
+    const full = '// POLYFILLED: Array.prototype.at, String.prototype.at, TypedArray.prototype.at';
+    assert.equal(scan({ 'a.js': 'const b=new Uint8Array(4).at(-1);' }, full).code, 0);
   });
 
   test('dòng ĐỊNH NGHĨA polyfill không bị tính là dùng', () => {

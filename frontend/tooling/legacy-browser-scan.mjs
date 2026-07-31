@@ -44,14 +44,22 @@ const SYNTAX_BANNED = [
 // API vượt sàn mà KHÔNG có trong instrumentation-client.ts ⇒ báo lỗi.
 // Sàn là ios_saf 15 = **15.0**, nên mọi thứ mốc 15.4 cũng phải tính (review
 // #882): một máy iOS 15.0–15.3 vẫn nằm trong cam kết của chúng ta.
+// `requires` = TẤT CẢ token phải có mặt trong khai báo POLYFILLED thì mới cho
+// qua. `.at(` trong code đã minify không cho biết receiver là Array, String hay
+// typed array (typed array dùng %TypedArray%.prototype riêng, KHÔNG kế thừa
+// Array.prototype — review #882), nên đòi đủ cả ba mới coi là an toàn.
 const API_BANNED = [
-  { pattern: 'Object.hasOwn', since: 'Safari 16.4', polyfilledAs: 'Object.hasOwn' },
-  { pattern: 'Object.groupBy', since: 'Safari 17.4', polyfilledAs: null },
-  { pattern: '.at(', since: 'Safari 15.4', polyfilledAs: 'Array.prototype.at' },
-  { pattern: 'structuredClone(', since: 'Safari 15.4', polyfilledAs: null },
-  { pattern: '.findLast(', since: 'Safari 15.4', polyfilledAs: null },
-  { pattern: '.toSorted(', since: 'Safari 16.4', polyfilledAs: null },
-  { pattern: '.toReversed(', since: 'Safari 16.4', polyfilledAs: null },
+  { pattern: 'Object.hasOwn', since: 'Safari 16.4', requires: ['Object.hasOwn'] },
+  { pattern: 'Object.groupBy', since: 'Safari 17.4', requires: null },
+  {
+    pattern: '.at(',
+    since: 'Safari 15.4',
+    requires: ['Array.prototype.at', 'String.prototype.at', 'TypedArray.prototype.at'],
+  },
+  { pattern: 'structuredClone(', since: 'Safari 15.4', requires: null },
+  { pattern: '.findLast(', since: 'Safari 15.4', requires: null },
+  { pattern: '.toSorted(', since: 'Safari 16.4', requires: null },
+  { pattern: '.toReversed(', since: 'Safari 16.4', requires: null },
 ];
 
 // Review #882 — FAIL CLOSED. Trước đây thiếu thư mục thì thoát 0 kèm lời nhắc
@@ -68,14 +76,26 @@ if (!existsSync(CHUNKS)) {
   process.exit(1);
 }
 
-// Đọc dòng `POLYFILLED: ...` trong instrumentation-client — hợp đồng tường
-// minh giữa hai file. Bắt theo TÊN API thay vì đoán từ code: đổi cách viết
-// polyfill mà quên cập nhật thì cổng sẽ đỏ, đúng chỗ.
-const instrumentation = ['instrumentation-client.ts', 'instrumentation-client.js']
-  .map((f) => path.join(FRONTEND, f))
-  .filter(existsSync)
-  .map((f) => readFileSync(f, 'utf8'))
-  .join('\n');
+// Hợp đồng với instrumentation-client: PHÂN TÍCH đúng dòng `POLYFILLED: a, b`
+// thành tập token. Review #882 (vòng 3): bản trước dò `includes()` trên TOÀN BỘ
+// file, nên chỉ cần cái tên API xuất hiện trong phần bình luận là đã được coi
+// như đã vá — xoá sạch phần cài đặt mà cổng vẫn xanh. Tham số 2 để test trỏ vào
+// fixture.
+const DECL_FILES = process.argv[3]
+  ? [path.resolve(process.argv[3])]
+  : ['instrumentation-client.ts', 'instrumentation-client.js'].map((f) => path.join(FRONTEND, f));
+
+const polyfilled = new Set();
+for (const f of DECL_FILES.filter(existsSync)) {
+  for (const line of readFileSync(f, 'utf8').split('\n')) {
+    const m = /POLYFILLED:\s*(.+)$/.exec(line);
+    if (!m) continue;
+    for (const token of m[1].split(',')) {
+      const name = token.trim().replace(/\s*\*\/\s*$/, '');
+      if (name) polyfilled.add(name);
+    }
+  }
+}
 
 // Review #882 — ĐI ĐỆ QUY. Next đặt chunk theo route xuống các thư mục con
 // (`.next/static/chunks/app/...`) tuỳ cấu hình/phiên bản; đọc phẳng một tầng
@@ -111,13 +131,17 @@ for (const full of files) {
       problems.push(`CÚ PHÁP  ${file}: ${label} (\`${pattern}\`) — cần ${since}; cả chunk sẽ không parse được dưới sàn đó`);
     }
   }
-  for (const { pattern, since, polyfilledAs } of API_BANNED) {
+  for (const { pattern, since, requires } of API_BANNED) {
     if (!src.includes(pattern)) continue;
     // Chính dòng định nghĩa polyfill (`Object.hasOwn||(...)`) không tính là dùng.
     const isPolyfillDefinition = src.includes(`${pattern}||`) || src.includes(`!${pattern}`);
-    const covered = polyfilledAs && instrumentation.includes(polyfilledAs);
-    if (covered || isPolyfillDefinition) continue;
-    problems.push(`API      ${file}: ${pattern} — cần ${since}; chưa có trong instrumentation-client`);
+    if (isPolyfillDefinition) continue;
+    const missing = (requires || []).filter((token) => !polyfilled.has(token));
+    if (requires && missing.length === 0) continue;
+    const detail = requires
+      ? `khai báo POLYFILLED thiếu: ${missing.join(', ')}`
+      : 'chưa có polyfill nào';
+    problems.push(`API      ${file}: ${pattern} — cần ${since}; ${detail}`);
   }
 }
 

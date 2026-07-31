@@ -24,7 +24,7 @@
  *
  * Dòng dưới đây là HỢP ĐỒNG với `tooling/legacy-browser-scan.mjs`: bộ quét đọc
  * nó để biết API nào đã được vá mà cho qua. Sửa code thì sửa cả dòng này.
- * POLYFILLED: Object.hasOwn, Array.prototype.at, String.prototype.at
+ * POLYFILLED: Object.hasOwn, Array.prototype.at, String.prototype.at, TypedArray.prototype.at
  */
 
 if (!Object.hasOwn) {
@@ -51,8 +51,17 @@ function atPolyfill(this: { length: number; [index: number]: unknown }, index: n
   return this[i];
 }
 
-for (const proto of [Array.prototype, String.prototype] as Array<Record<string, unknown>>) {
-  if (typeof proto.at !== 'function') {
+// Mảng có kiểu (Uint8Array…) KHÔNG kế thừa Array.prototype — chúng dùng
+// %TypedArray%.prototype riêng, cũng thiếu `.at()` trên iOS 15.0–15.3
+// (review #882). Lấy nó qua prototype cha của một typed array bất kỳ.
+const typedArrayProto = Object.getPrototypeOf(Uint8Array.prototype) as Record<string, unknown>;
+
+for (const proto of [
+  Array.prototype as unknown as Record<string, unknown>,
+  String.prototype as unknown as Record<string, unknown>,
+  typedArrayProto,
+]) {
+  if (proto && typeof proto.at !== 'function') {
     Object.defineProperty(proto, 'at', {
       value: atPolyfill,
       configurable: true,
