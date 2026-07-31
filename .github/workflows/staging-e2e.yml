@@ -81,6 +81,11 @@ jobs:
   production-release-drift:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # `GITHUB_SHA` la SHA cua REF duoc chay, khong phai main. Khi dispatch tren
+    # mot nhanh (vi du de kiem nhanh cutover trong luc chuan bi pilot), job nay
+    # so production voi SHA cua nhanh do va do THEO THIET KE — mot bao dong gia
+    # da xay ra 2 lan ngay 2026-07-31. Chi so drift khi ref DUNG LA main.
+    if: github.ref == 'refs/heads/main'
     steps:
       - name: Production serves main HEAD
         run: |
