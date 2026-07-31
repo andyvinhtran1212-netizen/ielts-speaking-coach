@@ -37,6 +37,12 @@ from pathlib import Path
 _BACKEND_ROOT = Path(__file__).resolve().parent.parent
 if str(_BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(_BACKEND_ROOT))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from _script_env import load_env                             # noqa: E402
+load_env()                     # .env TRƯỚC mọi import ứng dụng: config/
+                               # database dựng client Supabase lúc import.
+
 
 from config import settings                                    # noqa: E402
 from database import supabase_admin                            # noqa: E402

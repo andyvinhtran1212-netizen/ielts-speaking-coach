@@ -10,7 +10,8 @@ They were never meant for learners. Archiving them leaves the library with the
 one real row, and the landing badge then reports 1 instead of 4 — which is the
 honest number.
 
-Writes to PROD. Run it yourself:
+Writes to PROD. Run it yourself, FROM THE `backend/` DIRECTORY:
+    cd backend
     python3 scripts/archive_smoke_listening_content.py --dry-run
     python3 scripts/archive_smoke_listening_content.py --commit
 
@@ -27,12 +28,17 @@ Safety:
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
 _BACKEND_ROOT = Path(__file__).resolve().parent.parent
 if str(_BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(_BACKEND_ROOT))
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _script_env import load_env                             # noqa: E402
+load_env()                                                   # .env before `database`
 
 from database import supabase_admin          # noqa: E402
 
