@@ -58,8 +58,14 @@ const API_BANNED = [
   },
   { pattern: 'structuredClone(', since: 'Safari 15.4', requires: null },
   { pattern: '.findLast(', since: 'Safari 15.4', requires: null },
+  { pattern: '.findLastIndex(', since: 'Safari 15.4', requires: null },
   { pattern: '.toSorted(', since: 'Safari 16.4', requires: null },
   { pattern: '.toReversed(', since: 'Safari 16.4', requires: null },
+  { pattern: '.toSpliced(', since: 'Safari 16.4', requires: null },
+  // `.with(` là tên khá chung nên có thể báo nhầm với method cùng tên của thư
+  // viện khác. Vẫn giữ: báo nhầm thì thêm vào khai báo POLYFILLED hoặc đổi tên
+  // — rẻ hơn nhiều so với bỏ lọt một lời gọi hỏng trên iOS 15 (review #882).
+  { pattern: '.with(', since: 'Safari 16.4', requires: null },
 ];
 
 // Review #882 — FAIL CLOSED. Trước đây thiếu thư mục thì thoát 0 kèm lời nhắc

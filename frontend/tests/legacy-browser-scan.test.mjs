@@ -115,6 +115,25 @@ describe('legacy-browser-scan (DEBT-2026-07-29-K)', () => {
     assert.equal(r.code, 0, r.out);
   });
 
+  // Review #882 vòng 5 — danh sách API bỏ sót anh em của findLast/toSorted.
+  // Mỗi API dưới đây đều vượt sàn và KHÔNG được browserslist vá.
+  for (const [api, snippet] of Object.entries({
+    'findLast': 'const a=xs.findLast(Boolean);',
+    'findLastIndex': 'const i=xs.findLastIndex(Boolean);',
+    'toSorted': 'const s=xs.toSorted();',
+    'toReversed': 'const r=xs.toReversed();',
+    'toSpliced': 'const t=xs.toSpliced(0,1);',
+    'with': 'const w=xs.with(0,9);',
+    'Object.groupBy': 'const g=Object.groupBy(xs,f);',
+    'structuredClone': 'const c=structuredClone(o);',
+  })) {
+    test(`API vượt sàn bị chặn: ${api}`, () => {
+      const r = scan({ 'a.js': snippet });
+      assert.equal(r.code, 1, `${api} phải bị chặn\n` + r.out);
+      assert.ok(r.out.includes(api.split('.').pop()), r.out);
+    });
+  }
+
   // Review #882 vòng 4 — miễn trừ cũ dò `!<pattern>` trên cả file, nên một lời
   // gọi phủ định THẬT cũng được tha.
   test('lời gọi phủ định là lời gọi THẬT, không phải định nghĩa', () => {
