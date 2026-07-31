@@ -101,3 +101,48 @@ Frozen estimate: pilot 3 = 8h, pilot 4 = 8h. Đã tiêu tới prep: build #742 ~
 #743/#744 ~2.5h + prep ~0.5h. Số đo cutover (đo TẠI cutover): JS route-specific,
 Lighthouse, API count, no-store header, kill-switch drill, isolation re-verify,
 error rate 7 ngày trước/sau.
+
+## Chuẩn bị 2026-07-31 (CHƯA cutover, CHƯA đếm giờ)
+
+Nhánh refresh lên `origin/main` (`cb313997`, drift **446 commit**) — merge
+**sạch, 0 conflict**; invariant cutover còn nguyên.
+
+| Kiểm | Kết quả |
+|---|---|
+| Suite contract frontend | **5714 pass / 0 fail** |
+| `npm run build` | **`○ /profile`** (Static) — `/profile-preview` đã biến mất |
+| `route-ownership --manifest` | clean — 5 route compiled, 0 collision |
+| `legacy-browser-scan` | sạch — 11 chunk + 128 script tĩnh + 220 script inline (sàn iOS 15) |
+| Tailwind `build.css` | FRESH |
+| Production hiện tại | `/profile-preview` = 200 Next SSR (dark) · `/profile` = **404** (đúng, chưa cutover) |
+
+### HAI VIỆC CHẶN, tìm ra khi chuẩn bị
+
+**1. Staging đứng yên ở `ba687867` (14/07) — lệch main 446 commit.**
+Với pilot 1/2 chuyện này ít hệ quả. Với pilot 3+4 thì KHÔNG: ADR-013 xếp
+route *authenticated + mutation* vào lớp đòi **synthetic mutation coverage**,
+mà công cụ đó chính là **bộ staging E2E** (pilot-3 isolation matrix, pilot-4
+save/double-submit/kill-switch, N/N−1 consumer). Nightly vẫn xanh mỗi đêm
+(25→30/07) nhưng nó đang kiểm một bản build gần **3 tuần tuổi** — bằng chứng
+xanh mà lệch bản thì không dùng để mở cổng được. **Phải cập nhật staging lên
+nhánh cutover TRƯỚC khi chạy bộ E2E làm bằng chứng.** (Staging là nhánh con
+trỏ; cập nhật = force-push, việc của chủ dự án.)
+
+**2. `production-smoke` KHÔNG gánh được vế số-lượng cho route authed.**
+Bộ smoke `page.goto(ROUTE)` bằng browser ẩn danh; `/profile` là route có
+đăng nhập, AuthProvider fail-closed sẽ `location.replace('/login.html')`,
+nên phép đo rơi vào vỏ trang hoặc trang login — con số vô nghĩa, tệ hơn là
+"xanh giả". Với lớp route này, vế synthetic phải do **staging E2E** gánh
+(nó đăng nhập bằng danh tính seed và thao tác thật), còn smoke chỉ dùng cho
+route công khai. Ghi rõ ở đây để lần sau không ai chạy smoke rồi tưởng đã
+đủ bằng chứng.
+
+### Chuỗi còn lại khi chủ dự án quyết cutover
+
+1. Cập nhật staging lên nhánh này → chạy **full staging E2E** (kỳ vọng toàn
+   xanh, gồm pilot-3 isolation + pilot-4 mutation + N/N−1) = vế synthetic.
+2. Kill-switch drill đo lại (ADR-010) — số cũ 545ms/759ms từ 13/07.
+3. Traffic baseline + risk acceptance ≤72h, ký tên.
+4. Cutover atomic → verify browser-based ≥15s → quan sát organic 48–72h.
+   Trong cửa sổ, telemetry nay có `doc_release`/`age_ms` (DEBT-N đã đóng
+   `cb313997`), nên nếu có lỗi thì quy kết được theo release thật.
