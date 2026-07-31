@@ -21,10 +21,16 @@ on:
   pull_request:
     paths:
       - 'frontend/app/**'
+      # Review #882 — bộ quét sàn trình duyệt cần chạy cho MỌI đầu vào của
+      # bundle client, không chỉ app/. Một PR chỉ sửa `lib/auth/auth-provider.tsx`
+      # (client component, được layout (authed) import) vẫn đổi chunk mà trước
+      # đây không kích hoạt job nào có build ⇒ cú pháp/API vượt sàn lọt thẳng.
+      - 'frontend/lib/**'
+      - 'frontend/instrumentation-client.ts'
       - 'frontend/next.config.ts'
+      - 'frontend/tsconfig.json'
       - 'frontend/tooling/route-ownership-check.mjs'
       - 'frontend/tooling/legacy-browser-scan.mjs'
-      - 'frontend/instrumentation-client.ts'
       - 'frontend/package.json'
       - 'frontend/package-lock.json'
       - '.github/workflows/route-manifest.yml'

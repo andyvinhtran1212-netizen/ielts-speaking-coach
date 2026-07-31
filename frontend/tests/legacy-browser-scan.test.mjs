@@ -1,0 +1,74 @@
+/**
+ * legacy-browser-scan.test.mjs — kiểm CHÍNH BỘ QUÉT.
+ *
+ * Review #882 tìm ra một lỗ mà không ai thấy được nếu chỉ chạy bộ quét trên
+ * output build đang sạch: `readdirSync` phẳng một tầng, nên chunk nằm trong
+ * thư mục con (`.next/static/chunks/app/...` — Next đặt chunk theo route ở đó
+ * tuỳ cấu hình) bị bỏ qua, và cổng CI vẫn báo "sạch". Một cổng chỉ biết nói
+ * "sạch" thì vô dụng; các bài dưới đây bắt nó phải nói "bẩn" đúng lúc.
+ *
+ * Bộ quét nhận tham số thư mục để test trỏ vào fixture — không đụng .next.
+ */
+
+import { test, describe } from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const SCANNER = path.join(__dirname, '..', 'tooling', 'legacy-browser-scan.mjs');
+
+function scan(files) {
+  const dir = mkdtempSync(path.join(tmpdir(), 'chunkscan-'));
+  for (const [rel, source] of Object.entries(files)) {
+    const full = path.join(dir, rel);
+    mkdirSync(path.dirname(full), { recursive: true });
+    writeFileSync(full, source);
+  }
+  const r = spawnSync(process.execPath, [SCANNER, dir], { encoding: 'utf8' });
+  return { code: r.status, out: (r.stdout || '') + (r.stderr || '') };
+}
+
+describe('legacy-browser-scan (DEBT-2026-07-29-K)', () => {
+  test('chunk sạch → exit 0', () => {
+    const r = scan({ 'a.js': 'export const x=1;const y=[1,2].map(v=>v+1);' });
+    assert.equal(r.code, 0, r.out);
+    assert.match(r.out, /sạch/);
+  });
+
+  test('class static block ở THƯ MỤC CON vẫn bị bắt (lỗ của review #882)', () => {
+    const r = scan({
+      'a.js': 'export const ok=1;',
+      'app/(marketing)/page-abc.js': 'class X{static{this.y=1}}',
+    });
+    assert.equal(r.code, 1, 'phải đỏ — nếu xanh thì bộ quét lại đọc phẳng một tầng\n' + r.out);
+    assert.match(r.out, /class static block/);
+    assert.match(r.out, /app/, 'thông báo phải chỉ ra đường dẫn tương đối của chunk lỗi');
+  });
+
+  test('lookbehind regexp bị bắt — không polyfill được, hỏng cả file khi parse', () => {
+    const r = scan({ 'deep/nested/b.js': 'const re=/(?<=x)y/;' });
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.out, /lookbehind/);
+  });
+
+  test('API đã vá trong instrumentation-client thì cho qua (Object.hasOwn, .at)', () => {
+    const r = scan({ 'c.js': 'if(Object.hasOwn(o,"k")){}const last=arr.at(-1);' });
+    assert.equal(r.code, 0, 'hai API này ĐÃ được vá — chặn nữa là báo động giả\n' + r.out);
+  });
+
+  test('API CHƯA vá thì chặn — kể cả khi chỉ nằm ở thư mục con', () => {
+    const r = scan({ 'app/x/d.js': 'const s=list.toSorted();' });
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.out, /toSorted/);
+  });
+
+  test('dòng ĐỊNH NGHĨA polyfill không bị tính là dùng', () => {
+    // Next tự chèn `Object.hasOwn||(Object.hasOwn=function(){})` vào bundle.
+    const r = scan({ 'e.js': 'Object.hasOwn||(Object.hasOwn=function(e,t){return false});' });
+    assert.equal(r.code, 0, r.out);
+  });
+});

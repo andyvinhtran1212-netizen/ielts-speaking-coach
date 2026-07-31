@@ -25,7 +25,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const CHUNKS = path.join(FRONTEND, '.next', 'static', 'chunks');
+// Tham số 1 = thư mục chunk cần quét (mặc định là output build). Có tham số để
+// test chỉ được vào fixture — nếu không thì chính bộ quét này không kiểm được.
+const CHUNKS = process.argv[2]
+  ? path.resolve(process.argv[2])
+  : path.join(FRONTEND, '.next', 'static', 'chunks');
 
 // Sàn hiện tại = iOS/Safari 15 (xem `browserslist` trong package.json).
 // Mỗi mục ghi rõ phiên bản Safari ĐẦU TIÊN hỗ trợ, để lần sau nâng sàn thì
@@ -37,10 +41,14 @@ const SYNTAX_BANNED = [
   { pattern: '(?<!', label: 'regexp lookbehind phủ định', since: 'Safari 16.4' },
 ];
 
-// API mốc >15 mà KHÔNG có trong instrumentation-client.ts ⇒ báo lỗi.
+// API vượt sàn mà KHÔNG có trong instrumentation-client.ts ⇒ báo lỗi.
+// Sàn là ios_saf 15 = **15.0**, nên mọi thứ mốc 15.4 cũng phải tính (review
+// #882): một máy iOS 15.0–15.3 vẫn nằm trong cam kết của chúng ta.
 const API_BANNED = [
   { pattern: 'Object.hasOwn', since: 'Safari 16.4', polyfilledAs: 'Object.hasOwn' },
   { pattern: 'Object.groupBy', since: 'Safari 17.4', polyfilledAs: null },
+  { pattern: '.at(', since: 'Safari 15.4', polyfilledAs: 'Array.prototype.at' },
+  { pattern: 'structuredClone(', since: 'Safari 15.4', polyfilledAs: null },
   { pattern: '.findLast(', since: 'Safari 15.4', polyfilledAs: null },
   { pattern: '.toSorted(', since: 'Safari 16.4', polyfilledAs: null },
   { pattern: '.toReversed(', since: 'Safari 16.4', polyfilledAs: null },
@@ -51,17 +59,33 @@ if (!existsSync(CHUNKS)) {
   process.exit(0);
 }
 
+// Đọc dòng `POLYFILLED: ...` trong instrumentation-client — hợp đồng tường
+// minh giữa hai file. Bắt theo TÊN API thay vì đoán từ code: đổi cách viết
+// polyfill mà quên cập nhật thì cổng sẽ đỏ, đúng chỗ.
 const instrumentation = ['instrumentation-client.ts', 'instrumentation-client.js']
   .map((f) => path.join(FRONTEND, f))
   .filter(existsSync)
   .map((f) => readFileSync(f, 'utf8'))
   .join('\n');
 
-const files = readdirSync(CHUNKS).filter((f) => f.endsWith('.js'));
+// Review #882 — ĐI ĐỆ QUY. Next đặt chunk theo route xuống các thư mục con
+// (`.next/static/chunks/app/...`) tuỳ cấu hình/phiên bản; đọc phẳng một tầng
+// thì cổng này báo "sạch" trong khi chunk lỗi nằm ngay dưới đó.
+function walkJs(dir, out = []) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) walkJs(full, out);
+    else if (entry.name.endsWith('.js')) out.push(full);
+  }
+  return out;
+}
+
+const files = walkJs(CHUNKS);
 const problems = [];
 
-for (const file of files) {
-  const src = readFileSync(path.join(CHUNKS, file), 'utf8');
+for (const full of files) {
+  const file = path.relative(CHUNKS, full);
+  const src = readFileSync(full, 'utf8');
   for (const { pattern, label, since } of SYNTAX_BANNED) {
     if (src.includes(pattern)) {
       problems.push(`CÚ PHÁP  ${file}: ${label} (\`${pattern}\`) — cần ${since}; cả chunk sẽ không parse được dưới sàn đó`);
