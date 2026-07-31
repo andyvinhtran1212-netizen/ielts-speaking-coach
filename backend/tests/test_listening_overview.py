@@ -58,7 +58,14 @@ class _Query:
         return self
 
     def eq(self, col, val):
-        self._preds.append(lambda r, c=col, v=val: r.get(c) == v)
+        # PostgREST JSON path: `metadata->>key` reads a field inside the JSONB
+        # column, which the store keeps as a plain dict.
+        if "->>" in col:
+            outer, key = col.split("->>", 1)
+            self._preds.append(
+                lambda r, o=outer, k=key, v=val: (r.get(o) or {}).get(k) == v)
+        else:
+            self._preds.append(lambda r, c=col, v=val: r.get(c) == v)
         return self
 
     def in_(self, col, vals):
@@ -196,7 +203,7 @@ def test_overview_counts_published_audio_ready_tests():
     out = _patched(lambda m: _run(m.listening_overview(authorization="Bearer x")))
     # full: 5 valid; the draft / exam_only / no-audio / reserved rows drop out.
     # mini: 3 + the assembled-only row.
-    assert out["tests"] == {"full": 5, "mini": 4, "drill": 2}
+    assert out["tests"] == {"full": 5, "mini": 4, "drill": 2, "practice": 0}
 
 
 def test_overview_counts_only_published_exercises_on_published_content():
@@ -332,3 +339,90 @@ def test_blank_audio_path_is_not_audio_ready(tmp_path=None):
     assert ov["tests"]["full"] == 5, "a blank path is not audio"
     assert len(listed["items"]) == 5
     assert all(i["id"] != "t31" for i in listed["items"])
+
+
+# ── practice library (Luyện nhanh: one library, three tabs) ──────────────────
+
+
+def _practice_row(i, group, **over):
+    r = _test_row(i, "practice")
+    r["metadata"] = {"practice_group": group, "trap": "Number Confusion"}
+    r.update(over)
+    return r
+
+
+def _practice_dataset():
+    t = _dataset()
+    t["listening_tests"] += [
+        _practice_row(40, "trap"), _practice_row(41, "trap"),
+        _practice_row(42, "section"),
+        _practice_row(43, "curated"), _practice_row(44, "curated"),
+        _practice_row(45, "trap", status="draft"),          # excluded
+        _practice_row(46, "trap", full_audio_storage_path=""),  # blank path
+    ]
+    return t
+
+
+def _with(tables, fn):
+    from routers import listening as mod
+    import services.mock_exam_service as mes
+    with patch.object(mod, "supabase_admin", _FakeSB(tables)), \
+         patch.object(mod, "_require_auth", AsyncMock(return_value={"id": "u"})), \
+         patch.object(mes, "reserved_test_ids", lambda _s: set(RESERVED)):
+        return fn(mod)
+
+
+def test_overview_counts_practice_and_its_tabs():
+    out = _with(_practice_dataset(),
+                lambda m: _run(m.listening_overview(authorization="Bearer x")))
+    assert out["tests"]["practice"] == 5, "draft + blank-path rows must not count"
+    assert out["practice_groups"] == {"trap": 2, "section": 1, "curated": 2}
+
+
+def test_practice_tab_counts_sum_to_the_library_count():
+    """The tile shows the library total and each tab shows its own count; if
+    they disagreed, one of the two would be lying about the same rows."""
+    out = _with(_practice_dataset(),
+                lambda m: _run(m.listening_overview(authorization="Bearer x")))
+    assert sum(out["practice_groups"].values()) == out["tests"]["practice"]
+
+
+def test_practice_groups_absent_when_library_is_empty():
+    out = _patched(lambda m: _run(m.listening_overview(authorization="Bearer x")))
+    assert out["tests"]["practice"] == 0
+    assert out["practice_groups"] == {}
+
+
+def test_list_filters_practice_by_group():
+    def go(m):
+        return _run(m.list_published_listening_tests(
+            test_type="practice", practice_group="trap",
+            limit=100, offset=0, authorization="Bearer x"))
+    got = _with(_practice_dataset(), go)
+    assert [i["id"] for i in got["items"]] == ["t40", "t41"]
+    assert all(i["practice_group"] == "trap" for i in got["items"])
+
+
+def test_practice_without_group_returns_the_whole_library():
+    def go(m):
+        return _run(m.list_published_listening_tests(
+            test_type="practice", practice_group=None,
+            limit=100, offset=0, authorization="Bearer x"))
+    assert len(_with(_practice_dataset(), go)["items"]) == 5
+
+
+def test_other_libraries_ignore_practice_group():
+    """A stray `practice_group` must not silently narrow the Cambridge list."""
+    def go(m):
+        return _run(m.list_published_listening_tests(
+            test_type="full", practice_group="trap",
+            limit=100, offset=0, authorization="Bearer x"))
+    assert len(_with(_practice_dataset(), go)["items"]) == 5
+
+
+def test_practice_is_a_valid_test_type():
+    def go(m):
+        return _run(m.list_published_listening_tests(
+            test_type="practice", practice_group=None,
+            limit=10, offset=0, authorization="Bearer x"))
+    _with(_practice_dataset(), go)          # must not raise 422

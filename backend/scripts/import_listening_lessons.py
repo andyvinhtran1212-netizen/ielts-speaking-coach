@@ -95,7 +95,8 @@ def _restore(snapshot: dict) -> None:
             {"status": status}).in_("id", ids).execute()
 
 
-def _commit_one(lid: str, res, qp_text: str, audio_bytes, av, status: str) -> dict:
+def _commit_one(lid: str, res, qp_text: str, audio_bytes, av, status: str,
+                test_type: str = "mini", extra_meta: dict | None = None) -> dict:
     test_uuid = str(uuid.uuid4())
     storage_path = f"tests/{test_uuid}/full.mp3"
     offsets = res.metadata.get("section_offsets") or {}
@@ -116,9 +117,12 @@ def _commit_one(lid: str, res, qp_text: str, audio_bytes, av, status: str) -> di
             "source_format":   "listening-fulltest-v1.1",
             "section_offsets": offsets,
             "band_conversion": res.metadata.get("band_conversion") or [],
+            # Nhóm tab của thư viện Luyện nhanh (trap | section | curated) +
+            # tên bẫy, đọc từ pack. Rỗng với lesson thường.
+            **(extra_meta or {}),
         },
-        # Mig 157 — test_type là cột thật (CHECK full|mini|drill).
-        "test_type":                   "mini",
+        # Mig 157/173 — test_type là cột thật (CHECK full|mini|drill|practice).
+        "test_type":                   test_type,
         "status":                      status,
     }
     created_content_ids: list[str] = []
@@ -174,6 +178,8 @@ def main() -> int:
     ap.add_argument("--replace", action="store_true",
                     help="archive an existing ACTIVE test before re-importing")
     ap.add_argument("--status", choices=["draft", "published"], default="draft")
+    ap.add_argument("--test-type", choices=["mini", "practice"], default="mini",
+                    help="loại thư viện; pack có practice.json sẽ tự ghi đè")
     args = ap.parse_args()
     if args.dry_run:
         args.commit = False
@@ -202,7 +208,19 @@ def main() -> int:
         segs = sum(len((r["content_row"]["metadata"].get("dictation_segments") or [])) for r in rows)
         # A lesson is a one-section MINI, i.e. practice material — judging it
         # against the exam floor rejected short-but-valid drills outright.
-        av = listening_audio.validate_section_audio(audio_bytes, test_type="mini")
+        # Pack sinh bởi convert_kokoro_to_lesson kèm practice.json khai nhóm tab.
+        extra_meta, ttype = {}, args.test_type
+        pj = args.lessons_dir / "audio_output" / lid / "practice.json"
+        if pj.exists():
+            try:
+                pm = json.loads(pj.read_text(encoding="utf-8"))
+                extra_meta = {k: pm[k] for k in ("practice_group", "trap") if pm.get(k)}
+                ttype = pm.get("test_type") or ttype
+            except Exception as exc:
+                print(f"{lid:<22}  practice.json hỏng: {exc}")
+                failed += 1
+                continue
+        av = listening_audio.validate_section_audio(audio_bytes, test_type=ttype)
         if av["errors"]:
             print(f"{lid:<22}{len(res.questions):>3} {segs:>5}  AUDIO ERROR: {av['errors']}")
             failed += 1
@@ -227,7 +245,8 @@ def main() -> int:
         # one archived, the new one rolled back by _commit_one).
         snapshot = _archive(dup) if dup else None
         try:
-            out = _commit_one(lid, res, qp, audio_bytes, av, args.status)
+            out = _commit_one(lid, res, qp, audio_bytes, av, args.status,
+                              test_type=ttype, extra_meta=extra_meta)
         except Exception as exc:
             restored = ""
             if snapshot:

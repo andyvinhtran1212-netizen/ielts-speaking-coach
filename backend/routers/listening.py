@@ -3896,7 +3896,7 @@ async def listening_overview(authorization: str | None = Header(default=None)):
     reserved = mock_exam_service.reserved_test_ids("listening")
 
     tests: dict[str, int] = {}
-    for kind in ("full", "mini", "drill"):
+    for kind in ("full", "mini", "drill", "practice"):
         q = (
             supabase_admin.table("listening_tests")
             .select("id", count="exact")
@@ -3936,16 +3936,39 @@ async def listening_overview(authorization: str | None = Header(default=None)):
                 break
             start += step
 
+    # The Luyện nhanh page is one library with three tabs, so the landing needs
+    # the per-tab counts too — a tab with nothing behind it should not render,
+    # for the same reason a zero-count tile does not.
+    practice_groups: dict[str, int] = {}
+    if tests.get("practice"):
+        pg = (
+            supabase_admin.table("listening_tests")
+            .select("metadata")
+            .eq("status", "published")
+            .eq("test_type", "practice")
+            .eq("exam_only", False)
+            .or_(_AUDIO_READY_OR)
+            .order("id")
+            .limit(2000)
+            .execute()
+        )
+        for row in pg.data or []:
+            g = ((row.get("metadata") or {}).get("practice_group") or "").strip()
+            if g:
+                practice_groups[g] = practice_groups.get(g, 0) + 1
+
     return {
-        "tests":          tests,
-        "content":        len(content_ids),
-        "exercise_modes": modes,
+        "tests":           tests,
+        "practice_groups": practice_groups,
+        "content":         len(content_ids),
+        "exercise_modes":  modes,
     }
 
 
 @user_router.get("/tests")
 async def list_published_listening_tests(
     test_type: str | None = Query(default=None),
+    practice_group: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     authorization: str | None = Header(default=None),
@@ -3968,8 +3991,8 @@ async def list_published_listening_tests(
     # Validate only a real string value. When the handler is called directly
     # (unit tests), an omitted Query() param arrives as its FieldInfo sentinel,
     # not None — `isinstance str` keeps that from tripping a false 422.
-    if isinstance(test_type, str) and test_type not in ("mini", "full", "drill"):
-        raise HTTPException(422, "test_type must be 'mini', 'full' or 'drill'")
+    if isinstance(test_type, str) and test_type not in ("mini", "full", "drill", "practice"):
+        raise HTTPException(422, "test_type must be 'mini', 'full', 'drill' or 'practice'")
 
     q = (
         supabase_admin.table("listening_tests")
@@ -3986,12 +4009,15 @@ async def list_published_listening_tests(
         .order("created_at", desc=True)
         .range(offset, offset + limit - 1)
     )
-    if test_type == "mini":
-        q = q.eq("test_type", "mini")
-    elif test_type == "drill":
-        q = q.eq("test_type", "drill")
+    if test_type in ("mini", "drill", "practice"):
+        q = q.eq("test_type", test_type)
     else:
         q = q.eq("test_type", "full")
+    # Practice is one library with three tabs; `group` narrows to a tab. Applied
+    # in SQL so paging stays correct per tab (a Python filter over an already
+    # paged result would shed rows and shorten pages).
+    if test_type == "practice" and isinstance(practice_group, str) and practice_group:
+        q = q.eq("metadata->>practice_group", practice_group)
     # Reserved for a mock exam — never in the practice list (mig 170). The
     # PERMANENT flag: unlike reserved_test_ids below it survives the exam being
     # archived, which used to republish the paper to the next cohort.
@@ -4050,6 +4076,8 @@ async def list_published_listening_tests(
             # Skill-drill discriminators — let the Skills-Practice page group by
             # type + level without a per-row round-trip. Null for full/mini.
             "drill_type":           md.get("drill_type"),
+            "practice_group":       md.get("practice_group"),
+            "trap":                 md.get("trap"),
             "level":                md.get("level"),
             "task":                 md.get("task"),
             "user_best_score":      user_best.get(r["id"]),

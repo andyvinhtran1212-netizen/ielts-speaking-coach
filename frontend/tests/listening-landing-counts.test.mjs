@@ -355,3 +355,53 @@ describe('shared list pager', () => {
     assert.deepEqual(items, []);
   });
 });
+
+
+describe('Luyện nhanh — one library, three tabs', () => {
+  let practice;
+  before(async () => {
+    globalThis.document = { getElementById: () => null, addEventListener() {} };
+    practice = await import('../js/listening-practice.js');
+  });
+
+  it('groups the trap tab by trap so it reads as eleven short courses', () => {
+    const items = [
+      { id: '1', trap: 'Number Confusion' }, { id: '2', trap: 'Number Confusion' },
+      { id: '3', trap: 'Negation Flip' },
+    ];
+    const groups = practice.groupTests('trap', items);
+    assert.deepEqual(groups.map((g) => [g.title, g.items.length]),
+      [['Number Confusion', 2], ['Negation Flip', 1]]);
+  });
+
+  it('leaves the other tabs as one flat list', () => {
+    const items = [{ id: '1', trap: 'X' }, { id: '2', trap: 'Y' }];
+    for (const key of ['section', 'curated']) {
+      const groups = practice.groupTests(key, items);
+      assert.equal(groups.length, 1);
+      assert.equal(groups[0].title, null);
+    }
+  });
+
+  it('a test with no trap still lands in a group', () => {
+    const groups = practice.groupTests('trap', [{ id: '1' }]);
+    assert.equal(groups[0].title, 'Khác');
+  });
+
+  it('escapes titles into the card', () => {
+    const html = practice.renderCard({ id: 'x', title: '<img onerror=1>' });
+    assert.doesNotMatch(html, /<img/);
+    assert.match(html, /&lt;img/);
+  });
+
+  it('the three tabs match the groups the backend reports', () => {
+    // /overview keys and the tab keys are the same vocabulary; a mismatch
+    // means a tab that never appears or a group with nowhere to render.
+    assert.deepEqual(practice.TABS.map((t) => t.key), ['trap', 'section', 'curated']);
+    const backend = read('..', 'backend', 'migrations',
+                         '173_listening_tests_practice_type.sql');
+    for (const k of ['trap', 'section', 'curated']) {
+      assert.match(backend, new RegExp(k), `migration must document group '${k}'`);
+    }
+  });
+});
