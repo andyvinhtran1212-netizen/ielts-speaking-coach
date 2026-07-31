@@ -51,7 +51,6 @@ export default function PublicContentLayout({ children }: { children: ReactNode 
       <link rel="stylesheet" href="/css/tailwind.build.css" />
 
       {/* Canonical chrome Web Component (Sprint 7.13) */}
-      <script type="module" src="/js/components/aver-chrome.js" defer />
 
       {/* Grammar API + auth client scripts (C-3.2: deferred off parse path) */}
       <script
@@ -65,6 +64,10 @@ export default function PublicContentLayout({ children }: { children: ReactNode 
           này nhận đóng (review #887). Reporter đọc runtime-config lúc GỬI chứ
           không lúc nạp, nên đứng ngay sau runtime-config là an toàn. */}
       <script src="/js/error-reporter.js" defer />
+      {/* Chrome là module (defer mặc định) nên nó cũng nằm trong hàng đợi
+          defer: đặt TRƯỚC reporter thì một lỗi lúc đánh giá aver-chrome.js xảy
+          ra khi chưa có listener (review #887). Nay chrome đứng sau reporter. */}
+      <script type="module" src="/js/components/aver-chrome.js" defer />
       <script src="/js/api.js" defer />
       {/* Bộ ba telemetry của cổng rollback (ADR-012): error-reporter ở trên =
           TỬ SỐ; analytics-beacon = MẪU SỐ page_view; rum-vitals = trigger LCP. */}

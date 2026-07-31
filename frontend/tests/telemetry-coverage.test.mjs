@@ -91,14 +91,26 @@ describe('phủ telemetry (DEBT-2026-07-31-O)', () => {
   // Review #887 — CHỈ CÓ MẶT LÀ CHƯA ĐỦ. Script `defer` chạy theo THỨ TỰ TÀI
   // LIỆU, nên reporter đứng sau `api.js` thì lỗi trong api.js xảy ra khi
   // listener chưa gắn: khoảng mù vẫn còn, chỉ hẹp hơn. Bài này pin thứ tự.
+  const tagIndex = (src, file) =>
+    src.search(new RegExp(`<script\\b[^>]*(?<![-\\w])src\\s*=\\s*["'][^"'>]*${file}["']`));
+
   const reporterFirst = (src, label) => {
-    const iReporter = src.search(/<script\b[^>]*(?<![-\w])src\s*=\s*["'][^"'>]*error-reporter\.js["']/);
-    const iApi = src.search(/<script\b[^>]*(?<![-\w])src\s*=\s*["'][^"'>]*\/api\.js["']/);
+    const iReporter = tagIndex(src, 'error-reporter\\.js');
     assert.ok(iReporter !== -1, `${label}: không thấy thẻ error-reporter`);
-    if (iApi === -1) return; // trang không nạp api.js thì không có gì để đứng trước
-    assert.ok(iReporter < iApi,
-      `${label}: error-reporter phải đứng TRƯỚC api.js — nếu không, lỗi trong api.js`
-      + ' xảy ra trước khi listener gắn và không bao giờ được báo');
+    // Mọi script trong hàng đợi defer — kể cả MODULE (module defer mặc định) —
+    // chạy theo thứ tự tài liệu, nên bất cứ cái nào đứng trước reporter đều có
+    // thể ném lỗi khi listener chưa gắn (review #887 bắt `aver-chrome.js` đứng
+    // trước ở (public-content) dù comment nói ngược lại).
+    for (const [file, why] of [
+      ['\\/api\\.js', 'lỗi trong api.js'],
+      ['aver-chrome\\.js', 'lỗi lúc đánh giá module chrome'],
+    ]) {
+      const i = tagIndex(src, file);
+      if (i === -1) continue;
+      assert.ok(iReporter < i,
+        `${label}: error-reporter phải đứng TRƯỚC ${file.replace(/\\/g, '')} — nếu không, ${why}`
+        + ' xảy ra trước khi listener gắn và không bao giờ được báo');
+    }
   };
 
   for (const layout of groupLayouts()) {
