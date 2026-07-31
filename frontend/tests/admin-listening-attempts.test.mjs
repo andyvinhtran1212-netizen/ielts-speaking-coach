@@ -77,3 +77,30 @@ describe('nav admin', () => {
     assert.match(CHROME, /slug: 'attempts',\s+label: 'Lượt làm bài',\s+href: '\/pages\/admin\/listening\/attempts\.html'/);
   });
 });
+
+
+describe('type filter covers every test_type the table allows', () => {
+  // listening_tests.test_type accepts full | mini | drill | practice
+  // (CHECK, migration 173). A value missing from the dropdown is a whole
+  // bank of attempts an admin cannot filter to; a value missing from
+  // TYPE_LABEL renders as the raw slug in the "Loại" column.
+  const KINDS = ['full', 'mini', 'drill', 'practice'];
+
+  test('every kind is offered in the #la-type dropdown', () => {
+    for (const k of KINDS) {
+      assert.match(
+        PAGE, new RegExp(`<option value="${k}">`),
+        `#la-type is missing <option value="${k}"> — admins cannot filter that bank`,
+      );
+    }
+  });
+
+  test('every kind has a Vietnamese label', () => {
+    const decl = 'var TYPE_LABEL = {';
+    const block = JS.slice(JS.indexOf(decl) + decl.length);
+    const body = block.slice(0, block.indexOf('};'));
+    for (const k of KINDS) {
+      assert.match(body, new RegExp(`\\b${k}:`), `TYPE_LABEL is missing "${k}"`);
+    }
+  });
+});

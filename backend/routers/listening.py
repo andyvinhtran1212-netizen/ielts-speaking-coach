@@ -4845,15 +4845,18 @@ async def admin_list_listening_attempts(
 
     - user_query: khớp email/display_name (ilike) — admin gõ tên/email, không UUID.
     - test_query: khớp test_id ngoài (ILR-LIS-…) hoặc title (ilike).
-    - test_type: full | mini | drill. status: in_progress | submitted | abandoned.
+    - test_type: full | mini | drill | practice. status: in_progress | submitted | abandoned.
     Trả {items, total, limit, offset}; item KHÔNG mang grading_details (xem detail).
     """
     await require_admin(authorization)
 
     if status and status not in {"in_progress", "submitted", "abandoned"}:
         raise HTTPException(422, "status phải là in_progress | submitted | abandoned.")
-    if test_type and test_type not in {"full", "mini", "drill"}:
-        raise HTTPException(422, "test_type phải là full | mini | drill.")
+    # Mọi giá trị test_type mà listening_tests cho phép (CHECK, migration 173)
+    # đều phải lọc được ở đây — nếu không, lượt làm bài của loại mới vẫn nằm
+    # trong listening_test_attempts nhưng admin không có cách nào lọc ra.
+    if test_type and test_type not in {"full", "mini", "drill", "practice"}:
+        raise HTTPException(422, "test_type phải là full | mini | drill | practice.")
 
     # Resolve các filter dạng text → danh sách id TRƯỚC khi query attempts.
     user_ids: list | None = None

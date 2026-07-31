@@ -40,7 +40,11 @@
   }
 
   var ST_LABEL = { submitted: 'Đã nộp', in_progress: 'Đang làm', abandoned: 'Bỏ dở' };
-  var TYPE_LABEL = { mini: 'Lesson/Mini', drill: 'Drill', full: 'Full test' };
+  // Phải phủ mọi test_type mà backend chấp nhận (xem admin_list_listening_attempts);
+  // thiếu một loại thì cột "Loại" hiện giá trị thô thay vì nhãn tiếng Việt.
+  var TYPE_LABEL = {
+    mini: 'Lesson/Mini', drill: 'Drill', practice: 'Luyện nhanh', full: 'Full test',
+  };
 
   function accClass(a) { return a >= 0.85 ? 'ok' : (a >= 0.6 ? 'warn' : 'low'); }
 

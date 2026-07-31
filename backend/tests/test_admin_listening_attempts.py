@@ -188,6 +188,30 @@ def test_list_test_type_filter_resolves_test_ids(fake):
     assert out["items"][0]["test"]["test_type"] == "full"
 
 
+def test_list_accepts_every_test_type_the_table_allows(fake):
+    """Bộ lọc phải phủ đúng CHECK của listening_tests (migration 173).
+
+    Thiếu một loại thì lượt làm bài của loại đó vẫn nằm trong
+    listening_test_attempts nhưng admin gọi ?test_type=<loại> nhận 422 —
+    không có cách nào lọc ra. Đây là điều đã xảy ra với `practice`.
+    """
+    _seed(fake)
+    for kind in ("full", "mini", "drill", "practice"):
+        _list(test_type=kind)          # không được ném 422
+
+
+def test_list_practice_filter_resolves_test_ids(fake):
+    _seed(fake)                                     # mini
+    prac_tid = str(uuid4())
+    fake.tables["listening_tests"].append({
+        "id": prac_tid, "test_id": "ILR-LIS-KKR-TRAP-001",
+        "title": "Bẫy: sửa lời", "test_type": "practice"})
+    _seed(fake, test_id=prac_tid)
+    out = _list(test_type="practice")
+    assert out["total"] == 1
+    assert out["items"][0]["test"]["test_type"] == "practice"
+
+
 # ── Detail ─────────────────────────────────────────────────────────────────
 
 
