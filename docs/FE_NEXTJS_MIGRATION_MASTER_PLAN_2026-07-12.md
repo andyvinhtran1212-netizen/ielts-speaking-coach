@@ -1068,7 +1068,7 @@ Frontend rollback không sửa semantic writes đã xảy ra. Mutation ledger ph
 
 Với active exam/session, ưu tiên bidirectional compatibility. Nếu chưa chứng minh được, chỉ new sessions vào Next và giữ implementation affinity/drain đến maximum session TTL trước khi retire.
 
-### 12.5 Trạng thái thực thi — Pilot 1 xong, Pilot 2 prep xong (cập nhật 2026-07-25)
+### 12.5 [LỊCH SỬ — chốt 2026-07-25] Trạng thái thực thi thời điểm đó — Pilot 1 xong, Pilot 2 mới prep xong · *trạng thái hiện hành: §12.7*
 
 **Pilot 1 (landing) — PASS.** Soak restart#2 (release `856688dd`, 17/07 22:22 → 24/07 22:22) chốt PASS với ngoại lệ LCP ghi rõ: p75 = 4180ms tại điểm thoát là **outlier môi trường mạng khách trên n=22** (cụm buổi chiều; máy đo tự đo nhanh, code không hồi quy) — không phải regression. Hồ sơ: `docs/SOAK_DECLARATION_PILOT_1.md`. Đây là soak-dài cuối cùng theo lối cũ; từ Pilot 2 trở đi áp **early-stage profile** (ADR-013, xem §12.3).
 
