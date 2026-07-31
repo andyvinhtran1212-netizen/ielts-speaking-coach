@@ -66,6 +66,22 @@ describe('legacy-browser-scan (DEBT-2026-07-29-K)', () => {
     assert.match(r.out, /toSorted/);
   });
 
+  // Review #882 vòng 2 — cổng phải FAIL CLOSED. Nếu Next đổi bố cục output thì
+  // thư mục chunk biến mất/rỗng ĐÚNG lúc nâng phiên bản, tức đúng lúc cần chặn;
+  // trả "sạch" lúc đó là tự tắt cổng.
+  test('thư mục chunk không tồn tại → đỏ, KHÔNG phải "sạch"', () => {
+    const missing = path.join(tmpdir(), 'chunkscan-khong-ton-tai-' + process.pid);
+    const r = spawnSync(process.execPath, [SCANNER, missing], { encoding: 'utf8' });
+    assert.equal(r.status, 1, 'thiếu thư mục mà báo xanh = cổng tự tắt\n' + (r.stdout + r.stderr));
+    assert.match(r.stdout + r.stderr, /KHÔNG thấy thư mục chunk/);
+  });
+
+  test('thư mục chunk rỗng → đỏ (quét 0 file thì không kết luận được)', () => {
+    const r = scan({});
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.out, /RỖNG/);
+  });
+
   test('dòng ĐỊNH NGHĨA polyfill không bị tính là dùng', () => {
     // Next tự chèn `Object.hasOwn||(Object.hasOwn=function(){})` vào bundle.
     const r = scan({ 'e.js': 'Object.hasOwn||(Object.hasOwn=function(e,t){return false});' });

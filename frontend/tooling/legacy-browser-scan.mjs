@@ -54,9 +54,18 @@ const API_BANNED = [
   { pattern: '.toReversed(', since: 'Safari 16.4', polyfilledAs: null },
 ];
 
+// Review #882 — FAIL CLOSED. Trước đây thiếu thư mục thì thoát 0 kèm lời nhắc
+// "chạy build trước". Nhưng trong CI bước build ĐÃ chạy, nên thư mục thiếu chỉ
+// có thể nghĩa là Next đổi bố cục output — tức đúng lúc nâng phiên bản, đúng
+// lúc cổng này cần lên tiếng nhất, thì nó lại tự tắt và báo xanh.
 if (!existsSync(CHUNKS)) {
-  console.log('legacy-browser-scan: chưa có .next/static/chunks — chạy `npm run build` trước.');
-  process.exit(0);
+  console.error(
+    `legacy-browser-scan: KHÔNG thấy thư mục chunk: ${CHUNKS}\n`
+    + '  - Chạy cục bộ? `npm run build` trước đã.\n'
+    + '  - Trong CI (đã build)? Next có thể đã đổi bố cục output — CẬP NHẬT đường dẫn\n'
+    + '    trong bộ quét này, đừng bỏ qua: đây đúng là ca mà cổng phải chặn.',
+  );
+  process.exit(1);
 }
 
 // Đọc dòng `POLYFILLED: ...` trong instrumentation-client — hợp đồng tường
@@ -81,6 +90,17 @@ function walkJs(dir, out = []) {
 }
 
 const files = walkJs(CHUNKS);
+
+// Cùng một lớp thất bại: thư mục còn đó nhưng rỗng (bố cục đổi, chunk sang chỗ
+// khác) thì "quét 0 file, sạch" là câu trả lời sai.
+if (files.length === 0) {
+  console.error(
+    `legacy-browser-scan: thư mục chunk RỖNG: ${CHUNKS}\n`
+    + '  Không có gì để quét ⇒ không thể kết luận "sạch". Kiểm tra bố cục output của Next.',
+  );
+  process.exit(1);
+}
+
 const problems = [];
 
 for (const full of files) {
