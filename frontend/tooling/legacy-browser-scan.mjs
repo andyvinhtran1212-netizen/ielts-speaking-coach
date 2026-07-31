@@ -27,8 +27,14 @@ import { fileURLToPath } from 'node:url';
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 // Tham số 1 = thư mục chunk cần quét (mặc định là output build). Có tham số để
 // test chỉ được vào fixture — nếu không thì chính bộ quét này không kiểm được.
-const CHUNKS = process.argv[2]
-  ? path.resolve(process.argv[2])
+// `--static-only`: bỏ qua chunk, chỉ quét nguồn tĩnh. Nhờ vậy phần KHÔNG cần
+// build chạy được trong bộ test thường (mọi PR), thay vì chỉ trong job có build
+// và phụ thuộc vào path filter — review #882 vòng 8.
+const STATIC_ONLY = process.argv.includes('--static-only');
+const POSITIONAL = process.argv.slice(2).filter((a) => !a.startsWith('--'));
+
+const CHUNKS = POSITIONAL[0]
+  ? path.resolve(POSITIONAL[0])
   : path.join(FRONTEND, '.next', 'static', 'chunks');
 
 // Review #882 (vòng 6) — chunk KHÔNG phải nơi duy nhất chạy trên máy khách.
@@ -41,16 +47,16 @@ const CHUNKS = process.argv[2]
 // `public/assets/**` vì có bundle vendor được import động — review #882 vòng 7.
 const STATIC_JS = process.env.LEGACY_SCAN_STATIC_DIR
   ? path.resolve(process.env.LEGACY_SCAN_STATIC_DIR)
-  : (process.argv[2] ? null : path.join(FRONTEND, 'public'));
+  : ((POSITIONAL[0] && !STATIC_ONLY) ? null : path.join(FRONTEND, 'public'));
 
 // Sàn hiện tại = iOS/Safari 15 (xem `browserslist` trong package.json).
 // Mỗi mục ghi rõ phiên bản Safari ĐẦU TIÊN hỗ trợ, để lần sau nâng sàn thì
 // biết bỏ mục nào đi.
+// Dùng REGEX, không so chuỗi cứng: JS cho phép khoảng trắng/xuống dòng tuỳ ý
+// giữa `static` và `{`, nên `class X { static  { … } }` từng lọt (review #882).
 const SYNTAX_BANNED = [
-  { pattern: 'static{', label: 'class static block', since: 'Safari 16.4' },
-  { pattern: 'static {', label: 'class static block', since: 'Safari 16.4' },
-  { pattern: '(?<=', label: 'regexp lookbehind', since: 'Safari 16.4' },
-  { pattern: '(?<!', label: 'regexp lookbehind phủ định', since: 'Safari 16.4' },
+  { re: /\bstatic\s*\{/, label: 'class static block', since: 'Safari 16.4' },
+  { re: /\(\?<[=!]/, label: 'regexp lookbehind', since: 'Safari 16.4' },
 ];
 
 // API vượt sàn mà KHÔNG có trong instrumentation-client.ts ⇒ báo lỗi.
@@ -84,7 +90,7 @@ const API_BANNED = [
 // "chạy build trước". Nhưng trong CI bước build ĐÃ chạy, nên thư mục thiếu chỉ
 // có thể nghĩa là Next đổi bố cục output — tức đúng lúc nâng phiên bản, đúng
 // lúc cổng này cần lên tiếng nhất, thì nó lại tự tắt và báo xanh.
-if (!existsSync(CHUNKS)) {
+if (!STATIC_ONLY && !existsSync(CHUNKS)) {
   console.error(
     `legacy-browser-scan: KHÔNG thấy thư mục chunk: ${CHUNKS}\n`
     + '  - Chạy cục bộ? `npm run build` trước đã.\n'
@@ -99,8 +105,8 @@ if (!existsSync(CHUNKS)) {
 // file, nên chỉ cần cái tên API xuất hiện trong phần bình luận là đã được coi
 // như đã vá — xoá sạch phần cài đặt mà cổng vẫn xanh. Tham số 2 để test trỏ vào
 // fixture.
-const DECL_FILES = process.argv[3]
-  ? [path.resolve(process.argv[3])]
+const DECL_FILES = POSITIONAL[1]
+  ? [path.resolve(POSITIONAL[1])]
   : ['instrumentation-client.ts', 'instrumentation-client.js'].map((f) => path.join(FRONTEND, f));
 
 const polyfilled = new Set();
@@ -118,20 +124,22 @@ for (const f of DECL_FILES.filter(existsSync)) {
 // Review #882 — ĐI ĐỆ QUY. Next đặt chunk theo route xuống các thư mục con
 // (`.next/static/chunks/app/...`) tuỳ cấu hình/phiên bản; đọc phẳng một tầng
 // thì cổng này báo "sạch" trong khi chunk lỗi nằm ngay dưới đó.
-function walkJs(dir, out = []) {
+function walkExt(dir, ext, out = []) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) walkJs(full, out);
-    else if (entry.name.endsWith('.js')) out.push(full);
+    if (entry.isDirectory()) walkExt(full, ext, out);
+    else if (entry.name.endsWith(ext)) out.push(full);
   }
   return out;
 }
 
-const chunkFiles = walkJs(CHUNKS);
+const walkJs = (dir) => walkExt(dir, '.js');
+
+const chunkFiles = STATIC_ONLY ? [] : walkJs(CHUNKS);
 
 // Cùng một lớp thất bại: thư mục còn đó nhưng rỗng (bố cục đổi, chunk sang chỗ
 // khác) thì "quét 0 file, sạch" là câu trả lời sai.
-if (chunkFiles.length === 0) {
+if (!STATIC_ONLY && chunkFiles.length === 0) {
   console.error(
     `legacy-browser-scan: thư mục chunk RỖNG: ${CHUNKS}\n`
     + '  Không có gì để quét ⇒ không thể kết luận "sạch". Kiểm tra bố cục output của Next.',
@@ -143,10 +151,32 @@ if (chunkFiles.length === 0) {
 //  - chunk Next: instrumentation-client chạy trước ⇒ API đã khai là an toàn;
 //  - public/js: phục vụ nguyên xi, trang legacy KHÔNG nạp instrumentation ⇒
 //    không miễn trừ gì hết.
-const ROOTS = [{ dir: CHUNKS, files: chunkFiles, allowPolyfilled: true, kind: 'chunk' }];
+const ROOTS = STATIC_ONLY
+  ? []
+  : [{ dir: CHUNKS, files: chunkFiles, allowPolyfilled: true, kind: 'chunk' }];
 if (STATIC_JS && existsSync(STATIC_JS)) {
   ROOTS.push({
     dir: STATIC_JS, files: walkJs(STATIC_JS), allowPolyfilled: false, kind: 'script tĩnh',
+  });
+  // Review #882 vòng 8 — script INLINE trong HTML cũng chạy nguyên xi. Ví dụ
+  // thật tìm được: `public/pages/speaking.html` gọi `.split(' ').at(-1)` ngay
+  // trong renderUser ⇒ iOS 15.0–15.3 ném TypeError giữa trang Speaking.
+  // Chỉ lấy khối <script> KHÔNG có src và không phải type dữ liệu (JSON…).
+  const inline = [];
+  for (const html of walkExt(STATIC_JS, '.html')) {
+    const src = readFileSync(html, 'utf8');
+    let i = 0;
+    for (const m of src.matchAll(/<script(?![^>]*\bsrc=)([^>]*)>([\s\S]*?)<\/script>/gi)) {
+      const attrs = m[1] || '';
+      const typeMatch = /type\s*=\s*["']([^"']+)["']/i.exec(attrs);
+      const type = typeMatch ? typeMatch[1].toLowerCase() : 'text/javascript';
+      if (!/javascript|module|^text\/babel$/.test(type)) continue;
+      i += 1;
+      inline.push({ path: `${path.relative(STATIC_JS, html)}#script${i}`, source: m[2] });
+    }
+  }
+  ROOTS.push({
+    dir: STATIC_JS, inline, allowPolyfilled: false, kind: 'script inline',
   });
 }
 
@@ -185,12 +215,15 @@ function hasRealUse(src, pattern) {
 const problems = [];
 
 for (const root of ROOTS) {
-for (const full of root.files) {
-  const file = `${root.kind}: ${path.relative(root.dir, full)}`;
-  const src = readFileSync(full, 'utf8');
-  for (const { pattern, label, since } of SYNTAX_BANNED) {
-    if (src.includes(pattern)) {
-      problems.push(`CÚ PHÁP  ${file}: ${label} (\`${pattern}\`) — cần ${since}; cả chunk sẽ không parse được dưới sàn đó`);
+const units = root.inline
+  ? root.inline.map((u) => ({ label: u.path, read: () => u.source }))
+  : root.files.map((f) => ({ label: path.relative(root.dir, f), read: () => readFileSync(f, 'utf8') }));
+for (const unit of units) {
+  const file = `${root.kind}: ${unit.label}`;
+  const src = unit.read();
+  for (const { re, label, since } of SYNTAX_BANNED) {
+    if (re.test(src)) {
+      problems.push(`CÚ PHÁP  ${file}: ${label} — cần ${since}; cả file sẽ không parse được dưới sàn đó`);
     }
   }
   for (const { pattern, since, requires } of API_BANNED) {
@@ -226,6 +259,6 @@ if (problems.length) {
 
 console.log(
   'legacy-browser-scan: sạch — '
-  + ROOTS.map((r) => `${r.files.length} ${r.kind}`).join(' + ')
+  + ROOTS.map((r) => `${(r.inline || r.files).length} ${r.kind}`).join(' + ')
   + ', sàn iOS/Safari 15.',
 );

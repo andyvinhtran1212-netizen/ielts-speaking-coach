@@ -17,6 +17,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -60,6 +61,17 @@ describe('sàn trình duyệt (DEBT-2026-07-29-K)', () => {
     // Hành vi của từng polyfill do tests/legacy-safari-polyfills.test.mjs kiểm —
     // ở đây chỉ pin rằng file cài đặt tồn tại và được nạp.
     assert.ok(existsSync(path.join(FRONTEND, 'lib', 'polyfills', 'legacy-safari.js')));
+  });
+
+  // Review #882 vòng 8 — phần quét nguồn TĨNH không cần build, nên chạy thẳng
+  // ở đây: mọi PR đều qua, không phụ thuộc path filter của job có build.
+  // Đây là cách duy nhất bắt được lỗi kiểu speaking.html (`.at(-1)` inline)
+  // trong một PR chỉ sửa HTML.
+  test('nguồn tĩnh + script inline hiện tại đều dưới sàn iOS 15', () => {
+    const r = spawnSync(process.execPath,
+      [path.join(FRONTEND, 'tooling', 'legacy-browser-scan.mjs'), '--static-only'],
+      { encoding: 'utf8' });
+    assert.equal(r.status, 0, (r.stdout || '') + (r.stderr || ''));
   });
 
   test('bộ quét chunk tồn tại và được CI gọi sau build', () => {

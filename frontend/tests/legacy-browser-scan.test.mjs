@@ -146,6 +146,33 @@ describe('legacy-browser-scan (DEBT-2026-07-29-K)', () => {
     assert.match(r.out, /KHÔNG nạp instrumentation-client/);
   });
 
+  // Review #882 vòng 8 — script INLINE trong HTML cũng chạy nguyên xi. Ví dụ
+  // thật tìm được: speaking.html gọi `.split(' ').at(-1)` giữa renderUser.
+  test('script inline trong HTML bị quét', () => {
+    const r = scanStatic({
+      'page.html': '<html><body><script>\nconst x = list.at(-1);\n</script></body></html>',
+    });
+    assert.equal(r.code, 1, 'inline script chạy nguyên xi, phải quét\n' + r.out);
+    assert.match(r.out, /script inline/);
+    assert.match(r.out, /page\.html#script1/);
+  });
+
+  test('script inline có src hoặc type dữ liệu thì bỏ qua', () => {
+    const r = scanStatic({
+      'ok.html': '<script src="/js/app.js"></script>'
+        + '<script type="application/json">{"a":".at("}</script>',
+    });
+    assert.equal(r.code, 0, 'script ngoài đã quét ở gốc khác; JSON không phải code\n' + r.out);
+  });
+
+  test('class static block với nhiều khoảng trắng vẫn bị bắt', () => {
+    const r = scan({ 'a.js': 'class X { static  { this.y = 1 } }' });
+    assert.equal(r.code, 1, 'JS cho phép khoảng trắng tuỳ ý giữa static và {\n' + r.out);
+    assert.match(r.out, /class static block/);
+    const r2 = scan({ 'b.js': 'class Y {\n  static\n  { this.z = 2 }\n}' });
+    assert.equal(r2.code, 1, 'kể cả xuống dòng\n' + r2.out);
+  });
+
   // Review #882 vòng 7 — public/** chưa minify nên khoảng trắng trước `(` là
   // hợp lệ; phép so chuỗi cứng trước đây không thấy.
   test('có khoảng trắng trước dấu ngoặc vẫn bị bắt', () => {
