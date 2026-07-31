@@ -1,0 +1,648 @@
+"""AUDIT F1 (2026-07-14) — GET /admin/error-logs/rollback-metrics.
+
+The Pilot Entry checklist §4 froze two rollback triggers (error-rate > 2×
+legacy baseline / 30-minute window; LCP p75 > 1.5× baseline / 24h) but the
+dashboard could not compute either: no page-view denominator, no route
+filter, no sub-day window, no baseline delta. These tests pin the endpoint
+that closes that gap — INCLUDING the audit's own verification scenario
+(100 views / 2 errors legacy vs 100 views / 5 errors next in 30 minutes →
+delta 2.5× → breach).
+"""
+
+from __future__ import annotations
+
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
+import routers.error_logs as el
+
+
+class _Result:
+    def __init__(self, data, count=None):
+        self.data = data
+        self.count = count
+
+
+class _Query:
+    """Chain-anything stub. NOTE (review #823): `__getattr__` answers ANY method
+    with `self`, so this stub cannot prove a PostgREST filter is spelled
+    correctly — it only pins the Python-side logic. The `event_data->>path`
+    exact-count syntax the exposure block relies on was verified against
+    production separately.
+
+    It DOES model the two things that matter here: the `.range()` page window,
+    and `count="exact"` — which is answered from the FULL row set, not the page
+    slice, because that is the whole point of an exact count."""
+
+    def __init__(self, rows, eqs=None):
+        self._rows = rows
+        self._range = (0, len(rows) - 1)
+        self._count_mode = None
+        self._eqs = dict(eqs or {})
+        self._likes: list[tuple[str, str]] = []
+
+    def __getattr__(self, _name):
+        def _chain(*_a, **_kw):
+            return self
+
+        return _chain
+
+    def select(self, *_a, **kw):
+        self._count_mode = kw.get("count")
+        return self
+
+    def eq(self, field, value):
+        self._eqs[field] = value
+        return self
+
+    def like(self, field, pattern):
+        # DEBT-2026-07-29-L — the subtree half of the exposure count uses LIKE.
+        # Modelled (prefix patterns only, which is all the endpoint emits) so
+        # the prefix test measures something instead of passing on a no-op.
+        self._likes.append((field, pattern))
+        return self
+
+    def range(self, start, end):
+        self._range = (start, end)
+        return self
+
+    def _field(self, row, field):
+        if field.startswith("event_data->>"):
+            return (row.get("event_data") or {}).get(field.split(">>", 1)[1])
+        return row.get(field)
+
+    def _matches(self, row) -> bool:
+        for field, pattern in self._likes:
+            got = self._field(row, field)
+            if not isinstance(got, str) or not pattern.endswith("%"):
+                return False
+            if not got.startswith(pattern[:-1]):
+                return False
+        for field, want in self._eqs.items():
+            if field == "event_name":
+                got = row.get("event_name")
+            elif field.startswith("event_data->>"):
+                got = (row.get("event_data") or {}).get(field.split(">>", 1)[1])
+            else:
+                got = row.get(field)
+            if got != want:
+                return False
+        return True
+
+    def execute(self):
+        if self._count_mode == "exact":
+            return _Result([], count=sum(1 for r in self._rows if self._matches(r)))
+        s, e = self._range
+        return _Result(self._rows[s:e + 1])
+
+
+class _FakeAdmin:
+    """Dispatches by table name — rollback-metrics reads TWO tables."""
+
+    def __init__(self, tables: dict):
+        self._tables = tables
+
+    def table(self, name):
+        return _Query(self._tables.get(name, []))
+
+
+def _client(monkeypatch, analytics=None, errors=None):
+    async def _ok(_authz):
+        return {"id": "admin", "role": "admin"}
+
+    monkeypatch.setattr(el, "require_admin", _ok)
+    monkeypatch.setattr(el, "supabase_admin", _FakeAdmin({
+        "analytics_events": analytics or [],
+        "error_logs": errors or [],
+    }))
+    app = FastAPI()
+    app.include_router(el.router)
+    app.include_router(el._admin_router)
+    return TestClient(app)
+
+
+def _pv(impl, path="/"):
+    return {"event_name": "page_view",
+            "event_data": {"path": path, "implementation": impl}}
+
+
+def _wv(impl, lcp, path="/", **extra_vitals):
+    ed = {"path": path, "implementation": impl, "lcp": lcp}
+    ed.update(extra_vitals)
+    return {"event_name": "web_vitals", "event_data": ed}
+
+
+def _err(impl, url="/"):
+    return {"url": url, "extra": {"implementation": impl}}
+
+
+AUTHZ = {"Authorization": "Bearer x"}
+
+
+def test_audit_verification_scenario_error_rate_breach(monkeypatch):
+    """The audit's acceptance scenario: legacy 100 views / 2 errors, next
+    100 views / 5 errors, 30-minute window → 0.05 vs 0.02 = 2.5× > 2× →
+    BREACH, computed from data — not eyeballed from raw counts."""
+    analytics = [_pv("legacy")] * 100 + [_pv("next")] * 100
+    errors = [_err("legacy")] * 2 + [_err("next")] * 5
+    res = _client(monkeypatch, analytics, errors).get(
+        "/admin/error-logs/rollback-metrics?route=/&window_minutes=30",
+        headers=AUTHZ,
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["implementations"]["next"]["error_rate"] == 0.05
+    assert body["implementations"]["legacy"]["error_rate"] == 0.02
+    v = body["error_verdict"]
+    assert v["status"] == "breach"
+    assert v["basis"] == "relative"
+    assert v["delta_x"] == 2.5
+    assert v["baseline_source"] == "legacy-window"
+
+
+def test_ok_when_under_threshold(monkeypatch):
+    # next 3/100 = 0.03 vs legacy 2/100 = 0.02 → 1.5× ≤ 2× → ok
+    analytics = [_pv("legacy")] * 100 + [_pv("next")] * 100
+    errors = [_err("legacy")] * 2 + [_err("next")] * 3
+    body = _client(monkeypatch, analytics, errors).get(
+        "/admin/error-logs/rollback-metrics", headers=AUTHZ
+    ).json()
+    assert body["error_verdict"]["status"] == "ok"
+    assert body["error_verdict"]["delta_x"] == 1.5
+
+
+def test_route_filter_excludes_other_paths(monkeypatch):
+    """Events/errors on OTHER routes must not pollute the measured route —
+    the frozen trigger is per-route ('trên route đã cutover')."""
+    analytics = (
+        [_pv("next", "/")] * 30
+        + [_pv("next", "/grammar")] * 500          # other route noise
+        + [_wv("next", 9999, path="/grammar")] * 50
+    )
+    errors = [_err("next", "/")] * 1 + [_err("next", "/grammar")] * 40
+    body = _client(monkeypatch, analytics, errors).get(
+        "/admin/error-logs/rollback-metrics?route=/", headers=AUTHZ
+    ).json()
+    nxt = body["implementations"]["next"]
+    assert nxt["page_views"] == 30
+    assert nxt["errors"] == 1
+    assert nxt["vitals"]["samples"] == 0
+
+
+# ── DEBT-2026-07-29-L: route family matching ───────────────────────────────
+# Measured on production 2026-07-29: route `/grammar` returned 0 views / 0
+# errors DURING the pilot-2 observation window, because the paths actually
+# recorded are `/grammar/:category/:slug`. Exact matching makes every
+# parameterised route unmeasurable, and answers "zero" rather than refusing.
+
+def _grammar_traffic():
+    analytics = (
+        [_pv("next", "/grammar")] * 3                            # the route itself
+        + [_pv("next", "/grammar/tenses/present-perfect")] * 40  # below it
+        + [_pv("next", "/grammar-quiz/x")] * 25                  # NOT below it
+        + [_wv("next", 900, path="/grammar/tenses/present-perfect")] * 12
+        + [_wv("next", 9999, path="/grammar-quiz/x")] * 12
+    )
+    errors = (
+        [_err("next", "/grammar")] * 1
+        + [_err("next", "/grammar/tenses/present-perfect")] * 2
+        + [_err("next", "/grammar-quiz/x")] * 30
+    )
+    return analytics, errors
+
+
+def test_exact_match_is_the_default_and_misses_the_subtree(monkeypatch):
+    """Back-compat pin: every measurement logged before this change must stay
+    reproducible, so the default must NOT quietly widen."""
+    analytics, errors = _grammar_traffic()
+    body = _client(monkeypatch, analytics, errors).get(
+        "/admin/error-logs/rollback-metrics?route=/grammar&window_minutes=1440",
+        headers=AUTHZ,
+    ).json()
+    assert body["match"] == "exact"
+    assert body["implementations"]["next"]["page_views"] == 3
+    assert body["implementations"]["next"]["errors"] == 1
+    assert body["exposure"]["evaluated_views"] == 3
+
+
+def test_prefix_match_counts_the_route_family_and_nothing_else(monkeypatch):
+    analytics, errors = _grammar_traffic()
+    body = _client(monkeypatch, analytics, errors).get(
+        "/admin/error-logs/rollback-metrics?route=/grammar&window_minutes=1440&match=prefix",
+        headers=AUTHZ,
+    ).json()
+    nxt = body["implementations"]["next"]
+    assert body["match"] == "prefix"
+    assert nxt["page_views"] == 43          # 3 own + 40 below
+    assert nxt["errors"] == 3               # 1 own + 2 below
+    assert nxt["vitals"]["samples"] == 12   # /grammar-quiz/x excluded
+    assert nxt["vitals"]["lcp_p75"] == 900  # the 9999s belong to a sibling
+    # `/grammar-quiz/x` starts with the STRING "/grammar" but is a different
+    # route — the boundary is the path separator, not a substring.
+    assert body["exposure"]["evaluated_views"] == 43
+
+
+def test_unknown_match_mode_falls_back_to_exact(monkeypatch):
+    analytics, errors = _grammar_traffic()
+    body = _client(monkeypatch, analytics, errors).get(
+        "/admin/error-logs/rollback-metrics?route=/grammar&match=everything",
+        headers=AUTHZ,
+    ).json()
+    assert body["match"] == "exact"
+    assert body["implementations"]["next"]["page_views"] == 3
+
+
+def test_prefix_on_root_route_does_not_swallow_the_whole_site(monkeypatch):
+    """`/` is the one route where a naive prefix rule matches EVERY path on the
+    site, silently turning a per-route trigger into a site-wide one. Review #879
+    caught that the first cut of this test proved nothing: it sent match=exact,
+    so it passed with or without the guard. It now sends match=prefix."""
+    analytics = (
+        [_pv("next", "/")] * 5
+        + [_pv("next", "/grammar/x/y")] * 50
+        + [_wv("next", 9999, path="/grammar/x/y")] * 30
+    )
+    errors = [_err("next", "/")] * 1 + [_err("next", "/grammar/x/y")] * 20
+    body = _client(monkeypatch, analytics, errors).get(
+        "/admin/error-logs/rollback-metrics?route=/&match=prefix&window_minutes=1440",
+        headers=AUTHZ,
+    ).json()
+    nxt = body["implementations"]["next"]
+    assert nxt["page_views"] == 5, "site-wide totals must not be served as `/`"
+    assert nxt["errors"] == 1
+    assert nxt["vitals"]["samples"] == 0
+    assert body["exposure"]["evaluated_views"] == 5
+    # The coercion must be VISIBLE — an admin who asked for prefix and silently
+    # got exact would read the number as the whole tree.
+    assert body["match"] == "exact"
+    assert body["match_coerced_from"] == "prefix"
+
+
+def test_trailing_slash_route_is_not_counted_twice(monkeypatch):
+    """Review #879 — `LIKE '/grammar/%'` also matches `/grammar/` itself, so a
+    route that already ends in `/` was counted once by the exact query and again
+    by the subtree query. The table counts it once; the two numbers on the same
+    screen must not disagree."""
+    analytics = (
+        [_pv("next", "/grammar/")] * 4
+        + [_pv("next", "/grammar/tenses/present-perfect")] * 6
+    )
+    body = _client(monkeypatch, analytics, []).get(
+        "/admin/error-logs/rollback-metrics?route=/grammar/&match=prefix&window_minutes=1440",
+        headers=AUTHZ,
+    ).json()
+    assert body["implementations"]["next"]["page_views"] == 10
+    assert body["exposure"]["evaluated_views"] == 10, "exposure must agree with the table"
+    assert body["exposure"]["exact"] is True
+
+
+def test_like_metacharacters_in_route_refuse_the_exact_count(monkeypatch):
+    """Review #879 — `%`/`_` are legal path characters AND LIKE wildcards, and
+    PostgREST has no ESCAPE clause. The table matcher treats them literally, so
+    an unescaped LIKE would count siblings the table excludes. Better to fall
+    back to the scanned count, which is labelled a lower bound, than to publish
+    two disagreeing numbers.
+
+    NOTE: `_Query.like()` matches literally, so this test cannot reproduce the
+    wildcard inflation itself — it pins the REFUSAL (`exact: false`), which is
+    the behaviour we control. Same limitation the class docstring records for
+    every PostgREST filter here."""
+    analytics = (
+        [_pv("next", "/a_b")] * 2
+        + [_pv("next", "/a_b/child")] * 3
+        + [_pv("next", "/axb/child")] * 7   # only a LIKE wildcard would take these
+    )
+    body = _client(monkeypatch, analytics, []).get(
+        "/admin/error-logs/rollback-metrics?route=/a_b&match=prefix&window_minutes=1440",
+        headers=AUTHZ,
+    ).json()
+    # The table half matches literally — `_` is not a wildcard there.
+    assert body["implementations"]["next"]["page_views"] == 5
+    assert body["exposure"]["exact"] is False, "must not publish a wildcard-inflated count"
+    assert body["exposure"]["evaluated_views"] == 5
+
+
+def test_match_coerced_from_is_null_when_the_mode_was_honoured(monkeypatch):
+    analytics, errors = _grammar_traffic()
+    for mode in ("exact", "prefix"):
+        body = _client(monkeypatch, analytics, errors).get(
+            f"/admin/error-logs/rollback-metrics?route=/grammar&match={mode}",
+            headers=AUTHZ,
+        ).json()
+        assert body["match"] == mode
+        assert body["match_coerced_from"] is None
+
+
+def test_insufficient_sample_never_pretends_to_conclude(monkeypatch):
+    """A rate over 5 views must not look like a verdict (audit F1: sample
+    sufficiency is part of the trigger's honesty)."""
+    analytics = [_pv("next")] * 5
+    errors = [_err("next")] * 3     # 60% error rate — but n=5
+    body = _client(monkeypatch, analytics, errors).get(
+        "/admin/error-logs/rollback-metrics", headers=AUTHZ
+    ).json()
+    assert body["error_verdict"]["status"] == "insufficient-sample"
+    assert body["error_verdict"]["delta_x"] is None
+    assert body["min_sample"]["views"] == el.ROLLBACK_MIN_VIEWS
+
+
+def test_no_baseline_falls_back_to_absolute_guard(monkeypatch):
+    """Pilot 1: legacy no longer serves `/`, so there is no in-window legacy
+    baseline. Status must SAY no-baseline (not fake an ok), and the absolute
+    ceiling still catches an on-fire route."""
+    # Under the absolute ceiling → explicit "no-baseline"
+    body = _client(
+        monkeypatch, [_pv("next")] * 100, [_err("next")] * 1
+    ).get("/admin/error-logs/rollback-metrics", headers=AUTHZ).json()
+    assert body["error_verdict"]["status"] == "no-baseline"
+    assert body["error_verdict"]["basis"] == "absolute"
+
+    # Over the absolute ceiling (6% > 5%) → breach even without a baseline
+    body = _client(
+        monkeypatch, [_pv("next")] * 100, [_err("next")] * 6
+    ).get("/admin/error-logs/rollback-metrics", headers=AUTHZ).json()
+    assert body["error_verdict"]["status"] == "breach"
+    assert body["error_verdict"]["basis"] == "absolute"
+
+
+def test_param_baseline_used_when_legacy_traffic_insufficient(monkeypatch):
+    """A pre-cutover measurement can be supplied as ?baseline_error_rate= —
+    used only when the in-window legacy sample is insufficient."""
+    analytics = [_pv("next")] * 100 + [_pv("legacy")] * 3  # legacy n=3 < min
+    errors = [_err("next")] * 5
+    body = _client(monkeypatch, analytics, errors).get(
+        "/admin/error-logs/rollback-metrics?baseline_error_rate=0.02",
+        headers=AUTHZ,
+    ).json()
+    v = body["error_verdict"]
+    assert v["baseline_source"] == "param"
+    assert v["delta_x"] == 2.5
+    assert v["status"] == "breach"
+
+
+def test_lcp_p75_nearest_rank_and_relative_breach(monkeypatch):
+    """p75 is nearest-rank (deterministic); LCP verdict follows the frozen
+    1.5× rule against the in-window legacy baseline."""
+    analytics = (
+        [_pv("next")] * 30 + [_pv("legacy")] * 30
+        + [_wv("next", lcp) for lcp in range(100, 2100, 100)]   # 100..2000, n=20
+        + [_wv("legacy", 1000)] * 12
+    )
+    body = _client(monkeypatch, analytics, []).get(
+        "/admin/error-logs/rollback-metrics?window_minutes=1440", headers=AUTHZ
+    ).json()
+    nxt = body["implementations"]["next"]["vitals"]
+    # nearest-rank p75 of 100..2000 step 100: ceil(0.75*20)=15th value = 1500
+    assert nxt["lcp_p75"] == 1500
+    assert nxt["samples"] == 20
+    v = body["vitals_verdict"]
+    assert v["baseline_lcp_ms"] == 1000
+    assert v["delta_x"] == 1.5
+    assert v["status"] == "ok"          # 1.5× is NOT > 1.5×
+
+
+def test_lcp_breach_over_baseline(monkeypatch):
+    analytics = (
+        [_wv("next", 1600)] * 12 + [_wv("legacy", 1000)] * 12
+    )
+    body = _client(monkeypatch, analytics, []).get(
+        "/admin/error-logs/rollback-metrics?window_minutes=1440", headers=AUTHZ
+    ).json()
+    assert body["vitals_verdict"]["status"] == "breach"
+    assert body["vitals_verdict"]["delta_x"] == 1.6
+
+
+def test_lcp_insufficient_sample(monkeypatch):
+    body = _client(monkeypatch, [_wv("next", 1000)] * 3, []).get(
+        "/admin/error-logs/rollback-metrics", headers=AUTHZ
+    ).json()
+    assert body["vitals_verdict"]["status"] == "insufficient-sample"
+
+
+def test_window_clamped(monkeypatch):
+    """DEBT-2026-07-22-F — the table half now reaches 90 days, and a clamp is
+    REPORTED. The old ceiling was 1440: a caller asking for 30 days got a
+    24-hour number under the same field name, with no error and no warning."""
+    client = _client(monkeypatch)
+
+    # Above the ceiling → clamped, and the response says so.
+    over = client.get(
+        "/admin/error-logs/rollback-metrics?window_minutes=999999", headers=AUTHZ
+    ).json()
+    assert over["window_minutes"] == el.ROLLBACK_TABLE_MAX_WINDOW_MIN
+    assert over["window_minutes_requested"] == 999999
+    assert over["window_clamped"] is True
+
+    # Below the floor → clamped up, also reported.
+    under = client.get(
+        "/admin/error-logs/rollback-metrics?window_minutes=1", headers=AUTHZ
+    ).json()
+    assert under["window_minutes"] == 5
+    assert under["window_minutes_requested"] == 1
+    assert under["window_clamped"] is True
+
+
+def test_thirty_day_window_is_granted_not_silently_cut_to_24h(monkeypatch):
+    """The live failure on 2026-07-22: 2880 / 6833 / 11531 / 43200 all returned
+    the SAME number, because every one of them was clamped to 1440. That reads
+    as near-zero traffic across the whole window and nearly produced a false
+    "exposure floor missed" call; the real count over the same span was 108."""
+    client = _client(monkeypatch)
+    for minutes in (2880, 6833, 11531, 43200):
+        body = client.get(
+            f"/admin/error-logs/rollback-metrics?window_minutes={minutes}", headers=AUTHZ
+        ).json()
+        assert body["window_minutes"] == minutes, f"{minutes} was clamped"
+        assert body["window_clamped"] is False
+        assert body["windows"]["table"] == minutes
+
+
+def test_verdict_windows_stay_pinned_when_the_table_window_grows(monkeypatch):
+    """Raising the table ceiling must NOT loosen the frozen triggers — the
+    verdicts are the rollback contract and stay at 30 min / 24h."""
+    body = _client(monkeypatch).get(
+        "/admin/error-logs/rollback-metrics?window_minutes=43200", headers=AUTHZ
+    ).json()
+    assert body["error_verdict"]["window_minutes"] == el.ROLLBACK_ERROR_WINDOW_MIN == 30
+    assert body["vitals_verdict"]["window_minutes"] == el.ROLLBACK_VITALS_WINDOW_MIN == 1440
+    assert body["windows"]["error_trigger"] == 30
+    assert body["windows"]["vitals_trigger"] == 1440
+
+
+def test_exposure_carries_the_volume_half_of_the_gate(monkeypatch):
+    """§12.3 sets a two-part exposure floor (days AND interactions). No field
+    used to carry the interaction count, so the soak day-log could only ever
+    track the days half."""
+    analytics = [_pv("next")] * 70 + [_pv("legacy")] * 38
+    body = _client(monkeypatch, analytics, []).get(
+        "/admin/error-logs/rollback-metrics?window_minutes=43200", headers=AUTHZ
+    ).json()
+    exp = body["exposure"]
+    assert exp["evaluated_views"] == 70
+    assert exp["by_implementation"] == {"next": 70, "legacy": 38, "untagged": 0}
+    assert exp["all_views"] == 108
+    assert exp["exact"] is True
+
+
+def test_exposure_is_scoped_to_the_evaluated_cohort(monkeypatch):
+    """Review #823 (P1): the first cut summed next + legacy + untagged, so a
+    window spanning a cutover let traffic the OLD implementation served satisfy
+    the exposure floor of the code being evaluated. The gate number must count
+    only the cohort under test."""
+    analytics = [_pv("legacy")] * 500 + [_pv("next")] * 12 + [_pv(None)] * 40
+    body = _client(monkeypatch, analytics, []).get(
+        "/admin/error-logs/rollback-metrics?window_minutes=43200", headers=AUTHZ
+    ).json()
+    exp = body["exposure"]
+    assert exp["evaluated_implementation"] == "next"
+    assert exp["evaluated_views"] == 12, "500 legacy views must NOT count as exposure"
+    assert exp["by_implementation"]["legacy"] == 500
+    assert exp["by_implementation"]["untagged"] == 40
+    assert exp["all_views"] == 552
+
+
+def test_exposure_counts_only_this_route_and_page_views(monkeypatch):
+    """The count is filtered at the DB (event_name + route), unlike the scan
+    that feeds the table — noise on other routes must not inflate the gate."""
+    analytics = (
+        [_pv("next", "/")] * 9
+        + [_pv("next", "/grammar")] * 400
+        + [_wv("next", 1200, path="/")] * 30      # web_vitals, not a page_view
+    )
+    exp = _client(monkeypatch, analytics, []).get(
+        "/admin/error-logs/rollback-metrics?route=/&window_minutes=43200", headers=AUTHZ
+    ).json()["exposure"]
+    assert exp["evaluated_views"] == 9
+    assert exp["all_views"] == 9
+
+
+def test_exposure_degrades_to_a_lower_bound_when_the_count_query_fails(monkeypatch):
+    """Review #823 (P1): the fallback path (summing the capped scan) can only
+    UNDER-count, so it must not present itself as cumulative. `exact: false` is
+    what the admin panel turns into "ít nhất N"."""
+    analytics = [_pv("next")] * 25 + [_pv("legacy")] * 5
+
+    class _NoCount(_Query):
+        def execute(self):
+            if self._count_mode == "exact":
+                raise RuntimeError("count unsupported")
+            return super().execute()
+
+    class _Admin(_FakeAdmin):
+        def table(self, name):
+            return _NoCount(self._tables.get(name, []))
+
+    async def _ok(_authz):
+        return {"id": "admin", "role": "admin"}
+
+    monkeypatch.setattr(el, "require_admin", _ok)
+    monkeypatch.setattr(el, "supabase_admin", _Admin({
+        "analytics_events": analytics, "error_logs": [],
+    }))
+    app = FastAPI()
+    app.include_router(el.router)
+    app.include_router(el._admin_router)
+    exp = TestClient(app).get(
+        "/admin/error-logs/rollback-metrics?window_minutes=1440", headers=AUTHZ
+    ).json()["exposure"]
+    assert exp["exact"] is False
+    assert exp["evaluated_views"] == 25          # still useful, just not exact
+    assert exp["all_views"] == 30
+
+
+def test_paginates_past_postgrest_1000_cap(monkeypatch):
+    """Same lesson as migration-stats (PR #688): a bare select truncates at
+    1000 rows and silently undercounts the denominator."""
+    analytics = [_pv("next")] * 1500
+    body = _client(monkeypatch, analytics, []).get(
+        "/admin/error-logs/rollback-metrics", headers=AUTHZ
+    ).json()
+    assert body["scanned"]["analytics"] == 1500
+    assert body["implementations"]["next"]["page_views"] == 1500
+
+
+def test_tiny_baseline_not_lost_to_rounding(monkeypatch):
+    """Review #761: verdict math must use the RAW baseline. legacy 1/15000
+    = 6.67e-5 rounds to 1e-4 at 4 decimals — the old code computed delta
+    against the ROUNDED value (2e-4/1e-4 = 2.0 → "ok") and missed this true
+    3× regression; even smaller baselines rounded to 0.0 and fell through to
+    the absolute guard entirely. (15k/side keeps the fixture under the 50k
+    MAX_ROWS fetch ceiling.)"""
+    analytics = [_pv("legacy")] * 15_000 + [_pv("next")] * 15_000
+    errors = [_err("legacy")] * 1 + [_err("next")] * 3
+    body = _client(monkeypatch, analytics, errors).get(
+        "/admin/error-logs/rollback-metrics", headers=AUTHZ
+    ).json()
+    v = body["error_verdict"]
+    assert v["basis"] == "relative", "a real legacy baseline must not vanish into rounding"
+    assert v["baseline_source"] == "legacy-window"
+    assert v["delta_x"] == 3.0
+    assert v["status"] == "breach"
+
+
+def _iso_ago(minutes):
+    from datetime import datetime, timedelta, timezone
+    return (datetime.now(timezone.utc) - timedelta(minutes=minutes)).isoformat()
+
+
+def test_verdicts_pinned_to_frozen_windows_not_table_window(monkeypatch):
+    """Review #761: error verdict = 30m and vitals verdict = 24h REGARDLESS
+    of window_minutes — one shared cutoff meant the displayed verdicts were
+    not the frozen triggers unless the admin picked the matching window."""
+    fresh, old = _iso_ago(5), _iso_ago(120)  # 5m vs 2h ago
+    analytics = (
+        [{**_pv("next"), "created_at": fresh}] * 100
+        + [{**_pv("legacy"), "created_at": fresh}] * 100
+        # vitals older than 30m but inside 24h — must still feed the LCP verdict
+        + [{**_wv("next", 1600), "created_at": old}] * 12
+        + [{**_wv("legacy", 1000), "created_at": old}] * 12
+    )
+    errors = (
+        [{**_err("next"), "occurred_at": fresh}] * 5
+        + [{**_err("legacy"), "occurred_at": fresh}] * 2
+        # errors older than 30m — must NOT count toward the 30m error trigger
+        + [{**_err("next"), "occurred_at": old}] * 40
+    )
+    body = _client(monkeypatch, analytics, errors).get(
+        "/admin/error-logs/rollback-metrics?window_minutes=1440", headers=AUTHZ
+    ).json()
+    # Error verdict: only the fresh 5-vs-2 within 30m → delta 2.5 breach
+    # (with the old 40 errors included it would be 45/100 vs 2/100 = 22.5×).
+    assert body["error_verdict"]["window_minutes"] == 30
+    assert body["error_verdict"]["delta_x"] == 2.5
+    # Vitals verdict: the 2h-old samples are inside its 24h window → breach 1.6×.
+    assert body["vitals_verdict"]["window_minutes"] == 1440
+    assert body["vitals_verdict"]["delta_x"] == 1.6
+    assert body["vitals_verdict"]["status"] == "breach"
+    # The TABLE at 1440 shows everything (45 next errors).
+    assert body["implementations"]["next"]["errors"] == 45
+    # DEBT-2026-07-22-F added `table_max` (the documented table-half ceiling).
+    # Kept as an exact compare so a future field has to be acknowledged here.
+    assert body["windows"] == {
+        "table": 1440, "table_max": el.ROLLBACK_TABLE_MAX_WINDOW_MIN,
+        "error_trigger": 30, "vitals_trigger": 1440,
+    }
+
+    # And with the default 30m table window, the vitals verdict still sees
+    # the 24h samples even though the table shows none.
+    body = _client(monkeypatch, analytics, errors).get(
+        "/admin/error-logs/rollback-metrics", headers=AUTHZ
+    ).json()
+    assert body["implementations"]["next"]["vitals"]["samples"] == 0
+    assert body["vitals_verdict"]["status"] == "breach"
+
+
+def test_untagged_and_malformed_rows_bucketed_not_crashed(monkeypatch):
+    analytics = [
+        {"event_name": "page_view", "event_data": {"path": "/"}},        # no impl
+        {"event_name": "page_view", "event_data": None},                 # malformed
+        {"event_name": "web_vitals", "event_data": {"path": "/", "implementation": "next", "lcp": "bogus"}},
+    ]
+    errors = [{"url": "/", "extra": "corrupt"}]
+    body = _client(monkeypatch, analytics, errors).get(
+        "/admin/error-logs/rollback-metrics", headers=AUTHZ
+    ).json()
+    assert body["implementations"]["untagged"]["page_views"] == 1
+    assert body["implementations"]["untagged"]["errors"] == 1
+    assert body["implementations"]["next"]["vitals"]["samples"] == 0

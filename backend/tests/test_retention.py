@@ -28,7 +28,15 @@ from services.retention import (
     should_touch,
 )
 
-NOW = datetime(2026, 5, 25, 12, 0, 0, tzinfo=timezone.utc)
+# Anchor to the real clock, NOT a hardcoded date. The list_sessions tests below
+# read `datetime.now()` inside the code path (routers/sessions.py → compute_expiry
+# with no explicit now), so a hardcoded NOW became a time-bomb: once the real
+# date passed NOW + 60d (content-purge window), a `_ago(days=1)` fixture looked
+# 60d+ old to the code and the "not purged" assertion flipped. Keeping NOW on the
+# real clock keeps the fixtures and the code's clock consistent. The pure
+# compute_expiry/is_hidden tests pass `now=NOW` explicitly, so they stay
+# deterministic regardless (all relative to NOW).
+NOW = datetime.now(timezone.utc).replace(microsecond=0)  # drop µs: content_purge_cutoff test compares exact 60d
 
 
 def _ago(days=0, hours=0, minutes=0):

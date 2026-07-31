@@ -53,7 +53,18 @@ export function gradeText(q, answer) {
   var accept = Array.isArray(q.accept) ? q.accept : [];
   var norm = normalizeText(answer, { caseSensitive: q.case_sensitive });
   for (var i = 0; i < accept.length; i++) {
-    if (normalizeText(accept[i], { caseSensitive: q.case_sensitive }) === norm) {
+    var na = normalizeText(accept[i], { caseSensitive: q.case_sensitive });
+    if (na === '' || norm === '') {
+      // Punctuation-only accept (e.g. ";"): normalization strips it to '', which
+      // would equally match ANY punctuation answer ("." === ";" === ""). Compare
+      // the raw trimmed strings instead so only the exact mark passes.
+      if (String(accept[i]).trim() !== '' &&
+          String(accept[i]).trim() === String(answer == null ? '' : answer).trim()) {
+        return { correct: true, exact: true, canonical: accept[i] };
+      }
+      continue;
+    }
+    if (na === norm) {
       return { correct: true, exact: true, canonical: accept[i] };
     }
   }
@@ -77,6 +88,23 @@ export function gradeText(q, answer) {
 // too ambiguous (e.g. cat→cut→cot), so short answers stay exact-match only.
 var FUZZY_MIN_LEN = 5;
 
+// Long-PHRASE exception for orthography types (audit 2026-07-28 §B2). A spelling
+// item is graded strictly because the point is the orthography of a word. That
+// reasoning does not carry to a 26-character multi-word phrase like "climb the
+// corporate ladder": there the recall target is the phrase, and failing it for one
+// slipped character teaches nothing (163 such items are in the live vocab banks,
+// each with a single accepted form). The bar is deliberately high — 3+ words AND
+// 15+ characters — so short minimal pairs stay strict: "in the red" (3 words, 10
+// chars) must NOT fuzzy-match "in the bed", which is one edit away.
+var FUZZY_PHRASE_MIN_WORDS = 3;
+var FUZZY_PHRASE_MIN_LEN = 15;
+
+function isLongPhrase(s) {
+  var t = String(s == null ? '' : s).trim();
+  return t.length >= FUZZY_PHRASE_MIN_LEN &&
+         t.split(/\s+/).filter(Boolean).length >= FUZZY_PHRASE_MIN_WORDS;
+}
+
 // Fuzzy text matching is OFF for orthography-graded types (spelling / missing_letters)
 // and for case-sensitive answers (implies precise). Control is by the question's
 // persisted `type` — deliberately NOT by ad-hoc exact/fuzzy flags: the importer + RPC
@@ -86,7 +114,12 @@ var FUZZY_MIN_LEN = 5;
 function textFuzzyAllowed(q) {
   if (q.case_sensitive) return false;
   var t = String(q.type || '');
-  return t !== 'spelling' && t !== 'missing_letters';
+  if (t !== 'spelling' && t !== 'missing_letters') return true;
+  // Orthography type: strict, EXCEPT when every accepted form is a long phrase.
+  // "every", not "any" — one short alternative (e.g. the "csr" abbreviation) is
+  // exactly the minimal pair that must keep grading strictly.
+  var accept = Array.isArray(q.accept) ? q.accept : [];
+  return accept.length > 0 && accept.every(isLongPhrase);
 }
 
 // True iff the Levenshtein distance between a and b is ≤ 1 (one insertion,
@@ -323,6 +356,9 @@ export function createEngine(bank, options) {
       explain: q.explain || '',
       mastered: mastered,
       exhausted: exhausted,
+      // A lone correct MCQ is only PROVISIONAL credit (anti-guess) — the progress
+      // bar won't move yet. Exposed so the UI can tell the learner why.
+      provisional: !mastered && !exhausted && !!w.provisional,
       item_key: w.key,
       done: queue.length === 0,
       progress: progress(),

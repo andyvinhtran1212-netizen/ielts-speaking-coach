@@ -236,7 +236,7 @@ input: "text"
 headword: "arc2-resulting-leading-to"
 skill: "production"
 subtype: "intermediate"
-prompt: "Cities have become increasingly overcrowded, ____ ____ ____ (write the 3-word phrase meaning 'and that explains why') governments are now investing heavily in public transport."
+prompt: "Cities have become increasingly overcrowded, ____ (write the 3-word phrase meaning 'and that explains why') governments are now investing heavily in public transport."
 accept: ["which is why"]
 case_sensitive: false
 grammar_article_slug: "adding-results-clearly"

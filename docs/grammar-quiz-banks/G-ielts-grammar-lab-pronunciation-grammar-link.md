@@ -52,11 +52,11 @@ input: "text"
 headword: "pgl-s-endings"
 skill: "production"
 subtype: "intermediate"
-prompt: "It ____ (run, cần chia đúng ngôi thứ 3 số ít + phát âm rõ -s cuối) fast — điền động từ đúng dạng cho câu 'It ____ fast.'"
+prompt: "It ____ (run) fast."
 accept: ["runs"]
 case_sensitive: false
 grammar_article_slug: "pronunciation-grammar-link"
-explain: "Chủ ngữ số ít 'It' + động từ hiện tại đơn chia '-s': runs. Khi nói, -s sau 'run' (âm hữu thanh /n/) phát âm là /z/ — nếu rớt âm này, câu nghe như thiếu chia động từ."
+explain: "3rd-person present simple bắt buộc thêm -s: 'It runs.' Khi nói, -s sau 'run' (âm hữu thanh /n/) phát âm là /z/ — nếu rớt âm này, câu nghe như thiếu chia động từ (lỗi grammar, không chỉ pronunciation)."
 ---
 
 ---
@@ -136,7 +136,8 @@ input: "text"
 headword: "pgl-ed-endings"
 skill: "production"
 subtype: "intermediate"
-prompt: "Last night I ____ (cook) dinner and then watched TV — điền đúng dạng quá khứ, nhớ phát âm rõ -ed khi luyện nói để không nghe nhầm thì."
+prompt: "Last night I ____ (cook) dinner and then watched TV."
+hint: "điền đúng dạng quá khứ — nhớ phát âm rõ -ed khi luyện nói"
 accept: ["cooked"]
 case_sensitive: false
 grammar_article_slug: "pronunciation-grammar-link"
@@ -220,7 +221,8 @@ input: "text"
 headword: "pgl-contractions"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ already finished his report — điền dạng rút gọn của 'He has' để bắt đầu câu."
+prompt: "____ already finished his report."
+hint: "dạng rút gọn của 'He has' để bắt đầu câu"
 accept: ["He's", "he's"]
 case_sensitive: false
 grammar_article_slug: "pronunciation-grammar-link"
@@ -304,7 +306,8 @@ input: "text"
 headword: "pgl-cluster-simplification"
 skill: "production"
 subtype: "intermediate"
-prompt: "We ____ (stop, quá khứ đơn) at the traffic light before turning right — điền đúng dạng, chú ý cluster phụ âm cuối /pt/ khi phát âm."
+prompt: "We ____ (stop, quá khứ đơn) at the traffic light before turning right."
+hint: "điền đúng dạng — chú ý cụm phụ âm cuối /pt/ khi phát âm"
 accept: ["stopped"]
 case_sensitive: false
 grammar_article_slug: "pronunciation-grammar-link"

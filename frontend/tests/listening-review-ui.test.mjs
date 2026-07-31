@@ -332,3 +332,50 @@ describe('Phase B — backend review endpoint cross-ref', () => {
     assert.match(router, /"solution":\s*solutions_by_q\.get\(q\)/);
   });
 });
+
+
+describe('back-target allowlist agrees with the player that feeds it', () => {
+  // The player stamps its own ?from= onto the review link (`'&from=' +
+  // originFromUrl()`), so the two allowlists are one contract split across two
+  // files. When `practice` was added to the player but not here, a student who
+  // entered from Luyện nhanh was sent back to the Full Test library after
+  // submitting — the review page silently fell through to its default.
+  const keysOf = (src, decl) => {
+    const body = src.slice(src.indexOf(decl) + decl.length);
+    const block = body.slice(0, body.indexOf('};'));
+    return new Set([...block.matchAll(/^\s*(\w+):/gm)].map((m) => m[1]));
+  };
+  const hrefsOf = (src, decl) => {
+    const body = src.slice(src.indexOf(decl) + decl.length);
+    const block = body.slice(0, body.indexOf('};'));
+    return Object.fromEntries(
+      [...block.matchAll(/^\s*(\w+):.*?'(\/pages\/[\w-]+\.html)'/gm)]
+        .map((m) => [m[1], m[2]]),
+    );
+  };
+
+  const playerKeys = keysOf(playerJs, 'const BACK_TARGETS = {');
+  const reviewKeys = keysOf(js, 'var BACK_TARGETS = {');
+
+  test('the player declares the four listening origins', () => {
+    assert.deepEqual([...playerKeys].sort(), ['drill', 'full', 'mini', 'practice']);
+  });
+
+  test('every origin the player accepts is honoured by the review page', () => {
+    for (const k of playerKeys) {
+      assert.ok(
+        reviewKeys.has(k),
+        `listening-review.js BACK_TARGETS is missing "${k}" — the player stamps `
+        + `?from=${k} but review would fall back to the Full Test library`,
+      );
+    }
+  });
+
+  test('shared origins point at the SAME page in both maps', () => {
+    const playerHrefs = hrefsOf(playerJs, 'const BACK_TARGETS = {');
+    const reviewHrefs = hrefsOf(js, 'var BACK_TARGETS = {');
+    for (const [k, href] of Object.entries(playerHrefs)) {
+      assert.equal(reviewHrefs[k], href, `origin "${k}" disagrees between player and review`);
+    }
+  });
+});

@@ -38,7 +38,14 @@ const nextConfig: NextConfig = {
         // /index.html stays on disk for instant rollback and is consolidated
         // to `/` via the redirect below.
         // Legacy-owned clean URLs (from vercel.json, unchanged shapes).
-        { source: '/grammar/:category/:slug', destination: '/pages/grammar-article.html' },
+        // PILOT 2 CUTOVER (prep): `/grammar/:category/:slug` is now the Next
+        // app route app/(public-content)/grammar/[category]/[slug]. The legacy
+        // rewrite is REMOVED atomically (route-ownership check enforces it).
+        // Legacy /pages/grammar-article.html stays on disk (instant rollback
+        // target) and remains directly reachable — it is param-driven
+        // (?category=&slug=) so it CANNOT be redirected to the clean path;
+        // the whole site links via the clean /grammar/:cat/:slug URL
+        // (grammar.js buildUrl), so direct .html hits are effectively unused.
         { source: '/writing/dashboard', destination: '/pages/writing-dashboard.html' },
         { source: '/writing/result', destination: '/pages/writing-result.html' },
         { source: '/admin/writing/prompts', destination: '/pages/admin/writing/prompts.html' },
@@ -105,6 +112,17 @@ const nextConfig: NextConfig = {
       {
         source: '/js/:path*',
         headers: [{ key: 'Cache-Control', value: 'public, max-age=300, must-revalidate' }],
+      },
+      {
+        // AUDIT F5 (2026-07-14): runtime-config.js is the release/environment
+        // PROVENANCE MARKER — telemetry release tags, post-cutover and
+        // rollback verification, and the nightly drift monitor all read it.
+        // Under the generic /js/* 300s rule a browser/CDN could serve a
+        // 5-minute-stale marker, silently mis-tagging telemetry and lying to
+        // rollback verification. It must always be revalidated. Placed AFTER
+        // /js/:path* — for the same header key, the LAST matching rule wins.
+        source: '/js/runtime-config.js',
+        headers: [{ key: 'Cache-Control', value: 'no-store, max-age=0' }],
       },
       {
         source: '/css/:path*',

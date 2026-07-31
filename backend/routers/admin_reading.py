@@ -58,6 +58,28 @@ _LIBRARIES = {"l1_vocab", "l2_skill", "l3_test"}
 _STATUSES = {"draft", "published", "archived"}
 
 
+def _check_image_url_reachable(url: str, timeout_s: float = 3.0) -> list[str]:
+    """Audit 2026-07-17 — HEAD-check một image_url ngoài (Cloudinary dán tay,
+    không được app quản lý). Trả list warning string (rỗng = OK). Fail-soft:
+    lỗi mạng/timeout → warning "không kiểm tra được", KHÔNG raise — check này
+    chỉ chạy ở dry-run preview và không được phép chặn import.
+
+    Quét định kỳ toàn corpus: scripts/check_reading_image_links.py.
+    """
+    import httpx
+
+    try:
+        resp = httpx.head(url, timeout=timeout_s, follow_redirects=True)
+        if resp.status_code == 405:  # host không hỗ trợ HEAD → thử GET nhẹ
+            resp = httpx.get(url, timeout=timeout_s, follow_redirects=True,
+                             headers={"Range": "bytes=0-0"})
+        if resp.status_code >= 400:
+            return [f"image_url trả HTTP {resp.status_code} — ảnh có thể đã chết: {url}"]
+        return []
+    except Exception as exc:  # noqa: BLE001 — fail-soft by design
+        return [f"Không kiểm tra được image_url ({type(exc).__name__}) — xác minh tay: {url}"]
+
+
 def _normalise_l3_test_row(r: dict) -> dict:
     """A reading_tests row → the shared admin-list row shape (slug = test_id,
     difficulty_level ← module, skill_focus ← '60 phút · 40 câu' summary). The
@@ -78,6 +100,7 @@ def _normalise_l3_test_row(r: dict) -> dict:
         "difficulty_level": r.get("module"),
         "skill_focus":      summary,
         "topic_tags":       [],
+        "exam_only":        bool(r.get("exam_only")),
         "updated_at":       r.get("updated_at"),
         "created_at":       r.get("created_at"),
         # reading-access-tracking F1 — surface lock state for the admin row
@@ -99,7 +122,10 @@ def _l3_test_rows(status: str | None) -> list[dict]:
         supabase_admin.table("reading_tests")
         .select(
             "id,test_id,title,module,time_limit_minutes,passage_count,"
-            "total_questions,band_target,status,updated_at,created_at,metadata",
+            # exam_only: the admin list renders the reserve/release button, and a
+            # button that cannot see the current state renders the wrong label.
+            "total_questions,band_target,status,updated_at,created_at,metadata,"
+            "exam_only",
         )
         .order("updated_at", desc=True)
     )
@@ -141,7 +167,10 @@ async def list_reading_content(
             supabase_admin.table("reading_tests")
             .select(
                 "id,test_id,title,module,time_limit_minutes,passage_count,"
-                "total_questions,band_target,status,updated_at,created_at,metadata",
+                # exam_only: the admin list renders the reserve/release button, and a
+            # button that cannot see the current state renders the wrong label.
+            "total_questions,band_target,status,updated_at,created_at,metadata,"
+            "exam_only",
                 count="exact",
             )
             .order("updated_at", desc=True)
@@ -275,8 +304,14 @@ async def import_reading_content(
         "dry_run": dry_run,
         "committed_id": None,
         "action": None,
+        "warnings": [],
     }
     if dry_run or errors:
+        # Audit 2026-07-17 — HEAD-check ảnh ngoài (Cloudinary URL dán tay)
+        # CHỈ ở dry-run: link chết hiện thành warning trong preview, không
+        # chặn import (fail-soft cả khi mạng lỗi/timeout).
+        if dry_run and parsed.image_url:
+            result["warnings"].extend(_check_image_url_reachable(parsed.image_url))
         return result
 
     # ── Commit: upsert by slug ──
@@ -355,8 +390,9 @@ async def import_reading_test_bundle(
             "action":            None,
         }
     # Reading mini test — the toggle flags this test as 'mini' (1-passage) vs
-    # 'full' in reading_tests.metadata.test_type, the field the student list
-    # endpoint segregates on. The prose pipeline is otherwise identical.
+    # 'full' in the reading_tests.test_type column (mig 158), the field the
+    # student list endpoint segregates on. The prose pipeline is otherwise
+    # identical.
     result = await _commit_l3_parsed(
         parsed, dry_run, admin, test_type=("mini" if mini else "full"),
     )
@@ -491,21 +527,13 @@ async def _commit_l3_parsed(parsed, dry_run: bool, admin: dict, test_type: str |
             result["action"] = "created"
         result["committed_id"] = test_uuid
 
-        # Reading mini test — stamp metadata.test_type ('mini'|'full') WITHOUT
-        # clobbering other metadata keys (access lock / share live here too).
-        # test_row (plan) has no metadata key, so the upsert above left existing
-        # metadata intact; we read-merge-write just this one field. test_type is
-        # None for YAML imports (back-compat) → metadata untouched.
+        # Reading mini test — mig 158: test_type là cột thật (CHECK full|mini),
+        # không stamp metadata nữa. test_type=None (YAML import, back-compat)
+        # → không đụng: insert mới nhận DEFAULT 'full', re-import giữ nguyên.
         if test_type is not None:
-            cur = (
-                supabase_admin.table("reading_tests")
-                .select("metadata").eq("id", test_uuid).limit(1).execute()
-            )
-            md = dict((cur.data[0].get("metadata") if cur.data else None) or {})
-            md["test_type"] = test_type
-            supabase_admin.table("reading_tests").update({"metadata": md}).eq(
-                "id", test_uuid
-            ).execute()
+            supabase_admin.table("reading_tests").update(
+                {"test_type": test_type}
+            ).eq("id", test_uuid).execute()
 
         # 2a) Sprint 20.9 D1 — RECONCILE removed passages. List the passages
         #     currently attached to this test, compare with the incoming slugs,
@@ -786,6 +814,51 @@ def _gen_test_password() -> str:
     alphabet = string.ascii_uppercase + string.digits
     grp = lambda: "".join(secrets.choice(alphabet) for _ in range(4))
     return grp() + "-" + grp()
+
+
+@router.post("/tests/{test_id}/exam-only")
+async def admin_set_reading_exam_only(
+    test_id: str,
+    body: dict,
+    authorization: str | None = Header(default=None),
+):
+    """Giữ riêng một đề đọc cho kỳ thi thử — hoặc trả nó lại thư viện.
+
+    Mig 170 gives listening and writing a way to set the flag but left reading
+    with none, so a paper imported and published for a FUTURE exam stayed in the
+    student library until the moment an exam referenced it — the exact
+    pre-assignment leak the flag exists to close (Codex review, PR #862).
+
+    Keyed by the human test_id the admin list shows, like every other route
+    here — an admin should never have to find a UUID.
+    """
+    await require_admin(authorization)
+    value = bool(body.get("exam_only"))
+    if not value:
+        # Handing it back to the library while a live exam still binds it would
+        # publish that exam's paper to the students about to sit it.
+        row = (
+            supabase_admin.table("reading_tests").select("id")
+            .eq("test_id", test_id).limit(1).execute().data or []
+        )
+        if not row:
+            raise HTTPException(404, f"Không tìm thấy đề đọc '{test_id}'.")
+        from services import mock_exam_service
+        try:
+            mock_exam_service.assert_can_unreserve("reading", row[0]["id"])
+        except mock_exam_service.SittingConflictError as e:
+            raise HTTPException(409, str(e))
+        except mock_exam_service.MockExamError as e:
+            raise HTTPException(503, str(e))
+    resp = (
+        supabase_admin.table("reading_tests")
+        .update({"exam_only": value})
+        .eq("test_id", test_id)
+        .execute()
+    )
+    if not resp.data:
+        raise HTTPException(404, f"Không tìm thấy đề đọc '{test_id}'.")
+    return {"test_id": test_id, "exam_only": value}
 
 
 @router.post("/tests/{test_id}/lock")
@@ -1192,3 +1265,79 @@ async def admin_delete_diagram_image(
     )
 
     return {"question_id": question_id, "deleted": bool(storage_path)}
+
+
+@router.get("/tests/{test_uuid}/preview")
+async def admin_preview_reading_test(
+    test_uuid: str,
+    authorization: str | None = Header(default=None),
+):
+    """Xem trước một đề đọc bằng ĐÚNG giao diện chữa bài của học viên.
+
+    Đợt 2 (mig 170). Reuses _assemble_reading_review byte for byte rather than
+    rendering a second admin-only view — a preview that renders differently from
+    the student page is not a preview.
+
+    Deliberately the CHỮA BÀI shape, not the exam shape: verifying a paper needs
+    the questions AND the answers AND the explanations, which is exactly what
+    the review payload carries and the exam payload strips.
+
+    Creates NOTHING — the synthetic attempt never touches the database, so this
+    consumes no attempt and leaves no trace in anyone's history.
+    """
+    from services import reading_test_grader as grader
+
+    await require_admin(authorization)
+
+    # Keyed by the HUMAN test_id first — that is the canonical identity across
+    # this whole admin surface (_normalise_l3_test_row sets slug = test_id, and
+    # the admin list links by it). Keying only on the internal UUID made the
+    # advertised preview 404 from every link the admin list produces
+    # (Codex review, PR #863). A UUID is still accepted so either link works;
+    # test_id is TEXT UNIQUE and id is UUID, so the two can never collide.
+    test_res = (
+        supabase_admin.table("reading_tests").select("id,module")
+        .eq("test_id", test_uuid).limit(1).execute()
+    )
+    if not test_res.data:
+        test_res = (
+            supabase_admin.table("reading_tests").select("id,module")
+            .eq("id", test_uuid).limit(1).execute()
+        )
+    if not test_res.data:
+        raise HTTPException(404, "Không tìm thấy đề đọc này.")
+    test_uuid = test_res.data[0]["id"]      # everything below wants the UUID
+
+    passages = (
+        supabase_admin.table("reading_passages").select("id,passage_order")
+        .eq("test_id", test_uuid).eq("library", "l3_test").execute().data or []
+    )
+    order_by_id = {p["id"]: p.get("passage_order") for p in passages}
+    q_res = (
+        supabase_admin.table("reading_questions")
+        .select("q_num,answer,skill_tag,explanation,passage_id")
+        .in_("passage_id", list(order_by_id.keys())).execute()
+    ) if order_by_id else None
+    answer_key = grader.collect_answer_key(
+        (q_res.data if q_res else []) or [], order_by_id)
+
+    # Grade an EMPTY submission with the real grader rather than hand-building
+    # the rows: per_question then carries exactly the shape the review page
+    # expects, and cannot drift from what a real attempt produces.
+    result = grader.grade_attempt(
+        [], answer_key, module=(test_res.data[0].get("module") or "academic"))
+
+    synthetic = {
+        "test_id":          test_uuid,
+        # 'submitted' is what makes the page render the review layout; nothing
+        # is persisted, so this is a rendering hint, not a claim.
+        "status":           "submitted",
+        "score":            None,
+        "band_estimate":    None,
+        "skill_breakdown":  {},
+        "grading_details":  result.get("per_question") or [],
+    }
+    from routers.reading_student import _assemble_reading_review
+    out = _assemble_reading_review(synthetic, None)
+    out["preview"] = True                  # let the page label itself honestly
+    return out

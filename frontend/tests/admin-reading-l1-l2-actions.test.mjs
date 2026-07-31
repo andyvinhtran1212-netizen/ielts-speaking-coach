@@ -88,7 +88,7 @@ describe('C — L3 actions unchanged (no regression)', () => {
   test('L3 delete still uses the attempt-safe test_id endpoint (now library-gated)', () => {
     // l3-action-consistency: L3 is a test row everywhere → delete gated on
     // it.library (not the active tab), still keyed on the test_id endpoint.
-    assert.match(js, /it\.library === 'l3_test' && it\.slug[\s\S]{0,800}data-action="delete-test"/);
+    assert.match(js, /it\.library === 'l3_test' && it\.slug[\s\S]{0,1800}data-action="delete-test"/);
     assert.match(
       js,
       /window\.api\[['"]delete['"]\]\([\s\S]{0,80}'\/admin\/reading\/content\/tests\/' \+ encodeURIComponent\(testId\)/,

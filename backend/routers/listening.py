@@ -1,38 +1,31 @@
 """
-routers/listening.py — Sprint 11.1 (DEBT-LISTENING-MODULE foundation 1/5).
+routers/listening.py — Listening module router (user + admin).
 
-First implementation router for the Listening module — the 5th skill.
-Sprint 11.0 discovery shipped the data model + sprint plan; this file
-lands:
+Content enters via the markdown import flows (import-fulltest,
+skill-drill import) and is managed through the exercise/content/test
+CRUD + audit routes below.
 
-  - 1 user-facing GET (/api/listening/content/{id})  — signed URL fetch
-  - 2 admin routes (POST /admin/listening/upload, /admin/listening/render)
-
-User-facing exercise routes (attempt POST, list-by-mode GET, mini-test
-flow) are intentionally deferred to Sprint 11.2+. This sprint proves
-the storage + render pipeline; user-surface flips begin with dictation
-in Sprint 11.2 per Andy Q6 lock.
+Decommissioned 2026-07-17 (usage audit — unused ≥2 months): direct MP3
+upload (single/bulk/validate), ElevenLabs AI render, the audio cutter,
+AI map-image generation, and the legacy 2-file /convert flow (superseded
+by import-fulltest; services/listening_convert.py STAYS — its parser and
+marker maps are reused by the fulltest/drill importers and the audit
+engine). Manual map-image upload/delete/signed-url remain. See
+docs/audits/AUDIT_UPLOAD_QUAN_LY_FILE_READING_LISTENING_2026-07-17.md.
 
 Storage bucket: `listening-audio` (private, signed URLs only — Sprint
 11.0 §2A.L2). Bucket creation is a manual operator step; see migration
 056 header for instructions.
-
-ElevenLabs render: gated behind `LISTENING_AI_RENDER_ENABLED=false` by
-default (defense in depth — Andy hasn't provisioned the Creator plan
-yet as of Sprint 11.1 ship). The MP3 upload path stays fully usable
-without an API key so admins can dogfood the schema + curation flow
-independently.
 """
 
 from __future__ import annotations
 
 import logging
-import os
 import uuid
 from typing import Any, Optional
 
 from fastapi import (
-    APIRouter, BackgroundTasks, File, Form, Header, HTTPException, Query,
+    APIRouter, File, Header, HTTPException, Query,
     UploadFile,
 )
 from pydantic import BaseModel, ConfigDict, Field
@@ -42,6 +35,7 @@ from database import supabase_admin
 from routers.admin import require_admin
 from routers.auth import get_supabase_user
 from services.listening_gist_grader import grade_gist_response
+from services.pg_search import ilike_or_filter
 from services.listening_grader import (
     aggregate_dictation_report,
     grade_dictation,
@@ -50,13 +44,6 @@ from services.listening_grader import (
     proper_noun_hints,
     split_sentences,
 )
-from services.listening_renderer import run_elevenlabs_render_job
-from services.listening_validator import (
-    has_errors as validator_has_errors,
-    infer_duration_seconds,
-    validate_upload as validate_upload_payload,
-)
-from services import listening_convert
 from services import listening_fulltest_import
 from services import listening_drill_import
 from services import listening_audit as listening_audit_svc
@@ -86,7 +73,6 @@ async def _require_auth(authorization: str | None) -> dict:
 
 _ACCENT_VALUES = {"us_general", "uk_rp", "au", "ca", "other"}
 _CEFR_VALUES = {"A2", "B1", "B2", "C1", "C2"}
-_ELEVENLABS_MODELS = {"eleven_multilingual_v2", "eleven_flash_v2_5"}
 _STATUS_VALUES = {"draft", "published", "archived"}
 _EXERCISE_TYPES = {"dictation", "gist", "true_false", "mcq", "mini_test"}
 
@@ -299,47 +285,8 @@ def _validate_dictation_segments(
     return out
 
 
-def _default_voice_for_accent(accent_tag: str) -> str | None:
-    """Sprint 11.2 — return the canonical default voice for an accent,
-    or None when no default is configured for that accent (AU defers to
-    Phase B voice cloning; ca/other have no IELTS-friendly default).
-
-    Used as a fallback inside admin_render_listening when the caller
-    omits voice_id — keeps the POST body terse for the common case
-    (Andy picks accent_tag='us_general' → Sarah; 'uk_rp' → Alice)."""
-    if accent_tag == "us_general":
-        return settings.LISTENING_VOICE_US_FEMALE_DEFAULT or None
-    if accent_tag == "uk_rp":
-        return settings.LISTENING_VOICE_UK_FEMALE_DEFAULT or None
-    return None
-
 
 # ── Pydantic schemas ──────────────────────────────────────────────────────────
-
-
-class ListeningRenderRequest(BaseModel):
-    """Admin POST /admin/listening/render body.
-
-    All fields validated at the router layer; the BackgroundTask helper
-    trusts the caller. ElevenLabs voice_id is opaque (24-char string);
-    no enum because Andy adds voices as he discovers them and a hardcoded
-    list would force a code change per voice."""
-
-    model_config = ConfigDict(extra="ignore")
-
-    script_text: str = Field(min_length=10, max_length=5000)
-    # Sprint 11.2 — voice_id became optional. Omit + set accent_tag and
-    # the router resolves the locked default voice for that accent
-    # (us_general → Sarah, uk_rp → Alice). Backward compat preserved:
-    # callers that still pass voice_id win.
-    voice_id: str | None = Field(default=None, min_length=1, max_length=64)
-    model: str = Field(default="eleven_multilingual_v2")
-    title: str = Field(min_length=1, max_length=200)
-    accent_tag: str
-    cefr_level: str | None = None
-    ielts_section: int | None = None
-    topic_tags: list[str] = Field(default_factory=list)
-    transcript: str | None = None  # defaults to script_text if omitted
 
 
 class ListeningAttemptRequest(BaseModel):
@@ -548,806 +495,6 @@ async def boot_listening_dictation(
         exercise_type="dictation",
     )
     return {"content": content, "exercises": exercises}
-
-
-# ── Admin route — MP3 upload ──────────────────────────────────────────────────
-
-
-@admin_router.post("/upload")
-async def admin_upload_listening(
-    audio_file: UploadFile = File(...),
-    title: str = Form(...),
-    transcript: str = Form(...),
-    accent_tag: str = Form(...),
-    cefr_level: str = Form(...),
-    ielts_section: int = Form(...),
-    external_license: Optional[str] = Form(default=None),
-    external_source_url: Optional[str] = Form(default=None),
-    topic_tags: Optional[str] = Form(default=None),  # comma-separated
-    is_premium: bool = Form(default=False),
-    authorization: str | None = Header(default=None),
-):
-    """Admin uploads an MP3 + transcript + metadata.
-
-    `source_type` is derived from whether `external_license` is set:
-      - external_license set → source_type='curated_external' (BBC, TED,
-        LibriVox, etc.). external_source_url MUST also be set per the
-        license-attribution requirement (Sprint 11.0 §4).
-      - external_license absent → source_type='upload_mp3' (admin-
-        authored original content).
-
-    Premium gate (Sprint 11.0 §4E): is_premium=true + NC license → 422.
-    The CC BY-NC-ND family is non-commercial only; flagging such
-    content as premium violates the license.
-
-    Status defaults to 'draft' so admins can preview before publish.
-    """
-    admin_user = await require_admin(authorization)
-    admin_id = admin_user["id"]
-
-    # ── Validate enum-ish fields up front ─────────────────────────────────────
-    if accent_tag not in _ACCENT_VALUES:
-        raise HTTPException(422, f"accent_tag must be one of {sorted(_ACCENT_VALUES)}")
-    if cefr_level not in _CEFR_VALUES:
-        raise HTTPException(422, f"cefr_level must be one of {sorted(_CEFR_VALUES)}")
-    if not (1 <= ielts_section <= 4):
-        raise HTTPException(422, "ielts_section must be 1-4")
-
-    # ── License compliance (Sprint 11.0 §4 + §4E) ────────────────────────────
-    if external_license and not external_source_url:
-        raise HTTPException(
-            422,
-            "external_source_url required when external_license is set "
-            "(license attribution rule)",
-        )
-    source_type = "curated_external" if external_license else "upload_mp3"
-
-    if is_premium and external_license and "NC" in external_license:
-        raise HTTPException(
-            422,
-            "Cannot mark NC-licensed content as premium — non-commercial "
-            "restriction incompatible with paid tier (Sprint 11.0 §4E).",
-        )
-
-    # ── Parse topic_tags ──────────────────────────────────────────────────────
-    tag_list: list[str] = []
-    if topic_tags:
-        tag_list = [t.strip() for t in topic_tags.split(",") if t.strip()]
-
-    # ── Read upload bytes ─────────────────────────────────────────────────────
-    audio_bytes = await audio_file.read()
-    if not audio_bytes:
-        raise HTTPException(422, "Empty audio file")
-
-    # Coarse duration estimate from MP3 size (mirrors listening_renderer.py).
-    # Operators serving long-form curated content can update the row post-
-    # upload via a follow-up SQL if precise duration matters.
-    audio_size_bytes = len(audio_bytes)
-    audio_duration_seconds = max(1, round(audio_size_bytes / 16_000))
-
-    # ── Sprint 13.2 — auto-validate (fail-soft on validator bugs) ─────────────
-    validation_warnings: list[dict] = []
-    try:
-        v = validate_upload_payload(
-            file_bytes=audio_bytes,
-            transcript=transcript,
-            declared_duration_seconds=audio_duration_seconds,
-        )
-        if validator_has_errors(v):
-            raise HTTPException(422, {
-                "message": "Validation failed",
-                "errors":   v["errors"],
-                "warnings": v["warnings"],
-            })
-        validation_warnings = v["warnings"]
-    except HTTPException:
-        raise
-    except Exception as e:  # noqa: BLE001 — fail-soft per Sprint 13.2 commission
-        logger.warning("[listening] validator threw, allowing upload: %s", e)
-
-    # ── Upload to bucket ──────────────────────────────────────────────────────
-    content_id = str(uuid.uuid4())
-    storage_subdir = "curated" if source_type == "curated_external" else "uploads"
-    storage_path = f"{storage_subdir}/{content_id}.mp3"
-
-    try:
-        supabase_admin.storage.from_(settings.LISTENING_AUDIO_BUCKET).upload(
-            storage_path,
-            audio_bytes,
-            {"content-type": "audio/mpeg"},
-        )
-    except Exception as e:
-        msg = str(e).lower()
-        if "not found" in msg or "bucket" in msg:
-            logger.error(
-                "[listening] Supabase Storage bucket '%s' not found. "
-                "Create it in the Supabase dashboard (Storage → New bucket, "
-                "Private) and add a SELECT policy for authenticated users.",
-                settings.LISTENING_AUDIO_BUCKET,
-            )
-            raise HTTPException(
-                503, "Listening audio storage not configured.",
-            )
-        logger.error("[listening] upload to bucket failed: %s", e)
-        raise HTTPException(500, f"Audio upload failed: {e}")
-
-    # ── INSERT row ────────────────────────────────────────────────────────────
-    try:
-        supabase_admin.table("listening_content").insert({
-            "id":                       content_id,
-            "source_type":              source_type,
-            "external_license":         external_license,
-            "external_source_url":      external_source_url,
-            "audio_storage_path":       storage_path,
-            "audio_duration_seconds":   audio_duration_seconds,
-            "audio_size_bytes":         audio_size_bytes,
-            "accent_tag":               accent_tag,
-            "topic_tags":               tag_list,
-            "cefr_level":               cefr_level,
-            "ielts_section":            ielts_section,
-            "transcript":               transcript,
-            "transcript_segments":      [],
-            "status":                   "draft",
-            "is_premium":               is_premium,
-            "title":                    title,
-            "created_by":               admin_id,
-        }).execute()
-    except Exception as e:
-        logger.error(
-            "[listening] DB INSERT failed (audio uploaded but no row); "
-            "manual reconciliation needed at path %s: %s",
-            storage_path, e,
-        )
-        raise HTTPException(500, f"Database insert failed: {e}")
-
-    return {
-        "ok":           True,
-        "content_id":   content_id,
-        "source_type":  source_type,
-        "status":       "draft",
-        "storage_path": storage_path,
-        "warnings":     validation_warnings,
-    }
-
-
-# ── Admin routes — Sprint 13.2 upload validation + bulk ───────────────────────
-
-
-def _normalize_topic_tags(tags: object) -> list[str]:
-    """Accept either a comma-separated string (single endpoint) or a
-    list of strings (bulk manifest). Trim, drop empties.
-    """
-    if isinstance(tags, list):
-        return [str(t).strip() for t in tags if str(t).strip()]
-    if isinstance(tags, str):
-        return [t.strip() for t in tags.split(",") if t.strip()]
-    return []
-
-
-def _enum_check(field_name: str, value: object, allowed: set[str]) -> None:
-    if value not in allowed:
-        raise HTTPException(422, f"{field_name} must be one of {sorted(allowed)}")
-
-
-def _license_combo_check(
-    *, external_license: str | None,
-    external_source_url: str | None,
-    is_premium: bool,
-) -> None:
-    if external_license and not external_source_url:
-        raise HTTPException(
-            422,
-            "external_source_url required when external_license is set "
-            "(license attribution rule)",
-        )
-    if is_premium and external_license and "NC" in external_license:
-        raise HTTPException(
-            422,
-            "Cannot mark NC-licensed content as premium — non-commercial "
-            "restriction incompatible with paid tier (Sprint 11.0 §4E).",
-        )
-
-
-@admin_router.post("/upload/validate")
-async def admin_upload_validate(
-    audio_file: UploadFile = File(...),
-    title: str = Form(...),
-    transcript: str = Form(...),
-    accent_tag: str = Form(...),
-    cefr_level: str = Form(...),
-    ielts_section: int = Form(...),
-    external_license: Optional[str] = Form(default=None),
-    external_source_url: Optional[str] = Form(default=None),
-    topic_tags: Optional[str] = Form(default=None),
-    is_premium: bool = Form(default=False),
-    authorization: str | None = Header(default=None),
-):
-    """Sprint 13.2 — dry-run validation. Mirrors the body shape of
-    POST /upload but does NOT touch storage or the DB. Returns
-    `{ok, errors, warnings, inferred: {duration_seconds, size_bytes}}`
-    so the admin UI can render inline messages before final submit.
-    """
-    await require_admin(authorization)
-
-    # Enum checks first (cheap + most likely to fail).
-    _enum_check("accent_tag", accent_tag, _ACCENT_VALUES)
-    _enum_check("cefr_level", cefr_level, _CEFR_VALUES)
-    if not (1 <= ielts_section <= 4):
-        raise HTTPException(422, "ielts_section must be 1-4")
-
-    # License + premium cross-field rules. Promoted to 422 since they're
-    # hard constraints, not warnings.
-    _license_combo_check(
-        external_license=external_license,
-        external_source_url=external_source_url,
-        is_premium=is_premium,
-    )
-
-    audio_bytes = await audio_file.read()
-    size_bytes = len(audio_bytes)
-    duration = infer_duration_seconds(audio_bytes)
-
-    try:
-        v = validate_upload_payload(
-            file_bytes=audio_bytes,
-            transcript=transcript,
-            declared_duration_seconds=duration,
-        )
-    except Exception as e:  # noqa: BLE001 — fail-soft
-        logger.warning("[listening] validator threw on /upload/validate: %s", e)
-        v = {"errors": [], "warnings": []}
-
-    _ = title  # title presence required by Form(...) — referenced to silence linters.
-
-    return {
-        "ok":       not validator_has_errors(v),
-        "errors":   v["errors"],
-        "warnings": v["warnings"],
-        "inferred": {
-            "duration_seconds": duration,
-            "size_bytes":       size_bytes,
-        },
-    }
-
-
-class ListeningBulkManifestItem(BaseModel):
-    """Sprint 13.2 — one entry in the bulk upload manifest.
-
-    `filename` MUST match the name of one of the files[] uploaded in
-    the same request (case-insensitive). Server uses this to pair
-    metadata to file bytes before validation runs.
-    """
-
-    model_config = ConfigDict(extra="ignore")
-
-    filename:            str = Field(min_length=1, max_length=300)
-    title:               str = Field(min_length=1, max_length=200)
-    transcript:          str = Field(min_length=1, max_length=50_000)
-    accent_tag:          str
-    cefr_level:          str
-    ielts_section:       int = Field(ge=1, le=4)
-    topic_tags:          list[str] = Field(default_factory=list)
-    is_premium:          bool = Field(default=False)
-    external_license:    str | None = Field(default=None, max_length=120)
-    external_source_url: str | None = Field(default=None, max_length=500)
-
-
-class ListeningBulkManifest(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    items: list[ListeningBulkManifestItem]
-
-
-_BULK_MAX_FILES = 20
-
-
-@admin_router.post("/upload/bulk")
-async def admin_upload_listening_bulk(
-    files: list[UploadFile] = File(...),
-    manifest: str = Form(...),
-    authorization: str | None = Header(default=None),
-):
-    """Sprint 13.2 — bulk MP3 upload. Accept 1-20 files plus a JSON
-    manifest array describing per-file metadata. Partial failures do
-    NOT roll back: every successful insert persists, every failed item
-    surfaces in `results[]` with the original filename + error code.
-
-    Manifest paired to files by filename (case-insensitive). Items in
-    the manifest with no matching file (or extra files with no manifest
-    entry) cause a 422 at the count-mismatch check.
-    """
-    admin_user = await require_admin(authorization)
-    admin_id = admin_user["id"]
-
-    if not files:
-        raise HTTPException(422, "At least one file is required.")
-    if len(files) > _BULK_MAX_FILES:
-        raise HTTPException(
-            422,
-            f"Bulk upload capped at {_BULK_MAX_FILES} files per request "
-            f"(got {len(files)}).",
-        )
-
-    try:
-        parsed = ListeningBulkManifest.model_validate_json(manifest)
-    except Exception as e:
-        raise HTTPException(422, f"manifest JSON parse failed: {e}")
-
-    if len(parsed.items) != len(files):
-        raise HTTPException(
-            422,
-            f"manifest items ({len(parsed.items)}) must equal files count ({len(files)}).",
-        )
-
-    by_filename: dict[str, ListeningBulkManifestItem] = {}
-    for item in parsed.items:
-        key = item.filename.strip().lower()
-        if key in by_filename:
-            raise HTTPException(
-                422, f"manifest contains duplicate filename '{item.filename}'",
-            )
-        by_filename[key] = item
-
-    results: list[dict] = []
-    succeeded = 0
-    failed = 0
-
-    for file in files:
-        fname = (file.filename or "").strip()
-        key = fname.lower()
-        item = by_filename.get(key)
-        if item is None:
-            failed += 1
-            results.append({
-                "filename": fname, "ok": False,
-                "errors": [{"code": "manifest_missing",
-                            "message": f"No manifest entry for filename '{fname}'.",
-                            "field":   "filename",
-                            "severity": "error"}],
-                "warnings": [],
-            })
-            continue
-
-        try:
-            _enum_check("accent_tag", item.accent_tag, _ACCENT_VALUES)
-            _enum_check("cefr_level", item.cefr_level, _CEFR_VALUES)
-            _license_combo_check(
-                external_license=item.external_license,
-                external_source_url=item.external_source_url,
-                is_premium=item.is_premium,
-            )
-        except HTTPException as e:
-            failed += 1
-            results.append({
-                "filename": fname, "ok": False,
-                "errors": [{"code": "validation_failed",
-                            "message": getattr(e, "detail", str(e)),
-                            "field":   "manifest",
-                            "severity": "error"}],
-                "warnings": [],
-            })
-            continue
-
-        audio_bytes = await file.read()
-        if not audio_bytes:
-            failed += 1
-            results.append({
-                "filename": fname, "ok": False,
-                "errors": [{"code": "audio_empty",
-                            "message": "File audio rỗng.",
-                            "field":   "audio_file",
-                            "severity": "error"}],
-                "warnings": [],
-            })
-            continue
-
-        duration = infer_duration_seconds(audio_bytes)
-        try:
-            v = validate_upload_payload(
-                file_bytes=audio_bytes,
-                transcript=item.transcript,
-                declared_duration_seconds=duration,
-            )
-        except Exception as e:  # noqa: BLE001 — fail-soft
-            logger.warning("[listening] bulk validator threw, skipping: %s", e)
-            v = {"errors": [], "warnings": []}
-
-        if validator_has_errors(v):
-            failed += 1
-            results.append({
-                "filename": fname, "ok": False,
-                "errors":   v["errors"],
-                "warnings": v["warnings"],
-            })
-            continue
-
-        source_type = "curated_external" if item.external_license else "upload_mp3"
-        content_id = str(uuid.uuid4())
-        storage_subdir = "curated" if source_type == "curated_external" else "uploads"
-        storage_path = f"{storage_subdir}/{content_id}.mp3"
-
-        try:
-            supabase_admin.storage.from_(
-                settings.LISTENING_AUDIO_BUCKET,
-            ).upload(storage_path, audio_bytes, {"content-type": "audio/mpeg"})
-        except Exception as e:
-            logger.error("[listening] bulk storage upload failed: %s", e)
-            failed += 1
-            results.append({
-                "filename": fname, "ok": False,
-                "errors": [{"code": "storage_upload_failed",
-                            "message": f"Audio upload failed: {e}",
-                            "field":   "audio_file",
-                            "severity": "error"}],
-                "warnings": v["warnings"],
-            })
-            continue
-
-        try:
-            supabase_admin.table("listening_content").insert({
-                "id":                       content_id,
-                "source_type":              source_type,
-                "external_license":         item.external_license,
-                "external_source_url":      item.external_source_url,
-                "audio_storage_path":       storage_path,
-                "audio_duration_seconds":   duration,
-                "audio_size_bytes":         len(audio_bytes),
-                "accent_tag":               item.accent_tag,
-                "topic_tags":               _normalize_topic_tags(item.topic_tags),
-                "cefr_level":               item.cefr_level,
-                "ielts_section":            item.ielts_section,
-                "transcript":               item.transcript,
-                "transcript_segments":      [],
-                "status":                   "draft",
-                "is_premium":               item.is_premium,
-                "title":                    item.title,
-                "created_by":               admin_id,
-            }).execute()
-        except Exception as e:
-            logger.error(
-                "[listening] bulk DB INSERT failed for %s (storage row left at %s): %s",
-                fname, storage_path, e,
-            )
-            failed += 1
-            results.append({
-                "filename": fname, "ok": False,
-                "errors": [{"code": "db_insert_failed",
-                            "message": f"Database insert failed: {e}",
-                            "field":   "content_id",
-                            "severity": "error"}],
-                "warnings": v["warnings"],
-            })
-            continue
-
-        succeeded += 1
-        results.append({
-            "filename":     fname,
-            "ok":           True,
-            "content_id":   content_id,
-            "storage_path": storage_path,
-            "source_type":  source_type,
-            "warnings":     v["warnings"],
-        })
-
-    return {
-        "total":     len(files),
-        "succeeded": succeeded,
-        "failed":    failed,
-        "results":   results,
-    }
-
-
-# ── Admin routes — Sprint 13.3 ElevenLabs render UI helpers ───────────────────
-
-
-# Creator-plan economics: $22/mo ⇒ ~100 000 credits ⇒ $0.00022 / credit.
-# Approximate — true cost lands when ElevenLabs returns a credit header
-# on the actual render response. The UI rounds for display only.
-_USD_PER_CREDIT = 0.00022
-
-# Render-time heuristic: ElevenLabs synthesizes roughly chars-per-second
-# of audio at ~15 chars/sec real-time-factor. For UI countdown we
-# approximate render *wall-clock* as 30% of audio duration → script
-# length / 50 chars/sec gives a usable estimate without an API probe.
-_CHARS_PER_RENDER_SECOND = 250
-
-
-def _credit_cost_for(script_text: str, model: str) -> int:
-    """Mirror services/listening_renderer._estimate_credit_cost so the
-    UI cost preview and the persisted `generation_cost_credits` column
-    agree. Imported indirectly to keep routers free of cycle risk.
-    """
-    from services.listening_renderer import _estimate_credit_cost
-    return _estimate_credit_cost(script_text, model)
-
-
-def _estimated_render_seconds(script_text: str) -> int:
-    if not script_text:
-        return 1
-    return max(3, round(len(script_text) / _CHARS_PER_RENDER_SECOND))
-
-
-@admin_router.get("/render/feature-flag")
-async def admin_render_feature_flag(
-    authorization: str | None = Header(default=None),
-):
-    """Sprint 13.3 — small read-only endpoint the render UI hits on
-    mount to decide whether to show the form or a 503 banner.
-
-    Returns `{enabled: bool, message: str | null}`. Mirrors the gate
-    inside POST /render (`LISTENING_AI_RENDER_ENABLED` env bool AND
-    `ELEVENLABS_API_KEY` env str). Both must be set; either missing
-    means the render path is dark.
-    """
-    await require_admin(authorization)
-    enabled = bool(settings.LISTENING_AI_RENDER_ENABLED) and bool(settings.ELEVENLABS_API_KEY)
-    if enabled:
-        return {"enabled": True, "message": None}
-    if not settings.LISTENING_AI_RENDER_ENABLED:
-        msg = (
-            "AI render đang tạm tắt. Set LISTENING_AI_RENDER_ENABLED=true "
-            "sau khi provision ELEVENLABS_API_KEY."
-        )
-    else:
-        msg = "ELEVENLABS_API_KEY chưa cấu hình trên server."
-    return {"enabled": False, "message": msg}
-
-
-class ListeningRenderValidateRequest(BaseModel):
-    """Sprint 13.3 — dry-run validation body for the render UI.
-
-    Mirrors the shape of POST /render but is also useful for the live
-    cost preview as the admin types: the UI debounces and POSTs the
-    current script + voice + model and gets back `{ok, errors,
-    warnings, estimated_cost_credits, estimated_cost_usd,
-    estimated_render_seconds}`. No ElevenLabs call, no DB write.
-    """
-
-    model_config = ConfigDict(extra="ignore")
-
-    script_text:         str = Field(min_length=0, max_length=5000)
-    voice_id:            str | None = Field(default=None, min_length=0, max_length=64)
-    model:               str = Field(default="eleven_multilingual_v2")
-    title:               str | None = Field(default=None, max_length=200)
-    accent_tag:          str
-    cefr_level:          str | None = None
-    ielts_section:       int | None = None
-    topic_tags:          list[str] = Field(default_factory=list)
-    is_premium:          bool = Field(default=False)
-    external_license:    str | None = Field(default=None, max_length=120)
-    external_source_url: str | None = Field(default=None, max_length=500)
-
-
-_RENDER_SCRIPT_MIN_CHARS = 100
-_LOCKED_RENDER_VOICES: set[str] = {
-    settings.LISTENING_VOICE_US_FEMALE_DEFAULT,
-    settings.LISTENING_VOICE_UK_FEMALE_DEFAULT,
-}
-
-
-def _validate_render_payload(body: ListeningRenderValidateRequest) -> dict:
-    """Sprint 13.3 — collect errors/warnings for the render UI.
-
-    Distinct from Sprint 13.2 upload validator (that one's about audio
-    bytes + transcript wpm). This one's about script length, voice +
-    model enums, and the same license/premium cross-field rules. Hard
-    rules (premium+NC) raise HTTPException; soft signals come back as
-    warnings.
-    """
-    errors:   list[dict] = []
-    warnings: list[dict] = []
-
-    text = (body.script_text or "").strip()
-    if not text:
-        errors.append({"code": "script_empty", "message": "Script trống.",
-                       "field": "script_text", "severity": "error"})
-    elif len(text) < _RENDER_SCRIPT_MIN_CHARS:
-        errors.append({
-            "code": "script_too_short",
-            "message": (
-                f"Script quá ngắn ({len(text)} ký tự) — tối thiểu "
-                f"{_RENDER_SCRIPT_MIN_CHARS} ký tự để chống lãng phí credit."
-            ),
-            "field": "script_text", "severity": "error",
-        })
-
-    if body.accent_tag not in _ACCENT_VALUES:
-        errors.append({"code": "accent_invalid",
-                       "message": f"accent_tag must be one of {sorted(_ACCENT_VALUES)}",
-                       "field": "accent_tag", "severity": "error"})
-
-    if body.model not in _ELEVENLABS_MODELS:
-        errors.append({"code": "model_invalid",
-                       "message": f"model must be one of {sorted(_ELEVENLABS_MODELS)}",
-                       "field": "model", "severity": "error"})
-
-    if body.cefr_level is not None and body.cefr_level not in _CEFR_VALUES:
-        errors.append({"code": "cefr_invalid",
-                       "message": f"cefr_level must be one of {sorted(_CEFR_VALUES)}",
-                       "field": "cefr_level", "severity": "error"})
-
-    if body.ielts_section is not None and not (1 <= body.ielts_section <= 4):
-        errors.append({"code": "section_invalid",
-                       "message": "ielts_section must be 1-4",
-                       "field": "ielts_section", "severity": "error"})
-
-    voice_id = body.voice_id or _default_voice_for_accent(body.accent_tag) or ""
-    if voice_id and voice_id not in _LOCKED_RENDER_VOICES:
-        # Sprint 13.3 UI ships 2 locked voices (Sarah + Alice). A
-        # non-locked voice_id passed in (e.g. via direct API call from a
-        # future custom voice) is allowed — surface as warning so admin
-        # sees it but the upload proceeds.
-        warnings.append({"code": "voice_not_locked",
-                         "message": "voice_id không nằm trong danh sách locked (Sarah / Alice).",
-                         "field": "voice_id", "severity": "warning"})
-
-    if len(text) > 3000:
-        warnings.append({"code": "long_script",
-                         "message": (
-                             f"Script {len(text)} ký tự — render lâu hơn "
-                             f"({_estimated_render_seconds(text)}s) và tốn nhiều credit hơn."
-                         ),
-                         "field": "script_text", "severity": "warning"})
-
-    # License + premium hard rules → HTTPException 422 (mirror upload).
-    _license_combo_check(
-        external_license=body.external_license,
-        external_source_url=body.external_source_url,
-        is_premium=body.is_premium,
-    )
-
-    credits = _credit_cost_for(text, body.model) if text else 0
-    return {
-        "ok":                       not errors,
-        "errors":                   errors,
-        "warnings":                 warnings,
-        "estimated_cost_credits":   credits,
-        "estimated_cost_usd":       round(credits * _USD_PER_CREDIT, 4),
-        "estimated_render_seconds": _estimated_render_seconds(text),
-    }
-
-
-@admin_router.post("/render/validate")
-async def admin_render_validate(
-    body: ListeningRenderValidateRequest,
-    authorization: str | None = Header(default=None),
-):
-    """Sprint 13.3 — dry-run validation + cost preview. No ElevenLabs
-    call, no DB write. UI calls this on the "Kiểm tra trước khi render"
-    button and (debounced) as the script field changes.
-    """
-    await require_admin(authorization)
-    return _validate_render_payload(body)
-
-
-# ── Admin route — ElevenLabs render (feature-flag gated) ──────────────────────
-
-
-@admin_router.post("/render")
-async def admin_render_listening(
-    body: ListeningRenderRequest,
-    background_tasks: BackgroundTasks,
-    authorization: str | None = Header(default=None),
-):
-    """Schedule a BackgroundTask that renders the script via ElevenLabs,
-    uploads the MP3, and INSERTs the listening_content row with
-    status='draft'. Returns immediately with a job_id; the admin polls
-    the content list to see the draft land.
-
-    Feature-flag gated: returns 503 if LISTENING_AI_RENDER_ENABLED=false
-    OR ELEVENLABS_API_KEY is empty. Both checks fire so an accidental
-    key set without the flag still gates safely (defense in depth).
-    """
-    admin_user = await require_admin(authorization)
-
-    if not settings.LISTENING_AI_RENDER_ENABLED:
-        raise HTTPException(
-            503,
-            "ElevenLabs render endpoint not yet enabled. Set "
-            "LISTENING_AI_RENDER_ENABLED=true after provisioning "
-            "ELEVENLABS_API_KEY.",
-        )
-    if not settings.ELEVENLABS_API_KEY:
-        raise HTTPException(503, "ELEVENLABS_API_KEY not configured.")
-
-    # ── Validate enum-ish fields ──────────────────────────────────────────────
-    if body.accent_tag not in _ACCENT_VALUES:
-        raise HTTPException(422, f"accent_tag must be one of {sorted(_ACCENT_VALUES)}")
-    if body.model not in _ELEVENLABS_MODELS:
-        raise HTTPException(422, f"model must be one of {sorted(_ELEVENLABS_MODELS)}")
-    if body.cefr_level is not None and body.cefr_level not in _CEFR_VALUES:
-        raise HTTPException(422, f"cefr_level must be one of {sorted(_CEFR_VALUES)}")
-    if body.ielts_section is not None and not (1 <= body.ielts_section <= 4):
-        raise HTTPException(422, "ielts_section must be 1-4")
-
-    # ── Sprint 13.3 — apply the new render-script floor ──────────────────────
-    stripped_script = (body.script_text or "").strip()
-    if len(stripped_script) < _RENDER_SCRIPT_MIN_CHARS:
-        raise HTTPException(
-            422,
-            f"script_text quá ngắn ({len(stripped_script)} ký tự) — tối thiểu "
-            f"{_RENDER_SCRIPT_MIN_CHARS} ký tự (Sprint 13.3 anti-waste gate).",
-        )
-
-    # ── Sprint 11.2 — resolve voice_id fallback by accent ─────────────────────
-    voice_id = body.voice_id or _default_voice_for_accent(body.accent_tag)
-    if not voice_id:
-        raise HTTPException(
-            422,
-            "voice_id required (no default voice configured for "
-            f"accent_tag='{body.accent_tag}' — set body.voice_id explicitly).",
-        )
-
-    job_id = str(uuid.uuid4())
-
-    # ── Sprint 13.3.1 hotfix — INSERT placeholder row synchronously ─────────
-    # The renderer used to INSERT the row at the END of the
-    # BackgroundTask (~10-30s later), which raced the frontend's
-    # immediate redirect to content-detail.html?id=<id>. Now we create
-    # a placeholder row up-front (audio_storage_path=NULL, duration=0,
-    # size=0) and the BackgroundTask UPDATEs that row in place. The
-    # frontend treats `audio_storage_path IS NULL` as the "rendering"
-    # sentinel + auto-polls for the populated state.
-    # Migration 064 relaxed the schema constraints to allow this shape.
-    placeholder = {
-        "id":                      job_id,
-        "source_type":             "ai_elevenlabs",
-        "elevenlabs_voice_id":     voice_id,
-        "elevenlabs_model":        body.model,
-        # Placeholder shape — populated by the BackgroundTask.
-        "audio_storage_path":      None,
-        "audio_duration_seconds":  0,
-        "audio_size_bytes":        0,
-        "alignment_data":          None,
-        "generation_cost_credits": _credit_cost_for(body.script_text, body.model),
-        # Metadata carried over from the request — readable in the
-        # rendering banner so admins see what they queued.
-        "accent_tag":              body.accent_tag,
-        "topic_tags":              body.topic_tags or [],
-        "cefr_level":              body.cefr_level,
-        "ielts_section":           body.ielts_section,
-        "transcript":              body.transcript or body.script_text,
-        "transcript_segments":     [],
-        "status":                  "draft",
-        "is_premium":              False,
-        "title":                   body.title,
-        "created_by":              admin_user["id"],
-    }
-    try:
-        supabase_admin.table("listening_content").insert(placeholder).execute()
-    except Exception as e:
-        logger.error(
-            "[listening] render placeholder INSERT failed for job %s: %s",
-            job_id, e,
-        )
-        raise HTTPException(500, f"Render placeholder insert failed: {e}")
-
-    background_tasks.add_task(
-        run_elevenlabs_render_job,
-        job_id=job_id,
-        script_text=body.script_text,
-        voice_id=voice_id,
-        model=body.model,
-        title=body.title,
-        accent_tag=body.accent_tag,
-        cefr_level=body.cefr_level,
-        ielts_section=body.ielts_section,
-        topic_tags=body.topic_tags,
-        transcript=body.transcript,
-        created_by_user_id=admin_user["id"],
-    )
-
-    return {
-        "job_id":     job_id,
-        "content_id": job_id,
-        "status":     "rendering",
-        "estimated_render_seconds": _estimated_render_seconds(body.script_text),
-        "estimated_cost_credits":   _credit_cost_for(body.script_text, body.model),
-        "note":       (
-            "Placeholder row created. Poll /admin/listening/content/"
-            "{content_id} — audio_storage_path becomes non-null when the "
-            "render finishes (~10-30s)."
-        ),
-    }
 
 
 # ── User route — submit dictation attempt ─────────────────────────────────────
@@ -2271,28 +1418,6 @@ async def admin_delete_listening_exercise(
 # ══════════════════════════════════════════════════════════════════════════════
 
 
-def _first_attempt_only(rows: list[dict]) -> list[dict]:
-    """Sprint 11.5.1 hotfix — dedupe a list of listening_attempts rows
-    to the canonical first attempt per (exercise_id, segment_idx).
-
-    The first attempt is the row with the earliest `created_at` for each
-    tuple. Sprint 10.3's first-attempt rule was previously enforced only
-    at insert time (response field `is_first_attempt`) — analytics +
-    Mini Test completion previously aggregated ALL attempts, distorting
-    canonical scores when users replay. This helper restores truth.
-
-    Rows must have `exercise_id`, `created_at`. `segment_idx` is
-    optional — its absence is treated as `None` (single key per
-    exercise).
-    """
-    first_by_key: dict[tuple, dict] = {}
-    for r in rows:
-        key = (r.get("exercise_id"), r.get("segment_idx"))
-        prev = first_by_key.get(key)
-        if prev is None or (r.get("created_at") or "") < (prev.get("created_at") or ""):
-            first_by_key[key] = r
-    return list(first_by_key.values())
-
 # ── User route — content browse (Sprint 11.5) ─────────────────────────────────
 
 
@@ -2341,11 +1466,49 @@ async def list_listening_content(
         q = q.eq("ielts_section", ielts_section)
 
     res = q.execute()
+    items = res.data or []
+
+    # Which exercise modes each row can actually serve. Without this the
+    # browse card offered all four mode links unconditionally, and three of
+    # them dead-ended on "Bài này chưa có dạng ..." because no exercise had
+    # ever been authored. One extra round trip for the whole page, not N+1.
+    modes_by_content: dict[str, list[str]] = {c["id"]: [] for c in items if c.get("id")}
+    modes_lookup_failed = False
+    if modes_by_content:
+        try:
+            ex = (
+                supabase_admin.table("listening_exercises")
+                .select(_EXERCISE_READY_COLS)
+                .eq("status", "published")
+                .in_("content_id", list(modes_by_content))
+                .execute()
+            )
+            for row in ex.data or []:
+                bucket = modes_by_content.get(row.get("content_id"))
+                etype = row.get("exercise_type")
+                if (bucket is not None and etype and etype not in bucket
+                        and _exercise_is_ready(row)):
+                    bucket.append(etype)
+        except Exception as exc:                                             # pragma: no cover
+            logger.warning("[listening] available_modes lookup failed: %s", exc)
+            # An empty list here would be indistinguishable from "this content
+            # genuinely has no exercises" — the browse card would print "chưa có
+            # dạng luyện nào" and a DB fault would read as canonical no-data.
+            # Same rule the access-code endpoints already follow with
+            # `association_lookup_failed`: say the lookup failed, never invent
+            # an answer.
+            modes_lookup_failed = True
+    for c in items:
+        c["available_modes"] = (
+            None if modes_lookup_failed else sorted(modes_by_content.get(c.get("id"), []))
+        )
+
     return {
-        "items":  res.data or [],
+        "items":  items,
         "total":  getattr(res, "count", None) or 0,
         "limit":  limit,
         "offset": offset,
+        "modes_lookup_failed": modes_lookup_failed,
     }
 
 
@@ -2360,22 +1523,26 @@ async def get_listening_analytics(
     time_range: str = Query(default="30d", alias="range"),
     authorization: str | None = Header(default=None),
 ):
-    """Per-user listening analytics.
+    """Per-user listening analytics — nguồn: listening_test_attempts.
 
-    Range buckets (server-side filter to bound payload size + DB scan):
-      - 7d:  last 7 days
-      - 30d: last 30 days (default)
-      - all: all-time
+    Audit 2026-07-17: bảng listening_attempts (hệ exercise Sprint 11.x) đã chết
+    từ 05/2026 — mọi hoạt động thật (lesson/mini · drill · full) ghi vào
+    listening_test_attempts, nên thống kê đọc từ đó.
+
+    Range buckets: 7d | 30d (default) | all.
 
     Aggregations:
-      - total_attempts: int
-      - by_mode: { dictation, gist, true_false, mcq } → {count, avg_score, accuracy}
-      - by_day: last 14 days bar chart data (count + avg_score per day)
-      - recent_attempts: last 10 with exercise_type + score + created_at
-      - weakest_mode: mode with lowest avg_score (≥3 attempts), else null
+      - total_attempts: mọi lượt trong range (engagement — gồm đang làm/bỏ dở)
+      - by_mode: { mini, drill, full, practice } → {count, avg_score, completion}
+        · count      = lượt ĐẦU per test (retry không đếm — Sprint 11.5.1 rule)
+        · avg_score  = % đúng TB (score/số câu) của lượt đầu ĐÃ NỘP, 0..1
+        · completion = tỉ lệ lượt đã nộp / mọi lượt của loại đó
+      - by_day: 14 ngày gần nhất (count + avg_score theo ngày)
+      - recent_attempts: 10 lượt gần nhất {type, title, status, accuracy, ...}
+      - weakest_mode: loại có avg_score thấp nhất (≥3 lượt đã nộp), else null
 
-    Per CLAUDE.md non-misleading-feedback rule: modes with <3 attempts
-    are reported as "insufficient data" rather than fabricating a band.
+    Per CLAUDE.md non-misleading-feedback rule: loại <3 lượt nộp không được
+    gắn nhãn "yếu nhất".
     """
     user = await _require_auth(authorization)
     user_id = user["id"]
@@ -2395,108 +1562,115 @@ async def get_listening_analytics(
         cutoff = None
 
     q = (
-        supabase_admin.table("listening_attempts")
-        .select("id,exercise_id,segment_idx,score,is_correct,created_at")
+        supabase_admin.table("listening_test_attempts")
+        .select("id,test_id,status,score,grading_details,created_at,submitted_at")
         .eq("user_id", user_id)
         .order("created_at", desc=True)
     )
     if cutoff is not None:
         q = q.gte("created_at", cutoff.isoformat())
-    res = q.execute()
-    attempts_raw = res.data or []
+    attempts_raw = q.execute().data or []
 
-    # Resolve exercise_type via a second query (avoids fragile relational
-    # select semantics when the FK exists but PostgREST hasn't refreshed).
-    type_by_eid: dict[str, str] = {}
-    distinct_eids = sorted({r["exercise_id"] for r in attempts_raw if r.get("exercise_id")})
-    if distinct_eids:
-        ex_res = (
-            supabase_admin.table("listening_exercises")
-            .select("id,exercise_type")
-            .in_("id", distinct_eids)
-            .execute()
-        )
-        type_by_eid = {
-            row["id"]: row["exercise_type"]
-            for row in (ex_res.data or [])
-        }
+    # Resolve test_type + title theo lô (không dùng relational select).
+    tests = _rows_by_id(
+        "listening_tests",
+        [r.get("test_id") for r in attempts_raw],
+        "id,test_id,title,test_type",
+    )
 
     flat: list[dict] = []
     for r in attempts_raw:
+        gd = r.get("grading_details") or []
+        submitted = r.get("status") == "submitted"
+        acc = (
+            round(r["score"] / len(gd), 4)
+            if submitted and r.get("score") is not None and gd else None
+        )
+        tinfo = tests.get(r.get("test_id")) or {}
         flat.append({
-            "id":            r["id"],
-            "exercise_id":   r["exercise_id"],
-            "segment_idx":   r.get("segment_idx"),
-            "score":         float(r.get("score") or 0),
-            "is_correct":    bool(r.get("is_correct")),
-            "created_at":    r["created_at"],
-            "exercise_type": type_by_eid.get(r["exercise_id"], "unknown"),
+            "id":         r["id"],
+            "test_id":    r.get("test_id"),
+            "type":       tinfo.get("test_type") or "unknown",
+            "title":      tinfo.get("title") or tinfo.get("test_id"),
+            "status":     r.get("status"),
+            "accuracy":   acc,
+            "score":      r.get("score"),
+            "total_questions": len(gd) or None,
+            "created_at": r["created_at"],
         })
 
-    # Sprint 11.5.1 hotfix — first-attempt rule for accuracy metrics:
-    # `avg_score`, `accuracy`, and `weakest_mode` use first-attempt rows
-    # only (one row per (exercise_id, segment_idx)). `total_attempts`
-    # remains a count of ALL attempts (engagement signal — re-listens
-    # count). `by_day` also uses all rows so the bar chart reflects
-    # daily activity, not unique-exercise completion.
-    flat_first = _first_attempt_only(flat)
-
-    modes = ("dictation", "gist", "true_false", "mcq")
-    by_mode: dict[str, dict] = {}
-    for m in modes:
-        rows_m = [r for r in flat_first if r["exercise_type"] == m]
-        n = len(rows_m)
-        if n == 0:
-            by_mode[m] = {"count": 0, "avg_score": None, "accuracy": None}
+    # First-attempt rule per test (giữ tinh thần Sprint 11.5.1): canonical cho
+    # ĐIỂM là lượt NỘP đầu tiên của mỗi bài (lượt bỏ dở/đang làm không chiếm
+    # slot — không có điểm để đại diện); mọi lượt vẫn đếm engagement/by_day.
+    first_by_test: dict[str, dict] = {}       # lượt đầu (mọi status) — đếm bài đã đụng
+    first_submitted: dict[str, dict] = {}     # lượt NỘP đầu — nguồn điểm canonical
+    for r in reversed(flat):                  # flat đang newest-first
+        tid = r["test_id"]
+        if not tid:
             continue
-        avg = sum(r["score"] for r in rows_m) / n
-        acc = sum(1 for r in rows_m if r["is_correct"]) / n
+        if tid not in first_by_test:
+            first_by_test[tid] = r
+        if r["accuracy"] is not None and tid not in first_submitted:
+            first_submitted[tid] = r
+    flat_first = list(first_by_test.values())
+    flat_first_submitted = list(first_submitted.values())
+
+    # Every persisted test_type, or the dashboard contradicts itself: a
+    # practice attempt would raise total_attempts and show up in daily/recent
+    # activity while its score sat outside the average, the completion rate and
+    # the weakest-mode pick. Keep this in step with the CHECK on
+    # listening_tests.test_type (mig 157/173).
+    types = ("mini", "drill", "full", "practice")
+    by_mode: dict[str, dict] = {}
+    for m in types:
+        firsts = [r for r in flat_first if r["type"] == m]
+        alls = [r for r in flat if r["type"] == m]
+        accs = [r["accuracy"] for r in flat_first_submitted if r["type"] == m]
         by_mode[m] = {
-            "count":     n,
-            "avg_score": round(avg, 4),
-            "accuracy":  round(acc, 4),
+            "count":      len(firsts),
+            # scored_count/attempts_count: mẫu số đúng cho các chỉ số tổng hợp
+            # phía client — count (bài đã đụng, gồm bỏ dở) KHÔNG được làm mẫu
+            # số cho avg_score (chỉ tính bài đã nộp) (review P2, PR #809).
+            "scored_count":   len(accs),
+            "attempts_count": len(alls),
+            "avg_score":  round(sum(accs) / len(accs), 4) if accs else None,
+            "completion": (round(sum(1 for r in alls if r["status"] == "submitted")
+                                 / len(alls), 4) if alls else None),
         }
 
-    # Weakest mode (lowest avg_score) — only count modes with ≥3 attempts
-    # so we don't misrepresent thin slices as weaknesses. Uses
-    # first-attempt rows only (consistent with the rest of by_mode).
     candidates = [
         (m, by_mode[m]["avg_score"])
-        for m in modes
-        if by_mode[m]["count"] >= 3 and by_mode[m]["avg_score"] is not None
+        for m in types
+        if by_mode[m]["avg_score"] is not None
+        and sum(1 for r in flat_first_submitted if r["type"] == m) >= 3
     ]
-    weakest_mode = min(candidates, key=lambda t: t[1])[0] if candidates else None
+    weakest_mode = min(candidates, key=lambda t2: t2[1])[0] if candidates else None
 
-    # by_day — bin scores into last 14 calendar days (UTC).
+    # by_day — bin vào 14 ngày gần nhất (UTC), mọi lượt.
     by_day: list[dict] = []
     for day_offset in range(14):
         day_start = (now - timedelta(days=day_offset)).replace(
             hour=0, minute=0, second=0, microsecond=0,
         )
         day_end = day_start + timedelta(days=1)
-        day_start_iso = day_start.isoformat()
-        day_end_iso = day_end.isoformat()
         day_rows = [
             r for r in flat
-            if day_start_iso <= r["created_at"] < day_end_iso
+            if day_start.isoformat() <= r["created_at"] < day_end.isoformat()
         ]
-        n = len(day_rows)
-        avg = (sum(r["score"] for r in day_rows) / n) if n else None
+        day_accs = [r["accuracy"] for r in day_rows if r["accuracy"] is not None]
         by_day.append({
             "date":      day_start.date().isoformat(),
-            "count":     n,
-            "avg_score": round(avg, 4) if avg is not None else None,
+            "count":     len(day_rows),
+            "avg_score": round(sum(day_accs) / len(day_accs), 4) if day_accs else None,
         })
     by_day.reverse()  # oldest first for chart rendering
-
-    recent = flat[:10]
 
     return {
         "range":           time_range,
         "total_attempts":  len(flat),
         "by_mode":         by_mode,
         "by_day":          by_day,
-        "recent_attempts": recent,
+        "recent_attempts": flat[:10],
         "weakest_mode":    weakest_mode,
     }
 
@@ -2525,6 +1699,8 @@ class ListeningTestPatchRequest(BaseModel):
     band_target:    Optional[float]            = None
     accent_profile: Optional[list[str]]        = None
     themes:         Optional[dict[str, str]]   = None
+    # Dành riêng cho kỳ thi thử — ẩn khỏi thư viện học viên (mig 170).
+    exam_only:      Optional[bool]              = None
 
 
 class ListeningTestStatusPatchRequest(BaseModel):
@@ -2532,23 +1708,11 @@ class ListeningTestStatusPatchRequest(BaseModel):
     status: str
 
 
-class ConvertCommitRequest(BaseModel):
-    """POST /admin/listening/convert/commit body.
-
-    Carries the parsed-result envelope the dry-run returned, so the admin
-    can review + tweak before persisting. The server re-validates shape
-    (it does NOT trust the client to send arbitrary section payloads).
-    """
-    model_config = ConfigDict(extra="allow")
-
-    test_metadata: dict
-    sections:      list[dict]
-
-
 @admin_router.get("/tests")
 async def admin_list_listening_tests(
     status: str = Query(default="all"),
     search: str = Query(default=""),
+    test_type: str = Query(default="exam"),
     limit: int  = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     authorization: str | None = Header(default=None),
@@ -2559,6 +1723,13 @@ async def admin_list_listening_tests(
     ``test_id`` (case-insensitive ilike). Each row carries a synthetic
     ``audio_ready_count`` — how many of the 4 section rows already have
     audio_storage_path set (powers the "X/4 sections có audio" column).
+
+    `test_type` defaults to **"exam"** = full|mini|drill, i.e. everything that
+    existed before the generated `practice` bank. That default matters: this
+    endpoint feeds the mock-exam picker, which asks for `limit=100` newest-first
+    with no type filter. Importing a few hundred practice items would fill the
+    first page and push the Cambridge papers an admin needs out of sight. Pass
+    `test_type=practice` to browse the bank, or `all` for everything.
     """
     await require_admin(authorization)
 
@@ -2567,6 +1738,16 @@ async def admin_list_listening_tests(
             422,
             f"status must be one of {sorted(_TEST_STATUS_VALUES | {'all'})}",
         )
+    _ADMIN_TYPE_FILTERS = {"exam", "all", "full", "mini", "drill", "practice"}
+    # Called directly (unit tests, internal reuse) an omitted Query() param
+    # arrives as its FieldInfo sentinel, not the default string — comparing that
+    # to "exam" is false, so the filter would fall through to
+    # `eq("test_type", <FieldInfo>)` and quietly return nothing.
+    if not isinstance(test_type, str):
+        test_type = "exam"
+    if test_type not in _ADMIN_TYPE_FILTERS:
+        raise HTTPException(
+            422, f"test_type must be one of {sorted(_ADMIN_TYPE_FILTERS)}")
 
     q = (
         supabase_admin.table("listening_tests")
@@ -2574,6 +1755,10 @@ async def admin_list_listening_tests(
         .order("created_at", desc=True)
         .range(offset, offset + limit - 1)
     )
+    if test_type == "exam":
+        q = q.in_("test_type", ["full", "mini", "drill"])
+    elif test_type != "all":
+        q = q.eq("test_type", test_type)
     if status != "all":
         q = q.eq("status", status)
     if search.strip():
@@ -2666,7 +1851,7 @@ async def admin_get_listening_test(
     # tests-detail page can show a "Hình map" panel per exercise
     # without a second round-trip. We deliberately strip the answers
     # field at this admin surface as well — admins manage answer keys
-    # through the existing convert/commit flow, not this endpoint.
+    # through the import-fulltest re-import flow, not this endpoint.
     plan_label_exercises: list[dict] = []
     if content_ids:
         pl_res = (
@@ -2765,6 +1950,17 @@ async def admin_patch_listening_test(
         if not title:
             raise HTTPException(422, "title must not be empty")
         update["title"] = title
+
+    if body.exam_only is not None:
+        if not body.exam_only:
+            from services import mock_exam_service
+            try:
+                mock_exam_service.assert_can_unreserve("listening", test_id)
+            except mock_exam_service.SittingConflictError as e:
+                raise HTTPException(409, str(e))
+            except mock_exam_service.MockExamError as e:
+                raise HTTPException(503, str(e))
+        update["exam_only"] = bool(body.exam_only)
 
     if body.version is not None:
         update["version"] = body.version.strip() or "1.0"
@@ -3060,57 +2256,6 @@ def _read_text_upload(upload: UploadFile, label: str, *, exts: tuple) -> bytes:
     return data
 
 
-@admin_router.post("/convert")
-async def admin_convert_listening_dry_run(
-    question_paper:    UploadFile = File(...),
-    script_answerkey:  UploadFile = File(...),
-    authorization: str | None = Header(default=None),
-):
-    """Dry-run parse of a 2-file Cambridge IELTS DOCX bundle.
-
-    Returns the structured preview (test metadata + 4 sections +
-    warnings/errors). No DB writes. The admin reviews the preview, then
-    POSTs the same envelope to ``/convert/commit`` to persist.
-    """
-    await require_admin(authorization)
-
-    qp_bytes = _read_markdown_upload(question_paper,   "Question Paper")
-    sa_bytes = _read_markdown_upload(script_answerkey, "Script+AnswerKey")
-
-    try:
-        result = listening_convert.parse_listening_test(qp_bytes, sa_bytes)
-    except Exception as exc:
-        logger.exception("Convert dry-run failed")
-        raise HTTPException(422, f"Lỗi khi phân tích markdown: {exc}") from exc
-
-    # Surface duplicate test_id here so the UI can switch to an "update
-    # existing" flow without a second round-trip.
-    # Sprint 13.5.4: only ACTIVE rows (draft / published) block a
-    # re-import. Archived rows are kept for audit + attempt history
-    # and are explicitly allowed to share a test_id with the new draft.
-    test_id_external = (result.get("test_metadata") or {}).get("test_id")
-    if test_id_external:
-        dup = (
-            supabase_admin.table("listening_tests")
-            .select("id,status")
-            .eq("test_id", test_id_external)
-            .neq("status", "archived")
-            .limit(1)
-            .execute()
-        )
-        if dup.data:
-            result.setdefault("warnings", []).append(
-                f"Test ID '{test_id_external}' đang ACTIVE trong DB "
-                f"(status={dup.data[0].get('status')}). Lựa chọn: "
-                f"(1) Archive test cũ → re-import sẽ tạo version mới, "
-                f"(2) Hard delete test cũ qua Vùng nguy hiểm, hoặc "
-                f"(3) Đổi test_id trong markdown metadata."
-            )
-            result["duplicate_test_id"] = True
-
-    return result
-
-
 @admin_router.post("/import-fulltest")
 async def admin_import_fulltest_dry_run(
     question_paper: UploadFile = File(...),
@@ -3118,12 +2263,12 @@ async def admin_import_fulltest_dry_run(
     timings:        UploadFile = File(...),
     authorization: str | None = Header(default=None),
 ):
-    """listening-fulltest-md-import (Phase A) — ADDITIVE dry-run parse of the
+    """listening-fulltest-md-import (Phase A) — dry-run parse of the
     full-test pack (Question_Paper.md + Solution.md + timings.json; the audio
-    mp3 is uploaded at commit). The legacy 2-file ``/convert`` flow is
-    untouched. Returns the merged 40-question preview + FAIL-LOUD validation
-    (every missing answer / missing audio window / audio↔timings divergence is
-    an explicit error). No DB writes — the admin reviews, then commits (A2)."""
+    mp3 is uploaded at commit). Returns the merged 40-question preview +
+    FAIL-LOUD validation (every missing answer / missing audio window /
+    audio↔timings divergence is an explicit error). No DB writes — the admin
+    reviews, then commits (A2)."""
     await require_admin(authorization)
 
     qp_bytes  = _read_text_upload(question_paper, "Question Paper", exts=(".md", ".markdown"))
@@ -3140,7 +2285,7 @@ async def admin_import_fulltest_dry_run(
 
     preview = result.as_preview()
 
-    # Surface a duplicate ACTIVE test_id (same convention as /convert).
+    # Surface a duplicate ACTIVE test_id (archived rows are reusable).
     test_id_external = (result.metadata or {}).get("test_id")
     if test_id_external:
         dup = (
@@ -3177,7 +2322,7 @@ async def admin_import_fulltest_commit(
     (payload enriched with per-question audio_windows + solutions). The rows are
     the SAME shape the existing player + grader + attempt flow consume, so an
     imported test is takeable / gradeable / reviewable with no other changes.
-    No migration (Pattern #15). The legacy 2-file /convert flow is untouched."""
+    No migration (Pattern #15)."""
     from services import listening_audio
 
     await require_admin(authorization)
@@ -3214,12 +2359,12 @@ async def admin_import_fulltest_commit(
     # return {duration_seconds, size_bytes, errors, warnings}, so downstream use
     # of `av` is unchanged. (Without this, mini commit 422'd on the 300s floor
     # even though validate/preview — which never sees the audio — passed.)
-    av = (listening_audio.validate_section_audio(audio_bytes) if mini
+    av = (listening_audio.validate_section_audio(audio_bytes, test_type="mini") if mini
           else listening_audio.validate_full_audio(audio_bytes))
     if av["errors"]:
         raise HTTPException(422, "; ".join(av["errors"]))
 
-    # Duplicate ACTIVE test_id guard (archived rows are fine — convert parity).
+    # Duplicate ACTIVE test_id guard (archived rows are fine).
     dup = (
         supabase_admin.table("listening_tests")
         .select("id,status").eq("test_id", test_id_external)
@@ -3252,11 +2397,10 @@ async def admin_import_fulltest_commit(
             "source_format":   "listening-fulltest-v1.1",
             "section_offsets": offsets,
             "band_conversion": res.metadata.get("band_conversion") or [],
-            # Listening mini test — 'mini' (1 section) vs 'full' (4); the student
-            # list endpoint segregates on metadata.test_type. No migration: the
-            # metadata JSONB column already exists (mig 065).
-            "test_type":       "mini" if mini else "full",
         },
+        # Mig 157 — test_type là cột thật có CHECK ('mini' 1 section vs
+        # 'full' 4 sections); list endpoint student lọc trên cột này.
+        "test_type":                   "mini" if mini else "full",
         "status":                      "draft",
     }
     # ── Persist ALL-OR-NOTHING with full rollback ────────────────────
@@ -3435,7 +2579,7 @@ async def admin_import_drill_commit(
         audio_bytes = audio.file.read()
         if len(audio_bytes) > _DRILL_MAX_AUDIO_BYTES:
             raise HTTPException(422, f"Audio quá lớn ({len(audio_bytes)//(1024*1024)} MB > 30 MB).")
-        av = listening_audio.validate_section_audio(audio_bytes)
+        av = listening_audio.validate_section_audio(audio_bytes, test_type="drill")
         if av["errors"]:
             raise HTTPException(422, "; ".join(av["errors"]))
 
@@ -3475,6 +2619,8 @@ async def admin_import_drill_commit(
         "cue_points":      res.cue_points,
         "audio_assembly_mode": "full_premixed",
         "metadata":        tm.get("metadata") or {},
+        # Mig 157 — test_type là cột thật (CHECK full|mini|drill).
+        "test_type":       tm.get("test_type") or "drill",
         "status":          "draft",
     }
     if audio_bytes and av:
@@ -3571,6 +2717,73 @@ def _load_audit_row(test_id: str) -> dict | None:
     return r.data[0] if r.data else None
 
 
+@admin_router.get("/tests/{test_id}/preview")
+async def admin_preview_listening_test(
+    test_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Xem trước một đề nghe bằng ĐÚNG giao diện chữa bài của học viên.
+
+    Đợt 2 (mig 170). Reuses _assemble_listening_review byte for byte rather than
+    rendering a second admin-only view: the point of a preview is to show what
+    the student will actually see, and a parallel renderer drifts.
+
+    Deliberately the CHỮA BÀI shape, not the exam shape — an admin verifying a
+    paper needs the questions AND the answers AND the audio, which is exactly
+    what the review payload carries and exactly what the exam payload strips.
+
+    Creates NOTHING. The synthetic attempt below never touches the database, so
+    previewing does not consume an attempt slot, does not appear in the
+    student's history, and cannot be mistaken for a sitting.
+    """
+    from services import listening_test_grader as grader
+
+    await require_admin(authorization)
+
+    test_res = (
+        supabase_admin.table("listening_tests").select("id")
+        .eq("id", test_id).limit(1).execute()
+    )
+    if not test_res.data:
+        raise HTTPException(404, "Test bundle not found")
+
+    # Answer key = the same source the grader scores against, so the preview can
+    # never show an admin something different from what it will mark.
+    section_ids = [
+        r["id"] for r in (
+            supabase_admin.table("listening_content").select("id")
+            .eq("test_id", test_id).execute().data or []
+        )
+    ]
+    ex_rows = (
+        supabase_admin.table("listening_exercises").select("payload")
+        .in_("content_id", section_ids).execute().data or []
+    ) if section_ids else []
+    key = grader.collect_answer_key(ex_rows)
+
+    synthetic = {
+        "test_id":         test_id,
+        # status 'submitted' is what makes the page render the review layout;
+        # nothing is persisted, so this is a rendering hint, not a claim.
+        "status":          "submitted",
+        "score":           None,
+        "band_estimate":   None,
+        "trap_analytics":  {},
+        "grading_details": [
+            {
+                "q_num":       k.get("q_num"),
+                "correct":     False,
+                "user_answer": "",          # nobody sat this
+                "expected":    k.get("answer") or "",
+            }
+            for k in key if k.get("q_num") is not None
+        ],
+    }
+    out = _assemble_listening_review(synthetic, None)
+    out["preview"] = True                   # let the page label itself honestly
+    return out
+
+
 @admin_router.get("/tests/{test_id}/audit")
 async def admin_get_test_audit(
     test_id: str,
@@ -3606,7 +2819,7 @@ async def admin_get_test_audit(
         "uuid":        test_id,
         "title":       test.get("title"),
         "status":      test.get("status"),
-        "test_type":   (test.get("metadata") or {}).get("test_type"),
+        "test_type":   test.get("test_type"),
         "question_count": len(h["all_questions"]),
         "section_count":  len(h["sections"]),
         "sections":    editor_sections,   # for the inline editor
@@ -3865,151 +3078,6 @@ async def admin_edit_exercise_question(
     }
 
 
-@admin_router.post("/convert/commit")
-async def admin_convert_listening_commit(
-    body: ConvertCommitRequest,
-    authorization: str | None = Header(default=None),
-):
-    """Persist a parsed test bundle: 1 listening_tests row + 4
-    listening_content rows + N listening_exercises rows.
-
-    Partial-failure semantics (Sprint 13.2 pattern):
-      * The listening_tests row is created first; if that fails the
-        whole call returns 422.
-      * Each of the 4 section INSERTs is independent — a failure on
-        section 2 still commits sections 1/3/4 and returns the failure
-        in ``failed_sections``.
-      * Each exercise INSERT is independent — failure recorded in
-        ``failed_exercises`` but the response is still 200.
-    """
-    await require_admin(authorization)
-
-    metadata = body.test_metadata or {}
-    test_id_external = (metadata.get("test_id") or "").strip()
-    if not test_id_external:
-        raise HTTPException(422, "test_metadata.test_id thiếu — không thể commit.")
-    if not body.sections:
-        raise HTTPException(422, "sections rỗng — không có section nào để tạo.")
-
-    # Duplicate guard (also enforced by the partial UNIQUE index — see
-    # migration 069 — surface a clean VN message instead of letting
-    # postgres bubble 23505). Sprint 13.5.4: only ACTIVE rows block; an
-    # archived row with the same test_id is fine and stays put.
-    dup = (
-        supabase_admin.table("listening_tests")
-        .select("id,status")
-        .eq("test_id", test_id_external)
-        .neq("status", "archived")
-        .limit(1)
-        .execute()
-    )
-    if dup.data:
-        raise HTTPException(
-            422,
-            f"Test ID '{test_id_external}' đang ACTIVE (status="
-            f"{dup.data[0].get('status')}) — không thể commit. "
-            f"Archive test cũ qua Vùng nguy hiểm rồi import lại, "
-            f"hoặc đổi test_id.",
-        )
-
-    test_uuid = str(uuid.uuid4())
-    accent_profile = metadata.get("accent_profile") or []
-    themes = metadata.get("themes") or {}
-
-    test_payload = {
-        "id":                      test_uuid,
-        "test_id":                 test_id_external,
-        "title":                   metadata.get("title") or test_id_external,
-        "version":                 (metadata.get("version") or "1.0"),
-        "band_target":             metadata.get("band_target"),
-        "accent_profile":          list(accent_profile),
-        "themes":                  dict(themes),
-        "total_transcript_words":  metadata.get("total_words"),
-        "metadata":                {
-            "source_format":     metadata.get("source_format") or "cambridge_ielts_docx",
-            "created_at_source": metadata.get("created_at_source"),
-        },
-        "status":                  "draft",
-    }
-
-    try:
-        (
-            supabase_admin.table("listening_tests")
-            .insert(test_payload)
-            .execute()
-        )
-    except Exception as exc:
-        logger.exception("INSERT listening_tests failed")
-        raise HTTPException(422, f"Lỗi khi tạo test row: {exc}") from exc
-
-    content_ids: list[str] = []
-    failed_sections: list[dict] = []
-    exercises_created = 0
-    failed_exercises: list[dict] = []
-
-    for section in body.sections:
-        section_num = section.get("section_num")
-        try:
-            content_payload = listening_convert.section_to_content_payload(
-                section, test_uuid, metadata,
-            )
-            content_payload["id"] = str(uuid.uuid4())
-            (
-                supabase_admin.table("listening_content")
-                .insert(content_payload)
-                .execute()
-            )
-            content_ids.append(content_payload["id"])
-        except Exception as exc:                     # one section fails — others continue
-            logger.exception("INSERT listening_content failed section=%s", section_num)
-            failed_sections.append({
-                "section_num": section_num,
-                "error":       str(exc),
-            })
-            continue
-
-        # Exercises (best-effort per row).
-        for exercise in section.get("exercises", []):
-            try:
-                ex_payload = {
-                    "id":            str(uuid.uuid4()),
-                    "content_id":    content_payload["id"],
-                    "exercise_type": exercise.get("exercise_type", "dictation"),
-                    "payload":       exercise.get("payload", {}),
-                    "order_num":     exercise.get("order_num", 1),
-                    "cefr_level":    content_payload.get("cefr_level"),
-                    "status":        "draft",
-                }
-                (
-                    supabase_admin.table("listening_exercises")
-                    .insert(ex_payload)
-                    .execute()
-                )
-                exercises_created += 1
-            except Exception as exc:
-                logger.exception(
-                    "INSERT listening_exercises failed section=%s order=%s",
-                    section_num, exercise.get("order_num"),
-                )
-                failed_exercises.append({
-                    "section_num": section_num,
-                    "order_num":   exercise.get("order_num"),
-                    "error":       str(exc),
-                })
-
-    return {
-        "test_id":           test_uuid,
-        "test_id_external":  test_id_external,
-        "content_ids":       content_ids,
-        "exercises_created": exercises_created,
-        "failed_sections":   failed_sections,
-        "failed_exercises":  failed_exercises,
-    }
-
-
-# ── Sprint 13.4.3 — test bundle audio upload + assembly ─────────────────────
-
-
 _AUDIO_ASSEMBLY_MODES = {"full_premixed", "parts_auto_assembled", "parts_only"}
 
 
@@ -4163,8 +3231,8 @@ async def admin_upload_test_section_audio(
     if not sec_res.data:
         raise HTTPException(
             404,
-            f"Section {section_num} row missing — convert flow may not have "
-            f"created it. Re-run convert/commit before uploading.",
+            f"Section {section_num} row missing — test này chưa có content row "
+            f"cho section đó. Import lại đề (import-fulltest) trước khi upload.",
         )
     content_id = sec_res.data[0]["id"]
 
@@ -4432,20 +3500,7 @@ async def admin_get_test_audio_signed_urls(
     }
 
 
-# ── Sprint 13.5.6 — map image generation for plan-label exercises ─────────
-
-
-class GenerateMapImageRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    # Optional override — defaults to settings.LISTENING_MAP_IMAGE_MODEL.
-    model: str | None = None
-    # Sprint 13.5.9.1 — admin-reviewed (possibly edited) prompt. When
-    # supplied + non-empty, this overrides the parser-extracted
-    # ``metadata.map_image_custom_prompt`` and the Cambridge template.
-    # The override is session-only: it is NOT persisted back to the
-    # markdown source, so re-converting the markdown resets the
-    # textarea to whatever the parser extracts.
-    custom_prompt_override: str | None = None
+# ── Map image helpers (shared by manual upload / delete / signed-url) ─────
 
 
 def _fetch_exercise_or_404(exercise_id: str) -> dict:
@@ -4473,130 +3528,6 @@ def _sign_map_image_url(storage_path: str | None, expires_in: int = 3600) -> str
         logger.warning("[map_image] signed URL mint failed: %s", exc)
         return None
     return (signed or {}).get("signedURL") or (signed or {}).get("signed_url")
-
-
-@admin_router.post("/exercises/{exercise_id}/generate-map-image")
-async def admin_generate_map_image(
-    exercise_id: str,
-    body: GenerateMapImageRequest | None = None,
-    authorization: str | None = Header(default=None),
-):
-    """Sprint 13.5.6 — generate a Cambridge-style floor-plan image for
-    a plan-label exercise via Imagen 4 / Gemini 2.5 Flash Image, upload
-    to Supabase Storage, and merge the metadata into the exercise's
-    payload. Returns a 1h signed URL so the admin UI can preview the
-    output without a follow-up round-trip.
-    """
-    from services import listening_map_image
-
-    await require_admin(authorization)
-    exercise = _fetch_exercise_or_404(exercise_id)
-
-    payload = dict(exercise.get("payload") or {})
-    variant = payload.get("variant") or exercise.get("variant")
-    template_kind = payload.get("template_kind")
-    if variant != "mcq_letter_label" and template_kind != "plan_label":
-        raise HTTPException(
-            422,
-            "Map image generation is only available for plan-label "
-            "exercises (variant=mcq_letter_label).",
-        )
-
-    metadata = payload.get("metadata") or {}
-    map_description = metadata.get("map_description") or payload.get("map_description") or ""
-    letter_options = metadata.get("letter_options") or payload.get("letter_options")
-    # Sprint 13.5.9 — pick up Andy's curated prompt off either the
-    # metadata block (where the parser puts it) or the payload root
-    # (defensive in case a future writer flattens the schema).
-    parsed_prompt = (
-        metadata.get("map_image_custom_prompt")
-        or payload.get("map_image_custom_prompt")
-        or None
-    )
-    # Sprint 13.5.9.1 — precedence:
-    #   1. ``body.custom_prompt_override`` — admin reviewed/edited it
-    #      in the UI and clicked Generate. Use this verbatim.
-    #   2. ``parsed_prompt`` — the parser extracted it from a
-    #      `<details>` block in the markdown source.
-    #   3. ``None`` — the image service falls back to the template.
-    override = (body.custom_prompt_override if body else None) or None
-    if override and override.strip():
-        custom_prompt = override
-        prompt_origin = "admin_override"
-    elif parsed_prompt:
-        custom_prompt = parsed_prompt
-        prompt_origin = "custom"
-    else:
-        custom_prompt = None
-        prompt_origin = "template"
-    logger.info(
-        "[map_image] generate exercise=%s origin=%s prompt_chars=%d",
-        exercise_id, prompt_origin,
-        len(custom_prompt) if custom_prompt else 0,
-    )
-
-    api_key = settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY", "")
-    if not api_key:
-        raise HTTPException(500, "GEMINI_API_KEY not configured on the server.")
-
-    # Resolve parent test_id for storage pathing.
-    content_id = exercise.get("content_id")
-    content_res = (
-        supabase_admin.table("listening_content")
-        .select("test_id")
-        .eq("id", content_id)
-        .limit(1)
-        .execute()
-    )
-    test_id = (content_res.data or [{}])[0].get("test_id")
-    if not test_id:
-        raise HTTPException(500, "Exercise has no parent test bundle.")
-
-    try:
-        result = listening_map_image.generate_and_upload(
-            map_description=map_description,
-            letter_options=letter_options,
-            test_id=test_id,
-            exercise_id=exercise_id,
-            supabase=supabase_admin,
-            api_key=api_key,
-            model=(body.model if body else None),
-            custom_prompt=custom_prompt,
-        )
-    except ValueError as exc:
-        raise HTTPException(422, str(exc))
-    except Exception as exc:
-        logger.error("[map_image] generation failed: %s", exc)
-        raise HTTPException(500, f"Image generation failed: {exc}")
-
-    # Sprint 13.5.9.1 — when the admin reviewed/edited the prompt in
-    # the UI, override the service's "custom"/"template" tag with the
-    # finer-grained "admin_override" so the panel can show what
-    # actually drove the generation. The service has no way to know
-    # whether the prompt it received came from markdown or a textarea.
-    if prompt_origin == "admin_override":
-        result["map_image_prompt_source"] = "admin_override"
-
-    # Merge image metadata into the exercise payload.
-    payload.update(result)
-    (
-        supabase_admin.table("listening_exercises")
-        .update({"payload": payload})
-        .eq("id", exercise_id)
-        .execute()
-    )
-
-    return {
-        "exercise_id":            exercise_id,
-        "map_image_storage_path": result["map_image_storage_path"],
-        "map_image_model":        result["map_image_model"],
-        "map_image_size_bytes":   result["map_image_size_bytes"],
-        "map_image_generated_at": result["map_image_generated_at"],
-        "map_image_prompt":       result["map_image_prompt"],
-        "map_image_prompt_source": result["map_image_prompt_source"],
-        "signed_url":             _sign_map_image_url(result["map_image_storage_path"]),
-        "cost_estimate_usd":      listening_map_image.estimate_cost(result["map_image_model"]),
-    }
 
 
 # ── Sprint 13.5.9.3 — manual upload escape hatch ──────────────────────────
@@ -4850,381 +3781,6 @@ async def admin_get_map_image_signed_url(
     }
 
 
-# ── Sprint 13.6 — audio cutter (full pre-mixed → N segments) ──────────────
-
-
-class DetectSilenceRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    silence_threshold_db: float | None = None
-    min_silence_duration: float | None = None
-    target_section_count: int = 4
-
-
-class CutSegmentInput(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    label: str = Field(min_length=1, max_length=80)
-    start: float = Field(ge=0)
-    end:   float = Field(gt=0)
-
-
-class CutAudioRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    segments: list[CutSegmentInput] = Field(min_length=1, max_length=10)
-
-
-def _download_full_audio_to_tmp(test_id: str, source_path: str) -> str:
-    """Pull the source MP3 from Supabase Storage into a /tmp file
-    so ffmpeg can open it. Returns the temp path; caller is
-    responsible for ``os.unlink`` cleanup.
-
-    Falsifications guarded:
-      * Storage returns None / bytes-like / wrapper → we coerce to
-        bytes() and raise if the result is empty (502).
-    """
-    import tempfile
-
-    try:
-        raw = supabase_admin.storage.from_(
-            settings.LISTENING_AUDIO_BUCKET
-        ).download(source_path)
-    except Exception as exc:                                              # pragma: no cover
-        raise HTTPException(502, f"Storage download failed: {exc}")
-    audio_bytes = bytes(raw) if raw is not None else b""
-    if not audio_bytes:
-        raise HTTPException(502, "Source audio is empty in storage.")
-    tmp = tempfile.NamedTemporaryFile(
-        prefix=f"cutter_src_{test_id}_", suffix=".mp3", delete=False,
-    )
-    try:
-        tmp.write(audio_bytes)
-    finally:
-        tmp.close()
-    return tmp.name
-
-
-@admin_router.post("/tests/{test_id}/detect-silence")
-async def admin_detect_silence_boundaries(
-    test_id: str,
-    body: DetectSilenceRequest | None = None,
-    authorization: str | None = Header(default=None),
-):
-    """Sprint 13.6 — propose ``target_section_count`` audio boundaries
-    by running ``ffmpeg silencedetect`` against the test's
-    ``full_audio_storage_path``. Returns ``[{start, end}, ...]``
-    ranges suitable for pre-filling regions in the admin cutter UI.
-
-    Requirements:
-      * test must carry ``audio_assembly_mode == "full_premixed"``
-      * test must have ``full_audio_storage_path`` set
-
-    The threshold + min-duration defaults
-    (``-40 dB`` / ``2.0 s``) suit IELTS Listening section gaps. Both
-    are tunable per request for noisy / quiet source audio.
-    """
-    import os
-    from services import listening_audio_cutter as cutter
-
-    await require_admin(authorization)
-    test = _fetch_test_or_404(test_id)
-
-    if test.get("audio_assembly_mode") != "full_premixed":
-        raise HTTPException(
-            422,
-            "Silence detection is only available when the test's "
-            "audio_assembly_mode = 'full_premixed'.",
-        )
-    source_path = test.get("full_audio_storage_path")
-    if not source_path:
-        raise HTTPException(
-            422,
-            "Test has no full pre-mixed audio uploaded yet.",
-        )
-
-    tmp_path = _download_full_audio_to_tmp(test_id, source_path)
-    try:
-        threshold = (
-            body.silence_threshold_db if body and body.silence_threshold_db is not None
-            else cutter.DEFAULT_SILENCE_THRESHOLD_DB
-        )
-        min_dur = (
-            body.min_silence_duration if body and body.min_silence_duration is not None
-            else cutter.DEFAULT_MIN_SILENCE_DURATION
-        )
-        target = (body.target_section_count if body else 4) or 4
-        try:
-            gaps, duration = cutter.detect_silence(
-                tmp_path,
-                silence_threshold_db=threshold,
-                min_silence_duration=min_dur,
-            )
-        except RuntimeError as exc:
-            raise HTTPException(500, str(exc))
-        if duration is None:
-            # Fall back to the DB-stored duration when ffmpeg's banner
-            # didn't carry the Duration line (some streamed files).
-            duration = float(test.get("full_audio_duration_seconds") or 0)
-        boundaries = cutter.propose_section_boundaries(
-            gaps, audio_duration=duration, target_section_count=target,
-        )
-        return {
-            "test_id":                test["id"],
-            "audio_duration_seconds": duration,
-            "silence_gaps_detected":  len(gaps),
-            "boundaries": [
-                {"start": b.start, "end": b.end} for b in boundaries
-            ],
-        }
-    finally:
-        try:
-            os.unlink(tmp_path)
-        except OSError:                                                   # pragma: no cover
-            pass
-
-
-@admin_router.post("/tests/{test_id}/cut-audio")
-async def admin_cut_audio_segments(
-    test_id: str,
-    body: CutAudioRequest,
-    authorization: str | None = Header(default=None),
-):
-    """Sprint 13.6 — carve the test's full pre-mixed audio into N
-    segments via ffmpeg stream-copy (no re-encoding). Each segment
-    becomes a new ``listening_content`` row tied to the same test
-    with ``parent_content_id`` left NULL (the source is the test's
-    full audio, not a content row) and ``segment_label`` +
-    ``segment_start_seconds`` / ``segment_end_seconds`` populated.
-
-    The source full audio is preserved — segments are additive. The
-    admin can re-cut at any time; previously cut rows stay around
-    until explicitly archived.
-
-    Returns the inserted segment metadata so the admin panel can
-    re-render without a follow-up fetch.
-    """
-    import os, tempfile
-    from datetime import datetime, timezone
-    from services import listening_audio_cutter as cutter
-
-    admin_user = await require_admin(authorization)
-    test = _fetch_test_or_404(test_id)
-
-    if test.get("audio_assembly_mode") != "full_premixed":
-        raise HTTPException(
-            422,
-            "Audio cutting is only available for full_premixed tests.",
-        )
-    source_path = test.get("full_audio_storage_path")
-    if not source_path:
-        raise HTTPException(
-            422,
-            "Test has no full pre-mixed audio uploaded yet.",
-        )
-
-    # Filter out segments below the minimum-duration floor so we don't
-    # burn storage on stray drags. Skipped count is reported back.
-    requested = [
-        cutter.Segment(label=s.label, start=s.start, end=s.end)
-        for s in body.segments
-    ]
-    keep = cutter.validate_segments(requested)
-    skipped = len(requested) - len(keep)
-    if not keep:
-        raise HTTPException(
-            400,
-            f"All {len(requested)} segments are shorter than "
-            f"{cutter.MIN_SEGMENT_DURATION_SECONDS}s — nothing to cut.",
-        )
-
-    # Sprint 13.6.3 (Codex audit F2) — pre-fetch the existing active cut
-    # fingerprints for this test so the cut loop can short-circuit to
-    # "reuse" semantics without burning a fresh ffmpeg pass + storage
-    # upload + DB insert on every re-click of Export. Active here means
-    # ``status != 'archived'`` (matches the partial unique index added in
-    # migration 072).
-    existing_rows = (
-        supabase_admin.table("listening_content")
-        .select(
-            "id,test_id,segment_label,segment_start_seconds,"
-            "segment_end_seconds,audio_storage_path,audio_size_bytes,"
-            "audio_duration_seconds,status"
-        )
-        .eq("test_id", test["id"])
-        .execute()
-    )
-
-    def _fingerprint(label, start, end):
-        # Round to 3 decimals so float jitter doesn't defeat the lookup.
-        return (str(label), round(float(start), 3), round(float(end), 3))
-
-    existing_by_fp: dict[tuple, dict] = {}
-    for row in (existing_rows.data or []):
-        if (row.get("segment_label") is None
-                or row.get("segment_start_seconds") is None
-                or row.get("segment_end_seconds") is None):
-            continue
-        if (row.get("status") or "draft") == "archived":
-            continue
-        fp = _fingerprint(
-            row["segment_label"],
-            row["segment_start_seconds"],
-            row["segment_end_seconds"],
-        )
-        existing_by_fp[fp] = row
-
-    tmp_source = None
-    created: list[dict] = []
-    now_iso = datetime.now(timezone.utc).isoformat()
-    reused_count = 0
-    new_count = 0
-    try:
-        for index, seg in enumerate(keep, start=1):
-            duration = seg.end - seg.start
-            fp = _fingerprint(seg.label, seg.start, seg.end)
-
-            # F2 fast path — fingerprint already exists on an active row.
-            # Skip ffmpeg + storage + insert entirely. The frontend uses
-            # ``reused`` to split the success-banner count.
-            if fp in existing_by_fp:
-                row = existing_by_fp[fp]
-                reused_count += 1
-                created.append({
-                    "id":                       row["id"],
-                    "title":                    seg.label,
-                    "segment_label":            seg.label,
-                    "segment_start_seconds":    seg.start,
-                    "segment_end_seconds":      seg.end,
-                    "audio_storage_path":       row.get("audio_storage_path"),
-                    "audio_size_bytes":         row.get("audio_size_bytes"),
-                    "audio_duration_seconds":   row.get("audio_duration_seconds"),
-                    "reused":                   True,
-                })
-                continue
-
-            # New cut — download the source on demand the first time we
-            # actually need it. Saves bandwidth + tmp-disk on the all-reused
-            # path (Andy re-clicks Export with no changes).
-            if tmp_source is None:
-                tmp_source = _download_full_audio_to_tmp(test_id, source_path)
-
-            out_path = tempfile.NamedTemporaryFile(
-                prefix=f"cutter_out_{test_id}_{index}_",
-                suffix=".mp3", delete=False,
-            )
-            out_path.close()
-            try:
-                try:
-                    cutter.cut_segment_to_path(
-                        source_path=tmp_source,
-                        output_path=out_path.name,
-                        start_seconds=seg.start,
-                        duration_seconds=duration,
-                    )
-                except RuntimeError as exc:
-                    raise HTTPException(500, str(exc))
-                with open(out_path.name, "rb") as fh:
-                    cut_bytes = fh.read()
-            finally:
-                try:
-                    os.unlink(out_path.name)
-                except OSError:                                           # pragma: no cover
-                    pass
-
-            storage_path = cutter.build_storage_path(
-                test_id=test["id"],
-                content_id=test["id"],   # cuts live under tests/<test>/
-                index=index,
-                label=seg.label,
-            )
-            _upload_audio_to_bucket(storage_path, cut_bytes)
-
-            content_id = str(uuid.uuid4())
-            new_row = {
-                "id":                       content_id,
-                # Sprint 13.6.4 (production F9 fix) — listening_content
-                # has been NOT NULL on ``source_type`` since migration
-                # 056 (Sprint 11.0). Migration 066 added the canonical
-                # ``exercise_snippet`` value for the audio-cutter
-                # specifically ("Sprint 13.6 audio cutter" per the
-                # migration comment). Sprint 13.6's cut route shipped
-                # without it — every Export hit 23502 in production.
-                "source_type":              "exercise_snippet",
-                # Sprint 13.6.4 — other NOT NULL fields the cut route
-                # also missed. ``accent_tag`` defaults to ``other``
-                # because listening_tests doesn't store accent; the
-                # caller can re-tag from the admin panel. ``transcript``
-                # is empty because a cut's transcript is implicit in the
-                # parent test's transcript (sliced by the segment offset
-                # — a Phase B refinement).
-                "accent_tag":               "other",
-                "transcript":               "",
-                "test_id":                  test["id"],
-                "title":                    seg.label,
-                "audio_storage_path":       storage_path,
-                "audio_size_bytes":         len(cut_bytes),
-                "audio_duration_seconds":   max(1, int(round(duration))),
-                "segment_label":            seg.label,
-                # Round to 3 decimals so the partial-unique fingerprint
-                # index matches the read-side fingerprinting helper
-                # exactly (no float-equality jitter on round-tripped
-                # values).
-                "segment_start_seconds":    round(float(seg.start), 3),
-                "segment_end_seconds":      round(float(seg.end), 3),
-                # Sprint 13.6.3 (Codex audit F1) — truthful provenance.
-                # ``parent_content_id`` deliberately omitted: full_premixed
-                # audio lives on listening_tests, not listening_content.
-                "source_test_id":           test["id"],
-                "source_audio_kind":        "test_full_premixed",
-                "created_at":               now_iso,
-            }
-            try:
-                supabase_admin.table("listening_content").insert(new_row).execute()
-            except Exception as exc:                                      # pragma: no cover
-                logger.error("[audio_cutter] insert failed for %s: %s", storage_path, exc)
-                raise HTTPException(500, f"DB insert failed: {exc}")
-
-            new_count += 1
-            created.append({
-                "id":                       content_id,
-                "title":                    seg.label,
-                # Sprint 13.6.4 — surface source_type to the frontend so
-                # the admin UI can filter the audio-cutter list by
-                # ``source_type === 'exercise_snippet'`` (the canonical
-                # filter) without an extra round-trip.
-                "source_type":              "exercise_snippet",
-                "segment_label":            seg.label,
-                "segment_start_seconds":    round(float(seg.start), 3),
-                "segment_end_seconds":      round(float(seg.end), 3),
-                "audio_storage_path":       storage_path,
-                "audio_size_bytes":         len(cut_bytes),
-                "audio_duration_seconds":   max(1, int(round(duration))),
-                "source_test_id":           test["id"],
-                "source_audio_kind":        "test_full_premixed",
-                "reused":                   False,
-            })
-    finally:
-        if tmp_source is not None:
-            try:
-                os.unlink(tmp_source)
-            except OSError:                                               # pragma: no cover
-                pass
-
-    logger.info(
-        "[audio_cutter] cut test=%s segments=%d new=%d reused=%d skipped=%d admin=%s",
-        test_id, len(created), new_count, reused_count, skipped,
-        admin_user.get("id"),
-    )
-
-    return {
-        "test_id":             test["id"],
-        "segments_created":    len(created),
-        "segments_new":        new_count,
-        "segments_reused":     reused_count,
-        "segments_skipped":    skipped,
-        "min_segment_seconds": cutter.MIN_SEGMENT_DURATION_SECONDS,
-        "segments":            created,
-    }
-
-
 # ── Sprint 13.5 — student full-test layer ──────────────────────────────────
 
 
@@ -5260,9 +3816,191 @@ def _student_audio_url_for_test(test_row: dict) -> tuple[str | None, str | None,
     return url, storage_path, duration
 
 
+# A row is audio-ready when EITHER path is present AND non-blank. The blank
+# check matters: `''` is not NULL, so a bare `not.is.null` would count the row
+# in SQL while the Python guard (`r.get(...)` falsy) and the signer both treat
+# it as missing — reopening the very count-vs-list gap this endpoint closes.
+# Nested and() inside or() is valid PostgREST and verified against the live DB.
+_AUDIO_READY_OR = (
+    "and(full_audio_storage_path.not.is.null,full_audio_storage_path.neq.),"
+    "and(assembled_audio_storage_path.not.is.null,assembled_audio_storage_path.neq.)"
+)
+
+# Columns needed to judge readiness (below). Kept next to the rule so the two
+# cannot drift.
+_EXERCISE_READY_COLS = "content_id,exercise_type,segments,payload"
+
+
+def _exercise_is_ready(row: dict) -> bool:
+    """Can the mode page actually RUN this exercise, or only greet it?
+
+    `status='published'` is not enough. `_ensure_dictation_exercise` inserts a
+    published dictation row with an empty `segments` array the first time any
+    user posts an attempt, and each mode page refuses its own empty shape:
+
+        dictation   listening-dictation.js  needs segments[].length  > 0
+        true_false  listening-tf.js         needs payload.statements[] > 0
+        mcq         listening-mcq.js        needs payload.questions[]  > 0
+        gist        _grade_and_save_gist    needs payload.model_answer
+
+    Advertising a mode whose page then shows "chưa được phân câu" is the same
+    dead end this module was reorganised to remove, one level down. So the
+    availability check mirrors what the page requires.
+
+    Gist is the nastiest of the four: its page RENDERS fine without a rubric
+    (prompt_text falls back to a default), and only the submit 422s with
+    "missing model_answer" — after the learner has written their summary. So
+    readiness follows the GRADER's requirement, not the page's.
+    """
+    def _filled_list(v) -> bool:
+        # The pages test `Array.isArray(x) && x.length`, so a truthiness check
+        # here would pass malformed JSONB (an object, a string) that the page
+        # then refuses — advertising a mode whose page shows its empty state.
+        return isinstance(v, list) and len(v) > 0
+
+    etype = row.get("exercise_type")
+    payload = row.get("payload")
+    if not isinstance(payload, dict):
+        payload = {}
+    if etype == "dictation":
+        return _filled_list(row.get("segments"))
+    if etype == "true_false":
+        return _filled_list(payload.get("statements"))
+    if etype == "mcq":
+        return _filled_list(payload.get("questions"))
+    if etype == "gist":
+        return bool(str(payload.get("model_answer") or "").strip())
+    return False
+
+
+def _published_content_ids() -> list[str]:
+    """Every published listening_content id, paged past the PostgREST cap.
+
+    A bare `.select()` silently stops at 1000 rows, which would under-count
+    the exercise-mode tiles the moment the library grows. Page explicitly.
+    """
+    out: list[str] = []
+    start, step = 0, 1000
+    while True:
+        res = (
+            supabase_admin.table("listening_content")
+            .select("id")
+            .eq("status", "published")
+            # LIMIT/OFFSET without ORDER BY has no defined row order in
+            # Postgres, so successive pages could repeat or skip rows and the
+            # count would drift. `id` is unique, which makes the walk stable.
+            .order("id")
+            .range(start, start + step - 1)
+            .execute()
+        )
+        rows = res.data or []
+        out.extend(r["id"] for r in rows if r.get("id"))
+        if len(rows) < step:
+            return out
+        start += step
+
+
+@user_router.get("/overview")
+async def listening_overview(authorization: str | None = Header(default=None)):
+    """How much practice material each Listening surface actually holds.
+
+    The landing page renders one tile per surface. Before this endpoint the
+    tiles were hard-coded, so four of them pointed at surfaces with zero
+    published rows — a learner clicked "Nghe ý chính" and landed on an empty
+    page. The landing page now hides a tile whose count is 0, which means the
+    count MUST match what the corresponding list endpoint would return, or a
+    tile promises content its own page cannot show.
+
+    So every filter here mirrors ``list_published_listening_tests`` /
+    ``list_listening_content`` / ``get_listening_exercises`` exactly:
+    published only, audio-ready only, exam-reserved papers excluded, and an
+    exercise counts only when BOTH it and its content row are published.
+    ``test_counts_consistent_with_list`` in the test suite pins that.
+    """
+    await _require_auth(authorization)
+
+    from services import mock_exam_service
+    reserved = mock_exam_service.reserved_test_ids("listening")
+
+    tests: dict[str, int] = {}
+    for kind in ("full", "mini", "drill", "practice"):
+        q = (
+            supabase_admin.table("listening_tests")
+            .select("id", count="exact")
+            .eq("status", "published")
+            .eq("test_type", kind)
+            .eq("exam_only", False)
+            .or_(_AUDIO_READY_OR)
+            .limit(1)
+        )
+        if reserved:
+            q = q.not_.in_("id", list(reserved))
+        tests[kind] = getattr(q.execute(), "count", None) or 0
+
+    content_ids = set(_published_content_ids())
+    modes: dict[str, int] = {t: 0 for t in sorted(_EXERCISE_TYPES)}
+    if content_ids:
+        # Intersect in Python rather than `.in_(content_ids)`: the id list is
+        # unbounded and a few thousand UUIDs in a query string exceeds the URL
+        # limit, which would fail as a 4xx rather than a wrong count.
+        start, step = 0, 1000
+        while True:
+            res = (
+                supabase_admin.table("listening_exercises")
+                .select(_EXERCISE_READY_COLS)
+                .eq("status", "published")
+                .order("id")                       # stable paging — see above
+                .range(start, start + step - 1)
+                .execute()
+            )
+            rows = res.data or []
+            for r in rows:
+                if (r.get("content_id") in content_ids
+                        and r.get("exercise_type") in modes
+                        and _exercise_is_ready(r)):
+                    modes[r["exercise_type"]] += 1
+            if len(rows) < step:
+                break
+            start += step
+
+    # The Luyện nhanh page is one library with three tabs, so the landing needs
+    # the per-tab counts too — a tab with nothing behind it should not render,
+    # for the same reason a zero-count tile does not.
+    practice_groups: dict[str, int] = {}
+    if tests.get("practice"):
+        pgq = (
+            supabase_admin.table("listening_tests")
+            .select("metadata")
+            .eq("status", "published")
+            .eq("test_type", "practice")
+            .eq("exam_only", False)
+            .or_(_AUDIO_READY_OR)
+            .order("id")
+            .limit(2000)
+        )
+        # Same reserved-paper exclusion as the count above and the list
+        # endpoint. Without it a tab advertises a paper its own list refuses to
+        # return — the count-vs-list gap, one level down.
+        if reserved:
+            pgq = pgq.not_.in_("id", list(reserved))
+        pg = pgq.execute()
+        for row in pg.data or []:
+            g = ((row.get("metadata") or {}).get("practice_group") or "").strip()
+            if g:
+                practice_groups[g] = practice_groups.get(g, 0) + 1
+
+    return {
+        "tests":           tests,
+        "practice_groups": practice_groups,
+        "content":         len(content_ids),
+        "exercise_modes":  modes,
+    }
+
+
 @user_router.get("/tests")
 async def list_published_listening_tests(
     test_type: str | None = Query(default=None),
+    practice_group: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     authorization: str | None = Header(default=None),
@@ -5275,46 +4013,59 @@ async def list_published_listening_tests(
     CTAs without a follow-up round-trip.
 
     test_type segregates the full-test, mini-test and skill-drill libraries,
-    reading metadata->>test_type:
+    reading the real ``test_type`` column (mig 157 — NOT NULL, CHECK
+    full|mini|drill; legacy NULL-metadata rows were backfilled to 'full'):
       - "mini"  → ONLY mini tests.
       - "drill" → ONLY skill drills (listening Skills Practice).
-      - "full" / omitted (default) → EXCLUDE mini AND drill, but KEEP legacy
-        tests whose test_type IS NULL (a plain != 'mini' would drop them and
-        also leak drills).
+      - "full" / omitted (default) → ONLY full tests.
     """
     user = await _require_auth(authorization)
     # Validate only a real string value. When the handler is called directly
     # (unit tests), an omitted Query() param arrives as its FieldInfo sentinel,
     # not None — `isinstance str` keeps that from tripping a false 422.
-    if isinstance(test_type, str) and test_type not in ("mini", "full", "drill"):
-        raise HTTPException(422, "test_type must be 'mini', 'full' or 'drill'")
+    if isinstance(test_type, str) and test_type not in ("mini", "full", "drill", "practice"):
+        raise HTTPException(422, "test_type must be 'mini', 'full', 'drill' or 'practice'")
 
     q = (
         supabase_admin.table("listening_tests")
         .select("*", count="exact")
         .eq("status", "published")
+        # Audio-readiness is filtered in SQL, BEFORE .range(). It used to be a
+        # Python post-filter over the fetched page, which quietly made
+        # pagination wrong: a page of `limit` rows could shed no-audio rows and
+        # return fewer, with no way for the caller to tell short-page from
+        # last-page. It also broke the /overview invariant — the tile counts
+        # over the whole filtered set, so a no-audio row inside page 1 made the
+        # badge disagree with the page. Same predicate, evaluated in one place.
+        .or_(_AUDIO_READY_OR)
         .order("created_at", desc=True)
         .range(offset, offset + limit - 1)
     )
-    if test_type == "mini":
-        q = q.eq("metadata->>test_type", "mini")
-    elif test_type == "drill":
-        q = q.eq("metadata->>test_type", "drill")
+    if test_type in ("mini", "drill", "practice"):
+        q = q.eq("test_type", test_type)
     else:
-        # Default/full library: legacy NULL rows stay, but mini + drill are
-        # segregated into their own libraries.
-        q = q.or_("metadata->>test_type.is.null,metadata->>test_type.not.in.(mini,drill)")
-    # Exclusivity: a listening test chosen for a 4-skill mock is reserved to it —
-    # hide it from the normal practice list.
+        q = q.eq("test_type", "full")
+    # Practice is one library with three tabs; `group` narrows to a tab. Applied
+    # in SQL so paging stays correct per tab (a Python filter over an already
+    # paged result would shed rows and shorten pages).
+    if test_type == "practice" and isinstance(practice_group, str) and practice_group:
+        q = q.eq("metadata->>practice_group", practice_group)
+    # Reserved for a mock exam — never in the practice list (mig 170). The
+    # PERMANENT flag: unlike reserved_test_ids below it survives the exam being
+    # archived, which used to republish the paper to the next cohort.
+    q = q.eq("exam_only", False)
+    # Kept alongside it: a test assigned to a live exam by an admin who did not
+    # tick the flag is still hidden, immediately, with no backfill needed.
     from services import mock_exam_service
     _reserved = mock_exam_service.reserved_test_ids("listening")
     if _reserved:
         q = q.not_.in_("id", list(_reserved))
     res = q.execute()
-    raw_rows = res.data or []
-    # Filter to rows with audio satisfied (full OR assembled).
+    # Audio-readiness is already applied in SQL above; this repeat is a cheap
+    # backstop so a row could never reach a student with no file to play, even
+    # if the `.or_()` expression were mangled. It is a no-op in normal service.
     rows = [
-        r for r in raw_rows
+        r for r in (res.data or [])
         if r.get("full_audio_storage_path") or r.get("assembled_audio_storage_path")
     ]
 
@@ -5357,6 +4108,8 @@ async def list_published_listening_tests(
             # Skill-drill discriminators — let the Skills-Practice page group by
             # type + level without a per-row round-trip. Null for full/mini.
             "drill_type":           md.get("drill_type"),
+            "practice_group":       md.get("practice_group"),
+            "trap":                 md.get("trap"),
             "level":                md.get("level"),
             "task":                 md.get("task"),
             "user_best_score":      user_best.get(r["id"]),
@@ -5369,6 +4122,25 @@ async def list_published_listening_tests(
         "limit":  limit,
         "offset": offset,
     }
+
+
+def _assert_listening_exam_content_allowed(test: dict, user_id) -> None:
+    """A test reserved for mock exams is served ONLY to a student sitting one.
+
+    Hiding it from the browse list is not enough — a direct link went straight
+    through the detail / dictation / attempt-start endpoints. But the mock runner
+    loads Listening through these SAME student endpoints, so a blanket refusal
+    would break the exam this flag protects: the entitlement is the sitting
+    (mig 170).
+
+    404, not 403: to anyone without a sitting the paper does not exist, and
+    "forbidden" would confirm the test id is real.
+    """
+    if not test.get("exam_only"):
+        return
+    from services import mock_exam_service
+    if not mock_exam_service.user_may_open_exam_content(user_id, "listening", test.get("id")):
+        raise HTTPException(404, "Test bundle not found or not published")
 
 
 @user_router.get("/tests/{test_id}")
@@ -5398,6 +4170,7 @@ async def get_published_listening_test(
     if not res.data:
         raise HTTPException(404, "Test bundle not found or not published")
     test = res.data[0]
+    _assert_listening_exam_content_allowed(test, _user.get("id"))
 
     audio_url, audio_path, audio_duration = _student_audio_url_for_test(test)
     if not audio_url:
@@ -5484,12 +4257,11 @@ async def get_published_listening_test(
         "id":                     test["id"],
         "test_id":                test.get("test_id"),
         "title":                  test.get("title"),
-        # Sprint — surface test_type so the student player can relax the
-        # single-shot audio constraint for mini + drill (practice), while
-        # full tests keep the Cambridge no-seek/no-pause behaviour. Legacy
-        # full tests may have test_type NULL → the frontend treats NULL as
-        # 'full'.
-        "test_type":              (test.get("metadata") or {}).get("test_type"),
+        # Surface test_type so the student player can relax the single-shot
+        # audio constraint for mini + drill (practice), while full tests keep
+        # the Cambridge no-seek/no-pause behaviour. Mig 157: real column,
+        # NOT NULL — the frontend's NULL→'full' fallback is now vestigial.
+        "test_type":              test.get("test_type"),
         "themes":                 test.get("themes") or {},
         "audio_url":              audio_url,
         "audio_storage_path":     audio_path,
@@ -5561,7 +4333,7 @@ async def get_listening_test_dictation(
     (``GET /tests/{id}``) which strips transcripts to prevent students
     reading the answers during a graded attempt.
     """
-    await _require_auth(authorization)
+    _user = await _require_auth(authorization)
 
     res = (
         supabase_admin.table("listening_tests")
@@ -5574,6 +4346,7 @@ async def get_listening_test_dictation(
     if not res.data:
         raise HTTPException(404, "Test bundle not found or not published")
     test = res.data[0]
+    _assert_listening_exam_content_allowed(test, _user.get("id"))
 
     audio_url, audio_path, audio_duration = _student_audio_url_for_test(test)
     if not audio_url:
@@ -5642,22 +4415,14 @@ async def grade_listening_test_dictation(
     text. Returns the same shape as the content-based dictation grader so
     the frontend diff renderer is reused verbatim.
     """
-    await _require_auth(authorization)
+    _user = await _require_auth(authorization)
 
     # Gate on published status BEFORE reading any transcript. grade_dictation
     # echoes the missed reference words back in the diff, so an authenticated
     # user with a draft test ID could otherwise extract its transcript
     # sentence by sentence — even though the boot endpoint 404s on drafts.
-    test_res = (
-        supabase_admin.table("listening_tests")
-        .select("id")
-        .eq("id", body.test_id)
-        .eq("status", "published")
-        .limit(1)
-        .execute()
-    )
-    if not test_res.data:
-        raise HTTPException(404, "Test bundle not found or not published")
+    # Shared loader: published + exam_only, both BEFORE any transcript read.
+    _published_test_for_dictation(body.test_id, _user.get("id"))
 
     sec_res = (
         supabase_admin.table("listening_content")
@@ -5690,16 +4455,29 @@ async def grade_listening_test_dictation(
 # ── Dictation completion report (persisted) + content flags ──────────
 
 
-def _published_test_for_dictation(test_id: str) -> dict:
-    """Fetch a published test row (id, test_id, title) or 404. Shared gate for
-    the session + flag endpoints — same anti-cheat rule as the grade endpoint."""
+def _published_test_for_dictation(test_id: str, user_id=None) -> dict:
+    """Fetch a published test row (id, test_id, title) or 404 — and enforce the
+    exam_only reservation.
+
+    THE ONE loader for every dictation route. Dictation is built from the
+    section TRANSCRIPT, i.e. the answer key read aloud, and `grade_dictation()`
+    returns the missed `expected` words — so a caller who can hit these routes
+    can reconstruct the paper one sentence index at a time. Gating only the boot
+    route left grade/session/flag wide open (Codex adversarial review,
+    2026-07-26).
+
+    `exam_only` MUST be in the projection: the gate reads it off this row, and a
+    column the query never fetched is always None. That exact mistake shipped
+    four times in this feature.
+    """
     res = (
         supabase_admin.table("listening_tests")
-        .select("id,test_id,title,status")
+        .select("id,test_id,title,status,exam_only")
         .eq("id", test_id).eq("status", "published").limit(1).execute()
     )
     if not res.data:
         raise HTTPException(404, "Test bundle not found or not published")
+    _assert_listening_exam_content_allowed(res.data[0], user_id)
     return res.data[0]
 
 
@@ -5736,7 +4514,7 @@ async def submit_listening_dictation_session(
     if not body.sentences:
         raise HTTPException(422, "Chưa có câu nào để tổng kết.")
 
-    test = _published_test_for_dictation(body.test_id)
+    test = _published_test_for_dictation(body.test_id, user.get("id"))
     sec_res = (
         supabase_admin.table("listening_content")
         .select("title,transcript,metadata")
@@ -5857,7 +4635,7 @@ async def flag_listening_dictation(
     if not category and not note:
         raise HTTPException(422, "Cần chọn loại lỗi hoặc nhập mô tả.")
 
-    test = _published_test_for_dictation(body.test_id)
+    test = _published_test_for_dictation(body.test_id, user.get("id"))
     context = f"[chép chính tả · section {body.section_num}"
     context += f" · câu {body.sentence_idx + 1}]" if body.sentence_idx is not None else "]"
     flag_id = str(uuid.uuid4())
@@ -5884,12 +4662,15 @@ async def flag_listening_dictation(
 @admin_router.get("/dictation-reports")
 async def admin_list_dictation_reports(
     test_id: str | None = Query(default=None),
+    user_query: str | None = Query(default=None),
     limit: int = Query(default=30, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     authorization: str | None = Header(default=None),
 ):
-    """Admin: list dictation sessions (newest first), optionally filtered by
-    external test id. Returns {items, total, limit, offset}."""
+    """Admin: list dictation sessions (newest first), filter theo external test
+    id và/hoặc học viên (user_query ilike email/tên). Mỗi item kèm danh tính
+    học viên (audit 2026-07-17: list từng trả user_id trần — admin không biết
+    "học viên nào"). Returns {items, total, limit, offset}."""
     await require_admin(authorization)
     q = (supabase_admin.table("dictation_sessions")
          .select("id,user_id,test_id_external,section_num,section_title,"
@@ -5897,23 +4678,50 @@ async def admin_list_dictation_reports(
                  "completed_at,created_at", count="exact"))
     if test_id:
         q = q.eq("test_id_external", test_id)
+    if user_query:
+        u_res = (supabase_admin.table("users").select("id")
+                 .or_(ilike_or_filter(["email", "display_name"], user_query.strip()))
+                 .limit(200).execute())
+        uids = [r["id"] for r in (u_res.data or [])]
+        if not uids:
+            return {"items": [], "total": 0, "limit": limit, "offset": offset}
+        q = q.in_("user_id", uids)
     res = q.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
-    return {"items": res.data or [], "total": getattr(res, "count", None) or 0,
+    items = res.data or []
+    users = _rows_by_id("users", [r.get("user_id") for r in items],
+                        "id,email,display_name")
+    for r in items:
+        u = users.get(r.get("user_id")) or {}
+        r["user"] = {"id": r.get("user_id"), "email": u.get("email"),
+                     "display_name": u.get("display_name")}
+    return {"items": items, "total": getattr(res, "count", None) or 0,
             "limit": limit, "offset": offset}
 
 
 @admin_router.get("/dictation-reports/aggregate")
 async def admin_dictation_reports_aggregate(
     test_id: str | None = Query(default=None),
+    user_query: str | None = Query(default=None),
     authorization: str | None = Header(default=None),
 ):
     """Admin: per-test analytics — mean accuracy + the words most often missed
-    or typed wrong across sessions, so weak/ambiguous content surfaces."""
+    or typed wrong across sessions, so weak/ambiguous content surfaces.
+    Nhận CÙNG bộ lọc với list (test_id + user_query) — số tổng hợp phải cùng
+    phạm vi với bảng phiên, không được lệch (review P2, PR #809)."""
     await require_admin(authorization)
     q = supabase_admin.table("dictation_sessions").select(
         "test_id_external,section_num,accuracy,total_sentences,error_trends")
     if test_id:
         q = q.eq("test_id_external", test_id)
+    if user_query:
+        u_res = (supabase_admin.table("users").select("id")
+                 .or_(ilike_or_filter(["email", "display_name"], user_query.strip()))
+                 .limit(200).execute())
+        uids = [r["id"] for r in (u_res.data or [])]
+        if not uids:
+            return {"session_count": 0, "mean_accuracy": 0.0,
+                    "top_missed": [], "top_wrong": []}
+        q = q.in_("user_id", uids)
     rows = q.limit(2000).execute().data or []
 
     # Sum the FULL per-session word counters (error_trends.missed/.wrong maps),
@@ -5955,6 +4763,232 @@ async def admin_get_dictation_report(
     return res.data[0]
 
 
+# ── Admin: lượt làm bài nghe của học viên (mini/drill/full) ──────────────────
+# Audit 2026-07-17 (AUDIT_LISTENING_ACTIVITY_REPORTING): listening_test_attempts
+# giữ toàn bộ hoạt động thật của học viên nhưng không có mặt đọc admin nào —
+# 2 endpoint dưới đây trả lời "ai làm bài nào, bao lâu, đúng bao nhiêu, sai ở đâu".
+
+
+def _iso_to_dt(s):
+    from datetime import datetime
+    if not s:
+        return None
+    try:
+        return datetime.fromisoformat(str(s).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _attempt_duration_seconds(row: dict) -> int | None:
+    """Thời lượng làm bài = submitted_at - started_at (None khi chưa nộp)."""
+    a = _iso_to_dt(row.get("started_at"))
+    b = _iso_to_dt(row.get("submitted_at"))
+    if not a or not b:
+        return None
+    return max(0, int((b - a).total_seconds()))
+
+
+def _rows_by_id(table: str, ids: list, cols: str) -> dict:
+    """Batch-resolve id → row (lô 100/lần — tránh URL dài + PostgREST cap)."""
+    out: dict = {}
+    uniq = sorted({i for i in ids if i})
+    for i in range(0, len(uniq), 100):
+        try:
+            res = (supabase_admin.table(table).select(cols)
+                   .in_("id", uniq[i:i + 100]).execute())
+        except Exception as exc:  # noqa: BLE001 — join lỗi không được 500 cả list
+            logger.warning("[listening] admin join %s failed: %s", table, exc)
+            return out
+        for r in (res.data or []):
+            out[r["id"]] = r
+    return out
+
+
+def _attempt_public_shape(r: dict, users: dict, tests: dict) -> dict:
+    gd = r.get("grading_details") or []
+    total_q = len(gd) or None
+    score = r.get("score")
+    u = users.get(r.get("user_id")) or {}
+    t = tests.get(r.get("test_id")) or {}
+    return {
+        "id":               r.get("id"),
+        "status":           r.get("status"),
+        "score":            score,
+        "total_questions":  total_q,
+        "accuracy":         (round(score / total_q, 4)
+                             if score is not None and total_q else None),
+        "duration_seconds": _attempt_duration_seconds(r),
+        # KHÔNG trả audio_duration_listened_seconds: chưa có write path nào ghi
+        # nó (luôn = default 0 của mig 068) — hiện "Đã nghe 0s" là misleading.
+        # Thêm lại khi có tracking playback thật (review P1, PR #808).
+        "started_at":       r.get("started_at"),
+        "submitted_at":     r.get("submitted_at"),
+        "created_at":       r.get("created_at"),
+        "user": {"id": r.get("user_id"), "email": u.get("email"),
+                 "display_name": u.get("display_name")},
+        "test": {"id": r.get("test_id"), "test_id": t.get("test_id"),
+                 "title": t.get("title"), "test_type": t.get("test_type")},
+    }
+
+
+@admin_router.get("/attempts")
+async def admin_list_listening_attempts(
+    user_query: str | None = Query(default=None),
+    test_query: str | None = Query(default=None),
+    test_type: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    authorization: str | None = Header(default=None),
+):
+    """Admin: list lượt làm bài nghe (newest first) kèm danh tính học viên + bài.
+
+    - user_query: khớp email/display_name (ilike) — admin gõ tên/email, không UUID.
+    - test_query: khớp test_id ngoài (ILR-LIS-…) hoặc title (ilike).
+    - test_type: full | mini | drill | practice. status: in_progress | submitted | abandoned.
+    Trả {items, total, limit, offset}; item KHÔNG mang grading_details (xem detail).
+    """
+    await require_admin(authorization)
+
+    if status and status not in {"in_progress", "submitted", "abandoned"}:
+        raise HTTPException(422, "status phải là in_progress | submitted | abandoned.")
+    # Mọi giá trị test_type mà listening_tests cho phép (CHECK, migration 173)
+    # đều phải lọc được ở đây — nếu không, lượt làm bài của loại mới vẫn nằm
+    # trong listening_test_attempts nhưng admin không có cách nào lọc ra.
+    if test_type and test_type not in {"full", "mini", "drill", "practice"}:
+        raise HTTPException(422, "test_type phải là full | mini | drill | practice.")
+
+    # Resolve các filter dạng text → danh sách id TRƯỚC khi query attempts.
+    user_ids: list | None = None
+    if user_query:
+        u_res = (supabase_admin.table("users").select("id")
+                 .or_(ilike_or_filter(["email", "display_name"], user_query.strip()))
+                 .limit(200).execute())
+        user_ids = [r["id"] for r in (u_res.data or [])]
+        if not user_ids:
+            return {"items": [], "total": 0, "limit": limit, "offset": offset}
+
+    test_ids: list | None = None
+    if test_query or test_type:
+        t_q = supabase_admin.table("listening_tests").select("id")
+        if test_query:
+            t_q = t_q.or_(ilike_or_filter(["test_id", "title"], test_query.strip()))
+        if test_type:
+            t_q = t_q.eq("test_type", test_type)
+        t_res = t_q.limit(1000).execute()
+        test_ids = [r["id"] for r in (t_res.data or [])]
+        if not test_ids:
+            return {"items": [], "total": 0, "limit": limit, "offset": offset}
+
+    q = (supabase_admin.table("listening_test_attempts")
+         .select("id,user_id,test_id,status,score,grading_details,started_at,"
+                 "submitted_at,created_at", count="exact"))
+    if status:
+        q = q.eq("status", status)
+    if user_ids is not None:
+        q = q.in_("user_id", user_ids)
+    if test_ids is not None:
+        q = q.in_("test_id", test_ids)
+    res = q.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
+    rows = res.data or []
+
+    users = _rows_by_id("users", [r.get("user_id") for r in rows],
+                        "id,email,display_name")
+    tests = _rows_by_id("listening_tests", [r.get("test_id") for r in rows],
+                        "id,test_id,title,test_type")
+    return {
+        "items": [_attempt_public_shape(r, users, tests) for r in rows],
+        "total": getattr(res, "count", None) or 0,
+        "limit": limit, "offset": offset,
+    }
+
+
+@admin_router.get("/attempts/{attempt_id}")
+async def admin_get_listening_attempt(
+    attempt_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Admin: chi tiết 1 lượt làm bài — per-question grading_details (học viên trả
+    lời gì, đáp án, trap caught/missed) + trap_analytics + band ước lượng."""
+    await require_admin(authorization)
+    res = (supabase_admin.table("listening_test_attempts").select("*")
+           .eq("id", attempt_id).limit(1).execute())
+    if not res.data:
+        raise HTTPException(404, "Không tìm thấy lượt làm bài.")
+    r = res.data[0]
+    users = _rows_by_id("users", [r.get("user_id")], "id,email,display_name")
+    tests = _rows_by_id("listening_tests", [r.get("test_id")],
+                        "id,test_id,title,test_type")
+    out = _attempt_public_shape(r, users, tests)
+    out["grading_details"] = r.get("grading_details") or []
+    out["trap_analytics"] = r.get("trap_analytics") or {}
+    out["band_estimate"] = r.get("band_estimate")
+    return out
+
+
+@user_router.get("/tests/{test_id}/attempts/in-progress")
+async def get_in_progress_listening_attempt(
+    test_id: str,
+    sitting_id: str | None = None,
+    authorization: str | None = Header(default=None),
+):
+    """The caller's still-open attempt at this test, or null.
+
+    Exists so a Listening runner can RESUME instead of starting over. Without
+    it the only path to an attempt was POST /attempts, which abandons the
+    previous one and mints an empty replacement — so a refresh (or, inside a
+    4-skill mock, the embed's automatic start-click) silently destroyed every
+    answer the student had given.
+
+    `sitting_id` SCOPES the lookup to one mock sitting, and the mock runner
+    always sends it. Without that scope the query matched on (user, test,
+    in_progress) alone, so a student who already had a STANDALONE practice
+    attempt open on a test later reused by a mock exam would have the embed
+    auto-resume that practice attempt and attach_attempt bind it to the sealed
+    sitting — pulling practice answers into a real exam and corrupting both.
+    Standalone practice keeps the unscoped lookup.
+
+    Deliberately a separate endpoint rather than a field on the shared test
+    bundle: that bundle is served to several callers and is cacheable, while
+    this is per-user and must never be cached.
+    """
+    user = await _require_auth(authorization)
+    query = (
+        supabase_admin.table("listening_test_attempts")
+        .select("id, started_at, created_at, answers")
+        .eq("user_id", user["id"])
+        .eq("test_id", test_id)
+        .eq("status", "in_progress")
+    )
+    if sitting_id:
+        query = query.eq("sitting_id", sitting_id)
+    else:
+        # STANDALONE must exclude mock attempts, or the mirror of the bug above
+        # opens: a student with a live mock attempt who opens the same published
+        # test from the normal Listening library would resume the SEALED exam
+        # attempt. MockHook is inactive there, so they could replay the audio
+        # from the start and edit exam answers outside the runner — and pressing
+        # "Bắt đầu test" would abandon their mock attempt outright
+        # (Codex review, PR #834).
+        query = query.is_("sitting_id", "null")
+    res = query.order("created_at", desc=True).limit(1).execute()
+    if not res.data:
+        return {"attempt": None}
+    row = res.data[0]
+    return {
+        "attempt": {
+            "attempt_id": row["id"],
+            "started_at": row.get("started_at") or row.get("created_at"),
+            # Only answers with real content — a blank row is not progress and
+            # would make the resume screen overstate what was recovered.
+            "answers": [
+                a for a in (row.get("answers") or [])
+                if str(a.get("user_answer") or "").strip()
+            ],
+        }
+    }
+
+
 @user_router.post("/tests/{test_id}/attempts")
 async def start_listening_test_attempt(
     test_id: str,
@@ -5963,13 +4997,17 @@ async def start_listening_test_attempt(
     """Open a new student attempt session. Marks any previously open
     in-progress attempt for the same (user, test) as abandoned so the
     1-active-attempt invariant holds.
+
+    NOTE: this is the "start over" path and it is destructive by design. A
+    caller that wants to CONTINUE must first check
+    GET /tests/{test_id}/attempts/in-progress — see that endpoint's docstring.
     """
     user = await _require_auth(authorization)
 
     # Verify the test is published + has audio.
     test_res = (
         supabase_admin.table("listening_tests")
-        .select("id,status,full_audio_storage_path,assembled_audio_storage_path")
+        .select("id,status,exam_only,full_audio_storage_path,assembled_audio_storage_path")
         .eq("id", test_id)
         .limit(1)
         .execute()
@@ -5977,6 +5015,7 @@ async def start_listening_test_attempt(
     if not test_res.data or test_res.data[0].get("status") != "published":
         raise HTTPException(404, "Test bundle not found or not published")
     test_row = test_res.data[0]
+    _assert_listening_exam_content_allowed(test_row, user.get("id"))
     if not (test_row.get("full_audio_storage_path")
             or test_row.get("assembled_audio_storage_path")):
         raise HTTPException(422, "Test chưa có audio sẵn sàng.")
@@ -6054,34 +5093,36 @@ async def patch_listening_test_attempt_answer(
     body: TestAttemptAnswerPatchRequest,
     authorization: str | None = Header(default=None),
 ):
-    """Incrementally save a single answer. The frontend debounces ~2s
-    per gap; the backend treats this as an upsert keyed by ``q_num``.
-    """
-    from datetime import datetime, timezone
+    """Incrementally save a single answer. The frontend debounces per gap; the
+    backend treats this as an upsert keyed by ``q_num``.
 
+    A4b — the merge happens inside ONE statement (fn_upsert_listening_answer,
+    mig 161), not as a Python read-modify-write of the whole JSONB array. The
+    old shape lost answers whenever two questions were saved at the same moment:
+    both requests read the same array and both wrote their own version back, so
+    the second silently erased the first. That is the NORMAL case, not an edge
+    one — the client debounces per question, so concurrent saves of different
+    q_nums are exactly what a fast typist produces.
+    """
     user = await _require_auth(authorization)
-    attempt = _fetch_attempt_or_404(attempt_id, user["id"])
+    attempt = _fetch_attempt_or_404(attempt_id, user["id"])   # ownership gate
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể edit.")
     if not (1 <= body.q_num <= 40):
         raise HTTPException(422, "q_num must be in 1..40")
 
-    answers = attempt.get("answers") or []
-    answers = [a for a in answers if a.get("q_num") != body.q_num]
-    answers.append({
-        "q_num":       body.q_num,
-        "user_answer": body.user_answer,
-        "answered_at": datetime.now(timezone.utc).isoformat(),
-    })
-    answers.sort(key=lambda a: a.get("q_num") or 0)
-
-    (
-        supabase_admin.table("listening_test_attempts")
-        .update({"answers": answers})
-        .eq("id", attempt_id)
-        .execute()
-    )
-    return {"attempt_id": attempt_id, "answer_count": len(answers)}
+    res = supabase_admin.rpc("fn_upsert_listening_answer", {
+        "p_attempt_id":  attempt_id,
+        "p_q_num":       body.q_num,
+        "p_user_answer": body.user_answer,
+    }).execute()
+    count = res.data
+    if count is None:
+        # The RPC also enforces status='in_progress', so a NULL here means the
+        # attempt was submitted between the check above and the write — a real
+        # race, and the honest answer is that the edit did not land.
+        raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể edit.")
+    return {"attempt_id": attempt_id, "answer_count": count}
 
 
 @user_router.post("/tests/attempts/{attempt_id}/submit")
@@ -6204,46 +5245,23 @@ def _rebase_audio_window(win: dict | None, is_mini: bool, section_offsets: dict)
             "end":   round(win["end"]   - off, 2)}
 
 
-@user_router.get("/tests/attempts/{attempt_id}/review")
-async def get_listening_test_attempt_review(
-    attempt_id: str,
-    authorization: str | None = Header(default=None),
-):
-    """listening-review-ui (Phase B) — post-submit chữa-bài for a listening
-    full test. Owner-only + HARD-gated on status=='submitted' (409 otherwise).
-    Joins the attempt's grading_details (q_num · correct · user_answer ·
-    expected) with each question's rich solution + audio replay window (stored
-    in listening_exercises.payload.solutions / .audio_windows by the import),
-    the per-section transcripts, the band-conversion table, the section offsets,
-    and a signed URL for the full premixed audio (so the review player can seek
-    each answer's window). Mirrors the reading review contract.
+def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
+    """Build the chữa-bài payload from an attempt + its test.
 
-    Admin bypass (2026-07-12): an admin may open ANY submitted attempt's
-    review — including a still-sealed 4-skill mock — so the mock-review
-    console can reuse this same rich view while deciding the band, before
-    releasing results. Everyone else keeps the existing ownership + seal
-    gate unchanged."""
-    user = await _require_auth(authorization)
-    is_admin = await _is_admin(authorization)
-    if is_admin:
-        res = supabase_admin.table("listening_test_attempts").select("*").eq(
-            "id", attempt_id,
-        ).limit(1).execute()
-        if not res.data:
-            raise HTTPException(404, "Attempt not found")
-        attempt = res.data[0]
-    else:
-        attempt = _fetch_attempt_or_404(attempt_id, user["id"])
-    if attempt.get("status") != "submitted":
-        raise HTTPException(409, "Chưa có chữa bài — attempt chưa submit.")
-    if not is_admin and _mock_sealed(attempt):
-        raise HTTPException(
-            403, "Kết quả đang chờ giám khảo duyệt — chưa thể xem chữa bài.")
+    Split out of the student endpoint so the ADMIN PREVIEW can reuse it byte for
+    byte (mig 170 / Đợt 2). Rebuilding the same shape a second time is how the
+    two drift: the preview would quietly stop matching what a student sees,
+    which is the one thing the preview exists to show.
 
+    Takes an attempt-SHAPED dict, not necessarily a real row — the preview
+    passes a synthetic one whose grading_details come from the answer key with
+    every user_answer blank. `attempt_id` is None there, and the caller owns all
+    authorisation: this function checks nothing.
+    """
     test_id = attempt["test_id"]
     test_res = (
         supabase_admin.table("listening_tests")
-        .select("id,test_id,title,band_target,cue_points,metadata,"
+        .select("id,test_id,title,band_target,cue_points,metadata,test_type,"
                 "full_audio_storage_path,assembled_audio_storage_path,"
                 "full_audio_duration_seconds,themes")
         .eq("id", test_id).limit(1).execute()
@@ -6302,7 +5320,7 @@ async def get_listening_test_attempt_review(
     # window to section-relative for a mini so the review player seeks the right
     # spot. Full tests keep absolute windows — their premixed audio holds every
     # section at its absolute position, so no rebase.
-    is_mini = meta.get("test_type") == "mini"
+    is_mini = test_row.get("test_type") == "mini"
     sec_offsets = meta.get("section_offsets") or {}
 
     # Join grading_details with the per-question solution + window.
@@ -6340,3 +5358,41 @@ async def get_listening_test_attempt_review(
         "sections":        sections,
         "review":          review,
     }
+
+@user_router.get("/tests/attempts/{attempt_id}/review")
+async def get_listening_test_attempt_review(
+    attempt_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """listening-review-ui (Phase B) — post-submit chữa-bài for a listening
+    full test. Owner-only + HARD-gated on status=='submitted' (409 otherwise).
+    Joins the attempt's grading_details (q_num · correct · user_answer ·
+    expected) with each question's rich solution + audio replay window (stored
+    in listening_exercises.payload.solutions / .audio_windows by the import),
+    the per-section transcripts, the band-conversion table, the section offsets,
+    and a signed URL for the full premixed audio (so the review player can seek
+    each answer's window). Mirrors the reading review contract.
+
+    Admin bypass (2026-07-12): an admin may open ANY submitted attempt's
+    review — including a still-sealed 4-skill mock — so the mock-review
+    console can reuse this same rich view while deciding the band, before
+    releasing results. Everyone else keeps the existing ownership + seal
+    gate unchanged."""
+    user = await _require_auth(authorization)
+    is_admin = await _is_admin(authorization)
+    if is_admin:
+        res = supabase_admin.table("listening_test_attempts").select("*").eq(
+            "id", attempt_id,
+        ).limit(1).execute()
+        if not res.data:
+            raise HTTPException(404, "Attempt not found")
+        attempt = res.data[0]
+    else:
+        attempt = _fetch_attempt_or_404(attempt_id, user["id"])
+    if attempt.get("status") != "submitted":
+        raise HTTPException(409, "Chưa có chữa bài — attempt chưa submit.")
+    if not is_admin and _mock_sealed(attempt):
+        raise HTTPException(
+            403, "Kết quả đang chờ giám khảo duyệt — chưa thể xem chữa bài.")
+
+    return _assemble_listening_review(attempt, attempt_id)

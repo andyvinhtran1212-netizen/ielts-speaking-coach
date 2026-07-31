@@ -98,6 +98,16 @@
         method: method,
         headers: headers,
         body: isFormData ? body : body ? JSON.stringify(body) : null,
+        // ADR-011 §2 (AUDIT F6): logout must be able to ABORT in-flight
+        // requests — callers pass an AbortController signal via opts.signal
+        // (getWith/patchWith/…). Undefined for the existing 4-arg helpers:
+        // zero behaviour change unless a caller opts in.
+        signal: (opts && opts.signal) || undefined,
+        // DEBT-2026-07-22-D: a save fired from `pagehide` is normally killed
+        // with the document. `keepalive` lets the browser finish it after the
+        // page is gone, which is the whole point of the unload flush. Opt-in
+        // per call (same shape as opts.signal) — no other caller is affected.
+        keepalive: !!(opts && opts.keepalive) || undefined,
       });
     } catch (fetchErr) {
       // Network/CORS failure — tag the rejection with the id we SENT so an

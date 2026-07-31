@@ -65,7 +65,7 @@ input: "text"
 headword: "lc-contrast-connectors"
 skill: "production"
 subtype: "intermediate"
-prompt: "Complete with a contrast connector: 'Urban areas have high employment rates. ____, rural regions struggle with job scarcity.' (use one word)"
+prompt: "Complete with a contrast connector: 'Urban areas have high employment rates. ____, rural regions struggle with job scarcity.'"
 accept: ["However", "Nevertheless", "Yet", "Conversely"]
 case_sensitive: false
 grammar_article_slug: "logical-connectors-in-reading"
@@ -106,7 +106,8 @@ input: "text"
 headword: "lc-contrast-connectors"
 skill: "production"
 subtype: "advanced"
-prompt: "Fill in the contrast connector: 'Conventional wisdom suggests that increased regulation stifles innovation. ____, empirical evidence indicates that well-designed regulations often stimulate new technologies.' (use one appropriate connector)"
+prompt: "Fill in the contrast connector: 'Conventional wisdom suggests that increased regulation stifles innovation. ____, empirical evidence indicates that well-designed regulations often stimulate new technologies.'"
+hint: "dùng 1 từ nối phù hợp"
 accept: ["Yet", "However", "Nevertheless", "Conversely"]
 case_sensitive: false
 grammar_article_slug: "logical-connectors-in-reading"
@@ -163,7 +164,8 @@ input: "text"
 headword: "lc-concession-connectors"
 skill: "production"
 subtype: "intermediate"
-prompt: "Complete with a concession connector: '____ environmental concerns, many industries continue to prioritize short-term profits.' (use one connector, 2-3 words)"
+prompt: "Complete with a concession connector: '____ environmental concerns, many industries continue to prioritize short-term profits.'"
+hint: "dùng 1 từ nối (2–3 từ)"
 accept: ["Despite", "Although", "In spite of", "Even though"]
 case_sensitive: false
 grammar_article_slug: "logical-connectors-in-reading"
@@ -204,7 +206,8 @@ input: "text"
 headword: "lc-concession-connectors"
 skill: "production"
 subtype: "advanced"
-prompt: "Identify the main point and complete with concession: '____ the massive scale of international climate agreements, emission reduction targets have consistently been missed. This suggests...' (use one concession connector)"
+prompt: "Identify the main point and complete with concession: '____ the massive scale of international climate agreements, emission reduction targets have consistently been missed. This suggests...'"
+hint: "dùng 1 từ nối nhượng bộ"
 accept: ["Despite", "Although", "Even though"]
 case_sensitive: false
 grammar_article_slug: "logical-connectors-in-reading"
@@ -261,7 +264,8 @@ input: "text"
 headword: "lc-causation-connectors"
 skill: "production"
 subtype: "intermediate"
-prompt: "Complete with a causation connector: 'The manufacturing sector declined sharply. ____, unemployment rose significantly in industrial regions.' (use one connector)"
+prompt: "Complete with a causation connector: 'The manufacturing sector declined sharply. ____, unemployment rose significantly in industrial regions.'"
+hint: "dùng 1 từ nối"
 accept: ["As a result", "Consequently", "Therefore", "Thus", "Hence"]
 case_sensitive: false
 grammar_article_slug: "logical-connectors-in-reading"
@@ -302,7 +306,8 @@ input: "text"
 headword: "lc-causation-connectors"
 skill: "production"
 subtype: "advanced"
-prompt: "Identify and complete: 'Biodiversity loss is accelerating due to habitat destruction and climate change. ____, ecosystems are becoming less resilient, and the provision of ecosystem services is at risk.' (use one causation connector)"
+prompt: "Identify and complete: 'Biodiversity loss is accelerating due to habitat destruction and climate change. ____, ecosystems are becoming less resilient, and the provision of ecosystem services is at risk.'"
+hint: "dùng 1 từ nối chỉ nguyên nhân"
 accept: ["Consequently", "Therefore", "As a result", "Hence"]
 case_sensitive: false
 grammar_article_slug: "logical-connectors-in-reading"
@@ -359,7 +364,8 @@ input: "text"
 headword: "lc-addition-connectors"
 skill: "production"
 subtype: "intermediate"
-prompt: "Complete with addition connector: 'Urban sprawl consumes agricultural land. ____, it increases traffic congestion.' (use one connector)"
+prompt: "Complete with addition connector: 'Urban sprawl consumes agricultural land. ____, it increases traffic congestion.'"
+hint: "dùng 1 từ nối"
 accept: ["Additionally", "Moreover", "Furthermore", "Also"]
 case_sensitive: false
 grammar_article_slug: "logical-connectors-in-reading"
@@ -400,7 +406,8 @@ input: "text"
 headword: "lc-addition-connectors"
 skill: "production"
 subtype: "advanced"
-prompt: "Complete with an appropriate addition connector: 'Digital transformation has streamlined internal communication across departments. ____, it has opened new channels for reaching customers directly.' (use one connector)"
+prompt: "Complete with an appropriate addition connector: 'Digital transformation has streamlined internal communication across departments. ____, it has opened new channels for reaching customers directly.'"
+hint: "dùng 1 từ nối"
 accept: ["Moreover", "Furthermore", "In addition", "Additionally"]
 case_sensitive: false
 grammar_article_slug: "logical-connectors-in-reading"

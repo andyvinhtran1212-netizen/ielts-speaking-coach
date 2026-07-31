@@ -1,19 +1,27 @@
 /**
  * frontend/tests/listening-page-shell.test.mjs
  *
- * Sprint 11.5 cluster closure — pin the Listening landing shell.
+ * Listening landing shell contract.
  *
- * Sprint 11.0 §6 wireframes specify 5 modes. Sprint 11.5 closes
- * DEBT-LISTENING-MODULE by promoting MCQ + Mini Test alongside the
- * dictation/gist/T-F trio already shipped in 11.2-11.4.
+ * History: Sprint 11.5 pinned "exactly 6 mode-cards, all LIVE". That
+ * assertion held while the markup was the only source of truth — and it is
+ * exactly what let four cards (dictation / gist / true-false / mcq) stay on
+ * the landing after it turned out they had no published content behind them.
+ * Each linked to a page that needs `?content_id=` and shows an empty state
+ * without one, so every click from the landing dead-ended.
  *
- * Sentinel-string match against the static page source. Catches:
- *   - mode-card roster drift (a sprint that adds a 6th mode without
- *     updating the test)
- *   - any LIVE card regressing back to "Coming soon"
- *   - browse / analytics utility links going missing
- *   - chrome integration regressing — listening.html MUST mount the
- *     canonical <aver-chrome active="listening"> Web Component
+ * The contract is now the inverse: the landing may not hard-code the
+ * existence of practice material. Cards are revealed by
+ * GET /api/listening/overview, and the four content-dependent modes are
+ * reached through the library (listening-browse.html), which offers a mode
+ * only when that content row actually has a published exercise.
+ *
+ * These tests pin:
+ *   - no bare links to the four content-dependent mode pages (the dead ends)
+ *   - every card that claims a count carries a data-count-key + count slot
+ *     and starts hidden, so nothing paints before the count is known
+ *   - the exam-shaped surfaces (full / mini / drill) are still linked
+ *   - chrome + stylesheet foundation unchanged
  */
 
 import { describe, it } from 'node:test';
@@ -23,15 +31,15 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const HTML_PATH = join(__dirname, '..', 'pages', 'listening.html');
-const HTML = readFileSync(HTML_PATH, 'utf8');
+const read = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
+
+const HTML = read('pages', 'listening.html');
+const LANDING_JS = read('js', 'listening-landing.js');
 
 
-describe('Sprint 11.1 — listening.html landing shell contract', () => {
+describe('listening.html — landing shell contract', () => {
 
   it('mounts the canonical <aver-chrome active="listening"> Web Component', () => {
-    // Chrome integration is the headline of Sprint 11.1 (proof the
-    // 5th skill slot wires in). Listening must be the active tab.
     assert.match(
       HTML,
       /<aver-chrome\s+active=["']listening["']\s*>\s*<\/aver-chrome>/,
@@ -39,105 +47,80 @@ describe('Sprint 11.1 — listening.html landing shell contract', () => {
     );
   });
 
-  it('ships exactly 6 mode-cards (dictation, gist, true-false, mcq, mini-test, skills-practice)', () => {
-    // Pin the roster — a sprint adding a 7th mode without updating
-    // this list trips here. Skills Practice (skill drills) is card #6.
-    const modes = ['dictation', 'gist', 'true-false', 'mcq', 'mini-test', 'skills-practice'];
-    for (const mode of modes) {
-      const re = new RegExp(`data-mode=["']${mode}["']`);
-      assert.match(HTML, re, `mode-card with data-mode="${mode}" missing`);
-    }
-    // Count: exactly 6 mode-card data-mode attrs total.
-    const matches = HTML.match(/data-mode=["'][^"']+["']/g) || [];
-    assert.equal(
-      matches.length, 6,
-      `expected exactly 6 mode-card data-mode attrs; got ${matches.length}: ${matches}`,
-    );
-  });
-
-  it('Skills Practice mode-card is live and links to its page', () => {
-    assert.match(
-      HTML,
-      /<a[^>]*href="\/pages\/listening-skills\.html"[^>]*class="mode-card"[^>]*data-mode="skills-practice"/,
-      'skills-practice mode-card must link to /pages/listening-skills.html',
-    );
-  });
-
-  it('all 5 mode cards are LIVE (Sprint 11.5 cluster closure)', () => {
-    // Sprint 11.5 promotes mcq + mini-test, completing the 5-mode roster.
-    // Every card must link to its own dedicated page.
-    assert.match(
-      HTML,
-      /<a[^>]*href="\/pages\/listening-dictation\.html"[^>]*class="mode-card"[^>]*data-mode="dictation"/,
-      'dictation mode-card must be active',
-    );
-    assert.match(
-      HTML,
-      /<a[^>]*href="\/pages\/listening-gist\.html"[^>]*class="mode-card"[^>]*data-mode="gist"/,
-      'gist mode-card must be active',
-    );
-    assert.match(
-      HTML,
-      /<a[^>]*href="\/pages\/listening-tf\.html"[^>]*class="mode-card"[^>]*data-mode="true-false"/,
-      'true-false mode-card must be active',
-    );
-    assert.match(
-      HTML,
-      /<a[^>]*href="\/pages\/listening-mcq\.html"[^>]*class="mode-card"[^>]*data-mode="mcq"/,
-      'mcq mode-card must be active (Sprint 11.5)',
-    );
-    assert.match(
-      HTML,
-      /<a[^>]*href="\/pages\/listening-mini-test\.html"[^>]*class="mode-card"[^>]*data-mode="mini-test"/,
-      'mini-test mode-card must be active (Sprint 11.5)',
-    );
-    // Negative pin — no card regresses to disabled.
-    for (const mode of ['dictation', 'gist', 'true-false', 'mcq', 'mini-test']) {
+  it('does NOT link to the four content-dependent mode pages', () => {
+    // The regression this file exists to prevent. These pages require a
+    // ?content_id=; linked bare from the landing they render an empty state.
+    // They are reachable from listening-browse.html, where a card carries the
+    // content id and only offers modes that exist for it.
+    for (const page of ['listening-dictation', 'listening-gist',
+                        'listening-tf', 'listening-mcq']) {
       assert.doesNotMatch(
         HTML,
-        new RegExp(`<a[^>]*class="mode-card disabled"[^>]*data-mode="${mode}"`),
-        `${mode} card regressed to disabled`,
+        new RegExp(`href=["']/pages/${page}\\.html["']`),
+        `${page}.html must not be linked bare from the landing — it dead-ends `
+        + 'without ?content_id=',
       );
     }
   });
 
-  it('no disabled mode-cards remain in Sprint 11.5 (cluster closure)', () => {
-    const cardMatches = HTML.match(/<a[^>]*class="mode-card disabled"[^>]*>/g) || [];
+  it('links the exam-shaped surfaces and the practice library', () => {
+    for (const page of ['listening-tests', 'listening-mini-test', 'listening-skills',
+                        'listening-practice']) {
+      assert.match(
+        HTML,
+        new RegExp(`href=["']/pages/${page}\\.html["']`),
+        `landing must link to /pages/${page}.html`,
+      );
+    }
+  });
+
+  it('every count-claiming card starts hidden and declares a key + slot', () => {
+    // A card that painted before its count arrived would flash content that
+    // may not exist — the same false promise in a different form.
+    const cards = HTML.match(/<a[^>]*data-count-key=[^>]*>/g) || [];
+    assert.ok(cards.length >= 4, `expected >=4 count-driven cards, got ${cards.length}`);
+    for (const tag of cards) {
+      assert.match(tag, /\bhidden\b/, `count-driven card must start hidden: ${tag}`);
+    }
+    const slots = HTML.match(/data-count-slot/g) || [];
     assert.equal(
-      cardMatches.length, 0,
-      `Sprint 11.5 closes the cluster — expected 0 disabled mode-cards; got ${cardMatches.length}`,
-    );
-    const tagMatches = HTML.match(/<span class="lock-tag">Coming soon<\/span>/g) || [];
-    assert.equal(
-      tagMatches.length, 0,
-      `Sprint 11.5 — expected 0 "Coming soon" lock-tags; got ${tagMatches.length}`,
+      slots.length, cards.length,
+      'each count-driven card needs exactly one [data-count-slot] badge',
     );
   });
 
-  it('utility links — Kho bài nghe (browse) + Thống kê (analytics)', () => {
-    // Sprint 11.5 wires browse + analytics next to the mode card grid.
-    assert.match(
-      HTML,
-      /href="\/pages\/listening-browse\.html"/,
-      'landing must link to /pages/listening-browse.html',
-    );
-    assert.match(
-      HTML,
-      /href="\/pages\/listening-analytics\.html"/,
-      'landing must link to /pages/listening-analytics.html',
-    );
+  it('count keys resolve against the /overview payload shape', () => {
+    for (const key of ['tests.full', 'tests.mini', 'tests.drill',
+                       'tests.practice', 'content']) {
+      assert.match(
+        HTML,
+        new RegExp(`data-count-key=["']${key.replace('.', '\\.')}["']`),
+        `missing card for overview key "${key}"`,
+      );
+    }
+  });
+
+  it('loads api.js and the landing controller', () => {
+    assert.match(HTML, /src=["']\/js\/api\.js["']/,
+      'landing needs the authed API client to fetch counts');
+    assert.match(HTML, /src=["']\/js\/listening-landing\.js["']/);
+  });
+
+  it('utility surfaces — Kho bài nghe (browse) + Thống kê (analytics)', () => {
+    assert.match(HTML, /href=["']\/pages\/listening-browse\.html["']/);
+    assert.match(HTML, /href=["']\/pages\/listening-analytics\.html["']/);
   });
 
   it('loads the canonical tokens + its own decoupled stylesheet (A6)', () => {
-    // Audit 2026-07-03 A6 — the Listening shell now rides its OWN listening.css
-    // (forked from vocabulary.css, identical at fork time) instead of borrowing
-    // vocabulary.css, so a Vocab restyle no longer silently restyles Listening.
-    // The canonical foundation (tokens + components) is still shared.
     assert.match(HTML, /href=["']\/css\/aver-design\/tokens\.css["']/);
     assert.match(HTML, /href=["']\/css\/aver-design\/components\.css["']/);
     assert.match(HTML, /href=["']\/css\/listening\.css["']/,
-      'Listening shell must load its own decoupled listening.css (A6), not vocabulary.css');
+      'Listening shell must load its own decoupled listening.css (A6)');
     assert.doesNotMatch(HTML, /href=["']\/css\/vocabulary\.css["']/,
       'Listening must no longer borrow vocabulary.css (A6 decouple)');
+  });
+
+  it('landing controller fetches /api/listening/overview', () => {
+    assert.match(LANDING_JS, /\/api\/listening\/overview/);
   });
 });

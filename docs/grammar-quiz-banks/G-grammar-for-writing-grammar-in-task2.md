@@ -52,7 +52,7 @@ input: "choice"
 headword: "t2-complex-relative"
 skill: "contrast"
 subtype: "intermediate"
-prompt: "Policies ____ ignore long-term costs rarely succeed."
+prompt: "Policies ____ ignore long-term costs rarely succeed in practice."
 options: ["that", "they", "what", "who"]
 answer: 0
 grammar_article_slug: "grammar-in-task2"

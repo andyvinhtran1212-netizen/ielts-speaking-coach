@@ -66,11 +66,12 @@ input: "text"
 headword: "frequency-adverb-position"
 skill: "production"
 subtype: "intermediate"
-prompt: "Trạng từ tần suất đặt sai vị trí: 'I skip breakfast sometimes when I'm running late.' Viết lại đúng thứ tự 3 từ đầu câu (chủ ngữ + trạng từ + động từ):"
-accept: ["I sometimes skip breakfast"]
+prompt: "Correct the adverb position: 'I skip breakfast sometimes when I'm running late.' → I ____ breakfast..."
+hint: "gõ trạng từ + động từ theo đúng trật tự (2 từ)"
+accept: ["sometimes skip"]
 case_sensitive: false
 grammar_article_slug: "adverbs"
-explain: "Frequency adverb 'sometimes' nên đứng trước động từ thường 'skip': I sometimes skip breakfast."
+explain: "Frequency adverb 'sometimes' nên đứng trước động từ thường 'skip': 'I sometimes skip breakfast...'"
 ---
 
 ---
@@ -150,7 +151,7 @@ input: "text"
 headword: "manner-adverb-position"
 skill: "production"
 subtype: "intermediate"
-prompt: "Sửa lại câu cho đúng vị trí: 'She speaks fluently three languages.' — chỉ viết lại đúng: 'She speaks three languages ____.'"
+prompt: "Sửa lại vị trí trạng từ: 'She speaks fluently three languages.' → 'She speaks three languages ____.'"
 accept: ["fluently"]
 case_sensitive: false
 grammar_article_slug: "adverbs"
@@ -234,11 +235,12 @@ input: "text"
 headword: "degree-adverb-very-comparative"
 skill: "production"
 subtype: "intermediate"
-prompt: "Sửa câu sai: 'This year's exam was very harder than last year's.' — chỉ viết lại từ cần sửa thay cho 'very'."
+prompt: "Correct the sentence: 'This year's exam was very ____ than last year's.'"
+hint: "gõ trạng từ chỉ mức độ thay cho 'very' (đứng trước so sánh hơn)"
 accept: ["much", "far", "considerably"]
 case_sensitive: false
 grammar_article_slug: "adverbs"
-explain: "'very' không dùng với comparative -er. Thay bằng 'much/far/considerably harder'."
+explain: "'very' không dùng với comparative -er. Thay bằng 'much/far/considerably': 'This year's exam was much/far/considerably harder than last year's.'"
 ---
 
 ---
@@ -318,7 +320,7 @@ input: "text"
 headword: "sentence-adverb-punctuation"
 skill: "production"
 subtype: "intermediate"
-prompt: "Nối hai câu bằng linking adverb đúng dấu câu: 'The plan was good' + 'it was too expensive.' — viết đúng phần nối: 'The plan was good. ____, it was too expensive.'"
+prompt: "Nối hai câu bằng linking adverb đúng dấu câu: 'The plan was good' + 'it was too expensive.' → 'The plan was good. ____, it was too expensive.'"
 accept: ["However", "however"]
 case_sensitive: false
 grammar_article_slug: "adverbs"

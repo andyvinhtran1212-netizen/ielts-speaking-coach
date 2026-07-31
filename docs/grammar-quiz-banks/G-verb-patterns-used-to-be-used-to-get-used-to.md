@@ -150,8 +150,8 @@ input: "text"
 headword: "utb-be-used-to-state"
 skill: "production"
 subtype: "intermediate"
-prompt: "Young people today ____ (be / access) information instantly through their phones — it feels completely normal to them."
-accept: ["are used to accessing"]
+prompt: "Young people today are ____ information instantly through their phones — it feels completely normal to them."
+accept: ["used to accessing"]
 case_sensitive: false
 grammar_article_slug: "used-to-be-used-to-get-used-to"
 explain: "Trạng thái quen thuộc ở hiện tại (feels normal) → are used to + V-ing: are used to accessing."

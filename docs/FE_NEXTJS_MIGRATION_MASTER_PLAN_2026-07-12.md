@@ -3,7 +3,7 @@
 **Dự án:** IELTS Speaking Coach / Aver Learning  
 **Ngày:** 2026-07-12 · v3 revised: 2026-07-13  
 **Phiên bản:** v3 — v2 đã qua adversarial review về architecture, delivery và safety; v3 bổ sung discovery validation độc lập trực tiếp trên repo (2026-07-13, HEAD `3f031d17`, 11 commits sau baseline `9047e09f`), yêu cầu đóng destination decision (ADR-000, mục 1.2), thêm bottleneck B34–B38 và hiệu chỉnh kế hoạch hai tuần đầu theo dữ kiện đã xác minh  
-**Trạng thái:** Conditional Go — discovery/dark launch được phép; bốn production pilot chỉ được cutover sau Gate A + Gate B + per-pilot entry checklist; Gate C chỉ mở bounded ramp tối đa 10 routes/ít nhất 2 domains; Gate D mới mở broad parallel scale. Cập nhật 2026-07-13: ADR-000 đã ratify (Next.js — mục 1.2); Vercel tier đã xác minh: **Hobby** (B34) — phải nâng Pro trước production pilot cutover đầu tiên  
+**Trạng thái:** Conditional Go — discovery/dark launch được phép; bốn production pilot chỉ được cutover sau Gate A + Gate B + per-pilot entry checklist; Gate C chỉ mở bounded ramp tối đa 10 routes/ít nhất 2 domains; Gate D mới mở broad parallel scale. Cập nhật 2026-07-13: ADR-000 đã ratify (Next.js — mục 1.2); Vercel tier: **Pro** (nâng từ Hobby cùng ngày — ADR-007; dòng "Hobby, phải nâng Pro" trước đây đã lỗi thời, audit F8 2026-07-14)  
 **Kiến trúc đích:** Next.js App Router trên Vercel; FastAPI/Railway tiếp tục là backend canonical  
 **Phương pháp:** Incremental strangler migration, một deployment, route-level cutover; rollback bằng deployment trừ khi ADR-007 duyệt control plane riêng  
 
@@ -907,6 +907,8 @@ Không đổi grading backend hoặc database schema trong cùng migration PR.
 - Fair-use của Vercel giới hạn Hobby cho mục đích non-commercial; averlearning.com là sản phẩm thương mại (bán access code) → rủi ro tuân thủ tồn tại độc lập với migration, và hybrid rendering sẽ tăng function usage đáng kể so với static hosting hiện tại.
 - **Quyết định:** nâng Pro trước production pilot cutover đầu tiên. Gate A/B và mọi dark-launch/Preview work chạy được trên Hobby; cutover canonical route thì không. Chi phí Pro đưa vào mục 15.3.
 
+**Cập nhật (2026-07-13, sau): ĐÃ NÂNG PRO** — ADR-007 ghi "Pro (nâng từ Hobby 2026-07-13)". Các gạch đầu dòng trên mô tả ràng buộc THỜI HOBBY, giữ làm bối cảnh quyết định. Hiện trạng: Instant Rollback đã drill (Gate B + re-drill, ≤12s); bẫy vận hành: restore = **Undo Rollback**, không dùng Instant Rollback "tiến" (rollback-pin tắt auto-promote — sự cố 6-merge 2026-07-13). (Audit F8 2026-07-14: đồng bộ đoạn này với ADR-007.)
+
 ### B35 — CI test manifest là danh sách tay và đang drift (v3)
 
 **Mức độ:** High  
@@ -1048,6 +1050,8 @@ Nếu không đầu tư control plane, rollout là dark launch → staged produc
 - Authenticated mutation route: tối thiểu 14 ngày **và** 50 eligible real attempts.
 - Core grading/exam route: tối thiểu 14 ngày **và** 30 eligible real attempts; cross-version resume phải pass.
 - Synthetic/lab runs bổ sung coverage nhưng không được tính vào real mutation/core volume. Low traffic phải kéo dài window hoặc có explicit steering risk decision; không giả vờ p75 có ý nghĩa khi sample quá nhỏ.
+
+> **AMENDMENT ADR-013 (2026-07-25) — early-stage rollout profile.** Các sàn ngày+interactions ở trên áp cho route có traffic THẬT đạt sàn. Ở giai đoạn early-stage (product <100 user, chưa SEO/marketing, blast-radius nhỏ; Vercel Pro rollback ≤12s về bất-kỳ-deployment; telemetry đã tagged theo implementation/release), route **low/zero-traffic** dùng **early-stage profile** thay cho soak-dài-freeze: **48–72h quan sát + synthetic n≥72 gánh vế số-lượng + risk acceptance ghi rõ**, KHÔNG freeze-cứng-dài và KHÔNG dùng sàn "N interactions" (số làm tròn, không suy từ power — xem DEBT-2026-07-22-H). Lý do "100 interactions" không có cơ sở thống kê + con số "21 ngày grammar" = 20÷1view/ngày: xem ADR-013. Quy kết một-biến đến từ TAG (ADR-012), không từ freeze. GIỮ CỨNG bất kể scale: persistence/security invariant breach → rollback ngay; rollback-readiness (ADR-007); kill-switch (ADR-010). Core grading/exam giữ nghiêm nhất (cross-version resume + synthetic n≥72 + ≥72h + risk acceptance có incident-commander). **Tốt-nghiệp:** tại Gate D (broad-scale ready) re-đánh giá — khi traffic tăng thì siết lại về sàn thống kê thật. Ma trận sàn mới đầy đủ: `docs/adr/ADR-013-early-stage-rollout.md`.
 - Bất kỳ persistence/security invariant violation nào cũng kích hoạt rollback/kill switch bất kể sample size.
 - Fallback chỉ giữ nếu đã được chứng minh; có owner, expiry và request telemetry.
 
@@ -1064,7 +1068,97 @@ Frontend rollback không sửa semantic writes đã xảy ra. Mutation ledger ph
 
 Với active exam/session, ưu tiên bidirectional compatibility. Nếu chưa chứng minh được, chỉ new sessions vào Next và giữ implementation affinity/drain đến maximum session TTL trước khi retire.
 
+### 12.5 [LỊCH SỬ — chốt 2026-07-25] Trạng thái thực thi thời điểm đó — Pilot 1 xong, Pilot 2 mới prep xong · *trạng thái hiện hành: §12.7*
+
+**Pilot 1 (landing) — PASS.** Soak restart#2 (release `856688dd`, 17/07 22:22 → 24/07 22:22) chốt PASS với ngoại lệ LCP ghi rõ: p75 = 4180ms tại điểm thoát là **outlier môi trường mạng khách trên n=22** (cụm buổi chiều; máy đo tự đo nhanh, code không hồi quy) — không phải regression. Hồ sơ: `docs/SOAK_DECLARATION_PILOT_1.md`. Đây là soak-dài cuối cùng theo lối cũ; từ Pilot 2 trở đi áp **early-stage profile** (ADR-013, xem §12.3).
+
+**Pilot 2 (grammar) — ĐÃ CUTOVER 28/07 + CỬA SỔ QUAN SÁT PASS 31/07.** Xem **§12.7** để có trạng thái hiện hành và số chốt; hồ sơ đầy đủ ở `docs/PILOT_2_CUTOVER_SHEET.md`.
+
+> **PHẦN CÒN LẠI CỦA §12.5 LÀ LỊCH SỬ (đóng băng ở 2026-07-25), KHÔNG PHẢI TRẠNG THÁI VẬN HÀNH.**
+> Nó mô tả giai đoạn "prep xong, chưa cutover, chưa đếm giờ" và chuỗi việc còn lại lúc đó — giữ
+> lại để đọc được mạch quyết định, chứ không dùng để tra hôm nay phải làm gì.
+
+**[LỊCH SỬ — 2026-07-25] Pilot 2 (grammar) — PREP XONG, CHƯA CUTOVER, CHƯA ĐẾM GIỜ.** Theo quyết định của chủ dự án: làm sẵn hạ tầng nhưng không bật đồng hồ quan sát. Ba việc đã hoàn tất:
+
+1. **Công cụ synthetic-volume trên production** — merged `#819` (`b0bf71c0` trên main): `frontend/playwright.production-smoke.config.js` + `frontend/tests/production-smoke/synthetic-volume.spec.js` + workflow `production-smoke.yml` (workflow_dispatch, NOT PR-blocking). Đo LCP p75 (nearest-rank) qua n cold browser context, verdict `SYNTHETIC_VERDICT {...}`. Đây là **vế số-lượng n≥72** của ADR-013 (không phải organic).
+2. **Verify công cụ chạy được trên route grammar SSR** — n=75 trên `/grammar-preview/tenses/present-perfect` (dark, live HTTP 200): **p75 = 996ms, 0 lỗi, 0 failure → pass** (đối chiếu landing `/` = 556ms; grammar cao hơn do SSR + backend fetch, vẫn ≪ ceiling 4000ms). Tool chạy được cả trang tĩnh lẫn SSR. Đây mới là **smoke verify công cụ**, chưa phải baseline/verdict chính thức của cutover.
+3. **Nhánh cutover pilot 2 đã refresh lên main** — `feat/pilot-2-cutover-prep` merge `origin/main` (61 commit drift) **sạch, 0 conflict** → route-ownership + pilot-grammar **9/9**, full suite frontend **5281 pass / 0 fail / 1 skipped** → pushed `17a1eefc`. Invariant cutover ("grammar là app route + legacy rewrite đã GONE") còn nguyên qua drift. Sheet: `docs/PILOT_2_CUTOVER_SHEET.md` (trên nhánh đó, đã theo profile ADR-013).
+
+**[LỊCH SỬ — đã chạy xong 28/07, giữ để đối chiếu] Chuỗi "đếm giờ" còn lại:** (a) traffic baseline re-run + đo baseline grammar (≤72h, sát giờ cutover); (b) ghi **risk acceptance** (route, ngày, người duyệt, rollback plan) theo ADR-013; (c) cutover atomic (đổi ownership `/grammar/[category]/[slug]` sang Next, gỡ rewrite); (d) `workflow_dispatch` production-smoke route grammar làm baseline + verdict; (e) quan sát organic 48–72h ở chế độ rollback-trigger tuyệt đối, synthetic-n là mẫu chính. Rút gọn từ "21 ngày freeze" xuống **~3 ngày** nhờ ADR-013.
+
+### 12.6 Nợ kỹ thuật mở trong cửa sổ quan sát pilot 2 (2026-07-29)
+
+> **Cửa sổ quan sát pilot 2 ĐÃ ĐÓNG, PASS — trạng thái và số chốt ở §12.7.**
+> Mục này chỉ còn là sổ nợ. **DEBT-K dưới đây hết lý do hoãn — làm tiếp.**
+
+**DEBT-2026-07-29-K — Next chunk dùng `static{`, iOS ≤16.3 không parse được.**
+Toàn bộ 6 lỗi trong 24h đầu sau cutover là **một chữ ký duy nhất**:
+`SyntaxError: Unexpected token '{'`, url `/`, `filename=/_next/static/chunks/
+16axsefbfc-3t.js`, line 1, không stack, UA iPhone **iOS 15.8.5** (Google Search
+App + Safari), một cụm 13:09–13:12 +07 ngày 28/07. Tải chunk về grep: **đúng 1
+occurrence `static{`**, nằm trong code của CHÍNH Next —
+`class h extends React.Component{static{this.contextType=AppRouterContext}…}`
+(error boundary của App Router). Class static block chỉ có từ **Safari 16.4**
+⇒ mọi iOS ≤16.3 **không parse nổi chunk ⇒ không hydrate** trên MỌI route Next
+(`/` và `/grammar/*`); nội dung SSR vẫn đọc được, phần JS (icon, nút Lưu bài,
+TOC) chết. Trang legacy không dính.
+
+**HOÃN CÓ CHỦ Ý tới sau khi cửa sổ quan sát pilot 2 đóng (30–31/07).** Lý do:
+bản vá là đổi build target ⇒ **build lại toàn bộ client JS của chính route
+đang quan sát** (bundle to hơn, LCP có thể dịch chuyển, và đổi target là loại
+thay đổi có thể làm gãy hydrate diện rộng). Lỗi đã tồn tại từ cutover pilot 1
+(14/07) với ~1–2 phiên/ngày, nên chờ thêm 2 ngày là rẻ hơn nhiều so với việc
+mất khả năng quy kết một-biến cho pilot 2. Khi làm: đọc docs Next 16 về
+browserslist/target trước, PR riêng, rồi **đo lại smoke baseline** trên release
+mới (số cũ 848ms thuộc release `524fd210`).
+
+**Đã đóng cùng ngày:** DEBT-2026-07-29-L (rollback-metrics khớp route chính
+xác ⇒ route có tham số đo ra 0 — thêm `match=prefix`) và DEBT-2026-07-29-M
+(payload web_vitals thiếu UA ⇒ mẫu LCP chậm không quy kết được).
+
+**LƯU Ý VẬN HÀNH (áp cho mọi merge trong cửa sổ quan sát):** mỗi merge lên main
+= một deployment Vercel mới ⇒ **cache prerender của route bị xoá**, người đầu
+tiên vào mỗi bài phải chờ render nguội (bài grammar là PPR: vỏ tĩnh + thân bài
+fetch backend, `cacheLife` 1h). Với n organic nhỏ, đúng một lần deploy đủ kéo
+lệch p75. **Sau mỗi deploy trong cửa sổ: dispatch lại production-smoke** (n=75,
+~3 phút) để vừa làm ấm cache vừa có verdict sạch trên release mới, và ghi
+release vào bảng nhật ký.
+
+**Pilot 3+4 (profile).** Prep chưa làm. Khi cần: refresh `feat/pilot-3-4-cutover-prep` (`docs/PILOT_3_4_CUTOVER_SHEET.md`, đã theo ADR-013) + verify smoke trên `/profile-preview`, cùng khuôn Pilot 2.
+
 ---
+
+### 12.7 Pilot 2 — trạng thái hiện hành (2026-07-31)
+
+**ĐÃ CUTOVER `2026-07-28 22:37:10 +07` (release `524fd210`) — CỬA SỔ QUAN SÁT
+ADR-013 ĐÃ ĐÓNG, PASS chốt `2026-07-31 01:47 +07` (51h10m).**
+`/grammar/:category/:slug` chính thức thuộc Next; `/grammar-preview/...` không
+còn. Số chốt: **231 lượt xem / 0 lỗi** trên `/grammar/*`, **0 lỗi toàn site**
+suốt cửa sổ, synthetic **4 lần: 848 / 976 / 968 / 856ms** (n=75, 0 lỗi mỗi
+lần). LCP organic là `insufficient-sample` (6 mẫu) — **ghi rõ KHÔNG phải
+verdict đạt**. Production đi qua 3 release trong cửa sổ (`524fd210` →
+`10405d0e` → `cedd4dd5`) với **2 lần merge trong cửa sổ** (#878, #879); #877
+merge 7 phút TRƯỚC cutover nên thuộc phần chuẩn bị. Hồ sơ đầy đủ + bảng nhật
+ký D0–D3: `docs/PILOT_2_CUTOVER_SHEET.md`.
+
+*Ghi chú tự-đính-chính:* bản chốt đầu tiên ghi "30/07 22:36, đủ 48h01" là SAI —
+thời điểm đó mới 47h58m50s vì cutover là 22:37:10 chứ không phải 22:35. Đã đo
+lại sau mốc thật thay vì sửa số cho khớp (Codex review #881).
+
+*Ghi chú thứ hai:* vế "telemetry tagged" của ADR-013 chỉ đạt MỘT PHẦN — thẻ
+`release` phía client có thể cũ (DEBT-N), nên hồ sơ có thêm một **risk acceptance
+bổ sung** (sheet, mục cuối): giữ PASS vì chân đỡ của verdict là *0 lỗi* +
+*synthetic*, cả hai không đọc thẻ client; nhưng **từ pilot 3+4 trở đi, nếu cửa
+sổ có bất kỳ lỗi nào trên route thì phải đóng DEBT-N trước khi tuyên PASS**.
+Một deploy trong cửa sổ (`10405d0e`, sống 4h28m) **không được smoke** — ghi rõ
+trong sheet kèm bằng chứng thay thế (0 lỗi, 0 lượt xem route trong khoảng đó).
+
+**DEBT-2026-07-29-K hết lý do hoãn — là việc kế tiếp.** Nợ mới sinh trong cửa
+sổ: **DEBT-2026-07-30-N** (thẻ `release` không cho biết tài liệu được tải lúc nào ⇒
+quy kết một-biến của ADR-012 bị suy yếu; **nguyên nhân CHƯA xác định** — cache
+client/trung gian hay tab sống lâu; việc đầu tiên là thêm mốc-thời-gian-tải +
+build id vào payload để phân biệt, chứ không kê đơn `?v=<release>` ngay; chi
+tiết + bảng hai giả thuyết trong sheet).
 
 ## 13. Performance, SEO, security và accessibility budgets
 

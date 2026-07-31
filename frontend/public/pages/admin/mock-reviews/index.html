@@ -30,6 +30,8 @@
     .mr-card { border:1px solid var(--av-border-subtle); border-radius:var(--av-radius-lg); background:var(--av-surface-card); padding:var(--av-space-4); box-shadow:var(--av-shadow-sm); }
     .mr-toolbar { display:flex; gap:var(--av-space-2); align-items:center; margin-bottom:var(--av-space-3); }
     .mr-pill { display:inline-block; font-size:11px; padding:2px var(--av-space-2); border-radius:var(--av-radius-pill); background:var(--av-surface-sunken); border:1px solid var(--av-border-subtle); color:var(--av-text-secondary); letter-spacing:.02em; }
+    /* "đã trả bài" — the one state the student can already see, so it reads as done rather than as one more step */
+    .mr-pill--done { background:var(--av-success-soft); border-color:var(--av-success); color:var(--av-success); font-weight:600; }
     .mr-tabs { display:flex; gap:var(--av-space-1); margin:var(--av-space-4) 0; flex-wrap:wrap; }
     .mr-tab { padding:var(--av-space-2) var(--av-space-3); border:1px solid var(--av-border-default); border-radius:var(--av-radius-md); background:var(--av-surface-card); cursor:pointer; font-size:13px; color:var(--av-text-primary); }
     .mr-tab.active { background:var(--av-primary); color:var(--av-text-on-primary); border-color:transparent; }
@@ -53,6 +55,37 @@
     .mr-trow--wip:hover td { background:transparent; }
     .mr-trow--retest td { background:var(--av-warning-soft); }
     .mr-trow--retest:hover td { background:var(--av-warning-soft); }
+    /* CÔNG BỐ sits apart from the grading action — it publishes to students. */
+    .mr-bulkbar__sep { width:1px; align-self:stretch; background:var(--av-border-default); margin:0 var(--av-space-2); }
+    /* Per-sitting release refusals — named, not just counted. */
+    .mr-relskips { background:var(--av-warning-soft); border:1px solid var(--av-warning);
+      border-radius:var(--av-radius-md); padding:var(--av-space-3); margin-bottom:var(--av-space-3);
+      font-size:var(--av-fs-sm); color:var(--av-text-primary); }
+    .mr-relskips ul { margin:var(--av-space-2) 0 0; padding-left:var(--av-space-4); }
+    .mr-relskips li { margin:2px 0; color:var(--av-text-secondary); }
+    .mr-relskips code { font-family:var(--av-font-mono); color:var(--av-text-primary); }
+    /* Retest skill picker — a <details> popover in the roster's TEST LẠI cell. */
+    .mr-retest { position:relative; display:inline-block; }
+    .mr-retest__sum { list-style:none; cursor:pointer; font-size:12px; padding:2px var(--av-space-2);
+      border:1px solid var(--av-border-default); border-radius:var(--av-radius-md);
+      background:var(--av-surface-card); color:var(--av-text-secondary); min-width:34px; text-align:center; }
+    .mr-retest__sum::-webkit-details-marker { display:none; }
+    .mr-retest__sum:hover { border-color:var(--av-border-strong); color:var(--av-text-primary); }
+    .mr-retest__sum:focus-visible { outline:2px solid var(--av-primary); outline-offset:1px; }
+    .mr-retest__sum.is-on { background:var(--av-warning-soft); border-color:var(--av-warning);
+      color:var(--av-text-primary); font-weight:var(--av-fw-semibold); }
+    /* Absolute so the popover can't stretch the row; the table scrolls, hence z-index.
+       The explicit display+position overrides how <details> hides its own content
+       when closed (measured: the menu still laid out at 98px tall), so closing has
+       to be spelled out or all 13 popovers sit open on top of the table. */
+    .mr-retest:not([open]) .mr-retest__menu { display:none; }
+    .mr-retest__menu { position:absolute; z-index:20; top:calc(100% + 4px); left:0;
+      display:flex; flex-direction:column; gap:6px; padding:var(--av-space-3);
+      background:var(--av-surface-card); border:1px solid var(--av-border-default);
+      border-radius:var(--av-radius-md); box-shadow:var(--av-shadow-md); white-space:nowrap; }
+    /* Bottom rows: .adm-table-wrap (overflow-x:auto → overflow-y:auto) clips the
+       menu, so it opens upward instead. placeRetestMenu() measures and applies. */
+    .mr-retest__menu--up { top:auto; bottom:calc(100% + 4px); }
     /* L/R result detail */
     .mr-total { font-size:14px; color:var(--av-text-primary); margin-bottom:var(--av-space-3); }
     .mr-total b { font-family:var(--av-font-mono); }
@@ -67,7 +100,7 @@
 </head>
 <body class="av-page font-sans min-h-screen">
   <div class="mr-wrap">
-    <h1 class="mr-title">Duyệt thi thử 4 kỹ năng</h1>
+    <h1 class="mr-title" data-embed-hide>Duyệt thi thử 4 kỹ năng</h1>
     <p class="mr-sub">Nhận (claim) → xem 4 kỹ năng → nhập band cuối → công bố.</p>
     <p id="exam-header" class="mr-examhdr"></p>
 
@@ -90,6 +123,7 @@
   </div>
 
   <script src="https://unpkg.com/@supabase/supabase-js@2.107.0"></script>
+  <script src="/js/admin-embed.js"></script>
   <script src="/js/runtime-config.js"></script>
   <script src="/js/api.js"></script>
   <script src="/js/toast.js"></script>

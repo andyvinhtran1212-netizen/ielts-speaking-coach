@@ -15,6 +15,8 @@ unchanged downstream.
 from __future__ import annotations
 
 import asyncio
+import json
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -1164,67 +1166,6 @@ def test_section_to_content_payload_placeholder_shape():
     assert payload["metadata"]["source_format"] == "cambridge_ielts_markdown"
 
 
-# ── Convert endpoint round-trip (router-level) ───────────────────────────
-
-
-from routers import listening as listening_router
-from tests.test_listening_router import (
-    _FakeAdminClient, _patch_admin_auth, _patch_admin_client, _run,
-)
-
-
-def _build_dry_run_envelope() -> dict:
-    return lc.parse_from_text(QUESTION_PAPER_MD, SCRIPT_ANSWERKEY_MD)
-
-
-def test_convert_commit_inserts_test_4_sections_and_exercises(monkeypatch):
-    fake = _FakeAdminClient(canned={"listening_tests": []})
-    _patch_admin_client(monkeypatch, fake)
-    authz = _patch_admin_auth(monkeypatch)
-
-    envelope = _build_dry_run_envelope()
-    body = listening_router.ConvertCommitRequest(
-        test_metadata=envelope["test_metadata"],
-        sections=envelope["sections"],
-    )
-    out = _run(listening_router.admin_convert_listening_commit(
-        body=body, authorization=authz,
-    ))
-
-    tables_inserted = [t for t, _ in fake.inserts]
-    assert tables_inserted.count("listening_tests") == 1
-    assert tables_inserted.count("listening_content") == 4
-    # Per Sprint 13.4.2: one exercise row per Question-Paper block.
-    # Pilot 01 has 3+2+2+3 = 10 blocks total.
-    assert tables_inserted.count("listening_exercises") == 10
-
-    assert out["test_id_external"] == "ILR-LIS-001"
-    assert len(out["content_ids"]) == 4
-    assert out["exercises_created"] == 10
-    assert out["failed_sections"] == []
-
-
-def test_convert_commit_rejects_duplicate_test_id(monkeypatch):
-    fake = _FakeAdminClient(canned={
-        "listening_tests": [{"id": "existing-uuid", "test_id": "ILR-LIS-001"}],
-    })
-    _patch_admin_client(monkeypatch, fake)
-    authz = _patch_admin_auth(monkeypatch)
-
-    envelope = _build_dry_run_envelope()
-    body = listening_router.ConvertCommitRequest(
-        test_metadata=envelope["test_metadata"],
-        sections=envelope["sections"],
-    )
-    with pytest.raises(HTTPException) as excinfo:
-        _run(listening_router.admin_convert_listening_commit(
-            body=body, authorization=authz,
-        ))
-    assert excinfo.value.status_code == 422
-    # Sprint 13.5.4: copy switched from "đã tồn tại" → "đang ACTIVE"
-    # since archived rows no longer block re-import.
-    assert "đang ACTIVE" in str(excinfo.value.detail)
-
 
 # ── Sprint 13.5.2 — structural context preservation ───────────────────────
 
@@ -1313,6 +1254,60 @@ def test_table_template_separator_row_skipped():
     rows = block["template"]["rows"]
     # The `|---|---|` separator must NOT appear as a data row.
     assert all("---" not in c for r in rows for c in r if isinstance(c, str))
+
+
+def test_table_template_captures_suffix_after_gap():
+    """listening-parser-render A — a cell `9 …… protection` (gap + trailing
+    unit) becomes {q_num, suffix}. Before this the gap regex required the gap at
+    the END of the cell, so a suffix dropped the whole gap → no input rendered."""
+    body = (
+        "| Item | Detail |\n"
+        "|---|---|\n"
+        "| Optional service | 9 …………… protection |\n"
+        "| Days to arrive | 10 …………… working days |\n"
+    )
+    tmpl = lc._extract_table_template(body, lambda n: 9 <= n <= 10)
+    cells = {c["q_num"]: c for r in tmpl["rows"] for c in r if isinstance(c, dict)}
+    assert cells[9]["suffix"] == "protection"
+    assert cells[10]["suffix"] == "working days"
+
+
+def test_table_template_end_of_cell_gap_has_no_suffix_key():
+    """Back-compat: a plain end-of-cell gap stays exactly {q_num} (no suffix)."""
+    body = "| A | B |\n|---|---|\n| Passport | 7 …………… |\n"
+    tmpl = lc._extract_table_template(body, lambda n: n == 7)
+    cell = next(c for r in tmpl["rows"] for c in r if isinstance(c, dict))
+    assert cell == {"q_num": 7}
+
+
+def test_notes_template_keeps_subheadings_as_group_headings():
+    """listening-parser-render C — a non-bullet line (đề mục like 'Heuristics:')
+    opens a NEW group with that heading instead of being dropped. Gaps land in
+    the right group. The renderer already shows groups[].heading."""
+    body = (
+        "#### BEHAVIOURAL ECONOMICS\n"
+        "Heuristics:\n"
+        "- Mental shortcuts used when full evaluation is impossible.\n"
+        "- Availability risk: the easiest choice may be most **31** ___________\n"
+        "Framing effect:\n"
+        "- Framing can shift preference by over **32** ___________\n"
+    )
+    tmpl = lc._extract_notes_template(body, lambda n: 31 <= n <= 32)
+    headings = [g.get("heading") for g in tmpl["groups"]]
+    assert "Heuristics:" in headings and "Framing effect:" in headings
+    heur = next(g for g in tmpl["groups"] if g.get("heading") == "Heuristics:")
+    assert any(it.get("q_num") == 31 for it in heur["items"])
+    fram = next(g for g in tmpl["groups"] if g.get("heading") == "Framing effect:")
+    assert any(it.get("q_num") == 32 for it in fram["items"])
+
+
+def test_notes_template_no_subheadings_stays_single_headless_group():
+    """Back-compat: a bullets-only notes block → one group with no heading key."""
+    body = "#### TITLE\n- First point **5** ___________\n- Second **6** ___________\n"
+    tmpl = lc._extract_notes_template(body, lambda n: 5 <= n <= 6)
+    assert len(tmpl["groups"]) == 1
+    assert "heading" not in tmpl["groups"][0]
+    assert {it["q_num"] for it in tmpl["groups"][0]["items"]} == {5, 6}
 
 
 def test_short_answer_template_is_empty_questions_carry_prompts():
@@ -2100,3 +2095,52 @@ def test_p2_footer_cut_is_noop_for_fulltest_end_of_paper():
     )
     out = lc._LESSON_FOOTER_RE.split(text, maxsplit=1)
     assert len(out) == 1  # nothing cut
+
+
+def test_segment_fixture_matches_extractor_output():
+    """Parser half of the parser↔renderer contract.
+
+    A Cambridge table cell is not limited to one gap at its start ("Good for
+    people who are especially keen on 1 …………", "Set lunch costs 9 ………… per
+    person. Portions probably of 10 ………… size"), and a form line can carry text
+    after its gap. Both now come out as segment lists.
+
+    The same fixture is rendered by frontend/tests/listening-test-player.test.mjs.
+    If the extractor's shape drifts, this test fails; if the renderer stops
+    understanding that shape, the JS one does. Neither can drift alone.
+    """
+    fixture = json.loads(
+        (Path(__file__).resolve().parents[2] / "frontend" / "tests" / "fixtures"
+         / "listening-segment-templates.json").read_text(encoding="utf-8")
+    )
+    lo, hi = fixture["q_range"]
+    in_range = lambda n: lo <= n <= hi  # noqa: E731
+
+    assert lc._extract_table_template(
+        fixture["table"]["markdown"], in_range) == fixture["table"]["template"]
+    assert lc._extract_form_template(
+        fixture["form"]["markdown"], in_range) == fixture["form"]["template"]
+
+
+def test_table_cell_gap_needs_a_real_blank_run():
+    """Unanchoring the cell-gap pattern must not turn prose into a gap.
+
+    The pattern used to be anchored at the start of the cell, which made a
+    stray "..." harmless. Now that a gap may appear anywhere in the cell, an
+    ordinary three-dot ellipsis has to stay text or "step 4 ... then" would
+    silently become question 4.
+    """
+    body = "| A | B |\n|---|---|\n| step 4 ... then stop | plain |\n"
+    tmpl = lc._extract_table_template(body, lambda n: 1 <= n <= 10)
+    assert tmpl["rows"] == [["step 4 ... then stop", "plain"]]
+
+
+def test_form_label_does_not_leak_bold_markers():
+    """"- **Nationality:** **1** …" splits on the FIRST colon, stranding the
+    bold markers on both sides. Unstripped they are shown to the student."""
+    tmpl = lc._extract_form_template(
+        "- **Nationality:** **1** …………\n", lambda n: n == 1)
+    row = tmpl["rows"][0]
+    assert row["label"] == "Nationality"
+    assert row["q_num"] == 1
+    assert row["prefix"] == ""

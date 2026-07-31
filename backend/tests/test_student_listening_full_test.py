@@ -217,6 +217,7 @@ class _Q:
         self._payload = None
         self._eq: list[tuple[str, object]] = []
         self._in: list[tuple[str, list]] = []
+        self._is: list[tuple[str, object]] = []
         self._range: tuple[int, int] | None = None
 
     def select(self, *_a, **_kw): self._mode = "select"; return self
@@ -225,9 +226,12 @@ class _Q:
     def delete(self): self._mode = "delete"; return self
     def eq(self, c, v): self._eq.append((c, v)); return self
     def in_(self, c, vs): self._in.append((c, list(vs))); return self
-    # Listening mini test — the list endpoint now adds a metadata->>test_type
-    # filter via .or_(); these seed rows carry no test_type (legacy), which the
-    # real "IS NULL OR != mini" keeps, so a no-op here preserves their behaviour.
+    # PostgREST `.is_(col, "null")` — how the standalone resume lookup excludes
+    # mock attempts. Modelled rather than stubbed so the test exercises the real
+    # filter: an absent key and an explicit None both count as NULL.
+    def is_(self, c, v): self._is.append((c, v)); return self
+    # Mig 157 — the list endpoint filters eq("test_type", ...) on the real
+    # column; seed rows carry test_type='full' so the eq-match keeps them.
     def or_(self, *_a, **_kw): return self
     def limit(self, *_a, **_kw): return self
     def order(self, *_a, **_kw): return self
@@ -239,6 +243,12 @@ class _Q:
                 return False
         for c, vs in self._in:
             if r.get(c) not in vs:
+                return False
+        for c, v in self._is:
+            is_null = r.get(c) is None
+            if str(v).lower() == "null" and not is_null:
+                return False
+            if str(v).lower() != "null" and is_null:
                 return False
         return True
 
@@ -286,6 +296,38 @@ class _Fake:
 
     def table(self, name): return _Q(self, name)
 
+    # A4b (mig 161) — the answer write moved into a Postgres function so the
+    # read-modify-write is atomic. The fake models the SAME semantics the SQL
+    # implements, so these tests keep exercising real behaviour instead of
+    # asserting against a stub: replace-by-q_num, keep sorted, only touch an
+    # in_progress attempt, return the new count (None when nothing matched).
+    def rpc(self, name, params):
+        if name != "fn_upsert_listening_answer":
+            raise AssertionError(f"unexpected rpc: {name}")
+        rows = self.tables["listening_test_attempts"]
+        row = next(
+            (r for r in rows
+             if r.get("id") == params["p_attempt_id"] and r.get("status") == "in_progress"),
+            None,
+        )
+        if row is None:
+            return _RpcResult(None)
+        q = params["p_q_num"]
+        answers = [a for a in (row.get("answers") or []) if str(a.get("q_num")) != str(q)]
+        answers.append({
+            "q_num": q,
+            "user_answer": params["p_user_answer"] or "",
+            "answered_at": "2026-01-01T00:00:00+00:00",
+        })
+        answers.sort(key=lambda a: a.get("q_num") or 0)
+        row["answers"] = answers
+        return _RpcResult(len(answers))
+
+
+class _RpcResult:
+    def __init__(self, data): self.data = data
+    def execute(self): return self
+
 
 def _patch(monkeypatch, user_id="user-1"):
     fake = _Fake()
@@ -316,6 +358,11 @@ def _seed_test(fake, **overrides):
         "full_audio_duration_seconds":  1800,
         "assembled_audio_storage_path": None,
         "cue_points":                   [],
+        "test_type":                    "full",   # mig 157 — cột thật
+        # Mig 170 — NOT NULL DEFAULT false trong prod, nên seed phải có mặt:
+        # thiếu khoá thì .eq("exam_only", False) không khớp và bài test xanh/đỏ
+        # vì lý do sai, không phải vì hành vi.
+        "exam_only":                    False,
         "created_at":                   "2026-05-21T00:00:00Z",
     }
     row.update(overrides)
@@ -564,6 +611,42 @@ def test_start_attempt_abandons_previous_in_progress(monkeypatch):
 # ── PATCH answers ──────────────────────────────────────────────────────────
 
 
+def test_standalone_resume_never_returns_a_mock_attempt(monkeypatch):
+    """Codex #834 (correct): scoping only the MOCK lookup left the mirror bug —
+    a student with a live mock attempt opening the same test from the normal
+    Listening library would resume the SEALED exam attempt, replay the audio,
+    and edit exam answers outside the runner."""
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    fake.tables["listening_test_attempts"].append({
+        "id": "mock-att", "test_id": test["id"], "user_id": "user-1",
+        "status": "in_progress", "sitting_id": "sit-1", "answers": [],
+    })
+    out = _run(listening_router.get_in_progress_listening_attempt(
+        test_id=test["id"], sitting_id=None, authorization=authz,
+    ))
+    assert out["attempt"] is None          # standalone must not see it
+
+    # ...and the mock runner, scoped to its sitting, still does
+    out2 = _run(listening_router.get_in_progress_listening_attempt(
+        test_id=test["id"], sitting_id="sit-1", authorization=authz,
+    ))
+    assert out2["attempt"]["attempt_id"] == "mock-att"
+
+
+def test_standalone_resume_still_finds_a_practice_attempt(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    fake.tables["listening_test_attempts"].append({
+        "id": "solo", "test_id": test["id"], "user_id": "user-1",
+        "status": "in_progress", "sitting_id": None, "answers": [],
+    })
+    out = _run(listening_router.get_in_progress_listening_attempt(
+        test_id=test["id"], sitting_id=None, authorization=authz,
+    ))
+    assert out["attempt"]["attempt_id"] == "solo"
+
+
 def test_patch_answer_upserts_by_q_num(monkeypatch):
     fake, authz = _patch(monkeypatch)
     test = _seed_test(fake)
@@ -580,6 +663,70 @@ def test_patch_answer_upserts_by_q_num(monkeypatch):
     answers = fake.tables["listening_test_attempts"][0]["answers"]
     assert len(answers) == 1
     assert answers[0]["user_answer"] == "second"
+
+
+def test_patch_answer_goes_through_the_atomic_rpc(monkeypatch):
+    """A4b — the write must be the single-statement RPC, not a Python
+    read-modify-write of the whole array. Pinned by asserting the route calls
+    fn_upsert_listening_answer: that is the ONLY thing standing between two
+    concurrent saves and a silently lost answer."""
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    fake.tables["listening_test_attempts"].append({
+        "id": "att", "test_id": test["id"], "user_id": "user-1",
+        "status": "in_progress", "answers": [],
+    })
+    seen = []
+    real_rpc = fake.rpc
+    fake.rpc = lambda n, p: (seen.append(n), real_rpc(n, p))[1]
+
+    body = listening_router.TestAttemptAnswerPatchRequest(q_num=7, user_answer="x")
+    _run(listening_router.patch_listening_test_attempt_answer(
+        attempt_id="att", body=body, authorization=authz,
+    ))
+    assert seen == ["fn_upsert_listening_answer"]
+
+
+def test_patch_answer_keeps_other_questions_untouched(monkeypatch):
+    """The regression A4b fixes: saving q2 must not disturb q1. Under the old
+    read-modify-write two concurrent saves each rewrote the FULL array, so the
+    later write erased the earlier one's question entirely."""
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    fake.tables["listening_test_attempts"].append({
+        "id": "att", "test_id": test["id"], "user_id": "user-1",
+        "status": "in_progress",
+        "answers": [{"q_num": 1, "user_answer": "keep-me"}],
+    })
+    body = listening_router.TestAttemptAnswerPatchRequest(q_num=2, user_answer="new")
+    out = _run(listening_router.patch_listening_test_attempt_answer(
+        attempt_id="att", body=body, authorization=authz,
+    ))
+    assert out["answer_count"] == 2
+    answers = fake.tables["listening_test_attempts"][0]["answers"]
+    assert [a["q_num"] for a in answers] == [1, 2]          # sorted, both present
+    assert answers[0]["user_answer"] == "keep-me"
+
+
+def test_patch_answer_422_when_attempt_submitted_mid_write(monkeypatch):
+    """The RPC enforces status='in_progress' too, so it returns NULL if the
+    attempt was submitted between the router's check and the write. That is a
+    real race and the honest answer is that the edit did not land."""
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    fake.tables["listening_test_attempts"].append({
+        "id": "att", "test_id": test["id"], "user_id": "user-1",
+        "status": "in_progress", "answers": [],
+    })
+    # RPC sees a submitted attempt (the race) even though the router's read did not
+    fake.rpc = lambda n, p: _RpcResult(None)
+
+    body = listening_router.TestAttemptAnswerPatchRequest(q_num=1, user_answer="x")
+    with pytest.raises(HTTPException) as excinfo:
+        _run(listening_router.patch_listening_test_attempt_answer(
+            attempt_id="att", body=body, authorization=authz,
+        ))
+    assert excinfo.value.status_code == 422
 
 
 def test_patch_answer_rejects_q_num_out_of_range(monkeypatch):
@@ -725,3 +872,145 @@ def test_get_attempt_returns_grading(monkeypatch):
     assert out["score"] == 33
     assert out["band_estimate"] == 7.5
     assert out["trap_analytics"]["paraphrase_t0"]["caught"] == 5
+
+
+# ── "Choose TWO" khi đáp án lưu cả cặp vào từng dòng ────────────────────
+#
+# The tests above build the key the way the grader WANTED it (one letter per
+# slot). The Cambridge importer wrote the other shape — the whole set repeated
+# in every row — and nothing here ever exercised it, so a grader that could not
+# score a single one of those questions stayed green for months.
+#
+# Real damage: C2-FINAL-20260726 (Cambridge 15 Test 4) scored 0/14 students on
+# each of Q17-20. Students who picked exactly the right two letters were marked
+# wrong on both.
+
+
+def _mm_key_wholeset(pair=("A", "D"), qs=(17, 18)):
+    """The shape found in prod: every row carries the group's FULL set."""
+    both = ", ".join(pair)
+    rows = [{
+        "payload": {
+            "template_kind": "mcq_multi",
+            "answers": [{"q_num": q, "answer": both} for q in qs],
+        },
+    }]
+    return grader.collect_answer_key(rows)
+
+
+def test_mm_wholeset_both_letters_score_two():
+    ak = _mm_key_wholeset()
+    res = grader.grade_attempt(
+        [{"q_num": 17, "user_answer": "A"}, {"q_num": 18, "user_answer": "D"}], ak)
+    assert res["score"] == 2, "picking exactly the expected two letters must score 2"
+    assert [q["correct"] for q in res["per_question"]] == [True, True]
+
+
+def test_mm_wholeset_any_order():
+    ak = _mm_key_wholeset()
+    res = grader.grade_attempt(
+        [{"q_num": 17, "user_answer": "D"}, {"q_num": 18, "user_answer": "A"}], ak)
+    assert res["score"] == 2, "the player fills slots in click order, not key order"
+
+
+def test_mm_wholeset_one_right_one_wrong():
+    ak = _mm_key_wholeset()
+    res = grader.grade_attempt(
+        [{"q_num": 17, "user_answer": "D"}, {"q_num": 18, "user_answer": "E"}], ak)
+    assert res["score"] == 1
+
+
+def test_mm_wholeset_duplicate_pick_counts_once():
+    # Each expected letter is consumable once — two A's are not two marks.
+    ak = _mm_key_wholeset()
+    res = grader.grade_attempt(
+        [{"q_num": 17, "user_answer": "A"}, {"q_num": 18, "user_answer": "A"}], ak)
+    assert res["score"] == 1
+
+
+def test_mm_wholeset_blank_scores_zero():
+    ak = _mm_key_wholeset()
+    res = grader.grade_attempt(
+        [{"q_num": 17, "user_answer": ""}, {"q_num": 18, "user_answer": ""}], ak)
+    assert res["score"] == 0
+
+
+def test_mm_wholeset_case_and_spacing_insensitive():
+    ak = _mm_key_wholeset()
+    res = grader.grade_attempt(
+        [{"q_num": 17, "user_answer": " a "}, {"q_num": 18, "user_answer": "d"}], ak)
+    assert res["score"] == 2
+
+
+def test_mm_mismatched_set_falls_back_not_guesses():
+    """A set whose size does not match the slot count is data we do not
+    understand — read each row as its own answer rather than inventing a rule."""
+    rows = [{
+        "payload": {
+            "template_kind": "mcq_multi",
+            "answers": [
+                {"q_num": 17, "answer": "A, D"},
+                {"q_num": 18, "answer": "A, D"},
+                {"q_num": 19, "answer": "A, D"},
+            ],
+        },
+    }]
+    ak = grader.collect_answer_key(rows)
+    res = grader.grade_attempt(
+        [{"q_num": 17, "user_answer": "A"}, {"q_num": 18, "user_answer": "D"},
+         {"q_num": 19, "user_answer": "A"}], ak)
+    assert res["score"] == 0, "3 slots vs a 2-letter set: do not collapse"
+
+
+def test_mm_rows_disagreeing_fall_back():
+    rows = [{
+        "payload": {
+            "template_kind": "mcq_multi",
+            "answers": [
+                {"q_num": 17, "answer": "A, D"},
+                {"q_num": 18, "answer": "B, C"},
+            ],
+        },
+    }]
+    ak = grader.collect_answer_key(rows)
+    res = grader.grade_attempt(
+        [{"q_num": 17, "user_answer": "A"}, {"q_num": 18, "user_answer": "D"}], ak)
+    assert res["score"] == 0, "rows must agree before their set is trusted"
+
+
+def test_mm_wholeset_rows_in_different_order_still_agree():
+    """"A, D" and "D, A" are the same answer written two ways.
+
+    Requiring string equality would drop the group to the fallback and score a
+    fully correct student ZERO — the same failure this whole block exists to
+    stop, reintroduced through a stricter-than-necessary agreement check.
+    """
+    rows = [{
+        "payload": {
+            "template_kind": "mcq_multi",
+            "answers": [
+                {"q_num": 17, "answer": "A, D"},
+                {"q_num": 18, "answer": "D, A"},
+            ],
+        },
+    }]
+    ak = grader.collect_answer_key(rows)
+    res = grader.grade_attempt(
+        [{"q_num": 17, "user_answer": "A"}, {"q_num": 18, "user_answer": "D"}], ak)
+    assert res["score"] == 2
+
+
+def test_mm_wholeset_reordered_rows_still_consume_once():
+    rows = [{
+        "payload": {
+            "template_kind": "mcq_multi",
+            "answers": [
+                {"q_num": 17, "answer": "A, D"},
+                {"q_num": 18, "answer": "D, A"},
+            ],
+        },
+    }]
+    ak = grader.collect_answer_key(rows)
+    res = grader.grade_attempt(
+        [{"q_num": 17, "user_answer": "D"}, {"q_num": 18, "user_answer": "D"}], ak)
+    assert res["score"] == 1, "one D expected, two picked — still one mark"

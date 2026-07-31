@@ -199,6 +199,10 @@ def _seed_test(fake: _FakeAdmin, **overrides) -> dict:
         "accent_profile":  ["BrE"],
         "themes":          {"s1": "Cookery"},
         "status":          "draft",
+        # Mig 157 made this NOT NULL DEFAULT 'full', so a row without it does
+        # not exist in the real table — and the admin list now defaults to the
+        # exam types, which a test_type-less fixture would silently fail.
+        "test_type":       "full",
         "created_at":      "2026-05-20T00:00:00Z",
     }
     row.update(overrides)

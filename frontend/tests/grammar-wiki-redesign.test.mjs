@@ -83,16 +83,33 @@ describe('grammar-wiki.css / token discipline', () => {
     assert.ok(!css.includes('#14a8ae'));
   });
 
-  test('preserves DM Sans + Lora sub-system (§ 14.2)', () => {
-    assert.match(css, /'DM Sans'/, 'grammar-wiki.css must reference DM Sans');
-    assert.match(css, /'Lora'/,    'grammar-wiki.css must reference Lora');
+  // DEBT-2026-07-24-J — these two tests used to pin the OPPOSITE contract
+  // ("preserve the DM Sans + Lora sub-system, § 14.2"). The project owner
+  // reversed that on 2026-07-25: one sans for the whole system, and ONE
+  // controlled serif (Lora) reserved for long-form reading. The pins are kept
+  // just as strict, inverted — Grammar must no longer be the only corner of the
+  // site with its own body sans, and Lora must be reached through the token so
+  // there is a single place to change it.
+  // Measure LIVE css — a family named inside a comment (e.g. one recording what
+  // a rule used to be) is documentation, not a font request. Counting comment
+  // text as code is how the first DEBT-J write-up got its numbers wrong.
+  const liveCss = css.replace(/\/\*[\s\S]*?\*\//g, '');
+
+  test('no longer carries its own body sans — DM Sans is out of the system', () => {
+    assert.ok(!/'DM Sans'/.test(liveCss), 'grammar-wiki.css must NOT name DM Sans');
+    assert.match(
+      liveCss,
+      /body\.av-page\s*\{[\s\S]*?font-family:\s*var\(--av-font-sans\)/,
+      'body.av-page must use var(--av-font-sans), like every other page',
+    );
   });
 
-  test('body.av-page override sets DM Sans (wins over components.css Plus Jakarta)', () => {
+  test('keeps Lora as the sanctioned serif, but via --av-font-serif', () => {
+    assert.ok(!/'Lora'/.test(liveCss), 'grammar-wiki.css must not name Lora literally');
     assert.match(
-      css,
-      /body\.av-page\s*\{[\s\S]*?font-family:\s*'DM Sans'/,
-      'grammar-wiki.css must override body.av-page font-family to DM Sans',
+      liveCss,
+      /font-family:\s*var\(--av-font-serif\)/,
+      'long-form headings must reach Lora through the token',
     );
   });
 
@@ -239,13 +256,22 @@ for (const [name, info] of Object.entries(PAGES)) {
       );
     });
 
-    test('DM Sans + Lora Google Font link present (sub-system preserved)', () => {
+    // DEBT-2026-07-24-J (decision 2026-07-25) — inverted from "DM Sans + Lora
+    // sub-system preserved". Grammar now loads the SAME sans as the rest of the
+    // site; Lora stays only where long-form prose earns a serif.
+    test('loads the canonical sans + mono, and NOT DM Sans', () => {
       const html = pageContents[name];
-      assert.match(html, /family=[^"]*DM\+Sans/);
-      // roadmap is the only page that historically did NOT load Lora; verify Lora present
-      // for the others which need it for hero/h2 display headings.
+      assert.ok(!/family=[^"]*DM\+Sans/.test(html),
+        `${name}: DM Sans must not be downloaded any more`);
+      assert.match(html, /family=Plus\+Jakarta\+Sans/,
+        `${name}: must load the canonical sans it now asks for via --av-font-sans`);
+      assert.match(html, /family=JetBrains\+Mono/,
+        `${name}: must load the canonical mono`);
+      // roadmap has no long-form prose, so it does not need the serif.
       if (name !== 'roadmap') {
-        assert.match(html, /family=Lora|family=[^"]*Lora/);
+        assert.match(html, /family=Lora/, `${name}: long-form pages keep the sanctioned serif`);
+      } else {
+        assert.ok(!/family=Lora/.test(html), 'roadmap has no long-form prose — no serif needed');
       }
     });
 
@@ -253,10 +279,15 @@ for (const [name, info] of Object.entries(PAGES)) {
       assert.ok(!/family=Inter\b/.test(pageContents[name]), `${name}: Inter must not load`);
     });
 
-    test('Plus Jakarta Sans NOT loaded (sub-system intentional separation)', () => {
-      assert.ok(
-        !/Plus\+Jakarta\+Sans/.test(pageContents[name]),
-        `${name}: Plus Jakarta Sans not loaded — Grammar Wiki uses DM Sans+Lora sub-system per § 14.2`,
+    test('at most three families are downloaded (sans + mono + serif)', () => {
+      // Replaces "Plus Jakarta Sans NOT loaded". The point of the old pin was
+      // "do not mix two sans systems on one page"; that intent survives as a
+      // hard cap on how many families a Grammar page may pull.
+      const families = [...pageContents[name].matchAll(/family=([^&"':]+)/g)].map((m) => m[1]);
+      assert.ok(families.length <= 3, `${name}: ${families.length} font families — ${families}`);
+      assert.deepEqual(
+        families.filter((f) => !['Plus+Jakarta+Sans', 'JetBrains+Mono', 'Lora'].includes(f)),
+        [], `${name}: only the three sanctioned families may be loaded`,
       );
     });
 

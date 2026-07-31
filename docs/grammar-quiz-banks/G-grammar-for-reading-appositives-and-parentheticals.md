@@ -51,11 +51,11 @@ input: "text"
 headword: "appositive-recognition"
 skill: "production"
 subtype: "intermediate"
-prompt: "Xác định phần chêm trong câu này: 'The report, submitted by the consulting firm last month, recommended significant changes.' Phần chêm là: ____"
-accept: ["submitted by the consulting firm last month", "submitted by the consulting firm", "by the consulting firm last month"]
+prompt: "Điền từ bắt đầu phần chêm: 'The report, ____ by the consulting firm last month, recommended significant changes.'"
+accept: ["submitted"]
 case_sensitive: false
 grammar_article_slug: "appositives-and-parentheticals"
-explain: "Phần giữa hai dấu phẩy 'submitted by the consulting firm last month' định nghĩa lại 'report'; đó là appositive (hoặc reduced relative clause)."
+explain: "Phần chêm bắt đầu với 'submitted' (past participle) định nghĩa lại 'report'. Toàn bộ appositive: 'submitted by the consulting firm last month'."
 ---
 
 ---
@@ -122,11 +122,11 @@ input: "text"
 headword: "appositive-with-punctuation"
 skill: "production"
 subtype: "intermediate"
-prompt: "Viết lại câu dùng gạch ngang thay vì phẩy: 'The company, a multinational corporation, invests heavily in research.' Đáp án: ____"
-accept: ["The company — a multinational corporation — invests heavily in research", "The company — a multinational corporation — invests"]
+prompt: "Viết lại phần chêm dùng gạch ngang (thay cho dấu phẩy): 'The company, a multinational corporation, invests heavily in research.' Phần chêm: ____"
+accept: ["a multinational corporation"]
 case_sensitive: false
 grammar_article_slug: "appositives-and-parentheticals"
-explain: "Gạch ngang nhấn mạnh hơn dấu phẩy: 'The company — a multinational corporation — invests heavily in research.'"
+explain: "Gạch ngang cô lập appositive 'a multinational corporation' và nhấn mạnh hơn dấu phẩy: 'The company — a multinational corporation — invests heavily in research.'"
 ---
 
 ---
@@ -264,11 +264,11 @@ input: "text"
 headword: "appositive-reading-strategy"
 skill: "production"
 subtype: "intermediate"
-prompt: "Bỏ phần chêm trong: 'The economic crisis, a result of unchecked inflation and rising unemployment, prompted immediate government intervention.' Câu khôi phục là: ____"
-accept: ["The economic crisis prompted immediate government intervention", "The economic crisis prompted intervention"]
+prompt: "Bỏ phần chêm và cho biết mệnh đề chính (S–V + bổ ngữ): 'The economic crisis, a result of unchecked inflation and rising unemployment, prompted immediate government intervention.' Mệnh đề chính: ____"
+accept: ["prompted intervention", "prompted immediate intervention"]
 case_sensitive: false
 grammar_article_slug: "appositives-and-parentheticals"
-explain: "Bỏ appositive 'a result of unchecked inflation and rising unemployment' → khung: 'The economic crisis prompted immediate government intervention'."
+explain: "Bỏ appositive 'a result of unchecked inflation and rising unemployment' → mệnh đề chính: 'The economic crisis prompted immediate government intervention'."
 ---
 
 ---

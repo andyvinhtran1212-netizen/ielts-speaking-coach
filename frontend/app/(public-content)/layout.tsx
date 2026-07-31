@@ -34,8 +34,12 @@ export default function PublicContentLayout({ children }: { children: ReactNode 
       {/* Font preconnects */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      {/* Same families, same URL as the legacy grammar pages (public/pages/
+          grammar-article.html): grammar-wiki.css reaches every family through
+          --av-font-sans/-mono/-serif since DEBT-2026-07-24-J step (b), so this
+          layout must download Plus Jakarta + JetBrains, not DM Sans. */}
       <link
-        href="https://fonts.googleapis.com/css2?family=Lora:wght@400;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Lora:wght@400;600;700&display=swap"
         rel="stylesheet"
       />
 
@@ -57,6 +61,9 @@ export default function PublicContentLayout({ children }: { children: ReactNode 
       <script src="/js/runtime-config.js" defer />
       <script src="/js/api.js" defer />
       <script src="/js/analytics-beacon.js" defer />
+      {/* AUDIT F2: field Web Vitals per implementation tag (rollback-metrics
+          reads them for the frozen LCP trigger). */}
+      <script src="/js/rum-vitals.js" defer />
 
       {/* Supabase init + child initialization */}
       <script

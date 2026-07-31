@@ -16,8 +16,10 @@ Schema dependencies (all confirmed against migrations 009, 033, 056,
   - sessions (id, user_id, mode, status, overall_band, created_at,
     completed_at)
   - writing_essays (id, student_id, status, delivered_at, created_at)
-  - listening_attempts (id, user_id, exercise_id, score, created_at,
-    segment_idx)
+  - listening_test_attempts (id, user_id, test_id, status, score,
+    grading_details, created_at, submitted_at) — audit 2026-07-17: nguồn
+    hoạt động listening thật (bảng listening_attempts cũ đã chết)
+  - dictation_sessions (id, user_id, accuracy, completed_at)
   - user_vocabulary (id, user_id, mastery_status, is_archived,
     created_at)
   - error_logs (id, level, dismissed_at, occurred_at)
@@ -83,13 +85,13 @@ def _safe_count(q) -> int:
 
 
 def _first_attempt_only(rows: list[dict]) -> list[dict]:
-    """Sprint 11.5.1 carryover — dedupe listening_attempts rows to
-    canonical first attempt per (exercise_id, segment_idx). Used here
-    for listening avg_score so retries don't distort the dashboard.
+    """Sprint 11.5.1 rule, re-keyed cho listening_test_attempts (audit
+    2026-07-17): canonical first attempt per (user_id, test_id) — retries
+    không được thổi phồng quality signal trên dashboard.
     """
     first_by_key: dict[tuple, dict] = {}
     for r in rows:
-        key = (r.get("exercise_id"), r.get("segment_idx"))
+        key = (r.get("user_id"), r.get("test_id"))
         prev = first_by_key.get(key)
         if prev is None or (r.get("created_at") or "") < (prev.get("created_at") or ""):
             first_by_key[key] = r
@@ -167,13 +169,25 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
     )
 
     # Listening attempts (last 30d for activity + avg) + total count.
+    # Nguồn: listening_test_attempts — nơi lesson/mini + drill + full test
+    # thật sự ghi (audit 2026-07-17; listening_attempts cũ đã chết từ 05/2026).
     listening_recent = _safe_select(
-        supabase_admin.table("listening_attempts")
-        .select("id, user_id, exercise_id, segment_idx, score, created_at")
+        supabase_admin.table("listening_test_attempts")
+        .select("id, user_id, test_id, status, score, grading_details, "
+                "created_at, submitted_at")
         .gte("created_at", iso_30d)
     )
     listening_total = _safe_count(
-        supabase_admin.table("listening_attempts").select("id", count="exact", head=True)
+        supabase_admin.table("listening_test_attempts")
+        .select("id", count="exact", head=True)
+    )
+    dictation_recent = _safe_select(
+        supabase_admin.table("dictation_sessions")
+        .select("id, user_id, accuracy, section_title, test_id_external, completed_at, created_at")
+        .gte("created_at", iso_30d)
+    )
+    dictation_total = _safe_count(
+        supabase_admin.table("dictation_sessions").select("id", count="exact", head=True)
     )
     listening_content_count = _safe_count(
         supabase_admin.table("listening_content")
@@ -246,6 +260,7 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
     active_7d = (
         _user_ids_in(sessions_recent, iso_7d)
         | _user_ids_in(listening_recent, iso_7d)
+        | _user_ids_in(dictation_recent, iso_7d)
     )
     # Writing essays use student_id — resolve via the students roster.
     student_user_by_id = {s["id"]: s.get("user_id") for s in students}
@@ -259,6 +274,7 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
     active_30d = (
         _user_ids_in(sessions_recent, iso_30d)
         | _user_ids_in(listening_recent, iso_30d)
+        | _user_ids_in(dictation_recent, iso_30d)
     )
     for e in essays_recent:
         uid = student_user_by_id.get(e.get("student_id"))
@@ -286,18 +302,30 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
         if (e.get("created_at") or "") >= iso_7d
     )
 
-    # Listening avg_score — first-attempt only (Sprint 11.5.1 rule).
+    # Listening: % đúng TB 7d — first-attempt per (user, test), submitted only.
+    # accuracy = score / số câu (grading_details) — score thô không so được
+    # giữa các cỡ đề (full 40 câu vs drill ~10 câu).
+    # Dedupe trên các lượt ĐÃ NỘP — lượt bỏ dở/đang làm không được chiếm slot
+    # canonical (không có điểm) rồi che mất lượt nộp sau đó của cùng bài.
     listening_first = _first_attempt_only([
         r for r in listening_recent
-        if (r.get("created_at") or "") >= iso_7d
+        if (r.get("created_at") or "") >= iso_7d and r.get("status") == "submitted"
     ])
-    listening_scores = [r["score"] for r in listening_first if r.get("score") is not None]
+    listening_accs = []
+    for r in listening_first:
+        gd = r.get("grading_details") or []
+        if r.get("score") is not None and gd:
+            listening_accs.append(r["score"] / len(gd))
     listening_avg = (
-        round(sum(listening_scores) / len(listening_scores), 2)
-        if listening_scores else None
+        round(sum(listening_accs) / len(listening_accs), 4)
+        if listening_accs else None
     )
     listening_7d = sum(
         1 for r in listening_recent
+        if (r.get("created_at") or "") >= iso_7d
+    )
+    dictation_7d = sum(
+        1 for r in dictation_recent
         if (r.get("created_at") or "") >= iso_7d
     )
 
@@ -317,13 +345,29 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
             "link":       f"/pages/result.html?session_id={s['id']}",
         })
     for r in listening_recent:
+        # Chỉ lượt ĐÃ NỘP mới là "hoàn thành" (in_progress/abandoned vẫn tính
+        # active-user + attempts_7d, nhưng không vào feed hoạt động).
+        if r.get("status") != "submitted" or not r.get("submitted_at"):
+            continue
+        gd = r.get("grading_details") or []
         activity.append({
-            "timestamp":  r.get("created_at"),
+            "timestamp":  r["submitted_at"],
             "user_id":    r.get("user_id"),
             "skill":      "listening",
             "action":     "Hoàn thành bài Listening",
-            "score":      r.get("score"),
-            "link":       None,  # listening attempt detail not addressable yet
+            "score":      (f"{r['score']}/{len(gd)}"
+                           if r.get("score") is not None and gd else None),
+            "link":       "/pages/admin/listening/attempts.html",
+        })
+    for r in dictation_recent:
+        activity.append({
+            "timestamp":  r.get("completed_at") or r.get("created_at"),
+            "user_id":    r.get("user_id"),
+            "skill":      "listening",
+            "action":     "Hoàn thành chép chính tả",
+            "score":      (f"{round(float(r['accuracy']) * 100)}%"
+                           if r.get("accuracy") is not None else None),
+            "link":       "/pages/admin/listening/dictation-reports.html",
         })
     for e in essays_recent:
         if not e.get("created_at"):
@@ -380,7 +424,10 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
                 "attempts_total": listening_total,
                 "attempts_7d":    listening_7d,
                 "content_count":  listening_content_count,
+                # 0..1 — % đúng TB (không còn score thô; frontend render %).
                 "avg_score_7d":   listening_avg,
+                "dictation_total": dictation_total,
+                "dictation_7d":    dictation_7d,
             },
             "vocab": {
                 "words_total":       vocab_total,

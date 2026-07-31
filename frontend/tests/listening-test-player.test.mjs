@@ -130,7 +130,10 @@ describe('Sprint 13.5 — player JS contract', () => {
   it('PATCHes answers via /api/listening/tests/attempts/{id}/answers', () => {
     assert.match(
       JS,
-      /window\.api\.patch\(\s*`\/api\/listening\/tests\/attempts\/\$\{encodeURIComponent\(STATE\.attemptId\)\}\/answers`/,
+      // patchWith since #837: the save carries an AbortController signal so the
+      // attempt-wide queue can cancel a timed-out request before the next one
+      // starts. Same endpoint, same body.
+      /window\.api\.patchWith\(\s*`\/api\/listening\/tests\/attempts\/\$\{encodeURIComponent\(STATE\.attemptId\)\}\/answers`/,
     );
   });
 
@@ -139,8 +142,14 @@ describe('Sprint 13.5 — player JS contract', () => {
     assert.match(JS, /user_answer:/);
   });
 
-  it('debounces auto-save by 2000ms per gap (last-write-wins)', () => {
-    assert.match(JS, /setTimeout\([\s\S]+?,\s*2000\s*\)/);
+  // A4a (2026-07-25) — was "debounces by 2000ms". The 2s window was 4× Reading's
+  // and made the loss window on a dropped connection correspondingly wider, so
+  // the fix brought Listening to Reading parity at 500ms. Updated rather than
+  // deleted: the last-write-wins clearTimeout contract this also guarded is
+  // still real and still worth pinning.
+  it('debounces auto-save per gap at Reading parity (last-write-wins)', () => {
+    assert.match(JS, /SAVE_DEBOUNCE_MS\s*=\s*500/);
+    assert.match(JS, /setTimeout\([\s\S]+?,\s*SAVE_DEBOUNCE_MS\s*\)/);
     assert.match(JS, /clearTimeout\(STATE\.saveTimers\.get\(qNum\)\)/);
   });
 
@@ -463,9 +472,10 @@ describe('Sprint 13.5.2 — visual structure markers in renderers', () => {
   });
 
   it('table renderer puts a circled question num inside gap cells', () => {
-    // Inside the table mapper, the gap cell must include the question
-    // number span AND the gap input.
-    assert.match(JS, /<td>[\s\S]*?ielts-question-num[\s\S]*?gapInput\(c\.q_num\)/);
+    // The gap segment must carry the question number span AND the gap input.
+    // (Cells delegate to tableGapSegment so one cell can hold several gaps.)
+    assert.match(JS, /ielts-question-num[\s\S]*?gapInput\(seg\.q_num\)/);
+    assert.match(JS, /<td>\$\{tableGapSegment\(c\)\}<\/td>/);
   });
 
   it('MCQ renderer puts options inside .ielts-mcq-options with radio inputs', () => {
@@ -1165,5 +1175,183 @@ describe('questionRangeLabel — singular vs range', () => {
   it('both heading sites use the helper (section title + block header)', () => {
     assert.match(JS, /ielts-section-title">\$\{questionRangeLabel\(range\[0\], range\[1\]\)\}/);
     assert.match(JS, /ielts-block-header">\$\{questionRangeLabel\(range\[0\], range\[1\]\)\}/);
+  });
+});
+
+describe('listening-parser-render — table cell keeps its suffix (Bug A)', () => {
+  // A table cell `9 …… protection` parses to {q_num, suffix}; renderTable-
+  // Completion must render the input THEN the suffix, not drop it.
+  it('renderTableCompletion appends the segment suffix after gapInput', () => {
+    assert.match(
+      JS,
+      /gapInput\(seg\.q_num\)\}\$\{seg\.suffix \? ' ' \+ mdInline\(seg\.suffix\) : ''\}/,
+    );
+  });
+
+  // The paper puts words on BOTH sides of a gap, and sometimes two gaps in one
+  // cell (Cambridge 20 Test 1 Part 1: "Good for people who are especially keen
+  // on (1) ………" and "Set lunch costs (9) ……… per person / Portions probably of
+  // (10) ……… size"). A cell may therefore be an array of segments. The older
+  // {q_num, suffix} cell shape must keep working unchanged.
+  const tableRenderer = () => {
+    const src = JS.match(/function tableGapSegment\([\s\S]*?\n\}/)[0] + '\n' +
+                JS.match(/function renderTableCompletion\([\s\S]*?\n\}/)[0];
+    return new Function(
+      'esc', 'mdInline', 'gapInput', 'renderFallback',
+      src + '; return renderTableCompletion;',
+    )((x) => String(x), (x) => String(x),
+      (n) => `<input data-q="${n}">`, () => 'FALLBACK');
+  };
+
+  it('runtime: a {q_num, suffix} cell emits the input then the suffix text', () => {
+    const html = tableRenderer()(
+      { heading: 'H', headers: ['Item', 'Detail'],
+        rows: [['Optional service', { q_num: 9, suffix: 'protection' }],
+               ['Days', { q_num: 10 }]] },
+      [{ q_num: 9 }, { q_num: 10 }],
+    );
+    assert.match(html, /<input data-q="9">\s*protection/);   // suffix rendered
+    assert.match(html, /<input data-q="10">/);               // plain cell unaffected
+    assert.doesNotMatch(html, /undefined/);
+  });
+
+  it('runtime: a cell gap keeps the words printed BEFORE it', () => {
+    const html = tableRenderer()(
+      { headers: ['Reason'],
+        rows: [[{ prefix: 'Good for people who are especially keen on',
+                  q_num: 1 }]] },
+      [{ q_num: 1 }],
+    );
+    assert.match(html, /especially keen on\s*<span[^>]*>1<\/span><input data-q="1">/);
+  });
+
+  it('runtime: an array cell renders every gap it holds', () => {
+    const html = tableRenderer()(
+      { headers: ['Other comments'],
+        rows: [[[{ prefix: 'Set lunch costs', q_num: 9, suffix: 'per person' },
+                 { prefix: 'Portions probably of', q_num: 10, suffix: 'size' }]]] },
+      [{ q_num: 9 }, { q_num: 10 }],
+    );
+    assert.match(html, /Set lunch costs\s*<span[^>]*>9<\/span><input data-q="9">\s*per person/);
+    assert.match(html, /Portions probably of\s*<span[^>]*>10<\/span><input data-q="10">\s*size/);
+    assert.equal((html.match(/<input data-q=/g) || []).length, 2);
+    assert.doesNotMatch(html, /undefined/);
+  });
+
+  it('runtime: a form row can hold segments, and a flat row still works', () => {
+    const src = JS.match(/function tableGapSegment\([\s\S]*?\n\}/)[0] + '\n' +
+                JS.match(/function renderFormCompletion\([\s\S]*?\n\}/)[0];
+    const renderFormCompletion = new Function(
+      'esc', 'mdInline', 'gapInput', 'renderFallback',
+      src + '; return renderFormCompletion;',
+    )((x) => String(x), (x) => String(x),
+      (n) => `<input data-q="${n}">`, () => 'FALLBACK');
+    const html = renderFormCompletion(
+      { rows: [
+        { label: 'Reason for visit',
+          segments: ['business (to buy antique', { q_num: 2 }, ')'] },
+        { label: 'Nationality', q_num: 1, suffix: '(not British)' },
+      ] },
+      [{ q_num: 1 }, { q_num: 2 }],
+    );
+    assert.match(html, /business \(to buy antique\s*<span[^>]*>2<\/span><input data-q="2">\s*\)/);
+    assert.match(html, /<input data-q="1">\s*\(not British\)/);
+    assert.doesNotMatch(html, /undefined/);
+  });
+});
+
+// ── Parser ↔ renderer contract ──────────────────────────────────────
+//
+// The renderer half. backend/tests/test_listening_convert.py holds the same
+// fixture and asserts the EXTRACTOR still produces it; here we assert the
+// renderer still understands it. A shape change that breaks the pair fails on
+// one side or the other — it cannot pass silently, which is how the segment
+// shape ended up supported by the renderer and unreachable from the importer.
+describe('listening-parser-render — segment fixture renders end to end', () => {
+  const fixture = JSON.parse(readFileSync(
+    join(__dirname, 'fixtures', 'listening-segment-templates.json'), 'utf8'));
+
+  const build = (name) => {
+    const src = JS.match(/function tableGapSegment\([\s\S]*?\n\}/)[0] + '\n' +
+                JS.match(new RegExp(`function ${name}\\([\\s\\S]*?\\n\\}`))[0];
+    return new Function(
+      'esc', 'mdInline', 'gapInput', 'renderFallback',
+      src + `; return ${name};`,
+    )((x) => String(x), (x) => String(x),
+      (n) => `<input data-q="${n}">`, () => 'FALLBACK');
+  };
+
+  const gapsIn = (tmpl) => {
+    const found = new Set();
+    const walk = (v) => {
+      if (Array.isArray(v)) return v.forEach(walk);
+      if (v && typeof v === 'object') {
+        if (v.q_num != null) found.add(Number(v.q_num));
+        Object.values(v).forEach(walk);
+      }
+    };
+    walk(tmpl);
+    return [...found].sort((a, b) => a - b);
+  };
+
+  it('every table gap in the fixture becomes an input', () => {
+    const tmpl = fixture.table.template;
+    const html = build('renderTableCompletion')(tmpl, []);
+    assert.notEqual(html, 'FALLBACK');
+    for (const n of gapsIn(tmpl)) {
+      assert.match(html, new RegExp(`<input data-q="${n}">`), `thiếu ô nhập ${n}`);
+    }
+  });
+
+  it('every form gap in the fixture becomes an input', () => {
+    const tmpl = fixture.form.template;
+    const html = build('renderFormCompletion')(tmpl, []);
+    assert.notEqual(html, 'FALLBACK');
+    for (const n of gapsIn(tmpl)) {
+      assert.match(html, new RegExp(`<input data-q="${n}">`), `thiếu ô nhập ${n}`);
+    }
+  });
+
+  it('the blank run itself is never printed next to the input', () => {
+    // "**1** …………" — the dots ARE the blank; the input replaces them. Carried
+    // through as text they print beside the box.
+    const html = build('renderFormCompletion')(fixture.form.template, []) +
+                 build('renderTableCompletion')(fixture.table.template, []);
+    assert.doesNotMatch(html, /…{2,}/);
+    assert.doesNotMatch(html, /undefined/);
+  });
+
+  it('the fixture actually exercises both new shapes', () => {
+    const rows = fixture.table.template.rows.flat();
+    assert.ok(rows.some((c) => Array.isArray(c)), 'cần ô dạng mảng');
+    assert.ok(rows.some((c) => c && !Array.isArray(c) && c.q_num != null),
+              'cần giữ ô dạng phẳng cũ');
+    assert.ok(fixture.form.template.rows.some((r) => Array.isArray(r.segments)),
+              'cần hàng biểu mẫu dạng segments');
+  });
+});
+
+describe('listening-parser-render — a form line need not be a label/value pair', () => {
+  it('an empty label renders no colon, so a sentence stays a sentence', () => {
+    const src = JS.match(/function tableGapSegment\([\s\S]*?\n\}/)[0] + '\n' +
+                JS.match(/function renderFormCompletion\([\s\S]*?\n\}/)[0];
+    const renderFormCompletion = new Function(
+      'esc', 'mdInline', 'gapInput', 'renderFallback',
+      src + '; return renderFormCompletion;',
+    )((x) => String(x), (x) => String(x),
+      (n) => `<input data-q="${n}">`, () => 'FALLBACK');
+    const html = renderFormCompletion(
+      { rows: [
+        { label: '', segments: ['Likes the', { q_num: 9 }, 'best'] },
+        { label: 'Name', q_num: 1, prefix: 'Martyn' },
+      ] },
+      [{ q_num: 1 }, { q_num: 9 }],
+    );
+    // the sentence row carries no label chrome at all …
+    assert.match(html, /Likes the\s*<span[^>]*>9<\/span><input data-q="9">\s*best/);
+    assert.doesNotMatch(html, /Likes the<\/span>/);
+    // … while a real label still gets its colon
+    assert.match(html, /ielts-form-label">Name:<\/span>/);
+    assert.doesNotMatch(html, /undefined/);
   });
 });

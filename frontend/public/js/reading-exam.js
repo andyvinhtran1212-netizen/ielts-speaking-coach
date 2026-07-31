@@ -44,9 +44,37 @@
     time_limit_minutes: 60,
     answers: new Map(),         // q_num → user_answer (in-memory authoritative)
     flagged: new Set(),
+    // NOTHING-IS-LANDING DETECTOR (prod 2026-07-26). A student sat a full
+    // section, auto-submitted and was graded 0 because the server held ZERO
+    // answers — no error anywhere, nothing on his screen. The per-question cue
+    // speaks only for a question whose OWN save failed; it cannot say "none of
+    // this is reaching the server", the one failure a student can still act on
+    // while there is time left.
+    tried_save_at: null,        // ms of the first save ATTEMPT
+    server_has_one: false,      // a save the server CONFIRMED
+    nothing_reported: false,    // the server-side alert, sent once
+    nothing_timer: null,
     timer_interval: null,
     timer_locked: false,
     debounce_timers: new Map(), // q_num → setTimeout handle (auto-save debounce)
+    // DEBT-2026-07-22-D — auto-save durability.
+    //   unsaved     q_num → 'retrying' | 'failed'. Two states, not one flag:
+    //               telling a student "đang thử lại" when the retry budget is
+    //               spent is a lie they cannot act on (review #820).
+    //   save_retry_timers  pending backoff handle, so a fresh edit can cancel
+    //               the stale retry chain for that question.
+    //   inflight    q_num → number of PATCHes currently in the air. The unload
+    //               flush needs these: once the debounce fires, the question
+    //               leaves debounce_timers immediately even though its request
+    //               may still be pending, and a request killed with the
+    //               document leaves no trace anywhere else (review #820).
+    //   save_gen    q_num → generation of the newest logical save. An older
+    //               response landing after a newer one must not touch the cue
+    //               (review #820).
+    unsaved: new Map(),
+    save_retry_timers: new Map(),
+    inflight: new Map(),
+    save_gen: new Map(),
     resume_inprogress: false,   // Sprint 20.11 D5 — true when boot detected an
                                 // open attempt; pre-start surfaces the Resume
                                 // affordance and the Start button confirms.
@@ -343,6 +371,23 @@
     return (new URLSearchParams(window.location.search).get('share') || '').trim() || null;
   }
 
+  // ── Back target ──────────────────────────────────────────────────
+  // This page serves BOTH reading libraries (reading-test.html = full,
+  // reading-mini-test.html = mini), which stamp ?from= on the link in. The back
+  // buttons used to hardcode the FULL library, so a mini-test taker was sent to
+  // the wrong shelf. Map through an ALLOWLIST — never navigate to a raw URL from
+  // the query string. Unknown/absent → full, the historical default.
+  var BACK_TARGETS = { full: '/pages/reading-test.html', mini: '/pages/reading-mini-test.html' };
+  function originFromUrl() {
+    var v = (new URLSearchParams(window.location.search).get('from') || '').trim();
+    return BACK_TARGETS[v] ? v : 'full';
+  }
+  function wireBack() {
+    var href = BACK_TARGETS[originFromUrl()];
+    document.querySelectorAll('a.exam-btn[href="/pages/reading-test.html"]')
+      .forEach(function (a) { a.href = href; });
+  }
+
   // Sprint 20.11 D5 — surface a resume affordance on pre-start when an
   // open attempt is detected. The 20.6 boot auto-resumed; that meant a
   // student stuck mid-attempt could not see the pre-start screen again
@@ -354,6 +399,14 @@
     var resumeBtn = $('exam-resume-btn-prestart');
     if (resumeBtn) resumeBtn.hidden = !hasResumable;
     if (startBtn) {
+      // IN A MOCK, RESTART IS NOT A STUDENT ACTION. The exam contract is one
+      // sealed attempt; "Bắt đầu lại từ đầu" abandons the answered row and
+      // mints a blank one, which attach_attempt() then refuses ("không thể
+      // thay bằng bài trống") — leaving the sitting bound to the abandoned
+      // attempt and the section unusable. Cancelling a sitting is the admin's
+      // "Huỷ lượt", not a button inside the paper (Codex review, PR #834).
+      var inMock = !!(window.MockHook && MockHook.active());
+      startBtn.hidden = hasResumable && inMock;
       startBtn.textContent = hasResumable
         ? 'Bắt đầu lại từ đầu'        // restart wins (existing button)
         : 'Bắt đầu bài thi';          // fresh path (no prior attempt)
@@ -656,37 +709,18 @@
           }
         }
 
-        // Sprint 20.14e — summary_completion FLOWING block (Standards §2A.10
-        // / §2A.11). When the first Q in a summary_completion run carries
-        // `template.summary_text`, render the WHOLE run as one prose
-        // paragraph in a `.exam-gap-box` with inline inputs (or selects
-        // for the word-bank variant) at each `{{N}}` marker. The legacy
-        // per-Q card rendering is the fallback for runs without
-        // summary_text — kept for back-compat with seeds that pre-date
-        // 20.14e. See reading_content_format_v2.md §4.2 (Sprint 20.14e
-        // sub-section) for the authoring contract.
-        // reading-header-notefill B — note_completion joins this path: an
-        // authentic IELTS note/summary is ONE connected block with the
-        // numbered blanks inline, not per-Q rows. Both carry the flowing
-        // template ({{N}} markers) on the run's first Q.
-        if ((type === 'summary_completion' || type === 'notes_completion') &&
-            run[0].payload && run[0].payload.template &&
-            typeof run[0].payload.template.summary_text === 'string') {
-          var sumBox = _renderFlowingSummaryBlock(run);
-          groupEl.appendChild(sumBox);
-          host.appendChild(groupEl);
-          return; // skip the per-Q card path entirely for this run
-        }
-
         // Sprint 20.14f-α — diagram_label / flow_chart with admin-
         // uploaded image (Standards §2A.13 / §2A.12 image variant). The
         // student fetch surfaces a signed `payload.image_url` on the
         // FIRST Q of a diagram/flow run when an admin has uploaded an
         // image; the renderer emits ONE `.exam-diagram-container` with
         // the image on top + a numbered side-list of inputs below.
-        // Runs without an image fall through to the legacy mono-block
+        // Runs without an image fall through to the flowing / mono-block
         // path below (back-compat — admins upload an image when the
         // diagram is ready; legacy seeds keep working until then).
+        // reading-completion-flowing-fix — this MUST run BEFORE the
+        // flowing-block check so an uploaded diagram/flow image always
+        // wins over the shared-summary_text path.
         if ((type === 'diagram_label_completion' || type === 'flow_chart_completion') &&
             run[0].payload && typeof run[0].payload.image_url === 'string' &&
             run[0].payload.image_url) {
@@ -694,6 +728,39 @@
           groupEl.appendChild(diagramBox);
           host.appendChild(groupEl);
           return; // skip the mono-block path for this run
+        }
+
+        // Sprint 20.14e — completion FLOWING block (Standards §2A.10 /
+        // §2A.11). When the first Q of a completion run carries
+        // `template.summary_text` (with `{{N}}` markers), render the WHOLE
+        // run as ONE flowing block in a `.exam-gap-box` with inline inputs
+        // (or selects for the word-bank variant) at each `{{N}}` marker.
+        // The legacy per-Q card rendering is the fallback for runs without
+        // summary_text — kept for back-compat with seeds that pre-date
+        // 20.14e. See reading_content_format_v2.md §4.2 for the contract.
+        // reading-header-notefill B — note_completion joins this path: an
+        // authentic IELTS note/summary is ONE connected block with the
+        // numbered blanks inline, not per-Q rows.
+        // reading-completion-flowing-fix — the flowing path now covers
+        // EVERY completion type authors emit with the shared-summary_text +
+        // "(see summary above)" pattern (sentence / table / form / flow-
+        // chart / diagram — not just summary / notes). Before this, those
+        // types fell through to the mono-block per-Q path, which showed the
+        // placeholder prompt with the summary_text + its {{N}} gaps NEVER
+        // rendered → the whole run was UNANSWERABLE. The diagram/flow image
+        // variant is handled above (image wins); only no-image runs reach
+        // here. New types are listed FIRST so the tail keeps the original
+        // `summary_completion || notes_completion)` shape (pinned by tests).
+        if ((type === 'sentence_completion' || type === 'table_completion' ||
+             type === 'form_completion' || type === 'flow_chart_completion' ||
+             type === 'diagram_label_completion' ||
+             type === 'summary_completion' || type === 'notes_completion') &&
+            run[0].payload && run[0].payload.template &&
+            typeof run[0].payload.template.summary_text === 'string') {
+          var sumBox = _renderFlowingSummaryBlock(run);
+          groupEl.appendChild(sumBox);
+          host.appendChild(groupEl);
+          return; // skip the per-Q card path entirely for this run
         }
 
         // Sprint 20.14a T1.1 / T1.3 — wrap completion runs in a `.gap-box`
@@ -775,6 +842,22 @@
   // the `<input>`/`<select>` carries `name="q-N"` so the existing
   // change/input/readAnswer/restoreAnswers path keeps grading per Q.
   var _SUMMARY_MARKER_RE = /\{\{\s*(\d{1,3})\s*\}\}/g;
+  // reading-completion-flowing-fix — completion types whose summary_text keeps
+  // a MULTI-LINE layout render via a line-preserving branch; only
+  // summary_completion falls through to one justified prose paragraph.
+  // reading-completion-mono-fix — two flavours: the MONO types (table /
+  // flow-chart / diagram) convey columns/steps through spacing + indentation,
+  // so they need a whitespace-preserving pre-wrap MONO block — the note-heading
+  // parser's `line.trim()` + per-line <div> would collapse that alignment
+  // (`--notes` sets only line-height, not white-space: pre-wrap). notes /
+  // sentence / form are line-based prose → the note parser is correct. Both
+  // maps built once at module scope, not rebuilt per render call.
+  var MONO_LAYOUT = {
+    table_completion: 1, flow_chart_completion: 1, diagram_label_completion: 1,
+  };
+  var STRUCTURED_LAYOUT = {
+    notes_completion: 1, form_completion: 1, sentence_completion: 1,
+  };
   function _renderFlowingSummaryBlock(run) {
     var first = run[0];
     var template = first.payload.template.summary_text;
@@ -785,13 +868,15 @@
     var byQNum = {};
     run.forEach(function (q) { byQNum[q.q_num] = q; });
 
-    // reading-header-notefill B — notes keep the connected-block path but need
-    // their line/bullet structure preserved (a --notes modifier flips the
-    // prose to white-space: pre-wrap).
-    var isNotes = first.question_type === 'notes_completion';
+    // reading-completion-mono-fix — pick layout: MONO (pre-wrap monospace for
+    // table/flow/diagram), NOTES (line parser for notes/sentence/form), PROSE.
+    var qType   = first.question_type;
+    var isMono  = !!MONO_LAYOUT[qType];
+    var isNotes = !!STRUCTURED_LAYOUT[qType];
     var box = document.createElement('div');
-    box.className = 'exam-gap-box exam-gap-box--summary' + (isNotes ? ' exam-gap-box--notes' : '');
-    box.setAttribute('data-question-type', first.question_type || 'summary_completion');
+    box.className = 'exam-gap-box exam-gap-box--summary'
+      + (isNotes ? ' exam-gap-box--notes' : '');
+    box.setAttribute('data-question-type', qType || 'summary_completion');
 
     var src = String(template || '');
 
@@ -844,7 +929,14 @@
       if (last < text.length) container.appendChild(document.createTextNode(text.slice(last)));
     }
 
-    if (isNotes) {
+    if (isMono) {
+      // reading-completion-mono-fix — table/flow/diagram convey structure via
+      // spacing; render summary_text in ONE pre-wrap mono block so columns survive.
+      var mono = document.createElement('div');
+      mono.className = 'exam-summary__mono';
+      _fillTemplate(mono, src);
+      box.appendChild(mono);
+    } else if (isNotes) {
       // reading-review-locate-exam-format B1 — render notes as a STRUCTURED
       // block: the first non-blank line is the title, bullet lines ("• …") get
       // a styled marker, and other non-blank/no-blank lines are sub-headings —
@@ -1357,22 +1449,308 @@
     var card = document.getElementById('q-' + qNum);
     if (card) card.classList.toggle('is-answered', !!answered);
   }
-  function patchAnswer(qNum, userAnswer) {
+  // ── DEBT-2026-07-22-D — auto-save must not fail silently ────────────
+  // The comment that used to sit in patchAnswer's catch ("the source of
+  // truth is in-memory + submit body") holds ONLY for a submit from this
+  // same tab. RESUME does not use in-memory state — it re-reads the
+  // answers from the SERVER (`reading_student.py`
+  // `_fetch_in_progress_payload` → `reading_attempt_answers`). So an
+  // answer whose PATCH was swallowed is gone the moment the student
+  // refreshes, closes the tab, or reopens the test, and because the
+  // debounce fires per-q_num on edit only, that question is never retried
+  // unless the student happens to edit that exact field again.
+  //
+  // Three parts, in the order they matter: retry the failures a retry can
+  // fix, make a still-unsaved answer visible, and flush what is owed when
+  // the page goes away.
+
+  // Backoff between auto-save retries (ms). Length = retries AFTER the
+  // first attempt, so an answer gets 4 shots over ~4.6s before it is
+  // reported as unsaved-and-given-up.
+  var _SAVE_RETRY_DELAYS = [400, 1200, 3000];
+
+  // Retry only what a retry can fix. No `status` → the fetch never
+  // produced a response (offline, DNS, connection dropped). `status >= 500`
+  // → server or gateway failure, including the plain-text upstream 5xx the
+  // Supabase gateway emits during a platform blip (DEBT-2026-07-22-E).
+  // A 4xx is deterministic — 401/403 (access), 404 (attempt gone), 422
+  // (bad body) all repeat identically — so it fails fast and shows the cue
+  // instead of hammering the endpoint.
+  function _isRetriableSaveError(e) {
+    if (!e) return false;
+    var status = e.status;
+    if (status === undefined || status === null) return true;
+    return Number(status) >= 500;
+  }
+
+  // A question is unsaved from the moment its first save attempt fails until
+  // one succeeds. Deliberately NOT flipped on for in-flight saves on the happy
+  // path: a healthy PATCH settles well inside the 500ms debounce, and flashing
+  // every tile on every keystroke would train the student to ignore the one cue
+  // that matters.
+  //
+  // `state` is 'retrying' | 'failed' | null. Review #820: a single flag made the
+  // UI say "đang thử lại" after a non-retriable 4xx and after the retry budget
+  // was spent — in both cases nothing was retrying and the warning could never
+  // clear by itself, so the student was told to wait for something that would
+  // never happen.
+  function _setSaveState(qNum, state) {
+    if (state) SESSION.unsaved.set(qNum, state);
+    else SESSION.unsaved['delete'](qNum);
+    var btn = document.querySelector('.exam-palette__q[data-q="' + qNum + '"]');
+    if (btn) {
+      btn.classList.toggle('is-unsaved', !!state);
+      btn.classList.toggle('is-save-failed', state === 'failed');
+      if (state) {
+        btn.setAttribute('title', state === 'failed'
+          ? 'Chưa lưu được — đã ngừng thử lại'
+          : 'Chưa lưu được — đang thử lại');
+      } else {
+        btn.removeAttribute('title');
+      }
+      _updatePaletteAriaLabel(btn);
+    }
+    var card = document.getElementById('q-' + qNum);
+    if (card) card.classList.toggle('is-unsaved', !!state);
+    _renderUnsavedNote();
+  }
+
+  // One honest line above the palette actions. A single amber tile among 40
+  // is easy to miss; this says how many answers the server does not have and
+  // what that means for closing the tab. `role="status"` announces it.
+  // Built with DOM nodes (not innerHTML) because it carries a real button.
+  function _renderUnsavedNote() {
+    var note = $('exam-unsaved-note');
+    if (!note) return;
+    var retrying = 0, failed = 0;
+    SESSION.unsaved.forEach(function (state) {
+      if (state === 'failed') failed++; else retrying++;
+    });
+    if (!retrying && !failed) { note.hidden = true; note.textContent = ''; return; }
+    note.hidden = false;
+    note.textContent = '';
+    var parts = [];
+    if (retrying) parts.push('Đang thử lưu lại ' + retrying + ' câu.');
+    // Terminal state gets its own sentence and an action the student can take —
+    // "wait for the warning to disappear" is useless when nothing will clear it.
+    if (failed) parts.push(failed + ' câu chưa lưu được lên máy chủ và đã NGỪNG thử lại.');
+    parts.push(failed
+      ? 'Đừng đóng tab: bấm «Thử lại», hoặc sửa lại chính câu đó, trước khi nộp.'
+      : 'Đừng đóng tab cho tới khi hết cảnh báo này.');
+    note.appendChild(document.createTextNode(parts.join(' ')));
+    if (failed) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'exam-unsaved-retry';
+      btn.textContent = 'Thử lại';
+      btn.addEventListener('click', _retryFailedSaves);
+      note.appendChild(document.createTextNode(' '));
+      note.appendChild(btn);
+    }
+  }
+
+  // Manual + automatic escape hatch out of the terminal state. Coming back
+  // online is by far the commonest reason a given-up save would now succeed,
+  // so the browser's own signal drives a retry too.
+  // How long after the FIRST save attempt we conclude nothing is landing. The
+  // retry ladder plus the debounce resolve a healthy save many times over
+  // inside this; anything longer starts eating the exam it exists to save.
+  var _NOTHING_SAVED_AFTER_MS = 45000;
+
+  // The alarm the per-question cue cannot raise: not "this answer failed" but
+  // "the server has NONE of your work".
+  function _renderNothingSavedAlarm() {
+    var box = document.getElementById('exam-nothing-saved');
+    if (!box) return;
+    var overdue = SESSION.tried_save_at !== null
+      && (Date.now() - SESSION.tried_save_at) >= _NOTHING_SAVED_AFTER_MS;
+    // Only ever fires when the student is demonstrably WORKING and the server
+    // has nothing — never for someone who has simply not answered yet, which
+    // is the normal opening of a Reading section, not a fault.
+    if (SESSION.server_has_one || !overdue || SESSION.timer_locked) {
+      box.hidden = true;
+      return;
+    }
+    _reportNothingSaved();
+    if (!box.hidden) return;
+    box.hidden = false;
+    box.textContent = '';
+    box.appendChild(document.createTextNode(
+      '⚠ MÁY CHỦ CHƯA NHẬN ĐƯỢC CÂU TRẢ LỜI NÀO của bạn. Nếu để nguyên, bài này '
+      + 'sẽ bị chấm 0. BÁO GIÁM THỊ NGAY và đừng đóng tab.'));
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'exam-unsaved-retry';
+    btn.textContent = 'Gửi lại toàn bộ';
+    btn.addEventListener('click', _resendEverything);
+    box.appendChild(document.createTextNode(' '));
+    box.appendChild(btn);
+  }
+
+  // A warning with no remedy just tells the student something they cannot fix.
+  function _resendEverything() {
+    var qs = [];
+    SESSION.answers.forEach(function (_v, qNum) { qs.push(qNum); });
+    qs.sort(function (a, b) { return a - b; });
+    qs.forEach(function (qNum) { patchAnswer(qNum, SESSION.answers.get(qNum)); });
+  }
+
+
+  // Tell the SERVER, over the one channel still known to work.
+
+  // The failure this fires on can be a blocked PATCH — and a request the browser
+  // refuses to send leaves NO trace server-side. That is why a student sat two
+  // full sections graded 0 while every dashboard looked healthy (2026-07-26).
+  // /api/error-logs is a POST and takes optional auth, so it survives exactly the
+  // conditions that kill the answer saves. Plain fetch, never window.api: a 401
+  // there would redirect a student out of a live exam.
+  function _reportNothingSaved() {
+    if (SESSION.nothing_reported) return;   // once per attempt, not per tick
+    SESSION.nothing_reported = true;
+    try {
+      window.fetch(window.api.base + '/api/error-logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          level: 'error',
+          source: 'frontend',
+          message: 'MOCK/READING: no answer save has reached the server',
+          url: location.pathname + location.search,
+          user_agent: navigator.userAgent,
+          extra: {
+            attempt_id: SESSION.attempt_id,
+            answers_held_locally: SESSION.answers.size,
+            seconds_since_first_try: Math.round((Date.now() - SESSION.tried_save_at) / 1000),
+          },
+        }),
+      })['catch'](function () {});           // logging must never escalate
+    } catch (e) { /* swallow */ }
+  }
+
+  function _startNothingSavedWatch() {
+    if (SESSION.nothing_timer) return;
+    SESSION.nothing_timer = setInterval(_renderNothingSavedAlarm, 10000);
+  }
+
+  function _retryFailedSaves() {
+    var due = [];
+    SESSION.unsaved.forEach(function (state, qNum) {
+      if (state === 'failed') due.push(qNum);
+    });
+    due.forEach(function (qNum) {
+      patchAnswer(qNum, SESSION.answers.has(qNum) ? SESSION.answers.get(qNum) : '');
+    });
+  }
+
+  function patchAnswer(qNum, userAnswer, opts) {
     if (!SESSION.attempt_id || SESSION.timer_locked) return;
+    var attempt = (opts && opts.attempt) || 0;
+    var keepalive = !!(opts && opts.keepalive);
+    // A fresh edit supersedes any retry chain still waiting for this
+    // question — otherwise the pending retry would fire a second PATCH
+    // right behind the new one.
+    if (!attempt && SESSION.save_retry_timers.has(qNum)) {
+      clearTimeout(SESSION.save_retry_timers.get(qNum));
+      SESSION.save_retry_timers['delete'](qNum);
+    }
+    // Review #820 — one generation per logical save. A fresh edit (attempt 0)
+    // bumps it; retries inherit theirs. Without this, two overlapping PATCHes
+    // race: the newer one fails and raises the cue, the older one then resolves
+    // and clears it, so the student is told the latest answer is safe when the
+    // server only holds the previous one.
+    var gen = (opts && opts.gen);
+    if (gen === undefined) {
+      gen = (SESSION.save_gen.get(qNum) || 0) + 1;
+      SESSION.save_gen.set(qNum, gen);
+    }
     var answersUrl = '/api/reading/test/attempts/' + encodeURIComponent(SESSION.attempt_id) + '/answers';
     var answerBody = { q_num: qNum, user_answer: String(userAnswer || '') };
+    // Review #820 — count this request as in-flight until it settles. Once the
+    // debounce fires, onAnswerChanged drops the question from debounce_timers
+    // immediately, so between that moment and the response landing the question
+    // is in NO collection the unload flush looks at; a refresh right there kills
+    // the request and loses the answer with no keepalive replacement.
+    if (SESSION.tried_save_at === null) SESSION.tried_save_at = Date.now();
+    SESSION.inflight.set(qNum, (SESSION.inflight.get(qNum) || 0) + 1);
+    var settled = function () {
+      var n = (SESSION.inflight.get(qNum) || 1) - 1;
+      if (n > 0) SESSION.inflight.set(qNum, n);
+      else SESSION.inflight['delete'](qNum);
+    };
     // reading-access-tracking B2 — anonymous auto-save carries X-Reading-Anon +
     // noRedirect (a transient 401 must not bounce an anon mid-test to login);
-    // the authed path keeps the plain window.api.patch call.
+    // the authed path passes no extra headers, so its 401 still redirects.
     var savePromise = SESSION.share_mode
-      ? window.api.patchWith(answersUrl, answerBody, _anonHeaders(), { noRedirect: true })
-      : window.api.patch('/api/reading/test/attempts/' + encodeURIComponent(SESSION.attempt_id) + '/answers',
-          { q_num: qNum, user_answer: String(userAnswer || '') });
-    savePromise.catch(function (e) {
-      // Best-effort auto-save — the source of truth is in-memory + submit body.
+      ? window.api.patchWith(answersUrl, answerBody, _anonHeaders(), { noRedirect: true, keepalive: keepalive })
+      : window.api.patchWith(answersUrl, answerBody, null, { keepalive: keepalive });
+    // The returned promise NEVER rejects — most call sites are
+    // fire-and-forget, and a rejection there would surface as an
+    // unhandled-rejection error-log row for something already handled.
+    // It settles only once the retry chain is done, so the mock flush
+    // awaiting it really does wait for the last attempt.
+    var current = function () { return gen === SESSION.save_gen.get(qNum); };
+    return savePromise.then(function (res) {
+      settled();
+      SESSION.server_has_one = true;     // proof the pipe works at least once
+      _renderNothingSavedAlarm();
+      if (current()) _setSaveState(qNum, null);
+      return res;
+    }, function (e) {
+      settled();
       if (window.console) console.warn('auto-save failed q=' + qNum, e && e.message);
+      if (!current()) return null;      // superseded by a newer edit
+      if (_isRetriableSaveError(e) && attempt < _SAVE_RETRY_DELAYS.length) {
+        _setSaveState(qNum, 'retrying');
+        return _scheduleSaveRetry(qNum, attempt, gen);
+      }
+      // Nothing more will be tried automatically — say so, don't claim a retry.
+      _setSaveState(qNum, 'failed');
+      return null;
     });
-    return savePromise;   // returned so the mock flush can await pending saves
+  }
+
+  function _scheduleSaveRetry(qNum, attempt, gen) {
+    return new Promise(function (resolve) {
+      var handle = setTimeout(function () {
+        SESSION.save_retry_timers['delete'](qNum);
+        // A newer edit already owns this question — drop the stale chain.
+        if (gen !== SESSION.save_gen.get(qNum)) { resolve(null); return; }
+        // Re-read the CURRENT value rather than replaying the one that
+        // failed: if the student edited this question while the retry was
+        // waiting, sending the stale string would overwrite the newer
+        // answer server-side.
+        var latest = SESSION.answers.has(qNum) ? SESSION.answers.get(qNum) : '';
+        resolve(patchAnswer(qNum, latest, { attempt: attempt + 1, gen: gen }));
+      }, _SAVE_RETRY_DELAYS[attempt]);
+      SESSION.save_retry_timers.set(qNum, handle);
+    });
+  }
+
+  // Last chance before the document goes away: everything still sitting in
+  // the debounce queue (the answer typed <500ms before the student hit
+  // refresh), every retry still waiting out its backoff, and every
+  // known-failed question. `keepalive` lets these requests outlive the
+  // page. Best-effort by design — it turns "guaranteed lost" into "usually
+  // saved"; the retry chain above is what actually fixes the common case.
+  function _flushPendingSaves() {
+    if (!SESSION.attempt_id || SESSION.timer_locked) return;
+    var due = [];
+    var add = function (qNum) { if (due.indexOf(qNum) === -1) due.push(qNum); };
+    SESSION.debounce_timers.forEach(function (handle, qNum) { clearTimeout(handle); add(qNum); });
+    SESSION.debounce_timers.clear();
+    SESSION.save_retry_timers.forEach(function (handle, qNum) { clearTimeout(handle); add(qNum); });
+    SESSION.save_retry_timers.clear();
+    // Review #820 — a PATCH already in the air is about to be killed with the
+    // document; re-send it with keepalive. The duplicate is harmless (the
+    // endpoint upserts one answer per q_num).
+    SESSION.inflight.forEach(function (_n, qNum) { add(qNum); });
+    SESSION.unsaved.forEach(function (_state, qNum) { add(qNum); });
+    due.forEach(function (qNum) {
+      // From the in-memory store, not the DOM — the card may be unmounted
+      // (Part swap) or be an out-of-card gap (summary / diagram), in which
+      // case a DOM read would be null and the answer lost anyway.
+      patchAnswer(qNum, SESSION.answers.get(qNum), { keepalive: true });
+    });
   }
   function restoreAnswers() {
     SESSION.answers.forEach(function (value, qNum) {
@@ -1573,6 +1951,15 @@
     else parts.push('not answered');
     if (btn.classList.contains('is-flagged')) parts.push('flagged for review');
     if (btn.classList.contains('is-current')) parts.push('current');
+    // DEBT-2026-07-22-D — the answer is in the box but NOT on the server.
+    // Announced last so it reads as a warning on top of the state above, and
+    // it distinguishes "still trying" from "gave up" (review #820) — the second
+    // needs the student to act, the first does not.
+    if (btn.classList.contains('is-unsaved')) {
+      parts.push(btn.classList.contains('is-save-failed')
+        ? 'not saved to server, retries exhausted'
+        : 'not saved to server, retrying');
+    }
     btn.setAttribute('aria-label', parts.join(', '));
   }
   function setCurrent(qNum) {
@@ -1961,7 +2348,10 @@
       // page replays it as X-Reading-Anon). Authed takers use their session.
       var anonSuffix = (SESSION.share_mode && _getAnonId())
         ? '&anon=' + encodeURIComponent(_getAnonId()) : '';
-      chuaBai.href = '/pages/reading-review.html?attempt_id=' + encodeURIComponent(result.attempt_id) + anonSuffix;
+      // Carry the origin through to the review page too — it has the same
+      // both-libraries problem and would otherwise guess.
+      chuaBai.href = '/pages/reading-review.html?attempt_id=' + encodeURIComponent(result.attempt_id)
+        + anonSuffix + '&from=' + originFromUrl();
       chuaBai.hidden = false;
     }
 
@@ -2453,6 +2843,7 @@
     return startPromise
       .then(function (res) {
         SESSION.attempt_id = res.attempt_id;
+        _startNothingSavedWatch();
         SESSION.started_at = res.started_at;
         SESSION.time_limit_minutes = res.time_limit_minutes;
         // Clear the resumed answers — this is a fresh attempt.
@@ -2545,6 +2936,8 @@
   }
 
   function boot() {
+    wireBack();                 // before any early return — the error state is
+                                // exactly when a working way out matters most
     // Share-link mode wins when `?share=<token>` is present (anonymous, no
     // test_id needed). Otherwise the normal authed `?test_id=…` path.
     var shareToken = shareTokenFromUrl();
@@ -2601,6 +2994,14 @@
           (inprog.answers || []).forEach(function (a) {
             SESSION.answers.set(a.q_num, a.user_answer);
           });
+                  // SEED FROM THE RESUME PAYLOAD. Answers already on the attempt are proof the
+                  // server has this student's work — so the alarm must NOT claim otherwise if a
+                  // later save fails. Without this, resuming and then losing the connection for
+                  // 45s told a student with a full paper on the server that it held nothing and
+                  // they would be graded 0 (Codex review, PR #860). A failing save after a
+                  // resume is a per-question problem, and the amber cue already owns it.
+          if ((inprog.answers || []).length) SESSION.server_has_one = true;
+          _startNothingSavedWatch();
           // Mock sitting: re-link on resume (idempotent) in case a create-time
           // attach failed and left the attempt unsealed. User interaction before
           // resume gives this time to complete.
@@ -2633,6 +3034,19 @@
       });
   }
   boot();
+
+  // DEBT-2026-07-22-D — flush what the server does not have yet when the
+  // page is going away. `pagehide` covers refresh / navigate / tab close;
+  // `visibilitychange → hidden` is the only reliable signal when a mobile
+  // OS kills a backgrounded tab, which never fires pagehide.
+  window.addEventListener('pagehide', _flushPendingSaves);
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden') _flushPendingSaves();
+  });
+  // Review #820 — the retry budget is spent while offline far more often than
+  // for any other reason, so regaining connectivity retries the given-up saves
+  // without the student having to notice the button.
+  window.addEventListener('online', _retryFailedSaves);
 
   // 4-skill mock (mock_embed): the parent one-timer page asks this runner to
   // FLUSH its debounced auto-saves before it submits the attempt — so an answer

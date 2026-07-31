@@ -122,7 +122,8 @@ input: "text"
 headword: "gc-no-preposition-trap"
 skill: "production"
 subtype: "intermediate"
-prompt: "He ____ (mentioned) the problem briefly during the interview, without going into detail."
+prompt: "He ____ (mention) the problem briefly during the interview, without going into detail."
+hint: "chia quá khứ — KHÔNG kèm giới từ"
 accept: ["mentioned"]
 case_sensitive: false
 grammar_article_slug: "grammatical-collocations"
@@ -192,7 +193,8 @@ input: "text"
 headword: "gc-adjective-preposition"
 skill: "production"
 subtype: "intermediate"
-prompt: "My grandmother is ____ (proud) of her garden — she has grown vegetables there for over thirty years."
+prompt: "My grandmother is ____ (pride) of her garden — she has grown vegetables there for over thirty years."
+hint: "viết dạng tính từ của 'pride'"
 accept: ["proud"]
 case_sensitive: false
 grammar_article_slug: "grammatical-collocations"
@@ -319,7 +321,8 @@ input: "text"
 headword: "gc-verb-adverb-intensifiers"
 skill: "production"
 subtype: "intermediate"
-prompt: "I would ____ (highly) recommend this book to anyone interested in Vietnamese history."
+prompt: "I would ____ (high) recommend this book to anyone interested in Vietnamese history."
+hint: "viết dạng trạng từ collocation với 'recommend'"
 accept: ["highly"]
 case_sensitive: false
 grammar_article_slug: "grammatical-collocations"

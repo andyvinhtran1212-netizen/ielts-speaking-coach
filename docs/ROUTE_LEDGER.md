@@ -281,7 +281,6 @@
 | Route Pattern | Aliases/Redirects | File | Auth | Query Params | Browser Deps | Complexity | Notes |
 |---|---|---|---|---|---|---|---|
 | `/admin/listening` | — | `pages/admin/listening/index.html` | Admin | none | localStorage (theme), sessionStorage (tab state), fetch (listening API) | M | Listening admin hub; 12-tab interface |
-| `/admin/listening/upload` | — | `pages/admin/listening/upload.html` | Admin | none | localStorage (theme), file upload (audio), fetch (import API) | M | Audio file bulk upload + metadata |
 | `/admin/listening/content` | (listed as `/admin/listening/content-meta.html` in file tree) | `pages/admin/listening/content-meta.html` | Admin | `test_id`, `type` (section, question) | localStorage (theme), fetch (content API) | M | Section/question metadata editor |
 | `/admin/listening/content-detail` | — | `pages/admin/listening/content-detail.html` | Admin | `section_id` | localStorage (theme), fetch (section data), markdown editor | M | Single section detail + question edit |
 | `/admin/listening/segments` | (legacy path `/pages/admin-listening-segments.html` redirects via vercel.json line 44) | `pages/admin/listening/segments.html` | Admin | `section_id`, `status` (processing, ready) | localStorage (theme), fetch (segment API) | L | Audio segmentation + timing map (auto-clip per sentence) |
@@ -293,9 +292,6 @@
 | `/admin/listening/audit-detail` | — | `pages/admin/listening/audit-detail.html` | Admin | `audit_id` | localStorage (theme), fetch (audit detail) | M | Single audit item + resolution |
 | `/admin/listening/tests` | — | `pages/admin/listening/tests.html` | Admin | `status` (draft, published), `type` (mini, full, drill) | localStorage (theme), fetch (test list) | M | Test list + publish/archive |
 | `/admin/listening/tests-detail` | — | `pages/admin/listening/tests-detail.html` | Admin | `test_id` | localStorage (theme), fetch (test data) | M | Single test detail + section management |
-| `/admin/listening/render` | — | `pages/admin/listening/render.html` | Admin | `test_id`, `format` (html, pdf) | localStorage (theme), fetch (render API), chart (SVG maps) | M | Test rendering preview + export |
-| `/admin/listening/convert` | — | `pages/admin/listening/convert.html` | Admin | `source_format` (xml, json, pdf) | localStorage (theme), file upload (test data), fetch (convert API) | M | Format conversion + validation |
-| `/admin/listening/audio-cutter` | — | `pages/admin/listening/audio-cutter.html` | Admin | none | localStorage (theme), file upload (audio), audio playback (free-scrub), canvas (waveform) | L | Audio editor; segment clip + timing adjust |
 | `/admin/listening/import-drills` | — | `pages/admin/listening/import-drills.html` | Admin | none | localStorage (theme), file upload (drill data), fetch (import API) | M | Bulk import skill drills from archive |
 | `/admin/listening/import-fulltest` | — | `pages/admin/listening/import-fulltest.html` | Admin | none | localStorage (theme), file upload (test archive), fetch (import API), progress tracking | L | Full-test bulk import + validation |
 

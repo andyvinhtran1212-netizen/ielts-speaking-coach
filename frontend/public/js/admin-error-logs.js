@@ -81,6 +81,33 @@ function escapeHtml(s) {
 // a non-engineer admin. Turn each row into a plain-language summary + a category
 // so the table is triageable at a glance. Pure display logic; the raw message +
 // stack are still shown in the detail panel.
+// Review #822 — pull `details` out of a Python dict repr, escapes and all.
+// postgrest-py puts the raw upstream body there via `str(r.content)`, so the
+// value is itself a bytes repr: `b'Internal server error.'`. When that body
+// contains a double quote — routine for an HTML gateway error page — Python
+// must delimit with single quotes and ESCAPE the inner ones:
+//     'details': 'b\'<html>…502 Bad "Gateway"…\''
+// A `[^']*` capture stops dead at the first `\'` and yields `b\`, throwing away
+// the entire diagnostic. Allow an escaped pair anywhere inside, then undo the
+// escaping so the summary shows the body a human can act on.
+// (The `'message'` extraction in the CSDL branch below has the same latent
+// flaw. Left alone on purpose — it is pre-existing and belongs to its own
+// patch, not this one.)
+function _pyReprDetails(msg) {
+  const m = msg.match(/'details':\s*'((?:\\.|[^'\\])*)'/)
+         || msg.match(/'details':\s*"((?:\\.|[^"\\])*)"/);
+  if (!m) return undefined;
+  // Two layers of escaping sit here: the dict repr wraps a BYTES repr, and
+  // `str(b'a\nb')` is itself already escaped. Undo the outer layer, then
+  // flatten whatever whitespace escapes the inner one left, so a multi-line
+  // gateway page reads as one line instead of showing a literal `\n`.
+  return m[1]
+    .replace(/\\([nrt'"\\])/g, (_, c) => (c === 'n' || c === 't' ? ' ' : c === 'r' ? '' : c))
+    .replace(/\\[nrt]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function humanizeError(row) {
   const msg = String(row.message || '');
 
@@ -95,8 +122,42 @@ function humanizeError(row) {
     return { category: 'Bên thứ 3', tone: 'muted', noise: true,
              summary: 'Lỗi từ tiện ích/quảng cáo bên ngoài — không phải lỗi của ứng dụng' };
   }
-  // Database (Postgres / PostgREST) — message is a dict repr carrying a code
-  const code = (msg.match(/'code':\s*'([^']+)'/) || [])[1];
+  // Database (Postgres / PostgREST) — message is a dict repr carrying a code.
+  // DEBT-2026-07-22-E: the code is NOT always a quoted SQLSTATE. When the
+  // response body will not parse as a PostgREST error, postgrest-py synthesises
+  // one where `code` is the HTTP STATUS as an INT — repr `'code': 555`, no
+  // quotes — so the old quoted-only regex missed it entirely. Match either form;
+  // read the groups explicitly rather than `m[1] || m[2]` so an empty capture
+  // doesn't fall through to the wrong one.
+  const codeM = msg.match(/'code':\s*(?:'([^']*)'|(\d+))/);
+  const code = codeM ? (codeM[1] !== undefined ? codeM[1] : codeM[2]) : undefined;
+
+  // DEBT-2026-07-22-E — upstream gateway failure, NOT our data and not Postgres.
+  //   postgrest/exceptions.py:62 generate_default_error_message(r) →
+  //     {"message": "JSON could not be generated", "code": r.status_code,
+  //      "hint": ..., "details": str(r.content)}
+  //   raised at postgrest/_sync/request_builder.py:55 (also 84/100/129 + the
+  //   _async twin) inside `except ValidationError` — the response was not
+  //   successful AND its body would not parse as a PostgREST error.
+  // PostgREST itself always returns JSON, so a plain-text body means the error
+  // came from the gateway in FRONT of it. The 2026-07-22 incident was HTTP 555
+  // with body b'Internal server error.' — a Supabase platform blip. It used to
+  // land in "Khác" with a full raw traceback at level=error: 11 rows from one
+  // short outage, every one of them counting against the error budget.
+  // Checked BEFORE the CSDL branch because `code` is now truthy for these.
+  // Kept noise:false deliberately — a real platform outage must stay visible;
+  // the defect was the mislabelling and the traceback, not the row existing.
+  if (/JSON could not be generated/i.test(msg) && code !== undefined && /^\d{3}$/.test(String(code))) {
+    const details = _pyReprDetails(msg);
+    const transient = Number(code) >= 500;
+    return {
+      category: 'Mạng', tone: transient ? 'warning' : 'error', noise: false,
+      summary: `Dịch vụ Supabase trả HTTP ${code}`
+        + (transient ? ' (sự cố nền tảng, thường tạm thời)' : ' (lỗi cổng API)')
+        + (details ? ` — ${truncate(details, 60)}` : ''),
+    };
+  }
+
   if (code || /schema cache|violates .*constraint|does not exist|null value in column/i.test(msg)) {
     // The inner Postgres message is single-quoted but often contains double
     // quotes ("prompt_version"), or double-quoted and contains single quotes
@@ -346,8 +407,130 @@ async function generateTestError() {
   showBanner('Đang tạo lỗi test… một dòng "Thử nghiệm" sẽ xuất hiện trong giây lát.', 'success');
 }
 
+// ── AUDIT F1: rollback-trigger metrics per route ───────────────────────
+// The FROZEN triggers (Pilot Entry checklist §4) need error-rate WITH a
+// page-view denominator + field LCP p75 — migration-stats above can't
+// compute either. On demand (button), not on page load: it scans two
+// tables over a window and the answer only matters when someone is
+// actively watching a cutover.
+function _verdictLine(label, v) {
+  if (!v) return '';
+  const status = v.status || '—';
+  const cls = status === 'breach' ? 'is-warning' : '';
+  let detail = '';
+  if (v.basis === 'relative') {
+    detail = 'delta ' + (v.delta_x != null ? v.delta_x + '×' : '∞') +
+      ' (ngưỡng ' + v.threshold_x + '×, baseline ' + v.baseline_source + ')';
+  } else if (v.basis === 'absolute') {
+    detail = 'so ngưỡng tuyệt đối (không có baseline tương đối)';
+  } else if (status === 'insufficient-sample') {
+    detail = 'mẫu chưa đủ — chưa kết luận được';
+  }
+  return '<div class="el-migration-note ' + cls + '"><strong>' +
+    escapeHtml(label) + ':</strong> ' + escapeHtml(status) +
+    (detail ? ' — ' + escapeHtml(detail) : '') + '</div>';
+}
+
+// DEBT-2026-07-22-F — the §12.3 exposure floor has TWO halves (elapsed days AND
+// interaction count) and this panel only ever showed rates. The volume half had
+// no surface at all, so for five days of the Pilot-1 soak the daily log tracked
+// days and never interactions — not an oversight by the operator, there was
+// nothing to read. Show the cumulative count next to the window it covers, and
+// say so loudly when the window asked for was not the window granted.
+function _exposureLine(r) {
+  const exp = r && r.exposure;
+  if (!exp || exp.evaluated_views == null) return '';
+  const mins = r.window_minutes;
+  const span = mins >= 1440 ? (mins / 1440).toFixed(mins % 1440 ? 1 : 0) + ' ngày'
+             : mins >= 60 ? (mins / 60).toFixed(mins % 60 ? 1 : 0) + ' giờ'
+             : mins + ' phút';
+  const clamp = r.window_clamped
+    ? '<div class="el-migration-note is-warning"><strong>⚠ Cửa sổ bị cắt:</strong> '
+      + 'yêu cầu ' + escapeHtml(String(r.window_minutes_requested)) + ' phút, '
+      + 'thực tế tính ' + escapeHtml(String(mins)) + ' phút '
+      + '(trần bảng ' + escapeHtml(String((r.windows || {}).table_max)) + ' phút). '
+      + 'Con số dưới đây KHÔNG phải của cửa sổ bạn hỏi.</div>'
+    : '';
+  // Review #823 — name the cohort. The gate counts interactions the CODE UNDER
+  // TEST served; a window spanning a cutover otherwise lets legacy traffic
+  // satisfy the floor. And when the count is a fallback (`exact:false`) it can
+  // only under-count, so it is shown as a lower bound, never as a total.
+  const by = exp.by_implementation || {};
+  const prefix = exp.exact ? '' : 'ít nhất ';
+  const others = ['legacy', 'untagged']
+    .filter((k) => by[k])
+    .map((k) => k + ' ' + by[k]).join(', ');
+  return clamp
+    + '<div class="el-migration-note' + (exp.exact ? '' : ' is-warning') + '">'
+    + '<strong>Phơi nhiễm luỹ kế (' + escapeHtml(String(exp.evaluated_implementation)) + '):</strong> '
+    + prefix + escapeHtml(String(exp.evaluated_views)) + ' lượt xem trong ' + escapeHtml(span)
+    + ' — vế số-lượng của sàn §12.3'
+    + (others ? '. Không tính vào sàn: ' + escapeHtml(others) : '')
+    + (exp.exact ? '' : '. <em>Đếm chính xác không chạy được — đây là cận dưới.</em>')
+    + '</div>';
+}
+
+async function loadRollbackMetrics() {
+  const body = document.getElementById('rollback-metrics-body');
+  if (!body) return;
+  body.textContent = 'Đang đo…';
+  try {
+    const route = (document.getElementById('rbm-route').value || '/').trim();
+    const win = document.getElementById('rbm-window').value || '30';
+    // DEBT-2026-07-29-L — route có tham số chỉ đo được ở chế độ «cả route con».
+    const matchEl = document.getElementById('rbm-match');
+    const match = (matchEl && matchEl.value) || 'exact';
+    const r = await api.get('/admin/error-logs/rollback-metrics?route=' +
+      encodeURIComponent(route) + '&window_minutes=' + encodeURIComponent(win) +
+      '&match=' + encodeURIComponent(match));
+    const impls = r.implementations || {};
+    const rows = ['next', 'legacy', 'untagged'].filter((k) => impls[k]).map((k) => {
+      const i = impls[k];
+      const vit = i.vitals || {};
+      return '<tr>' +
+        '<td>' + escapeHtml(k) + '</td>' +
+        '<td>' + i.page_views + '</td>' +
+        '<td>' + i.errors + '</td>' +
+        '<td>' + (i.error_rate != null ? (i.error_rate * 100).toFixed(2) + '%' : '—') + '</td>' +
+        '<td>' + (vit.lcp_p75 != null ? vit.lcp_p75 + 'ms (n=' + vit.samples + ')' : '—') + '</td>' +
+        '<td>' + (vit.cls_p75 != null ? vit.cls_p75 : '—') + '</td>' +
+        '<td>' + (vit.inp_p75 != null ? vit.inp_p75 + 'ms' : '—') + '</td>' +
+        '</tr>';
+    }).join('');
+    // Ghi rõ luật khớp đã tạo ra con số — một phép đo chép vào nhật ký mà
+    // không kèm luật khớp thì không tái lập được (DEBT-2026-07-29-L).
+    const scope = '<div class="el-migration-note'
+      + (r.match_coerced_from ? ' is-warning' : '') + '">Phạm vi: <strong>'
+      + escapeHtml(r.route || route) + '</strong> — '
+      + (r.match === 'prefix' ? 'tính CẢ route con' : 'khớp chính xác đường dẫn')
+      + '.'
+      // Review #879 — «cả route con» trên `/` sẽ khớp mọi đường dẫn của site,
+      // biến trigger theo-route thành trigger toàn-site. Backend hạ về exact;
+      // người đọc phải thấy điều đó, nếu không họ tưởng đang đọc số của cả cây.
+      + (r.match_coerced_from
+        ? ' <strong>⚠ Đã bỏ chế độ «' + escapeHtml(String(r.match_coerced_from))
+          + '»</strong>: trên route gốc «/» nó sẽ nuốt cả site — số dưới đây chỉ của riêng «/».'
+        : '')
+      + '</div>';
+    body.innerHTML = scope +
+      '<table class="el-migration-table"><thead><tr>' +
+      '<th>Impl</th><th>Views</th><th>Lỗi</th><th>Error rate</th>' +
+      '<th>LCP p75</th><th>CLS p75</th><th>INP p75</th>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table>' +
+      _exposureLine(r) +
+      _verdictLine('Error-rate (>2×/30ph)', r.error_verdict) +
+      _verdictLine('LCP p75 (>1.5×/24h)', r.vitals_verdict) +
+      (r.truncated ? '<div class="el-migration-note">⚠ Dữ liệu bị cắt.</div>' : '');
+  } catch (err) {
+    console.warn('[error-logs] rollback-metrics fetch failed:', err);
+    body.textContent = 'Không tải được rollback-metrics.';
+  }
+}
+
 function bind() {
   $('btn-refresh').addEventListener('click', () => { loadLogs(); loadStats(); loadMigrationStats(); });
+  const rbmLoad = document.getElementById('rbm-load');
+  if (rbmLoad) rbmLoad.addEventListener('click', loadRollbackMetrics);
   $('btn-test-error').addEventListener('click', generateTestError);
   ['filter-dismissed', 'filter-level', 'filter-source'].forEach((id) => {
     $(id).addEventListener('change', loadLogs);

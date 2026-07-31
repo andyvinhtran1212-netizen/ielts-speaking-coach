@@ -136,11 +136,22 @@ describe('Sprint 11.5 — content browse page contract', () => {
     assert.match(BROWSE_JS, /ielts_section/);
   });
 
-  it('renders per-card deep links into all 4 modes', () => {
-    assert.match(BROWSE_JS, /\/pages\/listening-dictation\.html\?content_id=/);
-    assert.match(BROWSE_JS, /\/pages\/listening-gist\.html\?content_id=/);
-    assert.match(BROWSE_JS, /\/pages\/listening-tf\.html\?content_id=/);
-    assert.match(BROWSE_JS, /\/pages\/listening-mcq\.html\?content_id=/);
+  it('knows all 4 mode pages and deep-links them with content_id', () => {
+    // Was: four hard-coded `?content_id=` links per card. That promised every
+    // mode for every row, and three of the four dead-ended on
+    // "Bài này chưa có dạng ..." because no exercise had been authored. The
+    // pages are still all four — they are now emitted from the MODE_LINKS map
+    // and gated on the row's `available_modes`. Per-mode gating behaviour is
+    // pinned in listening-landing-counts.test.mjs.
+    for (const page of ['listening-dictation', 'listening-gist',
+                        'listening-tf', 'listening-mcq']) {
+      assert.match(BROWSE_JS, new RegExp(`/pages/${page}\\.html`),
+        `browse must still be able to link ${page}.html`);
+    }
+    assert.match(BROWSE_JS, /\?content_id=\$\{cid\}/,
+      'mode links must carry the content id');
+    assert.match(BROWSE_JS, /available_modes/,
+      'links must be gated on the backend-reported available_modes');
   });
 });
 
@@ -172,11 +183,12 @@ describe('Sprint 11.5 — analytics dashboard contract', () => {
     assert.match(ANALYTICS_HTML, /id="weakest-banner"/);
   });
 
-  it('localises mode names to Vietnamese', () => {
-    assert.match(ANALYTICS_JS, /'Chép chính tả'/);
-    assert.match(ANALYTICS_JS, /'Nghe ý chính'/);
-    assert.match(ANALYTICS_JS, /'Đúng \/ Sai'/);
-    assert.match(ANALYTICS_JS, /'Trắc nghiệm'/);
+  it('localises type names to Vietnamese (audit 2026-07-17: mini/drill/full)', () => {
+    // Nguồn thống kê đổi sang listening_test_attempts — nhãn theo test_type,
+    // không còn hệ exercise cũ (dictation/gist/tf/mcq, chết từ 05/2026).
+    assert.match(ANALYTICS_JS, /'Bài học \/ Mini test'/);
+    assert.match(ANALYTICS_JS, /'Luyện kỹ năng \(drill\)'/);
+    assert.match(ANALYTICS_JS, /'Full test'/);
   });
 });
 

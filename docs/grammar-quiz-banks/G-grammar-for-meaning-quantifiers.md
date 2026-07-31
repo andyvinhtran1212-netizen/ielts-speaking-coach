@@ -66,7 +66,8 @@ input: "text"
 headword: "quant-many-much"
 skill: "production"
 subtype: "intermediate"
-prompt: "There are ____ (many) students struggling with academic writing this semester — write the quantifier only."
+prompt: "There are ____ students struggling with academic writing this semester."
+hint: "chọn 'many' hoặc 'much'"
 accept: ["many"]
 case_sensitive: false
 grammar_article_slug: "quantifiers"
@@ -137,7 +138,8 @@ input: "text"
 headword: "quant-few-little"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (few) nations managed to achieve the target by the deadline — write the quantifier only, meaning 'rất ít, đáng lo ngại'."
+prompt: "____ nations managed to achieve the target by the deadline."
+hint: "chọn 'few' hoặc 'a few' — ý câu: ít đến mức đáng lo"
 accept: ["Few"]
 case_sensitive: false
 grammar_article_slug: "quantifiers"
@@ -208,7 +210,8 @@ input: "text"
 headword: "quant-a-few-a-little"
 skill: "production"
 subtype: "intermediate"
-prompt: "There is ____ (a little) hope remaining despite the setbacks — write the quantifier only."
+prompt: "There is ____ hope remaining despite the setbacks."
+hint: "chọn 'a little' hoặc 'a few'"
 accept: ["a little"]
 case_sensitive: false
 grammar_article_slug: "quantifiers"
@@ -279,7 +282,8 @@ input: "text"
 headword: "quant-some-any"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (some) countries have adopted this approach successfully — write the quantifier only, for an affirmative statement."
+prompt: "____ countries have adopted this approach successfully."
+hint: "chọn 'some' hoặc 'any'"
 accept: ["Some"]
 case_sensitive: false
 grammar_article_slug: "quantifiers"

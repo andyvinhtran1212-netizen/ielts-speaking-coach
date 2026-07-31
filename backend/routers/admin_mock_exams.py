@@ -19,13 +19,16 @@ console lives in admin_mock_reviews.py.
   GET   /admin/mock-exams/{id}/retest-summary    — per-skill "cần test lại" counts
   GET   /admin/mock-exams/{id}/roster            — class roster grid (per-skill snapshot)
   POST  /admin/mock-exams/{id}/writing/bulk-grade — queue many sittings' Writing at once
+  POST  /admin/mock-exams/{id}/bulk-claim        — nhận many reviews at once
+  POST  /admin/mock-exams/{id}/bulk-final-bands  — chốt band from the pre-filled values
+  POST  /admin/mock-exams/{id}/bulk-release      — công bố many sittings' results
   GET   /admin/mock-exams/{id}/assignments       — per-student retake assignments
   POST  /admin/mock-exams/{id}/assignments       — assign retake exam to students
   DELETE /admin/mock-exams/{id}/assignments/{sid}— un-assign one student
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from routers.admin import require_admin
@@ -77,7 +80,18 @@ class AssignRow(BaseModel):
     user_id: str
     skills: list[str] = Field(default_factory=list)
     open_from: str | None = None
-    open_until: str | None = None
+    # Optional AT THE SCHEMA LEVEL, required by the service for any row that is
+    # actually written. `assign()` documents that a row with no valid skill is
+    # SKIPPED, and a skipped row has no window to validate — making this
+    # unconditionally required let FastAPI 422 the whole batch before assign()
+    # could skip it, so one skill-less row aborted every valid assignment
+    # alongside it (Codex review, PR #839). Rows that do carry skills still get
+    # a 400 from _validate_window when the deadline is missing.
+    open_until: str | None = Field(
+        default=None,
+        description=("Hạn đóng của bài test lại (ISO 8601). Bắt buộc với mọi "
+                     "dòng CÓ kỹ năng; dòng không kỹ năng bị bỏ qua nên không cần."),
+    )
 
 
 class AssignBody(BaseModel):
@@ -93,9 +107,46 @@ class OpenBody(BaseModel):
     is_open: bool
 
 
+class AdvanceBody(BaseModel):
+    """The section the admin's screen was showing when they clicked.
+
+    Sent so a duplicate click from a stale tab is REJECTED, not replayed: the
+    optimistic compare-and-set alone only catches requests whose DB reads
+    overlap, so two clicks where the first has already committed would both
+    advance and the class would skip a section."""
+
+    # REQUIRED, and validated. Accepting a missing/null/empty value let the
+    # stale-screen check be bypassed entirely: a cached pre-deploy frontend or
+    # any other caller sending {} would have TWO sequential requests each
+    # compare against the freshly-read section and both succeed — advancing
+    # not_started → listening → reading and skipping a section for the whole
+    # class (Codex review, PR #842).
+    from_section: str = Field(
+        ..., pattern=r"^(not_started|listening|reading|writing)$",
+        description="Phần mà màn hình của admin đang hiển thị lúc bấm.",
+    )
+
+
 class RetestBody(BaseModel):
     needs_retest: bool
     reason: str = ""
+
+
+class BulkReleaseBody(BaseModel):
+    sitting_ids: list[str] = Field(default_factory=list)
+
+
+class BulkSittingsBody(BaseModel):
+    """Selected roster rows for bulk-claim / bulk-final-bands. Neither carries
+    bands or flags: the server derives them, so a stale tab cannot post a band."""
+
+    sitting_ids: list[str] = Field(default_factory=list)
+
+
+class RetestFlagsBody(BaseModel):
+    # {skill: bool} — the skills the student must retake. Skills the exam does
+    # not require are dropped server-side, so a stale client cannot invent one.
+    retest_flags: dict[str, bool] = Field(default_factory=dict)
 
 
 class BulkGradeBody(BaseModel):
@@ -158,22 +209,105 @@ async def set_open(
         return svc.set_open(exam_id, body.is_open, admin["id"])
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
+    except svc.SittingConflictError as e:
+        raise HTTPException(409, str(e))
 
 
 @router.post("/{exam_id}/advance")
 async def advance_section(
-    exam_id: str, authorization: str | None = Header(default=None),
+    exam_id: str,
+    body: AdvanceBody,
+    background_tasks: BackgroundTasks,
+    authorization: str | None = Header(default=None),
 ):
     """Open the NEXT seated section for every sitting under this exam —
-    not_started → listening → reading → writing → done. Force-collects any
-    straggler who hasn't submitted the section being closed."""
+    not_started → listening → reading → writing → done.
+
+    The transition returns immediately; the straggler sweep for the section
+    being closed is QUEUED (B3). It used to run inline — one loop over every
+    unsubmitted sitting, grading each L/R attempt — which for a class of 25-30
+    made this a very long request, and a timeout left papers collected but the
+    section unmoved with no way for the admin to tell.
+
+    The live console polls every 5s, so the papers visibly land one by one. If
+    the sweep dies (a restart mid-task), the console flags the section as
+    "chưa thu đủ" and POST /collect?section=… re-runs it."""
     admin = await require_admin(authorization)
     try:
-        return svc.advance_section(exam_id, admin["id"])
+        out = svc.advance_section(exam_id, admin["id"], body.from_section)
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
     except svc.SittingConflictError as e:
         raise HTTPException(409, str(e))
+    if out.get("sweep_section"):
+        background_tasks.add_task(
+            svc._force_collect_section, exam_id, out["sweep_section"],
+        )
+    return out
+
+
+@router.post("/{exam_id}/collect", status_code=202)
+async def collect_section(
+    exam_id: str,
+    background_tasks: BackgroundTasks,
+    # REQUIRED, and validated. Optional, it could simply be omitted — and the
+    # stale-screen guard it exists for is skipped entirely: the service then
+    # reads the CANONICAL active_section, so if another invigilator advanced
+    # first this irreversibly collects the newly-opened paper the moment it
+    # opened. That is precisely the race this parameter prevents (Codex review,
+    # PR #843).
+    from_section: str = Query(
+        ...,
+        # 'done' is a legitimate screen state for the RECOVERY path: re-sweeping
+        # a section whose background sweep died is done from a monitor showing a
+        # later section, and after the final advance that screen says 'done'.
+        # Excluding it 422'd every recovery click after the exam finished — the
+        # exact case the button exists for (Codex review, PR #844).
+        pattern=r"^(listening|reading|writing|done)$",
+        description="Phần mà màn hình của admin đang hiển thị lúc bấm Thu bài.",
+    ),
+    # The section to sweep. Defaults to the open one; an EARLIER one re-sweeps
+    # it (recovery after a half-dead background sweep).
+    section: str | None = Query(
+        default=None, pattern=r"^(listening|reading|writing)$",
+    ),
+    authorization: str | None = Header(default=None),
+):
+    """THU BÀI for a section WITHOUT opening the next one.
+
+    Lets the invigilator run the real sequence — take papers in, check everyone
+    is accounted for, then hand out the next section — instead of the two being
+    one irreversible button. Students drop into the waiting room with no clock
+    running until /advance.
+
+    Validated synchronously (so a rejected request is a real error, not a silent
+    202) then swept in the background, same as /advance. `section` defaults to
+    the open one; passing an earlier one re-sweeps it — the recovery path when a
+    background sweep died half-way."""
+    admin = await require_admin(authorization)
+    try:
+        info = svc.collect_preflight(exam_id, section, from_section)
+    except svc.NotFoundError as e:
+        raise HTTPException(404, str(e))
+    except svc.SittingConflictError as e:
+        raise HTTPException(409, str(e))
+    except svc.MockExamError as e:
+        # A lookup failure is NOT "0 bài đã thu" — the preflight does the count
+        # SYNCHRONOUSLY precisely so a dead database is a real error here rather
+        # than a 202 followed by a background sweep that collects nothing
+        # (Codex review, PR #844).
+        raise HTTPException(503, str(e))
+    # Close admissions synchronously — the pause must hold from the moment the
+    # request is accepted, not from whenever the queued sweep happens to run.
+    svc.mark_section_collected(exam_id, info["section"])
+    background_tasks.add_task(
+        # No from_section: the stale-screen check already ran, synchronously,
+        # against the state at request time. Re-checking it inside the queued
+        # task would fail the sweep whenever a legitimate advance happened in
+        # between — losing the very papers this call accepted responsibility for.
+        svc.collect_section, exam_id, admin["id"], info["section"],
+    )
+    return {**info, "queued": True}
 
 
 @router.get("/{exam_id}/section-progress")
@@ -184,6 +318,19 @@ async def section_progress(
     await require_admin(authorization)
     try:
         return svc.admin_section_progress(exam_id)
+    except svc.NotFoundError as e:
+        raise HTTPException(404, str(e))
+
+
+@router.get("/{exam_id}/live")
+async def live_monitor(exam_id: str, authorization: str | None = Header(default=None)):
+    """Per-student live state for the invigilator console — the shared section
+    clock, the expected roster vs who actually showed up, and each student's
+    per-section progress (submitted / working / waiting, answers the server
+    holds, last activity). One poll, batched lookups, persisted state only."""
+    await require_admin(authorization)
+    try:
+        return svc.admin_live_monitor(exam_id)
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
 
@@ -231,7 +378,7 @@ async def create_assignments(
         return assign_svc.assign(
             exam_id, rows, created_by=admin["id"], source_exam_id=body.source_exam_id,
         )
-    except assign_svc.InvalidWindowError as e:
+    except (assign_svc.InvalidWindowError, assign_svc.UnservableSkillError) as e:
         raise HTTPException(400, str(e))
 
 
@@ -239,10 +386,21 @@ async def create_assignments(
 async def delete_assignment(
     exam_id: str, student_id: str, authorization: str | None = Header(default=None),
 ):
-    """Un-assign one student from a retake exam."""
-    await require_admin(authorization)
-    assign_svc.remove(exam_id, student_id)
-    return {"ok": True}
+    """Un-assign one student from a retake exam.
+
+    Also VOIDS any sitting they already opened for it — deleting the assignment
+    alone did not revoke access, because create_sitting resumes an existing
+    sitting before the eligibility gates. Reports the voided ids rather than
+    doing two things silently under one verb."""
+    admin = await require_admin(authorization)
+    try:
+        out = assign_svc.remove(exam_id, student_id, admin_id=admin["id"])
+    except assign_svc.RevocationError as e:
+        # The assignment is gone but an open sitting survived, so access was
+        # NOT revoked. Answering ok:true here would show the admin a revocation
+        # that did not happen.
+        raise HTTPException(409, str(e))
+    return {"ok": True, **out}
 
 
 @router.post("/{exam_id}/writing/bulk-grade", status_code=202)
@@ -265,6 +423,7 @@ async def bulk_grade_writing(
 
     queued: list[str] = []
     skipped: list[str] = []
+    short: list[str] = []
     retest_skipped: list[str] = []
     for sitting_id in body.sitting_ids:
         sitting = svc.get_sitting(sitting_id)
@@ -276,29 +435,57 @@ async def bulk_grade_writing(
         if sitting.get("needs_retest"):
             retest_skipped.append(str(sitting_id))
             continue
-        for essay_id in (sitting.get("essay_task1_id"), sitting.get("essay_task2_id")):
-            if not essay_id:
-                continue
-            job_info = essay_service.claim_pending_for_grading(
-                str(essay_id),
-                grading_tier=body.grading_tier,
-                analysis_level=body.analysis_level,
-                selected_model=body.selected_model,
-            )
-            if job_info is None:
-                skipped.append(str(essay_id))   # not 'pending' (already queued/graded)
-                continue
-            background_tasks.add_task(
-                essay_service._bg_grade_essay, str(essay_id), job_info["job_id"],
-            )
-            queued.append(str(essay_id))
+        # Word-count-gated claim: too-short essays are reported in `short` (held
+        # for the admin's grade-anyway / skip decision), not auto-queued.
+        res = svc.claim_mock_writing_grading(
+            [sitting.get("essay_task1_id"), sitting.get("essay_task2_id")],
+            grading_tier=body.grading_tier,
+            analysis_level=body.analysis_level,
+            selected_model=body.selected_model,
+        )
+        for essay_id, job_id in res["queued"]:
+            background_tasks.add_task(essay_service._bg_grade_essay, essay_id, job_id)
+            queued.append(essay_id)
+        short.extend(res["short"])
+        skipped.extend(res["skipped"])
 
     return {
         "queued":         queued,
         "skipped":        skipped,
+        "short":          short,
         "retest_skipped": retest_skipped,
         "grading_tier":   body.grading_tier,
     }
+
+
+@router.post("/writing/essays/{essay_id}/skip-grading")
+async def skip_writing_grading(
+    essay_id: str, authorization: str | None = Header(default=None),
+):
+    """Admin decides NOT to grade a too-short mock Writing essay — stamp
+    grading_skipped_at so the mock release gate stops blocking on it (the student
+    gets the manual Writing band with no per-task feedback). Mock-scoped: rejects
+    a non-mock essay (sitting_id null) so this can't silently drop a normal
+    self-submit essay out of its own queue."""
+    admin = await require_admin(authorization)
+    try:
+        return svc.skip_mock_writing_grading(essay_id, admin_id=admin["id"])
+    except svc.NotFoundError as e:
+        raise HTTPException(404, str(e))
+    except svc.SittingConflictError as e:
+        raise HTTPException(409, str(e))
+
+
+@router.post("/{exam_id}/writing/promote")
+async def promote_writing(
+    exam_id: str, authorization: str | None = Header(default=None),
+):
+    """Backfill: create the writing_essays for this exam's sittings whose Writing
+    was collected but never promoted (a cohort that sat the exam before the
+    promotion feature shipped → text captured, no essay rows, nothing to grade).
+    Idempotent; does NOT grade (use bulk-grade next). Returns per-sitting counts."""
+    await require_admin(authorization)
+    return svc.backfill_promote_writing(exam_id)
 
 
 @router.post("/sittings/{sitting_id}/retest")
@@ -317,6 +504,144 @@ async def set_sitting_retest(
         raise HTTPException(404, str(e))
 
 
+def _scope_to_exam(exam_id: str, sitting_ids: list[str]) -> tuple[list[str], list[dict]]:
+    """Split posted ids into this exam's and the strays, the latter as `skipped`
+    rows. The path's exam_id is the admin's stated scope: a sitting outside it
+    came from a stale tab or a hand-made call, never from this roster. Reported
+    rather than dropped silently — a bulk action that ignores an id it was given
+    must say so (Codex review, PR #787)."""
+    mine = svc.sittings_in_exam(exam_id, sitting_ids)
+    ids = [str(s) for s in sitting_ids]
+    return (
+        [s for s in ids if s in mine],
+        [{"sitting_id": s, "reason": "Không thuộc đề này."} for s in ids if s not in mine],
+    )
+
+
+@router.post("/{exam_id}/bulk-claim")
+async def bulk_claim(
+    exam_id: str, body: BulkSittingsBody, authorization: str | None = Header(default=None),
+):
+    """Nhận many reviews at once. Only a 'queued' row is taken — claim()'s atomic
+    WHERE clause is still the lock, so this cannot lift another admin's review.
+    A row it could not take is skipped with a reason, never raised. Scoped to
+    THIS exam, like writing/bulk-grade."""
+    admin = await require_admin(authorization)
+    if not body.sitting_ids:
+        return {"claimed": [], "skipped": []}
+    ids, foreign = _scope_to_exam(exam_id, body.sitting_ids)
+    out = wf.bulk_claim_sittings(ids, admin["id"])
+    out["skipped"] = out["skipped"] + foreign
+    return out
+
+
+@router.post("/{exam_id}/bulk-final-bands")
+async def bulk_final_bands(
+    exam_id: str, body: BulkSittingsBody, authorization: str | None = Header(default=None),
+):
+    """Chốt band for many claimed reviews from the bands the console pre-fills
+    (L/R off the Cambridge table, Writing off the two admin-reviewed essays).
+
+    The client posts NO bands — the server derives them, and save_final_bands
+    still validates each one and recomputes the overall. A sitting whose required
+    band cannot be derived (e.g. Speaking) is skipped with a reason rather than
+    signed off with a number nobody chose. Does not publish; use bulk-release.
+
+    Scoped to THIS exam: without it a stray id could mark another exam's review
+    'reviewed' — and 'reviewed' is exactly what bulk-release then publishes."""
+    admin = await require_admin(authorization)
+    if not body.sitting_ids:
+        return {"saved": [], "skipped": []}
+    ids, foreign = _scope_to_exam(exam_id, body.sitting_ids)
+    out = wf.bulk_save_final_bands(ids, admin["id"])
+    out["skipped"] = out["skipped"] + foreign
+    return out
+
+
+@router.post("/{exam_id}/bulk-release")
+async def bulk_release(
+    exam_id: str, body: BulkReleaseBody, authorization: str | None = Header(default=None),
+):
+    """Công bố many sittings at once — PUBLISHES results to real students.
+
+    Gates are per sitting and unchanged (reviewed + claimed by this admin +
+    Writing resolved); a sitting failing any of them is skipped with a reason
+    rather than sinking the batch. The response's `skipped` list is not optional
+    detail — the caller must show it, or the admin cannot tell who was published.
+
+    Scoped to THIS exam (2026-07-16). Codex flagged the gap on the two new bulk
+    routes; this one has had it since #778 and is the one that PUBLISHES to real
+    students, so it is closed with the same helper rather than left as the only
+    unscoped bulk action in the file.
+    """
+    admin = await require_admin(authorization)
+    if not body.sitting_ids:
+        return {"released": [], "skipped": []}
+    ids, foreign = _scope_to_exam(exam_id, body.sitting_ids)
+    out = wf.bulk_release_sittings(ids, admin["id"])
+    out["skipped"] = out["skipped"] + foreign
+    return out
+
+
+@router.post("/sittings/{sitting_id}/retest-flags")
+async def set_sitting_retest_flags(
+    sitting_id: str, body: RetestFlagsBody, authorization: str | None = Header(default=None),
+):
+    """Record WHICH skills the student must retake, straight from the roster.
+
+    Distinct from /retest above: that one flips the sitting's needs_retest gate
+    (Writing bulk-grade skips the sitting — an early cost gate). This one only
+    records the per-skill decision and never blocks grading (product decision
+    2026-07-15). PATCH-shaped semantics, POST verb to match the sibling route.
+    """
+    admin = await require_admin(authorization)
+    try:
+        return wf.set_retest_flags_for_sitting(
+            sitting_id, admin["id"], body.retest_flags,
+        )
+    except wf.NotFoundError as e:
+        raise HTTPException(404, str(e))
+    except wf.ConflictError as e:
+        raise HTTPException(409, str(e))
+
+
+@router.get("/sittings/{sitting_id}/pacing")
+async def sitting_pacing(
+    sitting_id: str, authorization: str | None = Header(default=None),
+):
+    """How the student SPENT the exam — reconstructed from `answered_at` stamps
+    that every answer write has always made and nobody has ever read.
+
+    Order answers actually landed in, pauses between them, rushed finishes, and
+    where the work stopped. The response carries its own caveats: answered_at is
+    the LAST touch of a question, so gaps bracket think-time rather than being
+    it."""
+    await require_admin(authorization)
+    try:
+        return svc.sitting_pacing(sitting_id)
+    except svc.NotFoundError as e:
+        raise HTTPException(404, str(e))
+
+
+@router.post("/sittings/{sitting_id}/record-speaking")
+async def admin_record_speaking(
+    sitting_id: str, authorization: str | None = Header(default=None),
+):
+    """Unstick a sitting whose Speaking never got reported.
+
+    The student's report call is fire-and-forget; if it failed the sitting stays
+    `speaking_pending` forever — no review, never released — and nobody could
+    fix it. Ratifies only the sessions ALREADY bound to this sitting, so it can
+    never attach work the student didn't do."""
+    admin = await require_admin(authorization)
+    try:
+        return svc.admin_record_speaking(sitting_id, admin["id"])
+    except svc.NotFoundError as e:
+        raise HTTPException(404, str(e))
+    except svc.SittingConflictError as e:
+        raise HTTPException(409, str(e))
+
+
 @router.post("/sittings/{sitting_id}/void")
 async def void_sitting(
     sitting_id: str, body: VoidBody, authorization: str | None = Header(default=None),
@@ -326,3 +651,5 @@ async def void_sitting(
         return svc.void_sitting(sitting_id, admin["id"], body.reason)
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
+    except svc.SittingConflictError as e:
+        raise HTTPException(409, str(e))

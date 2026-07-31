@@ -350,7 +350,8 @@ input: "text"
 headword: "dm-make-noise-mess-contrast"
 skill: "production"
 subtype: "intermediate"
-prompt: "Whenever the renovation team starts drilling upstairs, they ____ (make) an enormous amount of noise."
+prompt: "Whenever the renovation team starts drilling upstairs, they ____ an enormous amount of noise."
+hint: "chọn 'do' hoặc 'make', chia đúng theo chủ ngữ"
 accept: ["make"]
 case_sensitive: false
 grammar_article_slug: "do-vs-make"

@@ -34,6 +34,7 @@ class _Q:
     def insert(self, row, *a, **k): self._op = "insert"; self._payload = row; return self
     def update(self, patch, *a, **k): self._op = "update"; self._payload = patch; return self
     def eq(self, col, val): self._filters[col] = val; return self
+    def in_(self, col, vals): self._filters[col] = tuple(vals); return self
     def order(self, *a, **k): return self
     def limit(self, *a, **k): return self
     def execute(self): return self._db.handle(self._t, self._op, self._filters, self._payload)
@@ -41,12 +42,15 @@ class _Q:
 
 class _DB:
     def __init__(self, attempt=None, test_id="ILR-X", existing_rating=False,
-                 feedback_rows=None, update_found=True):
+                 feedback_rows=None, update_found=True,
+                 passage_exists=False, content_exists=False):
         self._attempt = attempt
         self._test_id = test_id
         self._existing = existing_rating
         self._feedback_rows = feedback_rows or []
         self._update_found = update_found
+        self._passage_exists = passage_exists
+        self._content_exists = content_exists
         self.inserted = []
         self.updated = []
     def table(self, n): return _Q(self, n)
@@ -55,6 +59,10 @@ class _DB:
             return _R([self._attempt] if self._attempt else [])
         if table in ("reading_tests", "listening_tests"):
             return _R([{"test_id": self._test_id}] if self._test_id else [])
+        if table == "reading_passages":
+            return _R([{"id": "p-uuid"}] if self._passage_exists else [])
+        if table == "listening_content":
+            return _R([{"id": filters.get("id")}] if self._content_exists else [])
         if table == "user_feedback":
             if op == "insert":
                 self.inserted.append(payload); return _R([payload])
@@ -304,3 +312,79 @@ def test_patch_requires_admin(monkeypatch):
     with pytest.raises(HTTPException) as e:
         _run(F.admin_patch_feedback_status("f1", F.StatusIn(status="resolved"), authorization="x"))
     assert e.value.status_code == 403
+
+
+# ── POST: practice / exercise-lẻ anchors (2026-07-17 audit extension) ─────────
+# Không có attempt row → anchor = passage_slug (reading L1/L2 practice) hoặc
+# content_id (listening standalone exercise). Yêu cầu đăng nhập; rating bị chặn.
+
+_CID = "11111111-2222-3333-4444-555555555555"
+
+
+def test_post_practice_flag_reading_slug(monkeypatch):
+    _as_user(monkeypatch)
+    db = _DB(passage_exists=True)
+    monkeypatch.setattr(F, "supabase_admin", db)
+    body = F.FeedbackIn(type="flag", skill="reading",
+                        passage_slug="l2-skimming-headlines", q_num=2, note="đáp án sai")
+    _run(F.submit_feedback(body, authorization="x", x_reading_anon=None))
+    row = db.inserted[0]
+    assert row["test_id"] == "practice:l2-skimming-headlines"
+    assert row["attempt_id"] is None and row["q_num"] == 2
+    assert row["created_by"] == "U1" and row["anon_id"] is None
+
+
+def test_post_exercise_flag_listening_content_qnum_optional(monkeypatch):
+    _as_user(monkeypatch)
+    db = _DB(content_exists=True)
+    monkeypatch.setattr(F, "supabase_admin", db)
+    body = F.FeedbackIn(type="flag", skill="listening", content_id=_CID,
+                        note="audio khác transcript")
+    _run(F.submit_feedback(body, authorization="x", x_reading_anon=None))
+    row = db.inserted[0]
+    assert row["test_id"] == f"exercise:{_CID}"
+    assert row["attempt_id"] is None and row["q_num"] is None
+
+
+def test_post_practice_requires_auth_401(monkeypatch):
+    async def _no(_a): raise HTTPException(401, "no")
+    monkeypatch.setattr(F, "get_supabase_user", _no)
+    db = _DB(passage_exists=True)
+    monkeypatch.setattr(F, "supabase_admin", db)
+    body = F.FeedbackIn(type="flag", skill="reading",
+                        passage_slug="l1-tea-history", q_num=1)
+    with pytest.raises(HTTPException) as e:
+        _run(F.submit_feedback(body, authorization=None, x_reading_anon=None))
+    assert e.value.status_code == 401
+
+
+def test_post_practice_rating_rejected_422(monkeypatch):
+    _as_user(monkeypatch)
+    db = _DB(passage_exists=True)
+    monkeypatch.setattr(F, "supabase_admin", db)
+    body = F.FeedbackIn(type="rating", skill="reading",
+                        passage_slug="l1-tea-history", rating_de=5)
+    with pytest.raises(HTTPException) as e:
+        _run(F.submit_feedback(body, authorization="x", x_reading_anon=None))
+    assert e.value.status_code == 422
+
+
+def test_post_practice_unknown_slug_404(monkeypatch):
+    _as_user(monkeypatch)
+    db = _DB(passage_exists=False)
+    monkeypatch.setattr(F, "supabase_admin", db)
+    body = F.FeedbackIn(type="flag", skill="reading",
+                        passage_slug="khong-ton-tai", q_num=1)
+    with pytest.raises(HTTPException) as e:
+        _run(F.submit_feedback(body, authorization="x", x_reading_anon=None))
+    assert e.value.status_code == 404
+
+
+def test_post_exercise_bad_content_id_422(monkeypatch):
+    _as_user(monkeypatch)
+    db = _DB(content_exists=True)
+    monkeypatch.setattr(F, "supabase_admin", db)
+    body = F.FeedbackIn(type="flag", skill="listening", content_id="not-a-uuid")
+    with pytest.raises(HTTPException) as e:
+        _run(F.submit_feedback(body, authorization="x", x_reading_anon=None))
+    assert e.value.status_code == 422

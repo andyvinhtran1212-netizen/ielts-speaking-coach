@@ -53,6 +53,18 @@ function render(data) {
   $('ft-empty').hidden = true;
   $('ft-body').hidden = false;
 
+  // DEBT-2026-07-22-G — the read is paged now, but if the safety ceiling ever
+  // bites, say so where the numbers are read. The original defect was not the
+  // cap itself; it was a capped number presenting itself as a complete one.
+  const trunc = $('ft-truncated');
+  if (trunc) {
+    trunc.hidden = !data.truncated;
+    trunc.textContent = data.truncated
+      ? '⚠ Khoảng thời gian này vượt giới hạn đọc — các số dưới đây CHƯA đầy đủ. '
+        + 'Hãy thu hẹp khoảng ngày để có số liệu đúng.'
+      : '';
+  }
+
   $('ft-total').textContent = String(data.total_views || 0);
   $('ft-unique').textContent = String(data.unique_visitors || 0);
   $('ft-anon').textContent = String(data.anonymous_hits || 0);

@@ -109,11 +109,11 @@ input: "text"
 headword: "acn-subordinators"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (write 'even though') she had little experience in public speaking, she delivered a confident presentation."
+prompt: "____ (liên từ nhượng bộ 2 từ — nhấn mạnh sự việc CÓ THẬT đã xảy ra, không phải giả định) she had little experience in public speaking, she delivered a confident presentation."
 accept: ["Even though"]
 case_sensitive: false
 grammar_article_slug: "adding-contrast-naturally"
-explain: "'Even though' nhấn mạnh tương phản mạnh hơn 'although' — theo sau là mệnh đề đầy đủ (S + V)."
+explain: "'Even though' nhấn mạnh tương phản mạnh hơn 'although' — theo sau là mệnh đề đầy đủ (S + V). Khác 'even if' (giả định 'kể cả nếu'): ở đây việc cô ấy thiếu kinh nghiệm là sự thật đã xảy ra."
 ---
 
 ---
@@ -306,8 +306,8 @@ input: "text"
 headword: "acn-on-the-other-hand"
 skill: "production"
 subtype: "intermediate"
-prompt: "Working from home saves commuting time. ____ (write the 4-word phrase meaning 'on the contrary side'), it can make employees feel isolated."
-accept: ["On the other hand"]
+prompt: "Working from home saves commuting time. On the other ____, it can make employees feel isolated."
+accept: ["hand"]
 case_sensitive: false
 grammar_article_slug: "adding-contrast-naturally"
 explain: "'On the other hand' có thể dùng độc lập, không nhất thiết phải có 'on the one hand' trước đó, để giới thiệu mặt đối lập."

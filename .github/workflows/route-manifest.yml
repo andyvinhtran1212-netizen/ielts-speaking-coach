@@ -1,0 +1,77 @@
+# AUDIT F7 (2026-07-14) — manifest-based route-ownership verification.
+#
+# The source-walk checker (tooling/route-ownership-check.mjs, run inside
+# `node --test`) re-derives routes from file names — a heuristic. The artifact
+# that actually routes production traffic is .next/routes-manifest.json, so
+# this job builds and verifies against THAT truth: (1) zero drift between the
+# compiled manifest and the source heuristic (drift = the heuristic has a
+# blind spot), (2) zero ownership collisions computed from compiled routes.
+#
+# Scoped to the files that can change the route graph — the build costs ~2
+# minutes and is wasted on content-only PRs. The build has NO env/network
+# needs by design (plan B12: no fetch at build).
+#
+# DEBT-2026-07-29-K (2026-07-31): job này còn gánh thêm một kiểm tra nữa cần
+# output build — quét chunk tìm cú pháp/API vượt sàn trình duyệt. Lý do gộp vào
+# đây thay vì dựng job mới: cả hai đều chỉ cần `npm run build`, dựng job thứ hai
+# là trả giá build ~2 phút lần nữa cho cùng một artifact.
+name: Build checks (route manifest + sàn trình duyệt)
+
+on:
+  pull_request:
+    paths:
+      - 'frontend/app/**'
+      # Review #882 — bộ quét sàn trình duyệt cần chạy cho MỌI đầu vào của
+      # bundle client, không chỉ app/. Một PR chỉ sửa `lib/auth/auth-provider.tsx`
+      # (client component, được layout (authed) import) vẫn đổi chunk mà trước
+      # đây không kích hoạt job nào có build ⇒ cú pháp/API vượt sàn lọt thẳng.
+      - 'frontend/lib/**'
+      # Review #882 (vòng 6): public/js/** được phục vụ NGUYÊN XI (không qua
+      # bundler) và trang legacy KHÔNG nạp instrumentation-client ⇒ cú pháp
+      # vượt sàn ở đây là chết cả file. Đợt này tìm ra lookbehind trong
+      # listening-test-player.js — file học viên nạp khi làm bài nghe.
+      - 'frontend/public/js/**'
+      - 'frontend/public/assets/**'
+      - 'frontend/instrumentation-client.ts'
+      - 'frontend/next.config.ts'
+      - 'frontend/tsconfig.json'
+      - 'frontend/tooling/route-ownership-check.mjs'
+      - 'frontend/tooling/legacy-browser-scan.mjs'
+      - 'frontend/package.json'
+      - 'frontend/package-lock.json'
+      - '.github/workflows/route-manifest.yml'
+
+jobs:
+  route-manifest:
+    name: Build + verify routes-manifest ownership
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Build (produces .next/routes-manifest.json)
+        run: npm run build
+
+      - name: Verify route ownership against the compiled manifest
+        run: node tooling/route-ownership-check.mjs --manifest
+
+      # DEBT-2026-07-29-K — chunk của CHÍNH Next từng chứa `static{` (Safari
+      # 16.4+) và làm iOS ≤16.3 không hydrate được trên mọi route. Chỉ nhìn
+      # source không thấy: thứ vượt sàn nằm trong output build.
+      - name: Quét sàn trình duyệt trên chunk đã build
+        run: node tooling/legacy-browser-scan.mjs

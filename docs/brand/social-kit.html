@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aver Learning — Social kit</title>
+<style>
+  :root{
+    --teal:#0F766E; --teal5:#14B8A6; --teal3:#5EEAD4; --amber:#F59E0B; --amber4:#FBBF24;
+    --navy:#0A1628; --navy2:#0F2A3E; --cream:#FAFAF9; --ink:#1A1A16;
+    --page:#FAFAF9; --card:#fff; --tx:rgba(15,23,42,.9); --tx2:rgba(15,23,42,.55); --tx3:rgba(15,23,42,.4);
+    --line:rgba(15,23,42,.1);
+    --font:'Plus Jakarta Sans',ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,"SF Mono",Menlo,monospace;
+  }
+  @media (prefers-color-scheme:dark){:root{
+    --page:#0A1628;--card:#112236;--tx:rgba(241,245,249,.92);--tx2:rgba(241,245,249,.55);--tx3:rgba(241,245,249,.38);--line:rgba(255,255,255,.1);
+  }}
+  :root[data-theme="dark"]{--page:#0A1628;--card:#112236;--tx:rgba(241,245,249,.92);--tx2:rgba(241,245,249,.55);--tx3:rgba(241,245,249,.38);--line:rgba(255,255,255,.1);}
+  :root[data-theme="light"]{--page:#FAFAF9;--card:#fff;--tx:rgba(15,23,42,.9);--tx2:rgba(15,23,42,.55);--tx3:rgba(15,23,42,.4);--line:rgba(15,23,42,.1);}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--page);color:var(--tx);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased;transition:background .3s,color .3s}
+  .wrap{max-width:1080px;margin:0 auto;padding:32px 24px 72px}
+  header.top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+  .eyebrow{font-family:var(--mono);font-size:.68rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);font-weight:600}
+  h1{font-size:clamp(1.5rem,3.2vw,2rem);font-weight:800;letter-spacing:-.02em;margin:6px 0 0}
+  .lede{color:var(--tx2);font-size:.92rem;max-width:60ch;margin:8px 0 0}
+  .toggle{border:1px solid var(--line);background:var(--card);color:var(--tx);border-radius:999px;padding:8px 16px;font:inherit;font-size:.82rem;font-weight:600;cursor:pointer}
+  h2{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--tx3);margin:40px 0 6px}
+  .cap{font-family:var(--mono);font-size:.68rem;color:var(--tx3);margin:0 0 14px}
+  .board{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start}
+
+  /* ---- generic template frame ---- */
+  .tpl{border-radius:14px;overflow:hidden;box-shadow:0 8px 24px rgba(15,23,42,.12);position:relative;color:#fff}
+  .sq{width:300px;height:300px}          /* 1:1  (1080×1080) */
+  .story{width:186px;height:330px}        /* 9:16 (1080×1920) */
+  .cover{width:640px;height:244px;max-width:100%}  /* ~ FB cover 205:78 */
+  .ava{width:120px;height:120px;border-radius:50%}
+  .avasq{width:120px;height:120px;border-radius:26px}
+
+  .fill-teal{background:linear-gradient(150deg,#0F766E,#0D9488 60%,#115E59)}
+  .fill-navy{background:radial-gradient(120% 90% at 80% 0%, #0F2A3E 0%, #0A1628 60%)}
+  .fill-cream{background:var(--cream);color:var(--ink)}
+
+  .pad{position:absolute;inset:0;padding:22px;display:flex;flex-direction:column}
+  .brandline{display:flex;align-items:center;gap:7px;font-weight:800;font-size:.82rem;letter-spacing:-.02em}
+  .brandline .ll{font-weight:600}
+  .grid-ovl{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px);background-size:26px 26px;pointer-events:none}
+
+  .kick{font-family:var(--mono);font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;font-weight:600}
+  .amber{color:var(--amber4)}
+  .ex{display:flex;align-items:flex-start;gap:8px;font-size:.82rem;margin:5px 0}
+  .ex .m{flex:0 0 16px;font-weight:800}
+  .ok .m{color:#34D399}.no .m{color:#F87171}
+  .strong{font-weight:700}
+
+  .bandnum{font-family:var(--mono);font-weight:700;letter-spacing:-2px;line-height:.9}
+
+  .note{font-size:.78rem;color:var(--tx2);max-width:62ch;margin:10px 0 0}
+  .files{width:100%;border-collapse:collapse;font-size:.78rem;margin-top:8px}
+  .files td,.files th{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line)}
+  .files th{font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--tx3)}
+  .files code{font-family:var(--mono);color:var(--teal);font-size:.72rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div><div class="eyebrow">Fan page · starter kit</div><h1>Bộ nhận diện social — Aver Learning</h1>
+      <p class="lede">Kế thừa logo “Mũi lên” + teal/amber + Plus Jakarta. Copy theo giọng thầy-cô-ấm-áp, xưng “bạn”, không dấu “!”. Đây là mockup tỉ lệ thật để duyệt hướng — xuất ảnh sẽ scale lên đúng px.</p>
+    </div>
+    <button class="toggle" id="tg">◐ Sáng / Tối</button>
+  </header>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden>
+    <symbol id="ck" viewBox="0 0 96 96"><path d="M18 66 L48 20 L78 66" fill="none" stroke="currentColor" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/><circle cx="48" cy="11" r="8" fill="var(--amber4)"/></symbol>
+  </svg>
+
+  <!-- AVATARS -->
+  <h2>Avatar</h2>
+  <p class="cap">1:1 · tròn (FB/IG) + squircle (app). Mark trắng trên teal, chấm amber.</p>
+  <div class="board">
+    <div class="tpl ava fill-teal" style="display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 96 96" width="66" style="color:#fff"><use href="#ck"/></svg></div>
+    <div class="tpl avasq fill-teal" style="display:flex;align-items:center;justify-content:center;border-radius:26px"><svg viewBox="0 0 96 96" width="66" style="color:#fff"><use href="#ck"/></svg></div>
+  </div>
+
+  <!-- COVER -->
+  <h2>Ảnh bìa Facebook</h2>
+  <p class="cap">≈ 205:78 (1640×624). Wordmark dark + tagline + 6 kỹ năng. Lưới mờ, vùng an toàn cho avatar góc trái.</p>
+  <div class="board">
+    <div class="tpl cover fill-navy">
+      <div class="grid-ovl"></div>
+      <div class="pad" style="padding:26px 30px">
+        <div class="brandline" style="font-size:1.15rem;color:#fff"><svg viewBox="0 0 96 96" width="26" style="color:var(--teal5)"><use href="#ck"/></svg>Aver<span class="ll" style="color:var(--teal3)"> Learning</span></div>
+        <div style="margin-top:auto">
+          <div style="font-size:1.5rem;font-weight:800;letter-spacing:-.02em;max-width:26ch">Luyện IELTS toàn diện cùng AI</div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:12px;font-size:.66rem">
+            <span style="background:rgba(255,255,255,.1);padding:4px 10px;border-radius:99px">Speaking</span>
+            <span style="background:rgba(255,255,255,.1);padding:4px 10px;border-radius:99px">Writing</span>
+            <span style="background:rgba(255,255,255,.1);padding:4px 10px;border-radius:99px">Reading</span>
+            <span style="background:rgba(255,255,255,.1);padding:4px 10px;border-radius:99px">Listening</span>
+            <span style="background:rgba(255,255,255,.1);padding:4px 10px;border-radius:99px">Grammar</span>
+            <span style="background:rgba(245,158,11,.16);color:var(--amber4);padding:4px 10px;border-radius:99px">Từ vựng</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- POSTS -->
+  <h2>Bài đăng (feed 1:1)</h2>
+  <p class="cap">1080×1080. Template lặp lại hằng ngày — chỉ đổi nội dung, giữ khung.</p>
+  <div class="board">
+
+    <!-- post: mẹo ngữ pháp -->
+    <div class="tpl sq fill-cream">
+      <div class="pad">
+        <div class="brandline" style="color:var(--teal)"><svg viewBox="0 0 96 96" width="20" style="color:var(--teal)"><use href="#ck"/></svg>Aver<span class="ll"> Learning</span></div>
+        <div class="kick" style="color:var(--amber);margin-top:20px">Mẹo ngữ pháp</div>
+        <div style="font-size:1.28rem;font-weight:800;letter-spacing:-.02em;margin:6px 0 14px;color:var(--ink)">Present Perfect vs Past Simple</div>
+        <div class="ex ok"><span class="m">✓</span><span>I <span class="strong">have lived</span> here since 2020.</span></div>
+        <div class="ex no"><span class="m">✗</span><span>I <span class="strong">lived</span> here since 2020.</span></div>
+        <div style="margin-top:auto;font-size:.82rem;color:rgba(15,23,42,.62);border-top:1px solid rgba(15,23,42,.1);padding-top:12px">
+          <span class="strong" style="color:var(--teal)">since</span> + mốc thời gian → dùng Present Perfect. Hành động bắt đầu trong quá khứ, còn kéo dài tới hiện tại.
+        </div>
+      </div>
+    </div>
+
+    <!-- post: band score / động viên -->
+    <div class="tpl sq fill-navy">
+      <div class="grid-ovl"></div>
+      <div class="pad">
+        <div class="brandline" style="color:#fff"><svg viewBox="0 0 96 96" width="20" style="color:var(--teal5)"><use href="#ck"/></svg>Aver<span class="ll" style="color:var(--teal3)"> Learning</span></div>
+        <div class="kick" style="color:var(--teal3);margin-top:22px">Kết quả buổi luyện</div>
+        <div style="display:flex;align-items:baseline;gap:10px;margin:6px 0 2px">
+          <span class="bandnum" style="font-size:3.6rem;color:#fff">6.5</span>
+          <span style="font-size:.9rem;color:var(--amber4)">▲ 0.5 so với tuần trước</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;font-size:.76rem;color:rgba(255,255,255,.75);margin-top:8px">
+          <span>Từ vựng (LR) · <span class="strong" style="color:#fff">7.0</span></span>
+          <span>Ngữ pháp (GRA) · <span class="strong" style="color:#fff">6.0</span></span>
+          <span>Mạch lạc (FC) · <span class="strong" style="color:#fff">6.5</span></span>
+          <span>Phát âm (P) · <span class="strong" style="color:#fff">6.5</span></span>
+        </div>
+        <div style="margin-top:auto;font-size:.86rem;color:rgba(255,255,255,.82)">Điểm không tự đến — mỗi buổi luyện là một bước. Tiếp tục nhé, bạn.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STORY -->
+  <h2>Story / Reel (9:16)</h2>
+  <p class="cap">1080×1920. Chừa vùng an toàn trên/dưới cho UI nền tảng.</p>
+  <div class="board">
+    <div class="tpl story fill-teal">
+      <div class="pad" style="padding:18px 16px">
+        <div class="brandline" style="color:#fff;font-size:.72rem"><svg viewBox="0 0 96 96" width="16" style="color:#fff"><use href="#ck"/></svg>Aver<span class="ll" style="color:var(--teal3)"> Learning</span></div>
+        <div class="kick" style="color:var(--amber4);margin-top:26px">Từ vựng · Môi trường</div>
+        <div style="margin-top:14px;display:flex;flex-direction:column;gap:12px">
+          <div><div style="font-weight:800;font-size:.98rem">mitigate <span style="font-weight:400;opacity:.7;font-size:.72rem">/ˈmɪtɪɡeɪt/</span></div><div style="font-size:.72rem;opacity:.85">giảm nhẹ · <i>mitigate climate change</i></div></div>
+          <div><div style="font-weight:800;font-size:.98rem">renewable</div><div style="font-size:.72rem;opacity:.85">tái tạo · <i>renewable energy</i></div></div>
+          <div><div style="font-weight:800;font-size:.98rem">carbon footprint</div><div style="font-size:.72rem;opacity:.85">dấu chân carbon · <i>reduce your carbon footprint</i></div></div>
+        </div>
+        <div style="margin-top:auto;text-align:center;font-size:.72rem;background:rgba(255,255,255,.14);padding:8px;border-radius:10px">Học trọn chủ đề trong app ↑</div>
+      </div>
+    </div>
+  </div>
+
+  <h2>File ghi vào project</h2>
+  <table class="files">
+    <thead><tr><th>File</th><th>Nội dung</th></tr></thead>
+    <tbody>
+      <tr><td><code>social/social-kit.html</code></td><td>Bộ template này (avatar, cover, 2 post, story) — @dsCard group="Social"</td></tr>
+    </tbody>
+  </table>
+  <p class="note">Đây là bộ khởi đầu. Bước tiếp có thể thêm: thumbnail YouTube (16:9), template “lời chứng thực học viên”, và bộ màu luân phiên theo 6 kỹ năng (mỗi kỹ năng một sắc để chuỗi bài không đơn điệu). Nói mình nếu muốn mở rộng.</p>
+</div>
+<script>(function(){var r=document.documentElement,b=document.getElementById('tg');b.addEventListener('click',function(){var c=r.getAttribute('data-theme');if(!c)c=matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';r.setAttribute('data-theme',c==='dark'?'light':'dark');});})();</script>
+</body>
+</html>

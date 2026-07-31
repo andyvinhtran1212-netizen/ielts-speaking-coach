@@ -174,7 +174,8 @@ _MINI_TEST_ROW = {
     "id": "t-uuid", "test_id": "ILR-LIS-L01", "title": "L01 mini", "band_target": 5.5,
     "cue_points": [], "full_audio_storage_path": "tests/t-uuid/full.mp3",
     "full_audio_duration_seconds": 302,
-    "metadata": {"section_offsets": {"S3": 30.12}, "test_type": "mini"},
+    "test_type": "mini",   # mig 157 — cột thật
+    "metadata": {"section_offsets": {"S3": 30.12}},
     "themes": {},
 }
 _MINI_CONTENT = [{"id": "c3", "section_num": 3, "title": "S3", "transcript": "…",
@@ -205,3 +206,18 @@ def test_review_mini_rebases_window_to_section_relative(monkeypatch):
     # (the wrong turn at this pack starts at 95.22 s)
     assert win["start"] < 95.22, "must seek before the next (wrong) turn"
     assert win["start"] <= 77.11 and win["end"] >= 67.06, "window must overlap the answer turn"
+
+
+def test_review_test_projection_selects_test_type():
+    """Mig 157 — is_mini đọc test_row['test_type'] (cột thật). Projection của
+    fetch listening_tests trong review PHẢI select cột này; thiếu nó thì mọi
+    mini mới (metadata không còn test_type) mất rebase audio window. Fake ở
+    trên bỏ qua projection nên pin thẳng vào source (Codex P1, PR #798)."""
+    import inspect, re
+    # Đợt 2 — thân hàm tách sang _assemble_listening_review để bản xem trước của
+    # admin dùng LẠI đúng payload này (dựng lại lần hai là cách hai bên trôi khỏi
+    # nhau). Projection vẫn phải select test_type; chỉ đổi chỗ.
+    src = inspect.getsource(L._assemble_listening_review)
+    m = re.search(r'table\("listening_tests"\)[\s\S]{0,200}?select\("([^"]+)"', src)
+    assert m, "listening_tests fetch not found in review route"
+    assert "test_type" in m.group(1)

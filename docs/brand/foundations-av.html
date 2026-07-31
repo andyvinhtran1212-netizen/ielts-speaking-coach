@@ -1,0 +1,105 @@
+<!-- @dsCard group="Foundations" -->
+<!doctype html>
+<meta charset="utf-8">
+<title>Foundations — --av-* (reconciled 2026-07-24)</title>
+<style>
+  :root{
+    --av-brand-teal-500:#14B8A6; --av-brand-teal-700:#0F766E; --av-brand-teal-900:#134E4A;
+    --av-accent:#F59E0B; --av-vocab-jade:#0B6E59;
+    --av-skill-reading:#0EA5E9; --av-skill-listening:#8B5CF6; --av-skill-grammar:#4F46E5;
+    --av-success:#047857; --av-warning:#B45309; --av-error:#B91C1C; --av-info:#1D4ED8;
+    --pg:#FAFAF9; --card:#FFFFFF; --ink:rgba(15,23,42,.92); --ink2:rgba(15,23,42,.60); --line:rgba(15,23,42,.12);
+  }
+  [data-t="dark"]{
+    --av-brand-teal-700:#14B8A6; --av-accent:#FBBF24; --av-vocab-jade:#19BE92;
+    --av-success:#34D399; --av-warning:#FBBF24; --av-error:#F87171; --av-info:#60A5FA;
+    --pg:#0A1628; --card:#112236; --ink:rgba(241,245,249,.95); --ink2:rgba(241,245,249,.60); --line:rgba(255,255,255,.12);
+  }
+  body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;margin:0;background:var(--pg);color:var(--ink);
+       line-height:1.55;transition:background .25s,color .25s}
+  .wrap{max-width:920px;margin:0 auto;padding:28px 24px 48px}
+  header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:8px}
+  h1{font-size:1.5rem;margin:0}
+  .tag{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2)}
+  .toggle{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;
+          padding:6px 14px;font:inherit;font-size:13px;cursor:pointer}
+  h2{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink2);
+     margin:32px 0 12px;border-bottom:1px solid var(--line);padding-bottom:6px}
+  .swatches{display:flex;flex-wrap:wrap;gap:10px}
+  .sw{width:132px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--card)}
+  .sw .chip{height:52px}
+  .sw .meta{padding:8px 10px;font-size:11px}
+  .sw .meta b{display:block;font-size:12px;margin-bottom:2px}
+  .sw .meta code{font-family:'JetBrains Mono',monospace;color:var(--ink2);font-size:10px}
+  .type-row{display:flex;align-items:baseline;gap:14px;padding:6px 0;border-bottom:1px solid var(--line)}
+  .type-row code{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink2);min-width:120px}
+  .space-row{display:flex;align-items:center;gap:12px;padding:4px 0;font-size:12px}
+  .space-bar{height:14px;background:var(--av-brand-teal-700);border-radius:3px}
+  .radii{display:flex;gap:14px;flex-wrap:wrap}
+  .radii div{width:72px;height:72px;background:var(--av-brand-teal-700);display:flex;align-items:flex-end;
+             justify-content:center;color:#fff;font-size:10px;font-family:'JetBrains Mono',monospace;padding-bottom:6px}
+  .note{font-size:12px;color:var(--ink2);margin-top:6px}
+</style>
+<body>
+<div class="wrap" id="root" data-t="light">
+  <header>
+    <div><h1>Foundations · <code style="font-family:'JetBrains Mono',monospace;font-size:1rem">--av-*</code></h1>
+      <div class="tag">Reconciled với code production · 2026-07-24</div></div>
+    <button class="toggle" onclick="var r=document.getElementById('root');r.dataset.t=r.dataset.t==='dark'?'light':'dark'">◐ Light / Dark</button>
+  </header>
+
+  <h2>Màu thương hiệu</h2>
+  <div class="swatches">
+    <div class="sw"><div class="chip" style="background:var(--av-brand-teal-700)"></div><div class="meta"><b>Primary teal</b><code>--av-primary · #0F766E</code></div></div>
+    <div class="sw"><div class="chip" style="background:var(--av-accent)"></div><div class="meta"><b>Accent amber</b><code>--av-accent · #F59E0B</code></div></div>
+    <div class="sw"><div class="chip" style="background:var(--pg);border-bottom:1px solid var(--line)"></div><div class="meta"><b>Surface page</b><code>--av-surface-page</code></div></div>
+    <div class="sw"><div class="chip" style="background:var(--card);border-bottom:1px solid var(--line)"></div><div class="meta"><b>Surface card</b><code>--av-surface-card</code></div></div>
+  </div>
+
+  <h2>Màu 6 kỹ năng (thêm sau pivot 6-kỹ-năng)</h2>
+  <div class="swatches">
+    <div class="sw"><div class="chip" style="background:var(--av-accent)"></div><div class="meta"><b>Speaking</b><code>amber</code></div></div>
+    <div class="sw"><div class="chip" style="background:var(--av-brand-teal-700)"></div><div class="meta"><b>Writing</b><code>teal</code></div></div>
+    <div class="sw"><div class="chip" style="background:var(--av-skill-reading)"></div><div class="meta"><b>Reading</b><code>sky #0EA5E9</code></div></div>
+    <div class="sw"><div class="chip" style="background:var(--av-skill-listening)"></div><div class="meta"><b>Listening</b><code>violet #8B5CF6</code></div></div>
+    <div class="sw"><div class="chip" style="background:var(--av-skill-grammar)"></div><div class="meta"><b>Grammar</b><code>indigo #4F46E5</code></div></div>
+    <div class="sw"><div class="chip" style="background:var(--av-vocab-jade)"></div><div class="meta"><b>Vocab</b><code>jade #0B6E59</code></div></div>
+  </div>
+
+  <h2>Semantic</h2>
+  <div class="swatches">
+    <div class="sw"><div class="chip" style="background:var(--av-success)"></div><div class="meta"><b>Success</b><code>--av-success</code></div></div>
+    <div class="sw"><div class="chip" style="background:var(--av-warning)"></div><div class="meta"><b>Warning</b><code>--av-warning</code></div></div>
+    <div class="sw"><div class="chip" style="background:var(--av-error)"></div><div class="meta"><b>Error</b><code>--av-error</code></div></div>
+    <div class="sw"><div class="chip" style="background:var(--av-info)"></div><div class="meta"><b>Info</b><code>--av-info</code></div></div>
+  </div>
+
+  <h2>Type scale (rem, tỉ lệ 1.125 · Plus Jakarta Sans)</h2>
+  <div class="type-row"><code>--av-fs-4xl 2.25</code><span style="font-size:2.25rem;font-weight:700;letter-spacing:-.02em">Nói tự tin hơn</span></div>
+  <div class="type-row"><code>--av-fs-2xl 1.5</code><span style="font-size:1.5rem;font-weight:600">Đạt band cao hơn</span></div>
+  <div class="type-row"><code>--av-fs-lg 1.125</code><span style="font-size:1.125rem">Phản hồi theo tiêu chí IELTS</span></div>
+  <div class="type-row"><code>--av-fs-base 1</code><span style="font-size:1rem">Từ vựng · Ngữ pháp · Mạch lạc · Phát âm</span></div>
+  <div class="type-row"><code>--av-font-mono</code><span style="font-family:'JetBrains Mono',monospace;font-size:1.25rem">Band 7.0 · FC LR GRA P</span></div>
+  <p class="note">Line-height body 1.55 (an toàn dấu tiếng Việt) — không bao giờ dưới mức này.</p>
+
+  <h2>Spacing (lưới 4px, bỏ bậc lẻ)</h2>
+  <div class="space-row"><code style="font-family:'JetBrains Mono',monospace;min-width:96px">space-2 · 8</code><div class="space-bar" style="width:8px"></div></div>
+  <div class="space-row"><code style="font-family:'JetBrains Mono',monospace;min-width:96px">space-4 · 16</code><div class="space-bar" style="width:16px"></div></div>
+  <div class="space-row"><code style="font-family:'JetBrains Mono',monospace;min-width:96px">space-6 · 24</code><div class="space-bar" style="width:24px"></div></div>
+  <div class="space-row"><code style="font-family:'JetBrains Mono',monospace;min-width:96px">space-8 · 32</code><div class="space-bar" style="width:32px"></div></div>
+  <div class="space-row"><code style="font-family:'JetBrains Mono',monospace;min-width:96px">space-12 · 48</code><div class="space-bar" style="width:48px"></div></div>
+
+  <h2>Radius (md 8 nút · lg 12 card · xl 16 modal)</h2>
+  <div class="radii">
+    <div style="border-radius:4px">sm 4</div>
+    <div style="border-radius:8px">md 8</div>
+    <div style="border-radius:12px">lg 12</div>
+    <div style="border-radius:16px">xl 16</div>
+    <div style="border-radius:24px">2xl 24</div>
+    <div style="border-radius:999px">pill</div>
+  </div>
+
+  <h2>Motion</h2>
+  <p class="note">Easing default <code style="font-family:'JetBrains Mono',monospace">cubic-bezier(0.4,0,0.2,1)</code> · bounce <code style="font-family:'JetBrains Mono',monospace">cubic-bezier(0.34,1.56,0.64,1)</code> (dùng tiết chế) · duration 150 / 250 / 400ms.</p>
+</div>
+</body>

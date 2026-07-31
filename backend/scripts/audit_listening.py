@@ -75,7 +75,7 @@ async def audit_one(test, provider, use_llm: bool) -> dict:
     health = {**audit.summarize(issues), "question_count": len(h["all_questions"]),
               "llm": use_llm and provider is not None}
     return {"uuid": test["id"], "test_id": test.get("test_id"),
-            "type": (test.get("metadata") or {}).get("test_type") or "full-legacy",
+            "type": test.get("test_type") or "full",
             "health": health, "issues": issues}
 
 
@@ -86,7 +86,7 @@ async def main() -> int:
     ap.add_argument("--no-persist", action="store_true", help="report only; no DB write")
     args = ap.parse_args()
 
-    q = sb.table("listening_tests").select("id,test_id,metadata,status").order("test_id")
+    q = sb.table("listening_tests").select("id,test_id,test_type,metadata,status").order("test_id")
     if args.status != "all":
         q = q.eq("status", args.status)
     tests = q.execute().data or []

@@ -66,7 +66,8 @@ input: "text"
 headword: "titr-there-is-vs-there-are"
 skill: "production"
 subtype: "intermediate"
-prompt: "There ____ (be) many challenges ahead for young graduates — write the correct plural form of 'be'."
+prompt: "There ____ (be) many challenges ahead for young graduates."
+hint: "viết dạng số nhiều đúng của 'be'"
 accept: ["are"]
 case_sensitive: false
 grammar_article_slug: "there-is-there-are"
@@ -137,7 +138,8 @@ input: "text"
 headword: "titr-there-their-theyre"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (write the correct word: there/their/they're) is a book on their table. Write only the word needed to fill this blank."
+prompt: "____ is a book on their table."
+hint: "chọn đúng: there / their / they're"
 accept: ["there", "There"]
 case_sensitive: false
 grammar_article_slug: "there-is-there-are"
@@ -194,7 +196,8 @@ input: "text"
 headword: "titr-omitting-there"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (add missing 2 words) a supermarket near my house — write the two words needed at the start of the sentence."
+prompt: "____ (add missing 2 words) a supermarket near my house."
+hint: "2 từ đứng đầu câu"
 accept: ["there is"]
 case_sensitive: false
 grammar_article_slug: "there-is-there-are"
@@ -251,7 +254,8 @@ input: "text"
 headword: "titr-first-mention-vs-known"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (2 words) many temples and pagodas in Vietnam — write the two words needed to introduce this idea for the first time."
+prompt: "____ (2 words) many temples and pagodas in Vietnam."
+hint: "2 từ giới thiệu sự vật lần đầu được nhắc tới"
 accept: ["there are"]
 case_sensitive: false
 grammar_article_slug: "there-is-there-are"

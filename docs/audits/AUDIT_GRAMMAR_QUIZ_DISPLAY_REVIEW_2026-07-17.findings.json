@@ -1,0 +1,1288 @@
+{
+ "meta": {
+  "date": "2026-07-17",
+  "scope": "grammar quiz display layering + post-session review",
+  "banks": 139,
+  "questions": 3019,
+  "gap_text": 592
+ },
+ "embedded_instruction": [
+  {
+   "bank": "G-error-clinic-article-errors.md",
+   "qid": "aerr_placename_a1"
+  },
+  {
+   "bank": "G-error-clinic-historic-vs-historical.md",
+   "qid": "hh_historic_i2"
+  },
+  {
+   "bank": "G-error-clinic-historic-vs-historical.md",
+   "qid": "hh_hist_i2"
+  },
+  {
+   "bank": "G-error-clinic-historic-vs-historical.md",
+   "qid": "hh_colloc_i2"
+  },
+  {
+   "bank": "G-error-clinic-say-tell-speak-talk.md",
+   "qid": "stst_talk_i2"
+  },
+  {
+   "bank": "G-error-clinic-word-form-errors.md",
+   "qid": "wfe_nadj_i2"
+  },
+  {
+   "bank": "G-error-clinic-word-form-errors.md",
+   "qid": "wfe_adjn_i2"
+  },
+  {
+   "bank": "G-error-clinic-word-form-errors.md",
+   "qid": "wfe_adjadv_i2"
+  },
+  {
+   "bank": "G-error-clinic-word-form-errors.md",
+   "qid": "wfe_mkf_i2"
+  },
+  {
+   "bank": "G-foundations-articles-a-an-sound-rules.md",
+   "qid": "aan_core_i2"
+  },
+  {
+   "bank": "G-foundations-articles-a-an-sound-rules.md",
+   "qid": "aan_h_i2"
+  },
+  {
+   "bank": "G-foundations-articles-a-an-sound-rules.md",
+   "qid": "aan_abbr_i2"
+  },
+  {
+   "bank": "G-foundations-countable-vs-uncountable.md",
+   "qid": "cu_id_i2"
+  },
+  {
+   "bank": "G-foundations-countable-vs-uncountable.md",
+   "qid": "cu_quant_i2"
+  },
+  {
+   "bank": "G-foundations-countable-vs-uncountable.md",
+   "qid": "cu_part_i2"
+  },
+  {
+   "bank": "G-foundations-countable-vs-uncountable.md",
+   "qid": "cu_dual_i2"
+  },
+  {
+   "bank": "G-foundations-few-a-few-little-a-little.md",
+   "qid": "fal_group_i2"
+  },
+  {
+   "bank": "G-foundations-few-a-few-little-a-little.md",
+   "qid": "fal_pos_i2"
+  },
+  {
+   "bank": "G-foundations-few-a-few-little-a-little.md",
+   "qid": "fal_neg_i2"
+  },
+  {
+   "bank": "G-foundations-few-a-few-little-a-little.md",
+   "qid": "fal_cmp_i2"
+  },
+  {
+   "bank": "G-foundations-many-much-a-lot-of.md",
+   "qid": "mma_many_i2"
+  },
+  {
+   "bank": "G-foundations-many-much-a-lot-of.md",
+   "qid": "mma_much_i2"
+  },
+  {
+   "bank": "G-foundations-many-much-a-lot-of.md",
+   "qid": "mma_alot_i2"
+  },
+  {
+   "bank": "G-foundations-many-much-a-lot-of.md",
+   "qid": "mma_deg_i2"
+  },
+  {
+   "bank": "G-foundations-noun-phrase-basics.md",
+   "qid": "np_det_i2"
+  },
+  {
+   "bank": "G-foundations-noun-phrase-basics.md",
+   "qid": "np_adj_i2"
+  },
+  {
+   "bank": "G-foundations-noun-phrase-basics.md",
+   "qid": "np_post_i2"
+  },
+  {
+   "bank": "G-foundations-noun-phrase-basics.md",
+   "qid": "np_nm_i2"
+  },
+  {
+   "bank": "G-foundations-other-another-the-other-others.md",
+   "qid": "oat_another_i2"
+  },
+  {
+   "bank": "G-foundations-other-another-the-other-others.md",
+   "qid": "oat_other_i2"
+  },
+  {
+   "bank": "G-foundations-other-another-the-other-others.md",
+   "qid": "oat_theother_i2"
+  },
+  {
+   "bank": "G-foundations-other-another-the-other-others.md",
+   "qid": "oat_others_i2"
+  },
+  {
+   "bank": "G-foundations-other-another-the-other-others.md",
+   "qid": "oat_fixed_i2"
+  },
+  {
+   "bank": "G-foundations-parts-of-speech.md",
+   "qid": "pos_na_i2"
+  },
+  {
+   "bank": "G-foundations-parts-of-speech.md",
+   "qid": "pos_vn_i2"
+  },
+  {
+   "bank": "G-foundations-parts-of-speech.md",
+   "qid": "pos_aa_i2"
+  },
+  {
+   "bank": "G-foundations-parts-of-speech.md",
+   "qid": "pos_id_i2"
+  },
+  {
+   "bank": "G-foundations-phrase-vs-clause.md",
+   "qid": "pvc_pc_i2"
+  },
+  {
+   "bank": "G-foundations-phrase-vs-clause.md",
+   "qid": "pvc_frag_i2"
+  },
+  {
+   "bank": "G-foundations-phrase-vs-clause.md",
+   "qid": "pvc_dang_i2"
+  },
+  {
+   "bank": "G-foundations-sentence-elements.md",
+   "qid": "se_subj_i2"
+  },
+  {
+   "bank": "G-foundations-sentence-elements.md",
+   "qid": "se_verb_i2"
+  },
+  {
+   "bank": "G-foundations-sentence-elements.md",
+   "qid": "se_co_i2"
+  },
+  {
+   "bank": "G-foundations-sentence-elements.md",
+   "qid": "se_dummy_i2"
+  },
+  {
+   "bank": "G-foundations-singular-vs-plural.md",
+   "qid": "svp_irr_i2"
+  },
+  {
+   "bank": "G-foundations-singular-vs-plural.md",
+   "qid": "svp_sva_i2"
+  },
+  {
+   "bank": "G-foundations-singular-vs-plural.md",
+   "qid": "svp_num_i2"
+  },
+  {
+   "bank": "G-foundations-singular-vs-plural.md",
+   "qid": "svp_puo_i2"
+  },
+  {
+   "bank": "G-foundations-there-is-there-are.md",
+   "qid": "titr_isare_i2"
+  },
+  {
+   "bank": "G-foundations-there-is-there-are.md",
+   "qid": "titr_homo_i2"
+  },
+  {
+   "bank": "G-foundations-there-is-there-are.md",
+   "qid": "titr_omit_i2"
+  },
+  {
+   "bank": "G-foundations-there-is-there-are.md",
+   "qid": "titr_new_i2"
+  },
+  {
+   "bank": "G-foundations-there-is-vs-it-is.md",
+   "qid": "tivi_exist_i2"
+  },
+  {
+   "bank": "G-foundations-there-is-vs-it-is.md",
+   "qid": "tivi_desc_i2"
+  },
+  {
+   "bank": "G-foundations-there-is-vs-it-is.md",
+   "qid": "tivi_they_i2"
+  },
+  {
+   "bank": "G-foundations-there-is-vs-it-is.md",
+   "qid": "tivi_mix_i2"
+  },
+  {
+   "bank": "G-grammar-for-meaning-comparison.md",
+   "qid": "comp_asas_i2"
+  },
+  {
+   "bank": "G-grammar-for-meaning-comparison.md",
+   "qid": "comp_than_i2"
+  },
+  {
+   "bank": "G-grammar-for-meaning-conditionals.md",
+   "qid": "cond_unless_i2"
+  },
+  {
+   "bank": "G-grammar-for-meaning-discourse-markers.md",
+   "qid": "dm_con_i2"
+  },
+  {
+   "bank": "G-grammar-for-meaning-discourse-markers.md",
+   "qid": "dm_res_i2"
+  },
+  {
+   "bank": "G-grammar-for-meaning-discourse-markers.md",
+   "qid": "dm_punc_i2"
+  },
+  {
+   "bank": "G-grammar-for-meaning-quantifiers.md",
+   "qid": "qnt_mm_i2"
+  },
+  {
+   "bank": "G-grammar-for-meaning-quantifiers.md",
+   "qid": "qnt_fl_i2"
+  },
+  {
+   "bank": "G-grammar-for-meaning-quantifiers.md",
+   "qid": "qnt_al_i2"
+  },
+  {
+   "bank": "G-grammar-for-meaning-quantifiers.md",
+   "qid": "qnt_sa_i2"
+  },
+  {
+   "bank": "G-grammar-for-meaning-so-vs-such.md",
+   "qid": "sosu_so_i2"
+  },
+  {
+   "bank": "G-grammar-for-meaning-so-vs-such.md",
+   "qid": "sosu_err_i2"
+  },
+  {
+   "bank": "G-grammar-for-reading-logical-connectors-in-reading.md",
+   "qid": "lc_contrast_i2"
+  },
+  {
+   "bank": "G-grammar-for-reading-logical-connectors-in-reading.md",
+   "qid": "lc_concession_i2"
+  },
+  {
+   "bank": "G-grammar-for-reading-logical-connectors-in-reading.md",
+   "qid": "lc_concession_a2"
+  },
+  {
+   "bank": "G-grammar-for-reading-logical-connectors-in-reading.md",
+   "qid": "lc_cause_i2"
+  },
+  {
+   "bank": "G-grammar-for-reading-logical-connectors-in-reading.md",
+   "qid": "lc_addition_i2"
+  },
+  {
+   "bank": "G-grammar-for-reading-logical-connectors-in-reading.md",
+   "qid": "lc_addition_a2"
+  },
+  {
+   "bank": "G-grammar-for-reading-participle-clauses.md",
+   "qid": "pc_having_i2"
+  },
+  {
+   "bank": "G-grammar-for-reading-punctuation-as-meaning-signals.md",
+   "qid": "punc_strat_i1"
+  },
+  {
+   "bank": "G-grammar-for-reading-reference-and-cohesion.md",
+   "qid": "rc_this_i2"
+  },
+  {
+   "bank": "G-grammar-for-writing-cohesion-devices-in-writing.md",
+   "qid": "coh_top_i2"
+  },
+  {
+   "bank": "G-grammar-for-writing-grammar-in-task1.md",
+   "qid": "t1_prep_i3"
+  },
+  {
+   "bank": "G-grammar-for-writing-grammar-in-task1.md",
+   "qid": "t1_art_i3"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-adding-contrast-naturally.md",
+   "qid": "acn_butyet_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-adding-contrast-naturally.md",
+   "qid": "acn_despite_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-adding-reasons-clearly.md",
+   "qid": "arc_basic_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-adding-reasons-clearly.md",
+   "qid": "arc_prep_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-adding-reasons-clearly.md",
+   "qid": "arc_adv_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-adding-reasons-clearly.md",
+   "qid": "arc_result_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-adding-results-clearly.md",
+   "qid": "arc2_so_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-adding-results-clearly.md",
+   "qid": "arc2_sosuch_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-adding-results-clearly.md",
+   "qid": "arc2_participle_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-agreeing-and-disagreeing-naturally.md",
+   "qid": "adn_partial_i3"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-agreeing-and-disagreeing-naturally.md",
+   "qid": "adn_polite_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-agreeing-and-disagreeing-naturally.md",
+   "qid": "adn_link_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-avoiding-repetitive-sentence-openings.md",
+   "qid": "arso_subject_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-avoiding-repetitive-sentence-openings.md",
+   "qid": "arso_participle_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-avoiding-repetitive-sentence-openings.md",
+   "qid": "arso_cleft_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-avoiding-repetitive-sentence-openings.md",
+   "qid": "arso_adverb_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-balanced-arguments-grammar.md",
+   "qid": "bag_hand_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-balanced-arguments-grammar.md",
+   "qid": "bag_concede_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-balanced-arguments-grammar.md",
+   "qid": "bag_admit_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-balanced-arguments-grammar.md",
+   "qid": "bag_thatsaid_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-balanced-arguments-grammar.md",
+   "qid": "bag_parallel_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-common-ielts-grammar-mistakes.md",
+   "qid": "cigm_tense_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-common-ielts-grammar-mistakes.md",
+   "qid": "cigm_article_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-common-ielts-grammar-mistakes.md",
+   "qid": "cigm_wordform_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-common-ielts-grammar-mistakes.md",
+   "qid": "cigm_cond_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-conditionals-in-speaking.md",
+   "qid": "cis_zerofirst_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-expressing-preferences-naturally.md",
+   "qid": "epn_pref_i3"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-grammar-for-band7plus.md",
+   "qid": "gb7_inv_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-grammar-for-band7plus.md",
+   "qid": "gb7_wo_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-grammar-for-band7plus.md",
+   "qid": "gb7_hedge_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-making-answers-longer-naturally.md",
+   "qid": "mal_reason_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-making-answers-longer-naturally.md",
+   "qid": "mal_example_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-making-answers-longer-naturally.md",
+   "qid": "mal_contrast_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-making-answers-longer-naturally.md",
+   "qid": "mal_personal_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-softening-disagreement-politely.md",
+   "qid": "sdp_ack_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-strong-vs-cautious-opinions.md",
+   "qid": "svc_strongfact_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-strong-vs-cautious-opinions.md",
+   "qid": "svc_hedgemodal_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-strong-vs-cautious-opinions.md",
+   "qid": "svc_distance_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-strong-vs-cautious-opinions.md",
+   "qid": "svc_combo_i2"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-talking-about-habits-and-routines.md",
+   "qid": "thr_present_i2"
+  },
+  {
+   "bank": "G-modifiers-adjective-vs-adverb.md",
+   "qid": "linkact_i3"
+  },
+  {
+   "bank": "G-modifiers-adjective-vs-adverb.md",
+   "qid": "advadj_i2"
+  },
+  {
+   "bank": "G-modifiers-adjective-vs-adverb.md",
+   "qid": "goodwell_i2"
+  },
+  {
+   "bank": "G-modifiers-adjective-vs-adverb.md",
+   "qid": "hardlate_i2"
+  },
+  {
+   "bank": "G-modifiers-adjectives.md",
+   "qid": "adjlink_i2"
+  },
+  {
+   "bank": "G-modifiers-adverbs.md",
+   "qid": "freqpos_i2"
+  },
+  {
+   "bank": "G-modifiers-adverbs.md",
+   "qid": "mannerpos_i2"
+  },
+  {
+   "bank": "G-modifiers-adverbs.md",
+   "qid": "degreecomp_i2"
+  },
+  {
+   "bank": "G-modifiers-adverbs.md",
+   "qid": "sentadv_i3"
+  },
+  {
+   "bank": "G-modifiers-order-of-adjectives.md",
+   "qid": "oa_cc_i3"
+  },
+  {
+   "bank": "G-parts-of-speech-nouns.md",
+   "qid": "noun_cnt_i2"
+  },
+  {
+   "bank": "G-parts-of-speech-word-formation-adjective-suffixes.md",
+   "qid": "wfas_ai_i2"
+  },
+  {
+   "bank": "G-parts-of-speech-word-formation-adjective-suffixes.md",
+   "qid": "wfas_ivous_i2"
+  },
+  {
+   "bank": "G-parts-of-speech-word-formation-adjective-suffixes.md",
+   "qid": "wfas_alic_i2"
+  },
+  {
+   "bank": "G-parts-of-speech-word-formation-adjective-suffixes.md",
+   "qid": "wfas_fl_i2"
+  }
+ ],
+ "leak_A_copy": [
+  {
+   "bank": "G-error-clinic-historic-vs-historical.md",
+   "qid": "hh_historic_i2",
+   "accept": "historic",
+   "prompt": "The signing of the peace treaty was widely regarded as a ____ (historic — viết đúng dạng) moment for both nations."
+  },
+  {
+   "bank": "G-error-clinic-historic-vs-historical.md",
+   "qid": "hh_hist_i2",
+   "accept": "historical",
+   "prompt": "From a ____ (historical — viết đúng dạng) perspective, urbanisation has always been accompanied by both opportunities and challenges."
+  },
+  {
+   "bank": "G-error-clinic-historic-vs-historical.md",
+   "qid": "hh_colloc_i2",
+   "accept": "historic",
+   "prompt": "We are living through ____ (historic — viết đúng dạng) times that will be studied by future generations."
+  },
+  {
+   "bank": "G-error-clinic-overusing-i-think.md",
+   "qid": "eit_opn_i2",
+   "accept": "in my opinion",
+   "prompt": "____ (in my opinion), the job market is simply far more diverse in urban areas."
+  },
+  {
+   "bank": "G-error-clinic-overusing-i-think.md",
+   "qid": "eit_str_i2",
+   "accept": "I am convinced",
+   "prompt": "____ (I am convinced) that early childhood education has a far greater impact than people realise."
+  },
+  {
+   "bank": "G-error-clinic-overusing-i-think.md",
+   "qid": "eit_prs_i2",
+   "accept": "for me",
+   "prompt": "____ (for me), the most rewarding part of travelling is meeting local people rather than visiting tourist attractions."
+  },
+  {
+   "bank": "G-foundations-countable-vs-uncountable.md",
+   "qid": "cu_quant_i2",
+   "accept": "few",
+   "prompt": "The airport reported that ____ luggage items had gone missing this month — write the correct quantifier (few/little)."
+  },
+  {
+   "bank": "G-foundations-few-a-few-little-a-little.md",
+   "qid": "fal_pos_i2",
+   "accept": "a little",
+   "prompt": "He speaks ____ (a little / little — positive nuance, enough to get by) French, which helped him during the trip to Paris — write the two-word phrase."
+  },
+  {
+   "bank": "G-foundations-few-a-few-little-a-little.md",
+   "qid": "fal_neg_i2",
+   "accept": "Few",
+   "prompt": "____ (few / little — negative, countable noun 'researchers') researchers have studied this rare disease in depth — write one word."
+  },
+  {
+   "bank": "G-foundations-few-a-few-little-a-little.md",
+   "qid": "fal_cmp_i2",
+   "accept": "fewer",
+   "prompt": "Compared with last semester, the class has ____ (fewer/less — students, a countable plural noun) students this term — write one word."
+  },
+  {
+   "bank": "G-foundations-many-much-a-lot-of.md",
+   "qid": "mma_many_i2",
+   "accept": "Many",
+   "prompt": "____ (many/much — choose for 'startups', a countable plural noun) tech startups failed within their first two years — write one word."
+  },
+  {
+   "bank": "G-foundations-many-much-a-lot-of.md",
+   "qid": "mma_alot_i2",
+   "accept": "a lot of",
+   "prompt": "He has ____ (a lot of) experience volunteering at animal shelters — write the three-word phrase."
+  },
+  {
+   "bank": "G-foundations-many-much-a-lot-of.md",
+   "qid": "mma_deg_i2",
+   "accept": "too much",
+   "prompt": "He spends ____ (too much) screen time on his phone, according to his doctor — write the two-word phrase."
+  },
+  {
+   "bank": "G-foundations-other-another-the-other-others.md",
+   "qid": "oat_another_i2",
+   "accept": "another",
+   "prompt": "The startup needs ____ (another/other — choose for 'investor', a singular countable noun) investor before it can launch the product — write one word."
+  },
+  {
+   "bank": "G-foundations-other-another-the-other-others.md",
+   "qid": "oat_other_i2",
+   "accept": "other",
+   "prompt": "The city needs ____ (other/others — choose for 'measures', a plural noun) measures to tackle air pollution besides banning old vehicles — write one word."
+  },
+  {
+   "bank": "G-foundations-other-another-the-other-others.md",
+   "qid": "oat_theother_i2",
+   "accept": "the other",
+   "prompt": "I've read one of the two reports already; I'll read ____ (the other) tomorrow — write the two-word phrase (referring back to 'report' as a pronoun, no noun after)."
+  },
+  {
+   "bank": "G-foundations-other-another-the-other-others.md",
+   "qid": "oat_others_i2",
+   "accept": "others",
+   "prompt": "Some employees welcomed the new policy, but ____ (others/the others — no specific group defined, general contrast) worried about job security — write one word."
+  },
+  {
+   "bank": "G-foundations-other-another-the-other-others.md",
+   "qid": "oat_fixed_i2",
+   "accept": "in other words",
+   "prompt": "____ (in other words), the policy failed to achieve its main goal — write the three-word fixed phrase meaning 'nói cách khác'."
+  },
+  {
+   "bank": "G-grammar-for-meaning-although-though-even-though.md",
+   "qid": "ate_ev_i2",
+   "accept": "even though",
+   "prompt": "He donated the money ____ (even though) he could barely afford it himself."
+  },
+  {
+   "bank": "G-grammar-for-meaning-because-vs-because-of.md",
+   "qid": "bvb_alt_i2",
+   "accept": "Given that",
+   "prompt": "____ (Given that) resources are limited, priorities must be carefully set by policymakers."
+  },
+  {
+   "bank": "G-grammar-for-meaning-discourse-markers-spoken.md",
+   "qid": "dms_think_i2",
+   "accept": "you know",
+   "prompt": "I really enjoy cooking, ____ (you know), especially traditional Vietnamese dishes."
+  },
+  {
+   "bank": "G-grammar-for-meaning-discourse-markers-spoken.md",
+   "qid": "dms_soft_i2",
+   "accept": "sort of",
+   "prompt": "I ____ (sort of) prefer staying at home, to be honest."
+  },
+  {
+   "bank": "G-grammar-for-meaning-discourse-markers-spoken.md",
+   "qid": "dms_emp_i2",
+   "accept": "the thing is",
+   "prompt": "____ (the thing is), I never really enjoyed maths in school."
+  },
+  {
+   "bank": "G-grammar-for-meaning-discourse-markers-spoken.md",
+   "qid": "dms_over_i2",
+   "accept": "what's more",
+   "prompt": "I loved the food there. ____ (what's more), the people were incredibly friendly."
+  },
+  {
+   "bank": "G-grammar-for-meaning-quantifiers.md",
+   "qid": "qnt_al_i2",
+   "accept": "a little",
+   "prompt": "There is ____ (a little) hope remaining despite the setbacks — write the quantifier only."
+  },
+  {
+   "bank": "G-grammar-for-writing-task1-trend-grammar.md",
+   "qid": "t1tg_noun_i2",
+   "accept": "increase",
+   "prompt": "There was a considerable ____ (increase — noun form) in tourist arrivals to the region after the visa restrictions were lifted."
+  },
+  {
+   "bank": "G-ielts-grammar-lab-grammar-in-speaking.md",
+   "qid": "gis_modal_i2",
+   "accept": "can",
+   "prompt": "Technology ____ (can, khả năng) help students learn faster, though results vary."
+  },
+  {
+   "bank": "G-modifiers-adjectives.md",
+   "qid": "adjvsadv_i2",
+   "accept": "well",
+   "prompt": "He speaks English very ____ (well/good — chọn dạng adverb đúng để mô tả 'speaks')."
+  },
+  {
+   "bank": "G-parts-of-speech-determiners-overview.md",
+   "qid": "deto_count_i2",
+   "accept": "many",
+   "prompt": "The survey found that ____ (many/much — chọn đúng vì 'complaints' là danh từ đếm được số nhiều) complaints were related to delayed shipping."
+  },
+  {
+   "bank": "G-parts-of-speech-nouns.md",
+   "qid": "noun_cnt_i2",
+   "accept": "information",
+   "prompt": "Researchers say that reliable ____ (information — viết đúng dạng, không thêm 's') about climate change is now widely available online."
+  },
+  {
+   "bank": "G-parts-of-speech-verbs.md",
+   "qid": "verb_stat_i2",
+   "accept": "understand",
+   "prompt": "I completely ____ (understand, thì hiện tại đơn) your concerns about the new policy."
+  },
+  {
+   "bank": "G-parts-of-speech-verbs.md",
+   "qid": "verb_link_i2",
+   "accept": "calm",
+   "prompt": "Despite the bad news, she remained remarkably ____ (calm, viết đúng dạng tính từ, KHÔNG chia trạng từ) throughout the interview."
+  }
+ ],
+ "leak_Ai_empty_transform": [
+  {
+   "bank": "G-error-clinic-do-vs-make.md",
+   "qid": "dm_noise_i2",
+   "accept": "make",
+   "prompt": "Whenever the renovation team starts drilling upstairs, they ____ (make) an enormous amount of noise."
+  },
+  {
+   "bank": "G-error-clinic-say-tell-speak-talk.md",
+   "qid": "stst_say_i2",
+   "accept": "say",
+   "prompt": "Don't forget to ____ (say) thank you when someone helps you."
+  },
+  {
+   "bank": "G-error-clinic-say-tell-speak-talk.md",
+   "qid": "stst_tell_i2",
+   "accept": "tell",
+   "prompt": "It's hard to ____ (tell) the difference between the two designs."
+  },
+  {
+   "bank": "G-foundations-countable-vs-uncountable.md",
+   "qid": "cu_id_i2",
+   "accept": "equipment",
+   "prompt": "The gym has bought new ____ (equipment) for members — write the correct form of 'equipment' (singular, no -s)."
+  },
+  {
+   "bank": "G-foundations-sentence-elements.md",
+   "qid": "se_co_i2",
+   "accept": "success",
+   "prompt": "She achieved great ____ (success) after years of hard work — write the noun form of 'success' functioning as an OBJECT (something achieved), not a complement."
+  },
+  {
+   "bank": "G-foundations-singular-vs-plural.md",
+   "qid": "svp_num_i2",
+   "accept": "request",
+   "prompt": "A number of employees ____ (request) additional training this year — write the correct plural verb form of 'request'."
+  },
+  {
+   "bank": "G-grammar-for-meaning-academic-hedging.md",
+   "qid": "ah_verb_i2",
+   "accept": "suggest",
+   "prompt": "Recent studies ____ (suggest) that regular physical exercise reduces the risk of depression."
+  },
+  {
+   "bank": "G-grammar-for-meaning-academic-hedging.md",
+   "qid": "ah_adv_i2",
+   "accept": "probably",
+   "prompt": "The long-term consequences are ____ (probably) more severe than currently acknowledged."
+  },
+  {
+   "bank": "G-grammar-for-meaning-although-though-even-though.md",
+   "qid": "ate_alt_i1",
+   "accept": "Although",
+   "prompt": "____ (Although) she worked very hard, she did not pass the final exam."
+  },
+  {
+   "bank": "G-grammar-for-meaning-although-though-even-though.md",
+   "qid": "ate_tho_i2",
+   "accept": "though",
+   "prompt": "He didn't win the competition. He learned a lot, ____ (though)."
+  },
+  {
+   "bank": "G-grammar-for-meaning-although-though-even-though.md",
+   "qid": "ate_cmp_i2",
+   "accept": "Although",
+   "prompt": "____ (Although) the approach was promising, the results were disappointing in the end."
+  },
+  {
+   "bank": "G-grammar-for-meaning-because-vs-because-of.md",
+   "qid": "bvb_bec_i1",
+   "accept": "because",
+   "prompt": "Many people struggle with English ____ (because) the grammar is genuinely complex."
+  },
+  {
+   "bank": "G-grammar-for-meaning-because-vs-because-of.md",
+   "qid": "bvb_conv_i2",
+   "accept": "increase",
+   "prompt": "Chuyển 'because demand increased' sang cấu trúc noun phrase: 'because of the ____ (increase) in demand.'"
+  },
+  {
+   "bank": "G-grammar-for-meaning-grammatical-collocations.md",
+   "qid": "gc_noprep_i2",
+   "accept": "mentioned",
+   "prompt": "He ____ (mentioned) the problem briefly during the interview, without going into detail."
+  },
+  {
+   "bank": "G-grammar-for-meaning-grammatical-collocations.md",
+   "qid": "gc_adjprep_i2",
+   "accept": "proud",
+   "prompt": "My grandmother is ____ (proud) of her garden — she has grown vegetables there for over thirty years."
+  },
+  {
+   "bank": "G-grammar-for-meaning-grammatical-collocations.md",
+   "qid": "gc_advcol_i2",
+   "accept": "highly",
+   "prompt": "I would ____ (highly) recommend this book to anyone interested in Vietnamese history."
+  },
+  {
+   "bank": "G-grammar-for-meaning-hedging-language.md",
+   "qid": "hl_adv_i2",
+   "accept": "potentially",
+   "prompt": "The side effects of the new treatment are ____ (potentially) serious and require further study."
+  },
+  {
+   "bank": "G-grammar-for-meaning-quantifiers.md",
+   "qid": "qnt_mm_i2",
+   "accept": "many",
+   "prompt": "There are ____ (many) students struggling with academic writing this semester — write the quantifier only."
+  },
+  {
+   "bank": "G-grammar-for-meaning-quantifiers.md",
+   "qid": "qnt_fl_i2",
+   "accept": "Few",
+   "prompt": "____ (few) nations managed to achieve the target by the deadline — write the quantifier only, meaning 'rất ít, đáng lo ngại'."
+  },
+  {
+   "bank": "G-grammar-for-meaning-quantifiers.md",
+   "qid": "qnt_sa_i2",
+   "accept": "Some",
+   "prompt": "____ (some) countries have adopted this approach successfully — write the quantifier only, for an affirmative statement."
+  },
+  {
+   "bank": "G-grammar-for-reading-reduced-relative-clauses.md",
+   "qid": "rrc_main_i2",
+   "accept": "recommend",
+   "prompt": "The report submitted last week ____ (recommend) stricter environmental policies."
+  },
+  {
+   "bank": "G-grammar-for-writing-parallel-structure.md",
+   "qid": "pst_list_i2",
+   "accept": "raise",
+   "prompt": "Governments should invest in renewable energy, tighten emissions regulations, and ____ (raise) public awareness."
+  },
+  {
+   "bank": "G-grammar-for-writing-parallel-structure.md",
+   "qid": "pst_cor_i2",
+   "accept": "either",
+   "prompt": "This problem can be tackled ____ (either) by raising taxes or by cutting subsidies."
+  },
+  {
+   "bank": "G-ielts-grammar-lab-expressing-preferences-naturally.md",
+   "qid": "epn_rather_i2",
+   "accept": "fly",
+   "prompt": "I'd rather travel by train than ____ (fly) — it's more comfortable and relaxing."
+  },
+  {
+   "bank": "G-ielts-grammar-lab-softening-disagreement-politely.md",
+   "qid": "sdp_modal_i2",
+   "accept": "say",
+   "prompt": "Điền động từ đúng dạng: 'I wouldn't ____ (say) technology is ruining society; we're still adapting to it.'"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-talking-about-changes-over-time.md",
+   "qid": "toc_nolonger_i2",
+   "accept": "anymore",
+   "prompt": "Điền cụm đúng: 'People don't rely on encyclopaedias ____ (anymore) — everything is searchable online.' (viết lại chính xác từ trong ngoặc)"
+  },
+  {
+   "bank": "G-modifiers-adjective-vs-adverb.md",
+   "qid": "linkact_i3",
+   "accept": "serious",
+   "prompt": "The situation became ____ (serious) after the second warning — write only the adjective form."
+  },
+  {
+   "bank": "G-modifiers-adjective-vs-adverb.md",
+   "qid": "hardlate_i2",
+   "accept": "late",
+   "prompt": "The train arrived ____ (late), so we missed our connecting flight — write only the adverb form meaning 'muộn'."
+  },
+  {
+   "bank": "G-modifiers-adjectives.md",
+   "qid": "adjlink_i2",
+   "accept": "cold",
+   "prompt": "The weather is getting ____ (cold) as winter approaches — write only the adjective form."
+  },
+  {
+   "bank": "G-sentence-structures-simple-sentence.md",
+   "qid": "ss_id_i2",
+   "accept": "study",
+   "prompt": "Hoàn thành để tạo câu ĐƠN đúng ngữ pháp (không được dùng liên từ phụ thuộc): 'Many young Vietnamese students ____ (study) abroad every year.'"
+  },
+  {
+   "bank": "G-tenses-present-simple.md",
+   "qid": "ps_truth_i2",
+   "accept": "argue",
+   "prompt": "Many researchers ____ (argue) that regular exercise improves mental health."
+  }
+ ],
+ "leak_B_hint_contains_answer": [
+  {
+   "bank": "G-error-clinic-article-errors.md",
+   "qid": "aerr_auncount_a1",
+   "accept": "work experience",
+   "prompt": "Sửa lỗi mạo từ trong câu bài luận (gõ đúng cụm 2 từ để điền vào chỗ trống, KHÔNG dùng 'a'): 'Employers often value ____ more than formal qualifications.' (học sinh viết gốc: 'a work experience')"
+  },
+  {
+   "bank": "G-error-clinic-wrong-pronoun-reference.md",
+   "qid": "pr_it_i2",
+   "accept": "the proposal",
+   "prompt": "The committee reviewed the budget and the proposal. ____ (viết lại 'It was rejected' cho rõ nghĩa, dùng danh từ 'the proposal') was rejected."
+  },
+  {
+   "bank": "G-error-clinic-wrong-pronoun-reference.md",
+   "qid": "pr_they_i2",
+   "accept": "both parties",
+   "prompt": "Landlords and tenants often disagree about repairs. ____ (viết lại 'They' cho rõ nghĩa, dùng cụm 'both parties') should communicate more clearly."
+  },
+  {
+   "bank": "G-error-clinic-wrong-pronoun-reference.md",
+   "qid": "pr_thisthat_i2",
+   "accept": "this trend",
+   "prompt": "Plastic waste is increasing, and recycling rates remain low. ____ (viết lại 'This is worrying' cho rõ nghĩa, dùng cụm 'this trend') is worrying."
+  },
+  {
+   "bank": "G-error-clinic-wrong-pronoun-reference.md",
+   "qid": "pr_hesh_i2",
+   "accept": "Sarah",
+   "prompt": "Tránh 'she' mơ hồ (Sarah hay her sister?): 'Sarah called her sister because ____ was worried about the trip.' Điền tên riêng rõ nghĩa vào chỗ trống:"
+  },
+  {
+   "bank": "G-foundations-articles-with-places-and-names.md",
+   "qid": "apn_country_i2",
+   "accept": "The",
+   "prompt": "____ (mạo từ, 1 từ) Netherlands is famous for its cycling infrastructure and flood management systems."
+  },
+  {
+   "bank": "G-foundations-articles-with-places-and-names.md",
+   "qid": "apn_water_i2",
+   "accept": "The",
+   "prompt": "____ (mạo từ, 1 từ) Panama Canal connects the Atlantic and Pacific Oceans."
+  },
+  {
+   "bank": "G-foundations-noun-phrase-basics.md",
+   "qid": "np_det_i2",
+   "accept": "The",
+   "prompt": "____ (determiner) factor that most influences consumer choice is price — write the single word that fits the blank (a definite, specific factor already implied)."
+  },
+  {
+   "bank": "G-foundations-parts-of-speech.md",
+   "qid": "pos_id_i2",
+   "accept": "spoken",
+   "prompt": "Complete with the correct part of speech: 'His ____ (speak) English is very good.' — write the word needed here (adjective form of 'speak' that means 'in spoken form')."
+  },
+  {
+   "bank": "G-foundations-phrase-vs-clause.md",
+   "qid": "pvc_pc_i2",
+   "accept": "clause",
+   "prompt": "Identify: 'What matters most' is a noun ____ because it contains a subject and a conjugated verb — write ONE word: 'phrase' or 'clause'."
+  },
+  {
+   "bank": "G-foundations-this-that-these-those-in-use.md",
+   "qid": "ttt_psych_i2",
+   "accept": "those",
+   "prompt": "____ (viết 'that' hoặc 'those', số nhiều) kinds of excuses simply aren't convincing to the examiner."
+  },
+  {
+   "bank": "G-grammar-for-reading-comparison-structures-in-reading.md",
+   "qid": "cmp_naa_i1",
+   "accept": "scarcity",
+   "prompt": "Hoàn thành: 'Water scarcity in the south is not as severe as ____ in the north.'"
+  },
+  {
+   "bank": "G-grammar-for-reading-ellipsis-and-substitution.md",
+   "qid": "sub_one_i1",
+   "accept": "plants",
+   "prompt": "Several manufacturing plants closed last year; the surviving ____ are now more efficient."
+  },
+  {
+   "bank": "G-grammar-for-reading-reference-and-cohesion.md",
+   "qid": "rc_pronoun_a2",
+   "accept": "They",
+   "prompt": "Select the correct pronoun for this passage: 'The research team discovered two distinct patterns in the data. ____ had not been documented in previous studies, which suggested a significant breakthrough.' (use it or they)"
+  },
+  {
+   "bank": "G-grammar-for-reading-reference-and-cohesion.md",
+   "qid": "rc_this_i2",
+   "accept": "These",
+   "prompt": "Complete with 'this', 'these', or 'such': 'Artificial intelligence has surpassed human performance in certain domains. ____ advances have raised ethical concerns about AI deployment.' (use one word)"
+  },
+  {
+   "bank": "G-grammar-for-reading-reference-and-cohesion.md",
+   "qid": "rc_this_a2",
+   "accept": "These",
+   "prompt": "Fill the blank with 'this', 'these', or 'such': 'The study demonstrated that meditation reduces stress, improves focus, and enhances emotional resilience. ____ benefits have sparked widespread adoption of mindfulness programs in schools and workplaces.' (use one word)"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-adding-contrast-naturally.md",
+   "qid": "acn_subord_i2",
+   "accept": "Even though",
+   "prompt": "____ (write 'even though') she had little experience in public speaking, she delivered a confident presentation."
+  },
+  {
+   "bank": "G-ielts-grammar-lab-avoiding-repetitive-sentence-openings.md",
+   "qid": "arso_front_i2",
+   "accept": "As a child",
+   "prompt": "Rewrite fronting the time adverbial: 'I spent most weekends at my grandparents' house as a child.' → '____ (gõ 3 từ: As a child; dấu phẩy tuỳ chọn), I spent most weekends at my grandparents' house.'"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-common-ielts-grammar-mistakes.md",
+   "qid": "cigm_article_i2",
+   "accept": "the",
+   "prompt": "I finally read ____ (write the one-word article) book you recommended to me last month — the specific one already mentioned."
+  },
+  {
+   "bank": "G-ielts-grammar-lab-giving-examples-naturally.md",
+   "qid": "gen_fe_i2",
+   "accept": "for example",
+   "prompt": "Several European countries have excellent public transport systems, ____, Switzerland and the Netherlands. (điền cụm 2 từ 'for example' đúng vị trí giữa câu)"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-giving-examples-naturally.md",
+   "qid": "gen_sp_i2",
+   "accept": "mean",
+   "prompt": "Cities can be overwhelming — I ____ , the noise, the traffic, the crowds... it's a lot to deal with. (điền cụm 'I mean' để làm rõ ý)"
+  },
+  {
+   "bank": "G-ielts-grammar-lab-strong-vs-cautious-opinions.md",
+   "qid": "svc_strongfact_i2",
+   "accept": "obvious",
+   "prompt": "Complete with ONE word: 'It is ____ that technology has transformed how we communicate.' (meaning: obviously true, hard to deny)"
+  },
+  {
+   "bank": "G-modifiers-adjectives.md",
+   "qid": "adjnoplural_i2",
+   "accept": "talented",
+   "prompt": "Sửa lỗi adjective: 'She has three ____ daughters.' (điền dạng đúng của talented, không -s)"
+  },
+  {
+   "bank": "G-parts-of-speech-determiners-overview.md",
+   "qid": "deto_spec_i2",
+   "accept": "the",
+   "prompt": "A journalist interviewed several witnesses. ____ (viết mạo từ đúng, vì 'witnesses' đã được nhắc và giờ là xác định) witnesses gave conflicting accounts of the accident."
+  }
+ ],
+ "leak_C_choice_hint": [
+  {
+   "bank": "G-error-clinic-dangling-modifiers.md",
+   "qid": "dm_part_i2",
+   "accept": "the candidate",
+   "prompt": "Điền chủ ngữ đúng ngay sau dấu phẩy để cụm phân từ không bị treo: 'Arriving late for the interview, ____ (write a short subject/noun phrase only, e.g. the candidate) apologised to the panel.'"
+  },
+  {
+   "bank": "G-foundations-few-a-few-little-a-little.md",
+   "qid": "fal_group_i2",
+   "accept": "a few",
+   "prompt": "The tour guide gave us ____ (a little / a few — choose correctly for 'tips', a countable plural noun) useful tips before the hike — write the two-word phrase."
+  },
+  {
+   "bank": "G-foundations-many-much-a-lot-of.md",
+   "qid": "mma_much_i2",
+   "accept": "much",
+   "prompt": "There isn't ____ (many/much — choose for 'legroom', an uncountable noun) legroom on budget airlines these days — write one word."
+  },
+  {
+   "bank": "G-foundations-there-is-there-are.md",
+   "qid": "titr_homo_i2",
+   "accept": "there",
+   "prompt": "____ (write the correct word: there/their/they're) is a book on their table. Write only the word needed to fill this blank."
+  },
+  {
+   "bank": "G-parts-of-speech-determiners-overview.md",
+   "qid": "deto_class_i2",
+   "accept": "numeral",
+   "prompt": "Xác định NHÓM (1 từ tiếng Anh: article/possessive/demonstrative/quantifier/numeral) của từ in đậm: 'Several **candidates** applied, but only **one** was shortlisted.' — từ 'one' ở đây thuộc nhóm ____ ."
+  }
+ ],
+ "cluttered_3layer": [
+  {
+   "bank": "G-error-clinic-word-form-errors.md",
+   "qid": "wfe_mkf_i2",
+   "len": 144
+  },
+  {
+   "bank": "G-foundations-countable-vs-uncountable.md",
+   "qid": "cu_dual_i2",
+   "len": 168
+  },
+  {
+   "bank": "G-foundations-few-a-few-little-a-little.md",
+   "qid": "fal_group_i2",
+   "len": 158
+  },
+  {
+   "bank": "G-foundations-few-a-few-little-a-little.md",
+   "qid": "fal_pos_i2",
+   "len": 149
+  },
+  {
+   "bank": "G-foundations-noun-phrase-basics.md",
+   "qid": "np_det_i2",
+   "len": 161
+  },
+  {
+   "bank": "G-foundations-other-another-the-other-others.md",
+   "qid": "oat_another_i2",
+   "len": 149
+  },
+  {
+   "bank": "G-foundations-other-another-the-other-others.md",
+   "qid": "oat_other_i2",
+   "len": 153
+  },
+  {
+   "bank": "G-foundations-other-another-the-other-others.md",
+   "qid": "oat_theother_i2",
+   "len": 163
+  },
+  {
+   "bank": "G-foundations-other-another-the-other-others.md",
+   "qid": "oat_others_i2",
+   "len": 159
+  },
+  {
+   "bank": "G-foundations-parts-of-speech.md",
+   "qid": "pos_id_i2",
+   "len": 168
+  },
+  {
+   "bank": "G-foundations-phrase-vs-clause.md",
+   "qid": "pvc_frag_i2",
+   "len": 192
+  },
+  {
+   "bank": "G-foundations-phrase-vs-clause.md",
+   "qid": "pvc_dang_i2",
+   "len": 167
+  },
+  {
+   "bank": "G-foundations-sentence-elements.md",
+   "qid": "se_co_i2",
+   "len": 158
+  },
+  {
+   "bank": "G-foundations-there-is-vs-it-is.md",
+   "qid": "tivi_mix_i2",
+   "len": 174
+  },
+  {
+   "bank": "G-grammar-for-reading-logical-connectors-in-reading.md",
+   "qid": "lc_concession_i2",
+   "len": 158
+  },
+  {
+   "bank": "G-grammar-for-reading-logical-connectors-in-reading.md",
+   "qid": "lc_concession_a2",
+   "len": 221
+  },
+  {
+   "bank": "G-grammar-for-reading-logical-connectors-in-reading.md",
+   "qid": "lc_cause_i2",
+   "len": 162
+  },
+  {
+   "bank": "G-grammar-for-reading-logical-connectors-in-reading.md",
+   "qid": "lc_addition_a2",
+   "len": 218
+  },
+  {
+   "bank": "G-grammar-for-reading-punctuation-as-meaning-signals.md",
+   "qid": "punc_strat_i1",
+   "len": 224
+  },
+  {
+   "bank": "G-grammar-for-reading-reference-and-cohesion.md",
+   "qid": "rc_this_i2",
+   "len": 198
+  },
+  {
+   "bank": "G-grammar-for-writing-cohesion-devices-in-writing.md",
+   "qid": "coh_top_i2",
+   "len": 251
+  },
+  {
+   "bank": "G-ielts-grammar-lab-adding-contrast-naturally.md",
+   "qid": "acn_butyet_i2",
+   "len": 247
+  },
+  {
+   "bank": "G-ielts-grammar-lab-adding-reasons-clearly.md",
+   "qid": "arc_basic_i2",
+   "len": 189
+  },
+  {
+   "bank": "G-ielts-grammar-lab-adding-reasons-clearly.md",
+   "qid": "arc_prep_i2",
+   "len": 162
+  },
+  {
+   "bank": "G-ielts-grammar-lab-adding-reasons-clearly.md",
+   "qid": "arc_adv_i2",
+   "len": 176
+  },
+  {
+   "bank": "G-ielts-grammar-lab-adding-reasons-clearly.md",
+   "qid": "arc_result_i2",
+   "len": 147
+  },
+  {
+   "bank": "G-ielts-grammar-lab-adding-results-clearly.md",
+   "qid": "arc2_so_i2",
+   "len": 203
+  },
+  {
+   "bank": "G-ielts-grammar-lab-adding-results-clearly.md",
+   "qid": "arc2_participle_i2",
+   "len": 166
+  },
+  {
+   "bank": "G-ielts-grammar-lab-avoiding-repetitive-sentence-openings.md",
+   "qid": "arso_subject_i2",
+   "len": 204
+  },
+  {
+   "bank": "G-ielts-grammar-lab-avoiding-repetitive-sentence-openings.md",
+   "qid": "arso_participle_i2",
+   "len": 154
+  },
+  {
+   "bank": "G-ielts-grammar-lab-avoiding-repetitive-sentence-openings.md",
+   "qid": "arso_cleft_i2",
+   "len": 179
+  },
+  {
+   "bank": "G-ielts-grammar-lab-balanced-arguments-grammar.md",
+   "qid": "bag_parallel_i2",
+   "len": 227
+  },
+  {
+   "bank": "G-modifiers-adverbs.md",
+   "qid": "freqpos_i2",
+   "len": 155
+  },
+  {
+   "bank": "G-modifiers-adverbs.md",
+   "qid": "degreecomp_i2",
+   "len": 145
+  },
+  {
+   "bank": "G-modifiers-order-of-adjectives.md",
+   "qid": "oa_cc_i3",
+   "len": 215
+  }
+ ]
+}

@@ -45,6 +45,8 @@ def _rows(code: str, *, full_dur=400, transcript_ok=True):
     test = {
         "id": "t-uuid", "test_id": f"ILR-LIS-DRL-{code}-L2-T1", "status": "published",
         "metadata": res.test_metadata["metadata"],
+        # Mig 157 — test_type là cột thật trên listening_tests.
+        "test_type": res.test_metadata["test_type"],
         "full_audio_storage_path": "drills/x/full.mp3",
         "full_audio_duration_seconds": full_dur,
     }

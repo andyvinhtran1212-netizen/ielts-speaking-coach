@@ -18,6 +18,8 @@ const SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
   }
 })();
 
+import { fetchAllTests } from './listening-list-paging.js';
+
 const $ = (id) => document.getElementById(id);
 
 const VIEWS = {
@@ -72,7 +74,7 @@ function renderCard(t) {
       ${meta ? `<div class="lt-card-meta" style="text-transform:none;letter-spacing:0;">${esc(meta)}</div>` : ''}
       <div class="lt-card-stats">${statsBits.join('')}</div>
       <div class="lt-card-actions" style="display:flex; gap:var(--av-space-2); flex-wrap:wrap;">
-        <a class="${ctaClass}" href="/pages/listening-test.html?id=${encodeURIComponent(t.id)}">${ctaLabel}</a>
+        <a class="${ctaClass}" href="/pages/listening-test.html?id=${encodeURIComponent(t.id)}&from=full">${ctaLabel}</a>
         <a class="lt-card-cta secondary" href="/pages/listening-test-dictation.html?test_id=${encodeURIComponent(t.id)}">✍️ Chép chính tả</a>
       </div>
     </article>
@@ -84,8 +86,7 @@ async function load() {
   try {
     // Full Tests library EXCLUDES mini tests (they have their own page). Explicit
     // so it can't regress if the endpoint default ever changes.
-    const res = await window.api.get('/api/listening/tests?test_type=full&limit=50');
-    const items = Array.isArray(res && res.items) ? res.items : [];
+    const items = await fetchAllTests('full', (p) => window.api.get(p));
     if (!items.length) {
       showState('empty');
       return;

@@ -89,6 +89,9 @@ export default function AuthedLayout({ children }: { children: ReactNode }) {
       />
       <script src="/js/runtime-config.js" defer />
       <script src="/js/api.js" defer />
+      {/* AUDIT F2: field Web Vitals per implementation tag (rollback-metrics
+          reads them for the frozen LCP trigger). */}
+      <script src="/js/rum-vitals.js" defer />
       <script dangerouslySetInnerHTML={{ __html: SUPABASE_INIT }} />
       <script dangerouslySetInnerHTML={{ __html: LUCIDE_HYDRATE }} />
 

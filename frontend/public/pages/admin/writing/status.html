@@ -98,6 +98,22 @@
     var TERMINAL = { graded: true, reviewed: true, delivered: true, failed: true };
 
     var _essayId = new URLSearchParams(window.location.search).get('essay_id');
+
+    // Cockpit embed: the queue routes pending/grading mock essays here, so the
+    // hop onward into grade.html must carry the flags — drop them and the "Xem
+    // kết quả" CTA reloads the tab panel with a whole admin page nested inside
+    // the cockpit (Codex review, PR #773).
+    function _withEmbed(url) {
+      try {
+        var p = new URLSearchParams(location.search);
+        var out = [];
+        if (p.get('embed') === '1') out.push('embed=1');
+        if (p.get('mocklane') === '1') out.push('mocklane=1');
+        if (!out.length) return url;
+        return url + (url.indexOf('?') === -1 ? '?' : '&') + out.join('&');
+      } catch (e) { return url; }
+    }
+
     var _startedAt = Date.now();
     var _eta = 60;
     var _timer = null;
@@ -190,7 +206,7 @@
       // Show "view result" CTA when graded — Sprint W3 will provide /grade page
       if (s === 'graded' || s === 'reviewed' || s === 'delivered') {
         var viewBtn = document.getElementById('btn-view');
-        viewBtn.href = '/pages/admin/writing/grade.html?essay_id=' + encodeURIComponent(_essayId);
+        viewBtn.href = _withEmbed('/pages/admin/writing/grade.html?essay_id=' + encodeURIComponent(_essayId));
         viewBtn.classList.remove('hidden');
 
         if (!_notified) {
@@ -256,6 +272,21 @@
     })();
   </script>
   </aver-admin-chrome>
+
+  <!-- Opened from the Mock Test cockpit's queue (?embed=1) → hide the admin nav
+       so the cockpit's chrome shows once. The queue routes pending/grading rows
+       here, so this page needs the hook as much as grade.html does. Runs before
+       the deferred chrome module, so the attribute is present on upgrade. -->
+  <script>
+    (function () {
+      try {
+        if (new URLSearchParams(location.search).get('embed') === '1') {
+          var el = document.querySelector('aver-admin-chrome');
+          if (el) el.setAttribute('embed', '');
+        }
+      } catch (e) { /* no-op */ }
+    })();
+  </script>
   <script type="module" src="/js/components/aver-admin-chrome.js"></script>
 </body>
 </html>

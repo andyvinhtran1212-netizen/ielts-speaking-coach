@@ -51,7 +51,7 @@ The root cause is that new surfaces had no enforced rule to use `--av-*`. Lock t
 
 ### Phase 2 — Foundations: type scale + fonts (A2, A4.5) · risk: low-med
 - **h1 unification:** pick one canonical skill-hub heading token (recommend the Vocab/Home `clamp(2rem,4vw,3rem)` as the standard, or a fixed `--av-fs-3xl`). Apply to Speaking hub (`subpage-header__title` 18px → up) and Reading hub so all 3 hubs match. *Decision D1 below.*
-- **Fonts:** sanction the documented set (Plus Jakarta+JetBrains; Grammar's DM Sans+Lora; exam system-ui). Resolve the **undocumented** Vocab-wiki Fraunces/Hanken/DM-Mono: either document it as a sanctioned 3rd system or migrate to standard. *Decision D2 below.*
+- **Fonts:** ~~sanction the documented set~~ — **DECIDED 2026-07-25 (D2 below), and decided wider than this line asked.** The sanctioned set is **Plus Jakarta (sans/display) + JetBrains (mono) + Lora (serif, long-form reading only)**, all reached via `--av-font-*`. Grammar's DM Sans is **gone site-wide** (done, DEBT-2026-07-24-J step b); Vocab-wiki's Fraunces/Hanken/DM-Mono **migrate to standard**, they are not sanctioned as a 3rd system (step c, open). Guarded by `frontend/tests/font-system-ratchet.test.mjs`.
 - **Verify:** visual check of the 3 hubs (light+dark); `theme-toggle` + typography tests green.
 
 ### Phase 3 — Token-migrate the post-pivot skins (A1, A4 core) · risk: med-HIGH · **one surface per PR**
@@ -77,7 +77,7 @@ Order by isolation (least coupled first):
 
 ## Open decisions (confirm before the relevant phase)
 - **D1 (Phase 2):** canonical skill-hub h1 scale — Vocab/Home `clamp(2rem,4vw,3rem)` (recommended) vs a fixed `--av-fs-3xl` (30px)?
-- **D2 (Phase 2):** Vocab-wiki Fraunces/Hanken/DM-Mono — **sanction & document** as a 3rd system, or **migrate** to the standard Plus-Jakarta family?
+- **D2 (Phase 2):** ~~sanction or migrate?~~ → **ANSWERED 2026-07-25: MIGRATE.** No 3rd system. One sans, one mono, one controlled serif (Lora, long-form only). Grammar half shipped; Vocab half is DEBT-2026-07-24-J step (c) — note the word/flashcard card has test-pinned styling, so that half is the risky one.
 - **D3 (Phase 4):** canonical button — `btn-primary` (recommended, 52 files) vs promote `av-button`?
 - **Horizon:** ~6–8 small PRs (one surface / one primitive-family each) over multiple sessions vs one big-bang (not recommended — un-reviewable, high regression risk).
 

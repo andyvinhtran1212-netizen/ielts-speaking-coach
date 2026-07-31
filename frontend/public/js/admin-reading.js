@@ -378,6 +378,13 @@
           ' <button type="button" class="ar-row-action" ' +
             'data-action="edit-test" data-test-id="' + escapeHtml(it.slug) + '" ' +
             'data-test-title="' + escapeHtml(it.title || '') + '">Sửa</button>' +
+          // Reserve for a mock exam / hand it back to the student library. The
+          // reverse direction is server-guarded: a paper a LIVE exam still binds
+          // cannot go back (409, and it names the exam).
+          ' <button type="button" class="ar-row-action" ' +
+            'data-action="toggle-exam-only" data-test-id="' + escapeHtml(it.slug) + '" ' +
+            'data-next="' + (it.exam_only ? '0' : '1') + '">' +
+            (it.exam_only ? 'Trả về thư viện' : 'Chuyển sang đề kỳ thi') + '</button>' +
           ' <button type="button" class="ar-row-action is-danger" ' +
             'data-action="delete-test" data-test-id="' + escapeHtml(it.slug) + '" ' +
             'data-test-title="' + escapeHtml(it.title || '') + '">Xoá</button>' +
@@ -434,10 +441,36 @@
   // (hard `deleted` vs soft `archived`, with attempt count preserved).
   // The handler is wired ONCE via event delegation on the table body
   // so re-renders don't accumulate listeners.
+
+  // Reserve a paper for mock exams, or hand it back to the student library.
+  //
+  // The RELEASE direction is the dangerous one and is refused server-side when a
+  // non-archived exam still binds the test — so this does not pre-check, it just
+  // surfaces the 409. Duplicating the rule in the browser is how the two drift,
+  // and the browser's copy is the one that cannot be trusted.
+  function handleToggleExamOnly(btn) {
+    var testId = btn.getAttribute('data-test-id');
+    var next = btn.getAttribute('data-next') === '1';
+    var msg = next
+      ? 'Chuyển "' + testId + '" thành đề kỳ thi?\n\nĐề sẽ BIẾN MẤT khỏi thư viện luyện tập của học viên.'
+      : 'Trả "' + testId + '" về thư viện luyện tập?\n\nHọc viên sẽ luyện được đề này. '
+        + 'Nếu đề từng dùng cho một kỳ thi ĐÃ LƯU TRỮ, khoá sau có thể luyện đúng đề khoá trước vừa thi.';
+    if (!window.confirm(msg)) return;
+    btn.disabled = true;
+    window.api.post('/admin/reading/content/tests/' + encodeURIComponent(testId) + '/exam-only',
+                    { exam_only: next })
+      .then(function () { setStatus(next ? 'Đã chuyển sang đề kỳ thi.' : 'Đã trả về thư viện.', 'ok'); loadList(); })
+      .catch(function (e) {
+        btn.disabled = false;
+        setStatus('Không đổi được: ' + (e && e.message ? e.message : e), 'error');
+      });
+  }
+
   function handleListClick(ev) {
     var btn = ev.target && ev.target.closest && ev.target.closest('button[data-action]');
     if (!btn) return;
     var action = btn.getAttribute('data-action');
+    if (action === 'toggle-exam-only') return handleToggleExamOnly(btn);
     if (action === 'delete-test')   return handleDeleteTest(btn);
     if (action === 'edit-test')     return handleEditTest(btn);
     if (action === 'lock-test')     return handleLockTest(btn);

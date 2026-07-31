@@ -81,6 +81,10 @@
   function deepLink(r) {
     var base = DEEP_LINK[r.skill];
     if (!base || !r.test_id) return null;
+    // Practice/exercise feedback (2026-07-17): test_id mang prefix
+    // "practice:<slug>" / "exercise:<content_uuid>" — không phải test,
+    // đừng build link ?test= hỏng; hiển thị nhãn văn bản là đủ.
+    if (/^(practice|exercise):/.test(r.test_id)) return null;
     var href = base + '?test=' + encodeURIComponent(r.test_id);
     if (r.q_num != null) href += '#q' + r.q_num;
     return href;

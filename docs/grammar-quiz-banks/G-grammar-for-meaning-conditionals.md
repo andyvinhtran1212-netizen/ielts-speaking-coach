@@ -265,7 +265,7 @@ input: "text"
 headword: "cond-unless"
 skill: "production"
 subtype: "intermediate"
-prompt: "The plan will not succeed ____ it receives adequate funding — write only the missing word."
+prompt: "The plan will not succeed ____ it receives adequate funding."
 accept: ["unless"]
 case_sensitive: false
 grammar_article_slug: "conditionals"

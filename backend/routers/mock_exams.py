@@ -23,7 +23,7 @@ Namespace note: distinct from /api/exams (the MCQ module). Prefix /api/mock-exam
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from routers.auth import get_supabase_user
@@ -64,11 +64,38 @@ class SectionSubmitBody(BaseModel):
     task2_text: str = ""
 
 
+class IntegrityBody(BaseModel):
+    """Absolute running totals from the runner, not deltas — the client keeps
+    them in localStorage so they survive a reload, and the server takes the max,
+    which makes retries idempotent and makes the value un-decreasable.
+
+    DELIBERATELY UNCONSTRAINED at this boundary. record_integrity() sanitises
+    field by field — junk is dropped, never raised, because a SOFT signal must
+    never be able to break an exam. Constrained `int = Field(ge=0)` fields
+    undid that: a mixed payload like {"blur_count": "bad", "offline_events": 2}
+    was rejected wholesale with a 422 before the service ever saw it, so the
+    VALID counter was lost too (Codex review, PR #849).
+    """
+
+    blur_count:     object | None = None
+    blur_seconds:   object | None = None
+    resumes:        object | None = None
+    offline_events: object | None = None
+
+
 @router.get("")
 async def list_open(authorization: str | None = Header(default=None)):
     """Open exams the student can start (published + is_open + cohort-eligible)."""
     user = await get_supabase_user(authorization)
     return {"exams": svc.list_open_exams(user["id"])}
+
+
+@router.get("/my-sittings")
+async def my_sittings(authorization: str | None = Header(default=None)):
+    """The caller's own sittings (resume targets + released results) — powers the
+    student home's mock section + result tile."""
+    user = await get_supabase_user(authorization)
+    return {"sittings": svc.list_my_sittings(user["id"])}
 
 
 @router.post("/{code}/sittings")
@@ -100,13 +127,36 @@ async def get_sitting_state(
         active = (exam or {}).get("active_section") or "not_started"
         time_left = svc.section_time_remaining_seconds(exam, active) if exam else None
         assigned = None
+        # THE PAUSE APPLIES TO THE STUDENT TOO. `/collect` sets
+        # collected_section synchronously and sweeps the sittings in the
+        # BACKGROUND, and it deliberately leaves active_section alone — so
+        # between the two, a student whose row has not been swept yet still saw
+        # an open section with a running clock, while the invigilator had just
+        # been told the class was in a clock-free break. The live console was
+        # fixed for this; the student endpoint was not (Codex adversarial
+        # review, 2026-07-26).
+        if (exam or {}).get("collected_section") == active:
+            time_left = None
     return {
         "sitting": sitting,
         "exam": svc.get_exam_content_for_sitting(sitting),
         "exam_mode": (exam or {}).get("exam_mode") or "sequential",
         "assigned_skills": assigned,
         "active_section": active,
+        # The canonical pause marker, so the runner can close the paper without
+        # waiting for its own sitting to be swept. None for retake (no shared
+        # collect step exists in that mode).
+        "collected_section": (
+            None if svc.is_retake(exam) else (exam or {}).get("collected_section")
+        ),
         "section_time_left_seconds": time_left,
+        # Full length of the open section. With time_left it gives ELAPSED,
+        # which is what a resuming Listening runner needs to seek the audio to
+        # the point the rest of the room is already at (the shared clock is on
+        # the exam, not on the student's own start click).
+        "section_duration_seconds": (
+            svc.section_duration_seconds(exam, active) if exam else None
+        ),
     }
 
 
@@ -152,16 +202,52 @@ async def submit_writing(
 @router.post("/sittings/{sitting_id}/sections/{section}/submit")
 async def submit_section(
     sitting_id: str, section: str, body: SectionSubmitBody,
+    background_tasks: BackgroundTasks,
     authorization: str | None = Header(default=None),
 ):
     """Collect ONE section (listening/reading/writing). No early manual
     submit exists client-side — this fires when that section's shared clock
-    hits 0. Finalises the sitting once every configured section is in."""
+    hits 0. Finalises the sitting once every configured section is in.
+
+    On a Writing submit, auto-start AI grading for the essays this promoted so
+    they land 'graded' + ready for admin review without a manual "Bắt đầu chấm"
+    click (the review + release still gate on the admin approving each)."""
     user = await get_supabase_user(authorization)
     try:
-        return svc.submit_section(
+        result = svc.submit_section(
             sitting_id, user["id"], section, body.task1_text, body.task2_text,
         )
+    except Exception as e:  # noqa: BLE001
+        _raise_for(e)
+
+    if section == "writing":
+        # Re-read the sitting: submit_section's returned dict may predate the
+        # promote update, but the persisted row carries the stamped essay ids.
+        # Only essays meeting the IELTS word minimum are auto-graded; a too-short
+        # task is left 'pending' for the admin to decide in the Mock queue tab.
+        sitting = svc.get_sitting(sitting_id) or {}
+        graded = svc.claim_mock_writing_grading(
+            [sitting.get("essay_task1_id"), sitting.get("essay_task2_id")]
+        )
+        for essay_id, job_id in graded["queued"]:
+            background_tasks.add_task(essay_service._bg_grade_essay, essay_id, job_id)
+    return result
+
+
+@router.post("/sittings/{sitting_id}/integrity")
+async def record_integrity(
+    sitting_id: str, body: IntegrityBody,
+    authorization: str | None = Header(default=None),
+):
+    """Soft integrity counters from the runner (tab hidden, resumes, drops).
+
+    INFORMATIONAL ONLY — never auto-penalises, never feeds a band. Lets an
+    examiner looking at a surprising result see whether the tab was hidden for
+    ten minutes or the connection died six times, instead of guessing.
+    Monotonic + idempotent, so a retry cannot inflate or erase anything."""
+    user = await get_supabase_user(authorization)
+    try:
+        return svc.record_integrity(sitting_id, user["id"], body.model_dump())
     except Exception as e:  # noqa: BLE001
         _raise_for(e)
 
@@ -216,4 +302,20 @@ async def get_result(
         "reading_attempt_id":   sitting.get("reading_attempt_id"),
         "essay_task1_id":       e1 if str(e1) in delivered else None,
         "essay_task2_id":       e2 if str(e2) in delivered else None,
+        # Per-task Writing outcome. The two ids above only ever surfaced a link
+        # for a readable essay and said NOTHING about a task that never got
+        # graded — the student saw one link, one silent gap, no explanation.
+        # This lets the TRF show the graded task AND state why the other is
+        # absent (2026-07-15).
+        #
+        # Empty when the sitting has no Writing at all (an L/R-only retake) —
+        # writing_task_states decides that off the sitting's own assigned_skills.
+        "writing_tasks":        svc.writing_task_states(sitting, delivered),
+        # Why a Listening/Reading skill carries no band. The grid lists only
+        # banded skills, so a bandless one vanished with no explanation — the
+        # same silent gap the Writing cards fixed (2026-07-15).
+        "lr_skills":            svc.lr_skill_states(sitting),
+        # The admin's retest decision per skill, so the TRF can tell the student
+        # which skills to redo. Absent/false = not flagged.
+        "retest_flags":         {k: bool(v) for k, v in (review.get("retest_flags") or {}).items() if v},
     }

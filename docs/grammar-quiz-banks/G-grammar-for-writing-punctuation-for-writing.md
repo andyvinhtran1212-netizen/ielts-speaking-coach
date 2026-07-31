@@ -82,7 +82,7 @@ subtype: "advanced"
 prompt: "Đúng hay Sai: 'Effective revision involves: making notes, reviewing past mistakes, and practising under timed conditions.' dùng dấu hai chấm đúng chuẩn học thuật."
 answer: false
 grammar_article_slug: "punctuation-for-writing"
-explain: "SAI — 'Effective revision involves' chưa trọn nghĩa nếu không có phần liệt kê ngay sau (động từ 'involves' cần tân ngữ), nên đặt dấu hai chấm ở đây là sai. Sửa: bỏ dấu hai chấm ('Effective revision involves making notes, reviewing past mistakes, and practising under timed conditions.') hoặc viết lại vế trước cho trọn nghĩa: 'Effective revision involves three steps: making notes, reviewing past mistakes, and practising under timed conditions.'"
+explain: "SAI — Động từ 'involves' bắt buộc phải có tân ngữ (object) để hoàn thiện ý. 'Revision involves' chưa xong — không thể đặt dấu hai chấm ngay sau. Sửa: bỏ dấu hai chấm ('...involves making notes, reviewing...') hoặc thêm danh từ ('...involves three steps: ...')."
 ---
 
 # ===== item_key 2 · Dấu chấm phẩy (semicolon) nối 2 mệnh đề độc lập liên quan =====

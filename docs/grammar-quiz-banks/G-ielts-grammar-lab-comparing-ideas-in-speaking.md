@@ -96,7 +96,7 @@ prompt: "Public healthcare services are generally ____ accessible in urban areas
 options: ["more", "-er", "as", "so"]
 answer: 0
 grammar_article_slug: "comparing-ideas-in-speaking"
-explain: "'accessible' là tính từ dài (3 âm tiết) → dùng 'more accessible than', không thêm đuôi '-er'."
+explain: "'accessible' là tính từ dài (4 âm tiết: ac-cess-i-ble) → dùng 'more accessible than', không thêm đuôi '-er'."
 ---
 
 ---
@@ -150,7 +150,8 @@ input: "text"
 headword: "cis-contrast-structures"
 skill: "production"
 subtype: "intermediate"
-prompt: "Working from home increases productivity for many people. ____, it can blur the boundary between work and personal life. (điền connector đứng đầu câu thứ hai, viết hoa chữ đầu)"
+prompt: "Working from home increases productivity for many people. ____, it can blur the boundary between work and personal life."
+hint: "điền connector đứng đầu câu thứ hai, viết hoa chữ đầu"
 accept: ["However", "On the other hand"]
 case_sensitive: false
 grammar_article_slug: "comparing-ideas-in-speaking"

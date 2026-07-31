@@ -65,9 +65,9 @@ def test_parse_each_type_clean(code):
     res = imp.parse_drill(_load(code), _timings(code))
     assert not res.errors, f"{code} errors: {res.errors}"
     assert res.exercise_rows, f"{code} produced no exercises"
-    # metadata carries the drill discriminators
+    # test_type là cột thật (mig 157); metadata giữ các discriminator còn lại
+    assert res.test_metadata["test_type"] == "drill"
     md = res.test_metadata["metadata"]
-    assert md["test_type"] == "drill"
     assert md["drill_type"] == _EXPECT_SKILL[code]
     assert md["level"] == "L2"
     assert md["task"] == "T1"
@@ -227,8 +227,12 @@ def test_drill_commit_persists_with_audio(monkeypatch):
     stub = _CommitStub()
     monkeypatch.setattr(listening_module, "supabase_admin", stub)
     monkeypatch.setattr(listening_module, "_upload_audio_to_bucket", lambda p, b: None)
-    monkeypatch.setattr(listening_audio, "validate_section_audio",
-                        lambda b: {"duration_seconds": 281, "size_bytes": len(b), "errors": [], "warnings": []})
+    # Signature takes the test_type now (per-KIND duration floor), so the stub
+    # must accept it — and asserts the drill path passes the right one.
+    def _fake_validate(b, test_type=None):
+        assert test_type == "drill", f"drill import must declare its kind, got {test_type!r}"
+        return {"duration_seconds": 281, "size_bytes": len(b), "errors": [], "warnings": []}
+    monkeypatch.setattr(listening_audio, "validate_section_audio", _fake_validate)
     out = _run(listening_module.admin_import_drill_commit(
         source_json=_upload("ILR-LIS-DRL-MCQ-L2-T1.json", _bytes("MCQ")),
         timings=_upload("timings.json", _timings_bytes("MCQ")),
@@ -240,7 +244,7 @@ def test_drill_commit_persists_with_audio(monkeypatch):
     tests_rows = [p for (t, p) in stub.inserts if t == "listening_tests"]
     assert len(tests_rows) == 1
     tr = tests_rows[0]
-    assert tr["metadata"]["test_type"] == "drill"
+    assert tr["test_type"] == "drill"
     assert tr["metadata"]["drill_type"] == "mcq"
     assert tr["full_audio_storage_path"].startswith("drills/")
     content_rows = [p for (t, p) in stub.inserts if t == "listening_content"]
@@ -275,7 +279,7 @@ class _ListStub:
     def range(self, *a, **k): return self
     def in_(self, *a, **k): return self
     def eq(self, col, val=None):
-        if col == "metadata->>test_type":
+        if col == "test_type":
             self.eq_filter = val
         return self
     def or_(self, expr):
@@ -314,7 +318,15 @@ def test_list_default_excludes_drill(monkeypatch):
     monkeypatch.setattr(listening_module, "supabase_admin", stub)
     _run(listening_module.list_published_listening_tests(
         test_type="full", limit=50, offset=0, authorization="x"))
-    assert stub.or_filter and "not.in.(mini,drill)" in stub.or_filter
+    # Mig 157: full library = eq trên cột thật, không còn or_ NULL-fallback.
+    #
+    # Assert cũ là `or_filter is None` — cấm MỌI or_. Từ khi điều kiện
+    # audio-ready được đẩy xuống SQL (để phân trang không hụt dòng và để
+    # /overview khớp danh sách), truy vấn có đúng MỘT or_, và nó nói về audio
+    # chứ không về test_type. Siết lại đúng ý định gốc.
+    assert stub.eq_filter == "full"
+    assert stub.or_filter == listening_module._AUDIO_READY_OR, \
+        "test_type phải lọc bằng eq trên cột, không quay về or_ trên metadata"
 
 
 def test_list_rejects_bad_test_type(monkeypatch):
@@ -333,8 +345,12 @@ def test_drill_commit_audio_without_timings_rejected(monkeypatch):
     async def _ok(_a): return {"id": "admin", "role": "admin"}
     monkeypatch.setattr(listening_module, "require_admin", _ok)
     monkeypatch.setattr(listening_module, "supabase_admin", _CommitStub())
-    monkeypatch.setattr(listening_audio, "validate_section_audio",
-                        lambda b: {"duration_seconds": 281, "size_bytes": len(b), "errors": [], "warnings": []})
+    # Signature takes the test_type now (per-KIND duration floor), so the stub
+    # must accept it — and asserts the drill path passes the right one.
+    def _fake_validate(b, test_type=None):
+        assert test_type == "drill", f"drill import must declare its kind, got {test_type!r}"
+        return {"duration_seconds": 281, "size_bytes": len(b), "errors": [], "warnings": []}
+    monkeypatch.setattr(listening_audio, "validate_section_audio", _fake_validate)
     with pytest.raises(HTTPException) as e:
         _run(listening_module.admin_import_drill_commit(
             source_json=_upload("ILR-LIS-DRL-MCQ-L2-T1.json", _bytes("MCQ")),

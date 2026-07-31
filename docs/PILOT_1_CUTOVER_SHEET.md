@@ -92,3 +92,14 @@ Merged #751 → auto-promote **20s** → production phục vụ Next tại `/`.
 - Auto-promote OK: release trên `/js/runtime-config.js` = main HEAD `e22b84ff` → nightly `production-release-drift` sẽ xanh.
 
 **Đây là route production ĐẦU TIÊN của chương trình migration cutover sang Next.** Soak window bắt đầu; rollback trigger + cơ chế (Instant Rollback ≤12s → Undo Rollback) đã freeze ở §4 trên. Theo dõi error-rate `/` theo tag `implementation=next` trên dashboard ADR-012.
+
+---
+
+## ⚠️ SOAK TỪ `e22b84ff` VÔ HIỆU — audit ngoài 2026-07-14 (F3)
+
+Cửa sổ soak khai báo ở trên **không đạt chuẩn soak hợp lệ**, hạ cấp thành *diagnostic observation*:
+1. **Vi phạm ADR-007 §6:** 3 deploy production sau cutover không cờ hotfix/incident-commander (`67b7b56e`, `a05c5816`, `0afefe88`) — mỗi deploy đổi release đang soak.
+2. ~2 giờ đầu **zero telemetry gắn tag** từ `/` (error-reporter chỉ được thêm vào landing ở #755, sau cutover) — khoảng mù không đo được.
+3. Trigger error-rate/LCP khi đó **không tính được** từ dashboard (thiếu denominator/route/cửa sổ 30ph/baseline — đóng ở audit F1/F2).
+
+**Quyết định:** giữ `/` trên Next (không rollback — quan sát diagnostic không thấy tín hiệu xấu); đồng hồ soak **reset về 0** theo `docs/SOAK_DECLARATION_PILOT_1.md` sau khi merge trọn gói remediation (F1–F8) thành MỘT release đóng băng. Pilot 2 **No-Go** cho tới khi soak mới hoàn tất.

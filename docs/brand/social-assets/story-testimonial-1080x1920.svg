@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920" width="1080" height="1920">
+  <!-- ===== STORY LỜI CHỨNG THỰC — đổi [QUOTE] · [TÊN] · [BAND] ===== -->
+  <defs>
+    <radialGradient id="gst" cx="80%" cy="8%" r="110%"><stop offset="0%" stop-color="#0F2A3E"/><stop offset="60%" stop-color="#0A1628"/></radialGradient>
+  </defs>
+  <rect width="1080" height="1920" fill="url(#gst)"/>
+  <g transform="translate(90,300)">
+    <g transform="scale(0.55)"><path d="M18 66 L48 20 L78 66" fill="none" stroke="#14B8A6" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/><circle cx="48" cy="11" r="8" fill="#FBBF24"/></g>
+    <text x="60" y="38" font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="34" letter-spacing="-1"><tspan font-weight="800" fill="#fff">Aver</tspan><tspan font-weight="600" fill="#5EEAD4"> Learning</tspan></text>
+  </g>
+  <text x="90" y="500" font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="30" font-weight="700" letter-spacing="5" fill="#5EEAD4">HỌC VIÊN NÓI GÌ</text>
+  <text x="76" y="660" font-family="Georgia,serif" font-size="220" font-weight="700" fill="#14B8A6" opacity="0.2">&#8220;</text>
+  <g font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="52" font-weight="600" fill="#fff" letter-spacing="-0.5">
+    <text x="90" y="740">Mình vốn ngại phần Speaking.</text>
+    <text x="90" y="820">Sau mỗi câu trả lời, AI chỉ đúng</text>
+    <text x="90" y="900">chỗ phát âm chưa rõ và cách sửa</text>
+    <text x="90" y="980">— không chung chung. Ba tháng</text>
+    <text x="90" y="1060">sau, mình tự tin hơn hẳn.</text>
+  </g>
+  <g transform="translate(90,1300)">
+    <circle cx="54" cy="54" r="54" fill="#0F766E"/>
+    <text x="54" y="72" text-anchor="middle" font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="46" font-weight="800" fill="#fff">MA</text>
+    <text x="140" y="44" font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="44" font-weight="800" fill="#fff">Nguyễn Minh Anh</text>
+    <text x="140" y="92" font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="32" font-weight="500" fill="rgba(255,255,255,0.6)">Học viên IELTS</text>
+    <g transform="translate(680,14)"><rect width="240" height="80" rx="40" fill="rgba(245,158,11,0.18)"/><text x="120" y="53" text-anchor="middle" font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="38" font-weight="800" fill="#FBBF24">Band 7.0</text></g>
+  </g>
+  <g transform="translate(0,1560)">
+    <rect x="90" y="0" width="900" height="96" rx="48" fill="#14B8A6"/>
+    <text x="540" y="62" text-anchor="middle" font-family="'Plus Jakarta Sans',system-ui,sans-serif" font-size="40" font-weight="700" fill="#04130E">Bắt đầu miễn phí ↑</text>
+  </g>
+</svg>

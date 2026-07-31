@@ -216,6 +216,50 @@
         <div id="migration-stats-body">—</div>
       </section>
 
+      <!-- AUDIT F1: rollback-trigger metrics per route — the FROZEN triggers
+           (error-rate > 2× baseline / 30ph; LCP p75 > 1.5× baseline / 24h)
+           computed with a real denominator (page_view beacons) and field Web
+           Vitals. Rendered by admin-error-logs.js from
+           GET /admin/error-logs/rollback-metrics. -->
+      <section class="el-stat-card el-migration-panel" id="rollback-metrics-panel"
+               aria-label="Rollback trigger theo route">
+        <div class="label">Rollback trigger (freeze §4) — theo route</div>
+        <div class="el-filter-bar" style="margin:8px 0;">
+          <div class="el-filter">
+            <label for="rbm-route">Route</label>
+            <input id="rbm-route" type="text" value="/" size="18">
+          </div>
+          <div class="el-filter">
+            <!-- DEBT-2026-07-29-L: route có tham số (/grammar/:cat/:slug) không
+                 bao giờ khớp CHÍNH XÁC với đường dẫn ghi trong log, nên chế độ
+                 cũ trả 0 lượt xem cho một route đang sống. «Cả route con» đếm
+                 chính nó + mọi thứ bên dưới. -->
+            <label for="rbm-match">Khớp</label>
+            <select id="rbm-match">
+              <option value="exact" selected>Chính xác</option>
+              <option value="prefix">Cả route con (/x + /x/…)</option>
+            </select>
+          </div>
+          <div class="el-filter">
+            <!-- Chỉ áp cho BẢNG số liệu — hai verdict luôn tính ở đúng cửa sổ
+                 freeze của chúng (error 30ph / LCP 24h; review #761). -->
+            <label for="rbm-window">Cửa sổ (bảng)</label>
+            <select id="rbm-window">
+              <option value="30" selected>30 phút</option>
+              <option value="1440">24 giờ</option>
+              <!-- DEBT-2026-07-22-F: cửa sổ dài là vế SỐ-LƯỢNG của sàn phơi
+                   nhiễm §12.3 (ngày AND lượt). Trước đây backend cắt mọi giá
+                   trị >1440 xuống 24h mà không báo, nên hai lựa chọn này vô
+                   nghĩa; giờ trần bảng là 90 ngày. -->
+              <option value="10080">7 ngày</option>
+              <option value="43200">30 ngày</option>
+            </select>
+          </div>
+          <button id="rbm-load" class="btn btn-secondary" type="button">Đo</button>
+        </div>
+        <div id="rollback-metrics-body">Chọn route rồi bấm «Đo».</div>
+      </section>
+
       <div class="el-toolbar">
         <div class="el-filter-bar">
           <div class="el-filter">

@@ -65,8 +65,8 @@ input: "text"
 headword: "za-general-plural-uncountable"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (viết mạo từ hoặc 'ø' nếu không cần) Happiness cannot always be measured in material terms."
-accept: ["ø", "no article"]
+prompt: "____ (viết mạo từ; nếu không cần mạo từ, gõ số 0) Happiness cannot always be measured in material terms."
+accept: ["0", "ø", "no article", "zero article"]
 case_sensitive: false
 grammar_article_slug: "zero-article"
 explain: "'Happiness' là danh từ trừu tượng không đếm được, mang nghĩa chung → zero article."
@@ -136,8 +136,8 @@ input: "text"
 headword: "za-meals-sports"
 skill: "production"
 subtype: "intermediate"
-prompt: "She's been doing ____ (viết mạo từ hoặc 'ø' nếu không cần) yoga every morning to reduce exam stress."
-accept: ["ø", "no article"]
+prompt: "She's been doing ____ (viết mạo từ; nếu không cần mạo từ, gõ số 0) yoga every morning to reduce exam stress."
+accept: ["0", "ø", "no article", "zero article"]
 case_sensitive: false
 grammar_article_slug: "zero-article"
 explain: "Hoạt động thể thao/giải trí (yoga) luôn dùng zero article: 'doing yoga'."
@@ -206,8 +206,8 @@ input: "text"
 headword: "za-languages-subjects"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (viết mạo từ hoặc 'ø' nếu không cần) Portuguese is the official language of both Portugal and Brazil."
-accept: ["ø", "no article"]
+prompt: "____ (viết mạo từ; nếu không cần mạo từ, gõ số 0) Portuguese is the official language of both Portugal and Brazil."
+accept: ["0", "ø", "no article", "zero article"]
 case_sensitive: false
 grammar_article_slug: "zero-article"
 explain: "Tên ngôn ngữ đứng đầu câu với nghĩa chung không dùng mạo từ → 'Portuguese is the official language...'"
@@ -277,8 +277,8 @@ input: "text"
 headword: "za-idiomatic-institutions"
 skill: "production"
 subtype: "intermediate"
-prompt: "She's been in ____ (viết mạo từ hoặc 'ø' nếu không cần) hospital since Tuesday after a minor surgery."
-accept: ["ø", "no article"]
+prompt: "She's been in ____ (viết mạo từ; nếu không cần mạo từ, gõ số 0) hospital since Tuesday after a minor surgery."
+accept: ["0", "ø", "no article", "zero article"]
 case_sensitive: false
 grammar_article_slug: "zero-article"
 explain: "'in hospital' với nghĩa nhập viện (chức năng, không nói tới toà nhà cụ thể) dùng zero article."
@@ -291,8 +291,8 @@ input: "boolean"
 headword: "za-idiomatic-institutions"
 skill: "contrast"
 subtype: "advanced"
-prompt: "Đúng hay Sai: 'I went to the hospital to visit my colleague after her operation' và 'She was in hospital for a week' đều dùng đúng vì cả hai câu đều nói về cùng một ý nghĩa 'nhập viện'."
-answer: false
+prompt: "Đúng hay Sai: 'went to the hospital' (thăm ai đó) và 'in hospital' (nhập viện) là hai cách dùng khác nhau với ý nghĩa khác nhau."
+answer: true
 grammar_article_slug: "zero-article"
-explain: "SAI — 'went to THE hospital' (có 'the') nghĩa là đến toà nhà bệnh viện để THĂM ai đó, còn 'was IN hospital' (zero article) nghĩa là chính người đó đang NHẬP VIỆN — hai ý nghĩa khác nhau."
+explain: "ĐÚNG — 'went to THE hospital' (có 'the') nghĩa là đến toà nhà bệnh viện để THĂM, còn 'in hospital' (zero article) nghĩa là chính mình đang NHẬP VIỆN — hai ý nghĩa hoàn toàn khác nhau vì mạo từ khác."
 ---

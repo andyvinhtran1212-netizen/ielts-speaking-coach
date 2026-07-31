@@ -70,16 +70,21 @@ describe('Sprint 13.5 — tests-list JS contract', () => {
     assert.match(JS, /window\.initSupabase\(/);
   });
 
-  it('calls GET /api/listening/tests with a limit query', () => {
-    // Query params may precede `limit` (source now sends
-    // ?test_type=full&limit=50), so match limit anywhere in the query string.
-    assert.match(JS, /window\.api\.get\(['"`]\/api\/listening\/tests\?[^'"`]*\blimit=/);
+  it('pages through GET /api/listening/tests instead of one fixed page', () => {
+    // Was: one `?test_type=full&limit=50` call. The landing badge reports the
+    // whole published count, so a single page would promise 60 and render 50
+    // once the library passes the page size. Now a loop with limit+offset.
+    assert.match(JS, /from '\.\/listening-list-paging\.js'/);
+    assert.match(JS, /fetchAllTests\('full'/);
   });
 
-  it('links each card to /pages/listening-test.html?id=<uuid>', () => {
+  it('links each card to /pages/listening-test.html?id=<uuid>&from=full', () => {
+    // &from=full stamps the ORIGIN: the player is shared with the mini-test
+    // library, and its back button used to send mini takers to this full-test
+    // shelf. See back-nav-origin.test.mjs for the behaviour that consumes it.
     assert.match(
       JS,
-      /href=["']\/pages\/listening-test\.html\?id=\$\{encodeURIComponent\(t\.id\)\}["']/,
+      /href=["']\/pages\/listening-test\.html\?id=\$\{encodeURIComponent\(t\.id\)\}&from=full["']/,
     );
   });
 

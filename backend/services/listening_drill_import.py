@@ -421,10 +421,11 @@ def parse_drill(source_json: dict[str, Any], timings: dict[str, Any] | None = No
         "band_target":    sj.get("target_band"),
         "accent_profile": list(sj.get("accent_profile") or []),
         "themes":         dict(sj.get("topic_tags") or {}),
+        # Mig 157 — test_type là cột thật (CHECK full|mini|drill).
+        "test_type":      "drill",
         "metadata": {
             "source_format":   "listening-drill-v1",
             "section_offsets": {sec_id: 0},
-            "test_type":       "drill",
             "drill_type":      skill,
             "level":           sj.get("level") or "",
             "task":            _task_from_id(test_ext),

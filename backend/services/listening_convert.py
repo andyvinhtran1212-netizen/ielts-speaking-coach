@@ -7,8 +7,10 @@ content. This module parses Andy's canonical 2-file Markdown bundle:
   * ``<test_id>_Question_Paper.md``    — student-facing prompts
   * ``<test_id>_Script_AnswerKey.md``  — transcript + speakers + answer key
 
-The output schema matches Sprint 13.4's contract verbatim so the convert
-router (POST /convert + POST /convert/commit) and ``listening_content``
+The legacy convert router (POST /convert + /convert/commit) was RETIRED
+2026-07-17 (usage audit) — this service STAYS: the fulltest/drill importers
+and the audit engine reuse its parser + marker maps. The output schema
+matches Sprint 13.4's contract verbatim so ``listening_content``
 ingest layer are untouched. The only router-side change is the file
 extension allow-list (.docx → .md) + per-file size cap (5MB → 1MB).
 
@@ -853,25 +855,104 @@ def _extract_form_template(body: str, in_range) -> dict[str, Any]:
         # defensive).
         if label.startswith("####"):
             continue
+        # The line splits on the FIRST colon, so a bolded label
+        # ("- **Nationality:** **1** ………") leaves its markers stranded: "**"
+        # closes on the value side and "**" opens on the label side. Both would
+        # be shown to the student verbatim.
+        label = label.strip("*").strip()
+        value = re.sub(r"^\*\*\s+", "", value)
         example_m = re.match(r"^_([^_]+)\(Example\)[^_]*_", value, re.IGNORECASE)
         if example_m:
             rows.append({"label": label, "example": example_m.group(1).strip()})
             continue
-        gap_m = re.search(r"\*\*(\d{1,2})\*\*", value)
-        if gap_m:
-            n = int(gap_m.group(1))
-            if in_range(n):
-                # Preserve any prefix text before the bold number (e.g. "£").
-                prefix = value[: gap_m.start()].strip()
-                rows.append({
-                    "label":  label,
-                    "q_num":  n,
-                    "prefix": prefix,
-                })
-                continue
+        hits = [g for g in re.finditer(r"\*\*(\d{1,2})\*\*", value)
+                if in_range(int(g.group(1)))]
+
+        def _after(pos: int) -> str:
+            """Text following a gap, minus the blank run that draws it.
+
+            The bold number is only the LABEL of the blank; the dotted run after
+            it ("**1** …………") is the blank itself, which the input box replaces.
+            Carried through as text it would print dots beside the box.
+            """
+            return re.sub(r"^\s*[…\._]{2,}\s*", " ", value[pos:]).strip()
+
+        if len(hits) == 1 and not _after(hits[0].end()):
+            # The shape this branch was written for: one gap, nothing after it.
+            # Keep it byte-identical so existing fixtures do not shift.
+            rows.append({
+                "label":  label,
+                "q_num":  int(hits[0].group(1)),
+                "prefix": value[: hits[0].start()].strip(),
+            })
+            continue
+        if hits:
+            # A form line can carry text AFTER the blank, or more than one blank
+            # ("business (to buy antique **2** ………… )"). Neither survives a
+            # single {prefix, q_num}: the tail is dropped and the second gap is
+            # never rendered as an input at all.
+            segs: list[Any] = []
+            pos = 0
+            for g in hits:
+                lead = re.sub(r"^\s*[…\._]{2,}\s*", " ", value[pos:g.start()]).strip()
+                if lead:
+                    segs.append(lead)
+                segs.append({"q_num": int(g.group(1))})
+                pos = g.end()
+            tail = _after(pos)
+            if tail:
+                segs.append(tail)
+            rows.append({"label": label, "segments": segs})
+            continue
         # Anything else (rare in canonical fixtures) — preserve as text.
         rows.append({"label": label, "text": value})
     return {"heading": _block_h4(body), "rows": rows}
+
+
+# A blank inside a table cell: `9 ……………`, `9 ......`, `9 ______`. Deliberately
+# stricter than "any run of dots" so ordinary prose ellipsis ("wait ... then")
+# is not mistaken for a gap now that the pattern is no longer anchored to the
+# start of the cell.
+_TABLE_CELL_GAP_RE = re.compile(r"(\d{1,2})\s*(?:…{2,}|\.{4,}|_{3,})")
+
+
+def _cell_segments(cell: str, in_range) -> Any:
+    """One table cell → plain text, a single gap, or a list of segments.
+
+    Cambridge does not confine a cell to one gap at its start. Test 1 Part 1 of
+    Book 20 prints "Good for people who are especially keen on (1) ………" — words
+    BEFORE the blank — and "Set lunch costs (9) ……… per person / Portions
+    probably of (10) ……… size", which is one cell holding TWO blanks. Matching
+    only `^N ………` left every such cell as literal text, so the student saw
+    "1 ………" printed on the page with no box to type in.
+
+    The historical flat shape is kept for the case it was written for — a single
+    gap opening the cell — so existing fixtures and the renderer's older branch
+    are untouched.
+    """
+    hits = [m for m in _TABLE_CELL_GAP_RE.finditer(cell)
+            if in_range(int(m.group(1)))]
+    if not hits:
+        return cell
+    if len(hits) == 1 and not cell[:hits[0].start()].strip():
+        out: dict[str, Any] = {"q_num": int(hits[0].group(1))}
+        suffix = cell[hits[0].end():].strip()
+        if suffix:
+            out["suffix"] = suffix
+        return out
+
+    segs: list[Any] = []
+    pos = 0
+    for m in hits:
+        lead = cell[pos:m.start()].strip()
+        if lead:
+            segs.append(lead)
+        segs.append({"q_num": int(m.group(1))})
+        pos = m.end()
+    tail = cell[pos:].strip()
+    if tail:
+        segs.append(tail)
+    return segs
 
 
 def _extract_table_template(body: str, in_range) -> dict[str, Any]:
@@ -890,15 +971,7 @@ def _extract_table_template(body: str, in_range) -> dict[str, Any]:
     headers, body_rows = table_rows[0], table_rows[1:]
     out_rows: list[list[Any]] = []
     for row in body_rows:
-        cells_out: list[Any] = []
-        for cell in row:
-            gap = re.match(r"^(\d{1,2})\s+[…\.]+\s*$", cell)
-            if gap:
-                n = int(gap.group(1))
-                if in_range(n):
-                    cells_out.append({"q_num": n})
-                    continue
-            cells_out.append(cell)
+        cells_out: list[Any] = [_cell_segments(cell, in_range) for cell in row]
         out_rows.append(cells_out)
     return {"heading": _block_h4(body), "headers": headers, "rows": out_rows}
 
@@ -908,52 +981,64 @@ def _extract_notes_template(body: str, in_range) -> dict[str, Any]:
     so far have a single group, but the schema is forward-compatible
     with multiple grouped sub-headings (H5 lines).
     """
-    items: list[Any] = []
+    # Notes are grouped by sub-heading. A non-bullet, non-blank line that isn't
+    # the H4 block heading or an instruction blockquote is a SUB-HEADING (đề mục
+    # like "Heuristics:", "Framing effect:") — it starts a new group and becomes
+    # its heading. Before this fix every non-bullet line was dropped (`continue`),
+    # so the sub-headings vanished from the rendered notes. The renderer
+    # (renderNotesCompletion) already displays `groups[].heading`.
+    groups: list[dict[str, Any]] = []
+    cur: dict[str, Any] = {"heading": None, "items": []}
+
+    def _flush() -> None:
+        if cur["items"] or cur["heading"]:
+            g: dict[str, Any] = {"items": cur["items"]}
+            if cur["heading"]:
+                g["heading"] = cur["heading"]
+            groups.append(g)
+
     for line in body.splitlines():
         s = line.strip()
-        if not s or not s.startswith(("-", "*", "+")):
+        if not s:
             continue
-        # Sprint 13.5.5 — Andy's source markdown sometimes carries a
-        # leading Unicode bullet inside the markdown bullet
-        # (`- • Travellers …`) which rendered as a doubled bullet. Strip
-        # any leading Unicode bullet glyph after the markdown bullet.
+        if not s.startswith(("-", "*", "+")):
+            # `####` block heading + `>` instruction are handled elsewhere; any
+            # OTHER non-bullet line is a sub-heading → open a new group.
+            if s.startswith("#") or s.startswith(">"):
+                continue
+            _flush()
+            cur = {"heading": s, "items": []}
+            continue
+        # Sprint 13.5.5 — strip a leading Unicode bullet after the markdown
+        # bullet (`- • Travellers …`) that otherwise renders as a doubled bullet.
         s_content = s.lstrip("-*+").strip()
         s_content = re.sub(r"^[•·●○◦∙]\s*", "", s_content)
         gap_m = re.search(r"\*\*(\d{1,2})\*\*\s+_+\.?\s*(.*?)$", s_content)
         if gap_m:
             n = int(gap_m.group(1))
             if in_range(n):
-                items.append({
+                cur["items"].append({
                     "q_num":  n,
                     "prefix": s_content[: gap_m.start()].strip(),
                     "suffix": gap_m.group(2).strip(),
                 })
                 continue
-        # Sentence-style note item authored as `**N.** prefix ___ suffix`
-        # (number-DOT bold, blank mid/end-sentence). The bullet regex above
-        # only matches `**N** ___` (number bold IMMEDIATELY before the gap);
-        # a "Complete the note" block whose item is a full sentence — Andy's
-        # L05 Q1/Q2/Q3/Q6 — fell through to a raw {text} item, so the renderer
-        # showed a literal "___" with no input. Mirror the _SENTENCE_INLINE_RE
-        # fallback that _extract_gap_fill already uses for the questions list,
-        # so blank↔q_num maps in the template too. Matched on the ORIGINAL
-        # stripped line (`s`) because `**N.**` must be intact (lstrip stripped
-        # the leading `**` from s_content).
+        # Sentence-style note item `**N.** prefix ___ suffix` (number-DOT bold);
+        # the bullet regex above only matches `**N** ___`. Matched on the ORIGINAL
+        # stripped line (`s`) because `**N.**` must be intact.
         sent_m = _SENTENCE_INLINE_RE.match(s)
         if sent_m:
             n = int(sent_m.group(1))
             if in_range(n):
-                items.append({
+                cur["items"].append({
                     "q_num":  n,
                     "prefix": sent_m.group(2).strip(),
                     "suffix": sent_m.group(3).strip(),
                 })
                 continue
-        items.append({"text": s_content})
-    return {
-        "heading": _block_h4(body),
-        "groups":  [{"items": items}] if items else [],
-    }
+        cur["items"].append({"text": s_content})
+    _flush()
+    return {"heading": _block_h4(body), "groups": groups}
 
 
 def _extract_summary_template(body: str, in_range) -> dict[str, Any]:

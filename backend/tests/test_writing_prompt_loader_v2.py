@@ -272,3 +272,51 @@ def test_v2_level_files_have_level_specific_validation():
         assert f"Validation Rules Specific to L{level}" in prompt, (
             f"v2 level {level} missing level-specific validation section"
         )
+
+
+def test_v2_word_count_cap_is_a_ceiling_not_a_score():
+    """Rule 2 must say the cap is a CEILING, not the band to award.
+
+    Real sitting C2-FINAL-20260726: all four under-length Task 2 essays scored
+    Task Response exactly 5.0 (205, 205, 216, 245 words) while every essay at
+    or above 250 words scored 6.0+. A perfect split at the threshold means the
+    cap had replaced the judgement — a 245-word script whose sentences were
+    largely unreadable got the same TR as a coherent 205-word one. Two bands
+    were corrected downwards by hand afterwards.
+
+    Pin the ceiling wording so a future edit cannot quietly turn the cap back
+    into a default score.
+    """
+    loader = WritingPromptLoader(version="v2")
+    prompt = loader.load(level=2, form_of_address="em")
+
+    assert "A cap is a CEILING, never a score to assign" in prompt
+    assert "min(band earned on content, cap for this word count)" in prompt
+    # The tiers themselves must survive — a ceiling with no thresholds is nothing.
+    assert "< 200 words → cap Task Response at 4" in prompt
+    assert "200 – 249 words → cap Task Response at 5" in prompt
+    assert "< 100 words → cap Task Achievement at 4" in prompt
+
+
+def test_v2_persona_does_not_restate_the_cap_wrongly():
+    """The persona sheet used to say "Task 2 < 250 → max TR = 5", which both
+    collapsed the <200 → 4 tier AND read like an order to set the score. It is
+    the line an examiner-persona follows most literally, so it must defer to
+    Rule 2 rather than paraphrase it."""
+    loader = WritingPromptLoader(version="v2")
+    prompt = loader.load(level=2, form_of_address="em")
+
+    assert "Task 2 < 250 → max TR = 5" not in prompt
+    assert "CEILINGS on TR/TA, not scores to assign" in prompt
+
+
+def test_v2_forbids_blaming_the_band_on_length_alone():
+    """If the content independently earns less than the cap, the summary must
+    say so. "Limited to 5.0 because it is under 250 words" on an essay that
+    would not have reached 5.0 anyway tells the student the wrong thing to fix
+    — which is exactly what shipped to four students."""
+    loader = WritingPromptLoader(version="v2")
+    prompt = loader.load(level=2, form_of_address="em")
+
+    assert "do not blame the band on length alone" in prompt.lower()
+    assert "overallBandScoreSummary" in prompt

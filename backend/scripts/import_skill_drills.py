@@ -38,6 +38,12 @@ from pathlib import Path
 _BACKEND_ROOT = Path(__file__).resolve().parent.parent
 if str(_BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(_BACKEND_ROOT))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from _script_env import load_env                             # noqa: E402
+load_env()                     # .env TRƯỚC mọi import ứng dụng: config/
+                               # database dựng client Supabase lúc import.
+
 
 from config import settings                                    # noqa: E402
 from database import supabase_admin                            # noqa: E402
@@ -92,7 +98,7 @@ def _dup_active(test_id: str) -> dict | None:
 def _commit_one(test_id: str, res, audio_bytes, status: str) -> dict:
     """Insert one drill (tests + content + exercises) + upload audio. Raises on
     failure after a best-effort rollback."""
-    av = listening_audio.validate_section_audio(audio_bytes)
+    av = listening_audio.validate_section_audio(audio_bytes, test_type="drill")
     if av["errors"]:
         raise RuntimeError("; ".join(av["errors"]))
 
@@ -112,6 +118,8 @@ def _commit_one(test_id: str, res, audio_bytes, status: str) -> dict:
         "full_audio_duration_seconds": av["duration_seconds"],
         "full_audio_size_bytes":       av["size_bytes"],
         "metadata":        tm.get("metadata") or {},
+        # Mig 157 — test_type là cột thật (CHECK full|mini|drill).
+        "test_type":       tm.get("test_type") or "drill",
         "status":          status,
     }
     created_content_ids: list[str] = []

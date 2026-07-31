@@ -52,11 +52,12 @@ input: "text"
 headword: "gen-for-example-instance"
 skill: "production"
 subtype: "intermediate"
-prompt: "Several European countries have excellent public transport systems, ____, Switzerland and the Netherlands. (điền cụm 2 từ 'for example' đúng vị trí giữa câu)"
-accept: ["for example"]
+prompt: "Several European countries have excellent public transport systems, ____, Switzerland and the Netherlands."
+hint: "cụm 2 từ dùng để nêu ví dụ, đặt giữa câu"
+accept: ["for example", "for instance"]
 case_sensitive: false
 grammar_article_slug: "giving-examples-naturally"
-explain: "Khi đặt giữa câu sau danh từ, vẫn dùng 'for example' (có dấu phẩy trước và có thể sau), khác 'such as' không cần cụm 'for'."
+explain: "Khi đặt giữa câu sau danh từ, vẫn dùng 'for example' / 'for instance' (có dấu phẩy trước và có thể sau), khác 'such as' không cần cụm 'for'."
 ---
 
 ---
@@ -87,16 +88,16 @@ explain: "SAI — ví dụ quá chung chung, không nêu tên quốc gia/số li
 
 ---
 id: "gen_fe_i3"
-type: "gap_mcq"
-input: "choice"
+type: "gap_text"
+input: "text"
 headword: "gen-for-example-instance"
-skill: "usage"
+skill: "production"
 subtype: "intermediate"
-prompt: "The impact of remote work is significant. For instance, a survey found that employees save an average of 40 minutes ____ by not commuting."
-options: ["daily", "day", "of day", "everyday time"]
-answer: 0
+prompt: "Điền cụm nối dẫn ví dụ: 'Office workers often experience burnout — ____ , many report exhaustion despite earning good salaries.'"
+accept: ["for example", "for instance"]
+case_sensitive: false
 grammar_article_slug: "giving-examples-naturally"
-explain: "'daily' là trạng từ chỉ tần suất, bổ nghĩa cho động từ 'save': save 40 minutes daily."
+explain: "'for example' điền vào vị trí giữa câu, luôn viết thường và không có dấu phẩy (dấu phẩy đã có trong cấu trúc câu)."
 ---
 
 # ===== item_key 2 · Such as (giữa câu, không mở đầu câu) =====
@@ -220,7 +221,8 @@ input: "text"
 headword: "gen-speaking-informal-connectors"
 skill: "production"
 subtype: "intermediate"
-prompt: "Cities can be overwhelming — I ____ , the noise, the traffic, the crowds... it's a lot to deal with. (điền cụm 'I mean' để làm rõ ý)"
+prompt: "Cities can be overwhelming — I ____ , the noise, the traffic, the crowds... it's a lot to deal with."
+hint: "1 từ sau 'I' tạo cụm đệm nghĩa là 'ý tôi là'"
 accept: ["mean"]
 case_sensitive: false
 grammar_article_slug: "giving-examples-naturally"
@@ -304,7 +306,8 @@ input: "text"
 headword: "gen-register-distinction"
 skill: "production"
 subtype: "intermediate"
-prompt: "The impact of social media on self-image cannot be underestimated. To ____ , a 2019 study found Instagram was the most harmful platform for young people's mental health. (điền động từ nghĩa 'minh họa')"
+prompt: "The impact of social media on self-image cannot be underestimated. To ____ , a 2019 study found Instagram was the most harmful platform for young people's mental health."
+hint: "điền động từ nghĩa 'minh họa'"
 accept: ["illustrate"]
 case_sensitive: false
 grammar_article_slug: "giving-examples-naturally"

@@ -123,7 +123,8 @@ input: "text"
 headword: "t1tg-trend-noun-form"
 skill: "production"
 subtype: "intermediate"
-prompt: "There was a considerable ____ (increase — noun form) in tourist arrivals to the region after the visa restrictions were lifted."
+prompt: "There was a considerable ____ (increase) in tourist arrivals to the region after the visa restrictions were lifted."
+hint: "viết dạng danh từ"
 accept: ["increase"]
 case_sensitive: false
 grammar_article_slug: "task1-trend-grammar"
@@ -336,11 +337,11 @@ input: "text"
 headword: "t1tg-tense-choice"
 skill: "production"
 subtype: "intermediate"
-prompt: "The graph indicates that the number of internet users ____ (be expected to / rise) sharply by 2030."
-accept: ["is expected to rise"]
+prompt: "The graph indicates that the number of internet users ____ expected to rise sharply by 2030."
+accept: ["is expected"]
 case_sensitive: false
 grammar_article_slug: "task1-trend-grammar"
-explain: "Dự báo tương lai trong biểu đồ → 'is expected to' + V-inf: 'is expected to rise'."
+explain: "Dự báo tương lai trong biểu đồ → dùng bị động: 'is expected to rise'. Điền 'is expected' (động từ + phân từ II)."
 ---
 
 ---

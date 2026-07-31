@@ -149,11 +149,11 @@ input: "text"
 headword: "tfp-be-going-to-prior-plan"
 skill: "production"
 subtype: "intermediate"
-prompt: "Điền đúng dạng: 'She ____ (going to / study) medicine — she's wanted to be a doctor since childhood.'"
-accept: ["is going to study"]
+prompt: "Điền đúng dạng: 'She is ____ medicine — she's wanted to be a doctor since childhood.'"
+accept: ["going to study"]
 case_sensitive: false
 grammar_article_slug: "talking-about-future-plans"
-explain: "Chủ ngữ 'she' + is going to + V nguyên mẫu: 'is going to study' — kế hoạch đã có ý định từ lâu."
+explain: "Chủ ngữ 'she' + is + going to + V nguyên mẫu: 'going to study' — kế hoạch đã có ý định từ lâu."
 ---
 
 ---

@@ -249,7 +249,7 @@ Before returning the JSON, mentally verify:
 
 - [ ] **Every `mistakeAnalysis` entry has `original != suggestion` after Unicode normalisation (Step 6.1)** — no entry where the two strings are identical
 - [ ] `mistakeAnalysis` count is consistent with band per Rule 1's typical distribution; if not, the band has been adjusted (not the mistake list re-padded)
-- [ ] Word count cap applied (Rule 2)
+- [ ] Word count cap applied as a CEILING (Rule 2) — TR/TA equals the cap only if the content independently earned that band, never by default
 - [ ] 4 criteria scores within 1.5 of each other (Rule 3)
 - [ ] Vietlish detection at band ≤ 6.5 reflects genuine patterns only — empty Vietlish has been resolved by re-scan or band adjustment, never by invention (Rule 4)
 - [ ] Improved essay at most 1.5 bands above student (Rule 5)

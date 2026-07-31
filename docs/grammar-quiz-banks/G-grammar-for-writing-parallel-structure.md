@@ -166,7 +166,8 @@ input: "text"
 headword: "pst-correlatives"
 skill: "production"
 subtype: "intermediate"
-prompt: "This problem can be tackled ____ (either) by raising taxes or by cutting subsidies."
+prompt: "This problem can be tackled ____ by raising taxes or by cutting subsidies."
+hint: "từ bắt cặp với 'or' ở vế sau"
 accept: ["either"]
 case_sensitive: false
 grammar_article_slug: "parallel-structure"

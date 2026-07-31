@@ -93,7 +93,7 @@ input: "choice"
 headword: "gb7-negative-inversion"
 skill: "usage"
 subtype: "basic"
-prompt: "Which sentence uses inversion correctly for formal writing about technology and jobs?"
+prompt: "Which sentence uses INVERSION correctly (auxiliary before subject) for formal writing about technology and jobs?"
 options: ["Not only does technology create new jobs, but it also transforms existing industries.", "Not only technology creates new jobs, but it also transforms existing industries.", "Not only does technology creates new jobs, but it also transforms existing industries.", "Not only technology does create new jobs, but it also transforms existing industries."]
 answer: 0
 grammar_article_slug: "grammar-for-band7plus"

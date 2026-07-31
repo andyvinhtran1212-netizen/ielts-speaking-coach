@@ -5,8 +5,11 @@ client grades instantly (QĐ-5); the Adaptive Mastery loop runs in the browser
 and posts progress back here.
 
   GET   /api/quiz/banks?skill_area=&topic_id=   — list published banks.
+  GET   /api/quiz/progress?skill_area=           — own per-bank mastery + sessions.
+  GET   /api/quiz/mistakes?skill_area=           — own wrong answers, by word.
   GET   /api/quiz/banks/{bank_id}               — bank META + questions (+answers).
   GET   /api/quiz/banks/{bank_id}/resume        — carry-over word_stats.
+  POST  /api/quiz/banks/{bank_id}/reset          — wipe mastery cache, restart the bank.
   POST  /api/quiz/sessions                       — start a session (+resume).
   POST  /api/quiz/sessions/{id}/progress         — batch log attempts + word_stats.
   PATCH /api/quiz/sessions/{id}                  — end a session (totals).
@@ -58,10 +61,32 @@ async def list_banks(
 
 
 @router.get("/progress")
-async def my_progress(authorization: str | None = Header(None)):
-    """The caller's own quiz progress — per-bank mastery + recent sessions."""
+async def my_progress(
+    skill_area: str | None = Query(default=None),
+    authorization: str | None = Header(None),
+):
+    """The caller's own quiz progress — per-bank mastery + recent sessions.
+
+    `skill_area` scopes it: the Vocabulary page's "📊 Tiến độ luyện tập" link
+    must not list the learner's grammar banks (audit 2026-07-28 §C3).
+    """
     user = await get_supabase_user(authorization)
-    return quiz_service.student_progress(user_id=user["id"])
+    return quiz_service.student_progress(user_id=user["id"], skill_area=skill_area)
+
+
+@router.get("/mistakes")
+async def my_mistakes(
+    skill_area: str | None = Query(default=None),
+    authorization: str | None = Header(None),
+):
+    """The caller's own wrong answers, grouped by word.
+
+    The in-session "Xem lại bài làm" list only ever existed in the tab's memory,
+    so leaving the result screen destroyed it (audit 2026-07-28 §C2). The attempts
+    were persisted all along — this is the missing read path.
+    """
+    user = await get_supabase_user(authorization)
+    return quiz_service.student_mistakes(user["id"], skill_area=skill_area)
 
 
 @router.get("/banks/{bank_id}")
@@ -74,6 +99,14 @@ async def get_bank(bank_id: UUID, authorization: str | None = Header(None)):
 async def resume(bank_id: UUID, authorization: str | None = Header(None)):
     user = await get_supabase_user(authorization)
     return quiz_service.get_resume(user_id=user["id"], bank_id=str(bank_id))
+
+
+@router.post("/banks/{bank_id}/reset")
+async def reset_progress(bank_id: UUID, authorization: str | None = Header(None)):
+    """Wipe the caller's mastery cache for one bank so the adaptive test starts
+    over from scratch. Session/attempt history is untouched (append-only log)."""
+    user = await get_supabase_user(authorization)
+    return quiz_service.reset_progress(user_id=user["id"], bank_id=str(bank_id))
 
 
 @router.post("/sessions", status_code=201)

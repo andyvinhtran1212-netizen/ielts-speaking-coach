@@ -66,7 +66,8 @@ input: "text"
 headword: "pvc-phrase-vs-clause"
 skill: "production"
 subtype: "intermediate"
-prompt: "Identify: 'What matters most' is a noun ____ because it contains a subject and a conjugated verb — write ONE word: 'phrase' or 'clause'."
+prompt: "Identify: 'What matters most' is a noun ____ because it contains a subject and a conjugated verb."
+hint: "gõ 1 từ: 'phrase' hoặc 'clause'"
 accept: ["clause"]
 case_sensitive: false
 grammar_article_slug: "phrase-vs-clause"
@@ -193,7 +194,7 @@ input: "text"
 headword: "pvc-run-on-sentence"
 skill: "production"
 subtype: "intermediate"
-prompt: "Fix the run-on by adding the missing punctuation mark before 'she': 'She loves cooking____ she spends every weekend in the kitchen.' Write only the punctuation mark needed (a semicolon)."
+prompt: "Sửa lỗi run-on: cần một dấu câu trước 'she' trong 'She loves cooking____ she spends every weekend in the kitchen.' Gõ đúng 1 dấu câu cần điền."
 accept: [";"]
 case_sensitive: false
 grammar_article_slug: "phrase-vs-clause"

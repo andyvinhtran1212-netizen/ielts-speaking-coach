@@ -128,9 +128,23 @@ def test_dry_run_writes_nothing_and_calls_no_tts():
     goc.assert_not_called()             # no synth
 
 
-def test_rows_needing_audio_filters_finalized():
+def _paged_db(rows, page=1000):
+    """Fake Supabase that serves `rows` in PostgREST-style pages via
+    select().order().range(a, b).execute() — so a reader that DOESN'T page sees
+    only the first `page` rows, exactly like the real ~1000-row cap."""
     db = MagicMock()
-    db.table.return_value.select.return_value.execute.return_value = MagicMock(data=[
+
+    def _range(start, end):
+        out = MagicMock()
+        out.execute.return_value = MagicMock(data=rows[start:end + 1])
+        return out
+
+    db.table.return_value.select.return_value.order.return_value.range.side_effect = _range
+    return db
+
+
+def test_rows_needing_audio_filters_finalized():
+    db = _paged_db([
         {"slug": "a", "audio_status": "final", "audio_headword": "u"},   # done → excluded
         {"slug": "b", "audio_status": "pending", "audio_headword": None}, # needs work
         {"slug": "c", "audio_status": "final", "audio_headword": None},   # final but no url → included
@@ -138,6 +152,53 @@ def test_rows_needing_audio_filters_finalized():
     with patch("scripts.pregen_vocab_audio.supabase_admin", db):
         rows = pg._rows_needing_audio()
     assert {r["slug"] for r in rows} == {"b", "c"}
+
+
+def test_rows_needing_audio_pages_past_the_postgrest_1000_cap():
+    """A bare select() is capped at ~1000 rows and truncates SILENTLY: the script
+    logged a plausible count and finished green while never CONSIDERING the rest.
+    Measured on prod 2026-07-16 — 1000 of 1835 rows seen, 835 invisible, including
+    4 lesson words the vocab quiz serves, whose audio was therefore never made."""
+    rows = [{"slug": f"w{i}", "headword": f"W{i}",
+             "audio_status": "pending", "audio_headword": None} for i in range(2350)]
+    db = _paged_db(rows)
+    with patch("scripts.pregen_vocab_audio.supabase_admin", db):
+        got = pg._rows_needing_audio()
+    assert len(got) == 2350, "rows past the first page were silently dropped"
+    assert got[-1]["slug"] == "w2349"
+
+
+def test_dry_run_cost_estimate_covers_rows_past_the_cap(caplog):
+    """The estimate is computed from _rows_needing_audio()'s list, so the cap made
+    it UNDER-REPORT spend — the operator approved a number for 1000 rows while the
+    real run would bill for 1835. Every headword must be counted."""
+    table = [{"id": f"{i:05d}", "slug": f"w{i}", "headword": "Word",
+              "example": "", "audio_status": "pending", "audio_headword": None}
+             for i in range(1835)]
+    db = _paged_db(table)
+    with patch("scripts.pregen_vocab_audio.supabase_admin", db):
+        rows = pg._rows_needing_audio()
+        with caplog.at_level("INFO"):
+            pg._dry_run(rows, headword_only=True)
+    assert "est. characters     : %d" % (1835 * len("Word")) in caplog.text
+
+
+def test_all_vocab_rows_stops_on_a_short_first_page():
+    """A short first page ends paging — no needless second round-trip."""
+    db = _paged_db([{"id": "1", "slug": "a"}])
+    with patch("scripts.pregen_vocab_audio.supabase_admin", db):
+        assert len(pg._all_vocab_rows()) == 1
+    assert db.table.return_value.select.return_value.order.return_value.range.call_count == 1
+
+
+def test_rows_needing_audio_orders_by_pk_for_stable_paging():
+    """Without an explicit order() PostgREST/Postgres don't guarantee row order
+    across page requests, so a concurrent import can shift a row between offsets
+    and duplicate one while skipping another."""
+    db = _paged_db([{"slug": "a", "audio_status": "pending", "audio_headword": None}])
+    with patch("scripts.pregen_vocab_audio.supabase_admin", db):
+        pg._rows_needing_audio()
+    db.table.return_value.select.return_value.order.assert_called_with("id")
 
 
 # ── schema-aware col-match (#538) — stamp keys ⊆ migration 110 columns ───
@@ -212,8 +273,7 @@ def test_pad_silence_adds_leading_and_trailing_margin():
 
 
 def test_regen_selects_all_rows_with_headword_even_final():
-    db = MagicMock()
-    db.table.return_value.select.return_value.execute.return_value = MagicMock(data=[
+    db = _paged_db([
         {"slug": "a", "audio_status": "final", "audio_headword": "u", "headword": "A"},
         {"slug": "b", "audio_status": "pending", "audio_headword": None, "headword": "B"},
         {"slug": "c", "audio_status": "final", "audio_headword": "u", "headword": ""},   # no headword

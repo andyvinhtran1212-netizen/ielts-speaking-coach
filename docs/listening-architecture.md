@@ -66,10 +66,13 @@ Audio: stored in the Supabase `LISTENING_AUDIO_BUCKET`. Full tests use one premi
 |------|----------|----------|----------|
 | Per-type exercise form | `segments` / `gist` / `tf` / `mcq` `.html` | `POST /admin/listening/exercises` | one `listening_exercises` row |
 | **Full-test pack** | `import-fulltest.html` (#408) | `POST /admin/listening/import-fulltest` (dry-run) → `/commit` | 1 `listening_tests` + 4 `listening_content` + block exercises + mp3 |
-| **Convert DOCX → test** | `convert.html` (still live, linked from `index.html` + `tests.html`) | `POST /admin/listening/convert[/commit]` (`services/listening_convert.py`) | a test bundle from a 2-file DOCX/text source |
 | Status transitions | `tests.html` list (#408) | `PATCH /admin/listening/tests/{id}/status` | draft ⇄ published ⇄ archived (publish has an audio gate) |
 
-> Note: the **convert** (DOCX/2-file) path and the **full-test pack** (4-file) path are **both live** and parallel — convert was NOT removed. They produce the same `listening_tests` shape by different ingestion routes.
+> Note: the legacy **convert** (DOCX/2-file) path was RETIRED 2026-07-17 (usage
+> audit — superseded by the 4-file full-test pack; convert stamped no
+> `test_type` and left audio as a placeholder). `services/listening_convert.py`
+> STAYS: its parser + marker maps are reused by the fulltest/drill importers
+> and the audit engine. Tests created via convert continue to serve unchanged.
 
 ---
 

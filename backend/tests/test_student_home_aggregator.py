@@ -56,6 +56,7 @@ class _TableQuery:
         self.order_field = None
         self.order_desc = False
         self.count_mode = None
+        self.range_window = None
 
     def select(self, *_args, count=None, **_kw):
         self.count_mode = count
@@ -82,6 +83,16 @@ class _TableQuery:
         self.limit_n = n
         return self
 
+    def in_(self, field, values):
+        self.filters.append((field, "in", list(values or [])))
+        return self
+
+    def range(self, start, end):
+        # PostgREST range() is an INCLUSIVE offset window (the paging primitive
+        # _vocab_quiz_progress uses so a big word_stats set isn't truncated).
+        self.range_window = (start, end)
+        return self
+
     def is_(self, field, value):
         # R2a soft-delete: .is_("deleted_at","null") → keep rows where field IS NULL
         self.filters.append((field, "is_null", value))
@@ -102,6 +113,9 @@ class _TableQuery:
                 key=lambda r: r.get(self.order_field) or "",
                 reverse=self.order_desc,
             )
+        if self.range_window is not None:
+            lo, hi = self.range_window
+            matched = matched[lo:hi + 1]
         if self.limit_n is not None:
             matched = matched[: self.limit_n]
         return _Resp(matched, count=full_count if self.count_mode == "exact" else None)
@@ -119,6 +133,8 @@ class _TableQuery:
                 return False
             if op == "is_null" and v is not None:
                 return False
+            if op == "in" and v not in value:
+                return False
         return True
 
 
@@ -135,6 +151,9 @@ class FakeSupabase:
             "reading_test_attempts": [],
             "listening_attempts": [],
             "listening_test_attempts": [],
+            "quiz_banks": [],
+            "quiz_word_stats": [],
+            "quiz_sessions": [],
         }
 
     def table(self, name: str) -> _TableQuery:
@@ -214,6 +233,26 @@ def _seed_vocab(fake, user_id, **fields):
     }
     row.update(fields)
     fake.tables["user_vocabulary"].append(row)
+
+
+def _seed_quiz_bank(fake, bank_id, *, skill_area="vocab", is_published=True):
+    fake.tables["quiz_banks"].append(
+        {"id": bank_id, "skill_area": skill_area, "is_published": is_published}
+    )
+
+
+def _seed_word_stat(fake, user_id, bank_id, item_key, *, status="mastered", wrong_count=0):
+    fake.tables["quiz_word_stats"].append({
+        "id": str(uuid4()), "user_id": user_id, "bank_id": bank_id,
+        "item_key": item_key, "status": status, "wrong_count": wrong_count,
+    })
+
+
+def _seed_quiz_session(fake, user_id, bank_id, *, ended_at=None):
+    fake.tables["quiz_sessions"].append({
+        "id": str(uuid4()), "user_id": user_id, "bank_id": bank_id,
+        "ended_at": ended_at,
+    })
 
 
 def _seed_review(fake, user_id, **fields):
@@ -519,3 +558,156 @@ def test_per_skill_failure_isolates_to_errors_map(fake_db, aggregator, monkeypat
     assert "grammar" in payload["_errors"]
     # Speaking still rendered fine.
     assert payload["skills"]["speaking"]["sessions_count"] == 1
+
+
+# ── Quick-Check mastery feeds the Vocabulary card (audit 2026-07-28) ──
+#
+# The card used to count ONLY user_vocabulary — the personal wallet behind a
+# default-deny feature flag. On prod, 13 learners had quiz-mastered words, 1 had
+# any wallet row, and the sets did not overlap: every learner who actually
+# practised read "Từ đã học: 0 từ". These pin the fix.
+
+
+def test_vocabulary_counts_quiz_mastered_words(fake_db, aggregator):
+    """A learner with zero wallet rows but mastered Quick-Check words must NOT
+    read 0 — that was the exact prod symptom."""
+    user_id, bank = str(uuid4()), str(uuid4())
+    _seed_quiz_bank(fake_db, bank)
+    _seed_word_stat(fake_db, user_id, bank, "Carbon footprint")
+    _seed_word_stat(fake_db, user_id, bank, "Biodiversity")
+
+    v = aggregator.get_home_summary(
+        fake_db, user_id, name="X", email="x@x.com",
+    )["skills"]["vocabulary"]
+
+    assert v["words_learned"] == 2
+    assert v["quiz_words_mastered"] == 2
+
+
+def test_vocabulary_union_does_not_double_count_a_shared_word(fake_db, aggregator):
+    """The wallet and the quiz describe the same fact, so a word in both is ONE
+    word. Case-insensitive: the wallet stores 'ephemeral', the bank 'Ephemeral'."""
+    user_id, bank = str(uuid4()), str(uuid4())
+    _seed_vocab(fake_db, user_id)                       # headword 'ephemeral'
+    _seed_quiz_bank(fake_db, bank)
+    _seed_word_stat(fake_db, user_id, bank, "Ephemeral")
+    _seed_word_stat(fake_db, user_id, bank, "Gridlock")
+
+    v = aggregator.get_home_summary(
+        fake_db, user_id, name="X", email="x@x.com",
+    )["skills"]["vocabulary"]
+
+    assert v["words_learned"] == 2     # ephemeral + gridlock, not 3
+
+
+def test_vocabulary_quiz_side_ignores_other_skills_and_unmastered(fake_db, aggregator):
+    """Only vocab banks count, and only 'mastered' rows — a grammar bank's
+    progress must not inflate the vocabulary card."""
+    user_id = str(uuid4())
+    vocab_bank, grammar_bank = str(uuid4()), str(uuid4())
+    _seed_quiz_bank(fake_db, vocab_bank)
+    _seed_quiz_bank(fake_db, grammar_bank, skill_area="grammar")
+    _seed_word_stat(fake_db, user_id, vocab_bank, "Gridlock")
+    _seed_word_stat(fake_db, user_id, vocab_bank, "Mobility", status="carried_over")
+    _seed_word_stat(fake_db, user_id, grammar_bank, "art-definite-usage")
+
+    v = aggregator.get_home_summary(
+        fake_db, user_id, name="X", email="x@x.com",
+    )["skills"]["vocabulary"]
+
+    assert v["words_learned"] == 1
+    assert v["quiz_words_mastered"] == 1
+
+
+def test_vocabulary_still_counts_a_bank_that_was_later_unpublished(fake_db, aggregator):
+    """Publication controls whether a learner can START a bank, not whether their
+    past practice happened — a word_stats row can only exist because the bank WAS
+    playable. Filtering on is_published made the hub tile drop words the stats
+    page still counted the moment a bank was unpublished (Codex review, #876)."""
+    user_id, retired = str(uuid4()), str(uuid4())
+    _seed_quiz_bank(fake_db, retired, is_published=False)
+    _seed_word_stat(fake_db, user_id, retired, "Gridlock", wrong_count=2)
+    _seed_quiz_session(fake_db, user_id, retired, ended_at=_today_iso())
+
+    v = aggregator.get_home_summary(
+        fake_db, user_id, name="X", email="x@x.com",
+    )["skills"]["vocabulary"]
+
+    assert v["quiz_words_mastered"] == 1
+    assert v["quiz_words_missed"] == 1
+    assert v["quiz_sessions"] == 1
+
+
+def test_vocabulary_missed_and_session_facets(fake_db, aggregator):
+    """`quiz_words_missed` counts DISTINCT words ever answered wrong (incl. ones
+    later mastered); `quiz_sessions` counts only FINISHED sessions — start_session
+    inserts a row the moment the page opens, and 36% of prod rows never finish."""
+    user_id, bank = str(uuid4()), str(uuid4())
+    _seed_quiz_bank(fake_db, bank)
+    _seed_word_stat(fake_db, user_id, bank, "Gridlock", wrong_count=3)
+    _seed_word_stat(fake_db, user_id, bank, "Mobility", wrong_count=0)
+    _seed_quiz_session(fake_db, user_id, bank, ended_at=_today_iso())
+    _seed_quiz_session(fake_db, user_id, bank, ended_at=None)   # abandoned
+
+    v = aggregator.get_home_summary(
+        fake_db, user_id, name="X", email="x@x.com",
+    )["skills"]["vocabulary"]
+
+    assert v["quiz_words_missed"] == 1
+    assert v["quiz_sessions"] == 1
+
+
+def test_vocabulary_quiz_failure_keeps_the_wallet_number(fake_db, aggregator):
+    """The quiz read is best-effort: if it blows up, the card must still render
+    the wallet count rather than degrading the whole vocabulary skill."""
+    user_id = str(uuid4())
+    _seed_vocab(fake_db, user_id)
+
+    real_table = fake_db.table
+
+    def boom(name):
+        if name in ("quiz_banks", "quiz_word_stats", "quiz_sessions"):
+            raise RuntimeError("quiz tables unavailable")
+        return real_table(name)
+
+    fake_db.table = boom
+    v = aggregator.get_home_summary(
+        fake_db, user_id, name="X", email="x@x.com",
+    )["skills"]["vocabulary"]
+
+    assert v["status"] == "active"
+    assert v["words_learned"] == 1
+    assert v["quiz_words_mastered"] == 0
+
+
+def test_vocabulary_exposes_both_sources_so_the_home_card_can_label_the_number(
+        fake_db, aggregator):
+    """`words_learned` is a UNION, so no consumer may describe it as one source.
+    The home card called any nonzero value "Wallet từ vựng cá nhân" and would
+    have claimed an empty wallet held words (Codex review, PR #876)."""
+    user_id, bank = str(uuid4()), str(uuid4())
+    _seed_quiz_bank(fake_db, bank)
+    _seed_word_stat(fake_db, user_id, bank, "Gridlock")
+
+    v = aggregator.get_home_summary(
+        fake_db, user_id, name="X", email="x@x.com",
+    )["skills"]["vocabulary"]
+
+    assert v["words_learned"] == 1
+    assert v["wallet_words"] == 0            # quiz-only learner
+    assert v["quiz_words_mastered"] == 1
+
+
+def test_vocabulary_wallet_words_counts_only_the_wallet(fake_db, aggregator):
+    user_id, bank = str(uuid4()), str(uuid4())
+    _seed_vocab(fake_db, user_id)            # headword 'ephemeral'
+    _seed_quiz_bank(fake_db, bank)
+    _seed_word_stat(fake_db, user_id, bank, "Gridlock")
+
+    v = aggregator.get_home_summary(
+        fake_db, user_id, name="X", email="x@x.com",
+    )["skills"]["vocabulary"]
+
+    assert v["wallet_words"] == 1
+    assert v["quiz_words_mastered"] == 1
+    assert v["words_learned"] == 2

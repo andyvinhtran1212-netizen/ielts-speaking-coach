@@ -52,11 +52,11 @@ input: "text"
 headword: "dm-addition"
 skill: "production"
 subtype: "intermediate"
-prompt: "It is not only affordable ____ also highly effective — write only the missing word to complete 'not only...but ___'."
+prompt: "It is not only affordable ____ also highly effective."
 accept: ["but"]
 case_sensitive: false
 grammar_article_slug: "discourse-markers"
-explain: "Cấu trúc cặp: 'not only...but also' — thêm ý mạnh mẽ, nhấn mạnh cả hai đặc điểm cùng lúc."
+explain: "Cấu trúc cặp: 'not only...but also' — thêm ý mạnh mẽ, nhấn mạnh cả hai đặc điểm cùng lúc. 'But' ở đây là liên từ kết nối hai phần của câu song song."
 ---
 
 ---
@@ -123,7 +123,8 @@ input: "text"
 headword: "dm-contrast"
 skill: "production"
 subtype: "intermediate"
-prompt: "The task was difficult. ____, they completed it on time — write the word meaning 'dù vậy vẫn' (stronger than 'however')."
+prompt: "The task was difficult. ____, they completed it on time."
+hint: "từ nghĩa là 'dù vậy vẫn' (mạnh hơn 'however')"
 accept: ["Nevertheless", "Nonetheless"]
 case_sensitive: false
 grammar_article_slug: "discourse-markers"
@@ -194,7 +195,8 @@ input: "text"
 headword: "dm-cause-effect"
 skill: "production"
 subtype: "intermediate"
-prompt: "Investment in education has declined. ____, graduate unemployment has risen sharply — write a 3-word formal linker (starts with 'As')."
+prompt: "Investment in education has declined. ____, graduate unemployment has risen sharply."
+hint: "từ nối trang trọng 3 từ, bắt đầu bằng 'As'"
 accept: ["As a result"]
 case_sensitive: false
 grammar_article_slug: "discourse-markers"
@@ -264,7 +266,8 @@ input: "text"
 headword: "dm-however-punctuation"
 skill: "production"
 subtype: "intermediate"
-prompt: "Fix the punctuation — write only the corrected linking word with its comma: 'The results are promising, therefore we should proceed.' → The results are promising. ____ we should proceed."
+prompt: "Fix the punctuation: 'The results are promising, therefore we should proceed.' → 'The results are promising. ____ we should proceed.'"
+hint: "viết từ nối kèm dấu phẩy của nó"
 accept: ["Therefore,"]
 case_sensitive: false
 grammar_article_slug: "discourse-markers"
