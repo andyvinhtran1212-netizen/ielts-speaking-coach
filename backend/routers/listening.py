@@ -1533,7 +1533,7 @@ async def get_listening_analytics(
 
     Aggregations:
       - total_attempts: mọi lượt trong range (engagement — gồm đang làm/bỏ dở)
-      - by_mode: { mini, drill, full } → {count, avg_score, completion}
+      - by_mode: { mini, drill, full, practice } → {count, avg_score, completion}
         · count      = lượt ĐẦU per test (retry không đếm — Sprint 11.5.1 rule)
         · avg_score  = % đúng TB (score/số câu) của lượt đầu ĐÃ NỘP, 0..1
         · completion = tỉ lệ lượt đã nộp / mọi lượt của loại đó
@@ -1615,7 +1615,12 @@ async def get_listening_analytics(
     flat_first = list(first_by_test.values())
     flat_first_submitted = list(first_submitted.values())
 
-    types = ("mini", "drill", "full")
+    # Every persisted test_type, or the dashboard contradicts itself: a
+    # practice attempt would raise total_attempts and show up in daily/recent
+    # activity while its score sat outside the average, the completion rate and
+    # the weakest-mode pick. Keep this in step with the CHECK on
+    # listening_tests.test_type (mig 157/173).
+    types = ("mini", "drill", "full", "practice")
     by_mode: dict[str, dict] = {}
     for m in types:
         firsts = [r for r in flat_first if r["type"] == m]
@@ -1707,6 +1712,7 @@ class ListeningTestStatusPatchRequest(BaseModel):
 async def admin_list_listening_tests(
     status: str = Query(default="all"),
     search: str = Query(default=""),
+    test_type: str = Query(default="exam"),
     limit: int  = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     authorization: str | None = Header(default=None),
@@ -1717,6 +1723,13 @@ async def admin_list_listening_tests(
     ``test_id`` (case-insensitive ilike). Each row carries a synthetic
     ``audio_ready_count`` — how many of the 4 section rows already have
     audio_storage_path set (powers the "X/4 sections có audio" column).
+
+    `test_type` defaults to **"exam"** = full|mini|drill, i.e. everything that
+    existed before the generated `practice` bank. That default matters: this
+    endpoint feeds the mock-exam picker, which asks for `limit=100` newest-first
+    with no type filter. Importing a few hundred practice items would fill the
+    first page and push the Cambridge papers an admin needs out of sight. Pass
+    `test_type=practice` to browse the bank, or `all` for everything.
     """
     await require_admin(authorization)
 
@@ -1725,6 +1738,16 @@ async def admin_list_listening_tests(
             422,
             f"status must be one of {sorted(_TEST_STATUS_VALUES | {'all'})}",
         )
+    _ADMIN_TYPE_FILTERS = {"exam", "all", "full", "mini", "drill", "practice"}
+    # Called directly (unit tests, internal reuse) an omitted Query() param
+    # arrives as its FieldInfo sentinel, not the default string — comparing that
+    # to "exam" is false, so the filter would fall through to
+    # `eq("test_type", <FieldInfo>)` and quietly return nothing.
+    if not isinstance(test_type, str):
+        test_type = "exam"
+    if test_type not in _ADMIN_TYPE_FILTERS:
+        raise HTTPException(
+            422, f"test_type must be one of {sorted(_ADMIN_TYPE_FILTERS)}")
 
     q = (
         supabase_admin.table("listening_tests")
@@ -1732,6 +1755,10 @@ async def admin_list_listening_tests(
         .order("created_at", desc=True)
         .range(offset, offset + limit - 1)
     )
+    if test_type == "exam":
+        q = q.in_("test_type", ["full", "mini", "drill"])
+    elif test_type != "all":
+        q = q.eq("test_type", test_type)
     if status != "all":
         q = q.eq("status", status)
     if search.strip():
@@ -3896,7 +3923,7 @@ async def listening_overview(authorization: str | None = Header(default=None)):
     reserved = mock_exam_service.reserved_test_ids("listening")
 
     tests: dict[str, int] = {}
-    for kind in ("full", "mini", "drill"):
+    for kind in ("full", "mini", "drill", "practice"):
         q = (
             supabase_admin.table("listening_tests")
             .select("id", count="exact")
@@ -3936,16 +3963,44 @@ async def listening_overview(authorization: str | None = Header(default=None)):
                 break
             start += step
 
+    # The Luyện nhanh page is one library with three tabs, so the landing needs
+    # the per-tab counts too — a tab with nothing behind it should not render,
+    # for the same reason a zero-count tile does not.
+    practice_groups: dict[str, int] = {}
+    if tests.get("practice"):
+        pgq = (
+            supabase_admin.table("listening_tests")
+            .select("metadata")
+            .eq("status", "published")
+            .eq("test_type", "practice")
+            .eq("exam_only", False)
+            .or_(_AUDIO_READY_OR)
+            .order("id")
+            .limit(2000)
+        )
+        # Same reserved-paper exclusion as the count above and the list
+        # endpoint. Without it a tab advertises a paper its own list refuses to
+        # return — the count-vs-list gap, one level down.
+        if reserved:
+            pgq = pgq.not_.in_("id", list(reserved))
+        pg = pgq.execute()
+        for row in pg.data or []:
+            g = ((row.get("metadata") or {}).get("practice_group") or "").strip()
+            if g:
+                practice_groups[g] = practice_groups.get(g, 0) + 1
+
     return {
-        "tests":          tests,
-        "content":        len(content_ids),
-        "exercise_modes": modes,
+        "tests":           tests,
+        "practice_groups": practice_groups,
+        "content":         len(content_ids),
+        "exercise_modes":  modes,
     }
 
 
 @user_router.get("/tests")
 async def list_published_listening_tests(
     test_type: str | None = Query(default=None),
+    practice_group: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     authorization: str | None = Header(default=None),
@@ -3968,8 +4023,8 @@ async def list_published_listening_tests(
     # Validate only a real string value. When the handler is called directly
     # (unit tests), an omitted Query() param arrives as its FieldInfo sentinel,
     # not None — `isinstance str` keeps that from tripping a false 422.
-    if isinstance(test_type, str) and test_type not in ("mini", "full", "drill"):
-        raise HTTPException(422, "test_type must be 'mini', 'full' or 'drill'")
+    if isinstance(test_type, str) and test_type not in ("mini", "full", "drill", "practice"):
+        raise HTTPException(422, "test_type must be 'mini', 'full', 'drill' or 'practice'")
 
     q = (
         supabase_admin.table("listening_tests")
@@ -3986,12 +4041,15 @@ async def list_published_listening_tests(
         .order("created_at", desc=True)
         .range(offset, offset + limit - 1)
     )
-    if test_type == "mini":
-        q = q.eq("test_type", "mini")
-    elif test_type == "drill":
-        q = q.eq("test_type", "drill")
+    if test_type in ("mini", "drill", "practice"):
+        q = q.eq("test_type", test_type)
     else:
         q = q.eq("test_type", "full")
+    # Practice is one library with three tabs; `group` narrows to a tab. Applied
+    # in SQL so paging stays correct per tab (a Python filter over an already
+    # paged result would shed rows and shorten pages).
+    if test_type == "practice" and isinstance(practice_group, str) and practice_group:
+        q = q.eq("metadata->>practice_group", practice_group)
     # Reserved for a mock exam — never in the practice list (mig 170). The
     # PERMANENT flag: unlike reserved_test_ids below it survives the exam being
     # archived, which used to republish the paper to the next cohort.
@@ -4050,6 +4108,8 @@ async def list_published_listening_tests(
             # Skill-drill discriminators — let the Skills-Practice page group by
             # type + level without a per-row round-trip. Null for full/mini.
             "drill_type":           md.get("drill_type"),
+            "practice_group":       md.get("practice_group"),
+            "trap":                 md.get("trap"),
             "level":                md.get("level"),
             "task":                 md.get("task"),
             "user_best_score":      user_best.get(r["id"]),
@@ -4785,15 +4845,18 @@ async def admin_list_listening_attempts(
 
     - user_query: khớp email/display_name (ilike) — admin gõ tên/email, không UUID.
     - test_query: khớp test_id ngoài (ILR-LIS-…) hoặc title (ilike).
-    - test_type: full | mini | drill. status: in_progress | submitted | abandoned.
+    - test_type: full | mini | drill | practice. status: in_progress | submitted | abandoned.
     Trả {items, total, limit, offset}; item KHÔNG mang grading_details (xem detail).
     """
     await require_admin(authorization)
 
     if status and status not in {"in_progress", "submitted", "abandoned"}:
         raise HTTPException(422, "status phải là in_progress | submitted | abandoned.")
-    if test_type and test_type not in {"full", "mini", "drill"}:
-        raise HTTPException(422, "test_type phải là full | mini | drill.")
+    # Mọi giá trị test_type mà listening_tests cho phép (CHECK, migration 173)
+    # đều phải lọc được ở đây — nếu không, lượt làm bài của loại mới vẫn nằm
+    # trong listening_test_attempts nhưng admin không có cách nào lọc ra.
+    if test_type and test_type not in {"full", "mini", "drill", "practice"}:
+        raise HTTPException(422, "test_type phải là full | mini | drill | practice.")
 
     # Resolve các filter dạng text → danh sách id TRƯỚC khi query attempts.
     user_ids: list | None = None

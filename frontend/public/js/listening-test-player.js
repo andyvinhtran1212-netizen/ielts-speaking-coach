@@ -192,7 +192,12 @@ function getTestIdFromUrl() {
 // taker was sent to the wrong shelf. Map through an ALLOWLIST — never navigate
 // to a raw URL from the query string. Unknown/absent → full (the historical
 // default, and what the mock embed gets — its back links are not shown anyway).
-const BACK_TARGETS = { full: '/pages/listening-tests.html', mini: '/pages/listening-mini-test.html' };
+const BACK_TARGETS = {
+  full:     '/pages/listening-tests.html',
+  mini:     '/pages/listening-mini-test.html',
+  drill:    '/pages/listening-skills.html',
+  practice: '/pages/listening-practice.html',
+};
 function originFromUrl() {
   const v = (new URLSearchParams(window.location.search).get('from') || '').trim();
   return BACK_TARGETS[v] ? v : 'full';
@@ -1548,12 +1553,16 @@ function mountAudio() {
   audio.crossOrigin = 'anonymous';
   STATE.audio = audio;
 
-  // Practice modes (mini + drill) relax the single-shot constraint so
-  // the learner can pause, drag the progress bar to seek, and replay.
+  // Practice modes (mini + drill + practice) relax the single-shot constraint
+  // so the learner can pause, drag the progress bar to seek, and replay.
   // Full tests keep the exam-authentic no-seek behaviour. Legacy full
   // tests may report test_type === null → treated as full.
+  //
+  // `practice` belongs here and not with `full`: a 40-second trap drill whose
+  // whole point is hearing the trap again would be unusable under exam rules,
+  // and resume-by-started_at would skip past the audio entirely.
   const tt = STATE.test && STATE.test.test_type;
-  STATE.scrub = tt === 'mini' || tt === 'drill';
+  STATE.scrub = tt === 'mini' || tt === 'drill' || tt === 'practice';
 
   // Sprint 13.5.5 — index cue points by tab so timeupdate can lazily
   // check whether to auto-advance the active tab (Cambridge-style:

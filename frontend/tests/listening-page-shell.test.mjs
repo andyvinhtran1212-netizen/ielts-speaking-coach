@@ -63,8 +63,9 @@ describe('listening.html — landing shell contract', () => {
     }
   });
 
-  it('links the three exam-shaped surfaces', () => {
-    for (const page of ['listening-tests', 'listening-mini-test', 'listening-skills']) {
+  it('links the exam-shaped surfaces and the practice library', () => {
+    for (const page of ['listening-tests', 'listening-mini-test', 'listening-skills',
+                        'listening-practice']) {
       assert.match(
         HTML,
         new RegExp(`href=["']/pages/${page}\\.html["']`),
@@ -89,7 +90,8 @@ describe('listening.html — landing shell contract', () => {
   });
 
   it('count keys resolve against the /overview payload shape', () => {
-    for (const key of ['tests.full', 'tests.mini', 'tests.drill', 'content']) {
+    for (const key of ['tests.full', 'tests.mini', 'tests.drill',
+                       'tests.practice', 'content']) {
       assert.match(
         HTML,
         new RegExp(`data-count-key=["']${key.replace('.', '\\.')}["']`),

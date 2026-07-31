@@ -23,11 +23,17 @@ const $ = (id) => document.getElementById(id);
 
 // Audit 2026-07-17: nguồn = listening_test_attempts (lesson/mini · drill ·
 // full) — hệ exercise cũ (dictation/gist/tf/mcq) đã chết từ 05/2026.
+// One entry per persisted test_type. A type missing here is worse than
+// invisible: its attempts still raise the total and show in recent activity,
+// so its score sits outside the average and the dashboard contradicts itself.
 const MODE_LABELS = {
-  mini:  'Bài học / Mini test',
-  drill: 'Luyện kỹ năng (drill)',
-  full:  'Full test',
+  mini:     'Bài học / Mini test',
+  drill:    'Luyện kỹ năng (drill)',
+  full:     'Full test',
+  practice: 'Luyện nhanh',
 };
+// The weighted overall figures must cover exactly the labelled modes.
+const MODES = Object.keys(MODE_LABELS);
 
 const STATE = {
   range: '30d',
@@ -71,7 +77,7 @@ function render(data) {
   // Overall: % đúng TB weight theo SỐ BÀI ĐÃ NỘP (scored_count) — count gồm
   // cả bài bỏ dở/đang làm, lấy làm mẫu số sẽ kéo tụt % giả (review P2).
   // Hoàn thành TB weight theo mọi lượt (attempts_count).
-  const modes = ['mini', 'drill', 'full'];
+  const modes = MODES;
   let weightedScore = 0;
   let scoredCount = 0;
   let weightedAcc = 0;

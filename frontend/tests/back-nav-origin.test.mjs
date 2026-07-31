@@ -127,7 +127,7 @@ function lReviewBack(search) {
 
 const lPlayerSrc = lift(
   LPLAYER_JS,
-  /const BACK_TARGETS = \{ full[\s\S]*?a\.href = href; \}\);\n\}/,
+  /const BACK_TARGETS = \{[\s\S]*?a\.href = href; \}\);\n\}/,
   'listening player wireBack',
 );
 function lPlayerBack(search) {
@@ -161,6 +161,14 @@ describe('listening-review — back follows the entry point', () => {
 describe('listening player — back follows the library you came from', () => {
   test('mini library entry backs to the mini library', () => {
     assert.deepEqual(lPlayerBack('?id=T&from=mini'), ['/pages/listening-mini-test.html']);
+  });
+  test('practice library entry backs to Luyện nhanh', () => {
+    // Before `practice` was in the allowlist this fell through to Full Tests,
+    // dumping a trap-drill learner onto the Cambridge shelf.
+    assert.deepEqual(lPlayerBack('?id=T&from=practice'), ['/pages/listening-practice.html']);
+  });
+  test('skill-drill entry backs to Luyện kĩ năng', () => {
+    assert.deepEqual(lPlayerBack('?id=T&from=drill'), ['/pages/listening-skills.html']);
   });
   test('full library entry backs to the full library', () => {
     assert.deepEqual(lPlayerBack('?id=T&from=full'), ['/pages/listening-tests.html']);

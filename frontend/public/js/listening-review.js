@@ -163,15 +163,23 @@
   }
 
   // ── Back target ──────────────────────────────────────────────────
-  // Three entry points — the full-test library, the mini-test library, and a
-  // mock-exam result (mock-result.html) — so a single hardcoded back is wrong
-  // for two of them. Callers stamp ?from=; map it through an ALLOWLIST (never
-  // navigate to a raw URL from the query string — that would be an open
-  // redirect). Unknown/absent → the full-test library, the historical default.
+  // Several entry points — the full-test library, the mini-test library, the
+  // skill-drill library, the Luyện nhanh library, and a mock-exam result
+  // (mock-result.html) — so a single hardcoded back is wrong for most of them.
+  // Callers stamp ?from=; map it through an ALLOWLIST (never navigate to a raw
+  // URL from the query string — that would be an open redirect).
+  // Unknown/absent → the full-test library, the historical default.
+  //
+  // This map must stay in step with BACK_TARGETS in listening-test-player.js:
+  // the player propagates its own ?from= into the review link, so an origin
+  // the player accepts but this map does not silently lands the student in the
+  // Full Test library instead of where they started.
   var BACK_TARGETS = {
-    full: { href: '/pages/listening-tests.html', label: '← Listening tests' },
-    mini: { href: '/pages/listening-mini-test.html', label: '← Mini tests' },
-    mock: { href: '/pages/mock-result.html', label: '← Kết quả thi thử' },
+    full:     { href: '/pages/listening-tests.html',     label: '← Listening tests' },
+    mini:     { href: '/pages/listening-mini-test.html', label: '← Mini tests' },
+    drill:    { href: '/pages/listening-skills.html',    label: '← Luyện kĩ năng' },
+    practice: { href: '/pages/listening-practice.html',  label: '← Luyện nhanh' },
+    mock:     { href: '/pages/mock-result.html',         label: '← Kết quả thi thử' },
   };
   function wireBack() {
     var q = new URLSearchParams(window.location.search);

@@ -330,6 +330,50 @@ def assign_windows(items: list[dict], segments: list[dict]
     return out, unsure
 
 
+# Which tab of the Luyện nhanh library a block belongs to. The three hold
+# genuinely different material, so the importer has to record which is which:
+#   trap    — every question drills the SAME trap (the mega trap-drills, split)
+#   section — short simulated Part 1/2/3 from the four generator templates
+#   curated — hand-written lectures, maps, flow-charts, mocks, levels
+_GEN_SECTION_PREFIXES = ("Gen_P2", "Gen_P3", "Gen_FormAccom", "Gen_FormCourse",
+                         "Gen_FormVenue")
+
+
+def practice_group(stem: str, items: list[dict]) -> tuple[str, str | None]:
+    """(group, trap) for this block."""
+    traps = {o.get("trapPrimary") for o in items
+             if o.get("trapPrimary") and o["trapPrimary"] != "Baseline"}
+    # A trap drill is one where the trap is the POINT, not a garnish: a single
+    # trap covering nearly every question. `Gen_<Trap>_pNN` blocks are exactly
+    # that; a simulated section merely sprinkles one or two.
+    if len(traps) == 1 and items:
+        t = next(iter(traps))
+        share = sum(1 for o in items if o.get("trapPrimary") == t) / len(items)
+        if share >= 0.8 and re.match(r"Gen_[A-Z]", stem):
+            return "trap", t
+    if stem.startswith(_GEN_SECTION_PREFIXES):
+        return "section", (sorted(traps)[0] if traps else None)
+    return "curated", (sorted(traps)[0] if traps else None)
+
+
+def interleave_by_family(stems: list[str]) -> list[str]:
+    """Round-robin the block list across generator families.
+
+    The manifest is alphabetical, so taking the first N of a group yields N
+    copies of one template: `--cap section=50` returned 50 `Gen_FormAccom`
+    blocks and nothing else — a sample that shows a learner the same dialogue
+    fifty times. Interleaving makes any prefix of the list a spread across
+    every family, so a cap samples instead of truncating.
+    """
+    fams: dict[str, list[str]] = {}
+    for s in stems:
+        fams.setdefault(re.sub(r"_[0-9a-f]{6,8}$", "", s), []).append(s)
+    out: list[str] = []
+    for row in itertools.zip_longest(*fams.values()):
+        out.extend(x for x in row if x is not None)
+    return out
+
+
 def make_test_id(stem: str, prefix: str) -> str:
     return f"{prefix}-{re.sub(r'[^A-Za-z0-9]+', '-', stem).strip('-')}"
 
@@ -515,9 +559,10 @@ def build_pack(stem: str, items: list[dict], timing: dict, prefix: str) -> dict:
                           for n, w in windows.items()},
         }],
     }
+    group, trap = practice_group(stem, items)
     return {"test_id": tid, "qp": "\n".join(qp), "sol": "\n".join(sol),
             "timings": timings, "part": part, "section_id": sid, "questions": len(items),
-            "unsure_windows": unsure}
+            "unsure_windows": unsure, "practice_group": group, "trap": trap}
 
 
 def convert_block(bundle: Path, audio_dir: str, stem: str, byid: dict,
@@ -575,6 +620,14 @@ def write_pack(pack: dict, out: Path, bitrate: str) -> None:
     (keys / f"{tid}_Solution.md").write_text(pack["sol"], encoding="utf-8")
     (adir / "timings.json").write_text(
         json.dumps(pack["timings"], ensure_ascii=False, indent=2), encoding="utf-8")
+    # Which library + tab this pack belongs to. The importer reads it rather
+    # than being told on the command line, so a mixed batch lands correctly in
+    # one run instead of needing one invocation per group.
+    (adir / "practice.json").write_text(json.dumps({
+        "test_type": "practice",
+        "practice_group": pack.get("practice_group"),
+        "trap": pack.get("trap"),
+    }, ensure_ascii=False, indent=2), encoding="utf-8")
     subprocess.run(
         ["ffmpeg", "-y", "-loglevel", "error", "-i", pack["wav"], "-b:a", bitrate,
          str(adir / f"{pack['section_id']}.mp3")], check=True)
@@ -590,6 +643,10 @@ def main() -> None:
     ap.add_argument("--verdict", default="UPLOADABLE")
     ap.add_argument("--blocks", help="explicit comma-separated stems")
     ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--group", help="chỉ lấy một nhóm: trap | section | curated")
+    ap.add_argument("--cap", action="append", default=[], metavar="NHOM=N",
+                    help="giới hạn riêng một nhóm, vd --cap section=50 "
+                         "(lặp lại được; nhóm không khai thì lấy hết)")
     ap.add_argument("--bitrate", default="96k")
     ap.add_argument("--write", action="store_true", help="actually write (default: dry-run)")
     args = ap.parse_args()
@@ -608,6 +665,7 @@ def main() -> None:
                      if r["verdict"] == args.verdict]
     else:
         sys.exit("cần --manifest hoặc --blocks")
+    stems = interleave_by_family(stems)
     if args.limit:
         stems = stems[:args.limit]
 
@@ -616,11 +674,26 @@ def main() -> None:
 
     out = Path(args.out)
     ok, failed, warned = [], [], 0
+    per_group, capped = collections.Counter(), collections.Counter()
+    caps: dict[str, int] = {}
+    for spec in args.cap:
+        name, _, num = spec.partition("=")
+        if not num.isdigit():
+            sys.exit(f"--cap phải có dạng NHOM=N (nhận: {spec!r})")
+        caps[name.strip()] = int(num)
     for stem in stems:
         pack = convert_block(bundle, args.audio_dir, stem, byid, "ILR-LIS-KKR")
         if pack.get("error"):
             failed.append((stem, pack["error"]))
             continue
+        g = pack.get("practice_group")
+        if args.group and g != args.group:
+            continue
+        cap = caps.get(g)
+        if cap is not None and per_group[g] >= cap:
+            capped[g] += 1
+            continue
+        per_group[g] += 1
         warned += 1 if pack.get("warnings") else 0
         if args.write:
             write_pack(pack, out, args.bitrate)
@@ -629,6 +702,12 @@ def main() -> None:
     unsure_q = sum(len(p.get("unsure_windows") or []) for p in ok)
     print(f"{'GHI' if args.write else 'CHẠY THỬ'} — {len(ok)}/{len(stems)} block chuyển được, "
           f"{sum(p['questions'] for p in ok)} câu")
+    if per_group:
+        print("  theo nhóm: " + " · ".join(f"{g}={n}" for g, n in sorted(per_group.items())))
+    if capped:
+        # Never let a cap look like the whole library.
+        print("  BỎ QUA do --cap: "
+              + " · ".join(f"{g}={n}" for g, n in sorted(capped.items())))
     if unsure_q:
         tot = sum(p["questions"] for p in ok)
         print(f"  cửa sổ nghe-lại KHÔNG CHẮC (đáp án lặp, không có căn cứ chọn): "

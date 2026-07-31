@@ -355,3 +355,105 @@ describe('shared list pager', () => {
     assert.deepEqual(items, []);
   });
 });
+
+
+describe('Luyện nhanh — one library, three tabs', () => {
+  let practice;
+  before(async () => {
+    globalThis.document = { getElementById: () => null, addEventListener() {} };
+    practice = await import('../js/listening-practice.js');
+  });
+
+  it('groups the trap tab by trap so it reads as eleven short courses', () => {
+    const items = [
+      { id: '1', trap: 'Number Confusion' }, { id: '2', trap: 'Number Confusion' },
+      { id: '3', trap: 'Negation Flip' },
+    ];
+    const groups = practice.groupTests('trap', items);
+    assert.deepEqual(groups.map((g) => [g.title, g.items.length]),
+      [['Number Confusion', 2], ['Negation Flip', 1]]);
+  });
+
+  it('leaves the other tabs as one flat list', () => {
+    const items = [{ id: '1', trap: 'X' }, { id: '2', trap: 'Y' }];
+    for (const key of ['section', 'curated']) {
+      const groups = practice.groupTests(key, items);
+      assert.equal(groups.length, 1);
+      assert.equal(groups[0].title, null);
+    }
+  });
+
+  it('a test with no trap still lands in a group', () => {
+    const groups = practice.groupTests('trap', [{ id: '1' }]);
+    assert.equal(groups[0].title, 'Khác');
+  });
+
+  it('escapes titles into the card', () => {
+    const html = practice.renderCard({ id: 'x', title: '<img onerror=1>' });
+    assert.doesNotMatch(html, /<img/);
+    assert.match(html, /&lt;img/);
+  });
+
+  it('the three tabs match the groups the backend reports', () => {
+    // /overview keys and the tab keys are the same vocabulary; a mismatch
+    // means a tab that never appears or a group with nowhere to render.
+    assert.deepEqual(practice.TABS.map((t) => t.key), ['trap', 'section', 'curated']);
+    const backend = read('..', 'backend', 'migrations',
+                         '173_listening_tests_practice_type.sql');
+    for (const k of ['trap', 'section', 'curated']) {
+      assert.match(backend, new RegExp(k), `migration must document group '${k}'`);
+    }
+  });
+});
+
+
+describe('shared player knows the practice library', () => {
+  const PLAYER = read('js', 'listening-test-player.js');
+
+  it('practice gets scrub/replay like the other practice modes', () => {
+    // A 40-second trap drill whose whole point is hearing the trap again is
+    // unusable under exam no-seek rules, and resume-by-started_at would skip
+    // past the audio entirely.
+    assert.match(PLAYER, /tt === 'mini' \|\| tt === 'drill' \|\| tt === 'practice'/);
+  });
+
+  it('back link returns to the library the learner came from', () => {
+    const block = PLAYER.split('const BACK_TARGETS = {')[1].split('};')[0];
+    for (const [k, page] of [['full', 'listening-tests'], ['mini', 'listening-mini-test'],
+                             ['drill', 'listening-skills'], ['practice', 'listening-practice']]) {
+      assert.match(block, new RegExp(`${k}:\\s*'/pages/${page}\\.html'`),
+        `back target for ${k} missing — the learner lands on the wrong shelf`);
+    }
+  });
+
+  it('the practice page stamps ?from=practice so the back link resolves', () => {
+    assert.match(read('js', 'listening-practice.js'), /from=practice/);
+  });
+});
+
+
+describe('analytics covers every persisted test type', () => {
+  it('practice appears in the dashboard modes', () => {
+    // A type missing here is worse than invisible: its attempts still raise
+    // total_attempts and show in recent activity, so its score sits outside
+    // the average and completion — the dashboard contradicts itself.
+    const js = read('js', 'listening-analytics.js');
+    const labels = js.split('const MODE_LABELS = {')[1].split('};')[0];
+    for (const m of ['mini', 'drill', 'full', 'practice']) {
+      assert.match(labels, new RegExp(`^\\s*${m}:`, 'm'), `mode ${m} has no label`);
+    }
+  });
+
+  it('the weighted overall figures use exactly the labelled modes', () => {
+    const js = read('js', 'listening-analytics.js');
+    assert.match(js, /const MODES = Object\.keys\(MODE_LABELS\)/,
+      'a hand-written list would drift from the labels');
+    assert.doesNotMatch(js, /\['mini', 'drill', 'full'\]/,
+      'the old hard-coded three-mode list is back');
+  });
+
+  it('backend and frontend enumerate the same modes', () => {
+    const be = read('..', 'backend', 'routers', 'listening.py');
+    assert.match(be, /types = \("mini", "drill", "full", "practice"\)/);
+  });
+});
