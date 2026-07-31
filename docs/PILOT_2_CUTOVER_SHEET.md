@@ -249,30 +249,41 @@ chính là do PR #879 mang lên lúc 11:12**, tức nó ra đời SAU deploy nà
 đây là thiếu sót về bằng chứng, không phải vi phạm một luật đang có hiệu lực.
 Vẫn ghi vào hồ sơ thay vì bỏ qua.
 
-## ĐÍNH CHÍNH 2026-07-31 — "0 lỗi trên route" KHÔNG đo được lỗi phía client
+## ĐÍNH CHÍNH 2026-07-31 (bản 2) — "0 lỗi trên route" có che một KHOẢNG MÙ SỚM
 
-Phát hiện khi chuẩn bị pilot 3+4: **layout `(public-content)` — layout phục vụ
-route grammar — KHÔNG nạp `error-reporter.js`**. Chỉ `(marketing)` nạp nó. Nghĩa
-là suốt cửa sổ quan sát pilot 2, **lỗi JS phía client trên `/grammar/...`
-không thể được báo về `error_logs`**. Con số "0 lỗi trên route" trong bảng PASS
-ở trên vì thế là **đúng theo cấu tạo**, không phải bằng chứng sức khoẻ.
+**Bản đính chính đầu tiên của tôi nói quá.** Tôi viết rằng route grammar
+"không thể báo lỗi client" vì layout `(public-content)` không nạp
+`error-reporter.js`. Sai ở chỗ: `aver-chrome.js` — layout nào cũng nạp —
+**tự chèn `/js/error-reporter.js`** trong `connectedCallback()` (dòng 388–394,
+có cờ `data-aver-error-reporter` chống nạp trùng). Vậy trang grammar **CÓ**
+báo lỗi client, chỉ là **muộn**.
 
-Cái gì CÒN đứng vững, nói cho đủ:
+Sự thật đúng là một **khoảng mù về thời điểm**:
 
-| Bằng chứng | Còn giá trị? |
+| Lỗi xảy ra khi | Có được báo không |
 |---|---|
-| **0 lỗi toàn site** (gồm lỗi backend, và lỗi client từ các trang CÓ reporter) | **Có** — backend là nguồn độc lập, không phụ thuộc reporter phía trang grammar |
-| **Synthetic 4 lần, mỗi lần n=75, 0 lỗi** | **Có** — Playwright bắt lỗi tải trang/console ở tầng browser, không qua reporter |
-| **"0 lỗi trên `/grammar/*`"** | **KHÔNG** — kênh báo lỗi cho route đó chưa từng tồn tại |
-| LCP organic | vẫn `insufficient-sample` như đã ghi |
+| Sau khi `<aver-chrome>` upgrade + reporter tải xong | **Có** — listener đã gắn |
+| Trước đó (parse/exec sớm, ngay đầu tài liệu) | **Không** — sự kiện `error` không phát lại cho listener gắn sau |
 
-**Không rút lại kết luận PASS**, vì hai chân đỡ độc lập ở trên vẫn nguyên và
-cutover đã sống 3 ngày không có báo cáo sự cố nào; nhưng bảng PASS phải đọc kèm
-mục này. Đã vá ở PR **#887**: `(public-content)` và `(authed)` nay nạp đủ bộ ba
-telemetry, kèm `tests/telemetry-coverage.test.mjs` chặn tái diễn.
+Khoảng mù đó **đúng bằng loại lỗi nguy hiểm nhất**: `SyntaxError` lúc parse —
+chính là lỗi iOS 15 bắt được trên `/` (DEBT-K). Bắt được ở `/` vì
+`(marketing)` nạp reporter **trực tiếp bằng `<script defer>`**, tức sớm; trên
+grammar thì reporter chỉ tới sau khi chrome upgrade.
 
-**Bài học:** trước khi coi "0 lỗi" là bằng chứng, phải kiểm **kênh báo lỗi có
-tồn tại trên đúng route đó không**. Số 0 từ một kênh chưa nối là số 0 vô nghĩa.
+**Ảnh hưởng tới hồ sơ PASS pilot 2:** "0 lỗi trên `/grammar/*`" **vẫn có giá
+trị cho lỗi sau khi chrome khởi tạo** — tức phần lớn lỗi tương tác. Nó **không**
+chứng minh được không có lỗi parse sớm. Cộng với hai chân đỡ độc lập (0 lỗi
+toàn site kể cả backend; 4 lần synthetic n=75 bắt lỗi ở tầng browser, gồm cả
+lỗi sớm), **kết luận PASS giữ nguyên** — nhưng đọc kèm mục này.
+
+Bản vá ở PR **#887** nạp reporter **sớm và tường minh** ở cả `(public-content)`
+lẫn `(authed)`, tức thu hẹp khoảng mù về gần bằng của `(marketing)`; kèm
+`tests/telemetry-coverage.test.mjs` chặn tái diễn.
+
+**Bài học kép:** (1) trước khi coi "0 lỗi" là bằng chứng, kiểm kênh báo lỗi có
+tồn tại **và tồn tại từ lúc nào**; (2) đọc cả đường nạp ĐỘNG (`aver-chrome`
+chèn script) chứ không chỉ thẻ `<script>` tĩnh trong layout — tôi đã sai đúng
+chỗ đó.
 
 ## Risk acceptance BỔ SUNG — vế "telemetry tagged" chỉ đạt một phần (review #881)
 
