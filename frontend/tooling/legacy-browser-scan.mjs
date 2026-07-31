@@ -69,6 +69,7 @@ const SYNTAX_BANNED = [
 const API_BANNED = [
   { pattern: 'Object.hasOwn', since: 'Safari 16.4', requires: ['Object.hasOwn'] },
   { pattern: 'Object.groupBy', since: 'Safari 17.4', requires: null },
+  { pattern: 'Map.groupBy', since: 'Safari 17.4', requires: null },
   {
     pattern: '.at(',
     since: 'Safari 15.4',
@@ -147,6 +148,17 @@ if (!STATIC_ONLY && chunkFiles.length === 0) {
   process.exit(1);
 }
 
+// Review #882 vòng 9 — FAIL CLOSED cho cả gốc tĩnh. Trước đây gốc này thiếu thì
+// bị bỏ qua trong im lặng, y hệt lỗi thư mục chunk đã sửa ở vòng 2: cấu hình sai
+// đường dẫn hoặc đổi bố cục public/ sẽ làm cổng tự tắt mà vẫn báo "sạch".
+if (STATIC_JS && !existsSync(STATIC_JS)) {
+  console.error(
+    `legacy-browser-scan: KHÔNG thấy thư mục nguồn tĩnh: ${STATIC_JS}\n`
+    + '  Bỏ qua nó = tự tắt cổng cho toàn bộ public/** (nơi KHÔNG có polyfill nào).',
+  );
+  process.exit(1);
+}
+
 // Hai nhóm nguồn, khác nhau ở chỗ có được hưởng polyfill hay không:
 //  - chunk Next: instrumentation-client chạy trước ⇒ API đã khai là an toàn;
 //  - public/js: phục vụ nguyên xi, trang legacy KHÔNG nạp instrumentation ⇒
@@ -154,7 +166,7 @@ if (!STATIC_ONLY && chunkFiles.length === 0) {
 const ROOTS = STATIC_ONLY
   ? []
   : [{ dir: CHUNKS, files: chunkFiles, allowPolyfilled: true, kind: 'chunk' }];
-if (STATIC_JS && existsSync(STATIC_JS)) {
+if (STATIC_JS) {
   ROOTS.push({
     dir: STATIC_JS, files: walkJs(STATIC_JS), allowPolyfilled: false, kind: 'script tĩnh',
   });

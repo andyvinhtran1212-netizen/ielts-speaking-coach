@@ -104,6 +104,19 @@ describe('legacy-browser-scan (DEBT-2026-07-29-K)', () => {
     assert.match(r.stdout + r.stderr, /KHÔNG thấy thư mục chunk/);
   });
 
+  // Review #882 vòng 9 — cùng lớp fail-open với thư mục chunk, nhưng ở gốc
+  // TĨNH: đường dẫn sai/bố cục public đổi thì cổng tự tắt cho toàn bộ vùng
+  // không có polyfill.
+  test('thư mục nguồn tĩnh không tồn tại → đỏ', () => {
+    const missing = path.join(tmpdir(), 'staticscan-khong-ton-tai-' + process.pid);
+    const r = spawnSync(process.execPath, [SCANNER, '--static-only'], {
+      encoding: 'utf8',
+      env: { ...process.env, LEGACY_SCAN_STATIC_DIR: missing },
+    });
+    assert.equal(r.status, 1, 'thiếu gốc tĩnh mà báo xanh = tự tắt cổng\n' + (r.stdout + r.stderr));
+    assert.match(r.stdout + r.stderr, /KHÔNG thấy thư mục nguồn tĩnh/);
+  });
+
   test('thư mục chunk rỗng → đỏ (quét 0 file thì không kết luận được)', () => {
     const r = scan({});
     assert.equal(r.code, 1, r.out);
@@ -198,6 +211,7 @@ describe('legacy-browser-scan (DEBT-2026-07-29-K)', () => {
     'toSpliced': 'const t=xs.toSpliced(0,1);',
     'with': 'const w=xs.with(0,9);',
     'Object.groupBy': 'const g=Object.groupBy(xs,f);',
+    'Map.groupBy': 'const m=Map.groupBy(xs,f);',
     'structuredClone': 'const c=structuredClone(o);',
   })) {
     test(`API vượt sàn bị chặn: ${api}`, () => {
