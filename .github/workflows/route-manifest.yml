@@ -10,7 +10,12 @@
 # Scoped to the files that can change the route graph — the build costs ~2
 # minutes and is wasted on content-only PRs. The build has NO env/network
 # needs by design (plan B12: no fetch at build).
-name: Route manifest check
+#
+# DEBT-2026-07-29-K (2026-07-31): job này còn gánh thêm một kiểm tra nữa cần
+# output build — quét chunk tìm cú pháp/API vượt sàn trình duyệt. Lý do gộp vào
+# đây thay vì dựng job mới: cả hai đều chỉ cần `npm run build`, dựng job thứ hai
+# là trả giá build ~2 phút lần nữa cho cùng một artifact.
+name: Build checks (route manifest + sàn trình duyệt)
 
 on:
   pull_request:
@@ -18,6 +23,9 @@ on:
       - 'frontend/app/**'
       - 'frontend/next.config.ts'
       - 'frontend/tooling/route-ownership-check.mjs'
+      - 'frontend/tooling/legacy-browser-scan.mjs'
+      - 'frontend/instrumentation-client.ts'
+      - 'frontend/package.json'
       - 'frontend/package-lock.json'
       - '.github/workflows/route-manifest.yml'
 
@@ -49,3 +57,9 @@ jobs:
 
       - name: Verify route ownership against the compiled manifest
         run: node tooling/route-ownership-check.mjs --manifest
+
+      # DEBT-2026-07-29-K — chunk của CHÍNH Next từng chứa `static{` (Safari
+      # 16.4+) và làm iOS ≤16.3 không hydrate được trên mọi route. Chỉ nhìn
+      # source không thấy: thứ vượt sàn nằm trong output build.
+      - name: Quét sàn trình duyệt trên chunk đã build
+        run: node tooling/legacy-browser-scan.mjs
