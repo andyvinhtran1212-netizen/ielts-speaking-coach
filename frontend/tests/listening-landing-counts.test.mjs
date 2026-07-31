@@ -405,3 +405,28 @@ describe('Luyện nhanh — one library, three tabs', () => {
     }
   });
 });
+
+
+describe('shared player knows the practice library', () => {
+  const PLAYER = read('js', 'listening-test-player.js');
+
+  it('practice gets scrub/replay like the other practice modes', () => {
+    // A 40-second trap drill whose whole point is hearing the trap again is
+    // unusable under exam no-seek rules, and resume-by-started_at would skip
+    // past the audio entirely.
+    assert.match(PLAYER, /tt === 'mini' \|\| tt === 'drill' \|\| tt === 'practice'/);
+  });
+
+  it('back link returns to the library the learner came from', () => {
+    const block = PLAYER.split('const BACK_TARGETS = {')[1].split('};')[0];
+    for (const [k, page] of [['full', 'listening-tests'], ['mini', 'listening-mini-test'],
+                             ['drill', 'listening-skills'], ['practice', 'listening-practice']]) {
+      assert.match(block, new RegExp(`${k}:\\s*'/pages/${page}\\.html'`),
+        `back target for ${k} missing — the learner lands on the wrong shelf`);
+    }
+  });
+
+  it('the practice page stamps ?from=practice so the back link resolves', () => {
+    assert.match(read('js', 'listening-practice.js'), /from=practice/);
+  });
+});

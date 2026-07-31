@@ -426,3 +426,49 @@ def test_practice_is_a_valid_test_type():
             test_type="practice", practice_group=None,
             limit=10, offset=0, authorization="Bearer x"))
     _with(_practice_dataset(), go)          # must not raise 422
+
+
+def test_practice_tab_counts_exclude_reserved_papers():
+    """A paper held for a mock exam is invisible to both `tests['practice']`
+    and the list endpoint; the tab count has to agree or a tab advertises a
+    paper its own list refuses to return."""
+    tables = _practice_dataset()
+    tables["listening_tests"].append(_practice_row(47, "trap"))
+    reserved = RESERVED | {"t47"}
+
+    from routers import listening as mod
+    import services.mock_exam_service as mes
+    with patch.object(mod, "supabase_admin", _FakeSB(tables)), \
+         patch.object(mod, "_require_auth", AsyncMock(return_value={"id": "u"})), \
+         patch.object(mes, "reserved_test_ids", lambda _s: set(reserved)):
+        ov = _run(mod.listening_overview(authorization="Bearer x"))
+        listed = _run(mod.list_published_listening_tests(
+            test_type="practice", practice_group="trap",
+            limit=100, offset=0, authorization="Bearer x"))
+
+    assert ov["practice_groups"]["trap"] == len(listed["items"]) == 2
+
+
+def test_admin_list_hides_the_practice_bank_by_default():
+    """The mock-exam picker calls this newest-first with no type filter. A few
+    hundred imported practice items would fill page one and bury the Cambridge
+    papers an admin needs to assign."""
+    from routers import listening as mod
+    tables = _practice_dataset()
+    with patch.object(mod, "supabase_admin", _FakeSB(tables)), \
+         patch.object(mod, "require_admin", AsyncMock(return_value={"id": "a"})):
+        default = _run(mod.admin_list_listening_tests(
+            status="all", search="", test_type="exam",
+            limit=100, offset=0, authorization="Bearer x"))
+        bank = _run(mod.admin_list_listening_tests(
+            status="all", search="", test_type="practice",
+            limit=100, offset=0, authorization="Bearer x"))
+        every = _run(mod.admin_list_listening_tests(
+            status="all", search="", test_type="all",
+            limit=100, offset=0, authorization="Bearer x"))
+
+    kinds = {t["test_type"] for t in default["items"]}
+    assert "practice" not in kinds, "practice must not appear in the default admin list"
+    assert kinds <= {"full", "mini", "drill"}
+    assert all(t["test_type"] == "practice" for t in bank["items"])
+    assert len(every["items"]) == len(default["items"]) + len(bank["items"])

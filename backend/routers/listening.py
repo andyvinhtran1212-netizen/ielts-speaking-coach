@@ -1707,6 +1707,7 @@ class ListeningTestStatusPatchRequest(BaseModel):
 async def admin_list_listening_tests(
     status: str = Query(default="all"),
     search: str = Query(default=""),
+    test_type: str = Query(default="exam"),
     limit: int  = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     authorization: str | None = Header(default=None),
@@ -1717,6 +1718,13 @@ async def admin_list_listening_tests(
     ``test_id`` (case-insensitive ilike). Each row carries a synthetic
     ``audio_ready_count`` — how many of the 4 section rows already have
     audio_storage_path set (powers the "X/4 sections có audio" column).
+
+    `test_type` defaults to **"exam"** = full|mini|drill, i.e. everything that
+    existed before the generated `practice` bank. That default matters: this
+    endpoint feeds the mock-exam picker, which asks for `limit=100` newest-first
+    with no type filter. Importing a few hundred practice items would fill the
+    first page and push the Cambridge papers an admin needs out of sight. Pass
+    `test_type=practice` to browse the bank, or `all` for everything.
     """
     await require_admin(authorization)
 
@@ -1725,6 +1733,10 @@ async def admin_list_listening_tests(
             422,
             f"status must be one of {sorted(_TEST_STATUS_VALUES | {'all'})}",
         )
+    _ADMIN_TYPE_FILTERS = {"exam", "all", "full", "mini", "drill", "practice"}
+    if isinstance(test_type, str) and test_type not in _ADMIN_TYPE_FILTERS:
+        raise HTTPException(
+            422, f"test_type must be one of {sorted(_ADMIN_TYPE_FILTERS)}")
 
     q = (
         supabase_admin.table("listening_tests")
@@ -1732,6 +1744,10 @@ async def admin_list_listening_tests(
         .order("created_at", desc=True)
         .range(offset, offset + limit - 1)
     )
+    if test_type == "exam":
+        q = q.in_("test_type", ["full", "mini", "drill"])
+    elif test_type != "all":
+        q = q.eq("test_type", test_type)
     if status != "all":
         q = q.eq("status", status)
     if search.strip():
@@ -3941,7 +3957,7 @@ async def listening_overview(authorization: str | None = Header(default=None)):
     # for the same reason a zero-count tile does not.
     practice_groups: dict[str, int] = {}
     if tests.get("practice"):
-        pg = (
+        pgq = (
             supabase_admin.table("listening_tests")
             .select("metadata")
             .eq("status", "published")
@@ -3950,8 +3966,13 @@ async def listening_overview(authorization: str | None = Header(default=None)):
             .or_(_AUDIO_READY_OR)
             .order("id")
             .limit(2000)
-            .execute()
         )
+        # Same reserved-paper exclusion as the count above and the list
+        # endpoint. Without it a tab advertises a paper its own list refuses to
+        # return — the count-vs-list gap, one level down.
+        if reserved:
+            pgq = pgq.not_.in_("id", list(reserved))
+        pg = pgq.execute()
         for row in pg.data or []:
             g = ((row.get("metadata") or {}).get("practice_group") or "").strip()
             if g:
