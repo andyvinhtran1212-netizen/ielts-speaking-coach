@@ -249,6 +249,49 @@ chính là do PR #879 mang lên lúc 11:12**, tức nó ra đời SAU deploy nà
 đây là thiếu sót về bằng chứng, không phải vi phạm một luật đang có hiệu lực.
 Vẫn ghi vào hồ sơ thay vì bỏ qua.
 
+## ĐÍNH CHÍNH 2026-07-31 (bản 2) — "0 lỗi trên route" có che một KHOẢNG MÙ SỚM
+
+**Bản đính chính đầu tiên của tôi nói quá.** Tôi viết rằng route grammar
+"không thể báo lỗi client" vì layout `(public-content)` không nạp
+`error-reporter.js`. Sai ở chỗ: `aver-chrome.js` — layout nào cũng nạp —
+**tự chèn `/js/error-reporter.js`** trong `connectedCallback()` (dòng 388–394,
+có cờ `data-aver-error-reporter` chống nạp trùng). Vậy trang grammar **CÓ**
+báo lỗi client, chỉ là **muộn**.
+
+Sự thật đúng là một **khoảng mù về thời điểm**:
+
+| Lỗi xảy ra khi | Có được báo không |
+|---|---|
+| Sau khi `<aver-chrome>` upgrade + reporter tải xong | **Có** — listener đã gắn |
+| Trước đó (parse/exec sớm, ngay đầu tài liệu) | **Không** — sự kiện `error` không phát lại cho listener gắn sau |
+
+Khoảng mù đó **đúng bằng loại lỗi nguy hiểm nhất**: `SyntaxError` lúc parse —
+chính là lỗi iOS 15 bắt được trên `/` (DEBT-K). Bắt được ở `/` vì
+`(marketing)` nạp reporter **trực tiếp bằng `<script defer>`**, tức sớm; trên
+grammar thì reporter chỉ tới sau khi chrome upgrade.
+
+**Ảnh hưởng tới hồ sơ PASS pilot 2:** "0 lỗi trên `/grammar/*`" **vẫn có giá
+trị cho lỗi sau khi chrome khởi tạo** — tức phần lớn lỗi tương tác. Nó **không**
+chứng minh được không có lỗi parse sớm. Cộng với hai chân đỡ độc lập (0 lỗi
+toàn site kể cả backend; 4 lần synthetic n=75 bắt lỗi ở tầng browser, gồm cả
+lỗi sớm), **kết luận PASS giữ nguyên** — nhưng đọc kèm mục này.
+
+Bản vá ở PR **#887** nạp reporter **sớm và tường minh** ở `(public-content)`,
+`(authed)` và `public/pages/profile.html` — và đặt nó **trước `api.js`/chrome**,
+vì script `defer` chạy theo THỨ TỰ TÀI LIỆU: đặt sau `api.js` thì một lỗi trong
+chính `api.js` vẫn rơi vào khoảng mù (review #887 bắt đúng chỗ này ở bản đầu).
+`tests/telemetry-coverage.test.mjs` pin cả **sự có mặt** lẫn **thứ tự**.
+
+Vẫn còn một phần không đóng được bằng cách này: lỗi xảy ra **trước khi script
+`defer` đầu tiên chạy** (ví dụ lỗi parse của chính chunk Next tải sớm hơn).
+Muốn phủ nốt thì phải nội tuyến listener vào `<head>` — chưa làm, ghi lại đây
+để không tưởng là đã kín.
+
+**Bài học kép:** (1) trước khi coi "0 lỗi" là bằng chứng, kiểm kênh báo lỗi có
+tồn tại **và tồn tại từ lúc nào**; (2) đọc cả đường nạp ĐỘNG (`aver-chrome`
+chèn script) chứ không chỉ thẻ `<script>` tĩnh trong layout — tôi đã sai đúng
+chỗ đó.
+
 ## Risk acceptance BỔ SUNG — vế "telemetry tagged" chỉ đạt một phần (review #881)
 
 ADR-013 đặt **telemetry tagged** làm điều kiện tiên quyết, trong khi chính hồ sơ
