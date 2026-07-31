@@ -51,6 +51,9 @@
        init() below, also moved to DOMContentLoaded) find createClient ready. -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0" defer></script>
   <script src="../js/runtime-config.js" defer></script>
+  <!-- Reporter TRƯỚC api.js: script defer chạy theo thứ tự tài liệu, đặt sau
+       thì lỗi trong api.js xảy ra khi listener chưa gắn (review #887). -->
+  <script src="../js/error-reporter.js" defer></script>
   <script src="../js/api.js" defer></script>
   <!-- DEBT-2026-07-31-O + giao thức baseline legacy (header rum-vitals.js):
        trang này là ĐÍCH của cutover pilot 3+4, mà trước nay KHÔNG có mẫu số
@@ -59,7 +62,6 @@
        traffic. Ba script này phải sống ≥24h TRƯỚC cutover để cửa sổ quan sát
        có mẫu số, có tử số và có baseline LCP để so. -->
   <script src="../js/analytics-beacon.js" defer></script>
-  <script src="../js/error-reporter.js" defer></script>
   <script src="../js/rum-vitals.js" defer></script>
   <script>
     var SUPABASE_URL  = 'https://huwsmtubwulikhlmcirx.supabase.co';

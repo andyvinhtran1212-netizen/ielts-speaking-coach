@@ -88,17 +88,16 @@ export default function AuthedLayout({ children }: { children: ReactNode }) {
         defer
       />
       <script src="/js/runtime-config.js" defer />
-      <script src="/js/api.js" defer />
-      {/* DEBT-2026-07-31-O — BỘ BA telemetry phải ĐỦ ở mọi layout Next, nếu
-          không thì cổng rollback đo vào chỗ trống:
-            · analytics-beacon = MẪU SỐ page_view của error-rate;
-            · error-reporter   = TỬ SỐ (lỗi phía client);
-            · rum-vitals       = trigger LCP.
-          Thiếu error-reporter thì "0 lỗi" là đúng-theo-cấu-tạo chứ không
-          phải bằng chứng — đúng chuyện đã xảy ra với route grammar suốt cửa
-          sổ quan sát pilot 2. */}
-      <script src="/js/analytics-beacon.js" defer />
+      {/* DEBT-2026-07-31-O — reporter phải nạp TRƯỚC api.js/chrome. Script
+          `defer` chạy theo THỨ TỰ TÀI LIỆU, nên đặt sau api.js thì một lỗi
+          trong api.js xảy ra khi listener chưa gắn — đúng khoảng mù mà bản vá
+          này nhận đóng (review #887). Reporter đọc runtime-config lúc GỬI chứ
+          không lúc nạp, nên đứng ngay sau runtime-config là an toàn. */}
       <script src="/js/error-reporter.js" defer />
+      <script src="/js/api.js" defer />
+      {/* Bộ ba telemetry của cổng rollback (ADR-012): error-reporter ở trên =
+          TỬ SỐ; analytics-beacon = MẪU SỐ page_view; rum-vitals = trigger LCP. */}
+      <script src="/js/analytics-beacon.js" defer />
       {/* AUDIT F2: field Web Vitals per implementation tag (rollback-metrics
           reads them for the frozen LCP trigger). */}
       <script src="/js/rum-vitals.js" defer />

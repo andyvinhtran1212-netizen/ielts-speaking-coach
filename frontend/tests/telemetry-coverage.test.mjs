@@ -41,9 +41,14 @@ const PAGES = path.join(__dirname, '..', 'public', 'pages');
  */
 function loadsScript(src, file) {
   const name = src.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  // Khớp cả HTML (`src="../js/x.js"`) lẫn JSX (`src="/js/x.js"`), cho phép
-  // đường dẫn tương đối/tuyệt đối, nhưng BẮT BUỘC nằm trong thuộc tính src.
-  return new RegExp(`src\\s*=\\s*["'][^"']*${name}["']`).test(file);
+  // Phải là THẺ <script> thật với thuộc tính `src` của CHÍNH nó. Bản trước chỉ
+  // đòi "một thuộc tính kết thúc bằng src" nên `<img src="/js/x.js">` hay
+  // `<div data-src="…">` cũng qua (review #887) — vẫn là đường xanh-giả, chỉ
+  // hẹp hơn lần đầu. `[^>]*` chặn không cho vượt qua dấu `>` sang thẻ khác;
+  // `(?<![-\\w])src` loại `data-src`/`asset-src`.
+  return new RegExp(
+    `<script\\b[^>]*(?<![-\\w])src\\s*=\\s*["'][^"'>]*${name}["']`,
+  ).test(file);
 }
 
 /** Layout của route group = nơi khai báo script cho mọi trang trong nhóm. */
@@ -82,6 +87,30 @@ describe('phủ telemetry (DEBT-2026-07-31-O)', () => {
       assert.ok(loadsScript('rum-vitals.js', src), `${name} thiếu Web Vitals`);
     });
   }
+
+  // Review #887 — CHỈ CÓ MẶT LÀ CHƯA ĐỦ. Script `defer` chạy theo THỨ TỰ TÀI
+  // LIỆU, nên reporter đứng sau `api.js` thì lỗi trong api.js xảy ra khi
+  // listener chưa gắn: khoảng mù vẫn còn, chỉ hẹp hơn. Bài này pin thứ tự.
+  const reporterFirst = (src, label) => {
+    const iReporter = src.search(/<script\b[^>]*(?<![-\w])src\s*=\s*["'][^"'>]*error-reporter\.js["']/);
+    const iApi = src.search(/<script\b[^>]*(?<![-\w])src\s*=\s*["'][^"'>]*\/api\.js["']/);
+    assert.ok(iReporter !== -1, `${label}: không thấy thẻ error-reporter`);
+    if (iApi === -1) return; // trang không nạp api.js thì không có gì để đứng trước
+    assert.ok(iReporter < iApi,
+      `${label}: error-reporter phải đứng TRƯỚC api.js — nếu không, lỗi trong api.js`
+      + ' xảy ra trước khi listener gắn và không bao giờ được báo');
+  };
+
+  for (const layout of groupLayouts()) {
+    const name = path.basename(path.dirname(layout));
+    test(`${name}: error-reporter đứng trước api.js`, () => {
+      reporterFirst(readFileSync(layout, 'utf8'), name);
+    });
+  }
+
+  test('profile.html: error-reporter đứng trước api.js', () => {
+    reporterFirst(readFileSync(path.join(PAGES, 'profile.html'), 'utf8'), 'profile.html');
+  });
 
   // Giao thức baseline legacy (header rum-vitals.js): trang legacy SẮP cutover
   // phải được gắn đủ ba script ≥24h trước, nếu không cửa sổ quan sát không có

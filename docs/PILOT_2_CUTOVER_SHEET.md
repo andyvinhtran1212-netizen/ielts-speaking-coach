@@ -276,9 +276,16 @@ chứng minh được không có lỗi parse sớm. Cộng với hai chân đỡ
 toàn site kể cả backend; 4 lần synthetic n=75 bắt lỗi ở tầng browser, gồm cả
 lỗi sớm), **kết luận PASS giữ nguyên** — nhưng đọc kèm mục này.
 
-Bản vá ở PR **#887** nạp reporter **sớm và tường minh** ở cả `(public-content)`
-lẫn `(authed)`, tức thu hẹp khoảng mù về gần bằng của `(marketing)`; kèm
-`tests/telemetry-coverage.test.mjs` chặn tái diễn.
+Bản vá ở PR **#887** nạp reporter **sớm và tường minh** ở `(public-content)`,
+`(authed)` và `public/pages/profile.html` — và đặt nó **trước `api.js`/chrome**,
+vì script `defer` chạy theo THỨ TỰ TÀI LIỆU: đặt sau `api.js` thì một lỗi trong
+chính `api.js` vẫn rơi vào khoảng mù (review #887 bắt đúng chỗ này ở bản đầu).
+`tests/telemetry-coverage.test.mjs` pin cả **sự có mặt** lẫn **thứ tự**.
+
+Vẫn còn một phần không đóng được bằng cách này: lỗi xảy ra **trước khi script
+`defer` đầu tiên chạy** (ví dụ lỗi parse của chính chunk Next tải sớm hơn).
+Muốn phủ nốt thì phải nội tuyến listener vào `<head>` — chưa làm, ghi lại đây
+để không tưởng là đã kín.
 
 **Bài học kép:** (1) trước khi coi "0 lỗi" là bằng chứng, kiểm kênh báo lỗi có
 tồn tại **và tồn tại từ lúc nào**; (2) đọc cả đường nạp ĐỘNG (`aver-chrome`
