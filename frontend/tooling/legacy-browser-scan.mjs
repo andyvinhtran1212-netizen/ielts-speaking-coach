@@ -32,15 +32,16 @@ const CHUNKS = process.argv[2]
   : path.join(FRONTEND, '.next', 'static', 'chunks');
 
 // Review #882 (vòng 6) — chunk KHÔNG phải nơi duy nhất chạy trên máy khách.
-// `public/js/**` được phục vụ NGUYÊN XI: không qua bundler, không hạ target,
+// `public/**/*.js` được phục vụ NGUYÊN XI: không qua bundler, không hạ target,
 // và **instrumentation-client KHÔNG chạy trên trang legacy** nên polyfill của
 // Next không cứu được chúng. Vì vậy thư mục này quét ở chế độ NGHIÊM: mọi API
 // vượt sàn đều bị chặn, không có miễn trừ theo khai báo POLYFILLED.
 // (Đợt này tìm ra lookbehind trong `listening-test-player.js` — file học viên
-// nạp ở trang làm bài nghe: iOS ≤16.3 không parse nổi cả file.)
+// nạp ở trang làm bài nghe: iOS ≤16.3 không parse nổi cả file.) Quét CẢ
+// `public/assets/**` vì có bundle vendor được import động — review #882 vòng 7.
 const STATIC_JS = process.env.LEGACY_SCAN_STATIC_DIR
   ? path.resolve(process.env.LEGACY_SCAN_STATIC_DIR)
-  : (process.argv[2] ? null : path.join(FRONTEND, 'public', 'js'));
+  : (process.argv[2] ? null : path.join(FRONTEND, 'public'));
 
 // Sàn hiện tại = iOS/Safari 15 (xem `browserslist` trong package.json).
 // Mỗi mục ghi rõ phiên bản Safari ĐẦU TIÊN hỗ trợ, để lần sau nâng sàn thì
@@ -155,13 +156,28 @@ if (STATIC_JS && existsSync(STATIC_JS)) {
  * hoặc một dấu `=` đơn (gán). Mọi dạng khác — kể cả `!X(...)` — là lời gọi
  * thật và phải bị tính.
  */
+function escapeRe(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Regex khớp một API, CHO PHÉP khoảng trắng trước dấu `(`. Code trong
+ * `public/**` chưa qua minify nên `values.at (-1)` là hợp lệ và trước đây vô
+ * hình với phép so chuỗi cứng (review #882 vòng 7).
+ */
+function apiMatcher(pattern) {
+  return pattern.endsWith('(')
+    ? new RegExp(escapeRe(pattern.slice(0, -1)) + '\\s*\\(', 'g')
+    : new RegExp(escapeRe(pattern), 'g');
+}
+
 function hasRealUse(src, pattern) {
-  let idx = src.indexOf(pattern);
-  while (idx !== -1) {
-    const after = src.slice(idx + pattern.length, idx + pattern.length + 4);
+  const re = apiMatcher(pattern);
+  let m;
+  while ((m = re.exec(src)) !== null) {
+    const after = src.slice(m.index + m[0].length, m.index + m[0].length + 4);
     const isDefinition = /^\s*(\|\||=[^=])/.test(after);
     if (!isDefinition) return true;
-    idx = src.indexOf(pattern, idx + 1);
   }
   return false;
 }
@@ -178,7 +194,7 @@ for (const full of root.files) {
     }
   }
   for (const { pattern, since, requires } of API_BANNED) {
-    if (!src.includes(pattern)) continue;
+    if (!apiMatcher(pattern).test(src)) continue;
     // Bản trước miễn trừ CẢ FILE khi thấy `!<pattern>` ở bất kỳ đâu, nên
     // `if(!structuredClone(v))` — một lời gọi THẬT — cũng được tha (review
     // #882 vòng 4). Nay xét TỪNG lần xuất hiện: chỉ dạng `X||…` hoặc `X=…`

@@ -31,6 +31,7 @@ on:
       # vượt sàn ở đây là chết cả file. Đợt này tìm ra lookbehind trong
       # listening-test-player.js — file học viên nạp khi làm bài nghe.
       - 'frontend/public/js/**'
+      - 'frontend/public/assets/**'
       - 'frontend/instrumentation-client.ts'
       - 'frontend/next.config.ts'
       - 'frontend/tsconfig.json'

@@ -46,12 +46,16 @@ function scanStatic(files) {
     mkdirSync(path.dirname(full), { recursive: true });
     writeFileSync(full, source);
   }
+  // Review #882 vòng 7 (P1) — PHẢI truyền thư mục chunk fixture. Bản trước tạo
+  // `chunkDir` rồi quên truyền, nên bộ quét quay về đòi `.next/static/chunks`;
+  // job contract-test chạy trên checkout sạch KHÔNG build Next ⇒ hai bài này
+  // đỏ trong CI, và đỏ vì lý do sai (thiếu thư mục) chứ không phải vì thứ
+  // chúng định kiểm.
   const chunkDir = mkdtempSync(path.join(tmpdir(), 'chunkok-'));
   writeFileSync(path.join(chunkDir, 'ok.js'), 'export const x=1;');
-  const r = spawnSync(process.execPath, [SCANNER], {
+  const r = spawnSync(process.execPath, [SCANNER, chunkDir], {
     encoding: 'utf8',
     env: { ...process.env, LEGACY_SCAN_STATIC_DIR: dir },
-    cwd: path.join(SCANNER, '..', '..'),
   });
   return { code: r.status, out: (r.stdout || '') + (r.stderr || ''), chunkDir };
 }
@@ -140,6 +144,15 @@ describe('legacy-browser-scan (DEBT-2026-07-29-K)', () => {
     assert.equal(r.code, 1, 'public/js không được hưởng miễn trừ\n' + r.out);
     assert.match(r.out, /script tĩnh/);
     assert.match(r.out, /KHÔNG nạp instrumentation-client/);
+  });
+
+  // Review #882 vòng 7 — public/** chưa minify nên khoảng trắng trước `(` là
+  // hợp lệ; phép so chuỗi cứng trước đây không thấy.
+  test('có khoảng trắng trước dấu ngoặc vẫn bị bắt', () => {
+    const r = scanStatic({ 'spaced.js': 'const last = values.at (-1);' });
+    assert.equal(r.code, 1, 'values.at (-1) là lời gọi thật\n' + r.out);
+    const r2 = scanStatic({ 'spaced2.js': 'const c = structuredClone  (o);' });
+    assert.equal(r2.code, 1, r2.out);
   });
 
   test('script tĩnh: cú pháp vượt sàn bị chặn (đúng ca listening-test-player)', () => {
