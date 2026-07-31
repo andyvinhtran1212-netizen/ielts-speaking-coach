@@ -249,6 +249,31 @@ chính là do PR #879 mang lên lúc 11:12**, tức nó ra đời SAU deploy nà
 đây là thiếu sót về bằng chứng, không phải vi phạm một luật đang có hiệu lực.
 Vẫn ghi vào hồ sơ thay vì bỏ qua.
 
+## ĐÍNH CHÍNH 2026-07-31 — "0 lỗi trên route" KHÔNG đo được lỗi phía client
+
+Phát hiện khi chuẩn bị pilot 3+4: **layout `(public-content)` — layout phục vụ
+route grammar — KHÔNG nạp `error-reporter.js`**. Chỉ `(marketing)` nạp nó. Nghĩa
+là suốt cửa sổ quan sát pilot 2, **lỗi JS phía client trên `/grammar/...`
+không thể được báo về `error_logs`**. Con số "0 lỗi trên route" trong bảng PASS
+ở trên vì thế là **đúng theo cấu tạo**, không phải bằng chứng sức khoẻ.
+
+Cái gì CÒN đứng vững, nói cho đủ:
+
+| Bằng chứng | Còn giá trị? |
+|---|---|
+| **0 lỗi toàn site** (gồm lỗi backend, và lỗi client từ các trang CÓ reporter) | **Có** — backend là nguồn độc lập, không phụ thuộc reporter phía trang grammar |
+| **Synthetic 4 lần, mỗi lần n=75, 0 lỗi** | **Có** — Playwright bắt lỗi tải trang/console ở tầng browser, không qua reporter |
+| **"0 lỗi trên `/grammar/*`"** | **KHÔNG** — kênh báo lỗi cho route đó chưa từng tồn tại |
+| LCP organic | vẫn `insufficient-sample` như đã ghi |
+
+**Không rút lại kết luận PASS**, vì hai chân đỡ độc lập ở trên vẫn nguyên và
+cutover đã sống 3 ngày không có báo cáo sự cố nào; nhưng bảng PASS phải đọc kèm
+mục này. Đã vá ở PR **#887**: `(public-content)` và `(authed)` nay nạp đủ bộ ba
+telemetry, kèm `tests/telemetry-coverage.test.mjs` chặn tái diễn.
+
+**Bài học:** trước khi coi "0 lỗi" là bằng chứng, phải kiểm **kênh báo lỗi có
+tồn tại trên đúng route đó không**. Số 0 từ một kênh chưa nối là số 0 vô nghĩa.
+
 ## Risk acceptance BỔ SUNG — vế "telemetry tagged" chỉ đạt một phần (review #881)
 
 ADR-013 đặt **telemetry tagged** làm điều kiện tiên quyết, trong khi chính hồ sơ

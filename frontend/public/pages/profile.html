@@ -52,6 +52,15 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0" defer></script>
   <script src="../js/runtime-config.js" defer></script>
   <script src="../js/api.js" defer></script>
+  <!-- DEBT-2026-07-31-O + giao thức baseline legacy (header rum-vitals.js):
+       trang này là ĐÍCH của cutover pilot 3+4, mà trước nay KHÔNG có mẫu số
+       page_view, KHÔNG có báo lỗi client, KHÔNG có Web Vitals. Đo "0 lượt xem"
+       trước đây là hiện vật của việc thiếu beacon chứ không phải sự thật về
+       traffic. Ba script này phải sống ≥24h TRƯỚC cutover để cửa sổ quan sát
+       có mẫu số, có tử số và có baseline LCP để so. -->
+  <script src="../js/analytics-beacon.js" defer></script>
+  <script src="../js/error-reporter.js" defer></script>
+  <script src="../js/rum-vitals.js" defer></script>
   <script>
     var SUPABASE_URL  = 'https://huwsmtubwulikhlmcirx.supabase.co';
     var SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';

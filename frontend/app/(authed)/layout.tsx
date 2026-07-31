@@ -89,6 +89,16 @@ export default function AuthedLayout({ children }: { children: ReactNode }) {
       />
       <script src="/js/runtime-config.js" defer />
       <script src="/js/api.js" defer />
+      {/* DEBT-2026-07-31-O — BỘ BA telemetry phải ĐỦ ở mọi layout Next, nếu
+          không thì cổng rollback đo vào chỗ trống:
+            · analytics-beacon = MẪU SỐ page_view của error-rate;
+            · error-reporter   = TỬ SỐ (lỗi phía client);
+            · rum-vitals       = trigger LCP.
+          Thiếu error-reporter thì "0 lỗi" là đúng-theo-cấu-tạo chứ không
+          phải bằng chứng — đúng chuyện đã xảy ra với route grammar suốt cửa
+          sổ quan sát pilot 2. */}
+      <script src="/js/analytics-beacon.js" defer />
+      <script src="/js/error-reporter.js" defer />
       {/* AUDIT F2: field Web Vitals per implementation tag (rollback-metrics
           reads them for the frozen LCP trigger). */}
       <script src="/js/rum-vitals.js" defer />
