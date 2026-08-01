@@ -220,3 +220,24 @@ describe('page shell', () => {
     }
   });
 });
+
+
+describe('late / duplicate responses cannot corrupt the current question', () => {
+  // Enter fires onCheck() straight from the input, so two presses launch two
+  // requests. If the first settles the question and the learner advances, the
+  // second arrives against a DIFFERENT question — and would mark it with the
+  // previous verdict and loop the previous audio window.
+  it('a check in flight blocks a second one', () => {
+    assert.match(JS, /if \(STATE\.settled \|\| STATE\.checking\) return;/);
+    assert.match(JS, /STATE\.checking = true;/);
+    assert.match(JS, /finally \{\s*\n\s*STATE\.checking = false;/,
+      'the in-flight flag must clear in finally, or one failed check wedges the page');
+  });
+
+  it('a response is discarded unless it names the question on screen', () => {
+    const block = JS.split('function applyResult(')[1].split('async function onCheck(')[0];
+    assert.match(block, /Number\(res\.q_num\)\s*!==\s*q\.q_num/,
+      'applyResult must key off res.q_num, not just STATE.idx');
+    assert.match(block, /\breturn;/, 'the mismatch must bail out, not just be noticed');
+  });
+});

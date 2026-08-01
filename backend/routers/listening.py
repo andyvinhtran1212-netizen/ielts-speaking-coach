@@ -5121,6 +5121,16 @@ async def patch_listening_test_attempt_answer(
         raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể edit.")
     if not (1 <= body.q_num <= 40):
         raise HTTPException(422, "q_num must be in 1..40")
+    # A practice attempt is scored on the FIRST answer to each question, which
+    # this route cannot express: fn_upsert_listening_answer replaces by q_num.
+    # Left open, it is a way around the whole rule — answer wrong through
+    # /check, PATCH the right answer, submit, score inflated. The Luyện nhanh
+    # runner never calls this; refuse rather than quietly overwrite.
+    if _attempt_test_type(attempt) == "practice":
+        raise HTTPException(
+            422,
+            "Luyện nhanh chấm từng câu theo lần trả lời đầu — dùng POST .../check.",
+        )
 
     res = supabase_admin.rpc("fn_upsert_listening_answer", {
         "p_attempt_id":  attempt_id,
@@ -5134,6 +5144,16 @@ async def patch_listening_test_attempt_answer(
         # race, and the honest answer is that the edit did not land.
         raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể edit.")
     return {"attempt_id": attempt_id, "answer_count": count}
+
+
+def _attempt_test_type(attempt: dict) -> str | None:
+    """The test_type behind an attempt. None when the row cannot be read —
+    callers must treat that as "not practice", never as "practice"."""
+    res = (
+        supabase_admin.table("listening_tests")
+        .select("test_type").eq("id", attempt.get("test_id")).limit(1).execute()
+    )
+    return (res.data[0].get("test_type") if res.data else None)
 
 
 def _practice_exercise_payloads(test_id: str) -> list[dict]:
@@ -5229,6 +5249,17 @@ async def check_listening_practice_answer(
         recorded = bool(wrote)
         if recorded:
             prior = {"q_num": body.q_num, "user_answer": body.user_answer}
+        elif prior is None:
+            # The RPC refused, yet our snapshot showed no answer — a concurrent
+            # check won the write between the two. Re-read instead of reporting
+            # canonical_correct=False off the stale snapshot, which would tell
+            # the learner this question is lost while submit scores it correct.
+            fresh = (
+                supabase_admin.table("listening_test_attempts")
+                .select("answers").eq("id", attempt_id).limit(1).execute()
+            )
+            stored = list((fresh.data[0].get("answers") if fresh.data else None) or [])
+            prior = next((a for a in stored if a.get("q_num") == body.q_num), None)
 
     def _grade(ans_text: str) -> bool:
         merged = [a for a in stored if a.get("q_num") != body.q_num]

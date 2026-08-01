@@ -14,6 +14,7 @@ Covers:
 from __future__ import annotations
 
 import asyncio
+import json
 from uuid import uuid4
 
 import pytest
@@ -1212,3 +1213,105 @@ def test_check_never_leaks_the_key_without_reveal(monkeypatch):
     out = _check(aid, authz, q_num=1, user_answer="ninety")
     for leaky in ("expected", "alternatives", "solution", "revealed"):
         assert leaky not in out, f"wrong answer response leaked {leaky}"
+
+
+# ── Codex review round 4 — the ways the first-answer rule could still be lost ──
+
+
+def test_patch_answers_is_refused_for_a_practice_attempt(monkeypatch):
+    """The old answer-save route replaces by q_num, so leaving it open to
+    practice is a way straight around the first-answer rule."""
+    fake, authz = _patch(monkeypatch)
+    _t, aid = _seed_practice(fake)
+    _check(aid, authz, q_num=1, user_answer="ninety")            # canonical: wrong
+
+    body = listening_router.TestAttemptAnswerPatchRequest(q_num=1, user_answer="nineteen")
+    with pytest.raises(HTTPException) as ei:
+        _run(listening_router.patch_listening_test_attempt_answer(
+            aid, body, authorization=authz))
+    assert ei.value.status_code == 422
+
+    res = _run(listening_router.submit_listening_test_attempt(aid, authorization=authz))
+    assert res["score"] == 0, "PATCH overwrote the canonical first answer"
+
+
+def test_patch_answers_still_works_for_a_real_test(monkeypatch):
+    """The refusal must be scoped to practice — this is the exam save path."""
+    fake, authz = _patch(monkeypatch)
+    t = _seed_test(fake)                                          # test_type='full'
+    _seed_sections_with_exercises(fake, t["id"])
+    aid = str(uuid4())
+    fake.tables["listening_test_attempts"].append({
+        "id": aid, "test_id": t["id"], "user_id": "user-1",
+        "status": "in_progress", "answers": [],
+    })
+    body = listening_router.TestAttemptAnswerPatchRequest(q_num=1, user_answer="x")
+    out = _run(listening_router.patch_listening_test_attempt_answer(
+        aid, body, authorization=authz))
+    assert out["answer_count"] == 1
+
+
+def test_check_reports_the_canonical_verdict_even_when_it_lost_the_race(monkeypatch):
+    """Concurrent checks: the loser must not report off its stale snapshot.
+
+    The race must land BETWEEN the endpoint's read and its write, so the
+    winning answer is planted from inside the RPC: the endpoint's snapshot saw
+    no answer, and by the time it writes, one exists. Writing it beforehand
+    would only reproduce the ordinary "already answered" path, which was never
+    the bug.
+    """
+    fake, authz = _patch(monkeypatch)
+    _t, aid = _seed_practice(fake)
+
+    real_rpc = fake.rpc
+
+    def racing_rpc(name, params):
+        if name == "fn_insert_listening_answer_once":
+            row = fake.tables["listening_test_attempts"][0]
+            row["answers"] = [{"q_num": 1, "user_answer": "nineteen"}]   # rival won
+            return _RpcResult(False)
+        return real_rpc(name, params)
+
+    fake.rpc = racing_rpc
+    out = _check(aid, authz, q_num=1, user_answer="ninety")
+    assert out["recorded"] is False
+    assert out["canonical_correct"] is True, \
+        "reported the stale snapshot — learner told it is lost, submit says correct"
+
+    res = _run(listening_router.submit_listening_test_attempt(aid, authorization=authz))
+    assert res["score"] == 1, "check and submit must agree"
+
+
+# ── The student test payload must not carry the key, or where to find it ──
+
+
+def test_get_test_detail_strips_solutions_and_windows(monkeypatch):
+    """Sprint 13.5 stripped payload.answers only. The importer ALSO writes a
+    per-question `solutions` record whose `answer` field is the key verbatim,
+    so it was still being served on the same response — and audio_windows /
+    transcript_anchors say exactly where in the recording to listen.
+    """
+    fake, authz = _patch(monkeypatch)
+    t = _seed_test(fake)
+    fake.tables["listening_content"].append({
+        "id": "c-1", "test_id": t["id"], "section_num": 1,
+        "title": "S1", "transcript": "stub", "metadata": {},
+    })
+    fake.tables["listening_exercises"].append({
+        "id": "e-1", "content_id": "c-1", "exercise_type": "notes_completion",
+        "order_num": 1,
+        "payload": {
+            "variant": "notes_completion",
+            "questions": [{"q_num": 1, "prompt": "Q1"}],
+            "answers":   [{"q_num": 1, "answer": "nineteen"}],
+            "solutions": {"1": {"answer": "nineteen", "why": "…"}},
+            "audio_windows": {"1": {"start": 3.5, "end": 9.0}},
+            "transcript_anchors": {"1": 2},
+        },
+    })
+    out = _run(listening_router.get_published_listening_test(t["id"], authorization=authz))
+    payload = out["sections"][0]["exercises"][0]["payload"]
+    for leaky in ("answers", "solutions", "audio_windows", "transcript_anchors"):
+        assert leaky not in payload, f"student payload still carries {leaky}"
+    assert payload["questions"], "stripping must not take the questions with it"
+    assert "nineteen" not in json.dumps(out), "the answer is still reachable somewhere"

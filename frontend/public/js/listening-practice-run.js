@@ -42,6 +42,7 @@ export const STATE = {
   wrongTries: 0,          // resets per question
   verdicts: new Map(),    // q_num → true|false (canonical, first answer)
   settled:  false,        // current question may advance
+  checking: false,        // a /check is in flight
 };
 
 
@@ -233,6 +234,10 @@ function loopWindow(win) {
 
 function applyResult(res) {
   const q = STATE.questions[STATE.idx];
+  // Late response from a question already left behind (double Enter, then
+  // "Câu tiếp theo"). Applying it would mark the CURRENT question with the
+  // previous one's verdict and loop the previous one's audio window.
+  if (!q || (res && res.q_num != null && Number(res.q_num) !== q.q_num)) return;
   // The dot tracks the CANONICAL verdict, so it never brightens on a retry.
   STATE.verdicts.set(q.q_num, !!res.canonical_correct);
 
@@ -261,7 +266,9 @@ function applyResult(res) {
 }
 
 async function onCheck() {
-  if (STATE.settled) return;
+  // `settled` alone is not a guard: Enter fires this straight from the input,
+  // so two presses launch two requests before either settles.
+  if (STATE.settled || STATE.checking) return;
   const q = STATE.questions[STATE.idx];
   const answer = currentAnswer();
   if (!answer) {
@@ -271,6 +278,7 @@ async function onCheck() {
     v.hidden = false;
     return;
   }
+  STATE.checking = true;
   $('lpr-check').disabled = true;
   try {
     const res = await window.api.post(
@@ -281,6 +289,7 @@ async function onCheck() {
   } catch (e) {
     showError(`Không chấm được câu này: ${(e && e.message) || e}`);
   } finally {
+    STATE.checking = false;
     $('lpr-check').disabled = false;
   }
 }
