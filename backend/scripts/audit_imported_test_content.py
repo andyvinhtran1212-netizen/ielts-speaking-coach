@@ -46,20 +46,63 @@ from database import supabase_admin                           # noqa: E402
 LIS_PREFIX = "ILR-LIS-CAM-B"
 RDG_PREFIX = "ILR-RDG-CAM-B"
 
+# "AND/OR A NUMBER" và "OR A NUMBER" đều có thật (mẫu chuẩn trong
+# test_listening_convert.py dùng "ONE WORD OR A NUMBER"), và OCR hay đọc dấu
+# gạch chéo thành chữ I → "ANDIOR".
+_NUM = r"(?:AND\s*[/I|]\s*OR|OR)\s+A\s+NUMBER"
+# THỨ TỰ QUAN TRỌNG: dạng DÀI đứng trước. Và tuyệt đối KHÔNG cho "ONE WORD"
+# đứng một mình thành đáp án — nếu cho, "ONE WORD ANDIOR A NUMBER" (OCR hỏng)
+# sẽ khớp mẩu "ONE WORD" và báo lệch giả.
 LIMIT_RE = re.compile(
-    r"(ONE WORD ONLY|ONE WORD AND/OR A NUMBER|"
-    r"NO MORE THAN THREE WORDS(?: AND/OR A NUMBER)?|"
-    r"NO MORE THAN TWO WORDS(?: AND/OR A NUMBER)?)", re.I)
-QHEAD_RE = re.compile(r"^#{0,3}\s*Questions?\s+(\d+)\s*[-–—]\s*(\d+)\s*$", re.M | re.I)
+    r"(ONE WORD ONLY"
+    r"|ONE WORD\s+" + _NUM +
+    r"|NO MORE THAN THREE WORDS\s+" + _NUM +
+    r"|NO MORE THAN THREE WORDS"
+    r"|NO MORE THAN TWO WORDS\s+" + _NUM +
+    r"|NO MORE THAN TWO WORDS)", re.I)
+# Đầu mục khối câu hỏi. Bộ Cambridge KHÔNG đồng nhất — phải nuốt cả bốn dạng:
+#   "### Questions 1-5"            (quyển 15-19)
+#   "### Questions 19 and 20"      (quyển 20-21)
+#   "## PART 1 Questions 1-10"     (quyển 17-21)
+#   "## Section 1 Questions 1-10"  (quyển 13-14)
+# Bản đầu chỉ nhận dạng thứ nhất nên 11 đề âm thầm không được đối chiếu gì cả —
+# và vì `want` là None, mọi phép L1 của chúng đều "xanh" một cách vô nghĩa.
+QHEAD_RE = re.compile(
+    r"^#{0,3}\s*(?:(?:PART|Section)\s+\d+\s+)?Questions?\s+"
+    r"(\d+)\s*(?:[-–—]|and)\s*(\d+)\s*$",
+    re.M | re.I)
 
-# Dạng bắt học viên CHỌN CHỮ CÁI ⇒ bắt buộc phải có lựa chọn hiển thị.
-LETTER_KINDS = {"plan_label", "mcq_3option", "mcq_4option", "matching"}
+
+def _canon_limit(s: str) -> str:
+    """Chuẩn hoá cụm giới hạn (gộp biến thể OCR 'ANDIOR' → 'AND/OR')."""
+    s = re.sub(r"AND\s*[/I|]\s*OR", "AND/OR", s.upper())
+    return re.sub(r"\s+", " ", s).strip()
+
+# Dạng bắt học viên CHỌN CHỮ CÁI ⇒ phải có NGUỒN LỰA CHỌN. Mỗi dạng cất lựa
+# chọn ở CHỖ KHÁC NHAU — tra thẳng trong listening-test-player.js chứ đừng đoán:
+#   plan_label  → metadata.letter_options  (renderPlanLabel đọc meta trước)
+#   mcq_multi   → metadata.match_options   (renderMultiSelect)
+#   matching    → metadata.match_options / letter_options
+#   mcq_*option → options của TỪNG câu
+LETTER_KINDS = {"plan_label", "mcq_3option", "mcq_4option", "matching", "mcq_multi"}
 # Dạng điền chữ: đề bài có thể nằm trong template thay cho prompt.
+# listening_convert.py phát ra CẢ "flow_chart" LẪN "flow_chart_completion" —
+# thiếu tên thứ hai thì flow-chart hợp lệ bị báo oan E1.
 TEMPLATE_KINDS = {"notes_completion", "table_completion", "form_completion",
-                  "sentence_completion", "summary_completion", "flow_chart"}
+                  "sentence_completion", "summary_completion",
+                  "flow_chart", "flow_chart_completion"}
 COMPLETION_RDG = {"notes_completion", "summary_completion", "table_completion",
                   "form_completion", "sentence_completion", "short_answer",
                   "flow_chart_completion", "diagram_label_completion"}
+# Reading: các dạng LUÔN cần một bank lựa chọn trong payload.options.
+# KHÔNG có trong danh sách này, và có lý do rõ ràng cho từng cái:
+#   true_false_not_given / yes_no_not_given → lựa chọn cố định trong renderer
+#   summary_completion                      → bản không-bank là chép từ bài đọc
+#   matching_information                    → chữ cái là NHÃN ĐOẠN VĂN của chính
+#       bài đọc (reading-exam.js §2A.6), lấy từ template.paragraph_labels và có
+#       sẵn fallback A-H; đòi payload.options ở đây là báo oan 40+ câu lành.
+READING_NEED_OPTIONS = {"mcq_single", "mcq_multi", "matching_headings",
+                        "matching_features", "matching_sentence_endings"}
 
 CLASS_NAMES = {
     "L1": "Listening: hướng dẫn sai giới hạn từ",
@@ -71,7 +114,26 @@ CLASS_NAMES = {
     "R1": "Reading: thiếu/sai giới hạn từ",
     "E1": "KHÔNG TRẢ LỜI ĐƯỢC: câu không có đề bài",
     "E2": "KHÔNG TRẢ LỜI ĐƯỢC: câu chọn-chữ-cái không có lựa chọn",
+    "E3": "KHÔNG TRẢ LỜI ĐƯỢC: exercise không có câu hỏi hợp lệ",
+    "S1": "KHÔNG SOÁT ĐƯỢC: thiếu file nguồn để đối chiếu",
 }
+
+
+def has_choices(kind: str, payload: dict, question: dict) -> bool:
+    """Câu này có nguồn lựa chọn để học viên bấm không?
+
+    Mỗi dạng cất lựa chọn ở một chỗ khác nhau; kiểm sai chỗ thì vừa bỏ lọt câu
+    hỏng vừa báo oan câu lành. Bản đầu chỉ dò `options` của từng câu nên bản đồ
+    lành (lựa chọn nằm ở `metadata.letter_options`) bị đánh trượt (Codex, #892).
+    """
+    meta = payload.get("metadata") or {}
+    if question.get("options"):
+        return True
+    if kind == "plan_label":
+        return bool(meta.get("letter_options"))
+    if kind in ("mcq_multi", "matching"):
+        return bool(meta.get("match_options") or meta.get("letter_options"))
+    return False
 
 
 # ── nguồn ───────────────────────────────────────────────────────────────────
@@ -88,15 +150,24 @@ def source_limits(path: Path) -> dict[tuple[int, int], str]:
         head = "\n".join(txt[pos:end].splitlines()[:8])
         m = LIMIT_RE.search(head)
         if m:
-            out[(lo, hi)] = m.group(1).upper()
+            out[(lo, hi)] = _canon_limit(m.group(1))
     return out
 
 
 def limit_for(qnum: int, table: dict[tuple[int, int], str]) -> str | None:
+    """Giới hạn của khối HẸP NHẤT chứa câu này.
+
+    Đầu mục lồng nhau: "## PART 1 Questions 1-10" bọc ngoài "### Questions 1-5".
+    Lấy khối hẹp nhất thì khối con luôn thắng khối cha, nên một đề có cả hai
+    tầng vẫn ra đúng giới hạn của riêng từng khối.
+    """
+    best: tuple[int, str] | None = None
     for (lo, hi), v in table.items():
         if lo <= qnum <= hi:
-            return v
-    return None
+            span = hi - lo
+            if best is None or span < best[0]:
+                best = (span, v)
+    return best[1] if best else None
 
 
 # ── tiện ích ────────────────────────────────────────────────────────────────
@@ -167,8 +238,14 @@ def audit(source_dir: Path | None, modes: set[str],
         m = re.search(r"B(\d+)-T(\d)$", t["test_id"])
         limits = {}
         if source_dir and m:
-            limits = source_limits(
-                source_dir / f"cambridge_ielts_{m.group(1)}_test_{m.group(2)}_listening.md")
+            src = source_dir / f"cambridge_ielts_{m.group(1)}_test_{m.group(2)}_listening.md"
+            limits = source_limits(src)
+            # Thiếu file nguồn KHÔNG được coi là "sạch": --source-dir gõ sai thì
+            # mọi phép so-với-nguồn im lặng biến mất và lệnh vẫn in SẠCH, exit 0
+            # — đúng cái kiểu "xanh mà rỗng" mà bộ soát này sinh ra để chặn.
+            if not limits:
+                issues.append({"class": "S1", "file": str(src),
+                               "why": "không đọc được giới hạn từ nào"})
 
         content = fetch("listening_content", "id,section_num", test_id=t["id"])
         cids = [c["id"] for c in content]
@@ -182,6 +259,12 @@ def audit(source_dir: Path | None, modes: set[str],
             qs = p.get("questions") or []
             qn = sorted(q["q_num"] for q in qs if q.get("q_num"))
             if not qn:
+                # Exercise không có câu nào đánh số ⇒ không hiện được, không lưu
+                # được đáp án. Bản đầu `continue` lặng lẽ ở đây nên nó vô hình.
+                if "answerable" in modes:
+                    issues.append({"class": "E3", "exercise": e["id"],
+                                   "kind": p.get("template_kind"),
+                                   "n_questions": len(qs)})
                 continue
             rng = f"{qn[0]}-{qn[-1]}"
             kind = p.get("template_kind")
@@ -191,7 +274,10 @@ def audit(source_dir: Path | None, modes: set[str],
                     want = limit_for(qn[0], limits)
                     got = LIMIT_RE.search(instr)
                     got = got.group(1).upper() if got else None
-                    if want and got and want != got:
+                    # So NGAY KHI nguồn có giới hạn: `got=None` nghĩa là hướng
+                    # dẫn mất hẳn cụm giới hạn — hỏng nặng hơn là ghi sai, mà
+                    # bản đầu lại bỏ qua (nhánh Reading vốn đã bắt đúng ca này).
+                    if want and want != got:
                         issues.append({"class": "L1", "range": rng,
                                        "got": got, "want": want})
                 j = junk_items(p.get("template"))
@@ -223,8 +309,7 @@ def audit(source_dir: Path | None, modes: set[str],
                     if not prompt and not (kind in TEMPLATE_KINDS
                                            and template_has(p.get("template"), q["q_num"])):
                         issues.append({"class": "E1", "q": q["q_num"], "kind": kind})
-                    if kind in LETTER_KINDS and not opts \
-                            and not (p.get("metadata") or {}).get("match_options"):
+                    if kind in LETTER_KINDS and not has_choices(kind, p, q):
                         issues.append({"class": "E2", "q": q["q_num"], "kind": kind})
 
         report["listening"][t["test_id"]] = issues
@@ -234,8 +319,11 @@ def audit(source_dir: Path | None, modes: set[str],
         m = re.search(r"B(\d+)-T(\d)$", t["test_id"])
         limits = {}
         if source_dir and m:
-            limits = source_limits(
-                source_dir / f"cambridge_ielts_{m.group(1)}_test_{m.group(2)}_reading.md")
+            src = source_dir / f"cambridge_ielts_{m.group(1)}_test_{m.group(2)}_reading.md"
+            limits = source_limits(src)
+            if not limits:
+                issues.append({"class": "S1", "file": str(src),
+                               "why": "không đọc được giới hạn từ nào"})
         for pg in fetch("reading_passages", "id", test_id=t["id"]):
             # `prompt` PHẢI có trong projection: phép soát E1 đọc nó, và một cột
             # không fetch thì luôn là None ⇒ báo oan mọi câu là "không có đề bài".
@@ -249,10 +337,18 @@ def audit(source_dir: Path | None, modes: set[str],
                     if want and want != got:
                         issues.append({"class": "R1", "q": q["q_num"],
                                        "got": got, "want": want})
-                if "answerable" in modes and not (q.get("prompt") or "").strip() \
-                        and not (p.get("template") or {}).get("summary_text"):
-                    issues.append({"class": "E1", "q": q["q_num"],
-                                   "kind": q["question_type"]})
+                if "answerable" in modes:
+                    if not (q.get("prompt") or "").strip() \
+                            and not (p.get("template") or {}).get("summary_text"):
+                        issues.append({"class": "E1", "q": q["q_num"],
+                                       "kind": q["question_type"]})
+                    # Bản đầu chỉ hỏi "có đề bài không" cho Reading, nên một câu
+                    # mcq/matching có đề bài đầy đủ nhưng bank RỖNG vẫn lọt —
+                    # đúng lớp lỗi đã làm 11 câu Listening không trả lời được.
+                    if q["question_type"] in READING_NEED_OPTIONS \
+                            and not (p.get("options") or []):
+                        issues.append({"class": "E2", "q": q["q_num"],
+                                       "kind": q["question_type"]})
         report["reading"][t["test_id"]] = issues
 
     return report

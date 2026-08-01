@@ -17,6 +17,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from scripts.audit_imported_test_content import (  # noqa: E402
+    LIMIT_RE,
+    READING_NEED_OPTIONS,
+    TEMPLATE_KINDS,
+    has_choices,
     junk_items,
     limit_for,
     source_limits,
@@ -109,6 +113,82 @@ def test_junk_items_flags_fake_blanks_and_page_numbers():
     assert "38" in junk
     # dòng ngữ cảnh hợp lệ và item có q_num KHÔNG được coi là rác
     assert not any("The wearer" in j for j in junk)
+
+
+# ── phản hồi review PR #892 (Codex) ─────────────────────────────────────────
+def test_limit_re_accepts_every_real_wording_including_ocr_damage():
+    """Mẫu chuẩn của repo dùng "ONE WORD OR A NUMBER"; OCR hay biến dấu gạch
+    chéo thành chữ I ("ANDIOR"). Bỏ sót một biến thể là khối đó biến mất khỏi
+    phép soát mà không ai biết."""
+    for phrase, want in [
+        ("Write ONE WORD ONLY for each answer.", "ONE WORD ONLY"),
+        ("Write ONE WORD OR A NUMBER for each answer.", "ONE WORD OR A NUMBER"),
+        ("Write ONE WORD AND/OR A NUMBER for each answer.", "ONE WORD AND/OR A NUMBER"),
+        ("Write ONE WORD ANDIOR A NUMBER for each answer.", "ONE WORD ANDIOR A NUMBER"),
+        ("Choose NO MORE THAN TWO WORDS from the passage.", "NO MORE THAN TWO WORDS"),
+        ("Write NO MORE THAN THREE WORDS AND/OR A NUMBER.",
+         "NO MORE THAN THREE WORDS AND/OR A NUMBER"),
+    ]:
+        m = LIMIT_RE.search(phrase)
+        assert m, f"không nhận ra: {phrase}"
+        assert m.group(1).upper() == want.upper(), phrase
+
+
+def test_limit_re_never_stops_at_the_short_prefix():
+    """"ONE WORD" đứng một mình KHÔNG phải giới hạn hợp lệ. Nếu cho nó khớp,
+    "ONE WORD ANDIOR A NUMBER" sẽ khớp mẩu đầu và sinh lệch giả."""
+    m = LIMIT_RE.search("Write ONE WORD ANDIOR A NUMBER for each answer.")
+    assert m.group(1).upper() != "ONE WORD"
+
+
+def test_source_limits_parses_every_heading_dialect(tmp_path):
+    """Bộ Cambridge không đồng nhất: quyển 13-14 dùng "Section", 17-21 dùng
+    "PART", 20-21 dùng "and". Bản đầu chỉ đọc được một dạng nên 11 đề âm thầm
+    không được đối chiếu gì cả."""
+    md = tmp_path / "x.md"
+    md.write_text(
+        "## Section 1 Questions 1-10\n\nWrite ONE WORD AND/OR A NUMBER for each answer.\n\n"
+        "## PART 2 Questions 11-20\n\nWrite ONE WORD ONLY for each answer.\n\n"
+        "### Questions 19 and 20\n\nWrite NO MORE THAN TWO WORDS for each answer.\n"
+    )
+    got = source_limits(md)
+    assert (1, 10) in got and (11, 20) in got and (19, 20) in got
+
+
+def test_limit_for_prefers_the_narrowest_enclosing_block():
+    """Đầu mục lồng nhau: khối con phải thắng khối cha, nếu không câu 19-20 sẽ
+    thừa hưởng giới hạn của cả PART 2."""
+    table = {(11, 20): "ONE WORD ONLY", (19, 20): "NO MORE THAN TWO WORDS"}
+    assert limit_for(15, table) == "ONE WORD ONLY"
+    assert limit_for(19, table) == "NO MORE THAN TWO WORDS"
+
+
+def test_flow_chart_completion_is_a_known_template_kind():
+    """listening_convert.py phát ra CẢ hai tên; thiếu tên dài thì flow-chart
+    hợp lệ bị báo oan là "không có đề bài"."""
+    assert {"flow_chart", "flow_chart_completion"} <= TEMPLATE_KINDS
+
+
+def test_has_choices_knows_where_each_kind_keeps_its_bank():
+    """Mỗi dạng cất lựa chọn một chỗ (tra trong listening-test-player.js).
+    Dò sai chỗ thì vừa bỏ lọt câu hỏng vừa đánh trượt câu lành."""
+    # bản đồ: lựa chọn ở metadata.letter_options, câu không cần options riêng
+    assert has_choices("plan_label", {"metadata": {"letter_options": list("ABCDEFGH")}}, {})
+    assert not has_choices("plan_label", {"metadata": {}}, {})
+    # chọn-nhiều và matching: dùng chung metadata.match_options
+    assert has_choices("mcq_multi", {"metadata": {"match_options": [{"letter": "A"}]}}, {})
+    assert not has_choices("mcq_multi", {"metadata": {"match_options": []}}, {})
+    assert has_choices("matching", {"metadata": {"match_options": [{"letter": "A"}]}}, {})
+    # trắc nghiệm 3 lựa chọn: options nằm ở TỪNG câu
+    assert has_choices("mcq_3option", {}, {"options": [{"letter": "A"}]})
+    assert not has_choices("mcq_3option", {}, {"options": []})
+
+
+def test_matching_information_does_not_require_an_authored_bank():
+    """Chữ cái của dạng này là NHÃN ĐOẠN VĂN của chính bài đọc, không phải bank
+    do tác giả soạn — đòi payload.options ở đây là báo oan hàng chục câu lành."""
+    assert "matching_information" not in READING_NEED_OPTIONS
+    assert {"mcq_single", "matching_headings"} <= READING_NEED_OPTIONS
 
 
 def test_junk_items_clean_template_is_empty():
