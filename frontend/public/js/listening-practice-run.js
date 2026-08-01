@@ -357,12 +357,24 @@ async function finish() {
  * write is refused (the question already has a canonical answer), so this
  * reads state without changing it.
  */
-export function firstUnansweredIndex(questions, answers) {
-  const answered = new Set((answers || [])
-    .filter((a) => a && String(a.user_answer || '').trim())
-    .map((a) => Number(a.q_num)));
-  const i = questions.findIndex((q) => !answered.has(q.q_num));
-  return i === -1 ? questions.length : i;   // === length → nothing left to do
+/**
+ * Where to land after a resume: the first question not yet got RIGHT.
+ *
+ * Not "the first unanswered one". A stored answer is only the canonical first
+ * attempt — and a wrong first attempt is exactly the case where the runner
+ * deliberately keeps the learner on the question, looping the audio until they
+ * hear it. Treating a stored answer as "done" would skip past every question
+ * they missed, and when all of them had a first attempt on file the resume
+ * would submit the attempt outright, ending the drill on the questions that
+ * needed the practice most.
+ *
+ * A question they revealed and moved on from does bring them back here once
+ * (reveal is not persisted). That is the right way round: retrying or
+ * revealing again costs a moment, silently skipping it costs the drill.
+ */
+export function firstUnsettledIndex(questions, verdicts) {
+  const i = questions.findIndex((q) => verdicts.get(q.q_num) !== true);
+  return i === -1 ? questions.length : i;   // === length → every question right
 }
 
 async function restoreProgress(answers) {
@@ -378,7 +390,7 @@ async function restoreProgress(answers) {
       // comes from submit, which reads the same stored answers.
     }
   }
-  STATE.idx = firstUnansweredIndex(STATE.questions, answers);
+  STATE.idx = firstUnsettledIndex(STATE.questions, STATE.verdicts);
 }
 
 
@@ -417,7 +429,9 @@ async function boot() {
     }
 
     $('state-loading').hidden = true;
-    if (STATE.idx >= STATE.questions.length) {   // resumed with nothing left
+    // Only when every question is already RIGHT is there nothing left to do.
+    // Anything still wrong resumes on that question, with its retry flow.
+    if (STATE.idx >= STATE.questions.length) {
       await finish();
       return;
     }

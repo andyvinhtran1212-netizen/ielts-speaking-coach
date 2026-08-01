@@ -59,16 +59,52 @@
       '</tr>';
   }
 
+  // ── Paging + bounded concurrency ─────────────────────────────────────────
+
+  var PAGE_LIMIT = 100;    // the endpoint's own cap
+  var MAX_PAGES  = 30;     // runaway guard; 3000 rows is far beyond any library
+
+  async function fetchAllTests() {
+    var all = [];
+    for (var page = 0; page < MAX_PAGES; page += 1) {
+      var res = await window.api.get(
+        '/admin/listening/tests?status=all&limit=' + PAGE_LIMIT
+        + '&offset=' + (page * PAGE_LIMIT));
+      var items = (res && res.items) || [];
+      all = all.concat(items);
+      var total = (res && res.total) || 0;
+      if (items.length < PAGE_LIMIT || all.length >= total) return all;
+    }
+    // Hit the guard: say so rather than quietly presenting a partial audit as
+    // if it covered everything.
+    console.warn('[audit] dừng ở ' + all.length + ' bài (chạm trần phân trang)');
+    return all;
+  }
+
+  async function mapBatched(items, size, fn) {
+    var out = [];
+    for (var i = 0; i < items.length; i += size) {
+      out = out.concat(await Promise.all(items.slice(i, i + size).map(fn)));
+    }
+    return out;
+  }
+
   async function load() {
     try {
       // All tests (any status) — audit applies to drafts + published alike.
-      var res = await window.api.get('/admin/listening/tests?status=all&limit=100');
-      var items = (res && res.items) || [];
-      // Fast per-test audit in parallel (structural only, no LLM).
-      var audits = await Promise.all(items.map(function (it) {
+      //
+      // PAGED, not one fixed grab. The list endpoint caps `limit` at 100 and
+      // orders newest-first, so a single page silently dropped every older
+      // full/mini/drill test the moment the generated practice bank grew past
+      // 100 rows — on a dashboard whose whole promise is "every test".
+      var items = await fetchAllTests();
+      // Fast per-test audit (structural only, no LLM). Batched rather than one
+      // Promise.all over the whole list: that used to mean 100 concurrent
+      // requests and now would mean as many as the bank has.
+      var audits = await mapBatched(items, 8, function (it) {
         return window.api.get('/admin/listening/tests/' + encodeURIComponent(it.id) + '/audit')
           .catch(function () { return null; });
-      }));
+      });
       var rows = items.map(function (it, i) { return rowHtml(it, audits[i]); }).join('');
       $('au-rows').innerHTML = rows || '<tr><td colspan="6" class="au-note">Chưa có test nào.</td></tr>';
       $('au-loading').hidden = true;

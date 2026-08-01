@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   flattenQuestions, promptHtml, isChoice, verdictText, REVEAL_AFTER_WRONG,
-  firstUnansweredIndex,
+  firstUnsettledIndex,
 } from '../public/js/listening-practice-run.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -265,21 +265,24 @@ describe('a refresh resumes the attempt instead of destroying it', () => {
       'POST /attempts must sit in the else branch');
   });
 
-  it('resumes at the first unanswered question', () => {
+  it('resumes on the first question not yet got RIGHT', () => {
+    // A stored answer is only the canonical FIRST attempt. A wrong one is
+    // exactly where the runner keeps the learner — looping the audio until
+    // they hear it — so "has an answer" is not "settled". Landing past it
+    // skips the questions that needed the drill.
     const qs = [{ q_num: 1 }, { q_num: 2 }, { q_num: 3 }];
-    assert.equal(firstUnansweredIndex(qs, [{ q_num: 1, user_answer: 'x' }]), 1);
-    assert.equal(firstUnansweredIndex(qs, []), 0);
-    // A blank stored answer is not progress — the server filters those out of
-    // the resume payload, and treating one as answered would skip a question
-    // the learner never saw.
-    assert.equal(firstUnansweredIndex(qs, [{ q_num: 1, user_answer: '  ' }]), 0);
+    const v = new Map([[1, true], [2, false]]);
+    assert.equal(firstUnsettledIndex(qs, v), 1, 'a wrong first answer must be resumed, not skipped');
+    assert.equal(firstUnsettledIndex(qs, new Map()), 0);
+    assert.equal(firstUnsettledIndex(qs, new Map([[1, true]])), 1);
   });
 
-  it('everything answered → nothing left to resume into', () => {
+  it('only a fully-correct attempt has nothing left to resume into', () => {
     const qs = [{ q_num: 1 }, { q_num: 2 }];
-    const all = [{ q_num: 1, user_answer: 'a' }, { q_num: 2, user_answer: 'b' }];
-    assert.equal(firstUnansweredIndex(qs, all), qs.length);
-    assert.match(JS, /if \(STATE\.idx >= STATE\.questions\.length\)[\s\S]{0,80}finish\(\)/,
-      'a fully-answered resume must land on the summary, not render past the end');
+    assert.equal(firstUnsettledIndex(qs, new Map([[1, true], [2, true]])), qs.length);
+    // …and every-question-answered-but-some-wrong must NOT auto-submit.
+    assert.equal(firstUnsettledIndex(qs, new Map([[1, true], [2, false]])), 1);
+    assert.match(JS, /if \(STATE\.idx >= STATE\.questions\.length\)[\s\S]{0,140}finish\(\)/,
+      'a fully-correct resume lands on the summary');
   });
 });
