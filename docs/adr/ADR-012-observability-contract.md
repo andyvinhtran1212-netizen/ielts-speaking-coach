@@ -12,3 +12,30 @@
 
 ## Điều kiện mở
 Dashboard (so sánh theo implementation/release) phải tồn tại trước pilot đầu — mục Pilot Entry checklist.
+
+## Bổ sung 2026-07-31 — xuất xứ của phép đo (DEBT-2026-07-30-N)
+
+Điều 3 ở trên nói "thêm `implementation` + `release` vào payload", và cả hợp
+đồng này dựa vào `release` để quy kết một-biến. Cửa sổ quan sát pilot 2 phơi ra
+lỗ hổng của giả định đó: **`release` đọc từ `/js/runtime-config.js` — một file
+RỜI**, nên client chạy bản cache cũ sẽ báo release cũ. Hai mẫu vitals ngày
+30/07 mang release của 13 ngày trước, và hồ sơ **không phân xử được** giữa hai
+giả thuyết: asset rời bị cache cũ, hay tab mở lâu rồi mới gửi beacon.
+
+Ba trường bổ sung (additive, không đổi schema — vẫn nằm trong `event_data` /
+`extra`):
+
+| Trường | Nguồn | Dùng để |
+|---|---|---|
+| `doc_release` | thuộc tính `data-release` trên `<html>`, **nướng vào chính tài liệu** lúc build (`app/layout.tsx`) | so với `release`: khác nhau ⇒ **asset rời bị cache cũ**, không phải deployment cũ |
+| `loaded_at` | `Date.now()` lúc script chạy | mốc tải trang |
+| `age_ms` | `Date.now() - loaded_at` lúc gửi | lớn bất thường ⇒ **tab sống lâu**, mẫu LCP của nó không đại diện cho lần tải mới |
+
+Có mặt ở cả hai luồng: `rum-vitals.js` (web_vitals) và `error-reporter.js`
+(error_logs). Trang legacy không có `data-release` ⇒ `doc_release = null`; đó là
+giá trị hợp lệ, không phải lỗi.
+
+**Hệ quả cho gate:** risk acceptance của pilot 2 ghi rằng từ pilot 3+4 trở đi,
+nếu cửa sổ quan sát có bất kỳ lỗi nào trên route thì phải đóng DEBT-N trước khi
+tuyên PASS. Ba trường này đóng phần *đo được*; phần *kết luận nguyên nhân* cho
+hai mẫu cũ vẫn để mở, vì dữ liệu cũ không có chúng.

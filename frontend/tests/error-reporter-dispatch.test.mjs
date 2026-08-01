@@ -45,7 +45,7 @@ const SOURCE = readFileSync(
  * resolves (or rejects) — critical for pinning Falsification #82's
  * rejecting-auth scenario.
  */
-function setupSandbox({ getSessionImpl, fetchImpl } = {}) {
+function setupSandbox({ getSessionImpl, fetchImpl, docRelease = 'doc-sha-abc', isNext = true } = {}) {
   const fetchCalls = [];
   const consoleErrors = [];
   const listeners = {};
@@ -80,8 +80,17 @@ function setupSandbox({ getSessionImpl, fetchImpl } = {}) {
     log:   () => {},
   };
 
+  // DEBT-2026-07-30-N — trang Next có `<html data-release>`; trang legacy không.
+  const fakeDocument = {
+    documentElement: {
+      getAttribute: (name) => (name === 'data-release' ? (docRelease ?? null) : null),
+    },
+  };
+  if (isNext) fakeWindow.__next_f = [];
+
   const ctx = vm.createContext({
     window: fakeWindow,
+    document: fakeDocument,
     console: fakeConsole,
     Set,
     String,
@@ -314,5 +323,38 @@ describe('error-reporter noise filter', () => {
     listeners.unhandledrejection({ reason: { message: 'zaloJSV2 is not defined' } });
     await flush();
     assert.equal(fetchCalls.length, 0);
+  });
+});
+
+// ── DEBT-2026-07-30-N (review #884) ────────────────────────────────────────
+// ADR-012 (bổ sung 31/07) nói BA trường xuất xứ có mặt ở CẢ HAI luồng. Nếu
+// error_logs thiếu trường mà web_vitals có đủ thì hai luồng lệch hình dạng, và
+// đúng truy vấn quy kết mà thay đổi này sinh ra để phục vụ lại phải xử lý hai
+// schema.
+describe('DEBT-2026-07-30-N — xuất xứ trong error_logs', () => {
+  const dispatch = async (opts) => {
+    const sb = setupSandbox(opts);
+    sb.listeners.error({ message: 'boom', filename: 'a.js', lineno: 1, colno: 1 });
+    await flush();
+    return JSON.parse(sb.fetchCalls[0].opts.body).extra;
+  };
+
+  test('trang Next: đủ cả ba trường, doc_release lấy từ tài liệu', async () => {
+    const extra = await dispatch({ docRelease: 'doc-sha-moi' });
+    assert.equal(extra.implementation, 'next');
+    assert.equal(extra.doc_release, 'doc-sha-moi');
+    assert.equal(typeof extra.loaded_at, 'number');
+    assert.ok(extra.loaded_at > 0);
+    assert.equal(typeof extra.age_ms, 'number');
+    assert.ok(extra.age_ms >= 0);
+  });
+
+  test('trang legacy (không có thẻ): doc_release là null CHỨ KHÔNG thiếu trường', async () => {
+    const extra = await dispatch({ docRelease: null, isNext: false });
+    assert.equal(extra.implementation, 'legacy');
+    assert.ok('doc_release' in extra, 'thiếu trường = hai luồng lệch schema');
+    assert.equal(extra.doc_release, null);
+    assert.ok('loaded_at' in extra);
+    assert.ok('age_ms' in extra);
   });
 });

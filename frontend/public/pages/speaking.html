@@ -981,7 +981,12 @@
         chrome.setUser({ name: displayName, role: user.role });   // W-2: role-gates "Trang Instructor"
       }
 
-      document.getElementById('greeting-name').textContent = displayName.split(' ').at(-1);
+      // Không dùng phần tử-cuối kiểu ES2022: API đó cần Safari 15.4, sàn ta là
+      // iOS 15.0 và script inline này KHÔNG qua bundler, cũng KHÔNG được
+      // instrumentation-client vá (trang legacy không nạp nó) — iOS 15.0–15.3
+      // sẽ ném TypeError ngay giữa renderUser (DEBT-2026-07-29-K, review #882).
+      const nameParts = displayName.split(' ');
+      document.getElementById('greeting-name').textContent = nameParts[nameParts.length - 1];
 
       // Apply permissions from /auth/me response
       if (Array.isArray(user.permissions)) {

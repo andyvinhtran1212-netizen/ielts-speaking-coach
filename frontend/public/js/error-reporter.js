@@ -81,6 +81,16 @@
   // by implementation/release. Additive: rides in `extra`, no schema
   // change. `__next_f` is the App Router RSC flight sink — present on
   // every Next page before any app code runs, absent on legacy pages.
+  var LOADED_AT = Date.now();
+
+  /** Release nướng vào chính tài liệu; null trên trang legacy (không có thẻ). */
+  function docReleaseTag() {
+    try {
+      var el = (typeof document !== 'undefined') && document.documentElement;
+      return (el && el.getAttribute && el.getAttribute('data-release')) || null;
+    } catch (e) { return null; }
+  }
+
   function migrationTags() {
     var tags = {};
     try {
@@ -90,6 +100,20 @@
       if (rc.release) tags.release = rc.release;
       if (rc.environment) tags.environment = rc.environment;
     } catch { /* tags are best-effort — never block a report */ }
+    // DEBT-2026-07-30-N — `release` ở trên đọc từ file RỜI (runtime-config),
+    // nên client chạy asset cache cũ sẽ báo release cũ và quy kết lệch.
+    // `doc_release` nướng vào chính tài liệu lúc build (app/layout.tsx): hai
+    // giá trị khác nhau ⇒ đúng là asset cũ, không phải deployment cũ. `age_ms`
+    // cho biết trang đã mở bao lâu trước khi lỗi xảy ra — tab sống lâu là giả
+    // thuyết cạnh tranh phải loại trước khi kết luận.
+    //
+    // Cả BA trường LUÔN có mặt, kể cả khi không đọc được (review #884): thiếu
+    // trường ở error_logs trong khi web_vitals có đủ sẽ làm hai luồng lệch
+    // hình dạng, và truy vấn quy kết — thứ mà chính thay đổi này sinh ra để
+    // phục vụ — lại phải xử lý hai schema.
+    tags.doc_release = docReleaseTag();
+    tags.loaded_at = LOADED_AT;
+    tags.age_ms = Math.max(0, Date.now() - LOADED_AT);
     return tags;
   }
 
