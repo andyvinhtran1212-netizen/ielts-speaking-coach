@@ -286,3 +286,46 @@ describe('a refresh resumes the attempt instead of destroying it', () => {
       'a fully-correct resume lands on the summary');
   });
 });
+
+
+describe('audio is scoped to the question, with the whole clip one click away', () => {
+  // Shipped playing the full 30–90s clip for every question, and not even
+  // rewinding between them: the audio ran out during question one and from
+  // question two on there was nothing to hear. Each question now owns its few
+  // seconds, rewound and ready.
+  it('a fresh question applies the scope instead of clearing it', () => {
+    const block = JS.split('function renderQuestion(')[1].split('function applyAudioScope(')[0];
+    assert.match(block, /applyAudioScope\(\)/);
+    assert.match(block, /STATE\.wholeClip = false/,
+      'each question must start scoped, not inherit the previous toggle');
+  });
+
+  it('scoping rewinds — an armed window the learner has already passed is silent', () => {
+    const scope = JS.split('function applyAudioScope(')[1].split('function loopWindow(')[0];
+    assert.match(scope, /segment-start/);
+    assert.match(scope, /reset\(\)/,
+      'without a rewind the player sits past the window and plays nothing');
+  });
+
+  it('scoping does NOT loop — looping is what a wrong answer earns', () => {
+    const scope = JS.split('function applyAudioScope(')[1].split('function loopWindow(')[0];
+    assert.match(scope, /removeAttribute\('auto-loop'\)/);
+    assert.doesNotMatch(scope, /setAttribute\('auto-loop'/);
+  });
+
+  it('the toggle hides itself when the drill has no windows', () => {
+    // A toggle with one reachable state is just a confusing button, and older
+    // packs may carry no windows at all.
+    const scope = JS.split('function applyAudioScope(')[1].split('function loopWindow(')[0];
+    assert.match(scope, /btn\.hidden = !win/);
+  });
+
+  it('windows come from the practice-only endpoint, and losing them is survivable', () => {
+    assert.match(JS, /\/practice-windows/);
+    const boot = JS.split('async function boot(')[1];
+    const at = boot.indexOf('/practice-windows');
+    const guard = boot.lastIndexOf('try {', at);
+    assert.ok(guard !== -1 && guard < at,
+      'the window fetch must be guarded — it costs scoping, not the drill');
+  });
+});

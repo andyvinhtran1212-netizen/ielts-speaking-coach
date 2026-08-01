@@ -1339,3 +1339,40 @@ def test_patch_fails_closed_when_the_test_type_cannot_be_resolved(monkeypatch):
             aid, body, authorization=authz))
     assert ei.value.status_code == 500
     assert called == [], "the upsert RPC ran despite an unresolved test type"
+
+
+# ── GET /tests/{id}/practice-windows — per-question audio scoping ───────────
+
+
+def test_practice_windows_returns_only_windows(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    t, _aid = _seed_practice(fake)
+    out = _run(listening_router.get_practice_audio_windows(t["id"], authorization=authz))
+    assert out["windows"] == {
+        "1": {"start": 3.5, "end": 9.0},
+        "2": {"start": 12.0, "end": 18.5},
+    }
+    # The whole point of the separate endpoint: nothing but timings.
+    blob = json.dumps(out)
+    assert "nineteen" not in blob and "solution" not in blob and "answer" not in blob
+
+
+def test_practice_windows_refused_for_a_real_test(monkeypatch):
+    """A window says where the answer is. On an exam that is most of the skill,
+    which is why GET /tests/{id} stopped carrying them at all."""
+    for kind in ("full", "mini", "drill"):
+        fake, authz = _patch(monkeypatch)
+        t, _aid = _seed_practice(fake)
+        fake.tables["listening_tests"][0]["test_type"] = kind
+        with pytest.raises(HTTPException) as ei:
+            _run(listening_router.get_practice_audio_windows(t["id"], authorization=authz))
+        assert ei.value.status_code == 422
+
+
+def test_practice_windows_requires_a_published_test(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    t, _aid = _seed_practice(fake)
+    fake.tables["listening_tests"][0]["status"] = "draft"
+    with pytest.raises(HTTPException) as ei:
+        _run(listening_router.get_practice_audio_windows(t["id"], authorization=authz))
+    assert ei.value.status_code == 404
