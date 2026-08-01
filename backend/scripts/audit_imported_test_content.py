@@ -79,6 +79,18 @@ QHEAD_RE = re.compile(
     re.M | re.I)
 
 
+# Đề mà FILE .md NGUỒN mất hẳn dòng giới hạn từ (OCR đánh rơi), NHƯNG đã được
+# đối chiếu THẲNG PDF gốc và vá xong. Nếu để chúng kêu S1 mãi thì bộ soát không
+# bao giờ xanh được, và một bộ soát không bao giờ xanh sẽ bị bỏ qua — đúng cách
+# 961 lỗi trước đây sống sót. Xoá tên khỏi đây khi file nguồn được nhập lại.
+SOURCE_MISSING_OK = {
+    "ILR-LIS-CAM-B20-T1",   # PDF Cambridge 20 trang 10  → Part 4 ONE WORD ONLY
+    "ILR-LIS-CAM-B20-T2",   # PDF Cambridge 20 trang 47  → Part 4 ONE WORD ONLY
+    "ILR-LIS-CAM-B20-T3",   # PDF Cambridge 20 trang 86  → Part 4 ONE WORD ONLY
+    "ILR-LIS-CAM-B20-T4",   # PDF Cambridge 20 trang 122 → Part 4 ONE WORD ONLY
+}
+
+
 def _canon_limit(s: str) -> str:
     """Chuẩn hoá cụm giới hạn (gộp biến thể OCR 'ANDIOR' → 'AND/OR')."""
     s = re.sub(r"AND\s*[/I|]\s*OR", "AND/OR", s.upper())
@@ -249,7 +261,7 @@ def audit(source_dir: Path | None, modes: set[str],
             # Thiếu file nguồn KHÔNG được coi là "sạch": --source-dir gõ sai thì
             # mọi phép so-với-nguồn im lặng biến mất và lệnh vẫn in SẠCH, exit 0
             # — đúng cái kiểu "xanh mà rỗng" mà bộ soát này sinh ra để chặn.
-            if not limits:
+            if not limits and t["test_id"] not in SOURCE_MISSING_OK:
                 issues.append({"class": "S1", "file": str(src),
                                "why": "không đọc được giới hạn từ nào"})
 
