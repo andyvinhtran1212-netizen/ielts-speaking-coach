@@ -59,7 +59,13 @@ LIMIT_RE = re.compile(
     r"|NO MORE THAN THREE WORDS\s+" + _NUM +
     r"|NO MORE THAN THREE WORDS"
     r"|NO MORE THAN TWO WORDS\s+" + _NUM +
-    r"|NO MORE THAN TWO WORDS)", re.I)
+    r"|NO MORE THAN TWO WORDS"
+    # "Write ONE WORD for each answer." (không ONLY) là cách viết THẬT — kiểm
+    # 700dpi ở Cambridge 17 Test 4 Part 1, và 10/10 đáp án đều một từ không số.
+    # Đặt CUỐI + lookahead phủ định để nó không bao giờ cắn mẩu đầu của hai
+    # dạng dài phía trên.
+    r"|ONE WORD(?!\s+(?:ONLY|(?:AND\s*[/I|]\s*OR|OR)\s+A\s+NUMBER))"
+    r")", re.I)
 # Đầu mục khối câu hỏi. Bộ Cambridge KHÔNG đồng nhất — phải nuốt cả bốn dạng:
 #   "### Questions 1-5"            (quyển 15-19)
 #   "### Questions 19 and 20"      (quyển 20-21)

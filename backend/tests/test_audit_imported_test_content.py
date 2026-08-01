@@ -134,6 +134,14 @@ def test_limit_re_accepts_every_real_wording_including_ocr_damage():
         assert m.group(1).upper() == want.upper(), phrase
 
 
+def test_limit_re_accepts_bare_one_word():
+    """"Write ONE WORD for each answer." (không "ONLY") là cách viết THẬT —
+    Cambridge 17 Test 4 Part 1, kiểm ở 700dpi, và 10/10 đáp án đều một từ không
+    số. Bỏ sót nó thì cả đề đó biến mất khỏi phép soát."""
+    m = LIMIT_RE.search("Write ONE WORD for each answer.")
+    assert m and m.group(1).upper() == "ONE WORD"
+
+
 def test_limit_re_never_stops_at_the_short_prefix():
     """"ONE WORD" đứng một mình KHÔNG phải giới hạn hợp lệ. Nếu cho nó khớp,
     "ONE WORD ANDIOR A NUMBER" sẽ khớp mẩu đầu và sinh lệch giả."""
