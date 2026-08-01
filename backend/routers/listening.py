@@ -3790,6 +3790,17 @@ class TestAttemptAnswerPatchRequest(BaseModel):
     user_answer: str
 
 
+class PracticeCheckRequest(BaseModel):
+    """One question of a Luyện nhanh run: answer it, or ask to be shown it."""
+    model_config = ConfigDict(extra="forbid")
+    q_num:       int
+    user_answer: str = ""
+    # Set on the "Xem đáp án" escape hatch. Never records an answer — the
+    # canonical first answer must already be on file (and wrong) for the
+    # server to hand the key over.
+    reveal:      bool = False
+
+
 def _student_audio_url_for_test(test_row: dict) -> tuple[str | None, str | None, int | None]:
     """Pick the right audio for a student player.
 
@@ -5123,6 +5134,154 @@ async def patch_listening_test_attempt_answer(
         # race, and the honest answer is that the edit did not land.
         raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể edit.")
     return {"attempt_id": attempt_id, "answer_count": count}
+
+
+def _practice_exercise_payloads(test_id: str) -> list[dict]:
+    """Every exercise payload belonging to a test, via its section rows."""
+    sec_res = (
+        supabase_admin.table("listening_content")
+        .select("id").eq("test_id", test_id).execute()
+    )
+    section_ids = [r["id"] for r in (sec_res.data or [])]
+    if not section_ids:
+        raise HTTPException(500, "Test bundle thiếu section rows.")
+    ex_res = (
+        supabase_admin.table("listening_exercises")
+        .select("payload").in_("content_id", section_ids).execute()
+    )
+    return ex_res.data or []
+
+
+@user_router.post("/tests/attempts/{attempt_id}/check")
+async def check_listening_practice_answer(
+    attempt_id: str,
+    body: PracticeCheckRequest,
+    authorization: str | None = Header(default=None),
+):
+    """Grade ONE question mid-attempt, for the Luyện nhanh runner.
+
+    Luyện nhanh is a 30–90s drill, not an exam: the learner answers a question,
+    finds out immediately, and on a miss the player loops that question's audio
+    window until they hear it. Two rules keep that from turning into a way to
+    farm a perfect score, or into a hole in exam integrity:
+
+    **practice only.** A full / mini / drill attempt is refused outright. Those
+    surfaces are graded once, at submit, precisely so a student cannot probe the
+    key answer-by-answer while the recording is still in front of them.
+
+    **first answer is canonical.** The write goes through
+    fn_insert_listening_answer_once (mig 174), which appends only when that
+    q_num has no answer yet. Retries are graded and returned for the learner's
+    benefit but never overwrite the record, so the attempt's eventual score,
+    band and trap analytics describe the first listen — the thing worth
+    measuring — not the tenth.
+
+    Grading reuses ``grade_attempt`` over the attempt's stored answers with this
+    one substituted in, i.e. the SAME path submit takes. A separate
+    single-question comparison here would be free to drift from the final score,
+    and the learner would be told "correct" by one and "wrong" by the other.
+
+    Returns ``{q_num, correct, canonical_correct, recorded, audio_window, …}``;
+    ``expected`` / ``solution`` appear only on a granted reveal.
+    """
+    from services import listening_test_grader as grader
+
+    user = await _require_auth(authorization)
+    attempt = _fetch_attempt_or_404(attempt_id, user["id"])       # ownership gate
+    if attempt.get("status") != "in_progress":
+        raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể chấm thêm.")
+
+    test_res = (
+        supabase_admin.table("listening_tests")
+        .select("id,test_type,metadata")
+        .eq("id", attempt["test_id"]).limit(1).execute()
+    )
+    if not test_res.data:
+        raise HTTPException(404, "Test bundle not found")
+    test_row = test_res.data[0]
+    if test_row.get("test_type") != "practice":
+        raise HTTPException(
+            422,
+            "Chấm từng câu chỉ dành cho Luyện nhanh. Bài thi chấm một lần khi nộp.",
+        )
+
+    payloads = _practice_exercise_payloads(attempt["test_id"])
+    answer_key = grader.collect_answer_key(payloads)
+    key_row = next((k for k in answer_key if k.get("q_num") == body.q_num), None)
+    if key_row is None:
+        raise HTTPException(404, f"Câu {body.q_num} không thuộc bài này.")
+
+    stored = list(attempt.get("answers") or [])
+    prior = next((a for a in stored if a.get("q_num") == body.q_num), None)
+
+    recorded = False
+    if not body.reveal:
+        wrote = supabase_admin.rpc("fn_insert_listening_answer_once", {
+            "p_attempt_id":  attempt_id,
+            "p_q_num":       body.q_num,
+            "p_user_answer": body.user_answer,
+        }).execute().data
+        if wrote is None:
+            # The RPC re-checks status, so NULL means the attempt was submitted
+            # between our read and the write. Say so instead of returning a
+            # grade for an answer that was never stored.
+            raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể chấm thêm.")
+        recorded = bool(wrote)
+        if recorded:
+            prior = {"q_num": body.q_num, "user_answer": body.user_answer}
+
+    def _grade(ans_text: str) -> bool:
+        merged = [a for a in stored if a.get("q_num") != body.q_num]
+        merged.append({"q_num": body.q_num, "user_answer": ans_text})
+        res = grader.grade_attempt(merged, answer_key)
+        row = next((r for r in res["per_question"] if r.get("q_num") == body.q_num), None)
+        return bool(row and row.get("correct"))
+
+    correct = _grade(body.user_answer) if not body.reveal else False
+    # What the final score will say for this question — the first answer, which
+    # may not be the one just submitted.
+    canonical_correct = _grade(prior.get("user_answer") or "") if prior else False
+
+    windows: dict[int, dict] = {}
+    solutions: dict[int, dict] = {}
+    for row in payloads:
+        p = row.get("payload") or {}
+        for q, w in (p.get("audio_windows") or {}).items():
+            windows[int(q)] = w
+        for q, s in (p.get("solutions") or {}).items():
+            solutions[int(q)] = s
+    # Practice packs are a single section premixed alone with section_offsets
+    # {sid: 0}, so this is a pass-through today. Routed through the shared
+    # helper anyway: if practice ever gains a nonzero offset, the replay window
+    # rebases with the review player instead of silently seeking past the answer.
+    win = _rebase_audio_window(
+        windows.get(body.q_num),
+        (test_row.get("test_type") in ("mini", "practice")),
+        (test_row.get("metadata") or {}).get("section_offsets") or {},
+    )
+
+    out = {
+        "q_num":             body.q_num,
+        "correct":           correct,
+        "canonical_correct": canonical_correct,
+        "recorded":          recorded,        # did THIS call set the canonical answer
+        "answered_before":   prior is not None and not recorded,
+        "audio_window":      win,
+    }
+
+    # Reveal is gated on the canonical answer already being on file AND wrong.
+    # That makes it harmless: the score for this question is settled before the
+    # key is ever handed out, so seeing it cannot buy back a point.
+    if body.reveal:
+        if prior is None:
+            raise HTTPException(422, "Hãy thử trả lời trước khi xem đáp án.")
+        if canonical_correct:
+            raise HTTPException(422, "Câu này bạn đã trả lời đúng.")
+        out["expected"]     = key_row.get("answer") or ""
+        out["alternatives"] = key_row.get("alternatives") or []
+        out["solution"]     = solutions.get(body.q_num) or {}
+        out["revealed"]     = True
+    return out
 
 
 @user_router.post("/tests/attempts/{attempt_id}/submit")

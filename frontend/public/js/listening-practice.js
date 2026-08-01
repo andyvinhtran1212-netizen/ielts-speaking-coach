@@ -86,7 +86,7 @@ export function renderCard(t) {
       <div class="lt-card-title">${esc(t.title || t.test_id || 'Bài luyện')}</div>
       <div class="lt-card-stats">${bits.join(' · ')}</div>
       <a class="${attempted ? 'lt-card-cta secondary' : 'lt-card-cta'}"
-         href="/pages/listening-test.html?id=${encodeURIComponent(t.id)}&from=practice"
+         href="/pages/listening-practice-run.html?id=${encodeURIComponent(t.id)}"
         >${attempted ? 'Làm lại' : 'Bắt đầu'}</a>
     </article>`;
 }

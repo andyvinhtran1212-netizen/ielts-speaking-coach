@@ -1,0 +1,222 @@
+/**
+ * frontend/tests/listening-practice-run.test.mjs
+ *
+ * The Luyện nhanh runner — a light, check-as-you-go surface, deliberately not
+ * the exam shell.
+ *
+ * What is worth pinning here is the honesty of what the learner is told. The
+ * runner lets you retry a question until you hear it, but the score counts the
+ * FIRST answer (server-side, mig 174). That gap is where a plausible-looking UI
+ * lies: a green tick on a retry next to a score that did not move reads as a
+ * bug unless the copy explains it. So the verdict text, the progress dot and
+ * the summary must all follow `canonical_correct`, never the retry's verdict.
+ */
+
+import { describe, it } from 'node:test';
+import { strict as assert } from 'node:assert';
+import { readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import {
+  flattenQuestions, promptHtml, isChoice, verdictText, REVEAL_AFTER_WRONG,
+} from '../public/js/listening-practice-run.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const read = (...p) => readFileSync(join(__dirname, '..', 'public', ...p), 'utf8');
+
+const HTML = read('pages', 'listening-practice-run.html');
+const JS   = read('js', 'listening-practice-run.js');
+
+
+describe('question flattening', () => {
+  const bundle = {
+    sections: [{
+      section_num: 1,
+      exercises: [
+        {
+          payload: {
+            instruction: 'Complete the notes.',
+            questions: [{ q_num: 3, prompt: 'Name: ____' }, { q_num: 1, prompt: 'Age: ____' }],
+          },
+        },
+        {
+          payload: {
+            instruction: 'Choose the correct letter.',
+            questions: [{
+              q_num: 2, prompt: 'Why did he leave?',
+              options: [{ letter: 'A', text: 'Tired' }, { letter: 'B', text: 'Late' }],
+            }],
+          },
+        },
+      ],
+    }],
+  };
+
+  it('orders by q_num, not by document order', () => {
+    // The converter emits the completion block before the MCQs whose evidence
+    // sits EARLIER in the audio, so exercise order is not question order.
+    assert.deepEqual(flattenQuestions(bundle).map((q) => q.q_num), [1, 2, 3]);
+  });
+
+  it('carries each question its own exercise instruction', () => {
+    const byNum = Object.fromEntries(flattenQuestions(bundle).map((q) => [q.q_num, q]));
+    assert.equal(byNum[1].instruction, 'Complete the notes.');
+    assert.equal(byNum[2].instruction, 'Choose the correct letter.');
+  });
+
+  it('survives an empty / malformed bundle instead of throwing', () => {
+    assert.deepEqual(flattenQuestions(null), []);
+    assert.deepEqual(flattenQuestions({ sections: [{ exercises: [{}] }] }), []);
+    assert.deepEqual(flattenQuestions({ sections: [{ exercises: [
+      { payload: { questions: [{ prompt: 'no q_num' }] } }] }] }), []);
+  });
+
+  it('picks the answer widget from the question, not the test type', () => {
+    const qs = flattenQuestions(bundle);
+    assert.equal(isChoice(qs.find((q) => q.q_num === 2)), true);
+    assert.equal(isChoice(qs.find((q) => q.q_num === 1)), false);
+  });
+});
+
+
+describe('prompt rendering', () => {
+  it('marks the blank so the eye lands on it', () => {
+    assert.match(promptHtml('Tên: ____'), /<span class="gap">/);
+  });
+
+  it('escapes markup in the prompt', () => {
+    const out = promptHtml('<img src=x onerror=alert(1)>');
+    assert.doesNotMatch(out, /<img/);
+    assert.match(out, /&lt;img/);
+  });
+});
+
+
+describe('verdict copy follows the canonical (first) answer', () => {
+  it('right on the first try — plain confirmation', () => {
+    const v = verdictText({ correct: true, canonical_correct: true });
+    assert.equal(v.cls, 'is-correct');
+    assert.doesNotMatch(v.html, /chưa bắt được/);
+  });
+
+  it('right on a RETRY — says the score still counts the miss', () => {
+    // Without this the learner sees a tick and a dot that stays red, and
+    // concludes the page is broken rather than that the rule is deliberate.
+    const v = verdictText({ correct: true, canonical_correct: false });
+    assert.equal(v.cls, 'is-correct');
+    assert.match(v.html, /lần trả lời\s+đầu tiên/,
+      'a retry-correct verdict must explain why the score did not move');
+  });
+
+  it('wrong — points at the looping audio, never at the answer', () => {
+    const v = verdictText({ correct: false, canonical_correct: false });
+    assert.equal(v.cls, 'is-wrong');
+    assert.match(v.html, /phát lặp lại/);
+  });
+
+  it('reveal shows the key plus alternatives and the why', () => {
+    const v = verdictText({
+      revealed: true, expected: 'nineteen', alternatives: ['19'],
+      solution: { why: 'Người nói sửa lại số.' },
+    });
+    assert.match(v.html, /nineteen/);
+    assert.match(v.html, /19/);
+    assert.match(v.html, /sửa lại số/);
+  });
+
+  it('escapes a revealed answer', () => {
+    const v = verdictText({ revealed: true, expected: '<b>x</b>', alternatives: [] });
+    assert.doesNotMatch(v.html, /<b>/);
+  });
+});
+
+
+describe('runner wiring', () => {
+  it('checks per question against the practice-only endpoint', () => {
+    assert.match(JS, /attempts\/\$\{encodeURIComponent\(STATE\.attempt\)\}\/check/);
+  });
+
+  it('the progress dot tracks canonical_correct, not the latest try', () => {
+    assert.match(JS, /STATE\.verdicts\.set\(q\.q_num, !!res\.canonical_correct\)/,
+      'a dot driven by res.correct would brighten on a retry and contradict the score');
+  });
+
+  it('a fresh question clears segment mode before the learner answers', () => {
+    // Starting a question already scoped to the answer window would hand over
+    // WHERE to listen, which is the entire skill being drilled.
+    const block = JS.split('function renderQuestion(')[1].split('function loopWindow(')[0];
+    for (const attr of ['segment-start', 'segment-end', 'auto-loop']) {
+      assert.match(block, new RegExp(`removeAttribute\\('${attr}'\\)`),
+        `renderQuestion must clear ${attr}`);
+    }
+  });
+
+  it('a miss loops that question window; a settled question stops looping', () => {
+    const loop = JS.split('function loopWindow(')[1].split('function applyResult(')[0];
+    assert.match(loop, /setAttribute\('auto-loop',\s*'true'\)/);
+    const applied = JS.split('function applyResult(')[1].split('async function onCheck(')[0];
+    assert.match(applied, /removeAttribute\('auto-loop'\)/,
+      'looping must stop once the question is settled, or it nags over the next one');
+  });
+
+  it('the reveal button appears only after repeated misses', () => {
+    assert.equal(REVEAL_AFTER_WRONG, 2);
+    assert.match(JS, /lpr-reveal'\)\.hidden = STATE\.wrongTries < REVEAL_AFTER_WRONG/);
+  });
+
+  it('reveal asks the server; the key is never in the page', () => {
+    assert.match(JS, /\{\s*q_num: q\.q_num,\s*reveal: true\s*\}/);
+    // GET /tests/{id} strips answer keys, so there is nothing local to compare
+    // against — any client-side "correct" check would be a reimplementation
+    // that could disagree with the score.
+    assert.doesNotMatch(JS, /answer_key|expectedAnswer|correctAnswer/i);
+  });
+});
+
+
+describe('page shell', () => {
+  it('is not the exam chrome', () => {
+    assert.doesNotMatch(HTML, /class="exam-chrome"/);
+    assert.doesNotMatch(HTML, /reading-exam-mockup\.css/);
+  });
+
+  it('loads tokens, the shared audio player and the runner module', () => {
+    assert.match(HTML, /href="\/css\/aver-design\/tokens\.css"/);
+    assert.match(HTML, /src="\/js\/components\/audio-player\.js"/);
+    assert.match(HTML, /src="\/js\/listening-practice-run\.js"/);
+    assert.match(HTML, /<audio-player id="lpr-player"/);
+  });
+
+  it('every element the runner reaches for exists in the markup', () => {
+    // A renamed id would surface as a null-deref at runtime, on a page the
+    // learner is mid-question on.
+    // Ids the runner itself injects are exempt — but only those it can be seen
+    // creating, so a typo in a static id still fails here.
+    const injected = new Set(
+      [...JS.matchAll(/id="([a-z0-9-]+)"/g)].map((m) => m[1]));
+    const ids = [...new Set([...JS.matchAll(/\$\('([a-z0-9-]+)'\)/g)].map((m) => m[1]))]
+      .filter((id) => !injected.has(id));
+    assert.ok(ids.length >= 8, `expected the runner to address several ids, saw ${ids.length}`);
+    for (const id of ids) {
+      assert.match(HTML, new RegExp(`id="${id}"`), `markup is missing #${id}`);
+    }
+    assert.ok(injected.has('lpr-text'), 'the typed-answer input should be runner-injected');
+  });
+
+  it('the summary states the first-answer rule in plain Vietnamese', () => {
+    assert.match(HTML, /lần trả lời đầu tiên/);
+  });
+
+  it('back link returns to the practice library', () => {
+    assert.match(HTML, /href="\/pages\/listening-practice\.html"/);
+  });
+
+  it('uses only design tokens that exist', () => {
+    const tokens = new Set([...HTML.matchAll(/var\((--av-[a-z0-9-]+)\)/g)].map((m) => m[1]));
+    const defined = read('css', 'aver-design', 'tokens.css');
+    for (const t of tokens) {
+      assert.ok(defined.includes(`${t}:`), `undefined design token ${t}`);
+    }
+  });
+});
