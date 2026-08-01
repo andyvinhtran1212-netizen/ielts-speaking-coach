@@ -20,6 +20,20 @@
  * 8/8" after grinding every question is worse than no number.
  */
 
+// Every authed Listening page-script does this, and it is not optional: api.js
+// reads the session off the Supabase client, so without the init there is no
+// token on the request, the API answers 401, and the page bounces to /login —
+// which sees a live session and bounces on to the home page. The learner never
+// finds out why. Same constants as the sibling scripts (publishable anon key).
+const SUPABASE_URL  = 'https://huwsmtubwulikhlmcirx.supabase.co';
+const SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
+
+(function bootstrapSupabase() {
+  if (typeof window !== 'undefined' && window.initSupabase) {
+    try { window.initSupabase(SUPABASE_URL, SUPABASE_ANON); } catch { /* swallow */ }
+  }
+})();
+
 const $ = (id) => document.getElementById(id);
 
 // Canonical escaper (audit C4) — the Node-safe guard keeps this module
