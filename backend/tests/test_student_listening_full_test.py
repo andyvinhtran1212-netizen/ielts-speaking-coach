@@ -1315,3 +1315,27 @@ def test_get_test_detail_strips_solutions_and_windows(monkeypatch):
         assert leaky not in payload, f"student payload still carries {leaky}"
     assert payload["questions"], "stripping must not take the questions with it"
     assert "nineteen" not in json.dumps(out), "the answer is still reachable somewhere"
+
+
+def test_patch_fails_closed_when_the_test_type_cannot_be_resolved(monkeypatch):
+    """An unresolvable test row must refuse the save, not fall through.
+
+    The guard is `test_type == 'practice'`; a lookup that returns nothing used
+    to yield None, which is != 'practice', so the failure mode of the lookup
+    was exactly the failure mode of the rule it protects.
+    """
+    fake, authz = _patch(monkeypatch)
+    _t, aid = _seed_practice(fake)
+    _check(aid, authz, q_num=1, user_answer="ninety")            # canonical: wrong
+    fake.tables["listening_tests"].clear()                       # row vanishes
+
+    called = []
+    real_rpc = fake.rpc
+    fake.rpc = lambda name, params: (called.append(name), real_rpc(name, params))[1]
+
+    body = listening_router.TestAttemptAnswerPatchRequest(q_num=1, user_answer="nineteen")
+    with pytest.raises(HTTPException) as ei:
+        _run(listening_router.patch_listening_test_attempt_answer(
+            aid, body, authorization=authz))
+    assert ei.value.status_code == 500
+    assert called == [], "the upsert RPC ran despite an unresolved test type"

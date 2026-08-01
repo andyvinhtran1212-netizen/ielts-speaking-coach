@@ -5146,14 +5146,29 @@ async def patch_listening_test_attempt_answer(
     return {"attempt_id": attempt_id, "answer_count": count}
 
 
-def _attempt_test_type(attempt: dict) -> str | None:
-    """The test_type behind an attempt. None when the row cannot be read —
-    callers must treat that as "not practice", never as "practice"."""
+def _attempt_test_type(attempt: dict) -> str:
+    """The test_type behind an attempt.
+
+    Fails CLOSED. An unresolvable test row used to come back as None, which
+    every caller compares against "practice" and finds unequal — so the exact
+    moment the lookup breaks is the moment a practice attempt slips past the
+    guard built on it. There is no safe default here, so raise: refusing an
+    answer save is recoverable, silently overwriting a canonical first answer
+    is not.
+
+    Costs one small indexed read per call. That is a real cost on the PATCH
+    autosave path (once per answer); paid deliberately, because the shared
+    attempt lookup returns the attempt row alone and widening it would change
+    a shape half the Listening endpoints depend on.
+    """
     res = (
         supabase_admin.table("listening_tests")
         .select("test_type").eq("id", attempt.get("test_id")).limit(1).execute()
     )
-    return (res.data[0].get("test_type") if res.data else None)
+    kind = (res.data[0].get("test_type") if res.data else None)
+    if not kind:
+        raise HTTPException(500, "Không xác định được loại bài của lượt làm này.")
+    return kind
 
 
 def _practice_exercise_payloads(test_id: str) -> list[dict]:
