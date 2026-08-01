@@ -1712,24 +1712,30 @@ class ListeningTestStatusPatchRequest(BaseModel):
 async def admin_list_listening_tests(
     status: str = Query(default="all"),
     search: str = Query(default=""),
-    test_type: str = Query(default="exam"),
+    test_type: str = Query(default="all"),
     limit: int  = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     authorization: str | None = Header(default=None),
 ):
-    """Paginated list of Cambridge test bundles for the admin browser.
+    """Paginated list of test bundles for the admin browser.
 
     status defaults to 'all'. ``search`` is a substring match against
     ``test_id`` (case-insensitive ilike). Each row carries a synthetic
     ``audio_ready_count`` — how many of the 4 section rows already have
     audio_storage_path set (powers the "X/4 sections có audio" column).
 
-    `test_type` defaults to **"exam"** = full|mini|drill, i.e. everything that
-    existed before the generated `practice` bank. That default matters: this
-    endpoint feeds the mock-exam picker, which asks for `limit=100` newest-first
-    with no type filter. Importing a few hundred practice items would fill the
-    first page and push the Cambridge papers an admin needs out of sight. Pass
-    `test_type=practice` to browse the bank, or `all` for everything.
+    `test_type` accepts a concrete type, `exam` (= full|mini|drill, everything
+    that existed before the generated `practice` bank) or `all`.
+
+    It defaults to **all**, and the narrowing is the CALLER's job. It used to
+    default to `exam`, to keep a few hundred imported practice items from
+    filling the mock-exam picker's first page and pushing the Cambridge papers
+    out of sight. But four clients share this endpoint and only that one wants
+    the narrow view: the tests browser, the audit page and the import lookup
+    all call it plain, so the default silently made the entire practice bank
+    unfindable — an operator could not audit or publish an imported pack at
+    all. A default that hides rows is the wrong shape for a management list;
+    the picker asks for `exam` explicitly instead.
     """
     await require_admin(authorization)
 
@@ -1741,10 +1747,10 @@ async def admin_list_listening_tests(
     _ADMIN_TYPE_FILTERS = {"exam", "all", "full", "mini", "drill", "practice"}
     # Called directly (unit tests, internal reuse) an omitted Query() param
     # arrives as its FieldInfo sentinel, not the default string — comparing that
-    # to "exam" is false, so the filter would fall through to
+    # to "all" is false, so the filter would fall through to
     # `eq("test_type", <FieldInfo>)` and quietly return nothing.
     if not isinstance(test_type, str):
-        test_type = "exam"
+        test_type = "all"
     if test_type not in _ADMIN_TYPE_FILTERS:
         raise HTTPException(
             422, f"test_type must be one of {sorted(_ADMIN_TYPE_FILTERS)}")

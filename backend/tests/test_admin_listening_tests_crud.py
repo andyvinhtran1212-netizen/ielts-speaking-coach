@@ -621,3 +621,44 @@ def test_hard_delete_storage_failure_does_not_block_db_delete(monkeypatch):
     # One storage path failed, one succeeded.
     assert out["cascade_count"]["storage_files_removed"] == 1
     assert len(out["cascade_count"]["storage_files_failed"]) == 1
+
+
+# ── Codex review PR #888 — the admin list must not hide a whole bank ────────
+
+
+def test_list_defaults_to_every_type_so_no_bank_is_unmanageable(monkeypatch):
+    """This endpoint is shared by four clients and only ONE wants a narrow view.
+
+    It used to default to `exam` (full|mini|drill) to keep the imported
+    practice bank out of the mock-exam picker. But the tests browser, the audit
+    page and the import lookup all call it plain, so that default made the
+    entire Luyện nhanh bank invisible in admin — an operator could not audit or
+    publish an imported pack at all. Narrowing belongs at the call site.
+    """
+    fake, authz = _patch(monkeypatch)
+    _seed_test(fake, test_id="ILR-LIS-001", status="draft", test_type="full")
+    _seed_test(fake, test_id="ILR-LIS-KKR-Gen-Number-p01", status="draft",
+               test_type="practice")
+
+    out = _run(listening_router.admin_list_listening_tests(
+        status="all", search="", limit=20, offset=0, authorization=authz))
+    ids = {r["test_id"] for r in out["items"]}
+    assert "ILR-LIS-KKR-Gen-Number-p01" in ids, \
+        "a default that hides rows makes the bank unmanageable"
+    assert "ILR-LIS-001" in ids
+
+
+def test_list_still_narrows_on_request(monkeypatch):
+    """The mock picker's `exam` scope, and a concrete type, both still work."""
+    fake, authz = _patch(monkeypatch)
+    _seed_test(fake, test_id="ILR-LIS-001", status="published", test_type="full")
+    _seed_test(fake, test_id="ILR-LIS-KKR-p01", status="published", test_type="practice")
+
+    exam = _run(listening_router.admin_list_listening_tests(
+        status="all", search="", test_type="exam", limit=20, offset=0, authorization=authz))
+    assert [r["test_id"] for r in exam["items"]] == ["ILR-LIS-001"]
+
+    prac = _run(listening_router.admin_list_listening_tests(
+        status="all", search="", test_type="practice", limit=20, offset=0,
+        authorization=authz))
+    assert [r["test_id"] for r in prac["items"]] == ["ILR-LIS-KKR-p01"]

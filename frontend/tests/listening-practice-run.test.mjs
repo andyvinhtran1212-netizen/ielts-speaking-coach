@@ -20,6 +20,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   flattenQuestions, promptHtml, isChoice, verdictText, REVEAL_AFTER_WRONG,
+  firstUnansweredIndex,
 } from '../public/js/listening-practice-run.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -239,5 +240,46 @@ describe('late / duplicate responses cannot corrupt the current question', () =>
     assert.match(block, /Number\(res\.q_num\)\s*!==\s*q\.q_num/,
       'applyResult must key off res.q_num, not just STATE.idx');
     assert.match(block, /\breturn;/, 'the mismatch must bail out, not just be noticed');
+  });
+});
+
+
+describe('a refresh resumes the attempt instead of destroying it', () => {
+  // POST /attempts is destructive by design — it abandons the open attempt and
+  // mints an empty one. Calling it on every load means an ordinary refresh
+  // throws away the canonical first answers, which ARE the score and cannot be
+  // recovered, and leaves an abandoned row in the admin reporting. The
+  // in-progress endpoint exists precisely to close this; its own docstring
+  // records the bug it was written for.
+  it('asks for an open attempt before starting a new one', () => {
+    const boot = JS.split('async function boot(')[1];
+    const iProg = boot.indexOf('/attempts/in-progress');
+    const post  = boot.indexOf("/attempts`, {})");
+    assert.ok(iProg !== -1, 'boot never checks for an in-progress attempt');
+    assert.ok(post === -1 || iProg < post,
+      'the destructive start-over must not run before the resume check');
+  });
+
+  it('only starts over when there is nothing to resume', () => {
+    assert.match(JS, /if \(prior && prior\.attempt_id\) \{[\s\S]*?\} else \{[\s\S]*?\/attempts`, \{\}\)/,
+      'POST /attempts must sit in the else branch');
+  });
+
+  it('resumes at the first unanswered question', () => {
+    const qs = [{ q_num: 1 }, { q_num: 2 }, { q_num: 3 }];
+    assert.equal(firstUnansweredIndex(qs, [{ q_num: 1, user_answer: 'x' }]), 1);
+    assert.equal(firstUnansweredIndex(qs, []), 0);
+    // A blank stored answer is not progress — the server filters those out of
+    // the resume payload, and treating one as answered would skip a question
+    // the learner never saw.
+    assert.equal(firstUnansweredIndex(qs, [{ q_num: 1, user_answer: '  ' }]), 0);
+  });
+
+  it('everything answered → nothing left to resume into', () => {
+    const qs = [{ q_num: 1 }, { q_num: 2 }];
+    const all = [{ q_num: 1, user_answer: 'a' }, { q_num: 2, user_answer: 'b' }];
+    assert.equal(firstUnansweredIndex(qs, all), qs.length);
+    assert.match(JS, /if \(STATE\.idx >= STATE\.questions\.length\)[\s\S]{0,80}finish\(\)/,
+      'a fully-answered resume must land on the summary, not render past the end');
   });
 });

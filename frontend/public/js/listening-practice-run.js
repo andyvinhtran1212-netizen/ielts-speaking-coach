@@ -333,6 +333,41 @@ async function finish() {
   }
 }
 
+/**
+ * Rebuild the dots + landing question from a resumed attempt.
+ *
+ * The stored answers say WHICH questions are settled but not whether they were
+ * right — and the verdict cannot be recomputed here, because the key is
+ * stripped from the test payload on purpose. Replaying each stored answer
+ * through /check recovers it from the one grader that decides the score: the
+ * write is refused (the question already has a canonical answer), so this
+ * reads state without changing it.
+ */
+export function firstUnansweredIndex(questions, answers) {
+  const answered = new Set((answers || [])
+    .filter((a) => a && String(a.user_answer || '').trim())
+    .map((a) => Number(a.q_num)));
+  const i = questions.findIndex((q) => !answered.has(q.q_num));
+  return i === -1 ? questions.length : i;   // === length → nothing left to do
+}
+
+async function restoreProgress(answers) {
+  for (const a of answers) {
+    try {
+      const res = await window.api.post(
+        `/api/listening/tests/attempts/${encodeURIComponent(STATE.attempt)}/check`,
+        { q_num: Number(a.q_num), user_answer: String(a.user_answer || '') },
+      );
+      STATE.verdicts.set(Number(a.q_num), !!res.canonical_correct);
+    } catch (e) {
+      // A dot we cannot colour is better than a wrong one; the summary still
+      // comes from submit, which reads the same stored answers.
+    }
+  }
+  STATE.idx = firstUnansweredIndex(STATE.questions, answers);
+}
+
+
 async function boot() {
   const id = (new URLSearchParams(location.search).get('id') || '').trim();
   if (!id) { showError('Thiếu mã bài luyện.'); return; }
@@ -349,11 +384,29 @@ async function boot() {
     const player = $('lpr-player');
     if (player && test.audio_url) player.setAttribute('src', test.audio_url);
 
-    const att = await window.api.post(
-      `/api/listening/tests/${encodeURIComponent(id)}/attempts`, {});
-    STATE.attempt = att.attempt_id || att.id;
+    // RESUME before starting over. POST /attempts is destructive by design —
+    // it abandons the open attempt and mints an empty one — so calling it on
+    // every load means an ordinary refresh throws away the canonical first
+    // answers (unrecoverable: they are what the score is) and leaves an
+    // abandoned row in the admin reporting. The in-progress endpoint exists
+    // for exactly this; not using it re-opens the bug it was written to close.
+    const open = await window.api.get(
+      `/api/listening/tests/${encodeURIComponent(id)}/attempts/in-progress`);
+    const prior = open && open.attempt;
+    if (prior && prior.attempt_id) {
+      STATE.attempt = prior.attempt_id;
+      await restoreProgress(prior.answers || []);
+    } else {
+      const att = await window.api.post(
+        `/api/listening/tests/${encodeURIComponent(id)}/attempts`, {});
+      STATE.attempt = att.attempt_id || att.id;
+    }
 
     $('state-loading').hidden = true;
+    if (STATE.idx >= STATE.questions.length) {   // resumed with nothing left
+      await finish();
+      return;
+    }
     $('lpr-run').hidden = false;
     renderQuestion();
   } catch (e) {
