@@ -511,6 +511,30 @@
   // IDP / Cambridge official-sample patterns so the surface feels familiar
   // to anyone who has practised against released materials. The optional
   // {part} and {options_count} placeholders are filled from runtime data.
+  // Word limits actually used by Cambridge. The completion instruction used to
+  // hardcode "NO MORE THAN TWO WORDS" for every test, so a paper whose real
+  // limit is ONE WORD ONLY taught the wrong exam habit — two words scores zero
+  // on the real thing (Cam18-T2 audit, 2026-08-01). Authors now carry the real
+  // limit in `payload.word_limit`; anything not on this whitelist is IGNORED
+  // rather than rendered, so a bad DB value can never author the instruction.
+  var WORD_LIMITS = [
+    'ONE WORD ONLY',
+    'ONE WORD AND/OR A NUMBER',
+    'NO MORE THAN TWO WORDS',
+    'NO MORE THAN TWO WORDS AND/OR A NUMBER',
+    'NO MORE THAN THREE WORDS',
+    'NO MORE THAN THREE WORDS AND/OR A NUMBER',
+  ];
+
+  function _wordLimit(ctx, fallback) {
+    var w = (ctx && ctx.wordLimit) ? String(ctx.wordLimit).trim().toUpperCase() : '';
+    return WORD_LIMITS.indexOf(w) >= 0 ? w : (fallback || 'NO MORE THAN TWO WORDS');
+  }
+
+  function _letterAt(n) {
+    return String.fromCharCode(64 + Math.max(1, Math.min(26, n | 0)));
+  }
+
   var QTYPE_INSTRUCTIONS = {
     matching_headings: function (range, ctx) {
       // The list of headings is shown per-question (dropdown), so the
@@ -553,29 +577,38 @@
       return 'Questions ' + range + ': Choose the correct letter, ' +
         letters + '.';
     },
-    sentence_completion: function (range) {
+    sentence_completion: function (range, ctx) {
       return 'Questions ' + range + ': Complete the sentences below. Choose ' +
-        'NO MORE THAN TWO WORDS from the passage for each answer.';
+        _wordLimit(ctx) + ' from the passage for each answer.';
     },
-    summary_completion: function (range) {
+    summary_completion: function (range, ctx) {
+      // Word-bank variant (authored with `options:`) is a DIFFERENT task: you
+      // pick a lettered phrase, you do not copy words out of the passage. It
+      // used to inherit the copy-from-passage wording, which contradicted the
+      // bank rendered right below it (Cam18-T2 Q24-26 audit, 2026-08-01).
+      if (ctx && ctx.optionsCount) {
+        return 'Questions ' + range + ': Complete the summary using the list ' +
+          'of phrases, A-' + _letterAt(ctx.optionsCount) + ', below.';
+      }
       return 'Questions ' + range + ': Complete the summary below. Choose ' +
-        'NO MORE THAN TWO WORDS from the passage for each answer.';
+        _wordLimit(ctx) + ' from the passage for each answer.';
     },
-    notes_completion: function (range) {
+    notes_completion: function (range, ctx) {
       return 'Questions ' + range + ': Complete the notes below. Choose ' +
-        'NO MORE THAN TWO WORDS from the passage for each answer.';
+        _wordLimit(ctx) + ' from the passage for each answer.';
     },
-    table_completion: function (range) {
+    table_completion: function (range, ctx) {
       return 'Questions ' + range + ': Complete the table below. Choose ' +
-        'NO MORE THAN TWO WORDS from the passage for each answer.';
+        _wordLimit(ctx) + ' from the passage for each answer.';
     },
-    form_completion: function (range) {
+    form_completion: function (range, ctx) {
       return 'Questions ' + range + ': Complete the form below. Choose ' +
-        'NO MORE THAN TWO WORDS from the passage for each answer.';
+        _wordLimit(ctx) + ' from the passage for each answer.';
     },
-    short_answer: function (range) {
+    short_answer: function (range, ctx) {
       return 'Questions ' + range + ': Answer the questions below. Choose ' +
-        'NO MORE THAN THREE WORDS from the passage for each answer.';
+        _wordLimit(ctx, 'NO MORE THAN THREE WORDS') +
+        ' from the passage for each answer.';
     },
     // Sprint 20.14b — Phase B type instructions per Standards §2A.2 /
     // §2A.6 / §2A.7 / §2A.8 / §2A.12 / §2A.13. Wording mirrors real
@@ -673,7 +706,11 @@
         // option bank.
         var optionsCount = (run[0].payload && Array.isArray(run[0].payload.options))
           ? run[0].payload.options.length : 0;
-        var ctx = { part: part, optionsCount: optionsCount };
+        // The paper's own word limit, when the author recorded one. Read off the
+        // first question in the run for the same reason optionsCount is — a
+        // same-typed run shares one instruction on the real paper.
+        var wordLimit = (run[0].payload && run[0].payload.word_limit) || '';
+        var ctx = { part: part, optionsCount: optionsCount, wordLimit: wordLimit };
         var instrText = template
           ? template(rangeLabel, ctx)
           : 'Questions ' + rangeLabel + '.';
