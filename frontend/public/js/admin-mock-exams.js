@@ -50,7 +50,11 @@
       fillSelect(el('f-reading'), reading, 'id', function (t) { return (t.title || t.test_id) + ' (' + (t.test_id || '') + ')'; }, true);
     } catch (e) { console.warn('reading picker', e); }
     try {
-      var listening = asList(await window.api.get('/admin/listening/tests?limit=100&status=published'));
+      // test_type=exam (full|mini|drill) on purpose: a mock sitting is built
+      // from real papers, and the generated Luyện nhanh bank is large enough
+      // to fill this picker's first page and push them out of sight.
+      var listening = asList(await window.api.get(
+        '/admin/listening/tests?limit=100&status=published&test_type=exam'));
       fillSelect(el('f-listening'), listening, 'id', function (t) { return (t.title || t.test_id || t.id); }, true);
     } catch (e) { console.warn('listening picker', e); }
     try {

@@ -426,8 +426,16 @@ describe('shared player knows the practice library', () => {
     }
   });
 
-  it('the practice page stamps ?from=practice so the back link resolves', () => {
-    assert.match(read('js', 'listening-practice.js'), /from=practice/);
+  it('the library opens the LIGHT runner, not the exam player', () => {
+    // Luyện nhanh is a 30–90s drill checked question-by-question; the exam
+    // shell (section tabs, 40-slot grid, one-shot submit) is the wrong tool and
+    // was the first thing that felt wrong about the surface. The player's
+    // `practice` back target above stays as a safety net for links minted
+    // before the switch — it is no longer the path the library takes.
+    const js = read('js', 'listening-practice.js');
+    assert.match(js, /\/pages\/listening-practice-run\.html\?id=/);
+    assert.doesNotMatch(js, /listening-test\.html/,
+      'the practice library must not send learners into the full-test player');
   });
 });
 
