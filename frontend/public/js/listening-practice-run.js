@@ -55,6 +55,8 @@ export const STATE = {
   idx:      0,
   wrongTries: 0,          // resets per question
   verdicts: new Map(),    // q_num → true|false (canonical, first answer)
+  windows:  new Map(),    // q_num → {start,end} (practice-only, from the server)
+  wholeClip: false,       // learner asked to hear the full recording
   settled:  false,        // current question may advance
   checking: false,        // a /check is in flight
 };
@@ -208,15 +210,14 @@ function renderQuestion() {
     input.focus();
   }
 
-  // Fresh question → whole clip, free scrub. Segment mode is a consequence of
-  // getting it wrong, never the starting state: hearing only the answer window
-  // first would hand over where to listen.
-  const player = $('lpr-player');
-  if (player) {
-    player.removeAttribute('segment-start');
-    player.removeAttribute('segment-end');
-    player.removeAttribute('auto-loop');
-  }
+  // Each question owns its few seconds of audio, rewound and ready. Playing
+  // the whole 30–90s clip per question was unusable: it ran out during
+  // question one and there was nothing left to hear afterwards. Scoping does
+  // give away roughly where the answer sits — on an exam that would be most of
+  // the skill, but this bank drills catching a trap as it goes past, not
+  // scanning a recording. "Nghe cả bài" is one click away for context.
+  STATE.wholeClip = false;
+  applyAudioScope();
 
   $('lpr-verdict').hidden = true;
   $('lpr-check').hidden   = false;
@@ -226,6 +227,34 @@ function renderQuestion() {
   STATE.wrongTries = 0;
   STATE.settled    = false;
   renderDots();
+}
+
+/** Point the player at the current question's window, or the whole clip. */
+function applyAudioScope() {
+  const player = $('lpr-player');
+  if (!player) return;
+  const q = STATE.questions[STATE.idx];
+  const win = q && STATE.windows.get(q.q_num);
+  const btn = $('lpr-scope');
+
+  if (STATE.wholeClip || !win) {
+    player.removeAttribute('segment-start');
+    player.removeAttribute('segment-end');
+    player.removeAttribute('auto-loop');
+    if (typeof player.reset === 'function') player.reset();
+  } else {
+    player.setAttribute('segment-start', String(win.start));
+    player.setAttribute('segment-end',   String(win.end));
+    player.removeAttribute('auto-loop');      // looping is what a MISS earns
+    if (typeof player.reset === 'function') player.reset();
+  }
+
+  if (btn) {
+    // Hidden when there is no window to switch away from — a toggle with one
+    // state is just a confusing button.
+    btn.hidden = !win;
+    btn.textContent = STATE.wholeClip ? '↩ Nghe đoạn của câu này' : '▶ Nghe cả bài';
+  }
 }
 
 function loopWindow(win) {
@@ -410,6 +439,16 @@ async function boot() {
     const player = $('lpr-player');
     if (player && test.audio_url) player.setAttribute('src', test.audio_url);
 
+    // Practice-only endpoint; a failure here costs the per-question scoping,
+    // not the drill, so it must not take the page down with it.
+    try {
+      const w = await window.api.get(
+        `/api/listening/tests/${encodeURIComponent(id)}/practice-windows`);
+      Object.entries((w && w.windows) || {}).forEach(([q, win]) => {
+        STATE.windows.set(Number(q), win);
+      });
+    } catch (e) { /* fall back to whole-clip playback */ }
+
     // RESUME before starting over. POST /attempts is destructive by design —
     // it abandons the open attempt and mints an empty one — so calling it on
     // every load means an ordinary refresh throws away the canonical first
@@ -448,6 +487,17 @@ async function boot() {
 if (typeof document !== 'undefined') {
   document.addEventListener('DOMContentLoaded', () => {
     $('lpr-check').addEventListener('click', onCheck);
+    const scope = $('lpr-scope');
+    if (scope) {
+      scope.addEventListener('click', () => {
+        STATE.wholeClip = !STATE.wholeClip;
+        applyAudioScope();
+        const player = $('lpr-player');
+        if (player && typeof player.play === 'function') {
+          Promise.resolve(player.play()).catch(() => {});
+        }
+      });
+    }
     $('lpr-reveal').addEventListener('click', onReveal);
     $('lpr-next').addEventListener('click', onNext);
     boot();

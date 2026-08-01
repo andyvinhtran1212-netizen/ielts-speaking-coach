@@ -5193,6 +5193,57 @@ def _practice_exercise_payloads(test_id: str) -> list[dict]:
     return ex_res.data or []
 
 
+@user_router.get("/tests/{test_id}/practice-windows")
+async def get_practice_audio_windows(
+    test_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Per-question audio windows for a Luyện nhanh drill — PRACTICE ONLY.
+
+    The runner plays one question at a time, scoped to that question's few
+    seconds of audio. It needs the windows before the learner answers, and
+    `GET /tests/{id}` deliberately no longer carries them: a window says where
+    in the recording the answer is, which on an exam is most of the skill.
+
+    Practice is the deliberate exception, not an oversight. These clips are
+    30–90 seconds holding ~10 questions, and what they drill is hearing a trap
+    as it goes past — not scanning a recording for where the answer might be.
+    Playing the whole clip for every question made the surface unusable: the
+    audio simply ran out, and from question two on there was nothing to hear.
+
+    Returns `{q_num: {start, end}}` and nothing else — no answers, no
+    solutions, no transcript. Refused outright for full / mini / drill, so the
+    exam guarantee is unchanged and this exception stays visible in one place.
+    """
+    _user = await _require_auth(authorization)
+
+    res = (
+        supabase_admin.table("listening_tests")
+        .select("id,test_type,status,metadata")
+        .eq("id", test_id).limit(1).execute()
+    )
+    if not res.data or res.data[0].get("status") != "published":
+        raise HTTPException(404, "Test bundle not found or not published")
+    test_row = res.data[0]
+    if test_row.get("test_type") != "practice":
+        raise HTTPException(422, "Chỉ bài Luyện nhanh mới có cửa sổ audio theo câu.")
+
+    windows: dict[str, dict] = {}
+    offsets = (test_row.get("metadata") or {}).get("section_offsets") or {}
+    for row in _practice_exercise_payloads(test_id):
+        payload = row.get("payload") or {}
+        for q, win in (payload.get("audio_windows") or {}).items():
+            # Same rebase the review player and /check use. A practice pack is a
+            # single section premixed alone (offsets {sid: 0}), so this is a
+            # pass-through today — routed through the shared helper so all three
+            # readers move together if that ever stops being true.
+            rebased = _rebase_audio_window(win, True, offsets)
+            if rebased and rebased.get("start") is not None:
+                windows[str(int(q))] = {"start": rebased["start"], "end": rebased["end"]}
+
+    return {"test_id": test_id, "windows": windows}
+
+
 @user_router.post("/tests/attempts/{attempt_id}/check")
 async def check_listening_practice_answer(
     attempt_id: str,

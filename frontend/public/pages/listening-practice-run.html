@@ -109,6 +109,7 @@
       border-color: var(--av-brand-teal-700);
     }
 
+    .lpr-scope-row { display: flex; justify-content: flex-end; margin-top: var(--av-space-2); }
     .submit-row { display: flex; gap: var(--av-space-3); align-items: center; flex-wrap: wrap; }
     .btn-primary {
       padding: var(--av-space-3) var(--av-space-6); border-radius: var(--av-radius-md);
@@ -191,6 +192,14 @@
         </div>
 
         <audio-player id="lpr-player" compact></audio-player>
+
+        <!-- Scope toggle. The player is normally locked to the current
+             question's few seconds; some traps only make sense with the line
+             before them ("£12 — sorry, £9"), so the whole clip stays one click
+             away. Hidden when the drill has no per-question windows. -->
+        <div class="lpr-scope-row">
+          <button class="btn-secondary" id="lpr-scope" type="button" hidden>▶ Nghe cả bài</button>
+        </div>
 
         <div class="lpr-question">
           <p class="lpr-instruction" id="lpr-instruction" hidden></p>

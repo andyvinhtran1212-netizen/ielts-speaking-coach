@@ -323,8 +323,17 @@ export class AverAudioPlayer extends HTMLElement {
     return this.hasAttribute('segment-start') && this._segmentEnd() != null;
   }
   _isAutoLoop() {
-    const v = (this.getAttribute('auto-loop') || '').toLowerCase();
-    return v === 'true' || v === '1' || v === '';  // bare attribute counts as on
+    // ABSENT means off. This used to read `(getAttribute(...) || '')`, which
+    // turns a missing attribute into '' — the same value a bare `auto-loop`
+    // produces — so looping was ON by default and removeAttribute('auto-loop')
+    // did nothing. Every caller reads that call as "stop looping": the practice
+    // runner uses it to keep a question from repeating before it is answered,
+    // and listening-test-dictation uses it to stop a settled segment. Both were
+    // silently looping anyway.
+    const raw = this.getAttribute('auto-loop');
+    if (raw === null) return false;
+    const v = raw.toLowerCase();
+    return v === '' || v === 'true' || v === '1';   // bare attribute counts as on
   }
 
   _applySegmentBounds() {
