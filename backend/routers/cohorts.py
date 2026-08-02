@@ -104,18 +104,21 @@ async def update_cohort(
     await require_admin(authorization)
 
     updates: dict = {}
+    # `name` cannot be cleared (a class must have one), so is-not-None is the
+    # right test for it. Every other field here is optional and clearable, so
+    # they are read from `model_fields_set`: an explicit `null` means "xoá giá
+    # trị này". An is-not-None check drops that null, the UPDATE still succeeds
+    # because other fields are present, and the admin watches the old value
+    # reappear after a save that reported success — a silent no-op, which is the
+    # failure mode this project's rules single out. (GĐ 1: latent until the new
+    # class-edit form began sending all four fields on every save.)
     if body.name is not None:
         updates["name"] = body.name
-    if body.code_prefix is not None:
-        updates["code_prefix"] = body.code_prefix
-    if body.description is not None:
-        updates["description"] = body.description
     if body.is_active is not None:
         updates["is_active"] = body.is_active
-    # course_id is read from the raw request instead: an explicit `null` means
-    # "gỡ khoá khỏi lớp", and an is-not-None check would silently drop it.
-    if "course_id" in body.model_fields_set:
-        updates["course_id"] = body.course_id
+    for field in ("code_prefix", "description", "course_id"):
+        if field in body.model_fields_set:
+            updates[field] = getattr(body, field)
 
     if not updates:
         raise HTTPException(400, "Không có trường nào để cập nhật")

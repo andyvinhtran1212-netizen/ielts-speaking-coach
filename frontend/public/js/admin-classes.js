@@ -59,9 +59,20 @@ function statusChip(c) {
     : '<span class="adm-chip is-active">Đang hoạt động</span>';
 }
 
-function courseLabel(course) {
-  if (!course) return '<span class="cl-muted">Chưa gán khoá</span>';
-  return `<span class="adm-chip cl-course-chip">${esc(course.code)}</span> ${esc(course.name)}`;
+/**
+ * Course cell. "Chưa gán khoá" is a real, common state (every class predating
+ * mig 175 is in it) — which is exactly why an unreadable course must not borrow
+ * that label. `course_id` set with no resolved course means the lookup failed or
+ * the row is gone; printing "Chưa gán khoá" there would send the admin off to
+ * assign a course that is already assigned.
+ */
+function courseLabel(course, courseId) {
+  if (course) {
+    const archived = course.is_active === false ? ' <span class="cl-muted">(đã lưu trữ)</span>' : '';
+    return `<span class="adm-chip cl-course-chip">${esc(course.code)}</span> ${esc(course.name)}${archived}`;
+  }
+  if (courseId) return '<span class="cl-roster-unknown">Không đọc được khoá</span>';
+  return '<span class="cl-muted">Chưa gán khoá</span>';
 }
 
 /**
@@ -92,15 +103,34 @@ function renderCourseFilter() {
   const sel = $('filter-course');
   const current = sel.value;
   sel.innerHTML = '<option value="">Tất cả khoá</option>'
-    + _courses.map((c) => `<option value="${esc(c.id)}">${esc(c.code)} — ${esc(c.name)}</option>`).join('');
+    + _courses.map((c) => `<option value="${esc(c.id)}">${esc(courseOptionLabel(c))}</option>`).join('');
   sel.value = current;
 }
 
+function courseOptionLabel(c) {
+  return `${c.code} — ${c.name}` + (c.is_active === false ? ' (đã lưu trữ)' : '');
+}
+
+/**
+ * Options for the edit form's course picker.
+ *
+ * If the class points at a course this list does not contain — archived, or the
+ * course fetch failed — a plain render leaves NO option selected, the select
+ * falls back to the empty first entry, and saving an unrelated field (renaming
+ * the class) posts `course_id: null`, quietly detaching the class from its
+ * course. So an unresolved id gets its own selected option and survives the
+ * round-trip untouched.
+ */
 function renderCourseOptions(selectedId) {
+  const known = _courses.some((c) => c.id === selectedId);
+  const orphan = (selectedId && !known)
+    ? `<option value="${esc(selectedId)}" selected>Khoá hiện tại (không đọc được tên)</option>`
+    : '';
   $('cf-course').innerHTML = '<option value="">Chưa gán khoá</option>'
+    + orphan
     + _courses.map((c) => {
       const sel = c.id === selectedId ? ' selected' : '';
-      return `<option value="${esc(c.id)}"${sel}>${esc(c.code)} — ${esc(c.name)}</option>`;
+      return `<option value="${esc(c.id)}"${sel}>${esc(courseOptionLabel(c))}</option>`;
     }).join('');
 }
 
@@ -137,7 +167,7 @@ function renderList() {
       : `<button class="adm-btn-secondary" data-action="archive" data-id="${esc(c.id)}">Lưu trữ</button>`;
     return `<tr>
       <td><a class="cl-link" href="/pages/admin/classes/index.html?cohort_id=${encodeURIComponent(c.id)}">${esc(c.name)}</a></td>
-      <td>${courseLabel(c.course)}</td>
+      <td>${courseLabel(c.course, c.course_id)}</td>
       <td>${rosterCell(c.member_count, c.unactivated_count)}</td>
       <td class="code-cell">${esc(c.code_prefix) || '—'}</td>
       <td>${statusChip(c)}</td>
@@ -148,7 +178,10 @@ function renderList() {
 
 async function loadCourses() {
   try {
-    const r = await api.get('/admin/courses?is_active=true');
+    // All courses, not only active ones. A class may still reference an
+    // archived course, and leaving it out of the picker makes an unrelated edit
+    // post course_id: null and detach the class from its history.
+    const r = await api.get('/admin/courses');
     _courses = (r && r.courses) || [];
   } catch (err) {
     _courses = [];
@@ -265,7 +298,7 @@ async function loadDetail(cohortId) {
   const course = _courses.find((c) => c.id === _cohort.course_id) || null;
   $('detail-meta').innerHTML = [
     statusChip(_cohort),
-    courseLabel(course),
+    courseLabel(course, _cohort.course_id),
     _cohort.description ? esc(_cohort.description) : '',
   ].filter(Boolean).join('<span class="cl-muted">·</span>');
 
