@@ -35,7 +35,10 @@ describe('Sprint 17.3 — class controller wiring (GĐ 1: admin-classes.js)', ()
     assert.match(CTRL, /import\s*\{[^}]*usdLabel[^}]*\}\s*from\s*'\.\/admin-usage-util\.js'/);
   });
   test('branches on ?cohort_id (member roster) vs default (list)', () => {
-    assert.match(CTRL, /URLSearchParams\(window\.location\.search\)\.get\('cohort_id'\)/);
+    // GĐ 1b đọc thêm ?tab= nên params được đặt vào biến trước khi .get() —
+    // ghim việc CÓ rẽ nhánh theo cohort_id, không ghim cách viết chuỗi.
+    assert.match(CTRL, /URLSearchParams\(window\.location\.search\)/);
+    assert.match(CTRL, /\.get\('cohort_id'\)/);
     assert.match(CTRL, /\/admin\/cohorts\/'\s*\+\s*encodeURIComponent\(cohortId\)\s*\+\s*'\/members/);
     assert.match(CTRL, /\/admin\/cohorts/);
   });

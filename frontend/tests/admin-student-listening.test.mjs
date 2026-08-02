@@ -11,7 +11,8 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const read = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
-const PAGE = read('pages', 'admin', 'students', 'index.html');
+const PAGE = read('pages', 'admin', 'classes', 'index.html')
+  + read('js', 'admin-students-panel.js');
 const DRJS = read('js', 'admin-listening-dictation-reports.js');
 
 describe('hồ sơ học viên — mục Tiến độ (listening)', () => {

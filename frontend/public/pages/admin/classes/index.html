@@ -135,14 +135,125 @@
     .cl-check input { width: auto; }
 
     [hidden] { display: none !important; }
+    .hidden { display: none !important; }
+
+    /* ── Bảng Học viên (GĐ 1b) ─────────────────────────────────────────
+       Moved verbatim from /pages/admin/students/index.html together with its
+       markup and script. Class names and ids are unchanged so the relocation
+       stays reviewable as a move rather than a rewrite. */
+    body.av-page { font-family: var(--av-font-sans); margin: 0; }
+    .hidden { display: none !important; }
+
+    .st-loading { padding: var(--av-space-8); text-align: center;
+      color: var(--av-text-muted); font-size: var(--av-fs-sm); }
+    .st-denied { max-width: 36rem; margin: 0 auto; padding: var(--av-space-8) var(--av-space-6); text-align: center; }
+    .st-denied h2 { font-size: var(--av-fs-xl); font-weight: var(--av-fw-bold); }
+    .st-denied a { color: var(--av-text-secondary); font-size: var(--av-fs-sm);
+      text-decoration: none; margin-top: var(--av-space-4); display: inline-block; }
+
+    .st-shell { max-width: 72rem; margin: 0 auto; padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-6); }
+    .st-head { display: flex; align-items: flex-start; justify-content: space-between;
+      flex-wrap: wrap; gap: var(--av-space-3); }
+    .st-head h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-bold); margin: 0; }
+    .st-subtitle { color: var(--av-text-secondary); font-size: var(--av-fs-sm); margin: var(--av-space-1) 0 0; }
+    .st-actions { display: flex; gap: var(--av-space-2); flex-wrap: wrap; }
+    .st-file-button { cursor: pointer; }
+    .st-toolbar { display: flex; align-items: center; gap: var(--av-space-3); flex-wrap: wrap; }
+    .st-input { padding: 8px 12px; border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md); background: var(--av-surface-page, var(--av-surface-card));
+      color: var(--av-text-primary); font-size: var(--av-fs-sm); font-family: inherit;
+      width: 100%; min-width: 0; max-width: 360px; }
+    .st-meta { color: var(--av-text-muted); font-size: var(--av-fs-xs); }
+    .st-empty { padding: var(--av-space-6); text-align: center; color: var(--av-text-muted); font-size: var(--av-fs-sm); }
+    .st-row-actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+    /* WF-1 bulk-assign bar + row-select checkbox column */
+    .st-bulk-bar { display: flex; align-items: center; gap: var(--av-space-3);
+      flex-wrap: wrap; margin: var(--av-space-3) 0;
+      padding: var(--av-space-2) var(--av-space-3);
+      background: var(--av-surface-card); border: 1px solid var(--av-border-subtle);
+      border-radius: var(--av-radius-md); }
+    .th-check { width: 2.5rem; text-align: center; }
+    .th-right { text-align: right; }
+
+    /* Modals (panels + behaviours from .adm-modal / .adm-modal-backdrop). */
+    .st-modal-wide { max-width: 768px; }
+    .st-modal-head { display: flex; align-items: flex-start; justify-content: space-between;
+      flex-wrap: wrap; gap: var(--av-space-2); margin-bottom: var(--av-space-4); }
+    .st-form { display: flex; flex-direction: column; gap: var(--av-space-3); margin-top: var(--av-space-4); }
+    .st-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--av-space-3); }
+    .st-form-actions { display: flex; justify-content: flex-end; gap: var(--av-space-2); padding-top: var(--av-space-2); }
+
+    .st-stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--av-space-3); }
+    @media (min-width: 768px) { .st-stat-grid { grid-template-columns: repeat(4, 1fr); } }
+    .st-cols { display: grid; grid-template-columns: 1fr; gap: var(--av-space-6); margin-top: var(--av-space-6); }
+    @media (min-width: 768px) { .st-cols { grid-template-columns: 1fr 1fr; } }
+    .st-section-heading { font-size: var(--av-fs-sm); font-weight: var(--av-fw-semibold);
+      color: var(--av-text-secondary); margin: 0 0 var(--av-space-2); }
+    .st-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column;
+      gap: 6px; font-size: var(--av-fs-sm); }
+    .st-list a { color: var(--av-primary, var(--av-brand-teal-700)); text-decoration: none; }
+    .st-list a:hover { text-decoration: underline; }
+    .st-list-empty { color: var(--av-text-muted); }
+    .st-pill { display: inline-block; padding: 1px 8px; border-radius: var(--av-radius-pill);
+      font-size: var(--av-fs-xs); background: var(--av-surface-sunken); color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default); }
+    .st-pill--flagged, .st-flagged { color: var(--av-error); }
+
+    /* ── Student Hub V1 — slide-over drawer (evolves #summary-modal in place) ── */
+    .st-namebtn { background: none; border: none; padding: 0; cursor: pointer;
+      font: inherit; color: var(--av-primary, var(--av-brand-teal-700));
+      text-align: left; text-decoration: none; }
+    .st-namebtn:hover { text-decoration: underline; }
+
+    .st-drawer {
+      position: fixed; top: 0; right: 0; height: 100vh;
+      width: 100%; max-width: 32rem;
+      background: var(--av-surface-card);
+      border-left: 1px solid var(--av-border-default);
+      box-shadow: var(--av-shadow-xl);
+      padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-4);
+      overflow-y: auto;
+      animation: stDrawerIn var(--av-duration-base) var(--av-easing-default);
+    }
+    @keyframes stDrawerIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+    @media (prefers-reduced-motion: reduce) { .st-drawer { animation: none; } }
+
+    .st-drawer-head { display: flex; align-items: flex-start; justify-content: space-between;
+      gap: var(--av-space-3); }
+    .st-drawer-title { font-size: var(--av-fs-lg); font-weight: var(--av-fw-bold); margin: 0; }
+    .st-drawer-meta { display: flex; flex-wrap: wrap; gap: var(--av-space-2); margin-top: var(--av-space-2); }
+    .st-badge { display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 10px; border-radius: var(--av-radius-pill);
+      font-size: var(--av-fs-xs); font-weight: var(--av-fw-medium);
+      background: var(--av-surface-sunken); color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default); }
+    .st-badge.is-account   { background: var(--av-success-soft); color: var(--av-success);
+      border-color: color-mix(in srgb, var(--av-success) 30%, transparent); }
+    .st-badge.is-noaccount { background: var(--av-warning-soft); color: var(--av-warning);
+      border-color: color-mix(in srgb, var(--av-warning) 30%, transparent); }
+    .st-empty-note { background: var(--av-warning-soft); color: var(--av-text-secondary);
+      border: 1px solid color-mix(in srgb, var(--av-warning) 30%, transparent);
+      border-radius: var(--av-radius-md); padding: var(--av-space-3) var(--av-space-4);
+      font-size: var(--av-fs-sm); }
+    .st-drawer-actions { display: flex; gap: var(--av-space-2); flex-wrap: wrap; }
+    /* 4 stat cards are cramped in a narrow drawer → 2 columns */
+    .st-drawer .st-stat-grid { grid-template-columns: repeat(2, 1fr); }
+
+    /* a11y — focus-visible halo (--av-shadow-focus) on interactive controls */
+    body.av-page :focus-visible { outline: none; box-shadow: var(--av-shadow-focus); }
   </style>
 </head>
 <body class="av-page">
   <aver-admin-chrome active="classes" subsection="classes">
 
+    <!-- GĐ 1b — Lớp và Học viên nay là hai mục của CÙNG một trang. Vẫn là <a>
+         có href thật (không phải <button>): mục Học viên cần mở được ở tab mới,
+         bookmark được, và là đích của mục con trên sidebar. -->
     <nav class="adm-subtabs" aria-label="Khu vực Lớp và Học viên">
-      <a class="adm-subtab is-active" href="/pages/admin/classes/index.html" aria-current="page">Lớp</a>
-      <a class="adm-subtab" href="/pages/admin/students/index.html">Học viên</a>
+      <a class="adm-subtab" id="tab-classes" href="/pages/admin/classes/index.html">Lớp</a>
+      <a class="adm-subtab" id="tab-students" href="/pages/admin/classes/index.html?tab=students">Học viên</a>
     </nav>
 
     <!-- ── Danh sách lớp ─────────────────────────────────────────────── -->
@@ -256,6 +367,160 @@
       </section>
     </main>
 
+    <!-- ── Bảng Học viên (GĐ 1b — chuyển nguyên khối từ trang students) ─ -->
+    <section id="panel-students" hidden>
+
+  <div id="state-loading" class="st-loading hidden">
+    <p>Đang kiểm tra quyền truy cập…</p>
+  </div>
+
+  <div id="state-denied" class="st-denied hidden">
+    <h2>🔒 Admin Access Required</h2>
+    <a href="/pages/home.html">← Quay lại trang chủ</a>
+  </div>
+
+  <main id="state-ready" class="st-shell">
+    <div class="st-head">
+      <div>
+        <h1>Học viên</h1>
+        <p class="st-subtitle">Quản lý profile + theo dõi lịch sử bài viết</p>
+      </div>
+      <div class="st-actions">
+        <label class="adm-btn-secondary st-file-button">
+          📥 Import CSV
+          <input id="csv-input" type="file" accept=".csv,text/csv" class="hidden" />
+        </label>
+        <button id="btn-new" class="adm-btn-primary">＋ Học viên mới</button>
+      </div>
+    </div>
+
+    <div class="st-toolbar">
+      <input id="search-input" class="st-input" placeholder="Tìm theo mã hoặc tên…" aria-label="Tìm học viên theo mã hoặc tên" />
+      <span id="row-count" class="st-meta"></span>
+    </div>
+
+    <!-- WF-1 bulk-assign bar — shown when ≥1 student is selected -->
+    <div id="bulk-bar" class="st-bulk-bar" hidden>
+      <span id="bulk-count" class="st-meta">0 đã chọn</span>
+      <select id="bulk-cohort" class="st-input" style="width:auto;" aria-label="Chọn lớp để gán học viên"><option value="">— Chọn lớp —</option></select>
+      <button id="bulk-assign" class="adm-btn-primary" type="button">Gán vào lớp</button>
+    </div>
+
+    <div id="alert-area"></div>
+
+    <div class="adm-table-wrap">
+      <table id="students-table" class="adm-table">
+        <thead>
+          <tr>
+            <th class="th-check"><input type="checkbox" id="bulk-select-all" aria-label="Chọn tất cả" /></th>
+            <th>Code</th>
+            <th>Name</th>
+            <th>Lớp</th>
+            <th>Target</th>
+            <th>Current</th>
+            <th>Date</th>
+            <th class="th-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="students-tbody">
+          <tr><td colspan="8" class="st-empty">Đang tải…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <!-- Per-student Hub V1 — slide-over drawer (profile + progress + writing
+       history + giao bài). Keeps the Phase 2.5 summary ids/contract; the panel
+       is now a right slide-over instead of a centered modal. -->
+  <div id="summary-modal" class="adm-modal-backdrop hidden" role="presentation">
+    <div class="st-drawer" role="dialog" aria-modal="true" aria-labelledby="summary-title">
+      <div class="st-drawer-head">
+        <div>
+          <h2 id="summary-title" class="st-drawer-title">—</h2>
+          <p id="summary-subtitle" class="st-subtitle">—</p>
+          <div class="st-drawer-meta">
+            <span id="summary-account-badge" class="st-badge" hidden></span>
+            <span id="summary-cohort" class="st-badge" hidden></span>
+          </div>
+        </div>
+        <button id="summary-close" class="adm-btn-secondary">Đóng</button>
+      </div>
+
+      <!-- has_account=false → explicit "chưa kích hoạt" notice (never a silent inactive state) -->
+      <div id="summary-noaccount" class="st-empty-note" hidden></div>
+
+      <div class="st-drawer-actions">
+        <a id="summary-assign" class="adm-btn-primary" href="#">📝 Giao writing</a>
+      </div>
+
+      <h3 class="st-section-heading">Tiến độ (writing)</h3>
+      <div class="st-stat-grid">
+        <div class="adm-card"><div class="adm-card-label">Tổng bài</div><div id="stat-total" class="adm-card-num">—</div></div>
+        <div class="adm-card"><div class="adm-card-label">Đã chấm</div><div id="stat-graded" class="adm-card-num">—</div></div>
+        <div class="adm-card"><div class="adm-card-label">Flagged</div><div id="stat-flagged" class="adm-card-num st-flagged">—</div></div>
+        <div class="adm-card"><div class="adm-card-label">Avg band 5 bài</div><div id="stat-avg-band" class="adm-card-num">—</div></div>
+      </div>
+
+      <h3 class="st-section-heading">Tiến độ (listening)</h3>
+      <div class="st-stat-grid">
+        <div class="adm-card"><div class="adm-card-label">Lượt làm bài</div><div id="stat-listen-total" class="adm-card-num">—</div></div>
+        <div class="adm-card"><div class="adm-card-label">Đúng TB</div><div id="stat-listen-acc" class="adm-card-num">—</div></div>
+        <div class="adm-card"><div class="adm-card-label">Bỏ dở</div><div id="stat-listen-abandoned" class="adm-card-num st-flagged">—</div></div>
+        <div class="adm-card"><div class="adm-card-label">Chép chính tả</div><div id="stat-listen-dict" class="adm-card-num">—</div></div>
+      </div>
+      <ul id="summary-listening" class="st-list"></ul>
+
+      <h3 class="st-section-heading">Bài viết gần đây</h3>
+      <ul id="summary-essays" class="st-list"></ul>
+
+      <h3 class="st-section-heading">Lịch sử nộp bài</h3>
+      <ul id="summary-history" class="st-list"></ul>
+
+      <h3 class="st-section-heading">Đề bài giao gần đây</h3>
+      <ul id="summary-assignments" class="st-list"></ul>
+    </div>
+  </div>
+
+  <!-- Edit / Create modal -->
+  <div id="modal" class="adm-modal-backdrop hidden">
+    <div class="adm-modal">
+      <h2 id="modal-title">Học viên mới</h2>
+      <form id="student-form" class="st-form">
+        <div class="adm-field">
+          <label for="f-code">Mã học viên *</label>
+          <input id="f-code" required maxlength="64" />
+        </div>
+        <div class="adm-field">
+          <label for="f-name">Họ và tên *</label>
+          <input id="f-name" required maxlength="255" />
+        </div>
+        <div class="st-form-row">
+          <div class="adm-field">
+            <label for="f-target-band">Target Band</label>
+            <input id="f-target-band" type="number" step="0.5" min="0" max="9" />
+          </div>
+          <div class="adm-field">
+            <label for="f-current-band">Current Band</label>
+            <input id="f-current-band" type="number" step="0.5" min="0" max="9" />
+          </div>
+        </div>
+        <div class="adm-field">
+          <label for="f-target-date">Target Date</label>
+          <input id="f-target-date" type="date" />
+        </div>
+        <div class="adm-field">
+          <label for="f-notes">Persona Notes</label>
+          <textarea id="f-notes" rows="2"></textarea>
+        </div>
+        <div class="st-form-actions">
+          <button type="button" id="btn-cancel" class="adm-btn-secondary">Hủy</button>
+          <button type="submit" id="btn-save" class="adm-btn-primary">Lưu</button>
+        </div>
+      </form>
+    </div>
+  </div>
+    </section>
+
     <!-- ── Tạo / sửa lớp ─────────────────────────────────────────────── -->
     <div class="adm-modal-backdrop" id="cohort-modal" hidden>
       <div class="adm-modal" role="dialog" aria-modal="true" aria-labelledby="cohort-modal-title">
@@ -343,6 +608,7 @@
   </aver-admin-chrome>
 
   <script type="module" src="/js/components/aver-admin-chrome.js"></script>
+  <script src="/js/admin-students-panel.js"></script>
   <script type="module" src="/js/admin-classes.js"></script>
 </body>
 </html>

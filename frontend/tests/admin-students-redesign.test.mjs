@@ -20,11 +20,14 @@ let html;
 // Sprint 12.1 — chrome assertions (theme toggle, header email, brand badge,
 // back-link) bail when the page uses <aver-admin-chrome>. The chrome
 // contract is pinned by frontend/tests/aver-admin-chrome.test.mjs.
-const USES_ADMIN_CHROME = readFileSync(path.join(REPO_ROOT, 'frontend/pages/admin/students/index.html'), 'utf8').includes('<aver-admin-chrome');
+const USES_ADMIN_CHROME = readFileSync(path.join(REPO_ROOT, 'frontend/pages/admin/classes/index.html'), 'utf8').includes('<aver-admin-chrome');
 
 let css;
 
-before(() => {  html = readFileSync(path.join(REPO_ROOT, 'frontend/pages/admin/students/index.html'), 'utf8');
+before(() => {  html = readFileSync(path.join(REPO_ROOT, 'frontend/pages/admin/classes/index.html'), 'utf8')
+    // GĐ 1b: khung bảng Học viên ở trang gộp, mã ở panel JS — nối lại để
+    // mọi khẳng định sẵn có giữ nguyên ý nghĩa.
+    + readFileSync(path.join(REPO_ROOT, 'frontend/js/admin-students-panel.js'), 'utf8');
   css  = readFileSync(path.join(REPO_ROOT, 'frontend/css/admin-writing.css'),     'utf8');
 });
 
@@ -97,8 +100,10 @@ describe('admin-students.html / table contract preserved', () => {
   });
 
   test('6-column thead preserved: Code / Name / Target / Current / Date / Actions', () => {
-    const thead = html.match(/<thead>[\s\S]*?<\/thead>/);
-    assert.ok(thead);
+    // GĐ 1b: the merged page has more than one table, and the class list comes
+    // first — scope to the students table or this asserts the wrong thead.
+    const thead = html.match(/<table id="students-table"[\s\S]*?<\/thead>/);
+    assert.ok(thead, 'students table not found on the merged page');
     for (const col of ['Code', 'Name', 'Target', 'Current', 'Date', 'Actions']) {
       assert.match(thead[0], new RegExp(`>\\s*${col}\\s*<`), `Missing column: ${col}`);
     }

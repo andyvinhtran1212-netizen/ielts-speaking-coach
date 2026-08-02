@@ -102,7 +102,8 @@ describe('migration — setAlert (4 pages), error-persist not swallowed', () => 
     assert.match(g, /timeout: 4000/);
   });
   test('students setAlert delegates; error persists', () => {
-    const s = read('pages', 'admin', 'students', 'index.html');
+    const s = read('pages', 'admin', 'classes', 'index.html')
+  + read('js', 'admin-students-panel.js');
     assert.match(s, /function setAlert\(kind, msg\)[\s\S]*?showToast\(/);
     assert.match(s, /kind === 'error'\) showToast\(msg, 'error', \{ persist: true \}\)/);
   });
@@ -114,7 +115,7 @@ describe('migration — toast.js loaded on migrated pages', () => {
     ['pages','admin','access-codes','index.html'],
     ['pages','admin','writing','queue.html'],
     ['pages','admin','writing','grade.html'],
-    ['pages','admin','students','index.html'],
+    ['pages','admin','classes','index.html'],   // GĐ 1b: bảng Học viên đã chuyển vào đây
   ]) {
     test(`${p.slice(2).join('/')} loads /js/toast.js`, () => {
       assert.match(read(...p), /src="\/js\/toast\.js"/);

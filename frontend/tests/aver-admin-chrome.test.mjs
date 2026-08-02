@@ -152,7 +152,6 @@ describe('Sprint 12.1 — every moved page embeds <aver-admin-chrome>', () => {
     ['writing/assignments.html',      'writing'],
     ['writing/prompts.html',          'writing'],
     ['writing/instructor-queue.html', 'writing'],
-    ['students/index.html',           'classes'],   // GĐ 1: gộp vào mục Lớp & Học viên
     ['listening/segments.html',       'listening'],
     ['listening/gist.html',           'listening'],
     ['listening/tf.html',             'listening'],
@@ -490,31 +489,37 @@ describe('Sprint 12.2 F3 — mobile sidebar scroll-lock', () => {
 // and system have the same unresolved-active state today. That predates this
 // change and fixing it is a separate patch, not something to smuggle in here.
 describe('GĐ 1 — merged class area highlights in the sidebar', () => {
-  const chromeAttrs = (html) => {
-    const m = html.match(/<aver-admin-chrome\s+([^>]*)>/);
+  // renderSidebar() highlights (and expands the children of) a nav item only
+  // when item.section === the page's `active` attribute. A page whose active=
+  // names no declared section silently gets no highlight and its subsections
+  // vanish with it — which is what happened when the parent slug was renamed
+  // 'cohorts' -> 'classes'.
+  //
+  // GĐ 1b: Lớp and Học viên are now two tabs of ONE page, so there is a single
+  // page to check plus both child slugs.
+  //
+  // Scoped to the merged area on purpose: access-codes, usage, foot-traffic and
+  // system have the same unresolved-active state today. That predates this
+  // change and fixing it is a separate patch, not something to smuggle in here.
+  const HTML = read('pages', 'admin', 'classes', 'index.html');
+
+  it('the merged page mounts a declared parent section', () => {
+    const m = HTML.match(/<aver-admin-chrome\s+([^>]*)>/);
     assert.ok(m, 'page does not mount aver-admin-chrome');
-    return {
-      active: (m[1].match(/active="([^"]*)"/) || [])[1],
-      subsection: (m[1].match(/subsection="([^"]*)"/) || [])[1],
-    };
-  };
+    const active = (m[1].match(/active="([^"]*)"/) || [])[1];
+    assert.match(
+      CHROME_JS, new RegExp(`section:\\s*'${active}'`),
+      `active="${active}" matches no nav section — the sidebar would highlight nothing`,
+    );
+  });
 
-  const PAGES = [
-    ['classes',  read('pages', 'admin', 'classes', 'index.html')],
-    ['students', read('pages', 'admin', 'students', 'index.html')],
-  ];
-
-  for (const [expectedSub, html] of PAGES) {
-    it(`${expectedSub} page sits under a declared parent section`, () => {
-      const { active, subsection } = chromeAttrs(html);
+  for (const slug of ['classes', 'students']) {
+    it(`child link '${slug}' exists and points into the merged page`, () => {
+      assert.match(CHROME_JS, new RegExp(`slug:\\s*'${slug}'`));
       assert.match(
-        CHROME_JS, new RegExp(`section:\\s*'${active}'`),
-        `active="${active}" matches no nav section — the sidebar would highlight nothing`,
-      );
-      assert.equal(subsection, expectedSub);
-      assert.match(
-        CHROME_JS, new RegExp(`slug:\\s*'${expectedSub}'`),
-        `no child entry with slug '${expectedSub}'`,
+        CHROME_JS,
+        new RegExp(`slug:\\s*'${slug}'[^}]*/pages/admin/classes/index\\.html`),
+        `child '${slug}' must link into the merged page, not the retired one`,
       );
     });
   }

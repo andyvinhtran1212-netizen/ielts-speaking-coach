@@ -80,7 +80,8 @@ describe('migration — out-of-scope confirms stay NATIVE (no over-reach)', () =
     assert.match(USERS, /if \(!confirm\(`Đổi role thành/);
   });
   test('DELETE-frozen confirm (delete student) stays native', () => {
-    const STU = read('pages', 'admin', 'students', 'index.html');
+    const STU = read('pages', 'admin', 'classes', 'index.html')
+  + read('js', 'admin-students-panel.js');
     assert.match(STU, /if \(!confirm\('Xóa học viên "/);
     assert.doesNotMatch(STU, /confirmDanger/);
   });

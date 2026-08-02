@@ -452,7 +452,7 @@ const NAV_GROUPS = [
       { section: 'classes',  label: 'Lớp & Học viên',     href: '/pages/admin/classes/index.html',  icon: 'layers',
         subsections: [
           { slug: 'classes',  label: 'Lớp',      href: '/pages/admin/classes/index.html' },
-          { slug: 'students', label: 'Học viên', href: '/pages/admin/students/index.html' },
+          { slug: 'students', label: 'Học viên', href: '/pages/admin/classes/index.html?tab=students' },
         ] },
     ],
   },
