@@ -146,10 +146,18 @@ async def my_assignments(authorization: str | None = Header(default=None)):
     try:
         for chunk in (a_ids[i:i + _ID_CHUNK] for i in range(0, len(a_ids), _ID_CHUNK)):
             for a in ((supabase_admin.table("class_assignments")
-                       .select("*").in_("id", chunk).execute().data) or []):
+                       .select("*")
+                       .in_("id", chunk)
+                       .eq("cohort_id", student["cohort_id"])   # CURRENT class only
+                       .execute().data) or []):
                 # Items are created eagerly at give time, so `publish_at` is the
                 # only thing keeping a give scheduled for next week off the list;
                 # `status` keeps draft and archived ones off it.
+                #
+                # And the cohort filter matters because moving a student between
+                # classes only rewrites students.cohort_id — their old class's
+                # item rows stay. Without it, class A's homework vanishes while
+                # the student has no class and REAPPEARS when they join class B.
                 if is_assignment_open(a, now=now):
                     by_id[a["id"]] = a
     except Exception as exc:
@@ -204,6 +212,11 @@ async def start_assignment(
     if not a_rows or not is_assignment_open(a_rows[0]):
         raise HTTPException(404, "Bài tập không còn mở")
     assignment = a_rows[0]
+
+    # Same cohort check as the list: a transferred student must not be able to
+    # start their previous class's work just because the item row survived.
+    if assignment.get("cohort_id") != student.get("cohort_id"):
+        raise HTTPException(404, "Bài tập không thuộc lớp hiện tại của bạn")
 
     if assignment.get("skill") != "speaking":
         raise HTTPException(400, "Bài tập này chưa hỗ trợ mở trực tiếp.")

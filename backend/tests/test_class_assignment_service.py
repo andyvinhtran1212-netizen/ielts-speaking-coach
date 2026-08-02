@@ -37,6 +37,7 @@ from services.class_assignment_service import (
     create_class_assignment,
     is_assignment_open,
     reconcile_ledger_from_sessions,
+    sync_class_item_score,
     validate_class_item_for_session,
     mark_item_submitted,
     progress_for_assignments,
@@ -82,6 +83,7 @@ class _Query:
         self.store, self.name, self._rows, self._raises = store, name, rows, raises
         self._eq, self._in, self._range = [], None, None
         self._is_null = None
+        self._negate_is = False
         self._mode, self._payload = "select", None
 
     def select(self, *_a, **_kw): return self
@@ -104,6 +106,11 @@ class _Query:
         self._is_null = (field, value)
         return self
 
+    @property
+    def not_(self):
+        self._negate_is = True
+        return self
+
     def execute(self):
         if self._raises:
             raise RuntimeError("boom")
@@ -116,8 +123,11 @@ class _Query:
             for row in self._rows:
                 if not all(row.get(f) == v for f, v in self._eq):
                     continue
-                if self._is_null and self._is_null[1] == "null" and row.get(self._is_null[0]) is not None:
-                    continue
+                if self._is_null and self._is_null[1] == "null":
+                    is_null = row.get(self._is_null[0]) is None
+                    # .not_.is_(x, "null") means "x IS NOT NULL"
+                    if is_null == self._negate_is:
+                        continue
                 row.update(self._payload)
                 hit.append(row)
             self.store.setdefault("_updated", []).extend(hit)
@@ -403,13 +413,14 @@ ASSIGNED = {"topic": "Hometown", "mode": "test_part", "part": 3}
 
 def _bind_db(*, cfg=None, status="published", publish_at=None):
     return _DB({
-        "students": [{"id": "stu-1", "user_id": "user-1"}],
+        "students": [{"id": "stu-1", "user_id": "user-1", "cohort_id": "cohort-1"}],
         "class_assignment_items": [
             {"id": "item-1", "student_id": "stu-1", "assignment_id": "asg-1"},
         ],
         "class_assignments": [{
             "id": "asg-1", "status": status, "publish_at": publish_at,
             "content_config": cfg if cfg is not None else dict(ASSIGNED),
+            "cohort_id": "cohort-1",
         }],
         "sessions": [{"id": "sess-1"}],
     })
@@ -920,3 +931,67 @@ def test_student_list_puts_the_nearest_deadline_first():
     assert re.search(r'due_at"\s*\]\s*is\s+None', src), (
         "no-deadline gives must sort last via their own key"
     )
+
+
+# ── vòng 9 + quét tự soát ────────────────────────────────────────────────
+
+
+def test_score_sync_updates_the_band_but_not_the_hand_in_time():
+    """`mark_item_submitted` refuses to touch an item once submitted_at is set —
+    that guard is what stops a retry turning an on-time hand-in late. It also
+    froze the SCORE, so a band adjusted afterwards (pronunciation, or an admin
+    regrade) left the student looking at the old number forever."""
+    submitted = "2026-08-03T11:00:00+00:00"
+    rows = [{"id": "item-1", "submitted_at": submitted, "state": "submitted", "score": 5.0}]
+    db = _DB({
+        "class_assignment_items": rows,
+        "sessions": [{"id": "sess-1", "class_assignment_item_id": "item-1", "overall_band": 7.5}],
+    })
+    assert sync_class_item_score(db, "sess-1") is True
+    assert rows[0]["score"] == 7.5
+    assert rows[0]["submitted_at"] == submitted, "the late/on-time verdict must not move"
+
+
+def test_score_sync_ignores_a_session_with_no_class_item():
+    db = _DB({"class_assignment_items": [],
+              "sessions": [{"id": "sess-1", "class_assignment_item_id": None, "overall_band": 7.0}]})
+    assert sync_class_item_score(db, "sess-1") is False
+
+
+def test_every_band_write_path_syncs_the_ledger():
+    """Three separate places change sessions.overall_band after the hand-in is
+    recorded. Missing any one of them leaves a stale score on the class page, so
+    they are pinned together rather than one at a time."""
+    import inspect, pathlib
+    from routers import sessions as sess_mod
+
+    assert "sync_class_item_score" in code_only(inspect.getsource(sess_mod.update_session_bands)), (
+        "the pronunciation path must sync"
+    )
+    admin_src = code_only(
+        pathlib.Path(__file__).resolve().parents[1].joinpath("routers", "admin.py").read_text()
+    )
+    assert admin_src.count("sync_class_item_score") >= 3, (
+        "both admin regrade paths must sync (plus the import)"
+    )
+
+
+def test_transferred_student_cannot_start_the_old_class_work():
+    """Moving a student between classes only rewrites students.cohort_id — the
+    old class's item rows survive. Without a cohort check the old homework
+    reappears when they join a new class, and can still be started."""
+    db = _bind_db()
+    db.tables["students"][0]["cohort_id"] = "cohort-NEW"
+    db.tables["class_assignments"][0]["cohort_id"] = "cohort-OLD"
+    with pytest.raises(TaskMismatchError):
+        _bind(db)
+
+
+def test_roster_rollup_chunks_cohort_ids_too():
+    """Found by sweeping for the pattern, not by a review: the sibling service
+    had the same unchunked in.() the assignment service had already fixed."""
+    import inspect, re
+    from services import class_service as mod
+    src = inspect.getsource(mod._all_students_for_cohorts)
+    steps = re.findall(r"range\(0, len\([a-z_]+\), (\w+)\)", src)
+    assert steps and set(steps) == {"_ID_CHUNK"}, steps

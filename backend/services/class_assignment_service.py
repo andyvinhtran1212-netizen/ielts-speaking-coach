@@ -340,7 +340,8 @@ def validate_class_item_for_session(
     task was done is the ledger's entire value.
     """
     student = (
-        db.table("students").select("id").eq("user_id", user_id).limit(1).execute().data
+        db.table("students").select("id, cohort_id").eq("user_id", user_id)
+        .limit(1).execute().data
     ) or []
     if not student:
         raise ItemNotFoundError("Tài khoản này chưa gắn với hồ sơ học viên nào")
@@ -363,6 +364,12 @@ def validate_class_item_for_session(
 
     if not is_assignment_open(assignment):
         raise TaskMismatchError("Bài tập chưa mở hoặc đã đóng")
+
+    # Moving a student between classes only rewrites students.cohort_id; the old
+    # class's item rows survive. Without this a transferred student could still
+    # start — and be recorded against — their previous class's homework.
+    if assignment.get("cohort_id") != student[0].get("cohort_id"):
+        raise TaskMismatchError("Bài tập không thuộc lớp hiện tại của bạn")
 
     cfg = assignment.get("content_config") or {}
     expected_mode = cfg.get("mode") or "practice"
@@ -494,3 +501,49 @@ def reconcile_ledger_from_sessions(db, assignment_ids: List[str]) -> int:
     if fixed:
         logger.info("[class] reconciled %s hand-in(s) from completed sessions", fixed)
     return fixed
+
+
+def sync_class_item_score(db, session_id: str) -> bool:
+    """Push a session's current band onto its class-assignment item, if it has one.
+
+    `mark_item_submitted` deliberately refuses to touch an item once
+    `submitted_at` is set — that guard is what stops a retry from moving the
+    hand-in time and turning an on-time submission late. But it also means the
+    SCORE freezes at whatever the band was the moment the work was recorded.
+
+    Three paths change `sessions.overall_band` afterwards:
+      * update_session_bands() after pronunciation scoring (routers/pronunciation)
+      * admin regrade of a single response          (routers/admin)
+      * admin regrade of a whole session            (routers/admin)
+
+    None of them went near the ledger, so a student whose band was adjusted saw
+    the old number in /api/class/my-assignments indefinitely. This writes ONLY
+    the score, leaving submitted_at — and therefore the late/on-time verdict —
+    exactly as it was.
+
+    Best-effort: a stale score must never break regrading or pronunciation.
+    """
+    try:
+        rows = (
+            db.table("sessions")
+            .select("id, class_assignment_item_id, overall_band")
+            .eq("id", session_id).limit(1).execute().data
+        ) or []
+        if not rows:
+            return False
+        s = rows[0]
+        item_id = s.get("class_assignment_item_id")
+        if not item_id or s.get("overall_band") is None:
+            return False
+
+        r = (
+            db.table("class_assignment_items")
+            .update({"score": s["overall_band"]})
+            .eq("id", item_id)
+            .not_.is_("submitted_at", "null")   # only an already-recorded hand-in
+            .execute()
+        )
+        return bool(r.data)
+    except Exception as exc:
+        logger.warning("[class] score sync failed session=%s: %s", session_id, exc)
+        return False

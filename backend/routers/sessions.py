@@ -17,6 +17,7 @@ from services.class_assignment_service import (
     TaskMismatchError,
     attach_session_to_class_item,
     mark_item_submitted,
+    sync_class_item_score,
     validate_class_item_for_session,
 )
 from services.access_code_permissions import (
@@ -165,6 +166,10 @@ def update_session_bands(session_id: str) -> None:
     try:
         supabase_admin.table("sessions").update(payload).eq("id", session_id).execute()
         logger.info("[update_session_bands] session=%s bands=%s", session_id, payload)
+        # GĐ 2 — the band just changed, so a class assignment pointing at this
+        # session is now showing a stale score. Score only; the hand-in time and
+        # its late/on-time verdict are untouched.
+        sync_class_item_score(supabase_admin, session_id)
     except Exception as e:
         logger.error(
             "[update_session_bands][metric] band_persist_failed=1 session=%s: %s "
