@@ -628,16 +628,21 @@ function renderHomework() {
     const sub = [cfg.topic, cfg.mode, cfg.part ? `Part ${cfg.part}` : ''].filter(Boolean).join(' · ');
     const p = a.progress || {};
     // Deleting a give that students have answered would erase the record that
-    // the work was asked for and done, so the button is not offered.
-    const canDelete = !p.submitted;
-    const del = canDelete
-      ? `<button class="adm-btn-secondary" data-action="delete-homework" data-id="${esc(a.id)}">Xoá</button>`
-      : '<span class="cl-lesson-sub">Đã có bài nộp</span>';
+    // the work was asked for and done, so delete is withheld — but the give must
+    // still be closable, or a cancelled task stays startable forever. Archiving
+    // hides it from students and keeps every submission.
+    const archived = a.status === 'archived';
+    const action = archived
+      ? `<button class="adm-btn-secondary" data-action="publish-homework" data-id="${esc(a.id)}">Mở lại</button>`
+      : (p.submitted
+        ? `<button class="adm-btn-secondary" data-action="archive-homework" data-id="${esc(a.id)}">Đóng bài</button>`
+        : `<button class="adm-btn-secondary" data-action="delete-homework" data-id="${esc(a.id)}">Xoá</button>`);
+    const archivedChip = archived ? ' <span class="adm-chip">Đã đóng</span>' : '';
     return `<tr>
-      <td><div>${esc(a.title)}</div><div class="cl-lesson-sub">${esc(sub)}</div></td>
+      <td><div>${esc(a.title)}${archivedChip}</div><div class="cl-lesson-sub">${esc(sub)}</div></td>
       <td>${dueLabel(a.due_at)}</td>
       <td>${progressCell(a.progress)}</td>
-      <td>${del}</td>
+      <td>${action}</td>
     </tr>`;
   }).join('');
 }
@@ -648,6 +653,12 @@ async function loadHomework() {
     const r = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId) + '/assignments');
     _homework = (r && r.assignments) || [];
     _homeworkError = false;
+    // The repair pass failed, so these counts are computed from a ledger known
+    // to be behind. Say it — "chưa nộp" that is merely unrecorded looks exactly
+    // like a student who did nothing.
+    if (r && r.reconcile_failed) {
+      toast('Chưa đối chiếu được bài đã nộp — số liệu bên dưới có thể thiếu. Tải lại để thử lại.', 'error');
+    }
   } catch (err) {
     _homework = [];
     _homeworkError = true;
@@ -725,6 +736,19 @@ async function submitHomework() {
     $('hf-error').hidden = false;
   } finally {
     $('btn-hf-submit').disabled = false;
+  }
+}
+
+async function setHomeworkStatus(assignmentId, status) {
+  const archiving = status === 'archived';
+  try {
+    await api.patch('/admin/cohorts/' + encodeURIComponent(_cohortId)
+      + '/assignments/' + encodeURIComponent(assignmentId), { status });
+    toast(archiving ? 'Đã đóng bài giao. Học viên không còn thấy bài này.' : 'Đã mở lại bài giao.');
+    await loadHomework();
+  } catch (err) {
+    toast((archiving ? 'Không đóng được bài giao: ' : 'Không mở lại được bài giao: ')
+      + (err.message || err), 'error');
   }
 }
 
@@ -815,8 +839,11 @@ function bindDetail() {
   $('btn-hf-submit').addEventListener('click', submitHomework);
   bindModalBackdrop('homework-modal', closeHomeworkModal);
   $('homework-tbody').addEventListener('click', (e) => {
-    const btn = e.target.closest('button[data-action="delete-homework"]');
-    if (btn) deleteHomework(btn.dataset.id);
+    const btn = e.target.closest('button[data-action]');
+    if (!btn) return;
+    if (btn.dataset.action === 'delete-homework') deleteHomework(btn.dataset.id);
+    if (btn.dataset.action === 'archive-homework') setHomeworkStatus(btn.dataset.id, 'archived');
+    if (btn.dataset.action === 'publish-homework') setHomeworkStatus(btn.dataset.id, 'published');
   });
 
   $('btn-add-lesson').addEventListener('click', () => openLessonModal(null));

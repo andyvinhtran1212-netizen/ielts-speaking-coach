@@ -764,3 +764,24 @@ def test_the_earliest_completed_session_wins_the_repair():
         now=datetime(2026, 8, 3, 23, 0, tzinfo=timezone.utc),
     )["asg-1"]
     assert p["late"] == 0
+
+
+# ── vòng 6 ──────────────────────────────────────────────────────────────
+
+
+def test_archive_endpoint_exists_because_delete_points_at_it():
+    """The DELETE guard tells the admin to archive instead once anyone has
+    submitted. Until round 6 that action did not exist anywhere, so a cancelled
+    assignment with one hand-in could never be closed and stayed startable."""
+    from routers.admin_class_assignments import AssignmentPatch, update_assignment
+
+    assert callable(update_assignment)
+    assert AssignmentPatch(status="archived").status == "archived"
+    assert AssignmentPatch(status="published").status == "published"
+    with pytest.raises(Exception):
+        AssignmentPatch(status="deleted")
+
+
+def test_archived_assignments_are_closed_to_students():
+    """Archiving is what makes the give stop being startable."""
+    assert is_assignment_open({"status": "archived", "publish_at": None}) is False

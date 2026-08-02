@@ -122,12 +122,18 @@ async def list_assignments(
     # Repair any hand-in whose ledger write failed at completion time. The
     # student's completed session is the durable evidence; the practice page
     # fires PATCH /complete once and redirects, so there is no client retry, and
-    # this is the moment the wrong number would otherwise be read. Best-effort:
-    # the list must still render if the repair itself fails.
+    # this is the moment the wrong number would otherwise be read.
+    #
+    # The list still renders if the repair fails — but it says so. Silently
+    # computing progress from an unrepaired ledger returns "0 đã nộp" / "chưa
+    # nộp" that look canonical while completed sessions exist, which is exactly
+    # the false-but-plausible number this endpoint is supposed to prevent.
+    reconcile_failed = False
     try:
         reconcile_ledger_from_sessions(supabase_admin, [a["id"] for a in rows])
     except Exception as exc:
-        logger.warning("[class] ledger reconcile skipped: %s", exc)
+        reconcile_failed = True
+        logger.warning("[class] ledger reconcile failed: %s", exc)
 
     try:
         progress = progress_for_assignments(supabase_admin, rows)
@@ -136,7 +142,12 @@ async def list_assignments(
         # class that a failed query has not earned.
         raise HTTPException(500, f"Lỗi khi tính tiến độ nộp bài: {exc}")
 
-    return {"assignments": [{**a, "progress": progress.get(a["id"])} for a in rows]}
+    result: dict[str, Any] = {
+        "assignments": [{**a, "progress": progress.get(a["id"])} for a in rows]
+    }
+    if reconcile_failed:
+        result["reconcile_failed"] = True
+    return result
 
 
 @router.post("/{cohort_id}/assignments", status_code=status.HTTP_201_CREATED)
@@ -173,6 +184,47 @@ async def create_assignment(
         raise HTTPException(500, f"Lỗi khi giao bài: {exc}")
 
     return result
+
+
+class AssignmentPatch(BaseModel):
+    """Only `status` for now. Deadline/instruction edits would change what was
+    asked of students who have already answered, which needs its own thinking."""
+    status: Literal["published", "archived"]
+
+
+@router.patch("/{cohort_id}/assignments/{assignment_id}")
+async def update_assignment(
+    cohort_id: str,
+    assignment_id: str,
+    body: AssignmentPatch,
+    authorization: str | None = Header(default=None),
+):
+    """Archive (or re-publish) a give.
+
+    This is the action DELETE tells the admin to use once anyone has submitted —
+    and until now it did not exist, so a cancelled or mistaken assignment with
+    one hand-in could never be closed and stayed startable forever. Archiving
+    hides it from the student endpoints (`is_assignment_open`) while keeping
+    every submission and its evidence.
+
+    Both ids are in the WHERE clause so a stale tab cannot archive an assignment
+    that now belongs to another class.
+    """
+    await require_admin(authorization)
+
+    try:
+        r = (
+            supabase_admin.table("class_assignments")
+            .update({"status": body.status})
+            .eq("id", assignment_id).eq("cohort_id", cohort_id)
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi cập nhật bài giao: {exc}")
+
+    if not r.data:
+        raise HTTPException(404, "Không tìm thấy bài giao trong lớp này")
+    return r.data[0]
 
 
 @router.delete("/{cohort_id}/assignments/{assignment_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -186,10 +186,20 @@ describe('Full Test is not offered as class homework (Codex review round 3)', ()
 
 describe('a give with submissions cannot be deleted from the UI', () => {
   test('the delete button is withheld once anyone has handed in', () => {
+    // Round 6 replaced the dead-end "Đã có bài nộp" label with a real Đóng bài
+    // action, so this pins the GUARANTEE (delete is not offered) rather than the
+    // shape the guarantee happened to have.
     const render = SRC.slice(SRC.indexOf('function renderHomework'),
                              SRC.indexOf('async function loadHomework'));
-    assert.match(render, /const canDelete = !p\.submitted/);
-    assert.match(render, /Đã có bài nộp/);
+    const branch = render.slice(render.indexOf('const action ='), render.indexOf('const archivedChip'));
+    assert.match(branch, /p\.submitted/,
+      'the delete/archive choice must depend on whether anyone has submitted');
+    const submittedBranch = branch.slice(branch.indexOf('p.submitted'));
+    const deleteIdx = submittedBranch.indexOf('delete-homework');
+    const archiveIdx = submittedBranch.indexOf('archive-homework');
+    assert.ok(archiveIdx !== -1 && deleteIdx !== -1);
+    assert.ok(archiveIdx < deleteIdx,
+      'the submitted case must lead to archive, and delete only to the other branch');
   });
 });
 
@@ -220,5 +230,36 @@ describe('a failed homework load is not an empty class (Codex review round 4)', 
 
   test('the empty state is restored on a good load, not left as the error text', () => {
     assert.match(render, /Chưa giao bài nào/);
+  });
+});
+
+
+describe('a closed-off give and an unreliable count are both stated (Codex round 6)', () => {
+  const render = SRC.slice(SRC.indexOf('function renderHomework'),
+                           SRC.indexOf('async function loadHomework'));
+  const load = SRC.slice(SRC.indexOf('async function loadHomework'),
+                         SRC.indexOf('function openHomeworkModal'));
+
+  test('a give with submissions offers Đóng bài instead of a dead end', () => {
+    // DELETE tells the admin to archive it; until now no archive action existed,
+    // so a cancelled assignment with one hand-in stayed startable forever.
+    assert.match(render, /data-action="archive-homework"/);
+    assert.match(render, /Đóng bài/);
+  });
+
+  test('an archived give is labelled and can be reopened', () => {
+    assert.match(render, /Đã đóng/);
+    assert.match(render, /data-action="publish-homework"/);
+    assert.match(render, /Mở lại/);
+  });
+
+  test('delete is still withheld once anyone has submitted', () => {
+    assert.match(render, /p\.submitted[\s\S]{0,200}archive-homework/);
+  });
+
+  test('a failed repair pass is surfaced, not hidden behind plausible counts', () => {
+    assert.match(load, /reconcile_failed/);
+    assert.match(load, /có thể thiếu/);
+    assert.match(load, /'error'/);
   });
 });
