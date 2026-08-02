@@ -321,6 +321,7 @@
       <nav class="adm-subtabs" aria-label="Nội dung lớp">
         <button class="adm-subtab is-active" id="tab-roster" type="button" aria-current="page">Sĩ số</button>
         <button class="adm-subtab" id="tab-lessons" type="button">Buổi học</button>
+        <button class="adm-subtab" id="tab-homework" type="button">Bài tập</button>
       </nav>
 
       <!-- Sĩ số -->
@@ -364,6 +365,33 @@
           Chưa có buổi học nào. Thêm buổi đầu tiên để học viên có nội dung để xem.
         </div>
         <div class="cl-lessons" id="lessons-list"></div>
+      </section>
+
+      <!-- Bài tập (GĐ 2) -->
+      <section id="panel-homework" hidden>
+        <div class="cl-panel-head">
+          <p class="cl-panel-note">Bài giao cho cả lớp. Hạn nộp mặc định 19:00 giờ Việt Nam.</p>
+          <button class="adm-btn-primary" id="btn-add-homework" type="button">Giao bài Speaking</button>
+        </div>
+
+        <div class="adm-loading" id="homework-loading" hidden>Đang tải…</div>
+        <div class="adm-empty" id="homework-empty" hidden>
+          Chưa giao bài nào. Giao bài Speaking đầu tiên để học viên có việc làm hôm nay.
+        </div>
+
+        <div class="adm-table-wrap" id="homework-table-wrap" hidden>
+          <table class="adm-table">
+            <thead>
+              <tr>
+                <th>Bài giao</th>
+                <th>Hạn nộp</th>
+                <th>Tình hình nộp</th>
+                <th><span class="sr-only">Thao tác</span></th>
+              </tr>
+            </thead>
+            <tbody id="homework-tbody"></tbody>
+          </table>
+        </div>
       </section>
     </main>
 
@@ -562,6 +590,53 @@
         <div class="adm-modal-actions">
           <button class="adm-btn-secondary" id="btn-mf-cancel" type="button">Huỷ</button>
           <button class="adm-btn-primary" id="btn-mf-submit" type="button">Thêm vào lớp</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Giao bài Speaking (GĐ 2) ──────────────────────────────────── -->
+    <div class="adm-modal-backdrop" id="homework-modal" hidden>
+      <div class="adm-modal" role="dialog" aria-modal="true" aria-labelledby="homework-modal-title">
+        <h2 id="homework-modal-title">Giao bài Speaking</h2>
+        <div class="adm-field">
+          <label for="hf-title">Tên bài giao</label>
+          <input id="hf-title" type="text" maxlength="300" placeholder="Speaking ngày 3/8" />
+        </div>
+        <div class="adm-field">
+          <label for="hf-topic">Chủ đề</label>
+          <input id="hf-topic" type="text" maxlength="300" placeholder="Hometown" />
+        </div>
+        <div class="cl-form-row">
+          <div class="adm-field">
+            <label for="hf-mode">Kiểu luyện</label>
+            <select id="hf-mode">
+              <option value="practice">Luyện tập</option>
+              <option value="test_part">Luyện từng Part</option>
+              <option value="test_full">Full Test</option>
+            </select>
+          </div>
+          <div class="adm-field">
+            <label for="hf-part">Part</label>
+            <select id="hf-part">
+              <option value="1">Part 1</option>
+              <option value="2">Part 2</option>
+              <option value="3">Part 3</option>
+            </select>
+          </div>
+        </div>
+        <div class="adm-field">
+          <label for="hf-due">Hạn nộp (19:00 giờ VN)</label>
+          <input id="hf-due" type="date" />
+        </div>
+        <div class="adm-field">
+          <label for="hf-instructions">Dặn dò (tuỳ chọn)</label>
+          <textarea id="hf-instructions" rows="3"></textarea>
+        </div>
+        <div class="adm-banner" id="hf-warning" hidden></div>
+        <div class="adm-banner" id="hf-error" hidden></div>
+        <div class="adm-modal-actions">
+          <button class="adm-btn-secondary" id="btn-hf-cancel" type="button">Huỷ</button>
+          <button class="adm-btn-primary" id="btn-hf-submit" type="button">Giao cho cả lớp</button>
         </div>
       </div>
     </div>

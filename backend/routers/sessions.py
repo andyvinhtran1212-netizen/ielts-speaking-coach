@@ -12,6 +12,11 @@ from pydantic import BaseModel, field_validator
 from config import settings
 from database import supabase_admin
 from routers.auth import get_supabase_user
+from services.class_assignment_service import (
+    ItemNotFoundError,
+    bind_session_to_class_item,
+    mark_item_submitted,
+)
 from services.access_code_permissions import (
     get_user_access_code_permissions_cached,
     get_user_session_quota,
@@ -183,6 +188,10 @@ class CreateSessionBody(BaseModel):
     # linked at creation (before any response is graded) so per-response speaking
     # grading is sealed from the first answer.
     sitting_id: str | None = None
+    # GĐ 2 — when set, this session answers a class assignment. Linked at
+    # creation, exactly like sitting_id, so PATCH /complete can record the
+    # hand-in without having to guess from the topic string.
+    class_assignment_item_id: str | None = None
 
     @field_validator("mode")
     @classmethod
@@ -357,6 +366,24 @@ async def create_session(
     if not rows:
         raise HTTPException(status_code=500, detail="Không thể tạo session")
     s = rows[0]
+
+    # GĐ 2 — class assignment: link at creation so PATCH /complete can record the
+    # hand-in. Ownership is verified inside against this user's own student row.
+    if body.class_assignment_item_id:
+        try:
+            bind_session_to_class_item(
+                supabase_admin, s["id"], user_id, body.class_assignment_item_id
+            )
+        except ItemNotFoundError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            # The session exists and is usable; only the ledger link failed.
+            # Surfaced, not swallowed — otherwise the student does the work and
+            # the teacher still sees "chưa nộp".
+            logger.warning(
+                "[create_session] class item not linked session=%s item=%s: %s",
+                s["id"], body.class_assignment_item_id, e,
+            )
 
     # Mock sitting: link the session AT CREATION (before any response can be
     # graded) so per-response speaking grading is sealed. Validated inside.
@@ -1293,4 +1320,28 @@ async def complete_session(
         raise HTTPException(status_code=500, detail=f"Không thể hoàn thành session: {e}")
 
     completed = result.data[0]
+
+    # GĐ 2 — close the class-assignment loop. Best-effort on purpose: a graded
+    # session must still complete if the ledger write fails, but the failure is
+    # logged rather than swallowed, because an unrecorded hand-in shows up to the
+    # teacher as the student simply not having done the work.
+    # mark_item_submitted only writes while submitted_at IS NULL, so re-completing
+    # a session cannot push the submission time later and turn an on-time hand-in
+    # into a late one.
+    item_id = completed.get("class_assignment_item_id")
+    if item_id:
+        try:
+            mark_item_submitted(
+                supabase_admin,
+                item_id=item_id,
+                artifact_kind="session",
+                artifact_id=completed["id"],
+                score=completed.get("overall_band"),
+            )
+        except Exception as e:
+            logger.warning(
+                "[complete_session] class item not recorded session=%s item=%s: %s",
+                session_id, item_id, e,
+            )
+
     return {**completed, "session_id": completed["id"]}

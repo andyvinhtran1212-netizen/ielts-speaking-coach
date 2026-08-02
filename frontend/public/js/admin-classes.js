@@ -535,23 +535,185 @@ function deleteLesson(lessonId) {
   });
 }
 
+// ── Chi tiết lớp: bài tập (GĐ 2) ────────────────────────────────────────────
+
+let _homework = [];
+let _homeworkLoaded = false;
+
+/**
+ * Deadline cell. The rule is 19:00 giờ Việt Nam and the server stores it as an
+ * aware timestamp, so rendering it in the reader's own locale is correct: an
+ * admin abroad sees their local equivalent of the same instant, not a number
+ * that silently means something else.
+ */
+function dueLabel(dueAt) {
+  if (!dueAt) return '<span class="cl-muted">Không hạn</span>';
+  const d = new Date(dueAt);
+  if (Number.isNaN(d.getTime())) return '<span class="cl-roster-unknown">Hạn không đọc được</span>';
+  const text = d.toLocaleString('vi-VN', {
+    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+  const overdue = d.getTime() < Date.now();
+  return overdue ? `<span class="cl-muted">${esc(text)}</span>` : esc(text);
+}
+
+/**
+ * Submission cell. "Chưa nộp" past the deadline is the number the whole feature
+ * exists to surface, so it gets the warning treatment; before the deadline the
+ * same students are simply not due yet and must not be styled as a problem.
+ */
+function progressCell(p) {
+  if (!p) return '<span class="cl-roster-unknown">Không đọc được</span>';
+  const parts = [`<span class="cl-roster-count">${countLabel(p.submitted)}/${countLabel(p.assigned)} đã nộp</span>`];
+  if (p.late) parts.push(`<span class="cl-lesson-sub">${countLabel(p.late)} nộp trễ</span>`);
+  if (p.missing) parts.push(`<span class="cl-roster-gap">${countLabel(p.missing)} chưa nộp, đã quá hạn</span>`);
+  return `<div class="cl-roster">${parts.join('')}</div>`;
+}
+
+function renderHomework() {
+  $('homework-loading').hidden = true;
+  $('homework-empty').hidden = _homework.length > 0;
+  $('homework-table-wrap').hidden = _homework.length === 0;
+  $('homework-tbody').innerHTML = _homework.map((a) => {
+    const cfg = a.content_config || {};
+    const sub = [cfg.topic, cfg.mode, cfg.part ? `Part ${cfg.part}` : ''].filter(Boolean).join(' · ');
+    const p = a.progress || {};
+    // Deleting a give that students have answered would erase the record that
+    // the work was asked for and done, so the button is not offered.
+    const canDelete = !p.submitted;
+    const del = canDelete
+      ? `<button class="adm-btn-secondary" data-action="delete-homework" data-id="${esc(a.id)}">Xoá</button>`
+      : '<span class="cl-lesson-sub">Đã có bài nộp</span>';
+    return `<tr>
+      <td><div>${esc(a.title)}</div><div class="cl-lesson-sub">${esc(sub)}</div></td>
+      <td>${dueLabel(a.due_at)}</td>
+      <td>${progressCell(a.progress)}</td>
+      <td>${del}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function loadHomework() {
+  $('homework-loading').hidden = false;
+  try {
+    const r = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId) + '/assignments');
+    _homework = (r && r.assignments) || [];
+  } catch (err) {
+    _homework = [];
+    toast('Không tải được bài giao: ' + (err.message || err), 'error');
+  }
+  renderHomework();
+}
+
+function openHomeworkModal() {
+  $('hf-title').value = '';
+  $('hf-topic').value = '';
+  $('hf-mode').value = 'practice';
+  $('hf-part').value = '1';
+  $('hf-instructions').value = '';
+  // Default the deadline to today — the centre gives a task each day, so today
+  // at 19:00 is the answer nearly every time.
+  const now = new Date();
+  $('hf-due').value = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0'),
+  ].join('-');
+  $('hf-error').hidden = true;
+  $('hf-warning').hidden = true;
+  $('homework-modal').hidden = false;
+  $('hf-title').focus();
+}
+
+function closeHomeworkModal() { $('homework-modal').hidden = true; }
+
+async function submitHomework() {
+  const title = $('hf-title').value.trim();
+  const topic = $('hf-topic').value.trim();
+  if (!title || !topic) {
+    $('hf-error').textContent = 'Nhập tên bài giao và chủ đề để tiếp tục.';
+    $('hf-error').hidden = false;
+    return;
+  }
+
+  $('btn-hf-submit').disabled = true;
+  try {
+    const r = await api.post(
+      '/admin/cohorts/' + encodeURIComponent(_cohortId) + '/assignments',
+      {
+        skill: 'speaking',
+        title,
+        topic,
+        mode: $('hf-mode').value,
+        part: Number($('hf-part').value),
+        due_date: $('hf-due').value || null,
+        instructions: $('hf-instructions').value.trim() || null,
+      },
+    );
+
+    closeHomeworkModal();
+    // Students with no account receive nothing — silently. Say so on the way
+    // out, or the teacher reads them as simply not having done the work.
+    if (r && r.unactivated_count) {
+      toast(
+        `Đã giao cho ${r.student_count} học viên. ${r.unactivated_count} bạn chưa kích hoạt tài khoản `
+        + 'nên sẽ không nhận được bài.',
+        'error',
+      );
+    } else {
+      toast(`Đã giao bài cho ${(r && r.student_count) || 0} học viên.`);
+    }
+    await loadHomework();
+  } catch (err) {
+    $('hf-error').textContent = 'Không giao được bài: ' + (err.message || err);
+    $('hf-error').hidden = false;
+  } finally {
+    $('btn-hf-submit').disabled = false;
+  }
+}
+
+function deleteHomework(assignmentId) {
+  const a = _homework.find((x) => x.id === assignmentId);
+  window.confirmDanger({
+    title: 'Xoá bài giao',
+    body: `Xoá "${(a && a.title) || 'bài giao này'}"? Chưa có ai nộp nên không mất bài làm nào.`,
+    confirmLabel: 'Xoá bài giao',
+    onConfirm: async () => {
+      try {
+        await api.delete('/admin/cohorts/' + encodeURIComponent(_cohortId)
+          + '/assignments/' + encodeURIComponent(assignmentId));
+        toast('Đã xoá bài giao.');
+        await loadHomework();
+      } catch (err) {
+        toast('Không xoá được bài giao: ' + (err.message || err), 'error');
+      }
+    },
+  });
+}
+
 // ── Sub-tabs ────────────────────────────────────────────────────────────────
 
 let _lessonsLoaded = false;
 
 function showPanel(name) {
-  const roster = name === 'roster';
-  $('tab-roster').classList.toggle('is-active', roster);
-  $('tab-lessons').classList.toggle('is-active', !roster);
-  // aria-current marks the active tab for assistive tech; the class alone is
-  // only a colour change.
-  $('tab-roster').setAttribute('aria-current', roster ? 'page' : 'false');
-  $('tab-lessons').setAttribute('aria-current', roster ? 'false' : 'page');
-  $('panel-roster').hidden = !roster;
-  $('panel-lessons').hidden = roster;
-  if (!roster && !_lessonsLoaded) {
+  const PANELS = ['roster', 'lessons', 'homework'];
+  for (const p of PANELS) {
+    const on = p === name;
+    $('tab-' + p).classList.toggle('is-active', on);
+    // aria-current marks the active tab for assistive tech; the class alone is
+    // only a colour change.
+    $('tab-' + p).setAttribute('aria-current', on ? 'page' : 'false');
+    $('panel-' + p).hidden = !on;
+  }
+  // Each panel fetches on first open only — opening the class must not fire
+  // three requests for two tabs the admin may never look at.
+  if (name === 'lessons' && !_lessonsLoaded) {
     _lessonsLoaded = true;
     loadLessons();
+  }
+  if (name === 'homework' && !_homeworkLoaded) {
+    _homeworkLoaded = true;
+    loadHomework();
   }
 }
 
@@ -587,6 +749,16 @@ function bindDetail() {
 
   $('tab-roster').addEventListener('click', () => showPanel('roster'));
   $('tab-lessons').addEventListener('click', () => showPanel('lessons'));
+  $('tab-homework').addEventListener('click', () => showPanel('homework'));
+
+  $('btn-add-homework').addEventListener('click', openHomeworkModal);
+  $('btn-hf-cancel').addEventListener('click', closeHomeworkModal);
+  $('btn-hf-submit').addEventListener('click', submitHomework);
+  bindModalBackdrop('homework-modal', closeHomeworkModal);
+  $('homework-tbody').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-action="delete-homework"]');
+    if (btn) deleteHomework(btn.dataset.id);
+  });
 
   $('btn-add-lesson').addEventListener('click', () => openLessonModal(null));
   $('btn-lf-cancel').addEventListener('click', closeLessonModal);
@@ -612,7 +784,7 @@ function bindShared() {
   bindModalBackdrop('cohort-modal', closeCohortModal);
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
-    closeCohortModal(); closeMemberModal(); closeLessonModal();
+    closeCohortModal(); closeMemberModal(); closeLessonModal(); closeHomeworkModal();
   });
 }
 
