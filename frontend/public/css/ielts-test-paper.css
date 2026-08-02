@@ -97,6 +97,11 @@
   font-style: italic;
   margin-top: var(--av-space-1);
 }
+/* Kiểu chữ bám VAI TRÒ chứ không bám thứ tự dòng: câu lệnh luôn đứng thẳng,
+   câu hỏi luôn nghiêng — kể cả khi đề thật đặt câu hỏi TRƯỚC câu lệnh (khối
+   matching). Đặt sau `p + p` để thắng quy tắc theo-vị-trí ở trên. */
+.ielts-instruction p.is-directive { font-style: normal; }
+.ielts-instruction p.is-question  { font-style: italic; }
 
 /* ── Circled question number ────────────────────────────────────── */
 .ielts-question-num {
@@ -205,6 +210,23 @@ select.ielts-gap-input {
   background: var(--ielts-paper-table-head);
   font-weight: 700;
 }
+/* Một ô có thể chứa NHIỀU DÒNG độc lập (đề thật liệt kê 2 ý trong một ô).
+   Đặt SAU khối `th, td` đã đóng — chèn vào giữa `th,` và `td` thì trình duyệt
+   đọc thành `.ielts-table th, .ielts-table-line {…}` và toàn bộ ô tiêu đề mất
+   viền/padding (Codex review PR #895). */
+.ielts-table-line { display: block; }
+.ielts-table-line + .ielts-table-line { margin-top: var(--av-space-2); }
+
+/* Mỗi lựa chọn của câu chọn-nhiều xuống dòng riêng — xếp ngang thành đoạn văn
+   thì không đọc nổi đâu là A, đâu là B. */
+.ielts-mc-opt {
+  display: flex;
+  align-items: baseline;
+  gap: var(--av-space-2);
+  margin-top: var(--av-space-2);
+  cursor: pointer;
+}
+.ielts-mc-opt input { margin: 0; flex: none; }
 
 /* ── MCQ ────────────────────────────────────────────────────────── */
 .ielts-mcq-question { margin-bottom: var(--av-space-4); }

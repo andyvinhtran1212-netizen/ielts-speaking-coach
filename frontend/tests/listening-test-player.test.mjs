@@ -1195,6 +1195,9 @@ describe('listening-parser-render — table cell keeps its suffix (Bug A)', () =
   // {q_num, suffix} cell shape must keep working unchanged.
   const tableRenderer = () => {
     const src = JS.match(/function tableGapSegment\([\s\S]*?\n\}/)[0] + '\n' +
+                // cellLines() quyết định ô nào xuống dòng — phải kéo vào cùng,
+                // nếu không renderTableCompletion gọi vào khoảng không.
+                JS.match(/function cellLines\([\s\S]*?\n\}/)[0] + '\n' +
                 JS.match(/function renderTableCompletion\([\s\S]*?\n\}/)[0];
     return new Function(
       'esc', 'mdInline', 'gapInput', 'renderFallback',
@@ -1273,6 +1276,8 @@ describe('listening-parser-render — segment fixture renders end to end', () =>
 
   const build = (name) => {
     const src = JS.match(/function tableGapSegment\([\s\S]*?\n\}/)[0] + '\n' +
+                // cellLines() là phụ thuộc của renderTableCompletion.
+                JS.match(/function cellLines\([\s\S]*?\n\}/)[0] + '\n' +
                 JS.match(new RegExp(`function ${name}\\([\\s\\S]*?\\n\\}`))[0];
     return new Function(
       'esc', 'mdInline', 'gapInput', 'renderFallback',

@@ -726,13 +726,25 @@ function formatInstruction(raw) {
   // parse nổi CẢ FILE ⇒ chết toàn bộ trình phát bài nghe, không riêng hàm này
   // (DEBT-2026-07-29-K, review #882). Giữ nguyên hành vi bằng cách bắt dấu câu
   // vào nhóm rồi chèn ký tự mốc; lookahead `(?=…)` thì mọi trình duyệt đều có.
+  // Tách ở CẢ dấu hỏi/chấm than, không riêng dấu chấm: khối matching mở đầu
+  // bằng chính câu hỏi ("What comment do the students make…?") rồi mới tới câu
+  // lệnh, nên chỉ bắt dấu chấm thì hai thứ dính làm một và học viên không phân
+  // biệt được đâu là đề bài, đâu là hướng dẫn.
   const parts = String(raw)
-    .replace(/(\.)\s+(?=[A-Z])/g, '$1\u0000')
+    .replace(/([.?!])\s+(?=[A-Z])/g, '$1\u0000')
     .split('\u0000')
     .map((s) => s.trim())
     .filter(Boolean);
   if (parts.length <= 1) return `<p>${mdInline(raw)}</p>`;
-  return parts.map((p) => `<p>${mdInline(p)}</p>`).join('');
+  // Đánh dấu theo VAI TRÒ, không theo thứ tự. Trên đề thật câu lệnh có khi
+  // đứng trước ("Choose TWO letters, A-E." rồi mới tới câu hỏi), có khi đứng
+  // sau (khối matching) — kiểu chữ bám vai trò thì mới nhất quán cả hai chiều.
+  const DIRECTIVE_RE = /^(Choose|Write|Complete|Label|Match|Answer|Select)\b/i;
+  return parts.map((part) => {
+    const cls = DIRECTIVE_RE.test(part) ? 'is-directive'
+      : (/\?$/.test(part) ? 'is-question' : '');
+    return `<p${cls ? ` class="${cls}"` : ''}>${mdInline(part)}</p>`;
+  }).join('');
 }
 
 
@@ -812,6 +824,34 @@ function tableGapSegment(seg) {
          `${gapInput(seg.q_num)}${seg.suffix ? ' ' + mdInline(seg.suffix) : ''}`;
 }
 
+// Một ô bảng dạng mảng KHÔNG phải "mỗi phần tử một dòng".
+//
+// `_cell_segments()` (listening_convert.py) dùng mảng cho các MẨU NỐI LIỀN quanh
+// một chỗ trống — "Good for people who are especially keen on" + {q_num:1} là MỘT
+// câu, tách ra là vỡ câu và tách ô nhập khỏi phần dẫn của nó. Nhưng đề thật cũng
+// có ô chứa HAI Ý riêng biệt ("Checking portions, etc. are correct" / "Making
+// sure ___ is clean"), và nối liền thì đọc thành một câu vô nghĩa.
+//
+// Phân biệt bằng chính dữ liệu: mẩu nối liền để gap TRẦN `{q_num}` và lấy chữ
+// đứng trước làm phần dẫn; còn ý độc lập thì gap TỰ MANG `prefix` của nó. Nên:
+// gap có `prefix` ⇒ mở dòng mới; mọi thứ khác ⇒ nối tiếp dòng đang mở.
+// (Codex review PR #895)
+function cellLines(segments) {
+  const lines = [];
+  let cur = null;
+  segments.forEach((seg) => {
+    const startsLine = seg && typeof seg === 'object'
+      && seg.q_num != null && String(seg.prefix || '').trim();
+    if (cur === null || startsLine) {
+      cur = [];
+      lines.push(cur);
+    }
+    cur.push(seg);
+  });
+  return lines;
+}
+
+
 function renderTableCompletion(tmpl, questions) {
   const heading = tmpl.heading || '';
   const headers = Array.isArray(tmpl.headers) ? tmpl.headers : [];
@@ -827,7 +867,9 @@ function renderTableCompletion(tmpl, questions) {
         <tbody>
           ${rows.map((row) => `<tr>${row.map((c) => {
             if (Array.isArray(c)) {
-              return `<td>${c.map(tableGapSegment).join(' ')}</td>`;
+              return `<td>${cellLines(c).map((line) =>
+                `<div class="ielts-table-line">${line.map(tableGapSegment).join(' ')}</div>`
+              ).join('')}</td>`;
             }
             if (c && typeof c === 'object' && c.q_num != null) {
               return `<td>${tableGapSegment(c)}</td>`;
@@ -1050,7 +1092,6 @@ function renderMultiSelect(payload, questions) {
   // on the checkboxes (not 1:1 with a q_num); a dedicated handler assigns slots.
   return `
     <div class="ielts-mc-group" data-mm-slots="${esc(slots.join(','))}" data-mm-choose="${esc(choose)}">
-      <p class="ielts-mc-hint">Chọn ${esc(choose)} đáp án (${esc(slots.join(' + '))}).</p>
       ${boxes}
     </div>
   `;
