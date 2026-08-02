@@ -157,8 +157,13 @@ async def my_assignments(authorization: str | None = Header(default=None)):
 
     out = [_decorate(i, by_id[i["assignment_id"]], now)
            for i in items if i["assignment_id"] in by_id]
-    # Nearest deadline first; a give with no deadline sorts last.
-    out.sort(key=lambda r: (r["assignment"]["due_at"] or ""), reverse=True)
+    # Nearest deadline FIRST — this is a to-do list, so the thing due today has
+    # to be at the top. reverse=True on ISO strings did the opposite and put next
+    # week's work above today's; the comment said one thing and the code did the
+    # other. A give with no deadline is never urgent, so it sorts last, via a
+    # separate key rather than by abusing the empty string.
+    out.sort(key=lambda r: (r["assignment"]["due_at"] is None,
+                            r["assignment"]["due_at"] or ""))
     return {"has_class": True, "assignments": out}
 
 

@@ -42,6 +42,31 @@ from services.class_assignment_service import (
     progress_for_assignments,
 )
 
+def code_only(src: str) -> str:
+    """Strip Python comments and docstrings before asserting a symbol is ABSENT.
+
+    Four times in this branch a test failed — or worse, could have PASSED — on
+    its own prose: a comment explaining why `getFullYear()` / `reverse=True` was
+    removed satisfies a regex looking for that very symbol. Assertions are about
+    CODE, so scan code.
+    """
+    import io, tokenize
+    out, last_end = [], (1, 0)
+    try:
+        for tok in tokenize.generate_tokens(io.StringIO(src).readline):
+            if tok.type == tokenize.COMMENT:
+                continue
+            if tok.type == tokenize.STRING and tok.start[1] == 0:
+                continue          # module/def docstring on its own line
+            if tok.start[0] != last_end[0]:
+                out.append("\n")
+            out.append(tok.string)
+            last_end = tok.end
+    except tokenize.TokenError:
+        return src
+    return " ".join(out)
+
+
 POSTGREST_IMPLICIT_CAP = 1000   # see test_class_service_rollup for why this matters
 
 COHORT = "aaaaaaaa-0000-0000-0000-000000000001"
@@ -821,7 +846,8 @@ def test_bind_locks_the_assignment_row_not_only_the_item():
     import pathlib, re
     sql = (pathlib.Path(__file__).resolve().parents[1]
            / "migrations" / "180_fn_class_assignment_locks.sql").read_text(encoding="utf-8")
-    m = re.search(r"FOR UPDATE OF ([a-z, ]+);", sql)
+    body = sql[sql.index("fn_bind_session_to_class_item("):]
+    m = re.search(r"FOR UPDATE OF ([a-z, ]+);", body)
     assert m, "the bind SELECT no longer takes a row lock"
     locked = {x.strip() for x in m.group(1).split(",")}
     assert locked == {"i", "a"}, locked
@@ -843,3 +869,54 @@ def test_outstanding_student_work_is_never_capped():
     assert "_MAX_HISTORY" in hist
     outstanding = src[src.index("outstanding = _paged_items"):src.index("history = (")]
     assert "limit" not in outstanding.lower()
+
+
+# ── vòng 8 ──────────────────────────────────────────────────────────────
+
+
+def test_delete_guard_locks_the_linked_sessions_before_reading_them():
+    """Checking a session's status without locking it lets an in-flight
+    PATCH /complete slip through: the EXISTS sees the pre-completion state, the
+    delete proceeds, the cascade then blocks on that very update, and once it
+    lands the item is gone and the session's link is NULL — so the ledger write
+    that follows finds no row."""
+    import pathlib
+    sql = (pathlib.Path(__file__).resolve().parents[1]
+           / "migrations" / "180_fn_class_assignment_locks.sql").read_text(encoding="utf-8")
+
+    body = sql[sql.index("fn_delete_class_assignment_if_unsubmitted"):sql.index("COMMENT ON FUNCTION fn_delete")]
+    lock_at = body.index("FOR UPDATE OF s")
+    read_at = body.index("s.status = 'completed'")
+    assert lock_at < read_at, "the sessions must be locked BEFORE their status is read"
+
+
+def test_student_list_puts_the_nearest_deadline_first():
+    """It is a to-do list: what is due today belongs at the top. Sorting ISO
+    strings with reverse=True did the opposite — next week above today — while
+    the comment claimed nearest-first."""
+    rows = [
+        {"assignment": {"due_at": "2026-08-05T19:00:00+07:00"}},
+        {"assignment": {"due_at": None}},
+        {"assignment": {"due_at": "2026-08-03T19:00:00+07:00"}},
+        {"assignment": {"due_at": "2026-08-04T19:00:00+07:00"}},
+    ]
+    rows.sort(key=lambda r: (r["assignment"]["due_at"] is None,
+                             r["assignment"]["due_at"] or ""))
+    assert [r["assignment"]["due_at"] for r in rows] == [
+        "2026-08-03T19:00:00+07:00",
+        "2026-08-04T19:00:00+07:00",
+        "2026-08-05T19:00:00+07:00",
+        None,
+    ]
+
+    # …and the endpoint uses exactly that key.
+    import inspect, re
+    from routers import class_student as mod
+    # code_only() re-joins tokens with spaces, so match whitespace-tolerantly.
+    src = code_only(inspect.getsource(mod.my_assignments))
+    assert not re.search(r"reverse\s*=\s*True", src), (
+        "reverse=True puts the farthest deadline first"
+    )
+    assert re.search(r'due_at"\s*\]\s*is\s+None', src), (
+        "no-deadline gives must sort last via their own key"
+    )

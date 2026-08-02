@@ -69,6 +69,20 @@ BEGIN
       WHERE assignment_id = p_assignment_id
       FOR UPDATE;
 
+    -- Lock the linked SESSIONS too, before reading their status.
+    --
+    -- Without this the EXISTS below can read a session that PATCH /complete is
+    -- mid-way through updating, see the pre-completion status, and let the
+    -- delete through. The cascade then blocks on that same session update, and
+    -- once it lands the item is gone and the session's link has been set to
+    -- NULL — so the ledger write that follows finds no row and the hand-in is
+    -- lost. Taking the lock first makes the completion wait for us instead.
+    PERFORM 1
+       FROM sessions s
+       JOIN class_assignment_items i ON i.id = s.class_assignment_item_id
+      WHERE i.assignment_id = p_assignment_id
+      FOR UPDATE OF s;
+
     -- TWO kinds of evidence, not one.
     --
     -- submitted_at is the recorded hand-in. A linked COMPLETED SESSION is the
