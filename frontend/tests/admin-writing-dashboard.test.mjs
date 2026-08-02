@@ -39,7 +39,7 @@ describe('writing dashboard — every tile → a functional page', () => {
     ['Hàng đợi Instructor',  '/pages/admin/writing/instructor-queue.html'],
     ['Gán bài tập',          '/pages/admin/writing/assignments.html'],
     ['Lớp học',              '/pages/admin/writing/cohorts.html'],
-    ['Học viên',             '/pages/admin/students/index.html'],
+    ['Học viên',             '/pages/admin/classes/index.html?tab=students'],   // GĐ 1b
   ];
   for (const [label, href] of TILES) {
     test(`tile "${label}" → ${href}`, () => {

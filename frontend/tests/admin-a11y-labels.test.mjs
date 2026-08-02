@@ -15,7 +15,8 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const read = (...r) => readFileSync(join(__dirname, '..', ...r), 'utf8');
 const GRADE = read('pages', 'admin', 'writing', 'grade.html');
-const STU = read('pages', 'admin', 'students', 'index.html');
+const STU = read('pages', 'admin', 'classes', 'index.html')
+  + read('js', 'admin-students-panel.js');
 
 const DATA_INPUTS = [
   'criteria', 'overview', 'trajectory', 'mistakes', 'recurring', 'lexical',

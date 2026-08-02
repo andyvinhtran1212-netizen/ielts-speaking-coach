@@ -15,7 +15,9 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const HTML = readFileSync(join(__dirname, '..', 'pages', 'admin', 'students', 'index.html'), 'utf8');
+// GĐ 1b: bảng Học viên đã chuyển vào trang gộp — khung ở trang, mã ở panel JS.
+const HTML = readFileSync(join(__dirname, '..', 'pages', 'admin', 'classes', 'index.html'), 'utf8')
+  + readFileSync(join(__dirname, '..', 'js', 'admin-students-panel.js'), 'utf8');
 
 
 describe('Sprint 18.3.2 — Writing-Coach chrome removed', () => {
@@ -39,7 +41,7 @@ describe('Sprint 18.3.2 — aver-admin chrome + shared components consumed', () 
     // GĐ 1: the students page now lives under the merged "Lớp & Học viên"
     // parent. active="students" named a section that no longer exists, so the
     // sidebar highlighted nothing and both child links disappeared.
-    assert.match(HTML, /<aver-admin-chrome active="classes" subsection="students">/);
+    assert.match(HTML, /<aver-admin-chrome active="classes" subsection="classes">/);
     assert.match(HTML, /\/css\/aver-design\/admin-components\.css/);
   });
   test('uses shared .adm-* components (table / button / card / modal / field)', () => {
@@ -88,7 +90,9 @@ describe('Sprint 18.3.2 — features preserved', () => {
 
 describe('Sprint 18.3.2 — Sprint 18.1 tabs preserved', () => {
   test('"Lớp & Học viên" subtabs intact, students active', () => {
-    assert.match(HTML, /class="adm-subtab"[^>]*href="\/pages\/admin\/classes\/index\.html"/);
-    assert.match(HTML, /class="adm-subtab is-active"[^>]*href="\/pages\/admin\/students\/index\.html"/);
+    // GĐ 1b: cùng một trang, hai tab. Trạng thái active do JS đặt lúc chạy theo
+    // ?tab=, nên ở đây chỉ ghim hai tab tồn tại và trỏ đúng đích.
+    assert.match(HTML, /id="tab-classes"[^>]*href="\/pages\/admin\/classes\/index\.html"/);
+    assert.match(HTML, /id="tab-students"[^>]*href="\/pages\/admin\/classes\/index\.html\?tab=students"/);
   });
 });

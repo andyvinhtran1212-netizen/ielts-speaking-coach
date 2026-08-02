@@ -15,7 +15,9 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const read = (...r) => readFileSync(join(__dirname, '..', ...r), 'utf8');
-const STU = read('pages', 'admin', 'students', 'index.html');
+// GĐ 1b: bảng Học viên nay là hai tệp — khung ở trang gộp, mã ở panel JS.
+const STU = read('pages', 'admin', 'classes', 'index.html')
+  + read('js', 'admin-students-panel.js');
 const ASSIGN = read('pages', 'admin', 'writing', 'assignments.html');
 
 

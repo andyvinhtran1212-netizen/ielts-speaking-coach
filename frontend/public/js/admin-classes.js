@@ -616,9 +616,61 @@ function bindShared() {
   });
 }
 
+/**
+ * GĐ 1b — the Học viên panel is initialised on FIRST activation of its tab, not
+ * on page load. It fetches /admin/students and /admin/cohorts; the Lớp tab must
+ * not pay for requests it never renders (the same reason the roster rollup is
+ * opt-in server-side).
+ */
+let _studentsPanelStarted = false;
+
+function startStudentsPanel() {
+  if (_studentsPanelStarted) return;
+  const panel = window.AdminStudentsPanel;
+  if (!panel || typeof panel.init !== 'function') {
+    // Fail loudly rather than leaving an empty tab that looks like "no students".
+    $('panel-students').hidden = false;
+    toast('Không tải được bảng Học viên. Tải lại trang để thử lại.', 'error');
+    return;
+  }
+  _studentsPanelStarted = true;
+  panel.init();
+}
+
+/** Top-level tab: 'classes' (danh sách/chi tiết lớp) or 'students'. */
+function showTab(name) {
+  const students = name === 'students';
+  $('tab-classes').classList.toggle('is-active', !students);
+  $('tab-students').classList.toggle('is-active', students);
+  $('tab-classes').setAttribute('aria-current', students ? 'false' : 'page');
+  $('tab-students').setAttribute('aria-current', students ? 'page' : 'false');
+  $('panel-students').hidden = !students;
+
+  // The sidebar child highlight comes from the host element's `subsection`
+  // attribute, which is static in the markup. Both tabs are now one page, so
+  // without this the sidebar keeps marking "Lớp" while the Học viên tab is open.
+  // <aver-admin-chrome> observes the attribute, so setting it re-renders.
+  const chrome = document.querySelector('aver-admin-chrome');
+  if (chrome) chrome.setAttribute('subsection', students ? 'students' : 'classes');
+  if (students) {
+    $('view-list').hidden = true;
+    $('view-detail').hidden = true;
+    startStudentsPanel();
+  }
+}
+
 async function main() {
-  const cohortId = new URLSearchParams(window.location.search).get('cohort_id');
+  const params = new URLSearchParams(window.location.search);
+  const cohortId = params.get('cohort_id');
   bindShared();
+
+  // A class deep-link wins over ?tab= — arriving at a specific class must show
+  // that class, whatever tab the link also carried.
+  if (!cohortId && params.get('tab') === 'students') {
+    showTab('students');
+    return;
+  }
+  showTab('classes');
 
   // Courses are needed by both views (filter + course chip), so they load first
   // and the rest renders against a populated list rather than flashing "Chưa

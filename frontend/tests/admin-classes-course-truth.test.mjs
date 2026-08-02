@@ -126,3 +126,33 @@ describe('the course fetch includes archived courses', () => {
     assert.match(SRC, /api\.get\('\/admin\/courses'\)/);
   });
 });
+
+
+describe('tab state stays in sync with the sidebar (GĐ 1b)', () => {
+  // Lớp and Học viên are two tabs of one page, but the sidebar child highlight
+  // is driven by the host element's static `subsection` attribute. Without an
+  // explicit sync the sidebar keeps marking "Lớp" while Học viên is open —
+  // wrong navigation state on a real route (?tab=students).
+  test('showTab updates the chrome subsection, not just the local tabs', () => {
+    const fn = SRC.slice(SRC.indexOf('function showTab'), SRC.indexOf('async function main'));
+    assert.match(fn, /aver-admin-chrome/,
+      'showTab must reach the host chrome element');
+    assert.match(fn, /setAttribute\('subsection',\s*students \? 'students' : 'classes'\)/,
+      'the subsection must follow the active tab in BOTH directions');
+  });
+
+  test('the panel is started lazily, not on page load', () => {
+    // The Lớp tab must not pay for /admin/students + /admin/cohorts it never
+    // renders — the same reason the roster rollup is opt-in server-side.
+    assert.doesNotMatch(SRC, /AdminStudentsPanel\.init\(\)/,
+      'init() must go through startStudentsPanel(), which guards on first use');
+    assert.match(SRC, /function startStudentsPanel/);
+    assert.match(SRC, /_studentsPanelStarted/);
+  });
+
+  test('a missing panel reports an error instead of an empty tab', () => {
+    // An empty table reads as "no students", which is a lie.
+    const fn = SRC.slice(SRC.indexOf('function startStudentsPanel'), SRC.indexOf('/** Top-level tab'));
+    assert.match(fn, /toast\(/);
+  });
+});

@@ -21,7 +21,8 @@ const USERS_JS    = front('js', 'admin-users.js');
 const USERS_HTML  = front('pages', 'admin', 'users', 'index.html');
 const COHORTS_JS  = front('js', 'admin-classes.js');
 const COHORTS_HTML = front('pages', 'admin', 'classes', 'index.html');
-const STUDENTS_HTML = front('pages', 'admin', 'students', 'index.html');
+// GĐ 1b: Lớp và Học viên là hai tab của CÙNG trang gộp.
+const STUDENTS_HTML = front('pages', 'admin', 'classes', 'index.html');
 const CHROME      = front('js', 'components', 'aver-admin-chrome.js');
 // Sprint 18.3 moved the cohorts page's .adm-subtab styles into the shared
 // admin-components.css; the students page keeps them inline until 18.3.1.
@@ -68,12 +69,12 @@ describe('Sprint 18.1 D — cohort add-member user dropdown', () => {
 
 describe('Sprint 18.1 A — "Lớp & Học viên" tab bar', () => {
   test('cohorts page: cohorts tab active, links to students', () => {
-    assert.match(COHORTS_HTML, /class="adm-subtab is-active"[^>]*href="\/pages\/admin\/classes\/index\.html"/);
-    assert.match(COHORTS_HTML, /class="adm-subtab"[^>]*href="\/pages\/admin\/students\/index\.html"/);
+    assert.match(COHORTS_HTML, /class="adm-subtab"[^>]*id="tab-classes"[^>]*href="\/pages\/admin\/classes\/index\.html"/);
+    assert.match(COHORTS_HTML, /class="adm-subtab"[^>]*id="tab-students"[^>]*href="\/pages\/admin\/classes\/index\.html\?tab=students"/);
   });
   test('students page: students tab active, links to cohorts', () => {
-    assert.match(STUDENTS_HTML, /class="adm-subtab is-active"[^>]*href="\/pages\/admin\/students\/index\.html"/);
-    assert.match(STUDENTS_HTML, /class="adm-subtab"[^>]*href="\/pages\/admin\/classes\/index\.html"/);
+    assert.match(STUDENTS_HTML, /id="tab-students"/);
+    assert.match(STUDENTS_HTML, /id="tab-classes"/);
   });
   test('tab active state uses tokenised brand classes (no inline hex)', () => {
     // Both pages now consume the shared admin-components.css for the tab styles

@@ -218,7 +218,7 @@
         var rows = await window.api.get('/admin/students?limit=200');
         if (!rows || !rows.length) {
           sel.innerHTML = '<option value="">— Chưa có học viên —</option>';
-          setAlert('warn', 'Bạn cần tạo học viên trước. → /pages/admin/students/index.html');
+          setAlert('warn', 'Bạn cần tạo học viên trước. → /pages/admin/classes/index.html?tab=students');
           return;
         }
         sel.innerHTML = '<option value="">— Chọn học viên —</option>' + rows.map(function (r) {
