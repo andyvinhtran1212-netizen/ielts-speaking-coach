@@ -839,14 +839,23 @@ function tableGapSegment(seg) {
 function cellLines(segments) {
   const lines = [];
   let cur = null;
+  let prev = null;
   segments.forEach((seg) => {
-    const startsLine = seg && typeof seg === 'object'
-      && seg.q_num != null && String(seg.prefix || '').trim();
-    if (cur === null || startsLine) {
+    const isGap = seg && typeof seg === 'object' && seg.q_num != null;
+    // (a) Chỗ trống TỰ MANG phần dẫn ⇒ nó bắt đầu một ý mới.
+    const ownsItsLead = isGap && String(seg.prefix || '').trim();
+    // (b) Chữ đứng sau một chỗ trống ĐÃ CÓ phần đuôi ⇒ dòng kia đã trọn nghĩa,
+    //     nên chữ này mở ý mới ("Starting salary £ ___ per hour" / "Start work
+    //     at 5.30 a.m."). Thiếu vế này thì hai ý vẫn dính (soi lại trên prod
+    //     sau PR #895).
+    const followsClosedGap = !isGap && prev && typeof prev === 'object'
+      && prev.q_num != null && String(prev.suffix || '').trim();
+    if (cur === null || ownsItsLead || followsClosedGap) {
       cur = [];
       lines.push(cur);
     }
     cur.push(seg);
+    prev = seg;
   });
   return lines;
 }

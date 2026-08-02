@@ -62,6 +62,24 @@ describe('ô bảng — ngắt dòng theo dữ liệu, không ngắt bừa', () 
     assert.equal(cellLines(cell).length, 1);
   });
 
+  test('chữ đứng sau một chỗ trống ĐÃ CÓ đuôi thì mở ý mới', () => {
+    // "Starting salary £ ___ per hour" đã trọn nghĩa, nên "Start work at 5.30
+    // a.m." là ý riêng — không được dính đuôi vào.
+    const cell = [{ q_num: 8, prefix: 'Starting salary £', suffix: 'per hour' },
+                  'Start work at 5.30 a.m.'];
+    assert.deepEqual(cellLines(cell), [
+      [{ q_num: 8, prefix: 'Starting salary £', suffix: 'per hour' }],
+      ['Start work at 5.30 a.m.'],
+    ]);
+  });
+
+  test('nhưng chữ sau một chỗ trống KHÔNG có đuôi vẫn nối liền', () => {
+    // Đó chính là hình dạng "Set lunch costs (9) ……… per person": phần đuôi
+    // nằm ở segment kế tiếp chứ không nằm trong gap.
+    assert.equal(cellLines([{ q_num: 9 }, 'per person']).length, 1);
+    assert.equal(cellLines([{ q_num: 9, suffix: '' }, 'per person']).length, 1);
+  });
+
   test('prefix rỗng/trắng KHÔNG được tính là mở dòng mới', () => {
     assert.equal(cellLines(['x', { q_num: 2, prefix: '' }]).length, 1);
     assert.equal(cellLines(['x', { q_num: 2, prefix: '   ' }]).length, 1);
