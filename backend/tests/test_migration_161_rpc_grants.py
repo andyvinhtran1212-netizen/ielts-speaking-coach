@@ -31,6 +31,15 @@ _MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
 CASES = [
     ("161_fn_upsert_listening_answer.sql",      "fn_upsert_listening_answer"),
     ("174_fn_insert_listening_answer_once.sql", "fn_insert_listening_answer_once"),
+    # mig 179 (GĐ 2 giao bài cho lớp) — same lock, found by the same review
+    # class. Without the REVOKE an authenticated student who knows a cohort or
+    # assignment id — both handed out by the student endpoints — could create or
+    # delete class assignments straight past require_admin. Verified on a local
+    # Postgres: dropping the REVOKE flips has_function_privilege('anon', …) to
+    # true.
+    ("179_fn_class_assignment_atomic.sql",      "fn_create_class_assignment"),
+    ("179_fn_class_assignment_atomic.sql",      "fn_delete_class_assignment_if_unsubmitted"),
+    ("179_fn_class_assignment_atomic.sql",      "fn_bind_session_to_class_item"),
 ]
 _ids = [fn for _f, fn in CASES]
 

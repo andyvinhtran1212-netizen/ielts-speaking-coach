@@ -91,6 +91,38 @@ function rosterCell(memberCount, unactivated) {
     + `<span class="cl-roster-gap">${countLabel(unactivated)} chưa kích hoạt</span></div>`;
 }
 
+const VN_TZ = 'Asia/Ho_Chi_Minh';
+const VN_CUTOFF_HOUR = 19;   // the centre's deadline — see compose_due_at server-side
+
+/** Vietnam wall-clock parts of an instant, as numbers. */
+function vietnamParts(at) {
+  const p = new Intl.DateTimeFormat('en-CA', {
+    timeZone: VN_TZ, hour12: false,
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit',
+  }).formatToParts(at).reduce((o, x) => (o[x.type] = x.value, o), {});
+  // hourCycle h23 can render midnight as "24" in some ICU versions.
+  return { date: `${p.year}-${p.month}-${p.day}`, hour: Number(p.hour) % 24 };
+}
+
+/**
+ * The next date whose 19:00 deadline has NOT already passed, in Vietnam time.
+ *
+ * Two separate things had to be right here. The date must be Vietnam's, not the
+ * browser's — an admin abroad at the day boundary would otherwise default a day
+ * out. And "today" stops being a viable default once 19:00 has gone: submitting
+ * the untouched form at 20:00 would create a give that is already overdue, so
+ * every student is reported missing the moment it exists.
+ *
+ * Only the DEFAULT moves; the admin can still pick today explicitly (giving a
+ * task with a deadline that has passed is a legitimate, if unusual, thing to do).
+ */
+function defaultDueDateVietnam(at = new Date()) {
+  const { date, hour } = vietnamParts(at);
+  if (hour < VN_CUTOFF_HOUR) return date;
+  const next = new Date(at.getTime() + 24 * 60 * 60 * 1000);
+  return vietnamParts(next).date;
+}
+
 function fmtDate(value) {
   if (!value) return '';
   const d = new Date(value);
@@ -535,23 +567,233 @@ function deleteLesson(lessonId) {
   });
 }
 
+// ── Chi tiết lớp: bài tập (GĐ 2) ────────────────────────────────────────────
+
+let _homework = [];
+let _homeworkLoaded = false;
+let _homeworkError = false;
+
+/**
+ * Deadline cell. The rule is 19:00 giờ Việt Nam and the server stores it as an
+ * aware timestamp, so rendering it in the reader's own locale is correct: an
+ * admin abroad sees their local equivalent of the same instant, not a number
+ * that silently means something else.
+ */
+function dueLabel(dueAt) {
+  if (!dueAt) return '<span class="cl-muted">Không hạn</span>';
+  const d = new Date(dueAt);
+  if (Number.isNaN(d.getTime())) return '<span class="cl-roster-unknown">Hạn không đọc được</span>';
+  const text = d.toLocaleString('vi-VN', {
+    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+  const overdue = d.getTime() < Date.now();
+  return overdue ? `<span class="cl-muted">${esc(text)}</span>` : esc(text);
+}
+
+/**
+ * Submission cell. "Chưa nộp" past the deadline is the number the whole feature
+ * exists to surface, so it gets the warning treatment; before the deadline the
+ * same students are simply not due yet and must not be styled as a problem.
+ */
+function progressCell(p) {
+  if (!p) return '<span class="cl-roster-unknown">Không đọc được</span>';
+  const parts = [`<span class="cl-roster-count">${countLabel(p.submitted)}/${countLabel(p.assigned)} đã nộp</span>`];
+  if (p.late) parts.push(`<span class="cl-lesson-sub">${countLabel(p.late)} nộp trễ</span>`);
+  if (p.missing) parts.push(`<span class="cl-roster-gap">${countLabel(p.missing)} chưa nộp, đã quá hạn</span>`);
+  return `<div class="cl-roster">${parts.join('')}</div>`;
+}
+
+function renderHomework() {
+  $('homework-loading').hidden = true;
+
+  // A failed load is NOT an empty class. Rendering the normal "Chưa giao bài
+  // nào" for it tells the admin something false about their own data — and the
+  // toast that said otherwise has already gone. Say what happened, and offer the
+  // retry, because the load latch has been released.
+  if (_homeworkError) {
+    $('homework-empty').hidden = false;
+    $('homework-empty').innerHTML =
+      'Không đọc được danh sách bài giao. '
+      + '<button class="adm-btn-secondary" data-action="retry-homework" type="button">Thử lại</button>';
+    $('homework-table-wrap').hidden = true;
+    return;
+  }
+
+  $('homework-empty').textContent =
+    'Chưa giao bài nào. Giao bài Speaking đầu tiên để học viên có việc làm hôm nay.';
+  $('homework-empty').hidden = _homework.length > 0;
+  $('homework-table-wrap').hidden = _homework.length === 0;
+  $('homework-tbody').innerHTML = _homework.map((a) => {
+    const cfg = a.content_config || {};
+    const sub = [cfg.topic, cfg.mode, cfg.part ? `Part ${cfg.part}` : ''].filter(Boolean).join(' · ');
+    const p = a.progress || {};
+    // Deleting a give that students have answered would erase the record that
+    // the work was asked for and done, so delete is withheld — but the give must
+    // still be closable, or a cancelled task stays startable forever. Archiving
+    // hides it from students and keeps every submission.
+    const archived = a.status === 'archived';
+    const action = archived
+      ? `<button class="adm-btn-secondary" data-action="publish-homework" data-id="${esc(a.id)}">Mở lại</button>`
+      : (p.submitted
+        ? `<button class="adm-btn-secondary" data-action="archive-homework" data-id="${esc(a.id)}">Đóng bài</button>`
+        : `<button class="adm-btn-secondary" data-action="delete-homework" data-id="${esc(a.id)}">Xoá</button>`);
+    const archivedChip = archived ? ' <span class="adm-chip">Đã đóng</span>' : '';
+    return `<tr>
+      <td><div>${esc(a.title)}${archivedChip}</div><div class="cl-lesson-sub">${esc(sub)}</div></td>
+      <td>${dueLabel(a.due_at)}</td>
+      <td>${progressCell(a.progress)}</td>
+      <td>${action}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function loadHomework() {
+  $('homework-loading').hidden = false;
+  try {
+    const r = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId) + '/assignments');
+    _homework = (r && r.assignments) || [];
+    _homeworkError = false;
+    // The repair pass failed, so these counts are computed from a ledger known
+    // to be behind. Say it — "chưa nộp" that is merely unrecorded looks exactly
+    // like a student who did nothing.
+    if (r && r.reconcile_failed) {
+      toast('Chưa đối chiếu được bài đã nộp — số liệu bên dưới có thể thiếu. Tải lại để thử lại.', 'error');
+    }
+  } catch (err) {
+    _homework = [];
+    _homeworkError = true;
+    // Release the once-only latch: without this, reopening the tab shows the
+    // stale failure forever because the panel believes it has already loaded.
+    _homeworkLoaded = false;
+    toast('Không tải được bài giao: ' + (err.message || err), 'error');
+  }
+  renderHomework();
+}
+
+function openHomeworkModal() {
+  $('hf-title').value = '';
+  $('hf-topic').value = '';
+  $('hf-mode').value = 'practice';
+  $('hf-part').value = '1';
+  $('hf-instructions').value = '';
+  // Default the deadline to today — the centre gives a task each day, so today
+  // at 19:00 is the answer nearly every time.
+  //
+  // "Today" means today IN VIETNAM, not in the admin's browser. getFullYear() /
+  // getMonth() / getDate() read the browser's zone, so an admin abroad at the
+  // day boundary would default to the wrong date; the server would then
+  // correctly compose 19:00 Vietnam time for a day that is already past, and the
+  // give would be overdue the moment it was created. Same rule as the deadline
+  // itself: the date is a Vietnam wall-clock fact.
+  $('hf-due').value = defaultDueDateVietnam();
+  $('hf-error').hidden = true;
+  $('hf-warning').hidden = true;
+  $('homework-modal').hidden = false;
+  $('hf-title').focus();
+}
+
+function closeHomeworkModal() { $('homework-modal').hidden = true; }
+
+async function submitHomework() {
+  const title = $('hf-title').value.trim();
+  const topic = $('hf-topic').value.trim();
+  if (!title || !topic) {
+    $('hf-error').textContent = 'Nhập tên bài giao và chủ đề để tiếp tục.';
+    $('hf-error').hidden = false;
+    return;
+  }
+
+  $('btn-hf-submit').disabled = true;
+  try {
+    const r = await api.post(
+      '/admin/cohorts/' + encodeURIComponent(_cohortId) + '/assignments',
+      {
+        skill: 'speaking',
+        title,
+        topic,
+        mode: $('hf-mode').value,
+        part: Number($('hf-part').value),
+        due_date: $('hf-due').value || null,
+        instructions: $('hf-instructions').value.trim() || null,
+      },
+    );
+
+    closeHomeworkModal();
+    // Students with no account receive nothing — silently. Say so on the way
+    // out, or the teacher reads them as simply not having done the work.
+    if (r && r.unactivated_count) {
+      toast(
+        `Đã giao cho ${r.student_count} học viên. ${r.unactivated_count} bạn chưa kích hoạt tài khoản `
+        + 'nên sẽ không nhận được bài.',
+        'error',
+      );
+    } else {
+      toast(`Đã giao bài cho ${(r && r.student_count) || 0} học viên.`);
+    }
+    await loadHomework();
+  } catch (err) {
+    $('hf-error').textContent = 'Không giao được bài: ' + (err.message || err);
+    $('hf-error').hidden = false;
+  } finally {
+    $('btn-hf-submit').disabled = false;
+  }
+}
+
+async function setHomeworkStatus(assignmentId, status) {
+  const archiving = status === 'archived';
+  try {
+    await api.patch('/admin/cohorts/' + encodeURIComponent(_cohortId)
+      + '/assignments/' + encodeURIComponent(assignmentId), { status });
+    toast(archiving ? 'Đã đóng bài giao. Học viên không còn thấy bài này.' : 'Đã mở lại bài giao.');
+    await loadHomework();
+  } catch (err) {
+    toast((archiving ? 'Không đóng được bài giao: ' : 'Không mở lại được bài giao: ')
+      + (err.message || err), 'error');
+  }
+}
+
+function deleteHomework(assignmentId) {
+  const a = _homework.find((x) => x.id === assignmentId);
+  window.confirmDanger({
+    title: 'Xoá bài giao',
+    body: `Xoá "${(a && a.title) || 'bài giao này'}"? Chưa có ai nộp nên không mất bài làm nào.`,
+    confirmLabel: 'Xoá bài giao',
+    onConfirm: async () => {
+      try {
+        await api.delete('/admin/cohorts/' + encodeURIComponent(_cohortId)
+          + '/assignments/' + encodeURIComponent(assignmentId));
+        toast('Đã xoá bài giao.');
+        await loadHomework();
+      } catch (err) {
+        toast('Không xoá được bài giao: ' + (err.message || err), 'error');
+      }
+    },
+  });
+}
+
 // ── Sub-tabs ────────────────────────────────────────────────────────────────
 
 let _lessonsLoaded = false;
 
 function showPanel(name) {
-  const roster = name === 'roster';
-  $('tab-roster').classList.toggle('is-active', roster);
-  $('tab-lessons').classList.toggle('is-active', !roster);
-  // aria-current marks the active tab for assistive tech; the class alone is
-  // only a colour change.
-  $('tab-roster').setAttribute('aria-current', roster ? 'page' : 'false');
-  $('tab-lessons').setAttribute('aria-current', roster ? 'false' : 'page');
-  $('panel-roster').hidden = !roster;
-  $('panel-lessons').hidden = roster;
-  if (!roster && !_lessonsLoaded) {
+  const PANELS = ['roster', 'lessons', 'homework'];
+  for (const p of PANELS) {
+    const on = p === name;
+    $('tab-' + p).classList.toggle('is-active', on);
+    // aria-current marks the active tab for assistive tech; the class alone is
+    // only a colour change.
+    $('tab-' + p).setAttribute('aria-current', on ? 'page' : 'false');
+    $('panel-' + p).hidden = !on;
+  }
+  // Each panel fetches on first open only — opening the class must not fire
+  // three requests for two tabs the admin may never look at.
+  if (name === 'lessons' && !_lessonsLoaded) {
     _lessonsLoaded = true;
     loadLessons();
+  }
+  if (name === 'homework' && !_homeworkLoaded) {
+    _homeworkLoaded = true;
+    loadHomework();
   }
 }
 
@@ -587,6 +829,22 @@ function bindDetail() {
 
   $('tab-roster').addEventListener('click', () => showPanel('roster'));
   $('tab-lessons').addEventListener('click', () => showPanel('lessons'));
+  $('tab-homework').addEventListener('click', () => showPanel('homework'));
+
+  $('btn-add-homework').addEventListener('click', openHomeworkModal);
+  $('homework-empty').addEventListener('click', (e) => {
+    if (e.target.closest('button[data-action="retry-homework"]')) loadHomework();
+  });
+  $('btn-hf-cancel').addEventListener('click', closeHomeworkModal);
+  $('btn-hf-submit').addEventListener('click', submitHomework);
+  bindModalBackdrop('homework-modal', closeHomeworkModal);
+  $('homework-tbody').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-action]');
+    if (!btn) return;
+    if (btn.dataset.action === 'delete-homework') deleteHomework(btn.dataset.id);
+    if (btn.dataset.action === 'archive-homework') setHomeworkStatus(btn.dataset.id, 'archived');
+    if (btn.dataset.action === 'publish-homework') setHomeworkStatus(btn.dataset.id, 'published');
+  });
 
   $('btn-add-lesson').addEventListener('click', () => openLessonModal(null));
   $('btn-lf-cancel').addEventListener('click', closeLessonModal);
@@ -612,7 +870,7 @@ function bindShared() {
   bindModalBackdrop('cohort-modal', closeCohortModal);
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
-    closeCohortModal(); closeMemberModal(); closeLessonModal();
+    closeCohortModal(); closeMemberModal(); closeLessonModal(); closeHomeworkModal();
   });
 }
 
