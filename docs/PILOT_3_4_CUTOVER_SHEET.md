@@ -4,7 +4,11 @@ Theo `docs/PILOT_ENTRY_CHECKLIST_2026-07-13.md` §6.3 + §6.4. Pilot 3 (authed
 READ) và pilot 4 (reversible MUTATION) là **CÙNG một trang** (profile) — một
 cutover mang cả hai.
 
-> **TRẠNG THÁI VẬN HÀNH: CHUẨN BỊ SẴN, CHƯA cutover.** Diff build + suite
+> **TRẠNG THÁI VẬN HÀNH: ĐÃ CUTOVER 2026-08-02 07:1x +07** (PR #756 merged,
+> release `311f5086`). `/profile` là canonical trên production; cửa sổ quan sát
+> 48–72h đang mở — xem mục cuối trang. Phần dưới giữ nguyên văn lúc prep.
+>
+> [LỊCH SỬ] **TRẠNG THÁI VẬN HÀNH: CHUẨN BỊ SẴN, CHƯA cutover.** Diff build + suite
 > verified; PR **DRAFT**. Gate mutation **N/N−1 consumer test đã đóng
 > (2026-07-14)** — blocker còn lại **[CẬP NHẬT 2026-07-25 theo ADR-013]**:
 > profile authed traffic thấp ⇒ **early-stage profile** (48–72h + synthetic
@@ -39,14 +43,28 @@ cutover mang cả hai.
 | 4 | Test paths + flip pin cutover-ownership | `tests/pilot-profile.test.mjs` |
 | 5 | Staging E2E specs: `/profile-preview` → `/profile` (test đúng URL sau cutover) | `tests/staging-e2e/pilot-3-profile.spec.js`, `pilot-4-profile-save.spec.js` |
 
-## GATE trước khi merge (BẮT BUỘC — lý do DRAFT)
+## [LỊCH SỬ — đã đóng tại cutover 02/08] GATE trước khi merge
+
+> **Toàn bộ mục này là ghi chép giai đoạn chuẩn bị, KHÔNG còn là việc phải làm.**
+> Đính chính theo review PR 893: để nguyên văn cũ khiến trang vừa nói "đã
+> cutover" vừa nói "Pilot 4 CÒN MỞ" và vẫn liệt kê production-smoke như điều
+> kiện tiên quyết — trong khi chính trang này (mục "Hai việc chặn") đã kết luận
+> **smoke KHÔNG dùng được cho route authed**. Trạng thái đóng thật:
+>
+> - Pilot 4 (mutation): **ĐÃ ĐÓNG** — N/N−1 xanh, kill-switch đo lại 872/1094ms
+>   (31/07), staging E2E 23/23.
+> - Baseline `/profile` ≤72h: **ĐÃ ĐO** — 0 lượt organic/24h08m ⇒ xếp lớp
+>   zero-traffic của ADR-013.
+> - Production-smoke: **BỎ, có lý do** — browser ẩn danh bị đẩy sang `/login.html`.
+>   Vế synthetic do staging E2E gánh.
+> - Refresh main + re-verify: **ĐÃ LÀM** (drift 446 commit, suite 5792/0).
 
 **Pilot 3 (read) — ĐÃ ĐẠT:**
 - [x] ADR-011 đóng (AuthProvider state machine)
 - [x] Private no-store (`/auth/me`, `/auth/profile`, `PATCH /auth/profile`)
 - [x] Isolation E2E: logout→back/forward, Login A→B, same-status switch (#742)
 
-**Pilot 4 (mutation) — CÒN MỞ:**
+**Pilot 4 (mutation) — [đã đóng 02/08; nguyên văn lúc prep]:**
 - [x] Idempotency (set-semantics PATCH; replay pin)
 - [x] Canonical reconcile GET + double-submit + timeout-after-commit (#743/#749)
 - [x] Kill switch `require_flag("profile_update")` + drill đo (545ms/759ms)
@@ -231,3 +249,54 @@ thiết kế — không phải drift thật (production vẫn = main HEAD). Vá 
 | Vế synthetic | staging E2E 23/23 (đã có) |
 | Vế thời-gian | quan sát 48–72h ở chế độ ngưỡng tuyệt đối |
 | Điều kiện dừng | bất kỳ lỗi persistence/security → rollback ngay; P1 trang không render → rollback |
+
+
+## ✅ CUTOVER ĐÃ THỰC HIỆN — 2026-08-02 07:1x +07
+
+Release **`311f5086`** (merge PR #756). Auto-promote: production
+`runtime-config.release` = main HEAD ngay lần poll đầu.
+
+| Kiểm (browser-based, cadence thưa) | Kết quả |
+|---|---|
+| `/profile` | **200, Next SSR** (`__next_f`), 24.9 KB |
+| Trình duyệt thật (đang đăng nhập) | render đủ: tên, email, ngày tham gia, **75 sessions · band 5.5 · mục tiêu 5/tuần**, form thông tin + band mục tiêu + ngày thi + trình độ. **0 console error** |
+| `/pages/profile.html` | **307 → `/profile`** (tạm thời, đúng thiết kế rollback) |
+| Route khác | `/` NEXT · `/grammar/...` NEXT · `/pages/home.html` legacy · `/pages/speaking.html` legacy — nguyên vẹn |
+| **Telemetry trên route mới** | `page_view` ghi ngay: **`implementation=next`, `user_id` ≠ NULL, release `311f5086`** |
+| Kill-switch `profile_update` | **không có hàng trong `runtime_flags`** = mặc định BẬT theo ADR-010; PATCH sẽ tạo hàng và tắt trong ~1s (đo 872ms hôm 31/07) |
+
+**Ghi chú về mẫu số — nói cho đúng mốc thời gian** (đính chính theo review
+PR 893, bản đầu của tôi viết quá tay):
+
+| Mốc | Trạng thái beacon trên trang hồ sơ |
+|---|---|
+| Trước **01/08** | **Không có** beacon nào — mọi con số "0 lượt xem" thời kỳ đó là hiện vật đo đạc |
+| 01/08 06:56 (PR 887) | Gắn beacon vào `/pages/profile.html` (bản legacy) |
+| 02/08 07:04 (**trước** cutover) | `page_view` đầu tiên có `user_id` ≠ NULL — chính là lần tôi tự vào để kiểm ống đo |
+| 02/08 07:17 (**sau** cutover) | `page_view` từ route Next, `implementation=next` |
+
+Nên câu đúng là: **trang hồ sơ có mẫu số thật từ 01/08**, không phải "lần đầu
+sau cutover". Cái *không* tồn tại là **baseline có ý nghĩa thống kê** — 24h đó
+đo được đúng 0 lượt organic (đã ghi trong risk acceptance).
+
+**Chưa kiểm trên production: đường MUTATION.** Cố ý — nó ghi dữ liệu thật vào
+hồ sơ của người dùng. Vế đó do **staging E2E 23/23** gánh (save→reload→revert,
+double-submit, kill-switch). Nếu muốn xác nhận trên production thì phải là chủ
+tài khoản tự đổi rồi đổi lại, không phải tôi tự ý ghi.
+
+### Cửa sổ quan sát 48–72h — mở từ 2026-08-02 07:1x
+
+- 48h: **04/08 07:1x** · 72h: **05/08 07:1x**
+- Mỗi ngày: admin *Báo lỗi* → *Rollback trigger* → route `/profile`
+  (**match = chính xác**, không phải prefix) → **Đo**; ghi vào bảng dưới.
+- **KHÔNG dùng production-smoke** cho route này (browser ẩn danh bị đẩy sang
+  `/login.html`, số đo vô nghĩa).
+- Rollback ngay nếu: persistence/security breach · P1 trang không render ·
+  lưu hồ sơ hỏng. Cơ chế: kill-switch trước (tắt mutation, giữ trang đọc), rồi
+  Instant Rollback ≤12s nếu cần; khôi phục = **Undo Rollback DUY NHẤT**.
+
+| Ngày | Views/Lỗi trên `/profile` | LCP p75 | Ghi chú |
+|---|---|---|---|
+| D0 02/08 | 1 view (của tôi) / 0 lỗi | — | cutover + verify |
+| D1 03/08 | | | |
+| D2 04/08 | | | |
