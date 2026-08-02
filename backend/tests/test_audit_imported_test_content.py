@@ -17,10 +17,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from scripts.audit_imported_test_content import (  # noqa: E402
+    LIMIT_KINDS,
     LIMIT_RE,
+    PDF_VERIFIED_LIMITS,
     READING_NEED_OPTIONS,
     TEMPLATE_KINDS,
     has_choices,
+    has_visual,
     junk_items,
     limit_for,
     source_limits,
@@ -197,6 +200,59 @@ def test_matching_information_does_not_require_an_authored_bank():
     do tác giả soạn — đòi payload.options ở đây là báo oan hàng chục câu lành."""
     assert "matching_information" not in READING_NEED_OPTIONS
     assert {"mcq_single", "matching_headings"} <= READING_NEED_OPTIONS
+
+
+# ── phản hồi review PR #892 vòng 2 (Codex) ──────────────────────────────────
+def test_shared_bank_kinds_ignore_per_question_options():
+    """renderMultiSelect/renderMatching KHÔNG đọc options của từng câu. Coi nó
+    là bằng chứng "có lựa chọn" sẽ che mất khối đã mất bank."""
+    q_with_opts = {"options": [{"letter": "A"}]}
+    assert not has_choices("mcq_multi", {"metadata": {}}, q_with_opts)
+    assert not has_choices("matching", {"metadata": {}}, q_with_opts)
+    # còn dạng MCQ thường thì options của từng câu MỚI là nguồn đúng
+    assert has_choices("mcq_3option", {"metadata": {}}, q_with_opts)
+
+
+def test_matching_needs_the_bank_text_not_just_letters():
+    """letter_options chỉ đổ chữ cái vào dropdown; phần chữ giải nghĩa dựng
+    riêng từ match_options. Có chữ cái mà mất bank thì học viên không biết
+    A/B/C nghĩa là gì."""
+    only_letters = {"metadata": {"letter_options": list("ABCDEFG")}}
+    assert not has_choices("matching", only_letters, {})
+    assert has_choices("matching", {"metadata": {"match_options": [{"letter": "A"}]}}, {})
+
+
+def test_plan_label_needs_a_visual():
+    """Đủ đề bài và đủ chữ cái vẫn vô nghĩa nếu không có hình để nhìn."""
+    assert has_visual({"map_image_storage_path": "tests/x.png"})
+    assert has_visual({"map_svg": "<svg/>"})
+    assert not has_visual({"metadata": {"letter_options": list("ABCDEFGH")}})
+
+
+def test_template_has_recognises_summary_gap_tokens():
+    """summary_completion cất khoảng trống dạng "{{Q38}}" trong
+    template.paragraph và để prompt rỗng — chỉ dò dict-có-q_num thì summary
+    lành bị báo oan là "không có đề bài"."""
+    tpl = {"paragraph": "Pockets were made using {{Q38}} to link them."}
+    assert template_has(tpl, 38) is True
+    assert template_has(tpl, 39) is False
+    assert template_has({"paragraph": "gap {{39}} here"}, 39) is True
+
+
+def test_short_answer_blocks_carry_a_word_limit():
+    """Khối "Answer the questions" cũng mang giới hạn từ ⇒ phải vào phép L1."""
+    assert "short_answer" in LIMIT_KINDS
+    assert TEMPLATE_KINDS <= LIMIT_KINDS
+
+
+def test_pdf_verified_limits_are_expectations_not_waivers():
+    """Giá trị đọc từ PDF phải là CHUẨN SO SÁNH, không phải danh sách miễn kiểm.
+    Nếu chỉ miễn kiểm theo mã đề thì một lần re-import làm hỏng đúng khối ấy sẽ
+    im lặng luôn."""
+    assert ("ILR-LIS-CAM-B20-T1", 31) in PDF_VERIFIED_LIMITS
+    assert PDF_VERIFIED_LIMITS[("ILR-LIS-CAM-B20-T1", 31)] == "ONE WORD ONLY"
+    # khoá là (mã đề, câu đầu của khối) — không phải chỉ mã đề
+    assert all(isinstance(k, tuple) and len(k) == 2 for k in PDF_VERIFIED_LIMITS)
 
 
 def test_junk_items_clean_template_is_empty():

@@ -79,16 +79,30 @@ QHEAD_RE = re.compile(
     re.M | re.I)
 
 
-# Đề mà FILE .md NGUỒN mất hẳn dòng giới hạn từ (OCR đánh rơi), NHƯNG đã được
-# đối chiếu THẲNG PDF gốc và vá xong. Nếu để chúng kêu S1 mãi thì bộ soát không
-# bao giờ xanh được, và một bộ soát không bao giờ xanh sẽ bị bỏ qua — đúng cách
-# 961 lỗi trước đây sống sót. Xoá tên khỏi đây khi file nguồn được nhập lại.
-SOURCE_MISSING_OK = {
-    "ILR-LIS-CAM-B20-T1",   # PDF Cambridge 20 trang 10  → Part 4 ONE WORD ONLY
-    "ILR-LIS-CAM-B20-T2",   # PDF Cambridge 20 trang 47  → Part 4 ONE WORD ONLY
-    "ILR-LIS-CAM-B20-T3",   # PDF Cambridge 20 trang 86  → Part 4 ONE WORD ONLY
-    "ILR-LIS-CAM-B20-T4",   # PDF Cambridge 20 trang 122 → Part 4 ONE WORD ONLY
+# Giới hạn từ đọc THẲNG từ PDF gốc, dùng khi file .md nguồn đánh rơi dòng đó.
+#
+# Đây KHÔNG phải danh sách miễn kiểm. Bản trước tôi tắt cảnh báo theo mã đề —
+# nghĩa là một lần re-import làm hỏng chính khối ấy cũng sẽ im lặng luôn. Nay
+# lưu thành KỲ VỌNG TƯỜNG MINH: khối vẫn bị đối chiếu như mọi khối khác, chỉ là
+# chuẩn so sánh lấy từ PDF thay vì .md (Codex vòng 2).
+# Khoá: (mã đề, câu đầu của khối) → giới hạn thật.
+PDF_VERIFIED_LIMITS: dict[tuple[str, int], str] = {
+    ("ILR-LIS-CAM-B20-T1", 31): "ONE WORD ONLY",   # PDF Cambridge 20 trang 10
+    ("ILR-LIS-CAM-B20-T2", 31): "ONE WORD ONLY",   # trang 47
+    ("ILR-LIS-CAM-B20-T3", 31): "ONE WORD ONLY",   # trang 86
+    ("ILR-LIS-CAM-B20-T4", 31): "ONE WORD ONLY",   # trang 122
+    ("ILR-LIS-CAM-B20-T1", 1): "ONE WORD AND/OR A NUMBER",   # trang 5
+    ("ILR-LIS-CAM-B20-T2", 1): "ONE WORD AND/OR A NUMBER",   # trang 41
+    ("ILR-LIS-CAM-B20-T3", 1): "ONE WORD AND/OR A NUMBER",   # trang 79
+    ("ILR-LIS-CAM-B20-T4", 1): "ONE WORD AND/OR A NUMBER",   # trang 116
+    # Cambridge 17 Test 4 — định vị trang bằng chính tiêu đề template trong DB
+    # ("Easy Life Cleaning Services" / "Maple syrup") nên không nhầm đề.
+    ("ILR-LIS-CAM-B17-T4", 1): "ONE WORD",        # trang 68, kiểm lại ở 700dpi
+    ("ILR-LIS-CAM-B17-T4", 31): "ONE WORD ONLY",  # trang 73
 }
+# Đề mà .md nguồn không có dòng giới hạn nào NHƯNG mọi khối của nó đã có kỳ vọng
+# trong PDF_VERIFIED_LIMITS ⇒ không cần kêu S1 ở mức file.
+_PDF_COVERED_TESTS = {code for code, _ in PDF_VERIFIED_LIMITS}
 
 
 def _canon_limit(s: str) -> str:
@@ -103,6 +117,14 @@ def _canon_limit(s: str) -> str:
 #   matching    → metadata.match_options / letter_options
 #   mcq_*option → options của TỪNG câu
 LETTER_KINDS = {"plan_label", "mcq_3option", "mcq_4option", "matching", "mcq_multi"}
+# Dạng mà lựa chọn nằm ở TỪNG CÂU. Với các dạng còn lại, `question.options` là
+# vô nghĩa — renderMultiSelect/renderMatching KHÔNG hề đọc nó — nên coi nó là
+# bằng chứng "có lựa chọn" sẽ che mất khối đã mất bank (Codex vòng 2).
+PER_QUESTION_OPTION_KINDS = {"mcq_3option", "mcq_4option"}
+# Khối completion + short-answer đều mang giới hạn từ ⇒ đều phải đối chiếu L1.
+LIMIT_KINDS = {"notes_completion", "table_completion", "form_completion",
+               "sentence_completion", "summary_completion",
+               "flow_chart", "flow_chart_completion", "short_answer"}
 # Dạng điền chữ: đề bài có thể nằm trong template thay cho prompt.
 # listening_convert.py phát ra CẢ "flow_chart" LẪN "flow_chart_completion" —
 # thiếu tên thứ hai thì flow-chart hợp lệ bị báo oan E1.
@@ -133,25 +155,50 @@ CLASS_NAMES = {
     "E1": "KHÔNG TRẢ LỜI ĐƯỢC: câu không có đề bài",
     "E2": "KHÔNG TRẢ LỜI ĐƯỢC: câu chọn-chữ-cái không có lựa chọn",
     "E3": "KHÔNG TRẢ LỜI ĐƯỢC: exercise không có câu hỏi hợp lệ",
+    "E4": "KHÔNG TRẢ LỜI ĐƯỢC: bản đồ/sơ đồ không có hình",
+    "E5": "KHÔNG ĐỦ CÂU: thiếu/trùng số câu so với 1-40",
     "S1": "KHÔNG SOÁT ĐƯỢC: thiếu file nguồn để đối chiếu",
+    "S2": "KHÔNG SOÁT ĐƯỢC: khối này không có giới hạn từ trong nguồn",
+    "S3": "KHÔNG SOÁT ĐƯỢC: không chọn được đề nào",
 }
 
 
 def has_choices(kind: str, payload: dict, question: dict) -> bool:
     """Câu này có nguồn lựa chọn để học viên bấm không?
 
-    Mỗi dạng cất lựa chọn ở một chỗ khác nhau; kiểm sai chỗ thì vừa bỏ lọt câu
-    hỏng vừa báo oan câu lành. Bản đầu chỉ dò `options` của từng câu nên bản đồ
-    lành (lựa chọn nằm ở `metadata.letter_options`) bị đánh trượt (Codex, #892).
+    Mỗi dạng cất lựa chọn một chỗ; kiểm sai chỗ thì vừa bỏ lọt câu hỏng vừa
+    đánh trượt câu lành. Tra thẳng listening-test-player.js, đừng suy đoán:
+
+      mcq_3option/4option → options của TỪNG câu
+      plan_label          → metadata.letter_options (nghĩa nằm trên hình)
+      mcq_multi           → metadata.match_options (renderMultiSelect dựng
+                            checkbox TỪ ĐÂY, không đọc options của câu)
+      matching            → metadata.match_options BẮT BUỘC: letter_options chỉ
+                            đổ chữ cái vào dropdown, còn phần chữ giải nghĩa
+                            dựng riêng từ match_options — có chữ cái mà mất
+                            bank thì học viên không biết A/B/C nghĩa là gì.
     """
     meta = payload.get("metadata") or {}
-    if question.get("options"):
-        return True
+    if kind in PER_QUESTION_OPTION_KINDS:
+        return bool(question.get("options"))
     if kind == "plan_label":
-        return bool(meta.get("letter_options"))
-    if kind in ("mcq_multi", "matching"):
-        return bool(meta.get("match_options") or meta.get("letter_options"))
-    return False
+        return bool(meta.get("letter_options") or question.get("options"))
+    if kind == "mcq_multi":
+        return bool(meta.get("match_options"))
+    if kind == "matching":
+        return bool(meta.get("match_options"))
+    return bool(question.get("options"))
+
+
+def has_visual(payload: dict) -> bool:
+    """Khối gắn nhãn bản đồ/sơ đồ có hình để nhìn không?
+
+    Đủ prompt và đủ chữ cái vẫn vô nghĩa nếu không có hình: renderPlanLabel sẽ
+    hiện thông báo "thiếu bản đồ" và học viên chẳng có vị trí nào để gắn nhãn.
+    """
+    return bool(payload.get("map_image_storage_path")
+                or payload.get("map_svg")
+                or payload.get("map_image_url"))
 
 
 # ── nguồn ───────────────────────────────────────────────────────────────────
@@ -197,7 +244,16 @@ def fetch(table: str, cols: str, **eq):
 
 
 def template_has(tpl, qnum: int) -> bool:
-    """Template có dòng riêng cho câu này không (prefix/suffix hoặc ô bảng)."""
+    """Template có chỗ dành riêng cho câu này không?
+
+    Hai hình dạng, phải nhận CẢ HAI:
+      • ô có `q_num` (notes/table/form/flow-chart)
+      • token `{{Q38}}` / `{{38}}` trong chuỗi — summary_completion cất khoảng
+        trống kiểu này trong `template.paragraph`, và prompt của từng câu để
+        rỗng. Chỉ dò dict-có-q_num thì summary lành bị báo oan là "không có đề
+        bài" (Codex vòng 2).
+    """
+    token = re.compile(rf"{{{{\s*Q?{qnum}\s*}}}}")
     hit = False
 
     def walk(n):
@@ -213,6 +269,9 @@ def template_has(tpl, qnum: int) -> bool:
         elif isinstance(n, list):
             for v in n:
                 walk(v)
+        elif isinstance(n, str):
+            if token.search(n):
+                hit = True
 
     walk(tpl)
     return hit
@@ -261,10 +320,11 @@ def audit(source_dir: Path | None, modes: set[str],
             # Thiếu file nguồn KHÔNG được coi là "sạch": --source-dir gõ sai thì
             # mọi phép so-với-nguồn im lặng biến mất và lệnh vẫn in SẠCH, exit 0
             # — đúng cái kiểu "xanh mà rỗng" mà bộ soát này sinh ra để chặn.
-            if not limits and t["test_id"] not in SOURCE_MISSING_OK:
+            if not limits and t["test_id"] not in _PDF_COVERED_TESTS:
                 issues.append({"class": "S1", "file": str(src),
                                "why": "không đọc được giới hạn từ nào"})
 
+        seen_qnums: list[int] = []
         content = fetch("listening_content", "id,section_num", test_id=t["id"])
         cids = [c["id"] for c in content]
         exs = (supabase_admin.table("listening_exercises")
@@ -284,18 +344,25 @@ def audit(source_dir: Path | None, modes: set[str],
                                    "kind": p.get("template_kind"),
                                    "n_questions": len(qs)})
                 continue
+            seen_qnums.extend(qn)
             rng = f"{qn[0]}-{qn[-1]}"
             kind = p.get("template_kind")
 
             if "fidelity" in modes:
-                if kind in TEMPLATE_KINDS and limits:
-                    want = limit_for(qn[0], limits)
+                if kind in LIMIT_KINDS and source_dir:
+                    # Kỳ vọng từ PDF thắng, rồi mới tới .md nguồn.
+                    want = (PDF_VERIFIED_LIMITS.get((t["test_id"], qn[0]))
+                            or limit_for(qn[0], limits))
                     got = LIMIT_RE.search(instr)
-                    got = got.group(1).upper() if got else None
-                    # So NGAY KHI nguồn có giới hạn: `got=None` nghĩa là hướng
-                    # dẫn mất hẳn cụm giới hạn — hỏng nặng hơn là ghi sai, mà
-                    # bản đầu lại bỏ qua (nhánh Reading vốn đã bắt đúng ca này).
-                    if want and want != got:
+                    got = _canon_limit(got.group(1)) if got else None
+                    if not want:
+                        # Nguồn đọc được MỘT SỐ khối nhưng không có khối này ⇒
+                        # trước đây lặng lẽ bỏ qua vì `want=None`. Đó đúng là
+                        # cái lỗ đã giấu 27 lỗi, chỉ nhỏ hơn một cấp.
+                        issues.append({"class": "S2", "range": rng, "kind": kind})
+                    elif want != got:
+                        # So NGAY KHI có `want`: `got=None` nghĩa là hướng dẫn
+                        # mất hẳn cụm giới hạn — hỏng nặng hơn là ghi sai.
                         issues.append({"class": "L1", "range": rng,
                                        "got": got, "want": want})
                 j = junk_items(p.get("template"))
@@ -329,6 +396,19 @@ def audit(source_dir: Path | None, modes: set[str],
                         issues.append({"class": "E1", "q": q["q_num"], "kind": kind})
                     if kind in LETTER_KINDS and not has_choices(kind, p, q):
                         issues.append({"class": "E2", "q": q["q_num"], "kind": kind})
+                if kind == "plan_label" and not has_visual(p):
+                    issues.append({"class": "E4", "range": rng})
+
+        if "answerable" in modes and seen_qnums:
+            # Đủ prompt, đủ lựa chọn vẫn chưa đủ: một exercise mất 1 trong 10 câu
+            # thì `qn` vẫn khác rỗng nên câu bị rơi hoàn toàn vô hình. Đếm phủ
+            # sóng ở mức ĐỀ mới thấy (Codex vòng 2).
+            dup = sorted({x for x in seen_qnums if seen_qnums.count(x) > 1})
+            missing = sorted(set(range(1, 41)) - set(seen_qnums))
+            extra = sorted(set(seen_qnums) - set(range(1, 41)))
+            if dup or missing or extra:
+                issues.append({"class": "E5", "thieu": missing,
+                               "trung": dup, "ngoai_pham_vi": extra})
 
         report["listening"][t["test_id"]] = issues
 
@@ -342,22 +422,33 @@ def audit(source_dir: Path | None, modes: set[str],
             if not limits:
                 issues.append({"class": "S1", "file": str(src),
                                "why": "không đọc được giới hạn từ nào"})
+        rdg_qnums: list[int] = []
         for pg in fetch("reading_passages", "id", test_id=t["id"]):
             # `prompt` PHẢI có trong projection: phép soát E1 đọc nó, và một cột
             # không fetch thì luôn là None ⇒ báo oan mọi câu là "không có đề bài".
             for q in fetch("reading_questions", "q_num,question_type,prompt,payload",
                            passage_id=pg["id"]):
                 p = q.get("payload") or {}
+                rdg_qnums.append(q["q_num"])
                 if "fidelity" in modes and limits \
                         and q["question_type"] in COMPLETION_RDG and not p.get("options"):
                     want = limit_for(q["q_num"], limits)
-                    got = (p.get("word_limit") or "").upper() or None
-                    if want and want != got:
+                    got = _canon_limit(p["word_limit"]) if p.get("word_limit") else None
+                    if not want:
+                        issues.append({"class": "S2", "q": q["q_num"],
+                                       "kind": q["question_type"]})
+                    elif want != got:
                         issues.append({"class": "R1", "q": q["q_num"],
                                        "got": got, "want": want})
                 if "answerable" in modes:
-                    if not (q.get("prompt") or "").strip() \
-                            and not (p.get("template") or {}).get("summary_text"):
+                    summary = (p.get("template") or {}).get("summary_text") or ""
+                    # Có summary_text CHƯA ĐỦ: _renderFlowingSummaryBlock chỉ
+                    # dựng ô nhập cho câu nào CÓ token {{N}} của chính nó. Mất
+                    # một token là câu đó không có gì để gõ, mà bản trước vẫn
+                    # coi cả khối là lành (Codex vòng 2).
+                    has_marker = bool(summary) and bool(
+                        re.search(rf"{{{{\s*Q?{q['q_num']}\s*}}}}", summary))
+                    if not (q.get("prompt") or "").strip() and not has_marker:
                         issues.append({"class": "E1", "q": q["q_num"],
                                        "kind": q["question_type"]})
                     # Bản đầu chỉ hỏi "có đề bài không" cho Reading, nên một câu
@@ -367,8 +458,23 @@ def audit(source_dir: Path | None, modes: set[str],
                             and not (p.get("options") or []):
                         issues.append({"class": "E2", "q": q["q_num"],
                                        "kind": q["question_type"]})
+        if "answerable" in modes and rdg_qnums:
+            dup = sorted({x for x in rdg_qnums if rdg_qnums.count(x) > 1})
+            missing = sorted(set(range(1, 41)) - set(rdg_qnums))
+            extra = sorted(set(rdg_qnums) - set(range(1, 41)))
+            if dup or missing or extra:
+                issues.append({"class": "E5", "thieu": missing,
+                               "trung": dup, "ngoai_pham_vi": extra})
         report["reading"][t["test_id"]] = issues
 
+    # Không chọn được đề nào KHÔNG phải là "sạch" — gõ sai --test-prefix hoặc
+    # trỏ nhầm database sẽ cho ra hai bảng rỗng và lệnh vẫn in SẠCH, exit 0.
+    if not lis or not rdg:
+        report.setdefault("_global", {})["__coverage__"] = [{
+            "class": "S3",
+            "listening": len(lis), "reading": len(rdg),
+            "prefix": [lis_prefix, rdg_prefix],
+        }]
     return report
 
 
@@ -383,6 +489,8 @@ def main() -> int:
     ap.add_argument("--test-prefix", nargs=2, metavar=("LISTENING", "READING"),
                     default=[LIS_PREFIX, RDG_PREFIX])
     ap.add_argument("--json", type=Path, default=None, help="Ghi báo cáo đầy đủ.")
+    ap.add_argument("--strict", action="store_true",
+                    help="Coi cả cảnh báo phủ sóng (S2) là lỗi ⇒ thoát 1.")
     args = ap.parse_args()
 
     modes = {"fidelity", "answerable"} if args.mode == "both" else {args.mode}
@@ -401,22 +509,49 @@ def main() -> int:
 
     n_lis, n_rdg = len(report["listening"]), len(report["reading"])
     print(f"Đã soát {n_lis} đề Listening · {n_rdg} đề Reading\n")
-    if not tally:
-        print("SẠCH — không lỗi nào.")
-        return 0
 
-    print("=== SỐ CHỖ LỖI THEO LỚP ===")
-    for k in sorted(tally):
-        print(f"  {k}  {tally[k]:5d}   {CLASS_NAMES.get(k, k)}")
-    print("\n=== CHI TIẾT ===")
-    for side in ("listening", "reading"):
-        for tid, issues in sorted(report[side].items()):
-            for i in issues:
-                extra = {k: v for k, v in i.items() if k != "class"}
-                print(f"  {i['class']}  {tid}: {extra}")
+    # HAI loại kết quả, đừng trộn:
+    #   LỖI      — nội dung thật sự hỏng (L*, R1, E*) ⇒ luôn thoát 1.
+    #   PHỦ SÓNG — chỗ bộ soát KHÔNG kiểm được. S1/S3 nghĩa là gần như không
+    #              kiểm gì ⇒ cũng thoát 1. S2 nghĩa là kiểm được phần lớn,
+    #              riêng vài khối nguồn không có chuẩn để so ⇒ cảnh báo, chỉ
+    #              thoát 1 khi --strict.
+    #   Trộn chúng lại thì bộ soát đỏ vĩnh viễn, và một bộ soát đỏ vĩnh viễn
+    #   sẽ bị ngó lơ — đúng cách ~1000 lỗi trước đây sống sót.
+    defects = {k: v for k, v in tally.items() if not k.startswith("S")}
+    hard_gaps = {k: v for k, v in tally.items() if k in ("S1", "S3")}
+    soft_gaps = {k: v for k, v in tally.items() if k == "S2"}
+
+    def _dump(pred):
+        for side in ("listening", "reading", "_global"):
+            for tid, issues in sorted(report.get(side, {}).items()):
+                for i in issues:
+                    if not pred(i["class"]):
+                        continue
+                    extra = {k: v for k, v in i.items() if k != "class"}
+                    print(f"  {i['class']}  {tid}: {extra}")
+
+    if defects or hard_gaps:
+        print("=== LỖI ===")
+        for k in sorted({**defects, **hard_gaps}):
+            print(f"  {k}  {tally[k]:5d}   {CLASS_NAMES.get(k, k)}")
+        print()
+        _dump(lambda c: c in defects or c in hard_gaps)
+    else:
+        print("KHÔNG CÓ LỖI NỘI DUNG.")
+
+    if soft_gaps:
+        n = tally["S2"]
+        print(f"\n=== CẢNH BÁO PHỦ SÓNG: {n} khối không đối chiếu được ===")
+        print("  (file nguồn không có giới hạn từ cho khối này — CHƯA KIỂM,"
+              " không phải ĐÃ ĐÚNG. Dùng --strict để coi đây là lỗi.)")
+        _dump(lambda c: c == "S2")
+
     if args.json:
         print(f"\n→ báo cáo đầy đủ: {args.json}")
-    return 1
+    if defects or hard_gaps:
+        return 1
+    return 1 if (soft_gaps and args.strict) else 0
 
 
 if __name__ == "__main__":
