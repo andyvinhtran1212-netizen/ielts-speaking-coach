@@ -86,6 +86,27 @@ Kèm 3 điều kiện trước khi tính tới Gate D:
 3. Bắt đầu tách **primitive dùng chung** ngay trong 2–3 route đầu của ramp,
    nếu không Phase 3–6 sẽ là chép-dán 125 lần.
 
+## 6. QUYẾT ĐỊNH CỦA CHỦ DỰ ÁN — 2026-08-02: **GO TOÀN BỘ**
+
+Chủ dự án chọn **làm tiếp toàn bộ**, tức migrate diện rộng Phase 3–7, **khác
+với khuyến nghị "GO có giới hạn" ở mục 5**. Ghi lại đúng như vậy để hồ sơ trung
+thực, không viết lại khuyến nghị cho khớp quyết định.
+
+**Hệ quả phải nói rõ:** §16 quy định quy mô rộng thuộc **Gate D** (primitive ổn
+định qua ≥3 implementation, dashboard/alert vận hành, contract validation trên
+endpoint quan trọng). Đi thẳng diện rộng = **bỏ qua các điều kiện đó**.
+
+**Cách bù, áp dụng ngay từ route đầu của Phase 3:**
+
+1. **Dựng bộ khung dùng chung TRƯỚC, chép tay SAU.** Route đầu tiên của Phase 3
+   phải sinh ra layout/primitive tái dùng được, không phải một bản chép của
+   trang legacy. Đây là điều kiện Gate D quan trọng nhất, mình tự áp sớm.
+2. **Kiểm ống đo trước, kết luận sau** — quy tắc rút từ 3 lần "xanh giả".
+3. **Cửa sổ quan sát pilot 3+4 vẫn chạy tới 04–05/08.** Trong thời gian đó vẫn
+   BUILD bình thường, nhưng **cutover route mới thì đợi hết cửa sổ** — không
+   phải vì freeze (ADR-013 bỏ freeze), mà để nếu `/profile` có sự cố thì còn
+   quy kết được một-biến.
+
 **Quyết định cuối là của chủ dự án.** Nếu chọn *pause*, trạng thái hiện tại vẫn
 an toàn: 3 route Next + 125 trang legacy chạy chung một deployment, rollback
 ≤12s còn nguyên, và không có nợ nào bắt buộc phải trả ngay.
