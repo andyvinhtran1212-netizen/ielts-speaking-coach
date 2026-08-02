@@ -14,6 +14,7 @@ from database import supabase_admin
 from routers.auth import get_supabase_user
 from services.class_assignment_service import (
     ItemNotFoundError,
+    TaskMismatchError,
     bind_session_to_class_item,
     mark_item_submitted,
 )
@@ -372,9 +373,10 @@ async def create_session(
     if body.class_assignment_item_id:
         try:
             bind_session_to_class_item(
-                supabase_admin, s["id"], user_id, body.class_assignment_item_id
+                supabase_admin, s["id"], user_id, body.class_assignment_item_id,
+                session_mode=body.mode, session_part=body.part, session_topic=body.topic,
             )
-        except ItemNotFoundError as e:
+        except (ItemNotFoundError, TaskMismatchError) as e:
             raise HTTPException(status_code=400, detail=str(e))
         except Exception as e:
             # The session exists and is usable; only the ledger link failed.
@@ -1241,6 +1243,38 @@ async def finalize_full_test(
 
 # ── PATCH /sessions/{session_id}/complete ──────────────────────────────────────
 
+def _record_class_submission(session: dict) -> bool:
+    """GĐ 2 — record a completed speaking session against its class assignment.
+
+    Best-effort on purpose: a graded session must still complete when the ledger
+    write fails. But the failure is logged, not swallowed — an unrecorded hand-in
+    shows up to the teacher as the student simply not having done the work.
+
+    Safe to call more than once. mark_item_submitted only writes while
+    submitted_at IS NULL, so a retry cannot push the submission time later and
+    turn an on-time hand-in into a late one; it also means calling this from the
+    already-completed path repairs a previously failed write instead of
+    duplicating a good one.
+    """
+    item_id = session.get("class_assignment_item_id")
+    if not item_id:
+        return False
+    try:
+        return mark_item_submitted(
+            supabase_admin,
+            item_id=item_id,
+            artifact_kind="session",
+            artifact_id=session["id"],
+            score=session.get("overall_band"),
+        )
+    except Exception as e:
+        logger.warning(
+            "[complete_session] class item not recorded session=%s item=%s: %s",
+            session.get("id"), item_id, e,
+        )
+        return False
+
+
 @router.patch("/{session_id}/complete")
 async def complete_session(
     session_id: str,
@@ -1273,6 +1307,12 @@ async def complete_session(
 
     if session["status"] == "completed" and session.get("overall_band") is not None:
         # Idempotent: already done with a valid band — return current state.
+        # The ledger write is retried here on purpose: if it failed the first
+        # time, this early return is the ONLY path a retry can take, and without
+        # it a transient failure would leave the teacher seeing the homework as
+        # never handed in, permanently. _record_class_submission is a no-op once
+        # the item already carries a submitted_at.
+        _record_class_submission(session)
         return {**session, "session_id": session["id"]}
     if session["status"] == "completed":
         # Already completed but band is null (e.g. prior DB save failure) — fall through to recompute.
@@ -1320,28 +1360,5 @@ async def complete_session(
         raise HTTPException(status_code=500, detail=f"Không thể hoàn thành session: {e}")
 
     completed = result.data[0]
-
-    # GĐ 2 — close the class-assignment loop. Best-effort on purpose: a graded
-    # session must still complete if the ledger write fails, but the failure is
-    # logged rather than swallowed, because an unrecorded hand-in shows up to the
-    # teacher as the student simply not having done the work.
-    # mark_item_submitted only writes while submitted_at IS NULL, so re-completing
-    # a session cannot push the submission time later and turn an on-time hand-in
-    # into a late one.
-    item_id = completed.get("class_assignment_item_id")
-    if item_id:
-        try:
-            mark_item_submitted(
-                supabase_admin,
-                item_id=item_id,
-                artifact_kind="session",
-                artifact_id=completed["id"],
-                score=completed.get("overall_band"),
-            )
-        except Exception as e:
-            logger.warning(
-                "[complete_session] class item not recorded session=%s item=%s: %s",
-                session_id, item_id, e,
-            )
-
+    _record_class_submission(completed)
     return {**completed, "session_id": completed["id"]}

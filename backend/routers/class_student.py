@@ -28,6 +28,7 @@ from fastapi import APIRouter, Header, HTTPException
 
 from database import supabase_admin
 from routers.auth import get_supabase_user
+from services.class_assignment_service import is_assignment_open
 
 logger = logging.getLogger(__name__)
 
@@ -112,9 +113,13 @@ async def my_assignments(authorization: str | None = Header(default=None)):
     by_id = {a["id"]: a for a in rows}
 
     now = datetime.now(timezone.utc)
+    # Items are created eagerly at give time, so `publish_at` is the only thing
+    # keeping a give scheduled for next week off today's list.
     out = [
         _decorate(i, by_id[i["assignment_id"]], now)
-        for i in items if i["assignment_id"] in by_id      # draft/archived hidden
+        for i in items
+        if i["assignment_id"] in by_id
+        and is_assignment_open(by_id[i["assignment_id"]], now=now)
     ]
     return {"has_class": True, "assignments": out}
 
@@ -153,7 +158,7 @@ async def start_assignment(
         supabase_admin.table("class_assignments").select("*")
         .eq("id", item["assignment_id"]).limit(1).execute().data
     ) or []
-    if not a_rows or a_rows[0].get("status") != "published":
+    if not a_rows or not is_assignment_open(a_rows[0]):
         raise HTTPException(404, "Bài tập không còn mở")
     assignment = a_rows[0]
 

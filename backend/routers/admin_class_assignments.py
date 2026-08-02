@@ -26,6 +26,7 @@ from pydantic import BaseModel, Field, model_validator
 from database import supabase_admin
 from routers.admin import require_admin
 from services.class_assignment_service import (
+    EmptyRosterError,
     create_class_assignment,
     progress_for_assignments,
 )
@@ -134,13 +135,11 @@ async def create_assignment(
             due_date=body.due_date,
             instructions=body.instructions,
         )
+    except EmptyRosterError as exc:
+        # Raised BEFORE anything is inserted, so no orphan give is left behind.
+        raise HTTPException(400, str(exc))
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi giao bài: {exc}")
-
-    if result["student_count"] == 0:
-        # The row exists but reaches nobody. Fail loudly — an admin who thinks
-        # they gave homework and did not is the worst outcome here.
-        raise HTTPException(400, "Lớp này chưa có học viên nào để giao bài.")
 
     return result
 

@@ -122,6 +122,11 @@ def create_class_assignment(
     nobody is never intended).
     """
     students = _roster_student_ids(db, cohort_id)
+    if not students:
+        # Checked BEFORE the insert. Returning an error after creating the row
+        # would leave a published 0/0 give that reaches nobody — the admin is
+        # told "không giao được", reloads, and finds it sitting there anyway.
+        raise EmptyRosterError("Lớp này chưa có học viên nào để giao bài.")
     unactivated = [s for s in students if not s.get("user_id")]
 
     assignment_id = str(uuid4())
@@ -142,13 +147,12 @@ def create_class_assignment(
     if not created:
         raise RuntimeError("Không tạo được bài giao")
 
-    if students:
-        # One bulk insert — a partial fan-out would leave some students holding
-        # homework the class list does not know about.
-        db.table("class_assignment_items").insert([
-            {"assignment_id": assignment_id, "student_id": s["id"]}
-            for s in students
-        ]).execute()
+    # One bulk insert — a partial fan-out would leave some students holding
+    # homework the class list does not know about.
+    db.table("class_assignment_items").insert([
+        {"assignment_id": assignment_id, "student_id": s["id"]}
+        for s in students
+    ]).execute()
 
     return {
         **created,
@@ -262,11 +266,43 @@ def mark_item_submitted(
     return bool(r.data)
 
 
+class EmptyRosterError(Exception):
+    """The class has no students, so the give would reach nobody."""
+
+
 class ItemNotFoundError(Exception):
     """The item does not exist, or does not belong to this user."""
 
 
-def bind_session_to_class_item(db, session_id: str, user_id: str, item_id: str) -> None:
+class TaskMismatchError(Exception):
+    """The session does not answer the task that was assigned."""
+
+
+def is_assignment_open(assignment: Dict[str, Any], *, now: Optional[datetime] = None) -> bool:
+    """Published, and past its scheduled reveal.
+
+    `publish_at` is the reveal gate from migration 177. Items are created eagerly
+    at give time, so without this check a give scheduled for next Monday is
+    visible the moment it is created.
+    """
+    if (assignment.get("status") or "") != "published":
+        return False
+    publish_at = assignment.get("publish_at")
+    if not publish_at:
+        return True
+    return datetime.fromisoformat(publish_at) <= (now or datetime.now(timezone.utc))
+
+
+def bind_session_to_class_item(
+    db,
+    session_id: str,
+    user_id: str,
+    item_id: str,
+    *,
+    session_mode: Optional[str] = None,
+    session_part: Optional[int] = None,
+    session_topic: Optional[str] = None,
+) -> None:
     """Link a freshly-created speaking session to the class item it answers.
 
     Ownership is checked HERE, against the caller's own user_id, because
@@ -286,12 +322,42 @@ def bind_session_to_class_item(db, session_id: str, user_id: str, item_id: str) 
         raise ItemNotFoundError("Tài khoản này chưa gắn với hồ sơ học viên nào")
 
     owned = (
-        db.table("class_assignment_items").select("id")
+        db.table("class_assignment_items").select("id, assignment_id")
         .eq("id", item_id).eq("student_id", student[0]["id"])
         .limit(1).execute().data
     ) or []
     if not owned:
         raise ItemNotFoundError("Bài tập không thuộc về học viên này")
+
+    # Ownership alone is not enough. `class_assignment_item_id` arrives in a
+    # request body alongside a topic/mode/part the caller also chose, so without
+    # this check a student can point an easy Part 1 practice session at a Part 3
+    # assignment and have it recorded as the homework. The ledger's entire value
+    # is that it proves the ASSIGNED task was done.
+    a_rows = (
+        db.table("class_assignments").select("*")
+        .eq("id", owned[0]["assignment_id"]).limit(1).execute().data
+    ) or []
+    if not a_rows:
+        raise ItemNotFoundError("Không tìm thấy bài giao")
+    assignment = a_rows[0]
+
+    if not is_assignment_open(assignment):
+        raise TaskMismatchError("Bài tập chưa mở hoặc đã đóng")
+
+    cfg = assignment.get("content_config") or {}
+    expected_mode = cfg.get("mode") or "practice"
+    expected_part = cfg.get("part") or 1
+    expected_topic = (cfg.get("topic") or "").strip().casefold()
+
+    if session_mode != expected_mode or int(session_part or 0) != int(expected_part):
+        raise TaskMismatchError(
+            f"Phiên này không khớp bài được giao (cần {expected_mode}, part {expected_part})."
+        )
+    # Topic compared case/whitespace-insensitively: it round-trips through the
+    # client, and a stray capital must not block a student from handing in.
+    if expected_topic and (session_topic or "").strip().casefold() != expected_topic:
+        raise TaskMismatchError("Chủ đề của phiên không khớp bài được giao.")
 
     db.table("sessions").update(
         {"class_assignment_item_id": item_id}
