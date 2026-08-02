@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 
 from database import supabase_admin
 from routers.admin import require_admin, _aggregate_usage_for_users, _issue_code_and_assign
+from services.class_service import list_cohorts_with_rollup
 
 router = APIRouter(prefix="/admin/cohorts", tags=["admin", "cohorts"])
 
@@ -26,6 +27,7 @@ class CohortCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     code_prefix: str | None = Field(default=None, max_length=20)
     description: str | None = None
+    course_id: str | None = None          # mig 175 — NULL = chưa gán khoá
 
 
 class CohortPatchRequest(BaseModel):
@@ -33,29 +35,38 @@ class CohortPatchRequest(BaseModel):
     code_prefix: str | None = Field(default=None, max_length=20)
     description: str | None = None
     is_active: bool | None = None
+    # mig 175. Explicit null is meaningful here — it un-assigns the course — so
+    # this field is read via `exclude_unset` below, not by an is-not-None check
+    # like its neighbours.
+    course_id: str | None = None
 
 
 @router.get("")
 async def list_cohorts(
     is_active: bool | None = None,
+    course_id: str | None = None,
     authorization: str | None = Header(default=None),
 ):
-    """List cohorts. Default: only active. Pass is_active=false to see archived."""
-    admin = await require_admin(authorization)
+    """List cohorts, each with its course and roster counts.
 
-    q = supabase_admin.table("cohorts").select("*")
-    if is_active is True:
-        q = q.eq("is_active", True)
-    elif is_active is False:
-        q = q.eq("is_active", False)
-    # is_active is None → no filter (admin wants to see everything)
+    GĐ 1: the response gained `course`, `member_count` and `unactivated_count`
+    (services/class_service). `unactivated_count` is the number of students on
+    the roster with no account — they receive nothing that is assigned to them,
+    so the merged admin page shows it on every class row rather than behind a
+    click. Both counts are `null`, plus a top-level `rollup_failed: true`, when
+    the roster scan errors: "0 học viên" is a claim a failed query has not
+    earned.
+
+    Pass `is_active=false` to see archived classes; omit it for everything.
+    """
+    await require_admin(authorization)
 
     try:
-        r = q.order("created_at", desc=True).execute()
+        return list_cohorts_with_rollup(
+            supabase_admin, is_active=is_active, course_id=course_id
+        )
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi tải danh sách lớp: {exc}")
-
-    return {"cohorts": r.data or []}
 
 
 @router.post("")
@@ -69,6 +80,7 @@ async def create_cohort(
         "name": body.name,
         "code_prefix": body.code_prefix,
         "description": body.description,
+        "course_id": body.course_id,
         "is_active": True,
         "created_by": admin["id"],
         "created_at": now_iso,
@@ -100,6 +112,10 @@ async def update_cohort(
         updates["description"] = body.description
     if body.is_active is not None:
         updates["is_active"] = body.is_active
+    # course_id is read from the raw request instead: an explicit `null` means
+    # "gỡ khoá khỏi lớp", and an is-not-None check would silently drop it.
+    if "course_id" in body.model_fields_set:
+        updates["course_id"] = body.course_id
 
     if not updates:
         raise HTTPException(400, "Không có trường nào để cập nhật")

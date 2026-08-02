@@ -18,7 +18,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const front = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
 
 const CSS = front('css', 'aver-design', 'admin-components.css');
-const COHORTS = front('pages', 'admin', 'cohorts', 'index.html');
+const COHORTS = front('pages', 'admin', 'classes', 'index.html');
 const ACCESS = front('pages', 'admin', 'access-codes', 'index.html');
 
 
@@ -30,12 +30,12 @@ describe('Sprint 18.3.1.1 — action buttons stay whole', () => {
 
 describe('Sprint 18.3.1.1 — cohorts detail header reflows (root cause)', () => {
   test('header uses the wrapping .co-detail-head class, not a no-wrap inline flex', () => {
-    assert.match(COHORTS, /class="co-header co-detail-head"/);
+    assert.match(COHORTS, /class="cl-header cl-detail-head"/);
     assert.doesNotMatch(COHORTS, /style="display:flex;align-items:flex-start;justify-content:space-between/);
   });
   test('.co-detail-head wraps + lets the title side shrink', () => {
-    assert.match(COHORTS, /\.co-detail-head\s*\{[\s\S]*?flex-wrap:\s*wrap/);
-    assert.match(COHORTS, /\.co-detail-head\s*>\s*div\s*\{\s*min-width:\s*0/);
+    assert.match(COHORTS, /\.cl-detail-head\s*\{[\s\S]*?flex-wrap:\s*wrap/);
+    assert.match(COHORTS, /\.cl-detail-head\s*>\s*div\s*\{\s*min-width:\s*0/);
   });
 });
 
@@ -46,7 +46,7 @@ describe('Sprint 18.3.1.1 — access-codes toolbar hardened', () => {
 });
 
 describe('Sprint 18.3.1.1 — no remaining no-wrap space-between header in scope', () => {
-  for (const [page, html] of [['cohorts', COHORTS], ['access-codes', ACCESS]]) {
+  for (const [page, html] of [['classes', COHORTS], ['access-codes', ACCESS]]) {
     test(`${page} has no inline space-between flex header without wrap`, () => {
       assert.doesNotMatch(html, /style="[^"]*justify-content:space-between[^"]*"/);
     });

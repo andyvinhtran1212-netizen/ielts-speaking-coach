@@ -21,13 +21,13 @@ const MIGRATED = {
   'access-codes': front('pages', 'admin', 'access-codes', 'index.html'),
   'usage':        front('pages', 'admin', 'usage', 'index.html'),
   'foot-traffic': front('pages', 'admin', 'foot-traffic', 'index.html'),
-  'cohorts':      front('pages', 'admin', 'cohorts', 'index.html'),
+  'classes':      front('pages', 'admin', 'classes', 'index.html'),
 };
 const MIGRATED_JS = {
   'admin-access-codes.js': front('js', 'admin-access-codes.js'),
   'admin-usage.js':        front('js', 'admin-usage.js'),
   'admin-foot-traffic.js': front('js', 'admin-foot-traffic.js'),
-  'admin-cohorts.js':      front('js', 'admin-cohorts.js'),
+  'admin-classes.js':      front('js', 'admin-classes.js'),
 };
 
 

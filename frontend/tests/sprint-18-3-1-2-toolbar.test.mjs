@@ -20,7 +20,7 @@ const front = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
 
 const ACCESS = front('pages', 'admin', 'access-codes', 'index.html');
 const USAGE = front('pages', 'admin', 'usage', 'index.html');
-const COHORTS = front('pages', 'admin', 'cohorts', 'index.html');
+const COHORTS = front('pages', 'admin', 'classes', 'index.html');
 
 
 describe('Sprint 18.3.1.2 — Pattern #42: premise check', () => {
@@ -46,6 +46,6 @@ describe('Sprint 18.3.1.2 — same control-cap applied to other filter patterns 
     assert.match(USAGE, /\.us-filter input\[type="search"\]\s*\{[\s\S]*?min-width:\s*0[\s\S]*?max-width:\s*100%/);
   });
   test('cohorts filter control capped', () => {
-    assert.match(COHORTS, /\.co-filter select\s*\{[\s\S]*?min-width:\s*0[\s\S]*?max-width:\s*100%/);
+    assert.match(COHORTS, /\.cl-filter select\s*\{[\s\S]*?min-width:\s*0[\s\S]*?max-width:\s*100%/);
   });
 });

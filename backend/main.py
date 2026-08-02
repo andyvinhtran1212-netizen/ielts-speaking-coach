@@ -39,6 +39,8 @@ from routers.tts import router as tts_router
 from routers.export import router as export_router
 from routers.admin import router as admin_router
 from routers.cohorts import router as cohorts_router
+from routers.admin_courses import router as admin_courses_router
+from routers.admin_class_lessons import router as admin_class_lessons_router
 from routers.error_logs import router as error_logs_router
 from routers.admin_flags import router as admin_flags_router
 from routers.admin_overview import router as admin_overview_router
@@ -227,6 +229,8 @@ app.include_router(tts_router)
 app.include_router(export_router)
 app.include_router(admin_router)
 app.include_router(cohorts_router)
+app.include_router(admin_courses_router)
+app.include_router(admin_class_lessons_router)
 app.include_router(error_logs_router)
 app.include_router(admin_flags_router)
 app.include_router(admin_overview_router)

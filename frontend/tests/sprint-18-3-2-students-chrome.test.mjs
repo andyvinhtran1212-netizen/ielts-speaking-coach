@@ -85,7 +85,7 @@ describe('Sprint 18.3.2 — features preserved', () => {
 
 describe('Sprint 18.3.2 — Sprint 18.1 tabs preserved', () => {
   test('"Lớp & Học viên" subtabs intact, students active', () => {
-    assert.match(HTML, /class="adm-subtab"[^>]*href="\/pages\/admin\/cohorts\/index\.html"/);
+    assert.match(HTML, /class="adm-subtab"[^>]*href="\/pages\/admin\/classes\/index\.html"/);
     assert.match(HTML, /class="adm-subtab is-active"[^>]*href="\/pages\/admin\/students\/index\.html"/);
   });
 });

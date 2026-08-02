@@ -24,7 +24,7 @@ const DASH = front('pages', 'admin', 'index.html');
 // Students is excluded: Tailwind's preflight already sets border-box, and it
 // migrates fully in Sprint 18.3.2. 'dashboard' dropped: it's now a redirect
 // stub (the ops metrics live on the unified index page, which links the CSS).
-const LINKED_PAGES = ['access-codes', 'cohorts', 'foot-traffic', 'usage', 'system'];
+const LINKED_PAGES = ['access-codes', 'classes', 'foot-traffic', 'usage', 'system'];
 
 
 describe('Sprint 18.3.1 — overflow root-cause fix', () => {

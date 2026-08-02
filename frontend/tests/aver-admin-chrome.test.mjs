@@ -57,7 +57,7 @@ describe('Sprint 12.1 — aver-admin-chrome component source', () => {
     const sections = [
       'overview',
       'speaking', 'writing', 'listening', 'vocab', 'grammar',
-      'students', 'users', 'cohorts',
+      'students', 'users', 'classes',
       'access-codes', 'usage',
       'error-logs',
       'system',
@@ -78,7 +78,7 @@ describe('Sprint 12.1 — aver-admin-chrome component source', () => {
     // stale cluster-19.x chrome fails.)
     assert.match(CHROME_JS, /PHASE_B_SECTIONS\s*=\s*new Set\(\[\s*\]\)/);
     // No section should still be tagged Phase B.
-    for (const s of ['cohorts', 'usage', 'system']) {
+    for (const s of ['classes', 'usage', 'system']) {
       assert.doesNotMatch(
         CHROME_JS,
         new RegExp(`PHASE_B_SECTIONS\\s*=\\s*new Set\\(\\[[^\\]]*['"]${s}['"]`),
@@ -230,7 +230,7 @@ describe('Sprint 12.1 — section index pages (all graduated from placeholders)'
   // state and were the cluster-19.x "3 stale chrome fails". Now they pin
   // the durable contract: the page exists + mounts the admin chrome.
   const sections = [
-    'cohorts', 'usage',
+    'classes', 'usage',
   ];
   for (const s of sections) {
     it(`/pages/admin/${s}/index.html exists with chrome (now LIVE, not a placeholder)`, () => {

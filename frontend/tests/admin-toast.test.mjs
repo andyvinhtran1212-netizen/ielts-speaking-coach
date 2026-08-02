@@ -54,15 +54,26 @@ describe('migration — mechanical, timing preserved', () => {
 
   // admin-listening-upload.js + admin-listening-render.js dropped from the
   // list 2026-07-17 — those admin surfaces were decommissioned (usage audit).
-  test('all 20 showBanner now delegate to showToast', () => {
+  test('all 19 showBanner now delegate to showToast', () => {
     for (const f of [
-      'admin-access-codes.js','admin-cohorts.js','admin-dashboard.js','admin-error-logs.js',
+      'admin-access-codes.js','admin-dashboard.js','admin-error-logs.js',
       'admin-listening-content-detail.js','admin-listening-content-list.js','admin-listening-content-meta.js',
       'admin-listening-gist.js','admin-listening-mcq.js','admin-listening-segments.js',
       'admin-listening-tf.js','admin-reading-attempts.js','admin-speaking-sessions.js',
       'admin-speaking-topics.js','admin-users.js','admin-vocab-d1.js','admin-vocab-exercises.js',
       'admin-vocab-lemmas.js','admin-vocab-stats.js','admin-writing-queue.js',
     ]) delegates(f);
+  });
+
+  // admin-classes.js (GĐ 1) replaced admin-cohorts.js and never carried the
+  // showBanner wrapper — it calls the shared primitive directly, so the legacy
+  // regex above does not describe it. Its real contract is pinned here instead
+  // of loosening that regex for the 19 files it does describe.
+  test('admin-classes.js routes messages through showToast, never native dialogs', () => {
+    const src = read('js', 'admin-classes.js');
+    assert.match(src, /window\.showToast\(/);
+    assert.doesNotMatch(src, /(?<!\.)\balert\(/);
+    assert.doesNotMatch(src, /(?<![.\w])confirm\((?!Danger)/);
   });
   test('auto-dismiss timing preserved: 4s (access-codes) · 5s (speaking-sessions)', () => {
     assert.match(read('js', 'admin-access-codes.js'), /showToast\(msg, kind === 'error' \? 'error' : 'success', \{ timeout: 4000 \}\)/);

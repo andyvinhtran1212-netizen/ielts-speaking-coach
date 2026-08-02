@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Lớp &amp; Học viên · Admin</title>
+
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-components.css" />
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2.107.0" defer></script>
+  <script src="/js/runtime-config.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/toast.js"></script>
+  <script src="/js/confirm-danger.js"></script>
+
+  <style>
+    /* Page-specific layout only — table/button/chip/modal/banner/empty/subtab
+       all come from admin-components.css. */
+    body.av-page { font-family: var(--av-font-sans); margin: 0; }
+
+    /* 1100px matches .adm-subtabs and the sibling admin pages — a wider shell
+       would leave the tab bar visibly narrower than the table under it. */
+    .cl-shell { max-width: 1100px; margin: 0 auto; padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-6); }
+
+    /* Visually hidden but announced — used for the actions column header, which
+       needs a name for screen readers and no glyph for everyone else. This page
+       does not load Tailwind, so .sr-only is defined here. */
+    .sr-only {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+    }
+
+    /* .adm-subtab is written for <a>. The in-page sub-tabs are <button> (they
+       switch a panel, they don't navigate), so restore the inherited font and
+       the pointer that a button would otherwise lose. */
+    button.adm-subtab { font: inherit; cursor: pointer; }
+
+    /* The sub-tab bar inside the detail view is already inside the shell's
+       max-width and padding; without this it would centre itself again at a
+       narrower width and add a second gutter. */
+    .cl-shell .adm-subtabs { max-width: none; margin: 0; padding: 0; }
+    .cl-header h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-semibold);
+      margin: 0 0 var(--av-space-1); }
+    .cl-header .cl-subtitle { color: var(--av-text-secondary); font-size: var(--av-fs-sm); margin: 0; }
+
+    .cl-toolbar { display: flex; gap: var(--av-space-3); align-items: flex-end;
+      justify-content: space-between; flex-wrap: wrap; }
+    .cl-filters { display: flex; gap: var(--av-space-3); flex-wrap: wrap; }
+    .cl-filter { display: flex; flex-direction: column; gap: 4px; min-width: 190px; }
+    .cl-filter label { font-size: var(--av-fs-xs); color: var(--av-text-muted);
+      text-transform: uppercase; letter-spacing: var(--av-tracking-wide); }
+    .cl-filter select {
+      padding: 8px 12px; border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md); background: var(--av-surface-card);
+      color: var(--av-text-primary); font-size: var(--av-fs-sm);
+      width: 100%; min-width: 0; max-width: 100%;
+    }
+
+    /* Roster cell. The activation gap is the point of this page: a student with
+       no account receives nothing that is assigned to them, silently. It is
+       stated on every class row rather than one click deep. */
+    .cl-roster { display: flex; flex-direction: column; gap: 2px; }
+    .cl-roster-count { font-variant-numeric: tabular-nums; }
+    .cl-roster-gap {
+      font-size: var(--av-fs-xs); color: var(--av-warning);
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .cl-roster-gap::before { content: "▲"; font-size: 9px; line-height: 1; }
+    .cl-roster-unknown { font-size: var(--av-fs-xs); color: var(--av-warning); }
+
+    .cl-course-chip { font-family: var(--av-font-mono); font-size: var(--av-fs-xs); }
+    .cl-muted { color: var(--av-text-muted); }
+
+    /* .aver-link is defined in home.css, which admin pages do not load — an
+       undefined class would leave the class-name link at browser-default blue. */
+    .cl-link { color: var(--av-text-primary); font-weight: var(--av-fw-medium);
+      text-decoration: none; }
+    .cl-link:hover { text-decoration: underline; }
+
+    /* Detail header may wrap; the title side can shrink so the action button is
+       never pushed past the right edge. */
+    .cl-detail-head { display: flex; align-items: flex-start;
+      justify-content: space-between; gap: var(--av-space-3); flex-wrap: wrap; }
+    .cl-detail-head > div { min-width: 0; }
+    .cl-detail-meta { display: flex; align-items: center; gap: var(--av-space-2);
+      flex-wrap: wrap; margin-top: var(--av-space-1);
+      color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
+    .cl-back { font-size: var(--av-fs-sm); align-self: flex-start; }
+
+    .cl-panel-head { display: flex; align-items: center; justify-content: space-between;
+      gap: var(--av-space-3); flex-wrap: wrap; }
+    .cl-panel-note { color: var(--av-text-secondary); font-size: var(--av-fs-sm); margin: 0; }
+
+    /* Lesson list — content, not tabular data, so it reads as cards. */
+    .cl-lessons { display: flex; flex-direction: column; gap: var(--av-space-3); }
+    .cl-lesson { border: 1px solid var(--av-border-subtle); border-radius: var(--av-radius-lg);
+      background: var(--av-surface-card); padding: var(--av-space-4);
+      display: flex; gap: var(--av-space-4); align-items: flex-start; }
+    .cl-lesson-no { font-family: var(--av-font-mono); font-size: var(--av-fs-sm);
+      color: var(--av-text-muted); min-width: 3.5rem; padding-top: 2px; }
+    .cl-lesson-main { flex: 1; min-width: 0; }
+    .cl-lesson-title { font-weight: var(--av-fw-semibold); margin: 0 0 2px; }
+    .cl-lesson-sub { color: var(--av-text-muted); font-size: var(--av-fs-xs); margin: 0 0 var(--av-space-2); }
+    .cl-lesson-body { color: var(--av-text-secondary); font-size: var(--av-fs-sm);
+      margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .cl-lesson-files { display: flex; flex-wrap: wrap; gap: var(--av-space-2);
+      margin-top: var(--av-space-2); }
+    .cl-lesson-actions { display: flex; gap: var(--av-space-2); flex-shrink: 0; }
+
+    .cl-attach-row { display: flex; gap: var(--av-space-2); margin-bottom: var(--av-space-2); }
+    .cl-attach-row input { flex: 1; min-width: 0; }
+    .cl-form-row { display: flex; gap: var(--av-space-3); flex-wrap: wrap; }
+    .cl-form-row > * { flex: 1; min-width: 140px; }
+    .cl-check { display: flex; align-items: center; gap: var(--av-space-2);
+      font-size: var(--av-fs-sm); }
+    .cl-check input { width: auto; }
+
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body class="av-page">
+  <aver-admin-chrome active="classes">
+
+    <nav class="adm-subtabs" aria-label="Khu vực Lớp và Học viên">
+      <a class="adm-subtab is-active" href="/pages/admin/classes/index.html" aria-current="page">Lớp</a>
+      <a class="adm-subtab" href="/pages/admin/students/index.html">Học viên</a>
+    </nav>
+
+    <!-- ── Danh sách lớp ─────────────────────────────────────────────── -->
+    <main class="cl-shell" id="view-list" hidden>
+      <header class="cl-header">
+        <h1>Lớp &amp; Học viên</h1>
+        <p class="cl-subtitle">Mỗi lớp là một lần mở của một khoá học. Sĩ số kèm số học viên chưa có tài khoản — những bạn này không nhận được bài giao.</p>
+      </header>
+
+      <div class="cl-toolbar">
+        <div class="cl-filters">
+          <div class="cl-filter">
+            <label for="filter-course">Khoá học</label>
+            <select id="filter-course">
+              <option value="">Tất cả khoá</option>
+            </select>
+          </div>
+          <div class="cl-filter">
+            <label for="filter-status">Trạng thái</label>
+            <select id="filter-status">
+              <option value="active">Đang hoạt động</option>
+              <option value="archived">Đã lưu trữ</option>
+              <option value="all">Tất cả</option>
+            </select>
+          </div>
+        </div>
+        <button class="adm-btn-primary" id="btn-create-cohort" type="button">Tạo lớp</button>
+      </div>
+
+      <div class="adm-banner" id="list-banner" hidden></div>
+      <div class="adm-loading" id="list-loading">Đang tải…</div>
+      <div class="adm-empty" id="list-empty" hidden></div>
+
+      <div class="adm-table-wrap" id="list-table-wrap" hidden>
+        <table class="adm-table">
+          <thead>
+            <tr>
+              <th>Lớp</th>
+              <th>Khoá học</th>
+              <th>Sĩ số</th>
+              <th>Tiền tố mã</th>
+              <th>Trạng thái</th>
+              <th><span class="sr-only">Thao tác</span></th>
+            </tr>
+          </thead>
+          <tbody id="list-tbody"></tbody>
+        </table>
+      </div>
+    </main>
+
+    <!-- ── Chi tiết một lớp (?cohort_id=…) ───────────────────────────── -->
+    <main class="cl-shell" id="view-detail" hidden>
+      <a class="cl-back adm-btn-secondary" href="/pages/admin/classes/index.html">← Tất cả lớp</a>
+
+      <header class="cl-header cl-detail-head">
+        <div>
+          <h1 id="detail-title">Lớp</h1>
+          <div class="cl-detail-meta" id="detail-meta"></div>
+        </div>
+        <button class="adm-btn-secondary" id="btn-edit-cohort" type="button">Sửa thông tin lớp</button>
+      </header>
+
+      <div class="adm-banner" id="detail-banner" hidden></div>
+
+      <nav class="adm-subtabs" aria-label="Nội dung lớp">
+        <button class="adm-subtab is-active" id="tab-roster" type="button" aria-current="page">Sĩ số</button>
+        <button class="adm-subtab" id="tab-lessons" type="button">Buổi học</button>
+      </nav>
+
+      <!-- Sĩ số -->
+      <section id="panel-roster">
+        <div class="cl-panel-head">
+          <p class="cl-panel-note" id="roster-summary"></p>
+          <button class="adm-btn-primary" id="btn-add-member" type="button">Thêm học viên</button>
+        </div>
+
+        <div class="adm-loading" id="roster-loading" hidden>Đang tải…</div>
+        <div class="adm-empty" id="roster-empty" hidden>
+          Lớp này chưa có học viên. Thêm học viên đã có hồ sơ vào lớp để bắt đầu.
+        </div>
+
+        <div class="adm-table-wrap" id="roster-table-wrap" hidden>
+          <table class="adm-table">
+            <thead>
+              <tr>
+                <th>Học viên</th>
+                <th>Mã HV</th>
+                <th>Phiên nói</th>
+                <th>Hoạt động gần nhất</th>
+                <th>Chi phí AI</th>
+                <th><span class="sr-only">Thao tác</span></th>
+              </tr>
+            </thead>
+            <tbody id="roster-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Buổi học -->
+      <section id="panel-lessons" hidden>
+        <div class="cl-panel-head">
+          <p class="cl-panel-note">Nội dung buổi học. Học viên chỉ thấy buổi đã đăng.</p>
+          <button class="adm-btn-primary" id="btn-add-lesson" type="button">Thêm buổi học</button>
+        </div>
+
+        <div class="adm-loading" id="lessons-loading" hidden>Đang tải…</div>
+        <div class="adm-empty" id="lessons-empty" hidden>
+          Chưa có buổi học nào. Thêm buổi đầu tiên để học viên có nội dung để xem.
+        </div>
+        <div class="cl-lessons" id="lessons-list"></div>
+      </section>
+    </main>
+
+    <!-- ── Tạo / sửa lớp ─────────────────────────────────────────────── -->
+    <div class="adm-modal-backdrop" id="cohort-modal" hidden>
+      <div class="adm-modal" role="dialog" aria-modal="true" aria-labelledby="cohort-modal-title">
+        <h2 id="cohort-modal-title">Tạo lớp</h2>
+        <div class="adm-field">
+          <label for="cf-name">Tên lớp</label>
+          <input id="cf-name" type="text" maxlength="200" />
+        </div>
+        <div class="adm-field">
+          <label for="cf-course">Khoá học</label>
+          <select id="cf-course"><option value="">Chưa gán khoá</option></select>
+        </div>
+        <div class="adm-field">
+          <label for="cf-prefix">Tiền tố mã (tuỳ chọn)</label>
+          <input id="cf-prefix" type="text" maxlength="20" />
+        </div>
+        <div class="adm-field">
+          <label for="cf-desc">Mô tả (tuỳ chọn)</label>
+          <textarea id="cf-desc" rows="2"></textarea>
+        </div>
+        <div class="adm-banner" id="cf-error" hidden></div>
+        <div class="adm-modal-actions">
+          <button class="adm-btn-secondary" id="btn-cf-cancel" type="button">Huỷ</button>
+          <button class="adm-btn-primary" id="btn-cf-submit" type="button">Lưu</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Thêm học viên vào lớp ─────────────────────────────────────── -->
+    <div class="adm-modal-backdrop" id="member-modal" hidden>
+      <div class="adm-modal" role="dialog" aria-modal="true" aria-labelledby="member-modal-title">
+        <h2 id="member-modal-title">Thêm học viên vào lớp</h2>
+        <p class="cl-panel-note">Gán một học viên đã có hồ sơ vào lớp này. Thao tác này không cấp mã đăng nhập.</p>
+        <div class="adm-field">
+          <label for="mf-student">Học viên</label>
+          <select id="mf-student"><option value="">— Chọn học viên —</option></select>
+        </div>
+        <div class="adm-banner" id="mf-error" hidden></div>
+        <div class="adm-modal-actions">
+          <button class="adm-btn-secondary" id="btn-mf-cancel" type="button">Huỷ</button>
+          <button class="adm-btn-primary" id="btn-mf-submit" type="button">Thêm vào lớp</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Tạo / sửa buổi học ────────────────────────────────────────── -->
+    <div class="adm-modal-backdrop" id="lesson-modal" hidden>
+      <div class="adm-modal" role="dialog" aria-modal="true" aria-labelledby="lesson-modal-title">
+        <h2 id="lesson-modal-title">Thêm buổi học</h2>
+        <div class="cl-form-row">
+          <div class="adm-field">
+            <label for="lf-no">Buổi số (tuỳ chọn)</label>
+            <input id="lf-no" type="number" min="1" step="1" />
+          </div>
+          <div class="adm-field">
+            <label for="lf-date">Ngày học (tuỳ chọn)</label>
+            <input id="lf-date" type="date" />
+          </div>
+        </div>
+        <div class="adm-field">
+          <label for="lf-title">Tiêu đề</label>
+          <input id="lf-title" type="text" maxlength="300" />
+        </div>
+        <div class="adm-field">
+          <label for="lf-body">Nội dung</label>
+          <textarea id="lf-body" rows="6"></textarea>
+        </div>
+        <div class="adm-field">
+          <label>Tài liệu</label>
+          <div id="lf-attachments"></div>
+          <button class="adm-btn-secondary" id="btn-lf-add-file" type="button">Thêm tài liệu</button>
+        </div>
+        <label class="cl-check">
+          <input id="lf-published" type="checkbox" />
+          Đăng cho học viên xem
+        </label>
+        <div class="adm-banner" id="lf-error" hidden></div>
+        <div class="adm-modal-actions">
+          <button class="adm-btn-secondary" id="btn-lf-cancel" type="button">Huỷ</button>
+          <button class="adm-btn-primary" id="btn-lf-submit" type="button">Lưu</button>
+        </div>
+      </div>
+    </div>
+
+  </aver-admin-chrome>
+
+  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
+  <script type="module" src="/js/admin-classes.js"></script>
+</body>
+</html>

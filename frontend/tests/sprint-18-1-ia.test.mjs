@@ -19,8 +19,8 @@ const front = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
 
 const USERS_JS    = front('js', 'admin-users.js');
 const USERS_HTML  = front('pages', 'admin', 'users', 'index.html');
-const COHORTS_JS  = front('js', 'admin-cohorts.js');
-const COHORTS_HTML = front('pages', 'admin', 'cohorts', 'index.html');
+const COHORTS_JS  = front('js', 'admin-classes.js');
+const COHORTS_HTML = front('pages', 'admin', 'classes', 'index.html');
 const STUDENTS_HTML = front('pages', 'admin', 'students', 'index.html');
 const CHROME      = front('js', 'components', 'aver-admin-chrome.js');
 // Sprint 18.3 moved the cohorts page's .adm-subtab styles into the shared
@@ -52,14 +52,14 @@ describe('Sprint 18.1 B — convert user → học viên', () => {
 
 describe('Sprint 18.1 D — cohort add-member user dropdown', () => {
   test('add-member picker is a <select>, not a raw UUID input', () => {
-    assert.match(COHORTS_HTML, /<select id="am-user">/);
-    assert.doesNotMatch(COHORTS_HTML, /<input id="am-user"/);
+    assert.match(COHORTS_HTML, /<select id="mf-student">/);
+    assert.doesNotMatch(COHORTS_HTML, /<input id="mf-student"/);
   });
   test('dropdown is populated from GET /admin/students (WF-1 roster picker)', () => {
-    assert.match(COHORTS_JS, /populateStudentDropdown/);
+    assert.match(COHORTS_JS, /populateStudentPicker/);
     assert.match(COHORTS_JS, /api\.get\('\/admin\/students/);
   });
-  test('Pattern #26 — no inline colour/bg in admin-cohorts.js', () => {
+  test('Pattern #26 — no inline colour/bg in admin-classes.js', () => {
     assert.doesNotMatch(COHORTS_JS, /style\s*=\s*["'][^"']*color\s*:/);
     assert.doesNotMatch(COHORTS_JS, /style\s*=\s*["'][^"']*background/);
     assert.doesNotMatch(COHORTS_JS, /rgba\(\s*\d+\s*,/);
@@ -68,12 +68,12 @@ describe('Sprint 18.1 D — cohort add-member user dropdown', () => {
 
 describe('Sprint 18.1 A — "Lớp & Học viên" tab bar', () => {
   test('cohorts page: cohorts tab active, links to students', () => {
-    assert.match(COHORTS_HTML, /class="adm-subtab is-active"[^>]*href="\/pages\/admin\/cohorts\/index\.html"/);
+    assert.match(COHORTS_HTML, /class="adm-subtab is-active"[^>]*href="\/pages\/admin\/classes\/index\.html"/);
     assert.match(COHORTS_HTML, /class="adm-subtab"[^>]*href="\/pages\/admin\/students\/index\.html"/);
   });
   test('students page: students tab active, links to cohorts', () => {
     assert.match(STUDENTS_HTML, /class="adm-subtab is-active"[^>]*href="\/pages\/admin\/students\/index\.html"/);
-    assert.match(STUDENTS_HTML, /class="adm-subtab"[^>]*href="\/pages\/admin\/cohorts\/index\.html"/);
+    assert.match(STUDENTS_HTML, /class="adm-subtab"[^>]*href="\/pages\/admin\/classes\/index\.html"/);
   });
   test('tab active state uses tokenised brand classes (no inline hex)', () => {
     // Both pages now consume the shared admin-components.css for the tab styles
