@@ -268,16 +268,46 @@ describe('the four Codex round-2 findings stay fixed', () => {
     `${SRC.slice(SRC.indexOf(from), SRC.indexOf(to))} return ${name};`,
   )({ location: { origin: 'https://averlearning.com' } }, (s) => String(s));
 
-  test('a passed deadline still yields a target, so the reload can fire', () => {
+  test('an expired but not-yet-missing deadline still triggers the refresh', () => {
     // Filtering on `at > now` made the item vanish the instant it expired: the
-    // box hid, the timer cleared, and the reload never ran — the task sat under
-    // "Cần nộp" forever.
+    // box hid, the timer cleared, and the reload never ran.
     const expired = [{
-      item_id: 'x', submitted_at: null,
+      item_id: 'x', submitted_at: null, is_missing: false,
       assignment: { due_at: new Date(Date.now() - 60e3).toISOString() },
     }];
     assert.notEqual(nextDue(expired), null,
-      'an expired deadline must remain the target until the reload happens');
+      'the gap between "expired locally" and "marked missing" is what fires the refresh');
+  });
+
+  test('a row the server marked missing is NOT a countdown target', () => {
+    // This is what stops the boundary refresh becoming a loop: the reload
+    // returns the row marked missing, it drops out here, and the countdown moves
+    // on. Without it the page asked the server again every second, forever, for
+    // any student holding one overdue task.
+    const missing = [{
+      item_id: 'x', submitted_at: null, is_missing: true,
+      assignment: { due_at: new Date(Date.now() - 3600e3).toISOString() },
+    }];
+    assert.equal(nextDue(missing), null);
+  });
+
+  test('an overdue row does not hide a genuinely upcoming one', () => {
+    const now = Date.now();
+    const rows = [
+      { item_id: 'overdue', submitted_at: null, is_missing: true,
+        assignment: { due_at: new Date(now - 3600e3).toISOString() } },
+      { item_id: 'tonight', submitted_at: null, is_missing: false,
+        assignment: { due_at: new Date(now + 40 * 60e3).toISOString() } },
+    ];
+    assert.equal(nextDue(rows).a.item_id, 'tonight');
+  });
+
+  test('the boundary refresh happens once per item, not once per tick', () => {
+    const fn = codeOnly(SRC.slice(SRC.indexOf('function renderCountdown'),
+                                  SRC.indexOf('function startTicking')));
+    assert.match(fn, /_deadlineReloaded\.has\(next\.a\.item_id\)/,
+      'without a per-item guard a server that never marks the row missing is polled forever');
+    assert.match(fn, /_deadlineReloaded\.add\(next\.a\.item_id\)/);
   });
 
   test('renderCountdown reloads once, not every tick', () => {

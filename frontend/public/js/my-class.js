@@ -30,6 +30,8 @@ const esc = (s) => (typeof window !== 'undefined' && window.WC && window.WC.esca
 let _data = null;
 let _tick = null;
 let _reloadingForDeadline = false;
+// item_ids already refreshed once at their deadline — see renderCountdown.
+const _deadlineReloaded = new Set();
 
 // ── Formatting ──────────────────────────────────────────────────────────────
 
@@ -187,17 +189,21 @@ function renderLessons(lessons) {
 // ── The countdown ───────────────────────────────────────────────────────────
 
 /**
- * The nearest unsubmitted deadline, whether or not it has passed.
+ * The nearest deadline still worth counting down to.
  *
- * It deliberately does NOT drop expired ones. Filtering on `at > now` made the
- * item vanish the instant its deadline passed: the box hid itself, the timer
- * cleared, and the `left <= 0` reload below never ran — so the task sat under
- * "Cần nộp" until the student reloaded by hand, exactly the state the reload was
- * written to prevent.
+ * `is_missing` comes from the server and is authoritative: it means the deadline
+ * has passed with nothing submitted, and that work belongs under "Quá hạn", not
+ * in a countdown. Excluding it is what stops the boundary reload from becoming a
+ * loop — the row comes back marked missing, is dropped here, and the countdown
+ * moves on to the next genuinely upcoming task.
+ *
+ * A deadline that has expired locally but is NOT yet marked missing is still
+ * returned, deliberately: that gap is exactly what triggers the one refresh that
+ * asks the server to re-classify it.
  */
 function nextDue(assignments) {
   return assignments
-    .filter((a) => !a.submitted_at && a.assignment.due_at)
+    .filter((a) => !a.submitted_at && a.assignment.due_at && !a.is_missing)
     .map((a) => ({ a, at: new Date(a.assignment.due_at).getTime() }))
     .filter((x) => Number.isFinite(x.at))
     .sort((x, y) => x.at - y.at)[0] || null;
@@ -218,12 +224,21 @@ function renderCountdown() {
 
   const left = next.at - Date.now();
   if (left <= 0) {
-    // The deadline passed while this page was open. Re-fetch once so the task
-    // moves into "Quá hạn" instead of sitting at 0 under "Cần nộp"; the guard
-    // stops a 1-second timer from firing a request every tick.
+    // The deadline passed while this page was open. Re-fetch ONCE so the server
+    // re-classifies it as missing; it is then excluded by nextDue() and the
+    // countdown moves to the next upcoming task.
+    //
+    // Two guards, and both are needed. `_reloadingForDeadline` stops a 1-second
+    // timer from firing a request per tick while one is in flight.
+    // `_deadlineReloaded` remembers WHICH item we already refreshed for: without
+    // it, a server that does not mark the row missing (clock skew, a deadline
+    // the backend still considers open) would be re-asked every second forever
+    // — one request per second per student, which is how the previous fix turned
+    // into a worse bug than the one it fixed.
     box.hidden = true;
     if (_tick) { clearInterval(_tick); _tick = null; }
-    if (!_reloadingForDeadline) {
+    if (!_reloadingForDeadline && !_deadlineReloaded.has(next.a.item_id)) {
+      _deadlineReloaded.add(next.a.item_id);
       _reloadingForDeadline = true;
       load().finally(() => { _reloadingForDeadline = false; });
     }
