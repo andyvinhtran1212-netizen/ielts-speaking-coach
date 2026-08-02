@@ -300,6 +300,45 @@
   }
 
   // ── Boot ────────────────────────────────────────────────────────────
+  /**
+   * GĐ 3 — the class strip.
+   *
+   * Its own fetch, deliberately not folded into the home summary: a learner in
+   * no class (most of them, on a mass code) must not pay for it, and a failure
+   * here must not take the skills grid down with it. On failure the strip stays
+   * hidden — showing "0 bài cần nộp" from a request that never answered would
+   * tell a student they owe nothing, which is the one thing it must never say.
+   */
+  async function loadClassStrip() {
+    let data;
+    try {
+      data = await window.api.get('/api/class/me');
+    } catch (e) {
+      return;                      // stay hidden; the class page reports the error
+    }
+    if (!data || !data.has_class) return;
+
+    const p = data.progress;
+    const cls = data.class || {};
+    document.getElementById('class-strip-name').textContent = cls.name || 'Lớp của tôi';
+    document.getElementById('class-strip-meta').textContent =
+      cls.course ? cls.course.name : '';
+
+    // A degraded assignments block means we do not KNOW the count. Say so
+    // rather than printing a number nobody computed.
+    const todoEl = document.getElementById('class-strip-todo');
+    todoEl.textContent = p ? p.todo : '—';
+
+    const alarm = document.getElementById('class-strip-alarm');
+    if (p && p.missing > 0) {
+      alarm.textContent = p.missing + ' bài quá hạn';
+      alarm.style.color = 'var(--av-warning)';
+    } else {
+      alarm.textContent = '';
+    }
+    document.getElementById('class-strip').hidden = false;
+  }
+
   async function loadHome() {
     let data;
     let permissions = null;
@@ -331,6 +370,7 @@
 
     renderHero(data);
     SKILLS_ORDER.forEach(id => renderSkillCard(id, data.skills[id], permissions));
+    loadClassStrip();   // independent: its failure must not affect the grid
     // Any stat the render path didn't set (e.g. a skill with no formatter) is no
     // longer loading — show a genuine 0 rather than leaving it blinking forever.
     clearStatLoading('0');

@@ -93,6 +93,64 @@ def _decorate(item: Dict[str, Any], assignment: Dict[str, Any], now: datetime) -
     }
 
 
+def _visible_assignments(student: Dict[str, Any], now: datetime) -> list:
+    """This student's assignments — outstanding in full, history capped.
+
+    Shared by /my-assignments and /me so the two can never disagree about what
+    the student owes.
+
+    OUTSTANDING WORK IS NEVER CAPPED. Two earlier shapes both dropped work still
+    owed: capping item rows hid an older unsubmitted task behind 200 newer ones,
+    and capping assignments did too because 200 newer *completed* gives sort
+    ahead of one old unsubmitted one. A student must never be shown "nothing to
+    do" while an unanswered task exists.
+    """
+    outstanding = _paged_items(
+        lambda q: q.eq("student_id", student["id"]).is_("submitted_at", "null")
+    )
+    history = (
+        supabase_admin.table("class_assignment_items")
+        .select("*")
+        .eq("student_id", student["id"])
+        .not_.is_("submitted_at", "null")
+        .order("submitted_at", desc=True)
+        .limit(_MAX_HISTORY)
+        .execute().data
+    ) or []
+
+    items = outstanding + history
+    if not items:
+        return []
+
+    a_ids = list({i["assignment_id"] for i in items})
+    by_id: Dict[str, Dict[str, Any]] = {}
+    for chunk in (a_ids[i:i + _ID_CHUNK] for i in range(0, len(a_ids), _ID_CHUNK)):
+        for a in ((supabase_admin.table("class_assignments")
+                   .select("*")
+                   .in_("id", chunk)
+                   .eq("cohort_id", student["cohort_id"])   # CURRENT class only
+                   .execute().data) or []):
+            # Items are created eagerly at give time, so `publish_at` is the only
+            # thing keeping a give scheduled for next week off the list;
+            # `status` keeps draft and archived ones off it.
+            #
+            # The cohort filter matters because moving a student between classes
+            # only rewrites students.cohort_id — their old class's item rows
+            # stay. Without it, class A's homework vanishes while the student has
+            # no class and REAPPEARS when they join class B.
+            if is_assignment_open(a, now=now):
+                by_id[a["id"]] = a
+
+    out = [_decorate(i, by_id[i["assignment_id"]], now)
+           for i in items if i["assignment_id"] in by_id]
+    # Nearest deadline FIRST — this is a to-do list, so what is due today has to
+    # be at the top. A give with no deadline is never urgent, so it sorts last
+    # via its own key rather than by abusing the empty string.
+    out.sort(key=lambda r: (r["assignment"]["due_at"] is None,
+                            r["assignment"]["due_at"] or ""))
+    return out
+
+
 @router.get("/my-assignments")
 async def my_assignments(authorization: str | None = Header(default=None)):
     """Bài tập của học viên đang đăng nhập.
@@ -108,71 +166,11 @@ async def my_assignments(authorization: str | None = Header(default=None)):
     if not student or not student.get("cohort_id"):
         return {"has_class": False, "assignments": []}
 
-    # OUTSTANDING WORK IS NEVER CAPPED.
-    #
-    # Two earlier shapes both dropped work the student still owes. Capping item
-    # rows first hid an older unsubmitted task behind 200 newer ones; capping
-    # ASSIGNMENTS first (round 5) still did, because 200 newer *completed* gives
-    # sort ahead of one old unsubmitted give.
-    #
-    # So the two are fetched separately: everything not yet submitted, in full,
-    # plus a bounded slice of history. A student cannot be shown "you have
-    # nothing to do" while an unanswered task exists — that is the one thing this
-    # endpoint must never get wrong.
     now = datetime.now(timezone.utc)
-
     try:
-        outstanding = _paged_items(
-            lambda q: q.eq("student_id", student["id"]).is_("submitted_at", "null")
-        )
-        history = (
-            supabase_admin.table("class_assignment_items")
-            .select("*")
-            .eq("student_id", student["id"])
-            .not_.is_("submitted_at", "null")
-            .order("submitted_at", desc=True)
-            .limit(_MAX_HISTORY)
-            .execute().data
-        ) or []
+        return {"has_class": True, "assignments": _visible_assignments(student, now)}
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi tải bài tập: {exc}")
-
-    items = outstanding + history
-    if not items:
-        return {"has_class": True, "assignments": []}
-
-    a_ids = list({i["assignment_id"] for i in items})
-    by_id: Dict[str, Dict[str, Any]] = {}
-    try:
-        for chunk in (a_ids[i:i + _ID_CHUNK] for i in range(0, len(a_ids), _ID_CHUNK)):
-            for a in ((supabase_admin.table("class_assignments")
-                       .select("*")
-                       .in_("id", chunk)
-                       .eq("cohort_id", student["cohort_id"])   # CURRENT class only
-                       .execute().data) or []):
-                # Items are created eagerly at give time, so `publish_at` is the
-                # only thing keeping a give scheduled for next week off the list;
-                # `status` keeps draft and archived ones off it.
-                #
-                # And the cohort filter matters because moving a student between
-                # classes only rewrites students.cohort_id — their old class's
-                # item rows stay. Without it, class A's homework vanishes while
-                # the student has no class and REAPPEARS when they join class B.
-                if is_assignment_open(a, now=now):
-                    by_id[a["id"]] = a
-    except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi tải bài tập: {exc}")
-
-    out = [_decorate(i, by_id[i["assignment_id"]], now)
-           for i in items if i["assignment_id"] in by_id]
-    # Nearest deadline FIRST — this is a to-do list, so the thing due today has
-    # to be at the top. reverse=True on ISO strings did the opposite and put next
-    # week's work above today's; the comment said one thing and the code did the
-    # other. A give with no deadline is never urgent, so it sorts last, via a
-    # separate key rather than by abusing the empty string.
-    out.sort(key=lambda r: (r["assignment"]["due_at"] is None,
-                            r["assignment"]["due_at"] or ""))
-    return {"has_class": True, "assignments": out}
 
 
 @router.post("/assignments/{item_id}/start")
@@ -242,3 +240,125 @@ async def start_assignment(
             "class_assignment_item_id": item_id,
         },
     }
+
+
+@router.get("/me")
+async def my_class(authorization: str | None = Header(default=None)):
+    """Trang lớp của học viên — lớp, buổi học, bài tập, tiến độ, trong một lượt gọi.
+
+    Shaped for the page rather than the tables: one round-trip, because the class
+    page shows all four together and three sequential fetches would make it
+    flash through three half-states.
+
+    `has_class: false` is an ordinary answer, not a 404 — most learners are on a
+    mass code and belong to no class. The page shows a plain explanation and the
+    home card hides itself.
+
+    Each block is built independently and a failure downgrades only that block
+    (`degraded: [...]`), mirroring services/student_home_aggregator: a class page
+    that 500s because the lessons query hiccuped would hide the homework too,
+    which is the part the student actually needs.
+    """
+    auth_user = await get_supabase_user(authorization)
+    student = _student_for_user(auth_user["id"])
+
+    if not student or not student.get("cohort_id"):
+        return {"has_class": False}
+
+    now = datetime.now(timezone.utc)
+    degraded: list[str] = []
+
+    cohort: Dict[str, Any] = {}
+    try:
+        rows = (
+            supabase_admin.table("cohorts")
+            .select("id, name, description, course_id")
+            .eq("id", student["cohort_id"]).limit(1).execute().data
+        ) or []
+        cohort = rows[0] if rows else {}
+        if cohort.get("course_id"):
+            crows = (
+                supabase_admin.table("courses").select("code, name")
+                .eq("id", cohort["course_id"]).limit(1).execute().data
+            ) or []
+            cohort["course"] = crows[0] if crows else None
+    except Exception as exc:
+        logger.warning("[class] cohort read failed: %s", exc)
+        degraded.append("class")
+
+    lessons: list = []
+    try:
+        lessons = _paged_items_of(
+            "class_lessons",
+            lambda q: q.eq("cohort_id", student["cohort_id"]).eq("is_published", True),
+        )
+        # Same ordering the admin list uses (lesson_no NULLS LAST, then date), so
+        # a student and their teacher are always looking at the same sequence.
+        lessons.sort(key=lambda r: (
+            r.get("lesson_no") is None, r.get("lesson_no") or 0,
+            r.get("lesson_date") or "", r.get("created_at") or "",
+        ))
+    except Exception as exc:
+        logger.warning("[class] lessons read failed: %s", exc)
+        degraded.append("lessons")
+
+    assignments: list = []
+    try:
+        assignments = _visible_assignments(student, now)
+    except Exception as exc:
+        logger.warning("[class] assignments read failed: %s", exc)
+        degraded.append("assignments")
+
+    result: Dict[str, Any] = {
+        "has_class": True,
+        "student":   {"full_name": student.get("full_name"),
+                      "student_code": student.get("student_code")},
+        "class":     cohort,
+        "lessons":   lessons,
+        "assignments": assignments,
+        # Counts come from the same list the page renders, so the summary can
+        # never disagree with the rows underneath it.
+        "progress":  _progress_summary(assignments) if "assignments" not in degraded else None,
+    }
+    if degraded:
+        result["degraded"] = degraded
+    return result
+
+
+def _progress_summary(assignments: list) -> Dict[str, Any]:
+    """Counts for the header strip.
+
+    `missing` is work whose deadline has passed with nothing submitted — the
+    number worth acting on. Everything not yet due is `todo`, deliberately kept
+    apart: a learner who sees "5 quá hạn" when nothing is actually late stops
+    believing the number.
+    """
+    total = len(assignments)
+    submitted = sum(1 for a in assignments if a["submitted_at"])
+    late = sum(1 for a in assignments if a["is_late"])
+    missing = sum(1 for a in assignments if a["is_missing"])
+    return {
+        "total":     total,
+        "submitted": submitted,
+        "todo":      total - submitted - missing,
+        "missing":   missing,
+        "late":      late,
+        # Punctuality over recorded hand-ins only: dividing by `total` would
+        # drag the figure down for work that is not due yet.
+        "on_time_pct": (round((submitted - late) / submitted * 100) if submitted else None),
+    }
+
+
+def _paged_items_of(table: str, apply_filters) -> list:
+    """Every matching row of `table`, paged (PostgREST caps un-ranged reads)."""
+    rows: list = []
+    start = 0
+    while True:
+        page = (
+            apply_filters(supabase_admin.table(table).select("*"))
+            .order("id").range(start, start + _PAGE - 1).execute().data
+        ) or []
+        rows.extend(page)
+        if len(page) < _PAGE:
+            return rows
+        start += _PAGE

@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Lớp của tôi · Aver Learning</title>
+
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2.107.0" defer></script>
+  <script src="/js/runtime-config.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/toast.js"></script>
+
+  <style>
+    body.av-page { font-family: var(--av-font-sans); margin: 0; }
+    .mc-shell { max-width: 900px; margin: 0 auto; padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-6); }
+
+    /* ── Header ──────────────────────────────────────────────────────── */
+    .mc-head h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-bold);
+      margin: 0 0 var(--av-space-1); }
+    .mc-course { display: inline-flex; align-items: center; gap: var(--av-space-2);
+      color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
+    .mc-course-code { font-family: var(--av-font-mono); font-size: var(--av-fs-xs);
+      padding: 2px 8px; border-radius: var(--av-radius-pill);
+      background: var(--av-surface-sunken); border: 1px solid var(--av-border-default); }
+
+    /* ── Progress strip ──────────────────────────────────────────────── */
+    .mc-stats { display: grid; grid-template-columns: repeat(2, 1fr);
+      gap: var(--av-space-3); }
+    @media (min-width: 640px) { .mc-stats { grid-template-columns: repeat(4, 1fr); } }
+    .mc-stat { border: 1px solid var(--av-border-subtle); border-radius: var(--av-radius-lg);
+      background: var(--av-surface-card); padding: var(--av-space-4); }
+    .mc-stat-num { font-size: var(--av-fs-xl); font-weight: var(--av-fw-bold);
+      font-variant-numeric: tabular-nums; line-height: 1.1; }
+    .mc-stat-label { color: var(--av-text-muted); font-size: var(--av-fs-xs);
+      margin-top: 2px; }
+    .mc-stat.is-alarm .mc-stat-num { color: var(--av-warning); }
+
+    /* ── The signature: tonight's deadline ───────────────────────────────
+       The centre gives one task a day, due 19:00. A student opening this at
+       18:20 needs "còn 40 phút", not a date. So the nearest due-today item gets
+       a live countdown and everything else stays quiet around it. */
+    .mc-due-now { border: 1px solid var(--av-accent-border, var(--av-border-strong));
+      border-radius: var(--av-radius-xl); background: var(--av-accent-soft, var(--av-surface-sunken));
+      padding: var(--av-space-6); display: flex; flex-wrap: wrap;
+      align-items: center; justify-content: space-between; gap: var(--av-space-4); }
+    .mc-due-now h2 { font-size: var(--av-fs-lg); font-weight: var(--av-fw-semibold);
+      margin: 0 0 var(--av-space-1); }
+    .mc-countdown { font-family: var(--av-font-mono); font-size: var(--av-fs-2xl);
+      font-weight: var(--av-fw-semibold); font-variant-numeric: tabular-nums;
+      line-height: 1; }
+    .mc-countdown.is-urgent { color: var(--av-warning); }
+    .mc-countdown-label { color: var(--av-text-secondary); font-size: var(--av-fs-xs);
+      margin-top: 4px; }
+
+    /* ── Assignment groups ───────────────────────────────────────────── */
+    .mc-group h2 { font-size: var(--av-fs-sm); font-weight: var(--av-fw-semibold);
+      color: var(--av-text-secondary); text-transform: uppercase;
+      letter-spacing: var(--av-tracking-wide); margin: 0 0 var(--av-space-3); }
+    .mc-list { display: flex; flex-direction: column; gap: var(--av-space-2); }
+    .mc-item { border: 1px solid var(--av-border-subtle); border-radius: var(--av-radius-lg);
+      background: var(--av-surface-card); padding: var(--av-space-4);
+      display: flex; flex-wrap: wrap; align-items: center;
+      justify-content: space-between; gap: var(--av-space-3); }
+    .mc-item.is-missing { border-color: color-mix(in srgb, var(--av-warning) 40%, transparent); }
+    .mc-item-main { min-width: 0; flex: 1; }
+    .mc-item-title { font-weight: var(--av-fw-semibold); margin: 0 0 2px; }
+    .mc-item-sub { color: var(--av-text-muted); font-size: var(--av-fs-xs); margin: 0; }
+    .mc-item-sub.is-alarm { color: var(--av-warning); }
+    .mc-band { font-family: var(--av-font-mono); font-weight: var(--av-fw-semibold); }
+
+    .mc-btn { display: inline-flex; align-items: center; justify-content: center;
+      padding: var(--av-space-2) var(--av-space-4); border-radius: var(--av-radius-md);
+      background: var(--av-brand-teal-700); color: var(--av-text-on-primary);
+      border: none; font: inherit; font-size: var(--av-fs-sm);
+      font-weight: var(--av-fw-semibold); text-decoration: none; cursor: pointer; }
+    .mc-btn:disabled { opacity: .6; cursor: default; }
+    .mc-btn-quiet { background: transparent; color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default); }
+
+    /* ── Lessons ─────────────────────────────────────────────────────── */
+    .mc-lesson { border: 1px solid var(--av-border-subtle); border-radius: var(--av-radius-lg);
+      background: var(--av-surface-card); padding: var(--av-space-4);
+      display: flex; gap: var(--av-space-4); align-items: flex-start; }
+    .mc-lesson-no { font-family: var(--av-font-mono); font-size: var(--av-fs-sm);
+      color: var(--av-text-muted); min-width: 3.5rem; padding-top: 2px; }
+    .mc-lesson-main { flex: 1; min-width: 0; }
+    .mc-lesson-title { font-weight: var(--av-fw-semibold); margin: 0 0 2px; }
+    .mc-lesson-body { color: var(--av-text-secondary); font-size: var(--av-fs-sm);
+      margin: var(--av-space-2) 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .mc-files { display: flex; flex-wrap: wrap; gap: var(--av-space-2);
+      margin-top: var(--av-space-3); }
+    .mc-file { font-size: var(--av-fs-xs); padding: 2px 10px;
+      border-radius: var(--av-radius-pill); border: 1px solid var(--av-border-default);
+      background: var(--av-surface-sunken); color: var(--av-text-secondary);
+      text-decoration: none; }
+    .mc-file:hover { color: var(--av-text-primary); }
+
+    .mc-empty { padding: var(--av-space-6); text-align: center;
+      color: var(--av-text-muted); font-size: var(--av-fs-sm);
+      border: 1px dashed var(--av-border-default); border-radius: var(--av-radius-lg); }
+    .mc-note { color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
+    .mc-warn { border: 1px solid color-mix(in srgb, var(--av-warning) 40%, transparent);
+      background: var(--av-warning-soft); color: var(--av-text-secondary);
+      border-radius: var(--av-radius-md); padding: var(--av-space-3) var(--av-space-4);
+      font-size: var(--av-fs-sm); }
+
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+    [hidden] { display: none !important; }
+    body.av-page :focus-visible { outline: none; box-shadow: var(--av-shadow-focus); }
+  </style>
+</head>
+<body class="av-page">
+  <aver-chrome active="home"></aver-chrome>
+
+  <main class="mc-shell">
+    <div class="mc-note" id="mc-loading">Đang tải lớp của bạn…</div>
+
+    <!-- Không thuộc lớp nào: một trạng thái bình thường, không phải lỗi. -->
+    <section id="mc-noclass" hidden>
+      <header class="mc-head">
+        <h1>Lớp của tôi</h1>
+      </header>
+      <div class="mc-empty">
+        Bạn chưa được xếp vào lớp nào. Khi giảng viên thêm bạn vào lớp, bài tập và
+        nội dung buổi học sẽ hiện ở đây.
+      </div>
+    </section>
+
+    <div id="mc-content" hidden>
+      <header class="mc-head">
+        <h1 id="mc-class-name">Lớp của tôi</h1>
+        <div class="mc-course" id="mc-course"></div>
+      </header>
+
+      <div class="mc-warn" id="mc-degraded" hidden></div>
+
+      <!-- Đếm ngược tới hạn gần nhất — chỉ hiện khi thật sự còn bài chưa nộp. -->
+      <section class="mc-due-now" id="mc-due-now" hidden>
+        <div>
+          <h2 id="mc-due-title">—</h2>
+          <p class="mc-item-sub" id="mc-due-sub"></p>
+        </div>
+        <div>
+          <div class="mc-countdown" id="mc-countdown" role="timer" aria-live="polite">—</div>
+          <div class="mc-countdown-label" id="mc-countdown-label"></div>
+        </div>
+        <button class="mc-btn" id="mc-due-start" type="button">Làm bài</button>
+      </section>
+
+      <section class="mc-stats" id="mc-stats"></section>
+
+      <section class="mc-group" id="mc-group-missing" hidden>
+        <h2>Quá hạn chưa nộp</h2>
+        <div class="mc-list" id="mc-missing"></div>
+      </section>
+
+      <section class="mc-group" id="mc-group-todo" hidden>
+        <h2>Cần nộp</h2>
+        <div class="mc-list" id="mc-todo"></div>
+      </section>
+
+      <section class="mc-group" id="mc-group-done" hidden>
+        <h2>Đã nộp</h2>
+        <div class="mc-list" id="mc-done"></div>
+      </section>
+
+      <section class="mc-group" id="mc-group-empty" hidden>
+        <h2>Bài tập</h2>
+        <div class="mc-empty">Chưa có bài tập nào. Khi giảng viên giao bài, bài sẽ hiện ở đây.</div>
+      </section>
+
+      <section class="mc-group" id="mc-group-lessons" hidden>
+        <h2>Buổi học</h2>
+        <div class="mc-list" id="mc-lessons"></div>
+      </section>
+    </div>
+  </main>
+
+  <script type="module" src="/js/components/aver-chrome.js"></script>
+  <script type="module" src="/js/my-class.js"></script>
+</body>
+</html>
