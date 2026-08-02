@@ -785,3 +785,61 @@ def test_archive_endpoint_exists_because_delete_points_at_it():
 def test_archived_assignments_are_closed_to_students():
     """Archiving is what makes the give stop being startable."""
     assert is_assignment_open({"status": "archived", "publish_at": None}) is False
+
+
+# ── vòng 7 ──────────────────────────────────────────────────────────────
+
+
+def test_delete_guard_also_counts_a_completed_session_as_evidence():
+    """This feature declares the completed SESSION to be the durable evidence of
+    a hand-in — that is the whole premise of reconcile_ledger_from_sessions. A
+    delete guard that consults only submitted_at therefore has a window where the
+    work is done, the ledger has not caught up, and DELETE cascades the item away
+    AND nulls the session link, after which no repair can ever find it.
+
+    Pinned on the SQL because the check lives inside the locking transaction
+    (mig 180) — a Python-side check could not be atomic with the delete.
+    """
+    import pathlib
+    sql = (pathlib.Path(__file__).resolve().parents[1]
+           / "migrations" / "180_fn_class_assignment_locks.sql").read_text(encoding="utf-8")
+
+    head = sql[:sql.index("INTO v_submitted")]
+    body = head[head.rindex("SELECT EXISTS"):]
+    assert "i.submitted_at IS NOT NULL" in body
+    assert "s.status = 'completed'" in body, (
+        "a completed linked session must block deletion too"
+    )
+    assert "class_assignment_item_id = i.id" in body
+
+
+def test_bind_locks_the_assignment_row_not_only_the_item():
+    """FOR UPDATE OF i alone leaves class_assignments free, so an archive can
+    commit between the open-state check and the link write — the session ends up
+    bound to a closed task, which is exactly what mig 179's comment claimed was
+    impossible."""
+    import pathlib, re
+    sql = (pathlib.Path(__file__).resolve().parents[1]
+           / "migrations" / "180_fn_class_assignment_locks.sql").read_text(encoding="utf-8")
+    m = re.search(r"FOR UPDATE OF ([a-z, ]+);", sql)
+    assert m, "the bind SELECT no longer takes a row lock"
+    locked = {x.strip() for x in m.group(1).split(",")}
+    assert locked == {"i", "a"}, locked
+
+
+def test_outstanding_student_work_is_never_capped():
+    """Two earlier shapes both hid an old unsubmitted task behind 200 newer
+    rows. A student must never be shown "nothing to do" while an unanswered task
+    exists."""
+    import inspect
+    from routers import class_student as mod
+    src = inspect.getsource(mod.my_assignments)
+
+    assert "_paged_items" in src, "outstanding items must be fetched in full, paged"
+    assert '_MAX_HISTORY' in src
+    # The cap must apply to the SUBMITTED branch only.
+    hist = src[src.index("history = ("):src.index("items = outstanding + history")]
+    assert 'not_.is_("submitted_at", "null")' in hist
+    assert "_MAX_HISTORY" in hist
+    outstanding = src[src.index("outstanding = _paged_items"):src.index("history = (")]
+    assert "limit" not in outstanding.lower()

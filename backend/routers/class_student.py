@@ -32,10 +32,26 @@ from services.class_assignment_service import _ID_CHUNK, is_assignment_open
 
 logger = logging.getLogger(__name__)
 
-# How many of the student's most recent assignments the list carries. Applied to
-# VISIBLE assignments (published + revealed), not to raw item rows, so an older
-# outstanding task is never crowded out by newer archived ones.
-_MAX_ASSIGNMENTS = 200
+# Caps HISTORY only. Outstanding work is never capped — see my_assignments().
+_MAX_HISTORY = 200
+_PAGE = 1000
+
+
+def _paged_items(apply_filters) -> list:
+    """Every matching item row, a page at a time (PostgREST caps un-ranged
+    selects at ~1000). Ordered by id: an unordered range is not a stable window,
+    and here a skipped row is homework the student is never shown."""
+    rows: list = []
+    start = 0
+    while True:
+        page = (
+            apply_filters(supabase_admin.table("class_assignment_items").select("*"))
+            .order("id").range(start, start + _PAGE - 1).execute().data
+        ) or []
+        rows.extend(page)
+        if len(page) < _PAGE:
+            return rows
+        start += _PAGE
 
 router = APIRouter(prefix="/api/class", tags=["class-student"])
 
@@ -92,51 +108,56 @@ async def my_assignments(authorization: str | None = Header(default=None)):
     if not student or not student.get("cohort_id"):
         return {"has_class": False, "assignments": []}
 
-    # ASSIGNMENTS FIRST, then this student's rows for them.
+    # OUTSTANDING WORK IS NEVER CAPPED.
     #
-    # The other way round — newest 200 items, then filter by published — drops an
-    # older but still-outstanding assignment as soon as 200 newer item rows
-    # exist, and archived or not-yet-revealed rows inside that 200 crowd it out
-    # sooner still. Selecting the visible assignments first means the cap applies
-    # to what the student can actually see, ordered by the deadline they care
-    # about.
+    # Two earlier shapes both dropped work the student still owes. Capping item
+    # rows first hid an older unsubmitted task behind 200 newer ones; capping
+    # ASSIGNMENTS first (round 5) still did, because 200 newer *completed* gives
+    # sort ahead of one old unsubmitted give.
+    #
+    # So the two are fetched separately: everything not yet submitted, in full,
+    # plus a bounded slice of history. A student cannot be shown "you have
+    # nothing to do" while an unanswered task exists — that is the one thing this
+    # endpoint must never get wrong.
     now = datetime.now(timezone.utc)
+
     try:
-        rows = (
-            supabase_admin.table("class_assignments")
+        outstanding = _paged_items(
+            lambda q: q.eq("student_id", student["id"]).is_("submitted_at", "null")
+        )
+        history = (
+            supabase_admin.table("class_assignment_items")
             .select("*")
-            .eq("cohort_id", student["cohort_id"])
-            .eq("status", "published")
-            .order("due_at", desc=True)
-            .limit(_MAX_ASSIGNMENTS)
+            .eq("student_id", student["id"])
+            .not_.is_("submitted_at", "null")
+            .order("submitted_at", desc=True)
+            .limit(_MAX_HISTORY)
             .execute().data
         ) or []
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi tải bài tập: {exc}")
 
-    # Items are created eagerly at give time, so `publish_at` is the only thing
-    # keeping a give scheduled for next week off today's list.
-    by_id = {a["id"]: a for a in rows if is_assignment_open(a, now=now)}
-    if not by_id:
+    items = outstanding + history
+    if not items:
         return {"has_class": True, "assignments": []}
 
-    a_ids = list(by_id)
-    items: list[Dict[str, Any]] = []
+    a_ids = list({i["assignment_id"] for i in items})
+    by_id: Dict[str, Dict[str, Any]] = {}
     try:
         for chunk in (a_ids[i:i + _ID_CHUNK] for i in range(0, len(a_ids), _ID_CHUNK)):
-            items.extend((
-                supabase_admin.table("class_assignment_items")
-                .select("*")
-                .eq("student_id", student["id"])
-                .in_("assignment_id", chunk)
-                .execute().data
-            ) or [])
+            for a in ((supabase_admin.table("class_assignments")
+                       .select("*").in_("id", chunk).execute().data) or []):
+                # Items are created eagerly at give time, so `publish_at` is the
+                # only thing keeping a give scheduled for next week off the list;
+                # `status` keeps draft and archived ones off it.
+                if is_assignment_open(a, now=now):
+                    by_id[a["id"]] = a
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi tải bài tập: {exc}")
 
     out = [_decorate(i, by_id[i["assignment_id"]], now)
            for i in items if i["assignment_id"] in by_id]
-    # Newest deadline first; a give with no deadline sorts last.
+    # Nearest deadline first; a give with no deadline sorts last.
     out.sort(key=lambda r: (r["assignment"]["due_at"] or ""), reverse=True)
     return {"has_class": True, "assignments": out}
 
