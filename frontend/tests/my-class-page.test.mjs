@@ -75,7 +75,7 @@ describe('the countdown targets the server instant, not a local 19:00', () => {
       'the deadline instant comes from the server, already carrying +07:00');
   });
 
-  test('it picks the nearest FUTURE unsubmitted deadline', () => {
+  test('it picks the nearest unsubmitted deadline and ignores hand-ins', () => {
     const now = Date.now();
     const mk = (id, offsetMs, submitted) => ({
       item_id: id, submitted_at: submitted || null,
@@ -83,7 +83,6 @@ describe('the countdown targets the server instant, not a local 19:00', () => {
     });
     const picked = nextDue([
       mk('far', 3 * 3600e3),
-      mk('past', -3600e3),                 // already overdue → belongs elsewhere
       mk('soon', 40 * 60e3),
       mk('done', 10 * 60e3, '2026-08-03T10:00:00Z'),   // already handed in
     ]);
@@ -259,5 +258,68 @@ describe('lesson bodies render as Markdown, sanitised (Codex review)', () => {
     assert.match(render, /esc\(l\.title\)/);
     assert.match(render, /esc\(f\.url\)/);
     assert.match(render, /esc\(f\.label\)/);
+  });
+});
+
+
+describe('the four Codex round-2 findings stay fixed', () => {
+  const helper = (name, from, to) => new Function(
+    'window', 'esc',
+    `${SRC.slice(SRC.indexOf(from), SRC.indexOf(to))} return ${name};`,
+  )({ location: { origin: 'https://averlearning.com' } }, (s) => String(s));
+
+  test('a passed deadline still yields a target, so the reload can fire', () => {
+    // Filtering on `at > now` made the item vanish the instant it expired: the
+    // box hid, the timer cleared, and the reload never ran — the task sat under
+    // "Cần nộp" forever.
+    const expired = [{
+      item_id: 'x', submitted_at: null,
+      assignment: { due_at: new Date(Date.now() - 60e3).toISOString() },
+    }];
+    assert.notEqual(nextDue(expired), null,
+      'an expired deadline must remain the target until the reload happens');
+  });
+
+  test('renderCountdown reloads once, not every tick', () => {
+    const fn = codeOnly(SRC.slice(SRC.indexOf('function renderCountdown'),
+                                  SRC.indexOf('function startTicking')));
+    assert.match(fn, /left <= 0/);
+    assert.match(fn, /_reloadingForDeadline/, 'a 1s timer must not fire a request per tick');
+    assert.match(fn, /clearInterval/);
+  });
+
+  test('a DATE renders as the same calendar day in any timezone', () => {
+    const calendarDate = helper('calendarDate', 'function calendarDate', 'function lessonBody');
+    // new Date('2026-08-03') is UTC midnight — in Los Angeles that prints 02/08.
+    assert.equal(calendarDate('2026-08-03'), '03/08/2026');
+    assert.equal(calendarDate(null), '');
+    assert.equal(calendarDate('rác'), '');
+  });
+
+  test('only http(s) attachment links are clickable', () => {
+    const isSafeUrl = helper('isSafeUrl', 'function isSafeUrl', 'function calendarDate');
+    assert.equal(isSafeUrl('https://averlearning.com/a.pdf'), true);
+    assert.equal(isSafeUrl('http://example.com'), true);
+    for (const bad of ['javascript:alert(1)', 'JavaScript:alert(1)', 'data:text/html,x', '']) {
+      assert.equal(isSafeUrl(bad), false, `${bad} must not be clickable`);
+    }
+  });
+
+  test('an unsafe attachment renders as inert text, not a link', () => {
+    const render = codeOnly(SRC.slice(SRC.indexOf('function renderLessons'),
+                                      SRC.indexOf('function nextDue')));
+    assert.match(render, /isSafeUrl\(f\.url\)/);
+    assert.match(render, /<span class="mc-file"/);
+  });
+
+  test('the home strip loads independently of the home summary', () => {
+    // Hanging it off loadHome()'s success meant an unrelated endpoint failing
+    // took away the learner's only link to their class page.
+    const boot = codeOnly(HOME_JS.slice(HOME_JS.indexOf('function bootstrap(')));
+    assert.match(boot, /loadClassStrip\(\)/, 'bootstrap must fire it');
+    const loadHome = codeOnly(HOME_JS.slice(HOME_JS.indexOf('async function loadHome'),
+                                            HOME_JS.indexOf('function bootstrap(')));
+    assert.doesNotMatch(loadHome, /loadClassStrip\(\)/,
+      'it must not be gated on the home-summary response');
   });
 });

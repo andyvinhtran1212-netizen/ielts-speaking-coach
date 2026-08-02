@@ -29,6 +29,7 @@ const esc = (s) => (typeof window !== 'undefined' && window.WC && window.WC.esca
 
 let _data = null;
 let _tick = null;
+let _reloadingForDeadline = false;
 
 // ── Formatting ──────────────────────────────────────────────────────────────
 
@@ -123,6 +124,31 @@ function renderStats(p) {
  * lib failed to load, window.renderMarkdown itself falls back to escaped
  * plaintext; the guard here covers the script not having arrived at all.
  */
+/**
+ * `class_lessons.lesson_date` is a Postgres DATE — a calendar day, not an
+ * instant. `new Date('2026-08-03')` parses it as UTC midnight, so a learner at a
+ * negative offset (America/Los_Angeles) saw 02/08 for a lesson held on the 3rd.
+ * Split the string instead of asking Date to interpret it.
+ */
+/** Only http(s) links become clickable. Anything else renders as inert text. */
+function isSafeUrl(url) {
+  // An empty string resolves against the origin and would come back https —
+  // clickable, and pointing at the app itself.
+  if (!url || !String(url).trim()) return false;
+  try {
+    const u = new URL(String(url), window.location.origin);
+    return u.protocol === 'https:' || u.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
+function calendarDate(value) {
+  if (!value) return '';
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value));
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : '';
+}
+
 function lessonBody(md) {
   if (typeof window.renderMarkdown === 'function') {
     return window.renderMarkdown(md, { breaks: true });
@@ -135,11 +161,17 @@ function renderLessons(lessons) {
   if (!lessons.length) return;
   $('mc-lessons').innerHTML = lessons.map((l) => {
     const no = l.lesson_no != null ? `Buổi ${esc(l.lesson_no)}` : '';
-    const date = l.lesson_date
-      ? new Date(l.lesson_date).toLocaleDateString('vi-VN') : '';
-    const files = (Array.isArray(l.attachments) ? l.attachments : []).map((f) =>
-      `<a class="mc-file" href="${esc(f.url)}" target="_blank" rel="noopener noreferrer">${esc(f.label)}</a>`
-    ).join('');
+    const date = calendarDate(l.lesson_date);
+    const files = (Array.isArray(l.attachments) ? l.attachments : [])
+      .map((f) => {
+        // Escaping stops attribute injection but says nothing about the SCHEME:
+        // a `javascript:` href still runs on click. The backend rejects these at
+        // the source (mig 176 contract), and this is the second lock.
+        if (!isSafeUrl(f.url)) {
+          return `<span class="mc-file" title="Đường dẫn không hợp lệ">${esc(f.label)}</span>`;
+        }
+        return `<a class="mc-file" href="${esc(f.url)}" target="_blank" rel="noopener noreferrer">${esc(f.label)}</a>`;
+      }).join('');
     return `<article class="mc-lesson">
       <div class="mc-lesson-no">${no}</div>
       <div class="mc-lesson-main">
@@ -154,13 +186,20 @@ function renderLessons(lessons) {
 
 // ── The countdown ───────────────────────────────────────────────────────────
 
-/** The nearest unsubmitted task that still has a future deadline. */
+/**
+ * The nearest unsubmitted deadline, whether or not it has passed.
+ *
+ * It deliberately does NOT drop expired ones. Filtering on `at > now` made the
+ * item vanish the instant its deadline passed: the box hid itself, the timer
+ * cleared, and the `left <= 0` reload below never ran — so the task sat under
+ * "Cần nộp" until the student reloaded by hand, exactly the state the reload was
+ * written to prevent.
+ */
 function nextDue(assignments) {
-  const now = Date.now();
   return assignments
     .filter((a) => !a.submitted_at && a.assignment.due_at)
     .map((a) => ({ a, at: new Date(a.assignment.due_at).getTime() }))
-    .filter((x) => Number.isFinite(x.at) && x.at > now)
+    .filter((x) => Number.isFinite(x.at))
     .sort((x, y) => x.at - y.at)[0] || null;
 }
 
@@ -178,18 +217,25 @@ function renderCountdown() {
   $('mc-due-start').dataset.item = next.a.item_id;
 
   const left = next.at - Date.now();
+  if (left <= 0) {
+    // The deadline passed while this page was open. Re-fetch once so the task
+    // moves into "Quá hạn" instead of sitting at 0 under "Cần nộp"; the guard
+    // stops a 1-second timer from firing a request every tick.
+    box.hidden = true;
+    if (_tick) { clearInterval(_tick); _tick = null; }
+    if (!_reloadingForDeadline) {
+      _reloadingForDeadline = true;
+      load().finally(() => { _reloadingForDeadline = false; });
+    }
+    return;
+  }
+
   const el = $('mc-countdown');
   el.textContent = remainingLabel(left);
   // Under an hour is the point at which "còn 40 phút" stops being information
   // and starts being a prompt.
   el.classList.toggle('is-urgent', left < 60 * 60 * 1000);
   $('mc-countdown-label').textContent = dueLabel(next.a.assignment.due_at);
-
-  if (left <= 0) {
-    // The deadline passed while the page was open — re-fetch so the task moves
-    // into "quá hạn" instead of sitting here at 0.
-    load();
-  }
 }
 
 function startTicking() {

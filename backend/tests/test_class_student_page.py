@@ -189,3 +189,36 @@ async def test_nothing_broken_means_no_degraded_key_at_all():
     assert "degraded" not in out
     assert out["class"]["name"] == "C2-K12"
     assert [l["title"] for l in out["lessons"]] == ["Buổi 1"]
+
+
+# ── URL tài liệu: khoá ở NGUỒN SỰ THẬT, không chỉ ở giao diện ───────────
+
+
+def test_attachment_urls_must_be_web_links():
+    """The student page puts these straight into an anchor. Escaping stops
+    attribute injection but says nothing about the SCHEME — a `javascript:` href
+    still executes on click, in another user's browser, from admin-authored
+    content. Rejected at the backend because that is the source of truth."""
+    from routers.admin_class_lessons import Attachment
+
+    for good in ("https://averlearning.com/a.pdf", "http://example.com/x"):
+        assert Attachment(label="Tài liệu", url=good).url == good
+
+    for bad in ("javascript:alert(1)", "JavaScript:alert(1)", "data:text/html,x",
+                "vbscript:x", "/relative/path", "file:///etc/passwd"):
+        with pytest.raises(Exception):
+            Attachment(label="Tài liệu", url=bad)
+
+
+def test_a_lesson_with_an_unsafe_attachment_is_rejected_whole():
+    """The validator runs through LessonCreate too — a bad link cannot ride in
+    on an otherwise-valid lesson."""
+    from routers.admin_class_lessons import LessonCreate
+
+    with pytest.raises(Exception):
+        LessonCreate(title="Buổi 1",
+                     attachments=[{"label": "x", "url": "javascript:alert(1)"}])
+
+    ok = LessonCreate(title="Buổi 1",
+                      attachments=[{"label": "x", "url": "https://ok.com/a.pdf"}])
+    assert len(ok.attachments) == 1

@@ -370,7 +370,6 @@
 
     renderHero(data);
     SKILLS_ORDER.forEach(id => renderSkillCard(id, data.skills[id], permissions));
-    loadClassStrip();   // independent: its failure must not affect the grid
     // Any stat the render path didn't set (e.g. a skill with no formatter) is no
     // longer loading — show a genuine 0 rather than leaving it blinking forever.
     clearStatLoading('0');
@@ -387,6 +386,10 @@
 
   // Wait for Supabase + auth to be ready before fetching.
   function bootstrap() {
+    // GĐ 3 — fired here, NOT inside loadHome(): /api/student/home-summary is an
+    // unrelated endpoint, and hanging the class strip off its success meant a
+    // failure there took away the learner's only link to their class page.
+    loadClassStrip();
     if (typeof window.api === 'undefined') {
       // api.js hasn't loaded yet — try again next tick.
       return setTimeout(bootstrap, 30);
