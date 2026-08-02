@@ -9,14 +9,22 @@ import { fileURLToPath } from 'node:url';
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const DIR = path.join(FRONTEND, 'app', '(public-content)', 'grammar', '[category]', '[slug]');
 const LIB = readFileSync(path.join(FRONTEND, 'lib', 'grammar-api.ts'), 'utf8');
+// Phase 3: các bảo đảm ADR-008 (abort budget, cacheLife, 'use cache') đã rút
+// về tầng dùng chung `lib/backend.ts`; grammar-api chỉ còn ủy quyền. Kiểm ở
+// đúng nơi chúng sống, đừng kiểm ở nơi chúng từng sống.
+const BACKEND = readFileSync(path.join(FRONTEND, 'lib', 'backend.ts'), 'utf8');
 const PAGE = readFileSync(path.join(DIR, 'page.tsx'), 'utf8');
 const SHELL = readFileSync(path.join(DIR, 'page-shell.tsx'), 'utf8');
 
 test('data layer: server-only + use cache + cacheLife + abort timeout (ADR-008)', () => {
+  // Bảo đảm nằm ở tầng chung…
+  assert.match(BACKEND, /import 'server-only'/);
+  assert.match(BACKEND, /'use cache'/);
+  assert.match(BACKEND, /cacheLife\(/);
+  assert.match(BACKEND, /AbortSignal\.timeout\(/);
+  // …còn bộ nạp Grammar phải ĐI QUA nó, không tự dựng bản riêng.
   assert.match(LIB, /import 'server-only'/);
-  assert.match(LIB, /'use cache'/);
-  assert.match(LIB, /cacheLife\(/);
-  assert.match(LIB, /AbortSignal\.timeout\(/);
+  assert.match(LIB, /getPublicJson/);
   assert.match(LIB, /cache\(fetchArticle\)/, 'metadata + body must share one memoized loader');
 });
 
