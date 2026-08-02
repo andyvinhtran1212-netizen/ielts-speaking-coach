@@ -91,18 +91,36 @@ function rosterCell(memberCount, unactivated) {
     + `<span class="cl-roster-gap">${countLabel(unactivated)} chưa kích hoạt</span></div>`;
 }
 
+const VN_TZ = 'Asia/Ho_Chi_Minh';
+const VN_CUTOFF_HOUR = 19;   // the centre's deadline — see compose_due_at server-side
+
+/** Vietnam wall-clock parts of an instant, as numbers. */
+function vietnamParts(at) {
+  const p = new Intl.DateTimeFormat('en-CA', {
+    timeZone: VN_TZ, hour12: false,
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit',
+  }).formatToParts(at).reduce((o, x) => (o[x.type] = x.value, o), {});
+  // hourCycle h23 can render midnight as "24" in some ICU versions.
+  return { date: `${p.year}-${p.month}-${p.day}`, hour: Number(p.hour) % 24 };
+}
+
 /**
- * Today's calendar date in Asia/Ho_Chi_Minh, as YYYY-MM-DD.
+ * The next date whose 19:00 deadline has NOT already passed, in Vietnam time.
  *
- * en-CA formats as YYYY-MM-DD, which is exactly what <input type=date> wants —
- * and going through Intl with an explicit timeZone is what makes this the
- * centre's date rather than the browser's.
+ * Two separate things had to be right here. The date must be Vietnam's, not the
+ * browser's — an admin abroad at the day boundary would otherwise default a day
+ * out. And "today" stops being a viable default once 19:00 has gone: submitting
+ * the untouched form at 20:00 would create a give that is already overdue, so
+ * every student is reported missing the moment it exists.
+ *
+ * Only the DEFAULT moves; the admin can still pick today explicitly (giving a
+ * task with a deadline that has passed is a legitimate, if unusual, thing to do).
  */
-function todayInVietnam() {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Ho_Chi_Minh',
-    year: 'numeric', month: '2-digit', day: '2-digit',
-  }).format(new Date());
+function defaultDueDateVietnam(at = new Date()) {
+  const { date, hour } = vietnamParts(at);
+  if (hour < VN_CUTOFF_HOUR) return date;
+  const next = new Date(at.getTime() + 24 * 60 * 60 * 1000);
+  return vietnamParts(next).date;
 }
 
 function fmtDate(value) {
@@ -634,7 +652,7 @@ function openHomeworkModal() {
   // correctly compose 19:00 Vietnam time for a day that is already past, and the
   // give would be overdue the moment it was created. Same rule as the deadline
   // itself: the date is a Vietnam wall-clock fact.
-  $('hf-due').value = todayInVietnam();
+  $('hf-due').value = defaultDueDateVietnam();
   $('hf-error').hidden = true;
   $('hf-warning').hidden = true;
   $('homework-modal').hidden = false;

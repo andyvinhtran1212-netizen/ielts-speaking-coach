@@ -37,10 +37,21 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin/cohorts", tags=["admin", "class-assignments"])
 
-# The speaking session modes POST /sessions accepts (routers/sessions.py).
-# Mirrored rather than imported to keep the routers decoupled; the test pins the
-# two lists together so a new mode cannot drift in unnoticed.
-_SPEAKING_MODES = ("practice", "test_part", "test_full")
+# The speaking modes a class assignment may use. A SUBSET of what POST /sessions
+# accepts, and deliberately so: `test_full` is excluded.
+#
+# A Full Test is a chain of THREE sessions (practice.js `_startNextPartInFullTest`
+# creates parts 2 and 3), and its real result is the aggregate that
+# get_full_test_summary() computes across all three. Only the opening session
+# would carry `class_assignment_item_id`, so the ledger would record Part 1's
+# band as the homework score — deterministically wrong for every assigned Full
+# Test. Codex review round 3 found this; supporting it properly means threading
+# the link across the chain and recording only on final aggregation, which is a
+# feature of its own rather than a detail of "bài Speaking hằng ngày".
+#
+# Giving a half-working Full Test is worse than not offering it, so GĐ 2 offers
+# the two single-session modes and rejects the third with a reason.
+_SPEAKING_MODES = ("practice", "test_part")
 
 
 class AssignmentCreate(BaseModel):
@@ -57,6 +68,12 @@ class AssignmentCreate(BaseModel):
 
     @model_validator(mode="after")
     def _check_mode(self):
+        if self.mode == "test_full":
+            raise ValueError(
+                "Chưa giao được Full Test cho lớp: một lượt Full Test gồm ba phiên nối "
+                "nhau và điểm thật là điểm tổng hợp của cả ba. Hãy giao Luyện tập hoặc "
+                "Luyện từng Part."
+            )
         if self.mode not in _SPEAKING_MODES:
             raise ValueError(f"mode phải là một trong: {sorted(_SPEAKING_MODES)}")
         return self

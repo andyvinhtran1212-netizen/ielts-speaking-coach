@@ -75,6 +75,28 @@ def compose_due_at(due_date: Optional[str | date], due_time: time = DEFAULT_DUE_
     return datetime.combine(d, due_time, tzinfo=CLASS_TZ).isoformat()
 
 
+def _paged(db, table: str, columns: str, apply_filters) -> List[Dict[str, Any]]:
+    """Read every matching row, a page at a time.
+
+    PostgREST caps an un-ranged select at ~1000 rows. Ordered by id because an
+    unordered range is not a stable window — two pages could repeat or skip rows.
+    """
+    rows: List[Dict[str, Any]] = []
+    start = 0
+    while True:
+        page = (
+            apply_filters(db.table(table).select(columns))
+            .order("id")
+            .range(start, start + _PAGE - 1)
+            .execute()
+            .data
+        ) or []
+        rows.extend(page)
+        if len(page) < _PAGE:
+            return rows
+        start += _PAGE
+
+
 def _roster_student_ids(db, cohort_id: str) -> List[Dict[str, Any]]:
     """Every student on the class roster, paged.
 
@@ -387,24 +409,26 @@ def reconcile_ledger_from_sessions(db, assignment_ids: List[str]) -> int:
     if not assignment_ids:
         return 0
 
-    items = (
-        db.table("class_assignment_items")
-        .select("id")
-        .in_("assignment_id", assignment_ids)
-        .is_("submitted_at", "null")
-        .execute().data
-    ) or []
+    # BOTH queries page. A class giving one task a day reaches the ~1000-row cap
+    # within a couple of months, and past that the un-repaired hand-ins are
+    # exactly the ones outside the returned page — silently never fixed, while
+    # the admin keeps seeing them as missing. (Codex review round 3: the same cap
+    # this module guards against everywhere else, missed in the function written
+    # to repair a different bug.)
+    items = _paged(
+        db, "class_assignment_items", "id",
+        lambda q: q.in_("assignment_id", assignment_ids).is_("submitted_at", "null"),
+    )
     if not items:
         return 0
 
-    pending = {i["id"] for i in items}
-    sessions = (
-        db.table("sessions")
-        .select("id, class_assignment_item_id, overall_band, status, completed_at")
-        .in_("class_assignment_item_id", list(pending))
-        .eq("status", "completed")
-        .execute().data
-    ) or []
+    pending = [i["id"] for i in items]
+    sessions: List[Dict[str, Any]] = []
+    for chunk in (pending[i:i + _PAGE] for i in range(0, len(pending), _PAGE)):
+        sessions.extend(_paged(
+            db, "sessions", "id, class_assignment_item_id, overall_band, status, completed_at",
+            lambda q, c=chunk: q.in_("class_assignment_item_id", c).eq("status", "completed"),
+        ))
 
     fixed = 0
     for s in sessions:

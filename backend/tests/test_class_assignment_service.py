@@ -633,3 +633,39 @@ def test_binding_goes_through_the_atomic_rpc():
     assert 'table("sessions").update' not in src, (
         "a bare UPDATE cannot re-check open-state in the same transaction"
     )
+
+
+# ── đối chiếu sổ phải PHÂN TRANG (Codex vòng 3) ─────────────────────────
+
+
+def test_reconcile_repairs_beyond_the_postgrest_cap():
+    """A class giving one task a day passes ~1000 items within a couple of
+    months. Un-ranged, the un-repaired hand-ins are precisely the ones outside
+    the returned page — never fixed, and the admin keeps seeing them missing."""
+    n = 1500
+    items = [{"id": f"item-{i:05d}", "assignment_id": "asg-1",
+              "submitted_at": None, "state": "assigned"} for i in range(n)]
+    sessions = [{"id": f"sess-{i:05d}", "class_assignment_item_id": f"item-{i:05d}",
+                 "status": "completed", "overall_band": 6.0,
+                 "completed_at": "2026-08-03T11:00:00+00:00"} for i in range(n)]
+    db = _DB({"class_assignment_items": items, "sessions": sessions})
+
+    assert reconcile_ledger_from_sessions(db, ["asg-1"]) == n
+    assert all(i["submitted_at"] for i in items)
+
+
+def test_full_test_is_not_an_allowed_class_assignment_mode():
+    """A Full Test is three chained sessions and its result is the aggregate;
+    only the opening session would carry the ledger link, so the homework score
+    would deterministically be Part 1's band. Rejected with a reason rather than
+    silently recorded wrong."""
+    from routers.admin_class_assignments import AssignmentCreate, _SPEAKING_MODES
+
+    assert "test_full" not in _SPEAKING_MODES
+    with pytest.raises(Exception) as exc:
+        AssignmentCreate(title="x", topic="y", mode="test_full")
+    assert "Full Test" in str(exc.value)
+
+    # the two single-session modes still work
+    for mode in ("practice", "test_part"):
+        assert AssignmentCreate(title="x", topic="y", mode=mode).mode == mode

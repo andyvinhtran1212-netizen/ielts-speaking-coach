@@ -610,9 +610,12 @@
           <div class="adm-field">
             <label for="hf-mode">Kiểu luyện</label>
             <select id="hf-mode">
+              <!-- Full Test cố ý KHÔNG có ở đây: một lượt Full Test là chuỗi ba
+                   phiên, điểm thật là điểm tổng hợp cả ba, nên sổ cái sẽ ghi
+                   nhầm điểm Part 1 thành điểm bài tập. Backend cũng từ chối kèm
+                   lý do nếu ai đó gửi thẳng. -->
               <option value="practice">Luyện tập</option>
               <option value="test_part">Luyện từng Part</option>
-              <option value="test_full">Full Test</option>
             </select>
           </div>
           <div class="adm-field">

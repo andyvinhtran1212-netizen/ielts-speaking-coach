@@ -118,38 +118,68 @@ describe('the give flow tells the admin who will not receive it', () => {
 });
 
 
-describe('the default due date is TODAY IN VIETNAM, not in the browser (Codex review)', () => {
-  // getFullYear/getMonth/getDate read the browser's zone. An admin abroad at the
-  // day boundary would default to the wrong date; the server then correctly
-  // composes 19:00 Vietnam time for a day already past, and the give is overdue
-  // the moment it is created.
-  const fn = SRC.slice(SRC.indexOf('function todayInVietnam'), SRC.indexOf('function fmtDate'));
+describe('the default deadline is the next VIABLE Vietnam date (Codex review)', () => {
+  // Two separate bugs met here. The date must be Vietnam's, not the browser's.
+  // And "today" stops being viable once 19:00 has passed — submitting the
+  // untouched form at 20:00 would create a give that is overdue the moment it
+  // exists, reporting every student as missing.
+  const src = SRC.slice(SRC.indexOf('const VN_TZ'), SRC.indexOf('function fmtDate'));
+  const defaultDueDateVietnam = new Function(`${src}; return defaultDueDateVietnam;`)();
 
-  test('the helper names the timezone explicitly', () => {
-    assert.match(codeOnly(fn), /timeZone: 'Asia\/Ho_Chi_Minh'/);
-    assert.doesNotMatch(codeOnly(fn), /getFullYear|getMonth\(\)|getDate\(\)/,
+  test('before 19:00 Vietnam → today', () => {
+    // 11:59Z == 18:59 in Vietnam (+07).
+    assert.equal(defaultDueDateVietnam(new Date('2026-08-03T11:59:00Z')), '2026-08-03');
+  });
+
+  test('after 19:00 Vietnam → tomorrow, so the give is not born overdue', () => {
+    assert.equal(defaultDueDateVietnam(new Date('2026-08-03T12:01:00Z')), '2026-08-04');
+  });
+
+  test('just past Vietnam midnight → that same new day', () => {
+    // 20:00Z on the 3rd is already 03:00 on the 4th in Vietnam.
+    assert.equal(defaultDueDateVietnam(new Date('2026-08-03T20:00:00Z')), '2026-08-04');
+  });
+
+  test('the cutoff matches the server rule', () => {
+    assert.match(src, /VN_CUTOFF_HOUR = 19/);
+    assert.match(src, /timeZone: VN_TZ/);
+  });
+});
+
+
+describe('the modal wires the helper, not a raw browser Date', () => {
+  test('openHomeworkModal calls the helper and no browser-local getter', () => {
+    const open = codeOnly(SRC.slice(SRC.indexOf('function openHomeworkModal'),
+                                    SRC.indexOf('function closeHomeworkModal')));
+    assert.match(open, /defaultDueDateVietnam\(\)/);
+    assert.doesNotMatch(open, /getFullYear|getMonth\(\)|getDate\(\)/,
       'browser-local getters are exactly the bug this replaced');
   });
 
   test('it really returns the Vietnam date at a day boundary', () => {
-    // 2026-08-02T20:00Z is still 2026-08-02 in Los Angeles but already
-    // 2026-08-03 in Vietnam (+07). The helper must say the 3rd.
+    // 2026-08-02T20:00Z is still the 2nd in Los Angeles but already the 3rd in
+    // Vietnam (+07) — the fixture must straddle a real boundary to mean anything.
     const boundary = new Date('2026-08-02T20:00:00Z');
-    const vn = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit',
+    const fmt = (tz) => new Intl.DateTimeFormat('en-CA', {
+      timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
     }).format(boundary);
-    const la = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit',
-    }).format(boundary);
-    assert.equal(vn, '2026-08-03');
-    assert.equal(la, '2026-08-02');
-    assert.notEqual(vn, la, 'fixture no longer straddles a day boundary — pick another instant');
+    assert.equal(fmt('Asia/Ho_Chi_Minh'), '2026-08-03');
+    assert.equal(fmt('America/Los_Angeles'), '2026-08-02');
   });
+});
 
-  test('the modal uses the helper, not a raw Date', () => {
-    const open = SRC.slice(SRC.indexOf('function openHomeworkModal'), SRC.indexOf('function closeHomeworkModal'));
-    assert.match(codeOnly(open), /todayInVietnam\(\)/);
-    assert.doesNotMatch(codeOnly(open), /getFullYear/);
+
+describe('Full Test is not offered as class homework (Codex review round 3)', () => {
+  // A Full Test is a chain of three sessions and its real result is the
+  // aggregate across all three; only the opening session would carry the ledger
+  // link, so the homework score would deterministically be Part 1's band.
+  const page = readFileSync(join(HERE, '..', 'public', 'pages', 'admin', 'classes', 'index.html'), 'utf8');
+
+  test('the mode picker offers only the single-session modes', () => {
+    assert.match(page, /<option value="practice">/);
+    assert.match(page, /<option value="test_part">/);
+    assert.doesNotMatch(page, /<option value="test_full">/,
+      'offering a half-working Full Test is worse than not offering it');
   });
 });
 
