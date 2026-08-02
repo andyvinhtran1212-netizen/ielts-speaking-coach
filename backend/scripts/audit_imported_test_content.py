@@ -105,6 +105,55 @@ PDF_VERIFIED_LIMITS: dict[tuple[str, int], str] = {
 _PDF_COVERED_TESTS = {code for code, _ in PDF_VERIFIED_LIMITS}
 
 
+# MỐC PHỦ SÓNG. 36 khối dưới đây là những chỗ file .md nguồn KHÔNG có giới hạn
+# từ để đối chiếu, tính đến 02/08/2026 — đã rà tay và chấp nhận.
+#
+# Vì sao phải chốt danh sách thay vì "S2 luôn là cảnh báo mềm": một lần chỉnh
+# parser hỏng mà VẪN đọc được một giới hạn trong mỗi file thì sẽ không kêu S1,
+# hàng chục khối khác lặng lẽ rơi xuống S2, và lệnh mặc định vẫn exit 0. Khe hở
+# MỚI phải là lỗi CỨNG; chỉ khe hở đã biết mới được mềm (Codex vòng 3).
+#
+# Khoá: (mã đề, khoảng câu của khối) cho Listening, (mã đề, "số câu") cho Reading.
+KNOWN_SOURCE_GAPS: set[tuple[str, str]] = {
+    ('ILR-LIS-CAM-B17-T1', '31-40'),
+    ('ILR-LIS-CAM-B17-T2', '31-40'),
+    ('ILR-LIS-CAM-B17-T3', '31-40'),
+    ('ILR-LIS-CAM-B21-T2', '27-30'),
+    ('ILR-RDG-CAM-B13-T1', '32'),
+    ('ILR-RDG-CAM-B13-T1', '33'),
+    ('ILR-RDG-CAM-B13-T1', '34'),
+    ('ILR-RDG-CAM-B13-T1', '35'),
+    ('ILR-RDG-CAM-B13-T1', '36'),
+    ('ILR-RDG-CAM-B13-T1', '37'),
+    ('ILR-RDG-CAM-B13-T2', '38'),
+    ('ILR-RDG-CAM-B13-T2', '39'),
+    ('ILR-RDG-CAM-B13-T2', '40'),
+    ('ILR-RDG-CAM-B15-T3', '27'),
+    ('ILR-RDG-CAM-B15-T3', '28'),
+    ('ILR-RDG-CAM-B15-T3', '29'),
+    ('ILR-RDG-CAM-B15-T3', '30'),
+    ('ILR-RDG-CAM-B15-T3', '31'),
+    ('ILR-RDG-CAM-B18-T3', '31'),
+    ('ILR-RDG-CAM-B18-T3', '32'),
+    ('ILR-RDG-CAM-B18-T3', '33'),
+    ('ILR-RDG-CAM-B18-T3', '34'),
+    ('ILR-RDG-CAM-B18-T3', '35'),
+    ('ILR-RDG-CAM-B20-T1', '31'),
+    ('ILR-RDG-CAM-B20-T1', '32'),
+    ('ILR-RDG-CAM-B20-T1', '33'),
+    ('ILR-RDG-CAM-B20-T1', '34'),
+    ('ILR-RDG-CAM-B20-T1', '35'),
+    ('ILR-RDG-CAM-B20-T2', '33'),
+    ('ILR-RDG-CAM-B20-T2', '34'),
+    ('ILR-RDG-CAM-B20-T2', '35'),
+    ('ILR-RDG-CAM-B20-T2', '36'),
+    ('ILR-RDG-CAM-B20-T2', '37'),
+    ('ILR-RDG-CAM-B20-T3', '24'),
+    ('ILR-RDG-CAM-B20-T3', '25'),
+    ('ILR-RDG-CAM-B20-T3', '26'),
+}
+
+
 def _canon_limit(s: str) -> str:
     """Chuẩn hoá cụm giới hạn (gộp biến thể OCR 'ANDIOR' → 'AND/OR')."""
     s = re.sub(r"AND\s*[/I|]\s*OR", "AND/OR", s.upper())
@@ -180,14 +229,42 @@ def has_choices(kind: str, payload: dict, question: dict) -> bool:
     """
     meta = payload.get("metadata") or {}
     if kind in PER_QUESTION_OPTION_KINDS:
-        return bool(question.get("options"))
+        return _valid_options(question.get("options"))
     if kind == "plan_label":
-        return bool(meta.get("letter_options") or question.get("options"))
-    if kind == "mcq_multi":
-        return bool(meta.get("match_options"))
-    if kind == "matching":
-        return bool(meta.get("match_options"))
-    return bool(question.get("options"))
+        return (_valid_letters(meta.get("letter_options"))
+                or _valid_options(question.get("options")))
+    if kind in ("mcq_multi", "matching"):
+        return _valid_options(meta.get("match_options"), need_text=True)
+    return _valid_options(question.get("options"))
+
+
+def _valid_options(opts, need_text: bool = False) -> bool:
+    """Bank có DÙNG ĐƯỢC không, chứ không chỉ "có tồn tại".
+
+    `[{}]` hay entry rỗng letter/text vẫn truthy nhưng renderMultiSelect dựng ra
+    checkbox không nhãn còn renderMatching dựng bank trắng — vẫn là câu không
+    trả lời được (Codex vòng 3).
+    """
+    if not isinstance(opts, list) or len(opts) < 2:
+        return False
+    letters = []
+    for o in opts:
+        if not isinstance(o, dict):
+            return False
+        letter = str(o.get("letter") or "").strip()
+        if not letter:
+            return False
+        if need_text and not str(o.get("text") or "").strip():
+            return False
+        letters.append(letter.upper())
+    return len(set(letters)) == len(letters)
+
+
+def _valid_letters(letters) -> bool:
+    if not isinstance(letters, list) or len(letters) < 2:
+        return False
+    vals = [str(x or "").strip().upper() for x in letters]
+    return all(vals) and len(set(vals)) == len(vals)
 
 
 def has_visual(payload: dict) -> bool:
@@ -243,17 +320,32 @@ def fetch(table: str, cols: str, **eq):
     return q.execute().data or []
 
 
-def template_has(tpl, qnum: int) -> bool:
+# CÚ PHÁP TOKEN KHÁC NHAU giữa hai renderer — phải khớp ĐÚNG từng bên, dùng
+# chung một mẫu "dễ dãi" là sai cả hai chiều (Codex vòng 3):
+#   listening-test-player.js  /^\{\{Q(\d+)\}\}$/        → BẮT BUỘC chữ Q, KHÔNG
+#                                                         cho khoảng trắng
+#   reading-exam.js           /\{\{\s*(\d{1,3})\s*\}\}/ → CHỈ chữ số, cho khoảng
+#                                                         trắng
+def listening_token(qnum: int) -> re.Pattern:
+    return re.compile(r"\{\{Q" + str(qnum) + r"\}\}")
+
+
+def reading_token(qnum: int) -> re.Pattern:
+    return re.compile(r"\{\{\s*" + str(qnum) + r"\s*\}\}")
+
+
+def template_has(tpl, qnum: int, token: re.Pattern | None = None) -> bool:
     """Template có chỗ dành riêng cho câu này không?
 
     Hai hình dạng, phải nhận CẢ HAI:
       • ô có `q_num` (notes/table/form/flow-chart)
-      • token `{{Q38}}` / `{{38}}` trong chuỗi — summary_completion cất khoảng
-        trống kiểu này trong `template.paragraph`, và prompt của từng câu để
-        rỗng. Chỉ dò dict-có-q_num thì summary lành bị báo oan là "không có đề
-        bài" (Codex vòng 2).
+      • token khoảng trống trong chuỗi — summary_completion cất kiểu này trong
+        `template.paragraph` và để prompt của từng câu rỗng.
+
+    `token` mặc định là cú pháp của LISTENING; phía Reading phải truyền
+    `reading_token(qnum)` vào.
     """
-    token = re.compile(rf"{{{{\s*Q?{qnum}\s*}}}}")
+    token = token or listening_token(qnum)
     hit = False
 
     def walk(n):
@@ -399,7 +491,10 @@ def audit(source_dir: Path | None, modes: set[str],
                 if kind == "plan_label" and not has_visual(p):
                     issues.append({"class": "E4", "range": rng})
 
-        if "answerable" in modes and seen_qnums:
+        if "answerable" in modes:
+            # KHÔNG gác bằng `if seen_qnums`: một đề bị xoá sạch content/exercise
+            # thì danh sách rỗng, E3 chẳng có gì để soi, và bộ soát báo xanh cho
+            # một đề TRỐNG RỖNG (Codex vòng 3). Chạy phép đếm cả khi rỗng.
             # Đủ prompt, đủ lựa chọn vẫn chưa đủ: một exercise mất 1 trong 10 câu
             # thì `qn` vẫn khác rỗng nên câu bị rơi hoàn toàn vô hình. Đếm phủ
             # sóng ở mức ĐỀ mới thấy (Codex vòng 2).
@@ -447,7 +542,7 @@ def audit(source_dir: Path | None, modes: set[str],
                     # một token là câu đó không có gì để gõ, mà bản trước vẫn
                     # coi cả khối là lành (Codex vòng 2).
                     has_marker = bool(summary) and bool(
-                        re.search(rf"{{{{\s*Q?{q['q_num']}\s*}}}}", summary))
+                        reading_token(q["q_num"]).search(summary))
                     if not (q.get("prompt") or "").strip() and not has_marker:
                         issues.append({"class": "E1", "q": q["q_num"],
                                        "kind": q["question_type"]})
@@ -458,7 +553,7 @@ def audit(source_dir: Path | None, modes: set[str],
                             and not (p.get("options") or []):
                         issues.append({"class": "E2", "q": q["q_num"],
                                        "kind": q["question_type"]})
-        if "answerable" in modes and rdg_qnums:
+        if "answerable" in modes:
             dup = sorted({x for x in rdg_qnums if rdg_qnums.count(x) > 1})
             missing = sorted(set(range(1, 41)) - set(rdg_qnums))
             extra = sorted(set(rdg_qnums) - set(range(1, 41)))
@@ -520,6 +615,19 @@ def main() -> int:
     #   sẽ bị ngó lơ — đúng cách ~1000 lỗi trước đây sống sót.
     defects = {k: v for k, v in tally.items() if not k.startswith("S")}
     hard_gaps = {k: v for k, v in tally.items() if k in ("S1", "S3")}
+
+    # S2 chỉ được "mềm" khi nó nằm trong MỐC đã rà tay. Khe hở MỚI là lỗi cứng —
+    # nếu không, một lần chỉnh parser hỏng có thể đẩy hàng chục khối xuống S2 mà
+    # lệnh mặc định vẫn exit 0.
+    new_gaps = []
+    for side in ("listening", "reading"):
+        for tid, issues in report.get(side, {}).items():
+            for i in issues:
+                if i["class"] != "S2":
+                    continue
+                key = (tid, str(i.get("range") if i.get("range") is not None else i.get("q")))
+                if key not in KNOWN_SOURCE_GAPS:
+                    new_gaps.append(key)
     soft_gaps = {k: v for k, v in tally.items() if k == "S2"}
 
     def _dump(pred):
@@ -549,7 +657,14 @@ def main() -> int:
 
     if args.json:
         print(f"\n→ báo cáo đầy đủ: {args.json}")
-    if defects or hard_gaps:
+    if new_gaps:
+        print(f"\n=== KHE HỞ MỚI ({len(new_gaps)}) — NGOÀI MỐC ĐÃ RÀ ===")
+        print("  Không có trong KNOWN_SOURCE_GAPS ⇒ coi là LỖI. Hoặc parser vừa"
+              " hỏng, hoặc nguồn vừa đổi; rà tay rồi mới thêm vào mốc.")
+        for k in sorted(new_gaps):
+            print(f"  S2* {k[0]}: {k[1]}")
+
+    if defects or hard_gaps or new_gaps:
         return 1
     return 1 if (soft_gaps and args.strict) else 0
 

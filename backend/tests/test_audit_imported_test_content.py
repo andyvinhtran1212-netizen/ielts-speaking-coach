@@ -17,13 +17,18 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from scripts.audit_imported_test_content import (  # noqa: E402
+    KNOWN_SOURCE_GAPS,
     LIMIT_KINDS,
     LIMIT_RE,
     PDF_VERIFIED_LIMITS,
     READING_NEED_OPTIONS,
     TEMPLATE_KINDS,
+    _valid_letters,
+    _valid_options,
     has_choices,
     has_visual,
+    listening_token,
+    reading_token,
     junk_items,
     limit_for,
     source_limits,
@@ -187,11 +192,12 @@ def test_has_choices_knows_where_each_kind_keeps_its_bank():
     assert has_choices("plan_label", {"metadata": {"letter_options": list("ABCDEFGH")}}, {})
     assert not has_choices("plan_label", {"metadata": {}}, {})
     # chọn-nhiều và matching: dùng chung metadata.match_options
-    assert has_choices("mcq_multi", {"metadata": {"match_options": [{"letter": "A"}]}}, {})
+    BANK = [{"letter": "A", "text": "một"}, {"letter": "B", "text": "hai"}]
+    assert has_choices("mcq_multi", {"metadata": {"match_options": BANK}}, {})
     assert not has_choices("mcq_multi", {"metadata": {"match_options": []}}, {})
-    assert has_choices("matching", {"metadata": {"match_options": [{"letter": "A"}]}}, {})
+    assert has_choices("matching", {"metadata": {"match_options": BANK}}, {})
     # trắc nghiệm 3 lựa chọn: options nằm ở TỪNG câu
-    assert has_choices("mcq_3option", {}, {"options": [{"letter": "A"}]})
+    assert has_choices("mcq_3option", {}, {"options": [{"letter": "A"}, {"letter": "B"}]})
     assert not has_choices("mcq_3option", {}, {"options": []})
 
 
@@ -206,7 +212,7 @@ def test_matching_information_does_not_require_an_authored_bank():
 def test_shared_bank_kinds_ignore_per_question_options():
     """renderMultiSelect/renderMatching KHÔNG đọc options của từng câu. Coi nó
     là bằng chứng "có lựa chọn" sẽ che mất khối đã mất bank."""
-    q_with_opts = {"options": [{"letter": "A"}]}
+    q_with_opts = {"options": [{"letter": "A"}, {"letter": "B"}]}
     assert not has_choices("mcq_multi", {"metadata": {}}, q_with_opts)
     assert not has_choices("matching", {"metadata": {}}, q_with_opts)
     # còn dạng MCQ thường thì options của từng câu MỚI là nguồn đúng
@@ -219,7 +225,9 @@ def test_matching_needs_the_bank_text_not_just_letters():
     A/B/C nghĩa là gì."""
     only_letters = {"metadata": {"letter_options": list("ABCDEFG")}}
     assert not has_choices("matching", only_letters, {})
-    assert has_choices("matching", {"metadata": {"match_options": [{"letter": "A"}]}}, {})
+    assert has_choices("matching",
+                       {"metadata": {"match_options": [{"letter": "A", "text": "x"},
+                                                       {"letter": "B", "text": "y"}]}}, {})
 
 
 def test_plan_label_needs_a_visual():
@@ -236,7 +244,9 @@ def test_template_has_recognises_summary_gap_tokens():
     tpl = {"paragraph": "Pockets were made using {{Q38}} to link them."}
     assert template_has(tpl, 38) is True
     assert template_has(tpl, 39) is False
-    assert template_has({"paragraph": "gap {{39}} here"}, 39) is True
+    # mặc định là cú pháp LISTENING ⇒ dạng chỉ-có-số là của Reading, không khớp
+    assert template_has({"paragraph": "gap {{39}} here"}, 39) is False
+    assert template_has({"paragraph": "gap {{39}} here"}, 39, reading_token(39)) is True
 
 
 def test_short_answer_blocks_carry_a_word_limit():
@@ -253,6 +263,74 @@ def test_pdf_verified_limits_are_expectations_not_waivers():
     assert PDF_VERIFIED_LIMITS[("ILR-LIS-CAM-B20-T1", 31)] == "ONE WORD ONLY"
     # khoá là (mã đề, câu đầu của khối) — không phải chỉ mã đề
     assert all(isinstance(k, tuple) and len(k) == 2 for k in PDF_VERIFIED_LIMITS)
+
+
+# ── phản hồi review PR #892 vòng 3 (Codex) ──────────────────────────────────
+def test_each_renderer_gets_its_own_token_grammar():
+    """Hai renderer dùng cú pháp KHÁC nhau; dùng chung một mẫu dễ dãi là sai cả
+    hai chiều — Listening bỏ qua câu thật sự không có ô nhập, Reading báo oan.
+
+      listening-test-player.js  /^\\{\\{Q(\\d+)\\}\\}$/       → bắt buộc Q, không space
+      reading-exam.js           /\\{\\{\\s*(\\d{1,3})\\s*\\}\\}/ → chỉ số, cho space
+    """
+    assert listening_token(38).search("gap {{Q38}} here")
+    assert not listening_token(38).search("gap {{38}} here")
+    assert not listening_token(38).search("gap {{ Q38 }} here")
+
+    assert reading_token(38).search("gap {{38}} here")
+    assert reading_token(38).search("gap {{ 38 }} here")
+    assert not reading_token(38).search("gap {{Q38}} here")
+
+    # và không được cắn nhầm số khác: {{Q38}} KHÔNG phải token của câu 3
+    assert not listening_token(3).search("gap {{Q38}} here")
+    assert not reading_token(3).search("gap {{38}} here")
+
+
+def test_template_has_uses_the_listening_grammar_by_default():
+    assert template_has({"paragraph": "x {{Q38}} y"}, 38) is True
+    assert template_has({"paragraph": "x {{38}} y"}, 38) is False
+    # phía Reading truyền mẫu riêng vào
+    assert template_has({"paragraph": "x {{38}} y"}, 38, reading_token(38)) is True
+
+
+def test_valid_options_rejects_empty_shells_and_duplicates():
+    """`[{}]` và entry rỗng letter/text vẫn truthy nhưng renderMultiSelect dựng
+    checkbox không nhãn, renderMatching dựng bank trắng — vẫn không làm được."""
+    good = [{"letter": "A", "text": "một"}, {"letter": "B", "text": "hai"}]
+    assert _valid_options(good, need_text=True)
+    assert not _valid_options([{}, {}], need_text=True)
+    assert not _valid_options([{"letter": "", "text": "x"}, {"letter": "B", "text": "y"}])
+    assert not _valid_options(good[:1])                      # 1 lựa chọn là vô nghĩa
+    assert not _valid_options([{"letter": "A", "text": "x"},
+                               {"letter": "A", "text": "y"}])   # trùng chữ cái
+    assert not _valid_options([{"letter": "A", "text": ""},
+                               {"letter": "B", "text": "y"}], need_text=True)
+    # không cần text thì bank chỉ có chữ cái vẫn hợp lệ (dạng plan_label)
+    assert _valid_options([{"letter": "A"}, {"letter": "B"}])
+    assert not _valid_options(None)
+    assert not _valid_options("ABC")
+
+
+def test_valid_letters_needs_distinct_nonempty_values():
+    assert _valid_letters(["A", "B", "C"])
+    assert not _valid_letters(["A"])
+    assert not _valid_letters(["A", ""])
+    assert not _valid_letters(["A", "a"])          # trùng sau khi chuẩn hoá
+    assert not _valid_letters(None)
+
+
+def test_shared_bank_kinds_reject_unusable_banks():
+    assert not has_choices("mcq_multi", {"metadata": {"match_options": [{}]}}, {})
+    assert not has_choices("matching",
+                           {"metadata": {"match_options": [{"letter": "A", "text": ""}]}}, {})
+
+
+def test_known_source_gaps_is_an_explicit_reviewed_baseline():
+    """S2 chỉ được "mềm" khi nằm trong mốc đã rà tay; khe hở MỚI phải là lỗi
+    cứng, nếu không một lần chỉnh parser hỏng vẫn exit 0."""
+    assert KNOWN_SOURCE_GAPS, "mốc rỗng ⇒ mọi khe hở thành lỗi, hoặc ngược lại"
+    assert all(isinstance(k, tuple) and len(k) == 2 and all(isinstance(x, str) for x in k)
+               for k in KNOWN_SOURCE_GAPS)
 
 
 def test_junk_items_clean_template_is_empty():
