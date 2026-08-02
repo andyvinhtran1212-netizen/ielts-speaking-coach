@@ -89,8 +89,14 @@ describe('bộ nạp Grammar sau khi rút về tầng chung', () => {
   const api = read('grammar-api.ts');
 
   test('mọi loader export đều đi qua React cache() (ADR-008)', () => {
-    const exported = [...api.matchAll(/export const (\w+) = cache\((\w+)\)/g)].map((m) => m[1]);
-    assert.deepEqual(exported.sort(), ['getArticle', 'getGroups', 'getHome']);
+    // Kiểm theo TÍNH CHẤT, không theo danh sách cứng: thêm loader mới (Phase 3
+    // thêm getCategory) không được làm test đỏ vì lý do sai, nhưng thêm một
+    // loader QUÊN cache() thì phải đỏ.
+    const allExports = [...api.matchAll(/export const (\w+) = /g)].map((m) => m[1]);
+    const cached = [...api.matchAll(/export const (\w+) = cache\(/g)].map((m) => m[1]);
+    assert.ok(allExports.length >= 3, 'phải có ít nhất getArticle/getHome/getGroups');
+    assert.deepEqual(allExports.sort(), cached.sort(),
+      'loader không bọc cache() sẽ khiến generateMetadata và thân trang fetch hai lần');
   });
 
   test('có loader cho trang chủ + nhóm chủ đề (route Phase 3 đầu tiên cần)', () => {

@@ -26,9 +26,15 @@ async function fetchGroups(): Promise<any | null> {
   return getPublicJson('/api/grammar/groups');
 }
 
+/** Một thư mục + danh sách bài của nó (chế độ `?category=` của trang chủ). */
+async function fetchCategory(slug: string): Promise<any | null> {
+  return getPublicJson(`/api/grammar/category/${encodeURIComponent(slug)}`);
+}
+
 // React `cache()`: generateMetadata và thân trang dùng CHUNG một lần fetch cho
 // mỗi request (ADR-008: "generateMetadata và page body phải dùng cùng memoized
 // loader"). Loader mới cũng phải đi qua đây, không gọi thẳng backend.
 export const getArticle = cache(fetchArticle);
 export const getHome = cache(fetchHome);
 export const getGroups = cache(fetchGroups);
+export const getCategory = cache(fetchCategory);
