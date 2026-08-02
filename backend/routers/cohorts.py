@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 
 from database import supabase_admin
 from routers.admin import require_admin, _aggregate_usage_for_users, _issue_code_and_assign
-from services.class_service import list_cohorts_with_rollup
+from services.class_service import list_cohorts_basic, list_cohorts_with_rollup
 
 router = APIRouter(prefix="/admin/cohorts", tags=["admin", "cohorts"])
 
@@ -45,24 +45,35 @@ class CohortPatchRequest(BaseModel):
 async def list_cohorts(
     is_active: bool | None = None,
     course_id: str | None = None,
+    with_rollup: bool = False,
     authorization: str | None = Header(default=None),
 ):
-    """List cohorts, each with its course and roster counts.
+    """List cohorts. Plain rows by default; `with_rollup=true` adds course +
+    roster counts.
 
-    GĐ 1: the response gained `course`, `member_count` and `unactivated_count`
-    (services/class_service). `unactivated_count` is the number of students on
-    the roster with no account — they receive nothing that is assigned to them,
-    so the merged admin page shows it on every class row rather than behind a
-    click. Both counts are `null`, plus a top-level `rollup_failed: true`, when
-    the roster scan errors: "0 học viên" is a claim a failed query has not
-    earned.
+    The rollup is OPT-IN because five other admin screens (access-codes, users,
+    writing-queue, mock-exams, exam-content) call this endpoint purely to fill a
+    cohort picker. Running the roster scan for them would make those unrelated
+    pages pay a full paginated pass over every student in every class, growing
+    with the school, for data they never render. Only the merged Lớp & Học viên
+    page asks for it.
+
+    With the rollup on, `unactivated_count` is the number of students on the
+    roster with no account — they receive nothing that is assigned to them, so
+    that page shows it on every class row rather than behind a click. Both counts
+    come back `null`, plus a top-level `rollup_failed: true`, when the roster
+    scan errors: "0 học viên" is a claim a failed query has not earned.
 
     Pass `is_active=false` to see archived classes; omit it for everything.
     """
     await require_admin(authorization)
 
     try:
-        return list_cohorts_with_rollup(
+        if with_rollup:
+            return list_cohorts_with_rollup(
+                supabase_admin, is_active=is_active, course_id=course_id
+            )
+        return list_cohorts_basic(
             supabase_admin, is_active=is_active, course_id=course_id
         )
     except Exception as exc:

@@ -191,7 +191,10 @@ async function loadCourses() {
 
 async function loadCohorts() {
   try {
-    const r = await api.get('/admin/cohorts');   // no filter → archived included
+    // with_rollup=true is what makes the roster counts appear; it is opt-in so
+    // the five cohort-PICKER callers of this endpoint don't pay for a full
+    // student scan they never render. No is_active filter → archived included.
+    const r = await api.get('/admin/cohorts?with_rollup=true');
     _cohorts = (r && r.cohorts) || [];
     // Surfaced, not swallowed: without this the admin reads "Không đọc được sĩ
     // số" on every row with no idea why.

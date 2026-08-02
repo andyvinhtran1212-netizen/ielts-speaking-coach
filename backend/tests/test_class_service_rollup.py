@@ -225,3 +225,31 @@ def test_no_cohorts_means_no_student_query_and_no_failure_flag():
 def test_course_filter_is_applied_by_the_query_not_after():
     out = list_cohorts_with_rollup(_DB(_base_tables([])), course_id=COURSE_C2)
     assert [c["id"] for c in out["cohorts"]] == [COHORT_A]
+
+
+# ── the rollup is opt-in ────────────────────────────────────────────────
+#
+# Five admin screens (access-codes, users, writing-queue, mock-exams,
+# exam-content) call GET /admin/cohorts purely to fill a cohort picker. Running
+# the roster scan for them would make those unrelated pages pay a full paginated
+# pass over every student in every class — growing with the school — for data
+# they never render. The picker path must therefore touch `students` not at all.
+
+
+def test_basic_listing_never_queries_students():
+    from services.class_service import list_cohorts_basic
+
+    # `students` raises if touched, so any scan turns into a hard failure rather
+    # than a silent slowdown that only shows up in production latency.
+    out = list_cohorts_basic(_DB(_base_tables([]), fail={"students", "courses"}))
+    assert [c["id"] for c in out["cohorts"]] == [COHORT_A, COHORT_B]
+    for c in out["cohorts"]:
+        assert "member_count" not in c
+        assert "course" not in c
+
+
+def test_basic_listing_still_applies_the_filters():
+    from services.class_service import list_cohorts_basic
+
+    out = list_cohorts_basic(_DB(_base_tables([])), course_id=COURSE_C2)
+    assert [c["id"] for c in out["cohorts"]] == [COHORT_A]

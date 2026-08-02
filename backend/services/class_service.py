@@ -107,6 +107,39 @@ def _courses_by_id(db) -> tuple[Dict[str, Dict[str, Any]], bool]:
     return {c["id"]: c for c in rows}, False
 
 
+def _fetch_cohorts(
+    db,
+    *,
+    is_active: Optional[bool],
+    course_id: Optional[str],
+) -> List[Dict[str, Any]]:
+    q = db.table("cohorts").select("*")
+    if is_active is True:
+        q = q.eq("is_active", True)
+    elif is_active is False:
+        q = q.eq("is_active", False)
+    if course_id:
+        q = q.eq("course_id", course_id)
+    return (q.order("created_at", desc=True).execute().data) or []
+
+
+def list_cohorts_basic(
+    db,
+    *,
+    is_active: Optional[bool] = None,
+    course_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Just the cohort rows — no course join, no roster scan.
+
+    This is what a cohort PICKER needs, and five admin screens use the endpoint
+    that way (access-codes, users, writing-queue, mock-exams, exam-content). They
+    want a handful of ids and names; making them pay for a full paginated scan of
+    every student in every class would make unrelated pages slower and slower as
+    the school grows, for data they never render.
+    """
+    return {"cohorts": _fetch_cohorts(db, is_active=is_active, course_id=course_id)}
+
+
 def list_cohorts_with_rollup(
     db,
     *,
@@ -115,18 +148,11 @@ def list_cohorts_with_rollup(
 ) -> Dict[str, Any]:
     """Classes for the admin list, each carrying its course and roster counts.
 
-    `is_active=None` means no filter — the admin picks "Tất cả" and sees archived
-    classes too.
+    Costs one paginated pass over the students of the listed classes, so it is
+    opt-in (see list_cohorts_basic). `is_active=None` means no filter — the admin
+    picks "Tất cả" and sees archived classes too.
     """
-    q = db.table("cohorts").select("*")
-    if is_active is True:
-        q = q.eq("is_active", True)
-    elif is_active is False:
-        q = q.eq("is_active", False)
-    if course_id:
-        q = q.eq("course_id", course_id)
-
-    cohorts = (q.order("created_at", desc=True).execute().data) or []
+    cohorts = _fetch_cohorts(db, is_active=is_active, course_id=course_id)
 
     counts, rollup_failed = _roster_rollup(db, [c["id"] for c in cohorts])
     courses, course_lookup_failed = _courses_by_id(db)
