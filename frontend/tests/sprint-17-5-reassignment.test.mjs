@@ -14,9 +14,9 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const front = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
 const CODES = front('js', 'admin-access-codes.js');
-const COHORTS = front('js', 'admin-cohorts.js');
+const COHORTS = front('js', 'admin-classes.js');
 const CODES_HTML = front('pages', 'admin', 'access-codes', 'index.html');
-const COHORTS_HTML = front('pages', 'admin', 'cohorts', 'index.html');
+const COHORTS_HTML = front('pages', 'admin', 'classes', 'index.html');
 
 
 describe('Sprint 17.5 — codes UI refill (reassign replaced by edit-perms)', () => {
@@ -61,8 +61,8 @@ describe('Sprint 17.5 — cohort UI member add/remove', () => {
     assert.doesNotMatch(COHORTS, /rgba\(\s*\d+\s*,/);
   });
   test('add-member modal present in page', () => {
-    assert.match(COHORTS_HTML, /id="addmember-backdrop"/);
-    assert.match(COHORTS_HTML, /id="am-user"/);
+    assert.match(COHORTS_HTML, /id="member-modal"/);
+    assert.match(COHORTS_HTML, /id="mf-student"/);
     assert.match(COHORTS_HTML, /id="btn-add-member"/);
   });
 });

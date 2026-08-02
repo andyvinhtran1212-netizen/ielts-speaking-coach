@@ -4,160 +4,81 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <title>Lớp / Cohort · Admin</title>
+  <title>Lớp — Đang chuyển hướng</title>
+
+  <!-- GĐ 1 (docs/CLASS_MANAGEMENT_PLAN_2026-08-02.md) — quản lý lớp đã gộp vào
+       /pages/admin/classes/. Trang này giữ lại làm chuyển hướng vì admin đã
+       bookmark từng lớp cụ thể (?cohort_id=…) và những đường dẫn đó phải vẫn tới
+       đúng lớp.
+
+       Chuyển hướng bằng JS chứ không phải <meta refresh>: cần mang theo query
+       string, mà meta refresh chỉ đi tới một URL cố định nên sẽ nuốt mất
+       cohort_id. Giữ IIFE chống nháy theme để trang trung gian không loé sai
+       giao diện. -->
 
   <script>
     (function () {
       try {
         var stored = localStorage.getItem('av-theme');
-        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        var theme = (stored === 'light' || stored === 'dark')
+          ? stored
+          : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
         document.documentElement.setAttribute('data-theme', theme);
-      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
     })();
   </script>
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+    (function () {
+      var target = '/pages/admin/classes/index.html' + (window.location.search || '');
+      // replace() so Back does not bounce the admin straight back here.
+      window.location.replace(target);
+    })();
+  </script>
+
+  <link rel="canonical" href="/pages/admin/classes/index.html" />
 
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
   <link rel="stylesheet" href="/css/aver-design/components.css" />
-  <link rel="stylesheet" href="/css/aver-design/admin-components.css" />
-
-  <script src="https://unpkg.com/@supabase/supabase-js@2.107.0" defer></script>
-  <script src="/js/runtime-config.js"></script>
-  <script src="/js/api.js"></script>
-  <script src="/js/toast.js"></script>
-  <script src="/js/confirm-danger.js"></script>
 
   <style>
-    /* Sprint 18.3 — shared table/button/chip/modal/banner/empty/subtab moved to
-       admin-components.css. Only page-specific layout remains here. */
-    body.av-page { font-family: var(--av-font-sans); margin: 0; }
-    .co-shell { max-width: 1100px; margin: 0 auto; padding: var(--av-space-6);
-      display: flex; flex-direction: column; gap: var(--av-space-6); }
-    .co-header h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-semibold); margin-bottom: var(--av-space-1); }
-    .co-header .subtitle { color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
-    .co-toolbar { display: flex; gap: var(--av-space-3); align-items: flex-end;
-      justify-content: space-between; flex-wrap: wrap; }
-    .co-filter { display: flex; flex-direction: column; gap: 4px; min-width: 200px; }
-    .co-filter label { font-size: var(--av-fs-xs); color: var(--av-text-muted);
-      text-transform: uppercase; letter-spacing: var(--av-tracking-wide); }
-    .co-filter select { padding: 8px 12px; border: 1px solid var(--av-border-default);
-      border-radius: var(--av-radius-md); background: var(--av-surface-card);
-      color: var(--av-text-primary); font-size: var(--av-fs-sm);
-      width: 100%; min-width: 0; max-width: 100%; }   /* Sprint 18.3.1.2 — control never overflows its column */
-    .co-meta { color: var(--av-text-secondary); font-size: var(--av-fs-sm); margin-left: var(--av-space-2); }
-    .co-back { font-size: var(--av-fs-sm); }
-    /* Sprint 18.3.1.1 — detail header reflows: the title/meta side may shrink
-       (min-width:0) and the row wraps, so "+ Thêm học viên" is never pushed
-       past the right edge. Replaces a no-wrap inline flex that overflowed. */
-    .co-detail-head { display: flex; align-items: flex-start;
-      justify-content: space-between; gap: var(--av-space-3); flex-wrap: wrap; }
-    .co-detail-head > div { min-width: 0; }
-    [hidden] { display: none !important; }
+    body.av-page {
+      font-family: var(--av-font-sans);
+      margin: 0; padding: var(--av-space-8);
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh;
+    }
+    .closure-card {
+      max-width: 480px;
+      padding: var(--av-space-6);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      text-align: center;
+    }
+    .closure-card h1 { font-size: var(--av-fs-lg); margin: 0 0 var(--av-space-2); }
+    .closure-card p { color: var(--av-text-secondary); font-size: var(--av-fs-sm);
+      margin: 0 0 var(--av-space-4); }
+    .closure-card a {
+      display: inline-block;
+      padding: var(--av-space-2) var(--av-space-4);
+      border-radius: var(--av-radius-md);
+      background: var(--av-brand-teal-700);
+      color: var(--av-text-on-primary);
+      text-decoration: none;
+      font-weight: var(--av-fw-semibold);
+      font-size: var(--av-fs-sm);
+    }
   </style>
 </head>
 <body class="av-page">
-  <aver-admin-chrome active="cohorts">
-
-    <!-- ── IA tab bar (Sprint 18.1): Lớp & Học viên ─────────────── -->
-    <nav class="adm-subtabs" aria-label="Khu vực Lớp và Học viên">
-      <a class="adm-subtab is-active" href="/pages/admin/cohorts/index.html" aria-current="page">Quản lý lớp</a>
-      <a class="adm-subtab" href="/pages/admin/students/index.html">Học viên</a>
-    </nav>
-
-    <!-- ── Cohort list (default) ────────────────────────────────── -->
-    <main class="co-shell" id="view-list" hidden>
-      <header class="co-header">
-        <h1>Lớp / Cohort</h1>
-        <p class="subtitle">Tạo và quản lý lớp học trực tiếp. Thành viên được suy ra từ những người dùng đang gắn với mã của lớp.</p>
-      </header>
-
-      <div class="adm-banner" id="co-banner" hidden></div>
-
-      <div class="co-toolbar">
-        <div class="co-filter">
-          <label for="cohort-filter-status">Trạng thái</label>
-          <select id="cohort-filter-status">
-            <option value="active">Hoạt động</option>
-            <option value="archived">Đã lưu trữ</option>
-            <option value="all">Tất cả</option>
-          </select>
-        </div>
-        <button class="adm-btn-primary" id="btn-create-cohort" type="button">+ Tạo lớp mới</button>
-      </div>
-
-      <div class="adm-loading" id="cohorts-loading" hidden>Đang tải…</div>
-      <div class="adm-empty" id="cohorts-empty" hidden>Chưa có lớp nào.</div>
-
-      <div class="adm-table-wrap" id="cohorts-table-wrap">
-        <table class="adm-table">
-          <thead>
-            <tr><th>Tên lớp</th><th>Tiền tố mã</th><th>Trạng thái</th><th>Ngày tạo</th><th></th></tr>
-          </thead>
-          <tbody id="cohorts-tbody"><tr><td colspan="5" class="text-center py-6 text-sm" style="color:var(--av-text-muted,#9ca3af)">Đang tải…</td></tr></tbody>
-        </table>
-      </div>
-    </main>
-
-    <!-- ── Cohort detail: member roster (?cohort_id=…) ──────────── -->
-    <main class="co-shell" id="view-detail" hidden>
-      <a class="co-back adm-btn-secondary" href="/pages/admin/cohorts/index.html">← Tất cả lớp</a>
-      <header class="co-header co-detail-head">
-        <div>
-          <h1 id="cohort-detail-title">Lớp</h1>
-          <div id="cohort-detail-meta"></div>
-        </div>
-        <button class="adm-btn-primary" id="btn-add-member" type="button">+ Thêm học viên</button>
-      </header>
-
-      <div class="adm-loading" id="members-loading" hidden>Đang tải…</div>
-      <div class="adm-empty" id="members-empty" hidden>Lớp này chưa có thành viên (chưa ai được cấp mã của lớp).</div>
-
-      <div class="adm-table-wrap" id="members-table-wrap">
-        <table class="adm-table">
-          <thead>
-            <tr><th>Thành viên</th><th>Tổng phiên</th><th>Hoạt động gần nhất</th><th>Chi phí AI</th><th>Mã HV</th><th></th></tr>
-          </thead>
-          <tbody id="members-tbody"><tr><td colspan="6" class="text-center py-6 text-sm" style="color:var(--av-text-muted,#9ca3af)">Đang tải…</td></tr></tbody>
-        </table>
-      </div>
-    </main>
-
-    <!-- ── Add-member modal (Sprint 17.5) ───────────────────────── -->
-    <div class="adm-modal-backdrop" id="addmember-backdrop" hidden>
-      <div class="adm-modal" role="dialog" aria-modal="true">
-        <h2>Thêm học viên vào lớp</h2>
-        <p class="co-meta" style="margin:0;">Gán một học viên sẵn có vào lớp này (đặt lớp cho hồ sơ học viên — không cấp mã mới).</p>
-        <div class="adm-field"><label for="am-user">Học viên</label><select id="am-user"><option value="">— Chọn học viên —</option></select></div>
-        <div class="adm-banner" id="am-error" hidden></div>
-        <div class="adm-modal-actions">
-          <button class="adm-btn-secondary" id="btn-am-cancel" type="button">Hủy</button>
-          <button class="adm-btn-primary" id="btn-am-submit" type="button">Thêm</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── Create modal ─────────────────────────────────────────── -->
-    <div class="adm-modal-backdrop" id="cohort-modal-backdrop" hidden>
-      <div class="adm-modal" role="dialog" aria-modal="true">
-        <h2>Tạo lớp mới</h2>
-        <div class="adm-field"><label for="cc-name">Tên lớp</label><input id="cc-name" type="text" /></div>
-        <div class="adm-field"><label for="cc-prefix">Tiền tố mã (tùy chọn)</label><input id="cc-prefix" type="text" /></div>
-        <div class="adm-field"><label for="cc-desc">Mô tả (tùy chọn)</label><textarea id="cc-desc"></textarea></div>
-        <div class="adm-banner" id="cc-error" hidden></div>
-        <div class="adm-modal-actions">
-          <button class="adm-btn-secondary" id="btn-cc-cancel" type="button">Hủy</button>
-          <button class="adm-btn-primary" id="btn-cc-submit" type="button">Tạo</button>
-        </div>
-      </div>
-    </div>
-
-  </aver-admin-chrome>
-
-  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
-  <script type="module" src="/js/admin-cohorts.js"></script>
+  <!-- Chỉ hiện khi JS bị tắt hoặc chuyển hướng chưa kịp chạy. -->
+  <div class="closure-card">
+    <h1>Quản lý lớp đã chuyển</h1>
+    <p>Lớp và học viên nay nằm chung một trang.</p>
+    <a href="/pages/admin/classes/index.html">Mở Lớp &amp; Học viên</a>
+  </div>
 </body>
 </html>

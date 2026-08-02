@@ -44,8 +44,8 @@ const WRAPS = [
   ['admin-reading.js', 'ar-list-table'],
   ['admin-usage.js', 'usage-table-wrap'],
   ['admin-usage.js', 'code-usage-table-wrap'],
-  ['admin-cohorts.js', 'cohorts-table-wrap'],
-  ['admin-cohorts.js', 'members-table-wrap'],
+  ['admin-classes.js', 'list-table-wrap'],
+  ['admin-classes.js', 'roster-table-wrap'],
   // NOTE: admin-listening-tests-list.js (tl-table-wrap) is intentionally not
   // listed — renderRows() fetches the element into a local `tableWrap` var and
   // toggles `tableWrap.hidden` (both true on empty and false on success), a

@@ -36,7 +36,10 @@ describe('Sprint 18.3.2 — Writing-Coach chrome removed', () => {
 
 describe('Sprint 18.3.2 — aver-admin chrome + shared components consumed', () => {
   test('aver-admin chrome + admin-components.css linked', () => {
-    assert.match(HTML, /<aver-admin-chrome active="students">/);
+    // GĐ 1: the students page now lives under the merged "Lớp & Học viên"
+    // parent. active="students" named a section that no longer exists, so the
+    // sidebar highlighted nothing and both child links disappeared.
+    assert.match(HTML, /<aver-admin-chrome active="classes" subsection="students">/);
     assert.match(HTML, /\/css\/aver-design\/admin-components\.css/);
   });
   test('uses shared .adm-* components (table / button / card / modal / field)', () => {
@@ -85,7 +88,7 @@ describe('Sprint 18.3.2 — features preserved', () => {
 
 describe('Sprint 18.3.2 — Sprint 18.1 tabs preserved', () => {
   test('"Lớp & Học viên" subtabs intact, students active', () => {
-    assert.match(HTML, /class="adm-subtab"[^>]*href="\/pages\/admin\/cohorts\/index\.html"/);
+    assert.match(HTML, /class="adm-subtab"[^>]*href="\/pages\/admin\/classes\/index\.html"/);
     assert.match(HTML, /class="adm-subtab is-active"[^>]*href="\/pages\/admin\/students\/index\.html"/);
   });
 });

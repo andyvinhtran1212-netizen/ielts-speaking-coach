@@ -17,9 +17,9 @@ import { usdLabel, countLabel, lastActiveLabel } from '../js/admin-usage-util.js
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const front = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
-const CTRL = front('js', 'admin-cohorts.js');
+const CTRL = front('js', 'admin-classes.js');
 const CHROME = front('js', 'components', 'aver-admin-chrome.js');
-const HTML = front('pages', 'admin', 'cohorts', 'index.html');
+const HTML = front('pages', 'admin', 'classes', 'index.html');
 
 
 describe('Sprint 17.3 — reused usage-util still exports formatters', () => {
@@ -30,7 +30,7 @@ describe('Sprint 17.3 — reused usage-util still exports formatters', () => {
   });
 });
 
-describe('Sprint 17.3 — admin-cohorts.js wiring', () => {
+describe('Sprint 17.3 — class controller wiring (GĐ 1: admin-classes.js)', () => {
   test('imports the usage-util formatters', () => {
     assert.match(CTRL, /import\s*\{[^}]*usdLabel[^}]*\}\s*from\s*'\.\/admin-usage-util\.js'/);
   });
@@ -65,7 +65,7 @@ describe('Sprint 17.3 — integrations', () => {
   test('page has list + detail views, member table, create modal', () => {
     assert.match(HTML, /id="view-list"/);
     assert.match(HTML, /id="view-detail"/);
-    assert.match(HTML, /id="members-tbody"/);
-    assert.match(HTML, /id="cohort-modal-backdrop"/);
+    assert.match(HTML, /id="roster-tbody"/);
+    assert.match(HTML, /id="cohort-modal"/);
   });
 });

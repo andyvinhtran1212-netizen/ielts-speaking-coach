@@ -18,7 +18,7 @@ const CD = read('js', 'confirm-danger.js');
 const ADMINCSS = read('css', 'aver-design', 'admin-components.css');
 const AC = read('js', 'admin-access-codes.js');
 const USERS = read('js', 'admin-users.js');
-const COH = read('js', 'admin-cohorts.js');
+const COH = read('js', 'admin-classes.js');
 
 
 describe('confirmDanger helper — modal + a11y', () => {
@@ -62,7 +62,7 @@ describe('migration — 4 core revoke/gỡ confirms → confirmDanger (gate pres
     assert.match(USERS, /onConfirm: async[\s\S]*?loadList\(\)/);
   });
   test('cohorts removeMember uses confirmDanger; refetch (loadDetail) preserved', () => {
-    assert.match(COH, /function removeMember\(studentId\) \{\s*confirmDanger\(\{/);
+    assert.match(COH, /function removeMember\(studentId\) \{\s*(?:window\.)?confirmDanger\(\{/);
     assert.match(COH, /onConfirm: async[\s\S]*?loadDetail\(_cohortId\)/);
   });
   test('those 4 no longer call native confirm()', () => {
@@ -91,7 +91,7 @@ describe('confirm-danger.js loaded on the 3 migrated pages', () => {
   for (const p of [
     ['pages','admin','access-codes','index.html'],
     ['pages','admin','users','index.html'],
-    ['pages','admin','cohorts','index.html'],
+    ['pages','admin','classes','index.html'],
   ]) {
     test(`${p.slice(2).join('/')} loads /js/confirm-danger.js`, () => {
       assert.match(read(...p), /src="\/js\/confirm-danger\.js"/);

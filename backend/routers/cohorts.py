@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 
 from database import supabase_admin
 from routers.admin import require_admin, _aggregate_usage_for_users, _issue_code_and_assign
+from services.class_service import list_cohorts_basic, list_cohorts_with_rollup
 
 router = APIRouter(prefix="/admin/cohorts", tags=["admin", "cohorts"])
 
@@ -26,6 +27,7 @@ class CohortCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     code_prefix: str | None = Field(default=None, max_length=20)
     description: str | None = None
+    course_id: str | None = None          # mig 175 — NULL = chưa gán khoá
 
 
 class CohortPatchRequest(BaseModel):
@@ -33,29 +35,49 @@ class CohortPatchRequest(BaseModel):
     code_prefix: str | None = Field(default=None, max_length=20)
     description: str | None = None
     is_active: bool | None = None
+    # mig 175. Explicit null is meaningful here — it un-assigns the course — so
+    # this field is read via `exclude_unset` below, not by an is-not-None check
+    # like its neighbours.
+    course_id: str | None = None
 
 
 @router.get("")
 async def list_cohorts(
     is_active: bool | None = None,
+    course_id: str | None = None,
+    with_rollup: bool = False,
     authorization: str | None = Header(default=None),
 ):
-    """List cohorts. Default: only active. Pass is_active=false to see archived."""
-    admin = await require_admin(authorization)
+    """List cohorts. Plain rows by default; `with_rollup=true` adds course +
+    roster counts.
 
-    q = supabase_admin.table("cohorts").select("*")
-    if is_active is True:
-        q = q.eq("is_active", True)
-    elif is_active is False:
-        q = q.eq("is_active", False)
-    # is_active is None → no filter (admin wants to see everything)
+    The rollup is OPT-IN because five other admin screens (access-codes, users,
+    writing-queue, mock-exams, exam-content) call this endpoint purely to fill a
+    cohort picker. Running the roster scan for them would make those unrelated
+    pages pay a full paginated pass over every student in every class, growing
+    with the school, for data they never render. Only the merged Lớp & Học viên
+    page asks for it.
+
+    With the rollup on, `unactivated_count` is the number of students on the
+    roster with no account — they receive nothing that is assigned to them, so
+    that page shows it on every class row rather than behind a click. Both counts
+    come back `null`, plus a top-level `rollup_failed: true`, when the roster
+    scan errors: "0 học viên" is a claim a failed query has not earned.
+
+    Pass `is_active=false` to see archived classes; omit it for everything.
+    """
+    await require_admin(authorization)
 
     try:
-        r = q.order("created_at", desc=True).execute()
+        if with_rollup:
+            return list_cohorts_with_rollup(
+                supabase_admin, is_active=is_active, course_id=course_id
+            )
+        return list_cohorts_basic(
+            supabase_admin, is_active=is_active, course_id=course_id
+        )
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi tải danh sách lớp: {exc}")
-
-    return {"cohorts": r.data or []}
 
 
 @router.post("")
@@ -69,6 +91,7 @@ async def create_cohort(
         "name": body.name,
         "code_prefix": body.code_prefix,
         "description": body.description,
+        "course_id": body.course_id,
         "is_active": True,
         "created_by": admin["id"],
         "created_at": now_iso,
@@ -92,14 +115,21 @@ async def update_cohort(
     await require_admin(authorization)
 
     updates: dict = {}
+    # `name` cannot be cleared (a class must have one), so is-not-None is the
+    # right test for it. Every other field here is optional and clearable, so
+    # they are read from `model_fields_set`: an explicit `null` means "xoá giá
+    # trị này". An is-not-None check drops that null, the UPDATE still succeeds
+    # because other fields are present, and the admin watches the old value
+    # reappear after a save that reported success — a silent no-op, which is the
+    # failure mode this project's rules single out. (GĐ 1: latent until the new
+    # class-edit form began sending all four fields on every save.)
     if body.name is not None:
         updates["name"] = body.name
-    if body.code_prefix is not None:
-        updates["code_prefix"] = body.code_prefix
-    if body.description is not None:
-        updates["description"] = body.description
     if body.is_active is not None:
         updates["is_active"] = body.is_active
+    for field in ("code_prefix", "description", "course_id"):
+        if field in body.model_fields_set:
+            updates[field] = getattr(body, field)
 
     if not updates:
         raise HTTPException(400, "Không có trường nào để cập nhật")

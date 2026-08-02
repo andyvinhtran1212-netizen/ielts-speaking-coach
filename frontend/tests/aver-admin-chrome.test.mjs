@@ -57,7 +57,7 @@ describe('Sprint 12.1 — aver-admin-chrome component source', () => {
     const sections = [
       'overview',
       'speaking', 'writing', 'listening', 'vocab', 'grammar',
-      'students', 'users', 'cohorts',
+      'students', 'users', 'classes',
       'access-codes', 'usage',
       'error-logs',
       'system',
@@ -78,7 +78,7 @@ describe('Sprint 12.1 — aver-admin-chrome component source', () => {
     // stale cluster-19.x chrome fails.)
     assert.match(CHROME_JS, /PHASE_B_SECTIONS\s*=\s*new Set\(\[\s*\]\)/);
     // No section should still be tagged Phase B.
-    for (const s of ['cohorts', 'usage', 'system']) {
+    for (const s of ['classes', 'usage', 'system']) {
       assert.doesNotMatch(
         CHROME_JS,
         new RegExp(`PHASE_B_SECTIONS\\s*=\\s*new Set\\(\\[[^\\]]*['"]${s}['"]`),
@@ -152,7 +152,7 @@ describe('Sprint 12.1 — every moved page embeds <aver-admin-chrome>', () => {
     ['writing/assignments.html',      'writing'],
     ['writing/prompts.html',          'writing'],
     ['writing/instructor-queue.html', 'writing'],
-    ['students/index.html',           'students'],
+    ['students/index.html',           'classes'],   // GĐ 1: gộp vào mục Lớp & Học viên
     ['listening/segments.html',       'listening'],
     ['listening/gist.html',           'listening'],
     ['listening/tf.html',             'listening'],
@@ -230,7 +230,7 @@ describe('Sprint 12.1 — section index pages (all graduated from placeholders)'
   // state and were the cluster-19.x "3 stale chrome fails". Now they pin
   // the durable contract: the page exists + mounts the admin chrome.
   const sections = [
-    'cohorts', 'usage',
+    'classes', 'usage',
   ];
   for (const s of sections) {
     it(`/pages/admin/${s}/index.html exists with chrome (now LIVE, not a placeholder)`, () => {
@@ -476,4 +476,46 @@ describe('Sprint 12.2 F3 — mobile sidebar scroll-lock', () => {
       /disconnectedCallback\(\)\s*\{[\s\S]*?_setBodyScrollLock\(false\)/,
     );
   });
+});
+
+// ── GĐ 1 — the merged "Lớp & Học viên" area resolves in the sidebar ─────────
+//
+// renderSidebar() highlights (and expands the children of) a nav item only when
+// item.section === the page's `active` attribute. So a page whose active= names
+// no declared section silently gets no highlight at all, and any subsections
+// vanish with it. That is what happened when the parent slug was renamed
+// 'cohorts' → 'classes' while the students page still said active="students".
+//
+// Scoped to the two merged pages on purpose: access-codes, usage, foot-traffic
+// and system have the same unresolved-active state today. That predates this
+// change and fixing it is a separate patch, not something to smuggle in here.
+describe('GĐ 1 — merged class area highlights in the sidebar', () => {
+  const chromeAttrs = (html) => {
+    const m = html.match(/<aver-admin-chrome\s+([^>]*)>/);
+    assert.ok(m, 'page does not mount aver-admin-chrome');
+    return {
+      active: (m[1].match(/active="([^"]*)"/) || [])[1],
+      subsection: (m[1].match(/subsection="([^"]*)"/) || [])[1],
+    };
+  };
+
+  const PAGES = [
+    ['classes',  read('pages', 'admin', 'classes', 'index.html')],
+    ['students', read('pages', 'admin', 'students', 'index.html')],
+  ];
+
+  for (const [expectedSub, html] of PAGES) {
+    it(`${expectedSub} page sits under a declared parent section`, () => {
+      const { active, subsection } = chromeAttrs(html);
+      assert.match(
+        CHROME_JS, new RegExp(`section:\\s*'${active}'`),
+        `active="${active}" matches no nav section — the sidebar would highlight nothing`,
+      );
+      assert.equal(subsection, expectedSub);
+      assert.match(
+        CHROME_JS, new RegExp(`slug:\\s*'${expectedSub}'`),
+        `no child entry with slug '${expectedSub}'`,
+      );
+    });
+  }
 });
