@@ -13,9 +13,16 @@
 (function () {
   'use strict';
 
+  // Chốt gửi-một-lần, cùng khuôn với rum-vitals.js (`_rumVitalsLoaded`). File
+  // này không có chốt chống nạp trùng, nên nếu một trang lỡ nhúng hai lần —
+  // hoặc listener được gắn hai lần — mẫu số page_view bị phồng, tức error-rate
+  // bị hạ một cách giả tạo. Rẻ và chặn đúng chỗ (review PR 887).
   function fire() {
     try {
+      window.aver = window.aver || {};
+      if (window.aver._pageViewSent) return;
       if (!(window.api && typeof window.api.post === 'function')) return;
+      window.aver._pageViewSent = true;
       // ADR-012 migration tags: which stack rendered the page + which
       // release served it (cutover-dashboard denominator). Best-effort.
       var impl = 'legacy';
@@ -37,7 +44,17 @@
     } catch (e) { /* never affect the page */ }
   }
 
-  if (document.readyState === 'loading') {
+  // Review PR 887 — 'interactive' CŨNG phải chờ. Script `defer` chạy khi
+  // readyState đã là 'interactive', tức TRƯỚC sự kiện DOMContentLoaded. Trang
+  // nào gọi `initSupabase` trong một listener DOMContentLoaded (profile.html
+  // làm vậy để chắc chắn có `createClient`) thì beacon bắn sớm hơn init, phiên
+  // đăng nhập chưa sẵn, và page_view rơi vào CSDL với `user_id = NULL` — khách
+  // đã đăng nhập bị đếm thành ẩn danh. Đây là lỗi DỮ LIỆU, không chỉ thứ tự:
+  // baseline exposure của route authed sẽ sai ngay từ đầu.
+  //
+  // Listener của trang được đăng ký lúc parse (inline), còn listener này đăng
+  // ký muộn hơn, nên chạy SAU init — đúng thứ tự cần.
+  if (document.readyState === 'loading' || document.readyState === 'interactive') {
     document.addEventListener('DOMContentLoaded', fire);
   } else {
     fire();

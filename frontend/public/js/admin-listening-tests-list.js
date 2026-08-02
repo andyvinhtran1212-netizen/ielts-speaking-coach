@@ -26,6 +26,9 @@ const STATE = {
   total:  0,
   status: 'all',
   search: '',
+  // Server defaults to 'all'; kept explicit so the control and the query
+  // can never drift apart.
+  testType: 'all',
 };
 
 
@@ -35,6 +38,12 @@ const STATE = {
 function init() {
   document.getElementById('tl-status').addEventListener('change', (e) => {
     STATE.status = e.target.value;
+    STATE.page = 1;
+    fetchTests();
+  });
+
+  document.getElementById('tl-type').addEventListener('change', (e) => {
+    STATE.testType = e.target.value;
     STATE.page = 1;
     fetchTests();
   });
@@ -80,6 +89,7 @@ async function fetchTests() {
   const offset = (STATE.page - 1) * STATE.limit;
   const qs = new URLSearchParams({
     status: STATE.status,
+    test_type: STATE.testType,
     search: STATE.search,
     limit:  String(STATE.limit),
     offset: String(offset),

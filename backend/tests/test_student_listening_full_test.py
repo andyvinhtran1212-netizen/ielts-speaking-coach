@@ -7,12 +7,14 @@ Covers:
   * POST   /api/listening/tests/{id}/attempts
   * PATCH  /api/listening/tests/attempts/{id}/answers
   * POST   /api/listening/tests/attempts/{id}/submit
+  * POST   /api/listening/tests/attempts/{id}/check   — Luyện nhanh instant check
   * GET    /api/listening/tests/attempts/{id}
 """
 
 from __future__ import annotations
 
 import asyncio
+import json
 from uuid import uuid4
 
 import pytest
@@ -302,7 +304,7 @@ class _Fake:
     # asserting against a stub: replace-by-q_num, keep sorted, only touch an
     # in_progress attempt, return the new count (None when nothing matched).
     def rpc(self, name, params):
-        if name != "fn_upsert_listening_answer":
+        if name not in ("fn_upsert_listening_answer", "fn_insert_listening_answer_once"):
             raise AssertionError(f"unexpected rpc: {name}")
         rows = self.tables["listening_test_attempts"]
         row = next(
@@ -313,6 +315,22 @@ class _Fake:
         if row is None:
             return _RpcResult(None)
         q = params["p_q_num"]
+
+        # Mig 174 — first-attempt-wins sibling used by the Luyện nhanh runner.
+        # Modelled to the SAME three-way contract as the SQL so these tests
+        # exercise real behaviour: True = recorded, False = already answered,
+        # None = no in_progress attempt (handled by the early return above).
+        if name == "fn_insert_listening_answer_once":
+            if any(str(a.get("q_num")) == str(q) for a in (row.get("answers") or [])):
+                return _RpcResult(False)
+            row["answers"] = (row.get("answers") or []) + [{
+                "q_num": q,
+                "user_answer": params["p_user_answer"] or "",
+                "answered_at": "2026-01-01T00:00:00+00:00",
+            }]
+            row["answers"].sort(key=lambda a: a.get("q_num") or 0)
+            return _RpcResult(True)
+
         answers = [a for a in (row.get("answers") or []) if str(a.get("q_num")) != str(q)]
         answers.append({
             "q_num": q,
@@ -1014,3 +1032,347 @@ def test_mm_wholeset_reordered_rows_still_consume_once():
     res = grader.grade_attempt(
         [{"q_num": 17, "user_answer": "D"}, {"q_num": 18, "user_answer": "D"}], ak)
     assert res["score"] == 1, "one D expected, two picked — still one mark"
+
+
+# ── POST /api/listening/tests/attempts/{id}/check — Luyện nhanh runner ──────
+#
+# Instant per-question feedback with unlimited retries. The two things worth
+# pinning are the ones that would quietly rot the data rather than throw:
+# scoring must follow the FIRST answer, and the surface must stay closed to
+# real tests.
+
+
+def _seed_practice(fake, *, user_id="user-1"):
+    """A practice test with one 2-question exercise + an open attempt."""
+    t = _seed_test(fake, test_type="practice", test_id="ILR-LIS-KKR-Gen-Number-p01",
+                   metadata={"section_offsets": {"s1": 0}})
+    fake.tables["listening_content"].append({
+        "id": "pc-1", "test_id": t["id"], "section_num": 1,
+        "title": "Trap 01", "transcript": "stub", "metadata": {},
+    })
+    fake.tables["listening_exercises"].append({
+        "id": "pex-1", "content_id": "pc-1", "exercise_type": "notes_completion",
+        "order_num": 1,
+        "payload": {
+            "variant": "notes_completion",
+            "questions": [{"q_num": 1, "prompt": "Q1"}, {"q_num": 2, "prompt": "Q2"}],
+            "answers": [
+                {"q_num": 1, "answer": "nineteen", "alternatives": ["19"],
+                 "trap_mechanisms": ["number"]},
+                {"q_num": 2, "answer": "blue", "alternatives": [], "trap_mechanisms": []},
+            ],
+            "audio_windows": {"1": {"start": 3.5, "end": 9.0, "section": "s1"},
+                              "2": {"start": 12.0, "end": 18.5, "section": "s1"}},
+            "solutions": {"1": {"why": "Người nói sửa lại số."}},
+        },
+    })
+    attempt_id = str(uuid4())
+    fake.tables["listening_test_attempts"].append({
+        "id": attempt_id, "test_id": t["id"], "user_id": user_id,
+        "status": "in_progress", "answers": [],
+    })
+    return t, attempt_id
+
+
+def _check(attempt_id, authz, **kw):
+    body = listening_router.PracticeCheckRequest(**kw)
+    return _run(listening_router.check_listening_practice_answer(
+        attempt_id, body, authorization=authz))
+
+
+def test_check_correct_answer_records_and_reports(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    _t, aid = _seed_practice(fake)
+    out = _check(aid, authz, q_num=1, user_answer="nineteen")
+    assert out["correct"] is True
+    assert out["canonical_correct"] is True
+    assert out["recorded"] is True
+    assert out["audio_window"] == {"start": 3.5, "end": 9.0, "section": "s1"}
+
+
+def test_check_accepts_the_same_alternatives_as_final_grading(monkeypatch):
+    """"19" must be as right here as it is at submit — one grader, one verdict."""
+    fake, authz = _patch(monkeypatch)
+    _t, aid = _seed_practice(fake)
+    assert _check(aid, authz, q_num=1, user_answer="19")["correct"] is True
+
+
+def test_check_wrong_then_right_keeps_the_FIRST_answer_canonical(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    _t, aid = _seed_practice(fake)
+
+    first = _check(aid, authz, q_num=1, user_answer="ninety")
+    assert first["correct"] is False and first["recorded"] is True
+
+    retry = _check(aid, authz, q_num=1, user_answer="nineteen")
+    # The learner is told the truth about THIS try…
+    assert retry["correct"] is True
+    # …but the score still reflects the miss on the first listen.
+    assert retry["canonical_correct"] is False
+    assert retry["recorded"] is False
+    assert retry["answered_before"] is True
+
+    stored = fake.tables["listening_test_attempts"][0]["answers"]
+    assert [a["user_answer"] for a in stored] == ["ninety"], "retry overwrote the record"
+
+
+def test_check_retries_cannot_inflate_the_submitted_score(monkeypatch):
+    """The end-to-end version of the rule: grind to all-correct, still score 0."""
+    fake, authz = _patch(monkeypatch)
+    _t, aid = _seed_practice(fake)
+    for q in (1, 2):
+        _check(aid, authz, q_num=q, user_answer="wrong")
+        _check(aid, authz, q_num=q, user_answer="nineteen" if q == 1 else "blue")
+
+    res = _run(listening_router.submit_listening_test_attempt(aid, authorization=authz))
+    assert res["score"] == 0, "retries leaked into the final score"
+    assert res["max_score"] == 2
+
+
+def test_check_is_refused_on_a_real_test(monkeypatch):
+    """Exam integrity: instant feedback must not exist for full/mini/drill.
+
+    Otherwise a student probes the key answer-by-answer with the recording
+    still in front of them, which is precisely what submit-once prevents.
+    """
+    for kind in ("full", "mini", "drill"):
+        fake, authz = _patch(monkeypatch)
+        t, aid = _seed_practice(fake)
+        fake.tables["listening_tests"][0]["test_type"] = kind
+        with pytest.raises(HTTPException) as ei:
+            _check(aid, authz, q_num=1, user_answer="nineteen")
+        assert ei.value.status_code == 422
+        assert "Luyện nhanh" in ei.value.detail
+
+
+def test_check_rejects_a_question_outside_the_test(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    _t, aid = _seed_practice(fake)
+    with pytest.raises(HTTPException) as ei:
+        _check(aid, authz, q_num=39, user_answer="x")
+    assert ei.value.status_code == 404
+
+
+def test_check_rejects_a_submitted_attempt(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    _t, aid = _seed_practice(fake)
+    fake.tables["listening_test_attempts"][0]["status"] = "submitted"
+    with pytest.raises(HTTPException) as ei:
+        _check(aid, authz, q_num=1, user_answer="nineteen")
+    assert ei.value.status_code == 422
+
+
+def test_check_rejects_someone_elses_attempt(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    _t, aid = _seed_practice(fake, user_id="somebody-else")
+    with pytest.raises(HTTPException) as ei:                 # _patch auth = user-1
+        _check(aid, authz, q_num=1, user_answer="nineteen")
+    assert ei.value.status_code == 403                       # shared ownership gate
+    assert fake.tables["listening_test_attempts"][0]["answers"] == [], \
+        "refused call must not write into someone else's attempt"
+
+
+# ── Reveal ("Xem đáp án") ──────────────────────────────────────────────────
+
+
+def test_reveal_requires_an_answer_on_file_first(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    _t, aid = _seed_practice(fake)
+    with pytest.raises(HTTPException) as ei:
+        _check(aid, authz, q_num=1, reveal=True)
+    assert ei.value.status_code == 422
+    assert fake.tables["listening_test_attempts"][0]["answers"] == [], \
+        "a reveal must never record an answer"
+
+
+def test_reveal_after_a_wrong_answer_returns_key_and_solution(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    _t, aid = _seed_practice(fake)
+    _check(aid, authz, q_num=1, user_answer="ninety")
+    out = _check(aid, authz, q_num=1, reveal=True)
+    assert out["revealed"] is True
+    assert out["expected"] == "nineteen"
+    assert out["alternatives"] == ["19"]
+    assert out["solution"]["why"].startswith("Người nói")
+    assert out["audio_window"]["start"] == 3.5
+
+
+def test_reveal_refused_when_already_correct(monkeypatch):
+    """Nothing to reveal, and it keeps the endpoint from being a key dump."""
+    fake, authz = _patch(monkeypatch)
+    _t, aid = _seed_practice(fake)
+    _check(aid, authz, q_num=1, user_answer="nineteen")
+    with pytest.raises(HTTPException) as ei:
+        _check(aid, authz, q_num=1, reveal=True)
+    assert ei.value.status_code == 422
+
+
+def test_check_never_leaks_the_key_without_reveal(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    _t, aid = _seed_practice(fake)
+    out = _check(aid, authz, q_num=1, user_answer="ninety")
+    for leaky in ("expected", "alternatives", "solution", "revealed"):
+        assert leaky not in out, f"wrong answer response leaked {leaky}"
+
+
+# ── Codex review round 4 — the ways the first-answer rule could still be lost ──
+
+
+def test_patch_answers_is_refused_for_a_practice_attempt(monkeypatch):
+    """The old answer-save route replaces by q_num, so leaving it open to
+    practice is a way straight around the first-answer rule."""
+    fake, authz = _patch(monkeypatch)
+    _t, aid = _seed_practice(fake)
+    _check(aid, authz, q_num=1, user_answer="ninety")            # canonical: wrong
+
+    body = listening_router.TestAttemptAnswerPatchRequest(q_num=1, user_answer="nineteen")
+    with pytest.raises(HTTPException) as ei:
+        _run(listening_router.patch_listening_test_attempt_answer(
+            aid, body, authorization=authz))
+    assert ei.value.status_code == 422
+
+    res = _run(listening_router.submit_listening_test_attempt(aid, authorization=authz))
+    assert res["score"] == 0, "PATCH overwrote the canonical first answer"
+
+
+def test_patch_answers_still_works_for_a_real_test(monkeypatch):
+    """The refusal must be scoped to practice — this is the exam save path."""
+    fake, authz = _patch(monkeypatch)
+    t = _seed_test(fake)                                          # test_type='full'
+    _seed_sections_with_exercises(fake, t["id"])
+    aid = str(uuid4())
+    fake.tables["listening_test_attempts"].append({
+        "id": aid, "test_id": t["id"], "user_id": "user-1",
+        "status": "in_progress", "answers": [],
+    })
+    body = listening_router.TestAttemptAnswerPatchRequest(q_num=1, user_answer="x")
+    out = _run(listening_router.patch_listening_test_attempt_answer(
+        aid, body, authorization=authz))
+    assert out["answer_count"] == 1
+
+
+def test_check_reports_the_canonical_verdict_even_when_it_lost_the_race(monkeypatch):
+    """Concurrent checks: the loser must not report off its stale snapshot.
+
+    The race must land BETWEEN the endpoint's read and its write, so the
+    winning answer is planted from inside the RPC: the endpoint's snapshot saw
+    no answer, and by the time it writes, one exists. Writing it beforehand
+    would only reproduce the ordinary "already answered" path, which was never
+    the bug.
+    """
+    fake, authz = _patch(monkeypatch)
+    _t, aid = _seed_practice(fake)
+
+    real_rpc = fake.rpc
+
+    def racing_rpc(name, params):
+        if name == "fn_insert_listening_answer_once":
+            row = fake.tables["listening_test_attempts"][0]
+            row["answers"] = [{"q_num": 1, "user_answer": "nineteen"}]   # rival won
+            return _RpcResult(False)
+        return real_rpc(name, params)
+
+    fake.rpc = racing_rpc
+    out = _check(aid, authz, q_num=1, user_answer="ninety")
+    assert out["recorded"] is False
+    assert out["canonical_correct"] is True, \
+        "reported the stale snapshot — learner told it is lost, submit says correct"
+
+    res = _run(listening_router.submit_listening_test_attempt(aid, authorization=authz))
+    assert res["score"] == 1, "check and submit must agree"
+
+
+# ── The student test payload must not carry the key, or where to find it ──
+
+
+def test_get_test_detail_strips_solutions_and_windows(monkeypatch):
+    """Sprint 13.5 stripped payload.answers only. The importer ALSO writes a
+    per-question `solutions` record whose `answer` field is the key verbatim,
+    so it was still being served on the same response — and audio_windows /
+    transcript_anchors say exactly where in the recording to listen.
+    """
+    fake, authz = _patch(monkeypatch)
+    t = _seed_test(fake)
+    fake.tables["listening_content"].append({
+        "id": "c-1", "test_id": t["id"], "section_num": 1,
+        "title": "S1", "transcript": "stub", "metadata": {},
+    })
+    fake.tables["listening_exercises"].append({
+        "id": "e-1", "content_id": "c-1", "exercise_type": "notes_completion",
+        "order_num": 1,
+        "payload": {
+            "variant": "notes_completion",
+            "questions": [{"q_num": 1, "prompt": "Q1"}],
+            "answers":   [{"q_num": 1, "answer": "nineteen"}],
+            "solutions": {"1": {"answer": "nineteen", "why": "…"}},
+            "audio_windows": {"1": {"start": 3.5, "end": 9.0}},
+            "transcript_anchors": {"1": 2},
+        },
+    })
+    out = _run(listening_router.get_published_listening_test(t["id"], authorization=authz))
+    payload = out["sections"][0]["exercises"][0]["payload"]
+    for leaky in ("answers", "solutions", "audio_windows", "transcript_anchors"):
+        assert leaky not in payload, f"student payload still carries {leaky}"
+    assert payload["questions"], "stripping must not take the questions with it"
+    assert "nineteen" not in json.dumps(out), "the answer is still reachable somewhere"
+
+
+def test_patch_fails_closed_when_the_test_type_cannot_be_resolved(monkeypatch):
+    """An unresolvable test row must refuse the save, not fall through.
+
+    The guard is `test_type == 'practice'`; a lookup that returns nothing used
+    to yield None, which is != 'practice', so the failure mode of the lookup
+    was exactly the failure mode of the rule it protects.
+    """
+    fake, authz = _patch(monkeypatch)
+    _t, aid = _seed_practice(fake)
+    _check(aid, authz, q_num=1, user_answer="ninety")            # canonical: wrong
+    fake.tables["listening_tests"].clear()                       # row vanishes
+
+    called = []
+    real_rpc = fake.rpc
+    fake.rpc = lambda name, params: (called.append(name), real_rpc(name, params))[1]
+
+    body = listening_router.TestAttemptAnswerPatchRequest(q_num=1, user_answer="nineteen")
+    with pytest.raises(HTTPException) as ei:
+        _run(listening_router.patch_listening_test_attempt_answer(
+            aid, body, authorization=authz))
+    assert ei.value.status_code == 500
+    assert called == [], "the upsert RPC ran despite an unresolved test type"
+
+
+# ── GET /tests/{id}/practice-windows — per-question audio scoping ───────────
+
+
+def test_practice_windows_returns_only_windows(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    t, _aid = _seed_practice(fake)
+    out = _run(listening_router.get_practice_audio_windows(t["id"], authorization=authz))
+    assert out["windows"] == {
+        "1": {"start": 3.5, "end": 9.0},
+        "2": {"start": 12.0, "end": 18.5},
+    }
+    # The whole point of the separate endpoint: nothing but timings.
+    blob = json.dumps(out)
+    assert "nineteen" not in blob and "solution" not in blob and "answer" not in blob
+
+
+def test_practice_windows_refused_for_a_real_test(monkeypatch):
+    """A window says where the answer is. On an exam that is most of the skill,
+    which is why GET /tests/{id} stopped carrying them at all."""
+    for kind in ("full", "mini", "drill"):
+        fake, authz = _patch(monkeypatch)
+        t, _aid = _seed_practice(fake)
+        fake.tables["listening_tests"][0]["test_type"] = kind
+        with pytest.raises(HTTPException) as ei:
+            _run(listening_router.get_practice_audio_windows(t["id"], authorization=authz))
+        assert ei.value.status_code == 422
+
+
+def test_practice_windows_requires_a_published_test(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    t, _aid = _seed_practice(fake)
+    fake.tables["listening_tests"][0]["status"] = "draft"
+    with pytest.raises(HTTPException) as ei:
+        _run(listening_router.get_practice_audio_windows(t["id"], authorization=authz))
+    assert ei.value.status_code == 404

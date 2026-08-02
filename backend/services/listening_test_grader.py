@@ -404,10 +404,27 @@ def collect_answer_key(exercise_rows: list[dict[str, Any]]) -> list[dict[str, An
     return out
 
 
+# Payload keys that must never reach a student before they have submitted.
+#
+# `answers` was the original Sprint 13.5 guard. It was not enough: the importer
+# also writes a per-question `solutions` record, and a solution carries
+# `**Answer:** …` as its own `answer` field (listening_fulltest_import
+# `_classify_field`) — so the key was still being served in full, one level
+# down, on the SAME response the guard exists to sanitise. `audio_windows` and
+# `transcript_anchors` are softer but the same kind of thing: they say exactly
+# where in the recording the answer sits, which is the skill being tested.
+#
+# Nothing pre-submit consumes any of these — the review page reads them from the
+# review endpoint, the Luyện nhanh runner from /check, and the admin audit from
+# its own endpoint. Removing them costs no feature.
+_STUDENT_FORBIDDEN_PAYLOAD_KEYS = ("answers", "solutions", "audio_windows",
+                                   "transcript_anchors")
+
+
 def strip_answer_keys(exercise_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Sprint 13.5 security guard — return exercise rows with the
-    ``payload.answers`` field removed so the student-facing endpoint
-    never leaks the answer key.
+    """Sprint 13.5 security guard — return exercise rows with every
+    answer-revealing payload field removed, so the student-facing endpoint
+    never leaks the key or its location.
 
     Mutates a shallow copy; original rows untouched.
     """
@@ -415,8 +432,8 @@ def strip_answer_keys(exercise_rows: list[dict[str, Any]]) -> list[dict[str, Any
     for row in exercise_rows:
         copy = dict(row)
         payload = dict(copy.get("payload") or {})
-        if "answers" in payload:
-            payload.pop("answers", None)
+        for key in _STUDENT_FORBIDDEN_PAYLOAD_KEYS:
+            payload.pop(key, None)
         copy["payload"] = payload
         safe.append(copy)
     return safe

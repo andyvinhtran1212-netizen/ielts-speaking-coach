@@ -1712,24 +1712,30 @@ class ListeningTestStatusPatchRequest(BaseModel):
 async def admin_list_listening_tests(
     status: str = Query(default="all"),
     search: str = Query(default=""),
-    test_type: str = Query(default="exam"),
+    test_type: str = Query(default="all"),
     limit: int  = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     authorization: str | None = Header(default=None),
 ):
-    """Paginated list of Cambridge test bundles for the admin browser.
+    """Paginated list of test bundles for the admin browser.
 
     status defaults to 'all'. ``search`` is a substring match against
     ``test_id`` (case-insensitive ilike). Each row carries a synthetic
     ``audio_ready_count`` — how many of the 4 section rows already have
     audio_storage_path set (powers the "X/4 sections có audio" column).
 
-    `test_type` defaults to **"exam"** = full|mini|drill, i.e. everything that
-    existed before the generated `practice` bank. That default matters: this
-    endpoint feeds the mock-exam picker, which asks for `limit=100` newest-first
-    with no type filter. Importing a few hundred practice items would fill the
-    first page and push the Cambridge papers an admin needs out of sight. Pass
-    `test_type=practice` to browse the bank, or `all` for everything.
+    `test_type` accepts a concrete type, `exam` (= full|mini|drill, everything
+    that existed before the generated `practice` bank) or `all`.
+
+    It defaults to **all**, and the narrowing is the CALLER's job. It used to
+    default to `exam`, to keep a few hundred imported practice items from
+    filling the mock-exam picker's first page and pushing the Cambridge papers
+    out of sight. But four clients share this endpoint and only that one wants
+    the narrow view: the tests browser, the audit page and the import lookup
+    all call it plain, so the default silently made the entire practice bank
+    unfindable — an operator could not audit or publish an imported pack at
+    all. A default that hides rows is the wrong shape for a management list;
+    the picker asks for `exam` explicitly instead.
     """
     await require_admin(authorization)
 
@@ -1741,10 +1747,10 @@ async def admin_list_listening_tests(
     _ADMIN_TYPE_FILTERS = {"exam", "all", "full", "mini", "drill", "practice"}
     # Called directly (unit tests, internal reuse) an omitted Query() param
     # arrives as its FieldInfo sentinel, not the default string — comparing that
-    # to "exam" is false, so the filter would fall through to
+    # to "all" is false, so the filter would fall through to
     # `eq("test_type", <FieldInfo>)` and quietly return nothing.
     if not isinstance(test_type, str):
-        test_type = "exam"
+        test_type = "all"
     if test_type not in _ADMIN_TYPE_FILTERS:
         raise HTTPException(
             422, f"test_type must be one of {sorted(_ADMIN_TYPE_FILTERS)}")
@@ -3790,6 +3796,17 @@ class TestAttemptAnswerPatchRequest(BaseModel):
     user_answer: str
 
 
+class PracticeCheckRequest(BaseModel):
+    """One question of a Luyện nhanh run: answer it, or ask to be shown it."""
+    model_config = ConfigDict(extra="forbid")
+    q_num:       int
+    user_answer: str = ""
+    # Set on the "Xem đáp án" escape hatch. Never records an answer — the
+    # canonical first answer must already be on file (and wrong) for the
+    # server to hand the key over.
+    reveal:      bool = False
+
+
 def _student_audio_url_for_test(test_row: dict) -> tuple[str | None, str | None, int | None]:
     """Pick the right audio for a student player.
 
@@ -5110,6 +5127,16 @@ async def patch_listening_test_attempt_answer(
         raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể edit.")
     if not (1 <= body.q_num <= 40):
         raise HTTPException(422, "q_num must be in 1..40")
+    # A practice attempt is scored on the FIRST answer to each question, which
+    # this route cannot express: fn_upsert_listening_answer replaces by q_num.
+    # Left open, it is a way around the whole rule — answer wrong through
+    # /check, PATCH the right answer, submit, score inflated. The Luyện nhanh
+    # runner never calls this; refuse rather than quietly overwrite.
+    if _attempt_test_type(attempt) == "practice":
+        raise HTTPException(
+            422,
+            "Luyện nhanh chấm từng câu theo lần trả lời đầu — dùng POST .../check.",
+        )
 
     res = supabase_admin.rpc("fn_upsert_listening_answer", {
         "p_attempt_id":  attempt_id,
@@ -5123,6 +5150,241 @@ async def patch_listening_test_attempt_answer(
         # race, and the honest answer is that the edit did not land.
         raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể edit.")
     return {"attempt_id": attempt_id, "answer_count": count}
+
+
+def _attempt_test_type(attempt: dict) -> str:
+    """The test_type behind an attempt.
+
+    Fails CLOSED. An unresolvable test row used to come back as None, which
+    every caller compares against "practice" and finds unequal — so the exact
+    moment the lookup breaks is the moment a practice attempt slips past the
+    guard built on it. There is no safe default here, so raise: refusing an
+    answer save is recoverable, silently overwriting a canonical first answer
+    is not.
+
+    Costs one small indexed read per call. That is a real cost on the PATCH
+    autosave path (once per answer); paid deliberately, because the shared
+    attempt lookup returns the attempt row alone and widening it would change
+    a shape half the Listening endpoints depend on.
+    """
+    res = (
+        supabase_admin.table("listening_tests")
+        .select("test_type").eq("id", attempt.get("test_id")).limit(1).execute()
+    )
+    kind = (res.data[0].get("test_type") if res.data else None)
+    if not kind:
+        raise HTTPException(500, "Không xác định được loại bài của lượt làm này.")
+    return kind
+
+
+def _practice_exercise_payloads(test_id: str) -> list[dict]:
+    """Every exercise payload belonging to a test, via its section rows."""
+    sec_res = (
+        supabase_admin.table("listening_content")
+        .select("id").eq("test_id", test_id).execute()
+    )
+    section_ids = [r["id"] for r in (sec_res.data or [])]
+    if not section_ids:
+        raise HTTPException(500, "Test bundle thiếu section rows.")
+    ex_res = (
+        supabase_admin.table("listening_exercises")
+        .select("payload").in_("content_id", section_ids).execute()
+    )
+    return ex_res.data or []
+
+
+@user_router.get("/tests/{test_id}/practice-windows")
+async def get_practice_audio_windows(
+    test_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Per-question audio windows for a Luyện nhanh drill — PRACTICE ONLY.
+
+    The runner plays one question at a time, scoped to that question's few
+    seconds of audio. It needs the windows before the learner answers, and
+    `GET /tests/{id}` deliberately no longer carries them: a window says where
+    in the recording the answer is, which on an exam is most of the skill.
+
+    Practice is the deliberate exception, not an oversight. These clips are
+    30–90 seconds holding ~10 questions, and what they drill is hearing a trap
+    as it goes past — not scanning a recording for where the answer might be.
+    Playing the whole clip for every question made the surface unusable: the
+    audio simply ran out, and from question two on there was nothing to hear.
+
+    Returns `{q_num: {start, end}}` and nothing else — no answers, no
+    solutions, no transcript. Refused outright for full / mini / drill, so the
+    exam guarantee is unchanged and this exception stays visible in one place.
+    """
+    _user = await _require_auth(authorization)
+
+    res = (
+        supabase_admin.table("listening_tests")
+        .select("id,test_type,status,metadata")
+        .eq("id", test_id).limit(1).execute()
+    )
+    if not res.data or res.data[0].get("status") != "published":
+        raise HTTPException(404, "Test bundle not found or not published")
+    test_row = res.data[0]
+    if test_row.get("test_type") != "practice":
+        raise HTTPException(422, "Chỉ bài Luyện nhanh mới có cửa sổ audio theo câu.")
+
+    windows: dict[str, dict] = {}
+    offsets = (test_row.get("metadata") or {}).get("section_offsets") or {}
+    for row in _practice_exercise_payloads(test_id):
+        payload = row.get("payload") or {}
+        for q, win in (payload.get("audio_windows") or {}).items():
+            # Same rebase the review player and /check use. A practice pack is a
+            # single section premixed alone (offsets {sid: 0}), so this is a
+            # pass-through today — routed through the shared helper so all three
+            # readers move together if that ever stops being true.
+            rebased = _rebase_audio_window(win, True, offsets)
+            if rebased and rebased.get("start") is not None:
+                windows[str(int(q))] = {"start": rebased["start"], "end": rebased["end"]}
+
+    return {"test_id": test_id, "windows": windows}
+
+
+@user_router.post("/tests/attempts/{attempt_id}/check")
+async def check_listening_practice_answer(
+    attempt_id: str,
+    body: PracticeCheckRequest,
+    authorization: str | None = Header(default=None),
+):
+    """Grade ONE question mid-attempt, for the Luyện nhanh runner.
+
+    Luyện nhanh is a 30–90s drill, not an exam: the learner answers a question,
+    finds out immediately, and on a miss the player loops that question's audio
+    window until they hear it. Two rules keep that from turning into a way to
+    farm a perfect score, or into a hole in exam integrity:
+
+    **practice only.** A full / mini / drill attempt is refused outright. Those
+    surfaces are graded once, at submit, precisely so a student cannot probe the
+    key answer-by-answer while the recording is still in front of them.
+
+    **first answer is canonical.** The write goes through
+    fn_insert_listening_answer_once (mig 174), which appends only when that
+    q_num has no answer yet. Retries are graded and returned for the learner's
+    benefit but never overwrite the record, so the attempt's eventual score,
+    band and trap analytics describe the first listen — the thing worth
+    measuring — not the tenth.
+
+    Grading reuses ``grade_attempt`` over the attempt's stored answers with this
+    one substituted in, i.e. the SAME path submit takes. A separate
+    single-question comparison here would be free to drift from the final score,
+    and the learner would be told "correct" by one and "wrong" by the other.
+
+    Returns ``{q_num, correct, canonical_correct, recorded, audio_window, …}``;
+    ``expected`` / ``solution`` appear only on a granted reveal.
+    """
+    from services import listening_test_grader as grader
+
+    user = await _require_auth(authorization)
+    attempt = _fetch_attempt_or_404(attempt_id, user["id"])       # ownership gate
+    if attempt.get("status") != "in_progress":
+        raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể chấm thêm.")
+
+    test_res = (
+        supabase_admin.table("listening_tests")
+        .select("id,test_type,metadata")
+        .eq("id", attempt["test_id"]).limit(1).execute()
+    )
+    if not test_res.data:
+        raise HTTPException(404, "Test bundle not found")
+    test_row = test_res.data[0]
+    if test_row.get("test_type") != "practice":
+        raise HTTPException(
+            422,
+            "Chấm từng câu chỉ dành cho Luyện nhanh. Bài thi chấm một lần khi nộp.",
+        )
+
+    payloads = _practice_exercise_payloads(attempt["test_id"])
+    answer_key = grader.collect_answer_key(payloads)
+    key_row = next((k for k in answer_key if k.get("q_num") == body.q_num), None)
+    if key_row is None:
+        raise HTTPException(404, f"Câu {body.q_num} không thuộc bài này.")
+
+    stored = list(attempt.get("answers") or [])
+    prior = next((a for a in stored if a.get("q_num") == body.q_num), None)
+
+    recorded = False
+    if not body.reveal:
+        wrote = supabase_admin.rpc("fn_insert_listening_answer_once", {
+            "p_attempt_id":  attempt_id,
+            "p_q_num":       body.q_num,
+            "p_user_answer": body.user_answer,
+        }).execute().data
+        if wrote is None:
+            # The RPC re-checks status, so NULL means the attempt was submitted
+            # between our read and the write. Say so instead of returning a
+            # grade for an answer that was never stored.
+            raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể chấm thêm.")
+        recorded = bool(wrote)
+        if recorded:
+            prior = {"q_num": body.q_num, "user_answer": body.user_answer}
+        elif prior is None:
+            # The RPC refused, yet our snapshot showed no answer — a concurrent
+            # check won the write between the two. Re-read instead of reporting
+            # canonical_correct=False off the stale snapshot, which would tell
+            # the learner this question is lost while submit scores it correct.
+            fresh = (
+                supabase_admin.table("listening_test_attempts")
+                .select("answers").eq("id", attempt_id).limit(1).execute()
+            )
+            stored = list((fresh.data[0].get("answers") if fresh.data else None) or [])
+            prior = next((a for a in stored if a.get("q_num") == body.q_num), None)
+
+    def _grade(ans_text: str) -> bool:
+        merged = [a for a in stored if a.get("q_num") != body.q_num]
+        merged.append({"q_num": body.q_num, "user_answer": ans_text})
+        res = grader.grade_attempt(merged, answer_key)
+        row = next((r for r in res["per_question"] if r.get("q_num") == body.q_num), None)
+        return bool(row and row.get("correct"))
+
+    correct = _grade(body.user_answer) if not body.reveal else False
+    # What the final score will say for this question — the first answer, which
+    # may not be the one just submitted.
+    canonical_correct = _grade(prior.get("user_answer") or "") if prior else False
+
+    windows: dict[int, dict] = {}
+    solutions: dict[int, dict] = {}
+    for row in payloads:
+        p = row.get("payload") or {}
+        for q, w in (p.get("audio_windows") or {}).items():
+            windows[int(q)] = w
+        for q, s in (p.get("solutions") or {}).items():
+            solutions[int(q)] = s
+    # Practice packs are a single section premixed alone with section_offsets
+    # {sid: 0}, so this is a pass-through today. Routed through the shared
+    # helper anyway: if practice ever gains a nonzero offset, the replay window
+    # rebases with the review player instead of silently seeking past the answer.
+    win = _rebase_audio_window(
+        windows.get(body.q_num),
+        (test_row.get("test_type") in ("mini", "practice")),
+        (test_row.get("metadata") or {}).get("section_offsets") or {},
+    )
+
+    out = {
+        "q_num":             body.q_num,
+        "correct":           correct,
+        "canonical_correct": canonical_correct,
+        "recorded":          recorded,        # did THIS call set the canonical answer
+        "answered_before":   prior is not None and not recorded,
+        "audio_window":      win,
+    }
+
+    # Reveal is gated on the canonical answer already being on file AND wrong.
+    # That makes it harmless: the score for this question is settled before the
+    # key is ever handed out, so seeing it cannot buy back a point.
+    if body.reveal:
+        if prior is None:
+            raise HTTPException(422, "Hãy thử trả lời trước khi xem đáp án.")
+        if canonical_correct:
+            raise HTTPException(422, "Câu này bạn đã trả lời đúng.")
+        out["expected"]     = key_row.get("answer") or ""
+        out["alternatives"] = key_row.get("alternatives") or []
+        out["solution"]     = solutions.get(body.q_num) or {}
+        out["revealed"]     = True
+    return out
 
 
 @user_router.post("/tests/attempts/{attempt_id}/submit")

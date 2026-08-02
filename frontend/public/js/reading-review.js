@@ -288,6 +288,26 @@
         (def ? '<dd>' + escapeHtml(def) + '</dd>' : '') + '</div>';
     }).join('') + '</dl>';
   }
+  // Completion runs share ONE flowing summary_text and park a placeholder in
+  // every member's `prompt` (see reading-exam.js "(see summary above)"). The
+  // exam pane renders the shared block so the placeholder never surfaces, but
+  // the review pane shows one card per question with no block to point at —
+  // so it rendered the literal placeholder and the student could not tell what
+  // the question had been (Cam18-T2 audit, 2026-08-01). The authored solution
+  // already carries the real sentence; prefer it whenever the prompt is a
+  // placeholder rather than a question.
+  var _PLACEHOLDER_PROMPT_RE = /^\s*\(?\s*see\s+(summary|notes|table|form)\s+above\s*\)?\s*\.?\s*$/i;
+
+  function _promptText(item, sol) {
+    var p = (item && item.prompt) ? String(item.prompt) : '';
+    if (p && !_PLACEHOLDER_PROMPT_RE.test(p)) return p;
+    var qt = (sol && sol.question_text) ? String(sol.question_text).trim() : '';
+    // question_text is authored quoted ("…"); drop the wrapping quotes so the
+    // card reads like every other prompt.
+    qt = qt.replace(/^["“”']+/, '').replace(/["“”']+$/, '').trim();
+    return qt || p;
+  }
+
   function _section(label, innerHtml, cls) {
     if (!innerHtml) return '';
     return '<div class="rr-sol__sec' + (cls ? ' ' + cls : '') + '">' +
@@ -456,7 +476,8 @@
         (hasRich ? '<span class="rr-card__toggle"><span class="rr-card__toggle-text">Xem lời giải</span>' +
                    '<span class="rr-card__chevron" aria-hidden="true">▸</span></span>' : '') +
       '</div>' +
-      (item.prompt ? '<p class="rr-card__prompt">' + escapeHtml(item.prompt) + '</p>' : '') +
+      (_promptText(item, sol)
+        ? '<p class="rr-card__prompt">' + escapeHtml(_promptText(item, sol)) + '</p>' : '') +
       '<div class="rr-card__answers">' +
         '<div class="rr-card__ans is-user"><span>Bạn trả lời</span><code>' +
           escapeHtml(item.user_answer || '—') + '</code></div>' +

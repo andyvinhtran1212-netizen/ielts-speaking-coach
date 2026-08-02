@@ -171,3 +171,39 @@ describe('Sprint 11.2 — <audio-player> contract', () => {
     assert.match(SRC, /audio\.currentTime\s*\|\|\s*0\)\s*-\s*start/);
   });
 });
+
+
+describe('auto-loop: an absent attribute is OFF', () => {
+  /**
+   * Executes the component's real `_isAutoLoop` body against a stub element,
+   * rather than matching a sentinel string. The bug this guards was invisible
+   * to string matching: `(getAttribute('auto-loop') || '')` collapses ABSENT
+   * (null) onto the same '' that a bare `auto-loop` produces, so looping was on
+   * by default and `removeAttribute('auto-loop')` — which every caller reads as
+   * "stop looping" — did nothing at all.
+   */
+  const body = SRC.split('_isAutoLoop() {')[1].split('\n  }')[0];
+  const isAutoLoop = (attrs) => new Function(body).call({
+    getAttribute: (k) => (Object.prototype.hasOwnProperty.call(attrs, k) ? attrs[k] : null),
+  });
+
+  it('absent → off (the whole point)', () => {
+    assert.equal(isAutoLoop({}), false,
+      'removeAttribute("auto-loop") must actually stop the loop');
+  });
+
+  it('bare present → on', () => {
+    assert.equal(isAutoLoop({ 'auto-loop': '' }), true);
+  });
+
+  it('explicit truthy values → on', () => {
+    assert.equal(isAutoLoop({ 'auto-loop': 'true' }), true);
+    assert.equal(isAutoLoop({ 'auto-loop': 'TRUE' }), true);
+    assert.equal(isAutoLoop({ 'auto-loop': '1' }), true);
+  });
+
+  it('explicit falsy values → off', () => {
+    assert.equal(isAutoLoop({ 'auto-loop': 'false' }), false);
+    assert.equal(isAutoLoop({ 'auto-loop': '0' }), false);
+  });
+});
