@@ -10,7 +10,7 @@
 // được phép đọc bên trong `use cache`, mà mọi loader nội dung đều `use cache`.
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
-import { redirect } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 
 import { getHome, getGroups, getCategory } from '../../../lib/grammar-api';
 import { CategoryCards, FeaturedCards, GroupCards } from './grammar-cards';
@@ -106,7 +106,10 @@ function HomeContent({ home, groups }: { home: any; groups: any[] }) {
       <section className="mb-14">
         <p className="section-head">Bài nổi bật</p>
         <div id="featured-list" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <FeaturedCards articles={home?.featured} />
+          {/* Backend trả `featured_articles` (grammar_content.py:315) — legacy đọc
+              đúng key đó. Dùng `featured` thì mục này LUÔN rỗng mà không báo lỗi
+              gì: đúng loại hỏng im lặng chỉ lộ ra khi mở trang thật xem. */}
+          <FeaturedCards articles={home?.featured_articles} />
         </div>
       </section>
 
@@ -170,6 +173,10 @@ async function GrammarBody({ searchParams }: { searchParams: Promise<Record<stri
 
   if (category) {
     const data = await getCategory(category);
+    // `getPublicJson` biến 404 của backend thành `null`. Render tiếp với `null`
+    // sẽ BỊA ra một thư mục rỗng mang tên lấy từ slug — link hỏng/cũ trông như
+    // thư mục hợp lệ chưa có bài. Trả 404 thật để hỏng thì lộ ra.
+    if (!data) notFound();
     return <CategoryView slug={category} data={data} />;
   }
 
@@ -185,11 +192,20 @@ export default function GrammarHomePage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   return (
-    <main className="av-w-page pb-20">
-      <Hero />
-      <Suspense fallback={<BodySkeleton />}>
-        <GrammarBody searchParams={searchParams} />
-      </Suspense>
-    </main>
+    <>
+      {/* Chrome chung (Sprint 7.13). Layout chỉ NẠP script; phần tử phải do
+          từng trang dựng — legacy `grammar.html` và route bài viết đều có
+          dòng này. Thiếu nó thì trang mất toàn bộ điều hướng + khối tài khoản
+          mà build vẫn xanh. */}
+      {/* @ts-ignore */}
+      <aver-chrome active="grammar" />
+
+      <main className="av-w-page pb-20">
+        <Hero />
+        <Suspense fallback={<BodySkeleton />}>
+          <GrammarBody searchParams={searchParams} />
+        </Suspense>
+      </main>
+    </>
   );
 }

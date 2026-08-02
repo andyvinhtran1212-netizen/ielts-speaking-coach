@@ -51,6 +51,33 @@ describe('route /grammar (Phase 3)', () => {
       'trang chủ nạp song song như legacy; tuần tự sẽ cộng dồn độ trễ');
   });
 
+  test('đọc ĐÚNG key backend trả: featured_articles', () => {
+    // Codex bắt ở vòng review đầu: backend trả `featured_articles`
+    // (`grammar_content.py:315`), legacy `grammar.js:543` cũng đọc key đó.
+    // Đọc nhầm thành `home.featured` thì mục "Bài nổi bật" LUÔN rỗng mà build
+    // vẫn xanh và không có lỗi nào — chỉ lộ khi mở trang thật.
+    const legacyJs = readFileSync(path.join(FRONTEND, 'public', 'js', 'grammar.js'), 'utf8');
+    assert.match(legacyJs, /featured_articles/, 'chốt chặn: legacy vẫn dùng key này');
+    assert.match(PAGE, /articles=\{home\?\.featured_articles\}/);
+    assert.ok(!/home\?\.featured[^_]/.test(PAGE), 'không được đọc key `featured` cụt');
+  });
+
+  test('dựng <aver-chrome>, không chỉ nạp script', () => {
+    // Layout `(public-content)` chỉ NẠP module chrome; phần tử phải do từng
+    // trang render (route bài viết làm đúng vậy). Thiếu dòng này trang mất
+    // toàn bộ điều hướng + khối tài khoản mà build vẫn xanh.
+    const layout = readFileSync(path.join(FRONTEND, 'app', '(public-content)', 'layout.tsx'), 'utf8');
+    assert.ok(!layout.includes('<aver-chrome'), 'layout cố ý KHÔNG dựng — nên trang phải dựng');
+    assert.match(PAGE, /<aver-chrome active="grammar"/);
+  });
+
+  test('?category= không tồn tại → 404 thật, không bịa tên thư mục', () => {
+    // `getPublicJson` biến 404 backend thành `null`. Render tiếp với `null` sẽ
+    // lấy slug làm tiêu đề ⇒ link hỏng trông như thư mục hợp lệ đang trống.
+    assert.match(PAGE, /if \(!data\) notFound\(\);/);
+    assert.match(PAGE, /import \{ notFound, redirect \} from 'next\/navigation'/);
+  });
+
   test('đi qua tầng dữ liệu chung, không tự fetch', () => {
     assert.ok(!PAGE.includes('fetch('), 'mọi request đi qua lib/backend.ts');
     assert.match(PAGE, /from '\.\.\/\.\.\/\.\.\/lib\/grammar-api'/);
