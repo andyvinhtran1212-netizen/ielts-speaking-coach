@@ -540,6 +540,16 @@ def sync_class_item_score(db, session_id: str) -> bool:
             db.table("class_assignment_items")
             .update({"score": s["overall_band"]})
             .eq("id", item_id)
+            # …and ONLY when this session is the recorded attempt.
+            #
+            # An item can have several linked sessions: /start lets a student try
+            # again, and each attempt carries the same item id. Matching on the
+            # item alone meant regrading — or pronunciation-scoring — any LATER
+            # retry rewrote the ledger score, while artifact_id still pointed at
+            # the original submission. The number and the thing it claims to
+            # describe would then disagree, which is worse than a stale score.
+            .eq("artifact_kind", "session")
+            .eq("artifact_id", session_id)
             .not_.is_("submitted_at", "null")   # only an already-recorded hand-in
             .execute()
         )

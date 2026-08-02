@@ -942,7 +942,8 @@ def test_score_sync_updates_the_band_but_not_the_hand_in_time():
     froze the SCORE, so a band adjusted afterwards (pronunciation, or an admin
     regrade) left the student looking at the old number forever."""
     submitted = "2026-08-03T11:00:00+00:00"
-    rows = [{"id": "item-1", "submitted_at": submitted, "state": "submitted", "score": 5.0}]
+    rows = [{"id": "item-1", "submitted_at": submitted, "state": "submitted", "score": 5.0,
+              "artifact_kind": "session", "artifact_id": "sess-1"}]
     db = _DB({
         "class_assignment_items": rows,
         "sessions": [{"id": "sess-1", "class_assignment_item_id": "item-1", "overall_band": 7.5}],
@@ -995,3 +996,31 @@ def test_roster_rollup_chunks_cohort_ids_too():
     src = inspect.getsource(mod._all_students_for_cohorts)
     steps = re.findall(r"range\(0, len\([a-z_]+\), (\w+)\)", src)
     assert steps and set(steps) == {"_ID_CHUNK"}, steps
+
+
+def test_regrading_a_retry_does_not_rewrite_the_recorded_attempt_score():
+    """An item can have several linked sessions — /start lets a student try
+    again. Matching the sync on the item alone meant regrading any later retry
+    rewrote the ledger score while artifact_id still named the original
+    submission: the number and the thing it describes would disagree, which is
+    worse than a stale number."""
+    recorded = {"id": "item-1", "submitted_at": "2026-08-03T11:00:00+00:00",
+                "state": "submitted", "score": 6.0,
+                "artifact_kind": "session", "artifact_id": "sess-FIRST"}
+    db = _DB({
+        "class_assignment_items": [recorded],
+        "sessions": [
+            {"id": "sess-FIRST", "class_assignment_item_id": "item-1", "overall_band": 6.0},
+            {"id": "sess-RETRY", "class_assignment_item_id": "item-1", "overall_band": 9.0},
+        ],
+    })
+
+    # Regrading the RETRY must leave the recorded attempt alone.
+    assert sync_class_item_score(db, "sess-RETRY") is False
+    assert recorded["score"] == 6.0
+
+    # Regrading the RECORDED attempt still syncs.
+    db.tables["sessions"][0]["overall_band"] = 7.0
+    assert sync_class_item_score(db, "sess-FIRST") is True
+    assert recorded["score"] == 7.0
+    assert recorded["submitted_at"] == "2026-08-03T11:00:00+00:00"
