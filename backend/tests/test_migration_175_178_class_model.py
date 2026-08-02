@@ -1,4 +1,4 @@
-"""Migrations 175–177 — nền dữ liệu Lớp & Học viên (GĐ 0).
+"""Migrations 175–178 — nền dữ liệu Lớp & Học viên (GĐ 0).
 
 Static assertions on the SQL text, not a live-DB test: CI has no Postgres. The
 three files were applied against a throwaway local Postgres during development
@@ -32,7 +32,8 @@ MIG_DIR = Path(__file__).resolve().parents[1] / "migrations"
 M175 = MIG_DIR / "175_courses.sql"
 M176 = MIG_DIR / "176_class_lessons.sql"
 M177 = MIG_DIR / "177_class_assignments.sql"
-ALL = (M175, M176, M177)
+M178 = MIG_DIR / "178_class_assignment_lesson_same_cohort.sql"
+ALL = (M175, M176, M177, M178)
 
 NEW_TABLES = (
     "courses",
@@ -42,8 +43,43 @@ NEW_TABLES = (
 )
 
 
+def _strip_comments(sql: str) -> str:
+    """Drop `--` comments, leaving string literals alone.
+
+    Every assertion below is about DDL, and these files carry long rationale
+    headers — so an un-stripped scan both misfires (the phrase "its CREATE TABLE
+    is IF NOT EXISTS" in a comment reads as a CREATE statement) and, worse, lets
+    prose satisfy an existence check that the schema does not actually meet.
+    Quote-aware because COMMENT ON … IS '…' bodies are real content."""
+    out: list[str] = []
+    in_str = False
+    i = 0
+    while i < len(sql):
+        ch = sql[i]
+        if in_str:
+            out.append(ch)
+            if ch == "'":
+                in_str = False
+            i += 1
+        elif ch == "'":
+            in_str = True
+            out.append(ch)
+            i += 1
+        elif sql.startswith("--", i):
+            nl = sql.find("\n", i)
+            if nl == -1:
+                break
+            i = nl                      # keep the newline; drop the comment body
+        else:
+            out.append(ch)
+            i += 1
+    return "".join(out)
+
+
 def _sql(path: Path) -> str:
-    return path.read_text(encoding="utf-8")
+    """DDL only — see _strip_comments for why the rationale headers are removed
+    before any structural assertion runs."""
+    return _strip_comments(path.read_text(encoding="utf-8"))
 
 
 # ── existence + shape ────────────────────────────────────────────────────
@@ -211,6 +247,67 @@ def test_deleting_a_lesson_keeps_its_homework():
         _sql(M177), re.I,
     )
     assert m and m.group(1).upper() == "SET", m
+
+
+# ── 178: bài tập và buổi học phải cùng lớp ───────────────────────────────
+#
+# Both of these pin a trap that a plausible rewrite walks straight into, and
+# neither shows up by reading the SQL — one surfaces only when a lesson is
+# deleted, the other only on a second paste.
+
+
+def test_lesson_link_is_scoped_to_the_cohort():
+    """Two independent FKs let class A's homework hang off class B's lesson, so
+    the class page renders another class's lesson heading and body."""
+    sql = _sql(M178)
+    assert re.search(
+        r"FOREIGN KEY \(lesson_id, cohort_id\)\s*"
+        r"REFERENCES class_lessons \(id, cohort_id\)",
+        sql, re.I | re.S,
+    ), "the composite FK is what scopes a lesson link to its own cohort"
+    assert "UNIQUE (id, cohort_id)" in sql, (
+        "a composite FK can only target a declared unique constraint on exactly "
+        "those columns"
+    )
+
+
+def test_set_null_touches_only_lesson_id():
+    """Plain `ON DELETE SET NULL` on a composite FK nulls EVERY column of it —
+    including cohort_id, which is NOT NULL — so deleting a lesson aborts with a
+    not-null violation. The PG15+ column-list form is load-bearing, and the
+    failure appears at DELETE time, long after the migration looked fine."""
+    m = re.search(
+        r"REFERENCES class_lessons \(id, cohort_id\)\s*ON DELETE SET NULL\s*(\([^)]*\))?",
+        _sql(M178), re.I | re.S,
+    )
+    assert m, "composite FK's ON DELETE clause not found"
+    assert m.group(1) is not None, (
+        "ON DELETE SET NULL must name a column list — the bare form also nulls "
+        "cohort_id (NOT NULL) and makes lesson deletion impossible"
+    )
+    assert "lesson_id" in m.group(1) and "cohort_id" not in m.group(1), m.group(1)
+
+
+def test_foreign_keys_are_dropped_before_the_unique_they_depend_on():
+    """Second run: the composite FK already exists and depends on the unique
+    index, so dropping the unique first fails with 'other objects depend on it'.
+    These files are pasted by hand, where a double-paste is ordinary."""
+    sql = _sql(M178)
+    drop_fk = sql.find("DROP CONSTRAINT IF EXISTS class_assignments_lesson_cohort_fkey")
+    drop_uq = sql.find("DROP CONSTRAINT IF EXISTS class_lessons_id_cohort_key")
+    add_uq = sql.find("ADD CONSTRAINT class_lessons_id_cohort_key")
+    add_fk = sql.find("ADD CONSTRAINT class_assignments_lesson_cohort_fkey")
+    assert -1 not in (drop_fk, drop_uq, add_uq, add_fk)
+    assert drop_fk < drop_uq, "the dependent FK must be dropped before the unique"
+    assert add_uq < add_fk, "the unique must exist before the FK targets it"
+
+
+def test_the_superseded_single_column_fk_is_removed():
+    """Leaving mig 177's `class_assignments_lesson_id_fkey` in place would keep
+    accepting the cross-cohort row this migration exists to reject."""
+    assert (
+        "DROP CONSTRAINT IF EXISTS class_assignments_lesson_id_fkey" in _sql(M178)
+    )
 
 
 def test_skill_check_covers_every_shipped_skill():
