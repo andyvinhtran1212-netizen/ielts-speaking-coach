@@ -1,44 +1,34 @@
-// Public grammar content loader — pilot 2 (plan Phase 2 / ADR-008).
+// Public grammar content loader — pilot 2 (plan Phase 2 / ADR-008), nay dùng
+// chung tầng `lib/backend.ts` với các route Phase 3 khác.
 //
-// `server-only`: this module must never reach a client bundle; it holds no
-// secrets (public GET endpoints only, no cookies/Authorization — ADR-004),
-// but the boundary is the contract (B25).
-//
-// Environment resolution mirrors the runtime-config generator (ADR-006):
-// production build → production API; any other Vercel env → STAGING; local
-// dev → localhost. AVER_API_BASE overrides per-field, same as the generator.
+// Trước đây file này tự giữ resolve-base + fetch + cacheLife riêng. Đã rút hết
+// sang `lib/backend.ts` để route mới không phải chép lại — và để khi cần đổi
+// ngân sách abort hay TTL thì chỉ có MỘT chỗ phải đổi.
 import 'server-only';
 
 import { cache } from 'react';
-import { cacheLife } from 'next/cache';
+import { getPublicJson } from './backend';
 
-const API_BASE =
-  process.env.AVER_API_BASE ||
-  (process.env.VERCEL_ENV === 'production'
-    ? 'https://ielts-speaking-coach-production.up.railway.app'
-    : process.env.VERCEL_ENV
-      ? 'https://ielts-speaking-coach-staging.up.railway.app'
-      : 'http://localhost:8000');
-
+/** Bài viết theo `category/slug`; `null` = không có bài (route sẽ notFound). */
 async function fetchArticle(category: string, slug: string): Promise<any | null> {
-  'use cache';
-  // ADR-008: 1h TTL, serve-stale while revalidating, hard expire 1 day.
-  cacheLife({ stale: 3600, revalidate: 3600, expire: 86400 });
-
-  const res = await fetch(
-    `${API_BASE}/api/grammar/article/${encodeURIComponent(category)}/${encodeURIComponent(slug)}`,
-    { signal: AbortSignal.timeout(5000) }, // ADR-008 abort budget
+  return getPublicJson(
+    `/api/grammar/article/${encodeURIComponent(category)}/${encodeURIComponent(slug)}`,
   );
-  if (res.status === 404) return null;
-  if (!res.ok) {
-    // Upstream failure → throw: the route's error boundary is the plain
-    // fail-closed fallback (B17/B12); the request-time cache may still serve
-    // a previous good entry within its stale window.
-    throw new Error(`grammar api ${res.status} for ${category}/${slug}`);
-  }
-  return res.json();
 }
 
-// React cache(): generateMetadata + the page body share ONE fetch per request
-// (ADR-008: "generateMetadata và page body phải dùng cùng memoized loader").
+/** Dữ liệu trang chủ Grammar: toàn bộ category + tối đa 6 bài nổi bật. */
+async function fetchHome(): Promise<any | null> {
+  return getPublicJson('/api/grammar/home');
+}
+
+/** 9 nhóm chủ đề + trạng thái từng bài trong nhóm. */
+async function fetchGroups(): Promise<any | null> {
+  return getPublicJson('/api/grammar/groups');
+}
+
+// React `cache()`: generateMetadata và thân trang dùng CHUNG một lần fetch cho
+// mỗi request (ADR-008: "generateMetadata và page body phải dùng cùng memoized
+// loader"). Loader mới cũng phải đi qua đây, không gọi thẳng backend.
 export const getArticle = cache(fetchArticle);
+export const getHome = cache(fetchHome);
+export const getGroups = cache(fetchGroups);
