@@ -176,7 +176,7 @@ thiết kế — không phải drift thật (production vẫn = main HEAD). Vá 
 - [ ] Cutover atomic → verify browser-based ≥15s → quan sát organic 48–72h
       (KHÔNG dùng production-smoke cho route authed — xem mục trên).
 
-## Risk acceptance — CHỜ CHỦ DỰ ÁN KÝ (soạn 2026-08-02)
+## Risk acceptance — ĐÃ KÝ 2026-08-02
 
 **Lớp route theo ma trận ADR-013: `Zero-traffic` → điều kiện PASS là
 "synthetic-only + risk acceptance"** (không đòi baseline organic, vì không thể
@@ -226,8 +226,8 @@ thiết kế — không phải drift thật (production vẫn = main HEAD). Vá 
 |---|---|
 | Route | `/profile` (canonical MỚI) + `/pages/profile.html` → 307 tạm thời |
 | Lớp rủi ro | **Zero-traffic**, authenticated + mutation |
-| Ngày cutover | _(điền khi merge)_ |
-| Người duyệt | _(chủ dự án)_ |
+| Ngày cutover | **2026-08-02** |
+| Người duyệt | **Chủ dự án** — duyệt trong phiên 02/08 sau khi đọc bảng số và 4 mục "cái mình KHÔNG có" |
 | Vế synthetic | staging E2E 23/23 (đã có) |
 | Vế thời-gian | quan sát 48–72h ở chế độ ngưỡng tuyệt đối |
 | Điều kiện dừng | bất kỳ lỗi persistence/security → rollback ngay; P1 trang không render → rollback |
