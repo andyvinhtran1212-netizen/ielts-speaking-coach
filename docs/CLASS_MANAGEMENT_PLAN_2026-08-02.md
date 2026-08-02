@@ -99,15 +99,23 @@ courses ──< cohorts ──< class_lessons (buổi học)
                   │
                   └──< class_assignments        (một lần giao, cấp LỚP)
                           skill: speaking|writing|reading|listening|vocab|grammar
-                          content_kind + content_id  (đa hình)
+                          content_id + content_config  (đa hình — `skill` cho biết
+                                                        content_id trỏ vào bảng nào,
+                                                        nên KHÔNG có cột content_kind)
                           due_at TIMESTAMPTZ        ← 19:00 giờ VN
                           publish_at, status
                           │
                           └──< class_assignment_items   (mỗi học viên một dòng)
                                   student_id
-                                  state: assigned|opened|submitted|late|graded|missed
-                                  submitted_at, artifact_kind, artifact_id
+                                  state: assigned|opened|submitted|graded
+                                  submitted_at, artifact_kind, artifact_id, score
 ```
+
+> **Trễ hạn và bỏ bài KHÔNG phải trạng thái lưu sẵn.** `state` chỉ ghi những gì
+> ĐÃ xảy ra; hai thứ kia suy ra lúc đọc:
+> `trễ = submitted_at > due_at` · `bỏ bài = submitted_at IS NULL AND due_at < now()`.
+> Cờ lưu sẵn sẽ lệch ngay khi admin dời hạn, còn `missed` thì còn phải có cron mới
+> giữ đúng được. Đã chốt ở migration 177 và có test ghim.
 
 `artifact_id` trỏ tới **hiện vật gốc của kỹ năng đó**:
 - Writing → `writing_assignments.id` (class_assignment kiểu writing **sinh ra** writing_assignments rows qua `cohort_assignment_service` sẵn có → **pipeline chấm Writing không đổi một dòng**)
@@ -147,7 +155,13 @@ Chia 6 giai đoạn, **mỗi giai đoạn tự đứng được** (ship rồi m�
 |---|---|
 | `175_courses.sql` | `courses(id, code, name, description, sort_order, is_active)` + `cohorts.course_id` FK ON DELETE SET NULL + seed 5 khoá |
 | `176_class_lessons.sql` | `class_lessons(id, cohort_id, lesson_no, lesson_date, title, body_md, attachments jsonb, is_published)` |
-| `177_class_assignments.sql` | `class_assignments` + `class_assignment_items` (§D2) + index + RLS (admin all, student SELECT dòng của mình) + `sessions.class_assignment_item_id` nullable (mô phỏng `sitting_id` sẵn có) |
+| `177_class_assignments.sql` | `class_assignments` + `class_assignment_items` (§D2) + index + RLS **chỉ admin** + `sessions.class_assignment_item_id` nullable (mô phỏng `sitting_id` sẵn có) |
+
+> RLS của cả ba migration là **admin-only**, không khai policy cho học viên: mọi
+> mặt đọc phía học viên trong repo này đều đi qua endpoint chạy service-role rồi
+> lọc theo id của chính người gọi (xem docstring `student_home.py`). Khai một
+> policy không có ai đọc chỉ là mở thêm bề mặt. Cùng cách làm với `cohorts`
+> (mig 060) và `exam_content_cohorts` (mig 171).
 
 Seed 5 khoá:
 `C1 Khóa nền tảng tiếng Anh` · `C2 Khóa kỹ năng nền tảng IELTS` · `C3 Khóa kỹ năng nâng cao IELTS` · `C4 Khóa nâng cao từ vựng` · `C5 Khóa luyện đề`
@@ -184,7 +198,7 @@ Backend:
 - `POST /admin/classes/{cohort_id}/assignments` — body: `skill=speaking`, `topic`, `mode` (`practice_single`/`practice_part`), `part`, `due_date`, `instructions`. Fan-out ra `class_assignment_items` cho toàn roster (mượn nguyên cách làm của `cohort_assignment_service.fan_out_assignment`).
 - `GET /admin/classes/{cohort_id}/assignments` — kèm `{submitted, late, missing}` mỗi bài.
 - Học viên: `GET /api/class/my-assignments`, `POST /api/class/assignments/{item_id}/start` → tạo `sessions` với topic đã gán + gắn `class_assignment_item_id`.
-- Khi `PATCH /sessions/{id}/complete` chạy, nếu session có `class_assignment_item_id` → cập nhật item sang `submitted`/`late`.
+- Khi `PATCH /sessions/{id}/complete` chạy, nếu session có `class_assignment_item_id` → đặt item `state='submitted'` + `submitted_at=now()` + `artifact_kind='session'`, `artifact_id=<session id>`. **Không** ghi cờ trễ — trễ suy ra lúc đọc.
 
 **Không** làm cơ chế chấm mới — dùng nguyên pipeline `grading.py`.
 
@@ -228,7 +242,7 @@ Gate: học viên không thuộc lớp nào → thẻ ẩn, `/pages/my-class.htm
 | Chống gửi trùng | Bảng `notification_log(item_id, kind, sent_at)` UNIQUE(item_id, kind). **Bắt buộc** — cron chạy lại là chuyện thường |
 | Nhịp | 17:00 nhắc trước 2h · 19:05 báo trễ · 08:00 tổng kết cho admin |
 
-Chuẩn bị từ GĐ 2: `class_assignment_items` phải đủ `due_at`, `submitted_at`, `state` để job chỉ cần đọc, không phải suy diễn.
+Chuẩn bị từ GĐ 2: job chỉ cần một truy vấn `class_assignment_items` JOIN `class_assignments` — `due_at` nằm ở bảng cha (bài giao), `submitted_at` + `state` ở bảng con (từng học viên). "Sắp tới hạn" và "đã trễ" đều là điều kiện trên hai cột đó, không cần cột phái sinh nào.
 
 ---
 
