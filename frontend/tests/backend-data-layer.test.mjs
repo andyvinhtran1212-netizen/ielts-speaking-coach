@@ -69,8 +69,14 @@ describe('không chép lại tầng fetch ở nơi khác', () => {
     if (!/\bfetch\(/.test(src) && !/AVER_API_BASE/.test(src)) continue;
 
     test(`${rel}: dùng lib/backend thay vì tự dựng fetch`, () => {
-      assert.match(src, /from '\.\.?\/?[\w/.]*backend'/,
-        `${rel} tự gọi fetch/base backend — phải đi qua getPublicJson()`);
+      // Review PR 894: đòi "import từ backend" là CHƯA ĐỦ — một loader có thể
+      // `import { API_BASE }` rồi `fetch(API_BASE + path)` thẳng, không timeout
+      // không cache, mà vẫn qua được mọi assertion bên dưới. Phải đòi đúng
+      // getPublicJson VÀ cấm gọi fetch trần.
+      assert.match(src, /\bgetPublicJson\b/,
+        `${rel} phải gọi getPublicJson() — import API_BASE rồi tự fetch là lách cổng`);
+      assert.ok(!/\bfetch\(/.test(src),
+        `${rel} gọi fetch trần — mọi request nội dung công khai đi qua getPublicJson()`);
       assert.ok(!/AbortSignal\.timeout/.test(src),
         `${rel} tự đặt ngân sách abort riêng — ngân sách nằm ở lib/backend.ts`);
       assert.ok(!/cacheLife\(/.test(src),
