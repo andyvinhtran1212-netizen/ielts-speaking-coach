@@ -175,3 +175,59 @@ thiết kế — không phải drift thật (production vẫn = main HEAD). Vá 
       tuyên PASS — DEBT-N ĐÃ đóng `cb313997`, nên điều kiện này đã sẵn).
 - [ ] Cutover atomic → verify browser-based ≥15s → quan sát organic 48–72h
       (KHÔNG dùng production-smoke cho route authed — xem mục trên).
+
+## Risk acceptance — CHỜ CHỦ DỰ ÁN KÝ (soạn 2026-08-02)
+
+**Lớp route theo ma trận ADR-013: `Zero-traffic` → điều kiện PASS là
+"synthetic-only + risk acceptance"** (không đòi baseline organic, vì không thể
+đòi thứ không tồn tại). Xếp vào lớp này dựa trên đo đạc, không phải phỏng đoán.
+
+### Số đo (tất cả đều đo được, không phải suy luận)
+
+| Hạng mục | Giá trị | Ghi chú |
+|---|---|---|
+| Traffic organic `/pages/profile.html` | **0 lượt xem / 24h08m** | cửa sổ 01/08 06:56 → 02/08 07:04 |
+| Web Vitals organic trên trang đó | **0 mẫu** | ⇒ **không có baseline LCP tương đối**; trigger chạy ở ngưỡng TUYỆT ĐỐI (4000ms) |
+| Lỗi trên route đó | **0** | |
+| Đối chứng cùng cửa sổ | speaking 35 · result 27 · home 23 · `/` 8 | site vẫn có traffic ⇒ 0 là thật, không phải chết ống đo |
+| **Ống đo đã kiểm chứng** | page_view ghi được với **`user_id` ≠ NULL** | tự vào trang bằng phiên đăng nhập lúc 07:04, hàng ghi xuất hiện đúng |
+| **Synthetic mutation coverage** | **staging E2E 23/23 PASS** (run `30639297343`) | isolation matrix · save→reload→revert · double-submit · N/N−1 · gate-a · platform |
+| Kill-switch drill (ADR-010) | **off→503 872 ms · on→200 1094 ms** | đo lại 31/07, ≪ TTL 15s |
+| N/N−1 consumer test | PASS (14/07, spec vẫn trong bộ 23) | payload legacy ↔ Next hoán đổi được |
+| DEBT-2026-07-30-N | **ĐÃ ĐÓNG** (`cb313997`) | điều kiện tôi tự đặt ở pilot 2 nay đã thoả |
+
+### Rủi ro chấp nhận — nói thẳng cái mình KHÔNG có
+
+1. **Không có baseline LCP/error-rate tương đối.** Cửa sổ quan sát sẽ so với
+   ngưỡng tuyệt đối, y như pilot 1. Nếu route vẫn 0 traffic sau cutover thì
+   verdict sẽ là `insufficient-sample` — tức **cửa sổ organic gần như không
+   mang thông tin**, và sức nặng dồn hết vào synthetic + rollback readiness.
+2. **Không đo được lịch sử.** Trang này trước 01/08 chưa từng có beacon, nên
+   không thể nói "trước nay có bao nhiêu người dùng". Chỉ biết: 24h gần nhất = 0.
+3. **Khoảng mù lỗi sớm vẫn còn** (đã thu hẹp ở PR #887): lỗi xảy ra trước khi
+   script `defer` đầu tiên chạy vẫn ngoài tầm; muốn kín phải nội tuyến listener
+   vào `<head>` — chưa làm.
+4. **Đây là cutover đầu tiên có MUTATION.** Hỏng ở đây không chỉ là trang xấu:
+   người dùng có thể lưu hồ sơ thất bại hoặc thấy dữ liệu người khác. Lưới:
+   AuthProvider fail-closed, reconcile-sau-mọi-mutation, kill-switch
+   `profile_update` (đo 872ms), và rollback ≤12s.
+
+### Lưới an toàn (giữ cứng, không phụ thuộc mẫu thống kê)
+
+- **Rollback Instant ≤12s** về deployment trước; khôi phục = **Undo Rollback
+  DUY NHẤT**. `/pages/profile.html` giữ nguyên trên disk và redirect là **307
+  tạm thời** đúng để rollback không kẹt client ở 404.
+- **Kill-switch `profile_update`**: tắt mutation trong ~1s mà không cần deploy.
+- **Persistence/security breach → rollback NGAY**, bất kể mẫu lớn nhỏ.
+
+### Bảng ký
+
+| Trường | Giá trị |
+|---|---|
+| Route | `/profile` (canonical MỚI) + `/pages/profile.html` → 307 tạm thời |
+| Lớp rủi ro | **Zero-traffic**, authenticated + mutation |
+| Ngày cutover | _(điền khi merge)_ |
+| Người duyệt | _(chủ dự án)_ |
+| Vế synthetic | staging E2E 23/23 (đã có) |
+| Vế thời-gian | quan sát 48–72h ở chế độ ngưỡng tuyệt đối |
+| Điều kiện dừng | bất kỳ lỗi persistence/security → rollback ngay; P1 trang không render → rollback |
