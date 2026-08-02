@@ -645,6 +645,13 @@ function showTab(name) {
   $('tab-classes').setAttribute('aria-current', students ? 'false' : 'page');
   $('tab-students').setAttribute('aria-current', students ? 'page' : 'false');
   $('panel-students').hidden = !students;
+
+  // The sidebar child highlight comes from the host element's `subsection`
+  // attribute, which is static in the markup. Both tabs are now one page, so
+  // without this the sidebar keeps marking "Lớp" while the Học viên tab is open.
+  // <aver-admin-chrome> observes the attribute, so setting it re-renders.
+  const chrome = document.querySelector('aver-admin-chrome');
+  if (chrome) chrome.setAttribute('subsection', students ? 'students' : 'classes');
   if (students) {
     $('view-list').hidden = true;
     $('view-detail').hidden = true;
