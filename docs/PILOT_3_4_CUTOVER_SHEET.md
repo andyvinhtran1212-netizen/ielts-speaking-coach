@@ -43,14 +43,28 @@ cutover mang cả hai.
 | 4 | Test paths + flip pin cutover-ownership | `tests/pilot-profile.test.mjs` |
 | 5 | Staging E2E specs: `/profile-preview` → `/profile` (test đúng URL sau cutover) | `tests/staging-e2e/pilot-3-profile.spec.js`, `pilot-4-profile-save.spec.js` |
 
-## GATE trước khi merge (BẮT BUỘC — lý do DRAFT)
+## [LỊCH SỬ — đã đóng tại cutover 02/08] GATE trước khi merge
+
+> **Toàn bộ mục này là ghi chép giai đoạn chuẩn bị, KHÔNG còn là việc phải làm.**
+> Đính chính theo review PR 893: để nguyên văn cũ khiến trang vừa nói "đã
+> cutover" vừa nói "Pilot 4 CÒN MỞ" và vẫn liệt kê production-smoke như điều
+> kiện tiên quyết — trong khi chính trang này (mục "Hai việc chặn") đã kết luận
+> **smoke KHÔNG dùng được cho route authed**. Trạng thái đóng thật:
+>
+> - Pilot 4 (mutation): **ĐÃ ĐÓNG** — N/N−1 xanh, kill-switch đo lại 872/1094ms
+>   (31/07), staging E2E 23/23.
+> - Baseline `/profile` ≤72h: **ĐÃ ĐO** — 0 lượt organic/24h08m ⇒ xếp lớp
+>   zero-traffic của ADR-013.
+> - Production-smoke: **BỎ, có lý do** — browser ẩn danh bị đẩy sang `/login.html`.
+>   Vế synthetic do staging E2E gánh.
+> - Refresh main + re-verify: **ĐÃ LÀM** (drift 446 commit, suite 5792/0).
 
 **Pilot 3 (read) — ĐÃ ĐẠT:**
 - [x] ADR-011 đóng (AuthProvider state machine)
 - [x] Private no-store (`/auth/me`, `/auth/profile`, `PATCH /auth/profile`)
 - [x] Isolation E2E: logout→back/forward, Login A→B, same-status switch (#742)
 
-**Pilot 4 (mutation) — CÒN MỞ:**
+**Pilot 4 (mutation) — [đã đóng 02/08; nguyên văn lúc prep]:**
 - [x] Idempotency (set-semantics PATCH; replay pin)
 - [x] Canonical reconcile GET + double-submit + timeout-after-commit (#743/#749)
 - [x] Kill switch `require_flag("profile_update")` + drill đo (545ms/759ms)
@@ -251,10 +265,19 @@ Release **`311f5086`** (merge PR #756). Auto-promote: production
 | **Telemetry trên route mới** | `page_view` ghi ngay: **`implementation=next`, `user_id` ≠ NULL, release `311f5086`** |
 | Kill-switch `profile_update` | **không có hàng trong `runtime_flags`** = mặc định BẬT theo ADR-010; PATCH sẽ tạo hàng và tắt trong ~1s (đo 872ms hôm 31/07) |
 
-**Ghi chú về mẫu số:** đây là lần đầu route profile có `page_view` gắn
-`user_id` — trước cutover trang legacy không hề có beacon (DEBT-O). Nghĩa là
-cửa sổ quan sát này có mẫu số thật, dù baseline *trước* cutover thì không tồn
-tại (đã ghi trong risk acceptance).
+**Ghi chú về mẫu số — nói cho đúng mốc thời gian** (đính chính theo review
+PR 893, bản đầu của tôi viết quá tay):
+
+| Mốc | Trạng thái beacon trên trang hồ sơ |
+|---|---|
+| Trước **01/08** | **Không có** beacon nào — mọi con số "0 lượt xem" thời kỳ đó là hiện vật đo đạc |
+| 01/08 06:56 (PR 887) | Gắn beacon vào `/pages/profile.html` (bản legacy) |
+| 02/08 07:04 (**trước** cutover) | `page_view` đầu tiên có `user_id` ≠ NULL — chính là lần tôi tự vào để kiểm ống đo |
+| 02/08 07:17 (**sau** cutover) | `page_view` từ route Next, `implementation=next` |
+
+Nên câu đúng là: **trang hồ sơ có mẫu số thật từ 01/08**, không phải "lần đầu
+sau cutover". Cái *không* tồn tại là **baseline có ý nghĩa thống kê** — 24h đó
+đo được đúng 0 lượt organic (đã ghi trong risk acceptance).
 
 **Chưa kiểm trên production: đường MUTATION.** Cố ý — nó ghi dữ liệu thật vào
 hồ sơ của người dùng. Vế đó do **staging E2E 23/23** gánh (save→reload→revert,
