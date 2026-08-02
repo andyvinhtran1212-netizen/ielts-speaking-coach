@@ -714,3 +714,53 @@ def test_a_valid_assignment_entitles_its_own_mode():
     assert "_require_permission(user_id, body.mode)" in src[guard:], (
         "the mode gate must still apply to sessions with no class assignment"
     )
+
+
+# ── vòng 5 ──────────────────────────────────────────────────────────────
+
+
+def test_progress_query_also_chunks_assignment_ids():
+    """Fixed in reconcile last round, missed here. A class giving one task a day
+    accumulates enough assignments that a single unchunked in.() filter becomes
+    tens of KB of URL, and the admin list 500s instead of showing any progress."""
+    import inspect, re
+    from services import class_assignment_service as mod
+    src = inspect.getsource(mod._items_for_assignments)
+    steps = re.findall(r"range\(0, len\([a-z_]+\), (\w+)\)", src)
+    assert steps and set(steps) == {"_ID_CHUNK"}, steps
+
+
+def test_the_earliest_completed_session_wins_the_repair():
+    """One item can have several completed sessions (the start endpoint allows a
+    retry). Rows arrive ordered by UUID, so without an explicit choice the winner
+    is whichever uuid sorts first — a later attempt could overwrite the real
+    first hand-in with a different score AND a different late/on-time verdict."""
+    early = "2026-08-03T11:00:00+00:00"   # 18:00 giờ VN — on time
+    late  = "2026-08-03T13:00:00+00:00"   # 20:00 giờ VN — late
+
+    # 'a…' sorts before 'z…', so the LATER session is the one _paged returns
+    # first. The repair must still pick the earlier completion.
+    db = _DB({
+        "class_assignment_items": [
+            {"id": "item-1", "assignment_id": "asg-1", "submitted_at": None, "state": "assigned"},
+        ],
+        "sessions": [
+            {"id": "aaaa-late", "class_assignment_item_id": "item-1", "status": "completed",
+             "overall_band": 5.0, "completed_at": late},
+            {"id": "zzzz-early", "class_assignment_item_id": "item-1", "status": "completed",
+             "overall_band": 7.0, "completed_at": early},
+        ],
+    })
+    assert reconcile_ledger_from_sessions(db, ["asg-1"]) == 1
+
+    item = db.tables["class_assignment_items"][0]
+    assert item["submitted_at"] == early, "the later session overwrote the real first hand-in"
+    assert item["artifact_id"] == "zzzz-early"
+    assert item["score"] == 7.0
+
+    # …and therefore it counts as on time against the 19:00 deadline.
+    p = progress_for_assignments(
+        db, [{"id": "asg-1", "due_at": compose_due_at("2026-08-03")}],
+        now=datetime(2026, 8, 3, 23, 0, tzinfo=timezone.utc),
+    )["asg-1"]
+    assert p["late"] == 0

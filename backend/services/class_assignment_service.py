@@ -185,24 +185,25 @@ def create_class_assignment(
 
 
 def _items_for_assignments(db, assignment_ids: List[str]) -> List[Dict[str, Any]]:
+    """Items of the given assignments — ids chunked, rows paged.
+
+    Both bounds are needed and they are different limits: _PAGE caps rows coming
+    back, _ID_CHUNK caps ids going out in the `in.(...)` URL. A class giving one
+    task a day accumulates enough assignments that a single unchunked filter
+    becomes tens of KB of query string, and the admin list then 500s instead of
+    showing any progress at all.
+    """
     if not assignment_ids:
         return []
     rows: List[Dict[str, Any]] = []
-    start = 0
-    while True:
-        page = (
-            db.table("class_assignment_items")
-            .select("id, assignment_id, student_id, state, submitted_at, score")
-            .in_("assignment_id", assignment_ids)
-            .order("id")
-            .range(start, start + _PAGE - 1)
-            .execute()
-            .data
-        ) or []
-        rows.extend(page)
-        if len(page) < _PAGE:
-            return rows
-        start += _PAGE
+    for chunk in (assignment_ids[i:i + _ID_CHUNK]
+                  for i in range(0, len(assignment_ids), _ID_CHUNK)):
+        rows.extend(_paged(
+            db, "class_assignment_items",
+            "id, assignment_id, student_id, state, submitted_at, score",
+            lambda q, c=chunk: q.in_("assignment_id", c),
+        ))
+    return rows
 
 
 def progress_for_assignments(
@@ -440,8 +441,36 @@ def reconcile_ledger_from_sessions(db, assignment_ids: List[str]) -> int:
             lambda q, c=chunk: q.in_("class_assignment_item_id", c).eq("status", "completed"),
         ))
 
-    fixed = 0
+    # One item can have several completed sessions (the start endpoint allows a
+    # retry). `_paged` orders by id — a UUID — so without this the winner is
+    # whichever uuid sorts first, and a later attempt could overwrite the real
+    # first hand-in with a different score AND a different on-time verdict. Keep
+    # the earliest actual completion.
+    def _completed_key(row):
+        raw = row.get("completed_at")
+        if not raw:
+            return None
+        try:
+            return datetime.fromisoformat(raw)
+        except ValueError:
+            return None
+
+    earliest: Dict[str, Dict[str, Any]] = {}
     for s in sessions:
+        item_id = s.get("class_assignment_item_id")
+        if not item_id:
+            continue
+        prev = earliest.get(item_id)
+        if prev is None:
+            earliest[item_id] = s
+            continue
+        cur_k, prev_k = _completed_key(s), _completed_key(prev)
+        # A row with a real timestamp always beats one without.
+        if cur_k is not None and (prev_k is None or cur_k < prev_k):
+            earliest[item_id] = s
+
+    fixed = 0
+    for s in earliest.values():
         # Stamp the session's OWN completion time, not the repair time. Work
         # finished at 18:00 and reconciled at 20:00 would otherwise be reported
         # late — the repair would manufacture the very verdict it exists to
