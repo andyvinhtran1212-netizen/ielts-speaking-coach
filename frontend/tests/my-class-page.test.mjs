@@ -201,3 +201,63 @@ describe('page shell follows the student conventions', () => {
     assert.match(PAGE, /chưa được xếp vào lớp nào/);
   });
 });
+
+
+describe('the page can actually authenticate (Codex review)', () => {
+  // Without initSupabase, api.js keeps its client null and sends every request
+  // with no Authorization header: /api/class/me answers 401 and api.js bounces a
+  // signed-in student to login. The whole feature is dead, and no unit test of
+  // the render helpers would ever notice.
+  test('Supabase is bootstrapped before the page script runs', () => {
+    assert.match(PAGE, /initSupabase\(SUPABASE_URL, SUPABASE_ANON\)/);
+    const boot = PAGE.indexOf('initSupabase(');
+    const script = PAGE.indexOf('/js/my-class.js');
+    assert.ok(boot !== -1 && script > boot, 'the bootstrap must come first');
+  });
+
+  test('api.js is loaded before the bootstrap that calls into it', () => {
+    assert.ok(PAGE.indexOf('/js/api.js') < PAGE.indexOf('initSupabase('));
+  });
+});
+
+
+describe('lesson bodies render as Markdown, sanitised (Codex review)', () => {
+  // class_lessons.body_md is Markdown by contract (mig 176). Escaping it showed
+  // the student raw **bold** and unclickable links.
+  // Executed, not matched: an earlier version of this test only checked that the
+  // string "window.renderMarkdown" appeared somewhere in the function, and it
+  // still passed after the renderer call was replaced by esc() — the guard
+  // symbol lived on in the `typeof` check above it.
+  const loadLessonBody = (renderMarkdown) => {
+    const body = SRC.slice(SRC.indexOf('function lessonBody'),
+                           SRC.indexOf('function renderLessons'));
+    const win = renderMarkdown ? { renderMarkdown } : {};
+    const esc = (s) => `ESCAPED(${s})`;
+    return new Function('window', 'esc', `${body} return lessonBody;`)(win, esc);
+  };
+
+  test('the shared renderer produces the output', () => {
+    const lessonBody = loadLessonBody((md) => `RENDERED(${md})`);
+    assert.equal(lessonBody('**đậm**'), 'RENDERED(**đậm**)');
+  });
+
+  test('it falls back to ESCAPED text when the renderer never loaded', () => {
+    const lessonBody = loadLessonBody(null);
+    const out = lessonBody('<img src=x onerror=alert(1)>');
+    assert.match(out, /ESCAPED\(/, 'a missing CDN must not mean unescaped HTML');
+  });
+
+  test('the page loads the renderer and its sanitiser', () => {
+    assert.match(PAGE, /js\/markdown\.js/);
+    assert.match(PAGE, /marked/);
+    assert.match(PAGE, /dompurify/i);
+  });
+
+  test('everything else stays escaped — only body_md is Markdown', () => {
+    const render = codeOnly(SRC.slice(SRC.indexOf('function renderLessons'),
+                                      SRC.indexOf('function nextDue')));
+    assert.match(render, /esc\(l\.title\)/);
+    assert.match(render, /esc\(f\.url\)/);
+    assert.match(render, /esc\(f\.label\)/);
+  });
+});

@@ -114,6 +114,22 @@ function renderStats(p) {
     </div>`).join('');
 }
 
+/**
+ * Lesson bodies are Markdown by contract (class_lessons.body_md, mig 176), so
+ * escaping them showed the student raw `**bold**` and unclickable links.
+ *
+ * Goes through the shared sanitised renderer — admin-authored text rendered in
+ * another user's browser must never reach innerHTML un-sanitised. If either CDN
+ * lib failed to load, window.renderMarkdown itself falls back to escaped
+ * plaintext; the guard here covers the script not having arrived at all.
+ */
+function lessonBody(md) {
+  if (typeof window.renderMarkdown === 'function') {
+    return window.renderMarkdown(md, { breaks: true });
+  }
+  return `<p>${esc(md)}</p>`;
+}
+
 function renderLessons(lessons) {
   $('mc-group-lessons').hidden = lessons.length === 0;
   if (!lessons.length) return;
@@ -129,7 +145,7 @@ function renderLessons(lessons) {
       <div class="mc-lesson-main">
         <p class="mc-lesson-title">${esc(l.title)}</p>
         ${date ? `<p class="mc-item-sub">${esc(date)}</p>` : ''}
-        ${l.body_md ? `<p class="mc-lesson-body">${esc(l.body_md)}</p>` : ''}
+        ${l.body_md ? `<div class="mc-lesson-body">${lessonBody(l.body_md)}</div>` : ''}
         ${files ? `<div class="mc-files">${files}</div>` : ''}
       </div>
     </article>`;

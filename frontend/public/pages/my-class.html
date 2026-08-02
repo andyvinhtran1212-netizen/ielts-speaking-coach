@@ -24,10 +24,26 @@
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
   <link rel="stylesheet" href="/css/aver-design/components.css" />
 
-  <script src="https://unpkg.com/@supabase/supabase-js@2.107.0" defer></script>
+  <script src="https://unpkg.com/@supabase/supabase-js@2.107.0"></script>
   <script src="/js/runtime-config.js"></script>
   <script src="/js/api.js"></script>
   <script src="/js/toast.js"></script>
+  <!-- Without this, api.js keeps its Supabase client null and sends every
+       request with no Authorization header: /api/class/me answers 401 and api.js
+       bounces a signed-in student to the login page. Same bootstrap as
+       home.html; aver-chrome documents it as a page responsibility. -->
+  <script>
+    var SUPABASE_URL  = 'https://huwsmtubwulikhlmcirx.supabase.co';
+    var SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
+    initSupabase(SUPABASE_URL, SUPABASE_ANON);
+  </script>
+
+  <!-- Lesson bodies are Markdown by contract (class_lessons.body_md, mig 176),
+       so they go through the shared sanitised renderer rather than being shown
+       as raw syntax. -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.4.8/dist/purify.min.js" defer></script>
+  <script src="/js/markdown.js" defer></script>
 
   <style>
     body.av-page { font-family: var(--av-font-sans); margin: 0; }
@@ -105,8 +121,14 @@
       color: var(--av-text-muted); min-width: 3.5rem; padding-top: 2px; }
     .mc-lesson-main { flex: 1; min-width: 0; }
     .mc-lesson-title { font-weight: var(--av-fw-semibold); margin: 0 0 2px; }
+    /* Markdown output: block children, so no white-space: pre-wrap (that would
+       double every blank line the renderer already turned into a paragraph). */
     .mc-lesson-body { color: var(--av-text-secondary); font-size: var(--av-fs-sm);
-      margin: var(--av-space-2) 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+      margin: var(--av-space-2) 0 0; overflow-wrap: anywhere; }
+    .mc-lesson-body > :first-child { margin-top: 0; }
+    .mc-lesson-body > :last-child { margin-bottom: 0; }
+    .mc-lesson-body a { color: var(--av-text-primary); }
+    .mc-lesson-body ul, .mc-lesson-body ol { padding-left: var(--av-space-4); }
     .mc-files { display: flex; flex-wrap: wrap; gap: var(--av-space-2);
       margin-top: var(--av-space-3); }
     .mc-file { font-size: var(--av-fs-xs); padding: 2px 10px;
