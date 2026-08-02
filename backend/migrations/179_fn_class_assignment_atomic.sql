@@ -146,6 +146,15 @@ BEGIN
         RETURN NULL;          -- not found (or not in this class) — caller 404s
     END IF;
 
+    -- Lock the ITEM rows, not just the parent. mark_item_submitted updates a
+    -- child row and never touches class_assignments, so FOR UPDATE on the parent
+    -- does not block it: a completion could still commit between this scan and
+    -- the cascading delete, and be erased along with the evidence. Locking the
+    -- children is what actually serialises the two.
+    PERFORM 1 FROM class_assignment_items
+      WHERE assignment_id = p_assignment_id
+      FOR UPDATE;
+
     SELECT EXISTS (
         SELECT 1 FROM class_assignment_items
          WHERE assignment_id = p_assignment_id AND submitted_at IS NOT NULL
@@ -163,5 +172,82 @@ $$;
 COMMENT ON FUNCTION fn_delete_class_assignment_if_unsubmitted IS
 'Xoá bài giao CHỈ KHI chưa ai nộp, kiểm và xoá trong cùng một giao dịch có khoá
 dòng (mig 179). NULL = không tìm thấy, FALSE = đã có người nộp, TRUE = đã xoá.';
+
+
+-- ── 3. Gắn phiên vào bài tập: kiểm "còn mở" và ghi liên kết cùng lúc ────────
+--
+-- Validation in Python happens BEFORE the session is created (so a rejection
+-- never burns a daily slot), but between that check and the write the assignment
+-- can be archived. Re-checking here, inside the same statement as the UPDATE,
+-- is the only way the link cannot be written for a task that is already closed.
+--
+-- Returns TRUE when linked, FALSE when the assignment is no longer open or the
+-- item is gone. The caller deletes the session it just made when this is FALSE.
+CREATE OR REPLACE FUNCTION fn_bind_session_to_class_item(
+    p_session_id uuid,
+    p_item_id    uuid,
+    p_user_id    uuid
+)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+    v_ok boolean;
+BEGIN
+    -- Ownership AND open-state in one read, locked so an archive landing now
+    -- waits for this transaction instead of racing it.
+    SELECT TRUE INTO v_ok
+      FROM class_assignment_items i
+      JOIN class_assignments a ON a.id = i.assignment_id
+      JOIN students s          ON s.id = i.student_id
+     WHERE i.id = p_item_id
+       AND s.user_id = p_user_id
+       AND a.status = 'published'
+       AND (a.publish_at IS NULL OR a.publish_at <= NOW())
+     FOR UPDATE OF i;
+
+    IF v_ok IS NOT TRUE THEN
+        RETURN FALSE;
+    END IF;
+
+    UPDATE sessions
+       SET class_assignment_item_id = p_item_id
+     WHERE id = p_session_id;
+
+    RETURN FOUND;
+END;
+$$;
+
+COMMENT ON FUNCTION fn_bind_session_to_class_item IS
+'Gắn phiên Speaking vào bài tập của lớp, kiểm quyền sở hữu + "bài còn mở" trong
+cùng giao dịch với lệnh ghi (mig 179). Trước đó hai bước tách rời: bài bị lưu trữ
+xen vào giữa thì liên kết vẫn được ghi cho một bài đã đóng.';
+
+
+-- ── Quyền gọi: BACKEND-ONLY ─────────────────────────────────────────────────
+--
+-- PostgreSQL grants EXECUTE on a new function to PUBLIC by default, and Supabase
+-- exposes every function in `public` through PostgREST to `anon` and
+-- `authenticated`. Without these REVOKEs a logged-in student who knows a cohort
+-- or assignment id — both of which the student endpoints hand out — could call
+-- these RPCs directly and create or delete class assignments, straight past
+-- require_admin. Same lock as migrations 161/174 (see
+-- tests/test_migration_161_rpc_grants.py).
+REVOKE EXECUTE ON FUNCTION public.fn_create_class_assignment(uuid, text, text, uuid, jsonb, uuid, text, timestamptz, timestamptz, text, uuid)
+    FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.fn_create_class_assignment(uuid, text, text, uuid, jsonb, uuid, text, timestamptz, timestamptz, text, uuid)
+    TO service_role;
+
+REVOKE EXECUTE ON FUNCTION public.fn_delete_class_assignment_if_unsubmitted(uuid, uuid)
+    FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.fn_delete_class_assignment_if_unsubmitted(uuid, uuid)
+    TO service_role;
+
+REVOKE EXECUTE ON FUNCTION public.fn_bind_session_to_class_item(uuid, uuid, uuid)
+    FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.fn_bind_session_to_class_item(uuid, uuid, uuid)
+    TO service_role;
 
 COMMIT;

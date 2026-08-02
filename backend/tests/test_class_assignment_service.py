@@ -137,6 +137,27 @@ class _RPC:
             }])
         if self.name == "fn_delete_class_assignment_if_unsubmitted":
             return _Resp(True)
+        if self.name == "fn_bind_session_to_class_item":
+            # Mirrors mig 179: ownership AND open-state re-checked inside the
+            # same transaction as the write.
+            item = next((i for i in self.db.tables.get("class_assignment_items", [])
+                         if i["id"] == self.params["p_item_id"]), None)
+            if not item:
+                return _Resp(False)
+            stu = next((s for s in self.db.tables.get("students", [])
+                        if s["id"] == item.get("student_id")), None)
+            if not stu or stu.get("user_id") != self.params["p_user_id"]:
+                return _Resp(False)
+            asg = next((a for a in self.db.tables.get("class_assignments", [])
+                        if a["id"] == item["assignment_id"]), None)
+            if not asg or not is_assignment_open(asg):
+                return _Resp(False)
+            for s in self.db.tables.get("sessions", []):
+                if s["id"] == self.params["p_session_id"]:
+                    s["class_assignment_item_id"] = self.params["p_item_id"]
+                    self.db.store.setdefault("_updated", []).append(s)
+                    return _Resp(True)
+            return _Resp(False)
         raise AssertionError(f"unexpected rpc {self.name}")
 
 
@@ -376,7 +397,7 @@ def _bind(db, **over):
     kw = {"session_mode": "test_part", "session_part": 3, "session_topic": "Hometown"}
     kw.update(over)
     validate_class_item_for_session(db, "user-1", "item-1", **kw)
-    attach_session_to_class_item(db, "sess-1", "item-1")
+    attach_session_to_class_item(db, "sess-1", "user-1", "item-1")
 
 
 def test_a_matching_session_binds():
@@ -544,3 +565,71 @@ def test_create_goes_through_the_atomic_rpc_not_two_inserts():
     assert 'rpc("fn_create_class_assignment"' in src
     assert 'table("class_assignments").insert' not in src
     assert 'table("class_assignment_items").insert' not in src
+
+
+# ── sửa sổ phải giữ ĐÚNG mốc hoàn thành (Codex vòng 2) ──────────────────
+
+
+def test_repair_stamps_the_session_completion_time_not_the_repair_time():
+    """Work finished at 18:00 and reconciled at 20:00 must stay on time.
+
+    Stamping the repair time would manufacture the exact verdict the repair
+    exists to correct — and it is deterministic for assigned full tests, whose
+    completion path runs outside PATCH /complete entirely.
+    """
+    finished = datetime(2026, 8, 3, 11, 0, tzinfo=timezone.utc)   # 18:00 giờ VN
+    db = _DB({
+        "class_assignment_items": [
+            {"id": "item-1", "assignment_id": "asg-1", "submitted_at": None, "state": "assigned"},
+        ],
+        "sessions": [
+            {"id": "sess-1", "class_assignment_item_id": "item-1", "status": "completed",
+             "overall_band": 6.0, "completed_at": finished.isoformat()},
+        ],
+    })
+    assert reconcile_ledger_from_sessions(db, ["asg-1"]) == 1
+
+    stamped = db.tables["class_assignment_items"][0]["submitted_at"]
+    assert datetime.fromisoformat(stamped) == finished
+
+    # And therefore the verdict is on-time against a 19:00 deadline.
+    due = compose_due_at("2026-08-03")
+    p = progress_for_assignments(
+        db, [{"id": "asg-1", "due_at": due}],
+        now=datetime(2026, 8, 3, 20, 0, tzinfo=timezone.utc),
+    )["asg-1"]
+    assert p["late"] == 0 and p["submitted"] == 1
+
+
+def test_repair_falls_back_to_now_when_completion_time_is_missing():
+    db = _DB({
+        "class_assignment_items": [
+            {"id": "item-1", "assignment_id": "asg-1", "submitted_at": None, "state": "assigned"},
+        ],
+        "sessions": [
+            {"id": "sess-1", "class_assignment_item_id": "item-1", "status": "completed",
+             "overall_band": 6.0, "completed_at": None},
+        ],
+    })
+    assert reconcile_ledger_from_sessions(db, ["asg-1"]) == 1
+    assert db.tables["class_assignment_items"][0]["submitted_at"] is not None
+
+
+# ── gắn phiên đi qua RPC nguyên tử (Codex vòng 2) ───────────────────────
+
+
+def test_binding_a_session_to_an_archived_assignment_is_refused():
+    """Validation runs before the session is created; the assignment can be
+    archived in between, so the write itself must re-check."""
+    db = _bind_db(status="archived")
+    assert attach_session_to_class_item(db, "sess-1", "user-1", "item-1") is False
+
+
+def test_binding_goes_through_the_atomic_rpc():
+    import inspect
+    from services import class_assignment_service as mod
+    src = inspect.getsource(mod.attach_session_to_class_item)
+    assert 'rpc("fn_bind_session_to_class_item"' in src
+    assert 'table("sessions").update' not in src, (
+        "a bare UPDATE cannot re-check open-state in the same transaction"
+    )

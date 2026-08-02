@@ -395,7 +395,7 @@ async def create_session(
         linked = False
         try:
             linked = attach_session_to_class_item(
-                supabase_admin, s["id"], body.class_assignment_item_id
+                supabase_admin, s["id"], user_id, body.class_assignment_item_id
             )
         except Exception as e:
             logger.warning(
@@ -1086,6 +1086,12 @@ def _complete_session_internal(session_id: str) -> None:
     supabase_admin.table("sessions").update(update_payload).eq("id", session_id).execute()
     logger.info("[finalize_ft] session=%s completed — overall_band=%s", session_id, overall_band)
 
+    # GĐ 2 — a full test can itself be the assigned task (the give modal offers
+    # test_full), and this path completes sessions without going through
+    # PATCH /complete. Without this the hand-in would never be recorded and the
+    # teacher would see the homework as missing however well the student did.
+    _record_class_submission({**session, **update_payload, "id": session_id})
+
 
 def _check_all_responses_graded(session_ids: list) -> bool:
     """
@@ -1284,6 +1290,16 @@ def _record_class_submission(session: dict) -> bool:
     item_id = session.get("class_assignment_item_id")
     if not item_id:
         return False
+    # The session's own completion time, not "now": on the retry path this runs
+    # long after the fact, and stamping the repair time would report work
+    # finished before the deadline as late.
+    completed_at = None
+    raw = session.get("completed_at")
+    if raw:
+        try:
+            completed_at = datetime.fromisoformat(raw)
+        except ValueError:
+            pass
     try:
         return mark_item_submitted(
             supabase_admin,
@@ -1291,6 +1307,7 @@ def _record_class_submission(session: dict) -> bool:
             artifact_kind="session",
             artifact_id=session["id"],
             score=session.get("overall_band"),
+            now=completed_at,
         )
     except Exception as e:
         logger.warning(

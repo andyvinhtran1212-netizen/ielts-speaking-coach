@@ -349,13 +349,24 @@ def validate_class_item_for_session(
         raise TaskMismatchError("Chủ đề của phiên không khớp bài được giao.")
 
 
-def attach_session_to_class_item(db, session_id: str, item_id: str) -> bool:
-    """Write the link. Validation is a separate, earlier step by design."""
-    r = (
-        db.table("sessions").update({"class_assignment_item_id": item_id})
-        .eq("id", session_id).execute()
-    )
-    return bool(r.data)
+def attach_session_to_class_item(db, session_id: str, user_id: str, item_id: str) -> bool:
+    """Write the link through fn_bind_session_to_class_item (mig 179).
+
+    The Python validation above runs BEFORE the session is created, so a
+    rejection never burns a daily slot — but between that check and this write
+    the assignment can be archived. The RPC re-reads ownership and open-state
+    under a row lock in the same transaction as the UPDATE, so the link cannot be
+    written for a task that has already closed.
+
+    False means "not linked" for any reason; the caller removes the session it
+    just created rather than returning one that can never be handed in.
+    """
+    rows = db.rpc("fn_bind_session_to_class_item", {
+        "p_session_id": session_id,
+        "p_item_id":    item_id,
+        "p_user_id":    user_id,
+    }).execute().data
+    return rows is True or rows == [True] or bool(rows)
 
 
 def reconcile_ledger_from_sessions(db, assignment_ids: List[str]) -> int:
@@ -389,7 +400,7 @@ def reconcile_ledger_from_sessions(db, assignment_ids: List[str]) -> int:
     pending = {i["id"] for i in items}
     sessions = (
         db.table("sessions")
-        .select("id, class_assignment_item_id, overall_band, status")
+        .select("id, class_assignment_item_id, overall_band, status, completed_at")
         .in_("class_assignment_item_id", list(pending))
         .eq("status", "completed")
         .execute().data
@@ -397,12 +408,24 @@ def reconcile_ledger_from_sessions(db, assignment_ids: List[str]) -> int:
 
     fixed = 0
     for s in sessions:
+        # Stamp the session's OWN completion time, not the repair time. Work
+        # finished at 18:00 and reconciled at 20:00 would otherwise be reported
+        # late — the repair would manufacture the very verdict it exists to
+        # correct. Falls back to now() only when completed_at is somehow absent.
+        completed_at = s.get("completed_at")
+        submitted_at = None
+        if completed_at:
+            try:
+                submitted_at = datetime.fromisoformat(completed_at)
+            except ValueError:
+                logger.warning("[class] unparseable completed_at on session=%s", s["id"])
         if mark_item_submitted(
             db,
             item_id=s["class_assignment_item_id"],
             artifact_kind="session",
             artifact_id=s["id"],
             score=s.get("overall_band"),
+            now=submitted_at,
         ):
             fixed += 1
     if fixed:
