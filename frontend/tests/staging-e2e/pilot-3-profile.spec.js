@@ -1,7 +1,7 @@
 // Pilot 3 (authenticated read) — browser-level proof on the LIVE staging
 // stack, covering the ADR-011 mandatory isolation matrix:
 //
-//   1. signed-out fail-closed: /profile-preview leaves for /login.html
+//   1. signed-out fail-closed: /profile leaves for /login.html
 //   2. signed-in render: student's own /auth/profile data appears; the private
 //      API response carries Cache-Control: private, no-store (pilot checklist)
 //   3. two-user isolation: Login A → private data → sign-out → Login B in the
@@ -39,12 +39,12 @@ async function signInSession(request, role) {
   return session;
 }
 
-test.describe('pilot 3 — /profile-preview authenticated read', () => {
+test.describe('pilot 3 — /profile authenticated read', () => {
   test('signed-out fail-closed → /login.html', async ({ browser, baseURL }) => {
     const context = await browser.newContext();
     await primeBypassCookie(context, baseURL);
     const page = await context.newPage();
-    await page.goto('/profile-preview');
+    await page.goto('/profile');
     await page.waitForURL('**/login.html*', { timeout: 20_000 });
     await context.close();
   });
@@ -89,7 +89,7 @@ test.describe('pilot 3 — /profile-preview authenticated read', () => {
       (r) => r.url().endsWith('/auth/profile') && r.request().method() === 'GET',
       { timeout: 30_000 },
     );
-    await page.goto('/profile-preview');
+    await page.goto('/profile');
     const resA = await profileResponseA;
     expect(resA.status()).toBe(200);
     expect(resA.headers()['cache-control']).toBe('private, no-store');
@@ -120,7 +120,7 @@ test.describe('pilot 3 — /profile-preview authenticated read', () => {
       },
       [STORAGE_KEY, JSON.stringify(sessionB)],
     );
-    await page.goto('/profile-preview');
+    await page.goto('/profile');
     await expect(page.locator('#profile-email')).toHaveText(emailB, { timeout: 20_000 });
 
     // Reload keeps B (no stale A resurrection through any cache).
@@ -156,7 +156,7 @@ test.describe('pilot 3 — /profile-preview authenticated read', () => {
       [STORAGE_KEY, JSON.stringify(sessionA)],
     );
     const page = await context.newPage();
-    await page.goto('/profile-preview');
+    await page.goto('/profile');
     await expect(page.locator('#profile-email')).toHaveText(emailA, { timeout: 20_000 });
 
     // The exact review-#742 hazard: SIGNED_IN for a DIFFERENT user while
