@@ -91,6 +91,20 @@ function rosterCell(memberCount, unactivated) {
     + `<span class="cl-roster-gap">${countLabel(unactivated)} chưa kích hoạt</span></div>`;
 }
 
+/**
+ * Today's calendar date in Asia/Ho_Chi_Minh, as YYYY-MM-DD.
+ *
+ * en-CA formats as YYYY-MM-DD, which is exactly what <input type=date> wants —
+ * and going through Intl with an explicit timeZone is what makes this the
+ * centre's date rather than the browser's.
+ */
+function todayInVietnam() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date());
+}
+
 function fmtDate(value) {
   if (!value) return '';
   const d = new Date(value);
@@ -613,12 +627,14 @@ function openHomeworkModal() {
   $('hf-instructions').value = '';
   // Default the deadline to today — the centre gives a task each day, so today
   // at 19:00 is the answer nearly every time.
-  const now = new Date();
-  $('hf-due').value = [
-    now.getFullYear(),
-    String(now.getMonth() + 1).padStart(2, '0'),
-    String(now.getDate()).padStart(2, '0'),
-  ].join('-');
+  //
+  // "Today" means today IN VIETNAM, not in the admin's browser. getFullYear() /
+  // getMonth() / getDate() read the browser's zone, so an admin abroad at the
+  // day boundary would default to the wrong date; the server would then
+  // correctly compose 19:00 Vietnam time for a day that is already past, and the
+  // give would be overdue the moment it was created. Same rule as the deadline
+  // itself: the date is a Vietnam wall-clock fact.
+  $('hf-due').value = todayInVietnam();
   $('hf-error').hidden = true;
   $('hf-warning').hidden = true;
   $('homework-modal').hidden = false;

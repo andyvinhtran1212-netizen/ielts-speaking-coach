@@ -15,8 +15,9 @@ from routers.auth import get_supabase_user
 from services.class_assignment_service import (
     ItemNotFoundError,
     TaskMismatchError,
-    bind_session_to_class_item,
+    attach_session_to_class_item,
     mark_item_submitted,
+    validate_class_item_for_session,
 )
 from services.access_code_permissions import (
     get_user_access_code_permissions_cached,
@@ -335,6 +336,19 @@ async def create_session(
                 ),
             )
 
+    # GĐ 2 — validate the class assignment BEFORE creating anything. Rejecting
+    # afterwards (stale params, an assignment archived between /start and here)
+    # still burned one of the student's daily session slots on a session they
+    # never asked for and could not hand in.
+    if body.class_assignment_item_id:
+        try:
+            validate_class_item_for_session(
+                supabase_admin, user_id, body.class_assignment_item_id,
+                session_mode=body.mode, session_part=body.part, session_topic=body.topic,
+            )
+        except (ItemNotFoundError, TaskMismatchError) as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
     # Create session — L7: the daily-cap count-then-insert is done atomically in
     # fn_create_session_daily_capped (migration 126) under a per-user advisory
     # lock, so concurrent POST /sessions can't both slip under the daily cap.
@@ -368,23 +382,34 @@ async def create_session(
         raise HTTPException(status_code=500, detail="Không thể tạo session")
     s = rows[0]
 
-    # GĐ 2 — class assignment: link at creation so PATCH /complete can record the
-    # hand-in. Ownership is verified inside against this user's own student row.
+    # GĐ 2 — class assignment: write the link so PATCH /complete can record the
+    # hand-in. Validation already happened BEFORE the session was created (see
+    # above), so the only thing that can fail here is the UPDATE itself.
+    #
+    # If it does, the session is deleted rather than returned. A session returned
+    # without the link is worse than no session: the student records their answer,
+    # completes it, and the teacher still sees "chưa nộp" with nothing to point at
+    # — and it would also have consumed one of their daily slots. Nothing has been
+    # recorded against it yet, so removing it loses no work.
     if body.class_assignment_item_id:
+        linked = False
         try:
-            bind_session_to_class_item(
-                supabase_admin, s["id"], user_id, body.class_assignment_item_id,
-                session_mode=body.mode, session_part=body.part, session_topic=body.topic,
+            linked = attach_session_to_class_item(
+                supabase_admin, s["id"], body.class_assignment_item_id
             )
-        except (ItemNotFoundError, TaskMismatchError) as e:
-            raise HTTPException(status_code=400, detail=str(e))
         except Exception as e:
-            # The session exists and is usable; only the ledger link failed.
-            # Surfaced, not swallowed — otherwise the student does the work and
-            # the teacher still sees "chưa nộp".
             logger.warning(
-                "[create_session] class item not linked session=%s item=%s: %s",
+                "[create_session] class item link failed session=%s item=%s: %s",
                 s["id"], body.class_assignment_item_id, e,
+            )
+        if not linked:
+            try:
+                supabase_admin.table("sessions").delete().eq("id", s["id"]).execute()
+            except Exception as e:
+                logger.warning("[create_session] could not roll back session=%s: %s", s["id"], e)
+            raise HTTPException(
+                status_code=500,
+                detail="Không gắn được phiên vào bài tập của lớp. Hãy thử lại.",
             )
 
     # Mock sitting: link the session AT CREATION (before any response can be

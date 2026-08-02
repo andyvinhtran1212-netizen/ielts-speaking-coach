@@ -113,51 +113,45 @@ def create_class_assignment(
     due_date: Optional[str] = None,
     instructions: Optional[str] = None,
     status: str = "published",
+    publish_at: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Create one give and its per-student rows.
+    """Create one give and its per-student rows, atomically.
 
-    Returns the assignment plus `student_count` and `unactivated_count`. A cohort
-    with no students returns student_count=0 and creates no items — the caller
-    decides whether that is an error (it is, for the admin UI: giving homework to
-    nobody is never intended).
+    Goes through fn_create_class_assignment (migration 179) rather than two
+    inserts. As two PostgREST calls the parent committed first, so a failure
+    fanning out left a PUBLISHED give with zero or partial recipients — after a
+    reload indistinguishable from a real 0/N assignment, with the students who
+    never got a row reading as students who did not do the work.
+
+    Raises EmptyRosterError for a class with no students; the function checks
+    that inside the same transaction, so nothing is left behind either way.
     """
-    students = _roster_student_ids(db, cohort_id)
-    if not students:
-        # Checked BEFORE the insert. Returning an error after creating the row
-        # would leave a published 0/0 give that reaches nobody — the admin is
-        # told "không giao được", reloads, and finds it sitting there anyway.
-        raise EmptyRosterError("Lớp này chưa có học viên nào để giao bài.")
-    unactivated = [s for s in students if not s.get("user_id")]
+    try:
+        rows = db.rpc("fn_create_class_assignment", {
+            "p_cohort_id":      cohort_id,
+            "p_skill":          skill,
+            "p_title":          title,
+            "p_lesson_id":      lesson_id,
+            "p_content_config": content_config or {},
+            "p_content_id":     content_id,
+            "p_instructions":   instructions,
+            "p_due_at":         compose_due_at(due_date),
+            "p_publish_at":     publish_at,
+            "p_status":         status,
+            "p_assigned_by":    assigned_by,
+        }).execute().data or []
+    except Exception as exc:
+        if "empty_roster" in str(exc):
+            raise EmptyRosterError("Lớp này chưa có học viên nào để giao bài.")
+        raise
 
-    assignment_id = str(uuid4())
-    row = {
-        "id":             assignment_id,
-        "cohort_id":      cohort_id,
-        "lesson_id":      lesson_id,
-        "skill":          skill,
-        "content_id":     content_id,
-        "content_config": content_config or {},
-        "title":          title,
-        "instructions":   instructions,
-        "due_at":         compose_due_at(due_date),
-        "status":         status,
-        "assigned_by":    assigned_by,
-    }
-    created = (db.table("class_assignments").insert(row).execute().data or [None])[0]
-    if not created:
+    if not rows:
         raise RuntimeError("Không tạo được bài giao")
-
-    # One bulk insert — a partial fan-out would leave some students holding
-    # homework the class list does not know about.
-    db.table("class_assignment_items").insert([
-        {"assignment_id": assignment_id, "student_id": s["id"]}
-        for s in students
-    ]).execute()
-
+    row = rows[0]
     return {
-        **created,
-        "student_count":      len(students),
-        "unactivated_count":  len(unactivated),
+        **(row.get("assignment") or {}),
+        "student_count":     row.get("student_count") or 0,
+        "unactivated_count": row.get("unactivated_count") or 0,
     }
 
 
@@ -293,9 +287,8 @@ def is_assignment_open(assignment: Dict[str, Any], *, now: Optional[datetime] = 
     return datetime.fromisoformat(publish_at) <= (now or datetime.now(timezone.utc))
 
 
-def bind_session_to_class_item(
+def validate_class_item_for_session(
     db,
-    session_id: str,
     user_id: str,
     item_id: str,
     *,
@@ -303,17 +296,18 @@ def bind_session_to_class_item(
     session_part: Optional[int] = None,
     session_topic: Optional[str] = None,
 ) -> None:
-    """Link a freshly-created speaking session to the class item it answers.
+    """Check the caller may answer this item with these parameters. Raises.
 
-    Ownership is checked HERE, against the caller's own user_id, because
-    `class_assignment_item_id` arrives in a request body. Without this check a
-    student could point their session at a classmate's item and have their work
-    recorded as that classmate's hand-in.
+    Runs BEFORE the session is created. Rejecting afterwards (stale params, an
+    assignment archived between /start and /sessions) still burned one of the
+    student's daily session slots on a session they never asked for and cannot
+    hand in.
 
-    Bound after creation rather than inside the create RPC, mirroring how
-    sitting_id is attached — the RPC exists to make the daily-cap count-then-
-    insert atomic, and widening its signature for every optional link would
-    couple that guarantee to unrelated features.
+    Ownership alone is not enough: `class_assignment_item_id` arrives in a
+    request body alongside a topic/mode/part the caller also chose, so without a
+    match check a student can do an easy Part 1 practice, point it at the Part 3
+    homework, and have it recorded as the assigned task. Proving the ASSIGNED
+    task was done is the ledger's entire value.
     """
     student = (
         db.table("students").select("id").eq("user_id", user_id).limit(1).execute().data
@@ -329,11 +323,6 @@ def bind_session_to_class_item(
     if not owned:
         raise ItemNotFoundError("Bài tập không thuộc về học viên này")
 
-    # Ownership alone is not enough. `class_assignment_item_id` arrives in a
-    # request body alongside a topic/mode/part the caller also chose, so without
-    # this check a student can point an easy Part 1 practice session at a Part 3
-    # assignment and have it recorded as the homework. The ledger's entire value
-    # is that it proves the ASSIGNED task was done.
     a_rows = (
         db.table("class_assignments").select("*")
         .eq("id", owned[0]["assignment_id"]).limit(1).execute().data
@@ -359,6 +348,63 @@ def bind_session_to_class_item(
     if expected_topic and (session_topic or "").strip().casefold() != expected_topic:
         raise TaskMismatchError("Chủ đề của phiên không khớp bài được giao.")
 
-    db.table("sessions").update(
-        {"class_assignment_item_id": item_id}
-    ).eq("id", session_id).execute()
+
+def attach_session_to_class_item(db, session_id: str, item_id: str) -> bool:
+    """Write the link. Validation is a separate, earlier step by design."""
+    r = (
+        db.table("sessions").update({"class_assignment_item_id": item_id})
+        .eq("id", session_id).execute()
+    )
+    return bool(r.data)
+
+
+def reconcile_ledger_from_sessions(db, assignment_ids: List[str]) -> int:
+    """Repair hand-ins whose ledger write failed. Returns how many were fixed.
+
+    PATCH /sessions/{id}/complete records the hand-in best-effort, and the
+    practice page sends that request once and redirects on 200 — so a transient
+    failure there has no retry trigger from the client, and the teacher would see
+    completed homework as never submitted, permanently.
+
+    The session itself is the durable evidence: it carries
+    `class_assignment_item_id` and status='completed'. Reconciling from it is
+    cheaper and more reliable than an outbox, and it runs when the admin opens
+    the assignment list — precisely when the wrong number would otherwise be
+    read. Uses the same idempotent writer, so an already-recorded hand-in keeps
+    its original submitted_at.
+    """
+    if not assignment_ids:
+        return 0
+
+    items = (
+        db.table("class_assignment_items")
+        .select("id")
+        .in_("assignment_id", assignment_ids)
+        .is_("submitted_at", "null")
+        .execute().data
+    ) or []
+    if not items:
+        return 0
+
+    pending = {i["id"] for i in items}
+    sessions = (
+        db.table("sessions")
+        .select("id, class_assignment_item_id, overall_band, status")
+        .in_("class_assignment_item_id", list(pending))
+        .eq("status", "completed")
+        .execute().data
+    ) or []
+
+    fixed = 0
+    for s in sessions:
+        if mark_item_submitted(
+            db,
+            item_id=s["class_assignment_item_id"],
+            artifact_kind="session",
+            artifact_id=s["id"],
+            score=s.get("overall_band"),
+        ):
+            fixed += 1
+    if fixed:
+        logger.info("[class] reconciled %s hand-in(s) from completed sessions", fixed)
+    return fixed

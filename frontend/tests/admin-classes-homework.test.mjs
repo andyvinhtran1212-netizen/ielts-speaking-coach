@@ -35,6 +35,16 @@ function loadHelpers() {
 
 const { dueLabel, progressCell } = loadHelpers();
 
+/**
+ * Strip `//` comments before asserting a symbol is ABSENT from code.
+ *
+ * Without this, a comment explaining why `getFullYear()` was removed satisfies
+ * a /getFullYear/ match and the test fails on its own documentation — or worse,
+ * a doesNotMatch passes because the code is clean while a *positive* assertion
+ * is satisfied by prose. Same trap as the SQL migration tests.
+ */
+const codeOnly = (s) => s.replace(/\/\/[^\n]*/g, '');
+
 // The class marker for "this needs attention" — the same one the roster uses
 // for students with no account.
 const WARN = 'cl-roster-gap';
@@ -104,6 +114,42 @@ describe('the give flow tells the admin who will not receive it', () => {
     assert.match(submit, /due_date: \$\('hf-due'\)\.value \|\| null/);
     assert.doesNotMatch(submit, /19:00|setHours|toISOString/,
       'composing the deadline in the browser would use the admin’s own timezone');
+  });
+});
+
+
+describe('the default due date is TODAY IN VIETNAM, not in the browser (Codex review)', () => {
+  // getFullYear/getMonth/getDate read the browser's zone. An admin abroad at the
+  // day boundary would default to the wrong date; the server then correctly
+  // composes 19:00 Vietnam time for a day already past, and the give is overdue
+  // the moment it is created.
+  const fn = SRC.slice(SRC.indexOf('function todayInVietnam'), SRC.indexOf('function fmtDate'));
+
+  test('the helper names the timezone explicitly', () => {
+    assert.match(codeOnly(fn), /timeZone: 'Asia\/Ho_Chi_Minh'/);
+    assert.doesNotMatch(codeOnly(fn), /getFullYear|getMonth\(\)|getDate\(\)/,
+      'browser-local getters are exactly the bug this replaced');
+  });
+
+  test('it really returns the Vietnam date at a day boundary', () => {
+    // 2026-08-02T20:00Z is still 2026-08-02 in Los Angeles but already
+    // 2026-08-03 in Vietnam (+07). The helper must say the 3rd.
+    const boundary = new Date('2026-08-02T20:00:00Z');
+    const vn = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(boundary);
+    const la = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(boundary);
+    assert.equal(vn, '2026-08-03');
+    assert.equal(la, '2026-08-02');
+    assert.notEqual(vn, la, 'fixture no longer straddles a day boundary — pick another instant');
+  });
+
+  test('the modal uses the helper, not a raw Date', () => {
+    const open = SRC.slice(SRC.indexOf('function openHomeworkModal'), SRC.indexOf('function closeHomeworkModal'));
+    assert.match(codeOnly(open), /todayInVietnam\(\)/);
+    assert.doesNotMatch(codeOnly(open), /getFullYear/);
   });
 });
 

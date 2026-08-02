@@ -18,6 +18,7 @@ the assignment instead.
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, Header, HTTPException, status
@@ -29,7 +30,10 @@ from services.class_assignment_service import (
     EmptyRosterError,
     create_class_assignment,
     progress_for_assignments,
+    reconcile_ledger_from_sessions,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin/cohorts", tags=["admin", "class-assignments"])
 
@@ -98,6 +102,16 @@ async def list_assignments(
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi tải bài giao: {exc}")
 
+    # Repair any hand-in whose ledger write failed at completion time. The
+    # student's completed session is the durable evidence; the practice page
+    # fires PATCH /complete once and redirects, so there is no client retry, and
+    # this is the moment the wrong number would otherwise be read. Best-effort:
+    # the list must still render if the repair itself fails.
+    try:
+        reconcile_ledger_from_sessions(supabase_admin, [a["id"] for a in rows])
+    except Exception as exc:
+        logger.warning("[class] ledger reconcile skipped: %s", exc)
+
     try:
         progress = progress_for_assignments(supabase_admin, rows)
     except Exception as exc:
@@ -157,27 +171,22 @@ async def delete_assignment(
     """
     await require_admin(authorization)
 
-    rows = (
-        supabase_admin.table("class_assignments").select("id")
-        .eq("id", assignment_id).eq("cohort_id", cohort_id).limit(1).execute().data
-    ) or []
-    if not rows:
-        raise HTTPException(404, "Không tìm thấy bài giao trong lớp này")
+    # Check-then-delete happens inside one locking transaction (mig 179). As two
+    # PostgREST calls, a student completing their session in between was recorded
+    # as submitted and then erased by ON DELETE CASCADE — destroying exactly the
+    # evidence this guard exists to preserve.
+    try:
+        deleted = supabase_admin.rpc(
+            "fn_delete_class_assignment_if_unsubmitted",
+            {"p_assignment_id": assignment_id, "p_cohort_id": cohort_id},
+        ).execute().data
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi xoá bài giao: {exc}")
 
-    submitted = (
-        supabase_admin.table("class_assignment_items").select("id")
-        .eq("assignment_id", assignment_id)
-        .not_.is_("submitted_at", "null")
-        .limit(1).execute().data
-    ) or []
-    if submitted:
+    if deleted is None:
+        raise HTTPException(404, "Không tìm thấy bài giao trong lớp này")
+    if deleted is False:
         raise HTTPException(
             409,
             "Đã có học viên nộp bài này — không xoá được. Hãy lưu trữ bài giao thay vì xoá.",
         )
-
-    try:
-        # Items go with it via ON DELETE CASCADE (mig 177).
-        supabase_admin.table("class_assignments").delete().eq("id", assignment_id).execute()
-    except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi xoá bài giao: {exc}")

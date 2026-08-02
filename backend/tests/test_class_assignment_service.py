@@ -32,10 +32,12 @@ from services.class_assignment_service import (
     CLASS_TZ,
     EmptyRosterError,
     TaskMismatchError,
-    bind_session_to_class_item,
+    attach_session_to_class_item,
     compose_due_at,
     create_class_assignment,
     is_assignment_open,
+    reconcile_ledger_from_sessions,
+    validate_class_item_for_session,
     mark_item_submitted,
     progress_for_assignments,
 )
@@ -110,12 +112,43 @@ class _Query:
         return _Resp(rows)
 
 
+class _RPC:
+    """Stands in for fn_create_class_assignment (mig 179). Mirrors the real
+    contract: roster counted and rows created inside ONE call, empty roster
+    raises, nothing partial is ever left behind."""
+
+    def __init__(self, db, name, params):
+        self.db, self.name, self.params = db, name, params
+
+    def execute(self):
+        if self.name == "fn_create_class_assignment":
+            students = [s for s in self.db.tables.get("students", [])
+                        if s.get("cohort_id") == self.params["p_cohort_id"]]
+            if not students:
+                raise RuntimeError('empty_roster')
+            row = {"id": "asg-new", **{k[2:]: v for k, v in self.params.items()}}
+            self.db.store.setdefault("class_assignments", []).append(row)
+            self.db.store.setdefault("class_assignment_items", []).extend(
+                {"assignment_id": "asg-new", "student_id": s["id"]} for s in students)
+            return _Resp([{
+                "assignment": row,
+                "student_count": len(students),
+                "unactivated_count": len([s for s in students if not s.get("user_id")]),
+            }])
+        if self.name == "fn_delete_class_assignment_if_unsubmitted":
+            return _Resp(True)
+        raise AssertionError(f"unexpected rpc {self.name}")
+
+
 class _DB:
     def __init__(self, tables, *, fail=frozenset()):
         self.tables, self.fail, self.store = tables, fail, {}
 
     def table(self, name):
         return _Query(self.store, name, self.tables.setdefault(name, []), raises=name in self.fail)
+
+    def rpc(self, name, params):
+        return _RPC(self, name, params)
 
 
 # ── 19:00 giờ Việt Nam ──────────────────────────────────────────────────
@@ -337,9 +370,13 @@ def _bind_db(*, cfg=None, status="published", publish_at=None):
 
 
 def _bind(db, **over):
+    """Validation is now a separate, EARLIER step than the link write (Codex
+    review: rejecting after creation burned a daily session slot). The tests
+    exercise the same guarantees through validate()."""
     kw = {"session_mode": "test_part", "session_part": 3, "session_topic": "Hometown"}
     kw.update(over)
-    bind_session_to_class_item(db, "sess-1", "user-1", "item-1", **kw)
+    validate_class_item_for_session(db, "user-1", "item-1", **kw)
+    attach_session_to_class_item(db, "sess-1", "item-1")
 
 
 def test_a_matching_session_binds():
@@ -442,3 +479,68 @@ def test_recording_is_a_noop_when_the_session_has_no_class_item():
     # The helper in sessions.py guards on the column; here we pin the service
     # contract it relies on: no item id, no write.
     assert db.store == {}
+
+
+# ── sửa lại bài nộp bị ghi hỏng (Codex P1 #2) ───────────────────────────
+#
+# PATCH /sessions/{id}/complete records the hand-in best-effort, and practice.js
+# fires it once and redirects on 200 — so a transient failure there has no client
+# retry and the teacher would permanently see completed homework as missing. The
+# completed session is the durable evidence; reconciling from it repairs the
+# ledger at the moment the admin opens the list.
+
+
+def _reconcile_db(*, session_status="completed", item_submitted=None):
+    return _DB({
+        "class_assignment_items": [
+            {"id": "item-1", "assignment_id": "asg-1", "submitted_at": item_submitted,
+             "state": "assigned"},
+        ],
+        "sessions": [
+            {"id": "sess-1", "class_assignment_item_id": "item-1",
+             "status": session_status, "overall_band": 6.5},
+        ],
+    })
+
+
+def test_a_completed_session_repairs_an_unrecorded_hand_in():
+    db = _reconcile_db()
+    assert reconcile_ledger_from_sessions(db, ["asg-1"]) == 1
+    item = db.tables["class_assignment_items"][0]
+    assert item["submitted_at"] is not None
+    assert item["artifact_id"] == "sess-1"
+    assert item["score"] == 6.5
+
+
+def test_an_unfinished_session_is_not_treated_as_a_hand_in():
+    db = _reconcile_db(session_status="in_progress")
+    assert reconcile_ledger_from_sessions(db, ["asg-1"]) == 0
+    assert db.tables["class_assignment_items"][0]["submitted_at"] is None
+
+
+def test_reconciling_twice_keeps_the_original_submission_time():
+    """The repair must never move an on-time hand-in past its deadline."""
+    db = _reconcile_db()
+    reconcile_ledger_from_sessions(db, ["asg-1"])
+    first = db.tables["class_assignment_items"][0]["submitted_at"]
+    assert reconcile_ledger_from_sessions(db, ["asg-1"]) == 0
+    assert db.tables["class_assignment_items"][0]["submitted_at"] == first
+
+
+def test_reconcile_is_a_noop_with_nothing_to_fix():
+    assert reconcile_ledger_from_sessions(_reconcile_db(), []) == 0
+
+
+# ── giao bài là NGUYÊN TỬ (Codex P1 #3) ─────────────────────────────────
+
+
+def test_create_goes_through_the_atomic_rpc_not_two_inserts():
+    """Two PostgREST inserts meant the parent committed first: a failure fanning
+    out left a published give with zero or partial recipients, which after a
+    reload is indistinguishable from a real 0/N assignment."""
+    import inspect
+    from services import class_assignment_service as mod
+    src = inspect.getsource(mod.create_class_assignment)
+    assert 'rpc("fn_create_class_assignment"' in src
+    assert 'table("class_assignments").insert' not in src
+    assert 'table("class_assignment_items").insert' not in src
