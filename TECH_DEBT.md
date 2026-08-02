@@ -1,6 +1,6 @@
 # Tech Debt — IELTS Speaking Coach
 
-**Last updated:** 2026-07-25 (DEBT-J CLOSED — 7 font families → 4, 4 type systems → 1, PRs #827/#828/#830; DEBT-I favicon half shipped #829, wordmark half still waits on the Next migration)
+**Last updated:** 2026-08-02 (thêm MED-ADMIN-NAV — 4 trang admin không tô sáng sidebar, phát hiện trong GĐ 1 Lớp & Học viên) · 2026-07-25 (DEBT-J CLOSED — 7 font families → 4, 4 type systems → 1, PRs #827/#828/#830; DEBT-I favicon half shipped #829, wordmark half still waits on the Next migration)
 **Last reviewed:** 2026-05-07 (PM)
 
 Comprehensive snapshot of tech debt + improvement opportunities, restructured
@@ -677,6 +677,38 @@ material, not active backlog.
 - **Blocked by:** HIGH-10 ship.
 
 ### Medium priority
+
+#### MED-ADMIN-NAV: 4 trang admin không tô sáng mục nào trên sidebar (logged 2026-08-02)
+- **What:** `renderSidebar()` trong `frontend/public/js/components/aver-admin-chrome.js`
+  chỉ tô sáng một mục — và chỉ bung mục con của nó — khi `item.section` trùng
+  **đúng** thuộc tính `active=` của trang. Bốn trang mount một giá trị `active`
+  không hề tồn tại trong `NAV_GROUPS`, nên mở chúng thì **sidebar không tô sáng
+  gì cả**:
+
+  | Trang | `active=` | Có `section:` tương ứng? |
+  |---|---|---|
+  | `/pages/admin/access-codes/index.html` | `access-codes` | không |
+  | `/pages/admin/usage/index.html` | `usage` | không |
+  | `/pages/admin/foot-traffic/index.html` | `foot-traffic` | không |
+  | `/pages/admin/system/index.html` | `system` | không |
+
+  Bốn giá trị này CÓ trong `VALID_ACTIVE` (nên không bị chuẩn hoá về mặc định),
+  chỉ là không có mục nav nào khai `section` như vậy. Người dùng mất đầu mối "tôi
+  đang ở đâu"; nếu sau này mấy mục đó có mục con thì mục con cũng biến mất theo.
+
+- **Phát hiện khi nào:** GĐ 1 chương trình Lớp & Học viên (PR #899/#900), lúc
+  đổi slug `cohorts` → `classes` làm trang Học viên rơi vào đúng trạng thái này.
+  Trang Học viên đã sửa; **bốn trang trên có từ trước và cố ý KHÔNG sửa kèm** để
+  không làm loãng review của PR đó.
+- **Action:** với mỗi trang, hoặc thêm mục nav khai đúng `section`, hoặc đổi
+  `active=` sang section cha có thật kèm `subsection=` (cách đã dùng cho trang
+  Học viên). Xong thì mở rộng test `describe('GĐ 1 — merged class area highlights
+  in the sidebar')` trong `frontend/tests/aver-admin-chrome.test.mjs` thành phép
+  kiểm cho MỌI trang admin — test đó hiện cố ý chỉ soi khu Lớp & Học viên, và
+  comment trong đó đã ghi rõ lý do.
+- **Effort:** ~30–45 phút (4 trang + mở rộng test).
+- **Rủi ro nếu bỏ qua:** thấp về chức năng, nhưng mỗi lần đổi slug section lại
+  âm thầm đẻ thêm một trang như vậy — đã xảy ra hai lần trong GĐ 1.
 
 #### MED-2: Vocab enrichment backfill incomplete (audit MEDIUM-2)
 - **What:** Audit 2026-04-30 sampled live data and found 12 of 36 `used_well`
