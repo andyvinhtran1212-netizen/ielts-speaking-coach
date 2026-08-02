@@ -726,13 +726,25 @@ function formatInstruction(raw) {
   // parse nổi CẢ FILE ⇒ chết toàn bộ trình phát bài nghe, không riêng hàm này
   // (DEBT-2026-07-29-K, review #882). Giữ nguyên hành vi bằng cách bắt dấu câu
   // vào nhóm rồi chèn ký tự mốc; lookahead `(?=…)` thì mọi trình duyệt đều có.
+  // Tách ở CẢ dấu hỏi/chấm than, không riêng dấu chấm: khối matching mở đầu
+  // bằng chính câu hỏi ("What comment do the students make…?") rồi mới tới câu
+  // lệnh, nên chỉ bắt dấu chấm thì hai thứ dính làm một và học viên không phân
+  // biệt được đâu là đề bài, đâu là hướng dẫn.
   const parts = String(raw)
-    .replace(/(\.)\s+(?=[A-Z])/g, '$1\u0000')
+    .replace(/([.?!])\s+(?=[A-Z])/g, '$1\u0000')
     .split('\u0000')
     .map((s) => s.trim())
     .filter(Boolean);
   if (parts.length <= 1) return `<p>${mdInline(raw)}</p>`;
-  return parts.map((p) => `<p>${mdInline(p)}</p>`).join('');
+  // Đánh dấu theo VAI TRÒ, không theo thứ tự. Trên đề thật câu lệnh có khi
+  // đứng trước ("Choose TWO letters, A-E." rồi mới tới câu hỏi), có khi đứng
+  // sau (khối matching) — kiểu chữ bám vai trò thì mới nhất quán cả hai chiều.
+  const DIRECTIVE_RE = /^(Choose|Write|Complete|Label|Match|Answer|Select)\b/i;
+  return parts.map((part) => {
+    const cls = DIRECTIVE_RE.test(part) ? 'is-directive'
+      : (/\?$/.test(part) ? 'is-question' : '');
+    return `<p${cls ? ` class="${cls}"` : ''}>${mdInline(part)}</p>`;
+  }).join('');
 }
 
 
@@ -827,7 +839,11 @@ function renderTableCompletion(tmpl, questions) {
         <tbody>
           ${rows.map((row) => `<tr>${row.map((c) => {
             if (Array.isArray(c)) {
-              return `<td>${c.map(tableGapSegment).join(' ')}</td>`;
+              // MỖI phần tử là MỘT DÒNG của ô. Nối bằng dấu cách thì trên đề
+              // thật hai ý riêng biệt dính thành một câu vô nghĩa
+              // ("Checking portions, etc. are correct Making sure ___ is clean").
+              return `<td>${c.map((seg) =>
+                `<div class="ielts-table-line">${tableGapSegment(seg)}</div>`).join('')}</td>`;
             }
             if (c && typeof c === 'object' && c.q_num != null) {
               return `<td>${tableGapSegment(c)}</td>`;
@@ -1050,7 +1066,6 @@ function renderMultiSelect(payload, questions) {
   // on the checkboxes (not 1:1 with a q_num); a dedicated handler assigns slots.
   return `
     <div class="ielts-mc-group" data-mm-slots="${esc(slots.join(','))}" data-mm-choose="${esc(choose)}">
-      <p class="ielts-mc-hint">Chọn ${esc(choose)} đáp án (${esc(slots.join(' + '))}).</p>
       ${boxes}
     </div>
   `;

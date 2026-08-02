@@ -97,6 +97,11 @@
   font-style: italic;
   margin-top: var(--av-space-1);
 }
+/* Kiểu chữ bám VAI TRÒ chứ không bám thứ tự dòng: câu lệnh luôn đứng thẳng,
+   câu hỏi luôn nghiêng — kể cả khi đề thật đặt câu hỏi TRƯỚC câu lệnh (khối
+   matching). Đặt sau `p + p` để thắng quy tắc theo-vị-trí ở trên. */
+.ielts-instruction p.is-directive { font-style: normal; }
+.ielts-instruction p.is-question  { font-style: italic; }
 
 /* ── Circled question number ────────────────────────────────────── */
 .ielts-question-num {
@@ -195,6 +200,22 @@ select.ielts-gap-input {
   font-family: var(--ielts-paper-serif);
 }
 .ielts-table th,
+/* Mỗi ý trong một ô bảng là MỘT DÒNG riêng. Nối liền nhau thì hai ý độc lập
+   trên đề thật đọc thành một câu vô nghĩa. */
+.ielts-table-line { display: block; }
+.ielts-table-line + .ielts-table-line { margin-top: var(--av-space-2); }
+
+/* Mỗi lựa chọn của câu chọn-nhiều xuống dòng riêng — xếp ngang thành đoạn văn
+   thì không đọc nổi đâu là A, đâu là B. */
+.ielts-mc-opt {
+  display: flex;
+  align-items: baseline;
+  gap: var(--av-space-2);
+  margin-top: var(--av-space-2);
+  cursor: pointer;
+}
+.ielts-mc-opt input { margin: 0; flex: none; }
+
 .ielts-table td {
   border: 1px solid var(--ielts-paper-border);
   padding: var(--av-space-2) var(--av-space-3);
