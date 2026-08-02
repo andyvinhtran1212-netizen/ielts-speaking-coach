@@ -518,6 +518,8 @@
   // limit in `payload.word_limit`; anything not on this whitelist is IGNORED
   // rather than rendered, so a bad DB value can never author the instruction.
   var WORD_LIMITS = [
+    'ONE WORD',            // Cambridge 17 Test 4 Reading Q19-22 in đúng
+                           // "Choose ONE WORD from the passage" — không "ONLY".
     'ONE WORD ONLY',
     'ONE WORD AND/OR A NUMBER',
     'NO MORE THAN TWO WORDS',
