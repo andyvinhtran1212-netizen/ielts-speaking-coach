@@ -70,17 +70,28 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
     v_id        uuid;
+    v_ids       uuid[];
     v_total     integer;
     v_unactive  integer;
     v_row       class_assignments%ROWTYPE;
 BEGIN
-    -- Roster first: an empty class must not leave a row behind, and counting
-    -- here rather than in the caller keeps the check and the insert in the same
-    -- transaction (a student added between the two would otherwise be missed).
-    SELECT count(*), count(*) FILTER (WHERE user_id IS NULL)
-      INTO v_total, v_unactive
-      FROM students
-     WHERE cohort_id = p_cohort_id;
+    -- ONE snapshot of the roster drives both the counts and the fan-out.
+    --
+    -- Counting and then inserting as two statements is not safe even inside a
+    -- function: under READ COMMITTED each statement takes a fresh snapshot, so a
+    -- concurrent roster change can be invisible to the count and visible to the
+    -- INSERT (or the reverse). That returns a student_count that does not match
+    -- the rows created, and removing the last student in between could still
+    -- leave the zero-recipient give this function exists to prevent.
+    --
+    -- FOR UPDATE lives in the subquery because an aggregate cannot be combined
+    -- with a row lock directly; it holds the roster still for the rest of the
+    -- transaction.
+    SELECT array_agg(t.id), count(*), count(*) FILTER (WHERE t.user_id IS NULL)
+      INTO v_ids, v_total, v_unactive
+      FROM (
+        SELECT id, user_id FROM students WHERE cohort_id = p_cohort_id FOR UPDATE
+      ) t;
 
     IF v_total = 0 THEN
         RAISE EXCEPTION 'empty_roster'
@@ -98,10 +109,11 @@ BEGIN
 
     v_id := v_row.id;
 
-    -- Set-based, so the whole roster lands in one statement — no page loop that
-    -- could stop halfway, and no PostgREST row cap to trip over.
+    -- From the SAME snapshot, so the rows created and the counts returned always
+    -- describe exactly the same students. Set-based: no page loop that could
+    -- stop halfway, and no PostgREST row cap to trip over.
     INSERT INTO class_assignment_items (assignment_id, student_id)
-    SELECT v_id, s.id FROM students s WHERE s.cohort_id = p_cohort_id;
+    SELECT v_id, unnest(v_ids);
 
     assignment        := to_jsonb(v_row);
     student_count     := v_total;

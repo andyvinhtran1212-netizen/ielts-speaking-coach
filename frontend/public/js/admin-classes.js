@@ -571,6 +571,7 @@ function deleteLesson(lessonId) {
 
 let _homework = [];
 let _homeworkLoaded = false;
+let _homeworkError = false;
 
 /**
  * Deadline cell. The rule is 19:00 giờ Việt Nam and the server stores it as an
@@ -604,6 +605,22 @@ function progressCell(p) {
 
 function renderHomework() {
   $('homework-loading').hidden = true;
+
+  // A failed load is NOT an empty class. Rendering the normal "Chưa giao bài
+  // nào" for it tells the admin something false about their own data — and the
+  // toast that said otherwise has already gone. Say what happened, and offer the
+  // retry, because the load latch has been released.
+  if (_homeworkError) {
+    $('homework-empty').hidden = false;
+    $('homework-empty').innerHTML =
+      'Không đọc được danh sách bài giao. '
+      + '<button class="adm-btn-secondary" data-action="retry-homework" type="button">Thử lại</button>';
+    $('homework-table-wrap').hidden = true;
+    return;
+  }
+
+  $('homework-empty').textContent =
+    'Chưa giao bài nào. Giao bài Speaking đầu tiên để học viên có việc làm hôm nay.';
   $('homework-empty').hidden = _homework.length > 0;
   $('homework-table-wrap').hidden = _homework.length === 0;
   $('homework-tbody').innerHTML = _homework.map((a) => {
@@ -630,8 +647,13 @@ async function loadHomework() {
   try {
     const r = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId) + '/assignments');
     _homework = (r && r.assignments) || [];
+    _homeworkError = false;
   } catch (err) {
     _homework = [];
+    _homeworkError = true;
+    // Release the once-only latch: without this, reopening the tab shows the
+    // stale failure forever because the panel believes it has already loaded.
+    _homeworkLoaded = false;
     toast('Không tải được bài giao: ' + (err.message || err), 'error');
   }
   renderHomework();
@@ -786,6 +808,9 @@ function bindDetail() {
   $('tab-homework').addEventListener('click', () => showPanel('homework'));
 
   $('btn-add-homework').addEventListener('click', openHomeworkModal);
+  $('homework-empty').addEventListener('click', (e) => {
+    if (e.target.closest('button[data-action="retry-homework"]')) loadHomework();
+  });
   $('btn-hf-cancel').addEventListener('click', closeHomeworkModal);
   $('btn-hf-submit').addEventListener('click', submitHomework);
   bindModalBackdrop('homework-modal', closeHomeworkModal);

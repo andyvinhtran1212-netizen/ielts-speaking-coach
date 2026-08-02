@@ -669,3 +669,48 @@ def test_full_test_is_not_an_allowed_class_assignment_mode():
     # the two single-session modes still work
     for mode in ("practice", "test_part"):
         assert AssignmentCreate(title="x", topic="y", mode=mode).mode == mode
+
+
+# ── vòng 4 ──────────────────────────────────────────────────────────────
+
+
+def test_reconcile_chunks_ids_for_the_url_not_just_the_rows():
+    """_PAGE bounds ROWS coming back; _ID_CHUNK bounds IDS going out in an
+    `in.(...)` filter, which lands in the URL. A thousand UUIDs is ~37 KB of
+    query string and PostgREST rejects the request before pagination runs — the
+    same split, for the same reason, as _ID_CHUNK in mock_exam_service."""
+    from services.class_assignment_service import _ID_CHUNK, _PAGE
+
+    assert _ID_CHUNK < _PAGE
+    assert _ID_CHUNK <= 100
+
+    import inspect, re
+    from services import class_assignment_service as mod
+    src = inspect.getsource(mod.reconcile_ledger_from_sessions)
+
+    # EVERY chunk loop must step by _ID_CHUNK. Merely mentioning _ID_CHUNK
+    # somewhere is not enough — the first version of this test passed while one
+    # of the two loops had been reverted to _PAGE.
+    steps = re.findall(r"for i in range\(0, len\([a-z_]+\), (\w+)\)", src)
+    assert steps, "no chunk loop found — did reconcile stop chunking ids?"
+    assert set(steps) == {"_ID_CHUNK"}, (
+        f"an id list is chunked at {sorted(set(steps))}; a _PAGE-sized in.() "
+        f"filter is ~37 KB of URL and gets rejected before pagination runs"
+    )
+
+
+def test_a_valid_assignment_entitles_its_own_mode():
+    """Access codes are scoped per mode. A student holding only practice_single
+    who is given a test_part task was counted as assigned, could see it, and got
+    403 every time they opened it — homework they can see and can never do. The
+    teacher assigning it is the authorisation (same bridge as Writing)."""
+    import inspect
+    from routers import sessions as mod
+    src = inspect.getsource(mod.create_session)
+
+    entitle = src.index("entitled_by_assignment = False")
+    guard = src.index("if not entitled_by_assignment:")
+    assert entitle < guard, "validation must run before the permission gate"
+    assert "_require_permission(user_id, body.mode)" in src[guard:], (
+        "the mode gate must still apply to sessions with no class assignment"
+    )

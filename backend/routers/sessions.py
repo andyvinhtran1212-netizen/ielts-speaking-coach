@@ -284,7 +284,34 @@ async def create_session(
     user_id = auth_user["id"]
 
     _require_active(user_id)
-    _require_permission(user_id, body.mode)
+
+    # GĐ 2 — validate the class assignment FIRST, for two reasons.
+    #
+    # It must happen before the session is created, or a rejection (stale
+    # params, an assignment archived between /start and here) still burns one of
+    # the student's daily slots on a session they cannot hand in.
+    #
+    # And a valid assignment ENTITLES its own mode. Access codes are scoped per
+    # mode (practice_single / practice_part / …), so a student holding only
+    # practice_single who is given a test_part task was counted as assigned,
+    # could see it in /api/class/my-assignments, and got a 403 every time they
+    # opened it — homework they can see and can never do. The teacher assigning
+    # it is the authorisation. This mirrors the existing Writing bridge, where
+    # holding a writing assignment unlocks the Writing card
+    # (services/access_code_permissions.student_has_writing_assignment).
+    entitled_by_assignment = False
+    if body.class_assignment_item_id:
+        try:
+            validate_class_item_for_session(
+                supabase_admin, user_id, body.class_assignment_item_id,
+                session_mode=body.mode, session_part=body.part, session_topic=body.topic,
+            )
+            entitled_by_assignment = True
+        except (ItemNotFoundError, TaskMismatchError) as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    if not entitled_by_assignment:
+        _require_permission(user_id, body.mode)
 
     # Admin bypass — admins không bị giới hạn quota
     try:
@@ -335,19 +362,6 @@ async def create_session(
                     f"Liên hệ quản trị viên để được cấp thêm lượt."
                 ),
             )
-
-    # GĐ 2 — validate the class assignment BEFORE creating anything. Rejecting
-    # afterwards (stale params, an assignment archived between /start and here)
-    # still burned one of the student's daily session slots on a session they
-    # never asked for and could not hand in.
-    if body.class_assignment_item_id:
-        try:
-            validate_class_item_for_session(
-                supabase_admin, user_id, body.class_assignment_item_id,
-                session_mode=body.mode, session_part=body.part, session_topic=body.topic,
-            )
-        except (ItemNotFoundError, TaskMismatchError) as e:
-            raise HTTPException(status_code=400, detail=str(e))
 
     # Create session — L7: the daily-cap count-then-insert is done atomically in
     # fn_create_session_daily_capped (migration 126) under a per-user advisory

@@ -192,3 +192,33 @@ describe('a give with submissions cannot be deleted from the UI', () => {
     assert.match(render, /Đã có bài nộp/);
   });
 });
+
+
+describe('a failed homework load is not an empty class (Codex review round 4)', () => {
+  // Replacing canonical data with [] renders the normal "Chưa giao bài nào",
+  // which tells the admin something false — and the toast that said otherwise
+  // has already gone.
+  const load = SRC.slice(SRC.indexOf('async function loadHomework'),
+                         SRC.indexOf('function openHomeworkModal'));
+  const render = SRC.slice(SRC.indexOf('function renderHomework'),
+                           SRC.indexOf('async function loadHomework'));
+
+  test('failure sets a distinct error state', () => {
+    assert.match(load, /_homeworkError = true/);
+    assert.match(render, /_homeworkError/);
+    assert.match(render, /Không đọc được danh sách bài giao/);
+  });
+
+  test('failure releases the once-only load latch so the tab can retry', () => {
+    assert.match(load, /_homeworkLoaded = false/,
+      'without this, reopening the tab shows the stale failure forever');
+  });
+
+  test('a successful load clears the error state', () => {
+    assert.match(load, /_homeworkError = false/);
+  });
+
+  test('the empty state is restored on a good load, not left as the error text', () => {
+    assert.match(render, /Chưa giao bài nào/);
+  });
+});

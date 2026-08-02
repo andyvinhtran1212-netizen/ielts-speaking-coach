@@ -57,6 +57,13 @@ DEFAULT_DUE_TIME = time(19, 0)
 
 _PAGE = 1000   # PostgREST's implicit ceiling — see services/class_service.py
 
+# Separate from _PAGE on purpose. _PAGE bounds how many ROWS come back; this
+# bounds how many IDS go out in a generated `in.(...)` filter, which lands in the
+# URL. A thousand UUIDs is ~37 KB of query string and PostgREST (or a proxy in
+# front of it) rejects the request before pagination ever runs. Same split, same
+# reason, as _ID_CHUNK in services/mock_exam_service.py.
+_ID_CHUNK = 100
+
 
 def compose_due_at(due_date: Optional[str | date], due_time: time = DEFAULT_DUE_TIME) -> Optional[str]:
     """`due_date` + 19:00 giờ Việt Nam → an aware ISO-8601 string.
@@ -415,16 +422,19 @@ def reconcile_ledger_from_sessions(db, assignment_ids: List[str]) -> int:
     # the admin keeps seeing them as missing. (Codex review round 3: the same cap
     # this module guards against everywhere else, missed in the function written
     # to repair a different bug.)
-    items = _paged(
-        db, "class_assignment_items", "id",
-        lambda q: q.in_("assignment_id", assignment_ids).is_("submitted_at", "null"),
-    )
+    items: List[Dict[str, Any]] = []
+    for a_chunk in (assignment_ids[i:i + _ID_CHUNK]
+                    for i in range(0, len(assignment_ids), _ID_CHUNK)):
+        items.extend(_paged(
+            db, "class_assignment_items", "id",
+            lambda q, c=a_chunk: q.in_("assignment_id", c).is_("submitted_at", "null"),
+        ))
     if not items:
         return 0
 
     pending = [i["id"] for i in items]
     sessions: List[Dict[str, Any]] = []
-    for chunk in (pending[i:i + _PAGE] for i in range(0, len(pending), _PAGE)):
+    for chunk in (pending[i:i + _ID_CHUNK] for i in range(0, len(pending), _ID_CHUNK)):
         sessions.extend(_paged(
             db, "sessions", "id, class_assignment_item_id, overall_band, status, completed_at",
             lambda q, c=chunk: q.in_("class_assignment_item_id", c).eq("status", "completed"),
