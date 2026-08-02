@@ -824,6 +824,34 @@ function tableGapSegment(seg) {
          `${gapInput(seg.q_num)}${seg.suffix ? ' ' + mdInline(seg.suffix) : ''}`;
 }
 
+// Một ô bảng dạng mảng KHÔNG phải "mỗi phần tử một dòng".
+//
+// `_cell_segments()` (listening_convert.py) dùng mảng cho các MẨU NỐI LIỀN quanh
+// một chỗ trống — "Good for people who are especially keen on" + {q_num:1} là MỘT
+// câu, tách ra là vỡ câu và tách ô nhập khỏi phần dẫn của nó. Nhưng đề thật cũng
+// có ô chứa HAI Ý riêng biệt ("Checking portions, etc. are correct" / "Making
+// sure ___ is clean"), và nối liền thì đọc thành một câu vô nghĩa.
+//
+// Phân biệt bằng chính dữ liệu: mẩu nối liền để gap TRẦN `{q_num}` và lấy chữ
+// đứng trước làm phần dẫn; còn ý độc lập thì gap TỰ MANG `prefix` của nó. Nên:
+// gap có `prefix` ⇒ mở dòng mới; mọi thứ khác ⇒ nối tiếp dòng đang mở.
+// (Codex review PR #895)
+function cellLines(segments) {
+  const lines = [];
+  let cur = null;
+  segments.forEach((seg) => {
+    const startsLine = seg && typeof seg === 'object'
+      && seg.q_num != null && String(seg.prefix || '').trim();
+    if (cur === null || startsLine) {
+      cur = [];
+      lines.push(cur);
+    }
+    cur.push(seg);
+  });
+  return lines;
+}
+
+
 function renderTableCompletion(tmpl, questions) {
   const heading = tmpl.heading || '';
   const headers = Array.isArray(tmpl.headers) ? tmpl.headers : [];
@@ -839,11 +867,9 @@ function renderTableCompletion(tmpl, questions) {
         <tbody>
           ${rows.map((row) => `<tr>${row.map((c) => {
             if (Array.isArray(c)) {
-              // MỖI phần tử là MỘT DÒNG của ô. Nối bằng dấu cách thì trên đề
-              // thật hai ý riêng biệt dính thành một câu vô nghĩa
-              // ("Checking portions, etc. are correct Making sure ___ is clean").
-              return `<td>${c.map((seg) =>
-                `<div class="ielts-table-line">${tableGapSegment(seg)}</div>`).join('')}</td>`;
+              return `<td>${cellLines(c).map((line) =>
+                `<div class="ielts-table-line">${line.map(tableGapSegment).join(' ')}</div>`
+              ).join('')}</td>`;
             }
             if (c && typeof c === 'object' && c.q_num != null) {
               return `<td>${tableGapSegment(c)}</td>`;

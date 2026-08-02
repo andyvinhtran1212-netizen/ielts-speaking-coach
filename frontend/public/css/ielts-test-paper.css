@@ -200,8 +200,20 @@ select.ielts-gap-input {
   font-family: var(--ielts-paper-serif);
 }
 .ielts-table th,
-/* Mỗi ý trong một ô bảng là MỘT DÒNG riêng. Nối liền nhau thì hai ý độc lập
-   trên đề thật đọc thành một câu vô nghĩa. */
+.ielts-table td {
+  border: 1px solid var(--ielts-paper-border);
+  padding: var(--av-space-2) var(--av-space-3);
+  text-align: left;
+  vertical-align: middle;
+}
+.ielts-table th {
+  background: var(--ielts-paper-table-head);
+  font-weight: 700;
+}
+/* Một ô có thể chứa NHIỀU DÒNG độc lập (đề thật liệt kê 2 ý trong một ô).
+   Đặt SAU khối `th, td` đã đóng — chèn vào giữa `th,` và `td` thì trình duyệt
+   đọc thành `.ielts-table th, .ielts-table-line {…}` và toàn bộ ô tiêu đề mất
+   viền/padding (Codex review PR #895). */
 .ielts-table-line { display: block; }
 .ielts-table-line + .ielts-table-line { margin-top: var(--av-space-2); }
 
@@ -215,17 +227,6 @@ select.ielts-gap-input {
   cursor: pointer;
 }
 .ielts-mc-opt input { margin: 0; flex: none; }
-
-.ielts-table td {
-  border: 1px solid var(--ielts-paper-border);
-  padding: var(--av-space-2) var(--av-space-3);
-  text-align: left;
-  vertical-align: middle;
-}
-.ielts-table th {
-  background: var(--ielts-paper-table-head);
-  font-weight: 700;
-}
 
 /* ── MCQ ────────────────────────────────────────────────────────── */
 .ielts-mcq-question { margin-bottom: var(--av-space-4); }

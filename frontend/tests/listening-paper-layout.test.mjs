@@ -28,16 +28,64 @@ const read = (rel) => readFileSync(path.join(REPO_ROOT, rel), 'utf8');
 const JS = read('frontend/js/listening-test-player.js');
 const CSS = read('frontend/css/ielts-test-paper.css');
 
-describe('ô bảng — mỗi ý một dòng', () => {
-  test('các phần tử trong một ô được bọc thành dòng riêng, không nối bằng dấu cách', () => {
-    assert.match(JS, /c\.map\(\(seg\) =>\s*\n?\s*`<div class="ielts-table-line">\$\{tableGapSegment\(seg\)\}<\/div>`\)\.join\(''\)/);
-    assert.doesNotMatch(JS, /c\.map\(tableGapSegment\)\.join\(' '\)/,
-      'vẫn còn kiểu nối bằng dấu cách');
+/** Lấy chính hàm cellLines trong file nguồn ra chạy — test hành vi, không so chuỗi. */
+function loadCellLines() {
+  const m = JS.match(/function cellLines\(segments\) \{[\s\S]*?\n\}/);
+  assert.ok(m, 'không tìm thấy cellLines');
+  // eslint-disable-next-line no-new-func
+  return new Function(`${m[0]}; return cellLines;`)();
+}
+
+describe('ô bảng — ngắt dòng theo dữ liệu, không ngắt bừa', () => {
+  const cellLines = loadCellLines();
+
+  test('hai Ý ĐỘC LẬP tách thành hai dòng (gap tự mang prefix)', () => {
+    const cell = ['Checking portions, etc. are correct',
+                  { q_num: 7, prefix: 'Making sure', suffix: 'is clean' }];
+    assert.deepEqual(cellLines(cell), [
+      ['Checking portions, etc. are correct'],
+      [{ q_num: 7, prefix: 'Making sure', suffix: 'is clean' }],
+    ]);
+  });
+
+  test('MẨU NỐI LIỀN quanh chỗ trống phải ở NGUYÊN một dòng (gap trần)', () => {
+    // _cell_segments() dùng hình dạng này cho "Good for people who are
+    // especially keen on (1) ………" — tách ra là vỡ câu và tách ô nhập khỏi
+    // phần dẫn của nó.
+    const cell = ['Good for people who are especially keen on', { q_num: 1 }];
+    assert.equal(cellLines(cell).length, 1);
+    assert.deepEqual(cellLines(cell)[0], cell);
+  });
+
+  test('ô hai chỗ trống kiểu nối liền vẫn là một dòng', () => {
+    const cell = ['Set lunch costs', { q_num: 9 }, 'per person'];
+    assert.equal(cellLines(cell).length, 1);
+  });
+
+  test('prefix rỗng/trắng KHÔNG được tính là mở dòng mới', () => {
+    assert.equal(cellLines(['x', { q_num: 2, prefix: '' }]).length, 1);
+    assert.equal(cellLines(['x', { q_num: 2, prefix: '   ' }]).length, 1);
+  });
+
+  test('gap mở đầu ô có prefix vẫn chỉ là một dòng', () => {
+    const cell = [{ q_num: 1, prefix: 'Good for people who are especially keen on' }];
+    assert.equal(cellLines(cell).length, 1);
   });
 
   test('CSS làm .ielts-table-line thành block và có khoảng cách giữa các dòng', () => {
     assert.match(CSS, /\.ielts-table-line \{[^}]*display:\s*block/);
     assert.match(CSS, /\.ielts-table-line \+ \.ielts-table-line \{[^}]*margin-top/);
+  });
+
+  test('khối `th, td` KHÔNG bị chèn vỡ — ô tiêu đề giữ nguyên viền/padding', () => {
+    // Chèn quy tắc mới vào giữa `.ielts-table th,` và `.ielts-table td {…}` thì
+    // trình duyệt đọc thành `.ielts-table th, .ielts-table-line {…}` và toàn bộ
+    // ô tiêu đề mất định dạng (Codex review PR #895).
+    assert.match(CSS, /\.ielts-table th,\s*\n\s*\.ielts-table td \{[^}]*border:/);
+    const shared = CSS.indexOf('.ielts-table th,\n.ielts-table td {');
+    const line = CSS.indexOf('.ielts-table-line {');
+    assert.ok(shared > -1 && line > shared,
+      '.ielts-table-line phải nằm SAU khối th/td đã đóng');
   });
 });
 
