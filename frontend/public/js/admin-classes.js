@@ -396,6 +396,7 @@ async function submitMember() {
     closeMemberModal();
     toast('Đã thêm học viên vào lớp.');
     await loadDetail(_cohortId);
+    invalidateProgress();
   } catch (err) {
     $('mf-error').textContent = 'Không thêm được học viên: ' + (err.message || err);
     $('mf-error').hidden = false;
@@ -415,6 +416,7 @@ function removeMember(studentId) {
           + '/students/' + encodeURIComponent(studentId));
         toast('Đã gỡ học viên khỏi lớp.');
         await loadDetail(_cohortId);
+        invalidateProgress();
       } catch (err) {
         toast('Không gỡ được học viên: ' + (err.message || err), 'error');
       }
@@ -835,6 +837,21 @@ function renderProgress() {
       <td>${last ? esc(lastActiveLabel(last)) : '<span class="cl-skill-none">—</span>'}</td>
     </tr>`;
   }).join('');
+}
+
+/**
+ * The progress tab loads once and caches. A roster change (adding or removing a
+ * student) makes that cache wrong: reopening the tab would show the old class
+ * until a full page reload. Called from both roster mutations.
+ */
+function invalidateProgress() {
+  _progressLoaded = false;
+  _progress = { students: [], degraded: [] };
+  // If the tab is currently open, refresh it now rather than on next open.
+  if (!$('panel-progress').hidden) {
+    _progressLoaded = true;
+    loadProgress();
+  }
 }
 
 async function loadProgress() {

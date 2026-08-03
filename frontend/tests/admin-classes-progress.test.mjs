@@ -125,3 +125,35 @@ describe('the panel is wired like the others', () => {
     }
   });
 });
+
+
+describe('a roster change invalidates the cached progress (Codex review)', () => {
+  // The tab loads once and caches. Adding or removing a student made that cache
+  // wrong, and reopening the tab showed the old class until a full page reload.
+  const between = (from, to) => codeOnly(SRC.slice(SRC.indexOf(from), SRC.indexOf(to)));
+
+  test('adding a student invalidates it', () => {
+    const fn = between('async function submitMember', 'function removeMember');
+    assert.match(fn, /invalidateProgress\(\)/);
+  });
+
+  test('removing a student invalidates it too', () => {
+    // Pinned separately: the two mutations are different functions and fixing
+    // one is exactly the shape of miss this whole programme kept repeating.
+    const fn = between('function removeMember', '// ── Chi tiết lớp: buổi học');
+    assert.match(fn, /invalidateProgress\(\)/);
+  });
+
+  test('invalidation clears the latch AND the stale rows', () => {
+    const fn = between('function invalidateProgress', 'async function loadProgress');
+    assert.match(fn, /_progressLoaded = false/);
+    assert.match(fn, /_progress = \{ students: \[\], degraded: \[\] \}/,
+      'leaving the old rows would flash the previous class on reopen');
+  });
+
+  test('an open tab refreshes immediately rather than on next open', () => {
+    const fn = between('function invalidateProgress', 'async function loadProgress');
+    assert.match(fn, /panel-progress'\)\.hidden/);
+    assert.match(fn, /loadProgress\(\)/);
+  });
+});

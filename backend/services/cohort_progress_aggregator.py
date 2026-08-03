@@ -108,6 +108,22 @@ def _fold(rows: List[Dict[str, Any]], key: str, when: str,
     return out
 
 
+def _writing_bands(db, essay_ids: List[str]) -> Dict[str, Optional[float]]:
+    """essay_id → current overall band.
+
+    The band lives in `writing_feedback_current` (the current-version view), not
+    on the essay. Reading it here is what stops the Writing column showing "no
+    band" for students who have been graded.
+    """
+    if not essay_ids:
+        return {}
+    rows = _fetch_by_ids(
+        db, "writing_feedback_current", "id, essay_id, overall_band_score",
+        "essay_id", essay_ids,
+    )
+    return {r["essay_id"]: r.get("overall_band_score") for r in rows if r.get("essay_id")}
+
+
 def _empty() -> Dict[str, Any]:
     return {"attempts": 0, "last_activity": None, "last_band": None}
 
@@ -147,18 +163,57 @@ def cohort_progress(db, cohort_id: str) -> Dict[str, Any]:
 
     # Writing keys off students.id, not the auth account — a student can have
     # essays entered by an admin before they ever activate.
-    gather("writing", "writing_essays", "id, student_id, created_at, status",
-           "student_id", student_ids, "created_at", None)
+    #
+    # Soft-deleted essays are excluded and the band comes from
+    # writing_feedback_current, matching what admin_writing_cohorts already
+    # shows. Counting deleted rows, or leaving the band blank, would put two
+    # admin screens at odds about the same student.
+    try:
+        essays = _fetch_by_ids(
+            db, "writing_essays", "id, student_id, created_at, status",
+            "student_id", student_ids,
+            extra=lambda q: q.is_("deleted_at", "null"),
+        )
+        bands = _writing_bands(db, [e["id"] for e in essays])
+        for e in essays:
+            e["_band"] = bands.get(e["id"])
+        folded["writing"] = _fold(essays, "student_id", "created_at", "_band")
+    except Exception as exc:
+        logger.warning("[cohort-progress] writing failed: %s", exc)
+        degraded.append("writing")
 
     gather("reading", "reading_test_attempts",
            "id, user_id, submitted_at, band_estimate",
            "user_id", user_ids, "submitted_at", "band_estimate",
            extra=lambda q: q.eq("status", "submitted"))
 
-    gather("listening", "listening_test_attempts",
-           "id, user_id, submitted_at, band_estimate",
-           "user_id", user_ids, "submitted_at", "band_estimate",
-           extra=lambda q: q.eq("status", "submitted"))
+    # Listening = full tests PLUS dictation. services/student_service calls that
+    # pair the canonical source, so folding only the tests would make this matrix
+    # disagree with the student profile for anyone who practises by dictation —
+    # they would read as "—" here and active there.
+    #
+    # The BAND stays test-only: dictation reports accuracy, not an IELTS band.
+    try:
+        tests = _fetch_by_ids(
+            db, "listening_test_attempts", "id, user_id, submitted_at, band_estimate",
+            "user_id", user_ids, extra=lambda q: q.eq("status", "submitted"),
+        )
+        dictation = _fetch_by_ids(
+            db, "dictation_sessions", "id, user_id, completed_at",
+            "user_id", user_ids, extra=lambda q: q.not_.is_("completed_at", "null"),
+        )
+        listening = _fold(tests, "user_id", "submitted_at", "band_estimate")
+        for owner, extra_rows in _fold(dictation, "user_id", "completed_at", None).items():
+            cur = listening.setdefault(owner, _empty())
+            cur["attempts"] += extra_rows["attempts"]
+            cur["last_activity"] = max(
+                [x for x in (cur["last_activity"], extra_rows["last_activity"]) if x],
+                default=None,
+            )
+        folded["listening"] = listening
+    except Exception as exc:
+        logger.warning("[cohort-progress] listening failed: %s", exc)
+        degraded.append("listening")
 
     out = []
     for s in students:

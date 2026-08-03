@@ -38,6 +38,7 @@ class _Query:
     def __init__(self, db, name, rows, *, raises=False):
         self.db, self.name, self._rows, self._raises = db, name, rows, raises
         self._eq, self._in, self._range = [], None, None
+        self._is_null, self._negate_is = None, False
 
     def select(self, *_a, **_k): return self
     def order(self, *_a, **_k): return self
@@ -49,6 +50,15 @@ class _Query:
         return self
     def range(self, s, e): self._range = (s, e); return self
 
+    def is_(self, field, value):
+        self._is_null = (field, value)
+        return self
+
+    @property
+    def not_(self):
+        self._negate_is = True
+        return self
+
     def execute(self):
         self.db.queries.append(self.name)
         if self._raises:
@@ -59,6 +69,11 @@ class _Query:
         if self._in:
             f, vals = self._in
             rows = [r for r in rows if r.get(f) in vals]
+        if self._is_null and self._is_null[1] == "null":
+            field = self._is_null[0]
+            # .not_.is_(x, "null") means "x IS NOT NULL"
+            rows = [r for r in rows
+                    if (r.get(field) is None) != self._negate_is]
         if self._range:
             s, e = self._range
             rows = rows[s:e + 1]
@@ -84,6 +99,8 @@ def _tables(*, students, sessions=(), essays=(), reading=(), listening=()):
         "writing_essays": list(essays),
         "reading_test_attempts": list(reading),
         "listening_test_attempts": list(listening),
+        "writing_feedback_current": [],
+        "dictation_sessions": [],
     }
 
 
@@ -215,3 +232,77 @@ def test_an_empty_class_asks_for_nothing_else():
     out = cohort_progress(db, COHORT)
     assert out == {"students": [], "degraded": []}
     assert db.queries == ["students"], "no skill query should run for an empty roster"
+
+
+# ── nguồn dữ liệu phải TRÙNG với các màn admin đã có (Codex review) ─────
+
+
+def _tables2(**kw):
+    base = {
+        "students": [], "sessions": [], "writing_essays": [],
+        "writing_feedback_current": [], "reading_test_attempts": [],
+        "listening_test_attempts": [], "dictation_sessions": [],
+    }
+    base.update({k: list(v) for k, v in kw.items()})
+    return base
+
+
+def test_writing_excludes_soft_deleted_essays():
+    """admin_writing_cohorts already filters deleted_at IS NULL. Counting them
+    here would put two admin screens at odds about the same student."""
+    db = _DB(_tables2(
+        students=[_student("s1", "u1")],
+        writing_essays=[
+            {"id": "e1", "student_id": "s1", "created_at": "2026-08-01",
+             "status": "delivered", "deleted_at": None},
+            {"id": "e2", "student_id": "s1", "created_at": "2026-08-02",
+             "status": "delivered", "deleted_at": "2026-08-03"},
+        ],
+    ))
+    cell = cohort_progress(db, COHORT)["students"][0]["skills"]["writing"]
+    assert cell["attempts"] == 1, "a soft-deleted essay was counted"
+
+
+def test_writing_band_comes_from_the_current_feedback_view():
+    """The band lives in writing_feedback_current, not on the essay — without
+    reading it the column showed no band for students who HAVE been graded."""
+    db = _DB(_tables2(
+        students=[_student("s1", "u1")],
+        writing_essays=[{"id": "e1", "student_id": "s1", "created_at": "2026-08-01",
+                         "status": "delivered", "deleted_at": None}],
+        writing_feedback_current=[{"id": "f1", "essay_id": "e1",
+                                   "overall_band_score": 6.5}],
+    ))
+    cell = cohort_progress(db, COHORT)["students"][0]["skills"]["writing"]
+    assert cell["last_band"] == 6.5
+
+
+def test_listening_counts_dictation_as_well_as_full_tests():
+    """services/student_service calls listening_test_attempts + dictation_sessions
+    the canonical pair. Folding only the tests made a dictation-only learner read
+    as inactive here and active on their profile."""
+    db = _DB(_tables2(
+        students=[_student("s1", "u1")],
+        listening_test_attempts=[{"id": "t1", "user_id": "u1",
+                                  "submitted_at": "2026-08-01",
+                                  "band_estimate": 6.0, "status": "submitted"}],
+        dictation_sessions=[
+            {"id": "d1", "user_id": "u1", "completed_at": "2026-08-04"},
+            {"id": "d2", "user_id": "u1", "completed_at": "2026-08-05"},
+        ],
+    ))
+    cell = cohort_progress(db, COHORT)["students"][0]["skills"]["listening"]
+    assert cell["attempts"] == 3, "dictation sessions were not counted"
+    assert cell["last_activity"] == "2026-08-05", "dictation must move last activity"
+    # Dictation reports accuracy, not an IELTS band — the band stays test-only.
+    assert cell["last_band"] == 6.0
+
+
+def test_a_dictation_only_learner_is_not_shown_as_inactive():
+    db = _DB(_tables2(
+        students=[_student("s1", "u1")],
+        dictation_sessions=[{"id": "d1", "user_id": "u1", "completed_at": "2026-08-04"}],
+    ))
+    cell = cohort_progress(db, COHORT)["students"][0]["skills"]["listening"]
+    assert cell["attempts"] == 1
+    assert cell["last_band"] is None
