@@ -44,7 +44,7 @@ from __future__ import annotations
 
 import logging
 from datetime import date, datetime, time, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
@@ -448,14 +448,20 @@ def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
     if not targets:
         return 0
 
-    items = []
+    # ALL items, not just the pending ones: an attempt already credited to a
+    # sibling give must not be credited a second time, and the only record of
+    # that is the recorded item's artifact_id.
+    all_items = []
     for chunk in (list(targets)[i:i + _ID_CHUNK]
                   for i in range(0, len(targets), _ID_CHUNK)):
-        items.extend(_paged(
-            db, "class_assignment_items", "id, assignment_id, student_id",
-            lambda q, c=chunk: q.in_("assignment_id", [a["id"] for a in c])
-                                .is_("submitted_at", "null"),
+        all_items.extend(_paged(
+            db, "class_assignment_items",
+            "id, assignment_id, student_id, submitted_at, artifact_id",
+            lambda q, c=chunk: q.in_("assignment_id", [a["id"] for a in c]),
         ))
+    items = [i for i in all_items if not i.get("submitted_at")]
+    spent: Set[str] = {i["artifact_id"] for i in all_items
+                       if i.get("submitted_at") and i.get("artifact_id")}
     if not items:
         return 0
 
@@ -509,6 +515,13 @@ def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
         for lst in by_key.values():
             lst.sort(key=lambda a: a["submitted_at"])
 
+        # Oldest give first, so when the same paper is given twice the first
+        # give gets the first attempt. Ordering by anything else would make
+        # which give is credited depend on row order.
+        rel.sort(key=lambda i: (
+            by_assignment[i["assignment_id"]].get("created_at") or "",
+            i["assignment_id"], i["id"],
+        ))
         for item in rel:
             uid = users.get(item["student_id"])
             assignment = by_assignment[item["assignment_id"]]
@@ -522,13 +535,18 @@ def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
             since = _at(assignment.get("created_at"))
             # EARLIEST qualifying attempt: a retake must not overwrite the
             # hand-in that actually met the deadline.
+            # Each attempt is ONE hand-in. Give the same paper twice and the
+            # naive lookup returns the same attempt for both items, so a single
+            # sitting would clear two pieces of homework.
             at = next(
                 (a for a in by_key.get((uid, test_id), [])
-                 if since is None or (_at(a["submitted_at"]) or since) >= since),
+                 if a["id"] not in spent
+                 and (since is None or (_at(a["submitted_at"]) or since) >= since)),
                 None,
             )
             if not at:
                 continue
+            spent.add(at["id"])
             try:
                 when = datetime.fromisoformat(at["submitted_at"])
             except (ValueError, TypeError):

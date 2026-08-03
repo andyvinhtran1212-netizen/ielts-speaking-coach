@@ -1221,3 +1221,77 @@ def test_assigned_test_ids_are_chunked_like_every_other_id_filter():
     assert src.count("_ID_CHUNK") >= 3, (
         "user_ids, student_ids and test_ids must all be chunked"
     )
+
+
+# ── một lượt làm bài chỉ trả được MỘT bài tập ───────────────────────────
+
+
+def _two_gives_db(attempts, items):
+    return _DB({
+        "class_assignment_items": list(items),
+        "students": [{"id": "stu-1", "user_id": "user-1"}],
+        "reading_test_attempts": list(attempts),
+    })
+
+
+_GIVE_1 = {"id": "asg-1", "skill": "reading", "content_id": "test-1",
+           "created_at": "2026-08-01T00:00:00+00:00"}
+# Both gives predate every attempt below, so the "not before it was set" filter
+# cannot decide anything here — only one-attempt-one-hand-in can.
+_GIVE_2 = {"id": "asg-2", "skill": "reading", "content_id": "test-1",
+           "created_at": "2026-08-02T00:00:00+00:00"}
+
+
+def _pending(item_id, assignment_id):
+    return {"id": item_id, "assignment_id": assignment_id, "student_id": "stu-1",
+            "submitted_at": None, "state": "assigned"}
+
+
+def test_one_attempt_cannot_clear_two_gives_of_the_same_paper():
+    """A teacher who sets the same paper twice (re-do week) would otherwise see
+    both weeks cleared by a single sitting."""
+    db = _two_gives_db(
+        [{"id": "att-1", "user_id": "user-1", "test_id": "test-1",
+          "submitted_at": "2026-08-05T10:00:00+00:00", "band_estimate": 6.0,
+          "status": "submitted"}],
+        [_pending("item-1", "asg-1"), _pending("item-2", "asg-2")],
+    )
+    assert reconcile_test_attempts(db, [_GIVE_1, _GIVE_2]) == 1
+    by_id = {i["id"]: i for i in db.tables["class_assignment_items"]}
+    assert by_id["item-1"].get("artifact_id") == "att-1"
+    assert by_id["item-2"].get("submitted_at") is None
+
+
+def test_two_sittings_clear_two_gives_oldest_first():
+    """Two real hand-ins must clear both — and the earlier sitting belongs to
+    the earlier give, not to whichever row came back first."""
+    db = _two_gives_db(
+        [{"id": "att-LATER", "user_id": "user-1", "test_id": "test-1",
+          "submitted_at": "2026-08-09T10:00:00+00:00", "band_estimate": 7.0,
+          "status": "submitted"},
+         {"id": "att-FIRST", "user_id": "user-1", "test_id": "test-1",
+          "submitted_at": "2026-08-03T10:00:00+00:00", "band_estimate": 6.0,
+          "status": "submitted"}],
+        [_pending("item-2", "asg-2"), _pending("item-1", "asg-1")],
+    )
+    assert reconcile_test_attempts(db, [_GIVE_2, _GIVE_1]) == 2
+    by_id = {i["id"]: i for i in db.tables["class_assignment_items"]}
+    assert by_id["item-1"]["artifact_id"] == "att-FIRST"
+    assert by_id["item-2"]["artifact_id"] == "att-LATER"
+
+
+def test_an_attempt_already_recorded_on_a_sibling_give_is_not_reused():
+    """The first give was recorded on an earlier pass. Re-running the repair
+    must not hand that same attempt to the second give."""
+    recorded = {"id": "item-1", "assignment_id": "asg-1", "student_id": "stu-1",
+                "submitted_at": "2026-08-05T10:00:00+00:00", "state": "submitted",
+                "artifact_id": "att-1"}
+    db = _two_gives_db(
+        [{"id": "att-1", "user_id": "user-1", "test_id": "test-1",
+          "submitted_at": "2026-08-05T10:00:00+00:00", "band_estimate": 6.0,
+          "status": "submitted"}],
+        [recorded, _pending("item-2", "asg-2")],
+    )
+    assert reconcile_test_attempts(db, [_GIVE_1, _GIVE_2]) == 0
+    by_id = {i["id"]: i for i in db.tables["class_assignment_items"]}
+    assert by_id["item-2"].get("submitted_at") is None

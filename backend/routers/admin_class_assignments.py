@@ -197,8 +197,14 @@ async def create_assignment(
         # unpublished or deleted test hands students a task that opens to an
         # error, and the ledger would still count them as owing it.
         table = _TEST_SKILLS[body.skill]
+        cols = "id, title, status, exam_only"
+        if body.skill == "listening":
+            # Published is not the same as playable: a test whose assembled
+            # audio was cleared (section audio replaced) still reads published,
+            # but the student endpoint answers 422 "chưa có audio sẵn sàng".
+            cols += ", full_audio_storage_path, assembled_audio_storage_path"
         rows = (
-            supabase_admin.table(table).select("id, title, status, exam_only")
+            supabase_admin.table(table).select(cols)
             .eq("id", body.content_id).limit(1).execute().data
         ) or []
         if not rows:
@@ -213,6 +219,14 @@ async def create_assignment(
             raise HTTPException(
                 400,
                 "Đề này dành riêng cho kỳ thi thử — không giao làm bài tập lớp được.",
+            )
+        if body.skill == "listening" and not (
+            rows[0].get("assembled_audio_storage_path")
+            or rows[0].get("full_audio_storage_path")
+        ):
+            raise HTTPException(
+                400,
+                "Đề nghe này chưa có audio sẵn sàng — không giao được.",
             )
         content_id = body.content_id
         content_config = {"test_title": rows[0].get("title")}

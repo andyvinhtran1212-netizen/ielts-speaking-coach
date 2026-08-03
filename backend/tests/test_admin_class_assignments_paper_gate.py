@@ -53,6 +53,15 @@ def _body(skill="reading"):
     )
 
 
+def _playable(**over):
+    """A listening paper the student endpoint would actually serve."""
+    row = {"id": "uuid-1", "title": "Đề nghe 1", "status": "published",
+           "exam_only": False, "assembled_audio_storage_path": "a/b.mp3",
+           "full_audio_storage_path": None}
+    row.update(over)
+    return row
+
+
 async def _create(paper, skill="reading"):
     with patch.object(mod, "require_admin", AsyncMock(return_value={"id": "adm"})), \
          patch.object(mod, "_require_cohort", lambda _c: None), \
@@ -100,3 +109,39 @@ def test_a_reading_or_listening_task_must_name_a_paper():
     hand-in against — the item would sit unsubmittable forever."""
     with pytest.raises(Exception):
         mod.AssignmentCreate(skill="reading", title="x", due_date="2026-08-10")
+
+
+# ── đề nghe: xuất bản chưa chắc bật lên nghe được ───────────────────────
+
+
+@pytest.mark.asyncio
+async def test_a_listening_paper_with_no_audio_is_refused():
+    """Clearing the assembled audio (section audio replaced) leaves the row
+    published while the student endpoint answers 422 — the same
+    owed-but-unopenable trap as exam_only."""
+    with pytest.raises(Exception) as exc:
+        await _create(_playable(assembled_audio_storage_path=None,
+                                full_audio_storage_path=None), "listening")
+    assert getattr(exc.value, "status_code", None) == 400
+    assert "audio" in str(getattr(exc.value, "detail", "")).lower()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("col", ["assembled_audio_storage_path",
+                                 "full_audio_storage_path"])
+async def test_either_audio_path_is_enough(col):
+    """The student endpoint accepts either — refusing a paper it would serve is
+    as wrong as accepting one it would not."""
+    row = _playable(assembled_audio_storage_path=None, full_audio_storage_path=None)
+    row[col] = "x/y.mp3"
+    out = await _create(row, "listening")
+    assert out["student_count"] == 3
+
+
+@pytest.mark.asyncio
+async def test_a_reading_paper_is_not_asked_for_audio():
+    """Reading has no audio columns at all; requiring them would refuse every
+    reading paper."""
+    out = await _create({"id": "uuid-1", "title": "Đề đọc", "status": "published",
+                         "exam_only": False}, "reading")
+    assert out["student_count"] == 3
