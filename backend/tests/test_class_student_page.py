@@ -264,3 +264,234 @@ async def test_the_full_page_still_gets_everything():
     out = await _call(set())
     for key in ("lessons", "assignments", "student", "progress", "class"):
         assert key in out
+
+
+# ── GĐ 5 — mở đề Reading/Listening ──────────────────────────────────────
+#
+# Reading and Listening key on DIFFERENT columns, and only one of them matches
+# what the ledger stores. Reading: the reader page resolves ?test_id= against
+# `reading_tests.test_id` (the public code, mig 086), while the attempt row —
+# and therefore the ledger's content_id — holds the row UUID. Listening uses the
+# row id at both ends. Getting this wrong opens the paper to a 404 while the
+# class is still counted as owing it.
+
+
+class _StartTable:
+    def __init__(self, rows, store):
+        self._rows, self._store = list(rows), store
+
+    def select(self, *_a, **_k): return self
+    def eq(self, f, v):
+        self._rows = [r for r in self._rows if str(r.get(f)) == str(v)]
+        return self
+    def limit(self, *_a): return self
+    def update(self, patch): self._store.append(patch); return self
+
+    def execute(self): return _Resp(self._rows)
+
+
+def _start_db(*, skill, content_id, tables=None):
+    store = []
+    base = {
+        "class_assignment_items": [
+            {"id": "item-1", "student_id": "s1", "assignment_id": "a1",
+             "state": "assigned"},
+        ],
+        "class_assignments": [
+            {"id": "a1", "cohort_id": "c1", "skill": skill, "status": "published",
+             "content_id": content_id, "content_config": {}, "due_at": None},
+        ],
+        "reading_tests": [{"id": "uuid-abc", "test_id": "CAM19-T3",
+                           "status": "published", "exam_only": False}],
+        "listening_tests": [{"id": "uuid-xyz", "status": "published",
+                             "exam_only": False,
+                             "assembled_audio_storage_path": "a/b.mp3",
+                             "full_audio_storage_path": None}],
+    }
+    base.update(tables or {})
+    db = type("DB", (), {})()
+    db.table = lambda name: _StartTable(base.get(name, []), store)
+    return db
+
+
+async def _start(db):
+    student = {"id": "s1", "cohort_id": "c1"}
+    with patch.object(mod, "get_supabase_user", AsyncMock(return_value={"id": "u1"})), \
+         patch.object(mod, "_student_for_user", return_value=student), \
+         patch.object(mod, "is_assignment_open", return_value=True), \
+         patch.object(mod, "supabase_admin", db):
+        return await mod.start_assignment("item-1", None)
+
+
+@pytest.mark.asyncio
+async def test_a_reading_task_opens_by_the_public_test_code_not_the_uuid():
+    out = await _start(_start_db(skill="reading", content_id="uuid-abc"))
+    assert "test_id=CAM19-T3" in out["open_url"]
+    assert "uuid-abc" not in out["open_url"], (
+        "the reader resolves ?test_id= against reading_tests.test_id; handing it "
+        "the row UUID 404s every Reading assignment"
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_listening_task_opens_by_the_row_id():
+    """Listening keys on the row id at both ends — one identifier throughout."""
+    out = await _start(_start_db(skill="listening", content_id="uuid-xyz"))
+    assert out["open_url"].startswith("/pages/listening-test.html?id=uuid-xyz")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("skill,content", [("reading", "uuid-abc"),
+                                           ("listening", "uuid-xyz")])
+async def test_the_link_carries_the_item_id(skill, content):
+    """This is what stops the ledger having to GUESS which homework an attempt
+    belongs to. The page passes it back when it creates the attempt; without it
+    the same paper given twice, or practised freely on the side, is
+    indistinguishable from the assigned work."""
+    out = await _start(_start_db(skill=skill, content_id=content))
+    assert "class_item=item-1" in out["open_url"]
+
+
+@pytest.mark.asyncio
+async def test_a_reading_paper_that_vanished_says_so_instead_of_a_dead_link():
+    db = _start_db(skill="reading", content_id="uuid-gone", tables={"reading_tests": []})
+    with pytest.raises(Exception) as exc:
+        await _start(db)
+    assert getattr(exc.value, "status_code", None) == 404
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("patch_row,why", [
+    ({"status": "draft"}, "unpublished after it was given"),
+    ({"exam_only": True}, "reserved for a mock sitting after it was given"),
+])
+async def test_a_reading_paper_that_closed_after_being_given_says_so(patch_row, why):
+    """The paper was checked at give time — days ago. Sending the student to a
+    page that 404s while the ledger keeps counting the task as owed is the worst
+    of both."""
+    tables = {"reading_tests": [dict({"id": "uuid-abc", "test_id": "CAM19-T3",
+                                      "status": "published", "exam_only": False},
+                                     **patch_row)]}
+    with pytest.raises(Exception) as exc:
+        await _start(_start_db(skill="reading", content_id="uuid-abc", tables=tables))
+    assert getattr(exc.value, "status_code", None) == 409, why
+
+
+@pytest.mark.asyncio
+async def test_a_listening_paper_that_lost_its_audio_says_so():
+    """Replacing section audio clears the assembled path; the row stays
+    published while the player answers 422."""
+    tables = {"listening_tests": [{"id": "uuid-xyz", "status": "published",
+                                   "exam_only": False,
+                                   "assembled_audio_storage_path": None,
+                                   "full_audio_storage_path": None}]}
+    with pytest.raises(Exception) as exc:
+        await _start(_start_db(skill="listening", content_id="uuid-xyz", tables=tables))
+    assert getattr(exc.value, "status_code", None) == 409
+    assert "audio" in str(getattr(exc.value, "detail", "")).lower()
+
+
+@pytest.mark.asyncio
+async def test_a_listening_paper_reserved_for_a_sitting_is_refused():
+    tables = {"listening_tests": [{"id": "uuid-xyz", "status": "published",
+                                   "exam_only": True,
+                                   "assembled_audio_storage_path": "a/b.mp3",
+                                   "full_audio_storage_path": None}]}
+    with pytest.raises(Exception) as exc:
+        await _start(_start_db(skill="listening", content_id="uuid-xyz", tables=tables))
+    assert getattr(exc.value, "status_code", None) == 409
+
+
+@pytest.mark.asyncio
+async def test_a_listening_paper_unpublished_after_being_given_says_so():
+    tables = {"listening_tests": [{"id": "uuid-xyz", "status": "draft",
+                                   "exam_only": False,
+                                   "assembled_audio_storage_path": "a/b.mp3",
+                                   "full_audio_storage_path": None}]}
+    with pytest.raises(Exception) as exc:
+        await _start(_start_db(skill="listening", content_id="uuid-xyz", tables=tables))
+    assert getattr(exc.value, "status_code", None) == 409
+
+
+@pytest.mark.asyncio
+async def test_a_listening_paper_that_was_deleted_says_so():
+    """A missing row must not fall through to a link — the deep link would look
+    valid and land on "not found"."""
+    with pytest.raises(Exception) as exc:
+        await _start(_start_db(skill="listening", content_id="uuid-gone",
+                               tables={"listening_tests": []}))
+    assert getattr(exc.value, "status_code", None) == 409
+
+
+# ── vá sổ hỏng: nói ra, đừng trình bày số cũ như số chính thức ───────────
+#
+# Serving the list when the repair fails is right — a broken repair must not
+# blank the page. Serving it WITHOUT SAYING SO is not: the single thing that can
+# go wrong here is a finished task still listed as owed, and a student who
+# trusts that list retakes work they have already handed in.
+
+
+def _stale_db():
+    """A DB where the assignments read works but the attempt repair blows up."""
+    tables = {
+        "cohorts": [{"id": "c1", "name": "C2-K12", "course_id": None}],
+        "class_lessons": [],
+        "class_assignment_items": [
+            {"id": "item-1", "assignment_id": "a1", "student_id": "s1",
+             "submitted_at": None, "state": "assigned"},
+        ],
+        "class_assignments": [
+            {"id": "a1", "cohort_id": "c1", "skill": "reading", "status": "published",
+             "content_id": "t1", "content_config": {}, "due_at": None,
+             "title": "Đề đọc 1"},
+        ],
+    }
+    db = type("DB", (), {})()
+    db.table = lambda name: _Table(tables.get(name, []), name == "reading_test_attempts")
+    return db
+
+
+async def _call_stale(summary=False):
+    student = {"id": "s1", "cohort_id": "c1", "full_name": "A", "student_code": "S1"}
+    with patch.object(mod, "get_supabase_user", AsyncMock(return_value={"id": "u1"})), \
+         patch.object(mod, "_student_for_user", return_value=student), \
+         patch.object(mod, "supabase_admin", _stale_db()):
+        return await mod.my_class(summary=summary, authorization=None)
+
+
+@pytest.mark.asyncio
+async def test_a_failed_repair_is_named_on_the_class_page():
+    out = await _call_stale()
+    assert "homework_stale" in out.get("degraded", []), (
+        "the list is served, so it must say it may be behind"
+    )
+    assert out["assignments"], "and the list itself must still be there"
+
+
+@pytest.mark.asyncio
+async def test_a_clean_read_names_nothing_on_the_class_page():
+    out = await _call(set())
+    assert "homework_stale" not in out.get("degraded", [])
+
+
+@pytest.mark.asyncio
+async def test_my_assignments_says_so_too():
+    """The home strip reads this endpoint, not /me. Warning on one screen and
+    staying quiet on the other is how the two disagree about the same fact."""
+    student = {"id": "s1", "cohort_id": "c1", "full_name": "A", "student_code": "S1"}
+    with patch.object(mod, "get_supabase_user", AsyncMock(return_value={"id": "u1"})), \
+         patch.object(mod, "_student_for_user", return_value=student), \
+         patch.object(mod, "supabase_admin", _stale_db()):
+        out = await mod.my_assignments(None)
+    assert out["homework_stale"] is True
+    assert out["assignments"]
+
+
+@pytest.mark.asyncio
+async def test_my_assignments_is_quiet_when_the_repair_worked():
+    student = {"id": "s1", "cohort_id": "c1", "full_name": "A", "student_code": "S1"}
+    with patch.object(mod, "get_supabase_user", AsyncMock(return_value={"id": "u1"})), \
+         patch.object(mod, "_student_for_user", return_value=student), \
+         patch.object(mod, "supabase_admin", _db(set())):
+        out = await mod.my_assignments(None)
+    assert "homework_stale" not in out

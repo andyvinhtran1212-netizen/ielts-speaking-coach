@@ -32,6 +32,11 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from config import settings
 from database import supabase_admin
+from services.class_assignment_service import (
+    ItemNotFoundError,
+    TaskMismatchError,
+    validate_class_item_for_test,
+)
 from routers.admin import require_admin
 from routers.auth import get_supabase_user
 from services.listening_gist_grader import grade_gist_response
@@ -4947,6 +4952,7 @@ async def admin_get_listening_attempt(
 async def get_in_progress_listening_attempt(
     test_id: str,
     sitting_id: str | None = None,
+    class_item: str | None = None,
     authorization: str | None = Header(default=None),
 ):
     """The caller's still-open attempt at this test, or null.
@@ -4977,6 +4983,19 @@ async def get_in_progress_listening_attempt(
         .eq("test_id", test_id)
         .eq("status", "in_progress")
     )
+    # `class_item` scopes to ONE homework, for the same reason `sitting_id`
+    # scopes to one sitting. Resuming is the only path that skips attempt
+    # creation, and creation is where the class link is stamped — so without
+    # this a student opening their homework would be offered an unfinished
+    # free-practice attempt on the same test, resume it, submit it, and the
+    # class would still show the task as owed.
+    #
+    # ONE-WAY, like nothing else here: opening the test from the library
+    # (no class_item) may still resume a LINKED homework attempt. The student is
+    # finishing work they started, and the link they already earned stands.
+    if class_item:
+        query = query.eq("class_assignment_item_id", class_item)
+
     if sitting_id:
         query = query.eq("sitting_id", sitting_id)
     else:
@@ -5009,6 +5028,7 @@ async def get_in_progress_listening_attempt(
 @user_router.post("/tests/{test_id}/attempts")
 async def start_listening_test_attempt(
     test_id: str,
+    class_item: str | None = None,
     authorization: str | None = Header(default=None),
 ):
     """Open a new student attempt session. Marks any previously open
@@ -5037,6 +5057,15 @@ async def start_listening_test_attempt(
             or test_row.get("assembled_audio_storage_path")):
         raise HTTPException(422, "Test chưa có audio sẵn sàng.")
 
+    if class_item:
+        try:
+            validate_class_item_for_test(
+                supabase_admin, user["id"], class_item,
+                skill="listening", test_id=test_id,
+            )
+        except (ItemNotFoundError, TaskMismatchError) as exc:
+            raise HTTPException(400, str(exc))
+
     # Abandon any open attempts for this (user, test).
     (
         supabase_admin.table("listening_test_attempts")
@@ -5055,6 +5084,10 @@ async def start_listening_test_attempt(
         "status":  "in_progress",
         "answers": [],
     }
+    # Class homework: stamp WHICH task this is being done for, so the ledger
+    # never has to work it out afterwards (mig 181).
+    if class_item:
+        payload["class_assignment_item_id"] = class_item
     (
         supabase_admin.table("listening_test_attempts")
         .insert(payload)

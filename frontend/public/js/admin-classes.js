@@ -628,7 +628,9 @@ function renderHomework() {
   $('homework-table-wrap').hidden = _homework.length === 0;
   $('homework-tbody').innerHTML = _homework.map((a) => {
     const cfg = a.content_config || {};
-    const sub = [cfg.topic, cfg.mode, cfg.part ? `Part ${cfg.part}` : ''].filter(Boolean).join(' · ');
+    const sub = a.skill === 'speaking'
+      ? [cfg.topic, cfg.mode, cfg.part ? `Part ${cfg.part}` : ''].filter(Boolean).join(' · ')
+      : [SKILL_LABEL[a.skill] || a.skill, cfg.test_title].filter(Boolean).join(' · ');
     const p = a.progress || {};
     // Deleting a give that students have answered would erase the record that
     // the work was asked for and done, so delete is withheld — but the give must
@@ -673,9 +675,74 @@ async function loadHomework() {
   renderHomework();
 }
 
+const SKILL_LABEL = { speaking: 'Speaking', reading: 'Reading', listening: 'Listening' };
+
+let _testsBySkill = {};
+
+/** Show only the fields the chosen skill actually uses. */
+function applyHomeworkSkill() {
+  const skill = $('hf-skill').value;
+  const isSpeaking = skill === 'speaking';
+  $('hf-topic-field').hidden = !isSpeaking;
+  $('hf-speaking-row').hidden = !isSpeaking;
+  $('hf-test-field').hidden = isSpeaking;
+  $('homework-modal-title').textContent = 'Giao bài ' + (SKILL_LABEL[skill] || '');
+  if (!isSpeaking) loadTests(skill);
+}
+
+/**
+ * Published papers for one skill, from the existing exam-content library.
+ *
+ * Only papers that are published AND not exam-only are offered. Both would hand
+ * students a task that opens to an error while the ledger still counts them as
+ * owing it — exam-only papers are reserved for mock sittings and answer 404 to
+ * anyone without one, which is most of the Cambridge library.
+ * The backend re-checks — this list is convenience, not the gate.
+ */
+async function loadTests(skill) {
+  const sel = $('hf-test');
+  // Both libraries write into the SAME select. Switching Reading → Listening
+  // while the Reading request is in flight let the late response paint Reading
+  // papers under a Listening heading — and submit then sent a content_id the
+  // backend rejects for the wrong skill. Every write below is gated on the
+  // skill still being the selected one.
+  const stillCurrent = () => ($('hf-skill') || {}).value === skill;
+
+  if (_testsBySkill[skill]) {
+    sel.innerHTML = _testsBySkill[skill];
+    return;
+  }
+  sel.innerHTML = '<option value="">Đang tải đề…</option>';
+  try {
+    const r = await api.get('/admin/exam-content?kind=' + encodeURIComponent(skill));
+    const items = ((r && r.items) || [])
+      .filter((i) => i.status === 'published' && !i.exam_only);
+    // A library that failed to load must not look like a library with no papers.
+    if ((r.failed_kinds || []).includes(skill)) {
+      if (stillCurrent()) {
+        sel.innerHTML = '<option value="">Không đọc được thư viện đề</option>';
+      }
+      return;
+    }
+    const html = '<option value="">— Chọn đề —</option>' + items.map((i) =>
+      `<option value="${esc(i.id)}">${esc([i.code, i.title].filter(Boolean).join(' · '))}</option>`
+    ).join('');
+    // Caching is safe either way — it is keyed by skill.
+    _testsBySkill[skill] = html;
+    if (!stillCurrent()) return;
+    sel.innerHTML = items.length ? html
+      : '<option value="">Chưa có đề nào giao được</option>';
+  } catch (err) {
+    if (!stillCurrent()) return;
+    sel.innerHTML = '<option value="">Không đọc được thư viện đề</option>';
+  }
+}
+
 function openHomeworkModal() {
+  $('hf-skill').value = 'speaking';
   $('hf-title').value = '';
   $('hf-topic').value = '';
+  $('hf-test').value = '';
   $('hf-mode').value = 'practice';
   $('hf-part').value = '1';
   $('hf-instructions').value = '';
@@ -691,6 +758,7 @@ function openHomeworkModal() {
   $('hf-due').value = defaultDueDateVietnam();
   $('hf-error').hidden = true;
   $('hf-warning').hidden = true;
+  applyHomeworkSkill();
   $('homework-modal').hidden = false;
   $('hf-title').focus();
 }
@@ -698,10 +766,23 @@ function openHomeworkModal() {
 function closeHomeworkModal() { $('homework-modal').hidden = true; }
 
 async function submitHomework() {
+  const skill = $('hf-skill').value;
   const title = $('hf-title').value.trim();
   const topic = $('hf-topic').value.trim();
-  if (!title || !topic) {
-    $('hf-error').textContent = 'Nhập tên bài giao và chủ đề để tiếp tục.';
+  const testId = $('hf-test').value;
+
+  if (!title) {
+    $('hf-error').textContent = 'Nhập tên bài giao để tiếp tục.';
+    $('hf-error').hidden = false;
+    return;
+  }
+  if (skill === 'speaking' && !topic) {
+    $('hf-error').textContent = 'Nhập chủ đề để tiếp tục.';
+    $('hf-error').hidden = false;
+    return;
+  }
+  if (skill !== 'speaking' && !testId) {
+    $('hf-error').textContent = 'Chọn một đề để tiếp tục.';
     $('hf-error').hidden = false;
     return;
   }
@@ -710,15 +791,20 @@ async function submitHomework() {
   try {
     const r = await api.post(
       '/admin/cohorts/' + encodeURIComponent(_cohortId) + '/assignments',
-      {
-        skill: 'speaking',
-        title,
-        topic,
-        mode: $('hf-mode').value,
-        part: Number($('hf-part').value),
-        due_date: $('hf-due').value || null,
-        instructions: $('hf-instructions').value.trim() || null,
-      },
+      skill === 'speaking'
+        ? {
+          skill, title, topic,
+          mode: $('hf-mode').value,
+          part: Number($('hf-part').value),
+          due_date: $('hf-due').value || null,
+          instructions: $('hf-instructions').value.trim() || null,
+        }
+        : {
+          skill, title,
+          content_id: testId,
+          due_date: $('hf-due').value || null,
+          instructions: $('hf-instructions').value.trim() || null,
+        },
     );
 
     closeHomeworkModal();
@@ -833,11 +919,28 @@ function renderProgress() {
   const rows = _progress.students || [];
   const degraded = _progress.degraded || [];
 
-  $('progress-degraded').hidden = degraded.length === 0;
-  if (degraded.length) {
-    $('progress-degraded').textContent =
-      'Chưa đọc được số liệu: ' + degraded.join(', ') + '. Tải lại để thử lại.';
+  // Two different failures, two different sentences. A skill that failed to
+  // load shows "—" and the admin should reload. A stale homework column is the
+  // opposite problem: the numbers ARE there and look canonical, but a
+  // Reading/Listening hand-in may not have been folded in yet — reporting that
+  // as "Tải lại" would send the admin chasing a number that is not wrong,
+  // just behind.
+  const DEGRADED_LABEL = {
+    speaking: 'Speaking', writing: 'Writing', reading: 'Reading',
+    listening: 'Listening', homework: 'bài tập',
+  };
+  const stale = degraded.includes('homework_stale');
+  const unread = degraded.filter((d) => d !== 'homework_stale');
+  const notes = [];
+  if (unread.length) {
+    notes.push('Chưa đọc được số liệu: '
+      + unread.map((d) => DEGRADED_LABEL[d] || d).join(', ') + '. Tải lại để thử lại.');
   }
+  if (stale) {
+    notes.push('Cột bài tập có thể chưa cập nhật bài nộp Reading/Listening mới nhất.');
+  }
+  $('progress-degraded').hidden = notes.length === 0;
+  if (notes.length) $('progress-degraded').textContent = notes.join(' ');
 
   $('progress-empty').hidden = rows.length > 0;
   $('progress-table-wrap').hidden = rows.length === 0;
@@ -967,6 +1070,7 @@ function bindDetail() {
   });
   $('btn-hf-cancel').addEventListener('click', closeHomeworkModal);
   $('btn-hf-submit').addEventListener('click', submitHomework);
+  $('hf-skill').addEventListener('change', applyHomeworkSkill);
   bindModalBackdrop('homework-modal', closeHomeworkModal);
   $('homework-tbody').addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-action]');

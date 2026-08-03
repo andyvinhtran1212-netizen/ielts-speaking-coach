@@ -64,7 +64,12 @@ describe('B2 — exam share mode: ?share=token boots anonymously, lock-bypassed'
   });
   test('the authed boot path is unchanged (X-Reading-Password preserved)', () => {
     // Part A regression guard — share mode is additive, not a rewrite.
-    assert.match(examJs, /getWith\('\/api\/reading\/test\/'\s*\+\s*encodeURIComponent\(testId\)\s*\+\s*'\/boot',\s*_pwHeaders\(\)\)/);
+    // Behaviour, not spelling: boot must go through getWith and carry
+    // _pwHeaders(). The URL between them may gain a query string (class
+    // homework passes ?class_item=), and pinning the exact concatenation
+    // turned a formatting change into a failure about the password gate.
+    // The bounded span keeps both halves of ONE statement together.
+    assert.match(examJs, /getWith\(\s*'\/api\/reading\/test\/'\s*\+\s*encodeURIComponent\(testId\)[\s\S]{0,300}?_pwHeaders\(\)/);
   });
 });
 

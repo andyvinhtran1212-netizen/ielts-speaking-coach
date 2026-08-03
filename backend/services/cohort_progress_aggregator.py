@@ -34,6 +34,8 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, Iterable, List, Optional, Set
 
+from services.class_assignment_service import reconcile_test_attempts
+
 logger = logging.getLogger(__name__)
 
 _PAGE = 1000     # PostgREST caps an un-ranged select at this
@@ -130,6 +132,7 @@ def _empty() -> Dict[str, Any]:
 
 
 def _homework_punctuality(db, cohort_id: str, student_ids: List[str],
+                          degraded: Optional[List[str]] = None,
                           now: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
     """student_id → {assigned, submitted, late, missing, on_time_pct}.
 
@@ -167,12 +170,30 @@ def _homework_punctuality(db, cohort_id: str, student_ids: List[str],
     now_dt = _at(now) or datetime.now(timezone.utc)
 
     assignments = _paged(
-        db, "class_assignments", "id, due_at, status",
+        db, "class_assignments", "id, due_at, status, skill, cohort_id",
         lambda q: q.eq("cohort_id", cohort_id).eq("status", "published"),
     )
     due_by_id = {a["id"]: _at(a.get("due_at")) for a in assignments}
     if not due_by_id:
         return {}
+
+    # Reading/Listening hand-ins are detected from the attempt rows, not written
+    # by the test page. Whichever screen an admin opens FIRST has to do that
+    # repair, or the Progress tab reports submitted work as missing until some
+    # other endpoint happens to run it. Best-effort: a failed repair still shows
+    # the other three skills, and the homework column is merely stale, not wrong
+    # in a new way.
+    try:
+        reconcile_test_attempts(db, assignments)
+    except Exception as exc:
+        # NAME IT. Continuing on the unrepaired ledger is the right call — the
+        # other three skills are fine and the homework counts are merely stale —
+        # but reporting stale counts as canonical is how "chưa nộp" ends up
+        # shown for work that was handed in. The homework list endpoint already
+        # warns on exactly this condition; this screen must not stay quiet.
+        logger.warning("[cohort-progress] test-attempt reconcile failed: %s", exc)
+        if degraded is not None:
+            degraded.append("homework_stale")
 
     items = _fetch_by_ids(
         db, "class_assignment_items", "id, assignment_id, student_id, submitted_at",
@@ -301,7 +322,7 @@ def cohort_progress(db, cohort_id: str) -> Dict[str, Any]:
 
     homework: Dict[str, Dict[str, Any]] = {}
     try:
-        homework = _homework_punctuality(db, cohort_id, student_ids)
+        homework = _homework_punctuality(db, cohort_id, student_ids, degraded)
     except Exception as exc:
         logger.warning("[cohort-progress] homework punctuality failed: %s", exc)
         degraded.append("homework")

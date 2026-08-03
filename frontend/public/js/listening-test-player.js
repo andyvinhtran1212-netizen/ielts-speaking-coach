@@ -185,6 +185,15 @@ function getTestIdFromUrl() {
   return (sp.get('id') || '').trim() || null;
 }
 
+// Class homework. The class page puts `?class_item=` on the link so this
+// attempt can record WHICH task it is being done for — the ledger then never
+// has to work that out from the paper and the clock, which cannot be done right
+// when the same paper may be given twice or practised freely on the side.
+function getClassItemFromUrl() {
+  const sp = new URLSearchParams(window.location.search);
+  return (sp.get('class_item') || '').trim() || null;
+}
+
 // ── Back target ──────────────────────────────────────────────────────
 // This player serves BOTH listening libraries (listening-tests.html = full,
 // listening-mini-test.html = mini), which stamp ?from= on the link in. Every
@@ -270,9 +279,18 @@ async function detectResumable() {
     // practice attempt the student left open on the same test would be
     // auto-resumed by the embed and then bound to the sealed sitting.
     const sid = (window.MockHook && MockHook.active()) ? MockHook.sittingId() : null;
+    // Class homework scopes the same way a mock sitting does. Resuming skips
+    // the POST that stamps the class link, so an unfinished free-practice
+    // attempt on this test must not be offered here — the student would finish
+    // it, submit it, and still owe the homework.
+    const classItem = getClassItemFromUrl();
+    const qs = [
+      sid ? `sitting_id=${encodeURIComponent(sid)}` : '',
+      classItem ? `class_item=${encodeURIComponent(classItem)}` : '',
+    ].filter(Boolean).join('&');
     const res = await window.api.get(
       `/api/listening/tests/${encodeURIComponent(STATE.testId)}/attempts/in-progress`
-      + (sid ? `?sitting_id=${encodeURIComponent(sid)}` : ''),
+      + (qs ? `?${qs}` : ''),
     );
     const att = res && res.attempt;
     if (!att) return;
@@ -463,8 +481,10 @@ async function startAttempt() {
   $('btn-start').textContent = 'Đang khởi tạo…';
 
   try {
+    const classItem = getClassItemFromUrl();
     const res = await window.api.post(
-      `/api/listening/tests/${encodeURIComponent(STATE.testId)}/attempts`,
+      `/api/listening/tests/${encodeURIComponent(STATE.testId)}/attempts`
+        + (classItem ? `?class_item=${encodeURIComponent(classItem)}` : ''),
       {},
     );
     STATE.attemptId = res.attempt_id;

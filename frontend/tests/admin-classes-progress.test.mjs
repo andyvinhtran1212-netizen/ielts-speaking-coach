@@ -189,3 +189,56 @@ describe('% nộp đúng hạn keeps "unknown" apart from "always late"', () => 
     assert.match(PAGE, /<th>Nộp đúng hạn<\/th>/);
   });
 });
+
+
+// ── hai kiểu hỏng, hai câu khác nhau ─────────────────────────────────────
+//
+// A skill that failed to load shows "—" and the fix is to reload. A stale
+// homework column is the opposite: the numbers ARE there and look canonical,
+// but a Reading/Listening hand-in may not be folded in yet. Telling the admin
+// to reload would send them chasing a number that is not wrong, just behind.
+
+function loadBanner() {
+  const SRC = readFileSync(join(HERE, '..', 'public', 'js', 'admin-classes.js'), 'utf8');
+  const start = SRC.indexOf('  const DEGRADED_LABEL = {');
+  const end = SRC.indexOf("  $('progress-empty')");
+  assert.ok(start !== -1 && end > start, 'degraded banner block not found');
+
+  return (degraded) => {
+    const node = { hidden: null, textContent: '' };
+    const $ = () => node;
+    new Function('$', 'degraded', SRC.slice(start, end))($, degraded);
+    return node;
+  };
+}
+
+const banner = loadBanner();
+
+describe('progress banner', () => {
+  test('nothing wrong → no banner', () => {
+    assert.equal(banner([]).hidden, true);
+  });
+
+  test('a failed skill read asks for a reload', () => {
+    const n = banner(['listening']);
+    assert.equal(n.hidden, false);
+    assert.match(n.textContent, /Chưa đọc được số liệu: Listening/);
+    assert.match(n.textContent, /Tải lại/);
+  });
+
+  test('a stale homework column says stale, not "reload"', () => {
+    const n = banner(['homework_stale']);
+    assert.equal(n.hidden, false);
+    assert.match(n.textContent, /chưa cập nhật/);
+    assert.doesNotMatch(n.textContent, /Tải lại/,
+      'the numbers are behind, not unreadable — reloading is not the fix');
+    assert.doesNotMatch(n.textContent, /homework_stale/,
+      'the raw flag name must not reach the screen');
+  });
+
+  test('both at once → both sentences', () => {
+    const n = banner(['writing', 'homework_stale']);
+    assert.match(n.textContent, /Writing/);
+    assert.match(n.textContent, /chưa cập nhật/);
+  });
+});

@@ -637,16 +637,32 @@
     <!-- ── Giao bài Speaking (GĐ 2) ──────────────────────────────────── -->
     <div class="adm-modal-backdrop" id="homework-modal" hidden>
       <div class="adm-modal" role="dialog" aria-modal="true" aria-labelledby="homework-modal-title">
-        <h2 id="homework-modal-title">Giao bài Speaking</h2>
+        <h2 id="homework-modal-title">Giao bài</h2>
+        <div class="adm-field">
+          <label for="hf-skill">Kỹ năng</label>
+          <select id="hf-skill">
+            <option value="speaking">Speaking</option>
+            <option value="reading">Reading</option>
+            <option value="listening">Listening</option>
+          </select>
+        </div>
         <div class="adm-field">
           <label for="hf-title">Tên bài giao</label>
           <input id="hf-title" type="text" maxlength="300" placeholder="Speaking ngày 3/8" />
         </div>
-        <div class="adm-field">
+
+        <!-- Reading / Listening: chọn một đề đã xuất bản -->
+        <div class="adm-field" id="hf-test-field" hidden>
+          <label for="hf-test">Đề</label>
+          <select id="hf-test"><option value="">— Chọn đề —</option></select>
+        </div>
+
+        <!-- Speaking: chủ đề + kiểu luyện + part -->
+        <div class="adm-field" id="hf-topic-field">
           <label for="hf-topic">Chủ đề</label>
           <input id="hf-topic" type="text" maxlength="300" placeholder="Hometown" />
         </div>
-        <div class="cl-form-row">
+        <div class="cl-form-row" id="hf-speaking-row">
           <div class="adm-field">
             <label for="hf-mode">Kiểu luyện</label>
             <select id="hf-mode">

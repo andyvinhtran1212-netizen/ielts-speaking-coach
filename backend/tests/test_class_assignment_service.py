@@ -37,6 +37,7 @@ from services.class_assignment_service import (
     create_class_assignment,
     is_assignment_open,
     reconcile_ledger_from_sessions,
+    reconcile_test_attempts,
     sync_class_item_score,
     validate_class_item_for_session,
     mark_item_submitted,
@@ -81,7 +82,7 @@ class _Resp:
 class _Query:
     def __init__(self, store, name, rows, *, raises=False):
         self.store, self.name, self._rows, self._raises = store, name, rows, raises
-        self._eq, self._in, self._range = [], None, None
+        self._eq, self._in, self._range = [], [], None
         self._is_null = None
         self._negate_is = False
         self._mode, self._payload = "select", None
@@ -99,7 +100,13 @@ class _Query:
         return self
 
     def eq(self, f, v): self._eq.append((f, v)); return self
-    def in_(self, f, v): self._in = (f, list(v)); return self
+
+    def in_(self, f, v):
+        # ACCUMULATE. Keeping only the last in_() silently dropped one filter of
+        # a chained .in_(a).in_(b), so a test could not tell whether the query
+        # really narrowed on both.
+        self._in.append((f, list(v)))
+        return self
     def range(self, s, e): self._range = (s, e); return self
 
     def is_(self, field, value):
@@ -136,8 +143,7 @@ class _Query:
         rows = list(self._rows)
         for f, v in self._eq:
             rows = [r for r in rows if r.get(f) == v]
-        if self._in:
-            f, vals = self._in
+        for f, vals in self._in:
             rows = [r for r in rows if r.get(f) in vals]
         if self._range:
             s, e = self._range
@@ -392,12 +398,50 @@ def test_marking_submitted_twice_does_not_move_the_timestamp():
     assert rows[0]["artifact_id"] == "s1"
 
 
-def test_a_failed_write_reports_false_rather_than_raising():
-    """The caller is PATCH /sessions/complete — a graded session must still
-    complete even if the ledger write fails."""
+def test_a_failed_write_raises_instead_of_looking_like_a_no_op():
+    """False already means "there was nothing to write" — the deliberate no-op
+    that stops a retry pushing an on-time hand-in past its deadline. Reusing it
+    for a failed write gave every caller the same answer for opposite facts, and
+    they all went on to present their counts as canonical.
+
+    Surviving the failure is still required of PATCH /sessions/complete — but
+    that is now the caller's own decision, made by catching, not one made for it
+    by a return value."""
+    from services.class_assignment_service import LedgerWriteError
+
     db = _DB({"class_assignment_items": []}, fail={"class_assignment_items"})
+    with pytest.raises(LedgerWriteError):
+        mark_item_submitted(db, item_id="i1", artifact_kind="session",
+                            artifact_id="s1")
+
+
+def test_nothing_to_write_is_still_a_quiet_False():
+    """The no-op must NOT become an error: re-completing a session runs this
+    again on purpose."""
+    stamped = "2026-08-03T11:00:00+00:00"
+    db = _DB({"class_assignment_items": [
+        {"id": "i1", "submitted_at": stamped, "artifact_id": "s1"},
+    ]})
     assert mark_item_submitted(db, item_id="i1", artifact_kind="session",
-                               artifact_id="s1") is False
+                               artifact_id="s2") is False
+
+
+def test_a_graded_session_still_completes_when_the_ledger_write_fails():
+    """The invariant the old return value was protecting, pinned where it now
+    actually lives — the caller."""
+    from unittest.mock import patch
+
+    from routers import sessions as sessions_mod
+    from services.class_assignment_service import LedgerWriteError
+
+    def _boom(*_a, **_k):
+        raise LedgerWriteError("boom")
+
+    with patch.object(sessions_mod, "mark_item_submitted", _boom):
+        assert sessions_mod._record_class_submission(
+            {"id": "s1", "class_assignment_item_id": "i1",
+             "completed_at": "2026-08-03T11:00:00+00:00"}
+        ) is False
 
 
 # ── phiên phải ĐÚNG là bài được giao (Codex P1) ─────────────────────────
@@ -1026,3 +1070,174 @@ def test_regrading_a_retry_does_not_rewrite_the_recorded_attempt_score():
     assert sync_class_item_score(db, "sess-FIRST") is True
     assert recorded["score"] == 7.0
     assert recorded["submitted_at"] == "2026-08-03T11:00:00+00:00"
+
+
+# ── GĐ 5 — Reading/Listening ────────────────────────────────────────────
+#
+# These skills have no completion hook: the test page submits without the class
+# ledger being part of that request. The repair pass FOLLOWS THE LINK the
+# attempt row carries (`class_assignment_item_id`, mig 181) — stamped when the
+# student opened the task from their class page.
+#
+# The link is the whole design. An earlier version inferred ownership from the
+# paper and the clock, and every review round found another state it got wrong:
+# scheduled reveals, archive-then-reopen, transferred students, the same paper
+# given twice, races with delete and with archive. None of those questions can
+# be asked of a foreign key.
+
+
+def _rl_db(*, attempts, table="reading_test_attempts", item_submitted=None,
+           item_link="item-1"):
+    return _DB({
+        "class_assignment_items": [
+            {"id": "item-1", "assignment_id": "asg-1", "student_id": "stu-1",
+             "submitted_at": item_submitted, "state": "assigned"},
+        ],
+        "students": [{"id": "stu-1", "user_id": "user-1"}],
+        table: list(attempts),
+    })
+
+
+def _rl_assignment(skill="reading", content_id="test-1", status="published"):
+    return {"id": "asg-1", "skill": skill, "content_id": content_id,
+            "status": status, "cohort_id": "co-1"}
+
+
+def _attempt(aid="att-1", *, item="item-1", when="2026-08-03T11:00:00+00:00",
+             band=6.5, status="submitted"):
+    return {"id": aid, "class_assignment_item_id": item, "submitted_at": when,
+            "band_estimate": band, "status": status}
+
+
+def test_a_linked_submitted_attempt_records_the_hand_in():
+    db = _rl_db(attempts=[_attempt()])
+    assert reconcile_test_attempts(db, [_rl_assignment()]) == 1
+    item = db.tables["class_assignment_items"][0]
+    assert item["artifact_kind"] == "reading_attempt"
+    assert item["artifact_id"] == "att-1"
+    assert item["score"] == 6.5
+
+
+def test_the_attempt_submission_time_is_kept_not_the_repair_time():
+    """A hand-in made before the deadline must stay on time however late the
+    repair runs — stamping "now" would turn it late."""
+    db = _rl_db(attempts=[_attempt(when="2026-08-03T11:00:00+00:00")])
+    reconcile_test_attempts(db, [_rl_assignment()])
+    assert db.tables["class_assignment_items"][0]["submitted_at"] == \
+        "2026-08-03T11:00:00+00:00"
+
+
+def test_a_retake_cannot_overwrite_the_first_hand_in():
+    """The test pages allow a retake, so one item can carry several attempts.
+    The earliest submitted one is the hand-in that met the deadline."""
+    db = _rl_db(attempts=[
+        _attempt("att-RETRY", when="2026-08-04T09:00:00+00:00", band=9.0),
+        _attempt("att-FIRST", when="2026-08-03T11:00:00+00:00", band=6.0),
+    ])
+    assert reconcile_test_attempts(db, [_rl_assignment()]) == 1
+    item = db.tables["class_assignment_items"][0]
+    assert item["artifact_id"] == "att-FIRST"
+    assert item["score"] == 6.0
+
+
+def test_free_practice_is_never_credited():
+    """An attempt with no link was not done for the class — it is the most
+    common kind of attempt there is, and crediting it would mark homework done
+    for anyone who happened to practise the same paper."""
+    db = _rl_db(attempts=[_attempt(item=None)])
+    assert reconcile_test_attempts(db, [_rl_assignment()]) == 0
+    assert db.tables["class_assignment_items"][0].get("submitted_at") is None
+
+
+def test_an_attempt_linked_to_SOMEONE_ELSES_item_is_not_credited_here():
+    """The query narrows on the pending items of these gives; a link pointing
+    anywhere else is simply not this homework."""
+    db = _rl_db(attempts=[_attempt(item="item-OTHER")])
+    assert reconcile_test_attempts(db, [_rl_assignment()]) == 0
+
+
+def test_an_unfinished_attempt_is_not_a_hand_in():
+    db = _rl_db(attempts=[_attempt(status="in_progress", when=None)])
+    assert reconcile_test_attempts(db, [_rl_assignment()]) == 0
+
+
+def test_an_already_recorded_item_is_left_alone():
+    """Idempotent: the repair runs on every read of the homework list."""
+    db = _rl_db(attempts=[_attempt("att-NEW", when="2026-08-09T10:00:00+00:00")],
+                item_submitted="2026-08-03T11:00:00+00:00")
+    assert reconcile_test_attempts(db, [_rl_assignment()]) == 0
+
+
+def test_listening_uses_its_own_table_and_artifact_kind():
+    db = _rl_db(attempts=[_attempt()], table="listening_test_attempts")
+    assert reconcile_test_attempts(db, [_rl_assignment(skill="listening")]) == 1
+    assert db.tables["class_assignment_items"][0]["artifact_kind"] == "listening_attempt"
+
+
+def test_a_speaking_give_is_not_looked_up_in_the_attempt_tables():
+    db = _rl_db(attempts=[_attempt()])
+    assert reconcile_test_attempts(db, [_rl_assignment(skill="speaking")]) == 0
+
+
+def test_an_archived_give_still_records_work_that_was_linked_to_it():
+    """Unlike the inference version, closing a give does not have to block the
+    repair: the link proves the student opened this task while it was open, so
+    there is nothing left to guess at and nothing to protect against."""
+    db = _rl_db(attempts=[_attempt()])
+    assert reconcile_test_attempts(db, [_rl_assignment(status="archived")]) == 1
+
+
+def test_a_naive_timestamp_does_not_500_the_whole_class():
+    db = _rl_db(attempts=[_attempt(when="2026-08-03T18:30:00")])
+    assert reconcile_test_attempts(db, [_rl_assignment()]) == 1
+
+
+def test_ownership_is_never_inferred_from_the_paper_or_the_clock():
+    """Guarding the design, not a line. Reintroducing any of these means the
+    repair is guessing again, and the guess is what kept being wrong."""
+    import inspect
+    from services import class_assignment_service as mod
+    src = code_only(inspect.getsource(mod.reconcile_test_attempts))
+    for banned in ("content_id", "created_at", "publish_at", "attempts_from",
+                   "cohort_id", "user_id"):
+        assert banned not in src, (
+            f"{banned} has no place here — the link already says which homework "
+            f"this attempt was done for"
+        )
+    assert "class_assignment_item_id" in src
+
+
+def test_item_ids_are_chunked_for_the_url():
+    import inspect
+    from services import class_assignment_service as mod
+    src = code_only(inspect.getsource(mod.reconcile_test_attempts))
+    assert src.count("_ID_CHUNK") >= 2, "both the item read and the attempt read"
+
+
+def test_a_failed_LEDGER_WRITE_propagates_out_of_the_repair():
+    """Not the same failure as a failed READ, and it used to be invisible: the
+    attempt query succeeds, the item update fails, and the repair returned a
+    perfectly ordinary count. Every caller then published its numbers as
+    canonical — admin without `reconcile_failed`, progress without
+    `homework_stale`, the student page without a word — while the item's
+    submitted_at was still null."""
+    from services.class_assignment_service import LedgerWriteError
+
+    db = _rl_db(attempts=[_attempt()])
+    # Reads fine, writes blow up — exactly the shape that used to slip through.
+    db.fail = {"class_assignment_items_write"}
+    original = db.table
+
+    def _table(name):
+        q = original(name)
+        if name == "class_assignment_items":
+            real_update = q.update
+
+            def _update(patch):
+                raise RuntimeError("boom")
+            q.update = _update
+        return q
+
+    db.table = _table
+    with pytest.raises(LedgerWriteError):
+        reconcile_test_attempts(db, [_rl_assignment()])

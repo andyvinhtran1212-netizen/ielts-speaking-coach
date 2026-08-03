@@ -41,6 +41,11 @@ from pydantic import BaseModel, Field
 
 from config import settings
 from database import supabase_admin
+from services.class_assignment_service import (
+    ItemNotFoundError,
+    TaskMismatchError,
+    validate_class_item_for_test,
+)
 from routers.auth import get_supabase_user
 from services.listening_test_grader import answer_matches
 from services.reading_diagnostic_engine import build_reading_diagnostic
@@ -704,11 +709,24 @@ def _fetch_in_progress_payload(
     *,
     raise_on_missing: bool,
     anon_id: str | None = None,
+    class_item: str | None = None,
 ) -> dict | None:
     """Return the open in-progress attempt payload for ``test`` if present.
     Owned EITHER by an authenticated user (``user_id``) OR — for share-link
     takers — by an anonymous capability token (``anon_id``). Exactly one of the
-    two is set by the caller; the other filter is omitted."""
+    two is set by the caller; the other filter is omitted.
+
+    ``class_item`` narrows the resume to THIS homework. Resuming is the one path
+    that skips attempt creation, and creation is where the class link is
+    stamped — so without the filter a student opening their homework would be
+    offered an unfinished free-practice attempt on the same paper, resume it,
+    submit it, and the class would still show the task as owed.
+
+    The narrowing is deliberately ONE-WAY. Opening the same paper from the
+    library (no ``class_item``) may still resume a linked homework attempt: the
+    student is finishing the work they started, and the link they already
+    earned goes on standing.
+    """
     q = supabase_admin.table("reading_test_attempts").select("id,started_at,status")
     # Owner filter FIRST (the authed user_id, or the anonymous anon_id token),
     # then test + status. Exactly one ownership filter is applied.
@@ -716,10 +734,11 @@ def _fetch_in_progress_payload(
         q = q.eq("anon_id", anon_id)
     else:
         q = q.eq("user_id", user_id)
+    q = q.eq("test_id", test["id"]).eq("status", "in_progress")
+    if class_item:
+        q = q.eq("class_assignment_item_id", class_item)
     res = (
-        q.eq("test_id", test["id"])
-        .eq("status", "in_progress")
-        .order("started_at", desc=True)
+        q.order("started_at", desc=True)
         .limit(1)
         .execute()
     )
@@ -834,6 +853,7 @@ async def get_reading_test(
 @router.get("/test/{test_id}/boot")
 async def boot_reading_test(
     test_id: str,
+    class_item: str | None = None,
     authorization: str | None = Header(default=None),
     x_reading_password: str | None = Header(default=None, alias="X-Reading-Password"),
 ):
@@ -847,7 +867,7 @@ async def boot_reading_test(
     user = await _require_auth(authorization)
     test = _build_reading_test_detail(test_id, x_reading_password, user["id"])
     in_progress = _fetch_in_progress_payload(
-        user["id"], test_id, test, raise_on_missing=False
+        user["id"], test_id, test, raise_on_missing=False, class_item=class_item
     )
     return {"test": test, "in_progress": in_progress}
 
@@ -1001,6 +1021,7 @@ def _is_unique_violation(exc: Exception) -> bool:
 @router.post("/test/{test_id}/attempts")
 async def start_reading_test_attempt(
     test_id: str,
+    class_item: str | None = None,
     authorization: str | None = Header(default=None),
     x_reading_password: str | None = Header(default=None, alias="X-Reading-Password"),
 ):
@@ -1029,6 +1050,15 @@ async def start_reading_test_attempt(
     _require_test_unlocked(test, x_reading_password)   # F1 gate on start too
     test_uuid = test["id"]
 
+    if class_item:
+        try:
+            validate_class_item_for_test(
+                supabase_admin, user["id"], class_item,
+                skill="reading", test_id=test_uuid,
+            )
+        except (ItemNotFoundError, TaskMismatchError) as exc:
+            raise HTTPException(400, str(exc))
+
     last_exc: Exception | None = None
     for _retry in range(_START_RETRY_MAX):
         _abandon_open_attempts(user["id"], test_uuid)
@@ -1042,6 +1072,12 @@ async def start_reading_test_attempt(
             "answers":    [],
             "started_at": started_at,
         }
+        # Class homework: stamp WHICH task this attempt is being done for, so
+        # the ledger never has to work it out afterwards (mig 181). Validated
+        # first — an unchecked id from the query string would let a student mark
+        # any homework done with any paper.
+        if class_item:
+            payload["class_assignment_item_id"] = class_item
         try:
             supabase_admin.table("reading_test_attempts").insert(payload).execute()
         except Exception as exc:
@@ -1409,6 +1445,7 @@ async def review_reading_test_attempt(
 @router.get("/test/{test_id}/attempts/in-progress")
 async def get_in_progress_reading_attempt(
     test_id: str,
+    class_item: str | None = None,
     authorization: str | None = Header(default=None),
 ):
     """Find the user's open attempt for this test, if any. Used by the exam
@@ -1421,7 +1458,7 @@ async def get_in_progress_reading_attempt(
     user = await _require_auth(authorization)
     test = _fetch_published_test(test_id)
     return _fetch_in_progress_payload(
-        user["id"], test_id, test, raise_on_missing=True
+        user["id"], test_id, test, raise_on_missing=True, class_item=class_item
     )
 
 

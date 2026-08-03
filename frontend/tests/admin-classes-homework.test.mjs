@@ -43,7 +43,9 @@ const { dueLabel, progressCell } = loadHelpers();
  * a doesNotMatch passes because the code is clean while a *positive* assertion
  * is satisfied by prose. Same trap as the SQL migration tests.
  */
-const codeOnly = (s) => s.replace(/\/\/[^\n]*/g, '');
+const codeOnly = (s) => s
+  .replace(/\/\*[\s\S]*?\*\//g, '')   // block comments too: a /** */ docblock
+  .replace(/\/\/[^\n]*/g, '');          // satisfied a /exam_only/ match on its own
 
 // The class marker for "this needs attention" — the same one the roster uses
 // for students with no account.
@@ -261,5 +263,117 @@ describe('a closed-off give and an unreliable count are both stated (Codex round
     assert.match(load, /reconcile_failed/);
     assert.match(load, /có thể thiếu/);
     assert.match(load, /'error'/);
+  });
+});
+
+
+// ── bộ chọn đề: xuất bản CHƯA CHẮC giao được ────────────────────────────
+//
+// Most of the Cambridge library is exam_only — reserved for mock sittings, and
+// the student endpoints answer 404 to anyone without one. Offering those papers
+// in the picker means the class is recorded as owing work none of them can open.
+
+function loadTestPicker() {
+  const start = SRC.indexOf('async function loadTests');
+  const end = SRC.indexOf('function openHomeworkModal');
+  assert.ok(start !== -1 && end > start, 'loadTests not found');
+
+  const esc = (s) => String(s == null ? '' : s);
+  const el = { innerHTML: '' };
+  // Two different nodes: the select being painted, and the skill picker the
+  // code checks to see whether its response is still wanted.
+  const skillEl = { value: '' };
+  const $ = (id) => (id === 'hf-skill' ? skillEl : el);
+  const _testsBySkill = {};
+  // Mutated per test; `loadTests` calls api.get() at call time, so reassigning
+  // the METHOD (not the binding) is what puts the stub in reach.
+  const api = { get: null };
+  const loadTests = new Function('esc', '$', '_testsBySkill', 'api',
+    `${SRC.slice(start, end)}
+    return loadTests;`)(esc, $, _testsBySkill, api);
+
+  return {
+    el,
+    skillEl,
+    setApi: (fn) => { api.get = fn; },
+    run: (skill) => { skillEl.value = skill; return loadTests(skill); },
+    // Start a load, then switch the picker mid-flight.
+    runThenSwitch: (skill, to) => {
+      skillEl.value = skill;
+      const p = loadTests(skill);
+      skillEl.value = to;
+      return p;
+    },
+  };
+}
+
+describe('the paper picker offers only papers a class can actually open', () => {
+  test('exam-only papers are left out even when published', async () => {
+    const h = loadTestPicker();
+    h.setApi(async () => ({ items: [
+      { id: 'u1', code: 'CAM18-T1', title: 'Cam 18 Test 1',
+        status: 'published', exam_only: true },
+      { id: 'u2', code: 'ILR-001', title: 'Đề luyện 1',
+        status: 'published', exam_only: false },
+    ] }));
+    await h.run('reading');
+    assert.match(h.el.innerHTML, /ILR-001/);
+    assert.doesNotMatch(h.el.innerHTML, /CAM18-T1/,
+      'an exam-only paper 404s for students without a mock sitting');
+  });
+
+  test('every paper reserved → says so, not an empty dropdown', async () => {
+    const h = loadTestPicker();
+    h.setApi(async () => ({ items: [
+      { id: 'u1', code: 'CAM18-T1', title: 'x', status: 'published', exam_only: true },
+    ] }));
+    await h.run('listening');
+    assert.match(h.el.innerHTML, /Chưa có đề nào giao được/);
+  });
+
+  test('a failed library read is not reported as an empty library', async () => {
+    const h = loadTestPicker();
+    h.setApi(async () => ({ items: [], failed_kinds: ['reading'] }));
+    await h.run('reading');
+    assert.match(h.el.innerHTML, /Không đọc được thư viện đề/);
+  });
+
+  test('the exam_only filter is in the code, not only in a comment', () => {
+    const body = codeOnly(SRC.slice(SRC.indexOf('async function loadTests'),
+                                    SRC.indexOf('function openHomeworkModal')));
+    assert.match(body, /exam_only/,
+      'stripping comments must still leave a real exam_only check');
+  });
+});
+
+
+describe('a late library response does not paint the wrong skill', () => {
+  test('switching Reading → Listening mid-flight discards the Reading list', async () => {
+    const h = loadTestPicker();
+    h.setApi(async () => ({ items: [
+      { id: 'r1', code: 'READ-1', title: 'Đề đọc', status: 'published',
+        exam_only: false },
+    ] }));
+    await h.runThenSwitch('reading', 'listening');
+    assert.doesNotMatch(h.el.innerHTML, /READ-1/,
+      'Reading papers under a Listening heading send a content_id the backend rejects');
+  });
+
+  test('a late FAILURE does not overwrite the other skill either', async () => {
+    const h = loadTestPicker();
+    h.setApi(async () => { throw new Error('boom'); });
+    await h.runThenSwitch('reading', 'listening');
+    assert.doesNotMatch(h.el.innerHTML, /Không đọc được thư viện đề/,
+      'the Listening library did not fail — Reading did');
+  });
+
+  test('no switch → the list is painted as normal', async () => {
+    const h = loadTestPicker();
+    h.setApi(async () => ({ items: [
+      { id: 'r1', code: 'READ-1', title: 'Đề đọc', status: 'published',
+        exam_only: false },
+    ] }));
+    await h.run('reading');
+    assert.match(h.el.innerHTML, /READ-1/);
   });
 });

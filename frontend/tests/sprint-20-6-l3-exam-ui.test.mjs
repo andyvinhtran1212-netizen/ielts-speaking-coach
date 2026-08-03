@@ -118,7 +118,9 @@ describe('Sprint 20.6 — exam page JS (reading-exam.js)', () => {
     assert.match(js, /window\.api\.getWith\(\s*'\/api\/reading\/test\/'/);
     assert.match(js, /\/boot'/);
     assert.match(js, /bootPayload\.in_progress/);
-    assert.match(js, /window\.api\.postWith\(\s*'\/api\/reading\/test\/'\s*\+\s*encodeURIComponent\(SESSION\.test_id\)\s*\+\s*'\/attempts', null, _pwHeaders\(\)\)/);
+    // The password header is the point; the URL around it may gain a query
+    // string (class homework passes ?class_item=).
+    assert.match(js, /window\.api\.postWith\(\s*'\/api\/reading\/test\/'\s*\+\s*encodeURIComponent\(SESSION\.test_id\)[\s\S]{0,240}?_pwHeaders\(\)/);
   });
   test('auto-save: PATCH /answers debounced (500ms) on input/change', () => {
     assert.match(js, /\/api\/reading\/test\/attempts\//);

@@ -19,6 +19,7 @@ the assignment instead.
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, Header, HTTPException, status
@@ -31,6 +32,7 @@ from services.class_assignment_service import (
     create_class_assignment,
     progress_for_assignments,
     reconcile_ledger_from_sessions,
+    reconcile_test_attempts,
 )
 
 logger = logging.getLogger(__name__)
@@ -54,28 +56,47 @@ router = APIRouter(prefix="/admin/cohorts", tags=["admin", "class-assignments"])
 _SPEAKING_MODES = ("practice", "test_part")
 
 
+# Skills a class assignment can carry today. Writing is absent on purpose: it
+# has its own grading pipeline (writing_assignments, mig 036) and giving it means
+# creating rows there too and linking them back — a different shape of work, kept
+# out so this change stays reviewable. GĐ 5b.
+_TEST_SKILLS = {"reading": "reading_tests", "listening": "listening_tests"}
+
+
 class AssignmentCreate(BaseModel):
-    """GĐ 2 — Speaking only. `skill` is explicit anyway so the payload does not
-    have to change when Reading/Listening join in GĐ 5."""
-    skill:        Literal["speaking"] = "speaking"
+    """Speaking (a topic + mode) or Reading/Listening (a published paper).
+
+    The two shapes share one payload because they share one ledger; which fields
+    matter is decided by `skill`.
+    """
+    skill:        Literal["speaking", "reading", "listening"] = "speaking"
     title:        str = Field(min_length=1, max_length=300)
-    topic:        str = Field(min_length=1, max_length=300)
+    # Speaking only
+    topic:        Optional[str] = Field(default=None, max_length=300)
     mode:         str = "practice"
     part:         int = Field(default=1, ge=1, le=3)
+    # Reading / Listening only — the paper being assigned
+    content_id:   Optional[str] = None
     due_date:     Optional[str] = None      # ISO date; 19:00 giờ VN added server-side
     instructions: Optional[str] = Field(default=None, max_length=2000)
     lesson_id:    Optional[str] = None
 
     @model_validator(mode="after")
-    def _check_mode(self):
-        if self.mode == "test_full":
-            raise ValueError(
-                "Chưa giao được Full Test cho lớp: một lượt Full Test gồm ba phiên nối "
-                "nhau và điểm thật là điểm tổng hợp của cả ba. Hãy giao Luyện tập hoặc "
-                "Luyện từng Part."
-            )
-        if self.mode not in _SPEAKING_MODES:
-            raise ValueError(f"mode phải là một trong: {sorted(_SPEAKING_MODES)}")
+    def _check_shape(self):
+        if self.skill == "speaking":
+            if not (self.topic or "").strip():
+                raise ValueError("Bài Speaking cần có chủ đề.")
+            if self.mode == "test_full":
+                raise ValueError(
+                    "Chưa giao được Full Test cho lớp: một lượt Full Test gồm ba phiên "
+                    "nối nhau và điểm thật là điểm tổng hợp của cả ba. Hãy giao Luyện "
+                    "tập hoặc Luyện từng Part."
+                )
+            if self.mode not in _SPEAKING_MODES:
+                raise ValueError(f"mode phải là một trong: {sorted(_SPEAKING_MODES)}")
+        else:
+            if not (self.content_id or "").strip():
+                raise ValueError("Bài Reading/Listening cần chọn một đề.")
         return self
 
     @model_validator(mode="after")
@@ -131,6 +152,10 @@ async def list_assignments(
     reconcile_failed = False
     try:
         reconcile_ledger_from_sessions(supabase_admin, [a["id"] for a in rows])
+        # Reading/Listening have no completion hook of their own — the test page
+        # submits without knowing the class ledger exists — so their hand-ins are
+        # detected from the attempt rows here.
+        reconcile_test_attempts(supabase_admin, rows)
     except Exception as exc:
         reconcile_failed = True
         logger.warning("[class] ledger reconcile failed: %s", exc)
@@ -165,6 +190,48 @@ async def create_assignment(
     admin = await require_admin(authorization)
     _require_cohort(cohort_id)
 
+    content_id = None
+    if body.skill == "speaking":
+        content_config = {"topic": body.topic, "mode": body.mode, "part": body.part}
+    else:
+        # The paper must exist and be published before it is given: assigning an
+        # unpublished or deleted test hands students a task that opens to an
+        # error, and the ledger would still count them as owing it.
+        table = _TEST_SKILLS[body.skill]
+        cols = "id, title, status, exam_only"
+        if body.skill == "listening":
+            # Published is not the same as playable: a test whose assembled
+            # audio was cleared (section audio replaced) still reads published,
+            # but the student endpoint answers 422 "chưa có audio sẵn sàng".
+            cols += ", full_audio_storage_path, assembled_audio_storage_path"
+        rows = (
+            supabase_admin.table(table).select(cols)
+            .eq("id", body.content_id).limit(1).execute().data
+        ) or []
+        if not rows:
+            raise HTTPException(404, "Không tìm thấy đề này.")
+        if (rows[0].get("status") or "") != "published":
+            raise HTTPException(400, "Đề này chưa xuất bản — hãy xuất bản trước khi giao.")
+        if rows[0].get("exam_only"):
+            # Reserved for mock sittings (mig 170): the student endpoints answer
+            # 404 to anyone without one. Published is not the same as openable,
+            # and the ledger would count the class as owing a paper none of them
+            # can reach. Most of the Cambridge library is flagged this way.
+            raise HTTPException(
+                400,
+                "Đề này dành riêng cho kỳ thi thử — không giao làm bài tập lớp được.",
+            )
+        if body.skill == "listening" and not (
+            rows[0].get("assembled_audio_storage_path")
+            or rows[0].get("full_audio_storage_path")
+        ):
+            raise HTTPException(
+                400,
+                "Đề nghe này chưa có audio sẵn sàng — không giao được.",
+            )
+        content_id = body.content_id
+        content_config = {"test_title": rows[0].get("title")}
+
     try:
         result = create_class_assignment(
             supabase_admin,
@@ -173,7 +240,8 @@ async def create_assignment(
             title=body.title,
             assigned_by=admin["id"],
             lesson_id=body.lesson_id,
-            content_config={"topic": body.topic, "mode": body.mode, "part": body.part},
+            content_id=content_id,
+            content_config=content_config,
             due_date=body.due_date,
             instructions=body.instructions,
         )

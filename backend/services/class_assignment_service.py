@@ -44,7 +44,7 @@ from __future__ import annotations
 
 import logging
 from datetime import date, datetime, time, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
@@ -282,16 +282,30 @@ def mark_item_submitted(
             .execute()
         )
     except Exception as exc:
-        # Never break the caller's own flow (a graded session must still
-        # complete) — but say so, because a silently unrecorded hand-in shows up
-        # as the student not having done the work.
+        # RAISE, do not return False. Callers that must survive this (a graded
+        # session has to complete either way) already catch — and catching is a
+        # decision they make explicitly, instead of one made for them by a
+        # return value that also means "nothing to do".
         logger.warning("[class] mark_item_submitted failed item=%s: %s", item_id, exc)
-        return False
+        raise LedgerWriteError(str(exc)) from exc
     return bool(r.data)
 
 
 class EmptyRosterError(Exception):
     """The class has no students, so the give would reach nobody."""
+
+
+class LedgerWriteError(Exception):
+    """Ghi sổ cái THẤT BẠI — khác hẳn "không có gì để ghi".
+
+    `mark_item_submitted` returns False for a deliberate no-op: the item was
+    already recorded, and refusing to touch it is what stops a retry pushing an
+    on-time hand-in past its deadline. A database failure used to return False
+    too, so every caller read a lost write as "nothing needed doing" and went on
+    to present its counts as canonical — the student saw work they had finished
+    still sitting under "Cần nộp", and the teacher saw them as not having done
+    it. Same value, opposite meanings.
+    """
 
 
 class ItemNotFoundError(Exception):
@@ -386,6 +400,59 @@ def validate_class_item_for_session(
         raise TaskMismatchError("Chủ đề của phiên không khớp bài được giao.")
 
 
+def validate_class_item_for_test(db, user_id: str, item_id: str,
+                                 *, skill: str, test_id: str) -> None:
+    """Check the caller may hand this paper in as that homework. Raises.
+
+    Runs BEFORE the attempt row is written, because the link it authorises is
+    what the ledger later trusts: an unchecked `class_item` in a query string
+    would let a student stamp any attempt with any item id and have the class
+    record it as done.
+
+    The paper has to MATCH too, not just be owned. Ownership alone would let a
+    learner open an easy paper, point it at the hard homework, and have the hard
+    one marked complete — proving the ASSIGNED work was done is the ledger's
+    whole value. Same rule as validate_class_item_for_session, which checks
+    mode/part/topic for Speaking.
+    """
+    student = (
+        db.table("students").select("id, cohort_id").eq("user_id", user_id)
+        .limit(1).execute().data
+    ) or []
+    if not student:
+        raise ItemNotFoundError("Tài khoản này chưa gắn với hồ sơ học viên nào")
+
+    owned = (
+        db.table("class_assignment_items").select("id, assignment_id")
+        .eq("id", item_id).eq("student_id", student[0]["id"])
+        .limit(1).execute().data
+    ) or []
+    if not owned:
+        raise ItemNotFoundError("Bài tập không thuộc về học viên này")
+
+    a_rows = (
+        db.table("class_assignments").select("*")
+        .eq("id", owned[0]["assignment_id"]).limit(1).execute().data
+    ) or []
+    if not a_rows:
+        raise ItemNotFoundError("Không tìm thấy bài giao")
+    assignment = a_rows[0]
+
+    if not is_assignment_open(assignment):
+        raise TaskMismatchError("Bài tập chưa mở hoặc đã đóng")
+
+    # A transferred student keeps their old item rows; the old class's homework
+    # is not theirs to hand in any more.
+    if assignment.get("cohort_id") != student[0].get("cohort_id"):
+        raise TaskMismatchError("Bài tập không thuộc lớp hiện tại của bạn")
+
+    if assignment.get("skill") != skill:
+        raise TaskMismatchError("Bài tập này không phải bài của kỹ năng đang làm.")
+
+    if str(assignment.get("content_id") or "") != str(test_id):
+        raise TaskMismatchError("Đề đang làm không phải đề được giao.")
+
+
 def attach_session_to_class_item(db, session_id: str, user_id: str, item_id: str) -> bool:
     """Write the link through fn_bind_session_to_class_item (mig 179).
 
@@ -404,6 +471,119 @@ def attach_session_to_class_item(db, session_id: str, user_id: str, item_id: str
         "p_user_id":    user_id,
     }).execute().data
     return rows is True or rows == [True] or bool(rows)
+
+
+# Reading/Listening have no completion hook of their own: the student submits on
+# the test page, which knows nothing about class assignments. Their hand-in is
+# therefore detected here, from the attempt row, the same way a failed Speaking
+# write is repaired. Keyed by user_id, so it needs the student→user mapping.
+_TEST_ARTIFACTS = {
+    "reading":   ("reading_test_attempts",   "reading_attempt"),
+    "listening": ("listening_test_attempts", "listening_attempt"),
+}
+
+
+def _at(value: Optional[str]) -> Optional[datetime]:
+    """Parse a timestamp into an AWARE instant, or None.
+
+    Naive values are read as UTC rather than left naive: a naive/aware pair
+    raises TypeError on comparison, which here would turn one odd row into a
+    500 for the whole class page.
+    """
+    if not value:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        logger.warning("[class] unparseable timestamp %r", value)
+        return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
+    """Repair Reading/Listening hand-ins whose ledger write failed.
+
+    Reading and Listening have no completion hook of their own the way Speaking
+    does — the test page submits, and the write into `class_assignment_items`
+    is best-effort. This is the repair pass, and it runs on read.
+
+    WHICH ATTEMPT BELONGS TO WHICH GIVE IS NOT DECIDED HERE. The attempt row
+    carries `class_assignment_item_id`, stamped when the student opened the task
+    from their class page (mig 181). This function follows that link; it never
+    infers ownership from timing, from the paper, or from who the student is.
+
+    That distinction is the whole point. The inference version had to answer
+    "when was it given, when was it revealed, was it archived and reopened, has
+    the student since changed class, was the same paper given twice, which give
+    claims this attempt" — and every answer was another way to be wrong. The
+    link answers all of them at once, and answers them at the moment the student
+    actually started the work.
+
+    Idempotent: `mark_item_submitted` only writes while `submitted_at IS NULL`.
+    """
+    item_ids = []
+    seen = set()
+    for a in assignments:
+        if a.get("skill") in _TEST_ARTIFACTS and a.get("id") not in seen:
+            seen.add(a["id"])
+            item_ids.append(a["id"])
+    if not item_ids:
+        return 0
+
+    items = []
+    for chunk in (item_ids[i:i + _ID_CHUNK]
+                  for i in range(0, len(item_ids), _ID_CHUNK)):
+        items.extend(_paged(
+            db, "class_assignment_items", "id, assignment_id",
+            lambda q, c=chunk: q.in_("assignment_id", c).is_("submitted_at", "null"),
+        ))
+    if not items:
+        return 0
+
+    pending = {i["id"] for i in items}
+    ids = list(pending)
+    fixed = 0
+
+    for skill, (table, artifact_kind) in _TEST_ARTIFACTS.items():
+        attempts: List[Dict[str, Any]] = []
+        for chunk in (ids[i:i + _ID_CHUNK] for i in range(0, len(ids), _ID_CHUNK)):
+            attempts.extend(_paged(
+                db, table,
+                "id, class_assignment_item_id, submitted_at, band_estimate",
+                lambda q, c=chunk: q.in_("class_assignment_item_id", c)
+                                    .eq("status", "submitted"),
+            ))
+
+        # EARLIEST submitted attempt per item. The test pages allow a retake, so
+        # one item can carry several — and a retake must not overwrite the
+        # hand-in that actually met the deadline.
+        best: Dict[str, Dict[str, Any]] = {}
+        for at in attempts:
+            key = at.get("class_assignment_item_id")
+            when = at.get("submitted_at")
+            if not key or not when:
+                continue
+            cur = best.get(key)
+            if cur is None or when < cur["submitted_at"]:
+                best[key] = at
+
+        for item_id, at in best.items():
+            try:
+                when = datetime.fromisoformat(at["submitted_at"])
+            except (ValueError, TypeError):
+                # Stamp nothing rather than stamping now: "now" would make a
+                # hand-in that met the deadline read as late.
+                when = None
+            if mark_item_submitted(
+                db, item_id=item_id, artifact_kind=artifact_kind,
+                artifact_id=at["id"], score=at.get("band_estimate"), now=when,
+            ):
+                fixed += 1
+
+    if fixed:
+        logger.info("[class] recorded %s test hand-in(s) from attempts", fixed)
+    return fixed
+
 
 
 def reconcile_ledger_from_sessions(db, assignment_ids: List[str]) -> int:

@@ -22,13 +22,18 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
+from urllib.parse import quote
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Header, HTTPException
 
 from database import supabase_admin
 from routers.auth import get_supabase_user
-from services.class_assignment_service import _ID_CHUNK, is_assignment_open
+from services.class_assignment_service import (
+    _ID_CHUNK,
+    is_assignment_open,
+    reconcile_test_attempts,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +98,7 @@ def _decorate(item: Dict[str, Any], assignment: Dict[str, Any], now: datetime) -
     }
 
 
-def _visible_assignments(student: Dict[str, Any], now: datetime) -> list:
+def _visible_assignments(student: Dict[str, Any], now: datetime) -> tuple[list, bool]:
     """This student's assignments — outstanding in full, history capped.
 
     Shared by /my-assignments and /me so the two can never disagree about what
@@ -120,7 +125,7 @@ def _visible_assignments(student: Dict[str, Any], now: datetime) -> list:
 
     items = outstanding + history
     if not items:
-        return []
+        return [], False
 
     a_ids = list({i["assignment_id"] for i in items})
     by_id: Dict[str, Dict[str, Any]] = {}
@@ -141,6 +146,23 @@ def _visible_assignments(student: Dict[str, Any], now: datetime) -> list:
             if is_assignment_open(a, now=now):
                 by_id[a["id"]] = a
 
+    # Record any Reading/Listening hand-in before deciding what this student
+    # still owes: their test submission does not touch the class ledger, so
+    # without this they would see work they have already done sitting under
+    # "Cần nộp".
+    #
+    # Showing the list anyway when the repair fails is right — a broken repair
+    # must not blank the page. Showing it WITHOUT SAYING SO is not: the one
+    # thing that can go wrong here is a finished task still listed as owed, and
+    # a student who trusts that list retakes work they have already handed in.
+    stale = False
+    try:
+        reconcile_test_attempts(supabase_admin, list(by_id.values()))
+        items = _reread_items(student["id"], [i["id"] for i in items]) or items
+    except Exception as exc:
+        stale = True
+        logger.warning("[class] test reconcile skipped: %s", exc)
+
     out = [_decorate(i, by_id[i["assignment_id"]], now)
            for i in items if i["assignment_id"] in by_id]
     # Nearest deadline FIRST — this is a to-do list, so what is due today has to
@@ -148,7 +170,7 @@ def _visible_assignments(student: Dict[str, Any], now: datetime) -> list:
     # via its own key rather than by abusing the empty string.
     out.sort(key=lambda r: (r["assignment"]["due_at"] is None,
                             r["assignment"]["due_at"] or ""))
-    return out
+    return out, stale
 
 
 @router.get("/my-assignments")
@@ -168,7 +190,11 @@ async def my_assignments(authorization: str | None = Header(default=None)):
 
     now = datetime.now(timezone.utc)
     try:
-        return {"has_class": True, "assignments": _visible_assignments(student, now)}
+        rows, stale = _visible_assignments(student, now)
+        out: Dict[str, Any] = {"has_class": True, "assignments": rows}
+        if stale:
+            out["homework_stale"] = True
+        return out
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi tải bài tập: {exc}")
 
@@ -216,7 +242,8 @@ async def start_assignment(
     if assignment.get("cohort_id") != student.get("cohort_id"):
         raise HTTPException(404, "Bài tập không thuộc lớp hiện tại của bạn")
 
-    if assignment.get("skill") != "speaking":
+    skill = assignment.get("skill")
+    if skill not in ("speaking", "reading", "listening"):
         raise HTTPException(400, "Bài tập này chưa hỗ trợ mở trực tiếp.")
 
     if item.get("state") == "assigned":
@@ -230,15 +257,80 @@ async def start_assignment(
             logger.warning("[class] could not mark item opened item=%s: %s", item_id, exc)
 
     cfg = assignment.get("content_config") or {}
+
+    if skill == "speaking":
+        # The client posts these to /sessions — which owns quota, the daily cap
+        # and permissions — then lands on the practice page by session_id.
+        return {
+            "item_id":       item_id,
+            "assignment_id": assignment["id"],
+            "skill":         skill,
+            "session_params": {
+                "mode":  cfg.get("mode") or "practice",
+                "part":  cfg.get("part") or 1,
+                "topic": cfg.get("topic") or "",
+                "class_assignment_item_id": item_id,
+            },
+        }
+
+    # Reading/Listening open their existing test pages directly. No attempt is
+    # created here — those pages own their own attempt lifecycle, and a parallel
+    # "start" path would mean two places deciding when an attempt begins.
+    #
+    # `class_item` is what ties the two together. The page passes it back when
+    # it creates the attempt, so the attempt row records WHICH homework it was
+    # done for. Without it the ledger would have to infer ownership from the
+    # paper and the clock, which cannot be made right: the same paper can be
+    # given twice, given and reopened, or practised freely on the side.
+    test_uuid = assignment.get("content_id")
+    if not test_uuid:
+        raise HTTPException(400, "Bài tập này chưa gắn đề.")
+
+    # The paper was checked when the task was given, but that was days ago: it
+    # can since have been unpublished, reserved for a mock sitting, or had its
+    # audio cleared. Sending the student to a page that answers 404/422 while
+    # the ledger keeps counting the task as owed is the worst of both — say so
+    # here instead.
+    if skill == "listening":
+        rows = (
+            supabase_admin.table("listening_tests")
+            .select("id, status, exam_only, full_audio_storage_path, "
+                    "assembled_audio_storage_path")
+            .eq("id", test_uuid).limit(1).execute().data
+        ) or []
+        if not rows or (rows[0].get("status") or "") != "published":
+            raise HTTPException(409, "Đề nghe của bài tập này hiện không mở được.")
+        if rows[0].get("exam_only"):
+            raise HTTPException(409, "Đề nghe của bài tập này hiện không mở được.")
+        if not (rows[0].get("assembled_audio_storage_path")
+                or rows[0].get("full_audio_storage_path")):
+            raise HTTPException(409, "Đề nghe này chưa có audio sẵn sàng.")
+        # listening-test.html?id= is the row id, the same value the attempt row
+        # carries — one identifier throughout.
+        url = (f"/pages/listening-test.html?id={quote(test_uuid)}"
+               f"&class_item={quote(item_id)}")
+    else:
+        # Reading needs BOTH ids and they are different columns. The reader page
+        # resolves ?test_id= against reading_tests.test_id (the public code,
+        # mig 086), while reading_test_attempts.test_id stores the row UUID. The
+        # ledger keeps the UUID because that is what the hand-in is matched on;
+        # the link has to carry the code or the paper opens to a 404.
+        row = (
+            supabase_admin.table("reading_tests").select("test_id, status, exam_only")
+            .eq("id", test_uuid).limit(1).execute().data
+        ) or []
+        code = (row[0].get("test_id") if row else None)
+        if not code:
+            raise HTTPException(404, "Không tìm thấy đề đọc của bài tập này.")
+        if (row[0].get("status") or "") != "published" or row[0].get("exam_only"):
+            raise HTTPException(409, "Đề đọc của bài tập này hiện không mở được.")
+        url = (f"/pages/reading-exam.html?test_id={quote(code)}"
+               f"&class_item={quote(item_id)}")
     return {
-        "item_id":      item_id,
+        "item_id":       item_id,
         "assignment_id": assignment["id"],
-        "session_params": {
-            "mode":  cfg.get("mode") or "practice",
-            "part":  cfg.get("part") or 1,
-            "topic": cfg.get("topic") or "",
-            "class_assignment_item_id": item_id,
-        },
+        "skill":         skill,
+        "open_url":      url,
     }
 
 
@@ -316,7 +408,11 @@ async def my_class(
 
     assignments: list = []
     try:
-        assignments = _visible_assignments(student, now)
+        assignments, homework_stale = _visible_assignments(student, now)
+        if homework_stale:
+            # Same word the admin Progress tab uses for the same condition:
+            # the rows are real, they may just be missing the newest hand-in.
+            degraded.append("homework_stale")
     except Exception as exc:
         logger.warning("[class] assignments read failed: %s", exc)
         degraded.append("assignments")
@@ -377,3 +473,21 @@ def _paged_items_of(table: str, apply_filters) -> list:
         if len(page) < _PAGE:
             return rows
         start += _PAGE
+
+
+def _reread_items(student_id: str, item_ids: list) -> list:
+    """Re-read the student's items after a reconciliation wrote to them.
+
+    Without this the page renders the rows fetched BEFORE the repair, so a
+    hand-in just recorded still shows as outstanding until the next load —
+    which is the very thing the repair exists to prevent.
+    """
+    if not item_ids:
+        return []
+    out: list = []
+    for chunk in (item_ids[i:i + _ID_CHUNK] for i in range(0, len(item_ids), _ID_CHUNK)):
+        out.extend((
+            supabase_admin.table("class_assignment_items").select("*")
+            .eq("student_id", student_id).in_("id", chunk).execute().data
+        ) or [])
+    return out

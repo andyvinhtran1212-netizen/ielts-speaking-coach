@@ -430,3 +430,55 @@ describe('one intended attempt starts exactly one session (Codex round 4)', () =
     assert.match(SRC, /api\.get\('\/api\/class\/me'\)/);
   });
 });
+
+
+// ── "chưa cập nhật" KHÁC "chưa tải được" ─────────────────────────────────
+//
+// A block that failed to load shows nothing and reloading is the fix.
+// `homework_stale` is the opposite: the list IS here and looks complete, but a
+// Reading/Listening hand-in may not be folded in yet — so a task the student
+// already finished can still sit under "Cần nộp". Telling them to reload sends
+// them to retake work they have done.
+
+function loadBanner() {
+  const start = SRC.indexOf('  const degraded = d.degraded || [];');
+  const end = SRC.indexOf("  const assignments = d.assignments || [];");
+  assert.ok(start !== -1 && end > start, 'degraded banner block not found');
+
+  return (degraded) => {
+    const node = { hidden: null, textContent: '' };
+    const $ = () => node;
+    new Function('$', 'd', SRC.slice(start, end))($, { degraded });
+    return node;
+  };
+}
+
+const banner = loadBanner();
+
+describe('class-page banner tells the two failures apart', () => {
+  test('nothing wrong → no banner', () => {
+    assert.equal(banner([]).hidden, true);
+  });
+
+  test('a block that did not load asks for a reload', () => {
+    const n = banner(['lessons']);
+    assert.match(n.textContent, /Chưa tải được buổi học/);
+    assert.match(n.textContent, /Tải lại/);
+  });
+
+  test('a stale ledger says "do not redo it", never "reload"', () => {
+    const n = banner(['homework_stale']);
+    assert.equal(n.hidden, false);
+    assert.match(n.textContent, /không cần làm lại/i);
+    assert.doesNotMatch(n.textContent, /Tải lại/,
+      'reloading does not fold in the hand-in — it just sends them to redo it');
+    assert.doesNotMatch(n.textContent, /homework_stale/,
+      'the raw flag name must not reach the student');
+  });
+
+  test('both at once → both sentences', () => {
+    const n = banner(['lessons', 'homework_stale']);
+    assert.match(n.textContent, /buổi học/);
+    assert.match(n.textContent, /không cần làm lại/i);
+  });
+});
