@@ -1,0 +1,354 @@
+"""Giao bài Speaking lấy từ KHO ĐỀ, hạn nộp tuyệt đối.
+
+Bốn thay đổi hành vi, mỗi cái đóng một lỗ mà bản cũ để mở:
+
+  * **Đề chốt lúc GIAO, không sinh lúc học viên mở.** Trước đây câu hỏi được
+    sinh khi học viên vào làm, nên hai em cùng một bài giao có thể trả lời hai
+    bộ câu khác nhau và giáo viên không biết mình đã giao cái gì — câu hỏi "em
+    ấy có làm đúng bài được giao không?" không có câu trả lời.
+
+  * **Part 1/Part 3 giao bằng AUDIO, giấu chữ.** Câu chưa có bản đọc thì không
+    giao được: học viên sẽ mở ra một bài không có gì để nghe và không có cách
+    nào biết đề hỏi gì.
+
+  * **Không giao trùng đề trong cùng lớp.** Giao lại nghĩa là bắt học viên trả
+    lời lại đúng câu đã làm.
+
+  * **Hạn nộp là tuyệt đối.** Quá hạn thì không nhận nữa — đó là thứ khiến bảng
+    tổng kết đứng yên ngay khi hết hạn, thay vì còn đổi hàng giờ sau đó.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime, time, timedelta, timezone
+from unittest.mock import AsyncMock, patch
+
+import pytest
+
+from routers import admin_class_assignments as mod
+from services.class_assignment_service import (
+    CLASS_TZ,
+    DEFAULT_DUE_TIME,
+    compose_due_at,
+    is_accepting_submissions,
+    is_assignment_open,
+    parse_due_time,
+)
+
+
+class _Resp:
+    def __init__(self, data): self.data = data
+
+
+class _Table:
+    def __init__(self, rows):
+        self._rows = list(rows)
+
+    def select(self, *_a, **_k): return self
+    def eq(self, f, v):
+        self._rows = [r for r in self._rows if str(r.get(f)) == str(v)]
+        return self
+    def order(self, *_a, **_k): return self
+    def limit(self, *_a): return self
+    def execute(self): return _Resp(self._rows)
+
+
+def _q(qid, part, *, audio=True, order=0):
+    return {"id": qid, "topic_id": "top-1", "is_active": True,
+            "part": part, "order_num": order,
+            "question_text": f"Câu {qid}",
+            "audio_url": f"https://cdn/{qid}.mp3" if audio else None,
+            "cue_card_bullets": None, "cue_card_reflection": None}
+
+
+def _db(*, topic=None, questions=(), dupes=()):
+    tables = {
+        "topics": [topic] if topic else [],
+        "topic_questions": list(questions),
+        "class_assignments": list(dupes),
+    }
+    db = type("DB", (), {})()
+    db.table = lambda n: _Table(tables.get(n, []))
+    return db
+
+
+_TOPIC = {"id": "top-1", "title": "Hometown", "part": 1, "is_active": True}
+
+
+def _body(**over):
+    kw = {"title": "Bài hôm nay", "topic": "Hometown", "content_id": "top-1",
+          "part": 1, "mode": "practice"}
+    kw.update(over)
+    return mod.AssignmentCreate(**kw)
+
+
+def _resolve(db, **over):
+    with patch.object(mod, "supabase_admin", db):
+        return mod._resolve_speaking_topic("co-1", _body(**over))
+
+
+# ── chốt sẵn câu hỏi lúc giao ───────────────────────────────────────────
+
+
+def test_part_1_pins_exactly_two_questions():
+    """Đúng nhịp phòng thi: Part 1 là màn khởi động ngắn, không phải sáu câu."""
+    db = _db(topic=_TOPIC, questions=[_q(f"q{i}", 1, order=i) for i in range(6)])
+    _cid, cfg = _resolve(db)
+    assert cfg["question_ids"] == ["q0", "q1"]
+
+
+def test_part_3_pins_exactly_one_question():
+    """Part 3 là MỘT câu bàn sâu."""
+    t3 = dict(_TOPIC, part=3)
+    db = _db(topic=t3, questions=[_q(f"q{i}", 3, order=i) for i in range(4)])
+    _cid, cfg = _resolve(db, part=3)
+    assert cfg["question_ids"] == ["q0"]
+
+
+def test_part_2_pins_one_cue_card():
+    db = _db(topic=dict(_TOPIC, part=2), questions=[_q("c1", 2)])
+    _cid, cfg = _resolve(db, part=2)
+    assert cfg["question_ids"] == ["c1"]
+
+
+def test_the_ids_are_stored_so_editing_the_bank_cannot_change_homework():
+    """Chốt id chứ không tra lại lúc mở: sửa kho đề sau đó không được làm đổi
+    bài đã phát cho học viên."""
+    db = _db(topic=_TOPIC, questions=[_q("q0", 1), _q("q1", 1, order=1)])
+    _cid, cfg = _resolve(db)
+    assert set(cfg["question_ids"]) == {"q0", "q1"}
+    assert cfg["topic"] == "Hometown"        # nhãn hiển thị
+    assert cfg["part"] == 1
+
+
+def test_a_topic_without_enough_questions_is_refused():
+    db = _db(topic=_TOPIC, questions=[_q("q0", 1)])       # cần 2, chỉ có 1
+    with pytest.raises(Exception) as exc:
+        _resolve(db)
+    assert getattr(exc.value, "status_code", None) == 400
+    assert "cần 2" in str(getattr(exc.value, "detail", ""))
+
+
+def test_an_unknown_topic_is_a_404():
+    with pytest.raises(Exception) as exc:
+        _resolve(_db(topic=None))
+    assert getattr(exc.value, "status_code", None) == 404
+
+
+def test_a_disabled_topic_is_refused():
+    db = _db(topic=dict(_TOPIC, is_active=False), questions=[_q("q0", 1), _q("q1", 1)])
+    with pytest.raises(Exception) as exc:
+        _resolve(db)
+    assert getattr(exc.value, "status_code", None) == 400
+
+
+# ── Part 1/3 KHÔNG giao được nếu chưa có bản đọc đề ─────────────────────
+
+
+@pytest.mark.parametrize("part,want", [(1, 2), (3, 1)])
+def test_a_question_without_audio_cannot_be_given(part, want):
+    """Học viên sẽ mở ra một bài không có gì để nghe, và vì chữ bị giấu nên
+    không có cách nào biết đề hỏi gì."""
+    qs = [_q(f"q{i}", part, order=i, audio=(i != 0)) for i in range(3)]
+    db = _db(topic=dict(_TOPIC, part=part), questions=qs)
+    with pytest.raises(Exception) as exc:
+        _resolve(db, part=part)
+    assert getattr(exc.value, "status_code", None) == 400
+    assert "audio" in str(getattr(exc.value, "detail", "")).lower()
+
+
+def test_part_2_does_not_need_audio():
+    """Part 2 hiện cue card — đọc bằng mắt là đúng cách của phần thi này."""
+    db = _db(topic=dict(_TOPIC, part=2), questions=[_q("c1", 2, audio=False)])
+    _cid, cfg = _resolve(db, part=2)
+    assert cfg["question_ids"] == ["c1"]
+
+
+# ── không giao trùng đề trong cùng lớp ──────────────────────────────────
+
+
+def test_the_same_topic_cannot_be_given_to_one_class_twice():
+    db = _db(topic=_TOPIC, questions=[_q("q0", 1), _q("q1", 1, order=1)],
+             dupes=[{"id": "asg-old", "cohort_id": "co-1", "skill": "speaking",
+                     "content_id": "top-1", "title": "Bài tuần trước"}])
+    with pytest.raises(Exception) as exc:
+        _resolve(db)
+    assert getattr(exc.value, "status_code", None) == 409
+    detail = str(getattr(exc.value, "detail", ""))
+    assert "Hometown" in detail and "Bài tuần trước" in detail, (
+        "admin phải biết ĐỀ NÀO và BÀI GIAO NÀO đã dùng nó, không chỉ 'trùng'"
+    )
+
+
+def test_the_same_topic_in_a_DIFFERENT_class_is_fine():
+    db = _db(topic=_TOPIC, questions=[_q("q0", 1), _q("q1", 1, order=1)],
+             dupes=[{"id": "asg-old", "cohort_id": "co-KHAC", "skill": "speaking",
+                     "content_id": "top-1", "title": "x"}])
+    _cid, cfg = _resolve(db)
+    assert cfg["question_ids"] == ["q0", "q1"]
+
+
+# ── giờ hạn admin đặt được ──────────────────────────────────────────────
+
+
+def test_the_deadline_hour_defaults_to_seven_in_the_evening():
+    assert parse_due_time(None) == DEFAULT_DUE_TIME == time(19, 0)
+
+
+def test_an_admin_can_move_the_deadline_hour():
+    """Lớp học buổi tối cần hạn khác lớp học buổi sáng; cho tới nay giờ này bị
+    đóng cứng trong backend nên không lớp nào đổi được."""
+    assert parse_due_time("21:30") == time(21, 30)
+    assert compose_due_at("2026-08-10", parse_due_time("21:30")) == \
+        datetime(2026, 8, 10, 21, 30, tzinfo=CLASS_TZ).isoformat()
+
+
+def test_a_malformed_hour_is_refused_not_silently_defaulted():
+    """Rơi về 19:00 sẽ đặt một hạn mà admin không hề chọn, và họ chỉ phát hiện
+    khi học viên bị chặn nộp."""
+    for bad in ("25:00", "abc", "7pm", "19"):
+        with pytest.raises(ValueError):
+            parse_due_time(bad)
+
+
+# ── hạn nộp TUYỆT ĐỐI ───────────────────────────────────────────────────
+
+
+def _asg(**over):
+    a = {"id": "a1", "status": "published", "publish_at": None,
+         "due_at": "2026-08-10T19:00:00+07:00"}
+    a.update(over)
+    return a
+
+
+_BEFORE = datetime(2026, 8, 10, 11, 0, tzinfo=timezone.utc)   # 18:00 giờ VN
+_AFTER = datetime(2026, 8, 10, 13, 0, tzinfo=timezone.utc)    # 20:00 giờ VN
+
+
+def test_before_the_deadline_submissions_are_accepted():
+    assert is_accepting_submissions(_asg(), now=_BEFORE) is True
+
+
+def test_after_the_deadline_submissions_are_refused():
+    assert is_accepting_submissions(_asg(), now=_AFTER) is False
+
+
+def test_the_task_is_still_VISIBLE_after_the_deadline():
+    """Chốt tách khỏi is_assignment_open có chủ ý: bài quá hạn phải CÒN trên
+    danh sách, ghi là bỏ lỡ. Gộp hai thứ sẽ làm bài hôm qua biến mất, đọc ra
+    thành 'em chưa từng có bài đó' thay vì 'em đã bỏ lỡ'."""
+    assert is_assignment_open(_asg(), now=_AFTER) is True
+
+
+def test_a_give_with_no_deadline_never_lapses():
+    assert is_accepting_submissions(_asg(due_at=None), now=_AFTER) is True
+
+
+def test_an_unreadable_deadline_closes_rather_than_opens():
+    """Rơi về 'không có hạn' sẽ lặng lẽ mở lại đúng cái cửa sổ chốt này sinh ra
+    để đóng."""
+    assert is_accepting_submissions(_asg(due_at="hôm nào đó"), now=_BEFORE) is False
+
+
+def test_an_archived_give_is_refused_whatever_the_clock_says():
+    assert is_accepting_submissions(_asg(status="archived"), now=_BEFORE) is False
+
+
+def test_the_boundary_second_still_counts():
+    """Đúng 19:00:00 vẫn nhận — hạn là 'đến 19:00', không phải 'trước 19:00'."""
+    at = datetime(2026, 8, 10, 12, 0, tzinfo=timezone.utc)    # 19:00 giờ VN chằn
+    assert is_accepting_submissions(_asg(), now=at) is True
+    assert is_accepting_submissions(
+        _asg(), now=at + timedelta(seconds=1)) is False
+
+
+# ── dây nối: chốt phải được GỌI ở đúng chỗ, không chỉ tồn tại ───────────
+
+
+@pytest.mark.asyncio
+async def test_start_refuses_a_lapsed_task_with_409_not_404():
+    """409, không phải 404: bài tập có thật và là của em ấy — nó chỉ hết hạn.
+    Nói "không tìm thấy" trong khi em đang nhìn thẳng vào nó trên danh sách thì
+    đọc ra như một lỗi phần mềm."""
+    from routers import class_student as cs
+
+    lapsed = _asg(due_at="2020-01-01T19:00:00+07:00")
+
+    class _T:
+        def __init__(self, rows): self._rows = list(rows)
+        def select(self, *_a, **_k): return self
+        def eq(self, f, v):
+            self._rows = [r for r in self._rows if str(r.get(f)) == str(v)]
+            return self
+        def limit(self, *_a): return self
+        def update(self, _p): return self
+        def execute(self): return _Resp(self._rows)
+
+    tables = {
+        "class_assignment_items": [{"id": "item-1", "student_id": "s1",
+                                    "assignment_id": "a1", "state": "assigned"}],
+        "class_assignments": [dict(lapsed, cohort_id="c1", skill="speaking",
+                                   content_config={})],
+    }
+    db = type("DB", (), {})()
+    db.table = lambda n: _T(tables.get(n, []))
+
+    with patch.object(cs, "get_supabase_user", AsyncMock(return_value={"id": "u1"})), \
+         patch.object(cs, "_student_for_user",
+                      return_value={"id": "s1", "cohort_id": "c1"}), \
+         patch.object(cs, "supabase_admin", db):
+        with pytest.raises(Exception) as exc:
+            await cs.start_assignment("item-1", None)
+
+    assert getattr(exc.value, "status_code", None) == 409
+    assert "quá hạn" in str(getattr(exc.value, "detail", "")).lower()
+
+
+def test_a_speaking_hand_in_after_the_deadline_is_not_credited():
+    """Phiên vẫn hoàn tất và vẫn được chấm — em ấy giữ bài luyện và nhận xét.
+    Thứ bị từ chối là GHI NÓ vào sổ như bài nộp của lớp.
+
+    Chốt lúc bắt đầu không tự nó đủ: không ai biết trước một câu trả lời mất bao
+    lâu, nên phiên mở lúc 18:58 có thể kết thúc lúc 19:02."""
+    from routers import sessions as sm
+
+    lapsed = _asg(due_at="2020-01-01T19:00:00+07:00")
+
+    class _T:
+        def __init__(self, rows): self._rows = list(rows)
+        def select(self, *_a, **_k): return self
+        def eq(self, *_a): return self
+        def limit(self, *_a): return self
+        def execute(self): return _Resp(self._rows)
+
+    db = type("DB", (), {})()
+    db.table = lambda _n: _T([lapsed])
+    wrote = []
+
+    with patch.object(sm, "supabase_admin", db), \
+         patch.object(sm, "mark_item_submitted",
+                      lambda *a, **k: wrote.append(k) or True):
+        out = sm._record_class_submission(
+            {"id": "sess-1", "class_assignment_item_id": "item-1",
+             "completed_at": "2026-08-03T11:00:00+00:00"})
+
+    assert out is False
+    assert wrote == [], "không được ghi vào sổ cái sau hạn"
+
+
+def test_a_lookup_failure_does_not_refuse_a_real_hand_in():
+    """Fail OPEN ở đây: từ chối MỌI bài nộp vì một truy vấn trục trặc là làm mất
+    công thật, còn một bài lỡ nhận thì hiện ra là nộp trễ chứ không biến mất."""
+    from routers import sessions as sm
+
+    class _Boom:
+        def table(self, _n): raise RuntimeError("boom")
+
+    wrote = []
+    with patch.object(sm, "supabase_admin", _Boom()), \
+         patch.object(sm, "mark_item_submitted",
+                      lambda *a, **k: wrote.append(k) or True):
+        out = sm._record_class_submission(
+            {"id": "sess-1", "class_assignment_item_id": "item-1"})
+
+    assert out is True and len(wrote) == 1

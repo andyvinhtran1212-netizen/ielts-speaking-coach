@@ -30,6 +30,7 @@ from routers.admin import require_admin
 from services.class_assignment_service import (
     EmptyRosterError,
     create_class_assignment,
+    parse_due_time,
     progress_for_assignments,
     reconcile_ledger_from_sessions,
     reconcile_test_attempts,
@@ -71,21 +72,29 @@ class AssignmentCreate(BaseModel):
     """
     skill:        Literal["speaking", "reading", "listening"] = "speaking"
     title:        str = Field(min_length=1, max_length=300)
-    # Speaking only
+    # Speaking: `content_id` is now a TOPIC from the library (mig 002), not a
+    # free-text subject. `topic` survives only as the display label the admin
+    # saw when picking — the questions come from the bank, so what is assigned
+    # is fixed at give time instead of being generated per student later.
     topic:        Optional[str] = Field(default=None, max_length=300)
     mode:         str = "practice"
     part:         int = Field(default=1, ge=1, le=3)
-    # Reading / Listening only — the paper being assigned
+    # The paper (Reading/Listening) or the topic (Speaking) being assigned
     content_id:   Optional[str] = None
-    due_date:     Optional[str] = None      # ISO date; 19:00 giờ VN added server-side
+    due_date:     Optional[str] = None      # ISO date
+    # Giờ hạn, giờ VN. Mặc định 19:00 nhưng admin đổi được — một lớp học buổi
+    # tối cần hạn khác lớp học buổi sáng, và cho tới nay giờ này bị đóng cứng
+    # trong backend nên không lớp nào đổi được.
+    due_time:     Optional[str] = Field(default=None, pattern=r"^\d{2}:\d{2}$")
     instructions: Optional[str] = Field(default=None, max_length=2000)
     lesson_id:    Optional[str] = None
 
     @model_validator(mode="after")
     def _check_shape(self):
         if self.skill == "speaking":
-            if not (self.topic or "").strip():
-                raise ValueError("Bài Speaking cần có chủ đề.")
+            # SHAPE of the task first, then WHICH task. An admin who picked Full
+            # Test needs to hear why that shape is refused — telling them to pick
+            # a topic instead sends them off to fix the wrong thing.
             if self.mode == "test_full":
                 raise ValueError(
                     "Chưa giao được Full Test cho lớp: một lượt Full Test gồm ba phiên "
@@ -94,6 +103,8 @@ class AssignmentCreate(BaseModel):
                 )
             if self.mode not in _SPEAKING_MODES:
                 raise ValueError(f"mode phải là một trong: {sorted(_SPEAKING_MODES)}")
+            if not (self.content_id or "").strip():
+                raise ValueError("Bài Speaking cần chọn một chủ đề từ kho đề.")
         else:
             if not (self.content_id or "").strip():
                 raise ValueError("Bài Reading/Listening cần chọn một đề.")
@@ -175,6 +186,89 @@ async def list_assignments(
     return result
 
 
+# Part 1 giao 2 câu, Part 3 giao 1 câu, Part 2 là một cue card.
+#
+# Not a style choice — it mirrors the exam. Part 1 is a short warm-up exchange,
+# Part 3 is one discussion question explored in depth, and Part 2 is the long
+# turn off a single card. Assigning six Part-1 questions at once would train a
+# rhythm the test never asks for.
+_QUESTIONS_PER_PART = {1: 2, 2: 1, 3: 1}
+
+
+def _resolve_speaking_topic(cohort_id: str, body: "AssignmentCreate") -> tuple[str, dict]:
+    """Chọn đề Speaking từ kho + chốt sẵn câu hỏi ngay lúc giao.
+
+    Questions are picked HERE, not when the student opens the task. Generating
+    them per student meant two learners on the same give could answer different
+    questions, and the teacher could not see what they had actually set — so
+    "did they do the assigned work?" had no answer.
+
+    Part 1 and Part 3 are handed over as AUDIO with the text hidden, so a
+    question with no rendered audio cannot be given: the student would open a
+    task with nothing to listen to and no way to learn what was asked.
+    """
+    rows = (
+        supabase_admin.table("topics").select("id, title, part, is_active")
+        .eq("id", body.content_id).limit(1).execute().data
+    ) or []
+    if not rows:
+        raise HTTPException(404, "Không tìm thấy chủ đề này trong kho đề.")
+    topic = rows[0]
+    if not topic.get("is_active"):
+        raise HTTPException(400, "Chủ đề này đã tắt — hãy bật lại trước khi giao.")
+
+    # Đã giao chủ đề này cho lớp chưa. There is a unique index behind this
+    # (mig 182) because two admin tabs can pass this check at the same moment;
+    # the check exists so the ADMIN gets a sentence instead of a 23505.
+    dup = (
+        supabase_admin.table("class_assignments").select("id, title, created_at")
+        .eq("cohort_id", cohort_id).eq("skill", "speaking")
+        .eq("content_id", body.content_id).limit(1).execute().data
+    ) or []
+    if dup:
+        raise HTTPException(
+            409,
+            f"Lớp này đã được giao chủ đề \"{topic['title']}\" rồi "
+            f"(bài giao \"{dup[0].get('title')}\"). Chọn chủ đề khác để học viên "
+            f"không phải trả lời lại đúng câu đã làm.",
+        )
+
+    want = _QUESTIONS_PER_PART.get(body.part, 1)
+    qs = (
+        supabase_admin.table("topic_questions")
+        .select("id, part, order_num, question_text, audio_url, "
+                "cue_card_bullets, cue_card_reflection")
+        .eq("topic_id", body.content_id).eq("part", body.part)
+        .eq("is_active", True).order("order_num").execute().data
+    ) or []
+    if len(qs) < want:
+        raise HTTPException(
+            400,
+            f"Chủ đề này chỉ có {len(qs)} câu Part {body.part}, cần {want}.",
+        )
+
+    if body.part in (1, 3):
+        missing = [q for q in qs[:want] if not (q.get("audio_url") or "").strip()]
+        if missing:
+            raise HTTPException(
+                400,
+                f"Part {body.part} giao bằng audio (học viên không được xem chữ), "
+                f"nhưng {len(missing)} câu của chủ đề này chưa có bản đọc đề. "
+                f"Hãy tạo audio trước khi giao.",
+            )
+
+    chosen = qs[:want]
+    return body.content_id, {
+        "topic":        topic["title"],          # nhãn hiển thị, nguồn thật là content_id
+        "mode":         body.mode,
+        "part":         body.part,
+        # Chốt sẵn ĐÚNG những câu này. Storing the ids rather than re-querying at
+        # open time is what makes the give reproducible: editing the bank later
+        # cannot silently change homework already handed out.
+        "question_ids": [q["id"] for q in chosen],
+    }
+
+
 @router.post("/{cohort_id}/assignments", status_code=status.HTTP_201_CREATED)
 async def create_assignment(
     cohort_id: str,
@@ -192,7 +286,7 @@ async def create_assignment(
 
     content_id = None
     if body.skill == "speaking":
-        content_config = {"topic": body.topic, "mode": body.mode, "part": body.part}
+        content_id, content_config = _resolve_speaking_topic(cohort_id, body)
     else:
         # The paper must exist and be published before it is given: assigning an
         # unpublished or deleted test hands students a task that opens to an
@@ -243,6 +337,7 @@ async def create_assignment(
             content_id=content_id,
             content_config=content_config,
             due_date=body.due_date,
+            due_time=parse_due_time(body.due_time),
             instructions=body.instructions,
         )
     except EmptyRosterError as exc:

@@ -65,13 +65,30 @@ _PAGE = 1000   # PostgREST's implicit ceiling — see services/class_service.py
 _ID_CHUNK = 100
 
 
+def parse_due_time(raw: Optional[str]) -> time:
+    """"HH:MM" → time, hoặc 19:00 khi không truyền.
+
+    Every centre used to get 19:00 because the hour was compiled in; an evening
+    class and a morning class need different ones. Parsed here, not in the
+    browser: the browser cannot be trusted with the hour any more than with the
+    timezone — see compose_due_at.
+    """
+    if not raw:
+        return DEFAULT_DUE_TIME
+    try:
+        hh, mm = raw.split(":")
+        return time(int(hh), int(mm))
+    except (ValueError, AttributeError) as exc:
+        raise ValueError(f"Giờ hạn không hợp lệ: {raw!r} (cần dạng HH:MM)") from exc
+
+
 def compose_due_at(due_date: Optional[str | date], due_time: time = DEFAULT_DUE_TIME) -> Optional[str]:
-    """`due_date` + 19:00 giờ Việt Nam → an aware ISO-8601 string.
+    """`due_date` + giờ hạn (giờ Việt Nam) → an aware ISO-8601 string.
 
     Returns None for a missing date: an assignment with no deadline is legal and
     is never late and never missed.
 
-    The admin picks a DATE; the time is the centre's rule. Doing this here rather
+    The admin picks the DATE and the TIME; composing them here rather
     than in SQL or in the browser keeps one definition of "7h tối" — the browser
     especially cannot be trusted for it, since an admin travelling abroad would
     otherwise set the deadline in their own timezone.
@@ -140,6 +157,7 @@ def create_class_assignment(
     content_id: Optional[str] = None,
     content_config: Optional[Dict[str, Any]] = None,
     due_date: Optional[str] = None,
+    due_time: Optional[time] = None,
     instructions: Optional[str] = None,
     status: str = "published",
     publish_at: Optional[str] = None,
@@ -164,7 +182,7 @@ def create_class_assignment(
             "p_content_config": content_config or {},
             "p_content_id":     content_id,
             "p_instructions":   instructions,
-            "p_due_at":         compose_due_at(due_date),
+            "p_due_at":         compose_due_at(due_date, due_time or DEFAULT_DUE_TIME),
             "p_publish_at":     publish_at,
             "p_status":         status,
             "p_assigned_by":    assigned_by,
@@ -331,6 +349,45 @@ def is_assignment_open(assignment: Dict[str, Any], *, now: Optional[datetime] = 
     return datetime.fromisoformat(publish_at) <= (now or datetime.now(timezone.utc))
 
 
+class DeadlinePassedError(Exception):
+    """Hạn nộp đã qua — không nhận bài nữa."""
+
+
+def is_accepting_submissions(assignment: Dict[str, Any], *,
+                             now: Optional[datetime] = None) -> bool:
+    """Còn nhận bài không: đã mở, VÀ chưa quá hạn.
+
+    Deliberately NOT folded into `is_assignment_open`. That one also decides what
+    the student SEES, and a task must stay on their list after the deadline —
+    reported as missed. Merging the two would make yesterday's homework silently
+    disappear, which reads as "I never had that" rather than "I missed it".
+
+    The cutoff is absolute, at the admin's chosen time: a hand-in recorded after
+    `due_at` is refused, not accepted-and-flagged. That is what lets the summary
+    table be final the moment the deadline passes — with the old
+    accepted-but-late behaviour it could still change hours afterwards.
+
+    Trade-off, stated plainly: a student who starts at 18:58 and finishes at
+    19:02 is refused. Blocking only at start cannot prevent that, because nobody
+    knows in advance how long an answer will take; accepting it would mean the
+    summary is not actually final. The page therefore shows a live countdown and
+    stops offering the task well before it lapses.
+    """
+    if not is_assignment_open(assignment, now=now):
+        return False
+    due_at = assignment.get("due_at")
+    if not due_at:
+        return True          # no deadline set — nothing to miss
+    parsed = _at(due_at)
+    if parsed is None:
+        # An unreadable deadline must not silently become "no deadline": that
+        # would quietly reopen the very window this gate exists to close.
+        logger.warning("[class] unreadable due_at on assignment=%s",
+                       assignment.get("id"))
+        return False
+    return (now or datetime.now(timezone.utc)) <= parsed
+
+
 def validate_class_item_for_session(
     db,
     user_id: str,
@@ -378,6 +435,12 @@ def validate_class_item_for_session(
 
     if not is_assignment_open(assignment):
         raise TaskMismatchError("Bài tập chưa mở hoặc đã đóng")
+
+    # Hạn nộp là TUYỆT ĐỐI. Checked here, before the work starts, and again when
+    # the hand-in is recorded — because how long an answer takes is not knowable
+    # in advance, and a gate only at the start cannot keep the summary final.
+    if not is_accepting_submissions(assignment):
+        raise DeadlinePassedError("Đã quá hạn nộp — bài tập này không còn nhận bài.")
 
     # Moving a student between classes only rewrites students.cohort_id; the old
     # class's item rows survive. Without this a transferred student could still
@@ -440,6 +503,12 @@ def validate_class_item_for_test(db, user_id: str, item_id: str,
 
     if not is_assignment_open(assignment):
         raise TaskMismatchError("Bài tập chưa mở hoặc đã đóng")
+
+    # Hạn nộp là TUYỆT ĐỐI. Checked here, before the work starts, and again when
+    # the hand-in is recorded — because how long an answer takes is not knowable
+    # in advance, and a gate only at the start cannot keep the summary final.
+    if not is_accepting_submissions(assignment):
+        raise DeadlinePassedError("Đã quá hạn nộp — bài tập này không còn nhận bài.")
 
     # A transferred student keeps their old item rows; the old class's homework
     # is not theirs to hand in any more.

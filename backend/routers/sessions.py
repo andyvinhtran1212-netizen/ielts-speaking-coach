@@ -16,6 +16,7 @@ from services.class_assignment_service import (
     ItemNotFoundError,
     TaskMismatchError,
     attach_session_to_class_item,
+    is_accepting_submissions,
     mark_item_submitted,
     sync_class_item_score,
     validate_class_item_for_session,
@@ -1309,6 +1310,30 @@ def _record_class_submission(session: dict) -> bool:
     item_id = session.get("class_assignment_item_id")
     if not item_id:
         return False
+
+    # HẠN NỘP TUYỆT ĐỐI. The start gate cannot cover this on its own: nobody
+    # knows in advance how long an answer will take, so a session begun at 18:58
+    # can finish at 19:02. Recording it would mean the summary table keeps
+    # changing after the deadline it is supposed to close.
+    #
+    # The session itself still completes and is still graded — the student keeps
+    # their practice and their feedback. What is refused is CREDITING it as the
+    # class hand-in.
+    try:
+        a_rows = (
+            supabase_admin.table("class_assignments")
+            .select("*, class_assignment_items!inner(id)")
+            .eq("class_assignment_items.id", item_id)
+            .limit(1).execute().data
+        ) or []
+        if a_rows and not is_accepting_submissions(a_rows[0]):
+            logger.info("[class] hand-in refused, deadline passed item=%s", item_id)
+            return False
+    except Exception as exc:
+        # Fail OPEN on a lookup error: refusing every hand-in because one query
+        # hiccuped would lose real work, and a hand-in wrongly accepted shows up
+        # as late in the summary rather than vanishing.
+        logger.warning("[class] deadline check failed item=%s: %s", item_id, exc)
     # The session's own completion time, not "now": on the retry path this runs
     # long after the fact, and stamping the repair time would report work
     # finished before the deadline as late.

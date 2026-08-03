@@ -31,6 +31,7 @@ from database import supabase_admin
 from routers.auth import get_supabase_user
 from services.class_assignment_service import (
     _ID_CHUNK,
+    is_accepting_submissions,
     is_assignment_open,
     reconcile_test_attempts,
 )
@@ -236,6 +237,11 @@ async def start_assignment(
     if not a_rows or not is_assignment_open(a_rows[0]):
         raise HTTPException(404, "Bài tập không còn mở")
     assignment = a_rows[0]
+
+    # 409, not 404: the task exists and is theirs — it simply lapsed. Saying "not
+    # found" would read as a bug to a student looking straight at it on the list.
+    if not is_accepting_submissions(assignment):
+        raise HTTPException(409, "Đã quá hạn nộp — bài tập này không còn nhận bài.")
 
     # Same cohort check as the list: a transferred student must not be able to
     # start their previous class's work just because the item row survived.
