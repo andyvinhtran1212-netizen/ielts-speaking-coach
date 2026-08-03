@@ -241,9 +241,31 @@ describe('workflow chọn đúng chế độ theo cron (review #910)', () => {
       'huỷ giữa chừng phiên dài là mất vế token refresh');
   });
 
-  test('cron chưa bật, và ghi rõ điều kiện bật', () => {
-    assert.match(WF_RAW, /# *schedule:/, 'cron phải còn chú thích cho tới khi có secret');
-    assert.ok(!/^\s*schedule:/m.test(WF), 'schedule chưa được bật');
+  test('verdict CHƯA ĐẠT không được đánh đỏ nhịp tick', () => {
+    // Đo thật ở lần chạy tay đầu tiên: probe OK (200/200) nhưng job vẫn đỏ vì
+    // `n=1 < 72`. Bật cron với cấu hình đó = ~72 job đỏ/ngày trong ngày đầu,
+    // và một cổng bị phớt lờ thì không còn là cổng.
+    const step = (/- name: Chấm sàn[\s\S]*$/.exec(WF) || [''])[0];
+    assert.ok(step, 'phải có bước chấm sàn');
+    assert.match(step, /if \[ "\$PROBE_MODE" = "verdict" \]/,
+      'chỉ chế độ verdict mới được đánh đỏ job');
+    assert.ok(!/run: node tooling\/authed-probe\.mjs --mode verdict\s*$/m.test(step),
+      'gọi trần = mã thoát của verdict đánh đỏ mọi nhịp tick');
+  });
+
+  test('cron ĐÃ bật, đúng hai lịch của sàn ADR-013-A1', () => {
+    assert.match(WF, /^\s*schedule:/m, 'schedule phải đang hoạt động');
+    // Nhịp 20 phút là ĐIỀU KIỆN của sàn (n≥72 · trải ≥24h · nhịp ≤20 phút),
+    // không phải lựa chọn tuỳ ý: 72 × 20 phút = đúng 24h.
+    // 15 phút chứ KHÔNG 20: xem test mô phỏng độ trễ bên dưới.
+    assert.match(WF, /cron: "\*\/15 \* \* \* \*"/);
+    assert.ok(!/cron: "\*\/20 \* \* \* \*"/.test(WF),
+      'cron đúng bằng sàn 20 phút = một lần trễ là mất sạch lịch sử');
+    // Và lịch phiên dài phải khớp CHÍNH chuỗi mà PROBE_MODE dò để chọn
+    // `session`; lệch một ký tự là cron đó âm thầm chạy `tick`.
+    assert.match(WF, /cron: "17 3 \* \* \*"/);
+    assert.match(PROBE_MODE_BLOCK, /'17 3 \* \* \*'/,
+      'chuỗi cron phiên-dài phải khớp giữa `schedule` và `PROBE_MODE`');
     assert.match(WF, /PROBE_EMAIL/);
   });
 });
@@ -368,5 +390,44 @@ describe('sổ tách theo chế độ rồi gộp (review #911)', () => {
     // Và verdict phải khôi phục CẢ HAI sổ, nếu không nó chấm trên nửa bằng chứng.
     assert.match(WF, /restore-keys:[\s\S]*g2-ledger-tick-/);
     assert.match(WF, /restore-keys:[\s\S]*g2-ledger-session-/);
+  });
+});
+
+describe('lịch cron phải CHẶT HƠN sàn (review #913)', () => {
+  const T0b = 1_785_000_000_000;
+  const MINb = 60_000;
+  // Độ trễ tất định, lặp lại được — không dùng Math.random để test khỏi chớp.
+  const JITTER = [0, 3, 1, 4, 2];
+  const runsOverDay = (stepMin, hours = 26) => {
+    const n = Math.floor((hours * 60) / stepMin);
+    return Array.from({ length: n }, (_, k) => ({
+      at: T0b + (k * stepMin + JITTER[k % JITTER.length]) * MINb, ok: true,
+    }));
+  };
+  const judgeRuns = (rows) =>
+    evaluateG2(rows, { now: rows[rows.length - 1].at + MINb });
+
+  test('cron 20 phút + trễ ≤4 phút ⇒ KHÔNG BAO GIỜ đạt', () => {
+    // Cron GitHub Actions trễ vài phút là bình thường, và mốc mẫu tính SAU khi
+    // runner khởi động + đăng nhập + gọi HTTP. Đặt lịch đúng bằng sàn là sát
+    // mép: một lần trễ ⇒ khe hở >20 phút ⇒ trailingRun cắt sạch lịch sử.
+    const r = judgeRuns(runsOverDay(20));
+    assert.equal(r.pass, false);
+    assert.ok(r.stats.n < 10,
+      `dãy liên tục sụp còn ${r.stats.n} mẫu dù đã chạy 26 giờ`);
+  });
+
+  test('cron 15 phút + cùng độ trễ ⇒ ĐẠT', () => {
+    const r = judgeRuns(runsOverDay(15));
+    assert.equal(r.pass, true, formatG2(r));
+    assert.ok(r.stats.n >= 72);
+    assert.ok(r.stats.spanHours >= 24);
+    assert.ok(r.stats.maxGapMinutes <= 20);
+  });
+
+  test('sàn KHÔNG bị nới để chiều lịch', () => {
+    // Cách sửa sai là hạ sàn xuống 25 phút cho "hết đỏ". Sàn giữ nguyên 20;
+    // chỉ lịch chặt lại. Test này chặn đúng đường đó.
+    assert.equal(G2_FLOOR.maxGapMs, 20 * 60 * 1000);
   });
 });
