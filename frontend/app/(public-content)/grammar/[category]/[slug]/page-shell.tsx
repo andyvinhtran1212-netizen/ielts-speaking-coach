@@ -72,7 +72,10 @@ function updatingBadge(): string {
 }
 
 function renderBreadcrumb(category: string, title: string): string {
-  const categoryUrl = `/grammar.html?category=${encodeURIComponent(category)}`;
+  // [cutover /grammar 2026-08-03] Breadcrumb thư mục phải về route canonical.
+  // Bản đầu của cutover sót chỗ này vì nó là template literal có `?category=`
+  // ngay sau tên tệp — bộ chốt lúc đó đòi dấu nháy liền kề nên không thấy.
+  const categoryUrl = `/grammar?category=${encodeURIComponent(category)}`;
   const categoryDisplay = category.replace(/-/g, ' ');
   return (
     `<a href="/grammar" class="hover:text-teal-light transition-colors">Grammar Wiki</a>` +
