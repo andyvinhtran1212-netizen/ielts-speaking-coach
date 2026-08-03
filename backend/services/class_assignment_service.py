@@ -433,6 +433,29 @@ def _at(value: Optional[str]) -> Optional[datetime]:
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
+def _attempts_from(assignment: Dict[str, Any]) -> Optional[datetime]:
+    """From when a Reading/Listening attempt counts as this give's hand-in.
+
+    `attempts_from` (mig 182) is the stored answer, and the only one that
+    survives an archive-then-republish: the paper stays open in the library
+    while the give is closed, so practice done in that window must not be
+    credited when it reopens.
+
+    The fallback is the pre-182 formula, for rows written before the column
+    existed. GREATEST rather than created_at because a give scheduled for next
+    Monday exists as rows today, and work done while it was hidden — before
+    anyone was told to do it — is not a hand-in for it.
+    """
+    stored = _at(assignment.get("attempts_from"))
+    if stored:
+        return stored
+    return max(
+        [d for d in (_at(assignment.get("created_at")),
+                     _at(assignment.get("publish_at"))) if d],
+        default=None,
+    )
+
+
 def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
     """Record hand-ins for Reading/Listening assignments from their attempt rows.
 
@@ -477,7 +500,8 @@ def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
                       for i in range(0, len(content_ids), _ID_CHUNK)):
             for sib in _paged(
                 db, "class_assignments",
-                "id, skill, content_id, created_at, status, publish_at, cohort_id",
+                ("id, skill, content_id, created_at, status, publish_at, "
+                 "cohort_id, attempts_from"),
                 lambda q, c=chunk: q.in_("content_id", c),
             ):
                 if (sib["id"] in reserving or sib.get("skill") not in _TEST_ARTIFACTS
@@ -564,11 +588,14 @@ def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
         for lst in by_key.values():
             lst.sort(key=lambda a: a["submitted_at"])
 
-        # Oldest give first, so when the same paper is given twice the first
-        # give gets the first attempt. Ordering by anything else would make
-        # which give is credited depend on row order.
+        # Oldest give first — by WHEN IT STARTED COUNTING, not by when the row
+        # was written. A give created earlier but revealed later would otherwise
+        # take the first attempt from the one that was actually owed first.
+        # Same value as the cutoff below, from one helper, so the two cannot
+        # drift apart.
         rel.sort(key=lambda i: (
-            by_assignment[i["assignment_id"]].get("created_at") or "",
+            (_attempts_from(by_assignment[i["assignment_id"]])
+             or datetime.min.replace(tzinfo=timezone.utc)),
             i["assignment_id"], i["id"],
         ))
         for item in rel:
@@ -588,15 +615,7 @@ def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
             # backdated to whenever they happened to do it — so the teacher sees
             # work handed in before it was set, and the student is never asked
             # to do it.
-            # The LATER of "when it was created" and "when the class could see
-            # it". A give scheduled for next Monday exists as rows today, so
-            # created_at alone lets work done during the hidden window — before
-            # anyone was told to do it — count as the hand-in.
-            since = max(
-                [d for d in (_at(assignment.get("created_at")),
-                             _at(assignment.get("publish_at"))) if d],
-                default=None,
-            )
+            since = _attempts_from(assignment)
             # EARLIEST qualifying attempt: a retake must not overwrite the
             # hand-in that actually met the deadline.
             # Each attempt is ONE hand-in. Give the same paper twice and the

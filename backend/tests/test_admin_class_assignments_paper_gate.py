@@ -206,3 +206,48 @@ async def test_a_failed_pre_delete_repair_does_not_block_the_delete():
         await m.delete_assignment("c1", "asg-1", None)
 
     assert "rpc:fn_delete_class_assignment_if_unsubmitted" in db.calls
+
+
+# ── mở lại bài giao: đẩy mốc, và CHỈ khi mở lại ─────────────────────────
+
+
+class _CaptureTable:
+    def __init__(self, store):
+        self._store = store
+
+    def update(self, patch): self._store.append(dict(patch)); return self
+    def eq(self, *_a): return self
+    def execute(self): return _Resp([{"id": "asg-1"}])
+
+
+async def _patch_status(new_status):
+    from routers import admin_class_assignments as m
+
+    seen: list[dict] = []
+    db = type("DB", (), {})()
+    db.table = lambda _n: _CaptureTable(seen)
+    with patch.object(m, "require_admin", AsyncMock(return_value={"id": "adm"})), \
+         patch.object(m, "supabase_admin", db):
+        await m.update_assignment("c1", "asg-1",
+                                  m.AssignmentPatch(status=new_status), None)
+    return seen[0]
+
+
+@pytest.mark.asyncio
+async def test_republishing_restarts_the_attempt_clock():
+    """The paper stays open in the library while the give is archived. Without
+    moving the cutoff, reopening credits practice done in that window as class
+    homework — a hand-in the teacher sees that never happened."""
+    written = await _patch_status("published")
+    assert written["status"] == "published"
+    assert written.get("attempts_from"), "reopening must advance attempts_from"
+
+
+@pytest.mark.asyncio
+async def test_archiving_leaves_the_clock_alone():
+    """Only reopening changes what counts. Touching it on the way out would move
+    the cutoff for a give that is about to stop receiving anything anyway, and
+    the value would then be wrong if it is ever reopened."""
+    written = await _patch_status("archived")
+    assert written["status"] == "archived"
+    assert "attempts_from" not in written

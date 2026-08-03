@@ -19,6 +19,7 @@ the assignment instead.
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, Header, HTTPException, status
@@ -279,10 +280,20 @@ async def update_assignment(
     """
     await require_admin(authorization)
 
+    # REOPENING RESTARTS THE CLOCK for Reading/Listening. The paper stays open
+    # in the library while the give is archived, so a student can practise it on
+    # their own in that window. Without moving the cutoff, republishing would
+    # credit that practice as class homework — a hand-in the teacher would see
+    # that never happened. Any OTHER edit leaves the column alone: pushing it on
+    # a title change would un-credit real hand-ins.
+    patch: dict[str, Any] = {"status": body.status}
+    if body.status == "published":
+        patch["attempts_from"] = datetime.now(timezone.utc).isoformat()
+
     try:
         r = (
             supabase_admin.table("class_assignments")
-            .update({"status": body.status})
+            .update(patch)
             .eq("id", assignment_id).eq("cohort_id", cohort_id)
             .execute()
         )

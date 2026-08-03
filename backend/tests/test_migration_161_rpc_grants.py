@@ -46,6 +46,7 @@ CASES = [
     # edit could rename the function and silently mint a PUBLIC-executable one,
     # so every file that (re)defines it is pinned here.
     ("181_fn_delete_checks_test_attempts.sql",  "fn_delete_class_assignment_if_unsubmitted"),
+    ("182_class_assignments_attempts_from.sql", "fn_delete_class_assignment_if_unsubmitted"),
 ]
 _ids = [fn for _f, fn in CASES]
 

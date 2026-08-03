@@ -1432,3 +1432,74 @@ def test_the_current_classes_give_still_gets_credited():
             "status": "submitted"}],
     })
     assert reconcile_test_attempts(db, [dict(_GIVE_1, cohort_id="co-1")]) == 1
+
+
+# ── mở lại bài đã lưu trữ: đồng hồ chạy lại ─────────────────────────────
+
+
+def test_practice_done_while_a_give_was_closed_is_not_credited_on_reopen():
+    """The paper stays open in the library while the give is archived, so a
+    student can practise it on their own in that window. Crediting it when the
+    give reopens shows the teacher a hand-in that never happened."""
+    a = _rl_assignment(created_at="2026-08-01T00:00:00+00:00")
+    a["attempts_from"] = "2026-08-20T00:00:00+00:00"     # reopened on the 20th
+    db = _rl_db(attempts=[{
+        "id": "att-DURING-CLOSURE", "user_id": "user-1", "test_id": "test-1",
+        "submitted_at": "2026-08-10T10:00:00+00:00", "band_estimate": 7.0,
+        "status": "submitted",
+    }])
+    assert reconcile_test_attempts(db, [a]) == 0
+
+
+def test_work_after_the_reopen_still_counts():
+    a = _rl_assignment(created_at="2026-08-01T00:00:00+00:00")
+    a["attempts_from"] = "2026-08-20T00:00:00+00:00"
+    db = _rl_db(attempts=[{
+        "id": "att-AFTER", "user_id": "user-1", "test_id": "test-1",
+        "submitted_at": "2026-08-21T10:00:00+00:00", "band_estimate": 6.0,
+        "status": "submitted",
+    }])
+    assert reconcile_test_attempts(db, [a]) == 1
+
+
+def test_a_row_written_before_the_column_existed_falls_back_to_the_old_formula():
+    """Migration 182 backfills, but a read can still race a not-yet-applied
+    migration. Falling back is what keeps that from silently crediting nothing."""
+    a = _rl_assignment(created_at="2026-08-01T00:00:00+00:00")
+    a.pop("attempts_from", None)
+    a["publish_at"] = "2026-08-10T00:00:00+00:00"
+    early = _rl_db(attempts=[{
+        "id": "att-EARLY", "user_id": "user-1", "test_id": "test-1",
+        "submitted_at": "2026-08-05T10:00:00+00:00", "band_estimate": 7.0,
+        "status": "submitted"}])
+    assert reconcile_test_attempts(early, [a]) == 0, "publish_at must still raise the floor"
+
+
+def test_repeated_gives_are_ordered_by_when_they_started_counting():
+    """Created earlier but revealed later: the give that was actually owed first
+    must get the first attempt, or it reads as missing while the other one —
+    which nobody could see yet — is marked done."""
+    early_row = {"id": "asg-EARLY-ROW", "skill": "reading", "content_id": "test-1",
+                 "status": "published", "cohort_id": "co-1",
+                 "created_at": "2026-08-01T00:00:00+00:00",
+                 "attempts_from": "2026-08-20T00:00:00+00:00"}   # revealed LATE
+    owed_first = {"id": "asg-OWED-FIRST", "skill": "reading", "content_id": "test-1",
+                  "status": "published", "cohort_id": "co-1",
+                  "created_at": "2026-08-05T00:00:00+00:00",
+                  "attempts_from": "2026-08-05T00:00:00+00:00"}
+    db = _DB({
+        "class_assignment_items": [_pending("item-early", "asg-EARLY-ROW"),
+                                   _pending("item-owed", "asg-OWED-FIRST")],
+        "students": [{"id": "stu-1", "user_id": "user-1", "cohort_id": "co-1"}],
+        "class_assignments": [early_row, owed_first],
+        "reading_test_attempts": [{
+            "id": "att-1", "user_id": "user-1", "test_id": "test-1",
+            "submitted_at": "2026-08-25T10:00:00+00:00", "band_estimate": 6.0,
+            "status": "submitted"}],
+    })
+    assert reconcile_test_attempts(db, [early_row, owed_first]) == 1
+    by_id = {i["id"]: i for i in db.tables["class_assignment_items"]}
+    assert by_id["item-owed"].get("artifact_id") == "att-1", (
+        "the give that was owed first takes the attempt"
+    )
+    assert by_id["item-early"].get("submitted_at") is None

@@ -25,8 +25,10 @@ import pytest
 
 from tests.test_migration_175_178_class_model import _strip_comments
 
+# 182 REPLACES the function 181 defines, so the live definition — the one these
+# rules must hold for — is 182's.
 MIG = Path(__file__).resolve().parents[1] / "migrations" / \
-    "181_fn_delete_checks_test_attempts.sql"
+    "182_class_assignments_attempts_from.sql"
 
 
 @pytest.fixture(scope="module")
@@ -49,8 +51,12 @@ def test_the_attempt_rows_are_locked_before_they_are_read(sql):
 
 def test_the_lower_bound_is_the_later_of_created_and_published(sql):
     """created_at alone counts work done while the give was still hidden."""
+    assert re.search(r"COALESCE\s*\(\s*a\.attempts_from", sql, re.I), (
+        "the stored cutoff is the answer — it is the only one that survives an "
+        "archive-then-republish"
+    )
     assert re.search(r"GREATEST\s*\(\s*a\.created_at\s*,\s*COALESCE\s*\(\s*a\.publish_at",
-                     sql, re.I), "the floor must be GREATEST(created_at, publish_at)"
+                     sql, re.I), "pre-182 rows still need the old formula"
     assert not re.search(r"submitted_at\s*>=\s*v_created_at", sql, re.I), (
         "the raw created_at must not remain as the cutoff"
     )
@@ -61,7 +67,7 @@ def test_an_attempt_spent_on_a_sibling_give_is_not_evidence_here(sql):
     Without this the later give reads as submitted to SQL and unsubmitted to
     Python."""
     hits = re.findall(
-        r"NOT\s+EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+class_assignment_items\s+i2",
+        r"NOT\s+EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+class_assignment_items\s+i2\b",
         sql, re.I | re.S,
     )
     assert len(hits) == 2, "both the reading and the listening branch need it"
@@ -93,3 +99,27 @@ def test_the_guard_only_counts_attempts_by_students_still_in_this_class(sql):
     assert len(re.findall(r"st\.cohort_id\s*=\s*p_cohort_id", sql, re.I)) >= 4, (
         "both the lock and the EXISTS branch, for both skills"
     )
+
+
+def test_an_older_give_of_the_same_paper_claims_the_attempt_first(sql):
+    """reconcile_test_attempts() hands an attempt to the OLDEST give still owed.
+    Without the same rule here, an attempt landing between the router's repair
+    and this call reads as evidence for the give being deleted — so the screen
+    says "0 đã nộp" and the delete answers 409."""
+    hits = re.findall(
+        r"NOT\s+EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+class_assignments\s+a2\b",
+        sql, re.I | re.S,
+    )
+    assert len(hits) == 2, "both the reading and the listening branch need it"
+    assert len(re.findall(r"i3\.submitted_at\s+IS\s+NULL", sql, re.I)) == 2, (
+        "only a give that is still OWED can claim it"
+    )
+
+
+def test_the_column_is_added_and_backfilled_before_the_function_reads_it(sql):
+    """A function reading a column that does not exist yet fails on first call,
+    not at deploy — so ordering inside the file is the whole guarantee."""
+    add = sql.index("ADD COLUMN IF NOT EXISTS attempts_from")
+    backfill = sql.index("SET attempts_from = GREATEST")
+    read = sql.index("COALESCE(a.attempts_from")
+    assert add < backfill < read
