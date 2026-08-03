@@ -65,7 +65,7 @@ def test_every_student_facing_return_of_question_rows_is_filtered():
     assert bad == [], f"đường trả chưa lọc: {bad}"
 
     s_code = re.sub(r'"""[\s\S]*?"""', "", inspect.getsource(s_mod))
-    assert "redact_questions(q_result.data)" in s_code, (
+    assert re.search(r"questions = redact_questions\(q_result\.data", s_code), (
         "GET /sessions/{id} là đường trang gọi ĐẦU TIÊN — không lọc ở đó thì chữ "
         "đã nằm trong phản hồi mạng trước khi bộ lọc nào khác kịp chạy"
     )
@@ -106,26 +106,49 @@ def test_every_reader_of_the_questions_table_is_accounted_for():
     )
 
 
-def test_the_pdf_hides_prompts_while_the_session_is_still_running():
-    """Endpoint xuất PDF cũng của học viên và chạy được cả khi phiên ĐANG LÀM —
-    không lọc thì em ấy tải một tệp chứa đủ đề rồi mới trả lời."""
+def test_the_reveal_rule_lives_in_ONE_place():
+    """Luật "phiên đã xong thì hiện lại chữ" áp ở BỐN đường: trang kết quả,
+    danh sách câu, chi tiết phiên, và xuất PDF. Bốn bản chép sẽ trôi khỏi nhau —
+    và bản trôi sẽ là bản hiện câu hỏi TRỐNG cho người học."""
     import inspect
     import re
+
+    from routers import questions as q_mod
+    from routers import sessions as s_mod
     from services import pdf_generator
 
-    src = re.sub(r"#[^\n]*", "", inspect.getsource(pdf_generator))
-    m = re.search(r'status.*!=\s*"completed"[\s\S]{0,120}?redact_questions\(questions\)', src)
-    assert m, "phiên chưa hoàn thành thì phải lược chữ"
+    for mod in (q_mod, s_mod, pdf_generator):
+        src = re.sub(r"#[^\n]*", "", inspect.getsource(mod))
+        # MỌI lời gọi có `reveal=` phải lấy giá trị từ should_reveal, không phải
+        # từ một điều kiện viết tay. (Quét "!= completed" khắp module thì dính
+        # nhầm `pronunciation_status` — một dương tính giả về đúng cái tên.)
+        for call in re.findall(r"redact_questions\([^)]*reveal=([^,)]+)", src):
+            assert "should_reveal" in call, (
+                f"{mod.__name__} chép lại luật thay vì gọi should_reveal: {call!r}"
+            )
+        assert "should_reveal(" in src, f"{mod.__name__} chưa dùng luật chung"
 
 
-def test_a_finished_session_keeps_its_questions_in_the_pdf():
-    """Việc đã làm xong; sổ cái ghi lần nộp ĐẦU nên đọc lại đề không giúp làm lại
-    được gì — và bản PDF là tài liệu để ôn, giấu đề ở đó chỉ làm nó vô dụng."""
-    import inspect
-    import re
-    from services import pdf_generator
+def test_a_finished_session_reveals_the_prompt_again():
+    """Giấu đề là để bắt NGHE mới biết hỏi gì. Phiên xong rồi thì việc đó đã xảy
+    ra, và sổ cái ghi lần nộp ĐẦU nên đọc lại không giúp làm lại được gì.
+    Giấu tiếp thì trang kết quả hiện câu hỏi TRỐNG — người học không xem lại được
+    mình đã trả lời câu nào."""
+    rows = [{"listen_only": True, "question_text": "Where do you live?"}]
+    assert redact_questions(rows, reveal=True)[0]["question_text"] == "Where do you live?"
+    assert redact_questions(rows, reveal=False)[0]["question_text"] == ""
 
-    src = re.sub(r"#[^\n]*", "", inspect.getsource(pdf_generator))
-    assert re.search(r'if \(session or \{\}\)\.get\("status"\) != "completed"', src), (
-        "phải là điều kiện theo trạng thái, không phải lọc vô điều kiện"
-    )
+
+def test_only_a_COMPLETED_session_reveals():
+    from services.question_visibility import should_reveal
+    assert should_reveal({"status": "completed"}) is True
+    for st in ("in_progress", "abandoned", "", None):
+        assert should_reveal({"status": st}) is False, st
+    assert should_reveal(None) is False
+
+
+def test_forgetting_the_flag_hides_rather_than_leaks():
+    """Mặc định phải nghiêng về phía an toàn: caller mới quên truyền thì lỗi là
+    "giấu thừa", không phải "lộ đề"."""
+    rows = [{"listen_only": True, "question_text": "x"}]
+    assert redact_questions(rows)[0]["question_text"] == ""
