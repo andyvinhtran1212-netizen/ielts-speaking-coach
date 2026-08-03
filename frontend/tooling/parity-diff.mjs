@@ -125,11 +125,20 @@ async function expandGrammar() {
  * nhau, khác nhau thì thử lại, vẫn khác thì báo `unstable-extraction` — một
  * phát hiện mức cao, chứ không phải một con số trông có vẻ chắc chắn.
  */
-async function extractStable(context, url) {
+async function extractStable(mkContext, url) {
   let last = null;
+  // Mỗi LẦN CHỤP một context sạch, không chỉ mỗi cặp: `grammar.js:844` ghi
+  // `_aver_grammar_reads` vào localStorage, nên lần chụp thứ hai trong cùng
+  // context có thể khác lần đầu một cách HỢP LỆ — và bộ so sẽ báo "bất ổn"
+  // oan ở đúng những trang có tác dụng phụ. Hai lần chụp phải xuất phát từ
+  // cùng một trạng thái thì mới so được với nhau.
+  const shot = async () => {
+    const ctx = await mkContext();
+    try { return await extractOnce(ctx, url); } finally { await ctx.close(); }
+  };
   for (let attempt = 0; attempt < 3; attempt++) {
-    const a = await extractOnce(context, url);
-    const b = await extractOnce(context, url);
+    const a = await shot();
+    const b = await shot();
     const key = (f) => JSON.stringify([f.headings, f.links, f.lines, f.components, f.status]);
     if (key(a) === key(b)) return a;
     last = a;
@@ -141,8 +150,27 @@ async function extractStable(context, url) {
 /** Một lần trích — đúng hình dạng mà `parity-core` đọc. */
 async function extractOnce(context, url) {
   const page = await context.newPage();
+
+  // MỘT CÔNG CỤ ĐO KHÔNG ĐƯỢC GHI. `grammar.js:887` gọi
+  // `POST /api/grammar/articles/{slug}/view` mỗi lần mở bài, và bộ so tải mỗi
+  // trang tới 2 lần × 2 vế; chạy `--expand-grammar` sẽ bơm ~550 lượt xem giả
+  // vào dữ liệu thật. Chặn mọi phương thức ghi.
+  //
+  // TRẢ 200 rỗng chứ không huỷ request: huỷ sẽ sinh lỗi console trên trang và
+  // biến thành phát hiện giả. `page.on('request')` vẫn ghi nhận, nên chênh
+  // lệch "legacy có POST, Next không" vẫn hiện trong dữ kiện API.
+  await page.route('**/*', (route) => {
+    const r = route.request();
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(r.method())) {
+      blockedMutations.push(`${r.method()} ${(() => {
+        try { return new URL(r.url()).pathname; } catch { return r.url(); } })()}`);
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+    }
+    return route.continue();
+  });
   const consoleErrors = [];
   const apiCalls = [];
+  const blockedMutations = [];
   page.on('console', (m) => {
     if (m.type() === 'error') consoleErrors.push(normalizeText(m.text()).slice(0, 200));
   });
@@ -254,7 +282,8 @@ async function extractOnce(context, url) {
 
   return buildFacts(
     { ...facts, links: [...facts.links, ...inlineLinks] },
-    { url, finalUrl, status, apiCalls, resourceFailures, consoleErrors });
+    { url, finalUrl, status, apiCalls, resourceFailures, consoleErrors,
+      blockedMutations });
 }
 
 async function main() {
@@ -284,13 +313,15 @@ async function main() {
       // làm CTA khách hiện ở trang này mà không hiện ở trang kia), khiến kết
       // quả không lặp lại được (phát hiện #14 vòng 2).
       const mk = () => browser.newContext({ viewport: { width: 1280, height: 900 } });
-      const [ctxL, ctxN] = await Promise.all([mk(), mk()]);
       const [legacy, next] = await Promise.all([
-        extractStable(ctxL, BASE + p.legacy),
-        extractStable(ctxN, BASE + p.next),
+        extractStable(mk, BASE + p.legacy),
+        extractStable(mk, BASE + p.next),
       ]);
-      await Promise.all([ctxL.close(), ctxN.close()]);
       const r = comparePages(legacy, next, { allow: p.allow || [] });
+      // Đưa danh sách ghi-bị-chặn vào báo cáo: "công cụ đo không ghi" phải là
+      // thứ KIỂM ĐƯỢC, không phải lời hứa trong bình luận.
+      r.blockedMutations = [...new Set([...(legacy.blockedMutations || []),
+                                        ...(next.blockedMutations || [])])].sort();
       for (const side of [['legacy', legacy], ['next', next]]) {
         if (side[1].unstable) {
           r.findings.unshift({ kind: 'unstable-extraction', severity: 'high',
@@ -313,6 +344,12 @@ async function main() {
     for (const a of r.unusedAllow || []) {
       console.log(`  ⚠ ngoại lệ không còn khớp gì (${r.name}): ${a.kind} = ${a.value}`);
     }
+  }
+
+  const blocked = [...new Set(results.flatMap((r) => r.blockedMutations || []))];
+  if (blocked.length) {
+    console.log(`\nđã chặn ${blocked.length} loại request ghi (bộ so không được ghi vào dữ liệu thật):`);
+    for (const b of blocked) console.log(`  ⛔ ${b}`);
   }
 
   if (OUT) {

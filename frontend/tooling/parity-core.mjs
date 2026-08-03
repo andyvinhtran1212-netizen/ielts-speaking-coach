@@ -126,7 +126,7 @@ export function hrefFromInlineHandler(attr) {
 
 export const FACT_KEYS = [
   'status', 'title', 'headings', 'links', 'lines', 'components',
-  'apiPaths', 'resourceFailures', 'consoleErrors', 'finalUrl',
+  'apiPaths', 'resourceFailures', 'blockedMutations', 'consoleErrors', 'finalUrl',
 ];
 
 /**
@@ -175,6 +175,9 @@ export function buildFacts(raw, meta) {
       (c) => `${c.method || 'GET'} ${c.pathname}${c.search || ''}`))].sort(),
     // Tài nguyên tải hỏng (CSS, chunk, ảnh…). DOM khớp mà CSS 404 thì trang vỡ.
     resourceFailures: [...new Set(meta.resourceFailures || [])].sort(),
+    // Ghi lại đúng những gì đã bị chặn, để việc "công cụ đo không ghi" là điều
+    // NHÌN THẤY ĐƯỢC trong báo cáo chứ không phải lời hứa trong bình luận.
+    blockedMutations: [...new Set(meta.blockedMutations || [])].sort(),
     consoleErrors: meta.consoleErrors || [],
   };
 }
