@@ -36,7 +36,16 @@ class _Table:
         self._rows = [r for r in self._rows if str(r.get(f)) == str(v)]
         return self
     def limit(self, *_a): return self
-    def execute(self): return _Resp(self._rows)
+
+    def update(self, patch):
+        self._patch = dict(patch)
+        return self
+
+    def execute(self):
+        if getattr(self, "_patch", None) is not None:
+            for r in self._rows:
+                r.update(self._patch)
+        return _Resp(self._rows)
 
 
 def _db(paper):
@@ -251,3 +260,42 @@ async def test_archiving_leaves_the_clock_alone():
     written = await _patch_status("archived")
     assert written["status"] == "archived"
     assert "attempts_from" not in written
+
+
+@pytest.mark.asyncio
+async def test_archiving_folds_in_hand_ins_before_closing_the_door():
+    """reconcile_test_attempts() only writes OPEN gives. A student who submits
+    between the admin loading the list and clicking "Đóng bài" would otherwise
+    have their attempt ignored forever — once archived, no later read can pick
+    it up."""
+    from routers import admin_class_assignments as m
+
+    db = _RpcDB({"id": "asg-1", "cohort_id": "c1", "skill": "reading",
+                 "content_id": "t1", "status": "published"})
+    seen = []
+    with patch.object(m, "require_admin", AsyncMock(return_value={"id": "adm"})), \
+         patch.object(m, "supabase_admin", db), \
+         patch.object(m, "reconcile_test_attempts",
+                      lambda _db, rows: seen.append([r["id"] for r in rows])):
+        await m.update_assignment("c1", "asg-1",
+                                  m.AssignmentPatch(status="archived"), None)
+    assert seen == [["asg-1"]]
+
+
+@pytest.mark.asyncio
+async def test_republishing_does_not_fold_anything_in():
+    """The point of reopening is to START counting from now. Repairing first
+    would sweep in the practice done while it was closed — the exact thing the
+    new cutoff exists to exclude."""
+    from routers import admin_class_assignments as m
+
+    db = _RpcDB({"id": "asg-1", "cohort_id": "c1", "skill": "reading",
+                 "content_id": "t1", "status": "archived"})
+    seen = []
+    with patch.object(m, "require_admin", AsyncMock(return_value={"id": "adm"})), \
+         patch.object(m, "supabase_admin", db), \
+         patch.object(m, "reconcile_test_attempts",
+                      lambda _db, rows: seen.append([r["id"] for r in rows])):
+        await m.update_assignment("c1", "asg-1",
+                                  m.AssignmentPatch(status="published"), None)
+    assert seen == []

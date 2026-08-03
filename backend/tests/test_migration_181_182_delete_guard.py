@@ -123,3 +123,28 @@ def test_the_column_is_added_and_backfilled_before_the_function_reads_it(sql):
     backfill = sql.index("SET attempts_from = GREATEST")
     read = sql.index("COALESCE(a.attempts_from")
     assert add < backfill < read
+
+
+def test_content_id_is_compared_as_a_uuid_not_as_text(sql):
+    """class_assignments.content_id is UUID (mig 177). Declaring the local as
+    text worked while every comparison went through `::text`; the sibling-give
+    check compares against the COLUMN, and Postgres has no `uuid = text`
+    operator — the function raises at RUN time, not at apply time, so nothing
+    about applying the migration would reveal it."""
+    assert re.search(r"v_content_id\s+uuid\s*;", sql, re.I), (
+        "declare it as the column's own type"
+    )
+    assert not re.search(r"::text\s*=\s*v_content_id", sql, re.I), (
+        "a cast on one side only papers over the mismatch"
+    )
+
+
+def test_a_scheduled_give_starts_counting_at_reveal_not_at_creation(sql):
+    """A column DEFAULT cannot see publish_at, so without this a scheduled give
+    would start counting the moment its row is written — the hidden-window hole
+    the column exists to close."""
+    assert "CREATE TRIGGER set_class_assignment_attempts_from" in sql
+    assert re.search(r"BEFORE\s+INSERT\s+ON\s+class_assignments", sql, re.I)
+    trig = sql[sql.index("FUNCTION fn_class_assignment_attempts_from"):]
+    assert re.search(r"GREATEST\s*\(", trig, re.I), "reveal time must win"
+    assert "NEW.publish_at" in trig

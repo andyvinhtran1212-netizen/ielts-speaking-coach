@@ -280,6 +280,23 @@ async def update_assignment(
     """
     await require_admin(authorization)
 
+    # ARCHIVING CLOSES THE DOOR, so anything already handed in has to be folded
+    # in FIRST. reconcile_test_attempts() only writes open gives: a student who
+    # submits between the admin loading the list and clicking "Đóng bài" would
+    # otherwise have their attempt ignored forever — the give is closed, so no
+    # later read can ever pick it up. Same shape as the pre-delete repair.
+    if body.status == "archived":
+        try:
+            row = (
+                supabase_admin.table("class_assignments").select("*")
+                .eq("id", assignment_id).eq("cohort_id", cohort_id)
+                .limit(1).execute().data
+            ) or []
+            if row:
+                reconcile_test_attempts(supabase_admin, row)
+        except Exception as exc:
+            logger.warning("[class] pre-archive reconcile failed: %s", exc)
+
     # REOPENING RESTARTS THE CLOCK for Reading/Listening. The paper stays open
     # in the library while the give is archived, so a student can practise it on
     # their own in that window. Without moving the cutoff, republishing would

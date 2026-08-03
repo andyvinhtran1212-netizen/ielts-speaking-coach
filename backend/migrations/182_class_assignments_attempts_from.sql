@@ -51,6 +51,32 @@ UPDATE class_assignments
 ALTER TABLE class_assignments
     ALTER COLUMN attempts_from SET DEFAULT NOW();
 
+-- The DEFAULT cannot see publish_at, so a scheduled give would start counting
+-- at creation time — exactly the hidden-window hole this column exists to
+-- close. A trigger is used rather than patching fn_create_class_assignment
+-- because it covers EVERY insert path, including a hand-written one.
+CREATE OR REPLACE FUNCTION fn_class_assignment_attempts_from()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF NEW.attempts_from IS NULL
+       OR (NEW.publish_at IS NOT NULL AND NEW.attempts_from < NEW.publish_at) THEN
+        NEW.attempts_from := GREATEST(
+            COALESCE(NEW.created_at, NOW()),
+            COALESCE(NEW.publish_at, NOW())
+        );
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS set_class_assignment_attempts_from ON class_assignments;
+CREATE TRIGGER set_class_assignment_attempts_from
+    BEFORE INSERT ON class_assignments
+    FOR EACH ROW
+    EXECUTE FUNCTION fn_class_assignment_attempts_from();
+
 COMMENT ON COLUMN class_assignments.attempts_from IS
 'Chỉ tính lượt làm đề Reading/Listening nộp TỪ mốc này trở đi là bài nộp của bài
 giao. Bằng GREATEST(created_at, publish_at) lúc tạo; nhảy lên NOW() khi bài được
@@ -86,7 +112,12 @@ DECLARE
     v_exists     boolean;
     v_submitted  boolean;
     v_skill      text;
-    v_content_id text;
+    -- UUID, matching class_assignments.content_id (mig 177). Declared as text
+    -- in mig 181, which worked only because every comparison there went through
+    -- `::text`; the sibling-give check added below compares against the COLUMN,
+    -- and Postgres has no `uuid = text` operator — the function would raise at
+    -- run time, not at apply time.
+    v_content_id uuid;
     v_since      timestamptz;
 BEGIN
     SELECT TRUE, a.skill, a.content_id,
@@ -122,14 +153,14 @@ BEGIN
            FROM reading_test_attempts r
            JOIN students st ON st.user_id = r.user_id
           WHERE st.cohort_id = p_cohort_id
-            AND r.test_id::text = v_content_id
+            AND r.test_id = v_content_id
           FOR UPDATE OF r;
     ELSIF v_skill = 'listening' AND v_content_id IS NOT NULL THEN
         PERFORM 1
            FROM listening_test_attempts l
            JOIN students st ON st.user_id = l.user_id
           WHERE st.cohort_id = p_cohort_id
-            AND l.test_id::text = v_content_id
+            AND l.test_id = v_content_id
           FOR UPDATE OF l;
     END IF;
 
@@ -160,7 +191,7 @@ BEGIN
                            -- Transferred learners keep their old items; work
                            -- they do now belongs to their CURRENT class.
                            AND st.cohort_id = p_cohort_id
-                           AND r.test_id::text = v_content_id
+                           AND r.test_id = v_content_id
                            AND r.status = 'submitted'
                            AND r.submitted_at >= v_since
                            -- Already spent on ANOTHER give of the same paper.
@@ -198,7 +229,7 @@ BEGIN
                           JOIN students st ON st.id = i.student_id
                          WHERE l.user_id = st.user_id
                            AND st.cohort_id = p_cohort_id
-                           AND l.test_id::text = v_content_id
+                           AND l.test_id = v_content_id
                            AND l.status = 'submitted'
                            AND l.submitted_at >= v_since
                            AND NOT EXISTS (
