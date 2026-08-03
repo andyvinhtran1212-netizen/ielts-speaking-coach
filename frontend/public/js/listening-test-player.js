@@ -185,6 +185,15 @@ function getTestIdFromUrl() {
   return (sp.get('id') || '').trim() || null;
 }
 
+// Class homework. The class page puts `?class_item=` on the link so this
+// attempt can record WHICH task it is being done for — the ledger then never
+// has to work that out from the paper and the clock, which cannot be done right
+// when the same paper may be given twice or practised freely on the side.
+function getClassItemFromUrl() {
+  const sp = new URLSearchParams(window.location.search);
+  return (sp.get('class_item') || '').trim() || null;
+}
+
 // ── Back target ──────────────────────────────────────────────────────
 // This player serves BOTH listening libraries (listening-tests.html = full,
 // listening-mini-test.html = mini), which stamp ?from= on the link in. Every
@@ -463,8 +472,10 @@ async function startAttempt() {
   $('btn-start').textContent = 'Đang khởi tạo…';
 
   try {
+    const classItem = getClassItemFromUrl();
     const res = await window.api.post(
-      `/api/listening/tests/${encodeURIComponent(STATE.testId)}/attempts`,
+      `/api/listening/tests/${encodeURIComponent(STATE.testId)}/attempts`
+        + (classItem ? `?class_item=${encodeURIComponent(classItem)}` : ''),
       {},
     );
     STATE.attemptId = res.attempt_id;

@@ -262,11 +262,15 @@ async def start_assignment(
             },
         }
 
-    # Reading/Listening open their existing test pages directly. Nothing is
-    # created here: those pages own their own attempt lifecycle, and the hand-in
-    # is picked up afterwards from the attempt row (reconcile_test_attempts).
-    # Building a parallel "start" path would mean two places deciding when an
-    # attempt begins.
+    # Reading/Listening open their existing test pages directly. No attempt is
+    # created here — those pages own their own attempt lifecycle, and a parallel
+    # "start" path would mean two places deciding when an attempt begins.
+    #
+    # `class_item` is what ties the two together. The page passes it back when
+    # it creates the attempt, so the attempt row records WHICH homework it was
+    # done for. Without it the ledger would have to infer ownership from the
+    # paper and the clock, which cannot be made right: the same paper can be
+    # given twice, given and reopened, or practised freely on the side.
     test_uuid = assignment.get("content_id")
     if not test_uuid:
         raise HTTPException(400, "Bài tập này chưa gắn đề.")
@@ -292,7 +296,8 @@ async def start_assignment(
             raise HTTPException(409, "Đề nghe này chưa có audio sẵn sàng.")
         # listening-test.html?id= is the row id, the same value the attempt row
         # carries — one identifier throughout.
-        url = f"/pages/listening-test.html?id={quote(test_uuid)}"
+        url = (f"/pages/listening-test.html?id={quote(test_uuid)}"
+               f"&class_item={quote(item_id)}")
     else:
         # Reading needs BOTH ids and they are different columns. The reader page
         # resolves ?test_id= against reading_tests.test_id (the public code,
@@ -308,7 +313,8 @@ async def start_assignment(
             raise HTTPException(404, "Không tìm thấy đề đọc của bài tập này.")
         if (row[0].get("status") or "") != "published" or row[0].get("exam_only"):
             raise HTTPException(409, "Đề đọc của bài tập này hiện không mở được.")
-        url = f"/pages/reading-exam.html?test_id={quote(code)}"
+        url = (f"/pages/reading-exam.html?test_id={quote(code)}"
+               f"&class_item={quote(item_id)}")
     return {
         "item_id":       item_id,
         "assignment_id": assignment["id"],

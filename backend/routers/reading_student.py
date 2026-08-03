@@ -41,6 +41,11 @@ from pydantic import BaseModel, Field
 
 from config import settings
 from database import supabase_admin
+from services.class_assignment_service import (
+    ItemNotFoundError,
+    TaskMismatchError,
+    validate_class_item_for_test,
+)
 from routers.auth import get_supabase_user
 from services.listening_test_grader import answer_matches
 from services.reading_diagnostic_engine import build_reading_diagnostic
@@ -1001,6 +1006,7 @@ def _is_unique_violation(exc: Exception) -> bool:
 @router.post("/test/{test_id}/attempts")
 async def start_reading_test_attempt(
     test_id: str,
+    class_item: str | None = None,
     authorization: str | None = Header(default=None),
     x_reading_password: str | None = Header(default=None, alias="X-Reading-Password"),
 ):
@@ -1029,6 +1035,15 @@ async def start_reading_test_attempt(
     _require_test_unlocked(test, x_reading_password)   # F1 gate on start too
     test_uuid = test["id"]
 
+    if class_item:
+        try:
+            validate_class_item_for_test(
+                supabase_admin, user["id"], class_item,
+                skill="reading", test_id=test_uuid,
+            )
+        except (ItemNotFoundError, TaskMismatchError) as exc:
+            raise HTTPException(400, str(exc))
+
     last_exc: Exception | None = None
     for _retry in range(_START_RETRY_MAX):
         _abandon_open_attempts(user["id"], test_uuid)
@@ -1042,6 +1057,12 @@ async def start_reading_test_attempt(
             "answers":    [],
             "started_at": started_at,
         }
+        # Class homework: stamp WHICH task this attempt is being done for, so
+        # the ledger never has to work it out afterwards (mig 181). Validated
+        # first — an unchecked id from the query string would let a student mark
+        # any homework done with any paper.
+        if class_item:
+            payload["class_assignment_item_id"] = class_item
         try:
             supabase_admin.table("reading_test_attempts").insert(payload).execute()
         except Exception as exc:

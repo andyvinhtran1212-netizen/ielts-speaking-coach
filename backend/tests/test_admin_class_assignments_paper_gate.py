@@ -156,11 +156,11 @@ async def test_a_reading_paper_is_not_asked_for_audio():
     assert out["student_count"] == 3
 
 
-# ── xoá bài giao: sổ cái phải được vá TRƯỚC khi hỏi "đã ai nộp chưa" ─────
+# ── xoá bài giao: hàm SQL tự đọc bằng chứng, router không vá trước ───────
 
 
 class _RpcDB:
-    """Records the order of operations: the repair must precede the delete."""
+    """Records the order of operations."""
 
     def __init__(self, assignment):
         self.calls: list[str] = []
@@ -176,48 +176,21 @@ class _RpcDB:
 
 
 @pytest.mark.asyncio
-async def test_delete_repairs_the_ledger_before_asking_whether_anyone_submitted():
-    """Reading/Listening hand-ins are repaired on read, so the ledger the delete
-    guard consults is stale exactly when it matters: the admin is looking at
-    "0 đã nộp", a student submits, and the still-visible delete button erases
-    the item AND — via ON DELETE CASCADE — the record of it."""
+async def test_delete_asks_the_locking_rpc_and_nothing_else():
+    """The guard reads the attempt link itself, inside the same transaction as
+    the DELETE (mig 181). An earlier design needed a best-effort repair pass
+    here first, because the ledger could be stale in a way only a scan could
+    fix — following a foreign key under a row lock removes that need, and with
+    it the window between the two calls where a hand-in could still be lost."""
     from routers import admin_class_assignments as m
-
-    db = _RpcDB({"id": "asg-1", "cohort_id": "c1", "skill": "reading",
-                 "content_id": "t1", "status": "published",
-                 "created_at": "2026-08-01T00:00:00+00:00"})
-    seen = []
-    with patch.object(m, "require_admin", AsyncMock(return_value={"id": "adm"})), \
-         patch.object(m, "supabase_admin", db), \
-         patch.object(m, "reconcile_test_attempts",
-                      lambda _db, rows: seen.append([r["id"] for r in rows])):
-        await m.delete_assignment("c1", "asg-1", None)
-
-    assert seen == [["asg-1"]], "the give being deleted must be reconciled first"
-    rpc_at = db.calls.index("rpc:fn_delete_class_assignment_if_unsubmitted")
-    assert db.calls.index("table:class_assignments") < rpc_at
-
-
-@pytest.mark.asyncio
-async def test_a_failed_pre_delete_repair_does_not_block_the_delete():
-    """Refusing to delete because a best-effort repair hiccuped would leave the
-    admin unable to remove a give they can see is empty."""
-    from routers import admin_class_assignments as m
-
-    def _boom(*_a, **_k):
-        raise RuntimeError("boom")
 
     db = _RpcDB({"id": "asg-1", "cohort_id": "c1", "skill": "reading",
                  "content_id": "t1", "status": "published"})
     with patch.object(m, "require_admin", AsyncMock(return_value={"id": "adm"})), \
-         patch.object(m, "supabase_admin", db), \
-         patch.object(m, "reconcile_test_attempts", _boom):
+         patch.object(m, "supabase_admin", db):
         await m.delete_assignment("c1", "asg-1", None)
 
-    assert "rpc:fn_delete_class_assignment_if_unsubmitted" in db.calls
-
-
-# ── mở lại bài giao: đẩy mốc, và CHỈ khi mở lại ─────────────────────────
+    assert db.calls == ["rpc:fn_delete_class_assignment_if_unsubmitted"]
 
 
 class _CaptureTable:
@@ -243,59 +216,10 @@ async def _patch_status(new_status):
 
 
 @pytest.mark.asyncio
-async def test_republishing_restarts_the_attempt_clock():
-    """The paper stays open in the library while the give is archived. Without
-    moving the cutoff, reopening credits practice done in that window as class
-    homework — a hand-in the teacher sees that never happened."""
-    written = await _patch_status("published")
-    assert written["status"] == "published"
-    assert written.get("attempts_from"), "reopening must advance attempts_from"
-
-
-@pytest.mark.asyncio
-async def test_archiving_leaves_the_clock_alone():
-    """Only reopening changes what counts. Touching it on the way out would move
-    the cutoff for a give that is about to stop receiving anything anyway, and
-    the value would then be wrong if it is ever reopened."""
-    written = await _patch_status("archived")
-    assert written["status"] == "archived"
-    assert "attempts_from" not in written
-
-
-@pytest.mark.asyncio
-async def test_archiving_folds_in_hand_ins_before_closing_the_door():
-    """reconcile_test_attempts() only writes OPEN gives. A student who submits
-    between the admin loading the list and clicking "Đóng bài" would otherwise
-    have their attempt ignored forever — once archived, no later read can pick
-    it up."""
-    from routers import admin_class_assignments as m
-
-    db = _RpcDB({"id": "asg-1", "cohort_id": "c1", "skill": "reading",
-                 "content_id": "t1", "status": "published"})
-    seen = []
-    with patch.object(m, "require_admin", AsyncMock(return_value={"id": "adm"})), \
-         patch.object(m, "supabase_admin", db), \
-         patch.object(m, "reconcile_test_attempts",
-                      lambda _db, rows: seen.append([r["id"] for r in rows])):
-        await m.update_assignment("c1", "asg-1",
-                                  m.AssignmentPatch(status="archived"), None)
-    assert seen == [["asg-1"]]
-
-
-@pytest.mark.asyncio
-async def test_republishing_does_not_fold_anything_in():
-    """The point of reopening is to START counting from now. Repairing first
-    would sweep in the practice done while it was closed — the exact thing the
-    new cutoff exists to exclude."""
-    from routers import admin_class_assignments as m
-
-    db = _RpcDB({"id": "asg-1", "cohort_id": "c1", "skill": "reading",
-                 "content_id": "t1", "status": "archived"})
-    seen = []
-    with patch.object(m, "require_admin", AsyncMock(return_value={"id": "adm"})), \
-         patch.object(m, "supabase_admin", db), \
-         patch.object(m, "reconcile_test_attempts",
-                      lambda _db, rows: seen.append([r["id"] for r in rows])):
-        await m.update_assignment("c1", "asg-1",
-                                  m.AssignmentPatch(status="published"), None)
-    assert seen == []
+@pytest.mark.parametrize("new_status", ["archived", "published"])
+async def test_changing_status_writes_only_the_status(new_status):
+    """Archiving and reopening no longer move any cutoff, because there is no
+    cutoff: whether an attempt counts is answered by its link, not by when it
+    was submitted relative to the give."""
+    written = await _patch_status(new_status)
+    assert written == {"status": new_status}

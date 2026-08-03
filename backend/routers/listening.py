@@ -32,6 +32,11 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from config import settings
 from database import supabase_admin
+from services.class_assignment_service import (
+    ItemNotFoundError,
+    TaskMismatchError,
+    validate_class_item_for_test,
+)
 from routers.admin import require_admin
 from routers.auth import get_supabase_user
 from services.listening_gist_grader import grade_gist_response
@@ -5009,6 +5014,7 @@ async def get_in_progress_listening_attempt(
 @user_router.post("/tests/{test_id}/attempts")
 async def start_listening_test_attempt(
     test_id: str,
+    class_item: str | None = None,
     authorization: str | None = Header(default=None),
 ):
     """Open a new student attempt session. Marks any previously open
@@ -5037,6 +5043,15 @@ async def start_listening_test_attempt(
             or test_row.get("assembled_audio_storage_path")):
         raise HTTPException(422, "Test chưa có audio sẵn sàng.")
 
+    if class_item:
+        try:
+            validate_class_item_for_test(
+                supabase_admin, user["id"], class_item,
+                skill="listening", test_id=test_id,
+            )
+        except (ItemNotFoundError, TaskMismatchError) as exc:
+            raise HTTPException(400, str(exc))
+
     # Abandon any open attempts for this (user, test).
     (
         supabase_admin.table("listening_test_attempts")
@@ -5055,6 +5070,10 @@ async def start_listening_test_attempt(
         "status":  "in_progress",
         "answers": [],
     }
+    # Class homework: stamp WHICH task this is being done for, so the ledger
+    # never has to work it out afterwards (mig 181).
+    if class_item:
+        payload["class_assignment_item_id"] = class_item
     (
         supabase_admin.table("listening_test_attempts")
         .insert(payload)

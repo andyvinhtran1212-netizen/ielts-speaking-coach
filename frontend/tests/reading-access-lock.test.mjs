@@ -56,7 +56,13 @@ describe('A — student password gate (sends header, retries on 403)', () => {
     assert.match(fn, /_doBoot\(\)/);
   });
   test('start carries the password too (postWith)', () => {
-    assert.match(examJs, /api\.postWith\('\/api\/reading\/test\/' \+ encodeURIComponent\(SESSION\.test_id\) \+ '\/attempts', null, _pwHeaders\(\)\)/);
+    // Behaviour, not spelling: the start call must go through postWith AND
+    // carry _pwHeaders(). Pinning the exact concatenation broke the moment the
+    // URL gained a query string, while the password was still being sent — a
+    // failure about formatting dressed up as a failure about the gate. The
+    // bounded [\s\S] span keeps the two parts of ONE call statement together,
+    // so a stray postWith elsewhere cannot satisfy it.
+    assert.match(examJs, /window\.api\.postWith\(\s*'\/api\/reading\/test\/'\s*\+\s*encodeURIComponent\(SESSION\.test_id\)[\s\S]{0,240}?_pwHeaders\(\)/);
   });
   test('api client supports per-call headers without dropping auth', () => {
     assert.match(apiJs, /getWith:\s*function/);

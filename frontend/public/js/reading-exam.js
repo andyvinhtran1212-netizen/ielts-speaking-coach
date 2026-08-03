@@ -367,6 +367,15 @@
   // reading-access-tracking B2 — anonymous share-link mode. `?share=<token>`
   // opens the exam for ANYONE (no account): boot/start/submit/answers go to the
   // B1 share + anon endpoints and carry the minted anon_id as X-Reading-Anon.
+  // Class homework. The class page puts `?class_item=` on the link so this
+  // attempt can record WHICH task it is being done for — the ledger then never
+  // has to work that out from the paper and the clock, which cannot be done
+  // right when the same paper may be given twice or practised freely.
+  // Share mode has no student behind it, so it never carries one.
+  function classItemFromUrl() {
+    return (new URLSearchParams(window.location.search).get('class_item') || '')
+      .trim() || null;
+  }
   function shareTokenFromUrl() {
     return (new URLSearchParams(window.location.search).get('share') || '').trim() || null;
   }
@@ -2878,7 +2887,11 @@
           null, _anonHeaders(), { noRedirect: true })
         .then(function (res) { _setAnonId(res && res.anon_id); return res; })
       // F1 — carry the locked-test password (if any) so start passes the gate.
-      : window.api.postWith('/api/reading/test/' + encodeURIComponent(SESSION.test_id) + '/attempts', null, _pwHeaders());
+      : window.api.postWith(
+          '/api/reading/test/' + encodeURIComponent(SESSION.test_id) + '/attempts'
+            + (classItemFromUrl()
+                ? '?class_item=' + encodeURIComponent(classItemFromUrl()) : ''),
+          null, _pwHeaders());
     return startPromise
       .then(function (res) {
         SESSION.attempt_id = res.attempt_id;

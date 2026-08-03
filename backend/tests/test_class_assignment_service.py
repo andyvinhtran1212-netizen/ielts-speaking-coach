@@ -1036,13 +1036,20 @@ def test_regrading_a_retry_does_not_rewrite_the_recorded_attempt_score():
 
 # ── GĐ 5 — Reading/Listening ────────────────────────────────────────────
 #
-# These skills have no completion hook: the test page submits without knowing
-# the class ledger exists. The attempt row IS the evidence, matched on
-# (student's user_id, the assigned test id).
+# These skills have no completion hook: the test page submits without the class
+# ledger being part of that request. The repair pass FOLLOWS THE LINK the
+# attempt row carries (`class_assignment_item_id`, mig 181) — stamped when the
+# student opened the task from their class page.
+#
+# The link is the whole design. An earlier version inferred ownership from the
+# paper and the clock, and every review round found another state it got wrong:
+# scheduled reveals, archive-then-reopen, transferred students, the same paper
+# given twice, races with delete and with archive. None of those questions can
+# be asked of a foreign key.
 
 
-def _rl_db(*, attempts, skill="reading", table="reading_test_attempts",
-           item_submitted=None):
+def _rl_db(*, attempts, table="reading_test_attempts", item_submitted=None,
+           item_link="item-1"):
     return _DB({
         "class_assignment_items": [
             {"id": "item-1", "assignment_id": "asg-1", "student_id": "stu-1",
@@ -1053,18 +1060,19 @@ def _rl_db(*, attempts, skill="reading", table="reading_test_attempts",
     })
 
 
-def _rl_assignment(skill="reading", content_id="test-1",
-                   created_at="2026-08-03T00:00:00+00:00", status="published"):
+def _rl_assignment(skill="reading", content_id="test-1", status="published"):
     return {"id": "asg-1", "skill": skill, "content_id": content_id,
-            "created_at": created_at, "status": status}
+            "status": status, "cohort_id": "co-1"}
 
 
-def test_a_submitted_reading_attempt_records_the_hand_in():
-    db = _rl_db(attempts=[{
-        "id": "att-1", "user_id": "user-1", "test_id": "test-1",
-        "submitted_at": "2026-08-03T11:00:00+00:00", "band_estimate": 6.5,
-        "status": "submitted",
-    }])
+def _attempt(aid="att-1", *, item="item-1", when="2026-08-03T11:00:00+00:00",
+             band=6.5, status="submitted"):
+    return {"id": aid, "class_assignment_item_id": item, "submitted_at": when,
+            "band_estimate": band, "status": status}
+
+
+def test_a_linked_submitted_attempt_records_the_hand_in():
+    db = _rl_db(attempts=[_attempt()])
     assert reconcile_test_attempts(db, [_rl_assignment()]) == 1
     item = db.tables["class_assignment_items"][0]
     assert item["artifact_kind"] == "reading_attempt"
@@ -1073,433 +1081,96 @@ def test_a_submitted_reading_attempt_records_the_hand_in():
 
 
 def test_the_attempt_submission_time_is_kept_not_the_repair_time():
-    """A hand-in made before the deadline must stay on time however late this
-    reconciliation happens to run."""
-    when = "2026-08-03T11:00:00+00:00"
-    db = _rl_db(attempts=[{
-        "id": "att-1", "user_id": "user-1", "test_id": "test-1",
-        "submitted_at": when, "band_estimate": 6.0, "status": "submitted",
-    }])
+    """A hand-in made before the deadline must stay on time however late the
+    repair runs — stamping "now" would turn it late."""
+    db = _rl_db(attempts=[_attempt(when="2026-08-03T11:00:00+00:00")])
     reconcile_test_attempts(db, [_rl_assignment()])
-    assert db.tables["class_assignment_items"][0]["submitted_at"] == when
+    assert db.tables["class_assignment_items"][0]["submitted_at"] == \
+        "2026-08-03T11:00:00+00:00"
 
 
 def test_a_retake_cannot_overwrite_the_first_hand_in():
-    """Rows arrive in no meaningful order; the EARLIEST submitted attempt is the
-    one that met the deadline."""
+    """The test pages allow a retake, so one item can carry several attempts.
+    The earliest submitted one is the hand-in that met the deadline."""
     db = _rl_db(attempts=[
-        {"id": "att-late", "user_id": "user-1", "test_id": "test-1",
-         "submitted_at": "2026-08-04T11:00:00+00:00", "band_estimate": 8.0,
-         "status": "submitted"},
-        {"id": "att-first", "user_id": "user-1", "test_id": "test-1",
-         "submitted_at": "2026-08-03T11:00:00+00:00", "band_estimate": 6.0,
-         "status": "submitted"},
+        _attempt("att-RETRY", when="2026-08-04T09:00:00+00:00", band=9.0),
+        _attempt("att-FIRST", when="2026-08-03T11:00:00+00:00", band=6.0),
     ])
-    reconcile_test_attempts(db, [_rl_assignment()])
+    assert reconcile_test_attempts(db, [_rl_assignment()]) == 1
     item = db.tables["class_assignment_items"][0]
-    assert item["artifact_id"] == "att-first"
+    assert item["artifact_id"] == "att-FIRST"
     assert item["score"] == 6.0
 
 
-def test_an_attempt_at_a_DIFFERENT_test_is_not_the_hand_in():
-    """Doing some other Reading paper is not doing the assigned one."""
-    db = _rl_db(attempts=[{
-        "id": "att-x", "user_id": "user-1", "test_id": "some-other-test",
-        "submitted_at": "2026-08-03T11:00:00+00:00", "band_estimate": 7.0,
-        "status": "submitted",
-    }])
-    assert reconcile_test_attempts(db, [_rl_assignment(content_id="test-1")]) == 0
-    assert db.tables["class_assignment_items"][0]["submitted_at"] is None
+def test_free_practice_is_never_credited():
+    """An attempt with no link was not done for the class — it is the most
+    common kind of attempt there is, and crediting it would mark homework done
+    for anyone who happened to practise the same paper."""
+    db = _rl_db(attempts=[_attempt(item=None)])
+    assert reconcile_test_attempts(db, [_rl_assignment()]) == 0
+    assert db.tables["class_assignment_items"][0].get("submitted_at") is None
 
 
-def test_another_students_attempt_is_not_credited():
-    db = _rl_db(attempts=[{
-        "id": "att-x", "user_id": "SOMEONE-ELSE", "test_id": "test-1",
-        "submitted_at": "2026-08-03T11:00:00+00:00", "band_estimate": 7.0,
-        "status": "submitted",
-    }])
+def test_an_attempt_linked_to_SOMEONE_ELSES_item_is_not_credited_here():
+    """The query narrows on the pending items of these gives; a link pointing
+    anywhere else is simply not this homework."""
+    db = _rl_db(attempts=[_attempt(item="item-OTHER")])
+    assert reconcile_test_attempts(db, [_rl_assignment()]) == 0
+
+
+def test_an_unfinished_attempt_is_not_a_hand_in():
+    db = _rl_db(attempts=[_attempt(status="in_progress", when=None)])
+    assert reconcile_test_attempts(db, [_rl_assignment()]) == 0
+
+
+def test_an_already_recorded_item_is_left_alone():
+    """Idempotent: the repair runs on every read of the homework list."""
+    db = _rl_db(attempts=[_attempt("att-NEW", when="2026-08-09T10:00:00+00:00")],
+                item_submitted="2026-08-03T11:00:00+00:00")
     assert reconcile_test_attempts(db, [_rl_assignment()]) == 0
 
 
 def test_listening_uses_its_own_table_and_artifact_kind():
-    db = _rl_db(skill="listening", table="listening_test_attempts", attempts=[{
-        "id": "att-1", "user_id": "user-1", "test_id": "test-1",
-        "submitted_at": "2026-08-03T11:00:00+00:00", "band_estimate": 5.5,
-        "status": "submitted",
-    }])
+    db = _rl_db(attempts=[_attempt()], table="listening_test_attempts")
     assert reconcile_test_attempts(db, [_rl_assignment(skill="listening")]) == 1
     assert db.tables["class_assignment_items"][0]["artifact_kind"] == "listening_attempt"
 
 
-def test_speaking_assignments_are_left_to_their_own_path():
-    """Speaking is recorded at PATCH /sessions/complete; this must not touch it."""
-    db = _rl_db(attempts=[])
+def test_a_speaking_give_is_not_looked_up_in_the_attempt_tables():
+    db = _rl_db(attempts=[_attempt()])
     assert reconcile_test_attempts(db, [_rl_assignment(skill="speaking")]) == 0
 
 
-def test_an_already_recorded_item_is_not_touched_again():
-    first = "2026-08-03T11:00:00+00:00"
-    db = _rl_db(item_submitted=first, attempts=[{
-        "id": "att-1", "user_id": "user-1", "test_id": "test-1",
-        "submitted_at": "2026-08-04T11:00:00+00:00", "band_estimate": 9.0,
-        "status": "submitted",
-    }])
-    assert reconcile_test_attempts(db, [_rl_assignment()]) == 0
-    assert db.tables["class_assignment_items"][0]["submitted_at"] == first
-
-
-def test_the_test_id_guard_is_in_python_not_only_in_the_query():
-    """The DB filter narrows the read; the (user, test) key is what actually
-    decides. Pinned because dropping the filter is harmless and dropping the key
-    is not — and only one of those is obvious from the code."""
-    import inspect
-    from services import class_assignment_service as mod
-    src = code_only(inspect.getsource(mod.reconcile_test_attempts))
-    import re
-    assert re.search(r"by_key\s*\.\s*get\s*\(\s*\(\s*uid\s*,\s*test_id\s*\)", src), (
-        "crediting must be keyed on the ASSIGNED test, not on any attempt the "
-        "student happens to have"
-    )
-
-
-# ── công đã làm TRƯỚC khi được giao không phải là bài nộp ────────────────
-
-
-def test_an_attempt_from_before_the_homework_was_set_is_not_a_hand_in():
-    """Assigning a paper someone had already practised would otherwise mark that
-    student submitted the moment the homework is created — backdated to whenever
-    they happened to do it. The teacher sees work handed in before it was set,
-    and the student is never asked to do it."""
-    db = _rl_db(attempts=[{
-        "id": "att-OLD", "user_id": "user-1", "test_id": "test-1",
-        "submitted_at": "2026-07-01T10:00:00+00:00", "band_estimate": 7.0,
-        "status": "submitted",
-    }])
-    assert reconcile_test_attempts(
-        db, [_rl_assignment(created_at="2026-08-03T00:00:00+00:00")]) == 0
-    assert db.tables["class_assignment_items"][0].get("submitted_at") is None
-
-
-def test_the_first_attempt_AFTER_the_homework_was_set_is_the_hand_in():
-    """The old attempt must not merely be skipped as a candidate — it must not
-    shadow the real one either. Picking the earliest overall would return the
-    July attempt and record nothing."""
-    db = _rl_db(attempts=[
-        {"id": "att-OLD", "user_id": "user-1", "test_id": "test-1",
-         "submitted_at": "2026-07-01T10:00:00+00:00", "band_estimate": 7.0,
-         "status": "submitted"},
-        {"id": "att-NEW", "user_id": "user-1", "test_id": "test-1",
-         "submitted_at": "2026-08-03T18:30:00+00:00", "band_estimate": 6.0,
-         "status": "submitted"},
-        {"id": "att-LATER", "user_id": "user-1", "test_id": "test-1",
-         "submitted_at": "2026-08-04T09:00:00+00:00", "band_estimate": 8.0,
-         "status": "submitted"},
-    ])
-    assert reconcile_test_attempts(db, [_rl_assignment()]) == 1
-    item = db.tables["class_assignment_items"][0]
-    assert item["artifact_id"] == "att-NEW"
-    assert item["submitted_at"] == "2026-08-03T18:30:00+00:00"
+def test_an_archived_give_still_records_work_that_was_linked_to_it():
+    """Unlike the inference version, closing a give does not have to block the
+    repair: the link proves the student opened this task while it was open, so
+    there is nothing left to guess at and nothing to protect against."""
+    db = _rl_db(attempts=[_attempt()])
+    assert reconcile_test_attempts(db, [_rl_assignment(status="archived")]) == 1
 
 
 def test_a_naive_timestamp_does_not_500_the_whole_class():
-    """Comparing a naive datetime with an aware one raises TypeError. One odd
-    row must not take down every student's homework list."""
-    db = _rl_db(attempts=[{
-        "id": "att-1", "user_id": "user-1", "test_id": "test-1",
-        "submitted_at": "2026-08-03T18:30:00", "band_estimate": 6.0,
-        "status": "submitted",
-    }])
+    db = _rl_db(attempts=[_attempt(when="2026-08-03T18:30:00")])
     assert reconcile_test_attempts(db, [_rl_assignment()]) == 1
 
 
-def test_assigned_test_ids_are_chunked_like_every_other_id_filter():
-    """A class accumulates assigned papers the way it accumulates students; an
-    over-long in.(...) is a request-URL failure, not a slow query."""
+def test_ownership_is_never_inferred_from_the_paper_or_the_clock():
+    """Guarding the design, not a line. Reintroducing any of these means the
+    repair is guessing again, and the guess is what kept being wrong."""
     import inspect
     from services import class_assignment_service as mod
     src = code_only(inspect.getsource(mod.reconcile_test_attempts))
-    assert src.count("_ID_CHUNK") >= 3, (
-        "user_ids, student_ids and test_ids must all be chunked"
-    )
+    for banned in ("content_id", "created_at", "publish_at", "attempts_from",
+                   "cohort_id", "user_id"):
+        assert banned not in src, (
+            f"{banned} has no place here — the link already says which homework "
+            f"this attempt was done for"
+        )
+    assert "class_assignment_item_id" in src
 
 
-# ── một lượt làm bài chỉ trả được MỘT bài tập ───────────────────────────
-
-
-def _two_gives_db(attempts, items):
-    return _DB({
-        "class_assignment_items": list(items),
-        "students": [{"id": "stu-1", "user_id": "user-1"}],
-        "reading_test_attempts": list(attempts),
-    })
-
-
-_GIVE_1 = {"id": "asg-1", "skill": "reading", "content_id": "test-1",
-           "created_at": "2026-08-01T00:00:00+00:00", "status": "published"}
-# Both gives predate every attempt below, so the "not before it was set" filter
-# cannot decide anything here — only one-attempt-one-hand-in can.
-_GIVE_2 = {"id": "asg-2", "skill": "reading", "content_id": "test-1",
-           "created_at": "2026-08-02T00:00:00+00:00", "status": "published"}
-
-
-def _pending(item_id, assignment_id):
-    return {"id": item_id, "assignment_id": assignment_id, "student_id": "stu-1",
-            "submitted_at": None, "state": "assigned"}
-
-
-def test_one_attempt_cannot_clear_two_gives_of_the_same_paper():
-    """A teacher who sets the same paper twice (re-do week) would otherwise see
-    both weeks cleared by a single sitting."""
-    db = _two_gives_db(
-        [{"id": "att-1", "user_id": "user-1", "test_id": "test-1",
-          "submitted_at": "2026-08-05T10:00:00+00:00", "band_estimate": 6.0,
-          "status": "submitted"}],
-        [_pending("item-1", "asg-1"), _pending("item-2", "asg-2")],
-    )
-    assert reconcile_test_attempts(db, [_GIVE_1, _GIVE_2]) == 1
-    by_id = {i["id"]: i for i in db.tables["class_assignment_items"]}
-    assert by_id["item-1"].get("artifact_id") == "att-1"
-    assert by_id["item-2"].get("submitted_at") is None
-
-
-def test_two_sittings_clear_two_gives_oldest_first():
-    """Two real hand-ins must clear both — and the earlier sitting belongs to
-    the earlier give, not to whichever row came back first."""
-    db = _two_gives_db(
-        [{"id": "att-LATER", "user_id": "user-1", "test_id": "test-1",
-          "submitted_at": "2026-08-09T10:00:00+00:00", "band_estimate": 7.0,
-          "status": "submitted"},
-         {"id": "att-FIRST", "user_id": "user-1", "test_id": "test-1",
-          "submitted_at": "2026-08-03T10:00:00+00:00", "band_estimate": 6.0,
-          "status": "submitted"}],
-        [_pending("item-2", "asg-2"), _pending("item-1", "asg-1")],
-    )
-    assert reconcile_test_attempts(db, [_GIVE_2, _GIVE_1]) == 2
-    by_id = {i["id"]: i for i in db.tables["class_assignment_items"]}
-    assert by_id["item-1"]["artifact_id"] == "att-FIRST"
-    assert by_id["item-2"]["artifact_id"] == "att-LATER"
-
-
-def test_an_attempt_already_recorded_on_a_sibling_give_is_not_reused():
-    """The first give was recorded on an earlier pass. Re-running the repair
-    must not hand that same attempt to the second give."""
-    recorded = {"id": "item-1", "assignment_id": "asg-1", "student_id": "stu-1",
-                "submitted_at": "2026-08-05T10:00:00+00:00", "state": "submitted",
-                "artifact_id": "att-1"}
-    db = _two_gives_db(
-        [{"id": "att-1", "user_id": "user-1", "test_id": "test-1",
-          "submitted_at": "2026-08-05T10:00:00+00:00", "band_estimate": 6.0,
-          "status": "submitted"}],
-        [recorded, _pending("item-2", "asg-2")],
-    )
-    assert reconcile_test_attempts(db, [_GIVE_1, _GIVE_2]) == 0
-    by_id = {i["id"]: i for i in db.tables["class_assignment_items"]}
-    assert by_id["item-2"].get("submitted_at") is None
-
-
-def test_an_archived_give_does_not_collect_later_practice():
-    """A cancelled task must not gain hand-ins. Any later standalone practice of
-    the same paper satisfies the "after it was set" test, so without this the
-    closed homework quietly grows submissions nobody handed in."""
-    db = _rl_db(attempts=[{
-        "id": "att-1", "user_id": "user-1", "test_id": "test-1",
-        "submitted_at": "2026-08-05T10:00:00+00:00", "band_estimate": 6.5,
-        "status": "submitted",
-    }])
-    assert reconcile_test_attempts(db, [_rl_assignment(status="archived")]) == 0
-    assert db.tables["class_assignment_items"][0].get("submitted_at") is None
-
-
-def test_a_give_scheduled_for_later_collects_nothing_yet():
-    """publish_at is the reveal gate (mig 177): items exist before the class can
-    see them, and nothing done in that window is a hand-in for it."""
-    a = _rl_assignment()
-    a["publish_at"] = "2099-01-01T00:00:00+00:00"
-    db = _rl_db(attempts=[{
-        "id": "att-1", "user_id": "user-1", "test_id": "test-1",
-        "submitted_at": "2026-08-05T10:00:00+00:00", "band_estimate": 6.5,
-        "status": "submitted",
-    }])
-    assert reconcile_test_attempts(db, [a]) == 0
-
-
-def test_a_sibling_give_reserves_its_attempt_even_when_not_passed_in():
-    """The pre-delete path passes ONE row. Without pulling in sibling gives of
-    the same paper, an attempt already credited to the other give is invisible
-    and gets credited a second time."""
-    recorded = {"id": "item-1", "assignment_id": "asg-1", "student_id": "stu-1",
-                "submitted_at": "2026-08-05T10:00:00+00:00", "state": "submitted",
-                "artifact_id": "att-1"}
-    db = _DB({
-        "class_assignment_items": [recorded, _pending("item-2", "asg-2")],
-        "students": [{"id": "stu-1", "user_id": "user-1"}],
-        "class_assignments": [_GIVE_1, _GIVE_2],
-        "reading_test_attempts": [{
-            "id": "att-1", "user_id": "user-1", "test_id": "test-1",
-            "submitted_at": "2026-08-05T10:00:00+00:00", "band_estimate": 6.0,
-            "status": "submitted"}],
-    })
-    # Only the LATER give is passed — as the pre-delete path would.
-    assert reconcile_test_attempts(db, [_GIVE_2]) == 0
-    by_id = {i["id"]: i for i in db.tables["class_assignment_items"]}
-    assert by_id["item-2"].get("submitted_at") is None
-
-
-def test_a_failed_sibling_lookup_does_not_take_the_repair_down():
-    """Best-effort: without siblings the repair is still right for the gives it
-    was asked about."""
-    db = _DB({
-        "class_assignment_items": [_pending("item-1", "asg-1")],
-        "students": [{"id": "stu-1", "user_id": "user-1"}],
-        "reading_test_attempts": [{
-            "id": "att-1", "user_id": "user-1", "test_id": "test-1",
-            "submitted_at": "2026-08-05T10:00:00+00:00", "band_estimate": 6.0,
-            "status": "submitted"}],
-    }, fail={"class_assignments"})
-    assert reconcile_test_attempts(db, [_GIVE_1]) == 1
-
-
-def test_work_done_while_a_give_was_still_hidden_is_not_the_hand_in():
-    """publish_at is the reveal gate: rows exist before the class can see them.
-    Counting practice from that window means a student is marked as having done
-    homework nobody had told them about."""
-    a = _rl_assignment(created_at="2026-08-01T00:00:00+00:00")
-    a["publish_at"] = "2026-08-10T00:00:00+00:00"
-    db = _rl_db(attempts=[{
-        "id": "att-EARLY", "user_id": "user-1", "test_id": "test-1",
-        "submitted_at": "2026-08-05T10:00:00+00:00", "band_estimate": 7.0,
-        "status": "submitted",
-    }])
-    # Open by now, but the attempt predates the reveal.
-    with_open = dict(a, publish_at="2026-08-02T00:00:00+00:00")
-    with_open_early = dict(with_open)
-    assert reconcile_test_attempts(_rl_db(attempts=[{
-        "id": "att-BEFORE", "user_id": "user-1", "test_id": "test-1",
-        "submitted_at": "2026-08-01T12:00:00+00:00", "band_estimate": 7.0,
-        "status": "submitted"}]), [with_open_early]) == 0, (
-        "created_at alone would accept this — publish_at must raise the floor"
-    )
-    # And a give still hidden collects nothing at all.
-    assert reconcile_test_attempts(db, [a]) == 0
-
-
-def test_an_archived_sibling_keeps_its_attempt_reserved():
-    """Archiving is the normal way a give is closed. If that released its
-    attempt, the next give of the same paper would silently take it as a second
-    hand-in — the student would appear to have done the work twice."""
-    recorded = {"id": "item-1", "assignment_id": "asg-1", "student_id": "stu-1",
-                "submitted_at": "2026-08-05T10:00:00+00:00", "state": "submitted",
-                "artifact_id": "att-1"}
-    db = _DB({
-        "class_assignment_items": [recorded, _pending("item-2", "asg-2")],
-        "students": [{"id": "stu-1", "user_id": "user-1", "cohort_id": "co-1"}],
-        "class_assignments": [dict(_GIVE_1, status="archived", cohort_id="co-1"),
-                              dict(_GIVE_2, cohort_id="co-1")],
-        "reading_test_attempts": [{
-            "id": "att-1", "user_id": "user-1", "test_id": "test-1",
-            "submitted_at": "2026-08-05T10:00:00+00:00", "band_estimate": 6.0,
-            "status": "submitted"}],
-    })
-    assert reconcile_test_attempts(db, [dict(_GIVE_2, cohort_id="co-1")]) == 0
-    by_id = {i["id"]: i for i in db.tables["class_assignment_items"]}
-    assert by_id["item-2"].get("submitted_at") is None
-
-
-def test_a_transferred_students_old_item_is_not_written_to():
-    """The student routes already hide a previous class's work. Writing to it
-    here would file the hand-in under a class the learner has left — and spend
-    the attempt there instead of on their current class's give."""
-    db = _DB({
-        "class_assignment_items": [_pending("item-old", "asg-1")],
-        "students": [{"id": "stu-1", "user_id": "user-1", "cohort_id": "co-NEW"}],
-        "reading_test_attempts": [{
-            "id": "att-1", "user_id": "user-1", "test_id": "test-1",
-            "submitted_at": "2026-08-05T10:00:00+00:00", "band_estimate": 6.0,
-            "status": "submitted"}],
-    })
-    assert reconcile_test_attempts(db, [dict(_GIVE_1, cohort_id="co-OLD")]) == 0
-
-
-def test_the_current_classes_give_still_gets_credited():
-    """The cohort check must not refuse ordinary work — that would stop every
-    hand-in, which is worse than the bug it prevents."""
-    db = _DB({
-        "class_assignment_items": [_pending("item-1", "asg-1")],
-        "students": [{"id": "stu-1", "user_id": "user-1", "cohort_id": "co-1"}],
-        "reading_test_attempts": [{
-            "id": "att-1", "user_id": "user-1", "test_id": "test-1",
-            "submitted_at": "2026-08-05T10:00:00+00:00", "band_estimate": 6.0,
-            "status": "submitted"}],
-    })
-    assert reconcile_test_attempts(db, [dict(_GIVE_1, cohort_id="co-1")]) == 1
-
-
-# ── mở lại bài đã lưu trữ: đồng hồ chạy lại ─────────────────────────────
-
-
-def test_practice_done_while_a_give_was_closed_is_not_credited_on_reopen():
-    """The paper stays open in the library while the give is archived, so a
-    student can practise it on their own in that window. Crediting it when the
-    give reopens shows the teacher a hand-in that never happened."""
-    a = _rl_assignment(created_at="2026-08-01T00:00:00+00:00")
-    a["attempts_from"] = "2026-08-20T00:00:00+00:00"     # reopened on the 20th
-    db = _rl_db(attempts=[{
-        "id": "att-DURING-CLOSURE", "user_id": "user-1", "test_id": "test-1",
-        "submitted_at": "2026-08-10T10:00:00+00:00", "band_estimate": 7.0,
-        "status": "submitted",
-    }])
-    assert reconcile_test_attempts(db, [a]) == 0
-
-
-def test_work_after_the_reopen_still_counts():
-    a = _rl_assignment(created_at="2026-08-01T00:00:00+00:00")
-    a["attempts_from"] = "2026-08-20T00:00:00+00:00"
-    db = _rl_db(attempts=[{
-        "id": "att-AFTER", "user_id": "user-1", "test_id": "test-1",
-        "submitted_at": "2026-08-21T10:00:00+00:00", "band_estimate": 6.0,
-        "status": "submitted",
-    }])
-    assert reconcile_test_attempts(db, [a]) == 1
-
-
-def test_a_row_written_before_the_column_existed_falls_back_to_the_old_formula():
-    """Migration 182 backfills, but a read can still race a not-yet-applied
-    migration. Falling back is what keeps that from silently crediting nothing."""
-    a = _rl_assignment(created_at="2026-08-01T00:00:00+00:00")
-    a.pop("attempts_from", None)
-    a["publish_at"] = "2026-08-10T00:00:00+00:00"
-    early = _rl_db(attempts=[{
-        "id": "att-EARLY", "user_id": "user-1", "test_id": "test-1",
-        "submitted_at": "2026-08-05T10:00:00+00:00", "band_estimate": 7.0,
-        "status": "submitted"}])
-    assert reconcile_test_attempts(early, [a]) == 0, "publish_at must still raise the floor"
-
-
-def test_repeated_gives_are_ordered_by_when_they_started_counting():
-    """Created earlier but revealed later: the give that was actually owed first
-    must get the first attempt, or it reads as missing while the other one —
-    which nobody could see yet — is marked done."""
-    early_row = {"id": "asg-EARLY-ROW", "skill": "reading", "content_id": "test-1",
-                 "status": "published", "cohort_id": "co-1",
-                 "created_at": "2026-08-01T00:00:00+00:00",
-                 "attempts_from": "2026-08-20T00:00:00+00:00"}   # revealed LATE
-    owed_first = {"id": "asg-OWED-FIRST", "skill": "reading", "content_id": "test-1",
-                  "status": "published", "cohort_id": "co-1",
-                  "created_at": "2026-08-05T00:00:00+00:00",
-                  "attempts_from": "2026-08-05T00:00:00+00:00"}
-    db = _DB({
-        "class_assignment_items": [_pending("item-early", "asg-EARLY-ROW"),
-                                   _pending("item-owed", "asg-OWED-FIRST")],
-        "students": [{"id": "stu-1", "user_id": "user-1", "cohort_id": "co-1"}],
-        "class_assignments": [early_row, owed_first],
-        "reading_test_attempts": [{
-            "id": "att-1", "user_id": "user-1", "test_id": "test-1",
-            "submitted_at": "2026-08-25T10:00:00+00:00", "band_estimate": 6.0,
-            "status": "submitted"}],
-    })
-    assert reconcile_test_attempts(db, [early_row, owed_first]) == 1
-    by_id = {i["id"]: i for i in db.tables["class_assignment_items"]}
-    assert by_id["item-owed"].get("artifact_id") == "att-1", (
-        "the give that was owed first takes the attempt"
-    )
-    assert by_id["item-early"].get("submitted_at") is None
+def test_item_ids_are_chunked_for_the_url():
+    import inspect
+    from services import class_assignment_service as mod
+    src = code_only(inspect.getsource(mod.reconcile_test_attempts))
+    assert src.count("_ID_CHUNK") >= 2, "both the item read and the attempt read"

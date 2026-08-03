@@ -280,37 +280,10 @@ async def update_assignment(
     """
     await require_admin(authorization)
 
-    # ARCHIVING CLOSES THE DOOR, so anything already handed in has to be folded
-    # in FIRST. reconcile_test_attempts() only writes open gives: a student who
-    # submits between the admin loading the list and clicking "Đóng bài" would
-    # otherwise have their attempt ignored forever — the give is closed, so no
-    # later read can ever pick it up. Same shape as the pre-delete repair.
-    if body.status == "archived":
-        try:
-            row = (
-                supabase_admin.table("class_assignments").select("*")
-                .eq("id", assignment_id).eq("cohort_id", cohort_id)
-                .limit(1).execute().data
-            ) or []
-            if row:
-                reconcile_test_attempts(supabase_admin, row)
-        except Exception as exc:
-            logger.warning("[class] pre-archive reconcile failed: %s", exc)
-
-    # REOPENING RESTARTS THE CLOCK for Reading/Listening. The paper stays open
-    # in the library while the give is archived, so a student can practise it on
-    # their own in that window. Without moving the cutoff, republishing would
-    # credit that practice as class homework — a hand-in the teacher would see
-    # that never happened. Any OTHER edit leaves the column alone: pushing it on
-    # a title change would un-credit real hand-ins.
-    patch: dict[str, Any] = {"status": body.status}
-    if body.status == "published":
-        patch["attempts_from"] = datetime.now(timezone.utc).isoformat()
-
     try:
         r = (
             supabase_admin.table("class_assignments")
-            .update(patch)
+            .update({"status": body.status})
             .eq("id", assignment_id).eq("cohort_id", cohort_id)
             .execute()
         )
@@ -334,26 +307,6 @@ async def delete_assignment(
     that now belongs to another class.
     """
     await require_admin(authorization)
-
-    # Reading/Listening hand-ins are not written by the test page — they are
-    # repaired from the attempt rows on read. So the ledger the delete guard
-    # consults can be stale in exactly the situation that matters: the admin is
-    # looking at "0 đã nộp", a student submits, and the still-visible delete
-    # button erases the item AND (via ON DELETE CASCADE) the record of it.
-    # Repairing first shrinks that window from "until some screen re-reads" to
-    # the round trip below. It does not close it — a submission landing between
-    # these two calls is still lost; closing it fully means teaching
-    # fn_delete_class_assignment_if_unsubmitted to read the attempt tables.
-    try:
-        row = (
-            supabase_admin.table("class_assignments").select("*")
-            .eq("id", assignment_id).eq("cohort_id", cohort_id)
-            .limit(1).execute().data
-        ) or []
-        if row:
-            reconcile_test_attempts(supabase_admin, row)
-    except Exception as exc:
-        logger.warning("[class] pre-delete reconcile failed: %s", exc)
 
     # Check-then-delete happens inside one locking transaction (mig 179). As two
     # PostgREST calls, a student completing their session in between was recorded

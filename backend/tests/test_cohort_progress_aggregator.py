@@ -456,6 +456,9 @@ def test_a_reading_hand_in_shows_up_even_if_progress_is_opened_first():
     tables["reading_test_attempts"] = [{
         "id": "att-1", "user_id": "u1", "test_id": "test-1", "status": "submitted",
         "submitted_at": ON_TIME, "band_estimate": 6.5,
+        # The link the student's class page stamped on it (mig 181) — the whole
+        # reason this repair does not have to guess.
+        "class_assignment_item_id": "item-1",
     }]
     hw = cohort_progress(_DB(tables), COHORT)["students"][0]["homework"]
     assert hw["submitted"] == 1, (

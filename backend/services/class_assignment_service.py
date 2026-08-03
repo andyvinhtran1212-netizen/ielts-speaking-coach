@@ -386,6 +386,59 @@ def validate_class_item_for_session(
         raise TaskMismatchError("Chủ đề của phiên không khớp bài được giao.")
 
 
+def validate_class_item_for_test(db, user_id: str, item_id: str,
+                                 *, skill: str, test_id: str) -> None:
+    """Check the caller may hand this paper in as that homework. Raises.
+
+    Runs BEFORE the attempt row is written, because the link it authorises is
+    what the ledger later trusts: an unchecked `class_item` in a query string
+    would let a student stamp any attempt with any item id and have the class
+    record it as done.
+
+    The paper has to MATCH too, not just be owned. Ownership alone would let a
+    learner open an easy paper, point it at the hard homework, and have the hard
+    one marked complete — proving the ASSIGNED work was done is the ledger's
+    whole value. Same rule as validate_class_item_for_session, which checks
+    mode/part/topic for Speaking.
+    """
+    student = (
+        db.table("students").select("id, cohort_id").eq("user_id", user_id)
+        .limit(1).execute().data
+    ) or []
+    if not student:
+        raise ItemNotFoundError("Tài khoản này chưa gắn với hồ sơ học viên nào")
+
+    owned = (
+        db.table("class_assignment_items").select("id, assignment_id")
+        .eq("id", item_id).eq("student_id", student[0]["id"])
+        .limit(1).execute().data
+    ) or []
+    if not owned:
+        raise ItemNotFoundError("Bài tập không thuộc về học viên này")
+
+    a_rows = (
+        db.table("class_assignments").select("*")
+        .eq("id", owned[0]["assignment_id"]).limit(1).execute().data
+    ) or []
+    if not a_rows:
+        raise ItemNotFoundError("Không tìm thấy bài giao")
+    assignment = a_rows[0]
+
+    if not is_assignment_open(assignment):
+        raise TaskMismatchError("Bài tập chưa mở hoặc đã đóng")
+
+    # A transferred student keeps their old item rows; the old class's homework
+    # is not theirs to hand in any more.
+    if assignment.get("cohort_id") != student[0].get("cohort_id"):
+        raise TaskMismatchError("Bài tập không thuộc lớp hiện tại của bạn")
+
+    if assignment.get("skill") != skill:
+        raise TaskMismatchError("Bài tập này không phải bài của kỹ năng đang làm.")
+
+    if str(assignment.get("content_id") or "") != str(test_id):
+        raise TaskMismatchError("Đề đang làm không phải đề được giao.")
+
+
 def attach_session_to_class_item(db, session_id: str, user_id: str, item_id: str) -> bool:
     """Write the link through fn_bind_session_to_class_item (mig 179).
 
@@ -433,209 +486,82 @@ def _at(value: Optional[str]) -> Optional[datetime]:
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
-def _attempts_from(assignment: Dict[str, Any]) -> Optional[datetime]:
-    """From when a Reading/Listening attempt counts as this give's hand-in.
-
-    `attempts_from` (mig 182) is the stored answer, and the only one that
-    survives an archive-then-republish: the paper stays open in the library
-    while the give is closed, so practice done in that window must not be
-    credited when it reopens.
-
-    The fallback is the pre-182 formula, for rows written before the column
-    existed. GREATEST rather than created_at because a give scheduled for next
-    Monday exists as rows today, and work done while it was hidden — before
-    anyone was told to do it — is not a hand-in for it.
-    """
-    stored = _at(assignment.get("attempts_from"))
-    if stored:
-        return stored
-    return max(
-        [d for d in (_at(assignment.get("created_at")),
-                     _at(assignment.get("publish_at"))) if d],
-        default=None,
-    )
-
-
 def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
-    """Record hand-ins for Reading/Listening assignments from their attempt rows.
+    """Repair Reading/Listening hand-ins whose ledger write failed.
 
-    A test page submits without knowing the class ledger exists, so unlike
-    Speaking there is nothing to hook. The attempt row IS the evidence: matched
-    on (student's user_id, the assigned test id), taking the EARLIEST submitted
-    attempt so a retake cannot overwrite the real first hand-in — and its
-    submitted_at, so a hand-in made before the deadline stays on time however
-    late this reconciliation runs.
+    Reading and Listening have no completion hook of their own the way Speaking
+    does — the test page submits, and the write into `class_assignment_items`
+    is best-effort. This is the repair pass, and it runs on read.
+
+    WHICH ATTEMPT BELONGS TO WHICH GIVE IS NOT DECIDED HERE. The attempt row
+    carries `class_assignment_item_id`, stamped when the student opened the task
+    from their class page (mig 181). This function follows that link; it never
+    infers ownership from timing, from the paper, or from who the student is.
+
+    That distinction is the whole point. The inference version had to answer
+    "when was it given, when was it revealed, was it archived and reopened, has
+    the student since changed class, was the same paper given twice, which give
+    claims this attempt" — and every answer was another way to be wrong. The
+    link answers all of them at once, and answers them at the moment the student
+    actually started the work.
+
+    Idempotent: `mark_item_submitted` only writes while `submitted_at IS NULL`.
     """
-    # WRITABLE gives: only open ones. An archived or cancelled task must not
-    # gain hand-ins — any later standalone practice of the same paper satisfies
-    # the "after it was set" test and would be written in as class work, so
-    # closed homework would quietly grow submissions nobody handed in.
-    targets = [a for a in assignments
-               if a.get("skill") in _TEST_ARTIFACTS and a.get("content_id")
-               and is_assignment_open(a)]
-    if not targets:
+    item_ids = []
+    seen = set()
+    for a in assignments:
+        if a.get("skill") in _TEST_ARTIFACTS and a.get("id") not in seen:
+            seen.add(a["id"])
+            item_ids.append(a["id"])
+    if not item_ids:
         return 0
 
-    # SIBLING gives of the same paper, even when the caller did not pass them —
-    # the pre-delete path passes a single row. Without them an attempt already
-    # credited to another give is invisible, `spent` is incomplete, and one
-    # sitting clears two pieces of homework.
-    #
-    # These are collected REGARDLESS OF STATUS, unlike the writable set above.
-    # Closing a give by archiving it is the normal end of its life; if archiving
-    # released its attempt, the next give of the same paper would silently take
-    # it as a second hand-in. Reserving and writing are different questions:
-    # an archived give still OWNS what was handed in to it, it just cannot
-    # receive anything new.
-    #
-    # Matching on content_id alone is enough: a student belongs to exactly one
-    # class, so two cohorts holding the same paper cannot collide on the
-    # (user, test) key this reserves against.
-    writable = {a["id"] for a in targets}
-    by_assignment = {a["id"]: a for a in targets}
-    reserving = set(writable)
-    content_ids = list({a["content_id"] for a in targets})
-    try:
-        for chunk in (content_ids[i:i + _ID_CHUNK]
-                      for i in range(0, len(content_ids), _ID_CHUNK)):
-            for sib in _paged(
-                db, "class_assignments",
-                ("id, skill, content_id, created_at, status, publish_at, "
-                 "cohort_id, attempts_from"),
-                lambda q, c=chunk: q.in_("content_id", c),
-            ):
-                if (sib["id"] in reserving or sib.get("skill") not in _TEST_ARTIFACTS
-                        or not sib.get("content_id")):
-                    continue
-                reserving.add(sib["id"])
-                by_assignment.setdefault(sib["id"], sib)
-                if is_assignment_open(sib):
-                    writable.add(sib["id"])
-                    targets.append(sib)
-    except Exception as exc:
-        # Best-effort: without siblings the repair is still correct for the
-        # gives it was asked about, it just cannot see a reservation made by
-        # one it does not know. Say so rather than silently narrowing.
-        logger.warning("[class] sibling-give lookup failed: %s", exc)
-
-    # ALL items of ALL those gives, not just the pending ones: an attempt
-    # already credited elsewhere must not be credited again, and the only record
-    # of that is the recorded item's artifact_id.
-    give_ids = list(reserving)
-    all_items = []
-    for chunk in (give_ids[i:i + _ID_CHUNK]
-                  for i in range(0, len(give_ids), _ID_CHUNK)):
-        all_items.extend(_paged(
-            db, "class_assignment_items",
-            "id, assignment_id, student_id, submitted_at, artifact_id",
-            lambda q, c=chunk: q.in_("assignment_id", c),
+    items = []
+    for chunk in (item_ids[i:i + _ID_CHUNK]
+                  for i in range(0, len(item_ids), _ID_CHUNK)):
+        items.extend(_paged(
+            db, "class_assignment_items", "id, assignment_id",
+            lambda q, c=chunk: q.in_("assignment_id", c).is_("submitted_at", "null"),
         ))
-    items = [i for i in all_items
-             if not i.get("submitted_at") and i["assignment_id"] in writable]
-    spent: Set[str] = {i["artifact_id"] for i in all_items
-                       if i.get("submitted_at") and i.get("artifact_id")}
     if not items:
         return 0
 
-    # student → user, for the attempt tables which key off the auth account.
-    student_ids = list({i["student_id"] for i in items})
-    users: Dict[str, str] = {}
-    cohort_of: Dict[str, Any] = {}
-    for chunk in (student_ids[i:i + _ID_CHUNK]
-                  for i in range(0, len(student_ids), _ID_CHUNK)):
-        for s in (_paged(db, "students", "id, user_id, cohort_id",
-                         lambda q, c=chunk: q.in_("id", c))):
-            cohort_of[s["id"]] = s.get("cohort_id")
-            if s.get("user_id"):
-                users[s["id"]] = s["user_id"]
-    if not users:
-        return 0
-
+    pending = {i["id"] for i in items}
+    ids = list(pending)
     fixed = 0
+
     for skill, (table, artifact_kind) in _TEST_ARTIFACTS.items():
-        rel = [i for i in items
-               if by_assignment.get(i["assignment_id"], {}).get("skill") == skill]
-        if not rel:
-            continue
-        test_ids = list({by_assignment[i["assignment_id"]]["content_id"] for i in rel})
-        user_ids = list({users[i["student_id"]] for i in rel if i["student_id"] in users})
-        if not user_ids:
-            continue
-
-        # Both id lists are chunked: a cohort accumulates assigned papers the
-        # same way it accumulates students, and an over-long `in.(...)` is a
-        # request-URL failure, not a slow query.
         attempts: List[Dict[str, Any]] = []
-        for uchunk in (user_ids[i:i + _ID_CHUNK]
-                       for i in range(0, len(user_ids), _ID_CHUNK)):
-            for tchunk in (test_ids[i:i + _ID_CHUNK]
-                           for i in range(0, len(test_ids), _ID_CHUNK)):
-                attempts.extend(_paged(
-                    db, table, "id, user_id, test_id, submitted_at, band_estimate",
-                    lambda q, u=uchunk, tt=tchunk: q.in_("user_id", u)
-                                                    .in_("test_id", tt)
-                                                    .eq("status", "submitted"),
-                ))
+        for chunk in (ids[i:i + _ID_CHUNK] for i in range(0, len(ids), _ID_CHUNK)):
+            attempts.extend(_paged(
+                db, table,
+                "id, class_assignment_item_id, submitted_at, band_estimate",
+                lambda q, c=chunk: q.in_("class_assignment_item_id", c)
+                                    .eq("status", "submitted"),
+            ))
 
-        # Candidates per (user, test), oldest first. Which one counts cannot be
-        # decided here: it depends on WHEN each assignment was given, and the
-        # same paper may be assigned twice to the same class.
-        by_key: Dict[tuple, List[Dict[str, Any]]] = {}
+        # EARLIEST submitted attempt per item. The test pages allow a retake, so
+        # one item can carry several — and a retake must not overwrite the
+        # hand-in that actually met the deadline.
+        best: Dict[str, Dict[str, Any]] = {}
         for at in attempts:
-            if not at.get("submitted_at"):
+            key = at.get("class_assignment_item_id")
+            when = at.get("submitted_at")
+            if not key or not when:
                 continue
-            by_key.setdefault((at.get("user_id"), at.get("test_id")), []).append(at)
-        for lst in by_key.values():
-            lst.sort(key=lambda a: a["submitted_at"])
+            cur = best.get(key)
+            if cur is None or when < cur["submitted_at"]:
+                best[key] = at
 
-        # Oldest give first — by WHEN IT STARTED COUNTING, not by when the row
-        # was written. A give created earlier but revealed later would otherwise
-        # take the first attempt from the one that was actually owed first.
-        # Same value as the cutoff below, from one helper, so the two cannot
-        # drift apart.
-        rel.sort(key=lambda i: (
-            (_attempts_from(by_assignment[i["assignment_id"]])
-             or datetime.min.replace(tzinfo=timezone.utc)),
-            i["assignment_id"], i["id"],
-        ))
-        for item in rel:
-            uid = users.get(item["student_id"])
-            assignment = by_assignment[item["assignment_id"]]
-            # A transferred student keeps their old items, and the student
-            # routes already hide those. Writing to one here would put work into
-            # a class the learner has left — and spend the attempt there instead
-            # of on the give their CURRENT class just set.
-            a_cohort, s_cohort = assignment.get("cohort_id"), cohort_of.get(item["student_id"])
-            if a_cohort and s_cohort and str(a_cohort) != str(s_cohort):
-                continue
-            test_id = assignment["content_id"]
-            # An attempt made BEFORE the homework was given is not a hand-in for
-            # it. Without this, giving a class a paper someone had already
-            # practised marks that student submitted the instant it is created,
-            # backdated to whenever they happened to do it — so the teacher sees
-            # work handed in before it was set, and the student is never asked
-            # to do it.
-            since = _attempts_from(assignment)
-            # EARLIEST qualifying attempt: a retake must not overwrite the
-            # hand-in that actually met the deadline.
-            # Each attempt is ONE hand-in. Give the same paper twice and the
-            # naive lookup returns the same attempt for both items, so a single
-            # sitting would clear two pieces of homework.
-            at = next(
-                (a for a in by_key.get((uid, test_id), [])
-                 if a["id"] not in spent
-                 and (since is None or (_at(a["submitted_at"]) or since) >= since)),
-                None,
-            )
-            if not at:
-                continue
-            spent.add(at["id"])
+        for item_id, at in best.items():
             try:
                 when = datetime.fromisoformat(at["submitted_at"])
             except (ValueError, TypeError):
+                # Stamp nothing rather than stamping now: "now" would make a
+                # hand-in that met the deadline read as late.
                 when = None
             if mark_item_submitted(
-                db, item_id=item["id"], artifact_kind=artifact_kind,
+                db, item_id=item_id, artifact_kind=artifact_kind,
                 artifact_id=at["id"], score=at.get("band_estimate"), now=when,
             ):
                 fixed += 1
@@ -643,6 +569,7 @@ def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
     if fixed:
         logger.info("[class] recorded %s test hand-in(s) from attempts", fixed)
     return fixed
+
 
 
 def reconcile_ledger_from_sessions(db, assignment_ids: List[str]) -> int:

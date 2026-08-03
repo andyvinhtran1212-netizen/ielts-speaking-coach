@@ -337,7 +337,19 @@ async def test_a_reading_task_opens_by_the_public_test_code_not_the_uuid():
 async def test_a_listening_task_opens_by_the_row_id():
     """Listening keys on the row id at both ends — one identifier throughout."""
     out = await _start(_start_db(skill="listening", content_id="uuid-xyz"))
-    assert out["open_url"] == "/pages/listening-test.html?id=uuid-xyz"
+    assert out["open_url"].startswith("/pages/listening-test.html?id=uuid-xyz")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("skill,content", [("reading", "uuid-abc"),
+                                           ("listening", "uuid-xyz")])
+async def test_the_link_carries_the_item_id(skill, content):
+    """This is what stops the ledger having to GUESS which homework an attempt
+    belongs to. The page passes it back when it creates the attempt; without it
+    the same paper given twice, or practised freely on the side, is
+    indistinguishable from the assigned work."""
+    out = await _start(_start_db(skill=skill, content_id=content))
+    assert "class_item=item-1" in out["open_url"]
 
 
 @pytest.mark.asyncio
