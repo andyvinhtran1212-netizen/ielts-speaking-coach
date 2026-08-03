@@ -15,7 +15,9 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { evaluateG2, formatG2, G2_FLOOR, planSession, parseLedger } from '../tooling/g2-floor.mjs';
+import {
+  evaluateG2, formatG2, G2_FLOOR, planSession, parseLedger, mergeLedgers,
+} from '../tooling/g2-floor.mjs';
 
 const PROBE = readFileSync(
   path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'tooling',
@@ -223,6 +225,22 @@ describe('workflow chọn đúng chế độ theo cron (review #910)', () => {
       'dạng cũ chọn chế độ chỉ từ inputs — cron sẽ luôn ra tick');
   });
 
+  test('tick và session KHÔNG dùng chung concurrency group', () => {
+    // Dùng chung group: phiên ~61 phút chiếm chỗ, tick trong khoảng đó bị huỷ
+    // (GitHub chỉ giữ MỘT run pending mỗi group) ⇒ mỗi ngày thủng lỗ >60 phút
+    // ⇒ dãy liên tục bị cắt ⇒ verdict trượt vĩnh viễn dù hệ thống khoẻ.
+    // Regex phải nuốt cả GIÁ TRỊ của `cancel-in-progress`; bản lười dừng ngay
+    // ở dấu hai chấm nên khẳng định về `false` không bao giờ đúng được.
+    const block = (/concurrency:[\s\S]*?cancel-in-progress:\s*\S+/.exec(WF) || [''])[0];
+    assert.ok(block, 'phải có khối concurrency');
+    assert.match(block, /group:[\s\S]*inputs\.mode/,
+      'group phải phân biệt theo chế độ, không phải một chuỗi cố định');
+    assert.ok(!/group:\s*g2-authed-probe\s*$/m.test(block),
+      'group cố định = tick bị phiên dài nuốt mất');
+    assert.match(block, /cancel-in-progress: false/,
+      'huỷ giữa chừng phiên dài là mất vế token refresh');
+  });
+
   test('cron chưa bật, và ghi rõ điều kiện bật', () => {
     assert.match(WF_RAW, /# *schedule:/, 'cron phải còn chú thích cho tới khi có secret');
     assert.ok(!/^\s*schedule:/m.test(WF), 'schedule chưa được bật');
@@ -311,5 +329,44 @@ describe('probe không gọi endpoint CÓ GHI (review #910 vòng 2)', () => {
     assert.match(PROBE, /'--routes', '\/auth\/profile,\/auth\/check-active'/);
     assert.ok(!/--routes'[^)]*\/auth\/me/.test(PROBE),
       '/auth/me quay lại mặc định nghĩa là probe lại ghi vào dữ liệu thật');
+  });
+});
+
+describe('sổ tách theo chế độ rồi gộp (review #911)', () => {
+  test('mẫu của CẢ HAI nhánh song song đều còn — không bên nào bị đè', () => {
+    // Kịch bản thật: session giữ sổ ~61 phút; trong lúc đó 3 tick ghi thêm.
+    // Nếu dùng chung một tệp thì bên lưu sau đè mất bên kia.
+    const tickRows = [
+      { at: 1000, ok: true }, { at: 2000, ok: false, status: 500 }, { at: 3000, ok: true },
+    ];
+    const sessionRows = [
+      { at: 500, ok: true, afterRefresh: false }, { at: 4000, ok: true, afterRefresh: true },
+    ];
+    const merged = mergeLedgers([
+      { samples: tickRows, corruptLines: 0 },
+      { samples: sessionRows, corruptLines: 1 },
+    ]);
+    assert.equal(merged.samples.length, 5, 'đủ 5 mẫu của cả hai nhánh');
+    assert.equal(merged.corruptLines, 1, 'dòng hỏng của mọi sổ đều được cộng dồn');
+    assert.deepEqual(merged.samples.map((r) => r.at), [500, 1000, 2000, 3000, 4000],
+      'gộp xong phải theo thứ tự thời gian');
+    // Và lần 500 do tick ghi PHẢI còn để verdict bắt được.
+    assert.ok(merged.samples.some((r) => r.status === 500),
+      'mất mẫu hỏng nghĩa là verdict cho qua trên bằng chứng khuyết');
+  });
+
+  test('gộp sổ rỗng không làm hỏng phép đo', () => {
+    assert.deepEqual(mergeLedgers([]), { samples: [], corruptLines: 0 });
+    assert.deepEqual(mergeLedgers(null), { samples: [], corruptLines: 0 });
+  });
+
+  test('workflow lưu sổ RIÊNG cho từng chế độ', () => {
+    assert.match(WF, /path: frontend\/out\/g2-ledger-\$\{\{ env\.PROBE_MODE \}\}\.jsonl/);
+    assert.match(WF, /key: g2-ledger-\$\{\{ env\.PROBE_MODE \}\}-/);
+    assert.ok(!/key: g2-ledger-\$\{\{ github\.run_id \}\}\s*$/m.test(WF),
+      'khoá cache dùng chung = hai chế độ đè sổ của nhau');
+    // Và verdict phải khôi phục CẢ HAI sổ, nếu không nó chấm trên nửa bằng chứng.
+    assert.match(WF, /restore-keys:[\s\S]*g2-ledger-tick-/);
+    assert.match(WF, /restore-keys:[\s\S]*g2-ledger-session-/);
   });
 });

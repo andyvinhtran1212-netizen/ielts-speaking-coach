@@ -23,16 +23,20 @@
 //   node tooling/authed-probe.mjs --mode session   # ~70' để đi qua token refresh
 //   node tooling/authed-probe.mjs --mode verdict   # chấm sổ theo sàn ADR-013-A1
 
-import { appendFileSync, readFileSync, existsSync, mkdirSync } from 'node:fs';
+import { appendFileSync, readFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
-import { evaluateG2, formatG2, planSession, parseLedger } from './g2-floor.mjs';
+import { evaluateG2, formatG2, planSession, parseLedger, mergeLedgers } from './g2-floor.mjs';
 
 const argv = process.argv.slice(2);
 const arg = (n, d = null) => { const i = argv.indexOf(n); return i === -1 ? d : argv[i + 1]; };
 
 const MODE = arg('--mode', 'tick');
-const LEDGER = arg('--ledger', 'out/g2-ledger.jsonl');
+// MỖI CHẾ ĐỘ MỘT SỔ. `tick` và `session` chạy song song (concurrency group đã
+// tách), nên dùng chung một tệp trong cache là mất mẫu: bên lưu sau đè bên
+// trước. Verdict gộp tất cả sổ lại.
+const LEDGER_DIR = arg('--ledger-dir', 'out');
+const LEDGER = arg('--ledger', null) || path.join(LEDGER_DIR, `g2-ledger-${MODE}.jsonl`);
 const API_BASE = (arg('--api', 'https://ielts-speaking-coach-production.up.railway.app')).replace(/\/+$/, '');
 const SUPABASE_URL = arg('--supabase', 'https://huwsmtubwulikhlmcirx.supabase.co').replace(/\/+$/, '');
 const SUPABASE_ANON = process.env.PROBE_SUPABASE_ANON || 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
@@ -105,10 +109,18 @@ function record(sample) {
   appendFileSync(LEDGER, `${JSON.stringify(sample)}\n`);
 }
 
-/** Đọc sổ; việc phân tích + đếm dòng hỏng nằm ở lõi để test được. */
+/** Đọc MỌI sổ trong thư mục (hoặc đúng một tệp nếu `--ledger` được chỉ định). */
 function readLedger() {
-  if (!existsSync(LEDGER)) return { samples: [], corruptLines: 0 };
-  return parseLedger(readFileSync(LEDGER, 'utf8'));
+  const explicit = arg('--ledger', null);
+  if (explicit) {
+    return existsSync(explicit)
+      ? parseLedger(readFileSync(explicit, 'utf8'))
+      : { samples: [], corruptLines: 0 };
+  }
+  if (!existsSync(LEDGER_DIR)) return { samples: [], corruptLines: 0 };
+  const files = readdirSync(LEDGER_DIR)
+    .filter((f) => /^g2-ledger-.*\.jsonl$/.test(f)).sort();
+  return mergeLedgers(files.map((f) => parseLedger(readFileSync(path.join(LEDGER_DIR, f), 'utf8'))));
 }
 
 function requireCreds() {

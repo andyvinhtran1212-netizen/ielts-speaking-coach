@@ -43,9 +43,20 @@ permissions:
   contents: read
 
 concurrency:
-  # Không để hai nhịp chồng nhau làm hỏng sổ; nhưng KHÔNG huỷ cái đang chạy —
-  # huỷ giữa chừng một phiên 70 phút sẽ mất luôn vế token refresh.
-  group: g2-authed-probe
+  # Group PHẢI tách theo chế độ. Dùng chung một group thì phiên dài (~61 phút)
+  # chiếm chỗ, và các `tick` rơi vào khoảng đó bị xếp hàng rồi huỷ (GitHub chỉ
+  # giữ MỘT run pending mỗi group). Hậu quả: mỗi ngày thủng một lỗ >60 phút
+  # đúng lúc phiên chạy ⇒ dãy liên tục bị cắt ⇒ verdict trượt vĩnh viễn dù hệ
+  # thống hoàn toàn khoẻ. Tức là cổng tự làm mình không bao giờ xanh được.
+  #
+  # Không tham chiếu được `env.PROBE_MODE` ở đây (concurrency lượng giá trước
+  # khi env của workflow sẵn sàng), nên lặp lại biểu thức.
+  group: >-
+    g2-authed-probe-${{ inputs.mode
+      || (github.event.schedule == '17 3 * * *' && 'session')
+      || 'tick' }}
+  # KHÔNG huỷ cái đang chạy — huỷ giữa chừng một phiên 70 phút là mất luôn vế
+  # token refresh, thứ duy nhất phủ được chế độ hỏng của lớp authenticated.
   cancel-in-progress: false
 
 env:
@@ -71,13 +82,28 @@ jobs:
 
       # Sổ phải sống qua nhiều lần chạy, nếu không mỗi nhịp là một dãy n=1 và
       # sàn "trải ≥24h" vĩnh viễn không thể đạt.
-      - name: Khôi phục sổ G2
+      #
+      # MỖI CHẾ ĐỘ MỘT SỔ RIÊNG (review PR #911). Sau khi tách concurrency
+      # group, `tick` và `session` chạy SONG SONG; dùng chung một tệp thì cả hai
+      # khôi phục cùng một bản rồi bên LƯU SAU đè mất phần của bên kia — một
+      # lần 500 do tick ghi có thể biến mất, để lại bằng chứng khuyết mà verdict
+      # vẫn cho qua. Tách tệp ⇒ mỗi tệp một người ghi ⇒ không mất mẫu; verdict
+      # gộp lại khi chấm.
+      - name: Khôi phục sổ tick
         uses: actions/cache/restore@v4
         with:
-          path: frontend/out/g2-ledger.jsonl
-          key: g2-ledger-${{ github.run_id }}
+          path: frontend/out/g2-ledger-tick.jsonl
+          key: g2-ledger-tick-${{ github.run_id }}
           restore-keys: |
-            g2-ledger-
+            g2-ledger-tick-
+
+      - name: Khôi phục sổ session
+        uses: actions/cache/restore@v4
+        with:
+          path: frontend/out/g2-ledger-session.jsonl
+          key: g2-ledger-session-${{ github.run_id }}
+          restore-keys: |
+            g2-ledger-session-
 
       - name: Chạy probe (chế độ ${{ env.PROBE_MODE }})
         if: ${{ env.PROBE_MODE != 'verdict' }}
@@ -87,12 +113,13 @@ jobs:
           PROBE_PASSWORD: ${{ secrets.PROBE_PASSWORD }}
         run: node tooling/authed-probe.mjs --mode "$PROBE_MODE"
 
-      - name: Lưu sổ G2
+      # Chỉ lưu sổ CỦA CHÍNH chế độ này — không đụng vào sổ của chế độ kia.
+      - name: Lưu sổ ${{ env.PROBE_MODE }}
         if: ${{ always() && env.PROBE_MODE != 'verdict' }}
         uses: actions/cache/save@v4
         with:
-          path: frontend/out/g2-ledger.jsonl
-          key: g2-ledger-${{ github.run_id }}
+          path: frontend/out/g2-ledger-${{ env.PROBE_MODE }}.jsonl
+          key: g2-ledger-${{ env.PROBE_MODE }}-${{ github.run_id }}
 
       # Chấm theo sàn. Đây là bước mà cutover authenticated phải xanh mới đi
       # tiếp — không phải bước "đã chạy probe là xong".
@@ -106,5 +133,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: g2-ledger-${{ github.run_id }}
-          path: frontend/out/g2-ledger.jsonl
+          path: frontend/out/g2-ledger-*.jsonl
           if-no-files-found: ignore

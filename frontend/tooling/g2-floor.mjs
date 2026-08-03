@@ -45,6 +45,27 @@ export function parseLedger(text) {
 }
 
 /**
+ * Gộp nhiều sổ thành một.
+ *
+ * Vì sao phải TÁCH SỔ THEO CHẾ ĐỘ rồi gộp (review PR #911): sau khi tách
+ * concurrency group, `tick` và `session` chạy SONG SONG. Nếu dùng chung một
+ * tệp sổ trong cache thì cả hai cùng khôi phục một bản, mỗi bên ghi thêm phần
+ * của mình, và bên LƯU SAU đè mất phần của bên kia — một lần 500 do tick ghi
+ * có thể biến mất, để lại bằng chứng khuyết mà verdict vẫn cho qua. Mỗi chế độ
+ * một tệp ⇒ mỗi tệp chỉ có một người ghi tại một thời điểm ⇒ không mất mẫu.
+ */
+export function mergeLedgers(parsed) {
+  const samples = [];
+  let corruptLines = 0;
+  for (const one of parsed || []) {
+    samples.push(...(one.samples || []));
+    corruptLines += one.corruptLines || 0;
+  }
+  samples.sort((a, b) => (a.at || 0) - (b.at || 0));
+  return { samples, corruptLines };
+}
+
+/**
  * Lấy DÃY LIÊN TỤC MỚI NHẤT: đi ngược từ mẫu cuối, dừng ở khoảng trống đầu
  * tiên vượt `maxGapMs`.
  *
