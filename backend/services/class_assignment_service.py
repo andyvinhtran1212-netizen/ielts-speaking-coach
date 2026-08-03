@@ -565,7 +565,15 @@ def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
             # backdated to whenever they happened to do it — so the teacher sees
             # work handed in before it was set, and the student is never asked
             # to do it.
-            since = _at(assignment.get("created_at"))
+            # The LATER of "when it was created" and "when the class could see
+            # it". A give scheduled for next Monday exists as rows today, so
+            # created_at alone lets work done during the hidden window — before
+            # anyone was told to do it — count as the hand-in.
+            since = max(
+                [d for d in (_at(assignment.get("created_at")),
+                             _at(assignment.get("publish_at"))) if d],
+                default=None,
+            )
             # EARLIEST qualifying attempt: a retake must not overwrite the
             # hand-in that actually met the deadline.
             # Each attempt is ONE hand-in. Give the same paper twice and the

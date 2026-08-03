@@ -24,10 +24,23 @@
 -- bài trước khi đọc chúng — y hệt cách 180 khoá sessions. Lượt nộp đang chạy
 -- phải chờ, nên không có khe nào để lọt.
 --
--- "BẰNG CHỨNG" Ở ĐÂY LÀ GÌ. Một lượt đã nộp của ĐÚNG học viên trong lớp, ĐÚNG
--- đề được giao, và nộp TỪ LÚC bài được giao trở đi — cùng ba điều kiện mà
--- reconcile_test_attempts() dùng. Lỏng hơn (bỏ mốc thời gian) thì một đề học
--- viên từng luyện từ tháng trước sẽ khoá cứng bài giao, không ai xoá nổi.
+-- "BẰNG CHỨNG" Ở ĐÂY LÀ GÌ. Phải khớp CHÍNH XÁC luật mà reconcile_test_attempts()
+-- dùng, nếu không hai bên sẽ nói khác nhau về cùng một bài giao — màn hình ghi
+-- "0 đã nộp" kèm nút xoá, bấm vào thì 409. Bốn điều kiện:
+--
+--   1. đúng học viên trong lớp        3. nộp TỪ LÚC lớp thấy được bài trở đi
+--   2. đúng đề được giao              4. lượt đó CHƯA bị tiêu cho lần giao khác
+--
+-- Điều kiện 3 lấy GREATEST(created_at, publish_at) chứ không phải created_at:
+-- bài hẹn ngày đã có dòng từ hôm nay, nên việc làm trong lúc còn ẩn — trước khi
+-- ai được bảo phải làm — không phải bài nộp của nó.
+--
+-- Điều kiện 4 phản chiếu luật "một lượt trả một bài": reconcile_test_attempts()
+-- cố ý tiêu lượt sớm nhất cho lần giao cũ nhất, nên lượt đang gắn ở mục khác
+-- KHÔNG phải bằng chứng cho mục này.
+--
+-- Lỏng hơn (bỏ mốc thời gian) thì một đề học viên từng luyện từ tháng trước sẽ
+-- khoá cứng bài giao, không ai xoá nổi.
 --
 -- Đề Speaking không có content_id nên nhánh này bỏ qua chúng; phép kiểm phiên
 -- của 180 giữ nguyên.
@@ -53,10 +66,14 @@ DECLARE
     v_submitted  boolean;
     v_skill      text;
     v_content_id text;
-    v_created_at timestamptz;
+    v_since      timestamptz;
 BEGIN
-    SELECT TRUE, a.skill, a.content_id, a.created_at
-      INTO v_exists, v_skill, v_content_id, v_created_at
+    -- GREATEST, not created_at: a give scheduled for next Monday exists as rows
+    -- today, so work done during the hidden window — before anyone was told to
+    -- do it — is not a hand-in for it. Same rule as reconcile_test_attempts().
+    SELECT TRUE, a.skill, a.content_id,
+           GREATEST(a.created_at, COALESCE(a.publish_at, a.created_at))
+      INTO v_exists, v_skill, v_content_id, v_since
       FROM class_assignments a
      WHERE a.id = p_assignment_id AND a.cohort_id = p_cohort_id
      FOR UPDATE;
@@ -123,7 +140,18 @@ BEGIN
                          WHERE r.user_id = st.user_id
                            AND r.test_id::text = v_content_id
                            AND r.status = 'submitted'
-                           AND r.submitted_at >= v_created_at
+                           AND r.submitted_at >= v_since
+                           -- Already spent on ANOTHER give of the same paper.
+                           -- reconcile_test_attempts() deliberately credits one
+                           -- attempt once, oldest give first, so an attempt
+                           -- carried by a sibling item is NOT evidence for this
+                           -- one — and treating it as such makes the UI show
+                           -- "0 đã nộp" with a delete button that 409s.
+                           AND NOT EXISTS (
+                                   SELECT 1 FROM class_assignment_items i2
+                                    WHERE i2.artifact_id = r.id
+                                      AND i2.assignment_id <> p_assignment_id
+                               )
                     )
                 )
              OR (
@@ -135,7 +163,12 @@ BEGIN
                          WHERE l.user_id = st.user_id
                            AND l.test_id::text = v_content_id
                            AND l.status = 'submitted'
-                           AND l.submitted_at >= v_created_at
+                           AND l.submitted_at >= v_since
+                           AND NOT EXISTS (
+                                   SELECT 1 FROM class_assignment_items i2
+                                    WHERE i2.artifact_id = l.id
+                                      AND i2.assignment_id <> p_assignment_id
+                               )
                     )
                 )
            )

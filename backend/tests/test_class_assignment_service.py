@@ -1357,3 +1357,27 @@ def test_a_failed_sibling_lookup_does_not_take_the_repair_down():
             "status": "submitted"}],
     }, fail={"class_assignments"})
     assert reconcile_test_attempts(db, [_GIVE_1]) == 1
+
+
+def test_work_done_while_a_give_was_still_hidden_is_not_the_hand_in():
+    """publish_at is the reveal gate: rows exist before the class can see them.
+    Counting practice from that window means a student is marked as having done
+    homework nobody had told them about."""
+    a = _rl_assignment(created_at="2026-08-01T00:00:00+00:00")
+    a["publish_at"] = "2026-08-10T00:00:00+00:00"
+    db = _rl_db(attempts=[{
+        "id": "att-EARLY", "user_id": "user-1", "test_id": "test-1",
+        "submitted_at": "2026-08-05T10:00:00+00:00", "band_estimate": 7.0,
+        "status": "submitted",
+    }])
+    # Open by now, but the attempt predates the reveal.
+    with_open = dict(a, publish_at="2026-08-02T00:00:00+00:00")
+    with_open_early = dict(with_open)
+    assert reconcile_test_attempts(_rl_db(attempts=[{
+        "id": "att-BEFORE", "user_id": "user-1", "test_id": "test-1",
+        "submitted_at": "2026-08-01T12:00:00+00:00", "band_estimate": 7.0,
+        "status": "submitted"}]), [with_open_early]) == 0, (
+        "created_at alone would accept this — publish_at must raise the floor"
+    )
+    # And a give still hidden collects nothing at all.
+    assert reconcile_test_attempts(db, [a]) == 0
