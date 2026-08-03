@@ -44,8 +44,14 @@ export async function whenGlobalReady(ready, what, opts = {}) {
   const msg = `[when-global-ready] ${what} không xuất hiện sau ${timeoutMs}ms`;
   if (report) { report(msg); return false; }
   try {
-    const w = /** @type {any} */ (globalThis).window;
-    if (w && typeof w.averReportError === 'function') w.averReportError(new Error(msg));
+    // Bề mặt THẬT là `window.aver.reportError(message, extra)` —
+    // `error-reporter.js:321`, nhận CHUỖI chứ không nhận `Error`. Bản đầu của
+    // tôi gọi `window.averReportError(new Error(...))`, một cái tên KHÔNG TỒN
+    // TẠI ở đâu trong repo, nên nhánh "báo lên" chưa bao giờ tới telemetry mà
+    // chỉ rơi xuống `console.error` — đúng kiểu hỏng im lặng mà chính bản vá
+    // này tuyên bố chữa. Bắt được ở review PR #908.
+    const reporter = /** @type {any} */ (globalThis).window?.aver?.reportError;
+    if (typeof reporter === 'function') reporter(msg, { what, timeoutMs });
     else console.error(msg);
   } catch (_) {
     console.error(msg);

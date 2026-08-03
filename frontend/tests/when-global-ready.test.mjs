@@ -69,6 +69,45 @@ describe('whenGlobalReady', () => {
     assert.match(reported[0], /1000ms/);
   });
 
+  test('hết giờ ⇒ gửi tới ĐÚNG bề mặt reporter đang cài (review #908)', async () => {
+    // `window.aver.reportError(message, extra)` — error-reporter.js:321. Bản
+    // đầu gọi `window.averReportError`, cái tên không tồn tại ở đâu trong repo,
+    // nên báo lỗi chỉ rơi xuống console và KHÔNG vào telemetry.
+    const c = fakeClock();
+    const got = [];
+    const prev = globalThis.window;
+    globalThis.window = { aver: { reportError: (m, extra) => got.push([m, extra]) } };
+    try {
+      const ok = await whenGlobalReady(() => false, 'window.api (nút Lưu bài)',
+        { timeoutMs: 300, now: c.now, sleep: c.sleep });
+      assert.equal(ok, false);
+      assert.equal(got.length, 1, 'đúng một báo cáo, không nhân bản, không nuốt');
+      assert.equal(typeof got[0][0], 'string', 'reporter nhận CHUỖI, không nhận Error');
+      assert.match(got[0][0], /window\.api \(nút Lưu bài\)/);
+      assert.deepEqual(got[0][1], { what: 'window.api (nút Lưu bài)', timeoutMs: 300 });
+    } finally {
+      if (prev === undefined) delete globalThis.window; else globalThis.window = prev;
+    }
+  });
+
+  test('không có reporter ⇒ lùi về console.error, không ném', async () => {
+    const c = fakeClock();
+    const prev = globalThis.window;
+    const prevErr = console.error;
+    const seen = [];
+    globalThis.window = {};
+    console.error = (m) => seen.push(m);
+    try {
+      const ok = await whenGlobalReady(() => false, 'x',
+        { timeoutMs: 100, now: c.now, sleep: c.sleep });
+      assert.equal(ok, false);
+      assert.equal(seen.length, 1);
+    } finally {
+      console.error = prevErr;
+      if (prev === undefined) delete globalThis.window; else globalThis.window = prev;
+    }
+  });
+
   test('không chờ quá hạn', async () => {
     const c = fakeClock();
     await whenGlobalReady(() => false, 'x',
