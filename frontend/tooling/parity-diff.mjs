@@ -37,6 +37,11 @@ const ONLY = arg('--only', '');
 const OUT = arg('--json', '');
 const CONCURRENCY = Math.max(1, Number(arg('--concurrency', '4')) || 4);
 const SETTLE_MS = Number(arg('--settle', '1200')) || 1200;
+// Bề rộng cửa sổ. Mặc định 1280 (desktop) để mọi lần chạy cũ vẫn tái lập được.
+// Lượt 375px là để bắt hồi quy theo BREAKPOINT — lỗi H1 dính chữ (#907) chỉ
+// hiện dưới 640px, và G1 bắt được nó chỉ vì nó TÌNH CỜ cũng là khác biệt văn
+// bản; một khối `hidden sm:block` lệch giữa hai bản thì lượt 1280 mù hoàn toàn.
+const [VW, VH] = (arg('--viewport', '1280x900')).split('x').map(Number);
 
 /** Cặp mặc định — chỉ những route đã có CẢ hai bản chạy song song. */
 const DEFAULT_PAIRS = [
@@ -304,7 +309,8 @@ async function main() {
     console.error('parity: không có cặp nào để so');
     process.exit(2);
   }
-  console.log(`parity: ${pairs.length} cặp · base ${BASE} · đồng thời ${CONCURRENCY}`);
+  console.log(
+    `parity: ${pairs.length} cặp · base ${BASE} · bề rộng ${VW}x${VH} · đồng thời ${CONCURRENCY}`);
 
   const browser = await chromium.launch();
   const results = [];
@@ -319,7 +325,7 @@ async function main() {
       // trạng thái giữa các cặp và giữa legacy↔Next (ví dụ `_aver_grammar_reads`
       // làm CTA khách hiện ở trang này mà không hiện ở trang kia), khiến kết
       // quả không lặp lại được (phát hiện #14 vòng 2).
-      const mk = () => browser.newContext({ viewport: { width: 1280, height: 900 } });
+      const mk = () => browser.newContext({ viewport: { width: VW, height: VH } });
       const [legacy, next] = await Promise.all([
         extractStable(mk, BASE + p.legacy),
         extractStable(mk, BASE + p.next),

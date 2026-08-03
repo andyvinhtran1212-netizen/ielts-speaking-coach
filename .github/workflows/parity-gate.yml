@@ -176,24 +176,35 @@ jobs:
             echo "scope=categories" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Chạy cổng parity
+      # HAI BỀ RỘNG. Lượt 1280 mù hoàn toàn với hồi quy theo breakpoint — đã
+      # chứng minh bằng thí nghiệm: gài `hidden sm:block` vào đoạn mô tả hero
+      # của bản Next rồi so ⇒ 1280px cho 0 phát hiện, 375px bắt được
+      # `line-missing: Tra cứu nhanh, học theo roadmap…`.
+      #
+      # Lỗi H1 dính chữ (#907) bắt được ở 1280 chỉ vì nó TÌNH CỜ cũng là khác
+      # biệt văn bản; một khối ẩn/hiện lệch nhau theo breakpoint thì không.
+      #
+      # Chạy CẢ HAI rồi mới thoát, để báo cáo hiện đủ hai bề rộng thay vì dừng
+      # ở cái đỏ đầu tiên.
+      - name: Chạy cổng parity (desktop + điện thoại)
         run: |
           SCOPE="${{ steps.scope.outputs.scope }}"
           echo "phạm vi: $SCOPE"
-          if [ "$SCOPE" = "full" ]; then
+          if [ "$SCOPE" = "full" ]; then ARGS="--expand-grammar"; else ARGS="--expand-grammar --categories-only"; fi
+          FAIL=0
+          for VP in 1280x900 375x812; do
+            echo "════════ bề rộng $VP ════════"
             node tooling/parity-diff.mjs --base "http://localhost:$PARITY_PORT" \
-              --expand-grammar --concurrency 3 --json out/parity.json
-          else
-            node tooling/parity-diff.mjs --base "http://localhost:$PARITY_PORT" \
-              --expand-grammar --categories-only --concurrency 3 --json out/parity.json
-          fi
+              $ARGS --viewport "$VP" --concurrency 3 --json "out/parity-$VP.json" || FAIL=1
+          done
+          exit $FAIL
 
       - name: Nộp báo cáo
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: parity-report-${{ github.run_id }}
-          path: frontend/out/parity.json
+          path: frontend/out/parity-*.json
           if-no-files-found: warn
 
       - name: Dừng Next
