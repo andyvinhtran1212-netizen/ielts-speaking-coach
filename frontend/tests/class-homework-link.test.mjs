@@ -71,3 +71,38 @@ describe('listening-test-player.js forwards the class item', () => {
     assert.match(LISTENING, /classItem\s*\?[\s\S]{0,120}?:\s*''/);
   });
 });
+
+describe('the RESUME lookup is scoped to the homework too', () => {
+  // Resuming is the one path that skips attempt creation, and creation is
+  // where the link is stamped. Unscoped, a student opening their homework is
+  // offered an unfinished free-practice attempt on the same paper, finishes
+  // it, submits it — and still owes the task, with nothing recording the work.
+
+  test('reading boot carries the class item', () => {
+    assert.match(
+      READING,
+      /getWith\(\s*'\/api\/reading\/test\/'[\s\S]{0,300}?class_item=/,
+      'boot doubles as the resume lookup — it is what the page actually calls',
+    );
+  });
+
+  test('listening in-progress carries the class item', () => {
+    // The query string is assembled BEFORE the call here, so match the two
+    // halves in the order they actually appear: class_item enters `qs`, and
+    // `qs` is what the in-progress URL appends.
+    assert.match(
+      LISTENING,
+      /class_item=\$\{encodeURIComponent\(classItem\)\}[\s\S]{0,400}?attempts\/in-progress`/,
+    );
+    assert.match(LISTENING, /attempts\/in-progress`\s*\+\s*\(qs \?/);
+  });
+
+  test('listening keeps the mock-sitting scope alongside it', () => {
+    // sitting_id guards a separate, already-shipped invariant (PR #834): a
+    // sealed exam attempt must never be resumed outside the runner. The new
+    // parameter is additive.
+    assert.match(LISTENING, /sitting_id=\$\{encodeURIComponent\(sid\)\}/);
+    assert.match(LISTENING, /filter\(Boolean\)\.join\('&'\)/,
+      'both scopes must be able to apply at once');
+  });
+});

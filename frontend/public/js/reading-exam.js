@@ -3014,7 +3014,15 @@
       ? window.api.getWith(
           '/api/reading/test/share/' + encodeURIComponent(SESSION.share_token) + '/boot',
           _anonHeaders(), { noRedirect: true })
-      : window.api.getWith('/api/reading/test/' + encodeURIComponent(testId) + '/boot', _pwHeaders());
+      // Boot doubles as the resume lookup, so it carries the class item too:
+      // resuming skips the POST that stamps the link, and an unfinished
+      // free-practice attempt on this paper must not be offered as the
+      // homework the student just clicked.
+      : window.api.getWith(
+          '/api/reading/test/' + encodeURIComponent(testId) + '/boot'
+            + (classItemFromUrl()
+                ? '?class_item=' + encodeURIComponent(classItemFromUrl()) : ''),
+          _pwHeaders());
     bootPromise
       .then(function (bootPayload) {
         var test = bootPayload && bootPayload.test;

@@ -279,9 +279,18 @@ async function detectResumable() {
     // practice attempt the student left open on the same test would be
     // auto-resumed by the embed and then bound to the sealed sitting.
     const sid = (window.MockHook && MockHook.active()) ? MockHook.sittingId() : null;
+    // Class homework scopes the same way a mock sitting does. Resuming skips
+    // the POST that stamps the class link, so an unfinished free-practice
+    // attempt on this test must not be offered here — the student would finish
+    // it, submit it, and still owe the homework.
+    const classItem = getClassItemFromUrl();
+    const qs = [
+      sid ? `sitting_id=${encodeURIComponent(sid)}` : '',
+      classItem ? `class_item=${encodeURIComponent(classItem)}` : '',
+    ].filter(Boolean).join('&');
     const res = await window.api.get(
       `/api/listening/tests/${encodeURIComponent(STATE.testId)}/attempts/in-progress`
-      + (sid ? `?sitting_id=${encodeURIComponent(sid)}` : ''),
+      + (qs ? `?${qs}` : ''),
     );
     const att = res && res.attempt;
     if (!att) return;

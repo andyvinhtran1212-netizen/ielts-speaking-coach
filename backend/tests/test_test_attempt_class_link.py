@@ -137,3 +137,135 @@ async def test_a_rejected_listening_link_writes_no_attempt_row():
     with pytest.raises(Exception) as exc:
         await _start_listening("item-1", validator=_refuse)
     assert getattr(exc.value, "status_code", None) == 400
+
+
+# ── HỌC TIẾP: đường duy nhất đi vòng qua chỗ đóng dấu ────────────────────
+#
+# Resuming skips attempt creation, and creation is where the link is stamped.
+# So the resume lookup has to be scoped, or a student opening their homework is
+# offered an unfinished free-practice attempt on the same paper, finishes it,
+# submits it — and still owes the homework, with nothing anywhere recording
+# that they did the work.
+
+
+class _RecordingTable:
+    def __init__(self, rows, seen):
+        self._rows, self._seen = list(rows), seen
+
+    def select(self, *_a, **_k): return self
+    def eq(self, f, v):
+        self._seen.append((f, v))
+        self._rows = [r for r in self._rows if str(r.get(f)) == str(v)]
+        return self
+    def is_(self, f, _v):
+        self._seen.append((f, "null"))
+        self._rows = [r for r in self._rows if r.get(f) is None]
+        return self
+    def order(self, *_a, **_k): return self
+    def limit(self, *_a): return self
+    def execute(self): return _Resp(self._rows)
+
+
+_FREE = {"id": "att-FREE", "user_id": "user-1", "test_id": "uuid-1",
+         "status": "in_progress", "started_at": "2026-08-01T00:00:00+00:00",
+         "answers": [], "class_assignment_item_id": None, "sitting_id": None}
+_HOMEWORK = {**_FREE, "id": "att-HW", "class_assignment_item_id": "item-1"}
+
+
+def _lookup_db(rows, seen):
+    db = type("DB", (), {})()
+    db.table = lambda _n: _RecordingTable(rows, seen)
+    return db
+
+
+def _reading_resume(rows, class_item):
+    seen: list = []
+    with patch.object(reading_mod, "supabase_admin", _lookup_db(rows, seen)):
+        got = reading_mod._fetch_in_progress_payload(
+            "user-1", "CAM19-T3", {"id": "uuid-1", "time_limit_minutes": 60},
+            raise_on_missing=False, class_item=class_item,
+        )
+    return got, seen
+
+
+def test_reading_homework_does_not_resume_a_free_practice_attempt():
+    got, seen = _reading_resume([_FREE], "item-1")
+    assert got is None
+    assert ("class_assignment_item_id", "item-1") in seen
+
+
+def test_reading_homework_resumes_its_own_attempt():
+    got, _ = _reading_resume([_HOMEWORK], "item-1")
+    assert got and got["attempt_id"] == "att-HW"
+
+
+def test_opening_the_paper_from_the_library_may_still_resume_homework():
+    """Deliberately one-way. The student is finishing work they started, and
+    the link they already earned goes on standing — narrowing this side too
+    would strand a half-finished hand-in."""
+    got, seen = _reading_resume([_HOMEWORK], None)
+    assert got and got["attempt_id"] == "att-HW"
+    assert not any(f == "class_assignment_item_id" for f, _ in seen)
+
+
+@pytest.mark.asyncio
+async def test_listening_homework_does_not_resume_a_free_practice_attempt():
+    seen: list = []
+    with patch.object(listening_mod, "_require_auth",
+                      AsyncMock(return_value={"id": "user-1"})), \
+         patch.object(listening_mod, "supabase_admin", _lookup_db([_FREE], seen)):
+        out = await listening_mod.get_in_progress_listening_attempt(
+            "uuid-1", class_item="item-1")
+    assert not (out or {}).get("attempt")
+    assert ("class_assignment_item_id", "item-1") in seen
+
+
+@pytest.mark.asyncio
+async def test_listening_homework_resumes_its_own_attempt():
+    seen: list = []
+    with patch.object(listening_mod, "_require_auth",
+                      AsyncMock(return_value={"id": "user-1"})), \
+         patch.object(listening_mod, "supabase_admin", _lookup_db([_HOMEWORK], seen)):
+        out = await listening_mod.get_in_progress_listening_attempt(
+            "uuid-1", class_item="item-1")
+    assert (out or {}).get("attempt", {}).get("attempt_id") == "att-HW"
+
+
+@pytest.mark.asyncio
+async def test_the_reading_boot_endpoint_passes_the_class_item_through():
+    """Boot doubles as the resume lookup — it is what the page actually calls.
+    Scoping the helper but not threading the value through it leaves the hole
+    exactly where it was."""
+    seen: dict = {}
+
+    def _capture(*_a, **kw):
+        seen.update(kw)
+        return None
+
+    with patch.object(reading_mod, "_require_auth",
+                      AsyncMock(return_value={"id": "user-1"})), \
+         patch.object(reading_mod, "_build_reading_test_detail",
+                      lambda *_a, **_k: {"id": "uuid-1"}), \
+         patch.object(reading_mod, "_fetch_in_progress_payload", _capture):
+        await reading_mod.boot_reading_test("CAM19-T3", class_item="item-1")
+
+    assert seen.get("class_item") == "item-1"
+
+
+@pytest.mark.asyncio
+async def test_the_standalone_reading_resume_endpoint_passes_it_through_too():
+    seen: dict = {}
+
+    def _capture(*_a, **kw):
+        seen.update(kw)
+        return None
+
+    with patch.object(reading_mod, "_require_auth",
+                      AsyncMock(return_value={"id": "user-1"})), \
+         patch.object(reading_mod, "_fetch_published_test",
+                      lambda _t: {"id": "uuid-1"}), \
+         patch.object(reading_mod, "_fetch_in_progress_payload", _capture):
+        await reading_mod.get_in_progress_reading_attempt("CAM19-T3",
+                                                          class_item="item-1")
+
+    assert seen.get("class_item") == "item-1"

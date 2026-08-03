@@ -46,7 +46,13 @@ describe('A — student password gate (sends header, retries on 403)', () => {
   test('boot uses getWith + the X-Reading-Password header', () => {
     assert.match(examJs, /function _pwHeaders\(\)/);
     assert.match(examJs, /'X-Reading-Password'/);
-    assert.match(examJs, /api\.getWith\('\/api\/reading\/test\/' \+ encodeURIComponent\(testId\) \+ '\/boot', _pwHeaders\(\)\)/);
+    // Behaviour, not spelling: boot must go through getWith and carry
+    // _pwHeaders(). The URL between them may gain a query string (class
+    // homework passes ?class_item=), and pinning the exact concatenation
+    // turned a formatting change into a failure about the password gate.
+    // The bounded span keeps both halves of ONE statement together.
+    assert.match(examJs, /getWith\(\s*'\/api\/reading\/test\/'\s*\+\s*encodeURIComponent\(testId\)[\s\S]{0,300}?_pwHeaders\(\)/);
+    assert.match(examJs, /'\/boot'/);
   });
   test('a 403 prompts for the password + retries boot', () => {
     assert.match(examJs, /status === 403[\s\S]{0,60}_promptPasswordThenRetry/);
