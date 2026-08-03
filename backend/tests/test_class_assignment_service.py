@@ -37,6 +37,7 @@ from services.class_assignment_service import (
     create_class_assignment,
     is_assignment_open,
     reconcile_ledger_from_sessions,
+    reconcile_test_attempts,
     sync_class_item_score,
     validate_class_item_for_session,
     mark_item_submitted,
@@ -81,7 +82,7 @@ class _Resp:
 class _Query:
     def __init__(self, store, name, rows, *, raises=False):
         self.store, self.name, self._rows, self._raises = store, name, rows, raises
-        self._eq, self._in, self._range = [], None, None
+        self._eq, self._in, self._range = [], [], None
         self._is_null = None
         self._negate_is = False
         self._mode, self._payload = "select", None
@@ -99,7 +100,13 @@ class _Query:
         return self
 
     def eq(self, f, v): self._eq.append((f, v)); return self
-    def in_(self, f, v): self._in = (f, list(v)); return self
+
+    def in_(self, f, v):
+        # ACCUMULATE. Keeping only the last in_() silently dropped one filter of
+        # a chained .in_(a).in_(b), so a test could not tell whether the query
+        # really narrowed on both.
+        self._in.append((f, list(v)))
+        return self
     def range(self, s, e): self._range = (s, e); return self
 
     def is_(self, field, value):
@@ -136,8 +143,7 @@ class _Query:
         rows = list(self._rows)
         for f, v in self._eq:
             rows = [r for r in rows if r.get(f) == v]
-        if self._in:
-            f, vals = self._in
+        for f, vals in self._in:
             rows = [r for r in rows if r.get(f) in vals]
         if self._range:
             s, e = self._range
@@ -1026,3 +1032,129 @@ def test_regrading_a_retry_does_not_rewrite_the_recorded_attempt_score():
     assert sync_class_item_score(db, "sess-FIRST") is True
     assert recorded["score"] == 7.0
     assert recorded["submitted_at"] == "2026-08-03T11:00:00+00:00"
+
+
+# ── GĐ 5 — Reading/Listening ────────────────────────────────────────────
+#
+# These skills have no completion hook: the test page submits without knowing
+# the class ledger exists. The attempt row IS the evidence, matched on
+# (student's user_id, the assigned test id).
+
+
+def _rl_db(*, attempts, skill="reading", table="reading_test_attempts",
+           item_submitted=None):
+    return _DB({
+        "class_assignment_items": [
+            {"id": "item-1", "assignment_id": "asg-1", "student_id": "stu-1",
+             "submitted_at": item_submitted, "state": "assigned"},
+        ],
+        "students": [{"id": "stu-1", "user_id": "user-1"}],
+        table: list(attempts),
+    })
+
+
+def _rl_assignment(skill="reading", content_id="test-1"):
+    return {"id": "asg-1", "skill": skill, "content_id": content_id}
+
+
+def test_a_submitted_reading_attempt_records_the_hand_in():
+    db = _rl_db(attempts=[{
+        "id": "att-1", "user_id": "user-1", "test_id": "test-1",
+        "submitted_at": "2026-08-03T11:00:00+00:00", "band_estimate": 6.5,
+        "status": "submitted",
+    }])
+    assert reconcile_test_attempts(db, [_rl_assignment()]) == 1
+    item = db.tables["class_assignment_items"][0]
+    assert item["artifact_kind"] == "reading_attempt"
+    assert item["artifact_id"] == "att-1"
+    assert item["score"] == 6.5
+
+
+def test_the_attempt_submission_time_is_kept_not_the_repair_time():
+    """A hand-in made before the deadline must stay on time however late this
+    reconciliation happens to run."""
+    when = "2026-08-03T11:00:00+00:00"
+    db = _rl_db(attempts=[{
+        "id": "att-1", "user_id": "user-1", "test_id": "test-1",
+        "submitted_at": when, "band_estimate": 6.0, "status": "submitted",
+    }])
+    reconcile_test_attempts(db, [_rl_assignment()])
+    assert db.tables["class_assignment_items"][0]["submitted_at"] == when
+
+
+def test_a_retake_cannot_overwrite_the_first_hand_in():
+    """Rows arrive in no meaningful order; the EARLIEST submitted attempt is the
+    one that met the deadline."""
+    db = _rl_db(attempts=[
+        {"id": "att-late", "user_id": "user-1", "test_id": "test-1",
+         "submitted_at": "2026-08-04T11:00:00+00:00", "band_estimate": 8.0,
+         "status": "submitted"},
+        {"id": "att-first", "user_id": "user-1", "test_id": "test-1",
+         "submitted_at": "2026-08-03T11:00:00+00:00", "band_estimate": 6.0,
+         "status": "submitted"},
+    ])
+    reconcile_test_attempts(db, [_rl_assignment()])
+    item = db.tables["class_assignment_items"][0]
+    assert item["artifact_id"] == "att-first"
+    assert item["score"] == 6.0
+
+
+def test_an_attempt_at_a_DIFFERENT_test_is_not_the_hand_in():
+    """Doing some other Reading paper is not doing the assigned one."""
+    db = _rl_db(attempts=[{
+        "id": "att-x", "user_id": "user-1", "test_id": "some-other-test",
+        "submitted_at": "2026-08-03T11:00:00+00:00", "band_estimate": 7.0,
+        "status": "submitted",
+    }])
+    assert reconcile_test_attempts(db, [_rl_assignment(content_id="test-1")]) == 0
+    assert db.tables["class_assignment_items"][0]["submitted_at"] is None
+
+
+def test_another_students_attempt_is_not_credited():
+    db = _rl_db(attempts=[{
+        "id": "att-x", "user_id": "SOMEONE-ELSE", "test_id": "test-1",
+        "submitted_at": "2026-08-03T11:00:00+00:00", "band_estimate": 7.0,
+        "status": "submitted",
+    }])
+    assert reconcile_test_attempts(db, [_rl_assignment()]) == 0
+
+
+def test_listening_uses_its_own_table_and_artifact_kind():
+    db = _rl_db(skill="listening", table="listening_test_attempts", attempts=[{
+        "id": "att-1", "user_id": "user-1", "test_id": "test-1",
+        "submitted_at": "2026-08-03T11:00:00+00:00", "band_estimate": 5.5,
+        "status": "submitted",
+    }])
+    assert reconcile_test_attempts(db, [_rl_assignment(skill="listening")]) == 1
+    assert db.tables["class_assignment_items"][0]["artifact_kind"] == "listening_attempt"
+
+
+def test_speaking_assignments_are_left_to_their_own_path():
+    """Speaking is recorded at PATCH /sessions/complete; this must not touch it."""
+    db = _rl_db(attempts=[])
+    assert reconcile_test_attempts(db, [_rl_assignment(skill="speaking")]) == 0
+
+
+def test_an_already_recorded_item_is_not_touched_again():
+    first = "2026-08-03T11:00:00+00:00"
+    db = _rl_db(item_submitted=first, attempts=[{
+        "id": "att-1", "user_id": "user-1", "test_id": "test-1",
+        "submitted_at": "2026-08-04T11:00:00+00:00", "band_estimate": 9.0,
+        "status": "submitted",
+    }])
+    assert reconcile_test_attempts(db, [_rl_assignment()]) == 0
+    assert db.tables["class_assignment_items"][0]["submitted_at"] == first
+
+
+def test_the_test_id_guard_is_in_python_not_only_in_the_query():
+    """The DB filter narrows the read; the (user, test) key is what actually
+    decides. Pinned because dropping the filter is harmless and dropping the key
+    is not — and only one of those is obvious from the code."""
+    import inspect
+    from services import class_assignment_service as mod
+    src = code_only(inspect.getsource(mod.reconcile_test_attempts))
+    import re
+    assert re.search(r"best\s*\.\s*get\s*\(\s*\(\s*uid\s*,\s*test_id\s*\)\s*\)", src), (
+        "crediting must be keyed on the ASSIGNED test, not on any attempt the "
+        "student happens to have"
+    )

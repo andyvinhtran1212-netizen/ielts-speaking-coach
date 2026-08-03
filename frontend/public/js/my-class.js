@@ -70,9 +70,17 @@ function submittedLabel(row) {
   return (row.is_late ? `Nộp trễ lúc ${esc(when)}` : `Đã nộp lúc ${esc(when)}`) + band;
 }
 
+const SKILL_LABEL = { speaking: 'Speaking', writing: 'Writing',
+                     reading: 'Reading', listening: 'Listening' };
+
 function taskSub(a) {
   const cfg = a.assignment.content_config || {};
-  return [cfg.topic, cfg.part ? `Part ${cfg.part}` : ''].filter(Boolean).join(' · ');
+  if (a.assignment.skill === 'speaking') {
+    return [cfg.topic, cfg.part ? `Part ${cfg.part}` : ''].filter(Boolean).join(' · ');
+  }
+  // For a test the paper's own title is the useful line, not the topic field.
+  return [SKILL_LABEL[a.assignment.skill] || a.assignment.skill,
+          cfg.test_title].filter(Boolean).join(' · ');
 }
 
 // ── Rendering ───────────────────────────────────────────────────────────────
@@ -307,10 +315,19 @@ async function startAssignment(itemId, btn) {
 
   try {
     const r = await api.post('/api/class/assignments/' + encodeURIComponent(itemId) + '/start');
+
+    // Reading/Listening open their existing test pages: those pages own the
+    // attempt lifecycle, and the hand-in is picked up afterwards from the
+    // attempt row. Nothing is created here.
+    if (r && r.open_url) {
+      window.location.href = r.open_url;
+      return;
+    }
+
     const p = (r && r.session_params) || {};
-    // POST /sessions owns quota, the daily cap and permissions; the class
-    // assignment entitles its own mode server-side. Creating the session here
-    // rather than in /start keeps all of that in one place.
+    // Speaking: POST /sessions owns quota, the daily cap and permissions; the
+    // class assignment entitles its own mode server-side. Creating the session
+    // here rather than in /start keeps all of that in one place.
     const session = await api.post('/sessions', {
       mode: p.mode,
       part: p.part,

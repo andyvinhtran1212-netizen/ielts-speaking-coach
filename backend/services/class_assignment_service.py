@@ -406,6 +406,107 @@ def attach_session_to_class_item(db, session_id: str, user_id: str, item_id: str
     return rows is True or rows == [True] or bool(rows)
 
 
+# Reading/Listening have no completion hook of their own: the student submits on
+# the test page, which knows nothing about class assignments. Their hand-in is
+# therefore detected here, from the attempt row, the same way a failed Speaking
+# write is repaired. Keyed by user_id, so it needs the student→user mapping.
+_TEST_ARTIFACTS = {
+    "reading":   ("reading_test_attempts",   "reading_attempt"),
+    "listening": ("listening_test_attempts", "listening_attempt"),
+}
+
+
+def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
+    """Record hand-ins for Reading/Listening assignments from their attempt rows.
+
+    A test page submits without knowing the class ledger exists, so unlike
+    Speaking there is nothing to hook. The attempt row IS the evidence: matched
+    on (student's user_id, the assigned test id), taking the EARLIEST submitted
+    attempt so a retake cannot overwrite the real first hand-in — and its
+    submitted_at, so a hand-in made before the deadline stays on time however
+    late this reconciliation runs.
+    """
+    targets = [a for a in assignments
+               if a.get("skill") in _TEST_ARTIFACTS and a.get("content_id")]
+    if not targets:
+        return 0
+
+    items = []
+    for chunk in (list(targets)[i:i + _ID_CHUNK]
+                  for i in range(0, len(targets), _ID_CHUNK)):
+        items.extend(_paged(
+            db, "class_assignment_items", "id, assignment_id, student_id",
+            lambda q, c=chunk: q.in_("assignment_id", [a["id"] for a in c])
+                                .is_("submitted_at", "null"),
+        ))
+    if not items:
+        return 0
+
+    # student → user, for the attempt tables which key off the auth account.
+    student_ids = list({i["student_id"] for i in items})
+    users: Dict[str, str] = {}
+    for chunk in (student_ids[i:i + _ID_CHUNK]
+                  for i in range(0, len(student_ids), _ID_CHUNK)):
+        for s in (_paged(db, "students", "id, user_id",
+                         lambda q, c=chunk: q.in_("id", c))):
+            if s.get("user_id"):
+                users[s["id"]] = s["user_id"]
+    if not users:
+        return 0
+
+    by_assignment = {a["id"]: a for a in targets}
+    fixed = 0
+    for skill, (table, artifact_kind) in _TEST_ARTIFACTS.items():
+        rel = [i for i in items
+               if by_assignment.get(i["assignment_id"], {}).get("skill") == skill]
+        if not rel:
+            continue
+        test_ids = list({by_assignment[i["assignment_id"]]["content_id"] for i in rel})
+        user_ids = list({users[i["student_id"]] for i in rel if i["student_id"] in users})
+        if not user_ids:
+            continue
+
+        attempts: List[Dict[str, Any]] = []
+        for chunk in (user_ids[i:i + _ID_CHUNK]
+                      for i in range(0, len(user_ids), _ID_CHUNK)):
+            attempts.extend(_paged(
+                db, table, "id, user_id, test_id, submitted_at, band_estimate",
+                lambda q, c=chunk: q.in_("user_id", c).in_("test_id", test_ids)
+                                    .eq("status", "submitted"),
+            ))
+
+        # EARLIEST submitted attempt per (user, test) — a retake must not
+        # overwrite the hand-in that actually met the deadline.
+        best: Dict[tuple, Dict[str, Any]] = {}
+        for at in attempts:
+            if not at.get("submitted_at"):
+                continue
+            key = (at.get("user_id"), at.get("test_id"))
+            cur = best.get(key)
+            if cur is None or at["submitted_at"] < cur["submitted_at"]:
+                best[key] = at
+
+        for item in rel:
+            uid = users.get(item["student_id"])
+            test_id = by_assignment[item["assignment_id"]]["content_id"]
+            at = best.get((uid, test_id))
+            if not at:
+                continue
+            try:
+                when = datetime.fromisoformat(at["submitted_at"])
+            except (ValueError, TypeError):
+                when = None
+            if mark_item_submitted(
+                db, item_id=item["id"], artifact_kind=artifact_kind,
+                artifact_id=at["id"], score=at.get("band_estimate"), now=when,
+            ):
+                fixed += 1
+
+    if fixed:
+        logger.info("[class] recorded %s test hand-in(s) from attempts", fixed)
+    return fixed
+
+
 def reconcile_ledger_from_sessions(db, assignment_ids: List[str]) -> int:
     """Repair hand-ins whose ledger write failed. Returns how many were fixed.
 

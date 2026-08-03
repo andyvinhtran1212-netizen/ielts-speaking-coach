@@ -22,13 +22,18 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
+from urllib.parse import quote
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Header, HTTPException
 
 from database import supabase_admin
 from routers.auth import get_supabase_user
-from services.class_assignment_service import _ID_CHUNK, is_assignment_open
+from services.class_assignment_service import (
+    _ID_CHUNK,
+    is_assignment_open,
+    reconcile_test_attempts,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -141,6 +146,16 @@ def _visible_assignments(student: Dict[str, Any], now: datetime) -> list:
             if is_assignment_open(a, now=now):
                 by_id[a["id"]] = a
 
+    # Record any Reading/Listening hand-in before deciding what this student
+    # still owes: their test submission does not touch the class ledger, so
+    # without this they would see work they have already done sitting under
+    # "Cần nộp". Best-effort — a repair failure must not hide the list.
+    try:
+        reconcile_test_attempts(supabase_admin, list(by_id.values()))
+        items = _reread_items(student["id"], [i["id"] for i in items]) or items
+    except Exception as exc:
+        logger.warning("[class] test reconcile skipped: %s", exc)
+
     out = [_decorate(i, by_id[i["assignment_id"]], now)
            for i in items if i["assignment_id"] in by_id]
     # Nearest deadline FIRST — this is a to-do list, so what is due today has to
@@ -216,7 +231,8 @@ async def start_assignment(
     if assignment.get("cohort_id") != student.get("cohort_id"):
         raise HTTPException(404, "Bài tập không thuộc lớp hiện tại của bạn")
 
-    if assignment.get("skill") != "speaking":
+    skill = assignment.get("skill")
+    if skill not in ("speaking", "reading", "listening"):
         raise HTTPException(400, "Bài tập này chưa hỗ trợ mở trực tiếp.")
 
     if item.get("state") == "assigned":
@@ -230,15 +246,37 @@ async def start_assignment(
             logger.warning("[class] could not mark item opened item=%s: %s", item_id, exc)
 
     cfg = assignment.get("content_config") or {}
+
+    if skill == "speaking":
+        # The client posts these to /sessions — which owns quota, the daily cap
+        # and permissions — then lands on the practice page by session_id.
+        return {
+            "item_id":       item_id,
+            "assignment_id": assignment["id"],
+            "skill":         skill,
+            "session_params": {
+                "mode":  cfg.get("mode") or "practice",
+                "part":  cfg.get("part") or 1,
+                "topic": cfg.get("topic") or "",
+                "class_assignment_item_id": item_id,
+            },
+        }
+
+    # Reading/Listening open their existing test pages directly. Nothing is
+    # created here: those pages own their own attempt lifecycle, and the hand-in
+    # is picked up afterwards from the attempt row (reconcile_test_attempts).
+    # Building a parallel "start" path would mean two places deciding when an
+    # attempt begins.
+    test_id = assignment.get("content_id")
+    if not test_id:
+        raise HTTPException(400, "Bài tập này chưa gắn đề.")
+    url = (f"/pages/reading-exam.html?test_id={quote(test_id)}" if skill == "reading"
+           else f"/pages/listening-test.html?id={quote(test_id)}")
     return {
-        "item_id":      item_id,
+        "item_id":       item_id,
         "assignment_id": assignment["id"],
-        "session_params": {
-            "mode":  cfg.get("mode") or "practice",
-            "part":  cfg.get("part") or 1,
-            "topic": cfg.get("topic") or "",
-            "class_assignment_item_id": item_id,
-        },
+        "skill":         skill,
+        "open_url":      url,
     }
 
 
@@ -377,3 +415,21 @@ def _paged_items_of(table: str, apply_filters) -> list:
         if len(page) < _PAGE:
             return rows
         start += _PAGE
+
+
+def _reread_items(student_id: str, item_ids: list) -> list:
+    """Re-read the student's items after a reconciliation wrote to them.
+
+    Without this the page renders the rows fetched BEFORE the repair, so a
+    hand-in just recorded still shows as outstanding until the next load —
+    which is the very thing the repair exists to prevent.
+    """
+    if not item_ids:
+        return []
+    out: list = []
+    for chunk in (item_ids[i:i + _ID_CHUNK] for i in range(0, len(item_ids), _ID_CHUNK)):
+        out.extend((
+            supabase_admin.table("class_assignment_items").select("*")
+            .eq("student_id", student_id).in_("id", chunk).execute().data
+        ) or [])
+    return out

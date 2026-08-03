@@ -628,7 +628,9 @@ function renderHomework() {
   $('homework-table-wrap').hidden = _homework.length === 0;
   $('homework-tbody').innerHTML = _homework.map((a) => {
     const cfg = a.content_config || {};
-    const sub = [cfg.topic, cfg.mode, cfg.part ? `Part ${cfg.part}` : ''].filter(Boolean).join(' · ');
+    const sub = a.skill === 'speaking'
+      ? [cfg.topic, cfg.mode, cfg.part ? `Part ${cfg.part}` : ''].filter(Boolean).join(' · ')
+      : [SKILL_LABEL[a.skill] || a.skill, cfg.test_title].filter(Boolean).join(' · ');
     const p = a.progress || {};
     // Deleting a give that students have answered would erase the record that
     // the work was asked for and done, so delete is withheld — but the give must
@@ -673,9 +675,58 @@ async function loadHomework() {
   renderHomework();
 }
 
+const SKILL_LABEL = { speaking: 'Speaking', reading: 'Reading', listening: 'Listening' };
+
+let _testsBySkill = {};
+
+/** Show only the fields the chosen skill actually uses. */
+function applyHomeworkSkill() {
+  const skill = $('hf-skill').value;
+  const isSpeaking = skill === 'speaking';
+  $('hf-topic-field').hidden = !isSpeaking;
+  $('hf-speaking-row').hidden = !isSpeaking;
+  $('hf-test-field').hidden = isSpeaking;
+  $('homework-modal-title').textContent = 'Giao bài ' + (SKILL_LABEL[skill] || '');
+  if (!isSpeaking) loadTests(skill);
+}
+
+/**
+ * Published papers for one skill, from the existing exam-content library.
+ *
+ * Only published ones are offered: assigning an unpublished paper hands students
+ * a task that opens to an error while the ledger still counts them as owing it.
+ * The backend re-checks — this list is convenience, not the gate.
+ */
+async function loadTests(skill) {
+  const sel = $('hf-test');
+  if (_testsBySkill[skill]) {
+    sel.innerHTML = _testsBySkill[skill];
+    return;
+  }
+  sel.innerHTML = '<option value="">Đang tải đề…</option>';
+  try {
+    const r = await api.get('/admin/exam-content?kind=' + encodeURIComponent(skill));
+    const items = ((r && r.items) || []).filter((i) => i.status === 'published');
+    // A library that failed to load must not look like a library with no papers.
+    if ((r.failed_kinds || []).includes(skill)) {
+      sel.innerHTML = '<option value="">Không đọc được thư viện đề</option>';
+      return;
+    }
+    const html = '<option value="">— Chọn đề —</option>' + items.map((i) =>
+      `<option value="${esc(i.id)}">${esc([i.code, i.title].filter(Boolean).join(' · '))}</option>`
+    ).join('');
+    _testsBySkill[skill] = html;
+    sel.innerHTML = items.length ? html : '<option value="">Chưa có đề nào đã xuất bản</option>';
+  } catch (err) {
+    sel.innerHTML = '<option value="">Không đọc được thư viện đề</option>';
+  }
+}
+
 function openHomeworkModal() {
+  $('hf-skill').value = 'speaking';
   $('hf-title').value = '';
   $('hf-topic').value = '';
+  $('hf-test').value = '';
   $('hf-mode').value = 'practice';
   $('hf-part').value = '1';
   $('hf-instructions').value = '';
@@ -691,6 +742,7 @@ function openHomeworkModal() {
   $('hf-due').value = defaultDueDateVietnam();
   $('hf-error').hidden = true;
   $('hf-warning').hidden = true;
+  applyHomeworkSkill();
   $('homework-modal').hidden = false;
   $('hf-title').focus();
 }
@@ -698,10 +750,23 @@ function openHomeworkModal() {
 function closeHomeworkModal() { $('homework-modal').hidden = true; }
 
 async function submitHomework() {
+  const skill = $('hf-skill').value;
   const title = $('hf-title').value.trim();
   const topic = $('hf-topic').value.trim();
-  if (!title || !topic) {
-    $('hf-error').textContent = 'Nhập tên bài giao và chủ đề để tiếp tục.';
+  const testId = $('hf-test').value;
+
+  if (!title) {
+    $('hf-error').textContent = 'Nhập tên bài giao để tiếp tục.';
+    $('hf-error').hidden = false;
+    return;
+  }
+  if (skill === 'speaking' && !topic) {
+    $('hf-error').textContent = 'Nhập chủ đề để tiếp tục.';
+    $('hf-error').hidden = false;
+    return;
+  }
+  if (skill !== 'speaking' && !testId) {
+    $('hf-error').textContent = 'Chọn một đề để tiếp tục.';
     $('hf-error').hidden = false;
     return;
   }
@@ -710,15 +775,20 @@ async function submitHomework() {
   try {
     const r = await api.post(
       '/admin/cohorts/' + encodeURIComponent(_cohortId) + '/assignments',
-      {
-        skill: 'speaking',
-        title,
-        topic,
-        mode: $('hf-mode').value,
-        part: Number($('hf-part').value),
-        due_date: $('hf-due').value || null,
-        instructions: $('hf-instructions').value.trim() || null,
-      },
+      skill === 'speaking'
+        ? {
+          skill, title, topic,
+          mode: $('hf-mode').value,
+          part: Number($('hf-part').value),
+          due_date: $('hf-due').value || null,
+          instructions: $('hf-instructions').value.trim() || null,
+        }
+        : {
+          skill, title,
+          content_id: testId,
+          due_date: $('hf-due').value || null,
+          instructions: $('hf-instructions').value.trim() || null,
+        },
     );
 
     closeHomeworkModal();
@@ -967,6 +1037,7 @@ function bindDetail() {
   });
   $('btn-hf-cancel').addEventListener('click', closeHomeworkModal);
   $('btn-hf-submit').addEventListener('click', submitHomework);
+  $('hf-skill').addEventListener('change', applyHomeworkSkill);
   bindModalBackdrop('homework-modal', closeHomeworkModal);
   $('homework-tbody').addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-action]');
