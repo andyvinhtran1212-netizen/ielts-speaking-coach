@@ -368,6 +368,19 @@ describe('formatReport', () => {
     assert.match(out, /1 cặp lệch nghiêm trọng/);
   });
 
+  test('khoảng trắng đầu/cuối của heading KHÔNG tạo lệch giả', () => {
+    // HTML legacy xuống dòng + thụt lề trong <h1>, JSX thì không. Hai bên hiện
+    // y hệt trên màn hình; nếu ghép `tag:text` rồi mới chuẩn hoá thì thành
+    // `H1: X` vs `H1:X` và cổng CI đỏ ở mọi PR — nhiễu kiểu đó làm người ta
+    // tắt cổng đi.
+    const meta = { url: 'https://x/a', finalUrl: 'https://x/a', status: 200 };
+    const legacy = buildFacts({ headings: [{ tag: 'H1', text: '\n        Học ngữ pháp\n      ' }] }, meta);
+    const next = buildFacts({ headings: [{ tag: 'H1', text: 'Học ngữ pháp' }] },
+                            { ...meta, url: 'https://x/b', finalUrl: 'https://x/b' });
+    assert.deepEqual(legacy.headings, next.headings);
+    assert.deepEqual(legacy.headings, ['H1:Học ngữ pháp']);
+  });
+
   test('normalizeText gộp khoảng trắng, giữ dấu tiếng Việt', () => {
     assert.equal(normalizeText('  Ngữ   pháp\n IELTS '), 'Ngữ pháp IELTS');
   });

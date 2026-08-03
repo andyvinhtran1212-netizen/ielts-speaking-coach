@@ -155,7 +155,12 @@ export function buildFacts(raw, meta) {
     finalUrl: meta.finalUrl || meta.url,
     status: meta.status,
     title: raw.title || '',
-    headings: (raw.headings || []).map((h) => normalizeText(`${h.tag}:${h.text}`)),
+    // Chuẩn hoá CHỮ TRƯỚC rồi mới ghép với tên thẻ. Ghép trước rồi chuẩn hoá
+    // thì khoảng trắng ĐẦU chuỗi của legacy (xuống dòng + thụt lề trong HTML)
+    // biến thành `H1: Học…` trong khi Next cho `H1:Học…` — hai bên hiện y hệt
+    // nhau trên màn hình mà bộ so báo lệch. Đúng loại nhiễu khiến cổng CI đỏ ở
+    // mọi PR rồi bị tắt đi.
+    headings: (raw.headings || []).map((h) => `${h.tag}:${normalizeText(h.text)}`),
     // KHÔNG khử trùng: mất 1 trong 2 nút "Đăng nhập" cũng là hồi quy, và phép
     // so đa-tập bên dưới chỉ có tác dụng nếu dữ liệu vào còn giữ số lần lặp.
     links: (raw.links || [])
