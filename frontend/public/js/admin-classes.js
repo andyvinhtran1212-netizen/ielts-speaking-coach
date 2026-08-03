@@ -603,6 +603,13 @@ function progressCell(p) {
   const parts = [`<span class="cl-roster-count">${countLabel(p.submitted)}/${countLabel(p.assigned)} đã nộp</span>`];
   if (p.late) parts.push(`<span class="cl-lesson-sub">${countLabel(p.late)} nộp trễ</span>`);
   if (p.missing) parts.push(`<span class="cl-roster-gap">${countLabel(p.missing)} chưa nộp, đã quá hạn</span>`);
+  // Chưa kích hoạt tài khoản là một dòng RIÊNG, không gộp vào "chưa nộp": em ấy
+  // chưa từng thấy bài, nên nhắc em nộp là nhắc nhầm người. Cũng không dùng
+  // .cl-roster-gap — đó là dấu "cần hỏi học viên này", còn việc ở đây là kích
+  // hoạt tài khoản, thuộc về người khác.
+  if (p.no_account) {
+    parts.push(`<span class="cl-lesson-sub">${countLabel(p.no_account)} chưa kích hoạt tài khoản</span>`);
+  }
   return `<div class="cl-roster">${parts.join('')}</div>`;
 }
 

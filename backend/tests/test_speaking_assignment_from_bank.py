@@ -540,3 +540,55 @@ async def test_a_give_from_another_class_is_a_404():
     with pytest.raises(Exception) as exc:
         await _tally(db)
     assert getattr(exc.value, "status_code", None) == 404
+
+
+# ── hai màn hình admin phải nói CÙNG một con số ─────────────────────────
+
+
+def test_the_list_counts_unactivated_students_the_same_way_the_tally_does():
+    """Nếp lỗi đã ghi: "nguồn số liệu của tôi có trùng với màn khác không?".
+    Bảng tổng kết tách riêng học viên chưa kích hoạt tài khoản. Nếu danh sách
+    bài giao gộp nhóm đó vào "chưa nộp, đã quá hạn" thì cùng một bài giao hiện
+    hai con số khác nhau ở hai chỗ, và giáo viên đi nhắc nhầm người."""
+    from services.class_assignment_service import progress_for_assignments
+
+    items = [
+        {"id": "i0", "assignment_id": "a1", "student_id": "s0",
+         "submitted_at": "2026-08-03T11:00:00+00:00"},
+        {"id": "i1", "assignment_id": "a1", "student_id": "s1", "submitted_at": None},
+        {"id": "i2", "assignment_id": "a1", "student_id": "s2", "submitted_at": None},
+    ]
+    students = [
+        {"id": "s0", "user_id": "u0"},
+        {"id": "s1", "user_id": "u1"},
+        {"id": "s2", "user_id": None},          # chưa kích hoạt
+    ]
+    db = _TallyDB(items, students, {})
+    p = progress_for_assignments(
+        db, [{"id": "a1", "due_at": "2020-01-01T19:00:00+07:00"}])["a1"]
+
+    assert p["submitted"] == 1
+    assert p["missing"] == 1, "chỉ em CÓ tài khoản mà không nộp mới là bỏ bài"
+    assert p["no_account"] == 1
+    assert p["assigned"] == p["submitted"] + p["missing"] + p["no_account"], (
+        "tổng phải khớp sĩ số — đánh rơi một nhóm khỏi mọi ô đếm còn tệ hơn"
+    )
+
+
+def test_a_failed_student_lookup_falls_back_to_the_old_behaviour():
+    """Thà đếm rộng hơn còn hơn im lặng đánh rơi khỏi mọi ô và làm tổng lệch."""
+    from services.class_assignment_service import progress_for_assignments
+
+    class _Boom(_TallyDB):
+        def table(self, name):
+            if name == "students":
+                raise RuntimeError("boom")
+            return super().table(name)
+
+    items = [{"id": "i0", "assignment_id": "a1", "student_id": "s0",
+              "submitted_at": None}]
+    db = _Boom(items, [{"id": "s0", "user_id": None}], {})
+    p = progress_for_assignments(
+        db, [{"id": "a1", "due_at": "2020-01-01T19:00:00+07:00"}])["a1"]
+    assert p["missing"] == 1 and p["no_account"] == 0
+    assert p["assigned"] == 1

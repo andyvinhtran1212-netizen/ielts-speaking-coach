@@ -297,7 +297,8 @@ def test_not_submitted_after_the_deadline_is_missing():
 def test_an_assignment_without_a_deadline_is_never_late_or_missing():
     db = _DB({"class_assignment_items": _items(None, DUE)})
     p = progress_for_assignments(db, [_assignment(None)], now=AFTER_DUE)["asg-1"]
-    assert p == {"assigned": 2, "submitted": 1, "late": 0, "missing": 0}
+    assert p == {"assigned": 2, "submitted": 1, "late": 0, "missing": 0,
+                 "no_account": 0}
 
 
 def test_moving_the_deadline_changes_the_verdict_with_no_backfill():

@@ -230,11 +230,19 @@ def progress_for_assignments(
     *,
     now: Optional[datetime] = None,
 ) -> Dict[str, Dict[str, int]]:
-    """assignment_id → {assigned, submitted, late, missing}.
+    """assignment_id → {assigned, submitted, late, missing, no_account}.
 
     `late` and `missing` are computed here from timestamps, never read from a
     column — see the module docstring. `now` is injectable so the boundary
     behaviour is testable without freezing the clock globally.
+
+    HỌC VIÊN CHƯA KÍCH HOẠT TÀI KHOẢN ĐƯỢC ĐẾM RIÊNG, không gộp vào `missing`.
+    Em ấy chưa từng THẤY bài — gọi đó là "không nộp" là đổ cho em một việc em
+    không có cách nào làm, và giáo viên sẽ đi nhắc nhầm người.
+
+    Đây cũng là chỗ hai màn hình admin dễ nói khác nhau nhất: bảng tổng kết từng
+    học viên đã tách riêng nhóm này, nên nếu ở đây gộp vào `missing` thì cùng một
+    bài giao sẽ hiện hai con số khác nhau ở hai chỗ.
     """
     now = now or datetime.now(timezone.utc)
     due_by_id: Dict[str, Optional[datetime]] = {}
@@ -243,11 +251,16 @@ def progress_for_assignments(
         due_by_id[a["id"]] = datetime.fromisoformat(raw) if raw else None
 
     out: Dict[str, Dict[str, int]] = {
-        a["id"]: {"assigned": 0, "submitted": 0, "late": 0, "missing": 0}
+        a["id"]: {"assigned": 0, "submitted": 0, "late": 0, "missing": 0,
+                  "no_account": 0}
         for a in assignments
     }
 
-    for item in _items_for_assignments(db, [a["id"] for a in assignments]):
+    items = _items_for_assignments(db, [a["id"] for a in assignments])
+    unactivated = _students_without_account(db, {i["student_id"] for i in items
+                                                 if i.get("student_id")})
+
+    for item in items:
         bucket = out.get(item["assignment_id"])
         if bucket is None:
             continue
@@ -259,11 +272,38 @@ def progress_for_assignments(
             bucket["submitted"] += 1
             if due and datetime.fromisoformat(submitted_at) > due:
                 bucket["late"] += 1
+        elif item.get("student_id") in unactivated:
+            # Chưa kích hoạt tài khoản: em ấy chưa từng thấy bài. Đếm riêng —
+            # xem docstring.
+            bucket["no_account"] += 1
         elif due and due < now:
             # Past the deadline with nothing submitted. Not a stored state: it
             # becomes true on its own as the clock passes, with no job to run.
             bucket["missing"] += 1
 
+    return out
+
+
+def _students_without_account(db, student_ids) -> set:
+    """Học viên chưa kích hoạt tài khoản, trong số các id truyền vào.
+
+    Hỏng thì trả rỗng: khi đó nhóm này rơi về `missing` như hành vi cũ — thà
+    đếm rộng hơn còn hơn im lặng đánh rơi khỏi mọi ô đếm và làm tổng không khớp
+    sĩ số.
+    """
+    ids = [s for s in student_ids if s]
+    if not ids:
+        return set()
+    out = set()
+    try:
+        for chunk in (ids[i:i + _ID_CHUNK] for i in range(0, len(ids), _ID_CHUNK)):
+            for s in _paged(db, "students", "id, user_id",
+                            lambda q, c=chunk: q.in_("id", c)):
+                if not s.get("user_id"):
+                    out.add(s["id"])
+    except Exception as exc:
+        logger.warning("[class] unactivated lookup failed: %s", exc)
+        return set()
     return out
 
 
