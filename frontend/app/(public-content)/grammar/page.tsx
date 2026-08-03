@@ -39,7 +39,12 @@ function Hero() {
         IELTS Grammar Reference
       </div>
       <h1 className="hero-title text-4xl sm:text-5xl font-extrabold mb-4 leading-tight">
-        Học ngữ pháp như một<br className="hidden sm:block" />
+        {/* `{' '}` KHÔNG phải trang trí. JSX nuốt khoảng trắng chứa xuống dòng
+            giữa thẻ và chữ, còn HTML thì giữ. Dưới 640px `<br>` là
+            `display:none`, nên thiếu dấu cách ở đây thì hai chữ dính liền:
+            "như mộthệ thống liên kết". Legacy `grammar.html` đặt khoảng trắng
+            ngay sau `<br/>` — giữ đúng vị trí đó để hai bản khớp nhau. */}
+        Học ngữ pháp như một<br className="hidden sm:block" />{' '}
         <span
           className="text-transparent bg-clip-text"
           style={{ backgroundImage: 'linear-gradient(90deg, var(--av-primary), var(--av-skill-reading))' }}
