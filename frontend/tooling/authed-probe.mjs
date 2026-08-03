@@ -26,7 +26,7 @@
 import { appendFileSync, readFileSync, existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 
-import { evaluateG2, formatG2, planSession } from './g2-floor.mjs';
+import { evaluateG2, formatG2, planSession, parseLedger } from './g2-floor.mjs';
 
 const argv = process.argv.slice(2);
 const arg = (n, d = null) => { const i = argv.indexOf(n); return i === -1 ? d : argv[i + 1]; };
@@ -38,9 +38,20 @@ const SUPABASE_URL = arg('--supabase', 'https://huwsmtubwulikhlmcirx.supabase.co
 const SUPABASE_ANON = process.env.PROBE_SUPABASE_ANON || 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
 // Đường dẫn THẬT: router auth gắn prefix `/auth` (backend/routers/auth.py:17),
 // KHÔNG có tiền tố `/api`. Đo trên production: `/api/auth/me` → 404 còn
-// `/auth/me` → 401 (có route, cần đăng nhập). Bản đầu dùng `/api/...` nên mọi
-// mẫu sẽ là HỎNG và G2 không bao giờ đạt được — công cụ chết ngay khi bật.
-const ROUTES = (arg('--routes', '/auth/me,/auth/profile') || '').split(',').filter(Boolean);
+// `/auth/me` → 401 (có route, cần đăng nhập).
+//
+// **KHÔNG dùng `/auth/me`.** Nó là GET nhưng GHI THẬT (auth.py:188–214):
+// INSERT hàng `users` nếu chưa có, và UPDATE `users.last_seen_at` MỖI LẦN GỌI.
+// Bật cron 20 phút với nó nghĩa là 72 lần ghi/ngày vào bảng người dùng, làm
+// bẩn đúng dữ liệu hoạt động mà admin đọc. Tôi đã đánh đồng "phương thức GET"
+// với "không tác dụng phụ" — review PR #910 vòng 2 bắt được.
+//
+// `/auth/profile` và `/auth/check-active` chỉ `.select(...)`, đọc thuần.
+// LƯU Ý THIẾT LẬP: `/auth/profile` trả 404 nếu tài khoản chưa có hàng `users`,
+// nên chủ dự án phải **đăng nhập một lần qua giao diện** để hàng đó được tạo.
+// Lần ghi duy nhất vì thế nằm ở bước thiết lập của con người, không nằm trong
+// vòng chạy của probe.
+const ROUTES = (arg('--routes', '/auth/profile,/auth/check-active') || '').split(',').filter(Boolean);
 const TIMEOUT_MS = Number(arg('--timeout', '15000')) || 15000;
 
 const EMAIL = process.env.PROBE_EMAIL || '';
@@ -94,11 +105,10 @@ function record(sample) {
   appendFileSync(LEDGER, `${JSON.stringify(sample)}\n`);
 }
 
+/** Đọc sổ; việc phân tích + đếm dòng hỏng nằm ở lõi để test được. */
 function readLedger() {
-  if (!existsSync(LEDGER)) return [];
-  return readFileSync(LEDGER, 'utf8').split('\n').filter(Boolean).map((l) => {
-    try { return JSON.parse(l); } catch { return null; }
-  }).filter(Boolean);
+  if (!existsSync(LEDGER)) return { samples: [], corruptLines: 0 };
+  return parseLedger(readFileSync(LEDGER, 'utf8'));
 }
 
 function requireCreds() {
@@ -196,7 +206,8 @@ async function modeSession() {
 
 function modeVerdict() {
   const authenticated = argv.includes('--anonymous') ? false : true;
-  const result = evaluateG2(readLedger(), { authenticated });
+  const { samples, corruptLines } = readLedger();
+  const result = evaluateG2(samples, { authenticated, corruptLines });
   console.log(formatG2(result));
   process.exit(result.pass ? 0 : 1);
 }

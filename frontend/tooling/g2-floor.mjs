@@ -25,6 +25,47 @@ export const G2_FLOOR = {
 };
 
 /**
+ * Phân tích sổ JSONL. Nằm ở lõi chứ không nằm trong runner vì đây là chỗ
+ * quyết định "sổ có lành không" — negative control cho thấy khi phép đếm dòng
+ * hỏng nằm trong runner thì gỡ nó đi mà KHÔNG test nào đỏ, tức là chốt chặn
+ * chỉ tồn tại trên giấy.
+ */
+export function parseLedger(text) {
+  const samples = [];
+  let corruptLines = 0;
+  for (const line of String(text || '').split('\n')) {
+    if (!line.trim()) continue;
+    try {
+      const v = JSON.parse(line);
+      if (v && typeof v === 'object') samples.push(v);
+      else corruptLines += 1;
+    } catch { corruptLines += 1; }
+  }
+  return { samples, corruptLines };
+}
+
+/**
+ * Lấy DÃY LIÊN TỤC MỚI NHẤT: đi ngược từ mẫu cuối, dừng ở khoảng trống đầu
+ * tiên vượt `maxGapMs`.
+ *
+ * Vì sao cần (review PR #910 vòng 2): trước bản này verdict chấm TOÀN BỘ sổ,
+ * không có cửa sổ gần đây. Hai hệ quả ngược nhau đều sai:
+ *   · 73 mẫu tốt từ hôm kia làm verdict xanh hôm nay dù hôm nay không phủ gì;
+ *   · một lần 500 thoáng qua nằm lại trong sổ làm mọi verdict về sau đỏ mãi,
+ *     kể cả khi đã có trọn một ngày sạch.
+ * Dãy-liên-tục-mới-nhất giải quyết cả hai mà không cần dọn sổ thủ công: đợt cũ
+ * tự rơi ra vì có khoảng trống lớn ngăn cách.
+ */
+export function trailingRun(rows, maxGapMs) {
+  if (!rows.length) return [];
+  let start = 0;
+  for (let i = rows.length - 1; i > 0; i--) {
+    if (rows[i].at - rows[i - 1].at > maxGapMs) { start = i; break; }
+  }
+  return rows.slice(start);
+}
+
+/**
  * @typedef {{at: number, ok: boolean, status?: number, route?: string,
  *            tokenAgeMs?: number, afterRefresh?: boolean, note?: string}} Sample
  */
@@ -34,13 +75,26 @@ export const G2_FLOOR = {
  * @param {{authenticated?: boolean, floor?: typeof G2_FLOOR}} [opts]
  */
 export function evaluateG2(samples, opts = {}) {
-  const { authenticated = false, floor = G2_FLOOR } = opts;
+  const {
+    authenticated = false,
+    floor = G2_FLOOR,
+    now = Date.now(),
+    staleGraceMs = 10 * 60_000,
+    corruptLines = 0,
+  } = opts;
   const findings = [];
   const add = (code, detail) => findings.push({ code, detail });
 
-  const rows = [...(samples || [])]
+  let rows = [...(samples || [])]
     .filter((s) => s && Number.isFinite(s.at))
     .sort((a, b) => a.at - b.at);
+
+  // Dòng sổ hỏng thì ĐỔ, không lặng lẽ bỏ qua: một dòng JSONL bị cắt cụt của
+  // đúng lần probe HỎNG mà bị vứt đi sẽ biến sổ bẩn thành sổ sạch.
+  if (corruptLines > 0) {
+    add('ledger-corrupt',
+      `${corruptLines} dòng sổ không đọc được — không thể kết luận trên bằng chứng hỏng`);
+  }
 
   if (!rows.length) {
     // Không có sổ = KHÔNG ĐẠT, không phải "chưa có dữ liệu nên cho qua". Đây là
@@ -54,6 +108,18 @@ export function evaluateG2(samples, opts = {}) {
                       maxGapMinutes: 0, failed: 0, authenticated } };
   }
 
+  // Chỉ chấm ĐỢT HIỆN TẠI, và đợt đó phải còn tươi.
+  const all = rows;
+  const run = trailingRun(all, floor.maxGapMs);
+  const dropped = all.length - run.length;
+  const ageMs = now - run[run.length - 1].at;
+  if (ageMs > floor.maxGapMs + staleGraceMs) {
+    add('ledger-stale',
+      `mẫu mới nhất cách đây ${(ageMs / 60000).toFixed(1)} phút — sổ cũ, `
+      + 'không phải bằng chứng của hiện tại');
+  }
+
+  rows = run;
   const n = rows.length;
   const spanMs = rows[n - 1].at - rows[0].at;
   let maxGapMs = 0;
@@ -68,10 +134,18 @@ export function evaluateG2(samples, opts = {}) {
     add('span-too-short',
       `trải ${(spanMs / 3600000).toFixed(1)}h < ${floor.minSpanMs / 3600000}h`);
   }
-  if (n > 1 && maxGapMs > floor.maxGapMs) {
-    add('gap-too-long',
-      `khoảng cách lớn nhất ${(maxGapMs / 60000).toFixed(1)} phút > `
-      + `${floor.maxGapMs / 60000} phút (tại mốc ${maxGapAt})`);
+  // KHÔNG còn kiểm `gap-too-long` ở đây: sau khi cắt theo dãy liên tục, mọi
+  // khoảng trống > maxGap đều đã nằm NGOÀI dãy, nên nhánh đó là mã chết. Để
+  // lại thì nó trông như một lớp bảo vệ đang hoạt động trong khi không hề —
+  // đúng kiểu cổng giả mà cả đợt này đi dọn. Đứt quãng nay thể hiện qua việc
+  // dãy bị cắt ngắn ⇒ trượt `span-too-short`/`too-few-samples`, và được nêu
+  // tên bằng `coverage-interrupted` bên dưới cho dễ chẩn đoán.
+  if (dropped > 0) {
+    const boundary = all[all.length - run.length - 1];
+    const gapMin = ((run[0].at - boundary.at) / 60000).toFixed(1);
+    add('coverage-interrupted',
+      `đợt đo bị đứt ${gapMin} phút trước mẫu đầu của đợt hiện tại; `
+      + `${dropped} mẫu của (các) đợt cũ không được tính`);
   }
 
   const failed = rows.filter((s) => !s.ok);
@@ -90,8 +164,11 @@ export function evaluateG2(samples, opts = {}) {
     }
   }
 
+  // `coverage-interrupted` là NGỮ CẢNH, không tự nó đánh trượt: một đợt 24h
+  // sạch nối sau một đợt cũ là chuyện bình thường và đáng PASS.
+  const blocking = findings.filter((f) => f.code !== 'coverage-interrupted');
   return {
-    pass: findings.length === 0,
+    pass: blocking.length === 0,
     findings,
     stats: {
       n,
@@ -101,6 +178,8 @@ export function evaluateG2(samples, opts = {}) {
       maxGapMinutes: Number((maxGapMs / 60000).toFixed(2)),
       failed: failed.length,
       authenticated,
+      droppedOlderRuns: dropped,
+      ageMinutes: Number((ageMs / 60000).toFixed(1)),
     },
   };
 }
