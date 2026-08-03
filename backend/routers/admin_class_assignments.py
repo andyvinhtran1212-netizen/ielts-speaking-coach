@@ -320,19 +320,33 @@ async def list_speaking_topics(
     }
 
     want = _QUESTIONS_PER_PART.get(part, 1)
-    counts: dict[str, int] = {}
-    audio_ok: dict[str, int] = {}
+    # ĐÚNG NHỮNG CÂU SẼ ĐƯỢC CHỌN, không phải "đủ số câu có audio".
+    #
+    # Lệnh giao lấy `want` câu ĐẦU theo `order_num` và đòi CHÍNH chúng có audio.
+    # Nếu ở đây chỉ đếm tổng số câu có audio thì một chủ đề mà câu 1 chưa render
+    # xong nhưng câu 3, 4 đã có sẽ hiện là "sẵn sàng" — admin chọn rồi bị 400.
+    # Hai đường phải chọn giống hệt nhau, nên cùng đọc `order_num` và cùng cắt
+    # tiền tố.
+    by_topic: dict[str, list] = {}
     ids = [t["id"] for t in topics]
     for chunk in (ids[i:i + 100] for i in range(0, len(ids), 100)):
         for q in (
             supabase_admin.table("topic_questions")
-            .select("topic_id, audio_url").eq("part", part)
-            .eq("is_active", True).in_("topic_id", chunk).execute().data or []
+            .select("topic_id, order_num, audio_url").eq("part", part)
+            .eq("is_active", True).in_("topic_id", chunk)
+            .order("order_num").execute().data or []
         ):
-            tid = q["topic_id"]
-            counts[tid] = counts.get(tid, 0) + 1
-            if (q.get("audio_url") or "").strip():
-                audio_ok[tid] = audio_ok.get(tid, 0) + 1
+            by_topic.setdefault(q["topic_id"], []).append(q)
+
+    counts: dict[str, int] = {}
+    audio_ok: dict[str, int] = {}
+    for tid, rows in by_topic.items():
+        # Sắp lại ở Python: `.order()` áp cho cả truy vấn, còn ta gom theo chủ đề
+        # nên thứ tự trong mỗi nhóm chỉ đúng nếu không có chủ đề nào xen kẽ —
+        # một giả định không cần thiết phải tin.
+        rows.sort(key=lambda r: (r.get("order_num") or 0))
+        counts[tid] = len(rows)
+        audio_ok[tid] = sum(1 for r in rows[:want] if (r.get("audio_url") or "").strip())
 
     needs_audio = part in (1, 3)
     items = []

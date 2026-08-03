@@ -665,3 +665,121 @@ def test_the_session_repair_pass_also_refuses_a_late_completion():
 
     on_time = _db("2026-08-03T11:00:00+00:00")             # 18:00 giờ VN
     assert reconcile_ledger_from_sessions(on_time, ["asg-1"]) == 1
+
+
+# ── bản chụp đề KHÔNG được xuống trình duyệt học viên ───────────────────
+#
+# Bản vá vòng 1 (chụp nội dung đề vào content_config) đã VÔ TÌNH mở lại đúng cái
+# lỗ mà bản vá cùng vòng vừa bịt: `_decorate` trả nguyên cả content_config, nên
+# học viên đọc được đề ngay trong phản hồi đầu tiên của trang lớp.
+
+
+def test_the_prompt_snapshot_never_reaches_the_student():
+    from routers.class_student import _display_config
+
+    cfg = {
+        "topic": "Hometown", "mode": "practice", "part": 1,
+        "question_ids": ["q1", "q2"],
+        "questions": [{"id": "q1", "question_text": "Where do you live?",
+                       "cue_card_bullets": ["a"], "audio_url": "https://cdn/a.mp3"}],
+    }
+    out = _display_config(cfg)
+    assert out == {"topic": "Hometown", "mode": "practice", "part": 1}
+    assert "questions" not in out, "bản chụp chứa nguyên văn câu hỏi"
+    assert "question_ids" not in out, "id đủ để tra ra câu hỏi"
+
+
+def test_it_is_an_ALLOW_list_so_new_fields_do_not_leak_by_default():
+    """Danh sách loại-trừ thì mỗi trường thêm vào bản chụp sau này sẽ lọt cho tới
+    khi có người nhớ ra phải chặn nó. Danh sách cho-phép thì mặc định là an toàn."""
+    from routers.class_student import _display_config
+
+    out = _display_config({"topic": "x", "bí_mật_mới": "lộ mất"})
+    assert out == {"topic": "x"}
+
+
+def test_a_reading_give_keeps_its_display_label():
+    from routers.class_student import _display_config
+    assert _display_config({"test_title": "Cam 19 Test 3"}) == {"test_title": "Cam 19 Test 3"}
+
+
+def test_an_empty_or_missing_config_is_an_empty_dict():
+    from routers.class_student import _display_config
+    assert _display_config(None) == {} and _display_config({}) == {}
+
+
+# ── hết hạn giữa chừng phải là 409, không phải 500 ──────────────────────
+
+
+def test_all_three_creation_routes_catch_the_deadline_error():
+    """Hạn có thể trôi qua GIỮA lúc trang lớp gọi /start và lúc trang đề tạo lượt
+    làm bài. Không bắt thì học viên nhận 500 — đọc ra là lỗi hệ thống chứ không
+    phải "em hết giờ rồi"."""
+    import inspect
+    import re
+    from routers import listening, reading_student, sessions
+
+    for mod in (listening, reading_student, sessions):
+        src = re.sub(r"#[^\n]*", "", inspect.getsource(mod))
+        m = re.search(r"except DeadlinePassedError[\s\S]{0,200}?HTTPException\(\s*409", src)
+        assert m, f"{mod.__name__} chưa map DeadlinePassedError → 409"
+
+
+# ── danh sách "sẵn sàng" phải khớp lệnh giao ────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_readiness_uses_the_SAME_prefix_the_give_will_select():
+    """Lệnh giao lấy `want` câu ĐẦU theo order_num. Nếu danh sách chỉ đếm tổng số
+    câu có audio thì một chủ đề mà câu 1 chưa render xong nhưng câu 3-4 đã có sẽ
+    hiện "sẵn sàng" — admin chọn rồi bị 400."""
+    topics = [{"id": "t0", "title": "T", "part": 1, "is_active": True}]
+    qs = [
+        {"topic_id": "t0", "part": 1, "is_active": True, "order_num": 0, "audio_url": None},
+        {"topic_id": "t0", "part": 1, "is_active": True, "order_num": 1, "audio_url": None},
+        {"topic_id": "t0", "part": 1, "is_active": True, "order_num": 2, "audio_url": "https://cdn/a.mp3"},
+        {"topic_id": "t0", "part": 1, "is_active": True, "order_num": 3, "audio_url": "https://cdn/b.mp3"},
+    ]
+    out = await _topics(_TopicsDB(topics, qs, []))
+    item = out["items"][0]
+    assert item["ready"] is False, "hai câu ĐẦU chưa có audio"
+    assert item["missing_audio"] is True
+
+
+@pytest.mark.asyncio
+async def test_a_voiced_prefix_is_ready_even_if_later_questions_are_not():
+    """Ngược lại: câu 3-4 chưa render không cản gì, vì lệnh giao không lấy chúng."""
+    topics = [{"id": "t0", "title": "T", "part": 1, "is_active": True}]
+    qs = [
+        {"topic_id": "t0", "part": 1, "is_active": True, "order_num": 0, "audio_url": "https://cdn/a.mp3"},
+        {"topic_id": "t0", "part": 1, "is_active": True, "order_num": 1, "audio_url": "https://cdn/b.mp3"},
+        {"topic_id": "t0", "part": 1, "is_active": True, "order_num": 2, "audio_url": None},
+    ]
+    out = await _topics(_TopicsDB(topics, qs, []))
+    assert out["items"][0]["ready"] is True
+
+
+def test_the_wire_is_connected_not_just_the_helper():
+    """Ghim hàm lọc mà không ghim CHỖ GỌI thì bỏ dây nối đi test vẫn xanh —
+    đúng cái đã xảy ra: `_display_config` có test, nhưng `_decorate` vẫn có thể
+    trả thẳng content_config."""
+    from datetime import datetime, timezone
+
+    from routers.class_student import _decorate
+
+    item = {"id": "i1", "state": "assigned", "submitted_at": None, "score": None}
+    assignment = {
+        "id": "a1", "title": "Bài", "skill": "speaking", "instructions": None,
+        "due_at": "2026-08-03T19:00:00+07:00",
+        "content_config": {
+            "topic": "Hometown", "mode": "practice", "part": 1,
+            "question_ids": ["q1"],
+            "questions": [{"id": "q1", "question_text": "Where do you live?"}],
+        },
+    }
+    out = _decorate(item, assignment, datetime(2026, 8, 3, 10, tzinfo=timezone.utc))
+    cfg = out["assignment"]["content_config"]
+    assert "questions" not in cfg and "question_ids" not in cfg
+    assert "Where do you live?" not in str(out), (
+        "nguyên văn câu hỏi không được xuất hiện ở BẤT KỲ đâu trong payload"
+    )

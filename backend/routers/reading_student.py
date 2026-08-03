@@ -42,6 +42,7 @@ from pydantic import BaseModel, Field
 from config import settings
 from database import supabase_admin
 from services.class_assignment_service import (
+    DeadlinePassedError,
     ItemNotFoundError,
     TaskMismatchError,
     validate_class_item_for_test,
@@ -1056,6 +1057,8 @@ async def start_reading_test_attempt(
                 supabase_admin, user["id"], class_item,
                 skill="reading", test_id=test_uuid,
             )
+        except DeadlinePassedError as exc:
+            raise HTTPException(409, str(exc))
         except (ItemNotFoundError, TaskMismatchError) as exc:
             raise HTTPException(400, str(exc))
 

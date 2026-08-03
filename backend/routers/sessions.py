@@ -14,6 +14,7 @@ from database import supabase_admin
 from services.question_visibility import redact_questions
 from routers.auth import get_supabase_user
 from services.class_assignment_service import (
+    DeadlinePassedError,
     ItemNotFoundError,
     TaskMismatchError,
     attach_session_to_class_item,
@@ -314,6 +315,8 @@ async def create_session(
                 session_mode=body.mode, session_part=body.part, session_topic=body.topic,
             )
             entitled_by_assignment = True
+        except DeadlinePassedError as e:
+            raise HTTPException(409, str(e))
         except (ItemNotFoundError, TaskMismatchError) as e:
             raise HTTPException(status_code=400, detail=str(e))
 
