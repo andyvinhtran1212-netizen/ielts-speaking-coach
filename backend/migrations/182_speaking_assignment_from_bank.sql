@@ -47,6 +47,7 @@
 --   DROP INDEX IF EXISTS uq_class_assignment_speaking_topic_per_cohort;
 --   ALTER TABLE topic_questions DROP COLUMN audio_url, DROP COLUMN audio_path,
 --                               DROP COLUMN level;
+--   ALTER TABLE questions       DROP COLUMN audio_url, DROP COLUMN listen_only;
 --
 -- Idempotent. Apply by hand.
 -- ============================================================================
@@ -116,5 +117,28 @@ COMMENT ON INDEX uq_class_assignment_speaking_topic_per_cohort IS
 'Một chủ đề Speaking chỉ giao MỘT LẦN cho mỗi lớp. Không lọc theo status: lưu
 trữ một bài giao không có nghĩa là học viên chưa từng làm đề ấy — muốn giao lại
 thì xoá bài giao cũ, và hàm xoá sẽ từ chối nếu đã có người nộp.';
+
+
+-- ── 4. Câu hỏi của PHIÊN cũng mang audio, và biết mình bị giấu chữ ─────────
+--
+-- `questions` là bản chụp cho một phiên luyện. Khi phiên đó là bài tập lớp Part
+-- 1/3, câu hỏi được giao BẰNG AUDIO — nên bản chụp phải mang theo cả đường audio
+-- lẫn CỜ BÁO rằng chữ không được gửi xuống trình duyệt.
+--
+-- CỜ NẰM Ở DỮ LIỆU, KHÔNG PHẢI Ở GIAO DIỆN. Ẩn bằng CSS thì mở devtools là đọc
+-- được — mà "không được xem câu hỏi" chính là điều kiện làm cho bài nghe này có
+-- nghĩa. Endpoint đọc cờ này và LƯỢC BỎ `question_text` trước khi trả về.
+ALTER TABLE questions
+    ADD COLUMN IF NOT EXISTS audio_url   TEXT,
+    ADD COLUMN IF NOT EXISTS listen_only BOOLEAN NOT NULL DEFAULT FALSE;
+
+COMMENT ON COLUMN questions.listen_only IS
+'TRUE = câu này giao bằng audio và endpoint PHẢI lược bỏ question_text trước khi
+trả về trình duyệt. Ẩn bằng CSS không tính: mở devtools là đọc được, mà việc phải
+NGHE mới biết đề hỏi gì chính là thứ bài tập này đang kiểm tra.';
+
+COMMENT ON COLUMN questions.audio_url IS
+'Bản đọc đề, chép từ topic_questions lúc dựng phiên. Chép chứ không tham chiếu:
+phiên là bản CHỤP, nên sửa kho đề sau đó không được làm đổi bài đang làm dở.';
 
 COMMIT;

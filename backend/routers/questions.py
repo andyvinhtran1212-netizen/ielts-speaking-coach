@@ -225,7 +225,7 @@ async def generate_questions(
     try:
         s_result = (
             supabase_admin.table("sessions")
-            .select("id, part, topic, mode, status")
+            .select("id, part, topic, mode, status, class_assignment_item_id")
             .eq("id", session_id)
             .eq("user_id", user_id)
             .limit(1)
@@ -257,6 +257,30 @@ async def generate_questions(
 
     if existing.data:
         return existing.data
+
+    # ── Bài tập lớp: dùng ĐÚNG những câu đã chốt lúc giao ──────────────────────
+    #
+    # Ưu tiên tuyệt đối, trước cả kho đề và Gemini. Bài giao đã ghi sẵn id từng
+    # câu (`content_config.question_ids`), nên hai học viên cùng một bài giao
+    # nhận đúng một bộ câu, và giáo viên biết chính xác mình đã giao cái gì —
+    # điều mà phép sinh-lúc-mở không bao giờ trả lời được.
+    pinned = _load_pinned_class_questions(session_id, session)
+    if pinned:
+        try:
+            result = supabase_admin.table("questions").insert(pinned).execute()
+            return [_strip_listen_only(q)
+                    for q in sorted(result.data, key=lambda q: q["order_num"])]
+        except Exception as e:
+            if _is_unique_violation(e):
+                winner = _load_existing_questions(session_id)
+                if winner:
+                    return [_strip_listen_only(q)
+                            for q in sorted(winner, key=lambda q: q["order_num"])]
+            # KHÔNG rơi sang Gemini: bài tập lớp phải là ĐÚNG đề được giao. Sinh
+            # một bộ câu khác sẽ ghi nhận em ấy "đã làm bài" trong khi em trả lời
+            # một đề không ai giao.
+            logger.error("[questions] pinned insert failed session=%s: %s", session_id, e)
+            raise HTTPException(500, f"Không dựng được đề đã giao: {e}")
 
     # ── Check topic library first ──────────────────────────────────────────────
     # If the topic exists in the admin-managed library and has pre-generated
@@ -640,4 +664,95 @@ async def list_questions(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Không thể tải câu hỏi: {e}")
 
-    return result.data
+    return [_strip_listen_only(q) for q in (result.data or [])]
+
+
+def _strip_listen_only(q: dict) -> dict:
+    """Bỏ HẲN chữ của câu hỏi trước khi gửi xuống trình duyệt, khi câu đó giao
+    bằng audio.
+
+    Ẩn bằng CSS không tính, và gửi xuống rồi mong người ta không nhìn cũng không:
+    mở devtools hoặc xem tab Network là đọc được. Việc PHẢI NGHE mới biết đề hỏi
+    gì chính là thứ bài tập này đang kiểm tra — nên chữ không được rời máy chủ.
+
+    Chấm điểm vẫn dùng được nguyên văn: việc đó chạy ở backend, đọc thẳng từ
+    bảng, không đi qua đường này.
+    """
+    if not q.get("listen_only"):
+        return q
+    out = dict(q)
+    # Đặt rỗng chứ không xoá khoá: frontend đang đọc `question_text` ở nhiều
+    # chỗ, và một khoá biến mất sẽ thành "undefined" hiện ra màn hình.
+    out["question_text"] = ""
+    for k in ("cue_card_bullets", "cue_card_reflection", "subtopic"):
+        out.pop(k, None)
+    return out
+
+
+# Part 1/Part 3 giao bằng audio; Part 2 là cue card đọc bằng mắt.
+_LISTEN_ONLY_PARTS = (1, 3)
+
+
+def _load_pinned_class_questions(session_id: str, session: dict) -> list[dict]:
+    """Những câu đã chốt lúc giao bài, dựng sẵn để chèn vào bảng `questions`.
+
+    Trả [] khi phiên này không phải bài tập lớp, hoặc bài giao không ghi câu nào
+    (bài giao cũ trước khi đổi cách làm) — khi đó luồng cũ chạy tiếp như thường.
+
+    CHÉP nội dung câu hỏi vào phiên chứ không tham chiếu: phiên là một bản CHỤP,
+    nên sửa kho đề sau đó không được làm đổi bài học viên đang làm dở.
+    """
+    item_id = session.get("class_assignment_item_id")
+    if not item_id:
+        return []
+    try:
+        items = (
+            supabase_admin.table("class_assignment_items")
+            .select("assignment_id").eq("id", item_id).limit(1).execute().data
+        ) or []
+        if not items:
+            return []
+        asg = (
+            supabase_admin.table("class_assignments")
+            .select("content_config, part, skill")
+            .eq("id", items[0]["assignment_id"]).limit(1).execute().data
+        ) or []
+        if not asg or asg[0].get("skill") != "speaking":
+            return []
+        cfg = asg[0].get("content_config") or {}
+        qids = cfg.get("question_ids") or []
+        if not qids:
+            return []
+        rows = (
+            supabase_admin.table("topic_questions")
+            .select("id, part, question_text, question_type, audio_url, "
+                    "cue_card_bullets, cue_card_reflection")
+            .in_("id", qids).execute().data
+        ) or []
+    except Exception as exc:
+        logger.warning("[questions] pinned lookup failed session=%s: %s", session_id, exc)
+        return []
+
+    # Giữ ĐÚNG thứ tự admin đã chốt, không phải thứ tự DB trả về.
+    by_id = {r["id"]: r for r in rows}
+    ordered = [by_id[q] for q in qids if q in by_id]
+    if len(ordered) != len(qids):
+        logger.warning("[questions] pinned set incomplete session=%s (%d/%d)",
+                       session_id, len(ordered), len(qids))
+        return []
+
+    out = []
+    for i, q in enumerate(ordered, 1):
+        listen_only = q["part"] in _LISTEN_ONLY_PARTS
+        out.append({
+            "session_id":          session_id,
+            "part":                q["part"],
+            "order_num":           i,
+            "question_text":       q["question_text"],
+            "question_type":       q.get("question_type") or "personal",
+            "cue_card_bullets":    q.get("cue_card_bullets"),
+            "cue_card_reflection": q.get("cue_card_reflection"),
+            "audio_url":           q.get("audio_url"),
+            "listen_only":         listen_only,
+        })
+    return out

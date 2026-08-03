@@ -19,12 +19,13 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 .av-cue {
-  /* Màu giấy, không phải trắng tinh: trắng #FFF trên nền navy chói mắt và đọc
-     ra là "ô nhập liệu". Ngà ấm đọc ra là giấy in. */
-  --cue-paper: #F7F4ED;
-  --cue-ink: #1B2430;
-  --cue-ink-soft: #55606E;
-  --cue-rule: rgba(27, 36, 48, 0.14);
+  /* Màu giấy sống ở tokens.css (bề mặt vật thể, giống nhau ở cả hai chủ đề) —
+     xem ghi chú --av-paper-* ở đó. Bí danh cục bộ chỉ để câu lệnh dưới đây đọc
+     được, không phải để định nghĩa lại. */
+  --cue-paper:    var(--av-paper-surface);
+  --cue-ink:      var(--av-paper-ink);
+  --cue-ink-soft: var(--av-paper-ink-soft);
+  --cue-rule:     var(--av-paper-rule);
 
   position: relative;
   max-width: 34rem;
@@ -141,7 +142,7 @@
 }
 
 @media (max-width: 40rem) {
-  .av-cue { padding: var(--av-space-6) var(--av-space-5) var(--av-space-5); }
+  .av-cue { padding: var(--av-space-6) var(--av-space-4) var(--av-space-4); }
   .av-cue__task { font-size: var(--av-fs-xl); }
   .av-cue__points { font-size: var(--av-fs-base); }
 }
