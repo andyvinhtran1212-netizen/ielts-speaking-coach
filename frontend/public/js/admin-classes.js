@@ -913,6 +913,31 @@ async function loadTests(skill) {
  */
 
 let _qpick = { items: [], picked: [], want: 1, topicId: null, part: null };
+/** Nghe thử một câu. MỘT trình phát dùng chung: hai câu phát chồng lên nhau thì
+ *  không nghe được câu nào, và giáo viên sẽ tưởng audio hỏng. */
+let _preview = null;
+
+function previewQuestionAudio(url, btn) {
+  const wasPlaying = _preview && !_preview.paused && _preview.src === url;
+  if (_preview) { _preview.pause(); _preview.currentTime = 0; }
+  document.querySelectorAll('.av-qpick__play[data-playing]')
+    .forEach((b) => b.removeAttribute('data-playing'));
+  if (wasPlaying) return;            // bấm lại nút đang phát = dừng
+
+  _preview = _preview || new Audio();
+  _preview.src = url;
+  btn.setAttribute('data-playing', 'true');
+  _preview.onended = () => btn.removeAttribute('data-playing');
+  _preview.onerror = () => {
+    btn.removeAttribute('data-playing');
+    toast('Không phát được bản đọc của câu này.', 'error');
+  };
+  _preview.play().catch(() => {
+    btn.removeAttribute('data-playing');
+    toast('Trình duyệt chặn phát tự động — bấm lại giúp nhé.', 'error');
+  });
+}
+
 
 function qmode() {
   const el = document.querySelector('input[name="hf-qmode"]:checked');
@@ -937,12 +962,20 @@ function renderQpick() {
     // giáo viên thấy danh sách ngắn không rõ vì sao ngắn.
     const blocked = q.giveable ? ''
       : '<span class="av-qpick__blocked">chưa có bản đọc</span>';
-    return `<button type="button" class="av-qpick__row" data-id="${esc(q.id)}"
+    // Nghe thử: học viên chỉ có audio này, nên giáo viên phải nghe được ĐÚNG
+    // thứ các em sẽ nghe trước khi giao. Nút riêng, không lồng trong nút chọn —
+    // nút trong nút là HTML không hợp lệ và bấm nghe sẽ chọn nhầm câu.
+    const play = q.audio_url
+      ? `<button type="button" class="av-qpick__play" data-play="${esc(q.audio_url)}"
+                 title="Nghe thử" aria-label="Nghe thử câu này">▶</button>` : '';
+    return `<div class="av-qpick__item">
+      <button type="button" class="av-qpick__row" data-id="${esc(q.id)}"
               aria-pressed="${at !== -1}" ${q.giveable ? '' : 'disabled'}>
-      <span class="av-qpick__num" aria-hidden="true">${at !== -1 ? at + 1 : ''}</span>
-      <span class="av-qpick__text">${esc(q.question_text || '')}</span>
-      <span class="av-qpick__meta">${lvl}${blocked}</span>
-    </button>`;
+        <span class="av-qpick__num" aria-hidden="true">${at !== -1 ? at + 1 : ''}</span>
+        <span class="av-qpick__text">${esc(q.question_text || '')}</span>
+        <span class="av-qpick__meta">${lvl}${blocked}</span>
+      </button>${play}
+    </div>`;
   }).join('');
 
   const ready = picked.length === want;
@@ -1369,6 +1402,8 @@ function bindDetail() {
   // Uỷ quyền: danh sách được vẽ lại sau mỗi lần bấm, nên gắn tay từng nút sẽ
   // mất ngay ở lần vẽ kế tiếp.
   $('hf-qpick-list').addEventListener('click', (e) => {
+    const play = e.target.closest('[data-play]');
+    if (play) { previewQuestionAudio(play.dataset.play, play); return; }
     const row = e.target.closest('.av-qpick__row');
     if (row && !row.disabled) toggleQpick(row.dataset.id);
   });

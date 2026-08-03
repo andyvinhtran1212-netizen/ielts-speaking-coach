@@ -131,7 +131,7 @@
 
   // ── Top-level state management ────────────────────────────────────────────────
 
-  var _ALL_STATES = ['loading', 'error', 'mode-choice', 'prep', 'p2a', 'p2b', 'p2c', 'processing', 'feedback', 'test-results', 'completion'];
+  var _ALL_STATES = ['loading', 'error', 'mode-choice', 'prep', 'p2a', 'p2b', 'p2c', 'processing', 'feedback', 'test-results', 'completion', 'sheet'];
 
 
   /**
@@ -457,6 +457,10 @@
       // showing the sub-state. _renderRecorded reads _elapsedSecs and
       // _sessionData.part to set the threshold the user is being
       // measured against.
+      // Phiếu làm bài nộp NGAY câu vừa ghi và trả quyền micro — không đi qua
+      // màn "đã ghi / nộp" của luồng phễu, vì ở phiếu mỗi ô tự quản trạng thái
+      // của nó và học viên còn ô kia để làm trong lúc câu này đang chấm.
+      if (_sheetActive()) { _sheetOnRecorded(_recordedBlob); return; }
       _renderRecordedPlayback();
       _renderRecordedLengthHint();
       _showRecSub('recorded');
@@ -2873,6 +2877,178 @@
 
   // ── Navigation ────────────────────────────────────────────────────────────────
 
+  // ── PHIẾU LÀM BÀI (bài tập lớp nhiều câu) ───────────────────────────────────
+  //
+  // Màn phễu cũ ép làm tuần tự: nghe câu 1 → ghi âm → nộp → nhận xét → câu 2.
+  // Phiếu này cho cả hai ô cùng hiện, làm ô nào trước cũng được, và LƯU TỪNG Ô.
+  //
+  // Vì sao lưu-từng-ô đáng làm: nộp một câu là chấm ĐỒNG BỘ (15–30 giây). Ở màn
+  // phễu, học viên ngồi nhìn màn hình chờ. Ở đây họ ghi âm ô kia trong lúc ô này
+  // đang chấm — thời gian chờ biến mất mà không phải làm gì cho nhanh hơn.
+  //
+  // Một micro nên chỉ ghi âm được MỘT ô tại một thời điểm; chấm thì chạy song
+  // song thoải mái.
+
+  var _sheet = null;   // { slots: [{q, state, band, error, replays}], recIdx }
+
+  function _sheetActive() {
+    return !!_sheet;
+  }
+
+  function _initSheet() {
+    // Chỉ dùng cho bài tập lớp NHIỀU CÂU. Một câu thì phiếu không hơn gì màn cũ,
+    // và luyện tự do vẫn đi luồng cũ — đổi cả hai cùng lúc là mở rộng phạm vi
+    // sang thứ không ai yêu cầu.
+    var isClassTask = !!(_sessionData && _sessionData.class_assignment_item_id);
+    if (!isClassTask || !_questions || _questions.length < 2) return false;
+    _sheet = {
+      slots: _questions.map(function (q) {
+        return { q: q, state: 'idle', band: null, error: null, replays: 0 };
+      }),
+      recIdx: -1,
+    };
+    _renderSheet();
+    showState('sheet');
+    return true;
+  }
+
+  var _SHEET_LABEL = {
+    idle:     'Chưa làm',
+    recording: 'Đang ghi âm',
+    grading:  'Đang chấm…',
+    saved:    'Đã lưu',
+  };
+
+  function _renderSheet() {
+    if (!_sheet) return;
+    var wrap = $('sheet-slots');
+    if (!wrap) return;
+
+    wrap.innerHTML = _sheet.slots.map(function (s, i) {
+      var recording = s.state === 'recording';
+      var busy = _sheet.recIdx !== -1 && _sheet.recIdx !== i;
+      // Nút ghi âm nói ĐÚNG việc nó làm ở trạng thái hiện tại — "Ghi âm" khi
+      // chưa làm, "Dừng" khi đang ghi, "Ghi âm lại" khi đã lưu. Một nhãn dùng
+      // chung cho ba việc là bắt người ta đoán.
+      var recLabel = recording ? 'Dừng ghi âm'
+        : (s.state === 'saved' ? 'Ghi âm lại' : 'Ghi âm');
+      var band = (s.band === null || s.band === undefined) ? ''
+        : '<span class="av-slot__band">' + Number(s.band).toFixed(1) + '</span>';
+      var note = s.error
+        ? '<p class="av-slot__note" data-tone="error">' + _esc(s.error) + '</p>'
+        : (s.state === 'grading'
+            ? '<p class="av-slot__note">Bạn làm câu kia được ngay, không phải chờ.</p>'
+            : '');
+      var replays = s.replays
+        ? '<span class="av-slot__replays">đã nghe ' + s.replays + ' lần</span>' : '';
+
+      return '<section class="av-slot" data-state="' + s.state + '" data-idx="' + i + '">'
+        + '<span class="av-slot__spine" aria-hidden="true"></span>'
+        + '<div class="av-slot__body">'
+        +   '<div class="av-slot__head">'
+        +     '<span class="av-slot__no">Câu ' + (i + 1) + '</span>'
+        +     '<span class="av-slot__status">' + _SHEET_LABEL[s.state] + '</span>'
+        +   '</div>'
+        +   '<button type="button" class="av-slot__listen" data-listen="' + i + '"'
+        +     (s.q.audio_url ? '' : ' disabled') + '>'
+        +     '<span class="av-slot__listen-icon" aria-hidden="true">▶</span>'
+        +     '<span>' + (s.q.audio_url ? 'Nghe câu hỏi' : 'Chưa có bản đọc đề') + '</span>'
+        +     replays
+        +   '</button>'
+        +   '<div class="av-slot__actions">'
+        +     '<button type="button" class="btn ' + (recording ? 'btn-danger' : 'btn-secondary')
+        +       '" data-rec="' + i + '"' + (busy ? ' disabled' : '') + '>' + recLabel + '</button>'
+        +     band
+        +   '</div>'
+        +   note
+        + '</div></section>';
+    }).join('');
+
+    var done = _sheet.slots.filter(function (s) { return s.state === 'saved'; }).length;
+    var total = _sheet.slots.length;
+    var ready = done === total;
+    $('sheet-submit').dataset.ready = String(ready);
+    // NÓI RÕ còn thiếu gì. Một nút mờ không lý do khiến học viên bấm mấy lần
+    // rồi tưởng trang hỏng.
+    $('sheet-submit-note').textContent = ready
+      ? 'Đã lưu cả ' + total + ' câu. Nộp để chốt bài.'
+      : 'Đã lưu ' + done + '/' + total + ' câu — lưu nốt rồi mới nộp được.';
+    $('btn-sheet-submit').disabled = !ready;
+  }
+
+  function _sheetListen(i) {
+    var s = _sheet && _sheet.slots[i];
+    if (!s || !s.q.audio_url) return;
+    s.replays += 1;
+    // Một trình phát dùng chung: hai câu phát chồng nhau thì không nghe được câu
+    // nào, và học viên tưởng audio hỏng.
+    if (!_sheetAudio) _sheetAudio = new Audio();
+    _sheetAudio.pause();
+    _sheetAudio.src = s.q.audio_url;
+    _sheetAudio.play().catch(function () {
+      s.error = 'Trình duyệt chặn phát tự động — bấm lại giúp nhé.';
+      _renderSheet();
+    });
+    _renderSheet();
+  }
+  var _sheetAudio = null;
+
+  async function _sheetToggleRec(i) {
+    var s = _sheet && _sheet.slots[i];
+    if (!s) return;
+    if (_sheet.recIdx === i) { stopRecording(); return; }
+    if (_sheet.recIdx !== -1) return;      // một micro: ô khác đang ghi
+    s.error = null;
+    s.state = 'recording';
+    _sheet.recIdx = i;
+    _renderSheet();
+    try {
+      await startRecording();
+    } catch (err) {
+      s.state = s.band === null ? 'idle' : 'saved';
+      s.error = 'Không mở được micro. Kiểm tra quyền truy cập rồi thử lại.';
+      _sheet.recIdx = -1;
+      _renderSheet();
+    }
+  }
+
+  function _sheetOnRecorded(blob) {
+    var i = _sheet.recIdx;
+    var s = _sheet.slots[i];
+    _sheet.recIdx = -1;
+    s.state = 'grading';
+    _renderSheet();
+
+    _submitGradingEager(_sessionId, s.q.id, blob)
+      .then(function (res) {
+        s.state = 'saved';
+        s.band = (res && (res.overall_band || (res.grading && res.grading.overall_band))) || null;
+        s.error = null;
+      })
+      .catch(function (err) {
+        // KHÔNG để ô về "đã lưu": bài này chưa tới server, và để nó xanh nghĩa
+        // là học viên bấm Nộp rồi mất câu trả lời mà không biết.
+        s.state = 'idle';
+        s.error = 'Chưa lưu được câu này. Ghi âm lại giúp nhé.';
+      })
+      .then(function () { _renderSheet(); });
+  }
+
+  async function _sheetSubmit() {
+    var btn = $('btn-sheet-submit');
+    if (btn) { btn.disabled = true; btn.textContent = 'Đang nộp…'; }
+    try {
+      await window.api.patch('/sessions/' + _sessionId + '/complete', {});
+    } catch (err) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Nộp bài'; }
+      $('sheet-submit-note').textContent =
+        'Chưa nộp được: ' + (err.message || err) + '. Bấm lại giúp nhé.';
+      return;
+    }
+    window.location.href = window.api.url('pages/result.html')
+      + '?id=' + encodeURIComponent(_sessionId);
+  }
+
   function nextQuestion() {
     if (_recSubState === 'recording') {
       _showRecError('Hãy nhấn "Dừng ghi âm" trước khi sang câu tiếp theo.');
@@ -2969,7 +3145,23 @@
 
   // ── Init ──────────────────────────────────────────────────────────────────────
 
+  function _bindSheet() {
+    var slots = $('sheet-slots');
+    if (!slots) return;
+    // Uỷ quyền: phiếu được vẽ lại sau MỖI thay đổi trạng thái, nên nút gắn tay
+    // sẽ mất ngay ở lần vẽ kế tiếp.
+    slots.addEventListener('click', function (e) {
+      var listen = e.target.closest('[data-listen]');
+      if (listen) { _sheetListen(Number(listen.dataset.listen)); return; }
+      var rec = e.target.closest('[data-rec]');
+      if (rec && !rec.disabled) _sheetToggleRec(Number(rec.dataset.rec));
+    });
+    var btn = $('btn-sheet-submit');
+    if (btn) btn.addEventListener('click', _sheetSubmit);
+  }
+
   async function init() {
+    _bindSheet();
     showState('loading');
 
     // Kick off grammar article index fetch in background (ready before feedback shown)
@@ -3108,11 +3300,17 @@
       }
 
       // Routing to first question:
+      //  • BÀI TẬP LỚP nhiều câu → PHIẾU LÀM BÀI (hai ô cùng hiện, lưu từng ô)
       //  • Part 2        → cue card flow; skip mode-choice
       //  • test_full     → force listening (exam mode); hide question text
       //  • test_part     → force listening
       //  • practice      → default visual; skip mode-choice screen
-      if (_sessionData && _sessionData.part === 2) {
+      //
+      // Phiếu đứng TRƯỚC mọi nhánh khác: nó là hình dạng của bài tập lớp, và
+      // các nhánh dưới đều giả định màn phễu một-câu-một-lúc.
+      if (_initSheet()) {
+        // phiếu đã dựng xong
+      } else if (_sessionData && _sessionData.part === 2) {
         _showPrep();
       } else if (_testMode === 'test_full') {
         // Full Test: listening/exam mode — examiner reads the question aloud

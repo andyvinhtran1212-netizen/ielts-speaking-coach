@@ -186,10 +186,44 @@ describe('DÂY NỐI — hàm có test không đủ', () => {
 
   test('bấm vào câu dùng uỷ quyền, không gắn tay từng nút', () => {
     // Danh sách vẽ lại sau mỗi lần bấm — nút gắn tay sẽ mất ở lần vẽ kế tiếp.
-    assert.match(wiring, /hf-qpick-list'\)\.addEventListener\('click'[\s\S]{0,200}?toggleQpick\(row\.dataset\.id\)/);
+    assert.match(wiring, /hf-qpick-list'\)\.addEventListener\('click'[\s\S]{0,400}?toggleQpick\(row\.dataset\.id\)/);
   });
 
   test('không cho bấm vào câu đã khoá', () => {
     assert.match(wiring, /if \(row && !row\.disabled\)/);
+  });
+});
+
+describe('nghe thử khi giao đề', () => {
+  test('nút nghe nằm NGOÀI nút chọn', () => {
+    // Nút-trong-nút là HTML không hợp lệ, và bấm nghe sẽ chọn nhầm câu.
+    assert.match(SRC, /<\/button>\$\{play\}/);
+    assert.doesNotMatch(SRC, /av-qpick__row[\s\S]{0,300}?av-qpick__play[\s\S]{0,80}?<\/button>\s*<\/button>/);
+  });
+
+  test('bấm nghe KHÔNG chọn câu đó', () => {
+    // Nếu không return sớm, một cú bấm vừa nghe vừa chọn — giáo viên nghe thử
+    // xong thấy câu tự nhảy vào danh sách.
+    assert.match(SRC, /data-play\]'\);\s*\n\s*if \(play\) \{ previewQuestionAudio[\s\S]{0,40}?return; \}/);
+  });
+
+  test('một trình phát dùng chung', () => {
+    // Hai câu phát chồng nhau thì không nghe được câu nào, và giáo viên tưởng
+    // audio hỏng.
+    assert.match(SRC, /_preview = _preview \|\| new Audio\(\)/);
+    assert.match(SRC, /if \(_preview\) \{ _preview\.pause\(\)/);
+  });
+
+  test('bấm lại nút đang phát thì dừng', () => {
+    assert.match(SRC, /if \(wasPlaying\) return;/);
+  });
+
+  test('phát hỏng thì nói ra, không im lặng', () => {
+    assert.match(SRC, /onerror[\s\S]{0,120}?toast\(/);
+    assert.match(SRC, /catch\(\(\) => \{[\s\S]{0,160}?toast\(/);
+  });
+
+  test('câu chưa có bản đọc thì không có nút nghe', () => {
+    assert.match(SRC, /const play = q\.audio_url\s*\n?\s*\?/);
   });
 });

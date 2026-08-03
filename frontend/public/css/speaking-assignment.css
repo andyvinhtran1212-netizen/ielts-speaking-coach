@@ -495,3 +495,193 @@
 @media (prefers-reduced-motion: reduce) {
   .av-qpick__num { transition: none; }
 }
+
+/* Nghe thử — nút RIÊNG cạnh nút chọn, không lồng bên trong: nút-trong-nút là
+   HTML không hợp lệ, và bấm nghe sẽ chọn nhầm câu. */
+.av-qpick__item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  border-bottom: 1px solid var(--av-border-subtle);
+}
+
+.av-qpick__item:last-child { border-bottom: 0; }
+.av-qpick__item .av-qpick__row { border-bottom: 0; }
+
+.av-qpick__play {
+  margin-inline-end: var(--av-space-3);
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-pill);
+  background: var(--av-surface-sunken);
+  color: var(--av-text-secondary);
+  font-size: var(--av-fs-xs);
+  cursor: pointer;
+}
+
+.av-qpick__play:hover { border-color: var(--av-border-strong); color: var(--av-text-primary); }
+.av-qpick__play:focus-visible { outline: 2px solid var(--av-primary); outline-offset: 2px; }
+
+.av-qpick__play[data-playing] {
+  border-color: var(--av-primary);
+  background: var(--av-primary);
+  color: var(--av-text-on-primary);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   5 — PHIẾU LÀM BÀI (bài tập lớp Part 1/3, nhiều câu)
+   ══════════════════════════════════════════════════════════════════════
+   Thay màn phễu một-câu-một-lúc. Hai ô cùng hiện, làm ô nào trước cũng được,
+   lưu từng ô, đủ mới nộp.
+
+   ĐIỂM QUYẾT ĐỊNH: câu hỏi KHÔNG có chữ. Nên ô không thể là "câu hỏi + nút ghi
+   âm" — chẳng có gì để đọc. Thứ nhận diện mỗi ô là ÂM THANH, và nút nghe phải
+   là vật to nhất trong ô: nó là cách DUY NHẤT biết đề hỏi gì.
+
+   Rủi ro lớn nhất của học viên là TƯỞNG ĐÃ LƯU MÀ CHƯA. Nên mỗi ô có một cột
+   trạng thái ở mép trái — cùng ngôn ngữ với bảng tổng kết bên admin: liếc dọc
+   là biết còn thiếu ô nào, không cần đọc chữ. */
+
+.av-sheet { display: grid; gap: var(--av-space-4); }
+
+.av-slot {
+  display: grid;
+  grid-template-columns: 4px 1fr;
+  gap: 0 var(--av-space-4);
+  padding: var(--av-space-4) var(--av-space-4) var(--av-space-4) 0;
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-lg);
+  overflow: hidden;
+}
+
+/* Cột trạng thái — đọc dọc là ra ngay ô nào chưa xong. */
+.av-slot__spine {
+  align-self: stretch;
+  background: var(--av-border-default);
+}
+
+/* Đang ghi âm dùng --av-error: đó là màu "đang có việc cần bạn dừng lại", đúng
+   thứ một cột ghi âm đang chạy muốn nói. Không tự đẻ token mới cho một trạng
+   thái tạm. */
+.av-slot[data-state='recording'] .av-slot__spine { background: var(--av-error); }
+.av-slot[data-state='grading']   .av-slot__spine { background: var(--av-accent); }
+.av-slot[data-state='saved']     .av-slot__spine { background: var(--av-success); }
+
+.av-slot__body { min-width: 0; }
+
+.av-slot__head {
+  display: flex;
+  align-items: center;
+  gap: var(--av-space-3);
+  margin-bottom: var(--av-space-3);
+}
+
+.av-slot__no {
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-bold);
+  letter-spacing: var(--av-tracking-widest);
+  text-transform: uppercase;
+  color: var(--av-text-muted);
+}
+
+.av-slot__status {
+  margin-inline-start: auto;
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-semibold);
+  color: var(--av-text-muted);
+}
+
+.av-slot[data-state='saved'] .av-slot__status { color: var(--av-success); }
+.av-slot[data-state='grading'] .av-slot__status { color: var(--av-accent); }
+
+/* Nút nghe là vật TO NHẤT trong ô — nó là cách duy nhất biết đề hỏi gì. */
+.av-slot__listen {
+  display: flex;
+  align-items: center;
+  gap: var(--av-space-3);
+  width: 100%;
+  padding: var(--av-space-3) var(--av-space-4);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-md);
+  background: var(--av-surface-sunken);
+  color: var(--av-text-primary);
+  font: inherit;
+  font-size: var(--av-fs-base);
+  font-weight: var(--av-fw-medium);
+  cursor: pointer;
+}
+
+.av-slot__listen:hover { border-color: var(--av-border-strong); }
+.av-slot__listen:focus-visible { outline: 2px solid var(--av-primary); outline-offset: 2px; }
+.av-slot__listen[data-playing] { border-color: var(--av-primary); color: var(--av-primary); }
+
+.av-slot__listen-icon {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: 0 0 auto;
+  border-radius: var(--av-radius-pill);
+  background: var(--av-primary);
+  color: var(--av-text-on-primary);
+}
+
+.av-slot__replays {
+  margin-inline-start: auto;
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-regular);
+  color: var(--av-text-muted);
+}
+
+.av-slot__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--av-space-2);
+  margin-top: var(--av-space-3);
+}
+
+.av-slot__band {
+  font-size: var(--av-fs-lg);
+  font-weight: var(--av-fw-bold);
+  font-variant-numeric: tabular-nums;
+  color: var(--av-success);
+}
+
+.av-slot__note {
+  margin: var(--av-space-2) 0 0;
+  font-size: var(--av-fs-xs);
+  color: var(--av-text-muted);
+}
+
+.av-slot__note[data-tone='error'] { color: var(--av-warning); }
+
+/* Thanh nộp — nói RÕ còn thiếu gì, không chỉ làm mờ nút.
+   Một nút mờ không lý do khiến học viên bấm mấy lần rồi tưởng trang hỏng. */
+.av-sheet__submit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--av-space-3);
+  margin-top: var(--av-space-2);
+  padding: var(--av-space-4);
+  border: 1px dashed var(--av-border-default);
+  border-radius: var(--av-radius-lg);
+}
+
+.av-sheet__submit[data-ready='true'] {
+  border-style: solid;
+  border-color: var(--av-success);
+  background: var(--av-success-soft);
+}
+
+.av-sheet__submit-note { font-size: var(--av-fs-sm); color: var(--av-text-secondary); }
+
+@media (prefers-reduced-motion: reduce) {
+  .av-slot__spine { transition: none; }
+}

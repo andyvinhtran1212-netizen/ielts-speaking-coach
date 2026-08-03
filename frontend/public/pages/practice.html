@@ -213,6 +213,20 @@
         </button>
       </div>
 
+      <!-- PHIẾU LÀM BÀI — bài tập lớp nhiều câu.
+           Thay màn phễu một-câu-một-lúc: hai ô cùng hiện, làm ô nào trước cũng
+           được, lưu từng ô, đủ mới nộp. Chỉ hiện khi phiên là bài tập lớp có
+           nhiều hơn một câu; luyện tự do vẫn đi luồng cũ. -->
+      <div id="state-sheet" class="state">
+        <div class="av-sheet" id="sheet-slots"></div>
+        <div class="av-sheet__submit" id="sheet-submit" data-ready="false">
+          <span class="av-sheet__submit-note" id="sheet-submit-note"></span>
+          <button class="btn btn-primary" id="btn-sheet-submit" type="button" disabled>
+            Nộp bài
+          </button>
+        </div>
+      </div>
+
       <!-- Bài tập lớp Part 1/3: chỉ NGHE, không có chữ.
            Khác hẳn nút "Hiện câu hỏi" của Full Test: ở đó chữ đã nằm sẵn trong
            trang và chỉ bị giấu; ở đây backend KHÔNG gửi chữ xuống, nên không có
