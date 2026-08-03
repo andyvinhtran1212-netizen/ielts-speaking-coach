@@ -720,9 +720,14 @@
       </div>
     </div>
 
-    <!-- Bảng tổng kết nộp bài -->
-    <div class="adm-modal" id="tally-modal" hidden>
-      <div class="adm-modal-box">
+    <!-- Bảng tổng kết nộp bài.
+         Cấu trúc PHẢI là .adm-modal-backdrop bọc .adm-modal, giống mọi modal
+         khác trong trang: admin-components.css đặt position:fixed và lớp phủ
+         lên .adm-modal-backdrop, còn .adm-modal chỉ là tấm thẻ. Dùng ngược lại
+         thì thẻ này chèn thẳng vào vị trí DOM ở đây — nằm dưới màn hình, nên
+         bấm "Xem ai nộp" trông như không có gì xảy ra. -->
+    <div class="adm-modal-backdrop" id="tally-modal" hidden role="presentation">
+      <div class="adm-modal" role="dialog" aria-modal="true" aria-labelledby="tally-modal-title">
         <h3 id="tally-modal-title">Bảng tổng kết</h3>
         <div id="tally-body"></div>
         <div class="adm-modal-actions">

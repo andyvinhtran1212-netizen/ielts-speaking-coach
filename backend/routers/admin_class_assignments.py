@@ -30,6 +30,7 @@ from routers.admin import require_admin
 from services.class_assignment_service import (
     EmptyRosterError,
     create_class_assignment,
+    _ID_CHUNK,
     _at,
     _paged,
     parse_due_time,
@@ -408,12 +409,18 @@ async def assignment_tally(
         "id, student_id, submitted_at, score, state",
         lambda q: q.eq("assignment_id", assignment_id),
     )
-    students = {
-        s["id"]: s for s in _paged(
-            supabase_admin, "students", "id, full_name, student_code, user_id",
-            lambda q: q.eq("cohort_id", cohort_id),
-        )
-    }
+    # Tra theo ĐÚNG những học viên có mục trong bài giao này, không theo sĩ số
+    # lớp hiện tại. Mục bài tập CỐ Ý sống sót khi học viên chuyển lớp — lọc theo
+    # `cohort_id` thì em đã chuyển đi hiện ra tên trống và trạng thái "chưa kích
+    # hoạt", kể cả khi em có tài khoản và đã nộp bài. Bảng tổng kết khi đó nói
+    # khác sổ cái.
+    sids = list({i["student_id"] for i in items if i.get("student_id")})
+    students: dict = {}
+    for chunk in (sids[i:i + _ID_CHUNK] for i in range(0, len(sids), _ID_CHUNK)):
+        for s in _paged(supabase_admin, "students",
+                        "id, full_name, student_code, user_id",
+                        lambda q, c=chunk: q.in_("id", c)):
+            students[s["id"]] = s
 
     due = _at(assignment.get("due_at"))
     now = datetime.now(timezone.utc)

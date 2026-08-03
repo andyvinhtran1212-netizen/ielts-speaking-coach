@@ -783,3 +783,193 @@ def test_the_wire_is_connected_not_just_the_helper():
     assert "Where do you live?" not in str(out), (
         "nguyên văn câu hỏi không được xuất hiện ở BẤT KỲ đâu trong payload"
     )
+
+
+# ── bài tập lớp: không ai được thay đề đã giao ──────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_a_class_session_cannot_have_custom_questions_saved_into_it():
+    """Endpoint tự-nhập-câu cho phép chủ phiên chèn câu bất kỳ. Với phiên đã gắn
+    bài tập lớp, học viên có thể thay đề được giao bằng một câu dễ CÓ CHỮ rồi vẫn
+    được ghi nhận đã làm bài — mà chứng minh "em ấy làm ĐÚNG bài được giao" là
+    toàn bộ giá trị của sổ cái này."""
+    from unittest.mock import AsyncMock
+    from routers import questions as qmod
+
+    class _T:
+        def __init__(self, rows): self._rows = list(rows)
+        def select(self, *_a, **_k): return self
+        def eq(self, f, v):
+            self._rows = [r for r in self._rows if str(r.get(f)) == str(v)]
+            return self
+        def limit(self, *_a): return self
+        def execute(self): return _Resp(self._rows)
+
+    db = type("DB", (), {})()
+    db.table = lambda _n: _T([{"id": "sess-1", "part": 1, "user_id": "u1",
+                               "class_assignment_item_id": "item-1"}])
+
+    with patch.object(qmod, "get_supabase_user", AsyncMock(return_value={"id": "u1"})), \
+         patch.object(qmod, "supabase_admin", db):
+        with pytest.raises(Exception) as exc:
+            await qmod.save_custom_questions(
+                "sess-1", qmod._CustomQBody(questions=["Câu dễ?"]), None)
+    assert getattr(exc.value, "status_code", None) == 403
+
+
+def test_the_fast_path_verifies_the_rows_are_the_pinned_set():
+    """"Phiên đã có câu" KHÔNG đồng nghĩa "câu ấy do chúng ta đặt vào". Không
+    kiểm thì mọi đường ghi khác vào bảng questions đều thành cửa sau."""
+    from routers import questions as qmod
+
+    class _T:
+        def __init__(self, rows): self._rows = list(rows)
+        def select(self, *_a, **_k): return self
+        def eq(self, f, v):
+            self._rows = [r for r in self._rows if str(r.get(f)) == str(v)]
+            return self
+        def limit(self, *_a): return self
+        def execute(self): return _Resp(self._rows)
+
+    snap = [{"id": "q1", "question_text": "Đề được giao?"}]
+    tables = {
+        "class_assignment_items": [{"id": "item-1", "assignment_id": "asg-1"}],
+        "class_assignments": [{"id": "asg-1", "skill": "speaking",
+                               "content_config": {"question_ids": ["q1"],
+                                                  "questions": snap}}],
+    }
+    db = type("DB", (), {})()
+    db.table = lambda n: _T(tables.get(n, []))
+    session = {"id": "sess-1", "class_assignment_item_id": "item-1"}
+
+    with patch.object(qmod, "supabase_admin", db):
+        # đúng bộ → im lặng đi qua
+        qmod._assert_pinned_set_intact(session, [{"question_text": "Đề được giao?"}])
+        # bị thay → chặn
+        with pytest.raises(Exception) as exc:
+            qmod._assert_pinned_set_intact(session, [{"question_text": "Câu dễ tự nhập?"}])
+    assert getattr(exc.value, "status_code", None) == 409
+
+
+def test_a_free_practice_session_is_not_touched_by_the_check():
+    from routers import questions as qmod
+    qmod._assert_pinned_set_intact({"id": "s"}, [{"question_text": "bất kỳ"}])
+
+
+# ── thử lại phải so với GIỜ PHIÊN, không phải giờ chạy lệnh sửa ─────────
+
+
+def test_a_retry_after_the_deadline_still_records_an_ON_TIME_session():
+    """Lệnh ghi sổ lần đầu hỏng thì lần hoàn thành sau gọi lại. So với "bây giờ"
+    nghĩa là phiên xong lúc 18:00 mà thử lại lúc 20:00 sẽ bị từ chối — chốt hạn
+    quay sang chặn đúng thứ nó sinh ra để bảo vệ."""
+    from routers import sessions as sm
+
+    class _T:
+        def __init__(self, rows): self._rows = list(rows)
+        def select(self, *_a, **_k): return self
+        def eq(self, *_a): return self
+        def limit(self, *_a): return self
+        def execute(self): return _Resp(self._rows)
+
+    db = type("DB", (), {})()
+    db.table = lambda _n: _T([{"id": "asg-1", "status": "published",
+                               "publish_at": None,
+                               "due_at": "2026-08-03T19:00:00+07:00"}])
+    wrote = []
+    with patch.object(sm, "supabase_admin", db), \
+         patch.object(sm, "mark_item_submitted",
+                      lambda *a, **k: wrote.append(k) or True):
+        out = sm._record_class_submission({
+            "id": "sess-1", "class_assignment_item_id": "item-1",
+            "completed_at": "2026-08-03T11:00:00+00:00",       # 18:00 VN, đúng hạn
+        })
+    assert out is True and len(wrote) == 1
+
+
+def test_a_session_actually_completed_late_is_still_refused():
+    """Mốc so là giờ của chính phiên đó, nên nới cho đường thử lại KHÔNG mở cửa
+    cho bài nộp thật sự trễ."""
+    from routers import sessions as sm
+
+    class _T:
+        def __init__(self, rows): self._rows = list(rows)
+        def select(self, *_a, **_k): return self
+        def eq(self, *_a): return self
+        def limit(self, *_a): return self
+        def execute(self): return _Resp(self._rows)
+
+    db = type("DB", (), {})()
+    db.table = lambda _n: _T([{"id": "asg-1", "status": "published",
+                               "publish_at": None,
+                               "due_at": "2026-08-03T19:00:00+07:00"}])
+    wrote = []
+    with patch.object(sm, "supabase_admin", db), \
+         patch.object(sm, "mark_item_submitted",
+                      lambda *a, **k: wrote.append(k) or True):
+        out = sm._record_class_submission({
+            "id": "sess-1", "class_assignment_item_id": "item-1",
+            "completed_at": "2026-08-03T13:00:00+00:00",       # 20:00 VN, trễ
+        })
+    assert out is False and wrote == []
+
+
+# ── bảng tổng kết giữ được học viên đã chuyển lớp ──────────────────────
+
+
+@pytest.mark.asyncio
+async def test_the_tally_keeps_a_transferred_student():
+    """Mục bài tập CỐ Ý sống sót khi học viên chuyển lớp. Tra học viên theo sĩ số
+    lớp HIỆN TẠI thì em đã chuyển đi hiện ra tên trống và "chưa kích hoạt", kể cả
+    khi em có tài khoản và đã nộp — bảng khi đó nói khác sổ cái."""
+    items = [_item("s-đã-chuyển", "2026-08-03T11:00:00+00:00", 6.5)]
+    # students KHÔNG lọc theo cohort: em ấy nay thuộc lớp khác
+    students = [{"id": "s-đã-chuyển", "cohort_id": "co-MỚI", "full_name": "Em A",
+                 "student_code": "S9", "user_id": "u9"}]
+    out = await _tally(_tally_db(items, students=students))
+    row = out["students"][0]
+    assert row["name"] == "Em A"
+    assert row["status"] == "submitted"
+    assert out["counts"]["no_account"] == 0
+
+
+@pytest.mark.asyncio
+async def test_the_fast_path_WIRE_rejects_a_tampered_set():
+    """Ghim hàm kiểm mà không ghim chỗ gọi thì bỏ dây nối đi test vẫn xanh — đã
+    dính đúng nếp này ba lần trong nhánh. Chạy thật `generate_questions`."""
+    from unittest.mock import AsyncMock
+    from routers import questions as qmod
+
+    class _T:
+        def __init__(self, rows): self._rows = list(rows)
+        def select(self, *_a, **_k): return self
+        def eq(self, f, v):
+            self._rows = [r for r in self._rows if str(r.get(f)) == str(v)]
+            return self
+        def order(self, *_a, **_k): return self
+        def limit(self, *_a): return self
+        def execute(self): return _Resp(self._rows)
+
+    snap = [{"id": "q1", "question_text": "Đề được giao?"}]
+    tables = {
+        "sessions": [{"id": "sess-1", "part": 1, "topic": "x", "mode": "practice",
+                      "status": "in_progress", "user_id": "u1",
+                      "class_assignment_item_id": "item-1"}],
+        # Hàng đã nằm sẵn trong phiên, nhưng KHÔNG phải đề được giao.
+        "questions": [{"id": "row-1", "session_id": "sess-1", "part": 1,
+                       "order_num": 1, "question_text": "Câu dễ tự nhập?",
+                       "listen_only": False}],
+        "class_assignment_items": [{"id": "item-1", "assignment_id": "asg-1"}],
+        "class_assignments": [{"id": "asg-1", "skill": "speaking",
+                               "content_config": {"question_ids": ["q1"],
+                                                  "questions": snap}}],
+    }
+    db = type("DB", (), {})()
+    db.table = lambda n: _T(tables.get(n, []))
+
+    with patch.object(qmod, "get_supabase_user", AsyncMock(return_value={"id": "u1"})), \
+         patch.object(qmod, "supabase_admin", db):
+        with pytest.raises(Exception) as exc:
+            await qmod.generate_questions("sess-1", None)
+    assert getattr(exc.value, "status_code", None) == 409

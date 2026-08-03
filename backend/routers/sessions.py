@@ -1318,6 +1318,17 @@ def _record_class_submission(session: dict) -> bool:
     if not item_id:
         return False
 
+    # Giờ phiên HOÀN THÀNH — phải có TRƯỚC phép kiểm hạn bên dưới, vì đó là mốc
+    # phép kiểm ấy so với. Trên đường thử lại, "bây giờ" là giờ chạy lệnh sửa
+    # chứ không phải giờ em ấy làm xong.
+    completed_at = None
+    raw = session.get("completed_at")
+    if raw:
+        try:
+            completed_at = datetime.fromisoformat(raw)
+        except ValueError:
+            pass
+
     # HẠN NỘP TUYỆT ĐỐI. The start gate cannot cover this on its own: nobody
     # knows in advance how long an answer will take, so a session begun at 18:58
     # can finish at 19:02. Recording it would mean the summary table keeps
@@ -1333,7 +1344,14 @@ def _record_class_submission(session: dict) -> bool:
             .eq("class_assignment_items.id", item_id)
             .limit(1).execute().data
         ) or []
-        if a_rows and not is_accepting_submissions(a_rows[0]):
+        # So với GIỜ PHIÊN HOÀN THÀNH, không phải giờ đang chạy lệnh này.
+        #
+        # Hàm này còn là đường THỬ LẠI: lệnh ghi sổ lần đầu hỏng thì lần hoàn
+        # thành sau sẽ gọi lại. So với "bây giờ" nghĩa là một phiên xong lúc
+        # 18:00 mà thử lại lúc 20:00 sẽ bị từ chối — chốt hạn quay sang chặn
+        # đúng thứ nó sinh ra để bảo vệ. Phiên thật sự xong sau hạn vẫn bị từ
+        # chối, vì mốc so là giờ của chính phiên đó.
+        if a_rows and not is_accepting_submissions(a_rows[0], now=completed_at):
             logger.info("[class] hand-in refused, deadline passed item=%s", item_id)
             return False
     except Exception as exc:
@@ -1344,13 +1362,6 @@ def _record_class_submission(session: dict) -> bool:
     # The session's own completion time, not "now": on the retry path this runs
     # long after the fact, and stamping the repair time would report work
     # finished before the deadline as late.
-    completed_at = None
-    raw = session.get("completed_at")
-    if raw:
-        try:
-            completed_at = datetime.fromisoformat(raw)
-        except ValueError:
-            pass
     try:
         return mark_item_submitted(
             supabase_admin,

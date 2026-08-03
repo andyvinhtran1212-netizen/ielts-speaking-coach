@@ -265,6 +265,11 @@ async def generate_questions(
         # Đường trả nhanh cũng phải lọc. Gọi lại /generate trên một phiên đã có
         # câu là chuyện bình thường (tải lại trang), và trước đây đường này trả
         # nguyên văn — bộ lọc trông như đang chạy trong khi chữ vẫn lọt.
+        #
+        # Với bài tập lớp, còn phải XÁC NHẬN đây đúng là bộ đề đã chốt: "phiên đã
+        # có câu" không đồng nghĩa "câu ấy do chúng ta đặt vào". Chèn câu bằng
+        # đường khác rồi gọi /generate là cách biến đường này thành cửa sau.
+        _assert_pinned_set_intact(session, existing.data)
         return redact_questions(existing.data)
 
     # ── Bài tập lớp: dùng ĐÚNG những câu đã chốt lúc giao ──────────────────────
@@ -470,7 +475,7 @@ async def save_custom_questions(
     try:
         s_result = (
             supabase_admin.table("sessions")
-            .select("id, part")
+            .select("id, part, class_assignment_item_id")
             .eq("id", session_id)
             .eq("user_id", user_id)
             .limit(1)
@@ -481,6 +486,16 @@ async def save_custom_questions(
 
     if not s_result.data:
         raise HTTPException(status_code=404, detail="Session không tồn tại")
+
+    # BÀI TẬP LỚP KHÔNG ĐƯỢC TỰ NHẬP CÂU. Endpoint này cho phép chủ phiên chèn
+    # câu hỏi bất kỳ; với một phiên đã gắn bài tập lớp, học viên có thể thay đề
+    # được giao bằng một câu dễ CÓ CHỮ rồi vẫn được ghi nhận đã làm bài. Chứng
+    # minh "em ấy làm ĐÚNG bài được giao" là toàn bộ giá trị của sổ cái này.
+    if s_result.data[0].get("class_assignment_item_id"):
+        raise HTTPException(
+            403,
+            "Bài tập lớp dùng đề được giao — không tự nhập câu hỏi được.",
+        )
 
     part = s_result.data[0]["part"]
 
@@ -677,6 +692,62 @@ async def list_questions(
 
 # Part 1/Part 3 giao bằng audio; Part 2 là cue card đọc bằng mắt.
 _LISTEN_ONLY_PARTS = (1, 3)
+
+
+
+def _assert_pinned_set_intact(session: dict, rows: list[dict]) -> None:
+    """Phiên là bài tập lớp thì câu trong phiên phải ĐÚNG bộ đã chốt.
+
+    "Phiên đã có câu" không đồng nghĩa "câu ấy do chúng ta đặt vào". Không kiểm
+    thì mọi đường ghi khác vào bảng `questions` đều thành cửa sau cho đường trả
+    nhanh này.
+
+    Bài giao cũ (chưa chốt câu nào) không có gì để so — bỏ qua.
+    """
+    item_id = session.get("class_assignment_item_id")
+    if not item_id:
+        return
+    try:
+        items = (
+            supabase_admin.table("class_assignment_items")
+            .select("assignment_id").eq("id", item_id).limit(1).execute().data
+        ) or []
+        if not items:
+            return
+        asg = (
+            supabase_admin.table("class_assignments")
+            .select("content_config, skill")
+            .eq("id", items[0]["assignment_id"]).limit(1).execute().data
+        ) or []
+    except Exception as exc:
+        # Không kiểm được thì KHÔNG kết luận là hỏng: một trục trặc tra cứu
+        # không được biến thành "phiên của em bị chặn".
+        logger.warning("[questions] pinned-intact check skipped session=%s: %s",
+                       session.get("id"), exc)
+        return
+    if not asg or asg[0].get("skill") != "speaking":
+        return
+    qids = (asg[0].get("content_config") or {}).get("question_ids") or []
+    if not qids:
+        return
+
+    # So theo NỘI DUNG chứ không theo id: hàng trong `questions` là bản CHÉP,
+    # id của nó là id riêng chứ không phải id trong kho đề.
+    got = [r.get("question_text") for r in rows]
+    snapshot = (asg[0].get("content_config") or {}).get("questions") or []
+    if snapshot:
+        want = [(q or {}).get("question_text") for q in snapshot]
+        if got != want:
+            logger.error("[questions] pinned set tampered session=%s", session.get("id"))
+            raise HTTPException(
+                409,
+                "Đề của bài tập này đã bị thay đổi. Báo giáo viên kiểm tra giúp nhé.",
+            )
+    elif len(rows) != len(qids):
+        logger.error("[questions] pinned count mismatch session=%s (%d/%d)",
+                     session.get("id"), len(rows), len(qids))
+        raise HTTPException(
+            409, "Đề của bài tập này không khớp. Báo giáo viên kiểm tra giúp nhé.")
 
 
 def _load_pinned_class_questions(session_id: str, session: dict) -> list[dict]:

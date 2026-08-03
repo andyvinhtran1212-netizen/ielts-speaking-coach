@@ -152,3 +152,29 @@ describe('style và markup', () => {
     assert.equal((HTML.match(/speaking-assignment\.css/g) || []).length, 1);
   });
 });
+
+
+// ── modal phải là LỚP PHỦ, không phải thẻ chèn vào giữa trang ────────────
+
+describe('cấu trúc modal khớp hệ thống', () => {
+  test('backdrop bọc card, đúng thứ tự admin-components.css mong đợi', () => {
+    // CSS đặt position:fixed + lớp phủ lên .adm-modal-backdrop, còn .adm-modal
+    // chỉ là tấm thẻ. Dùng ngược lại thì thẻ chèn thẳng vào vị trí DOM của nó —
+    // nằm dưới màn hình, nên bấm "Xem ai nộp" trông như không có gì xảy ra.
+    const m = HTML.match(/<div class="adm-modal-backdrop" id="tally-modal"[\s\S]{0,400}?<\/div>/);
+    assert.ok(m, 'tally-modal phải là .adm-modal-backdrop');
+    assert.match(m[0], /<div class="adm-modal"/, 'và bọc một .adm-modal bên trong');
+    assert.doesNotMatch(HTML, /adm-modal-box/, '.adm-modal-box không tồn tại trong CSS');
+  });
+
+  test('dùng cùng cấu trúc với các modal khác trong trang', () => {
+    const backdrops = (HTML.match(/class="adm-modal-backdrop"/g) || []).length;
+    assert.ok(backdrops >= 3, `chỉ thấy ${backdrops} backdrop — tally chưa theo lối chung`);
+  });
+
+  test('bấm nền thì đóng, bấm trong thẻ thì không', () => {
+    // Bấm bên trong thẻ cũng nổi bọt lên nền; không so target thì modal đóng
+    // giữa lúc đang đọc.
+    assert.match(SRC, /tally-modal'\)\.addEventListener\('click'[\s\S]{0,120}?e\.target === \$\('tally-modal'\)/);
+  });
+});

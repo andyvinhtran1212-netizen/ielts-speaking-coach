@@ -1239,7 +1239,13 @@ function bindDetail() {
     if (btn.dataset.action === 'publish-homework') setHomeworkStatus(btn.dataset.id, 'published');
   });
 
-  $('btn-tally-close').addEventListener('click', () => { $('tally-modal').hidden = true; });
+  const closeTally = () => { $('tally-modal').hidden = true; };
+  $('btn-tally-close').addEventListener('click', closeTally);
+  // Bấm ra nền để đóng, như mọi modal khác. Chỉ khi bấm ĐÚNG lớp nền — bấm bên
+  // trong thẻ cũng nổi bọt lên đây và sẽ đóng modal giữa lúc đang đọc.
+  $('tally-modal').addEventListener('click', (e) => {
+    if (e.target === $('tally-modal')) closeTally();
+  });
   $('btn-add-lesson').addEventListener('click', () => openLessonModal(null));
   $('btn-lf-cancel').addEventListener('click', closeLessonModal);
   $('btn-lf-submit').addEventListener('click', submitLesson);
