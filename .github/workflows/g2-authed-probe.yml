@@ -5,8 +5,16 @@
 # không hiện ra nếu không ai gọi. Workflow này là thứ phát request trong khoảng
 # thời gian đó.
 #
-# Vì sao nhịp 20 phút: sàn ADR-013-A1 là n≥72 · trải ≥24h · khoảng cách lớn
-# nhất ≤20 phút. 72 × 20 phút = đúng 24h, nên đúng một lịch cron thoả cả ba.
+# Vì sao nhịp 15 phút chứ KHÔNG phải 20: sàn ADR-013-A1 đòi khoảng cách lớn
+# nhất ≤20 phút. Đặt cron đúng bằng 20 là đặt lịch sát mép — mà cron của GitHub
+# Actions chạy trễ vài phút là chuyện thường, và mốc thời gian của mẫu còn tính
+# SAU khi runner khởi động + đăng nhập + gọi HTTP. Chỉ cần một lần trễ là khe hở
+# vượt 20 phút và `trailingRun()` cắt sạch lịch sử tích luỹ.
+#
+# Mô phỏng 26h với độ trễ tối đa 4 phút (test `g2-floor.test.mjs`):
+#   cron 20 phút → khe hở lớn nhất 23 phút → n=2,  trải 0,3h  → KHÔNG BAO GIỜ đạt
+#   cron 15 phút → khe hở lớn nhất 18 phút → n=104, trải 25,8h → ĐẠT
+# Nguyên tắc: LỊCH phải chặt hơn SÀN, đủ biên để nuốt độ trễ của bộ lập lịch.
 #
 # ĐÃ BẬT CRON 2026-08-03. Điều kiện tiên quyết đã xong:
 #   1. Tài khoản probe `g2-probe@averlearning.com` do chủ dự án tạo trên
@@ -37,7 +45,7 @@ on:
         type: choice
         options: [tick, session, verdict]
   schedule:
-    - cron: "*/20 * * * *"   # 72 nhịp/ngày = đúng sàn ≤20 phút  → mode tick
+    - cron: "*/15 * * * *"   # 96 nhịp/ngày, biên 5 phút dưới sàn → mode tick
     - cron: "17 3 * * *"     # một phiên dài mỗi ngày            → mode session
 
 permissions:

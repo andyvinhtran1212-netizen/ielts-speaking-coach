@@ -176,11 +176,21 @@ thức hoá ngược một quyết định đã ra.
   **CÔNG CỤ ĐÃ CÓ (PR G2, 2026-08-03)**: `frontend/tooling/authed-probe.mjs`
   (`tick` / `session` / `verdict`) + `frontend/tooling/g2-floor.mjs` (chấm sàn,
   có test) + `.github/workflows/g2-authed-probe.yml`.
-  **CHƯA CHẠY** — còn chờ chủ dự án: (a) tạo **tài khoản probe riêng** trên
-  production, (b) thêm secret `PROBE_EMAIL`/`PROBE_PASSWORD`, (c) bỏ chú thích
-  khối `schedule`. Cho tới lúc đó, lớp `Authenticated mutation` **vẫn theo A0**
-  và ngoại lệ `/profile` **vẫn mở** — `--mode verdict` từ chối sổ rỗng nên
-  không có đường nào để "chưa bật" bị đọc thành "đã đạt".
+  **ĐÃ BẬT 2026-08-03, ĐANG TÍCH LUỸ BẰNG CHỨNG.** Ba điều kiện tiên quyết đã
+  xong: tài khoản `g2-probe@averlearning.com`, secret `PROBE_EMAIL`/
+  `PROBE_PASSWORD`, và cron. Đo tại lần chạy tay đầu:
+  `tick: OK — /auth/profile=200 /auth/check-active=200`.
+
+  **Nhưng lớp `Authenticated mutation` VẪN THEO A0 và ngoại lệ `/profile` VẪN
+  MỞ cho tới khi `--mode verdict` ĐẠT lần đầu.** "Đã bật" không phải "đã phủ";
+  verdict từ chối sổ rỗng và sổ chưa đủ 24h, nên không có đường nào để nhầm.
+
+  **Nguyên tắc rút ra khi bật — LỊCH phải chặt hơn SÀN.** Sàn đòi khe hở
+  ≤20 phút; đặt cron đúng 20 phút là sát mép, mà cron GitHub Actions trễ vài
+  phút là bình thường và mốc mẫu còn tính sau khi runner khởi động + đăng nhập.
+  Mô phỏng 26h với độ trễ ≤4 phút: cron 20 phút → khe hở 23 phút → `n=2`,
+  không bao giờ đạt; cron 15 phút → khe hở 18 phút → `n=104`, đạt. Đã dùng
+  15 phút. Sàn không đổi — chỉ lịch chặt hơn để nuốt độ trễ.
 2. **Gác G1 trong CI** cho các route đã port, để cổng parity là bắt buộc chứ
   không phải chạy tay.
 3. **Thêm lượt chạy G1 ở bề rộng nhỏ** (ví dụ 375px) — hiện G1 chỉ chạy 1280px

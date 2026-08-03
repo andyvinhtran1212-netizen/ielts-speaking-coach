@@ -257,7 +257,10 @@ describe('workflow chọn đúng chế độ theo cron (review #910)', () => {
     assert.match(WF, /^\s*schedule:/m, 'schedule phải đang hoạt động');
     // Nhịp 20 phút là ĐIỀU KIỆN của sàn (n≥72 · trải ≥24h · nhịp ≤20 phút),
     // không phải lựa chọn tuỳ ý: 72 × 20 phút = đúng 24h.
-    assert.match(WF, /cron: "\*\/20 \* \* \* \*"/);
+    // 15 phút chứ KHÔNG 20: xem test mô phỏng độ trễ bên dưới.
+    assert.match(WF, /cron: "\*\/15 \* \* \* \*"/);
+    assert.ok(!/cron: "\*\/20 \* \* \* \*"/.test(WF),
+      'cron đúng bằng sàn 20 phút = một lần trễ là mất sạch lịch sử');
     // Và lịch phiên dài phải khớp CHÍNH chuỗi mà PROBE_MODE dò để chọn
     // `session`; lệch một ký tự là cron đó âm thầm chạy `tick`.
     assert.match(WF, /cron: "17 3 \* \* \*"/);
@@ -387,5 +390,44 @@ describe('sổ tách theo chế độ rồi gộp (review #911)', () => {
     // Và verdict phải khôi phục CẢ HAI sổ, nếu không nó chấm trên nửa bằng chứng.
     assert.match(WF, /restore-keys:[\s\S]*g2-ledger-tick-/);
     assert.match(WF, /restore-keys:[\s\S]*g2-ledger-session-/);
+  });
+});
+
+describe('lịch cron phải CHẶT HƠN sàn (review #913)', () => {
+  const T0b = 1_785_000_000_000;
+  const MINb = 60_000;
+  // Độ trễ tất định, lặp lại được — không dùng Math.random để test khỏi chớp.
+  const JITTER = [0, 3, 1, 4, 2];
+  const runsOverDay = (stepMin, hours = 26) => {
+    const n = Math.floor((hours * 60) / stepMin);
+    return Array.from({ length: n }, (_, k) => ({
+      at: T0b + (k * stepMin + JITTER[k % JITTER.length]) * MINb, ok: true,
+    }));
+  };
+  const judgeRuns = (rows) =>
+    evaluateG2(rows, { now: rows[rows.length - 1].at + MINb });
+
+  test('cron 20 phút + trễ ≤4 phút ⇒ KHÔNG BAO GIỜ đạt', () => {
+    // Cron GitHub Actions trễ vài phút là bình thường, và mốc mẫu tính SAU khi
+    // runner khởi động + đăng nhập + gọi HTTP. Đặt lịch đúng bằng sàn là sát
+    // mép: một lần trễ ⇒ khe hở >20 phút ⇒ trailingRun cắt sạch lịch sử.
+    const r = judgeRuns(runsOverDay(20));
+    assert.equal(r.pass, false);
+    assert.ok(r.stats.n < 10,
+      `dãy liên tục sụp còn ${r.stats.n} mẫu dù đã chạy 26 giờ`);
+  });
+
+  test('cron 15 phút + cùng độ trễ ⇒ ĐẠT', () => {
+    const r = judgeRuns(runsOverDay(15));
+    assert.equal(r.pass, true, formatG2(r));
+    assert.ok(r.stats.n >= 72);
+    assert.ok(r.stats.spanHours >= 24);
+    assert.ok(r.stats.maxGapMinutes <= 20);
+  });
+
+  test('sàn KHÔNG bị nới để chiều lịch', () => {
+    // Cách sửa sai là hạ sàn xuống 25 phút cho "hết đỏ". Sàn giữ nguyên 20;
+    // chỉ lịch chặt lại. Test này chặn đúng đường đó.
+    assert.equal(G2_FLOOR.maxGapMs, 20 * 60 * 1000);
   });
 });
