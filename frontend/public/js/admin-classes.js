@@ -582,6 +582,24 @@ let _progress = { students: [], degraded: [] };
  * admin abroad sees their local equivalent of the same instant, not a number
  * that silently means something else.
  */
+/**
+ * Hạn nộp dưới dạng CHỮ THUẦN, cho những chỗ tự escape.
+ *
+ * `dueLabel` trả về HTML (nó tô mờ hạn đã qua). Bọc kết quả đó trong esc() thì
+ * người dùng đọc được nguyên thẻ `<span class="cl-muted">…</span>` — mà chỗ dính
+ * lỗi này lại là trạng thái CHÍNH của bảng tổng kết (sau hạn). Tách hai hàm để
+ * chỗ gọi không phải nhớ cái nào trả HTML.
+ */
+function dueText(dueAt) {
+  if (!dueAt) return 'không hạn';
+  const d = new Date(dueAt);
+  if (Number.isNaN(d.getTime())) return 'hạn không đọc được';
+  return d.toLocaleString('vi-VN', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
+}
+
 function dueLabel(dueAt) {
   if (!dueAt) return '<span class="cl-muted">Không hạn</span>';
   const d = new Date(dueAt);
@@ -706,10 +724,10 @@ function renderTally(d) {
   const rows = ((d && d.students) || []).map(tallyRow).join('');
   const notes = [];
   if (sealed) {
-    notes.push(`Chốt lúc <strong>${esc(dueLabel(d.assignment.due_at))}</strong>`
+    notes.push(`Chốt lúc <strong>${esc(dueText(d.assignment.due_at))}</strong>`
       + ` — ${c.missing || 0} em không nộp. Sau giờ này hệ thống không nhận bài nữa.`);
   } else {
-    notes.push(`Hạn <strong>${esc(dueLabel(d.assignment.due_at))}</strong>.`
+    notes.push(`Hạn <strong>${esc(dueText(d.assignment.due_at))}</strong>.`
       + ' Danh sách còn đổi cho tới lúc đó.');
   }
   if (c.no_account) {

@@ -973,3 +973,91 @@ async def test_the_fast_path_WIRE_rejects_a_tampered_set():
         with pytest.raises(Exception) as exc:
             await qmod.generate_questions("sess-1", None)
     assert getattr(exc.value, "status_code", None) == 409
+
+
+# ── bản đọc phải KHỚP lời câu hỏi hiện tại ──────────────────────────────
+#
+# Chuẩn chất lượng cao nhất của dự án là "nhận xét phải trung thực". Audio đọc
+# đề CŨ trong khi bộ chấm đọc đề MỚI phá đúng chuẩn đó: học viên trả lời cái
+# mình nghe rồi bị chấm theo một câu khác, và không ai truy ra được vì hai bên
+# đều "có dữ liệu".
+
+
+def _voiced(text="Where do you live?", title="Hometown", part=1, stale=False):
+    from services import speaking_question_audio as sqa
+    from services import tts_audio
+    script = sqa.script_fingerprint(
+        sqa.build_script(part=part, topic_title=title,
+                         question_text="LỜI CŨ" if stale else text))
+    return {"id": "q1", "part": part, "question_text": text,
+            "audio_url": "https://cdn/a.mp3",
+            "audio_path": tts_audio.audio_path(script, sqa.VOICE, sqa.ENGINE)}
+
+
+def test_audio_rendered_from_the_CURRENT_wording_counts():
+    assert mod._audio_matches(_voiced(), "Hometown") is True
+
+
+def test_audio_rendered_from_an_OLD_wording_does_not():
+    """Sửa lời câu hỏi làm băm đổi; hàng còn giữ đường cũ nghĩa là file đang nói
+    một đề khác với đề bộ chấm sẽ đọc."""
+    assert mod._audio_matches(_voiced(stale=True), "Hometown") is False
+
+
+def test_a_question_with_no_audio_is_not_voiced():
+    assert mod._audio_matches({"part": 1, "question_text": "x", "audio_url": ""},
+                              "Hometown") is False
+
+
+def test_a_row_from_before_the_path_column_is_trusted():
+    """Không đối chiếu được, nhưng cũng không có bằng chứng là lệch — mẻ render
+    sau sẽ điền vào."""
+    assert mod._audio_matches(
+        {"part": 1, "question_text": "x", "audio_url": "https://cdn/a.mp3",
+         "audio_path": None}, "Hometown") is True
+
+
+def test_an_unreadable_script_counts_as_NOT_voiced():
+    """Thà một chủ đề hiện là chưa sẵn sàng còn hơn giao một bài mà học viên
+    nghe một đằng bị chấm một nẻo."""
+    assert mod._audio_matches(
+        {"part": 2, "question_text": "x", "audio_url": "u", "audio_path": "p"},
+        "Hometown") is False        # Part 2 không dựng được câu đọc → ValueError
+
+
+def test_editing_a_question_clears_its_audio_at_the_write_side():
+    """Chốt lúc ĐỌC bắt được hàng đã lệch từ trước; chốt lúc GHI ngăn hàng mới
+    lệch. Cần cả hai — dữ liệu cũ không tự sửa mình, còn dữ liệu mới không nên
+    phải chờ ai đó đọc tới mới phát hiện."""
+    import inspect
+    import re
+    from routers import admin as amod
+
+    src = re.sub(r"#[^\n]*", "", inspect.getsource(amod.update_topic_question))
+    m = re.search(r'question_text[\s\S]{0,400}?audio_url"\]\s*=\s*None', src)
+    assert m, "đổi question_text phải xoá audio_url"
+    assert re.search(r'audio_path"\]\s*=\s*None', src), "và xoá cả audio_path"
+
+
+def test_the_GIVE_refuses_a_question_whose_audio_speaks_an_old_wording():
+    """Ghim `_audio_matches` mà không ghim CHỖ GỌI thì lệnh giao vẫn có thể chỉ
+    hỏi "có audio chưa" — nếp này đã dính bốn lần trong nhánh, nên lần nào cũng
+    phải chạy qua đường thật."""
+    from services import speaking_question_audio as sqa
+    from services import tts_audio
+
+    def _q_stale(qid, order):
+        script = sqa.script_fingerprint(sqa.build_script(
+            part=1, topic_title="Hometown", question_text="LỜI CŨ"))
+        return {"id": qid, "topic_id": "top-1", "is_active": True, "part": 1,
+                "order_num": order, "question_text": "Lời MỚI đã sửa",
+                "question_type": "personal",
+                "audio_url": "https://cdn/a.mp3",
+                "audio_path": tts_audio.audio_path(script, sqa.VOICE, sqa.ENGINE),
+                "cue_card_bullets": None, "cue_card_reflection": None}
+
+    db = _db(topic=_TOPIC, questions=[_q_stale("q0", 0), _q_stale("q1", 1)])
+    with pytest.raises(Exception) as exc:
+        _resolve(db)
+    assert getattr(exc.value, "status_code", None) == 400
+    assert "audio" in str(getattr(exc.value, "detail", "")).lower()

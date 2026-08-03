@@ -2392,7 +2392,18 @@ async def update_topic_question(
     await require_admin(authorization)
 
     update: dict = {}
-    if body.question_text       is not None: update["question_text"]       = body.question_text.strip()
+    if body.question_text       is not None:
+        update["question_text"] = body.question_text.strip()
+        # ĐỔI LỜI CÂU HỎI THÌ BẢN ĐỌC CŨ HẾT GIÁ TRỊ. Không xoá thì audio vẫn đọc
+        # đề CŨ trong khi bộ chấm đọc đề MỚI: học viên trả lời cái mình nghe rồi
+        # bị chấm theo một câu khác — nhận xét sai mà không ai truy ra được vì
+        # hai bên đều "có dữ liệu".
+        #
+        # Xoá chứ không render lại tại đây: render mất vài giây và endpoint này
+        # là một lần bấm Lưu của admin. Xoá làm câu đó lập tức KHÔNG giao được
+        # (backend chặn), và mẻ render sau sẽ dựng lại.
+        update["audio_url"] = None
+        update["audio_path"] = None
     if body.question_type       is not None: update["question_type"]       = body.question_type
     if body.order_num           is not None: update["order_num"]           = body.order_num
     if body.cue_card_bullets    is not None: update["cue_card_bullets"]    = body.cue_card_bullets

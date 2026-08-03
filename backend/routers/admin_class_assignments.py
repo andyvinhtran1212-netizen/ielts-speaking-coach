@@ -26,6 +26,8 @@ from fastapi import APIRouter, Header, HTTPException, status
 from pydantic import BaseModel, Field, model_validator
 
 from database import supabase_admin
+from services import speaking_question_audio as sqa
+from services import tts_audio
 from routers.admin import require_admin
 from services.class_assignment_service import (
     EmptyRosterError,
@@ -198,6 +200,37 @@ async def list_assignments(
 _QUESTIONS_PER_PART = {1: 2, 2: 1, 3: 1}
 
 
+def _audio_matches(q: dict, topic_title: str) -> bool:
+    """Bản đọc có ĐÚNG là bản đọc của câu hỏi HIỆN TẠI không.
+
+    Không chỉ hỏi "có audio chưa". Đường lưu audio là băm của chính câu đọc, nên
+    sửa lời câu hỏi làm băm đổi — và một hàng còn giữ `audio_path` cũ nghĩa là
+    file đang nói một đề khác với đề bộ chấm sẽ đọc.
+
+    Chốt ở đầu GHI (xoá audio khi sửa lời) đã có, nhưng chốt này bắt cả những
+    hàng ĐÃ lệch từ trước khi có chốt kia — dữ liệu cũ không tự sửa mình.
+
+    Không đọc được đường thì coi như KHÔNG khớp: thà một chủ đề hiện là chưa sẵn
+    sàng (admin chạy lại mẻ render là xong) còn hơn giao một bài mà học viên nghe
+    một đằng bị chấm một nẻo.
+    """
+    if not (q.get("audio_url") or "").strip():
+        return False
+    stored = (q.get("audio_path") or "").strip()
+    if not stored:
+        # Hàng render trước khi có cột `audio_path`: không đối chiếu được, nhưng
+        # cũng không có bằng chứng là lệch. Tin nó — mẻ render sau sẽ điền vào.
+        return True
+    try:
+        script = sqa.script_fingerprint(sqa.build_script(
+            part=q["part"], topic_title=topic_title,
+            question_text=q.get("question_text") or ""))
+        return stored == tts_audio.audio_path(script, sqa.VOICE, sqa.ENGINE)
+    except Exception as exc:
+        logger.warning("[class] audio-path check failed q=%s: %s", q.get("id"), exc)
+        return False
+
+
 def _resolve_speaking_topic(cohort_id: str, body: "AssignmentCreate") -> tuple[str, dict]:
     """Chọn đề Speaking từ kho + chốt sẵn câu hỏi ngay lúc giao.
 
@@ -240,7 +273,7 @@ def _resolve_speaking_topic(cohort_id: str, body: "AssignmentCreate") -> tuple[s
     qs = (
         supabase_admin.table("topic_questions")
         .select("id, part, order_num, question_text, question_type, audio_url, "
-                "cue_card_bullets, cue_card_reflection")
+                "audio_path, cue_card_bullets, cue_card_reflection")
         .eq("topic_id", body.content_id).eq("part", body.part)
         .eq("is_active", True).order("order_num").execute().data
     ) or []
@@ -251,7 +284,7 @@ def _resolve_speaking_topic(cohort_id: str, body: "AssignmentCreate") -> tuple[s
         )
 
     if body.part in (1, 3):
-        missing = [q for q in qs[:want] if not (q.get("audio_url") or "").strip()]
+        missing = [q for q in qs[:want] if not _audio_matches(q, topic["title"])]
         if missing:
             raise HTTPException(
                 400,
@@ -329,11 +362,13 @@ async def list_speaking_topics(
     # Hai đường phải chọn giống hệt nhau, nên cùng đọc `order_num` và cùng cắt
     # tiền tố.
     by_topic: dict[str, list] = {}
+    titles = {t["id"]: t["title"] for t in topics}
     ids = [t["id"] for t in topics]
     for chunk in (ids[i:i + 100] for i in range(0, len(ids), 100)):
         for q in (
             supabase_admin.table("topic_questions")
-            .select("topic_id, order_num, audio_url").eq("part", part)
+            .select("topic_id, part, order_num, question_text, audio_url, audio_path")
+            .eq("part", part)
             .eq("is_active", True).in_("topic_id", chunk)
             .order("order_num").execute().data or []
         ):
@@ -347,7 +382,8 @@ async def list_speaking_topics(
         # một giả định không cần thiết phải tin.
         rows.sort(key=lambda r: (r.get("order_num") or 0))
         counts[tid] = len(rows)
-        audio_ok[tid] = sum(1 for r in rows[:want] if (r.get("audio_url") or "").strip())
+        audio_ok[tid] = sum(1 for r in rows[:want]
+                            if _audio_matches(r, titles.get(tid, "")))
 
     needs_audio = part in (1, 3)
     items = []

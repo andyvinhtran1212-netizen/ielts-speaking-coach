@@ -23,9 +23,11 @@ function load() {
   assert.ok(start !== -1 && end > start, 'tally block not found');
   const esc = (s) => String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const dueLabel = (iso) => (iso ? '19:00 · 03/08' : 'không hạn');
-  return new Function('esc', 'dueLabel', `${SRC.slice(start, end)}
-    return { renderTally, tallyRow, hhmm };`)(esc, dueLabel);
+  // Bản CHỮ THUẦN — đúng thứ renderTally dùng. Cấp `dueLabel` (bản HTML) ở đây
+  // sẽ che mất chính lỗi mà bộ test này tồn tại để bắt.
+  const dueText = (iso) => (iso ? '19:00 · 03/08' : 'không hạn');
+  return new Function('esc', 'dueText', `${SRC.slice(start, end)}
+    return { renderTally, tallyRow, hhmm };`)(esc, dueText);
 }
 
 const { renderTally, tallyRow, hhmm } = load();
@@ -176,5 +178,34 @@ describe('cấu trúc modal khớp hệ thống', () => {
     // Bấm bên trong thẻ cũng nổi bọt lên nền; không so target thì modal đóng
     // giữa lúc đang đọc.
     assert.match(SRC, /tally-modal'\)\.addEventListener\('click'[\s\S]{0,120}?e\.target === \$\('tally-modal'\)/);
+  });
+});
+
+
+// ── hạn nộp trong ghi chú phải là CHỮ, không phải thẻ HTML ───────────────
+
+describe('ghi chú hạn nộp không lộ thẻ', () => {
+  test('không escape đầu ra HTML của dueLabel lần thứ hai', () => {
+    // dueLabel tô mờ hạn ĐÃ QUA bằng <span>. Bọc nó trong esc() thì người dùng
+    // đọc được nguyên thẻ — và chỗ dính lỗi là trạng thái CHÍNH của bảng.
+    assert.doesNotMatch(SRC, /esc\(dueLabel\(/,
+      'dueLabel trả HTML — chỗ tự escape phải dùng dueText');
+  });
+
+  test('dueText trả chữ thuần cho cả ba trường hợp', () => {
+    const start = SRC.indexOf('function dueText(');
+    const end = SRC.indexOf('function dueLabel(');
+    const dueText = new Function(`${SRC.slice(start, end)} return dueText;`)();
+    for (const v of [null, 'không-phải-ngày', '2026-08-03T19:00:00+07:00']) {
+      const out = dueText(v);
+      assert.doesNotMatch(out, /[<>]/, `"${out}" còn thẻ`);
+    }
+  });
+
+  test('ghi chú sau hạn hiện giờ chốt, không hiện tag', () => {
+    const html = renderTally(tally({ sealed: true,
+      counts: { total: 10, submitted: 7, missing: 3 } }));
+    const note = html.match(/<p class="av-tally__foot">([\s\S]*?)<\/p>/)[1];
+    assert.doesNotMatch(note, /&lt;span/, 'thẻ bị escape thành chữ');
   });
 });
