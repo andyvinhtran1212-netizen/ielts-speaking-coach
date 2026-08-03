@@ -282,16 +282,30 @@ def mark_item_submitted(
             .execute()
         )
     except Exception as exc:
-        # Never break the caller's own flow (a graded session must still
-        # complete) — but say so, because a silently unrecorded hand-in shows up
-        # as the student not having done the work.
+        # RAISE, do not return False. Callers that must survive this (a graded
+        # session has to complete either way) already catch — and catching is a
+        # decision they make explicitly, instead of one made for them by a
+        # return value that also means "nothing to do".
         logger.warning("[class] mark_item_submitted failed item=%s: %s", item_id, exc)
-        return False
+        raise LedgerWriteError(str(exc)) from exc
     return bool(r.data)
 
 
 class EmptyRosterError(Exception):
     """The class has no students, so the give would reach nobody."""
+
+
+class LedgerWriteError(Exception):
+    """Ghi sổ cái THẤT BẠI — khác hẳn "không có gì để ghi".
+
+    `mark_item_submitted` returns False for a deliberate no-op: the item was
+    already recorded, and refusing to touch it is what stops a retry pushing an
+    on-time hand-in past its deadline. A database failure used to return False
+    too, so every caller read a lost write as "nothing needed doing" and went on
+    to present its counts as canonical — the student saw work they had finished
+    still sitting under "Cần nộp", and the teacher saw them as not having done
+    it. Same value, opposite meanings.
+    """
 
 
 class ItemNotFoundError(Exception):

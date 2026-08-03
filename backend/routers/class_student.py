@@ -98,7 +98,7 @@ def _decorate(item: Dict[str, Any], assignment: Dict[str, Any], now: datetime) -
     }
 
 
-def _visible_assignments(student: Dict[str, Any], now: datetime) -> list:
+def _visible_assignments(student: Dict[str, Any], now: datetime) -> tuple[list, bool]:
     """This student's assignments — outstanding in full, history capped.
 
     Shared by /my-assignments and /me so the two can never disagree about what
@@ -125,7 +125,7 @@ def _visible_assignments(student: Dict[str, Any], now: datetime) -> list:
 
     items = outstanding + history
     if not items:
-        return []
+        return [], False
 
     a_ids = list({i["assignment_id"] for i in items})
     by_id: Dict[str, Dict[str, Any]] = {}
@@ -149,11 +149,18 @@ def _visible_assignments(student: Dict[str, Any], now: datetime) -> list:
     # Record any Reading/Listening hand-in before deciding what this student
     # still owes: their test submission does not touch the class ledger, so
     # without this they would see work they have already done sitting under
-    # "Cần nộp". Best-effort — a repair failure must not hide the list.
+    # "Cần nộp".
+    #
+    # Showing the list anyway when the repair fails is right — a broken repair
+    # must not blank the page. Showing it WITHOUT SAYING SO is not: the one
+    # thing that can go wrong here is a finished task still listed as owed, and
+    # a student who trusts that list retakes work they have already handed in.
+    stale = False
     try:
         reconcile_test_attempts(supabase_admin, list(by_id.values()))
         items = _reread_items(student["id"], [i["id"] for i in items]) or items
     except Exception as exc:
+        stale = True
         logger.warning("[class] test reconcile skipped: %s", exc)
 
     out = [_decorate(i, by_id[i["assignment_id"]], now)
@@ -163,7 +170,7 @@ def _visible_assignments(student: Dict[str, Any], now: datetime) -> list:
     # via its own key rather than by abusing the empty string.
     out.sort(key=lambda r: (r["assignment"]["due_at"] is None,
                             r["assignment"]["due_at"] or ""))
-    return out
+    return out, stale
 
 
 @router.get("/my-assignments")
@@ -183,7 +190,11 @@ async def my_assignments(authorization: str | None = Header(default=None)):
 
     now = datetime.now(timezone.utc)
     try:
-        return {"has_class": True, "assignments": _visible_assignments(student, now)}
+        rows, stale = _visible_assignments(student, now)
+        out: Dict[str, Any] = {"has_class": True, "assignments": rows}
+        if stale:
+            out["homework_stale"] = True
+        return out
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi tải bài tập: {exc}")
 
@@ -397,7 +408,11 @@ async def my_class(
 
     assignments: list = []
     try:
-        assignments = _visible_assignments(student, now)
+        assignments, homework_stale = _visible_assignments(student, now)
+        if homework_stale:
+            # Same word the admin Progress tab uses for the same condition:
+            # the rows are real, they may just be missing the newest hand-in.
+            degraded.append("homework_stale")
     except Exception as exc:
         logger.warning("[class] assignments read failed: %s", exc)
         degraded.append("assignments")

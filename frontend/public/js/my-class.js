@@ -368,14 +368,28 @@ function render() {
     : '';
 
   // A block that failed to load is named, not silently empty.
+  //
+  // Two different problems, two different sentences. A block that did not load
+  // shows nothing and reloading is the fix. `homework_stale` is the opposite:
+  // the list IS here and looks complete, but a Reading/Listening hand-in may
+  // not be folded in yet — so a task the student has already done can still be
+  // sitting under "Cần nộp", and telling them to reload would send them to
+  // retake work they finished.
   const degraded = d.degraded || [];
-  $('mc-degraded').hidden = degraded.length === 0;
-  if (degraded.length) {
-    const names = { class: 'thông tin lớp', lessons: 'buổi học', assignments: 'bài tập' };
-    $('mc-degraded').textContent =
-      'Chưa tải được ' + degraded.map((k) => names[k] || k).join(', ')
-      + '. Tải lại trang để thử lại.';
+  const names = { class: 'thông tin lớp', lessons: 'buổi học', assignments: 'bài tập' };
+  const stale = degraded.includes('homework_stale');
+  const unread = degraded.filter((k) => k !== 'homework_stale');
+  const notes = [];
+  if (unread.length) {
+    notes.push('Chưa tải được ' + unread.map((k) => names[k] || k).join(', ')
+      + '. Tải lại trang để thử lại.');
   }
+  if (stale) {
+    notes.push('Bài Reading/Listening bạn vừa nộp có thể chưa hiện ở đây. '
+      + 'Nếu đã làm xong, không cần làm lại.');
+  }
+  $('mc-degraded').hidden = notes.length === 0;
+  if (notes.length) $('mc-degraded').textContent = notes.join(' ');
 
   const assignments = d.assignments || [];
   renderStats(d.progress);

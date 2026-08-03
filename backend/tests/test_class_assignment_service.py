@@ -398,12 +398,50 @@ def test_marking_submitted_twice_does_not_move_the_timestamp():
     assert rows[0]["artifact_id"] == "s1"
 
 
-def test_a_failed_write_reports_false_rather_than_raising():
-    """The caller is PATCH /sessions/complete — a graded session must still
-    complete even if the ledger write fails."""
+def test_a_failed_write_raises_instead_of_looking_like_a_no_op():
+    """False already means "there was nothing to write" — the deliberate no-op
+    that stops a retry pushing an on-time hand-in past its deadline. Reusing it
+    for a failed write gave every caller the same answer for opposite facts, and
+    they all went on to present their counts as canonical.
+
+    Surviving the failure is still required of PATCH /sessions/complete — but
+    that is now the caller's own decision, made by catching, not one made for it
+    by a return value."""
+    from services.class_assignment_service import LedgerWriteError
+
     db = _DB({"class_assignment_items": []}, fail={"class_assignment_items"})
+    with pytest.raises(LedgerWriteError):
+        mark_item_submitted(db, item_id="i1", artifact_kind="session",
+                            artifact_id="s1")
+
+
+def test_nothing_to_write_is_still_a_quiet_False():
+    """The no-op must NOT become an error: re-completing a session runs this
+    again on purpose."""
+    stamped = "2026-08-03T11:00:00+00:00"
+    db = _DB({"class_assignment_items": [
+        {"id": "i1", "submitted_at": stamped, "artifact_id": "s1"},
+    ]})
     assert mark_item_submitted(db, item_id="i1", artifact_kind="session",
-                               artifact_id="s1") is False
+                               artifact_id="s2") is False
+
+
+def test_a_graded_session_still_completes_when_the_ledger_write_fails():
+    """The invariant the old return value was protecting, pinned where it now
+    actually lives — the caller."""
+    from unittest.mock import patch
+
+    from routers import sessions as sessions_mod
+    from services.class_assignment_service import LedgerWriteError
+
+    def _boom(*_a, **_k):
+        raise LedgerWriteError("boom")
+
+    with patch.object(sessions_mod, "mark_item_submitted", _boom):
+        assert sessions_mod._record_class_submission(
+            {"id": "s1", "class_assignment_item_id": "i1",
+             "completed_at": "2026-08-03T11:00:00+00:00"}
+        ) is False
 
 
 # ── phiên phải ĐÚNG là bài được giao (Codex P1) ─────────────────────────
@@ -1174,3 +1212,32 @@ def test_item_ids_are_chunked_for_the_url():
     from services import class_assignment_service as mod
     src = code_only(inspect.getsource(mod.reconcile_test_attempts))
     assert src.count("_ID_CHUNK") >= 2, "both the item read and the attempt read"
+
+
+def test_a_failed_LEDGER_WRITE_propagates_out_of_the_repair():
+    """Not the same failure as a failed READ, and it used to be invisible: the
+    attempt query succeeds, the item update fails, and the repair returned a
+    perfectly ordinary count. Every caller then published its numbers as
+    canonical — admin without `reconcile_failed`, progress without
+    `homework_stale`, the student page without a word — while the item's
+    submitted_at was still null."""
+    from services.class_assignment_service import LedgerWriteError
+
+    db = _rl_db(attempts=[_attempt()])
+    # Reads fine, writes blow up — exactly the shape that used to slip through.
+    db.fail = {"class_assignment_items_write"}
+    original = db.table
+
+    def _table(name):
+        q = original(name)
+        if name == "class_assignment_items":
+            real_update = q.update
+
+            def _update(patch):
+                raise RuntimeError("boom")
+            q.update = _update
+        return q
+
+    db.table = _table
+    with pytest.raises(LedgerWriteError):
+        reconcile_test_attempts(db, [_rl_assignment()])

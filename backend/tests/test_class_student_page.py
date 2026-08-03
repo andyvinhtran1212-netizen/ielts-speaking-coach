@@ -421,3 +421,77 @@ async def test_a_listening_paper_that_was_deleted_says_so():
         await _start(_start_db(skill="listening", content_id="uuid-gone",
                                tables={"listening_tests": []}))
     assert getattr(exc.value, "status_code", None) == 409
+
+
+# ── vá sổ hỏng: nói ra, đừng trình bày số cũ như số chính thức ───────────
+#
+# Serving the list when the repair fails is right — a broken repair must not
+# blank the page. Serving it WITHOUT SAYING SO is not: the single thing that can
+# go wrong here is a finished task still listed as owed, and a student who
+# trusts that list retakes work they have already handed in.
+
+
+def _stale_db():
+    """A DB where the assignments read works but the attempt repair blows up."""
+    tables = {
+        "cohorts": [{"id": "c1", "name": "C2-K12", "course_id": None}],
+        "class_lessons": [],
+        "class_assignment_items": [
+            {"id": "item-1", "assignment_id": "a1", "student_id": "s1",
+             "submitted_at": None, "state": "assigned"},
+        ],
+        "class_assignments": [
+            {"id": "a1", "cohort_id": "c1", "skill": "reading", "status": "published",
+             "content_id": "t1", "content_config": {}, "due_at": None,
+             "title": "Đề đọc 1"},
+        ],
+    }
+    db = type("DB", (), {})()
+    db.table = lambda name: _Table(tables.get(name, []), name == "reading_test_attempts")
+    return db
+
+
+async def _call_stale(summary=False):
+    student = {"id": "s1", "cohort_id": "c1", "full_name": "A", "student_code": "S1"}
+    with patch.object(mod, "get_supabase_user", AsyncMock(return_value={"id": "u1"})), \
+         patch.object(mod, "_student_for_user", return_value=student), \
+         patch.object(mod, "supabase_admin", _stale_db()):
+        return await mod.my_class(summary=summary, authorization=None)
+
+
+@pytest.mark.asyncio
+async def test_a_failed_repair_is_named_on_the_class_page():
+    out = await _call_stale()
+    assert "homework_stale" in out.get("degraded", []), (
+        "the list is served, so it must say it may be behind"
+    )
+    assert out["assignments"], "and the list itself must still be there"
+
+
+@pytest.mark.asyncio
+async def test_a_clean_read_names_nothing_on_the_class_page():
+    out = await _call(set())
+    assert "homework_stale" not in out.get("degraded", [])
+
+
+@pytest.mark.asyncio
+async def test_my_assignments_says_so_too():
+    """The home strip reads this endpoint, not /me. Warning on one screen and
+    staying quiet on the other is how the two disagree about the same fact."""
+    student = {"id": "s1", "cohort_id": "c1", "full_name": "A", "student_code": "S1"}
+    with patch.object(mod, "get_supabase_user", AsyncMock(return_value={"id": "u1"})), \
+         patch.object(mod, "_student_for_user", return_value=student), \
+         patch.object(mod, "supabase_admin", _stale_db()):
+        out = await mod.my_assignments(None)
+    assert out["homework_stale"] is True
+    assert out["assignments"]
+
+
+@pytest.mark.asyncio
+async def test_my_assignments_is_quiet_when_the_repair_worked():
+    student = {"id": "s1", "cohort_id": "c1", "full_name": "A", "student_code": "S1"}
+    with patch.object(mod, "get_supabase_user", AsyncMock(return_value={"id": "u1"})), \
+         patch.object(mod, "_student_for_user", return_value=student), \
+         patch.object(mod, "supabase_admin", _db(set())):
+        out = await mod.my_assignments(None)
+    assert "homework_stale" not in out
