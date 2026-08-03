@@ -12,6 +12,14 @@ from pydantic import BaseModel, field_validator
 from config import settings
 from database import supabase_admin
 from routers.auth import get_supabase_user
+from services.class_assignment_service import (
+    ItemNotFoundError,
+    TaskMismatchError,
+    attach_session_to_class_item,
+    mark_item_submitted,
+    sync_class_item_score,
+    validate_class_item_for_session,
+)
 from services.access_code_permissions import (
     get_user_access_code_permissions_cached,
     get_user_session_quota,
@@ -158,6 +166,10 @@ def update_session_bands(session_id: str) -> None:
     try:
         supabase_admin.table("sessions").update(payload).eq("id", session_id).execute()
         logger.info("[update_session_bands] session=%s bands=%s", session_id, payload)
+        # GĐ 2 — the band just changed, so a class assignment pointing at this
+        # session is now showing a stale score. Score only; the hand-in time and
+        # its late/on-time verdict are untouched.
+        sync_class_item_score(supabase_admin, session_id)
     except Exception as e:
         logger.error(
             "[update_session_bands][metric] band_persist_failed=1 session=%s: %s "
@@ -183,6 +195,10 @@ class CreateSessionBody(BaseModel):
     # linked at creation (before any response is graded) so per-response speaking
     # grading is sealed from the first answer.
     sitting_id: str | None = None
+    # GĐ 2 — when set, this session answers a class assignment. Linked at
+    # creation, exactly like sitting_id, so PATCH /complete can record the
+    # hand-in without having to guess from the topic string.
+    class_assignment_item_id: str | None = None
 
     @field_validator("mode")
     @classmethod
@@ -273,7 +289,34 @@ async def create_session(
     user_id = auth_user["id"]
 
     _require_active(user_id)
-    _require_permission(user_id, body.mode)
+
+    # GĐ 2 — validate the class assignment FIRST, for two reasons.
+    #
+    # It must happen before the session is created, or a rejection (stale
+    # params, an assignment archived between /start and here) still burns one of
+    # the student's daily slots on a session they cannot hand in.
+    #
+    # And a valid assignment ENTITLES its own mode. Access codes are scoped per
+    # mode (practice_single / practice_part / …), so a student holding only
+    # practice_single who is given a test_part task was counted as assigned,
+    # could see it in /api/class/my-assignments, and got a 403 every time they
+    # opened it — homework they can see and can never do. The teacher assigning
+    # it is the authorisation. This mirrors the existing Writing bridge, where
+    # holding a writing assignment unlocks the Writing card
+    # (services/access_code_permissions.student_has_writing_assignment).
+    entitled_by_assignment = False
+    if body.class_assignment_item_id:
+        try:
+            validate_class_item_for_session(
+                supabase_admin, user_id, body.class_assignment_item_id,
+                session_mode=body.mode, session_part=body.part, session_topic=body.topic,
+            )
+            entitled_by_assignment = True
+        except (ItemNotFoundError, TaskMismatchError) as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    if not entitled_by_assignment:
+        _require_permission(user_id, body.mode)
 
     # Admin bypass — admins không bị giới hạn quota
     try:
@@ -357,6 +400,36 @@ async def create_session(
     if not rows:
         raise HTTPException(status_code=500, detail="Không thể tạo session")
     s = rows[0]
+
+    # GĐ 2 — class assignment: write the link so PATCH /complete can record the
+    # hand-in. Validation already happened BEFORE the session was created (see
+    # above), so the only thing that can fail here is the UPDATE itself.
+    #
+    # If it does, the session is deleted rather than returned. A session returned
+    # without the link is worse than no session: the student records their answer,
+    # completes it, and the teacher still sees "chưa nộp" with nothing to point at
+    # — and it would also have consumed one of their daily slots. Nothing has been
+    # recorded against it yet, so removing it loses no work.
+    if body.class_assignment_item_id:
+        linked = False
+        try:
+            linked = attach_session_to_class_item(
+                supabase_admin, s["id"], user_id, body.class_assignment_item_id
+            )
+        except Exception as e:
+            logger.warning(
+                "[create_session] class item link failed session=%s item=%s: %s",
+                s["id"], body.class_assignment_item_id, e,
+            )
+        if not linked:
+            try:
+                supabase_admin.table("sessions").delete().eq("id", s["id"]).execute()
+            except Exception as e:
+                logger.warning("[create_session] could not roll back session=%s: %s", s["id"], e)
+            raise HTTPException(
+                status_code=500,
+                detail="Không gắn được phiên vào bài tập của lớp. Hãy thử lại.",
+            )
 
     # Mock sitting: link the session AT CREATION (before any response can be
     # graded) so per-response speaking grading is sealed. Validated inside.
@@ -1032,6 +1105,12 @@ def _complete_session_internal(session_id: str) -> None:
     supabase_admin.table("sessions").update(update_payload).eq("id", session_id).execute()
     logger.info("[finalize_ft] session=%s completed — overall_band=%s", session_id, overall_band)
 
+    # GĐ 2 — a full test can itself be the assigned task (the give modal offers
+    # test_full), and this path completes sessions without going through
+    # PATCH /complete. Without this the hand-in would never be recorded and the
+    # teacher would see the homework as missing however well the student did.
+    _record_class_submission({**session, **update_payload, "id": session_id})
+
 
 def _check_all_responses_graded(session_ids: list) -> bool:
     """
@@ -1214,6 +1293,49 @@ async def finalize_full_test(
 
 # ── PATCH /sessions/{session_id}/complete ──────────────────────────────────────
 
+def _record_class_submission(session: dict) -> bool:
+    """GĐ 2 — record a completed speaking session against its class assignment.
+
+    Best-effort on purpose: a graded session must still complete when the ledger
+    write fails. But the failure is logged, not swallowed — an unrecorded hand-in
+    shows up to the teacher as the student simply not having done the work.
+
+    Safe to call more than once. mark_item_submitted only writes while
+    submitted_at IS NULL, so a retry cannot push the submission time later and
+    turn an on-time hand-in into a late one; it also means calling this from the
+    already-completed path repairs a previously failed write instead of
+    duplicating a good one.
+    """
+    item_id = session.get("class_assignment_item_id")
+    if not item_id:
+        return False
+    # The session's own completion time, not "now": on the retry path this runs
+    # long after the fact, and stamping the repair time would report work
+    # finished before the deadline as late.
+    completed_at = None
+    raw = session.get("completed_at")
+    if raw:
+        try:
+            completed_at = datetime.fromisoformat(raw)
+        except ValueError:
+            pass
+    try:
+        return mark_item_submitted(
+            supabase_admin,
+            item_id=item_id,
+            artifact_kind="session",
+            artifact_id=session["id"],
+            score=session.get("overall_band"),
+            now=completed_at,
+        )
+    except Exception as e:
+        logger.warning(
+            "[complete_session] class item not recorded session=%s item=%s: %s",
+            session.get("id"), item_id, e,
+        )
+        return False
+
+
 @router.patch("/{session_id}/complete")
 async def complete_session(
     session_id: str,
@@ -1246,6 +1368,12 @@ async def complete_session(
 
     if session["status"] == "completed" and session.get("overall_band") is not None:
         # Idempotent: already done with a valid band — return current state.
+        # The ledger write is retried here on purpose: if it failed the first
+        # time, this early return is the ONLY path a retry can take, and without
+        # it a transient failure would leave the teacher seeing the homework as
+        # never handed in, permanently. _record_class_submission is a no-op once
+        # the item already carries a submitted_at.
+        _record_class_submission(session)
         return {**session, "session_id": session["id"]}
     if session["status"] == "completed":
         # Already completed but band is null (e.g. prior DB save failure) — fall through to recompute.
@@ -1293,4 +1421,5 @@ async def complete_session(
         raise HTTPException(status_code=500, detail=f"Không thể hoàn thành session: {e}")
 
     completed = result.data[0]
+    _record_class_submission(completed)
     return {**completed, "session_id": completed["id"]}

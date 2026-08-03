@@ -36,6 +36,22 @@ class Attachment(BaseModel):
     label: str = Field(min_length=1, max_length=200)
     url:   str = Field(min_length=1, max_length=2000)
 
+    @field_validator("url")
+    @classmethod
+    def _only_web_links(cls, v: str) -> str:
+        """Reject anything that is not http(s).
+
+        The student page puts these straight into an anchor. HTML-escaping stops
+        attribute injection but says nothing about the SCHEME — a `javascript:`
+        href still executes on click, in another user's browser, from
+        admin-authored content. Rejected here because this is the source of
+        truth; the page carries a second check for rows written before this.
+        """
+        scheme = (v.split(":", 1)[0] or "").strip().lower() if ":" in v else ""
+        if scheme not in ("http", "https"):
+            raise ValueError("Đường dẫn tài liệu phải bắt đầu bằng http:// hoặc https://")
+        return v
+
 
 class LessonCreate(BaseModel):
     title:        str = Field(min_length=1, max_length=300)

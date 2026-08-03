@@ -131,6 +131,32 @@
       patches .js-val / .js-unit / .js-sub / .js-activity / .js-cta spans
       once the API responds — no blank skeleton delay.
     -->
+    <!-- GĐ 3 — Lớp của tôi. Hidden until /api/class/me says the learner is in a
+         class: most learners join on a mass code and belong to none, and an
+         empty class card on every home page would be noise for them. -->
+    <section id="class-strip" hidden>
+      <div class="section-head">
+        <h2>Lớp của tôi</h2>
+        <span class="rule" aria-hidden="true"></span>
+        <span class="meta" id="class-strip-meta"></span>
+      </div>
+      <a class="skill-card" id="class-strip-card" href="/pages/my-class.html">
+        <div class="head">
+          <div class="icon">◎</div>
+          <span class="arrow">→</span>
+        </div>
+        <h3 id="class-strip-name">—</h3>
+        <div class="metric-row">
+          <span class="metric"><span class="js-val" id="class-strip-todo">—</span><span class="unit"> bài cần nộp</span></span>
+        </div>
+        <div class="sub-metric" id="class-strip-sub">Bài tập và nội dung buổi học của lớp bạn.</div>
+        <div class="footer">
+          <span class="last-activity" id="class-strip-alarm"></span>
+          <span class="cta">Mở lớp</span>
+        </div>
+      </a>
+    </section>
+
     <section>
       <div class="section-head">
         <h2>Kỹ năng IELTS</h2>

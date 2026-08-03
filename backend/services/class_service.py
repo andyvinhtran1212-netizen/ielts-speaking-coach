@@ -38,6 +38,10 @@ logger = logging.getLogger(__name__)
 # more"; a short page means we reached the end.
 _PAGE = 1000
 
+# Bounds the generated `in.(...)` URL, not the row count — see
+# services/class_assignment_service for why the two limits are different.
+_ID_CHUNK = 100
+
 
 def _all_students_for_cohorts(db, cohort_ids: List[str]) -> List[Dict[str, Any]]:
     """Every student row belonging to any of `cohort_ids`, paged.
@@ -50,21 +54,28 @@ def _all_students_for_cohorts(db, cohort_ids: List[str]) -> List[Dict[str, Any]]
         return []
 
     rows: List[Dict[str, Any]] = []
-    start = 0
-    while True:
-        page = (
-            db.table("students")
-            .select("id, cohort_id, user_id")
-            .in_("cohort_id", cohort_ids)
-            .order("id")
-            .range(start, start + _PAGE - 1)
-            .execute()
-            .data
-        ) or []
-        rows.extend(page)
-        if len(page) < _PAGE:
-            return rows
-        start += _PAGE
+    # Chunk the ids as well as page the rows. _PAGE bounds what comes back;
+    # _ID_CHUNK bounds what goes out in the `in.(...)` URL. Found by sweeping for
+    # this pattern rather than by a review — the same split was already applied
+    # in class_assignment_service, and this sibling was missed.
+    for chunk in (cohort_ids[i:i + _ID_CHUNK]
+                  for i in range(0, len(cohort_ids), _ID_CHUNK)):
+        start = 0
+        while True:
+            page = (
+                db.table("students")
+                .select("id, cohort_id, user_id")
+                .in_("cohort_id", chunk)
+                .order("id")
+                .range(start, start + _PAGE - 1)
+                .execute()
+                .data
+            ) or []
+            rows.extend(page)
+            if len(page) < _PAGE:
+                break
+            start += _PAGE
+    return rows
 
 
 def _roster_rollup(db, cohort_ids: List[str]) -> tuple[Dict[str, Dict[str, int]], bool]:

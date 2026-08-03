@@ -25,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from config import settings
 from database import supabase_admin
+from services.class_assignment_service import sync_class_item_score
 from services import admin_dashboard
 from services import admin_reading_dashboard
 from services.access_code_permissions import (
@@ -3246,6 +3247,8 @@ async def admin_regrade_response(
             supabase_admin.table("sessions").update(sess_update).eq("id", session_id).execute()
         session_updated = True
         logger.info("[admin/regrade-response] session bands updated session=%s overall_band=%s", session_id, bands["overall_band"])
+        # GĐ 2 — keep a class assignment's score in step with the regraded band.
+        sync_class_item_score(supabase_admin, session_id)
 
     return {
         "ok":              True,
@@ -3386,6 +3389,8 @@ async def admin_regrade_session(
             "regrade_count":    ((supabase_admin.table("sessions").select("regrade_count").eq("id", session_id).limit(1).execute().data or [{}])[0].get("regrade_count") or 0) + 1,
         }
         supabase_admin.table("sessions").update(full_sess_update).eq("id", session_id).execute()
+        # GĐ 2 — same for a whole-session regrade.
+        sync_class_item_score(supabase_admin, session_id)
     except Exception:
         supabase_admin.table("sessions").update(session_update).eq("id", session_id).execute()
 
