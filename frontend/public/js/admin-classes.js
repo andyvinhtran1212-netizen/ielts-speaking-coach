@@ -572,6 +572,7 @@ function deleteLesson(lessonId) {
 let _homework = [];
 let _homeworkLoaded = false;
 let _homeworkError = false;
+let _progress = { students: [], degraded: [] };
 
 /**
  * Deadline cell. The rule is 19:00 giờ Việt Nam and the server stores it as an
@@ -771,12 +772,96 @@ function deleteHomework(assignmentId) {
   });
 }
 
+// ── Chi tiết lớp: tiến độ 4 kỹ năng (GĐ 4) ─────────────────────────────────
+
+let _progressLoaded = false;
+
+/**
+ * One skill cell.
+ *
+ * Three states kept apart, because collapsing them is how a page starts lying:
+ *   null            → that skill's query failed. Say so; never print 0.
+ *   attempts === 0  → genuinely nothing yet.
+ *   otherwise       → the count, with the most recent band under it.
+ */
+function skillCell(cell) {
+  if (cell === null || cell === undefined) {
+    return '<span class="cl-skill-unknown">không đọc được</span>';
+  }
+  if (!cell.attempts) return '<span class="cl-skill-none">—</span>';
+  const band = cell.last_band != null
+    ? `<span class="cl-skill-band">band ${esc(cell.last_band)}</span>` : '';
+  return `<div class="cl-skill"><span class="cl-skill-count">${countLabel(cell.attempts)} lượt</span>${band}</div>`;
+}
+
+/** The most recent activity across all four skills. */
+function lastAcrossSkills(skills) {
+  const stamps = Object.values(skills || {})
+    .filter(Boolean)
+    .map((s) => s.last_activity)
+    .filter(Boolean);
+  if (!stamps.length) return '';
+  return stamps.sort().reverse()[0];
+}
+
+function renderProgress() {
+  $('progress-loading').hidden = true;
+  const rows = _progress.students || [];
+  const degraded = _progress.degraded || [];
+
+  $('progress-degraded').hidden = degraded.length === 0;
+  if (degraded.length) {
+    $('progress-degraded').textContent =
+      'Chưa đọc được số liệu: ' + degraded.join(', ') + '. Tải lại để thử lại.';
+  }
+
+  $('progress-empty').hidden = rows.length > 0;
+  $('progress-table-wrap').hidden = rows.length === 0;
+  if (!rows.length) return;
+
+  $('progress-tbody').innerHTML = rows.map((r) => {
+    // A student with no account has genuinely done nothing in the three
+    // user-keyed skills — that is the activation gap, not inactivity.
+    const sub = r.activated
+      ? `<div class="cl-lesson-sub">${esc(r.student_code) || ''}</div>`
+      : '<div class="cl-roster-gap">Chưa kích hoạt</div>';
+    const last = lastAcrossSkills(r.skills);
+    return `<tr>
+      <td><div>${esc(r.name) || '—'}</div>${sub}</td>
+      <td>${skillCell(r.skills.speaking)}</td>
+      <td>${skillCell(r.skills.writing)}</td>
+      <td>${skillCell(r.skills.reading)}</td>
+      <td>${skillCell(r.skills.listening)}</td>
+      <td>${last ? esc(lastActiveLabel(last)) : '<span class="cl-skill-none">—</span>'}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function loadProgress() {
+  $('progress-loading').hidden = false;
+  try {
+    _progress = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId) + '/progress');
+  } catch (err) {
+    // Not an empty class — say so, and let the tab be retried.
+    _progress = { students: [], degraded: [] };
+    _progressLoaded = false;
+    $('progress-loading').hidden = true;
+    $('progress-degraded').hidden = false;
+    $('progress-degraded').textContent =
+      'Không đọc được tiến độ lớp: ' + (err.message || err) + '. Mở lại thẻ này để thử lại.';
+    $('progress-table-wrap').hidden = true;
+    $('progress-empty').hidden = true;
+    return;
+  }
+  renderProgress();
+}
+
 // ── Sub-tabs ────────────────────────────────────────────────────────────────
 
 let _lessonsLoaded = false;
 
 function showPanel(name) {
-  const PANELS = ['roster', 'lessons', 'homework'];
+  const PANELS = ['roster', 'lessons', 'homework', 'progress'];
   for (const p of PANELS) {
     const on = p === name;
     $('tab-' + p).classList.toggle('is-active', on);
@@ -794,6 +879,10 @@ function showPanel(name) {
   if (name === 'homework' && !_homeworkLoaded) {
     _homeworkLoaded = true;
     loadHomework();
+  }
+  if (name === 'progress' && !_progressLoaded) {
+    _progressLoaded = true;
+    loadProgress();
   }
 }
 
@@ -830,6 +919,7 @@ function bindDetail() {
   $('tab-roster').addEventListener('click', () => showPanel('roster'));
   $('tab-lessons').addEventListener('click', () => showPanel('lessons'));
   $('tab-homework').addEventListener('click', () => showPanel('homework'));
+  $('tab-progress').addEventListener('click', () => showPanel('progress'));
 
   $('btn-add-homework').addEventListener('click', openHomeworkModal);
   $('homework-empty').addEventListener('click', (e) => {
