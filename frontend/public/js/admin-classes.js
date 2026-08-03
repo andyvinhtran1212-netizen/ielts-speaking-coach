@@ -647,9 +647,97 @@ function renderHomework() {
       <td><div>${esc(a.title)}${archivedChip}</div><div class="cl-lesson-sub">${esc(sub)}</div></td>
       <td>${dueLabel(a.due_at)}</td>
       <td>${progressCell(a.progress)}</td>
-      <td>${action}</td>
+      <td><button class="adm-btn-secondary" data-action="tally"
+                  data-id="${esc(a.id)}">Xem ai nộp</button> ${action}</td>
     </tr>`;
   }).join('');
+}
+
+/* ── Bảng tổng kết nộp bài ──────────────────────────────────────────────
+ *
+ * Việc của bảng này là đọc ra SỰ VẮNG MẶT. Bảng thường tô xanh cho ai đã nộp —
+ * với lớp 30 em thì 26 dấu tick thành nhiễu che mất 4 chỗ trống. Ở đây đảo lại:
+ * dòng đã nộp im lặng, dòng chưa nộp mang mực, và cột mép trái đọc dọc là ra
+ * ngay ai thiếu mà không cần đọc chữ nào.
+ */
+
+const TALLY_WHEN = {
+  'no-account': 'chưa kích hoạt',
+  missing: 'không nộp',
+  pending: 'chưa nộp',
+};
+
+function tallyRow(r) {
+  const when = r.submitted_at
+    ? hhmm(r.submitted_at) + (r.status === 'late' ? ' · trễ' : '')
+    : (TALLY_WHEN[r.status] || '');
+  // Chưa chấm là chưa chấm — hiện 0.0 là hiện một ĐIỂM SỐ mà không ai cho.
+  const band = (r.score === null || r.score === undefined) ? '—' : Number(r.score).toFixed(1);
+  const empty = (r.score === null || r.score === undefined);
+  return `<div class="av-tally__row" data-status="${esc(r.status)}">
+    <span class="av-tally__mark" aria-hidden="true"></span>
+    <span class="av-tally__name">${esc(r.name || r.student_code || '—')}</span>
+    <span class="av-tally__when">${esc(when)}</span>
+    <span class="av-tally__band" data-empty="${empty}">${esc(band)}</span>
+  </div>`;
+}
+
+function hhmm(iso) {
+  // Giờ VN, không phải giờ máy admin: hạn nộp là 19:00 giờ VN, nên một giờ nộp
+  // đọc theo múi giờ khác sẽ mâu thuẫn với chính cột "trễ" bên cạnh.
+  try {
+    return new Intl.DateTimeFormat('vi-VN', {
+      hour: '2-digit', minute: '2-digit', hour12: false,
+      timeZone: 'Asia/Ho_Chi_Minh',
+    }).format(new Date(iso));
+  } catch (e) { return ''; }
+}
+
+function renderTally(d) {
+  const c = (d && d.counts) || {};
+  const sealed = !!(d && d.sealed);
+  const rows = ((d && d.students) || []).map(tallyRow).join('');
+  const notes = [];
+  if (sealed) {
+    notes.push(`Chốt lúc <strong>${esc(dueLabel(d.assignment.due_at))}</strong>`
+      + ` — ${c.missing || 0} em không nộp. Sau giờ này hệ thống không nhận bài nữa.`);
+  } else {
+    notes.push(`Hạn <strong>${esc(dueLabel(d.assignment.due_at))}</strong>.`
+      + ' Danh sách còn đổi cho tới lúc đó.');
+  }
+  if (c.no_account) {
+    // Chưa kích hoạt tài khoản thì CHƯA TỪNG thấy bài — nhắc các em ấy nộp là
+    // nhắc nhầm người.
+    notes.push(`${c.no_account} em chưa kích hoạt tài khoản nên chưa nhận được bài.`);
+  }
+  if (d && d.homework_stale) {
+    notes.push('Chưa đối chiếu được bài nộp mới nhất — số có thể còn thiếu.');
+  }
+  return `<div class="av-tally" data-state="${sealed ? 'sealed' : 'live'}">
+    <div class="av-tally__head">
+      <span class="av-tally__count">${c.submitted || 0}<small>/${c.total || 0} đã nộp</small></span>
+      <span class="av-tally__state">${sealed ? 'Đã chốt' : 'Đang nhận bài'}</span>
+    </div>
+    <div class="av-tally__rows">${rows}</div>
+    <p class="av-tally__foot">${notes.join(' ')}</p>
+  </div>`;
+}
+
+async function openTally(assignmentId) {
+  const body = $('tally-body');
+  $('tally-modal').hidden = false;
+  body.innerHTML = '<p class="adm-hint">Đang tải…</p>';
+  try {
+    const d = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId)
+      + '/assignments/' + encodeURIComponent(assignmentId) + '/tally');
+    $('tally-modal-title').textContent = d.assignment.title || 'Bảng tổng kết';
+    body.innerHTML = renderTally(d);
+  } catch (err) {
+    // Bảng rỗng đọc ra là "cả lớp chưa ai nộp" — một khẳng định mà truy vấn hỏng
+    // không hề chứng minh được.
+    body.innerHTML = '<p class="adm-banner">Không đọc được bảng tổng kết: '
+      + esc(err.message || String(err)) + '</p>';
+  }
 }
 
 async function loadHomework() {
@@ -1139,10 +1227,12 @@ function bindDetail() {
     const btn = e.target.closest('button[data-action]');
     if (!btn) return;
     if (btn.dataset.action === 'delete-homework') deleteHomework(btn.dataset.id);
+    if (btn.dataset.action === 'tally') openTally(btn.dataset.id);
     if (btn.dataset.action === 'archive-homework') setHomeworkStatus(btn.dataset.id, 'archived');
     if (btn.dataset.action === 'publish-homework') setHomeworkStatus(btn.dataset.id, 'published');
   });
 
+  $('btn-tally-close').addEventListener('click', () => { $('tally-modal').hidden = true; });
   $('btn-add-lesson').addEventListener('click', () => openLessonModal(null));
   $('btn-lf-cancel').addEventListener('click', closeLessonModal);
   $('btn-lf-submit').addEventListener('click', submitLesson);

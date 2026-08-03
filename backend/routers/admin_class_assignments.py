@@ -30,6 +30,8 @@ from routers.admin import require_admin
 from services.class_assignment_service import (
     EmptyRosterError,
     create_class_assignment,
+    _at,
+    _paged,
     parse_due_time,
     progress_for_assignments,
     reconcile_ledger_from_sessions,
@@ -333,6 +335,105 @@ async def list_speaking_topics(
             "missing_audio": needs_audio and enough and not voiced,
         })
     return {"items": items, "part": part, "questions_per_give": want}
+
+
+@router.get("/{cohort_id}/assignments/{assignment_id}/tally")
+async def assignment_tally(
+    cohort_id: str,
+    assignment_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Bảng tổng kết nộp bài của MỘT bài giao — từng học viên một dòng.
+
+    KHÔNG có bảng lưu sẵn. Sau hạn hệ thống không nhận bài nữa (mig 182 +
+    `is_accepting_submissions`), nên trạng thái suy ra từ `submitted_at` vs
+    `due_at` ĐÃ đứng yên — "chốt" là một sự thật về thời gian, không phải một
+    bản ghi phải chụp lại. Chụp thêm một bản chỉ tạo ra thứ có thể lệch với sổ
+    cái, đúng cái quy tắc "trễ hạn/bỏ bài là SUY RA, không lưu" (mig 177) đã bỏ.
+
+    `sealed` cho giao diện biết vẽ trạng thái nào: trước hạn con số còn đổi, sau
+    hạn thì không. Hai thứ đó phải phân biệt được bằng mắt.
+    """
+    await require_admin(authorization)
+    _require_cohort(cohort_id)
+
+    rows = (
+        supabase_admin.table("class_assignments").select("*")
+        .eq("id", assignment_id).eq("cohort_id", cohort_id)
+        .limit(1).execute().data
+    ) or []
+    if not rows:
+        raise HTTPException(404, "Không tìm thấy bài giao trong lớp này")
+    assignment = rows[0]
+
+    # Vá sổ trước khi đếm: Reading/Listening không có móc hoàn thành, nên bài đã
+    # nộp chỉ vào sổ khi có ai đó đọc. Đây chính là lúc con số sai sẽ bị nhìn.
+    stale = False
+    try:
+        reconcile_ledger_from_sessions(supabase_admin, [assignment_id])
+        reconcile_test_attempts(supabase_admin, [assignment])
+    except Exception as exc:
+        stale = True
+        logger.warning("[class] tally reconcile failed asg=%s: %s", assignment_id, exc)
+
+    items = _paged(
+        supabase_admin, "class_assignment_items",
+        "id, student_id, submitted_at, score, state",
+        lambda q: q.eq("assignment_id", assignment_id),
+    )
+    students = {
+        s["id"]: s for s in _paged(
+            supabase_admin, "students", "id, full_name, student_code, user_id",
+            lambda q: q.eq("cohort_id", cohort_id),
+        )
+    }
+
+    due = _at(assignment.get("due_at"))
+    now = datetime.now(timezone.utc)
+    sealed = bool(due and now > due)
+
+    out = []
+    for it in items:
+        s = students.get(it["student_id"]) or {}
+        submitted_at = _at(it.get("submitted_at"))
+        if not s.get("user_id"):
+            # Chưa kích hoạt tài khoản: em ấy CHƯA TỪNG thấy bài. Khác hẳn "lười"
+            # — lẫn hai thứ này là nhắc nhầm người.
+            status_ = "no-account"
+        elif submitted_at:
+            status_ = "late" if (due and submitted_at > due) else "submitted"
+        else:
+            status_ = "missing" if sealed else "pending"
+        out.append({
+            "student_id":   it["student_id"],
+            "name":         s.get("full_name") or "",
+            "student_code": s.get("student_code"),
+            "status":       status_,
+            "submitted_at": it.get("submitted_at"),
+            "score":        it.get("score"),
+        })
+    # Chưa nộp lên đầu: đó là danh sách việc cần làm của giáo viên.
+    _ORDER = {"missing": 0, "pending": 1, "no-account": 2, "late": 3, "submitted": 4}
+    out.sort(key=lambda r: (_ORDER.get(r["status"], 9), r["name"].lower()))
+
+    result = {
+        "assignment": {
+            "id": assignment_id, "title": assignment.get("title"),
+            "skill": assignment.get("skill"), "due_at": assignment.get("due_at"),
+        },
+        "sealed": sealed,
+        "students": out,
+        "counts": {
+            "total":     len(out),
+            "submitted": sum(1 for r in out if r["status"] in ("submitted", "late")),
+            "late":      sum(1 for r in out if r["status"] == "late"),
+            "missing":   sum(1 for r in out if r["status"] == "missing"),
+            "no_account": sum(1 for r in out if r["status"] == "no-account"),
+        },
+    }
+    if stale:
+        result["homework_stale"] = True
+    return result
 
 
 @router.post("/{cohort_id}/assignments", status_code=status.HTTP_201_CREATED)

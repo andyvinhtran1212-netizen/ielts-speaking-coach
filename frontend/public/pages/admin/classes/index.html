@@ -21,9 +21,11 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
+
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
   <link rel="stylesheet" href="/css/aver-design/components.css" />
   <link rel="stylesheet" href="/css/aver-design/admin-components.css" />
+  <link rel="stylesheet" href="/css/speaking-assignment.css" />
 
   <script src="https://unpkg.com/@supabase/supabase-js@2.107.0" defer></script>
   <script src="/js/runtime-config.js"></script>
@@ -714,6 +716,17 @@
         <div class="adm-modal-actions">
           <button class="adm-btn-secondary" id="btn-hf-cancel" type="button">Huỷ</button>
           <button class="adm-btn-primary" id="btn-hf-submit" type="button">Giao cho cả lớp</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bảng tổng kết nộp bài -->
+    <div class="adm-modal" id="tally-modal" hidden>
+      <div class="adm-modal-box">
+        <h3 id="tally-modal-title">Bảng tổng kết</h3>
+        <div id="tally-body"></div>
+        <div class="adm-modal-actions">
+          <button class="adm-btn-secondary" id="btn-tally-close" type="button">Đóng</button>
         </div>
       </div>
     </div>

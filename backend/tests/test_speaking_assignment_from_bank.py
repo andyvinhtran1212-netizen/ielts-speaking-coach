@@ -55,6 +55,13 @@ class _Table:
         return self
     def order(self, *_a, **_k): return self
     def limit(self, *_a): return self
+
+    def range(self, start, end):
+        # _paged() đọc từng trang; cắt THẬT chứ không bỏ qua, nếu không một lỗi
+        # phân trang sẽ không bao giờ lộ ra trong test.
+        self._rows = self._rows[start:end + 1]
+        return self
+
     def execute(self): return _Resp(self._rows)
 
 
@@ -435,3 +442,101 @@ async def test_part_2_does_not_require_audio_to_be_ready():
         q["part"] = 2
     out = await _topics(db, part=2)
     assert all(i["ready"] for i in out["items"])
+
+
+# ── bảng tổng kết: trạng thái là SUY RA, không lưu ──────────────────────
+
+
+class _TallyDB:
+    def __init__(self, items, students, assignment):
+        self._i, self._s, self._a = items, students, assignment
+
+    def table(self, name):
+        return _Table({"class_assignment_items": self._i, "students": self._s,
+                       "class_assignments": [self._a]}.get(name, []))
+
+
+def _tally_db(items, *, due="2026-08-03T19:00:00+07:00", students=None):
+    a = {"id": "asg-1", "cohort_id": "co-1", "title": "Bài hôm nay",
+         "skill": "speaking", "due_at": due, "status": "published"}
+    st = students or [
+        {"id": f"s{i}", "cohort_id": "co-1", "full_name": f"HV {i}",
+         "student_code": f"S{i}", "user_id": f"u{i}"} for i in range(len(items))
+    ]
+    return _TallyDB(items, st, a)
+
+
+def _item(sid, submitted_at=None, score=None):
+    return {"id": f"i-{sid}", "assignment_id": "asg-1", "student_id": sid,
+            "submitted_at": submitted_at, "score": score, "state": "assigned"}
+
+
+async def _tally(db):
+    with patch.object(mod, "require_admin", AsyncMock(return_value={"id": "a"})), \
+         patch.object(mod, "_require_cohort", lambda _c: None), \
+         patch.object(mod, "reconcile_ledger_from_sessions", lambda *a: 0), \
+         patch.object(mod, "reconcile_test_attempts", lambda *a: 0), \
+         patch.object(mod, "supabase_admin", db):
+        return await mod.assignment_tally("co-1", "asg-1", None)
+
+
+@pytest.mark.asyncio
+async def test_after_the_deadline_the_tally_is_sealed():
+    """Không có bảng lưu sẵn: sau hạn hệ thống không nhận bài nữa, nên trạng thái
+    suy ra từ submitted_at vs due_at ĐÃ đứng yên. 'Chốt' là một sự thật về thời
+    gian, không phải một bản ghi phải chụp lại."""
+    db = _tally_db([_item("s0")], due="2020-01-01T19:00:00+07:00")
+    out = await _tally(db)
+    assert out["sealed"] is True
+    assert out["students"][0]["status"] == "missing"
+
+
+@pytest.mark.asyncio
+async def test_before_the_deadline_nobody_is_missing_yet():
+    """Chưa tới hạn thì 'chưa nộp' không phải một lỗi."""
+    db = _tally_db([_item("s0")], due="2099-01-01T19:00:00+07:00")
+    out = await _tally(db)
+    assert out["sealed"] is False
+    assert out["students"][0]["status"] == "pending"
+
+
+@pytest.mark.asyncio
+async def test_a_hand_in_after_the_deadline_reads_as_late():
+    db = _tally_db([_item("s0", "2026-08-03T13:00:00+00:00", 6.0)])   # 20:00 VN
+    out = await _tally(db)
+    assert out["students"][0]["status"] == "late"
+    assert out["counts"]["late"] == 1
+    assert out["counts"]["submitted"] == 1, "nộp trễ VẪN là đã nộp"
+
+
+@pytest.mark.asyncio
+async def test_a_student_with_no_account_is_not_counted_as_missing():
+    """Em ấy CHƯA TỪNG thấy bài. Gộp vào 'không nộp' là nhắc nhầm người."""
+    db = _tally_db([_item("s0")], due="2020-01-01T19:00:00+07:00",
+                   students=[{"id": "s0", "cohort_id": "co-1", "full_name": "A",
+                              "student_code": "S0", "user_id": None}])
+    out = await _tally(db)
+    assert out["students"][0]["status"] == "no-account"
+    assert out["counts"]["missing"] == 0
+    assert out["counts"]["no_account"] == 1
+
+
+@pytest.mark.asyncio
+async def test_the_unsubmitted_come_first():
+    """Đây là danh sách việc cần làm của giáo viên, không phải bảng điểm."""
+    db = _tally_db([
+        _item("s0", "2026-08-03T11:00:00+00:00", 6.5),
+        _item("s1"),
+        _item("s2", "2026-08-03T11:00:00+00:00", 7.0),
+    ], due="2020-01-01T19:00:00+07:00")
+    out = await _tally(db)
+    assert out["students"][0]["status"] == "missing"
+
+
+@pytest.mark.asyncio
+async def test_a_give_from_another_class_is_a_404():
+    db = _tally_db([_item("s0")])
+    db._a["cohort_id"] = "co-KHAC"
+    with pytest.raises(Exception) as exc:
+        await _tally(db)
+    assert getattr(exc.value, "status_code", None) == 404
