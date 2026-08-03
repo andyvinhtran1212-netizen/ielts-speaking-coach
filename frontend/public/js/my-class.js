@@ -30,8 +30,12 @@ const esc = (s) => (typeof window !== 'undefined' && window.WC && window.WC.esca
 let _data = null;
 let _tick = null;
 let _reloadingForDeadline = false;
-// item_ids already refreshed once at their deadline — see renderCountdown.
+// item_ids whose deadline refresh SUCCEEDED — see renderCountdown.
 const _deadlineReloaded = new Set();
+// item_id → earliest time we may retry a failed deadline refresh. Bounded on
+// purpose: retrying every tick is what the previous fix was written to stop.
+const _deadlineRetryAfter = new Map();
+const DEADLINE_RETRY_MS = 15000;
 // item_id of a start currently in flight — one attempt at a time.
 let _startingItem = null;
 
@@ -238,12 +242,29 @@ function renderCountdown() {
     // — one request per second per student, which is how the previous fix turned
     // into a worse bug than the one it fixed.
     box.hidden = true;
-    if (_tick) { clearInterval(_tick); _tick = null; }
-    if (!_reloadingForDeadline && !_deadlineReloaded.has(next.a.item_id)) {
-      _deadlineReloaded.add(next.a.item_id);
-      _reloadingForDeadline = true;
-      load().finally(() => { _reloadingForDeadline = false; });
+    const id = next.a.item_id;
+
+    if (_deadlineReloaded.has(id)) {
+      // Already refreshed successfully and the server still does not call it
+      // missing (clock skew, or a backend that considers it open). Stop — asking
+      // again changes nothing and would be one request per second.
+      if (_tick) { clearInterval(_tick); _tick = null; }
+      return;
     }
+    if (_reloadingForDeadline || Date.now() < (_deadlineRetryAfter.get(id) || 0)) {
+      return;   // in flight, or backing off — the timer keeps running so we retry
+    }
+
+    // Marked as done only AFTER the refresh succeeds. Recording it up front meant
+    // a transient network error left the item flagged and the timer cleared, so
+    // the page could never obtain the real state again short of a manual reload.
+    _reloadingForDeadline = true;
+    load()
+      .then((ok) => {
+        if (ok) _deadlineReloaded.add(id);
+        else _deadlineRetryAfter.set(id, Date.now() + DEADLINE_RETRY_MS);
+      })
+      .finally(() => { _reloadingForDeadline = false; });
     return;
   }
 
@@ -358,6 +379,8 @@ function render() {
   startTicking();
 }
 
+/** True when fresh data arrived; false when the request failed. Callers use the
+ *  result to decide whether a deadline refresh actually happened. */
 async function load() {
   try {
     _data = await api.get('/api/class/me');
@@ -367,9 +390,10 @@ async function load() {
     $('mc-noclass').hidden = true;
     window.showToast('Không tải được lớp của bạn: ' + (err.message || err),
       'error', { persist: true });
-    return;
+    return false;
   }
   render();
+  return true;
 }
 
 function main() {

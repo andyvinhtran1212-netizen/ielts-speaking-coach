@@ -307,9 +307,34 @@ describe('the four Codex round-2 findings stay fixed', () => {
   test('the boundary refresh happens once per item, not once per tick', () => {
     const fn = codeOnly(SRC.slice(SRC.indexOf('function renderCountdown'),
                                   SRC.indexOf('function startTicking')));
-    assert.match(fn, /_deadlineReloaded\.has\(next\.a\.item_id\)/,
+    assert.match(fn, /_deadlineReloaded\.has\(id\)/,
       'without a per-item guard a server that never marks the row missing is polled forever');
-    assert.match(fn, /_deadlineReloaded\.add\(next\.a\.item_id\)/);
+  });
+
+  test('the item is recorded only AFTER the refresh succeeds', () => {
+    // Recording it up front meant a transient network error left the item
+    // flagged and the timer cleared: the page could never obtain the real state
+    // again short of a manual reload.
+    const fn = codeOnly(SRC.slice(SRC.indexOf('function renderCountdown'),
+                                  SRC.indexOf('function startTicking')));
+    const add = fn.indexOf('_deadlineReloaded.add(id)');
+    const then = fn.indexOf('.then(');
+    assert.ok(then !== -1 && add > then, 'the add must sit inside the success branch');
+    assert.match(fn, /if \(ok\) _deadlineReloaded\.add\(id\)/);
+  });
+
+  test('a failed refresh backs off instead of retrying every tick', () => {
+    const fn = codeOnly(SRC.slice(SRC.indexOf('function renderCountdown'),
+                                  SRC.indexOf('function startTicking')));
+    assert.match(fn, /_deadlineRetryAfter\.set\(id, Date\.now\(\) \+ DEADLINE_RETRY_MS\)/);
+    assert.match(fn, /Date\.now\(\) < \(_deadlineRetryAfter\.get\(id\) \|\| 0\)/);
+    assert.match(SRC, /DEADLINE_RETRY_MS = \d{4,}/, 'the backoff must be seconds, not milliseconds');
+  });
+
+  test('load() reports whether it actually refreshed', () => {
+    const fn = codeOnly(SRC.slice(SRC.indexOf('async function load()')));
+    assert.match(fn, /return false;/);
+    assert.match(fn, /return true;/);
   });
 
   test('renderCountdown reloads once, not every tick', () => {
