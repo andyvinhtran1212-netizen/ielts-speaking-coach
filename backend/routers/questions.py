@@ -13,6 +13,7 @@ from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel, Field
 
 from database import supabase_admin
+from services.question_visibility import redact_questions
 
 logger = logging.getLogger(__name__)
 from routers.auth import get_supabase_user
@@ -41,6 +42,11 @@ def _load_existing_questions(session_id: str) -> list[dict]:
     Used as the fast-path check AND as the conflict resolver: when an insert
     hits the unique index because a concurrent caller already generated the
     set, we return that winning set instead of surfacing a 500.
+
+    Lọc ngay tại đây, dù mọi nơi gọi cũng đã lọc: quy tắc "đường nào trả dòng
+    câu hỏi cũng đi qua bộ lọc" phải đúng theo CẤU TẠO, không phải đúng nhờ suy
+    luận qua từng chỗ gọi — chính lối suy luận ấy đã để lọt lần đầu. Lọc hai lần
+    là luỹ đẳng.
     """
     existing = (
         supabase_admin.table("questions")
@@ -49,7 +55,7 @@ def _load_existing_questions(session_id: str) -> list[dict]:
         .order("order_num")
         .execute()
     )
-    return existing.data or []
+    return redact_questions(existing.data)
 
 
 # Question counts per part (practice / test_part modes)
@@ -225,7 +231,7 @@ async def generate_questions(
     try:
         s_result = (
             supabase_admin.table("sessions")
-            .select("id, part, topic, mode, status")
+            .select("id, part, topic, mode, status, class_assignment_item_id")
             .eq("id", session_id)
             .eq("user_id", user_id)
             .limit(1)
@@ -256,7 +262,37 @@ async def generate_questions(
         raise HTTPException(status_code=500, detail=f"Lỗi khi kiểm tra câu hỏi: {e}")
 
     if existing.data:
-        return existing.data
+        # Đường trả nhanh cũng phải lọc. Gọi lại /generate trên một phiên đã có
+        # câu là chuyện bình thường (tải lại trang), và trước đây đường này trả
+        # nguyên văn — bộ lọc trông như đang chạy trong khi chữ vẫn lọt.
+        #
+        # Với bài tập lớp, còn phải XÁC NHẬN đây đúng là bộ đề đã chốt: "phiên đã
+        # có câu" không đồng nghĩa "câu ấy do chúng ta đặt vào". Chèn câu bằng
+        # đường khác rồi gọi /generate là cách biến đường này thành cửa sau.
+        _assert_pinned_set_intact(session, existing.data)
+        return redact_questions(existing.data)
+
+    # ── Bài tập lớp: dùng ĐÚNG những câu đã chốt lúc giao ──────────────────────
+    #
+    # Ưu tiên tuyệt đối, trước cả kho đề và Gemini. Bài giao đã ghi sẵn id từng
+    # câu (`content_config.question_ids`), nên hai học viên cùng một bài giao
+    # nhận đúng một bộ câu, và giáo viên biết chính xác mình đã giao cái gì —
+    # điều mà phép sinh-lúc-mở không bao giờ trả lời được.
+    pinned = _load_pinned_class_questions(session_id, session)
+    if pinned:
+        try:
+            result = supabase_admin.table("questions").insert(pinned).execute()
+            return redact_questions(sorted(result.data, key=lambda q: q["order_num"]))
+        except Exception as e:
+            if _is_unique_violation(e):
+                winner = _load_existing_questions(session_id)
+                if winner:
+                    return redact_questions(sorted(winner, key=lambda q: q["order_num"]))
+            # KHÔNG rơi sang Gemini: bài tập lớp phải là ĐÚNG đề được giao. Sinh
+            # một bộ câu khác sẽ ghi nhận em ấy "đã làm bài" trong khi em trả lời
+            # một đề không ai giao.
+            logger.error("[questions] pinned insert failed session=%s: %s", session_id, e)
+            raise HTTPException(500, f"Không dựng được đề đã giao: {e}")
 
     # ── Check topic library first ──────────────────────────────────────────────
     # If the topic exists in the admin-managed library and has pre-generated
@@ -266,7 +302,7 @@ async def generate_questions(
         if library_rows:
             try:
                 result = supabase_admin.table("questions").insert(library_rows).execute()
-                return sorted(result.data, key=lambda q: q["order_num"])
+                return redact_questions(sorted(result.data, key=lambda q: q["order_num"]))
             except Exception as e:
                 # L6: a concurrent generate already inserted this session's set —
                 # return the winner's rows instead of double-inserting via Gemini.
@@ -274,7 +310,7 @@ async def generate_questions(
                     winner = _load_existing_questions(session_id)
                     if winner:
                         logger.info("[questions] library insert lost race session=%s — returning existing set", session_id)
-                        return sorted(winner, key=lambda q: q["order_num"])
+                        return redact_questions(sorted(winner, key=lambda q: q["order_num"]))
                 # Library insert failed for another reason — fall through to Gemini
                 logger.warning("[warn] Library insert failed: %s — falling back to Gemini", e)
 
@@ -377,7 +413,7 @@ async def generate_questions(
             winner = _load_existing_questions(session_id)
             if winner:
                 logger.info("[questions] generate insert lost race session=%s — returning existing set", session_id)
-                return sorted(winner, key=lambda q: q["order_num"])
+                return redact_questions(sorted(winner, key=lambda q: q["order_num"]))
         raise HTTPException(status_code=500, detail=f"Không thể lưu câu hỏi: {e}")
 
     saved = sorted(result.data, key=lambda q: q["order_num"])
@@ -388,7 +424,7 @@ async def generate_questions(
         for q in saved:
             q["_fallback"] = True
 
-    return saved
+    return redact_questions(saved)
 
 
 # ── POST /sessions/{session_id}/questions/custom ──────────────────────────────
@@ -439,7 +475,7 @@ async def save_custom_questions(
     try:
         s_result = (
             supabase_admin.table("sessions")
-            .select("id, part")
+            .select("id, part, class_assignment_item_id")
             .eq("id", session_id)
             .eq("user_id", user_id)
             .limit(1)
@@ -450,6 +486,16 @@ async def save_custom_questions(
 
     if not s_result.data:
         raise HTTPException(status_code=404, detail="Session không tồn tại")
+
+    # BÀI TẬP LỚP KHÔNG ĐƯỢC TỰ NHẬP CÂU. Endpoint này cho phép chủ phiên chèn
+    # câu hỏi bất kỳ; với một phiên đã gắn bài tập lớp, học viên có thể thay đề
+    # được giao bằng một câu dễ CÓ CHỮ rồi vẫn được ghi nhận đã làm bài. Chứng
+    # minh "em ấy làm ĐÚNG bài được giao" là toàn bộ giá trị của sổ cái này.
+    if s_result.data[0].get("class_assignment_item_id"):
+        raise HTTPException(
+            403,
+            "Bài tập lớp dùng đề được giao — không tự nhập câu hỏi được.",
+        )
 
     part = s_result.data[0]["part"]
 
@@ -509,10 +555,10 @@ async def save_custom_questions(
             winner = _load_existing_questions(session_id)
             if winner:
                 logger.info("[questions] custom insert lost race session=%s — returning existing set", session_id)
-                return sorted(winner, key=lambda q: q["order_num"])
+                return redact_questions(sorted(winner, key=lambda q: q["order_num"]))
         raise HTTPException(status_code=500, detail=f"Không thể lưu câu hỏi: {e}")
 
-    return sorted(result.data, key=lambda q: q["order_num"])
+    return redact_questions(sorted(result.data, key=lambda q: q["order_num"]))
 
 
 # ── POST /sessions/cuecard/generate ──────────────────────────────────────────
@@ -640,4 +686,149 @@ async def list_questions(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Không thể tải câu hỏi: {e}")
 
-    return result.data
+    return redact_questions(result.data)
+
+
+
+# Part 1/Part 3 giao bằng audio; Part 2 là cue card đọc bằng mắt.
+_LISTEN_ONLY_PARTS = (1, 3)
+
+
+
+def _assert_pinned_set_intact(session: dict, rows: list[dict]) -> None:
+    """Phiên là bài tập lớp thì câu trong phiên phải ĐÚNG bộ đã chốt.
+
+    "Phiên đã có câu" không đồng nghĩa "câu ấy do chúng ta đặt vào". Không kiểm
+    thì mọi đường ghi khác vào bảng `questions` đều thành cửa sau cho đường trả
+    nhanh này.
+
+    Bài giao cũ (chưa chốt câu nào) không có gì để so — bỏ qua.
+    """
+    item_id = session.get("class_assignment_item_id")
+    if not item_id:
+        return
+    try:
+        items = (
+            supabase_admin.table("class_assignment_items")
+            .select("assignment_id").eq("id", item_id).limit(1).execute().data
+        ) or []
+        if not items:
+            return
+        asg = (
+            supabase_admin.table("class_assignments")
+            .select("content_config, skill")
+            .eq("id", items[0]["assignment_id"]).limit(1).execute().data
+        ) or []
+    except Exception as exc:
+        # Không kiểm được thì KHÔNG kết luận là hỏng: một trục trặc tra cứu
+        # không được biến thành "phiên của em bị chặn".
+        logger.warning("[questions] pinned-intact check skipped session=%s: %s",
+                       session.get("id"), exc)
+        return
+    if not asg or asg[0].get("skill") != "speaking":
+        return
+    qids = (asg[0].get("content_config") or {}).get("question_ids") or []
+    if not qids:
+        return
+
+    # So theo NỘI DUNG chứ không theo id: hàng trong `questions` là bản CHÉP,
+    # id của nó là id riêng chứ không phải id trong kho đề.
+    got = [r.get("question_text") for r in rows]
+    snapshot = (asg[0].get("content_config") or {}).get("questions") or []
+    if snapshot:
+        want = [(q or {}).get("question_text") for q in snapshot]
+        if got != want:
+            logger.error("[questions] pinned set tampered session=%s", session.get("id"))
+            raise HTTPException(
+                409,
+                "Đề của bài tập này đã bị thay đổi. Báo giáo viên kiểm tra giúp nhé.",
+            )
+    elif len(rows) != len(qids):
+        logger.error("[questions] pinned count mismatch session=%s (%d/%d)",
+                     session.get("id"), len(rows), len(qids))
+        raise HTTPException(
+            409, "Đề của bài tập này không khớp. Báo giáo viên kiểm tra giúp nhé.")
+
+
+def _load_pinned_class_questions(session_id: str, session: dict) -> list[dict]:
+    """Những câu đã chốt lúc giao bài, dựng sẵn để chèn vào bảng `questions`.
+
+    Trả [] khi phiên này không phải bài tập lớp, hoặc bài giao không ghi câu nào
+    (bài giao cũ trước khi đổi cách làm) — khi đó luồng cũ chạy tiếp như thường.
+
+    CHÉP nội dung câu hỏi vào phiên chứ không tham chiếu: phiên là một bản CHỤP,
+    nên sửa kho đề sau đó không được làm đổi bài học viên đang làm dở.
+    """
+    item_id = session.get("class_assignment_item_id")
+    if not item_id:
+        return []
+    try:
+        items = (
+            supabase_admin.table("class_assignment_items")
+            .select("assignment_id").eq("id", item_id).limit(1).execute().data
+        ) or []
+        if not items:
+            return []
+        asg = (
+            supabase_admin.table("class_assignments")
+            .select("content_config, part, skill")
+            .eq("id", items[0]["assignment_id"]).limit(1).execute().data
+        ) or []
+        if not asg or asg[0].get("skill") != "speaking":
+            return []
+        cfg = asg[0].get("content_config") or {}
+        qids = cfg.get("question_ids") or []
+        if not qids:
+            # Bài giao cũ, trước khi đổi cách làm: không có gì được chốt, luồng
+            # cũ chạy tiếp. Đây là trường hợp DUY NHẤT được rơi về [].
+            return []
+
+        # BẢN CHỤP TRƯỚC, kho đề sau. Bản chụp được ghi lúc giao (mig 182 + admin
+        # router) chính là thứ khiến bài giao tái lập được: sửa kho đề sau đó
+        # không làm đổi bài đã phát. Chỉ những bài giao ghi trước khi có bản chụp
+        # mới phải đọc lại kho — và khi đó nội dung CÓ THỂ đã đổi, nên ghi log.
+        snapshot = cfg.get("questions") or []
+        if snapshot and len(snapshot) == len(qids):
+            rows = snapshot
+        else:
+            if snapshot:
+                logger.warning("[questions] snapshot incomplete session=%s (%d/%d)",
+                               session_id, len(snapshot), len(qids))
+            rows = (
+                supabase_admin.table("topic_questions")
+                .select("id, part, question_text, question_type, audio_url, "
+                        "cue_card_bullets, cue_card_reflection")
+                .in_("id", qids).execute().data
+            ) or []
+    except Exception as exc:
+        # FAIL CLOSED. Rơi về [] ở đây sẽ đẩy tiếp xuống kho đề/Gemini và chèn
+        # VĨNH VIỄN một bộ câu khác, trong khi phiên vẫn đủ điều kiện tính là bài
+        # tập lớp — em ấy trả lời một đề không ai giao mà sổ vẫn ghi "đã làm".
+        logger.error("[questions] pinned lookup failed session=%s: %s", session_id, exc)
+        raise HTTPException(
+            503, "Chưa dựng được đề đã giao. Thử lại sau ít phút giúp nhé.")
+
+    # Giữ ĐÚNG thứ tự admin đã chốt, không phải thứ tự DB trả về.
+    by_id = {r["id"]: r for r in rows}
+    ordered = [by_id[q] for q in qids if q in by_id]
+    if len(ordered) != len(qids):
+        logger.error("[questions] pinned set incomplete session=%s (%d/%d)",
+                     session_id, len(ordered), len(qids))
+        raise HTTPException(
+            503, "Đề đã giao thiếu câu. Báo giáo viên kiểm tra lại giúp nhé.")
+
+    out = []
+    for i, q in enumerate(ordered, 1):
+        listen_only = q["part"] in _LISTEN_ONLY_PARTS
+        out.append({
+            "session_id":          session_id,
+            "part":                q["part"],
+            "order_num":           i,
+            "question_text":       q["question_text"],
+            "question_type":       q.get("question_type") or "personal",
+            "cue_card_bullets":    q.get("cue_card_bullets"),
+            "cue_card_reflection": q.get("cue_card_reflection"),
+            "audio_url":           q.get("audio_url"),
+            "listen_only":         listen_only,
+        })
+    return out

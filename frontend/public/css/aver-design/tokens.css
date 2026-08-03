@@ -170,6 +170,19 @@
   --av-brand-amber-400: #FBBF24;
   --av-brand-amber-500: #F59E0B;
   --av-brand-amber-600: #D97706;
+
+  /* ── Giấy in — bề mặt VẬT THỂ, cố ý KHÔNG theo chủ đề ────────────────────
+     Tấm cue card Part 2 là vật giám khảo đưa cho thí sinh, không phải một panel
+     nữa của giao diện. Nó phải là giấy ở CẢ hai chủ đề: trên nền tối nó nổi lên
+     vì là thứ sáng duy nhất, trên nền sáng nó vẫn là giấy ngà chứ không tan vào
+     trang. Vì thế bốn giá trị này nằm ở :root gốc, định nghĩa MỘT lần — lặp lại
+     trong từng khối chủ đề chỉ mời gọi ba bản lệch nhau.
+     Ngà ấm chứ không trắng tinh: #FFFFFF trên nền navy thì chói và đọc ra là
+     một ô nhập liệu. */
+  --av-paper-surface:  #F7F4ED;
+  --av-paper-ink:      #1B2430;
+  --av-paper-ink-soft: #55606E;
+  --av-paper-rule:     rgba(27, 36, 48, 0.14);
 }
 
 

@@ -26,10 +26,16 @@ from fastapi import APIRouter, Header, HTTPException, status
 from pydantic import BaseModel, Field, model_validator
 
 from database import supabase_admin
+from services import speaking_question_audio as sqa
+from services import tts_audio
 from routers.admin import require_admin
 from services.class_assignment_service import (
     EmptyRosterError,
     create_class_assignment,
+    _ID_CHUNK,
+    _at,
+    _paged,
+    parse_due_time,
     progress_for_assignments,
     reconcile_ledger_from_sessions,
     reconcile_test_attempts,
@@ -71,21 +77,29 @@ class AssignmentCreate(BaseModel):
     """
     skill:        Literal["speaking", "reading", "listening"] = "speaking"
     title:        str = Field(min_length=1, max_length=300)
-    # Speaking only
+    # Speaking: `content_id` is now a TOPIC from the library (mig 002), not a
+    # free-text subject. `topic` survives only as the display label the admin
+    # saw when picking — the questions come from the bank, so what is assigned
+    # is fixed at give time instead of being generated per student later.
     topic:        Optional[str] = Field(default=None, max_length=300)
     mode:         str = "practice"
     part:         int = Field(default=1, ge=1, le=3)
-    # Reading / Listening only — the paper being assigned
+    # The paper (Reading/Listening) or the topic (Speaking) being assigned
     content_id:   Optional[str] = None
-    due_date:     Optional[str] = None      # ISO date; 19:00 giờ VN added server-side
+    due_date:     Optional[str] = None      # ISO date
+    # Giờ hạn, giờ VN. Mặc định 19:00 nhưng admin đổi được — một lớp học buổi
+    # tối cần hạn khác lớp học buổi sáng, và cho tới nay giờ này bị đóng cứng
+    # trong backend nên không lớp nào đổi được.
+    due_time:     Optional[str] = Field(default=None, pattern=r"^\d{2}:\d{2}$")
     instructions: Optional[str] = Field(default=None, max_length=2000)
     lesson_id:    Optional[str] = None
 
     @model_validator(mode="after")
     def _check_shape(self):
         if self.skill == "speaking":
-            if not (self.topic or "").strip():
-                raise ValueError("Bài Speaking cần có chủ đề.")
+            # SHAPE of the task first, then WHICH task. An admin who picked Full
+            # Test needs to hear why that shape is refused — telling them to pick
+            # a topic instead sends them off to fix the wrong thing.
             if self.mode == "test_full":
                 raise ValueError(
                     "Chưa giao được Full Test cho lớp: một lượt Full Test gồm ba phiên "
@@ -94,6 +108,8 @@ class AssignmentCreate(BaseModel):
                 )
             if self.mode not in _SPEAKING_MODES:
                 raise ValueError(f"mode phải là một trong: {sorted(_SPEAKING_MODES)}")
+            if not (self.content_id or "").strip():
+                raise ValueError("Bài Speaking cần chọn một chủ đề từ kho đề.")
         else:
             if not (self.content_id or "").strip():
                 raise ValueError("Bài Reading/Listening cần chọn một đề.")
@@ -175,6 +191,321 @@ async def list_assignments(
     return result
 
 
+# Part 1 giao 2 câu, Part 3 giao 1 câu, Part 2 là một cue card.
+#
+# Not a style choice — it mirrors the exam. Part 1 is a short warm-up exchange,
+# Part 3 is one discussion question explored in depth, and Part 2 is the long
+# turn off a single card. Assigning six Part-1 questions at once would train a
+# rhythm the test never asks for.
+_QUESTIONS_PER_PART = {1: 2, 2: 1, 3: 1}
+
+
+def _audio_matches(q: dict, topic_title: str) -> bool:
+    """Bản đọc có ĐÚNG là bản đọc của câu hỏi HIỆN TẠI không.
+
+    Không chỉ hỏi "có audio chưa". Đường lưu audio là băm của chính câu đọc, nên
+    sửa lời câu hỏi làm băm đổi — và một hàng còn giữ `audio_path` cũ nghĩa là
+    file đang nói một đề khác với đề bộ chấm sẽ đọc.
+
+    Chốt ở đầu GHI (xoá audio khi sửa lời) đã có, nhưng chốt này bắt cả những
+    hàng ĐÃ lệch từ trước khi có chốt kia — dữ liệu cũ không tự sửa mình.
+
+    Không đọc được đường thì coi như KHÔNG khớp: thà một chủ đề hiện là chưa sẵn
+    sàng (admin chạy lại mẻ render là xong) còn hơn giao một bài mà học viên nghe
+    một đằng bị chấm một nẻo.
+    """
+    if not (q.get("audio_url") or "").strip():
+        return False
+    stored = (q.get("audio_path") or "").strip()
+    if not stored:
+        # Hàng render trước khi có cột `audio_path`: không đối chiếu được, nhưng
+        # cũng không có bằng chứng là lệch. Tin nó — mẻ render sau sẽ điền vào.
+        return True
+    try:
+        script = sqa.script_fingerprint(sqa.build_script(
+            part=q["part"], topic_title=topic_title,
+            question_text=q.get("question_text") or ""))
+        return stored == tts_audio.audio_path(script, sqa.VOICE, sqa.ENGINE)
+    except Exception as exc:
+        logger.warning("[class] audio-path check failed q=%s: %s", q.get("id"), exc)
+        return False
+
+
+def _resolve_speaking_topic(cohort_id: str, body: "AssignmentCreate") -> tuple[str, dict]:
+    """Chọn đề Speaking từ kho + chốt sẵn câu hỏi ngay lúc giao.
+
+    Questions are picked HERE, not when the student opens the task. Generating
+    them per student meant two learners on the same give could answer different
+    questions, and the teacher could not see what they had actually set — so
+    "did they do the assigned work?" had no answer.
+
+    Part 1 and Part 3 are handed over as AUDIO with the text hidden, so a
+    question with no rendered audio cannot be given: the student would open a
+    task with nothing to listen to and no way to learn what was asked.
+    """
+    rows = (
+        supabase_admin.table("topics").select("id, title, part, is_active")
+        .eq("id", body.content_id).limit(1).execute().data
+    ) or []
+    if not rows:
+        raise HTTPException(404, "Không tìm thấy chủ đề này trong kho đề.")
+    topic = rows[0]
+    if not topic.get("is_active"):
+        raise HTTPException(400, "Chủ đề này đã tắt — hãy bật lại trước khi giao.")
+
+    # Đã giao chủ đề này cho lớp chưa. There is a unique index behind this
+    # (mig 182) because two admin tabs can pass this check at the same moment;
+    # the check exists so the ADMIN gets a sentence instead of a 23505.
+    dup = (
+        supabase_admin.table("class_assignments").select("id, title, created_at")
+        .eq("cohort_id", cohort_id).eq("skill", "speaking")
+        .eq("content_id", body.content_id).limit(1).execute().data
+    ) or []
+    if dup:
+        raise HTTPException(
+            409,
+            f"Lớp này đã được giao chủ đề \"{topic['title']}\" rồi "
+            f"(bài giao \"{dup[0].get('title')}\"). Chọn chủ đề khác để học viên "
+            f"không phải trả lời lại đúng câu đã làm.",
+        )
+
+    want = _QUESTIONS_PER_PART.get(body.part, 1)
+    qs = (
+        supabase_admin.table("topic_questions")
+        .select("id, part, order_num, question_text, question_type, audio_url, "
+                "audio_path, cue_card_bullets, cue_card_reflection")
+        .eq("topic_id", body.content_id).eq("part", body.part)
+        .eq("is_active", True).order("order_num").execute().data
+    ) or []
+    if len(qs) < want:
+        raise HTTPException(
+            400,
+            f"Chủ đề này chỉ có {len(qs)} câu Part {body.part}, cần {want}.",
+        )
+
+    if body.part in (1, 3):
+        missing = [q for q in qs[:want] if not _audio_matches(q, topic["title"])]
+        if missing:
+            raise HTTPException(
+                400,
+                f"Part {body.part} giao bằng audio (học viên không được xem chữ), "
+                f"nhưng {len(missing)} câu của chủ đề này chưa có bản đọc đề. "
+                f"Hãy tạo audio trước khi giao.",
+            )
+
+    chosen = qs[:want]
+    return body.content_id, {
+        "topic":        topic["title"],          # nhãn hiển thị, nguồn thật là content_id
+        "mode":         body.mode,
+        "part":         body.part,
+        "question_ids": [q["id"] for q in chosen],
+        # CHỤP NỘI DUNG, KHÔNG CHỈ ID. Chỉ lưu id thì lúc học viên mở bài, hệ
+        # thống vẫn đọc lại `topic_questions` đang sống — nên admin sửa lời một
+        # câu hoặc render lại audio sau khi giao sẽ khiến em mở TRƯỚC và em mở
+        # SAU nhận nội dung khác nhau dưới cùng một bài giao.
+        #
+        # Bản chụp này là thứ khiến câu "hai em cùng một bài giao trả lời cùng
+        # một bộ câu" đúng — trước đó nó chỉ là một lời hứa trong commit message.
+        "questions": [{
+            "id":                  q["id"],
+            "part":                q.get("part"),
+            "question_text":       q.get("question_text"),
+            "question_type":       q.get("question_type"),
+            "audio_url":           q.get("audio_url"),
+            "cue_card_bullets":    q.get("cue_card_bullets"),
+            "cue_card_reflection": q.get("cue_card_reflection"),
+        } for q in chosen],
+    }
+
+
+@router.get("/{cohort_id}/speaking-topics")
+async def list_speaking_topics(
+    cohort_id: str,
+    part: int = 1,
+    authorization: str | None = Header(default=None),
+):
+    """Chủ đề Speaking giao được cho lớp này, ở một Part.
+
+    Trả CẢ những chủ đề không giao được, kèm lý do — chứ không lặng lẽ bỏ đi.
+    Hai lý do khác hẳn nhau và admin làm được hai việc khác nhau:
+
+      * `already_given` — lớp này đã làm rồi. Việc đã xong, chọn chủ đề khác.
+      * `ready: false`  — chưa có bản đọc đề. Việc CHƯA làm: chạy mẻ render
+                          (`scripts/pregen_speaking_question_audio.py`) là dùng
+                          được. Gộp hai thứ vào một chữ "không khả dụng" sẽ giấu
+                          mất một việc đang chờ người làm.
+    """
+    await require_admin(authorization)
+    _require_cohort(cohort_id)
+
+    topics = (
+        supabase_admin.table("topics").select("id, title, part")
+        .eq("part", part).eq("is_active", True).order("title").execute().data
+    ) or []
+    if not topics:
+        return {"items": [], "part": part}
+
+    given = {
+        r["content_id"] for r in (
+            supabase_admin.table("class_assignments").select("content_id")
+            .eq("cohort_id", cohort_id).eq("skill", "speaking")
+            .execute().data or []
+        ) if r.get("content_id")
+    }
+
+    want = _QUESTIONS_PER_PART.get(part, 1)
+    # ĐÚNG NHỮNG CÂU SẼ ĐƯỢC CHỌN, không phải "đủ số câu có audio".
+    #
+    # Lệnh giao lấy `want` câu ĐẦU theo `order_num` và đòi CHÍNH chúng có audio.
+    # Nếu ở đây chỉ đếm tổng số câu có audio thì một chủ đề mà câu 1 chưa render
+    # xong nhưng câu 3, 4 đã có sẽ hiện là "sẵn sàng" — admin chọn rồi bị 400.
+    # Hai đường phải chọn giống hệt nhau, nên cùng đọc `order_num` và cùng cắt
+    # tiền tố.
+    by_topic: dict[str, list] = {}
+    titles = {t["id"]: t["title"] for t in topics}
+    ids = [t["id"] for t in topics]
+    for chunk in (ids[i:i + 100] for i in range(0, len(ids), 100)):
+        for q in (
+            supabase_admin.table("topic_questions")
+            .select("topic_id, part, order_num, question_text, audio_url, audio_path")
+            .eq("part", part)
+            .eq("is_active", True).in_("topic_id", chunk)
+            .order("order_num").execute().data or []
+        ):
+            by_topic.setdefault(q["topic_id"], []).append(q)
+
+    counts: dict[str, int] = {}
+    audio_ok: dict[str, int] = {}
+    for tid, rows in by_topic.items():
+        # Sắp lại ở Python: `.order()` áp cho cả truy vấn, còn ta gom theo chủ đề
+        # nên thứ tự trong mỗi nhóm chỉ đúng nếu không có chủ đề nào xen kẽ —
+        # một giả định không cần thiết phải tin.
+        rows.sort(key=lambda r: (r.get("order_num") or 0))
+        counts[tid] = len(rows)
+        audio_ok[tid] = sum(1 for r in rows[:want]
+                            if _audio_matches(r, titles.get(tid, "")))
+
+    needs_audio = part in (1, 3)
+    items = []
+    for t in topics:
+        enough = counts.get(t["id"], 0) >= want
+        voiced = (not needs_audio) or audio_ok.get(t["id"], 0) >= want
+        items.append({
+            "id": t["id"],
+            "title": t["title"],
+            "question_count": counts.get(t["id"], 0),
+            "already_given": t["id"] in given,
+            "ready": enough and voiced,
+            "missing_audio": needs_audio and enough and not voiced,
+        })
+    return {"items": items, "part": part, "questions_per_give": want}
+
+
+@router.get("/{cohort_id}/assignments/{assignment_id}/tally")
+async def assignment_tally(
+    cohort_id: str,
+    assignment_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Bảng tổng kết nộp bài của MỘT bài giao — từng học viên một dòng.
+
+    KHÔNG có bảng lưu sẵn. Sau hạn hệ thống không nhận bài nữa (mig 182 +
+    `is_accepting_submissions`), nên trạng thái suy ra từ `submitted_at` vs
+    `due_at` ĐÃ đứng yên — "chốt" là một sự thật về thời gian, không phải một
+    bản ghi phải chụp lại. Chụp thêm một bản chỉ tạo ra thứ có thể lệch với sổ
+    cái, đúng cái quy tắc "trễ hạn/bỏ bài là SUY RA, không lưu" (mig 177) đã bỏ.
+
+    `sealed` cho giao diện biết vẽ trạng thái nào: trước hạn con số còn đổi, sau
+    hạn thì không. Hai thứ đó phải phân biệt được bằng mắt.
+    """
+    await require_admin(authorization)
+    _require_cohort(cohort_id)
+
+    rows = (
+        supabase_admin.table("class_assignments").select("*")
+        .eq("id", assignment_id).eq("cohort_id", cohort_id)
+        .limit(1).execute().data
+    ) or []
+    if not rows:
+        raise HTTPException(404, "Không tìm thấy bài giao trong lớp này")
+    assignment = rows[0]
+
+    # Vá sổ trước khi đếm: Reading/Listening không có móc hoàn thành, nên bài đã
+    # nộp chỉ vào sổ khi có ai đó đọc. Đây chính là lúc con số sai sẽ bị nhìn.
+    stale = False
+    try:
+        reconcile_ledger_from_sessions(supabase_admin, [assignment_id])
+        reconcile_test_attempts(supabase_admin, [assignment])
+    except Exception as exc:
+        stale = True
+        logger.warning("[class] tally reconcile failed asg=%s: %s", assignment_id, exc)
+
+    items = _paged(
+        supabase_admin, "class_assignment_items",
+        "id, student_id, submitted_at, score, state",
+        lambda q: q.eq("assignment_id", assignment_id),
+    )
+    # Tra theo ĐÚNG những học viên có mục trong bài giao này, không theo sĩ số
+    # lớp hiện tại. Mục bài tập CỐ Ý sống sót khi học viên chuyển lớp — lọc theo
+    # `cohort_id` thì em đã chuyển đi hiện ra tên trống và trạng thái "chưa kích
+    # hoạt", kể cả khi em có tài khoản và đã nộp bài. Bảng tổng kết khi đó nói
+    # khác sổ cái.
+    sids = list({i["student_id"] for i in items if i.get("student_id")})
+    students: dict = {}
+    for chunk in (sids[i:i + _ID_CHUNK] for i in range(0, len(sids), _ID_CHUNK)):
+        for s in _paged(supabase_admin, "students",
+                        "id, full_name, student_code, user_id",
+                        lambda q, c=chunk: q.in_("id", c)):
+            students[s["id"]] = s
+
+    due = _at(assignment.get("due_at"))
+    now = datetime.now(timezone.utc)
+    sealed = bool(due and now > due)
+
+    out = []
+    for it in items:
+        s = students.get(it["student_id"]) or {}
+        submitted_at = _at(it.get("submitted_at"))
+        if not s.get("user_id"):
+            # Chưa kích hoạt tài khoản: em ấy CHƯA TỪNG thấy bài. Khác hẳn "lười"
+            # — lẫn hai thứ này là nhắc nhầm người.
+            status_ = "no-account"
+        elif submitted_at:
+            status_ = "late" if (due and submitted_at > due) else "submitted"
+        else:
+            status_ = "missing" if sealed else "pending"
+        out.append({
+            "student_id":   it["student_id"],
+            "name":         s.get("full_name") or "",
+            "student_code": s.get("student_code"),
+            "status":       status_,
+            "submitted_at": it.get("submitted_at"),
+            "score":        it.get("score"),
+        })
+    # Chưa nộp lên đầu: đó là danh sách việc cần làm của giáo viên.
+    _ORDER = {"missing": 0, "pending": 1, "no-account": 2, "late": 3, "submitted": 4}
+    out.sort(key=lambda r: (_ORDER.get(r["status"], 9), r["name"].lower()))
+
+    result = {
+        "assignment": {
+            "id": assignment_id, "title": assignment.get("title"),
+            "skill": assignment.get("skill"), "due_at": assignment.get("due_at"),
+        },
+        "sealed": sealed,
+        "students": out,
+        "counts": {
+            "total":     len(out),
+            "submitted": sum(1 for r in out if r["status"] in ("submitted", "late")),
+            "late":      sum(1 for r in out if r["status"] == "late"),
+            "missing":   sum(1 for r in out if r["status"] == "missing"),
+            "no_account": sum(1 for r in out if r["status"] == "no-account"),
+        },
+    }
+    if stale:
+        result["homework_stale"] = True
+    return result
+
+
 @router.post("/{cohort_id}/assignments", status_code=status.HTTP_201_CREATED)
 async def create_assignment(
     cohort_id: str,
@@ -192,7 +523,7 @@ async def create_assignment(
 
     content_id = None
     if body.skill == "speaking":
-        content_config = {"topic": body.topic, "mode": body.mode, "part": body.part}
+        content_id, content_config = _resolve_speaking_topic(cohort_id, body)
     else:
         # The paper must exist and be published before it is given: assigning an
         # unpublished or deleted test hands students a task that opens to an
@@ -243,6 +574,7 @@ async def create_assignment(
             content_id=content_id,
             content_config=content_config,
             due_date=body.due_date,
+            due_time=parse_due_time(body.due_time),
             instructions=body.instructions,
         )
     except EmptyRosterError as exc:

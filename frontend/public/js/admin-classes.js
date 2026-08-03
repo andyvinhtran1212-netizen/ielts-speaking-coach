@@ -582,6 +582,24 @@ let _progress = { students: [], degraded: [] };
  * admin abroad sees their local equivalent of the same instant, not a number
  * that silently means something else.
  */
+/**
+ * Hạn nộp dưới dạng CHỮ THUẦN, cho những chỗ tự escape.
+ *
+ * `dueLabel` trả về HTML (nó tô mờ hạn đã qua). Bọc kết quả đó trong esc() thì
+ * người dùng đọc được nguyên thẻ `<span class="cl-muted">…</span>` — mà chỗ dính
+ * lỗi này lại là trạng thái CHÍNH của bảng tổng kết (sau hạn). Tách hai hàm để
+ * chỗ gọi không phải nhớ cái nào trả HTML.
+ */
+function dueText(dueAt) {
+  if (!dueAt) return 'không hạn';
+  const d = new Date(dueAt);
+  if (Number.isNaN(d.getTime())) return 'hạn không đọc được';
+  return d.toLocaleString('vi-VN', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
+}
+
 function dueLabel(dueAt) {
   if (!dueAt) return '<span class="cl-muted">Không hạn</span>';
   const d = new Date(dueAt);
@@ -603,6 +621,13 @@ function progressCell(p) {
   const parts = [`<span class="cl-roster-count">${countLabel(p.submitted)}/${countLabel(p.assigned)} đã nộp</span>`];
   if (p.late) parts.push(`<span class="cl-lesson-sub">${countLabel(p.late)} nộp trễ</span>`);
   if (p.missing) parts.push(`<span class="cl-roster-gap">${countLabel(p.missing)} chưa nộp, đã quá hạn</span>`);
+  // Chưa kích hoạt tài khoản là một dòng RIÊNG, không gộp vào "chưa nộp": em ấy
+  // chưa từng thấy bài, nên nhắc em nộp là nhắc nhầm người. Cũng không dùng
+  // .cl-roster-gap — đó là dấu "cần hỏi học viên này", còn việc ở đây là kích
+  // hoạt tài khoản, thuộc về người khác.
+  if (p.no_account) {
+    parts.push(`<span class="cl-lesson-sub">${countLabel(p.no_account)} chưa kích hoạt tài khoản</span>`);
+  }
   return `<div class="cl-roster">${parts.join('')}</div>`;
 }
 
@@ -647,9 +672,97 @@ function renderHomework() {
       <td><div>${esc(a.title)}${archivedChip}</div><div class="cl-lesson-sub">${esc(sub)}</div></td>
       <td>${dueLabel(a.due_at)}</td>
       <td>${progressCell(a.progress)}</td>
-      <td>${action}</td>
+      <td><button class="adm-btn-secondary" data-action="tally"
+                  data-id="${esc(a.id)}">Xem ai nộp</button> ${action}</td>
     </tr>`;
   }).join('');
+}
+
+/* ── Bảng tổng kết nộp bài ──────────────────────────────────────────────
+ *
+ * Việc của bảng này là đọc ra SỰ VẮNG MẶT. Bảng thường tô xanh cho ai đã nộp —
+ * với lớp 30 em thì 26 dấu tick thành nhiễu che mất 4 chỗ trống. Ở đây đảo lại:
+ * dòng đã nộp im lặng, dòng chưa nộp mang mực, và cột mép trái đọc dọc là ra
+ * ngay ai thiếu mà không cần đọc chữ nào.
+ */
+
+const TALLY_WHEN = {
+  'no-account': 'chưa kích hoạt',
+  missing: 'không nộp',
+  pending: 'chưa nộp',
+};
+
+function tallyRow(r) {
+  const when = r.submitted_at
+    ? hhmm(r.submitted_at) + (r.status === 'late' ? ' · trễ' : '')
+    : (TALLY_WHEN[r.status] || '');
+  // Chưa chấm là chưa chấm — hiện 0.0 là hiện một ĐIỂM SỐ mà không ai cho.
+  const band = (r.score === null || r.score === undefined) ? '—' : Number(r.score).toFixed(1);
+  const empty = (r.score === null || r.score === undefined);
+  return `<div class="av-tally__row" data-status="${esc(r.status)}">
+    <span class="av-tally__mark" aria-hidden="true"></span>
+    <span class="av-tally__name">${esc(r.name || r.student_code || '—')}</span>
+    <span class="av-tally__when">${esc(when)}</span>
+    <span class="av-tally__band" data-empty="${empty}">${esc(band)}</span>
+  </div>`;
+}
+
+function hhmm(iso) {
+  // Giờ VN, không phải giờ máy admin: hạn nộp là 19:00 giờ VN, nên một giờ nộp
+  // đọc theo múi giờ khác sẽ mâu thuẫn với chính cột "trễ" bên cạnh.
+  try {
+    return new Intl.DateTimeFormat('vi-VN', {
+      hour: '2-digit', minute: '2-digit', hour12: false,
+      timeZone: 'Asia/Ho_Chi_Minh',
+    }).format(new Date(iso));
+  } catch (e) { return ''; }
+}
+
+function renderTally(d) {
+  const c = (d && d.counts) || {};
+  const sealed = !!(d && d.sealed);
+  const rows = ((d && d.students) || []).map(tallyRow).join('');
+  const notes = [];
+  if (sealed) {
+    notes.push(`Chốt lúc <strong>${esc(dueText(d.assignment.due_at))}</strong>`
+      + ` — ${c.missing || 0} em không nộp. Sau giờ này hệ thống không nhận bài nữa.`);
+  } else {
+    notes.push(`Hạn <strong>${esc(dueText(d.assignment.due_at))}</strong>.`
+      + ' Danh sách còn đổi cho tới lúc đó.');
+  }
+  if (c.no_account) {
+    // Chưa kích hoạt tài khoản thì CHƯA TỪNG thấy bài — nhắc các em ấy nộp là
+    // nhắc nhầm người.
+    notes.push(`${c.no_account} em chưa kích hoạt tài khoản nên chưa nhận được bài.`);
+  }
+  if (d && d.homework_stale) {
+    notes.push('Chưa đối chiếu được bài nộp mới nhất — số có thể còn thiếu.');
+  }
+  return `<div class="av-tally" data-state="${sealed ? 'sealed' : 'live'}">
+    <div class="av-tally__head">
+      <span class="av-tally__count">${c.submitted || 0}<small>/${c.total || 0} đã nộp</small></span>
+      <span class="av-tally__state">${sealed ? 'Đã chốt' : 'Đang nhận bài'}</span>
+    </div>
+    <div class="av-tally__rows">${rows}</div>
+    <p class="av-tally__foot">${notes.join(' ')}</p>
+  </div>`;
+}
+
+async function openTally(assignmentId) {
+  const body = $('tally-body');
+  $('tally-modal').hidden = false;
+  body.innerHTML = '<p class="adm-hint">Đang tải…</p>';
+  try {
+    const d = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId)
+      + '/assignments/' + encodeURIComponent(assignmentId) + '/tally');
+    $('tally-modal-title').textContent = d.assignment.title || 'Bảng tổng kết';
+    body.innerHTML = renderTally(d);
+  } catch (err) {
+    // Bảng rỗng đọc ra là "cả lớp chưa ai nộp" — một khẳng định mà truy vấn hỏng
+    // không hề chứng minh được.
+    body.innerHTML = '<p class="adm-banner">Không đọc được bảng tổng kết: '
+      + esc(err.message || String(err)) + '</p>';
+  }
 }
 
 async function loadHomework() {
@@ -687,7 +800,61 @@ function applyHomeworkSkill() {
   $('hf-speaking-row').hidden = !isSpeaking;
   $('hf-test-field').hidden = isSpeaking;
   $('homework-modal-title').textContent = 'Giao bài ' + (SKILL_LABEL[skill] || '');
-  if (!isSpeaking) loadTests(skill);
+  if (isSpeaking) loadSpeakingTopics();
+  else loadTests(skill);
+}
+
+let _topicsByPart = {};
+
+/**
+ * Chủ đề Speaking cho Part đang chọn, LẤY TỪ KHO ĐỀ.
+ *
+ * Chủ đề lớp NÀY đã được giao thì bị loại khỏi danh sách — giao lại nghĩa là bắt
+ * học viên trả lời lại đúng câu đã làm. Backend vẫn kiểm lại và có chỉ số duy
+ * nhất phía sau; danh sách này là để admin không phải thử-rồi-bị-từ-chối.
+ */
+async function loadSpeakingTopics() {
+  const part = $('hf-part').value || '1';
+  const sel = $('hf-topic');
+  const note = $('hf-topic-note');
+  const key = `p${part}`;
+
+  const stillCurrent = () => ($('hf-skill') || {}).value === 'speaking'
+    && ($('hf-part') || {}).value === part;
+
+  if (_topicsByPart[key]) {
+    sel.innerHTML = _topicsByPart[key].html;
+    note.textContent = _topicsByPart[key].note;
+    return;
+  }
+  sel.innerHTML = '<option value="">Đang tải kho đề…</option>';
+  note.textContent = '';
+  try {
+    const r = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId)
+      + '/speaking-topics?part=' + encodeURIComponent(part));
+    if (!stillCurrent()) return;
+    const items = (r && r.items) || [];
+    const free = items.filter((i) => !i.already_given && i.ready);
+    const html = '<option value="">— Chọn chủ đề —</option>' + free.map((i) =>
+      `<option value="${esc(i.id)}">${esc(i.title)}</option>`).join('');
+    const given = items.filter((i) => i.already_given).length;
+    const notReady = items.filter((i) => !i.already_given && !i.ready).length;
+    const bits = [];
+    if (given) bits.push(`${given} chủ đề lớp này đã làm`);
+    // "Chưa có bản đọc đề" là một việc admin LÀM ĐƯỢC (chạy mẻ render), khác hẳn
+    // "đã giao rồi" là việc đã xong — nên phải nói tách ra.
+    if (notReady) bits.push(`${notReady} chủ đề chưa có bản đọc đề`);
+    _topicsByPart[key] = {
+      html,
+      note: bits.length ? `Đã ẩn: ${bits.join(', ')}.` : '',
+    };
+    sel.innerHTML = free.length ? html
+      : '<option value="">Hết chủ đề giao được cho Part này</option>';
+    note.textContent = _topicsByPart[key].note;
+  } catch (err) {
+    if (!stillCurrent()) return;
+    sel.innerHTML = '<option value="">Không đọc được kho đề</option>';
+  }
 }
 
 /**
@@ -756,6 +923,8 @@ function openHomeworkModal() {
   // give would be overdue the moment it was created. Same rule as the deadline
   // itself: the date is a Vietnam wall-clock fact.
   $('hf-due').value = defaultDueDateVietnam();
+  $('hf-due-time').value = '19:00';
+  _topicsByPart = {};   // lớp khác thì "đã giao" khác — không tái dùng cache
   $('hf-error').hidden = true;
   $('hf-warning').hidden = true;
   applyHomeworkSkill();
@@ -777,7 +946,7 @@ async function submitHomework() {
     return;
   }
   if (skill === 'speaking' && !topic) {
-    $('hf-error').textContent = 'Nhập chủ đề để tiếp tục.';
+    $('hf-error').textContent = 'Chọn một chủ đề để tiếp tục.';
     $('hf-error').hidden = false;
     return;
   }
@@ -794,15 +963,19 @@ async function submitHomework() {
       skill === 'speaking'
         ? {
           skill, title, topic,
+          content_id: topic,
+          topic: ($('hf-topic').selectedOptions[0] || {}).text || '',
           mode: $('hf-mode').value,
           part: Number($('hf-part').value),
           due_date: $('hf-due').value || null,
+          due_time: $('hf-due-time').value || null,
           instructions: $('hf-instructions').value.trim() || null,
         }
         : {
           skill, title,
           content_id: testId,
           due_date: $('hf-due').value || null,
+          due_time: $('hf-due-time').value || null,
           instructions: $('hf-instructions').value.trim() || null,
         },
     );
@@ -1071,15 +1244,26 @@ function bindDetail() {
   $('btn-hf-cancel').addEventListener('click', closeHomeworkModal);
   $('btn-hf-submit').addEventListener('click', submitHomework);
   $('hf-skill').addEventListener('change', applyHomeworkSkill);
+  // Chủ đề thuộc về một PART cụ thể — đổi Part mà giữ danh sách cũ là mời admin
+  // giao một chủ đề Part 2 dưới nhãn Part 1.
+  $('hf-part').addEventListener('change', loadSpeakingTopics);
   bindModalBackdrop('homework-modal', closeHomeworkModal);
   $('homework-tbody').addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-action]');
     if (!btn) return;
     if (btn.dataset.action === 'delete-homework') deleteHomework(btn.dataset.id);
+    if (btn.dataset.action === 'tally') openTally(btn.dataset.id);
     if (btn.dataset.action === 'archive-homework') setHomeworkStatus(btn.dataset.id, 'archived');
     if (btn.dataset.action === 'publish-homework') setHomeworkStatus(btn.dataset.id, 'published');
   });
 
+  const closeTally = () => { $('tally-modal').hidden = true; };
+  $('btn-tally-close').addEventListener('click', closeTally);
+  // Bấm ra nền để đóng, như mọi modal khác. Chỉ khi bấm ĐÚNG lớp nền — bấm bên
+  // trong thẻ cũng nổi bọt lên đây và sẽ đóng modal giữa lúc đang đọc.
+  $('tally-modal').addEventListener('click', (e) => {
+    if (e.target === $('tally-modal')) closeTally();
+  });
   $('btn-add-lesson').addEventListener('click', () => openLessonModal(null));
   $('btn-lf-cancel').addEventListener('click', closeLessonModal);
   $('btn-lf-submit').addEventListener('click', submitLesson);

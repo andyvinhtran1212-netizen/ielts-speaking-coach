@@ -213,6 +213,21 @@
         </button>
       </div>
 
+      <!-- Bài tập lớp Part 1/3: chỉ NGHE, không có chữ.
+           Khác hẳn nút "Hiện câu hỏi" của Full Test: ở đó chữ đã nằm sẵn trong
+           trang và chỉ bị giấu; ở đây backend KHÔNG gửi chữ xuống, nên không có
+           gì để hiện. Đó là điều kiện làm cho bài nghe này có nghĩa. -->
+      <div id="prep-listen" class="ds-question-card mb-5 hidden">
+        <div class="ds-q-label">Nghe câu hỏi</div>
+        <p class="prep-listen__hint">
+          Nghe rồi trả lời. Không có bản chữ — như trong phòng thi.
+        </p>
+        <audio id="prep-listen-audio" preload="auto" controls class="prep-listen__audio"></audio>
+        <p id="prep-listen-error" class="prep-listen__error hidden">
+          Chưa tải được câu hỏi. Kiểm tra kết nối rồi bấm phát lại.
+        </p>
+      </div>
+
       <!-- Cue card (Part 2 only) -->
       <div id="prep-cue" class="hidden ds-cue-card mb-6">
         <p class="practice-cue-card__label text-xs font-bold uppercase tracking-wider mb-3">

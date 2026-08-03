@@ -33,6 +33,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from config import settings
 from database import supabase_admin
 from services.class_assignment_service import (
+    DeadlinePassedError,
     ItemNotFoundError,
     TaskMismatchError,
     validate_class_item_for_test,
@@ -5063,6 +5064,12 @@ async def start_listening_test_attempt(
                 supabase_admin, user["id"], class_item,
                 skill="listening", test_id=test_id,
             )
+        except DeadlinePassedError as exc:
+            # 409, cùng mã với /start: hạn có thể trôi qua GIỮA lúc trang lớp
+            # gọi /start và lúc trang đề tạo lượt làm bài. Không bắt ở đây thì
+            # học viên nhận 500 — đọc ra là lỗi hệ thống chứ không phải
+            # "em hết giờ rồi".
+            raise HTTPException(409, str(exc))
         except (ItemNotFoundError, TaskMismatchError) as exc:
             raise HTTPException(400, str(exc))
 

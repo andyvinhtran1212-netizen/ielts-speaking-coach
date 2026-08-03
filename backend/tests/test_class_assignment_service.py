@@ -297,7 +297,8 @@ def test_not_submitted_after_the_deadline_is_missing():
 def test_an_assignment_without_a_deadline_is_never_late_or_missing():
     db = _DB({"class_assignment_items": _items(None, DUE)})
     p = progress_for_assignments(db, [_assignment(None)], now=AFTER_DUE)["asg-1"]
-    assert p == {"assigned": 2, "submitted": 1, "late": 0, "missing": 0}
+    assert p == {"assigned": 2, "submitted": 1, "late": 0, "missing": 0,
+                 "no_account": 0}
 
 
 def test_moving_the_deadline_changes_the_verdict_with_no_backfill():
@@ -748,7 +749,32 @@ def test_full_test_is_not_an_allowed_class_assignment_mode():
 
     # the two single-session modes still work
     for mode in ("practice", "test_part"):
-        assert AssignmentCreate(title="x", topic="y", mode=mode).mode == mode
+        assert AssignmentCreate(title="x", topic="y", content_id="topic-1",
+                                mode=mode).mode == mode
+
+
+def test_a_speaking_give_must_name_a_topic_from_the_library():
+    """Free-text subjects are gone. Questions used to be generated when the
+    student opened the task, so two learners on the SAME give could answer
+    different questions and the admin never knew what they had actually set."""
+    from routers.admin_class_assignments import AssignmentCreate
+
+    with pytest.raises(Exception) as exc:
+        AssignmentCreate(title="x", topic="Du lịch", mode="practice")
+    assert "kho đề" in str(exc.value)
+
+    ok = AssignmentCreate(title="x", topic="Du lịch", content_id="topic-1")
+    assert ok.content_id == "topic-1"
+
+
+def test_the_shape_of_the_task_is_reported_before_which_task():
+    """An admin who picked Full Test needs to hear why that SHAPE is refused —
+    telling them to pick a topic sends them off to fix the wrong thing."""
+    from routers.admin_class_assignments import AssignmentCreate
+
+    with pytest.raises(Exception) as exc:
+        AssignmentCreate(title="x", mode="test_full")      # no topic either
+    assert "Full Test" in str(exc.value)
 
 
 # ── vòng 4 ──────────────────────────────────────────────────────────────

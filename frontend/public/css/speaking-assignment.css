@@ -1,0 +1,339 @@
+/* speaking-assignment.css — cue card Part 2 + bảng tổng kết nộp bài.
+ *
+ * Hai thành phần, hai bài toán khác nhau, cùng một hệ token --av-*.
+ *
+ * CUE CARD. Trong phòng thi, tấm thẻ là VẬT GIẤY DUY NHẤT được đưa cho thí sinh.
+ * Giao diện của app là nền navy tối, nên cách trung thực nhất để biến khối văn
+ * bản này thành một VẬT là cho nó là thứ sáng màu giấy duy nhất trên màn hình.
+ * Không nghiêng, không vân giấy giả — chỉ đúng một phép đảo sáng và một bóng đổ
+ * đọc ra là "đang cầm trên tay" chứ không phải "một panel nữa".
+ *
+ * BẢNG TỔNG KẾT. Việc của nó là đọc ra SỰ VẮNG MẶT. Bảng thường tô xanh cho ai
+ * đã nộp — với lớp 30 em thì 26 dấu tick thành nhiễu che mất 4 chỗ trống. Ở đây
+ * đảo lại: dòng đã nộp im lặng, dòng CHƯA nộp mang mực. Mắt rơi đúng vào chỗ
+ * cần hành động.
+ */
+
+/* ══════════════════════════════════════════════════════════════════════
+   1 — CUE CARD (Part 2)
+   ══════════════════════════════════════════════════════════════════════ */
+
+.av-cue {
+  /* Màu giấy sống ở tokens.css (bề mặt vật thể, giống nhau ở cả hai chủ đề) —
+     xem ghi chú --av-paper-* ở đó. Bí danh cục bộ chỉ để câu lệnh dưới đây đọc
+     được, không phải để định nghĩa lại. */
+  --cue-paper:    var(--av-paper-surface);
+  --cue-ink:      var(--av-paper-ink);
+  --cue-ink-soft: var(--av-paper-ink-soft);
+  --cue-rule:     var(--av-paper-rule);
+
+  position: relative;
+  max-width: 34rem;
+  margin-inline: auto;
+  padding: var(--av-space-8) var(--av-space-8) var(--av-space-6);
+  background: var(--cue-paper);
+  color: var(--cue-ink);
+  border-radius: var(--av-radius-sm);   /* thẻ giấy cắt máy: góc gần vuông */
+  /* Bóng kép: một lớp sát để tách khỏi nền, một lớp xa và mềm để đọc ra là vật
+     đang được nâng lên khỏi mặt bàn. */
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.28),
+    0 24px 48px -16px rgba(0, 0, 0, 0.55);
+}
+
+/* Đồng hồ LÀ mép thẻ, không phải widget riêng.
+   Thí sinh thật không rời mắt khỏi thẻ để nhìn giờ — vạch này giữ đúng hành vi
+   đó. Rút từ trái sang phải bằng scaleX (chạy trên compositor, không layout). */
+.av-cue__clock {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 3px;
+  border-radius: var(--av-radius-sm) var(--av-radius-sm) 0 0;
+  overflow: hidden;
+  background: var(--cue-rule);
+}
+
+.av-cue__clock-fill {
+  height: 100%;
+  transform-origin: left center;
+  transform: scaleX(1);
+  background: var(--av-accent);              /* 1 phút chuẩn bị */
+  transition: transform 1s linear, background-color var(--av-duration-base) var(--av-easing-default);
+}
+
+.av-cue[data-phase='speaking'] .av-cue__clock-fill {
+  background: var(--av-primary);             /* 2 phút nói */
+}
+
+.av-cue[data-phase='done'] .av-cue__clock-fill {
+  background: var(--cue-rule);
+}
+
+/* Dòng đầu thẻ: "PART 2 · CANDIDATE TASK CARD" — thẻ thật có dòng này. */
+.av-cue__slug {
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-semibold);
+  letter-spacing: var(--av-tracking-widest);
+  text-transform: uppercase;
+  color: var(--cue-ink-soft);
+}
+
+.av-cue__phase {
+  float: inline-end;
+  font-variant-numeric: tabular-nums;   /* số không nhảy khi đếm lùi */
+  letter-spacing: var(--av-tracking-wide);
+  color: var(--cue-ink);
+}
+
+.av-cue__task {
+  margin: var(--av-space-6) 0 var(--av-space-6);
+  font-size: var(--av-fs-2xl);
+  font-weight: var(--av-fw-semibold);
+  line-height: var(--av-lh-snug);
+  letter-spacing: var(--av-tracking-tight);
+  text-wrap: balance;
+}
+
+/* "You should say:" — hầu hết bản thiết kế bỏ dòng này vì thừa nghĩa. Giữ lại
+   vì nó là chi tiết CÓ THẬT của tấm thẻ, và nó là thứ báo cho thí sinh biết ba
+   gạch đầu dòng dưới đây là gợi ý chứ không phải ba câu hỏi phải trả lời. */
+.av-cue__lead {
+  margin: 0 0 var(--av-space-3);
+  font-size: var(--av-fs-sm);
+  font-weight: var(--av-fw-medium);
+  color: var(--cue-ink-soft);
+}
+
+.av-cue__points {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--av-fs-lg);
+  line-height: var(--av-lh-relaxed);
+}
+
+.av-cue__points li {
+  padding-inline-start: var(--av-space-6);
+  text-indent: calc(var(--av-space-6) * -1);
+}
+
+/* Gạch treo ngoài lề, như thẻ in. */
+.av-cue__points li::before {
+  content: '—';
+  display: inline-block;
+  width: var(--av-space-6);
+  text-indent: 0;
+  color: var(--cue-ink-soft);
+}
+
+.av-cue__closer {
+  margin: var(--av-space-6) 0 0;
+  padding-top: var(--av-space-4);
+  border-top: 1px solid var(--cue-rule);
+  font-size: var(--av-fs-lg);
+  line-height: var(--av-lh-snug);
+}
+
+.av-cue__note {
+  margin: var(--av-space-4) 0 0;
+  font-size: var(--av-fs-sm);
+  color: var(--cue-ink-soft);
+}
+
+@media (max-width: 40rem) {
+  .av-cue { padding: var(--av-space-6) var(--av-space-4) var(--av-space-4); }
+  .av-cue__task { font-size: var(--av-fs-xl); }
+  .av-cue__points { font-size: var(--av-fs-base); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .av-cue__clock-fill { transition: none; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   2 — BẢNG TỔNG KẾT NỘP BÀI
+   ══════════════════════════════════════════════════════════════════════ */
+
+.av-tally { --tally-gap-w: 3px; }
+
+.av-tally__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--av-space-3) var(--av-space-6);
+  margin-bottom: var(--av-space-4);
+}
+
+.av-tally__count {
+  font-size: var(--av-fs-3xl);
+  font-weight: var(--av-fw-bold);
+  letter-spacing: var(--av-tracking-tight);
+  font-variant-numeric: tabular-nums;
+  color: var(--av-text-primary);
+}
+
+.av-tally__count small {
+  font-size: var(--av-fs-lg);
+  font-weight: var(--av-fw-medium);
+  color: var(--av-text-muted);
+}
+
+/* Trạng thái là một CHỮ, không phải một màu. Màu một mình thì người mù màu
+   không đọc được, và "đang đếm ngược" với "đã chốt" là khác biệt quan trọng
+   nhất trên màn hình này. */
+.av-tally__state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--av-space-2);
+  padding: var(--av-space-1) var(--av-space-3);
+  border-radius: var(--av-radius-pill);
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-semibold);
+  letter-spacing: var(--av-tracking-wide);
+  text-transform: uppercase;
+}
+
+.av-tally[data-state='live'] .av-tally__state {
+  color: var(--av-accent);
+  background: var(--av-accent-soft);
+  border: 1px dashed var(--av-accent-border);
+}
+
+.av-tally[data-state='sealed'] .av-tally__state {
+  color: var(--av-text-secondary);
+  background: var(--av-surface-sunken);
+  border: 1px solid var(--av-border-default);
+}
+
+.av-tally__rows {
+  border-top: 1px solid var(--av-border-default);
+}
+
+/* Trước hạn: đường kẻ NÉT ĐỨT — con số còn đổi.
+   Sau hạn: nét LIỀN — đã niêm. Khác biệt này phải thấy được từ xa, vì đó là
+   khác biệt giữa "tạm thời" và "chốt". */
+.av-tally[data-state='live'] .av-tally__rows { border-top-style: dashed; }
+
+.av-tally__row {
+  display: grid;
+  grid-template-columns: var(--tally-gap-w) 1fr auto auto;
+  align-items: center;
+  gap: 0 var(--av-space-4);
+  padding: var(--av-space-3) var(--av-space-2);
+  border-bottom: 1px solid var(--av-border-subtle);
+}
+
+/* CỘT MÉP TRÁI — đọc dọc là ra ngay ai chưa nộp, không cần đọc chữ nào.
+   Đã nộp: một vạch mờ ngắn. Chưa nộp: vạch hổ phách cao hết dòng. */
+.av-tally__mark {
+  align-self: stretch;
+  border-radius: var(--av-radius-pill);
+  background: var(--av-border-default);
+  transform: scaleY(0.35);
+}
+
+.av-tally__row[data-status='missing'] .av-tally__mark {
+  background: var(--av-accent);
+  transform: none;
+}
+
+.av-tally__row[data-status='late'] .av-tally__mark {
+  background: var(--av-warning);
+  transform: scaleY(0.7);
+}
+
+/* Dòng đã nộp im lặng; dòng chưa nộp mang mực. */
+.av-tally__name {
+  font-size: var(--av-fs-sm);
+  color: var(--av-text-secondary);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.av-tally__row[data-status='missing'] .av-tally__name {
+  color: var(--av-text-primary);
+  font-weight: var(--av-fw-semibold);
+}
+
+.av-tally__when,
+.av-tally__band {
+  font-size: var(--av-fs-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--av-text-muted);
+  white-space: nowrap;
+}
+
+.av-tally__band {
+  min-width: 3.5ch;
+  text-align: end;
+  font-weight: var(--av-fw-semibold);
+  color: var(--av-text-primary);
+}
+
+/* Chưa chấm là chưa chấm — không hiện 0.0, vì 0.0 là một điểm số. */
+.av-tally__band[data-empty='true'] {
+  color: var(--av-text-faint);
+  font-weight: var(--av-fw-regular);
+}
+
+.av-tally__row[data-status='missing'] .av-tally__when {
+  color: var(--av-accent);
+  font-weight: var(--av-fw-medium);
+}
+
+/* Học viên chưa kích hoạt tài khoản: không phải "lười", mà là chưa từng thấy
+   bài. Phải phân biệt được, nếu không giáo viên sẽ nhắc nhầm người. */
+.av-tally__row[data-status='no-account'] .av-tally__mark {
+  background: repeating-linear-gradient(
+    45deg, var(--av-border-strong) 0 2px, transparent 2px 4px);
+  transform: none;
+}
+
+.av-tally__row[data-status='no-account'] .av-tally__name {
+  color: var(--av-text-muted);
+  font-style: italic;
+}
+
+.av-tally__foot {
+  margin-top: var(--av-space-4);
+  font-size: var(--av-fs-xs);
+  color: var(--av-text-muted);
+}
+
+.av-tally[data-state='sealed'] .av-tally__foot strong {
+  color: var(--av-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 40rem) {
+  .av-tally__row { grid-template-columns: var(--tally-gap-w) 1fr auto; }
+  .av-tally__when { display: none; }   /* tên + trạng thái + điểm là đủ trên máy nhỏ */
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   3 — NGHE CÂU HỎI (bài tập lớp, Part 1 & 3)
+   ══════════════════════════════════════════════════════════════════════
+   Không có bản chữ, nên khối này là TẤT CẢ những gì học viên có. Nó phải nói rõ
+   điều đó ngay, nếu không sự thiếu vắng chữ đọc ra như trang tải hỏng. */
+
+.prep-listen__hint {
+  margin: 0 0 var(--av-space-4);
+  font-size: var(--av-fs-sm);
+  color: var(--av-text-secondary);
+}
+
+.prep-listen__audio {
+  width: 100%;
+  /* Trình phát mặc định của trình duyệt: quen tay, có sẵn phím tắt và đọc được
+     bằng trình đọc màn hình. Vẽ lại một trình phát riêng ở đây là đánh đổi ba
+     thứ đó lấy vẻ ngoài. */
+}
+
+.prep-listen__error {
+  margin: var(--av-space-3) 0 0;
+  font-size: var(--av-fs-sm);
+  color: var(--av-warning);
+}
+
+.prep-listen__error.hidden { display: none; }

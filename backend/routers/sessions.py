@@ -11,11 +11,14 @@ from pydantic import BaseModel, field_validator
 
 from config import settings
 from database import supabase_admin
+from services.question_visibility import redact_questions
 from routers.auth import get_supabase_user
 from services.class_assignment_service import (
+    DeadlinePassedError,
     ItemNotFoundError,
     TaskMismatchError,
     attach_session_to_class_item,
+    is_accepting_submissions,
     mark_item_submitted,
     sync_class_item_score,
     validate_class_item_for_session,
@@ -312,6 +315,8 @@ async def create_session(
                 session_mode=body.mode, session_part=body.part, session_topic=body.topic,
             )
             entitled_by_assignment = True
+        except DeadlinePassedError as e:
+            raise HTTPException(409, str(e))
         except (ItemNotFoundError, TaskMismatchError) as e:
             raise HTTPException(status_code=400, detail=str(e))
 
@@ -741,7 +746,10 @@ async def get_session(
             .order("order_num")
             .execute()
         )
-        questions = q_result.data
+        # Đây là đường trang gọi ĐẦU TIÊN. Không lọc ở đây thì chữ đã nằm
+        # trong phản hồi mạng trước khi bất kỳ bộ lọc nào khác kịp chạy — và
+        # "phải nghe mới biết đề hỏi gì" chỉ còn là một câu chữ trên giao diện.
+        questions = redact_questions(q_result.data)
     except Exception:
         questions = []
 
@@ -1309,9 +1317,10 @@ def _record_class_submission(session: dict) -> bool:
     item_id = session.get("class_assignment_item_id")
     if not item_id:
         return False
-    # The session's own completion time, not "now": on the retry path this runs
-    # long after the fact, and stamping the repair time would report work
-    # finished before the deadline as late.
+
+    # Giờ phiên HOÀN THÀNH — phải có TRƯỚC phép kiểm hạn bên dưới, vì đó là mốc
+    # phép kiểm ấy so với. Trên đường thử lại, "bây giờ" là giờ chạy lệnh sửa
+    # chứ không phải giờ em ấy làm xong.
     completed_at = None
     raw = session.get("completed_at")
     if raw:
@@ -1319,6 +1328,40 @@ def _record_class_submission(session: dict) -> bool:
             completed_at = datetime.fromisoformat(raw)
         except ValueError:
             pass
+
+    # HẠN NỘP TUYỆT ĐỐI. The start gate cannot cover this on its own: nobody
+    # knows in advance how long an answer will take, so a session begun at 18:58
+    # can finish at 19:02. Recording it would mean the summary table keeps
+    # changing after the deadline it is supposed to close.
+    #
+    # The session itself still completes and is still graded — the student keeps
+    # their practice and their feedback. What is refused is CREDITING it as the
+    # class hand-in.
+    try:
+        a_rows = (
+            supabase_admin.table("class_assignments")
+            .select("*, class_assignment_items!inner(id)")
+            .eq("class_assignment_items.id", item_id)
+            .limit(1).execute().data
+        ) or []
+        # So với GIỜ PHIÊN HOÀN THÀNH, không phải giờ đang chạy lệnh này.
+        #
+        # Hàm này còn là đường THỬ LẠI: lệnh ghi sổ lần đầu hỏng thì lần hoàn
+        # thành sau sẽ gọi lại. So với "bây giờ" nghĩa là một phiên xong lúc
+        # 18:00 mà thử lại lúc 20:00 sẽ bị từ chối — chốt hạn quay sang chặn
+        # đúng thứ nó sinh ra để bảo vệ. Phiên thật sự xong sau hạn vẫn bị từ
+        # chối, vì mốc so là giờ của chính phiên đó.
+        if a_rows and not is_accepting_submissions(a_rows[0], now=completed_at):
+            logger.info("[class] hand-in refused, deadline passed item=%s", item_id)
+            return False
+    except Exception as exc:
+        # Fail OPEN on a lookup error: refusing every hand-in because one query
+        # hiccuped would lose real work, and a hand-in wrongly accepted shows up
+        # as late in the summary rather than vanishing.
+        logger.warning("[class] deadline check failed item=%s: %s", item_id, exc)
+    # The session's own completion time, not "now": on the retry path this runs
+    # long after the fact, and stamping the repair time would report work
+    # finished before the deadline as late.
     try:
         return mark_item_submitted(
             supabase_admin,

@@ -32,6 +32,7 @@ from reportlab.platypus import (
 )
 
 from database import supabase_admin
+from services.question_visibility import redact_questions
 from services.band_rounding import ielts_round
 from services.phoneme_ref import (
     PHONEME_REF,
@@ -255,7 +256,20 @@ async def generate_session_pdf(session_id: str, db=None) -> bytes:
         .order("order_num")
         .execute()
     )
+    # CỬA THỨ NĂM vào cùng một nội dung. Endpoint xuất PDF cũng là của học viên
+    # và chạy được cả khi phiên ĐANG LÀM — nên nếu không lọc ở đây, em ấy tải
+    # một tệp PDF chứa đủ đề Part 1/3 rồi mới trả lời, và toàn bộ chế độ
+    # chỉ-nghe thành vô nghĩa.
+    #
+    # Lộ ra ở vòng review thứ năm vì phép quét vòng 1 của tôi chỉ đi qua hai
+    # router mình vừa sửa, chứ không đi qua MỌI nơi đọc bảng `questions`.
+    #
+    # Phiên ĐÃ HOÀN THÀNH thì hiện chữ: việc đã làm xong, sổ cái ghi nhận lần
+    # nộp ĐẦU nên đọc lại đề không giúp em ấy làm lại được gì — và bản PDF là
+    # tài liệu để ôn, giấu đề ở đó chỉ làm nó vô dụng.
     questions = q_res.data or []
+    if (session or {}).get("status") != "completed":
+        questions = redact_questions(questions)
 
     # ── 4. Load responses (keyed by question_id) ───────────────────────────────
     r_res = (
@@ -644,7 +658,12 @@ def _build_question_blocks(questions: list, responses_by_qid: dict) -> list:
     blocks = []
     for i, q in enumerate(questions, start=1):
         qid        = q.get("id")
-        q_text     = q.get("question_text") or "—"
+        # Chữ rỗng ở đây nghĩa là câu giao BẰNG AUDIO và đã bị lược — nói ra,
+        # đừng để một dấu gạch trông như dữ liệu hỏng.
+        q_text = (q.get("question_text") or "").strip()
+        if not q_text:
+            q_text = ("(Câu hỏi giao bằng audio — nghe trên trang làm bài)"
+                      if q.get("listen_only") else "—")
         response   = responses_by_qid.get(qid)
         transcript = ""
         fb         = None

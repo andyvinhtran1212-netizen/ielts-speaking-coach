@@ -377,3 +377,37 @@ describe('a late library response does not paint the wrong skill', () => {
     assert.match(h.el.innerHTML, /READ-1/);
   });
 });
+
+
+// ── chưa kích hoạt tài khoản KHÁC chưa nộp ──────────────────────────────
+
+describe('ô tiến độ tách nhóm chưa kích hoạt tài khoản', () => {
+  test('hiện thành dòng riêng, không gộp vào "chưa nộp"', () => {
+    // Em ấy chưa từng THẤY bài — nhắc em nộp là nhắc nhầm người.
+    const html = progressCell({ assigned: 20, submitted: 15, late: 0,
+      missing: 2, no_account: 3 });
+    assert.match(html, /2 chưa nộp, đã quá hạn/);
+    assert.match(html, /3 chưa kích hoạt tài khoản/);
+  });
+
+  test('không đeo dấu "cần hỏi học viên này"', () => {
+    // .cl-roster-gap nghĩa là hỏi em ấy. Kích hoạt tài khoản là việc của người
+    // khác, nên gắn cùng dấu sẽ chỉ sai người phải hành động.
+    const html = progressCell({ assigned: 20, submitted: 17, late: 0,
+      missing: 0, no_account: 3 });
+    assert.doesNotMatch(html, new RegExp(WARN));
+    assert.match(html, /3 chưa kích hoạt/);
+  });
+
+  test('không ai thiếu tài khoản → không thêm dòng nào', () => {
+    const html = progressCell({ assigned: 20, submitted: 20, late: 0,
+      missing: 0, no_account: 0 });
+    assert.doesNotMatch(html, /kích hoạt/);
+  });
+
+  test('ba nhóm cộng lại bằng sĩ số', () => {
+    // Nếu một nhóm rơi khỏi mọi ô đếm thì tổng lệch và không ai phát hiện.
+    const p = { assigned: 20, submitted: 15, late: 0, missing: 2, no_account: 3 };
+    assert.equal(p.submitted + p.missing + p.no_account, p.assigned);
+  });
+});

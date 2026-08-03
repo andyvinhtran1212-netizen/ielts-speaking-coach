@@ -65,13 +65,30 @@ _PAGE = 1000   # PostgREST's implicit ceiling — see services/class_service.py
 _ID_CHUNK = 100
 
 
+def parse_due_time(raw: Optional[str]) -> time:
+    """"HH:MM" → time, hoặc 19:00 khi không truyền.
+
+    Every centre used to get 19:00 because the hour was compiled in; an evening
+    class and a morning class need different ones. Parsed here, not in the
+    browser: the browser cannot be trusted with the hour any more than with the
+    timezone — see compose_due_at.
+    """
+    if not raw:
+        return DEFAULT_DUE_TIME
+    try:
+        hh, mm = raw.split(":")
+        return time(int(hh), int(mm))
+    except (ValueError, AttributeError) as exc:
+        raise ValueError(f"Giờ hạn không hợp lệ: {raw!r} (cần dạng HH:MM)") from exc
+
+
 def compose_due_at(due_date: Optional[str | date], due_time: time = DEFAULT_DUE_TIME) -> Optional[str]:
-    """`due_date` + 19:00 giờ Việt Nam → an aware ISO-8601 string.
+    """`due_date` + giờ hạn (giờ Việt Nam) → an aware ISO-8601 string.
 
     Returns None for a missing date: an assignment with no deadline is legal and
     is never late and never missed.
 
-    The admin picks a DATE; the time is the centre's rule. Doing this here rather
+    The admin picks the DATE and the TIME; composing them here rather
     than in SQL or in the browser keeps one definition of "7h tối" — the browser
     especially cannot be trusted for it, since an admin travelling abroad would
     otherwise set the deadline in their own timezone.
@@ -140,6 +157,7 @@ def create_class_assignment(
     content_id: Optional[str] = None,
     content_config: Optional[Dict[str, Any]] = None,
     due_date: Optional[str] = None,
+    due_time: Optional[time] = None,
     instructions: Optional[str] = None,
     status: str = "published",
     publish_at: Optional[str] = None,
@@ -164,7 +182,7 @@ def create_class_assignment(
             "p_content_config": content_config or {},
             "p_content_id":     content_id,
             "p_instructions":   instructions,
-            "p_due_at":         compose_due_at(due_date),
+            "p_due_at":         compose_due_at(due_date, due_time or DEFAULT_DUE_TIME),
             "p_publish_at":     publish_at,
             "p_status":         status,
             "p_assigned_by":    assigned_by,
@@ -212,11 +230,19 @@ def progress_for_assignments(
     *,
     now: Optional[datetime] = None,
 ) -> Dict[str, Dict[str, int]]:
-    """assignment_id → {assigned, submitted, late, missing}.
+    """assignment_id → {assigned, submitted, late, missing, no_account}.
 
     `late` and `missing` are computed here from timestamps, never read from a
     column — see the module docstring. `now` is injectable so the boundary
     behaviour is testable without freezing the clock globally.
+
+    HỌC VIÊN CHƯA KÍCH HOẠT TÀI KHOẢN ĐƯỢC ĐẾM RIÊNG, không gộp vào `missing`.
+    Em ấy chưa từng THẤY bài — gọi đó là "không nộp" là đổ cho em một việc em
+    không có cách nào làm, và giáo viên sẽ đi nhắc nhầm người.
+
+    Đây cũng là chỗ hai màn hình admin dễ nói khác nhau nhất: bảng tổng kết từng
+    học viên đã tách riêng nhóm này, nên nếu ở đây gộp vào `missing` thì cùng một
+    bài giao sẽ hiện hai con số khác nhau ở hai chỗ.
     """
     now = now or datetime.now(timezone.utc)
     due_by_id: Dict[str, Optional[datetime]] = {}
@@ -225,11 +251,16 @@ def progress_for_assignments(
         due_by_id[a["id"]] = datetime.fromisoformat(raw) if raw else None
 
     out: Dict[str, Dict[str, int]] = {
-        a["id"]: {"assigned": 0, "submitted": 0, "late": 0, "missing": 0}
+        a["id"]: {"assigned": 0, "submitted": 0, "late": 0, "missing": 0,
+                  "no_account": 0}
         for a in assignments
     }
 
-    for item in _items_for_assignments(db, [a["id"] for a in assignments]):
+    items = _items_for_assignments(db, [a["id"] for a in assignments])
+    unactivated = _students_without_account(db, {i["student_id"] for i in items
+                                                 if i.get("student_id")})
+
+    for item in items:
         bucket = out.get(item["assignment_id"])
         if bucket is None:
             continue
@@ -241,11 +272,38 @@ def progress_for_assignments(
             bucket["submitted"] += 1
             if due and datetime.fromisoformat(submitted_at) > due:
                 bucket["late"] += 1
+        elif item.get("student_id") in unactivated:
+            # Chưa kích hoạt tài khoản: em ấy chưa từng thấy bài. Đếm riêng —
+            # xem docstring.
+            bucket["no_account"] += 1
         elif due and due < now:
             # Past the deadline with nothing submitted. Not a stored state: it
             # becomes true on its own as the clock passes, with no job to run.
             bucket["missing"] += 1
 
+    return out
+
+
+def _students_without_account(db, student_ids) -> set:
+    """Học viên chưa kích hoạt tài khoản, trong số các id truyền vào.
+
+    Hỏng thì trả rỗng: khi đó nhóm này rơi về `missing` như hành vi cũ — thà
+    đếm rộng hơn còn hơn im lặng đánh rơi khỏi mọi ô đếm và làm tổng không khớp
+    sĩ số.
+    """
+    ids = [s for s in student_ids if s]
+    if not ids:
+        return set()
+    out = set()
+    try:
+        for chunk in (ids[i:i + _ID_CHUNK] for i in range(0, len(ids), _ID_CHUNK)):
+            for s in _paged(db, "students", "id, user_id",
+                            lambda q, c=chunk: q.in_("id", c)):
+                if not s.get("user_id"):
+                    out.add(s["id"])
+    except Exception as exc:
+        logger.warning("[class] unactivated lookup failed: %s", exc)
+        return set()
     return out
 
 
@@ -331,6 +389,45 @@ def is_assignment_open(assignment: Dict[str, Any], *, now: Optional[datetime] = 
     return datetime.fromisoformat(publish_at) <= (now or datetime.now(timezone.utc))
 
 
+class DeadlinePassedError(Exception):
+    """Hạn nộp đã qua — không nhận bài nữa."""
+
+
+def is_accepting_submissions(assignment: Dict[str, Any], *,
+                             now: Optional[datetime] = None) -> bool:
+    """Còn nhận bài không: đã mở, VÀ chưa quá hạn.
+
+    Deliberately NOT folded into `is_assignment_open`. That one also decides what
+    the student SEES, and a task must stay on their list after the deadline —
+    reported as missed. Merging the two would make yesterday's homework silently
+    disappear, which reads as "I never had that" rather than "I missed it".
+
+    The cutoff is absolute, at the admin's chosen time: a hand-in recorded after
+    `due_at` is refused, not accepted-and-flagged. That is what lets the summary
+    table be final the moment the deadline passes — with the old
+    accepted-but-late behaviour it could still change hours afterwards.
+
+    Trade-off, stated plainly: a student who starts at 18:58 and finishes at
+    19:02 is refused. Blocking only at start cannot prevent that, because nobody
+    knows in advance how long an answer will take; accepting it would mean the
+    summary is not actually final. The page therefore shows a live countdown and
+    stops offering the task well before it lapses.
+    """
+    if not is_assignment_open(assignment, now=now):
+        return False
+    due_at = assignment.get("due_at")
+    if not due_at:
+        return True          # no deadline set — nothing to miss
+    parsed = _at(due_at)
+    if parsed is None:
+        # An unreadable deadline must not silently become "no deadline": that
+        # would quietly reopen the very window this gate exists to close.
+        logger.warning("[class] unreadable due_at on assignment=%s",
+                       assignment.get("id"))
+        return False
+    return (now or datetime.now(timezone.utc)) <= parsed
+
+
 def validate_class_item_for_session(
     db,
     user_id: str,
@@ -378,6 +475,12 @@ def validate_class_item_for_session(
 
     if not is_assignment_open(assignment):
         raise TaskMismatchError("Bài tập chưa mở hoặc đã đóng")
+
+    # Hạn nộp là TUYỆT ĐỐI. Checked here, before the work starts, and again when
+    # the hand-in is recorded — because how long an answer takes is not knowable
+    # in advance, and a gate only at the start cannot keep the summary final.
+    if not is_accepting_submissions(assignment):
+        raise DeadlinePassedError("Đã quá hạn nộp — bài tập này không còn nhận bài.")
 
     # Moving a student between classes only rewrites students.cohort_id; the old
     # class's item rows survive. Without this a transferred student could still
@@ -440,6 +543,12 @@ def validate_class_item_for_test(db, user_id: str, item_id: str,
 
     if not is_assignment_open(assignment):
         raise TaskMismatchError("Bài tập chưa mở hoặc đã đóng")
+
+    # Hạn nộp là TUYỆT ĐỐI. Checked here, before the work starts, and again when
+    # the hand-in is recorded — because how long an answer takes is not knowable
+    # in advance, and a gate only at the start cannot keep the summary final.
+    if not is_accepting_submissions(assignment):
+        raise DeadlinePassedError("Đã quá hạn nộp — bài tập này không còn nhận bài.")
 
     # A transferred student keeps their old item rows; the old class's homework
     # is not theirs to hand in any more.
@@ -542,6 +651,8 @@ def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
 
     pending = {i["id"] for i in items}
     ids = list(pending)
+    due_of_assignment = {a["id"]: _at(a.get("due_at")) for a in assignments}
+    due_by_item = {i["id"]: due_of_assignment.get(i["assignment_id"]) for i in items}
     fixed = 0
 
     for skill, (table, artifact_kind) in _TEST_ARTIFACTS.items():
@@ -568,6 +679,15 @@ def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
                 best[key] = at
 
         for item_id, at in best.items():
+            # HẠN NỘP LÀ TUYỆT ĐỐI, KỂ CẢ Ở ĐƯỜNG VÁ SỔ. Nếu không, chốt kia chỉ
+            # là một cái cổng mở hé: em ấy bắt đầu trước hạn, nộp sau hạn, và
+            # lần đọc tiếp theo của giáo viên sẽ ghi nhận giúp. Bảng tổng kết
+            # đứng yên được là nhờ CẢ hai chỗ cùng từ chối.
+            due = due_by_item.get(item_id)
+            submitted = _at(at.get("submitted_at"))
+            if due and submitted and submitted > due:
+                logger.info("[class] repair skipped, past deadline item=%s", item_id)
+                continue
             try:
                 when = datetime.fromisoformat(at["submitted_at"])
             except (ValueError, TypeError):
@@ -614,11 +734,23 @@ def reconcile_ledger_from_sessions(db, assignment_ids: List[str]) -> int:
     for a_chunk in (assignment_ids[i:i + _ID_CHUNK]
                     for i in range(0, len(assignment_ids), _ID_CHUNK)):
         items.extend(_paged(
-            db, "class_assignment_items", "id",
+            db, "class_assignment_items", "id, assignment_id",
             lambda q, c=a_chunk: q.in_("assignment_id", c).is_("submitted_at", "null"),
         ))
     if not items:
         return 0
+
+    # HẠN NỘP CŨNG ÁP Ở ĐÂY. `_record_class_submission` đã từ chối ghi một phiên
+    # hoàn thành sau hạn; nếu đường vá sổ này ghi giúp thì lời từ chối kia vô
+    # nghĩa và bảng tổng kết lại đổi sau khi đã chốt.
+    due_of_assignment: Dict[str, Optional[datetime]] = {}
+    for a_chunk in (assignment_ids[i:i + _ID_CHUNK]
+                    for i in range(0, len(assignment_ids), _ID_CHUNK)):
+        for a in _paged(db, "class_assignments", "id, due_at",
+                        lambda q, c=a_chunk: q.in_("id", c)):
+            due_of_assignment[a["id"]] = _at(a.get("due_at"))
+    due_by_item = {i["id"]: due_of_assignment.get(i.get("assignment_id"))
+                   for i in items}
 
     pending = [i["id"] for i in items]
     sessions: List[Dict[str, Any]] = []
@@ -669,6 +801,10 @@ def reconcile_ledger_from_sessions(db, assignment_ids: List[str]) -> int:
                 submitted_at = datetime.fromisoformat(completed_at)
             except ValueError:
                 logger.warning("[class] unparseable completed_at on session=%s", s["id"])
+        due = due_by_item.get(s.get("class_assignment_item_id"))
+        if due and submitted_at and submitted_at > due:
+            logger.info("[class] repair skipped, past deadline item=%s", item_id)
+            continue
         if mark_item_submitted(
             db,
             item_id=s["class_assignment_item_id"],

@@ -21,9 +21,11 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
+
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
   <link rel="stylesheet" href="/css/aver-design/components.css" />
   <link rel="stylesheet" href="/css/aver-design/admin-components.css" />
+  <link rel="stylesheet" href="/css/speaking-assignment.css" />
 
   <script src="https://unpkg.com/@supabase/supabase-js@2.107.0" defer></script>
   <script src="/js/runtime-config.js"></script>
@@ -657,10 +659,15 @@
           <select id="hf-test"><option value="">— Chọn đề —</option></select>
         </div>
 
-        <!-- Speaking: chủ đề + kiểu luyện + part -->
+        <!-- Speaking: chọn chủ đề TỪ KHO ĐỀ.
+             Trước đây đây là một ô nhập tự do, và câu hỏi được sinh khi học viên
+             mở bài — nên hai em cùng một bài giao có thể trả lời hai bộ câu khác
+             nhau, còn giáo viên thì không biết mình đã giao gì. Chọn từ kho khiến
+             bài giao trở nên xác định ngay lúc bấm nút. -->
         <div class="adm-field" id="hf-topic-field">
-          <label for="hf-topic">Chủ đề</label>
-          <input id="hf-topic" type="text" maxlength="300" placeholder="Hometown" />
+          <label for="hf-topic">Chủ đề <span class="adm-hint">(từ kho đề)</span></label>
+          <select id="hf-topic"><option value="">— Chọn chủ đề —</option></select>
+          <p class="adm-hint" id="hf-topic-note"></p>
         </div>
         <div class="cl-form-row" id="hf-speaking-row">
           <div class="adm-field">
@@ -683,10 +690,23 @@
             </select>
           </div>
         </div>
-        <div class="adm-field">
-          <label for="hf-due">Hạn nộp (19:00 giờ VN)</label>
-          <input id="hf-due" type="date" />
+        <!-- Hạn nộp: ngày VÀ giờ. Giờ trước đây bị đóng cứng 19:00 trong
+             backend nên không lớp nào đổi được — lớp học buổi tối cần hạn khác
+             lớp học buổi sáng. -->
+        <div class="cl-form-row">
+          <div class="adm-field">
+            <label for="hf-due">Hạn nộp — ngày</label>
+            <input id="hf-due" type="date" />
+          </div>
+          <div class="adm-field">
+            <label for="hf-due-time">Giờ (giờ VN)</label>
+            <input id="hf-due-time" type="time" value="19:00" step="300" />
+          </div>
         </div>
+        <p class="adm-hint" id="hf-due-note">
+          Sau giờ này hệ thống <strong>không nhận bài nữa</strong> và danh sách
+          nộp được chốt.
+        </p>
         <div class="adm-field">
           <label for="hf-instructions">Dặn dò (tuỳ chọn)</label>
           <textarea id="hf-instructions" rows="3"></textarea>
@@ -696,6 +716,22 @@
         <div class="adm-modal-actions">
           <button class="adm-btn-secondary" id="btn-hf-cancel" type="button">Huỷ</button>
           <button class="adm-btn-primary" id="btn-hf-submit" type="button">Giao cho cả lớp</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bảng tổng kết nộp bài.
+         Cấu trúc PHẢI là .adm-modal-backdrop bọc .adm-modal, giống mọi modal
+         khác trong trang: admin-components.css đặt position:fixed và lớp phủ
+         lên .adm-modal-backdrop, còn .adm-modal chỉ là tấm thẻ. Dùng ngược lại
+         thì thẻ này chèn thẳng vào vị trí DOM ở đây — nằm dưới màn hình, nên
+         bấm "Xem ai nộp" trông như không có gì xảy ra. -->
+    <div class="adm-modal-backdrop" id="tally-modal" hidden role="presentation">
+      <div class="adm-modal" role="dialog" aria-modal="true" aria-labelledby="tally-modal-title">
+        <h3 id="tally-modal-title">Bảng tổng kết</h3>
+        <div id="tally-body"></div>
+        <div class="adm-modal-actions">
+          <button class="adm-btn-secondary" id="btn-tally-close" type="button">Đóng</button>
         </div>
       </div>
     </div>

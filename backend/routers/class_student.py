@@ -31,6 +31,7 @@ from database import supabase_admin
 from routers.auth import get_supabase_user
 from services.class_assignment_service import (
     _ID_CHUNK,
+    is_accepting_submissions,
     is_assignment_open,
     reconcile_test_attempts,
 )
@@ -70,6 +71,21 @@ def _student_for_user(user_id: str) -> Optional[Dict[str, Any]]:
     return rows[0] if rows else None
 
 
+# Những trường của `content_config` được phép xuống trình duyệt học viên.
+# Cố ý KHÔNG có `questions` (bản chụp đề) và `question_ids`: cái đầu chứa nguyên
+# văn câu hỏi, cái sau đủ để tra ra chúng.
+_DISPLAY_CONFIG_FIELDS = ("topic", "mode", "part", "test_title")
+
+
+def _display_config(cfg: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Lọc `content_config` xuống mức an toàn để hiển thị.
+
+    Danh sách CHO PHÉP chứ không phải danh sách loại trừ — xem ghi chú ở chỗ gọi.
+    """
+    src = cfg or {}
+    return {k: src[k] for k in _DISPLAY_CONFIG_FIELDS if k in src}
+
+
 def _decorate(item: Dict[str, Any], assignment: Dict[str, Any], now: datetime) -> Dict[str, Any]:
     """Attach the two derived states the UI needs. Both come from timestamps, so
     they stay correct without any job keeping them so."""
@@ -93,7 +109,16 @@ def _decorate(item: Dict[str, Any], assignment: Dict[str, Any], now: datetime) -
             "skill":          assignment.get("skill"),
             "instructions":   assignment.get("instructions"),
             "due_at":         due_raw,
-            "content_config": assignment.get("content_config") or {},
+            # CHỈ những trường an toàn để HIỂN THỊ. `content_config` còn giữ
+            # bản chụp đề (chữ câu hỏi, cue-card bullets) để lúc dựng phiên khỏi
+            # phải đọc lại kho — nhưng trả nguyên cả khối xuống đây thì học viên
+            # đọc được đề ngay trong phản hồi đầu tiên của trang lớp, và cả lớp
+            # chắn chữ ở endpoint câu hỏi thành vô nghĩa.
+            #
+            # DANH SÁCH CHO PHÉP, không phải danh sách loại trừ: thêm một trường
+            # mới vào bản chụp sau này sẽ tự động KHÔNG lọt, thay vì lọt cho tới
+            # khi có người nhớ ra phải chặn nó.
+            "content_config": _display_config(assignment.get("content_config")),
         },
     }
 
@@ -236,6 +261,11 @@ async def start_assignment(
     if not a_rows or not is_assignment_open(a_rows[0]):
         raise HTTPException(404, "Bài tập không còn mở")
     assignment = a_rows[0]
+
+    # 409, not 404: the task exists and is theirs — it simply lapsed. Saying "not
+    # found" would read as a bug to a student looking straight at it on the list.
+    if not is_accepting_submissions(assignment):
+        raise HTTPException(409, "Đã quá hạn nộp — bài tập này không còn nhận bài.")
 
     # Same cohort check as the list: a transferred student must not be able to
     # start their previous class's work just because the item row survived.
