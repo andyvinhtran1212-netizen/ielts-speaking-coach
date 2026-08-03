@@ -172,8 +172,15 @@ thức hoá ngược một quyết định đã ra.
 
 ## Việc phải làm trước khi A1 dùng được đầy đủ
 
-1. **Dựng G2**: probe synthetic có đăng nhập (chỉ đọc, không ghi) — chặn ca
-  `/profile` và mọi cutover authenticated sau này.
+1. ~~**Dựng G2**: probe synthetic có đăng nhập (chỉ đọc, không ghi).~~
+  **CÔNG CỤ ĐÃ CÓ (PR G2, 2026-08-03)**: `frontend/tooling/authed-probe.mjs`
+  (`tick` / `session` / `verdict`) + `frontend/tooling/g2-floor.mjs` (chấm sàn,
+  có test) + `.github/workflows/g2-authed-probe.yml`.
+  **CHƯA CHẠY** — còn chờ chủ dự án: (a) tạo **tài khoản probe riêng** trên
+  production, (b) thêm secret `PROBE_EMAIL`/`PROBE_PASSWORD`, (c) bỏ chú thích
+  khối `schedule`. Cho tới lúc đó, lớp `Authenticated mutation` **vẫn theo A0**
+  và ngoại lệ `/profile` **vẫn mở** — `--mode verdict` từ chối sổ rỗng nên
+  không có đường nào để "chưa bật" bị đọc thành "đã đạt".
 2. **Gác G1 trong CI** cho các route đã port, để cổng parity là bắt buộc chứ
   không phải chạy tay.
 3. **Thêm lượt chạy G1 ở bề rộng nhỏ** (ví dụ 375px) — hiện G1 chỉ chạy 1280px
