@@ -1,9 +1,13 @@
 // Trang chủ Grammar Wiki — route Next canonical `/grammar` (Phase 3, route đầu).
 //
-// Dark-launch theo nghĩa mạnh nhất: `/grammar` hiện đang 404 trên production và
-// KHÔNG trang nào trỏ tới, nên dựng xong là chạy thật mà không ai bị ảnh hưởng.
-// Cutover (redirect `/grammar.html` + đổi link nội bộ) làm sau khi cửa sổ quan
-// sát pilot 3+4 đóng — để nếu `/profile` có sự cố thì còn quy kết một-biến.
+// ĐÃ CUTOVER 2026-08-03: mọi điều hướng nội bộ (chrome, trang chủ, pricing,
+// quiz, các trang Grammar legacy) nay trỏ `/grammar`. Đây là route canonical.
+//
+// KHÔNG redirect `/grammar.html` — cố ý. Bản legacy vẫn được phục vụ, đúng như
+// pilot 2 đã làm với `/pages/grammar-article.html` (vẫn 200 tới hôm nay). Lý do
+// không chỉ là tương thích bookmark: chừng nào cả hai bản còn sống thì cổng
+// parity G1 còn so được. Redirect là gỡ luôn lớp bảo vệ đó. Việc gỡ bản legacy
+// thuộc Phase 7, làm sau và làm có chủ đích.
 //
 // Khuôn PPR (cacheComponents): vỏ tĩnh prerender sẵn, phần đọc `searchParams`
 // nằm SAU `Suspense`. Đây không phải lựa chọn thẩm mỹ — `searchParams` không

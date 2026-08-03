@@ -622,7 +622,9 @@ describe('Sprint 7.11 — <aver-chrome> Web Component contract', () => {
     assert.match(component, /href="\/pages\/writing-dashboard\.html"\s+data-tab="writing"/);
     assert.match(component, /href="\/pages\/speaking\.html"\s+data-tab="speaking"/);
     assert.match(component, /href="\/pages\/listening\.html"\s+data-tab="listening"/);
-    assert.match(component, /href="\/grammar\.html"\s+data-tab="grammar"/);
+    // [cutover /grammar 2026-08-03] chrome trỏ route canonical; bản legacy
+    // `/grammar.html` VẪN phục vụ, chỉ không còn là đích điều hướng.
+    assert.match(component, /href="\/grammar"\s+data-tab="grammar"/);
     // B3 — Vocab nav DEFAULTS to the PUBLIC wiki (/vocabulary.html); aver-chrome
     // swaps it to the login-gated hub (/pages/vocabulary.html) once a session is
     // detected (session-adaptive _applyVocabNav).

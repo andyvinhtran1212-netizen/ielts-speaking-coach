@@ -64,7 +64,7 @@
     var steps = _el('roadmap-steps');
     if (steps) steps.innerHTML = nodes.map(nodeHtml).join('');
     var cta = _el('roadmap-cat-link');
-    if (cta) { cta.textContent = 'Xem toàn bộ Grammar Wiki →'; cta.setAttribute('href', '/grammar.html'); }
+    if (cta) { cta.textContent = 'Xem toàn bộ Grammar Wiki →'; cta.setAttribute('href', '/grammar'); }
   }
 
   function renderEmpty() {
@@ -85,7 +85,7 @@
         '</div>';
     }
     var cta = _el('roadmap-cat-link');
-    if (cta) { cta.textContent = 'Xem toàn bộ Grammar Wiki →'; cta.setAttribute('href', '/grammar.html'); }
+    if (cta) { cta.textContent = 'Xem toàn bộ Grammar Wiki →'; cta.setAttribute('href', '/grammar'); }
   }
 
   function renderError() {

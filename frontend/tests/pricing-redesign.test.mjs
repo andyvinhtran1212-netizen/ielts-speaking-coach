@@ -167,9 +167,9 @@ describe('pricing.html / conversion flow preserved byte-identical', () => {
     assert.ok(count >= 4, `Expected ≥4 zalo.me CTAs; found ${count}`);
   });
 
-  test('href="/grammar.html" appears in nav + footer', () => {
-    const count = (html.match(/href=["']\/grammar\.html["']/g) || []).length;
-    assert.ok(count >= 2, `Expected ≥2 /grammar.html links (nav + footer); found ${count}`);
+  test('href="/grammar" appears in nav + footer', () => {
+    const count = (html.match(/href=["']\/grammar["']/g) || []).length;
+    assert.ok(count >= 2, `Expected ≥2 /grammar links (nav + footer); found ${count}`);
   });
 
   test('href="/#features" deep links preserved (footer)', () => {
