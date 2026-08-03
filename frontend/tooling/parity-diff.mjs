@@ -317,7 +317,11 @@ async function main() {
         extractStable(mk, BASE + p.legacy),
         extractStable(mk, BASE + p.next),
       ]);
-      const r = comparePages(legacy, next, { allow: p.allow || [] });
+      const r = comparePages(legacy, next, {
+        allow: p.allow || [],
+        // Cặp nào cố ý trỏ vào route lỗi thì phải KHAI ra, không mặc định.
+        ...(p.expectStatus === undefined ? {} : { expectStatus: p.expectStatus }),
+      });
       // Đưa danh sách ghi-bị-chặn vào báo cáo: "công cụ đo không ghi" phải là
       // thứ KIỂM ĐƯỢC, không phải lời hứa trong bình luận.
       r.blockedMutations = [...new Set([...(legacy.blockedMutations || []),

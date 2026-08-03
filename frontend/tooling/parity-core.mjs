@@ -222,6 +222,7 @@ function multisetDiff(a, b) {
 
 const SEVERITY = {
   'same-final-url': 'high',
+  'unexpected-status': 'high',
   'baseline-suspect': 'high',
   'resource-failed': 'high',
   'unstable-extraction': 'high',
@@ -250,7 +251,8 @@ const SEVERITY = {
  *   { kind: 'line-extra', value: 'Đang cập nhật', reason: '...' }
  * `value` khớp tuyệt đối, hoặc dùng `startsWith` khi có hậu tố `*`.
  */
-export function comparePages(legacy, next, { allow = [], minBaselineLines = 5 } = {}) {
+export function comparePages(legacy, next,
+  { allow = [], minBaselineLines = 5, expectStatus = 200 } = {}) {
   for (const a of allow) {
     if (!a || !a.kind || !a.reason) {
       throw new Error(
@@ -287,6 +289,18 @@ export function comparePages(legacy, next, { allow = [], minBaselineLines = 5 } 
 
   if (legacy.status !== next.status) {
     push('status-mismatch', `${legacy.status} → ${next.status}`);
+  }
+  // Hai vế cùng hỏng thì `status-mismatch` im lặng, và nếu hai trang lỗi trông
+  // giống nhau (rất dễ, chúng thường là cùng một template) thì cặp đó BÁO
+  // XANH. Một file cặp gõ sai URL, một sự cố hạ tầng, hay cả site sập đều sẽ
+  // được "chứng nhận sạch". Mặc định đòi status thành công; route cố ý lỗi thì
+  // khai `expectStatus` tường minh cho từng cặp.
+  if (expectStatus != null) {
+    for (const [side, f] of [['legacy', legacy], ['next', next]]) {
+      if (typeof f.status === 'number' && f.status > 0 && f.status !== expectStatus) {
+        push('unexpected-status', `${side}: ${f.status} (mong đợi ${expectStatus})`);
+      }
+    }
   }
   if (normalizeText(legacy.title) !== normalizeText(next.title)) {
     push('title-mismatch', `${normalizeText(legacy.title)} → ${normalizeText(next.title)}`);

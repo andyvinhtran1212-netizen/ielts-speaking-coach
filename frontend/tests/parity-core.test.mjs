@@ -321,6 +321,26 @@ describe('vá 7 phát hiện của vòng review đầu', () => {
       .findings.some((x) => x.kind === 'api-missing'));
   });
 
+  test('hai vế CÙNG lỗi vẫn phải chặn (review #906)', () => {
+    // `status-mismatch` im lặng khi hai bên bằng nhau, mà trang lỗi hai bên
+    // thường dùng chung template ⇒ nội dung khớp ⇒ cặp báo xanh. Một file cặp
+    // gõ sai URL hay một sự cố hạ tầng sẽ được "chứng nhận sạch".
+    const l = { ...base(), status: 500 };
+    const n = nextSide({ status: 500 });
+    const r = comparePages(l, n);
+    assert.equal(r.pass, false, 'cùng 500 hai bên vẫn phải đỏ');
+    assert.equal(r.findings.filter((f) => f.kind === 'unexpected-status').length, 2);
+    assert.ok(!r.findings.some((f) => f.kind === 'status-mismatch'),
+      'chốt cũ đúng là im lặng ở ca này — nên mới cần chốt mới');
+  });
+
+  test('route cố ý lỗi thì phải KHAI expectStatus, không mặc định', () => {
+    const l = { ...base(), status: 404 };
+    const n = nextSide({ status: 404 });
+    assert.equal(comparePages(l, n).pass, false, 'không khai thì chặn');
+    assert.equal(comparePages(l, n, { expectStatus: 404 }).pass, true, 'khai rồi thì cho qua');
+  });
+
   test('ngoại lệ không còn khớp gì thì bị nêu tên', () => {
     // Chính bản vá #7 đã làm hai ngoại lệ API im lặng hết khớp. Ngoại lệ mục
     // ruỗng nguy hiểm hơn ngoại lệ sai vì nó vô hình.
