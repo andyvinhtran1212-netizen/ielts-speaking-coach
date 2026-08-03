@@ -241,9 +241,16 @@ describe('workflow chọn đúng chế độ theo cron (review #910)', () => {
       'huỷ giữa chừng phiên dài là mất vế token refresh');
   });
 
-  test('cron chưa bật, và ghi rõ điều kiện bật', () => {
-    assert.match(WF_RAW, /# *schedule:/, 'cron phải còn chú thích cho tới khi có secret');
-    assert.ok(!/^\s*schedule:/m.test(WF), 'schedule chưa được bật');
+  test('cron ĐÃ bật, đúng hai lịch của sàn ADR-013-A1', () => {
+    assert.match(WF, /^\s*schedule:/m, 'schedule phải đang hoạt động');
+    // Nhịp 20 phút là ĐIỀU KIỆN của sàn (n≥72 · trải ≥24h · nhịp ≤20 phút),
+    // không phải lựa chọn tuỳ ý: 72 × 20 phút = đúng 24h.
+    assert.match(WF, /cron: "\*\/20 \* \* \* \*"/);
+    // Và lịch phiên dài phải khớp CHÍNH chuỗi mà PROBE_MODE dò để chọn
+    // `session`; lệch một ký tự là cron đó âm thầm chạy `tick`.
+    assert.match(WF, /cron: "17 3 \* \* \*"/);
+    assert.match(PROBE_MODE_BLOCK, /'17 3 \* \* \*'/,
+      'chuỗi cron phiên-dài phải khớp giữa `schedule` và `PROBE_MODE`');
     assert.match(WF, /PROBE_EMAIL/);
   });
 });
