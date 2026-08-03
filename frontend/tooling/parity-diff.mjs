@@ -16,7 +16,8 @@ import { chromium } from '@playwright/test';
 import { writeFileSync, readFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 
-import { canonicalHref, normalizeText, comparePages, formatReport } from './parity-core.mjs';
+import { normalizeText, comparePages, formatReport, buildFacts, hrefFromInlineHandler }
+  from './parity-core.mjs';
 
 const argv = process.argv.slice(2);
 const arg = (name, dflt = null) => {
@@ -42,15 +43,14 @@ const DEFAULT_PAIRS = [
     allow: [
       // Next fetch phía MÁY CHỦ nên trình duyệt không phát request nào — đó
       // chính là mục đích của SSR, không phải mất lời gọi.
-      { kind: 'api-missing', value: '/api/grammar/home',
+      { kind: 'api-missing', value: 'GET /api/grammar/home',
         reason: 'Next fetch phía máy chủ (lib/backend.ts), trình duyệt không gọi' },
-      { kind: 'api-missing', value: '/api/grammar/groups',
+      { kind: 'api-missing', value: 'GET /api/grammar/groups',
         reason: 'Next fetch phía máy chủ (lib/backend.ts), trình duyệt không gọi' },
-      // Legacy dựng thẻ thư mục bằng onclick/onkeydown giả lập link (grammar.js
-      // dòng 107–111); bản Next dùng <a> thật ⇒ chuột giữa/phải và bàn phím
-      // hoạt động đúng chuẩn. Link "thừa" ở đây là cải thiện có chủ đích.
-      { kind: 'link-extra', value: '/grammar?category=*',
-        reason: 'thẻ thư mục nay là <a> thật thay vì onclick giả lập (có chủ đích)' },
+      // KHÔNG miễn trừ link thư mục nữa. Vòng review đầu tôi miễn cả cụm
+      // `/grammar?category=*` vì legacy dùng onclick nên "không có gì để so" —
+      // nghĩa là một slug thư mục SAI cũng lọt. Nay `hrefFromInlineHandler`
+      // đọc được đích của onclick, hai bên so được thật.
     ],
   },
 ];
@@ -65,7 +65,9 @@ async function expandGrammar() {
     const r = await fetch(
       `${API_BASE}/api/grammar/category/${encodeURIComponent(cat.slug)}`,
       { signal: AbortSignal.timeout(15000) });
-    if (!r.ok) continue;
+    // KHÔNG `continue` khi lỗi: bỏ im một thư mục nghĩa là lần quét thiếu bài
+    // mà vẫn báo xanh — đúng kiểu "im lặng nên trông như đã phủ hết".
+    if (!r.ok) throw new Error(`không tải được thư mục ${cat.slug}: HTTP ${r.status}`);
     const data = await r.json();
     for (const a of data.articles || []) {
       if (!a.slug || !a.category) continue;
@@ -83,7 +85,7 @@ async function expandGrammar() {
 async function extract(context, url) {
   const page = await context.newPage();
   const consoleErrors = [];
-  const apiPaths = [];
+  const apiCalls = [];
   page.on('console', (m) => {
     if (m.type() === 'error') consoleErrors.push(normalizeText(m.text()).slice(0, 200));
   });
@@ -91,7 +93,11 @@ async function extract(context, url) {
   page.on('request', (r) => {
     try {
       const u = new URL(r.url());
-      if (u.origin === API_BASE || u.pathname.startsWith('/api/')) apiPaths.push(u.pathname);
+      if (u.origin === API_BASE || u.pathname.startsWith('/api/')) {
+        // Giữ method + query: `?q=tenses` khác `?q=conditionals` là hai hành
+        // vi khác nhau, chỉ so pathname sẽ không thấy.
+        apiCalls.push({ method: r.method(), pathname: u.pathname, search: u.search });
+      }
     } catch { /* URL lạ thì bỏ qua, không để chết cả lần chạy */ }
   });
 
@@ -104,8 +110,8 @@ async function extract(context, url) {
     await page.waitForTimeout(SETTLE_MS);
   } catch (e) {
     await page.close();
-    return { url, status, title: '', headings: [], links: [], lines: [],
-             components: [], apiPaths: [], consoleErrors: [`NAVIGATION: ${e.message}`] };
+    return buildFacts({}, { url, finalUrl: url, status, apiCalls: [],
+                            consoleErrors: [`NAVIGATION: ${e.message}`] });
   }
 
   const facts = await page.evaluate(() => {
@@ -121,11 +127,24 @@ async function extract(context, url) {
       ? el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
       : el.getClientRects().length > 0);
     const headings = [...document.querySelectorAll('h1,h2,h3,h4')]
-      .filter(vis).map((h) => `${h.tagName}:${h.textContent}`);
+      .filter(vis).map((h) => ({ tag: h.tagName, text: h.textContent }));
     // Chỉ so link NGƯỜI DÙNG thấy được — cùng một luật với heading, nếu không
     // thì hai mặt của cùng bộ so lại dùng hai định nghĩa "có mặt" khác nhau.
+    // Nhãn link = DÒNG ĐẦU nhìn thấy, không phải toàn bộ chữ bên trong.
+    // Lý do đo được: legacy cho CẢ thẻ thư mục bấm được (onclick trên <div>),
+    // nên `textContent` nuốt luôn danh sách bài con — "Tenses8 bàiPresent
+    // SimplePresent Continuous…" — trong khi bản Next chỉ bọc phần đầu thẻ
+    // bằng <a>. Cùng một đích đến, chữ khác nhau ⇒ 11 lệch giả. Dòng đầu là
+    // nhãn chính người dùng đọc, ổn định trước khác biệt về phạm vi vùng bấm,
+    // mà vẫn đủ để bắt lỗi đấu dây (đổi chỗ href thì dòng đầu đổi theo).
+    const label = (el) => (el.innerText || '').split('\n').map((t) => t.trim())
+      .find((t) => t.length > 0) || '';
     const links = [...document.querySelectorAll('a[href]')]
-      .filter(vis).map((a) => a.getAttribute('href'));
+      .filter(vis).map((a) => ({ text: label(a), href: a.getAttribute('href') }));
+    // Legacy dựng "link" bằng onclick (grammar.js:110). Lấy cả dạng này, nếu
+    // không thì phía legacy trống và mọi link tương ứng của Next thành "thừa".
+    const inline = [...document.querySelectorAll('[onclick]')]
+      .filter(vis).map((el) => ({ text: label(el), onclick: el.getAttribute('onclick') }));
     // Custom element + landmark: đây là thứ bắt được "trang thiếu chrome".
     // Component KHÔNG lọc theo hiển thị: `aver-chrome` là custom element bọc
     // ngoài, có thể `display:contents` ⇒ lọc sẽ giấu mất chính lỗi mất chrome
@@ -138,22 +157,21 @@ async function extract(context, url) {
     const root = document.body;
     const lines = (root ? root.innerText : '').split('\n')
       .map((s) => s.trim()).filter((s) => s.length > 1);
-    return { title: document.title, headings, links, lines, components };
+    return { title: document.title, headings, links, inline, lines, components };
   });
+  // URL SAU redirect. `/pages/profile.html` nay 307 sang `/profile`, nên nếu
+  // không ghi lại thì một cặp cấu hình nhầm sẽ tự so với chính mình và luôn xanh.
+  const finalUrl = page.url();
   await page.close();
 
-  const origin = new URL(url).origin;
-  return {
-    url,
-    status,
-    title: facts.title,
-    headings: facts.headings.map(normalizeText),
-    links: [...new Set(facts.links.map((h) => canonicalHref(h, { origin })).filter(Boolean))].sort(),
-    lines: facts.lines.map(normalizeText).filter(Boolean),
-    components: facts.components.sort(),
-    apiPaths: [...new Set(apiPaths)].sort(),
-    consoleErrors,
-  };
+  // Link giả lập bằng onclick được quy về cùng hình dạng với <a href>.
+  const inlineLinks = (facts.inline || [])
+    .map((el) => ({ text: el.text, href: hrefFromInlineHandler(el.onclick) }))
+    .filter((l) => l.href);
+
+  return buildFacts(
+    { ...facts, links: [...facts.links, ...inlineLinks] },
+    { url, finalUrl, status, apiCalls, consoleErrors });
 }
 
 async function main() {
@@ -194,6 +212,11 @@ async function main() {
 
   results.sort((a, b) => b.counts.high - a.counts.high);
   console.log(formatReport(results));
+  for (const r of results) {
+    for (const a of r.unusedAllow || []) {
+      console.log(`  ⚠ ngoại lệ không còn khớp gì (${r.name}): ${a.kind} = ${a.value}`);
+    }
+  }
 
   if (OUT) {
     mkdirSync(path.dirname(OUT), { recursive: true });
