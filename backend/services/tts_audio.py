@@ -67,11 +67,16 @@ async def synthesize_mp3(text: str, voice: str = DEFAULT_VOICE) -> bytes:
 
 
 def _engine_tag(engine: str) -> str:
-    """Per-engine cache-bust tag baked into the path hash so OpenAI + ElevenLabs
-    audio for the SAME text land at DIFFERENT object keys (switching engine never
+    """Per-engine cache-bust tag baked into the path hash so each engine's audio
+    for the SAME text lands at a DIFFERENT object key (switching engine never
     overwrites the other; audio_url just points at whichever was generated last)."""
     if engine == "elevenlabs":
         return f"elevenlabs-{settings.VOCAB_TTS_ELEVENLABS_VOICE_ID}-{_POST_TAG}"
+    if engine == "kokoro":
+        # Voice is already in the hash key, so only the engine + model version
+        # belong here. Bump KOKORO_MODEL_TAG on a model upgrade so old clips are
+        # re-rendered at fresh paths instead of silently mixing two voices.
+        return f"kokoro-{KOKORO_MODEL_TAG}-{_POST_TAG}"
     return f"{_ACCENT_TAG}-{_POST_TAG}"   # pad version in the key → padded audio at new paths
 
 
@@ -189,10 +194,76 @@ def _synth_elevenlabs_sync(text: str) -> bytes:
     return resp.content
 
 
+KOKORO_MODEL_TAG = "v1.0"
+KOKORO_DEFAULT_VOICE = "bf_emma"      # British female — IELTS examiner register
+_KOKORO_SAMPLE_RATE = 24000
+# Kokoro voice ids are `<lang><gender>_<name>`; the first letter picks the
+# grapheme-to-phoneme language. 'b' = British English, which is what an IELTS
+# examiner sounds like — 'a' (American) would teach the wrong listening target.
+_KOKORO_LANG_OF = {"a": "a", "b": "b"}
+
+
+def _synth_kokoro_sync(text: str, voice: str = KOKORO_DEFAULT_VOICE) -> bytes:
+    """Kokoro TTS (chạy CỤC BỘ) → mp3 bytes.
+
+    Runs on this machine rather than through an API: question audio is rendered
+    once, in bulk, for a fixed bank — there is no per-request latency to pay and
+    no reason to send the same few hundred sentences to a paid endpoint every
+    time the bank grows.
+
+    Raises RuntimeError with an actionable message when the package is missing,
+    because the alternative — silently falling back to another engine — would mix
+    two different voices inside one exam paper without anyone noticing.
+    """
+    try:
+        from kokoro import KPipeline
+    except ImportError as exc:
+        raise RuntimeError(
+            "kokoro chưa được cài. Cài bằng: pip install kokoro soundfile "
+            "(kèm torch). Không tự rơi về engine khác — trộn hai giọng trong "
+            "cùng một đề thi là lỗi không ai nhìn ra."
+        ) from exc
+
+    import numpy as np
+    from pydub import AudioSegment
+
+    lang = _KOKORO_LANG_OF.get((voice or "")[:1], "b")
+    pipeline = _kokoro_pipeline(lang)
+    chunks = [audio for _gs, _ps, audio in pipeline(text, voice=voice)]
+    if not chunks:
+        raise RuntimeError(f"Kokoro không sinh được audio cho: {text[:60]!r}")
+
+    samples = np.concatenate([np.asarray(c, dtype="float32") for c in chunks])
+    # float32 [-1, 1] → PCM16, the only format pydub reads without a temp file.
+    pcm16 = (np.clip(samples, -1.0, 1.0) * 32767).astype("<i2").tobytes()
+    seg = AudioSegment(data=pcm16, sample_width=2,
+                       frame_rate=_KOKORO_SAMPLE_RATE, channels=1)
+    buf = io.BytesIO()
+    seg.export(buf, format="mp3")
+    return buf.getvalue()
+
+
+_KOKORO_PIPELINES: dict = {}
+
+
+def _kokoro_pipeline(lang: str):
+    """One pipeline per language, reused.
+
+    Building it loads the model — several seconds and a few hundred MB. Rendering
+    a bank of hundreds of questions would otherwise pay that on every single
+    line."""
+    if lang not in _KOKORO_PIPELINES:
+        from kokoro import KPipeline
+        _KOKORO_PIPELINES[lang] = KPipeline(lang_code=lang)
+    return _KOKORO_PIPELINES[lang]
+
+
 def synth_sync(text: str, engine: str = "openai", voice: str = DEFAULT_VOICE) -> bytes:
-    """Engine-dispatch (sync). engine='openai' (default) | 'elevenlabs'."""
+    """Engine-dispatch (sync). engine='openai' (default) | 'elevenlabs' | 'kokoro'."""
     if engine == "elevenlabs":
         return _synth_elevenlabs_sync(text)
+    if engine == "kokoro":
+        return _synth_kokoro_sync(text, voice)
     return _synth_openai_sync(text, voice)
 
 
