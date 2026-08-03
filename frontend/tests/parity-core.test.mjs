@@ -427,6 +427,17 @@ describe('cổng parity trong CI (review #914)', () => {
     assert.match(GATE_ACTIVE, /scope=full/);
   });
 
+  test('cổng phải quét CẢ bề rộng điện thoại', () => {
+    // Chứng minh bằng thí nghiệm, không phải suy đoán: gài `hidden sm:block`
+    // vào đoạn mô tả hero của bản Next ⇒ lượt 1280px cho 0 phát hiện, lượt
+    // 375px bắt được `line-missing`. Bỏ lượt 375 là bỏ cả lớp hồi quy đó.
+    assert.match(GATE_ACTIVE, /for VP in 1280x900 375x812/,
+      'phải chạy cả hai bề rộng');
+    assert.match(GATE_ACTIVE, /--viewport "\$VP"/);
+    // Và phải chạy HẾT rồi mới thoát, không dừng ở cái đỏ đầu tiên.
+    assert.match(GATE_ACTIVE, /\|\| FAIL=1[\s\S]*exit \$FAIL/);
+  });
+
   test('có chốt CORS chạy TRƯỚC khi so', () => {
     assert.match(GATE_ACTIVE, /Access-Control-Request-Method/,
       'trang trả 200 không chứng minh nó fetch được — phải kiểm preflight');
