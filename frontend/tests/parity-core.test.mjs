@@ -20,6 +20,11 @@ import {
   buildFacts, linkFact, hrefFromInlineHandler, sameDocumentUrl,
 } from '../tooling/parity-core.mjs';
 
+const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+const GATE = readFileSync(path.join(ROOT, '.github', 'workflows', 'parity-gate.yml'), 'utf8');
+const GATE_ACTIVE = GATE.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
+const BACKEND_MAIN = readFileSync(path.join(ROOT, 'backend', 'main.py'), 'utf8');
+
 const RUNNER = readFileSync(
   path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'tooling', 'parity-diff.mjs'),
   'utf8');
@@ -383,5 +388,47 @@ describe('formatReport', () => {
 
   test('normalizeText gộp khoảng trắng, giữ dấu tiếng Việt', () => {
     assert.equal(normalizeText('  Ngữ   pháp\n IELTS '), 'Ngữ pháp IELTS');
+  });
+});
+
+describe('cổng parity trong CI (review #914)', () => {
+  test('PARITY_PORT phải nằm trong allowlist CORS của backend', () => {
+    // Bất biến LIÊN TỆP, và là ca đã cắn thật: chạy ở cổng ngoài allowlist thì
+    // vế legacy không fetch được, trang hiện "Lỗi: Failed to fetch", và bảng
+    // kết quả thành 938 `line-extra` toàn mức thấp ⇒ cổng XANH trên nền rác.
+    const port = (/PARITY_PORT:\s*'(\d+)'/.exec(GATE_ACTIVE) || [])[1];
+    assert.ok(port, 'workflow phải khai PARITY_PORT');
+    const allowed = [...BACKEND_MAIN.matchAll(/"http:\/\/(?:localhost|127\.0\.0\.1):(\d+)"/g)]
+      .map((m) => m[1]);
+    assert.ok(allowed.length, 'không đọc được allowlist trong backend/main.py');
+    assert.ok(allowed.includes(port),
+      `PARITY_PORT=${port} không có trong allowlist CORS ${JSON.stringify([...new Set(allowed)])}`);
+  });
+
+  test('bộ lọc KHÔNG bắt route mà G1 không so được', () => {
+    // `/` và `/profile`: bản legacy đã bị gỡ (đo được `/index.html` → 307 sang
+    // `/`), nên không còn gì để so. Bắt `frontend/app/**` nghĩa là PR sửa hai
+    // route đó vẫn kích hoạt job rồi BÁO XANH mà chưa mở route đã sửa.
+    assert.ok(!/- 'frontend\/app\/\*\*'/.test(GATE_ACTIVE),
+      'bộ lọc rộng = cổng tự cấp phép cho route nó không so');
+    assert.ok(!/\(authed\)/.test(GATE_ACTIVE),
+      'route cần đăng nhập nằm ngoài tầm G1 (do G2 + staging E2E che)');
+    assert.match(GATE_ACTIVE, /- 'frontend\/app\/\(public-content\)\/\*\*'/);
+  });
+
+  test('PR đụng bộ render BÀI VIẾT phải chạy phạm vi đầy đủ', () => {
+    // `--categories-only` không mở trang bài nào; nếu PR sửa bộ render bài mà
+    // vẫn chạy phạm vi hẹp thì lần chạy CHẶN-MERGE không phủ chỗ đã sửa, và
+    // lịch đêm chỉ báo SAU khi đã merge.
+    assert.match(GATE_ACTIVE, /steps\.scope\.outputs\.scope/,
+      'phạm vi phải suy từ tệp đã sửa, không phải hằng số');
+    assert.match(GATE_ACTIVE, /\[category\]\\\/\\\[slug\\\]|category.*slug/,
+      'quy tắc chọn phạm vi phải nhắc tới đường dẫn bài viết');
+    assert.match(GATE_ACTIVE, /scope=full/);
+  });
+
+  test('có chốt CORS chạy TRƯỚC khi so', () => {
+    assert.match(GATE_ACTIVE, /Access-Control-Request-Method/,
+      'trang trả 200 không chứng minh nó fetch được — phải kiểm preflight');
   });
 });

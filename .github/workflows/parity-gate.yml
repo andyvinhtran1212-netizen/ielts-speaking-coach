@@ -24,11 +24,31 @@
 name: Parity gate (G1)
 
 on:
+  # BỘ LỌC CHỈ LIỆT KÊ NHỮNG GÌ G1 THẬT SỰ SO ĐƯỢC.
+  #
+  # G1 cần CẢ HAI bản còn được phục vụ. Kiểm trên production:
+  #   /index.html         → 307 sang `/`  ⇒ bản legacy của trang chủ ĐÃ GỠ khi
+  #                         cutover pilot 1 ⇒ không còn gì để so
+  #   /pages/profile.html → 307 sang `/profile` ⇒ tương tự, và route này còn cần
+  #                         đăng nhập nên bản ẩn danh không so được
+  # Cả hai ca trên đều bị chốt `same-final-url` từ chối — đã đo.
+  #
+  # Trước bản này bộ lọc bắt cả `frontend/app/**`, nên một PR sửa `/` hay
+  # `/profile` sẽ kích hoạt job rồi BÁO XANH mà chưa từng mở route đã sửa. Cổng
+  # tự cấp phép còn tệ hơn không có cổng.
+  #
+  # HỆ QUẢ CẦN NHỚ: giá trị của G1 là HỮU HẠN theo từng route — nó chỉ tồn tại
+  # từ lúc dựng bản Next tới lúc gỡ bản legacy. Sau khi gỡ legacy, route đó
+  # được che bởi test + G2 + rollback, không còn parity nữa.
   pull_request:
     paths:
-      - 'frontend/app/**'
-      - 'frontend/lib/**'
-      - 'frontend/public/**'
+      - 'frontend/app/(public-content)/**'
+      - 'frontend/lib/backend.ts'
+      - 'frontend/lib/grammar-api.ts'
+      - 'frontend/public/grammar.html'
+      - 'frontend/public/js/grammar.js'
+      - 'frontend/public/pages/grammar-article.html'
+      - 'frontend/public/js/components/aver-chrome.js'
       - 'frontend/tooling/parity-core.mjs'
       - 'frontend/tooling/parity-diff.mjs'
       - 'frontend/next.config.ts'
@@ -78,6 +98,9 @@ jobs:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v5
+        with:
+          # Cần lịch sử để so diff với nhánh gốc mà chọn phạm vi.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v5
         with:
@@ -129,9 +152,33 @@ jobs:
           fi
           echo "CORS OK: $allow"
 
+      # PHẠM VI PHẢI THEO NỘI DUNG PR, không phải một hằng số.
+      # PR sửa bộ render bài viết (`[category]/[slug]/**`) mà chỉ chạy
+      # `--categories-only` thì lần chạy CHẶN-MERGE không hề mở một trang bài
+      # nào; lịch đêm chỉ phát hiện SAU khi đã merge. Ca đó phải chạy bộ đầy đủ.
+      - name: Chọn phạm vi theo tệp đã sửa
+        id: scope
+        run: |
+          if [ -n "${{ inputs.scope }}" ]; then
+            echo "scope=${{ inputs.scope }}" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "scope=full" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          BASE="origin/${{ github.base_ref }}"
+          CHANGED=$(git diff --name-only "$BASE"...HEAD || true)
+          echo "tệp đã sửa:"; echo "$CHANGED" | sed 's/^/  /'
+          if echo "$CHANGED" | grep -qE 'frontend/app/\(public-content\)/grammar/\[category\]/\[slug\]/|frontend/tooling/parity-|frontend/lib/(backend|grammar-api)\.ts|frontend/public/pages/grammar-article\.html'; then
+            echo "→ đụng bộ render BÀI VIẾT hoặc tầng dùng chung ⇒ phạm vi FULL"
+            echo "scope=full" >> "$GITHUB_OUTPUT"
+          else
+            echo "→ phạm vi categories (trang chủ + thư mục)"
+            echo "scope=categories" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Chạy cổng parity
         run: |
-          SCOPE="${{ inputs.scope || (github.event_name == 'schedule' && 'full') || 'categories' }}"
+          SCOPE="${{ steps.scope.outputs.scope }}"
           echo "phạm vi: $SCOPE"
           if [ "$SCOPE" = "full" ]; then
             node tooling/parity-diff.mjs --base "http://localhost:$PARITY_PORT" \
