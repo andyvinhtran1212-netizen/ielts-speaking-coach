@@ -27,7 +27,11 @@ const arg = (name, dflt = null) => {
 const flag = (name) => argv.includes(name);
 
 const BASE = (arg('--base', 'https://www.averlearning.com')).replace(/\/+$/, '');
-const API_BASE = arg('--api', 'https://ielts-speaking-coach-production.up.railway.app');
+const API_BASE_RAW = arg('--api', 'https://ielts-speaking-coach-production.up.railway.app');
+// So theo ORIGIN đã chuẩn hoá: `--api http://localhost:8000/` (thừa dấu /) mà
+// so chuỗi thô sẽ trượt hết request thật (phát hiện #11 vòng 2).
+const API_ORIGIN = new URL(API_BASE_RAW).origin;
+const API_BASE = API_BASE_RAW.replace(/\/+$/, '');
 const LIMIT = Number(arg('--limit', '0')) || 0;
 const ONLY = arg('--only', '');
 const OUT = arg('--json', '');
@@ -60,8 +64,31 @@ async function expandGrammar() {
   const res = await fetch(`${API_BASE}/api/grammar/home`, { signal: AbortSignal.timeout(15000) });
   if (!res.ok) throw new Error(`không tải được danh mục Grammar: ${res.status}`);
   const home = await res.json();
+  const cats = home.categories;
+  // KHÔNG `|| []`: hình dạng lạ mà lặng lẽ coi như "không có thư mục nào" thì
+  // lần quét rỗng vẫn báo xanh (phát hiện #7 vòng 2).
+  if (!Array.isArray(cats) || !cats.length) {
+    throw new Error('/api/grammar/home không trả `categories` — không thể quét');
+  }
   const pairs = [];
-  for (const cat of home.categories || []) {
+  let skipped = 0;
+  for (const cat of cats) {
+    // Trang THƯ MỤC là một chế độ render riêng của trang chủ và trước đây
+    // không hề được quét: `?category=` hỏng thì cả loạt trang thư mục vỡ mà
+    // bộ so vẫn xanh (phát hiện #1 vòng 2).
+    pairs.push({
+      name: `category:${cat.slug}`,
+      legacy: `/grammar.html?category=${encodeURIComponent(cat.slug)}`,
+      next: `/grammar?category=${encodeURIComponent(cat.slug)}`,
+      // Ngoại lệ ĐÚNG MỘT endpoint của đúng thư mục này — không phải một
+      // luật tiền tố quét cả cụm. Vòng 1 tôi miễn cả cụm cho gọn và hệ quả là
+      // một slug sai cũng lọt; không lặp lại kiểu đó.
+      allow: [{
+        kind: 'api-missing',
+        value: `GET /api/grammar/category/${cat.slug}`,
+        reason: 'Next fetch phía máy chủ (lib/backend.ts), trình duyệt không gọi',
+      }],
+    });
     const r = await fetch(
       `${API_BASE}/api/grammar/category/${encodeURIComponent(cat.slug)}`,
       { signal: AbortSignal.timeout(15000) });
@@ -70,19 +97,49 @@ async function expandGrammar() {
     if (!r.ok) throw new Error(`không tải được thư mục ${cat.slug}: HTTP ${r.status}`);
     const data = await r.json();
     for (const a of data.articles || []) {
-      if (!a.slug || !a.category) continue;
+      if (!a.slug || !a.category) { skipped += 1; continue; }
       pairs.push({
+        allow: [{
+          kind: 'api-missing',
+          value: `GET /api/grammar/article/${a.category}/${a.slug}`,
+          reason: 'Next fetch phía máy chủ (lib/backend.ts), trình duyệt không gọi',
+        }],
         name: `article:${a.category}/${a.slug}`,
         legacy: `/pages/grammar-article.html?category=${encodeURIComponent(a.category)}&slug=${encodeURIComponent(a.slug)}`,
         next: `/grammar/${encodeURIComponent(a.category)}/${encodeURIComponent(a.slug)}`,
       });
     }
   }
+  // Nói ra cái bị bỏ. Cắt bớt trong im lặng đọc y như "đã phủ hết".
+  if (skipped) console.log(`  ⚠ bỏ qua ${skipped} bài thiếu slug/category — lần quét KHÔNG phủ hết`);
   return pairs;
 }
 
-/** Trích "page facts" — đúng hình dạng mà `parity-core` đọc. */
-async function extract(context, url) {
+/**
+ * Trích hai lần và đòi ổn định.
+ *
+ * `networkidle` + một khoảng chờ cố định KHÔNG bảo đảm render client đã xong;
+ * dưới độ trễ backend dao động, kết quả sẽ chớp giữa các lần chạy và người ta
+ * mất lòng tin vào cả công cụ (phát hiện #12 vòng 2). Không thể loại bỏ hẳn
+ * chạy đua, nhưng có thể làm nó HIỆN RA thay vì âm thầm: chụp hai lần cách
+ * nhau, khác nhau thì thử lại, vẫn khác thì báo `unstable-extraction` — một
+ * phát hiện mức cao, chứ không phải một con số trông có vẻ chắc chắn.
+ */
+async function extractStable(context, url) {
+  let last = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const a = await extractOnce(context, url);
+    const b = await extractOnce(context, url);
+    const key = (f) => JSON.stringify([f.headings, f.links, f.lines, f.components, f.status]);
+    if (key(a) === key(b)) return a;
+    last = a;
+  }
+  return { ...last, consoleErrors: [...(last.consoleErrors || [])],
+           unstable: true };
+}
+
+/** Một lần trích — đúng hình dạng mà `parity-core` đọc. */
+async function extractOnce(context, url) {
   const page = await context.newPage();
   const consoleErrors = [];
   const apiCalls = [];
@@ -90,10 +147,20 @@ async function extract(context, url) {
     if (m.type() === 'error') consoleErrors.push(normalizeText(m.text()).slice(0, 200));
   });
   page.on('pageerror', (e) => consoleErrors.push(normalizeText(String(e)).slice(0, 200)));
+  // CSS hay chunk 404 làm trang vỡ bố cục trong khi DOM chữ vẫn khớp y hệt.
+  const resourceFailures = [];
+  page.on('response', (r) => {
+    if (r.status() >= 400) {
+      try { resourceFailures.push(`${r.status()} ${new URL(r.url()).pathname}`); } catch { /* bỏ */ }
+    }
+  });
+  page.on('requestfailed', (r) => {
+    try { resourceFailures.push(`FAILED ${new URL(r.url()).pathname}`); } catch { /* bỏ */ }
+  });
   page.on('request', (r) => {
     try {
       const u = new URL(r.url());
-      if (u.origin === API_BASE || u.pathname.startsWith('/api/')) {
+      if (u.origin === API_ORIGIN || u.pathname.startsWith('/api/')) {
         // Giữ method + query: `?q=tenses` khác `?q=conditionals` là hai hành
         // vi khác nhau, chỉ so pathname sẽ không thấy.
         apiCalls.push({ method: r.method(), pathname: u.pathname, search: u.search });
@@ -111,10 +178,26 @@ async function extract(context, url) {
   } catch (e) {
     await page.close();
     return buildFacts({}, { url, finalUrl: url, status, apiCalls: [],
+                            resourceFailures,
                             consoleErrors: [`NAVIGATION: ${e.message}`] });
   }
 
   const facts = await page.evaluate(() => {
+    // Đi xuyên shadow root MỞ. `aver-chrome` dùng `attachShadow({mode:'open'})`
+    // (aver-chrome.js:397) nên toàn bộ điều hướng nằm trong shadow tree —
+    // `document.querySelectorAll` không thấy gì. Trước bản này, một chrome CÓ
+    // mặt nhưng rỗng ruột sẽ qua cửa (phát hiện #2 vòng 2).
+    const deepAll = (sel) => {
+      const out = [];
+      const walk = (root) => {
+        out.push(...root.querySelectorAll(sel));
+        for (const el of root.querySelectorAll('*')) {
+          if (el.shadowRoot) walk(el.shadowRoot);
+        }
+      };
+      walk(document);
+      return out;
+    };
     // Lần chạy đầu (03/08) bộ so báo 3 lệch mức cao mà cả 3 đều là lỗi CỦA NÓ:
     //  · `getComputedStyle(el).display` đọc display của CHÍNH el — cha bị
     //    `display:none` thì con vẫn trả 'block'. `grammar.html` có sẵn hai
@@ -126,7 +209,7 @@ async function extract(context, url) {
     const vis = (el) => (typeof el.checkVisibility === 'function'
       ? el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
       : el.getClientRects().length > 0);
-    const headings = [...document.querySelectorAll('h1,h2,h3,h4')]
+    const headings = deepAll('h1,h2,h3,h4')
       .filter(vis).map((h) => ({ tag: h.tagName, text: h.textContent }));
     // Chỉ so link NGƯỜI DÙNG thấy được — cùng một luật với heading, nếu không
     // thì hai mặt của cùng bộ so lại dùng hai định nghĩa "có mặt" khác nhau.
@@ -139,11 +222,11 @@ async function extract(context, url) {
     // mà vẫn đủ để bắt lỗi đấu dây (đổi chỗ href thì dòng đầu đổi theo).
     const label = (el) => (el.innerText || '').split('\n').map((t) => t.trim())
       .find((t) => t.length > 0) || '';
-    const links = [...document.querySelectorAll('a[href]')]
+    const links = deepAll('a[href]')
       .filter(vis).map((a) => ({ text: label(a), href: a.getAttribute('href') }));
     // Legacy dựng "link" bằng onclick (grammar.js:110). Lấy cả dạng này, nếu
     // không thì phía legacy trống và mọi link tương ứng của Next thành "thừa".
-    const inline = [...document.querySelectorAll('[onclick]')]
+    const inline = deepAll('[onclick]')
       .filter(vis).map((el) => ({ text: label(el), onclick: el.getAttribute('onclick') }));
     // Custom element + landmark: đây là thứ bắt được "trang thiếu chrome".
     // Component KHÔNG lọc theo hiển thị: `aver-chrome` là custom element bọc
@@ -151,7 +234,7 @@ async function extract(context, url) {
     // mà nó sinh ra để bắt. Ở đây hợp đồng là CÓ MẶT, không phải nhìn thấy.
     const components = [];
     for (const tag of ['aver-chrome', 'main', 'header', 'footer', 'nav']) {
-      const n = document.querySelectorAll(tag).length;
+      const n = deepAll(tag).length;
       for (let i = 0; i < n; i++) components.push(tag);
     }
     const root = document.body;
@@ -171,7 +254,7 @@ async function extract(context, url) {
 
   return buildFacts(
     { ...facts, links: [...facts.links, ...inlineLinks] },
-    { url, finalUrl, status, apiCalls, consoleErrors });
+    { url, finalUrl, status, apiCalls, resourceFailures, consoleErrors });
 }
 
 async function main() {
@@ -188,7 +271,6 @@ async function main() {
   console.log(`parity: ${pairs.length} cặp · base ${BASE} · đồng thời ${CONCURRENCY}`);
 
   const browser = await chromium.launch();
-  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   const results = [];
   let done = 0;
 
@@ -197,11 +279,26 @@ async function main() {
     for (;;) {
       const p = queue.shift();
       if (!p) return;
+      // Context RIÊNG cho mỗi vế: cookie/localStorage/cache dùng chung sẽ rò
+      // trạng thái giữa các cặp và giữa legacy↔Next (ví dụ `_aver_grammar_reads`
+      // làm CTA khách hiện ở trang này mà không hiện ở trang kia), khiến kết
+      // quả không lặp lại được (phát hiện #14 vòng 2).
+      const mk = () => browser.newContext({ viewport: { width: 1280, height: 900 } });
+      const [ctxL, ctxN] = await Promise.all([mk(), mk()]);
       const [legacy, next] = await Promise.all([
-        extract(context, BASE + p.legacy),
-        extract(context, BASE + p.next),
+        extractStable(ctxL, BASE + p.legacy),
+        extractStable(ctxN, BASE + p.next),
       ]);
+      await Promise.all([ctxL.close(), ctxN.close()]);
       const r = comparePages(legacy, next, { allow: p.allow || [] });
+      for (const side of [['legacy', legacy], ['next', next]]) {
+        if (side[1].unstable) {
+          r.findings.unshift({ kind: 'unstable-extraction', severity: 'high',
+            value: `${side[0]}: hai lần chụp khác nhau sau 3 lượt thử` });
+          r.counts.high += 1;
+          r.pass = false;
+        }
+      }
       results.push({ name: p.name, ...r });
       done += 1;
       if (done % 10 === 0) console.log(`  … ${done}/${pairs.length}`);

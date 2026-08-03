@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   canonicalHref, normalizeText, comparePages, formatReport,
-  buildFacts, linkFact, hrefFromInlineHandler,
+  buildFacts, linkFact, hrefFromInlineHandler, sameDocumentUrl,
 } from '../tooling/parity-core.mjs';
 
 const RUNNER = readFileSync(
@@ -32,7 +32,8 @@ const base = () => ({
   title: 'Grammar Wiki — Aver Learning',
   headings: ['H1:Học ngữ pháp như một hệ thống liên kết', 'H3:Tenses'],
   links: ['/grammar/tenses/present-perfect', '/pages/home.html', '/profile'],
-  lines: ['Bài nổi bật', 'Present Perfect', 'Khám phá theo nhóm chủ đề'],
+  lines: ['Bài nổi bật', 'Present Perfect', 'Khám phá theo nhóm chủ đề',
+          'Duyệt theo thư mục bài', 'Roadmap học tập', 'Tenses'],
   components: ['aver-chrome', 'main'],
   apiPaths: ['/api/grammar/groups', '/api/grammar/home'],
   consoleErrors: [],
@@ -68,9 +69,13 @@ describe('canonicalHref — hợp đồng URL giữa hai stack', () => {
   });
 
   test('bỏ qua neo và giao thức không điều hướng', () => {
-    for (const h of ['#groups', 'mailto:a@b.c', 'javascript:void(0)', '', null]) {
+    for (const h of ['mailto:a@b.c', 'javascript:void(0)', '', null]) {
       assert.equal(canonicalHref(h), null, `phải bỏ qua: ${h}`);
     }
+    // Neo trong trang thì GIỮ — `grammar.html` dùng `href="#groups-section"`
+    // cho nút chính của hero, bỏ qua nghĩa là neo trỏ sai id cũng không lộ.
+    assert.equal(canonicalHref('#groups-section', { base: 'https://x/grammar' }),
+      '/grammar#groups-section');
   });
 
   test('bỏ dấu / cuối nhưng không nuốt mất gốc', () => {
@@ -144,12 +149,13 @@ describe('bắt lại ba lỗi thật của PR #897', () => {
     const legacy = {
       ...base(),
       lines: ['Bài nổi bật', 'Subject-Verb Agreement', 'Articles — A, An, The', 'Conditionals'],
+      finalUrl: 'https://x/grammar.html',
       links: ['/grammar/error-clinic/subject-verb-agreement',
               '/grammar/error-clinic/articles', '/grammar/conditionals/conditionals'],
     };
     const next = { ...legacy, finalUrl: 'https://x/grammar',
                    lines: ['Bài nổi bật', 'Chưa có bài nào.'], links: [] };
-    const r = comparePages(legacy, next);
+    const r = comparePages(legacy, next, { minBaselineLines: 0 });
     assert.equal(r.pass, false);
     const missingLines = r.findings.filter((f) => f.kind === 'line-missing').map((f) => f.value);
     assert.ok(missingLines.includes('Subject-Verb Agreement'));
@@ -178,6 +184,7 @@ describe('bắt lại ba lỗi thật của PR #897', () => {
     const legacy = {
       ...base(),
       url: 'https://x/grammar.html?category=khong-ton-tai-xyz',
+      finalUrl: 'https://x/grammar.html?category=khong-ton-tai-xyz',
       headings: ['H1:Học ngữ pháp như một hệ thống liên kết'],
       lines: ['Không tìm thấy thư mục'],
       links: [],
@@ -189,7 +196,7 @@ describe('bắt lại ba lỗi thật của PR #897', () => {
       headings: ['H1:Học ngữ pháp như một hệ thống liên kết', 'H2:khong ton tai xyz'],
       lines: ['khong ton tai xyz', 'Chưa có bài nào.'],
     };
-    const r = comparePages(legacy, next);
+    const r = comparePages(legacy, next, { minBaselineLines: 0 });
     assert.equal(r.pass, false);
     assert.ok(r.findings.some((f) => f.kind === 'line-missing' && f.value === 'Không tìm thấy thư mục'),
       'mất trạng thái không-tìm-thấy của legacy');
@@ -212,10 +219,26 @@ describe('vá 7 phát hiện của vòng review đầu', () => {
     // đó tải cùng một trang hai lần, tự so với chính mình và LUÔN xanh — kiểu
     // hỏng tệ nhất vì nó trông y như bằng chứng.
     const l = { ...base(), url: 'https://x/pages/profile.html', finalUrl: 'https://x/profile' };
-    const n = { ...base(), url: 'https://x/profile', finalUrl: 'https://x/profile' };
+    // Khác nhau mỗi dấu / cuối và neo — vẫn là cùng một trang.
+    const n = { ...base(), url: 'https://x/profile', finalUrl: 'https://x/profile/#top' };
     const r = comparePages(l, n);
     assert.equal(r.pass, false);
     assert.ok(r.findings.some((f) => f.kind === 'same-final-url'));
+  });
+
+  test('#1c khác tham số truy vấn KHÔNG phải "cùng trang"', () => {
+    // Ranh giới quan trọng: `?category=tenses` với `?category=modifiers` là hai
+    // trang khác nhau. Gạt luôn query sẽ làm chốt nổ oan ở mọi cặp thư mục.
+    assert.equal(sameDocumentUrl('https://x/g?a=1', 'https://x/g?a=2'), false);
+    assert.equal(sameDocumentUrl('https://x/g?b=2&a=1', 'https://x/g/?a=1&b=2#z'), true);
+  });
+
+  test('#1d chuẩn hoá tự-so KHÔNG được dùng bảng ánh xạ legacy→canonical', () => {
+    // `canonicalHref` cố ý đưa `/grammar.html` về `/grammar`, tức hai vế của
+    // MỌI cặp hợp lệ đều hội tụ. Dùng nó cho chốt tự-so sẽ nổ ở mọi cặp —
+    // test này giữ hai việc đó tách nhau.
+    assert.equal(canonicalHref('/grammar.html'), canonicalHref('/grammar'));
+    assert.equal(sameDocumentUrl('https://x/grammar.html', 'https://x/grammar'), false);
   });
 
   test('#1b hai URL cuối khác nhau thì KHÔNG báo gì', () => {
@@ -233,8 +256,8 @@ describe('vá 7 phát hiện của vòng review đầu', () => {
     const okNext = buildFacts(raw('/grammar?category=tenses', '/grammar?category=conditionals'), metaN);
     const swapped = buildFacts(raw('/grammar?category=conditionals', '/grammar?category=tenses'), metaN);
     // Tập chữ y nguyên, tập href y nguyên — chỉ cách ghép là khác.
-    assert.equal(comparePages(ok, okNext).pass, true);
-    const r = comparePages(ok, swapped);
+    assert.equal(comparePages(ok, okNext, { minBaselineLines: 0 }).pass, true);
+    const r = comparePages(ok, swapped, { minBaselineLines: 0 });
     assert.equal(r.pass, false, 'đấu dây sai điều hướng phải bị bắt');
     assert.ok(r.findings.some((f) => f.kind === 'link-missing' && /Tenses → \/grammar\?category=tenses/.test(f.value)));
   });
@@ -247,7 +270,7 @@ describe('vá 7 phát hiện của vòng review đầu', () => {
     ] }, meta);
     const one = buildFacts({ links: [{ text: 'Đăng nhập', href: '/login.html' }] }, meta);
     assert.equal(two.links.length, 2, 'giữ số lần lặp, không new Set()');
-    const r = comparePages(two, one);
+    const r = comparePages(two, one, { minBaselineLines: 0 });
     assert.equal(r.findings.filter((f) => f.kind === 'link-missing').length, 1);
     // Chốt chặn ở tầng runner: nó không được khử trùng trước khi đưa vào lõi.
     assert.ok(!/new Set\(facts\.links/.test(RUNNER),
@@ -294,7 +317,8 @@ describe('vá 7 phát hiện của vòng review đầu', () => {
       url: 'https://x/g', finalUrl: 'https://x/g', status: 200,
       apiCalls: [{ method: 'GET', pathname: '/api/grammar/search', search: '?q=conditionals' }],
     });
-    assert.ok(comparePages(f, other).findings.some((x) => x.kind === 'api-missing'));
+    assert.ok(comparePages(f, other, { minBaselineLines: 0 })
+      .findings.some((x) => x.kind === 'api-missing'));
   });
 
   test('ngoại lệ không còn khớp gì thì bị nêu tên', () => {

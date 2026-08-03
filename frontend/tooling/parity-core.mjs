@@ -53,7 +53,10 @@ const SYNTHETIC_BASE = 'https://parity.invalid/';
 export function canonicalHref(href, { base = SYNTHETIC_BASE } = {}) {
   if (href == null) return null;
   const raw = String(href).trim();
-  if (!raw || raw.startsWith('#')) return null;
+  // KHÔNG bỏ neo trong trang. `grammar.html` dùng `href="#groups-section"` cho
+  // nút chính của hero; bỏ qua nghĩa là neo trỏ sai id cũng không ai thấy
+  // (phát hiện #3 vòng 2). Neo được phân giải theo URL trang nên so được.
+  if (!raw) return null;
   if (/^(mailto:|tel:|javascript:|data:|blob:)/i.test(raw)) return null;
 
   let u;
@@ -85,9 +88,11 @@ export function canonicalHref(href, { base = SYNTHETIC_BASE } = {}) {
   }
 
   path = path.length > 1 ? path.replace(/\/+$/, '') : path;
-  const keys = [...params.keys()].sort();
-  const query = keys.map((k) => `${k}=${params.get(k)}`).join('&');
-  return path + (query ? `?${query}` : '');
+  // `entries()` chứ không `keys()+get()`: `?tag=a&tag=b` mà dùng `get()` sẽ
+  // thành `tag=a&tag=a` (phát hiện #8 vòng 2).
+  const query = [...params.entries()]
+    .map(([k, v]) => `${k}=${v}`).sort().join('&');
+  return path + (query ? `?${query}` : '') + (u.hash || '');
 }
 
 /**
@@ -112,14 +117,27 @@ export function linkFact(text, canonical) {
  */
 export function hrefFromInlineHandler(attr) {
   if (!attr) return null;
-  const m = /(?:window\.)?location(?:\.href)?\s*=\s*['"]([^'"]+)['"]/.exec(String(attr));
+  const str = String(attr);
+  // Gán trực tiếp, hoặc `assign()`/`replace()` — cả ba đều là điều hướng.
+  const m = /(?:window\.)?location(?:\.href)?\s*=\s*['"]([^'"]+)['"]/.exec(str)
+    || /(?:window\.)?location\.(?:assign|replace)\(\s*['"]([^'"]+)['"]/.exec(str);
   return m ? m[1] : null;
 }
 
 export const FACT_KEYS = [
   'status', 'title', 'headings', 'links', 'lines', 'components',
-  'apiPaths', 'consoleErrors', 'finalUrl',
+  'apiPaths', 'resourceFailures', 'consoleErrors', 'finalUrl',
 ];
+
+/**
+ * GIỚI HẠN ĐÃ BIẾT — ghi ra để không ai nhầm đây là bộ lọc kín:
+ *  · Nhãn link lấy DÒNG ĐẦU nhìn thấy, nên thẻ mà tiêu đề thật nằm ở dòng hai
+ *    có thể đổi tên mà không lộ. Đánh đổi có chủ ý: dùng toàn bộ chữ bên trong
+ *    thì legacy (cả thẻ bấm được) nuốt luôn danh sách con ⇒ 11 lệch giả.
+ *  · Không so hình ảnh: đổi màu, sai khoảng cách, chữ tràn — không thấy.
+ *  · Không so hành vi sau tương tác (mở/đóng, cuộn, gõ phím).
+ *  · Chỉ đi vào shadow root MỞ; component dùng `mode:'closed'` sẽ không thấy.
+ */
 
 /**
  * Dựng "page facts" từ dữ liệu DOM THÔ mà runner moi ra. Thuần — đây là nơi
@@ -155,8 +173,30 @@ export function buildFacts(raw, meta) {
     // nhau mà chỉ so pathname sẽ không thấy (phát hiện #7).
     apiPaths: [...new Set((meta.apiCalls || []).map(
       (c) => `${c.method || 'GET'} ${c.pathname}${c.search || ''}`))].sort(),
+    // Tài nguyên tải hỏng (CSS, chunk, ảnh…). DOM khớp mà CSS 404 thì trang vỡ.
+    resourceFailures: [...new Set(meta.resourceFailures || [])].sort(),
     consoleErrors: meta.consoleErrors || [],
   };
+}
+
+/**
+ * Chuẩn hoá URL chỉ để hỏi "có phải cùng một trang không".
+ *
+ * KHÔNG dùng `canonicalHref` cho việc này, dù thoạt nghe hợp lý: nó ánh xạ
+ * legacy→canonical (`/grammar.html` → `/grammar`), tức là hai vế của MỌI cặp
+ * hợp lệ đều hội tụ về một chuỗi, và chốt tự-so sẽ nổ ở mọi cặp. Ở đây chỉ gạt
+ * khác biệt vô nghĩa: dấu / cuối, thứ tự tham số, neo.
+ */
+export function sameDocumentUrl(a, b) {
+  const norm = (x) => {
+    try {
+      const u = new URL(x);
+      const q = [...u.searchParams.entries()].map(([k, v]) => `${k}=${v}`).sort().join('&');
+      const path = u.pathname.length > 1 ? u.pathname.replace(/\/+$/, '') : u.pathname;
+      return `${u.origin}${path}${q ? `?${q}` : ''}`;
+    } catch { return String(x); }
+  };
+  return norm(a) === norm(b);
 }
 
 /** Khác biệt đa-tập (multiset): giữ số lần lặp, vì mất 1/3 thẻ cũng là hồi quy. */
@@ -179,6 +219,12 @@ function multisetDiff(a, b) {
 
 const SEVERITY = {
   'same-final-url': 'high',
+  'baseline-suspect': 'high',
+  'resource-failed': 'high',
+  'unstable-extraction': 'high',
+  'heading-order-mismatch': 'medium',
+  'line-order-mismatch': 'medium',
+  'resource-failed-legacy-only': 'low',
   'status-mismatch': 'high',
   'console-error': 'high',
   'component-missing': 'high',
@@ -201,7 +247,7 @@ const SEVERITY = {
  *   { kind: 'line-extra', value: 'Đang cập nhật', reason: '...' }
  * `value` khớp tuyệt đối, hoặc dùng `startsWith` khi có hậu tố `*`.
  */
-export function comparePages(legacy, next, { allow = [] } = {}) {
+export function comparePages(legacy, next, { allow = [], minBaselineLines = 5 } = {}) {
   for (const a of allow) {
     if (!a || !a.kind || !a.reason) {
       throw new Error(
@@ -229,7 +275,9 @@ export function comparePages(legacy, next, { allow = [] } = {}) {
   // profile.html` nay 307 sang `/profile`, nên một cặp cấu hình nhầm sẽ tải
   // cùng một trang hai lần, tự so với chính mình và LUÔN xanh — kiểu hỏng tệ
   // nhất vì nó trông y như bằng chứng (phát hiện #1 vòng review đầu).
-  if (legacy.finalUrl && next.finalUrl && legacy.finalUrl === next.finalUrl) {
+  // Khác nhau mỗi dấu / cuối, thứ tự tham số hay neo vẫn là cùng một trang —
+  // chốt phải bắt được (phát hiện #10 vòng 2).
+  if (legacy.finalUrl && next.finalUrl && sameDocumentUrl(legacy.finalUrl, next.finalUrl)) {
     push('same-final-url',
       `cả hai vế cùng dừng ở ${legacy.finalUrl} — cặp này không so gì cả`);
   }
@@ -241,6 +289,24 @@ export function comparePages(legacy, next, { allow = [] } = {}) {
     push('title-mismatch', `${normalizeText(legacy.title)} → ${normalizeText(next.title)}`);
   }
   for (const e of next.consoleErrors || []) push('console-error', e);
+  // Nếu chính VẾ THAM CHIẾU hỏng thì mọi so sánh sau đó vô giá trị: legacy
+  // render lỗi ⇒ nội dung của nó ít đi ⇒ bản Next chỉ toàn "thừa" (mức thấp)
+  // ⇒ cả bảng xanh. Đây là biến thể của lỗi đã mắc nhiều lần: tin số đo mà
+  // không kiểm dụng cụ đo (phát hiện #5 vòng 2).
+  for (const e of legacy.consoleErrors || []) push('baseline-suspect', `legacy lỗi: ${e}`);
+  const legacyLines = (legacy.lines || []).length;
+  if (legacyLines < minBaselineLines) {
+    push('baseline-suspect',
+      `legacy chỉ render ${legacyLines} dòng — vế tham chiếu nhiều khả năng hỏng`);
+  }
+
+  // #6 tài nguyên hỏng: DOM có thể khớp hoàn toàn trong khi CSS/chunk 404 làm
+  // trang vỡ bố cục. So cả danh sách response lỗi.
+  {
+    const { onlyA, onlyB } = multisetDiff(legacy.resourceFailures || [], next.resourceFailures || []);
+    for (const v of onlyB) push('resource-failed', v);
+    for (const v of onlyA) push('resource-failed-legacy-only', v);
+  }
 
   const pairs = [
     ['heading', legacy.headings, next.headings],
@@ -253,6 +319,20 @@ export function comparePages(legacy, next, { allow = [] } = {}) {
     const { onlyA, onlyB } = multisetDiff(a || [], b || []);
     for (const v of onlyA) push(`${name}-missing`, v);
     for (const v of onlyB) push(`${name}-extra`, v);
+  }
+  // Thứ tự tài liệu: đảo thứ tự mục bài mà giữ nguyên chữ và link thì đa-tập
+  // không thấy gì, nhưng người học đọc sai mạch (phát hiện #4 vòng 2). Chỉ
+  // báo khi hai bên giống hệt về NỘI DUNG — nếu không mỗi lần chèn thêm một
+  // mục sẽ đẩy lệch cả dãy và sinh nhiễu vô ích.
+  for (const [name, a, b] of [['heading', legacy.headings, next.headings],
+                              ['line', legacy.lines, next.lines]]) {
+    const A = a || [];
+    const B = b || [];
+    const { onlyA, onlyB } = multisetDiff(A, B);
+    if (!onlyA.length && !onlyB.length && A.join('\u0000') !== B.join('\u0000')) {
+      push(`${name}-order-mismatch`,
+        `cùng nội dung nhưng khác thứ tự (${A.length} mục)`);
+    }
   }
 
   const high = findings.filter((f) => f.severity === 'high').length;
