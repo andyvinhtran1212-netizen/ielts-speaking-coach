@@ -15,7 +15,9 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { evaluateG2, formatG2, G2_FLOOR, planSession, parseLedger } from '../tooling/g2-floor.mjs';
+import {
+  evaluateG2, formatG2, G2_FLOOR, planSession, parseLedger, mergeLedgers,
+} from '../tooling/g2-floor.mjs';
 
 const PROBE = readFileSync(
   path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'tooling',
@@ -327,5 +329,44 @@ describe('probe không gọi endpoint CÓ GHI (review #910 vòng 2)', () => {
     assert.match(PROBE, /'--routes', '\/auth\/profile,\/auth\/check-active'/);
     assert.ok(!/--routes'[^)]*\/auth\/me/.test(PROBE),
       '/auth/me quay lại mặc định nghĩa là probe lại ghi vào dữ liệu thật');
+  });
+});
+
+describe('sổ tách theo chế độ rồi gộp (review #911)', () => {
+  test('mẫu của CẢ HAI nhánh song song đều còn — không bên nào bị đè', () => {
+    // Kịch bản thật: session giữ sổ ~61 phút; trong lúc đó 3 tick ghi thêm.
+    // Nếu dùng chung một tệp thì bên lưu sau đè mất bên kia.
+    const tickRows = [
+      { at: 1000, ok: true }, { at: 2000, ok: false, status: 500 }, { at: 3000, ok: true },
+    ];
+    const sessionRows = [
+      { at: 500, ok: true, afterRefresh: false }, { at: 4000, ok: true, afterRefresh: true },
+    ];
+    const merged = mergeLedgers([
+      { samples: tickRows, corruptLines: 0 },
+      { samples: sessionRows, corruptLines: 1 },
+    ]);
+    assert.equal(merged.samples.length, 5, 'đủ 5 mẫu của cả hai nhánh');
+    assert.equal(merged.corruptLines, 1, 'dòng hỏng của mọi sổ đều được cộng dồn');
+    assert.deepEqual(merged.samples.map((r) => r.at), [500, 1000, 2000, 3000, 4000],
+      'gộp xong phải theo thứ tự thời gian');
+    // Và lần 500 do tick ghi PHẢI còn để verdict bắt được.
+    assert.ok(merged.samples.some((r) => r.status === 500),
+      'mất mẫu hỏng nghĩa là verdict cho qua trên bằng chứng khuyết');
+  });
+
+  test('gộp sổ rỗng không làm hỏng phép đo', () => {
+    assert.deepEqual(mergeLedgers([]), { samples: [], corruptLines: 0 });
+    assert.deepEqual(mergeLedgers(null), { samples: [], corruptLines: 0 });
+  });
+
+  test('workflow lưu sổ RIÊNG cho từng chế độ', () => {
+    assert.match(WF, /path: frontend\/out\/g2-ledger-\$\{\{ env\.PROBE_MODE \}\}\.jsonl/);
+    assert.match(WF, /key: g2-ledger-\$\{\{ env\.PROBE_MODE \}\}-/);
+    assert.ok(!/key: g2-ledger-\$\{\{ github\.run_id \}\}\s*$/m.test(WF),
+      'khoá cache dùng chung = hai chế độ đè sổ của nhau');
+    // Và verdict phải khôi phục CẢ HAI sổ, nếu không nó chấm trên nửa bằng chứng.
+    assert.match(WF, /restore-keys:[\s\S]*g2-ledger-tick-/);
+    assert.match(WF, /restore-keys:[\s\S]*g2-ledger-session-/);
   });
 });
