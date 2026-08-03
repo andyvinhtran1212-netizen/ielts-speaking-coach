@@ -26,7 +26,7 @@
 import { appendFileSync, readFileSync, existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 
-import { evaluateG2, formatG2 } from './g2-floor.mjs';
+import { evaluateG2, formatG2, planSession } from './g2-floor.mjs';
 
 const argv = process.argv.slice(2);
 const arg = (n, d = null) => { const i = argv.indexOf(n); return i === -1 ? d : argv[i + 1]; };
@@ -36,7 +36,11 @@ const LEDGER = arg('--ledger', 'out/g2-ledger.jsonl');
 const API_BASE = (arg('--api', 'https://ielts-speaking-coach-production.up.railway.app')).replace(/\/+$/, '');
 const SUPABASE_URL = arg('--supabase', 'https://huwsmtubwulikhlmcirx.supabase.co').replace(/\/+$/, '');
 const SUPABASE_ANON = process.env.PROBE_SUPABASE_ANON || 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
-const ROUTES = (arg('--routes', '/api/auth/me,/api/profile') || '').split(',').filter(Boolean);
+// Đường dẫn THẬT: router auth gắn prefix `/auth` (backend/routers/auth.py:17),
+// KHÔNG có tiền tố `/api`. Đo trên production: `/api/auth/me` → 404 còn
+// `/auth/me` → 401 (có route, cần đăng nhập). Bản đầu dùng `/api/...` nên mọi
+// mẫu sẽ là HỎNG và G2 không bao giờ đạt được — công cụ chết ngay khi bật.
+const ROUTES = (arg('--routes', '/auth/me,/auth/profile') || '').split(',').filter(Boolean);
 const TIMEOUT_MS = Number(arg('--timeout', '15000')) || 15000;
 
 const EMAIL = process.env.PROBE_EMAIL || '';
@@ -134,30 +138,56 @@ async function modeTick() {
  */
 async function modeSession() {
   requireCreds();
-  const holdMin = Number(arg('--hold-minutes', '65')) || 65;
   const stepMin = Number(arg('--step-minutes', '15')) || 15;
+  const maxMin = Number(arg('--max-minutes', '80')) || 80;
 
-  let sess = await signIn();
+  const sess0 = await signIn();
   const t0 = Date.now();
-  console.log(`session: đăng nhập lúc ${new Date(t0).toISOString()}, giữ ${holdMin} phút`);
+  // Lấy hạn từ chính phiên, không đoán: Supabase trả `expires_in` (giây).
+  const expiresInMs = (Number(sess0.expires_in) || 3600) * 1000;
+  const plan = planSession({
+    expiresInMs, stepMs: stepMin * 60_000, maxMs: maxMin * 60_000,
+  });
+  if (!plan.coversRefresh) {
+    console.error(
+      `session: trần ${maxMin} phút không đủ đi qua hạn token `
+      + `(${(expiresInMs / 60000).toFixed(0)} phút). Tăng --max-minutes; `
+      + 'KHÔNG refresh sớm rồi ghi afterRefresh — đó là ghi khống bằng chứng.');
+    process.exit(2);
+  }
+  console.log(
+    `session: token sống ${(expiresInMs / 60000).toFixed(0)} phút · `
+    + `${plan.preOffsets.length} nhịp trước hạn · refresh ở phút `
+    + `${(plan.refreshAt / 60000).toFixed(0)}`);
 
-  // Vế TRƯỚC mốc refresh.
-  for (let waited = 0; waited < holdMin; waited += stepMin) {
+  let allOk = true;
+  const sleepUntil = async (offset) => {
+    const wait = t0 + offset - Date.now();
+    if (wait > 0) await new Promise((s) => setTimeout(s, wait));
+  };
+
+  // Vế TRƯỚC mốc refresh — mọi nhịp đều an toàn trước hạn.
+  for (const off of plan.preOffsets) {
+    await sleepUntil(off);
     for (const r of ROUTES) {
-      const res = await probeOnce(sess.access_token, r);
+      const res = await probeOnce(sess0.access_token, r);
       record({ at: Date.now(), mode: 'session', afterRefresh: false, ...res });
+      allOk = allOk && res.ok;
     }
-    console.log(`  … đã giữ ${waited + stepMin}/${holdMin} phút`);
-    await new Promise((s) => setTimeout(s, stepMin * 60_000));
+    console.log(`  … phút ${(off / 60000).toFixed(0)} bằng token gốc`);
   }
 
-  // Chính mốc cần phủ: đổi refresh token, rồi gọi lại bằng token MỚI.
-  sess = await refresh(sess.refresh_token);
-  console.log('session: đã refresh token');
-  let allOk = true;
+  // Ngủ tới SAU hạn rồi mới refresh — có vậy mới thật sự đi qua mốc.
+  await sleepUntil(plan.refreshAt);
+  const sess1 = await refresh(sess0.refresh_token);
+  console.log('session: đã refresh token sau khi token cũ hết hạn');
+
   for (const r of ROUTES) {
-    const res = await probeOnce(sess.access_token, r);
-    record({ at: Date.now(), mode: 'session', afterRefresh: true, tokenAgeMs: Date.now() - t0, ...res });
+    const res = await probeOnce(sess1.access_token, r);
+    record({
+      at: Date.now(), mode: 'session', afterRefresh: true,
+      tokenAgeMs: Date.now() - t0, ...res,
+    });
     allOk = allOk && res.ok;
     console.log(`  sau refresh: ${r} = ${res.status}`);
   }

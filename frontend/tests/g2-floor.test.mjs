@@ -11,7 +11,19 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { evaluateG2, formatG2, G2_FLOOR } from '../tooling/g2-floor.mjs';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import { evaluateG2, formatG2, G2_FLOOR, planSession } from '../tooling/g2-floor.mjs';
+
+const PROBE = readFileSync(
+  path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'tooling',
+    'authed-probe.mjs'), 'utf8');
+
+const WF = readFileSync(
+  path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..',
+    '.github', 'workflows', 'g2-authed-probe.yml'), 'utf8');
 
 const T0 = 1_785_000_000_000; // mốc cố định; không dùng Date.now() trong test
 const MIN = 60_000;
@@ -143,5 +155,74 @@ describe('chi tiết', () => {
   test('formatG2 nói rõ ĐẠT hay CHƯA, không mập mờ', () => {
     assert.match(formatG2(evaluateG2(series(73, 20))), /ĐẠT sàn ADR-013-A1/);
     assert.match(formatG2(evaluateG2([])), /CHƯA ĐẠT[\s\S]*no-samples/);
+  });
+});
+
+describe('planSession — lịch phiên đi qua mốc token refresh (review #910)', () => {
+  const H = 60 * 60_000;
+
+  test('KHÔNG probe bằng token cũ ở hoặc sau hạn — đây là ca hỏng thật', () => {
+    // Bản đầu probe ở phút 60 (đúng hạn) rồi refresh ở phút 75 ⇒ mẫu phút 60
+    // đã hết hạn, ghi vào sổ là HỎNG, và verdict đánh trượt một phiên khoẻ.
+    const p = planSession({ expiresInMs: H, stepMs: 15 * 60_000 });
+    assert.deepEqual(p.preOffsets.map((x) => x / 60_000), [0, 15, 30, 45]);
+    for (const off of p.preOffsets) {
+      assert.ok(off < H, `nhịp phút ${off / 60000} phải nằm TRƯỚC hạn 60 phút`);
+      assert.ok(off <= p.safeUntil, 'và phải trong biên an toàn');
+    }
+  });
+
+  test('refresh nằm SAU hạn, không phải refresh sớm cho tiện', () => {
+    const p = planSession({ expiresInMs: H, stepMs: 15 * 60_000 });
+    assert.ok(p.refreshAt > H, 'refresh trước hạn thì không chứng minh đi qua mốc');
+    assert.equal(p.refreshAt / 60_000, 61);
+  });
+
+  test('trần thời gian không đủ ⇒ nói ra, không lặng lẽ ghi khống', () => {
+    const p = planSession({ expiresInMs: H, stepMs: 15 * 60_000, maxMs: 30 * 60_000 });
+    assert.equal(p.coversRefresh, false);
+  });
+
+  test('token sống ngắn hơn thì lịch co lại theo, không hardcode 60 phút', () => {
+    const p = planSession({ expiresInMs: 20 * 60_000, stepMs: 5 * 60_000, marginMs: 2 * 60_000 });
+    assert.deepEqual(p.preOffsets.map((x) => x / 60_000), [0, 5, 10, 15]);
+    assert.equal(p.refreshAt / 60_000, 21);
+  });
+});
+
+describe('workflow chọn đúng chế độ theo cron (review #910)', () => {
+  test('cron phiên-dài phải ra `session`, không phải `tick`', () => {
+    // `schedule` không có `inputs`, nên `inputs.mode || 'tick'` biến CẢ HAI cron
+    // thành tick và sổ authed vĩnh viễn thiếu afterRefresh.
+    assert.match(WF, /github\.event\.schedule == '17 3 \* \* \*' && 'session'/);
+    assert.ok(!/--mode "\$\{\{ inputs\.mode \|\| 'tick' \}\}"/.test(WF),
+      'dạng cũ chọn chế độ chỉ từ inputs — cron sẽ luôn ra tick');
+  });
+
+  test('cron chưa bật, và ghi rõ điều kiện bật', () => {
+    assert.match(WF, /# *schedule:/, 'cron phải còn chú thích cho tới khi có secret');
+    assert.match(WF, /PROBE_EMAIL/);
+  });
+});
+
+describe('probe gọi ĐÚNG endpoint (review #910)', () => {
+  test('không có tiền tố /api — router auth gắn prefix /auth', () => {
+    // Đo trên production 2026-08-03:
+    //   /api/auth/me → 404      /auth/me      → 401
+    //   /api/profile → 404      /auth/profile → 401
+    // 404 = không có route. Bản đầu dùng /api/... nên MỌI mẫu sẽ HỎNG và G2
+    // không bao giờ đạt được — công cụ chết ngay khi bật, mà lại chết theo
+    // kiểu trông như "production hỏng".
+    assert.match(PROBE, /'--routes', '\/auth\/me,\/auth\/profile'/);
+    assert.ok(!/--routes', '\/api\//.test(PROBE),
+      'tiền tố /api quay lại nghĩa là probe trỏ vào route không tồn tại');
+  });
+
+  test('chỉ phát GET tới backend — CHỈ ĐỌC là ràng buộc cứng', () => {
+    const methods = [...PROBE.matchAll(/method: '([A-Z]+)'/g)].map((m) => m[1]);
+    // Hai POST duy nhất là của Supabase auth (đăng nhập + refresh), không phải
+    // ghi vào dữ liệu sản phẩm.
+    assert.equal(methods.filter((m) => m === 'GET').length, 1, 'đúng một chỗ gọi backend');
+    assert.ok(!/method: '(PUT|PATCH|DELETE)'/.test(PROBE), 'không có nhánh ghi nào');
   });
 });

@@ -115,3 +115,34 @@ export function formatG2(result) {
   return `${head}\n✗ CHƯA ĐẠT:\n`
     + result.findings.map((f) => `  · [${f.code}] ${f.detail}`).join('\n');
 }
+
+/**
+ * Lịch của một phiên probe đi QUA mốc token refresh — hàm thuần để kiểm được
+ * bằng đồng hồ giả, đúng đề nghị của review PR #910.
+ *
+ * Bản đầu chạy vòng lặp `waited < holdMin` với holdMin=65, step=15 ⇒ probe ở
+ * phút 0/15/30/45/**60** rồi mới ngủ thêm và refresh ở phút **75**. Access
+ * token của Supabase sống 60 phút, nên mẫu phút 60 đã hết hạn ⇒ ghi vào sổ
+ * dưới dạng HỎNG, và verdict đánh trượt một phiên thực ra hoàn toàn khoẻ.
+ * Tức bản vá tự làm mình trượt.
+ *
+ * Luật đúng: mọi probe bằng token CŨ phải nằm **an toàn trước** hạn (trừ hao
+ * `marginMs`), rồi ngủ tới **sau** hạn (thêm `graceMs`) mới refresh — có vậy
+ * mới chứng minh được là đã đi qua mốc chứ không phải refresh sớm cho tiện.
+ */
+export function planSession({
+  expiresInMs,
+  stepMs,
+  marginMs = 5 * 60_000,
+  graceMs = 60_000,
+  maxMs = 80 * 60_000,
+} = {}) {
+  const safeUntil = Math.max(0, expiresInMs - marginMs);
+  const preOffsets = [];
+  for (let t = 0; t <= safeUntil; t += stepMs) preOffsets.push(t);
+  const refreshAt = expiresInMs + graceMs;
+  // Không đủ trần thời gian để đi qua hạn thì phải NÓI RA, không được lặng lẽ
+  // refresh sớm rồi ghi `afterRefresh: true` — đó là ghi khống bằng chứng.
+  const coversRefresh = refreshAt <= maxMs;
+  return { preOffsets, refreshAt, safeUntil, coversRefresh };
+}

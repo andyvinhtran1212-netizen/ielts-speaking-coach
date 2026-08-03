@@ -36,8 +36,8 @@ on:
         type: choice
         options: [tick, session, verdict]
   # schedule:
-  #   - cron: "*/20 * * * *"   # 72 nhịp/ngày = đúng sàn ≤20 phút
-  #   - cron: "17 3 * * *"     # một phiên dài mỗi ngày, phủ vế token refresh
+  #   - cron: "*/20 * * * *"   # 72 nhịp/ngày = đúng sàn ≤20 phút  → mode tick
+  #   - cron: "17 3 * * *"     # một phiên dài mỗi ngày            → mode session
 
 permissions:
   contents: read
@@ -47,6 +47,16 @@ concurrency:
   # huỷ giữa chừng một phiên 70 phút sẽ mất luôn vế token refresh.
   group: g2-authed-probe
   cancel-in-progress: false
+
+env:
+  # Sự kiện `schedule` KHÔNG có `inputs`, nên `inputs.mode || 'tick'` sẽ biến CẢ
+  # HAI cron thành `tick` và cron phiên-dài không bao giờ chạy `session` — sổ
+  # authed vĩnh viễn thiếu `afterRefresh` và verdict luôn trượt `no-token-refresh`
+  # (review PR #910). Chọn chế độ theo chính chuỗi cron đã kích hoạt.
+  PROBE_MODE: >-
+    ${{ inputs.mode
+        || (github.event.schedule == '17 3 * * *' && 'session')
+        || 'tick' }}
 
 jobs:
   probe:
@@ -69,16 +79,16 @@ jobs:
           restore-keys: |
             g2-ledger-
 
-      - name: Chạy probe
-        if: ${{ inputs.mode != 'verdict' }}
+      - name: Chạy probe (chế độ ${{ env.PROBE_MODE }})
+        if: ${{ env.PROBE_MODE != 'verdict' }}
         working-directory: frontend
         env:
           PROBE_EMAIL: ${{ secrets.PROBE_EMAIL }}
           PROBE_PASSWORD: ${{ secrets.PROBE_PASSWORD }}
-        run: node tooling/authed-probe.mjs --mode "${{ inputs.mode || 'tick' }}"
+        run: node tooling/authed-probe.mjs --mode "$PROBE_MODE"
 
       - name: Lưu sổ G2
-        if: ${{ always() && inputs.mode != 'verdict' }}
+        if: ${{ always() && env.PROBE_MODE != 'verdict' }}
         uses: actions/cache/save@v4
         with:
           path: frontend/out/g2-ledger.jsonl
