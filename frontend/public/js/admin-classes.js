@@ -905,6 +905,102 @@ async function loadTests(skill) {
   }
 }
 
+/* ── Chọn câu hỏi cho bài Speaking ───────────────────────────────────────
+ *
+ * Thứ tự chọn LÀ thông tin: Part 1 là một mạch hội thoại và backend giữ đúng
+ * thứ tự bấm. Nên ô chọn chính là số thứ tự — bấm câu đầu thành 1, câu sau
+ * thành 2. Ràng buộc "đúng N câu" tự đọc được, không cần bộ đếm ở chỗ khác.
+ */
+
+let _qpick = { items: [], picked: [], want: 1, topicId: null, part: null };
+
+function qmode() {
+  const el = document.querySelector('input[name="hf-qmode"]:checked');
+  return el ? el.value : 'random';
+}
+
+function renderQpick() {
+  const { items, picked, want } = _qpick;
+  const listEl = $('hf-qpick-list');
+  const footEl = $('hf-qpick-foot');
+  if (!items.length) {
+    listEl.innerHTML = '<p class="adm-hint" style="padding:12px">Chủ đề này chưa có câu nào cho Part đang chọn.</p>';
+    footEl.textContent = '';
+    return;
+  }
+
+  listEl.innerHTML = items.map((q) => {
+    const at = picked.indexOf(q.id);
+    const lvl = q.level
+      ? `<span class="av-qpick__level" data-level="${esc(q.level)}">${esc(q.level)}</span>` : '';
+    // Câu chưa giao được: MỜ nhưng không ẩn, và nói rõ cách mở khoá. Ẩn đi thì
+    // giáo viên thấy danh sách ngắn không rõ vì sao ngắn.
+    const blocked = q.giveable ? ''
+      : '<span class="av-qpick__blocked">chưa có bản đọc</span>';
+    return `<button type="button" class="av-qpick__row" data-id="${esc(q.id)}"
+              aria-pressed="${at !== -1}" ${q.giveable ? '' : 'disabled'}>
+      <span class="av-qpick__num" aria-hidden="true">${at !== -1 ? at + 1 : ''}</span>
+      <span class="av-qpick__text">${esc(q.question_text || '')}</span>
+      <span class="av-qpick__meta">${lvl}${blocked}</span>
+    </button>`;
+  }).join('');
+
+  const ready = picked.length === want;
+  footEl.dataset.ready = String(ready);
+  footEl.innerHTML = `<span>Đã chọn <strong>${picked.length}/${want}</strong></span>`
+    + (ready ? '<span>Thứ tự trên là thứ tự học viên sẽ nghe.</span>'
+             : `<span>Chọn thêm ${want - picked.length} câu.</span>`);
+}
+
+function toggleQpick(id) {
+  const at = _qpick.picked.indexOf(id);
+  if (at !== -1) {
+    _qpick.picked.splice(at, 1);           // bỏ chọn: các số sau tự dồn lên
+  } else if (_qpick.picked.length < _qpick.want) {
+    _qpick.picked.push(id);
+  } else {
+    // Đã đủ. Thay câu ĐẦU thay vì im lặng không làm gì — im lặng khiến giáo
+    // viên tưởng nút hỏng, còn ở đây họ luôn thấy một thay đổi.
+    _qpick.picked.shift();
+    _qpick.picked.push(id);
+  }
+  renderQpick();
+}
+
+async function loadQpick() {
+  const topicId = $('hf-topic').value;
+  const part = $('hf-part').value;
+  $('hf-qpick-field').hidden = !topicId;
+  if (!topicId) return;
+
+  const manual = qmode() === 'manual';
+  $('hf-qpick').hidden = !manual;
+  $('hf-qmode-hint').textContent = manual
+    ? 'Bấm theo thứ tự bạn muốn học viên nghe.'
+    : 'Web sẽ bốc ngẫu nhiên từ những câu đã có bản đọc, chốt một lần lúc giao.';
+  if (!manual) { _qpick.picked = []; return; }
+
+  // Đổi chủ đề/Part thì bỏ hết lựa chọn cũ: giữ lại nghĩa là gửi id của câu
+  // thuộc chủ đề khác, và backend sẽ từ chối đúng lúc giáo viên bấm Giao.
+  if (_qpick.topicId !== topicId || _qpick.part !== part) _qpick.picked = [];
+  _qpick.topicId = topicId;
+  _qpick.part = part;
+
+  $('hf-qpick-list').innerHTML = '<p class="adm-hint" style="padding:12px">Đang tải câu hỏi…</p>';
+  try {
+    const r = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId)
+      + '/speaking-topics/' + encodeURIComponent(topicId)
+      + '/questions?part=' + encodeURIComponent(part));
+    if ($('hf-topic').value !== topicId || $('hf-part').value !== part) return;
+    _qpick.items = (r && r.items) || [];
+    _qpick.want = (r && r.questions_per_give) || 1;
+    renderQpick();
+  } catch (err) {
+    $('hf-qpick-list').innerHTML =
+      '<p class="adm-banner" style="margin:12px">Không đọc được câu hỏi của chủ đề này.</p>';
+  }
+}
+
 function openHomeworkModal() {
   $('hf-skill').value = 'speaking';
   $('hf-title').value = '';
@@ -925,6 +1021,11 @@ function openHomeworkModal() {
   $('hf-due').value = defaultDueDateVietnam();
   $('hf-due-time').value = '19:00';
   _topicsByPart = {};   // lớp khác thì "đã giao" khác — không tái dùng cache
+  _qpick = { items: [], picked: [], want: 1, topicId: null, part: null };
+  const rnd = document.querySelector('input[name="hf-qmode"][value="random"]');
+  if (rnd) rnd.checked = true;
+  $('hf-qpick-field').hidden = true;
+  $('hf-qpick').hidden = true;
   $('hf-error').hidden = true;
   $('hf-warning').hidden = true;
   applyHomeworkSkill();
@@ -950,6 +1051,14 @@ async function submitHomework() {
     $('hf-error').hidden = false;
     return;
   }
+  // Chặn ở đây để giáo viên không mất một vòng gọi mạng chỉ để nghe backend nói
+  // cùng một câu.
+  if (skill === 'speaking' && qmode() === 'manual' && _qpick.picked.length !== _qpick.want) {
+    $('hf-error').textContent =
+      `Part ${$('hf-part').value} cần đúng ${_qpick.want} câu — bạn đã chọn ${_qpick.picked.length}.`;
+    $('hf-error').hidden = false;
+    return;
+  }
   if (skill !== 'speaking' && !testId) {
     $('hf-error').textContent = 'Chọn một đề để tiếp tục.';
     $('hf-error').hidden = false;
@@ -965,6 +1074,10 @@ async function submitHomework() {
           skill, title, topic,
           content_id: topic,
           topic: ($('hf-topic').selectedOptions[0] || {}).text || '',
+          // Bỏ trống = web bốc. Gửi mảng rỗng cũng là bỏ trống, nên chỉ gửi khi
+          // giáo viên thật sự đã chọn.
+          question_ids: (qmode() === 'manual' && _qpick.picked.length)
+            ? _qpick.picked : null,
           mode: $('hf-mode').value,
           part: Number($('hf-part').value),
           due_date: $('hf-due').value || null,
@@ -1247,6 +1360,18 @@ function bindDetail() {
   // Chủ đề thuộc về một PART cụ thể — đổi Part mà giữ danh sách cũ là mời admin
   // giao một chủ đề Part 2 dưới nhãn Part 1.
   $('hf-part').addEventListener('change', loadSpeakingTopics);
+
+  // Bộ chọn câu: chủ đề đổi → tải câu của chủ đề mới; Part đổi → cả hai (danh
+  // sách chủ đề VÀ danh sách câu, vì câu thuộc về một Part cụ thể).
+  $('hf-topic').addEventListener('change', loadQpick);
+  $('hf-part').addEventListener('change', loadQpick);
+  $('hf-qmode').addEventListener('change', loadQpick);
+  // Uỷ quyền: danh sách được vẽ lại sau mỗi lần bấm, nên gắn tay từng nút sẽ
+  // mất ngay ở lần vẽ kế tiếp.
+  $('hf-qpick-list').addEventListener('click', (e) => {
+    const row = e.target.closest('.av-qpick__row');
+    if (row && !row.disabled) toggleQpick(row.dataset.id);
+  });
   bindModalBackdrop('homework-modal', closeHomeworkModal);
   $('homework-tbody').addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-action]');
