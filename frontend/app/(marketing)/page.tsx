@@ -27,7 +27,7 @@ export default function LandingPreviewPage() {
 
           {/* Desktop nav */}
           <div className="hidden md:flex items-center gap-8">
-            <a href="/grammar.html" className="ix-nav-link text-sm font-medium pb-1">
+            <a href="/grammar" className="ix-nav-link text-sm font-medium pb-1">
               Grammar Wiki
             </a>
             <a href="#features" className="ix-nav-link text-sm font-medium pb-1">
@@ -499,7 +499,7 @@ export default function LandingPreviewPage() {
                 <li>Articles tra cứu cho Speaking &amp; Writing</li>
                 <li>So sánh các cấu trúc dễ nhầm</li>
               </ul>
-              <a href="/grammar.html" className="ix-skill-card__cta">
+              <a href="/grammar" className="ix-skill-card__cta">
                 Mở Grammar Wiki
                 <svg
                   className="w-4 h-4"
@@ -1182,7 +1182,7 @@ export default function LandingPreviewPage() {
                   </a>
                 </li>
                 <li>
-                  <a href="/grammar.html" className="ix-footer__link text-sm">
+                  <a href="/grammar" className="ix-footer__link text-sm">
                     Grammar Wiki
                   </a>
                 </li>

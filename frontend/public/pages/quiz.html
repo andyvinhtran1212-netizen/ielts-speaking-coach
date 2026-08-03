@@ -1054,8 +1054,8 @@
       if (stats && area) stats.href = '/pages/quiz-progress.html?skill_area=' + encodeURIComponent(area);
       if (bank.bank && bank.bank.skill_area === 'grammar') {
         if (chrome) chrome.setAttribute('active', 'grammar');
-        topBack.href = '/grammar.html'; topLabel.textContent = 'Grammar';
-        back.href = '/grammar.html'; back.textContent = '← Về Grammar';
+        topBack.href = '/grammar'; topLabel.textContent = 'Grammar';
+        back.href = '/grammar'; back.textContent = '← Về Grammar';
       } else {
         if (chrome) chrome.setAttribute('active', 'vocabulary');
         topBack.href = '/pages/vocab-practice.html'; topLabel.textContent = 'Luyện tập';
