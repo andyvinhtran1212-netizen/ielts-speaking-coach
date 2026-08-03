@@ -48,6 +48,11 @@ class _Table:
     def eq(self, f, v):
         self._rows = [r for r in self._rows if str(r.get(f)) == str(v)]
         return self
+    def in_(self, f, vals):
+        # TÍCH LUỸ, không ghi đè: chuỗi .in_(a).in_(b) mà giữ mỗi cái cuối thì
+        # một bộ lọc biến mất và test về truy vấn hai điều kiện thành vô nghĩa.
+        self._rows = [r for r in self._rows if r.get(f) in vals]
+        return self
     def order(self, *_a, **_k): return self
     def limit(self, *_a): return self
     def execute(self): return _Resp(self._rows)
@@ -352,3 +357,81 @@ def test_a_lookup_failure_does_not_refuse_a_real_hand_in():
             {"id": "sess-1", "class_assignment_item_id": "item-1"})
 
     assert out is True and len(wrote) == 1
+
+
+# ── kho đề cho ô chọn của admin ─────────────────────────────────────────
+
+
+class _TopicsDB:
+    def __init__(self, topics, questions, given):
+        self._t, self._q, self._g = topics, questions, given
+
+    def table(self, name):
+        rows = {"topics": self._t, "topic_questions": self._q,
+                "class_assignments": self._g}.get(name, [])
+        return _Table(rows)
+
+
+def _topics_db(*, n_questions=6, n_audio=6, given=()):
+    topics = [{"id": f"t{i}", "title": f"Chủ đề {i}", "part": 1, "is_active": True}
+              for i in range(3)]
+    qs = []
+    for t in topics:
+        for k in range(n_questions):
+            qs.append({"topic_id": t["id"], "part": 1, "is_active": True,
+                       "audio_url": "https://cdn/x.mp3" if k < n_audio else None})
+    gv = [{"cohort_id": "co-1", "skill": "speaking", "content_id": g} for g in given]
+    return _TopicsDB(topics, qs, gv)
+
+
+async def _topics(db, part=1):
+    with patch.object(mod, "require_admin", AsyncMock(return_value={"id": "a"})), \
+         patch.object(mod, "_require_cohort", lambda _c: None), \
+         patch.object(mod, "supabase_admin", db):
+        return await mod.list_speaking_topics("co-1", part=part, authorization=None)
+
+
+@pytest.mark.asyncio
+async def test_a_topic_with_enough_voiced_questions_is_offered():
+    out = await _topics(_topics_db())
+    assert all(i["ready"] for i in out["items"])
+    assert out["questions_per_give"] == 2
+
+
+@pytest.mark.asyncio
+async def test_a_topic_already_given_to_this_class_is_flagged():
+    out = await _topics(_topics_db(given=("t1",)))
+    flags = {i["id"]: i["already_given"] for i in out["items"]}
+    assert flags == {"t0": False, "t1": True, "t2": False}
+
+
+@pytest.mark.asyncio
+async def test_missing_audio_is_reported_SEPARATELY_from_already_given():
+    """Hai lý do khác hẳn nhau và admin làm được hai việc khác nhau: đã giao rồi
+    là việc XONG; chưa có bản đọc đề là việc CHƯA làm — chạy mẻ render là dùng
+    được. Gộp vào một chữ 'không khả dụng' sẽ giấu mất một việc đang chờ."""
+    out = await _topics(_topics_db(n_audio=1))          # cần 2, chỉ 1 câu có audio
+    for i in out["items"]:
+        assert i["ready"] is False
+        assert i["missing_audio"] is True
+        assert i["already_given"] is False
+
+
+@pytest.mark.asyncio
+async def test_a_topic_with_too_few_questions_is_not_ready_but_not_blamed_on_audio():
+    out = await _topics(_topics_db(n_questions=1, n_audio=1))
+    for i in out["items"]:
+        assert i["ready"] is False
+        assert i["missing_audio"] is False, "thiếu CÂU, không phải thiếu audio"
+
+
+@pytest.mark.asyncio
+async def test_part_2_does_not_require_audio_to_be_ready():
+    """Part 2 là cue card — đọc bằng mắt."""
+    db = _topics_db(n_questions=1, n_audio=0)
+    for t in db._t:
+        t["part"] = 2
+    for q in db._q:
+        q["part"] = 2
+    out = await _topics(db, part=2)
+    assert all(i["ready"] for i in out["items"])

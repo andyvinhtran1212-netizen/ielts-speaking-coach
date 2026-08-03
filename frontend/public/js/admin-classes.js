@@ -687,7 +687,61 @@ function applyHomeworkSkill() {
   $('hf-speaking-row').hidden = !isSpeaking;
   $('hf-test-field').hidden = isSpeaking;
   $('homework-modal-title').textContent = 'Giao bài ' + (SKILL_LABEL[skill] || '');
-  if (!isSpeaking) loadTests(skill);
+  if (isSpeaking) loadSpeakingTopics();
+  else loadTests(skill);
+}
+
+let _topicsByPart = {};
+
+/**
+ * Chủ đề Speaking cho Part đang chọn, LẤY TỪ KHO ĐỀ.
+ *
+ * Chủ đề lớp NÀY đã được giao thì bị loại khỏi danh sách — giao lại nghĩa là bắt
+ * học viên trả lời lại đúng câu đã làm. Backend vẫn kiểm lại và có chỉ số duy
+ * nhất phía sau; danh sách này là để admin không phải thử-rồi-bị-từ-chối.
+ */
+async function loadSpeakingTopics() {
+  const part = $('hf-part').value || '1';
+  const sel = $('hf-topic');
+  const note = $('hf-topic-note');
+  const key = `p${part}`;
+
+  const stillCurrent = () => ($('hf-skill') || {}).value === 'speaking'
+    && ($('hf-part') || {}).value === part;
+
+  if (_topicsByPart[key]) {
+    sel.innerHTML = _topicsByPart[key].html;
+    note.textContent = _topicsByPart[key].note;
+    return;
+  }
+  sel.innerHTML = '<option value="">Đang tải kho đề…</option>';
+  note.textContent = '';
+  try {
+    const r = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId)
+      + '/speaking-topics?part=' + encodeURIComponent(part));
+    if (!stillCurrent()) return;
+    const items = (r && r.items) || [];
+    const free = items.filter((i) => !i.already_given && i.ready);
+    const html = '<option value="">— Chọn chủ đề —</option>' + free.map((i) =>
+      `<option value="${esc(i.id)}">${esc(i.title)}</option>`).join('');
+    const given = items.filter((i) => i.already_given).length;
+    const notReady = items.filter((i) => !i.already_given && !i.ready).length;
+    const bits = [];
+    if (given) bits.push(`${given} chủ đề lớp này đã làm`);
+    // "Chưa có bản đọc đề" là một việc admin LÀM ĐƯỢC (chạy mẻ render), khác hẳn
+    // "đã giao rồi" là việc đã xong — nên phải nói tách ra.
+    if (notReady) bits.push(`${notReady} chủ đề chưa có bản đọc đề`);
+    _topicsByPart[key] = {
+      html,
+      note: bits.length ? `Đã ẩn: ${bits.join(', ')}.` : '',
+    };
+    sel.innerHTML = free.length ? html
+      : '<option value="">Hết chủ đề giao được cho Part này</option>';
+    note.textContent = _topicsByPart[key].note;
+  } catch (err) {
+    if (!stillCurrent()) return;
+    sel.innerHTML = '<option value="">Không đọc được kho đề</option>';
+  }
 }
 
 /**
@@ -756,6 +810,8 @@ function openHomeworkModal() {
   // give would be overdue the moment it was created. Same rule as the deadline
   // itself: the date is a Vietnam wall-clock fact.
   $('hf-due').value = defaultDueDateVietnam();
+  $('hf-due-time').value = '19:00';
+  _topicsByPart = {};   // lớp khác thì "đã giao" khác — không tái dùng cache
   $('hf-error').hidden = true;
   $('hf-warning').hidden = true;
   applyHomeworkSkill();
@@ -777,7 +833,7 @@ async function submitHomework() {
     return;
   }
   if (skill === 'speaking' && !topic) {
-    $('hf-error').textContent = 'Nhập chủ đề để tiếp tục.';
+    $('hf-error').textContent = 'Chọn một chủ đề để tiếp tục.';
     $('hf-error').hidden = false;
     return;
   }
@@ -794,15 +850,19 @@ async function submitHomework() {
       skill === 'speaking'
         ? {
           skill, title, topic,
+          content_id: topic,
+          topic: ($('hf-topic').selectedOptions[0] || {}).text || '',
           mode: $('hf-mode').value,
           part: Number($('hf-part').value),
           due_date: $('hf-due').value || null,
+          due_time: $('hf-due-time').value || null,
           instructions: $('hf-instructions').value.trim() || null,
         }
         : {
           skill, title,
           content_id: testId,
           due_date: $('hf-due').value || null,
+          due_time: $('hf-due-time').value || null,
           instructions: $('hf-instructions').value.trim() || null,
         },
     );
@@ -1071,6 +1131,9 @@ function bindDetail() {
   $('btn-hf-cancel').addEventListener('click', closeHomeworkModal);
   $('btn-hf-submit').addEventListener('click', submitHomework);
   $('hf-skill').addEventListener('change', applyHomeworkSkill);
+  // Chủ đề thuộc về một PART cụ thể — đổi Part mà giữ danh sách cũ là mời admin
+  // giao một chủ đề Part 2 dưới nhãn Part 1.
+  $('hf-part').addEventListener('change', loadSpeakingTopics);
   bindModalBackdrop('homework-modal', closeHomeworkModal);
   $('homework-tbody').addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-action]');

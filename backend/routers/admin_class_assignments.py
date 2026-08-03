@@ -269,6 +269,72 @@ def _resolve_speaking_topic(cohort_id: str, body: "AssignmentCreate") -> tuple[s
     }
 
 
+@router.get("/{cohort_id}/speaking-topics")
+async def list_speaking_topics(
+    cohort_id: str,
+    part: int = 1,
+    authorization: str | None = Header(default=None),
+):
+    """Chủ đề Speaking giao được cho lớp này, ở một Part.
+
+    Trả CẢ những chủ đề không giao được, kèm lý do — chứ không lặng lẽ bỏ đi.
+    Hai lý do khác hẳn nhau và admin làm được hai việc khác nhau:
+
+      * `already_given` — lớp này đã làm rồi. Việc đã xong, chọn chủ đề khác.
+      * `ready: false`  — chưa có bản đọc đề. Việc CHƯA làm: chạy mẻ render
+                          (`scripts/pregen_speaking_question_audio.py`) là dùng
+                          được. Gộp hai thứ vào một chữ "không khả dụng" sẽ giấu
+                          mất một việc đang chờ người làm.
+    """
+    await require_admin(authorization)
+    _require_cohort(cohort_id)
+
+    topics = (
+        supabase_admin.table("topics").select("id, title, part")
+        .eq("part", part).eq("is_active", True).order("title").execute().data
+    ) or []
+    if not topics:
+        return {"items": [], "part": part}
+
+    given = {
+        r["content_id"] for r in (
+            supabase_admin.table("class_assignments").select("content_id")
+            .eq("cohort_id", cohort_id).eq("skill", "speaking")
+            .execute().data or []
+        ) if r.get("content_id")
+    }
+
+    want = _QUESTIONS_PER_PART.get(part, 1)
+    counts: dict[str, int] = {}
+    audio_ok: dict[str, int] = {}
+    ids = [t["id"] for t in topics]
+    for chunk in (ids[i:i + 100] for i in range(0, len(ids), 100)):
+        for q in (
+            supabase_admin.table("topic_questions")
+            .select("topic_id, audio_url").eq("part", part)
+            .eq("is_active", True).in_("topic_id", chunk).execute().data or []
+        ):
+            tid = q["topic_id"]
+            counts[tid] = counts.get(tid, 0) + 1
+            if (q.get("audio_url") or "").strip():
+                audio_ok[tid] = audio_ok.get(tid, 0) + 1
+
+    needs_audio = part in (1, 3)
+    items = []
+    for t in topics:
+        enough = counts.get(t["id"], 0) >= want
+        voiced = (not needs_audio) or audio_ok.get(t["id"], 0) >= want
+        items.append({
+            "id": t["id"],
+            "title": t["title"],
+            "question_count": counts.get(t["id"], 0),
+            "already_given": t["id"] in given,
+            "ready": enough and voiced,
+            "missing_audio": needs_audio and enough and not voiced,
+        })
+    return {"items": items, "part": part, "questions_per_give": want}
+
+
 @router.post("/{cohort_id}/assignments", status_code=status.HTTP_201_CREATED)
 async def create_assignment(
     cohort_id: str,
