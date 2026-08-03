@@ -26,10 +26,10 @@ function loadHelpers() {
   const esc = (s) => String(s == null ? '' : s);
   const countLabel = (n) => String(n);
   return new Function('esc', 'countLabel', `${SRC.slice(start, end)}
-    return { skillCell, lastAcrossSkills };`)(esc, countLabel);
+    return { skillCell, punctualityCell, lastAcrossSkills };`)(esc, countLabel);
 }
 
-const { skillCell, lastAcrossSkills } = loadHelpers();
+const { skillCell, punctualityCell, lastAcrossSkills } = loadHelpers();
 
 
 describe('a skill cell keeps "unknown" apart from "nothing yet"', () => {
@@ -155,5 +155,37 @@ describe('a roster change invalidates the cached progress (Codex review)', () =>
     const fn = between('function invalidateProgress', 'async function loadProgress');
     assert.match(fn, /panel-progress'\)\.hidden/);
     assert.match(fn, /loadProgress\(\)/);
+  });
+});
+
+
+describe('% nộp đúng hạn keeps "unknown" apart from "always late"', () => {
+  test('a failed ledger read says so', () => {
+    assert.match(punctualityCell(null), /không đọc được/);
+    assert.doesNotMatch(punctualityCell(null), /%/);
+  });
+
+  test('nothing handed in yet is a dash, never 0%', () => {
+    const html = punctualityCell({ assigned: 3, submitted: 0, late: 0, missing: 3, on_time_pct: null });
+    assert.match(html, /—/);
+    assert.doesNotMatch(html, /0%/,
+      '0% reads as "always late" for someone who may simply be new');
+  });
+
+  test('a rate shows, with overdue work flagged beside it', () => {
+    const html = punctualityCell({ assigned: 5, submitted: 4, late: 1, missing: 1, on_time_pct: 75 });
+    assert.match(html, /75%/);
+    assert.match(html, /1 chưa nộp/);
+    assert.match(html, /cl-roster-gap/, 'overdue work is the part worth acting on');
+  });
+
+  test('a clean record shows the rate with no alarm', () => {
+    const html = punctualityCell({ assigned: 4, submitted: 4, late: 0, missing: 0, on_time_pct: 100 });
+    assert.match(html, /100%/);
+    assert.doesNotMatch(html, /cl-roster-gap/);
+  });
+
+  test('the column exists in the table', () => {
+    assert.match(PAGE, /<th>Nộp đúng hạn<\/th>/);
   });
 });

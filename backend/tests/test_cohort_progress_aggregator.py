@@ -101,6 +101,8 @@ def _tables(*, students, sessions=(), essays=(), reading=(), listening=()):
         "listening_test_attempts": list(listening),
         "writing_feedback_current": [],
         "dictation_sessions": [],
+        "class_assignments": [],
+        "class_assignment_items": [],
     }
 
 
@@ -242,6 +244,7 @@ def _tables2(**kw):
         "students": [], "sessions": [], "writing_essays": [],
         "writing_feedback_current": [], "reading_test_attempts": [],
         "listening_test_attempts": [], "dictation_sessions": [],
+        "class_assignments": [], "class_assignment_items": [],
     }
     base.update({k: list(v) for k, v in kw.items()})
     return base
@@ -306,3 +309,114 @@ def test_a_dictation_only_learner_is_not_shown_as_inactive():
     cell = cohort_progress(db, COHORT)["students"][0]["skills"]["listening"]
     assert cell["attempts"] == 1
     assert cell["last_band"] is None
+
+
+# ── % nộp đúng hạn (Codex review — kế hoạch dòng 223 hứa, tôi bỏ sót) ────
+
+
+DUE = "2026-08-03T19:00:00+07:00"          # 12:00Z
+ON_TIME = "2026-08-03T11:00:00+00:00"      # 18:00 giờ VN
+LATE = "2026-08-03T13:00:00+00:00"         # 20:00 giờ VN
+# Comfortably in the past whenever the suite runs.
+PAST_DUE = "2020-01-01T19:00:00+07:00"
+
+
+def _hw_tables(students, assignments, items):
+    base = _tables2(students=students)
+    base["class_assignments"] = list(assignments)
+    base["class_assignment_items"] = list(items)
+    return base
+
+
+def test_on_time_rate_counts_hand_ins_not_everything_assigned():
+    """Dividing by everything assigned would drag a punctual student down for
+    work that is not even due yet — the opposite of what the column is for."""
+    db = _DB(_hw_tables(
+        [_student("s1", "u1")],
+        [{"id": "a1", "due_at": DUE, "status": "published", "cohort_id": COHORT},
+         {"id": "a2", "due_at": DUE, "status": "published", "cohort_id": COHORT},
+         {"id": "a3", "due_at": None, "status": "published", "cohort_id": COHORT}],
+        [{"id": "i1", "assignment_id": "a1", "student_id": "s1", "submitted_at": ON_TIME},
+         {"id": "i2", "assignment_id": "a2", "student_id": "s1", "submitted_at": ON_TIME},
+         {"id": "i3", "assignment_id": "a3", "student_id": "s1", "submitted_at": None}],
+    ))
+    hw = cohort_progress(db, COHORT)["students"][0]["homework"]
+    assert hw["submitted"] == 2
+    assert hw["on_time_pct"] == 100
+
+
+def test_a_late_hand_in_lowers_the_rate():
+    db = _DB(_hw_tables(
+        [_student("s1", "u1")],
+        [{"id": f"a{i}", "due_at": DUE, "status": "published", "cohort_id": COHORT}
+         for i in range(4)],
+        [{"id": "i0", "assignment_id": "a0", "student_id": "s1", "submitted_at": ON_TIME},
+         {"id": "i1", "assignment_id": "a1", "student_id": "s1", "submitted_at": ON_TIME},
+         {"id": "i2", "assignment_id": "a2", "student_id": "s1", "submitted_at": ON_TIME},
+         {"id": "i3", "assignment_id": "a3", "student_id": "s1", "submitted_at": LATE}],
+    ))
+    hw = cohort_progress(db, COHORT)["students"][0]["homework"]
+    assert (hw["late"], hw["on_time_pct"]) == (1, 75)
+
+
+def test_nothing_handed_in_yet_is_unknown_not_zero_percent():
+    """0% reads as "always late" — a damning verdict on someone who may simply be
+    new to the class.
+
+    Uses a deadline safely in the past: DUE is 19:00 on a date that may still be
+    ahead of the clock when the suite runs, which would make `missing` legitimately
+    zero and the assertion meaningless.
+    """
+    db = _DB(_hw_tables(
+        [_student("s1", "u1")],
+        [{"id": "a1", "due_at": PAST_DUE, "status": "published", "cohort_id": COHORT}],
+        [{"id": "i1", "assignment_id": "a1", "student_id": "s1", "submitted_at": None}],
+    ))
+    hw = cohort_progress(db, COHORT)["students"][0]["homework"]
+    assert hw["on_time_pct"] is None
+    assert hw["missing"] == 1, "past its deadline with nothing submitted"
+
+
+def test_work_not_yet_due_is_not_counted_missing():
+    future = "2099-01-01T12:00:00+00:00"
+    db = _DB(_hw_tables(
+        [_student("s1", "u1")],
+        [{"id": "a1", "due_at": future, "status": "published", "cohort_id": COHORT}],
+        [{"id": "i1", "assignment_id": "a1", "student_id": "s1", "submitted_at": None}],
+    ))
+    hw = cohort_progress(db, COHORT)["students"][0]["homework"]
+    assert hw["missing"] == 0
+
+
+def test_punctuality_is_attributed_per_student():
+    db = _DB(_hw_tables(
+        [_student("s1", "u1"), _student("s2", "u2")],
+        [{"id": "a1", "due_at": DUE, "status": "published", "cohort_id": COHORT}],
+        [{"id": "i1", "assignment_id": "a1", "student_id": "s1", "submitted_at": ON_TIME},
+         {"id": "i2", "assignment_id": "a1", "student_id": "s2", "submitted_at": LATE}],
+    ))
+    by_id = {r["student_id"]: r for r in cohort_progress(db, COHORT)["students"]}
+    assert by_id["s1"]["homework"]["on_time_pct"] == 100
+    assert by_id["s2"]["homework"]["on_time_pct"] == 0
+
+
+def test_a_failed_ledger_read_is_null_not_zeros():
+    db = _DB(_hw_tables([_student("s1", "u1")], [], []),
+             fail={"class_assignments"})
+    out = cohort_progress(db, COHORT)
+    assert "homework" in out["degraded"]
+    assert out["students"][0]["homework"] is None
+
+
+def test_punctuality_stays_batched():
+    """Two reads for the whole class, however many students."""
+    students = [_student(f"s{i}", f"u{i}") for i in range(30)]
+    db = _DB(_hw_tables(
+        students,
+        [{"id": "a1", "due_at": DUE, "status": "published", "cohort_id": COHORT}],
+        [{"id": f"i{i}", "assignment_id": "a1", "student_id": f"s{i}",
+          "submitted_at": ON_TIME} for i in range(30)],
+    ))
+    cohort_progress(db, COHORT)
+    assert db.queries.count("class_assignments") == 1
+    assert db.queries.count("class_assignment_items") == 1

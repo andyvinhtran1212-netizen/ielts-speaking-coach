@@ -796,6 +796,28 @@ function skillCell(cell) {
   return `<div class="cl-skill"><span class="cl-skill-count">${countLabel(cell.attempts)} lượt</span>${band}</div>`;
 }
 
+/**
+ * Punctuality on assigned homework.
+ *
+ * Three states, kept apart for the same reason the skill cells are:
+ *   null           → the ledger read failed. Say so.
+ *   nothing handed in yet → "—", NOT 0%. A student who has submitted nothing is
+ *                    not "always late"; 0% would read as a damning verdict on
+ *                    someone who may simply be new.
+ *   otherwise      → the percentage, flagged when work is actually overdue.
+ */
+function punctualityCell(h) {
+  if (h === null || h === undefined) {
+    return '<span class="cl-skill-unknown">không đọc được</span>';
+  }
+  if (h.on_time_pct === null || h.on_time_pct === undefined) {
+    return '<span class="cl-skill-none">—</span>';
+  }
+  const missing = h.missing
+    ? `<span class="cl-roster-gap">${countLabel(h.missing)} chưa nộp</span>` : '';
+  return `<div class="cl-skill"><span class="cl-skill-count">${esc(h.on_time_pct)}%</span>${missing}</div>`;
+}
+
 /** The most recent activity across all four skills. */
 function lastAcrossSkills(skills) {
   const stamps = Object.values(skills || {})
@@ -834,6 +856,7 @@ function renderProgress() {
       <td>${skillCell(r.skills.writing)}</td>
       <td>${skillCell(r.skills.reading)}</td>
       <td>${skillCell(r.skills.listening)}</td>
+      <td>${punctualityCell(r.homework)}</td>
       <td>${last ? esc(lastActiveLabel(last)) : '<span class="cl-skill-none">—</span>'}</td>
     </tr>`;
   }).join('');

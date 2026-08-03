@@ -4,7 +4,8 @@ Giai đoạn 4 của docs/CLASS_MANAGEMENT_PLAN_2026-08-02.md.
 
 Builds the student × skill matrix the admin class page renders: for each student
 on the roster, how much Speaking / Writing / Reading / Listening they have done,
-their most recent band, and when they were last active.
+their most recent band, when they were last active, and how reliably they hand
+assigned work in on time.
 
 ── Why this is batched, not per-student ────────────────────────────────────
 
@@ -128,6 +129,89 @@ def _empty() -> Dict[str, Any]:
     return {"attempts": 0, "last_activity": None, "last_band": None}
 
 
+def _homework_punctuality(db, cohort_id: str, student_ids: List[str],
+                          now: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
+    """student_id → {assigned, submitted, late, missing, on_time_pct}.
+
+    Two batched reads for the whole class, not one per student: the cohort's
+    assignments, then their items.
+
+    Lateness is DERIVED here from `submitted_at` vs `due_at`, the same rule the
+    rest of the programme uses (mig 177). There is no stored flag to read, on
+    purpose — a stored one disagrees with the timestamps the moment an admin
+    moves a deadline.
+
+    `on_time_pct` divides by HAND-INS, not by everything assigned: dividing by
+    the total would drag a punctual student's figure down for work that is not
+    even due yet, which is the opposite of what the column is for.
+    """
+    from datetime import datetime, timezone
+
+    def _at(value: Optional[str]):
+        """Parse to an aware instant.
+
+        String comparison is WRONG here and quietly so: `due_at` is stored with
+        +07:00 (compose_due_at builds 19:00 giờ Việt Nam) while `submitted_at` is
+        written in UTC, so comparing the raw strings compares wall-clock faces
+        rather than moments — and a hand-in at 20:00 VN reads as earlier than a
+        19:00 VN deadline. Caught by a fixture using both offsets.
+        """
+        if not value:
+            return None
+        try:
+            return datetime.fromisoformat(value)
+        except ValueError:
+            logger.warning("[cohort-progress] unparseable timestamp %r", value)
+            return None
+
+    now_dt = _at(now) or datetime.now(timezone.utc)
+
+    assignments = _paged(
+        db, "class_assignments", "id, due_at, status",
+        lambda q: q.eq("cohort_id", cohort_id).eq("status", "published"),
+    )
+    due_by_id = {a["id"]: _at(a.get("due_at")) for a in assignments}
+    if not due_by_id:
+        return {}
+
+    items = _fetch_by_ids(
+        db, "class_assignment_items", "id, assignment_id, student_id, submitted_at",
+        "assignment_id", list(due_by_id),
+    )
+
+    acc: Dict[str, Dict[str, int]] = {}
+    for it in items:
+        sid = it.get("student_id")
+        if not sid:
+            continue
+        bucket = acc.setdefault(sid, {"assigned": 0, "submitted": 0, "late": 0, "missing": 0})
+        bucket["assigned"] += 1
+        due = due_by_id.get(it["assignment_id"])
+        submitted_at = _at(it.get("submitted_at"))
+        if it.get("submitted_at"):
+            bucket["submitted"] += 1
+            if due and submitted_at and submitted_at > due:
+                bucket["late"] += 1
+        elif due and due < now_dt:
+            bucket["missing"] += 1
+
+    out: Dict[str, Dict[str, Any]] = {}
+    for sid in student_ids:
+        b = acc.get(sid)
+        if not b:
+            out[sid] = {"assigned": 0, "submitted": 0, "late": 0, "missing": 0,
+                        "on_time_pct": None}
+            continue
+        out[sid] = {
+            **b,
+            # None, not 0: a student who has handed nothing in yet is not
+            # "always late", they simply have no record either way.
+            "on_time_pct": (round((b["submitted"] - b["late"]) / b["submitted"] * 100)
+                            if b["submitted"] else None),
+        }
+    return out
+
+
 def cohort_progress(db, cohort_id: str) -> Dict[str, Any]:
     """Per-student progress across the four skills for one class.
 
@@ -215,6 +299,13 @@ def cohort_progress(db, cohort_id: str) -> Dict[str, Any]:
         logger.warning("[cohort-progress] listening failed: %s", exc)
         degraded.append("listening")
 
+    homework: Dict[str, Dict[str, Any]] = {}
+    try:
+        homework = _homework_punctuality(db, cohort_id, student_ids)
+    except Exception as exc:
+        logger.warning("[cohort-progress] homework punctuality failed: %s", exc)
+        degraded.append("homework")
+
     out = []
     for s in students:
         uid = s.get("user_id")
@@ -233,6 +324,8 @@ def cohort_progress(db, cohort_id: str) -> Dict[str, Any]:
                 continue
             owner = s["id"] if skill == "writing" else uid
             row["skills"][skill] = folded.get(skill, {}).get(owner) or _empty()
+        # null, not zeros, when the ledger read failed — same rule as the skills.
+        row["homework"] = None if "homework" in degraded else homework.get(s["id"])
         out.append(row)
 
     return {"students": out, "degraded": degraded}
