@@ -1381,3 +1381,54 @@ def test_work_done_while_a_give_was_still_hidden_is_not_the_hand_in():
     )
     # And a give still hidden collects nothing at all.
     assert reconcile_test_attempts(db, [a]) == 0
+
+
+def test_an_archived_sibling_keeps_its_attempt_reserved():
+    """Archiving is the normal way a give is closed. If that released its
+    attempt, the next give of the same paper would silently take it as a second
+    hand-in — the student would appear to have done the work twice."""
+    recorded = {"id": "item-1", "assignment_id": "asg-1", "student_id": "stu-1",
+                "submitted_at": "2026-08-05T10:00:00+00:00", "state": "submitted",
+                "artifact_id": "att-1"}
+    db = _DB({
+        "class_assignment_items": [recorded, _pending("item-2", "asg-2")],
+        "students": [{"id": "stu-1", "user_id": "user-1", "cohort_id": "co-1"}],
+        "class_assignments": [dict(_GIVE_1, status="archived", cohort_id="co-1"),
+                              dict(_GIVE_2, cohort_id="co-1")],
+        "reading_test_attempts": [{
+            "id": "att-1", "user_id": "user-1", "test_id": "test-1",
+            "submitted_at": "2026-08-05T10:00:00+00:00", "band_estimate": 6.0,
+            "status": "submitted"}],
+    })
+    assert reconcile_test_attempts(db, [dict(_GIVE_2, cohort_id="co-1")]) == 0
+    by_id = {i["id"]: i for i in db.tables["class_assignment_items"]}
+    assert by_id["item-2"].get("submitted_at") is None
+
+
+def test_a_transferred_students_old_item_is_not_written_to():
+    """The student routes already hide a previous class's work. Writing to it
+    here would file the hand-in under a class the learner has left — and spend
+    the attempt there instead of on their current class's give."""
+    db = _DB({
+        "class_assignment_items": [_pending("item-old", "asg-1")],
+        "students": [{"id": "stu-1", "user_id": "user-1", "cohort_id": "co-NEW"}],
+        "reading_test_attempts": [{
+            "id": "att-1", "user_id": "user-1", "test_id": "test-1",
+            "submitted_at": "2026-08-05T10:00:00+00:00", "band_estimate": 6.0,
+            "status": "submitted"}],
+    })
+    assert reconcile_test_attempts(db, [dict(_GIVE_1, cohort_id="co-OLD")]) == 0
+
+
+def test_the_current_classes_give_still_gets_credited():
+    """The cohort check must not refuse ordinary work — that would stop every
+    hand-in, which is worse than the bug it prevents."""
+    db = _DB({
+        "class_assignment_items": [_pending("item-1", "asg-1")],
+        "students": [{"id": "stu-1", "user_id": "user-1", "cohort_id": "co-1"}],
+        "reading_test_attempts": [{
+            "id": "att-1", "user_id": "user-1", "test_id": "test-1",
+            "submitted_at": "2026-08-05T10:00:00+00:00", "band_estimate": 6.0,
+            "status": "submitted"}],
+    })
+    assert reconcile_test_attempts(db, [dict(_GIVE_1, cohort_id="co-1")]) == 1

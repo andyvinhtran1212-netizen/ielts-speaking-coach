@@ -280,7 +280,10 @@ function loadTestPicker() {
 
   const esc = (s) => String(s == null ? '' : s);
   const el = { innerHTML: '' };
-  const $ = () => el;
+  // Two different nodes: the select being painted, and the skill picker the
+  // code checks to see whether its response is still wanted.
+  const skillEl = { value: '' };
+  const $ = (id) => (id === 'hf-skill' ? skillEl : el);
   const _testsBySkill = {};
   // Mutated per test; `loadTests` calls api.get() at call time, so reassigning
   // the METHOD (not the binding) is what puts the stub in reach.
@@ -291,8 +294,16 @@ function loadTestPicker() {
 
   return {
     el,
+    skillEl,
     setApi: (fn) => { api.get = fn; },
-    run: (skill) => loadTests(skill),
+    run: (skill) => { skillEl.value = skill; return loadTests(skill); },
+    // Start a load, then switch the picker mid-flight.
+    runThenSwitch: (skill, to) => {
+      skillEl.value = skill;
+      const p = loadTests(skill);
+      skillEl.value = to;
+      return p;
+    },
   };
 }
 
@@ -332,5 +343,37 @@ describe('the paper picker offers only papers a class can actually open', () => 
                                     SRC.indexOf('function openHomeworkModal')));
     assert.match(body, /exam_only/,
       'stripping comments must still leave a real exam_only check');
+  });
+});
+
+
+describe('a late library response does not paint the wrong skill', () => {
+  test('switching Reading → Listening mid-flight discards the Reading list', async () => {
+    const h = loadTestPicker();
+    h.setApi(async () => ({ items: [
+      { id: 'r1', code: 'READ-1', title: 'Đề đọc', status: 'published',
+        exam_only: false },
+    ] }));
+    await h.runThenSwitch('reading', 'listening');
+    assert.doesNotMatch(h.el.innerHTML, /READ-1/,
+      'Reading papers under a Listening heading send a content_id the backend rejects');
+  });
+
+  test('a late FAILURE does not overwrite the other skill either', async () => {
+    const h = loadTestPicker();
+    h.setApi(async () => { throw new Error('boom'); });
+    await h.runThenSwitch('reading', 'listening');
+    assert.doesNotMatch(h.el.innerHTML, /Không đọc được thư viện đề/,
+      'the Listening library did not fail — Reading did');
+  });
+
+  test('no switch → the list is painted as normal', async () => {
+    const h = loadTestPicker();
+    h.setApi(async () => ({ items: [
+      { id: 'r1', code: 'READ-1', title: 'Đề đọc', status: 'published',
+        exam_only: false },
+    ] }));
+    await h.run('reading');
+    assert.match(h.el.innerHTML, /READ-1/);
   });
 });

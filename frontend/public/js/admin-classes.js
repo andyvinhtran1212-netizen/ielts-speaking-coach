@@ -701,6 +701,13 @@ function applyHomeworkSkill() {
  */
 async function loadTests(skill) {
   const sel = $('hf-test');
+  // Both libraries write into the SAME select. Switching Reading → Listening
+  // while the Reading request is in flight let the late response paint Reading
+  // papers under a Listening heading — and submit then sent a content_id the
+  // backend rejects for the wrong skill. Every write below is gated on the
+  // skill still being the selected one.
+  const stillCurrent = () => ($('hf-skill') || {}).value === skill;
+
   if (_testsBySkill[skill]) {
     sel.innerHTML = _testsBySkill[skill];
     return;
@@ -712,16 +719,21 @@ async function loadTests(skill) {
       .filter((i) => i.status === 'published' && !i.exam_only);
     // A library that failed to load must not look like a library with no papers.
     if ((r.failed_kinds || []).includes(skill)) {
-      sel.innerHTML = '<option value="">Không đọc được thư viện đề</option>';
+      if (stillCurrent()) {
+        sel.innerHTML = '<option value="">Không đọc được thư viện đề</option>';
+      }
       return;
     }
     const html = '<option value="">— Chọn đề —</option>' + items.map((i) =>
       `<option value="${esc(i.id)}">${esc([i.code, i.title].filter(Boolean).join(' · '))}</option>`
     ).join('');
+    // Caching is safe either way — it is keyed by skill.
     _testsBySkill[skill] = html;
+    if (!stillCurrent()) return;
     sel.innerHTML = items.length ? html
       : '<option value="">Chưa có đề nào giao được</option>';
   } catch (err) {
+    if (!stillCurrent()) return;
     sel.innerHTML = '<option value="">Không đọc được thư viện đề</option>';
   }
 }

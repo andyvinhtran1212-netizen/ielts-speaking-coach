@@ -443,25 +443,34 @@ def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
     submitted_at, so a hand-in made before the deadline stays on time however
     late this reconciliation runs.
     """
-    # Only OPEN gives. An archived or cancelled task must not gain hand-ins:
-    # any later standalone practice of the same paper satisfies the
-    # "after it was set" test and would be written in as class work, so closed
-    # homework would quietly grow submissions nobody handed in.
+    # WRITABLE gives: only open ones. An archived or cancelled task must not
+    # gain hand-ins — any later standalone practice of the same paper satisfies
+    # the "after it was set" test and would be written in as class work, so
+    # closed homework would quietly grow submissions nobody handed in.
     targets = [a for a in assignments
                if a.get("skill") in _TEST_ARTIFACTS and a.get("content_id")
                and is_assignment_open(a)]
     if not targets:
         return 0
 
-    # Pull in SIBLING gives of the same paper, even when the caller did not pass
-    # them — the pre-delete path passes a single row. Without them an attempt
-    # already credited to an earlier give is invisible here, so `spent` is
-    # incomplete and the same sitting clears two pieces of homework.
+    # SIBLING gives of the same paper, even when the caller did not pass them —
+    # the pre-delete path passes a single row. Without them an attempt already
+    # credited to another give is invisible, `spent` is incomplete, and one
+    # sitting clears two pieces of homework.
+    #
+    # These are collected REGARDLESS OF STATUS, unlike the writable set above.
+    # Closing a give by archiving it is the normal end of its life; if archiving
+    # released its attempt, the next give of the same paper would silently take
+    # it as a second hand-in. Reserving and writing are different questions:
+    # an archived give still OWNS what was handed in to it, it just cannot
+    # receive anything new.
     #
     # Matching on content_id alone is enough: a student belongs to exactly one
-    # class, so two cohorts holding the same paper can never collide on the
+    # class, so two cohorts holding the same paper cannot collide on the
     # (user, test) key this reserves against.
-    known = {a["id"] for a in targets}
+    writable = {a["id"] for a in targets}
+    by_assignment = {a["id"]: a for a in targets}
+    reserving = set(writable)
     content_ids = list({a["content_id"] for a in targets})
     try:
         for chunk in (content_ids[i:i + _ID_CHUNK]
@@ -471,9 +480,13 @@ def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
                 "id, skill, content_id, created_at, status, publish_at, cohort_id",
                 lambda q, c=chunk: q.in_("content_id", c),
             ):
-                if (sib["id"] not in known and sib.get("skill") in _TEST_ARTIFACTS
-                        and sib.get("content_id") and is_assignment_open(sib)):
-                    known.add(sib["id"])
+                if (sib["id"] in reserving or sib.get("skill") not in _TEST_ARTIFACTS
+                        or not sib.get("content_id")):
+                    continue
+                reserving.add(sib["id"])
+                by_assignment.setdefault(sib["id"], sib)
+                if is_assignment_open(sib):
+                    writable.add(sib["id"])
                     targets.append(sib)
     except Exception as exc:
         # Best-effort: without siblings the repair is still correct for the
@@ -481,18 +494,20 @@ def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
         # one it does not know. Say so rather than silently narrowing.
         logger.warning("[class] sibling-give lookup failed: %s", exc)
 
-    # ALL items, not just the pending ones: an attempt already credited to a
-    # sibling give must not be credited a second time, and the only record of
-    # that is the recorded item's artifact_id.
+    # ALL items of ALL those gives, not just the pending ones: an attempt
+    # already credited elsewhere must not be credited again, and the only record
+    # of that is the recorded item's artifact_id.
+    give_ids = list(reserving)
     all_items = []
-    for chunk in (list(targets)[i:i + _ID_CHUNK]
-                  for i in range(0, len(targets), _ID_CHUNK)):
+    for chunk in (give_ids[i:i + _ID_CHUNK]
+                  for i in range(0, len(give_ids), _ID_CHUNK)):
         all_items.extend(_paged(
             db, "class_assignment_items",
             "id, assignment_id, student_id, submitted_at, artifact_id",
-            lambda q, c=chunk: q.in_("assignment_id", [a["id"] for a in c]),
+            lambda q, c=chunk: q.in_("assignment_id", c),
         ))
-    items = [i for i in all_items if not i.get("submitted_at")]
+    items = [i for i in all_items
+             if not i.get("submitted_at") and i["assignment_id"] in writable]
     spent: Set[str] = {i["artifact_id"] for i in all_items
                        if i.get("submitted_at") and i.get("artifact_id")}
     if not items:
@@ -501,16 +516,17 @@ def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
     # student → user, for the attempt tables which key off the auth account.
     student_ids = list({i["student_id"] for i in items})
     users: Dict[str, str] = {}
+    cohort_of: Dict[str, Any] = {}
     for chunk in (student_ids[i:i + _ID_CHUNK]
                   for i in range(0, len(student_ids), _ID_CHUNK)):
-        for s in (_paged(db, "students", "id, user_id",
+        for s in (_paged(db, "students", "id, user_id, cohort_id",
                          lambda q, c=chunk: q.in_("id", c))):
+            cohort_of[s["id"]] = s.get("cohort_id")
             if s.get("user_id"):
                 users[s["id"]] = s["user_id"]
     if not users:
         return 0
 
-    by_assignment = {a["id"]: a for a in targets}
     fixed = 0
     for skill, (table, artifact_kind) in _TEST_ARTIFACTS.items():
         rel = [i for i in items
@@ -558,6 +574,13 @@ def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
         for item in rel:
             uid = users.get(item["student_id"])
             assignment = by_assignment[item["assignment_id"]]
+            # A transferred student keeps their old items, and the student
+            # routes already hide those. Writing to one here would put work into
+            # a class the learner has left — and spend the attempt there instead
+            # of on the give their CURRENT class just set.
+            a_cohort, s_cohort = assignment.get("cohort_id"), cohort_of.get(item["student_id"])
+            if a_cohort and s_cohort and str(a_cohort) != str(s_cohort):
+                continue
             test_id = assignment["content_id"]
             # An attempt made BEFORE the homework was given is not a hand-in for
             # it. Without this, giving a class a paper someone had already

@@ -138,6 +138,9 @@ BEGIN
                           FROM reading_test_attempts r
                           JOIN students st ON st.id = i.student_id
                          WHERE r.user_id = st.user_id
+                           -- Transferred learners keep their old items; work
+                           -- they do now belongs to their CURRENT class.
+                           AND st.cohort_id = p_cohort_id
                            AND r.test_id::text = v_content_id
                            AND r.status = 'submitted'
                            AND r.submitted_at >= v_since
@@ -161,6 +164,9 @@ BEGIN
                           FROM listening_test_attempts l
                           JOIN students st ON st.id = i.student_id
                          WHERE l.user_id = st.user_id
+                           -- Transferred learners keep their old items; work
+                           -- they do now belongs to their CURRENT class.
+                           AND st.cohort_id = p_cohort_id
                            AND l.test_id::text = v_content_id
                            AND l.status = 'submitted'
                            AND l.submitted_at >= v_since

@@ -84,3 +84,12 @@ def test_speaking_gives_are_not_dragged_into_the_attempt_check(sql):
     """Speaking has no content_id; an unguarded branch would compare NULL and
     quietly change behaviour for the skill this migration is not about."""
     assert len(re.findall(r"v_content_id\s+IS\s+NOT\s+NULL", sql, re.I)) >= 4
+
+
+def test_the_guard_only_counts_attempts_by_students_still_in_this_class(sql):
+    """A transferred learner keeps their old items. Counting their new work as
+    evidence for the old class would make that give undeletable on the strength
+    of a hand-in that belongs somewhere else."""
+    assert len(re.findall(r"st\.cohort_id\s*=\s*p_cohort_id", sql, re.I)) >= 4, (
+        "both the lock and the EXISTS branch, for both skills"
+    )
