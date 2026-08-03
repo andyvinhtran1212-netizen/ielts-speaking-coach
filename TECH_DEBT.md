@@ -1,6 +1,6 @@
 # Tech Debt — IELTS Speaking Coach
 
-**Last updated:** 2026-07-25 (DEBT-J CLOSED — 7 font families → 4, 4 type systems → 1, PRs #827/#828/#830; DEBT-I favicon half shipped #829, wordmark half still waits on the Next migration)
+**Last updated:** 2026-08-03 (MED-ADMIN-NAV kiểm kê lại: 8 trang / 2 nguyên nhân, không phải 4) · 2026-07-25 (DEBT-J CLOSED — 7 font families → 4, 4 type systems → 1, PRs #827/#828/#830; DEBT-I favicon half shipped #829, wordmark half still waits on the Next migration)
 **Last reviewed:** 2026-05-07 (PM)
 
 Comprehensive snapshot of tech debt + improvement opportunities, restructured
@@ -677,6 +677,56 @@ material, not active backlog.
 - **Blocked by:** HIGH-10 ship.
 
 ### Medium priority
+
+#### MED-ADMIN-NAV: 8 trang admin không tô sáng mục nào trên sidebar (logged 2026-08-02, kiểm kê lại 2026-08-03)
+- **What:** `renderSidebar()` trong `frontend/public/js/components/aver-admin-chrome.js`
+  chỉ tô sáng một mục khi `item.section` trùng **đúng** thuộc tính `active=` của
+  trang. Có **HAI nguyên nhân khác nhau**, và chúng cần hai cách sửa khác nhau —
+  bản ghi đầu tiên gộp làm một và bỏ sót một nửa số trang.
+
+  **Kiểu A — `active` không có mục nav nào khai `section` như vậy** (4 trang):
+
+  | Trang | `active=` |
+  |---|---|
+  | `system/index.html` · `system/ai-usage.html` · `system/alerts.html` | `system` |
+  | `usage/index.html` | `usage` |
+  | `foot-traffic/index.html` | `foot-traffic` |
+
+  Sửa: thêm mục nav khai đúng `section`, hoặc đổi trang sang section cha có thật
+  kèm `subsection=` (cách đã dùng cho trang Học viên ở GĐ 1).
+
+  **Kiểu B — `active` KHÔNG có trong `VALID_ACTIVE`** (3 trang). Đây là kiểu
+  đáng bực hơn: `_normalizeActive()` trả `null` cho giá trị lạ, nên trang mất
+  highlight **mặc dù NAV_GROUPS ĐÃ khai đúng `section`**. Tức mục nav có sẵn,
+  chỉ là danh sách hợp lệ quên liệt kê nó.
+
+  | Trang | `active=` | `section:` có trong NAV_GROUPS? |
+  |---|---|---|
+  | `reading/content.html` · `reading/preview.html` | `reading` | **có** |
+  | `instructors.html` | `instructors` | **có** |
+
+  Sửa kiểu B: thêm `'reading'` và `'instructors'` vào `VALID_ACTIVE`
+  (`aver-admin-chrome.js` ~dòng 44–51). Một dòng, không đụng gì khác.
+
+- **KHÔNG phải một mục:** `access-codes/index.html` từng bị liệt kê ở bản ghi
+  đầu, nhưng `frontend/next.config.ts:98-99` chuyển hướng vĩnh viễn đường dẫn đó
+  sang tab Codes của trang Users — trang không tới được trên prod.
+
+- **Phát hiện khi nào:** GĐ 1 chương trình Lớp & Học viên (PR #899/#900), lúc đổi
+  slug `cohorts` → `classes` làm trang Học viên rơi vào kiểu A. Trang Học viên đã
+  sửa; các trang trên có từ trước và cố ý KHÔNG sửa kèm để không làm loãng review.
+  Bản kiểm kê được soát lại sau review PR #901 — bản đầu ghi 4 trang, đếm nhầm cả
+  hai chiều.
+
+- **Action:** sửa kiểu B trước (một dòng), rồi kiểu A. Xong thì mở rộng test
+  `describe('GĐ 1 — merged class area highlights in the sidebar')` trong
+  `frontend/tests/aver-admin-chrome.test.mjs` thành phép kiểm cho **mọi trang
+  admin tới được**, đòi `active` phải có mặt trong **CẢ** `VALID_ACTIVE` **LẪN**
+  `NAV_GROUPS` — thiếu một trong hai là mất highlight, và hai điều kiện đó hỏng
+  theo hai cách khác nhau. Nhớ loại các đường bị `next.config.ts` chuyển hướng.
+- **Effort:** ~15 phút cho kiểu B, ~45 phút cho kiểu A + mở rộng test.
+- **Rủi ro nếu bỏ qua:** thấp về chức năng, nhưng mỗi lần đổi slug section lại âm
+  thầm đẻ thêm một trang như vậy — đã xảy ra hai lần trong GĐ 1.
 
 #### MED-2: Vocab enrichment backfill incomplete (audit MEDIUM-2)
 - **What:** Audit 2026-04-30 sampled live data and found 12 of 36 `used_well`
