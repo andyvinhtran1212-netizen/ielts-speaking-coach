@@ -132,6 +132,7 @@ def _empty() -> Dict[str, Any]:
 
 
 def _homework_punctuality(db, cohort_id: str, student_ids: List[str],
+                          degraded: Optional[List[str]] = None,
                           now: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
     """student_id → {assigned, submitted, late, missing, on_time_pct}.
 
@@ -184,8 +185,15 @@ def _homework_punctuality(db, cohort_id: str, student_ids: List[str],
     # in a new way.
     try:
         reconcile_test_attempts(db, assignments)
-    except Exception as exc:                                # pragma: no cover
+    except Exception as exc:
+        # NAME IT. Continuing on the unrepaired ledger is the right call — the
+        # other three skills are fine and the homework counts are merely stale —
+        # but reporting stale counts as canonical is how "chưa nộp" ends up
+        # shown for work that was handed in. The homework list endpoint already
+        # warns on exactly this condition; this screen must not stay quiet.
         logger.warning("[cohort-progress] test-attempt reconcile failed: %s", exc)
+        if degraded is not None:
+            degraded.append("homework_stale")
 
     items = _fetch_by_ids(
         db, "class_assignment_items", "id, assignment_id, student_id, submitted_at",
@@ -314,7 +322,7 @@ def cohort_progress(db, cohort_id: str) -> Dict[str, Any]:
 
     homework: Dict[str, Dict[str, Any]] = {}
     try:
-        homework = _homework_punctuality(db, cohort_id, student_ids)
+        homework = _homework_punctuality(db, cohort_id, student_ids, degraded)
     except Exception as exc:
         logger.warning("[cohort-progress] homework punctuality failed: %s", exc)
         degraded.append("homework")

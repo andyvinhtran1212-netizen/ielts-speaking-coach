@@ -1321,3 +1321,39 @@ def test_a_give_scheduled_for_later_collects_nothing_yet():
         "status": "submitted",
     }])
     assert reconcile_test_attempts(db, [a]) == 0
+
+
+def test_a_sibling_give_reserves_its_attempt_even_when_not_passed_in():
+    """The pre-delete path passes ONE row. Without pulling in sibling gives of
+    the same paper, an attempt already credited to the other give is invisible
+    and gets credited a second time."""
+    recorded = {"id": "item-1", "assignment_id": "asg-1", "student_id": "stu-1",
+                "submitted_at": "2026-08-05T10:00:00+00:00", "state": "submitted",
+                "artifact_id": "att-1"}
+    db = _DB({
+        "class_assignment_items": [recorded, _pending("item-2", "asg-2")],
+        "students": [{"id": "stu-1", "user_id": "user-1"}],
+        "class_assignments": [_GIVE_1, _GIVE_2],
+        "reading_test_attempts": [{
+            "id": "att-1", "user_id": "user-1", "test_id": "test-1",
+            "submitted_at": "2026-08-05T10:00:00+00:00", "band_estimate": 6.0,
+            "status": "submitted"}],
+    })
+    # Only the LATER give is passed — as the pre-delete path would.
+    assert reconcile_test_attempts(db, [_GIVE_2]) == 0
+    by_id = {i["id"]: i for i in db.tables["class_assignment_items"]}
+    assert by_id["item-2"].get("submitted_at") is None
+
+
+def test_a_failed_sibling_lookup_does_not_take_the_repair_down():
+    """Best-effort: without siblings the repair is still right for the gives it
+    was asked about."""
+    db = _DB({
+        "class_assignment_items": [_pending("item-1", "asg-1")],
+        "students": [{"id": "stu-1", "user_id": "user-1"}],
+        "reading_test_attempts": [{
+            "id": "att-1", "user_id": "user-1", "test_id": "test-1",
+            "submitted_at": "2026-08-05T10:00:00+00:00", "band_estimate": 6.0,
+            "status": "submitted"}],
+    }, fail={"class_assignments"})
+    assert reconcile_test_attempts(db, [_GIVE_1]) == 1

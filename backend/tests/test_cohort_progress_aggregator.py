@@ -478,3 +478,35 @@ def test_a_failed_repair_still_renders_the_rest_of_the_row():
     )
     out = cohort_progress(_DB(tables, fail={"reading_test_attempts"}), COHORT)
     assert out["students"][0]["homework"]["assigned"] == 1
+
+
+def test_a_failed_repair_is_NAMED_not_just_logged():
+    """Continuing on the unrepaired ledger is right — the other skills are fine
+    and the counts are merely stale. Presenting stale counts as canonical is
+    not: that is how "chưa nộp" gets shown for work already handed in. The
+    homework list endpoint warns on exactly this; this screen must not stay
+    quiet while showing the same numbers."""
+    tables = _hw_tables(
+        [_student("s1", "u1")],
+        [{"id": "asg-1", "due_at": DUE, "status": "published", "cohort_id": COHORT,
+          "skill": "reading", "content_id": "test-1",
+          "created_at": "2020-01-01T00:00:00+00:00"}],
+        [{"id": "item-1", "assignment_id": "asg-1", "student_id": "s1",
+          "submitted_at": None, "state": "assigned"}],
+    )
+    out = cohort_progress(_DB(tables, fail={"reading_test_attempts"}), COHORT)
+    assert "homework_stale" in out["degraded"]
+    # ...and the row is still rendered, with the other skills intact.
+    assert out["students"][0]["homework"]["assigned"] == 1
+
+
+def test_a_clean_read_names_nothing():
+    tables = _hw_tables(
+        [_student("s1", "u1")],
+        [{"id": "asg-1", "due_at": DUE, "status": "published", "cohort_id": COHORT,
+          "skill": "reading", "content_id": "test-1",
+          "created_at": "2020-01-01T00:00:00+00:00"}],
+        [{"id": "item-1", "assignment_id": "asg-1", "student_id": "s1",
+          "submitted_at": None, "state": "assigned"}],
+    )
+    assert "homework_stale" not in cohort_progress(_DB(tables), COHORT)["degraded"]

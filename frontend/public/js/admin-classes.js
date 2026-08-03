@@ -907,11 +907,28 @@ function renderProgress() {
   const rows = _progress.students || [];
   const degraded = _progress.degraded || [];
 
-  $('progress-degraded').hidden = degraded.length === 0;
-  if (degraded.length) {
-    $('progress-degraded').textContent =
-      'Chưa đọc được số liệu: ' + degraded.join(', ') + '. Tải lại để thử lại.';
+  // Two different failures, two different sentences. A skill that failed to
+  // load shows "—" and the admin should reload. A stale homework column is the
+  // opposite problem: the numbers ARE there and look canonical, but a
+  // Reading/Listening hand-in may not have been folded in yet — reporting that
+  // as "Tải lại" would send the admin chasing a number that is not wrong,
+  // just behind.
+  const DEGRADED_LABEL = {
+    speaking: 'Speaking', writing: 'Writing', reading: 'Reading',
+    listening: 'Listening', homework: 'bài tập',
+  };
+  const stale = degraded.includes('homework_stale');
+  const unread = degraded.filter((d) => d !== 'homework_stale');
+  const notes = [];
+  if (unread.length) {
+    notes.push('Chưa đọc được số liệu: '
+      + unread.map((d) => DEGRADED_LABEL[d] || d).join(', ') + '. Tải lại để thử lại.');
   }
+  if (stale) {
+    notes.push('Cột bài tập có thể chưa cập nhật bài nộp Reading/Listening mới nhất.');
+  }
+  $('progress-degraded').hidden = notes.length === 0;
+  if (notes.length) $('progress-degraded').textContent = notes.join(' ');
 
   $('progress-empty').hidden = rows.length > 0;
   $('progress-table-wrap').hidden = rows.length === 0;

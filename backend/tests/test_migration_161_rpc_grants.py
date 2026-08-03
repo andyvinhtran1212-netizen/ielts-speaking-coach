@@ -40,6 +40,12 @@ CASES = [
     ("179_fn_class_assignment_atomic.sql",      "fn_create_class_assignment"),
     ("179_fn_class_assignment_atomic.sql",      "fn_delete_class_assignment_if_unsubmitted"),
     ("179_fn_class_assignment_atomic.sql",      "fn_bind_session_to_class_item"),
+    # mig 181 redefines the delete guard to read the Reading/Listening attempt
+    # tables. CREATE OR REPLACE preserves existing grants, so mig 180 omitting
+    # the REVOKE is not a hole — but a redefinition is exactly where a future
+    # edit could rename the function and silently mint a PUBLIC-executable one,
+    # so every file that (re)defines it is pinned here.
+    ("181_fn_delete_checks_test_attempts.sql",  "fn_delete_class_assignment_if_unsubmitted"),
 ]
 _ids = [fn for _f, fn in CASES]
 

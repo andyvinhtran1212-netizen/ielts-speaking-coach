@@ -453,6 +453,34 @@ def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
     if not targets:
         return 0
 
+    # Pull in SIBLING gives of the same paper, even when the caller did not pass
+    # them — the pre-delete path passes a single row. Without them an attempt
+    # already credited to an earlier give is invisible here, so `spent` is
+    # incomplete and the same sitting clears two pieces of homework.
+    #
+    # Matching on content_id alone is enough: a student belongs to exactly one
+    # class, so two cohorts holding the same paper can never collide on the
+    # (user, test) key this reserves against.
+    known = {a["id"] for a in targets}
+    content_ids = list({a["content_id"] for a in targets})
+    try:
+        for chunk in (content_ids[i:i + _ID_CHUNK]
+                      for i in range(0, len(content_ids), _ID_CHUNK)):
+            for sib in _paged(
+                db, "class_assignments",
+                "id, skill, content_id, created_at, status, publish_at, cohort_id",
+                lambda q, c=chunk: q.in_("content_id", c),
+            ):
+                if (sib["id"] not in known and sib.get("skill") in _TEST_ARTIFACTS
+                        and sib.get("content_id") and is_assignment_open(sib)):
+                    known.add(sib["id"])
+                    targets.append(sib)
+    except Exception as exc:
+        # Best-effort: without siblings the repair is still correct for the
+        # gives it was asked about, it just cannot see a reservation made by
+        # one it does not know. Say so rather than silently narrowing.
+        logger.warning("[class] sibling-give lookup failed: %s", exc)
+
     # ALL items, not just the pending ones: an attempt already credited to a
     # sibling give must not be credited a second time, and the only record of
     # that is the recorded item's artifact_id.
