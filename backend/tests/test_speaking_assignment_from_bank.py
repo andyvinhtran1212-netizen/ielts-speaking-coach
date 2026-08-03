@@ -592,3 +592,76 @@ def test_a_failed_student_lookup_falls_back_to_the_old_behaviour():
         db, [{"id": "a1", "due_at": "2020-01-01T19:00:00+07:00"}])["a1"]
     assert p["missing"] == 1 and p["no_account"] == 0
     assert p["assigned"] == 1
+
+
+# ── hạn nộp phải TUYỆT ĐỐI kể cả ở đường vá sổ ──────────────────────────
+#
+# Chốt lúc ghi nhận từ chối một phiên hoàn thành sau hạn. Nếu đường vá sổ ghi
+# giúp thì lời từ chối kia vô nghĩa: em ấy bắt đầu trước hạn, nộp sau hạn, và
+# lần đọc tiếp theo của giáo viên sẽ khôi phục. Bảng tổng kết đứng yên được là
+# nhờ CẢ HAI chỗ cùng từ chối.
+
+
+def _repair_db(*, submitted_at, due="2026-08-03T19:00:00+07:00", table="reading_test_attempts"):
+    from tests.test_class_assignment_service import _DB
+    return _DB({
+        "class_assignment_items": [
+            {"id": "item-1", "assignment_id": "asg-1", "student_id": "stu-1",
+             "submitted_at": None, "state": "assigned"},
+        ],
+        "students": [{"id": "stu-1", "user_id": "user-1"}],
+        table: [{"id": "att-1", "class_assignment_item_id": "item-1",
+                 "submitted_at": submitted_at, "band_estimate": 6.0,
+                 "status": "submitted"}],
+    }), {"id": "asg-1", "skill": "reading", "content_id": "t1",
+         "status": "published", "cohort_id": "co-1", "due_at": due}
+
+
+def test_the_repair_pass_refuses_an_attempt_submitted_after_the_deadline():
+    from services.class_assignment_service import reconcile_test_attempts
+    db, asg = _repair_db(submitted_at="2026-08-03T13:00:00+00:00")   # 20:00 VN
+    assert reconcile_test_attempts(db, [asg]) == 0
+    assert db.tables["class_assignment_items"][0].get("submitted_at") is None
+
+
+def test_the_repair_pass_still_records_one_made_before_the_deadline():
+    from services.class_assignment_service import reconcile_test_attempts
+    db, asg = _repair_db(submitted_at="2026-08-03T11:00:00+00:00")   # 18:00 VN
+    assert reconcile_test_attempts(db, [asg]) == 1
+
+
+def test_a_give_with_no_deadline_is_repaired_whenever():
+    from services.class_assignment_service import reconcile_test_attempts
+    db, asg = _repair_db(submitted_at="2030-01-01T00:00:00+00:00", due=None)
+    assert reconcile_test_attempts(db, [asg]) == 1
+
+
+def test_the_session_repair_pass_also_refuses_a_late_completion():
+    """`_record_class_submission` đã từ chối ghi một phiên hoàn thành sau hạn.
+    Nếu đường vá sổ này ghi giúp thì lời từ chối kia vô nghĩa — và bảng tổng kết
+    lại đổi sau khi đã chốt."""
+    from services.class_assignment_service import reconcile_ledger_from_sessions
+    from tests.test_class_assignment_service import _DB
+
+    def _db(completed_at):
+        return _DB({
+            "class_assignment_items": [
+                {"id": "item-1", "assignment_id": "asg-1", "student_id": "stu-1",
+                 "submitted_at": None, "state": "assigned"},
+            ],
+            "class_assignments": [
+                {"id": "asg-1", "due_at": "2026-08-03T19:00:00+07:00"},
+            ],
+            "sessions": [
+                {"id": "sess-1", "class_assignment_item_id": "item-1",
+                 "status": "completed", "completed_at": completed_at,
+                 "overall_band": 6.0},
+            ],
+        })
+
+    late = _db("2026-08-03T13:00:00+00:00")                # 20:00 giờ VN
+    assert reconcile_ledger_from_sessions(late, ["asg-1"]) == 0
+    assert late.tables["class_assignment_items"][0].get("submitted_at") is None
+
+    on_time = _db("2026-08-03T11:00:00+00:00")             # 18:00 giờ VN
+    assert reconcile_ledger_from_sessions(on_time, ["asg-1"]) == 1

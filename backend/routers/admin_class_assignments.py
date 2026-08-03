@@ -238,7 +238,7 @@ def _resolve_speaking_topic(cohort_id: str, body: "AssignmentCreate") -> tuple[s
     want = _QUESTIONS_PER_PART.get(body.part, 1)
     qs = (
         supabase_admin.table("topic_questions")
-        .select("id, part, order_num, question_text, audio_url, "
+        .select("id, part, order_num, question_text, question_type, audio_url, "
                 "cue_card_bullets, cue_card_reflection")
         .eq("topic_id", body.content_id).eq("part", body.part)
         .eq("is_active", True).order("order_num").execute().data
@@ -264,10 +264,23 @@ def _resolve_speaking_topic(cohort_id: str, body: "AssignmentCreate") -> tuple[s
         "topic":        topic["title"],          # nhãn hiển thị, nguồn thật là content_id
         "mode":         body.mode,
         "part":         body.part,
-        # Chốt sẵn ĐÚNG những câu này. Storing the ids rather than re-querying at
-        # open time is what makes the give reproducible: editing the bank later
-        # cannot silently change homework already handed out.
         "question_ids": [q["id"] for q in chosen],
+        # CHỤP NỘI DUNG, KHÔNG CHỈ ID. Chỉ lưu id thì lúc học viên mở bài, hệ
+        # thống vẫn đọc lại `topic_questions` đang sống — nên admin sửa lời một
+        # câu hoặc render lại audio sau khi giao sẽ khiến em mở TRƯỚC và em mở
+        # SAU nhận nội dung khác nhau dưới cùng một bài giao.
+        #
+        # Bản chụp này là thứ khiến câu "hai em cùng một bài giao trả lời cùng
+        # một bộ câu" đúng — trước đó nó chỉ là một lời hứa trong commit message.
+        "questions": [{
+            "id":                  q["id"],
+            "part":                q.get("part"),
+            "question_text":       q.get("question_text"),
+            "question_type":       q.get("question_type"),
+            "audio_url":           q.get("audio_url"),
+            "cue_card_bullets":    q.get("cue_card_bullets"),
+            "cue_card_reflection": q.get("cue_card_reflection"),
+        } for q in chosen],
     }
 
 

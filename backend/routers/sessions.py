@@ -11,6 +11,7 @@ from pydantic import BaseModel, field_validator
 
 from config import settings
 from database import supabase_admin
+from services.question_visibility import redact_questions
 from routers.auth import get_supabase_user
 from services.class_assignment_service import (
     ItemNotFoundError,
@@ -742,7 +743,10 @@ async def get_session(
             .order("order_num")
             .execute()
         )
-        questions = q_result.data
+        # Đây là đường trang gọi ĐẦU TIÊN. Không lọc ở đây thì chữ đã nằm
+        # trong phản hồi mạng trước khi bất kỳ bộ lọc nào khác kịp chạy — và
+        # "phải nghe mới biết đề hỏi gì" chỉ còn là một câu chữ trên giao diện.
+        questions = redact_questions(q_result.data)
     except Exception:
         questions = []
 

@@ -19,6 +19,7 @@ from unittest.mock import patch
 import pytest
 
 from routers import questions as mod
+from services.question_visibility import redact_question
 
 
 class _Resp:
@@ -84,11 +85,16 @@ def test_the_order_the_admin_pinned_is_kept():
     assert [r["question_text"] for r in rows] == ["A", "B"]
 
 
-def test_an_incomplete_pinned_set_is_refused_rather_than_partly_served():
+def test_an_incomplete_pinned_set_is_refused_LOUDLY():
     """Thiếu một câu mà vẫn dựng phiên nghĩa là học viên làm nửa bài rồi được
-    ghi nhận là đã nộp."""
-    rows = _load(_db(qids=("q1", "q2", "q-mất"), bank=[_bank_q("q1", 1), _bank_q("q2", 1)]))
-    assert rows == []
+    ghi nhận là đã nộp.
+
+    Ném lỗi chứ KHÔNG trả [] — trả rỗng sẽ đẩy tiếp xuống kho đề/Gemini và chèn
+    vĩnh viễn một bộ câu khác, trong khi phiên vẫn đủ điều kiện tính là bài tập
+    lớp: em ấy trả lời một đề không ai giao mà sổ vẫn ghi "đã làm"."""
+    with pytest.raises(Exception) as exc:
+        _load(_db(qids=("q1", "q2", "q-mất"), bank=[_bank_q("q1", 1), _bank_q("q2", 1)]))
+    assert getattr(exc.value, "status_code", None) == 503
 
 
 def test_a_session_with_no_class_link_falls_through():
@@ -105,10 +111,73 @@ def test_an_old_give_with_no_pinned_ids_falls_through():
     assert _load(_db(qids=())) == []
 
 
-def test_a_lookup_failure_falls_through_instead_of_500ing():
+def test_a_lookup_failure_FAILS_CLOSED():
+    """Cùng lý do: một trục trặc tạm thời không được biến thành "giao em ấy một
+    đề khác, vĩnh viễn"."""
     class _Boom:
         def table(self, _n): raise RuntimeError("boom")
-    assert _load(_Boom()) == []
+    with pytest.raises(Exception) as exc:
+        _load(_Boom())
+    assert getattr(exc.value, "status_code", None) == 503
+
+
+# ── bản chụp: sửa kho đề KHÔNG được làm đổi bài đã phát ─────────────────
+
+
+def _snapshot_db(snapshot, bank):
+    tables = {
+        "class_assignment_items": [{"id": "item-1", "assignment_id": "asg-1"}],
+        "class_assignments": [{"id": "asg-1", "skill": "speaking", "part": 1,
+                               "content_config": {
+                                   "question_ids": [s["id"] for s in snapshot],
+                                   "questions": snapshot}}],
+        "topic_questions": list(bank),
+    }
+    db = type("DB", (), {})()
+    db.table = lambda n: _Table(tables.get(n, []))
+    return db
+
+
+def test_editing_the_bank_cannot_change_an_assignment_already_given():
+    """Chỉ lưu id thì lúc học viên mở bài hệ thống vẫn đọc lại kho đề đang sống
+    — nên em mở TRƯỚC và em mở SAU một lần sửa sẽ nhận nội dung khác nhau dưới
+    cùng một bài giao. Bản chụp là thứ khiến lời hứa đó thành thật."""
+    snap = [{"id": "q1", "part": 1, "question_text": "Bản lúc giao",
+             "question_type": "personal", "audio_url": "https://cdn/old.mp3",
+             "cue_card_bullets": None, "cue_card_reflection": None}]
+    bank = [_bank_q("q1", 1, text="Bản đã sửa sau đó", audio="https://cdn/new.mp3")]
+    rows = _load(_snapshot_db(snap, bank))
+    assert rows[0]["question_text"] == "Bản lúc giao"
+    assert rows[0]["audio_url"] == "https://cdn/old.mp3"
+
+
+def test_an_assignment_from_before_snapshots_still_works():
+    """Bài giao ghi trước khi có bản chụp vẫn phải mở được — đọc lại kho đề."""
+    rows = _load(_db())
+    assert len(rows) == 2
+
+
+def test_a_half_written_snapshot_falls_back_to_the_bank():
+    """Bản chụp thiếu câu thì tin kho đề còn hơn phục vụ nửa bộ."""
+    snap = [{"id": "q1", "part": 1, "question_text": "chỉ một câu",
+             "question_type": "personal", "audio_url": "x",
+             "cue_card_bullets": None, "cue_card_reflection": None}]
+    tables_db = _snapshot_db(snap, [_bank_q("q1", 1), _bank_q("q2", 1)])
+    tables_db.table("class_assignments")  # no-op, giữ nguyên cấu trúc
+    cfg_db = _db(qids=("q1", "q2"))
+    cfg_db.table("class_assignments")
+    # bài giao khai 2 id nhưng bản chụp chỉ có 1 → đọc lại kho
+    tables = {
+        "class_assignment_items": [{"id": "item-1", "assignment_id": "asg-1"}],
+        "class_assignments": [{"id": "asg-1", "skill": "speaking", "part": 1,
+                               "content_config": {"question_ids": ["q1", "q2"],
+                                                  "questions": snap}}],
+        "topic_questions": [_bank_q("q1", 1), _bank_q("q2", 1)],
+    }
+    db = type("DB", (), {})()
+    db.table = lambda n: _Table(tables.get(n, []))
+    rows = _load(db)
+    assert len(rows) == 2
 
 
 # ── giấu chữ ────────────────────────────────────────────────────────────
@@ -126,7 +195,7 @@ def test_the_text_never_leaves_the_server_for_a_listen_only_question():
     q = {"id": "x", "part": 1, "listen_only": True,
          "question_text": "Where do you live?", "audio_url": "https://cdn/a.mp3",
          "cue_card_bullets": ["a"], "cue_card_reflection": "b", "subtopic": "c"}
-    out = mod._strip_listen_only(q)
+    out = redact_question(q)
     assert out["question_text"] == ""
     assert out["audio_url"] == "https://cdn/a.mp3", "audio là thứ DUY NHẤT em ấy có"
     for leak in ("cue_card_bullets", "cue_card_reflection", "subtopic"):
@@ -136,7 +205,7 @@ def test_the_text_never_leaves_the_server_for_a_listen_only_question():
 def test_the_key_is_emptied_not_deleted():
     """Frontend đọc `question_text` ở nhiều chỗ; khoá biến mất sẽ thành
     'undefined' hiện ra màn hình."""
-    out = mod._strip_listen_only({"part": 1, "listen_only": True,
+    out = redact_question({"part": 1, "listen_only": True,
                                   "question_text": "x"})
     assert "question_text" in out and out["question_text"] == ""
 
@@ -144,4 +213,4 @@ def test_the_key_is_emptied_not_deleted():
 def test_an_ordinary_question_is_untouched():
     q = {"part": 2, "listen_only": False, "question_text": "Describe a trip",
          "cue_card_bullets": ["a", "b"]}
-    assert mod._strip_listen_only(q) == q
+    assert redact_question(q) == q

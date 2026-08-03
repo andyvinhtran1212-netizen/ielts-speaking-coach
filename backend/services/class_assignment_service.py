@@ -651,6 +651,8 @@ def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
 
     pending = {i["id"] for i in items}
     ids = list(pending)
+    due_of_assignment = {a["id"]: _at(a.get("due_at")) for a in assignments}
+    due_by_item = {i["id"]: due_of_assignment.get(i["assignment_id"]) for i in items}
     fixed = 0
 
     for skill, (table, artifact_kind) in _TEST_ARTIFACTS.items():
@@ -677,6 +679,15 @@ def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
                 best[key] = at
 
         for item_id, at in best.items():
+            # HẠN NỘP LÀ TUYỆT ĐỐI, KỂ CẢ Ở ĐƯỜNG VÁ SỔ. Nếu không, chốt kia chỉ
+            # là một cái cổng mở hé: em ấy bắt đầu trước hạn, nộp sau hạn, và
+            # lần đọc tiếp theo của giáo viên sẽ ghi nhận giúp. Bảng tổng kết
+            # đứng yên được là nhờ CẢ hai chỗ cùng từ chối.
+            due = due_by_item.get(item_id)
+            submitted = _at(at.get("submitted_at"))
+            if due and submitted and submitted > due:
+                logger.info("[class] repair skipped, past deadline item=%s", item_id)
+                continue
             try:
                 when = datetime.fromisoformat(at["submitted_at"])
             except (ValueError, TypeError):
@@ -723,11 +734,23 @@ def reconcile_ledger_from_sessions(db, assignment_ids: List[str]) -> int:
     for a_chunk in (assignment_ids[i:i + _ID_CHUNK]
                     for i in range(0, len(assignment_ids), _ID_CHUNK)):
         items.extend(_paged(
-            db, "class_assignment_items", "id",
+            db, "class_assignment_items", "id, assignment_id",
             lambda q, c=a_chunk: q.in_("assignment_id", c).is_("submitted_at", "null"),
         ))
     if not items:
         return 0
+
+    # HẠN NỘP CŨNG ÁP Ở ĐÂY. `_record_class_submission` đã từ chối ghi một phiên
+    # hoàn thành sau hạn; nếu đường vá sổ này ghi giúp thì lời từ chối kia vô
+    # nghĩa và bảng tổng kết lại đổi sau khi đã chốt.
+    due_of_assignment: Dict[str, Optional[datetime]] = {}
+    for a_chunk in (assignment_ids[i:i + _ID_CHUNK]
+                    for i in range(0, len(assignment_ids), _ID_CHUNK)):
+        for a in _paged(db, "class_assignments", "id, due_at",
+                        lambda q, c=a_chunk: q.in_("id", c)):
+            due_of_assignment[a["id"]] = _at(a.get("due_at"))
+    due_by_item = {i["id"]: due_of_assignment.get(i.get("assignment_id"))
+                   for i in items}
 
     pending = [i["id"] for i in items]
     sessions: List[Dict[str, Any]] = []
@@ -778,6 +801,10 @@ def reconcile_ledger_from_sessions(db, assignment_ids: List[str]) -> int:
                 submitted_at = datetime.fromisoformat(completed_at)
             except ValueError:
                 logger.warning("[class] unparseable completed_at on session=%s", s["id"])
+        due = due_by_item.get(s.get("class_assignment_item_id"))
+        if due and submitted_at and submitted_at > due:
+            logger.info("[class] repair skipped, past deadline item=%s", item_id)
+            continue
         if mark_item_submitted(
             db,
             item_id=s["class_assignment_item_id"],
