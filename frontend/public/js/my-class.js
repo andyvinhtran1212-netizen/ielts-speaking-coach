@@ -32,6 +32,8 @@ let _tick = null;
 let _reloadingForDeadline = false;
 // item_ids already refreshed once at their deadline — see renderCountdown.
 const _deadlineReloaded = new Set();
+// item_id of a start currently in flight — one attempt at a time.
+let _startingItem = null;
 
 // ── Formatting ──────────────────────────────────────────────────────────────
 
@@ -260,9 +262,28 @@ function startTicking() {
 
 // ── Starting a task ─────────────────────────────────────────────────────────
 
+/**
+ * Every start control for one assignment, both the countdown button and its row
+ * in "Cần nộp" — the nearest task is rendered in BOTH places.
+ */
+function startControlsFor(itemId) {
+  return Array.from(document.querySelectorAll(
+    `button[data-action="start"][data-item="${CSS.escape(itemId)}"], #mc-due-start`
+  )).filter((el) => el.dataset.item === itemId);
+}
+
 async function startAssignment(itemId, btn) {
-  const original = btn ? btn.textContent : '';
-  if (btn) { btn.disabled = true; btn.textContent = 'Đang mở…'; }
+  // Disabling only the clicked control left the other one live: on a slow
+  // request a student could click both and start TWO sessions for one intended
+  // attempt, burning two of their daily slots. The backend allows repeat
+  // sessions per item by design (retries), so this has to be held here.
+  if (_startingItem === itemId) return;
+  _startingItem = itemId;
+
+  const controls = startControlsFor(itemId);
+  const originals = controls.map((el) => el.textContent);
+  controls.forEach((el) => { el.disabled = true; el.textContent = 'Đang mở…'; });
+
   try {
     const r = await api.post('/api/class/assignments/' + encodeURIComponent(itemId) + '/start');
     const p = (r && r.session_params) || {};
@@ -280,8 +301,11 @@ async function startAssignment(itemId, btn) {
     window.location.href = '/pages/practice.html?session_id=' + encodeURIComponent(sessionId);
   } catch (err) {
     window.showToast('Không mở được bài: ' + (err.message || err), 'error', { timeout: 6000 });
-    if (btn) { btn.disabled = false; btn.textContent = original; }
+    controls.forEach((el, i) => { el.disabled = false; el.textContent = originals[i]; });
+    _startingItem = null;
   }
+  // On success the page navigates away, so the controls stay disabled on
+  // purpose — re-enabling them would invite a second click during the redirect.
 }
 
 // ── Load ────────────────────────────────────────────────────────────────────

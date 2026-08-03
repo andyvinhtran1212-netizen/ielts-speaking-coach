@@ -312,7 +312,10 @@
   async function loadClassStrip() {
     let data;
     try {
-      data = await window.api.get('/api/class/me');
+      // summary=true: the strip reads a name and two numbers, and the full
+      // payload carries every published lesson body — unbounded, and growing
+      // with whatever the teacher writes.
+      data = await window.api.get('/api/class/me?summary=true');
     } catch (e) {
       return;                      // stay hidden; the class page reports the error
     }

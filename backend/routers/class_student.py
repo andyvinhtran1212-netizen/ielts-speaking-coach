@@ -243,8 +243,17 @@ async def start_assignment(
 
 
 @router.get("/me")
-async def my_class(authorization: str | None = Header(default=None)):
+async def my_class(
+    summary: bool = False,
+    authorization: str | None = Header(default=None),
+):
     """Trang lớp của học viên — lớp, buổi học, bài tập, tiến độ, trong một lượt gọi.
+
+    `summary=true` trả bản GỌN cho thẻ ở trang chủ: chỉ tên lớp, khoá, và các con
+    số tiến độ. Thẻ đó chỉ đọc bấy nhiêu, nhưng bản đầy đủ kéo về MỌI buổi học đã
+    đăng — kể cả `body_md` không giới hạn độ dài và danh sách tài liệu — nên mỗi
+    lần mở trang chủ lại nặng thêm theo lượng nội dung giảng viên soạn. Bản gọn
+    bỏ hẳn phần buổi học và không trả mảng bài tập, chỉ trả phần đếm.
 
     Shaped for the page rather than the tables: one round-trip, because the class
     page shows all four together and three sequential fetches would make it
@@ -287,7 +296,10 @@ async def my_class(authorization: str | None = Header(default=None)):
         degraded.append("class")
 
     lessons: list = []
-    try:
+    # Skipped entirely for the home strip: this is the unbounded part of the
+    # payload and the strip never reads it.
+    if not summary:
+      try:
         lessons = _paged_items_of(
             "class_lessons",
             lambda q: q.eq("cohort_id", student["cohort_id"]).eq("is_published", True),
@@ -298,7 +310,7 @@ async def my_class(authorization: str | None = Header(default=None)):
             r.get("lesson_no") is None, r.get("lesson_no") or 0,
             r.get("lesson_date") or "", r.get("created_at") or "",
         ))
-    except Exception as exc:
+      except Exception as exc:
         logger.warning("[class] lessons read failed: %s", exc)
         degraded.append("lessons")
 
@@ -309,17 +321,20 @@ async def my_class(authorization: str | None = Header(default=None)):
         logger.warning("[class] assignments read failed: %s", exc)
         degraded.append("assignments")
 
+    # Counts come from the same list the page renders, so the summary can never
+    # disagree with the rows underneath it.
+    progress = _progress_summary(assignments) if "assignments" not in degraded else None
+
     result: Dict[str, Any] = {
         "has_class": True,
-        "student":   {"full_name": student.get("full_name"),
-                      "student_code": student.get("student_code")},
         "class":     cohort,
-        "lessons":   lessons,
-        "assignments": assignments,
-        # Counts come from the same list the page renders, so the summary can
-        # never disagree with the rows underneath it.
-        "progress":  _progress_summary(assignments) if "assignments" not in degraded else None,
+        "progress":  progress,
     }
+    if not summary:
+        result["student"] = {"full_name": student.get("full_name"),
+                             "student_code": student.get("student_code")}
+        result["lessons"] = lessons
+        result["assignments"] = assignments
     if degraded:
         result["degraded"] = degraded
     return result

@@ -172,8 +172,10 @@ describe('starting a task goes through the server-owned path', () => {
     assert.doesNotMatch(fn, /\?part=/);
   });
 
-  test('a failure re-enables the button instead of stranding it', () => {
-    assert.match(fn, /btn\.disabled = false/);
+  test('a failure re-enables the controls instead of stranding them', () => {
+    // Round 4 replaced the single clicked button with every control for that
+    // assignment; this pins the guarantee, not the shape it had.
+    assert.match(fn, /disabled = false/);
   });
 });
 
@@ -351,5 +353,55 @@ describe('the four Codex round-2 findings stay fixed', () => {
                                             HOME_JS.indexOf('function bootstrap(')));
     assert.doesNotMatch(loadHome, /loadClassStrip\(\)/,
       'it must not be gated on the home-summary response');
+  });
+});
+
+
+describe('one intended attempt starts exactly one session (Codex round 4)', () => {
+  const fn = codeOnly(SRC.slice(SRC.indexOf('function startControlsFor'),
+                                SRC.indexOf('function render()')));
+
+  // Executed, not matched: an earlier version only checked that the string
+  // "startControlsFor" appeared in the slice — and the function's own definition
+  // is inside that slice, so replacing the CALL with `[btn]` still passed.
+  test('startControlsFor returns every control for that assignment', () => {
+    const src = SRC.slice(SRC.indexOf('function startControlsFor'),
+                          SRC.indexOf('async function startAssignment'));
+    const rowBtn = { dataset: { item: 'i1' } };
+    const dueBtn = { dataset: { item: 'i1' } };
+    const otherBtn = { dataset: { item: 'i2' } };
+    const doc = { querySelectorAll: () => [rowBtn, dueBtn, otherBtn] };
+    const startControlsFor = new Function(
+      'document', 'CSS', `${src} return startControlsFor;`,
+    )(doc, { escape: (s) => s });
+
+    const got = startControlsFor('i1');
+    assert.equal(got.length, 2, 'both the row button and the countdown button');
+    assert.ok(!got.includes(otherBtn), 'another assignment must not be disabled');
+  });
+
+  test('the in-flight handler disables the whole set, not one button', () => {
+    // The nearest task renders in BOTH the countdown and the "Cần nộp" list. On a
+    // slow request a student could click both and burn two daily slots for one
+    // attempt — the backend allows repeat sessions per item by design.
+    assert.match(fn, /const controls = startControlsFor\(itemId\)/);
+    assert.match(fn, /controls\.forEach\([\s\S]{0,80}disabled = true/);
+  });
+
+  test('a second click while one is in flight is refused outright', () => {
+    assert.match(fn, /_startingItem === itemId/);
+    assert.match(fn, /_startingItem = itemId/);
+  });
+
+  test('a failure re-enables every control and clears the latch', () => {
+    const c = fn.slice(fn.indexOf('catch'));
+    assert.match(c, /disabled = false/);
+    assert.match(c, /_startingItem = null/);
+  });
+
+  test('the home strip asks for the light payload', () => {
+    assert.match(HOME_JS, /\/api\/class\/me\?summary=true/);
+    // The full page must still ask for everything.
+    assert.match(SRC, /api\.get\('\/api\/class\/me'\)/);
   });
 });

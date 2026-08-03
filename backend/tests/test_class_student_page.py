@@ -222,3 +222,45 @@ def test_a_lesson_with_an_unsafe_attachment_is_rejected_whole():
     ok = LessonCreate(title="Buổi 1",
                       attachments=[{"label": "x", "url": "https://ok.com/a.pdf"}])
     assert len(ok.attachments) == 1
+
+
+# ── bản gọn cho thẻ trang chủ (Codex vòng 4) ────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_summary_mode_skips_the_unbounded_lesson_payload():
+    """The home strip reads a class name and two numbers. The full payload
+    carries every published lesson including unbounded body_md, so every visit to
+    the home page got heavier as the teacher wrote more."""
+    student = {"id": "s1", "cohort_id": "c1", "full_name": "A", "student_code": "S1"}
+    with patch.object(mod, "get_supabase_user", AsyncMock(return_value={"id": "u1"})), \
+         patch.object(mod, "_student_for_user", return_value=student), \
+         patch.object(mod, "supabase_admin", _db(set())):
+        out = await mod.my_class(summary=True, authorization=None)
+
+    assert out["has_class"] is True
+    assert out["class"]["name"] == "C2-K12"
+    assert out["progress"] is not None
+    for heavy in ("lessons", "assignments", "student"):
+        assert heavy not in out, f"{heavy} must not ride along in summary mode"
+
+
+@pytest.mark.asyncio
+async def test_summary_mode_does_not_even_query_the_lessons_table():
+    """Trimming the response but still reading the rows would keep the database
+    cost — the point is that the query does not run."""
+    student = {"id": "s1", "cohort_id": "c1", "full_name": "A", "student_code": "S1"}
+    # class_lessons raises if touched, so a read turns into a hard failure.
+    with patch.object(mod, "get_supabase_user", AsyncMock(return_value={"id": "u1"})), \
+         patch.object(mod, "_student_for_user", return_value=student), \
+         patch.object(mod, "supabase_admin", _db({"class_lessons"})):
+        out = await mod.my_class(summary=True, authorization=None)
+
+    assert "degraded" not in out, "the lessons query must not have run at all"
+
+
+@pytest.mark.asyncio
+async def test_the_full_page_still_gets_everything():
+    out = await _call(set())
+    for key in ("lessons", "assignments", "student", "progress", "class"):
+        assert key in out
