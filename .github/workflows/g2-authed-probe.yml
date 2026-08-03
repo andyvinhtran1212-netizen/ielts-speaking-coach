@@ -43,9 +43,20 @@ permissions:
   contents: read
 
 concurrency:
-  # Không để hai nhịp chồng nhau làm hỏng sổ; nhưng KHÔNG huỷ cái đang chạy —
-  # huỷ giữa chừng một phiên 70 phút sẽ mất luôn vế token refresh.
-  group: g2-authed-probe
+  # Group PHẢI tách theo chế độ. Dùng chung một group thì phiên dài (~61 phút)
+  # chiếm chỗ, và các `tick` rơi vào khoảng đó bị xếp hàng rồi huỷ (GitHub chỉ
+  # giữ MỘT run pending mỗi group). Hậu quả: mỗi ngày thủng một lỗ >60 phút
+  # đúng lúc phiên chạy ⇒ dãy liên tục bị cắt ⇒ verdict trượt vĩnh viễn dù hệ
+  # thống hoàn toàn khoẻ. Tức là cổng tự làm mình không bao giờ xanh được.
+  #
+  # Không tham chiếu được `env.PROBE_MODE` ở đây (concurrency lượng giá trước
+  # khi env của workflow sẵn sàng), nên lặp lại biểu thức.
+  group: >-
+    g2-authed-probe-${{ inputs.mode
+      || (github.event.schedule == '17 3 * * *' && 'session')
+      || 'tick' }}
+  # KHÔNG huỷ cái đang chạy — huỷ giữa chừng một phiên 70 phút là mất luôn vế
+  # token refresh, thứ duy nhất phủ được chế độ hỏng của lớp authenticated.
   cancel-in-progress: false
 
 env:

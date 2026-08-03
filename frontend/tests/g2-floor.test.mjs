@@ -223,6 +223,22 @@ describe('workflow chọn đúng chế độ theo cron (review #910)', () => {
       'dạng cũ chọn chế độ chỉ từ inputs — cron sẽ luôn ra tick');
   });
 
+  test('tick và session KHÔNG dùng chung concurrency group', () => {
+    // Dùng chung group: phiên ~61 phút chiếm chỗ, tick trong khoảng đó bị huỷ
+    // (GitHub chỉ giữ MỘT run pending mỗi group) ⇒ mỗi ngày thủng lỗ >60 phút
+    // ⇒ dãy liên tục bị cắt ⇒ verdict trượt vĩnh viễn dù hệ thống khoẻ.
+    // Regex phải nuốt cả GIÁ TRỊ của `cancel-in-progress`; bản lười dừng ngay
+    // ở dấu hai chấm nên khẳng định về `false` không bao giờ đúng được.
+    const block = (/concurrency:[\s\S]*?cancel-in-progress:\s*\S+/.exec(WF) || [''])[0];
+    assert.ok(block, 'phải có khối concurrency');
+    assert.match(block, /group:[\s\S]*inputs\.mode/,
+      'group phải phân biệt theo chế độ, không phải một chuỗi cố định');
+    assert.ok(!/group:\s*g2-authed-probe\s*$/m.test(block),
+      'group cố định = tick bị phiên dài nuốt mất');
+    assert.match(block, /cancel-in-progress: false/,
+      'huỷ giữa chừng phiên dài là mất vế token refresh');
+  });
+
   test('cron chưa bật, và ghi rõ điều kiện bật', () => {
     assert.match(WF_RAW, /# *schedule:/, 'cron phải còn chú thích cho tới khi có secret');
     assert.ok(!/^\s*schedule:/m.test(WF), 'schedule chưa được bật');
