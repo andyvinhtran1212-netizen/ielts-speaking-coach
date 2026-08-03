@@ -298,5 +298,91 @@ tài khoản tự đổi rồi đổi lại, không phải tôi tự ý ghi.
 | Ngày | Views/Lỗi trên `/profile` | LCP p75 | Ghi chú |
 |---|---|---|---|
 | D0 02/08 | 1 view (của tôi) / 0 lỗi | — | cutover + verify |
-| D1 03/08 | | | |
-| D2 04/08 | | | |
+| D1 03/08 | **0 view / 0 lỗi** | 10228ms (1 mẫu, KHÔNG dùng được — xem dưới) | cửa sổ mở 25,1h |
+| D2 04/08 | — | — | **không đo: cửa sổ đóng sớm 03/08** |
+
+---
+
+## 🔚 ĐÓNG SỚM CỬA SỔ — 2026-08-03, T+25,1h
+
+Chủ dự án quyết định đóng sớm thay vì chờ mốc 48h (04/08). Ghi lại **lý do
+thật**, không phải lý do dễ nghe.
+
+### Số đo tại thời điểm đóng
+
+| | |
+|---|---|
+| Cửa sổ đã mở | **25,1 giờ** (cutover 02/08 00:17Z → đóng 03/08 01:25Z) |
+| Sự kiện trên `/profile` **kể từ cutover** | **2** — cả hai đều của tôi |
+| Lượt xem organic | **0** |
+| `error_logs` dính `profile` kể từ cutover | **0** (toàn site chỉ 2 hàng lỗi) |
+| Verdict lỗi / vitals | `insufficient-sample` / `insufficient-sample` |
+
+Hai sự kiện đó là: `page_view` lúc 00:17:23Z (lần tôi mở để verify cutover) và
+`web_vitals` lúc 06:59:47Z. **Bản ghi vitals KHÔNG phải lượt truy cập thứ hai**:
+`loaded_at` của nó khớp tới giây với `page_view` trên, `age_ms = 24.144.051`
+(6,7 giờ) — cùng một tab để mở rất lâu rồi mới chốt LCP. Nên **10228ms không
+phải số đo tốc độ hợp lệ**, và ta đang có **0 mẫu LCP dùng được** cho `/profile`.
+
+> Chính hai trường `loaded_at`/`age_ms` (thêm khi truy DEBT-N) là thứ phân biệt
+> được "tab sống lâu" với "lượt xem bị mất đếm". Không có chúng, "0 view + 1
+> LCP" trông y hệt một ống đo hỏng, và ta đã đi săn nhầm.
+
+### Ống đo có sống không — kiểm TRƯỚC khi tin số 0
+
+Bắt buộc, vì "0 lượt xem" đã từng là hiện vật đo đạc ở chính dự án này. Trong
+60h: **610 sự kiện, 245 `page_view`** rải khắp site (`/pages/home.html` 93 ·
+`/pages/speaking.html` 49 · `/pages/writing-dashboard.html` 35 ·
+`/pages/result.html` 29 · `/` 24 · `/grammar.html` 5). Beacon sống.
+**Số 0 của `/profile` là 0 thật.**
+
+### Vì sao đóng sớm KHÔNG làm mất bằng chứng
+
+Vì cửa sổ này chưa từng có khả năng sinh bằng chứng. Đo năng lực thống kê thật
+của site (14 ngày, 2878 `page_view`):
+
+| | |
+|---|---|
+| Lưu lượng | **8,6 page_view/giờ** toàn site · **31** người dùng đăng nhập |
+| Route có lưu lượng | 51/127 → **76 trang 0 lượt xem suốt 14 ngày** |
+| Route <20 lượt xem trong **14 ngày** | **42/51** |
+| Route đạt n=20 trong ≤1 ngày | **6** |
+
+Cổng soak đòi n≥20 views / n≥10 vitals. `/profile` có **0 view trong 14 ngày
+trước cutover và 0 sau cutover**. Chờ thêm 23h nữa (tới mốc 48h) hay 47h nữa
+(mốc 72h) đều cho ra cùng một thứ: **không có gì**. Đây không phải cửa sổ ngắn
+đi — nó là cửa sổ **không định nghĩa được**, và điều đó đã được ghi trong
+risk acceptance ký 02/08 (mục 1: "route vẫn 0 traffic sau cutover").
+
+### Bằng chứng thật của pilot 3+4 — nằm ở đâu
+
+Theo ADR-013 nhánh **synthetic-only** (áp dụng khi route 0 traffic):
+
+| Bằng chứng | Trạng thái |
+|---|---|
+| Staging E2E đường mutation (save→reload→revert, double-submit, kill-switch) | **23/23 pass** |
+| Render production bằng trình duyệt thật, tài khoản thật | đủ nội dung, **0 console error** |
+| Telemetry trên route mới | `implementation=next`, `user_id` ≠ NULL, release `311f5086` |
+| Redirect legacy `/pages/profile.html` → `/profile` | 307, đúng thiết kế rollback |
+| Kill-switch `profile_update` | mặc định BẬT (ADR-010), tắt trong ~872ms (đo 31/07) |
+| Lỗi client trên route kể từ cutover | **0** |
+
+### Điều KHÔNG được suy ra từ trang này
+
+- ❌ "0 lỗi / 0 view ⇒ đã chứng minh route an toàn dưới tải thật." Sai. Không
+  có tải thật nào để chứng minh.
+- ❌ "LCP 10228ms ⇒ route chậm." Sai — mẫu không hợp lệ (xem trên).
+- ❌ "Đường mutation đã verify trên production." Sai — cố ý không verify, vì
+  nó ghi vào hồ sơ người dùng thật. Staging E2E gánh vế đó.
+
+### Kết luận
+
+**Pilot 3+4 ĐÓNG — PASS theo nhánh synthetic-only, không phải theo bằng chứng
+organic.** `/profile` giữ nguyên trên Next. Giám sát tiếp bằng ngưỡng **tuyệt
+đối 0**: bất kỳ lỗi client nào trên `/profile` = điều tra ngay (khả thi chính
+vì lưu lượng thấp — không có nhiễu để lọc). Rollback ≤12s vẫn là lưới đỡ.
+
+**Hệ quả cho chương trình:** cổng soak theo thời gian chỉ áp dụng được cho 6
+route đủ lưu lượng; 121 route còn lại cần cổng deterministic (parity diff +
+replay dữ liệu thật + perf synthetic + ngưỡng lỗi 0). Đề xuất sửa ADR-013 theo
+hướng đó là việc riêng, cần chủ dự án ký vì nó sửa chính sách phát hành đã ký.
