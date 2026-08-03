@@ -693,8 +693,10 @@ function applyHomeworkSkill() {
 /**
  * Published papers for one skill, from the existing exam-content library.
  *
- * Only published ones are offered: assigning an unpublished paper hands students
- * a task that opens to an error while the ledger still counts them as owing it.
+ * Only papers that are published AND not exam-only are offered. Both would hand
+ * students a task that opens to an error while the ledger still counts them as
+ * owing it — exam-only papers are reserved for mock sittings and answer 404 to
+ * anyone without one, which is most of the Cambridge library.
  * The backend re-checks — this list is convenience, not the gate.
  */
 async function loadTests(skill) {
@@ -706,7 +708,8 @@ async function loadTests(skill) {
   sel.innerHTML = '<option value="">Đang tải đề…</option>';
   try {
     const r = await api.get('/admin/exam-content?kind=' + encodeURIComponent(skill));
-    const items = ((r && r.items) || []).filter((i) => i.status === 'published');
+    const items = ((r && r.items) || [])
+      .filter((i) => i.status === 'published' && !i.exam_only);
     // A library that failed to load must not look like a library with no papers.
     if ((r.failed_kinds || []).includes(skill)) {
       sel.innerHTML = '<option value="">Không đọc được thư viện đề</option>';
@@ -716,7 +719,8 @@ async function loadTests(skill) {
       `<option value="${esc(i.id)}">${esc([i.code, i.title].filter(Boolean).join(' · '))}</option>`
     ).join('');
     _testsBySkill[skill] = html;
-    sel.innerHTML = items.length ? html : '<option value="">Chưa có đề nào đã xuất bản</option>';
+    sel.innerHTML = items.length ? html
+      : '<option value="">Chưa có đề nào giao được</option>';
   } catch (err) {
     sel.innerHTML = '<option value="">Không đọc được thư viện đề</option>';
   }

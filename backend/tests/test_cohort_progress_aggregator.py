@@ -37,7 +37,7 @@ class _Resp:
 class _Query:
     def __init__(self, db, name, rows, *, raises=False):
         self.db, self.name, self._rows, self._raises = db, name, rows, raises
-        self._eq, self._in, self._range = [], None, None
+        self._eq, self._in, self._range = [], [], None
         self._is_null, self._negate_is = None, False
 
     def select(self, *_a, **_k): return self
@@ -45,8 +45,15 @@ class _Query:
 
     def eq(self, f, v): self._eq.append((f, v)); return self
     def in_(self, f, v):
-        self._in = (f, list(v))
+        # ACCUMULATE: keeping only the last one silently dropped a filter of a
+        # chained .in_(a).in_(b), so a test could not tell whether the query
+        # really narrowed on both.
+        self._in.append((f, list(v)))
         self.db.in_sizes.append(len(v))
+        return self
+
+    def update(self, patch):
+        self._update = dict(patch)
         return self
     def range(self, s, e): self._range = (s, e); return self
 
@@ -66,14 +73,17 @@ class _Query:
         rows = list(self._rows)
         for f, v in self._eq:
             rows = [r for r in rows if r.get(f) == v]
-        if self._in:
-            f, vals = self._in
+        for f, vals in self._in:
             rows = [r for r in rows if r.get(f) in vals]
         if self._is_null and self._is_null[1] == "null":
             field = self._is_null[0]
             # .not_.is_(x, "null") means "x IS NOT NULL"
             rows = [r for r in rows
                     if (r.get(field) is None) != self._negate_is]
+        if getattr(self, "_update", None) is not None:
+            for r in rows:
+                r.update(self._update)
+            return _Resp(rows)
         if self._range:
             s, e = self._range
             rows = rows[s:e + 1]
@@ -420,3 +430,51 @@ def test_punctuality_stays_batched():
     cohort_progress(db, COHORT)
     assert db.queries.count("class_assignments") == 1
     assert db.queries.count("class_assignment_items") == 1
+
+
+# ── bài Reading/Listening đã nộp phải hiện ở CẢ tab Tiến độ ──────────────
+#
+# Those two skills have no completion hook: the test page submits without
+# knowing the class ledger exists, so the ledger is repaired from the attempt
+# rows on read. Whichever screen an admin opens FIRST has to run that repair.
+# Wiring it into only the homework list means opening Progress first reports
+# handed-in work as missing — two admin screens disagreeing about one student.
+
+
+def test_a_reading_hand_in_shows_up_even_if_progress_is_opened_first():
+    """End-to-end through the real repair: the ONLY evidence of this hand-in is
+    the attempt row. If Progress reads the ledger without repairing it, the
+    student is reported as not having submitted."""
+    tables = _hw_tables(
+        [_student("s1", "u1")],
+        [{"id": "asg-1", "due_at": DUE, "status": "published", "cohort_id": COHORT,
+          "skill": "reading", "content_id": "test-1",
+          "created_at": "2020-01-01T00:00:00+00:00"}],
+        [{"id": "item-1", "assignment_id": "asg-1", "student_id": "s1",
+          "submitted_at": None, "state": "assigned"}],
+    )
+    tables["reading_test_attempts"] = [{
+        "id": "att-1", "user_id": "u1", "test_id": "test-1", "status": "submitted",
+        "submitted_at": ON_TIME, "band_estimate": 6.5,
+    }]
+    hw = cohort_progress(_DB(tables), COHORT)["students"][0]["homework"]
+    assert hw["submitted"] == 1, (
+        "the attempt row is the evidence — Progress must repair before it reads"
+    )
+    assert hw["missing"] == 0
+    assert hw["late"] == 0
+
+
+def test_a_failed_repair_still_renders_the_rest_of_the_row():
+    """Best-effort: a stale homework column is better than a 500 that hides the
+    Speaking, Writing and Reading bands too."""
+    tables = _hw_tables(
+        [_student("s1", "u1")],
+        [{"id": "asg-1", "due_at": DUE, "status": "published", "cohort_id": COHORT,
+          "skill": "reading", "content_id": "test-1",
+          "created_at": "2020-01-01T00:00:00+00:00"}],
+        [{"id": "item-1", "assignment_id": "asg-1", "student_id": "s1",
+          "submitted_at": None, "state": "assigned"}],
+    )
+    out = cohort_progress(_DB(tables, fail={"reading_test_attempts"}), COHORT)
+    assert out["students"][0]["homework"]["assigned"] == 1

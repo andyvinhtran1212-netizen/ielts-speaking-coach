@@ -416,6 +416,23 @@ _TEST_ARTIFACTS = {
 }
 
 
+def _at(value: Optional[str]) -> Optional[datetime]:
+    """Parse a timestamp into an AWARE instant, or None.
+
+    Naive values are read as UTC rather than left naive: a naive/aware pair
+    raises TypeError on comparison, which here would turn one odd row into a
+    500 for the whole class page.
+    """
+    if not value:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        logger.warning("[class] unparseable timestamp %r", value)
+        return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
 def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
     """Record hand-ins for Reading/Listening assignments from their attempt rows.
 
@@ -466,30 +483,50 @@ def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
         if not user_ids:
             continue
 
+        # Both id lists are chunked: a cohort accumulates assigned papers the
+        # same way it accumulates students, and an over-long `in.(...)` is a
+        # request-URL failure, not a slow query.
         attempts: List[Dict[str, Any]] = []
-        for chunk in (user_ids[i:i + _ID_CHUNK]
-                      for i in range(0, len(user_ids), _ID_CHUNK)):
-            attempts.extend(_paged(
-                db, table, "id, user_id, test_id, submitted_at, band_estimate",
-                lambda q, c=chunk: q.in_("user_id", c).in_("test_id", test_ids)
-                                    .eq("status", "submitted"),
-            ))
+        for uchunk in (user_ids[i:i + _ID_CHUNK]
+                       for i in range(0, len(user_ids), _ID_CHUNK)):
+            for tchunk in (test_ids[i:i + _ID_CHUNK]
+                           for i in range(0, len(test_ids), _ID_CHUNK)):
+                attempts.extend(_paged(
+                    db, table, "id, user_id, test_id, submitted_at, band_estimate",
+                    lambda q, u=uchunk, tt=tchunk: q.in_("user_id", u)
+                                                    .in_("test_id", tt)
+                                                    .eq("status", "submitted"),
+                ))
 
-        # EARLIEST submitted attempt per (user, test) — a retake must not
-        # overwrite the hand-in that actually met the deadline.
-        best: Dict[tuple, Dict[str, Any]] = {}
+        # Candidates per (user, test), oldest first. Which one counts cannot be
+        # decided here: it depends on WHEN each assignment was given, and the
+        # same paper may be assigned twice to the same class.
+        by_key: Dict[tuple, List[Dict[str, Any]]] = {}
         for at in attempts:
             if not at.get("submitted_at"):
                 continue
-            key = (at.get("user_id"), at.get("test_id"))
-            cur = best.get(key)
-            if cur is None or at["submitted_at"] < cur["submitted_at"]:
-                best[key] = at
+            by_key.setdefault((at.get("user_id"), at.get("test_id")), []).append(at)
+        for lst in by_key.values():
+            lst.sort(key=lambda a: a["submitted_at"])
 
         for item in rel:
             uid = users.get(item["student_id"])
-            test_id = by_assignment[item["assignment_id"]]["content_id"]
-            at = best.get((uid, test_id))
+            assignment = by_assignment[item["assignment_id"]]
+            test_id = assignment["content_id"]
+            # An attempt made BEFORE the homework was given is not a hand-in for
+            # it. Without this, giving a class a paper someone had already
+            # practised marks that student submitted the instant it is created,
+            # backdated to whenever they happened to do it — so the teacher sees
+            # work handed in before it was set, and the student is never asked
+            # to do it.
+            since = _at(assignment.get("created_at"))
+            # EARLIEST qualifying attempt: a retake must not overwrite the
+            # hand-in that actually met the deadline.
+            at = next(
+                (a for a in by_key.get((uid, test_id), [])
+                 if since is None or (_at(a["submitted_at"]) or since) >= since),
+                None,
+            )
             if not at:
                 continue
             try:

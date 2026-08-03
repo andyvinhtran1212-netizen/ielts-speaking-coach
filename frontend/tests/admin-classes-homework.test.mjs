@@ -43,7 +43,9 @@ const { dueLabel, progressCell } = loadHelpers();
  * a doesNotMatch passes because the code is clean while a *positive* assertion
  * is satisfied by prose. Same trap as the SQL migration tests.
  */
-const codeOnly = (s) => s.replace(/\/\/[^\n]*/g, '');
+const codeOnly = (s) => s
+  .replace(/\/\*[\s\S]*?\*\//g, '')   // block comments too: a /** */ docblock
+  .replace(/\/\/[^\n]*/g, '');          // satisfied a /exam_only/ match on its own
 
 // The class marker for "this needs attention" — the same one the roster uses
 // for students with no account.
@@ -261,5 +263,74 @@ describe('a closed-off give and an unreliable count are both stated (Codex round
     assert.match(load, /reconcile_failed/);
     assert.match(load, /có thể thiếu/);
     assert.match(load, /'error'/);
+  });
+});
+
+
+// ── bộ chọn đề: xuất bản CHƯA CHẮC giao được ────────────────────────────
+//
+// Most of the Cambridge library is exam_only — reserved for mock sittings, and
+// the student endpoints answer 404 to anyone without one. Offering those papers
+// in the picker means the class is recorded as owing work none of them can open.
+
+function loadTestPicker() {
+  const start = SRC.indexOf('async function loadTests');
+  const end = SRC.indexOf('function openHomeworkModal');
+  assert.ok(start !== -1 && end > start, 'loadTests not found');
+
+  const esc = (s) => String(s == null ? '' : s);
+  const el = { innerHTML: '' };
+  const $ = () => el;
+  const _testsBySkill = {};
+  // Mutated per test; `loadTests` calls api.get() at call time, so reassigning
+  // the METHOD (not the binding) is what puts the stub in reach.
+  const api = { get: null };
+  const loadTests = new Function('esc', '$', '_testsBySkill', 'api',
+    `${SRC.slice(start, end)}
+    return loadTests;`)(esc, $, _testsBySkill, api);
+
+  return {
+    el,
+    setApi: (fn) => { api.get = fn; },
+    run: (skill) => loadTests(skill),
+  };
+}
+
+describe('the paper picker offers only papers a class can actually open', () => {
+  test('exam-only papers are left out even when published', async () => {
+    const h = loadTestPicker();
+    h.setApi(async () => ({ items: [
+      { id: 'u1', code: 'CAM18-T1', title: 'Cam 18 Test 1',
+        status: 'published', exam_only: true },
+      { id: 'u2', code: 'ILR-001', title: 'Đề luyện 1',
+        status: 'published', exam_only: false },
+    ] }));
+    await h.run('reading');
+    assert.match(h.el.innerHTML, /ILR-001/);
+    assert.doesNotMatch(h.el.innerHTML, /CAM18-T1/,
+      'an exam-only paper 404s for students without a mock sitting');
+  });
+
+  test('every paper reserved → says so, not an empty dropdown', async () => {
+    const h = loadTestPicker();
+    h.setApi(async () => ({ items: [
+      { id: 'u1', code: 'CAM18-T1', title: 'x', status: 'published', exam_only: true },
+    ] }));
+    await h.run('listening');
+    assert.match(h.el.innerHTML, /Chưa có đề nào giao được/);
+  });
+
+  test('a failed library read is not reported as an empty library', async () => {
+    const h = loadTestPicker();
+    h.setApi(async () => ({ items: [], failed_kinds: ['reading'] }));
+    await h.run('reading');
+    assert.match(h.el.innerHTML, /Không đọc được thư viện đề/);
+  });
+
+  test('the exam_only filter is in the code, not only in a comment', () => {
+    const body = codeOnly(SRC.slice(SRC.indexOf('async function loadTests'),
+                                    SRC.indexOf('function openHomeworkModal')));
+    assert.match(body, /exam_only/,
+      'stripping comments must still leave a real exam_only check');
   });
 });

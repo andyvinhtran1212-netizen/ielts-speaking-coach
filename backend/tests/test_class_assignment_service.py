@@ -1053,8 +1053,10 @@ def _rl_db(*, attempts, skill="reading", table="reading_test_attempts",
     })
 
 
-def _rl_assignment(skill="reading", content_id="test-1"):
-    return {"id": "asg-1", "skill": skill, "content_id": content_id}
+def _rl_assignment(skill="reading", content_id="test-1",
+                   created_at="2026-08-03T00:00:00+00:00"):
+    return {"id": "asg-1", "skill": skill, "content_id": content_id,
+            "created_at": created_at}
 
 
 def test_a_submitted_reading_attempt_records_the_hand_in():
@@ -1154,7 +1156,68 @@ def test_the_test_id_guard_is_in_python_not_only_in_the_query():
     from services import class_assignment_service as mod
     src = code_only(inspect.getsource(mod.reconcile_test_attempts))
     import re
-    assert re.search(r"best\s*\.\s*get\s*\(\s*\(\s*uid\s*,\s*test_id\s*\)\s*\)", src), (
+    assert re.search(r"by_key\s*\.\s*get\s*\(\s*\(\s*uid\s*,\s*test_id\s*\)", src), (
         "crediting must be keyed on the ASSIGNED test, not on any attempt the "
         "student happens to have"
+    )
+
+
+# ── công đã làm TRƯỚC khi được giao không phải là bài nộp ────────────────
+
+
+def test_an_attempt_from_before_the_homework_was_set_is_not_a_hand_in():
+    """Assigning a paper someone had already practised would otherwise mark that
+    student submitted the moment the homework is created — backdated to whenever
+    they happened to do it. The teacher sees work handed in before it was set,
+    and the student is never asked to do it."""
+    db = _rl_db(attempts=[{
+        "id": "att-OLD", "user_id": "user-1", "test_id": "test-1",
+        "submitted_at": "2026-07-01T10:00:00+00:00", "band_estimate": 7.0,
+        "status": "submitted",
+    }])
+    assert reconcile_test_attempts(
+        db, [_rl_assignment(created_at="2026-08-03T00:00:00+00:00")]) == 0
+    assert db.tables["class_assignment_items"][0].get("submitted_at") is None
+
+
+def test_the_first_attempt_AFTER_the_homework_was_set_is_the_hand_in():
+    """The old attempt must not merely be skipped as a candidate — it must not
+    shadow the real one either. Picking the earliest overall would return the
+    July attempt and record nothing."""
+    db = _rl_db(attempts=[
+        {"id": "att-OLD", "user_id": "user-1", "test_id": "test-1",
+         "submitted_at": "2026-07-01T10:00:00+00:00", "band_estimate": 7.0,
+         "status": "submitted"},
+        {"id": "att-NEW", "user_id": "user-1", "test_id": "test-1",
+         "submitted_at": "2026-08-03T18:30:00+00:00", "band_estimate": 6.0,
+         "status": "submitted"},
+        {"id": "att-LATER", "user_id": "user-1", "test_id": "test-1",
+         "submitted_at": "2026-08-04T09:00:00+00:00", "band_estimate": 8.0,
+         "status": "submitted"},
+    ])
+    assert reconcile_test_attempts(db, [_rl_assignment()]) == 1
+    item = db.tables["class_assignment_items"][0]
+    assert item["artifact_id"] == "att-NEW"
+    assert item["submitted_at"] == "2026-08-03T18:30:00+00:00"
+
+
+def test_a_naive_timestamp_does_not_500_the_whole_class():
+    """Comparing a naive datetime with an aware one raises TypeError. One odd
+    row must not take down every student's homework list."""
+    db = _rl_db(attempts=[{
+        "id": "att-1", "user_id": "user-1", "test_id": "test-1",
+        "submitted_at": "2026-08-03T18:30:00", "band_estimate": 6.0,
+        "status": "submitted",
+    }])
+    assert reconcile_test_attempts(db, [_rl_assignment()]) == 1
+
+
+def test_assigned_test_ids_are_chunked_like_every_other_id_filter():
+    """A class accumulates assigned papers the way it accumulates students; an
+    over-long in.(...) is a request-URL failure, not a slow query."""
+    import inspect
+    from services import class_assignment_service as mod
+    src = code_only(inspect.getsource(mod.reconcile_test_attempts))
+    assert src.count("_ID_CHUNK") >= 3, (
+        "user_ids, student_ids and test_ids must all be chunked"
     )

@@ -198,13 +198,22 @@ async def create_assignment(
         # error, and the ledger would still count them as owing it.
         table = _TEST_SKILLS[body.skill]
         rows = (
-            supabase_admin.table(table).select("id, title, status")
+            supabase_admin.table(table).select("id, title, status, exam_only")
             .eq("id", body.content_id).limit(1).execute().data
         ) or []
         if not rows:
             raise HTTPException(404, "Không tìm thấy đề này.")
         if (rows[0].get("status") or "") != "published":
             raise HTTPException(400, "Đề này chưa xuất bản — hãy xuất bản trước khi giao.")
+        if rows[0].get("exam_only"):
+            # Reserved for mock sittings (mig 170): the student endpoints answer
+            # 404 to anyone without one. Published is not the same as openable,
+            # and the ledger would count the class as owing a paper none of them
+            # can reach. Most of the Cambridge library is flagged this way.
+            raise HTTPException(
+                400,
+                "Đề này dành riêng cho kỳ thi thử — không giao làm bài tập lớp được.",
+            )
         content_id = body.content_id
         content_config = {"test_title": rows[0].get("title")}
 

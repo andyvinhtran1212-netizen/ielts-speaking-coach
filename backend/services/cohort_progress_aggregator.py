@@ -34,6 +34,8 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, Iterable, List, Optional, Set
 
+from services.class_assignment_service import reconcile_test_attempts
+
 logger = logging.getLogger(__name__)
 
 _PAGE = 1000     # PostgREST caps an un-ranged select at this
@@ -167,12 +169,23 @@ def _homework_punctuality(db, cohort_id: str, student_ids: List[str],
     now_dt = _at(now) or datetime.now(timezone.utc)
 
     assignments = _paged(
-        db, "class_assignments", "id, due_at, status",
+        db, "class_assignments", "id, due_at, status, skill, content_id, created_at",
         lambda q: q.eq("cohort_id", cohort_id).eq("status", "published"),
     )
     due_by_id = {a["id"]: _at(a.get("due_at")) for a in assignments}
     if not due_by_id:
         return {}
+
+    # Reading/Listening hand-ins are detected from the attempt rows, not written
+    # by the test page. Whichever screen an admin opens FIRST has to do that
+    # repair, or the Progress tab reports submitted work as missing until some
+    # other endpoint happens to run it. Best-effort: a failed repair still shows
+    # the other three skills, and the homework column is merely stale, not wrong
+    # in a new way.
+    try:
+        reconcile_test_attempts(db, assignments)
+    except Exception as exc:                                # pragma: no cover
+        logger.warning("[cohort-progress] test-attempt reconcile failed: %s", exc)
 
     items = _fetch_by_ids(
         db, "class_assignment_items", "id, assignment_id, student_id, submitted_at",

@@ -267,11 +267,28 @@ async def start_assignment(
     # is picked up afterwards from the attempt row (reconcile_test_attempts).
     # Building a parallel "start" path would mean two places deciding when an
     # attempt begins.
-    test_id = assignment.get("content_id")
-    if not test_id:
+    test_uuid = assignment.get("content_id")
+    if not test_uuid:
         raise HTTPException(400, "Bài tập này chưa gắn đề.")
-    url = (f"/pages/reading-exam.html?test_id={quote(test_id)}" if skill == "reading"
-           else f"/pages/listening-test.html?id={quote(test_id)}")
+
+    if skill == "listening":
+        # listening-test.html?id= is the row id, the same value the attempt row
+        # carries — one identifier throughout.
+        url = f"/pages/listening-test.html?id={quote(test_uuid)}"
+    else:
+        # Reading needs BOTH ids and they are different columns. The reader page
+        # resolves ?test_id= against reading_tests.test_id (the public code,
+        # mig 086), while reading_test_attempts.test_id stores the row UUID. The
+        # ledger keeps the UUID because that is what the hand-in is matched on;
+        # the link has to carry the code or the paper opens to a 404.
+        row = (
+            supabase_admin.table("reading_tests").select("test_id")
+            .eq("id", test_uuid).limit(1).execute().data
+        ) or []
+        code = (row[0].get("test_id") if row else None)
+        if not code:
+            raise HTTPException(404, "Không tìm thấy đề đọc của bài tập này.")
+        url = f"/pages/reading-exam.html?test_id={quote(code)}"
     return {
         "item_id":       item_id,
         "assignment_id": assignment["id"],

@@ -264,3 +264,80 @@ async def test_the_full_page_still_gets_everything():
     out = await _call(set())
     for key in ("lessons", "assignments", "student", "progress", "class"):
         assert key in out
+
+
+# ── GĐ 5 — mở đề Reading/Listening ──────────────────────────────────────
+#
+# Reading and Listening key on DIFFERENT columns, and only one of them matches
+# what the ledger stores. Reading: the reader page resolves ?test_id= against
+# `reading_tests.test_id` (the public code, mig 086), while the attempt row —
+# and therefore the ledger's content_id — holds the row UUID. Listening uses the
+# row id at both ends. Getting this wrong opens the paper to a 404 while the
+# class is still counted as owing it.
+
+
+class _StartTable:
+    def __init__(self, rows, store):
+        self._rows, self._store = list(rows), store
+
+    def select(self, *_a, **_k): return self
+    def eq(self, f, v):
+        self._rows = [r for r in self._rows if str(r.get(f)) == str(v)]
+        return self
+    def limit(self, *_a): return self
+    def update(self, patch): self._store.append(patch); return self
+
+    def execute(self): return _Resp(self._rows)
+
+
+def _start_db(*, skill, content_id, tables=None):
+    store = []
+    base = {
+        "class_assignment_items": [
+            {"id": "item-1", "student_id": "s1", "assignment_id": "a1",
+             "state": "assigned"},
+        ],
+        "class_assignments": [
+            {"id": "a1", "cohort_id": "c1", "skill": skill, "status": "published",
+             "content_id": content_id, "content_config": {}, "due_at": None},
+        ],
+        "reading_tests": [{"id": "uuid-abc", "test_id": "CAM19-T3"}],
+    }
+    base.update(tables or {})
+    db = type("DB", (), {})()
+    db.table = lambda name: _StartTable(base.get(name, []), store)
+    return db
+
+
+async def _start(db):
+    student = {"id": "s1", "cohort_id": "c1"}
+    with patch.object(mod, "get_supabase_user", AsyncMock(return_value={"id": "u1"})), \
+         patch.object(mod, "_student_for_user", return_value=student), \
+         patch.object(mod, "is_assignment_open", return_value=True), \
+         patch.object(mod, "supabase_admin", db):
+        return await mod.start_assignment("item-1", None)
+
+
+@pytest.mark.asyncio
+async def test_a_reading_task_opens_by_the_public_test_code_not_the_uuid():
+    out = await _start(_start_db(skill="reading", content_id="uuid-abc"))
+    assert "test_id=CAM19-T3" in out["open_url"]
+    assert "uuid-abc" not in out["open_url"], (
+        "the reader resolves ?test_id= against reading_tests.test_id; handing it "
+        "the row UUID 404s every Reading assignment"
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_listening_task_opens_by_the_row_id():
+    """Listening keys on the row id at both ends — one identifier throughout."""
+    out = await _start(_start_db(skill="listening", content_id="uuid-xyz"))
+    assert out["open_url"] == "/pages/listening-test.html?id=uuid-xyz"
+
+
+@pytest.mark.asyncio
+async def test_a_reading_paper_that_vanished_says_so_instead_of_a_dead_link():
+    db = _start_db(skill="reading", content_id="uuid-gone", tables={"reading_tests": []})
+    with pytest.raises(Exception) as exc:
+        await _start(db)
+    assert getattr(exc.value, "status_code", None) == 404
