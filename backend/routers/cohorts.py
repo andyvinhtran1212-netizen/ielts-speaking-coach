@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from database import supabase_admin
 from routers.admin import require_admin, _aggregate_usage_for_users, _issue_code_and_assign
 from services.class_service import list_cohorts_basic, list_cohorts_with_rollup
+from services.cohort_progress_aggregator import cohort_progress
 
 router = APIRouter(prefix="/admin/cohorts", tags=["admin", "cohorts"])
 
@@ -368,3 +369,32 @@ async def remove_student_from_cohort(
         ).eq("id", student_id).execute()
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi gỡ học viên khỏi lớp: {exc}")
+
+
+@router.get("/{cohort_id}/progress")
+async def cohort_progress_matrix(
+    cohort_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Tiến độ 4 kỹ năng của cả lớp — mỗi học viên một dòng.
+
+    One query per skill over the whole roster, not per student: a class of 30
+    asked skill-by-skill is 120 round-trips and it grows with the roster.
+
+    Skills whose query failed come back as `null` on every row and are named in
+    `degraded`. "0 lượt Reading" is a claim about a student that an errored query
+    has not earned, and unlike a slow page a wrong zero is invisible.
+    """
+    await require_admin(authorization)
+
+    rows = (
+        supabase_admin.table("cohorts").select("id").eq("id", cohort_id)
+        .limit(1).execute().data
+    ) or []
+    if not rows:
+        raise HTTPException(404, "Không tìm thấy lớp")
+
+    try:
+        return cohort_progress(supabase_admin, cohort_id)
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi tính tiến độ lớp: {exc}")
