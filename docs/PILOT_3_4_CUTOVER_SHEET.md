@@ -5,8 +5,10 @@ READ) và pilot 4 (reversible MUTATION) là **CÙNG một trang** (profile) — 
 cutover mang cả hai.
 
 > **TRẠNG THÁI VẬN HÀNH: ĐÃ CUTOVER 2026-08-02 07:1x +07** (PR #756 merged,
-> release `311f5086`). `/profile` là canonical trên production; cửa sổ quan sát
-> 48–72h đang mở — xem mục cuối trang. Phần dưới giữ nguyên văn lúc prep.
+> release `311f5086`). `/profile` là canonical trên production.
+> **Cửa sổ quan sát ĐÃ ĐÓNG SỚM tại T+25,1h (2026-08-03) theo NGOẠI LỆ CHÍNH
+> SÁCH do chủ dự án duyệt — KHÔNG phải do cổng ADR-013 đã thoả.** Xem mục cuối
+> trang, gồm cả rủi ro còn lại chưa được xả. Phần dưới giữ nguyên văn lúc prep.
 >
 > [LỊCH SỬ] **TRẠNG THÁI VẬN HÀNH: CHUẨN BỊ SẴN, CHƯA cutover.** Diff build + suite
 > verified; PR **DRAFT**. Gate mutation **N/N−1 consumer test đã đóng
@@ -348,15 +350,59 @@ của site (14 ngày, 2878 `page_view`):
 | Route <20 lượt xem trong **14 ngày** | **42/51** |
 | Route đạt n=20 trong ≤1 ngày | **6** |
 
-Cổng soak đòi n≥20 views / n≥10 vitals. `/profile` có **0 view trong 14 ngày
-trước cutover và 0 sau cutover**. Chờ thêm 23h nữa (tới mốc 48h) hay 47h nữa
-(mốc 72h) đều cho ra cùng một thứ: **không có gì**. Đây không phải cửa sổ ngắn
-đi — nó là cửa sổ **không định nghĩa được**, và điều đó đã được ghi trong
-risk acceptance ký 02/08 (mục 1: "route vẫn 0 traffic sau cutover").
+Các con số trên là của **toàn site**, và chỉ nói về **sàn mẫu thống kê**.
+
+**Không được suy ra "`/profile` có 0 view trong 14 ngày trước cutover".** Trang
+hồ sơ **không có beacon nào trước 01/08** (ghi ở mục "Ghi chú về mẫu số" phía
+trên), nên mọi con số trước mốc đó là **hiện vật đo đạc**, không phải số đo.
+Điều nói được, và chỉ điều đó: **từ 01/08 (beacon lắp) tới nay, `/profile` có 0
+lượt organic.**
+
+### ⚠ ĐÍNH CHÍNH lập luận đóng sớm — tôi đã sai một chỗ quan trọng
+
+Bản đầu của mục này lập luận: "0 traffic ⇒ cửa sổ không sinh được bằng chứng ⇒
+đóng sớm không mất gì". **Lập luận đó sai**, và review PR #905 chỉ đúng chỗ sai.
+
+`ADR-013` §2 ghi nguyên văn rằng cửa sổ 48–72h là để lộ **lỗi thời-gian-trôi**
+(cache/ISR hết hạn, token refresh, cold start, cron) cùng **đa dạng client**, và
+**"KHÔNG nhằm gom mẫu organic có ý nghĩa thống kê"**. Nghĩa là lý lẽ 0-traffic
+của tôi đánh vào một mục tiêu mà ADR **chưa bao giờ** đặt ra cho cửa sổ này.
+Lượng traffic biện minh cho việc bỏ **sàn mẫu** — thứ ADR-013 đã bỏ sẵn — chứ
+không biện minh cho việc rút **thời lượng**.
+
+Thêm một lỗi phân loại: ADR-013 mục "Hệ quả tức thì" xếp **pilot 3+4 vào hàng
+`Authenticated mutation, traffic thấp`** (48–72h + synthetic mutation + N/N−1 +
+risk acceptance), **không phải** hàng `Zero-traffic → synthetic-only`. Tôi đã
+gán nhầm hàng để tự cho mình một cổng dễ hơn.
+
+**Trạng thái đúng: ĐÂY LÀ NGOẠI LỆ CHÍNH SÁCH, không phải cổng đã thoả.**
+
+| | |
+|---|---|
+| Cổng ADR-013 yêu cầu | 48–72h quan sát |
+| Thực tế | **25,1h** |
+| Ai duyệt ngoại lệ | Chủ dự án, 2026-08-03 |
+| Phân loại đúng | `Authenticated mutation, traffic thấp` |
+
+**Rủi ro còn lại, chưa được xả:** lỗi thời-gian-trôi trên `/profile` — token
+refresh, hết hạn cache, cold start, cron — **không được quan sát** qua trọn cửa
+sổ quy định.
+
+**Nói cho công bằng cả hai phía:** với `/profile` thì 48h cũng sẽ không xả được
+rủi ro đó, vì lỗi thời-gian-trôi chỉ **hiện ra khi có request**, mà route này
+vừa **0 lưu lượng organic** vừa **không có synthetic nào chạm tới** (production-
+smoke bị đẩy sang `/login.html`). Cửa sổ trôi qua trong im lặng không kiểm được
+gì. Nên chênh lệch thực giữa 25h và 48h là **nhỏ nhưng khác 0**, và cách xả
+đúng **không phải chờ thêm** mà là:
+
+> **Việc cần làm để xả rủi ro này: dựng một synthetic probe CÓ ĐĂNG NHẬP chạy
+> định kỳ trên `/profile`** (đọc thôi, không ghi), để lỗi thời-gian-trôi có
+> request mà hiện ra. Chưa làm — ghi vào nợ kỹ thuật.
 
 ### Bằng chứng thật của pilot 3+4 — nằm ở đâu
 
-Theo ADR-013 nhánh **synthetic-only** (áp dụng khi route 0 traffic):
+Các bằng chứng dưới đây có thật và đã kiểm; chúng **không** thay được vế
+thời-gian-trôi nói trên:
 
 | Bằng chứng | Trạng thái |
 |---|---|
@@ -374,11 +420,13 @@ Theo ADR-013 nhánh **synthetic-only** (áp dụng khi route 0 traffic):
 - ❌ "LCP 10228ms ⇒ route chậm." Sai — mẫu không hợp lệ (xem trên).
 - ❌ "Đường mutation đã verify trên production." Sai — cố ý không verify, vì
   nó ghi vào hồ sơ người dùng thật. Staging E2E gánh vế đó.
+- ❌ "Cổng quan sát 48–72h của ADR-013 đã thoả." Sai — đóng ở 25,1h theo ngoại
+  lệ. Vế lỗi-thời-gian-trôi vẫn treo (xem phần đính chính).
 
 ### Kết luận
 
-**Pilot 3+4 ĐÓNG — PASS theo nhánh synthetic-only, không phải theo bằng chứng
-organic.** `/profile` giữ nguyên trên Next. Giám sát tiếp bằng ngưỡng **tuyệt
+**Pilot 3+4 ĐÓNG tại T+25,1h theo NGOẠI LỆ CHÍNH SÁCH được chủ dự án duyệt —
+KHÔNG phải "PASS vì cổng đã thoả".** `/profile` giữ nguyên trên Next. Giám sát tiếp bằng ngưỡng **tuyệt
 đối 0**: bất kỳ lỗi client nào trên `/profile` = điều tra ngay (khả thi chính
 vì lưu lượng thấp — không có nhiễu để lọc). Rollback ≤12s vẫn là lưới đỡ.
 
