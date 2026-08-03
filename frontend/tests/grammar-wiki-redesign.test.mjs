@@ -443,11 +443,11 @@ describe('Cross-page navigation preserved', () => {
     assert.match(pageContents.landing, /href=["'][^"']*pages\/grammar-search\.html/);
   });
 
-  test('sub-pages → landing (../grammar.html or /grammar.html)', () => {
+  test('sub-pages → landing (/grammar — canonical sau cutover 2026-08-03)', () => {
     for (const sub of ['roadmap', 'article', 'search', 'compare']) {
       assert.match(
         pageContents[sub],
-        /href=["'](?:\.\.\/|\/)?grammar\.html/,
+        /href=["']\/grammar["']/,
         `${sub}: missing back-link to grammar landing`,
       );
     }

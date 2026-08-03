@@ -5,8 +5,10 @@ READ) và pilot 4 (reversible MUTATION) là **CÙNG một trang** (profile) — 
 cutover mang cả hai.
 
 > **TRẠNG THÁI VẬN HÀNH: ĐÃ CUTOVER 2026-08-02 07:1x +07** (PR #756 merged,
-> release `311f5086`). `/profile` là canonical trên production; cửa sổ quan sát
-> 48–72h đang mở — xem mục cuối trang. Phần dưới giữ nguyên văn lúc prep.
+> release `311f5086`). `/profile` là canonical trên production.
+> **Cửa sổ quan sát ĐÃ ĐÓNG SỚM tại T+25,1h (2026-08-03) theo NGOẠI LỆ CHÍNH
+> SÁCH do chủ dự án duyệt — KHÔNG phải do cổng ADR-013 đã thoả.** Xem mục cuối
+> trang, gồm cả rủi ro còn lại chưa được xả. Phần dưới giữ nguyên văn lúc prep.
 >
 > [LỊCH SỬ] **TRẠNG THÁI VẬN HÀNH: CHUẨN BỊ SẴN, CHƯA cutover.** Diff build + suite
 > verified; PR **DRAFT**. Gate mutation **N/N−1 consumer test đã đóng
@@ -298,5 +300,137 @@ tài khoản tự đổi rồi đổi lại, không phải tôi tự ý ghi.
 | Ngày | Views/Lỗi trên `/profile` | LCP p75 | Ghi chú |
 |---|---|---|---|
 | D0 02/08 | 1 view (của tôi) / 0 lỗi | — | cutover + verify |
-| D1 03/08 | | | |
-| D2 04/08 | | | |
+| D1 03/08 | **0 view / 0 lỗi** | 10228ms (1 mẫu, KHÔNG dùng được — xem dưới) | cửa sổ mở 25,1h |
+| D2 04/08 | — | — | **không đo: cửa sổ đóng sớm 03/08** |
+
+---
+
+## 🔚 ĐÓNG SỚM CỬA SỔ — 2026-08-03, T+25,1h
+
+Chủ dự án quyết định đóng sớm thay vì chờ mốc 48h (04/08). Ghi lại **lý do
+thật**, không phải lý do dễ nghe.
+
+### Số đo tại thời điểm đóng
+
+| | |
+|---|---|
+| Cửa sổ đã mở | **25,1 giờ** (cutover 02/08 00:17Z → đóng 03/08 01:25Z) |
+| Sự kiện trên `/profile` **kể từ cutover** | **2** — cả hai đều của tôi |
+| Lượt xem organic | **0** |
+| `error_logs` dính `profile` kể từ cutover | **0** (toàn site chỉ 2 hàng lỗi) |
+| Verdict lỗi / vitals | `insufficient-sample` / `insufficient-sample` |
+
+Hai sự kiện đó là: `page_view` lúc 00:17:23Z (lần tôi mở để verify cutover) và
+`web_vitals` lúc 06:59:47Z. **Bản ghi vitals KHÔNG phải lượt truy cập thứ hai**:
+`loaded_at` của nó khớp tới giây với `page_view` trên, `age_ms = 24.144.051`
+(6,7 giờ) — cùng một tab để mở rất lâu rồi mới chốt LCP. Nên **10228ms không
+phải số đo tốc độ hợp lệ**, và ta đang có **0 mẫu LCP dùng được** cho `/profile`.
+
+> Chính hai trường `loaded_at`/`age_ms` (thêm khi truy DEBT-N) là thứ phân biệt
+> được "tab sống lâu" với "lượt xem bị mất đếm". Không có chúng, "0 view + 1
+> LCP" trông y hệt một ống đo hỏng, và ta đã đi săn nhầm.
+
+### Ống đo có sống không — kiểm TRƯỚC khi tin số 0
+
+Bắt buộc, vì "0 lượt xem" đã từng là hiện vật đo đạc ở chính dự án này. Trong
+60h: **610 sự kiện, 245 `page_view`** rải khắp site (`/pages/home.html` 93 ·
+`/pages/speaking.html` 49 · `/pages/writing-dashboard.html` 35 ·
+`/pages/result.html` 29 · `/` 24 · `/grammar.html` 5). Beacon sống.
+**Số 0 của `/profile` là 0 thật.**
+
+### Vì sao đóng sớm KHÔNG làm mất bằng chứng
+
+Vì cửa sổ này chưa từng có khả năng sinh bằng chứng. Đo năng lực thống kê thật
+của site (14 ngày, 2878 `page_view`):
+
+| | |
+|---|---|
+| Lưu lượng | **8,6 page_view/giờ** toàn site · **31** người dùng đăng nhập |
+| Route có lưu lượng | 51/127 → **76 trang 0 lượt xem suốt 14 ngày** |
+| Route <20 lượt xem trong **14 ngày** | **42/51** |
+| Route đạt n=20 trong ≤1 ngày | **6** |
+
+Các con số trên là của **toàn site**, và chỉ nói về **sàn mẫu thống kê**.
+
+**Không được suy ra "`/profile` có 0 view trong 14 ngày trước cutover".** Trang
+hồ sơ **không có beacon nào trước 01/08** (ghi ở mục "Ghi chú về mẫu số" phía
+trên), nên mọi con số trước mốc đó là **hiện vật đo đạc**, không phải số đo.
+Điều nói được, và chỉ điều đó: **từ 01/08 (beacon lắp) tới nay, `/profile` có 0
+lượt organic.**
+
+### ⚠ ĐÍNH CHÍNH lập luận đóng sớm — tôi đã sai một chỗ quan trọng
+
+Bản đầu của mục này lập luận: "0 traffic ⇒ cửa sổ không sinh được bằng chứng ⇒
+đóng sớm không mất gì". **Lập luận đó sai**, và review PR #905 chỉ đúng chỗ sai.
+
+`ADR-013` §2 ghi nguyên văn rằng cửa sổ 48–72h là để lộ **lỗi thời-gian-trôi**
+(cache/ISR hết hạn, token refresh, cold start, cron) cùng **đa dạng client**, và
+**"KHÔNG nhằm gom mẫu organic có ý nghĩa thống kê"**. Nghĩa là lý lẽ 0-traffic
+của tôi đánh vào một mục tiêu mà ADR **chưa bao giờ** đặt ra cho cửa sổ này.
+Lượng traffic biện minh cho việc bỏ **sàn mẫu** — thứ ADR-013 đã bỏ sẵn — chứ
+không biện minh cho việc rút **thời lượng**.
+
+Thêm một lỗi phân loại: ADR-013 mục "Hệ quả tức thì" xếp **pilot 3+4 vào hàng
+`Authenticated mutation, traffic thấp`** (48–72h + synthetic mutation + N/N−1 +
+risk acceptance), **không phải** hàng `Zero-traffic → synthetic-only`. Tôi đã
+gán nhầm hàng để tự cho mình một cổng dễ hơn.
+
+**Trạng thái đúng: ĐÂY LÀ NGOẠI LỆ CHÍNH SÁCH, không phải cổng đã thoả.**
+
+| | |
+|---|---|
+| Cổng ADR-013 yêu cầu | 48–72h quan sát |
+| Thực tế | **25,1h** |
+| Ai duyệt ngoại lệ | Chủ dự án, 2026-08-03 |
+| Phân loại đúng | `Authenticated mutation, traffic thấp` |
+
+**Rủi ro còn lại, chưa được xả:** lỗi thời-gian-trôi trên `/profile` — token
+refresh, hết hạn cache, cold start, cron — **không được quan sát** qua trọn cửa
+sổ quy định.
+
+**Nói cho công bằng cả hai phía:** với `/profile` thì 48h cũng sẽ không xả được
+rủi ro đó, vì lỗi thời-gian-trôi chỉ **hiện ra khi có request**, mà route này
+vừa **0 lưu lượng organic** vừa **không có synthetic nào chạm tới** (production-
+smoke bị đẩy sang `/login.html`). Cửa sổ trôi qua trong im lặng không kiểm được
+gì. Nên chênh lệch thực giữa 25h và 48h là **nhỏ nhưng khác 0**, và cách xả
+đúng **không phải chờ thêm** mà là:
+
+> **Việc cần làm để xả rủi ro này: dựng một synthetic probe CÓ ĐĂNG NHẬP chạy
+> định kỳ trên `/profile`** (đọc thôi, không ghi), để lỗi thời-gian-trôi có
+> request mà hiện ra. Chưa làm — ghi vào nợ kỹ thuật.
+
+### Bằng chứng thật của pilot 3+4 — nằm ở đâu
+
+Các bằng chứng dưới đây có thật và đã kiểm; chúng **không** thay được vế
+thời-gian-trôi nói trên:
+
+| Bằng chứng | Trạng thái |
+|---|---|
+| Staging E2E đường mutation (save→reload→revert, double-submit, kill-switch) | **23/23 pass** |
+| Render production bằng trình duyệt thật, tài khoản thật | đủ nội dung, **0 console error** |
+| Telemetry trên route mới | `implementation=next`, `user_id` ≠ NULL, release `311f5086` |
+| Redirect legacy `/pages/profile.html` → `/profile` | 307, đúng thiết kế rollback |
+| Kill-switch `profile_update` | mặc định BẬT (ADR-010), tắt trong ~872ms (đo 31/07) |
+| Lỗi client trên route kể từ cutover | **0** |
+
+### Điều KHÔNG được suy ra từ trang này
+
+- ❌ "0 lỗi / 0 view ⇒ đã chứng minh route an toàn dưới tải thật." Sai. Không
+  có tải thật nào để chứng minh.
+- ❌ "LCP 10228ms ⇒ route chậm." Sai — mẫu không hợp lệ (xem trên).
+- ❌ "Đường mutation đã verify trên production." Sai — cố ý không verify, vì
+  nó ghi vào hồ sơ người dùng thật. Staging E2E gánh vế đó.
+- ❌ "Cổng quan sát 48–72h của ADR-013 đã thoả." Sai — đóng ở 25,1h theo ngoại
+  lệ. Vế lỗi-thời-gian-trôi vẫn treo (xem phần đính chính).
+
+### Kết luận
+
+**Pilot 3+4 ĐÓNG tại T+25,1h theo NGOẠI LỆ CHÍNH SÁCH được chủ dự án duyệt —
+KHÔNG phải "PASS vì cổng đã thoả".** `/profile` giữ nguyên trên Next. Giám sát tiếp bằng ngưỡng **tuyệt
+đối 0**: bất kỳ lỗi client nào trên `/profile` = điều tra ngay (khả thi chính
+vì lưu lượng thấp — không có nhiễu để lọc). Rollback ≤12s vẫn là lưới đỡ.
+
+**Hệ quả cho chương trình:** cổng soak theo thời gian chỉ áp dụng được cho 6
+route đủ lưu lượng; 121 route còn lại cần cổng deterministic (parity diff +
+replay dữ liệu thật + perf synthetic + ngưỡng lỗi 0). Đề xuất sửa ADR-013 theo
+hướng đó là việc riêng, cần chủ dự án ký vì nó sửa chính sách phát hành đã ký.

@@ -294,7 +294,10 @@ def _build_grammar(sb, user_id: str) -> Dict[str, Any]:
         "last_activity_at": last_activity,
         "lessons_viewed": int(total),
         "primary_cta": "Browse lessons",
-        "primary_cta_url": "/grammar.html",
+        # [cutover /grammar 2026-08-03] route canonical. Thẻ Grammar ở trang
+        # chủ học viên điều hướng bằng ĐÚNG giá trị này (home.js:277-287),
+        # nên để nguyên bản legacy là một luồng chính vẫn mở trang cũ.
+        "primary_cta_url": "/grammar",
     }
 
 

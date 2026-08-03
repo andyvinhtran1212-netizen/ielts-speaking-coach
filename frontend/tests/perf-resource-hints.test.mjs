@@ -101,7 +101,9 @@ describe('Perf P2.3 — aver-chrome injects prefetch speculation rules', () => {
   it('allowlists ONLY read-only dashboards — never stateful/admin pages', () => {
     for (const href of [
       '/pages/home.html', '/pages/speaking.html', '/pages/writing-dashboard.html',
-      '/pages/listening.html', '/pages/reading-vocab.html', '/grammar.html', '/vocabulary.html',
+      '/pages/listening.html', '/pages/reading-vocab.html',
+      // [cutover /grammar 2026-08-03] prerender route CANONICAL, không phải bản legacy.
+      '/grammar', '/vocabulary.html',
     ]) {
       assert.match(CHROME, new RegExp(`href_matches: '${href.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}'`),
         `${href} must be in the prerender allowlist`);

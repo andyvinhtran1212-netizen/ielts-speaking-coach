@@ -1,0 +1,212 @@
+# G1 của ADR-013-A1 — cổng parity legacy ↔ Next, chạy trong CI.
+#
+# Trước workflow này, cổng parity chỉ chạy khi có người NHỚ chạy tay. Một cổng
+# phụ thuộc trí nhớ thì không phải cổng — và ADR-013-A1 đã ghi "gác G1 trong CI"
+# là việc phải làm.
+#
+# VÌ SAO DỰNG CẢ HAI VẾ NGAY TRONG RUNNER, KHÔNG DÙNG PREVIEW VERCEL:
+#   · Preview của Vercel bị khoá SSO — `curl` chỉ nhận lại trang đăng nhập, nên
+#     không so được (đã đo).
+#   · `next start` phục vụ CẢ hai vế: route Next (`/grammar`) và tệp tĩnh legacy
+#     trong `public/` (`/grammar.html`). Một tiến trình, không cần deploy.
+#   · Trang legacy gọi backend theo `runtime-config.js`, mà `_RC.apiBase` thắng
+#     heuristic hostname (`js/api.js:55-60`). Đặt `AVER_API_BASE` là cả hai vế
+#     cùng trỏ backend production. Đã đo: backend cho phép CORS từ
+#     `http://localhost:3000`.
+#
+# Bộ so CHỈ ĐỌC: nó chặn mọi phương thức ghi và in ra danh sách đã chặn.
+
+# Không dùng Vercel Cron dù công cụ gợi ý: job này BUILD Next rồi LÁI Chromium
+# trong runner. Vercel Cron chỉ gọi một HTTP endpoint trong deployment — không
+# build được, không chạy trình duyệt được, và lại phụ thuộc vào chính deployment
+# đang được đo.
+
+name: Parity gate (G1)
+
+on:
+  # BỘ LỌC CHỈ LIỆT KÊ NHỮNG GÌ G1 THẬT SỰ SO ĐƯỢC.
+  #
+  # G1 cần CẢ HAI bản còn được phục vụ. Kiểm trên production:
+  #   /index.html         → 307 sang `/`  ⇒ bản legacy của trang chủ ĐÃ GỠ khi
+  #                         cutover pilot 1 ⇒ không còn gì để so
+  #   /pages/profile.html → 307 sang `/profile` ⇒ tương tự, và route này còn cần
+  #                         đăng nhập nên bản ẩn danh không so được
+  # Cả hai ca trên đều bị chốt `same-final-url` từ chối — đã đo.
+  #
+  # Trước bản này bộ lọc bắt cả `frontend/app/**`, nên một PR sửa `/` hay
+  # `/profile` sẽ kích hoạt job rồi BÁO XANH mà chưa từng mở route đã sửa. Cổng
+  # tự cấp phép còn tệ hơn không có cổng.
+  #
+  # HỆ QUẢ CẦN NHỚ: giá trị của G1 là HỮU HẠN theo từng route — nó chỉ tồn tại
+  # từ lúc dựng bản Next tới lúc gỡ bản legacy. Sau khi gỡ legacy, route đó
+  # được che bởi test + G2 + rollback, không còn parity nữa.
+  pull_request:
+    paths:
+      - 'frontend/app/(public-content)/**'
+      - 'frontend/lib/backend.ts'
+      - 'frontend/lib/grammar-api.ts'
+      - 'frontend/public/grammar.html'
+      - 'frontend/public/js/grammar.js'
+      - 'frontend/public/pages/grammar-article.html'
+      - 'frontend/public/js/components/aver-chrome.js'
+      - 'frontend/tooling/parity-core.mjs'
+      - 'frontend/tooling/parity-diff.mjs'
+      - 'frontend/next.config.ts'
+      - 'frontend/package-lock.json'
+      - '.github/workflows/parity-gate.yml'
+  # Bộ ĐẦY ĐỦ (gồm toàn bộ trang bài viết) chạy hằng đêm: quét 137 bài × 2 vế
+  # × 2 lần chụp là quá chậm cho mỗi PR, nhưng bỏ hẳn thì hồi quy ở trang bài
+  # không ai thấy. PR phủ trang chủ + thư mục; đêm phủ tất cả.
+  schedule:
+    - cron: "41 2 * * *"
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: "categories (nhanh) · full (gồm mọi trang bài viết)"
+        default: categories
+        type: choice
+        options: [categories, full]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: parity-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Cả hai vế cùng trỏ backend production. `prebuild` sinh `runtime-config.js`
+  # từ đúng biến này, nên vế legacy chạy trên localhost vẫn gọi đúng backend.
+  AVER_API_BASE: https://ielts-speaking-coach-production.up.railway.app
+  AVER_SUPABASE_URL: https://huwsmtubwulikhlmcirx.supabase.co
+  AVER_SUPABASE_ANON_KEY: sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao
+  AVER_ENVIRONMENT: production
+  # CỔNG KHÔNG TUỲ Ý. Backend chỉ cho CORS từ đúng vài origin (`main.py:118`):
+  # localhost:3000 · 127.0.0.1:3000 · localhost:5500 · 127.0.0.1:5500. Chạy ở
+  # cổng khác thì vế legacy KHÔNG fetch được, trang hiện "Lỗi: Failed to fetch",
+  # và nếu không ai để ý thì bộ so vẫn chạy trên một nền tham chiếu rác. Đã đo
+  # đúng ca đó: cổng 3300 ⇒ 938 `line-extra` toàn mức thấp + 26 `baseline-suspect`.
+  PARITY_PORT: '3000'
+
+jobs:
+  parity:
+    name: G1 parity legacy ↔ Next
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Cần lịch sử để so diff với nhánh gốc mà chọn phạm vi.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Cài phụ thuộc
+        run: npm ci
+
+      - name: Build (prebuild sinh runtime-config trỏ backend production)
+        run: npm run build
+
+      - name: Cài Chromium cho Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Khởi động Next
+        run: |
+          npx next start -p "$PARITY_PORT" > /tmp/next.log 2>&1 &
+          echo $! > /tmp/next.pid
+          for i in $(seq 1 40); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:$PARITY_PORT/grammar" || true)
+            if [ "$code" = "200" ]; then echo "Next sẵn sàng sau ${i}s"; exit 0; fi
+            sleep 1
+          done
+          echo "Next KHÔNG khởi động được (cổng bận?):"; tail -40 /tmp/next.log; exit 1
+
+      # Chốt chặn hạ tầng: nếu vế legacy không gọi được backend thì mọi so sánh
+      # sau đó vô giá trị — bản Next sẽ chỉ toàn "thừa" (mức thấp) và cả bảng
+      # xanh. Bộ so có `baseline-suspect` cho việc này, nhưng kiểm sớm ở đây thì
+      # thông báo dễ hiểu hơn nhiều so với một bảng lệch dài.
+      - name: Kiểm vế legacy phục vụ được VÀ gọi được backend
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:$PARITY_PORT/grammar.html")
+          [ "$code" = "200" ] || { echo "legacy /grammar.html trả $code"; exit 1; }
+          # Trang trả 200 KHÔNG chứng minh nó fetch được — legacy render phía
+          # client, fetch hỏng thì trang vẫn 200 và chỉ hiện "Lỗi: Failed to
+          # fetch". Kiểm thẳng preflight CORS từ đúng origin sẽ dùng.
+          allow=$(curl -s -o /dev/null -D- -X OPTIONS "$AVER_API_BASE/api/grammar/home" \
+            -H "Origin: http://localhost:$PARITY_PORT" \
+            -H "Access-Control-Request-Method: GET" | tr -d '\r' \
+            | grep -i '^access-control-allow-origin' || true)
+          if [ -z "$allow" ]; then
+            echo "CORS KHÔNG cho phép http://localhost:$PARITY_PORT."
+            echo "Backend chỉ cho vài origin cố định (backend/main.py:118)."
+            echo "Đổi PARITY_PORT về một cổng có trong allowlist, ĐỪNG chạy tiếp:"
+            echo "nền so sẽ hỏng và bảng kết quả sẽ vô nghĩa."
+            exit 1
+          fi
+          echo "CORS OK: $allow"
+
+      # PHẠM VI PHẢI THEO NỘI DUNG PR, không phải một hằng số.
+      # PR sửa bộ render bài viết (`[category]/[slug]/**`) mà chỉ chạy
+      # `--categories-only` thì lần chạy CHẶN-MERGE không hề mở một trang bài
+      # nào; lịch đêm chỉ phát hiện SAU khi đã merge. Ca đó phải chạy bộ đầy đủ.
+      - name: Chọn phạm vi theo tệp đã sửa
+        id: scope
+        run: |
+          if [ -n "${{ inputs.scope }}" ]; then
+            echo "scope=${{ inputs.scope }}" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "scope=full" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          BASE="origin/${{ github.base_ref }}"
+          CHANGED=$(git diff --name-only "$BASE"...HEAD || true)
+          echo "tệp đã sửa:"; echo "$CHANGED" | sed 's/^/  /'
+          if echo "$CHANGED" | grep -qE 'frontend/app/\(public-content\)/grammar/\[category\]/\[slug\]/|frontend/tooling/parity-|frontend/lib/(backend|grammar-api)\.ts|frontend/public/pages/grammar-article\.html'; then
+            echo "→ đụng bộ render BÀI VIẾT hoặc tầng dùng chung ⇒ phạm vi FULL"
+            echo "scope=full" >> "$GITHUB_OUTPUT"
+          else
+            echo "→ phạm vi categories (trang chủ + thư mục)"
+            echo "scope=categories" >> "$GITHUB_OUTPUT"
+          fi
+
+      # HAI BỀ RỘNG. Lượt 1280 mù hoàn toàn với hồi quy theo breakpoint — đã
+      # chứng minh bằng thí nghiệm: gài `hidden sm:block` vào đoạn mô tả hero
+      # của bản Next rồi so ⇒ 1280px cho 0 phát hiện, 375px bắt được
+      # `line-missing: Tra cứu nhanh, học theo roadmap…`.
+      #
+      # Lỗi H1 dính chữ (#907) bắt được ở 1280 chỉ vì nó TÌNH CỜ cũng là khác
+      # biệt văn bản; một khối ẩn/hiện lệch nhau theo breakpoint thì không.
+      #
+      # Chạy CẢ HAI rồi mới thoát, để báo cáo hiện đủ hai bề rộng thay vì dừng
+      # ở cái đỏ đầu tiên.
+      - name: Chạy cổng parity (desktop + điện thoại)
+        run: |
+          SCOPE="${{ steps.scope.outputs.scope }}"
+          echo "phạm vi: $SCOPE"
+          if [ "$SCOPE" = "full" ]; then ARGS="--expand-grammar"; else ARGS="--expand-grammar --categories-only"; fi
+          FAIL=0
+          for VP in 1280x900 375x812; do
+            echo "════════ bề rộng $VP ════════"
+            node tooling/parity-diff.mjs --base "http://localhost:$PARITY_PORT" \
+              $ARGS --viewport "$VP" --concurrency 3 --json "out/parity-$VP.json" || FAIL=1
+          done
+          exit $FAIL
+
+      - name: Nộp báo cáo
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: parity-report-${{ github.run_id }}
+          path: frontend/out/parity-*.json
+          if-no-files-found: warn
+
+      - name: Dừng Next
+        if: ${{ always() }}
+        run: kill "$(cat /tmp/next.pid)" 2>/dev/null || true

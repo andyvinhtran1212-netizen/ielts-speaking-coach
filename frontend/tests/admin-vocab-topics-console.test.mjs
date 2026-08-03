@@ -74,7 +74,8 @@ describe('Pha 4 — grammar exercises wiring', () => {
   });
   test('player return CTA is skill-area aware (grammar → Grammar, else the practice picker)', () => {
     assert.match(player, /skill_area === 'grammar'/);
-    assert.match(player, /\/grammar\.html/);
+    // [cutover /grammar 2026-08-03] CTA quay lại Grammar trỏ route canonical.
+    assert.match(player, /\/grammar["']/);
     // Vocab back returns to the lesson picker (vocab-practice), NOT /vocabulary.html
     // (the public word wiki) — both back controls share one unambiguous target.
     assert.match(player, /\/pages\/vocab-practice\.html/);

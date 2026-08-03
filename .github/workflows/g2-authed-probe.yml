@@ -1,0 +1,163 @@
+# G2 của ADR-013-A1 — probe synthetic CÓ ĐĂNG NHẬP, CHỈ ĐỌC.
+#
+# Cửa sổ quan sát `/profile` (02–03/08) nhận đúng 2 request trong 25,1h vì
+# production-smoke chạy ẩn danh và bị đẩy sang /login.html. Lỗi thời-gian-trôi
+# không hiện ra nếu không ai gọi. Workflow này là thứ phát request trong khoảng
+# thời gian đó.
+#
+# Vì sao nhịp 15 phút chứ KHÔNG phải 20: sàn ADR-013-A1 đòi khoảng cách lớn
+# nhất ≤20 phút. Đặt cron đúng bằng 20 là đặt lịch sát mép — mà cron của GitHub
+# Actions chạy trễ vài phút là chuyện thường, và mốc thời gian của mẫu còn tính
+# SAU khi runner khởi động + đăng nhập + gọi HTTP. Chỉ cần một lần trễ là khe hở
+# vượt 20 phút và `trailingRun()` cắt sạch lịch sử tích luỹ.
+#
+# Mô phỏng 26h với độ trễ tối đa 4 phút (test `g2-floor.test.mjs`):
+#   cron 20 phút → khe hở lớn nhất 23 phút → n=2,  trải 0,3h  → KHÔNG BAO GIỜ đạt
+#   cron 15 phút → khe hở lớn nhất 18 phút → n=104, trải 25,8h → ĐẠT
+# Nguyên tắc: LỊCH phải chặt hơn SÀN, đủ biên để nuốt độ trễ của bộ lập lịch.
+#
+# ĐÃ BẬT CRON 2026-08-03. Điều kiện tiên quyết đã xong:
+#   1. Tài khoản probe `g2-probe@averlearning.com` do chủ dự án tạo trên
+#      production; hàng `users` đã được cấp qua một lần gọi `/auth/me` thủ công
+#      lúc thiết lập — lần ghi DUY NHẤT, không nằm trong vòng chạy của probe.
+#      Đã đo: /auth/me 200 · /auth/profile 200 · /auth/check-active 200.
+#   2. Secret `PROBE_EMAIL` + `PROBE_PASSWORD` do chủ dự án thêm.
+# Thiếu secret thì job thoát 78 và job đỏ — KHÔNG có đường nào để "chưa bật"
+# bị đọc thành "đã đạt": `--mode verdict` từ chối sổ rỗng bằng `no-samples`.
+
+# VÌ SAO CHẠY Ở GITHUB ACTIONS CHỨ KHÔNG PHẢI VERCEL CRON (công cụ có gợi ý):
+# probe phải đo production TỪ BÊN NGOÀI. Vercel Cron gọi một route handler nằm
+# TRONG chính deployment đang được đo — deployment cold start, hỏng, hay rollback
+# thì probe cũng chết theo và đơn giản là không chạy, tức đúng lúc cần đo nhất
+# thì không có số. Đó là kiểu phụ thuộc dụng-cụ-đo-vào-vật-bị-đo mà cả đợt này
+# đã trả giá nhiều lần. Thêm nữa nó buộc phải nhét thông tin đăng nhập probe vào
+# môi trường chạy production và mở một route chỉ để phục vụ kiểm thử. Giữ ở CI,
+# cùng khuôn với `production-smoke.yml`.
+
+name: G2 authed probe (ADR-013-A1)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "tick (một nhịp) · session (~70' đi qua token refresh) · verdict (chấm sổ)"
+        default: tick
+        type: choice
+        options: [tick, session, verdict]
+  schedule:
+    - cron: "*/15 * * * *"   # 96 nhịp/ngày, biên 5 phút dưới sàn → mode tick
+    - cron: "17 3 * * *"     # một phiên dài mỗi ngày            → mode session
+
+permissions:
+  contents: read
+
+concurrency:
+  # Group PHẢI tách theo chế độ. Dùng chung một group thì phiên dài (~61 phút)
+  # chiếm chỗ, và các `tick` rơi vào khoảng đó bị xếp hàng rồi huỷ (GitHub chỉ
+  # giữ MỘT run pending mỗi group). Hậu quả: mỗi ngày thủng một lỗ >60 phút
+  # đúng lúc phiên chạy ⇒ dãy liên tục bị cắt ⇒ verdict trượt vĩnh viễn dù hệ
+  # thống hoàn toàn khoẻ. Tức là cổng tự làm mình không bao giờ xanh được.
+  #
+  # Không tham chiếu được `env.PROBE_MODE` ở đây (concurrency lượng giá trước
+  # khi env của workflow sẵn sàng), nên lặp lại biểu thức.
+  group: >-
+    g2-authed-probe-${{ inputs.mode
+      || (github.event.schedule == '17 3 * * *' && 'session')
+      || 'tick' }}
+  # KHÔNG huỷ cái đang chạy — huỷ giữa chừng một phiên 70 phút là mất luôn vế
+  # token refresh, thứ duy nhất phủ được chế độ hỏng của lớp authenticated.
+  cancel-in-progress: false
+
+env:
+  # Sự kiện `schedule` KHÔNG có `inputs`, nên `inputs.mode || 'tick'` sẽ biến CẢ
+  # HAI cron thành `tick` và cron phiên-dài không bao giờ chạy `session` — sổ
+  # authed vĩnh viễn thiếu `afterRefresh` và verdict luôn trượt `no-token-refresh`
+  # (review PR #910). Chọn chế độ theo chính chuỗi cron đã kích hoạt.
+  PROBE_MODE: >-
+    ${{ inputs.mode
+        || (github.event.schedule == '17 3 * * *' && 'session')
+        || 'tick' }}
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # Sổ phải sống qua nhiều lần chạy, nếu không mỗi nhịp là một dãy n=1 và
+      # sàn "trải ≥24h" vĩnh viễn không thể đạt.
+      #
+      # MỖI CHẾ ĐỘ MỘT SỔ RIÊNG (review PR #911). Sau khi tách concurrency
+      # group, `tick` và `session` chạy SONG SONG; dùng chung một tệp thì cả hai
+      # khôi phục cùng một bản rồi bên LƯU SAU đè mất phần của bên kia — một
+      # lần 500 do tick ghi có thể biến mất, để lại bằng chứng khuyết mà verdict
+      # vẫn cho qua. Tách tệp ⇒ mỗi tệp một người ghi ⇒ không mất mẫu; verdict
+      # gộp lại khi chấm.
+      - name: Khôi phục sổ tick
+        uses: actions/cache/restore@v4
+        with:
+          path: frontend/out/g2-ledger-tick.jsonl
+          key: g2-ledger-tick-${{ github.run_id }}
+          restore-keys: |
+            g2-ledger-tick-
+
+      - name: Khôi phục sổ session
+        uses: actions/cache/restore@v4
+        with:
+          path: frontend/out/g2-ledger-session.jsonl
+          key: g2-ledger-session-${{ github.run_id }}
+          restore-keys: |
+            g2-ledger-session-
+
+      - name: Chạy probe (chế độ ${{ env.PROBE_MODE }})
+        if: ${{ env.PROBE_MODE != 'verdict' }}
+        working-directory: frontend
+        env:
+          PROBE_EMAIL: ${{ secrets.PROBE_EMAIL }}
+          PROBE_PASSWORD: ${{ secrets.PROBE_PASSWORD }}
+        run: node tooling/authed-probe.mjs --mode "$PROBE_MODE"
+
+      # Chỉ lưu sổ CỦA CHÍNH chế độ này — không đụng vào sổ của chế độ kia.
+      - name: Lưu sổ ${{ env.PROBE_MODE }}
+        if: ${{ always() && env.PROBE_MODE != 'verdict' }}
+        uses: actions/cache/save@v4
+        with:
+          path: frontend/out/g2-ledger-${{ env.PROBE_MODE }}.jsonl
+          key: g2-ledger-${{ env.PROBE_MODE }}-${{ github.run_id }}
+
+      # Chấm theo sàn. Đây là bước mà cutover authenticated phải xanh mới đi
+      # tiếp — không phải bước "đã chạy probe là xong".
+      #
+      # NHƯNG chỉ đánh đỏ job khi được gọi Ở CHẾ ĐỘ `verdict`. Ở `tick`/`session`
+      # nó chỉ để tham khảo: sàn đòi n≥72 trải ≥24h nên verdict CHƯA ĐẠT trong
+      # suốt ngày đầu và mỗi lần đứt nhịp. Để nó đánh đỏ job sẽ tạo ~72 job đỏ
+      # mỗi ngày — cách nhanh nhất khiến mọi người học cách phớt lờ workflow này,
+      # và một cổng bị phớt lờ thì không còn là cổng. Job đỏ phải nghĩa là PROBE
+      # HỎNG; verdict là câu hỏi ta CHỦ ĐỘNG đặt lúc cutover.
+      - name: Chấm sàn ADR-013-A1
+        if: ${{ always() }}
+        working-directory: frontend
+        run: |
+          set +e
+          node tooling/authed-probe.mjs --mode verdict
+          rc=$?
+          set -e
+          if [ "$PROBE_MODE" = "verdict" ]; then
+            exit $rc
+          fi
+          if [ $rc -ne 0 ]; then
+            echo "::notice::G2 chưa đạt sàn — bình thường khi đang tích luỹ mẫu. Job vẫn xanh vì probe chạy được."
+          fi
+
+      - name: Nộp sổ làm chứng cứ
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: g2-ledger-${{ github.run_id }}
+          path: frontend/out/g2-ledger-*.jsonl
+          if-no-files-found: ignore

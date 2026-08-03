@@ -138,14 +138,14 @@ describe('index.html / conversion flow preserved byte-identical', () => {
     assert.ok(count >= 8, `Expected ≥8 /login.html CTAs; found ${count}`);
   });
 
-  test('href="/grammar.html" appears in nav + Grammar Wiki skill card + footer', () => {
+  test('href="/grammar" appears in nav + Grammar Wiki skill card + footer', () => {
     // Sprint 6.13a (PR #145): 2 links (nav + footer).
     // Sprint 6.13a-extension: +1 link from the Grammar Wiki skill card
     // CTA. Anonymous landing routes the Grammar card directly to the
     // Wiki because grammar.html is public (unlike speaking/writing/
     // vocabulary which gate behind /login.html).
-    const count = (html.match(/href=["']\/grammar\.html["']/g) || []).length;
-    assert.equal(count, 3, `Expected 3 /grammar.html links (nav + skill card + footer); found ${count}`);
+    const count = (html.match(/href=["']\/grammar["']/g) || []).length;
+    assert.equal(count, 3, `Expected 3 /grammar links (nav + skill card + footer); found ${count}`);
   });
 
   test('href="/pricing.html" inline link preserved (price-note)', () => {
@@ -511,15 +511,15 @@ describe('Multi-skill grid / 6-card contract (6-skill landing redesign)', () => 
     }
   });
 
-  test('Grammar Wiki skill CTA targets /grammar.html directly (no auth gate)', () => {
+  test('Grammar Wiki skill CTA targets /grammar directly (no auth gate)', () => {
     // Grammar Wiki is public — no need to send anonymous visitors
     // through /login.html. Route directly to the wiki.
     const cardMatch = html.match(/data-skill=["']grammar["'][\s\S]*?<\/article>/);
     assert.ok(cardMatch);
     assert.match(
       cardMatch[0],
-      /class=["']ix-skill-card__cta["'][^>]*href=["']\/grammar\.html["']|href=["']\/grammar\.html["'][^>]*class=["']ix-skill-card__cta["']/,
-      'Grammar Wiki card CTA should target /grammar.html',
+      /class=["']ix-skill-card__cta["'][^>]*href=["']\/grammar["']|href=["']\/grammar["'][^>]*class=["']ix-skill-card__cta["']/,
+      'Grammar Wiki card CTA should target /grammar',
     );
   });
 

@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from 'react';
 
+import { whenGlobalReady } from '../../../../../lib/when-global-ready.mjs';
+
 interface ArticleBehaviorProps {
   slug: string;
   category: string;
@@ -181,7 +183,7 @@ function _pulseAnchorHeading(anchorEl: HTMLElement) {
  */
 async function _trackArticleView(slug: string) {
   if (typeof window === 'undefined') return;
-  if (!(window as any).getSupabase) return;
+  if (!await whenGlobalReady(() => !!(window as any).getSupabase, 'window.getSupabase (đếm lượt xem)')) return;
 
   try {
     const sb = (window as any).getSupabase?.();
@@ -207,9 +209,13 @@ async function _trackArticleView(slug: string) {
  */
 async function _initSaveButton(slug: string) {
   if (typeof window === 'undefined') return;
-  if (!(window as any).api?.post || !(window as any).api?.delete) return;
+  if (!await whenGlobalReady(
+    () => !!(window as any).api?.post && !!(window as any).api?.delete,
+    'window.api (nút Lưu bài)')) return;
 
   const metaEl = document.getElementById('article-meta');
+  // Chờ xong mới dựng nút; nếu effect chạy lại trong lúc chờ thì không nhân đôi.
+  if (document.getElementById('save-article-btn')) return;
   if (!metaEl) return;
 
   // Create button
@@ -252,7 +258,13 @@ async function _initGuestCTA(articleTitle: string) {
   if (_guestCTAInited) return;
   _guestCTAInited = true;
 
-  if (!(window as any).getSupabase) return;
+  // Cờ trên đặt trước khi chờ để hai effect không chạy chồng nhau, nhưng nếu
+  // chờ THẤT BẠI thì phải nhả ra — bản cũ đặt cờ rồi mới kiểm global, nên một
+  // lần thua cuộc đua là khối CTA tắt vĩnh viễn cho cả vòng đời trang.
+  if (!await whenGlobalReady(() => !!(window as any).getSupabase, 'window.getSupabase (CTA khách)')) {
+    _guestCTAInited = false;
+    return;
+  }
 
   try {
     const sb = (window as any).getSupabase?.();

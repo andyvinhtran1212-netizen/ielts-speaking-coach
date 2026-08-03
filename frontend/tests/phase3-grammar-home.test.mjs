@@ -91,6 +91,18 @@ describe('parity với trang legacy', () => {
     assert.match(PAGE, /title: 'Grammar Wiki — Aver Learning'/);
   });
 
+  test('H1 giữ dấu cách quanh <br> — dưới 640px br bị ẩn', () => {
+    // Bộ so parity tìm ra trên production 03/08: JSX nuốt khoảng trắng chứa
+    // xuống dòng giữa thẻ và chữ, HTML thì giữ. Dưới 640px `<br>` là
+    // `display:none` ⇒ thiếu dấu cách thì thành "như mộthệ thống liên kết".
+    // Đo thật: legacy 375px "một hệ thống" · Next 375px (trước vá) "mộthệ thống".
+    // Desktop trông vẫn đúng, nên đọc mắt ở 1280px KHÔNG bắt được.
+    assert.match(LEGACY, /như một<br class="hidden sm:block"\/>\s/,
+      'chốt chặn: legacy có khoảng trắng ngay sau <br>');
+    assert.match(PAGE, /như một<br className="hidden sm:block" \/>\{' '\}/,
+      "thiếu {' '} sau <br> ⇒ hai chữ dính liền trên mọi màn hình < 640px");
+  });
+
   test('giữ đúng các id mà grammar-wiki.css nhắm tới', () => {
     for (const id of [
       'home-content', 'groups-section', 'groups-list',
