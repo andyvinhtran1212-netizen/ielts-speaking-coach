@@ -72,6 +72,7 @@ async function expandGrammar() {
   }
   const pairs = [];
   let skipped = 0;
+  let articlesOmitted = 0;
   for (const cat of cats) {
     // Trang THƯ MỤC là một chế độ render riêng của trang chủ và trước đây
     // không hề được quét: `?category=` hỏng thì cả loạt trang thư mục vỡ mà
@@ -96,6 +97,7 @@ async function expandGrammar() {
     // mà vẫn báo xanh — đúng kiểu "im lặng nên trông như đã phủ hết".
     if (!r.ok) throw new Error(`không tải được thư mục ${cat.slug}: HTTP ${r.status}`);
     const data = await r.json();
+    if (flag('--categories-only')) { articlesOmitted += (data.articles || []).length; continue; }
     for (const a of data.articles || []) {
       if (!a.slug || !a.category) { skipped += 1; continue; }
       pairs.push({
@@ -112,6 +114,11 @@ async function expandGrammar() {
   }
   // Nói ra cái bị bỏ. Cắt bớt trong im lặng đọc y như "đã phủ hết".
   if (skipped) console.log(`  ⚠ bỏ qua ${skipped} bài thiếu slug/category — lần quét KHÔNG phủ hết`);
+  if (articlesOmitted) {
+    console.log(
+      `  ⚠ --categories-only: KHÔNG quét ${articlesOmitted} trang bài viết. `
+      + 'Lần chạy này chỉ phủ trang chủ + trang thư mục. Bộ đầy đủ chạy ở lịch đêm.');
+  }
   return pairs;
 }
 
