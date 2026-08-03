@@ -1054,9 +1054,9 @@ def _rl_db(*, attempts, skill="reading", table="reading_test_attempts",
 
 
 def _rl_assignment(skill="reading", content_id="test-1",
-                   created_at="2026-08-03T00:00:00+00:00"):
+                   created_at="2026-08-03T00:00:00+00:00", status="published"):
     return {"id": "asg-1", "skill": skill, "content_id": content_id,
-            "created_at": created_at}
+            "created_at": created_at, "status": status}
 
 
 def test_a_submitted_reading_attempt_records_the_hand_in():
@@ -1235,11 +1235,11 @@ def _two_gives_db(attempts, items):
 
 
 _GIVE_1 = {"id": "asg-1", "skill": "reading", "content_id": "test-1",
-           "created_at": "2026-08-01T00:00:00+00:00"}
+           "created_at": "2026-08-01T00:00:00+00:00", "status": "published"}
 # Both gives predate every attempt below, so the "not before it was set" filter
 # cannot decide anything here — only one-attempt-one-hand-in can.
 _GIVE_2 = {"id": "asg-2", "skill": "reading", "content_id": "test-1",
-           "created_at": "2026-08-02T00:00:00+00:00"}
+           "created_at": "2026-08-02T00:00:00+00:00", "status": "published"}
 
 
 def _pending(item_id, assignment_id):
@@ -1295,3 +1295,29 @@ def test_an_attempt_already_recorded_on_a_sibling_give_is_not_reused():
     assert reconcile_test_attempts(db, [_GIVE_1, _GIVE_2]) == 0
     by_id = {i["id"]: i for i in db.tables["class_assignment_items"]}
     assert by_id["item-2"].get("submitted_at") is None
+
+
+def test_an_archived_give_does_not_collect_later_practice():
+    """A cancelled task must not gain hand-ins. Any later standalone practice of
+    the same paper satisfies the "after it was set" test, so without this the
+    closed homework quietly grows submissions nobody handed in."""
+    db = _rl_db(attempts=[{
+        "id": "att-1", "user_id": "user-1", "test_id": "test-1",
+        "submitted_at": "2026-08-05T10:00:00+00:00", "band_estimate": 6.5,
+        "status": "submitted",
+    }])
+    assert reconcile_test_attempts(db, [_rl_assignment(status="archived")]) == 0
+    assert db.tables["class_assignment_items"][0].get("submitted_at") is None
+
+
+def test_a_give_scheduled_for_later_collects_nothing_yet():
+    """publish_at is the reveal gate (mig 177): items exist before the class can
+    see them, and nothing done in that window is a hand-in for it."""
+    a = _rl_assignment()
+    a["publish_at"] = "2099-01-01T00:00:00+00:00"
+    db = _rl_db(attempts=[{
+        "id": "att-1", "user_id": "user-1", "test_id": "test-1",
+        "submitted_at": "2026-08-05T10:00:00+00:00", "band_estimate": 6.5,
+        "status": "submitted",
+    }])
+    assert reconcile_test_attempts(db, [a]) == 0

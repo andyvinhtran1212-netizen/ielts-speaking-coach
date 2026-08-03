@@ -169,7 +169,7 @@ def _homework_punctuality(db, cohort_id: str, student_ids: List[str],
     now_dt = _at(now) or datetime.now(timezone.utc)
 
     assignments = _paged(
-        db, "class_assignments", "id, due_at, status, skill, content_id, created_at",
+        db, "class_assignments", "id, due_at, status, skill, content_id, created_at, publish_at",
         lambda q: q.eq("cohort_id", cohort_id).eq("status", "published"),
     )
     due_by_id = {a["id"]: _at(a.get("due_at")) for a in assignments}

@@ -301,7 +301,12 @@ def _start_db(*, skill, content_id, tables=None):
             {"id": "a1", "cohort_id": "c1", "skill": skill, "status": "published",
              "content_id": content_id, "content_config": {}, "due_at": None},
         ],
-        "reading_tests": [{"id": "uuid-abc", "test_id": "CAM19-T3"}],
+        "reading_tests": [{"id": "uuid-abc", "test_id": "CAM19-T3",
+                           "status": "published", "exam_only": False}],
+        "listening_tests": [{"id": "uuid-xyz", "status": "published",
+                             "exam_only": False,
+                             "assembled_audio_storage_path": "a/b.mp3",
+                             "full_audio_storage_path": None}],
     }
     base.update(tables or {})
     db = type("DB", (), {})()
@@ -341,3 +346,66 @@ async def test_a_reading_paper_that_vanished_says_so_instead_of_a_dead_link():
     with pytest.raises(Exception) as exc:
         await _start(db)
     assert getattr(exc.value, "status_code", None) == 404
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("patch_row,why", [
+    ({"status": "draft"}, "unpublished after it was given"),
+    ({"exam_only": True}, "reserved for a mock sitting after it was given"),
+])
+async def test_a_reading_paper_that_closed_after_being_given_says_so(patch_row, why):
+    """The paper was checked at give time — days ago. Sending the student to a
+    page that 404s while the ledger keeps counting the task as owed is the worst
+    of both."""
+    tables = {"reading_tests": [dict({"id": "uuid-abc", "test_id": "CAM19-T3",
+                                      "status": "published", "exam_only": False},
+                                     **patch_row)]}
+    with pytest.raises(Exception) as exc:
+        await _start(_start_db(skill="reading", content_id="uuid-abc", tables=tables))
+    assert getattr(exc.value, "status_code", None) == 409, why
+
+
+@pytest.mark.asyncio
+async def test_a_listening_paper_that_lost_its_audio_says_so():
+    """Replacing section audio clears the assembled path; the row stays
+    published while the player answers 422."""
+    tables = {"listening_tests": [{"id": "uuid-xyz", "status": "published",
+                                   "exam_only": False,
+                                   "assembled_audio_storage_path": None,
+                                   "full_audio_storage_path": None}]}
+    with pytest.raises(Exception) as exc:
+        await _start(_start_db(skill="listening", content_id="uuid-xyz", tables=tables))
+    assert getattr(exc.value, "status_code", None) == 409
+    assert "audio" in str(getattr(exc.value, "detail", "")).lower()
+
+
+@pytest.mark.asyncio
+async def test_a_listening_paper_reserved_for_a_sitting_is_refused():
+    tables = {"listening_tests": [{"id": "uuid-xyz", "status": "published",
+                                   "exam_only": True,
+                                   "assembled_audio_storage_path": "a/b.mp3",
+                                   "full_audio_storage_path": None}]}
+    with pytest.raises(Exception) as exc:
+        await _start(_start_db(skill="listening", content_id="uuid-xyz", tables=tables))
+    assert getattr(exc.value, "status_code", None) == 409
+
+
+@pytest.mark.asyncio
+async def test_a_listening_paper_unpublished_after_being_given_says_so():
+    tables = {"listening_tests": [{"id": "uuid-xyz", "status": "draft",
+                                   "exam_only": False,
+                                   "assembled_audio_storage_path": "a/b.mp3",
+                                   "full_audio_storage_path": None}]}
+    with pytest.raises(Exception) as exc:
+        await _start(_start_db(skill="listening", content_id="uuid-xyz", tables=tables))
+    assert getattr(exc.value, "status_code", None) == 409
+
+
+@pytest.mark.asyncio
+async def test_a_listening_paper_that_was_deleted_says_so():
+    """A missing row must not fall through to a link — the deep link would look
+    valid and land on "not found"."""
+    with pytest.raises(Exception) as exc:
+        await _start(_start_db(skill="listening", content_id="uuid-gone",
+                               tables={"listening_tests": []}))
+    assert getattr(exc.value, "status_code", None) == 409

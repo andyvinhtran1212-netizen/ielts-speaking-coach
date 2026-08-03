@@ -307,6 +307,26 @@ async def delete_assignment(
     """
     await require_admin(authorization)
 
+    # Reading/Listening hand-ins are not written by the test page — they are
+    # repaired from the attempt rows on read. So the ledger the delete guard
+    # consults can be stale in exactly the situation that matters: the admin is
+    # looking at "0 đã nộp", a student submits, and the still-visible delete
+    # button erases the item AND (via ON DELETE CASCADE) the record of it.
+    # Repairing first shrinks that window from "until some screen re-reads" to
+    # the round trip below. It does not close it — a submission landing between
+    # these two calls is still lost; closing it fully means teaching
+    # fn_delete_class_assignment_if_unsubmitted to read the attempt tables.
+    try:
+        row = (
+            supabase_admin.table("class_assignments").select("*")
+            .eq("id", assignment_id).eq("cohort_id", cohort_id)
+            .limit(1).execute().data
+        ) or []
+        if row:
+            reconcile_test_attempts(supabase_admin, row)
+    except Exception as exc:
+        logger.warning("[class] pre-delete reconcile failed: %s", exc)
+
     # Check-then-delete happens inside one locking transaction (mig 179). As two
     # PostgREST calls, a student completing their session in between was recorded
     # as submitted and then erased by ON DELETE CASCADE — destroying exactly the

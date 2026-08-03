@@ -145,3 +145,64 @@ async def test_a_reading_paper_is_not_asked_for_audio():
     out = await _create({"id": "uuid-1", "title": "Đề đọc", "status": "published",
                          "exam_only": False}, "reading")
     assert out["student_count"] == 3
+
+
+# ── xoá bài giao: sổ cái phải được vá TRƯỚC khi hỏi "đã ai nộp chưa" ─────
+
+
+class _RpcDB:
+    """Records the order of operations: the repair must precede the delete."""
+
+    def __init__(self, assignment):
+        self.calls: list[str] = []
+        self._assignment = assignment
+
+    def table(self, name):
+        self.calls.append(f"table:{name}")
+        return _Table([self._assignment] if name == "class_assignments" else [])
+
+    def rpc(self, fn, _params):
+        self.calls.append(f"rpc:{fn}")
+        return type("R", (), {"execute": lambda _s: _Resp(True)})()
+
+
+@pytest.mark.asyncio
+async def test_delete_repairs_the_ledger_before_asking_whether_anyone_submitted():
+    """Reading/Listening hand-ins are repaired on read, so the ledger the delete
+    guard consults is stale exactly when it matters: the admin is looking at
+    "0 đã nộp", a student submits, and the still-visible delete button erases
+    the item AND — via ON DELETE CASCADE — the record of it."""
+    from routers import admin_class_assignments as m
+
+    db = _RpcDB({"id": "asg-1", "cohort_id": "c1", "skill": "reading",
+                 "content_id": "t1", "status": "published",
+                 "created_at": "2026-08-01T00:00:00+00:00"})
+    seen = []
+    with patch.object(m, "require_admin", AsyncMock(return_value={"id": "adm"})), \
+         patch.object(m, "supabase_admin", db), \
+         patch.object(m, "reconcile_test_attempts",
+                      lambda _db, rows: seen.append([r["id"] for r in rows])):
+        await m.delete_assignment("c1", "asg-1", None)
+
+    assert seen == [["asg-1"]], "the give being deleted must be reconciled first"
+    rpc_at = db.calls.index("rpc:fn_delete_class_assignment_if_unsubmitted")
+    assert db.calls.index("table:class_assignments") < rpc_at
+
+
+@pytest.mark.asyncio
+async def test_a_failed_pre_delete_repair_does_not_block_the_delete():
+    """Refusing to delete because a best-effort repair hiccuped would leave the
+    admin unable to remove a give they can see is empty."""
+    from routers import admin_class_assignments as m
+
+    def _boom(*_a, **_k):
+        raise RuntimeError("boom")
+
+    db = _RpcDB({"id": "asg-1", "cohort_id": "c1", "skill": "reading",
+                 "content_id": "t1", "status": "published"})
+    with patch.object(m, "require_admin", AsyncMock(return_value={"id": "adm"})), \
+         patch.object(m, "supabase_admin", db), \
+         patch.object(m, "reconcile_test_attempts", _boom):
+        await m.delete_assignment("c1", "asg-1", None)
+
+    assert "rpc:fn_delete_class_assignment_if_unsubmitted" in db.calls

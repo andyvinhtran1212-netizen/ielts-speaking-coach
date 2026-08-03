@@ -271,7 +271,25 @@ async def start_assignment(
     if not test_uuid:
         raise HTTPException(400, "Bài tập này chưa gắn đề.")
 
+    # The paper was checked when the task was given, but that was days ago: it
+    # can since have been unpublished, reserved for a mock sitting, or had its
+    # audio cleared. Sending the student to a page that answers 404/422 while
+    # the ledger keeps counting the task as owed is the worst of both — say so
+    # here instead.
     if skill == "listening":
+        rows = (
+            supabase_admin.table("listening_tests")
+            .select("id, status, exam_only, full_audio_storage_path, "
+                    "assembled_audio_storage_path")
+            .eq("id", test_uuid).limit(1).execute().data
+        ) or []
+        if not rows or (rows[0].get("status") or "") != "published":
+            raise HTTPException(409, "Đề nghe của bài tập này hiện không mở được.")
+        if rows[0].get("exam_only"):
+            raise HTTPException(409, "Đề nghe của bài tập này hiện không mở được.")
+        if not (rows[0].get("assembled_audio_storage_path")
+                or rows[0].get("full_audio_storage_path")):
+            raise HTTPException(409, "Đề nghe này chưa có audio sẵn sàng.")
         # listening-test.html?id= is the row id, the same value the attempt row
         # carries — one identifier throughout.
         url = f"/pages/listening-test.html?id={quote(test_uuid)}"
@@ -282,12 +300,14 @@ async def start_assignment(
         # ledger keeps the UUID because that is what the hand-in is matched on;
         # the link has to carry the code or the paper opens to a 404.
         row = (
-            supabase_admin.table("reading_tests").select("test_id")
+            supabase_admin.table("reading_tests").select("test_id, status, exam_only")
             .eq("id", test_uuid).limit(1).execute().data
         ) or []
         code = (row[0].get("test_id") if row else None)
         if not code:
             raise HTTPException(404, "Không tìm thấy đề đọc của bài tập này.")
+        if (row[0].get("status") or "") != "published" or row[0].get("exam_only"):
+            raise HTTPException(409, "Đề đọc của bài tập này hiện không mở được.")
         url = f"/pages/reading-exam.html?test_id={quote(code)}"
     return {
         "item_id":       item_id,

@@ -443,8 +443,13 @@ def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
     submitted_at, so a hand-in made before the deadline stays on time however
     late this reconciliation runs.
     """
+    # Only OPEN gives. An archived or cancelled task must not gain hand-ins:
+    # any later standalone practice of the same paper satisfies the
+    # "after it was set" test and would be written in as class work, so closed
+    # homework would quietly grow submissions nobody handed in.
     targets = [a for a in assignments
-               if a.get("skill") in _TEST_ARTIFACTS and a.get("content_id")]
+               if a.get("skill") in _TEST_ARTIFACTS and a.get("content_id")
+               and is_assignment_open(a)]
     if not targets:
         return 0
 
