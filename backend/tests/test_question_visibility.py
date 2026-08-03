@@ -69,3 +69,63 @@ def test_every_student_facing_return_of_question_rows_is_filtered():
         "GET /sessions/{id} là đường trang gọi ĐẦU TIÊN — không lọc ở đó thì chữ "
         "đã nằm trong phản hồi mạng trước khi bộ lọc nào khác kịp chạy"
     )
+
+
+# ── CỬA THỨ NĂM: xuất PDF ───────────────────────────────────────────────
+#
+# Vòng review thứ năm mới lộ ra, vì phép quét vòng 1 của tôi chỉ đi qua hai
+# router mình vừa sửa chứ không đi qua MỌI nơi đọc bảng `questions`.
+
+
+def test_every_reader_of_the_questions_table_is_accounted_for():
+    """Liệt kê CHỦ ĐÍCH mọi nơi đọc bảng `questions`, và vì sao nơi đó an toàn.
+    Thêm một nơi đọc mới mà không nghĩ tới việc lọc thì test này đỏ — đó là điều
+    bốn vòng review vừa rồi cho thấy là cần."""
+    import pathlib
+    import re
+
+    root = pathlib.Path(__file__).resolve().parents[1]
+    hits = set()
+    for d in ("routers", "services"):
+        for f in (root / d).glob("*.py"):
+            if re.search(r'table\("questions"\)', f.read_text(encoding="utf-8")):
+                hits.add(f"{d}/{f.name}")
+
+    # Mỗi mục là một lời khẳng định đã KIỂM, không phải một danh sách bỏ qua.
+    known = {
+        "routers/questions.py",      # mọi đường trả đều qua redact_questions
+        "routers/sessions.py",       # GET /sessions/{id} đã lọc; hai chỗ khác không lấy chữ
+        "routers/grading.py",        # chỉ đọc để CHẤM, không trả về client
+        "routers/pronunciation.py",  # select("id, part") — không lấy chữ
+        "routers/admin.py",          # màn admin: giáo viên ĐƯỢC xem đề
+        "services/pdf_generator.py", # lọc khi phiên chưa hoàn thành
+    }
+    assert hits == known, (
+        f"nơi đọc mới chưa được xét: {hits - known}; "
+        f"nơi đã biến mất: {known - hits}"
+    )
+
+
+def test_the_pdf_hides_prompts_while_the_session_is_still_running():
+    """Endpoint xuất PDF cũng của học viên và chạy được cả khi phiên ĐANG LÀM —
+    không lọc thì em ấy tải một tệp chứa đủ đề rồi mới trả lời."""
+    import inspect
+    import re
+    from services import pdf_generator
+
+    src = re.sub(r"#[^\n]*", "", inspect.getsource(pdf_generator))
+    m = re.search(r'status.*!=\s*"completed"[\s\S]{0,120}?redact_questions\(questions\)', src)
+    assert m, "phiên chưa hoàn thành thì phải lược chữ"
+
+
+def test_a_finished_session_keeps_its_questions_in_the_pdf():
+    """Việc đã làm xong; sổ cái ghi lần nộp ĐẦU nên đọc lại đề không giúp làm lại
+    được gì — và bản PDF là tài liệu để ôn, giấu đề ở đó chỉ làm nó vô dụng."""
+    import inspect
+    import re
+    from services import pdf_generator
+
+    src = re.sub(r"#[^\n]*", "", inspect.getsource(pdf_generator))
+    assert re.search(r'if \(session or \{\}\)\.get\("status"\) != "completed"', src), (
+        "phải là điều kiện theo trạng thái, không phải lọc vô điều kiện"
+    )
