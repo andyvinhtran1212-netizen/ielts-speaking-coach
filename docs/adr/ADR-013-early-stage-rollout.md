@@ -1,7 +1,7 @@
 # ADR-013 — Early-stage rollout profile (thay soak-dài-freeze cho route low-traffic)
 
 **Status:** ACCEPTED 2026-07-25 (chủ dự án ratify) · Sửa: §12.3, ADR-007 §6, B36, DEBT-2026-07-22-H
-· **SỬA ĐỔI A1 (2026-08-03)** — thay cửa sổ-thời-gian bằng cổng-bằng-chứng cho route low/zero-traffic; **đọc mục A1 ở cuối trang trước khi áp bất kỳ điều kiện PASS nào ở thân bài**
+· **SỬA ĐỔI A1 — ACCEPTED 2026-08-03 (chủ dự án ratify)** — thay cửa sổ-thời-gian bằng cổng-bằng-chứng cho route low/zero-traffic; **đọc mục A1 ở cuối trang trước khi áp bất kỳ điều kiện PASS nào ở thân bài**
 
 ## Bối cảnh
 Sản phẩm còn **early-stage**: <100 user, chưa SEO/marketing, traffic thấp (grammar ~1 view/ngày; nhiều route 0/ngày). **Blast-radius của một lỗi = nhỏ** (ít người bị ảnh hưởng). Đồng thời hạ tầng rollback đã mạnh:
@@ -60,8 +60,8 @@ Profile này là **hàm của scale hiện tại**. Tại mỗi gate (đặc bi�
 
 # Sửa đổi A1 (2026-08-03) — cổng parity thay cửa sổ thời gian
 
-**Status:** ĐỀ XUẤT, chờ chủ dự án ratify · Thay các điều kiện PASS ở "Ma trận
-sàn mới" cho lớp low/zero-traffic. Phần còn lại của A0 giữ nguyên hiệu lực.
+**Status:** **ACCEPTED 2026-08-03 (chủ dự án ratify)** · Thay các điều kiện PASS ở
+"Ma trận sàn mới" cho lớp low/zero-traffic. Phần còn lại của A0 giữ nguyên hiệu lực.
 
 ## Vì sao sửa — bằng chứng đo được, không phải ý kiến
 
@@ -88,6 +88,7 @@ qua cửa sổ này**:
 | Lỗi | Route | Đã qua cửa sổ? | Vì sao cửa sổ mù |
 |---|---|---|---|
 | H1 dính chữ dưới 640px (#907) | `/grammar` | có | không lỗi JS, không status xấu — chỉ là chữ sai |
+| ↑ **cơ chế bắt** | \- | \- | so `textContent` của heading, **không phải kiểm bố cục**: JSX nuốt khoảng trắng nên chuỗi khác nhau ở **mọi** bề rộng. G1 chạy 1280px vẫn thấy, dù triệu chứng người dùng chỉ hiện dưới 640px. **Không được đọc ca này thành \"G1 phủ hồi quy bố cục mobile\"** |
 | Mất nút "Lưu bài" + CTA khách **9/20 lượt = 45%** (#908) | trang bài, pilot 2 | có, 48h | tính năng **không xuất hiện**; không exception, không page_view thiếu |
 
 Dụng cụ của cửa sổ là lỗi JS, status, LCP và lượt xem. Cả hai lỗi trên **không
@@ -106,10 +107,25 @@ cutover sheet. **Thay vế đúng-đắn-nội-dung.**
 
 **G2 — Probe synthetic chủ động trải theo thời gian (SAU cutover).**
 Đây mới là thứ thật sự thay vế **thời-gian-trôi**. Giá trị của cửa sổ chưa bao
-giờ nằm ở việc *chờ*, mà ở **những request phát ra trong lúc chờ**. Nên: probe
-gọi route mỗi N phút suốt một khoảng xác định, **bao gồm route cần đăng nhập**
-— chính lỗ hổng đã làm cửa sổ `/profile` rỗng. PASS tính theo **kết quả probe**,
-không theo tờ lịch.
+giờ nằm ở việc *chờ*, mà ở **những request phát ra trong lúc chờ**. Probe gọi
+route đều đặn, **bao gồm route cần đăng nhập** — chính lỗ hổng đã làm cửa sổ
+`/profile` rỗng.
+
+**Sàn G2 — cả ba con số đều bắt buộc, thiếu một là chưa đạt:**
+
+| | Sàn | Vì sao đúng con số này |
+|---|---|---|
+| Số mẫu | **n ≥ 72** | giữ nguyên cơ sở power của A0 (DEBT-2026-07-22-H) |
+| Khoảng trải | **≥ 24h** | ADR-008 đặt `expire: 86400` cho cache nội dung công khai — dưới 24h thì **không** đi qua lần hết hạn cứng nào |
+| Nhịp | **≤ 20 phút/lần** | chặn việc bắn dồn. 72 mẫu × 20 phút = đúng 24h, nên ba con số nhất quán chứ không phải ba ràng buộc rời |
+
+Với lớp **authenticated**, thêm một điều kiện định tính đo được: phiên probe
+phải **sống qua ít nhất một lần token refresh** và có request **trước lẫn sau**
+mốc đó — vì token refresh là chế độ hỏng thời-gian-trôi cụ thể của lớp này, và
+một probe đăng nhập lại mỗi lần gọi sẽ không bao giờ chạm tới nó.
+
+PASS tính theo **kết quả probe đạt cả ba sàn**, không theo tờ lịch. Sàn ghi
+thành số vì bài học của chính A0: gate không đo được thì không phải gate.
 
 **G3 — Ngưỡng lỗi TUYỆT ĐỐI 0 sau cutover.**
 Trigger tương đối ("2× baseline") **không định nghĩa được khi baseline = 0**.
@@ -124,10 +140,10 @@ NGAY bất kể mẫu**, và tiêu chí tốt-nghiệp tại Gate D.
 | Lớp route | Điều kiện PASS (A1) |
 |---|---|
 | Public, traffic ≥3/ngày | **KHÔNG ĐỔI** — soak chuẩn 7 ngày + n organic đủ |
-| Public/read-only, traffic <3/ngày | **G1** + **G2 (probe ẩn danh, n≥72 trải ≥24h)** + G3 + risk acceptance. **Bỏ** yêu cầu "48–72h quan sát organic" |
-| Authenticated mutation, traffic thấp | **G1** + **G2 probe CÓ ĐĂNG NHẬP** + synthetic mutation coverage + N/N−1 consumer test + G3 + risk acceptance |
+| Public/read-only, traffic <3/ngày | **G1** + **G2 ẩn danh: n≥72 · trải ≥24h · nhịp ≤20 phút** + G3 + risk acceptance. **Bỏ** yêu cầu "48–72h quan sát organic" |
+| Authenticated mutation, traffic thấp | **G1** + **G2 CÓ ĐĂNG NHẬP: n≥72 · trải ≥24h · nhịp ≤20 phút · phiên sống qua ≥1 lần token refresh, có request trước và sau** + synthetic mutation coverage + N/N−1 consumer test + G3 + risk acceptance |
 | Core grading/exam | **NGHIÊM HƠN A0**: giữ nguyên mọi điều kiện cũ (cross-version resume + n≥72 + ≥72h + incident commander) **và thêm G1 bắt buộc** |
-| Zero-traffic | **G1** + **G2** + G3 + risk acceptance (thay cách ghi "synthetic-only" của A0, vốn mơ hồ về việc probe có chạm route hay không) |
+| Zero-traffic | **G1** + **G2 theo đúng sàn của lớp nền của route** (ẩn danh hay có đăng nhập) + G3 + risk acceptance — thay cách ghi "synthetic-only" của A0, vốn mơ hồ cả về việc probe có chạm route lẫn về số lượng |
 
 ## Cái A1 KHÔNG thay được — ghi thẳng, không giấu
 
@@ -137,6 +153,10 @@ NGAY bất kể mẫu**, và tiêu chí tốt-nghiệp tại Gate D.
   nên thực tế A1 không làm tệ hơn — nhưng **về nguyên tắc đây là năng lực bị
   bỏ**, không phải được thay. Giảm nhẹ: `legacy-browser-scan` (tĩnh, đã gác CI),
   blast-radius nhỏ, rollback ≤12s. **Chấp nhận có ý thức.**
+- **G1 chạy MỘT bề rộng (1280×900).** Hồi quy chỉ hiện ở bề rộng khác — tràn
+  chữ, xuống dòng sai, ẩn/hiện theo breakpoint — **nằm ngoài G1**. Ca H1 ở trên
+  bắt được là vì lỗi đó *đồng thời* là khác biệt văn bản, không phải vì G1 biết
+  nhìn mobile. Thêm một lượt chạy ở bề rộng nhỏ là việc nên làm, ghi ở mục dưới.
 - **Cổng parity không thấy:** hình ảnh/bố cục, hành vi sau tương tác, shadow
   root `closed`, và nhãn link nằm từ dòng thứ hai trở đi. Danh sách đầy đủ ghi
   trong khối "GIỚI HẠN ĐÃ BIẾT" ở `frontend/tooling/parity-core.mjs`.
@@ -156,6 +176,8 @@ thức hoá ngược một quyết định đã ra.
   `/profile` và mọi cutover authenticated sau này.
 2. **Gác G1 trong CI** cho các route đã port, để cổng parity là bắt buộc chứ
   không phải chạy tay.
+3. **Thêm lượt chạy G1 ở bề rộng nhỏ** (ví dụ 375px) — hiện G1 chỉ chạy 1280px
+  nên hồi quy theo breakpoint nằm ngoài tầm.
 
 Chưa có (1) thì lớp `Authenticated mutation` **chưa** dùng được A1 và vẫn theo
 A0. Ghi rõ để bản sửa này không tự cấp cho mình hiệu lực mà hạ tầng chưa đỡ nổi.
