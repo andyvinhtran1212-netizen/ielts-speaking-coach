@@ -310,3 +310,30 @@
   .av-tally__row { grid-template-columns: var(--tally-gap-w) 1fr auto; }
   .av-tally__when { display: none; }   /* tên + trạng thái + điểm là đủ trên máy nhỏ */
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   3 — NGHE CÂU HỎI (bài tập lớp, Part 1 & 3)
+   ══════════════════════════════════════════════════════════════════════
+   Không có bản chữ, nên khối này là TẤT CẢ những gì học viên có. Nó phải nói rõ
+   điều đó ngay, nếu không sự thiếu vắng chữ đọc ra như trang tải hỏng. */
+
+.prep-listen__hint {
+  margin: 0 0 var(--av-space-4);
+  font-size: var(--av-fs-sm);
+  color: var(--av-text-secondary);
+}
+
+.prep-listen__audio {
+  width: 100%;
+  /* Trình phát mặc định của trình duyệt: quen tay, có sẵn phím tắt và đọc được
+     bằng trình đọc màn hình. Vẽ lại một trình phát riêng ở đây là đánh đổi ba
+     thứ đó lấy vẻ ngoài. */
+}
+
+.prep-listen__error {
+  margin: var(--av-space-3) 0 0;
+  font-size: var(--av-fs-sm);
+  color: var(--av-warning);
+}
+
+.prep-listen__error.hidden { display: none; }

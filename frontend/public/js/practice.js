@@ -133,6 +133,48 @@
 
   var _ALL_STATES = ['loading', 'error', 'mode-choice', 'prep', 'p2a', 'p2b', 'p2c', 'processing', 'feedback', 'test-results', 'completion'];
 
+
+  /**
+   * Chuyển giữa "đọc câu hỏi" và "nghe câu hỏi".
+   *
+   * Khối câu hỏi chữ bị ẨN HẲN chứ không để rỗng: một thẻ "Câu hỏi" trống là một
+   * lời hứa hỏng — người học sẽ tưởng trang chưa tải xong.
+   */
+  function _applyListenOnlyUI(on) {
+    var qCard = $('prep-q-card');
+    var block = $('prep-listen');
+    var audio = $('prep-listen-audio');
+    var err   = $('prep-listen-error');
+    if (qCard) qCard.classList.toggle('hidden', !!on);
+    if (block) block.classList.toggle('hidden', !on);
+    if (err) err.classList.add('hidden');
+    if (!audio) return;
+
+    if (!on) {
+      audio.pause();
+      audio.removeAttribute('src');
+      return;
+    }
+    var url = (_currentQ && _currentQ.audio_url) || '';
+    if (!url) {
+      // Không có audio mà cũng không có chữ nghĩa là em ấy không có gì cả. Nói
+      // ra, đừng để một ô trình phát rỗng.
+      if (err) {
+        err.textContent = 'Bài này chưa có bản đọc đề. Báo giáo viên giúp nhé.';
+        err.classList.remove('hidden');
+      }
+      audio.removeAttribute('src');
+      return;
+    }
+    if (audio.getAttribute('src') !== url) audio.setAttribute('src', url);
+    audio.onerror = function () {
+      if (err) {
+        err.textContent = 'Chưa tải được câu hỏi. Kiểm tra kết nối rồi bấm phát lại.';
+        err.classList.remove('hidden');
+      }
+    };
+  }
+
   function showState(name) {
     _ALL_STATES.forEach(function (s) {
       var el = $('state-' + s);
@@ -257,7 +299,13 @@
     }
     $('prep-topic').textContent = displayTopic;
 
-    $('prep-q-text').textContent = _currentQ.question_text || '';
+    // Bài tập lớp Part 1/3: câu hỏi giao BẰNG AUDIO và backend không gửi chữ.
+    // Kiểm cờ chứ không kiểm chuỗi rỗng: một câu bình thường cũng có thể rỗng
+    // vì lỗi, và khi đó phải hiện lỗi chứ không lặng lẽ chuyển sang chế độ nghe.
+    var listenOnly = !!(_currentQ && _currentQ.listen_only);
+    _applyListenOnlyUI(listenOnly);
+
+    $('prep-q-text').textContent = listenOnly ? '' : (_currentQ.question_text || '');
 
     // Issue 2: Reset inline recording section when showing prep
     var inlineRec = $('inline-rec-section');
@@ -268,7 +316,12 @@
     // Full Test: hide question text by default (listening/exam mode)
     var revealWrap = $('prep-text-reveal');
     var revealBtn  = $('prep-reveal-btn');
-    if (_testMode === 'test_full') {
+    if (listenOnly) {
+      // Không có gì để hiện — chữ chưa từng rời máy chủ. Để nút "Hiện câu hỏi"
+      // ở đây sẽ hứa một việc mà bấm vào không xảy ra.
+      if (revealWrap) revealWrap.style.display = 'none';
+      if (revealBtn)  revealBtn.style.display  = 'none';
+    } else if (_testMode === 'test_full') {
       if (revealWrap) revealWrap.style.display = 'none';
       if (revealBtn)  revealBtn.style.display  = '';
     } else {
