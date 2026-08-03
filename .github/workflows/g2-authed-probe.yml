@@ -124,10 +124,27 @@ jobs:
 
       # Chấm theo sàn. Đây là bước mà cutover authenticated phải xanh mới đi
       # tiếp — không phải bước "đã chạy probe là xong".
+      #
+      # NHƯNG chỉ đánh đỏ job khi được gọi Ở CHẾ ĐỘ `verdict`. Ở `tick`/`session`
+      # nó chỉ để tham khảo: sàn đòi n≥72 trải ≥24h nên verdict CHƯA ĐẠT trong
+      # suốt ngày đầu và mỗi lần đứt nhịp. Để nó đánh đỏ job sẽ tạo ~72 job đỏ
+      # mỗi ngày — cách nhanh nhất khiến mọi người học cách phớt lờ workflow này,
+      # và một cổng bị phớt lờ thì không còn là cổng. Job đỏ phải nghĩa là PROBE
+      # HỎNG; verdict là câu hỏi ta CHỦ ĐỘNG đặt lúc cutover.
       - name: Chấm sàn ADR-013-A1
         if: ${{ always() }}
         working-directory: frontend
-        run: node tooling/authed-probe.mjs --mode verdict
+        run: |
+          set +e
+          node tooling/authed-probe.mjs --mode verdict
+          rc=$?
+          set -e
+          if [ "$PROBE_MODE" = "verdict" ]; then
+            exit $rc
+          fi
+          if [ $rc -ne 0 ]; then
+            echo "::notice::G2 chưa đạt sàn — bình thường khi đang tích luỹ mẫu. Job vẫn xanh vì probe chạy được."
+          fi
 
       - name: Nộp sổ làm chứng cứ
         if: ${{ always() }}

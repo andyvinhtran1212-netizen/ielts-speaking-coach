@@ -241,6 +241,18 @@ describe('workflow chọn đúng chế độ theo cron (review #910)', () => {
       'huỷ giữa chừng phiên dài là mất vế token refresh');
   });
 
+  test('verdict CHƯA ĐẠT không được đánh đỏ nhịp tick', () => {
+    // Đo thật ở lần chạy tay đầu tiên: probe OK (200/200) nhưng job vẫn đỏ vì
+    // `n=1 < 72`. Bật cron với cấu hình đó = ~72 job đỏ/ngày trong ngày đầu,
+    // và một cổng bị phớt lờ thì không còn là cổng.
+    const step = (/- name: Chấm sàn[\s\S]*$/.exec(WF) || [''])[0];
+    assert.ok(step, 'phải có bước chấm sàn');
+    assert.match(step, /if \[ "\$PROBE_MODE" = "verdict" \]/,
+      'chỉ chế độ verdict mới được đánh đỏ job');
+    assert.ok(!/run: node tooling\/authed-probe\.mjs --mode verdict\s*$/m.test(step),
+      'gọi trần = mã thoát của verdict đánh đỏ mọi nhịp tick');
+  });
+
   test('cron ĐÃ bật, đúng hai lịch của sàn ADR-013-A1', () => {
     assert.match(WF, /^\s*schedule:/m, 'schedule phải đang hoạt động');
     // Nhịp 20 phút là ĐIỀU KIỆN của sàn (n≥72 · trải ≥24h · nhịp ≤20 phút),
