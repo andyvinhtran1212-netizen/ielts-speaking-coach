@@ -51,6 +51,10 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--commit", action="store_true",
                     help="Ghi thật. Không có cờ này thì chỉ thử khô.")
+    # Nhận --dry-run cho khớp thói quen, dù đó vốn là mặc định — gõ cờ ấy rồi bị
+    # từ chối khiến người ta nghĩ script KHÔNG có chế độ thử.
+    ap.add_argument("--dry-run", action="store_true",
+                    help="Chỉ xem, không ghi (đây cũng là mặc định).")
     ap.add_argument("--topic-id", help="Chỉ một chủ đề.")
     ap.add_argument("--part", type=int, choices=sqa.AUDIO_PARTS,
                     help="Chỉ một phần (mặc định: cả Part 1 và Part 3).")
@@ -89,7 +93,7 @@ def main() -> int:
         logger.info("Không có gì để làm — cả kho đã có bản đọc.")
         return 0
 
-    if not args.commit:
+    if args.dry_run or not args.commit:
         logger.info("\n-- THỬ KHÔ, không ghi gì. Vài câu đọc mẫu: --")
         for q in questions[:5]:
             logger.info("  [P%s] %s", q["part"], sqa.build_script(

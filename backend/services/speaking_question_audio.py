@@ -34,34 +34,40 @@ VOICE = tts_audio.KOKORO_DEFAULT_VOICE
 def _spoken_topic(title: str) -> str:
     """Tên chủ đề đưa vào câu dẫn "Let's talk about …".
 
-    Bank titles are written to be READ in a list ("Animals and pets", "Daily
-    routine"), not to be SPOKEN mid-sentence. Lower-casing them is what turns a
-    heading into speech: "Let's talk about Daily routine" lands as a label being
-    announced, "let's talk about daily routine" as a person talking.
+    Tiêu đề trong kho được viết để ĐỌC TRONG DANH SÁCH ("Daily routine",
+    "Going out"), không phải để NÓI giữa câu. Hạ chữ hoa là thứ biến một tiêu đề
+    thành lời nói: "Let's talk about Going out" nghe như đang xướng một nhãn,
+    "let's talk about going out" nghe như một người đang nói chuyện.
 
-    Acronyms and proper nouns keep their case — lower-casing "IELTS" or "London"
-    would change how the voice pronounces them.
+    HẠ TẤT CẢ, TRỪ NGOẠI LỆ — không phải ngược lại. Bản đầu dùng một danh sách
+    từ-được-phép-hạ và sai 3 trong 5 tiêu đề mẫu đầu tiên ("Going out",
+    "Having a break", "Fruits and vegetables"), vì danh sách ấy không bao giờ
+    đuổi kịp nội dung. Đã soi cả 38 tiêu đề Part 1/3 đang có: KHÔNG cái nào chứa
+    danh từ riêng, và chữ hoa giữa dòng chỉ xuất hiện sau dấu "&".
+
+    Giữ nguyên chữ HOA TOÀN BỘ (IELTS, TV, UK) — hạ chúng sẽ đổi cách giọng đọc
+    phát âm. `_KEEP_CASE` để dành cho danh từ riêng nếu kho đề có thêm sau này;
+    hôm nay nó rỗng, và nói rõ như vậy tốt hơn là giả vờ đã lo liệu.
+
+    "&" đọc thành "and": ký tự đó không phải một từ, và để nguyên là phó mặc cho
+    engine đoán.
     """
     words = []
     for w in (title or "").strip().split():
-        if w.isupper() or (w[:1].isupper() and w[1:2].isupper()):
-            words.append(w)                      # IELTS, TV, UK
-        elif w[:1].isupper() and w.lower() in _COMMON_LOWER:
-            words.append(w.lower())
-        else:
+        if w == "&":
+            words.append("and")
+        elif len(w) > 1 and w.isupper():        # IELTS, TV, UK
             words.append(w)
+        elif w in _KEEP_CASE:
+            words.append(w)
+        else:
+            words.append(w.lower())
     return " ".join(words) or "this topic"
 
 
-# Ordinary nouns that begin a bank title only because it is a heading. Anything
-# not listed keeps its capital, so proper nouns are never damaged.
-_COMMON_LOWER = {
-    "advertisements", "animals", "borrowing", "buildings", "cash", "chatting",
-    "childhood", "crowded", "daily", "days", "doing", "dream", "family",
-    "food", "friends", "hobbies", "holidays", "hometown", "housework", "music",
-    "neighbours", "news", "reading", "shopping", "sleep", "sport", "study",
-    "technology", "transport", "travel", "weather", "weekends", "work",
-}
+# Danh từ riêng cần giữ chữ hoa. Rỗng hôm nay — 38 tiêu đề Part 1/3 hiện có đều
+# là tiêu đề thường. Thêm vào đây khi kho đề có "London", "Tết"…
+_KEEP_CASE: set[str] = set()
 
 
 def build_script(*, part: int, topic_title: str, question_text: str) -> str:

@@ -36,14 +36,44 @@ def test_existing_punctuation_is_not_doubled():
     assert s.endswith("Do you cook?") and "??" not in s
 
 
-def test_a_heading_becomes_speech_but_a_proper_noun_does_not():
-    """Tên chủ đề trong kho được viết để ĐỌC TRONG DANH SÁCH, không phải để NÓI
-    giữa câu. Hạ chữ hoa là thứ biến một tiêu đề thành lời nói — nhưng hạ cả
-    'IELTS' hay 'London' thì lại đổi cách giọng đọc phát âm."""
-    assert "Let's talk about daily routine." in mod.build_script(
-        part=1, topic_title="Daily routine", question_text="q?")
-    for keep in ("IELTS", "London", "TV"):
+def test_every_real_heading_becomes_speech():
+    """HẠ TẤT CẢ, TRỪ NGOẠI LỆ — không phải ngược lại.
+
+    Bản đầu dùng danh sách từ-được-phép-hạ và sai 3 trong 5 tiêu đề mẫu đầu tiên
+    của mẻ render thật. Danh sách kiểu đó không bao giờ đuổi kịp nội dung; đây là
+    những tiêu đề CÓ THẬT trong kho đã làm nó trượt."""
+    for title, spoken in [
+        ("Daily routine", "daily routine"),
+        ("Going out", "going out"),
+        ("Having a break", "having a break"),
+        ("Fruits and vegetables", "fruits and vegetables"),
+        ("Dream job & Future plans", "dream job and future plans"),
+    ]:
+        assert f"Let's talk about {spoken}." in mod.build_script(
+            part=1, topic_title=title, question_text="q?"), title
+
+
+def test_an_ampersand_is_spoken_as_a_word():
+    """"&" không phải một từ; để nguyên là phó mặc engine đoán."""
+    s = mod.build_script(part=1, topic_title="Views & Scenery", question_text="q?")
+    assert "views and scenery" in s and "&" not in s
+
+
+def test_acronyms_keep_their_case():
+    """Hạ 'IELTS' hay 'TV' sẽ đổi cách giọng đọc phát âm."""
+    for keep in ("IELTS", "TV", "UK"):
         assert keep in mod.build_script(part=1, topic_title=keep, question_text="q?")
+
+
+def test_a_proper_noun_can_be_protected_when_the_bank_gains_one():
+    """Hôm nay `_KEEP_CASE` rỗng vì 38 tiêu đề Part 1/3 đều là tiêu đề thường.
+    Cơ chế phải sẵn ở đó để lần thêm là một dòng, không phải một cuộc điều tra."""
+    mod._KEEP_CASE.add("London")
+    try:
+        assert "about London." in mod.build_script(
+            part=1, topic_title="London", question_text="q?")
+    finally:
+        mod._KEEP_CASE.discard("London")
 
 
 def test_part_2_is_refused_because_it_is_a_cue_card():
