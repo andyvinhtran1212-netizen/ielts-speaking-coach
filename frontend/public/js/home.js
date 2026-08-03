@@ -300,6 +300,48 @@
   }
 
   // ── Boot ────────────────────────────────────────────────────────────
+  /**
+   * GĐ 3 — the class strip.
+   *
+   * Its own fetch, deliberately not folded into the home summary: a learner in
+   * no class (most of them, on a mass code) must not pay for it, and a failure
+   * here must not take the skills grid down with it. On failure the strip stays
+   * hidden — showing "0 bài cần nộp" from a request that never answered would
+   * tell a student they owe nothing, which is the one thing it must never say.
+   */
+  async function loadClassStrip() {
+    let data;
+    try {
+      // summary=true: the strip reads a name and two numbers, and the full
+      // payload carries every published lesson body — unbounded, and growing
+      // with whatever the teacher writes.
+      data = await window.api.get('/api/class/me?summary=true');
+    } catch (e) {
+      return;                      // stay hidden; the class page reports the error
+    }
+    if (!data || !data.has_class) return;
+
+    const p = data.progress;
+    const cls = data.class || {};
+    document.getElementById('class-strip-name').textContent = cls.name || 'Lớp của tôi';
+    document.getElementById('class-strip-meta').textContent =
+      cls.course ? cls.course.name : '';
+
+    // A degraded assignments block means we do not KNOW the count. Say so
+    // rather than printing a number nobody computed.
+    const todoEl = document.getElementById('class-strip-todo');
+    todoEl.textContent = p ? p.todo : '—';
+
+    const alarm = document.getElementById('class-strip-alarm');
+    if (p && p.missing > 0) {
+      alarm.textContent = p.missing + ' bài quá hạn';
+      alarm.style.color = 'var(--av-warning)';
+    } else {
+      alarm.textContent = '';
+    }
+    document.getElementById('class-strip').hidden = false;
+  }
+
   async function loadHome() {
     let data;
     let permissions = null;
@@ -347,6 +389,10 @@
 
   // Wait for Supabase + auth to be ready before fetching.
   function bootstrap() {
+    // GĐ 3 — fired here, NOT inside loadHome(): /api/student/home-summary is an
+    // unrelated endpoint, and hanging the class strip off its success meant a
+    // failure there took away the learner's only link to their class page.
+    loadClassStrip();
     if (typeof window.api === 'undefined') {
       // api.js hasn't loaded yet — try again next tick.
       return setTimeout(bootstrap, 30);

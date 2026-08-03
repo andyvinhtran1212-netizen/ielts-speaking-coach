@@ -870,8 +870,10 @@ def test_outstanding_student_work_is_never_capped():
     exists."""
     import inspect
     from routers import class_student as mod
-    src = inspect.getsource(mod.my_assignments)
+    src = inspect.getsource(mod._visible_assignments)
 
+    # GĐ 3 moved this into the shared _visible_assignments so /my-assignments and
+    # /me build the same list; the assertion follows the logic, not the route.
     assert "_paged_items" in src, "outstanding items must be fetched in full, paged"
     assert '_MAX_HISTORY' in src
     # The cap must apply to the SUBMITTED branch only.
@@ -924,7 +926,7 @@ def test_student_list_puts_the_nearest_deadline_first():
     import inspect, re
     from routers import class_student as mod
     # code_only() re-joins tokens with spaces, so match whitespace-tolerantly.
-    src = code_only(inspect.getsource(mod.my_assignments))
+    src = code_only(inspect.getsource(mod._visible_assignments))
     assert not re.search(r"reverse\s*=\s*True", src), (
         "reverse=True puts the farthest deadline first"
     )
