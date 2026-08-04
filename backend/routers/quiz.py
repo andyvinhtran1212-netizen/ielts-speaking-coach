@@ -91,8 +91,8 @@ async def my_mistakes(
 
 @router.get("/banks/{bank_id}")
 async def get_bank(bank_id: UUID, authorization: str | None = Header(None)):
-    await get_supabase_user(authorization)
-    return quiz_service.get_bank_for_play(str(bank_id))
+    user = await get_supabase_user(authorization)
+    return quiz_service.get_bank_for_play(str(bank_id), user_id=user["id"])
 
 
 @router.get("/banks/{bank_id}/resume")
