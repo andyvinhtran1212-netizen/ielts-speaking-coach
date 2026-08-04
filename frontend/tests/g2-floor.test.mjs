@@ -16,7 +16,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
-  evaluateG2, formatG2, G2_FLOOR, planSession, parseLedger, mergeLedgers,
+  evaluateG2, formatG2, G2_FLOOR, G2_FLOOR_TRADEOFF, planSession, parseLedger, mergeLedgers,
 } from '../tooling/g2-floor.mjs';
 
 const PROBE = readFileSync(
@@ -90,9 +90,11 @@ describe('sàn G2 — những ca PHẢI bị từ chối', () => {
       'phải từ chối vì TRẢI quá ngắn — n và nhịp đều đẹp nên chỉ mình nó chặn được');
   });
 
-  test('đủ trải nhưng có MỘT quãng đứt 25 phút ⇒ TỪ CHỐI', () => {
+  test('đủ trải nhưng có MỘT quãng đứt vượt sàn ⇒ TỪ CHỐI', () => {
+    // Quãng đứt phải vượt SÀN HIỆN HÀNH (240′). Bản cũ dùng 25′ vì sàn khi đó
+    // là 20′; giữ nguyên 25′ sau khi nới sàn thì test xanh mà chẳng kiểm gì.
     const rows = series(80, 20);
-    for (let i = 40; i < rows.length; i++) rows[i].at += 5 * MIN; // chèn quãng đứt
+    for (let i = 40; i < rows.length; i++) rows[i].at += 300 * MIN; // đứt 5 tiếng
     const r = judge(rows);
     assert.equal(r.pass, false);
     // Đứt quãng nay CẮT dãy: phần sau khoảng trống quá ngắn để đạt sàn.
@@ -167,13 +169,16 @@ describe('chi tiết', () => {
     assert.equal(r.pass, true);
   });
 
-  test('sàn khớp đúng ADR-013-A1', () => {
-    assert.equal(G2_FLOOR.minSamples, 72);
-    assert.equal(G2_FLOOR.minSpanMs, 24 * 60 * 60 * 1000);
-    assert.equal(G2_FLOOR.maxGapMs, 20 * 60 * 1000);
-    // 72 × 20 phút = đúng 24h — ba con số phải nhất quán, không phải ba ràng
-    // buộc rời rạc chọn tuỳ hứng.
-    assert.equal(G2_FLOOR.minSamples * G2_FLOOR.maxGapMs, G2_FLOOR.minSpanMs);
+  test('sàn khớp đúng ADR-013-A1 (bản đo 2026-08-04)', () => {
+    assert.equal(G2_FLOOR.minSamples, 72, 'cơ sở power của A0 không đổi');
+    assert.equal(G2_FLOOR.minSpanMs, 24 * 60 * 60 * 1000,
+      'trải ≥24h giữ nguyên — nó là sàn cho cache hết hạn (ADR-008 expire=86400)');
+    assert.equal(G2_FLOOR.maxGapMs, 240 * 60 * 1000, 'khe hở suy từ ĐO, xem bình luận nguồn');
+    // Ràng buộc "72 × khe hở = đúng 24h" KHÔNG còn, và đó là chủ ý: nó chỉ
+    // đúng khi bộ lập lịch giao đúng nhịp khai. Thứ còn phải giữ là tính KHẢ
+    // THI — với khe hở tối đa cho phép, n mẫu phải phủ nổi khoảng trải yêu cầu.
+    assert.ok(G2_FLOOR.minSamples * G2_FLOOR.maxGapMs >= G2_FLOOR.minSpanMs,
+      'sàn tự mâu thuẫn: không đủ mẫu để phủ khoảng trải yêu cầu');
   });
 
   test('formatG2 nói rõ ĐẠT hay CHƯA, không mập mờ', () => {
@@ -407,27 +412,40 @@ describe('lịch cron phải CHẶT HƠN sàn (review #913)', () => {
   const judgeRuns = (rows) =>
     evaluateG2(rows, { now: rows[rows.length - 1].at + MINb });
 
-  test('cron 20 phút + trễ ≤4 phút ⇒ KHÔNG BAO GIỜ đạt', () => {
-    // Cron GitHub Actions trễ vài phút là bình thường, và mốc mẫu tính SAU khi
-    // runner khởi động + đăng nhập + gọi HTTP. Đặt lịch đúng bằng sàn là sát
-    // mép: một lần trễ ⇒ khe hở >20 phút ⇒ trailingRun cắt sạch lịch sử.
-    const r = judgeRuns(runsOverDay(20));
-    assert.equal(r.pass, false);
-    assert.ok(r.stats.n < 10,
-      `dãy liên tục sụp còn ${r.stats.n} mẫu dù đã chạy 26 giờ`);
-  });
-
-  test('cron 15 phút + cùng độ trễ ⇒ ĐẠT', () => {
-    const r = judgeRuns(runsOverDay(15));
+  test('nhịp THỰC ĐO ~84 phút vẫn đạt được sàn hiện hành', () => {
+    // Đây là điều kiện tối thiểu để G2 có nghĩa: sàn phải KHẢ THI với bộ lập
+    // lịch thật. Dãy dưới mô phỏng đúng phân bố đã đo (84′ ± dao động lớn).
+    const jitter = [0, 26, -23, 73, 1, -17, 92, -20];
+    const rows = Array.from({ length: 80 }, (_, k) => ({
+      at: T0b + (k * 84 + jitter[k % jitter.length]) * MINb, ok: true,
+      afterRefresh: k >= 3,
+    }));
+    const r = judgeRuns(rows);
     assert.equal(r.pass, true, formatG2(r));
-    assert.ok(r.stats.n >= 72);
     assert.ok(r.stats.spanHours >= 24);
-    assert.ok(r.stats.maxGapMinutes <= 20);
   });
 
-  test('sàn KHÔNG bị nới để chiều lịch', () => {
-    // Cách sửa sai là hạ sàn xuống 25 phút cho "hết đỏ". Sàn giữ nguyên 20;
-    // chỉ lịch chặt lại. Test này chặn đúng đường đó.
-    assert.equal(G2_FLOOR.maxGapMs, 20 * 60 * 1000);
+  test('lịch khai vẫn phải chặt hơn sàn — bài học không mất đi', () => {
+    // Nới sàn KHÔNG có nghĩa là đặt lịch sát mép cũng được. Lịch khai `*/15`
+    // giữ nguyên: nó là thứ ta điều khiển được, và càng dày thì càng nhiều mẫu.
+    // Cái không điều khiển được là bộ lập lịch có chạy đúng hay không.
+    const declared = 15 * 60_000;
+    assert.ok(declared < G2_FLOOR.maxGapMs,
+      'lịch khai phải nằm dưới sàn, kể cả khi sàn đã nới');
+  });
+
+  test('nới sàn PHẢI kèm cơ sở đo và lời khai cái bị mất', () => {
+    // Chốt cũ khoá cứng `maxGapMs === 20 phút` để chặn việc hạ sàn cho hết đỏ.
+    // Nay sàn ĐÃ đổi — nhưng đổi vì ĐO, không vì tiện. Nên chốt đổi thứ nó gác:
+    // ai chỉnh sàn lần sau cũng phải cập nhật cơ sở đo và ghi cái đánh mất,
+    // không được lặng lẽ sửa một con số.
+    const src = readFileSync(
+      path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'tooling', 'g2-floor.mjs'),
+      'utf8');
+    assert.match(src, /giãn cách: 176 · 157 · 110 · 84 · 85 · 67 · 61 · 69 phút/,
+      'phải giữ số liệu thô đã dùng để chọn sàn');
+    assert.match(src, /trung vị 84 · p90 157 · LỚN NHẤT 176/);
+    assert.ok(G2_FLOOR_TRADEOFF && /tự khỏi/.test(G2_FLOOR_TRADEOFF),
+      'phải khai rõ cái bị mất khi nới sàn');
   });
 });

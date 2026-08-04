@@ -117,7 +117,41 @@ route đều đặn, **bao gồm route cần đăng nhập** — chính lỗ h�
 |---|---|---|
 | Số mẫu | **n ≥ 72** | giữ nguyên cơ sở power của A0 (DEBT-2026-07-22-H) |
 | Khoảng trải | **≥ 24h** | ADR-008 đặt `expire: 86400` cho cache nội dung công khai — dưới 24h thì **không** đi qua lần hết hạn cứng nào |
-| Nhịp | **≤ 20 phút/lần** | chặn việc bắn dồn. 72 mẫu × 20 phút = đúng 24h, nên ba con số nhất quán chứ không phải ba ràng buộc rời |
+| Khe hở lớn nhất | **≤ 240 phút** | **suy từ ĐO, không từ mong muốn** — xem mục hiệu chỉnh bên dưới |
+
+### Hiệu chỉnh khe hở: 20 phút → 240 phút (2026-08-04)
+
+Bản A1 đặt khe hở **≤20 phút** kèm lập luận "72 × 20 = đúng 24h". Lập luận đó
+**giả định bộ lập lịch giao đúng nhịp khai**. Đo thật trên GitHub Actions với
+cron `*/15` (9 lần chạy / 13,5h):
+
+```
+giãn cách: 176 · 157 · 110 · 84 · 85 · 67 · 61 · 69 phút
+trung vị 84 · p90 157 · LỚN NHẤT 176   ⇒ chậm hơn lịch khai ~5,6 lần
+```
+
+Với sàn 20 phút thì **mọi cặp mẫu liên tiếp đều vượt**, dãy liên tục bị cắt về
+`n=1`, và G2 **không bao giờ đạt được** — đã xác nhận bằng verdict thật
+(`coverage-interrupted: đứt 69,4 phút; 11 mẫu của đợt cũ không được tính`).
+
+**240 phút = 1,36× giá trị xấu nhất quan sát được.** Con số TẠM, suy từ 8 khoảng
+cách trên 13,5h. `evaluateG2` nay in phân bố khe hở thật (p50/p90/max) để lần
+chỉnh sau làm bằng số liệu.
+
+**CÁI BỊ MẤT, nói thẳng:** với nhịp thực ~84 phút, một sự cố xuất hiện rồi **tự
+khỏi trong dưới ~1,5 giờ** có thể lọt hoàn toàn. Sàn cũ nhắm bắt được nó; sàn
+mới chỉ nhắm bắt sự cố kéo dài. Đây là **giới hạn của bộ lập lịch**, không phải
+lựa chọn thiết kế. Muốn lấy lại phải đổi cơ chế — job chạy dài tự đếm nhịp bên
+trong (~23h runner-minute/ngày), hoặc tự nối chuỗi bằng PAT — cả hai đều đắt
+hơn nhiều so với giá trị thu lại ở quy mô hiện tại.
+
+**Hệ quả về thời gian:** ~17 mẫu/ngày ⇒ đạt n≥72 mất **~4,2 ngày**, không phải
+24 giờ như A1 dự tính.
+
+**Cùng gốc, ghi luôn:** cron `41 2 * * *` của cổng parity (quét đầy đủ hằng đêm)
+**chưa từng chạy lần nào**. Mọi phát biểu dạng "bộ đầy đủ chạy ở lịch đêm" phải
+đọc là *best-effort*, không phải bảo đảm. Lớp bảo vệ thật của G1 là cổng theo
+PR.
 
 Với lớp **authenticated**, thêm một điều kiện định tính đo được: phiên probe
 phải **sống qua ít nhất một lần token refresh** và có request **trước lẫn sau**

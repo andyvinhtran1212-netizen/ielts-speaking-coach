@@ -21,8 +21,32 @@
 export const G2_FLOOR = {
   minSamples: 72,
   minSpanMs: 24 * 60 * 60 * 1000,
-  maxGapMs: 20 * 60 * 1000,
+  // 240 PHÚT, KHÔNG PHẢI 20. Con số này đến từ ĐO, không từ mong muốn.
+  //
+  // Sàn ban đầu là 20 phút, kèm lập luận "72 × 20 = đúng 24h". Lập luận đó giả
+  // định bộ lập lịch giao đúng nhịp. Đo thật trên GitHub Actions với cron khai
+  // `*/15` (9 lần chạy / 13,5h, 2026-08-03→04):
+  //     giãn cách: 176 · 157 · 110 · 84 · 85 · 67 · 61 · 69 phút
+  //     trung vị 84 · p90 157 · LỚN NHẤT 176  ⇒ chậm hơn lịch khai ~5,6 lần
+  // Với sàn 20 phút thì MỌI cặp mẫu liên tiếp đều vượt, `trailingRun` cắt về
+  // n=1 mỗi lần, và G2 KHÔNG BAO GIỜ đạt được — đã xác nhận bằng verdict thật.
+  //
+  // 240 = 1,36× giá trị xấu nhất quan sát được. Đây là con số TẠM, suy từ 8
+  // khoảng cách trên 13,5h — mẫu còn nhỏ. `evaluateG2` in ra phân bố khoảng
+  // cách thật để lần chỉnh sau làm bằng số, không bằng cảm giác.
+  maxGapMs: 240 * 60 * 1000,
 };
+
+/**
+ * CÁI BỊ MẤT khi nới từ 20 lên 240 phút — ghi ra để không ai đọc nhầm đây là
+ * một cải tiến: với nhịp thực ~84 phút, một sự cố xuất hiện rồi TỰ KHỎI trong
+ * khoảng dưới ~1,5 giờ có thể lọt hoàn toàn. Sàn cũ nhắm bắt được nó. Sàn mới
+ * chỉ nhắm bắt sự cố kéo dài. Đây là giới hạn của BỘ LẬP LỊCH, không phải lựa
+ * chọn thiết kế — muốn lấy lại phải đổi cơ chế (job chạy dài, hoặc tự nối
+ * chuỗi bằng PAT), cả hai đều tốn hơn nhiều.
+ */
+export const G2_FLOOR_TRADEOFF =
+  'nhịp ~84 phút: sự cố tự khỏi trong <1,5h có thể lọt';
 
 /**
  * Phân tích sổ JSONL. Nằm ở lõi chứ không nằm trong runner vì đây là chỗ
@@ -199,6 +223,17 @@ export function evaluateG2(samples, opts = {}) {
       maxGapMinutes: Number((maxGapMs / 60000).toFixed(2)),
       failed: failed.length,
       authenticated,
+      // Phân bố khoảng cách THẬT — để lần chỉnh sàn sau dựa vào số liệu.
+      gapsMinutes: (() => {
+        const g = [];
+        for (let i = 1; i < rows.length; i++) g.push((rows[i].at - rows[i - 1].at) / 60000);
+        g.sort((a, b) => a - b);
+        return g.length
+          ? { p50: Number(g[Math.floor(g.length / 2)].toFixed(1)),
+              p90: Number(g[Math.max(0, Math.ceil(g.length * 0.9) - 1)].toFixed(1)),
+              max: Number(g[g.length - 1].toFixed(1)), n: g.length }
+          : null;
+      })(),
       droppedOlderRuns: dropped,
       ageMinutes: Number((ageMs / 60000).toFixed(1)),
     },
@@ -208,9 +243,11 @@ export function evaluateG2(samples, opts = {}) {
 /** In gọn cho CI. */
 export function formatG2(result) {
   const s = result.stats;
+  const g = s.gapsMinutes;
   const head = `G2: n=${s.n} · trải ${s.spanHours ?? 0}h · khoảng cách lớn nhất `
     + `${s.maxGapMinutes ?? 0} phút · hỏng ${s.failed ?? 0}`
-    + (s.authenticated ? ' · lớp CÓ ĐĂNG NHẬP' : ' · lớp ẩn danh');
+    + (s.authenticated ? ' · lớp CÓ ĐĂNG NHẬP' : ' · lớp ẩn danh')
+    + (g ? `\n     phân bố khoảng cách (n=${g.n}): p50 ${g.p50}′ · p90 ${g.p90}′ · max ${g.max}′` : '');
   if (result.pass) return `${head}\n✓ ĐẠT sàn ADR-013-A1`;
   return `${head}\n✗ CHƯA ĐẠT:\n`
     + result.findings.map((f) => `  · [${f.code}] ${f.detail}`).join('\n');
