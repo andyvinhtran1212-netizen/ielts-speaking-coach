@@ -482,3 +482,54 @@ describe('class-page banner tells the two failures apart', () => {
     assert.match(n.textContent, /không cần làm lại/i);
   });
 });
+
+
+// ── bài quá hạn: KHÔNG có nút "Làm bài" ─────────────────────────────────
+//
+// Hạn nộp nay là tuyệt đối, nên bấm vào chỉ để nhận 409 sau một vòng gọi mạng.
+// Một nút chỉ-để-thất-bại tệ hơn không có nút: học viên bấm mấy lần rồi tưởng
+// lỗi ở máy mình.
+
+function loadItemRow() {
+  const start = SRC.indexOf('function itemRow(');
+  const end = SRC.indexOf('function renderGroup(');
+  assert.ok(start !== -1 && end > start, 'itemRow not found');
+  const esc = (s) => String(s == null ? '' : s);
+  const dueLabel = () => '19:00 · 03/08';
+  const taskSub = () => 'Speaking · Part 1';
+  const submittedLabel = () => 'đã nộp 18:00';
+  return new Function('esc', 'dueLabel', 'taskSub', 'submittedLabel',
+    `${SRC.slice(start, end)} return itemRow;`)(esc, dueLabel, taskSub, submittedLabel);
+}
+
+describe('nút Làm bài biến mất khi quá hạn', () => {
+  const itemRow = loadItemRow();
+  const row = (over) => ({
+    item_id: 'i1', submitted_at: null, score: null, is_late: false,
+    is_missing: false,
+    assignment: { id: 'a1', title: 'Bài', skill: 'speaking',
+                  due_at: '2026-08-03T19:00:00+07:00', content_config: {} },
+    ...over,
+  });
+
+  test('bài còn hạn thì có nút', () => {
+    assert.match(itemRow(row({}), { action: true }), /data-action="start"/);
+  });
+
+  test('bài quá hạn thì KHÔNG có nút', () => {
+    assert.doesNotMatch(itemRow(row({ is_missing: true }), { action: true }),
+      /data-action="start"/);
+  });
+
+  test('bài quá hạn VẪN nằm trên danh sách, ghi là quá hạn', () => {
+    // Biến mất sẽ đọc ra thành "em chưa từng có bài đó" thay vì "em đã bỏ lỡ".
+    const html = itemRow(row({ is_missing: true }), { action: true });
+    assert.match(html, /is-missing/);
+    assert.match(html, /quá hạn/);
+  });
+
+  test('nhóm đã nộp vốn không có nút, không đổi', () => {
+    assert.doesNotMatch(itemRow(row({ submitted_at: 'x' }), { action: false }),
+      /data-action="start"/);
+  });
+});

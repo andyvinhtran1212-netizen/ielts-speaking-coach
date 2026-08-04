@@ -777,10 +777,13 @@ def test_all_three_creation_routes_catch_the_deadline_error():
 
 
 @pytest.mark.asyncio
-async def test_readiness_uses_the_SAME_prefix_the_give_will_select():
-    """Lệnh giao lấy `want` câu ĐẦU theo order_num. Nếu danh sách chỉ đếm tổng số
-    câu có audio thì một chủ đề mà câu 1 chưa render xong nhưng câu 3-4 đã có sẽ
-    hiện "sẵn sàng" — admin chọn rồi bị 400."""
+async def test_readiness_counts_EVERY_voiced_question_not_just_the_first_few():
+    """Lệnh giao LỌC trước rồi mới bốc/chọn trong số câu đã có bản đọc, nên chủ
+    đề này giao được. Đếm theo tiền tố ở đây sẽ ẩn nó khỏi ô chọn trong khi POST
+    hoàn toàn nhận — hai màn nói khác nhau về cùng một chủ đề.
+
+    (Vòng review trước tôi sửa NGƯỢC: bắt chỗ này dùng tiền tố cho khớp lệnh
+    giao. Rồi lệnh giao đổi cách chọn, và hai bên lệch lại từ phía kia.)"""
     topics = [{"id": "t0", "title": "T", "part": 1, "is_active": True}]
     qs = [
         {"topic_id": "t0", "part": 1, "is_active": True, "order_num": 0, "audio_url": None},
@@ -789,9 +792,21 @@ async def test_readiness_uses_the_SAME_prefix_the_give_will_select():
         {"topic_id": "t0", "part": 1, "is_active": True, "order_num": 3, "audio_url": "https://cdn/b.mp3"},
     ]
     out = await _topics(_TopicsDB(topics, qs, []))
-    item = out["items"][0]
-    assert item["ready"] is False, "hai câu ĐẦU chưa có audio"
-    assert item["missing_audio"] is True
+    assert out["items"][0]["ready"] is True, "hai câu SAU đã có audio — giao được"
+
+
+@pytest.mark.asyncio
+async def test_a_topic_the_give_would_REFUSE_is_still_reported_unready():
+    """Chiều ngược lại phải giữ: chưa đủ câu có bản đọc thì vẫn là chưa sẵn sàng."""
+    topics = [{"id": "t0", "title": "T", "part": 1, "is_active": True}]
+    qs = [
+        {"topic_id": "t0", "part": 1, "is_active": True, "order_num": 0, "audio_url": "https://cdn/a.mp3"},
+        {"topic_id": "t0", "part": 1, "is_active": True, "order_num": 1, "audio_url": None},
+        {"topic_id": "t0", "part": 1, "is_active": True, "order_num": 2, "audio_url": None},
+    ]
+    out = await _topics(_TopicsDB(topics, qs, []))
+    assert out["items"][0]["ready"] is False
+    assert out["items"][0]["missing_audio"] is True
 
 
 @pytest.mark.asyncio

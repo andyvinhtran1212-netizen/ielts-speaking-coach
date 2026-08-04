@@ -90,8 +90,14 @@ function itemRow(a, { action }) {
   const meta = a.submitted_at
     ? submittedLabel(a)
     : `${esc(dueLabel(a.assignment.due_at))}${a.is_missing ? ' · quá hạn' : ''}`;
-  const btn = action
-    ? `<button class="mc-btn${a.is_missing ? '' : ''}" data-action="start" data-item="${esc(a.item_id)}">Làm bài</button>`
+  // Quá hạn thì KHÔNG có nút. Hạn nộp nay là tuyệt đối — bấm vào chỉ để nhận
+  // 409 sau một vòng gọi mạng, và một nút chỉ-để-thất-bại tệ hơn không có nút:
+  // học viên bấm mấy lần rồi tưởng lỗi ở máy mình.
+  //
+  // Bài vẫn CÒN trên danh sách, ghi là quá hạn — biến mất sẽ đọc ra thành "em
+  // chưa từng có bài đó" thay vì "em đã bỏ lỡ".
+  const btn = (action && !a.is_missing)
+    ? `<button class="mc-btn" data-action="start" data-item="${esc(a.item_id)}">Làm bài</button>`
     : '';
   return `<article class="mc-item${a.is_missing ? ' is-missing' : ''}">
     <div class="mc-item-main">
@@ -395,7 +401,7 @@ function render() {
   renderStats(d.progress);
 
   renderGroup('mc-group-missing', 'mc-missing',
-    assignments.filter((a) => a.is_missing), { action: true });
+    assignments.filter((a) => a.is_missing), { action: true });   // itemRow tự bỏ nút
   renderGroup('mc-group-todo', 'mc-todo',
     assignments.filter((a) => !a.submitted_at && !a.is_missing), { action: true });
   renderGroup('mc-group-done', 'mc-done',

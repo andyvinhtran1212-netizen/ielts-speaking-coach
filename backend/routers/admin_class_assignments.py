@@ -438,7 +438,18 @@ async def list_speaking_topics(
         # một giả định không cần thiết phải tin.
         rows.sort(key=lambda r: (r.get("order_num") or 0))
         counts[tid] = len(rows)
-        audio_ok[tid] = sum(1 for r in rows[:want]
+        # ĐẾM TRÊN CẢ CHỦ ĐỀ, không phải trên `want` câu đầu.
+        #
+        # Lệnh giao nay LỌC trước rồi mới bốc/chọn trong số câu đã có bản đọc —
+        # nên một chủ đề mà hai câu đầu chưa render nhưng hai câu sau đã xong
+        # VẪN giao được. Đếm theo tiền tố ở đây sẽ báo "chưa sẵn sàng" và ẩn nó
+        # khỏi ô chọn, trong khi POST hoàn toàn nhận.
+        #
+        # (Ở vòng review trước tôi sửa NGƯỢC lại — bắt chỗ này dùng tiền tố cho
+        # khớp lệnh giao. Rồi lệnh giao đổi cách chọn, và hai bên lại lệch từ
+        # phía kia. Hai đường quyết định cùng một việc thì phải cùng một luật,
+        # không phải cùng một dòng mã.)
+        audio_ok[tid] = sum(1 for r in rows
                             if _audio_matches(r, titles.get(tid, "")))
 
     needs_audio = part in (1, 3)

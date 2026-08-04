@@ -773,7 +773,11 @@ def _load_pinned_class_questions(session_id: str, session: dict) -> list[dict]:
             return []
         asg = (
             supabase_admin.table("class_assignments")
-            .select("content_config, part, skill")
+            # KHÔNG chọn `part`: class_assignments không có cột đó — Part nằm
+            # trong content_config (mig 177). PostgREST từ chối cả câu lệnh, và
+            # fail-closed bên dưới biến nó thành 503, tức là CHẶN MỌI bài
+            # Speaking lớp. Part thật lấy từ chính dòng câu hỏi bên dưới.
+            .select("content_config, skill")
             .eq("id", items[0]["assignment_id"]).limit(1).execute().data
         ) or []
         if not asg or asg[0].get("skill") != "speaking":
