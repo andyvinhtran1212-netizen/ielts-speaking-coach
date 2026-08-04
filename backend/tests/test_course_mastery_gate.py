@@ -249,8 +249,13 @@ def test_retake_below_sample_size_is_rejected():
 def test_retake_sample_clamped_to_pool():
     """Kho 3 câu, cấu hình 20 → mẫu 3 câu là đủ (không thể đòi hơn kho)."""
     ss = _sessions(1, kind="retake")
+    prior = {"threshold": 80, "attempts": [
+        {"phase": "run", "pct": 60.0, "at": "t", "sessions": ["s-a"]},
+    ]}
     out, _ = _verdict(sessions=ss, questions=_questions(3),
-                      attempts=_attempts(ss, {f"q{i}": i % 4 for i in range(3)}))
+                      attempts=_attempts(ss, {f"q{i}": i % 4 for i in range(3)}),
+                      item_row={"id": "it-1", "passed_at": None,
+                                "mastery": prior, "score": 60.0})
     assert out["passed"] is True and out["pct"] == 100.0
 
 
@@ -278,6 +283,52 @@ def test_all_writing_bank_is_rejected():
     with pytest.raises(HTTPException) as e:
         _verdict(sessions=ss, questions=_questions(0, writing=3), attempts=[])
     assert e.value.status_code == 422
+
+
+def test_retake_requires_a_failed_run_first():
+    """Tự tạo phiên retake khi CHƯA có lượt chính dưới ngưỡng → 422 (codex R2).
+    Không có chốt này thì cỡ-mẫu câu là đủ mua kết luận đạt, khỏi làm đủ bài."""
+    ss = _sessions(1, kind="retake")
+    given = {f"q{i}": i % 4 for i in range(5)}
+    with pytest.raises(HTTPException) as e:
+        _verdict(sessions=ss, attempts=_attempts(ss, given),
+                 config={"retake_size": 5})
+    assert e.value.status_code == 422
+    assert "lượt làm chính" in e.value.detail
+
+
+def test_retake_after_passing_run_threshold_change_still_needs_failed_run():
+    """Sổ chỉ có lượt chính ĐÃ ĐẠT → retake vẫn bị bác (không có gì để gỡ)."""
+    prior = {"threshold": 80, "attempts": [
+        {"phase": "run", "pct": 90.0, "at": "t", "sessions": ["s-a"]},
+    ]}
+    ss = _sessions(1, kind="retake")
+    with pytest.raises(HTTPException) as e:
+        _verdict(sessions=ss, attempts=_attempts(ss, {f"q{i}": i % 4 for i in range(5)}),
+                 config={"retake_size": 5},
+                 item_row={"id": "it-1", "passed_at": "t", "mastery": prior, "score": 90.0})
+    # đã đạt thì passed=True vẫn trả về ở nhánh already — nhưng nếu chưa passed_at
+    # mà chỉ có run-đạt trong sổ thì retake không có cửa.
+    assert e.value.status_code == 422
+
+
+def test_reload_after_failed_retake_does_not_duplicate_the_run():
+    """Trượt retake xong F5: trang khôi phục màn kết quả lượt CHÍNH và nộp lại
+    đúng bộ phiên cũ. Dòng cuối sổ lúc này là retake — so toàn sổ, không so
+    dòng cuối, để lượt chính không bị ghi trùng (codex R2)."""
+    ss = _sessions(2)
+    run_key = sorted(s["id"] for s in ss)
+    prior = {"threshold": 80, "attempts": [
+        {"phase": "run", "pct": 70.0, "at": "t", "sessions": run_key},
+        {"phase": "retake", "pct": 60.0, "at": "t", "sessions": ["s-r"]},
+    ]}
+    out, log = _verdict(
+        sessions=ss, attempts=_attempts(ss, _given(10, wrong=3)),
+        item_row={"id": "it-1", "passed_at": None, "mastery": prior, "score": 70.0},
+    )
+    assert out["passed"] is False
+    patch_ = [e for e in log if e[1] == "update"][0][2]
+    assert len(patch_["mastery"]["attempts"]) == 2   # KHÔNG thêm bản sao lượt chính
 
 
 # ── Từ chối lượt bẩn ─────────────────────────────────────────────────────────

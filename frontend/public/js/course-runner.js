@@ -182,8 +182,14 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       at = typeof v.at === 'number' ? v.at : 0;
       marks = Array.isArray(v.marks) ? v.marks : [];
     }
-    if (stage * STAGE >= qs.length) { stage = 0; at = 0; marks = []; }
-    if (at > STAGE) { at = 0; marks = []; }
+    // Trạng thái lưu không còn khớp bộ đề (bank bị thay/ngắn lại): làm lại từ
+    // đầu là một LƯỢT MỚI TRỌN VẸN — phải xoá cả dấu done-cuối lẫn danh sách
+    // phiên cũ, không thì load() bỏ mở phiên và mọi lượt làm rơi vào hư không
+    // trong khi finishStage vẫn báo "đã lưu" (codex #928 vòng 2).
+    if (stage * STAGE >= qs.length) {
+      stage = 0; at = 0; marks = []; resumedFinal = false; runSessions = [];
+    }
+    if (at > STAGE) { at = 0; marks = []; resumedFinal = false; }
   }
 
   function stageQuestions() {

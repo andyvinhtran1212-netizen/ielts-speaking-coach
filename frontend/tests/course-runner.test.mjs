@@ -498,3 +498,27 @@ describe('F5 ở màn kết quả cuối (codex #928)', () => {
     assert.equal(opened.length, 1, 'chặng 2 còn phải làm — phiên là bắt buộc');
   });
 });
+
+describe('bank bị thay/ngắn lại sau khi đã làm xong (codex #928 R2)', () => {
+  test('trạng thái cũ lệch bộ đề → lượt mới trọn vẹn, CÓ phiên, sổ phiên sạch', async () => {
+    const store = memStore();
+    // làm xong bank 25 câu (3 chặng)
+    const big = Array.from({ length: 25 }, (_, i) => mcq(i));
+    const first = await run({ storage: store, questions: big });
+    await playStage(first.r); await first.r.nextStage();
+    await playStage(first.r); await first.r.nextStage();
+    await playStage(first.r);                                  // done cuối, stage 2
+    // bank bị thay bằng bản 5 câu (1 chặng) — stage 2 lưu trong storage đã lệch
+    const small = Array.from({ length: 5 }, (_, i) => mcq(i));
+    const second = await run({ storage: store, questions: small });
+    const opened = second.api.calls.post.filter((c) => c.path === '/api/quiz/sessions');
+    assert.equal(opened.length, 1, 'lượt mới thì phiên là bắt buộc — thiếu nó mọi lượt làm rơi vào hư không');
+    assert.equal(second.r.stage, 0);
+    assert.equal(second.r.runSessionCount, 0,
+      'phiên của bank cũ không được lẫn vào lượt xét của bank mới');
+    // làm hết chặng và chốt phải THẬT SỰ ghi
+    const out = await playStage(second.r);
+    assert.equal(out.persisted, true);
+    assert.ok(second.api.calls.patch.length >= 1, 'phải có PATCH chốt phiên thật');
+  });
+});

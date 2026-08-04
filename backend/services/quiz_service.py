@@ -811,12 +811,25 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
 
     mastery = cur.get("mastery") or {}
     attempts = list(mastery.get("attempts") or [])
+
+    # Kiểm tra lại chỉ có nghĩa SAU một lượt chính dưới ngưỡng. Không có chốt
+    # này thì một client tự tạo phiên retake trả lời đúng cỡ-mẫu câu là mua được
+    # kết luận đạt mà chưa từng làm đủ bài (codex #928 vòng 2). Luồng thật luôn
+    # thoả: nút kiểm tra lại chỉ hiện sau khi verdict lượt chính đã ghi sổ.
+    if phase == "retake" and not any(
+            a.get("phase") == "run" and (a.get("pct") or 0) < cfg["pass_pct"]
+            for a in attempts):
+        raise HTTPException(
+            422, "Chưa có lượt làm chính dưới ngưỡng — làm đủ bài trước đã")
+
     sess_key = sorted(set(session_ids))
     # Tải lại trang ở màn kết quả sẽ gọi xét lại CÙNG một lượt — sổ không được
-    # phình theo số lần bấm F5. Trùng phiên + trùng pha với lượt cuối = không
-    # ghi thêm dòng mới.
-    prev = attempts[-1] if attempts else None
-    if not (prev and prev.get("phase") == phase and prev.get("sessions") == sess_key):
+    # phình theo số lần bấm. So với TOÀN sổ chứ không chỉ dòng cuối: sau một
+    # lần kiểm tra lại trượt, F5 khôi phục về màn kết quả lượt chính và nộp lại
+    # đúng bộ phiên cũ — dòng cuối lúc ấy là retake, so mỗi dòng cuối thì lượt
+    # chính bị ghi trùng.
+    if not any(a.get("phase") == phase and a.get("sessions") == sess_key
+               for a in attempts):
         attempts.append({
             "phase": phase, "pct": pct, "at": _now(), "sessions": sess_key,
         })
