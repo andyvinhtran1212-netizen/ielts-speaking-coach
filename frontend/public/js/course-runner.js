@@ -133,6 +133,10 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
   // Chặng không chốt được (mạng đứt) không có tên: server sẽ từ chối phiên chưa
   // hoàn thành, và thà thiếu một chặng còn hơn cả lượt bị bác.
   let runSessions = [];
+  // Khôi phục ĐÚNG VÀO màn kết quả cuối: không được mở phiên mới. Bản trước mở
+  // rồi trang gọi finishStage lần nữa → mỗi lần F5 đẻ thêm một phiên "chặng
+  // cuối" rỗng nhưng mang tổng số sao chép, chen vào lượt xét đạt.
+  let resumedFinal = false;
   // Lượt đẩy giữa chặng chạy nền. Phải GIỮ lời hứa của nó: chốt chặng trong lúc
   // nó còn bay nghĩa là hàng đợi đang rỗng TẠM THỜI, `flush()` thấy không có gì
   // để gửi nên không ném, và phiên được chốt như thể mọi thứ đã tới máy chủ.
@@ -173,7 +177,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     if (v.done) {
       // Chặng đã xong: sang chặng sau nếu còn, không thì đứng ở màn kết quả.
       if ((stage + 1) * STAGE < qs.length) { stage += 1; at = 0; marks = []; }
-      else { at = STAGE; marks = Array.isArray(v.marks) ? v.marks : []; }
+      else { at = STAGE; marks = Array.isArray(v.marks) ? v.marks : []; resumedFinal = true; }
     } else {
       at = typeof v.at === 'number' ? v.at : 0;
       marks = Array.isArray(v.marks) ? v.marks : [];
@@ -268,7 +272,11 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       qs = r.questions || [];
       if (!qs.length) throw new Error('Bài tập này chưa có câu hỏi nào.');
       restore();
-      await openSession();
+      // Đứng ở màn kết quả cuối thì KHÔNG có gì để ghi — mở phiên ở đây là đẻ
+      // ra một phiên "chặng cuối" rỗng, và finishStage của lần vẽ lại sẽ chốt
+      // nó với tổng số sao chép rồi chen nó vào lượt xét đạt (codex #928).
+      if (!resumedFinal) await openSession();
+      else { sessionId = null; sessionFailed = false; stageStartedAt = now(); }
       shownAt = now();
       return bank;
     },

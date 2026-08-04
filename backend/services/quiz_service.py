@@ -715,13 +715,32 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
         cfg = mastery_config(asg[0] if asg else None)
 
         rows = (supabase_admin.table("quiz_sessions")
-                .select("id, user_id, bank_id, class_assignment_item_id, kind, "
-                        "ended_by, total_correct, total_questions")
+                .select("id, user_id, bank_id, class_assignment_item_id, kind, ended_by")
                 .in_("id", session_ids).execute().data) or []
 
         cur = (supabase_admin.table("class_assignment_items")
                .select("id, passed_at, mastery, score")
                .eq("id", item["id"]).limit(1).execute().data) or []
+
+        # Đề GỐC — thước để server tự chấm lại. Câu tự luận không chấm máy nên
+        # đứng ngoài thước.
+        qrows = (supabase_admin.table("quiz_questions")
+                 .select("qid, answer, type")
+                 .eq("bank_id", bank_id).limit(2000).execute().data) or []
+
+        # Lượt làm ĐÃ LƯU của các phiên được nêu tên. Phân trang tường minh:
+        # PostgREST cắt 1000 dòng im lặng (lớp lỗi tái diễn — xem bộ nhớ dự án),
+        # và một lịch sử làm-lại dài hoàn toàn có thể vượt.
+        att, off = [], 0
+        while True:
+            page = (supabase_admin.table("quiz_attempts")
+                    .select("session_id, qid, answer_given")
+                    .in_("session_id", session_ids)
+                    .range(off, off + 999).execute()).data or []
+            att.extend(page)
+            if len(page) < 1000:
+                break
+            off += 1000
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001
@@ -747,10 +766,46 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
         raise HTTPException(422, "Không trộn phiên chặng với phiên kiểm tra lại")
     phase = kinds.pop()
 
-    graded = sum(int(s.get("total_questions") or 0) for s in rows)
-    correct = sum(int(s.get("total_correct") or 0) for s in rows)
-    if graded <= 0:
-        raise HTTPException(422, "Lượt làm không có câu trắc nghiệm nào được chấm")
+    # ── Server TỰ CHẤM LẠI, không tin sổ của client ──────────────────────────
+    # `total_correct` trên phiên là con số client khai lúc kết phiên; một client
+    # sửa được payload sẽ khai 100% và mua một kết luận đạt vĩnh viễn. Thước
+    # thật là: đáp án ĐÃ LƯU (answer_given, ghi theo vị trí gốc) so với đáp án
+    # trong đề. is_correct trong attempts cũng là lời client — bỏ qua nốt.
+    key = {q["qid"]: q for q in qrows
+           if q.get("qid") and q.get("type") != "writing" and q.get("answer") is not None}
+    if not key:
+        raise HTTPException(422, "Bộ đề không có câu trắc nghiệm nào")
+
+    seen: dict = {}
+    for a in att:
+        qid = a.get("qid")
+        if qid not in key:
+            # Câu lạ (kể cả câu tự luận bị nhồi kèm is_correct) — bác cả lượt.
+            raise HTTPException(422, "Có lượt làm không thuộc bộ đề này")
+        if qid in seen:
+            # Một câu hai lượt trong cùng một lần xét là dấu nộp ghép/lặp.
+            raise HTTPException(422, "Có câu bị nộp trùng trong lượt xét")
+        seen[qid] = a
+
+    # ── Phủ ĐỦ đề — chặn cả gian lận lẫn dương tính giả ─────────────────────
+    # Lượt chính phải trả lời ĐỦ MỌI câu trắc nghiệm của bộ: client chỉ nêu tên
+    # các phiên điểm cao (bỏ chặng làm kém, hay chặng rớt mạng lúc chốt) thì mẫu
+    # số co lại và điểm ẢO cao lên. Kiểm tra lại thì phải đủ cỡ mẫu đã cấu hình
+    # (kẹp theo kho — kho 15 câu thì mẫu 15 là đủ).
+    if phase == "run":
+        missing = len(set(key) - set(seen))
+        if missing:
+            raise HTTPException(
+                422, f"Lượt làm thiếu {missing} câu chưa có kết quả trên hệ thống")
+    else:
+        need = min(cfg["retake_size"], len(key))
+        if len(seen) < need:
+            raise HTTPException(
+                422, f"Bài kiểm tra lại phải đủ {need} câu (mới có {len(seen)})")
+
+    graded = len(seen)
+    correct = sum(1 for qid, a in seen.items()
+                  if str(a.get("answer_given")).strip() == str(key[qid]["answer"]))
     pct = round(correct / graded * 100, 1)
     passed = pct >= cfg["pass_pct"]
 

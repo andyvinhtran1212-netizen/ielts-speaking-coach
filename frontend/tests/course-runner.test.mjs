@@ -467,3 +467,34 @@ describe('xét đạt (verdict)', () => {
       'đóng tab ở màn kết quả rồi mở lại vẫn xét được lượt đã làm');
   });
 });
+
+describe('F5 ở màn kết quả cuối (codex #928)', () => {
+  test('không mở phiên mới, không chốt lại, lượt xét giữ nguyên', async () => {
+    const store = memStore();
+    const qsn = Array.from({ length: 5 }, (_, i) => mcq(i));   // 1 chặng duy nhất
+    const first = await run({ storage: store, questions: qsn });
+    await playStage(first.r);                                  // done cuối, sess-1
+    // mở lại trang: runner MỚI, cùng storage — đứng ngay màn kết quả
+    const second = await run({ storage: store, questions: qsn });
+    const opened = second.api.calls.post.filter((c) => c.path === '/api/quiz/sessions');
+    assert.equal(opened.length, 0, 'màn kết quả không có gì để ghi — mở phiên là đẻ rác');
+    // trang sẽ gọi finishStage lần nữa (isStageDone) — phải vô hại
+    const res = await second.r.finishStage();
+    assert.equal(res.persisted, true);
+    assert.equal(second.api.calls.patch.length, 0, 'không được chốt một phiên không tồn tại');
+    await second.r.verdict();
+    const v = second.api.calls.post.filter((c) => c.path === '/api/quiz/course/verdict');
+    assert.deepEqual(v[0].body.session_ids, ['sess-1'],
+      'mỗi lần F5 mà lượt xét phình thêm phiên là điểm bị pha loãng');
+  });
+
+  test('khôi phục GIỮA bài (chưa xong) thì vẫn mở phiên như cũ', async () => {
+    const store = memStore();
+    const qsn = Array.from({ length: 15 }, (_, i) => mcq(i));  // 2 chặng
+    const first = await run({ storage: store, questions: qsn });
+    await playStage(first.r);                                  // xong chặng 1/2
+    const second = await run({ storage: store, questions: qsn });
+    const opened = second.api.calls.post.filter((c) => c.path === '/api/quiz/sessions');
+    assert.equal(opened.length, 1, 'chặng 2 còn phải làm — phiên là bắt buộc');
+  });
+});
