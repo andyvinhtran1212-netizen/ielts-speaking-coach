@@ -101,3 +101,42 @@ def test_every_create_is_idempotent(sql):
     creates = re.findall(r"CREATE\s+(?:UNIQUE\s+)?(?:TABLE|INDEX)\s+(?!IF\s+NOT\s+EXISTS)",
                          sql, re.I)
     assert not creates, f"{len(creates)} lệnh CREATE thiếu IF NOT EXISTS"
+
+
+# ── Vòng review 1: chốt bảo mật và mốc sửa đổi ────────────────────────────────
+
+def test_both_tables_enable_RLS(sql):
+    """Cả 7 bảng cùng cụm (topics, topic_questions, courses, cohorts,
+    class_lessons, class_assignments, class_assignment_items) đều đã bật RLS. Để
+    trần hai bảng này là tạo ra bảng public DUY NHẤT của cụm không có chốt — một
+    client cầm khoá anon sửa được `question_text` hay `audio_url`, và lần giao
+    bài sau đọc dữ liệu đã bị bơm ấy như sự thật chính thức."""
+    for t in ("speaking_lesson_sets", "speaking_lesson_set_questions"):
+        assert re.search(rf"ALTER\s+TABLE\s+{t}\s+ENABLE\s+ROW\s+LEVEL\s+SECURITY",
+                         sql, re.I), f"{t} chưa bật RLS"
+
+
+def test_the_policies_are_admin_only_and_check_writes_too(sql):
+    """Thiếu WITH CHECK thì chính sách chặn ĐỌC mà vẫn cho GHI — đúng nửa nguy
+    hiểm của lỗ hổng."""
+    pols = re.findall(r"CREATE\s+POLICY[\s\S]+?;", sql, re.I)
+    assert len(pols) == 2, f"cần đúng 2 policy, thấy {len(pols)}"
+    for p in pols:
+        assert re.search(r"FOR\s+ALL\s+TO\s+authenticated", p, re.I)
+        assert re.search(r"USING\s*\(\s*public\.is_current_user_admin\(\)\s*\)", p, re.I)
+        assert re.search(r"WITH\s+CHECK\s*\(\s*public\.is_current_user_admin\(\)\s*\)", p, re.I)
+
+
+def test_policies_are_dropped_first_so_a_rerun_does_not_fail(sql):
+    """CREATE POLICY không có dạng IF NOT EXISTS."""
+    assert len(re.findall(r"DROP\s+POLICY\s+IF\s+EXISTS", sql, re.I)) == 2
+
+
+def test_updated_at_is_actually_maintained(sql):
+    """Một cột `updated_at` khai ra rồi không ai ghi thì TỆ HƠN là không có: nó
+    trông như một mốc sửa đổi, nên người đi kiểm sau sẽ tin nó và kết luận sai
+    rằng bộ đề chưa hề bị đụng tới."""
+    trigs = re.findall(r"CREATE\s+TRIGGER[\s\S]+?EXECUTE\s+FUNCTION\s+"
+                       r"update_updated_at_column\(\)\s*;", sql, re.I)
+    assert len(trigs) == 2, f"cần trigger cho cả hai bảng, thấy {len(trigs)}"
+    assert len(re.findall(r"DROP\s+TRIGGER\s+IF\s+EXISTS", sql, re.I)) == 2

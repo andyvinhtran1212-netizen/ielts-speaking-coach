@@ -127,6 +127,59 @@ END $$;
 -- `content_id` của bài theo buổi là id bộ đề, và hai không gian uuid không đụng
 -- nhau. Luật "đừng giao lại đúng thứ lớp đã làm" áp cho cả hai.
 
+
+-- ── 4. `updated_at` phải tự đúng ─────────────────────────────────────────────
+-- Cùng nếp với courses (175), class_lessons (176), class_assignments (177). Một
+-- cột `updated_at` khai ra rồi không ai ghi thì tệ hơn là không có: nó TRÔNG như
+-- một mốc sửa đổi, nên người đi kiểm sau này sẽ tin nó và kết luận sai rằng bộ
+-- đề chưa hề bị đụng tới.
+DROP TRIGGER IF EXISTS update_speaking_lesson_sets_updated_at ON speaking_lesson_sets;
+CREATE TRIGGER update_speaking_lesson_sets_updated_at
+    BEFORE UPDATE ON speaking_lesson_sets
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_slsq_updated_at ON speaking_lesson_set_questions;
+CREATE TRIGGER update_slsq_updated_at
+    BEFORE UPDATE ON speaking_lesson_set_questions
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+
+-- ── 5. RLS ───────────────────────────────────────────────────────────────────
+-- Cả 7 bảng cùng loại (topics, topic_questions, courses, cohorts, class_lessons,
+-- class_assignments, class_assignment_items) đều đã bật RLS. Hai bảng này mà để
+-- trần thì trở thành bảng public DUY NHẤT của cụm không có chốt: một client cầm
+-- khoá anon gọi thẳng PostgREST sửa được `question_text` hoặc `audio_url`, và
+-- lần render/giao bài sau sẽ đọc dữ liệu đã bị bơm ấy như sự thật chính thức.
+--
+-- Học viên KHÔNG đọc trực tiếp hai bảng này: đề tới tay họ qua endpoint
+-- service-role, và Part 1/3 còn bị che chữ (services/question_visibility.py).
+-- Nên chỉ cần một chính sách admin, giống hệt courses (175) / class_lessons (176).
+ALTER TABLE speaking_lesson_sets          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE speaking_lesson_set_questions ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS speaking_lesson_sets_admin_all ON speaking_lesson_sets;
+CREATE POLICY speaking_lesson_sets_admin_all ON speaking_lesson_sets
+    FOR ALL TO authenticated
+    USING      (public.is_current_user_admin())
+    WITH CHECK (public.is_current_user_admin());
+
+DROP POLICY IF EXISTS slsq_admin_all ON speaking_lesson_set_questions;
+CREATE POLICY slsq_admin_all ON speaking_lesson_set_questions
+    FOR ALL TO authenticated
+    USING      (public.is_current_user_admin())
+    WITH CHECK (public.is_current_user_admin());
+
+COMMENT ON TABLE speaking_lesson_sets IS
+'Kho đề Speaking soạn cho MỘT BUỔI của một khoá (mig 183). Thuộc về khoá chứ
+không thuộc về lớp, nên mọi lớp của khoá đó dùng lại được cùng một bộ.';
+
+COMMENT ON COLUMN speaking_lesson_set_questions.topic_label IS
+'Chủ đề của RIÊNG câu này, đưa vào lời dẫn "Let''s talk about …". ĐỂ TRỐNG ĐƯỢC:
+bộ đề một buổi thường rải nhiều chủ đề, khi ấy bản đọc rút còn "This is Part 1.
+Question: …". Sửa cột này là ĐỔI CÂU ĐỌC ⇒ phải xoá audio_url/audio_path.';
+
 COMMIT;
 
 -- ── Kiểm sau khi chạy ────────────────────────────────────────────────────────

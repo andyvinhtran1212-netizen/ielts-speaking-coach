@@ -40,6 +40,15 @@ _QUESTION_FIELDS = (
     "cue_card_bullets", "cue_card_reflection",
 )
 
+# Những trường ĐI VÀO CÂU ĐỌC. Sửa một trong hai là bản đọc cũ đang nói một đề
+# khác ⇒ phải xoá con trỏ audio. (`part` cũng đi vào câu đọc nhưng nằm ở BỘ ĐỀ,
+# xử lý riêng trong `_sync_questions`.)
+_SCRIPT_FIELDS = ("question_text", "topic_label")
+
+# Bản sao của CHECK trong mig 183. Để DB bắt nghĩa là bắt ở GIỮA vòng ghi.
+_LEVELS = {"easy", "medium", "hard"}
+_PARTS = {1, 2, 3}
+
 
 def _load(path: Path) -> dict:
     doc = json.loads(path.read_text(encoding="utf-8"))
@@ -66,12 +75,22 @@ def _normalise_questions(doc: dict) -> list[dict]:
     Một tệp hỏng nửa chừng sẽ để lại bộ đề thiếu câu mà vẫn giao được — tệ hơn
     hẳn so với việc từ chối ngay từ đầu.
     """
+    if int(doc["part"]) not in _PARTS:
+        raise SystemExit(f"part phải là một trong {sorted(_PARTS)}, tệp ghi {doc['part']!r}.")
+    if int(doc["lesson_no"]) < 1:
+        raise SystemExit(f"lesson_no phải ≥ 1, tệp ghi {doc['lesson_no']!r}.")
+
     out, seen = [], set()
     for i, q in enumerate(doc["questions"], 1):
         text = (q.get("question_text") or "").strip()
         if not text:
             raise SystemExit(f"Câu thứ {i} không có nội dung.")
         order = q.get("order_num") or i
+        # `order_num >= 1` là một CHECK trong mig 183. Để DB bắt nó nghĩa là bắt
+        # ở GIỮA vòng ghi, khi bộ đề và vài câu đầu đã nằm trong bảng — còn lại
+        # một bộ `is_active` thiếu câu mà vẫn giao được.
+        if not isinstance(order, int) or order < 1:
+            raise SystemExit(f"Câu thứ {i} có order_num không hợp lệ: {order!r} (phải là số ≥ 1).")
         if order in seen:
             raise SystemExit(f"order_num {order} bị dùng hai lần.")
         seen.add(order)
@@ -79,6 +98,10 @@ def _normalise_questions(doc: dict) -> list[dict]:
         # `level` suy ra từ kiểu hỏi bằng ĐÚNG bảng ánh xạ mà kho chung dùng —
         # chép một bảng thứ hai vào đây là hẹn ngày hai kho chấm độ khó khác nhau.
         level = q.get("level") or (LEVEL_OF_TYPE.get(qtype) if qtype else None)
+        if level is not None and level not in _LEVELS:
+            raise SystemExit(
+                f"Câu thứ {i} có level không hợp lệ: {level!r} "
+                f"(chỉ nhận {sorted(_LEVELS)}).")
         row = {
             "order_num":     order,
             "question_text": text,
@@ -94,9 +117,16 @@ def _normalise_questions(doc: dict) -> list[dict]:
 
 
 def _upsert_set(course: dict, doc: dict, commit: bool) -> str | None:
+    """Nhận diện bộ đề bằng (khoá, buổi, part) — đúng khoá của chỉ mục duy nhất
+    trong mig 183, nên chạy lại tệp đã sửa sẽ CẬP NHẬT chứ không tạo bản thứ hai.
+
+    Đổi `part` trong tệp = một bộ đề KHÁC theo chỉ mục ấy, nên nó tạo bộ mới thay
+    vì sửa bộ cũ. Nói vậy để rõ: `part_changed` trong `_sync_questions` lo trường
+    hợp bộ cũ bị sửa part bằng tay ở nơi khác, không phải trường hợp này.
+    """
     key = {"course_id": course["id"], "lesson_no": int(doc["lesson_no"]),
            "part": int(doc["part"])}
-    existing = (supabase_admin.table("speaking_lesson_sets").select("id, title")
+    existing = (supabase_admin.table("speaking_lesson_sets").select("id, title, part")
                 .eq("course_id", key["course_id"])
                 .eq("lesson_no", key["lesson_no"])
                 .eq("part", key["part"]).limit(1).execute().data) or []
@@ -117,9 +147,27 @@ def _upsert_set(course: dict, doc: dict, commit: bool) -> str | None:
 
 
 def _sync_questions(set_id: str, rows: list[dict], commit: bool) -> tuple[int, int, int]:
-    """Trả về (thêm, cập nhật, tắt)."""
+    """Trả về (thêm, cập nhật, tắt).
+
+    So SÁNH ĐỦ MỌI TRƯỜNG, không chỉ lời câu hỏi. Bản đầu chỉ so `question_text`,
+    nên thêm `topic_label` cho một câu đã có audio sẽ bị bỏ qua trong im lặng —
+    script báo "không cập nhật gì" trong khi tệp đã đổi thật.
+
+    Nhưng chỉ XOÁ AUDIO khi thứ đi vào CÂU ĐỌC đổi (`question_text` hoặc
+    `topic_label`). Sửa `level` hay `question_type` không đụng tới lời đọc, nên
+    xoá audio ở đó là bắt render lại cả bộ vì một cái nhãn — tốn tiền và làm mồ
+    côi file cũ trong Storage.
+
+    `part` cũng đi vào câu đọc nhưng KHÔNG cần xét ở đây: nó nằm trong khoá nhận
+    diện bộ đề, nên đổi part trong tệp tạo ra một bộ MỚI chứ không sửa bộ cũ.
+    Trường hợp còn lại — ai đó sửa `part` thẳng trong DB — thuộc về chốt đối
+    chiếu băm lúc GIAO BÀI (như `_audio_matches` của kho chung), không thuộc về
+    bộ nạp.
+    """
     live = (supabase_admin.table("speaking_lesson_set_questions")
-            .select("id, order_num, question_text, audio_url, audio_path, is_active")
+            .select("id, order_num, question_text, question_type, topic_label, "
+                    "level, cue_card_bullets, cue_card_reflection, "
+                    "audio_url, audio_path, is_active")
             .eq("set_id", set_id).execute().data) or []
     by_order = {r["order_num"]: r for r in live if r.get("is_active")}
 
@@ -132,16 +180,21 @@ def _sync_questions(set_id: str, rows: list[dict], commit: bool) -> tuple[int, i
                 supabase_admin.table("speaking_lesson_set_questions") \
                     .insert({**row, "set_id": set_id}).execute()
             continue
-        if (cur.get("question_text") or "") == row["question_text"]:
+
+        diff = [f for f in _QUESTION_FIELDS if cur.get(f) != row.get(f)]
+        if not diff:
             continue
-        # Lời câu hỏi đổi ⇒ bản đọc cũ đang nói một đề KHÁC. Xoá con trỏ audio
-        # ngay tại đây, để mẻ render sau nhận ra và làm lại. Giữ lại con trỏ cũ
-        # nghĩa là học viên nghe một đằng, bộ chấm đọc một nẻo.
         updated += 1
+        payload = dict(row)
+        if any(f in _SCRIPT_FIELDS for f in diff):
+            # Bản đọc cũ đang nói một đề KHÁC. Xoá con trỏ ngay tại đây để mẻ
+            # render sau nhận ra và làm lại — giữ nó nghĩa là học viên nghe một
+            # đằng còn bộ chấm đọc một nẻo, và không ai nhìn ra.
+            payload["audio_url"] = None
+            payload["audio_path"] = None
         if commit:
-            supabase_admin.table("speaking_lesson_set_questions").update(
-                {**row, "audio_url": None, "audio_path": None}
-            ).eq("id", cur["id"]).execute()
+            supabase_admin.table("speaking_lesson_set_questions") \
+                .update(payload).eq("id", cur["id"]).execute()
 
     for leftover in by_order.values():
         disabled += 1

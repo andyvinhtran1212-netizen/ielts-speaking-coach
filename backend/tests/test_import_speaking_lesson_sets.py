@@ -236,3 +236,92 @@ def test_comment_keys_in_the_file_are_not_treated_as_data(tmp_path):
     doc["_note"] = ["giải thích cho người soạn"]
     assert _run(tmp_path, db, doc, "--commit") == 0
     assert "_note" not in db.tables["speaking_lesson_sets"][0]
+
+
+# ── Vòng review 1: đủ trường, và chỉ xoá audio khi CÂU ĐỌC đổi ────────────────
+
+def test_metadata_only_changes_are_synced_too(tmp_path):
+    """Bản đầu chỉ so `question_text`, nên đổi mọi thứ khác đều bị bỏ qua trong
+    im lặng: script báo "không cập nhật gì" trong khi tệp đã đổi thật."""
+    db = _DB(courses=[_COURSE])
+    _run(tmp_path, db, _doc(), "--commit")
+    doc = _doc()
+    doc["questions"][0]["question_type"] = "opinion"      # → level đổi theo
+    _run(tmp_path, db, doc, "--commit")
+    row = [q for q in db.tables["speaking_lesson_set_questions"]
+           if q["order_num"] == 1][0]
+    assert row["question_type"] == "opinion"
+    assert row["level"] == mod.LEVEL_OF_TYPE["opinion"]
+
+
+def test_a_metadata_change_does_NOT_throw_away_the_audio(tmp_path):
+    """Xoá audio vì một cái nhãn là bắt render lại cả bộ — tốn tiền, và bỏ lại
+    file cũ mồ côi trong Storage."""
+    db = _DB(courses=[_COURSE])
+    _run(tmp_path, db, _doc(), "--commit")
+    for q in db.tables["speaking_lesson_set_questions"]:
+        q["audio_url"], q["audio_path"] = "https://cdn/cu.mp3", "sp/cu.mp3"
+    doc = _doc()
+    doc["questions"][0]["question_type"] = "opinion"
+    _run(tmp_path, db, doc, "--commit")
+    row = [q for q in db.tables["speaking_lesson_set_questions"]
+           if q["order_num"] == 1][0]
+    assert row["audio_url"] == "https://cdn/cu.mp3"
+
+
+def test_adding_a_topic_label_DOES_throw_away_the_audio(tmp_path):
+    """`topic_label` đi thẳng vào câu đọc ("Let's talk about food."). Giữ bản đọc
+    cũ nghĩa là học viên nghe một câu, bộ chấm đọc một câu khác."""
+    db = _DB(courses=[_COURSE])
+    _run(tmp_path, db, _doc(), "--commit")
+    for q in db.tables["speaking_lesson_set_questions"]:
+        q["audio_url"], q["audio_path"] = "https://cdn/cu.mp3", "sp/cu.mp3"
+    doc = _doc()
+    doc["questions"][0]["topic_label"] = "Food"
+    _run(tmp_path, db, doc, "--commit")
+    row = [q for q in db.tables["speaking_lesson_set_questions"]
+           if q["order_num"] == 1][0]
+    assert row["topic_label"] == "Food"
+    assert row["audio_url"] is None and row["audio_path"] is None
+
+
+def test_re_importing_an_UNCHANGED_file_writes_nothing(tmp_path):
+    """Nếu không thì mỗi lần chạy lại là một mẻ ghi vô ích, và `updated_at` của
+    cả bộ bị dời — xoá mất dấu vết ai sửa gì lúc nào."""
+    db = _DB(courses=[_COURSE])
+    _run(tmp_path, db, _doc(), "--commit")
+    before = len(db.writes)
+    _run(tmp_path, db, _doc(), "--commit")
+    new_question_writes = [w for w in db.writes[before:]
+                           if w[1] == "speaking_lesson_set_questions"]
+    assert new_question_writes == []
+
+
+# ── Vòng review 1: từ chối MỌI thứ DB sẽ từ chối, TRƯỚC khi ghi ───────────────
+
+def test_an_invalid_level_is_refused_before_any_write(tmp_path):
+    """Để DB bắt nghĩa là bắt ở GIỮA vòng ghi — bộ đề và vài câu đầu đã nằm
+    trong bảng, còn lại một bộ `is_active` THIẾU CÂU mà vẫn giao được."""
+    db = _DB(courses=[_COURSE])
+    doc = _doc()
+    doc["questions"][0]["level"] = "advanced"
+    with pytest.raises(SystemExit) as exc:
+        _run(tmp_path, db, doc, "--commit")
+    assert "advanced" in str(exc.value)
+    assert db.writes == []
+
+
+def test_a_negative_order_num_is_refused_before_any_write(tmp_path):
+    db = _DB(courses=[_COURSE])
+    doc = _doc()
+    doc["questions"][0]["order_num"] = -1
+    with pytest.raises(SystemExit):
+        _run(tmp_path, db, doc, "--commit")
+    assert db.writes == []
+
+
+def test_a_part_outside_1_to_3_is_refused_before_any_write(tmp_path):
+    db = _DB(courses=[_COURSE])
+    with pytest.raises(SystemExit):
+        _run(tmp_path, db, _doc(part=4), "--commit")
+    assert db.writes == []
