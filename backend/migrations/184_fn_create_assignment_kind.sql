@@ -30,10 +30,20 @@
 
 BEGIN;
 
+-- Bỏ chữ ký CŨ (11 tham số). `IF EXISTS` để lần chạy thứ hai không đổ ở đây.
 DROP FUNCTION IF EXISTS fn_create_class_assignment(
     uuid, text, text, uuid, jsonb, uuid, text, timestamptz, timestamptz, text, uuid);
 
-CREATE FUNCTION fn_create_class_assignment(
+-- Rồi tạo chữ ký MỚI bằng `OR REPLACE`, không phải `CREATE` trần.
+--
+-- Trần thì lần chạy thứ hai đổ: chữ ký cũ đã biến mất nên DROP ở trên thành
+-- vô hiệu, còn chữ ký mới thì đã tồn tại. Migration này phải chạy lại được —
+-- nó bị chạy tay trên prod, và một lần retry sau lỗi mạng không được biến thành
+-- một giao dịch abort.
+--
+-- `OR REPLACE` an toàn ở đây vì DROP phía trên đã dọn đúng chữ ký cũ, nên không
+-- có cách nào còn lại hai bản nạp chồng.
+CREATE OR REPLACE FUNCTION fn_create_class_assignment(
     p_cohort_id      uuid,
     p_skill          text,
     p_title          text,

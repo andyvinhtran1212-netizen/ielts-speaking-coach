@@ -818,6 +818,20 @@ function applyHomeworkKind() {
   $('hf-due-days-field').hidden = !lesson;
   $('hf-due-resolve').hidden = !lesson;
 
+  // DỌN bộ chọn câu trước khi đổi nguồn.
+  //
+  // Hai nguồn đề dùng CHUNG một danh sách và chung `_qpick`. Không dọn thì đổi
+  // từ bài theo buổi về bài hằng ngày sẽ để lại nguyên 12 câu của buổi cũ nằm
+  // dưới nhãn "Câu hỏi" — và `_qpick.picked` vẫn giữ id của những câu ấy, nên
+  // bấm Giao sẽ gửi id thuộc bộ đề khác. Danh sách chỉ hiện lại sau khi đúng
+  // một trong hai bộ nạp đã chạy xong.
+  _qpick = { items: [], picked: [], want: 1, topicId: null, part: null,
+             mode: lesson ? 'subset' : 'order' };
+  $('hf-qpick-field').hidden = true;
+  $('hf-qpick').hidden = true;
+  $('hf-qpick-list').innerHTML = '';
+  $('hf-qpick-foot').innerHTML = '';
+
   applyHomeworkSkill();
   renderDueResolve();
 }

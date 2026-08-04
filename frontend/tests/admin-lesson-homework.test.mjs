@@ -59,13 +59,14 @@ function load({ kind = 'daily', now = '2026-08-04T03:00:00Z', sets = [], setQues
   nodes['hf-due-days'].value = '7';
 
   const kindBox = { addEventListener() {}, _bound: [] };
+  // Loại bài đổi được TRONG CÙNG một lần nạp: người dùng thật bấm qua lại trên
+  // cùng một ô, và lỗi "danh sách câu của nguồn cũ ở lại" chỉ lộ ra khi ấy.
+  let currentKind = kind;
   const posted = [];
   const toasts = [];
   const document = {
     querySelector(sel) {
-      if (sel.includes('hf-kind')) {
-        return sel.includes(':checked') ? { value: kind } : { value: kind };
-      }
+      if (sel.includes('hf-kind')) return { value: currentKind };
       if (sel.includes('hf-qmode')) return { value: 'manual' };
       if (sel === '.av-kind') return kindBox;
       return null;
@@ -120,7 +121,13 @@ function load({ kind = 'daily', now = '2026-08-04T03:00:00Z', sets = [], setQues
       static UTC(...a) { return Date.UTC(...a); }
     },
   );
-  return { ...ctx, nodes, partField, posted, toasts, kindBox };
+  // Object.create chứ KHÔNG spread: `{ ...ctx }` đọc getter MỘT LẦN rồi chép
+  // giá trị, nên mọi phép gán lại `_qpick = {...}` trong mã thật trở nên vô
+  // hình — đúng loại lỗi bộ test này phải bắt được.
+  return Object.assign(Object.create(ctx), {
+    nodes, partField, posted, toasts, kindBox,
+    setKind(k) { currentKind = k; },
+  });
 }
 
 const SET = (over = {}) => ({ id: 's1', lesson_no: 1, part: 1, title: 'Buổi 1',
@@ -438,5 +445,37 @@ describe('khung trang', () => {
 
   test('không có mã màu cứng — hệ token là nguồn duy nhất', () => {
     assert.equal((CSS.match(/#[0-9a-fA-F]{3,8}\b/g) || []).length, 0);
+  });
+});
+
+
+// ── Vòng review 1 ────────────────────────────────────────────────────────────
+
+describe('đổi loại bài giữa chừng', () => {
+  test('câu của buổi cũ KHÔNG ở lại khi quay về bài hằng ngày', async () => {
+    // Hai nguồn đề dùng chung một danh sách. Không dọn thì 12 câu của buổi cũ
+    // nằm nguyên dưới nhãn "Câu hỏi", và `picked` vẫn giữ id thuộc bộ đề khác —
+    // bấm Giao sẽ gửi những id ấy cho một bài hằng ngày.
+    const p = load({ kind: 'lesson', setQuestions: [SQ('q1'), SQ('q2')] });
+    p.nodes['hf-set'].value = 's1';
+    await p.loadSetQuestions();
+    assert.equal(p.state.picked.length, 2);
+
+    // Người dùng bấm sang "Bài hằng ngày" trên CHÍNH ô đang mở.
+    p.setKind('daily');
+    p.applyHomeworkKind();
+    assert.deepEqual(p.state.picked, [], 'phải bỏ hết lựa chọn của nguồn cũ');
+    assert.deepEqual(p.state.items, []);
+    assert.equal(p.nodes['hf-qpick-field'].hidden, true);
+    assert.equal(p.nodes['hf-qpick-list'].innerHTML, '');
+  });
+
+  test('đổi sang bài theo buổi cũng dọn sạch lựa chọn cũ', () => {
+    const p = load({ kind: 'lesson' });
+    p.state = { items: [{ id: 'x' }], picked: ['x'], want: 2, topicId: 't', part: '1', mode: 'order' };
+    p.applyHomeworkKind();
+    assert.deepEqual(p.state.picked, []);
+    assert.equal(p.state.mode, 'subset');
+    assert.equal(p.state.topicId, null, 'topicId cũ còn lại sẽ khiến bộ nạp tưởng đã tải rồi');
   });
 });
