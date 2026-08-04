@@ -29,7 +29,9 @@ describe('admin quiz-analytics.html — chrome + endpoints', () => {
     assert.match(PAGE, /\.hidden\s*\{\s*display:\s*none\s*!important;?\s*\}/);
   });
   test('per-student rollup + overview cards', () => {
-    assert.match(PAGE, /\/admin\/quiz\/students\?skill_area=vocab/);
+    // Ghim ĐƯỜNG GỌI, không ghim phạm vi: phạm vi nay do ô chọn quyết định
+    // (vocab | course) nên đóng cứng 'vocab' ở đây là ghim lại đúng cái vừa bỏ.
+    assert.match(PAGE, /\/admin\/quiz\/students\?skill_area=/);
     assert.match(PAGE, /Học viên hoạt động/);
     assert.match(PAGE, /Độ chính xác TB/);
     assert.match(PAGE, /id="qa-overview"/);
@@ -40,7 +42,7 @@ describe('admin quiz-analytics.html — chrome + endpoints', () => {
     assert.match(PAGE, /class="av-modal-backdrop/);
   });
   test('hard-words tab reuses the class-wide bank analytics endpoint', () => {
-    assert.match(PAGE, /\/admin\/quiz\/banks\?skill_area=vocab/);
+    assert.match(PAGE, /\/admin\/quiz\/banks\?skill_area=/);
     assert.match(PAGE, /\/analytics/);
     assert.match(PAGE, /data-tab="hard"/);
     assert.match(PAGE, /data-tab="students"/);
