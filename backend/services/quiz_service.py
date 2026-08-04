@@ -19,6 +19,12 @@ from datetime import datetime, timezone
 
 from fastapi import HTTPException
 
+from services.class_assignment_service import (
+    is_accepting_submissions,
+    is_assignment_open,
+    mark_item_submitted,
+)
+
 from database import supabase_admin
 
 logger = logging.getLogger(__name__)
@@ -188,33 +194,52 @@ def list_published_banks(*, skill_area: str | None = None, topic_id: str | None 
         raise HTTPException(500, f"Lỗi truy vấn banks: {exc}")
 
 
-def _has_assignment_for(bank_id: str, user_id: str) -> bool:
-    """Học viên này CÓ được giao bài tập của bank ấy không.
+def _assignment_item_for(bank_id: str, user_id: str) -> dict | None:
+    """Mục bài giao CÒN HIỆU LỰC của học viên này cho bank ấy, hoặc None.
 
-    Bài giao lớp trỏ tới bank bằng `content_id` (mig 177), và mỗi học viên có một
-    dòng trong `class_assignment_items`. Hỏi từ phía học viên: chỉ những mục của
-    CHÍNH em ấy mới được tính.
+    ĐÚNG BA ĐIỀU KIỆN mà `POST /api/class/assignments/{item}/start` đã đòi, và
+    dùng lại CHÍNH hai hàm ấy chứ không chép luật:
+
+      · bài giao còn mở      (`is_assignment_open` — chưa lưu trữ, đã tới ngày)
+      · còn nhận bài         (`is_accepting_submissions` — chưa quá hạn)
+      · đúng lớp HIỆN TẠI    (em chuyển lớp thì mất quyền, dù dòng mục còn đó)
+
+    Thiếu ba cái này thì một đường dẫn đã lưu vào bookmark còn trả về TOÀN BỘ câu
+    hỏi kèm đáp án mãi mãi — kể cả sau khi bài giao bị lưu trữ, sau hạn nộp, hay
+    sau khi em ấy đã chuyển sang lớp khác. Cổng ở đây phải nói cùng một câu với
+    lệnh mở bài, nếu không thì lệnh kia chỉ là một gợi ý.
     """
     try:
-        asg = (supabase_admin.table("class_assignments").select("id")
+        asg = (supabase_admin.table("class_assignments").select("*")
                .eq("content_id", bank_id).execute().data) or []
         if not asg:
-            return False
-        student = (supabase_admin.table("students").select("id")
+            return None
+        student = (supabase_admin.table("students").select("id, cohort_id")
                    .eq("user_id", user_id).execute().data) or []
         if not student:
-            return False
+            return None
+        cohorts = {s.get("cohort_id") for s in student}
+        live = [a for a in asg
+                if is_assignment_open(a)
+                and is_accepting_submissions(a)
+                and a.get("cohort_id") in cohorts]
+        if not live:
+            return None
         sids = [s["id"] for s in student]
-        aids = [a["id"] for a in asg]
-        rows = (supabase_admin.table("class_assignment_items").select("id")
-                .in_("assignment_id", aids).in_("student_id", sids)
+        rows = (supabase_admin.table("class_assignment_items")
+                .select("id, assignment_id, student_id")
+                .in_("assignment_id", [a["id"] for a in live]).in_("student_id", sids)
                 .limit(1).execute().data) or []
-        return bool(rows)
+        return rows[0] if rows else None
     except Exception as exc:  # noqa: BLE001
         # Không đọc được thì TỪ CHỐI. Mở cửa khi chốt hỏng là biến một lỗi tạm
         # thời thành một lần lộ nội dung.
         logger.warning("[quiz] assignment check failed bank=%s: %s", bank_id, exc)
-        return False
+        return None
+
+
+def _has_assignment_for(bank_id: str, user_id: str) -> bool:
+    return _assignment_item_for(bank_id, user_id) is not None
 
 
 def get_bank_for_play(bank_id: str, user_id: str | None = None) -> dict:
@@ -230,14 +255,21 @@ def get_bank_for_play(bank_id: str, user_id: str | None = None) -> dict:
         ).data
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi truy vấn bank: {exc}")
-    if not b or not b[0].get("is_published"):
+    if not b:
         raise HTTPException(404, "Không tìm thấy bank")
     bank = b[0]
     if bank.get("skill_area") == COURSE_AREA:
+        # BÀI GIAO LÀ CỬA DUY NHẤT. `is_published` KHÔNG áp cho giáo trình: bank
+        # theo buổi sống trong kho giáo viên ở trạng thái nháp và không bao giờ
+        # được xuất bản, nên đòi thêm cờ ấy sẽ khoá chết cả những bài ĐÃ GIAO —
+        # giao xong mà học viên vẫn không mở được.
+        #
         # Trả 404 chứ không 403: 403 xác nhận bank ấy tồn tại, và với nội dung
         # giáo trình thì chính sự tồn tại cũng không cần nói ra.
         if not user_id or not _has_assignment_for(bank_id, user_id):
             raise HTTPException(404, "Không tìm thấy bank")
+    elif not bank.get("is_published"):
+        raise HTTPException(404, "Không tìm thấy bank")
     try:
         questions = (
             supabase_admin.table("quiz_questions").select("*")
@@ -251,7 +283,7 @@ def get_bank_for_play(bank_id: str, user_id: str | None = None) -> dict:
     return {"bank": bank, "questions": questions, "word_cards": word_cards}
 
 
-def _bank_meta_or_404(bank_id: str) -> dict:
+def _bank_meta_or_404(bank_id: str, user_id: str | None = None) -> dict:
     """Lightweight published-bank guard: fetch ONLY the bank's own row (id, code,
     is_published) — no questions, no word_cards. Used by start_session, which just
     needs `code` + the published check; pulling the full get_bank_for_play there
@@ -259,14 +291,25 @@ def _bank_meta_or_404(bank_id: str) -> dict:
     start (they were already fetched by the player's GET /banks/{id})."""
     try:
         b = (
-            supabase_admin.table("quiz_banks").select("id, code, is_published")
+            supabase_admin.table("quiz_banks").select("id, code, is_published, skill_area")
             .eq("id", bank_id).limit(1).execute()
         ).data
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi truy vấn bank: {exc}")
-    if not b or not b[0].get("is_published"):
+    if not b:
         raise HTTPException(404, "Không tìm thấy bank")
-    return b[0]
+    bank = b[0]
+    # CÙNG cổng với `get_bank_for_play`. Trước đó hàm này chỉ đòi `is_published`,
+    # nên bank giáo trình (luôn ở trạng thái nháp) mở được ở lượt đọc đề nhưng
+    # 404 ở lượt TẠO PHIÊN — học viên vẫn làm bài được, mà không lượt nào được
+    # ghi và giáo viên đọc thành chưa làm. Hai cổng cho cùng một bank phải nói
+    # cùng một câu.
+    if bank.get("skill_area") == COURSE_AREA:
+        if not user_id or not _has_assignment_for(bank_id, user_id):
+            raise HTTPException(404, "Không tìm thấy bank")
+    elif not bank.get("is_published"):
+        raise HTTPException(404, "Không tìm thấy bank")
+    return bank
 
 
 def _word_cards_for(bank: dict) -> dict:
@@ -366,11 +409,17 @@ def start_session(*, user_id: str, bank_id: str) -> dict:
     errors we must NOT start a fresh-looking session, because the first /progress
     upsert would then overwrite a previously mastered/provisional word with lower
     counts. A read failure → 500, no session row, no destructive write."""
-    bank = _bank_meta_or_404(bank_id)   # 404/published guard + code (no heavy fetch)
+    bank = _bank_meta_or_404(bank_id, user_id)   # cổng (published HOẶC bài giao)
     resume = get_resume(user_id=user_id, bank_id=bank_id)   # raises on read failure
+    # Ghi lại mục bài giao NGAY LÚC TẠO PHIÊN, không đoán về sau. Suy ra "lượt
+    # này thuộc bài giao nào" từ thời điểm và người làm là một phép đoán, và phép
+    # đoán ấy đã sai đủ nhiều lần (mig 181) để không đáng làm lại.
+    item = (_assignment_item_for(bank_id, user_id)
+            if bank.get("skill_area") == COURSE_AREA else None)
     try:
         res = supabase_admin.table("quiz_sessions").insert({
             "user_id": user_id, "bank_id": bank_id, "code": bank.get("code"),
+            "class_assignment_item_id": (item or {}).get("id"),
         }).execute()
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi tạo session: {exc}")
@@ -528,7 +577,7 @@ def log_progress(*, user_id: str, session_id: str, attempts: list[dict], word_st
 
 def end_session(*, user_id: str, session_id: str, data: dict) -> dict:
     """Finalize a session with totals from the client. ended_by ∈ ENDED_BY."""
-    _owned_session(session_id, user_id)
+    session = _owned_session(session_id, user_id)
     ended_by = data.get("ended_by")
     if ended_by not in _ENDED_BY:
         ended_by = "completed"
@@ -550,6 +599,26 @@ def end_session(*, user_id: str, session_id: str, data: dict) -> dict:
         res = supabase_admin.table("quiz_sessions").update(patch).eq("id", session_id).execute()
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi kết thúc session: {exc}")
+
+    # CHỐT SỔ BÀI GIAO. Không có bước này thì mục ở lại "opened" vĩnh viễn và
+    # bảng của giáo viên báo em ấy chưa nộp — trong khi em ấy vừa làm xong.
+    #
+    # `mark_item_submitted` luỹ đẳng (chỉ ghi khi `submitted_at IS NULL`), nên
+    # làm nhiều chặng chỉ ghi lần ĐẦU và một bài nộp đúng hạn không bị đẩy thành
+    # trễ ở chặng sau.
+    #
+    # Best-effort: hỏng ở đây KHÔNG được làm đổ lệnh kết phiên — điểm đã ghi rồi,
+    # và chốt sổ có thể vá lại bằng lượt đối chiếu.
+    item_id = (session or {}).get("class_assignment_item_id")
+    if item_id and ended_by == "completed":
+        try:
+            mark_item_submitted(
+                supabase_admin, item_id=item_id,
+                artifact_kind="quiz_session", artifact_id=session_id,
+                score=(round(correct / total * 100, 1) if total else None),
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[quiz] mark submitted failed item=%s: %s", item_id, exc)
     return res.data[0] if res.data else {"id": session_id, **patch}
 
 

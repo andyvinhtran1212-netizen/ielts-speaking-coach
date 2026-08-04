@@ -71,12 +71,18 @@ function submittedLabel(row) {
 }
 
 const SKILL_LABEL = { speaking: 'Speaking', writing: 'Writing',
-                     reading: 'Reading', listening: 'Listening' };
+                     reading: 'Reading', listening: 'Listening',
+                     course: 'Bài tập theo buổi' };
 
 function taskSub(a) {
   const cfg = a.assignment.content_config || {};
   if (a.assignment.skill === 'speaking') {
     return [cfg.topic, cfg.part ? `Part ${cfg.part}` : ''].filter(Boolean).join(' · ');
+  }
+  if (a.assignment.skill === 'course') {
+    // "Buổi 3" là thứ học viên nhận ra ngay; tên bộ đề đứng sau nó.
+    return [cfg.lesson_no ? `Buổi ${cfg.lesson_no}` : '', cfg.test_title]
+      .filter(Boolean).join(' · ');
   }
   // For a test the paper's own title is the useful line, not the topic field.
   return [SKILL_LABEL[a.assignment.skill] || a.assignment.skill,
@@ -327,6 +333,14 @@ async function startAssignment(itemId, btn) {
     // attempt row. Nothing is created here.
     if (r && r.open_url) {
       window.location.href = r.open_url;
+      return;
+    }
+
+    // Bài tập theo buổi: mở thẳng bằng id bank. Không có phiên nào phải dựng
+    // trước — chính bài giao vừa được xác nhận ở lệnh /start là thứ cho phép
+    // trang kia đọc được bank ấy.
+    if (r && r.bank_id) {
+      window.location.href = '/course-exercises?bank=' + encodeURIComponent(r.bank_id);
       return;
     }
 

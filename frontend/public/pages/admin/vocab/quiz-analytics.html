@@ -34,6 +34,11 @@
     .qa-header h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-semibold);
       margin: 0 0 var(--av-space-1); color: var(--av-text-primary); }
     .qa-header .subtitle { color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
+    /* Ô chọn phạm vi đứng cạnh nút Tải lại: cả hai đều tác động lên TOÀN trang,
+       nên chúng thuộc về cùng một nhóm. */
+    .qa-head-actions { display: flex; gap: var(--av-space-3); align-items: center; flex-shrink: 0; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
     .qa-error { color: var(--av-error); background: var(--av-error-soft);
       border: 1px solid var(--av-error); border-radius: var(--av-radius-md); padding: var(--av-space-3); }
 
@@ -82,10 +87,23 @@
     <main class="qa-shell">
       <header class="qa-header">
         <div>
-          <h1>Kết quả luyện tập từ vựng</h1>
-          <p class="subtitle">Quan sát tiến độ Quick-Check của học viên: thời gian, số phiên, độ chính xác, từ đã thuộc.</p>
+          <h1 id="qa-title">Kết quả luyện tập từ vựng</h1>
+          <p class="subtitle" id="qa-subtitle">Quan sát tiến độ Quick-Check của học viên: thời gian, số phiên, độ chính xác, từ đã thuộc.</p>
         </div>
-        <button class="btn-secondary" type="button" id="qa-refresh">↺ Tải lại</button>
+        <div class="qa-head-actions">
+          <!-- Trang này vốn đóng cứng `skill_area=vocab` ở ba lời gọi, nên kết
+               quả bài tập theo buổi có ghi vào cùng bảng cũng không ai đọc được.
+               Một ô chọn phạm vi rẻ hơn một trang thứ hai, và giữ mọi phép tính
+               ở đúng một chỗ. -->
+          <label class="qa-scope">
+            <span class="sr-only">Phạm vi</span>
+            <select id="qa-scope" class="qa-select">
+              <option value="vocab">Luyện từ vựng</option>
+              <option value="course">Bài tập theo buổi</option>
+            </select>
+          </label>
+          <button class="btn-secondary" type="button" id="qa-refresh">↺ Tải lại</button>
+        </div>
       </header>
 
       <div id="qa-error" class="qa-error hidden"></div>
@@ -151,7 +169,34 @@
     // ── Students tab ─────────────────────────────────────────────────
     async function loadStudents() {
       let d;
-      try { d = await window.api.get('/admin/quiz/students?skill_area=vocab'); }
+      // Phạm vi đang xem. Đọc từ ô chọn chứ không nhớ ở biến: mọi lời gọi phải
+      // thấy CÙNG một giá trị, kể cả khi người dùng đổi giữa hai lượt tải.
+      function scope() {
+        var el = document.getElementById('qa-scope');
+        return (el && el.value) || 'vocab';
+      }
+
+      // Cột "từ đã thuộc" chỉ có nghĩa với kho từ vựng — bài tập theo buổi làm
+      // tuần tự một lần, không có gì để lặp tới khi thuộc. Để nguyên nhãn ấy là
+      // hứa một con số mà phạm vi này không sinh ra.
+      var SCOPE_TEXT = {
+        vocab: {
+          title: 'Kết quả luyện tập từ vựng',
+          sub: 'Quan sát tiến độ Quick-Check của học viên: thời gian, số phiên, độ chính xác, từ đã thuộc.',
+        },
+        course: {
+          title: 'Kết quả bài tập theo buổi',
+          sub: 'Học viên làm bài tập của giáo trình: thời gian, số lượt, độ chính xác, và trục kiến thức sai nhiều nhất.',
+        },
+      };
+
+      function applyScope() {
+        var t = SCOPE_TEXT[scope()] || SCOPE_TEXT.vocab;
+        document.getElementById('qa-title').textContent = t.title;
+        document.getElementById('qa-subtitle').textContent = t.sub;
+      }
+
+      try { d = await window.api.get('/admin/quiz/students?skill_area=' + scope()); }
       catch (e) { showError('Không tải được dữ liệu: ' + e.message); $('qa-students').innerHTML = ''; return; }
       const o = d.overview || {};
       $('qa-overview').innerHTML =
@@ -189,7 +234,7 @@
       $('qa-modal').classList.remove('hidden');
       $('qa-modal-x').focus();
       let d;
-      try { d = await window.api.get('/admin/quiz/students/' + encodeURIComponent(uid) + '?skill_area=vocab'); }
+      try { d = await window.api.get('/admin/quiz/students/' + encodeURIComponent(uid) + '?skill_area=' + scope()); }
       catch (e) { $('qa-modal-body').innerHTML = '<p class="qa-error">Không tải được: ' + esc(e.message) + '</p>'; return; }
       if (d.user && d.user.email) $('qa-modal-title').textContent = (d.user.name || name) + ' · ' + d.user.email;
 
@@ -235,7 +280,7 @@
       if (_banksLoaded) return;
       _banksLoaded = true;
       let banks;
-      try { banks = await window.api.get('/admin/quiz/banks?skill_area=vocab'); }
+      try { banks = await window.api.get('/admin/quiz/banks?skill_area=' + scope()); }
       catch (e) { showError('Không tải được danh sách bộ: ' + e.message); return; }
       banks = Array.isArray(banks) ? banks : [];
       $('qa-bank').innerHTML = '<option value="">— chọn bộ —</option>'
@@ -276,6 +321,21 @@
     });
 
     $('qa-refresh').onclick = loadStudents;
+
+    // Đổi phạm vi = đổi TOÀN BỘ dữ liệu trang. Phải dọn cả tab "dễ sai": nó nhớ
+    // đã tải rồi bằng `_banksLoaded`, nên không đặt lại thì người dùng chuyển
+    // sang bài tập theo buổi mà vẫn thấy danh sách bộ TỪ VỰNG — và mọi con số
+    // bên dưới thuộc về kho khác.
+    $('qa-scope').onchange = () => {
+      applyScope();
+      _banksLoaded = false;
+      $('qa-bank').innerHTML = '';
+      $('qa-hard').innerHTML = '';
+      loadStudents();
+      if (!$('tab-hard').classList.contains('hidden')) loadBankList();
+    };
+
+    applyScope();
     loadStudents();
   </script>
 

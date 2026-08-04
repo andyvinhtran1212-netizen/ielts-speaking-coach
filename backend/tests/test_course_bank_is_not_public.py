@@ -23,8 +23,9 @@ class _Resp:
 
 
 class _Table:
-    def __init__(self, rows):
+    def __init__(self, rows, db=None):
         self._rows = list(rows)
+        self._db = db
 
     def select(self, *_a, **_k): return self
 
@@ -42,14 +43,32 @@ class _Table:
 
     def order(self, *_a, **_k): return self
     def limit(self, *_a): return self
+    def update(self, payload): self._patch = payload; return self
+    def insert(self, payload):
+        row = dict(payload if isinstance(payload, dict) else payload[0])
+        row.setdefault("id", "sess-1")
+        self._db.inserted.append(row)
+        return _Op(_Resp([row]))
     def execute(self): return _Resp(self._rows)
+
+
+class _Op:
+    def __init__(self, r): self._r = r
+    def execute(self): return self._r
 
 
 def _db(**tables):
     db = type("DB", (), {})()
-    db.table = lambda n: _Table(tables.get(n, []))
+    db.inserted = []
+    db.table = lambda n: _Table(tables.get(n, []), db)
     return db
 
+
+# Bài giao THẬT có đủ ba trường mà cổng đọc. Để thiếu chúng nghĩa là test đang
+# kiểm một thứ KHÁC với thứ chạy trên prod.
+_LIVE_ASG = {"id": "asg-1", "content_id": "bank-course", "status": "published",
+             "publish_at": None, "due_at": None, "cohort_id": "co-1"}
+_STUDENT = {"id": "st-1", "user_id": "u1", "cohort_id": "co-1"}
 
 _COURSE_BANK = {"id": "bank-course", "code": "C1-B01", "skill_area": "course",
                 "title": "Buổi 1", "is_published": True, "topic_id": None,
@@ -115,8 +134,8 @@ def test_an_ASSIGNED_student_can_open_it():
         quiz_banks=[_COURSE_BANK],
         quiz_questions=[{"id": "q1", "bank_id": "bank-course", "order": 0,
                          "type": "mcq", "item_key": "x"}],
-        class_assignments=[{"id": "asg-1", "content_id": "bank-course"}],
-        students=[{"id": "st-1", "user_id": "u1"}],
+        class_assignments=[_LIVE_ASG],
+        students=[_STUDENT],
         class_assignment_items=[{"id": "it-1", "assignment_id": "asg-1", "student_id": "st-1"}],
     )
     with patch.object(mod, "_word_cards_for", lambda *_a, **_k: []), \
@@ -186,3 +205,201 @@ def test_a_vocab_bank_is_NOT_gated_by_assignments():
          patch.object(mod, "_resolve_question_audio", lambda *_a, **_k: None):
         out = mod.get_bank_for_play("bank-vocab", user_id="u1")
     assert out["bank"]["code"] == "V-01"
+
+
+# ── Bài giao là cửa DUY NHẤT (không phải cửa THỨ HAI) ────────────────────────
+
+_DRAFT_COURSE = {**_COURSE_BANK, "is_published": False}
+
+
+def test_an_ASSIGNED_student_can_open_a_DRAFT_course_bank():
+    """Bank theo buổi sống trong kho giáo viên ở trạng thái NHÁP và không bao giờ
+    được xuất bản. Đòi thêm `is_published` sẽ khoá chết cả bài ĐÃ GIAO — giao
+    xong mà học viên vẫn không mở được, và không có gì nói vì sao."""
+    db = _db(
+        quiz_banks=[_DRAFT_COURSE],
+        quiz_questions=[{"id": "q1", "bank_id": "bank-course", "order": 0,
+                         "type": "mcq", "item_key": "x"}],
+        class_assignments=[_LIVE_ASG],
+        students=[_STUDENT],
+        class_assignment_items=[{"id": "it-1", "assignment_id": "asg-1", "student_id": "st-1"}],
+    )
+    with patch.object(mod, "_word_cards_for", lambda *_a, **_k: []), \
+         patch.object(mod, "_attach_article_urls", lambda *_a, **_k: None), \
+         patch.object(mod, "_resolve_question_audio", lambda *_a, **_k: None):
+        out = _play(db)
+    assert out["bank"]["code"] == "C1-B01"
+
+
+def test_a_DRAFT_course_bank_is_still_closed_WITHOUT_an_assignment():
+    db = _db(quiz_banks=[_DRAFT_COURSE], class_assignments=[], students=[])
+    with pytest.raises(HTTPException) as exc:
+        _play(db)
+    assert exc.value.status_code == 404
+
+
+def test_a_DRAFT_vocab_bank_stays_closed():
+    """Chốt ngược: bỏ `is_published` cho giáo trình KHÔNG được nới lỏng kho khác."""
+    db = _db(quiz_banks=[{**_VOCAB_BANK, "is_published": False}])
+    with patch.object(mod, "supabase_admin", db), pytest.raises(HTTPException) as exc:
+        mod.get_bank_for_play("bank-vocab", user_id="u1")
+    assert exc.value.status_code == 404
+
+
+# ── Cổng phải nói CÙNG MỘT CÂU với lệnh mở bài ───────────────────────────────
+#
+# Thiếu ba chốt dưới đây thì một đường dẫn đã lưu bookmark còn trả về TOÀN BỘ câu
+# hỏi kèm đáp án mãi mãi — kể cả sau khi bài giao bị lưu trữ, sau hạn nộp, hay
+# sau khi em ấy đã chuyển lớp.
+
+def _assigned(asg_over=None, stu_over=None):
+    return _db(
+        quiz_banks=[_COURSE_BANK],
+        quiz_questions=[{"id": "q1", "bank_id": "bank-course", "order": 0,
+                         "type": "mcq", "item_key": "x"}],
+        class_assignments=[{**_LIVE_ASG, **(asg_over or {})}],
+        students=[{**_STUDENT, **(stu_over or {})}],
+        class_assignment_items=[{"id": "it-1", "assignment_id": "asg-1", "student_id": "st-1"}],
+    )
+
+
+def test_an_ARCHIVED_assignment_closes_the_door():
+    with pytest.raises(HTTPException) as exc:
+        _play(_assigned({"status": "archived"}))
+    assert exc.value.status_code == 404
+
+
+def test_an_assignment_PAST_ITS_DEADLINE_closes_the_door():
+    """Đề kèm đáp án. Để mở sau hạn nghĩa là phát đáp án cho bài vừa chốt sổ."""
+    with pytest.raises(HTTPException) as exc:
+        _play(_assigned({"due_at": "2020-01-01T00:00:00+00:00"}))
+    assert exc.value.status_code == 404
+
+
+def test_a_TRANSFERRED_student_loses_access():
+    """Dòng mục bài tập CỐ Ý sống sót khi học viên chuyển lớp (để giữ lịch sử),
+    nên chỉ dựa vào 'có dòng mục' là cho em ấy đọc tiếp bài của lớp cũ."""
+    with pytest.raises(HTTPException) as exc:
+        _play(_assigned(stu_over={"cohort_id": "co-KHAC"}))
+    assert exc.value.status_code == 404
+
+
+def test_a_SCHEDULED_assignment_is_not_open_yet():
+    """`publish_at` là cổng hé màn (mig 177): mục được tạo sẵn lúc giao, nên
+    không kiểm thì bài hẹn thứ Hai tuần sau mở được ngay hôm nay."""
+    with pytest.raises(HTTPException) as exc:
+        _play(_assigned({"publish_at": "2099-01-01T00:00:00+00:00"}))
+    assert exc.value.status_code == 404
+
+
+def test_a_LIVE_assignment_still_opens():
+    """Chốt ngược: siết quá tay sẽ khoá cả bài đang mở."""
+    with patch.object(mod, "_word_cards_for", lambda *_a, **_k: []), \
+         patch.object(mod, "_attach_article_urls", lambda *_a, **_k: None), \
+         patch.object(mod, "_resolve_question_audio", lambda *_a, **_k: None):
+        assert _play(_assigned())["bank"]["code"] == "C1-B01"
+
+
+# ── Hai cổng cho cùng một bank phải nói CÙNG MỘT CÂU ─────────────────────────
+
+def _started(db, user_id="u1"):
+    with patch.object(mod, "supabase_admin", db), \
+         patch.object(mod, "get_resume", lambda **_k: {}):
+        return mod.start_session(user_id=user_id, bank_id="bank-course")
+
+
+def test_creating_a_session_uses_the_SAME_gate_as_reading_the_bank():
+    """Trước đó `start_session` chỉ đòi `is_published`, nên bank giáo trình (luôn
+    NHÁP) mở được ở lượt đọc đề nhưng 404 ở lượt TẠO PHIÊN: học viên vẫn làm bài
+    được, mà không lượt nào được ghi và giáo viên đọc thành chưa làm.
+
+    Ca phân biệt phải là bank NHÁP + CÓ bài giao. Dùng bank đã xuất bản thì bản
+    hỏng cũng qua, và dùng bank nháp không bài giao thì cả hai đều 404 — chỉ khác
+    lý do. (Phá-thử-ngược bắt được: cả hai ca đầu của tôi đều vô nghĩa.)"""
+    db = _db(
+        quiz_banks=[_DRAFT_COURSE],          # NHÁP — đúng như bank giáo trình thật
+        class_assignments=[_LIVE_ASG],
+        students=[_STUDENT],
+        class_assignment_items=[{"id": "it-1", "assignment_id": "asg-1", "student_id": "st-1"}],
+    )
+    out = _started(db)
+    assert out["session_id"], "bài đã giao mà không tạo được phiên = không ghi được gì"
+
+
+def test_creating_a_session_is_REFUSED_without_an_assignment():
+    db = _db(quiz_banks=[_DRAFT_COURSE], class_assignments=[], students=[])
+    with pytest.raises(HTTPException) as exc:
+        _started(db)
+    assert exc.value.status_code == 404
+
+
+def test_the_session_REMEMBERS_which_assignment_item_made_it():
+    """Suy ra "lượt này thuộc bài giao nào" từ thời điểm và người làm là một phép
+    đoán — và phép đoán ấy đã sai đủ nhiều lần (mig 181) để không làm lại."""
+    db = _db(
+        quiz_banks=[_DRAFT_COURSE],
+        class_assignments=[_LIVE_ASG], students=[_STUDENT],
+        class_assignment_items=[{"id": "it-1", "assignment_id": "asg-1", "student_id": "st-1"}],
+    )
+    _started(db)
+    assert db.inserted, "không có phiên nào được ghi"
+    assert db.inserted[-1].get("class_assignment_item_id") == "it-1"
+
+
+def test_a_free_practice_session_has_NO_class_link():
+    db = _db(quiz_banks=[_VOCAB_BANK])
+    with patch.object(mod, "supabase_admin", db), \
+         patch.object(mod, "get_resume", lambda **_k: {}):
+        mod.start_session(user_id="u1", bank_id="bank-vocab")
+    assert db.inserted[-1].get("class_assignment_item_id") is None
+
+
+# ── Chốt sổ bài giao khi kết phiên ───────────────────────────────────────────
+
+def _end(db, *, item_id="it-1", ended_by="completed", total=10, correct=8):
+    marked = []
+    sess = {"id": "sess-1", "user_id": "u1", "bank_id": "bank-course",
+            "class_assignment_item_id": item_id}
+    with patch.object(mod, "supabase_admin", db), \
+         patch.object(mod, "_owned_session", lambda *_a, **_k: sess), \
+         patch.object(mod, "mark_item_submitted",
+                      lambda _db, **kw: marked.append(kw) or True):
+        mod.end_session(user_id="u1", session_id="sess-1", data={
+            "ended_by": ended_by, "total_questions": total,
+            "total_correct": correct, "total_wrong": total - correct})
+    return marked
+
+
+def test_finishing_marks_the_class_item_SUBMITTED():
+    """Không có bước này thì mục ở lại "opened" vĩnh viễn và bảng của giáo viên
+    báo em ấy chưa nộp — trong khi em ấy vừa làm xong."""
+    marked = _end(_db(quiz_sessions=[]))
+    assert len(marked) == 1
+    assert marked[0]["item_id"] == "it-1"
+    assert marked[0]["artifact_kind"] == "quiz_session"
+    assert marked[0]["score"] == 80.0
+
+
+def test_a_free_practice_session_marks_NOTHING():
+    assert _end(_db(quiz_sessions=[]), item_id=None) == []
+
+
+def test_pausing_does_NOT_mark_it_submitted():
+    """Dừng giữa chừng không phải nộp bài."""
+    assert _end(_db(quiz_sessions=[]), ended_by="paused") == []
+
+
+def test_a_failure_while_marking_does_NOT_break_ending_the_session():
+    """Điểm đã ghi rồi; hỏng ở bước chốt sổ có thể vá bằng lượt đối chiếu, còn
+    làm đổ lệnh kết phiên thì mất luôn con số."""
+    def boom(_db, **_kw):
+        raise RuntimeError("mất kết nối")
+    sess = {"id": "sess-1", "user_id": "u1", "bank_id": "bank-course",
+            "class_assignment_item_id": "it-1"}
+    with patch.object(mod, "supabase_admin", _db(quiz_sessions=[])), \
+         patch.object(mod, "_owned_session", lambda *_a, **_k: sess), \
+         patch.object(mod, "mark_item_submitted", boom):
+        out = mod.end_session(user_id="u1", session_id="sess-1",
+                              data={"ended_by": "completed", "total_questions": 10,
+                                    "total_correct": 8, "total_wrong": 2})
+    assert out

@@ -84,7 +84,7 @@ class AssignmentCreate(BaseModel):
     The two shapes share one payload because they share one ledger; which fields
     matter is decided by `skill`.
     """
-    skill:        Literal["speaking", "reading", "listening"] = "speaking"
+    skill:        Literal["speaking", "reading", "listening", "course"] = "speaking"
     # 'daily'  — bài hằng ngày: đề từ kho chung, hạn là một mốc trong ngày.
     # 'lesson' — bài sau buổi học: đề từ kho theo buổi, hạn tính bằng số ngày.
     kind:         Literal["daily", "lesson"] = "daily"
@@ -122,6 +122,12 @@ class AssignmentCreate(BaseModel):
         chọn hộ người dùng cái nào thắng — và dù chọn thế nào cũng có một nửa số
         admin bị đặt sai hạn mà không biết.
         """
+        if self.skill == "course":
+            # Bài tập theo buổi: `content_id` là một BANK trong kho giáo trình.
+            # Không có mode/part — bộ đề của buổi quyết định tất cả.
+            if not (self.content_id or "").strip():
+                raise ValueError("Bài tập theo buổi cần chọn một bộ bài tập.")
+            return self
         if self.kind == "lesson":
             if self.skill != "speaking":
                 raise ValueError(
@@ -590,6 +596,101 @@ def _pick_set_questions(body: "AssignmentCreate", eligible: list, qs: list) -> l
     # Theo THỨ TỰ TRONG BỘ, không theo thứ tự bấm chuột: người soạn đã sắp mạch
     # từ dễ tới khó, và một cú bấm lộn không nên đảo mạch ấy.
     return [in_set[i] for i in sorted(ids, key=lambda i: in_set[i].get("order_num") or 0)]
+
+
+def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str, dict]:
+    """Chọn một bộ bài tập theo buổi từ kho của khoá mà lớp thuộc về.
+
+    Bank giáo trình KHÔNG được xuất bản và không nằm trong danh sách tự chọn —
+    bài giao này là cửa DUY NHẤT mở nó ra (services/quiz_service). Nên mọi điều
+    kiện phải kiểm ở đây; không có lớp bảo vệ nào phía sau.
+    """
+    course_id = _cohort_course_id(cohort_id)
+
+    rows = (supabase_admin.table("quiz_banks")
+            .select("id, code, title, skill_area, course_id, lesson_no, words_count")
+            .eq("id", body.content_id).limit(1).execute().data) or []
+    if not rows:
+        raise HTTPException(404, "Không tìm thấy bộ bài tập này.")
+    bank = rows[0]
+    if bank.get("skill_area") != "course":
+        # Chặn việc giao nhầm một bank từ vựng/ngữ pháp qua đường này: chúng là
+        # nội dung tự chọn, và giao chúng sẽ mở một trang không dựng cho chúng.
+        raise HTTPException(400, "Bộ này không phải bài tập theo buổi.")
+    if bank.get("course_id") != course_id:
+        raise HTTPException(
+            400, "Bộ bài tập này thuộc một khoá khác, không giao cho lớp này được.")
+
+    # Bank rỗng vẫn "tồn tại". Giao nó nghĩa là học viên mở ra một trang trắng và
+    # không có gì nói vì sao.
+    n = (supabase_admin.table("quiz_questions").select("id", count="exact")
+         .eq("bank_id", bank["id"]).limit(1).execute())
+    if not (n.count or 0):
+        raise HTTPException(400, "Bộ bài tập này chưa có câu hỏi nào.")
+
+    dup = (supabase_admin.table("class_assignments").select("id, title")
+           .eq("cohort_id", cohort_id).eq("skill", "course")
+           .eq("content_id", body.content_id).limit(1).execute().data) or []
+    if dup:
+        raise HTTPException(
+            409,
+            f"Lớp này đã được giao \"{bank['title']}\" rồi "
+            f"(bài giao \"{dup[0].get('title')}\").")
+
+    return bank["id"], {
+        # Chỉ nhãn để hiển thị. Câu hỏi KHÔNG chụp vào đây: khác kho Speaking,
+        # đề bài tập tới tay học viên qua endpoint quiz đã có cổng riêng, và chụp
+        # thêm một bản ở đây là tạo ra một nguồn sự thật thứ hai để trôi.
+        "test_title": bank["title"],
+        "lesson_no":  bank.get("lesson_no"),
+        "bank_code":  bank.get("code"),
+    }
+
+
+@router.get("/{cohort_id}/course-banks")
+async def list_course_banks(
+    cohort_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Kho bài tập theo buổi của khoá mà lớp này thuộc về.
+
+    Trả CẢ bộ không giao được kèm lý do — `already_given` là việc đã xong, còn
+    `question_count = 0` là việc CHƯA làm (nạp tệp JSONL của buổi ấy).
+    """
+    await require_admin(authorization)
+    _require_cohort(cohort_id)
+    course_id = _cohort_course_id(cohort_id)
+
+    banks = (supabase_admin.table("quiz_banks")
+             .select("id, code, title, lesson_no, words_count")
+             .eq("skill_area", "course").eq("course_id", course_id)
+             .order("lesson_no").execute().data) or []
+    if not banks:
+        return {"items": []}
+
+    given = {
+        r["content_id"] for r in (
+            supabase_admin.table("class_assignments").select("content_id")
+            .eq("cohort_id", cohort_id).eq("skill", "course")
+            .execute().data or []
+        ) if r.get("content_id")
+    }
+    counts: dict = {}
+    ids = [b["id"] for b in banks]
+    for chunk in (ids[i:i + _ID_CHUNK] for i in range(0, len(ids), _ID_CHUNK)):
+        for q in _paged(supabase_admin, "quiz_questions", "id, bank_id",
+                        lambda q2, c=chunk: q2.in_("bank_id", c)):
+            counts[q["bank_id"]] = counts.get(q["bank_id"], 0) + 1
+
+    return {"items": [{
+        "id":             b["id"],
+        "code":           b.get("code"),
+        "lesson_no":      b.get("lesson_no"),
+        "title":          b.get("title"),
+        "question_count": counts.get(b["id"], 0),
+        "already_given":  b["id"] in given,
+        "ready":          counts.get(b["id"], 0) > 0,
+    } for b in banks]}
 
 
 @router.get("/{cohort_id}/speaking-lesson-sets")
@@ -1143,6 +1244,8 @@ async def create_assignment(
     if body.kind == "lesson":
         content_id, content_config = _resolve_speaking_lesson_set(cohort_id, body)
         due_date = _due_date_from_days(body.due_days)
+    elif body.skill == "course":
+        content_id, content_config = _resolve_course_bank(cohort_id, body)
     elif body.skill == "speaking":
         content_id, content_config = _resolve_speaking_topic(cohort_id, body)
     else:

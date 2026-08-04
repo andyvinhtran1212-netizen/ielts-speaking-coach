@@ -106,3 +106,34 @@ describe('the RESUME lookup is scoped to the homework too', () => {
       'both scopes must be able to apply at once');
   });
 });
+
+// ── Bài tập theo buổi: mắt xích cuối tới trang làm bài ───────────────────────
+
+describe('mở bài tập theo buổi', () => {
+  const MC = readFileSync(join(HERE, '..', 'public', 'js', 'my-class.js'), 'utf8');
+
+  test('nhận bank_id thì đi thẳng tới trang bài tập', () => {
+    // Không có phiên nào phải dựng trước — chính bài giao vừa được xác nhận ở
+    // lệnh /start là thứ cho phép trang kia đọc được bank ấy.
+    assert.match(MC, /if \(r && r\.bank_id\)[\s\S]{0,200}?\/course-exercises\?bank=/);
+  });
+
+  test('bank_id được mã hoá vào URL', () => {
+    assert.match(MC, /course-exercises\?bank=' \+ encodeURIComponent\(r\.bank_id\)/);
+  });
+
+  test('nhánh này đứng TRƯỚC nhánh dựng phiên Speaking', () => {
+    // Rơi xuống nhánh Speaking sẽ POST /sessions với tham số rỗng và tạo ra một
+    // buổi nói không ai yêu cầu.
+    assert.ok(MC.indexOf('r.bank_id') < MC.indexOf("api.post('/sessions'"));
+  });
+
+  test('bài tập theo buổi có nhãn riêng, không hiện mã máy', () => {
+    assert.match(MC, /course: 'Bài tập theo buổi'/);
+  });
+
+  test('dòng phụ nói BUỔI SỐ MẤY trước, tên bộ sau', () => {
+    // "Buổi 3" là thứ học viên nhận ra ngay.
+    assert.match(MC, /cfg\.lesson_no \? `Buổi \$\{cfg\.lesson_no\}` : ''/);
+  });
+});
