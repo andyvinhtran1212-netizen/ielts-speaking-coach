@@ -296,7 +296,7 @@ describe('probe gọi ĐÚNG endpoint (review #910)', () => {
     // 404 = không có route. Bản đầu dùng /api/... nên MỌI mẫu sẽ HỎNG và G2
     // không bao giờ đạt được — công cụ chết ngay khi bật, mà lại chết theo
     // kiểu trông như "production hỏng".
-    assert.match(PROBE, /'--routes', '\/auth\/profile,\/auth\/check-active'/);
+    assert.match(PROBE, /'--routes', '\/auth\/profile,\/auth\/check-active,site:\/profile'/);
     assert.ok(!/--routes', '\/api\//.test(PROBE),
       'tiền tố /api quay lại nghĩa là probe trỏ vào route không tồn tại');
   });
@@ -362,11 +362,23 @@ describe('sổ phải TƯƠI và LÀNH (review #910 vòng 2)', () => {
 });
 
 describe('probe không gọi endpoint CÓ GHI (review #910 vòng 2)', () => {
+  test('probe phải CHẠM route trên Vercel, không chỉ backend (review #926)', () => {
+    // Overclaim đã mắc: chỉ gọi `/auth/*` trên Railway rồi kết luận route
+    // `/profile` khoẻ. Nếu trang hỏng mà backend khoẻ thì verdict vẫn xanh.
+    assert.match(PROBE, /site:\/profile/, 'phải có mục gọi vào TRANG');
+    assert.match(PROBE, /const SITE_BASE/, 'phải có base riêng cho trang');
+    // Và 200 KHÔNG đủ: Next trả 200 cho cả vỏ hỏng.
+    assert.match(PROBE, /__next_f/, 'phải đòi dấu hiệu render thật');
+    assert.match(PROBE, /aver-chrome/);
+    assert.match(PROBE, /res\.ok && rendered/,
+      'ok của mục site phải phụ thuộc CẢ status LẪN dấu hiệu render');
+  });
+
   test('/auth/me bị loại khỏi mặc định — nó INSERT + UPDATE last_seen_at', () => {
     // auth.py:188–214: GET /auth/me tạo hàng users nếu chưa có và cập nhật
     // last_seen_at MỖI lần gọi. Cron 20 phút = 72 lần ghi/ngày vào bảng người
     // dùng. "Phương thức GET" không có nghĩa là "không tác dụng phụ".
-    assert.match(PROBE, /'--routes', '\/auth\/profile,\/auth\/check-active'/);
+    assert.match(PROBE, /'--routes', '\/auth\/profile,\/auth\/check-active,site:\/profile'/);
     assert.ok(!/--routes'[^)]*\/auth\/me/.test(PROBE),
       '/auth/me quay lại mặc định nghĩa là probe lại ghi vào dữ liệu thật');
   });
