@@ -893,9 +893,13 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
     else:
         raise HTTPException(500, "Sổ bài giao đang bị ghi tranh chấp — thử lại")
 
+    # Đã đạt từ trước thì pct trả về là ĐIỂM ĐẠT (score bị đóng băng ở đó),
+    # không phải điểm của lượt trượt vừa nộp — kẻo màn hình đọc thành
+    # "Đã ĐẠT · 40% · ngưỡng 80%" tự mâu thuẫn (codex R6).
     return {
         "passed": passed or already,
-        "pct": pct,
+        "pct": (float(cur.get("score")) if already and cur.get("score") is not None
+                else pct),
         "threshold": cfg["pass_pct"],
         "phase": phase,
         "retake_size": cfg["retake_size"],

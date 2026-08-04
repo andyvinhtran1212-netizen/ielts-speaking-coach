@@ -704,8 +704,12 @@ function tallyRow(r, skill) {
   let band;
   if (empty) band = '—';
   else if (skill === 'course') {
-    band = Math.round(Number(r.score)) + '%'
-      + (r.passed_at ? ' ✓' : (r.submitted_at ? ' · chưa đạt' : ''))
+    // "Chưa đạt" chỉ khi ĐÃ có lượt xét trượt. Mới xong chặng 1 thì submitted_at
+    // đã đóng dấu nhưng chưa ai xét gì — nói "chưa đạt" lúc ấy là kết tội một
+    // bài đang làm dở.
+    const state = r.passed_at ? ' ✓'
+      : (r.verdicts ? ' · chưa đạt' : ' · đang làm');
+    band = Math.round(Number(r.score)) + '%' + state
       + (r.retakes ? ` · KTL×${r.retakes}` : '');
   } else band = Number(r.score).toFixed(1);
   // Cờ nằm NGAY DƯỚI TÊN, không ở một bảng thứ hai: giáo viên mở danh sách này

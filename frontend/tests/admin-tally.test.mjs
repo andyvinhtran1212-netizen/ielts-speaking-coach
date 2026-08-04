@@ -209,3 +209,38 @@ describe('ghi chú hạn nộp không lộ thẻ', () => {
     assert.doesNotMatch(note, /&lt;span/, 'thẻ bị escape thành chữ');
   });
 });
+
+describe('bài course: đạt/chưa đạt/đang làm (cổng thuộc bài)', () => {
+  const row = (over) => tallyRow({
+    name: 'An', status: 'submitted', submitted_at: '2026-08-03T11:00:00+00:00',
+    score: 72, passed_at: null, retakes: 0, verdicts: 0, ...over,
+  }, 'course');
+
+  test('điểm là PHẦN TRĂM, không phải band', () => {
+    assert.match(row({}), />72%/);
+    assert.doesNotMatch(row({}), />72\.0</);
+  });
+
+  test('mới xong chặng đầu (chưa lượt xét nào) là ĐANG LÀM — không phải chưa đạt', () => {
+    // mark_item_submitted đóng dấu ngay chặng 1; kết tội "chưa đạt" lúc ấy là
+    // kết tội một bài đang làm dở (codex #928 R6).
+    assert.match(row({ verdicts: 0 }), /đang làm/);
+    assert.doesNotMatch(row({ verdicts: 0 }), /chưa đạt/);
+  });
+
+  test('đã có lượt xét trượt thì mới nói chưa đạt', () => {
+    assert.match(row({ verdicts: 1 }), /chưa đạt/);
+  });
+
+  test('đạt hiện ✓, kèm số lần kiểm tra lại khi có', () => {
+    const html = row({ passed_at: '2026-08-04T00:00:00Z', verdicts: 3, retakes: 2, score: 85 });
+    assert.match(html, />85% ✓ · KTL×2</);
+    assert.doesNotMatch(html, /chưa đạt/);
+  });
+
+  test('bài KHÔNG phải course vẫn hiện band như cũ', () => {
+    const html = tallyRow({ name: 'An', status: 'submitted',
+      submitted_at: '2026-08-03T11:00:00+00:00', score: 6.5 }, 'speaking');
+    assert.match(html, />6\.5</);
+  });
+});

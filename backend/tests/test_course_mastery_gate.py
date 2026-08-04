@@ -419,6 +419,9 @@ def test_late_failed_retake_after_pass_does_not_downgrade_score():
                   "mastery": prior, "score": 90.0},
     )
     assert out["passed"] is True                     # đạt rồi là đạt
+    # Trả lời cũng phải nhất quán: pct là ĐIỂM ĐẠT (90), không phải 0% của lượt
+    # trượt vừa nộp — kẻo màn hình đọc "Đã ĐẠT · 0% · ngưỡng 80%" (codex R6).
+    assert out["pct"] == 90.0
     patch_ = [e for e in log if e[1] == "update"][0][2]
     assert "score" not in patch_, "điểm đạt không được hạ cấp"
     assert "passed_at" not in patch_

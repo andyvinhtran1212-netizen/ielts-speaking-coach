@@ -1084,6 +1084,11 @@ async def assignment_tally(
             "passed_at":    it.get("passed_at"),
             "retakes":      sum(1 for a in ((it.get("mastery") or {}).get("attempts") or [])
                                 if a.get("phase") == "retake"),
+            # Số lượt ĐÃ XÉT. mark_item_submitted đóng dấu submitted ngay chặng
+            # đầu, nên "đã nộp mà chưa passed_at" chưa chắc là trượt — có thể
+            # em ấy đang làm dở. Chỉ khi đã có ít nhất một lượt xét mới được
+            # nói "chưa đạt" (codex R6).
+            "verdicts":     len(((it.get("mastery") or {}).get("attempts")) or []),
         })
     # Chưa nộp lên đầu: đó là danh sách việc cần làm của giáo viên.
     _ORDER = {"missing": 0, "pending": 1, "no-account": 2, "late": 3, "submitted": 4}
