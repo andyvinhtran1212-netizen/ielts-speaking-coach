@@ -91,10 +91,12 @@ describe('sàn G2 — những ca PHẢI bị từ chối', () => {
   });
 
   test('đủ trải nhưng có MỘT quãng đứt vượt sàn ⇒ TỪ CHỐI', () => {
-    // Quãng đứt phải vượt SÀN HIỆN HÀNH (240′). Bản cũ dùng 25′ vì sàn khi đó
-    // là 20′; giữ nguyên 25′ sau khi nới sàn thì test xanh mà chẳng kiểm gì.
+    // Quãng đứt phải vượt SÀN HIỆN HÀNH (360′). Đây là lần thứ ba phải chỉnh
+    // con số này theo sàn — mỗi lần nới sàn mà quên chỉnh thì test xanh trong
+    // khi chẳng kiểm gì. Neo vào chính hằng số sàn để lần sau khỏi lệch.
+    const overFloor = G2_FLOOR.maxGapMs / MIN + 60; // vượt sàn 1 tiếng
     const rows = series(80, 20);
-    for (let i = 40; i < rows.length; i++) rows[i].at += 300 * MIN; // đứt 5 tiếng
+    for (let i = 40; i < rows.length; i++) rows[i].at += overFloor * MIN;
     const r = judge(rows);
     assert.equal(r.pass, false);
     // Đứt quãng nay CẮT dãy: phần sau khoảng trống quá ngắn để đạt sàn.
@@ -107,7 +109,8 @@ describe('sàn G2 — những ca PHẢI bị từ chối', () => {
     // bình. Dãy dưới có trung bình ~20 phút nhưng đứt một quãng 6 tiếng.
     const dense = Array.from({ length: 60 }, (_, i) => ({ at: T0 + i * MIN, ok: true }));
     const later = Array.from({ length: 20 }, (_, i) => ({
-      at: T0 + 6 * 60 * MIN + i * 20 * MIN, ok: true,
+      // Cách xa hơn SÀN (neo vào hằng số, không gõ tay con số).
+      at: T0 + G2_FLOOR.maxGapMs + 60 * MIN + i * 20 * MIN, ok: true,
     }));
     const r = judge([...dense, ...later]);
     assert.equal(r.pass, false, 'trung bình đẹp mà vẫn có lỗ 6 tiếng — phải bị bắt');
@@ -115,10 +118,24 @@ describe('sàn G2 — những ca PHẢI bị từ chối', () => {
       'và phải NÊU TÊN chỗ đứt, không chỉ nói "thiếu mẫu"');
   });
 
-  test('thiếu số mẫu ⇒ TỪ CHỐI dù trải đủ 24h', () => {
-    const r = judge(series(30, 60)); // 30 mẫu, cách 1 tiếng
+  test('KHÔNG còn đếm mẫu: 6 mẫu trải 25h, lỗ 5h ⇒ ĐẠT', () => {
+    // ADR-013-A2 bỏ `n≥72`: probe TẤT ĐỊNH nên đếm mẫu không thêm thông tin;
+    // thứ có nghĩa là phủ được bao nhiêu THỜI GIAN. Số mẫu tối thiểu tự suy ra
+    // từ trải/lỗ (≈4). Test này chốt việc bỏ đó là CÓ CHỦ Ý, không phải sót.
+    const H = 60 * MIN;
+    const rows = [0, 5, 10, 15, 20, 25].map((h) => ({ at: T0 + h * H, ok: true }));
+    const r = evaluateG2(rows, { now: rows[rows.length - 1].at + MIN });
+    assert.equal(r.pass, true, formatG2(r));
+    assert.equal(r.stats.n, 6, 'sáu mẫu là đủ khi chúng phủ trọn một ngày');
+    assert.ok(!('minSamples' in G2_FLOOR), 'sàn không được có lại ngưỡng đếm mẫu');
+  });
+
+  test('trải chưa đủ 24h ⇒ TỪ CHỐI dù không có lỗ nào', () => {
+    const H = 60 * MIN;
+    const rows = [0, 4, 8, 12].map((h) => ({ at: T0 + h * H, ok: true }));
+    const r = evaluateG2(rows, { now: rows[rows.length - 1].at + MIN });
     assert.equal(r.pass, false);
-    assert.ok(r.findings.some((f) => f.code === 'too-few-samples'));
+    assert.ok(r.findings.some((f) => f.code === 'span-too-short'));
   });
 
   test('có probe hỏng ⇒ TỪ CHỐI, và nêu đích danh', () => {
@@ -169,16 +186,12 @@ describe('chi tiết', () => {
     assert.equal(r.pass, true);
   });
 
-  test('sàn khớp đúng ADR-013-A1 (bản đo 2026-08-04)', () => {
-    assert.equal(G2_FLOOR.minSamples, 72, 'cơ sở power của A0 không đổi');
+  test('sàn khớp đúng ADR-013-A2', () => {
+    assert.ok(!('minSamples' in G2_FLOOR), 'A2 bỏ đếm mẫu — xem bình luận nguồn');
     assert.equal(G2_FLOOR.minSpanMs, 24 * 60 * 60 * 1000,
-      'trải ≥24h giữ nguyên — nó là sàn cho cache hết hạn (ADR-008 expire=86400)');
-    assert.equal(G2_FLOOR.maxGapMs, 240 * 60 * 1000, 'khe hở suy từ ĐO, xem bình luận nguồn');
-    // Ràng buộc "72 × khe hở = đúng 24h" KHÔNG còn, và đó là chủ ý: nó chỉ
-    // đúng khi bộ lập lịch giao đúng nhịp khai. Thứ còn phải giữ là tính KHẢ
-    // THI — với khe hở tối đa cho phép, n mẫu phải phủ nổi khoảng trải yêu cầu.
-    assert.ok(G2_FLOOR.minSamples * G2_FLOOR.maxGapMs >= G2_FLOOR.minSpanMs,
-      'sàn tự mâu thuẫn: không đủ mẫu để phủ khoảng trải yêu cầu');
+      'trải ≥24h giữ nguyên — sàn cho cache hết hạn (ADR-008 expire=86400)');
+    assert.equal(G2_FLOOR.maxGapMs, 360 * 60 * 1000,
+      'lỗ suy từ mốc MẪU (max thật 221′), không phải mốc chạy');
   });
 
   test('formatG2 nói rõ ĐẠT hay CHƯA, không mập mờ', () => {
@@ -412,6 +425,13 @@ describe('lịch cron phải CHẶT HƠN sàn (review #913)', () => {
   const judgeRuns = (rows) =>
     evaluateG2(rows, { now: rows[rows.length - 1].at + MINb });
 
+  test('lỗ mẫu THỰC ĐO tới 221 phút vẫn nằm dưới sàn', () => {
+    // Đây là điều kiện tối thiểu để G2 có nghĩa: sàn phải KHẢ THI với hành vi
+    // thật của bộ lập lịch. Lỗ lớn nhất đo được giữa các MẪU là 221 phút.
+    assert.ok(221 * 60_000 < G2_FLOOR.maxGapMs,
+      'sàn phải nằm trên lỗ lớn nhất từng đo, nếu không dãy đứt liên tục');
+  });
+
   test('nhịp THỰC ĐO ~84 phút vẫn đạt được sàn hiện hành', () => {
     // Đây là điều kiện tối thiểu để G2 có nghĩa: sàn phải KHẢ THI với bộ lập
     // lịch thật. Dãy dưới mô phỏng đúng phân bố đã đo (84′ ± dao động lớn).
@@ -442,10 +462,10 @@ describe('lịch cron phải CHẶT HƠN sàn (review #913)', () => {
     const src = readFileSync(
       path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'tooling', 'g2-floor.mjs'),
       'utf8');
-    assert.match(src, /giãn cách: 176 · 157 · 110 · 84 · 85 · 67 · 61 · 69 phút/,
+    assert.match(src, /lỗ 12·4·221·176·157·110·83·85·67·61·69 phút/,
       'phải giữ số liệu thô đã dùng để chọn sàn');
-    assert.match(src, /trung vị 84 · p90 157 · LỚN NHẤT 176/);
-    assert.ok(G2_FLOOR_TRADEOFF && /tự khỏi/.test(G2_FLOOR_TRADEOFF),
+    assert.match(src, /221 phút/, 'phải ghi lỗ MẪU lớn nhất, không phải lỗ giữa các lần chạy');
+    assert.ok(G2_FLOOR_TRADEOFF && /lọt/.test(G2_FLOOR_TRADEOFF),
       'phải khai rõ cái bị mất khi nới sàn');
   });
 });

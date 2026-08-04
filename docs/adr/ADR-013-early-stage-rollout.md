@@ -1,6 +1,7 @@
 # ADR-013 — Early-stage rollout profile (thay soak-dài-freeze cho route low-traffic)
 
 **Status:** ACCEPTED 2026-07-25 (chủ dự án ratify) · Sửa: §12.3, ADR-007 §6, B36, DEBT-2026-07-22-H
+· **SỬA ĐỔI A2 — ACCEPTED 2026-08-04**: cửa sổ quan sát BỎ HẲN kể cả khi có mẫu đầy đủ; G2 đổi sang phủ-chế-độ-hỏng. Đọc mục A2 cuối trang.
 · **SỬA ĐỔI A1 — ACCEPTED 2026-08-03 (chủ dự án ratify)** — thay cửa sổ-thời-gian bằng cổng-bằng-chứng cho route low/zero-traffic; **đọc mục A1 ở cuối trang trước khi áp bất kỳ điều kiện PASS nào ở thân bài**
 
 ## Bối cảnh
@@ -232,3 +233,91 @@ thức hoá ngược một quyết định đã ra.
 
 Chưa có (1) thì lớp `Authenticated mutation` **chưa** dùng được A1 và vẫn theo
 A0. Ghi rõ để bản sửa này không tự cấp cho mình hiệu lực mà hạ tầng chưa đỡ nổi.
+
+
+---
+
+# Sửa đổi A2 (2026-08-04) — cửa sổ quan sát mù kể cả khi có đủ mẫu
+
+**Status:** ACCEPTED 2026-08-04 (chủ dự án duyệt sau phiên hội đồng đa vai)
+
+## Đính chính lập luận của A1
+
+A1 bỏ cửa sổ quan sát với lý do **"route 0 lưu lượng thì cửa sổ không sinh được
+bằng chứng"**. Lý do đó **đúng nhưng yếu**, và nó suy rộng từ đúng **một** ca
+(`/profile`, 0 organic). Hội đồng đa vai chỉ ra đây là suy rộng từ n=1 — cùng
+loại lỗi mà chính ADR này phê phán.
+
+Nên ta đo lại trên route **CÓ** lưu lượng. Không cần thí nghiệm mới: hai cutover
+đã xong đều nằm trên route có traffic.
+
+## Bằng chứng — đo ngược, không phải mô phỏng
+
+| Cutover | page_view trong 48h | Lỗi client | Đạt sàn n≥20 |
+|---|---|---|---|
+| **Trang bài Grammar** (pilot 2, 28/07) | **160** (156 next · 4 legacy) | **0** | **CÓ** |
+| Trang chủ `/grammar` (03/08) | 4 | 0 | không |
+
+Cửa sổ 48h của pilot 2 **có mẫu đầy đủ** và báo **sạch**.
+
+**Nhưng chính route đó, trong đúng 48 giờ đó, đang mất nút "Lưu bài" và khối CTA
+khách ở 45% lượt tải.** Lỗi đua tồn tại từ khi route Next lên sóng (28/07) tới
+khi vá (03/08, PR #908). Cửa sổ nhìn thẳng vào nó với 160 mẫu và **không thấy
+gì** — vì nó không sinh exception, không sinh status xấu, không làm mất lượt
+xem. Tính năng chỉ đơn giản **không xuất hiện**.
+
+Thứ tìm ra nó là **cổng parity G1**.
+
+## Kết luận A2
+
+> **Cửa sổ quan sát theo thời gian BỎ HẲN cho mọi lớp route** — kể cả route có
+> lưu lượng đạt sàn. Không phải vì thiếu mẫu, mà vì **nó mù với loại lỗi dự án
+> này thực sự gặp**.
+
+Ghi lại để không ai dựng lại nó vì "cho chắc": nó đã được thử với 160 mẫu và
+trượt 1/1 lỗi thật.
+
+## Phân vai ba cơ chế — theo số, không theo trực giác
+
+| Cơ chế | Bắt được | Thành tích thật |
+|---|---|---|
+| **G1 parity** | nội dung/tính năng thiếu, hồi quy render | **2/2** lỗi production thật |
+| **G2 probe có đăng nhập** | route chết kéo dài, hỏng token refresh | chưa bắt được gì; thô, rẻ |
+| **Cửa sổ thời gian** | — | **0/1** dù có 160 mẫu ⇒ **bỏ** |
+
+## G2 đổi sang phủ-chế-độ-hỏng (bỏ `n≥72`)
+
+`n≥72` đến từ phân tích power cho **lưu lượng organic** — lấy mẫu một quá trình
+ngẫu nhiên. Probe của G2 **tất định**: cùng tài khoản, cùng endpoint, cùng đường
+đi. 72 lần thành công giống hệt nhau không cho biết nhiều hơn 20 lần, vì chúng
+lấy mẫu **thời gian**, không lấy mẫu ngẫu nhiên. Giữ con số đó chỉ tạo vẻ chặt
+chẽ giả.
+
+**Điều kiện ĐẠT mới của G2 — cả ba, bỏ đếm mẫu:**
+
+| | Sàn | Cơ sở |
+|---|---|---|
+| Trải | **≥ 24h** | ADR-008 `expire: 86400` — phải đi qua ít nhất một lần cache hết hạn cứng |
+| Lỗ lớn nhất | **≤ 360 phút** | đo **mốc MẪU** (không phải mốc chạy): lớn nhất thật **221 phút**; 360 = 1,63× |
+| Probe hỏng | **0** | tất định: một lần hỏng là một lần hỏng |
+| *(lớp authenticated)* | ≥1 phiên đi qua token refresh, có request hai phía | chế độ hỏng riêng của lớp này |
+
+Số mẫu tối thiểu **tự suy ra** từ trải/lỗ (≈4 mẫu), không đặt riêng.
+
+**Hiệu chỉnh sàn lỗ, lần thứ hai:** A1 đặt 20 phút; bản nháp đầu của A2 đặt 240
+phút dựa trên khoảng cách giữa các **lần chạy** (max 176). Đó là **đo sai đại
+lượng** — mốc mẫu tính SAU khi runner khởi động + đăng nhập + gọi HTTP, nên lỗ
+thật giữa các **mẫu** lên tới **221 phút**, chỉ còn 8% biên. Nay lấy đúng đại
+lượng: **360 phút**.
+
+## Điều A2 KHÔNG bảo đảm — ghi thẳng
+
+- **Sự cố ngắn lọt hết.** Với lỗ cho phép tới 6 giờ, G2 chỉ chứng nhận *"route
+  còn phục vụ được suốt một ngày, có đi qua một lần refresh token"*. **Không**
+  phải "được giám sát liên tục".
+- **Cron GitHub không đáng tin.** Khai `*/15`, chạy thật cách nhau 61–176 phút;
+  cron `session` hằng ngày và cron parity hằng đêm **chưa từng chạy lần nào**.
+  Phiên token-refresh phải **kích hoạt tay** cho tới khi có cơ chế khác.
+- **G1 không phủ được flow lõi.** Cả 2 lỗi G1 bắt được đều ở trang tĩnh đọc-thuần.
+  Nó so chữ và link, **không** so state machine ghi âm/chấm điểm. Trước khi đụng
+  `/speaking` hay `/result` phải trả lời riêng: cổng nào bảo vệ những flow đó?

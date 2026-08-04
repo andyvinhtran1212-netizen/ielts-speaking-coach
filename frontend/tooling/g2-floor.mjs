@@ -19,34 +19,34 @@
 // sẽ không bao giờ chạm tới nó.
 
 export const G2_FLOOR = {
-  minSamples: 72,
+  // KHÔNG CÓ `minSamples`. Bỏ có chủ ý (ADR-013-A2).
+  //
+  // `n≥72` đến từ phân tích power cho LƯU LƯỢNG ORGANIC — lấy mẫu một quá trình
+  // ngẫu nhiên. Probe này TẤT ĐỊNH: cùng tài khoản, cùng endpoint, cùng đường
+  // đi. 72 lần thành công giống hệt nhau không cho biết nhiều hơn 20 lần, vì
+  // chúng lấy mẫu THỜI GIAN chứ không lấy mẫu ngẫu nhiên. Giữ con số đó chỉ tạo
+  // vẻ chặt chẽ giả. Số mẫu tối thiểu nay TỰ SUY RA từ trải/lỗ (≈4).
+
+  // Phải đi qua ít nhất một lần cache hết hạn cứng (ADR-008 `expire: 86400`).
   minSpanMs: 24 * 60 * 60 * 1000,
-  // 240 PHÚT, KHÔNG PHẢI 20. Con số này đến từ ĐO, không từ mong muốn.
-  //
-  // Sàn ban đầu là 20 phút, kèm lập luận "72 × 20 = đúng 24h". Lập luận đó giả
-  // định bộ lập lịch giao đúng nhịp. Đo thật trên GitHub Actions với cron khai
-  // `*/15` (9 lần chạy / 13,5h, 2026-08-03→04):
-  //     giãn cách: 176 · 157 · 110 · 84 · 85 · 67 · 61 · 69 phút
-  //     trung vị 84 · p90 157 · LỚN NHẤT 176  ⇒ chậm hơn lịch khai ~5,6 lần
-  // Với sàn 20 phút thì MỌI cặp mẫu liên tiếp đều vượt, `trailingRun` cắt về
-  // n=1 mỗi lần, và G2 KHÔNG BAO GIỜ đạt được — đã xác nhận bằng verdict thật.
-  //
-  // 240 = 1,36× giá trị xấu nhất quan sát được. Đây là con số TẠM, suy từ 8
-  // khoảng cách trên 13,5h — mẫu còn nhỏ. `evaluateG2` in ra phân bố khoảng
-  // cách thật để lần chỉnh sau làm bằng số, không bằng cảm giác.
-  maxGapMs: 240 * 60 * 1000,
+
+  // 360 PHÚT — và đây là lần hiệu chỉnh THỨ HAI, vì lần đầu tôi đo sai đại lượng.
+  //   A1        : 20 phút, giả định bộ lập lịch giao đúng nhịp khai → sai.
+  //   nháp A2   : 240 phút, dựa khoảng cách giữa các LẦN CHẠY (max 176) → vẫn sai
+  //               đại lượng: mốc mẫu tính SAU khi runner khởi động + đăng nhập +
+  //               gọi HTTP, nên lỗ thật giữa các MẪU lên tới 221 phút ⇒ chỉ 8% biên.
+  //   A2        : 360 phút = 1,63× lỗ mẫu lớn nhất đo được (221).
+  // Số liệu thô (12 mẫu / 17,5h, 03/08): lỗ 12·4·221·176·157·110·83·85·67·61·69 phút.
+  maxGapMs: 360 * 60 * 1000,
 };
 
 /**
- * CÁI BỊ MẤT khi nới từ 20 lên 240 phút — ghi ra để không ai đọc nhầm đây là
- * một cải tiến: với nhịp thực ~84 phút, một sự cố xuất hiện rồi TỰ KHỎI trong
- * khoảng dưới ~1,5 giờ có thể lọt hoàn toàn. Sàn cũ nhắm bắt được nó. Sàn mới
- * chỉ nhắm bắt sự cố kéo dài. Đây là giới hạn của BỘ LẬP LỊCH, không phải lựa
- * chọn thiết kế — muốn lấy lại phải đổi cơ chế (job chạy dài, hoặc tự nối
- * chuỗi bằng PAT), cả hai đều tốn hơn nhiều.
+ * CÁI G2 KHÔNG bảo đảm — ghi ra để không ai đọc nhầm nó là giám sát liên tục.
+ * Với lỗ cho phép tới 6 giờ, cổng này chỉ chứng nhận: "route còn phục vụ được
+ * suốt một ngày, và có đi qua một lần refresh token". Sự cố ngắn lọt hết.
  */
 export const G2_FLOOR_TRADEOFF =
-  'nhịp ~84 phút: sự cố tự khỏi trong <1,5h có thể lọt';
+  'lỗ tới 6h được chấp nhận: sự cố tự khỏi trong vài giờ có thể lọt';
 
 /**
  * Phân tích sổ JSONL. Nằm ở lõi chứ không nằm trong runner vì đây là chỗ
@@ -174,7 +174,6 @@ export function evaluateG2(samples, opts = {}) {
     if (gap > maxGapMs) { maxGapMs = gap; maxGapAt = rows[i].at; }
   }
 
-  if (n < floor.minSamples) add('too-few-samples', `n=${n} < ${floor.minSamples}`);
   if (spanMs < floor.minSpanMs) {
     add('span-too-short',
       `trải ${(spanMs / 3600000).toFixed(1)}h < ${floor.minSpanMs / 3600000}h`);
