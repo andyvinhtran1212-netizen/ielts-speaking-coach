@@ -460,7 +460,17 @@
       // Phiếu làm bài nộp NGAY câu vừa ghi và trả quyền micro — không đi qua
       // màn "đã ghi / nộp" của luồng phễu, vì ở phiếu mỗi ô tự quản trạng thái
       // của nó và học viên còn ô kia để làm trong lúc câu này đang chấm.
-      if (_sheetActive()) { _sheetOnRecorded(_recordedBlob); return; }
+      if (_sheetActive()) {
+        // Trả bộ ghi về 'idle' TRƯỚC khi giao bản ghi cho phiếu. Nhánh này
+        // return sớm, không đi qua _showRecSub('recorded') của luồng phễu,
+        // nên _recSubState kẹt ở 'recording' — và chốt đầu startRecording
+        // (`if (_recSubState === 'recording') return false`) chặn mọi lần ghi
+        // từ Ô THỨ HAI trở đi: học viên lại thấy "hỏng micro" dù câu đầu vừa
+        // ghi xong ngon lành.
+        _showRecSub('idle');
+        _sheetOnRecorded(_recordedBlob);
+        return;
+      }
       _renderRecordedPlayback();
       _renderRecordedLengthHint();
       _showRecSub('recorded');

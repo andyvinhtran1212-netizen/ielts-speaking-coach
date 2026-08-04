@@ -129,3 +129,75 @@ describe('_sheetOnRecorded không nổ khi không còn ô nào nhận bản ghi'
     assert.equal(submitted, 0, 'không có ô để gắn thì đừng gửi đi chấm');
   });
 });
+
+/**
+ * codex #927: một lần ghi THÀNH CÔNG cũng làm hỏng lần sau.
+ *
+ * Nhánh phiếu trong `onstop` return sớm, không đi qua `_showRecSub('recorded')`
+ * của luồng phễu — nên `_recSubState` kẹt ở 'recording' và chốt đầu
+ * `startRecording()` chặn mọi lần ghi từ ô thứ hai. Vậy phép kiểm phải chạy
+ * TRỌN chu trình ghi→dừng→ghi qua đúng các hàm thật (`_showRecSub` thật,
+ * `stopRecording` thật, MediaRecorder giả có onstop) — một lần start đơn lẻ
+ * không phân biệt được hai hành vi.
+ */
+describe('phiếu: ghi được NHIỀU câu liên tiếp, không chỉ câu đầu', () => {
+  async function cycle() {
+    const s1 = JS.indexOf('  function _showRecSub(name) {');
+    const e1 = JS.indexOf('  // ── Header ─');
+    const s2 = JS.indexOf('  async function startRecording() {');
+    const e2 = JS.indexOf('  // ── Recording: reset (re-record)');
+    assert.ok(s1 !== -1 && e1 > s1 && s2 !== -1 && e2 > s2, 'không tìm thấy các khối');
+
+    const track = { stop() {} };
+    const stream = { active: true, getTracks: () => [track] };
+    class MediaRecorder {
+      static isTypeSupported() { return true; }
+      constructor() { this.mimeType = 'audio/webm'; this.state = 'recording'; }
+      start() {}
+      stop() { this.state = 'inactive'; this.onstop(); }   // như trình duyệt: stop kích onstop
+    }
+    const handed = [];
+    const env = {
+      navigator: { mediaDevices: { getUserMedia: async () => stream } },
+      MediaRecorder,
+      window: { AudioContext: function () { throw new Error('no ctx'); } },
+      $: () => null,
+      _showRecError: (m) => { throw new Error('không được hiện lỗi: ' + m); },
+      _clearRecError: () => {}, _stopAITts: () => {},
+      _startWaveform: () => {}, _stopWaveform: () => {},
+      _renderTimer: () => {}, _renderRecordedPlayback: () => {},
+      _renderRecordedLengthHint: () => {},
+      _sheetActive: () => true,
+      _sheetOnRecorded: (b) => handed.push(b),
+      setInterval: () => 1, clearInterval: () => {},
+      MAX_RECORD_SEC: { 1: 90 },
+      Blob: globalThis.Blob,
+    };
+    const names = Object.keys(env);
+    // _showRecSub THẬT được khai trong scope nên thắng mọi stub cùng tên.
+    const fn = new Function(...names, `
+      var _recSubState = 'idle', _stream = null, _recorder = null, _analyser = null;
+      var _audioCtx = null, _audioChunks = [], _recordedBlob = null;
+      var _timerId = null, _elapsedSecs = 0, _sessionData = { part: 1 };
+      ${JS.slice(s1, e1)}
+      ${JS.slice(s2, e2)}
+      return (async () => {
+        const r = [];
+        r.push(await startRecording());   // câu 1: ghi
+        stopRecording();                  //        dừng → onstop → nhánh phiếu
+        r.push(await startRecording());   // câu 2: phải ghi được tiếp
+        stopRecording();
+        r.push(await startRecording());   // câu 3
+        return r;
+      })();
+    `);
+    return { starts: await fn(...names.map((n) => env[n])), handed };
+  }
+
+  test('ghi → dừng → ghi → dừng → ghi: cả ba lần đều bắt đầu được', async () => {
+    const { starts, handed } = await cycle();
+    assert.deepEqual(starts, [true, true, true],
+      'lần nào false là ô ấy hiện "hỏng micro" dù micro vẫn ngon');
+    assert.equal(handed.length, 2, 'hai bản ghi đã dừng phải tới tay phiếu');
+  });
+});
