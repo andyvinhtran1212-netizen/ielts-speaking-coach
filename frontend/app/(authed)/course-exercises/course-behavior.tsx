@@ -1,0 +1,234 @@
+'use client';
+
+// CourseBehavior — phần động của trang làm bài tập theo buổi.
+//
+// Toàn bộ QUYẾT ĐỊNH nằm ở `public/js/course-runner.js` (module thuần, không
+// chạm DOM, có bộ test chạy thật). Tệp này chỉ VẼ và nối sự kiện. Tách như vậy
+// vì phần dễ sai của tính năng là vòng đời phiên làm bài, và một bộ test khớp
+// chuỗi trong tệp render không chứng minh được gì về nó.
+//
+// Auth đi qua useAuth() (ADR-011) thay vì tự gọi getSession(), và `window.api`
+// được layout (authed) khởi tạo ở DOMContentLoaded — trang legacy trước đó gọi
+// `initSupabase` bằng một thẻ script nội tuyến chạy TRƯỚC cả SDK `defer`, nên
+// nó ném lỗi và mọi request đi không kèm token.
+import { useEffect, useRef } from 'react';
+
+import { useAuth } from '@/lib/auth/auth-provider';
+
+const API_READY_TIMEOUT_MS = 10_000;
+
+function waitForApi(): Promise<any | null> {
+  return new Promise((resolve) => {
+    const startedAt = performance.now();
+    const tick = () => {
+      const api = (window as any).api;
+      if (api && typeof api.get === 'function') return resolve(api);
+      if (performance.now() - startedAt > API_READY_TIMEOUT_MS) return resolve(null);
+      setTimeout(tick, 50);
+    };
+    tick();
+  });
+}
+
+export function CourseBehavior() {
+  const { status, user } = useAuth();
+  // Khoá theo ID người dùng, KHÔNG dùng cờ "đã chạy một lần": đổi tài khoản giữa
+  // hai tab giữ nguyên status 'signed-in' và chỉ `user` đổi, nên một cờ một-lần
+  // sẽ để nguyên tiến độ của người trước trên màn hình (review #742).
+  const bootedFor = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (status !== 'signed-in' || !user?.id) return;
+    if (bootedFor.current === user.id) return;
+    bootedFor.current = user.id;
+
+    let runner: any = null;
+    let onClick: ((e: Event) => void) | null = null;
+    let onLeave: (() => void) | null = null;
+
+    (async () => {
+      const [{ createRunner, splitStem, md, esc, KEYS, DANG }, api] = await Promise.all([
+        import(/* webpackIgnore: true */ '/js/course-runner.js' as any),
+        waitForApi(),
+      ]);
+
+      const $ = (id: string) => document.getElementById(id);
+      const fail = (msg: string) => {
+        const l = $('cx-loading'); if (l) l.hidden = true;
+        const e = $('cx-error'); if (e) { e.hidden = false; e.textContent = msg; }
+      };
+
+      if (!api) return fail('Không tải được thành phần kết nối. Hãy tải lại trang.');
+
+      const bankId = new URLSearchParams(location.search).get('bank');
+      if (!bankId) return fail('Thiếu mã bài tập trên đường dẫn (?bank=…).');
+
+      runner = createRunner({ api, storage: window.localStorage });
+      try {
+        await runner.load(bankId);
+      } catch (err: any) {
+        return fail('Không mở được bài tập: ' + (err?.message || err));
+      }
+
+      // ── Vẽ ──────────────────────────────────────────────────────────────
+      const dots = (n: number) => {
+        let out = '';
+        for (let i = 1; i <= 3; i++) out += `<i${i <= (n || 1) ? ' data-on' : ''}></i>`;
+        return `<span class="cx-level" aria-label="Mức ${n || 1} trên 3">${out}</span>`;
+      };
+
+      function renderStage() {
+        const qs = runner.stageQuestions();
+        const marks = runner.marks;
+        const el = $('cx-stage'); if (el) el.hidden = false;
+        $('cx-stage-label')!.innerHTML =
+          `${esc(runner.bank.title)} · chặng <strong>${runner.stage + 1}/${runner.stageCount}</strong>`;
+        $('cx-stage-ticks')!.innerHTML = qs.map((_q: any, i: number) => {
+          const s = marks[i] || (i === runner.at ? 'now' : '');
+          return `<i${s ? ` data-s="${s}"` : ''}></i>`;
+        }).join('');
+      }
+
+      function renderQuestion() {
+        const q = runner.current();
+        if (!q) return renderDone();
+        runner.show();
+        const { ask, spec } = splitStem(q.prompt);
+        const isWrite = q.type === 'writing';
+
+        let body = '<div class="cx-q__head">'
+          + `<span class="cx-tag"><b>${esc(q.subtype || '')}</b>${esc(DANG[q.subtype] || '')}</span>`
+          + dots(q.points) + '</div>'
+          + `<p class="cx-q__ask">${md(ask)}</p>`
+          + (spec ? `<div class="cx-spec">${md(spec)}</div>` : '');
+
+        if (isWrite) {
+          body += '<textarea class="cx-write" id="cx-write" '
+            + 'placeholder="Viết câu trả lời của bạn…" aria-label="Câu trả lời"></textarea>'
+            + '<div id="cx-selfcheck"></div>';
+        } else {
+          body += '<div class="cx-opts" id="cx-opts" role="group">'
+            + (q.options || []).map((o: string, i: number) =>
+              `<button type="button" class="cx-opt" data-i="${i}">`
+              + `<span class="cx-opt__key">${KEYS[i]}</span>`
+              + `<span class="cx-opt__body"><span class="cx-opt__text">${md(o)}</span></span>`
+              + '</button>').join('')
+            + '</div>';
+        }
+        body += '<div id="cx-why"></div>';
+
+        $('cx-q')!.innerHTML = body;
+        $('cx-q')!.hidden = false;
+        $('cx-done')!.hidden = true;
+        $('cx-next')!.hidden = false;
+        $('cx-next')!.innerHTML = isWrite
+          ? '<button class="av-button av-button-primary" id="cx-reveal" type="button">Xem đáp án mẫu</button>'
+          : '';
+        renderStage();
+        window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+      }
+
+      function onAnswered(picked: number) {
+        const q = runner.current();
+        const res = runner.answer(picked);
+        if (!res) return;
+        document.querySelectorAll('.cx-opt').forEach((node) => {
+          const el = node as HTMLButtonElement;
+          el.disabled = true;
+          const idx = Number(el.dataset.i);
+          const role = idx === q.answer
+            ? (idx === picked ? 'hit' : 'key')
+            : (idx === picked ? 'miss' : 'off');
+          el.dataset.r = role;
+          // Chỉ ô ĐÃ CHỌN mới nở bẫy. Bung cả bốn dòng là trả bài về đúng chỗ nó
+          // bắt đầu: một đống chữ mà học viên phải tự tìm phần nói về mình.
+          if (role === 'miss' && res.trap) {
+            el.querySelector('.cx-opt__body')!.insertAdjacentHTML('beforeend',
+              `<span class="cx-trap"><b>Bẫy ở đây</b>${esc(res.trap)}</span>`);
+          }
+        });
+        $('cx-why')!.innerHTML = `<div class="cx-why">${md(res.explain)}`
+          + (q.item_key ? `<span class="cx-why__axis">Trục: ${esc(q.item_key)}</span>` : '')
+          + '</div>';
+        $('cx-next')!.innerHTML =
+          '<button class="av-button av-button-primary" id="cx-go" type="button">Câu tiếp</button>';
+        renderStage();
+      }
+
+      function onSelfCheck() {
+        const res = runner.selfCheck();
+        if (!res) return;
+        const ta = $('cx-write') as HTMLTextAreaElement | null;
+        if (ta) ta.readOnly = true;
+        $('cx-selfcheck')!.innerHTML = '<div class="cx-selfcheck">'
+          + '<p><strong>Tự đối chiếu.</strong> Câu này không chấm máy — so bài của bạn '
+          + 'với đáp án mẫu bên dưới.</p>'
+          + md(res.explain).split('\n\n').map((p: string) => `<p>${p}</p>`).join('')
+          + '</div>';
+        $('cx-next')!.innerHTML =
+          '<button class="av-button av-button-primary" id="cx-go" type="button">Câu tiếp</button>';
+        renderStage();
+      }
+
+      async function renderDone() {
+        const res = await runner.finishStage();
+        $('cx-q')!.hidden = true;
+        $('cx-next')!.hidden = true;
+        $('cx-done')!.hidden = false;
+        $('cx-done')!.innerHTML =
+          `<div class="cx-done__score">${res.right}<small>/ ${res.graded} câu đúng</small></div>`
+          + (res.axes.length
+            ? '<h2>Sai dồn vào những trục này</h2><ul class="cx-axes">'
+              + res.axes.map((a: any) =>
+                `<li class="cx-axis"><span>${esc(a.axis)}</span>`
+                + `<span class="cx-axis__n">${a.n} câu</span></li>`).join('')
+              + '</ul>'
+            : '<h2>Không sai câu nào trong chặng này.</h2>')
+          // Nói THẲNG khi bài chưa tới máy chủ. Im lặng nghĩa là học viên tin
+          // mình đã nộp, còn giáo viên thì không thấy gì.
+          + (res.persisted ? ''
+            : '<p class="cx-empty">Chưa gửi được kết quả chặng này lên hệ thống. '
+              + 'Giữ tab mở và kiểm tra kết nối — bài làm vẫn đang chờ gửi.</p>')
+          + '<div class="cx-next" style="position:static">'
+          + (res.hasMore
+            ? `<button class="av-button av-button-primary" id="cx-more" type="button">Làm chặng ${runner.stage + 2}</button>`
+            : `<span class="cx-empty" style="flex:1">Xong cả ${runner.total} câu của buổi này.</span>`)
+          + '</div>';
+        renderStage();
+      }
+
+      const l = $('cx-loading'); if (l) l.hidden = true;
+      if (runner.sessionFailed) {
+        const e = $('cx-error');
+        if (e) {
+          e.hidden = false;
+          e.textContent = 'Không kết nối được để lưu bài. Bạn vẫn làm được, nhưng kết '
+            + 'quả sẽ KHÔNG tới giáo viên — tải lại trang để thử lại.';
+        }
+      }
+      if (runner.isStageDone()) renderDone(); else renderQuestion();
+
+      // Uỷ quyền: nội dung được vẽ lại sau mỗi câu, nên gắn tay từng nút sẽ mất
+      // ngay ở lần vẽ kế tiếp.
+      onClick = (e: Event) => {
+        const t = e.target as HTMLElement;
+        const opt = t.closest?.('.cx-opt') as HTMLButtonElement | null;
+        if (opt && !opt.disabled) return onAnswered(Number(opt.dataset.i));
+        if (t.id === 'cx-go') { runner.next(); return renderQuestion(); }
+        if (t.id === 'cx-reveal') return onSelfCheck();
+        if (t.id === 'cx-more') return runner.nextStage().then(renderQuestion);
+      };
+      document.addEventListener('click', onClick);
+
+      onLeave = () => { runner.leave(); };
+      window.addEventListener('pagehide', onLeave);
+    })();
+
+    return () => {
+      if (onClick) document.removeEventListener('click', onClick);
+      if (onLeave) window.removeEventListener('pagehide', onLeave);
+    };
+  }, [status, user?.id]);
+
+  return null;
+}
