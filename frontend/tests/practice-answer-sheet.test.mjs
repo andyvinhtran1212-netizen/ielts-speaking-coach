@@ -39,10 +39,18 @@ function render(slots) {
     'sheet-ticks': { innerHTML: '' },
     'sheet-meter-count': { innerHTML: '' },
   };
+  // Thanh tiến độ phải dính DƯỚI thanh ngữ cảnh, nên bộ khung phải dựng được cả
+  // hai: một thanh có chiều cao thật, và khối #state-sheet để nhận số đo.
+  nodes['state-sheet'] = { style: { _p: {}, setProperty(k, v) { this._p[k] = v; } } };
+  const bar = { offsetHeight: 52 };
+  const document = { querySelector: (sel) => (sel === '.practice-context-bar' ? bar : null) };
+
   const $ = (id) => nodes[id];
   const _esc = (s) => String(s == null ? '' : s);
   const _sheet = { slots, recIdx: slots.findIndex((s) => s.state === 'recording') };
-  new Function('$', '_esc', '_sheet', `${JS.slice(start, end)} _renderSheet();`)($, _esc, _sheet);
+  new Function('$', '_esc', '_sheet', 'document', 'window',
+    `${JS.slice(start, end)} _renderSheet();`)(
+    $, _esc, _sheet, document, { addEventListener() {} });
   return nodes;
 }
 
@@ -306,6 +314,34 @@ describe('phiếu làm bài — CSS thật sự tới được trang', () => {
     const missing = [...emitted].filter((c) => !rule(c).test(loadedCss));
     assert.deepEqual(missing, [],
       `practice.html không nạp tệp CSS định nghĩa: ${missing.join(', ')}`);
+  });
+
+  // Thanh ngữ cảnh của trang cũng `sticky top-0`, ở z-30 — cao hơn thanh tiến
+  // độ (z-2). Cùng dính ở 0 thì thanh tiến độ chui xuống dưới và mất hút đúng
+  // lúc cần nhất: khi học viên đã cuộn qua vài ô của bài 12 câu.
+  describe('thanh tiến độ dính DƯỚI thanh ngữ cảnh', () => {
+    const SHEET_CSS = readFileSync(
+      join(HERE, '..', 'public', 'css', 'speaking-assignment.css'), 'utf8');
+    const meter = /\.av-sheet__meter\s*\{([^}]*)\}/.exec(SHEET_CSS)[1];
+    const VAR = /top:\s*var\(\s*(--[\w-]+)/.exec(meter);
+
+    test('meter lấy độ lệch từ biến, không dính cứng ở 0', () => {
+      assert.ok(VAR, `.av-sheet__meter vẫn đang \`top\` cứng: ${meter.trim()}`);
+      assert.match(meter, /top:\s*var\(--[\w-]+,\s*0px\)/,
+        'phải có giá trị lui về 0px cho trang không có thanh ngữ cảnh');
+    });
+
+    test('JS đặt ĐÚNG cái biến mà CSS đọc', () => {
+      assert.match(CODE, new RegExp(`setProperty\\(\\s*'${VAR[1]}'`),
+        `CSS đọc ${VAR[1]} — practice.js phải đặt đúng tên ấy`);
+    });
+
+    test('số đo là chiều cao THẬT của thanh, chỉ khi meter hiện', () => {
+      const p = (n) => render(Array.from({ length: n }, () => S('idle')))['state-sheet'].style._p;
+      // Bộ khung dựng thanh cao 52px; hằng số trong CSS/JS nào khác cũng sẽ lệch.
+      assert.equal(p(4)[VAR[1]], '52px', 'bài ≥4 câu: meter hiện, phải có số đo');
+      assert.equal(p(2)[VAR[1]], undefined, 'bài 2 câu: meter ẩn, không cần đo');
+    });
   });
 
   // Lỗi NẶNG NHẤT, và là lỗi duy nhất thật sự làm trang TRỐNG hoàn toàn.

@@ -828,7 +828,12 @@
 
 .av-sheet__meter {
   position: sticky;
-  top: 0;
+  /* Dính DƯỚI thanh ngữ cảnh của trang, vốn cũng sticky top-0 nhưng ở z-30.
+     Cùng dính ở 0 thì thanh này chui xuống dưới và mất hút. Số đo do
+     `_syncMeterTop()` trong practice.js đặt — chiều cao thanh ấy không có
+     trong CSS, nó là `py-3` cộng nội dung. Mặc định 0 để dùng ngoài trang
+     practice (nơi không có thanh ấy) vẫn đúng. */
+  top: var(--practice-meter-top, 0px);
   z-index: 2;
   display: flex;
   align-items: center;
