@@ -182,13 +182,32 @@ Cờ phải **nói được lý do và việc cần làm**, không chỉ tô đ�
 
 ## Phần 3 — Chia giai đoạn
 
-| GĐ | việc | có migration | đụng giao diện |
-|---|---|---|---|
-| A | mig 183 + kho theo buổi (backend) + nạp C3·Buổi 1 | có | không |
-| B | audio Kokoro cho kho theo buổi + chốt giọng | không | không |
-| C | admin giao bài theo buổi | không | **có** |
-| D | phiếu làm bài N ô | không | **có** |
-| E | mặt đọc hiệu suất + cờ cảnh báo | không | **có** |
-| F | sổ tiến bộ bền + xử lý cơ chế xoá dần | có | có |
+| GĐ | việc | migration | giao diện | trạng thái |
+|---|---|---|---|---|
+| A | kho đề theo buổi + bộ nạp + đường render | **183** | không | ✅ mã xong |
+| B | audio Kokoro + chốt giọng | không | không | ✅ 12 clip đã lên Storage |
+| C | admin giao bài theo buổi | **184** | có | ✅ |
+| D | phiếu làm bài N ô | không | có | ✅ |
+| E | cờ "cần xem lại" + hiệu suất lớp | không | có | ✅ |
+| F | sổ tiến bộ bền | **185** | không | ✅ mã xong |
 
-Mỗi GĐ: tự review bằng codex → PR → chờ inline comment → sửa. Trần 5 vòng.
+Tất cả nằm ở PR #921 (8 commit). Ba vòng review: codex cục bộ ×3 + bot inline ×1
+→ 12 lỗi thật đã vá, 1 phát hiện của bot bị bác có dẫn chứng.
+
+## Còn phải làm bằng tay (cần quyền prod)
+
+1. Áp ba migration 183 → 184 → 185, theo đúng thứ tự.
+2. `python -m scripts.import_speaking_lesson_sets --file content/speaking_lessons/c3_lesson01_part1.json --commit`
+3. `python -m scripts.pregen_speaking_question_audio --lesson-set --commit`
+   (12 clip đã nằm sẵn trong Storage, nên lệnh này chỉ ghi con trỏ — không render lại.)
+4. `python -m scripts.backfill_speaking_progress --commit` — **chạy TRƯỚC khi bật
+   cơ chế dọn**, nếu không thì phần chẩn đoán của 6.219 bài mất vĩnh viễn.
+
+## Quyết định còn treo
+
+**Giọng đọc.** Giữ `bf_emma` (mặc định hiện tại) hay đổi. Đây là lựa chọn của
+người nghe, không phải của số liệu — bảng hạng chỉ nói được rằng bf_emma là giọng
+Anh duy nhất trên hạng C. Đổi giọng kéo theo render lại toàn bộ 631 bản đọc.
+
+**Cơ chế dọn.** Nó vẫn chưa chạy. Bật hay không là quyết định về dung lượng; điều
+kiện tiên quyết là bước 4 ở trên đã chạy xong.
