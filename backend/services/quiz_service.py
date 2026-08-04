@@ -230,14 +230,21 @@ def get_bank_for_play(bank_id: str, user_id: str | None = None) -> dict:
         ).data
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi truy vấn bank: {exc}")
-    if not b or not b[0].get("is_published"):
+    if not b:
         raise HTTPException(404, "Không tìm thấy bank")
     bank = b[0]
     if bank.get("skill_area") == COURSE_AREA:
+        # BÀI GIAO LÀ CỬA DUY NHẤT. `is_published` KHÔNG áp cho giáo trình: bank
+        # theo buổi sống trong kho giáo viên ở trạng thái nháp và không bao giờ
+        # được xuất bản, nên đòi thêm cờ ấy sẽ khoá chết cả những bài ĐÃ GIAO —
+        # giao xong mà học viên vẫn không mở được.
+        #
         # Trả 404 chứ không 403: 403 xác nhận bank ấy tồn tại, và với nội dung
         # giáo trình thì chính sự tồn tại cũng không cần nói ra.
         if not user_id or not _has_assignment_for(bank_id, user_id):
             raise HTTPException(404, "Không tìm thấy bank")
+    elif not bank.get("is_published"):
+        raise HTTPException(404, "Không tìm thấy bank")
     try:
         questions = (
             supabase_admin.table("quiz_questions").select("*")

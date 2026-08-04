@@ -672,6 +672,7 @@
             <option value="speaking">Speaking</option>
             <option value="reading">Reading</option>
             <option value="listening">Listening</option>
+            <option value="course">Bài tập theo buổi</option>
           </select>
         </div>
         <div class="adm-field">
@@ -694,6 +695,15 @@
           <label for="hf-topic">Chủ đề <span class="adm-hint">(từ kho đề)</span></label>
           <select id="hf-topic"><option value="">— Chọn chủ đề —</option></select>
           <p class="adm-hint" id="hf-topic-note"></p>
+        </div>
+
+        <!-- Bài tập theo buổi: chọn một bộ trong kho giáo trình của khoá.
+             Bank giáo trình KHÔNG được xuất bản và không nằm trong danh sách tự
+             chọn của học viên — bài giao này là cửa DUY NHẤT mở nó ra. -->
+        <div class="adm-field" id="hf-cbank-field" hidden>
+          <label for="hf-cbank">Bộ bài tập <span class="adm-hint">(kho giáo trình của khoá)</span></label>
+          <select id="hf-cbank"><option value="">— Chọn buổi —</option></select>
+          <p class="av-setnote" id="hf-cbank-note" data-tone="ok"></p>
         </div>
 
         <!-- Bài sau buổi học: chọn BỘ ĐỀ của buổi, từ kho của khoá mà lớp thuộc

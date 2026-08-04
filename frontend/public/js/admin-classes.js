@@ -805,7 +805,8 @@ async function loadHomework() {
   renderHomework();
 }
 
-const SKILL_LABEL = { speaking: 'Speaking', reading: 'Reading', listening: 'Listening' };
+const SKILL_LABEL = { speaking: 'Speaking', reading: 'Reading', listening: 'Listening',
+                      course: 'bài tập theo buổi' };
 
 let _testsBySkill = {};
 
@@ -859,14 +860,17 @@ function applyHomeworkSkill() {
   const skill = lesson ? 'speaking' : $('hf-skill').value;
   const isSpeaking = skill === 'speaking';
 
+  const isCourse = !lesson && skill === 'course';
   $('hf-topic-field').hidden = lesson || !isSpeaking;
   $('hf-set-field').hidden = !lesson;
+  $('hf-cbank-field').hidden = !isCourse;
   // Part biến mất ở bài theo buổi — nó là thuộc tính của BỘ ĐỀ. Nhưng "Kiểu
   // luyện" vẫn còn, vì đó vẫn là lựa chọn thật của giáo viên.
   $('hf-speaking-row').hidden = !isSpeaking;
   const partField = $('hf-part') && $('hf-part').closest('.adm-field');
   if (partField) partField.hidden = lesson;
-  $('hf-test-field').hidden = lesson || isSpeaking;
+  // Bài tập theo buổi không dùng thư viện đề Reading/Listening.
+  $('hf-test-field').hidden = lesson || isSpeaking || isCourse;
 
   $('homework-modal-title').textContent = lesson
     ? 'Giao bài sau buổi học'
@@ -874,6 +878,7 @@ function applyHomeworkSkill() {
 
   if (lesson) loadLessonSets();
   else if (isSpeaking) loadSpeakingTopics();
+  else if (isCourse) loadCourseBanks();
   else loadTests(skill);
 }
 
@@ -1140,6 +1145,52 @@ async function loadQpick() {
   }
 }
 
+/* ── Kho bài tập theo buổi (giáo trình) ─────────────────────────────────── */
+
+/**
+ * Bộ bài tập của khoá mà lớp này thuộc về.
+ *
+ * Hai lý do "không giao được" nói TÁCH RIÊNG, vì admin làm hai việc khác nhau:
+ * đã giao rồi là việc xong, còn chưa có câu hỏi là việc CHƯA làm (nạp tệp JSONL
+ * của buổi ấy).
+ */
+async function loadCourseBanks() {
+  const sel = $('hf-cbank');
+  const note = $('hf-cbank-note');
+  const stillCurrent = () => ($('hf-skill') || {}).value === 'course';
+
+  sel.innerHTML = '<option value="">Đang tải kho bài tập…</option>';
+  note.textContent = '';
+  note.dataset.tone = 'ok';
+  try {
+    const r = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId) + '/course-banks');
+    if (!stillCurrent()) return;
+    const items = (r && r.items) || [];
+    const free = items.filter((b) => !b.already_given && b.ready);
+    sel.innerHTML = free.length
+      ? '<option value="">— Chọn buổi —</option>' + free.map((b) =>
+        `<option value="${esc(b.id)}">Buổi ${esc(b.lesson_no)} · ${esc(b.title)}`
+        + ` (${esc(b.question_count)} câu)</option>`).join('')
+      : '<option value="">Chưa có buổi nào giao được</option>';
+
+    const given = items.filter((b) => b.already_given).length;
+    const empty = items.filter((b) => !b.already_given && !b.ready).length;
+    const bits = [];
+    if (given) bits.push(`${given} buổi lớp này đã làm`);
+    if (empty) bits.push(`${empty} buổi chưa nạp câu hỏi`);
+    note.textContent = items.length
+      ? (bits.length ? `Đã ẩn: ${bits.join(', ')}.` : '')
+      : 'Khoá này chưa có bộ bài tập nào.';
+    note.dataset.tone = (empty || !items.length) ? 'warn' : 'ok';
+  } catch (err) {
+    if (!stillCurrent()) return;
+    sel.innerHTML = '<option value="">Không đọc được kho bài tập</option>';
+    // Backend nói rõ khi lớp chưa gắn khoá — câu duy nhất chỉ ra việc phải làm.
+    note.textContent = (err && err.message) ? String(err.message) : 'Không đọc được kho.';
+    note.dataset.tone = 'error';
+  }
+}
+
 /* ── Bài sau buổi học ────────────────────────────────────────────────────── */
 
 let _lessonSets = [];
@@ -1278,6 +1329,7 @@ function openHomeworkModal() {
   const daily = document.querySelector('input[name="hf-kind"][value="daily"]');
   if (daily) daily.checked = true;
   $('hf-set').value = '';
+  $('hf-cbank').value = '';
   $('hf-due-days').value = '7';
   _lessonSets = [];
   $('hf-skill').value = 'speaking';
@@ -1339,6 +1391,7 @@ async function submitHomework() {
     $('hf-error').hidden = false;
     return;
   }
+  if (skill === 'course') return submitCourseHomework(title);
   if (skill !== 'speaking' && !testId) {
     $('hf-error').textContent = 'Chọn một đề để tiếp tục.';
     $('hf-error').hidden = false;
@@ -1439,6 +1492,46 @@ async function submitLessonHomework(title) {
         question_ids: _qpick.picked.length === all ? null : _qpick.picked,
         mode: $('hf-mode').value,
         due_days: days,
+        due_time: $('hf-due-time').value || null,
+        instructions: $('hf-instructions').value.trim() || null,
+      },
+    );
+    closeHomeworkModal();
+    if (r && r.unactivated_count) {
+      toast(
+        `Đã giao cho ${r.student_count} học viên. ${r.unactivated_count} bạn chưa kích hoạt tài khoản `
+        + 'nên sẽ không nhận được bài.',
+        'error',
+      );
+    } else {
+      toast(`Đã giao bài cho ${(r && r.student_count) || 0} học viên.`);
+    }
+    await loadHomework();
+  } catch (err) {
+    $('hf-error').textContent = 'Không giao được bài: ' + (err.message || err);
+    $('hf-error').hidden = false;
+  } finally {
+    $('btn-hf-submit').disabled = false;
+  }
+}
+
+/** Giao một bộ bài tập theo buổi. Payload gọn: bộ đề quyết định tất cả. */
+async function submitCourseHomework(title) {
+  const bankId = $('hf-cbank').value;
+  if (!bankId) {
+    $('hf-error').textContent = 'Chọn một buổi để tiếp tục.';
+    $('hf-error').hidden = false;
+    return;
+  }
+  $('btn-hf-submit').disabled = true;
+  try {
+    const r = await api.post(
+      '/admin/cohorts/' + encodeURIComponent(_cohortId) + '/assignments',
+      {
+        skill: 'course',
+        title,
+        content_id: bankId,
+        due_date: $('hf-due').value || null,
         due_time: $('hf-due-time').value || null,
         instructions: $('hf-instructions').value.trim() || null,
       },

@@ -186,3 +186,42 @@ def test_a_vocab_bank_is_NOT_gated_by_assignments():
          patch.object(mod, "_resolve_question_audio", lambda *_a, **_k: None):
         out = mod.get_bank_for_play("bank-vocab", user_id="u1")
     assert out["bank"]["code"] == "V-01"
+
+
+# ── Bài giao là cửa DUY NHẤT (không phải cửa THỨ HAI) ────────────────────────
+
+_DRAFT_COURSE = {**_COURSE_BANK, "is_published": False}
+
+
+def test_an_ASSIGNED_student_can_open_a_DRAFT_course_bank():
+    """Bank theo buổi sống trong kho giáo viên ở trạng thái NHÁP và không bao giờ
+    được xuất bản. Đòi thêm `is_published` sẽ khoá chết cả bài ĐÃ GIAO — giao
+    xong mà học viên vẫn không mở được, và không có gì nói vì sao."""
+    db = _db(
+        quiz_banks=[_DRAFT_COURSE],
+        quiz_questions=[{"id": "q1", "bank_id": "bank-course", "order": 0,
+                         "type": "mcq", "item_key": "x"}],
+        class_assignments=[{"id": "asg-1", "content_id": "bank-course"}],
+        students=[{"id": "st-1", "user_id": "u1"}],
+        class_assignment_items=[{"id": "it-1", "assignment_id": "asg-1", "student_id": "st-1"}],
+    )
+    with patch.object(mod, "_word_cards_for", lambda *_a, **_k: []), \
+         patch.object(mod, "_attach_article_urls", lambda *_a, **_k: None), \
+         patch.object(mod, "_resolve_question_audio", lambda *_a, **_k: None):
+        out = _play(db)
+    assert out["bank"]["code"] == "C1-B01"
+
+
+def test_a_DRAFT_course_bank_is_still_closed_WITHOUT_an_assignment():
+    db = _db(quiz_banks=[_DRAFT_COURSE], class_assignments=[], students=[])
+    with pytest.raises(HTTPException) as exc:
+        _play(db)
+    assert exc.value.status_code == 404
+
+
+def test_a_DRAFT_vocab_bank_stays_closed():
+    """Chốt ngược: bỏ `is_published` cho giáo trình KHÔNG được nới lỏng kho khác."""
+    db = _db(quiz_banks=[{**_VOCAB_BANK, "is_published": False}])
+    with patch.object(mod, "supabase_admin", db), pytest.raises(HTTPException) as exc:
+        mod.get_bank_for_play("bank-vocab", user_id="u1")
+    assert exc.value.status_code == 404

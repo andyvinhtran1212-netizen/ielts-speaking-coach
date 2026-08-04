@@ -34,7 +34,7 @@ const END = 'async function setHomeworkStatus(';
  * kiểm được (không cố định thì test sẽ đỏ vào lúc nửa đêm).
  */
 function load({ kind = 'daily', now = '2026-08-04T03:00:00Z', sets = [], setQuestions = [],
-                failGet = null } = {}) {
+                banks = [], failGet = null } = {}) {
   const start = SRC.indexOf(START);
   const end = SRC.indexOf(END);
   assert.ok(start !== -1 && end > start, 'không tìm thấy vùng mã ô giao bài');
@@ -45,6 +45,8 @@ function load({ kind = 'daily', now = '2026-08-04T03:00:00Z', sets = [], setQues
   const nodes = {};
   for (const id of ['hf-skill-field', 'hf-skill', 'hf-kind-note', 'hf-topic-field',
     'hf-topic', 'hf-topic-note', 'hf-set-field', 'hf-set', 'hf-set-note',
+    // Kho bài tập theo buổi (giáo trình) — node mới, khuôn giả phải có đủ.
+    'hf-cbank-field', 'hf-cbank', 'hf-cbank-note',
     'hf-speaking-row', 'hf-part', 'hf-test-field', 'hf-test', 'hf-mode',
     'hf-due-date-field', 'hf-due-days-field', 'hf-due', 'hf-due-days', 'hf-due-time',
     'hf-due-resolve', 'hf-due-resolve-at', 'hf-due-resolve-why',
@@ -76,6 +78,7 @@ function load({ kind = 'daily', now = '2026-08-04T03:00:00Z', sets = [], setQues
   const api = {
     async get(path) {
       if (failGet) throw new Error(failGet);
+      if (path.includes('/course-banks')) return { items: banks };
       if (path.includes('/speaking-lesson-sets/')) return { items: setQuestions };
       if (path.includes('/speaking-lesson-sets')) return { items: sets };
       return { items: [] };
@@ -94,6 +97,7 @@ function load({ kind = 'daily', now = '2026-08-04T03:00:00Z', sets = [], setQues
      return { hfKind, applyHomeworkKind, applyHomeworkSkill, renderDueResolve,
               loadLessonSets, loadSetQuestions, toggleQpick, renderQpick,
               submitLessonHomework, submitHomework,
+              loadCourseBanks, submitCourseHomework,
               get state() { return _qpick; }, set state(v) { _qpick = v; } };`,
   )(
     (id) => nodes[id],
@@ -648,5 +652,76 @@ describe('bảng hiệu suất Speaking', () => {
     const sw = SRC.slice(SRC.indexOf("if (name === 'progress' && !_progressLoaded)"));
     assert.match(sw, /loadProgress\(\);[\s\S]{0,400}?loadSpeakingPerf\(\);/);
     assert.doesNotMatch(sw.slice(0, 400), /await loadProgress/);
+  });
+});
+
+
+// ── Giao bài tập theo buổi (giáo trình) ──────────────────────────────────────
+
+describe('giao bài tập theo buổi', () => {
+  function pickers(skill) {
+    const p = load({ kind: 'daily' });
+    p.nodes['hf-skill'].value = skill;
+    p.applyHomeworkKind();
+    return p;
+  }
+
+  test('chọn "Bài tập theo buổi" thì hiện ô kho giáo trình', () => {
+    const p = pickers('course');
+    assert.equal(p.nodes['hf-cbank-field'].hidden, false);
+  });
+
+  test('và ẩn ô đề Reading/Listening — hai kho khác nhau', () => {
+    // Bank giáo trình không nằm trong thư viện đề; để cả hai cùng hiện là mời
+    // giáo viên chọn nhầm rồi bị backend từ chối.
+    const p = pickers('course');
+    assert.equal(p.nodes['hf-test-field'].hidden, true);
+    assert.equal(p.nodes['hf-topic-field'].hidden, true);
+  });
+
+  test('chọn Reading thì ô kho giáo trình ẩn lại', () => {
+    const p = pickers('reading');
+    assert.equal(p.nodes['hf-cbank-field'].hidden, true);
+    assert.equal(p.nodes['hf-test-field'].hidden, false);
+  });
+
+  test('buổi đã giao và buổi chưa nạp câu hỏi bị ẩn, kèm LÝ DO TÁCH RIÊNG', async () => {
+    // Hai việc khác nhau: một cái đã xong, một cái là nạp tệp JSONL của buổi ấy.
+    const p = load({ kind: 'daily', banks: [
+      { id: 'b1', lesson_no: 1, title: 'Buổi 1', question_count: 100, already_given: false, ready: true },
+      { id: 'b2', lesson_no: 2, title: 'Buổi 2', question_count: 100, already_given: true, ready: true },
+      { id: 'b3', lesson_no: 3, title: 'Buổi 3', question_count: 0, already_given: false, ready: false },
+    ] });
+    p.nodes['hf-skill'].value = 'course';
+    await p.loadCourseBanks();
+    assert.match(p.nodes['hf-cbank'].innerHTML, /Buổi 1/);
+    assert.doesNotMatch(p.nodes['hf-cbank'].innerHTML, /Buổi 2/);
+    assert.doesNotMatch(p.nodes['hf-cbank'].innerHTML, /Buổi 3/);
+    const note = p.nodes['hf-cbank-note'].textContent;
+    assert.match(note, /1 buổi lớp này đã làm/);
+    assert.match(note, /1 buổi chưa nạp câu hỏi/);
+  });
+
+  test('gửi đi payload GỌN — bộ đề quyết định tất cả', async () => {
+    const p = load({ kind: 'daily' });
+    p.nodes['hf-skill'].value = 'course';
+    p.nodes['hf-cbank'].value = 'b1';
+    p.nodes['hf-due'].value = '2026-08-11';
+    await p.submitCourseHomework('Bài tập buổi 1');
+    assert.equal(p.posted.length, 1);
+    const b = p.posted[0].body;
+    assert.equal(b.skill, 'course');
+    assert.equal(b.content_id, 'b1');
+    assert.equal(b.due_date, '2026-08-11');
+    // Không có mode/part/question_ids: đòi chúng là đòi thông tin không tồn tại.
+    assert.ok(!('mode' in b) && !('part' in b) && !('question_ids' in b));
+  });
+
+  test('chưa chọn buổi thì chặn tại chỗ, không tốn một vòng gọi mạng', async () => {
+    const p = load({ kind: 'daily' });
+    p.nodes['hf-skill'].value = 'course';
+    await p.submitCourseHomework('Bài');
+    assert.equal(p.posted.length, 0);
+    assert.match(p.nodes['hf-error'].textContent, /Chọn một buổi/);
   });
 });

@@ -64,6 +64,17 @@ _SCHEMA = {
     },
     "topics": {"id", "title", "part", "category", "is_active", "last_rotated_at",
                "created_at", "updated_at"},
+    "quiz_banks": {              # mig 186 thêm course_id + lesson_no
+        "id", "topic_id", "code", "title", "skill_area", "meta", "words_count",
+        "source", "version", "is_published", "import_batch_id",
+        "created_at", "updated_at", "course_id", "lesson_no",
+    },
+    "quiz_questions": {          # mig 186 thêm why_wrong
+        "id", "bank_id", "qid", "item_key", "type", "subtype", "input", "skill",
+        "pair", "counts_toward_mastery", "prompt", "options", "answer", "accept",
+        "segments", "mask", "pairs", "explain", "points", "audio_url",
+        "grammar_article_slug", "order", "created_at", "hint", "why_wrong",
+    },
 }
 
 _SELECT = re.compile(

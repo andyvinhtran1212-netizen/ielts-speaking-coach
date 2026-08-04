@@ -74,7 +74,8 @@ def _student_for_user(user_id: str) -> Optional[Dict[str, Any]]:
 # Những trường của `content_config` được phép xuống trình duyệt học viên.
 # Cố ý KHÔNG có `questions` (bản chụp đề) và `question_ids`: cái đầu chứa nguyên
 # văn câu hỏi, cái sau đủ để tra ra chúng.
-_DISPLAY_CONFIG_FIELDS = ("topic", "mode", "part", "test_title")
+# `lesson_no` an toàn để hiện: nó là "Buổi 3", không phải nội dung đề.
+_DISPLAY_CONFIG_FIELDS = ("topic", "mode", "part", "test_title", "lesson_no")
 
 
 def _display_config(cfg: Optional[Dict[str, Any]]) -> Dict[str, Any]:
@@ -273,7 +274,7 @@ async def start_assignment(
         raise HTTPException(404, "Bài tập không thuộc lớp hiện tại của bạn")
 
     skill = assignment.get("skill")
-    if skill not in ("speaking", "reading", "listening"):
+    if skill not in ("speaking", "reading", "listening", "course"):
         raise HTTPException(400, "Bài tập này chưa hỗ trợ mở trực tiếp.")
 
     if item.get("state") == "assigned":
@@ -287,6 +288,18 @@ async def start_assignment(
             logger.warning("[class] could not mark item opened item=%s: %s", item_id, exc)
 
     cfg = assignment.get("content_config") or {}
+
+    if skill == "course":
+        # Bài tập theo buổi mở thẳng bằng id bank — không có phiên nào phải dựng
+        # trước. Chính bài giao này là thứ cho phép `get_bank_for_play` mở bank
+        # ấy ra (bank giáo trình không xuất bản và không nằm trong danh sách tự
+        # chọn), nên trả id ở đây là đủ và không lộ thêm gì.
+        return {
+            "item_id":       item_id,
+            "assignment_id": assignment["id"],
+            "skill":         skill,
+            "bank_id":       assignment.get("content_id"),
+        }
 
     if skill == "speaking":
         # The client posts these to /sessions — which owns quota, the daily cap
