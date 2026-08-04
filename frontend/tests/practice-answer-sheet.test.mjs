@@ -292,10 +292,18 @@ describe('phiếu làm bài — CSS thật sự tới được trang', () => {
     }
   }
 
-  test('mọi lớp av-* của phiếu đều có quy tắc trong CSS trang nạp', () => {
-    assert.ok(emitted.size >= 6, `bộ vẽ phải phát ra lớp av-*, đang có ${emitted.size}`);
-    const missing = [...emitted].filter(
-      (c) => !new RegExp(`\\.${c.replace(/[-_]/g, '[-_]')}(?![\\w-])`).test(loadedCss));
+  // Thẻ nghe-đề nằm sẵn trong HTML tĩnh của trang, không do bộ vẽ sinh ra — nhưng
+  // `.prep-listen__*` cũng chỉ được định nghĩa ở speaking-assignment.css, nên một
+  // dòng <link> thiếu làm hỏng CẢ HAI. Gộp vào cùng một phép kiểm đường dây.
+  for (const m of HTML.matchAll(/class="([^"]+)"/g)) {
+    for (const c of m[1].split(/\s+/)) if (c.startsWith('prep-listen')) emitted.add(c);
+  }
+
+  const rule = (c) => new RegExp(`\\.${c.replace(/[^\w-]/g, '\\$&')}(?![\\w-])`);
+
+  test('mọi lớp riêng của trang đều có quy tắc trong CSS trang nạp', () => {
+    assert.ok(emitted.size >= 8, `phải gom được lớp riêng, đang có ${emitted.size}`);
+    const missing = [...emitted].filter((c) => !rule(c).test(loadedCss));
     assert.deepEqual(missing, [],
       `practice.html không nạp tệp CSS định nghĩa: ${missing.join(', ')}`);
   });
