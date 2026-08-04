@@ -200,15 +200,16 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       if ((stage + 1) * STAGE < qs.length) { stage += 1; at = 0; marks = []; }
       else { at = STAGE; marks = Array.isArray(v.marks) ? v.marks : []; resumedFinal = true; }
     } else {
-      at = typeof v.at === 'number' ? v.at : 0;
-      marks = Array.isArray(v.marks) ? v.marks : [];
-      // Đứng CUỐI chặng mà không có dấu done = chặng chốt HỎNG rồi đóng tab
-      // (luồng thường luôn save(done) khi chốt xong). Lượt làm của nó chỉ sống
-      // trong bộ nhớ nên đã mất theo tab — đường sửa duy nhất là làm lại chặng
-      // này với phiên mới. Đứng yên ở màn kết quả là kẹt vĩnh viễn: verdict
-      // phủ-đủ-đề sẽ bác mãi (codex #928 R3).
-      const len = Math.min(STAGE, Math.max(0, qs.length - stage * STAGE));
-      if (at >= len) { at = 0; marks = []; }
+      // Chặng DANG DỞ không sống qua reload — làm lại chặng từ câu đầu.
+      //
+      // Vì phiên và hàng đợi lượt làm chỉ sống trong bộ nhớ tab: các câu đã
+      // trả lời trước khi đóng tab nằm trong một phiên MỒ CÔI (không bao giờ
+      // completed, không có tên trong lượt xét). Khôi phục `at` giữa chừng là
+      // để học viên đi tiếp với những câu đã rơi vào hư không — verdict
+      // phủ-đủ-đề sẽ bác cả lượt ở phút chót và không có đường sửa nào ngoài
+      // xoá localStorage (codex #928 R3+R7). Mười câu là giá của một lần đóng
+      // tab giữa chặng; một lượt 100 câu bị kẹt vĩnh viễn mới là đắt.
+      at = 0; marks = [];
     }
     // Trạng thái lưu không còn khớp bộ đề (bank bị thay/ngắn lại): làm lại từ
     // đầu là một LƯỢT MỚI TRỌN VẸN — phải xoá cả dấu done-cuối lẫn danh sách

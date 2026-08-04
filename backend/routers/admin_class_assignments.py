@@ -1199,6 +1199,10 @@ async def speaking_performance(
             if sub:
                 late = bool(due and sub > due) and r["assignment_id"] not in archived
                 states.append("late" if late else "submitted")
+                # `assignments` đã lọc skill='speaking' ở truy vấn đầu hàm, nên
+                # score ở đây LUÔN là band — điểm % của bài course không có
+                # đường vào. Nới bộ lọc skill ấy thì phải lọc lại ở đây, vì
+                # flag_student tính median band và một điểm 85 sẽ làm nó nổ.
                 if r.get("score") is not None:
                     bands.append(float(r["score"]))
             elif r["assignment_id"] in archived:

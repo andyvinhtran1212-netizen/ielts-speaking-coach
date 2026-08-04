@@ -66,7 +66,13 @@ function submittedLabel(row) {
   const when = Number.isNaN(d.getTime()) ? '' : d.toLocaleString('vi-VN', {
     day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
   });
-  const band = row.score != null ? ` · <span class="mc-band">Band ${esc(row.score)}</span>` : '';
+  // Bài theo buổi chấm bằng PHẦN TRĂM của cổng thuộc bài — "Band 85.0" là một
+  // con số không tồn tại trên thang IELTS. Kèm trạng thái đạt khi đã chốt.
+  const isCourse = row.assignment && row.assignment.skill === 'course';
+  const band = row.score == null ? ''
+    : isCourse
+      ? ` · <span class="mc-band">${esc(Math.round(Number(row.score)))}%${row.passed_at ? ' · đã đạt' : ''}</span>`
+      : ` · <span class="mc-band">Band ${esc(row.score)}</span>`;
   return (row.is_late ? `Nộp trễ lúc ${esc(when)}` : `Đã nộp lúc ${esc(when)}`) + band;
 }
 

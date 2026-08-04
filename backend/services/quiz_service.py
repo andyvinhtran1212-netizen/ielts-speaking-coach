@@ -11,6 +11,7 @@ writes via service-role supabase_admin, so it must enforce user scoping in code)
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
 import traceback
@@ -704,6 +705,20 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
 
     Kết luận GHI THẲNG vào class_assignment_items (passed_at + sổ mastery):
     giáo viên đọc một cột, không đoán từ bảng phiên.
+
+    RANH GIỚI TIN CẬY (ghi nhận từ codex #928, chưa xử trong tầng này): toàn bộ
+    hệ quiz phát ĐỀ KÈM ĐÁP ÁN xuống client — phản hồi tức thì từng câu là yêu
+    cầu sản phẩm, nên một client script có thể nộp answer_given chép từ chính
+    payload đề và qua cổng này. Cổng thuộc bài vì thế chặn được khai-man-tổng-số
+    và mọi đường gian lận "rẻ", KHÔNG chặn được client tự động hoá có chủ đích;
+    muốn chặn nốt phải đổi hợp đồng phát đề (giấu đáp án + chấm từng câu phía
+    server) cho cả engine quiz — một thay đổi sản phẩm, không phải một bản vá.
+    Giáo viên vẫn thấy tín hiệu bất thường qua duration_sec/response_time_ms.
+
+    Mỗi lần ghi sổ kèm `bank_rev` (vân tay qid:answer của đề TẠI THỜI ĐIỂM xét):
+    pass là sự kiện lịch sử — re-import đề không thu hồi pass cũ, nhưng vân tay
+    cho phép trả lời "em ấy đạt trên bản đề nào" khi cần kiểm toán. Đổi đề ở
+    mức thay ruột thì tạo bank mới, đừng ghi đè bank cũ.
     """
     if not session_ids or len(session_ids) > 40:
         raise HTTPException(422, "session_ids phải có 1–40 phiên")
@@ -783,6 +798,11 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
            if q.get("qid") and q.get("type") != "writing" and q.get("answer") is not None}
     if not key:
         raise HTTPException(422, "Bộ đề không có câu trắc nghiệm nào")
+    # Vân tay đề tại thời điểm xét — thứ tự độc lập (sort theo qid) vì nó phục
+    # vụ kiểm toán, không cần khớp vân tay phía runner.
+    bank_rev = hashlib.sha256("|".join(
+        f"{qid}:{q.get('answer')}" for qid, q in sorted(key.items())
+    ).encode()).hexdigest()[:12]
 
     seen: dict = {}
     for a in att:
@@ -858,7 +878,8 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
             # — bảng của giáo viên nói ngược dòng thời gian (codex R4).
             break
         patch: dict = {
-            "mastery": {"threshold": cfg["pass_pct"], "attempts": attempts},
+            "mastery": {"threshold": cfg["pass_pct"], "bank_rev": bank_rev,
+                        "attempts": attempts},
             "updated_at": _now(),
         }
         # Điểm của mục = điểm lượt mới nhất — CHO TỚI KHI ĐẠT. Sau mốc đạt thì

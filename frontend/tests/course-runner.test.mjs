@@ -256,13 +256,20 @@ describe('rời trang', () => {
 // ── Quay lại làm tiếp ─────────────────────────────────────────────────────
 
 describe('nhớ chỗ đang làm', () => {
-  test('bỏ dở giữa chặng thì quay lại ĐÚNG câu đang làm', async () => {
+  test('bỏ dở giữa chặng thì làm lại CHẶNG ấy — hợp đồng đổi có chủ đích', async () => {
+    // Bản đầu khôi phục đúng `at` — dễ chịu hơn, nhưng SAI: bốn lượt đã trả
+    // lời nằm trong một phiên mồ côi (không bao giờ completed, không có tên
+    // trong lượt xét đạt), nên "đi tiếp từ câu 5" nghĩa là bốn câu đầu vĩnh
+    // viễn không có kết quả và verdict phủ-đủ-đề bác cả lượt, không đường sửa
+    // ngoài xoá localStorage (codex #928 R7). Làm lại mười câu là giá của một
+    // lần đóng tab giữa chặng; VỊ TRÍ CHẶNG thì vẫn được nhớ.
     const store = memStore();
     const a = await run({ storage: store });
     for (let i = 0; i < 4; i++) { a.r.show(); a.r.answer(0); a.r.next(); }
     const b = await run({ storage: store });
-    assert.equal(b.r.at, 4, 'làm lại bốn câu vừa làm là thứ khiến người ta bỏ hẳn');
-    assert.deepEqual(b.r.marks.slice(0, 4), ['right', 'right', 'right', 'right']);
+    assert.equal(b.r.stage, 0, 'chặng đang làm vẫn được nhớ');
+    assert.equal(b.r.at, 0, 'trong chặng thì làm lại từ đầu — xem lý do ở trên');
+    assert.equal(b.r.marks.length, 0);
   });
 
   test('tải lại trang ở MÀN KẾT QUẢ thì sang chặng sau, không làm lại', async () => {
@@ -611,5 +618,26 @@ describe('trạng thái khoá vào MỤC bài giao (codex #928 R5)', () => {
                                mastery: { item_id: 'it-1' } });
     assert.equal(second.r.stage, 1);
     assert.equal(second.r.runSessionCount, 1);
+  });
+});
+
+describe('reload GIỮA chặng (codex #928 R7)', () => {
+  test('chặng dang dở làm lại từ câu đầu — không đi tiếp với câu đã rơi vào phiên mồ côi', async () => {
+    const store = memStore();
+    const qsn = Array.from({ length: 10 }, (_, i) => mcq(i));
+    const first = await run({ storage: store, questions: qsn });
+    // trả lời 4 câu rồi đóng tab — 4 lượt ấy nằm trong phiên sess-1 KHÔNG BAO
+    // GIỜ completed (mồ côi), verdict không nhìn thấy chúng
+    for (let i = 0; i < 4; i++) { first.r.show(); first.r.answer(0); first.r.next(); }
+    const second = await run({ storage: store, questions: qsn });
+    assert.equal(second.r.at, 0, 'đi tiếp từ câu 5 là 4 câu đầu vĩnh viễn không có kết quả — verdict bác mãi');
+    assert.equal(second.r.marks.length, 0);
+    // làm trọn chặng bằng phiên MỚI thì mọi câu đều có lượt làm trong phiên được nêu tên
+    await playStage(second.r);
+    const flushed = second.api.calls.post
+      .filter((c) => c.path.includes('/progress'))
+      .flatMap((c) => c.body.attempts).map((a) => a.qid).sort();
+    assert.deepEqual(flushed, qsn.map((q) => q.qid).sort(),
+      'đủ 10 câu trong phiên mới — không câu nào kẹt lại ở phiên mồ côi');
   });
 });
