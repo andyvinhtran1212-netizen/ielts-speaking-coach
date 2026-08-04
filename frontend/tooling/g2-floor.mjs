@@ -19,10 +19,34 @@
 // sẽ không bao giờ chạm tới nó.
 
 export const G2_FLOOR = {
-  minSamples: 72,
+  // KHÔNG CÓ `minSamples`. Bỏ có chủ ý (ADR-013-A2).
+  //
+  // `n≥72` đến từ phân tích power cho LƯU LƯỢNG ORGANIC — lấy mẫu một quá trình
+  // ngẫu nhiên. Probe này TẤT ĐỊNH: cùng tài khoản, cùng endpoint, cùng đường
+  // đi. 72 lần thành công giống hệt nhau không cho biết nhiều hơn 20 lần, vì
+  // chúng lấy mẫu THỜI GIAN chứ không lấy mẫu ngẫu nhiên. Giữ con số đó chỉ tạo
+  // vẻ chặt chẽ giả. Số mẫu tối thiểu nay TỰ SUY RA từ trải/lỗ (≈4).
+
+  // Phải đi qua ít nhất một lần cache hết hạn cứng (ADR-008 `expire: 86400`).
   minSpanMs: 24 * 60 * 60 * 1000,
-  maxGapMs: 20 * 60 * 1000,
+
+  // 360 PHÚT — và đây là lần hiệu chỉnh THỨ HAI, vì lần đầu tôi đo sai đại lượng.
+  //   A1        : 20 phút, giả định bộ lập lịch giao đúng nhịp khai → sai.
+  //   nháp A2   : 240 phút, dựa khoảng cách giữa các LẦN CHẠY (max 176) → vẫn sai
+  //               đại lượng: mốc mẫu tính SAU khi runner khởi động + đăng nhập +
+  //               gọi HTTP, nên lỗ thật giữa các MẪU lên tới 221 phút ⇒ chỉ 8% biên.
+  //   A2        : 360 phút = 1,63× lỗ mẫu lớn nhất đo được (221).
+  // Số liệu thô (12 mẫu / 17,5h, 03/08): lỗ 12·4·221·176·157·110·83·85·67·61·69 phút.
+  maxGapMs: 360 * 60 * 1000,
 };
+
+/**
+ * CÁI G2 KHÔNG bảo đảm — ghi ra để không ai đọc nhầm nó là giám sát liên tục.
+ * Với lỗ cho phép tới 6 giờ, cổng này chỉ chứng nhận: "route còn phục vụ được
+ * suốt một ngày, và có đi qua một lần refresh token". Sự cố ngắn lọt hết.
+ */
+export const G2_FLOOR_TRADEOFF =
+  'lỗ tới 6h được chấp nhận: sự cố tự khỏi trong vài giờ có thể lọt';
 
 /**
  * Phân tích sổ JSONL. Nằm ở lõi chứ không nằm trong runner vì đây là chỗ
@@ -150,7 +174,6 @@ export function evaluateG2(samples, opts = {}) {
     if (gap > maxGapMs) { maxGapMs = gap; maxGapAt = rows[i].at; }
   }
 
-  if (n < floor.minSamples) add('too-few-samples', `n=${n} < ${floor.minSamples}`);
   if (spanMs < floor.minSpanMs) {
     add('span-too-short',
       `trải ${(spanMs / 3600000).toFixed(1)}h < ${floor.minSpanMs / 3600000}h`);
@@ -199,6 +222,17 @@ export function evaluateG2(samples, opts = {}) {
       maxGapMinutes: Number((maxGapMs / 60000).toFixed(2)),
       failed: failed.length,
       authenticated,
+      // Phân bố khoảng cách THẬT — để lần chỉnh sàn sau dựa vào số liệu.
+      gapsMinutes: (() => {
+        const g = [];
+        for (let i = 1; i < rows.length; i++) g.push((rows[i].at - rows[i - 1].at) / 60000);
+        g.sort((a, b) => a - b);
+        return g.length
+          ? { p50: Number(g[Math.floor(g.length / 2)].toFixed(1)),
+              p90: Number(g[Math.max(0, Math.ceil(g.length * 0.9) - 1)].toFixed(1)),
+              max: Number(g[g.length - 1].toFixed(1)), n: g.length }
+          : null;
+      })(),
       droppedOlderRuns: dropped,
       ageMinutes: Number((ageMs / 60000).toFixed(1)),
     },
@@ -208,9 +242,11 @@ export function evaluateG2(samples, opts = {}) {
 /** In gọn cho CI. */
 export function formatG2(result) {
   const s = result.stats;
+  const g = s.gapsMinutes;
   const head = `G2: n=${s.n} · trải ${s.spanHours ?? 0}h · khoảng cách lớn nhất `
     + `${s.maxGapMinutes ?? 0} phút · hỏng ${s.failed ?? 0}`
-    + (s.authenticated ? ' · lớp CÓ ĐĂNG NHẬP' : ' · lớp ẩn danh');
+    + (s.authenticated ? ' · lớp CÓ ĐĂNG NHẬP' : ' · lớp ẩn danh')
+    + (g ? `\n     phân bố khoảng cách (n=${g.n}): p50 ${g.p50}′ · p90 ${g.p90}′ · max ${g.max}′` : '');
   if (result.pass) return `${head}\n✓ ĐẠT sàn ADR-013-A1`;
   return `${head}\n✗ CHƯA ĐẠT:\n`
     + result.findings.map((f) => `  · [${f.code}] ${f.detail}`).join('\n');

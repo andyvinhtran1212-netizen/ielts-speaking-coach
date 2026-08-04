@@ -54,9 +54,11 @@ on:
       - 'frontend/next.config.ts'
       - 'frontend/package-lock.json'
       - '.github/workflows/parity-gate.yml'
-  # Bộ ĐẦY ĐỦ (gồm toàn bộ trang bài viết) chạy hằng đêm: quét 137 bài × 2 vế
-  # × 2 lần chụp là quá chậm cho mỗi PR, nhưng bỏ hẳn thì hồi quy ở trang bài
-  # không ai thấy. PR phủ trang chủ + thư mục; đêm phủ tất cả.
+  # Bộ ĐẦY ĐỦ chạy hằng đêm — nhưng đọc là BEST-EFFORT, không phải bảo đảm.
+  # Đo 2026-08-04: cron này CHƯA TỪNG CHẠY lần nào, và cron `*/15` của G2 bị
+  # GitHub giãn ra trung vị 84 phút (khai 15). Lịch trên GitHub Actions là
+  # best-effort thật sự. Lớp bảo vệ THẬT của G1 là cổng theo PR ở dưới; đêm chỉ
+  # là phần thêm. Đừng viết tài liệu nào dựa vào việc cron này chạy đúng giờ.
   schedule:
     - cron: "41 2 * * *"
   workflow_dispatch:
