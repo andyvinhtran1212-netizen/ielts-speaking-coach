@@ -24,7 +24,7 @@ Soak-dài-freeze (7/14/21 ngày) được thiết kế cho sản phẩm đã sca
 **THAY bằng, mỗi cutover low-traffic:**
 1. **Cutover với telemetry tagged** → quy kết một-biến đến từ **tag** (implementation/release), không từ freeze. Merge khác được phép; tag phân biệt chúng.
 2. **Cửa sổ quan sát ngắn 48–72h** — đủ để lộ lỗi *thời-gian-trôi* (cache/ISR hết hạn, token refresh, cold start, cron) + *đa-dạng-client*. KHÔNG nhằm gom mẫu organic có ý nghĩa thống kê.
-3. **Synthetic gánh vế số-lượng** — smoke chạy trên production ~10 phút/lần đạt n≥72 trong nửa ngày, tất định; bắt lỗi tất định/diện-rộng. (Giới hạn: synthetic không bắt được lỗi client-cụ-thể như React #418 → vẫn cần vế 2.)
+3. **Synthetic gánh vế số-lượng** *(A2 2026-08-04: `n≥72` ĐÃ BỎ cho G2 — probe tất định nên đếm mẫu không thêm thông tin; xem mục A2)* — smoke chạy trên production ~10 phút/lần đạt n≥72 trong nửa ngày, tất định; bắt lỗi tất định/diện-rộng. (Giới hạn: synthetic không bắt được lỗi client-cụ-thể như React #418 → vẫn cần vế 2.)
 4. **Risk acceptance có ghi rõ** cho từng cutover (route, ngày, ai duyệt, rollback plan). Đây là mặc định early-stage, minh bạch — không phải né gate.
 
 **GIỮ CỨNG (bất kể scale):**
@@ -34,6 +34,10 @@ Soak-dài-freeze (7/14/21 ngày) được thiết kế cho sản phẩm đã sca
 - Rollback trigger vẫn canh, nhưng ở chế độ tuyệt đối + **synthetic-n làm mẫu chính**, organic chỉ tham khảo.
 
 ## Ma trận sàn mới (thay bảng §12.3)
+
+> ⚠ **BẢNG DƯỚI ĐÂY LÀ BẢN 2026-07-25, ĐÃ BỊ A1 + A2 THAY** cho các lớp
+> low/zero-traffic. Đọc ma trận đang hiệu lực ở mục **Sửa đổi A1** (đã cập nhật
+> theo A2). Giữ lại nguyên văn để đối chiếu lịch sử, không phải để áp dụng.
 | Lớp route | Điều kiện PASS |
 |---|---|
 | Public, traffic ≥3/ngày | Soak chuẩn 7 ngày + n organic đủ (giữ nguyên) |
@@ -122,7 +126,8 @@ route đều đặn, **bao gồm route cần đăng nhập** — chính lỗ h�
 
 ### Hiệu chỉnh khe hở: 20 phút → 240 phút (2026-08-04)
 
-Bản A1 đặt khe hở **≤20 phút** kèm lập luận "72 × 20 = đúng 24h". Lập luận đó
+*(Mục này là LỊCH SỬ của lần hiệu chỉnh thứ nhất; sàn hiện hành là **360 phút**
+theo A2.)* Bản A1 đặt khe hở **≤20 phút** kèm lập luận "72 × 20 = đúng 24h". Lập luận đó
 **giả định bộ lập lịch giao đúng nhịp khai**. Đo thật trên GitHub Actions với
 cron `*/15` (9 lần chạy / 13,5h):
 
@@ -147,7 +152,8 @@ trong (~23h runner-minute/ngày), hoặc tự nối chuỗi bằng PAT — cả 
 hơn nhiều so với giá trị thu lại ở quy mô hiện tại.
 
 **Hệ quả về thời gian:** ~17 mẫu/ngày ⇒ đạt n≥72 mất **~4,2 ngày**, không phải
-24 giờ như A1 dự tính.
+24 giờ như A1 dự tính. *(A2 đã BỎ `n≥72`, nên ràng buộc còn lại chỉ là trải
+≥24h — mốc thực tế trở lại ~1 ngày.)*
 
 **Cùng gốc, ghi luôn:** cron `41 2 * * *` của cổng parity (quét đầy đủ hằng đêm)
 **chưa từng chạy lần nào**. Mọi phát biểu dạng "bộ đầy đủ chạy ở lịch đêm" phải
@@ -175,9 +181,9 @@ NGAY bất kể mẫu**, và tiêu chí tốt-nghiệp tại Gate D.
 | Lớp route | Điều kiện PASS (A1) |
 |---|---|
 | Public, traffic ≥3/ngày | **KHÔNG ĐỔI** — soak chuẩn 7 ngày + n organic đủ |
-| Public/read-only, traffic <3/ngày | **G1** + **G2 ẩn danh: n≥72 · trải ≥24h · nhịp ≤20 phút** + G3 + risk acceptance. **Bỏ** yêu cầu "48–72h quan sát organic" |
-| Authenticated mutation, traffic thấp | **G1** + **G2 CÓ ĐĂNG NHẬP: n≥72 · trải ≥24h · nhịp ≤20 phút · phiên sống qua ≥1 lần token refresh, có request trước và sau** + synthetic mutation coverage + N/N−1 consumer test + G3 + risk acceptance |
-| Core grading/exam | **NGHIÊM HƠN A0**: giữ nguyên mọi điều kiện cũ (cross-version resume + n≥72 + ≥72h + incident commander) **và thêm G1 bắt buộc** |
+| Public/read-only, traffic <3/ngày | **G1** + **G2 ẩn danh: trải ≥24h · lỗ ≤360 phút · 0 probe hỏng** + G3 + risk acceptance. **Bỏ** cửa sổ quan sát *(A2: bỏ cho MỌI lớp)*; **bỏ** `n≥72` *(A2)* |
+| Authenticated mutation, traffic thấp | **G1** + **G2 CÓ ĐĂNG NHẬP: trải ≥24h · lỗ ≤360 phút · 0 probe hỏng · phiên sống qua ≥1 lần token refresh, có request trước và sau** + synthetic mutation coverage + N/N−1 consumer test + G3 + risk acceptance |
+| Core grading/exam | **NGHIÊM HƠN A0**: giữ nguyên mọi điều kiện cũ (cross-version resume + ≥72h + incident commander) **và thêm G1 bắt buộc**. *(A2 bỏ `n≥72` ở đây luôn: cùng lý do — probe tất định)* |
 | Zero-traffic | **G1** + **G2 theo đúng sàn của lớp nền của route** (ẩn danh hay có đăng nhập) + G3 + risk acceptance — thay cách ghi "synthetic-only" của A0, vốn mơ hồ cả về việc probe có chạm route lẫn về số lượng |
 
 ## Cái A1 KHÔNG thay được — ghi thẳng, không giấu

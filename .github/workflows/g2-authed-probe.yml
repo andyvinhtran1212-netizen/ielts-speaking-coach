@@ -6,7 +6,8 @@
 # thời gian đó.
 #
 # Vì sao nhịp 15 phút chứ KHÔNG phải 20: sàn ADR-013-A1 đòi khoảng cách lớn
-# nhất ≤20 phút. Đặt cron đúng bằng 20 là đặt lịch sát mép — mà cron của GitHub
+# nhất ≤360 phút (ADR-013-A2; A1 đặt 20 và bản nháp A2 đặt 240 — cả hai đo sai
+# đại lượng). Lịch khai vẫn để 15 phút vì đó là thứ ta điều khiển được — mà cron GitHub
 # Actions chạy trễ vài phút là chuyện thường, và mốc thời gian của mẫu còn tính
 # SAU khi runner khởi động + đăng nhập + gọi HTTP. Chỉ cần một lần trễ là khe hở
 # vượt 20 phút và `trailingRun()` cắt sạch lịch sử tích luỹ.
@@ -134,7 +135,7 @@ jobs:
       # tiếp — không phải bước "đã chạy probe là xong".
       #
       # NHƯNG chỉ đánh đỏ job khi được gọi Ở CHẾ ĐỘ `verdict`. Ở `tick`/`session`
-      # nó chỉ để tham khảo: sàn đòi n≥72 trải ≥24h nên verdict CHƯA ĐẠT trong
+      # nó chỉ để tham khảo: sàn đòi trải ≥24h nên verdict CHƯA ĐẠT trong
       # suốt ngày đầu và mỗi lần đứt nhịp. Để nó đánh đỏ job sẽ tạo ~72 job đỏ
       # mỗi ngày — cách nhanh nhất khiến mọi người học cách phớt lờ workflow này,
       # và một cổng bị phớt lờ thì không còn là cổng. Job đỏ phải nghĩa là PROBE
