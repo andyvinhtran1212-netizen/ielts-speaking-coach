@@ -55,7 +55,21 @@ const SUPABASE_ANON = process.env.PROBE_SUPABASE_ANON || 'sb_publishable_hvevBST
 // nên chủ dự án phải **đăng nhập một lần qua giao diện** để hàng đó được tạo.
 // Lần ghi duy nhất vì thế nằm ở bước thiết lập của con người, không nằm trong
 // vòng chạy của probe.
-const ROUTES = (arg('--routes', '/auth/profile,/auth/check-active') || '').split(',').filter(Boolean);
+// Mục có tiền tố `site:` gọi vào TRANG (Vercel), không phải backend (Railway).
+//
+// Review #926 chỉ đúng một chỗ overclaim: probe chỉ gọi `/auth/*` trên Railway,
+// nên nếu route `/profile` trên Vercel hỏng (deploy lỗi, cache ôi, cold start)
+// mà backend vẫn khoẻ thì verdict VẪN xanh — tức nó không xả được đúng rủi ro
+// mà ngoại lệ /profile nêu ra.
+//
+// GIỚI HẠN của mục `site:`: `/profile` xác thực phía CLIENT (phiên Supabase
+// trong trình duyệt), nên một GET kèm Bearer chỉ lấy được vỏ SSR. Nó phủ được
+// "route còn deploy, còn render, không 5xx" — KHÔNG phủ được luồng đăng nhập
+// và refresh phía client. Muốn phủ vế đó phải chạy trình duyệt thật giữ phiên
+// qua một giờ; đắt hơn nhiều, chưa làm. Ghi rõ trong ADR-013-A2.
+const SITE_BASE = (arg('--site', 'https://www.averlearning.com')).replace(/\/+$/, '');
+const ROUTES = (arg('--routes', '/auth/profile,/auth/check-active,site:/profile') || '')
+  .split(',').filter(Boolean);
 const TIMEOUT_MS = Number(arg('--timeout', '15000')) || 15000;
 
 const EMAIL = process.env.PROBE_EMAIL || '';
@@ -88,15 +102,29 @@ async function refresh(refreshToken) {
 /** CHỈ GET. Không có tham số nào đổi được phương thức. */
 async function probeOnce(token, route) {
   const started = Date.now();
+  const isSite = route.startsWith('site:');
+  const path = isSite ? route.slice(5) : route;
+  const base = isSite ? SITE_BASE : API_BASE;
   try {
-    const res = await fetch(`${API_BASE}${route}`, {
+    const res = await fetch(`${base}${path}`, {
       method: 'GET',
       headers: { Authorization: `Bearer ${token}` },
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
+    if (!isSite) {
+      return {
+        route, ok: res.ok, status: res.status, ms: Date.now() - started,
+        note: res.ok ? undefined : (await res.text()).slice(0, 160),
+      };
+    }
+    // Với trang: 200 CHƯA đủ — Next trả 200 cho cả vỏ hỏng. Đòi thêm dấu hiệu
+    // đã render thật (payload RSC + chrome dùng chung), đúng bài học "200 không
+    // chứng minh trang chạy" đã gặp nhiều lần trong đợt này.
+    const html = await res.text();
+    const rendered = html.includes('__next_f') && html.includes('aver-chrome');
     return {
-      route, ok: res.ok, status: res.status, ms: Date.now() - started,
-      note: res.ok ? undefined : (await res.text()).slice(0, 160),
+      route, ok: res.ok && rendered, status: res.status, ms: Date.now() - started,
+      note: res.ok && !rendered ? 'HTTP 200 nhưng thiếu dấu hiệu render (__next_f / aver-chrome)' : undefined,
     };
   } catch (e) {
     return { route, ok: false, status: 0, ms: Date.now() - started, note: String(e).slice(0, 160) };

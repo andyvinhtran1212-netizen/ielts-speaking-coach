@@ -206,10 +206,11 @@ NGAY bất kể mẫu**, và tiêu chí tốt-nghiệp tại Gate D.
 ## Tiền lệ `/profile` — ghi sổ cho đúng
 
 Cửa sổ `/profile` đóng ở T+25,1h ngày 03/08 theo **ngoại lệ chính sách** do chủ
-dự án duyệt (PR #905). Dưới A1, ca đó **chỉ trở thành hợp quy khi G2 có thật** —
-tức khi probe **có đăng nhập** cho `/profile` được dựng. Chưa dựng, nên **nó vẫn
-là ngoại lệ đang mở**, và rủi ro thời-gian-trôi vẫn treo. Không dùng A1 để hợp
-thức hoá ngược một quyết định đã ra.
+dự án duyệt (PR #905). Dưới A1, ca đó **chỉ trở thành hợp quy khi G2 có thật**.
+
+**✅ ĐÃ HỢP QUY 2026-08-04** — G2 dựng xong, chạy, và đạt sàn A2 lần đầu
+(`n=35 · trải 24,89h · lỗ 221′ · 0 hỏng · qua 1 lần token refresh`). Ngoại lệ
+**ĐÓNG**, không còn treo.
 
 ## Việc phải làm trước khi A1 dùng được đầy đủ
 
@@ -217,7 +218,8 @@ thức hoá ngược một quyết định đã ra.
   **CÔNG CỤ ĐÃ CÓ (PR G2, 2026-08-03)**: `frontend/tooling/authed-probe.mjs`
   (`tick` / `session` / `verdict`) + `frontend/tooling/g2-floor.mjs` (chấm sàn,
   có test) + `.github/workflows/g2-authed-probe.yml`.
-  **ĐÃ BẬT 2026-08-03, ĐANG TÍCH LUỸ BẰNG CHỨNG.** Ba điều kiện tiên quyết đã
+  **ĐÃ BẬT 2026-08-03 · ĐÃ ĐẠT SÀN 2026-08-04** *(mục này giữ nguyên văn giai
+  đoạn tích luỹ để đối chiếu)*. Ba điều kiện tiên quyết đã
   xong: tài khoản `g2-probe@averlearning.com`, secret `PROBE_EMAIL`/
   `PROBE_PASSWORD`, và cron. Đo tại lần chạy tay đầu:
   `tick: OK — /auth/profile=200 /auth/check-active=200`.
@@ -242,6 +244,17 @@ thức hoá ngược một quyết định đã ra.
   liên tục suốt một ngày và sống qua một lần refresh token*. Hết. Với lỗ cho
   phép tới 6 giờ, sự cố ngắn vẫn lọt (xem `G2_FLOOR_TRADEOFF`).
 
+  **RỦI RO CÒN LẠI, chấp nhận có ý thức** *(review #926 chỉ ra, và đúng)*: bản
+  đầu của G2 chỉ gọi `/auth/*` trên **Railway**, chưa từng chạm route `/profile`
+  trên **Vercel** — nên nếu trang hỏng (deploy lỗi, cache ôi, cold start) mà
+  backend vẫn khoẻ thì verdict vẫn xanh. Đã vá: probe nay gọi thêm
+  `site:/profile` và **đòi dấu hiệu render thật** (`__next_f` + `aver-chrome`),
+  vì Next trả 200 cho cả vỏ hỏng.
+  **Vẫn KHÔNG phủ được:** luồng đăng nhập + refresh phía **client** trên trang
+  đó — `/profile` xác thực bằng phiên Supabase trong trình duyệt, nên một GET
+  kèm Bearer chỉ lấy được vỏ SSR. Phủ vế đó cần trình duyệt thật giữ phiên qua
+  một giờ; đắt hơn nhiều, chưa làm. Đường lui vẫn là rollback ≤12s.
+
   **Quan sát đáng giữ:** p50 lỗ tụt từ 61′ → 46′ → **15′** sau khi phiên
   `session` chạy — vì nhịp *bên trong* một job không phụ thuộc bộ lập lịch.
   Nếu sau này cần nhịp đều hơn, đường đi là đếm nhịp TRONG job, không phải
@@ -258,8 +271,10 @@ thức hoá ngược một quyết định đã ra.
 3. **Thêm lượt chạy G1 ở bề rộng nhỏ** (ví dụ 375px) — hiện G1 chỉ chạy 1280px
   nên hồi quy theo breakpoint nằm ngoài tầm.
 
-Chưa có (1) thì lớp `Authenticated mutation` **chưa** dùng được A1 và vẫn theo
-A0. Ghi rõ để bản sửa này không tự cấp cho mình hiệu lực mà hạ tầng chưa đỡ nổi.
+~~Chưa có (1) thì lớp `Authenticated mutation` chưa dùng được A1 và vẫn theo
+A0.~~ **(1) và (2) ĐÃ XONG 2026-08-04** (G2 đạt sàn · G1 gác trong CI, hai bề
+rộng). Lớp `Authenticated mutation` **nay dùng A1+A2**. Mục (3) đã xong ở PR
+#915.
 
 
 ---
