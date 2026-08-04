@@ -43,6 +43,21 @@ on:
   pull_request:
     paths:
       - 'frontend/app/(public-content)/**'
+      # Vế CẦN ĐĂNG NHẬP (cặp `/pages/home.html` ↔ `/home-preview`).
+      # Thiếu những dòng này thì một PR sửa đúng trang authed sẽ KHÔNG kích hoạt
+      # job, và cổng authed chỉ chạy khi có người nhớ dispatch tay — tức lại là
+      # "cổng phụ thuộc trí nhớ" mà chính đầu tệp này đã bác bỏ. (Codex bắt ở
+      # PR #930; kiểm lại đúng: lần chạy authed trước đó là do dispatch tay.)
+      - 'frontend/app/(authed)/**'
+      - 'frontend/app/(authed-home)/**'
+      - 'frontend/public/pages/home.html'
+      - 'frontend/public/js/home.js'
+      # CSS có mặt vì G1 so theo BỀ RỘNG: một khối ẩn/hiện lệch breakpoint là
+      # khác biệt thật mà chỉ lượt 375 bắt được.
+      - 'frontend/public/css/home.css'
+      - 'frontend/public/css/mock-hub.css'
+      - 'frontend/tooling/supabase-session.mjs'
+      - 'frontend/tooling/parity-pairs-authed.json'
       - 'frontend/lib/backend.ts'
       - 'frontend/lib/grammar-api.ts'
       - 'frontend/public/grammar.html'
@@ -178,6 +193,17 @@ jobs:
             echo "scope=categories" >> "$GITHUB_OUTPUT"
           fi
 
+          # Vế authed là CỜ RIÊNG, không phải một giá trị của `scope`. Lý do:
+          # một PR có thể đụng CẢ khu grammar lẫn trang authed; nếu ép chọn một
+          # thì vế kia âm thầm không được so — đúng kiểu "cổng tự cấp phép" mà
+          # đầu tệp này cảnh báo.
+          if echo "$CHANGED" | grep -qE 'frontend/app/\((authed|authed-home)\)/|frontend/public/pages/home\.html|frontend/public/js/home\.js|frontend/public/css/(home|mock-hub)\.css|frontend/tooling/(supabase-session\.mjs|parity-pairs-authed\.json)'; then
+            echo "→ có đụng vế CẦN ĐĂNG NHẬP ⇒ chạy thêm lượt authed"
+            echo "authed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "authed=false" >> "$GITHUB_OUTPUT"
+          fi
+
       # HAI BỀ RỘNG. Lượt 1280 mù hoàn toàn với hồi quy theo breakpoint — đã
       # chứng minh bằng thí nghiệm: gài `hidden sm:block` vào đoạn mô tả hero
       # của bản Next rồi so ⇒ 1280px cho 0 phát hiện, 375px bắt được
@@ -194,18 +220,40 @@ jobs:
           PROBE_PASSWORD: ${{ secrets.PROBE_PASSWORD }}
         run: |
           SCOPE="${{ steps.scope.outputs.scope }}"
-          echo "phạm vi: $SCOPE"
-          # `authed` so trang CẦN ĐĂNG NHẬP. Không gộp vào phạm vi thường vì nó
-          # cần secret và chỉ so được TRẠNG THÁI RỖNG (tài khoản probe không có
-          # dữ liệu học tập) — trộn vào sẽ khiến người đọc tưởng đã phủ dữ liệu.
-          if [ "$SCOPE" = "authed" ]; then ARGS="--auth --pairs tooling/parity-pairs-authed.json";
-          elif [ "$SCOPE" = "full" ]; then ARGS="--expand-grammar";
-          else ARGS="--expand-grammar --categories-only"; fi
+          AUTHED="${{ steps.scope.outputs.authed }}"
+
+          # Danh sách LƯỢT phải chạy. `authed` so trang CẦN ĐĂNG NHẬP; giữ nó
+          # thành lượt riêng vì nó cần secret và chỉ so được TRẠNG THÁI RỖNG
+          # (tài khoản probe không có dữ liệu học tập) — gộp vào lượt thường sẽ
+          # khiến người đọc báo cáo tưởng đã phủ cả dữ liệu.
+          if [ "$SCOPE" = "authed" ]; then
+            RUNS="authed"                    # dispatch tay, chỉ muốn authed
+          else
+            RUNS="$SCOPE"
+            [ "$AUTHED" = "true" ] && RUNS="$RUNS authed"
+          fi
+          echo "các lượt sẽ chạy: $RUNS"
+
+          case " $RUNS " in *" authed "*)
+            if [ -z "$PROBE_EMAIL" ] || [ -z "$PROBE_PASSWORD" ]; then
+              echo "::error::Cần so vế authed nhưng THIẾU secret PROBE_EMAIL/PROBE_PASSWORD."
+              echo "Không bỏ qua âm thầm: bỏ qua ở đây thì cổng báo xanh mà chưa từng mở trang."
+              exit 1
+            fi ;;
+          esac
+
           FAIL=0
-          for VP in 1280x900 375x812; do
-            echo "════════ bề rộng $VP ════════"
-            node tooling/parity-diff.mjs --base "http://localhost:$PARITY_PORT" \
-              $ARGS --viewport "$VP" --concurrency 3 --json "out/parity-$VP.json" || FAIL=1
+          for S in $RUNS; do
+            case "$S" in
+              authed) ARGS="--auth --pairs tooling/parity-pairs-authed.json" ;;
+              full)   ARGS="--expand-grammar" ;;
+              *)      ARGS="--expand-grammar --categories-only" ;;
+            esac
+            for VP in 1280x900 375x812; do
+              echo "════════ lượt $S · bề rộng $VP ════════"
+              node tooling/parity-diff.mjs --base "http://localhost:$PARITY_PORT" \
+                $ARGS --viewport "$VP" --concurrency 3 --json "out/parity-$S-$VP.json" || FAIL=1
+            done
           done
           exit $FAIL
 
