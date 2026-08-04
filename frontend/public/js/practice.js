@@ -482,6 +482,13 @@
 
     _startWaveform();
     _showRecSub('recording');
+
+    // BÁO THÀNH CÔNG. Hàm này xử lý lỗi micro BÊN TRONG (hiện thông báo rồi
+    // `return false`), nên caller không thể dùng `catch` để phân biệt "đã bắt
+    // đầu ghi" với "micro bị từ chối" — chỉ có giá trị trả về nói được.
+    // Thiếu dòng này thì phiếu làm bài coi MỌI lần ghi âm là hỏng micro, dù
+    // micro đã mở và máy đang ghi thật.
+    return true;
   }
 
   function _renderTimer() {
@@ -490,12 +497,6 @@
     var m = Math.floor(_elapsedSecs / 60);
     var s = _elapsedSecs % 60;
     el.textContent = m + ':' + (s < 10 ? '0' + s : s);
-
-    // BÁO THÀNH CÔNG. Trước đây hàm này xử lý lỗi bên trong rồi return trống,
-    // nên caller không phân biệt được "đã bắt đầu ghi" với "micro bị từ chối".
-    // Phiếu làm bài cần biết: không biết thì ô kẹt ở "đang ghi âm" và MỌI nút
-    // khác bị khoá cho tới khi tải lại trang.
-    return true;
   }
 
   // ── Recording: stop ───────────────────────────────────────────────────────────
@@ -3077,6 +3078,10 @@
   function _sheetOnRecorded(blob) {
     var i = _sheet.recIdx;
     var s = _sheet.slots[i];
+    // Máy có thể dừng ghi khi phiếu đã nhả ô ra (hết giờ tối đa, hoặc một lỗi
+    // trước đó đã đặt lại recIdx). Không có ô để gắn thì bỏ bản ghi còn hơn
+    // `slots[-1].state = …` làm nổ trang giữa lúc học viên đang làm bài.
+    if (!s) return;
     _sheet.recIdx = -1;
     s.state = 'grading';
     _renderSheet();
