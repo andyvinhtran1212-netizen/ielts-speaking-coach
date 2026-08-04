@@ -13,12 +13,14 @@ import asyncio
 import io
 import json
 import pathlib
+import re
 
 import pytest
 from fastapi import HTTPException, UploadFile
 
 from services import listening_drill_import as imp
 from services import listening_test_grader as grader
+from services.listening_grader import split_turns
 from routers import listening as listening_module
 
 _FIX = pathlib.Path(__file__).parent / "fixtures" / "drills"
@@ -94,6 +96,71 @@ def test_alternatives_from_accept():
     res = imp.parse_drill(_load("SAQ"), None)
     answers = [a for ex in res.exercise_rows for a in ex["payload"]["answers"]]
     assert any(a["alternatives"] for a in answers), "no alternatives carried from accept[]"
+
+
+def _grade_one(res, q_num: int, typed: str) -> bool:
+    """Run ONE typed answer through the real attempt grader (the wire the
+    student's submission actually travels), not answer_matches directly."""
+    key = grader.collect_answer_key(res.exercise_rows)
+    graded = grader.grade_attempt([{"q_num": q_num, "user_answer": typed}], key)
+    hit = next(d for d in graded["per_question"] if d["q_num"] == q_num)
+    return bool(hit["correct"])
+
+
+def test_paren_accept_expanded_for_grader():
+    """`accept: ["(a) swimming cap"]` is authoring shorthand for "with or
+    without the article". The grader only strips punctuation at the ENDS, so
+    the raw form normalises to "a) swimming cap" and matches nothing a learner
+    types — the importer must enumerate both forms."""
+    res = imp.parse_drill(_load("FORM"), None)
+    answers = {a["q_num"]: a for ex in res.exercise_rows for a in ex["payload"]["answers"]}
+    q10 = answers[10]
+    assert q10["answer"] == "swimming cap"
+    assert "a swimming cap" in q10["alternatives"], q10["alternatives"]
+    assert not any("(" in alt for alt in q10["alternatives"]), q10["alternatives"]
+    assert _grade_one(res, 10, "a swimming cap")
+    assert _grade_one(res, 10, "swimming cap")
+    assert not _grade_one(res, 10, "swimming hat")
+
+
+def test_paren_canonical_answer_expanded_for_grader():
+    """Some drills key the answer ITSELF as "(a) dog" — the key keeps that
+    display form, but the bare + expanded forms must reach the grader."""
+    sj = _load("SAQ")
+    src = [a for blk in sj["sections"][0]["question_blocks"] for a in blk["answers"]
+           if "(" in str(a.get("answer", ""))]
+    assert src, "fixture no longer has a parenthesised canonical answer"
+    # Strip the hand-written accept[] so the ONLY thing that can rescue this
+    # question is the importer expanding the key itself.
+    for a in src:
+        a.pop("accept", None)
+    res = imp.parse_drill(sj, None)
+    key = str(src[0]["answer"])
+    q_num = int(src[0]["qnum"])
+    bare = re.sub(r"\s*\([^)]*\)\s*", " ", key).strip()
+    with_opt = re.sub(r"\s+", " ", key.replace("(", "").replace(")", "")).strip()
+    assert _grade_one(res, q_num, bare), key
+    assert _grade_one(res, q_num, with_opt), key
+
+
+def test_slash_accept_split_into_forms():
+    assert imp._expand_accept("vegetarians", ["vegetarians/vegans"]) == ["vegans"]
+    assert imp._expand_accept("30", ["thirty / 30"]) == ["thirty"]
+
+
+def test_digits_cue_unwrapped_into_transcript():
+    """`[digits:07700 924168]` is a read-as-digits TTS cue whose payload IS
+    spoken. Dropping it (as with [emotion:…]) leaves "my mobile is ." in the
+    transcript pane AND in the dictation reference, so a learner who types the
+    number correctly is scored as having typed extra words."""
+    res = imp.parse_drill(_load("FORM"), None)
+    transcript = res.content_row["transcript"]
+    assert "[digits" not in transcript, transcript[:400]
+    assert "07700 924168" in transcript
+    # the dictation reference (same cleaner the player scores against) keeps it
+    turn = next(t for t in split_turns(transcript) if "my mobile is" in t)
+    assert "07700 924168" in turn, turn
+    assert " ." not in turn, turn
 
 
 def test_map_keeps_inline_svg():
