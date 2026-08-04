@@ -146,7 +146,11 @@ describe('DÂY NỐI', () => {
   });
 
   test('ghi âm xong thì phiếu tự nộp, không đi qua màn "đã ghi"', () => {
-    assert.match(CODE, /if \(_sheetActive\(\)\) \{ _sheetOnRecorded\(_recordedBlob\); return; \}/);
+    // Kèm thứ tự: trả bộ ghi về 'idle' TRƯỚC khi giao bản ghi — thiếu nó thì
+    // _recSubState kẹt ở 'recording' và ô thứ hai bị chặn ngay đầu
+    // startRecording (codex #927). Hành vi đầy đủ nằm ở practice-mic-start.
+    assert.match(CODE,
+      /if \(_sheetActive\(\)\) \{\s*_showRecSub\('idle'\);\s*_sheetOnRecorded\(_recordedBlob\);\s*return;/);
   });
 
   test('phiếu được thử TRƯỚC các nhánh màn phễu', () => {
@@ -198,12 +202,21 @@ describe('đường HỎNG — chỗ dễ mất bài của học viên nhất', 
     assert.match(CODE, /if \(!ok\) \{[\s\S]{0,200}?_sheet\.recIdx = -1;/);
   });
 
-  test('startRecording trả true khi bắt đầu được, false ở mọi lối thoát sớm', () => {
-    const i = CODE.indexOf('async function startRecording()');
-    const j = CODE.indexOf('function stopRecording()', i);
-    const body = CODE.slice(i, j);
-    assert.match(body, /return true;/, 'phải báo thành công');
-    assert.doesNotMatch(body, /^\s+return;\s*$/m, 'không còn lối thoát trống');
+  test('return true nằm TRONG startRecording, không rơi xuống _renderTimer', () => {
+    // Bản cũ của phép kiểm này slice từ startRecording tới stopRecording — dải
+    // ấy CHỨA LUÔN _renderTimer, nên `return true` rơi nhầm vào hàm dưới vẫn
+    // khớp regex và test xanh trên đúng bản lỗi nó sinh ra để chặn (PR #918).
+    // Chốt lại theo ranh giới hàm: đuôi startRecording phải trả true, còn
+    // _renderTimer thì không có lý do trả gì. Hành vi thật (chạy hàm với micro
+    // giả, cả ba đường) nằm ở practice-mic-start.test.mjs.
+    const i = CODE.indexOf("_showRecSub('recording');");
+    const j = CODE.indexOf('function _renderTimer()', i);
+    const k = CODE.indexOf('function stopRecording()', j);
+    assert.ok(i !== -1 && j > i && k > j, 'không tìm thấy các mốc');
+    assert.match(CODE.slice(i, j), /return true;/,
+      'đường thành công phải trả true — thiếu là mọi lần ghi bị coi là hỏng micro');
+    assert.doesNotMatch(CODE.slice(j, k), /return true;/,
+      '_renderTimer không có caller nào đọc giá trị trả về');
   });
 
   test('micro hỏng KHÔNG làm ô đã lưu mất điểm', () => {
