@@ -33,12 +33,15 @@ function essay(i) {
   };
 }
 
-function fakeApi({ questions, failSession = false, failProgress = false, failPatch = false } = {}) {
+function fakeApi({ questions, mastery = null, failSession = false, failProgress = false, failPatch = false } = {}) {
   const calls = { post: [], patch: [], postWith: [] };
   let n = 0;
   return {
     calls,
-    async get() { return { bank: { id: 'b1', title: 'Buổi 1' }, questions }; },
+    async get() {
+      return { bank: { id: 'b1', title: 'Buổi 1' }, questions,
+               ...(mastery ? { mastery } : {}) };
+    },
     async post(path, body) {
       calls.post.push({ path, body });
       if (path === '/api/quiz/sessions') {
@@ -578,6 +581,35 @@ describe('re-import bộ đề CÙNG độ dài (codex #928 R4)', () => {
     await playStage(first.r);                                   // xong chặng 1/2
     const second = await run({ storage: store, questions: qsn });
     assert.equal(second.r.stage, 1, 'cùng bộ đề thì tiếp tục, không bắt làm lại');
+    assert.equal(second.r.runSessionCount, 1);
+  });
+});
+
+describe('trạng thái khoá vào MỤC bài giao (codex #928 R5)', () => {
+  test('chuyển lớp → giao lại cùng bank: mục khác là lượt mới sạch', async () => {
+    const store = memStore();
+    const qsn = Array.from({ length: 5 }, (_, i) => mcq(i));
+    const first = await run({ storage: store, questions: qsn,
+                              mastery: { item_id: 'it-LOP-CU' } });
+    await playStage(first.r);                                   // done cuối ở lớp cũ
+    const second = await run({ storage: store, questions: qsn,
+                               mastery: { item_id: 'it-LOP-MOI' } });
+    assert.equal(second.r.at, 0, 'mục mới là bài giao mới — làm lại từ đầu');
+    assert.equal(second.r.runSessionCount, 0,
+      'phiên thuộc mục cũ mà đem nộp thì verdict bác cả lượt');
+    const opened = second.api.calls.post.filter((c) => c.path === '/api/quiz/sessions');
+    assert.equal(opened.length, 1, 'không được kẹt ở màn kết quả không phiên');
+  });
+
+  test('cùng mục thì tiếp tục bình thường', async () => {
+    const store = memStore();
+    const qsn = Array.from({ length: 15 }, (_, i) => mcq(i));
+    const first = await run({ storage: store, questions: qsn,
+                              mastery: { item_id: 'it-1' } });
+    await playStage(first.r);
+    const second = await run({ storage: store, questions: qsn,
+                               mastery: { item_id: 'it-1' } });
+    assert.equal(second.r.stage, 1);
     assert.equal(second.r.runSessionCount, 1);
   });
 });

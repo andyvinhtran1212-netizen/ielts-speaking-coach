@@ -314,6 +314,10 @@ def get_bank_for_play(bank_id: str, user_id: str | None = None) -> dict:
             it = row[0] if row else {}
             att = ((it.get("mastery") or {}).get("attempts")) or []
             mastery_state = {
+                # id MỤC bài giao — runner khoá trạng thái localStorage vào nó:
+                # em chuyển lớp rồi được giao lại CÙNG bank ở lớp mới là một
+                # mục khác, phiên cũ thuộc mục cũ và verdict sẽ bác chúng.
+                "item_id": item["id"],
                 "passed_at": it.get("passed_at"),
                 "threshold": cfg["pass_pct"],
                 "retake_size": cfg["retake_size"],
@@ -855,11 +859,14 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
             break
         patch: dict = {
             "mastery": {"threshold": cfg["pass_pct"], "attempts": attempts},
-            # Điểm của mục = điểm GỘP lượt gần nhất — thay bản ghi chặng-đầu-
-            # tiên mà mark_item_submitted để lại, vốn chỉ là 10 câu đầu.
-            "score": pct,
             "updated_at": _now(),
         }
+        # Điểm của mục = điểm lượt mới nhất — CHO TỚI KHI ĐẠT. Sau mốc đạt thì
+        # score đóng băng ở điểm đạt: một retake trượt về sau (làm lại cho vui,
+        # hay thua vòng CAS với chính lượt đạt) mà ghi 40% đè lên là bảng giáo
+        # viên hiện "40% ✓" tự mâu thuẫn (codex R5).
+        if not already:
+            patch["score"] = pct
         if passed and not already:
             patch["passed_at"] = _now()
         try:

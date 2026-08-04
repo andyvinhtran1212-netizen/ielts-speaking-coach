@@ -402,6 +402,29 @@ def test_cas_conflict_rereads_and_merges_before_writing():
     assert ("retake", 60.0) in phases, "kết quả của tab này cũng phải vào sổ"
     assert phases.count(("run", 70.0)) == 1, "lượt chính không bị nhân đôi"
 
+def test_late_failed_retake_after_pass_does_not_downgrade_score():
+    """Đã đạt (90%) rồi mới có một retake trượt (thua vòng CAS, hay làm lại
+    chơi): sổ ghi thêm lượt ấy nhưng score ĐÓNG BĂNG ở điểm đạt — ghi 40% đè
+    lên là bảng giáo viên hiện "40% ✓" tự mâu thuẫn (codex R5)."""
+    prior = {"threshold": 80, "attempts": [
+        {"phase": "run", "pct": 70.0, "at": "t", "sessions": ["s-a"]},
+        {"phase": "retake", "pct": 90.0, "at": "t", "sessions": ["s-win"]},
+    ]}
+    ss = _sessions(1, kind="retake")
+    given = {f"q{i}": 99 for i in range(5)}          # trượt sạch: 0/5
+    out, log = _verdict(
+        sessions=ss, attempts=_attempts(ss, given),
+        config={"retake_size": 5},
+        item_row={"id": "it-1", "passed_at": "2026-08-04T00:00:00Z",
+                  "mastery": prior, "score": 90.0},
+    )
+    assert out["passed"] is True                     # đạt rồi là đạt
+    patch_ = [e for e in log if e[1] == "update"][0][2]
+    assert "score" not in patch_, "điểm đạt không được hạ cấp"
+    assert "passed_at" not in patch_
+    assert len(patch_["mastery"]["attempts"]) == 3   # nhưng sổ vẫn ghi sự thật
+
+
 # ── Từ chối lượt bẩn ─────────────────────────────────────────────────────────
 
 def test_rejects_unknown_session():

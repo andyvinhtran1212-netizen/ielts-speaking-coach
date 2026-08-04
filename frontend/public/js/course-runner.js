@@ -148,6 +148,10 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
   // thái lưu của bản đề cũ mà đem dùng tiếp thì phiên cũ lẫn vào lượt xét
   // (verdict bác mãi) hoặc lượt làm cũ bị chấm bằng thước mới (codex #928 R4).
   let rev = '';
+  // Mục bài giao đang gắn với lượt này. Em chuyển lớp rồi được giao lại CÙNG
+  // bank ở lớp mới là một MỤC KHÁC — phiên cũ thuộc mục cũ, verdict bác chúng,
+  // và màn kết quả khôi phục sẽ kẹt không mở nổi phiên mới (codex #928 R5).
+  let itemId = null;
 
   function fingerprint(list) {
     const s = list.map((q) => q.qid + ':' + q.answer).join('|');
@@ -164,7 +168,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     if (mode === 'retake') return;
     try {
       storage.setItem(key(), JSON.stringify({
-        stage, at, marks, done: !!done, runSessions, rev,
+        stage, at, marks, done: !!done, runSessions, rev, item: itemId,
       }));
     } catch (e) { /* trình duyệt chặn lưu — làm bài vẫn chạy */ }
   }
@@ -185,6 +189,8 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     // của một bài KHÁC. Làm lại từ đầu sạch sẽ; giữ lại là phiên cũ lẫn vào
     // lượt xét hoặc bài cũ bị chấm bằng thước mới.
     if (v.rev !== rev) return;
+    // Khác mục bài giao (chuyển lớp, giao lại) = lượt của một BÀI GIAO khác.
+    if ((v.item || null) !== itemId) return;
     stage = v.stage;
     runSessions = Array.isArray(v.runSessions)
       ? v.runSessions.filter((s) => typeof s === 'string')
@@ -296,7 +302,8 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     async load(bankId) {
       const r = await api.get('/api/quiz/banks/' + encodeURIComponent(bankId));
       bank = r.bank;
-      this.mastery = r.mastery || null;   // {passed_at, threshold, retake_size, retakes}
+      this.mastery = r.mastery || null;   // {item_id, passed_at, threshold, retake_size, retakes}
+      itemId = (r.mastery && r.mastery.item_id) || null;
       qs = r.questions || [];
       if (!qs.length) throw new Error('Bài tập này chưa có câu hỏi nào.');
       rev = fingerprint(qs);
