@@ -443,3 +443,50 @@ describe('cổng parity trong CI (review #914)', () => {
       'trang trả 200 không chứng minh nó fetch được — phải kiểm preflight');
   });
 });
+
+describe('so trang CẦN ĐĂNG NHẬP (authed-G1)', () => {
+  test('khoá localStorage suy đúng từ URL project', async () => {
+    const { projectRef, storageKey } = await import('../tooling/supabase-session.mjs');
+    assert.equal(projectRef('https://huwsmtubwulikhlmcirx.supabase.co'), 'huwsmtubwulikhlmcirx');
+    assert.equal(storageKey('https://huwsmtubwulikhlmcirx.supabase.co'),
+      'sb-huwsmtubwulikhlmcirx-auth-token');
+    assert.throws(() => projectRef('không-phải-url'), /project ref/);
+  });
+
+  test('bản ghi phiên có expires_at TUYỆT ĐỐI', async () => {
+    const { sessionEntry } = await import('../tooling/supabase-session.mjs');
+    // Thiếu `expires_at` thì supabase-js coi phiên là hỏng và IM LẶNG đăng
+    // xuất — trang lại rơi về /login.html và ta quay về đúng chỗ chưa sửa gì.
+    const now = 1_785_000_000_000;
+    const [, raw] = sessionEntry('https://x.supabase.co',
+      { access_token: 'A', refresh_token: 'R', expires_in: 3600 }, now);
+    const v = JSON.parse(raw);
+    assert.equal(v.expires_at, Math.floor(now / 1000) + 3600);
+    assert.equal(v.refresh_token, 'R');
+    assert.equal(v.token_type, 'bearer');
+  });
+
+  test('không có access_token ⇒ ném lỗi, không tiêm phiên rỗng', async () => {
+    const { sessionEntry } = await import('../tooling/supabase-session.mjs');
+    assert.throws(() => sessionEntry('https://x.supabase.co', {}, 0), /access_token/);
+  });
+
+  test('phiên tiêm TRƯỚC khi điều hướng, không phải sau', () => {
+    // Auth gate chạy ngay khi trang tải; đặt localStorage sau đó là đã muộn và
+    // trang vẫn nhảy sang /login.html.
+    assert.match(RUNNER, /addInitScript/);
+    assert.match(RUNNER, /const mk = async \(\)/, 'tạo context phải là async để tiêm được');
+  });
+
+  test('KHÔNG đăng nhập thì không tiêm gì — chế độ ẩn danh giữ nguyên', () => {
+    assert.match(RUNNER, /if \(AUTH_ENTRY\)/,
+      'chỉ tiêm khi đã bật --auth; mặc định vẫn là ẩn danh');
+  });
+
+  test('đăng nhập dùng CHUNG một module với G2', () => {
+    // Hai bản đăng nhập riêng là hai chỗ để trôi khỏi nhau.
+    const probe = readFileSync(path.join(ROOT, 'frontend', 'tooling', 'authed-probe.mjs'), 'utf8');
+    assert.match(probe, /from '\.\/supabase-session\.mjs'/);
+    assert.match(RUNNER, /from '\.\/supabase-session\.mjs'/);
+  });
+});

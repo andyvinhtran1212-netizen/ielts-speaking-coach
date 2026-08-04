@@ -27,6 +27,7 @@ import { appendFileSync, readFileSync, existsSync, mkdirSync, readdirSync } from
 import path from 'node:path';
 
 import { evaluateG2, formatG2, planSession, parseLedger, mergeLedgers } from './g2-floor.mjs';
+import { signIn as sharedSignIn } from './supabase-session.mjs';
 
 const argv = process.argv.slice(2);
 const arg = (n, d = null) => { const i = argv.indexOf(n); return i === -1 ? d : argv[i + 1]; };
@@ -75,16 +76,12 @@ const TIMEOUT_MS = Number(arg('--timeout', '15000')) || 15000;
 const EMAIL = process.env.PROBE_EMAIL || '';
 const PASSWORD = process.env.PROBE_PASSWORD || '';
 
-/** Đăng nhập bằng password grant; trả về cả refresh_token để mode session dùng. */
-async function signIn() {
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
-    method: 'POST',
-    headers: { apikey: SUPABASE_ANON, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: EMAIL, password: PASSWORD }),
-    signal: AbortSignal.timeout(TIMEOUT_MS),
+/** Đăng nhập — dùng CHUNG module với cổng parity để không có hai bản trôi nhau. */
+function signIn() {
+  return sharedSignIn({
+    supabaseUrl: SUPABASE_URL, anonKey: SUPABASE_ANON,
+    email: EMAIL, password: PASSWORD, timeoutMs: TIMEOUT_MS,
   });
-  if (!res.ok) throw new Error(`đăng nhập hỏng: HTTP ${res.status} ${await res.text()}`);
-  return res.json();
 }
 
 /** Đổi refresh token lấy access token mới — đúng chế độ hỏng cần phủ. */

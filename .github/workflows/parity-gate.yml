@@ -64,10 +64,10 @@ on:
   workflow_dispatch:
     inputs:
       scope:
-        description: "categories (nhanh) · full (gồm mọi trang bài viết)"
+        description: "categories (nhanh) · full (gồm mọi trang bài viết) · authed (trang cần đăng nhập)"
         default: categories
         type: choice
-        options: [categories, full]
+        options: [categories, full, authed]
 
 permissions:
   contents: read
@@ -189,10 +189,18 @@ jobs:
       # Chạy CẢ HAI rồi mới thoát, để báo cáo hiện đủ hai bề rộng thay vì dừng
       # ở cái đỏ đầu tiên.
       - name: Chạy cổng parity (desktop + điện thoại)
+        env:
+          PROBE_EMAIL: ${{ secrets.PROBE_EMAIL }}
+          PROBE_PASSWORD: ${{ secrets.PROBE_PASSWORD }}
         run: |
           SCOPE="${{ steps.scope.outputs.scope }}"
           echo "phạm vi: $SCOPE"
-          if [ "$SCOPE" = "full" ]; then ARGS="--expand-grammar"; else ARGS="--expand-grammar --categories-only"; fi
+          # `authed` so trang CẦN ĐĂNG NHẬP. Không gộp vào phạm vi thường vì nó
+          # cần secret và chỉ so được TRẠNG THÁI RỖNG (tài khoản probe không có
+          # dữ liệu học tập) — trộn vào sẽ khiến người đọc tưởng đã phủ dữ liệu.
+          if [ "$SCOPE" = "authed" ]; then ARGS="--auth --pairs tooling/parity-pairs-authed.json";
+          elif [ "$SCOPE" = "full" ]; then ARGS="--expand-grammar";
+          else ARGS="--expand-grammar --categories-only"; fi
           FAIL=0
           for VP in 1280x900 375x812; do
             echo "════════ bề rộng $VP ════════"
