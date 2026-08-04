@@ -96,7 +96,15 @@ export function HomeShell() {
           <HeroStat
             id="hero-streak" label="Streak" unit="ngày" className="streak"
             extra={(
-              <span className="flame" aria-hidden="true">
+              {/* HYDRATION: `lucide.createIcons()` THAY thẻ này bằng <svg> ngay
+                  khi DOM sẵn sàng (layout gọi ở DOMContentLoaded và cả `load`),
+                  còn React hydrate sau đó lại đi tìm <i> → React #418.
+                  Cổng authed-G1 bắt được đúng lỗi này ở lần chạy đầu tiên; trang
+                  legacy không dính vì nó không hydrate, và `/profile` không dính
+                  vì nó không dùng lucide (0 thẻ data-lucide).
+                  `suppressHydrationWarning` là công cụ ĐÚNG ở đây: ta CỐ Ý cho
+                  script bên ngoài thay nội dung nút này sau khi render. */}
+              <span className="flame" aria-hidden="true" suppressHydrationWarning>
                 <i data-lucide="flame" />
               </span>
             )}
