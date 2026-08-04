@@ -161,10 +161,23 @@ def quiz_write_health() -> dict:
 
 # ── Read: list + serve banks ─────────────────────────────────────────
 
+# Bài tập theo BUỔI HỌC của giáo trình. Khác mọi bank khác ở một điểm, và điểm
+# ấy quyết định cả hai chốt dưới đây: nó KHÔNG phải nội dung học viên tự chọn mà
+# làm. Nó nằm trong kho của giáo viên, và chỉ tới tay một em khi em đó ĐƯỢC GIAO.
+COURSE_AREA = "course"
+
+
 def list_published_banks(*, skill_area: str | None = None, topic_id: str | None = None) -> list[dict]:
     q = supabase_admin.table("quiz_banks").select(
         "id, topic_id, code, title, skill_area, words_count, updated_at"
     ).eq("is_published", True)
+    # KHÔNG bao giờ liệt kê bank theo buổi ở đây. `skill_area` do người gọi
+    # truyền, nên không loại trừ nghĩa là bất kỳ học viên nào gọi
+    # `?skill_area=course` cũng liệt kê được toàn bộ giáo trình — kể cả buổi lớp
+    # em ấy chưa học tới.
+    if skill_area == COURSE_AREA:
+        return []
+    q = q.neq("skill_area", COURSE_AREA)
     if skill_area:
         q = q.eq("skill_area", skill_area)
     if topic_id:
@@ -175,9 +188,41 @@ def list_published_banks(*, skill_area: str | None = None, topic_id: str | None 
         raise HTTPException(500, f"Lỗi truy vấn banks: {exc}")
 
 
-def get_bank_for_play(bank_id: str) -> dict:
+def _has_assignment_for(bank_id: str, user_id: str) -> bool:
+    """Học viên này CÓ được giao bài tập của bank ấy không.
+
+    Bài giao lớp trỏ tới bank bằng `content_id` (mig 177), và mỗi học viên có một
+    dòng trong `class_assignment_items`. Hỏi từ phía học viên: chỉ những mục của
+    CHÍNH em ấy mới được tính.
+    """
+    try:
+        asg = (supabase_admin.table("class_assignments").select("id")
+               .eq("content_id", bank_id).execute().data) or []
+        if not asg:
+            return False
+        student = (supabase_admin.table("students").select("id")
+                   .eq("user_id", user_id).execute().data) or []
+        if not student:
+            return False
+        sids = [s["id"] for s in student]
+        aids = [a["id"] for a in asg]
+        rows = (supabase_admin.table("class_assignment_items").select("id")
+                .in_("assignment_id", aids).in_("student_id", sids)
+                .limit(1).execute().data) or []
+        return bool(rows)
+    except Exception as exc:  # noqa: BLE001
+        # Không đọc được thì TỪ CHỐI. Mở cửa khi chốt hỏng là biến một lỗi tạm
+        # thời thành một lần lộ nội dung.
+        logger.warning("[quiz] assignment check failed bank=%s: %s", bank_id, exc)
+        return False
+
+
+def get_bank_for_play(bank_id: str, user_id: str | None = None) -> dict:
     """Bank META + questions WITH answers, for the authed player. 404 unless the
-    bank exists AND is published."""
+    bank exists AND is published.
+
+    Bank theo BUỔI HỌC còn một chốt nữa: phải ĐƯỢC GIAO. Xuất bản không mở cửa
+    cho nó — đó là kho của giáo viên, không phải nội dung tự chọn."""
     try:
         b = (
             supabase_admin.table("quiz_banks").select("*")
@@ -188,6 +233,11 @@ def get_bank_for_play(bank_id: str) -> dict:
     if not b or not b[0].get("is_published"):
         raise HTTPException(404, "Không tìm thấy bank")
     bank = b[0]
+    if bank.get("skill_area") == COURSE_AREA:
+        # Trả 404 chứ không 403: 403 xác nhận bank ấy tồn tại, và với nội dung
+        # giáo trình thì chính sự tồn tại cũng không cần nói ra.
+        if not user_id or not _has_assignment_for(bank_id, user_id):
+            raise HTTPException(404, "Không tìm thấy bank")
     try:
         questions = (
             supabase_admin.table("quiz_questions").select("*")

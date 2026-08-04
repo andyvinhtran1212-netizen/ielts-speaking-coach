@@ -106,6 +106,12 @@ class _DB:
     def table(self, name):
         return _Table(self, name)
 
+    def rpc(self, name, params):
+        # Ghi lại NGUYÊN payload: một RPC nuốt mất khoá lạ (jsonb_to_recordset
+        # khai cứng cột) là lỗi im lặng, nên test phải soi được thứ đã gửi đi.
+        self.writes.append(("rpc", name, params))
+        return _Op(_Resp(len((params or {}).get("p_rows") or [])))
+
 
 _COURSE = {"id": "course-c3", "code": "C3", "name": "Khóa nâng cao"}
 
