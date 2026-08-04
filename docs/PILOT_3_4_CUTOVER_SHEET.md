@@ -426,7 +426,15 @@ thời-gian-trôi nói trên:
 ### Kết luận
 
 **Pilot 3+4 ĐÓNG tại T+25,1h theo NGOẠI LỆ CHÍNH SÁCH được chủ dự án duyệt —
-KHÔNG phải "PASS vì cổng đã thoả".** `/profile` giữ nguyên trên Next. Giám sát tiếp bằng ngưỡng **tuyệt
+KHÔNG phải "PASS vì cổng đã thoả".** `/profile` giữ nguyên trên Next.
+
+> **CẬP NHẬT 2026-08-04 — ngoại lệ ĐÃ ĐÓNG.** G2 (probe có đăng nhập) đạt sàn
+> ADR-013-A2 lần đầu: `n=35 · trải 24,89h · lỗ lớn nhất 221′ · 0 hỏng · đã qua
+> một lần token refresh`. Rủi ro thời-gian-trôi nêu ở mục đính chính phía trên
+> **nay đã được xả** — không còn là ngoại lệ đang mở.
+>
+> Điều KHÔNG thay đổi: cửa sổ quan sát 48–72h vẫn **bỏ hẳn** (ADR-013-A2), và
+> lý do bỏ nay mạnh hơn lý do ban đầu — xem A2, mục "cửa sổ mù kể cả khi đủ mẫu". Giám sát tiếp bằng ngưỡng **tuyệt
 đối 0**: bất kỳ lỗi client nào trên `/profile` = điều tra ngay (khả thi chính
 vì lưu lượng thấp — không có nhiễu để lọc). Rollback ≤12s vẫn là lưới đỡ.
 
