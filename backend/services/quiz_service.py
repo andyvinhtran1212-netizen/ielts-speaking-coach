@@ -172,6 +172,36 @@ def quiz_write_health() -> dict:
 # làm. Nó nằm trong kho của giáo viên, và chỉ tới tay một em khi em đó ĐƯỢC GIAO.
 COURSE_AREA = "course"
 
+# ── Cổng "thuộc bài" (mastery gate) ──────────────────────────────────────────
+# Dưới ngưỡng thì chưa kết luận được là thuộc: học viên làm bài KIỂM TRA LẠI —
+# mẫu nhỏ bốc ngẫu nhiên, trộn thứ tự câu VÀ trộn thứ tự đáp án — tới khi đạt.
+# Ngưỡng/cỡ mẫu chỉnh được theo TỪNG BÀI GIAO (content_config), đây là mặc định.
+PASS_PCT_DEFAULT = 80
+RETAKE_SIZE_DEFAULT = 20
+
+_SESSION_KINDS = {"run", "retake"}
+
+
+def mastery_config(assignment: dict | None) -> dict:
+    """Ngưỡng đạt + cỡ mẫu kiểm tra lại của một bài giao, đã kẹp về dải lành.
+
+    Kẹp chứ không tin: content_config là jsonb tự do, một lần nhập tay `800`
+    thay vì `80` sẽ biến bài tập thành không thể đạt — và không ai biết vì sao.
+    """
+    cfg = (assignment or {}).get("content_config") or {}
+
+    def _clamp(raw, lo, hi, default):
+        try:
+            v = int(raw)
+        except (TypeError, ValueError):
+            return default
+        return max(lo, min(hi, v))
+
+    return {
+        "pass_pct":    _clamp(cfg.get("pass_pct"), 50, 100, PASS_PCT_DEFAULT),
+        "retake_size": _clamp(cfg.get("retake_size"), 5, 100, RETAKE_SIZE_DEFAULT),
+    }
+
 
 def list_published_banks(*, skill_area: str | None = None, topic_id: str | None = None) -> list[dict]:
     q = supabase_admin.table("quiz_banks").select(
@@ -258,6 +288,7 @@ def get_bank_for_play(bank_id: str, user_id: str | None = None) -> dict:
     if not b:
         raise HTTPException(404, "Không tìm thấy bank")
     bank = b[0]
+    mastery_state = None
     if bank.get("skill_area") == COURSE_AREA:
         # BÀI GIAO LÀ CỬA DUY NHẤT. `is_published` KHÔNG áp cho giáo trình: bank
         # theo buổi sống trong kho giáo viên ở trạng thái nháp và không bao giờ
@@ -266,8 +297,30 @@ def get_bank_for_play(bank_id: str, user_id: str | None = None) -> dict:
         #
         # Trả 404 chứ không 403: 403 xác nhận bank ấy tồn tại, và với nội dung
         # giáo trình thì chính sự tồn tại cũng không cần nói ra.
-        if not user_id or not _has_assignment_for(bank_id, user_id):
+        item = _assignment_item_for(bank_id, user_id) if user_id else None
+        if not item:
             raise HTTPException(404, "Không tìm thấy bank")
+        # Trạng thái cổng thuộc-bài, để trang nói được "đã đạt" ngay khi mở lại
+        # thay vì bắt làm lại từ đầu mới biết. Best-effort: đọc hỏng thì trang
+        # vẫn chạy, chỉ thiếu tấm huy hiệu.
+        try:
+            row = (supabase_admin.table("class_assignment_items")
+                   .select("passed_at, mastery")
+                   .eq("id", item["id"]).limit(1).execute().data) or []
+            asg = (supabase_admin.table("class_assignments")
+                   .select("id, content_config")
+                   .eq("id", item["assignment_id"]).limit(1).execute().data) or []
+            cfg = mastery_config(asg[0] if asg else None)
+            it = row[0] if row else {}
+            att = ((it.get("mastery") or {}).get("attempts")) or []
+            mastery_state = {
+                "passed_at": it.get("passed_at"),
+                "threshold": cfg["pass_pct"],
+                "retake_size": cfg["retake_size"],
+                "retakes": sum(1 for a in att if a.get("phase") == "retake"),
+            }
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[quiz] mastery state read failed bank=%s: %s", bank_id, exc)
     elif not bank.get("is_published"):
         raise HTTPException(404, "Không tìm thấy bank")
     try:
@@ -280,7 +333,10 @@ def get_bank_for_play(bank_id: str, user_id: str | None = None) -> dict:
     word_cards = _word_cards_for(bank)
     _attach_article_urls(questions)
     _resolve_question_audio(questions, word_cards)
-    return {"bank": bank, "questions": questions, "word_cards": word_cards}
+    out = {"bank": bank, "questions": questions, "word_cards": word_cards}
+    if mastery_state is not None:
+        out["mastery"] = mastery_state
+    return out
 
 
 def _bank_meta_or_404(bank_id: str, user_id: str | None = None) -> dict:
@@ -401,7 +457,7 @@ def _owned_session(session_id: str, user_id: str) -> dict:
     return rows[0]
 
 
-def start_session(*, user_id: str, bank_id: str) -> dict:
+def start_session(*, user_id: str, bank_id: str, kind: str = "run") -> dict:
     """Create a session and return {session_id, resume} — resume = prior word_stats
     so the engine continues carry-over.
 
@@ -410,17 +466,29 @@ def start_session(*, user_id: str, bank_id: str) -> dict:
     upsert would then overwrite a previously mastered/provisional word with lower
     counts. A read failure → 500, no session row, no destructive write."""
     bank = _bank_meta_or_404(bank_id, user_id)   # cổng (published HOẶC bài giao)
+    if kind not in _SESSION_KINDS:
+        raise HTTPException(422, "kind phải là 'run' hoặc 'retake'")
+    if kind == "retake" and bank.get("skill_area") != COURSE_AREA:
+        # Kiểm tra lại là khái niệm của cổng thuộc-bài; bank tự chọn không có
+        # ngưỡng đạt nên một phiên 'retake' ở đó chỉ làm nhiễu số liệu.
+        raise HTTPException(422, "Chỉ bài tập theo buổi mới có kiểm tra lại")
     resume = get_resume(user_id=user_id, bank_id=bank_id)   # raises on read failure
     # Ghi lại mục bài giao NGAY LÚC TẠO PHIÊN, không đoán về sau. Suy ra "lượt
     # này thuộc bài giao nào" từ thời điểm và người làm là một phép đoán, và phép
     # đoán ấy đã sai đủ nhiều lần (mig 181) để không đáng làm lại.
     item = (_assignment_item_for(bank_id, user_id)
             if bank.get("skill_area") == COURSE_AREA else None)
+    row = {
+        "user_id": user_id, "bank_id": bank_id, "code": bank.get("code"),
+        "class_assignment_item_id": (item or {}).get("id"),
+    }
+    # Chỉ ghi cột `kind` khi khác mặc định: giữ cho MỌI luồng quiz đang chạy
+    # (vocab, grammar) không phụ thuộc migration 189 — chúng không bao giờ tạo
+    # phiên retake.
+    if kind != "run":
+        row["kind"] = kind
     try:
-        res = supabase_admin.table("quiz_sessions").insert({
-            "user_id": user_id, "bank_id": bank_id, "code": bank.get("code"),
-            "class_assignment_item_id": (item or {}).get("id"),
-        }).execute()
+        res = supabase_admin.table("quiz_sessions").insert(row).execute()
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi tạo session: {exc}")
     if not res.data:
@@ -620,6 +688,108 @@ def end_session(*, user_id: str, session_id: str, data: dict) -> dict:
         except Exception as exc:  # noqa: BLE001
             logger.warning("[quiz] mark submitted failed item=%s: %s", item_id, exc)
     return res.data[0] if res.data else {"id": session_id, **patch}
+
+
+def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dict:
+    """Xét ĐẠT/CHƯA ĐẠT bài tập buổi từ chính các phiên server đang giữ.
+
+    Client chỉ NÊU TÊN các phiên của lượt vừa làm (10 phiên chặng, hoặc 1 phiên
+    kiểm tra lại); điểm cộng từ những dòng server đã ghi, không nhận tổng do
+    client tự khai. Suy lượt từ khảo cổ toàn bộ phiên của em ấy thì học viên xoá
+    localStorage làm lại là mẫu số phình gấp đôi — nêu tên tường minh né hẳn.
+
+    Kết luận GHI THẲNG vào class_assignment_items (passed_at + sổ mastery):
+    giáo viên đọc một cột, không đoán từ bảng phiên.
+    """
+    if not session_ids or len(session_ids) > 40:
+        raise HTTPException(422, "session_ids phải có 1–40 phiên")
+
+    item = _assignment_item_for(bank_id, user_id)
+    if not item:
+        raise HTTPException(404, "Không tìm thấy bài giao còn hiệu lực")
+
+    try:
+        asg = (supabase_admin.table("class_assignments")
+               .select("id, content_config")
+               .eq("id", item["assignment_id"]).limit(1).execute().data) or []
+        cfg = mastery_config(asg[0] if asg else None)
+
+        rows = (supabase_admin.table("quiz_sessions")
+                .select("id, user_id, bank_id, class_assignment_item_id, kind, "
+                        "ended_by, total_correct, total_questions")
+                .in_("id", session_ids).execute().data) or []
+
+        cur = (supabase_admin.table("class_assignment_items")
+               .select("id, passed_at, mastery, score")
+               .eq("id", item["id"]).limit(1).execute().data) or []
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Lỗi đọc dữ liệu xét đạt: {exc}")
+    if not cur:
+        raise HTTPException(404, "Không tìm thấy mục bài giao")
+    cur = cur[0]
+
+    # TỪNG phiên phải là của đúng người, đúng bank, đúng mục, và ĐÃ chốt.
+    # Thiếu một phiên (id lạ, của người khác) → từ chối cả lượt chứ không xét
+    # phần còn lại: mẫu số thiếu làm điểm ẢO cao lên.
+    if len(rows) != len(set(session_ids)):
+        raise HTTPException(422, "Có phiên không tồn tại")
+    for s in rows:
+        if (s.get("user_id") != user_id or s.get("bank_id") != bank_id
+                or s.get("class_assignment_item_id") != item["id"]):
+            raise HTTPException(422, "Có phiên không thuộc lượt làm này")
+        if s.get("ended_by") != "completed":
+            raise HTTPException(422, "Có phiên chưa hoàn thành")
+
+    kinds = {s.get("kind") or "run" for s in rows}
+    if len(kinds) > 1:
+        raise HTTPException(422, "Không trộn phiên chặng với phiên kiểm tra lại")
+    phase = kinds.pop()
+
+    graded = sum(int(s.get("total_questions") or 0) for s in rows)
+    correct = sum(int(s.get("total_correct") or 0) for s in rows)
+    if graded <= 0:
+        raise HTTPException(422, "Lượt làm không có câu trắc nghiệm nào được chấm")
+    pct = round(correct / graded * 100, 1)
+    passed = pct >= cfg["pass_pct"]
+
+    mastery = cur.get("mastery") or {}
+    attempts = list(mastery.get("attempts") or [])
+    sess_key = sorted(set(session_ids))
+    # Tải lại trang ở màn kết quả sẽ gọi xét lại CÙNG một lượt — sổ không được
+    # phình theo số lần bấm F5. Trùng phiên + trùng pha với lượt cuối = không
+    # ghi thêm dòng mới.
+    prev = attempts[-1] if attempts else None
+    if not (prev and prev.get("phase") == phase and prev.get("sessions") == sess_key):
+        attempts.append({
+            "phase": phase, "pct": pct, "at": _now(), "sessions": sess_key,
+        })
+    patch: dict = {
+        "mastery": {"threshold": cfg["pass_pct"], "attempts": attempts},
+        # Điểm của mục = điểm GỘP lượt gần nhất — thay bản ghi chặng-đầu-tiên
+        # mà mark_item_submitted để lại, vốn chỉ là 10 câu đầu.
+        "score": pct,
+    }
+    already = bool(cur.get("passed_at"))
+    if passed and not already:
+        patch["passed_at"] = _now()
+    try:
+        supabase_admin.table("class_assignment_items").update(patch) \
+            .eq("id", item["id"]).execute()
+    except Exception as exc:  # noqa: BLE001
+        # Kết luận mà không ghi được thì KHÔNG được báo đạt — học viên sẽ rời
+        # trang với niềm tin đã xong trong khi giáo viên không thấy gì.
+        raise HTTPException(500, f"Lỗi ghi kết luận: {exc}")
+
+    return {
+        "passed": passed or already,
+        "pct": pct,
+        "threshold": cfg["pass_pct"],
+        "phase": phase,
+        "retake_size": cfg["retake_size"],
+        "retakes": sum(1 for a in attempts if a.get("phase") == "retake"),
+    }
 
 
 # ── Analytics (Pha 5a) ───────────────────────────────────────────────

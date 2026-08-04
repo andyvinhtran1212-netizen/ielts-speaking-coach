@@ -75,6 +75,43 @@ function uuid() {
  * `deps` cho phép test bơm api/bộ nhớ/đồng hồ giả — không cần trình duyệt và
  * không cần mạng.
  */
+/**
+ * Fisher–Yates trên bản sao. `rng` bơm được để test tái lập.
+ */
+export function shuffled(arr, rng) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/**
+ * Bản sao một câu trắc nghiệm với ĐÁP ÁN ĐÃ TRỘN — để bài kiểm tra lại hỏi lại
+ * sự hiểu, không hỏi lại trí nhớ vị trí ("câu này đáp án C").
+ *
+ * `_perm[vị-trí-hiển-thị] = vị-trí-gốc`: mọi thứ đọc theo vị trí (answer,
+ * why_wrong) đều phải remap, và lượt làm gửi về server phải mang vị trí GỐC —
+ * không thì màn xem lại lỗi sai của học viên chỉ ra nhầm phương án.
+ */
+export function retakeClone(q, rng) {
+  if (!Array.isArray(q.options) || q.options.length < 2) return { ...q };
+  const perm = shuffled(q.options.map((_, i) => i), rng);
+  const why = {};
+  perm.forEach((orig, disp) => {
+    const w = (q.why_wrong || {})[String(orig)];
+    if (w) why[String(disp)] = w;
+  });
+  return {
+    ...q,
+    options: perm.map((i) => q.options[i]),
+    answer: perm.indexOf(q.answer),
+    why_wrong: why,
+    _perm: perm,
+  };
+}
+
 export function createRunner({ api, storage, now = () => Date.now() }) {
   let bank = null;
   let qs = [];
@@ -87,6 +124,15 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
   let stageStartedAt = 0;
   let answered = false;
   let sessionFailed = false;
+  // Cổng thuộc-bài: 'run' là lượt chính 10 chặng; 'retake' là bài kiểm tra lại
+  // (mẫu nhỏ, trộn câu + đáp án) khi lượt chính dưới ngưỡng.
+  let mode = 'run';
+  let retakeQs = [];
+  let retakeNo = 0;
+  // Phiên của các chặng ĐÃ CHỐT THÀNH CÔNG — chính là danh sách gửi đi xét đạt.
+  // Chặng không chốt được (mạng đứt) không có tên: server sẽ từ chối phiên chưa
+  // hoàn thành, và thà thiếu một chặng còn hơn cả lượt bị bác.
+  let runSessions = [];
   // Lượt đẩy giữa chặng chạy nền. Phải GIỮ lời hứa của nó: chốt chặng trong lúc
   // nó còn bay nghĩa là hàng đợi đang rỗng TẠM THỜI, `flush()` thấy không có gì
   // để gửi nên không ném, và phiên được chốt như thể mọi thứ đã tới máy chủ.
@@ -97,8 +143,14 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
 
   function save(done) {
     if (!storage) return;
+    // Kiểm tra lại là lượt PHÙ DU: mẫu bốc ngẫu nhiên không tái lập được sau
+    // reload, nên không lưu — tải lại trang thì quay về màn kết quả lượt chính
+    // và bốc mẫu mới. Lưu nó đè lên trạng thái lượt chính mới là mất dữ liệu.
+    if (mode === 'retake') return;
     try {
-      storage.setItem(key(), JSON.stringify({ stage, at, marks, done: !!done }));
+      storage.setItem(key(), JSON.stringify({
+        stage, at, marks, done: !!done, runSessions,
+      }));
     } catch (e) { /* trình duyệt chặn lưu — làm bài vẫn chạy */ }
   }
 
@@ -115,6 +167,9 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     try { v = JSON.parse(storage.getItem(key()) || '{}'); } catch (e) { return; }
     if (typeof v.stage !== 'number') return;
     stage = v.stage;
+    runSessions = Array.isArray(v.runSessions)
+      ? v.runSessions.filter((s) => typeof s === 'string')
+      : [];
     if (v.done) {
       // Chặng đã xong: sang chặng sau nếu còn, không thì đứng ở màn kết quả.
       if ((stage + 1) * STAGE < qs.length) { stage += 1; at = 0; marks = []; }
@@ -128,6 +183,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
   }
 
   function stageQuestions() {
+    if (mode === 'retake') return retakeQs;
     return qs.slice(stage * STAGE, stage * STAGE + STAGE);
   }
 
@@ -135,7 +191,10 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     sessionId = null;
     sessionFailed = false;
     try {
-      const s = await api.post('/api/quiz/sessions', { bank_id: bank.id });
+      const body = { bank_id: bank.id };
+      // Chỉ khai khi khác mặc định — phiên 'run' giữ nguyên hợp đồng cũ.
+      if (mode === 'retake') body.kind = 'retake';
+      const s = await api.post('/api/quiz/sessions', body);
       sessionId = (s && (s.id || s.session_id)) || null;
     } catch (e) { sessionId = null; }
     if (!sessionId) sessionFailed = true;
@@ -190,6 +249,9 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     get pendingCount() { return pending.length; },
     get stageCount() { return Math.ceil(qs.length / STAGE); },
     get total() { return qs.length; },
+    get mode() { return mode; },
+    get retakeNo() { return retakeNo; },
+    get runSessionCount() { return runSessions.length; },
     stageQuestions,
 
     current() {
@@ -202,6 +264,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     async load(bankId) {
       const r = await api.get('/api/quiz/banks/' + encodeURIComponent(bankId));
       bank = r.bank;
+      this.mastery = r.mastery || null;   // {passed_at, threshold, retake_size, retakes}
       qs = r.questions || [];
       if (!qs.length) throw new Error('Bài tập này chưa có câu hỏi nào.');
       restore();
@@ -219,7 +282,9 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       const q = this.current();
       const ok = picked === q.answer;
       marks[at] = ok ? 'right' : 'wrong';
-      queue(q, ok, String(picked));
+      // Gửi vị trí GỐC của phương án, không phải vị trí hiển thị: ở bài kiểm
+      // tra lại đáp án đã trộn, và màn xem lại lỗi sai đọc theo bộ đề gốc.
+      queue(q, ok, String(q._perm ? q._perm[picked] : picked));
       if (pending.length >= BATCH) {
         // Nuốt lỗi Ở ĐÂY là đúng (đang giữa chặng, không có gì để nói với học
         // viên), nhưng phải NHỚ lời hứa để `finishStage` chờ được.
@@ -271,13 +336,18 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
             total_wrong: Math.max(0, graded - right),
             ended_by: 'completed',
           });
+          // Chỉ phiên ĐÃ CHỐT mới có tên trong lượt xét đạt — server từ chối
+          // phiên dang dở, và một phiên hỏng không được kéo cả lượt xuống.
+          if (mode === 'run' && runSessions.indexOf(sessionId) === -1) {
+            runSessions.push(sessionId);
+          }
         } catch (err) { persisted = false; }
       }
       save(true);
       return {
         right, graded, persisted,
         axes: Object.keys(axes).sort((a, b) => axes[b] - axes[a]).map((a) => ({ axis: a, n: axes[a] })),
-        hasMore: stage + 1 < this.stageCount,
+        hasMore: mode === 'run' && stage + 1 < this.stageCount,
       };
     },
 
@@ -287,6 +357,35 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       save(false);
       await openSession();
       shownAt = now();
+    },
+
+    /**
+     * Xét đạt lượt vừa xong. Lượt chính = các phiên chặng đã chốt; kiểm tra
+     * lại = đúng một phiên của nó. Server tự cộng điểm từ dòng nó giữ.
+     */
+    verdict() {
+      const ids = mode === 'retake' ? [sessionId].filter(Boolean) : runSessions.slice();
+      return api.post('/api/quiz/course/verdict', {
+        bank_id: bank.id, session_ids: ids,
+      });
+    },
+
+    /**
+     * Bài KIỂM TRA LẠI: bốc `size` câu trắc nghiệm ngẫu nhiên, trộn thứ tự câu
+     * VÀ trộn thứ tự đáp án trong từng câu — hỏi lại sự hiểu, không hỏi lại trí
+     * nhớ vị trí. Câu tự luận không vào mẫu: nó không chấm máy nên không nói
+     * được gì về ngưỡng.
+     */
+    async startRetake(size, rng = Math.random) {
+      const pool = qs.filter((q) => q.type !== 'writing');
+      const n = Math.max(1, Math.min(Number(size) || 20, pool.length));
+      mode = 'retake';
+      retakeNo += 1;
+      retakeQs = shuffled(pool, rng).slice(0, n).map((q) => retakeClone(q, rng));
+      at = 0; marks = []; answered = false;
+      await openSession();
+      shownAt = now();
+      return retakeQs.length;
     },
 
     /** Đóng tab giữa chừng: đẩy nốt bằng fetch keepalive. */

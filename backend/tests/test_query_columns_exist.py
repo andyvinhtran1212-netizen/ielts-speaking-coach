@@ -56,6 +56,7 @@ _SCHEMA = {
     "class_assignment_items": {
         "id", "assignment_id", "student_id", "state", "submitted_at", "score",
         "artifact_kind", "artifact_id", "created_at", "updated_at",
+        "passed_at", "mastery",       # mig 189 — cổng thuộc bài
     },
     "topic_questions": {
         "id", "topic_id", "part", "order_num", "question_text", "question_type",
@@ -69,6 +70,7 @@ _SCHEMA = {
         "duration_sec", "total_questions", "total_correct", "total_wrong",
         "accuracy", "words_mastered", "words_carried_over", "ended_by",
         "created_at", "class_assignment_item_id",
+        "kind",                       # mig 189 — 'run' | 'retake'
     },
     "quiz_banks": {              # mig 186 thêm course_id + lesson_no
         "id", "topic_id", "code", "title", "skill_area", "meta", "words_count",

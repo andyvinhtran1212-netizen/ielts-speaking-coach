@@ -112,6 +112,12 @@ class AssignmentCreate(BaseModel):
     question_ids: Optional[list[str]] = None
     instructions: Optional[str] = Field(default=None, max_length=2000)
     lesson_id:    Optional[str] = None
+    # Cổng thuộc-bài (chỉ skill='course'): dưới ngưỡng thì học viên kiểm tra
+    # lại bằng mẫu `retake_size` câu tới khi đạt. Bỏ trống = mặc định của
+    # quiz_service (80% / 20 câu). Dải trùng với mastery_config để giá trị nhập
+    # tay không bị kẹp lệch đi một cách im lặng.
+    pass_pct:     Optional[int] = Field(default=None, ge=50, le=100)
+    retake_size:  Optional[int] = Field(default=None, ge=5, le=100)
 
     @model_validator(mode="after")
     def _check_kind(self):
@@ -637,7 +643,7 @@ def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str,
             f"Lớp này đã được giao \"{bank['title']}\" rồi "
             f"(bài giao \"{dup[0].get('title')}\").")
 
-    return bank["id"], {
+    cfg = {
         # Chỉ nhãn để hiển thị. Câu hỏi KHÔNG chụp vào đây: khác kho Speaking,
         # đề bài tập tới tay học viên qua endpoint quiz đã có cổng riêng, và chụp
         # thêm một bản ở đây là tạo ra một nguồn sự thật thứ hai để trôi.
@@ -645,6 +651,13 @@ def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str,
         "lesson_no":  bank.get("lesson_no"),
         "bank_code":  bank.get("code"),
     }
+    # Cổng thuộc-bài: chỉ ghi khi admin ĐẶT — vắng mặt nghĩa là "theo mặc định
+    # hiện hành", và mặc định được phép tiến hoá mà không phải sửa bài giao cũ.
+    if body.pass_pct is not None:
+        cfg["pass_pct"] = body.pass_pct
+    if body.retake_size is not None:
+        cfg["retake_size"] = body.retake_size
+    return bank["id"], cfg
 
 
 @router.get("/{cohort_id}/course-banks")
@@ -1017,7 +1030,8 @@ async def assignment_tally(
 
     items = _paged(
         supabase_admin, "class_assignment_items",
-        "id, student_id, submitted_at, score, state, artifact_kind, artifact_id",
+        "id, student_id, submitted_at, score, state, artifact_kind, artifact_id, "
+        "passed_at, mastery",
         lambda q: q.eq("assignment_id", assignment_id),
     )
     # Tra theo ĐÚNG những học viên có mục trong bài giao này, không theo sĩ số
@@ -1064,6 +1078,12 @@ async def assignment_tally(
             # phải nằm ngay cạnh tên em ấy.
             "flags":        flags,
             "flag_level":   speaking_flags.worst(flags),
+            # Cổng thuộc bài (chỉ bài course có): đạt/chưa + số lần kiểm tra
+            # lại. "Trượt 2 lần rồi mới đạt" là tín hiệu cần kèm cặp — nó phải
+            # tới mắt giáo viên, không nằm im trong jsonb.
+            "passed_at":    it.get("passed_at"),
+            "retakes":      sum(1 for a in ((it.get("mastery") or {}).get("attempts") or [])
+                                if a.get("phase") == "retake"),
         })
     # Chưa nộp lên đầu: đó là danh sách việc cần làm của giáo viên.
     _ORDER = {"missing": 0, "pending": 1, "no-account": 2, "late": 3, "submitted": 4}

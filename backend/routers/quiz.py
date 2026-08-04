@@ -33,6 +33,14 @@ router = APIRouter(prefix="/api/quiz", tags=["quiz-player"])
 
 class StartSessionBody(BaseModel):
     bank_id: str
+    # 'retake' = phiên kiểm tra lại của cổng thuộc-bài (chỉ bank giáo trình).
+    kind: str = "run"
+
+
+class CourseVerdictBody(BaseModel):
+    bank_id: str
+    # Các phiên của lượt vừa làm — server tự cộng điểm từ dòng nó giữ.
+    session_ids: list[str]
 
 
 class ProgressBody(BaseModel):
@@ -112,7 +120,18 @@ async def reset_progress(bank_id: UUID, authorization: str | None = Header(None)
 @router.post("/sessions", status_code=201)
 async def start_session(body: StartSessionBody, authorization: str | None = Header(None)):
     user = await get_supabase_user(authorization)
-    return quiz_service.start_session(user_id=user["id"], bank_id=body.bank_id)
+    return quiz_service.start_session(
+        user_id=user["id"], bank_id=body.bank_id, kind=body.kind,
+    )
+
+
+@router.post("/course/verdict")
+async def course_verdict(body: CourseVerdictBody, authorization: str | None = Header(None)):
+    """Xét đạt/chưa đạt bài tập buổi sau một lượt (10 chặng hoặc 1 kiểm tra lại)."""
+    user = await get_supabase_user(authorization)
+    return quiz_service.course_verdict(
+        user_id=user["id"], bank_id=body.bank_id, session_ids=body.session_ids,
+    )
 
 
 @router.post("/sessions/{session_id}/progress")
