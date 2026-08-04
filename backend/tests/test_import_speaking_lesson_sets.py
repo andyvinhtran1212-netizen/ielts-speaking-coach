@@ -59,7 +59,11 @@ class _Table:
             row.setdefault("id", f"{self._name}-{len(self._db.tables.setdefault(self._name, [])) + 1}")
             row.setdefault("is_active", True)
             self._db.tables.setdefault(self._name, []).append(row)
-            self._db.writes.append(("insert", self._name, row))
+            # BẢN CHỤP, không phải tham chiếu: dòng này còn bị các lệnh UPDATE
+            # sau sửa tại chỗ, nên ghi thẳng `row` sẽ khiến nhật ký ghi kể lại
+            # trạng thái CUỐI thay vì trạng thái lúc chèn — và mọi phép kiểm về
+            # thứ tự thao tác thành vô nghĩa.
+            self._db.writes.append(("insert", self._name, dict(row)))
             made.append(row)
         return _Op(_Resp(made))
 
@@ -86,7 +90,11 @@ class _Update:
             if all(str(row.get(k)) == str(v) for k, v in self._eq.items()):
                 row.update(self._payload)
                 hit.append(row)
-        self._db.writes.append(("update", self._name, dict(self._payload), dict(self._eq)))
+        # Ghi kèm SỐ DÒNG THỰC SỰ ĐỔI: trigger `updated_at` chỉ nổ khi có dòng
+        # bị sửa, nên một request không khớp dòng nào KHÔNG làm sai dấu vết.
+        # Trộn hai thứ vào một con số sẽ khiến test về `updated_at` vô nghĩa.
+        self._db.writes.append(("update", self._name, dict(self._payload),
+                                dict(self._eq), len(hit)))
         return _Resp(hit)
 
 
@@ -325,3 +333,99 @@ def test_a_part_outside_1_to_3_is_refused_before_any_write(tmp_path):
     with pytest.raises(SystemExit):
         _run(tmp_path, db, _doc(part=4), "--commit")
     assert db.writes == []
+
+
+# ── Vòng review 2 (inline PR #921) ───────────────────────────────────────────
+
+def _touched(db, table):
+    """Những lệnh ghi THỰC SỰ đổi dòng — tức là những lệnh làm trigger nổ."""
+    return [w for w in db.writes
+            if w[1] == table and (w[0] == "insert" or w[-1] > 0)]
+
+
+def test_re_importing_an_unchanged_file_does_not_touch_the_parent_row(tmp_path):
+    """Trigger `updated_at` (mig 183) được thêm để trả lời "bộ đề này sửa lần
+    cuối lúc nào". Một UPDATE rỗng mỗi lần chạy lại sẽ dời mốc ấy và biến nó
+    thành lời khai về một lần sửa KHÔNG HỀ XẢY RA — phá hỏng đúng thứ vừa dựng."""
+    db = _DB(courses=[_COURSE])
+    _run(tmp_path, db, _doc(), "--commit")
+    before = len(db.writes)
+    _run(tmp_path, db, _doc(), "--commit")
+    assert _touched(db, "speaking_lesson_sets")[len(_touched(db, "speaking_lesson_sets")):] == []
+    later = [w for w in db.writes[before:] if w[1] == "speaking_lesson_sets" and w[-1] > 0]
+    assert later == [], f"lần chạy thứ hai vẫn ghi vào bộ đề: {later}"
+
+
+def test_a_real_change_to_the_parent_IS_written(tmp_path):
+    """Chốt ngược của test trên: bỏ hẳn lệnh ghi cũng làm test kia xanh."""
+    db = _DB(courses=[_COURSE])
+    _run(tmp_path, db, _doc(), "--commit")
+    before = len(db.writes)
+    _run(tmp_path, db, _doc(title="Buổi 1 — tên mới"), "--commit")
+    later = [w for w in db.writes[before:] if w[1] == "speaking_lesson_sets" and w[-1] > 0]
+    assert later, "sửa tên bộ đề phải được ghi"
+    assert db.tables["speaking_lesson_sets"][0]["title"] == "Buổi 1 — tên mới"
+
+
+def test_an_explicit_order_num_zero_is_REFUSED_not_silently_renumbered(tmp_path):
+    """`q.get("order_num") or i` coi 0 như thiếu trường và lặng lẽ thay bằng vị
+    trí trong tệp — nên một tệp hỏng được nạp với thứ tự KHÁC thứ tự nó khai, và
+    không có gì báo vì con số thay thế luôn hợp lệ."""
+    db = _DB(courses=[_COURSE])
+    doc = _doc()
+    doc["questions"][0]["order_num"] = 0
+    with pytest.raises(SystemExit) as exc:
+        _run(tmp_path, db, doc, "--commit")
+    assert "0" in str(exc.value)
+    assert db.writes == []
+
+
+def test_a_boolean_order_num_is_refused(tmp_path):
+    """`isinstance(True, int)` là True trong Python — `order_num: true` sẽ lọt
+    qua phép kiểm số và thành thứ tự 1."""
+    db = _DB(courses=[_COURSE])
+    doc = _doc()
+    doc["questions"][0]["order_num"] = True
+    with pytest.raises(SystemExit):
+        _run(tmp_path, db, doc, "--commit")
+    assert db.writes == []
+
+
+def test_a_brand_new_set_is_created_INACTIVE_then_activated_last(tmp_path):
+    """PostgREST không có giao dịch nhiều lệnh, nên bộ đề và từng câu là những
+    request riêng. Tạo bộ ở trạng thái BẬT rồi hỏng giữa chừng sẽ để lại một bộ
+    THIẾU CÂU mà lệnh giao vẫn nhận."""
+    db = _DB(courses=[_COURSE])
+    _run(tmp_path, db, _doc(), "--commit")
+    ins = [w for w in db.writes if w[0] == "insert" and w[1] == "speaking_lesson_sets"]
+    assert ins and ins[0][2]["is_active"] is False, "phải tạo ở trạng thái TẮT"
+    assert db.tables["speaking_lesson_sets"][0]["is_active"] is True, "và bật ở cuối"
+
+    # Thứ tự mới là điều quan trọng: bật PHẢI sau khi câu hỏi đã ghi xong.
+    order = [w[1] for w in db.writes]
+    last_q = max(i for i, t in enumerate(order) if t == "speaking_lesson_set_questions")
+    activate = max(i for i, w in enumerate(db.writes)
+                   if w[1] == "speaking_lesson_sets" and w[0] == "update"
+                   and w[2].get("is_active") is True)
+    assert activate > last_q, "bật bộ đề trước khi ghi xong câu là vô nghĩa"
+
+
+def test_a_failure_while_writing_questions_leaves_the_set_INVISIBLE(tmp_path):
+    """Hệ quả duy nhất thật sự nguy hiểm là một bộ nửa vời mà lệnh giao vẫn
+    nhận. Dấu chốt bật-sau-cùng bỏ đi đúng hệ quả đó."""
+    db = _DB(courses=[_COURSE])
+    real_table = db.table
+    state = {"n": 0}
+
+    def flaky(name):
+        if name == "speaking_lesson_set_questions":
+            state["n"] += 1
+            if state["n"] > 1:
+                raise RuntimeError("mất kết nối")
+        return real_table(name)
+
+    db.table = flaky
+    rc = _run(tmp_path, db, _doc(), "--commit")
+    assert rc == 1, "hỏng giữa chừng phải trả mã lỗi, không im lặng thành công"
+    assert db.tables["speaking_lesson_sets"][0]["is_active"] is False, \
+        "bộ đề phải ở lại trạng thái TẮT — vô hình với lệnh giao"

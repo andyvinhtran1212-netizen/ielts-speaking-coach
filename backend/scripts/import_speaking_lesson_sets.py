@@ -85,11 +85,17 @@ def _normalise_questions(doc: dict) -> list[dict]:
         text = (q.get("question_text") or "").strip()
         if not text:
             raise SystemExit(f"Câu thứ {i} không có nội dung.")
-        order = q.get("order_num") or i
+        # `is None`, KHÔNG phải `or`: `or` coi `order_num: 0` như thiếu trường và
+        # lặng lẽ thay bằng vị trí trong tệp. Một tệp hỏng khi ấy được nạp với
+        # thứ tự KHÁC thứ tự nó khai — và không có gì báo, vì con số thay thế
+        # luôn hợp lệ.
+        order = q.get("order_num")
+        if order is None:
+            order = i
         # `order_num >= 1` là một CHECK trong mig 183. Để DB bắt nó nghĩa là bắt
         # ở GIỮA vòng ghi, khi bộ đề và vài câu đầu đã nằm trong bảng — còn lại
         # một bộ `is_active` thiếu câu mà vẫn giao được.
-        if not isinstance(order, int) or order < 1:
+        if not isinstance(order, int) or isinstance(order, bool) or order < 1:
             raise SystemExit(f"Câu thứ {i} có order_num không hợp lệ: {order!r} (phải là số ≥ 1).")
         if order in seen:
             raise SystemExit(f"order_num {order} bị dùng hai lần.")
@@ -126,24 +132,39 @@ def _upsert_set(course: dict, doc: dict, commit: bool) -> str | None:
     """
     key = {"course_id": course["id"], "lesson_no": int(doc["lesson_no"]),
            "part": int(doc["part"])}
-    existing = (supabase_admin.table("speaking_lesson_sets").select("id, title, part")
+    existing = (supabase_admin.table("speaking_lesson_sets")
+                .select("id, title, description, part, is_active")
                 .eq("course_id", key["course_id"])
                 .eq("lesson_no", key["lesson_no"])
                 .eq("part", key["part"]).limit(1).execute().data) or []
     payload = {**key, "title": doc["title"],
-               "description": doc.get("description"), "is_active": True}
+               "description": doc.get("description")}
     if existing:
-        logger.info("Bộ đề đã có → cập nhật: %s", existing[0]["title"])
+        cur = existing[0]
+        # GHI KHI CÓ GÌ ĐỔI, không phải mỗi lần chạy. Trigger `updated_at` (mig
+        # 183) được thêm vào để trả lời "bộ đề này sửa lần cuối lúc nào" — một
+        # lệnh UPDATE rỗng mỗi lần chạy lại sẽ dời mốc ấy và biến nó thành lời
+        # khai về một lần sửa KHÔNG HỀ XẢY RA. Tức là phá hỏng đúng thứ vừa dựng.
+        changed = [k for k, v in payload.items() if cur.get(k) != v]
+        if not changed:
+            logger.info("Bộ đề không đổi: %s", cur["title"])
+            return cur["id"]
+        logger.info("Bộ đề đã có → cập nhật (%s): %s", ", ".join(changed), cur["title"])
         if not commit:
-            return existing[0]["id"]
+            return cur["id"]
         supabase_admin.table("speaking_lesson_sets").update(payload) \
-            .eq("id", existing[0]["id"]).execute()
-        return existing[0]["id"]
+            .eq("id", cur["id"]).execute()
+        return cur["id"]
     logger.info("Tạo bộ đề mới: %s", doc["title"])
     if not commit:
         return None
+    # TẠO Ở TRẠNG THÁI TẮT. Bộ nạp ghi bộ đề rồi ghi từng câu bằng những request
+    # RIÊNG (PostgREST không có giao dịch nhiều lệnh). Hỏng giữa chừng mà bộ đã
+    # bật thì còn lại một bộ THIẾU CÂU mà lệnh giao vẫn nhận. Tạo ở trạng thái
+    # tắt rồi bật ở cuối biến chuyện đó thành: hỏng giữa chừng ⇒ bộ vô hình,
+    # chạy lại là xong.
     return supabase_admin.table("speaking_lesson_sets") \
-        .insert(payload).execute().data[0]["id"]
+        .insert({**payload, "is_active": False}).execute().data[0]["id"]
 
 
 def _sync_questions(set_id: str, rows: list[dict], commit: bool) -> tuple[int, int, int]:
@@ -229,12 +250,33 @@ def main() -> int:
         logger.info("\nThêm --commit để ghi thật.")
         return 0
 
-    added, updated, disabled = _sync_questions(set_id, rows, commit)
+    try:
+        added, updated, disabled = _sync_questions(set_id, rows, commit)
+    except Exception as exc:                           # noqa: BLE001
+        # Bộ mới được tạo ở trạng thái TẮT và chưa kịp bật, nên nó vô hình với
+        # lệnh giao — không có bộ thiếu câu nào lọt ra. Nói rõ trạng thái ấy và
+        # cách khắc phục, thay vì để lại một dấu vết mà người chạy phải tự đoán.
+        logger.error("\nHỎNG giữa chừng khi ghi câu hỏi: %s", exc)
+        logger.error("Bộ đề %s KHÔNG được bật, nên chưa giao cho lớp nào được. "
+                     "Chạy lại đúng lệnh này để hoàn tất.", set_id)
+        return 1
+
     verb = "Đã" if commit else "Sẽ"
     logger.info("%s thêm %d · cập nhật %d · tắt %d", verb, added, updated, disabled)
     if not commit:
         logger.info("\nTHỬ KHÔ — chưa ghi gì. Thêm --commit để ghi thật.")
         return 0
+
+    # BẬT SAU CÙNG — đây là dấu chốt "bộ này đã đủ câu".
+    #
+    # PostgREST không có giao dịch nhiều lệnh, nên bộ đề và từng câu là những
+    # request riêng. Một giao dịch thật cho cả cụm cần một RPC (thêm migration);
+    # còn dấu chốt này đã bỏ đi hệ quả DUY NHẤT thật sự nguy hiểm — một bộ nửa
+    # vời mà lệnh giao vẫn nhận. Hỏng giữa chừng ⇒ bộ vẫn tắt ⇒ vô hình.
+    supabase_admin.table("speaking_lesson_sets") \
+        .update({"is_active": True}).eq("id", set_id) \
+        .eq("is_active", False).execute()
+
     logger.info("Xong. Bước tiếp: render audio bằng "
                 "`python -m scripts.pregen_speaking_question_audio --lesson-set %s --commit`",
                 set_id)
