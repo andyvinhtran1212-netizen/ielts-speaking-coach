@@ -161,6 +161,7 @@ def create_class_assignment(
     instructions: Optional[str] = None,
     status: str = "published",
     publish_at: Optional[str] = None,
+    kind: str = "daily",
 ) -> Dict[str, Any]:
     """Create one give and its per-student rows, atomically.
 
@@ -186,6 +187,11 @@ def create_class_assignment(
             "p_publish_at":     publish_at,
             "p_status":         status,
             "p_assigned_by":    assigned_by,
+            # Loại bài đi CÙNG lệnh tạo, không phải một UPDATE sau (mig 184).
+            # Cùng lý do khiến cả hàm này tồn tại: lệnh thứ hai hỏng sẽ để lại
+            # một bài ĐÃ PUBLISH mang sai loại — nhìn từ ngoài là một bài hằng
+            # ngày hợp lệ, nên không có gì đỏ để báo.
+            "p_kind":           kind,
         }).execute().data or []
     except Exception as exc:
         if "empty_roster" in str(exc):
