@@ -95,15 +95,19 @@ export function HomeShell() {
         <div className="hero-stats" aria-label="Tổng quan">
           <HeroStat
             id="hero-streak" label="Streak" unit="ngày" className="streak"
+            // HYDRATION: `lucide.createIcons()` THAY thẻ <i> này bằng <svg> ngay khi
+            // DOM sẵn sàng (layout gọi ở cả DOMContentLoaded lẫn `load`), còn React
+            // hydrate sau đó lại đi tìm <i> → React #418. Cổng authed-G1 bắt được
+            // đúng lỗi này ở lần chạy đầu. Trang legacy không dính vì không hydrate;
+            // `/profile` không dính vì KHÔNG dùng lucide — nên khuôn chép từ profile
+            // chưa từng gặp ca này. `suppressHydrationWarning` là công cụ đúng: ta CỐ
+            // Ý cho một script bên ngoài thay nội dung nút đó sau khi render.
+            //
+            // Chú thích nằm NGOÀI `extra={( … )}`: dấu ngoặc đó chỉ chứa được MỘT
+            // biểu thức, nên `{/* … */}` bên trong là cú pháp hỏng — Turbopack báo
+            // "Expected '</', got 'ident'". Local build của tôi vẫn báo xanh nhờ
+            // cache; chỉ CI build sạch mới lộ ra.
             extra={(
-              {/* HYDRATION: `lucide.createIcons()` THAY thẻ này bằng <svg> ngay
-                  khi DOM sẵn sàng (layout gọi ở DOMContentLoaded và cả `load`),
-                  còn React hydrate sau đó lại đi tìm <i> → React #418.
-                  Cổng authed-G1 bắt được đúng lỗi này ở lần chạy đầu tiên; trang
-                  legacy không dính vì nó không hydrate, và `/profile` không dính
-                  vì nó không dùng lucide (0 thẻ data-lucide).
-                  `suppressHydrationWarning` là công cụ ĐÚNG ở đây: ta CỐ Ý cho
-                  script bên ngoài thay nội dung nút này sau khi render. */}
               <span className="flame" aria-hidden="true" suppressHydrationWarning>
                 <i data-lucide="flame" />
               </span>
