@@ -2985,6 +2985,27 @@
       ? 'Đã lưu cả ' + total + ' câu. Nộp để chốt bài.'
       : 'Đã lưu ' + done + '/' + total + ' câu — lưu nốt rồi mới nộp được.';
     $('btn-sheet-submit').disabled = !ready;
+    _renderSheetMeter(done, total);
+  }
+
+  // Từ mấy câu trở lên thì đáy phiếu ra khỏi màn hình. Bốn là chỗ điều đó bắt
+  // đầu đúng trên điện thoại; dưới ngưỡng ấy thanh tiến độ chỉ là thứ nhắc lại
+  // những gì đã nằm sẵn trong tầm mắt.
+  var _SHEET_METER_FROM = 4;
+
+  function _renderSheetMeter(done, total) {
+    var box = $('sheet-meter');
+    if (!box) return;
+    if (total < _SHEET_METER_FROM) { box.hidden = true; return; }
+    box.hidden = false;
+    // Mỗi vạch là MỘT câu, đúng thứ tự. "3/12" không nói được các em đã bỏ qua
+    // câu nào, mà làm câu nào trước cũng được — nên dãy vạch mới là thứ trả lời
+    // câu hỏi thật: "còn câu nào chưa làm?".
+    $('sheet-ticks').innerHTML = _sheet.slots.map(function (s) {
+      return '<i data-state="' + s.state + '"></i>';
+    }).join('');
+    $('sheet-meter-count').innerHTML =
+      'Đã lưu <strong>' + done + '/' + total + '</strong>';
   }
 
   function _sheetListen(i) {

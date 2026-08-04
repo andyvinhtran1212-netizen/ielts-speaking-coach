@@ -27,6 +27,7 @@ from fastapi import APIRouter, Header, HTTPException, status
 from pydantic import BaseModel, Field, model_validator
 
 from database import supabase_admin
+from services import speaking_flags
 from services import speaking_question_audio as sqa
 from services import tts_audio
 from routers.admin import require_admin
@@ -839,6 +840,41 @@ async def list_topic_questions(
     }
 
 
+def _response_flags_for(items: list[dict]) -> dict[str, list]:
+    """Cờ kỹ thuật cho từng phiên, gom về theo `artifact_id`.
+
+    MỘT lượt đọc cho cả lớp, không phải một lượt cho mỗi học viên: một lớp 40 em
+    sẽ thành 40 request và bảng tổng kết mở mất vài giây.
+
+    Chỉ đọc phiên của những mục ĐÃ NỘP. Mục chưa nộp không có gì để gắn cờ, và
+    `artifact_id` của chúng thường là None.
+    """
+    sids = list({
+        it["artifact_id"] for it in items
+        if it.get("artifact_id") and (it.get("artifact_kind") or "session") == "session"
+        and it.get("submitted_at")
+    })
+    if not sids:
+        return {}
+
+    rows: list[dict] = []
+    for chunk in (sids[i:i + _ID_CHUNK] for i in range(0, len(sids), _ID_CHUNK)):
+        rows.extend(_paged(
+            supabase_admin, "responses",
+            "id, session_id, overall_band, duration_seconds, transcript, "
+            "grading_status, score_confidence",
+            lambda q, c=chunk: q.in_("session_id", c),
+        ))
+
+    out: dict[str, list] = {}
+    for r in rows:
+        # `submitted=True`: những phiên này thuộc mục ĐÃ NỘP, nên "chưa có điểm"
+        # ở đây là chấm hỏng chứ không phải bài đang làm dở.
+        for f in speaking_flags.flag_response({**r, "submitted": True}):
+            out.setdefault(r["session_id"], []).append(f)
+    return out
+
+
 @router.get("/{cohort_id}/assignments/{assignment_id}/tally")
 async def assignment_tally(
     cohort_id: str,
@@ -880,7 +916,7 @@ async def assignment_tally(
 
     items = _paged(
         supabase_admin, "class_assignment_items",
-        "id, student_id, submitted_at, score, state",
+        "id, student_id, submitted_at, score, state, artifact_kind, artifact_id",
         lambda q: q.eq("assignment_id", assignment_id),
     )
     # Tra theo ĐÚNG những học viên có mục trong bài giao này, không theo sĩ số
@@ -900,6 +936,8 @@ async def assignment_tally(
     now = datetime.now(timezone.utc)
     sealed = bool(due and now > due)
 
+    flags_by_session = _response_flags_for(items) if assignment.get("skill") == "speaking" else {}
+
     out = []
     for it in items:
         s = students.get(it["student_id"]) or {}
@@ -912,6 +950,7 @@ async def assignment_tally(
             status_ = "late" if (due and submitted_at > due) else "submitted"
         else:
             status_ = "missing" if sealed else "pending"
+        flags = flags_by_session.get(it.get("artifact_id")) or []
         out.append({
             "student_id":   it["student_id"],
             "name":         s.get("full_name") or "",
@@ -919,6 +958,11 @@ async def assignment_tally(
             "status":       status_,
             "submitted_at": it.get("submitted_at"),
             "score":        it.get("score"),
+            # Cờ đi KÈM DÒNG, không nằm ở một bảng thứ hai: giáo viên đang đọc
+            # danh sách này để biết ai cần mình, nên "bài của em này có vấn đề"
+            # phải nằm ngay cạnh tên em ấy.
+            "flags":        flags,
+            "flag_level":   speaking_flags.worst(flags),
         })
     # Chưa nộp lên đầu: đó là danh sách việc cần làm của giáo viên.
     _ORDER = {"missing": 0, "pending": 1, "no-account": 2, "late": 3, "submitted": 4}
@@ -937,11 +981,133 @@ async def assignment_tally(
             "late":      sum(1 for r in out if r["status"] == "late"),
             "missing":   sum(1 for r in out if r["status"] == "missing"),
             "no_account": sum(1 for r in out if r["status"] == "no-account"),
+            # Đếm riêng, KHÔNG cộng vào "đã nộp": một bài nộp rồi mà chấm hỏng
+            # vẫn là đã nộp. Trộn hai con số sẽ khiến giáo viên tưởng em ấy chưa
+            # làm bài, trong khi lỗi nằm ở phía hệ thống.
+            "flagged":   sum(1 for r in out if r["flags"]),
         },
     }
     if stale:
         result["homework_stale"] = True
     return result
+
+
+@router.get("/{cohort_id}/speaking-performance")
+async def speaking_performance(
+    cohort_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Học viên nào đang khá lên, ai đang đuối — trải CẢ hai loại bài Speaking.
+
+    Một bảng, không phải hai. Bài hằng ngày và bài sau buổi học khác nhau ở
+    nguồn đề và cách đặt hạn; còn "em này đang tiến bộ hay tụt" thì không có lý
+    do gì để trả lời riêng cho từng loại. Tách ra sẽ giấu mất đúng cái so sánh
+    quan trọng nhất.
+
+    SO VỚI CHÍNH EM ẤY, không so với lớp. Một em band 5.0 đều đặn không có vấn
+    đề gì; một em từ 7.0 tụt xuống 6.0 thì có — dù em thứ hai vẫn cao hơn. Xếp
+    hạng trong lớp trả lời một câu hỏi khác, và ở đây nó sẽ chôn mất em thứ hai.
+    """
+    await require_admin(authorization)
+    _require_cohort(cohort_id)
+
+    assignments = _paged(
+        supabase_admin, "class_assignments",
+        "id, title, kind, due_at, created_at",
+        lambda q: q.eq("cohort_id", cohort_id).eq("skill", "speaking"),
+    )
+    if not assignments:
+        return {"items": [], "assignment_count": 0}
+
+    # Cũ → mới. Nhịp học là một chuỗi thời gian, nên mọi thứ dưới đây phụ thuộc
+    # vào thứ tự này đúng.
+    assignments.sort(key=lambda a: (a.get("due_at") or a.get("created_at") or ""))
+    order = {a["id"]: i for i, a in enumerate(assignments)}
+    due_of = {a["id"]: _at(a.get("due_at")) for a in assignments}
+
+    aids = [a["id"] for a in assignments]
+    items: list[dict] = []
+    for chunk in (aids[i:i + _ID_CHUNK] for i in range(0, len(aids), _ID_CHUNK)):
+        items.extend(_paged(
+            supabase_admin, "class_assignment_items",
+            "id, assignment_id, student_id, submitted_at, score, artifact_id, artifact_kind",
+            lambda q, c=chunk: q.in_("assignment_id", c),
+        ))
+    if not items:
+        return {"items": [], "assignment_count": len(assignments)}
+
+    sids = list({i["student_id"] for i in items if i.get("student_id")})
+    students: dict = {}
+    for chunk in (sids[i:i + _ID_CHUNK] for i in range(0, len(sids), _ID_CHUNK)):
+        for s in _paged(supabase_admin, "students",
+                        "id, full_name, student_code, user_id",
+                        lambda q, c=chunk: q.in_("id", c)):
+            students[s["id"]] = s
+
+    flags_by_session = _response_flags_for(items)
+
+    now = datetime.now(timezone.utc)
+    by_student: dict = {}
+    for it in items:
+        by_student.setdefault(it["student_id"], []).append(it)
+
+    out = []
+    for sid, rows in by_student.items():
+        s = students.get(sid) or {}
+        rows.sort(key=lambda r: order.get(r["assignment_id"], 0))
+
+        bands, states, broken = [], [], []
+        for r in rows:
+            due = due_of.get(r["assignment_id"])
+            sub = _at(r.get("submitted_at"))
+            if sub:
+                states.append("late" if (due and sub > due) else "submitted")
+                if r.get("score") is not None:
+                    bands.append(float(r["score"]))
+            elif due and now > due:
+                states.append("missing")
+            else:
+                # Chưa tới hạn thì CHƯA phải là bỏ bài. Đếm nó vào sẽ gắn cờ cho
+                # cả những em đang còn thời gian làm.
+                states.append("pending")
+            broken.extend(flags_by_session.get(r.get("artifact_id")) or [])
+
+        # Cờ sư phạm không áp cho em chưa kích hoạt tài khoản: em ấy CHƯA TỪNG
+        # thấy bài nào, nên "bỏ bài" là nói sai về em.
+        person = (speaking_flags.flag_student(
+            submitted_bands=bands,
+            recent_states=[st for st in states if st != "pending"])
+            if s.get("user_id") else [])
+
+        # Hai họ cờ GIỮ RIÊNG. Một bên là "sửa dữ liệu", một bên là "nhắn cho
+        # em ấy" — gộp lại thì đọc xong không biết làm gì.
+        all_flags = person + broken
+        out.append({
+            "student_id":   sid,
+            "name":         s.get("full_name") or "",
+            "student_code": s.get("student_code"),
+            "activated":    bool(s.get("user_id")),
+            "assigned":     len(rows),
+            "submitted":    sum(1 for st in states if st in ("submitted", "late")),
+            "late":         sum(1 for st in states if st == "late"),
+            "missing":      sum(1 for st in states if st == "missing"),
+            "bands":        bands,
+            "latest_band":  bands[-1] if bands else None,
+            "avg_band":     round(sum(bands) / len(bands), 2) if bands else None,
+            "student_flags": person,
+            "work_flags":    broken,
+            "flag_level":    speaking_flags.worst(all_flags),
+        })
+
+    # Ai cần chú ý lên đầu — đây là danh sách việc, không phải bảng xếp hạng.
+    _LEVEL = {"high": 0, "medium": 1, None: 2}
+    out.sort(key=lambda r: (_LEVEL.get(r["flag_level"], 2),
+                            -(r["missing"] + r["late"]), r["name"].lower()))
+    return {
+        "items": out,
+        "assignment_count": len(assignments),
+        "kinds": sorted({(a.get("kind") or "daily") for a in assignments}),
+    }
 
 
 @router.post("/{cohort_id}/assignments", status_code=status.HTTP_201_CREATED)

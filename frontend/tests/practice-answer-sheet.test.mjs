@@ -35,6 +35,9 @@ function render(slots) {
     'sheet-submit': { dataset: {} },
     'sheet-submit-note': { textContent: '' },
     'btn-sheet-submit': { disabled: false },
+    'sheet-meter': { hidden: false },
+    'sheet-ticks': { innerHTML: '' },
+    'sheet-meter-count': { innerHTML: '' },
   };
   const $ = (id) => nodes[id];
   const _esc = (s) => String(s == null ? '' : s);
@@ -199,5 +202,63 @@ describe('đường HỎNG — chỗ dễ mất bài của học viên nhất', 
     // Ghi âm lại một ô đã lưu mà micro hỏng thì ô phải quay về "đã lưu", không
     // tụt về "chưa làm" — bài cũ vẫn còn trên server.
     assert.match(CODE, /s\.state = s\.band === null \? 'idle' : 'saved';/);
+  });
+});
+
+
+// ── Phiếu DÀI: bài sau buổi học có 12-15 câu ─────────────────────────────────
+
+describe('thanh tiến độ', () => {
+  const many = (n, saved = 0) => Array.from({ length: n }, (_, i) =>
+    S(i < saved ? 'saved' : 'idle', { q: { id: 'q' + i, audio_url: 'https://cdn/a.mp3' } }));
+
+  test('phiếu ngắn KHÔNG có thanh — nó chỉ nhắc lại thứ đã trong tầm mắt', () => {
+    const n = render(many(2));
+    assert.equal(n['sheet-meter'].hidden, true);
+  });
+
+  test('phiếu dài thì có, vì đáy phiếu đã ra khỏi màn hình', () => {
+    const n = render(many(12, 3));
+    assert.equal(n['sheet-meter'].hidden, false);
+    assert.match(n['sheet-meter-count'].innerHTML, /Đã lưu <strong>3\/12<\/strong>/);
+  });
+
+  test('MỘT VẠCH MỖI CÂU, đúng thứ tự — không phải một con số', () => {
+    // "3/12" không nói được các em đã bỏ qua CÂU NÀO, mà làm câu nào trước cũng
+    // được. Dãy vạch mới trả lời được câu hỏi thật: "còn câu nào chưa làm?".
+    const slots = many(5);
+    slots[0].state = 'saved';
+    slots[3].state = 'saved';
+    const n = render(slots);
+    const ticks = n['sheet-ticks'].innerHTML.match(/data-state="[a-z]+"/g);
+    assert.deepEqual(ticks, ['data-state="saved"', 'data-state="idle"',
+      'data-state="idle"', 'data-state="saved"', 'data-state="idle"']);
+  });
+
+  test('vạch nói đúng trạng thái đang chấm và đang ghi âm', () => {
+    const slots = many(6);
+    slots[1].state = 'grading';
+    slots[2].state = 'recording';
+    const n = render(slots);
+    assert.match(n['sheet-ticks'].innerHTML, /<i data-state="grading"><\/i>/);
+    assert.match(n['sheet-ticks'].innerHTML, /<i data-state="recording"><\/i>/);
+  });
+
+  test('thanh DÍNH ở đầu phiếu — cuộn tới câu thứ tám vẫn thấy', () => {
+    assert.match(CSS, /\.av-sheet__meter \{[\s\S]{0,200}?position: sticky/);
+  });
+
+  test('số đếm dùng chữ số đều bề ngang, để nó không nhảy khi đổi', () => {
+    assert.match(CSS, /\.av-sheet__meter-count \{[\s\S]{0,300}?font-variant-numeric: tabular-nums/);
+  });
+
+  test('vạch dùng CÙNG bảng màu với vạch bên trái mỗi ô', () => {
+    // Hai chỗ nói cùng một thứ tiếng, nếu không thì học viên phải học hai lần.
+    // `\s+` chứ không phải một dấu cách: CSS căn thẳng hàng bằng nhiều dấu
+    // cách, và một phép kiểm đỏ vì ĐỊNH DẠNG là một phép kiểm vô dụng.
+    for (const st of ['recording', 'grading', 'saved']) {
+      assert.match(CSS, new RegExp(`\\.av-sheet__ticks i\\[data-state='${st}'\\]`));
+      assert.match(CSS, new RegExp(`\\.av-slot\\[data-state='${st}'\\]\\s+\\.av-slot__spine`));
+    }
   });
 });

@@ -479,3 +479,80 @@ describe('đổi loại bài giữa chừng', () => {
     assert.equal(p.state.topicId, null, 'topicId cũ còn lại sẽ khiến bộ nạp tưởng đã tải rồi');
   });
 });
+
+
+// ── Cờ "bài này cần xem lại" trong bảng tổng kết ──────────────────────────────
+
+describe('cờ trong bảng tổng kết', () => {
+  /** Chạy THẬT tallyRow + renderTally. */
+  function tally(d) {
+    // Cắt từ TALLY_WHEN: `tallyRow` đọc nó, và tiêm một bản giả là test một
+    // hằng số KHÁC với hằng số mã thật dùng.
+    const start = SRC.indexOf('const TALLY_WHEN = {');
+    const end = SRC.indexOf('async function openTally(');
+    assert.ok(start !== -1 && end > start, 'không tìm thấy vùng bảng tổng kết');
+    const esc = (s) => String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    // `dueText` chỉ định dạng ngày, không phải thứ đang kiểm ở đây.
+    const fn = new Function('esc', 'dueText', `${SRC.slice(start, end)}
+      return { tallyRow, renderTally };`)(esc, () => '19:00 ngày 04/08');
+    // Endpoint LUÔN trả `assignment`; thiếu nó ở đây là thiếu ở test.
+    return fn.renderTally({ assignment: { due_at: '2026-08-04T12:00:00Z' }, ...d });
+  }
+
+  const row = (over = {}) => ({ student_id: 's1', name: 'Lan', status: 'submitted',
+    submitted_at: '2026-08-04T10:00:00Z', score: 6.0, flags: [], flag_level: null, ...over });
+  const FLAG = { code: 'low_confidence', severity: 'high', label: 'Điểm không đáng tin',
+    why: 'Bản chép lời không rõ.', action: 'Nghe lại bản ghi trước khi dùng điểm này.' };
+
+  test('bài sạch thì KHÔNG có gì thêm — im lặng là mặc định', () => {
+    const html = tally({ students: [row()], counts: { total: 1, submitted: 1 } });
+    assert.doesNotMatch(html, /av-flags/);
+  });
+
+  test('cờ hiện NGAY DƯỚI TÊN, không sau một cú bấm nữa', () => {
+    const html = tally({ students: [row({ flags: [FLAG], flag_level: 'high' })],
+      counts: { total: 1, submitted: 1, flagged: 1 } });
+    const nameAt = html.indexOf('Lan');
+    const flagAt = html.indexOf('av-flags');
+    assert.ok(nameAt !== -1 && flagAt > nameAt, 'cờ phải đứng sau tên trong cùng khối');
+  });
+
+  test('mỗi cờ nói ĐỦ ba thứ: chuyện gì, vì sao, làm gì tiếp', () => {
+    const html = tally({ students: [row({ flags: [FLAG], flag_level: 'high' })],
+      counts: { total: 1, submitted: 1, flagged: 1 } });
+    assert.match(html, /<strong>Điểm không đáng tin<\/strong>/);
+    assert.match(html, /<span>Bản chép lời không rõ\.<\/span>/);
+    assert.match(html, /<em>Nghe lại bản ghi[^<]*<\/em>/);
+  });
+
+  test('số bài cần xem lại KHÔNG trừ vào số đã nộp', () => {
+    // Một bài nộp rồi mà chấm hỏng VẪN là đã nộp. Trộn hai con số sẽ khiến giáo
+    // viên tưởng em ấy chưa làm bài, trong khi lỗi ở phía hệ thống.
+    const html = tally({ students: [row({ flags: [FLAG], flag_level: 'high' })],
+      counts: { total: 10, submitted: 10, flagged: 1 } });
+    assert.match(html, /10<small>\/10 đã nộp<\/small>/);
+    assert.match(html, /1 bài cần xem lại/);
+  });
+
+  test('nội dung cờ được thoát HTML — nó đi từ dữ liệu ra màn hình', () => {
+    const html = tally({ students: [row({ flag_level: 'medium',
+      flags: [{ ...FLAG, label: '<img src=x onerror=alert(1)>' }] })],
+      counts: { total: 1, submitted: 1, flagged: 1 } });
+    assert.doesNotMatch(html, /<img src=x/);
+    assert.match(html, /&lt;img src=x/);
+  });
+
+  test('dòng bị gắn cờ KHÔNG bị nhuộm đỏ như dòng chưa nộp', () => {
+    // Bài bị gắn cờ thường VẪN nộp đúng hạn; nhuộm đỏ nó là nói sai về học viên.
+    const html = tally({ students: [row({ flags: [FLAG], flag_level: 'high' })],
+      counts: { total: 1, submitted: 1, flagged: 1 } });
+    assert.match(html, /data-status="submitted"/);
+    assert.match(html, /data-flag="high"/);
+    assert.doesNotMatch(CSS, /\.av-tally__row\[data-flag[^\n]*background/);
+  });
+
+  test('việc-phải-làm có dấu mũi tên để mắt bắt được ngay', () => {
+    assert.match(CSS, /\.av-flag em::before \{[\s\S]{0,80}?content: '→ '/);
+  });
+});

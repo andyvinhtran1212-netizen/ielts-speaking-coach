@@ -812,3 +812,114 @@
 .av-qpick__list[data-pick='subset'] .av-qpick__row[aria-pressed='false']:hover {
   opacity: 0.75;
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   6 — THANH TIẾN ĐỘ CỦA PHIẾU DÀI
+   ══════════════════════════════════════════════════════════════════════
+   Bài sau buổi học có 12-15 câu. Dòng đếm ở đáy phiếu khi ấy nằm ngoài màn
+   hình, nên học viên cuộn tới câu thứ tám không còn biết mình còn mấy câu.
+
+   MỖI VẠCH LÀ MỘT CÂU, đúng thứ tự trong phiếu. Đó là thông tin mà một con số
+   không mang được: học viên làm câu nào trước cũng được, nên "3/12" không nói
+   được các em đã bỏ qua câu nào. Nhìn dãy vạch thì thấy ngay.
+
+   Không có nhãn số dưới mỗi vạch — 15 con số li ti là thứ không ai đọc. Vị trí
+   của vạch đã đủ để đối chiếu với thứ tự các ô bên dưới. */
+
+.av-sheet__meter {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--av-space-4);
+  margin-bottom: var(--av-space-4);
+  padding: var(--av-space-3) var(--av-space-4);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-md);
+  background: var(--av-surface-card);
+}
+
+.av-sheet__ticks {
+  display: flex;
+  flex: 1 1 auto;
+  gap: 3px;
+  min-width: 0;
+}
+
+.av-sheet__ticks i {
+  flex: 1 1 0;
+  height: 6px;
+  min-width: 4px;
+  border-radius: var(--av-radius-pill);
+  background: var(--av-border-default);
+  transition: background-color var(--av-duration-fast) var(--av-easing-default);
+}
+
+/* Ba trạng thái, ba màu — cùng bảng với vạch bên trái mỗi ô, để hai chỗ nói
+   cùng một thứ tiếng. */
+.av-sheet__ticks i[data-state='recording'] { background: var(--av-error); }
+.av-sheet__ticks i[data-state='grading']   { background: var(--av-accent); }
+.av-sheet__ticks i[data-state='saved']     { background: var(--av-success); }
+
+.av-sheet__meter-count {
+  margin: 0;
+  flex: 0 0 auto;
+  font-size: var(--av-fs-sm);
+  font-weight: var(--av-fw-medium);
+  font-variant-numeric: tabular-nums;
+  color: var(--av-text-secondary);
+  white-space: nowrap;
+}
+
+.av-sheet__meter-count strong { color: var(--av-text-primary); }
+
+@media (prefers-reduced-motion: reduce) {
+  .av-sheet__ticks i { transition: none; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   7 — CỜ "BÀI NÀY CẦN XEM LẠI"
+   ══════════════════════════════════════════════════════════════════════
+   Nằm NGAY DƯỚI TÊN trong bảng tổng kết, không ở một bảng thứ hai: giáo viên mở
+   danh sách ấy để biết ai cần mình, nên "bài của em này có vấn đề" phải ở cạnh
+   tên em ấy chứ không phải sau một cú bấm nữa.
+
+   MỖI CỜ NÓI ĐỦ BA THỨ — chuyện gì (đậm), vì sao (thường), làm gì tiếp
+   (nghiêng). Một chấm đỏ không kèm việc phải làm sẽ bị bỏ qua sau vài lần: người
+   ta không mở một danh sách mà mình không hành động được.
+
+   KHÔNG tô đỏ cả dòng. Bài bị gắn cờ thường VẪN là bài đã nộp đúng hạn — nhuộm
+   đỏ nó sẽ nói sai về học viên, trong khi lỗi hay nằm ở phía hệ thống. */
+
+.av-flags {
+  list-style: none;
+  margin: 0 0 var(--av-space-2);
+  padding: 0 0 0 calc(var(--tally-gap-w, 3px) + var(--av-space-4));
+  display: grid;
+  gap: var(--av-space-2);
+}
+
+.av-flag {
+  display: grid;
+  gap: 2px;
+  padding: var(--av-space-2) var(--av-space-3);
+  border-left: 2px solid var(--av-warning);
+  border-radius: 0 var(--av-radius-sm) var(--av-radius-sm) 0;
+  background: var(--av-surface-sunken);
+  font-size: var(--av-fs-xs);
+  line-height: var(--av-lh-snug);
+}
+
+/* Hai mức, hai màu. Mức cao = điểm không dùng được; mức vừa = đáng nhắc nhưng
+   điểm vẫn tin được. Khác nhau ở chỗ giáo viên có dùng con số ấy hay không. */
+.av-flag[data-sev='high'] { border-left-color: var(--av-error); }
+
+.av-flag strong { color: var(--av-text-primary); font-weight: var(--av-fw-semibold); }
+.av-flag span   { color: var(--av-text-secondary); }
+.av-flag em     { color: var(--av-text-muted); font-style: normal; }
+
+/* Việc-phải-làm mở đầu bằng một mũi tên: mắt bắt được ngay dòng nào là hành
+   động, không phải đọc hết ba dòng mới biết. */
+.av-flag em::before { content: '→ '; color: var(--av-text-faint); }

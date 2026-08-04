@@ -699,12 +699,23 @@ function tallyRow(r) {
   // Chưa chấm là chưa chấm — hiện 0.0 là hiện một ĐIỂM SỐ mà không ai cho.
   const band = (r.score === null || r.score === undefined) ? '—' : Number(r.score).toFixed(1);
   const empty = (r.score === null || r.score === undefined);
-  return `<div class="av-tally__row" data-status="${esc(r.status)}">
+  // Cờ nằm NGAY DƯỚI TÊN, không ở một bảng thứ hai: giáo viên mở danh sách này
+  // để biết ai cần mình, nên "bài của em này có vấn đề" phải ở cạnh tên em ấy.
+  // Mỗi cờ nói đủ ba thứ — chuyện gì, vì sao, làm gì tiếp; một chấm đỏ không
+  // kèm việc phải làm sẽ bị bỏ qua sau vài lần.
+  const flags = (r.flags || []).map((f) => `
+      <li class="av-flag" data-sev="${esc(f.severity)}">
+        <strong>${esc(f.label)}</strong>
+        <span>${esc(f.why)}</span>
+        <em>${esc(f.action)}</em>
+      </li>`).join('');
+  return `<div class="av-tally__row" data-status="${esc(r.status)}"
+       ${r.flag_level ? `data-flag="${esc(r.flag_level)}"` : ''}>
     <span class="av-tally__mark" aria-hidden="true"></span>
     <span class="av-tally__name">${esc(r.name || r.student_code || '—')}</span>
     <span class="av-tally__when">${esc(when)}</span>
     <span class="av-tally__band" data-empty="${empty}">${esc(band)}</span>
-  </div>`;
+  </div>${flags ? `<ul class="av-flags">${flags}</ul>` : ''}`;
 }
 
 function hhmm(iso) {
@@ -737,6 +748,12 @@ function renderTally(d) {
   }
   if (d && d.homework_stale) {
     notes.push('Chưa đối chiếu được bài nộp mới nhất — số có thể còn thiếu.');
+  }
+  if (c.flagged) {
+    // ĐẾM RIÊNG, không trừ vào "đã nộp": một bài nộp rồi mà chấm hỏng vẫn là đã
+    // nộp. Trộn hai con số sẽ khiến giáo viên tưởng em ấy chưa làm bài, trong
+    // khi lỗi nằm ở phía hệ thống.
+    notes.push(`<strong>${c.flagged} bài cần xem lại</strong> — lý do ghi ngay dưới tên.`);
   }
   return `<div class="av-tally" data-state="${sealed ? 'sealed' : 'live'}">
     <div class="av-tally__head">
