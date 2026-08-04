@@ -222,9 +222,30 @@ thức hoá ngược một quyết định đã ra.
   `PROBE_PASSWORD`, và cron. Đo tại lần chạy tay đầu:
   `tick: OK — /auth/profile=200 /auth/check-active=200`.
 
-  **Nhưng lớp `Authenticated mutation` VẪN THEO A0 và ngoại lệ `/profile` VẪN
-  MỞ cho tới khi `--mode verdict` ĐẠT lần đầu.** "Đã bật" không phải "đã phủ";
-  verdict từ chối sổ rỗng và sổ chưa đủ 24h, nên không có đường nào để nhầm.
+  **✅ ĐÃ ĐẠT LẦN ĐẦU 2026-08-04.** Verdict thật:
+
+  ```
+  G2: n=35 · trải 24.89h · lỗ lớn nhất 221.4′ · hỏng 0 · lớp CÓ ĐĂNG NHẬP
+       phân bố lỗ (n=34): p50 15′ · p90 110.4′ · max 221.4′
+  ✓ ĐẠT sàn ADR-013-A1
+  ```
+
+  Cả bốn điều kiện A2: trải 24,9h ≥ 24h · lỗ 221′ < 360′ · 0/35 probe hỏng ·
+  đã qua **một lần token refresh** có request hai phía (phiên `session` kích
+  hoạt tay lúc 02:55Z — cron `17 3 * * *` chưa từng tự chạy).
+
+  ⇒ **Ngoại lệ `/profile` (mở từ 03/08) ĐÓNG.** Lớp `Authenticated mutation`
+  chuyển từ A0 sang **A1+A2**: từ nay cutover route cần đăng nhập đi theo cổng
+  bằng chứng, không còn cửa sổ thời gian.
+
+  **Ghi kèm để không đọc quá lời:** cổng này chứng nhận *route phục vụ được
+  liên tục suốt một ngày và sống qua một lần refresh token*. Hết. Với lỗ cho
+  phép tới 6 giờ, sự cố ngắn vẫn lọt (xem `G2_FLOOR_TRADEOFF`).
+
+  **Quan sát đáng giữ:** p50 lỗ tụt từ 61′ → 46′ → **15′** sau khi phiên
+  `session` chạy — vì nhịp *bên trong* một job không phụ thuộc bộ lập lịch.
+  Nếu sau này cần nhịp đều hơn, đường đi là đếm nhịp TRONG job, không phải
+  đặt cron dày hơn.
 
   **Nguyên tắc rút ra khi bật — LỊCH phải chặt hơn SÀN.** Sàn đòi khe hở
   ≤20 phút; đặt cron đúng 20 phút là sát mép, mà cron GitHub Actions trễ vài
