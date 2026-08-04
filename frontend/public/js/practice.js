@@ -374,7 +374,7 @@
   // ── Recording: start ──────────────────────────────────────────────────────────
 
   async function startRecording() {
-    if (_recSubState === 'recording') return;
+    if (_recSubState === 'recording') return false;
     _stopAITts();
     window.speechSynthesis && window.speechSynthesis.cancel();
     _clearRecError();
@@ -382,11 +382,11 @@
     // Check API availability
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       _showRecError('Trình duyệt không hỗ trợ ghi âm. Hãy dùng Chrome, Firefox hoặc Edge phiên bản mới.');
-      return;
+      return false;
     }
     if (typeof MediaRecorder === 'undefined') {
       _showRecError('Trình duyệt không hỗ trợ MediaRecorder. Hãy dùng Chrome, Firefox hoặc Edge phiên bản mới.');
-      return;
+      return false;
     }
 
     // Request mic (reuse existing stream across questions)
@@ -405,7 +405,7 @@
           msg = 'Không thể mở microphone: ' + err.message;
         }
         _showRecError(msg);
-        return;
+        return false;
       }
     }
 
@@ -490,6 +490,12 @@
     var m = Math.floor(_elapsedSecs / 60);
     var s = _elapsedSecs % 60;
     el.textContent = m + ':' + (s < 10 ? '0' + s : s);
+
+    // BÁO THÀNH CÔNG. Trước đây hàm này xử lý lỗi bên trong rồi return trống,
+    // nên caller không phân biệt được "đã bắt đầu ghi" với "micro bị từ chối".
+    // Phiếu làm bài cần biết: không biết thì ô kẹt ở "đang ghi âm" và MỌI nút
+    // khác bị khoá cho tới khi tải lại trang.
+    return true;
   }
 
   // ── Recording: stop ───────────────────────────────────────────────────────────
@@ -2256,7 +2262,7 @@
 
   // Fire a single grading request immediately (eager upload for test_full).
   // Returns a Promise that resolves/rejects when the upload completes.
-  function _submitGradingEager(sessionId, questionId, blob) {
+  function _submitGradingEager(sessionId, questionId, blob, opts) {
     var fd = new FormData();
     fd.append('question_id', questionId);
     fd.append('audio_file', blob, 'response.webm');
@@ -2276,6 +2282,11 @@
           // a no-op while #state-completion is still hidden mid-test.
           _renderSubmitFailureNotice();
         }
+        // NUỐT LỖI LÀ CHỦ ĐÍCH cho Full Test: ở đó màn hoàn thành đã hiện và
+        // cảnh báo được vẽ riêng. Nhưng phiếu làm bài DỰA VÀO promise này để
+        // quyết định ô có "đã lưu" hay không — nuốt ở đó nghĩa là ô hỏng vẫn
+        // xanh, học viên bấm Nộp và mất câu trả lời mà không biết.
+        if (opts && opts.rethrow) throw err;
       });
   }
 
@@ -3002,11 +3013,19 @@
     s.state = 'recording';
     _sheet.recIdx = i;
     _renderSheet();
+    // Kiểm GIÁ TRỊ TRẢ VỀ, không chỉ bắt ngoại lệ: startRecording xử lý lỗi
+    // micro bên trong (hiện thông báo) rồi trả về bình thường, nên `catch` một
+    // mình sẽ không bao giờ chạy — và ô kẹt ở "đang ghi âm" với mọi nút khác
+    // bị khoá cho tới khi tải lại trang.
+    var ok = false;
     try {
-      await startRecording();
+      ok = await startRecording();
     } catch (err) {
+      ok = false;
+    }
+    if (!ok) {
       s.state = s.band === null ? 'idle' : 'saved';
-      s.error = 'Không mở được micro. Kiểm tra quyền truy cập rồi thử lại.';
+      s.error = 'Không ghi âm được. Kiểm tra quyền dùng micro rồi thử lại.';
       _sheet.recIdx = -1;
       _renderSheet();
     }
@@ -3019,7 +3038,7 @@
     s.state = 'grading';
     _renderSheet();
 
-    _submitGradingEager(_sessionId, s.q.id, blob)
+    _submitGradingEager(_sessionId, s.q.id, blob, { rethrow: true })
       .then(function (res) {
         s.state = 'saved';
         s.band = (res && (res.overall_band || (res.grading && res.grading.overall_band))) || null;

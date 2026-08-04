@@ -170,3 +170,34 @@ describe('style', () => {
     assert.match(CSS, /\.av-slot__listen\s*\{[^}]*width:\s*100%/);
   });
 });
+
+describe('đường HỎNG — chỗ dễ mất bài của học viên nhất', () => {
+  test('nộp hỏng phải NÉM lên, không nuốt rồi coi như xong', () => {
+    // `_submitGradingEager` cố ý nuốt lỗi cho Full Test (ở đó cảnh báo được vẽ
+    // riêng). Phiếu DỰA VÀO promise này để quyết ô có "đã lưu" không — nuốt ở
+    // đây nghĩa là ô hỏng vẫn xanh, học viên bấm Nộp và mất câu trả lời.
+    assert.match(CODE, /if \(opts && opts\.rethrow\) throw err;/);
+    assert.match(CODE, /_submitGradingEager\(_sessionId, s\.q\.id, blob, \{ rethrow: true \}\)/);
+  });
+
+  test('micro hỏng nhận ra qua GIÁ TRỊ TRẢ VỀ, không chỉ qua ngoại lệ', () => {
+    // startRecording xử lý lỗi bên trong rồi trả về bình thường — `catch` một
+    // mình không bao giờ chạy, và ô kẹt ở "đang ghi âm" với mọi nút khác bị khoá.
+    assert.match(CODE, /ok = await startRecording\(\)/);
+    assert.match(CODE, /if \(!ok\) \{[\s\S]{0,200}?_sheet\.recIdx = -1;/);
+  });
+
+  test('startRecording trả true khi bắt đầu được, false ở mọi lối thoát sớm', () => {
+    const i = CODE.indexOf('async function startRecording()');
+    const j = CODE.indexOf('function stopRecording()', i);
+    const body = CODE.slice(i, j);
+    assert.match(body, /return true;/, 'phải báo thành công');
+    assert.doesNotMatch(body, /^\s+return;\s*$/m, 'không còn lối thoát trống');
+  });
+
+  test('micro hỏng KHÔNG làm ô đã lưu mất điểm', () => {
+    // Ghi âm lại một ô đã lưu mà micro hỏng thì ô phải quay về "đã lưu", không
+    // tụt về "chưa làm" — bài cũ vẫn còn trên server.
+    assert.match(CODE, /s\.state = s\.band === null \? 'idle' : 'saved';/);
+  });
+});
