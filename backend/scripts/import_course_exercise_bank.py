@@ -60,6 +60,11 @@ _OPTIONS = 4
 # Họ E — tự luận, không chấm máy. Xem docstring.
 _ESSAY = ("E1", "E2", "E3")
 
+# Mười bốn dạng của SPEC, không hơn. Một mã lạ (gõ nhầm "A9") sẽ lọt vào kho, và
+# trang học viên hiện một thẻ dạng TRỐNG — không có gì đỏ để lần ra.
+_DANG = ("A1", "A2", "A3", "B1", "B2", "B3",
+         "C1", "C2", "C3", "C4", "D1", "D2", "D3", "D4") + _ESSAY
+
 _SKILL_AREA = "course"
 
 
@@ -177,8 +182,10 @@ def _normalise(rows: list[dict]) -> list[dict]:
         if not (r.get("de") or "").strip():
             raise SystemExit(f"[{qid}] không có đề.")
         dang = (r.get("dang") or "").strip()
-        if not dang:
-            raise SystemExit(f"[{qid}] không có mã dạng.")
+        if dang not in _DANG:
+            raise SystemExit(
+                f"[{qid}] mã dạng không hợp lệ: {dang!r} "
+                f"(chỉ nhận {', '.join(_DANG)}).")
 
         if dang in _ESSAY:
             if not (r.get("dap_an_mau") or "").strip():
@@ -267,7 +274,11 @@ def main() -> int:
         "code": code, "title": title, "skill_area": _SKILL_AREA,
         "course_id": course["id"], "lesson_no": lesson,
         "words_count": len(rows), "source": f"course-{course['code']}-jsonl",
-        "is_published": bool(args.publish),
+        # CHƯA xuất bản ở bước này, kể cả khi có --publish. Bank và câu hỏi là hai
+        # request riêng (PostgREST không có giao dịch nhiều lệnh); hỏng giữa chừng
+        # mà bank đã published sẽ để lại một bài tập RỖNG mà học viên mở được.
+        # Cờ --publish được áp SAU khi RPC ghi câu thành công.
+        "is_published": False,
         "meta": {"nguon": path.name, "so_tu_luan": len(essay)},
     }
     if existing:
@@ -281,10 +292,24 @@ def main() -> int:
 
     # Xoá-sạch-rồi-ghi-lại trong MỘT giao dịch: không có khoảnh khắc bank rỗng,
     # và tệp hỏng nửa chừng không để lại trộn câu cũ với câu mới.
-    n = supabase_admin.rpc("quiz_replace_questions",
-                           {"p_bank_id": bank_id, "p_rows": rows}).execute().data
+    try:
+        n = supabase_admin.rpc("quiz_replace_questions",
+                               {"p_bank_id": bank_id, "p_rows": rows}).execute().data
+    except Exception as exc:                       # noqa: BLE001
+        # Bank ở lại trạng thái CHƯA xuất bản, nên học viên không mở được nó.
+        # Nói rõ trạng thái ấy thay vì để người chạy tự đoán.
+        logger.error("\nHỎNG khi ghi câu hỏi: %s", exc)
+        logger.error("Bank %s KHÔNG được xuất bản, học viên chưa mở được. "
+                     "Chạy lại đúng lệnh này để hoàn tất.", code)
+        return 1
     logger.info("Đã ghi %s câu vào bank %s.", n, bank_id)
-    logger.info("Trạng thái: %s", "ĐÃ XUẤT BẢN" if args.publish else "NHÁP (thêm --publish để mở cho học viên)")
+
+    # XUẤT BẢN SAU CÙNG — dấu chốt "bài này đã đủ câu". Xem ghi chú ở payload.
+    if args.publish:
+        supabase_admin.table("quiz_banks").update({"is_published": True}) \
+            .eq("id", bank_id).eq("is_published", False).execute()
+    logger.info("Trạng thái: %s", "ĐÃ XUẤT BẢN" if args.publish
+                else "NHÁP (thêm --publish để mở cho học viên)")
     return 0
 
 

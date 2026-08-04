@@ -229,3 +229,56 @@ def test_questions_go_through_the_ATOMIC_replace_rpc(tmp_path):
     assert len(params["p_rows"]) == 2
     # Chốt chống lỗi im lặng: RPC (mig 186) phải NHẬN được khoá này.
     assert any(r.get("why_wrong") for r in params["p_rows"])
+
+
+# ── Vòng review 1 ────────────────────────────────────────────────────────────
+
+def test_a_bank_is_never_published_before_its_questions_land(tmp_path):
+    """Bank và câu hỏi là hai request riêng. Xuất bản ở bước tạo rồi hỏng giữa
+    chừng sẽ để lại một bài tập RỖNG mà học viên mở được."""
+    db = _db()
+    _run(tmp_path, db, [_mcq()], "--commit", "--publish")
+    ins = [w for w in db.writes if w[0] == "insert" and w[1] == "quiz_banks"]
+    assert ins and ins[0][2]["is_published"] is False, "phải tạo ở trạng thái CHƯA xuất bản"
+    assert db.tables["quiz_banks"][0]["is_published"] is True, "và xuất bản ở cuối"
+
+    order = [w[1] if w[0] != "rpc" else "rpc" for w in db.writes]
+    pub = max(i for i, w in enumerate(db.writes)
+              if w[0] == "update" and w[1] == "quiz_banks"
+              and w[2].get("is_published") is True)
+    assert pub > order.index("rpc"), "xuất bản trước khi ghi câu là vô nghĩa"
+
+
+def test_a_failure_writing_questions_leaves_the_bank_UNPUBLISHED(tmp_path):
+    db = _db()
+    real = db.rpc
+
+    def boom(name, params):
+        raise RuntimeError("mất kết nối")
+    db.rpc = boom
+    rc = _run(tmp_path, db, [_mcq()], "--commit", "--publish")
+    db.rpc = real
+    assert rc == 1, "hỏng giữa chừng phải trả mã lỗi, không im lặng thành công"
+    assert db.tables["quiz_banks"][0]["is_published"] is False
+
+
+@pytest.mark.parametrize("dang", ["A9", "F1", "a1", "", "MCQ"])
+def test_an_unknown_question_type_code_is_refused(tmp_path, dang):
+    """Mã lạ lọt vào kho sẽ hiện ra một thẻ dạng TRỐNG trên trang học viên —
+    không có gì đỏ để lần ra."""
+    db = _db()
+    with pytest.raises(SystemExit) as exc:
+        _run(tmp_path, db, [_mcq(dang=dang)], "--commit")
+    assert "dạng" in str(exc.value)
+    assert db.writes == []
+
+
+def test_every_code_in_the_spec_is_accepted(tmp_path):
+    """Chốt ngược: một whitelist quá hẹp sẽ chặn chính nội dung thật."""
+    for d in ("A1", "A2", "A3", "B1", "B2", "B3", "C1", "C2", "C3", "C4",
+              "D1", "D2", "D3", "D4"):
+        db = _db()
+        assert _run(tmp_path, db, [_mcq(dang=d)], "--commit") == 0
+    for d in ("E1", "E2", "E3"):
+        db = _db()
+        assert _run(tmp_path, db, [_essay(dang=d)], "--commit") == 0

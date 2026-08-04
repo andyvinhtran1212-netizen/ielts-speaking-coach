@@ -34,6 +34,7 @@
   var _sessionId = null;
   var _pending = [];    // lượt làm chờ gửi
   var _shownAt = 0;
+  var _startedAt = 0;
   var _answered = false;
 
   function esc(s) {
@@ -206,6 +207,7 @@
 
   function next() {
     _at += 1;
+    save();          // sau MỖI câu: đóng tab giữa chặng vẫn quay lại đúng chỗ
     if (_at >= stageQuestions().length) return renderDone();
     renderQuestion();
   }
@@ -287,20 +289,56 @@
         ? '<button class="av-button av-button-primary" id="cx-more" type="button">Làm chặng ' + (_stage + 2) + '</button>'
         : '<span class="cx-empty" style="flex:1">Xong cả ' + _qs.length + ' câu của buổi này.</span>')
       + '</div>';
-    flush();
+    endSession(right, graded.length);
     save();
+  }
+
+  /**
+   * KẾT phiên. Thiếu bước này thì `quiz_admin_student_rollup` bỏ qua cả lượt
+   * làm — nó chỉ đếm phiên có `ended_at` — nên giáo viên mở mặt đọc ra thấy
+   * TRỐNG dù học viên vừa làm xong. (Chính tôi vấp phải đúng chỗ này khi mô
+   * phỏng một lượt để xem dữ liệu đổ về, và vẫn quên nối nó.)
+   *
+   * Đẩy nốt lượt làm TRƯỚC rồi mới chốt phiên: chốt trước thì con số tổng kết
+   * được ghi khi chưa có đủ lượt để đối chiếu.
+   */
+  async function endSession(right, graded) {
+    if (!_sessionId) return;
+    await flush();
+    try {
+      await api.patch('/api/quiz/sessions/' + _sessionId, {
+        duration_sec: Math.round((Date.now() - _startedAt) / 1000),
+        total_questions: graded,
+        total_correct: right,
+        total_wrong: Math.max(0, graded - right),
+        ended_by: 'completed',
+      });
+    } catch (err) { /* lượt làm đã ghi rồi; mất phần tổng kết là mất ít nhất */ }
   }
 
   // ── Nhớ chỗ đang làm ──────────────────────────────────────────────────
 
   function key() { return 'cx:' + (_bank && _bank.id); }
+
+  /**
+   * Nhớ CẢ vị trí trong chặng, không chỉ số chặng.
+   *
+   * Chỉ lưu `stage` thì làm 9/10 câu rồi đóng tab sẽ quay lại đầu chặng — làm
+   * lại chín câu vừa làm là thứ khiến người ta bỏ hẳn.
+   */
   function save() {
-    try { localStorage.setItem(key(), JSON.stringify({ stage: _stage })); } catch (e) { /* riêng tư */ }
+    try {
+      localStorage.setItem(key(), JSON.stringify(
+        { stage: _stage, at: _at, marks: _marks }));
+    } catch (e) { /* trình duyệt chặn lưu — làm bài vẫn chạy */ }
   }
+
   function load() {
     try {
       var v = JSON.parse(localStorage.getItem(key()) || '{}');
       if (typeof v.stage === 'number') _stage = v.stage;
+      if (typeof v.at === 'number') _at = v.at;
+      if (Array.isArray(v.marks)) _marks = v.marks;
     } catch (e) { /* bỏ qua */ }
   }
 
@@ -327,14 +365,24 @@
     if (!_qs.length) return fail('Bài tập này chưa có câu hỏi nào.');
 
     load();
-    if (_stage * STAGE >= _qs.length) _stage = 0;   // buổi bị soạn ngắn lại
+    if (_stage * STAGE >= _qs.length) { _stage = 0; _at = 0; _marks = []; }
+    if (_at >= STAGE) { _at = 0; _marks = []; }     // buổi bị soạn ngắn lại
     try {
       var s = await api.post('/api/quiz/sessions', { bank_id: _bank.id });
       _sessionId = s && (s.id || s.session_id);
-    } catch (err) { /* làm bài vẫn chạy được; chỉ mất phần ghi lượt */ }
+    } catch (err) { _sessionId = null; }
+    if (!_sessionId) {
+      // Vẫn cho làm — chặn lại thì em ấy mất cả buổi vì một lỗi mạng. Nhưng
+      // PHẢI nói ra: im lặng nghĩa là làm xong 10 câu rồi mới biết không có gì
+      // được ghi, và giáo viên thì tưởng em ấy bỏ bài.
+      $('cx-error').hidden = false;
+      $('cx-error').textContent =
+        'Không kết nối được để lưu bài. Bạn vẫn làm được, nhưng kết quả sẽ KHÔNG '
+        + 'tới giáo viên — tải lại trang để thử lại.';
+    }
 
     $('cx-loading').hidden = true;
-    _at = 0; _marks = [];
+    _startedAt = Date.now();
     renderQuestion();
   }
 

@@ -58,6 +58,14 @@
     <section id="cx-done" class="cx-done" hidden></section>
   </main>
 
+  <!-- Khởi tạo Supabase TRƯỚC khi bộ chạy gọi API.
+       Thiếu dòng này thì `api.js` không có phiên để lấy token, mọi request đi
+       không kèm Bearer, backend trả 401 và trang tự đá về màn đăng nhập — kể cả
+       với học viên đang đăng nhập. Cùng cặp khoá với quiz.html. -->
+  <script>
+    initSupabase('https://huwsmtubwulikhlmcirx.supabase.co',
+                 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao');
+  </script>
   <script src="/js/course-exercises.js"></script>
 </body>
 </html>

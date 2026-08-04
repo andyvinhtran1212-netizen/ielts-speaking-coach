@@ -114,7 +114,9 @@ describe('không mất bài đã làm', () => {
 
   test('chặng đang làm được nhớ lại', () => {
     assert.match(JS, /localStorage\.setItem\(key\(\)/);
-    assert.match(JS, /if \(_stage \* STAGE >= _qs\.length\) _stage = 0;/,
+    // Ghim HÀNH VI, không ghim nguyên văn một dòng: dòng ấy đã đổi một lần và
+    // test đỏ vì định dạng chứ không vì lỗi.
+    assert.match(JS, /_stage \* STAGE >= _qs\.length[^]{0,80}?_stage = 0/,
       'buổi bị soạn ngắn lại thì vị trí cũ phải bị bỏ, không thì mở ra trang trắng');
   });
 });
@@ -136,5 +138,67 @@ describe('khung trang', () => {
 
   test('thiếu mã bài tập thì nói rõ, không im lặng', () => {
     assert.match(JS, /Thiếu mã bài tập/);
+  });
+});
+
+
+// ── Vòng review 1 ────────────────────────────────────────────────────────────
+
+describe('dữ liệu phải tới được giáo viên', () => {
+  test('trang KHỞI TẠO Supabase trước khi gọi API', () => {
+    // Thiếu bước này thì mọi request đi không kèm Bearer, backend trả 401 và
+    // trang tự đá về màn đăng nhập — kể cả với học viên đang đăng nhập. Tức là
+    // cả trang không dùng được, không phải một lỗi nhỏ.
+    assert.match(HTML, /initSupabase\('https:\/\/[a-z0-9]+\.supabase\.co'/);
+    // Và phải đứng TRƯỚC bộ chạy, nếu không nó gọi API khi chưa có phiên.
+    assert.ok(HTML.indexOf('initSupabase') < HTML.indexOf('course-exercises.js'));
+  });
+
+  test('hết chặng là KẾT phiên, không chỉ đẩy lượt làm', () => {
+    // `quiz_admin_student_rollup` chỉ đếm phiên có `ended_at`. Không kết phiên
+    // thì giáo viên mở mặt đọc ra thấy TRỐNG dù học viên vừa làm xong.
+    assert.match(JS, /api\.patch\('\/api\/quiz\/sessions\/'/);
+    assert.match(JS, /ended_by: 'completed'/);
+  });
+
+  test('đẩy hết lượt làm TRƯỚC rồi mới chốt phiên', () => {
+    // Chốt trước thì con số tổng kết được ghi khi chưa có đủ lượt để đối chiếu.
+    const fn = JS.slice(JS.indexOf('async function endSession'));
+    assert.ok(fn.indexOf('await flush()') < fn.indexOf('api.patch'));
+  });
+
+  test('tạo phiên hỏng thì NÓI RA, không để làm xong mới biết mất bài', () => {
+    // Câu thông báo được nối từ hai chuỗi, nên tìm cả cụm liền mạch sẽ đỏ vì
+    // CÁCH XUỐNG DÒNG chứ không vì thiếu chốt.
+    const blk = JS.slice(JS.indexOf('if (!_sessionId) {'));
+    assert.ok(blk.startsWith('if (!_sessionId) {'), 'thiếu hẳn nhánh xử lý');
+    assert.match(blk.slice(0, 600), /cx-error'\)\.hidden = false/);
+    assert.match(blk.slice(0, 600), /Không kết nối được để lưu bài/);
+    assert.match(blk.slice(0, 600), /tới giáo viên/);
+  });
+});
+
+describe('không bắt làm lại phần đã làm', () => {
+  const f2 = (() => {
+    const start = JS.indexOf('  function key()');
+    const end = JS.indexOf('  // ── Khởi động');
+    return JS.slice(start, end);
+  })();
+
+  test('nhớ CẢ vị trí trong chặng và kết quả từng câu', () => {
+    // Chỉ nhớ số chặng thì làm 9/10 câu rồi đóng tab sẽ quay lại đầu chặng —
+    // làm lại chín câu vừa làm là thứ khiến người ta bỏ hẳn.
+    assert.match(f2, /stage: _stage, at: _at, marks: _marks/);
+    assert.match(f2, /if \(typeof v\.at === 'number'\) _at = v\.at;/);
+    assert.match(f2, /if \(Array\.isArray\(v\.marks\)\) _marks = v\.marks;/);
+  });
+
+  test('lưu sau MỖI câu, không chỉ cuối chặng', () => {
+    const nx = JS.slice(JS.indexOf('function next()'), JS.indexOf('function next()') + 300);
+    assert.match(nx, /save\(\)/);
+  });
+
+  test('vị trí cũ vượt quá bài hiện tại thì bị bỏ, không mở ra trang trắng', () => {
+    assert.match(JS, /if \(_at >= STAGE\) \{ _at = 0; _marks = \[\]; \}/);
   });
 });
