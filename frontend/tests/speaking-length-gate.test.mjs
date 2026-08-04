@@ -168,13 +168,17 @@ describe('Sprint 14.2 — practice.js dispatches on backend audio_too_short deta
   test('_recorder.onstop invokes the playback + hint helpers (no orphan helper)', () => {
     // If the helpers exist but are never called, the playback widget
     // never appears. Pin the call site.
+    //
+    // Cửa sổ 1600 (trước là 800): phiếu làm bài chèn một nhánh thoát sớm vào
+    // onstop, nên khoảng cách dài ra. Bất biến không đổi — helper VẪN được gọi
+    // ở nhánh phễu; chỉ con số tuỳ ý này phải nới.
     assert.match(
       PRACTICE_JS,
-      /_recorder\.onstop\s*=\s*function\s*\(\)\s*\{[\s\S]{0,800}_renderRecordedPlayback\(\)/,
+      /_recorder\.onstop\s*=\s*function\s*\(\)\s*\{[\s\S]{0,1600}_renderRecordedPlayback\(\)/,
     );
     assert.match(
       PRACTICE_JS,
-      /_recorder\.onstop\s*=\s*function\s*\(\)\s*\{[\s\S]{0,800}_renderRecordedLengthHint\(\)/,
+      /_recorder\.onstop\s*=\s*function\s*\(\)\s*\{[\s\S]{0,1600}_renderRecordedLengthHint\(\)/,
     );
   });
 

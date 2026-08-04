@@ -27,6 +27,26 @@ from typing import Any, Dict, Iterable, List
 _CONTENT_FIELDS = ("cue_card_bullets", "cue_card_reflection", "subtopic")
 
 
+# Trạng thái phiên mà ở đó chữ được phép hiện lại.
+_DONE = "completed"
+
+
+def should_reveal(session: Dict[str, Any] | None) -> bool:
+    """Phiên đã LÀM XONG thì hiện lại chữ.
+
+    Giấu đề là để bắt học viên NGHE mới biết hỏi gì. Khi phiên đã hoàn thành,
+    việc ấy đã xảy ra: sổ cái ghi lần nộp ĐẦU (`mark_item_submitted` luỹ đẳng),
+    nên đọc lại đề không giúp làm lại được gì.
+
+    Giấu tiếp thì trang kết quả và bản PDF hiện câu hỏi TRỐNG — người học không
+    xem lại được mình đã trả lời câu nào, và bản chấm mất luôn ngữ cảnh.
+
+    Một hàm DUY NHẤT cho luật này: nó áp ở bốn đường khác nhau (trang kết quả,
+    danh sách câu, chi tiết phiên, xuất PDF) và bốn bản chép sẽ trôi khỏi nhau.
+    """
+    return bool(session) and (session.get("status") or "") == _DONE
+
+
 def redact_question(q: Dict[str, Any]) -> Dict[str, Any]:
     """Bỏ chữ của MỘT câu hỏi nếu câu đó giao bằng audio."""
     if not q or not q.get("listen_only"):
@@ -40,6 +60,12 @@ def redact_question(q: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
-def redact_questions(rows: Iterable[Dict[str, Any]] | None) -> List[Dict[str, Any]]:
-    """Bỏ chữ cho cả danh sách. `None` → `[]` để caller không phải kiểm lại."""
-    return [redact_question(q) for q in (rows or [])]
+def redact_questions(rows: Iterable[Dict[str, Any]] | None,
+                     *, reveal: bool = False) -> List[Dict[str, Any]]:
+    """Bỏ chữ cho cả danh sách. `None` → `[]` để caller không phải kiểm lại.
+
+    `reveal=True` (phiên đã hoàn thành — xem should_reveal) trả nguyên văn.
+    Mặc định là GIẤU: caller quên truyền thì lỗi nghiêng về phía an toàn.
+    """
+    rows = list(rows or [])
+    return rows if reveal else [redact_question(q) for q in rows]

@@ -32,7 +32,7 @@ from reportlab.platypus import (
 )
 
 from database import supabase_admin
-from services.question_visibility import redact_questions
+from services.question_visibility import redact_questions, should_reveal
 from services.band_rounding import ielts_round
 from services.phoneme_ref import (
     PHONEME_REF,
@@ -267,9 +267,8 @@ async def generate_session_pdf(session_id: str, db=None) -> bytes:
     # Phiên ĐÃ HOÀN THÀNH thì hiện chữ: việc đã làm xong, sổ cái ghi nhận lần
     # nộp ĐẦU nên đọc lại đề không giúp em ấy làm lại được gì — và bản PDF là
     # tài liệu để ôn, giấu đề ở đó chỉ làm nó vô dụng.
-    questions = q_res.data or []
-    if (session or {}).get("status") != "completed":
-        questions = redact_questions(questions)
+    # Cùng MỘT luật với trang kết quả và danh sách câu — xem should_reveal.
+    questions = redact_questions(q_res.data, reveal=should_reveal(session))
 
     # ── 4. Load responses (keyed by question_id) ───────────────────────────────
     r_res = (

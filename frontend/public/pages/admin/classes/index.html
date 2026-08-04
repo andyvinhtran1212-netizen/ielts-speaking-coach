@@ -669,6 +669,23 @@
           <select id="hf-topic"><option value="">— Chọn chủ đề —</option></select>
           <p class="adm-hint" id="hf-topic-note"></p>
         </div>
+
+        <!-- Chọn câu: web bốc, hay giáo viên tự chọn.
+             Hai lựa chọn, không phải ba — "lấy N câu đầu" (hành vi cũ) không
+             phải thứ ai muốn, nó chỉ là điều xảy ra khi không ai quyết. -->
+        <div class="adm-field" id="hf-qpick-field" hidden>
+          <label>Câu hỏi</label>
+          <div class="av-qpick__mode" id="hf-qmode" role="radiogroup" aria-label="Cách chọn câu hỏi">
+            <label><input type="radio" name="hf-qmode" value="random" checked /><span>Web bốc ngẫu nhiên</span></label>
+            <label><input type="radio" name="hf-qmode" value="manual" /><span>Tôi tự chọn</span></label>
+          </div>
+          <p class="av-qpick__hint" id="hf-qmode-hint"></p>
+
+          <div id="hf-qpick" hidden>
+            <div class="av-qpick__list" id="hf-qpick-list"></div>
+            <p class="av-qpick__foot" id="hf-qpick-foot"></p>
+          </div>
+        </div>
         <div class="cl-form-row" id="hf-speaking-row">
           <div class="adm-field">
             <label for="hf-mode">Kiểu luyện</label>

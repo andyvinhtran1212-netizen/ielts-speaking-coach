@@ -19,6 +19,7 @@ the assignment instead.
 from __future__ import annotations
 
 import logging
+import random
 from datetime import datetime, timezone
 from typing import Any, Literal, Optional
 
@@ -91,6 +92,11 @@ class AssignmentCreate(BaseModel):
     # tối cần hạn khác lớp học buổi sáng, và cho tới nay giờ này bị đóng cứng
     # trong backend nên không lớp nào đổi được.
     due_time:     Optional[str] = Field(default=None, pattern=r"^\d{2}:\d{2}$")
+    # Speaking: giáo viên tự chọn câu. Bỏ trống = web bốc ngẫu nhiên.
+    #
+    # Hai lựa chọn, không phải ba: "lấy N câu đầu" (hành vi cũ) không phải một
+    # lựa chọn ai muốn — nó chỉ là thứ xảy ra khi không ai quyết.
+    question_ids: Optional[list[str]] = None
     instructions: Optional[str] = Field(default=None, max_length=2000)
     lesson_id:    Optional[str] = None
 
@@ -231,6 +237,53 @@ def _audio_matches(q: dict, topic_title: str) -> bool:
         return False
 
 
+def _not_enough(part: int, n_eligible: int, n_total: int, want: int) -> HTTPException:
+    """Câu báo lỗi phân biệt THIẾU CÂU với THIẾU AUDIO — hai việc admin làm khác
+    nhau: một cái phải soạn thêm đề, một cái chỉ cần chạy mẻ render."""
+    if part in (1, 3) and n_total >= want:
+        return HTTPException(
+            400,
+            f"Chủ đề này có {n_total} câu Part {part} nhưng chỉ {n_eligible} câu "
+            f"đã có bản đọc đề, cần {want}. Hãy tạo audio trước khi giao.",
+        )
+    return HTTPException(
+        400, f"Chủ đề này chỉ có {n_total} câu Part {part}, cần {want}.")
+
+
+def _pick_chosen_questions(body: "AssignmentCreate", eligible: list, qs: list,
+                           want: int) -> list:
+    """Giáo viên tự chọn câu — kiểm rồi mới nhận.
+
+    Danh sách đến từ trình duyệt, nên mọi điều kiện phải kiểm lại ở đây: một tab
+    mở lâu có thể gửi id của câu đã bị tắt, hoặc câu vừa được sửa lời nên bản đọc
+    hết giá trị.
+    """
+    ids = list(dict.fromkeys(body.question_ids or []))   # bỏ trùng, giữ thứ tự
+    if len(ids) != len(body.question_ids or []):
+        raise HTTPException(400, "Có câu bị chọn hai lần.")
+    if len(ids) != want:
+        raise HTTPException(
+            400, f"Part {body.part} cần đúng {want} câu, bạn đã chọn {len(ids)}.")
+
+    in_topic = {q["id"]: q for q in qs}
+    unknown = [i for i in ids if i not in in_topic]
+    if unknown:
+        raise HTTPException(
+            400, "Có câu không thuộc chủ đề/Part này (hoặc đã bị tắt).")
+
+    ok = {q["id"] for q in eligible}
+    no_audio = [i for i in ids if i not in ok]
+    if no_audio:
+        raise HTTPException(
+            400,
+            f"{len(no_audio)} câu bạn chọn chưa có bản đọc đề khớp với lời hiện "
+            f"tại. Hãy chạy lại mẻ tạo audio rồi chọn lại.",
+        )
+
+    # Theo ĐÚNG thứ tự giáo viên chọn: họ vừa sắp mạch hội thoại, đừng sắp lại.
+    return [in_topic[i] for i in ids]
+
+
 def _resolve_speaking_topic(cohort_id: str, body: "AssignmentCreate") -> tuple[str, dict]:
     """Chọn đề Speaking từ kho + chốt sẵn câu hỏi ngay lúc giao.
 
@@ -272,28 +325,31 @@ def _resolve_speaking_topic(cohort_id: str, body: "AssignmentCreate") -> tuple[s
     want = _QUESTIONS_PER_PART.get(body.part, 1)
     qs = (
         supabase_admin.table("topic_questions")
-        .select("id, part, order_num, question_text, question_type, audio_url, "
-                "audio_path, cue_card_bullets, cue_card_reflection")
+        .select("id, part, order_num, question_text, question_type, level, "
+                "audio_url, audio_path, cue_card_bullets, cue_card_reflection")
         .eq("topic_id", body.content_id).eq("part", body.part)
         .eq("is_active", True).order("order_num").execute().data
     ) or []
-    if len(qs) < want:
-        raise HTTPException(
-            400,
-            f"Chủ đề này chỉ có {len(qs)} câu Part {body.part}, cần {want}.",
-        )
 
-    if body.part in (1, 3):
-        missing = [q for q in qs[:want] if not _audio_matches(q, topic["title"])]
-        if missing:
-            raise HTTPException(
-                400,
-                f"Part {body.part} giao bằng audio (học viên không được xem chữ), "
-                f"nhưng {len(missing)} câu của chủ đề này chưa có bản đọc đề. "
-                f"Hãy tạo audio trước khi giao.",
-            )
+    # GIAO ĐƯỢC = còn bật, VÀ (với Part 1/3) có bản đọc KHỚP lời hiện tại.
+    # Lọc trước khi chọn, thay vì chọn rồi mới kiểm: bản cũ lấy N câu đầu rồi báo
+    # lỗi nếu chúng thiếu audio — nên một chủ đề có 7 câu mà đúng câu số 1 chưa
+    # render sẽ không giao được, dù 6 câu còn lại sẵn sàng.
+    eligible = ([q for q in qs if _audio_matches(q, topic["title"])]
+                if body.part in (1, 3) else qs)
 
-    chosen = qs[:want]
+    if body.question_ids:
+        chosen = _pick_chosen_questions(body, eligible, qs, want)
+    else:
+        if len(eligible) < want:
+            raise _not_enough(body.part, len(eligible), len(qs), want)
+        # NGẪU NHIÊN, chốt MỘT LẦN lúc giao. Bốc lại cho từng học viên sẽ làm hai
+        # em cùng một bài giao trả lời hai bộ câu khác nhau — đúng thứ việc chốt
+        # đề lúc giao đã bỏ đi.
+        chosen = random.sample(eligible, want)
+        # Giữ thứ tự gốc trong chủ đề: Part 1 là một mạch hội thoại, bốc ngẫu
+        # nhiên là chọn CÂU NÀO, không phải đảo mạch.
+        chosen.sort(key=lambda q: (q.get("order_num") or 0))
     return body.content_id, {
         "topic":        topic["title"],          # nhãn hiển thị, nguồn thật là content_id
         "mode":         body.mode,
@@ -382,7 +438,18 @@ async def list_speaking_topics(
         # một giả định không cần thiết phải tin.
         rows.sort(key=lambda r: (r.get("order_num") or 0))
         counts[tid] = len(rows)
-        audio_ok[tid] = sum(1 for r in rows[:want]
+        # ĐẾM TRÊN CẢ CHỦ ĐỀ, không phải trên `want` câu đầu.
+        #
+        # Lệnh giao nay LỌC trước rồi mới bốc/chọn trong số câu đã có bản đọc —
+        # nên một chủ đề mà hai câu đầu chưa render nhưng hai câu sau đã xong
+        # VẪN giao được. Đếm theo tiền tố ở đây sẽ báo "chưa sẵn sàng" và ẩn nó
+        # khỏi ô chọn, trong khi POST hoàn toàn nhận.
+        #
+        # (Ở vòng review trước tôi sửa NGƯỢC lại — bắt chỗ này dùng tiền tố cho
+        # khớp lệnh giao. Rồi lệnh giao đổi cách chọn, và hai bên lại lệch từ
+        # phía kia. Hai đường quyết định cùng một việc thì phải cùng một luật,
+        # không phải cùng một dòng mã.)
+        audio_ok[tid] = sum(1 for r in rows
                             if _audio_matches(r, titles.get(tid, "")))
 
     needs_audio = part in (1, 3)
@@ -399,6 +466,66 @@ async def list_speaking_topics(
             "missing_audio": needs_audio and enough and not voiced,
         })
     return {"items": items, "part": part, "questions_per_give": want}
+
+
+@router.get("/{cohort_id}/speaking-topics/{topic_id}/questions")
+async def list_topic_questions(
+    cohort_id: str,
+    topic_id: str,
+    part: int = 1,
+    authorization: str | None = Header(default=None),
+):
+    """Câu hỏi của MỘT chủ đề, để giáo viên tự chọn.
+
+    Trả CẢ câu chưa giao được, kèm `giveable` + lý do — chứ không lặng lẽ giấu.
+    Giáo viên cần thấy "chủ đề này có 7 câu, 5 câu chọn được, 2 câu chờ tạo
+    audio"; giấu đi thì họ chỉ thấy một danh sách ngắn không rõ vì sao ngắn.
+
+    Với Part 1/3, `giveable` đòi bản đọc KHỚP lời hiện tại — không chỉ "có audio".
+    Sửa lời câu hỏi làm bản đọc cũ hết giá trị, và giao nó nghĩa là học viên nghe
+    một đằng bị chấm một nẻo.
+    """
+    await require_admin(authorization)
+    _require_cohort(cohort_id)
+
+    topics = (
+        supabase_admin.table("topics").select("id, title, part, is_active")
+        .eq("id", topic_id).limit(1).execute().data
+    ) or []
+    if not topics:
+        raise HTTPException(404, "Không tìm thấy chủ đề này trong kho đề.")
+    topic = topics[0]
+
+    rows = (
+        supabase_admin.table("topic_questions")
+        .select("id, part, order_num, question_text, question_type, level, "
+                "audio_url, audio_path, cue_card_bullets, cue_card_reflection")
+        .eq("topic_id", topic_id).eq("part", part)
+        .eq("is_active", True).order("order_num").execute().data
+    ) or []
+
+    needs_audio = part in (1, 3)
+    items = []
+    for q in rows:
+        voiced = _audio_matches(q, topic["title"]) if needs_audio else True
+        items.append({
+            "id":            q["id"],
+            "order_num":     q.get("order_num"),
+            "question_text": q.get("question_text"),
+            "question_type": q.get("question_type"),
+            "level":         q.get("level"),
+            "giveable":      voiced,
+            # Giáo viên ĐƯỢC xem chữ — đây là màn admin. Chỉ học viên bị giấu.
+            "blocked_by":    None if voiced else "audio",
+            "audio_url":     q.get("audio_url") if voiced else None,
+            "cue_card_bullets": q.get("cue_card_bullets"),
+        })
+    return {
+        "topic": {"id": topic["id"], "title": topic["title"]},
+        "part": part,
+        "questions_per_give": _QUESTIONS_PER_PART.get(part, 1),
+        "items": items,
+    }
 
 
 @router.get("/{cohort_id}/assignments/{assignment_id}/tally")

@@ -106,7 +106,29 @@ def test_part_1_pins_exactly_two_questions():
     """Đúng nhịp phòng thi: Part 1 là màn khởi động ngắn, không phải sáu câu."""
     db = _db(topic=_TOPIC, questions=[_q(f"q{i}", 1, order=i) for i in range(6)])
     _cid, cfg = _resolve(db)
-    assert cfg["question_ids"] == ["q0", "q1"]
+    assert len(cfg["question_ids"]) == 2
+    assert set(cfg["question_ids"]) <= {f"q{i}" for i in range(6)}
+
+
+def test_random_picks_are_not_always_the_first_ones():
+    """Bản cũ lấy N câu ĐẦU — không phải ngẫu nhiên mà cũng không phải giáo viên
+    chọn, chỉ là thứ xảy ra khi không ai quyết. Với 6 câu, 20 lượt giao mà lần
+    nào cũng ra đúng hai câu đầu thì phép bốc không hề bốc."""
+    seen = set()
+    for _ in range(20):
+        db = _db(topic=_TOPIC, questions=[_q(f"q{i}", 1, order=i) for i in range(6)])
+        seen.add(tuple(_resolve(db)[1]["question_ids"]))
+    assert len(seen) > 1, f"20 lượt chỉ ra một bộ: {seen}"
+
+
+def test_a_random_pick_keeps_the_topic_order():
+    """Bốc ngẫu nhiên là chọn CÂU NÀO, không phải đảo mạch: Part 1 là một mạch
+    hội thoại."""
+    for _ in range(10):
+        db = _db(topic=_TOPIC, questions=[_q(f"q{i}", 1, order=i) for i in range(6)])
+        ids = _resolve(db)[1]["question_ids"]
+        order = [int(i[1:]) for i in ids]
+        assert order == sorted(order), ids
 
 
 def test_part_3_pins_exactly_one_question():
@@ -114,7 +136,7 @@ def test_part_3_pins_exactly_one_question():
     t3 = dict(_TOPIC, part=3)
     db = _db(topic=t3, questions=[_q(f"q{i}", 3, order=i) for i in range(4)])
     _cid, cfg = _resolve(db, part=3)
-    assert cfg["question_ids"] == ["q0"]
+    assert len(cfg["question_ids"]) == 1
 
 
 def test_part_2_pins_one_cue_card():
@@ -158,15 +180,41 @@ def test_a_disabled_topic_is_refused():
 
 
 @pytest.mark.parametrize("part,want", [(1, 2), (3, 1)])
-def test_a_question_without_audio_cannot_be_given(part, want):
+def test_a_topic_without_ENOUGH_voiced_questions_cannot_be_given(part, want):
     """Học viên sẽ mở ra một bài không có gì để nghe, và vì chữ bị giấu nên
     không có cách nào biết đề hỏi gì."""
-    qs = [_q(f"q{i}", part, order=i, audio=(i != 0)) for i in range(3)]
+    qs = [_q(f"q{i}", part, order=i, audio=False) for i in range(3)]
     db = _db(topic=dict(_TOPIC, part=part), questions=qs)
     with pytest.raises(Exception) as exc:
         _resolve(db, part=part)
     assert getattr(exc.value, "status_code", None) == 400
     assert "audio" in str(getattr(exc.value, "detail", "")).lower()
+
+
+def test_one_unvoiced_question_does_not_block_a_topic_that_has_enough_others():
+    """Bản cũ lấy N câu ĐẦU rồi mới kiểm audio — nên một chủ đề 7 câu mà đúng câu
+    số 1 chưa render sẽ không giao được, dù 6 câu còn lại sẵn sàng. Nay lọc
+    TRƯỚC khi chọn."""
+    qs = [_q(f"q{i}", 1, order=i, audio=(i != 0)) for i in range(5)]
+    db = _db(topic=_TOPIC, questions=qs)
+    _cid, cfg = _resolve(db)
+    assert len(cfg["question_ids"]) == 2
+    assert "q0" not in cfg["question_ids"], "câu chưa có audio không được bốc"
+
+
+def test_missing_audio_is_reported_DIFFERENTLY_from_missing_questions():
+    """Hai việc admin làm khác nhau: một cái phải soạn thêm đề, một cái chỉ cần
+    chạy mẻ render."""
+    db = _db(topic=_TOPIC, questions=[_q("q0", 1, order=0)])          # thiếu CÂU
+    with pytest.raises(Exception) as e1:
+        _resolve(db)
+    assert "chỉ có 1 câu" in str(e1.value.detail)
+
+    db2 = _db(topic=_TOPIC,
+              questions=[_q(f"q{i}", 1, order=i, audio=False) for i in range(4)])
+    with pytest.raises(Exception) as e2:                             # thiếu AUDIO
+        _resolve(db2)
+    assert "bản đọc đề" in str(e2.value.detail)
 
 
 def test_part_2_does_not_need_audio():
@@ -729,10 +777,13 @@ def test_all_three_creation_routes_catch_the_deadline_error():
 
 
 @pytest.mark.asyncio
-async def test_readiness_uses_the_SAME_prefix_the_give_will_select():
-    """Lệnh giao lấy `want` câu ĐẦU theo order_num. Nếu danh sách chỉ đếm tổng số
-    câu có audio thì một chủ đề mà câu 1 chưa render xong nhưng câu 3-4 đã có sẽ
-    hiện "sẵn sàng" — admin chọn rồi bị 400."""
+async def test_readiness_counts_EVERY_voiced_question_not_just_the_first_few():
+    """Lệnh giao LỌC trước rồi mới bốc/chọn trong số câu đã có bản đọc, nên chủ
+    đề này giao được. Đếm theo tiền tố ở đây sẽ ẩn nó khỏi ô chọn trong khi POST
+    hoàn toàn nhận — hai màn nói khác nhau về cùng một chủ đề.
+
+    (Vòng review trước tôi sửa NGƯỢC: bắt chỗ này dùng tiền tố cho khớp lệnh
+    giao. Rồi lệnh giao đổi cách chọn, và hai bên lệch lại từ phía kia.)"""
     topics = [{"id": "t0", "title": "T", "part": 1, "is_active": True}]
     qs = [
         {"topic_id": "t0", "part": 1, "is_active": True, "order_num": 0, "audio_url": None},
@@ -741,9 +792,21 @@ async def test_readiness_uses_the_SAME_prefix_the_give_will_select():
         {"topic_id": "t0", "part": 1, "is_active": True, "order_num": 3, "audio_url": "https://cdn/b.mp3"},
     ]
     out = await _topics(_TopicsDB(topics, qs, []))
-    item = out["items"][0]
-    assert item["ready"] is False, "hai câu ĐẦU chưa có audio"
-    assert item["missing_audio"] is True
+    assert out["items"][0]["ready"] is True, "hai câu SAU đã có audio — giao được"
+
+
+@pytest.mark.asyncio
+async def test_a_topic_the_give_would_REFUSE_is_still_reported_unready():
+    """Chiều ngược lại phải giữ: chưa đủ câu có bản đọc thì vẫn là chưa sẵn sàng."""
+    topics = [{"id": "t0", "title": "T", "part": 1, "is_active": True}]
+    qs = [
+        {"topic_id": "t0", "part": 1, "is_active": True, "order_num": 0, "audio_url": "https://cdn/a.mp3"},
+        {"topic_id": "t0", "part": 1, "is_active": True, "order_num": 1, "audio_url": None},
+        {"topic_id": "t0", "part": 1, "is_active": True, "order_num": 2, "audio_url": None},
+    ]
+    out = await _topics(_TopicsDB(topics, qs, []))
+    assert out["items"][0]["ready"] is False
+    assert out["items"][0]["missing_audio"] is True
 
 
 @pytest.mark.asyncio
@@ -1061,3 +1124,106 @@ def test_the_GIVE_refuses_a_question_whose_audio_speaks_an_old_wording():
         _resolve(db)
     assert getattr(exc.value, "status_code", None) == 400
     assert "audio" in str(getattr(exc.value, "detail", "")).lower()
+
+
+# ── giáo viên tự chọn câu ───────────────────────────────────────────────
+#
+# Hai lựa chọn, không phải ba. "Lấy N câu đầu" (hành vi cũ) không phải một lựa
+# chọn ai muốn — nó chỉ là thứ xảy ra khi không ai quyết.
+
+
+def test_a_teacher_can_pin_exactly_the_questions_they_picked():
+    db = _db(topic=_TOPIC, questions=[_q(f"q{i}", 1, order=i) for i in range(6)])
+    _cid, cfg = _resolve(db, question_ids=["q4", "q1"])
+    assert cfg["question_ids"] == ["q4", "q1"]
+
+
+def test_the_teachers_ORDER_is_kept():
+    """Họ vừa sắp mạch hội thoại — sắp lại là bỏ đi việc họ vừa làm."""
+    db = _db(topic=_TOPIC, questions=[_q(f"q{i}", 1, order=i) for i in range(6)])
+    assert _resolve(db, question_ids=["q5", "q0"])[1]["question_ids"] == ["q5", "q0"]
+
+
+def test_picking_the_wrong_number_is_refused_with_the_count():
+    db = _db(topic=_TOPIC, questions=[_q(f"q{i}", 1, order=i) for i in range(6)])
+    for ids in (["q0"], ["q0", "q1", "q2"]):
+        with pytest.raises(Exception) as exc:
+            _resolve(db, question_ids=ids)
+        assert getattr(exc.value, "status_code", None) == 400
+        assert f"đã chọn {len(ids)}" in str(exc.value.detail)
+
+
+def test_the_same_question_twice_is_refused():
+    """Học viên sẽ nghe đúng một câu hai lần và tưởng trang hỏng."""
+    db = _db(topic=_TOPIC, questions=[_q(f"q{i}", 1, order=i) for i in range(6)])
+    with pytest.raises(Exception) as exc:
+        _resolve(db, question_ids=["q0", "q0"])
+    assert "hai lần" in str(exc.value.detail)
+
+
+def test_a_question_from_another_topic_is_refused():
+    """Danh sách đến từ trình duyệt — mọi điều kiện phải kiểm lại ở backend."""
+    db = _db(topic=_TOPIC, questions=[_q(f"q{i}", 1, order=i) for i in range(6)])
+    with pytest.raises(Exception) as exc:
+        _resolve(db, question_ids=["q0", "câu-lạ"])
+    assert getattr(exc.value, "status_code", None) == 400
+
+
+def test_picking_a_question_whose_audio_went_stale_is_refused():
+    """Một tab mở lâu có thể gửi id của câu vừa được sửa lời — bản đọc cũ hết
+    giá trị, và giao nó nghĩa là học viên nghe một đằng bị chấm một nẻo."""
+    qs = [_q(f"q{i}", 1, order=i, audio=(i != 3)) for i in range(6)]
+    db = _db(topic=_TOPIC, questions=qs)
+    with pytest.raises(Exception) as exc:
+        _resolve(db, question_ids=["q0", "q3"])
+    assert "bản đọc đề" in str(exc.value.detail)
+
+
+def test_part_2_lets_the_teacher_pick_the_cue_card():
+    db = _db(topic=dict(_TOPIC, part=2),
+             questions=[_q(f"c{i}", 2, order=i, audio=False) for i in range(3)])
+    assert _resolve(db, part=2, question_ids=["c2"])[1]["question_ids"] == ["c2"]
+
+
+# ── danh sách câu để trình bày cho giáo viên ────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_the_picker_shows_unavailable_questions_WITH_the_reason():
+    """Giấu câu chưa giao được thì giáo viên chỉ thấy một danh sách ngắn không rõ
+    vì sao ngắn — và không biết rằng chạy mẻ render là mở khoá được."""
+    qs = [_q(f"q{i}", 1, order=i, audio=(i < 3)) for i in range(5)]
+    db = _db(topic=_TOPIC, questions=qs)
+    with patch.object(mod, "require_admin", AsyncMock(return_value={"id": "a"})), \
+         patch.object(mod, "_require_cohort", lambda _c: None), \
+         patch.object(mod, "supabase_admin", db):
+        out = await mod.list_topic_questions("co-1", "top-1", part=1, authorization=None)
+
+    assert len(out["items"]) == 5, "câu chưa giao được vẫn phải hiện"
+    assert sum(1 for i in out["items"] if i["giveable"]) == 3
+    blocked = [i for i in out["items"] if not i["giveable"]]
+    assert all(i["blocked_by"] == "audio" for i in blocked)
+    assert out["questions_per_give"] == 2
+
+
+@pytest.mark.asyncio
+async def test_the_picker_shows_the_text_to_the_TEACHER():
+    """Chữ chỉ giấu với HỌC VIÊN. Giáo viên không đọc được đề thì không chọn
+    được — đó là toàn bộ mục đích của màn này."""
+    db = _db(topic=_TOPIC, questions=[_q("q0", 1, order=0)])
+    with patch.object(mod, "require_admin", AsyncMock(return_value={"id": "a"})), \
+         patch.object(mod, "_require_cohort", lambda _c: None), \
+         patch.object(mod, "supabase_admin", db):
+        out = await mod.list_topic_questions("co-1", "top-1", part=1, authorization=None)
+    assert out["items"][0]["question_text"]
+
+
+@pytest.mark.asyncio
+async def test_an_unknown_topic_is_a_404():
+    db = _db(topic=None)
+    with patch.object(mod, "require_admin", AsyncMock(return_value={"id": "a"})), \
+         patch.object(mod, "_require_cohort", lambda _c: None), \
+         patch.object(mod, "supabase_admin", db):
+        with pytest.raises(Exception) as exc:
+            await mod.list_topic_questions("co-1", "top-x", part=1, authorization=None)
+    assert getattr(exc.value, "status_code", None) == 404
