@@ -308,6 +308,21 @@ describe('phiếu làm bài — CSS thật sự tới được trang', () => {
       `practice.html không nạp tệp CSS định nghĩa: ${missing.join(', ')}`);
   });
 
+  // Lỗi NẶNG NHẤT, và là lỗi duy nhất thật sự làm trang TRỐNG hoàn toàn.
+  // `showState()` gỡ `.active` khỏi mọi khối state không được chọn. Phiếu từng
+  // nằm trong #state-prep, nên `showState('sheet')` tự tay tắt tổ tiên của nó —
+  // CSS đúng bao nhiêu cũng vô nghĩa vì cả cây con đã `display:none`.
+  test('phiếu KHÔNG được lồng trong một khối state nào khác', () => {
+    const upto = HTML.slice(0, HTML.indexOf('<div id="state-sheet"'));
+    const open = [];
+    for (const m of upto.matchAll(/<(div|main)\b[^>]*?(\/?)>|<\/(div|main)>/g)) {
+      if (m[3]) open.pop();
+      else if (!m[2]) open.push((/id="([^"]+)"/.exec(m[0]) || [, m[1]])[1]);
+    }
+    assert.deepEqual(open.filter((t) => t.startsWith('state-')), [],
+      `#state-sheet đang lồng trong: ${open.join(' > ')}`);
+  });
+
   test('khối phiếu có cùng bộ lớp bố cục với các khối state anh em', () => {
     const cls = (id) => (HTML.match(new RegExp(`id="${id}" class="([^"]*)"`)) || [])[1] || '';
     const sheet = new Set(cls('state-sheet').split(/\s+/));
