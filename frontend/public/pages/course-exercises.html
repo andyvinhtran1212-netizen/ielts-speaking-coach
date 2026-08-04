@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Bài tập theo buổi · Aver</title>
+
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/course-exercises.css" />
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2.107.0" defer></script>
+  <script src="/js/runtime-config.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/components/aver-chrome.js" type="module"></script>
+
+  <style>
+    body.av-page { font-family: var(--av-font-sans); margin: 0;
+      background: var(--av-surface-page); color: var(--av-text-primary); }
+  </style>
+</head>
+<body class="av-page">
+  <aver-chrome active="courses"></aver-chrome>
+
+  <!-- Thanh chặng: dính đầu, luôn trong tầm mắt. Mỗi vạch là MỘT câu của chặng,
+       đúng thứ tự — một thanh trượt liền chỉ nói được "bao nhiêu phần trăm". -->
+  <div class="cx-stage" id="cx-stage" hidden>
+    <span class="cx-stage__label" id="cx-stage-label"></span>
+    <span class="cx-stage__ticks" id="cx-stage-ticks" aria-hidden="true"></span>
+  </div>
+
+  <main class="cx-wrap">
+    <div id="cx-loading" class="cx-empty">Đang mở bài tập…</div>
+    <div id="cx-error" class="cx-empty" hidden></div>
+
+    <!-- Một câu, dựng lại mỗi lần chuyển. -->
+    <section id="cx-q" hidden aria-live="polite"></section>
+
+    <div class="cx-next" id="cx-next" hidden></div>
+
+    <!-- Hết chặng -->
+    <section id="cx-done" class="cx-done" hidden></section>
+  </main>
+
+  <script src="/js/course-exercises.js"></script>
+</body>
+</html>
