@@ -71,7 +71,15 @@ _GAP_RE = re.compile(r"_{2,}")
 # TTS / authoring markers embedded in a drill's audio_script. We keep the
 # stressed word, drop the rest, so the review transcript pane reads cleanly.
 _STRESS_RE = re.compile(r"\[stress:\s*([^\]]+?)\s*\]", re.IGNORECASE)
-_BRACKET_CUE_RE = re.compile(r"\[(?:emotion|pause|sfx|emphasis|tone)[^\]]*\]", re.IGNORECASE)
+# CONTENT-BEARING marker: "[digits:07700 924168]" is a TTS read-as-digits cue
+# whose payload IS spoken. Unwrapping (not dropping) it keeps the number in
+# the transcript — otherwise the pane reads "my mobile is ." and the dictation
+# reference (split_turns → _BRACKET_RE drops any leftover bracket) marks a
+# learner who typed the number correctly as having typed extra words.
+_DIGITS_RE = re.compile(r"\[digits:\s*([^\]]+?)\s*\]", re.IGNORECASE)
+_BRACKET_CUE_RE = re.compile(
+    r"\[(?:emotion|pause|sfx|emphasis|tone|hesitate|breath|sigh|chuckle)[^\]]*\]",
+    re.IGNORECASE)
 _QMARK_RE = re.compile(r"\(Q\d+\)", re.IGNORECASE)
 
 
@@ -118,20 +126,68 @@ def _strip_placeholder(text: str) -> str:
 
 def _clean_transcript_text(text: str) -> str:
     out = _STRESS_RE.sub(r"\1", text or "")
+    out = _DIGITS_RE.sub(r"\1", out)
     out = _BRACKET_CUE_RE.sub(" ", out)
     out = _QMARK_RE.sub(" ", out)
     out = re.sub(r"[ \t]+", " ", out)
+    # A dropped cue can leave " ." / " ," behind ("mobile is [sfx:beep] .").
+    out = re.sub(r"\s+([.,;:!?])", r"\1", out)
     return out.strip()
+
+
+def _expand_accept(answer: str, raw_alts: list[Any]) -> list[str]:
+    """Enumerate the word-level forms the grader can actually match.
+
+    ``listening_test_grader.answer_matches`` compares NORMALISED strings and
+    only strips punctuation at the ends, so an authoring shorthand like
+    ``"(the) entrance"`` normalises to ``"the) entrance"`` — matching nothing
+    a learner would ever type. Expand the two conventions the drill JSONs use
+    (same rules as ``listening_fulltest_import.split_answer_variants``):
+      • ``"(the) entrance"`` → ``"entrance"`` + ``"the entrance"``
+      • ``"30 / thirty"``    → ``"30"`` + ``"thirty"``
+    The canonical answer is dropped from the result (it is compared
+    separately) and order is preserved so the admin preview stays readable.
+    It IS expanded too, though: many drills key the answer itself as
+    ``"(a) dog"``, which no learner types verbatim — the bare/expanded forms
+    have to reach the grader as alternatives while the key keeps its
+    conventional display form.
+    """
+    seen = {answer.strip().casefold()} if answer else set()
+    out: list[str] = []
+
+    def add(form: str) -> None:
+        form = re.sub(r"\s+", " ", form).strip()
+        key = form.casefold()
+        if form and key not in seen:
+            seen.add(key)
+            out.append(form)
+
+    sources = list(raw_alts)
+    if "(" in answer or "/" in answer:
+        sources.insert(0, answer)
+    for raw in sources:
+        for part in str(raw).split("/"):
+            part = part.strip()
+            if not part:
+                continue
+            if "(" in part and ")" in part:
+                add(re.sub(r"\s*\([^)]*\)\s*", " ", part))   # without the optional words
+                add(part.replace("(", "").replace(")", ""))  # with them
+            else:
+                add(part)
+    return out
 
 
 def _answer_entry(a: dict[str, Any]) -> dict[str, Any] | None:
     q = _to_int(a.get("qnum") if "qnum" in a else a.get("q_num"))
     if q is None:
         return None
+    answer = str(a.get("answer") or "").strip()
     return {
         "q_num":           q,
-        "answer":          str(a.get("answer") or "").strip(),
-        "alternatives":    list(a.get("accept") or a.get("alternatives") or []),
+        "answer":          answer,
+        "alternatives":    _expand_accept(
+            answer, list(a.get("accept") or a.get("alternatives") or [])),
         "notes":           a.get("notes") or "",
         "trap_mechanisms": list(a.get("trap_mechanisms") or []),
     }
